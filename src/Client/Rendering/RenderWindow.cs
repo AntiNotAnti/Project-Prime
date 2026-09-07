@@ -106,6 +106,7 @@ namespace MphRead
             {
                 Close();
             });
+            Presentation.EnableDesktopLook();
             _sceneReady = true;
             FitToScreen();
         }
@@ -328,8 +329,17 @@ namespace MphRead
 
         protected override void OnMouseMove(MouseMoveEventArgs e)
         {
+            if (IsFocused && CursorState == CursorState.Grabbed && Presentation.CanCaptureSimulationLook)
+                Presentation.RenderLook?.Add(e.DeltaX, e.DeltaY);
+            else Presentation.ResetRenderLook();
             Presentation.OnMouseMove(e.DeltaX, e.DeltaY);
             base.OnMouseMove(e);
+        }
+
+        protected override void OnFocusedChanged(FocusedChangedEventArgs e)
+        {
+            if (_sceneReady) Presentation.ResetRenderLook();
+            base.OnFocusedChanged(e);
         }
 
         protected override void OnMouseWheel(MouseWheelEventArgs e)

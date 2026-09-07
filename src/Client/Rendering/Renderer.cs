@@ -216,6 +216,7 @@ namespace MphRead
             world.Presentation = this;
             world.JumpPadActivated += Mods.WorldEvents.NoteJumpPad;
             world.PlayerTeleported += Mods.WorldEvents.NoteTeleport;
+            world.PlayerTeleported += (_, _) => ResetPoseHistory();
             world.Services = new Mods.Network.ClientSceneServices();
             Size = size;
             _keyboardState = keyboardState;
@@ -399,6 +400,7 @@ namespace MphRead
                     InitEntity(player.Halfturret);
                 }
             }
+            CaptureSimulationPoses();
             OutputStart();
             GC.Collect(generation: 2, GCCollectionMode.Forced, blocking: true, compacting: true);
             // Android's runtime throws PlatformNotSupported for this, which took
@@ -738,6 +740,7 @@ namespace MphRead
 
         public void InitEntity(EntityBase entity)
         {
+            _poses.Remove(entity); // pooled entities begin a new render history at initialization
             PrepareEntity(entity);
             foreach (ModelInstance inst in entity.GetModels())
             {
@@ -1291,6 +1294,7 @@ namespace MphRead
             // game's own World.FrameCount stopped being that when the step and the
             // picture became two calls.
             _effectFrame++;
+            if (!CanCaptureSimulationLook) ResetRenderLook();
             // todo: FPS stuff
             if (BreakNextFrame)
             {
@@ -1369,6 +1373,7 @@ namespace MphRead
             {
                 World.EndFrame(waitingForServer);
             }
+            CaptureSimulationPoses();
             _frameAdvanceLastFrame = _frameAdvanceOn;
             // Effects are advanced inside GetDrawItems, where their ordering
             // against the entity draw pass is what it has always been. This is
@@ -2402,6 +2407,13 @@ namespace MphRead
                     _viewInvRotYMatrix.Row2.Xyz = new Vector3(_viewInvRotMatrix.Row2.X, 0, _viewInvRotMatrix.Row2.Z).Normalized();
                 }
             }
+            ApplyRenderCamera();
+            _viewInvRotMatrix = Matrix4.Transpose(_viewMatrix.ClearTranslation());
+            if (_viewInvRotMatrix.Row0.X != 0 || _viewInvRotMatrix.Row0.Z != 0)
+            {
+                _viewInvRotYMatrix.Row0.Xyz = new Vector3(_viewInvRotMatrix.Row0.X, 0, _viewInvRotMatrix.Row0.Z).Normalized();
+                _viewInvRotYMatrix.Row2.Xyz = new Vector3(_viewInvRotMatrix.Row2.X, 0, _viewInvRotMatrix.Row2.Z).Normalized();
+            }
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
         }
 
@@ -2428,8 +2440,7 @@ namespace MphRead
             }
             else if (_cameraMode == CameraMode.Player)
             {
-                _cameraPosition = PlayerEntity.Main.CameraInfo.Position;
-                _cameraPosition += Mods.Network.AuthoritativePlay.Current?.VisualOffset ?? Vector3.Zero;
+                _cameraPosition = _viewMatrix.Inverted().Row3.Xyz;
             }
         }
 
@@ -2558,7 +2569,7 @@ namespace MphRead
             {
                 SingleParticle entry = _singleParticles[_singleParticleCount++];
                 entry.ParticleDefinition = Read.GetSingleParticle(type);
-                entry.Position = position;
+                entry.Position = _submissionInterpolated ? Vector3.TransformPosition(position, _submissionDelta) : position;
                 entry.Color = color;
                 entry.Alpha = alpha;
                 entry.Scale = scale;
@@ -3308,7 +3319,7 @@ namespace MphRead
                 item.TextureBindingId = GetTextureBindingId(material);
             }
             item.TexcoordMatrix = texcoordMatrix;
-            item.Transform = transform;
+            item.Transform = SubmissionTransform(transform);
             item.ListId = listId;
             Debug.Assert(matrixStack.Count == 16 * matrixStackCount);
             item.MatrixStackCount = matrixStackCount;
@@ -3317,6 +3328,7 @@ namespace MphRead
                 float value = matrixStack[i];
                 item.MatrixStack[i] = value * _scaleFactors[i - (i / 16) * 16];
             }
+            if (_submissionInterpolated) TransformCopiedStack(item.MatrixStack, matrixStackCount, _submissionDelta);
             item.OverrideColor = overrideColor;
             item.PaletteOverride = paletteOverride;
             item.Points = Array.Empty<Vector3>();
@@ -3400,7 +3412,7 @@ namespace MphRead
             item.HasTexture = true;
             item.TextureBindingId = bindingId;
             item.TexcoordMatrix = Matrix4.Identity;
-            item.Transform = transform;
+            item.Transform = SubmissionTransform(transform);
             item.ListId = 0;
             item.MatrixStackCount = 0;
             item.OverrideColor = null;
@@ -3494,7 +3506,9 @@ namespace MphRead
                 }
                 if (player.LoadFlags.TestFlag(LoadFlags.Active))
                 {
-                    player.GetPresentation().Draw();
+                    BeginEntitySubmission(player);
+                    try { player.GetPresentation().Draw(); }
+                    finally { EndEntitySubmission(); }
                     // skdebug
                     EntityPresentation.Get(player, this).GetDisplayVolumes();
                 }
@@ -3507,7 +3521,9 @@ namespace MphRead
                 }
                 if (entity.ShouldDraw)
                 {
-                    EntityPresentation.Get(entity, this).GetDrawInfo();
+                    BeginEntitySubmission(entity);
+                    try { EntityPresentation.Get(entity, this).GetDrawInfo(); }
+                    finally { EndEntitySubmission(); }
                 }
                 if (_showVolumes != VolumeDisplay.None)
                 {

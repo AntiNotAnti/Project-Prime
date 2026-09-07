@@ -17,9 +17,9 @@ namespace MphRead.Mods.Render
     /// and the *drawing* is what runs at the display's rate. A machine
     /// holding 144 fps runs the same 60 simulation steps a second it always
     /// did, sends the same packets on the same frames, and records a demo
-    /// another build can play back. Each picture is of the newest simulated
-    /// state, exactly as this engine has always drawn -- nothing is blended
-    /// between two of them.
+    /// another build can play back. RenderAlpha exposes the fractional remainder to the client renderer,
+    /// which may blend copied submission transforms between completed steps
+    /// without changing the simulation state.
     ///
     /// One property is worth stating plainly because it is a change, and an
     /// improvement: the game's speed no longer depends on whether the machine
@@ -86,6 +86,8 @@ namespace MphRead.Mods.Render
         public static bool Active { get; private set; }
 
         private static double _accumulator;
+        public static float RenderAlpha => Active ? (float)Math.Clamp(_accumulator / StepSeconds, 0, 1) : 1;
+        public static long Discontinuities { get; private set; }
 
         /// <summary>Steps run for the frame <see cref="Advance"/> last answered.</summary>
         public static int StepsThisFrame { get; private set; }
@@ -143,6 +145,7 @@ namespace MphRead.Mods.Render
         public static void Reset()
         {
             _accumulator = 0;
+            Discontinuities++;
             StepsThisFrame = 0;
             Active = false;
         }
@@ -160,6 +163,7 @@ namespace MphRead.Mods.Render
                 // A stall is not a debt. Run one step so the game does not
                 // stop dead, and start the accumulator over.
                 Stalls++;
+                Discontinuities++;
                 _accumulator = 0;
                 StepsThisFrame = 1;
                 TotalSteps++;
@@ -179,6 +183,7 @@ namespace MphRead.Mods.Render
                 // Past the ceiling: throw the rest away rather than owe it.
                 int owed = (int)(_accumulator / StepSeconds);
                 DroppedSteps += owed;
+                Discontinuities++;
                 _accumulator -= owed * StepSeconds;
             }
             StepsThisFrame = steps;

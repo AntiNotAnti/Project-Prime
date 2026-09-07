@@ -75,8 +75,18 @@ namespace MphRead.Entities
                 MouseState? prevMouseSnap = player.GetPresentation()._mouseState;
                 player.GetPresentation()._keyboardState = keyboardSnap;
                 player.GetPresentation()._mouseState = mouseSnap;
-                player.Input.MouseDeltaX = (mouseSnap.X - prevMouseSnap?.X) ?? 0;
-                player.Input.MouseDeltaY = (mouseSnap.Y - prevMouseSnap?.Y) ?? 0;
+                var rawLook = player.GetPresentation().Presentation.RenderLook;
+                if (rawLook != null)
+                {
+                    var movement = rawLook.Consume();
+                    player.Input.MouseDeltaX = movement.X;
+                    player.Input.MouseDeltaY = movement.Y;
+                }
+                else
+                {
+                    player.Input.MouseDeltaX = (mouseSnap.X - prevMouseSnap?.X) ?? 0;
+                    player.Input.MouseDeltaY = (mouseSnap.Y - prevMouseSnap?.Y) ?? 0;
+                }
                 _isScrollingUp = false;
                 _isScrollingDown = false;
                 // todo?: deal with overflow or whatever

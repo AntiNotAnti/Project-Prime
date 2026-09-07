@@ -227,4 +227,9 @@
     <Using Include="MphRead.Mods.Sound.AlEs" Alias="AL" />
     <Using Include="MphRead.Mods.Sound.AlcEs" Alias="ALC" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Client/Rendering/SimulationPoseHistory.cs" Link="Presentation/SimulationPoseHistory.cs" />
+    <Compile Include="../Client/Rendering/RenderInterpolation.cs" Link="Presentation/RenderInterpolation.cs" />
+    <Compile Include="../Client/Input/RenderLookAccumulator.cs" Link="Presentation/RenderLookAccumulator.cs" />
+  </ItemGroup>
 </Project>
