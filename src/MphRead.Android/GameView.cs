@@ -845,21 +845,6 @@ namespace MphRead.Droid
                 _ended = true;
                 scene.DoCleanup();
                 Scene = null;
-                // Whatever the session asked to have saved, before anything
-                // else can run and before the front screen comes back. This is
-                // the desktop's line after its render loop returns; nothing is
-                // written unless the match was the story, so every other kind
-                // of match passes straight through.
-                try
-                {
-                    AndroidMatch.Finish();
-                }
-                catch (Exception ex)
-                {
-                    // A save that cannot be written is not a reason to leave
-                    // the player on a dead view.
-                    Console.WriteLine($"[android] the save could not be written: {ex}");
-                }
                 _onEnd();
             }
 

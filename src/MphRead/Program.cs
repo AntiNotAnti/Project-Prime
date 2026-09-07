@@ -39,13 +39,9 @@ namespace MphRead
             {
                 return;
             }
-            if (arguments.Count == 0)
+            if (arguments.Count == 0 || arguments.Any(a => a.Name == "menu"))
             {
-                //using var renderer = new RenderWindow();
-                //renderer.AddRoom("MP3 PROVING GROUND");
-                //renderer.AddModel("Crate01");
-                //renderer.Run();
-                Menu.ShowMenuPrompts();
+                Mods.Launcher.TextLauncher.Run();
             }
             else if (arguments.Any(a => a.Name == "setup"))
             {
@@ -106,8 +102,6 @@ namespace MphRead
             {
                 var rooms = new List<string>();
                 var models = new List<(string, int)>();
-                GameMode mode = GameMode.None;
-                int playerCount = 0;
                 BossFlags bossFlags = BossFlags.None;
                 int nodeLayerMask = 0;
                 int entityLayerId = -1;
@@ -124,13 +118,10 @@ namespace MphRead
                 {
                     rooms.Add(roomName);
                 }
-                if (TryGetInt(arguments, "mode", "g", out int modeValue))
+                if (arguments.Any(a => a.Name is "mode" or "g" or "players" or "p"))
                 {
-                    mode = (GameMode)modeValue;
-                }
-                if (TryGetInt(arguments, "players", "p", out int playerValue))
-                {
-                    playerCount = playerValue;
+                    Console.Error.WriteLine("Local gameplay options -mode and -players are no longer supported. Use -launcher to host or join a server.");
+                    Exit();
                 }
                 if (TryGetInt(arguments, "boss", "b", out int bossValue))
                 {
@@ -152,10 +143,20 @@ namespace MphRead
                 {
                     Exit();
                 }
+                foreach (string room in rooms)
+                {
+                    (RoomMetadata? metadata, _) = Metadata.GetRoomByName(room);
+                    if (metadata == null || !metadata.Multiplayer)
+                    {
+                        Console.Error.WriteLine("Room inspection supports multiplayer rooms only. Use -export for campaign room assets.");
+                        Exit();
+                    }
+                }
                 using var renderer = new RenderWindow();
                 foreach (string room in rooms)
                 {
-                    renderer.AddRoom(room, mode, playerCount, bossFlags, nodeLayerMask, entityLayerId);
+                    // No player is created: this is the existing free-camera asset viewer.
+                    renderer.AddRoom(room, GameMode.Battle, 0, bossFlags, nodeLayerMask, entityLayerId);
                 }
                 bool firstHunt = arguments.Any(a => a.Name == "fh");
                 foreach ((string model, int recolor) in models)
@@ -319,11 +320,11 @@ namespace MphRead
         {
             Nop();
             Console.WriteLine($"{Mods.Branding.Executable} usage:");
-            Console.WriteLine("    -room <room_name -or- room_id>");
+            Console.WriteLine("    -room <multiplayer_room_name -or- room_id> (asset inspection)");
             Console.WriteLine("    -model <model_name> [recolor_index]");
             Console.WriteLine("At most one room may be specified. Any number of models may be specified.");
             Console.WriteLine("To load First Hunt models, include -fh in the argument list.");
-            Console.WriteLine("Available room options: -mode, -players, -boss, -node, -entity");
+            Console.WriteLine("Available room inspection options: -boss, -node, -entity");
             Console.WriteLine("- or -");
             Console.WriteLine("    -extract <archive_path>");
             Console.WriteLine("If the target archive is LZ10-compressed, it will be decompressed.");

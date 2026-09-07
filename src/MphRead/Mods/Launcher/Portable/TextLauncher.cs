@@ -10,22 +10,8 @@ using MphRead.Mods.Update;
 namespace MphRead.Mods.Launcher
 {
     /// <summary>
-    /// The front screen for every platform WinForms does not reach.
-    ///
-    /// `HomeForm` is 1600 lines of custom-painted WinForms and cannot be run
-    /// anywhere but Windows; what it *offers*, though, is five entries and a
-    /// handful of choices, and none of that needs a window. This is those five
-    /// entries as text, over the same <see cref="LauncherPrefs"/>, the same
-    /// <see cref="GameFiles"/> setup and the same <see cref="MatchStart"/> --
-    /// so a Linux player gets the launcher's behaviour, and the two screens
-    /// cannot drift apart in what they actually start.
-    ///
-    /// It is not a port of the window and does not try to look like one. A
-    /// terminal is what a Linux build already had (`-connect`, `-servers`,
-    /// `-hostgame`); the gap this closes is that those are separate commands
-    /// with addresses to copy between them, nothing remembers what you chose
-    /// last time, and an offline match against bots -- the launcher's second
-    /// entry -- had no command-line spelling at all.
+    /// Terminal launcher for joining and hosting multiplayer matches, using
+    /// the same preferences, game-file setup and match startup as the GUI.
     /// </summary>
     public static class TextLauncher
     {
@@ -179,12 +165,10 @@ namespace MphRead.Mods.Launcher
                     Console.WriteLine($"  {Update.Updater.Describe(Update.Updater.Available.Value)}");
                     Console.WriteLine();
                 }
-                Console.WriteLine("  [1] Adventure        the story, from a save slot");
-                Console.WriteLine("  [2] Play online      join a server");
-                Console.WriteLine("  [3] Play offline     a match against bots");
-                Console.WriteLine("  [4] Host a game      run a server and play on it");
-                Console.WriteLine("  [5] Settings         name, hunter, window, addresses");
-                Console.WriteLine("  [6] Game files       point this at your .nds dump");
+                Console.WriteLine("  [1] Play online      join a server");
+                Console.WriteLine("  [2] Host a game      run a server and play on it");
+                Console.WriteLine("  [3] Settings         name, hunter, window, addresses");
+                Console.WriteLine("  [4] Game files       point this at your .nds dump");
                 if (Update.Updater.Available != null)
                 {
                     Console.WriteLine("  [u] Update now       open the download page");
@@ -198,12 +182,12 @@ namespace MphRead.Mods.Launcher
                 {
                     return false;
                 }
-                if (choice == "5")
+                if (choice == "3")
                 {
                     Settings();
                     continue;
                 }
-                if (choice == "6")
+                if (choice == "4")
                 {
                     SetUpGameFiles();
                     problem = GameFiles.Problem();
@@ -217,30 +201,18 @@ namespace MphRead.Mods.Launcher
                 if (problem != null)
                 {
                     Console.WriteLine();
-                    Console.WriteLine($"  {problem}. Use [6] first.");
+                    Console.WriteLine($"  {problem}. Use [4] first.");
                     continue;
                 }
                 switch (choice)
                 {
                     case "1":
-                        if (Adventure(out plan))
-                        {
-                            return true;
-                        }
-                        continue;
-                    case "2":
                         if (PlayOnline(out plan))
                         {
                             return true;
                         }
                         continue;
-                    case "3":
-                        if (PlayOffline(settings, rooms, out plan))
-                        {
-                            return true;
-                        }
-                        continue;
-                    case "4":
+                    case "2":
                         if (HostGame(settings, rooms, out plan))
                         {
                             return true;
@@ -396,114 +368,6 @@ namespace MphRead.Mods.Launcher
                 ? $"{status.Latency.ToString(CultureInfo.InvariantCulture)} ms"
                 : "-- ms";
             return $"{status.RoomKey} ({NetStatus.ModeName(status.Mode)}) {players} {ping}";
-        }
-
-        /// <summary>
-        /// A match against bots. The entry with no command-line spelling
-        /// before this: `-room` opens the model viewer's room path with no
-        /// bots, and `-maptest` is the test harness driving them to a script.
-        /// </summary>
-        /// <summary>
-        /// The story. Pick a slot, then continue it or start it over.
-        ///
-        /// Choosing a slot is not presentation: saving is gated on
-        /// <see cref="Menu.SaveSlot"/>, so a session started without one runs
-        /// perfectly and then loses everything. See <see cref="AdventureSave"/>.
-        /// </summary>
-        private static bool Adventure(out LaunchPlan plan)
-        {
-            plan = default;
-            while (true)
-            {
-                IReadOnlyList<AdventureSave.SlotInfo> slots = AdventureSave.ReadAll();
-                Console.WriteLine();
-                Console.WriteLine("  Adventure");
-                Console.WriteLine("  --------------------------------------------");
-                for (int i = 0; i < slots.Count; i++)
-                {
-                    Console.WriteLine($"  [{i + 1}] Slot {slots[i].Slot}"
-                        + $"           {slots[i].Describe()}");
-                }
-                Console.WriteLine("  [b] Back");
-                Console.WriteLine();
-                string choice = Ask("  Choose a slot", "1").ToLowerInvariant();
-                if (choice == "b" || choice == "back")
-                {
-                    return false;
-                }
-                if (!Int32.TryParse(choice, out int index)
-                    || index < 1 || index > slots.Count)
-                {
-                    continue;
-                }
-                AdventureSave.SlotInfo slot = slots[index - 1];
-                bool newGame = !slot.Used;
-                if (slot.Used)
-                {
-                    Console.WriteLine();
-                    Console.WriteLine($"  Slot {slot.Slot}: {slot.Describe()}");
-                    Console.WriteLine("  [1] Continue");
-                    Console.WriteLine("  [2] New game    (overwrites this slot once you save)");
-                    Console.WriteLine("  [b] Back");
-                    Console.WriteLine();
-                    string what = Ask("  Choose", "1").ToLowerInvariant();
-                    if (what == "b" || what == "back")
-                    {
-                        continue;
-                    }
-                    if (what == "2")
-                    {
-                        newGame = true;
-                    }
-                    else if (what != "1")
-                    {
-                        continue;
-                    }
-                }
-                Hunter hunter = AskHunter();
-                LauncherPrefs.LastKind = (int)LaunchKind.Adventure;
-                LauncherPrefs.Save();
-                plan = new LaunchPlan
-                {
-                    Kind = LaunchKind.Adventure,
-                    Hunter = hunter,
-                    PlayerName = LauncherPrefs.PlayerName,
-                    SaveSlot = slot.Slot,
-                    NewGame = newGame
-                };
-                return true;
-            }
-        }
-
-        private static bool PlayOffline(MenuSettings settings, IReadOnlyList<string> rooms,
-            out LaunchPlan plan)
-        {
-            plan = default;
-            if (!AskRoom(settings, rooms, out string roomKey))
-            {
-                return false;
-            }
-            GameMode mode = AskMode();
-            int bots = AskInt("  Bots (0-7)", LauncherPrefs.Bots, 0,
-                PlayerEntity.SlotCapacity - 1);
-            int level = AskInt("  Bot skill (0 easy, 1 normal, 2 hard)",
-                LauncherPrefs.BotLevel, 0, 2);
-            Hunter hunter = AskHunter();
-            LauncherPrefs.Bots = bots;
-            LauncherPrefs.BotLevel = level;
-            LauncherPrefs.LastKind = (int)LaunchKind.Offline;
-            LauncherPrefs.Save();
-            plan = new LaunchPlan
-            {
-                Kind = LaunchKind.Offline,
-                Hunter = hunter,
-                PlayerName = LauncherPrefs.PlayerName,
-                RoomKey = roomKey,
-                Mode = mode,
-                Bots = bots,
-                BotLevel = level
-            };
-            return true;
         }
 
         /// <summary>

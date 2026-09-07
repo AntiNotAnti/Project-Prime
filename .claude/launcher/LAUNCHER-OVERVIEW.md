@@ -7,16 +7,22 @@ Basics
 `MphRead -launcher` opens a front screen, not a settings dialog: a map picture
 on the left, the things you can do on the right. Everything that is not a
 per-session choice lives in the settings window, which is one of the entries and
-is also what the pause menu opens mid-match.
+is also what the pause menu opens mid-match. The front screen starts multiplayer
+sessions and recorded demos; it has no Adventure/save-slot or offline/bot entry.
 
 | Entry | What it does |
 |---|---|
-| Adventure | save slot, hunter, continue or start over |
-| Play online | name, hunter, `host` or `host:port`, and a live line saying what that server is running. **Find a server** opens the browser below. |
-| Play offline | map, mode, 0-7 bots and their skill, hunter, and straight into the match. **See every map** opens the picture grid |
-| Host a game | the same choices plus a port. **Runs the dedicated server in this process** and joins it over the loopback |
-| Settings | display, audio, controls, match rules, launcher preferences, features, cheats, bugfixes |
-| Game files | where the .nds goes. Shown first, and everything else greyed out, when there is nothing set up yet |
+| Host | choose a multiplayer room, match type and hunter; the GUI asks the directory to run the match. **See every map** opens the picture grid |
+| Join | browse listed servers or enter `host` or `host:port`, with a live line saying what the server is running |
+| Demos | choose or import a `.fpdemo` recording and replay it |
+| Settings | display, audio, controls, match rules, profile, credits, and game files |
+| Game files | where the .nds goes. Shown first, before the other launcher entries become available, when there is nothing set up yet |
+| Quit | close the launcher |
+
+The text launcher keeps the same multiplayer flow and can also start a self-hosted server. A
+dedicated server remains the separate path for running a server on its own machine. The old
+local-gameplay path no longer accepts the CLI switches `-mode` and `-players`; `-room` and `-model`
+still open the multiplayer room/model asset viewer.
 
 Key implementation notes
 
@@ -40,9 +46,8 @@ Key implementation notes
 Windows, and the loop
 
 - A bare invocation opens the launcher on Windows and macOS -- the platforms
-  where a program is normally started by double-clicking it. On Linux it still
-  opens upstream's console menu, which is the screen people there are already
-  using; `-launcher` is how they ask for the window.
+  where a program is normally started by double-clicking it. On Linux it opens
+  the text launcher; `-launcher` asks for the window.
 - The toolkit is set up **once per process, on the game's own thread**, and each
   visit to the launcher is a nested dispatcher loop
   (`GuiLauncher.EnsureSetup`/`Ask`). One launcher, then a match, then the

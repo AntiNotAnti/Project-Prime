@@ -56,12 +56,10 @@ namespace MphRead.Mods.Launcher
 
     public enum LaunchKind
     {
-        None,
-        Online,
-        Offline,
-        Host,
-        Adventure,
-        Demo
+        None = 0,
+        Online = 1,
+        Host = 3,
+        Demo = 5
     }
 
     /// <summary>
@@ -79,6 +77,15 @@ namespace MphRead.Mods.Launcher
     public readonly struct LaunchPlan
     {
         public LaunchKind Kind { get; init; }
+
+        public void Validate()
+        {
+            if (Kind is not (LaunchKind.Online or LaunchKind.Host or LaunchKind.Demo))
+            {
+                throw new ArgumentException("Only online, hosted and demo sessions are supported.", nameof(Kind));
+            }
+        }
+
 
         /// <summary>
         /// The hunter to play, already rolled if the player asked for a random
@@ -99,12 +106,6 @@ namespace MphRead.Mods.Launcher
         public int BotLevel { get; init; }
         public int Port { get; init; }
         public string PlayerName { get; init; }
-
-        /// <summary>Adventure only: which save slot, 1-based. 0 is no slot.</summary>
-        public byte SaveSlot { get; init; }
-
-        /// <summary>Adventure only: start over rather than resume the slot.</summary>
-        public bool NewGame { get; init; }
 
         /// <summary>Demo only: the recorded file to play back.</summary>
         public string DemoPath { get; init; }

@@ -16,19 +16,16 @@ A fork of [NoneGiven/MphRead](https://github.com/NoneGiven/MphRead).
 - **High resolution**
 - **Windows / Linux / Android port**
 - **240+ FPS support**
-- **Online without lags !** (no WFC support)
+- **Online multiplayer** (no WFC support)
 - **Up to 8 players**
 - **Dedicated servers**
 - **Demo recording**
 - **Custom maps**
-- **Bots**: 0 to 7 offline
-- **All 12 modes**: Battle, Survival, Capture, Bounty, Defender, Nodes, Prime Hunter, and teams
+- **12 multiplayer modes**: Battle, Survival, Capture, Bounty, Defender, Nodes, Prime Hunter, and teams
 - **Keyboard & mouse**
 - **Cel shading**
 - **Modern HUD**
-- **Story mode**
 - **Auto Update check**
-- **All roms are compatible**
 
 ## Support
 
@@ -54,9 +51,9 @@ If you enjoy it: **[ko-fi.com/livetek](https://ko-fi.com/livetek)** ☕
 
 | | |
 |---|---|
-| **Join** | **Join → Find a server**, pick one from the list |
-| **Host** | **Host → Where: Online** — a public machine runs the match and you join it, so there is nothing to open on your router |
-| **On your own** | **Host → Where: Local**, with up to 7 bots |
+| **Join** | **Join**, choose a listed server, or enter an address |
+| **Host** | **Host**, choose a room, match type and hunter, then ask the directory to run the match |
+| **Self-host** | Run the dedicated server, then have players use **Join** to connect |
 
 Everybody in a match needs the same version; the launcher checks for a new one and says so.
 
@@ -73,8 +70,13 @@ map list next time you open the launcher, picture and all. **de_dust2** comes wi
 
 ## Not done yet
 
-- **Adventure co-op.** The launcher's toggle is a placeholder; the story is one player.
 - **Gamepads**, on any platform.
+
+## Command line
+
+The `-room` and `-model` options still open the multiplayer room and model asset viewer. The old
+local-gameplay path no longer accepts `-mode` and `-players`; use `-launcher` to join or host a
+multiplayer match.
 
 ## Building
 
