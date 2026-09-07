@@ -2,7 +2,7 @@
 """Reject retired campaign runtime code in C# sources (standard library only).
 
 Run from any directory: python3 tools/check-multiplayer-only.py [--root REPOSITORY].
-All src/**/*.cs files are checked, including future split projects such as src/Game.
+All src/**/*.cs and tests/**/*.cs files are checked, including future split projects such as src/Game.
 Only generated bin/obj and .git directories are excluded. Exceptions below are exact
 repository-relative files, scoped to one rule; they never exempt a directory or
 allow an unrelated banned API. Raw schema names such as EnemySpawnEntityData and
@@ -32,29 +32,30 @@ class Rule:
 # Negative tests deliberately name rejected enum values. Repack utilities preserve
 # original cartridge layer selectors; neither exception permits campaign launches.
 RAW_MODE_FILES = frozenset({
-    "src/MphRead/Utility/RepackModel.cs",
-    "src/MphRead/Utility/RepackCollision.cs",
-    "src/MphRead.Tests/MatchDomainTests.cs",
-    "src/MphRead.Tests/RotationRulesTests.cs",
+    "src/Tools/Conversion/RepackModel.cs",
+    "src/Shared/ContentPreparation/RepackModelPacking.cs",
+    "src/Tools/Conversion/RepackCollision.cs",
+    "tests/Tests/Match/MatchDomainTests.cs",
+    "tests/Tests/Match/RotationRulesTests.cs",
 })
 # These are raw HUD metadata and the independent asset viewer, not player scanning.
 VIEWER_SCAN_FILES = frozenset({
-    "src/MphRead/HUD/HudInfo.cs",
-    "src/MphRead/Renderer.cs",
-    "src/MphRead/Entities/ObjectEntity.cs",
+    "src/Client/HUD/HudInfo.cs",
+    "src/Client/Rendering/Renderer.cs",
+    "src/Client/Rendering/Entities/ObjectEntityPresentation.cs",
 })
 RULES = (
     Rule("campaign-save", r"\bStorySave\b"),
     # Original memory layouts and their offline inspection helper remain readable.
     Rule("raw-story-layout", r"\bStorySaveData\b", frozenset({
-        "src/MphRead/MemoryClasses.cs", "src/MphRead/Testing/TestLogic.cs",
+        "src/Tools/Conversion/MemoryClasses.cs", "src/Tools/Conversion/TestLogic.cs",
     })),
     Rule("raw-enemy-identity", r"\bEnemyInstance\b", frozenset({
-        "src/MphRead/Formats/Enums.cs", "src/MphRead/Memory.cs",
+        "src/Game/Content/Formats/Enums.cs", "src/Tools/Conversion/Memory.cs",
     })),
     # The codec and explicit export CLI survive; campaign movie playback does not.
     Rule("raw-movie-codec", r"\bVxDecoder\b", frozenset({
-        "src/MphRead/Formats/Movie.cs", "src/MphRead/Program.cs",
+        "src/Tools/Conversion/Movie.cs", "src/Tools/Program.cs",
     })),
     Rule("adventure-mode-flow", r"\bModeStateAdventure\b"),
     Rule("campaign-launch", r"\bLaunchKind\s*\.\s*@?(?:Adventure|Offline)\b"),
@@ -168,18 +169,22 @@ def source_files(root: Path) -> list[Path]:
     def unreadable(error: OSError) -> None:
         raise error
 
-    for directory, directories, names in os.walk(source_root, followlinks=False, onerror=unreadable):
-        directories[:] = sorted(name for name in directories if name not in GENERATED_DIRECTORIES)
-        for name in directories:
-            path = Path(directory) / name
-            if path.is_symlink():
-                raise ValueError(f"source symlink is not supported: {path.relative_to(root).as_posix()}")
-        for name in sorted(names):
-            if name.lower().endswith(".cs"):
+    source_roots = [source_root]
+    if (root / "tests").is_dir():
+        source_roots.append(root / "tests")
+    for source_root in source_roots:
+        for directory, directories, names in os.walk(source_root, followlinks=False, onerror=unreadable):
+            directories[:] = sorted(name for name in directories if name not in GENERATED_DIRECTORIES)
+            for name in directories:
                 path = Path(directory) / name
                 if path.is_symlink():
                     raise ValueError(f"source symlink is not supported: {path.relative_to(root).as_posix()}")
-                files.append(path)
+            for name in sorted(names):
+                if name.lower().endswith(".cs"):
+                    path = Path(directory) / name
+                    if path.is_symlink():
+                        raise ValueError(f"source symlink is not supported: {path.relative_to(root).as_posix()}")
+                    files.append(path)
     return sorted(files, key=lambda path: path.relative_to(root).as_posix())
 
 

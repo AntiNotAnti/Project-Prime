@@ -27,6 +27,12 @@ jobs:
       - name: every custom map has the level it converts
         run: tools/check-maps-shipped.sh
 
+      - name: project boundaries and server dependency contract
+        run: python3 tools/check-project-boundaries.py
+
+      - name: no retired campaign runtime in source
+        run: python3 tools/check-multiplayer-only.py
+
   build:
     name: ${{ matrix.id }}
     needs: assets
@@ -37,11 +43,13 @@ jobs:
         include:
           - id: win-x64
             rid: win-x64
+            project: src/Client/Client.csproj
             summary: the game and the launcher, for Windows
             extra: ""
           - id: linux-x64
             rid: linux-x64
-            summary: the game, the launcher and the dedicated server, for Linux
+            project: src/Client/Client.csproj
+            summary: the game and the launcher, for Linux
             extra: ""
           # Every platform gets a server package alongside its game build, so
           # this is the same RID a second time with the launcher and the UI
@@ -49,26 +57,30 @@ jobs:
           # nobody is playing on, same as the two below it.
           - id: linux-x64-server
             rid: linux-x64
+            project: src/Server/Server.csproj
             summary: the dedicated server and the directory, for a plain x64 Linux machine
-            extra: "-p:MphReadServer=true"
+            extra: ""
           # Nobody plays on the Pi: this box runs the dedicated server and the
           # directory and nothing else, so it is published as the server
           # package. That drops the launcher and, with it, a desktop UI toolkit
           # the machine would never open.
           - id: linux-arm64
             rid: linux-arm64
+            project: src/Server/Server.csproj
             summary: the dedicated server and the directory, for a Raspberry Pi
-            extra: "-p:MphReadServer=true"
+            extra: ""
           # macOS, both processors. Cross-compiled here like the rest: the
           # launcher is Avalonia on every platform now, so there is nothing in
           # a mac build that has to be produced on a mac. Nobody has started
           # one -- see the known gaps in CLAUDE.md.
           - id: osx-x64
             rid: osx-x64
+            project: src/Client/Client.csproj
             summary: the game and the launcher, for an Intel Mac
             extra: ""
           - id: osx-arm64
             rid: osx-arm64
+            project: src/Client/Client.csproj
             summary: the game and the launcher, for an Apple Silicon Mac
             extra: ""
     steps:
@@ -86,13 +98,13 @@ jobs:
       # the .pk3 it was cooked from is a source and is kept out of the output
       # by CopyToPublishDirectory. It is not committed, so it is cooked here.
       - name: cook the map bundles
-        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+        run: dotnet run --project src/Tools/Tools.csproj -c Release -- -mapdir maps -mapbundle
 
       # Every target is net10.0 and every launcher is Avalonia, so all six of
       # these come off one Ubuntu runner.
       - name: publish ${{ matrix.summary }}
         run: >
-          dotnet publish src/MphRead/MphRead.csproj
+          dotnet publish ${{ matrix.project }}
           -c Release -r ${{ matrix.rid }} ${{ matrix.extra }}
           --self-contained true -p:PublishSingleFile=true
           -o publish/${{ matrix.id }}
@@ -117,9 +129,9 @@ jobs:
 
       # Without cartridge data, exercise the required-data error and the
       # directory-only query path. Real simulation needs separately supplied
-      # content. Both x64 packages run here; ARM64 is cross-compiled.
+      # content. The runnable x64 server package runs here; ARM64 is cross-compiled.
       - name: the server content contract and directory run
-        if: matrix.rid == 'linux-x64'
+        if: matrix.id == 'linux-x64-server'
         run: tools/check-dedicated-server.sh publish/${{ matrix.id }}
 
       - uses: actions/upload-artifact@v7
@@ -171,7 +183,7 @@ jobs:
       # the .pk3 it was cooked from is a source and is kept out of the output
       # by CopyToPublishDirectory. It is not committed, so it is cooked here.
       - name: cook the map bundles
-        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+        run: dotnet run --project src/Tools/Tools.csproj -c Release -- -mapdir maps -mapbundle
 
       # net10.0-android36.0 wants platform 36 and its build tools, which a
       # runner image does not necessarily carry. This target asks for exactly
@@ -180,7 +192,7 @@ jobs:
       # the TargetFramework.
       - name: install what the Android SDK is missing
         run: >
-          dotnet build src/MphRead.Android/MphRead.Android.csproj
+          dotnet build src/Android/Android.csproj
           -t:InstallAndroidDependencies
           -p:AndroidSdkDirectory="$ANDROID_HOME"
           -p:JavaSdkDirectory="$JAVA_HOME"
@@ -193,7 +205,7 @@ jobs:
       # and turning into a first-frame crash that Debug would never show.
       - name: publish the APK
         run: >
-          dotnet publish src/MphRead.Android/MphRead.Android.csproj
+          dotnet publish src/Android/Android.csproj
           -c Release -p:AndroidPackageFormat=apk
           -p:AndroidSdkDirectory="$ANDROID_HOME"
           -p:JavaSdkDirectory="$JAVA_HOME"
@@ -266,8 +278,8 @@ jobs:
 
       - name: publish the dedicated server, for Windows
         run: >
-          dotnet publish src/MphRead/MphRead.csproj
-          -c Release -r win-x64 -p:MphReadServer=true
+          dotnet publish src/Server/Server.csproj
+          -c Release -r win-x64
           --self-contained true -p:PublishSingleFile=true
           -o publish/win-x64-server
 
@@ -280,6 +292,10 @@ jobs:
       - name: nothing from the game is in the output
         shell: bash
         run: tools/check-no-game-assets.sh publish/win-x64-server
+
+      - name: the custom maps reached the server package
+        shell: bash
+        run: tools/check-maps-shipped.sh publish/win-x64-server
 
       # The same script the Linux job runs, on Windows.
       - name: the server content contract and directory run

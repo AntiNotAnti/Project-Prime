@@ -167,7 +167,7 @@ jobs:
       # the .pk3 it was cooked from is a source and is kept out of the output
       # by CopyToPublishDirectory. It is not committed, so it is cooked here.
       - name: cook the map bundles
-        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+        run: dotnet run --project src/Tools/Tools.csproj -c Release -- -mapdir maps -mapbundle
 
       - name: publish every target
         env:
@@ -176,27 +176,24 @@ jobs:
           set -euo pipefail
           stamp="-p:Version=$VERSION -p:InformationalVersion=$VERSION"
           for rid in win-x64 linux-x64 osx-x64 osx-arm64; do
-            dotnet publish src/MphRead/MphRead.csproj -c Release -r "$rid" $stamp \
+            dotnet publish src/Client/Client.csproj -c Release -r "$rid" $stamp \
               --self-contained true -p:PublishSingleFile=true -o "publish/$rid"
           done
           # The three server packages: Windows, plain x64 Linux (a VPS, a
           # spare desktop -- anything that is not the Pi) and ARM64 (the Pi).
-          # Same project each time, launcher left out, no UI toolkit: none of
-          # these machines has anybody sitting at it.
+          # The server project each time, launcher left out, no UI toolkit:
+          # none of these machines has anybody sitting at it.
           #
-          # Only the Windows one gets a name of its own (FruityPrimeServer,
-          # from a console-subsystem header) so that it can sit in a folder
-          # beside the game's exe. Off Windows the subsystem split does not
-          # exist and every server package holds exactly one binary, so both
-          # keep the plain name FruityPrime.
-          dotnet publish src/MphRead/MphRead.csproj -c Release -r win-x64 \
-            -p:MphReadServer=true $stamp --self-contained true \
+          # Every server package uses the stable FruityPrimeServer name so
+          # deployment, systemd units, and update packages agree across OSes.
+          dotnet publish src/Server/Server.csproj -c Release -r win-x64 \
+            $stamp --self-contained true \
             -p:PublishSingleFile=true -o publish/win-x64-server
-          dotnet publish src/MphRead/MphRead.csproj -c Release -r linux-x64 \
-            -p:MphReadServer=true $stamp --self-contained true \
+          dotnet publish src/Server/Server.csproj -c Release -r linux-x64 \
+            $stamp --self-contained true \
             -p:PublishSingleFile=true -o publish/linux-x64-server
-          dotnet publish src/MphRead/MphRead.csproj -c Release -r linux-arm64 \
-            -p:MphReadServer=true $stamp --self-contained true \
+          dotnet publish src/Server/Server.csproj -c Release -r linux-arm64 \
+            $stamp --self-contained true \
             -p:PublishSingleFile=true -o publish/linux-arm64
 
       # The phone, from the same tag and stamped with the same version -- the
@@ -242,7 +239,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          proj=src/MphRead.Android/MphRead.Android.csproj
+          proj=src/Android/Android.csproj
           sdk=( -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME" )
           signing=()
           if [ "$HAVE_KEYSTORE" = "true" ]; then
@@ -294,7 +291,8 @@ jobs:
       - name: the custom maps reached every package
         run: >
           for d in publish/win-x64 publish/linux-x64 publish/osx-x64
-          publish/osx-arm64 publish/linux-arm64; do
+          publish/osx-arm64 publish/linux-arm64 publish/win-x64-server
+          publish/linux-x64-server; do
           tools/check-maps-shipped.sh "$d" || exit 1; done
 
       # A GUI game and a console server, which is what makes one
@@ -312,7 +310,6 @@ jobs:
       - name: the server content contract and directory run
         run: |
           set -euo pipefail
-          tools/check-dedicated-server.sh publish/linux-x64
           tools/check-dedicated-server.sh publish/linux-x64-server
 
       - name: package
@@ -367,13 +364,9 @@ jobs:
             ./FruityPrime -hostgame "ROOM"      have a server run a match for you
             ./FruityPrime -menu                 volumes, controls, match rules
 
-          This build can also run an authoritative dedicated server:
-
-            ./FruityPrime -server -data /path/to/files/AMHE1 -dataversion AMHE1
-
-          Match simulation requires your extracted game files or a baked server
-          content package. The server packages omit the launcher and provide the
-          same simulation, for plain x64 Linux and Raspberry Pi ARM64.
+          An authoritative dedicated server is distributed separately. Its
+          server packages omit the launcher and provide the simulation for
+          plain x64 Linux, Raspberry Pi ARM64, and Windows.
 
           F11 or Alt+Enter switches to fullscreen, Escape opens the pause menu.
           NOTE
@@ -410,7 +403,7 @@ jobs:
           cat > publish/linux-arm64/SERVER.txt <<'NOTE'
           Fruity Prime dedicated server.
 
-            ./FruityPrime -server -data /srv/fruity-content -dataversion AMHE1 -port 27888 -players 8 -servername "My server"
+            ./FruityPrimeServer -server -data /srv/fruity-content -dataversion AMHE1 -port 27888 -players 8 -servername "My server"
 
           Supply your extracted game directory or a baked server content package.
           The .nds file is not a directory. No cartridge data is included here.
@@ -422,7 +415,7 @@ jobs:
 
           A directory-only instance needs no game files:
 
-            ./FruityPrime -masterserver -port 27889 -hostports none
+            ./FruityPrimeServer -masterserver -port 27889 -hostports none
           NOTE
           ( cd publish/linux-arm64 && tar czf "../../dist/FruityPrime-$TAG-server-linux-arm64.tar.gz" . )
 
@@ -432,7 +425,7 @@ jobs:
           VPS, a spare desktop, anything that is not a Raspberry Pi (see the
           ARM64 package for that) and that nobody is playing on.
 
-            ./FruityPrime -server -data /srv/fruity-content -dataversion AMHE1 -port 27888 -players 8 -servername "My server"
+            ./FruityPrimeServer -server -data /srv/fruity-content -dataversion AMHE1 -port 27888 -players 8 -servername "My server"
 
           Supply your extracted game directory or a baked server content package.
           The .nds file is not a directory. No cartridge data is included here.
@@ -444,7 +437,7 @@ jobs:
 
           A directory-only instance needs no game files:
 
-            ./FruityPrime -masterserver -port 27889 -hostports none
+            ./FruityPrimeServer -masterserver -port 27889 -hostports none
 
           See SERVER.md in the source for content baking, hosted-game directories
           and service setup. deploy-server.sh uploads only the ARM64 binary and

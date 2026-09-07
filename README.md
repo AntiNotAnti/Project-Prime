@@ -1,4 +1,4 @@
-<img src="src/MphRead/Assets/fruity-prime-intro.png" alt="Fruity Prime" width="100%">
+<img src="src/Client/Assets/fruity-prime-intro.png" alt="Fruity Prime" width="100%">
 
 **Metroid Prime Hunters on PC and Android.** Online matches for up to 8 players, widescreen, 60 FPS,
 and a launcher that does the setting up for you.
@@ -81,14 +81,19 @@ multiplayer match.
 ## Building
 
 ```bash
-dotnet publish src/MphRead/MphRead.csproj -c Release \
+dotnet publish src/Client/Client.csproj -c Release \
   -r win-x64|linux-x64|osx-x64|osx-arm64 --self-contained true -p:PublishSingleFile=true
 ```
 
 Needs [.NET 10.0](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
-`-p:MphReadServer=true` builds the dedicated server; Android is
-`dotnet build src/MphRead.Android/MphRead.Android.csproj` with the `android` workload. Every command
+`dotnet publish src/Server/Server.csproj -c Release` builds the standalone server; Android is
+`dotnet build src/Android/Android.csproj` with the `android` workload. Every command
 line option, and the test harness, are in [`CLAUDE.md`](CLAUDE.md).
+
+Build the desktop solution with `dotnet build Game.sln`; Android remains a separate
+workload build. The [project layout](docs/PROJECT_LAYOUT.md) describes the Game,
+Client, Server, Tools and Android boundaries. Client output includes a separate
+`server/` executable for hosting.
 
 ## Credits
 

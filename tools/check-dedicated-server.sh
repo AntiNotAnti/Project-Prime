@@ -6,7 +6,7 @@ set -euo pipefail
 
 PYTHON=python3
 command -v "$PYTHON" >/dev/null 2>&1 || PYTHON=python
-"$PYTHON" - "${1:-publish/linux-x64}" <<'PY'
+"$PYTHON" - "${1:-publish/linux-x64-server}" <<'PY'
 import os
 from pathlib import Path
 import re
@@ -19,11 +19,11 @@ import time
 
 package = Path(sys.argv[1]).resolve()
 dotnet = os.environ.get("DOTNET", "dotnet")
-assembly = package / "FruityPrime.dll"
+assembly = package / "FruityPrimeServer.dll"
 if assembly.is_file() and shutil.which(dotnet):
     binary = [dotnet, str(assembly)]
 else:
-    names = ("FruityPrimeServer.exe", "FruityPrimeServer", "FruityPrime.exe", "FruityPrime")
+    names = ("FruityPrimeServer.exe", "FruityPrimeServer")
     executable = next((package / name for name in names if (package / name).is_file()), None)
     if executable is None:
         raise SystemExit(f"FAIL: no server binary in {package}")

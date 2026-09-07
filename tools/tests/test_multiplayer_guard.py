@@ -91,27 +91,28 @@ class MultiplayerGuardTests(unittest.TestCase):
     def test_raw_exceptions_are_exact_files_and_scoped_to_one_rule(self):
         exceptions = {
             "campaign-mode-selector": [
-                ("src/MphRead/Utility/RepackModel.cs", "GameMode.SinglePlayer"),
-                ("src/MphRead/Utility/RepackCollision.cs", "GameMode.SinglePlayer"),
-                ("src/MphRead.Tests/MatchDomainTests.cs", "GameMode.SinglePlayer"),
-                ("src/MphRead.Tests/RotationRulesTests.cs", "GameMode.SinglePlayer"),
+                ("src/Tools/Conversion/RepackModel.cs", "GameMode.SinglePlayer"),
+                ("src/Shared/ContentPreparation/RepackModelPacking.cs", "GameMode.SinglePlayer"),
+                ("src/Tools/Conversion/RepackCollision.cs", "GameMode.SinglePlayer"),
+                ("tests/Tests/Match/MatchDomainTests.cs", "GameMode.SinglePlayer"),
+                ("tests/Tests/Match/RotationRulesTests.cs", "GameMode.SinglePlayer"),
             ],
             "raw-story-layout": [
-                ("src/MphRead/MemoryClasses.cs", "StorySaveData"),
-                ("src/MphRead/Testing/TestLogic.cs", "StorySaveData"),
+                ("src/Tools/Conversion/MemoryClasses.cs", "StorySaveData"),
+                ("src/Tools/Conversion/TestLogic.cs", "StorySaveData"),
             ],
             "raw-enemy-identity": [
-                ("src/MphRead/Formats/Enums.cs", "EnemyInstance"),
-                ("src/MphRead/Memory.cs", "EnemyInstance"),
+                ("src/Game/Content/Formats/Enums.cs", "EnemyInstance"),
+                ("src/Tools/Conversion/Memory.cs", "EnemyInstance"),
             ],
             "raw-movie-codec": [
-                ("src/MphRead/Formats/Movie.cs", "VxDecoder"),
-                ("src/MphRead/Program.cs", "VxDecoder"),
+                ("src/Tools/Conversion/Movie.cs", "VxDecoder"),
+                ("src/Tools/Program.cs", "VxDecoder"),
             ],
             "player-scan-visor": [
-                ("src/MphRead/HUD/HudInfo.cs", "ScanVisor"),
-                ("src/MphRead/Renderer.cs", "ScanVisor"),
-                ("src/MphRead/Entities/ObjectEntity.cs", "ScanVisor"),
+                ("src/Client/HUD/HudInfo.cs", "ScanVisor"),
+                ("src/Client/Rendering/Renderer.cs", "ScanVisor"),
+                ("src/Client/Rendering/Entities/ObjectEntityPresentation.cs", "ScanVisor"),
             ],
         }
         for entries in exceptions.values():
@@ -130,14 +131,14 @@ class MultiplayerGuardTests(unittest.TestCase):
                 self.write_source(sibling, f"class Fixture {{ object value = {token}; }}\n")
                 siblings.append((sibling.as_posix(), rule, token))
         # An exact exception for GameMode.SinglePlayer must not exempt another rule.
-        self.write_source("src/MphRead/Utility/RepackModel.cs", "class Fixture { StorySave save; }\n")
+        self.write_source("src/Tools/Conversion/RepackModel.cs", "class Fixture { StorySave save; }\n")
 
         rejected = self.run_guard()
         self.assertEqual(rejected.returncode, 1, rejected.stdout + rejected.stderr)
         for relative, rule, token in siblings:
             self.assertIn(f"{relative}:1: {rule}: {token}", rejected.stdout)
         self.assertIn(
-            "src/MphRead/Utility/RepackModel.cs:1: campaign-save: StorySave",
+            "src/Tools/Conversion/RepackModel.cs:1: campaign-save: StorySave",
             rejected.stdout,
         )
 

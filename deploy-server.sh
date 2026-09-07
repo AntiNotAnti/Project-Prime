@@ -67,9 +67,9 @@ if manifest.is_file() and (manifest.stat().st_size > 2 * 1024 * 1024 or json.loa
 ' "$DEPLOY_DATA" "$DEPLOY_VERSION"
 
 printf 'Building linux-arm64...\n'
-dotnet publish "$ROOT/src/MphRead/MphRead.csproj" -c Release -r linux-arm64 -p:MphReadServer=true \
+dotnet publish "$ROOT/src/Server/Server.csproj" -c Release -r linux-arm64 \
   --self-contained true -p:PublishSingleFile=true -o "$STAGE/publish"
-test -f "$STAGE/publish/FruityPrime"
+test -f "$STAGE/publish/FruityPrimeServer"
 bash "$ROOT/tools/check-no-game-assets.sh" "$STAGE/publish"
 
 services=(mphread-server)
@@ -90,8 +90,8 @@ done
 remote mkdir -p -- "$DEPLOY_DIR"
 remote mkdir -m 700 -- "$REMOTE_STAGE"
 REMOTE_STAGE_CREATED=1
-upload_file "$STAGE/publish/FruityPrime" "$REMOTE_STAGE/FruityPrime"
-remote chmod +x -- "$REMOTE_STAGE/FruityPrime"
+upload_file "$STAGE/publish/FruityPrimeServer" "$REMOTE_STAGE/FruityPrimeServer"
+remote chmod +x -- "$REMOTE_STAGE/FruityPrimeServer"
 for service in "${services[@]}"; do
   upload_file "$STAGE/$service.service" "$REMOTE_STAGE/$service.service"
 done
@@ -103,7 +103,7 @@ for service in "${services[@]}"; do
     remote sudo -n systemctl stop "$service"
   fi
 done
-remote mv -- "$REMOTE_STAGE/FruityPrime" "$DEPLOY_DIR/FruityPrime"
+remote mv -- "$REMOTE_STAGE/FruityPrimeServer" "$DEPLOY_DIR/FruityPrimeServer"
 for service in "${services[@]}"; do
   remote sudo -n install -m 644 -- "$REMOTE_STAGE/$service.service" "/etc/systemd/system/$service.service"
 done

@@ -31,7 +31,8 @@ $ErrorActionPreference = 'Stop'
 
 $Root = (Resolve-Path -LiteralPath $PSScriptRoot).Path
 $DataDirectory = Join-Path $Root 'AMHE1'
-$Project = Join-Path (Join-Path (Join-Path $Root 'src') 'MphRead') 'MphRead.csproj'
+$GameProject = Join-Path (Join-Path (Join-Path $Root 'src') 'Client') 'Client.csproj'
+$ServerProject = Join-Path (Join-Path (Join-Path $Root 'src') 'Server') 'Server.csproj'
 $IsWindowsHost = $env:OS -eq 'Windows_NT'
 
 function Assert-GameData {
@@ -80,8 +81,8 @@ function Get-PublishedCandidates([string]$kind) {
         )
     }
     return @(
-        (Join-Path $Root 'FruityPrime'),
-        (Join-Path (Join-Path (Join-Path $Root 'publish') 'linux-x64-server') 'FruityPrime')
+        (Join-Path $Root 'FruityPrimeServer'),
+        (Join-Path (Join-Path (Join-Path $Root 'publish') 'linux-x64-server') 'FruityPrimeServer')
     )
 }
 
@@ -90,32 +91,21 @@ function New-DevelopmentSpec([string]$kind) {
     if ($null -eq $dotnet) {
         throw "No published $kind executable was found, and dotnet is not installed."
     }
-    if (-not (Test-Path -LiteralPath $Project)) {
-        throw "Could not find the project at $Project."
+    $project = if ($kind -eq 'game') { $GameProject } else { $ServerProject }
+    if (-not (Test-Path -LiteralPath $project)) {
+        throw "Could not find the project at $project."
     }
 
     $output = Join-Path $Root (Join-Path '.fruity-launcher' $kind)
     New-Item -ItemType Directory -Force -Path $output | Out-Null
-    $serverValue = if ($kind -eq 'game') {
-        'false'
-    }
-    else {
-        'true'
-    }
     $runtimeIdentifier = if ($IsWindowsHost) { 'win-x64' } else { $null }
-    $assemblyFileName = if ($IsWindowsHost -and $kind -ne 'game') {
-        'FruityPrimeServer.dll'
-    }
-    else {
-        'FruityPrime.dll'
-    }
+    $assemblyFileName = if ($kind -eq 'game') { 'FruityPrime.dll' } else { 'FruityPrimeServer.dll' }
 
     Write-Host "No published $kind binary found; building it into $output..." -ForegroundColor Yellow
     Push-Location $Root
     try {
         $buildArguments = @(
-            'build', $Project, '-c', 'Release', '-o', $output,
-            "-p:MphReadServer=$serverValue"
+            'build', $project, '-c', 'Release', '-o', $output
         )
         if ($null -ne $runtimeIdentifier) {
             $buildArguments += @('-r', $runtimeIdentifier)

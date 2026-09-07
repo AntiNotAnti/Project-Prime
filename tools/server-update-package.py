@@ -17,7 +17,7 @@ PACKAGE_LIMIT = 256 * 1024 * 1024
 EXPANDED_LIMIT = 512 * 1024 * 1024
 FILE_LIMIT = 2048
 METADATA_LIMIT = 1024 * 1024
-RIDS = {"win-x64": "FruityPrimeServer.exe", "linux-x64": "FruityPrime", "linux-arm64": "FruityPrime"}
+RIDS = {"win-x64": "FruityPrimeServer.exe", "linux-x64": "FruityPrimeServer", "linux-arm64": "FruityPrimeServer"}
 
 
 def reject(message):
@@ -94,8 +94,8 @@ def check_binary(path, rid):
 
 def check_source_identity():
     root = Path(__file__).resolve().parents[1]
-    header = (root / "src/MphRead/Mods/Network/Protocol/NetHeader.cs").read_text()
-    identity = (root / "src/MphRead/Mods/Network/Protocol/NetWireIdentity.cs").read_text()
+    header = (root / "src/Game/Protocol/NetHeader.cs").read_text()
+    identity = (root / "src/Game/Protocol/NetWireIdentity.cs").read_text()
     if not re.search(rf"public const byte Version\s*=\s*{PROTOCOL}\s*;", header) or "Family = NetWireFamily.Authoritative" not in identity:
         reject("Update manifest policy does not match this source wire identity; review the protocol migration.")
 

@@ -10,7 +10,7 @@ Type=simple
 User=__USER__
 WorkingDirectory="__DIR__"
 # Listing is disabled unless -master HOST:PORT is configured explicitly.
-ExecStart="__DIR__/FruityPrime" -server -data "__DATA__" -dataversion "__DATA_VERSION__" -port 27888 -players 8 -servername "Fruity Prime" __LISTING__
+ExecStart="__DIR__/FruityPrimeServer" -server -data "__DATA__" -dataversion "__DATA_VERSION__" -port 27888 -players 8 -servername "Fruity Prime" __LISTING__
 Restart=always
 RestartSec=5
 NoNewPrivileges=true

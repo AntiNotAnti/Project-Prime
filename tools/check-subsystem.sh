@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 # Assert what a Windows binary's PE header says it is.
 #
-# MphRead ships two Windows executables and the difference between them is one
+# Fruity Prime ships two Windows executables and the difference between them is one
 # 16-bit field in the PE header:
 #
-#   MphRead.exe        GUI     double-clicking it opens the launcher and no
+#   FruityPrime.exe    GUI     double-clicking it opens the launcher and no
 #                              terminal appears behind it
-#   MphReadServer.exe  console it holds a terminal, a shell waits for it, and
+#   FruityPrimeServer.exe console it holds a terminal, a shell waits for it, and
 #                              its exit code reaches %ERRORLEVEL%
 #
-# Neither is observable from a compile, both come out of the same csproj
-# depending on one property, and getting either wrong is invisible until
+# Neither is observable from a compile, and they come from separate Client and
+# Server projects. Getting either wrong is invisible until
 # somebody double-clicks the game and gets a black window, or runs the server
 # from a terminal and gets the prompt straight back with the log arriving on
 # top of whatever they type next. So it is asserted.
 #
-#   tools/check-subsystem.sh console publish/win-x64-server/MphReadServer.exe
-#   tools/check-subsystem.sh gui     publish/win-x64/MphRead.exe
+#   tools/check-subsystem.sh console publish/win-x64-server/FruityPrimeServer.exe
+#   tools/check-subsystem.sh gui     publish/win-x64/FruityPrime.exe
 #
 # Reads the header only, so it runs on the machine that built the binary
 # whether or not that machine is Windows.

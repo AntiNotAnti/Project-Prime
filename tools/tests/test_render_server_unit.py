@@ -20,17 +20,17 @@ class ServerUnitTests(unittest.TestCase):
         self.assertIn("-nomaster", result)
 
     def test_existing_rules_and_quoted_flag_text_survive(self):
-        source = '[Service]\nExecStart="/old dir/MphRead" -server -port 29999 -servername "Cup -data not-a-path" -friendlyfire -data "/old data" -dataversion AMHE0 -master old.example:27889\n'
+        source = '[Service]\nExecStart="/old dir/FruityPrimeServer" -server -port 29999 -servername "Cup -data not-a-path" -friendlyfire -data "/old data" -dataversion AMHE0 -master old.example:27889\n'
         result = renderer.render(source, "gameuser", "/new dir", "/new data", "AMHE1", None)
         self.assertIn('-servername "Cup -data not-a-path"', result)
         self.assertIn("-port 29999", result)
         self.assertIn("-friendlyfire", result)
         self.assertIn("-master old.example:27889", result)
         self.assertNotIn("/old data", result)
-        self.assertIn('ExecStart="/new dir/FruityPrime"', result)
+        self.assertIn('ExecStart="/new dir/FruityPrimeServer"', result)
 
     def test_explicit_listing_replaces_only_listing_flags(self):
-        source = '[Service]\nExecStart=/old/FruityPrime -server -nomaster -master old.example -masterport 29999 -servername "Cup -master text"\n'
+        source = '[Service]\nExecStart=/old/FruityPrimeServer -server -nomaster -master old.example -masterport 29999 -servername "Cup -master text"\n'
         result = renderer.render(source, "gameuser", "/opt/fruity", "/srv/content", "AMHE1", "games.example.com:27889")
         self.assertNotIn("-nomaster", result)
         self.assertNotIn("-masterport", result)
@@ -38,7 +38,7 @@ class ServerUnitTests(unittest.TestCase):
         self.assertIn('-servername "Cup -master text"', result)
 
     def test_systemd_percent_and_shell_metacharacters_are_literal(self):
-        source = '[Service]\nExecStart=/old/FruityPrime -server -servername "%H server"\n'
+        source = '[Service]\nExecStart=/old/FruityPrimeServer -server -servername "%H server"\n'
         value = '/srv/space "quote" %value $(printf changed)'
         result = renderer.render(source, "gameuser", "/opt/fruity", value, "AMHE1", None)
         self.assertIn('-servername "%H server"', result)
@@ -57,7 +57,7 @@ class ServerUnitTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             renderer.render("ExecStart=/bin/sh wrapper.sh\n", "gameuser", "/opt/fruity", "/srv/content", "AMHE1", None)
         with self.assertRaises(ValueError):
-            renderer.render("ExecStart=/old/FruityPrime -server\n", "gameuser", "/opt/fruity", "/srv/data\nExecStart=bad", "AMHE1", None)
+            renderer.render("ExecStart=/old/FruityPrimeServer -server\n", "gameuser", "/opt/fruity", "/srv/data\nExecStart=bad", "AMHE1", None)
 
     def test_remote_shell_quoting_preserves_literal_arguments(self):
         script = (ROOT / "deploy-server.sh").read_text()

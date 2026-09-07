@@ -1,18 +1,17 @@
 # Fruity Prime — tools, design, and the mechanics catalogue
 
-**The project is Fruity Prime. The code is still `namespace MphRead`, and stays
-that way.** Upstream is NoneGiven/MphRead and every pull from it is a
-fast-forward only while the 221 files that declare that namespace and the 271
-that import it are untouched; renaming it would put a conflict in all of them
-for a string only a developer ever reads. The rename is the product, the
-binaries, the window title and the release artifacts. `Mods/Branding.cs` is
-where the name lives — nothing else should spell it out.
+**The project is Fruity Prime. The root C# namespace remains `MphRead`.**
+The multiplayer refactor uses separate Game, Client, Server, Android, Audio.Ncsf
+and Tools projects. See [the project layout](docs/PROJECT_LAYOUT.md) for the
+current dependency boundaries and build commands. Upstream merges require
+review against this physical split.
 
 | Build | Binary |
 |---|---|
 | Windows game | `FruityPrime.exe` |
 | Windows server | `FruityPrimeServer.exe` |
-| Linux game, Linux and ARM64 server | `FruityPrime` |
+| Linux/macOS game | `FruityPrime` |
+| Linux/macOS server | `FruityPrimeServer` |
 
 This file exists so a fresh session can pick the work up without rediscovering
 the environment or the failure modes. Everything below has been used; nothing
@@ -24,10 +23,13 @@ area is the one being touched.
 
 | Path | What |
 |---|---|
-| `~/MphRead-dev` | the source. Upstream is NoneGiven/MphRead; everything added lives under `src/MphRead/Mods/` so pulling upstream stays a fast-forward |
-| `src/MphRead.Android/` | the Android head: the same sources, an APK, a front screen and a match, over GL ES and touch controls |
-| `src/MphRead/Mods/Network/` | the whole multiplayer feature |
-| `src/MphRead/Mods/Launcher/` | the launcher: `Gui/` is every window (Avalonia, all platforms), `Portable/` is the logic and the text screen |
+| `src/Game/` | platform-neutral multiplayer simulation, content readers and protocol |
+| `src/Client/` | desktop entry point, launcher, rendering, input and audio adapters |
+| `src/Server/` | standalone authoritative server and directory entry point |
+| `src/Android/` | Android entry point and explicit shared client sources, GL ES and touch controls |
+| `src/Client/Launcher/` | launcher GUI and portable logic |
+| `src/Tools/` | content baking, conversion and export CLI |
+| `tests/Tests/`, `tools/nettest/` | unit tests and network integration fixtures |
 | `~/mph-net-test/` | the test rig: a copy of the build in `bin/`, extracted game files, `run-check.sh`, `compare-reports.py` |
 | `C:\Users\livetek\Desktop\MPH\MphRead-develop\` | the Windows deliverable |
 | `net.livetek.fr:27888` | the dedicated server on the user's Pi (systemd unit `mphread-server`) |

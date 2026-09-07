@@ -18,12 +18,20 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - name: project boundaries and multiplayer source guards
+        run: |
+          python3 tools/check-project-boundaries.py
+          python3 tools/check-multiplayer-only.py
+      - name: direct Game compile
+        run: dotnet build src/Game/Game.csproj -c Release --artifacts-path artifacts/game
       - name: protocol and UDP safety tests
-        run: dotnet test src/MphRead.Tests/MphRead.Tests.csproj -c Release -p:MphReadServer=true
+        run: dotnet test tests/Tests/Tests.csproj -c Release
+      - name: isolated imaging tests
+        run: dotnet test tests/Imaging/Imaging.Tests.csproj -c Release
       - name: network and deployment tooling tests
         run: python3 -m unittest discover -s tools/tests -v
       - name: build authoritative server and authoritative conformance harness
-        run: dotnet build tools/nettest/nettest.csproj -c Release -p:MphReadServer=true -o artifacts/nettest
+        run: dotnet build tools/nettest/nettest.csproj -c Release -o artifacts/nettest
       - name: multiplayer content audit malformed-input checks
         run: dotnet artifacts/nettest/nettest.dll --audit-multiplayer-self-test
       - name: mixed-combat reliable backpressure checks

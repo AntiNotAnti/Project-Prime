@@ -122,7 +122,7 @@ class ServerUpdatePackageTests(unittest.TestCase):
         self.binary("linux-x64")
         with self.assertRaisesRegex(ValueError, "architecture"):
             self.build("linux-arm64")
-        (self.publish / "FruityPrime").unlink()
+        (self.publish / "FruityPrimeServer").unlink()
         self.binary("win-x64")
         binary = self.publish / "FruityPrimeServer.exe"
         data = bytearray(binary.read_bytes())
@@ -134,7 +134,7 @@ class ServerUpdatePackageTests(unittest.TestCase):
     def test_links_duplicate_case_and_unsafe_paths_rejected(self):
         self.binary("linux-x64")
         link = self.publish / "alias.dll"
-        link.symlink_to(self.publish / "FruityPrime")
+        link.symlink_to(self.publish / "FruityPrimeServer")
         with self.assertRaisesRegex(ValueError, "link"):
             self.build()
         link.unlink()

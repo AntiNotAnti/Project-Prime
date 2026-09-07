@@ -2,7 +2,9 @@
 
 The continuation begins at `f405497`, after the R0/R1 characterization and .NET
 10 migration. R2 is included as an explicitly approved prerequisite to R3–R12.
-Each pass remains a separate reviewable commit. Existing R1 release limitations
+R2–R9 remain separate reviewable commits. R10/R11 share one atomic project-split
+commit because Android must consume the new Game assembly when the monolith is
+removed; R12 contains the build/tooling enforcement. Existing R1 release limitations
 are recorded in [the baseline report](MULTIPLAYER_REFACTOR_BASELINE.md).
 
 ## R2 — Supported launch paths
@@ -209,11 +211,81 @@ guard tests cover detection, narrow exceptions, interpolation, deterministic
 reports and future project paths; all 41 Python tests pass. CI integration and
 allowlist path migration are part of R12's final project/build cleanup.
 
-## Planned remaining passes
+## R10 — Physical project and assembly boundaries
 
-R10–R12 split the projects, converge
-Android and enforce dependency boundaries. No later pass is marked complete
-before its implementation and checks finish.
+Replaced the monolith with Game, Client, Server, Tools and Audio.Ncsf projects,
+keeping the `MphRead` namespace. Game owns CPU world/Hunter simulation, match
+state, content readers and protocol; its only package is OpenTK.Mathematics.
+Server references only Game and explicitly linked transport/hosting code.
+Client owns rendering, HUD, devices and launcher behavior. Typed scene/player
+services connect these implementations without referencing platform assemblies
+from Game. GPU resource bindings and active audio playback remain in Client.
+
+Tools owns baking, extraction and conversion commands, with explicit CPU NCSF
+sources instead of a playback assembly dependency. Shared map preparation and
+transport capabilities use individual source links. The four server diagnostics
+now live in nettest and retain their legacy command aliases. Desktop build and
+publish targets include a standalone server under `server/` for local hosting.
+
+The Spire alternate-attack collider pose now updates during simulation. Previously
+headless execution never ran the drawing path that moved these collision centers.
+A real-content fixture verifies both rock centers follow player translation;
+client drawing preserves its animation without writing authoritative colliders.
+
+Validation: all 434 C# tests pass, with zero failures/skips. Game, Server and Tools
+build with zero warnings/errors; Client Debug/Release builds pass with the existing
+NU1903 advisory. Standalone Server validates real AMHE1 content and its published
+dependency graph contains only Server, Game and mathematics. Host resolver smoke
+tests launch the packaged child from both build and publish output. All nine
+weapon combat checks, headless and spectator diagnostics pass. A real UDP duel
+reports damage/death on both clients and zero miss damage. Independent source
+review found no additional entity drawing/transform parity regression; this is
+not live graphics acceptance.
+
+## R11 — Android convergence
+
+Android references Game and Audio.Ncsf and explicitly enumerates its shared
+client source files. It excludes desktop entry points/process hosting, Server,
+Tools and STB. Android bitmap/PNG adapters and a managed truecolor TGA decoder
+support map textures; remote directory hosting and joining remain available.
+Desktop-only initialization installs its process, image and capture adapters.
+
+Debug and Release APK builds pass, including both configured ABIs and Release
+AOT. The final signed APK targets API 36 with minimum API 24. The isolated
+shared-imaging suite has 18
+passing cases covering raw/RLE 24/32-bit TGA, image origins, truncation and packet
+overruns. Release APK v2/v3 signature and asset checks pass. Its one unresolved XML
+reference was subsequently corrected; the final managed Android build passes
+with zero warnings/errors. Device/emulator acceptance
+has not been repeated for this pass. The previously recorded SkiaSharp native
+16 KB alignment limitation is not resolved by this project reorganization.
+
+## R12 — Build, publish and architecture enforcement
+
+The root `Game.sln` and small `Directory.Build.props` replace the old monolithic
+solution and build personalities. CI and deployment tooling publish Client and
+Server directly; dedicated server executables use `FruityPrimeServer` on every
+platform. Documentation and launch/update/systemd scripts use the new paths.
+Architecture and campaign guards run in CI, enforcing the project graph, Game's
+package budget and explicit cross-project source lists. All 47 Python tests and
+both source guards pass.
+
+The final local UDP impairment matrix passes all 16 cases (20 seconds each,
+2/4/8 players and asymmetric links) against the standalone Server. All 12
+real-content scoring modes, phase/reset checks and shared-lock fixtures pass.
+The available-content inventory remains exactly 42 catalog rooms, 30 parsed
+rooms and 1,351 entity records; its completeness result still reports the same
+12 unavailable inputs. This does not establish external Internet or rendered
+multiplayer acceptance.
+
+All seven self-contained single-file publishes pass: four desktop clients
+(Windows x64, Linux x64, macOS x64/ARM64) and three dedicated servers (Windows
+x64, Linux x64/ARM64). Each client also contains its matching server payload.
+Asset/map guards pass for all seven packages and four bundled servers; Windows
+GUI/console subsystem headers are correct. All eleven server dependency
+manifests contain only Server, Game, mathematics and the .NET runtime. The native
+macOS ARM64 server passes content rejection and directory lifetime checks.
+Windows/Linux native execution remains unverified on this macOS host.
 
 The content deletion gate remains conservative: the available audit covers 27
 retail and three custom rooms, not the six missing First Hunt data sets. Shared

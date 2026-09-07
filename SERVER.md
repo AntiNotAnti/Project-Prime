@@ -26,22 +26,21 @@ The server build omits the launcher, UI toolkit and audio dependencies. Build a
 self-contained package with .NET 10:
 
 ```bash
-dotnet publish src/MphRead/MphRead.csproj -c Release -r linux-x64 \
-  -p:MphReadServer=true --self-contained true -p:PublishSingleFile=true \
+dotnet publish src/Server/Server.csproj -c Release -r linux-x64 \
+  --self-contained true -p:PublishSingleFile=true \
   -o publish/linux-x64-server
 ```
 
-Use `linux-arm64` for a Raspberry Pi and `win-x64` for Windows. The Linux
-binary is `FruityPrime`; the Windows server package contains the console binary
-`FruityPrimeServer.exe`. On Windows, use that binary rather than the graphical
-`FruityPrime.exe` so the shell/service receives the server's lifetime and exit
-code.
+Use `linux-arm64` for a Raspberry Pi and `win-x64` for Windows. The server
+executable is `FruityPrimeServer` on Unix and `FruityPrimeServer.exe` on Windows.
+The server is a separate project and references only Game; it has no launcher,
+rendering or audio dependencies.
 
 For a development checkout, the equivalent is:
 
 ```bash
-dotnet run --project src/MphRead/MphRead.csproj -c Release \
-  -p:MphReadServer=true -- -server -data /path/to/files/AMHE1
+dotnet run --project src/Server/Server.csproj -c Release \
+  -- -server -data /path/to/files/AMHE1
 ```
 
 For a local Windows one-click launcher, run `Start-FruityPrime.cmd` from the
@@ -62,6 +61,11 @@ directory starts discovery-only on UDP 27889. Enable hosted matches with, for
 example, `powershell -File .\Start-FruityPrime.ps1 directory -HostPorts
 27900-27919 -PublicAddress games.example.com`.
 
+Client builds and publishes include their standalone server in `server/`. The
+Host action starts that child executable. `FRUITY_SERVER_PATH` can select a
+specific server apphost or DLL; it does not change the network protocol. A
+standalone server download can also run independently.
+
 The repository's `global.json` targets .NET SDK 10. Install .NET 10 for local
 development and release builds; a published binary beside the launcher avoids
 the build step entirely.
@@ -77,13 +81,15 @@ supported extracted revisions `AMHE0`, `AMHE1`, `AMHP0`, `AMHP1`, `AMHJ0`,
 `AMHJ1` and `AMHK0`:
 
 ```bash
-./FruityPrime -server -data /srv/fruity-content -dataversion AMHE1
+./FruityPrimeServer -server -data /srv/fruity-content -dataversion AMHE1
 ```
 
-For a smaller headless package, bake the dependencies into a new directory:
+Content baking belongs to Tools. Build it with `dotnet build src/Tools/Tools.csproj -c Release`,
+or use `dotnet run --project src/Tools --` before the same arguments. For a smaller
+headless package, bake the dependencies into a new directory:
 
 ```bash
-./FruityPrime -servercontent /srv/fruity-content-amhe1 \
+./FruityPrimeTools -servercontent /srv/fruity-content-amhe1 \
   -data /path/to/files/AMHE1 -dataversion AMHE1 -allrooms
 ```
 
@@ -104,7 +110,7 @@ The room argument is optional; without a rotation file the default is
 
 ```bash
 # Linux: extracted directory or baked package
-./FruityPrime -server "MP1 SANCTORUS" \
+./FruityPrimeServer -server "MP1 SANCTORUS" \
   -data /srv/fruity-content -dataversion AMHE1 \
   -port 27888 -players 8 -servername "My server"
 
@@ -185,9 +191,9 @@ further downloads until an operator reviews them.
 To check content manually, run the candidate dedicated binary:
 
 ```sh
-./FruityPrime -authoritative-server-validate -data /srv/fruity-content \
+./FruityPrimeServer -authoritative-server-validate -data /srv/fruity-content \
   -dataversion AMHE1 -rotation /srv/fruity/rotation.txt -mapdir /srv/fruity/maps
-./FruityPrime -authoritative-server-validate -masterserver
+./FruityPrimeServer -authoritative-server-validate -masterserver
 ```
 
 Success requires exit code 0 and the `authoritative-server-validation` JSON
@@ -234,7 +240,7 @@ The server does not open firewall or router ports for you.
 Listing is opt-in:
 
 ```bash
-./FruityPrime -server -data /srv/fruity-content \
+./FruityPrimeServer -server -data /srv/fruity-content \
   -master net.livetek.fr:27889 -servername "My server"
 ./FruityPrime -servers
 ```
@@ -250,14 +256,14 @@ its address is known; listing does not change reachability.
 A directory-only process serves discovery without loading content:
 
 ```bash
-./FruityPrime -masterserver -port 27889 -hostports none
+./FruityPrimeServer -masterserver -port 27889 -hostports none
 ```
 
 To let the directory start authoritative matches for players who cannot open a
 port, configure content and a UDP port range for child servers:
 
 ```bash
-./FruityPrime -masterserver -port 27889 \
+./FruityPrimeServer -masterserver -port 27889 \
   -data /srv/fruity-content -dataversion AMHE1 \
   -hostports 27900-27919 -public games.example.com
 ```

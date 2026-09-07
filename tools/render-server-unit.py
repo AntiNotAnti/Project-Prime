@@ -40,7 +40,7 @@ def render(source: str, user: str, directory: str, data: str | None, version: st
     if version not in {"AMHE0", "AMHE1", "AMHP0", "AMHP1", "AMHJ0", "AMHJ1", "AMHK0"}:
         raise ValueError("Unsupported content version")
     source = source.replace("__USER__", user).replace('"__DIR__"', quote(directory))
-    source = source.replace('"__DIR__/FruityPrime"', quote(directory + "/FruityPrime"))
+    source = source.replace('"__DIR__/FruityPrimeServer"', quote(directory + "/FruityPrimeServer"))
     source = source.replace('"__DATA__"', quote(data or ""))
     source = source.replace('"__DATA_VERSION__"', quote(version)).replace("__LISTING__", "-nomaster")
     lines = source.splitlines()
@@ -50,8 +50,10 @@ def render(source: str, user: str, directory: str, data: str | None, version: st
     index = executable_lines[0]
     command = lines[index][len("ExecStart="):]
     program = re.match(r'''(?:"(?:\\.|[^"\\])*"|[^\s]+)''', command)
-    if not program or pathlib.PurePosixPath(shlex.split(program[0])[0]).name not in {"MphRead", "FruityPrime"}:
-        raise ValueError("Expected an existing MphRead/FruityPrime executable; configure wrappers manually")
+    # Accept the old installed name while rendering an in-place upgrade, but
+    # always emit the split project's stable server name below.
+    if not program or pathlib.PurePosixPath(shlex.split(program[0])[0]).name not in {"FruityPrimeServer", "FruityPrime"}:
+        raise ValueError("Expected an existing FruityPrimeServer executable; configure wrappers manually")
     arguments = command[program.end():]
     if data is not None:
         arguments = set_argument(arguments, "-data", data)
@@ -62,7 +64,7 @@ def render(source: str, user: str, directory: str, data: str | None, version: st
             arguments = set_argument(arguments, "-nomaster", None)
             arguments = set_argument(arguments, "-masterport", None)
             arguments = set_argument(arguments, "-master", master)
-    lines[index] = "ExecStart=" + quote(directory + "/FruityPrime") + arguments
+    lines[index] = "ExecStart=" + quote(directory + "/FruityPrimeServer") + arguments
     return "\n".join(lines) + "\n"
 
 

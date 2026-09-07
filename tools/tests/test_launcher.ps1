@@ -32,9 +32,12 @@ $oldRollForward = $env:DOTNET_ROLL_FORWARD
 New-Item -ItemType Directory -Path $temporary | Out-Null
 try {
     $Root = Join-Path $temporary "repo with spaces and ' quote"
-    $Project = Join-Path $Root 'src/MphRead/MphRead.csproj'
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Project) | Out-Null
-    Set-Content -LiteralPath $Project -Value '<Project />'
+    $GameProject = Join-Path $Root 'src/Client/Client.csproj'
+    $ServerProject = Join-Path $Root 'src/Server/Server.csproj'
+    foreach ($project in @($GameProject, $ServerProject)) {
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $project) | Out-Null
+        Set-Content -LiteralPath $project -Value '<Project />'
+    }
     $DataDirectory = Join-Path $Root 'AMHE1'
     New-Item -ItemType Directory -Force -Path (Join-Path $DataDirectory '_bin'), (Join-Path $DataDirectory 'models'), (Join-Path $DataDirectory 'levels') | Out-Null
     Set-Content -LiteralPath (Join-Path $DataDirectory '_bin/arm9.bin') -Value 'test'
@@ -68,7 +71,7 @@ else { $global:LASTEXITCODE = 23 }
     Assert-Equal @((Join-Path $output 'FruityPrime.dll')) @($spec.Prefix) 'Managed assembly must be the first argument.'
     Assert-Equal $output $spec.WorkingDirectory 'Managed launch must run from its output folder.'
     Assert-Equal $Root $global:FruityLauncherCalls[0].Directory 'Build must resolve global.json from repository root.'
-    Assert-Equal @('build', $Project, '-c', 'Release', '-o', $output, '-p:MphReadServer=false') $global:FruityLauncherCalls[0].Arguments 'Build must use normal pinned SDK selection.'
+    Assert-Equal @('build', $GameProject, '-c', 'Release', '-o', $output) $global:FruityLauncherCalls[0].Arguments 'Build must use the client project with normal pinned SDK selection.'
     Assert-Equal $originalDirectory (Get-Location).Path 'Build must restore current directory.'
 
     $env:DOTNET_ROLL_FORWARD = 'Minor'
@@ -95,7 +98,7 @@ else { $global:LASTEXITCODE = 23 }
     $serverOutput = Join-Path $Root '.fruity-launcher/server'
     Assert-Equal (Join-Path $serverOutput 'FruityPrimeServer.exe') $spec.FilePath 'Windows must prefer native server output.'
     Assert-Equal @() @($spec.Prefix) 'Native launch must not receive an assembly prefix.'
-    Assert-Equal @('build', $Project, '-c', 'Release', '-o', $serverOutput, '-p:MphReadServer=true', '-r', 'win-x64') $global:FruityLauncherCalls[$global:FruityLauncherCalls.Count - 1].Arguments 'Windows server build flags must be preserved.'
+    Assert-Equal @('build', $ServerProject, '-c', 'Release', '-o', $serverOutput, '-r', 'win-x64') $global:FruityLauncherCalls[$global:FruityLauncherCalls.Count - 1].Arguments 'Windows server build must select the server project and RID.'
     Remove-Item -LiteralPath (Join-Path $serverOutput 'FruityPrimeServer.exe')
     $global:FruityBuildFiles = @('FruityPrimeServer.dll')
     $spec = New-DevelopmentSpec 'server'
