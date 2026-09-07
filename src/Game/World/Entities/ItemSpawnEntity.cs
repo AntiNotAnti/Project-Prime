@@ -87,6 +87,8 @@ namespace MphRead.Entities
                     _spawnCount++;
                     Item.Owner = this;
                     Item.ParentId = _data.ParentId;
+                    if (_spawnCount > 1) _scene.Services.PublishWorldSignal(_scene, new(WorldSignalKind.PickupRespawned,
+                        WorldSubjectKind.Spawner, this, null, 255, Item.Position, (uint)_data.ItemType));
                     if (_data.ItemType != ItemType.ArtifactKey)
                     {
                         _soundSource.Update(Position, rangeIndex: 7);

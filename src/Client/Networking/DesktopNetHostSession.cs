@@ -18,7 +18,7 @@ namespace MphRead.Mods.Network
         public bool StartAndJoin(bool friendlyFire, int port, string playerName, Hunter hunter,
             string roomKey, GameMode mode, float timeLimit, int pointGoal,
             int maxPlayers = PlayerEntity.SlotCapacity,
-            (string Host, int Port, string Name)? listing = null)
+            (string Host, int Port, string Name)? listing = null, bool practice = false)
         {
             var cancel = new CancellationTokenSource();
             long generation;
@@ -41,7 +41,7 @@ namespace MphRead.Mods.Network
                 }
                 var server = ServerProcess.Start(data, Paths.MphKey,
                     MapRotation.SingleMatch(roomKey, mode, timeLimit, pointGoal),
-                    port, maxPlayers, friendlyFire, listing, cancel.Token);
+                    port, maxPlayers, friendlyFire, listing, cancel.Token, practice);
                 bool current;
                 lock (_gate)
                 {

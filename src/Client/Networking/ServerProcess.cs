@@ -19,12 +19,12 @@ namespace MphRead.Mods.Network
         public string RecentLog => _host.RecentLog;
         public static ServerProcess Start(string data, string version, MapRotation rotation,
             int port, int maxPlayers, bool friendlyFire,
-            (string Host, int Port, string Name)? listing = null, CancellationToken cancel = default)
-            => new(ServerProcessHost.Start(data, version, rotation, port, maxPlayers, friendlyFire, listing, cancel));
+            (string Host, int Port, string Name)? listing = null, CancellationToken cancel = default, bool practice = false)
+            => new(ServerProcessHost.Start(data, version, rotation, port, maxPlayers, friendlyFire, listing, cancel, practice));
         public static async Task<ServerProcess> StartAsync(string data, string version, MapRotation rotation,
             int port, int maxPlayers, bool friendlyFire,
-            (string Host, int Port, string Name)? listing = null, CancellationToken cancel = default)
-            => new(await ServerProcessHost.StartAsync(data, version, rotation, port, maxPlayers, friendlyFire, listing, cancel).ConfigureAwait(false));
+            (string Host, int Port, string Name)? listing = null, CancellationToken cancel = default, bool practice = false)
+            => new(await ServerProcessHost.StartAsync(data, version, rotation, port, maxPlayers, friendlyFire, listing, cancel, practice).ConfigureAwait(false));
         internal static ProcessStartInfo CreateStartInfo(string mapDirectory) => ServerProcessHost.CreateStartInfo(mapDirectory);
         public void Dispose() => _host.Dispose();
     }

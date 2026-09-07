@@ -19,6 +19,20 @@ namespace MphRead.Mods.Network
         private readonly string? _serverName;
         private readonly string? _message;
 
+        public Guid ServerId { get; init; }
+        public bool RequiresTicket { get; init; }
+        public RulesetPreset RulesetPreset { get; init; }
+        public RankingEligibility RankingEligibility { get; init; }
+        public int Observers { get; init; }
+        public int MaxObservers { get; init; }
+        public int Bots { get; init; }
+        public int ObserverDelaySeconds { get; init; }
+        public bool HasRules { get; init; }
+        public bool FriendlyFire { get; init; }
+        public bool PlayerRadar { get; init; }
+        public SpawnPolicy SpawnPolicy { get; init; }
+        public OvertimePolicy OvertimePolicy { get; init; }
+        public LateJoinPolicy LateJoinPolicy { get; init; }
         public bool Online { get; init; }
         public string RoomKey
         {
@@ -120,7 +134,7 @@ namespace MphRead.Mods.Network
                 var clock = System.Diagnostics.Stopwatch.StartNew();
                 socket.Send(new byte[]
                 {
-                    (byte)PacketType.StatusQuery, NetConfig.ProtocolVersion
+                    (byte)PacketType.StatusQuery, (byte)(NetConfig.ProtocolVersion | ServerStatusPacket.RulesCapability)
                 }, 2, endPoint);
                 var from = new IPEndPoint(IPAddress.Any, 0);
                 while (clock.ElapsedMilliseconds < timeoutMs)
@@ -187,6 +201,10 @@ namespace MphRead.Mods.Network
             }
             return new ServerStatus
             {
+                RulesetPreset = status.RulesetPreset, RankingEligibility = status.RankingEligibility,
+                Bots = status.Bots, Observers = status.Observers, MaxObservers = status.MaxObservers, ObserverDelaySeconds = status.ObserverDelaySeconds,
+                ServerId = status.ServerId, RequiresTicket = status.RequiresTicket, HasRules = status.HasRules, FriendlyFire = status.FriendlyFire, PlayerRadar = status.PlayerRadar,
+                SpawnPolicy = status.SpawnPolicy, OvertimePolicy = status.OvertimePolicy, LateJoinPolicy = status.LateJoinPolicy,
                 Online = true,
                 RoomKey = match.RoomKey,
                 ServerName = status.ServerName ?? "",

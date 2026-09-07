@@ -23,6 +23,7 @@ namespace MphRead.Mods.Network
         private int _inputCount;
         private long _appliedSnapshot;
         private uint _loadedMatch;
+        private uint _appliedRoleRevision;
         private long _lastPresentation = Stopwatch.GetTimestamp();
         private readonly ClientWorldState _world = new();
         private readonly SnapshotInterpolation _interpolation = new();
@@ -40,10 +41,11 @@ namespace MphRead.Mods.Network
         public uint WorldServerTick => _world.ServerTick;
         private uint _inputPhaseRevision;
         public Vector3 VisualOffset => Prediction.VisualOffset;
-        public int LocalSlot => Client.Accepted.Slot;
+        public bool IsObserver => Client.IsObserver;
+        public int LocalSlot => IsObserver ? -1 : Client.Accepted.Slot;
         internal Action<PlayerEntity, uint>? ScriptInput { get; set; }
 
-        public AuthoritativePlay(string host, int port, string name, Hunter hunter)
+        public AuthoritativePlay(string host, int port, string name, Hunter hunter, ulong? joinNonce = null, string ticket = "", bool observer = false)
         {
             if (Current != null || NetSession.Active)
             {
@@ -54,7 +56,8 @@ namespace MphRead.Mods.Network
             if (address == null) { throw new ProgramException($"{host} has no IPv4 address."); }
             var endpoint = new IPEndPoint(address, port);
             _transport = new NetTransport(0);
-            Client = new NetClient(_transport, endpoint, name, Launcher.Hunters.Resolve(hunter));
+            try { Client = new NetClient(_transport, endpoint, name, Launcher.Hunters.Resolve(hunter), joinNonce, ticket, observer); }
+            catch { _transport.Dispose(); throw; }
             Client.WorldPacketValidator = WorldPacket.TryValidate;
             Client.WorldPacketReceived = payload =>
             {
@@ -94,8 +97,9 @@ namespace MphRead.Mods.Network
                 // room loads. Spawn selection remains disabled on clients.
                 if (slot != LocalSlot) { player.LoadFlags &= ~LoadFlags.Active; }
             }
-            PlayerEntity.MainPlayerIndex = LocalSlot;
-            PlayerEntity.PlayerCount = 1;
+            PlayerEntity.MainPlayerIndex = IsObserver ? 0 : LocalSlot;
+            PlayerEntity.PlayerCount = IsObserver ? 0 : 1;
+            if (IsObserver) SpectatorMode.Start();
         }
 
         public void BeforeSimulation(Scene scene)
@@ -104,7 +108,7 @@ namespace MphRead.Mods.Network
             // change which previously presented picture that input refers to.
             _hasInputViewTick = _interpolation.TryCaptureViewTick(out _inputViewTick);
             Client.Poll();
-            DemoRecorder.RecordFrame(Client);
+            DemoRecorder.RecordFrame(Client, scene);
             if (Client.Failure != null) { throw new ProgramException(Client.Failure); }
             ulong connectionId = Client.Connection?.Id ?? 0;
             if (connectionId != _viewConnectionId)
@@ -115,8 +119,16 @@ namespace MphRead.Mods.Network
                 Prediction.Reset();
                 _appliedSnapshot = 0;
             }
-            if (Client.Connection != null && Client.Accepted.MatchId != _loadedMatch)
+            if (Client.Connection != null && (Client.Accepted.MatchId != _loadedMatch || Client.RoleRevision != _appliedRoleRevision))
             {
+                if (Client.RoleRevision != _appliedRoleRevision)
+                {
+                    if (scene.Presentation is ScenePresentation rolePresentation)
+                        ResetRoleFeedback(rolePresentation.CombatFeedback, rolePresentation.WorldFeedback);
+                    else Chat.ChatBox.Clear();
+                    foreach (PlayerEntity player in PlayerEntity.Players) player.Controls.ClearAll();
+                }
+                _appliedRoleRevision = Client.RoleRevision;
                 _loadedMatch = Client.Accepted.MatchId;
                 scene.Match.MatchId = Client.Accepted.MatchId;
                 Array.Clear(_identities);
@@ -158,6 +170,12 @@ namespace MphRead.Mods.Network
                 _hasInputViewTick = _interpolation.TryCaptureViewTick(out _inputViewTick);
             _world.Apply(scene, Client.HasSnapshot ? Client.Snapshot.ServerTick : null);
             foreach (NetRosterEntry entry in Client.Roster) { GameState.Nicknames[entry.Slot] = entry.Name; }
+            if (scene.Presentation is ScenePresentation feedbackPresentation)
+                feedbackPresentation.CombatFeedback.Bind(_loadedMatch,
+                    LocalSlot is >= 0 and < 8 ? new CombatActor((byte)LocalSlot, _identities[LocalSlot], _lives[LocalSlot]) : CombatActor.None,
+                    Client.Roster, WorldServerTick, scene.Match.PhaseRevision);
+            if (scene.Presentation is ScenePresentation worldPresentation)
+                worldPresentation.WorldFeedback.Bind(_loadedMatch, scene.Match.PhaseRevision);
             DrainEvents();
             if (_inputPhaseRevision != scene.Match.PhaseRevision)
             {
@@ -167,9 +185,9 @@ namespace MphRead.Mods.Network
                 _interpolation.Reset();
                 _hasInputViewTick = false;
             }
-            if (scene.Match.Phase == MatchPhase.Playing)
+            if (LocalSlot >= 0 && scene.Match.Phase == MatchPhase.Playing)
             { ScriptInput?.Invoke(PlayerEntity.Players[LocalSlot], _sequence); }
-            else { PlayerEntity.Players[LocalSlot].Controls.ClearAll(); }
+            else if (LocalSlot >= 0) { PlayerEntity.Players[LocalSlot].Controls.ClearAll(); }
             NetDiagnostics.ReportAuthoritative(Client, Prediction, _interpolation, _transport.Metrics);
         }
 
@@ -186,8 +204,9 @@ namespace MphRead.Mods.Network
                 player.IsBot = false;
                 player.TeamIndex = GetAssignedTeam(slot);
             }
-            PlayerEntity.MainPlayerIndex = LocalSlot;
-            PlayerEntity.PlayerCount = 1;
+            PlayerEntity.MainPlayerIndex = IsObserver ? 0 : LocalSlot;
+            PlayerEntity.PlayerCount = IsObserver ? 0 : 1;
+            if (IsObserver) SpectatorMode.Start();
             return PlayerEntity.Main;
         }
 
@@ -214,10 +233,27 @@ namespace MphRead.Mods.Network
                     });
                     continue;
                 }
+                if (message.MatchId == _loadedMatch && message.Type == ReliableEventType.WorldEvent
+                    && WorldEvent.TryRead(message.Payload.Span, out WorldEvent worldEvent))
+                {
+                    if (_presentationScene?.Presentation is ScenePresentation worldPresentation)
+                        worldPresentation.WorldFeedback.Process(worldEvent, worldPresentation.CombatFeedback.Local, WorldServerTick,
+                            _presentationScene.Match.Rules.PickupRespawnAnnouncements);
+                    continue;
+                }
+                if (message.MatchId == _loadedMatch && message.Type == ReliableEventType.Kill
+                    && KillEvent.TryRead(message.Payload.Span, out KillEvent kill))
+                {
+                    if (_presentationScene?.Presentation is ScenePresentation killPresentation)
+                        killPresentation.CombatFeedback.Process(kill);
+                    continue;
+                }
                 if (message.MatchId != _loadedMatch || message.Type != ReliableEventType.Combat
                     || !CombatEventBatch.TryRead(message.Payload.Span, events, out int count)) { continue; }
                 foreach (CombatEvent value in events[..count])
                 {
+                    if (_presentationScene?.Presentation is ScenePresentation feedbackPresentation
+                        && !feedbackPresentation.CombatFeedback.Process(value)) continue;
                     CombatEvents++;
                     if (value.Kind == CombatEventKind.Damage) { DamageEvents++; }
                     CombatActor subject = value.Kind is CombatEventKind.Shot or CombatEventKind.Bomb
@@ -232,6 +268,12 @@ namespace MphRead.Mods.Network
 
         public void AfterSimulation()
         {
+            if (IsObserver)
+            {
+                foreach (SnapshotPlayer state in Client.SnapshotPlayers)
+                    PlayerEntity.Players[state.Slot].ApplySnapshotTransform(state);
+                return;
+            }
             if (_presentationScene?.Match.Phase != MatchPhase.Playing || !_hasInputViewTick
                 || Client.State is not (NetConnectionState.Ready or NetConnectionState.Playing)) { return; }
             PlayerEntity local = PlayerEntity.Players[LocalSlot];
@@ -275,6 +317,8 @@ namespace MphRead.Mods.Network
                     bool newLife = _lives[slot] != state.Life;
                     bool local = slot == LocalSlot;
                     player.ApplyServerState(state, newLife, local);
+                    if (local)
+                        SpectatorMode.ApplyWaitingForMatch((state.Flags & SnapshotPlayerFlags.WaitingForMatch) != 0);
                     player.GetPresentation().ReconcileNetworkAfflictions(state, Client.Snapshot.ServerTick);
                     if (!local)
                     {
@@ -315,6 +359,7 @@ namespace MphRead.Mods.Network
                     scene.Match.Players[state.Slot].Points = state.Points;
                     scene.Match.Players[state.Slot].Kills = state.Kills;
                     scene.Match.Players[state.Slot].Deaths = state.Deaths;
+                    scene.Match.Players[state.Slot].Assists = state.Assists;
                 }
                 PlayerEntity.PlayerCount = Client.SnapshotPlayers.Length;
             }
@@ -334,6 +379,15 @@ namespace MphRead.Mods.Network
             long now = Stopwatch.GetTimestamp();
             Prediction.AdvanceVisual(Stopwatch.GetElapsedTime(_lastPresentation, now).TotalSeconds);
             _lastPresentation = now;
+        }
+
+        // A role transfer can rewind within the same match/phase. It is a new
+        // presentation epoch: live cues must not survive into a delayed view.
+        internal static void ResetRoleFeedback(MphRead.Combat.CombatFeedback combat, MphRead.Combat.WorldFeedback world)
+        {
+            combat.Bind(0, CombatActor.None, ReadOnlySpan<NetRosterEntry>.Empty);
+            world.Bind(0, 0);
+            Chat.ChatBox.Clear();
         }
 
         private void ResetPresentation()

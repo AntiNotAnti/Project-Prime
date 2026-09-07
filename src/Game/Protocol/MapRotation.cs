@@ -85,6 +85,13 @@ namespace MphRead.Mods.Network
             return rotation;
         }
 
+        /// <summary>Select an already admitted rotation entry by its server-owned index.</summary>
+        public RotationEntry Select(int index)
+        {
+            if (index < 0 || index >= _entries.Count) throw new ArgumentOutOfRangeException(nameof(index));
+            _index = index; return Current;
+        }
+
         /// <summary>Advance to the next map, wrapping at the end of the cycle.</summary>
         public RotationEntry Advance()
         {

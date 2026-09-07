@@ -18,6 +18,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Game/Game.csproj" />
+    <ProjectReference Include="../Shared.Replay/Shared.Replay.csproj" />
     <ProjectReference Include="../Audio.Ncsf/Audio.Ncsf.csproj" />
     <PackageReference Include="Avalonia" Version="11.3.11" />
     <PackageReference Include="Avalonia.Android" Version="11.3.11" />
@@ -67,6 +68,9 @@
     <Compile Include="../Client/Launcher/Gui/DemoPickerView.cs" Link="Client/Launcher/Gui/DemoPickerView.cs" />
     <Compile Include="../Client/Launcher/Gui/GuiTheme.cs" Link="Client/Launcher/Gui/GuiTheme.cs" />
     <Compile Include="../Client/Launcher/Gui/HomeView.cs" Link="Client/Launcher/Gui/HomeView.cs" />
+    <Compile Include="../Client/Launcher/Gui/AccountView.cs" Link="Client/Launcher/Gui/AccountView.cs" />
+    <Compile Include="../Client/Accounts/AccountSession.cs" Link="Client/Accounts/AccountSession.cs" />
+    <Compile Include="../Client/Accounts/CareerQueries.cs" Link="Client/Accounts/CareerQueries.cs" />
     <Compile Include="../Client/Launcher/Gui/KeyRow.cs" Link="Client/Launcher/Gui/KeyRow.cs" />
     <Compile Include="../Client/Launcher/Gui/MapPickerView.cs" Link="Client/Launcher/Gui/MapPickerView.cs" />
     <Compile Include="../Client/Launcher/Gui/MenuEntry.cs" Link="Client/Launcher/Gui/MenuEntry.cs" />
@@ -88,7 +92,9 @@
     <Compile Include="../Client/Networking/ClientPrediction.cs" Link="Client/Networking/ClientPrediction.cs" />
     <Compile Include="../Client/Networking/ClientSceneServices.cs" Link="Client/Networking/ClientSceneServices.cs" />
     <Compile Include="../Client/Networking/ClientWorldState.cs" Link="Client/Networking/ClientWorldState.cs" />
-    <Compile Include="../Client/Networking/DemoFile.cs" Link="Client/Networking/DemoFile.cs" />
+    <Compile Include="../Client/Networking/IntermissionVoteControls.cs" Link="Client/Networking/IntermissionVoteControls.cs" />
+    <Compile Include="../Client/Networking/ReplayControls.cs" Link="Client/Networking/ReplayControls.cs" />
+    <Compile Include="../Client/Networking/ReplayTransport.cs" Link="Client/Networking/ReplayTransport.cs" />
     <Compile Include="../Client/Networking/DemoInfo.cs" Link="Client/Networking/DemoInfo.cs" />
     <Compile Include="../Client/Networking/DemoLibrary.cs" Link="Client/Networking/DemoLibrary.cs" />
     <Compile Include="../Client/Networking/DemoPlayback.cs" Link="Client/Networking/DemoPlayback.cs" />
@@ -113,6 +119,11 @@
     <Compile Include="../Client/Networking/NetTestScript.cs" Link="Client/Networking/NetTestScript.cs" />
     <Compile Include="../Client/Networking/NetTransport.cs" Link="Client/Networking/NetTransport.cs" />
     <Compile Include="../Client/Networking/SnapshotInterpolation.cs" Link="Client/Networking/SnapshotInterpolation.cs" />
+    <Compile Include="../Client/Networking/Protocol7DemoCodec.cs" Link="Client/Networking/Protocol7DemoCodec.cs" />
+    <Compile Include="../Client/Networking/Protocol7DemoRoster.cs" Link="Client/Networking/Protocol7DemoRoster.cs" />
+    <Compile Include="../Client/Networking/Protocol7DemoRules.cs" Link="Client/Networking/Protocol7DemoRules.cs" />
+    <Compile Include="../Client/Networking/Protocol7DemoSnapshot.cs" Link="Client/Networking/Protocol7DemoSnapshot.cs" />
+    <Compile Include="../Client/Networking/Protocol7DemoWorld.cs" Link="Client/Networking/Protocol7DemoWorld.cs" />
     <Compile Include="../Client/Presentation/Players/ClientPlayerBindings.cs" Link="Client/Presentation/Players/ClientPlayerBindings.cs" />
     <Compile Include="../Client/Presentation/Players/HalfturretEntityPresentation.cs" Link="Client/Presentation/Players/HalfturretEntityPresentation.cs" />
     <Compile Include="../Client/Presentation/Players/PlayerPresentation.cs" Link="Client/Presentation/Players/PlayerPresentation.cs" />
@@ -131,8 +142,10 @@
     <Compile Include="../Client/Presentation/Players/PresentationPlayerInput.cs" Link="Client/Presentation/Players/PresentationPlayerInput.cs" />
     <Compile Include="../Client/Presentation/Players/PlayerPresentationLifecycle.cs" Link="Client/Presentation/Players/PlayerPresentationLifecycle.cs" />
     <Compile Include="../Client/Presentation/Players/PresentationPlayerSound.cs" Link="Client/Presentation/Players/PresentationPlayerSound.cs" />
+    <Compile Include="../Client/Presentation/Players/PlayerPresentationNetworkAfflictions.cs" Link="Client/Presentation/Players/PlayerPresentationNetworkAfflictions.cs" />
     <Compile Include="../Client/Rendering/Crosshair.cs" Link="Client/Rendering/Crosshair.cs" />
     <Compile Include="../Client/Rendering/EffectPresentation.cs" Link="Client/Rendering/EffectPresentation.cs" />
+    <Compile Include="../Client/Rendering/ParticleInterpolation.cs" Link="Client/Rendering/ParticleInterpolation.cs" />
     <Compile Include="../Client/Rendering/Entities/AreaVolumeEntityPresentation.cs" Link="Client/Rendering/Entities/AreaVolumeEntityPresentation.cs" />
     <Compile Include="../Client/Rendering/Entities/BeamProjectileEntityPresentation.cs" Link="Client/Rendering/Entities/BeamProjectileEntityPresentation.cs" />
     <Compile Include="../Client/Rendering/Entities/BombEntityPresentation.cs" Link="Client/Rendering/Entities/BombEntityPresentation.cs" />
@@ -163,6 +176,7 @@
     <Compile Include="../Client/Rendering/GlEs.cs" Link="Client/Rendering/GlEs.cs" />
     <Compile Include="../Client/Rendering/PreviewCamera.cs" Link="Client/Rendering/PreviewCamera.cs" />
     <Compile Include="../Client/Rendering/Renderer.cs" Link="Client/Rendering/Renderer.cs" />
+    <Compile Include="../Client/Rendering/SpectatorCameraController.cs" Link="Client/Rendering/SpectatorCameraController.cs" />
     <Compile Include="../Client/Rendering/ScenePresentation.Resources.cs" Link="Client/Rendering/ScenePresentation.Resources.cs" />
     <Compile Include="../Client/Rendering/Selection.cs" Link="Client/Rendering/Selection.cs" />
     <Compile Include="../Client/Rendering/Shaders.cs" Link="Client/Rendering/Shaders.cs" />
@@ -228,8 +242,40 @@
     <Using Include="MphRead.Mods.Sound.AlcEs" Alias="ALC" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../Client/Rendering/NodePoseSampler.cs" Link="Rendering/NodePoseSampler.cs" />
+    <Compile Include="../Client/Rendering/ModelPoseHistory.cs" Link="Rendering/ModelPoseHistory.cs" />
     <Compile Include="../Client/Rendering/SimulationPoseHistory.cs" Link="Presentation/SimulationPoseHistory.cs" />
     <Compile Include="../Client/Rendering/RenderInterpolation.cs" Link="Presentation/RenderInterpolation.cs" />
     <Compile Include="../Client/Input/RenderLookAccumulator.cs" Link="Presentation/RenderLookAccumulator.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Client/Combat/FeedbackAudio.cs" Link="Combat/FeedbackAudio.cs" />
+    <Compile Include="../Client/Combat/NetworkAfflictionState.cs" Link="Combat/NetworkAfflictionState.cs" />
+    <Compile Include="../Client/Presentation/Players/PlayerPresentationCombatFeedback.cs" Link="Presentation/PlayerPresentationCombatFeedback.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Client/HUD/Radar/RadarContact.cs" Link="HUD/Radar/RadarContact.cs" />
+    <Compile Include="../Client/HUD/Radar/RadarFrame.cs" Link="HUD/Radar/RadarFrame.cs" />
+    <Compile Include="../Client/HUD/Radar/RadarSettings.cs" Link="HUD/Radar/RadarSettings.cs" />
+    <Compile Include="../Client/HUD/Radar/RadarWidget.cs" Link="HUD/Radar/RadarWidget.cs" />
+    <Compile Include="../Client/Presentation/Players/PlayerPresentationRadar.cs" Link="Presentation/PlayerPresentationRadar.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Client/Input/WeaponSelectionIntent.cs" Link="Input/WeaponSelectionIntent.cs" />
+    <Compile Include="../Client/Presentation/Players/PlayerPresentationWeaponSelection.cs" Link="Presentation/PlayerPresentationWeaponSelection.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Client/HUD/Network/NetworkHealth.cs" Link="HUD/Network/NetworkHealth.cs" />
+    <Compile Include="../Client/Networking/AuthoritativePlay.Diagnostics.cs" Link="Networking/AuthoritativePlay.Diagnostics.cs" />
+    <Compile Include="../Client/Presentation/Players/PlayerPresentationNetworkHealth.cs" Link="Presentation/PlayerPresentationNetworkHealth.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Client/Launcher/Portable/ServerBrowser.cs" Link="Launcher/ServerBrowser.cs" />
+  </ItemGroup>
+  <ItemGroup>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Client/HUD/PostMatchPresentation.cs" Link="HUD/PostMatchPresentation.cs" />
+    <Compile Include="../Client/Presentation/Players/PlayerPresentationPostMatch.cs" Link="Presentation/PlayerPresentationPostMatch.cs" />
   </ItemGroup>
 </Project>

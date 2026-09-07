@@ -15,7 +15,8 @@ namespace MphRead.Mods.Network
         Pong = 8,
         Refused = 9,
         Ack = 10,
-        World = 12
+        World = 12,
+        JoinPending = 13
     }
 
     [Flags]
@@ -54,7 +55,7 @@ namespace MphRead.Mods.Network
             header = default;
             if (source.Length < Size || source.Length > NetConfig.MaxPacketSize
                 || BinaryPrimitives.ReadUInt16LittleEndian(source) != Magic
-                || source[2] < (byte)NetMessageType.Join || (source[2] > (byte)NetMessageType.Ack && source[2] != (byte)NetMessageType.World)
+                || source[2] < (byte)NetMessageType.Join || (source[2] > (byte)NetMessageType.Ack && source[2] != (byte)NetMessageType.World && source[2] != (byte)NetMessageType.JoinPending)
                 || (source[3] & ~3) != 0)
             {
                 return false;
@@ -66,7 +67,7 @@ namespace MphRead.Mods.Network
             uint ack = BinaryPrimitives.ReadUInt32LittleEndian(source[16..]);
             uint ackBits = BinaryPrimitives.ReadUInt32LittleEndian(source[20..]);
             bool unsequenced = (flags & NetHeaderFlags.Unsequenced) != 0;
-            bool handshake = type is NetMessageType.Join or NetMessageType.Refused;
+            bool handshake = type is NetMessageType.Join or NetMessageType.Refused or NetMessageType.JoinPending;
             if (unsequenced != (handshake || type == NetMessageType.KeepAlive)
                 || (unsequenced && (flags != NetHeaderFlags.Unsequenced || sequence != 0))
                 || ((flags & NetHeaderFlags.HasAck) == 0 && (ack != 0 || ackBits != 0))

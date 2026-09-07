@@ -1,5 +1,13 @@
 using System;
 using System.Diagnostics;
+using System.Reflection;
+using System.Linq;
+using System.Threading.Tasks;
+using MphRead.Admin;
+using MphRead.Replay;
+using MphRead.Identity;
+using MphRead.Reporting;
+using MphRead.Telemetry;
 
 namespace MphRead.Mods.Network
 {
@@ -11,10 +19,18 @@ namespace MphRead.Mods.Network
         private readonly string _data;
         private readonly string _version;
         private readonly RotationEntry _entry;
+        public ServerAdminOptions? AdminOptions { get; init; }
+        public string? ReplayDirectory { get; init; }
+        public ServerTicketOptions? TicketOptions { get; init; }
+        public ObserverOptions Observers { get; init; } = new();
         public MapRotation? Rotation { get; init; }
+        public ServerVoteOptions? Voting { get; init; }
         public int MaxPlayers { get; init; } = 8;
+        public RulesetPreset RulesetPreset { get; init; } = RulesetPreset.Classic;
         public bool FriendlyFire { get; init; }
+        public LateJoinPolicy? LateJoinPolicy { get; init; }
         public SpawnPolicy SpawnPolicy { get; init; } = SpawnPolicy.Classic;
+        public OvertimePolicy OvertimePolicy { get; init; } = OvertimePolicy.Disabled;
         public bool CancelSpawnProtectionOnOffensiveAction { get; init; }
         public bool LagCompEnabled { get; init; } = true;
         public bool ProjectileCatchUpEnabled { get; init; } = true;
@@ -22,6 +38,9 @@ namespace MphRead.Mods.Network
         public MasterReporter? Reporter { get; init; }
         public Update.ServerUpdateRuntime? Updates { get; init; }
         public int BoundPort { get; private set; }
+        public ServerReportingOptions? Reporting { get; init; }
+        public BotFillPolicy? BotFill { get; init; }
+        public string? TelemetryDirectory { get; init; }
 
         public AuthoritativeServer(int port, string data, string version, RotationEntry entry)
         {
@@ -32,6 +51,14 @@ namespace MphRead.Mods.Network
         }
 
         public void Stop() => _running = false;
+
+        private MatchRules ResolveRules(RotationEntry entry)
+        {
+            MatchRules rules = RulesetResolver.Resolve(entry, RulesetPreset, MaxPlayers, FriendlyFire);
+            return RulesetPreset is RulesetPreset.Competitive or RulesetPreset.Duel ? rules : rules.With(
+                spawnPolicy: SpawnPolicy, cancelSpawnProtectionOnOffensiveAction: CancelSpawnProtectionOnOffensiveAction,
+                overtimePolicy: OvertimePolicy, lateJoinPolicy: LateJoinPolicy);
+        }
 
         public void Run()
         {
@@ -45,25 +72,93 @@ namespace MphRead.Mods.Network
 
         private void RunSimulation()
         {
+            ServerReportingOptions? reportOptions = Reporting ?? ServerReportingOptions.FromEnvironment();
+            if (reportOptions != null && (reportOptions.ServerId == Guid.Empty
+                || TicketOptions != null && TicketOptions.ServerId != reportOptions.ServerId))
+                throw new ArgumentException("Reporting and ticket admission must use the same nonempty server identity.");
+            IMatchReportTransport? reportTransport = reportOptions?.CreateTransport();
+            using IDisposable? reportTransportLifetime = reportTransport as IDisposable;
+            using MatchReportOutbox? outbox = reportOptions == null ? null : new(reportOptions.Outbox, reportTransport!);
+            Guid incarnation = TicketOptions?.SessionId ?? Guid.NewGuid();
+            string? telemetryDirectory = TelemetryDirectory ?? Environment.GetEnvironmentVariable("PRIME_TELEMETRY_DIRECTORY");
+            using TelemetryWriter? telemetryWriter = String.IsNullOrWhiteSpace(telemetryDirectory) ? null : new(telemetryDirectory);
             ServerContent.Open(_data, _version);
-            using var transport = new UdpTransport(_port);
+            using var transport = new UdpTransport(_port, Environment.GetEnvironmentVariable("PRIME_PRACTICE") == "1" ? System.Net.IPAddress.Loopback : null);
+            using var tickets = TicketOptions == null ? null : new ServerTicketAuthority(TicketOptions);
             BoundPort = transport.LocalPort;
-            MatchRules rules = _entry.ToMatchRules(MaxPlayers, FriendlyFire).With(
-                spawnPolicy: SpawnPolicy, cancelSpawnProtectionOnOffensiveAction: CancelSpawnProtectionOnOffensiveAction);
-            ServerSimulation simulation = new(rules, LagCompEnabled, ProjectileCatchUpEnabled);
+            if (Rotation != null)
+                foreach (RotationEntry entry in Rotation.Entries) _ = ResolveRules(entry);
+            string? replayDirectory = ReplayDirectory ?? Environment.GetEnvironmentVariable("PRIME_SERVER_REPLAY_DIRECTORY");
+            MatchRules rules = ResolveRules(_entry);
+            bool automaticReplay = ServerReplayPolicy.Validate(rules, TicketOptions != null, reportOptions != null, replayDirectory);
+            if (Rotation != null)
+                foreach (RotationEntry entry in Rotation.Entries)
+                    ServerReplayPolicy.Validate(ResolveRules(entry), TicketOptions != null, reportOptions != null, replayDirectory);
+            BotFillPolicy botFill = BotFill ?? BotFillPolicy.FromEnvironment();
+            if (rules.RulesetPreset == RulesetPreset.Duel && botFill.MinimumParticipants != 0)
+                throw new ArgumentException("Duel requires bot fill to be disabled.");
+            ServerSimulation simulation = new(rules, LagCompEnabled, ProjectileCatchUpEnabled, botFill);
+            if (reportOptions != null) simulation.Reports = new(reportOptions.ServerId, incarnation, typeof(AuthoritativeServer).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown-build");
+            TelemetryCollector? telemetry = telemetryWriter == null ? null : new(rules, 1, 0);
+            uint telemetryTick = 0;
+            TournamentAdmin? admin = null;
+            AdminHttpServer? adminHttp = null;
+            ServerReplaySession? replay = null;
+            Task? replayClosing = null;
+            ServerReplaySession? closingReplay = null;
+            MphRead.Reporting.MatchParticipantLedger? replayLedger = null;
+            MatchRules? selectedRules = null;
+            ReportSubmission? reportSubmission = null;
+            MatchReportOutbox.Reservation? reportReservation = null;
             try
             {
-                var network = new ServerNetwork(transport, rules)
+                var network = new ServerNetwork(transport, rules, observers: Observers)
                 {
                     ServerName = ServerName,
+                    TicketAuthority = tickets,
                     Phase = simulation.Scene.Match.Phase,
                     PhaseRevision = simulation.Scene.Match.PhaseRevision
                 };
+                network.CancelBotClaim = slot => simulation.Bots.CancelClaim(slot);
+                network.CanClaimPlayerSlot = slot => simulation.Bots.Claim(slot, network, network.Tick);
+                network.BotRosterEntry = slot => simulation.Bots.Roster(slot);
+                network.BotTeamAssigned = (slot, team) => simulation.Bots.AssignTeam(slot, team);
+                ServerReplaySession? StartReplay()
+                {
+                    if (replay != null) return replay;
+                    if (string.IsNullOrWhiteSpace(replayDirectory) || replayClosing?.IsCompleted == false) return null;
+                    replay = new ServerReplaySession(replayDirectory);
+                    network.ObserverFrameCaptured = frame => replay?.Capture(frame, simulation.Scene);
+                    return replay;
+                }
+                MatchRules ResolveAdmin(string? room, string? presetName)
+                {
+                    room ??= network.Room;
+                    RotationEntry? candidate = (Rotation?.Entries ?? new[] { _entry }).FirstOrDefault(e => e.RoomKey == room);
+                    if (candidate == null) throw new ArgumentException("Map is not in the startup allowlist.");
+                    if (!Enum.TryParse(presetName, true, out RulesetPreset preset) || !Enum.IsDefined(preset))
+                        throw new ArgumentException("Unknown ruleset preset.");
+                    MatchRules resolved = RulesetResolver.Resolve(candidate, preset, MaxPlayers, FriendlyFire);
+                    if (resolved.MaxPlayers != network.Rules.MaxPlayers)
+                        throw new ArgumentException("A ruleset cannot change this session's player capacity.");
+                    ServerReplayPolicy.Validate(resolved, TicketOptions != null, reportOptions != null, replayDirectory);
+                    ServerContent.RequireRoom(resolved.RoomKey, resolved.Mode.ToLegacyMode());
+                    return resolved;
+                }
+                var adminOptions = AdminOptions ?? ServerAdminOptions.FromEnvironment();
+                if (adminOptions != null)
+                {
+                    admin = new TournamentAdmin(() => simulation, network, ResolveAdmin, value => selectedRules = value, StartReplay);
+                    adminHttp = new AdminHttpServer(adminOptions, admin.Commands, () => admin.Status);
+                }
+                var voting = new ServerVoting(network, () => simulation,
+                    Voting ?? ServerVoteOptions.Parse(null, false, RulesetPreset), Rotation, Rng.Rng2);
+                network.ParticipantLeaving = (peer, reason, leftTick) => simulation.Reports?.Leave(simulation.Scene, peer, reason, leftTick);
                 network.StatusProvider = () => new MatchStatePacket
                 {
                     MatchId = unchecked((ushort)network.MatchId), Mode = (byte)network.Mode,
                     RoomKey = network.Room, NextRoomKey = Rotation?.Next.RoomKey ?? network.Room,
-                    PlayerCount = (byte)network.Count, TimeRemaining = Math.Max(0, simulation.Scene.Match.MatchTime),
+                    PlayerCount = (byte)(network.Count + simulation.Bots.Count), TimeRemaining = Math.Max(0, simulation.Scene.Match.MatchTime),
                     PointGoal = (ushort)Math.Clamp(simulation.Scene.Match.Rules.LegacyPointGoal, 0, UInt16.MaxValue),
                     Flags = (byte)((simulation.Scene.Match.LegacyState == MatchState.InProgress
                         ? MatchStatePacket.FlagInProgress : MatchStatePacket.FlagEnding)
@@ -95,7 +190,24 @@ namespace MphRead.Mods.Network
                     for (int step = 0; step < due && _running; step++)
                     {
                         long start = Stopwatch.GetTimestamp();
+                        if (outbox != null)
+                        {
+                            if (reportReservation == null && reportSubmission == null) outbox.TryReserve(out reportReservation);
+                            simulation.ReportingMayStart = reportReservation != null && outbox.Healthy;
+                            network.AdmissionClosed = reportReservation == null || !outbox.Healthy || simulation.Reports?.CapacityAvailable == false;
+                        }
                         network.Poll(tick);
+                        if (closingReplay?.Status.State == "failed")
+                            throw new InvalidOperationException("Previous authoritative replay failed: " + closingReplay.Status.Error);
+                        if (automaticReplay && replay == null) StartReplay();
+                        admin?.BeforeStep(tick, replay);
+                        simulation.ReplayMayStart = ServerReplayPolicy.MayStart(automaticReplay, replay);
+                        if (admin == null && replay != null && simulation.Reports is { Started: false } ledger
+                            && !ReferenceEquals(replayLedger, ledger))
+                        {
+                            ledger.ConfigureRoundIdentity(null, null, replay.ReplayId);
+                            replayLedger = ledger;
+                        }
                         if (Updates?.PollIdle(() => network.Count == 0,
                             () => network.AdmissionClosed = true, () => network.AdmissionClosed = false) == true)
                         {
@@ -108,6 +220,12 @@ namespace MphRead.Mods.Network
                             Console.WriteLine($"[server] peers={reportedPeers}");
                         }
                         simulation.Step(network, tick);
+                        voting.Tick(tick);
+                        telemetryTick = tick;
+                        telemetry?.Sample(tick, simulation.States, simulation.Scene.Match.Phase == MatchPhase.Playing, simulation.Scene);
+                        if (outbox != null && reportSubmission == null && simulation.Reports?.Report is { } report)
+                            if (reportReservation != null && outbox.TryEnqueue(report, reportReservation, out reportSubmission))
+                            { reportReservation.Dispose(); reportReservation = null; }
                         if (tick % 2 == 0)
                         {
                             foreach (ServerPeer? peer in network.Peers)
@@ -118,16 +236,23 @@ namespace MphRead.Mods.Network
                                 int length = snapshot.Write(packet, simulation.States);
                                 peer.Connection.Send(transport, NetMessageType.Snapshot, packet[..length]);
                             }
+                            if (network.ObserverFramesRequired)
+                            {
+                                var observerSnapshot = new SnapshotPacket(tick, snapshotSequence, network.MatchId, 0, false, Rng.Rng1, Rng.Rng2);
+                                int observerLength = observerSnapshot.Write(packet, simulation.States);
+                                network.CaptureObserverSnapshot(packet[..observerLength]);
+                            }
                             snapshotSequence++;
                         }
                         // State is recoverable from the next complete update.
                         // A five-Hz world stream leaves budget for combat and movement.
-                        if (tick % 12 == 0 && network.Count > 0)
+                        if (tick % 12 == 0 && (network.Count > 0 || network.ObserverFramesRequired))
                         {
                             world.Capture(simulation.Scene, network.MatchId, worldRevision++, tick);
                             for (int batch = 0; batch < world.BatchCount; batch++)
                             {
                                 int length = world.WriteBatch(packet, batch);
+                                network.CaptureObserverWorld(packet[..length]);
                                 foreach (ServerPeer? peer in network.Peers)
                                 {
                                     if (peer != null) { network.SendWorld(peer, packet[..length]); }
@@ -140,33 +265,94 @@ namespace MphRead.Mods.Network
                         {
                             int count = simulation.Combat.CopyPending(events);
                             if (count == 0) { break; }
+                            for (int i = 0; i < count; i++) telemetry?.Combat(events[i], simulation.Scene);
                             int length = CombatEventBatch.Write(packet, events[..count]);
+                            network.CaptureObserverEvent(ReliableEventType.Combat, packet[..length]);
                             foreach (ServerPeer? peer in network.Peers)
                             {
                                 if (peer?.Connection.State == NetConnectionState.Playing
                                     && !network.TrySendEvent(peer, ReliableEventType.Combat, packet[..length]))
                                 {
-                                    Console.Error.WriteLine($"[server] slot {peer.Slot} disconnected: reliable queue exhausted.");
-                                    network.Remove(peer.Slot);
+                                    Console.Error.WriteLine($"[server] slot {peer.Slot} disconnected: reliable admission refused. {ReliableDiagnostics.Describe(peer.Connection.Reliable)}");
+                                    network.Remove(peer.Slot, reason: ParticipantExitReason.Backpressure);
                                 }
                             }
                             simulation.Combat.Consume(count);
                         }
-                        if (simulation.Lifecycle.RotationDue)
+                        while (simulation.Combat.TryPeekKill(out KillEvent kill))
                         {
-                            RotationEntry next = Rotation?.Advance() ?? _entry;
-                            MatchRules nextRules = next.ToMatchRules(MaxPlayers, FriendlyFire).With(
-                                spawnPolicy: SpawnPolicy, cancelSpawnProtectionOnOffensiveAction: CancelSpawnProtectionOnOffensiveAction);
+                            telemetry?.Kill(kill);
+                            kill.Write(packet[..KillEvent.Size]);
+                            network.CaptureObserverEvent(ReliableEventType.Kill, packet[..KillEvent.Size]);
+                            foreach (ServerPeer? peer in network.Peers)
+                            {
+                                if (peer?.Connection.State == NetConnectionState.Playing
+                                    && !network.TrySendEvent(peer, ReliableEventType.Kill, packet[..KillEvent.Size]))
+                                {
+                                    Console.Error.WriteLine($"[server] slot {peer.Slot} disconnected: reliable kill admission refused. {ReliableDiagnostics.Describe(peer.Connection.Reliable)}");
+                                    network.Remove(peer.Slot, reason: ParticipantExitReason.Backpressure);
+                                }
+                            }
+                            simulation.Combat.ConsumeKill();
+                        }
+                        while (simulation.Combat.World.TryPeek(out WorldEvent worldEvent))
+                        {
+                            telemetry?.World(worldEvent);
+                            worldEvent.Write(packet[..WorldEvent.Size]);
+                            network.CaptureObserverEvent(ReliableEventType.WorldEvent, packet[..WorldEvent.Size]);
+                            foreach (ServerPeer? peer in network.Peers)
+                            {
+                                if (peer?.Connection.State == NetConnectionState.Playing
+                                    && !network.TrySendEvent(peer, ReliableEventType.WorldEvent, packet[..WorldEvent.Size]))
+                                {
+                                    Console.Error.WriteLine($"[server] slot {peer.Slot} disconnected: reliable world event queue exhausted.");
+                                    network.Remove(peer.Slot, reason: ParticipantExitReason.Backpressure);
+                                }
+                            }
+                            simulation.Combat.World.Consume();
+                        }
+                        network.CommitObserverTick(tick);
+                        telemetry?.CommitTick(tick, simulation.Scene.Match.Result != null);
+                        if ((selectedRules != null || (simulation.Lifecycle.RotationDue || voting.LobbyChoiceReady) && (admin?.RotationAllowed ?? true)) && (outbox == null
+                            || selectedRules != null
+                            || voting.LobbyChoiceReady && simulation.VoteLobbyHold && simulation.Scene.Match.Phase == MatchPhase.WaitingForPlayers
+                            || reportSubmission?.State is ReportSubmissionState.DurablyStored or ReportSubmissionState.BackendAccepted))
+                        {
+                            VoteResolution choice = selectedRules == null ? voting.ResolveForRotation() : new(IntermissionChoice.NextMap, -1);
+                            bool lobbyHold = selectedRules == null && choice.Kind == IntermissionChoice.Lobby;
+                            MatchRules nextRules;
+                            if (selectedRules != null) nextRules = selectedRules;
+                            else if (choice.Kind is IntermissionChoice.Rematch or IntermissionChoice.Lobby) nextRules = simulation.Scene.Match.Rules;
+                            else
+                            {
+                                RotationEntry next = choice.Kind == IntermissionChoice.Map
+                                    ? (Rotation ?? throw new InvalidOperationException("Vote has no admitted rotation.")).Select(choice.RotationIndex)
+                                    : Rotation?.Advance() ?? _entry;
+                                nextRules = ResolveRules(next);
+                            }
+                            selectedRules = null;
+                            if (replay != null)
+                            {
+                                network.ObserverFrameCaptured = null; replay.Complete(tick); closingReplay = replay; replayClosing = replay.Completion; replay = null;
+                            }
                             uint match = unchecked(network.MatchId + 1);
                             if (match == 0) { match = 1; }
+                            if (telemetry != null && !telemetryWriter!.TryWrite(telemetry.Complete(tick, simulation.Scene.Match.Result != null, simulation.Reports?.Report?.MatchId)))
+                                Console.Error.WriteLine("[telemetry] writer queue full; match telemetry dropped");
+                            telemetry = telemetryWriter == null ? null : new(nextRules, match, tick);
                             network.ChangeMatch(match, nextRules, tick);
                             // Flush the loading notification before synchronous content IO.
                             network.Poll(tick);
                             simulation.Dispose();
-                            simulation = new ServerSimulation(nextRules, LagCompEnabled, ProjectileCatchUpEnabled);
+                            simulation = new ServerSimulation(nextRules, LagCompEnabled, ProjectileCatchUpEnabled, botFill);
+                            simulation.VoteLobbyHold = lobbyHold;
+                            voting.NewMatch();
+                            if (reportOptions != null) simulation.Reports = new(reportOptions.ServerId, incarnation, typeof(AuthoritativeServer).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown-build");
+                            reportSubmission = null;
+                            admin?.NewRound();
                             network.Phase = simulation.Scene.Match.Phase;
                             network.PhaseRevision = simulation.Scene.Match.PhaseRevision;
-                            Console.WriteLine($"[server] match={match} room={next.RoomKey} tick={tick}");
+                            Console.WriteLine($"[server] match={match} room={nextRules.RoomKey} tick={tick}");
                         }
                         tick++;
                         scheduler.DurationMs.Record(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
@@ -182,21 +368,56 @@ namespace MphRead.Mods.Network
                         TimeSpan cpu = process.TotalProcessorTime;
                         Console.WriteLine(FormattableString.Invariant($"[server] inKBps={(received - previousIn) / seconds / 1000:F1} outKBps={(sent - previousOut) / seconds / 1000:F1} allocatedKBps={(allocated - previousAllocated) / seconds / 1000:F1} cpuCores={(cpu - previousCpu).TotalSeconds / seconds:F3}"));
                         Console.WriteLine(FormattableString.Invariant($"[server] lagCompEnabled={simulation.Combat.LagCompEnabled} projectileCatchUpEnabled={simulation.Combat.ProjectileCatchUpEnabled} projectilesCaughtUp={simulation.Combat.CatchUp.ProjectilesCaughtUp} catchUpSteps={simulation.Combat.CatchUp.Steps} catchUpCollisions={simulation.Combat.CatchUp.Collisions} maxCatchUpSteps={simulation.Combat.CatchUp.MaxSteps} catchUpQueueDrops={simulation.Combat.CatchUp.QueueDrops}"));
+                        if (outbox != null) Console.WriteLine($"[match-outbox] {outbox.Status}");
+                        if (telemetry != null) Console.WriteLine($"[telemetry] droppedEvents={telemetry.DroppedEvents}");
                         lastReport = reportAt;
                         previousIn = received;
                         previousOut = sent;
                         previousAllocated = allocated;
                         previousCpu = cpu;
                         Console.WriteLine(FormattableString.Invariant($"[server] tick={tick} peers={network.Count} tickMeanMs={scheduler.DurationMs.Mean:F3} tickWorstMs={scheduler.DurationMs.Max:F3} dropped={scheduler.DroppedTicks} catchUp={scheduler.CatchUpTicks} driftMeanMs={scheduler.DriftMs.Mean:F3} rejected={network.Rejected} sentBytes={transport.Metrics.BytesSent} queueDrops={transport.Metrics.QueueDrops} shotsConsidered={simulation.Combat.ShotsConsidered} shotsEligible={simulation.Combat.ShotsEligible} shotsRewound={simulation.Combat.ShotsRewound} shotsClamped={simulation.Combat.ShotsClamped} requestedRewindMeanTicks={simulation.Combat.RequestedRewindTicks.Mean:F2} validatedRewindMeanTicks={simulation.Combat.ValidatedRewindTicks.Mean:F2} validatedRewindMaxTicks={simulation.Combat.ValidatedRewindTicks.Max:F0} historyQueries={simulation.Combat.History.Queries} historyMisses={simulation.Combat.History.Missing} combatDrops={simulation.Combat.Dropped}"));
+                        foreach (ServerPeer? peer in network.Peers)
+                        {
+                            if (peer != null)
+                            {
+                                Console.WriteLine($"[server] reliable slot={peer.Slot} {ReliableDiagnostics.Describe(peer.Connection.Reliable)}");
+                            }
+                        }
                         nextReport = now + 30;
                     }
                     Reporter?.Beat(now, ServerName, (ushort)BoundPort, (byte)network.Count,
-                        (byte)MaxPlayers, (byte)network.Mode, network.Room, protocol: NetHeader.Version);
+                        (byte)network.Rules.MaxPlayers, (byte)network.Mode, network.Room, protocol: NetHeader.Version);
                 }
             }
             finally
             {
+                admin?.Commands.Close(); adminHttp?.Dispose();
+                replay?.Complete(telemetryTick);
+                try
+                {
+                    if (!Task.WhenAll(replay?.Completion ?? Task.CompletedTask, replayClosing ?? Task.CompletedTask).Wait(TimeSpan.FromSeconds(5)))
+                        Console.Error.WriteLine("[replay] shutdown deadline expired; recording remains incomplete, continuing result drain.");
+                }
+                catch (AggregateException)
+                { Console.Error.WriteLine("[replay] background writer failed during shutdown; continuing result drain."); }
+                if (replay?.Status is { State: "failed" } activeReplayFailure)
+                    Console.Error.WriteLine($"[replay] {activeReplayFailure.ReplayId}: {activeReplayFailure.Error}; continuing result drain.");
+                if (closingReplay?.Status is { State: "failed" } closingReplayFailure)
+                    Console.Error.WriteLine($"[replay] {closingReplayFailure.ReplayId}: {closingReplayFailure.Error}; continuing result drain.");
+                if (outbox != null && reportSubmission == null && simulation.Reports?.Report is { } terminal)
+                {
+                    long until = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 5;
+                    while (reportReservation != null && reportSubmission == null && Stopwatch.GetTimestamp() < until)
+                    {
+                        if (outbox.TryEnqueue(terminal, reportReservation, out reportSubmission)) break;
+                        System.Threading.Thread.Sleep(10);
+                    }
+                    if (reportSubmission == null) Console.Error.WriteLine($"[match-outbox] shutdown could not transfer terminal report {terminal.MatchId}; not durable");
+                }
+                if (telemetry != null && !telemetryWriter!.TryWrite(telemetry.Complete(telemetryTick, simulation.Scene.Match.Result != null, simulation.Reports?.Report?.MatchId)))
+                    Console.Error.WriteLine("[telemetry] shutdown queue full; match telemetry dropped");
                 simulation.Dispose();
+                reportReservation?.Dispose();
             }
         }
     }

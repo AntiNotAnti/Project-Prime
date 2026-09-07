@@ -67,7 +67,7 @@ with tempfile.TemporaryDirectory(prefix="fruity-server-check-") as temporary:
     try:
         master, master_port = start(binary + ["-masterserver", "-port", "0", "-hostports", "none", "-noupdate"], "directory")
         response = query(master_port, bytes([18, 7]))
-        require(response == bytes([19, 0, 0, 2, 7]),
+        require(response == bytes([19, 0, 0, 2, 8]),
                 "fresh directory advertises authoritative family/protocol and an empty list")
         data = os.environ.get("GAME_DATA_DIRECTORY")
         nettest = Path(os.environ.get("NETTEST_DLL", str(package / "nettest.dll"))).resolve()
@@ -106,8 +106,8 @@ with tempfile.TemporaryDirectory(prefix="fruity-server-check-") as temporary:
             # uses the distinct 24-byte authoritative connection envelope.
             body = response[1:]
             require(len(body) == 130 and response[0] == 15, "server answers an exact-size discovery status query")
-            require(body[95] == 8 and body[96] == 7 and body[129] == 2,
-                    "status advertises eight slots, authoritative family and protocol 7")
+            require(body[95] == 8 and body[96] == 8 and body[129] == 2,
+                    "status advertises eight slots, authoritative family and protocol 8")
             require(bool(body[15:55].rstrip(b"\0")), "status names its room")
             if nettest.is_file():
                 check = subprocess.run([dotnet, str(nettest), "localhost", str(server_port)],

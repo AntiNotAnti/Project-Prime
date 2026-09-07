@@ -2,8 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using System.Net;
+using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using MphRead.Entities;
+using MphRead.Mods.Accounts;
 
 namespace MphRead.Mods.Network
 {
@@ -25,23 +29,76 @@ namespace MphRead.Mods.Network
         /// releases the new session without creating or mutating game entities.
         /// </summary>
         public static bool Join(string address, int port, string playerName, Hunter hunter,
-            int timeoutMs = 8000, CancellationToken cancel = default)
+            int timeoutMs = 8000, CancellationToken cancel = default, bool observer = false)
+            => JoinAsync(address, port, playerName, hunter, timeoutMs, cancel, observer).GetAwaiter().GetResult();
+
+        public static async Task<bool> JoinAsync(string address, int port, string playerName, Hunter hunter,
+            int timeoutMs = 8000, CancellationToken cancel = default, bool observer = false)
+        {
+            LastJoinError = string.Empty;
+            try
+            {
+                cancel.ThrowIfCancellationRequested();
+                IPAddress[] addresses = await Dns.GetHostAddressesAsync(address, cancel).ConfigureAwait(false);
+                IPAddress destination = Array.Find(addresses, item => item.AddressFamily == AddressFamily.InterNetwork)
+                    ?? throw new InvalidOperationException("The server has no IPv4 address.");
+                string pinnedAddress = destination.ToString();
+                ServerStatus status = await Task.Run(() => NetStatus.Query(pinnedAddress, port, allowJoinProbe: false,
+                    timeoutMs: Math.Min(1200, Math.Max(1, timeoutMs))), cancel).ConfigureAwait(false);
+                AccountSession? account = AccountSessions.Current;
+                ulong? nonce = null;
+                string ticket = "";
+                if (status.RequiresTicket && account?.IsSignedIn != true)
+                    throw new InvalidOperationException("Sign in through Hunter License before joining this server.");
+                if (status.ServerId != Guid.Empty && account?.IsSignedIn == true)
+                {
+                    playerName = (await account.GetLicenseAsync(account.Identity!.PlayerId, cancel).ConfigureAwait(false)).DisplayName;
+                    nonce = NetConnection.NewIdentity();
+                    GameTicket grant = await account.GetTicketAsync(status.ServerId, nonce.Value, cancel).ConfigureAwait(false);
+                    pinnedAddress = PinTicketDestination(grant, addresses, port);
+                    ticket = grant.Ticket;
+                }
+                return await Task.Run(() => JoinCore(pinnedAddress, port, playerName, hunter, timeoutMs, cancel, nonce, ticket, observer), cancel).ConfigureAwait(false);
+            }
+            catch (Exception error)
+            {
+                LastJoinError = error is OperationCanceledException ? "Connection cancelled." : error.Message;
+                return false;
+            }
+        }
+
+        internal static string PinTicketDestination(GameTicket ticket, ReadOnlySpan<IPAddress> resolved, int port)
+        {
+            if (ticket.TryGetEndpoint(out IPEndPoint? registered) && registered!.Port == port)
+                foreach (IPAddress address in resolved)
+                    if (address.Equals(registered.Address)) return registered.Address.ToString();
+            throw new InvalidOperationException("This server address does not match the Backend's registered ticket destination. No ticket was sent.");
+        }
+
+        private static bool JoinCore(string address, int port, string playerName, Hunter hunter,
+            int timeoutMs, CancellationToken cancel, ulong? nonce, string ticket, bool observer)
         {
             AuthoritativePlay? play = null;
             LastJoinError = String.Empty;
             try
             {
                 cancel.ThrowIfCancellationRequested();
-                play = new AuthoritativePlay(address, port, playerName, hunter);
+                play = new AuthoritativePlay(address, port, playerName, hunter, nonce, ticket, observer);
                 var clock = Stopwatch.StartNew();
+                bool announcedPending = false;
                 while (play.Client.State == NetConnectionState.Connecting)
                 {
                     cancel.ThrowIfCancellationRequested();
-                    if (clock.ElapsedMilliseconds >= timeoutMs)
+                    if (clock.ElapsedMilliseconds >= (play.Client.AwaitingBotRetirement ? Math.Max(timeoutMs, 30000) : timeoutMs))
                     {
                         throw new TimeoutException($"No admission from {address}:{port} before the connection deadline.");
                     }
                     play.Client.Poll();
+                    if (play.Client.AwaitingBotRetirement && !announcedPending)
+                    {
+                        Console.WriteLine("[net] waiting for a bot to finish its current life (up to 30 seconds).");
+                        announcedPending = true;
+                    }
                     if (play.Client.Failure != null) { throw new ProgramException(play.Client.Failure); }
                     if (play.Client.State == NetConnectionState.Connecting) { Thread.Sleep(10); }
                 }

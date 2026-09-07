@@ -28,8 +28,16 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteInt64LittleEndian(destination[20..], rules.ObjectiveTimeGoal?.Ticks ?? -1);
             NetText.Write(destination.Slice(28, MatchStatePacket.MaxNameBytes), rules.RoomKey);
             destination[68] = (byte)rules.SpawnPolicy;
+            destination[69] = (byte)rules.OvertimePolicy;
+            destination[70] = (byte)rules.LateJoinPolicy;
+            destination[71] = (byte)rules.RulesetPreset;
+            destination[78] = (byte)rules.RankingEligibility;
+            destination[79] = (byte)rules.RadarPolicy;
+            destination[80] = (byte)rules.TeamBalancePolicy;
             BinaryPrimitives.WriteUInt16LittleEndian(destination[72..],
-                (ushort)(rules.CancelSpawnProtectionOnOffensiveAction ? 1 : 0));
+                (ushort)((rules.CancelSpawnProtectionOnOffensiveAction ? 1 : 0) | (rules.PickupRespawnAnnouncements ? 2 : 0)));
+            BinaryPrimitives.WriteUInt16LittleEndian(destination[74..], (ushort)rules.AssistMinimumDamage);
+            BinaryPrimitives.WriteUInt16LittleEndian(destination[76..], (ushort)rules.AssistWindowTicks);
         }
 
         public static bool TryRead(ReadOnlySpan<byte> source, out MatchRules rules)
@@ -37,12 +45,19 @@ namespace MphRead.Mods.Network
             rules = null!;
             if (source.Length != Size || source[0] < (byte)GameMode.Battle || source[0] > (byte)GameMode.PrimeHunter
                 || source[1] is < 1 or > 8 || source[2] > 15 || source[3] > 2
+                || BinaryPrimitives.ReadUInt16LittleEndian(source[74..]) == 0
+                || source[69] > (byte)OvertimePolicy.ModeDefault || source[70] > (byte)LateJoinPolicy.Disabled
                 || source[68] > (byte)SpawnPolicy.Duel
-                || BinaryPrimitives.ReadUInt16LittleEndian(source[72..]) > 1
+                || source[71] > (byte)RulesetPreset.Custom || source[78] > (byte)RankingEligibility.VerifiedServerOnly
+                || source[79] > (byte)RadarPolicy.Enabled || source[80] > (byte)TeamBalancePolicy.Locked
+                || source[71] == (byte)RulesetPreset.Duel && (source[0] != (byte)GameMode.Battle || source[1] != 2)
+                || source[79] == (byte)RadarPolicy.Disabled && (source[2] & 4) != 0
+                || source[79] == (byte)RadarPolicy.Enabled && (source[2] & 4) == 0
+                || BinaryPrimitives.ReadUInt16LittleEndian(source[72..]) > 3
                 || !NetWireIdentity.ValidText(source.Slice(28, MatchStatePacket.MaxNameBytes))) { return false; }
             // Unreleased extension capacity is canonical zero until assigned by this version.
-            for (int i = 69; i < 84; i++)
-            { if (i != 72 && i != 73 && source[i] != 0) { return false; } }
+            for (int i = 81; i < 84; i++)
+            { if (source[i] != 0) { return false; } }
             int score = BinaryPrimitives.ReadInt32LittleEndian(source[4..]);
             int lives = BinaryPrimitives.ReadInt32LittleEndian(source[8..]);
             long limit = BinaryPrimitives.ReadInt64LittleEndian(source[12..]);
@@ -56,7 +71,9 @@ namespace MphRead.Mods.Network
                 objective == -1 ? null : TimeSpan.FromTicks(objective), lives,
                 (source[2] & 1) != 0, (source[2] & 2) != 0, (source[2] & 4) != 0,
                 (source[2] & 8) != 0, source[3], (SpawnPolicy)source[68],
-                (source[72] & 1) != 0);
+                (source[72] & 1) != 0, BinaryPrimitives.ReadUInt16LittleEndian(source[74..]),
+                BinaryPrimitives.ReadUInt16LittleEndian(source[76..]), (OvertimePolicy)source[69], (LateJoinPolicy)source[70], (source[72] & 2) != 0,
+                (RulesetPreset)source[71], (RankingEligibility)source[78], (RadarPolicy)source[79], (TeamBalancePolicy)source[80]);
             try { MatchLifecycle.ValidateRules(rules); }
             catch (ArgumentOutOfRangeException) { rules = null!; return false; }
             return true;

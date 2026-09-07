@@ -87,10 +87,15 @@ namespace MphRead
                     // todo: stop music/SFX, state bits/disconnect message?
                 }
             }
+            bool regulationExpired = _match.Period == MatchPeriod.Regulation && _match.MatchTime == 0
+                && !_match.PendingEndReason.HasValue;
+            MatchEndReason? explicitEnd = _match.PendingEndReason is MatchEndReason.CompletionMessage or MatchEndReason.InvalidTeams
+                or MatchEndReason.Forced ? _match.PendingEndReason : null;
             _match.Logic.ProcessMode();
+            MatchOvertime.Evaluate(_scene, regulationExpired, explicitEnd);
             if (_match.MatchTime != 0 && !_match.ForceEndGame)
             {
-                UpdatePlayingPresentation();
+                if (_match.Period == MatchPeriod.Regulation) { UpdatePlayingPresentation(); }
             }
             else
             {
@@ -254,6 +259,8 @@ namespace MphRead
         {
             _match.Phase = MatchPhase.Playing;
             _match.ResetResult();
+            _match.Period = MatchPeriod.Regulation;
+            _match.PeriodStartTick = 0;
             _match.ForceEndGame = false;
             _tempoChanged = false;
             _stateChanged = false;

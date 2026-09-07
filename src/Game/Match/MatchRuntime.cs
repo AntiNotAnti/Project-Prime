@@ -11,6 +11,8 @@ namespace MphRead
         public uint MatchId { get; set; }
         public MatchRules Rules { get; private set; }
         public MatchPhase Phase { get; set; } = MatchPhase.Playing;
+        public MatchPeriod Period { get; set; } = MatchPeriod.Regulation;
+        public uint PeriodStartTick { get; set; }
         public uint PhaseStartTick { get; set; }
         public uint PhaseEndTick { get; set; }
         public bool HasPhaseDeadline { get; set; }
@@ -18,11 +20,29 @@ namespace MphRead
         internal bool UsesServerLifecycle { get; set; }
         public float MatchTime { get; set; }
         public int ActivePlayers { get; set; }
-        public int PrimeHunter { get; set; } = -1;
+        private int _primeHunter = -1;
+        public int PrimeHunter
+        {
+            get => _primeHunter;
+            set
+            {
+                if (_primeHunter == value) return;
+                _primeHunter = value;
+                if (_scene == null) return;
+                PlayerEntity? player = value >= 0 && value < PlayerEntity.Players.Count ? PlayerEntity.Players[value] : null;
+                _scene.Services.PublishWorldSignal(_scene, new(WorldSignalKind.PrimeChanged, WorldSubjectKind.Match,
+                    null, player, player == null ? (byte)255 : (byte)player.TeamIndex, player?.Position ?? OpenTK.Mathematics.Vector3.Zero));
+            }
+        }
         public bool ForceEndGame { get; set; }
         // Survival dynamically reveals the remaining players; this is effective state,
         // while Rules.PlayerRadar retains the configured setting.
-        public bool RadarPlayers { get; set; }
+        private bool _radarPlayers;
+        public bool RadarPlayers
+        {
+            get => Rules.RadarPolicy == RadarPolicy.Enabled || Rules.RadarPolicy == RadarPolicy.Classic && _radarPlayers;
+            set => _radarPlayers = value;
+        }
         public System.Collections.Generic.IReadOnlyList<PlayerMatchStats> Players { get; }
         internal int[] Stars { get; } = new int[PlayerEntity.SlotCapacity];
         internal int[] Standings { get; } = new int[PlayerEntity.SlotCapacity];
@@ -30,6 +50,11 @@ namespace MphRead
         internal int[] ResultSlots { get; } = new int[PlayerEntity.SlotCapacity];
         internal int[] Points { get; } = new int[PlayerEntity.SlotCapacity];
         internal int[] TeamPoints { get; } = new int[PlayerEntity.SlotCapacity];
+        internal int[] DamageDealt { get; } = new int[PlayerEntity.SlotCapacity];
+        internal int[] BipedKills { get; } = new int[PlayerEntity.SlotCapacity];
+        internal int[] AltFormKills { get; } = new int[PlayerEntity.SlotCapacity];
+        internal int[] LongestKillStreak { get; } = new int[PlayerEntity.SlotCapacity];
+        internal int[] Assists { get; } = new int[PlayerEntity.SlotCapacity];
         internal int[] Kills { get; } = new int[PlayerEntity.SlotCapacity];
         internal int[] TeamKills { get; } = new int[PlayerEntity.SlotCapacity];
         internal int[] Deaths { get; } = new int[PlayerEntity.SlotCapacity];
@@ -109,6 +134,14 @@ namespace MphRead
                 ForceEndGame ? MatchEndReason.Forced : PendingEndReason ?? MatchEndReason.TimeLimit);
         }
 
+        public void CaptureReplicatedResult(float completedAtSimulationTime, MatchEndReason reason,
+            ReadOnlySpan<PlayerResultIdentity> identities)
+        {
+            if (_scene?.Services.IsReplica != true || Phase is not (MatchPhase.Ending or MatchPhase.Intermission)
+                || identities.Length != PlayerEntity.SlotCapacity) throw new InvalidOperationException("A complete terminal replica is required.");
+            Result ??= new MatchResult(this, completedAtSimulationTime, reason, identities);
+        }
+
         internal void ResetCompetitiveState()
         {
             Array.Clear(Stars);
@@ -118,6 +151,11 @@ namespace MphRead
             Array.Clear(Points);
             Array.Clear(TeamPoints);
             Array.Clear(Kills);
+            Array.Clear(Assists);
+            Array.Clear(LongestKillStreak);
+            Array.Clear(DamageDealt);
+            Array.Clear(BipedKills);
+            Array.Clear(AltFormKills);
             Array.Clear(TeamKills);
             Array.Clear(Deaths);
             Array.Clear(TeamDeaths);
@@ -142,6 +180,8 @@ namespace MphRead
             ActivePlayers = 0;
             PrimeHunter = -1;
             ForceEndGame = false;
+            Period = MatchPeriod.Regulation;
+            PeriodStartTick = 0;
             RadarPlayers = Rules.PlayerRadar;
             ResetResult();
         }

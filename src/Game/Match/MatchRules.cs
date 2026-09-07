@@ -22,6 +22,15 @@ namespace MphRead
         public int DamageLevel { get; }
         public SpawnPolicy SpawnPolicy { get; }
         public bool CancelSpawnProtectionOnOffensiveAction { get; }
+        public bool PickupRespawnAnnouncements { get; }
+        public int AssistMinimumDamage { get; }
+        public int AssistWindowTicks { get; }
+        public OvertimePolicy OvertimePolicy { get; }
+        public LateJoinPolicy LateJoinPolicy { get; }
+        public RulesetPreset RulesetPreset { get; }
+        public RankingEligibility RankingEligibility { get; }
+        public RadarPolicy RadarPolicy { get; }
+        public TeamBalancePolicy TeamBalancePolicy { get; }
         public bool Teams => Mode.IsTeamMode();
         public bool IsOctolithMode => Mode is MatchMode.Capture or MatchMode.Bounty or MatchMode.TeamBounty;
         public bool IsSurvival => Mode is MatchMode.Survival or MatchMode.TeamSurvival;
@@ -33,7 +42,11 @@ namespace MphRead
             TimeSpan? timeLimit = null, int scoreGoal = 0, TimeSpan? objectiveTimeGoal = null,
             int startingLives = 0, bool friendlyFire = false, bool affinityWeapons = false,
             bool playerRadar = false, bool octolithReset = false, int damageLevel = 1,
-            SpawnPolicy spawnPolicy = SpawnPolicy.Classic, bool cancelSpawnProtectionOnOffensiveAction = false)
+            SpawnPolicy spawnPolicy = SpawnPolicy.Classic, bool cancelSpawnProtectionOnOffensiveAction = false,
+            int assistMinimumDamage = 20, int assistWindowTicks = 300,
+            OvertimePolicy overtimePolicy = OvertimePolicy.Disabled, LateJoinPolicy lateJoinPolicy = LateJoinPolicy.JoinImmediately, bool pickupRespawnAnnouncements = false,
+            RulesetPreset rulesetPreset = RulesetPreset.Classic, RankingEligibility rankingEligibility = RankingEligibility.Unranked,
+            RadarPolicy radarPolicy = RadarPolicy.Classic, TeamBalancePolicy teamBalancePolicy = TeamBalancePolicy.BeforeStart)
         {
             _ = mode.ToLegacyMode();
             if (String.IsNullOrWhiteSpace(roomKey)) { throw new ArgumentException("A room key is required.", nameof(roomKey)); }
@@ -46,6 +59,23 @@ namespace MphRead
             if (startingLives < 0) { throw new ArgumentOutOfRangeException(nameof(startingLives)); }
             if ((uint)damageLevel > 2) { throw new ArgumentOutOfRangeException(nameof(damageLevel)); }
             if (!Enum.IsDefined(spawnPolicy)) { throw new ArgumentOutOfRangeException(nameof(spawnPolicy)); }
+            if (assistMinimumDamage is < 1 or > ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(assistMinimumDamage));
+            if (assistWindowTicks is < 0 or > ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(assistWindowTicks));
+            if (!Enum.IsDefined(overtimePolicy)) { throw new ArgumentOutOfRangeException(nameof(overtimePolicy)); }
+            if (!Enum.IsDefined(lateJoinPolicy)) { throw new ArgumentOutOfRangeException(nameof(lateJoinPolicy)); }
+            if (!Enum.IsDefined(rulesetPreset)) throw new ArgumentOutOfRangeException(nameof(rulesetPreset));
+            if (!Enum.IsDefined(rankingEligibility)) throw new ArgumentOutOfRangeException(nameof(rankingEligibility));
+            if (!Enum.IsDefined(radarPolicy)) throw new ArgumentOutOfRangeException(nameof(radarPolicy));
+            if (!Enum.IsDefined(teamBalancePolicy)) throw new ArgumentOutOfRangeException(nameof(teamBalancePolicy));
+            if (rulesetPreset == RulesetPreset.Duel && (mode != MatchMode.Battle || maxPlayers != 2))
+                throw new ArgumentException("Duel requires Battle mode and two active players.");
+            RulesetPreset = rulesetPreset; RankingEligibility = rankingEligibility;
+            RadarPolicy = radarPolicy; TeamBalancePolicy = teamBalancePolicy;
+            OvertimePolicy = overtimePolicy;
+            LateJoinPolicy = lateJoinPolicy;
+            PickupRespawnAnnouncements = pickupRespawnAnnouncements;
+            AssistMinimumDamage = assistMinimumDamage;
+            AssistWindowTicks = assistWindowTicks;
             SpawnPolicy = spawnPolicy;
             CancelSpawnProtectionOnOffensiveAction = cancelSpawnProtectionOnOffensiveAction;
             Mode = mode;
@@ -57,7 +87,7 @@ namespace MphRead
             StartingLives = startingLives;
             FriendlyFire = friendlyFire;
             AffinityWeapons = affinityWeapons;
-            PlayerRadar = playerRadar;
+            PlayerRadar = radarPolicy == RadarPolicy.Enabled || radarPolicy == RadarPolicy.Classic && playerRadar;
             OctolithReset = octolithReset;
             DamageLevel = damageLevel;
         }
@@ -85,14 +115,22 @@ namespace MphRead
             TimeSpan? objectiveTimeGoal = null, int? startingLives = null,
             bool? friendlyFire = null, bool? affinityWeapons = null, bool? playerRadar = null,
             bool? octolithReset = null, int? damageLevel = null,
-            SpawnPolicy? spawnPolicy = null, bool? cancelSpawnProtectionOnOffensiveAction = null)
+            SpawnPolicy? spawnPolicy = null, bool? cancelSpawnProtectionOnOffensiveAction = null,
+            int? assistMinimumDamage = null, int? assistWindowTicks = null,
+            OvertimePolicy? overtimePolicy = null, LateJoinPolicy? lateJoinPolicy = null, bool? pickupRespawnAnnouncements = null,
+            RulesetPreset? rulesetPreset = null, RankingEligibility? rankingEligibility = null,
+            RadarPolicy? radarPolicy = null, TeamBalancePolicy? teamBalancePolicy = null)
         {
             return new MatchRules(mode ?? Mode, roomKey ?? RoomKey, maxPlayers ?? MaxPlayers,
                 clearTimeLimit ? null : timeLimit ?? TimeLimit, scoreGoal ?? ScoreGoal,
                 objectiveTimeGoal ?? ObjectiveTimeGoal, startingLives ?? StartingLives,
                 friendlyFire ?? FriendlyFire, affinityWeapons ?? AffinityWeapons,
                 playerRadar ?? PlayerRadar, octolithReset ?? OctolithReset, damageLevel ?? DamageLevel,
-                spawnPolicy ?? SpawnPolicy, cancelSpawnProtectionOnOffensiveAction ?? CancelSpawnProtectionOnOffensiveAction);
+                spawnPolicy ?? SpawnPolicy, cancelSpawnProtectionOnOffensiveAction ?? CancelSpawnProtectionOnOffensiveAction,
+                assistMinimumDamage ?? AssistMinimumDamage, assistWindowTicks ?? AssistWindowTicks,
+                overtimePolicy ?? OvertimePolicy, lateJoinPolicy ?? LateJoinPolicy, pickupRespawnAnnouncements ?? PickupRespawnAnnouncements,
+                rulesetPreset ?? RulesetPreset, rankingEligibility ?? RankingEligibility,
+                radarPolicy ?? RadarPolicy, teamBalancePolicy ?? TeamBalancePolicy);
         }
 
         public static MatchRules CreateDefault(MatchMode mode, string roomKey, int maxPlayers = PlayerEntity.SlotCapacity)
@@ -110,7 +148,8 @@ namespace MphRead
             };
             bool timedObjective = mode is MatchMode.Defender or MatchMode.TeamDefender or MatchMode.PrimeHunter;
             return new MatchRules(mode, roomKey, maxPlayers, TimeSpan.FromMinutes(battle ? 7 : 15),
-                points, timedObjective ? TimeSpan.FromSeconds(90) : null, survival ? 2 : 0);
+                points, timedObjective ? TimeSpan.FromSeconds(90) : null, survival ? 2 : 0,
+                lateJoinPolicy: survival ? LateJoinPolicy.SpectateUntilNextMatch : LateJoinPolicy.JoinImmediately);
         }
     }
 }

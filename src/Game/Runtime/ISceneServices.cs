@@ -13,6 +13,9 @@ namespace MphRead
         PlayerEntity RebuildPlayers(Scene scene, Hunter hunter, int recolor)
             => throw new System.InvalidOperationException("This scene host does not rebuild session players.");
         void AfterRoomRebuild(Scene scene) { }
+        void PublishWorldSignal(Scene scene, in WorldSignal signal) { }
+        uint GetWorldEntityId(Scene scene, EntityBase entity) => 0;
+        void ForgetWorldEntity(EntityBase entity) { }
         int LocalSlot => 0;
         uint WorldServerTick => 0;
         bool MayEndOnScore => true;
@@ -65,6 +68,7 @@ namespace MphRead
             ushort chargeLevel = 0, bool affinity = false, uint spreadSeed = 0);
         void NoteBomb(in CombatShot shot, BombType type, Vector3 position, Vector3 facing);
         void NoteSpawn(PlayerEntity player);
+        void NoteHealing(PlayerEntity player, int amount) { }
         void NoteDamage(PlayerEntity victim, EntityBase? source, PlayerEntity? attacker, BeamType weapon,
             DamageFlags flags, Vector3? direction, int previousHealth, ushort frozen, ushort burn,
             ushort disrupt, bool afflictionChanged);

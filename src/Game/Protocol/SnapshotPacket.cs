@@ -19,7 +19,10 @@ namespace MphRead.Mods.Network
         Burning = 256,
         Disrupted = 512,
         Zoomed = 1024,
-        All = 2047
+        RadarReveal = 2048,
+        RadarRevealPrevious = 4096,
+        WaitingForMatch = 8192,
+        All = 16383
     }
 
     public struct SnapshotPlayer
@@ -86,6 +89,10 @@ namespace MphRead.Mods.Network
                 || BinaryPrimitives.ReadInt32LittleEndian(source[80..]) < 0
                 || BinaryPrimitives.ReadInt32LittleEndian(source[92..]) < 0
                 || BinaryPrimitives.ReadUInt32LittleEndian(source[12..]) == 0
+                || ((BinaryPrimitives.ReadUInt16LittleEndian(source[4..]) & (ushort)SnapshotPlayerFlags.WaitingForMatch) != 0
+                    && ((BinaryPrimitives.ReadUInt16LittleEndian(source[4..]) & (ushort)(SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned)) != 0
+                        || (BinaryPrimitives.ReadUInt16LittleEndian(source[4..]) & (ushort)SnapshotPlayerFlags.Spectating) == 0
+                        || BinaryPrimitives.ReadUInt16LittleEndian(source[6..]) != 0))
                 || (((SnapshotPlayerFlags)BinaryPrimitives.ReadUInt16LittleEndian(source[4..]) & SnapshotPlayerFlags.Burning) != 0) != (BinaryPrimitives.ReadUInt16LittleEndian(source[88..]) > 0)
                 || (((SnapshotPlayerFlags)BinaryPrimitives.ReadUInt16LittleEndian(source[4..]) & SnapshotPlayerFlags.Disrupted) != 0) != (BinaryPrimitives.ReadUInt16LittleEndian(source[90..]) > 0)
                 || (BinaryPrimitives.ReadUInt16LittleEndian(source[84..]) & ~0x1FF) != 0)

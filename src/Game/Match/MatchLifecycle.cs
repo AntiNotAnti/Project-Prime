@@ -49,11 +49,14 @@ namespace MphRead
                     else if (DeadlineReached(tick, _match.PhaseEndTick))
                     {
                         uint? length = _durationTicks;
+                        _match.Period = MatchPeriod.Regulation;
+                        _match.PeriodStartTick = tick;
                         SetPhase(MatchPhase.Playing, tick, length);
                         _match.MatchTime = length.HasValue ? length.Value / 60f : -1;
                     }
                     break;
                 case MatchPhase.Playing:
+                    if (_match.Period != MatchPeriod.Regulation) { break; }
                     // A score/objective/explicit completion may have already set zero.
                     if (_match.MatchTime != 0 && _match.HasPhaseDeadline)
                     {

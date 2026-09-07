@@ -552,6 +552,12 @@ namespace MphRead.Mods.Launcher.Gui
             _demoEntry.Click += async (_, _) => await ChooseDemo();
             var settings = new MenuEntry("Settings");
             settings.Click += async (_, _) => await OpenSettings();
+            var account = new MenuEntry("Hunter License");
+            account.Click += async (_, _) =>
+            {
+                var view = new AccountView();
+                await ShowOverlay(view, handler => view.Closed += handler);
+            };
             var quit = new MenuEntry("Quit");
             quit.Click += (_, _) => Finish(default);
 
@@ -559,6 +565,7 @@ namespace MphRead.Mods.Launcher.Gui
             card.Children.Add(_hostEntry);
             card.Children.Add(_onlineEntry);
             card.Children.Add(_demoEntry);
+            card.Children.Add(account);
             card.Children.Add(settings);
             card.Children.Add(quit);
             RefreshVersionLine();
@@ -1451,12 +1458,14 @@ namespace MphRead.Mods.Launcher.Gui
         private FieldRow _onlineAddress = null!;
         private Note _onlineStatus = null!;
         private MenuEntry _connect = null!;
+        private ChoiceRow _onlineRole = null!;
 
         private Control BuildOnlineCard()
         {
             var card = Card();
             _onlineHunter = new ChoiceRow("Hunter", _hunters,
                 Array.IndexOf(_hunters, LauncherPrefs.LastHunter.ToString()));
+            _onlineRole = new ChoiceRow("Join as", new[] { "Player", "Spectator" }, 0);
             _onlineAddress = new FieldRow("Server",
                 $"{LauncherPrefs.ServerAddress}:{LauncherPrefs.ServerPort}", boxWidth: 190);
             _onlineStatus = new Note("Checking...");
@@ -1471,6 +1480,7 @@ namespace MphRead.Mods.Launcher.Gui
             // list rather than to the front screen, because somebody who
             // picked the wrong server is trying to reach the list.
             card.Children.Add(new Caption("Join"));
+            card.Children.Add(_onlineRole);
             card.Children.Add(_onlineHunter);
             card.Children.Add(_onlineAddress);
             card.Children.Add(_onlineStatus);
@@ -1554,8 +1564,7 @@ namespace MphRead.Mods.Launcher.Gui
             string ping = status.Latency >= 0
                 ? $"{status.Latency.ToString(CultureInfo.InvariantCulture)} ms"
                 : "-- ms";
-            return $"{status.RoomKey} ({NetStatus.ModeName(status.Mode)}) "
-                + $"{players} players, {ping}";
+            return ServerBrowser.Details(status);
         }
 
         private async Task Connect()
@@ -1579,7 +1588,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             // Joining blocks for up to eight seconds while it retries; on the
             // UI thread that is eight seconds of a window that does not redraw.
-            bool joined = await Task.Run(() => NetLaunch.Join(host, port, name, hunter));
+            bool joined = await NetLaunch.JoinAsync(host, port, name, hunter, observer: _onlineRole.Index == 1);
             _connect.IsEnabled = true;
             _connect.Title = "Connect";
             if (!joined)
@@ -1590,6 +1599,8 @@ namespace MphRead.Mods.Launcher.Gui
                 StartStatusPolling();
                 return;
             }
+            _browserPreferences.Visited(port == NetConfig.DefaultPort ? host : $"{host}:{port}");
+            _browserPreferences.Save();
             Finish(new LaunchPlan
             {
                 Kind = LaunchKind.Online,
@@ -1610,6 +1621,7 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _matchOnMaster = null!;
         private ToggleRow _matchListed = null!;
         private MenuEntry _matchStart = null!;
+        private bool _practice;
         private int _hostCheckGeneration;
         private Note _matchNote = null!;
 
@@ -1660,6 +1672,19 @@ namespace MphRead.Mods.Launcher.Gui
             card.Children.Add(_matchHunter);
             card.Children.Add(_matchNote);
             card.Children.Add(_matchStart);
+            if (NetHostSession.Available)
+            {
+                var practice = new MenuEntry("Practice with bots", "Private localhost match", titleSize: 13);
+                practice.Click += async (_, _) =>
+                {
+                    if (_practice) return;
+                    _practice = true; _matchOnMaster.On = false; _matchListed.On = false;
+                    _matchStart.IsEnabled = true;
+                    try { await StartMatch(); }
+                    finally { _practice = false; _matchOnMaster.On = true; _matchListed.On = true; }
+                };
+                card.Children.Add(practice);
+            }
             return card;
         }
 
@@ -1808,8 +1833,11 @@ namespace MphRead.Mods.Launcher.Gui
 
             string name = PlayerName();
             LauncherPrefs.PlayerName = name;
-            LauncherPrefs.HostOnMaster = _matchOnMaster.On;
-            LauncherPrefs.ListHostedGame = _matchListed.On;
+            if (!_practice)
+            {
+                LauncherPrefs.HostOnMaster = _matchOnMaster.On;
+                LauncherPrefs.ListHostedGame = _matchListed.On;
+            }
             if (Int32.TryParse(_matchPort.Value, NumberStyles.Integer,
                 CultureInfo.InvariantCulture, out int port) && port > 0 && port <= 65535)
             {
@@ -1850,7 +1878,7 @@ namespace MphRead.Mods.Launcher.Gui
                     timeLimit: 7 * 60, pointGoal: 7,
                     listing: _matchListed.On
                         ? (LauncherPrefs.MasterHost, LauncherPrefs.MasterPort, $"{name}'s game")
-                        : null));
+                        : null, practice: _practice));
             }
             _matchStart.IsEnabled = true;
             _matchStart.Title = "Start";
@@ -1880,95 +1908,120 @@ namespace MphRead.Mods.Launcher.Gui
 
         private StackPanel _browseList = null!;
         private Note _browseNote = null!;
-
+        private readonly List<ServerBrowserEntry> _browserEntries = new();
+        private readonly ServerBrowserPreferences _browserPreferences = ServerBrowserPreferences.Load();
+        private ChoiceRow _browserMode = null!, _browserSort = null!, _browserGroup = null!, _browserPing = null!;
+        private ToggleRow _browserHideFull = null!, _browserHideIncompatible = null!;
+        private int _browserGeneration;
         private Control BuildBrowseCard()
         {
             var card = Card();
             _browseList = new StackPanel { Spacing = 2 };
             _browseNote = new Note("");
+            _browserMode = new ChoiceRow("Mode", new[] { "Any mode" }.Concat(_modes.Select(m => m.Label)).ToArray());
+            _browserSort = new ChoiceRow("Sort", new[] { "Ping", "Population" });
+            _browserGroup = new ChoiceRow("Show", new[] { "All servers", "Favorites", "Recent" });
+            _browserPing = new ChoiceRow("Maximum ping", new[] { "Any", "50 ms", "100 ms", "150 ms", "250 ms" });
+            _browserHideFull = new ToggleRow("Hide full", false);
+            _browserHideIncompatible = new ToggleRow("Hide incompatible", true);
+            var filters = new StackPanel { IsVisible = false };
+            foreach (Control control in new Control[] { _browserMode, _browserSort, _browserGroup, _browserPing, _browserHideFull, _browserHideIncompatible }) filters.Children.Add(control);
+            foreach (ChoiceRow row in new[] { _browserMode, _browserSort, _browserGroup, _browserPing }) row.Changed += (_, _) => RenderServerRows();
+            _browserHideFull.Changed += (_, _) => RenderServerRows();
+            _browserHideIncompatible.Changed += (_, _) => RenderServerRows();
+            var filterToggle = new MenuEntry("Filters and sorting", titleSize: 13);
+            filterToggle.Click += (_, _) => filters.IsVisible = !filters.IsVisible;
             var refresh = new MenuEntry("Refresh", titleSize: 15);
             refresh.Click += (_, _) => ReloadServers();
-
+            var quick = new MenuEntry("Quick join", "Best compatible open server", titleSize: 15);
+            quick.Click += async (_, _) => await QuickJoinServer();
             card.Children.Add(new Caption("Join"));
             card.Children.Add(_browseNote);
-            // Headings over the list, outside the scroll viewer so they stay
-            // put while it scrolls -- which is the whole point of having them.
-            card.Children.Add(new ServerHeader());
-            card.Children.Add(new ScrollViewer
-            {
-                Height = 300,
-                Content = _browseList,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
-            });
+            card.Children.Add(filterToggle);
+            card.Children.Add(filters);
+            card.Children.Add(new ServerHeader { Margin = new Thickness(30, 0, 0, 0) });
+            card.Children.Add(new ScrollViewer { Height = 250, Content = _browseList, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled });
+            card.Children.Add(quick);
             card.Children.Add(refresh);
             card.Children.Add(Back(() => ShowCard(_browseReturn ?? _homeCard)));
             return card;
         }
-
-        /// <summary>
-        /// Ask the directory who is up, then ask each of them directly.
-        ///
-        /// Directly, not through the directory: the round trip that matters is
-        /// this machine's, and an answer also proves the server is reachable
-        /// from here rather than only from there.
-        /// </summary>
+        private GameMode? BrowserMode => _browserMode.Index == 0 ? null : _modes[_browserMode.Index - 1].Mode;
+        private ServerBrowserFilter BrowserFilter => new(BrowserMode, _browserHideFull.On, _browserHideIncompatible.On,
+            new[] { 0, 50, 100, 150, 250 }[_browserPing.Index], (ServerSort)_browserSort.Index, (ServerGroup)_browserGroup.Index);
         private void ReloadServers()
         {
+            int generation = ++_browserGeneration;
+            _browserEntries.Clear();
             _browseList.Children.Clear();
             _browseNote.Text = $"Asking {LauncherPrefs.MasterHost}...";
             _browseNote.Foreground = GuiTheme.TextDimBrush;
             Task.Run(() =>
             {
-                MasterListResult result = NetMasterClient.Query(LauncherPrefs.MasterHost,
-                    LauncherPrefs.MasterPort);
+                MasterListResult result = NetMasterClient.Query(LauncherPrefs.MasterHost, LauncherPrefs.MasterPort);
                 Dispatcher.UIThread.Post(() =>
                 {
-                    if (!result.Answered)
+                    if (generation != _browserGeneration) return;
+                    _browseNote.Text = !result.Answered ? "Directory did not answer. Probing saved servers."
+                        : !result.Compatible ? "Directory online — " + result.IncompatibilityReason : $"{result.Servers.Count} listed.";
+                    var listings = result.Servers.ToList();
+                    foreach (string endpoint in _browserPreferences.Favorites.Concat(_browserPreferences.Recent).Distinct())
                     {
-                        _browseNote.Text = "The directory did not answer. It may be down, "
-                            + "or UDP may not reach it.";
-                        _browseNote.Foreground = GuiTheme.WarmBrush;
-                        return;
+                        if (listings.Any(l => l.Endpoint == endpoint)) continue;
+                        if (Uri.TryCreate("udp://" + endpoint, UriKind.Absolute, out Uri? address)
+                            && address.Host.Length > 0 && address.Port is >= -1 and <= 65535)
+                            listings.Add(new MasterListing { Address = address.Host, Port = address.Port < 0 ? NetConfig.DefaultPort : address.Port, ServerName = endpoint });
                     }
-                    if (!result.Compatible)
-                    {
-                        _browseNote.Text = "Directory online — " + result.IncompatibilityReason;
-                        _browseNote.Foreground = GuiTheme.BadBrush;
-                    }
-                    if (result.Servers.Count == 0)
-                    {
-                        if (!result.Compatible) { return; }
-                        _browseNote.Text = "The directory is up and has nobody listed.";
-                        _browseNote.Foreground = GuiTheme.WarmBrush;
-                        return;
-                    }
-                    if (result.Compatible) { _browseNote.Text = $"{result.Servers.Count} listed."; }
-                    foreach (MasterListing listing in result.Servers)
-                    {
-                        AddServerRow(listing);
-                    }
+                    foreach (MasterListing listing in listings.Take(128)) AddServerRow(listing, generation);
+                    RenderServerRows();
                 });
             });
         }
-
-        private void AddServerRow(MasterListing listing)
+        private void AddServerRow(MasterListing listing, int generation)
         {
-            string name = listing.ServerName.Length > 0 ? listing.ServerName : listing.Endpoint;
-            var row = new ServerRow(name, listing.Endpoint);
-            ToolTip.SetTip(row, listing.Endpoint);
-            row.Clicked += (_, _) =>
-            {
-                _onlineAddress.Value = $"{listing.Address}:{listing.Port}";
-                ShowCard(_onlineCard);
-                QueryStatusSoon();
-            };
-            _browseList.Children.Add(row);
+            var entry = new ServerBrowserEntry(listing) { Status = ServerStatus.Offline("Asking...") };
+            _browserEntries.Add(entry);
             Task.Run(() =>
             {
-                ServerStatus status = NetStatus.Query(listing.Address, listing.Port,
-                    allowJoinProbe: false);
-                Dispatcher.UIThread.Post(() => row.SetStatus(status));
+                ServerStatus status = NetStatus.Query(listing.Address, listing.Port, allowJoinProbe: false);
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (generation != _browserGeneration) return;
+                    entry.Status = status;
+                    RenderServerRows();
+                });
             });
+        }
+        private void RenderServerRows()
+        {
+            _browseList.Children.Clear();
+            foreach (ServerBrowserEntry entry in ServerBrowser.Select(_browserEntries, BrowserFilter, _browserPreferences))
+            {
+                MasterListing listing = entry.Listing;
+                string name = listing.ServerName.Length > 0 ? listing.ServerName : listing.Endpoint;
+                var row = new ServerRow(name, listing.Endpoint);
+                row.SetStatus(entry.Status);
+                row.Clicked += (_, _) => { _onlineAddress.Value = $"{listing.Address}:{listing.Port}"; ShowCard(_onlineCard); QueryStatusSoon(); };
+                var favorite = new Avalonia.Controls.Button { Content = _browserPreferences.IsFavorite(listing.Endpoint) ? "★" : "☆", Width = 30, Height = 30, Padding = new Thickness(0) };
+                ToolTip.SetTip(favorite, "Toggle favorite");
+                favorite.Click += (_, _) => { _browserPreferences.ToggleFavorite(listing.Endpoint); _browserPreferences.Save(); RenderServerRows(); };
+                var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("30,*") };
+                Grid.SetColumn(row, 1);
+                grid.Children.Add(favorite); grid.Children.Add(row);
+                _browseList.Children.Add(grid);
+            }
+        }
+        private async Task QuickJoinServer()
+        {
+            ServerBrowserEntry? candidate = ServerBrowser.QuickJoin(ServerBrowser.Select(_browserEntries, BrowserFilter, _browserPreferences), BrowserMode);
+            if (candidate == null) { _browseNote.Text = "No compatible open server matches these filters."; return; }
+            ServerStatus fresh = await Task.Run(() => NetStatus.Query(candidate.Listing.Address, candidate.Listing.Port, allowJoinProbe: false));
+            if (!fresh.Compatible || ServerBrowser.Full(fresh)) { _browseNote.Text = "Server availability changed. Refresh and try again."; return; }
+            _onlineRole.Index = 0;
+            _onlineAddress.Value = $"{candidate.Listing.Address}:{candidate.Listing.Port}";
+            ShowCard(_onlineCard);
+            _connect.IsEnabled = true;
+            await Connect();
         }
 
         // ------------------------------------------------------------ settings

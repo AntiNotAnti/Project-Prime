@@ -125,6 +125,7 @@ namespace MphRead.Mods.Input
             _pressed = State.Buttons & ~_previous;
             _previous = State.Buttons;
             (float x, float y) = ApplyDeadZone(State.RightX, State.RightY);
+            if (State.Down(PadBindings.Get(PadAction.WeaponWheel))) x = y = 0;
             // Squared response, keeping the sign: the useful half of a stick's
             // travel is the first half, where a shooter wants to make small
             // corrections. Linear, the same stick has to do both the flick and
@@ -230,18 +231,10 @@ namespace MphRead.Mods.Input
             GamepadButtons jump = PadBindings.Get(PadAction.Jump);
             Hold(controls.Jump, jump);
             Hold(controls.Boost, jump);
-            Hold(controls.Morph, PadBindings.Get(PadAction.Morph));
-            // No weapon wheel on a pad, deliberately: PlayerHud's weapon
-            // select reads the *absolute* pointer position, because on the DS
-            // it was a touch screen and the slot under the stylus is the one
-            // that gets picked. A stick has no position, so driving it would
-            // mean warping the mouse cursor about to fake one -- which fights
-            // whoever also has a hand on the mouse, and is a surprising thing
-            // for a controller to do to a desktop. The bumpers and the d-pad
-            // below reach every weapon without it.
-            //
-            // The scoreboard is the DS's own pause button, which is what Back
-            // is shaped like on every pad.
+            if (!State.Down(PadBindings.Get(PadAction.WeaponWheel)) && !player.GetPresentation().WeaponRadial.Open)
+                Hold(controls.Morph, PadBindings.Get(PadAction.Morph));
+            Hold(controls.QuickSwap, PadBindings.Get(PadAction.QuickSwap));
+            // The client radial owns right-stick selection; it never moves the mouse cursor.
             Hold(controls.Pause, PadBindings.Get(PadAction.Scoreboard));
 
             Hold(controls.NextWeapon, PadBindings.Get(PadAction.NextWeapon));

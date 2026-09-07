@@ -37,6 +37,11 @@ namespace MphRead.Mods.Network
             scene.Match.Players[slot].Points = 0;
             scene.Match.Players[slot].Kills = 0;
             scene.Match.Players[slot].Deaths = 0;
+            scene.Match.Players[slot].Assists = 0;
+            scene.Match.Players[slot].LongestKillStreak = 0;
+            scene.Match.Players[slot].DamageDealt = 0;
+            scene.Match.Players[slot].BipedKills = 0;
+            scene.Match.Players[slot].AltFormKills = 0;
             scene.Match.Players[slot].Time = 0;
             scene.Match.Players[slot].Suicides = 0;
             scene.Match.Players[slot].FriendlyKills = 0;

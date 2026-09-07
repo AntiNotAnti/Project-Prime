@@ -16,7 +16,7 @@ internal static class ServerProgram
         {
             if (!Run(args))
             {
-                Console.WriteLine("Prime Hunters dedicated server\n-server [ROOM] -data DIRECTORY [-port 27888] [-rotation FILE] [-players 8] [-friendlyfire true] [-spawnpolicy classic|enhanced|duel] [-cancelspawnprotection true|false]\n-masterserver [-port 27889] [-data DIRECTORY] [-hostports 27900-27919] [-public HOST]");
+                Console.WriteLine("Prime Hunters dedicated server\n-server [ROOM] -data DIRECTORY [-port 27888] [-rotation FILE] [-players 8] [-friendlyfire true] [-spawnpolicy classic|enhanced|duel] [-cancelspawnprotection true|false] [-overtime disabled|mode] [-latejoin immediate|next|disabled] [-votepolicy public|private] [-spectators 4] [-spectatordelay 0..30]\n-masterserver [-port 27889] [-data DIRECTORY] [-hostports 27900-27919] [-public HOST]");
                 return args.Length == 0 || HasFlag(args, "help") ? 0 : 2;
             }
             return Environment.ExitCode;
@@ -103,6 +103,13 @@ internal static class ServerProgram
                         ValueAfter(args, "dataversion") ?? "AMHE1", simulationRotation?.Current ?? entry)
                     {
                         Rotation = simulationRotation,
+                        RulesetPreset = RulesetResolver.Parse(ValueAfter(args, "ruleset")),
+                        Voting = ServerVoteOptions.Parse(ValueAfter(args, "votepolicy"), HasFlag(args, "votepolicy"),
+                            RulesetResolver.Parse(ValueAfter(args, "ruleset"))),
+                        TicketOptions = ServerTicketConfiguration.FromEnvironment(),
+                        Observers = ServerObserverConfiguration.Parse(ValueAfter(args, "spectators"), ValueAfter(args, "spectatordelay")),
+                        LateJoinPolicy = ServerLateJoinOptions.Parse(ValueAfter(args, "latejoin"), HasFlag(args, "latejoin")),
+                        OvertimePolicy = ServerOvertimeOptions.Parse(ValueAfter(args, "overtime"), HasFlag(args, "overtime")),
                         SpawnPolicy = ServerSpawnOptions.ParsePolicy(ValueAfter(args, "spawnpolicy"), HasFlag(args, "spawnpolicy")),
                         CancelSpawnProtectionOnOffensiveAction = ServerSpawnOptions.ParseCancellation(
                             ValueAfter(args, "cancelspawnprotection"), HasFlag(args, "cancelspawnprotection")),

@@ -12,7 +12,6 @@ namespace MphRead.Mods.Network
         private readonly Dictionary<ItemInstanceEntity, uint> _items = new(WorldPacket.Capacity);
         private readonly HashSet<ItemInstanceEntity> _alive = new(WorldPacket.Capacity);
         private readonly ItemInstanceEntity[] _retired = new ItemInstanceEntity[WorldPacket.Capacity];
-        private uint _nextItemId = 1;
         public uint MatchId { get; private set; }
         public uint Revision { get; private set; }
         public uint ServerTick { get; private set; }
@@ -23,24 +22,56 @@ namespace MphRead.Mods.Network
         public void Capture(Scene scene, uint matchId, uint revision, uint serverTick)
         {
             if (!scene.IsHeadless || matchId == 0) { throw new InvalidOperationException("World capture requires an authoritative scene and match."); }
-            if (MatchId != matchId) { ValidateRoom(scene); _items.Clear(); _nextItemId = 1; }
+            if (MatchId != matchId) { ValidateRoom(scene); _items.Clear(); }
             MatchId = matchId; Revision = revision; ServerTick = serverTick; Count = 0;
-            Add(new WorldRecord(WorldRecordKind.Match, 255, (ushort)((scene.Match.Rules.Teams ? 1 : 0) | (scene.Match.RadarPlayers ? 2 : 0)), 0,
-                new Vector3(scene.Match.MatchTime, scene.Match.Rules.LegacyTimeGoal, 0), (uint)scene.Match.Rules.Mode.ToLegacyMode(), (uint)scene.Match.Phase,
-                unchecked((uint)scene.Match.Rules.LegacyPointGoal), unchecked((uint)scene.Match.PrimeHunter), 0));
+            MatchRuntime match = scene.Match;
+            MatchResult? result = match.Result;
+            MatchRules rules = result?.Rules ?? match.Rules;
+            Add(new WorldRecord(WorldRecordKind.Match, 255, (ushort)((rules.Teams ? 1 : 0) | (match.RadarPlayers ? 2 : 0)), 0,
+                new Vector3(result?.RemainingMatchTime ?? match.MatchTime, rules.LegacyTimeGoal, result?.CompletedAtSimulationTime ?? 0),
+                (uint)rules.Mode.ToLegacyMode(), (uint)match.Phase,
+                unchecked((uint)rules.LegacyPointGoal), unchecked((uint)(result?.PrimeHunter ?? match.PrimeHunter)),
+                result == null ? 0 : (uint)result.EndReason + 1));
             for (byte slot = 0; slot < 8; slot++)
             {
+                PlayerMatchStats p = match.Players[slot];
+                PlayerMatchResult? r = result?.Players[slot];
+                TeamMatchResult? team = result?.Teams[slot];
                 Add(new WorldRecord(WorldRecordKind.Score, slot, 0, 0, Vector3.Zero,
-                    unchecked((uint)scene.Match.Players[slot].Points), unchecked((uint)scene.Match.Players[slot].Kills),
-                    unchecked((uint)scene.Match.Players[slot].Deaths), unchecked((uint)scene.Match.TeamPoints[slot]),
-                    unchecked((uint)scene.Match.TeamKills[slot])));
+                    unchecked((uint)(r?.Points ?? p.Points)), unchecked((uint)(r?.Kills ?? p.Kills)),
+                    unchecked((uint)(r?.Deaths ?? p.Deaths)), unchecked((uint)(team?.Points ?? match.TeamPoints[slot])),
+                    unchecked((uint)(team?.Kills ?? match.TeamKills[slot]))));
                 Add(new WorldRecord(WorldRecordKind.Time, slot, 0, 0, Vector3.Zero,
-                    unchecked((uint)scene.Match.TeamDeaths[slot]), WorldRecord.Bits(scene.Match.Players[slot].Time), WorldRecord.Bits(scene.Match.TeamTime[slot]),
-                    unchecked((uint)scene.Match.Players[slot].NodesCaptured), unchecked((uint)scene.Match.Players[slot].OctolithScores)));
+                    unchecked((uint)(team?.Deaths ?? match.TeamDeaths[slot])), WorldRecord.Bits(r?.Time ?? p.Time),
+                    WorldRecord.Bits(team?.Time ?? match.TeamTime[slot]), unchecked((uint)(r?.NodesCaptured ?? p.NodesCaptured)),
+                    unchecked((uint)(r?.OctolithScores ?? p.OctolithScores))));
             }
-            Add(new WorldRecord(WorldRecordKind.Lifecycle, 255, (ushort)(scene.Match.HasPhaseDeadline ? 1 : 0),
-                0, Vector3.Zero, scene.Match.PhaseStartTick, scene.Match.PhaseEndTick,
-                scene.Match.PhaseRevision, 0, 0));
+            Add(new WorldRecord(WorldRecordKind.Lifecycle, 255, (ushort)(match.HasPhaseDeadline ? 1 : 0),
+                0, Vector3.Zero, match.PhaseStartTick, match.PhaseEndTick,
+                match.PhaseRevision, (uint)match.Period, match.PeriodStartTick));
+            for (byte slot = 0; slot < 8; slot++)
+            {
+                PlayerMatchStats p = match.Players[slot];
+                PlayerMatchResult? r = result?.Players[slot];
+                Add(new(WorldRecordKind.CombatStats, slot, 0, 0, Vector3.Zero,
+                    (uint)(r?.Assists ?? p.Assists), (uint)(r?.DamageDealt ?? p.DamageDealt),
+                    (uint)(r?.HeadshotKills ?? p.HeadshotKills), (uint)(r?.LongestKillStreak ?? p.LongestKillStreak),
+                    (uint)(r?.KillsAsPrime ?? p.KillsAsPrime)));
+                Add(new(WorldRecordKind.ObjectiveStats, slot, 0, 0, Vector3.Zero,
+                    (uint)(r?.OctolithScores ?? p.OctolithScores), (uint)(r?.OctolithDrops ?? p.OctolithDrops),
+                    (uint)(r?.OctolithStops ?? p.OctolithStops), (uint)(r?.NodesCaptured ?? p.NodesCaptured), (uint)(r?.NodesLost ?? p.NodesLost)));
+                uint Beam(int weapon) => (uint)(r?.BeamKills[weapon] ?? p.GetBeamKills(weapon));
+                Add(new(WorldRecordKind.WeaponStats0, slot, 0, 0, Vector3.Zero, Beam(0), Beam(1), Beam(2), Beam(3), Beam(4)));
+                Add(new(WorldRecordKind.WeaponStats1, slot, 0, 0, Vector3.Zero, Beam(5), Beam(6), Beam(7), Beam(8), (uint)(r?.PrimesKilled ?? p.PrimesKilled)));
+                PlayerEntity player = PlayerEntity.Players[slot];
+                uint standings = (uint)(r?.Standings ?? p.Standings) | ((uint)(r?.TeamStanding ?? match.TeamStandings[slot]) << 8)
+                    | ((uint)(result?.ResultSlots[slot] ?? match.ResultSlots[slot]) << 16);
+                Add(new WorldRecord(WorldRecordKind.PlayerIdentity, slot, 0, 0, Vector3.Zero,
+                    (uint)(r?.Hunter ?? player.Hunter), unchecked((uint)(r?.TeamIndex ?? player.TeamIndex)),
+                    ((r?.Active ?? player.LoadFlags.TestFlag(LoadFlags.Active)) ? 1u : 0u)
+                        | ((r?.IsBot ?? player.IsBot) ? 2u : 0u), standings, 0)
+                    { PlayerName = r?.Nickname ?? GameState.Nicknames[slot] });
+            }
             foreach (ItemSpawnEntity spawner in scene.GetItemSpawnEntities())
             {
                 Add(new WorldRecord(WorldRecordKind.Spawner, 255, (ushort)(spawner.Active ? 1 : 0),
@@ -64,8 +95,10 @@ namespace MphRead.Mods.Network
                 if (item.DespawnTimer == 0) { continue; }
                 if (!_items.TryGetValue(item, out uint id))
                 {
-                    if (_items.Count == WorldPacket.Capacity || _nextItemId == 0) { throw new InvalidOperationException("World item identity capacity exhausted."); }
-                    _items.Add(item, id = _nextItemId++);
+                    if (_items.Count == WorldPacket.Capacity) { throw new InvalidOperationException("World item identity capacity exhausted."); }
+                    id = scene.Services.GetWorldEntityId(scene, item);
+                    if (id == 0) throw new InvalidOperationException("World capture requires scene-owned item identity.");
+                    _items.Add(item, id);
                 }
                 Add(new WorldRecord(WorldRecordKind.Item, (byte)item.ItemType, 0, id, item.Position,
                     unchecked((uint)(item.Owner?.Id ?? -1)), unchecked((uint)item.DespawnTimer), 0, 0, 0));

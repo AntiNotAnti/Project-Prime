@@ -14,7 +14,7 @@ namespace MphRead.Mods.Network
         {
             BinaryPrimitives.WriteUInt32LittleEndian(destination, MatchId);
             BinaryPrimitives.WriteUInt32LittleEndian(destination[4..], ServerTick);
-            MatchRulesWire.Write(destination[8..], Rules);
+            MatchRulesWire.Write(destination.Slice(8, MatchRulesWire.Size), Rules);
         }
         public static bool TryRead(ReadOnlySpan<byte> source, out MatchTransitionPacket value)
         {

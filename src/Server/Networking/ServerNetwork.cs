@@ -2,15 +2,30 @@ using System;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
+using MphRead.Identity;
 
 namespace MphRead.Mods.Network
 {
     public sealed class ServerPeer
     {
+        public PlayerId? PlayerId { get; internal set; }
+        public bool IsBot { get; internal set; }
+        public bool IsObserver => Slot == byte.MaxValue;
+        internal byte ConnectionIndex { get; set; }
+        internal uint ObserverDelayTicks { get; set; }
+        internal System.Collections.Generic.LinkedListNode<ObserverFrame>? ObserverCursor { get; set; }
+        internal bool ObserverNeedsBaseline { get; set; }
+        internal Guid TicketId { get; set; }
+        internal bool TrustedObserver { get; set; }
         public NetConnection Connection { get; }
         public ulong Nonce { get; }
         public byte Slot { get; }
         public byte TeamIndex { get; internal set; }
+        public bool WaitingForNextMatch { get; internal set; }
+        internal bool ReturningParticipant { get; set; }
+        internal ulong ReturningFromConnectionId { get; set; }
+        public bool HasParticipated { get; internal set; }
+        internal bool SurvivalEliminated { get; set; }
         public string Name { get; }
         public Hunter Hunter { get; }
         public ServerInputStream Inputs { get; internal set; } = new();
@@ -39,10 +54,21 @@ namespace MphRead.Mods.Network
     /// Poll never activates a player: the simulation consumes Ready peers and
     /// explicitly starts them. Socket workers only enqueue datagrams.
     /// </summary>
-    public sealed class ServerNetwork
+    public sealed partial class ServerNetwork
     {
+        public Func<ServerPeer, IntermissionVoteRequest, bool>? IntermissionVoteReceived { get; set; }
         private readonly INetTransport _transport;
         private readonly ServerPeer?[] _peers = new ServerPeer?[RosterPacket.MaxSlots];
+        private readonly ServerPeer?[] _reconnectPeers = new ServerPeer?[RosterPacket.MaxSlots];
+        private readonly uint[] _reconnectTicks = new uint[RosterPacket.MaxSlots];
+        internal const uint ReconnectGraceTicks = 30 * 60;
+
+        internal bool HasReconnectReservation(int slot)
+        {
+            if (_reconnectPeers[slot] != null && unchecked(Tick - _reconnectTicks[slot]) >= ReconnectGraceTicks)
+                _reconnectPeers[slot] = null;
+            return _reconnectPeers[slot] != null;
+        }
         private readonly int _capacity;
         private NetRateLimit _joins;
         private NetRateLimit _statusQueries;
@@ -63,6 +89,9 @@ namespace MphRead.Mods.Network
         public uint PhaseRevision { get; set; }
         public string ServerName { get; set; } = "Prime Hunters";
         public Func<MatchStatePacket>? StatusProvider { get; set; }
+        public ServerTicketAuthority? TicketAuthority { get; set; }
+        public Guid ServerId => TicketAuthority?.ServerId ?? Guid.Empty;
+        public Action<ServerPeer, ParticipantExitReason, uint>? ParticipantLeaving { get; set; }
         public ReadOnlySpan<ServerPeer?> Peers => _peers;
         public int Count { get; private set; }
         public long Rejected { get; private set; }
@@ -71,8 +100,11 @@ namespace MphRead.Mods.Network
             uint matchId = 1, int capacity = RosterPacket.MaxSlots)
             : this(transport, MatchRules.CreateDefault(mode.ToMatchMode(), room, capacity), matchId) { }
 
-        public ServerNetwork(INetTransport transport, MatchRules rules, uint matchId = 1)
+        public ServerNetwork(INetTransport transport, MatchRules rules, uint matchId = 1, ObserverOptions? observers = null)
         {
+            ObserverConfiguration = observers ?? new();
+            ObserverConfiguration.Validate();
+            _observerTimeline.BeginMatch(matchId);
             MatchLifecycle.ValidateRules(rules);
             if (matchId == 0) { throw new ArgumentOutOfRangeException(nameof(matchId)); }
             int capacity = rules.MaxPlayers;
@@ -115,19 +147,24 @@ namespace MphRead.Mods.Network
                     Rejected++;
                 }
             }
+            if (TicketAuthority != null)
+                while (TicketAuthority.TryRead(out ValidatedTicketJoin completed))
+                {
+                    if (completed.Identity is TicketIdentity identity && identity.ExpiresAt > DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+                        Admit(completed.Endpoint, completed.Join, identity);
+                    else Refuse(completed.Endpoint, completed.Join.Nonce, "Game ticket rejected.");
+                }
+            ProcessBotAdmissions();
             PublishRoster();
             Span<byte> ping = stackalloc byte[8];
-            for (int slot = 0; slot < _capacity; slot++)
+            for (int slot = 0; slot < _connections.Length; slot++)
             {
-                ServerPeer? peer = _peers[slot];
-                if (peer == null)
-                {
-                    continue;
-                }
+                ServerPeer? peer = _connections[slot];
+                if (peer == null) continue;
                 NetConnection connection = peer.Connection;
                 if (_now - connection.LastReceived > NetConfig.TimeoutSeconds)
                 {
-                    Remove(slot);
+                    Remove(slot, reason: ParticipantExitReason.Timeout);
                     continue;
                 }
                 connection.FlushReliable(_transport, _now);
@@ -157,9 +194,17 @@ namespace MphRead.Mods.Network
                         NextRoomKey = Room, PlayerCount = (byte)Count,
                         Flags = MatchStatePacket.FlagInProgress
                     },
+                    RulesetPreset = Rules.RulesetPreset, RankingEligibility = Rules.RankingEligibility,
+                    Observers = (byte)ObserverCount, MaxObservers = (byte)ObserverConfiguration.MaxSpectators,
+                    ObserverDelaySeconds = (byte)ObserverConfiguration.DelaySeconds,
+                    Bots = CountRosterBots(),
+                    ServerId = ServerId, RequiresTicket = TicketAuthority?.RequireTickets == true,
+                    HasRules = (bytes[1] & ServerStatusPacket.RulesCapability) != 0,
+                    FriendlyFire = Rules.FriendlyFire, PlayerRadar = Rules.PlayerRadar, SpawnPolicy = Rules.SpawnPolicy,
+                    OvertimePolicy = Rules.OvertimePolicy, LateJoinPolicy = Rules.LateJoinPolicy,
                     MaxPlayers = (byte)_capacity, Protocol = NetHeader.Version, Family = NetWireIdentity.Family, ServerName = ServerName
                 };
-                Span<byte> reply = stackalloc byte[ServerStatusPacket.Size];
+                Span<byte> reply = stackalloc byte[status.HasRules ? ServerStatusPacket.ExtendedSize : ServerStatusPacket.Size];
                 status.Write(reply);
                 _transport.Send(packet.Sender, PacketType.StatusReply, reply);
                 return true;
@@ -172,7 +217,7 @@ namespace MphRead.Mods.Network
             if (header.Type == NetMessageType.Join)
             {
                 return _joins.Take(_now) && JoinPacket.TryRead(body, out JoinPacket join)
-                    && Admit(packet.Sender, join);
+                    && SubmitJoin(packet.Sender, join);
             }
             ServerPeer? peer = Find(header.ConnectionId);
             if (peer == null || !peer.Packets.Take(_now))
@@ -190,13 +235,15 @@ namespace MphRead.Mods.Network
                 NetMessageType.Ping => body.Length == 8,
                 NetMessageType.Pong => body.Length == 12 && peer.PingSent != 0
                     && BinaryPrimitives.ReadInt64LittleEndian(body) == peer.PingSent,
-                NetMessageType.Input => InputBundle.TryRead(body, commands, out uint inputMatch, out uint inputPhase, out commandCount)
+                NetMessageType.Input => !peer.IsObserver && InputBundle.TryRead(body, commands, out uint inputMatch, out uint inputPhase, out commandCount)
                     && inputMatch == MatchId && peer.Connection.State == NetConnectionState.Playing
                     && Phase == MatchPhase.Playing && inputPhase == PhaseRevision,
                 NetMessageType.Event => ReliableEventPacket.TryRead(body, out eventId, out eventType, out eventBody)
                     && (eventType == ReliableEventType.ClientReady && eventBody.Length == 4
                         || eventType == ReliableEventType.Disconnect && eventBody.IsEmpty
-                        || eventType == ReliableEventType.ChatRequest && eventBody.Length == 4 + SessionChatRequest.Size
+                        || !peer.IsObserver && !peer.IsBot && eventType == ReliableEventType.IntermissionVote
+                            && IntermissionVoteRequest.TryRead(eventBody, out _)
+                        || !peer.IsObserver && eventType == ReliableEventType.ChatRequest && eventBody.Length == 4 + SessionChatRequest.Size
                             && SessionChatRequest.TryRead(eventBody[4..], out _)),
                 _ => false
             };
@@ -219,10 +266,16 @@ namespace MphRead.Mods.Network
                 connection.Send(_transport, NetMessageType.Ack);
                 if (connection.Reliable.Receive(eventId))
                 {
-                    if (eventType == ReliableEventType.Disconnect) { Remove(peer.Slot); }
+                    if (eventType == ReliableEventType.Disconnect) { Remove(peer.ConnectionIndex, reason: ParticipantExitReason.ExplicitLeave); }
                     else if (eventType == ReliableEventType.ClientReady)
                     {
-                        _rosterDirty |= connection.Ready(BinaryPrimitives.ReadUInt32LittleEndian(eventBody));
+                        bool ready = connection.Ready(BinaryPrimitives.ReadUInt32LittleEndian(eventBody));
+                        _rosterDirty |= ready && !peer.IsObserver;
+                        if (ready && peer.IsObserver) { connection.StartPlaying(); peer.ObserverNeedsBaseline = true; }
+                    }
+                    else if (eventType == ReliableEventType.IntermissionVote)
+                    {
+                        if (IntermissionVoteRequest.TryRead(eventBody, out var vote)) IntermissionVoteReceived?.Invoke(peer, vote);
                     }
                     else if (BinaryPrimitives.ReadUInt32LittleEndian(eventBody) == MatchId)
                     {
@@ -239,28 +292,73 @@ namespace MphRead.Mods.Network
             {
                 Span<byte> reply = stackalloc byte[12];
                 body.CopyTo(reply);
-                BinaryPrimitives.WriteUInt32LittleEndian(reply[8..], Tick);
+                BinaryPrimitives.WriteUInt32LittleEndian(reply[8..], peer.IsObserver ? peer.ObserverCursor?.Value.Tick ?? 0 : Tick);
                 connection.Send(_transport, NetMessageType.Pong, reply);
             }
             return true;
         }
 
         public bool AdmissionClosed { get; set; }
+        public Func<int, bool>? CanClaimPlayerSlot { get; set; }
+        public Func<int, NetRosterEntry?>? BotRosterEntry { get; set; }
+        public Action<int, byte>? BotTeamAssigned { get; set; }
+        public void InvalidateRoster() => _rosterDirty = true;
 
-        private bool Admit(IPEndPoint endpoint, in JoinPacket join)
+        private bool SubmitJoin(IPEndPoint endpoint, in JoinPacket join)
         {
+            if (RetryBotAdmission(endpoint, join)) return true;
+            if (join.Protocol != NetHeader.Version) return Admit(endpoint, join);
+            if (!string.IsNullOrEmpty(join.Ticket))
+            {
+                if (TicketAuthority != null && TicketAuthority.Submit(endpoint, join)) return true;
+                Refuse(endpoint, join.Nonce, "Ticket authentication unavailable or busy.");
+                return true;
+            }
+            if (TicketAuthority?.RequireTickets == true)
+            {
+                Refuse(endpoint, join.Nonce, "This server requires a game ticket.");
+                return true;
+            }
+            return Admit(endpoint, join);
+        }
+
+        private bool Admit(IPEndPoint endpoint, in JoinPacket join, TicketIdentity? authenticated = null)
+        {
+            if (RetryBotAdmission(endpoint, join)) return true;
             if (AdmissionClosed) { return false; }
             if (join.Protocol != NetHeader.Version)
             {
                 Refuse(endpoint, join.Nonce, $"Authoritative protocol {NetHeader.Version} required.");
                 return true;
             }
+            if (join.Observer) return AdmitObserver(endpoint, join, authenticated);
+            foreach (ServerPeer? observer in _observers)
+                if (observer != null && (observer.Connection.Endpoint.Equals(endpoint) || observer.Nonce == join.Nonce)) return false;
             int free = -1;
+            bool returningParticipant = false;
+            ulong returningFrom = 0;
+            byte? returningTeam = null;
+            bool returningEliminated = false;
             for (int slot = 0; slot < _capacity; slot++)
             {
                 ServerPeer? peer = _peers[slot];
                 if (peer == null)
                 {
+                    if (HasReconnectReservation(slot))
+                    {
+                        ServerPeer previous = _reconnectPeers[slot]!;
+                        bool accountMatch = authenticated.HasValue && previous.PlayerId == authenticated.Value.PlayerId;
+                        if (!accountMatch && previous.Connection.Id != join.PreviousConnectionId) continue;
+                        if (previous.PlayerId.HasValue ? !accountMatch
+                            : authenticated.HasValue || !previous.Connection.Endpoint.Equals(endpoint) || previous.Name != join.Name) return false;
+                        if (previous.Hunter != join.Hunter || authenticated.HasValue && previous.TicketId == authenticated.Value.TicketId) return false;
+                        free = slot;
+                        returningParticipant = true;
+                        returningFrom = previous.Connection.Id;
+                        returningTeam = previous.TeamIndex;
+                        returningEliminated = previous.SurvivalEliminated;
+                        break;
+                    }
                     if (free < 0)
                     {
                         free = slot;
@@ -271,12 +369,22 @@ namespace MphRead.Mods.Network
                 {
                     // Retries are idempotent, and cannot change the routing
                     // of a session established by a different endpoint.
-                    return peer.Connection.Endpoint.Equals(endpoint);
+                    return peer.Connection.Endpoint.Equals(endpoint) && peer.PlayerId == authenticated?.PlayerId
+                        && (!authenticated.HasValue || peer.TicketId == authenticated.Value.TicketId);
                 }
-                if (peer.Connection.Id == join.PreviousConnectionId)
+                bool sameAccount = authenticated.HasValue && peer.PlayerId == authenticated.Value.PlayerId;
+                if (sameAccount || peer.Connection.Id == join.PreviousConnectionId)
                 {
+                    // A public roster identity alone is not reconnect proof.
+                    if (peer.PlayerId.HasValue ? !sameAccount
+                        : authenticated.HasValue || !peer.Connection.Endpoint.Equals(endpoint) || peer.Name != join.Name) return false;
+                    if (peer.Hunter != join.Hunter || authenticated.HasValue && peer.TicketId == authenticated.Value.TicketId) return false;
+                    returningParticipant = peer.HasParticipated;
+                    returningFrom = peer.Connection.Id;
+                    returningTeam = returningParticipant ? peer.TeamIndex : null;
+                    returningEliminated = returningParticipant && peer.SurvivalEliminated;
                     free = slot;
-                    Remove(slot);
+                    Remove(slot, allowReconnect: false, reason: ParticipantExitReason.Replaced);
                     break;
                 }
                 if (peer.Connection.Endpoint.Equals(endpoint))
@@ -284,10 +392,37 @@ namespace MphRead.Mods.Network
                     return false; // a stale initial Join cannot evict a peer
                 }
             }
+            bool duelInProgress = Phase is MatchPhase.Playing or MatchPhase.Ending or MatchPhase.Intermission;
+            if (Rules.RulesetPreset == RulesetPreset.Duel && returningFrom == 0 && (free < 0 || duelInProgress))
+                return AdmitObserver(endpoint, join with { Observer = true }, authenticated);
             if (free < 0)
             {
                 Refuse(endpoint, join.Nonce, "Server is full.");
                 return true;
+            }
+            bool inProgress = Phase is MatchPhase.Playing or MatchPhase.Ending or MatchPhase.Intermission;
+            if (AdminRosterLocked && returningFrom == 0) { Refuse(endpoint, join.Nonce, "The player roster is locked."); return true; }
+            if (inProgress && !returningParticipant && Rules.LateJoinPolicy == LateJoinPolicy.Disabled)
+            {
+                Refuse(endpoint, join.Nonce, "Joining is disabled until the next match.");
+                return true;
+            }
+            if (!returningParticipant && CanClaimPlayerSlot != null)
+            {
+                free = -1;
+                int botCandidate = -1;
+                for (int candidate = 0; candidate < _capacity; candidate++)
+                {
+                    if (_peers[candidate] != null || HasReconnectReservation(candidate) || HasPendingBotAdmission(candidate)) continue;
+                    if (BotRosterEntry?.Invoke(candidate) == null) { free = candidate; break; }
+                    if (botCandidate < 0) botCandidate = candidate;
+                }
+                if (free < 0 && botCandidate >= 0)
+                {
+                    if (CanClaimPlayerSlot(botCandidate)) free = botCandidate;
+                    else return QueueBotAdmission(endpoint, join, authenticated, botCandidate);
+                }
+                if (free < 0) { Refuse(endpoint, join.Nonce, "Player slots are not available yet."); return true; }
             }
             ulong id;
             do { id = NetConnection.NewIdentity(); } while (Find(id) != null);
@@ -297,7 +432,21 @@ namespace MphRead.Mods.Network
             accepted.Write(payload);
             connection.Reliable.TryEnqueue(ReliableEventType.Welcome, payload, out _);
             _peers[free] = new ServerPeer(connection, join, (byte)free, _now)
-            { TeamIndex = Rules.Teams ? SelectJoiningTeam((byte)free) : (byte)free };
+            {
+                ConnectionIndex = (byte)free,
+                PlayerId = authenticated?.PlayerId,
+                TicketId = authenticated?.TicketId ?? Guid.Empty,
+                TrustedObserver = authenticated?.TrustedObserver == true,
+                TeamIndex = returningTeam ?? (Rules.Teams ? SelectJoiningTeam((byte)free) : (byte)free),
+                ReturningParticipant = returningParticipant,
+                ReturningFromConnectionId = returningParticipant ? returningFrom : 0,
+                HasParticipated = returningParticipant,
+                SurvivalEliminated = returningEliminated,
+                WaitingForNextMatch = inProgress && !returningParticipant
+                    && Rules.LateJoinPolicy == LateJoinPolicy.SpectateUntilNextMatch
+            };
+            _connections[free] = _peers[free];
+            _reconnectPeers[free] = null;
             Count++;
             PublishKeepAlives();
             _rosterDirty = true;
@@ -309,9 +458,9 @@ namespace MphRead.Mods.Network
             // Membership and authenticated routing changes are infrequent.
             // Publish complete immutable templates; the socket worker never
             // reads connection state, ACK windows, or simulation objects.
-            var keepAlives = new NetKeepAlive[Count];
+            var keepAlives = new NetKeepAlive[Count + ObserverCount];
             int count = 0;
-            foreach (ServerPeer? peer in _peers)
+            foreach (ServerPeer? peer in _connections)
             {
                 if (peer == null) { continue; }
                 byte[] datagram = new byte[NetHeader.Size];
@@ -329,22 +478,36 @@ namespace MphRead.Mods.Network
             // Reserve the assignment during loading too, so simultaneous joins
             // do not all choose the same apparently empty team.
             foreach (ServerPeer? peer in _peers)
-                if (peer != null) teams[peer.Slot] = peer.TeamIndex;
+                if (peer != null && !peer.WaitingForNextMatch) teams[peer.Slot] = peer.TeamIndex;
+            for (int candidate = 0; candidate < _capacity; candidate++)
+                if (_peers[candidate] == null && BotRosterEntry?.Invoke(candidate) is NetRosterEntry bot)
+                    teams[candidate] = bot.Team;
             return TeamAllocator.Select(teams, (byte)(slot & 1));
         }
 
         public bool RebalanceBeforeStart()
         {
-            if (!Rules.Teams || Phase is not (MatchPhase.WaitingForPlayers or MatchPhase.Countdown)) return false;
+            if (!Rules.Teams || AdminTeamsAssigned || Rules.TeamBalancePolicy == TeamBalancePolicy.Locked || Phase is not (MatchPhase.WaitingForPlayers or MatchPhase.Countdown)) return false;
             Span<byte> teams = stackalloc byte[8];
             teams.Fill(TeamAllocator.Unassigned);
             foreach (ServerPeer? peer in _peers)
-                if (peer?.Connection.State is NetConnectionState.Ready or NetConnectionState.Playing)
+                if (peer is { WaitingForNextMatch: false } && peer.Connection.State is NetConnectionState.Ready or NetConnectionState.Playing)
                     teams[peer.Slot] = peer.TeamIndex;
+            for (int slot = 0; slot < _capacity; slot++)
+                if (_peers[slot] == null && BotRosterEntry?.Invoke(slot) is NetRosterEntry bot)
+                {
+                    // A combined plan is atomic: do not move humans if its bot
+                    // assignments cannot also be applied by the simulation owner.
+                    if (BotTeamAssigned == null) return false;
+                    teams[slot] = bot.Team;
+                }
             if (TeamAllocator.Rebalance(teams) == 0) return false;
             foreach (ServerPeer? peer in _peers)
                 if (peer != null && teams[peer.Slot] != TeamAllocator.Unassigned)
                     peer.TeamIndex = teams[peer.Slot];
+            for (int slot = 0; slot < _capacity; slot++)
+                if (_peers[slot] == null && teams[slot] != TeamAllocator.Unassigned)
+                    BotTeamAssigned!(slot, teams[slot]);
             _rosterDirty = true;
             return true;
         }
@@ -373,11 +536,16 @@ namespace MphRead.Mods.Network
                     _rosterPings[peer.Slot] = ping;
                     _rosterEntries[count++] = new(peer.Slot, peer.Connection.Id, peer.Hunter, team, peer.Name, ping);
                 }
+                if (BotRosterEntry != null)
+                    for (int slot = 0; slot < _capacity; slot++)
+                        if (_peers[slot] == null && BotRosterEntry(slot) is NetRosterEntry bot)
+                            _rosterEntries[count++] = bot;
                 _rosterRevision++;
                 BinaryPrimitives.WriteUInt32LittleEndian(_rosterPayload, MatchId);
                 _rosterLength = 4 + SessionRosterPacket.Write(_rosterPayload.AsSpan(4), _rosterRevision,
                     _rosterEntries.AsSpan(0, count));
                 Array.Clear(_rosterEntries, count, _rosterEntries.Length - count);
+                _observerTimeline.Roster(_rosterPayload.AsSpan(0, _rosterLength), _rosterRevision);
                 _rosterDirty = false;
             }
             foreach (ServerPeer? peer in _peers)
@@ -394,7 +562,7 @@ namespace MphRead.Mods.Network
 
         private void HandleChat(ServerPeer speaker, ReadOnlySpan<byte> request)
         {
-            if (!speaker.ChatCredit.Take(_now)) { speaker.ChatDropped++; return; }
+            if (IsAdminMuted(speaker.Connection.Id) || !speaker.ChatCredit.Take(_now)) { speaker.ChatDropped++; return; }
             // Reserve every recipient before enqueueing any copy. The one
             // owner thread makes this check and publication indivisible.
             foreach (ServerPeer? peer in _peers)
@@ -410,9 +578,8 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt32LittleEndian(payload, MatchId);
             new SessionChatPacket(speaker.Connection.Id, speaker.Slot, speaker.Name, text).Write(payload[4..]);
             foreach (ServerPeer? peer in _peers)
-            {
                 peer?.Connection.Reliable.TryEnqueue(ReliableEventType.Chat, payload, out _);
-            }
+            if (ObserverFramesRequired) _observerTimeline.Event(ReliableEventType.Chat, payload);
         }
 
         /// <summary>Called by the simulation owner before loading the next room.</summary>
@@ -439,6 +606,8 @@ namespace MphRead.Mods.Network
                 throw new ArgumentException("Invalid match transition.");
             }
             MatchId = matchId;
+            _observerTimeline.BeginMatch(matchId);
+            Array.Clear(_reconnectPeers);
             Rules = rules;
             Phase = MatchPhase.WaitingForPlayers;
             PhaseRevision = 0;
@@ -451,14 +620,19 @@ namespace MphRead.Mods.Network
             {
                 ServerPeer? peer = _peers[slot];
                 if (peer == null) { continue; }
-                peer.TeamIndex = rules.Teams ? (byte)(teamMember++ & 1) : peer.Slot;
+                if (!AdminTeamsAssigned) peer.TeamIndex = rules.Teams ? (byte)(teamMember++ & 1) : peer.Slot;
+                peer.WaitingForNextMatch = false;
+                peer.ReturningParticipant = false;
+                peer.ReturningFromConnectionId = 0;
+                peer.HasParticipated = false;
+                peer.SurvivalEliminated = false;
                 peer.Inputs = new ServerInputStream();
                 peer.HasRoster = false;
                 peer.Connection.BeginLoading(matchId);
                 peer.Connection.Reliable.CancelPendingExceptWelcome();
                 if (!peer.Connection.Reliable.TryEnqueue(ReliableEventType.MapTransition, payload, out _))
                 {
-                    Remove(slot); // Explicit backpressure: never start a peer in the wrong room.
+                    Remove(slot, reason: ParticipantExitReason.Backpressure); // Explicit backpressure: never start a peer in the wrong room.
                 }
             }
         }
@@ -466,7 +640,7 @@ namespace MphRead.Mods.Network
         public bool TrySendEvent(ServerPeer peer, ReliableEventType type, ReadOnlySpan<byte> payload)
         {
             if (Find(peer.Connection.Id) != peer || peer.Connection.State != NetConnectionState.Playing
-                || type is not (ReliableEventType.MatchState or ReliableEventType.Combat or ReliableEventType.World)
+                || type is not (ReliableEventType.MatchState or ReliableEventType.Combat or ReliableEventType.World or ReliableEventType.Kill or ReliableEventType.WorldEvent)
                 || payload.Length > ReliableChannel.MaxPayloadSize - 4) { return false; }
             Span<byte> body = stackalloc byte[ReliableChannel.MaxPayloadSize];
             BinaryPrimitives.WriteUInt32LittleEndian(body, MatchId);
@@ -477,7 +651,7 @@ namespace MphRead.Mods.Network
         /// <summary>Single-owner all-or-none admission prevents retry duplicates.</summary>
         public bool TryBroadcastEvent(ReliableEventType type, ReadOnlySpan<byte> payload)
         {
-            if (type is not (ReliableEventType.MatchState or ReliableEventType.Combat or ReliableEventType.World)
+            if (type is not (ReliableEventType.MatchState or ReliableEventType.Combat or ReliableEventType.World or ReliableEventType.Kill or ReliableEventType.WorldEvent)
                 || payload.Length > ReliableChannel.MaxPayloadSize - 4) { return false; }
             foreach (ServerPeer? peer in _peers)
             {
@@ -513,7 +687,7 @@ namespace MphRead.Mods.Network
 
         public ServerPeer? Find(ulong connectionId)
         {
-            foreach (ServerPeer? peer in _peers)
+            foreach (ServerPeer? peer in _connections)
             {
                 if (peer?.Connection.Id == connectionId)
                 {
@@ -523,13 +697,22 @@ namespace MphRead.Mods.Network
             return null;
         }
 
-        public void Remove(int slot)
+        public void Remove(int slot, bool allowReconnect = true, ParticipantExitReason reason = ParticipantExitReason.Disconnected)
         {
+            if (slot >= 8) { RemoveObserver(slot); return; }
             ServerPeer? peer = _peers[slot];
             if (peer != null)
             {
+                if (allowReconnect && peer.HasParticipated && Phase is MatchPhase.Playing or MatchPhase.Ending or MatchPhase.Intermission)
+                {
+                    _reconnectPeers[slot] = peer;
+                    _reconnectTicks[slot] = Tick;
+                }
+                _adminMuted.Remove(peer.Connection.Id);
+                ParticipantLeaving?.Invoke(peer, reason, Tick);
                 peer.Connection.Disconnect();
                 _peers[slot] = null;
+                _connections[slot] = null;
                 Count--;
                 PublishKeepAlives();
                 _rosterDirty = true;

@@ -14,10 +14,7 @@ namespace MphRead.Mods.Input
     /// build a pad on which the ball cannot boost and nothing on screen says
     /// why.
     ///
-    /// The weapon wheel is missing for the reason <see cref="GamepadInput"/>
-    /// gives: it reads an absolute pointer position, which a stick does not
-    /// have. <see cref="NextWeapon"/> and <see cref="PrevWeapon"/> reach every
-    /// weapon without it.
+    /// The weapon wheel uses a separate stick-radial preview and release commit.
     /// </summary>
     public enum PadAction
     {
@@ -39,7 +36,9 @@ namespace MphRead.Mods.Input
         /// by whoever owns the window, through
         /// <see cref="GamepadInput.TakeMenuPress"/>.
         /// </summary>
-        Menu
+        Menu,
+        WeaponWheel,
+        QuickSwap
     }
 
     /// <summary>
@@ -74,7 +73,9 @@ namespace MphRead.Mods.Input
             /* PrevWeapon */ GamepadButtons.LeftBumper | GamepadButtons.DpadLeft,
             /* Missile    */ GamepadButtons.DpadUp,
             /* PowerBeam  */ GamepadButtons.DpadDown,
-            /* Menu       */ GamepadButtons.Start
+            /* Menu       */ GamepadButtons.Start,
+            /* WeaponWheel */ GamepadButtons.X,
+            /* QuickSwap   */ GamepadButtons.Y
         };
 
         private static readonly GamepadButtons[] _current = (GamepadButtons[])_defaults.Clone();
@@ -85,7 +86,7 @@ namespace MphRead.Mods.Input
             PadAction.Shoot, PadAction.Jump, PadAction.Morph, PadAction.Zoom,
             PadAction.NextWeapon,
             PadAction.PrevWeapon, PadAction.Missile, PadAction.PowerBeam,
-            PadAction.Scoreboard, PadAction.Menu
+            PadAction.Scoreboard, PadAction.Menu, PadAction.WeaponWheel, PadAction.QuickSwap
         };
 
         public static GamepadButtons Get(PadAction action)
@@ -124,6 +125,8 @@ namespace MphRead.Mods.Input
                 PadAction.Missile => "Missile",
                 PadAction.PowerBeam => "Power beam",
                 PadAction.Menu => "Menu",
+                PadAction.WeaponWheel => "Weapon wheel",
+                PadAction.QuickSwap => "Quick swap",
                 _ => action.ToString()
             };
         }

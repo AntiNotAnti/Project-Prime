@@ -13,7 +13,21 @@ namespace MphRead.Mods.Network
         World = 7,
         Roster = 8,
         Chat = 9,
-        ChatRequest = 10
+        ChatRequest = 10,
+        Kill = 11,
+        WorldEvent = 12,
+        ObserverTransition = 13,
+        IntermissionBallot = 14,
+        IntermissionVote = 15
+    }
+
+    public enum ReliableAdmissionFailure
+    {
+        None,
+        Capacity,
+        IdSpan,
+        OversizedPayload,
+        InvalidType
     }
 
     /// <summary>
@@ -24,6 +38,7 @@ namespace MphRead.Mods.Network
     public sealed class ReliableChannel
     {
         public const int Capacity = 32;
+        public const int EventWindowCapacity = ReliableEventWindow.Capacity;
         public const int MaxPayloadSize = 512;
         private const int AttemptCapacity = 256;
         private const double RetrySeconds = 0.15;
@@ -34,6 +49,8 @@ namespace MphRead.Mods.Network
             public ReliableEventType Type;
             public byte[]? Payload;
             public double Due;
+            public double FirstSent;
+            public uint SentAttempts;
         }
 
         private struct Attempt
@@ -45,13 +62,49 @@ namespace MphRead.Mods.Network
 
         private readonly Pending[] _pending = new Pending[Capacity];
         private readonly Attempt[] _attempts = new Attempt[AttemptCapacity];
-        private ReceiveWindow _received;
+        private readonly ReliableEventWindow _received = new();
         private uint _nextId;
         private int _nextAttempt;
         private int _nextDue;
 
         public int PendingCount { get; private set; }
         public long Retransmissions { get; private set; }
+        public int PendingHighWater { get; private set; }
+        public ReliableAdmissionFailure LastAdmissionFailure { get; private set; }
+        public long CapacityRejections { get; private set; }
+        public long IdSpanRejections { get; private set; }
+        public long OversizedPayloadRejections { get; private set; }
+        public long InvalidTypeRejections { get; private set; }
+
+        // Distance from the next event ID to the oldest pending event, across uint wrap.
+        // Compute only when diagnostics are sampled; admission keeps its existing scan.
+        public uint OldestPendingSpan
+        {
+            get
+            {
+                uint span = 0;
+                foreach (Pending pending in _pending)
+                {
+                    if (pending.Payload != null)
+                    {
+                        span = Math.Max(span, unchecked(_nextId - pending.Id));
+                    }
+                }
+                return span;
+            }
+        }
+
+        public readonly record struct PendingDiagnostic(uint Id, ReliableEventType Type, uint SentAttempts, double AgeSeconds);
+
+        public PendingDiagnostic? OldestPending(double now)
+        {
+            Pending? oldest = null;
+            foreach (Pending pending in _pending)
+                if (pending.Payload != null && (!oldest.HasValue
+                    || unchecked(_nextId - pending.Id) > unchecked(_nextId - oldest.Value.Id))) oldest = pending;
+            return oldest is { } value ? new(value.Id, value.Type, value.SentAttempts,
+                value.SentAttempts == 0 ? 0 : Math.Max(0, now - value.FirstSent)) : null;
+        }
 
         public ReliableChannel(uint firstEventId = 0)
         {
@@ -65,7 +118,7 @@ namespace MphRead.Mods.Network
                 if (PendingCount == Capacity) { return false; }
                 foreach (Pending pending in _pending)
                 {
-                    if (pending.Payload != null && unchecked(_nextId - pending.Id) > 32) { return false; }
+                    if (pending.Payload != null && unchecked(_nextId - pending.Id) >= EventWindowCapacity) { return false; }
                 }
                 return true;
             }
@@ -74,9 +127,23 @@ namespace MphRead.Mods.Network
         public bool TryEnqueue(ReliableEventType type, ReadOnlySpan<byte> payload, out uint eventId)
         {
             eventId = default;
-            if (PendingCount == Capacity || payload.Length > MaxPayloadSize
-                || type < ReliableEventType.Welcome || type > ReliableEventType.ChatRequest)
+            // Record the first refusal in the same order as the existing admission guards.
+            if (PendingCount == Capacity)
             {
+                LastAdmissionFailure = ReliableAdmissionFailure.Capacity;
+                CapacityRejections++;
+                return false;
+            }
+            if (payload.Length > MaxPayloadSize)
+            {
+                LastAdmissionFailure = ReliableAdmissionFailure.OversizedPayload;
+                OversizedPayloadRejections++;
+                return false;
+            }
+            if (type < ReliableEventType.Welcome || type > ReliableEventType.IntermissionVote)
+            {
+                LastAdmissionFailure = ReliableAdmissionFailure.InvalidType;
+                InvalidTypeRejections++;
                 return false;
             }
             int free = -1;
@@ -89,14 +156,18 @@ namespace MphRead.Mods.Network
                 // Bound the ID span too, not just the number of pending
                 // messages. Otherwise newer completed events could push a
                 // lost old event out of the receiver's deduplication window.
-                else if (unchecked(_nextId - _pending[i].Id) > 32)
+                else if (unchecked(_nextId - _pending[i].Id) >= EventWindowCapacity)
                 {
+                    LastAdmissionFailure = ReliableAdmissionFailure.IdSpan;
+                    IdSpanRejections++;
                     return false;
                 }
             }
             eventId = _nextId++;
             _pending[free] = new Pending { Id = eventId, Type = type, Payload = payload.ToArray() };
             PendingCount++;
+            PendingHighWater = Math.Max(PendingHighWater, PendingCount);
+            LastAdmissionFailure = ReliableAdmissionFailure.None;
             return true;
         }
 
@@ -153,6 +224,8 @@ namespace MphRead.Mods.Network
                 {
                     Retransmissions++;
                 }
+                if (pending.SentAttempts == 0) pending.FirstSent = now;
+                if (pending.SentAttempts < uint.MaxValue) pending.SentAttempts++;
                 pending.Due = now + RetrySeconds;
                 _attempts[_nextAttempt] = new Attempt
                 {

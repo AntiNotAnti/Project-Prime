@@ -45,7 +45,8 @@ namespace MphRead
             // Connected, the machine that keeps the score is the only one
             // allowed to decide the score has been reached; everybody else
             // learns it from the server. See NetMatchEnd.MayEndOnScore.
-            if (_match.Rules.LegacyPointGoal <= 0 || !_scene.Services.MayEndOnScore)
+            if (_match.Period != MatchPeriod.Regulation
+                || _match.Rules.LegacyPointGoal <= 0 || !_scene.Services.MayEndOnScore)
             {
                 return;
             }
@@ -55,7 +56,8 @@ namespace MphRead
                 if (player.LoadFlags.TestFlag(LoadFlags.Active) && _match.TeamPoints[player.TeamIndex] >= _match.Rules.LegacyPointGoal)
                 {
                     // deal with multiple nodes points on the same frame
-                    _match.TeamPoints[player.TeamIndex] = _match.Rules.LegacyPointGoal;
+                    if (_match.Rules.OvertimePolicy == OvertimePolicy.Disabled || _match.MatchTime != 0)
+                        _match.TeamPoints[player.TeamIndex] = _match.Rules.LegacyPointGoal;
                     _match.PendingEndReason = MatchEndReason.ScoreGoal;
                     _match.MatchTime = 0;
                     break;
@@ -129,7 +131,7 @@ namespace MphRead
 
         public void ModeStateDefender()
         {
-            if (!_scene.Services.MayEndOnScore)
+            if (_match.Period != MatchPeriod.Regulation || !_scene.Services.MayEndOnScore)
             {
                 return;
             }
@@ -169,7 +171,7 @@ namespace MphRead
             if (_match.PrimeHunter != -1)
             {
                 _match.Time[_match.PrimeHunter] += _scene.FrameTime;
-                if (_match.Time[_match.PrimeHunter] >= _match.Rules.LegacyTimeGoal)
+                if (_match.Period == MatchPeriod.Regulation && _match.Time[_match.PrimeHunter] >= _match.Rules.LegacyTimeGoal)
                 {
                     _match.PendingEndReason = MatchEndReason.ObjectiveTimeGoal;
                     _match.MatchTime = 0;
@@ -223,6 +225,10 @@ namespace MphRead
             if (_match.Rules.Mode == MatchMode.Battle || _match.Rules.Mode == MatchMode.TeamBattle || _match.Rules.Mode == MatchMode.Capture || _match.Rules.Mode == MatchMode.Bounty
                 || _match.Rules.Mode == MatchMode.TeamBounty || _match.Rules.Mode == MatchMode.Nodes || _match.Rules.Mode == MatchMode.TeamNodes)
             {
+                for (byte team = 0; team < PlayerEntity.SlotCapacity; team++)
+                    if (_match.TeamPoints[team] != prevTeamPoints[team] && _match.TeamPoints[team] == _match.Rules.LegacyPointGoal - 1)
+                        _scene.Services.PublishWorldSignal(_scene, new(WorldSignalKind.MatchPoint, WorldSubjectKind.Match,
+                            null, null, team, OpenTK.Mathematics.Vector3.Zero));
                 int teamPoints = _match.TeamPoints[PlayerEntity.Main.TeamIndex];
                 if (teamPoints != prevTeamPoints[PlayerEntity.Main.TeamIndex] && teamPoints == _match.Rules.LegacyPointGoal - 1)
                 {

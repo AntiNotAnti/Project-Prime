@@ -161,6 +161,11 @@ namespace MphRead.Mods.Network
 
         private int Report()
         {
+            if (_play.LocalSlot is < 0 or >= 8)
+            {
+                Console.WriteLine("AUTHCHECK result=FAIL reason=observer-role-no-local-player; player travel proof is unavailable.");
+                return 1;
+            }
             int movingRemotes = 0;
             for (int slot = 0; slot < 8; slot++)
             {

@@ -222,6 +222,20 @@ namespace MphRead.Mods.Network
         public const int MaxNameBytes = 32;
         public const int LegacySize = MatchStatePacket.Size + 2 + MaxNameBytes;
         public const int Size = LegacySize + 1;
+        public const int RulesV1Size = Size + 8;
+        public const int IdentityV2Size = RulesV1Size + 16;
+        public const int ExtendedSize = IdentityV2Size + 6;
+        public RulesetPreset RulesetPreset;
+        public RankingEligibility RankingEligibility;
+        public byte Observers, MaxObservers, ObserverDelaySeconds, Bots;
+        public Guid ServerId;
+        public bool RequiresTicket;
+        public const byte RulesCapability = 0x80;
+        public bool HasRules;
+        public bool FriendlyFire, PlayerRadar;
+        public SpawnPolicy SpawnPolicy;
+        public OvertimePolicy OvertimePolicy;
+        public LateJoinPolicy LateJoinPolicy;
 
         public NetWireFamily Family;
 
@@ -242,14 +256,40 @@ namespace MphRead.Mods.Network
             dest[MatchStatePacket.Size + 1] = Protocol;
             NetText.Write(dest.Slice(MatchStatePacket.Size + 2, MaxNameBytes), ServerName);
             dest[LegacySize] = (byte)(Family == NetWireFamily.Unknown ? NetWireIdentity.Family : Family);
+            if (HasRules && dest.Length >= ExtendedSize)
+            {
+                dest.Slice(Size, ExtendedSize - Size).Clear();
+                dest[Size] = 3; // rules, identity, and observer discovery version
+                dest[Size + 1] = (byte)((FriendlyFire ? 1 : 0) | (PlayerRadar ? 2 : 0));
+                dest[Size + 2] = (byte)SpawnPolicy;
+                dest[Size + 3] = (byte)OvertimePolicy;
+                dest[Size + 4] = (byte)LateJoinPolicy;
+                dest[Size + 5] = RequiresTicket ? (byte)1 : (byte)0;
+                ServerId.TryWriteBytes(dest.Slice(RulesV1Size, 16));
+                dest[IdentityV2Size] = (byte)RulesetPreset;
+                dest[IdentityV2Size + 1] = Observers;
+                dest[IdentityV2Size + 2] = MaxObservers;
+                dest[IdentityV2Size + 3] = ObserverDelaySeconds;
+                dest[IdentityV2Size + 4] = (byte)RankingEligibility;
+                dest[IdentityV2Size + 5] = Bots;
+            }
         }
 
         public static bool TryRead(ReadOnlySpan<byte> src, out ServerStatusPacket packet)
         {
             packet = default;
-            if (!NetWireIdentity.TryReadFamily(src, LegacySize, out NetWireFamily family)
+            bool observerExtension = src.Length == ExtendedSize;
+            bool identityExtension = observerExtension || src.Length == IdentityV2Size;
+            if (observerExtension && (src[IdentityV2Size] > (byte)RulesetPreset.Custom
+                || src[IdentityV2Size + 2] > 16 || src[IdentityV2Size + 1] > src[IdentityV2Size + 2]
+                || src[IdentityV2Size + 3] > 30 || src[IdentityV2Size + 4] > (byte)RankingEligibility.VerifiedServerOnly)) return false;
+            bool extended = identityExtension || src.Length == RulesV1Size;
+            if (extended && (src[Size] != (observerExtension ? 3 : identityExtension ? 2 : 1) || src[Size + 1] > 3 || src[Size + 2] > 2
+                || src[Size + 3] > 1 || src[Size + 4] > 2 || src[Size + 5] > (identityExtension ? 1 : 0) || src[Size + 6] != 0 || src[Size + 7] != 0)) return false;
+            if (!NetWireIdentity.TryReadFamily(extended ? src[..Size] : src, LegacySize, out NetWireFamily family)
                 || !NetPacketReader.TryReadMatchState(src[..MatchStatePacket.Size], out MatchStatePacket match)
                 || !NetWireIdentity.ValidCounts(match.PlayerCount, src[MatchStatePacket.Size])
+                || observerExtension && src[IdentityV2Size + 5] > match.PlayerCount
                 || !NetWireIdentity.ValidText(src.Slice(15, MatchStatePacket.MaxNameBytes))
                 || !NetWireIdentity.ValidText(src.Slice(15 + MatchStatePacket.MaxNameBytes, MatchStatePacket.MaxNameBytes))
                 || !NetWireIdentity.ValidText(src.Slice(MatchStatePacket.Size + 2, MaxNameBytes)))
@@ -258,6 +298,20 @@ namespace MphRead.Mods.Network
             }
             packet = new ServerStatusPacket
             {
+                HasRules = extended,
+                Bots = observerExtension ? src[IdentityV2Size + 5] : (byte)0,
+                RulesetPreset = observerExtension ? (RulesetPreset)src[IdentityV2Size] : RulesetPreset.Classic,
+                Observers = observerExtension ? src[IdentityV2Size + 1] : (byte)0,
+                MaxObservers = observerExtension ? src[IdentityV2Size + 2] : (byte)0,
+                ObserverDelaySeconds = observerExtension ? src[IdentityV2Size + 3] : (byte)0,
+                RankingEligibility = observerExtension ? (RankingEligibility)src[IdentityV2Size + 4] : RankingEligibility.Unranked,
+                ServerId = identityExtension ? new Guid(src.Slice(RulesV1Size, 16)) : Guid.Empty,
+                RequiresTicket = identityExtension && src[Size + 5] == 1,
+                FriendlyFire = extended && (src[Size + 1] & 1) != 0,
+                PlayerRadar = extended && (src[Size + 1] & 2) != 0,
+                SpawnPolicy = extended ? (SpawnPolicy)src[Size + 2] : default,
+                OvertimePolicy = extended ? (OvertimePolicy)src[Size + 3] : default,
+                LateJoinPolicy = extended ? (LateJoinPolicy)src[Size + 4] : default,
                 Family = family,
                 Match = match,
                 MaxPlayers = src[MatchStatePacket.Size],

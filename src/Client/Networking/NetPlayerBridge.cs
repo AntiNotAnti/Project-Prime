@@ -161,6 +161,7 @@ namespace MphRead.Mods.Network
                 scene.Match.Players[slot].Points = state.Points;
                 scene.Match.Players[slot].Kills = state.Kills;
                 scene.Match.Players[slot].Deaths = state.Deaths;
+                scene.Match.Players[slot].Assists = 0; // legacy PlayerState has no assist field
             }
             // Before health is reconciled, because the engine's damage
             // feedback is produced by the hit rather than by the number: a

@@ -9,6 +9,11 @@ namespace MphRead.NetTest
     /// <summary>Asset-backed capture/assembly/presentation probe; run once per process and mode.</summary>
     internal static class WorldCheck
     {
+        private sealed class ReplicaServices : ISceneServices
+        {
+            public bool IsReplica => true;
+        }
+
         private static int Inventory(string dataDirectory)
         {
             ServerContent.Open(dataDirectory, "AMHE1");
@@ -86,10 +91,14 @@ namespace MphRead.NetTest
             }
             ServerContent.Open(args[1], "AMHE1");
             string room = SelectRoom(mode);
-            Scene scene = Scene.CreateHeadless();
+            // WorldStateCapture assigns dynamic item identities through the
+            // authoritative server services.  Use the same simulation owner
+            // as the dedicated server instead of a local headless scene so
+            // this probe exercises the live capture path.
+            ServerSimulation simulation = new(new RotationEntry { RoomKey = room, Mode = mode });
+            Scene scene = simulation.Scene;
             try
             {
-                scene.LoadServerRoom(room, mode, 8, bots: true, roomPlayerCount: NetLaunch.RoomPlayerCount);
                 scene.Match.Phase = MatchPhase.Playing;
                 var capture = new WorldStateCapture();
                 var client = new ClientWorldState(); client.Reset(7);
@@ -140,6 +149,10 @@ namespace MphRead.NetTest
                     if (item.Owner?.Item == item) { item.Owner.Item = null; }
                     item.Destroy(); scene.RemoveEntity(item);
                 }
+                // Applying a terminal snapshot is a client-side operation;
+                // keep the authoritative services for capture, then switch
+                // only the presentation pass to a replica host.
+                scene.Services = new ReplicaServices();
                 client.Apply(scene);
                 int expectedItems = 0, actualItems = 0;
                 foreach (WorldRecord state in client.Records) { if (state.Kind == WorldRecordKind.Item) { expectedItems++; } }
@@ -152,7 +165,7 @@ namespace MphRead.NetTest
                 Console.WriteLine($"WORLDCHECK {mode} room={room} ticks=3600 frames=600 maxRecords={maximum} items={actualItems} flags={flagStates} nodes={nodeStates} PASS");
                 return 0;
             }
-            finally { scene.CloseHeadless(); }
+            finally { simulation.Dispose(); }
         }
     }
 }

@@ -139,13 +139,16 @@ namespace MphRead.Entities
 
         public void OnPickedUp(PlayerEntity? consumer = null)
         {
-            if (_scene.Services.IsReplica) { return; }
+            if (_scene.Services.IsReplica || DespawnTimer == 0) { return; }
             DespawnTimer = 0;
+            if (consumer != null) _scene.Services.PublishWorldSignal(_scene, new(WorldSignalKind.PickupConsumed,
+                WorldSubjectKind.Item, this, consumer, (byte)consumer.TeamIndex, Position, (uint)ItemType));
             Owner?.OnItemPickedUp(consumer);
         }
 
         public override void Destroy()
         {
+            _scene.Services.ForgetWorldEntity(this);
             if (_effectEntry != null)
             {
                 _scene.UnlinkEffectEntry(_effectEntry);

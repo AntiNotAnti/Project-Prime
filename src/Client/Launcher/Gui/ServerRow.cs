@@ -114,7 +114,8 @@ namespace MphRead.Mods.Launcher.Gui
             Focusable = IsEnabled;
             Cursor = new Cursor(IsEnabled ? StandardCursorType.Hand : StandardCursorType.Arrow);
             _incompatibility = status.Online && !status.Compatible ? status.IncompatibilityReason : "";
-            ToolTip.SetTip(this, _endpoint + (_incompatibility.Length > 0 ? " — " + _incompatibility : ""));
+            ToolTip.SetTip(this, _endpoint + (_incompatibility.Length > 0 ? " — " + _incompatibility : "")
+                + (status.Online ? "\n" + ServerBrowser.Details(status) : ""));
             if (!status.Online)
             {
                 _map = "did not answer";

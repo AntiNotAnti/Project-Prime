@@ -17,7 +17,13 @@ namespace MphRead.Mods.Network
         private JoinPacket _join;
         private double _joinDue;
         private bool _discovered;
+        private bool _hasRoleFence;
+        private uint _roleHeaderFence;
+        private uint _roleEventFence;
+        public uint RoleRevision { get; private set; }
         private double _joinStarted;
+        private double _lastJoinPending;
+        public bool AwaitingBotRetirement { get; private set; }
         private double _pingDue;
         private long _pingSent;
         private readonly NetApplicationEvent[] _events = new NetApplicationEvent[256];
@@ -42,6 +48,7 @@ namespace MphRead.Mods.Network
         public bool HasSnapshot { get; private set; }
         public long SnapshotsReceived { get; private set; }
         public long SnapshotReceivedAt { get; private set; }
+        public bool IsObserver => _join.Observer;
         public NetConnection? Connection { get; private set; }
         public JoinAcceptedPacket Accepted { get; private set; }
         public NetClock Clock { get; private set; } = new();
@@ -50,27 +57,36 @@ namespace MphRead.Mods.Network
         public NetConnectionState State => IsDisconnecting ? NetConnectionState.Disconnecting : Connection?.State ?? (Failure == null
             ? NetConnectionState.Connecting : NetConnectionState.Disconnecting);
 
-        public NetClient(NetTransport transport, IPEndPoint server, string name, Hunter hunter)
+        public NetClient(NetTransport transport, IPEndPoint server, string name, Hunter hunter, ulong? nonce = null, string ticket = "", bool observer = false)
         {
             _transport = transport;
             _server = server;
-            _join = new JoinPacket(NetHeader.Version, NetConnection.NewIdentity(), hunter, name);
+            if (nonce == 0 || (!string.IsNullOrEmpty(ticket) && (!nonce.HasValue || !JoinPacket.ValidTicketText(ticket))))
+                throw new ArgumentException("An authenticated join requires its ticket's nonzero nonce.");
+            _join = new JoinPacket(NetHeader.Version, nonce ?? NetConnection.NewIdentity(), hunter, name, Ticket: ticket, Observer: observer);
+            AwaitingBotRetirement = false;
             _joinStarted = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
         }
 
-        public void Reconnect()
+        public void Reconnect(ulong? nonce = null, string ticket = "")
         {
+            if ((!string.IsNullOrEmpty(_join.Ticket) && (string.IsNullOrEmpty(ticket) || ticket == _join.Ticket || nonce == _join.Nonce)) || nonce == 0
+                || (!string.IsNullOrEmpty(ticket) && (!nonce.HasValue || !JoinPacket.ValidTicketText(ticket))))
+                throw new ArgumentException("Authenticated reconnect requires a fresh ticket and nonce.");
             _join = _join with
             {
-                Nonce = NetConnection.NewIdentity(),
+                Ticket = ticket,
+                Nonce = nonce ?? NetConnection.NewIdentity(),
                 PreviousConnectionId = Connection?.Id ?? _join.PreviousConnectionId
             };
             _transport.SetKeepAlive(null);
+            _hasRoleFence = false;
             Connection = null;
             _discovered = false;
             Accepted = default;
             Clock = new NetClock();
             Failure = null;
+            AwaitingBotRetirement = false;
             _joinStarted = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
             _joinDue = _pingDue = 0;
             _pingSent = 0;
@@ -96,7 +112,8 @@ namespace MphRead.Mods.Network
             NetConnection? connection = Connection;
             if (connection == null)
             {
-                if (now - _joinStarted > NetConfig.TimeoutSeconds)
+                if (now - _joinStarted > (AwaitingBotRetirement ? 30 : NetConfig.TimeoutSeconds)
+                    || AwaitingBotRetirement && now - _lastJoinPending > NetConfig.TimeoutSeconds)
                 {
                     Fail("Server did not accept the connection.");
                 }
@@ -109,7 +126,7 @@ namespace MphRead.Mods.Network
                         _joinDue = now + 0.5;
                         return;
                     }
-                    Span<byte> datagram = stackalloc byte[NetHeader.Size + JoinPacket.Size];
+                    Span<byte> datagram = stackalloc byte[NetHeader.Size + _join.EncodedSize];
                     new NetHeader(NetMessageType.Join, NetHeaderFlags.Unsequenced, 0, 0, 0, 0).Write(datagram);
                     _join.Write(datagram[NetHeader.Size..]);
                     _transport.SendDatagram(_server, datagram);
@@ -164,9 +181,18 @@ namespace MphRead.Mods.Network
             {
                 return false;
             }
+            if (_hasRoleFence && header.Type is NetMessageType.Snapshot or NetMessageType.World
+                && !Sequence32.IsNewer(header.Sequence, _roleHeaderFence)) return false;
             ReadOnlySpan<byte> body = packet.Data.AsSpan(NetHeader.Size, packet.Length - NetHeader.Size);
             if (Connection == null)
             {
+                if (header.Type == NetMessageType.JoinPending && body.Length == 8
+                    && BinaryPrimitives.ReadUInt64LittleEndian(body) == _join.Nonce)
+                {
+                    AwaitingBotRetirement = true;
+                    _lastJoinPending = now;
+                    return true;
+                }
                 if (header.Type == NetMessageType.Refused && body.Length == 48
                     && BinaryPrimitives.ReadUInt64LittleEndian(body) == _join.Nonce)
                 {
@@ -177,12 +203,13 @@ namespace MphRead.Mods.Network
                     || !ReliableEventPacket.TryRead(body, out _, out ReliableEventType type, out ReadOnlySpan<byte> payload)
                     || type != ReliableEventType.Welcome
                     || !JoinAcceptedPacket.TryRead(payload, out JoinAcceptedPacket accepted)
-                    || accepted.ClientNonce != _join.Nonce)
+                    || accepted.ClientNonce != _join.Nonce || _join.Observer && !accepted.IsObserver)
                 {
                     return false;
                 }
                 Connection = new NetConnection(header.ConnectionId, _server, accepted.MatchId, now);
                 Accepted = accepted;
+                if (accepted.IsObserver) _join = _join with { Observer = true };
                 Span<byte> keepalive = stackalloc byte[NetHeader.Size];
                 new NetHeader(NetMessageType.KeepAlive, NetHeaderFlags.Unsequenced,
                     header.ConnectionId, 0, 0, 0).Write(keepalive);
@@ -222,7 +249,13 @@ namespace MphRead.Mods.Network
             if (header.Type == NetMessageType.Event)
             {
                 connection.Send(_transport, NetMessageType.Ack);
-                if (connection.Reliable.Receive(eventId)) { ReceiveEvent(eventType, eventBody); }
+                if (connection.Reliable.Receive(eventId))
+                {
+                    if (eventType == ReliableEventType.ObserverTransition && !_join.Observer)
+                    { _hasRoleFence = true; _roleHeaderFence = header.Sequence; _roleEventFence = eventId; }
+                    if (!_hasRoleFence || eventType == ReliableEventType.ObserverTransition || Sequence32.IsNewer(eventId, _roleEventFence))
+                        ReceiveEvent(eventType, eventBody);
+                }
             }
             else if (header.Type == NetMessageType.World && result != ReceiveResult.Duplicate)
             {
@@ -255,6 +288,7 @@ namespace MphRead.Mods.Network
                     HasSnapshot = true;
                     SnapshotsReceived++;
                     connection.Metrics.Snapshot(timestamp);
+                    if (IsObserver) connection.StartPlaying();
                     foreach (SnapshotPlayer player in players[..playerCount])
                     {
                         if (player.Slot == Accepted.Slot && player.ConnectionId == connection.Id
@@ -280,11 +314,20 @@ namespace MphRead.Mods.Network
 
         private bool ValidateEvent(ReliableEventType type, ReadOnlySpan<byte> payload)
         {
+            if (type == ReliableEventType.IntermissionBallot)
+                return IntermissionBallot.TryRead(payload, out var ballot)
+                    && (ballot!.MatchId == Connection!.MatchId || Sequence32.IsNewer(Connection!.MatchId, ballot.MatchId));
             if (type == ReliableEventType.Combat)
             {
                 Span<CombatEvent> events = stackalloc CombatEvent[CombatEventBatch.MaxCount];
                 if (payload.Length < 4 || !CombatEventBatch.TryRead(payload[4..], events, out _)) { return false; }
             }
+            if (type == ReliableEventType.WorldEvent && (payload.Length < 4
+                || !WorldEvent.TryRead(payload[4..], out WorldEvent worldEvent)
+                || worldEvent.MatchId != BinaryPrimitives.ReadUInt32LittleEndian(payload))) return false;
+            if (type == ReliableEventType.Kill && (payload.Length < 4
+                || !KillEvent.TryRead(payload[4..], out KillEvent kill)
+                || kill.MatchId != BinaryPrimitives.ReadUInt32LittleEndian(payload))) return false;
             if (type == ReliableEventType.Roster && (payload.Length < 4
                 || !SessionRosterPacket.TryRead(payload[4..], _incomingRoster,
                     out _incomingRosterRevision, out _incomingRosterCount))) { return false; }
@@ -292,10 +335,10 @@ namespace MphRead.Mods.Network
                 || !SessionChatPacket.TryRead(payload[4..], out _))) { return false; }
             return type switch
             {
-                ReliableEventType.MapTransition => MatchTransitionPacket.TryRead(payload, out _),
+                ReliableEventType.MapTransition or ReliableEventType.ObserverTransition => MatchTransitionPacket.TryRead(payload, out _),
                 ReliableEventType.Disconnect => payload.IsEmpty,
                 ReliableEventType.MatchState or ReliableEventType.Combat or ReliableEventType.World
-                    or ReliableEventType.Roster or ReliableEventType.Chat =>
+                    or ReliableEventType.Roster or ReliableEventType.Chat or ReliableEventType.Kill or ReliableEventType.WorldEvent =>
                     payload.Length >= 4 && (BinaryPrimitives.ReadUInt32LittleEndian(payload) == Connection!.MatchId
                         ? type == ReliableEventType.Roster || _eventCount < _events.Length
                         : Sequence32.IsNewer(Connection!.MatchId, BinaryPrimitives.ReadUInt32LittleEndian(payload))),
@@ -305,9 +348,27 @@ namespace MphRead.Mods.Network
 
         private void ReceiveEvent(ReliableEventType type, ReadOnlySpan<byte> payload)
         {
+            if (type == ReliableEventType.IntermissionBallot)
+            {
+                if (!IsDisconnecting && IntermissionBallot.TryRead(payload, out var ballot) && ballot!.MatchId == Connection!.MatchId
+                    && (Ballot == null || Sequence32.IsNewer(ballot.Revision, Ballot.Revision)
+                        || ballot.Revision == Ballot.Revision && Sequence32.IsNewer(ballot.UpdateRevision, Ballot.UpdateRevision))) Ballot = ballot;
+                return;
+            }
             NetConnection connection = Connection!;
             if (IsDisconnecting && type != ReliableEventType.Disconnect) { return; }
-            if (type == ReliableEventType.MapTransition)
+            if (type == ReliableEventType.ObserverTransition)
+            {
+                if (_join.Observer) return;
+                MatchTransitionPacket.TryRead(payload, out MatchTransitionPacket transition);
+                _join = _join with { Observer = true };
+                connection.BeginLoading(transition.MatchId);
+                connection.Reliable.CancelPendingExceptWelcome();
+                Accepted = Accepted with { Slot = byte.MaxValue, MatchId = transition.MatchId,
+                    ServerTick = transition.ServerTick, Rules = transition.Rules };
+                RoleRevision++; ClearMatchState();
+            }
+            else if (type == ReliableEventType.MapTransition)
             {
                 MatchTransitionPacket.TryRead(payload, out MatchTransitionPacket transition);
                 if (!Sequence32.IsNewer(transition.MatchId, connection.MatchId)) { return; }
@@ -340,6 +401,7 @@ namespace MphRead.Mods.Network
 
         private void ClearMatchState()
         {
+            Ballot = null;
             HasSnapshot = false;
             Snapshot = default;
             SnapshotReceivedAt = 0;
@@ -408,6 +470,20 @@ namespace MphRead.Mods.Network
                 && connection.Ready(matchId);
         }
 
+        public IntermissionBallot? Ballot { get; private set; }
+        public bool Vote(byte optionId)
+        {
+            if (Connection == null || IsObserver || IsDisconnecting || Ballot == null || Ballot.SelectedId != 0
+                || Ballot.MatchId != Connection.MatchId || Connection.State is not (NetConnectionState.Playing or NetConnectionState.Ready)
+                || Ballot.HasDeadline && (Snapshot.ServerTick == Ballot.DeadlineTick || Sequence32.IsNewer(Snapshot.ServerTick, Ballot.DeadlineTick))) return false;
+            bool offered = false;
+            foreach (var option in Ballot.Options) if (option.Id == optionId) offered = true;
+            if (!offered) return false;
+            Span<byte> payload = stackalloc byte[IntermissionVoteRequest.Size];
+            new IntermissionVoteRequest(Ballot.MatchId, Ballot.PhaseRevision, Ballot.Revision, optionId).Write(payload);
+            return Connection.Reliable.TryEnqueue(ReliableEventType.IntermissionVote, payload, out _);
+        }
+
         public bool SendChat(string text)
         {
             if (Connection == null || IsDisconnecting || Connection.State == NetConnectionState.Disconnecting
@@ -420,6 +496,7 @@ namespace MphRead.Mods.Network
 
         public bool SendInputs(ReadOnlySpan<InputCommand> commands, uint phaseRevision = 0)
         {
+            if (IsObserver) return false;
             if (IsDisconnecting || Connection?.State is not (NetConnectionState.Ready or NetConnectionState.Playing))
             {
                 return false;

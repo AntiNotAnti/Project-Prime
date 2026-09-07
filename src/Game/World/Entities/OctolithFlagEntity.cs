@@ -227,6 +227,7 @@ namespace MphRead.Entities
             }
             if (!_bounty && player.TeamIndex == _data.TeamId)
             {
+                bool returned = !_atBase;
                 if (!_atBase)
                 {
                     _soundSource.PlayFreeSfx(SfxId.FLAG_RESET2);
@@ -235,6 +236,8 @@ namespace MphRead.Entities
                     PlayerEntity.Main.ShowObjectiveMessage(messageId, 60 / (float)SimTicks.LegacyHz);
                 }
                 SetAtBase();
+                if (returned) _scene.Services.PublishWorldSignal(_scene, new(WorldSignalKind.FlagReset,
+                    WorldSubjectKind.Flag, this, player, (byte)_data.TeamId, Position));
                 return false;
             }
             if (_carrier != null)
@@ -247,12 +250,16 @@ namespace MphRead.Entities
             _atBase = false;
             _grounded = true;
             _resetTimer = 0;
+            _scene.Services.PublishWorldSignal(_scene, new(WorldSignalKind.FlagPickedUp, WorldSubjectKind.Flag,
+                this, player, (byte)player.TeamIndex, Position));
             return true;
         }
 
         private void Reset()
         {
             SetAtBase();
+            _scene.Services.PublishWorldSignal(_scene, new(WorldSignalKind.FlagReset, WorldSubjectKind.Flag,
+                this, null, _bounty ? (byte)255 : (byte)_data.TeamId, Position));
             int messageId;
             if (!_bounty)
             {
@@ -278,6 +285,7 @@ namespace MphRead.Entities
         private void OnDropped(bool reset)
         {
             Debug.Assert(_carrier != null);
+            PlayerEntity droppedBy = _carrier;
             _scene.Match.Players[_carrier.SlotIndex].OctolithDrops++;
             int messageId;
             if (!_bounty)
@@ -338,6 +346,8 @@ namespace MphRead.Entities
                 }
                 _resetTimer = 0;
             }
+            _scene.Services.PublishWorldSignal(_scene, new(reset ? WorldSignalKind.FlagReset : WorldSignalKind.FlagDropped,
+                WorldSubjectKind.Flag, this, droppedBy, (byte)droppedBy.TeamIndex, Position));
         }
 
         public void OnCaptured()
@@ -377,7 +387,10 @@ namespace MphRead.Entities
             }
             _scene.Match.Players[_carrier.SlotIndex].Points++;
             _scene.Match.Players[_carrier.SlotIndex].OctolithScores++;
+            PlayerEntity capturedBy = _carrier;
             SetAtBase();
+            _scene.Services.PublishWorldSignal(_scene, new(WorldSignalKind.FlagCaptured, WorldSubjectKind.Flag,
+                this, capturedBy, (byte)capturedBy.TeamIndex, Position));
         }
 
         // todo: is_visible for base and flag
