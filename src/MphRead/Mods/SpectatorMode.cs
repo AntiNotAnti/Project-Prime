@@ -71,7 +71,7 @@ namespace MphRead.Mods
                 return;
             }
             IsSpectating = true;
-            // Protocol 5 sends the desired state as input; authoritative
+            // The authoritative client sends the desired state as input;
             // snapshots decide when the body leaves or returns to the match.
             // The legacy/offline path still changes its local entity here.
             // Hidden and non-solid on every client, like Quake 3's
@@ -211,7 +211,7 @@ namespace MphRead.Mods
         }
 
         /// <summary>
-        /// Protocol 5 requests a delayed server respawn and preserves combat
+        /// The authoritative client requests a delayed server respawn and preserves combat
         /// scores. In offline and legacy matches the score resets because time spent
         /// spectating was time not playing -- picking the match back up with
         /// whatever score was left standing would credit or fault a period

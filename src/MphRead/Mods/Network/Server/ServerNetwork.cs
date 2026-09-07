@@ -235,7 +235,7 @@ namespace MphRead.Mods.Network
         {
             if (join.Protocol != NetHeader.Version)
             {
-                Refuse(endpoint, join.Nonce, "Protocol 5 required.");
+                Refuse(endpoint, join.Nonce, $"Authoritative protocol {NetHeader.Version} required.");
                 return true;
             }
             int free = -1;
