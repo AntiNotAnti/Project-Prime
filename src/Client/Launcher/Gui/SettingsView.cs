@@ -79,6 +79,9 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _filteringRow = null!;
         private ToggleRow _celRow = null!;
         private ToggleRow _fpsRow = null!;
+        private ToggleRow _advancedNetworkRow = null!;
+        private ChoiceRow _hitMarkerRow = null!, _radarStyleRow = null!, _radarOrientationRow = null!;
+        private ToggleRow _headshotCueRow = null!, _killConfirmationRow = null!;
 
         /// <summary>
         /// The stops the FPS limit slides over, and the cap each one means.
@@ -138,6 +141,7 @@ namespace MphRead.Mods.Launcher.Gui
         private ChoiceRow _crosshairSizeRow = null!;
         private ChoiceRow _crosshairStyleRow = null!;
         private SliderRow _sfxVolume = null!;
+        private SliderRow _feedbackVolume = null!;
         private SliderRow _musicVolume = null!;
         private ChoiceRow _languageRow = null!;
         private SliderRow _sensitivity = null!;
@@ -485,6 +489,7 @@ namespace MphRead.Mods.Launcher.Gui
             _fogRow = Add(page, new ToggleRow("Fog", RenderOptions.Fog));
             _filteringRow = Add(page, new ToggleRow("Texture filtering", RenderOptions.TextureFiltering));
             _fpsRow = Add(page, new ToggleRow("FPS counter", RenderOptions.ShowFps));
+            _advancedNetworkRow = Add(page, new ToggleRow("Network diagnostics", Hud.Network.NetworkHealthSettings.Advanced));
 
             Heading(page, "Cel shading");
             _celRow = Add(page, new ToggleRow("Cel shading", RenderOptions.CelShading));
@@ -502,6 +507,11 @@ namespace MphRead.Mods.Launcher.Gui
             // about here.
             Heading(page, "HUD");
             _proHud = Add(page, new ToggleRow("Pro mode HUD", Features.ProHud));
+            _hitMarkerRow = Add(page, new ChoiceRow("Hit markers", new[] { "Off", "Visual", "Visual + audio" }, (int)Combat.CombatFeedbackSettings.HitMarkers));
+            _headshotCueRow = Add(page, new ToggleRow("Headshot cue", Combat.CombatFeedbackSettings.HeadshotCue));
+            _killConfirmationRow = Add(page, new ToggleRow("Kill confirmation", Combat.CombatFeedbackSettings.KillConfirmation));
+            _radarStyleRow = Add(page, new ChoiceRow("Radar", new[] { "Classic", "Enhanced" }, (int)Hud.Radar.RadarSettings.Style));
+            _radarOrientationRow = Add(page, new ChoiceRow("Radar orientation", new[] { "Heading", "North" }, (int)Hud.Radar.RadarSettings.Orientation));
             // The crosshair questions belong to Pro mode and nothing else --
             // the DS HUD draws its own reticle sprite and has no use for
             // them -- so they are only asked while it is on. Shown rather than
@@ -532,6 +542,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             StackPanel page = AddSection("Audio");
             Heading(page, "Volume");
+            _feedbackVolume = Add(page, new SliderRow("Combat feedback", (int)(Combat.FeedbackAudio.Volume * 100), v => $"{v}%"));
             _sfxVolume = Add(page, new SliderRow("Sound effects",
                 Percent(_settings.SfxVolume, 35)));
             _musicVolume = Add(page, new SliderRow("Music", Percent(_settings.MusicVolume, 50)));
@@ -861,6 +872,12 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.Fog = RenderOptions.OnOff(_fogRow.On);
             _settings.TextureFiltering = RenderOptions.OnOff(_filteringRow.On);
             _settings.ShowFps = RenderOptions.OnOff(_fpsRow.On);
+            _settings.AdvancedNetwork = RenderOptions.OnOff(_advancedNetworkRow.On);
+            _settings.HitMarkers = ((Combat.HitMarkerMode)_hitMarkerRow.Index).ToString();
+            _settings.HeadshotCue = RenderOptions.OnOff(_headshotCueRow.On);
+            _settings.KillConfirmation = RenderOptions.OnOff(_killConfirmationRow.On);
+            _settings.RadarStyle = ((Hud.Radar.RadarStyle)_radarStyleRow.Index).ToString();
+            _settings.RadarOrientation = ((Hud.Radar.RadarOrientation)_radarOrientationRow.Index).ToString();
             int cap = _fpsLimitStops[Math.Clamp(_fpsLimitRow.Value, 0,
                 _fpsLimitStops.Length - 1)].Cap;
             FrameTiming.FrameRateCap = cap;
@@ -873,6 +890,7 @@ namespace MphRead.Mods.Launcher.Gui
             Crosshair.Style = (CrosshairStyle)_crosshairStyleRow.Index;
             // Audio
             _settings.SfxVolume = (_sfxVolume.Value / 100f).ToString(CultureInfo.InvariantCulture);
+            _settings.FeedbackVolume = (_feedbackVolume.Value / 100f).ToString(CultureInfo.InvariantCulture);
             _settings.MusicVolume = (_musicVolume.Value / 100f).ToString(CultureInfo.InvariantCulture);
             _settings.Language = _languageRow.Value;
             // Controls

@@ -21,7 +21,7 @@ namespace MphRead.Mods.Network
         ushort Amount, Vector3 Position, Vector3 Direction, ushort FrozenTicks, ushort BurnTicks, ushort DisruptTicks, ushort ChargeLevel = 0, uint SpreadSeed = 0)
     {
         public const int Size = 82;
-        internal bool IsValid => Kind >= CombatEventKind.Shot && Kind <= CombatEventKind.Bomb
+        public bool IsValid => Kind >= CombatEventKind.Shot && Kind <= CombatEventKind.Bomb
             && (Flags & ~(CombatEventFlags)63) == 0
             && (Actor.IsValid || Actor.IsNone) && (Target.IsValid || Target.IsNone)
             && (Kind is CombatEventKind.Shot or CombatEventKind.Bomb ? Actor.IsValid : Target.IsValid)

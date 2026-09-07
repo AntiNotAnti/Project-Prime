@@ -90,12 +90,9 @@ namespace MphRead.Entities
                 if (value.Health == 0 || !_player.IsMainPlayer || _player.IsAltForm)
                     return;
                 Vector3 direction = value.Direction;
-                if (direction.LengthSquared < 0.0001f && value.Actor.Slot < PlayerEntity.Players.Count)
-                    direction = _player.Position - PlayerEntity.Players[value.Actor.Slot].Position;
-                float forward = Vector3.Dot(direction, _player._gunVec1);
-                float right = Vector3.Dot(direction, _player._gunVec2);
-                int indicator = MathF.Abs(forward) >= MathF.Abs(right) ? forward > 0 ? 0 : 4 : right > 0 ? 2 : 6;
-                _damageIndicatorTimers[indicator] = 126;
+                // Direction is an authoritative fact. Do not consult a reused attacker slot for a fallback.
+                int indicator = MphRead.Combat.CombatFeedback.DamageSector(direction, _player._gunVec1, _player._gunVec2);
+                if (indicator >= 0) _damageIndicatorTimers[indicator] = (ushort)SimTicks.From30HzFrames(63);
                 _player.CameraInfo.SetShake(Math.Clamp(value.Amount * 0.01f, 0.03f, 0.25f));
             }
         // Death/spawn/form/affliction transitions are rendered from snapshots.

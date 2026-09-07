@@ -5,6 +5,8 @@ using MphRead.Formats;
 
 namespace MphRead
 {
+    public readonly record struct PlayerResultIdentity(Hunter Hunter, int TeamIndex, bool Active, string Nickname, bool IsBot = false);
+
     public enum MatchEndReason
     {
         TimeLimit,
@@ -31,7 +33,8 @@ namespace MphRead
         public ImmutableArray<TeamMatchResult> Teams { get; }
         public ImmutableArray<int> ResultSlots { get; }
 
-        internal MatchResult(MatchRuntime match, float completedAtSimulationTime, MatchEndReason endReason)
+        internal MatchResult(MatchRuntime match, float completedAtSimulationTime, MatchEndReason endReason,
+            ReadOnlySpan<PlayerResultIdentity> identities = default)
         {
             MatchId = match.MatchId;
             Rules = match.Rules;
@@ -44,7 +47,8 @@ namespace MphRead
             var teams = ImmutableArray.CreateBuilder<TeamMatchResult>(PlayerEntity.SlotCapacity);
             for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
             {
-                players.Add(new PlayerMatchResult(match, slot, PlayerEntity.Players[slot], GameState.Nicknames[slot]));
+                players.Add(new PlayerMatchResult(match, slot, PlayerEntity.Players[slot], GameState.Nicknames[slot],
+                    identities.IsEmpty ? null : identities[slot]));
                 teams.Add(new TeamMatchResult(slot, match.TeamPoints[slot], match.TeamKills[slot],
                     match.TeamDeaths[slot], match.TeamTime[slot]));
             }
@@ -61,11 +65,19 @@ namespace MphRead
         public Hunter Hunter { get; }
         public int TeamIndex { get; }
         public bool Active { get; }
+        public bool IsBot { get; }
         public int TeamStanding { get; }
         public int Stars { get; }
         public int Standings { get; }
         public int Points { get; }
         public int Kills { get; }
+        public int DamageDealt { get; }
+        // Authority/report metrics. The compact live result replica does not
+        // carry these counters; career presentation reads the Backend ledger.
+        public int BipedKills { get; }
+        public int AltFormKills { get; }
+        public int LongestKillStreak { get; }
+        public int Assists { get; }
         public int Deaths { get; }
         public int BeamDamageMax { get; }
         public int BeamDamageDealt { get; }
@@ -86,19 +98,25 @@ namespace MphRead
         public float Time { get; }
         public ImmutableArray<int> BeamKills { get; }
 
-        internal PlayerMatchResult(MatchRuntime match, int slot, PlayerEntity player, string nickname)
+        internal PlayerMatchResult(MatchRuntime match, int slot, PlayerEntity player, string nickname, PlayerResultIdentity? identity = null)
         {
             Slot = slot;
-            Nickname = nickname;
-            Hunter = player.Hunter;
-            TeamIndex = player.TeamIndex;
-            Active = player.LoadFlags.TestFlag(LoadFlags.Active);
+            Nickname = identity?.Nickname ?? nickname;
+            Hunter = identity?.Hunter ?? player.Hunter;
+            TeamIndex = identity?.TeamIndex ?? player.TeamIndex;
+            Active = identity?.Active ?? player.LoadFlags.TestFlag(LoadFlags.Active);
+            IsBot = identity?.IsBot ?? player.IsBot;
             TeamStanding = match.TeamStandings[slot];
             Stars = match.Stars[slot];
             Standings = match.Standings[slot];
             Points = match.Points[slot];
             Kills = match.Kills[slot];
             Deaths = match.Deaths[slot];
+            Assists = match.Assists[slot];
+            LongestKillStreak = match.LongestKillStreak[slot];
+            DamageDealt = match.DamageDealt[slot];
+            BipedKills = match.BipedKills[slot];
+            AltFormKills = match.AltFormKills[slot];
             BeamDamageMax = match.BeamDamageMax[slot];
             BeamDamageDealt = match.BeamDamageDealt[slot];
             DamageCount = match.DamageCount[slot];

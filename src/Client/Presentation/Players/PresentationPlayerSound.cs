@@ -156,6 +156,17 @@ namespace MphRead.Entities
         private int _healthSfxHandle = -1;
         public void UpdateHealthSfx(int health)
         {
+            if (Mods.Network.AuthoritativePlay.Active || Mods.Network.DemoPlayback.IsModern)
+            {
+                // Modern feedback announces threshold crossings once. Retire a
+                // legacy loop if this presentation switches to a network session.
+                if (_healthSfxHandle != -1)
+                {
+                    _player._soundSource.StopSfxByHandle(_healthSfxHandle);
+                    _healthSfxHandle = -1;
+                }
+                return;
+            }
             if (Sfx.TimedSfxMute > 0)
             {
                 return;

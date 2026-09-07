@@ -973,6 +973,12 @@ namespace MphRead.Entities
             // of the point, and a message that arrives while the scoreboard
             // is up has still arrived.
             ModDrawChat();
+            ModDrawCombatFeedback();
+            if (Mods.SpectatorMode.WaitingForNextMatch)
+                DrawText2D(128, 32, Align.Center, 0, "SPECTATING - NEXT MATCH", new ColorRgba(0x3FEF), scale: .75f);
+            DrawWeaponRadial();
+            DrawNetworkHealth();
+            if (DrawPostMatchResults()) return;
             if (_player._scene.Match.Phase == MatchPhase.WaitingForPlayers)
             {
                 DrawText2D(128, 40, Align.Center, 0, "WAITING FOR PLAYERS", new ColorRgba(0x3FEF), fontSpacing: 8);
@@ -1157,13 +1163,29 @@ namespace MphRead.Entities
         }
 
         private readonly List<LocatorInfo> _locatorInfo = new List<LocatorInfo>(15);
-        public void AddLocatorInfo(Vector3 position, ModelInstance inst, ColorRgb color, float alpha = 1)
+        public void AddLocatorInfo(Vector3 position, ModelInstance inst, ColorRgb color, float alpha = 1, int team = -1)
         {
             _locatorInfo.Add(new LocatorInfo(position, inst, color, alpha));
+            // This sink receives only contacts admitted by the existing mode
+            // policy below. Enhanced drawing never searches additional entities.
+            var type = inst == _playerLocator ? Hud.Radar.RadarContactType.Enemy : Hud.Radar.RadarContactType.Objective;
+            var objective = inst == _playerLocator ? Hud.Radar.RadarObjective.None
+                : inst == _octolithLocator ? Hud.Radar.RadarObjective.Flag
+                : _player._scene.Match.Rules.Mode is MatchMode.Nodes or MatchMode.TeamNodes ? Hud.Radar.RadarObjective.Node
+                : _player._scene.Match.Rules.Mode is MatchMode.Defender or MatchMode.TeamDefender ? Hud.Radar.RadarObjective.Defender
+                : Hud.Radar.RadarObjective.Base;
+            if (inst == _playerLocator && _player._scene.Match.Rules.Mode == MatchMode.PrimeHunter)
+                type = Hud.Radar.RadarContactType.PrimeHunter;
+            _radarFrame.AddApproved(new(type, position, team, objective, alpha));
         }
 
         public void DrawLocatorIcons()
         {
+            if (Hud.Radar.RadarSettings.Style == Hud.Radar.RadarStyle.Enhanced)
+            {
+                DrawEnhancedRadar();
+                return;
+            }
             for (int i = 0; i < _locatorInfo.Count; i++)
             {
                 LocatorInfo info = _locatorInfo[i];
@@ -1879,6 +1901,7 @@ namespace MphRead.Entities
         public void ProcessModeHud()
         {
             _locatorInfo.Clear();
+            _radarFrame.Begin(_player.Position, _player.FacingVector, _player._scene.FrameCount);
             ProcessOpponent();
             if (_player._scene.Match.Rules.Mode == MatchMode.Survival || _player._scene.Match.Rules.Mode == MatchMode.TeamSurvival)
             {
@@ -1960,13 +1983,13 @@ namespace MphRead.Entities
                     pos.Y += 0.75f;
                 }
 
-                AddLocatorInfo(pos, _playerLocator, new ColorRgb(31, 31, 31), alpha);
+                AddLocatorInfo(pos, _playerLocator, new ColorRgb(31, 31, 31), alpha, player.TeamIndex);
             }
 
             if (reveal == 1)
             {
                 _player._soundSource.QueueStream(VoiceId.VOICE_CAMPING, delay: 1);
-                QueueHudMessage(128, 150, 60 / 30f, 0, 234); // COWARD DETECTED!
+                QueueHudMessage(128, 150, 60 / (float)SimTicks.LegacyHz, 0, 234); // COWARD DETECTED!
             }
         }
 
@@ -1977,7 +2000,7 @@ namespace MphRead.Entities
             {
                 foreach (FlagBaseEntity flagBase in _player._scene.GetFlagBaseEntities())
                 {
-                    AddLocatorInfo(flagBase.Position, _nodeLocator, goodColor);
+                    AddLocatorInfo(flagBase.Position, _nodeLocator, goodColor, team: (int)flagBase.Data.TeamId);
                 }
             }
             else
@@ -1990,7 +2013,7 @@ namespace MphRead.Entities
                         color = flag.Carrier.TeamIndex == _player.TeamIndex ? goodColor : new ColorRgb(31, 0, 0);
                     }
 
-                    AddLocatorInfo(flag.Position, _octolithLocator, color);
+                    AddLocatorInfo(flag.Position, _octolithLocator, color, team: flag.Carrier?.TeamIndex ?? -1);
                 }
             }
         }
@@ -2008,10 +2031,10 @@ namespace MphRead.Entities
                         color = flag.Carrier.TeamIndex == _player.TeamIndex ? goodColor : new ColorRgb(31, 0, 0);
                     }
 
-                    AddLocatorInfo(flag.Position, _octolithLocator, color);
+                    AddLocatorInfo(flag.Position, _octolithLocator, color, team: flag.Data.TeamId);
                     if (_player.OctolithFlag != null && flag.Data.TeamId == _player.TeamIndex)
                     {
-                        AddLocatorInfo(flag.BasePosition, _nodeLocator, goodColor);
+                        AddLocatorInfo(flag.BasePosition, _nodeLocator, goodColor, team: flag.Data.TeamId);
                     }
                 }
             }
@@ -2040,7 +2063,7 @@ namespace MphRead.Entities
                     color = new ColorRgb(31, 0, 0);
                 }
 
-                AddLocatorInfo(defense.Position, _nodeLocator, color);
+                AddLocatorInfo(defense.Position, _nodeLocator, color, team: defense.CurrentTeam);
             }
         }
 
@@ -2112,7 +2135,7 @@ namespace MphRead.Entities
                     }
                 }
 
-                AddLocatorInfo(defense.Position, _nodeLocator, color);
+                AddLocatorInfo(defense.Position, _nodeLocator, color, team: defense.CurrentTeam);
                 if (defense.CurrentTeam != NodeDefenseEntity.NeutralTeam && defense.OccupyingTeam == NodeDefenseEntity.NeutralTeam)
                 {
                     int count = _teamNodeCounts[defense.CurrentTeam] + 1;
@@ -2187,7 +2210,7 @@ namespace MphRead.Entities
                         pos.Y += 0.75f;
                     }
 
-                    AddLocatorInfo(pos, _playerLocator, new ColorRgb(31, 0, 0));
+                    AddLocatorInfo(pos, _playerLocator, new ColorRgb(31, 0, 0), team: primeHunter.TeamIndex);
                 }
             }
 

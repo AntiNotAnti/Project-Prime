@@ -1804,6 +1804,8 @@ namespace MphRead.Entities
                             if (_scene.Match.Players[attacker.SlotIndex].KillStreak < 255)
                             {
                                 _scene.Match.Players[attacker.SlotIndex].KillStreak++;
+                                _scene.Match.Players[attacker.SlotIndex].LongestKillStreak = Math.Max(
+                                    _scene.Match.Players[attacker.SlotIndex].LongestKillStreak, _scene.Match.Players[attacker.SlotIndex].KillStreak);
                             }
                             if (_scene.Match.Players[attacker.SlotIndex].KillStreak == 5)
                             {

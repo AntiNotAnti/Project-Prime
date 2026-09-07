@@ -19,6 +19,11 @@ namespace MphRead
         public int Standings { get => _match.Standings[Slot]; set => _match.Standings[Slot] = value; }
         public int Points { get => _match.Points[Slot]; set => _match.Points[Slot] = value; }
         public int Kills { get => _match.Kills[Slot]; set => _match.Kills[Slot] = value; }
+        public int DamageDealt { get => _match.DamageDealt[Slot]; set => _match.DamageDealt[Slot] = value; }
+        public int BipedKills { get => _match.BipedKills[Slot]; set => _match.BipedKills[Slot] = value; }
+        public int AltFormKills { get => _match.AltFormKills[Slot]; set => _match.AltFormKills[Slot] = value; }
+        public int LongestKillStreak { get => _match.LongestKillStreak[Slot]; set => _match.LongestKillStreak[Slot] = value; }
+        public int Assists { get => _match.Assists[Slot]; set => _match.Assists[Slot] = value; }
         public int Deaths { get => _match.Deaths[Slot]; set => _match.Deaths[Slot] = value; }
         public int BeamDamageMax { get => _match.BeamDamageMax[Slot]; set => _match.BeamDamageMax[Slot] = value; }
         public int BeamDamageDealt { get => _match.BeamDamageDealt[Slot]; set => _match.BeamDamageDealt[Slot] = value; }

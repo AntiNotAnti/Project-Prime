@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Immutable;
+using MphRead.Combat;
 using MphRead.Entities;
 using OpenTK.Mathematics;
 
@@ -28,6 +30,9 @@ namespace MphRead.Mods.Network
         public const int Capacity = 1024;
         [ThreadStatic] private static ServerCombat? _current;
         public static ServerCombat? Current => _current;
+        private readonly DamageContributionLedger[] _damage = new DamageContributionLedger[8];
+        private readonly KillEvent[] _kills = new KillEvent[Capacity];
+        private int _killHead, _killCount;
         private readonly CombatEvent[] _events = new CombatEvent[Capacity];
         private readonly InputCommand[] _commands = new InputCommand[8];
         private readonly double[] _rtt = new double[8];
@@ -35,12 +40,15 @@ namespace MphRead.Mods.Network
         private uint _nextId;
         private readonly uint _initialSpreadSeed;
         private uint _spreadSeed;
+        public ServerWorldEvents World { get; } = new();
+        internal uint NextPresentationId() => _nextId++;
         public LagCompensationHistory History { get; } = new();
         public ProjectileCatchUp CatchUp { get; }
         public bool LagCompEnabled { get; }
         public bool ProjectileCatchUpEnabled { get; }
         public ServerCombat(bool lagCompEnabled = true, bool projectileCatchUpEnabled = true, uint? spreadSeed = null)
         {
+            for (int i = 0; i < _damage.Length; i++) _damage[i] = new();
             _initialSpreadSeed = _spreadSeed = spreadSeed ?? Rng.Rng2;
             LagCompEnabled = lagCompEnabled;
             ProjectileCatchUpEnabled = lagCompEnabled && projectileCatchUpEnabled;
@@ -91,6 +99,10 @@ namespace MphRead.Mods.Network
         }
         public void Reset()
         {
+            World.Reset();
+            foreach (var ledger in _damage) ledger.Reset();
+            _killHead = _killCount = 0;
+            Array.Clear(_kills);
             _head = _count = 0; _nextId = 0; Dropped = 0;
             _spreadSeed = _initialSpreadSeed;
             Array.Clear(_commands); Array.Clear(_rtt); History.Clear(); CatchUp.Clear();
@@ -109,21 +121,29 @@ namespace MphRead.Mods.Network
 
         // Contact damage and bombs need immutable attribution, not a new timed
         // beam action. They must not alter shot counters or resolve rewind.
-        public CombatShot CaptureAttribution(EntityBase owner) => CaptureAttribution(GetActor(owner));
+        public CombatShot CaptureAttribution(EntityBase owner)
+        {
+            CombatShot shot = CaptureAttribution(GetActor(owner));
+            return owner is HalfturretEntity ? shot with { SourceAltForm = true } : shot;
+        }
 
         internal CombatShot CaptureAttribution(CombatActor actor)
         {
             if (!actor.IsValid) return default;
             InputCommand command = _commands[actor.Slot];
-            return new(actor, command.Sequence, Tick, command.ViewServerTick, Tick, 0);
+            return new(actor, command.Sequence, Tick, command.ViewServerTick, Tick, 0)
+            { SourceAltForm = PlayerEntity.Players[actor.Slot]?.IsAltForm == true };
         }
 
         public CombatShot CaptureShot(EntityBase owner, in BeamMechanics mechanics)
-            => CaptureShot(GetActor(owner), mechanics);
+        {
+            CombatShot shot = CaptureShot(GetActor(owner), mechanics);
+            return owner is HalfturretEntity ? shot with { SourceAltForm = true } : shot;
+        }
 
         internal CombatShot CaptureShot(CombatActor actor, in BeamMechanics mechanics)
         {
-            CombatShot shot = CaptureAttribution(actor);
+            CombatShot shot = CaptureAttribution(actor) with { SourceWeapon = (byte)mechanics.Beam };
             if (!shot.IsValid) return default;
             ShotsConsidered++;
             LagCompensationMode mode = GetMode(mechanics);
@@ -166,10 +186,26 @@ namespace MphRead.Mods.Network
             TryRecord(new(0, Tick, shot.CommandSequence, CombatEventKind.Bomb, (byte)type,
                 0, shot.Actor, CombatActor.None, 0, 0, position, facing, 0, 0, 0));
         }
+        public bool TryPeekKill(out KillEvent value)
+        {
+            value = _killCount == 0 ? default : _kills[_killHead];
+            return _killCount > 0;
+        }
+        public void ConsumeKill()
+        {
+            if (_killCount == 0) throw new InvalidOperationException("No pending kill.");
+            _kills[_killHead] = default;
+            _killHead = (_killHead + 1) % Capacity;
+            _killCount--;
+        }
+        public void NoteHealing(PlayerEntity player, int amount)
+            => _damage[player.SlotIndex].Heal(player.ServerCombatIdentity, amount);
+
         public void NoteSpawn(PlayerEntity player)
         {
             CombatActor actor = player.ServerCombatIdentity;
             if (!actor.IsValid) return;
+            _damage[player.SlotIndex].Reset(actor);
             TryRecord(new(0, Tick, 0, CombatEventKind.Spawn, 255, 0, actor, actor,
                 (ushort)player.Health, 0, player.Position, player.FacingVector, 0, 0, 0));
         }
@@ -185,22 +221,85 @@ namespace MphRead.Mods.Network
                 BombEntity bomb => bomb.CombatShot,
                 _ => attacker == null ? default : CaptureAttribution(attacker)
             };
-            if (flags.TestFlag(DamageFlags.Burn) && victim.CombatBurnSource.IsValid) shot = victim.CombatBurnSource;
+            if (flags.TestFlag(DamageFlags.Burn) && victim.CombatBurnSource.IsValid)
+            {
+                shot = victim.CombatBurnSource;
+                if (weapon == BeamType.None && shot.SourceWeapon <= 10) weapon = (BeamType)shot.SourceWeapon;
+            }
             CombatActor actor = shot.IsValid ? shot.Actor : CombatActor.None;
             CombatEventFlags eventFlags = 0;
             if (flags.TestFlag(DamageFlags.Headshot)) eventFlags |= CombatEventFlags.Headshot;
             if (flags.TestFlag(DamageFlags.Burn)) eventFlags |= CombatEventFlags.Burn;
             if (flags.TestFlag(DamageFlags.Deathalt)) eventFlags |= CombatEventFlags.Deathalt;
             if (flags.TestFlag(DamageFlags.NoSfx)) eventFlags |= CombatEventFlags.Silent;
+            if (shot.Affinity) eventFlags |= CombatEventFlags.Affinity;
             ushort amount = (ushort)Math.Clamp(previousHealth - victim.Health, 0, UInt16.MaxValue);
             CombatEvent value = new(0, Tick, shot.CommandSequence, CombatEventKind.Damage,
                 weapon == BeamType.None ? (byte)255 : (byte)weapon, eventFlags, actor, target,
                 (ushort)Math.Clamp(victim.Health, 0, UInt16.MaxValue), amount, victim.Position,
                 direction ?? Vector3.Zero, frozen, burn, disrupt);
+            bool sameConnection = actor.IsValid && actor.Slot < PlayerEntity.Players.Count
+                && PlayerEntity.Players[actor.Slot].ServerCombatIdentity.ConnectionId == actor.ConnectionId;
+            bool currentActor = sameConnection && PlayerEntity.Players[actor.Slot].ServerCombatIdentity == actor;
+            bool teamDamage = sameConnection && victim._scene.Match.Rules.Teams
+                && PlayerEntity.Players[actor.Slot].TeamIndex == victim.TeamIndex;
+            if (sameConnection && actor.Slot != target.Slot && !teamDamage && amount > 0)
+            {
+                PlayerMatchStats stats = victim._scene.Match.Players[actor.Slot];
+                stats.DamageDealt = (int)Math.Min(int.MaxValue, (long)stats.DamageDealt + amount);
+            }
+            _damage[target.Slot].Add(target, actor, Tick, amount, currentActor && !teamDamage);
             if (amount > 0) TryRecord(value);
-            if (previousHealth > 0 && victim.Health == 0) TryRecord(value with { Kind = CombatEventKind.Death });
+            if (previousHealth > 0 && victim.Health == 0)
+            {
+                if (sameConnection && actor.Slot != target.Slot && !teamDamage)
+                {
+                    PlayerMatchStats stats = victim._scene.Match.Players[actor.Slot];
+                    if (shot.SourceAltForm) { if (stats.AltFormKills < int.MaxValue) stats.AltFormKills++; }
+                    else if (stats.BipedKills < int.MaxValue) stats.BipedKills++;
+                }
+                TryRecord(value with { Kind = CombatEventKind.Death });
+                RecordKill(victim, sameConnection ? actor : CombatActor.None, value, teamDamage,
+                    weapon != BeamType.None ? KillSourceKind.Beam : source is BombEntity ? KillSourceKind.Bomb
+                    : source is PlayerEntity or HalfturretEntity && attacker != null && !flags.TestFlag(DamageFlags.Death)
+                        ? KillSourceKind.Alt : KillSourceKind.Environment);
+            }
             if (afflictionChanged) TryRecord(value with { Kind = CombatEventKind.Affliction, Amount = 0 });
         }
+        private void RecordKill(PlayerEntity victim, CombatActor killer, in CombatEvent damage, bool teamDamage, KillSourceKind sourceKind)
+        {
+            MatchRuntime match = victim._scene.Match;
+            Span<CombatActor> candidates = stackalloc CombatActor[8];
+            int count = teamDamage ? 0 : _damage[victim.SlotIndex].Collect(killer, Tick,
+                match.Rules.AssistMinimumDamage, (uint)match.Rules.AssistWindowTicks, candidates);
+            var assists = ImmutableArray.CreateBuilder<CombatActor>();
+            for (int i = 0; i < count; i++)
+            {
+                CombatActor actor = candidates[i];
+                if (actor.Slot >= PlayerEntity.Players.Count || PlayerEntity.Players[actor.Slot].ServerCombatIdentity != actor
+                    || (match.Rules.Teams && PlayerEntity.Players[actor.Slot].TeamIndex == victim.TeamIndex)) continue;
+                assists.Add(actor);
+                if (match.Players[actor.Slot].Assists < int.MaxValue) match.Players[actor.Slot].Assists++;
+            }
+            _damage[victim.SlotIndex].Reset();
+            KillEventFlags flags = 0;
+            if ((damage.Flags & CombatEventFlags.Headshot) != 0) flags |= KillEventFlags.Headshot;
+            if ((damage.Flags & CombatEventFlags.Burn) != 0) flags |= KillEventFlags.Burn;
+            if ((damage.Flags & CombatEventFlags.Deathalt) != 0) flags |= KillEventFlags.Deathalt;
+            if ((damage.Flags & CombatEventFlags.Affinity) != 0) flags |= KillEventFlags.Affinity;
+            bool suicide = killer.IsValid && killer.Slot == damage.Target.Slot
+                && killer.ConnectionId == damage.Target.ConnectionId;
+            if (suicide) flags |= KillEventFlags.Suicide;
+            if (teamDamage && !suicide) flags |= KillEventFlags.TeamKill;
+            var value = new KillEvent(_nextId++, Tick, match.MatchId, match.PhaseRevision,
+                killer, damage.Target, damage.Weapon, flags, assists.ToImmutable(), sourceKind);
+            // Diagnostic scenes may not own a network match identity.
+            if (match.MatchId == 0) return;
+            if (!value.IsValid) throw new InvalidOperationException("Invalid authoritative kill attribution.");
+            if (_killCount == Capacity) throw new InvalidOperationException("Authoritative kill journal exhausted.");
+            _kills[(_killHead + _killCount++) % Capacity] = value;
+        }
+
         public static bool IsStaleActor(in CombatActor actor)
             => _current != null && actor.IsValid && (actor.Slot >= PlayerEntity.Players.Count
                 || PlayerEntity.Players[actor.Slot].ServerCombatIdentity.ConnectionId != actor.ConnectionId);

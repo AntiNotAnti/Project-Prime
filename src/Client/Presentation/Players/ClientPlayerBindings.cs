@@ -132,6 +132,8 @@ namespace MphRead.Entities
         public Keybind NextWeapon { get; }
         public Keybind PrevWeapon { get; }
         public Keybind WeaponMenu { get; }
+        public Keybind RecapHistory { get; } = new(Keys.F6);
+        public Keybind QuickSwap { get; } = new(Keys.Q);
         public Keybind PowerBeam { get; }
         public Keybind Missile { get; }
         public Keybind VoltDriver { get; }
@@ -221,6 +223,8 @@ namespace MphRead.Entities
                 nextWeapon,
                 prevWeapon,
                 weaponMenu,
+                QuickSwap,
+                RecapHistory,
                 powerBeam,
                 missile,
                 voltDriver,

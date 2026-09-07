@@ -5,6 +5,7 @@ namespace MphRead.Entities
 {
     public partial class PlayerEntity
     {
+        internal BeamType AffinitySlotWeapon => _weaponSlots[2];
         internal InputCommand CaptureNetworkInput(uint sequence, uint viewServerTick)
         {
             if (_scene.Services.DesiredSpectating)
@@ -80,9 +81,14 @@ namespace MphRead.Entities
             bool alt = (state.Flags & SnapshotPlayerFlags.AltForm) != 0;
             if ((!predicted || newLife) && IsAltForm != alt) { ModForceForm(alt); }
             ModSetSpectating((state.Flags & SnapshotPlayerFlags.Spectating) != 0);
+            if ((state.Flags & SnapshotPlayerFlags.Active) != 0) LoadFlags |= LoadFlags.Active;
+            else LoadFlags &= ~LoadFlags.Active;
             // Freeze gates local prediction; burn/disruption remain presentation-only
             // so snapshot reconciliation cannot start client-generated burn damage.
             _frozenTimer = state.FrozenTicks;
+            Flags2 &= ~(PlayerFlags2.RadarReveal | PlayerFlags2.RadarRevealPrevious);
+            if ((state.Flags & SnapshotPlayerFlags.RadarReveal) != 0) Flags2 |= PlayerFlags2.RadarReveal;
+            if ((state.Flags & SnapshotPlayerFlags.RadarRevealPrevious) != 0) Flags2 |= PlayerFlags2.RadarRevealPrevious;
         }
 
         internal void ApplySnapshotTransform(in SnapshotPlayer state, bool local = false)

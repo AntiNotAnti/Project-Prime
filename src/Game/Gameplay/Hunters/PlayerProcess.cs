@@ -237,7 +237,7 @@ namespace MphRead.Entities
             {
                 _disruptedTimer--;
             }
-            if (_scene.Match.Rules.Mode == MatchMode.Survival || _scene.Match.Rules.Mode == MatchMode.TeamSurvival)
+            if (!_scene.Services.IsReplica && (_scene.Match.Rules.Mode == MatchMode.Survival || _scene.Match.Rules.Mode == MatchMode.TeamSurvival))
             {
                 if (Flags2.TestFlag(PlayerFlags2.RadarReveal))
                 {
@@ -561,6 +561,7 @@ namespace MphRead.Entities
                 }
                 else
                 {
+                    int previousRecoveryHealth = _health;
                     if (_healthRecovery <= 3)
                     {
                         _health += _healthRecovery;
@@ -576,6 +577,7 @@ namespace MphRead.Entities
                     {
                         _health = _healthMax;
                     }
+                    _scene.Services.Combat?.NoteHealing(this, _health - previousRecoveryHealth);
                 }
             }
             else
@@ -1332,6 +1334,7 @@ namespace MphRead.Entities
 
         public void GainHealth(int health)
         {
+            int previousHealth = _health;
             if (_health > 0)
             {
                 if (Flags2.TestFlag(PlayerFlags2.Halfturret))
@@ -1360,6 +1363,7 @@ namespace MphRead.Entities
                     _health = _healthMax;
                 }
             }
+            _scene.Services.Combat?.NoteHealing(this, _health - previousHealth);
         }
 
         private bool TrySwitchForms(bool force = false)

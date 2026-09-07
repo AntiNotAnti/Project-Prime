@@ -45,6 +45,16 @@ namespace MphRead.Mods
         public static void Apply(MenuSettings settings)
         {
             Current = settings;
+            if (TryVolume(settings.FeedbackVolume, out float feedback)) Combat.FeedbackAudio.Volume = feedback;
+            Hud.Network.NetworkHealthSettings.Advanced = RenderOptions.ParseOnOff(settings.AdvancedNetwork, false);
+            Combat.CombatFeedbackSettings.HitMarkers = Enum.TryParse(settings.HitMarkers, true, out Combat.HitMarkerMode marker)
+                && Enum.IsDefined(marker) ? marker : Combat.HitMarkerMode.Visual;
+            Combat.CombatFeedbackSettings.HeadshotCue = RenderOptions.ParseOnOff(settings.HeadshotCue, true);
+            Combat.CombatFeedbackSettings.KillConfirmation = RenderOptions.ParseOnOff(settings.KillConfirmation, true);
+            Hud.Radar.RadarSettings.Style = Enum.TryParse(settings.RadarStyle, true, out Hud.Radar.RadarStyle radarStyle)
+                && Enum.IsDefined(radarStyle) ? radarStyle : Hud.Radar.RadarStyle.Classic;
+            Hud.Radar.RadarSettings.Orientation = Enum.TryParse(settings.RadarOrientation, true, out Hud.Radar.RadarOrientation radarOrientation)
+                && Enum.IsDefined(radarOrientation) ? radarOrientation : Hud.Radar.RadarOrientation.Heading;
             if (TryVolume(settings.SfxVolume, out float sfx))
             {
                 Sfx.Volume = sfx;
