@@ -33,6 +33,7 @@ namespace MphRead.NetTest
                 Steering(scene, owner, target);
                 ZeroRewind(scene, owner, target);
                 TargetPoints(scene, target);
+                RetractedTurret(scene, owner, target);
                 UncompensatedSources(scene, owner, target);
                 Console.WriteLine("HOMING PASS variants=5 acquisition=historical steering=historical identity=bound zeroRewind=ordinary");
                 return 0;
@@ -267,6 +268,61 @@ namespace MphRead.NetTest
                 Clean(scene, equip);
             }
             Console.WriteLine("HOMING invalidActor=ordinary unverifiedChild=excluded historyQueries=0 PASS");
+        }
+
+        private static void RetractedTurret(Scene scene, PlayerEntity owner, PlayerEntity target)
+        {
+            scene.ClearMessageQueue();
+            target.ServerActivate(200, Hunter.Weavel, 1);
+            target.Position = Origin - Vector3.UnitZ * 20; // Only its turret is in the aiming cone.
+            scene.AddEntity(target.Halfturret);
+            target.Halfturret.Position = TargetPosition(Start);
+            var control = new ServerCombat(projectileCatchUpEnabled: false);
+            var delayed = new ServerCombat();
+            var controlEquip = Equipment(scene);
+            var delayedEquip = Equipment(scene);
+            RecordTurret(Start);
+            var expected = Spawn(scene, owner, controlEquip, control, Start, Start);
+            Require(expected.Target == target.Halfturret, "Timely control did not acquire the only turret in cone.");
+            for (uint tick = Start + 1; tick < Now; tick++)
+            {
+                target.Halfturret.Position = TargetPosition(tick);
+                RecordTurret(tick);
+                using var scope = control.Enter(tick);
+                expected.Process();
+            }
+            // Reproduce the renderer removal contract: current N still has the
+            // Destroyed message queued, but the turret is absent from Entities.
+            scene.RemoveEntity(target.Halfturret);
+            scene.SendMessage(Message.Destroyed, target.Halfturret, null, 0, 0, delay: 1);
+            expected.CatchUpPending = true;
+            scene.StepHeadlessFrame(false);
+            expected.CatchUpPending = false;
+            Require(System.Linq.Enumerable.Any(scene.MessageQueue, message => message.Message == Message.Destroyed
+                && message.Sender == target.Halfturret && message.ExecuteFrame == scene.FrameCount),
+                "Fixture did not retain the current-frame Destroyed message.");
+            target.Position = Origin - Vector3.UnitZ * 20;
+            using (control.Enter(Now)) expected.Process();
+            var actual = Spawn(scene, owner, delayedEquip, delayed, Now, Start);
+            Require(actual.Target == target.Halfturret, "Historical turret absent from current Entities was not acquired.");
+            using (delayed.Enter(Now)) delayed.CatchUp.Drain();
+            Require(actual.Target == null && expected.Target == null && actual.Position == expected.Position
+                && actual.Velocity == expected.Velocity && actual.Age == expected.Age,
+                "Current Destroyed message prematurely ended historical turret steering.");
+            Require(actual.Velocity.X > 0 && delayed.CatchUp.Steps == 9,
+                "Retracted turret did not receive its complete historical steering interval.");
+            Clean(scene, controlEquip, delayedEquip);
+            scene.ClearMessageQueue();
+            Console.WriteLine("HOMING retractedTurret=historical-acquisition currentDestroyed=deferred position=bitExact velocity=bitExact PASS");
+
+            void RecordTurret(uint tick)
+            {
+                var identity = target.ServerCombatIdentity;
+                // Prescribe historical presence alongside the fixture's target
+                // motion; current owner state deliberately has no turret flag.
+                delayed.History.Record(tick, LagCompensationState.Capture(target, identity.ConnectionId, identity.Life)
+                    with { HasHalfturret = true });
+            }
         }
 
         private sealed class WorldSource : EntityBase

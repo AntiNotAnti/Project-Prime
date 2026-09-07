@@ -198,7 +198,13 @@ namespace MphRead.Entities
             }
             _soundSource.Update(Position, rangeIndex: Beam == BeamType.Missile ? 3 : 2);
             UpdateNodeRefVolume();
-            if (Target != null)
+            // Current-frame destruction cannot erase a player/turret before
+            // its historical lifetime ends. Per-tick identity/history governs
+            // past steering; the current endpoint keeps normal messages.
+            bool historicalHomingTarget = CombatShot.IsValid && TimingMode == LagCompensationMode.HomingProjectileCatchUp
+                && (Target is PlayerEntity or HalfturretEntity) && ServerCombat.Current is ServerCombat targetCombat
+                && targetCombat.CatchUp.CollisionTick is uint targetTick && targetTick != targetCombat.Tick;
+            if (Target != null && !historicalHomingTarget)
             {
                 for (int i = 0; i < _scene.MessageQueue.Count; i++)
                 {
@@ -1900,8 +1906,19 @@ namespace MphRead.Entities
                 {
                     continue;
                 }
-                foreach (EntityBase entity in scene.Entities)
+                bool historicalTurrets = type == EntityType.Halfturret && beam.CombatShot.IsValid
+                    && beam.TimingMode == LagCompensationMode.HomingProjectileCatchUp
+                    && ServerCombat.Current is ServerCombat current && beam.CombatShot.ActionServerTick != current.Tick;
+                foreach (EntityBase candidate in scene.Entities)
                 {
+                    EntityBase entity = candidate;
+                    if (historicalTurrets)
+                    {
+                        // At most eight owner-bound candidates. A turret may
+                        // exist in history after it left the current entity list.
+                        if (candidate is not PlayerEntity player) continue;
+                        entity = player.Halfturret;
+                    }
                     if (entity.Type != type || entity == beam.Owner)
                     {
                         continue;

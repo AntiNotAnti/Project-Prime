@@ -122,6 +122,15 @@ their recorded turret position. The selected connection and life remain bound
 to the shot's target. Missing, dead, spectating, mismatched or absent-turret
 history cannot fall back to a current player. Losing that target does not trigger
 reacquisition. Once catch-up reaches the present, steering reads current geometry.
+Historical turret candidates come from the eight player owners, including turrets
+already removed from the current entity list. A current-frame destruction message
+does not end past player/turret steering early; historical presence governs each
+past step and ordinary destruction handling resumes at the current endpoint.
+
+Damage to a turret still requires its owner to have a turret currently deployed.
+Historical aiming does not resurrect a retracted turret's health pool or redirect
+its damage into the owner's current body. This preserves the existing turret
+damage policy while providing historical target geometry.
 
 Doors, platforms and other world objects retain current geometry, matching
 the existing map-collision policy. The original acquisition rule has no separate
@@ -137,3 +146,6 @@ It also checks historical-only and current-only acquisition, invalid history,
 connection/life replacement, form/turret target points, and zero-rewind ON/OFF
 parity. Its deterministic fixture controls target motion directly and opens no
 sockets; real UDP soak and strict impaired-input A/B are separate checks.
+The retracted-turret case uses actual `Spawn`, removal, the normal queued
+destruction-message contract, and prescribed historical turret presence. It
+matches a timely projectile's position and velocity exactly through retraction.
