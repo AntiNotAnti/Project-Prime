@@ -12,7 +12,7 @@ namespace MphRead.Entities
         private uint _serverLife;
         private bool _serverWasAlive;
 
-        internal void ServerActivate(ulong connectionId, Hunter hunter, int team)
+        internal void ServerActivate(ulong connectionId, Hunter hunter, int team, int? botSkill = null)
         {
             if (!_scene.IsHeadless) { throw new InvalidOperationException("Server player requires a headless scene."); }
             // A countdown reset respawns the same connection. Keep Life monotonic
@@ -24,7 +24,8 @@ namespace MphRead.Entities
             TeamIndex = team;
             Team = _scene.Match.Rules.Teams ? team == 0 ? Team.Orange : Team.Green : Team.None;
             Recolor = _scene.Match.Rules.Teams ? team == 0 ? 4 : 5 : 0;
-            IsBot = false;
+            IsBot = botSkill.HasValue;
+            if (botSkill.HasValue) { BotLevel = Math.Clamp(botSkill.Value, 0, 2); MphRead.Formats.AiPersonality.Load(this, _scene.Match.Rules.Mode.ToLegacyMode()); AiData.InitializeAtLoad(); }
             LoadFlags = LoadFlags.SlotActive | LoadFlags.Active | LoadFlags.Initial
                 | LoadFlags.Connected | LoadFlags.WasConnected;
             Controls.ClearAll();
@@ -34,7 +35,7 @@ namespace MphRead.Entities
             Flags1 = 0;
             Flags2 = 0;
             Initialize();
-            _networkInputActive = true;
+            _networkInputActive = !IsBot;
             Controls.MouseAim = false;
             Controls.KeyboardAim = false;
             PlayerSpawnEntity? spawn = GetRespawnPoint();
@@ -47,6 +48,7 @@ namespace MphRead.Entities
 
         internal void ServerDeactivate()
         {
+            IsBot = false;
             Controls.ClearAll();
             _networkInputActive = false;
             Health = 0;
@@ -114,6 +116,8 @@ namespace MphRead.Entities
             if (ModFrozen) flags |= SnapshotPlayerFlags.Frozen;
             if (ModBurning) flags |= SnapshotPlayerFlags.Burning;
             if (ModDisrupted) flags |= SnapshotPlayerFlags.Disrupted;
+            if (Flags2.TestFlag(PlayerFlags2.RadarReveal)) flags |= SnapshotPlayerFlags.RadarReveal;
+            if (Flags2.TestFlag(PlayerFlags2.RadarRevealPrevious)) flags |= SnapshotPlayerFlags.RadarRevealPrevious;
             if (EquipInfo.Zoomed) flags |= SnapshotPlayerFlags.Zoomed;
             if (Flags2.TestFlag(PlayerFlags2.Spectating)) flags |= SnapshotPlayerFlags.Spectating;
             if (Flags1.TestFlag(PlayerFlags1.Grounded)) flags |= SnapshotPlayerFlags.Grounded;
@@ -132,7 +136,7 @@ namespace MphRead.Entities
                 AmmoUa = (ushort)Math.Clamp(_ammo[UA], 0, UInt16.MaxValue),
                 AmmoMissiles = (ushort)Math.Clamp(_ammo[Missiles], 0, UInt16.MaxValue),
                 AvailableWeapons = available, FrozenTicks = _frozenTimer,
-                BurnTicks = _burnTimer, DisruptTicks = _disruptedTimer, Assists = 0,
+                BurnTicks = _burnTimer, DisruptTicks = _disruptedTimer, Assists = _scene.Match.Players[SlotIndex].Assists,
                 Points = _scene.Match.Players[SlotIndex].Points, Kills = _scene.Match.Players[SlotIndex].Kills,
                 Deaths = _scene.Match.Players[SlotIndex].Deaths
             };
