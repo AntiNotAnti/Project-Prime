@@ -1,0 +1,219 @@
+{
+  "name": "PARALLAX",
+  "inGameName": "Parallax",
+  "scaleFactor": 4,
+  "killHeight": -12,
+  "farClip": 120,
+  "fogEnabled": false,
+  "light1Color": [
+    31,
+    29,
+    26
+  ],
+  "light1Vector": [
+    0.3,
+    -1,
+    0.2
+  ],
+  "light2Color": [
+    12,
+    14,
+    18
+  ],
+  "light2Vector": [
+    -0.3,
+    1,
+    -0.2
+  ],
+  "pointLimit": 7,
+  "battleTimeLimit": 12600,
+  "preview": {
+    "position": [
+      19,
+      10,
+      9
+    ],
+    "target": [
+      -1,
+      1.5,
+      1
+    ]
+  },
+  "import": {
+    "source": "parallax.pk3",
+    "mapName": "parallax",
+    "unitsPerUnit": 32,
+    "keepSpawns": false,
+    "keepSky": false,
+    "keepClip": true,
+    "patchLevel": 3,
+    "textures": "parallax.tex"
+  },
+  "spawns": [
+    {
+      "position": [
+        -19.09188,
+        0.1,
+        19.09188
+      ],
+      "yaw": 135
+    },
+    {
+      "position": [
+        19.09188,
+        0.1,
+        -19.09188
+      ],
+      "yaw": 315
+    },
+    {
+      "position": [
+        -19.09188,
+        0.1,
+        -19.09188
+      ],
+      "yaw": 45
+    },
+    {
+      "position": [
+        19.09188,
+        0.1,
+        19.09188
+      ],
+      "yaw": 225
+    }
+  ],
+  "items": [
+    {
+      "position": [
+        0,
+        0.6,
+        0
+      ],
+      "type": "AffinityWeapon",
+      "hasBase": true,
+      "spawnInterval": 300
+    },
+    {
+      "position": [
+        -17,
+        -3.4,
+        7
+      ],
+      "type": "HealthMedium",
+      "hasBase": true,
+      "spawnInterval": 300
+    },
+    {
+      "position": [
+        17,
+        -3.4,
+        -7
+      ],
+      "type": "HealthMedium",
+      "hasBase": true,
+      "spawnInterval": 300
+    },
+    {
+      "position": [
+        -18,
+        0.6,
+        0
+      ],
+      "type": "UASmall",
+      "hasBase": true,
+      "spawnInterval": 150
+    },
+    {
+      "position": [
+        18,
+        0.6,
+        0
+      ],
+      "type": "UASmall",
+      "hasBase": true,
+      "spawnInterval": 150
+    },
+    {
+      "position": [
+        -7,
+        6.6,
+        18
+      ],
+      "type": "UASmall",
+      "hasBase": true,
+      "spawnInterval": 150
+    },
+    {
+      "position": [
+        7,
+        6.6,
+        -18
+      ],
+      "type": "UASmall",
+      "hasBase": true,
+      "spawnInterval": 150
+    },
+    {
+      "position": [
+        -25,
+        0.6,
+        5
+      ],
+      "type": "MissileSmall",
+      "hasBase": true,
+      "spawnInterval": 240
+    },
+    {
+      "position": [
+        25,
+        0.6,
+        -5
+      ],
+      "type": "MissileSmall",
+      "hasBase": true,
+      "spawnInterval": 240
+    }
+  ],
+  "//": "PARALLAX Graybox v0.1. MPH coordinates. Source and design audit in source/README.md. Generated assets are not authoritative.",
+  "jumpPads": [
+    {
+      "position": [
+        6,
+        -3.9,
+        12
+      ],
+      "target": [
+        2,
+        6.2,
+        18
+      ],
+      "size": [
+        1.8,
+        1.8,
+        1.8
+      ],
+      "cooldownTime": 20,
+      "controlLockTime": 0
+    },
+    {
+      "position": [
+        -6,
+        -3.9,
+        -12
+      ],
+      "target": [
+        -2,
+        6.2,
+        -18
+      ],
+      "size": [
+        1.8,
+        1.8,
+        1.8
+      ],
+      "cooldownTime": 20,
+      "controlLockTime": 0
+    }
+  ]
+}

@@ -18,6 +18,9 @@ why the asset guard refuses one.
 - `dust2/dust2.json` — de_dust2, by way of the DeFRaG level `df_dust2`, which
   ships beside it. A map keeps its level in a folder of its own like this; it
   is looked for beside the map file first.
+- `parallax/parallax.json` — PARALLAX Graybox v0.1, an original rotationally
+  symmetric duel arena. Editable Quake 3 source, original temporary textures,
+  build instructions and the design review are in [parallax/source/README.md](parallax/source/README.md).
 
 A map's level travels with it, so a downloaded release has its custom maps
 ready and the first launch builds them. The `.tex` does not: it is baked from

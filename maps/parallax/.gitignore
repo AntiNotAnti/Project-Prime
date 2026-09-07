@@ -1,0 +1,9 @@
+# Map development outputs, never authoritative inputs.
+*.fpmap
+*.tex
+thumbnails/
+source/maps/*.bsp
+source/maps/*.prt
+source/maps/*.lin
+source/maps/*.srf
+source/maps/*.bak
