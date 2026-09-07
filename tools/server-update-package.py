@@ -12,7 +12,7 @@ import tempfile
 import zipfile
 
 FAMILY = 2
-PROTOCOL = 7
+PROTOCOL = 8
 PACKAGE_LIMIT = 256 * 1024 * 1024
 EXPANDED_LIMIT = 512 * 1024 * 1024
 FILE_LIMIT = 2048
