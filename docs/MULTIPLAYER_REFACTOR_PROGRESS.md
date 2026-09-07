@@ -195,16 +195,28 @@ explicit completeness limits. Server/nettest compiled without warnings, and fina
 desktop/Android managed builds passed with the known warnings. Asset guards and
 scoped diff checks passed. No rendered/native acceptance run was repeated.
 
+## R9 — Multiplayer-only source guard
+
+`python3 tools/check-multiplayer-only.py` checks every C# source below `src`,
+including future project folders. It rejects retired campaign runtime symbols
+and deleted player scan/dialog files. Exceptions are exact files for raw format
+identities, export codecs and negative tests, scoped independently to each rule.
+Comments and plain literals are excluded; executable interpolation remains
+checked. Invalid roots, unreadable files and source symlinks fail explicitly.
+
+Validation: the current 402 C# files pass with zero violations. Seven dedicated
+guard tests cover detection, narrow exceptions, interpolation, deterministic
+reports and future project paths; all 41 Python tests pass. CI integration and
+allowlist path migration are part of R12's final project/build cleanup.
+
 ## Planned remaining passes
 
-R9 adds guards against reintroducing
-campaign behavior with content-aware guards. R10–R12 split the projects, converge
+R10–R12 split the projects, converge
 Android and enforce dependency boundaries. No later pass is marked complete
 before its implementation and checks finish.
 
 The content deletion gate remains conservative: the available audit covers 27
 retail and three custom rooms, not the six missing First Hunt data sets. Shared
 Door/ForceField/Platform/FH implementations cannot be deleted merely because
-they were absent from that subset. In particular, ForceField dynamically uses
-the existing Enemy49 lock implementation, and EnemySpawnEntity.cs also contains
-FhEnemySpawnEntity; these dependencies must be separated before enemy deletion.
+they were absent from that subset. R8 extracted the force-field lock and First
+Hunt spawner placeholder before deleting the campaign enemy hierarchy.
