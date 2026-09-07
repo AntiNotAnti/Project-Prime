@@ -10,13 +10,24 @@ import xml.etree.ElementTree as ET
 
 PROJECTS = {
     'Game': set(),
-    'Client': {'Game', 'Audio.Ncsf'},
-    'Server': {'Game'},
+    'Client': {'Game', 'Audio.Ncsf', 'Shared.Replay'},
+    'Server': {'Game', 'Shared.Replay'},
     'Tools': {'Game'},
-    'Android': {'Game', 'Audio.Ncsf'},
+    'Android': {'Game', 'Audio.Ncsf', 'Shared.Replay'},
     'Audio.Ncsf': set(),
+    'Shared.Replay': {'Game'},
+    'Backend': {'Game'},
 }
-PLATFORM_NAMES = re.compile(r'\b(?:Avalonia|SoundFlow|NCSFCommon)\b|\bOpenTK\.(?:Graphics|Audio|Windowing)\b')
+PLATFORM_NAMES = re.compile(
+    r'\b(?:Avalonia|SoundFlow|NCSFCommon|ReFuel|Silk\.NET\.OpenAL)\b'
+    r'|\bOpenTK\.(?:Graphics|Audio|Windowing)\b'
+    r'|\bMphRead\.Mods\.(?:Render|Sound)\b'
+)
+PLATFORM_PACKAGES = re.compile(
+    r'^(?:Avalonia(?:\.|$)|SoundFlow(?:\.|$)|NCSFCommon(?:\.|$)|ReFuel(?:\.|$)'
+    r'|Silk\.NET\.OpenAL(?:\.|$)|OpenTK\.(?:Graphics|Audio|Windowing)(?:\.|$))'
+)
+SERVER_ALLOWED_PACKAGES = {'Microsoft.IdentityModel.JsonWebTokens'}
 GAME_IO = re.compile(r'\bSystem\.Net\.Sockets\b|\b(?:NetTransport|UdpTransport|ServerProcessHost|ScenePresentation|PlayerPresentation)\b')
 
 
@@ -80,7 +91,9 @@ def inspect(root: Path) -> list[str]:
                         errors.append(f'{owner.relative_to(root)}: missing linked source: {include}')
                     if cross_project:
                         allowed = {'Client': {'Shared'}, 'Server': {'Shared'},
-                                   'Tools': {'Shared', 'Audio.Ncsf'}, 'Android': {'Shared', 'Client'}}.get(name, set())
+                                   'Tools': {'Shared', 'Audio.Ncsf'},
+                                   'Android': {'Shared', 'Client'},
+                                   'Backend': {'Shared'}}.get(name, set())
                         relative = target.relative_to(root / 'src') if target.is_relative_to(root / 'src') else None
                         if relative is None or relative.parts[0] not in allowed:
                             errors.append(f'{owner.relative_to(root)}: invalid {name} source link: {include}')
@@ -91,9 +104,17 @@ def inspect(root: Path) -> list[str]:
             errors.append(f'{name}: project references {sorted(references)}; expected {sorted(expected)}')
         if name == 'Game' and packages != {'OpenTK.Mathematics'}:
             errors.append(f'Game: package budget exceeded: {sorted(packages)}')
-        if name == 'Server' and packages:
-            errors.append(f'Server: unexpected platform packages: {sorted(packages)}')
-        if name in {'Game', 'Server'}:
+        if name == 'Shared.Replay' and packages:
+            errors.append(f'Shared.Replay: unexpected packages: {sorted(packages)}')
+        if name == 'Server':
+            forbidden = sorted(packages - SERVER_ALLOWED_PACKAGES)
+            if forbidden:
+                errors.append(f'{name}: unexpected platform packages: {forbidden}')
+        if name == 'Backend':
+            forbidden = sorted(package for package in packages if PLATFORM_PACKAGES.search(package))
+            if forbidden:
+                errors.append(f'{name}: unexpected platform packages: {forbidden}')
+        if name in {'Game', 'Server', 'Shared.Replay', 'Backend'}:
             for source in sorted(path.parent.rglob('*.cs')):
                 if {'obj', 'bin'}.intersection(source.relative_to(path.parent).parts):
                     continue

@@ -16,6 +16,7 @@ namespace MphRead.Mods.Launcher
     /// </summary>
     public static class LauncherPrefs
     {
+        public static string BackendAddress { get; set; } = "";
         /// <summary>
         /// Where launcher.txt lives. Beside the executable, which is where the
         /// rest of a portable install keeps its files -- except where the
@@ -213,6 +214,9 @@ namespace MphRead.Mods.Launcher
                         case "window_mode":
                             WindowMode = Mods.WindowMode.Parse(value, WindowMode);
                             break;
+                        case "backend_address":
+                            BackendAddress = value;
+                            break;
                         case "auto_update":
                             if (Boolean.TryParse(value, out bool autoUpdate))
                             {
@@ -249,6 +253,7 @@ namespace MphRead.Mods.Launcher
                 File.WriteAllLines(Path, new[]
                 {
                     $"# {Branding.Name} launcher preferences.",
+                    $"backend_address={BackendAddress}",
                     $"server_address={ServerAddress}",
                     $"server_port={ServerPort.ToString(CultureInfo.InvariantCulture)}",
                     $"master_host={MasterHost}",

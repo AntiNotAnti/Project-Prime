@@ -97,14 +97,17 @@ namespace MphRead.NetTest
 
                 _phase = "disconnect";
                 uint departingLife = player.ServerCombatIdentity.Life;
-                _client.Dispose();
+                Require(_client.Disconnect(), "Disconnect request was not queued.");
                 PumpUntil(() => _network.Count == 0);
                 Require(_simulation.States.Length == 0, "Disconnected actor remains in snapshot.");
                 Require(!_simulation.Combat.History.TryGet(slot, _tick - 1, oldConnection,
                     departingLife, out _), "Disconnected actor was recorded at current tick.");
                 _phase = "replacement";
                 _sequence = 0;
-                _client = CreateClient();
+                // A fresh guest Join is a new participant and cannot reclaim
+                // the reserved slot by display name. The reconnect API retains
+                // the prior connection proof on this same guest endpoint.
+                _client.Reconnect();
                 Join();
                 Require(_client.Accepted.Slot == slot && player.ServerCombatIdentity.ConnectionId != oldConnection,
                     "Reconnect did not replace the same slot with a new connection.");
