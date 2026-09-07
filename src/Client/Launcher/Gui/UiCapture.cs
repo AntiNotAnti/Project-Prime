@@ -1,40 +1,34 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using MphRead.Mods.Network;
+using Avalonia.VisualTree;
+using MphRead.Mods.UI.AppShell;
+using MphRead.Mods.UI.Navigation;
+using MphRead.Mods.UI.Screens;
+using MphRead.Mods.UI.State;
 
 namespace MphRead.Mods.Launcher.Gui
 {
-    /// <summary>
-    /// Screenshots of the front screen, without a screen.
-    ///
-    /// The launcher is the one part of this program that could not be looked
-    /// at from here: the game renders through GL and can be read back
-    /// (ScreenCapture), but the launcher is Avalonia, and checking a change to
-    /// it meant opening a window on a machine with a display and looking. On a
-    /// headless box, or over SSH, or in CI, there was no way to see what a
-    /// layout change had actually done -- which is how a control that moves
-    /// under the pointer ships.
-    ///
-    /// Avalonia can measure, arrange and draw a control into a bitmap with no
-    /// window involved, which is all a screenshot of a layout needs. So
-    /// `-uishot DIR` builds each screen at a fixed size, renders it, and
-    /// writes a PNG.
-    ///
-    /// What this does *not* prove: that a real window manager gives the window
-    /// the size asked for, that the fonts on another machine are these ones,
-    /// or that anything is clickable. It proves the layout -- which is what
-    /// every report about this screen has been about.
-    /// </summary>
+    /// <summary>Headless layout captures for the active persistent application shell.</summary>
     internal static class UiCapture
     {
-        /// <summary>The window size the launcher opens at (see HomeWindow).</summary>
-        private static readonly Size _windowSize = new Size(940, 560);
+        private static readonly Size[] _acceptanceViewports =
+        [
+            new(1280, 720),
+            new(1920, 1080),
+            new(2560, 1440),
+            new(3440, 1440),
+            new(360, 640),
+            new(768, 1024)
+        ];
 
         public static int Run(string directory)
         {
@@ -44,22 +38,10 @@ namespace MphRead.Mods.Launcher.Gui
                 return 1;
             }
             Directory.CreateDirectory(directory);
-            // The front screen's Share button only exists where something can
-            // receive a file, which today is Android alone -- so without a
-            // stand-in the one corner this tool was made to check could never
-            // be photographed as a phone draws it. Same reason as SampleDemos
-            // below, and it is still only offered when real logs exist.
-            Mods.LogShare.Current ??= new CaptureLogShare();
             int written = 0;
-            // On the toolkit's own thread, and drained afterwards: the views
-            // post work to the dispatcher as they are built (the front screen
-            // focuses its first control that way), and a render before that
-            // has run is a picture of a half-built screen.
             Dispatcher.UIThread.Invoke(() =>
             {
-                var settings = new MenuSettings();
-                List<string> rooms = RoomList();
-                foreach ((string name, Control view, Size size) in Screens(settings, rooms))
+                foreach ((string name, Control view, Size size) in Screens())
                 {
                     string path = Path.Combine(directory, $"{name}.png");
                     if (Capture(view, path, size))
@@ -73,156 +55,121 @@ namespace MphRead.Mods.Launcher.Gui
             return written > 0 ? 0 : 1;
         }
 
-        private static List<string> RoomList()
+        private static IEnumerable<(string, Control, Size)> Screens()
         {
-            var rooms = new List<string>();
-            try
+            foreach ((string name, UiRoute route) in new[]
             {
-                foreach (RoomMetadata meta in Metadata.RoomMetadata.Values)
-                {
-                    if (meta.Multiplayer)
-                    {
-                        rooms.Add(meta.Name);
-                    }
-                }
-            }
-            catch (Exception)
+                ("home", UiRoute.Home),
+                ("play", UiRoute.Play),
+                ("serverbrowser", UiRoute.ServerBrowser),
+                ("private-match", UiRoute.PrivateMatch),
+                ("hunter-license", UiRoute.HunterLicense),
+                ("replays", UiRoute.Replays),
+                ("settings", UiRoute.Settings),
+                ("postmatch", UiRoute.PostMatch),
+                ("account", UiRoute.Account)
+            })
             {
-                // No game files here. The screens still lay out; the map rows
-                // are simply empty, which is itself worth being able to see.
+                UiScreenServices? services = route == UiRoute.PostMatch
+                    ? CapturePostMatchServices() : null;
+                foreach (Size size in _acceptanceViewports)
+                    yield return ($"{name}-{Label(size)}", CreateShell(route, services), size);
             }
-            rooms.Sort(StringComparer.OrdinalIgnoreCase);
-            return rooms;
-        }
 
-        private static IEnumerable<(string, Control, Size)> Screens(MenuSettings settings,
-            IReadOnlyList<string> rooms)
-        {
-            yield return ("home", new HomeView(settings, rooms), _windowSize);
-            yield return ("settings", new SettingsView(settings), _windowSize);
-            var credits = new SettingsView(settings);
-            credits.ShowSection("Credits");
-            yield return ("settings-credits", credits, _windowSize);
-            if (rooms.Count > 0)
+            foreach ((string name, string mode, bool teams) in new[]
             {
-                yield return ("mappicker", new MapPickerView(rooms, rooms[0]), _windowSize);
+                ("lobby-ffa-full-observers", "Battle", false),
+                ("lobby-teams-full-observers", "TeamBattle", true)
+            })
+            {
+                UiScreenServices services = CaptureServices(LobbySnapshot(mode, teams));
+                foreach (Size size in _acceptanceViewports)
+                    yield return ($"{name}-{Label(size)}", CreateShell(UiRoute.Lobby, services), size);
             }
-            // Both halves of it: the list a machine that has recorded
-            // something gets, and the line a machine that has not gets --
-            // which is the one carrying the folder's path and the only place
-            // that path is ever written down.
-            yield return ("demopicker", new DemoPickerView(SampleDemos(),
-                Network.DemoLibrary.Directory), _windowSize);
-            yield return ("demopicker-empty", new DemoPickerView(
-                Array.Empty<Network.DemoRecording>(), Network.DemoLibrary.Directory),
-                _windowSize);
-            yield return ("pausemenu", new PauseMenuView(offerWindowMode: true), _windowSize);
-            // Deliberately shorter than the menu's own content, and shorter
-            // than the game window is now allowed to be. The pause menu is
-            // laid over the game window, so its host is whatever size the
-            // player dragged that to, and entries drawn off the bottom edge
-            // are a player who cannot leave the match. This is the check that
-            // the scroll view carries them.
-            yield return ("pausemenu-small", new PauseMenuView(offerWindowMode: true),
+
+            yield return ("pausemenu-1280x720", new PauseMenuView(offerWindowMode: true),
+                new Size(1280, 720));
+            yield return ("pausemenu-560x320", new PauseMenuView(offerWindowMode: true),
                 new Size(560, 320));
-            yield return ("serverbrowser", ServerList(), _windowSize);
         }
 
-        /// <summary>
-        /// Somewhere for the Share button to point while it is being
-        /// photographed. Nothing is built and nothing is sent: a capture has
-        /// nobody to press it.
-        /// </summary>
-        private sealed class CaptureLogShare : Mods.ILogShare
+        private static AppShellView CreateShell(UiRoute route, UiScreenServices? services = null)
         {
-            public string StagingPath(string fileName) =>
-                Path.Combine(Path.GetTempPath(), fileName);
+            var state = new AppShellState();
+            state.Router.Replace(route);
+            return new AppShellView(state,
+                new UiScreenFactory(state.Router, services ?? new UiScreenServices()));
+        }
 
-            public bool Share(string path, string subject, out string error)
+        private static string Label(Size size) => $"{(int)size.Width}x{(int)size.Height}";
+
+        private static UiScreenServices CaptureServices(UiLobbySnapshot snapshot)
+            => new() { Lobby = new CaptureLobbyController(snapshot) };
+
+        private static UiScreenServices CapturePostMatchServices()
+        {
+            var rows = ImmutableArray.CreateBuilder<UiPostMatchRow>(8);
+            for (int index = 0; index < 8; index++)
+                rows.Add(new UiPostMatchRow(index + 1, $"Hunter {index + 1}",
+                    index % 2 == 0 ? "Samus" : "Noxus", index % 2, Bot: index >= 6,
+                    Points: 7 - index, Kills: 12 - index, Deaths: 3 + index, Assists: index,
+                    Damage: 1200 - index * 75, Headshots: index + 1,
+                    ObjectivePrimary: index, ObjectiveSecondary: 0, ObjectiveTertiary: 0));
+            var summary = new UiPostMatchSummary(42, 8, 9, TimeSpan.FromMinutes(7),
+                "Sanctorus", "TeamBattle", "ScoreLimit", rows.MoveToImmutable(),
+                RatingUpdateState.Updated, RatingDelta: 18, RatingPoints: 1518);
+            return new UiScreenServices { PostMatch = new CapturePostMatchController(summary) };
+        }
+
+        private static UiLobbySnapshot LobbySnapshot(string mode, bool teams)
+        {
+            var members = ImmutableArray.CreateBuilder<UiLobbyMember>(24);
+            for (int index = 0; index < 8; index++)
             {
-                error = "there is nothing to share to on this platform";
-                return false;
+                members.Add(new UiLobbyMember($"Hunter {index + 1}",
+                    index % 2 == 0 ? "Samus" : "Noxus", teams ? index % 2 : 0,
+                    Ready: index < 4, Loading: false, Observer: false,
+                    DisconnectedGrace: false, Bot: index >= 6, Host: index == 0,
+                    Admin: index == 0, RatingEligible: index < 6, PingMs: 20 + index,
+                    Local: index == 0));
             }
-        }
-
-        /// <summary>
-        /// Recordings that are not there, so the list can be seen on a machine
-        /// that has never recorded one.
-        /// </summary>
-        private static IReadOnlyList<Network.DemoRecording> SampleDemos()
-        {
-            var now = new DateTime(2026, 9, 4, 18, 22, 7);
-            return new[]
+            for (int index = 0; index < 16; index++)
             {
-                new Network.DemoRecording("MP3 PROVING GROUND_2026-09-04_18-22-07.fpdemo",
-                    "MP3 PROVING GROUND", now, 1_512_320),
-                new Network.DemoRecording("COMBAT HALL_2026-09-02_21-04-55.fpdemo",
-                    "COMBAT HALL", now.AddDays(-2), 402_112),
-                new Network.DemoRecording("sent-to-me.fpdemo", "", now.AddDays(-9), 88_400)
-            };
-        }
-
-        /// <summary>
-        /// The browser's table, at the width the panel gives it, with rows
-        /// standing in for servers that are not up.
-        ///
-        /// Built here rather than reached through HomeView because the card is
-        /// private to it and only fills in when a directory answers -- and the
-        /// fault this is for (a map name wrapping onto the row below, headings
-        /// running into each other) is a property of the columns and the
-        /// width, not of any real server. Both widths are drawn: the panel's,
-        /// and the 400 the rest of the cards use, so a narrow row is checked
-        /// too.
-        /// </summary>
-        private static Control ServerList()
-        {
-            var stack = new StackPanel { Spacing = 18, Margin = new Thickness(12) };
-            foreach (double width in new[] { 600.0, 400.0 })
-            {
-                var list = new StackPanel { Spacing = 2, Width = width };
-                list.Children.Add(new ServerHeader());
-                foreach ((string name, string room, GameMode mode, int players, int ping) in _sampleServers)
-                {
-                    var row = new ServerRow(name, "203.0.113.7:27888");
-                    row.SetStatus(new ServerStatus
-                    {
-                        Online = true,
-                        RoomKey = room,
-                        Mode = mode,
-                        Players = players,
-                        MaxPlayers = 8,
-                        Latency = ping
-                    });
-                    list.Children.Add(row);
-                }
-                stack.Children.Add(list);
+                members.Add(new UiLobbyMember($"Observer {index + 1}", "Trace", 0,
+                    Ready: false, Loading: false, Observer: true,
+                    DisconnectedGrace: index == 0, Bot: false, Host: false, Admin: false,
+                    RatingEligible: false, PingMs: 40 + index));
             }
-            return stack;
+            return new UiLobbySnapshot(42, 7, "Open", "Persistent", "Sanctorus", mode,
+                "Classic · 8 players · 07:00 · FF Off · Radar On · Spawn Default · Late join Off",
+                members.MoveToImmutable(),
+                ImmutableArray.Create(new UiLobbyChatLine("Host", "Welcome Hunters.", false,
+                    Host: true, Admin: true)),
+                new Dictionary<UiLobbyAction, string>());
         }
 
-        private static readonly (string, string, GameMode, int, int)[] _sampleServers =
+        private sealed class CaptureLobbyController(UiLobbySnapshot snapshot)
+            : ILobbyScreenController
         {
-            ("net.livetek.fr", "MP3 PROVING GROUND", GameMode.Battle, 3, 41),
-            ("A very long server name indeed", "MP7 PROCESSOR CORE", GameMode.PrimeHunter, 8, 152),
-            ("lan", "MP2 HARVESTER", GameMode.Bounty, 1, 2)
-        };
+            public UiLobbySnapshot? Snapshot { get; } = snapshot;
+            public event Action? Changed { add { } remove { } }
 
-        /// <summary>
-        /// Render one screen.
-        ///
-        /// Through a real <see cref="Window"/>, not by laying the control out
-        /// on its own. Avalonia resolves styles through the visual tree's
-        /// style host, and a control with no window above it has none: it
-        /// measures, arranges and renders perfectly happily and comes out a
-        /// flat rectangle of the background colour, which is exactly what the
-        /// first attempt at this produced. The window is what connects the
-        /// tree to the Application's styles.
-        ///
-        /// It is shown, because a window that has never been shown has no
-        /// layout pass behind it -- but shown *off the side of the display*
-        /// and without taking focus, so a capture run does not steal the
-        /// pointer or flash a window per screen.
-        /// </summary>
+            public Task<UiActionResult> RequestAsync(UiLobbyCommand command,
+                uint expectedRevision, CancellationToken cancellationToken)
+                => Task.FromResult(UiActionResult.Success());
+        }
+
+        private sealed class CapturePostMatchController(UiPostMatchSummary summary)
+            : IPostMatchScreenController
+        {
+            public UiPostMatchSummary? Summary { get; } = summary;
+            public event Action? Changed { add { } remove { } }
+            public Task<UiPostMatchSummary> AwaitRatingAsync(uint matchId,
+                CancellationToken cancellationToken) => Task.FromResult(Summary!);
+            public Task<UiActionResult> InvokeAsync(PostMatchAction action,
+                CancellationToken cancellationToken) => Task.FromResult(UiActionResult.Success());
+        }
+
         private static bool Capture(Control view, string path, Size size)
         {
             Window? window = null;
@@ -242,21 +189,22 @@ namespace MphRead.Mods.Launcher.Gui
                     Content = view
                 };
                 window.Show();
-                // The views post work to the dispatcher as they are built --
-                // the front screen focuses its first control that way, and the
-                // map picker loads its pictures -- and a render before that has
-                // run is a picture of a half-built screen. Several passes,
-                // because one job can queue another.
-                for (int i = 0; i < 8; i++)
-                {
-                    Dispatcher.UIThread.RunJobs();
-                }
+                for (int i = 0; i < 8; i++) Dispatcher.UIThread.RunJobs();
                 window.Measure(size);
                 window.Arrange(new Rect(size));
                 Dispatcher.UIThread.RunJobs();
+                // The shell focuses its initial action for keyboard/controller
+                // use. Move focus to the shell root before the capture so a
+                // long fixture cannot auto-scroll away from its top edge.
+                view.Focus();
+                ScrollViewer[] scrollers = window.GetVisualDescendants().OfType<ScrollViewer>().ToArray();
+                foreach (ScrollViewer scroller in scrollers)
+                    scroller.Offset = default;
+                Dispatcher.UIThread.RunJobs();
+                foreach (ScrollViewer scroller in scrollers)
+                    scroller.Offset = default;
                 var bitmap = new RenderTargetBitmap(
-                    new PixelSize((int)size.Width, (int)size.Height),
-                    new Vector(96, 96));
+                    new PixelSize((int)size.Width, (int)size.Height), new Vector(96, 96));
                 bitmap.Render(window);
                 bitmap.Save(path);
                 return true;
@@ -271,6 +219,5 @@ namespace MphRead.Mods.Launcher.Gui
                 window?.Close();
             }
         }
-
     }
 }

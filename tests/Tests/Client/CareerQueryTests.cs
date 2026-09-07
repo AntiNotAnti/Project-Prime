@@ -46,7 +46,8 @@ public sealed class CareerQueryTests
             rating = new
             {
                 points = 390, tier = 4, title = "Master Hunter", nextThreshold = (int?)750,
-                lastOfficialDelta = (int?)-2, policy = "PairwiseNormalizedV1"
+                lastOfficialDelta = (int?)-2, policy = "PairwiseNormalizedV1",
+                lastOfficialMatchId = (Guid?)Guid.Parse("22222222-2222-2222-2222-222222222222")
             }
         })));
         using var session = new AccountSession(new Uri("https://accounts.example.test/"), handler);
@@ -72,6 +73,8 @@ public sealed class CareerQueryTests
         Assert.Equal("Master Hunter", career.Rating.Title);
         Assert.Equal(750, career.Rating.NextThreshold);
         Assert.Equal(-2, career.Rating.LastOfficialDelta);
+        Assert.Equal(Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            career.Rating.LastOfficialMatchId);
         Assert.Equal("PairwiseNormalizedV1", career.Rating.Policy);
         RequestLog request = Assert.Single(handler.Snapshot());
         Assert.Equal($"/v1/players/{Player}/career", request.Uri.AbsolutePath);
@@ -103,7 +106,8 @@ public sealed class CareerQueryTests
             rating = new
             {
                 points = 0, tier = 1, title = "Bounty Hunter", nextThreshold = (int?)40,
-                lastOfficialDelta = (int?)null, policy = "PairwiseNormalizedV1"
+                lastOfficialDelta = (int?)null, policy = "PairwiseNormalizedV1",
+                lastOfficialMatchId = (Guid?)null
             }
         })));
         using var session = new AccountSession(new Uri("https://accounts.example.test/"), handler);
@@ -349,7 +353,8 @@ public sealed class CareerQueryTests
             ratingStatus = "active", rating = new
             {
                 points = 40, tier = 2, title = "Super Hunter", nextThreshold = (int?)140,
-                lastOfficialDelta = (int?)1, policy = "PairwiseNormalizedV1"
+                lastOfficialDelta = (int?)1, policy = "PairwiseNormalizedV1",
+                lastOfficialMatchId = (Guid?)Guid.Parse("33333333-3333-3333-3333-333333333333")
             }
         })));
         using var invalid = new AccountSession(new Uri("https://accounts.example.test/"), unprovenWeapon);

@@ -13,6 +13,7 @@ using Avalonia.Android;
 using MphRead.Mods;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Network;
+using MphRead.Mods.UI.AppShell;
 
 namespace MphRead.Droid
 {
@@ -53,6 +54,11 @@ namespace MphRead.Droid
         private volatile bool _renderingHere;
         private readonly TouchControls _controls = new TouchControls();
         private ScreenOrientation _orientationBefore = ScreenOrientation.Unspecified;
+        private bool _leaveSessionAfterMatch;
+        private string? _fatalSessionAfterMatch;
+        private bool _activeReplay;
+        private int _shellHatX;
+        private int _shellHatY;
 
         internal bool InMatch => _gameView != null;
 
@@ -458,6 +464,12 @@ namespace MphRead.Droid
         public override bool DispatchKeyEvent(KeyEvent? e)
         {
             bool down = e?.Action == KeyEventActions.Down;
+            if (_gameView == null && e != null && IsGamepad(e.Source)
+                && TryShellInput(e.KeyCode, out UiControllerInput shellInput))
+            {
+                if (down && e.RepeatCount == 0) AndroidApp.Shell?.HandleControllerInput(shellInput);
+                return true;
+            }
             if (e != null && (down || e.Action == KeyEventActions.Up)
                 && GamepadBridge.HandleKey(e.KeyCode, e, down))
             {
@@ -480,6 +492,22 @@ namespace MphRead.Droid
         /// </summary>
         public override bool DispatchGenericMotionEvent(MotionEvent? e)
         {
+            if (_gameView == null && e?.Action == MotionEventActions.Move && IsGamepad(e.Source))
+            {
+                int x = AxisDirection(e.GetAxisValue(Axis.HatX));
+                int y = AxisDirection(e.GetAxisValue(Axis.HatY));
+                if (x == 0) x = AxisDirection(e.GetAxisValue(Axis.X));
+                if (y == 0) y = AxisDirection(e.GetAxisValue(Axis.Y));
+                if (x != 0 && x != _shellHatX)
+                    AndroidApp.Shell?.HandleControllerInput(x < 0
+                        ? UiControllerInput.Left : UiControllerInput.Right);
+                if (y != 0 && y != _shellHatY)
+                    AndroidApp.Shell?.HandleControllerInput(y < 0
+                        ? UiControllerInput.Up : UiControllerInput.Down);
+                _shellHatX = x;
+                _shellHatY = y;
+                return true;
+            }
             if (GamepadBridge.HandleMotion(e))
             {
                 if (MphRead.Mods.Input.GamepadInput.InUse)
@@ -489,6 +517,32 @@ namespace MphRead.Droid
                 return true;
             }
             return base.DispatchGenericMotionEvent(e);
+        }
+
+        private static bool IsGamepad(InputSourceType source)
+            => (source & InputSourceType.Gamepad) == InputSourceType.Gamepad
+                || (source & InputSourceType.Joystick) == InputSourceType.Joystick
+                || (source & InputSourceType.Dpad) == InputSourceType.Dpad;
+
+        private static int AxisDirection(float value) => value < -0.5f ? -1 : value > 0.5f ? 1 : 0;
+
+        private static bool TryShellInput(Keycode key, out UiControllerInput input)
+        {
+            input = key switch
+            {
+                Keycode.DpadUp => UiControllerInput.Up,
+                Keycode.DpadDown => UiControllerInput.Down,
+                Keycode.DpadLeft => UiControllerInput.Left,
+                Keycode.DpadRight => UiControllerInput.Right,
+                Keycode.ButtonA => UiControllerInput.Accept,
+                Keycode.ButtonB => UiControllerInput.Back,
+                Keycode.ButtonL1 => UiControllerInput.PreviousTab,
+                Keycode.ButtonR1 => UiControllerInput.NextTab,
+                _ => default
+            };
+            return key is Keycode.DpadUp or Keycode.DpadDown or Keycode.DpadLeft
+                or Keycode.DpadRight or Keycode.ButtonA or Keycode.ButtonB
+                or Keycode.ButtonL1 or Keycode.ButtonR1;
         }
 
         /// <summary>
@@ -525,7 +579,10 @@ namespace MphRead.Droid
             // Sfx is not thread-safe and the GL thread owns it, so it is asked
             // to shut itself down on its own thread, which is what
             // Scene.DoCleanup does at the end of the loop.
-            _gameView?.Stop();
+            _gameView?.StopAndWait();
+            ClientSessionCoordinator.Shared.Shutdown();
+            NetSession.Stop();
+            AndroidApp.Shutdown();
             base.OnDestroy();
         }
 
@@ -556,7 +613,7 @@ namespace MphRead.Droid
             // The same question Escape asks the desktop launcher: close the
             // overlay, or go back one card. Only when the front screen has
             // nothing left to go back to does this leave the app.
-            if (AndroidApp.Home?.GoBack() == true)
+            if (AndroidApp.Runtime?.GoBack() == true)
             {
                 return;
             }
@@ -588,7 +645,7 @@ namespace MphRead.Droid
                 // ThumbnailMode is on while it is.
                 Toast.MakeText(this, "Still rendering map previews; try again in a moment.",
                     ToastLength.Long)?.Show();
-                AndroidApp.Home?.Reset();
+                AndroidApp.Runtime?.MatchLaunchCancelled();
                 return;
             }
             var input = new AndroidInput();
@@ -739,7 +796,7 @@ namespace MphRead.Droid
             {
                 _launcherView.Visibility = ViewStates.Visible;
             }
-            AndroidApp.Home?.Reset();
+            AndroidApp.Runtime?.MatchLaunchCancelled();
             Window?.ClearFlags(WindowManagerFlags.KeepScreenOn);
             GoImmersive(true);
             RequestedOrientation = _orientationBefore;
@@ -755,6 +812,8 @@ namespace MphRead.Droid
             }
             (LaunchPlan plan, AndroidInput input) = _pending.Value;
             _pending = null;
+            _activeReplay = plan.Kind == LaunchKind.Demo;
+            AndroidApp.Runtime?.MatchStarted();
             if (_launcherView != null)
             {
                 _launcherView.Visibility = ViewStates.Gone;
@@ -809,8 +868,8 @@ namespace MphRead.Droid
                 return;
             }
             _gameView = new GameView(this, _controls, input,
-                (i, size) => AndroidMatch.Build(i, size, plan, () => RunOnUiThread(EndMatch)),
-                () => RunOnUiThread(EndMatch),
+                (i, size) => AndroidMatch.Build(i, size, plan, () => RunOnUiThread(EndMatchFromGame)),
+                () => RunOnUiThread(EndMatchFromGame),
                 () => RunOnUiThread(MatchLoaded),
                 error => RunOnUiThread(() => FailMatch(error)),
                 () => RunOnUiThread(TogglePauseMenu),
@@ -879,6 +938,13 @@ namespace MphRead.Droid
 
         private void FailMatch(string message)
         {
+            // PollMatch records a recoverable transport interruption before it
+            // reaches this platform boundary. Keep that session available to
+            // the reconnect UI; renderer/content failures are unrecoverable.
+            if (!ClientSessionCoordinator.Shared.CanReconnect)
+            {
+                _fatalSessionAfterMatch = message;
+            }
             if (_notice != null)
             {
                 _notice.Text = message;
@@ -944,7 +1010,21 @@ namespace MphRead.Droid
                 _launcherView.Visibility = ViewStates.Visible;
             }
             GoImmersive(true);
-            AndroidApp.Home?.ShowPauseMenu(ClosePauseMenu, EndMatch, () => Finish());
+            AndroidApp.ShowPauseMenu(ClosePauseMenu, EndMatch, LeaveSession, () => Finish());
+        }
+
+        private void LeaveSession()
+        {
+            _leaveSessionAfterMatch = true;
+            EndMatch();
+        }
+
+        private void EndMatchFromGame()
+        {
+            // An explicit leave can queue the render loop's completion while
+            // it is already restoring the launcher. That completion belongs
+            // to the view just removed, not to a later match.
+            if (_gameView != null) { EndMatch(); }
         }
 
         private void ClosePauseMenu()
@@ -954,6 +1034,7 @@ namespace MphRead.Droid
                 return;
             }
             _pauseMenuOpen = false;
+            AndroidApp.ClosePauseMenu();
             if (_launcherView != null)
             {
                 _launcherView.Visibility = ViewStates.Gone;
@@ -1001,7 +1082,7 @@ namespace MphRead.Droid
                 // SFX still going, which is exactly how it was reported. The
                 // stop is what breaks the loop, and breaking the loop is what
                 // reaches Scene.DoCleanup -> Sfx.ShutDown and OutputStop.
-                _gameView.Stop();
+                _gameView.StopAndWait();
                 _content.RemoveView(_gameView);
                 _gameView = null;
             }
@@ -1011,12 +1092,22 @@ namespace MphRead.Droid
             {
                 _launcherView.Visibility = ViewStates.Visible;
             }
-            // The desktop builds a fresh front screen each time round its loop;
-            // this one is the same object across a match, so it is told the
-            // match is over rather than left believing it already answered.
-            AndroidApp.Home?.Reset();
-            NetSession.Stop();
-            NetHostSession.Stop();
+            if (_fatalSessionAfterMatch != null)
+            {
+                ClientSessionCoordinator.Shared.Fail(_fatalSessionAfterMatch);
+            }
+            else if (_leaveSessionAfterMatch)
+            {
+                ClientSessionCoordinator.Shared.Leave();
+            }
+            else if (AuthoritativePlay.Current == null)
+            {
+                NetSession.Stop();
+            }
+            AndroidApp.Runtime?.MatchCompleted(_activeReplay);
+            _fatalSessionAfterMatch = null;
+            _leaveSessionAfterMatch = false;
+            _activeReplay = false;
             // A demo feeds NetSession from a file rather than a socket, so
             // stopping the session is not what closes it.
             DemoPlayback.Stop();

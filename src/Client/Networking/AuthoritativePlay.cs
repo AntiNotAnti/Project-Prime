@@ -45,7 +45,8 @@ namespace MphRead.Mods.Network
         public int LocalSlot => IsObserver ? -1 : Client.Accepted.Slot;
         internal Action<PlayerEntity, uint>? ScriptInput { get; set; }
 
-        public AuthoritativePlay(string host, int port, string name, Hunter hunter, ulong? joinNonce = null, string ticket = "", bool observer = false)
+        public AuthoritativePlay(string host, int port, string name, Hunter hunter, ulong? joinNonce = null,
+            string ticket = "", bool observer = false, Guid ownerCapability = default)
         {
             if (Current != null || NetSession.Active)
             {
@@ -56,7 +57,8 @@ namespace MphRead.Mods.Network
             if (address == null) { throw new ProgramException($"{host} has no IPv4 address."); }
             var endpoint = new IPEndPoint(address, port);
             _transport = new NetTransport(0);
-            try { Client = new NetClient(_transport, endpoint, name, Launcher.Hunters.Resolve(hunter), joinNonce, ticket, observer); }
+            try { Client = new NetClient(_transport, endpoint, name, Launcher.Hunters.Resolve(hunter),
+                joinNonce, ticket, observer, ownerCapability); }
             catch { _transport.Dispose(); throw; }
             Client.WorldPacketValidator = WorldPacket.TryValidate;
             Client.WorldPacketReceived = payload =>
@@ -80,7 +82,7 @@ namespace MphRead.Mods.Network
 
         public void BuildPlayers(Scene scene, Hunter hunter, int recolor)
         {
-            _presentationScene = scene;
+            AttachScene(scene);
             _loadedMatch = Client.Accepted.MatchId;
             _world.Reset(_loadedMatch);
             scene.Match.MatchId = Client.Accepted.MatchId;
@@ -102,13 +104,29 @@ namespace MphRead.Mods.Network
             if (IsObserver) SpectatorMode.Start();
         }
 
-        public void BeforeSimulation(Scene scene)
+        public void AttachScene(Scene scene)
         {
-            // Input was sampled before this hook. New packets below must not
-            // change which previously presented picture that input refers to.
-            _hasInputViewTick = _interpolation.TryCaptureViewTick(out _inputViewTick);
+            ArgumentNullException.ThrowIfNull(scene);
+            if (_presentationScene != null && !ReferenceEquals(_presentationScene, scene))
+                throw new InvalidOperationException("A different scene is already attached to this client session.");
+            _presentationScene = scene;
+        }
+
+        public void DetachScene(Scene scene)
+        {
+            ArgumentNullException.ThrowIfNull(scene);
+            if (!ReferenceEquals(_presentationScene, scene)) return;
+            _presentationScene = null;
+            _hasInputViewTick = false;
+            _inputCount = 0;
+            Prediction.Reset();
+            ResetPresentation();
+        }
+
+        /// <summary>Poll transport/session state without reading or mutating a Scene.</summary>
+        public void PollSession()
+        {
             Client.Poll();
-            DemoRecorder.RecordFrame(Client, scene);
             if (Client.Failure != null) { throw new ProgramException(Client.Failure); }
             ulong connectionId = Client.Connection?.Id ?? 0;
             if (connectionId != _viewConnectionId)
@@ -119,7 +137,28 @@ namespace MphRead.Mods.Network
                 Prediction.Reset();
                 _appliedSnapshot = 0;
             }
-            if (Client.Connection != null && (Client.Accepted.MatchId != _loadedMatch || Client.RoleRevision != _appliedRoleRevision))
+        }
+
+        public void BeforeSimulation(Scene scene)
+        {
+            if (!ReferenceEquals(_presentationScene, scene))
+                throw new InvalidOperationException("Attach the match scene before polling it.");
+            // Input was sampled before this hook. New packets below must not
+            // change which previously presented picture that input refers to.
+            _hasInputViewTick = _interpolation.TryCaptureViewTick(out _inputViewTick);
+            if (ClientSessionCoordinator.Shared.Owns(this))
+                ClientSessionCoordinator.Shared.PollMatch(this, scene);
+            else
+                PollSession();
+            DemoRecorder.RecordFrame(Client, scene);
+            if (Client.State == NetConnectionState.Lobby)
+            {
+                foreach (PlayerEntity player in PlayerEntity.Players) player.Controls.ClearAll();
+                NetDiagnostics.ReportAuthoritative(Client, Prediction, _interpolation, _transport.Metrics);
+                return;
+            }
+            if (Client.Connection != null && Client.Accepted.MatchId != 0
+                && (Client.Accepted.MatchId != _loadedMatch || Client.RoleRevision != _appliedRoleRevision))
             {
                 if (Client.RoleRevision != _appliedRoleRevision)
                 {
@@ -372,6 +411,7 @@ namespace MphRead.Mods.Network
             Client.Dispose();
             _transport.Dispose();
             if (Current == this) { Current = null; }
+            ClientSessionCoordinator.Shared.Forget(this);
         }
 
         public void AdvancePresentation()

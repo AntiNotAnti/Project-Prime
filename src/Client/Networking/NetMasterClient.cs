@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -74,6 +75,11 @@ namespace MphRead.Mods.Network
             init => _host = value;
         }
         public int Port { get; init; }
+        public Guid RequestNonce { get; init; }
+        /// <summary>
+        /// One-use secret capability for the launcher's first owner admission.
+        /// </summary>
+        public Guid OwnerToken { get; init; }
         public string Reason
         {
             get => _reason ?? "";
@@ -96,6 +102,29 @@ namespace MphRead.Mods.Network
             string roomKey, GameMode mode, float timeLimit, int pointGoal,
             int maxPlayers, string serverName, int timeoutMs = 35000)
         {
+            int capacity = Math.Clamp(maxPlayers, 2, MphRead.Entities.PlayerEntity.SlotCapacity);
+            MatchRules rules;
+            try
+            {
+                rules = MapRotation.SingleMatch(roomKey, mode, timeLimit, pointGoal)
+                    .Current.ToMatchRules(capacity, friendlyFire: false);
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+            {
+                return new HostedGame { Reason = ex.Message };
+            }
+            return RequestGame(masterHost, masterPort, rules, LobbyPolicy.PrivateHosted,
+                botMinimumParticipants: 0, botSkill: 1, maxObservers: 4,
+                observerDelaySeconds: 0, serverName, practice: false, timeoutMs);
+        }
+
+        public static HostedGame RequestGame(string masterHost, int masterPort,
+            MatchRules rules, LobbyPolicy lobbyPolicy, int botMinimumParticipants,
+            int botSkill, int maxObservers, int observerDelaySeconds,
+            string serverName, bool practice = false, int timeoutMs = 35000)
+        {
+            if (rules == null) return new HostedGame { Reason = "Match rules are required." };
+            if (lobbyPolicy == null) return new HostedGame { Reason = "Lobby policy is required." };
             IPEndPoint endPoint;
             try
             {
@@ -120,16 +149,23 @@ namespace MphRead.Mods.Network
             {
                 using var socket = new UdpClient(AddressFamily.InterNetwork);
                 socket.Client.ReceiveTimeout = timeoutMs;
+                Guid requestNonce = CreateNonce();
                 var request = new HostRequestPacket
                 {
+                    Version = HostRequestPacket.CurrentVersion,
                     Protocol = NetConfig.ProtocolVersion,
                     Family = NetWireIdentity.Family,
-                    MaxPlayers = (byte)Math.Clamp(maxPlayers, 2,
-                        MphRead.Entities.PlayerEntity.SlotCapacity),
-                    Mode = (byte)mode,
-                    TimeLimit = (ushort)Math.Clamp((int)timeLimit, 0, UInt16.MaxValue),
-                    PointGoal = (ushort)Math.Clamp(pointGoal, 0, UInt16.MaxValue),
-                    RoomKey = roomKey,
+                    Practice = practice,
+                    LobbyPolicy = lobbyPolicy.Kind,
+                    ReadyRequired = lobbyPolicy.ReadyRequired,
+                    HostMayForceStart = lobbyPolicy.HostMayForceStart,
+                    MinimumPlayers = lobbyPolicy.MinimumPlayers,
+                    BotMinimumParticipants = checked((byte)botMinimumParticipants),
+                    BotSkill = checked((byte)botSkill),
+                    MaxObservers = checked((byte)maxObservers),
+                    ObserverDelaySeconds = checked((byte)observerDelaySeconds),
+                    RequestNonce = requestNonce,
+                    Rules = rules,
                     ServerName = serverName
                 };
                 var datagram = new byte[1 + HostRequestPacket.Size];
@@ -145,17 +181,25 @@ namespace MphRead.Mods.Network
                     if (!from.Equals(endPoint) || reply.Length != 1 + HostReplyPacket.Size
                         || reply[0] != (byte)PacketType.HostReply
                         || !HostReplyPacket.TryRead(reply.AsSpan(1), out HostReplyPacket answer)
+                        || answer.RequestNonce != requestNonce
                         || !NetWireIdentity.IsCompatible(answer.Family, answer.Protocol))
                     {
                         continue;
                     }
-                    return new HostedGame
+                    var hosted = new HostedGame
                     {
                         Started = answer.Started,
-                        Host = masterHost,
+                        // Keep the launch endpoint pinned to the address that produced
+                        // the nonce-bound reply so the capability is never redirected
+                        // through a second DNS resolution.
+                        Host = endPoint.Address.ToString(),
                         Port = answer.Port,
+                        RequestNonce = answer.RequestNonce,
+                        OwnerToken = answer.OwnerToken,
                         Reason = answer.Reason
                     };
+                    CryptographicOperations.ZeroMemory(reply.AsSpan(1 + 22, 16));
+                    return hosted;
                 }
                 return new HostedGame { Reason = $"{masterHost} did not answer" };
             }
@@ -171,6 +215,13 @@ namespace MphRead.Mods.Network
             {
                 return new HostedGame { Reason = ex.Message };
             }
+        }
+
+        private static Guid CreateNonce()
+        {
+            Span<byte> bytes = stackalloc byte[16];
+            RandomNumberGenerator.Fill(bytes);
+            return new Guid(bytes);
         }
 
         public static MasterListResult Query(string host,

@@ -65,30 +65,71 @@
     <Compile Include="../Client/Input/PadBindings.cs" Link="Client/Input/PadBindings.cs" />
     <Compile Include="../Client/Input/TouchSettings.cs" Link="Client/Input/TouchSettings.cs" />
     <Compile Include="../Client/Launcher/Gui/CrosshairPreview.cs" Link="Client/Launcher/Gui/CrosshairPreview.cs" />
-    <Compile Include="../Client/Launcher/Gui/DemoPickerView.cs" Link="Client/Launcher/Gui/DemoPickerView.cs" />
     <Compile Include="../Client/Launcher/Gui/GuiTheme.cs" Link="Client/Launcher/Gui/GuiTheme.cs" />
-    <Compile Include="../Client/Launcher/Gui/HomeView.cs" Link="Client/Launcher/Gui/HomeView.cs" />
-    <Compile Include="../Client/Launcher/Gui/AccountView.cs" Link="Client/Launcher/Gui/AccountView.cs" />
     <Compile Include="../Client/Accounts/AccountSession.cs" Link="Client/Accounts/AccountSession.cs" />
     <Compile Include="../Client/Accounts/CareerQueries.cs" Link="Client/Accounts/CareerQueries.cs" />
+    <Compile Include="../Client/Accounts/SecureSessionStore.cs" Link="Client/Accounts/SecureSessionStore.cs" />
     <Compile Include="../Client/Launcher/Gui/KeyRow.cs" Link="Client/Launcher/Gui/KeyRow.cs" />
-    <Compile Include="../Client/Launcher/Gui/MapPickerView.cs" Link="Client/Launcher/Gui/MapPickerView.cs" />
     <Compile Include="../Client/Launcher/Gui/MenuEntry.cs" Link="Client/Launcher/Gui/MenuEntry.cs" />
     <Compile Include="../Client/Launcher/Gui/PadRow.cs" Link="Client/Launcher/Gui/PadRow.cs" />
-    <Compile Include="../Client/Launcher/Gui/PauseMenuView.cs" Link="Client/Launcher/Gui/PauseMenuView.cs" />
     <Compile Include="../Client/Launcher/Gui/ProgressRow.cs" Link="Client/Launcher/Gui/ProgressRow.cs" />
     <Compile Include="../Client/Launcher/Gui/Rows.cs" Link="Client/Launcher/Gui/Rows.cs" />
-    <Compile Include="../Client/Launcher/Gui/ServerRow.cs" Link="Client/Launcher/Gui/ServerRow.cs" />
-    <Compile Include="../Client/Launcher/Gui/SettingsView.cs" Link="Client/Launcher/Gui/SettingsView.cs" />
     <Compile Include="../Client/Launcher/Gui/SliderRow.cs" Link="Client/Launcher/Gui/SliderRow.cs" />
     <Compile Include="../Client/Launcher/Gui/SplashView.cs" Link="Client/Launcher/Gui/SplashView.cs" />
     <Compile Include="../Client/Launcher/Gui/TrackedText.cs" Link="Client/Launcher/Gui/TrackedText.cs" />
     <Compile Include="../Client/Launcher/Gui/UpdateBadge.cs" Link="Client/Launcher/Gui/UpdateBadge.cs" />
+    <Compile Include="../Client/UI/Adapters/ClientUiAdapters.cs" Link="Client/UI/Adapters/ClientUiAdapters.cs" />
+    <Compile Include="../Client/UI/Adapters/ClientUiRuntime.cs" Link="Client/UI/Adapters/ClientUiRuntime.cs" />
+    <Compile Include="../Client/UI/Adapters/LauncherUiServices.cs" Link="Client/UI/Adapters/LauncherUiServices.cs" />
+    <Compile Include="../Client/UI/AppShell/AppShellState.cs" Link="Client/UI/AppShell/AppShellState.cs" />
+    <Compile Include="../Client/UI/AppShell/AppShellView.cs" Link="Client/UI/AppShell/AppShellView.cs" />
+    <Compile Include="../Client/UI/Components/Tabs.cs" Link="Client/UI/Components/Tabs.cs" />
+    <Compile Include="../Client/UI/Components/UiActionButton.cs" Link="Client/UI/Components/UiActionButton.cs" />
+    <Compile Include="../Client/UI/Components/UiCards.cs" Link="Client/UI/Components/UiCards.cs" />
+    <Compile Include="../Client/UI/Components/UiFeedback.cs" Link="Client/UI/Components/UiFeedback.cs" />
+    <Compile Include="../Client/UI/Dialogs/PauseOverlayView.cs" Link="Client/UI/Dialogs/PauseOverlayView.cs" />
+    <Compile Include="../Client/UI/Navigation/UiFocusCoordinator.cs" Link="Client/UI/Navigation/UiFocusCoordinator.cs" />
+    <Compile Include="../Client/UI/Navigation/UiFocusNavigationPolicy.cs" Link="Client/UI/Navigation/UiFocusNavigationPolicy.cs" />
+    <Compile Include="../Client/UI/Navigation/UiModalHost.cs" Link="Client/UI/Navigation/UiModalHost.cs" />
+    <Compile Include="../Client/UI/Navigation/UiNavigationState.cs" Link="Client/UI/Navigation/UiNavigationState.cs" />
+    <Compile Include="../Client/UI/Navigation/UiRoute.cs" Link="Client/UI/Navigation/UiRoute.cs" />
+    <Compile Include="../Client/UI/Navigation/UiRouter.cs" Link="Client/UI/Navigation/UiRouter.cs" />
+    <Compile Include="../Client/UI/Screens/Account/AccountScreenView.cs" Link="Client/UI/Screens/Account/AccountScreenView.cs" />
+    <Compile Include="../Client/UI/Screens/Home/HomeScreenView.cs" Link="Client/UI/Screens/Home/HomeScreenView.cs" />
+    <Compile Include="../Client/UI/Screens/HunterLicense/HunterLicenseScreenView.cs" Link="Client/UI/Screens/HunterLicense/HunterLicenseScreenView.cs" />
+    <Compile Include="../Client/UI/Screens/Lobby/LobbyScreenView.cs" Link="Client/UI/Screens/Lobby/LobbyScreenView.cs" />
+    <Compile Include="../Client/UI/Screens/Play/PlayScreenView.cs" Link="Client/UI/Screens/Play/PlayScreenView.cs" />
+    <Compile Include="../Client/UI/Screens/PostMatch/PostMatchScreenView.cs" Link="Client/UI/Screens/PostMatch/PostMatchScreenView.cs" />
+    <Compile Include="../Client/UI/Screens/PrivateMatch/MapPickerView.cs" Link="Client/UI/Screens/PrivateMatch/MapPickerView.cs" />
+    <Compile Include="../Client/UI/Screens/PrivateMatch/PrivateMatchScreenView.cs" Link="Client/UI/Screens/PrivateMatch/PrivateMatchScreenView.cs" />
+    <Compile Include="../Client/UI/Screens/Replays/ReplayLibraryScreenView.cs" Link="Client/UI/Screens/Replays/ReplayLibraryScreenView.cs" />
+    <Compile Include="../Client/UI/Screens/ScreenViewBase.cs" Link="Client/UI/Screens/ScreenViewBase.cs" />
+    <Compile Include="../Client/UI/Screens/ServerBrowser/ServerBrowserScreenView.cs" Link="Client/UI/Screens/ServerBrowser/ServerBrowserScreenView.cs" />
+    <Compile Include="../Client/UI/Screens/Settings/SettingsScreenView.cs" Link="Client/UI/Screens/Settings/SettingsScreenView.cs" />
+    <Compile Include="../Client/UI/Screens/UiScreenFactory.cs" Link="Client/UI/Screens/UiScreenFactory.cs" />
+    <Compile Include="../Client/UI/State/AccessibilityPreferences.cs" Link="Client/UI/State/AccessibilityPreferences.cs" />
+    <Compile Include="../Client/UI/State/AppState.cs" Link="Client/UI/State/AppState.cs" />
+    <Compile Include="../Client/UI/State/AsyncScreenState.cs" Link="Client/UI/State/AsyncScreenState.cs" />
+    <Compile Include="../Client/UI/State/BoundedAsyncCache.cs" Link="Client/UI/State/BoundedAsyncCache.cs" />
+    <Compile Include="../Client/UI/State/LobbyShellModels.cs" Link="Client/UI/State/LobbyShellModels.cs" />
+    <Compile Include="../Client/UI/State/PlayState.cs" Link="Client/UI/State/PlayState.cs" />
+    <Compile Include="../Client/UI/State/ScreenControllers.cs" Link="Client/UI/State/ScreenControllers.cs" />
+    <Compile Include="../Client/UI/State/SessionViewState.cs" Link="Client/UI/State/SessionViewState.cs" />
+    <Compile Include="../Client/UI/State/UiScreenModels.cs" Link="Client/UI/State/UiScreenModels.cs" />
+    <Compile Include="../Client/UI/Theme/UiBreakpoints.cs" Link="Client/UI/Theme/UiBreakpoints.cs" />
+    <Compile Include="../Client/UI/Theme/UiColors.cs" Link="Client/UI/Theme/UiColors.cs" />
+    <Compile Include="../Client/UI/Theme/UiMetrics.cs" Link="Client/UI/Theme/UiMetrics.cs" />
+    <Compile Include="../Client/UI/Theme/UiMotion.cs" Link="Client/UI/Theme/UiMotion.cs" />
+    <Compile Include="../Client/UI/Theme/UiScreenLayout.cs" Link="Client/UI/Theme/UiScreenLayout.cs" />
+    <Compile Include="../Client/UI/Theme/UiSpacing.cs" Link="Client/UI/Theme/UiSpacing.cs" />
+    <Compile Include="../Client/UI/Theme/UiTypography.cs" Link="Client/UI/Theme/UiTypography.cs" />
     <Compile Include="../Client/Launcher/Portable/GameFiles.cs" Link="Client/Launcher/Portable/GameFiles.cs" />
     <Compile Include="../Client/Launcher/Portable/LaunchPlan.cs" Link="Client/Launcher/Portable/LaunchPlan.cs" />
     <Compile Include="../Client/Launcher/Portable/LauncherPrefs.cs" Link="Client/Launcher/Portable/LauncherPrefs.cs" />
     <Compile Include="../Client/Launcher/Portable/SetupProgress.cs" Link="Client/Launcher/Portable/SetupProgress.cs" />
     <Compile Include="../Client/Networking/AuthoritativePlay.cs" Link="Client/Networking/AuthoritativePlay.cs" />
+    <Compile Include="../Client/Networking/ClientSessionCoordinator.cs" Link="Client/Networking/ClientSessionCoordinator.cs" />
+    <Compile Include="../Client/Networking/ClientSessionState.cs" Link="Client/Networking/ClientSessionState.cs" />
     <Compile Include="../Client/Networking/ClientPrediction.cs" Link="Client/Networking/ClientPrediction.cs" />
     <Compile Include="../Client/Networking/ClientSceneServices.cs" Link="Client/Networking/ClientSceneServices.cs" />
     <Compile Include="../Client/Networking/ClientWorldState.cs" Link="Client/Networking/ClientWorldState.cs" />
@@ -114,6 +155,7 @@
     <Compile Include="../Client/Networking/NetPlayerSetup.cs" Link="Client/Networking/NetPlayerSetup.cs" />
     <Compile Include="../Client/Networking/NetRoomChange.cs" Link="Client/Networking/NetRoomChange.cs" />
     <Compile Include="../Client/Networking/NetSession.cs" Link="Client/Networking/NetSession.cs" />
+    <Compile Include="../Client/Networking/SessionPump.cs" Link="Client/Networking/SessionPump.cs" />
     <Compile Include="../Client/Networking/NetSlotManager.cs" Link="Client/Networking/NetSlotManager.cs" />
     <Compile Include="../Client/Networking/NetStatus.cs" Link="Client/Networking/NetStatus.cs" />
     <Compile Include="../Client/Networking/NetTestScript.cs" Link="Client/Networking/NetTestScript.cs" />

@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using MphRead.Mods.Network;
+using MphRead.Mods.UI.Adapters;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -35,6 +36,7 @@ namespace MphRead.Mods.Launcher.Gui
     {
         private static bool _setUp;
         private static bool _failed;
+        internal static ClientUiRuntime? ActiveRuntime { get; private set; }
 
         /// <summary>
         /// Show the launcher, or say why it could not be shown.
@@ -150,67 +152,91 @@ namespace MphRead.Mods.Launcher.Gui
             }
             IReadOnlyList<string> rooms = Array.Empty<string>();
 
-            while (true)
+            HomeWindow? shell = null;
+            try
             {
-                PauseMenu.Reset();
-                // Read again rather than reusing the object from the last time
-                // round: the pause menu's settings window loads and commits its
-                // own copy, so after a match this one is stale and would write
-                // the old values back over it.
-                MenuSettings settings = ClientSettings.LoadSettings();
-                // LoadSettings only fills in Features; the rest of the file
-                // reaches the engine through Mods.GameSettings.
-                Mods.GameSettings.Apply(settings);
-                LauncherPrefs.Load();
-                Mods.WindowMode.Startup = LauncherPrefs.WindowMode;
-                if (rooms.Count == 0 && GameFiles.Ready)
+                while (true)
                 {
-                    // Needs the game files: the room list is read out of them.
-                    rooms = ThumbnailGenerator.MultiplayerRooms();
-                }
+                    PauseMenu.Reset();
+                    // Read again rather than reusing the object from the last time
+                    // round: the pause menu's settings window loads and commits its
+                    // own copy, so after a match this one is stale and would write
+                    // the old values back over it.
+                    MenuSettings settings = ClientSettings.LoadSettings();
+                    // LoadSettings only fills in Features; the rest of the file
+                    // reaches the engine through Mods.GameSettings.
+                    Mods.GameSettings.Apply(settings);
+                    LauncherPrefs.Load();
+                    Mods.WindowMode.Startup = LauncherPrefs.WindowMode;
+                    if (rooms.Count == 0 && GameFiles.Ready)
+                    {
+                        // Needs the game files: the room list is read out of them.
+                        rooms = ThumbnailGenerator.MultiplayerRooms();
+                    }
 
-                // Before the screen that offers "Random" as a hunter: the
-                // roll is held for one launch so the joined server and the
-                // loaded player agree, and this is where a launch begins.
-                Hunters.Reroll();
-                LaunchPlan plan = Ask(settings, rooms);
-                if (plan.Kind == LaunchKind.None)
-                {
-                    return;
+                    // Before the screen that offers "Random" as a hunter: the
+                    // roll is held for one launch so the joined server and the
+                    // loaded player agree, and this is where a launch begins.
+                    Hunters.Reroll();
+                    if (shell is null)
+                    {
+                        shell = new HomeWindow(settings, rooms);
+                        ActiveRuntime = shell.Runtime;
+                    }
+                    LaunchPlan plan = Ask(shell);
+                    if (plan.Kind == LaunchKind.None)
+                    {
+                        return;
+                    }
+                    try
+                    {
+                        shell.Runtime.MatchStarted();
+                        MatchStart.Launch(settings, plan);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (ClientSessionCoordinator.Shared.CanReconnect)
+                        {
+                            Console.WriteLine($"[net] connection interrupted: {ex.Message}");
+                            Mods.DebugLog.Exception("net", ex);
+                            shell.Runtime.MatchCompleted(plan.Kind == LaunchKind.Demo);
+                            continue;
+                        }
+                        Console.WriteLine();
+                        Console.WriteLine($"The game could not start: {ex.Message}");
+                        Console.WriteLine(ex.StackTrace);
+                        // The Windows build is a GUI binary with no console behind
+                        // it, so the two lines above reach nobody: from the
+                        // player's side the game simply disappears while a map is
+                        // loading. This is the one place that can still be read
+                        // afterwards -- and the whole reason the switch in the
+                        // corner of the front screen exists.
+                        Mods.DebugLog.Line("crash", "the match could not start");
+                        Mods.DebugLog.Exception("crash", ex);
+                        ClientSessionCoordinator.Shared.Fail(ex.Message);
+                        return;
+                    }
+                    finally
+                    {
+                        // The match may have left one up -- a settings window opened
+                        // from the pause menu on the frame the match ended.
+                        PauseMenuWindow.CloseIfOpen();
+                    }
+                    shell.Runtime.MatchCompleted(plan.Kind == LaunchKind.Demo);
+                    if (PauseMenu.QuitProgram)
+                    {
+                        return;
+                    }
                 }
-                try
-                {
-                    MatchStart.Launch(settings, plan);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine();
-                    Console.WriteLine($"The game could not start: {ex.Message}");
-                    Console.WriteLine(ex.StackTrace);
-                    // The Windows build is a GUI binary with no console behind
-                    // it, so the two lines above reach nobody: from the
-                    // player's side the game simply disappears while a map is
-                    // loading. This is the one place that can still be read
-                    // afterwards -- and the whole reason the switch in the
-                    // corner of the front screen exists.
-                    Mods.DebugLog.Line("crash", "the match could not start");
-                    Mods.DebugLog.Exception("crash", ex);
-                    return;
-                }
-                finally
-                {
-                    // Both own a worker thread and a bound socket; a crash in
-                    // the game must not leave either behind.
-                    NetSession.Stop();
-                    NetHostSession.Stop();
-                    // The match may have left one up -- a settings window opened
-                    // from the pause menu on the frame the match ended.
-                    PauseMenuWindow.CloseIfOpen();
-                }
-                if (PauseMenu.QuitProgram)
-                {
-                    return;
-                }
+            }
+            finally
+            {
+                // Closing the application is a session boundary. Ordinary
+                // match completion above deliberately is not.
+                ClientSessionCoordinator.Shared.Shutdown();
+                NetSession.Stop();
+                ActiveRuntime = null;
+                if (shell?.IsClosed == false) { shell.Close(); }
             }
         }
 
@@ -221,13 +247,23 @@ namespace MphRead.Mods.Launcher.Gui
         /// loop ends when the window closes, the thread carries on into the
         /// match, and the next visit is another loop on the same toolkit.
         /// </summary>
-        private static LaunchPlan Ask(MenuSettings settings, IReadOnlyList<string> rooms)
+        private static LaunchPlan Ask(HomeWindow window)
         {
-            var window = new HomeWindow(settings, rooms);
+            window.BeginSelection();
             var frame = new DispatcherFrame();
-            window.Closed += (_, _) => frame.Continue = false;
+            void Selected(object? sender, LaunchPlan plan) => frame.Continue = false;
+            void Closed(object? sender, EventArgs args) => frame.Continue = false;
+            window.Selected += Selected;
+            window.Closed += Closed;
+            var sessionTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16),
+                DispatcherPriority.Background,
+                (_, _) => window.Runtime.PollShell());
+            sessionTimer.Start();
             window.Show();
             Dispatcher.UIThread.PushFrame(frame);
+            sessionTimer.Stop();
+            window.Selected -= Selected;
+            window.Closed -= Closed;
             // The loop ends on the Closed event, which is raised before the
             // toolkit has finished taking the window down -- and the thread is
             // about to spend the next twenty minutes inside a match, where

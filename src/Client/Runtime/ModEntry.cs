@@ -489,7 +489,7 @@ namespace MphRead.Mods
                 }
                 Console.WriteLine($"[net] running on {game.Host}:{game.Port}; joining it");
                 Network.NetConnectCommand.Run(game.Host, game.Port, hostName,
-                    ParseHunter(args), ParseRecolor(args));
+                    ParseHunter(args), ParseRecolor(args), game.OwnerToken);
                 return true;
             }
 

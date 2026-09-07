@@ -3,9 +3,15 @@ using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Themes.Fluent;
+using Avalonia.Threading;
 using MphRead.Mods;
 using MphRead.Mods.Launcher;
-using MphRead.Mods.Launcher.Gui;
+using MphRead.Mods.Network;
+using MphRead.Mods.UI.Adapters;
+using MphRead.Mods.UI.AppShell;
+using MphRead.Mods.UI.Dialogs;
+using MphRead.Mods.UI.Navigation;
+using MphRead.Mods.UI.State;
 
 namespace MphRead.Droid
 {
@@ -13,12 +19,8 @@ namespace MphRead.Droid
     /// The Avalonia application on Android.
     ///
     /// A phone has one view rather than a desktop full of windows, so this is a
-    /// single view lifetime -- and the view it shows is <see cref="HomeView"/>,
-    /// the desktop front screen itself. Not a copy of it, not a phone-shaped
-    /// rewrite of it: the same file, which folds to one column below a width and
-    /// opens its settings and map grid as overlays where there is no second
-    /// window to open. A change to the launcher is a change to both platforms,
-    /// which is the whole reason this is Avalonia.
+    /// single view lifetime whose root is the same persistent
+    /// <see cref="AppShellView"/> used by desktop.
     ///
     /// What is left here is the front half of the loop the desktop's
     /// <c>GuiLauncher</c> runs: read the settings, ask the screen, start what it
@@ -27,8 +29,10 @@ namespace MphRead.Droid
     /// </summary>
     public class AndroidApp : Application
     {
-        /// <summary>The front screen, for the activity to drive after a match.</summary>
-        internal static HomeView? Home { get; private set; }
+        private DispatcherTimer? _sessionTimer;
+
+        internal static ClientUiRuntime? Runtime { get; private set; }
+        internal static AppShellView? Shell => Runtime?.Shell;
 
         public override void Initialize()
         {
@@ -41,12 +45,22 @@ namespace MphRead.Droid
         {
             if (ApplicationLifetime is ISingleViewApplicationLifetime single)
             {
-                single.MainView = Home = BuildHome();
+                Runtime = BuildRuntime();
+                Runtime.LaunchRequested += (_, plan) =>
+                {
+                    if (plan.Kind == LaunchKind.None) MainActivity.Instance?.Finish();
+                    else MainActivity.Instance?.StartMatch(plan);
+                };
+                single.MainView = Runtime.Shell;
+                _sessionTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16),
+                    DispatcherPriority.Background,
+                    (_, _) => Runtime?.PollShell());
+                _sessionTimer.Start();
             }
             base.OnFrameworkInitializationCompleted();
         }
 
-        private static HomeView BuildHome()
+        private static ClientUiRuntime BuildRuntime()
         {
             LauncherPrefs.Load();
             // Keys, mouse feel, pad bindings and the touch layout. The
@@ -72,17 +86,78 @@ namespace MphRead.Droid
                 GameFiles.ApplyPaths();
                 rooms = ThumbnailGenerator.MultiplayerRooms();
             }
-            var home = new HomeView(settings, rooms);
-            home.Done += (_, plan) =>
+            return new ClientUiRuntime(settings, rooms, isAndroid: true);
+        }
+
+        internal static void ShowPauseMenu(Action resume, Action leaveMatch, Action leaveServer,
+            Action quit)
+        {
+            if (Runtime is null) return;
+            Runtime.State.Router.OpenModal("session-menu",
+                new PauseOverlayView(new AndroidPauseController(Runtime, resume, leaveMatch,
+                    leaveServer, quit)));
+        }
+
+        internal static void ClosePauseMenu() => Runtime?.State.Router.CloseModal();
+
+        internal static void Shutdown()
+        {
+            Runtime?.Dispose();
+            Runtime = null;
+        }
+
+        private sealed class AndroidPauseController : IPauseOverlayController
+        {
+            private readonly ClientUiRuntime _runtime;
+            private readonly Action _resume;
+            private readonly Action _leaveMatch;
+            private readonly Action _leaveServer;
+            private readonly Action _quit;
+
+            public AndroidPauseController(ClientUiRuntime runtime, Action resume,
+                Action leaveMatch, Action leaveServer, Action quit)
             {
-                if (plan.Kind == LaunchKind.None)
+                _runtime = runtime;
+                _resume = resume;
+                _leaveMatch = leaveMatch;
+                _leaveServer = leaveServer;
+                _quit = quit;
+            }
+
+            public bool IsAuthoritativeMatch => AuthoritativePlay.Current != null;
+
+            public System.Threading.Tasks.Task<UiActionResult> InvokeAsync(PauseAction action,
+                System.Threading.CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                switch (action)
                 {
-                    MainActivity.Instance?.Finish();
-                    return;
+                    case PauseAction.Resume:
+                        _resume();
+                        break;
+                    case PauseAction.Settings:
+                        _runtime.State.Router.CloseModal();
+                        _runtime.State.Router.Navigate(UiRoute.Settings);
+                        break;
+                    case PauseAction.HunterLicense:
+                        _runtime.State.Router.CloseModal();
+                        _runtime.State.Router.Navigate(UiRoute.HunterLicense);
+                        break;
+                    case PauseAction.LeaveMatch:
+                        _leaveMatch();
+                        break;
+                    case PauseAction.LeaveServer:
+                        _leaveServer();
+                        break;
+                    case PauseAction.Quit:
+                        _quit();
+                        break;
+                    case PauseAction.MutePlayers:
+                        return System.Threading.Tasks.Task.FromResult(
+                            UiActionResult.Failure("Player muting is unavailable for this session."));
                 }
-                MainActivity.Instance?.StartMatch(plan);
-            };
-            return home;
+                return System.Threading.Tasks.Task.FromResult(UiActionResult.Success());
+            }
         }
     }
 }

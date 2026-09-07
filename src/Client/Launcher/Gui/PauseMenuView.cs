@@ -16,10 +16,8 @@ namespace MphRead.Mods.Launcher.Gui
     /// A view rather than a window, because there is a platform with no windows
     /// on it to be. <c>PauseMenuWindow</c> wraps this on the desktop,
     /// where a small window over a still-running match is the right shape;
-    /// Android shows the same object through the launcher's full-screen
-    /// overlay, which is what <see cref="HomeView"/> already does with the
-    /// settings. One menu either way, so an entry added here turns up on both
-    /// rather than on whichever was remembered.
+    /// Android uses the shared app-shell pause overlay. This compatibility
+    /// view remains the desktop match-window presentation.
     ///
     /// It decides nothing itself. Every entry raises an event and the host acts
     /// on it: leaving a match is closing a window on one platform and swapping
@@ -30,6 +28,7 @@ namespace MphRead.Mods.Launcher.Gui
         public event EventHandler? Resumed;
         public event EventHandler? SettingsRequested;
         public event EventHandler? LeaveRequested;
+        public event EventHandler? LeaveServerRequested;
         public event EventHandler? QuitRequested;
         public event EventHandler? FullscreenRequested;
         public event EventHandler? SpectateRequested;
@@ -94,6 +93,9 @@ namespace MphRead.Mods.Launcher.Gui
             }
             Add(stack, "Leave match",
                 () => LeaveRequested?.Invoke(this, EventArgs.Empty));
+            if (AuthoritativePlay.Current != null)
+                Add(stack, "Leave server",
+                    () => LeaveServerRequested?.Invoke(this, EventArgs.Empty));
             Add(stack, "Quit",
                 () => QuitRequested?.Invoke(this, EventArgs.Empty));
 

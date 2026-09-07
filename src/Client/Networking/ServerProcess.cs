@@ -17,6 +17,7 @@ namespace MphRead.Mods.Network
         public int? ExitCode => _host.ExitCode;
         public bool WasKilled => _host.WasKilled;
         public string RecentLog => _host.RecentLog;
+        internal Guid TakeOwnerCapability() => _host.TakeOwnerCapability();
         public static ServerProcess Start(string data, string version, MapRotation rotation,
             int port, int maxPlayers, bool friendlyFire,
             (string Host, int Port, string Name)? listing = null, CancellationToken cancel = default, bool practice = false)
@@ -25,6 +26,12 @@ namespace MphRead.Mods.Network
             int port, int maxPlayers, bool friendlyFire,
             (string Host, int Port, string Name)? listing = null, CancellationToken cancel = default, bool practice = false)
             => new(await ServerProcessHost.StartAsync(data, version, rotation, port, maxPlayers, friendlyFire, listing, cancel, practice).ConfigureAwait(false));
+        internal static ServerProcess StartConfigured(string data, string version,
+            MapRotation rotation, int port, int maxPlayers, bool friendlyFire,
+            (string Host, int Port, string Name)? listing, CancellationToken cancel,
+            bool practice, HostedProcessOptions options)
+            => new(ServerProcessHost.Start(data, version, rotation, port, maxPlayers,
+                friendlyFire, listing, cancel, practice, options));
         internal static ProcessStartInfo CreateStartInfo(string mapDirectory) => ServerProcessHost.CreateStartInfo(mapDirectory);
         public void Dispose() => _host.Dispose();
     }

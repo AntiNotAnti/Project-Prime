@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using MphRead.Identity;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Network;
+using MphRead.Mods.UI.Adapters;
 using Xunit;
 
 namespace MphRead.Tests.Client;
@@ -116,9 +117,10 @@ public sealed class AccountSessionTests
     public async Task LicenseResponseMapsAuthoritativeRatingSummary()
     {
         PlayerId player = new(Guid.NewGuid());
+        Guid matchId = Guid.NewGuid();
         DateTimeOffset joined = new(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
         var response = new HunterLicense(player, "Hunter", 2, joined, 750, 5,
-            "Legendary Hunter", null, 8, "PairwiseNormalizedV1");
+            "Legendary Hunter", null, 8, "PairwiseNormalizedV1", matchId);
         using var session = new AccountSession(new Uri("https://accounts.example.test/"),
             new RecordingHandler((_, _) => Task.FromResult(JsonResponse(response))));
 
@@ -129,7 +131,49 @@ public sealed class AccountSessionTests
         Assert.Equal("Legendary Hunter", license.Title);
         Assert.Null(license.NextThreshold);
         Assert.Equal(8, license.LastOfficialDelta);
+        Assert.Equal(matchId, license.LastOfficialMatchId);
         Assert.Equal("PairwiseNormalizedV1", license.Policy);
+    }
+
+    [Fact]
+    public void RatingCompletionUsesTheOfficialMatchMarkerForZeroDeltaTransactions()
+    {
+        PlayerId player = new(Guid.NewGuid());
+        Guid previousMatch = Guid.NewGuid();
+        var before = new HunterLicense(player, "Hunter", 0, DateTimeOffset.UtcNow, 100, 2,
+            "Super Hunter", 140, 4, "PairwiseNormalizedV1", previousMatch);
+        var zeroDelta = before with
+        {
+            LastOfficialDelta = 0,
+            LastOfficialMatchId = Guid.NewGuid()
+        };
+
+        Assert.Equal((0, 100), LauncherAccountController.CompletedRating(before, zeroDelta));
+        Assert.Null(LauncherAccountController.CompletedRating(before,
+            before with { Points = 104 }));
+    }
+
+    [Fact]
+    public async Task LicenseRejectsMissingEmptyOrInconsistentOfficialRatingMarker()
+    {
+        PlayerId player = new(Guid.NewGuid());
+        DateTimeOffset joined = DateTimeOffset.UtcNow;
+        HunterLicense[] invalid =
+        [
+            new(player, "Hunter", 0, joined, 100, 2, "Super Hunter", 140, 0,
+                "PairwiseNormalizedV1", null),
+            new(player, "Hunter", 0, joined, 100, 2, "Super Hunter", 140, null,
+                "PairwiseNormalizedV1", Guid.NewGuid()),
+            new(player, "Hunter", 0, joined, 100, 2, "Super Hunter", 140, 0,
+                "PairwiseNormalizedV1", Guid.Empty)
+        ];
+
+        foreach (HunterLicense response in invalid)
+        {
+            using var session = new AccountSession(new Uri("https://accounts.example.test/"),
+                new RecordingHandler((_, _) => Task.FromResult(JsonResponse(response))));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => session.GetLicenseAsync(player));
+        }
     }
 
     [Fact]
@@ -497,8 +541,8 @@ public sealed class AccountSessionTests
             ("missing incarnation", new("valid.ticket", time.GetUtcNow().AddMinutes(1), serverId, Guid.Empty), false),
             ("expired", new("valid.ticket", time.GetUtcNow(), serverId, incarnation), false),
             ("missing ticket", new("", time.GetUtcNow().AddMinutes(1), serverId, incarnation), false),
-            ("too long", new(new string('a', 964), time.GetUtcNow().AddMinutes(1), serverId, incarnation), false),
-            ("maximum length", new(new string('a', 963), time.GetUtcNow().AddMinutes(1), serverId, incarnation,
+            ("too long", new(new string('a', JoinPacket.MaxTicketBytes + 1), time.GetUtcNow().AddMinutes(1), serverId, incarnation), false),
+            ("maximum length", new(new string('a', JoinPacket.MaxTicketBytes), time.GetUtcNow().AddMinutes(1), serverId, incarnation,
                 RegisteredAddress, RegisteredPort), true)
         };
 

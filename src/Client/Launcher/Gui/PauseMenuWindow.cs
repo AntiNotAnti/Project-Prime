@@ -7,6 +7,8 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using MphRead.Mods;
 using MphRead.Mods.Network;
+using MphRead.Mods.UI.Adapters;
+using MphRead.Mods.UI.AppShell;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -143,6 +145,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Close();
             };
             _view.LeaveRequested += (_, _) => { PauseMenu.RequestLeave(); Close(); };
+            _view.LeaveServerRequested += (_, _) => { PauseMenu.RequestLeaveServer(); Close(); };
             _view.QuitRequested += (_, _) => { PauseMenu.RequestQuit(); Close(); };
             Content = _view;
         }
@@ -251,8 +254,10 @@ namespace MphRead.Mods.Launcher.Gui
             Topmost = false;
             try
             {
-                MenuSettings settings = ClientSettings.LoadSettings();
-                var window = new SettingsWindow(settings, inGame: true);
+                var controller = GuiLauncher.ActiveRuntime?.Services.Settings
+                    ?? new LauncherSettingsController(ClientSettings.LoadSettings(),
+                        new AppShellState());
+                var window = new SettingsWindow(controller);
                 _openSettings = window;
                 await window.ShowDialog(this);
             }

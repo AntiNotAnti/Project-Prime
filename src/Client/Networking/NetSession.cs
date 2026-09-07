@@ -99,7 +99,11 @@ namespace MphRead.Mods.Network
 
         public static void Stop()
         {
-            AuthoritativePlay.Current?.Dispose();
+            if (AuthoritativePlay.Current is { } play)
+            {
+                if (ClientSessionCoordinator.Shared.Owns(play)) ClientSessionCoordinator.Shared.Leave();
+                else play.Dispose();
+            }
             DemoPlayback.CloseFile();
             DemoRecorder.Stop();
             NetPlayerSetup.Reset();
