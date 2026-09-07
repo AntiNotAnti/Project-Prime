@@ -141,7 +141,7 @@ public sealed class ServerUpdateRuntimeTests
             string destination = Path.Combine(result.Root, "stage");
             foreach (string file in Directory.GetFiles(source, "*.dll")) { File.Copy(file, Path.Combine(destination, Path.GetFileName(file))); }
             File.WriteAllText(Path.Combine(destination, "FruityPrime.runtimeconfig.json"),
-                "{\"runtimeOptions\":{\"tfm\":\"net9.0\",\"framework\":{\"name\":\"Microsoft.NETCore.App\",\"version\":\"9.0.0\"}}}");
+                "{\"runtimeOptions\":{\"tfm\":\"net10.0\",\"framework\":{\"name\":\"Microsoft.NETCore.App\",\"version\":\"10.0.0\"}}}");
             result.Seal("FruityPrime.dll");
             return result;
         }

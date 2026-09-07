@@ -531,6 +531,211 @@
         "droppedTicks": 0,
         "catchUpTicks": 0
       }
+    },
+    {
+      "Name": "r1-cost-lan",
+      "Sdk": "10.0.400",
+      "Runtime": "net10.0",
+      "Description": "Separate zero-impairment reference with production disconnect policy; same configuration as R0 LAN, different actual combat outcomes",
+      "ConfiguredRttMs": 0,
+      "ConfiguredJitterMs": 0,
+      "ConfiguredLossPercent": 0,
+      "Server": {
+        "passed": true,
+        "mode": "on",
+        "seed": 20260906,
+        "lagCompensation": true,
+        "projectileCatchUp": true,
+        "seconds": 60.0005612,
+        "ticks": 3600,
+        "minimumPeers": 8,
+        "conditions": "fixed server loadouts; infinite ammo; normal inputs, damage, death and respawn; no rendering",
+        "modeNames": [
+          "travelingProjectile",
+          "historicalTrace",
+          "homingProjectile",
+          "continuousBeam"
+        ],
+        "rootShots": [
+          225,
+          45,
+          16,
+          4242
+        ],
+        "unresolvedMechanics": 0,
+        "homingRootTargets": 16,
+        "compensationModeNames": [
+          "None",
+          "HistoricalTrace",
+          "ProjectileCatchUp",
+          "HomingProjectileCatchUp"
+        ],
+        "compensationModeRootShots": [
+          4242,
+          45,
+          225,
+          16
+        ],
+        "weaponVariantLayout": "index = 4 * BeamType + variant; variant bit 0 charged, bit 1 affinity",
+        "weaponVariantRootShots": [
+          195,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          30,
+          16,
+          0,
+          0,
+          0,
+          0,
+          45,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          4242,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "activeBeamFrameObservations": [
+          141,
+          0,
+          61,
+          4242
+        ],
+        "damage": 815,
+        "deaths": 43,
+        "allocatedBytes": 224803248,
+        "allocatedBytesPerTick": 62445.346666666665,
+        "cpuSeconds": 3.472982,
+        "cpuCores": 0.05788249193909206,
+        "gen0": 28,
+        "gen1": 2,
+        "gen2": 1,
+        "tickP50Ms": 0.6051,
+        "tickP95Ms": 1.1289,
+        "tickP99Ms": 1.6632,
+        "tickMaxMs": 10.526,
+        "droppedTicks": 0,
+        "catchUpTicks": 0,
+        "maxDue": 1,
+        "queueDrops": 0,
+        "reliableOverflow": 0,
+        "combatDrops": 0,
+        "projectilesCaughtUp": 241,
+        "projectileCatchUpSteps": 909,
+        "projectileCatchUpMaxSteps": 10,
+        "projectileCatchUpCollisions": 206,
+        "projectileCatchUpQueueDrops": 0,
+        "projectileCatchUpPending": 0,
+        "receivedBytes": 9067984,
+        "sentBytes": 20446016
+      },
+      "Clients": {
+        "passed": true,
+        "clients": [
+          {
+            "client": 0,
+            "slot": 0,
+            "healthy": true,
+            "snapshots": 1952,
+            "ownRootShots": 111,
+            "inputsSent": 3904,
+            "rttMs": 15.760661969501626,
+            "queueDrops": 0
+          },
+          {
+            "client": 1,
+            "slot": 1,
+            "healthy": true,
+            "snapshots": 1952,
+            "ownRootShots": 104,
+            "inputsSent": 3904,
+            "rttMs": 15.703531809782895,
+            "queueDrops": 0
+          },
+          {
+            "client": 2,
+            "slot": 2,
+            "healthy": true,
+            "snapshots": 1952,
+            "ownRootShots": 28,
+            "inputsSent": 3904,
+            "rttMs": 15.68576343689117,
+            "queueDrops": 0
+          },
+          {
+            "client": 3,
+            "slot": 3,
+            "healthy": true,
+            "snapshots": 1952,
+            "ownRootShots": 27,
+            "inputsSent": 3904,
+            "rttMs": 15.70754309619836,
+            "queueDrops": 0
+          },
+          {
+            "client": 4,
+            "slot": 4,
+            "healthy": true,
+            "snapshots": 1952,
+            "ownRootShots": 27,
+            "inputsSent": 3904,
+            "rttMs": 15.686486200355466,
+            "queueDrops": 0
+          },
+          {
+            "client": 5,
+            "slot": 5,
+            "healthy": true,
+            "snapshots": 1952,
+            "ownRootShots": 27,
+            "inputsSent": 3904,
+            "rttMs": 15.677621930854373,
+            "queueDrops": 0
+          },
+          {
+            "client": 6,
+            "slot": 6,
+            "healthy": true,
+            "snapshots": 1952,
+            "ownRootShots": 2180,
+            "inputsSent": 3904,
+            "rttMs": 15.69233030977157,
+            "queueDrops": 0
+          },
+          {
+            "client": 7,
+            "slot": 7,
+            "healthy": true,
+            "snapshots": 1952,
+            "ownRootShots": 2348,
+            "inputsSent": 3904,
+            "rttMs": 15.663309075008613,
+            "queueDrops": 0
+          }
+        ],
+        "droppedTicks": 0,
+        "catchUpTicks": 0
+      }
     }
   ]
 }

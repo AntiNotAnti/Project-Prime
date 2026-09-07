@@ -56,7 +56,7 @@ produced identical PK3 bytes. Run `-mapgen` after every geometry or entity edit.
 Recook the bundle after validation; an older bundle is not updated by `-mapgen`.
 
 The optional CPU movement check uses the current checkout's existing headless scene
-API. It creates a temporary .NET 9 project; it never edits the engine or the selected
+API. It creates a temporary .NET 10 project; it never edits the engine or the selected
 game build. Run after generating the room in the named extracted asset directory:
 
 ```sh
@@ -66,7 +66,7 @@ python3 maps/parallax/source/check-movement.py \
   --map-dir /absolute/path/to/maps/parallax
 ```
 
-Pass `--dotnet /path/to/dotnet` if the .NET 9 SDK is not on PATH. This check drives
+Pass `--dotnet /path/to/dotnet` if the .NET 10 SDK is not on PATH. This check drives
 both forms of all seven Hunters through the north ramp, east lower ramp and north
 pad. It checks landing, not merely pad activation. Its final Spire check measures
 reaching the climb's top height, **not dismounting onto the deck**. Mirrored routes

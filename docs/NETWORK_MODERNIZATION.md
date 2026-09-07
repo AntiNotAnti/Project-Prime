@@ -8,7 +8,7 @@ game data or a validated server content package.
 ## Scope and invariants
 
 The target is a single-writer, 60 Hz dedicated simulation using the existing UDP
-transport and gameplay code. Offline play, .NET 9, the MphRead namespace,
+transport and gameplay code. Offline play, .NET 10, the MphRead namespace,
 directory service, network impairment tools and existing diagnostics are retained.
 Client input replaces owner-reported position and ammo. Prediction, interpolation,
 authoritative combat, lag compensation and world replication were exercised before
@@ -39,7 +39,7 @@ projectile upgrades are recorded in [NETWORK_POST_UPSTREAM.md](NETWORK_POST_UPST
 
 ## Reproduction
 
-Build and test with a .NET 9 SDK:
+Build and test with a .NET 10 SDK:
 
 ```sh
 dotnet test src/MphRead.Tests/MphRead.Tests.csproj -c Release -p:MphReadServer=true

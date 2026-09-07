@@ -313,7 +313,9 @@ release, deployment or push was performed.
 
 ## Reproduction
 
-Use .NET SDK 9 and your own extracted AMHE1 data:
+Use the SDK selected by `global.json` (.NET 10 on the current tree) and your own
+extracted AMHE1 data. The earlier validation records describe their original
+.NET 9 checkpoints; the commands below build the current checkout.
 
 ```sh
 dotnet test src/MphRead.Tests/MphRead.Tests.csproj -c Release -p:MphReadServer=true

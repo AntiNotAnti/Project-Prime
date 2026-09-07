@@ -561,19 +561,19 @@ does not do for it: a demo feeds the session from a file rather than a socket.
 
 ```bash
 export PATH="$HOME/.dotnet:$PATH"
-export JAVA_HOME=$HOME/jdk17            # a JDK 17; the workload does not bring one
+export JAVA_HOME=$HOME/jdk21            # a JDK 21; the workload does not bring one
 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1   # or install libicu
 dotnet workload install android
 dotnet build src/MphRead.Android/MphRead.Android.csproj -c Debug \
   -p:AndroidSdkDirectory=$HOME/android-sdk
 ```
 
-The SDK needs `platforms;android-35` and `build-tools;35.0.0` to match the
-`net9.0-android35.0` target; `sdkmanager --sdk_root=$HOME/android-sdk` installs
+The SDK needs `platforms;android-36` and `build-tools;36.0.0` to match the
+`net10.0-android36.0` target; `sdkmanager --sdk_root=$HOME/android-sdk` installs
 them. `EnableAvaloniaXamlCompilation=false` is deliberate and explained in the
 csproj.
 
-The APK lands in `bin/Debug/net9.0-android35.0/fr.livetek.fruityprime-Signed.apk`
+The APK lands in `bin/Debug/net10.0-android36.0/fr.livetek.fruityprime-Signed.apk`
 (~20 MB; a Release publish is ~45 MB, being every ABI with the trimmer run).
 `adb install -r` it.
 

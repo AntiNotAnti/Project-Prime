@@ -43,7 +43,7 @@ export ALSOFT_DRIVERS=null PULSE_SERVER=   # else ALSA retries stall frames
 ```
 
 - If `~/.dotnet` is empty, the SDK is not installed at all:
-  `curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 9.0`
+  `curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0`
   puts it there.
 - The Avalonia launcher needs `libICE` and `libSM`, which the game itself does
   not and a minimal WSL install does not have. Without them it falls back to the

@@ -6,7 +6,7 @@ Workflows
 
 | Workflow | When | What |
 |---|---|---|
-| `.github/workflows/build.yml` | every push and PR | publishes `win-x64`, `linux-x64`, `linux-x64-server`, `linux-arm64`, `osx-x64` and `osx-arm64` on one Ubuntu runner (every target is `net9.0`, so none needs a runner of its own), plus a Windows-runner job that builds and starts the Windows dedicated server |
+| `.github/workflows/build.yml` | every push and PR | publishes `win-x64`, `linux-x64`, `linux-x64-server`, `linux-arm64`, `osx-x64` and `osx-arm64` on one Ubuntu runner (every target is `net10.0`, so none needs a runner of its own), plus a Windows-runner job that builds and starts the Windows dedicated server |
 | `.github/workflows/release.yml` | a `v*` tag, or by hand -- naming a tag or picking a bump that creates one | those six plus the Windows server: seven packages attached to a GitHub release |
 
 Tagging

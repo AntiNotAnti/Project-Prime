@@ -76,7 +76,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       # Cook every custom map into the one file it ships as. The recipe, the
       # level it converts and the textures baked from it go into a .fpmap,
@@ -88,7 +88,7 @@ jobs:
       - name: cook the map bundles
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
 
-      # Every target is net9.0 and every launcher is Avalonia, so all six of
+      # Every target is net10.0 and every launcher is Avalonia, so all six of
       # these come off one Ubuntu runner.
       - name: publish ${{ matrix.summary }}
         run: >
@@ -131,7 +131,7 @@ jobs:
   # The Android head, and the APK a phone can install.
   #
   # Its own job rather than a row in the matrix above, because nothing about it
-  # matches: a different target framework (net9.0-android35.0, not net9.0), a
+  # matches: a different target framework (net10.0-android36.0, not net10.0), a
   # JDK and an Android SDK the other six targets do not need, and an APK rather
   # than a folder of binaries. It is also the only job whose failure is usually
   # about *shared* code -- the head compiles the same sources with ANDROID
@@ -151,14 +151,14 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       # The Android workload brings the .NET side of the toolchain. It does not
       # bring a JDK, and the Android SDK's build tools are Java.
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: install the android workload
         run: dotnet workload install android
@@ -173,7 +173,7 @@ jobs:
       - name: cook the map bundles
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
 
-      # net9.0-android35.0 wants platform 35 and its build tools, which a
+      # net10.0-android36.0 wants platform 36 and its build tools, which a
       # runner image does not necessarily carry. This target asks for exactly
       # what the project declares and accepts the licences, instead of naming
       # sdkmanager packages here that would then have to be kept in step with
@@ -258,7 +258,11 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
+
+      - name: Check launcher SDK and execution routing
+        shell: pwsh
+        run: ./tools/tests/test_launcher.ps1
 
       - name: publish the dedicated server, for Windows
         run: >

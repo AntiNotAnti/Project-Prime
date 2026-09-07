@@ -79,10 +79,10 @@ macOS and Android
   `GameFiles.Root` for `paths.txt`, and the `ANDROID` guard in `GuiLauncher`
   (Android stands the toolkit up from its activity, with no desktop backend
   to detect).
-- Building Android needs the workload, a JDK 17 and an SDK with
-  `platforms;android-35`:
+- Building Android needs the workload, a JDK 21 and an SDK with
+  `platforms;android-36`:
   ```bash
-  export JAVA_HOME=$HOME/jdk17
+  export JAVA_HOME=$HOME/jdk21
   dotnet workload install android
   dotnet build src/MphRead.Android/MphRead.Android.csproj -c Debug \
     -p:AndroidSdkDirectory=$HOME/android-sdk

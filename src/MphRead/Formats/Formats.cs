@@ -1634,6 +1634,13 @@ namespace MphRead
             return source.Slice((int)start, (int)length);
         }
 
+        // C# 14 also considers Span<T> -> ReadOnlySpan<T> for extension lookup.
+        // Keep uint offsets on the mutable overload, as before that language change.
+        public static Span<T> Slice<T>(this Span<T> source, uint start)
+        {
+            return source.Slice((long)start);
+        }
+
         public static Span<T> Slice<T>(this Span<T> source, long start)
         {
             return source.Slice((int)start);

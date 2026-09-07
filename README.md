@@ -83,7 +83,7 @@ dotnet publish src/MphRead/MphRead.csproj -c Release \
   -r win-x64|linux-x64|osx-x64|osx-arm64 --self-contained true -p:PublishSingleFile=true
 ```
 
-Needs [.NET 9.0](https://dotnet.microsoft.com/en-us/download/dotnet/9.0) or later.
+Needs [.NET 10.0](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
 `-p:MphReadServer=true` builds the dedicated server; Android is
 `dotnet build src/MphRead.Android/MphRead.Android.csproj` with the `android` workload. Every command
 line option, and the test harness, are in [`CLAUDE.md`](CLAUDE.md).

@@ -12,7 +12,7 @@ and performance harnesses exercise those other paths.
 
 ## Reproduce
 
-From the repository root with .NET 9 and Python 3 available:
+From the repository root with .NET 10 and Python 3 available:
 
 ```sh
 dotnet build tools/nettest/nettest.csproj -c Release -p:MphReadServer=true \

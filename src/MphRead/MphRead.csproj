@@ -10,7 +10,7 @@
          desktop platforms, so nothing here needs the Windows desktop TFM any
          more, which is also what makes an osx or android build of these
          sources possible at all. -->
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <!-- A console binary everywhere except a Windows game build, which is a GUI
          one: double-clicking it has to open the launcher and nothing else, and
          a console subsystem process gets a terminal before Main can hide it.

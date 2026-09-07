@@ -99,7 +99,7 @@ From the repository root:
 
 ```sh
 dotnet build tools/nettest/nettest.csproj -c Release -p:MphReadServer=true
-dotnet tools/nettest/bin/Release/net9.0/nettest.dll --weapon-policy /path/to/AMHE1
+dotnet tools/nettest/bin/Release/net10.0/nettest.dll --weapon-policy /path/to/AMHE1
 ```
 
 The check accepts an optional version argument after the data directory. It opens

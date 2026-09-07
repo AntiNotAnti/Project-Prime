@@ -28,7 +28,7 @@ def main():
             for name in ('FruityPrime', 'OpenTK.Mathematics'))
         (root / 'Check.csproj').write_text(
             '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType>'
-            '<TargetFramework>net9.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings>'
+            '<TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings>'
             '</PropertyGroup><ItemGroup>' + references + '</ItemGroup></Project>')
         output = root / 'run'
         subprocess.run([args.dotnet, 'build', str(root / 'Check.csproj'), '-c', 'Release',

@@ -73,7 +73,7 @@ def main():
     if version not in ("AMHE0", "AMHE1", "AMHP0", "AMHP1", "AMHJ0", "AMHJ1", "AMHK0", "A76E0"):
         raise ValueError("unsupported GAME_DATA_VERSION")
     build = Path(os.environ.get("GAME_BUILD_DIRECTORY",
-                 TOOLS.parent / "src/MphRead/bin/Release/net9.0")).expanduser().resolve()
+                 TOOLS.parent / "src/MphRead/bin/Release/net10.0")).expanduser().resolve()
     for name in ("FruityPrime.dll", "FruityPrime.deps.json", "FruityPrime.runtimeconfig.json"):
         if not (build / name).is_file():
             raise ValueError(f"missing runtime file: {build / name}; set GAME_BUILD_DIRECTORY")

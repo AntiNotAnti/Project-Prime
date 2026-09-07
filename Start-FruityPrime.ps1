@@ -59,35 +59,6 @@ function Get-DotnetPath {
     return $command.Source
 }
 
-function Get-InstalledDotnetSdks([string]$dotnet) {
-    # dotnet resolves global.json from the current directory and its parents.
-    # Probe from the system temp directory so this diagnostic is not blocked by
-    # this repository's .NET 9 pin.
-    $probeDirectory = [IO.Path]::GetTempPath()
-    Push-Location $probeDirectory
-    try {
-        $lines = @(& $dotnet '--list-sdks' 2>&1)
-    }
-    finally {
-        Pop-Location
-    }
-
-    $entries = foreach ($line in $lines) {
-        $text = [string]$line
-        if ($text -match '^\s*(?<version>\d+\.\d+\.\d+)\s+\[(?<root>.+)\]\s*$') {
-            $sdkDirectory = Join-Path $Matches.root $Matches.version
-            $msbuild = Join-Path $sdkDirectory 'MSBuild.dll'
-            if (Test-Path -LiteralPath $msbuild -PathType Leaf) {
-                [pscustomobject]@{
-                    Version = $Matches.version
-                    Msbuild = $msbuild
-                }
-            }
-        }
-    }
-    return @($entries | Sort-Object { [version]$_.Version } -Descending)
-}
-
 function Get-PublishedCandidates([string]$kind) {
     if ($kind -eq 'game') {
         if ($IsWindowsHost) {
@@ -132,16 +103,6 @@ function New-DevelopmentSpec([string]$kind) {
         'true'
     }
     $runtimeIdentifier = if ($IsWindowsHost) { 'win-x64' } else { $null }
-    $runtimeProperty = if ($null -eq $runtimeIdentifier) {
-        $null
-    }
-    else {
-        "/p:RuntimeIdentifier=$runtimeIdentifier"
-    }
-    $sdks = @(Get-InstalledDotnetSdks $dotnet)
-    $sdk9 = @($sdks | Where-Object { ([version]$_.Version).Major -eq 9 } | Select-Object -First 1)
-    $workingDirectory = $output
-    $assemblyDirectory = $output
     $assemblyFileName = if ($IsWindowsHost -and $kind -ne 'game') {
         'FruityPrimeServer.dll'
     }
@@ -152,66 +113,16 @@ function New-DevelopmentSpec([string]$kind) {
     Write-Host "No published $kind binary found; building it into $output..." -ForegroundColor Yellow
     Push-Location $Root
     try {
-        if ($sdk9.Count -gt 0) {
-            $buildArguments = @(
-                'build', $Project, '-c', 'Release', '-o', $output,
-                "-p:MphReadServer=$serverValue"
-            )
-            if ($null -ne $runtimeIdentifier) {
-                $buildArguments += @('-r', $runtimeIdentifier)
-            }
-            & $dotnet @buildArguments | Out-Host
-            if ($LASTEXITCODE -ne 0) {
-                throw "The $kind build failed with exit code $LASTEXITCODE. Install/repair the .NET 9 SDK required by global.json, or place a published Fruity Prime binary beside this launcher."
-            }
-            $assemblyDirectory = $output
-            $assembly = Join-Path $assemblyDirectory $assemblyFileName
+        $buildArguments = @(
+            'build', $Project, '-c', 'Release', '-o', $output,
+            "-p:MphReadServer=$serverValue"
+        )
+        if ($null -ne $runtimeIdentifier) {
+            $buildArguments += @('-r', $runtimeIdentifier)
         }
-        else {
-            $fallbackSdk = @(
-                $sdks |
-                    Where-Object { ([version]$_.Version).Major -gt 9 } |
-                    Select-Object -First 1
-            )
-            if ($fallbackSdk.Count -eq 0) {
-                throw "The .NET 9 SDK required by global.json is not installed. Install it, or place a published Fruity Prime binary beside this launcher."
-            }
-
-            Write-Warning "SDK 9 is not installed; using SDK $($fallbackSdk[0].Version) as a local build fallback. Install .NET 9 for reproducible builds."
-            $msbuild = $fallbackSdk[0].Msbuild
-            $property = "/p:MphReadServer=$serverValue"
-            $restoreArguments = @(
-                $msbuild, $Project, '/t:Restore',
-                '/p:Configuration=Release', $property,
-                '/p:RestoreIgnoreFailedSources=true', '/m:1', '/v:minimal'
-            )
-            if ($null -ne $runtimeProperty) {
-                $restoreArguments += $runtimeProperty
-            }
-            & $dotnet @restoreArguments | Out-Host
-            if ($LASTEXITCODE -ne 0) {
-                throw "The .NET SDK fallback restore failed with exit code $LASTEXITCODE. Install the .NET 9 SDK required by global.json, or place a published Fruity Prime binary beside this launcher."
-            }
-
-            $baseOutput = "$output\"
-            $buildArguments = @(
-                $msbuild, $Project, '/t:Build',
-                '/p:Configuration=Release', $property,
-                "/p:BaseOutputPath=$baseOutput", '/m:1', '/v:minimal'
-            )
-            if ($null -ne $runtimeProperty) {
-                $buildArguments += $runtimeProperty
-            }
-            & $dotnet @buildArguments | Out-Host
-            if ($LASTEXITCODE -ne 0) {
-                throw "The $kind build failed with exit code $LASTEXITCODE using SDK $($fallbackSdk[0].Version). Install the .NET 9 SDK required by global.json, or place a published Fruity Prime binary beside this launcher."
-            }
-            $assemblyDirectory = Join-Path (Join-Path $output 'Release') 'net9.0'
-            if ($null -ne $runtimeIdentifier) {
-                $assemblyDirectory = Join-Path $assemblyDirectory $runtimeIdentifier
-            }
-            $assembly = Join-Path $assemblyDirectory $assemblyFileName
-            $workingDirectory = $assemblyDirectory
+        & $dotnet @buildArguments | Out-Host
+        if ($LASTEXITCODE -ne 0) {
+            throw "The $kind build failed with exit code $LASTEXITCODE. Install/repair the .NET 10 SDK required by global.json, or place a published Fruity Prime binary beside this launcher."
         }
     }
     finally {
@@ -219,24 +130,23 @@ function New-DevelopmentSpec([string]$kind) {
     }
 
     $binaryName = if ($kind -eq 'game') { 'FruityPrime.exe' } else { 'FruityPrimeServer.exe' }
-    $nativeBinary = Join-Path $assemblyDirectory $binaryName
+    $assembly = Join-Path $output $assemblyFileName
+    $nativeBinary = Join-Path $output $binaryName
     if ($IsWindowsHost -and (Test-Path -LiteralPath $nativeBinary -PathType Leaf)) {
         $launchFile = $nativeBinary
         $launchPrefix = @()
-        $workingDirectory = $assemblyDirectory
     }
     else {
-        $launchFile = $assembly
+        if (-not (Test-Path -LiteralPath $assembly -PathType Leaf)) {
+            throw "The build completed but did not produce $assembly."
+        }
+        $launchFile = $dotnet
         $launchPrefix = @($assembly)
-    }
-    if (-not (Test-Path -LiteralPath $launchFile -PathType Leaf)) {
-        throw "The build completed but did not produce $launchFile."
     }
     return [pscustomobject]@{
         FilePath = $launchFile
         Prefix = $launchPrefix
-        WorkingDirectory = $workingDirectory
-        RollForward = if ($sdk9.Count -gt 0) { $null } else { 'Major' }
+        WorkingDirectory = $output
         IsFallbackGui = $false
     }
 }
@@ -248,7 +158,6 @@ function Get-LaunchSpec([string]$kind) {
                 FilePath = $candidate
                 Prefix = @()
                 WorkingDirectory = Split-Path -Parent $candidate
-                RollForward = $null
                 IsFallbackGui = $false
             }
         }
@@ -272,7 +181,6 @@ function Get-LaunchSpec([string]$kind) {
                     FilePath = $candidate
                     Prefix = @()
                     WorkingDirectory = Split-Path -Parent $candidate
-                    RollForward = $null
                     IsFallbackGui = $true
                 }
             }
@@ -332,22 +240,11 @@ function Invoke-Fruity([pscustomobject]$spec, [string[]]$arguments) {
     }
     Write-Host "Starting $($spec.FilePath) $($allArguments -join ' ')" -ForegroundColor Cyan
     Push-Location $spec.WorkingDirectory
-    $oldRollForward = $env:DOTNET_ROLL_FORWARD
     try {
-        if (-not [string]::IsNullOrWhiteSpace($spec.RollForward)) {
-            $env:DOTNET_ROLL_FORWARD = $spec.RollForward
-            Write-Host "Using .NET runtime roll-forward: $($spec.RollForward)" -ForegroundColor DarkYellow
-        }
         & $spec.FilePath @allArguments | Out-Host
         return $LASTEXITCODE
     }
     finally {
-        if ($null -eq $oldRollForward) {
-            Remove-Item Env:DOTNET_ROLL_FORWARD -ErrorAction SilentlyContinue
-        }
-        else {
-            $env:DOTNET_ROLL_FORWARD = $oldRollForward
-        }
         Pop-Location
     }
 }

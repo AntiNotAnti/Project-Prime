@@ -3,7 +3,7 @@
   <!-- The Android head.
 
        It compiles the same sources as the desktop project rather than
-       referencing it: the desktop project is net9.0 and produces an
+       referencing it: the desktop project is net10.0 and produces an
        executable, and an Android application is a different target framework
        and a different kind of output. Nothing here is a copy: the glob below
        is the same files, compiled a second time with ANDROID defined.
@@ -24,7 +24,7 @@
        did it. -->
 
   <PropertyGroup>
-    <TargetFramework>net9.0-android35.0</TargetFramework>
+    <TargetFramework>net10.0-android36.0</TargetFramework>
     <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
     <OutputType>Exe</OutputType>
     <Nullable>enable</Nullable>

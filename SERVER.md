@@ -15,7 +15,7 @@ Release packages contain no cartridge data.
 ## Build the server package
 
 The server build omits the launcher, UI toolkit and audio dependencies. Build a
-self-contained package with .NET 9 or later:
+self-contained package with .NET 10:
 
 ```bash
 dotnet publish src/MphRead/MphRead.csproj -c Release -r linux-x64 \
@@ -54,10 +54,7 @@ directory starts discovery-only on UDP 27889. Enable hosted matches with, for
 example, `powershell -File .\Start-FruityPrime.ps1 directory -HostPorts
 27900-27919 -PublicAddress games.example.com`.
 
-The repository's `global.json` targets .NET SDK 9. If SDK 9 is not installed
-but a newer SDK is available, the launcher uses that SDK's MSBuild only for the
-local fallback build, leaves `global.json` unchanged, and enables major
-runtime roll-forward for that launched process. Install .NET 9 for reproducible
+The repository's `global.json` targets .NET SDK 10. Install .NET 10 for local
 development and release builds; a published binary beside the launcher avoids
 the build step entirely.
 

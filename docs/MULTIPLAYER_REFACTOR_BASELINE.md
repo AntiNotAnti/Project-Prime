@@ -106,6 +106,91 @@ FH coverage prevents any global deletion conclusion. The audit also does not
 prove collision, objective, spawn, rendered-client or runtime-generated-entity
 support. All existing parsers and content remain intact.
 
+## R1: .NET 10 toolchain
+
+`global.json` selects SDK 10.0 feature bands and excludes a future SDK 11.
+Desktop, audio, tests and tools target `net10.0`; Android targets
+`net10.0-android36.0` with minimum API 24 and JDK 21. CI and active development
+commands use the same baseline. All direct package versions remain unchanged.
+Validation used SDK 10.0.400 and Android workload 36.1.2 in temporary directories;
+no system SDK, persistent environment configuration or user device was changed.
+
+C# 14 exposed 107 ambiguous mutable-span `Slice(uint)` calls in the existing
+tooling source. One exact `Span<T>, uint` overload forwards to the existing
+mutable `long` overload. Thirteen regression cases verify aliasing, empty/end
+slices and unchanged bounds/narrowing behavior. No caller rewrite, language
+downgrade or parser policy change was required.
+
+The development launcher now uses ordinary `dotnet build` from the repository
+root so `global.json` governs SDK selection. The previous newer-SDK/manual-MSBuild
+and runtime roll-forward bypasses are removed. Its managed launch path also now
+invokes `dotnet` with the verified DLL, rather than trying to execute that DLL.
+Published executable preference, Windows native executable selection, arguments,
+working-directory restoration and child exit handling are preserved. A
+PowerShell AST/function-only fixture passes 37 checks and is wired into the
+Windows build job. This is script-routing evidence, not a Windows game run.
+
+### Verified migration behavior
+
+- All 336 C# tests passed, with zero skipped. The 323 R0 cases remain intact.
+- Dedicated server and nettest builds passed with zero warnings or errors.
+- All 16 actual-gameplay UDP WAN cases passed on .NET 10, including eight-player
+  impaired links and the asymmetric four-player case.
+- All 30 deterministic ON/OFF and ON/trace-only comparisons passed.
+- Fifteen separate .NET 9 versus .NET 10 runs produced identical complete JSON
+  bytes, including accepted inputs, shot spread seeds, hits and trajectories.
+  [Comparison hashes](MULTIPLAYER_RUNTIME_COMPARISON.json) retain every case.
+- Real-content dedicated-server checks, all-mode scoring and both audit and
+  backpressure self-tests passed.
+- All seven self-contained, single-file desktop/server publishes passed:
+  Windows x64, Linux x64 and macOS x64/ARM64 clients; Windows x64 and Linux
+  x64/ARM64 servers. PE subsystem/architecture, ELF/Mach-O architecture, asset
+  guards and shipped-map guards passed for every package.
+- The macOS ARM64 package ran the native headless server/content/network smoke
+  checks successfully. Cross-publishing the other architectures is not evidence
+  that those binaries ran on their target operating systems.
+- The standard Android Release APK passed signing and ZIP alignment checks with
+  both default ABIs (`arm64-v8a`, `x86_64`), target API 36 and minimum API 24.
+  Mono remains enabled. An isolated API 36 ARM64 emulator installed the APK,
+  rendered the startup activity and unpacked PARALLAX without a fatal exception;
+  the activity remained resumed after 15 seconds. This was startup evidence,
+  not a rendered multiplayer match. The temporary emulator was stopped.
+- Scratch-only cooking produced DUST2 (21 textures) and PARALLAX (10 textures)
+  bundles with recipe, BSP and texture payloads, no PK3 leakage, and passing ZIP
+  and asset guards. Uncompressed payloads matched the preserved .NET 9 assembly
+  run under the .NET 10 host; this particular check compares assemblies, not
+  runtimes. TEST ARENA has no import and correctly produced no cooked bundle.
+
+Android's packaged `libSkiaSharp.so` in both ABIs still has ELF LOAD alignment
+`0x1000`; the other packaged native libraries use `0x4000`. Successful APK ZIP
+alignment and emulator startup do not establish native 16 KB page compatibility.
+That existing dependency limitation remains a release gate, alongside native
+Windows/Linux execution and rendered multiplayer validation on target devices.
+
+The isolated .NET 10 LAN cost sample passed with all eight peers for 60 seconds:
+3,600 ticks, zero dropped ticks, queue drops or reliable admission refusals,
+3.473 CPU seconds, 62,445 allocated bytes/tick and a 1.663 ms p99 tick. GC counts
+were 28/2/1; traffic was 9,067,984 bytes received and 20,446,016 sent. Actual
+travel/trace/homing/continuous root-shot counts were 225/45/16/4,242. The
+[raw metrics](MULTIPLAYER_PERFORMANCE_BASELINE.json) preserve both runtimes.
+This is a single sample per runtime with equal configuration, different combat
+outcomes and no rendering; it supports a cost comparison, not a causal speedup
+claim. The failed R0 impaired continuous-fire samples remain unresolved and were
+not rerun to obtain a green capacity result during R1.
+
+Desktop restores emit `NU1903` for the existing transitive
+`Tmds.DBus.Protocol` 0.21.2 dependency. The .NET 9 assets already contained that
+version; targeting .NET 10 enables transitive NuGet auditing by default. The
+[upstream advisory](https://github.com/advisories/GHSA-xrw6-gwf8-vvr9) describes
+malicious peers on the local D-Bus and identifies a 0.21.3 backport. This R1 pass
+preserves the requested package versions and does not suppress the warning.
+Dependency remediation remains separate from this toolchain migration.
+
+Adventure/offline paths, campaign code, `GameState` ownership, the conditional
+server build and Android's whole-desktop-source import remain unchanged. Their
+removal belongs to R2–R12 after the R1 acceptance review; no later pass was
+started and no release, deployment or push was performed.
+
 ## Reproduction
 
 Use the SDK selected by `global.json`; use the recorded .NET 9 revision for a
