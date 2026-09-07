@@ -98,7 +98,7 @@ namespace MphRead.Mods.Network
         private static string Sample(double? value)
             => value?.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) ?? "n/a";
 
-        public static void Report(double time)
+        public static void Report(Scene scene, double time)
         {
             if (!Enabled || !NetSession.Active)
             {
@@ -138,7 +138,7 @@ namespace MphRead.Mods.Network
                     : player.LoadFlags.TestFlag(LoadFlags.SlotActive) ? 's' : '.');
             }
             line.Append("] active=").Append(active);
-            line.Append(" scoreboard=").Append(GameState.ActivePlayers);
+            line.Append(" scoreboard=").Append(scene.Match.ActivePlayers);
             line.Append(" created=").Append(created);
 
             line.Append(" remoteState=[");

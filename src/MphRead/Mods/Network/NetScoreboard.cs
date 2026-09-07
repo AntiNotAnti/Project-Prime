@@ -20,7 +20,7 @@ namespace MphRead.Mods.Network
     /// cleared its own copy would have it handed straight back.
     ///
     /// Team totals are not touched. They are recomputed from these every
-    /// update (GameState.UpdateStandings sums Points into TeamPoints), so
+    /// update (MatchFlow.UpdateStandings sums Points into TeamPoints), so
     /// clearing the slot is what clears the team, and clearing the team
     /// directly would be wrong in a team mode anyway -- the points were the
     /// team's, and the team is still playing.
@@ -28,33 +28,33 @@ namespace MphRead.Mods.Network
     public static class NetScoreboard
     {
         /// <summary>Everything the match attributes to one slot, for a slot about to change hands.</summary>
-        public static void ForgetSlot(int slot)
+        public static void ForgetSlot(Scene scene, int slot)
         {
             if (slot < 0 || slot >= PlayerEntity.SlotCapacity)
             {
                 return;
             }
-            GameState.Points[slot] = 0;
-            GameState.Kills[slot] = 0;
-            GameState.Deaths[slot] = 0;
-            GameState.Time[slot] = 0;
-            GameState.Suicides[slot] = 0;
-            GameState.FriendlyKills[slot] = 0;
-            GameState.HeadshotKills[slot] = 0;
-            GameState.DamageCount[slot] = 0;
-            GameState.AltDamageCount[slot] = 0;
-            GameState.BeamDamageDealt[slot] = 0;
-            GameState.BeamDamageMax[slot] = 0;
-            GameState.OctolithScores[slot] = 0;
-            GameState.OctolithDrops[slot] = 0;
-            GameState.OctolithStops[slot] = 0;
-            GameState.NodesCaptured[slot] = 0;
-            GameState.NodesLost[slot] = 0;
-            GameState.KillsAsPrime[slot] = 0;
-            GameState.PrimesKilled[slot] = 0;
+            scene.Match.Players[slot].Points = 0;
+            scene.Match.Players[slot].Kills = 0;
+            scene.Match.Players[slot].Deaths = 0;
+            scene.Match.Players[slot].Time = 0;
+            scene.Match.Players[slot].Suicides = 0;
+            scene.Match.Players[slot].FriendlyKills = 0;
+            scene.Match.Players[slot].HeadshotKills = 0;
+            scene.Match.Players[slot].DamageCount = 0;
+            scene.Match.Players[slot].AltDamageCount = 0;
+            scene.Match.Players[slot].BeamDamageDealt = 0;
+            scene.Match.Players[slot].BeamDamageMax = 0;
+            scene.Match.Players[slot].OctolithScores = 0;
+            scene.Match.Players[slot].OctolithDrops = 0;
+            scene.Match.Players[slot].OctolithStops = 0;
+            scene.Match.Players[slot].NodesCaptured = 0;
+            scene.Match.Players[slot].NodesLost = 0;
+            scene.Match.Players[slot].KillsAsPrime = 0;
+            scene.Match.Players[slot].PrimesKilled = 0;
             for (int beam = 0; beam < 9; beam++)
             {
-                GameState.BeamKills[slot, beam] = 0;
+                scene.Match.Players[slot].SetBeamKills(beam, 0);
             }
         }
     }

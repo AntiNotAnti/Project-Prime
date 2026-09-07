@@ -122,7 +122,7 @@ namespace MphRead.Entities
                 if (_carrier.Health <= 0 || _carrier.IsAltForm || _carrier.IsMorphing
                     || !_carrier.LoadFlags.TestFlag(LoadFlags.Active))
                 {
-                    bool reset = _carrier.Health == 0 && GameState.OctolithReset;
+                    bool reset = _carrier.Health == 0 && _scene.Match.Rules.OctolithReset;
                     OnDropped(reset);
                 }
                 else if (pickedUp)
@@ -214,7 +214,7 @@ namespace MphRead.Entities
 
         internal void ReleaseServerPlayer(PlayerEntity player)
         {
-            if (_carrier == player) { OnDropped(GameState.OctolithReset); }
+            if (_carrier == player) { OnDropped(_scene.Match.Rules.OctolithReset); }
             if (_lastCarrier == player) { _lastCarrier = null; }
             if (player.OctolithFlag == this) { player.OctolithFlag = null; }
         }
@@ -223,7 +223,7 @@ namespace MphRead.Entities
         {
             if (_lastCarrier != null && player.TeamIndex != _lastCarrier.TeamIndex)
             {
-                GameState.OctolithStops[player.SlotIndex]++;
+                _scene.Match.Players[player.SlotIndex].OctolithStops++;
             }
             if (!_bounty && player.TeamIndex == _data.TeamId)
             {
@@ -278,7 +278,7 @@ namespace MphRead.Entities
         private void OnDropped(bool reset)
         {
             Debug.Assert(_carrier != null);
-            GameState.OctolithDrops[_carrier.SlotIndex]++;
+            _scene.Match.Players[_carrier.SlotIndex].OctolithDrops++;
             int messageId;
             if (!_bounty)
             {
@@ -375,8 +375,8 @@ namespace MphRead.Entities
             {
                 Music.PlayRoomMusic(_scene.RoomId, track: 0);
             }
-            GameState.Points[_carrier.SlotIndex]++;
-            GameState.OctolithScores[_carrier.SlotIndex]++;
+            _scene.Match.Players[_carrier.SlotIndex].Points++;
+            _scene.Match.Players[_carrier.SlotIndex].OctolithScores++;
             SetAtBase();
         }
 

@@ -87,7 +87,7 @@ namespace MphRead.Mods
         }
 
         /// <summary>
-        /// Apply the match rules, after <see cref="GameState.Setup"/> has
+        /// Apply the match rules, after <see cref="MatchFlow.Setup"/> has
         /// chosen the defaults for the mode.
         ///
         /// Order is the whole reason this is separate: Setup writes a point
@@ -102,41 +102,42 @@ namespace MphRead.Mods
         /// says otherwise, rather than a second opinion about a running
         /// match.
         /// </summary>
-        public static void ApplyMatchRules()
+        public static void ApplyMatchRules(Scene scene)
         {
             MenuSettings? settings = Current;
             if (settings == null || !GameState.Multiplayer)
             {
                 return;
             }
+            MatchRuntime match = scene.Match;
+            MatchRules rules = match.Rules;
             if (TryTime(settings.TimeLimit, out float timeLimit) && timeLimit > 0)
             {
-                GameState.MatchTime = timeLimit;
+                match.MatchTime = timeLimit;
+                rules = rules.With(timeLimit: TimeSpan.FromSeconds(timeLimit));
             }
             if (TryTime(settings.TimeGoal, out float timeGoal) && timeGoal > 0)
             {
-                GameState.TimeGoal = timeGoal;
+                rules = rules.With(objectiveTimeGoal: TimeSpan.FromSeconds(timeGoal));
             }
             if (Int32.TryParse(settings.PointGoal, NumberStyles.Integer,
                 CultureInfo.InvariantCulture, out int pointGoal) && pointGoal > 0)
             {
-                GameState.PointGoal = pointGoal;
+                rules = rules.IsSurvival ? rules.With(startingLives: pointGoal) : rules.With(scoreGoal: pointGoal);
             }
-            GameState.DamageLevel = settings.DamageLevel switch
+            int damage = settings.DamageLevel switch
             {
                 "low" => 0,
                 "high" => 2,
                 "medium" => 1,
-                _ => GameState.DamageLevel
+                _ => rules.DamageLevel
             };
-            GameState.FriendlyFire = settings.FriendlyFire == "on";
-            GameState.RadarPlayers = settings.HunterRadar == "on";
-            GameState.AffinityWeapons = settings.AffinityWeapons == "on";
-            GameState.OctolithReset = settings.PointGoal != "off";
-            // Teams is not set here. GameState.Setup derives it from the mode,
-            // and the launcher passes the choice through as the team id it
-            // gives each player -- turning it on underneath a free-for-all
-            // would put everybody on team zero with nobody to shoot.
+            match.RadarPlayers = settings.HunterRadar == "on";
+            match.ApplyRules(rules.With(damageLevel: damage,
+                friendlyFire: settings.FriendlyFire == "on", playerRadar: match.RadarPlayers,
+                affinityWeapons: settings.AffinityWeapons == "on", octolithReset: settings.PointGoal != "off"));
+            // Team play is derived from the selected mode.
+
         }
 
         /// <summary>

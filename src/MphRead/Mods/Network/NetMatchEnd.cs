@@ -5,18 +5,18 @@ namespace MphRead.Mods.Network
     {
         public static bool MayEndOnScore => !AuthoritativePlay.Active && !NetSession.Active;
 
-        public static bool InIntermission => (AuthoritativePlay.Active || NetSession.Active)
-            && (GameState.MatchState != MatchState.InProgress
+        public static bool InIntermission(Scene scene) => (AuthoritativePlay.Active || NetSession.Active)
+            && (scene.Match.LegacyState != MatchState.InProgress
                 || NetSession.Active && NetSession.ServerMatch?.Ending == true);
 
-        public static void Sync()
+        public static void Sync(Scene scene)
         {
             // Live match state is supplied by the authoritative world stream.
             // Only a recorded legacy ending is applied through this adapter.
             if (NetSession.Active && NetSession.ServerMatch?.Ending == true
-                && GameState.MatchState == MatchState.InProgress)
+                && scene.Match.LegacyState == MatchState.InProgress)
             {
-                GameState.MatchTime = 0;
+                scene.Match.MatchTime = 0;
             }
         }
 

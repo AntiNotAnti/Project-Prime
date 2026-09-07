@@ -43,7 +43,11 @@ namespace MphRead.Mods.Network
                 WorldRecordKind.Flag => (record.Slot < 8 || record.Slot == 255) && record.Flags <= 3
                     && record.A <= 1 && float.IsFinite(Float(record.B)) && Float(record.B) >= 0,
                 WorldRecordKind.Match => record.Id == 0 && record.Slot == 255 && record.Flags <= 1 && record.A is >= 3 and <= 14
-                    && record.B <= 3 && (record.D < 8 || record.D == uint.MaxValue),
+                    // Disconnected is session state, never an authoritative match phase.
+                    // Validate rule constructor bounds before any world assembly/scene writes.
+                    && record.B <= 2 && record.C <= int.MaxValue
+                    && record.Position.Y >= 0 && record.Position.Y < TimeSpan.MaxValue.TotalSeconds
+                    && (record.D < 8 || record.D == uint.MaxValue),
                 WorldRecordKind.Score => record.Id == 0 && record.Slot < 8 && record.Flags == 0,
                 WorldRecordKind.Time => record.Id == 0 && record.Slot < 8 && record.Flags == 0
                     && float.IsFinite(Float(record.B)) && float.IsFinite(Float(record.C)),

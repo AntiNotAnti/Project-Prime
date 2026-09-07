@@ -1790,7 +1790,7 @@ namespace MphRead.Entities
                 if (owner.Type == EntityType.Player)
                 {
                     var ownerPlayer = (PlayerEntity)owner;
-                    if (!AuthoritativePlay.Active) GameState.BeamDamageMax[ownerPlayer.SlotIndex] += damage;
+                    if (!AuthoritativePlay.Active) scene.Match.Players[ownerPlayer.SlotIndex].BeamDamageMax += damage;
                 }
                 if (instantAoe)
                 {

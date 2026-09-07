@@ -125,7 +125,7 @@ namespace MphRead.Entities
             {
                 _respawnTimer--;
                 if ((GameState.Mode == GameMode.Survival || GameState.Mode == GameMode.SurvivalTeams)
-                    && GameState.TeamDeaths[SlotIndex] > GameState.PointGoal)
+                    && _scene.Match.TeamDeaths[SlotIndex] > _scene.Match.Rules.LegacyPointGoal)
                 {
                     if (IsMainPlayer)
                     {
@@ -273,7 +273,7 @@ namespace MphRead.Entities
                 }
                 else
                 {
-                    if (GameState.RadarPlayers)
+                    if (_scene.Match.RadarPlayers)
                     {
                         if (IsMainPlayer)
                         {

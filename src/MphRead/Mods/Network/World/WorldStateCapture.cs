@@ -25,18 +25,18 @@ namespace MphRead.Mods.Network
             if (!scene.IsHeadless || matchId == 0) { throw new InvalidOperationException("World capture requires an authoritative scene and match."); }
             if (MatchId != matchId) { ValidateRoom(scene); _items.Clear(); _nextItemId = 1; }
             MatchId = matchId; Revision = revision; ServerTick = serverTick; Count = 0;
-            Add(new WorldRecord(WorldRecordKind.Match, 255, (ushort)(GameState.Teams ? 1 : 0), 0,
-                new Vector3(GameState.MatchTime, GameState.TimeGoal, 0), (uint)GameState.Mode, (uint)GameState.MatchState,
-                unchecked((uint)GameState.PointGoal), unchecked((uint)GameState.PrimeHunter), 0));
+            Add(new WorldRecord(WorldRecordKind.Match, 255, (ushort)(scene.Match.Rules.Teams ? 1 : 0), 0,
+                new Vector3(scene.Match.MatchTime, scene.Match.Rules.LegacyTimeGoal, 0), (uint)GameState.Mode, (uint)scene.Match.LegacyState,
+                unchecked((uint)scene.Match.Rules.LegacyPointGoal), unchecked((uint)scene.Match.PrimeHunter), 0));
             for (byte slot = 0; slot < 8; slot++)
             {
                 Add(new WorldRecord(WorldRecordKind.Score, slot, 0, 0, Vector3.Zero,
-                    unchecked((uint)GameState.Points[slot]), unchecked((uint)GameState.Kills[slot]),
-                    unchecked((uint)GameState.Deaths[slot]), unchecked((uint)GameState.TeamPoints[slot]),
-                    unchecked((uint)GameState.TeamKills[slot])));
+                    unchecked((uint)scene.Match.Players[slot].Points), unchecked((uint)scene.Match.Players[slot].Kills),
+                    unchecked((uint)scene.Match.Players[slot].Deaths), unchecked((uint)scene.Match.TeamPoints[slot]),
+                    unchecked((uint)scene.Match.TeamKills[slot])));
                 Add(new WorldRecord(WorldRecordKind.Time, slot, 0, 0, Vector3.Zero,
-                    unchecked((uint)GameState.TeamDeaths[slot]), WorldRecord.Bits(GameState.Time[slot]), WorldRecord.Bits(GameState.TeamTime[slot]),
-                    unchecked((uint)GameState.NodesCaptured[slot]), unchecked((uint)GameState.OctolithScores[slot])));
+                    unchecked((uint)scene.Match.TeamDeaths[slot]), WorldRecord.Bits(scene.Match.Players[slot].Time), WorldRecord.Bits(scene.Match.TeamTime[slot]),
+                    unchecked((uint)scene.Match.Players[slot].NodesCaptured), unchecked((uint)scene.Match.Players[slot].OctolithScores)));
             }
             foreach (ItemSpawnEntity spawner in scene.GetItemSpawnEntities())
             {
@@ -71,7 +71,7 @@ namespace MphRead.Mods.Network
             {
                 foreach (NodeDefenseEntity node in scene.GetNodeDefenseEntities()) { Add(node.CaptureWorldState()); }
             }
-            if (GameState.IsOctolithMode)
+            if (scene.Match.Rules.IsOctolithMode)
             {
                 foreach (OctolithFlagEntity flag in scene.GetOctolithFlagEntities()) { Add(flag.CaptureWorldState()); }
             }
@@ -81,7 +81,7 @@ namespace MphRead.Mods.Network
             if (!scene.IsHeadless) { throw new InvalidOperationException("Only the server releases objective ownership."); }
             foreach (NodeDefenseEntity node in scene.GetNodeDefenseEntities()) { node.ReleaseServerPlayer(player); }
             foreach (OctolithFlagEntity flag in scene.GetOctolithFlagEntities()) { flag.ReleaseServerPlayer(player); }
-            if (GameState.PrimeHunter == player.SlotIndex) { GameState.PrimeHunter = -1; }
+            if (scene.Match.PrimeHunter == player.SlotIndex) { scene.Match.PrimeHunter = -1; }
         }
 
         public static void ValidateRoom(Scene scene)

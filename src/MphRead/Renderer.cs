@@ -255,22 +255,15 @@ namespace MphRead
             _close = close;
             Read.ClearCache();
             Text.Strings.ClearCache();
-            Match = new MatchRuntime(GameState.TakePendingRules()) { Phase = MatchPhase.WaitingForPlayers };
-            GameState.BindScene(this);
-            try
+            Match = new MatchRuntime(new MatchRules(MatchMode.Battle, "__unconfigured__"), this)
             {
-                GameState.Reset();
-                Match.Phase = MatchPhase.WaitingForPlayers;
-                PlayerEntity.Construct(this);
-                if (!IsHeadless)
-                {
-                    Music.Init();
-                }
-            }
-            catch
+                Phase = MatchPhase.WaitingForPlayers
+            };
+            GameState.Reset();
+            PlayerEntity.Construct(this);
+            if (!IsHeadless)
             {
-                GameState.UnbindScene(this);
-                throw;
+                Music.Init();
             }
         }
 
@@ -320,15 +313,13 @@ namespace MphRead
             SceneSetup.LoadObjectResources(this);
             SceneSetup.LoadPlatformResources(this);
             SceneSetup.LoadEnemyResources(this);
-            GameState.Setup(this);
+            Match.Flow.Setup();
             PlayerEntity.PlayerAiData.InitializeGlobals();
             if (GameState.Multiplayer)
             {
-                Menu.ApplyMultiplayerSettings();
                 // The same job for the launcher's path, which never runs the
                 // console menu and so never had a set of rules to apply.
-                Mods.GameSettings.ApplyMatchRules();
-                GameState.CaptureSetupRules();
+                Mods.GameSettings.ApplyMatchRules(this);
             }
             SetRoomValues(meta);
             for (int i = 0; i < PlayerEntity.Players.Count; i++)
@@ -1458,7 +1449,7 @@ namespace MphRead
             if (ProcessFrame)
             {
                 _globalElapsedTime += _frameTime;
-                if (GameState.MatchState == MatchState.InProgress && !GameState.DialogPause && !GameState.MenuPause)
+                if (Match.LegacyState == MatchState.InProgress && !GameState.DialogPause && !GameState.MenuPause)
                 {
                     _elapsedTime += _frameTime;
                 }
@@ -1517,12 +1508,13 @@ namespace MphRead
             OnKeyHeld();
             if (ProcessFrame && _room != null)
             {
-                GameState.ProcessFrame(this);
-                if (GameState.MatchState == MatchState.InProgress && !GameState.MenuPause)
+                if (GameState.SinglePlayer) { GameState.ProcessFrame(this); }
+                else { Match.Flow.ProcessFrame(); }
+                if (Match.LegacyState == MatchState.InProgress && !GameState.MenuPause)
                 {
                     UpdateScene();
                 }
-                Mods.Network.NetHooks.AfterSimulation();
+                Mods.Network.NetHooks.AfterSimulation(this);
                 if (!GameState.MenuPause)
                 {
                     Sound.Sfx.Update(_frameTime);
@@ -1535,7 +1527,7 @@ namespace MphRead
             }
             if (ProcessFrame)
             {
-                if (GameState.MatchState == MatchState.InProgress && !GameState.DialogPause && !GameState.MenuPause)
+                if (Match.LegacyState == MatchState.InProgress && !GameState.DialogPause && !GameState.MenuPause)
                 {
                     ProcessMessageQueue();
                     _liveFrames++;
@@ -1544,7 +1536,7 @@ namespace MphRead
                 {
                     _frameCount++;
                 }
-                GameState.UpdateTime(this);
+                Match.Flow.UpdateTime();
                 if (_movieFrameIndex != -1)
                 {
                     UpdateMovie();
@@ -3772,7 +3764,7 @@ namespace MphRead
                     PlayerEntity.Main.ProcessModeHud();
                 }
                 GameState.UpdateFrame(this);
-                GameState.UpdateState();
+                Match.Logic.UpdateState();
             }
             else if (GameState.SinglePlayer)
             {
@@ -3839,7 +3831,7 @@ namespace MphRead
                 }
             }
 
-            if (ProcessFrame && GameState.MatchState == MatchState.InProgress && !GameState.DialogPause)
+            if (ProcessFrame && Match.LegacyState == MatchState.InProgress && !GameState.DialogPause)
             {
                 for (int i = 0; i < _pendingEffectSteps; i++)
                 {
@@ -6316,24 +6308,10 @@ namespace MphRead
             MinimumSize = floor;
         }
 
-        public override void Dispose()
-        {
-            try
-            {
-                base.Dispose();
-            }
-            finally
-            {
-                // A failed AddRoom can dispose the window before Run/OnClosing.
-                if (_sceneReady) { GameState.UnbindScene(Scene); }
-            }
-        }
-
         protected override void OnClosing(CancelEventArgs e)
         {
             Scene.DoCleanup();
             base.OnClosing(e);
-            if (!e.Cancel) { GameState.UnbindScene(Scene); }
         }
 
         public void AddRoom(int id, GameMode mode = GameMode.None, int playerCount = 0,

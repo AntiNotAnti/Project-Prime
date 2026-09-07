@@ -20,8 +20,8 @@ namespace MphRead.Entities
             _serverWasAlive = false;
             Hunter = hunter;
             TeamIndex = team;
-            Team = GameState.Teams ? team == 0 ? Team.Orange : Team.Green : Team.None;
-            Recolor = GameState.Teams ? team == 0 ? 4 : 5 : 0;
+            Team = _scene.Match.Rules.Teams ? team == 0 ? Team.Orange : Team.Green : Team.None;
+            Recolor = _scene.Match.Rules.Teams ? team == 0 ? 4 : 5 : 0;
             IsBot = false;
             LoadFlags = LoadFlags.SlotActive | LoadFlags.Active | LoadFlags.Initial
                 | LoadFlags.Connected | LoadFlags.WasConnected;
@@ -130,8 +130,8 @@ namespace MphRead.Entities
                 AmmoUa = (ushort)Math.Clamp(_ammo[UA], 0, UInt16.MaxValue),
                 AmmoMissiles = (ushort)Math.Clamp(_ammo[Missiles], 0, UInt16.MaxValue),
                 AvailableWeapons = available, FrozenTicks = _frozenTimer,
-                Points = GameState.Points[SlotIndex], Kills = GameState.Kills[SlotIndex],
-                Deaths = GameState.Deaths[SlotIndex]
+                Points = _scene.Match.Players[SlotIndex].Points, Kills = _scene.Match.Players[SlotIndex].Kills,
+                Deaths = _scene.Match.Players[SlotIndex].Deaths
             };
         }
     }

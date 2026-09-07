@@ -45,8 +45,8 @@ namespace MphRead.Entities
             ServerDeactivate();
             Hunter = state.Hunter;
             TeamIndex = state.TeamIndex;
-            Team = GameState.Teams ? TeamIndex == 0 ? Team.Orange : Team.Green : Team.None;
-            Recolor = GameState.Teams ? TeamIndex == 0 ? 4 : 5 : 0;
+            Team = _scene.Match.Rules.Teams ? TeamIndex == 0 ? Team.Orange : Team.Green : Team.None;
+            Recolor = _scene.Match.Rules.Teams ? TeamIndex == 0 ? 4 : 5 : 0;
             IsBot = false;
             LoadFlags = LoadFlags.SlotActive | LoadFlags.Active | LoadFlags.Initial
                 | LoadFlags.Connected | LoadFlags.WasConnected;

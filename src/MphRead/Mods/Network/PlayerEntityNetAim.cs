@@ -946,7 +946,7 @@ namespace MphRead.Entities
         /// </summary>
         internal (int Rows, float Height) ModScoreboardSize()
         {
-            return (GameState.ActivePlayers, GetScoreboardHeight());
+            return (_scene.Match.ActivePlayers, GetScoreboardHeight());
         }
 
         /// <summary>

@@ -73,8 +73,8 @@ namespace MphRead.Mods.Network
                         points = unchecked((int)score.A); kills = unchecked((int)score.B); deaths = unchecked((int)score.C);
                     }
                     if ((player.Position - source.Position).LengthSquared > 0.0001f
-                        || player.Health != source.Health || GameState.Points[source.Slot] != points
-                        || GameState.Kills[source.Slot] != kills || GameState.Deaths[source.Slot] != deaths)
+                        || player.Health != source.Health || _scene.Match.Players[source.Slot].Points != points
+                        || _scene.Match.Players[source.Slot].Kills != kills || _scene.Match.Players[source.Slot].Deaths != deaths)
                     { _stateMismatches++; }
                     if (source.Deaths > _deaths[source.Slot]) { _deathsObserved += source.Deaths - _deaths[source.Slot]; }
                     _deaths[source.Slot] = source.Deaths;

@@ -118,7 +118,7 @@ namespace MphRead.Entities
             _previousOccupiedBy[player.SlotIndex] = false;
             if (_capturedPlayer != player) { return; }
             _capturedPlayer = null;
-            if (GameState.Teams)
+            if (_scene.Match.Rules.Teams)
             {
                 foreach (PlayerEntity teammate in _scene.GetPlayerEntities())
                 {
@@ -166,7 +166,7 @@ namespace MphRead.Entities
             else
             {
                 (speed, rotation) = ConstantAcceleration(0.25f, _spinSpeed, maxVelocity: 8 * 30f);
-                GameState.TeamTime[team] += _scene.FrameTime;
+                _scene.Match.TeamTime[team] += _scene.FrameTime;
             }
             _spinSpeed = speed;
             _curRotation += rotation;
@@ -297,7 +297,7 @@ namespace MphRead.Entities
                 if (_scoreTimer >= scoreThreshold)
                 {
                     Debug.Assert(_capturedPlayer != null);
-                    GameState.Points[_capturedPlayer.SlotIndex]++;
+                    _scene.Match.Players[_capturedPlayer.SlotIndex].Points++;
                     _scoreTimer = 0;
                 }
                 // these SFX are empty
@@ -375,7 +375,7 @@ namespace MphRead.Entities
                 PlayerEntity player = PlayerEntity.Players[i];
                 if (_occupiedBy[i])
                 {
-                    GameState.NodesCaptured[i]++;
+                    _scene.Match.Players[i].NodesCaptured++;
                     if (player.LoadFlags.TestFlag(LoadFlags.Active))
                     {
                         _capturedPlayer = player;
@@ -383,7 +383,7 @@ namespace MphRead.Entities
                 }
                 else if (_currentTeam == player.TeamIndex)
                 {
-                    GameState.NodesLost[i]++;
+                    _scene.Match.Players[i].NodesLost++;
                 }
                 _occupiedBy[i] = false;
             }
@@ -424,7 +424,7 @@ namespace MphRead.Entities
             {
                 if (blinking)
                 {
-                    if (GameState.Teams)
+                    if (_scene.Match.Rules.Teams)
                     {
                         color = Metadata.TeamColors[_occupyingTeam];
                     }
@@ -438,7 +438,7 @@ namespace MphRead.Entities
                     }
                 }
             }
-            else if (GameState.Teams)
+            else if (_scene.Match.Rules.Teams)
             {
                 if (blinking)
                 {

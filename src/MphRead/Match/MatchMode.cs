@@ -55,6 +55,10 @@ namespace MphRead
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown multiplayer mode.")
         };
 
+        // Legacy callers historically treated campaign and unknown selectors as non-team.
+        public static bool IsTeamMode(this GameMode mode) => mode >= GameMode.Battle && mode <= GameMode.PrimeHunter
+            && mode.ToMatchMode().IsTeamMode();
+
         public static bool IsTeamMode(this MatchMode mode)
         {
             _ = mode.ToLegacyMode();

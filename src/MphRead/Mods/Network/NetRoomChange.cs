@@ -143,7 +143,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static PlayerEntity RebuildPlayers(Scene scene, Hunter hunter, int recolor)
         {
-            if (AuthoritativePlay.Current is { } play) { return play.RebuildPlayers(hunter, recolor); }
+            if (AuthoritativePlay.Current is { } play) { return play.RebuildPlayers(scene, hunter, recolor); }
             int localSlot = Math.Max(NetSession.LocalSlot, 0);
             for (int slot = 0; slot < PlayerEntity.MaxPlayers; slot++)
             {
@@ -200,7 +200,7 @@ namespace MphRead.Mods.Network
             NetSlotManager.Reset();
             NetPlayerSetup.Reset();
             NetDamage.ResetForRoomChange();
-            ResetScores();
+            ResetScores(scene);
             Console.WriteLine($"[net] player slots rebuilt for the new room, main player = slot {localSlot}");
             return PlayerEntity.Players[localSlot];
         }
@@ -243,7 +243,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private static void ResetScores()
+        private static void ResetScores(Scene scene)
         {
             // Every slot, not the four a DS match could hold: with eight
             // players the last four carried their points, kills and deaths
@@ -251,21 +251,21 @@ namespace MphRead.Mods.Network
             // everyone else's scoreboard.
             for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
             {
-                GameState.Points[i] = 0;
-                GameState.TeamPoints[i] = 0;
-                GameState.Kills[i] = 0;
-                GameState.TeamKills[i] = 0;
-                GameState.Deaths[i] = 0;
-                GameState.TeamDeaths[i] = 0;
-                GameState.Standings[i] = 0;
-                GameState.TeamStandings[i] = 0;
-                GameState.DamageCount[i] = 0;
-                GameState.KillStreak[i] = 0;
+                scene.Match.Players[i].Points = 0;
+                scene.Match.TeamPoints[i] = 0;
+                scene.Match.Players[i].Kills = 0;
+                scene.Match.TeamKills[i] = 0;
+                scene.Match.Players[i].Deaths = 0;
+                scene.Match.TeamDeaths[i] = 0;
+                scene.Match.Players[i].Standings = 0;
+                scene.Match.TeamStandings[i] = 0;
+                scene.Match.Players[i].DamageCount = 0;
+                scene.Match.Players[i].KillStreak = 0;
             }
             // The match itself, not just its scoreboard: the room this is
             // loading is a new round, and the flags that say the last one had
             // already ended have to go with the points.
-            GameState.ResetMatchProgress();
+            scene.Match.Flow.ResetProgress();
         }
     }
 }

@@ -443,9 +443,6 @@ namespace MphRead.Droid
                 }
                 finally
                 {
-                    // An exception can bypass End; the facade must not retain
-                    // the scene after its render thread has stopped.
-                    if (Scene is { } scene) { GameState.UnbindScene(scene); }
                     ReleaseSurface();
                     DestroyContext();
                 }
@@ -738,7 +735,6 @@ namespace MphRead.Droid
                     }
                     finally
                     {
-                        if (failedScene != null) { GameState.UnbindScene(failedScene); }
                         Scene = null;
                     }
                     _ended = true;
@@ -865,7 +861,6 @@ namespace MphRead.Droid
                 }
                 finally
                 {
-                    GameState.UnbindScene(scene);
                     Scene = null;
                 }
                 _onEnd();

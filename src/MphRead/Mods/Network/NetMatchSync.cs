@@ -6,7 +6,7 @@ namespace MphRead.Mods.Network
     /// <summary>
     /// Keeps the local match aligned with the server's.
     ///
-    /// GameState.StartMatch hardcodes MatchTime (7 minutes for Battle) with
+    /// MatchFlow.StartMatch hardcodes MatchTime (7 minutes for Battle) with
     /// no notion of a server, so a client joining a round already 3 minutes
     /// old started its own 7-minute clock. Correct offline, wrong the moment
     /// a server owns the match: the server's remaining time is the truth,
@@ -33,7 +33,7 @@ namespace MphRead.Mods.Network
         /// <summary>Seconds of difference last observed, for diagnostics.</summary>
         public static float LastDrift { get; private set; }
 
-        public static void Apply()
+        public static void Apply(Scene scene)
         {
             if (!NetSession.Active || NetSession.ServerMatch == null)
             {
@@ -49,20 +49,23 @@ namespace MphRead.Mods.Network
             // disagreed about it would stop playing at different moments.
             // Applied whether or not the clock is, because the results
             // sequence below is exactly when the clock must be left alone.
-            if (state.PointGoal > 0 && GameState.PointGoal != state.PointGoal)
+            MatchRules rules = scene.Match.Rules;
+            bool updateGoal = state.PointGoal > 0 && rules.LegacyPointGoal != state.PointGoal;
+            // Same-team damage is a server rule. Retain the immutable rules
+            // object when neither replicated setting has changed.
+            if (updateGoal || rules.FriendlyFire != state.FriendlyFire)
             {
-                GameState.PointGoal = state.PointGoal;
+                scene.Match.ApplyRules(rules.With(
+                    startingLives: updateGoal && rules.IsSurvival ? state.PointGoal : null,
+                    scoreGoal: updateGoal && !rules.IsSurvival ? state.PointGoal : null,
+                    friendlyFire: state.FriendlyFire));
             }
-            // Same-team damage is a server-wide rule too: each client used to
-            // read only its own local Match rules setting, so a host turning
-            // this on never reached anyone else's copy of TakeDamage.
-            GameState.FriendlyFire = state.FriendlyFire;
             // Not while the match is ending. MatchTime is the countdown the
             // results sequence itself runs on -- three seconds of the winner's
             // camera, then five of the scoreboard -- so adopting the server's
             // figure here put the old map's remaining time back on top of it
             // every frame and the sequence never finished.
-            if (NetMatchEnd.InIntermission)
+            if (NetMatchEnd.InIntermission(scene))
             {
                 _lastRoom = state.RoomKey;
                 return;
@@ -77,13 +80,13 @@ namespace MphRead.Mods.Network
             bool newMatch = state.RoomKey != _lastRoom;
             _lastRoom = state.RoomKey;
 
-            LastDrift = GameState.MatchTime - state.TimeRemaining;
+            LastDrift = scene.Match.MatchTime - state.TimeRemaining;
             // Snap on a new match or when clearly out of step; small
             // differences are packet latency and correcting them every frame
             // would make the on-screen timer stutter.
             if (newMatch || !_everSynced || Math.Abs(LastDrift) > 1.5f)
             {
-                GameState.MatchTime = state.TimeRemaining;
+                scene.Match.MatchTime = state.TimeRemaining;
                 if (!_everSynced || newMatch)
                 {
                     Console.WriteLine($"[net] match clock synced to server: "

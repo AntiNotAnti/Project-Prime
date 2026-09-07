@@ -23,7 +23,7 @@ public sealed class MatchBaselineTests
             Enum.GetValues<GameMode>().Select(mode => (byte)mode));
         Assert.Equal(new[] { GameMode.BattleTeams, GameMode.SurvivalTeams, GameMode.Capture,
             GameMode.BountyTeams, GameMode.NodesTeams, GameMode.DefenderTeams },
-            Enum.GetValues<GameMode>().Where(GameState.IsTeamMode));
+            Enum.GetValues<GameMode>().Where(mode => mode.IsTeamMode()));
         Assert.Equal("None,SinglePlayer,Battle,BattleTeams,Survival,SurvivalTeams,Capture,Bounty,BountyTeams,Nodes,NodesTeams,Defender,DefenderTeams,PrimeHunter,Unknown15",
             String.Join(',', Enum.GetNames<GameMode>()));
     }
@@ -57,21 +57,21 @@ public sealed class MatchBaselineTests
     public void PlayerRankingUsesModeScoreThenDeathsOrKills(GameMode mode, bool timed, bool deaths)
     {
         using var state = new State();
-        GameState.Mode = mode;
-        GameState.Points[0] = GameState.Points[1] = 3;
-        GameState.Time[0] = GameState.Time[1] = 20;
-        Assert.Equal(0, Compare("ComparePlayers"));
-        if (deaths) { GameState.Deaths[1] = 2; }
-        else { GameState.Kills[0] = 2; }
-        Assert.Equal(1, Compare("ComparePlayers"));
-        Assert.Equal(-1, Compare("ComparePlayers", 1, 0));
-        if (timed) { GameState.Time[1] = 21; }
-        else { GameState.Points[1] = 4; }
-        Assert.Equal(-1, Compare("ComparePlayers"));
+        MatchRuntime match = state.Configure(mode);
+        match.Points[0] = match.Points[1] = 3;
+        match.Time[0] = match.Time[1] = 20;
+        Assert.Equal(0, match.Logic.ComparePlayers(0, 1));
+        if (deaths) { match.Deaths[1] = 2; }
+        else { match.Kills[0] = 2; }
+        Assert.Equal(1, match.Logic.ComparePlayers(0, 1));
+        Assert.Equal(-1, match.Logic.ComparePlayers(1, 0));
+        if (timed) { match.Time[1] = 21; }
+        else { match.Points[1] = 4; }
+        Assert.Equal(-1, match.Logic.ComparePlayers(0, 1));
         if (mode is GameMode.Survival or GameMode.SurvivalTeams)
         {
-            GameState.Time[0] = -1;
-            Assert.Equal(1, Compare("ComparePlayers"));
+            match.Time[0] = -1;
+            Assert.Equal(1, match.Logic.ComparePlayers(0, 1));
         }
     }
 
@@ -84,27 +84,27 @@ public sealed class MatchBaselineTests
     public void TeamRankingUsesModeScoreAndTiebreak(GameMode mode, bool timed, bool deaths)
     {
         using var state = new State();
-        GameState.Mode = mode;
-        Assert.Equal(0, Compare("CompareTeams"));
-        if (deaths) { GameState.TeamDeaths[1] = 1; }
-        else { GameState.TeamKills[0] = 1; }
-        Assert.Equal(1, Compare("CompareTeams"));
-        if (timed) { GameState.TeamTime[1] = 10; }
-        else { GameState.TeamPoints[1] = 10; }
-        Assert.Equal(-1, Compare("CompareTeams"));
+        MatchRuntime match = state.Configure(mode);
+        Assert.Equal(0, match.Logic.CompareTeams(0, 1));
+        if (deaths) { match.TeamDeaths[1] = 1; }
+        else { match.TeamKills[0] = 1; }
+        Assert.Equal(1, match.Logic.CompareTeams(0, 1));
+        if (timed) { match.TeamTime[1] = 10; }
+        else { match.TeamPoints[1] = 10; }
+        Assert.Equal(-1, match.Logic.CompareTeams(0, 1));
     }
 
     [Fact]
     public void BountyTeamsCurrentlyComparesAllTeamsAsTied()
     {
         using var state = new State();
-        GameState.Mode = GameMode.BountyTeams;
-        GameState.TeamPoints[0] = 100;
-        GameState.TeamKills[0] = 50;
-        GameState.TeamTime[0] = 30;
-        GameState.TeamDeaths[1] = 20;
-        Assert.Equal(0, Compare("CompareTeams"));
-        Assert.Equal(0, Compare("CompareTeams", 1, 0));
+        MatchRuntime match = state.Configure(GameMode.BountyTeams);
+        match.TeamPoints[0] = 100;
+        match.TeamKills[0] = 50;
+        match.TeamTime[0] = 30;
+        match.TeamDeaths[1] = 20;
+        Assert.Equal(0, match.Logic.CompareTeams(0, 1));
+        Assert.Equal(0, match.Logic.CompareTeams(1, 0));
     }
 
     [Theory]
@@ -114,25 +114,25 @@ public sealed class MatchBaselineTests
     public void PointModesDispatchAndClampOnlyTheWinningActiveTeam(GameMode mode)
     {
         using var state = new State();
-        GameState.Mode = mode;
-        GameState.Setup(null!); // No intro camera or active players during setup.
+        MatchRuntime match = state.Configure(mode);
+        match.Flow.Setup(); // No intro camera or active players during setup.
         state.Activate(0, 0);
-        GameState.PointGoal = 5;
-        GameState.TeamPoints[1] = 20; // An inactive team's score cannot end the round.
-        GameState.ModeState(null!);
-        Assert.True(GameState.MatchTime > 0);
-        GameState.TeamPoints[0] = 4;
-        GameState.ModeState(null!);
-        Assert.True(GameState.MatchTime > 0);
-        GameState.TeamPoints[0] = 8;
-        GameState.ModeState(null!);
-        Assert.Equal(0, GameState.MatchTime);
-        Assert.Equal(5, GameState.TeamPoints[0]);
-        Assert.Equal(20, GameState.TeamPoints[1]);
-        GameState.MatchTime = 30;
-        GameState.PointGoal = 0;
-        GameState.ModeState(null!);
-        Assert.Equal(30, GameState.MatchTime);
+        match.ApplyRules(match.Rules.With(scoreGoal: 5));
+        match.TeamPoints[1] = 20; // An inactive team's score cannot end the round.
+        match.Logic.ProcessMode();
+        Assert.True(match.MatchTime > 0);
+        match.TeamPoints[0] = 4;
+        match.Logic.ProcessMode();
+        Assert.True(match.MatchTime > 0);
+        match.TeamPoints[0] = 8;
+        match.Logic.ProcessMode();
+        Assert.Equal(0, match.MatchTime);
+        Assert.Equal(5, match.TeamPoints[0]);
+        Assert.Equal(20, match.TeamPoints[1]);
+        match.MatchTime = 30;
+        match.ApplyRules(match.Rules.With(scoreGoal: 0));
+        match.Logic.ProcessMode();
+        Assert.Equal(30, match.MatchTime);
     }
 
     [Theory]
@@ -140,53 +140,53 @@ public sealed class MatchBaselineTests
     public void DefenderDispatchEndsAtTimeGoalWithoutClamping(GameMode mode)
     {
         using var state = new State();
-        GameState.Mode = mode;
-        GameState.Setup(null!);
+        MatchRuntime match = state.Configure(mode);
+        match.Flow.Setup();
         state.Activate(0, 0);
-        GameState.TeamTime[0] = 89;
-        GameState.ModeState(null!);
-        Assert.Equal(900, GameState.MatchTime);
-        GameState.TeamTime[0] = 91;
-        GameState.ModeState(null!);
-        Assert.Equal(0, GameState.MatchTime);
-        Assert.Equal(91, GameState.TeamTime[0]);
+        match.TeamTime[0] = 89;
+        match.Logic.ProcessMode();
+        Assert.Equal(900, match.MatchTime);
+        match.TeamTime[0] = 91;
+        match.Logic.ProcessMode();
+        Assert.Equal(0, match.MatchTime);
+        Assert.Equal(91, match.TeamTime[0]);
     }
 
     [Fact]
     public void UpdateStateAggregatesInitialSlotsButOnlyRanksActiveSlotsAndKeepsCompetitionTies()
     {
         using var state = new State();
-        GameState.Mode = GameMode.Battle;
+        MatchRuntime match = state.Configure(GameMode.Battle);
         state.Activate(0, 0); state.Activate(1, 1); state.Activate(2, 2);
         state.Players[3].LoadFlags = LoadFlags.Initial;
         state.Players[3].TeamIndex = 0;
-        GameState.Points[0] = GameState.Points[1] = 5;
-        GameState.Points[2] = 3; GameState.Points[3] = 7;
-        GameState.Kills[3] = 4; GameState.Deaths[3] = 2;
-        GameState.UpdateState();
-        Assert.Equal(12, GameState.TeamPoints[0]);
-        Assert.Equal(4, GameState.TeamKills[0]);
-        Assert.Equal(2, GameState.TeamDeaths[0]);
-        Assert.Equal(3, GameState.ActivePlayers);
-        Assert.Equal(new[] { 0, 1, 2 }, GameState.ResultSlots.Take(3));
-        Assert.Equal(new[] { 0, 0, 2 }, GameState.Standings.Take(3));
-        Assert.Equal(PlayerEntity.SlotCapacity - 1, GameState.Standings[3]);
-        GameState.UpdateState();
-        Assert.Equal(12, GameState.TeamPoints[0]); // Recomputed, not accumulated each frame.
+        match.Points[0] = match.Points[1] = 5;
+        match.Points[2] = 3; match.Points[3] = 7;
+        match.Kills[3] = 4; match.Deaths[3] = 2;
+        match.Logic.UpdateState();
+        Assert.Equal(12, match.TeamPoints[0]);
+        Assert.Equal(4, match.TeamKills[0]);
+        Assert.Equal(2, match.TeamDeaths[0]);
+        Assert.Equal(3, match.ActivePlayers);
+        Assert.Equal(new[] { 0, 1, 2 }, match.ResultSlots.Take(3));
+        Assert.Equal(new[] { 0, 0, 2 }, match.Standings.Take(3));
+        Assert.Equal(PlayerEntity.SlotCapacity - 1, match.Standings[3]);
+        match.Logic.UpdateState();
+        Assert.Equal(12, match.TeamPoints[0]); // Recomputed, not accumulated each frame.
     }
 
     [Fact]
     public void TeamStandingsCurrentlyWritesFinalRankToActiveCountIndexInsteadOfSparseSlot()
     {
         using var state = new State();
-        GameState.Mode = GameMode.BattleTeams; GameState.Teams = true;
+        MatchRuntime match = state.Configure(GameMode.BattleTeams);
         state.Activate(0, 0); state.Activate(3, 1);
-        GameState.Points[0] = 5; GameState.Points[3] = 1;
-        GameState.UpdateState();
-        Assert.Equal(new[] { 0, 3 }, GameState.ResultSlots.Take(2));
-        Assert.Equal(0, GameState.Standings[0]);
-        Assert.Equal(1, GameState.Standings[1]); // Current index/slot mismatch is deliberately frozen for R0.
-        Assert.Equal(PlayerEntity.SlotCapacity - 1, GameState.Standings[3]);
+        match.Points[0] = 5; match.Points[3] = 1;
+        match.Logic.UpdateState();
+        Assert.Equal(new[] { 0, 3 }, match.ResultSlots.Take(2));
+        Assert.Equal(0, match.Standings[0]);
+        Assert.Equal(1, match.Standings[1]); // Current index/slot mismatch is deliberately frozen for R0.
+        Assert.Equal(PlayerEntity.SlotCapacity - 1, match.Standings[3]);
     }
 
     [Theory]
@@ -194,73 +194,73 @@ public sealed class MatchBaselineTests
     public void SurvivalDispatchCountsSpareLivesAndMarksTheRemainingSurvivor(GameMode mode)
     {
         using var state = new State();
-        GameState.Mode = mode;
-        GameState.Setup(null!);
+        MatchRuntime match = state.Configure(mode);
+        match.Flow.Setup();
         state.Activate(0, 0); state.Activate(1, 1);
-        Scene scene = Clock(0.5f);
-        GameState.TeamDeaths[0] = GameState.TeamDeaths[1] = 2;
-        GameState.ModeState(scene); // Dead players still have their final life at equality.
-        Assert.Equal(900, GameState.MatchTime);
-        Assert.Equal(0.5f, GameState.Time[0]);
-        GameState.TeamDeaths[1] = 3;
-        GameState.ModeState(scene);
-        Assert.Equal(0, GameState.MatchTime);
-        Assert.Equal(-1, GameState.Time[0]);
-        Assert.Equal(0.5f, GameState.Time[1]);
+        Scene scene = Clock(state.Scene, 0.5f);
+        match.TeamDeaths[0] = match.TeamDeaths[1] = 2;
+        match.Logic.ProcessMode(); // Dead players still have their final life at equality.
+        Assert.Equal(900, match.MatchTime);
+        Assert.Equal(0.5f, match.Time[0]);
+        match.TeamDeaths[1] = 3;
+        match.Logic.ProcessMode();
+        Assert.Equal(0, match.MatchTime);
+        Assert.Equal(-1, match.Time[0]);
+        Assert.Equal(0.5f, match.Time[1]);
     }
 
     [Fact]
     public void PrimeDispatchAccumulatesHolderTimeAndDropsAnInactiveHolder()
     {
         using var state = new State();
-        GameState.Mode = GameMode.PrimeHunter;
-        GameState.Setup(null!);
+        MatchRuntime match = state.Configure(GameMode.PrimeHunter);
+        match.Flow.Setup();
         state.Activate(0, 0);
-        Scene scene = Clock(0.5f); // Frame 1 avoids the independent periodic damage path.
-        GameState.PrimeHunter = -1;
-        GameState.ModeState(scene);
-        Assert.Equal(0, GameState.Time[0]);
-        GameState.PrimeHunter = 0;
-        GameState.Time[0] = 89.5f;
-        GameState.ModeState(scene);
-        Assert.Equal(90, GameState.Time[0]);
-        Assert.Equal(0, GameState.MatchTime);
+        Clock(state.Scene, 0.5f); // Frame 1 avoids the independent periodic damage path.
+        match.PrimeHunter = -1;
+        match.Logic.ProcessMode();
+        Assert.Equal(0, match.Time[0]);
+        match.PrimeHunter = 0;
+        match.Time[0] = 89.5f;
+        match.Logic.ProcessMode();
+        Assert.Equal(90, match.Time[0]);
+        Assert.Equal(0, match.MatchTime);
         state.Players[0].LoadFlags = LoadFlags.Initial;
-        GameState.ModeState(scene);
-        Assert.Equal(-1, GameState.PrimeHunter);
-        Assert.Equal(90, GameState.Time[0]);
+        match.Logic.ProcessMode();
+        Assert.Equal(-1, match.PrimeHunter);
+        Assert.Equal(90, match.Time[0]);
     }
 
     [Fact]
     public void SurvivalAggregationCurrentlyIgnoresNegativeSurvivorSentinel()
     {
         using var state = new State();
-        GameState.Mode = GameMode.SurvivalTeams; GameState.Teams = true;
+        MatchRuntime match = state.Configure(GameMode.SurvivalTeams);
         state.Activate(0, 0); state.Activate(1, 1);
-        GameState.Time[0] = -1; GameState.Time[1] = 20;
-        GameState.UpdateState();
-        Assert.Equal(0, GameState.TeamTime[0]);
-        Assert.Equal(20, GameState.TeamTime[1]);
-        Assert.Equal(1, Compare("ComparePlayers"));
-        Assert.Equal(-1, Compare("CompareTeams"));
+        match.Time[0] = -1; match.Time[1] = 20;
+        match.Logic.UpdateState();
+        Assert.Equal(0, match.TeamTime[0]);
+        Assert.Equal(20, match.TeamTime[1]);
+        Assert.Equal(1, match.Logic.ComparePlayers(0, 1));
+        Assert.Equal(-1, match.Logic.CompareTeams(0, 1));
     }
 
     [Fact]
     public void MatchClockClampsAtZeroAndPreservesUnlimitedSentinel()
     {
         using var state = new State();
-        Scene scene = Clock(0.5f);
-        GameState.MatchTime = 0.25f;
-        GameState.UpdateTime(scene);
-        Assert.Equal(0, GameState.MatchTime);
-        GameState.MatchTime = -1;
-        GameState.UpdateTime(scene);
-        Assert.Equal(-1, GameState.MatchTime);
+        MatchRuntime match = state.Configure(GameMode.Battle);
+        Clock(state.Scene, 0.5f);
+        match.MatchTime = 0.25f;
+        match.Flow.UpdateTime();
+        Assert.Equal(0, match.MatchTime);
+        match.MatchTime = -1;
+        match.Flow.UpdateTime();
+        Assert.Equal(-1, match.MatchTime);
     }
 
-    private static Scene Clock(float delta)
+    private static Scene Clock(Scene scene, float delta)
     {
-        var scene = (Scene)RuntimeHelpers.GetUninitializedObject(typeof(Scene));
         typeof(Scene).GetField("_frameTime", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(scene, delta);
         typeof(Scene).GetField("_frameCount", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(scene, 1UL);
         return scene;
@@ -270,56 +270,55 @@ public sealed class MatchBaselineTests
     public void RotationProgressResetClearsLifecycleFlagsButPreservesScoresRulesAndClock()
     {
         using var state = new State();
-        GameState.MatchState = MatchState.Ending;
-        GameState.ForceEndGame = true;
-        GameState.PointGoal = 17; GameState.MatchTime = 33; GameState.Points[0] = 9;
-        foreach (string name in new[] { "_tempoChanged", "_stateChanged" }) { SetMember(name, true); }
-        foreach (string name in new[] { "_matchEndTime", "_lastAlarmTime" }) { SetMember(name, 12f); }
-        SetMember("_nextAlarmIndex", 3);
-        GameState.ResetMatchProgress();
-        Assert.Equal(MatchState.InProgress, GameState.MatchState);
-        Assert.False(GameState.ForceEndGame);
-        Assert.Equal(17, GameState.PointGoal); Assert.Equal(33, GameState.MatchTime); Assert.Equal(9, GameState.Points[0]);
-        foreach (string name in new[] { "_tempoChanged", "_stateChanged" }) { Assert.Equal(false, GetMember(name)); }
-        foreach (string name in new[] { "_matchEndTime", "_lastAlarmTime" }) { Assert.Equal(0f, GetMember(name)); }
-        Assert.Equal(0, GetMember("_nextAlarmIndex"));
+        MatchRuntime match = state.Configure(GameMode.Battle);
+        match.LegacyState = MatchState.Ending;
+        match.ForceEndGame = true;
+        match.ApplyRules(match.Rules.With(scoreGoal: 17));
+        match.MatchTime = 33; match.Points[0] = 9;
+        foreach (string name in new[] { "_tempoChanged", "_stateChanged" }) { SetMember(match.Flow, name, true); }
+        foreach (string name in new[] { "_matchEndTime", "_lastAlarmTime" }) { SetMember(match.Flow, name, 12f); }
+        SetMember(match.Flow, "_nextAlarmIndex", 3);
+        match.Flow.ResetProgress();
+        Assert.Equal(MatchState.InProgress, match.LegacyState);
+        Assert.False(match.ForceEndGame);
+        Assert.Equal(17, match.Rules.LegacyPointGoal); Assert.Equal(33, match.MatchTime); Assert.Equal(9, match.Points[0]);
+        foreach (string name in new[] { "_tempoChanged", "_stateChanged" }) { Assert.Equal(false, GetMember(match.Flow, name)); }
+        foreach (string name in new[] { "_matchEndTime", "_lastAlarmTime" }) { Assert.Equal(0f, GetMember(match.Flow, name)); }
+        Assert.Equal(0, GetMember(match.Flow, "_nextAlarmIndex"));
     }
 
-    private static MemberInfo Member(string name)
+    private static MemberInfo Member(object owner, string name)
     {
-        return (MemberInfo?)typeof(GameState).GetProperty(name,
-            BindingFlags.Static | BindingFlags.NonPublic)
-            ?? typeof(GameState).GetField(name, BindingFlags.Static | BindingFlags.NonPublic)
-            ?? throw new MissingMemberException(typeof(GameState).FullName, name);
+        Type type = owner.GetType();
+        return (MemberInfo?)type.GetProperty(name, BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new MissingMemberException(type.FullName, name);
     }
 
-    private static object? GetMember(string name) => Member(name) switch
+    private static object? GetMember(object owner, string name) => Member(owner, name) switch
     {
-        PropertyInfo property => property.GetValue(null),
-        FieldInfo field => field.GetValue(null),
+        PropertyInfo property => property.GetValue(owner),
+        FieldInfo field => field.GetValue(owner),
         _ => throw new InvalidOperationException($"Unsupported member kind: {name}")
     };
 
-    private static void SetMember(string name, object value)
+    private static void SetMember(object owner, string name, object value)
     {
-        switch (Member(name))
+        switch (Member(owner, name))
         {
             case PropertyInfo property:
-                property.SetValue(null, value);
+                property.SetValue(owner, value);
                 break;
             case FieldInfo field:
-                field.SetValue(null, value);
+                field.SetValue(owner, value);
                 break;
             default:
                 throw new InvalidOperationException($"Unsupported member kind: {name}");
         }
     }
 
-    private static int Compare(string method, int first = 0, int second = 1) => (int)typeof(GameState)
-        .GetMethod(method, BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, new object[] { first, second })!;
-
     // No data, sound, save files or graphics initialization. Restore every touched global even on assertion failure.
-    private sealed class State : IDisposable
+    internal sealed class State : IDisposable
     {
         private readonly List<(FieldInfo Field, object? Value)> _values = new();
         private readonly List<(Array Original, Array Copy)> _arrays = new();
@@ -332,16 +331,17 @@ public sealed class MatchBaselineTests
         private readonly int _previousSaveSlot = Menu.PreviousSaveSlot;
         private readonly SaveWhen _neededSave = Menu.NeededSave;
         private Scene? _scene;
+        public Scene Scene => _scene ?? throw new ObjectDisposedException(nameof(State));
 
         public State()
         {
             _players = (PlayerEntity[])Players.Clone();
             try
             {
-                // Snapshot and clear the static fields before binding a fresh
-                // scene. The runtime arrays are scene-owned in R3, while the
-                // old fields still include process-wide save and transition
-                // state that must be restored after the scene is gone.
+                // Snapshot and clear the static fields before constructing a
+                // fresh scene. Its runtime arrays are scene-owned, while the
+                // remaining fields are process-wide save and transition state
+                // that must be restored after the scene is gone.
                 foreach (FieldInfo field in typeof(GameState).GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
                 {
                     object? value = field.GetValue(null);
@@ -360,7 +360,6 @@ public sealed class MatchBaselineTests
                 }
                 PlayerEntity.PlayerCount = 0; PlayerEntity.MainPlayerIndex = 0;
                 CameraSequence.Intro = null;
-                GameState.Teams = false; GameState.PointGoal = 1000; GameState.MatchTime = 60;
             }
             catch
             {
@@ -374,15 +373,23 @@ public sealed class MatchBaselineTests
             Players[slot].LoadFlags = LoadFlags.Initial | LoadFlags.Active;
             PlayerEntity.PlayerCount++;
         }
+
+        public MatchRuntime Configure(GameMode mode)
+        {
+            GameState.Mode = mode;
+            MatchRuntime match = Scene.Match;
+            match.ApplyRules(MatchRules.CreateDefault(mode.ToMatchMode(), "match-baseline"));
+            return match;
+        }
+
         public void Dispose()
         {
             Scene? scene = _scene;
             _scene = null;
             try
             {
-                // Unbind the test owner before restoring the fields captured
-                // above; otherwise restoration would target its discarded
-                // runtime arrays.
+                // Close the test scene before restoring the fields captured
+                // above; teardown may still touch process-wide state.
                 scene?.CloseHeadless();
             }
             finally

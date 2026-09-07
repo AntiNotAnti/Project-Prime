@@ -21,6 +21,7 @@ namespace MphRead
         public bool OctolithReset { get; }
         public int DamageLevel { get; }
         public bool Teams => Mode.IsTeamMode();
+        public bool IsOctolithMode => Mode is MatchMode.Capture or MatchMode.Bounty or MatchMode.TeamBounty;
         public bool IsSurvival => Mode is MatchMode.Survival or MatchMode.TeamSurvival;
         public bool IsObjectiveTimeMode => Mode is MatchMode.Defender or MatchMode.TeamDefender or MatchMode.PrimeHunter;
         public int LegacyPointGoal => IsSurvival ? StartingLives : ScoreGoal;

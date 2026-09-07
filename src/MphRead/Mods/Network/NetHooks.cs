@@ -45,15 +45,15 @@ namespace MphRead.Mods.Network
             }
             if (!NetSession.Active) { return; }
             NetRoomChange.Sync(scene);
-            NetDiagnostics.Report(NetSession.NetFrame / 60.0);
+            NetDiagnostics.Report(scene, NetSession.NetFrame / 60.0);
             NetPlayerSetup.ApplyOnce();
-            NetMatchEnd.Sync();
-            NetMatchSync.Apply();
-            NetSlotManager.Sync();
+            NetMatchEnd.Sync(scene);
+            NetMatchSync.Apply(scene);
+            NetSlotManager.Sync(scene);
             NetLog.Snapshot(NetSession.NetFrame / 60.0, scene);
         }
 
-        public static void AfterSimulation()
+        public static void AfterSimulation(Scene scene)
         {
             if (AuthoritativePlay.Current is { } play)
             {
@@ -72,7 +72,7 @@ namespace MphRead.Mods.Network
                 PlayerEntity player = PlayerEntity.Players[slot];
                 if (player.LoadFlags.TestFlag(LoadFlags.Active))
                 {
-                    NetPlayerBridge.ApplyState(player, NetSession.RemoteStates[slot]);
+                    NetPlayerBridge.ApplyState(scene, player, NetSession.RemoteStates[slot]);
                 }
             }
             NetSession.NoteStatesApplied();

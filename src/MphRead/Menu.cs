@@ -2770,22 +2770,6 @@ namespace MphRead
             }
         }
 
-        public static void ApplyMultiplayerSettings()
-        {
-            if (_applySettings)
-            {
-                GameState.Teams = _teams;
-                GameState.PointGoal = (int)_pointGoal;
-                GameState.TimeGoal = (float)_timeGoal;
-                GameState.MatchTime = (float)_timeLimit;
-                GameState.OctolithReset = _octolithReset;
-                GameState.RadarPlayers = _radarPlayers;
-                GameState.DamageLevel = _damageLevel;
-                GameState.FriendlyFire = _friendlyFire;
-                GameState.AffinityWeapons = _affinityWeapons;
-            }
-        }
-
         public static void ApplyAdventureSettings()
         {
             if (_applySettings && SaveSlot == 0)

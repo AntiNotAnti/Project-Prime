@@ -56,9 +56,30 @@ Android managed-only Release builds passed after the teardown fixes, retaining
 the existing dependency/XML warnings. No full Android publish or emulator run
 was repeated for this pass.
 
+## R4 — Scene-owned scoring, flow and results
+
+Moved multiplayer scoring and standings into `MatchLogic`, lifecycle and end
+presentation into `MatchFlow`, and removed the temporary static match facade
+from `GameState`. Callers now pass their owning scene. Headless completion
+captures one deeply immutable `MatchResult` before the presentation clock replaces
+the remaining match time. Legacy scoring arithmetic and valid wire values are
+unchanged. Hosting now receives friendly-fire configuration explicitly.
+
+World decoding rejects session-only/unknown match phases and goals outside the
+rule constructor's bounds before assembling or applying state. Repeated unchanged
+world updates retain the immutable rules instance instead of allocating copies.
+Campaign state remains for R6–R9; R5 still owns synchronized authority and complete
+rule replication.
+
+Validation: 370 C# tests and 34 Python tests passed with zero failures/skips.
+All 12 real-content scoring modes, the dedicated-server/content suite and real
+rotation/late-join/stale-replay checks passed. Server/nettest built without warnings;
+desktop Release and Android managed Release built with the previously recorded
+dependency/documentation warnings. No native publish or emulator run was repeated.
+
 ## Planned remaining passes
 
-R4 migrates scoring and results; R5 owns lifecycle and rule replication on the server. R6–R9 remove
+R5 owns lifecycle and rule replication on the server. R6–R9 remove
 campaign behavior with content-aware guards. R10–R12 split the projects, converge
 Android and enforce dependency boundaries. No later pass is marked complete
 before its implementation and checks finish.

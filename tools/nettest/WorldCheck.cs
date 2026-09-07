@@ -119,14 +119,14 @@ namespace MphRead.NetTest
                     WorldRecord state = node.CaptureWorldState() with { Slot = 7, A = (uint)departing.TeamIndex | (8u << 8) };
                     node.ApplyWorldState(state);
                 }
-                if (GameState.IsOctolithMode)
+                if (scene.Match.Rules.IsOctolithMode)
                 {
                     foreach (OctolithFlagEntity flag in scene.GetOctolithFlagEntities())
                     { flag.ApplyWorldState(flag.CaptureWorldState() with { Slot = 7, Flags = 2 }); break; }
                 }
-                GameState.PrimeHunter = 7;
+                scene.Match.PrimeHunter = 7;
                 WorldStateCapture.ReleasePlayer(scene, departing);
-                if (GameState.PrimeHunter != -1 || departing.OctolithFlag != null) { throw new InvalidOperationException("Departing player retained an objective."); }
+                if (scene.Match.PrimeHunter != -1 || departing.OctolithFlag != null) { throw new InvalidOperationException("Departing player retained an objective."); }
                 foreach (NodeDefenseEntity node in scene.GetNodeDefenseEntities())
                 { if (node.CapturedPlayer == departing) { throw new InvalidOperationException("Node score ownership survived slot release."); } }
                 foreach (OctolithFlagEntity flag in scene.GetOctolithFlagEntities())

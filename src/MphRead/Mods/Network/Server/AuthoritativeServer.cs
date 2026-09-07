@@ -49,7 +49,7 @@ namespace MphRead.Mods.Network
             ServerSimulation simulation = new(_entry, LagCompEnabled, ProjectileCatchUpEnabled);
             try
             {
-                GameState.FriendlyFire = FriendlyFire;
+                simulation.Scene.Match.ApplyRules(simulation.Scene.Match.Rules.With(friendlyFire: FriendlyFire));
                 var network = new ServerNetwork(transport, _entry.RoomKey, _entry.Mode, capacity: MaxPlayers)
                 {
                     ServerName = ServerName
@@ -58,9 +58,9 @@ namespace MphRead.Mods.Network
                 {
                     MatchId = unchecked((ushort)network.MatchId), Mode = (byte)network.Mode,
                     RoomKey = network.Room, NextRoomKey = Rotation?.Next.RoomKey ?? network.Room,
-                    PlayerCount = (byte)network.Count, TimeRemaining = Math.Max(0, GameState.MatchTime),
-                    PointGoal = (ushort)Math.Clamp(GameState.PointGoal, 0, UInt16.MaxValue),
-                    Flags = (byte)((GameState.MatchState == MatchState.InProgress
+                    PlayerCount = (byte)network.Count, TimeRemaining = Math.Max(0, simulation.Scene.Match.MatchTime),
+                    PointGoal = (ushort)Math.Clamp(simulation.Scene.Match.Rules.LegacyPointGoal, 0, UInt16.MaxValue),
+                    Flags = (byte)((simulation.Scene.Match.LegacyState == MatchState.InProgress
                         ? MatchStatePacket.FlagInProgress : MatchStatePacket.FlagEnding)
                         | (FriendlyFire ? MatchStatePacket.FlagFriendlyFire : 0))
                 };
@@ -148,7 +148,7 @@ namespace MphRead.Mods.Network
                             }
                             simulation.Combat.Consume(count);
                         }
-                        if (GameState.MatchState != MatchState.InProgress)
+                        if (simulation.Scene.Match.LegacyState != MatchState.InProgress)
                         {
                             endedAt ??= tick;
                             if (unchecked(tick - endedAt.Value) >= 300)
@@ -161,7 +161,7 @@ namespace MphRead.Mods.Network
                                 network.Poll(tick);
                                 simulation.Dispose();
                                 simulation = new ServerSimulation(next, LagCompEnabled, ProjectileCatchUpEnabled);
-                                GameState.FriendlyFire = FriendlyFire;
+                                simulation.Scene.Match.ApplyRules(simulation.Scene.Match.Rules.With(friendlyFire: FriendlyFire));
                                 endedAt = null;
                                 Console.WriteLine($"[server] match={match} room={next.RoomKey} tick={tick}");
                             }

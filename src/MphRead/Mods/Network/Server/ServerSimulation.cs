@@ -26,9 +26,12 @@ namespace MphRead.Mods.Network
                 }
                 foreach (PlayerEntity player in Scene.GetPlayerEntities()) { player.ServerDeactivate(); }
                 PlayerEntity.PlayerCount = 0;
-                GameState.MatchTime = entry.TimeLimit > 0 ? entry.TimeLimit : -1;
-                GameState.PointGoal = entry.PointGoal;
-                GameState.CaptureSetupRules();
+                Scene.Match.MatchTime = entry.TimeLimit > 0 ? entry.TimeLimit : -1;
+                MatchRules rules = Scene.Match.Rules;
+                rules = rules.IsSurvival ? rules.With(startingLives: entry.PointGoal) : rules.With(scoreGoal: entry.PointGoal);
+                Scene.Match.ApplyRules(rules.With(
+                    timeLimit: entry.TimeLimit > 0 ? TimeSpan.FromSeconds(entry.TimeLimit) : null,
+                    clearTimeLimit: entry.TimeLimit <= 0));
             }
             catch
             {
@@ -39,6 +42,7 @@ namespace MphRead.Mods.Network
 
         public void Step(ServerNetwork network, uint tick)
         {
+            Scene.Match.MatchId = network.MatchId;
             using var combatScope = Combat.Enter(tick);
             int active = 0;
             for (int slot = 0; slot < 8; slot++)
@@ -49,14 +53,14 @@ namespace MphRead.Mods.Network
                 {
                     WorldStateCapture.ReleasePlayer(Scene, player);
                     player.ServerDeactivate();
-                    NetScoreboard.ForgetSlot(slot);
+                    NetScoreboard.ForgetSlot(Scene, slot);
                     _activeConnections[slot] = 0;
                 }
                 if (peer?.Connection.State == NetConnectionState.Ready)
                 {
-                    NetScoreboard.ForgetSlot(slot);
+                    NetScoreboard.ForgetSlot(Scene, slot);
                     GameState.Nicknames[slot] = peer.Name;
-                    player.ServerActivate(peer.Connection.Id, peer.Hunter, GameState.Teams ? slot % 2 : slot);
+                    player.ServerActivate(peer.Connection.Id, peer.Hunter, Scene.Match.Rules.Teams ? slot % 2 : slot);
                     _activeConnections[slot] = peer.Connection.Id;
                     peer.Connection.StartPlaying();
                 }

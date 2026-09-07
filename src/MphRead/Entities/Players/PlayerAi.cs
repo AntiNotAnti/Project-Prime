@@ -770,7 +770,7 @@ namespace MphRead.Entities
             {
                 _entityRefs.Clear();
                 UpdateAggro();
-                if (GameState.Mode == GameMode.PrimeHunter && GameState.PrimeHunter == _player.SlotIndex
+                if (GameState.Mode == GameMode.PrimeHunter && _scene.Match.PrimeHunter == _player.SlotIndex
                     && Flags2.TestFlag(AiFlags2.TargetItem) && _itemC8 != null && (_itemC8.ItemType == ItemType.HealthSmall
                     || _itemC8.ItemType == ItemType.HealthMedium || _itemC8.ItemType == ItemType.HealthBig))
                 {
@@ -800,8 +800,8 @@ namespace MphRead.Entities
                     {
                         continue;
                     }
-                    if (other.CurAlpha >= 1 || other.Flags2.TestFlag(PlayerFlags2.RadarReveal) || GameState.RadarPlayers
-                        || other.OctolithFlag != null || GameState.PrimeHunter == other.SlotIndex)
+                    if (other.CurAlpha >= 1 || other.Flags2.TestFlag(PlayerFlags2.RadarReveal) || _scene.Match.RadarPlayers
+                        || other.OctolithFlag != null || _scene.Match.PrimeHunter == other.SlotIndex)
                     {
                         AggroFunc214864C(6, 1, 2, null, other, 0, 30, 10, 3);
                     }
@@ -2749,7 +2749,7 @@ namespace MphRead.Entities
             private void Func1_214925C()
             {
                 // delegates to otherwise unused helper 2135400 in-game
-                if (GameState.PrimeHunter == -1 || _player.SlotIndex == GameState.PrimeHunter)
+                if (_scene.Match.PrimeHunter == -1 || _player.SlotIndex == _scene.Match.PrimeHunter)
                 {
                     FindEntityRef(AiEntRefType.Type32);
                     Func21356C0(_entityRefs.Field32);
@@ -2757,7 +2757,7 @@ namespace MphRead.Entities
                 else
                 {
                     Flags2 &= ~AiFlags2.Bit9;
-                    Func21356C0(PlayerEntity.Players[GameState.PrimeHunter]);
+                    Func21356C0(PlayerEntity.Players[_scene.Match.PrimeHunter]);
                 }
             }
 
@@ -5631,7 +5631,7 @@ namespace MphRead.Entities
                     return 0;
                 }
                 // todo-ai: need to confirm what's done with this alpha value and if it needs (re)normalization
-                if (GameState.RadarPlayers)
+                if (_scene.Match.RadarPlayers)
                 {
                     return 31;
                 }
@@ -5650,7 +5650,7 @@ namespace MphRead.Entities
                     return 31;
                 }
                 // todo-ai: need to confirm what's done with this alpha value and if it needs (re)normalization
-                if (GameState.RadarPlayers)
+                if (_scene.Match.RadarPlayers)
                 {
                     return 0;
                 }
@@ -10421,7 +10421,7 @@ namespace MphRead.Entities
                         continue;
                     }
                     if ((!checkNeeded || !IsItemNotNeeded(itemSpawn.Data.ItemType))
-                        && (GameState.Mode != GameMode.PrimeHunter || GameState.PrimeHunter != _player.SlotIndex || !IsHealth(itemSpawn))
+                        && (GameState.Mode != GameMode.PrimeHunter || _scene.Match.PrimeHunter != _player.SlotIndex || !IsHealth(itemSpawn))
                         && (result == null || result.Item == null || itemSpawn.Item != null)
                         && (itemSpawn.Item == null || !Func21377FC(itemSpawn.Item)))
                     {
@@ -10486,7 +10486,7 @@ namespace MphRead.Entities
                 foreach (ItemInstanceEntity item in _scene.GetItemInstanceEntities())
                 {
                     if ((!checkNeeded || !IsItemNotNeeded(item.ItemType))
-                        && (GameState.Mode != GameMode.PrimeHunter || GameState.PrimeHunter != _player.SlotIndex || !IsHealth(item))
+                        && (GameState.Mode != GameMode.PrimeHunter || _scene.Match.PrimeHunter != _player.SlotIndex || !IsHealth(item))
                         && item.DespawnTimer != 0
                         && !Func21377FC(item))
                     {
@@ -10537,7 +10537,7 @@ namespace MphRead.Entities
             {
                 // MP1 SANCTORUS (Data Shrine), or
                 // MP6 HEADSHOT (Head Shot) and currently carrying flag DC
-                return GameState.IsOctolithMode && (_scene.RoomId == 93 || _scene.RoomId == 99 && _octolithFlagDC?.Carrier == _player);
+                return _scene.Match.Rules.IsOctolithMode && (_scene.RoomId == 93 || _scene.RoomId == 99 && _octolithFlagDC?.Carrier == _player);
             }
 
             private bool IsItemNotNeeded(ItemType itemType)
@@ -10587,7 +10587,7 @@ namespace MphRead.Entities
             private bool Func21377FC(ItemInstanceEntity item)
             {
                 // UNIT 4 ARCTERRA BASE (Arcterra Gateway)
-                return GameState.IsOctolithMode && _scene.RoomId == 117
+                return _scene.Match.Rules.IsOctolithMode && _scene.RoomId == 117
                     && _octolithFlagDC?.Carrier == _player && item.Owner?.Id == 53;
             }
 

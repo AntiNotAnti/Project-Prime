@@ -83,7 +83,7 @@ namespace MphRead.Mods.Network
             {
                 scene.AddPlayer(slot == LocalSlot ? hunter : Hunter.Samus,
                     slot == LocalSlot ? recolor : 0,
-                    GameState.IsTeamMode(Client.Accepted.Mode) ? slot % 2 : -1);
+                    Client.Accepted.Mode.IsTeamMode() ? slot % 2 : -1);
                 PlayerEntity player = PlayerEntity.Players[slot];
                 player.IsBot = false;
                 // The local slot must initialize its camera/HUD while the
@@ -114,16 +114,22 @@ namespace MphRead.Mods.Network
             if (Client.Connection != null && Client.Accepted.MatchId != _loadedMatch)
             {
                 _loadedMatch = Client.Accepted.MatchId;
+                scene.Match.MatchId = Client.Accepted.MatchId;
                 Array.Clear(_identities);
                 Array.Clear(_lives);
-                for (int slot = 0; slot < 8; slot++) { NetScoreboard.ForgetSlot(slot); }
+                for (int slot = 0; slot < 8; slot++) { NetScoreboard.ForgetSlot(scene, slot); }
                 _inputCount = 0;
                 _appliedSnapshot = 0;
                 Prediction.Reset();
                 ResetPresentation();
                 _world.Reset(_loadedMatch);
                 GameState.Mode = Client.Accepted.Mode;
-                GameState.ResetMatchProgress();
+                // Rotation owns mode/room immediately; retain the prior legacy goal
+                // until the authoritative world stream supplies the new round's rules.
+                int pointGoal = scene.Match.Rules.LegacyPointGoal;
+                scene.Match.ApplyRules(scene.Match.Rules.With(mode: Client.Accepted.Mode.ToMatchMode(),
+                    roomKey: Client.Accepted.Room, scoreGoal: pointGoal, startingLives: pointGoal));
+                scene.Match.Flow.ResetProgress();
                 (RoomMetadata? metadata, _) = Metadata.GetRoomByName(Client.Accepted.Room);
                 GameState.TransitionRoomId = metadata?.Id
                     ?? throw new ProgramException($"Unknown server room: {Client.Accepted.Room}");
@@ -134,7 +140,7 @@ namespace MphRead.Mods.Network
             if (Client.State == NetConnectionState.Loading) { Client.Ready(Client.Accepted.MatchId); }
             if (Client.HasSnapshot && Client.SnapshotsReceived != _appliedSnapshot)
             {
-                ApplySnapshot();
+                ApplySnapshot(scene);
                 _interpolation.Add(Client.Snapshot, Client.SnapshotPlayers, Client.SnapshotReceivedAt);
                 _appliedSnapshot = Client.SnapshotsReceived;
             }
@@ -149,7 +155,7 @@ namespace MphRead.Mods.Network
             NetDiagnostics.ReportAuthoritative(Client, Prediction, _interpolation, _transport.Metrics);
         }
 
-        public PlayerEntity RebuildPlayers(Hunter hunter, int recolor)
+        public PlayerEntity RebuildPlayers(Scene scene, Hunter hunter, int recolor)
         {
             PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
             for (int slot = 0; slot < 8; slot++)
@@ -160,7 +166,7 @@ namespace MphRead.Mods.Network
                 if (slot == LocalSlot) { player.LoadFlags |= LoadFlags.Active; }
                 player.NodeRef = player.CameraInfo.NodeRef = NodeRef.None;
                 player.IsBot = false;
-                player.TeamIndex = GameState.Teams ? slot % 2 : slot;
+                player.TeamIndex = scene.Match.Rules.Teams ? slot % 2 : slot;
             }
             PlayerEntity.MainPlayerIndex = LocalSlot;
             PlayerEntity.PlayerCount = 1;
@@ -221,7 +227,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private void ApplySnapshot()
+        private void ApplySnapshot(Scene scene)
         {
             int occupied = 0;
             ApplyingSnapshot = true;
@@ -269,7 +275,7 @@ namespace MphRead.Mods.Network
                     if ((occupied & (1 << slot)) == 0 && _identities[slot] != 0)
                     {
                         PlayerEntity.Players[slot].ServerDeactivate();
-                        NetScoreboard.ForgetSlot(slot);
+                        NetScoreboard.ForgetSlot(scene, slot);
                         _identities[slot] = 0;
                     }
                 }
@@ -277,9 +283,9 @@ namespace MphRead.Mods.Network
                 // the complete authoritative table after every entity update.
                 foreach (SnapshotPlayer state in Client.SnapshotPlayers)
                 {
-                    GameState.Points[state.Slot] = state.Points;
-                    GameState.Kills[state.Slot] = state.Kills;
-                    GameState.Deaths[state.Slot] = state.Deaths;
+                    scene.Match.Players[state.Slot].Points = state.Points;
+                    scene.Match.Players[state.Slot].Kills = state.Kills;
+                    scene.Match.Players[state.Slot].Deaths = state.Deaths;
                 }
                 PlayerEntity.PlayerCount = Client.SnapshotPlayers.Length;
             }

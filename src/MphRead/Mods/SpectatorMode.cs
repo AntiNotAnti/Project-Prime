@@ -241,12 +241,13 @@ namespace MphRead.Mods
             // cameras was up.
             _cameraRequest = false;
             if (!Network.AuthoritativePlay.Active
-                && localSlot >= 0 && localSlot < GameState.Points.Length)
+                && localSlot >= 0 && localSlot < PlayerEntity.Players.Count)
             {
                 PlayerEntity.Players[localSlot].ModSetSpectating(false);
-                GameState.Points[localSlot] = Math.Min(0, GameState.Points[localSlot]);
-                GameState.Kills[localSlot] = 0;
-                GameState.Deaths[localSlot] = 0;
+                PlayerMatchStats stats = PlayerEntity.Players[localSlot].MatchStats;
+                stats.Points = Math.Min(0, stats.Points);
+                stats.Kills = 0;
+                stats.Deaths = 0;
             }
         }
 

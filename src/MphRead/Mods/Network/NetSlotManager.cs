@@ -29,7 +29,7 @@ namespace MphRead.Mods.Network
         /// Bring the scene's active slots in line with the server's roster.
         /// Cheap enough to call every frame; only transitions do work.
         /// </summary>
-        public static void Sync()
+        public static void Sync(Scene scene)
         {
             if (!NetSession.Active || NetSession.LocalSlot < 0)
             {
@@ -58,7 +58,7 @@ namespace MphRead.Mods.Network
                     {
                         continue;
                     }
-                    Activate(player, slot);
+                    Activate(scene, player, slot);
                 }
                 else if (occupied && slot != NetSession.LocalSlot
                     && NetSession.SlotHunter[slot] != player.Hunter)
@@ -76,12 +76,12 @@ namespace MphRead.Mods.Network
                 }
                 else if (!occupied && _activated[slot] && slot != NetSession.LocalSlot)
                 {
-                    Deactivate(player, slot);
+                    Deactivate(scene, player, slot);
                 }
             }
         }
 
-        private static void Activate(PlayerEntity player, int slot)
+        private static void Activate(Scene scene, PlayerEntity player, int slot)
         {
             _activated[slot] = true;
             // Whoever is arriving is not whoever left. Every per-slot record
@@ -94,7 +94,7 @@ namespace MphRead.Mods.Network
             NetPlayerBridge.ForgetSlot(slot);
             NetDamage.ForgetSlot(slot);
             NetSession.ForgetSlot(slot);
-            NetScoreboard.ForgetSlot(slot);
+            NetScoreboard.ForgetSlot(scene, slot);
             // The same flags Scene.AddPlayer sets, minus the bot marking:
             // a networked player is driven by relayed intent, not by AI.
             player.LoadFlags |= LoadFlags.SlotActive;
@@ -110,7 +110,7 @@ namespace MphRead.Mods.Network
             // own index, exactly as PlayerEntity.Initialize does.
             if (player.TeamIndex < 0 || player.TeamIndex >= PlayerEntity.MaxPlayers)
             {
-                player.TeamIndex = GameState.Teams ? slot % 2 : slot;
+                player.TeamIndex = scene.Match.Rules.Teams ? slot % 2 : slot;
                 player.Team = player.TeamIndex % 2 == 0 ? Team.Orange : Team.Green;
             }
             // The hunter comes from the server's roster, not from this
@@ -154,7 +154,7 @@ namespace MphRead.Mods.Network
             return count;
         }
 
-        private static void Deactivate(PlayerEntity player, int slot)
+        private static void Deactivate(Scene scene, PlayerEntity player, int slot)
         {
             _activated[slot] = false;
             // On the way out as well as the way in: a slot can be filled again
@@ -166,7 +166,7 @@ namespace MphRead.Mods.Network
             // The score goes when they go, not only when somebody takes the
             // slot: a player who left is not on the board, and the board is
             // drawn from these while the slot stands empty.
-            NetScoreboard.ForgetSlot(slot);
+            NetScoreboard.ForgetSlot(scene, slot);
             player.LoadFlags &= ~LoadFlags.Active;
             // SlotActive is deliberately left on. It is what Scene.AddRoom and
             // Scene.OnLoad key off, and clearing it would mean this slot's

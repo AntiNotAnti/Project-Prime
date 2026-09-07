@@ -142,10 +142,6 @@ namespace MphRead.Droid
                 {
                     report($"[thumbnails] {room}: cleanup failed: {ex.Message}");
                 }
-                finally
-                {
-                    if (scene != null) { GameState.UnbindScene(scene); }
-                }
             }
         }
 

@@ -47,7 +47,7 @@ namespace MphRead.Entities
             Position = data.Position;
             ItemType = data.ItemType;
             _scanId = _scanIds[(int)data.ItemType];
-            if (GameState.Multiplayer && GameState.AffinityWeapons && (ItemType == ItemType.VoltDriver
+            if (GameState.Multiplayer && _scene.Match.Rules.AffinityWeapons && (ItemType == ItemType.VoltDriver
                 || ItemType == ItemType.Battlehammer || ItemType == ItemType.Imperialist
                 || ItemType == ItemType.Judicator || ItemType == ItemType.Magmaul || ItemType == ItemType.ShockCoil))
             {

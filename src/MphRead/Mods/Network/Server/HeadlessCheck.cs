@@ -60,10 +60,10 @@ namespace MphRead.Mods.Network
                         frame++;
                     }
                 }
-                Console.WriteLine(FormattableString.Invariant($"[headless] room={room} frames={frame} players={players} spawned=0x{spawned:X2} loadMs={loadMs:F2} tickMeanMs={duration.Mean:F3} tickWorstMs={duration.Max:F3} driftMeanMs={scheduler.DriftMs.Mean:F3} driftWorstMs={scheduler.DriftMs.Max:F3} catchUp={scheduler.CatchUpTicks} dropped={scheduler.DroppedTicks} matchState={GameState.MatchState}"));
+                Console.WriteLine(FormattableString.Invariant($"[headless] room={room} frames={frame} players={players} spawned=0x{spawned:X2} loadMs={loadMs:F2} tickMeanMs={duration.Mean:F3} tickWorstMs={duration.Max:F3} driftMeanMs={scheduler.DriftMs.Mean:F3} driftWorstMs={scheduler.DriftMs.Max:F3} catchUp={scheduler.CatchUpTicks} dropped={scheduler.DroppedTicks} matchState={scene.Match.LegacyState}"));
                 foreach (PlayerEntity player in scene.GetPlayerEntities())
                 {
-                    Console.WriteLine(FormattableString.Invariant($"[headless] slot={player.SlotIndex} pos={player.Position.X:F3},{player.Position.Y:F3},{player.Position.Z:F3} health={player.Health} kills={GameState.Kills[player.SlotIndex]} deaths={GameState.Deaths[player.SlotIndex]}"));
+                    Console.WriteLine(FormattableString.Invariant($"[headless] slot={player.SlotIndex} pos={player.Position.X:F3},{player.Position.Y:F3},{player.Position.Z:F3} health={player.Health} kills={scene.Match.Players[player.SlotIndex].Kills} deaths={scene.Match.Players[player.SlotIndex].Deaths}"));
                 }
                 if (mode == GameMode.Nodes && players == 8)
                 {

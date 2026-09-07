@@ -74,7 +74,7 @@ namespace MphRead
             _movieSettings.AfterPosition = afterPosition;
             _movieSettings.AfterFacing = afterFacing;
             _movieSettings.AfterMovieAction = afterMovieAction;
-            if (GameState.MatchState == MatchState.InProgress && PlayerEntity.Main.Health > 0)
+            if (Match.LegacyState == MatchState.InProgress && PlayerEntity.Main.Health > 0)
             {
                 GameState.PausePrevented = true;
             }

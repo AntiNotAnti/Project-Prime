@@ -326,7 +326,7 @@ namespace MphRead.Mods.Network
                 foreach (ServerPeer? peer in _peers)
                 {
                     if (peer == null) { continue; }
-                    byte team = GameState.IsTeamMode(Mode) ? (byte)(peer.Slot % 2) : peer.Slot;
+                    byte team = Mode.IsTeamMode() ? (byte)(peer.Slot % 2) : peer.Slot;
                     ushort ping = MeasuredPing(peer);
                     _rosterPings[peer.Slot] = ping;
                     _rosterEntries[count++] = new(peer.Slot, peer.Connection.Id, peer.Hunter, team, peer.Name, ping);

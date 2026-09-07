@@ -43,7 +43,7 @@ namespace MphRead
             PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
             for (int slot = 0; slot < players; slot++)
             {
-                AddPlayer((Hunter)(slot % 8), team: GameState.IsTeamMode(mode) ? slot % 2 : -1);
+                AddPlayer((Hunter)(slot % 8), team: mode.IsTeamMode() ? slot % 2 : -1);
                 PlayerEntity.Players[slot].IsBot = bots;
             }
             AddRoom(room, mode, playerCount: Mods.Network.ServerContent.ResolveRoomPlayerCount(
@@ -76,7 +76,7 @@ namespace MphRead
             }
             _frameTime = 1 / 60f;
             _globalElapsedTime += _frameTime;
-            if (GameState.MatchState == MatchState.InProgress)
+            if (Match.LegacyState == MatchState.InProgress)
             {
                 _elapsedTime += _frameTime;
                 foreach (PlayerEntity player in GetPlayerEntities())
@@ -89,9 +89,9 @@ namespace MphRead
             }
             if (advanceMatch)
             {
-                GameState.ProcessFrame(this);
+                Match.Flow.ProcessFrame();
             }
-            if (GameState.MatchState == MatchState.InProgress)
+            if (Match.LegacyState == MatchState.InProgress)
             {
                 UpdateScene();
                 ProcessMessageQueue();
@@ -100,7 +100,7 @@ namespace MphRead
             _frameCount++;
             if (advanceMatch)
             {
-                GameState.UpdateTime(this);
+                Match.Flow.UpdateTime();
             }
         }
 
@@ -125,7 +125,6 @@ namespace MphRead
             {
                 _headlessInitialized = false;
                 Read.ServerMode = false;
-                GameState.UnbindScene(this);
             }
         }
     }

@@ -290,11 +290,12 @@ namespace MphRead.Entities
         public Team Team { get; set; } = Team.None;
         public int TeamIndex { get; set; } = -1;
         public int SlotIndex { get; private set; }
+        public PlayerMatchStats MatchStats => _scene.Match.Players[SlotIndex];
         public bool IsBot { get; set; }
         public LoadFlags LoadFlags { get; set; }
         public Hunter Hunter { get; private set; }
         public PlayerValues Values { get; private set; }
-        public bool IsPrimeHunter => SlotIndex == GameState.PrimeHunter;
+        public bool IsPrimeHunter => SlotIndex == _scene.Match.PrimeHunter;
 
         private const int _mbTrailSegments = 9 * 2;
         private static readonly Matrix4[,] _mbTrailMatrices = new Matrix4[SlotCapacity, _mbTrailSegments];
@@ -1756,7 +1757,7 @@ namespace MphRead.Entities
                 }
             }
             bool ignoreDamage = false;
-            if (GameState.SinglePlayer && IsBot && attacker == this || GameState.Teams && !GameState.FriendlyFire
+            if (GameState.SinglePlayer && IsBot && attacker == this || _scene.Match.Rules.Teams && !_scene.Match.Rules.FriendlyFire
                 && attacker != null && attacker != this && attacker.TeamIndex == TeamIndex)
             {
                 ignoreDamage = true;
@@ -1771,14 +1772,14 @@ namespace MphRead.Entities
             {
                 // bugfix?: since double damage was already applied above,
                 // it's possible to increase efficiency with double damage hits
-                GameState.BeamDamageDealt[attacker.SlotIndex] = Math.Min(
-                    GameState.BeamDamageDealt[attacker.SlotIndex] + (int)damage,
-                    GameState.BeamDamageMax[attacker.SlotIndex]
+                _scene.Match.Players[attacker.SlotIndex].BeamDamageDealt = Math.Min(
+                    _scene.Match.Players[attacker.SlotIndex].BeamDamageDealt + (int)damage,
+                    _scene.Match.Players[attacker.SlotIndex].BeamDamageMax
                 );
             }
             if (damage > 0)
             {
-                damage = (uint)(damage * Metadata.DamageLevels[GameState.DamageLevel]);
+                damage = (uint)(damage * Metadata.DamageLevels[_scene.Match.Rules.DamageLevel]);
                 if (damage == 0)
                 {
                     damage = 1;
@@ -1852,7 +1853,7 @@ namespace MphRead.Entities
                 }
                 if (attacker != this)
                 {
-                    GameState.DamageCount[attacker.SlotIndex]++;
+                    _scene.Match.Players[attacker.SlotIndex].DamageCount++;
                     attacker._hidingTimer = 0;
                     _hidingTimer = 0;
                 }
@@ -1900,7 +1901,7 @@ namespace MphRead.Entities
                 _deathaltTimer = 0;
                 _cloakTimer = 0;
                 Flags2 &= ~PlayerFlags2.Cloaking;
-                GameState.KillStreak[SlotIndex] = 0;
+                _scene.Match.Players[SlotIndex].KillStreak = 0;
                 if (IsMainPlayer)
                 {
                     // todo: license info
@@ -1995,7 +1996,7 @@ namespace MphRead.Entities
                 UpdateZoom(false);
                 // the game stops the boost charge SFX here, but that SFX is empty
                 _boostCharge = 0;
-                GameState.Deaths[SlotIndex]++;
+                _scene.Match.Players[SlotIndex].Deaths++;
                 if (this == Main && beamType == BeamType.OmegaCannon)
                 {
                     _scene.SetFade(FadeType.FadeInWhite, 90 / 30f, overwrite: true);
@@ -2227,18 +2228,18 @@ namespace MphRead.Entities
                         }
                         if (attacker == this)
                         {
-                            GameState.Suicides[SlotIndex]++;
+                            _scene.Match.Players[SlotIndex].Suicides++;
                             if (GameState.Mode == GameMode.Battle || GameState.Mode == GameMode.BattleTeams)
                             {
-                                GameState.Points[SlotIndex]--;
+                                _scene.Match.Players[SlotIndex].Points--;
                             }
                         }
                         else
                         {
                             if (attacker.TeamIndex == TeamIndex)
                             {
-                                GameState.FriendlyKills[attacker.SlotIndex]++;
-                                GameState.KillStreak[attacker.SlotIndex] = 0;
+                                _scene.Match.Players[attacker.SlotIndex].FriendlyKills++;
+                                _scene.Match.Players[attacker.SlotIndex].KillStreak = 0;
                                 // todo: update license info
                                 if (attacker == Main)
                                 {
@@ -2259,24 +2260,25 @@ namespace MphRead.Entities
                                 }
                                 if (flags.TestFlag(DamageFlags.Headshot))
                                 {
-                                    GameState.HeadshotKills[attacker.SlotIndex]++;
+                                    _scene.Match.Players[attacker.SlotIndex].HeadshotKills++;
                                 }
-                                GameState.Kills[attacker.SlotIndex]++;
+                                _scene.Match.Players[attacker.SlotIndex].Kills++;
                                 // todo?: the game also updates another kills stat(?) here
                                 if (attacker.IsPrimeHunter)
                                 {
-                                    GameState.KillsAsPrime[attacker.SlotIndex]++;
+                                    _scene.Match.Players[attacker.SlotIndex].KillsAsPrime++;
                                 }
                                 if (beamType <= BeamType.OmegaCannon)
                                 {
-                                    GameState.BeamKills[attacker.SlotIndex, (int)beamType]++;
+                                    _scene.Match.Players[attacker.SlotIndex].SetBeamKills((int)beamType,
+                                        _scene.Match.Players[attacker.SlotIndex].GetBeamKills((int)beamType) + 1);
                                     // todo: update license info
                                 }
-                                if (GameState.KillStreak[attacker.SlotIndex] < 255)
+                                if (_scene.Match.Players[attacker.SlotIndex].KillStreak < 255)
                                 {
-                                    GameState.KillStreak[attacker.SlotIndex]++;
+                                    _scene.Match.Players[attacker.SlotIndex].KillStreak++;
                                 }
-                                if (GameState.KillStreak[attacker.SlotIndex] == 5)
+                                if (_scene.Match.Players[attacker.SlotIndex].KillStreak == 5)
                                 {
                                     _soundSource.QueueStream(VoiceId.VOICE_CONSECUTIVE_KILLS, delay: 1);
                                     string message;
@@ -2298,10 +2300,10 @@ namespace MphRead.Entities
                                     {
                                         attacker.GainHealth(70);
                                     }
-                                    else if (attacker.Health > 0 && (GameState.PrimeHunter == -1 || IsPrimeHunter))
+                                    else if (attacker.Health > 0 && (_scene.Match.PrimeHunter == -1 || IsPrimeHunter))
                                     {
-                                        GameState.PrimeHunter = attacker.SlotIndex;
-                                        GameState.PrimesKilled[attacker.SlotIndex]++;
+                                        _scene.Match.PrimeHunter = attacker.SlotIndex;
+                                        _scene.Match.Players[attacker.SlotIndex].PrimesKilled++;
                                         if (Main.IsPrimeHunter)
                                         {
                                             _soundSource.QueueStream(VoiceId.VOICE_PRIME, delay: 1);
@@ -2313,29 +2315,29 @@ namespace MphRead.Entities
                                 }
                                 else if (GameState.Mode == GameMode.Battle || GameState.Mode == GameMode.BattleTeams)
                                 {
-                                    if (GameState.Points[attacker.SlotIndex] < 99999)
+                                    if (_scene.Match.Players[attacker.SlotIndex].Points < 99999)
                                     {
-                                        GameState.Points[attacker.SlotIndex]++;
+                                        _scene.Match.Players[attacker.SlotIndex].Points++;
                                     }
                                 }
-                                else if (GameState.IsOctolithMode && OctolithFlag != null)
+                                else if (_scene.Match.Rules.IsOctolithMode && OctolithFlag != null)
                                 {
-                                    GameState.OctolithStops[attacker.SlotIndex]++;
+                                    _scene.Match.Players[attacker.SlotIndex].OctolithStops++;
                                 }
                                 // bugfix?: this flag is also set for suicides/environmental damage/etc.
                                 if (flags.TestFlag(DamageFlags.FromAlt))
                                 {
-                                    GameState.AltDamageCount[attacker.SlotIndex]++;
+                                    _scene.Match.Players[attacker.SlotIndex].AltDamageCount++;
                                 }
                             }
                         }
                     }
                     else // no attacker
                     {
-                        GameState.Suicides[SlotIndex]++;
+                        _scene.Match.Players[SlotIndex].Suicides++;
                         if (GameState.Mode == GameMode.Battle || GameState.Mode == GameMode.BattleTeams)
                         {
-                            GameState.Points[SlotIndex]--;
+                            _scene.Match.Players[SlotIndex].Points--;
                         }
                     }
                     if (IsAltForm || IsMorphing)
@@ -2353,7 +2355,7 @@ namespace MphRead.Entities
                     }
                     if (IsPrimeHunter)
                     {
-                        GameState.PrimeHunter = -1;
+                        _scene.Match.PrimeHunter = -1;
                         QueueHudMessage(128, 70, 140, 90 / 30f, 2, 242); // the prime hunter is dead!
                     }
                 }

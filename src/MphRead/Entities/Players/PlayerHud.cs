@@ -432,7 +432,7 @@ namespace MphRead.Entities
             _primeHunterInst.SetCharacterData(primeHunter.CharacterData, _scene);
             _primeHunterInst.SetPaletteData(primeHunter.PaletteData, _scene);
             _primeHunterInst.Enabled = true;
-            HudObject nodes = HudInfo.GetHudObject(GameState.Teams ? HudElements.NodesOG : HudElements.NodesRB);
+            HudObject nodes = HudInfo.GetHudObject(_scene.Match.Rules.Teams ? HudElements.NodesOG : HudElements.NodesRB);
             _nodesInst = new HudObjectInstance(nodes.Width, nodes.Height);
             _nodesInst.SetCharacterData(nodes.CharacterData, _scene);
             _nodesInst.SetPaletteData(nodes.PaletteData, _scene);
@@ -734,7 +734,7 @@ namespace MphRead.Entities
                 if (!IsAltForm && !IsMorphing && !IsUnmorphing)
                 {
                     if (!Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen) && !ShowScoreboard
-                        && GameState.MatchState == MatchState.InProgress)
+                        && _scene.Match.LegacyState == MatchState.InProgress)
                     {
                         if (_drawIceLayer)
                         {
@@ -1283,12 +1283,12 @@ namespace MphRead.Entities
             {
                 return;
             }
-            if (GameState.MatchState == MatchState.GameOver)
+            if (_scene.Match.LegacyState == MatchState.GameOver)
             {
                 string text = Strings.GetHudMessage(219); // GAME OVER
                 DrawText2D(128, 40, Align.Center, 0, text, new ColorRgba(0x3FEF), fontSpacing: 8);
             }
-            else if (GameState.MatchState == MatchState.Ending)
+            else if (_scene.Match.LegacyState == MatchState.Ending)
             {
                 DrawScoreboard();
             }
@@ -1405,11 +1405,11 @@ namespace MphRead.Entities
             {
                 _scene.DrawHudFilterModel(_filterModel, alpha: 15 / 31f);
             }
-            else if (GameState.MatchState == MatchState.GameOver)
+            else if (_scene.Match.LegacyState == MatchState.GameOver)
             {
                 _scene.DrawHudFilterModel(_filterModel, alpha: 12 / 31f);
             }
-            else if (Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen) || ShowScoreboard || GameState.MatchState == MatchState.Ending)
+            else if (Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen) || ShowScoreboard || _scene.Match.LegacyState == MatchState.Ending)
             {
                 _scene.DrawHudFilterModel(_filterModel);
             }
@@ -1572,11 +1572,11 @@ namespace MphRead.Entities
 
         private void DrawMatchTime()
         {
-            if (GameState.MatchTime < 0)
+            if (_scene.Match.MatchTime < 0)
             {
                 return;
             }
-            var time = TimeSpan.FromSeconds(GameState.MatchTime);
+            var time = TimeSpan.FromSeconds(_scene.Match.MatchTime);
             int palette = time.TotalSeconds < 10 ? 2 : 0;
             float posY = 10;
             string text = Strings.GetHudMessage(5); // TIME
@@ -1603,17 +1603,17 @@ namespace MphRead.Entities
         /// </summary>
         private float GetScoreboardRowSpace()
         {
-            int rows = GameState.ActivePlayers;
+            int rows = _scene.Match.ActivePlayers;
             if (rows <= 4)
             {
                 return _scorePlayerSpace;
             }
             float available = 168 - _scoreStartSpace;
-            if (GameState.MatchState == MatchState.Ending)
+            if (_scene.Match.LegacyState == MatchState.Ending)
             {
                 available -= _scoreStartSpace;
             }
-            if (GameState.Teams)
+            if (_scene.Match.Rules.Teams)
             {
                 available -= 2 * _scoreTeamLineSpace;
             }
@@ -1624,19 +1624,19 @@ namespace MphRead.Entities
         {
             float rowSpace = GetScoreboardRowSpace();
             float height = _scoreStartSpace;
-            if (GameState.MatchState == MatchState.Ending)
+            if (_scene.Match.LegacyState == MatchState.Ending)
             {
                 height *= 2;
             }
             int curTeam = 4;
-            for (int i = 0; i < GameState.ActivePlayers; i++)
+            for (int i = 0; i < _scene.Match.ActivePlayers; i++)
             {
-                PlayerEntity player = Players[GameState.ResultSlots[i]];
+                PlayerEntity player = Players[_scene.Match.ResultSlots[i]];
                 if (!player.LoadFlags.TestFlag(LoadFlags.Active))
                 {
                     continue;
                 }
-                if (GameState.Teams && player.TeamIndex != curTeam)
+                if (_scene.Match.Rules.Teams && player.TeamIndex != curTeam)
                 {
                     if (curTeam != 4)
                     {
@@ -1660,7 +1660,7 @@ namespace MphRead.Entities
             GameMode mode = GameState.Mode;
             float rowSpace = GetScoreboardRowSpace();
             float posY = 104 - GetScoreboardHeight() / 2;
-            if (GameState.MatchState == MatchState.Ending)
+            if (_scene.Match.LegacyState == MatchState.Ending)
             {
                 string text = Strings.GetHudMessage(219); // GAME OVER
                 DrawText2D(128, posY, Align.Center, 0, text, new ColorRgba(0x53F4), fontSpacing: 8);
@@ -1721,23 +1721,23 @@ namespace MphRead.Entities
 
             string teamText = Strings.GetHudMessage(222); // team
             int curTeam = 4;
-            for (int i = 0; i < GameState.ActivePlayers; i++)
+            for (int i = 0; i < _scene.Match.ActivePlayers; i++)
             {
-                int slot = GameState.ResultSlots[i];
+                int slot = _scene.Match.ResultSlots[i];
                 PlayerEntity player = Players[slot];
                 if (!player.LoadFlags.TestFlag(LoadFlags.Active))
                 {
                     continue;
                 }
-                if (GameState.Teams && player.TeamIndex != curTeam)
+                if (_scene.Match.Rules.Teams && player.TeamIndex != curTeam)
                 {
                     if (curTeam != 4)
                     {
                         posY -= _scoreTeamHeaderSpace;
                     }
                     curTeam = player.TeamIndex;
-                    string teamValue1 = ChooseValue1(GameState.TeamTime[curTeam], GameState.TeamPoints[curTeam]);
-                    string teamValue2 = ChooseValue2(GameState.TeamDeaths[curTeam], GameState.TeamKills[curTeam]);
+                    string teamValue1 = ChooseValue1(_scene.Match.TeamTime[curTeam], _scene.Match.TeamPoints[curTeam]);
+                    string teamValue2 = ChooseValue2(_scene.Match.TeamDeaths[curTeam], _scene.Match.TeamKills[curTeam]);
                     var teamColor = new ColorRgba(player.Team == Team.Orange ? 0x23Fu : 0x2BEAu);
                     string teamName = $"{teamText} {player.TeamIndex + 1}";
                     DrawText2D(42, posY, Align.Center, 0, teamName, teamColor, fontSpacing: 8);
@@ -1745,8 +1745,8 @@ namespace MphRead.Entities
                     DrawText2D(ModScoreColumn2, posY, Align.Center, 0, teamValue2, teamColor, fontSpacing: 8);
                     posY += _scoreTeamLineSpace;
                 }
-                string value1 = ChooseValue1(GameState.Time[slot], GameState.Points[slot]);
-                string value2 = ChooseValue2(GameState.Deaths[slot], GameState.Kills[slot]);
+                string value1 = ChooseValue1(_scene.Match.Players[slot].Time, _scene.Match.Players[slot].Points);
+                string value2 = ChooseValue2(_scene.Match.Players[slot].Deaths, _scene.Match.Players[slot].Kills);
                 var color = new ColorRgba(0x7DEF);
                 if (player.IsMainPlayer)
                 {
@@ -1775,7 +1775,7 @@ namespace MphRead.Entities
             hunter.PositionX = (posX - 40) / 256f;
             hunter.PositionY = (posY - 13) / 192f;
             _scene.DrawHudObject(hunter, mode: 2);
-            int stars = GameState.Stars[slot];
+            int stars = _scene.Match.Players[slot].Stars;
             _starsInst.PositionX = posX / 256f;
             _starsInst.PositionY = posY / 192f;
             _starsInst.SetIndex(stars * 2, _scene);
@@ -2228,7 +2228,7 @@ namespace MphRead.Entities
                     continue;
                 }
                 float alpha = 1;
-                if (GameState.RadarPlayers)
+                if (_scene.Match.RadarPlayers)
                 {
                     float past = _scene.ElapsedTime % (120 / 30f);
                     if (past > 32 / 30f)
@@ -2331,7 +2331,7 @@ namespace MphRead.Entities
                 {
                     color = new ColorRgb(31, 31, 31);
                 }
-                else if (GameState.Teams)
+                else if (_scene.Match.Rules.Teams)
                 {
                     Debug.Assert(defense.CurrentTeam == 0 || defense.CurrentTeam == 1);
                     color = Metadata.TeamColors[defense.CurrentTeam];
@@ -2370,7 +2370,7 @@ namespace MphRead.Entities
                 {
                     if (defense.Blinking)
                     {
-                        if (GameState.Teams)
+                        if (_scene.Match.Rules.Teams)
                         {
                             Debug.Assert(defense.OccupyingTeam == 0 || defense.OccupyingTeam == 1);
                             color = Metadata.TeamColors[defense.OccupyingTeam];
@@ -2389,7 +2389,7 @@ namespace MphRead.Entities
                         color = new ColorRgb(31, 31, 31);
                     }
                 }
-                else if (GameState.Teams)
+                else if (_scene.Match.Rules.Teams)
                 {
                     color = Metadata.TeamColors[defense.Blinking ? defense.OccupyingTeam : defense.CurrentTeam];
                 }
@@ -2459,7 +2459,7 @@ namespace MphRead.Entities
 
         private void ProcessHudPrimeHunter()
         {
-            if (GameState.PrimeHunter == SlotIndex)
+            if (_scene.Match.PrimeHunter == SlotIndex)
             {
                 if (!_hudIsPrimeHunter)
                 {
@@ -2478,9 +2478,9 @@ namespace MphRead.Entities
                 {
                     _hudIsPrimeHunter = false;
                 }
-                if (GameState.PrimeHunter != -1)
+                if (_scene.Match.PrimeHunter != -1)
                 {
-                    PlayerEntity primeHunter = Players[GameState.PrimeHunter];
+                    PlayerEntity primeHunter = Players[_scene.Match.PrimeHunter];
                     Vector3 pos = primeHunter.Position;
                     if (!primeHunter.IsAltForm)
                     {
@@ -2579,21 +2579,21 @@ namespace MphRead.Entities
             if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.Capture || mode == GameMode.Nodes
                 || mode == GameMode.NodesTeams || mode == GameMode.Bounty || mode == GameMode.BountyTeams)
             {
-                if (GameState.Teams)
+                if (_scene.Match.Rules.Teams)
                 {
-                    return $"{GameState.TeamPoints[Players[slot].TeamIndex]} / {GameState.PointGoal}";
+                    return $"{_scene.Match.TeamPoints[Players[slot].TeamIndex]} / {_scene.Match.Rules.LegacyPointGoal}";
                 }
-                return $"{GameState.Points[slot]} / {GameState.PointGoal}";
+                return $"{_scene.Match.Players[slot].Points} / {_scene.Match.Rules.LegacyPointGoal}";
             }
             if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
             {
-                int lives = Math.Max(GameState.PointGoal - GameState.TeamDeaths[Players[slot].TeamIndex], 0);
+                int lives = Math.Max(_scene.Match.Rules.LegacyPointGoal - _scene.Match.TeamDeaths[Players[slot].TeamIndex], 0);
                 return lives.ToString();
             }
             if (mode == GameMode.Defender || mode == GameMode.DefenderTeams || mode == GameMode.PrimeHunter)
             {
-                return $"{FormatTime(TimeSpan.FromSeconds(GameState.Time[slot]))}/" +
-                    $"{FormatTime(TimeSpan.FromSeconds(GameState.TimeGoal))}";
+                return $"{FormatTime(TimeSpan.FromSeconds(_scene.Match.Players[slot].Time))}/" +
+                    $"{FormatTime(TimeSpan.FromSeconds(_scene.Match.Rules.LegacyTimeGoal))}";
             }
             return " ";
         }
@@ -2637,7 +2637,7 @@ namespace MphRead.Entities
                 drawIcon = (_scene.FrameCount & (16 * 2)) != 0; // todo: FPS stuff
                 _octolithInst.Alpha = 1;
             }
-            else if (GameState.Teams)
+            else if (_scene.Match.Rules.Teams)
             {
                 foreach (OctolithFlagEntity flag in _scene.GetOctolithFlagEntities())
                 {
@@ -2698,7 +2698,7 @@ namespace MphRead.Entities
             {
                 _nodesInst.PositionX = (_hudObjects.NodeBonusPosX + _objShiftX) / 256f;
                 _nodesInst.PositionY = (_hudObjects.NodeBonusPosY + _objShiftY) / 192f;
-                _nodesInst.SetIndex(GameState.Teams && TeamIndex == 0 ? 2 : 4, _scene);
+                _nodesInst.SetIndex(_scene.Match.Rules.Teams && TeamIndex == 0 ? 2 : 4, _scene);
                 _scene.DrawHudObject(_nodesInst);
                 string text = $"x {_teamNodeCounts[TeamIndex]}";
                 DrawText2D(_hudObjects.NodeBonusPosX + 12 + _objShiftX, _hudObjects.NodeBonusPosY + 2 + _objShiftY,
@@ -2711,7 +2711,7 @@ namespace MphRead.Entities
             {
                 _nodesInst.PositionX = (_hudObjects.EnemyBonusPosX + _objShiftX) / 256f;
                 _nodesInst.PositionY = (_hudObjects.EnemyBonusPosY + _objShiftY) / 192f;
-                _nodesInst.SetIndex(GameState.Teams && _nodeBonusOpponent == 1 ? 4 : 2, _scene);
+                _nodesInst.SetIndex(_scene.Match.Rules.Teams && _nodeBonusOpponent == 1 ? 4 : 2, _scene);
                 _scene.DrawHudObject(_nodesInst);
                 string text = $"x {_teamNodeCounts[_nodeBonusOpponent]}";
                 DrawText2D(_hudObjects.EnemyBonusPosX + 12 + _objShiftX, _hudObjects.EnemyBonusPosY + 2 + _objShiftY,
@@ -2744,7 +2744,7 @@ namespace MphRead.Entities
                 {
                     if (defense.Blinking)
                     {
-                        if (GameState.Teams)
+                        if (_scene.Match.Rules.Teams)
                         {
                             frame = defense.OccupyingTeam == 0 ? 2 : 4;
                         }
@@ -2758,7 +2758,7 @@ namespace MphRead.Entities
                         frame = 0;
                     }
                 }
-                else if (GameState.Teams)
+                else if (_scene.Match.Rules.Teams)
                 {
                     if (defense.Blinking)
                     {

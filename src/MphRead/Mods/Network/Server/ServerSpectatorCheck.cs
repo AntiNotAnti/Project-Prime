@@ -75,11 +75,11 @@ namespace MphRead.Mods.Network
             }
             opponent.Position = opponent.PrevPosition = opponentSpawn;
             opponent.Speed = Vector3.Zero;
-            GameState.Points[0] = -3;
-            GameState.Kills[0] = 2;
-            GameState.Deaths[0] = 1;
-            GameState.Suicides[0] = 1;
-            if (mode == GameMode.PrimeHunter) { GameState.PrimeHunter = 0; }
+            scene.Match.Players[0].Points = -3;
+            scene.Match.Players[0].Kills = 2;
+            scene.Match.Players[0].Deaths = 1;
+            scene.Match.Players[0].Suicides = 1;
+            if (mode == GameMode.PrimeHunter) { scene.Match.PrimeHunter = 0; }
             ulong startFrame = scene.LiveFrames;
             player.ServerSetSpectating(true);
             Require(carried == null || carried.Carrier != player, "Spectator did not release its carrier immediately.");
@@ -98,9 +98,9 @@ namespace MphRead.Mods.Network
             Require(opponent.Health > 0 && opponentHealth > 0, "Other participant did not remain in play.");
             Require(carried == null || carried.Carrier != player, "Spectator retained an objective.");
             Require(captured == null || captured.CapturedPlayer != player, "Spectator retained node ownership.");
-            Require(mode != GameMode.PrimeHunter || GameState.PrimeHunter != 0, "Spectator remained prime hunter.");
-            Require(GameState.Points[0] == -3 && GameState.Kills[0] == 2
-                && GameState.Deaths[0] == 1 && GameState.Suicides[0] == 1,
+            Require(mode != GameMode.PrimeHunter || scene.Match.PrimeHunter != 0, "Spectator remained prime hunter.");
+            Require(scene.Match.Players[0].Points == -3 && scene.Match.Players[0].Kills == 2
+                && scene.Match.Players[0].Deaths == 1 && scene.Match.Players[0].Suicides == 1,
                 "Participation changed combat scores.");
             player.ServerSetSpectating(false);
             for (int tick = 1; tick < PlayerEntity.RespawnTime; tick++)
@@ -113,7 +113,7 @@ namespace MphRead.Mods.Network
             Require(player.Health > 0 && player.LoadFlags.TestFlag(LoadFlags.Spawned)
                 && !player.Flags2.TestFlag(PlayerFlags2.Spectating)
                 && player.ServerCombatIdentity.Life != previousLife, "Rejoin did not create a fresh server-selected life.");
-            Require(GameState.Points[0] == -3 && GameState.Kills[0] == 2 && GameState.Deaths[0] == 1,
+            Require(scene.Match.Players[0].Points == -3 && scene.Match.Players[0].Kills == 2 && scene.Match.Players[0].Deaths == 1,
                 "Rejoin reset or improved scores.");
             Console.WriteLine($"[spectatorcheck] {mode}: 600 spectator ticks, rejoin after {PlayerEntity.RespawnTime} ticks PASS");
         }

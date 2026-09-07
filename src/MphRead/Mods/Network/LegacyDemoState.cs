@@ -125,13 +125,19 @@ namespace MphRead.Mods.Network
         public void BeforeSimulation(Scene scene)
         {
             if (Match.MatchId == 0) { return; }
+            scene.Match.MatchId = Match.MatchId;
             if (_loadedMatch == 0) { _loadedMatch = Match.MatchId; MatchesLoaded++; }
             else if (_loadedMatch != Match.MatchId)
             {
                 _loadedMatch = Match.MatchId;
                 MatchesLoaded++;
                 GameState.Mode = Match.Mode;
-                GameState.ResetMatchProgress();
+                // Rotation owns mode/room immediately; retain the prior legacy goal
+                // until the authoritative world stream supplies the new round's rules.
+                int pointGoal = scene.Match.Rules.LegacyPointGoal;
+                scene.Match.ApplyRules(scene.Match.Rules.With(mode: Match.Mode.ToMatchMode(),
+                    roomKey: Match.Room, scoreGoal: pointGoal, startingLives: pointGoal));
+                scene.Match.Flow.ResetProgress();
                 GameState.TransitionRoomId = Metadata.GetRoomByName(Match.Room).Item1?.Id
                     ?? throw new ProgramException($"Unknown demo room: {Match.Room}");
                 (scene.Room ?? throw new ProgramException("Demo scene has no room.")).LoadRoom(resume: false);
@@ -139,7 +145,7 @@ namespace MphRead.Mods.Network
             if (_dirty)
             {
                 ApplyingSnapshot = true;
-                try { ApplySnapshot(); _dirty = false; }
+                try { ApplySnapshot(scene); _dirty = false; }
                 finally { ApplyingSnapshot = false; }
             }
             _world.Apply(scene, HasSnapshot ? Snapshot.ServerTick : null);
@@ -166,7 +172,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private void ApplySnapshot()
+        private void ApplySnapshot(Scene scene)
         {
             int occupied = 0;
             foreach (SnapshotPlayer state in Players)
@@ -190,15 +196,15 @@ namespace MphRead.Mods.Network
                 if ((occupied & (1 << slot)) == 0 && _identities[slot] != 0)
                 {
                     PlayerEntity.Players[slot].ServerDeactivate();
-                    NetScoreboard.ForgetSlot(slot);
+                    NetScoreboard.ForgetSlot(scene, slot);
                     _identities[slot] = 0;
                 }
             }
             foreach (SnapshotPlayer state in Players)
             {
-                GameState.Points[state.Slot] = state.Points;
-                GameState.Kills[state.Slot] = state.Kills;
-                GameState.Deaths[state.Slot] = state.Deaths;
+                scene.Match.Players[state.Slot].Points = state.Points;
+                scene.Match.Players[state.Slot].Kills = state.Kills;
+                scene.Match.Players[state.Slot].Deaths = state.Deaths;
             }
             PlayerEntity.PlayerCount = PlayerCount;
         }

@@ -132,23 +132,31 @@ namespace MphRead.Mods.Network
                         { octolith.ApplyWorldState(state); }
                         break;
                     case WorldRecordKind.Match:
-                        GameState.MatchTime = state.Position.X; GameState.TimeGoal = state.Position.Y;
-                        GameState.MatchState = (MatchState)state.B; GameState.PointGoal = unchecked((int)state.C);
-                        GameState.PrimeHunter = unchecked((int)state.D);
+                        scene.Match.MatchTime = state.Position.X;
+                        MatchRules rules = scene.Match.Rules;
+                        int pointGoal = unchecked((int)state.C);
+                        if (rules.LegacyTimeGoal != state.Position.Y || rules.LegacyPointGoal != pointGoal)
+                        {
+                            scene.Match.ApplyRules(rules.With(objectiveTimeGoal: TimeSpan.FromSeconds(state.Position.Y),
+                                startingLives: rules.IsSurvival ? pointGoal : null,
+                                scoreGoal: rules.IsSurvival ? null : pointGoal));
+                        }
+                        scene.Match.LegacyState = (MatchState)state.B;
+                        scene.Match.PrimeHunter = unchecked((int)state.D);
                         break;
                     case WorldRecordKind.Score:
                         if (!playerSnapshotTick.HasValue || ServerTick == playerSnapshotTick.Value || Sequence32.IsNewer(ServerTick, playerSnapshotTick.Value))
                         {
-                            GameState.Points[state.Slot] = unchecked((int)state.A); GameState.Kills[state.Slot] = unchecked((int)state.B);
-                            GameState.Deaths[state.Slot] = unchecked((int)state.C);
+                            scene.Match.Players[state.Slot].Points = unchecked((int)state.A); scene.Match.Players[state.Slot].Kills = unchecked((int)state.B);
+                            scene.Match.Players[state.Slot].Deaths = unchecked((int)state.C);
                         }
-                        GameState.TeamPoints[state.Slot] = unchecked((int)state.D);
-                        GameState.TeamKills[state.Slot] = unchecked((int)state.E);
+                        scene.Match.TeamPoints[state.Slot] = unchecked((int)state.D);
+                        scene.Match.TeamKills[state.Slot] = unchecked((int)state.E);
                         break;
                     case WorldRecordKind.Time:
-                        GameState.TeamDeaths[state.Slot] = unchecked((int)state.A); GameState.Time[state.Slot] = WorldRecord.Float(state.B);
-                        GameState.TeamTime[state.Slot] = WorldRecord.Float(state.C); GameState.NodesCaptured[state.Slot] = unchecked((int)state.D);
-                        GameState.OctolithScores[state.Slot] = unchecked((int)state.E);
+                        scene.Match.TeamDeaths[state.Slot] = unchecked((int)state.A); scene.Match.Players[state.Slot].Time = WorldRecord.Float(state.B);
+                        scene.Match.TeamTime[state.Slot] = WorldRecord.Float(state.C); scene.Match.Players[state.Slot].NodesCaptured = unchecked((int)state.D);
+                        scene.Match.Players[state.Slot].OctolithScores = unchecked((int)state.E);
                         break;
                 }
             }

@@ -335,18 +335,18 @@ namespace MphRead.Mods.Network
         /// runs on the victim and moves the *attacker's* row. Here the
         /// ordering does not matter.
         /// </summary>
-        private static void SaveScores()
+        private static void SaveScores(Scene scene)
         {
-            Array.Copy(GameState.Points, _savedPoints, Slots);
-            Array.Copy(GameState.Kills, _savedKills, Slots);
-            Array.Copy(GameState.Deaths, _savedDeaths, Slots);
+            for (int slot = 0; slot < Slots; slot++) { _savedPoints[slot] = scene.Match.Players[slot].Points; }
+            for (int slot = 0; slot < Slots; slot++) { _savedKills[slot] = scene.Match.Players[slot].Kills; }
+            for (int slot = 0; slot < Slots; slot++) { _savedDeaths[slot] = scene.Match.Players[slot].Deaths; }
         }
 
-        private static void RestoreScores()
+        private static void RestoreScores(Scene scene)
         {
-            Array.Copy(_savedPoints, GameState.Points, Slots);
-            Array.Copy(_savedKills, GameState.Kills, Slots);
-            Array.Copy(_savedDeaths, GameState.Deaths, Slots);
+            for (int slot = 0; slot < Slots; slot++) { scene.Match.Players[slot].Points = _savedPoints[slot]; }
+            for (int slot = 0; slot < Slots; slot++) { scene.Match.Players[slot].Kills = _savedKills[slot]; }
+            for (int slot = 0; slot < Slots; slot++) { scene.Match.Players[slot].Deaths = _savedDeaths[slot]; }
         }
 
         /// <summary>Fill a snapshot entry for one slot.</summary>
@@ -371,7 +371,7 @@ namespace MphRead.Mods.Network
         /// stands: a client joining a match in progress would otherwise open
         /// with a burst of damage for every hit landed before it arrived.
         /// </summary>
-        public static void Replay(PlayerEntity player, in PlayerState state)
+        public static void Replay(Scene scene, PlayerEntity player, in PlayerState state)
         {
             int slot = player.SlotIndex;
             if (slot < 0 || slot >= Slots)
@@ -442,14 +442,14 @@ namespace MphRead.Mods.Network
             Vector3? direction = impulse == Vector3.Zero ? null : impulse;
             Replaying = true;
             ReplayBeam = state.DamageBeam == NoBeam ? BeamType.None : (BeamType)state.DamageBeam;
-            SaveScores();
+            SaveScores(scene);
             try
             {
                 player.TakeDamage((uint)amount, flags, direction, attacker);
             }
             finally
             {
-                RestoreScores();
+                RestoreScores(scene);
                 Replaying = false;
                 ReplayBeam = BeamType.None;
             }

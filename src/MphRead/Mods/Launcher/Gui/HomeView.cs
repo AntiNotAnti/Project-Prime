@@ -1840,7 +1840,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _matchNote.Text = $"Starting a server on port {LauncherPrefs.HostPort}...";
                 ok = await Task.Run(() => NetHostSession.StartAndJoin(
-                    LauncherPrefs.HostPort, name, hunter, roomKey, mode,
+                    _settings.FriendlyFire == "on", LauncherPrefs.HostPort, name, hunter, roomKey, mode,
                     timeLimit: 7 * 60, pointGoal: 7,
                     listing: _matchListed.On
                         ? (LauncherPrefs.MasterHost, LauncherPrefs.MasterPort, $"{name}'s game")

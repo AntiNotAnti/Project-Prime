@@ -49,9 +49,9 @@ internal static class MatchBaselineCheck
             }
             Require(carried != null, mode + " pickup did not acquire a flag");
             carried!.OnCaptured();
-            GameState.UpdateState();
-            Require(GameState.Points[0] == 1 && GameState.OctolithScores[0] == 1
-                && GameState.TeamPoints[player.TeamIndex] == 1 && carried.Carrier == null,
+            scene.Match.Logic.UpdateState();
+            Require(scene.Match.Points[0] == 1 && scene.Match.OctolithScores[0] == 1
+                && scene.Match.TeamPoints[player.TeamIndex] == 1 && carried.Carrier == null,
                 mode + " capture must award one point and release the carrier");
         }
         if (mode is GameMode.Nodes or GameMode.NodesTeams or GameMode.Defender or GameMode.DefenderTeams)
@@ -76,46 +76,46 @@ internal static class MatchBaselineCheck
             opponent.ModRefreshNodeRef(old);
             if (mode is GameMode.Defender or GameMode.DefenderTeams)
             {
-                float before = GameState.TeamTime[player.TeamIndex];
+                float before = scene.Match.TeamTime[player.TeamIndex];
                 node.Process();
-                Require(MathF.Abs(GameState.TeamTime[player.TeamIndex] - before - scene.FrameTime) < 0.00001f,
+                Require(MathF.Abs(scene.Match.TeamTime[player.TeamIndex] - before - scene.FrameTime) < 0.00001f,
                     mode + " uncontested occupancy must award exactly one frame of defense time");
                 old = opponent.Position;
                 opponent.Position = center - (opponent.Volume.SpherePosition - old);
                 opponent.ModRefreshNodeRef(old);
-                before = GameState.TeamTime[player.TeamIndex];
+                before = scene.Match.TeamTime[player.TeamIndex];
                 node.Process();
-                Require(node.Contested && GameState.TeamTime[player.TeamIndex] == before,
+                Require(node.Contested && scene.Match.TeamTime[player.TeamIndex] == before,
                     mode + " contested occupancy must not award time");
             }
             else
             {
                 for (int tick = 0; tick < 602; tick++) { node.Process(); }
-                Require(node.CapturedPlayer == player && GameState.NodesCaptured[0] == 1,
+                Require(node.CapturedPlayer == player && scene.Match.NodesCaptured[0] == 1,
                     mode + " occupancy must capture the node");
                 // Complete seeds the score timer at its threshold, awarding a point on the capture frame.
-                Require(GameState.Points[0] == 1, mode + " capture must immediately award one point");
+                Require(scene.Match.Points[0] == 1, mode + " capture must immediately award one point");
                 old = player.Position;
                 player.Position = center + Vector3.UnitX * 30;
                 player.ModRefreshNodeRef(old);
                 for (int tick = 0; tick < 302; tick++) { node.Process(); }
-                Require(GameState.Points[0] == 2, mode + " captured node must award another point after five seconds");
-                GameState.UpdateState();
-                Require(GameState.TeamPoints[player.TeamIndex] == 2, mode + " node points must aggregate to team");
+                Require(scene.Match.Points[0] == 2, mode + " captured node must award another point after five seconds");
+                scene.Match.Logic.UpdateState();
+                Require(scene.Match.TeamPoints[player.TeamIndex] == 2, mode + " node points must aggregate to team");
             }
         }
-        Array.Clear(GameState.Points); Array.Clear(GameState.Kills); Array.Clear(GameState.Deaths);
+        Array.Clear(scene.Match.Points); Array.Clear(scene.Match.Kills); Array.Clear(scene.Match.Deaths);
         player.Health = 100; opponent.Health = 100;
         opponent.TakeDamage(1000, DamageFlags.Death | DamageFlags.IgnoreInvuln, null, player);
-        GameState.UpdateState();
-        Require(opponent.Health == 0 && GameState.Deaths[1] == 1 && GameState.Kills[0] == 1,
+        scene.Match.Logic.UpdateState();
+        Require(opponent.Health == 0 && scene.Match.Deaths[1] == 1 && scene.Match.Kills[0] == 1,
             mode + " actual lethal damage must record one kill and death");
         int expected = mode is GameMode.Battle or GameMode.BattleTeams ? 1 : 0;
-        Require(GameState.Points[0] == expected && GameState.TeamPoints[player.TeamIndex] == expected,
+        Require(scene.Match.Points[0] == expected && scene.Match.TeamPoints[player.TeamIndex] == expected,
             mode + " kill point award differs from baseline");
         if (mode == GameMode.PrimeHunter)
         {
-            Require(GameState.PrimeHunter == 0 && GameState.PrimesKilled[0] == 1,
+            Require(scene.Match.PrimeHunter == 0 && scene.Match.PrimesKilled[0] == 1,
                 "First PrimeHunter kill must establish the holder and count PrimesKilled even without a previous prime");
         }
         Console.WriteLine($"MATCH_BASELINE mode={mode} killPoints={expected} kills=1 deaths=1 PASS");

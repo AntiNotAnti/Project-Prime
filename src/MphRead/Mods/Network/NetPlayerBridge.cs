@@ -145,7 +145,7 @@ namespace MphRead.Mods.Network
         }
 
         /// <summary>Apply recorded state; playback has no locally owned player.</summary>
-        public static void ApplyState(PlayerEntity player, in PlayerState state)
+        public static void ApplyState(Scene scene, PlayerEntity player, in PlayerState state)
         {
             if (!Sane(state.Position) || !Sane(state.Speed) || !Sane(state.Facing))
             {
@@ -157,17 +157,17 @@ namespace MphRead.Mods.Network
             bool spawned = (state.Flags & PlayerState.FlagSpawned) != 0;
             bool wasInPlay = player.LoadFlags.TestFlag(LoadFlags.Spawned) && player.Health > 0;
             int slot = player.SlotIndex;
-            if (slot >= 0 && slot < GameState.Points.Length && !NetRoomChange.Settling)
+            if (slot >= 0 && slot < scene.Match.Players.Count && !NetRoomChange.Settling)
             {
-                GameState.Points[slot] = state.Points;
-                GameState.Kills[slot] = state.Kills;
-                GameState.Deaths[slot] = state.Deaths;
+                scene.Match.Players[slot].Points = state.Points;
+                scene.Match.Players[slot].Kills = state.Kills;
+                scene.Match.Players[slot].Deaths = state.Deaths;
             }
             // Before health is reconciled, because the engine's damage
             // feedback is produced by the hit rather than by the number: a
             // client that only assigned the new health showed a bar dropping
             // in silence, with no indicator, no animation and no kill banner.
-            NetDamage.Replay(player, state);
+            NetDamage.Replay(scene, player, state);
             if (!spawned)
             {
                 // Waiting to be placed, or just killed. Health is the whole

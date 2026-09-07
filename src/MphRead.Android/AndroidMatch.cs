@@ -34,20 +34,11 @@ namespace MphRead.Droid
             }
             Menu.SaveSlot = 0;
             var scene = new Scene(size, input.Keyboard, input.Mouse, _ => { }, close);
-            try
-            {
-                bool teamPlay = GameState.IsTeamMode(room.Value.Mode);
-                NetLaunch.BuildPlayers(scene, plan.Hunter, localRecolor: 0,
-                    teamId: teamPlay ? 0 : -1);
-                scene.AddRoom(room.Value.RoomKey, room.Value.Mode, playerCount: NetLaunch.RoomPlayerCount);
-                return scene;
-            }
-            catch
-            {
-                // BuildScene cannot release a scene that failed before being returned.
-                GameState.UnbindScene(scene);
-                throw;
-            }
+            bool teamPlay = room.Value.Mode.IsTeamMode();
+            NetLaunch.BuildPlayers(scene, plan.Hunter, localRecolor: 0,
+                teamId: teamPlay ? 0 : -1);
+            scene.AddRoom(room.Value.RoomKey, room.Value.Mode, playerCount: NetLaunch.RoomPlayerCount);
+            return scene;
         }
 
         /// <summary>
@@ -85,19 +76,10 @@ namespace MphRead.Droid
             }
             Menu.SaveSlot = 0;
             var scene = new Scene(size, input.Keyboard, input.Mouse, _ => { }, close);
-            try
-            {
-                NetLaunch.BuildPlayers(scene, Hunter.Samus, localRecolor: 0, teamId: -1, localSlot: -1);
-                scene.AddRoom(room.Value.RoomKey, room.Value.Mode, playerCount: NetLaunch.RoomPlayerCount);
-                Console.WriteLine($"[match] demo, {room.Value.RoomKey}");
-                return scene;
-            }
-            catch
-            {
-                // BuildScene cannot release a scene that failed before being returned.
-                GameState.UnbindScene(scene);
-                throw;
-            }
+            NetLaunch.BuildPlayers(scene, Hunter.Samus, localRecolor: 0, teamId: -1, localSlot: -1);
+            scene.AddRoom(room.Value.RoomKey, room.Value.Mode, playerCount: NetLaunch.RoomPlayerCount);
+            Console.WriteLine($"[match] demo, {room.Value.RoomKey}");
+            return scene;
         }
     }
 }

@@ -423,7 +423,7 @@ namespace MphRead.Mods.Launcher
                 LauncherPrefs.ListHostedGame = listed;
                 LauncherPrefs.Save();
                 Console.WriteLine($"  Starting a server on port {port}...");
-                if (!NetHostSession.StartAndJoin(port, name, hunter, roomKey, mode,
+                if (!NetHostSession.StartAndJoin(settings.FriendlyFire == "on", port, name, hunter, roomKey, mode,
                     timeLimit: 7 * 60, pointGoal: 7,
                     listing: listed
                         ? (LauncherPrefs.MasterHost, LauncherPrefs.MasterPort, $"{name}'s game")
