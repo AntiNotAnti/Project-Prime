@@ -99,7 +99,7 @@ namespace MphRead.Entities
 
         public void ShowDamageIndicator(int index)
         {
-            _damageIndicatorTimers[index] = 63 * 2;
+            _damageIndicatorTimers[index] = (ushort)SimTicks.From30HzFrames(63);
         }
 
         public void StartBoostPresentation()

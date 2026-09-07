@@ -509,8 +509,8 @@ namespace MphRead.Entities
             {
                 // note: the game uses index 1, not index 2, for out-of-range bot levels
                 int index = Math.Clamp(_player.BotLevel, 0, 2);
-                _field102C = _botLevelRandomValues1[index][(int)_player.Hunter] * 2; // todo: FPS stuff
-                _field1030 = _botLevelRandomValues2[index] * 2; // todo: FPS stuff
+                _field102C = _botLevelRandomValues1[index][(int)_player.Hunter] * SimTicks.TicksPer30HzFrame;
+                _field1030 = _botLevelRandomValues2[index] * SimTicks.TicksPer30HzFrame;
 
             }
 
@@ -1057,7 +1057,7 @@ namespace MphRead.Entities
                 {
                     AiPlayerAggro aggro = _playerAggro[i];
                     aggro.Staleness++;
-                    if (aggro.Staleness > aggro.Expiration * 2) // sktodo-ai: FPS stuff? review Field6 (expiration) changes
+                    if (aggro.Staleness > SimTicks.From30HzFrames(aggro.Expiration)) // sktodo-ai: FPS stuff? review Field6 (expiration) changes
                     {
                         AiPlayerAggro last = _playerAggro[_playerAggroCount - 1];
                         aggro.VarA2 = last.VarA2;
@@ -1219,7 +1219,7 @@ namespace MphRead.Entities
                 ExecuteFuncs1(context.Data1.Data3b);
                 ExecuteFuncs2(context);
                 if (context.Func24Id != 0 && _player.EquipWeapon.Flags.TestFlag(WeaponFlags.CanZoom)
-                    && _buttons.Select.FramesUp > 5 * 2 // todo: FPS stuff
+                    && _buttons.Select.FramesUp > SimTicks.From30HzFrames(5)
                     && (!_player.EquipInfo.Zoomed && Flags4.TestFlag(AiFlags4.Bit2)
                     || _player.EquipInfo.Zoomed && !Flags4.TestFlag(AiFlags4.Bit2)))
                 {
@@ -3055,7 +3055,7 @@ namespace MphRead.Entities
             {
                 if (!_player.IsAltForm)
                 {
-                    if (_touchButtons.Morph.FramesUp > 10 * 2) // todo: FPS stuff
+                    if (_touchButtons.Morph.FramesUp > SimTicks.From30HzFrames(10))
                     {
                         _touchButtons.Morph.IsDown = true;
                     }
@@ -3075,7 +3075,7 @@ namespace MphRead.Entities
                 }
                 else if (context.FieldD == 29 && !_player.IsAltForm && context.Field4 != 37)
                 {
-                    if (_touchButtons.Morph.FramesUp > 10 * 2) // todo: FPS stuff
+                    if (_touchButtons.Morph.FramesUp > SimTicks.From30HzFrames(10))
                     {
                         _touchButtons.Morph.IsDown = true;
                     }
@@ -3219,10 +3219,10 @@ namespace MphRead.Entities
                         Func214003C(context);
                     }
                     if (context.Field6 == 52 && !_player.IsAltForm && !_player.IsMorphing
-                        && !_player.Flags1.TestFlag(PlayerFlags1.UsedJump) && _buttons.L.FramesUp > 5 * 2) // todo: FPS stuff
+                        && !_player.Flags1.TestFlag(PlayerFlags1.UsedJump) && _buttons.L.FramesUp > SimTicks.From30HzFrames(5))
                     {
                         AiPlayerAggro? aggro = AggroFunc214847C(4, 7, 1, null, null);
-                        if (aggro != null && aggro.Staleness < 30 * 2) // sktodo-ai: FPS stuff? review this and Field6
+                        if (aggro != null && aggro.Staleness < SimTicks.From30HzFrames(30)) // sktodo-ai: FPS stuff? review this and Field6
                         {
                             Debug.Assert(_node40 != null);
                             Vector3 toNode = _node40.Position - _player.Position;
@@ -3348,7 +3348,7 @@ namespace MphRead.Entities
                             }
                             if (!_player.IsMorphing && !_player.IsUnmorphing)
                             {
-                                if (_player._horizColTimer > 10 * 2 && _player.Flags1.TestFlag(PlayerFlags1.Grounded)) // todo: FPS stuff
+                                if (_player._horizColTimer > SimTicks.From30HzFrames(10) && _player.Flags1.TestFlag(PlayerFlags1.Grounded))
                                 {
                                     PressL();
                                 }
@@ -3456,7 +3456,7 @@ namespace MphRead.Entities
                     if (context.FieldF == 65)
                     {
                         if (_player._abilities.TestFlag(AbilityFlags.Bombs)
-                            && _player._bombCooldown == 0 && _buttons.L.FramesUp > 60 * 2) // todo: FPS stuff
+                            && _player._bombCooldown == 0 && _buttons.L.FramesUp > SimTicks.From30HzFrames(60))
                         {
                             _buttons.L.IsDown = true;
                         }
@@ -3534,7 +3534,7 @@ namespace MphRead.Entities
                 {
                     context.Field40++;
                 }
-                if (context.Field40 < 15 * 2) // todo: FPS stuff
+                if (context.Field40 < SimTicks.From30HzFrames(15))
                 {
                     return false;
                 }
@@ -3623,7 +3623,7 @@ namespace MphRead.Entities
                         }
                     }
                 }
-                else if (_touchButtons.Morph.FramesUp > 10 * 2) // todo: FPS stuff
+                else if (_touchButtons.Morph.FramesUp > SimTicks.From30HzFrames(10))
                 {
                     _touchButtons.Morph.IsDown = true;
                 }
@@ -3646,7 +3646,7 @@ namespace MphRead.Entities
                         bool spawnBomb = false;
                         if (_player.SyluxBombCount == 0)
                         {
-                            spawnBomb = _buttons.L.FramesUp > 1 * 2; // todo: FPS stuff
+                            spawnBomb = _buttons.L.FramesUp > SimTicks.From30HzFrames(1);
                         }
                         else if (_player.SyluxBombCount == 1 || _player.SyluxBombCount == 2)
                         {
@@ -3687,7 +3687,7 @@ namespace MphRead.Entities
                         }
                     }
                 }
-                else if (_touchButtons.Morph.FramesUp > 10 * 2) // todo: FPS stuff
+                else if (_touchButtons.Morph.FramesUp > SimTicks.From30HzFrames(10))
                 {
                     _touchButtons.Morph.IsDown = true;
                 }
@@ -3697,11 +3697,11 @@ namespace MphRead.Entities
             private void Func2142FC0()
             {
                 // the game checks flags2 bit2 first, but we only call this helper inside that condition
-                if (_buttons.A.FramesDown < 180 * 2 && _buttons.Y.FramesUp != 0) // todo: FPS stuff
+                if (_buttons.A.FramesDown < SimTicks.From30HzFrames(180) && _buttons.Y.FramesUp != 0)
                 {
                     _buttons.A.IsDown = true;
                 }
-                else if (_buttons.Y.FramesDown < 180 * 2) // todo: FPS stuff
+                else if (_buttons.Y.FramesDown < SimTicks.From30HzFrames(180))
                 {
                     _buttons.Y.IsDown = true;
                 }
@@ -3719,7 +3719,7 @@ namespace MphRead.Entities
 
             private void Func2_213E148(AiContext context)
             {
-                if (!_player.IsAltForm && _touchButtons.Morph.FramesUp > 10 * 2) // todo: FPS stuff
+                if (!_player.IsAltForm && _touchButtons.Morph.FramesUp > SimTicks.From30HzFrames(10))
                 {
                     _touchButtons.Morph.IsDown = true;
                 }
@@ -3845,7 +3845,7 @@ namespace MphRead.Entities
                 {
                     _touchButtons.Imperialist.IsDown = true;
                 }
-                else if (_buttons.R.FramesUp > 10 * 2) // todo: FPs stuff
+                else if (_buttons.R.FramesUp > SimTicks.From30HzFrames(10))
                 {
                     _buttons.R.IsDown = true;
                 }
@@ -3876,7 +3876,7 @@ namespace MphRead.Entities
                         Func2140094(context);
                     }
                     if (_player._abilities.TestFlag(AbilityFlags.Bombs) && _player._bombAmmo > 0
-                        && _player._bombCooldown == 0 && _buttons.L.FramesUp > 1 * 2) // todo: FPS stuff
+                        && _player._bombCooldown == 0 && _buttons.L.FramesUp > SimTicks.From30HzFrames(1))
                     {
                         if (distSqr >= 10 * 10 || _player.SyluxBombCount != 0)
                         {
@@ -3886,12 +3886,12 @@ namespace MphRead.Entities
                                 _buttons.Y.IsDown = true;
                                 _buttons.X.IsDown = false;
                                 _buttons.B.IsDown = false;
-                                if (_buttons.Y.FramesDown > 10 * 2 && _buttons.L.FramesUp != 0) // todo: FPS stuff
+                                if (_buttons.Y.FramesDown > SimTicks.From30HzFrames(10) && _buttons.L.FramesUp != 0)
                                 {
                                     _buttons.L.IsDown = true;
                                 }
                             }
-                            else if (_player.SyluxBombCount == 2 && _buttons.L.FramesUp > 150 * 2) // todo: FPS stuff
+                            else if (_player.SyluxBombCount == 2 && _buttons.L.FramesUp > SimTicks.From30HzFrames(150))
                             {
                                 _buttons.L.IsDown = true;
                             }
@@ -3902,14 +3902,14 @@ namespace MphRead.Entities
                             _buttons.Y.IsDown = false;
                             _buttons.X.IsDown = false;
                             _buttons.B.IsDown = false;
-                            if (_buttons.A.FramesDown > 10 * 2 && _buttons.L.FramesUp != 0) // todo: FPS stuff
+                            if (_buttons.A.FramesDown > SimTicks.From30HzFrames(10) && _buttons.L.FramesUp != 0)
                             {
                                 _buttons.L.IsDown = true;
                             }
                         }
                     }
                 }
-                else if (_touchButtons.Morph.FramesUp > 10 * 2) // todo: FPS stuff
+                else if (_touchButtons.Morph.FramesUp > SimTicks.From30HzFrames(10))
                 {
                     _touchButtons.Morph.IsDown = true;
                 }
@@ -3957,7 +3957,7 @@ namespace MphRead.Entities
                     Func21436D8();
                 }
                 if (Flags2.TestFlag(AiFlags2.Bit10) && Rng.GetRandomInt2(10) == 0 && !_player.IsAltForm && !_player.IsMorphing
-                    && !_player.Flags1.TestFlag(PlayerFlags1.UsedJump) && _buttons.L.FramesUp > 5 * 2) // todo: FPS stuff
+                    && !_player.Flags1.TestFlag(PlayerFlags1.UsedJump) && _buttons.L.FramesUp > SimTicks.From30HzFrames(5))
                 {
                     _buttons.L.IsDown = true;
                 }
@@ -3966,7 +3966,7 @@ namespace MphRead.Entities
             // todo: member name
             private void Func2142D38()
             {
-                if (_buttons.Y.FramesUp > 30 * 2 || _buttons.Y.FramesDown < 30 * 2 && _buttons.Y.FramesDown != 0) // todo: FPS stuff
+                if (_buttons.Y.FramesUp > SimTicks.From30HzFrames(30) || _buttons.Y.FramesDown < SimTicks.From30HzFrames(30) && _buttons.Y.FramesDown != 0)
                 {
                     _buttons.Y.IsDown = true;
                 }
@@ -3974,7 +3974,7 @@ namespace MphRead.Entities
                 {
                     _buttons.A.IsDown = true;
                 }
-                if (_buttons.X.FramesUp > 15 * 2 || _buttons.X.FramesDown < 15 * 2 && _buttons.X.FramesDown != 0) // todo: FPS stuff
+                if (_buttons.X.FramesUp > SimTicks.From30HzFrames(15) || _buttons.X.FramesDown < SimTicks.From30HzFrames(15) && _buttons.X.FramesDown != 0)
                 {
                     _buttons.X.IsDown = true;
                 }
@@ -3996,7 +3996,7 @@ namespace MphRead.Entities
                 if (!_player.Flags1.TestFlag(PlayerFlags1.UsedJump) && _buttons.L.FramesUp > _field1034)
                 {
                     _buttons.L.IsDown = true;
-                    _field1034 = Rng.GetRandomInt2(75 * 2) + 15 * 2; // todo: FPS stuff
+                    _field1034 = Rng.GetRandomInt2(SimTicks.From30HzFrames(75)) + (uint)SimTicks.From30HzFrames(15);
                 }
             }
 
@@ -4058,7 +4058,7 @@ namespace MphRead.Entities
                 if (!_player.Flags1.TestFlag(PlayerFlags1.UsedJump) && _buttons.L.FramesUp > _field1034)
                 {
                     _buttons.L.IsDown = true;
-                    _field1034 = Rng.GetRandomInt2(75 * 2) + 15 * 2; // todo: FPS stuff
+                    _field1034 = Rng.GetRandomInt2(SimTicks.From30HzFrames(75)) + (uint)SimTicks.From30HzFrames(15);
                 }
             }
 
@@ -4067,7 +4067,7 @@ namespace MphRead.Entities
             {
                 // the game checks flags2 bit3 first, but we only call this helper inside that condition
                 Debug.Assert(_targetHalfturret != null);
-                if (_buttons.Y.FramesDown > 30 * 2 || _buttons.A.FramesDown < 60 * 2 && _buttons.A.FramesDown != 0) // todo: FPS stuff
+                if (_buttons.Y.FramesDown > SimTicks.From30HzFrames(30) || _buttons.A.FramesDown < SimTicks.From30HzFrames(60) && _buttons.A.FramesDown != 0)
                 {
                     _buttons.A.IsDown = true;
                 }
@@ -4098,7 +4098,7 @@ namespace MphRead.Entities
                 if (!_player.Flags1.TestFlag(PlayerFlags1.UsedJump) && _buttons.L.FramesUp > _field1034)
                 {
                     _buttons.L.IsDown = true;
-                    _field1034 = Rng.GetRandomInt2(75 * 2) + 15 * 2; // todo: FPS stuff
+                    _field1034 = Rng.GetRandomInt2(SimTicks.From30HzFrames(75)) + (uint)SimTicks.From30HzFrames(15);
                 }
             }
 
@@ -4114,9 +4114,9 @@ namespace MphRead.Entities
                     Func2142ABC(_node40.Position);
                     Field118++;
                     // todo: FPS stuff
-                    if (!_player.Flags1.TestFlag(PlayerFlags1.UsedJump) && _buttons.L.FramesUp > 5 * 2
+                    if (!_player.Flags1.TestFlag(PlayerFlags1.UsedJump) && _buttons.L.FramesUp > SimTicks.From30HzFrames(5)
                         && (_player._standTerrain == Terrain.Lava
-                        || _player._horizColTimer > 10 * 2 && _player.Flags1.TestFlag(PlayerFlags1.Grounded)))
+                        || _player._horizColTimer > SimTicks.From30HzFrames(10) && _player.Flags1.TestFlag(PlayerFlags1.Grounded)))
                     {
                         _buttons.L.IsDown = true;
                     }
@@ -4643,18 +4643,18 @@ namespace MphRead.Entities
 
             private int Func3_213CA70(AiContext context, AiPersonalityData5 param)
             {
-                return Field118 >= 151 * 2 ? 1 : 0; // todo: FPS stuff
+                return Field118 >= SimTicks.From30HzFrames(151) ? 1 : 0;
             }
 
             private int Func3_213CA58(AiContext context, AiPersonalityData5 param)
             {
-                return Field118 > param.Param1 * 2 ? 1 : 0; // todo: FPS stuff
+                return Field118 > param.Param1 * SimTicks.TicksPer30HzFrame ? 1 : 0;
             }
 
             private int Func3_213CA2C(AiContext context, AiPersonalityData5 param)
             {
                 // sktodo: does this call count really need to be multiplied by 2? // todo: FPS stuff
-                return _executionTree[context.Depth + 1].CallCount > (param.Param1 * 2) ? 1 : 0;
+                return _executionTree[context.Depth + 1].CallCount > (param.Param1 * SimTicks.TicksPer30HzFrame) ? 1 : 0;
             }
 
             private int Func3_213CA00(AiContext context, AiPersonalityData5 param)
@@ -4742,7 +4742,7 @@ namespace MphRead.Entities
             private int Func3_213C600(AiContext context, AiPersonalityData5 param)
             {
                 // sktodo: does this call count really need to be multiplied by 2? // todo: FPS stuff
-                return _player.Hunter == Hunter.Sylux && _executionTree[context.Depth + 1].CallCount > (120 * 2) ? 1 : 0;
+                return _player.Hunter == Hunter.Sylux && _executionTree[context.Depth + 1].CallCount > (SimTicks.From30HzFrames(120)) ? 1 : 0;
             }
 
             private int Func3_213C52C(AiContext context, AiPersonalityData5 param)
@@ -5674,7 +5674,7 @@ namespace MphRead.Entities
 
             private int Func3_213A868(AiContext context, AiPersonalityData5 param)
             {
-                return _player._timeSinceGrounded > 30 * 2 ? 1 : 0; // todo: FPS stuff
+                return _player._timeSinceGrounded > SimTicks.From30HzFrames(30) ? 1 : 0;
             }
 
             private int Func3_213A844(AiContext context, AiPersonalityData5 param)
@@ -5718,7 +5718,7 @@ namespace MphRead.Entities
 
             private int Func3_213A714(AiContext context, AiPersonalityData5 param)
             {
-                return _player._horizColTimer > 10 * 2 ? 1 : 0; // todo: FPS stuff
+                return _player._horizColTimer > SimTicks.From30HzFrames(10) ? 1 : 0;
             }
 
             private int Func3_213A698(AiContext context, AiPersonalityData5 param)
@@ -6240,7 +6240,7 @@ namespace MphRead.Entities
                     _field9C = 0.5f;
                 }
                 if (context.Field6 == 51 && !_player.IsAltForm && !_player.IsMorphing
-                    && !_player.Flags1.TestFlag(PlayerFlags1.UsedJump) && _buttons.L.FramesUp > 5 * 2) // todo: FPS stuff
+                    && !_player.Flags1.TestFlag(PlayerFlags1.UsedJump) && _buttons.L.FramesUp > SimTicks.From30HzFrames(5))
                 {
                     _buttons.L.IsDown = true;
                 }
@@ -6455,7 +6455,7 @@ namespace MphRead.Entities
 
             private void CheckUnmorph()
             {
-                if (_player.IsAltForm && _touchButtons.Unmorph.FramesUp > 10 * 2) // todo: FPS stuff
+                if (_player.IsAltForm && _touchButtons.Unmorph.FramesUp > SimTicks.From30HzFrames(10))
                 {
                     _touchButtons.Unmorph.IsDown = true;
                 }
@@ -6582,15 +6582,15 @@ namespace MphRead.Entities
                     }
                     if (_player.BotLevel == 0)
                     {
-                        _field1020 = 15 * 2; // todo: FPS stuff
+                        _field1020 = SimTicks.From30HzFrames(15);
                     }
                     else if (_player.BotLevel == 1)
                     {
-                        _field1020 = 7 * 2; // todo: FPS stuff
+                        _field1020 = SimTicks.From30HzFrames(7);
                     }
                     else
                     {
-                        _field1020 = 3 * 2; // todo: FPS stuff
+                        _field1020 = SimTicks.From30HzFrames(3);
                     }
                     if (_field1020 < _player._disruptedTimer)
                     {
@@ -6606,14 +6606,14 @@ namespace MphRead.Entities
                         if (weapon.Flags.TestFlag(WeaponFlags.PartialCharge))
                         {
                             if (weapon.Flags.TestFlag(WeaponFlags.CanCharge)
-                                && equip.ChargeLevel >= weapon.MinCharge * 2) // todo: FPS stuff
+                                && equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.MinCharge))
                             {
                                 isCharged = true;
                                 // todo: FPS stuff
-                                chargePct = (equip.ChargeLevel - weapon.MinCharge * 2) / (float)(weapon.FullCharge * 2 - weapon.MinCharge * 2);
+                                chargePct = (equip.ChargeLevel - SimTicks.From30HzFrames(weapon.MinCharge)) / (float)(SimTicks.From30HzFrames(weapon.FullCharge) - SimTicks.From30HzFrames(weapon.MinCharge));
                             }
                         }
-                        else if (equip.ChargeLevel >= weapon.FullCharge * 2) // todo: FPS stuff
+                        else if (equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.FullCharge))
                         {
                             isCharged = true;
                             chargePct = 1;
@@ -6718,7 +6718,7 @@ namespace MphRead.Entities
                         v52 /= 2;
                         v66 /= 2;
                     }
-                    if (_player.ShockCoilTimer > 10 * 2) // todo: FPS stuff
+                    if (_player.ShockCoilTimer > SimTicks.From30HzFrames(10))
                     {
                         v52 /= 2;
                         v66 /= 2;
@@ -6799,10 +6799,10 @@ namespace MphRead.Entities
                 // sktodo-ai: add a common function for the beam stuff
                 float chargePct = 0;
                 if (weapon.Flags.TestFlag(WeaponFlags.CanCharge)
-                    && equip.ChargeLevel >= weapon.MinCharge * 2) // todo: FPS stuff
+                    && equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.MinCharge))
                 {
                     // todo: FPS stuff
-                    chargePct = (equip.ChargeLevel - weapon.MinCharge * 2) / (float)(weapon.FullCharge * 2 - weapon.MinCharge * 2);
+                    chargePct = (equip.ChargeLevel - SimTicks.From30HzFrames(weapon.MinCharge)) / (float)(SimTicks.From30HzFrames(weapon.FullCharge) - SimTicks.From30HzFrames(weapon.MinCharge));
                 }
                 // todo: bugfix: the game's math is wrong here, using charge pct as a factor between uncharged and min charge values.
                 // it should be a factor between min and max charge values (or uncharged should be used directly for 0% charge).
@@ -6894,7 +6894,7 @@ namespace MphRead.Entities
 
                 void SetRandomDelay()
                 {
-                    _shotDelay = weapon.ShotCooldown * 2 + (int)Rng.GetRandomInt2(shotDelay); // todo: FPS stuff
+                    _shotDelay = SimTicks.From30HzFrames(weapon.ShotCooldown) + (int)Rng.GetRandomInt2(shotDelay);
                 }
 
                 if (beam == BeamType.PowerBeam)
@@ -6906,7 +6906,7 @@ namespace MphRead.Entities
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
                         if (!_player.Flags2.TestFlag(PlayerFlags2.Shooting) && _buttons.R.FramesUp == 0
-                            || equip.ChargeLevel >= weapon.FullCharge * 2) // todo: FPS stuff
+                            || equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.FullCharge))
                         {
                             SetRandomDelay();
                         }
@@ -6926,7 +6926,7 @@ namespace MphRead.Entities
                     else
                     {
                         _buttons.R.IsDown = true;
-                        _shotDelay = (int)Rng.GetRandomInt2(weapon.FullCharge * 2); // todo: FPS stuff
+                        _shotDelay = (int)Rng.GetRandomInt2(SimTicks.From30HzFrames(weapon.FullCharge));
                     }
                 }
                 else if (beam == BeamType.Missile)
@@ -6938,7 +6938,7 @@ namespace MphRead.Entities
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
                         if (!_player.Flags2.TestFlag(PlayerFlags2.Shooting) && _buttons.R.FramesUp <= _shotDelay
-                            || equip.ChargeLevel >= weapon.FullCharge * 2) // todo: FPS stuff
+                            || equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.FullCharge))
                         {
                             SetRandomDelay();
                         }
@@ -6962,7 +6962,7 @@ namespace MphRead.Entities
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
                         if (!_player.Flags2.TestFlag(PlayerFlags2.Shooting) && _buttons.R.FramesUp <= _shotDelay
-                            || equip.ChargeLevel >= weapon.FullCharge * 2) // todo: FPS stuff
+                            || equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.FullCharge))
                         {
                             SetRandomDelay();
                         }
@@ -7008,7 +7008,7 @@ namespace MphRead.Entities
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
                         if (!_player.Flags2.TestFlag(PlayerFlags2.Shooting) && _buttons.R.FramesUp <= _shotDelay
-                            || equip.ChargeLevel >= weapon.FullCharge * 2) // todo: FPS stuff
+                            || equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.FullCharge))
                         {
                             if (Flags2.TestFlag(AiFlags2.TargetPlayer))
                             {
@@ -7051,7 +7051,7 @@ namespace MphRead.Entities
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
                         if (!_player.Flags2.TestFlag(PlayerFlags2.Shooting) && _buttons.R.FramesUp <= _shotDelay
-                            || equip.ChargeLevel >= weapon.FullCharge * 2) // todo: FPS stuff
+                            || equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.FullCharge))
                         {
                             SetRandomDelay();
                         }
@@ -7102,7 +7102,7 @@ namespace MphRead.Entities
                     else
                     {
                         _buttons.R.IsDown = true;
-                        _shotDelay = (int)Rng.GetRandomInt2(weapon.FullCharge * 2); // todo: FPS stuff
+                        _shotDelay = (int)Rng.GetRandomInt2(SimTicks.From30HzFrames(weapon.FullCharge));
                     }
                 }
                 else if (beam == BeamType.OmegaCannon)
@@ -7271,7 +7271,7 @@ namespace MphRead.Entities
 
             private void PressButton(AiButton button, int frames = 0)
             {
-                if (button.FramesUp > frames * 2) // todo: FPS stuff
+                if (button.FramesUp > SimTicks.From30HzFrames(frames))
                 {
                     button.IsDown = true;
                 }
@@ -7281,7 +7281,7 @@ namespace MphRead.Entities
             {
                 // todo?: could add bugfix for checking L instead of Magmaul -- not sure how big the impact is (might lead
                 // to cases where L is treated as held instead of pressed, but only if Magmaul is also down that frame)
-                if (_touchButtons.Magmaul.FramesUp > frames * 2) // todo: FPS stuff
+                if (_touchButtons.Magmaul.FramesUp > SimTicks.From30HzFrames(frames))
                 {
                     _buttons.L.IsDown = true;
                 }
@@ -7297,7 +7297,7 @@ namespace MphRead.Entities
                         && _player.Position.Z > -2 && _player.Position.Z < 2
                         && _player.Speed.Y > 0 && _player.Position.Y - _node40.Position.Y > 1)
                     {
-                        Field118 = 151 * 2; // todo: FPS stuff
+                        Field118 = SimTicks.From30HzFrames(151);
                     }
                     else
                     {
@@ -7452,13 +7452,13 @@ namespace MphRead.Entities
                         Flags2 |= AiFlags2.Bit7;
                         return context.Field24 != 0;
                     }
-                    if (_player._horizColTimer <= 10 * 2 // todo: FPS stuff
-                        || _player.Flags1.TestFlag(PlayerFlags1.Grounded) && _player._horizColTimer <= 60 * 2 // todo: FPS stuff
+                    if (_player._horizColTimer <= SimTicks.From30HzFrames(10)
+                        || _player.Flags1.TestFlag(PlayerFlags1.Grounded) && _player._horizColTimer <= SimTicks.From30HzFrames(60)
                         || _player.IsAltForm || _player.IsMorphing)
                     {
-                        if (_player._horizColTimer > 30 * 2 // todo: FPS stuff
+                        if (_player._horizColTimer > SimTicks.From30HzFrames(30)
                             && _player.Flags1.TestFlag(PlayerFlags1.Grounded) && _player.IsAltForm && !_player.IsUnmorphing
-                            && Field118 > 30 * 2) // todo: FPS stuff
+                            && Field118 > SimTicks.From30HzFrames(30))
                         {
                             _field7A[_field78] = _node40.Id;
                             if (_field78 < 9)
@@ -7487,9 +7487,9 @@ namespace MphRead.Entities
                             Vector3 toNode = _node40.Position - _player.Position;
                             if (toNode.LengthSquared < 0.5f * 0.5f
                                 && _player.Flags1.TestFlag(PlayerFlags1.Grounded)
-                                && Field118 > 30 * 2) // todo: FPS stuff
+                                && Field118 > SimTicks.From30HzFrames(30))
                             {
-                                Field118 = 151 * 2; // todo: FPS stuff
+                                Field118 = SimTicks.From30HzFrames(151);
                             }
                         }
                     }
@@ -7767,12 +7767,12 @@ namespace MphRead.Entities
                     else if (_player.Flags2.TestFlag(PlayerFlags2.SpireClimbing))
                     {
                         // todo: FPS stuff
-                        if (_buttons.Up.FramesUp < 10 * 2 || _buttons.Down.FramesUp < 10 * 2
-                            || _buttons.Left.FramesUp < 10 * 2 || _buttons.Right.FramesUp < 10 * 2)
+                        if (_buttons.Up.FramesUp < SimTicks.From30HzFrames(10) || _buttons.Down.FramesUp < SimTicks.From30HzFrames(10)
+                            || _buttons.Left.FramesUp < SimTicks.From30HzFrames(10) || _buttons.Right.FramesUp < SimTicks.From30HzFrames(10))
                         {
                             return true;
                         }
-                        _field116 = 10 * 2; // todo: FPS stuff
+                        _field116 = SimTicks.From30HzFrames(10);
                     }
                 }
                 return false;
@@ -8066,13 +8066,13 @@ namespace MphRead.Entities
                     {
                         context.Field40++;
                     }
-                    if (context.Field40 >= 12 * 2) // todo: FPS stuff
+                    if (context.Field40 >= SimTicks.From30HzFrames(12))
                     {
                         Vector3 toPlayer = (_player.Position - context.Field34).WithY(0);
                         Vector3 toPos = (position - _player.Position).WithY(0).Normalized();
                         if (Vector3.Dot(toPlayer, toPos) < 1 / 256f)
                         {
-                            context.Field44 = 15 * 2; // todo: FPS stuff
+                            context.Field44 = SimTicks.From30HzFrames(15);
                         }
                         context.Field40 = 0;
                         context.Field34 = _player.Position;
@@ -10039,7 +10039,7 @@ namespace MphRead.Entities
 
             private bool IsNodeInRange(NodeData3 node)
             {
-                if (_player._timeSinceJumpPad > 5 * 2 && IsJumpPadNode(node)) // todo: FPS stuff
+                if (_player._timeSinceJumpPad > SimTicks.From30HzFrames(5) && IsJumpPadNode(node))
                 {
                     return false;
                 }
@@ -11074,7 +11074,7 @@ namespace MphRead.Entities
                                 AggroFunc214864C(4, 2, 1, attacker, null, damage, damage, 2, 2);
                                 if (source.Type == EntityType.BeamProjectile
                                     && ((BeamProjectileEntity)source).Beam == BeamType.ShockCoil
-                                    && attacker.ShockCoilTimer > 10 * 2) // todo: FPS stuff
+                                    && attacker.ShockCoilTimer > SimTicks.From30HzFrames(10))
                                 {
                                     player.AiData.Flags2 |= AiFlags2.Bit21;
                                 }
@@ -11272,7 +11272,7 @@ namespace MphRead.Entities
                                 sb.AppendLine($"w: {weight,6} / 100000 ({pct,5:f1}%) -> {target}");
                                 if (data2.Func3Id >= 70 && data2.Func3Id <= 72)
                                 {
-                                    int param1 = data2.Parameters.Param1 * 2; // todo: FPS stuff
+                                    int param1 = data2.Parameters.Param1 * SimTicks.TicksPer30HzFrame;
                                     int padding = param1.ToString().Length;
                                     string calls = item.CallCount.ToString().PadLeft(padding);
                                     pct = item.CallCount / (float)param1 * 100;

@@ -1268,7 +1268,7 @@ namespace MphRead.Entities
                     _gunModel.AnimInfo.Flags[0] &= ~AnimFlags.Ended;
                 }
             }
-            else if (!Features.NoIdleSway && _timeSinceInput >= (ulong)Values.GunIdleTime * 2) // todo: FPS stuff
+            else if (!Features.NoIdleSway && _timeSinceInput >= (ulong)Values.GunIdleTime * SimTicks.TicksPer30HzFrame)
             {
                 if (GunAnimation != GunAnimation.UpDown)
                 {
@@ -1479,7 +1479,7 @@ namespace MphRead.Entities
             if (!ignoreDamage && flags.TestFlag(DamageFlags.Headshot) && attacker == Main) // todo: and not on wifi
             {
                 int messageId = 228; // HEADSHOT!
-                QueueHudMessage(128, 40, 20 / 30f, 0, messageId);
+                QueueHudMessage(128, 40, 20 / (float)SimTicks.LegacyHz, 0, messageId);
             }
             if (attacker != null && attacker != this && beam != null)
             {
@@ -1695,7 +1695,7 @@ namespace MphRead.Entities
                     {
                         if (attacker == this)
                         {
-                            QueueHudMessage(128, 70, 140, 90 / 30f, 2, 235); // YOU SELF-DESTRUCTED!
+                            QueueHudMessage(128, 70, 140, 90 / (float)SimTicks.LegacyHz, 2, 235); // YOU SELF-DESTRUCTED!
                         }
                         else
                         {
@@ -1703,7 +1703,7 @@ namespace MphRead.Entities
                             string nickname = GameState.Nicknames[attacker.SlotIndex];
                             // %s's HEADSHOT KILLED YOU! / %s KILLED YOU!
                             string message = Strings.GetHudMessage(flags.TestFlag(DamageFlags.Headshot) ? 236 : 237);
-                            QueueHudMessage(128, 70, 140, 90 / 30f, 2, message.Replace("%s", nickname));
+                            QueueHudMessage(128, 70, 140, 90 / (float)SimTicks.LegacyHz, 2, message.Replace("%s", nickname));
                         }
                         string? killedBy = null;
                         if (flags.TestFlag(DamageFlags.Deathalt))
@@ -1750,7 +1750,7 @@ namespace MphRead.Entities
                         }
                         if (killedBy != null)
                         {
-                            QueueHudMessage(128, 70, 140, 90 / 30f, 2, $"({killedBy})");
+                            QueueHudMessage(128, 70, 140, 90 / (float)SimTicks.LegacyHz, 2, $"({killedBy})");
                         }
                     }
                     if (attacker == this)
@@ -1772,7 +1772,7 @@ namespace MphRead.Entities
                             {
                                 string nickname = GameState.Nicknames[SlotIndex];
                                 string message = Strings.GetHudMessage(240); // YOU KILLED A TEAMMATE, (%s)!
-                                QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", nickname));
+                                QueueHudMessage(128, 70, 140, 60 / (float)SimTicks.LegacyHz, 2, message.Replace("%s", nickname));
                             }
                         }
                         else
@@ -1783,7 +1783,7 @@ namespace MphRead.Entities
                                 string nickname = GameState.Nicknames[SlotIndex];
                                 // YOUR HEADSHOT KILLED %s! / YOU KILLED %s!
                                 string message = Strings.GetHudMessage(flags.TestFlag(DamageFlags.Headshot) ? 239 : 238);
-                                QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", nickname));
+                                QueueHudMessage(128, 70, 140, 60 / (float)SimTicks.LegacyHz, 2, message.Replace("%s", nickname));
                             }
                             if (flags.TestFlag(DamageFlags.Headshot))
                             {
@@ -1819,7 +1819,7 @@ namespace MphRead.Entities
                                     message = Strings.GetHudMessage(255); // %s KILLED 5 IN A ROW!
                                     message = message.Replace("%s", nickname);
                                 }
-                                QueueHudMessage(128, 70, 140, 90 / 30f, 2, message);
+                                QueueHudMessage(128, 70, 140, 90 / (float)SimTicks.LegacyHz, 2, message);
                             }
                             if (_scene.Match.Rules.Mode == MatchMode.PrimeHunter)
                             {
@@ -1837,7 +1837,7 @@ namespace MphRead.Entities
                                     }
                                     string nickname = GameState.Nicknames[attacker.SlotIndex];
                                     string message = Strings.GetHudMessage(241); // %s is the new prime hunter!
-                                    QueueHudMessage(128, 70, 140, 90 / 30f, 2, message.Replace("%s", nickname));
+                                    QueueHudMessage(128, 70, 140, 90 / (float)SimTicks.LegacyHz, 2, message.Replace("%s", nickname));
                                 }
                             }
                             else if (_scene.Match.Rules.Mode == MatchMode.Battle || _scene.Match.Rules.Mode == MatchMode.TeamBattle)
@@ -1883,7 +1883,7 @@ namespace MphRead.Entities
                 if (IsPrimeHunter)
                 {
                     _scene.Match.PrimeHunter = -1;
-                    QueueHudMessage(128, 70, 140, 90 / 30f, 2, 242); // the prime hunter is dead!
+                    QueueHudMessage(128, 70, 140, 90 / (float)SimTicks.LegacyHz, 2, 242); // the prime hunter is dead!
                 }
 
                 if (attacker != null && attacker != this)
@@ -1894,7 +1894,7 @@ namespace MphRead.Entities
                         itemType = ItemType.MissileSmall;
                     }
                     Vector3 position = _volume.SpherePosition.AddY(0.35f);
-                    ItemSpawnEntity.SpawnItem(itemType, position, NodeRef, 300 * 2, _scene); // todo: FPS stuff
+                    ItemSpawnEntity.SpawnItem(itemType, position, NodeRef, SimTicks.From30HzFrames(300), _scene);
                 }
                 WeaponSelection = CurrentWeapon;
                 Flags1 &= ~PlayerFlags1.WeaponMenuOpen;

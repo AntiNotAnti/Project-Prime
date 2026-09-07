@@ -561,7 +561,7 @@ namespace MphRead.Entities
                         speedDelta.X -= _field78 * traction * sign;
                         speedDelta.Z -= _field7C * traction * sign;
                         if (!Controls.MoveUp.IsDown && !Controls.MoveDown.IsDown
-                            && Flags1.TestFlag(PlayerFlags1.Grounded) && _timeSinceJumpPad > 7 * 2) // todo: FPS stuff
+                            && Flags1.TestFlag(PlayerFlags1.Grounded) && _timeSinceJumpPad > SimTicks.From30HzFrames(7))
                         {
                             anim1 = walkAnim;
                         }
@@ -594,7 +594,7 @@ namespace MphRead.Entities
                         }
                         speedDelta.X += _field70 * traction * sign;
                         speedDelta.Z += _field74 * traction * sign;
-                        if (Flags1.TestFlag(PlayerFlags1.Grounded) && _timeSinceJumpPad > 7 * 2) // todo: FPS stuff
+                        if (Flags1.TestFlag(PlayerFlags1.Grounded) && _timeSinceJumpPad > SimTicks.From30HzFrames(7))
                         {
                             anim1 = walkAnim;
                         }
@@ -659,7 +659,7 @@ namespace MphRead.Entities
                         {
                             Speed = Speed.WithY(Fixed.ToFloat(Values.JumpSpeed)); // todo: FPS stuff?
                         }
-                        _timeSinceGrounded = 8 * 2; // todo: FPS stuff
+                        _timeSinceGrounded = (ushort)SimTicks.From30HzFrames(8);
                         PlayHunterSfx(HunterSfx.Jump);
                     }
                 }
@@ -891,7 +891,7 @@ namespace MphRead.Entities
                     {
                         if (Biped1Anim == PlayerAnimation.Idle)
                         {
-                            if (++_timeIdle > 300 * 2 && _timeSinceInput > 300 * 2) // todo: FPS stuff
+                            if (++_timeIdle > SimTicks.From30HzFrames(300) && _timeSinceInput > (ulong)SimTicks.From30HzFrames(300))
                             {
                                 SetBiped1Animation(PlayerAnimation.Flourish, AnimFlags.NoLoop);
                             }
@@ -1037,7 +1037,7 @@ namespace MphRead.Entities
             }
             bool continuous = EquipInfo.Weapon.Flags.TestFlag(WeaponFlags.Continuous);
             bool homing = result.TestFlag(BeamResultFlags.Homing);
-            float amountA = 0x3FFF * _shockCoilTimer / (30f * 2); // todo: FPS stuff
+            float amountA = 0x3FFF * _shockCoilTimer / (float)SimTicks.Hz;
             PlayBeamShotSfx(EquipInfo.Weapon.Beam, charged, continuous, homing, amountA);
             if (EquipInfo.Weapon.Beam == BeamType.Imperialist && EquipInfo.Ammo >= EquipInfo.Weapon.AmmoCost)
             {
@@ -1064,7 +1064,7 @@ namespace MphRead.Entities
                 {
                     Flags1 &= ~PlayerFlags1.AltDirOverride;
                 }
-                if (_timeSinceMorphCamera > 10 * 2 && !Flags1.TestFlag(PlayerFlags1.AltDirOverride) // todo: FPS stuff
+                if (_timeSinceMorphCamera > SimTicks.From30HzFrames(10) && !Flags1.TestFlag(PlayerFlags1.AltDirOverride)
                     && (MathF.Abs(CameraInfo.Field48) >= 1 / 4096f || MathF.Abs(CameraInfo.Field4C) >= 1 / 4096f))
                 {
                     _altRollFbX = CameraInfo.Field48;
@@ -1290,13 +1290,13 @@ namespace MphRead.Entities
                             else if (_altAttackTime > 0)
                             {
                                 _altAttackTime++;
-                                if (_altAttackTime == 7 * 2) // todo: FPS stuff
+                                if (_altAttackTime == SimTicks.From30HzFrames(7))
                                 {
                                     _soundSource.PlaySfx(SfxId.NOX_TOP_ATTACK1);
                                 }
                                 else
                                 {
-                                    int startupTime = Values.AltAttackStartup * 2; // todo: FPS stuff
+                                    int startupTime = SimTicks.From30HzFrames(Values.AltAttackStartup);
                                     if (_altAttackTime == startupTime / 2)
                                     {
                                         _soundSource.PlaySfx(SfxId.NOX_TOP_ATTACK2, loop: true);
@@ -1360,7 +1360,7 @@ namespace MphRead.Entities
                             {
                                 Speed = Speed.WithX(accelX).WithZ(accelZ);
                             }
-                            _accelerationTimer = 6 * 2; // todo: FPS stuff
+                            _accelerationTimer = (ushort)SimTicks.From30HzFrames(6);
                             Acceleration = new Vector3(accelX, 0, accelZ);
                             if (Speed.Y < attackVSpeed)
                             {
@@ -1447,7 +1447,7 @@ namespace MphRead.Entities
                         if (Controls.Boost.IsDown && !swipeBoost)
                         {
                             // the game plays the boost charge SFX here, but that SFX is empty
-                            if (_boostCharge < Values.BoostChargeMax * 2) // todo: FPS stuff
+                            if (_boostCharge < SimTicks.From30HzFrames(Values.BoostChargeMax))
                             {
                                 _boostCharge++;
                             }
@@ -1456,13 +1456,13 @@ namespace MphRead.Entities
                         {
                             if (swipeBoost)
                             {
-                                _boostCharge = (ushort)(Values.BoostChargeMax * 2);
+                                _boostCharge = (ushort)SimTicks.From30HzFrames(Values.BoostChargeMax);
                             }
-                            if (_boostCharge > Values.BoostChargeMin * 2) // todo: FPS stuff
+                            if (_boostCharge > SimTicks.From30HzFrames(Values.BoostChargeMin))
                             {
                                 if (Features.FullBoostCharge)
                                 {
-                                    _boostCharge = (ushort)(Values.BoostChargeMax * 2);
+                                    _boostCharge = (ushort)SimTicks.From30HzFrames(Values.BoostChargeMax);
                                 }
                                 if (_boostCharge > 0)
                                 {
@@ -1470,19 +1470,19 @@ namespace MphRead.Entities
                                     _soundSource.PlaySfx(sfx);
                                 }
                                 float boostHCap = Fixed.ToFloat(Values.BoostSpeedCap) * _boostCharge
-                                    / (Values.BoostChargeMax * 2); // todo: FPS stuff
+                                    / (SimTicks.From30HzFrames(Values.BoostChargeMax));
                                 if (_hSpeedCap < boostHCap)
                                 {
                                     _hSpeedCap = boostHCap;
                                 }
                                 float factor = Fixed.ToFloat(Values.BoostSpeedMin)
                                     + _boostCharge * (Fixed.ToFloat(Values.BoostSpeedMax) - Fixed.ToFloat(Values.BoostSpeedMin))
-                                    / (Values.BoostChargeMax * 2); // todo: FPS stuff
+                                    / (SimTicks.From30HzFrames(Values.BoostChargeMax));
                                 speedDelta = speedDelta.AddX(boostDirX * factor).AddZ(boostDirZ * factor);
-                                _altAttackCooldown = (ushort)(Values.AltAttackCooldown * 2); // todo: FPS stuff
+                                _altAttackCooldown = (ushort)SimTicks.From30HzFrames(Values.AltAttackCooldown);
                                 Flags1 |= PlayerFlags1.Boosting;
                                 NoteOffensiveAction();
-                                _boostDamage = (ushort)(Values.AltAttackDamage * _boostCharge / (Values.BoostChargeMax * 2)); // todo: FPS stuff
+                                _boostDamage = (ushort)(Values.AltAttackDamage * _boostCharge / (SimTicks.From30HzFrames(Values.BoostChargeMax)));
                                 if (IsMainPlayer)
                                 {
                                     StartBoostPresentation();
@@ -1609,10 +1609,10 @@ namespace MphRead.Entities
                 }
                 if (_bombAmmo >= 2)
                 {
-                    _bombRefillTimer = (ushort)(Values.BombRefillTime * 2); // todo: FPS stuff
+                    _bombRefillTimer = (ushort)SimTicks.From30HzFrames(Values.BombRefillTime);
                 }
                 _bombAmmo--;
-                _bombCooldown = (ushort)(Values.BombCooldown * 2); // todo: FPS stuff
+                _bombCooldown = (ushort)SimTicks.From30HzFrames(Values.BombCooldown);
                 if (Hunter == Hunter.Kanden)
                 {
                     _altModel.SetAnimation((int)KandenAltAnim.TailOut, AnimFlags.NoLoop);
@@ -1620,10 +1620,10 @@ namespace MphRead.Entities
                 else if (Hunter == Hunter.Sylux && SyluxBombCount == 3)
                 {
                     // todo: FPS stuff
-                    _bombOveruse += 27 * 2;
-                    if (_bombOveruse >= 100 * 2)
+                    _bombOveruse += (ushort)SimTicks.From30HzFrames(27);
+                    if (_bombOveruse >= SimTicks.From30HzFrames(100))
                     {
-                        _bombCooldown = 150 * 2;
+                        _bombCooldown = (ushort)SimTicks.From30HzFrames(150);
                     }
                 }
                 bomb.PlaySpawnSfx();
@@ -1640,7 +1640,7 @@ namespace MphRead.Entities
             {
                 if (Flags2.TestFlag(PlayerFlags2.AltAttack))
                 {
-                    _altAttackCooldown = (ushort)(Values.AltAttackCooldown * 2); // todo: FPS stuff
+                    _altAttackCooldown = (ushort)SimTicks.From30HzFrames(Values.AltAttackCooldown);
 
                 }
             }
@@ -1650,7 +1650,7 @@ namespace MphRead.Entities
                 {
                     _soundSource.StopSfx(SfxId.NOX_TOP_ATTACK1);
                     _soundSource.StopSfx(SfxId.NOX_TOP_ATTACK2);
-                    if (_altAttackTime >= Values.AltAttackStartup / 2 * 2) // todo: FPS stuff
+                    if (_altAttackTime >= SimTicks.From30HzFrames(Values.AltAttackStartup / 2))
                     {
                         _soundSource.PlaySfx(SfxId.NOX_TOP_ATTACK3);
                     }
@@ -1813,7 +1813,7 @@ namespace MphRead.Entities
                 Speed = Speed.AddX(_jumpPadAccel.X);
                 Speed = Speed.AddZ(_jumpPadAccel.Z);
             }
-            if (Flags1.TestFlag(PlayerFlags1.Standing) && _timeSinceJumpPad > 5 * 2) // todo: FPS stuff
+            if (Flags1.TestFlag(PlayerFlags1.Standing) && _timeSinceJumpPad > SimTicks.From30HzFrames(5))
             {
                 _lastJumpPad = null;
                 Flags1 &= ~PlayerFlags1.UsedJumpPad;
@@ -1915,7 +1915,7 @@ namespace MphRead.Entities
             Vector3 prevC0 = _fieldC0;
             _fieldC0 = Vector3.Zero;
             CheckCollision();
-            if (_field449 > 0 && _field449 < 30 * 2) // todo: FPS stuff
+            if (_field449 > 0 && _field449 < SimTicks.From30HzFrames(30))
             {
                 _fieldC0 = prevC0;
             }
@@ -1974,10 +1974,10 @@ namespace MphRead.Entities
                 _timeSinceGrounded = 0;
                 Flags1 |= PlayerFlags1.Grounded;
             }
-            else if (_timeSinceGrounded < 90 * 2) // todo: FPS stuff
+            else if (_timeSinceGrounded < SimTicks.From30HzFrames(90))
             {
                 _timeSinceGrounded++;
-                if (_timeSinceGrounded >= 8 * 2) // todo: FPS stuff
+                if (_timeSinceGrounded >= SimTicks.From30HzFrames(8))
                 {
                     Flags1 &= ~PlayerFlags1.Grounded;
                     ResetWalkingSound();

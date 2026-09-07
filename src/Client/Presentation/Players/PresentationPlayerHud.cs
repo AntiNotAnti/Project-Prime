@@ -481,7 +481,7 @@ namespace MphRead.Entities
                         Presentation.Layer3Info.ShiftY = -_hudShiftY / 4 / 192f;
                     }
 
-                    if (Features.NoIdleSway || _player._timeSinceInput < (ulong)_player.Values.GunIdleTime * 2) // todo: FPS stuff
+                    if (Features.NoIdleSway || _player._timeSinceInput < (ulong)_player.Values.GunIdleTime * SimTicks.TicksPer30HzFrame)
                     {
                         UpdateReticle();
                     }
@@ -507,7 +507,7 @@ namespace MphRead.Entities
                     _healthbarChangedColor = true;
                 }
             }
-            else if (_player._timeSinceHeal < 10 * 2) // todo: FPS stuff
+            else if (_player._timeSinceHeal < SimTicks.From30HzFrames(10))
             {
                 if (!_healthbarChangedColor)
                 {
@@ -516,7 +516,7 @@ namespace MphRead.Entities
                 }
             // todo?: update radar lights
             }
-            else if (_player._timeSinceDamage < 6 * 2) // todo: FPS stuff
+            else if (_player._timeSinceDamage < SimTicks.From30HzFrames(6))
             {
                 if (!_healthbarChangedColor)
                 {
@@ -554,7 +554,7 @@ namespace MphRead.Entities
             // - use the other palettes for low ammo warning and danger?
             // - the bar flashes when picking up UA w/ missiles equipped and vice versa
             // - the bar doesn't flash when ammo is restored by the affinity weapon pickup
-            if (_player._timeSincePickup < 10 * 2) // todo: FPS stuff
+            if (_player._timeSincePickup < SimTicks.From30HzFrames(10))
             {
                 if (!_ammoBarChangedColor)
                 {
@@ -698,7 +698,7 @@ namespace MphRead.Entities
                 _targetCircleInst.SetAnimation(start: 0, target: 3, frames: 4);
             }
 
-            _smallReticleTimer = 60 * 2; // todo: FPS stuff
+            _smallReticleTimer = (ushort)SimTicks.From30HzFrames(60);
         }
 
         public void ResetReticle()
@@ -843,7 +843,7 @@ namespace MphRead.Entities
                 {
                     HudDisruptionFactor = 0;
                     HudDisruptedState = 0;
-                    _hudDisruptedTimer = 32 * 2; // todo: FPS stuff
+                    _hudDisruptedTimer = (ushort)SimTicks.From30HzFrames(32);
                 }
             }
             else if (HudDisruptedState != 0)
@@ -920,7 +920,7 @@ namespace MphRead.Entities
             {
                 HudWhiteoutFactor = -1; // use the table value directly instead of as a factor
                 float time = _player._scene.GlobalElapsedTime - _whiteoutTime;
-                float value = 1 - Math.Min(time / (16 / 30f), 1);
+                float value = 1 - Math.Min(time / (16 / (float)SimTicks.LegacyHz), 1);
                 Array.Fill(HudWhiteoutTable, value);
             }
         }
@@ -1458,7 +1458,7 @@ namespace MphRead.Entities
                 if (player.IsMainPlayer)
                 {
                     float rg;
-                    float pct = _player._scene.ElapsedTime / (32 / 30f) % 1;
+                    float pct = _player._scene.ElapsedTime / (32 / (float)SimTicks.LegacyHz) % 1;
                     if (pct <= 0.5f)
                     {
                         rg = Lerp(0, 1, pct * 2);
@@ -1765,7 +1765,7 @@ namespace MphRead.Entities
                 {
                     _boostInst.SetIndex(0, _player._scene);
                 }
-                else if (_boostInst.Timer <= 1 / 30f)
+                else if (_boostInst.Timer <= 1 / (float)SimTicks.LegacyHz)
                 {
                     _boostInst.SetIndex(1, _player._scene);
                 }
@@ -1919,14 +1919,14 @@ namespace MphRead.Entities
                 float alpha = 1;
                 if (_player._scene.Match.RadarPlayers)
                 {
-                    float past = _player._scene.ElapsedTime % (120 / 30f);
-                    if (past > 32 / 30f)
+                    float past = _player._scene.ElapsedTime % (120 / (float)SimTicks.LegacyHz);
+                    if (past > 32 / (float)SimTicks.LegacyHz)
                     {
                         alpha = 0;
                     }
                     else
                     {
-                        float pct = past / (32 / 30f) % 1;
+                        float pct = past / (32 / (float)SimTicks.LegacyHz) % 1;
                         if (pct <= 0.5f)
                         {
                             alpha = Lerp(0, 1, pct * 2);
@@ -2135,13 +2135,13 @@ namespace MphRead.Entities
                     showBar = true;
                     if (_nodesHudState == 0)
                     {
-                        QueueHudMessage(128, 133, 45 / 30f, 17, 205); // acquiring node
+                        QueueHudMessage(128, 133, 45 / (float)SimTicks.LegacyHz, 17, 205); // acquiring node
                         _nodesProgressAmount = 0;
                         _nodesHudState = 1;
                     }
                     else if (_nodesHudState == 1)
                     {
-                        _nodesProgressAmount = (int)MathF.Round(Lerp(0, 40, defense.Progress / (300 / 30f)));
+                        _nodesProgressAmount = (int)MathF.Round(Lerp(0, 40, defense.Progress / (300 / (float)SimTicks.LegacyHz)));
                     }
                 }
             }
@@ -2162,7 +2162,7 @@ namespace MphRead.Entities
                 if (!_hudIsPrimeHunter)
                 {
                     _primeHunterInst.SetAnimation(start: 0, target: 1, frames: 20, loop: true);
-                    _primeHunterTextTimer = 90 / 30f;
+                    _primeHunterTextTimer = 90 / (float)SimTicks.LegacyHz;
                     _hudIsPrimeHunter = true;
                 }
 
@@ -2364,8 +2364,8 @@ namespace MphRead.Entities
                 DrawText2D(_hudObjects.NodeBonusPosX + _objShiftX, _hudObjects.NodeBonusPosY + 10 + _objShiftY, Align.Left, 0, message);
             }
 
-            float past = _player._scene.ElapsedTime % (16 / 30f);
-            if (_nodeBonusOpponent != -1 && past < 12 / 30f)
+            float past = _player._scene.ElapsedTime % (16 / (float)SimTicks.LegacyHz);
+            if (_nodeBonusOpponent != -1 && past < 12 / (float)SimTicks.LegacyHz)
             {
                 _nodesInst.PositionX = (_hudObjects.EnemyBonusPosX + _objShiftX) / 256f;
                 _nodesInst.PositionY = (_hudObjects.EnemyBonusPosY + _objShiftY) / 192f;
@@ -2472,8 +2472,8 @@ namespace MphRead.Entities
                 Presentation.DrawHudObject(_primeHunterInst);
                 if (_primeHunterTextTimer > 0)
                 {
-                    float elapsed = (90 / 30f) - _primeHunterTextTimer;
-                    int length = (int)MathF.Ceiling(elapsed / (1 / 30f));
+                    float elapsed = (90 / (float)SimTicks.LegacyHz) - _primeHunterTextTimer;
+                    int length = (int)MathF.Ceiling(elapsed / (1 / (float)SimTicks.LegacyHz));
                     string message = Strings.GetHudMessage(11); // prime hunter
                     _textSpacingY = 8;
                     DrawText2D(posX + _hudObjects.PrimeTextPosX, posY + _hudObjects.PrimeTextPosY, _hudObjects.PrimeAlign, 0, message, maxLength: length);
@@ -2493,7 +2493,7 @@ namespace MphRead.Entities
             _doubleDamageIconTimer = 0;
             if (speed == 1)
             {
-                _doubleDamageTextTimer = 60 / 30f;
+                _doubleDamageTextTimer = 60 / (float)SimTicks.LegacyHz;
             }
         }
 
@@ -2521,24 +2521,24 @@ namespace MphRead.Entities
                 int frame = 0;
                 if (_doubleDamageSpeed == 1)
                 {
-                    float past = _doubleDamageIconTimer % (35 / 30f);
-                    if (past >= 30 / 30f)
+                    float past = _doubleDamageIconTimer % (35 / (float)SimTicks.LegacyHz);
+                    if (past >= 30 / (float)SimTicks.LegacyHz)
                     {
                         frame = 1;
                     }
                 }
                 else if (_doubleDamageSpeed == 2)
                 {
-                    float past = _doubleDamageIconTimer % (25 / 30f);
-                    if (past >= 20 / 30f)
+                    float past = _doubleDamageIconTimer % (25 / (float)SimTicks.LegacyHz);
+                    if (past >= 20 / (float)SimTicks.LegacyHz)
                     {
                         frame = 1;
                     }
                 }
                 else if (_doubleDamageSpeed == 3)
                 {
-                    float past = _doubleDamageIconTimer % (10 / 30f);
-                    if (past >= 5 / 30f)
+                    float past = _doubleDamageIconTimer % (10 / (float)SimTicks.LegacyHz);
+                    if (past >= 5 / (float)SimTicks.LegacyHz)
                     {
                         frame = 1;
                     }
@@ -2549,8 +2549,8 @@ namespace MphRead.Entities
                 Presentation.DrawHudObject(_doubleDamageInst);
                 if (_doubleDamageTextTimer > 0)
                 {
-                    float elapsed = (60 / 30f) - _doubleDamageTextTimer;
-                    int length = (int)MathF.Ceiling(elapsed / (1 / 30f));
+                    float elapsed = (60 / (float)SimTicks.LegacyHz) - _doubleDamageTextTimer;
+                    int length = (int)MathF.Ceiling(elapsed / (1 / (float)SimTicks.LegacyHz));
                     string message = Strings.GetHudMessage(3); // double damage
                     _textSpacingY = 10;
                     DrawText2D(posX + _hudObjects.DblDmgTextPosX, posY + _hudObjects.DblDmgTextPosY, _hudObjects.DblDmgAlign, 0, message, maxLength: length);
@@ -2568,7 +2568,7 @@ namespace MphRead.Entities
                 if (!_hudCloaking)
                 {
                     _hudCloaking = true;
-                    _cloakTextTimer = 45 / 30f;
+                    _cloakTextTimer = 45 / (float)SimTicks.LegacyHz;
                 }
 
                 if (_cloakTextTimer > 0)
@@ -2594,8 +2594,8 @@ namespace MphRead.Entities
                 Presentation.DrawHudObject(_cloakInst);
                 if (_cloakTextTimer > 0)
                 {
-                    float elapsed = (45 / 30f) - _cloakTextTimer;
-                    int length = (int)MathF.Ceiling(elapsed / (1 / 30f));
+                    float elapsed = (45 / (float)SimTicks.LegacyHz) - _cloakTextTimer;
+                    int length = (int)MathF.Ceiling(elapsed / (1 / (float)SimTicks.LegacyHz));
                     string message = Strings.GetHudMessage(4); // cloak
                     DrawText2D(posX + _hudObjects.CloakTextPosX, posY + _hudObjects.CloakTextPosY, _hudObjects.CloakAlign, 0, message, maxLength: length);
                 }
@@ -2608,7 +2608,7 @@ namespace MphRead.Entities
         {
             if (slot != _player.SlotIndex)
             {
-                _opponentHealthbarTimer = 60 / 30f;
+                _opponentHealthbarTimer = 60 / (float)SimTicks.LegacyHz;
                 _opponentIndex = slot;
             }
         }
@@ -2667,7 +2667,7 @@ namespace MphRead.Entities
             Debug.Assert(header != null);
             ColorRgba? color = Paths.IsMphJapan || Paths.IsMphKorea ? null : new ColorRgba(0x7FDE);
             DrawText2D(128, 10, Align.Center, 0, header, color);
-            int totalCharacters = (int)(_player._scene.ElapsedTime / (1 / 30f));
+            int totalCharacters = (int)(_player._scene.ElapsedTime / (1 / (float)SimTicks.LegacyHz));
             float posY = 28;
             _textSpacingY = 8;
             for (int i = 1; i < _rulesInfo.Count; i++)

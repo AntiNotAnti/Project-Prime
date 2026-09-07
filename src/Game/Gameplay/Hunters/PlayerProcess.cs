@@ -260,19 +260,19 @@ namespace MphRead.Entities
                     }
                     else
                     {
-                        int revealTime = (PlayerCount > 2 ? 600 : 300) * 2; // todo: FPS stuff
+                        int revealTime = SimTicks.From30HzFrames(PlayerCount > 2 ? 600 : 300);
                         Vector3 moved = Position - IdlePosition;
                         if (moved.LengthSquared >= 25)
                         {
                             // todo: FPS stuff
-                            _hidingTimer = (ushort)(_hidingTimer > 35 * 2 ? _hidingTimer - 35 * 2 : 0);
-                            if (_hidingTimer < revealTime && _hidingTimer > revealTime - 35 * 2)
+                            _hidingTimer = (ushort)(_hidingTimer > SimTicks.From30HzFrames(35) ? _hidingTimer - SimTicks.From30HzFrames(35) : 0);
+                            if (_hidingTimer < revealTime && _hidingTimer > revealTime - SimTicks.From30HzFrames(35))
                             {
                                 // give the player at least a second before they're revealed again
-                                _hidingTimer = (ushort)(revealTime - 35 * 2);
+                                _hidingTimer = (ushort)(revealTime - SimTicks.From30HzFrames(35));
                             }
                         }
-                        if (_hidingTimer < revealTime + 150 * 2) // todo: FPS stuff
+                        if (_hidingTimer < revealTime + SimTicks.From30HzFrames(150))
                         {
                             _hidingTimer++;
                         }
@@ -292,7 +292,7 @@ namespace MphRead.Entities
             {
                 _shockCoilTimer = 0;
                 _shockCoilTarget = null;
-                if (_timeSinceHitTarget >= 210 * 2) // todo: FPS stuff
+                if (_timeSinceHitTarget >= SimTicks.From30HzFrames(210))
                 {
                     _lastTarget = null;
                 }
@@ -350,7 +350,7 @@ namespace MphRead.Entities
             if (_bombCooldown > 0)
             {
                 _bombCooldown--;
-                if (Hunter == Hunter.Kanden && _bombCooldown == 10 * 2) // todo: FPS stuff
+                if (Hunter == Hunter.Kanden && _bombCooldown == SimTicks.From30HzFrames(10))
                 {
                     _altModel.SetAnimation((int)KandenAltAnim.TailIn, AnimFlags.NoLoop);
                 }
@@ -392,11 +392,11 @@ namespace MphRead.Entities
                     _targetAlpha = 3 / 31f;
                     if (IsMainPlayer)
                     {
-                        if (_cloakTimer == 210 * 2) // todo: FPS stuff
+                        if (_cloakTimer == SimTicks.From30HzFrames(210))
                         {
                             UpdateCloakSfx(index: 1, play: true);
                         }
-                        else if (_cloakTimer == 120 * 2) // todo: FPS stuff
+                        else if (_cloakTimer == SimTicks.From30HzFrames(120))
                         {
                             UpdateCloakSfx(index: 2, play: true);
                         }
@@ -418,7 +418,7 @@ namespace MphRead.Entities
                 _targetAlpha = 1;
                 if ((Hunter == Hunter.Trace || IsPrimeHunter) && _hSpeedMag < 0.05f && Speed.Y < 0.05f && Speed.Y > -0.05f)
                 {
-                    if (_cloakTimer >= 30 * 2) // todo: FPS stuff
+                    if (_cloakTimer >= SimTicks.From30HzFrames(30))
                     {
                         if (Hunter == Hunter.Trace && IsAltForm)
                         {
@@ -784,7 +784,7 @@ namespace MphRead.Entities
             }
             if (_aimY < 60 && _aimY > -60 && !EquipInfo.Zoomed && _health > 0 && !Features.NoIdleSway)
             {
-                int swayStart = Values.SwayStartTime * 2; // todo: FPS stuff
+                int swayStart = SimTicks.From30HzFrames(Values.SwayStartTime);
                 if (Features.DelayedIdleSway)
                 {
                     swayStart *= 4;
@@ -1022,12 +1022,12 @@ namespace MphRead.Entities
                             _scene.UnlinkEffectEntry(_doubleDmgEffect);
                             _doubleDmgEffect = null;
                         }
-                        if (_doubleDmgTimer == 210 * 2) // todo: FPS stuff
+                        if (_doubleDmgTimer == SimTicks.From30HzFrames(210))
                         {
                             UpdateDoubleDamageSfx(index: 1, play: true);
                             UpdateDoubleDamageSpeed(2);
                         }
-                        else if (_doubleDmgTimer == 120 * 2) // todo: FPS stuff
+                        else if (_doubleDmgTimer == SimTicks.From30HzFrames(120))
                         {
                             UpdateDoubleDamageSfx(index: 2, play: true);
                             UpdateDoubleDamageSpeed(3);
@@ -1071,7 +1071,7 @@ namespace MphRead.Entities
 
         public void ActivateJumpPad(JumpPadEntity jumpPad, Vector3 vector, ushort lockTime)
         {
-            if (_timeSinceJumpPad > 5 * 2) // todo: FPS stuff
+            if (_timeSinceJumpPad > SimTicks.From30HzFrames(5))
             {
                 _soundSource.PlaySfx(SfxId.JUMP_PAD);
             }
@@ -1079,9 +1079,9 @@ namespace MphRead.Entities
             _jumpPadAccel = vector;
             _lastJumpPad = jumpPad;
             Flags1 |= PlayerFlags1.UsedJumpPad;
-            lockTime *= 2; // todo: FPS stuff
+            lockTime = (ushort)SimTicks.From30HzFrames(lockTime);
             _jumpPadControlLock = lockTime;
-            _jumpPadControlLockMin = Math.Max(lockTime, (ushort)(5 * 2)); // todo: FPS stuff
+            _jumpPadControlLockMin = Math.Max(lockTime, (ushort)SimTicks.From30HzFrames(5));
             _timeSinceJumpPad = 0;
             Flags1 &= ~PlayerFlags1.UsedJump;
             Flags1 |= PlayerFlags1.Standing;
@@ -1095,7 +1095,7 @@ namespace MphRead.Entities
                 float lockInc = ((accelY * bipedFactor) + (bipedGrav * (bipedFactor * bipedFactor) / 2)
                     - ((accelY * altFactor) + (altGrav * (altFactor * altFactor) / 2)))
                     / accelY + 2;
-                _jumpPadControlLock += (ushort)(lockInc * 2); // todo: FPS stuff
+                _jumpPadControlLock += (ushort)(lockInc * SimTicks.TicksPer30HzFrame);
             }
         }
 
@@ -1198,7 +1198,7 @@ namespace MphRead.Entities
                 case ItemType.DoubleDamage:
                     pickedUp = true;
                     _timeSincePickup = 0;
-                    _doubleDmgTimer = 900 * 2; // todo: FPS stuff
+                    _doubleDmgTimer = (ushort)SimTicks.From30HzFrames(900);
                     if (IsMainPlayer)
                     {
                         _soundSource.PlayFreeSfx(SfxId.DOUBLE_DAMAGE_POWER_UP);
@@ -1209,7 +1209,7 @@ namespace MphRead.Entities
                 case ItemType.Cloak:
                     pickedUp = true;
                     _timeSincePickup = 0;
-                    _cloakTimer = 900 * 2; // todo: FPS stuff
+                    _cloakTimer = (ushort)SimTicks.From30HzFrames(900);
                     Flags2 |= PlayerFlags2.Cloaking;
                     if (IsMainPlayer)
                     {
@@ -1220,7 +1220,7 @@ namespace MphRead.Entities
                 case ItemType.Deathalt:
                     pickedUp = true;
                     _timeSincePickup = 0;
-                    _deathaltTimer = 900 * 2; // todo: FPS stuff
+                    _deathaltTimer = (ushort)SimTicks.From30HzFrames(900);
                     if (!IsAltForm && !IsMorphing)
                     {
                         TrySwitchForms(force: true);
@@ -1473,7 +1473,7 @@ namespace MphRead.Entities
                 float minSpinAccel = Fixed.ToFloat(Values.AltMinSpinAccel);
                 float maxSpinAccel = Fixed.ToFloat(Values.AltMaxSpinAccel);
                 _altSpinSpeed += (minSpinAccel
-                    + (_altAttackTime * (maxSpinAccel - minSpinAccel) / (Values.AltAttackStartup * 2))
+                    + (_altAttackTime * (maxSpinAccel - minSpinAccel) / (SimTicks.From30HzFrames(Values.AltAttackStartup)))
                     - _altSpinSpeed) / 32 / 2; // todo: FPS stuff
                 _altSpinSpeed = Math.Clamp(_altSpinSpeed, Fixed.ToFloat(Values.AltMinSpinSpeed), Fixed.ToFloat(Values.AltMaxSpinSpeed));
                 _altSpinRot += _altSpinSpeed / 2; // todo: FPS stuff
@@ -1563,7 +1563,7 @@ namespace MphRead.Entities
 
         private void UpdateStinglarvaSegments()
         {
-            const int cycle = 13 * 2; // todo: FPS stuff
+            const int cycle = 13 * SimTicks.TicksPer30HzFrame;
             float angle = 359f * (_scene.FrameCount % cycle) / (cycle - 1);
             float factor = 0.3f * MathF.Sin(MathHelper.DegreesToRadians(angle)) * _hSpeedMag;
             _kandenSegPos[0] = Position.AddX(_field78 * factor).AddZ(_field7C * factor);

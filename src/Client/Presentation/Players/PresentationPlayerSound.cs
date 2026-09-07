@@ -30,7 +30,7 @@ namespace MphRead.Entities
                 float recency = -1;
                 if (sfx == HunterSfx.Damage)
                 {
-                    recency = 5 / 30f;
+                    recency = 5 / (float)SimTicks.LegacyHz;
                 }
 
                 // the game only does this if not Guardian, but the SFX switched to are the same there anyway
@@ -72,7 +72,7 @@ namespace MphRead.Entities
                 // 371 - DAMAGE4
                 uint sfx = Rng.GetRandomInt1(3) + 369;
                 _player._soundSource.PlaySfx((int)sfx);
-                _damageSfxTimer = 90 / 30f;
+                _damageSfxTimer = 90 / (float)SimTicks.LegacyHz;
             }
         }
 
@@ -186,7 +186,7 @@ namespace MphRead.Entities
 
             _walkSfxTimer += _player._scene.FrameTime;
             int sfxId = -1;
-            if (_walkSfxTimer >= 15 / 30f)
+            if (_walkSfxTimer >= 15 / (float)SimTicks.LegacyHz)
             {
                 if (_walkSfxIndex == 0)
                 {
@@ -195,11 +195,11 @@ namespace MphRead.Entities
                 }
             }
 
-            if (_walkSfxTimer >= 25 / 30f)
+            if (_walkSfxTimer >= 25 / (float)SimTicks.LegacyHz)
             {
                 Debug.Assert(_walkSfxIndex == 1);
                 sfxId = Metadata.TerrainSfx[(int)_player._standTerrain, (int)TerrainSfx.Walk2];
-                _walkSfxTimer = 5 / 30f;
+                _walkSfxTimer = 5 / (float)SimTicks.LegacyHz;
                 _walkSfxIndex = 0;
             }
 
@@ -344,7 +344,7 @@ namespace MphRead.Entities
         public void PlayLandingSfx()
         {
             int sfxId = Metadata.TerrainSfx[(int)_player._standTerrain, (int)TerrainSfx.Land];
-            float amountA = 0xFFFF * _player._timeBeforeLanding / (90f * 2); // todo: FPS stuff
+            float amountA = 0xFFFF * _player._timeBeforeLanding / (float)SimTicks.From30HzFrames(90); // todo: FPS stuff
             _player._soundSource.PlaySfx(sfxId, amountA: amountA);
         }
 
@@ -607,7 +607,7 @@ namespace MphRead.Entities
                     int id = (int)message.Param1;
                     if (id == -1)
                     {
-                        DoorChimeSfxTimer = 2 / 30f;
+                        DoorChimeSfxTimer = 2 / (float)SimTicks.LegacyHz;
                     }
                     else if (id <= 104)
                     {
@@ -639,7 +639,7 @@ namespace MphRead.Entities
             if (Sfx.LongSfxMute == 0 && DoorUnlockSfxTimer > 0)
             {
                 DoorUnlockSfxTimer -= _player._scene.FrameTime;
-                if (DoorUnlockSfxTimer <= 1 / 30f)
+                if (DoorUnlockSfxTimer <= 1 / (float)SimTicks.LegacyHz)
                 {
                     DoorUnlockSfxTimer = 0;
                     if (_player._soundSource.CountPlayingSfx(SfxId.UNLOCK_ANIM) == 0)
@@ -652,7 +652,7 @@ namespace MphRead.Entities
             if (DoorChimeSfxTimer > 0)
             {
                 DoorChimeSfxTimer -= _player._scene.FrameTime;
-                if (DoorChimeSfxTimer <= 1 / 30f)
+                if (DoorChimeSfxTimer <= 1 / (float)SimTicks.LegacyHz)
                 {
                     DoorChimeSfxTimer = 0;
                     if (Sfx.TimedSfxMute == 0 && (CameraSequence.Current == null || !CameraSequence.Current.BlockInput) && _player._soundSource.CountPlayingSfx(SfxId.DOOR_UNLOCK) == 0)
@@ -671,14 +671,14 @@ namespace MphRead.Entities
                     ForceFieldSfxTimer = 0;
                     if (Sfx.TimedSfxMute == 0)
                     {
-                        _timedSfxSource.PlaySfx(SfxId.GEN_OFF, recency: 5 / 30f, sourceOnly: true);
+                        _timedSfxSource.PlaySfx(SfxId.GEN_OFF, recency: 5 / (float)SimTicks.LegacyHz, sourceOnly: true);
                     }
                 }
             }
 
             if (_scrollSfxTimer > 0)
             {
-                if (_scrollSfxTimer < 2 / 30f)
+                if (_scrollSfxTimer < 2 / (float)SimTicks.LegacyHz)
                 {
                     _player._soundSource.StopFreeSfx(SfxId.FAST_SCROLL_UP_LOOP);
                 }

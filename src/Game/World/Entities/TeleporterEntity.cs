@@ -169,7 +169,7 @@ namespace MphRead.Entities
                                 player.Speed = new Vector3(0, player.Speed.Y, 0);
                                 if (player.IsBot)
                                 {
-                                    player.AiData.Field118 = 148 * 2; // todo-ai: FPS stuff
+                                    player.AiData.Field118 = SimTicks.From30HzFrames(148);
                                 }
                                 _triggeredSlots[player.SlotIndex] = true;
                                 _scene.NoteTeleport(player, Id);

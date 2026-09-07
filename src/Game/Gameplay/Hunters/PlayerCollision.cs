@@ -92,12 +92,12 @@ namespace MphRead.Entities
                     if (Hunter == Hunter.Noxus && IsAltForm)
                     {
                         other.Acceleration = new Vector3(between.X * -kbAccel, 0, between.Z * -kbAccel);
-                        other._accelerationTimer = (ushort)(Values.AltAttackKnockbackTime * 2); // todo: FPS stuff
+                        other._accelerationTimer = (ushort)SimTicks.From30HzFrames(Values.AltAttackKnockbackTime);
                     }
                     if (other.Hunter == Hunter.Noxus && other.IsAltForm)
                     {
                         Acceleration = new Vector3(between.X * kbAccel, 0, between.Z * kbAccel);
-                        _accelerationTimer = (ushort)(Values.AltAttackKnockbackTime * 2); // todo: FPS stuff
+                        _accelerationTimer = (ushort)SimTicks.From30HzFrames(Values.AltAttackKnockbackTime);
                     }
                     if (Flags1.TestFlag(PlayerFlags1.Boosting))
                     {
@@ -164,7 +164,7 @@ namespace MphRead.Entities
                     attacker._soundSource.PlaySfx(SfxId.SPIRE_ALT_ATTACK_HIT);
                 }
             }
-            else if (attacker.Hunter == Hunter.Noxus && attacker._altAttackTime >= attacker.Values.AltAttackStartup * 2) // todo: FPS stuff
+            else if (attacker.Hunter == Hunter.Noxus && attacker._altAttackTime >= SimTicks.From30HzFrames(attacker.Values.AltAttackStartup))
             {
                 Vector3 between;
                 if (halfturret)
@@ -186,7 +186,7 @@ namespace MphRead.Entities
                         float factor = MathF.Sqrt(hMagSqr) * 8;
                         var dir = new Vector3(between.X / factor, 0, between.Z / factor);
                         target.Acceleration = dir;
-                        target._accelerationTimer = 8 * 2; // todo: FPS stuff
+                        target._accelerationTimer = (ushort)SimTicks.From30HzFrames(8);
                         ushort damage = attacker.Values.AltAttackDamage;
                         DamageFlags flags = DamageFlags.NoSfx | DamageFlags.NoDmgInvuln;
                         if (halfturret)
@@ -226,7 +226,7 @@ namespace MphRead.Entities
             {
                 float kbAccel = Fixed.ToFloat(attacker.Values.AltAttackKnockbackAccel);
                 target.Acceleration = new Vector3(dir.X * kbAccel, -0.1f, dir.Z * kbAccel);
-                target._accelerationTimer = (ushort)(attacker.Values.AltAttackKnockbackTime * 2); // todo: FPS stuff
+                target._accelerationTimer = (ushort)SimTicks.From30HzFrames(attacker.Values.AltAttackKnockbackTime);
             }
             ushort damage = attacker.Values.AltAttackDamage;
             DamageFlags flags = DamageFlags.NoSfx | DamageFlags.NoDmgInvuln;
@@ -259,7 +259,7 @@ namespace MphRead.Entities
                     return true;
                 }
             }
-            else if (Hunter == Hunter.Noxus && _altAttackTime >= Values.AltAttackStartup * 2) // todo: FPS stuff
+            else if (Hunter == Hunter.Noxus && _altAttackTime >= SimTicks.From30HzFrames(Values.AltAttackStartup))
             {
                 Vector3 between = target.HurtVolume.SpherePosition - Volume.SpherePosition;
                 float radius = target.HurtVolume.SphereRadius;
@@ -312,7 +312,7 @@ namespace MphRead.Entities
         private void AltAttackHitDoor(DoorEntity door)
         {
             if ((Hunter == Hunter.Spire || Hunter == Hunter.Trace || Hunter == Hunter.Weavel) && Flags2.TestFlag(PlayerFlags2.AltAttack)
-                || Hunter == Hunter.Noxus && _altAttackTime >= Values.AltAttackStartup * 2 // todo: FPS stuff
+                || Hunter == Hunter.Noxus && _altAttackTime >= SimTicks.From30HzFrames(Values.AltAttackStartup)
                 || Features.BoostOpensDoors && Hunter == Hunter.Samus && Flags1.TestFlag(PlayerFlags1.Boosting))
             {
                 if (door.Flags.TestFlag(DoorFlags.Locked) && door.Data.PaletteId == 8)
@@ -785,7 +785,7 @@ namespace MphRead.Entities
                     // floor collision
                     float damageSpeed = Fixed.ToFloat(Values.FallDamageSpeed);
                     if (Speed.Y <= -damageSpeed && !v163 && !v165 && !IsAltForm && !IsMorphing
-                        && !IsUnmorphing && !Flags1.TestFlag(PlayerFlags1.Standing) && _timeSinceJumpPad > 5 * 2) // todo: FPS stuff
+                        && !IsUnmorphing && !Flags1.TestFlag(PlayerFlags1.Standing) && _timeSinceJumpPad > SimTicks.From30HzFrames(5))
                     {
                         // fall damage
                         int damage = (int)(Fixed.ToFloat(Values.FallDamageMax) * -(Speed.Y + damageSpeed) / 0.8f);
