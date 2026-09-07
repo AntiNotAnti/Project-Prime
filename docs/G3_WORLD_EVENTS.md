@@ -1,0 +1,15 @@
+# G3 world recovery and semantic events
+
+Live protocol8 has a canonical58-record world prefix and remains capped at256 records. Rich per-slot statistics and typed participant identity follow the original18 records. The server uses its immutable terminal MatchResult as the source after ending; disconnects and slot changes cannot rewrite the result. Client assembly rejects missing batches, duplicate keys, invalid active participant names, and duplicate/inactive result slots before scene mutation. A complete terminal revision produces one immutable replica result. Later player snapshots cannot rewrite that object.
+
+Protocol7 world18 and protocol5/6 world17 parsing is frozen in the client demo adapter. Live world assembly requires58 records. Overtime and late-join rules occupy bytes69/70. Lifecycle.D/E replicate period and period start tick; overtime is unlimited and does not change the input epoch.
+
+Game code publishes WorldSignal through scene services after successful state changes. The server synchronously translates it into WorldEvent64/type12, filling immutable actor identity, tick, match and phase revision. Pickup instance IDs are scene-owned, monotonic within a match, and shared by event publication and recovery capture. Retired instances release registry entries without recycling IDs. Static spawner/flag/node IDs retain their map identity.
+
+Hooks cover pickup consumption/respawn, flag pickup/drop/reset/capture, node capture/contested transitions, Defender ownership/contested transitions, and Prime Hunter changes. Initial item spawns do not emit respawn announcements. Journals accept gameplay signals only during Playing, are bounded, and fail explicitly on exhaustion. Reliable admission disconnects a saturated peer rather than blocking the shared journal. Full world state remains the only state-reconciliation path; reliable signals are presentation facts and must not award another pickup or score.
+
+The client presentation owner deduplicates and fences cues by match/phase. No broad event callback changes game state. Actual source kinds are explicit for kill facts; beam IDs9/10 retain Platform/Enemy semantics.
+
+Focused coverage includes typed identity malformed inputs, terminal freeze despite participant changes, partial/reordered baseline assembly, historical world layouts, every semantic event codec, exactly-once pickup mutation, stable entity IDs, and end-to-end reliable type12 delivery. Content validation checks the larger minimum room budget without regenerating assets.
+
+OvertimeStarted (11) is emitted once when the match period first enters overtime/sudden death. MatchPoint (12) is emitted on each team's existing transition to one point below the goal. These are authoritative semantic events, not client polling cues. PickupRespawnAnnouncements defaults false; rules wire flags at72 bit1 controls optional client major-pickup respawn announcements, while respawn state and semantic signals remain authoritative regardless of presentation preference.

@@ -59,7 +59,7 @@ The dedicated force-field lock's 30-frame weapon delay is still byte 60. Door in
 
 Gameplay camera switch metadata now uses the checked conversion while retaining ushort casts, timer reversal subtraction, comparison order, and floating-point interpolation denominators. Landing bob still performs integer `360 * timer / 18` before angle conversion. Camera collision delay remains a byte counter bounded at 30. FOV multiplications, smoothing factors, aim speeds and shake cadence are not duration conversions and remain unchanged.
 
-### Float-second compatibility boundary
+### Second-pass float-second compatibility boundary (historical; superseded for nodes/beams below)
 
 Node/Octolith objective state and projectile lifespan/decay fields still store float seconds and advance by the existing scene FrameTime. Converting their storage to integer ticks would alter accumulated rounding and potentially threshold frames; that requires a separately authorized behavior change. This pass names the 30 Hz denominator (`(float)SimTicks.LegacyHz`) and adds the compile-time reciprocal `SimTicks.LegacyFrameSeconds = 1f / LegacyHz` where the original code multiplied by a reciprocal. Original multiplication-versus-division forms remain separate because they can differ by an ULP. No timer clock or wire representation changes.
 
@@ -76,3 +76,34 @@ AI FramesUp/FramesDown, aggro expiration, timed context counters, deviation/shot
 Client HUD heal/pickup 10→20, damage flash 6→12, reticle 60→120 and disrupted-HUD 32→64 tick windows now use the helper. Both directional-indicator initialization paths use the same source-backed 63→126 duration. Existing legacy float-second HUD/audio expressions retain division by the named LegacyHz; landing audio retains float division by 180 ticks. Native-tick G2 feedback lifetimes, bitmap/mesh dimensions, FOV factors, color interpolation and blink bitmasks are unchanged.
 
 `PlayerTimingTests` covers all hunter timing metadata and narrowing, complete ushort domains for Noxus rounding, boost damage, Survival hiding clamps and jump-pad casts; it also checks local RNG seed progression and AI-selected delay values across fixed seed sequences and every multiplayer weapon. Release integration build and focused timing suite passed: **47 tests, 0 failed, 0 skipped** (30 foundation, 11 world/camera, 6 player/AI cases). Log: `/tmp/codex-re-prime-g1/tail-timing-tests.log`. The earlier concurrent Client errors were resolved by their owners before this successful build; scoped whitespace validation passed.
+
+
+## Fourth pass: authoritative node and projectile tick storage
+
+The previous node/beam float-storage deferral is now replaced by integer simulation counters. This pass preserves the old binary32 arithmetic as immutable projections, rather than rounding all durations to their nominal seconds. Runtime timers advance integer tick indices only; float samples are derived compatibility values for interpolation, existing public getters and the unchanged node wire representation.
+
+### Node capture and scoring
+
+`NodeDefenseEntity` stores `_progressTicks` and `_scoreTicks`. Capture completes at tick600, the start cue sees20 accumulated ticks before the next increment, and contested occupancy pauses the same counter without losing progress. A 601-entry immutable projection reproduces every old repeated `+1/60f` progress value used for spin speed and WorldRecord.C. Replica progress remains a received presentation value and never authors capture/score timing.
+
+| Owned node count | Old threshold seconds | Exact old crossing tick | New interval ticks |
+|---|---:|---:|---:|
+| 0 or1 | 5 | 300 | 300 |
+| 2 | 3.5 | 211 | 211 |
+| 3 | 2 | 121 | 121 |
+| 4 | 0.5 | 30 | 30 |
+| 5 or more | <= -1 | first evaluated tick | 1 |
+
+The 3.5 and 2 second boundaries are deliberately one tick later than nominal multiplication. Capturing primes the score counter and awards its first point on the capture tick itself, preserving statement order. Later score thresholds can change with owned-node count without resetting accumulated ticks. Rotation/acceleration formulas and Defender's cumulative TeamTime metric are unchanged; they are not the mutable capture/score countdowns migrated here. The cosmetic blink pulse remains presentation state.
+
+### Projectile lifespan, age and speed decay
+
+`BeamProjectileEntity` stores integer `_remainingLifeTicks`, `_ageTicks`, and `_speedDecayEndAgeTicks`; the original ushort speed-decay metadata is retained as an authored interpolation parameter. Process decrements lifespan before collision-tail handling, advances motion age only for moving beams, and evaluates speed-decay eligibility against its integer endpoint. Existing float Age/Lifespan getters project the exact old values, including the terminal negative countdown residue, so consumers keep their prior comparisons and catch-up diagnostics. Projectile velocity, gravity, speed interpolation, damage fractions and collision ordering are unchanged.
+
+`LegacyTickProjection` prepares immutable legacy elapsed samples and authored countdown samples once during beam-pool initialization. All 37 currently authored weapon records have equal min/full charged lifespans; therefore partial charge does not create an unbounded set of duration projections. All player, platform, ricochet and force-field weapon endpoint durations plus the four-frame collision tail are prepared. An explicit custom duration setter builds an uncached immutable projection; it does not add unbounded entries to a global cache. Non-finite durations or durations exceeding the ushort authored domain fail explicitly. The elapsed projection reserves 135166 ticks (ushort 30 Hz maximum plus 4096 rounding margin); the maximum authored-domain countdown is checked in tests. This allocation is initialization/configuration work, not recurring per-frame work.
+
+The projection is necessary for physics parity: replacing accumulated Age with `ageTicks/60f` changes the binary32 ratio used by speed interpolation. Deriving the exact historical value from an integer index preserves trajectory bits while removing advancing float timer storage. Immutable float definitions/projections are not authoritative clocks.
+
+### Validation scope
+
+`AuthoritativeTimerTests` characterizes repeated-float score crossings, every authored lifespan/countdown tick and speed-decay ratio, the full elapsed-projection domain, custom/max-duration bounds, a real SANCTORUS node's 600-tick capture plus 13 contested paused ticks and capture/scoring order, actual charged Missile/VoltDriver/Omega 30-tick trajectories against a frozen float-age/interpolation oracle, collided-tail expiration/reuse and zero allocations for warmed authored projection access. The world/weapon baseline tests remain separate. Release integration build plus all four timing groups passed: **61 tests, 0 failed, 0 skipped** (47 prior +14 new), log `/tmp/codex-re-prime-g1/authoritative-timers.log`. A separate Game+Server-only build also passed all 14 new cases (`/tmp/codex-re-prime-g1/timer-isolated/tests.log`). Existing real-content catch-up and homing harnesses both passed, including historical collision/recycling and bit-exact trajectory comparisons: `/tmp/codex-re-prime-g1/timer-catchup.log` and `/tmp/codex-re-prime-g1/timer-homing.log`. The warmed projection test measured zero allocated bytes across 10000 lookups. These are focused/headless regression results, not a complete rendered match or device proof.

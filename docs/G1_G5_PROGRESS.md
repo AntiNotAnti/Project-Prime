@@ -1,21 +1,30 @@
 # Prime Hunters G1–G5 implementation progress
 
 The [supplied implementation plan](PRIME_HUNTERS_G1_G5_IMPLEMENTATION_PLAN.md)
-is the scope. Classic balance, the 60 Hz authority, existing binary/package
-identities and unrelated working-tree changes are preserved.
+is the scope. Classic balance, 60 Hz authority, existing package/namespace
+identities and unrelated working-tree changes are preserved. Protocol 8 remains
+unreleased; the historical demo adapters remain isolated from live admission.
 
 | Epic | Implementation | Validation |
 |---|---|---|
-| G1 | Timing foundation/world-camera migration, local render interpolation/desktop late latch, protocol 8 afflictions, spawn policies and ordering/lifecycle characterization implemented; final timing/input/spawn checks in progress | Frozen baseline: 434 main + 18 imaging + 47 Python pass. Stale harness failures repaired. Focused render 13, affliction/rules 11, timing 41, spawn CLI 10 and input 9 pass. Physical render/device acceptance pending. Long mixed-combat baseline exposed reliable queue exhaustion; reproducibility investigation in progress. |
-| G2 | Authoritative assists/kill events, bounded client feedback/recap/markers and Enhanced radar integration in progress | Focused and integrated checks running; no visual/device acceptance claimed |
-| G3 | Count-based team allocator and pre-start rebalance implemented; remaining match quality work pending | Exhaustive allocator and lifecycle tests awaiting integration run |
-| G4 | Historical rating evidence research only; no backend implementation | Exact original delta table and explicit eight-player policy remain prerequisites |
-| G5 | Not started | Pending |
+| G1 | Timing projections, bounded render interpolation/late latch, afflictions, spawn policies and input paths implemented | Fresh integrated main suite: 954/954. Real-content ordering, catch-up/homing and all twelve world modes pass. Render/device acceptance remains open. |
+| G2 | Authoritative feedback, assists, radar/audio, results, retained recaps and touch navigation implemented | Integrated suite passes. Real rendered layout, audio mix and physical touch acceptance remain open. |
+| G3 | Team allocation, overtime, late join/reconnect, world events, weapon queue, browser and network HUD implemented | Actual impaired-UDP weapon blocking/equip/previous-weapon checks pass. Fixed six-tick interpolation retained after the adaptive candidate failed its declared gates. |
+| G4 | Account/license UI, signed endpoint-pinned admission, durable reports, PostgreSQL career/history and queries implemented | Backend 43/43 against disposable PostgreSQL, including actual HTTP/UDP admission and outbox-to-commit receipt recovery. RP, star progression and the proposed rating/forfeit extension await approval. |
+| G5 | True delayed observers/cameras, indexed replay/touch controls, bots/Practice, telemetry, presets/Duel, voting and tournament controls implemented | Full main suite passes. Actual UDP bot retirement and mixed human/bot teams pass. Automatic recording gates and replay failure handling pass. Both 300-second impaired combat runs and the 300-second 8-player/16-observer replay run pass; see the integration evidence document. |
 
 ## Acceptance boundaries
 
-Builds and headless/network tests are not rendered play, Android device proof,
-external WAN proof or a deployed backend. Mandatory device acceptance and
-historical-rating evidence will remain explicit until verified.
+[Integration evidence](G1_G5_VALIDATION.md) separates source, automated tests,
+loopback runtime checks, long-run measurements and unavailable release gates.
+The solution and dedicated server publish build; Android managed Release builds
+with zero warnings/errors. Imaging passes 18/18, Python 58/58, and the project
+boundary guard reports zero violations.
+
+The program is **not fully accepted**: [G4_RANKING_SPEC.md](G4_RANKING_SPEC.md)
+still requires approval before RP/rating/forfeit implementation, and the plan's
+physical-device/high-refresh/visual/audio gates remain open. Local PostgreSQL and
+UDP impairment tests do not establish a deployed Backend or external WAN result.
+The existing Tmds.DBus.Protocol NU1903 advisory remains unsuppressed.
 
 The pre-existing LICENSE deletion and maps/Parallax edits are outside this task.

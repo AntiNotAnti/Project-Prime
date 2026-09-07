@@ -3,6 +3,7 @@ src/MphRead/paths.txt
 # Local cartridge extraction, launcher outputs and Finder metadata.
 /AMHE1/
 /.fruity-launcher/
+/FruityPrime
 .DS_Store
 
 ## Ignore Visual Studio temporary files, build results, and

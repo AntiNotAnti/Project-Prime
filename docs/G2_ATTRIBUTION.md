@@ -1,0 +1,15 @@
+# G2 authoritative attribution
+
+Protocol 8 remains unreleased. KillEvent is a dedicated 137-byte reliable fact (type 11); byte45 explicitly identifies Beam/Bomb/Alt/Environment sources, preserving real Platform/Enemy beam values9/10; CombatEvent.Death remains available for entity cues. Kill/Combat IDs share a generator, but separate queues can reorder their delivery. Consumers must deduplicate a bounded ID window rather than discard every ID below the latest one.
+
+Each target has a fixed 64-entry ledger of individual damage facts. The 65th fact replaces the oldest admitted fact. Only actual positive health loss from hostile current-life actors enters the ledger. Self/team damage and replacement identities do not enter it. Slot replacement purges that slot's prior identity. Spawn/new target life and death clear the ledger; match reset clears all ledgers.
+
+The default threshold is 20 actual damage and the recent window is 300 simulation ticks (five seconds). MatchRules exposes both settings; wire fields are unsigned 16-bit at offsets 74 and 76, threshold must be nonzero. Contributions aggregate by full actor identity. Each hit qualifies while recent, or only its outstanding unhealed portion after the window expires. Healing consumes oldest outstanding contributions first, using actual capped health gain. Healing does not erase the independent five-second recent-damage eligibility. Health pickup and gradual recovery paths report exact deltas. This is a documented bounded policy, not a claim of legacy assist behavior.
+
+On death, environment, suicide, and team kills award no assists. Remaining contributors must still match their current connection and life and must not be teammates of the victim. A projectile may retain a dead shooter's immutable killer identity while its connection remains the same, preserving existing delayed-kill attribution; it cannot grant an assist to a new life or replacement connection. DamageDealt sums actual hostile health loss, including beam/bomb/alt/burn damage, without overkill. The old BeamDamageDealt remains an efficiency numerator and is not labeled total damage. Classic points and existing kill scoring are unchanged. Assists are separate counters, captured into immutable results and replicated in snapshots.
+
+The kill journal is bounded at 1024. Exhaustion fails explicitly instead of silently dropping terminal attribution. A peer whose reliable queue cannot admit a kill is disconnected under the existing combat backpressure policy. The client never awards assists from the event itself; snapshots recover statistics.
+
+Snapshot flags 2048/4096 now carry authoritative Survival RadarReveal/RadarRevealPrevious. Replicas apply these facts and do not recompute hiding timers. Frozen protocol 7 demo flags remain limited to 2047.
+
+Verification: focused pure tests cover exact healing/window boundaries, old-hit refresh prevention, slot/life replacement, team/self/killer exclusion, wraparound, bounded overflow, wire malformed actors/reserved bytes, rules round trips, and immutable result/reset semantics. Runtime and GUI evidence must be reported separately.

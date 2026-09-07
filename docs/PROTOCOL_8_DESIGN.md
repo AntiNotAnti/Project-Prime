@@ -1,6 +1,6 @@
 # Protocol 8 proposal (read-only G1–G3 audit)
 
-Status: UNRELEASED, EVOLVING. G1.4 implements NetHeader8 and player96 (burn/disruption/assists=0); coordinated G1.7 implements rules84 with SpawnPolicy@68 and cancel-on-offensive-action bit0@72. Other rule extension bytes are reserved zero. Kill/world events,26-record prefix and G4/G5 identity extensions below remain FUTURE PROPOSALS, not current wire behavior. Read the G1–G5 plan's sections 3, G1.4, G1.7, G2.1–G2.5, G3.1–G3.4, G4.4 and G5.3. Live accepts version 8; historical versions are confined to demo adapters. Keep protocol 8 unpublished until its G1–G3 schema and golden tests are complete; do not increment repeatedly during development. No claim of WAN or GUI verification.
+Status: UNRELEASED, EVOLVING. Implemented: live protocol8, player96 durable statuses/assists and radar flags, rules84 spawn/overtime/late-join/assist policies, Kill137/type11, WorldEvent64/type12, and a58-record rich world prefix. G4 signed tickets and G5 observer roles are implemented as described in the updates below. Live accepts version8; historical versions remain confined to frozen demo adapters. Do not increment repeatedly while this revision remains unreleased. Runtime/GUI/WAN evidence is separate from codec and focused-test evidence.
 
 ## Confirmed wire baseline
 
@@ -27,7 +27,7 @@ Current team assignment is confirmed slot parity at ServerNetwork admission and 
 
 ### Durable player state: player96 (append-only)
 
-Keep bytes0–87, append BurnTicks u16@88, DisruptTicks u16@90, Assists nonnegative i32@92. Eight-player packet becomes794 bytes,818 with NetHeader: safely below1024. Keep current status flag IDs. Writer emits consistent flag/timer pairs; decoder rejects contradictory v8 status pairs, invalid identities/enum/masks/nonfinite vectors before exposing output. Timer setters must only reconcile presentation, never run damage.
+Keep bytes0–87, append BurnTicks u16@88, DisruptTicks u16@90, Assists nonnegative i32@92. RadarReveal/Previous flags are2048/4096; WaitingForMatch is8192. Eight-player packet becomes794 bytes,818 with NetHeader: safely below1024. Keep current status flag IDs. Writer emits consistent flag/timer pairs; decoder rejects contradictory v8 status pairs, invalid identities/enum/masks/nonfinite vectors before exposing output. Timer setters must only reconcile presentation, never run damage.
 
 A snapshot's server tick anchors remaining durations; late reliable Affliction events must not rewind a newer snapshot's status. Client feedback deduplicates event IDs, while durable snapshot state recovers dropped cues. Do not manufacture missing historical burn duration for old demos.
 
@@ -42,7 +42,7 @@ Add ReliableEventType.Kill=11 with dedicated fixed137-byte KillEvent:
 | 0,4,8,12 | eventId, serverTick, matchId, phaseRevision (u32 each) |
 | 16,29 | killer CombatActor13, victim CombatActor13 |
 | 42,43 | weapon u8, kill flags u8 (explicit mask) |
-| 44,45 | assistCount u8 (0..7), reserved u8=0 |
+| 44,45 | assistCount u8 (0..7), KillSourceKind u8 (Beam0/Bomb1/Alt2/Environment3) |
 | 46 | seven CombatActor13 entries (91 bytes); unused entries canonical None |
 
 Seven storage entries cover every non-victim participant; a valid distinct killer leaves at most six eligible assists. Whether environmental deaths award assists is an explicit gameplay policy. Actor uniqueness and killer/victim exclusion are mandatory. Killer may be None for environment; victim must be valid; assists must match eligible identities from the server ledger, never client claims. Nonnegative assists also flow into immutable result/player stats and snapshots. Keep CombatEvent.Death for existing victim state/cues; only KillEvent drives global kill feed/assist notifications to avoid two death announcements. Use one shared server presentation event sequence if practical; otherwise dedup key includes event family.
@@ -67,9 +67,11 @@ Accepted becomes102; transition92. Policies must round-trip immutable MatchRules
 
 ### Match period and world recovery
 
-Keep MatchPhase.Playing for overtime. Encode Match.E as MatchPeriod (0 Regulation,1 Overtime,2 SuddenDeath). Use Lifecycle.D/E for periodStartTick/periodEndTick; Lifecycle flags bit1 means period deadline exists (bit0 remains phase deadline). A period change must not reset gameplay input PhaseRevision as though countdown restarted. World revision/tick ordering makes period recovery atomic.
+Keep MatchPhase.Playing for overtime. Lifecycle.D carries MatchPeriod (Regulation0/Overtime1/SuddenDeath2), E carries periodStartTick. Overtime is unlimited and clears the phase deadline; no new phase or PhaseRevision is created. Match.E carries terminal endReason+1 (zero before result capture), and Match.Position.Z carries completion simulation time. World revision/tick ordering makes period recovery atomic.
 
-Append new WorldRecordKind.PlayerStats=9, one per slot, with A=nonnegative assists and B–E/Position/Id/flags zero. Canonical prefix becomes26 records, so even an entity-empty world spans two batches. This is a deliberate bandwidth tradeoff to retain exact integer stats and preserve current score semantics; snapshot assists remain fast recovery. Validate the complete26-record prefix before mutation and preserve the existing 256-record total budget. If avoiding eight records matters, choose a separate packed stats packet after measurement rather than encoding integers in floats.
+The canonical prefix is58 records: original18, then five records per slot. CombatStats9 carries assists/actualDamageDealt/headshots/longestStreak/killsAsPrime. ObjectiveStats10 carries scores/drops/stops/nodesCaptured/nodesLost. WeaponStats0(11) carries beam kills0–4; WeaponStats1(12) carries beam kills5–8 and Prime eliminations. Each statistic is a nonnegative32-bit integer. PlayerIdentity13 has a dedicated codec: bytes4–19 hold canonicalASCII16 nickname (not a vector); A=Hunter, B=team orUInt32.MaxValue, C=active, D=standing/teamStanding/resultSlot packed into three bytes, E=0. Identity records expose typed PlayerName and do not reinterpret names as floating point.
+
+All58 records and active result-slot permutation are validated before mutation. Terminal capture reads the server's immutable MatchResult even after live player slots change. The client freezes its result once from a complete terminal baseline and authoritative identity metadata. Other unused legacy efficiency/count fields are not advertised as replicated statistics. Capacity stays256; content validation budgets58 plus two records per static item spawner and one per flag/node. Dynamic-drop overflow remains explicit. Frozen protocol7 world18 and protocol5/6 world17 paths remain demo-only.
 
 ### Semantic world-event immediacy
 
@@ -97,10 +99,74 @@ Create an explicit client-only Protocol7DemoCodec with frozen player88/rules68/t
 
 Do not equate an actor's stable occupancy identity with an authenticated user. Keep the existing 13-byte session/life combat key through G1–G3; later clarify the u64 as participant-session identity when bots have no NetConnection. A server-generated bot identity must be nonzero/unique and must not grant a socket admission. Persistent PlayerId belongs in separately authenticated roster metadata, not in every projectile/event.
 
-Before v8 release, if G4/G5 implementation lands: append a validated roster flags byte (Bot/Observer), optional authenticated PlayerId16 in a bounded new identity roster event; separate spectator connection capacity from the fixed8 competitive slots. Observer slot255 needs explicit session identity and must never index player arrays; do not simply loosen slot<8 validators. A bounded ticket-bearing Join extension should have length u16 and at most384 ticket bytes (old34+2+384=420 payload), verified before admission; never log tickets or accept client-asserted PlayerId. Add server identity/expiry/nonce/signature/replay validation at the server auth boundary. These are reserved design directions, not enabled v8 features or arbitrary zero-filled permanent fields. If G4 follows releasedv8, use protocol9 as the plan permits.
+Superseded early G4/G5 design sketch (see implemented updates below): append a validated roster flags byte (Bot/Observer), optional authenticated PlayerId16 in a bounded new identity roster event; separate spectator connection capacity from the fixed8 competitive slots. Observer slot255 needs explicit session identity and must never index player arrays; do not simply loosen slot<8 validators. A bounded ticket-bearing Join extension should have length u16 and at most384 ticket bytes (old34+2+384=420 payload), verified before admission; never log tickets or accept client-asserted PlayerId. Add server identity/expiry/nonce/signature/replay validation at the server auth boundary. These are reserved design directions, not enabled v8 features or arbitrary zero-filled permanent fields. If G4 follows releasedv8, use protocol9 as the plan permits.
 
 ## Ownership and tests
 
 Game codecs/contracts: SnapshotPacket, MatchRulesWire, JoinPacket, MatchTransitionPacket, RosterChatPackets if G4/G5 lands, WorldPacket, ReliableChannel enum; new KillEvent and WorldEvent. Game match/result and services gain data/policy only. Server: ServerNetwork admission/event queues, ServerCombat ledger/events, ServerSimulation state capture/reset, WorldStateCapture, TeamAllocator/latejoin. Client: NetClient reliable dispatch, ClientWorldState atomic recovery, AuthoritativePlay feedback pipeline, LegacyDemoState/Protocol7DemoCodec, DemoFile/recording.
 
 Required focused tests: byte-offset golden vectors for old7/new8; exact/truncated/extra lengths; every invalid enum/mask/NaN/Infinity/identity; no partially mutated batch; max8 snapshot818 datagram; max reliable payload<=512; old7 live rejection with demo acceptance; omitted/duplicate/reordered affliction vs newer snapshot; expiry and join-midstatus without client damage; maximum-assist uniqueness/reconnect/life replacement; Kill vs Death dedup; WorldEvent replay/reset epoch and queue-full policy; overtime remains Playing/input uninterrupted;26-prefix multi-batch world assembly and capacity boundaries; old4/5/6/7 demo fixtures unchanged; two-client authoritative8 loopback and existing WAN suite separately. Do not infer GUI readability or authenticated-backend correctness from codec tests.
+
+Rules flags u16@72 now use bit0 for cancellation of spawn protection on offensive action and bit1 for PickupRespawnAnnouncements (default false); all other bits are rejected. World semantic kinds11/12 are OvertimeStarted and MatchPoint, emitted at authoritative transitions.
+
+## G4 optional account admission extension (unreleased8)
+
+Guest Join remains34 bytes. The G5 extension appends role flags@34, ticket length u16LE@35 and compact ASCII JWT@37, maximum963 bytes. The largest Join including24-byte header is exactly1024, preserving the existing datagram ceiling. Extension lengths are exact, characters restricted to base64url segments separated by two dots; there is no credential-bearing fragmentation. Historical demo payloads remain frozen; live roster and observer role changes are specified below.
+
+Discovery retains its base and rules-v1 reader. The optional rules-v2 tail keeps the original8-byte rules prefix, sets extension version2, uses prefix byte5 bit0 for RequiresTicket, and appends16 Guid.ToByteArray-order ServerId bytes. EmptyServerId means no advertised account service. Discovery is informational: signed ticket validation still binds the configured server ID and incarnation. Client NetClient accepts an optional explicit nonce/ticket pair; authenticated reconnect requires a fresh pair.
+
+Server validation pins issuer, ES256 P-256 configured public keys, audience/serverId, sid/startupId, sub/account UUID, jti, exact name/nonce and bounded numeric lifetime. Duplicate JSON names, unsupported algorithms, key URLs/embedded keys and critical headers are rejected. Replay ownership is scoped to exact endpoint+nonce+ticket; only a fresh credential may restore a disconnected authenticated participant. All HTTP/signature work runs on the bounded background authority; only completed, still-unexpired results reach owner-thread admission.
+
+### Unreleased G5 observer role
+
+The ordinary guest Join remains 34 bytes. An extended Join adds flags at byte34
+(bit0 requests observer), unsigned ticket length at35, and the optional compact
+JWT at37. The shared maximum ticket size is963 bytes, retaining the1024-byte UDP
+limit. A zero-length extension is canonical only for an observer request.
+Welcome slot255 denotes an observer and never indexes the eight competitive
+slots. A server may downgrade a requested player to observer (Duel overflow);
+an explicit observer request cannot be upgraded to a competitive slot.
+Reliable event13 carries the existing MatchTransition payload for an in-place
+observer transfer. The client fences older snapshot/world header sequences and
+reliable event IDs before accepting its historical baseline.
+
+Observers use a separate bounded connection array (0..16). Their immutable shared
+history retains at most3601 ticks/64MiB, with configured delay0..30 seconds. No
+live baseline fallback exists: warm-up admission fails explicitly, and an evicted
+cursor closes. Rules, roster, snapshots, world records and reliable gameplay cues
+come from the same historical match. Signed operator-authorized observerTrusted
+is the only delay bypass. Observers cannot submit gameplay input or occupy bot/
+player/report participant slots.
+
+The client camera is presentation-owned: F1 cycles Free/FirstPerson/Chase/Orbit/
+AutoDirector, F2/F3 cycle active targets, F4 cycles replicated objectives, +/-
+adjust FOV, and brackets adjust free-camera speed. AutoDirector initially uses
+bounded round-robin selection. The HUD reports replicated health, weapon, ammo,
+K/D/A and score; objective view reports replicated ownership/carrier state.
+Camera-only movement continues while replay simulation is paused. This source
+implementation does not constitute rendered GUI or WAN validation.
+
+## G5.7 intermission ballot extension
+
+Live reliable kinds 14 (server ballot) and 15 (human vote request) extend the live allowlist; 13 remains observer transition. Ballots use a bounded 28-byte header and up to eight 36-byte options. Requests are exactly 16 bytes and carry only match/phase/option-set revisions and a server-offered byte ID. Independent publication revision prevents reordered vote-count updates from erasing confirmation. The complete field table, authority rules, and frozen-codec boundary are in [G5_VOTING.md](G5_VOTING.md).
+
+### G5 bot handoff: bounded pending admission
+
+Unreleased protocol 8 adds **NetMessageType.JoinPending = 13** (a separate namespace from ReliableEventType 13). The 24-byte envelope requires `Unsequenced`, connection ID/sequence/ACK fields zero. Its exact eight-byte body is the original client nonce (u64 little endian). The client accepts it only from the already pinned server endpoint while unconnected and with the matching nonce; malformed lengths or a different nonce do not refresh admission liveness.
+
+A full bot-filled server reserves at most one bot slot per pending human, with eight pending admissions maximum. Repeated Join packets act as heartbeats for that same reservation and receive JoinPending; they never consume an authenticated ticket again. A cached validated identity must remain unexpired at final admission. The pending lifetime is at most 30 seconds and also subject to the normal network heartbeat timeout. Match rotation, expiry or cancellation releases the retirement request. Bot fill cannot reuse a reserved slot. Only the existing safe retirement boundary (waiting/countdown or dead during play) releases authoritative objectives and allows ordinary Accepted/ClientReady admission. This does not despawn live bots or alter combat balance.
+
+Discovery v3 uses its final byte, `IdentityV2Size + 5`, as bot count, constrained to the advertised total player count. Old discovery versions imply zero bots. Browser full/QuickJoin filtering compares human count (`PlayerCount - Bots`) with capacity, allowing discovery of bot-filled servers.
+
+### Reliable event receipt window
+
+Packet headers retain their 32-bit ACK history and each connection retains at
+most32 pending reliable payloads. Application event deduplication is a separate
+16,384-bit ring (2KiB per connection), covering the30-second peer timeout at the
+production send budget of8 events per60Hz tick (14,400 attempts). The sender
+refuses admission before an outstanding event would leave that receipt window.
+Thus steady completions cannot evict a delayed old event after only32 newer
+IDs. Retries still need an ACK for an actually received packet; no receipt is
+inferred. Sequence half-range ambiguity is rejected and uint wrap is supported.
+Diagnostics identify the oldest pending event's type/ID, attempts and age without
+logging its payload. This changes no wire bytes or pending payload capacity.

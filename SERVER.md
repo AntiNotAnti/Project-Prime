@@ -1,6 +1,6 @@
 # Running a Prime Hunters server
 
-Prime Hunters online matches use authoritative wire family 2, protocol 7. The
+Prime Hunters online matches use authoritative wire family 2, protocol 8. The
 server owns one headless simulation: movement, combat, pickups, objectives,
 score and match transitions. Clients send input and receive authoritative
 snapshots, world updates and reliable gameplay events; the local player is a
@@ -136,6 +136,10 @@ processes for separate matches.
 | `-servername "NAME"` | Name shown by discovery; `-name` is an alias. |
 | `-rotation FILE` | Map/mode/time/score/objective cycle. The file is read at startup; it is not created automatically. |
 | `-friendlyfire` / `-friendlyfire false` | Enable or disable team damage. |
+| `-spawnpolicy classic\|enhanced\|duel` | Spawn selection policy; default `classic` preserves retail selection. |
+| `-cancelspawnprotection true\|false` | End protection on an accepted offensive action; default `false`. |
+| `-overtime disabled\|mode` | Optional mode-specific overtime; default `disabled`. Overtime remains in the Playing phase. |
+| `-latejoin immediate\|next\|disabled` | Admission policy; without an override Survival waits until the next match and other current modes admit immediately. |
 | `-master HOST:PORT` | Opt in to directory listing. `-masterport N` can supply the port separately. |
 | `-nomaster` | Disable listing, even if `-master` is present. |
 | `-mapdir DIRECTORY` | Use an external custom-map directory. |
@@ -317,11 +321,24 @@ rules, and never uploads extracted files or a server-content package.
 ## Compatibility and verification
 
 Live clients, match servers and directories use authoritative wire family 2,
-protocol 7, and should be updated together. Both family and protocol must match.
+protocol 8, and should be updated together. Both family and protocol must match.
 Discovery identifies upstream protocol-5 relays as online but incompatible;
 the client sends no authoritative join to them. There is one live networking
-implementation. Protocol-4 relay and protocol-5/6 authoritative demo files remain
+implementation. Protocol-4 relay and protocol-5/6/7 authoritative demo files remain
 readable through passive playback without opening a gameplay socket.
+
+Protocol 8 carries authoritative afflictions, assists, kill attribution, reliable
+objective events and complete immutable result statistics. The browser's optional
+status extension advertises actual match policies while retaining the base status
+response. Remote interpolation remains fixed at six ticks: the tested adaptive
+candidate failed asymmetric-network quality gates and is not enabled.
+
+Late-join waiting sessions currently reserve a player slot but have no gameplay
+body. Reconnect grace lasts 1,800 simulation ticks for an existing participant
+returning from the same endpoint with the prior session identity; rotation clears
+it. This is session continuity, not an authenticated account login. See
+[late joining](docs/G3_LATE_JOIN.md), [overtime](docs/G3_OVERTIME.md), and
+[spawn policies](docs/G1_SPAWNING.md) for the detailed rules.
 
 The server's status query is read-only and safe for browser polling. A normal
 CI smoke check verifies the required-content error, directory query and
@@ -339,3 +356,106 @@ already exist in the selected extracted data directory; server startup does not
 regenerate or overwrite them. The retail content baker covers the retail room
 table only; custom definitions and their generated data must be supplied and
 validated separately.
+
+### Optional registered-account tickets
+
+Guest servers require no backend. To accept registered accounts, configure the dedicated server environment:
+
+- `PRIME_TICKET_BACKEND`: HTTPS backend base URL (loopback HTTP is allowed for development).
+- `PRIME_TICKET_ISSUER`: exact configured JWT issuer.
+- `PRIME_SERVER_ID`: operator-registered nonempty UUID.
+- `PRIME_SERVER_SECRET`: the server's backend API credential; keep it in the service environment, not command-line arguments or logs.
+- `PRIME_REQUIRE_TICKETS`: optional `true` to refuse guests; defaults to `false`.
+
+Each startup registers a new incarnation with `PUT /v1/server/session` and periodically renews registration. Admission and match reports share that incarnation. The server fetches public verification keys from `/v1/game-ticket-keys`; it never receives an account password or JWT signing private key. Credential-bearing HTTP does not follow redirects. Verification and bounded key fetching run on a background worker, outside the 60 Hz owner loop. An initial backend/key failure rejects authenticated joins; short outages may use cached keys for at most three minutes, and tickets themselves expire within 120 seconds. Explicit registration authorization failures close ticket admission. Unknown keys fail closed, with refresh attempts throttled to five seconds.
+
+The Backend registration must include the operator-owned canonical public IPv4 address and UDP port (`PublicAddress`/`PublicPort`); use the external NAT destination when applicable. Ticket issuance without that destination fails closed. The client resolves its selected hostname once, requires that the Backend-returned address and port match that resolved destination, and pins the verified IP before sending credentials. A UDP advertisement alone cannot authorize a ticket destination.
+
+A signed ticket binds account, server, startup incarnation, canonical name and client nonce. Repeated initial joins are idempotent for the same endpoint/nonce/ticket. Reconnect requires a fresh ticket; a matching account can recover its reserved participant slot from a new endpoint during the existing grace period. A guest or different account cannot reclaim that slot using its public connection ID. There are at most64 pending admission decisions and4096 unexpired replay entries; saturation rejects new authentication work rather than growing without bound.
+
+## Accounts, career reports, and ranking status
+
+The account service is a separate PostgreSQL-backed application. Follow
+[src/Backend/README.md](src/Backend/README.md) for its explicit migrations,
+identity/email configuration, signing keys, and registered server credentials.
+The launcher's **Hunter License** screen supports registration, confirmation,
+sign-in, profile changes, career totals, match history and leaderboards. Account
+tokens stay in memory; the launcher saves only the chosen backend address.
+
+For durable result delivery, configure `PRIME_REPORT_DIRECTORY` to an operator-owned
+spool directory and `PRIME_REPORT_URL` to the Backend's HTTPS `/v1/server/matches`
+endpoint. Reports use `PRIME_SERVER_ID` and `PRIME_SERVER_SECRET` (an explicit
+`PRIME_REPORT_CREDENTIAL` overrides the latter). Keep credentials in private service
+environment configuration. The bounded outbox reserves capacity before play,
+atomically spools immutable reports, retries in order and verifies the exact
+match-ID/hash receipt. Authentication failures and quarantined files require
+operator attention; a generic HTTP 200 is not acceptance. See
+[docs/G4_REPORTING.md](docs/G4_REPORTING.md).
+
+The Backend assigns trust from its server registry. A server's own report claim
+does not promote it to official status. Career data keeps practice/community
+scopes separate from official data. Ranking Points are currently **pending policy
+approval**, not calculated; empty RP boards do not mean a player has zero RP.
+
+## Rulesets, bots, and spectators
+
+Use `-ruleset classic`, `-ruleset competitive`, `-ruleset duel`, or `-ruleset custom`.
+Classic retains the default mechanics. Competitive applies enhanced spawns,
+offensive-action cancellation of spawn protection, overtime, pre-start team
+balancing, next-match participation for late joins and disabled player radar.
+Duel uses Battle mode with two active players and Duel spawn scoring; all rotation
+entries must use Battle. Both retain original damage, movement, charge and pickup
+timings. Competitive presets use their complete policy bundle; individual spawn,
+overtime and late-join switches apply to Classic/Custom configurations.
+
+`-spectators N` configures 0–16 separate observer connections;
+`-spectatordelay SECONDS` configures a 0–30 second historical stream. Spectators
+consume no player slot and send no gameplay input. The launcher offers **Join as
+Spectator**; extra Duel joins use observers when capacity is available. A delayed
+observer waits for a complete historical baseline and receives no live fallback.
+Only the Backend's explicit trusted-observer capability can bypass delay.
+
+Optional `PRIME_BOT_FILL` sets a target participant count and `PRIME_BOT_SKILL`
+selects 0–2. Bots use normal authoritative entities without network connections;
+human joins retire them at safe boundaries and release objectives. Duel requires
+bot fill disabled. The launcher's **Practice** action starts an unlisted,
+loopback-only authoritative server with bots. See [docs/G5_BOTS.md](docs/G5_BOTS.md).
+
+## Map telemetry
+
+Set `PRIME_TELEMETRY_DIRECTORY` to enable bounded, compressed per-match local
+exports. Analysis commands and interpretation limits are in
+[docs/G5_TELEMETRY.md](docs/G5_TELEMETRY.md). Telemetry is optional, samples routes
+once per second, and includes no account or network identity. Dropped or incomplete
+telemetry is explicitly marked and must not be treated as a complete balance
+baseline.
+
+## Intermission voting and tournament controls
+
+`-votepolicy public` offers only entries from the configured rotation, plus rematch
+and next-map choices. `-votepolicy private` offers rematch, next map and return to
+lobby; Duel and Practice default to that policy. `PRIME_VOTE_POLICY` is the service
+environment equivalent. The server owns the option IDs, eligibility, deadline and
+deterministic tie break. Each human gets one confirmed vote; bots and observers
+cannot vote. No client-provided map path is accepted. During the ballot, use number
+keys 1–8, click/tap a row, or cycle selection and fire to confirm. Android offers
+NEXT, PREV and VOTE controls. A returned lobby waits for a new match choice.
+
+Optional authenticated tournament management binds only loopback. See
+[docs/G5_TOURNAMENT.md](docs/G5_TOURNAMENT.md) for the admin credential hash,
+request UUID/expiry contract, ready checks, allowlisted map/rules selection,
+between-round holds, participant controls and recording. Remote operators use an
+authenticated tunnel. Pausing between rounds never freezes an active simulation.
+The Backend signs accepted immutable result exports; that signature cannot serve
+as a game admission ticket.
+
+Set `PRIME_SERVER_REPLAY_DIRECTORY` to an operator-owned directory to record every
+round automatically. Authenticated or reported Duel requires this setting. The
+server waits for recording readiness before starting and reports recording failures
+explicitly. A report ReplayId identifies the artifact; it does not by itself attest
+that the file finished writing successfully.
+
+Indexed recording and camera controls are documented in
+[docs/G5_REPLAY.md](docs/G5_REPLAY.md). The map-balance report workflow is in
+[docs/G5_BALANCE_REPORTS.md](docs/G5_BALANCE_REPORTS.md); it separates comparable
+cohorts and flags insufficient data. It does not apply balance changes.
