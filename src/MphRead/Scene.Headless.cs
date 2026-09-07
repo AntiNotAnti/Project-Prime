@@ -74,6 +74,13 @@ namespace MphRead
             {
                 throw new InvalidOperationException("Load the headless room before stepping it.");
             }
+            // Waiting/countdown worlds stay exactly at their loaded state. A
+            // lifecycle-owned result/intermission also has no competitive ticks.
+            if (Match.Phase is MatchPhase.WaitingForPlayers or MatchPhase.Countdown
+                || Match.UsesServerLifecycle && Match.Phase != MatchPhase.Playing)
+            {
+                return;
+            }
             _frameTime = 1 / 60f;
             _globalElapsedTime += _frameTime;
             if (Match.LegacyState == MatchState.InProgress)

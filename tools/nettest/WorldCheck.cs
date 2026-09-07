@@ -90,6 +90,7 @@ namespace MphRead.NetTest
             try
             {
                 scene.LoadServerRoom(room, mode, 8, bots: true, roomPlayerCount: NetLaunch.RoomPlayerCount);
+                scene.Match.Phase = MatchPhase.Playing;
                 var capture = new WorldStateCapture();
                 var client = new ClientWorldState(); client.Reset(7);
                 byte[] body = new byte[WorldPacket.MaxSize];

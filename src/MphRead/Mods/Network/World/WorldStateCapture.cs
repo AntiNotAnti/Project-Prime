@@ -25,8 +25,8 @@ namespace MphRead.Mods.Network
             if (!scene.IsHeadless || matchId == 0) { throw new InvalidOperationException("World capture requires an authoritative scene and match."); }
             if (MatchId != matchId) { ValidateRoom(scene); _items.Clear(); _nextItemId = 1; }
             MatchId = matchId; Revision = revision; ServerTick = serverTick; Count = 0;
-            Add(new WorldRecord(WorldRecordKind.Match, 255, (ushort)(scene.Match.Rules.Teams ? 1 : 0), 0,
-                new Vector3(scene.Match.MatchTime, scene.Match.Rules.LegacyTimeGoal, 0), (uint)GameState.Mode, (uint)scene.Match.LegacyState,
+            Add(new WorldRecord(WorldRecordKind.Match, 255, (ushort)((scene.Match.Rules.Teams ? 1 : 0) | (scene.Match.RadarPlayers ? 2 : 0)), 0,
+                new Vector3(scene.Match.MatchTime, scene.Match.Rules.LegacyTimeGoal, 0), (uint)scene.Match.Rules.Mode.ToLegacyMode(), (uint)scene.Match.Phase,
                 unchecked((uint)scene.Match.Rules.LegacyPointGoal), unchecked((uint)scene.Match.PrimeHunter), 0));
             for (byte slot = 0; slot < 8; slot++)
             {
@@ -38,6 +38,9 @@ namespace MphRead.Mods.Network
                     unchecked((uint)scene.Match.TeamDeaths[slot]), WorldRecord.Bits(scene.Match.Players[slot].Time), WorldRecord.Bits(scene.Match.TeamTime[slot]),
                     unchecked((uint)scene.Match.Players[slot].NodesCaptured), unchecked((uint)scene.Match.Players[slot].OctolithScores)));
             }
+            Add(new WorldRecord(WorldRecordKind.Lifecycle, 255, (ushort)(scene.Match.HasPhaseDeadline ? 1 : 0),
+                0, Vector3.Zero, scene.Match.PhaseStartTick, scene.Match.PhaseEndTick,
+                scene.Match.PhaseRevision, 0, 0));
             foreach (ItemSpawnEntity spawner in scene.GetItemSpawnEntities())
             {
                 Add(new WorldRecord(WorldRecordKind.Spawner, 255, (ushort)(spawner.Active ? 1 : 0),

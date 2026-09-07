@@ -27,6 +27,11 @@ namespace MphRead.Mods.Network
                 {
                     throw new ProgramException("Invalid configured server scenario.");
                 }
+                try { _ = entry.ToMatchRules(); }
+                catch (ArgumentException error)
+                {
+                    throw new ProgramException($"Invalid configured server rules: {error.Message}");
+                }
                 required.Add(new(entry.RoomKey, entry.Mode));
             }
 

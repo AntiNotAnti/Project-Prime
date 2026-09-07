@@ -15,10 +15,30 @@ namespace MphRead.Mods.Network
         /// <summary>Match length in seconds. Zero means "no time limit".</summary>
         public float TimeLimit { get; init; } = 7 * 60;
         public int PointGoal { get; init; } = 7;
+        /// <summary>Seconds held for Defender/Prime Hunter; null uses the mode default.</summary>
+        public float? ObjectiveTimeGoal { get; init; }
+
+        public MatchRules ToMatchRules(int maxPlayers = 8, bool friendlyFire = false)
+        {
+            if (!Single.IsFinite(TimeLimit) || TimeLimit < 0 || TimeLimit >= TimeSpan.MaxValue.TotalSeconds
+                || ObjectiveTimeGoal is float goal && (!Single.IsFinite(goal) || goal < 0 || goal >= TimeSpan.MaxValue.TotalSeconds))
+            {
+                throw new ArgumentOutOfRangeException(nameof(TimeLimit), "Match durations must be finite, nonnegative seconds.");
+            }
+            MatchRules defaults = MatchRules.CreateDefault(Mode.ToMatchMode(), RoomKey, maxPlayers);
+            MatchRules rules = defaults.With(timeLimit: TimeLimit > 0 ? TimeSpan.FromSeconds(TimeLimit) : null,
+                clearTimeLimit: TimeLimit == 0,
+                scoreGoal: defaults.IsSurvival ? 0 : PointGoal,
+                startingLives: defaults.IsSurvival ? PointGoal : 0,
+                objectiveTimeGoal: ObjectiveTimeGoal.HasValue ? TimeSpan.FromSeconds(ObjectiveTimeGoal.Value) : null,
+                friendlyFire: friendlyFire);
+            MatchLifecycle.ValidateRules(rules);
+            return rules;
+        }
 
         public override string ToString()
         {
-            return $"{RoomKey} ({Mode}, {TimeLimit / 60:0.#} min, {PointGoal} pts)";
+            return $"{RoomKey} ({Mode}, {TimeLimit / 60:0.#} min, {PointGoal} pts, objective {ObjectiveTimeGoal?.ToString(CultureInfo.InvariantCulture) ?? "default"} sec)";
         }
     }
 
@@ -50,7 +70,8 @@ namespace MphRead.Mods.Network
         /// launcher: they picked a map, and a rotation file they have never
         /// heard of should not send them somewhere else after seven minutes.
         /// </summary>
-        public static MapRotation SingleMatch(string roomKey, GameMode mode, float timeLimit, int pointGoal)
+        public static MapRotation SingleMatch(string roomKey, GameMode mode, float timeLimit, int pointGoal,
+            float? objectiveTimeGoal = null)
         {
             var rotation = new MapRotation();
             rotation._entries.Add(new RotationEntry
@@ -58,7 +79,8 @@ namespace MphRead.Mods.Network
                 RoomKey = roomKey,
                 Mode = mode == GameMode.None ? GameMode.Battle : mode,
                 TimeLimit = timeLimit,
-                PointGoal = pointGoal
+                PointGoal = pointGoal,
+                ObjectiveTimeGoal = objectiveTimeGoal
             });
             return rotation;
         }
@@ -76,15 +98,17 @@ namespace MphRead.Mods.Network
         /// <summary>
         /// Load a rotation file. Format, one match per line:
         ///
-        ///   ROOM KEY | mode | minutes | points
+        ///   ROOM KEY | mode | minutes | points | objective seconds
         ///
         /// Only the room key is required. '#' starts a comment.
         /// </summary>
         public static MapRotation Load(string path)
         {
             var rotation = new MapRotation();
-            foreach (string raw in File.ReadAllLines(path))
+            int lineNumber = 0;
+            foreach (string raw in File.ReadLines(path))
             {
+                lineNumber++;
                 string line = raw;
                 int comment = line.IndexOf('#');
                 if (comment >= 0)
@@ -103,29 +127,45 @@ namespace MphRead.Mods.Network
                     continue;
                 }
                 GameMode mode = GameMode.Battle;
-                if (parts.Length > 1 && Enum.TryParse(parts[1].Trim().Replace(" ", ""),
-                    ignoreCase: true, out GameMode parsedMode))
+                if (parts.Length > 5) { throw InvalidLine(); }
+                if (parts.Length > 1 && parts[1].Trim().Length > 0)
                 {
-                    mode = parsedMode;
+                    if (!Enum.TryParse(parts[1].Trim().Replace(" ", ""), ignoreCase: true, out mode)
+                        || mode is < GameMode.Battle or > GameMode.PrimeHunter) { throw InvalidLine(); }
                 }
                 float timeLimit = 7 * 60;
-                if (parts.Length > 2 && Single.TryParse(parts[2].Trim(),
-                    NumberStyles.Float, CultureInfo.InvariantCulture, out float minutes))
+                if (parts.Length > 2 && parts[2].Trim().Length > 0)
                 {
+                    if (!Single.TryParse(parts[2].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture,
+                        out float minutes)) { throw InvalidLine(); }
                     timeLimit = minutes * 60;
                 }
                 int pointGoal = 7;
-                if (parts.Length > 3 && Int32.TryParse(parts[3].Trim(), out int parsedPoints))
+                if (parts.Length > 3 && parts[3].Trim().Length > 0)
                 {
-                    pointGoal = parsedPoints;
+                    if (!Int32.TryParse(parts[3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture,
+                        out pointGoal)) { throw InvalidLine(); }
                 }
-                rotation._entries.Add(new RotationEntry
+                float? objectiveTimeGoal = null;
+                if (parts.Length > 4 && parts[4].Trim().Length > 0)
+                {
+                    if (!Single.TryParse(parts[4].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture,
+                        out float seconds)) { throw InvalidLine(); }
+                    objectiveTimeGoal = seconds;
+                }
+                var entry = new RotationEntry
                 {
                     RoomKey = roomKey,
                     Mode = mode,
                     TimeLimit = timeLimit,
-                    PointGoal = pointGoal
-                });
+                    PointGoal = pointGoal,
+                    ObjectiveTimeGoal = objectiveTimeGoal
+                };
+                try { _ = entry.ToMatchRules(); }
+                catch (ArgumentException) { throw InvalidLine(); }
+                rotation._entries.Add(entry);
+
+                ProgramException InvalidLine() => new($"Invalid match rules in rotation {path}, line {lineNumber}.");
             }
             return rotation;
         }
@@ -136,7 +176,7 @@ namespace MphRead.Mods.Network
             File.WriteAllLines(path, new[]
             {
                 "# MphRead dedicated server map rotation.",
-                "# One match per line:  ROOM KEY | mode | minutes | points",
+                "# One match per line:  ROOM KEY | mode | minutes | points | objective seconds",
                 "# Mode and the numbers are optional; '#' starts a comment.",
                 "# Room keys are the names MphRead uses internally -- run the",
                 "# game's console menu to see the full list.",

@@ -41,8 +41,8 @@ namespace MphRead
             switch (_match.Phase)
             {
                 case MatchPhase.Playing: ProcessPlaying(); break;
-                case MatchPhase.Ending: ProcessEnding(); break;
-                case MatchPhase.Intermission: ProcessIntermission(); break;
+                case MatchPhase.Ending: if (!_match.UsesServerLifecycle) { ProcessEnding(); } break;
+                case MatchPhase.Intermission: if (!_match.UsesServerLifecycle) { ProcessIntermission(); } break;
                 case MatchPhase.WaitingForPlayers:
                 case MatchPhase.Countdown: break;
                 default: throw new InvalidOperationException("Unknown match phase.");
@@ -64,7 +64,8 @@ namespace MphRead
             // todo: update MP playtime to license info
             if (!Features.AllowInvalidTeams)
             {
-                bool invalid = PlayerEntity.MaxPlayers < 2;
+                bool invalid = PlayerEntity.MaxPlayers < 2
+                    && !(_match.UsesServerLifecycle && _match.Rules.MaxPlayers == 1);
                 if (!invalid && _match.Rules.Teams)
                 {
                     bool[] teams = new bool[2];
@@ -163,7 +164,7 @@ namespace MphRead
                 _match.CaptureResult(_scene.GlobalElapsedTime);
             }
             _match.Phase = MatchPhase.Ending;
-            _match.MatchTime = 90 / 30f;
+            if (!_match.UsesServerLifecycle) { _match.MatchTime = 90 / 30f; }
             BeginEndingPresentation();
         }
 
@@ -242,7 +243,7 @@ namespace MphRead
 
         public void UpdateTime()
         {
-            if (Mods.Network.AuthoritativePlay.Active) { return; }
+            if (_match.UsesServerLifecycle || Mods.Network.AuthoritativePlay.Active) { return; }
             // todo: update license info etc.
             if (_match.MatchTime > 0)
             {

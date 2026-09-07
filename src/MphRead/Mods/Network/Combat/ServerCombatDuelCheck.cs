@@ -21,7 +21,7 @@ namespace MphRead.Mods.Network
             ServerContent.Open(data, version);
             using var simulation = new ServerSimulation(new RotationEntry { RoomKey = room, Mode = GameMode.Battle, PointGoal = 0 });
             using var serverTransport = new NetTransport(0);
-            var network = new ServerNetwork(serverTransport, room, GameMode.Battle);
+            var network = new ServerNetwork(serverTransport, simulation.Scene.Match.Rules);
             using var shooterTransport = new NetTransport(0);
             using var targetTransport = new NetTransport(0);
             var endpoint = new IPEndPoint(IPAddress.Loopback, serverTransport.LocalPort);
@@ -152,7 +152,7 @@ namespace MphRead.Mods.Network
                         if (message.Type != ReliableEventType.Combat || !CombatEventBatch.TryRead(message.Payload.Span, events, out int count)) continue;
                         foreach (CombatEvent value in events[..count]) delivered[clientIndex, (int)value.Kind]++;
                     }
-                    if (client.State != NetConnectionState.Playing) continue;
+                    if (client.State != NetConnectionState.Playing || network.Phase != MatchPhase.Playing) continue;
                     Vector3 origin = default, targetPosition = default;
                     foreach (SnapshotPlayer state in client.SnapshotPlayers)
                     {
@@ -175,7 +175,9 @@ namespace MphRead.Mods.Network
                     int countCommands = (int)Math.Min(sequence + 1, InputBundle.Capacity);
                     for (int i = 0; i < countCommands; i++)
                         bundle[i] = histories[clientIndex, (sequence - (uint)(countCommands - 1 - i)) % InputBundle.Capacity];
-                    client.SendInputs(bundle[..countCommands]);
+                    // This combat fixture shares the server owner; phase replication
+                    // itself is exercised separately by the match-phase UDP check.
+                    client.SendInputs(bundle[..countCommands], network.PhaseRevision);
                 }
                 tick++;
             }

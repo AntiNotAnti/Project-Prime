@@ -66,8 +66,8 @@ with tempfile.TemporaryDirectory(prefix="fruity-server-check-") as temporary:
 
     try:
         master, master_port = start(binary + ["-masterserver", "-port", "0", "-hostports", "none", "-noupdate"], "directory")
-        response = query(master_port, bytes([18, 6]))
-        require(response == bytes([19, 0, 0, 2, 6]),
+        response = query(master_port, bytes([18, 7]))
+        require(response == bytes([19, 0, 0, 2, 7]),
                 "fresh directory advertises authoritative family/protocol and an empty list")
         data = os.environ.get("GAME_DATA_DIRECTORY")
         nettest = Path(os.environ.get("NETTEST_DLL", str(package / "nettest.dll"))).resolve()
@@ -101,13 +101,13 @@ with tempfile.TemporaryDirectory(prefix="fruity-server-check-") as temporary:
             else:
                 print("Protocol fixture unavailable in this publish directory; content gate and directory checked.", flush=True)
         if server_port is not None:
-            response = query(server_port, bytes([14, 6]))
+            response = query(server_port, bytes([14, 7]))
             # Passive discovery retains its compact status framing. Gameplay
             # uses the distinct 24-byte authoritative connection envelope.
             body = response[1:]
             require(len(body) == 130 and response[0] == 15, "server answers an exact-size discovery status query")
-            require(body[95] == 8 and body[96] == 6 and body[129] == 2,
-                    "status advertises eight slots, authoritative family and protocol 6")
+            require(body[95] == 8 and body[96] == 7 and body[129] == 2,
+                    "status advertises eight slots, authoritative family and protocol 7")
             require(bool(body[15:55].rstrip(b"\0")), "status names its room")
             if nettest.is_file():
                 check = subprocess.run([dotnet, str(nettest), "localhost", str(server_port)],

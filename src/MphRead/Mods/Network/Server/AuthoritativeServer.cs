@@ -46,13 +46,15 @@ namespace MphRead.Mods.Network
             ServerContent.Open(_data, _version);
             using var transport = new NetTransport(_port);
             BoundPort = transport.LocalPort;
-            ServerSimulation simulation = new(_entry, LagCompEnabled, ProjectileCatchUpEnabled);
+            MatchRules rules = _entry.ToMatchRules(MaxPlayers, FriendlyFire);
+            ServerSimulation simulation = new(rules, LagCompEnabled, ProjectileCatchUpEnabled);
             try
             {
-                simulation.Scene.Match.ApplyRules(simulation.Scene.Match.Rules.With(friendlyFire: FriendlyFire));
-                var network = new ServerNetwork(transport, _entry.RoomKey, _entry.Mode, capacity: MaxPlayers)
+                var network = new ServerNetwork(transport, rules)
                 {
-                    ServerName = ServerName
+                    ServerName = ServerName,
+                    Phase = simulation.Scene.Match.Phase,
+                    PhaseRevision = simulation.Scene.Match.PhaseRevision
                 };
                 network.StatusProvider = () => new MatchStatePacket
                 {
@@ -62,14 +64,13 @@ namespace MphRead.Mods.Network
                     PointGoal = (ushort)Math.Clamp(simulation.Scene.Match.Rules.LegacyPointGoal, 0, UInt16.MaxValue),
                     Flags = (byte)((simulation.Scene.Match.LegacyState == MatchState.InProgress
                         ? MatchStatePacket.FlagInProgress : MatchStatePacket.FlagEnding)
-                        | (FriendlyFire ? MatchStatePacket.FlagFriendlyFire : 0))
+                        | (simulation.Scene.Match.Rules.FriendlyFire ? MatchStatePacket.FlagFriendlyFire : 0))
                 };
                 var scheduler = new FixedTickScheduler();
                 var world = new WorldStateCapture();
                 uint tick = 0;
                 uint snapshotSequence = 0;
                 uint worldRevision = 0;
-                uint? endedAt = null;
                 int reportedPeers = -1;
                 double nextReport = 0;
                 long lastReport = Stopwatch.GetTimestamp();
@@ -108,7 +109,7 @@ namespace MphRead.Mods.Network
                         {
                             foreach (ServerPeer? peer in network.Peers)
                             {
-                                if (peer?.Connection.State != NetConnectionState.Playing) { continue; }
+                                if (peer?.Connection.State is not (NetConnectionState.Playing or NetConnectionState.Ready)) { continue; }
                                 var snapshot = new SnapshotPacket(tick, snapshotSequence, network.MatchId,
                                     peer.Inputs.LastProcessed, peer.Inputs.HasProcessed, Rng.Rng1, Rng.Rng2);
                                 int length = snapshot.Write(packet, simulation.States);
@@ -148,23 +149,20 @@ namespace MphRead.Mods.Network
                             }
                             simulation.Combat.Consume(count);
                         }
-                        if (simulation.Scene.Match.LegacyState != MatchState.InProgress)
+                        if (simulation.Lifecycle.RotationDue)
                         {
-                            endedAt ??= tick;
-                            if (unchecked(tick - endedAt.Value) >= 300)
-                            {
-                                RotationEntry next = Rotation?.Advance() ?? _entry;
-                                uint match = unchecked(network.MatchId + 1);
-                                if (match == 0) { match = 1; }
-                                network.ChangeMatch(match, next.RoomKey, next.Mode, tick);
-                                // Flush the loading notification before synchronous content IO.
-                                network.Poll(tick);
-                                simulation.Dispose();
-                                simulation = new ServerSimulation(next, LagCompEnabled, ProjectileCatchUpEnabled);
-                                simulation.Scene.Match.ApplyRules(simulation.Scene.Match.Rules.With(friendlyFire: FriendlyFire));
-                                endedAt = null;
-                                Console.WriteLine($"[server] match={match} room={next.RoomKey} tick={tick}");
-                            }
+                            RotationEntry next = Rotation?.Advance() ?? _entry;
+                            MatchRules nextRules = next.ToMatchRules(MaxPlayers, FriendlyFire);
+                            uint match = unchecked(network.MatchId + 1);
+                            if (match == 0) { match = 1; }
+                            network.ChangeMatch(match, nextRules, tick);
+                            // Flush the loading notification before synchronous content IO.
+                            network.Poll(tick);
+                            simulation.Dispose();
+                            simulation = new ServerSimulation(nextRules, LagCompEnabled, ProjectileCatchUpEnabled);
+                            network.Phase = simulation.Scene.Match.Phase;
+                            network.PhaseRevision = simulation.Scene.Match.PhaseRevision;
+                            Console.WriteLine($"[server] match={match} room={next.RoomKey} tick={tick}");
                         }
                         tick++;
                         scheduler.DurationMs.Record(Stopwatch.GetElapsedTime(start).TotalMilliseconds);

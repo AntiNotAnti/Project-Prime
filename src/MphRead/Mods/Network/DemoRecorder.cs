@@ -79,7 +79,7 @@ namespace MphRead.Mods.Network
                 _match = client.Accepted.MatchId;
                 _hasRoster = _hasWorld = false;
                 _snapshotCount = -1;
-                new MatchTransitionPacket(_match, client.Accepted.ServerTick, client.Accepted.Mode, client.Accepted.Room).Write(body);
+                new MatchTransitionPacket(_match, client.Accepted.ServerTick, client.Accepted.Rules).Write(body);
                 Write(DemoRecordKind.Match, body[..MatchTransitionPacket.Size]);
             }
             if (client.HasRoster && (!_hasRoster || _rosterRevision != client.RosterRevision))

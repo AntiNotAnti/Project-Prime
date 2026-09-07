@@ -15,6 +15,8 @@ namespace MphRead.Tests
         [InlineData(0u)]
         [InlineData(1u)]
         [InlineData(2u)]
+        [InlineData(3u)]
+        [InlineData(4u)]
         public void MatchPhasesRoundTripWithUnlimitedClockAndZeroGoals(uint phase)
         {
             WorldRecord original = Match(phase);
@@ -35,7 +37,7 @@ namespace MphRead.Tests
         }
 
         [Theory]
-        [InlineData(3u, 0u, 0f)]
+        [InlineData(5u, 0u, 0f)]
         [InlineData(uint.MaxValue, 0u, 0f)]
         [InlineData(0u, 2147483648u, 0f)]
         [InlineData(0u, uint.MaxValue, 0f)]

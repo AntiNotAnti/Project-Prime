@@ -40,9 +40,13 @@ namespace MphRead.Mods.Network
     }
 
     public readonly record struct JoinAcceptedPacket(ulong ClientNonce, byte Slot, uint MatchId,
-        uint ServerTick, byte TickRate, GameMode Mode, string Room)
+        uint ServerTick, byte TickRate, MatchRules Rules)
     {
-        public const int Size = 8 + 1 + 4 + 4 + 1 + 1 + MatchStatePacket.MaxNameBytes;
+        public GameMode Mode => Rules?.Mode.ToLegacyMode() ?? GameMode.None;
+        public string Room => Rules?.RoomKey ?? "";
+        public const int Size = 18 + MatchRulesWire.Size;
+        public JoinAcceptedPacket(ulong nonce, byte slot, uint matchId, uint tick, byte rate, GameMode mode, string room)
+            : this(nonce, slot, matchId, tick, rate, MatchRules.CreateDefault(mode.ToMatchMode(), room)) { }
 
         public void Write(Span<byte> destination)
         {
@@ -51,28 +55,21 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt32LittleEndian(destination[9..], MatchId);
             BinaryPrimitives.WriteUInt32LittleEndian(destination[13..], ServerTick);
             destination[17] = TickRate;
-            destination[18] = (byte)Mode;
-            NetText.Write(destination.Slice(19, MatchStatePacket.MaxNameBytes), Room);
+            MatchRulesWire.Write(destination[18..], Rules);
         }
 
         public static bool TryRead(ReadOnlySpan<byte> source, out JoinAcceptedPacket packet)
         {
             packet = default;
             if (source.Length != Size || source[8] >= RosterPacket.MaxSlots || source[17] != 60
-                || source[18] < (byte)GameMode.Battle || source[18] > (byte)GameMode.PrimeHunter
-                || BinaryPrimitives.ReadUInt64LittleEndian(source) == 0)
-            {
-                return false;
-            }
-            foreach (byte character in source[19..])
-            {
-                if (character != 0 && (character < 32 || character > 126)) { return false; }
-            }
-            packet = new JoinAcceptedPacket(BinaryPrimitives.ReadUInt64LittleEndian(source), source[8],
+                || BinaryPrimitives.ReadUInt64LittleEndian(source) == 0
+                || BinaryPrimitives.ReadUInt32LittleEndian(source[9..]) == 0
+                || !MatchRulesWire.TryRead(source[18..], out MatchRules rules)
+                || source[8] >= rules.MaxPlayers) { return false; }
+            packet = new(BinaryPrimitives.ReadUInt64LittleEndian(source), source[8],
                 BinaryPrimitives.ReadUInt32LittleEndian(source[9..]),
-                BinaryPrimitives.ReadUInt32LittleEndian(source[13..]), source[17],
-                (GameMode)source[18], NetText.Read(source[19..]));
-            return packet.Room.Length > 0;
+                BinaryPrimitives.ReadUInt32LittleEndian(source[13..]), source[17], rules);
+            return true;
         }
     }
 

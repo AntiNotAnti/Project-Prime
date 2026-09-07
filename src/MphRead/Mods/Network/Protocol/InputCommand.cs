@@ -85,11 +85,11 @@ namespace MphRead.Mods.Network
     public static class InputBundle
     {
         public const int Capacity = 8;
-        public const int HeaderSize = 5;
+        public const int HeaderSize = 9;
         public const int MaxSize = HeaderSize + Capacity * InputCommand.Size;
 
         /// <summary>Commands are encoded oldest first, with contiguous sequences.</summary>
-        public static int Write(Span<byte> destination, uint matchId, ReadOnlySpan<InputCommand> commands)
+        public static int Write(Span<byte> destination, uint matchId, ReadOnlySpan<InputCommand> commands, uint phaseRevision = 0)
         {
             if (commands.Length == 0 || commands.Length > Capacity)
             {
@@ -97,6 +97,7 @@ namespace MphRead.Mods.Network
             }
             BinaryPrimitives.WriteUInt32LittleEndian(destination, matchId);
             destination[4] = (byte)commands.Length;
+            BinaryPrimitives.WriteUInt32LittleEndian(destination[5..], phaseRevision);
             for (int i = 0; i < commands.Length; i++)
             {
                 commands[i].Write(destination.Slice(HeaderSize + i * InputCommand.Size, InputCommand.Size));
@@ -106,8 +107,12 @@ namespace MphRead.Mods.Network
 
         /// <summary>Validate the entire bundle before the caller changes input state.</summary>
         public static bool TryRead(ReadOnlySpan<byte> source, Span<InputCommand> commands,
-            out uint matchId, out int count)
+            out uint matchId, out int count) => TryRead(source, commands, out matchId, out _, out count);
+
+        public static bool TryRead(ReadOnlySpan<byte> source, Span<InputCommand> commands,
+            out uint matchId, out uint phaseRevision, out int count)
         {
+            phaseRevision = 0;
             matchId = 0;
             count = 0;
             if (source.Length < HeaderSize || source[4] == 0 || source[4] > Capacity
@@ -126,6 +131,7 @@ namespace MphRead.Mods.Network
                 }
             }
             matchId = BinaryPrimitives.ReadUInt32LittleEndian(source);
+            phaseRevision = BinaryPrimitives.ReadUInt32LittleEndian(source[5..]);
             count = length;
             return true;
         }

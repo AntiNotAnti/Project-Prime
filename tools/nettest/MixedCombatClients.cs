@@ -81,7 +81,8 @@ namespace MphRead.NetTest
                                 if (value.Kind == CombatEventKind.Shot && value.Actor.Slot == client.Accepted.Slot) ownShots[i]++;
                             }
                         }
-                        if (client.State is not (NetConnectionState.Ready or NetConnectionState.Playing)) { continue; }
+                        if (client.State != NetConnectionState.Playing
+                            || !worlds[i].HasState || worlds[i].Phase != MatchPhase.Playing) { continue; }
                         Vector3 aim = -Vector3.UnitZ;
                         Vector3 position = default;
                         byte currentWeapon = InputCommand.NoWeapon;
@@ -132,7 +133,7 @@ namespace MphRead.NetTest
                         {
                             bundle[item] = histories[i, (sequence - (uint)(count - 1 - item)) % 8];
                         }
-                        client.SendInputs(bundle[..count]);
+                        client.SendInputs(bundle[..count], worlds[i].PhaseRevision);
                     }
                 }
                 bool success = scheduler.DroppedTicks == 0 && System.IO.File.Exists(args[4]);

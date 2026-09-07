@@ -171,7 +171,8 @@ namespace MphRead.NetTest
                         // rejection therefore depends on the match identity.
                         _input[0] = new InputCommand(1_000_000, 1_000_000, 0, InputButtons.Shoot,
                             InputButtons.Shoot, -Vector3.UnitZ, InputCommand.NoWeapon);
-                        int length = InputBundle.Write(_payload, epoch - 1, _input);
+                        int length = InputBundle.Write(_payload, epoch - 1, _input,
+                            player.World.HasState ? player.World.PhaseRevision : 0);
                         client.Connection.Send(player.Transport, NetMessageType.Input, _payload.AsSpan(0, length));
                         Span<byte> ready = stackalloc byte[4];
                         BinaryPrimitives.WriteUInt32LittleEndian(ready, epoch - 1);
@@ -209,7 +210,7 @@ namespace MphRead.NetTest
                     WorldRecord match = player.World.Records[0];
                     if (player.World.MatchId != epoch || (GameMode)match.A != client.Accepted.Mode)
                     { throw new InvalidOperationException("World state crossed the match boundary."); }
-                    if (match.B == (uint)MatchState.InProgress && match.Position.X > 0)
+                    if (player.World.Phase is MatchPhase.Countdown or MatchPhase.Playing && match.Position.X > 0)
                     { player.CompleteEpoch[epoch] = true; }
                 }
                 if (client.State == NetConnectionState.Playing)
@@ -220,13 +221,16 @@ namespace MphRead.NetTest
                         player.Link.ReplayOldPackets(); player.Replayed = epoch;
                         _input[0] = new InputCommand(1_000_000, 1_000_000, 0, InputButtons.Shoot,
                             InputButtons.Shoot, -Vector3.UnitZ, InputCommand.NoWeapon);
-                        int length = InputBundle.Write(_payload, epoch - 1, _input);
+                        int length = InputBundle.Write(_payload, epoch - 1, _input, player.World.PhaseRevision);
                         client.Connection!.Send(player.Transport, NetMessageType.Input, _payload.AsSpan(0, length));
                     }
-                    uint sequence = player.Sequence++;
-                    _input[0] = new InputCommand(sequence, sequence, client.Snapshot.ServerTick,
-                        InputButtons.None, InputButtons.None, -Vector3.UnitZ, InputCommand.NoWeapon);
-                    client.SendInputs(_input);
+                    if (player.World.HasState && player.World.Phase == MatchPhase.Playing)
+                    {
+                        uint sequence = player.Sequence++;
+                        _input[0] = new InputCommand(sequence, sequence, client.Snapshot.ServerTick,
+                            InputButtons.None, InputButtons.None, -Vector3.UnitZ, InputCommand.NoWeapon);
+                        client.SendInputs(_input, player.World.PhaseRevision);
+                    }
                 }
             }
 

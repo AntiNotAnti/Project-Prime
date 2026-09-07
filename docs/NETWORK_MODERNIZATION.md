@@ -1,6 +1,6 @@
 # Authoritative multiplayer migration
 
-Online play uses authoritative wire family 2, protocol 6 and a dedicated, single-writer simulation. Every
+Online play uses authoritative wire family 2, protocol 7 and a dedicated, single-writer simulation. Every
 player joins as an ordinary client, including the player who starts a local
 server. The directory can run without game files; game servers require extracted
 game data or a validated server content package.
@@ -8,7 +8,7 @@ game data or a validated server content package.
 ## Scope and invariants
 
 The target is a single-writer, 60 Hz dedicated simulation using the existing UDP
-transport and gameplay code. Offline play, .NET 10, the MphRead namespace,
+transport and gameplay code. .NET 10, the MphRead namespace,
 directory service, network impairment tools and existing diagnostics are retained.
 Client input replaces owner-reported position and ammo. Prediction, interpolation,
 authoritative combat, lag compensation and world replication were exercised before
@@ -20,8 +20,10 @@ Optional P11 regional orchestration remains outside this core migration.
 
 ## Original migration phase status
 
-This table records the migration baseline. Current protocol, view timing and
-projectile upgrades are recorded in [NETWORK_POST_UPSTREAM.md](NETWORK_POST_UPSTREAM.md).
+This table records the migration baseline. View timing and projectile upgrades
+are recorded in [NETWORK_POST_UPSTREAM.md](NETWORK_POST_UPSTREAM.md). The newer
+multiplayer-only lifecycle and protocol changes are tracked in
+[MULTIPLAYER_REFACTOR_PROGRESS.md](MULTIPLAYER_REFACTOR_PROGRESS.md).
 
 | Phase | Implementation and evidence |
 | --- | --- |

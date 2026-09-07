@@ -12,7 +12,7 @@ namespace MphRead.Tests
     public sealed class PublicNetworkEntryTests
     {
         [Fact]
-        public void PublicJoinUsesProtocolFiveAndGracefulStopReleasesTheServerSlot()
+        public void PublicJoinUsesCurrentProtocolAndGracefulStopReleasesTheServerSlot()
         {
             Assert.True(NetLag.Configure("200"));
             using var transport = new NetTransport(0);
@@ -43,7 +43,7 @@ namespace MphRead.Tests
             owner.Start();
             try
             {
-                Assert.Equal(6, NetConfig.ProtocolVersion);
+                Assert.Equal(7, NetConfig.ProtocolVersion);
                 Assert.True(NetProbe.Probe("127.0.0.1", transport.LocalPort).Ok);
                 Assert.True(NetLaunch.Join("127.0.0.1", transport.LocalPort, "PUBLIC", Hunter.Samus));
                 Assert.False(NetSession.Active);

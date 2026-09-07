@@ -1,11 +1,19 @@
 # Running a Fruity Prime server
 
-Fruity Prime online matches use authoritative wire family 2, protocol 6. The
+Fruity Prime online matches use authoritative wire family 2, protocol 7. The
 server owns one headless simulation: movement, combat, pickups, objectives,
 score and match transitions. Clients send input and receive authoritative
 snapshots, world updates and reliable gameplay events; the local player is a
 normal client too. The simulation runs at 60 Hz, publishes player snapshots at
 30 Hz and complete world state at 5 Hz.
+
+The server waits for eligible players, runs a shared three-second countdown, then
+starts the match clock. Players cannot move, shoot or collect items while waiting
+or counting down. Countdown start resets players and scores against the unchanged
+initial world. Losing the required players during countdown returns the match to
+waiting. After completion, the server owns three seconds of ending presentation
+and five seconds of intermission before rotating. Full rules arrive before room
+loading; client settings cannot override them. Team assignments come from the server.
 
 The server directory is only for discovery and optional hosted matches. It does
 not relay gameplay packets. A directory-only instance needs no game files, but
@@ -120,7 +128,7 @@ processes for separate matches.
 | `-players N` | Capacity from 2 through 8; default `8`. |
 | `-mode MODE` | Mode for the single default match when no rotation file is supplied. |
 | `-servername "NAME"` | Name shown by discovery; `-name` is an alias. |
-| `-rotation FILE` | Map/mode/time/point cycle. The file is read at startup; it is not created automatically. |
+| `-rotation FILE` | Map/mode/time/score/objective cycle. The file is read at startup; it is not created automatically. |
 | `-friendlyfire` / `-friendlyfire false` | Enable or disable team damage. |
 | `-master HOST:PORT` | Opt in to directory listing. `-masterport N` can supply the port separately. |
 | `-nomaster` | Disable listing, even if `-master` is present. |
@@ -203,10 +211,16 @@ Create a plain text file with one match per line. `#` starts a comment:
 ```text
 MP1 SANCTORUS      | Battle | 7 | 7
 MP3 PROVING GROUND | Battle | 7 | 7
+MP1 SANCTORUS      | Defender | 15 | 0 | 90
 ```
 
-The fields are `ROOM KEY | mode | minutes | points`. Only the room key is
+The fields are `ROOM KEY | mode | minutes | points | objective seconds`. Only the room key is
 required; omitted rotation values default to Battle, 7 minutes and 7 points.
+The fifth field sets the hold-time goal for Defender and Prime Hunter separately
+from points; omitting it retains the mode's 90-second goal. In Survival, the
+fourth field means extra lives after the initial spawn. Zero minutes means an
+unlimited match clock. Invalid modes, negative goals and non-finite durations
+are rejected with the rotation file's line number.
 Every selected room/mode must be present in the supplied content package. Use
 `-rooms` on a machine with configured extracted game files to print the room
 keys. After a match ends, the server advances to the next rotation entry.
@@ -297,10 +311,10 @@ rules, and never uploads extracted files or a server-content package.
 ## Compatibility and verification
 
 Live clients, match servers and directories use authoritative wire family 2,
-protocol 6, and should be updated together. Both family and protocol must match.
+protocol 7, and should be updated together. Both family and protocol must match.
 Discovery identifies upstream protocol-5 relays as online but incompatible;
 the client sends no authoritative join to them. There is one live networking
-implementation. Protocol-4 relay and protocol-5 authoritative demo files remain
+implementation. Protocol-4 relay and protocol-5/6 authoritative demo files remain
 readable through passive playback without opening a gameplay socket.
 
 The server's status query is read-only and safe for browser polling. A normal

@@ -23,10 +23,16 @@ namespace MphRead.Mods.Network
         private bool _assembling;
         private bool _dirty;
         public uint MatchId { get; private set; }
+        internal bool LegacyProtocol { get; set; }
         public uint Revision { get; private set; }
         public uint ServerTick { get; private set; }
         public int Count { get; private set; }
         public bool HasState { get; private set; }
+        public MatchPhase Phase => !HasState ? MatchPhase.WaitingForPlayers : LegacyProtocol
+            ? _current[0].B switch { 0 => MatchPhase.Playing, 1 => MatchPhase.Ending, _ => MatchPhase.Intermission }
+            : (MatchPhase)_current[0].B;
+        public uint PhaseStartTick => HasState && !LegacyProtocol ? _current[17].A : 0;
+        public uint PhaseRevision => HasState && !LegacyProtocol ? _current[17].C : 0;
         public ReadOnlySpan<WorldRecord> Records => _current.AsSpan(0, Count);
 
         public void Reset(uint matchId)
@@ -38,7 +44,7 @@ namespace MphRead.Mods.Network
         }
         public bool Receive(ReadOnlySpan<byte> body)
         {
-            if (!WorldPacket.TryValidate(body, MatchId)) { return false; }
+            if (!WorldPacket.TryValidate(body, MatchId, LegacyProtocol)) { return false; }
             uint revision = BinaryPrimitives.ReadUInt32LittleEndian(body[4..]);
             uint tick = BinaryPrimitives.ReadUInt32LittleEndian(body[8..]);
             int total = BinaryPrimitives.ReadUInt16LittleEndian(body[12..]);
@@ -55,7 +61,7 @@ namespace MphRead.Mods.Network
             {
                 int index = offset + i;
                 if (_received[index]) { continue; }
-                WorldRecord.TryRead(body.Slice(WorldPacket.HeaderSize + i * WorldRecord.Size, WorldRecord.Size), out _pending[index]);
+                WorldRecord.TryRead(body.Slice(WorldPacket.HeaderSize + i * WorldRecord.Size, WorldRecord.Size), LegacyProtocol, out _pending[index]);
                 _received[index] = true; _receivedCount++;
             }
             if (_receivedCount != total) { return false; }
@@ -67,6 +73,11 @@ namespace MphRead.Mods.Network
                     || _pending[2 + slot * 2].Kind != WorldRecordKind.Time || _pending[2 + slot * 2].Slot != slot)
                 { _assembling = false; return false; }
             }
+            if (!LegacyProtocol && (total < 18 || _pending[17].Kind != WorldRecordKind.Lifecycle))
+            { _assembling = false; return false; }
+            if (!LegacyProtocol && HasState && _pending[17].C != PhaseRevision
+                && !Sequence32.IsNewer(_pending[17].C, PhaseRevision))
+            { _assembling = false; return false; }
             // Reject duplicate entity keys, even across distinct batches, before any scene writes.
             for (int i = 0; i < total; i++)
             {
@@ -135,14 +146,25 @@ namespace MphRead.Mods.Network
                         scene.Match.MatchTime = state.Position.X;
                         MatchRules rules = scene.Match.Rules;
                         int pointGoal = unchecked((int)state.C);
-                        if (rules.LegacyTimeGoal != state.Position.Y || rules.LegacyPointGoal != pointGoal)
+                        if (LegacyProtocol && (rules.LegacyTimeGoal != state.Position.Y || rules.LegacyPointGoal != pointGoal))
                         {
                             scene.Match.ApplyRules(rules.With(objectiveTimeGoal: TimeSpan.FromSeconds(state.Position.Y),
                                 startingLives: rules.IsSurvival ? pointGoal : null,
                                 scoreGoal: rules.IsSurvival ? null : pointGoal));
                         }
-                        scene.Match.LegacyState = (MatchState)state.B;
+                        if (LegacyProtocol) { scene.Match.LegacyState = (MatchState)state.B; }
+                        else
+                        {
+                            scene.Match.Phase = (MatchPhase)state.B;
+                            scene.Match.RadarPlayers = (state.Flags & 2) != 0;
+                        }
                         scene.Match.PrimeHunter = unchecked((int)state.D);
+                        break;
+                    case WorldRecordKind.Lifecycle:
+                        scene.Match.PhaseStartTick = state.A;
+                        scene.Match.PhaseEndTick = state.B;
+                        scene.Match.HasPhaseDeadline = state.Flags != 0;
+                        scene.Match.PhaseRevision = state.C;
                         break;
                     case WorldRecordKind.Score:
                         if (!playerSnapshotTick.HasValue || ServerTick == playerSnapshotTick.Value || Sequence32.IsNewer(ServerTick, playerSnapshotTick.Value))

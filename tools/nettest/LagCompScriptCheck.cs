@@ -61,6 +61,7 @@ namespace MphRead.NetTest
             Rng.SetRng1(config.Seed); Rng.SetRng2(config.Seed ^ 0x98AC72u);
             using var simulation = new ServerSimulation(new RotationEntry { RoomKey = config.Room, Mode = GameMode.Battle },
                 lagCompEnabled: config.Enabled, projectileCatchUpEnabled: config.ProjectileCatchUpEnabled);
+            simulation.Scene.Match.Phase = MatchPhase.Playing;
             ServerCombat combat = simulation.Combat;
             PlayerEntity shooter = PlayerEntity.Players[0], target = PlayerEntity.Players[1];
             PlayerEntity[] players = [shooter, target];
@@ -101,7 +102,8 @@ namespace MphRead.NetTest
                 while (nextArrival < arrivals.Length && arrivals[nextArrival].DeliveryTick <= tick)
                 {
                     Delivery arrival = arrivals[nextArrival++];
-                    if (!InputBundle.TryRead(arrival.Body, decoded, out uint match, out int count) || match != 1)
+                    if (!InputBundle.TryRead(arrival.Body, decoded, out uint match, out uint phaseRevision, out int count)
+                        || match != 1 || phaseRevision != 1)
                         throw new InvalidOperationException("Generated input bundle failed the production codec.");
                     streams[arrival.Slot].Receive(decoded[..count], tick);
                 }
@@ -199,7 +201,7 @@ namespace MphRead.NetTest
                         InputCommand.NoWeapon);
                     int count = (int)Math.Min(tick + 1, InputBundle.Capacity);
                     for (int i = 0; i < count; i++) bundle[i] = history[slot, tick - (uint)(count - 1 - i)];
-                    int length = InputBundle.Write(bytes, 1, bundle[..count]);
+                    int length = InputBundle.Write(bytes, 1, bundle[..count], phaseRevision: 1);
                     random = Next(random);
                     bool dropped = random % 1000 < config.LossPerThousand;
                     random = Next(random);

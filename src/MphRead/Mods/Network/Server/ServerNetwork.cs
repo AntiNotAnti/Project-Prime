@@ -10,6 +10,7 @@ namespace MphRead.Mods.Network
         public NetConnection Connection { get; }
         public ulong Nonce { get; }
         public byte Slot { get; }
+        public byte TeamIndex { get; internal set; }
         public string Name { get; }
         public Hunter Hunter { get; }
         public ServerInputStream Inputs { get; internal set; } = new();
@@ -57,6 +58,9 @@ namespace MphRead.Mods.Network
         public uint Tick { get; private set; }
         public string Room { get; private set; }
         public GameMode Mode { get; private set; }
+        public MatchRules Rules { get; private set; }
+        public MatchPhase Phase { get; set; } = MatchPhase.WaitingForPlayers;
+        public uint PhaseRevision { get; set; }
         public string ServerName { get; set; } = "Fruity Prime";
         public Func<MatchStatePacket>? StatusProvider { get; set; }
         public ReadOnlySpan<ServerPeer?> Peers => _peers;
@@ -65,7 +69,16 @@ namespace MphRead.Mods.Network
 
         public ServerNetwork(NetTransport transport, string room, GameMode mode,
             uint matchId = 1, int capacity = RosterPacket.MaxSlots)
+            : this(transport, MatchRules.CreateDefault(mode.ToMatchMode(), room, capacity), matchId) { }
+
+        public ServerNetwork(NetTransport transport, MatchRules rules, uint matchId = 1)
         {
+            MatchLifecycle.ValidateRules(rules);
+            if (matchId == 0) { throw new ArgumentOutOfRangeException(nameof(matchId)); }
+            int capacity = rules.MaxPlayers;
+            string room = rules.RoomKey;
+            GameMode mode = rules.Mode.ToLegacyMode();
+            Rules = rules;
             if (capacity < 1 || capacity > RosterPacket.MaxSlots)
             {
                 throw new ArgumentOutOfRangeException(nameof(capacity));
@@ -177,8 +190,9 @@ namespace MphRead.Mods.Network
                 NetMessageType.Ping => body.Length == 8,
                 NetMessageType.Pong => body.Length == 12 && peer.PingSent != 0
                     && BinaryPrimitives.ReadInt64LittleEndian(body) == peer.PingSent,
-                NetMessageType.Input => InputBundle.TryRead(body, commands, out uint inputMatch, out commandCount)
-                    && inputMatch == MatchId && peer.Connection.State == NetConnectionState.Playing,
+                NetMessageType.Input => InputBundle.TryRead(body, commands, out uint inputMatch, out uint inputPhase, out commandCount)
+                    && inputMatch == MatchId && peer.Connection.State == NetConnectionState.Playing
+                    && Phase == MatchPhase.Playing && inputPhase == PhaseRevision,
                 NetMessageType.Event => ReliableEventPacket.TryRead(body, out eventId, out eventType, out eventBody)
                     && (eventType == ReliableEventType.ClientReady && eventBody.Length == 4
                         || eventType == ReliableEventType.Disconnect && eventBody.IsEmpty
@@ -278,11 +292,12 @@ namespace MphRead.Mods.Network
             ulong id;
             do { id = NetConnection.NewIdentity(); } while (Find(id) != null);
             var connection = new NetConnection(id, endpoint, MatchId, _now);
-            var accepted = new JoinAcceptedPacket(join.Nonce, (byte)free, MatchId, Tick, 60, Mode, Room);
+            var accepted = new JoinAcceptedPacket(join.Nonce, (byte)free, MatchId, Tick, 60, Rules);
             Span<byte> payload = stackalloc byte[JoinAcceptedPacket.Size];
             accepted.Write(payload);
             connection.Reliable.TryEnqueue(ReliableEventType.Welcome, payload, out _);
-            _peers[free] = new ServerPeer(connection, join, (byte)free, _now);
+            _peers[free] = new ServerPeer(connection, join, (byte)free, _now)
+            { TeamIndex = Rules.Teams ? (byte)(free % 2) : (byte)free };
             Count++;
             PublishKeepAlives();
             _rosterDirty = true;
@@ -326,7 +341,7 @@ namespace MphRead.Mods.Network
                 foreach (ServerPeer? peer in _peers)
                 {
                     if (peer == null) { continue; }
-                    byte team = Mode.IsTeamMode() ? (byte)(peer.Slot % 2) : peer.Slot;
+                    byte team = peer.TeamIndex;
                     ushort ping = MeasuredPing(peer);
                     _rosterPings[peer.Slot] = ping;
                     _rosterEntries[count++] = new(peer.Slot, peer.Connection.Id, peer.Hunter, team, peer.Name, ping);
@@ -375,7 +390,13 @@ namespace MphRead.Mods.Network
 
         /// <summary>Called by the simulation owner before loading the next room.</summary>
         public void ChangeMatch(uint matchId, string room, GameMode mode, uint tick)
+            => ChangeMatch(matchId, MatchRules.CreateDefault(mode.ToMatchMode(), room, _capacity), tick);
+
+        public void ChangeMatch(uint matchId, MatchRules rules, uint tick)
         {
+            string room = rules.RoomKey;
+            GameMode mode = rules.Mode.ToLegacyMode();
+            if (rules.MaxPlayers != _capacity) { throw new ArgumentException("Rotation cannot change session capacity.", nameof(rules)); }
             if (!Sequence32.IsNewer(matchId, MatchId))
             {
                 throw new ArgumentOutOfRangeException(nameof(matchId), "Match identity must advance.");
@@ -385,12 +406,15 @@ namespace MphRead.Mods.Network
                 throw new ArgumentException("Room key must fit the protocol field.", nameof(room));
             }
             Span<byte> payload = stackalloc byte[MatchTransitionPacket.Size];
-            new MatchTransitionPacket(matchId, tick, mode, room).Write(payload);
+            new MatchTransitionPacket(matchId, tick, rules).Write(payload);
             if (!MatchTransitionPacket.TryRead(payload, out _))
             {
                 throw new ArgumentException("Invalid match transition.");
             }
             MatchId = matchId;
+            Rules = rules;
+            Phase = MatchPhase.WaitingForPlayers;
+            PhaseRevision = 0;
             Room = room;
             Mode = mode;
             Tick = tick;
@@ -399,6 +423,7 @@ namespace MphRead.Mods.Network
             {
                 ServerPeer? peer = _peers[slot];
                 if (peer == null) { continue; }
+                peer.TeamIndex = rules.Teams ? (byte)(peer.Slot % 2) : peer.Slot;
                 peer.Inputs = new ServerInputStream();
                 peer.HasRoster = false;
                 peer.Connection.BeginLoading(matchId);
@@ -442,7 +467,8 @@ namespace MphRead.Mods.Network
 
         public void SendWorld(ServerPeer peer, ReadOnlySpan<byte> payload)
         {
-            if (Find(peer.Connection.Id) == peer && peer.Connection.State == NetConnectionState.Playing)
+            if (Find(peer.Connection.Id) == peer
+                && peer.Connection.State is NetConnectionState.Ready or NetConnectionState.Playing)
             {
                 peer.Connection.Send(_transport, NetMessageType.World, payload);
             }

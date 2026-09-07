@@ -77,9 +77,47 @@ rotation/late-join/stale-replay checks passed. Server/nettest built without warn
 desktop Release and Android managed Release built with the previously recorded
 dependency/documentation warnings. No native publish or emulator run was repeated.
 
+The frozen R4 artifacts also passed all 16 real UDP impairment cases (74 client
+runs, 20 seconds per case). These local socket tests do not prove rendered play
+or an external Internet path.
+
+## R5 — Authoritative lifecycle and rules
+
+The server now owns WaitingForPlayers → Countdown → Playing → Ending →
+Intermission and rotates from the same tick-based lifecycle. Countdown lasts
+three seconds; ending and intermission last three and five seconds. Waiting and
+countdown never advance the competitive world. Countdown start resets players,
+scores, RNG, combat history and pending inputs, and verifies that initialized
+items/objectives remained unchanged. Losing quorum during countdown returns to
+waiting. Player life identities remain monotonic across resets. Captured results
+prevent terminal joins/disconnects from changing competitive counters.
+
+Protocol 7 is the single deliberate revision. Reliable welcome/rotation packets
+carry every immutable rule before room/player initialization. World updates carry
+explicit phase deadlines, phase revision and effective radar state. Input bundles
+carry the current Playing revision, rejecting delayed pre-countdown commands.
+The server assigns teams; live clients freeze local gameplay during pre-match
+phases and show the shared countdown. Protocol-5/6 demos use isolated legacy
+layouts; protocol-4 passive playback remains supported.
+
+Rotation keeps the existing four fields and adds optional objective seconds as
+a fifth field. Defender/Prime Hunter hold-time goals are independent of score
+goals. Invalid configuration and durations beyond the tick comparison window
+fail before lifecycle mutation. See [SERVER.md](../SERVER.md).
+
+Validation: 409 C# tests and 34 Python tests passed. All 12 real-content scoring
+modes, the dedicated-server/content suite and process-based rotation/late-join
+checks passed. The real-UDP phase fixture checks lossless rules, team quorum,
+reset, stale input rejection, terminal counters and the deadline cycle with
+deterministically driven ticks. Additional Bounty/Nodes probes verify unchanged
+objective worlds while waiting/counting down. The server/nettest build passed
+without warnings; desktop and Android managed Release builds retained only the
+previously documented warnings. Rendered client/platform acceptance remains a
+separate release gate.
+
 ## Planned remaining passes
 
-R5 owns lifecycle and rule replication on the server. R6–R9 remove
+R6–R9 remove
 campaign behavior with content-aware guards. R10–R12 split the projects, converge
 Android and enforce dependency boundaries. No later pass is marked complete
 before its implementation and checks finish.

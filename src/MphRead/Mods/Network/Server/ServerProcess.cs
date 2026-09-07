@@ -99,6 +99,7 @@ namespace MphRead.Mods.Network
                 {
                     throw new ArgumentException("Invalid hosted map or match rules.", nameof(rotation));
                 }
+                _ = entry.ToMatchRules(maxPlayers, friendlyFire);
             }
             cancel.ThrowIfCancellationRequested();
             string rotationFile = Path.Combine(Path.GetTempPath(), "fruity-server-" + Guid.NewGuid().ToString("N") + ".rotation");
@@ -109,7 +110,7 @@ namespace MphRead.Mods.Network
                 {
                     foreach (RotationEntry entry in rotation.Entries)
                     {
-                        file.WriteLine(FormattableString.Invariant($"{entry.RoomKey} | {entry.Mode} | {entry.TimeLimit / 60:R} | {entry.PointGoal}"));
+                        file.WriteLine(FormattableString.Invariant($"{entry.RoomKey} | {entry.Mode} | {entry.TimeLimit / 60:R} | {entry.PointGoal} | {entry.ObjectiveTimeGoal:R}"));
                     }
                 }
                 ProcessStartInfo start = CreateStartInfo(CustomRooms.MapDirectory);

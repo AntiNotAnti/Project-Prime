@@ -87,7 +87,11 @@ namespace MphRead.NetTest
                             reconnected = true;
                             continue;
                         }
-                        if (client.State is not (NetConnectionState.Ready or NetConnectionState.Playing)) { continue; }
+                        // The server gates input on the authoritative lifecycle.
+                        // Wait for the complete modern world before using its
+                        // phase generation in a synthetic command stream.
+                        if (client.State != NetConnectionState.Playing
+                            || !worlds[i].HasState || worlds[i].Phase != MatchPhase.Playing) { continue; }
                         Vector3 aim = -Vector3.UnitZ;
                         Vector3 position = default;
                         foreach (SnapshotPlayer player in client.SnapshotPlayers)
@@ -131,7 +135,7 @@ namespace MphRead.NetTest
                         {
                             bundle[item] = histories[i, (sequence - (uint)(count - 1 - item)) % 8];
                         }
-                        client.SendInputs(bundle[..count]);
+                        client.SendInputs(bundle[..count], worlds[i].PhaseRevision);
                     }
                 }
                 bool success = reconnected && clients[0].Connection!.Id != oldIdentity;

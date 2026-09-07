@@ -50,6 +50,10 @@ namespace MphRead.NetTest
             public Fixture()
             {
                 _network = new ServerNetwork(_server, "MP1 SANCTORUS", GameMode.Battle);
+                // Only one client is admitted here, so the normal owner-side
+                // eligibility transition cannot enter gameplay. This focused
+                // history fixture drives the simulation directly.
+                _simulation.Scene.Match.Phase = MatchPhase.Playing;
                 _client = CreateClient();
             }
 

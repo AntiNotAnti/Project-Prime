@@ -11,13 +11,22 @@ namespace MphRead.Tests
         private static WorldRecord[] Records(int count)
         {
             var records = new WorldRecord[count];
-            records[0] = new WorldRecord(WorldRecordKind.Match, 255, 0, 0, new Vector3(600, 600, 0), 3, 0, 10, uint.MaxValue, 0);
+            records[0] = new WorldRecord(WorldRecordKind.Match, 255, 0, 0, new Vector3(600, 600, 0), 3,
+                (uint)MatchPhase.Playing, 10, uint.MaxValue, 0);
             for (byte slot = 0; slot < 8; slot++)
             {
                 records[1 + slot * 2] = new WorldRecord(WorldRecordKind.Score, slot, 0, 0, Vector3.Zero, slot, 0, 0, 0, 0);
                 records[2 + slot * 2] = new WorldRecord(WorldRecordKind.Time, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
             }
-            for (int i = 17; i < count; i++)
+            if (count >= 18)
+            {
+                // Version 7 keeps lifecycle facts separate from the legacy match
+                // record.  The revision is deliberately nonzero: a complete
+                // modern world must carry an identifiable phase generation.
+                records[17] = new WorldRecord(WorldRecordKind.Lifecycle, 255, 0, 0,
+                    Vector3.Zero, 0, 0, 1, 0, 0);
+            }
+            for (int i = 18; i < count; i++)
             { records[i] = new WorldRecord(WorldRecordKind.Item, (byte)(i % 22), 0, (uint)i, new Vector3(i, 2, 3), uint.MaxValue, uint.MaxValue, 0, 0, 0); }
             return records;
         }
@@ -41,6 +50,8 @@ namespace MphRead.Tests
             }
             Assert.True(client.Receive(Batch(source, 0)));
             Assert.Equal(source, client.Records.ToArray());
+            Assert.Equal(MatchPhase.Playing, client.Phase);
+            Assert.Equal(1u, client.PhaseRevision);
             Assert.False(client.Receive(Batch(source, 0)));
         }
         [Fact]
@@ -80,7 +91,7 @@ namespace MphRead.Tests
         [Fact]
         public void DuplicateIdsAcrossBatchesAndMissingGlobalTablesAreRejected()
         {
-            var records = Records(30); records[29] = records[17] with { Slot = 3 };
+            var records = Records(30); records[29] = records[18] with { Slot = 3 };
             var client = new ClientWorldState(); client.Reset(7);
             Assert.False(client.Receive(Batch(records, 0))); Assert.False(client.Receive(Batch(records, 24)));
             Assert.False(client.HasState);

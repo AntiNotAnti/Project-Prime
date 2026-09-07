@@ -17,10 +17,11 @@ namespace MphRead.Tests
             var commands = new InputCommand[8];
             for (uint i = 0; i < 8; i++) { commands[i] = Command(unchecked(UInt32.MaxValue - 3 + i)); }
             byte[] bytes = new byte[InputBundle.MaxSize];
-            Assert.Equal(bytes.Length, InputBundle.Write(bytes, 7, commands));
+            Assert.Equal(bytes.Length, InputBundle.Write(bytes, 7, commands, phaseRevision: 19));
             var decoded = new InputCommand[8];
-            Assert.True(InputBundle.TryRead(bytes, decoded, out uint match, out int count));
+            Assert.True(InputBundle.TryRead(bytes, decoded, out uint match, out uint phaseRevision, out int count));
             Assert.Equal(7u, match);
+            Assert.Equal(19u, phaseRevision);
             Assert.Equal(8, count);
             Assert.Equal(commands, decoded);
             for (int length = 0; length < bytes.Length; length++)
@@ -61,9 +62,10 @@ namespace MphRead.Tests
                 Command(3) with { ViewServerTick = UInt32.MaxValue }
             };
             byte[] bytes = new byte[InputBundle.HeaderSize + commands.Length * InputCommand.Size];
-            InputBundle.Write(bytes, 1, commands);
+            InputBundle.Write(bytes, 1, commands, phaseRevision: 19);
             var decoded = new InputCommand[commands.Length];
-            Assert.True(InputBundle.TryRead(bytes, decoded, out _, out _));
+            Assert.True(InputBundle.TryRead(bytes, decoded, out _, out uint phaseRevision, out _));
+            Assert.Equal(19u, phaseRevision);
             Assert.Equal(commands, decoded);
             Assert.Equal(UInt32.MaxValue,
                 System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(InputBundle.HeaderSize + 8)));

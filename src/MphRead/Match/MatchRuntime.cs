@@ -11,6 +11,11 @@ namespace MphRead
         public uint MatchId { get; set; }
         public MatchRules Rules { get; private set; }
         public MatchPhase Phase { get; set; } = MatchPhase.Playing;
+        public uint PhaseStartTick { get; set; }
+        public uint PhaseEndTick { get; set; }
+        public bool HasPhaseDeadline { get; set; }
+        public uint PhaseRevision { get; set; } = 1;
+        internal bool UsesServerLifecycle { get; set; }
         public float MatchTime { get; set; }
         public int ActivePlayers { get; set; }
         public int PrimeHunter { get; set; } = -1;
@@ -102,6 +107,43 @@ namespace MphRead
             }
             Result ??= new MatchResult(this, completedAtSimulationTime,
                 ForceEndGame ? MatchEndReason.Forced : PendingEndReason ?? MatchEndReason.TimeLimit);
+        }
+
+        internal void ResetCompetitiveState()
+        {
+            Array.Clear(Stars);
+            Array.Clear(Standings);
+            Array.Clear(TeamStandings);
+            Array.Clear(ResultSlots);
+            Array.Clear(Points);
+            Array.Clear(TeamPoints);
+            Array.Clear(Kills);
+            Array.Clear(TeamKills);
+            Array.Clear(Deaths);
+            Array.Clear(TeamDeaths);
+            Array.Clear(Time);
+            Array.Clear(TeamTime);
+            Array.Clear(BeamDamageMax);
+            Array.Clear(BeamDamageDealt);
+            Array.Clear(DamageCount);
+            Array.Clear(AltDamageCount);
+            Array.Clear(KillStreak);
+            Array.Clear(Suicides);
+            Array.Clear(FriendlyKills);
+            Array.Clear(HeadshotKills);
+            Array.Clear(BeamKills);
+            Array.Clear(OctolithScores);
+            Array.Clear(OctolithDrops);
+            Array.Clear(OctolithStops);
+            Array.Clear(NodesCaptured);
+            Array.Clear(NodesLost);
+            Array.Clear(KillsAsPrime);
+            Array.Clear(PrimesKilled);
+            ActivePlayers = 0;
+            PrimeHunter = -1;
+            ForceEndGame = false;
+            RadarPlayers = Rules.PlayerRadar;
+            ResetResult();
         }
 
         internal void ResetResult()

@@ -28,6 +28,7 @@ namespace MphRead.NetTest
                     case "--mixed-backpressure-self-test": return MixedCombatBackpressureCheck.Run();
                     case "--simulation": return SimulationCheck.Run(args);
                     case "--match-lifecycle": return MatchLifecycleCheck.Run(args);
+                    case "--match-phases": return MatchPhaseCheck.Run(args);
                     case "--match-baseline": return MatchBaselineCheck.Run(args);
                     case "--baseline": return ConnectionBaseline.Run(args);
                     case "--connection-server": return ConnectionBaseline.RunServer(args);
@@ -65,6 +66,7 @@ namespace MphRead.NetTest
             Console.WriteLine("--simulation SECONDS PORT,... | --authority-check PORT,... | --baseline SECONDS PORT,...");
             Console.WriteLine("--world-check DATA MODE | --match-lifecycle DATA | --connection-server PORT");
             Console.WriteLine("--match-baseline DATA: current multiplayer scoring and objective behavior");
+            Console.WriteLine("--match-phases DATA: authoritative waiting, countdown reset, phase timing and input epochs");
             Console.WriteLine("--audit-multiplayer DATA OUTPUT_JSON [FH_DATA|-] [MAP_DIRECTORY|-]: read-only multiplayer entity inventory");
             Console.WriteLine("--audit-multiplayer-self-test: malformed and edge-case content audit checks");
             Console.WriteLine("--history-boundary DATA [VERSION]: completed simulation history and snapshot invariants");

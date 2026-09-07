@@ -55,7 +55,7 @@ class ServerUpdatePackageTests(unittest.TestCase):
                 manifest = self.build(rid)
                 data = package.verify(manifest, self.output, rid, "v2.1.0")
                 self.assertEqual(2, data["Family"])
-                self.assertEqual(6, data["Protocol"])
+                self.assertEqual(7, data["Protocol"])
                 self.assertEqual("v2.1.0", data["Version"])
                 self.assertEqual(rid, data["Rid"])
                 self.assertEqual(package.RIDS[rid], data["Executable"])

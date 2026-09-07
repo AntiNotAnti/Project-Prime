@@ -56,14 +56,17 @@ namespace MphRead.Tests
             string path = TemporaryFile();
             try
             {
-                byte[] match = Match(5);
+                byte[] match = Match(5, legacy: true);
                 byte[] snapshot = Snapshot(5, uint.MaxValue, 9);
                 var roster = new NetRosterEntry[] { new(7, 99, Hunter.Sylux, 7, "Seven") };
                 byte[] rosterBody = new byte[4 + SessionRosterPacket.MaxSize];
                 BinaryPrimitives.WriteUInt32LittleEndian(rosterBody, 5);
                 int rosterSize = SessionRosterPacket.Write(rosterBody.AsSpan(4), 1, roster);
                 byte[] rosterRecord = Record(DemoRecordKind.Roster, rosterBody.AsSpan(0, rosterSize + 4));
-                byte[] world = World(5);
+                // Protocol 5/6 authoritative recordings retain the legacy
+                // seventeen-record layout; only live protocol 7 carries the
+                // lifecycle record.
+                byte[] world = World(5, legacy: true);
                 using (var writer = new DemoWriter(path, protocol))
                 {
                     writer.WriteRecord(0, match); writer.WriteRecord(0, rosterRecord);
@@ -74,6 +77,7 @@ namespace MphRead.Tests
                 {
                     Assert.Equal(protocol, reader.ProtocolVersion);
                     var state = new ModernDemoState();
+                    state.Reset(protocol);
                     DemoRecord record = reader.ReadNext()!.Value;
                     Assert.Equal(0u, record.Frame); Assert.True(state.Receive(record.Data));
                     for (int i = 0; i < 3; i++) { Assert.True(state.Receive(reader.ReadNext()!.Value.Data)); }
@@ -250,8 +254,17 @@ namespace MphRead.Tests
         {
             var data = new byte[1 + body.Length]; data[0] = (byte)kind; body.CopyTo(data.AsSpan(1)); return data;
         }
-        private static byte[] Match(uint match)
+        private static byte[] Match(uint match, bool legacy = false)
         {
+            if (legacy)
+            {
+                var legacyBody = new byte[9 + MatchStatePacket.MaxNameBytes];
+                BinaryPrimitives.WriteUInt32LittleEndian(legacyBody, match);
+                BinaryPrimitives.WriteUInt32LittleEndian(legacyBody.AsSpan(4), 120);
+                legacyBody[8] = (byte)GameMode.Battle;
+                NetText.Write(legacyBody.AsSpan(9), "MP1 SANCTORUS");
+                return Record(DemoRecordKind.Match, legacyBody);
+            }
             var body = new byte[MatchTransitionPacket.Size];
             new MatchTransitionPacket(match, 120, GameMode.Battle, "MP1 SANCTORUS").Write(body);
             return Record(DemoRecordKind.Match, body);
@@ -265,14 +278,20 @@ namespace MphRead.Tests
             new SnapshotPacket(120, sequence, match, 0, false, 1, 2).Write(body, new[] { player });
             return Record(DemoRecordKind.Snapshot, body);
         }
-        private static byte[] World(uint match)
+        private static byte[] World(uint match, bool legacy = false)
         {
-            var records = new WorldRecord[17];
-            records[0] = new WorldRecord(WorldRecordKind.Match, 255, 0, 0, new Vector3(600, 600, 0), 3, 0, 10, uint.MaxValue, 0);
+            var records = new WorldRecord[legacy ? 17 : 18];
+            records[0] = new WorldRecord(WorldRecordKind.Match, 255, 0, 0, new Vector3(600, 600, 0), 3,
+                legacy ? 0u : (uint)MatchPhase.Playing, 10, uint.MaxValue, 0);
             for (byte slot = 0; slot < 8; slot++)
             {
                 records[1 + slot * 2] = new WorldRecord(WorldRecordKind.Score, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
                 records[2 + slot * 2] = new WorldRecord(WorldRecordKind.Time, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+            }
+            if (!legacy)
+            {
+                records[17] = new WorldRecord(WorldRecordKind.Lifecycle, 255, 0, 0,
+                    Vector3.Zero, 0, 0, 1, 0, 0);
             }
             var body = new byte[WorldPacket.HeaderSize + records.Length * WorldRecord.Size];
             WorldPacket.Write(body, match, 1, 120, records, 0);

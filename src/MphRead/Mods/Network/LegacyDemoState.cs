@@ -8,7 +8,7 @@ using MphRead.Entities;
 namespace MphRead.Mods.Network
 {
     // Format 2 retains frame deltas and compression. Its protocol byte selects
-    // legacy datagrams (4) or authoritative presentation records (5 and 6).
+    // legacy datagrams (4) or authoritative presentation records (5, 6 and 7).
     internal enum DemoRecordKind : byte { Match = 1, Snapshot, World, Roster, Event }
 
     /// <summary>Socket-free playback of server facts. Inputs and connection control are never replayed.</summary>
@@ -21,6 +21,8 @@ namespace MphRead.Mods.Network
         private readonly CombatEvent[] _events = new CombatEvent[256 * CombatEventBatch.MaxCount];
         private readonly ClientWorldState _world = new();
         private uint _loadedMatch;
+        private byte _protocol = NetHeader.Version;
+        internal MatchRules? InitialRules => _protocol >= 7 && Match.MatchId != 0 ? Match.Rules : null;
         private int _eventCount;
         private bool _dirty;
         public MatchTransitionPacket Match { get; private set; }
@@ -39,8 +41,10 @@ namespace MphRead.Mods.Network
         private bool _appliedWorld;
         public void DiscardEvents() => _eventCount = 0;
 
-        public void Reset()
+        public void Reset(byte protocol = NetHeader.Version)
         {
+            _protocol = protocol;
+            _world.LegacyProtocol = protocol is 5 or 6;
             Match = default; Snapshot = default; HasSnapshot = _dirty = false;
             PlayerCount = _eventCount = 0; _loadedMatch = 0;
             Array.Clear(_identities); Array.Clear(_lives);
@@ -56,7 +60,7 @@ namespace MphRead.Mods.Network
             switch ((DemoRecordKind)record[0])
             {
                 case DemoRecordKind.Match:
-                    if (!MatchTransitionPacket.TryRead(body, out MatchTransitionPacket match) || match.MatchId == 0)
+                    if (!TryReadMatch(body, out MatchTransitionPacket match) || match.MatchId == 0)
                     { return false; }
                     if (match.MatchId != Match.MatchId)
                     {
@@ -84,7 +88,7 @@ namespace MphRead.Mods.Network
                     }
                     return true;
                 case DemoRecordKind.World:
-                    if (!WorldPacket.TryValidate(body, Match.MatchId)) { return false; }
+                    if (!WorldPacket.TryValidate(body, Match.MatchId, _world.LegacyProtocol)) { return false; }
                     _world.Receive(body);
                     return true;
                 case DemoRecordKind.Roster:
@@ -122,6 +126,20 @@ namespace MphRead.Mods.Network
             }
         }
 
+        private bool TryReadMatch(ReadOnlySpan<byte> body, out MatchTransitionPacket match)
+        {
+            if (_protocol >= 7) { return MatchTransitionPacket.TryRead(body, out match); }
+            // Protocol 5/6 demo-only layout. Never use this decoder on a live socket.
+            match = default;
+            if (body.Length != 9 + MatchStatePacket.MaxNameBytes || body[8] < (byte)GameMode.Battle
+                || body[8] > (byte)GameMode.PrimeHunter || !NetWireIdentity.ValidText(body[9..])) { return false; }
+            string room = NetText.Read(body[9..]);
+            if (String.IsNullOrWhiteSpace(room)) { return false; }
+            match = new MatchTransitionPacket(BinaryPrimitives.ReadUInt32LittleEndian(body),
+                BinaryPrimitives.ReadUInt32LittleEndian(body[4..]), (GameMode)body[8], room);
+            return match.MatchId != 0;
+        }
+
         public void BeforeSimulation(Scene scene)
         {
             if (Match.MatchId == 0) { return; }
@@ -135,9 +153,19 @@ namespace MphRead.Mods.Network
                 // Rotation owns mode/room immediately; retain the prior legacy goal
                 // until the authoritative world stream supplies the new round's rules.
                 int pointGoal = scene.Match.Rules.LegacyPointGoal;
-                scene.Match.ApplyRules(scene.Match.Rules.With(mode: Match.Mode.ToMatchMode(),
-                    roomKey: Match.Room, scoreGoal: pointGoal, startingLives: pointGoal));
+                scene.Match.ApplyRules(_protocol >= 7 ? Match.Rules
+                    : scene.Match.Rules.With(mode: Match.Mode.ToMatchMode(),
+                        roomKey: Match.Room, scoreGoal: pointGoal, startingLives: pointGoal));
                 scene.Match.Flow.ResetProgress();
+                if (_protocol >= 7)
+                {
+                    scene.Match.Phase = MatchPhase.WaitingForPlayers;
+                    scene.Match.PhaseRevision = 1;
+                    scene.Match.PhaseStartTick = Match.ServerTick;
+                    scene.Match.HasPhaseDeadline = false;
+                    scene.Match.MatchTime = Match.Rules.TimeLimit.HasValue ? (float)Match.Rules.TimeLimit.Value.TotalSeconds : -1;
+                    scene.Match.RadarPlayers = Match.Rules.PlayerRadar;
+                }
                 GameState.TransitionRoomId = Metadata.GetRoomByName(Match.Room).Item1?.Id
                     ?? throw new ProgramException($"Unknown demo room: {Match.Room}");
                 (scene.Room ?? throw new ProgramException("Demo scene has no room.")).LoadRoom(resume: false);

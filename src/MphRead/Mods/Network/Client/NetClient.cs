@@ -314,7 +314,7 @@ namespace MphRead.Mods.Network
                 connection.BeginLoading(transition.MatchId);
                 connection.Reliable.CancelPendingExceptWelcome();
                 Accepted = Accepted with { MatchId = transition.MatchId, ServerTick = transition.ServerTick,
-                    Room = transition.Room, Mode = transition.Mode };
+                    Rules = transition.Rules };
                 ClearMatchState();
             }
             else if (type == ReliableEventType.Disconnect) { Fail("Server disconnected the session."); }
@@ -418,14 +418,14 @@ namespace MphRead.Mods.Network
             return Connection.Reliable.TryEnqueue(ReliableEventType.ChatRequest, payload, out _);
         }
 
-        public bool SendInputs(ReadOnlySpan<InputCommand> commands)
+        public bool SendInputs(ReadOnlySpan<InputCommand> commands, uint phaseRevision = 0)
         {
             if (IsDisconnecting || Connection?.State is not (NetConnectionState.Ready or NetConnectionState.Playing))
             {
                 return false;
             }
             Span<byte> payload = stackalloc byte[InputBundle.MaxSize];
-            int length = InputBundle.Write(payload, Connection.MatchId, commands);
+            int length = InputBundle.Write(payload, Connection.MatchId, commands, phaseRevision);
             Connection.Send(_transport, NetMessageType.Input, payload[..length]);
             return true;
         }

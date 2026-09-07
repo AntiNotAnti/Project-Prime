@@ -1,5 +1,9 @@
 # Post-upstream authoritative networking upgrades
 
+This report records the protocol-6 upgrade baseline. The subsequent protocol-7
+match lifecycle and rule replication work is tracked in
+[MULTIPLAYER_REFACTOR_PROGRESS.md](MULTIPLAYER_REFACTOR_PROGRESS.md).
+
 This work originally started from authoritative checkpoint `ab07a38`, based on
 `830e15e`. The repository history was subsequently reorganized into the current
 `main` baseline through `6b1f65b`; the earlier hashes below identify the original

@@ -17,6 +17,10 @@ namespace MphRead.NetTest
                 using (var simulation = new ServerSimulation(new RotationEntry { RoomKey = "MP1 SANCTORUS", Mode = GameMode.Battle }))
                 {
                     Scene scene = simulation.Scene;
+                    // This fixture drives the scene directly instead of the
+                    // lifecycle owner, so opt into the phase where gameplay is
+                    // legal before exercising projectile timing.
+                    scene.Match.Phase = MatchPhase.Playing;
                     PlayerEntity owner = PlayerEntity.Players[0];
                     owner.ServerActivate(100, Hunter.Samus, 0);
                     PlayerEntity.PlayerCount = 1;

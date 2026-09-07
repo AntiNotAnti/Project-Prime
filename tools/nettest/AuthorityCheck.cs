@@ -172,7 +172,7 @@ namespace MphRead.NetTest
                     SendAllNeutral();
                     _single[0] = new InputCommand(0x12345678, 0x12345678, 0,
                         InputButtons.Forward | InputButtons.Shoot, InputButtons.Jump, -Vector3.UnitZ, 8);
-                    int length = InputBundle.Write(_payload, staleMatch, _single);
+                    int length = InputBundle.Write(_payload, staleMatch, _single, _worlds[0].PhaseRevision);
                     Inject(NetMessageType.Input, staleIdentity, _payload.AsSpan(0, length));
                     length = ReliableEventPacket.Write(_payload, 0x12345678, ReliableEventType.Disconnect, default);
                     Inject(NetMessageType.Event, staleIdentity, _payload.AsSpan(0, length));
@@ -203,7 +203,7 @@ namespace MphRead.NetTest
             {
                 _single[0] = new InputCommand(0x12345678, 0x12345678, 0, InputButtons.Forward,
                     InputButtons.Jump, -Vector3.UnitZ, InputCommand.NoWeapon);
-                int length = InputBundle.Write(_payload, _clients[0].Accepted.MatchId, _single);
+                int length = InputBundle.Write(_payload, _clients[0].Accepted.MatchId, _single, _worlds[0].PhaseRevision);
                 // A position appended to an otherwise valid input is forbidden.
                 BinaryPrimitives.WriteSingleLittleEndian(_payload.AsSpan(length), ForgedPosition.X);
                 Inject(NetMessageType.Input, _attackerIdentity, _payload.AsSpan(0, length + 4));
@@ -229,11 +229,12 @@ namespace MphRead.NetTest
                 uint? viewTick = null, byte weapon = InputCommand.NoWeapon)
             {
                 NetClient client = _clients[clientIndex];
-                if (client.State is not (NetConnectionState.Playing or NetConnectionState.Ready)) return;
+                if (client.State != NetConnectionState.Playing
+                    || !_worlds[clientIndex].HasState || _worlds[clientIndex].Phase != MatchPhase.Playing) return;
                 uint sequence = _sequences[clientIndex]++;
                 _single[0] = new InputCommand(sequence, sequence, viewTick ?? client.Snapshot.ServerTick,
                     buttons, InputButtons.None, -Vector3.UnitZ, weapon);
-                client.SendInputs(_single);
+                client.SendInputs(_single, _worlds[clientIndex].PhaseRevision);
             }
 
             private void Poll(bool attacker)

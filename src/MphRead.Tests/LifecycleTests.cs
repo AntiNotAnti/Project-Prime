@@ -37,6 +37,11 @@ namespace MphRead.Tests
             using var socket = new NetTransport(0);
             var endpoint = new IPEndPoint(IPAddress.Loopback, transport.LocalPort);
             var server = new ServerNetwork(transport, "MP1 SANCTORUS", GameMode.Battle);
+            // The fixture starts the peer manually and does not run a
+            // ServerSimulation, therefore it must publish an explicit playing
+            // phase before sending synthetic input.
+            server.Phase = MatchPhase.Playing;
+            server.PhaseRevision = 1;
             using var client = new NetClient(socket, endpoint, "LIFECYCLE", Hunter.Samus);
             Pump(server, client, () => client.Connection != null);
             Assert.True(client.Ready(1));
@@ -45,7 +50,7 @@ namespace MphRead.Tests
             peer.Connection.StartPlaying();
             var command = new InputCommand(1, 1, 1, InputButtons.Forward, InputButtons.Jump,
                 -Vector3.UnitZ, InputCommand.NoWeapon);
-            Assert.True(client.SendInputs(new[] { command }));
+            Assert.True(client.SendInputs(new[] { command }, server.PhaseRevision));
             Pump(server, client, () => { peer.Inputs.Take(10); return peer.Inputs.HasProcessed; });
             Assert.True(peer.Inputs.HasProcessed);
             byte[] snapshot = Snapshot(1, peer);

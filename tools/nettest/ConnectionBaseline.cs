@@ -12,6 +12,8 @@ namespace MphRead.NetTest
     /// <summary>Real authoritative sockets and codecs; synthetic states are not gameplay evidence.</summary>
     internal static class ConnectionBaseline
     {
+        private const uint SyntheticPhaseRevision = 1;
+
         public static int RunServer(string[] args)
         {
             if (args.Length != 2 || !Int32.TryParse(args[1], out int port) || port < 0 || port > UInt16.MaxValue)
@@ -22,7 +24,11 @@ namespace MphRead.NetTest
             signals.OnShutdown(stopped.Cancel);
             var network = new ServerNetwork(transport, "MP1 SANCTORUS", GameMode.Battle)
             {
-                ServerName = "Authoritative connection fixture"
+                ServerName = "Authoritative connection fixture",
+                // This process deliberately publishes synthetic snapshots and
+                // no world records, so establish the lifecycle facts explicitly.
+                Phase = MatchPhase.Playing,
+                PhaseRevision = SyntheticPhaseRevision
             };
             var scheduler = new FixedTickScheduler();
             var players = new SnapshotPlayer[8];
@@ -134,6 +140,12 @@ namespace MphRead.NetTest
                     for (int i = 0; i < clients.Length; i++)
                     {
                         NetClient client = clients[i];
+                        uint phaseRevision = SyntheticPhaseRevision;
+                        if (worlds[i].HasState)
+                        {
+                            if (worlds[i].Phase != MatchPhase.Playing) { continue; }
+                            phaseRevision = worlds[i].PhaseRevision;
+                        }
                         if (client.SnapshotsReceived != observed[i])
                         {
                             if (previous[i] != 0) intervals[i].Record((now - previous[i]) * (1000d / Stopwatch.Frequency));
@@ -145,7 +157,7 @@ namespace MphRead.NetTest
                         int count = (int)Math.Min(sequence + 1, InputBundle.Capacity);
                         for (int item = 0; item < count; item++)
                             bundle[item] = commands[i, (sequence - (uint)(count - 1 - item)) % InputBundle.Capacity];
-                        client.SendInputs(bundle[..count]);
+                        client.SendInputs(bundle[..count], phaseRevision);
                     }
                 }
                 bool passed = true;

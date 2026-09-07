@@ -1259,6 +1259,18 @@ namespace MphRead.Entities
             // of the point, and a message that arrives while the scoreboard
             // is up has still arrived.
             ModDrawChat();
+            if (_scene.Match.Phase == MatchPhase.WaitingForPlayers)
+            {
+                DrawText2D(128, 40, Align.Center, 0, "WAITING FOR PLAYERS", new ColorRgba(0x3FEF), fontSpacing: 8);
+            }
+            else if (_scene.Match.Phase == MatchPhase.Countdown)
+            {
+                uint tick = Mods.Network.AuthoritativePlay.Current?.WorldServerTick
+                    ?? Mods.Network.DemoPlayback.WorldServerTick ?? _scene.Match.PhaseStartTick;
+                int remaining = Math.Max(0, unchecked((int)(_scene.Match.PhaseEndTick - tick)));
+                int seconds = remaining / 60 + (remaining % 60 == 0 ? 0 : 1);
+                DrawText2D(128, 40, Align.Center, 0, $"STARTING IN {seconds}", new ColorRgba(0x3FEF), fontSpacing: 8);
+            }
             if (Mods.SpectatorMode.FreeCamera)
             {
                 // Looking at the map, not out of anybody's eyes: there is no

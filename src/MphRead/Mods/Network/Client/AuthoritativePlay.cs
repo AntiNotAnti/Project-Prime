@@ -37,6 +37,8 @@ namespace MphRead.Mods.Network
         public long CombatEvents { get; private set; }
         public long DamageEvents { get; private set; }
         public bool HasWorldState => _world.HasState;
+        public uint WorldServerTick => _world.ServerTick;
+        private uint _inputPhaseRevision;
         public Vector3 VisualOffset => Prediction.VisualOffset;
         public int LocalSlot => Client.Accepted.Slot;
         internal Action<PlayerEntity, uint>? ScriptInput { get; set; }
@@ -78,12 +80,14 @@ namespace MphRead.Mods.Network
             _presentationScene = scene;
             _loadedMatch = Client.Accepted.MatchId;
             _world.Reset(_loadedMatch);
+            scene.Match.MatchId = Client.Accepted.MatchId;
+            scene.Match.ApplyRules(Client.Accepted.Rules);
             PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
             for (int slot = 0; slot < PlayerEntity.MaxPlayers; slot++)
             {
                 scene.AddPlayer(slot == LocalSlot ? hunter : Hunter.Samus,
                     slot == LocalSlot ? recolor : 0,
-                    Client.Accepted.Mode.IsTeamMode() ? slot % 2 : -1);
+                    GetAssignedTeam(slot));
                 PlayerEntity player = PlayerEntity.Players[slot];
                 player.IsBot = false;
                 // The local slot must initialize its camera/HUD while the
@@ -124,12 +128,16 @@ namespace MphRead.Mods.Network
                 ResetPresentation();
                 _world.Reset(_loadedMatch);
                 GameState.Mode = Client.Accepted.Mode;
-                // Rotation owns mode/room immediately; retain the prior legacy goal
-                // until the authoritative world stream supplies the new round's rules.
-                int pointGoal = scene.Match.Rules.LegacyPointGoal;
-                scene.Match.ApplyRules(scene.Match.Rules.With(mode: Client.Accepted.Mode.ToMatchMode(),
-                    roomKey: Client.Accepted.Room, scoreGoal: pointGoal, startingLives: pointGoal));
+                // Reliable rotation configuration is authoritative before any player rebuild.
+                scene.Match.ApplyRules(Client.Accepted.Rules);
                 scene.Match.Flow.ResetProgress();
+                scene.Match.Phase = MatchPhase.WaitingForPlayers;
+                scene.Match.PhaseRevision = 1;
+                scene.Match.PhaseStartTick = Client.Accepted.ServerTick;
+                scene.Match.HasPhaseDeadline = false;
+                scene.Match.MatchTime = Client.Accepted.Rules.TimeLimit.HasValue
+                    ? (float)Client.Accepted.Rules.TimeLimit.Value.TotalSeconds : -1;
+                scene.Match.RadarPlayers = Client.Accepted.Rules.PlayerRadar;
                 (RoomMetadata? metadata, _) = Metadata.GetRoomByName(Client.Accepted.Room);
                 GameState.TransitionRoomId = metadata?.Id
                     ?? throw new ProgramException($"Unknown server room: {Client.Accepted.Room}");
@@ -138,7 +146,8 @@ namespace MphRead.Mods.Network
             // This hook runs only after Scene.OnLoad. The socket's independent
             // keepalive covers the entire synchronous content load.
             if (Client.State == NetConnectionState.Loading) { Client.Ready(Client.Accepted.MatchId); }
-            if (Client.HasSnapshot && Client.SnapshotsReceived != _appliedSnapshot)
+            if (Client.HasSnapshot && Client.SnapshotsReceived != _appliedSnapshot
+                && (!_world.HasState || !Sequence32.IsNewer(_world.PhaseStartTick, Client.Snapshot.ServerTick)))
             {
                 ApplySnapshot(scene);
                 _interpolation.Add(Client.Snapshot, Client.SnapshotPlayers, Client.SnapshotReceivedAt);
@@ -151,7 +160,17 @@ namespace MphRead.Mods.Network
             _world.Apply(scene, Client.HasSnapshot ? Client.Snapshot.ServerTick : null);
             foreach (NetRosterEntry entry in Client.Roster) { GameState.Nicknames[entry.Slot] = entry.Name; }
             DrainEvents();
-            ScriptInput?.Invoke(PlayerEntity.Players[LocalSlot], _sequence);
+            if (_inputPhaseRevision != scene.Match.PhaseRevision)
+            {
+                _inputPhaseRevision = scene.Match.PhaseRevision;
+                _inputCount = 0;
+                Prediction.Reset();
+                _interpolation.Reset();
+                _hasInputViewTick = false;
+            }
+            if (scene.Match.Phase == MatchPhase.Playing)
+            { ScriptInput?.Invoke(PlayerEntity.Players[LocalSlot], _sequence); }
+            else { PlayerEntity.Players[LocalSlot].Controls.ClearAll(); }
             NetDiagnostics.ReportAuthoritative(Client, Prediction, _interpolation, _transport.Metrics);
         }
 
@@ -166,11 +185,19 @@ namespace MphRead.Mods.Network
                 if (slot == LocalSlot) { player.LoadFlags |= LoadFlags.Active; }
                 player.NodeRef = player.CameraInfo.NodeRef = NodeRef.None;
                 player.IsBot = false;
-                player.TeamIndex = scene.Match.Rules.Teams ? slot % 2 : slot;
+                player.TeamIndex = GetAssignedTeam(slot);
             }
             PlayerEntity.MainPlayerIndex = LocalSlot;
             PlayerEntity.PlayerCount = 1;
             return PlayerEntity.Main;
+        }
+
+        private int GetAssignedTeam(int slot)
+        {
+            foreach (NetRosterEntry entry in Client.Roster)
+            { if (entry.Slot == slot) { return entry.Team; } }
+            // Before the first authoritative roster/snapshot, do not infer a team.
+            return -1;
         }
 
         private void DrainEvents()
@@ -206,7 +233,8 @@ namespace MphRead.Mods.Network
 
         public void AfterSimulation()
         {
-            if (!_hasInputViewTick || Client.State is not (NetConnectionState.Ready or NetConnectionState.Playing)) { return; }
+            if (_presentationScene?.Match.Phase != MatchPhase.Playing || !_hasInputViewTick
+                || Client.State is not (NetConnectionState.Ready or NetConnectionState.Playing)) { return; }
             PlayerEntity local = PlayerEntity.Players[LocalSlot];
             local.ModRepairVectors();
             _inputs[_sequence % InputBundle.Capacity] = local.CaptureNetworkInput(_sequence, _inputViewTick);
@@ -217,7 +245,7 @@ namespace MphRead.Mods.Network
             {
                 bundle[i] = _inputs[unchecked(_sequence - (uint)(_inputCount - 1 - i)) % InputBundle.Capacity];
             }
-            Client.SendInputs(bundle[.._inputCount]);
+            Client.SendInputs(bundle[.._inputCount], _inputPhaseRevision);
             _sequence++;
             // Remote engine animation may advance, but its physics cannot
             // become truth. P5 supplies delayed transform presentation here.

@@ -4,9 +4,9 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
 {
-    public enum WorldRecordKind : byte { Spawner = 1, Item, Node, Flag, Match, Score, Time }
+    public enum WorldRecordKind : byte { Spawner = 1, Item, Node, Flag, Match, Score, Time, Lifecycle }
 
-    // Version-5 world records describe engine state, never commands. Scalar
+    // Version-7 adds explicit lifecycle facts; versions 5/6 are decoded only for demos. Scalar
     // fields have kind-specific meanings; float bits are transported exactly.
     public record struct WorldRecord(WorldRecordKind Kind, byte Slot, ushort Flags,
         uint Id, Vector3 Position, uint A, uint B, uint C, uint D, uint E)
@@ -24,6 +24,8 @@ namespace MphRead.Mods.Network
         private static void Put(Span<byte> data, int offset, uint value) => BinaryPrimitives.WriteUInt32LittleEndian(data[offset..], value);
         private static uint Get(ReadOnlySpan<byte> data, int offset) => BinaryPrimitives.ReadUInt32LittleEndian(data[offset..]);
         public static bool TryRead(ReadOnlySpan<byte> data, out WorldRecord record)
+            => TryRead(data, legacy: false, out record);
+        internal static bool TryRead(ReadOnlySpan<byte> data, bool legacy, out WorldRecord record)
         {
             record = default;
             if (data.Length != Size) { return false; }
@@ -42,12 +44,15 @@ namespace MphRead.Mods.Network
                     && float.IsFinite(Float(record.D)) && float.IsFinite(Float(record.E)),
                 WorldRecordKind.Flag => (record.Slot < 8 || record.Slot == 255) && record.Flags <= 3
                     && record.A <= 1 && float.IsFinite(Float(record.B)) && Float(record.B) >= 0,
-                WorldRecordKind.Match => record.Id == 0 && record.Slot == 255 && record.Flags <= 1 && record.A is >= 3 and <= 14
+                WorldRecordKind.Match => record.Id == 0 && record.Slot == 255 && record.Flags <= (legacy ? 1 : 3) && record.A is >= 3 and <= 14
                     // Disconnected is session state, never an authoritative match phase.
                     // Validate rule constructor bounds before any world assembly/scene writes.
-                    && record.B <= 2 && record.C <= int.MaxValue
+                    && record.B <= (legacy ? 2u : (uint)MatchPhase.Intermission) && record.C <= int.MaxValue
                     && record.Position.Y >= 0 && record.Position.Y < TimeSpan.MaxValue.TotalSeconds
                     && (record.D < 8 || record.D == uint.MaxValue),
+                WorldRecordKind.Lifecycle => !legacy && record.Id == 0 && record.Slot == 255 && record.Flags <= 1
+                    && record.C != 0 && record.D == 0 && record.E == 0 && record.Position == Vector3.Zero
+                    && (record.Flags == 0 || unchecked(record.B - record.A) <= int.MaxValue),
                 WorldRecordKind.Score => record.Id == 0 && record.Slot < 8 && record.Flags == 0,
                 WorldRecordKind.Time => record.Id == 0 && record.Slot < 8 && record.Flags == 0
                     && float.IsFinite(Float(record.B)) && float.IsFinite(Float(record.C)),
@@ -75,7 +80,8 @@ namespace MphRead.Mods.Network
             for (int i = 0; i < count; i++) { records[offset + i].Write(data.Slice(HeaderSize + i * WorldRecord.Size, WorldRecord.Size)); }
             return HeaderSize + count * WorldRecord.Size;
         }
-        public static bool TryValidate(ReadOnlySpan<byte> data, uint matchId)
+        public static bool TryValidate(ReadOnlySpan<byte> data, uint matchId) => TryValidate(data, matchId, legacy: false);
+        internal static bool TryValidate(ReadOnlySpan<byte> data, uint matchId, bool legacy)
         {
             if (data.Length < HeaderSize || data.Length > MaxSize || matchId == 0
                 || BinaryPrimitives.ReadUInt32LittleEndian(data) != matchId || (data[17] | data[18] | data[19]) != 0) { return false; }
@@ -86,7 +92,7 @@ namespace MphRead.Mods.Network
                 || count != Math.Min(RecordsPerBatch, total - offset) || data.Length != HeaderSize + count * WorldRecord.Size) { return false; }
             for (int i = 0; i < count; i++)
             {
-                if (!WorldRecord.TryRead(data.Slice(HeaderSize + i * WorldRecord.Size, WorldRecord.Size), out _)) { return false; }
+                if (!WorldRecord.TryRead(data.Slice(HeaderSize + i * WorldRecord.Size, WorldRecord.Size), legacy, out _)) { return false; }
             }
             return true;
         }

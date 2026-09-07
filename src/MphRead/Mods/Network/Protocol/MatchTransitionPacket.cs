@@ -3,29 +3,26 @@ using System.Buffers.Binary;
 
 namespace MphRead.Mods.Network
 {
-    public readonly record struct MatchTransitionPacket(uint MatchId, uint ServerTick, GameMode Mode, string Room)
+    public readonly record struct MatchTransitionPacket(uint MatchId, uint ServerTick, MatchRules Rules)
     {
-        public const int Size = 9 + MatchStatePacket.MaxNameBytes;
+        public GameMode Mode => Rules?.Mode.ToLegacyMode() ?? GameMode.None;
+        public string Room => Rules?.RoomKey ?? "";
+        public const int Size = 8 + MatchRulesWire.Size;
+        public MatchTransitionPacket(uint matchId, uint tick, GameMode mode, string room)
+            : this(matchId, tick, MatchRules.CreateDefault(mode.ToMatchMode(), room)) { }
         public void Write(Span<byte> destination)
         {
             BinaryPrimitives.WriteUInt32LittleEndian(destination, MatchId);
             BinaryPrimitives.WriteUInt32LittleEndian(destination[4..], ServerTick);
-            destination[8] = (byte)Mode;
-            NetText.Write(destination.Slice(9, MatchStatePacket.MaxNameBytes), Room);
+            MatchRulesWire.Write(destination[8..], Rules);
         }
         public static bool TryRead(ReadOnlySpan<byte> source, out MatchTransitionPacket value)
         {
             value = default;
-            if (source.Length != Size || source[8] < (byte)GameMode.Battle
-                || source[8] > (byte)GameMode.PrimeHunter) { return false; }
-            foreach (byte character in source[9..])
-            {
-                if (character != 0 && (character < 32 || character > 126)) { return false; }
-            }
-            string room = NetText.Read(source[9..]);
-            if (room.Length == 0) { return false; }
+            if (source.Length != Size || BinaryPrimitives.ReadUInt32LittleEndian(source) == 0
+                || !MatchRulesWire.TryRead(source[8..], out MatchRules rules)) { return false; }
             value = new(BinaryPrimitives.ReadUInt32LittleEndian(source),
-                BinaryPrimitives.ReadUInt32LittleEndian(source[4..]), (GameMode)source[8], room);
+                BinaryPrimitives.ReadUInt32LittleEndian(source[4..]), rules);
             return true;
         }
     }

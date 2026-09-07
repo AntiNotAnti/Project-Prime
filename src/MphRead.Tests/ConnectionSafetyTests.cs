@@ -21,6 +21,11 @@ namespace MphRead.Tests
             using var raw = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
             var endpoint = new IPEndPoint(IPAddress.Loopback, serverSocket.LocalPort);
             var server = new ServerNetwork(serverSocket, "MP1 SANCTORUS", GameMode.Battle);
+            // This test injects commands directly rather than running the owner
+            // simulation, so establish the phase facts that production would
+            // publish before accepting input.
+            server.Phase = MatchPhase.Playing;
+            server.PhaseRevision = 1;
             using var sender = new NetClient(senderSocket, endpoint, "SENDER", Hunter.Samus);
             using var viewer = new NetClient(viewerSocket, endpoint, "VIEWER", Hunter.Kanden);
             NetClient[] clients = { sender, viewer };
@@ -63,14 +68,14 @@ namespace MphRead.Tests
                 0x70000000, 0, 0).Write(packet);
             senderSocket.SendDatagram(endpoint, packet.AsSpan(0, NetHeader.Size + bytes));
             InputCommand[] command = { new(123, 123, tick, InputButtons.Jump, InputButtons.Jump, -Vector3.UnitZ, InputCommand.NoWeapon) };
-            bytes = InputBundle.Write(packet.AsSpan(NetHeader.Size), server.MatchId, command);
+            bytes = InputBundle.Write(packet.AsSpan(NetHeader.Size), server.MatchId, command, server.PhaseRevision);
             BinaryPrimitives.WriteSingleLittleEndian(packet.AsSpan(NetHeader.Size + InputBundle.HeaderSize + 20), Single.NaN);
             new NetHeader(NetMessageType.Input, NetHeaderFlags.None, sender.Connection.Id,
                 0x70000001, 0, 0).Write(packet);
             senderSocket.SendDatagram(endpoint, packet.AsSpan(0, NetHeader.Size + bytes));
             Wait(() => server.Rejected >= rejected + 5 && serverSocket.Metrics.PacketsRejected >= 2, Poll);
             Assert.False(viewer.HasSnapshot);
-            Assert.True(sender.SendInputs(command));
+            Assert.True(sender.SendInputs(command, server.PhaseRevision));
             Wait(() => server.Find(sender.Connection.Id)!.Inputs.HasProcessed, Poll);
             Assert.Equal(123u, server.Find(sender.Connection.Id)!.Inputs.LastProcessed);
 

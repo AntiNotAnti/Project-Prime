@@ -317,9 +317,19 @@ namespace MphRead
             PlayerEntity.PlayerAiData.InitializeGlobals();
             if (GameState.Multiplayer)
             {
-                // The same job for the launcher's path, which never runs the
-                // console menu and so never had a set of rules to apply.
-                Mods.GameSettings.ApplyMatchRules(this);
+                MatchRules? serverRules = Mods.Network.AuthoritativePlay.Current?.Client.Accepted.Rules
+                    ?? Mods.Network.DemoPlayback.InitialRules;
+                if (serverRules != null)
+                {
+                    Match.ApplyRules(serverRules);
+                    Match.MatchTime = serverRules.TimeLimit.HasValue ? (float)serverRules.TimeLimit.Value.TotalSeconds : -1;
+                    Match.RadarPlayers = serverRules.PlayerRadar;
+                    Match.Phase = MatchPhase.WaitingForPlayers;
+                }
+                else
+                {
+                    Mods.GameSettings.ApplyMatchRules(this);
+                }
             }
             SetRoomValues(meta);
             for (int i = 0; i < PlayerEntity.Players.Count; i++)
@@ -1506,11 +1516,13 @@ namespace MphRead
                 _room?.UpdateTransition();
             }
             OnKeyHeld();
+            bool waitingForServer = Mods.Network.AuthoritativePlay.Active
+                && Match.Phase is MatchPhase.WaitingForPlayers or MatchPhase.Countdown;
             if (ProcessFrame && _room != null)
             {
                 if (GameState.SinglePlayer) { GameState.ProcessFrame(this); }
                 else { Match.Flow.ProcessFrame(); }
-                if (Match.LegacyState == MatchState.InProgress && !GameState.MenuPause)
+                if (!waitingForServer && Match.LegacyState == MatchState.InProgress && !GameState.MenuPause)
                 {
                     UpdateScene();
                 }
@@ -1527,7 +1539,7 @@ namespace MphRead
             }
             if (ProcessFrame)
             {
-                if (Match.LegacyState == MatchState.InProgress && !GameState.DialogPause && !GameState.MenuPause)
+                if (!waitingForServer && Match.LegacyState == MatchState.InProgress && !GameState.DialogPause && !GameState.MenuPause)
                 {
                     ProcessMessageQueue();
                     _liveFrames++;

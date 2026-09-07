@@ -15,8 +15,10 @@ namespace MphRead.Entities
         internal void ServerActivate(ulong connectionId, Hunter hunter, int team)
         {
             if (!_scene.IsHeadless) { throw new InvalidOperationException("Server player requires a headless scene."); }
+            // A countdown reset respawns the same connection. Keep Life monotonic
+            // so its next snapshot resets client prediction instead of reusing life 1.
+            if (_serverConnectionId != connectionId) { _serverLife = 0; }
             _serverConnectionId = connectionId;
-            _serverLife = 0;
             _serverWasAlive = false;
             Hunter = hunter;
             TeamIndex = team;

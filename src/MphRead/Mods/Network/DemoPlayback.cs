@@ -9,8 +9,11 @@ namespace MphRead.Mods.Network
     public static class DemoPlayback
     {
         private static DemoReader? _reader;
+        private static MatchRules? _initialRules;
         private static readonly ModernDemoState _modern = new();
         internal static ModernDemoState Modern => _modern;
+        public static MatchRules? InitialRules => IsModern ? _modern.InitialRules ?? _initialRules : null;
+        public static uint? WorldServerTick => IsModern && _modern.World.HasState ? _modern.World.ServerTick : null;
         public static bool IsModern => IsActive && _reader != null && DemoFile.IsAuthoritativeProtocol(_reader.ProtocolVersion);
         public static bool ApplyingSnapshot => IsModern && _modern.ApplyingSnapshot;
         public static void BeforeSimulation(Scene scene) { if (IsModern) { _modern.BeforeSimulation(scene); } }
@@ -86,6 +89,7 @@ namespace MphRead.Mods.Network
             }
             NetSession.StartPlayback();
             _reader = reader;
+            _modern.Reset(reader.ProtocolVersion);
             IsActive = true;
             _frame = 0;
             _started = false;
@@ -156,7 +160,8 @@ namespace MphRead.Mods.Network
             _pending = _reader.ReadNext();
             NetSession.RewindPlayback();
             Chat.ChatBox.Clear();
-            _modern.Reset();
+            _initialRules = _modern.InitialRules;
+            _modern.Reset(_reader.ProtocolVersion);
             return true;
         }
 
@@ -203,6 +208,7 @@ namespace MphRead.Mods.Network
             IsActive = false;
             _reader?.Dispose();
             _reader = null;
+            _initialRules = null;
             _pending = null;
             _frame = 0;
             _started = false;

@@ -19,6 +19,7 @@ namespace MphRead.NetTest
                 ServerContent.Open(args[1], args.Length == 3 ? args[2] : "AMHE1");
                 using var simulation = new ServerSimulation(new RotationEntry { RoomKey = "MP1 SANCTORUS", Mode = GameMode.Battle });
                 Scene scene = simulation.Scene;
+                scene.Match.Phase = MatchPhase.Playing;
                 var owner = PlayerEntity.Players[0];
                 var target = PlayerEntity.Players[1];
                 owner.ServerActivate(100, Hunter.Samus, 0);
