@@ -24,6 +24,10 @@ architecture remains one dedicated, single-writer simulation with ordinary clien
 
 ## Validation record
 
+The final integrated results are recorded under **Final verification** below.
+The following checkpoint and pass records preserve the evidence gathered during
+implementation.
+
 The checkpoint passed all 152 C# tests, 10 Python tooling tests, the server and
 nettest builds, and the full 16-case, 20-second gameplay WAN matrix. The matrix
 covers 2/4/8 clients at LAN and 50/100/150/250 ms RTT with jitter/loss, plus
@@ -209,6 +213,14 @@ invalid source and zero-rewind cases passed. The 61-case weapon matrix and 26
 focused tests passed; six strict homing A/B pairs preserved 11 root shots each
 across 0/4/8-tick delays and both baselines. Server/nettest built without warnings.
 
+Final review added an actual retracted-Weavel-turret regression. It first failed
+because the turret was absent from current candidate enumeration, then exposed
+premature cancellation by a current destruction message. Historical acquisition
+now considers the bounded player-owned turret set, and past steering follows
+historical presence until the current endpoint. The regression matches the
+timely trajectory exactly. The existing current-turret damage guard remains;
+historical aiming does not recreate a retired turret health pool.
+
 ### Pass 8: staged dedicated-server updates
 
 Updating is opt-in and requires an explicitly named authoritative release fork
@@ -243,6 +255,62 @@ Native Windows helper execution and real systemd restart remain platform gates;
 local tests do not establish public update or deployment success. See SERVER.md
 for operation and the documented per-file, rather than whole-directory, atomicity.
 
+Actual stamped, self-contained, single-file dedicated publishes also passed for
+Windows x64, Linux x64 and Linux ARM64, each with zero warnings. The manifest
+generator built and reverified all three ZIPs (35.05, 34.86 and 33.30 MB).
+Native header checks confirmed the Windows console subsystem and each target
+architecture. These were local package checks, not execution of cross-platform
+binaries or publication of release assets. Final opt-out checks also cover the
+application’s double-dash argument aliases.
+
+## Final verification
+
+The final source through `95b8f45` passed all 286 C# tests (zero skipped) and the
+dedicated server/nettest build with zero warnings or errors. The integrated
+desktop build also passed with zero warnings, and all 29 Python tooling tests
+passed. Shell checks, the final diff check and the source secret scan passed.
+
+The integrated gameplay build passed all 16 real-UDP WAN cases and all 30 strict
+deterministic ON/OFF or ON/trace-only pairs. Real-content fixtures also passed
+the 61-case weapon policy matrix, completed-frame history, pooled bombs,
+projectile collision/catch-up and historical homing checks. The later narrow
+turret-lifecycle and updater argument-alias fixes followed the WAN run; they
+received focused regression checks, the full C# suite and the final soak below.
+
+Two sequential five-minute mixed-combat soaks used eight UDP clients, configured
+100 ms RTT, 20 ms jitter and 2% loss (seed 20260906). Both retained eight playing
+peers throughout measurement and passed every server/client health gate.
+Loadouts exercised traveling projectiles, historical traces, acquired homing
+targets and continuous beams with ordinary damage, deaths and respawns.
+
+| Measured server metric | Compensation ON | Compensation OFF |
+| --- | ---: | ---: |
+| Simulation ticks | 18,001 | 18,000 |
+| Root shots: travel / trace / homing / continuous | 1,066 / 216 / 101 / 22,403 | 1,081 / 225 / 107 / 23,090 |
+| Tick p50 / p95 / p99 (ms) | 0.651 / 1.191 / 1.695 | 0.591 / 1.470 / 1.980 |
+| Maximum tick (ms) | 13.404 | 7.892 |
+| Process CPU seconds | 20.297 | 16.541 |
+| Allocated bytes per tick | 63,587 | 64,221 |
+| GC collections: generation 0 / 1 / 2 | 138 / 12 / 2 | 140 / 12 / 2 |
+| Dropped ticks / transport queue drops / reliable overflows | 0 / 0 / 0 | 0 / 0 / 0 |
+| Combat queue drops / catch-up queue drops / pending catch-up | 0 / 0 / 0 | 0 / 0 / 0 |
+| Projectiles caught up / total catch-up steps / maximum steps | 1,167 / 4,971 / 13 | 0 / 0 / 0 |
+
+The ON run recovered two scheduler catch-up ticks without dropping simulation
+work. Projectile replay stayed below the 15-step bound. Allocation and GC counts
+showed no material increase in this workload. ON consumed 3.755 more CPU seconds
+over five minutes, averaging 6.77% of one core versus 5.51% OFF. These are observed
+process costs: combat outcomes and actual shot counts differ despite identical
+configured schedules and impairment seeds. They do not isolate causal overhead;
+the separate strict A/B fixture establishes equal accepted inputs and root-shot
+facts for behavioral comparisons.
+
+This completes implementation and local headless validation. Rendered desktop
+validation remains blocked by the previously observed macOS OpenGL context
+failure; Android runtime validation requires its missing workload. Native Windows
+updater execution and an actual systemd restart remain platform checks. No public
+release, deployment or push was performed.
+
 ## Reproduction
 
 Use .NET SDK 9 and your own extracted AMHE1 data:
@@ -253,6 +321,9 @@ dotnet build tools/nettest/nettest.csproj -c Release -p:MphReadServer=true -o /t
 python3 tools/run-network-baseline.py --nettest /tmp/fruity-nettest/nettest.dll \
   --server /tmp/fruity-nettest/FruityPrime.dll --simulation --data /path/to/AMHE1 \
   --seconds 20 --output /tmp/fruity-upgrade-matrix
+python3 tools/run-mixed-combat-soak.py --nettest /tmp/fruity-nettest/nettest.dll \
+  --data /path/to/AMHE1 --seconds 300 --modes on off \
+  --output /tmp/fruity-mixed-combat-soak
 ```
 
 Each matrix output directory must be new. Test runners stop only their own local
