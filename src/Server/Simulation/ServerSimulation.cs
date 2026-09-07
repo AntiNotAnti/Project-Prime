@@ -66,6 +66,12 @@ namespace MphRead.Mods.Network
         {
             _network = network;
             Scene.Match.MatchId = network.MatchId;
+            if (network.RebalanceBeforeStart() && Scene.Match.Phase == MatchPhase.Countdown)
+            {
+                // Restart the countdown through its owner so new teams get a
+                // pristine spawn/input epoch before any world step can run.
+                Lifecycle.AdvanceBeforeStep(tick, eligible: false, _resetForCountdown);
+            }
             int active = 0;
             uint teams = 0;
             for (int slot = 0; slot < 8; slot++)

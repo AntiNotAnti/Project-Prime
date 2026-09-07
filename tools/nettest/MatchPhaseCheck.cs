@@ -141,7 +141,8 @@ namespace MphRead.NetTest
                 second.TeamIndex = first.TeamIndex; // Explicitly test team quorum independent of slot parity.
                 Require(_second.Ready(_network.MatchId), "Second ready failed.");
                 Until(() => second.Connection.State == NetConnectionState.Playing, "Second activation failed.");
-                Require(match.Phase == MatchPhase.WaitingForPlayers, "Two players on one team started a team match.");
+                Require(match.Phase == MatchPhase.Countdown && second.TeamIndex != first.TeamIndex,
+                    "Ready-team rebalance did not assign both teams before countdown.");
                 second.TeamIndex = (byte)(1 - first.TeamIndex);
                 Pump();
                 Require(match.Phase == MatchPhase.Countdown && match.Players[first.Slot].Points == 0, "Countdown did not reset statistics.");

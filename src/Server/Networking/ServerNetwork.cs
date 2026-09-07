@@ -297,7 +297,7 @@ namespace MphRead.Mods.Network
             accepted.Write(payload);
             connection.Reliable.TryEnqueue(ReliableEventType.Welcome, payload, out _);
             _peers[free] = new ServerPeer(connection, join, (byte)free, _now)
-            { TeamIndex = Rules.Teams ? (byte)(free % 2) : (byte)free };
+            { TeamIndex = Rules.Teams ? SelectJoiningTeam((byte)free) : (byte)free };
             Count++;
             PublishKeepAlives();
             _rosterDirty = true;
@@ -320,6 +320,33 @@ namespace MphRead.Mods.Network
                 keepAlives[count++] = new(peer.Connection.Endpoint, datagram);
             }
             _transport.SetKeepAlives(keepAlives);
+        }
+
+        private byte SelectJoiningTeam(byte slot)
+        {
+            Span<byte> teams = stackalloc byte[8];
+            teams.Fill(TeamAllocator.Unassigned);
+            // Reserve the assignment during loading too, so simultaneous joins
+            // do not all choose the same apparently empty team.
+            foreach (ServerPeer? peer in _peers)
+                if (peer != null) teams[peer.Slot] = peer.TeamIndex;
+            return TeamAllocator.Select(teams, (byte)(slot & 1));
+        }
+
+        public bool RebalanceBeforeStart()
+        {
+            if (!Rules.Teams || Phase is not (MatchPhase.WaitingForPlayers or MatchPhase.Countdown)) return false;
+            Span<byte> teams = stackalloc byte[8];
+            teams.Fill(TeamAllocator.Unassigned);
+            foreach (ServerPeer? peer in _peers)
+                if (peer?.Connection.State is NetConnectionState.Ready or NetConnectionState.Playing)
+                    teams[peer.Slot] = peer.TeamIndex;
+            if (TeamAllocator.Rebalance(teams) == 0) return false;
+            foreach (ServerPeer? peer in _peers)
+                if (peer != null && teams[peer.Slot] != TeamAllocator.Unassigned)
+                    peer.TeamIndex = teams[peer.Slot];
+            _rosterDirty = true;
+            return true;
         }
 
         private static ushort MeasuredPing(ServerPeer peer) => peer.Connection.Metrics.Rtt.Count == 0
@@ -419,11 +446,12 @@ namespace MphRead.Mods.Network
             Mode = mode;
             Tick = tick;
             _rosterDirty = true;
+            int teamMember = 0;
             for (int slot = 0; slot < _capacity; slot++)
             {
                 ServerPeer? peer = _peers[slot];
                 if (peer == null) { continue; }
-                peer.TeamIndex = rules.Teams ? (byte)(peer.Slot % 2) : peer.Slot;
+                peer.TeamIndex = rules.Teams ? (byte)(teamMember++ & 1) : peer.Slot;
                 peer.Inputs = new ServerInputStream();
                 peer.HasRoster = false;
                 peer.Connection.BeginLoading(matchId);
