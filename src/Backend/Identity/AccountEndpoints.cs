@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authentication.BearerToken;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -24,6 +25,13 @@ public static class AccountEndpoints
 
     public static void MapAccounts(this WebApplication app)
     {
+        var confirmationTokens = new AccountConfirmationTokens(
+            app.Services.GetRequiredService<IDataProtectionProvider>(),
+            app.Services.GetRequiredService<IOptions<AccountOptions>>(),
+            app.Services.GetRequiredService<TimeProvider>());
+        var resendLimiter = new ConfirmationResendLimiter(
+            app.Services.GetRequiredService<IOptions<AccountOptions>>(),
+            app.Services.GetRequiredService<TimeProvider>());
         var auth = app.MapGroup("/v1/auth").RequireRateLimiting("auth");
         auth.MapPost("/register", Register);
         auth.MapPost("/login", async (LoginRequest request, SignInManager<HunterAccount> signIn) =>
@@ -57,21 +65,24 @@ public static class AccountEndpoints
             {
                 return Results.BadRequest();
             }
+            if (!confirmationTokens.TryUnprotect(request.Code, out string identityToken)) return Results.BadRequest();
             var user = await users.FindByIdAsync(request.PlayerId.ToString());
             if (user == null) { return Results.BadRequest(); }
-            var result = await users.ConfirmEmailAsync(user, request.Code);
+            var result = await users.ConfirmEmailAsync(user, identityToken);
             return result.Succeeded ? Results.NoContent() : Results.BadRequest();
         });
-        auth.MapPost("/resend-confirmation", async (ResendRequest request, UserManager<HunterAccount> users,
-            IConfirmationEmail email, CancellationToken cancellationToken) =>
+        auth.MapPost("/resend-confirmation", async (ResendRequest request, HttpContext http,
+            UserManager<HunterAccount> users, IConfirmationEmail email, CancellationToken cancellationToken) =>
         {
             if (!ValidEmail(request.Email)) { return Results.BadRequest(); }
             if (!email.IsConfigured) { return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            string normalized = users.NormalizeEmail(request.Email) ?? request.Email.ToUpperInvariant();
+            if (!resendLimiter.TryAcquire(http.Connection.RemoteIpAddress, normalized)) return Results.Accepted();
             var user = await users.FindByEmailAsync(request.Email);
             if (user is { EmailConfirmed: false })
             {
-                await email.SendAsync(user.Email!, new PlayerId(user.Id),
-                    await users.GenerateEmailConfirmationTokenAsync(user), cancellationToken);
+                string code = confirmationTokens.Protect(await users.GenerateEmailConfirmationTokenAsync(user));
+                await email.TrySendAsync(user.Email!, new PlayerId(user.Id), code, cancellationToken);
             }
             return Results.Accepted();
         });
@@ -87,7 +98,7 @@ public static class AccountEndpoints
 
     private static async Task<IResult> Register(RegisterRequest request, UserManager<HunterAccount> users,
         BackendDbContext db, IOptions<AccountOptions> settings, IConfirmationEmail email,
-        TimeProvider clock, CancellationToken cancellationToken)
+        IDataProtectionProvider protection, TimeProvider clock, CancellationToken cancellationToken)
     {
         if (!ValidEmail(request.Email) || !ValidPassword(request.Password)
             || !ProfileEndpoints.ValidDisplayName(request.DisplayName))
@@ -121,16 +132,19 @@ public static class AccountEndpoints
         {
             return Results.Conflict(new { Error = "Registration could not be completed." });
         }
+        bool confirmationDelivered = true;
         if (email.IsConfigured)
         {
             // Account commit precedes external delivery. A delivery failure leaves an
             // unconfirmed account; resend is the explicit recovery path.
-            await email.SendAsync(user.Email!, new PlayerId(user.Id),
-                await users.GenerateEmailConfirmationTokenAsync(user), cancellationToken);
+            var confirmationTokens = new AccountConfirmationTokens(protection, settings, clock);
+            string code = confirmationTokens.Protect(await users.GenerateEmailConfirmationTokenAsync(user));
+            confirmationDelivered = await email.TrySendAsync(user.Email!, new PlayerId(user.Id), code, cancellationToken);
         }
         return Results.Created($"/v1/players/{user.Id:D}/license", new
         {
-            PlayerId = new PlayerId(user.Id), ConfirmationRequired = settings.Value.RequireConfirmedEmail
+            PlayerId = new PlayerId(user.Id), ConfirmationRequired = settings.Value.RequireConfirmedEmail,
+            ConfirmationDeliveryPending = settings.Value.RequireConfirmedEmail && !confirmationDelivered
         });
     }
 }

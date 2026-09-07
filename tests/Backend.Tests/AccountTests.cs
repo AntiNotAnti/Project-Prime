@@ -1,12 +1,17 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using MphRead.Backend.Data;
+using MphRead.Backend.Identity;
 using MphRead.Identity;
 using Xunit;
 
@@ -104,6 +109,107 @@ public sealed class AccountTests
     }
 
     [Fact]
+    public async Task ConfirmationCodeExpiresAtTheConfiguredBoundary()
+    {
+        var clock = new AdjustableTimeProvider(new DateTimeOffset(2026, 9, 7, 12, 0, 0, TimeSpan.Zero));
+        using var factory = new BackendFactory(requireConfirmation: true, configure: services =>
+        {
+            services.RemoveAll<TimeProvider>();
+            services.AddSingleton<TimeProvider>(clock);
+            services.Configure<AccountOptions>(options => options.ConfirmationTokenLifetimeMinutes = 5);
+        });
+        using var client = factory.CreateDatabaseClient();
+        Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync("/v1/auth/register", Registration())).StatusCode);
+        var email = Assert.Single(factory.Email.Sent);
+        clock.Advance(TimeSpan.FromMinutes(5));
+
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await client.PostAsJsonAsync("/v1/auth/confirm-email", new { email.PlayerId, email.Code })).StatusCode);
+    }
+
+    [Fact]
+    public async Task ResendLimitsAccountAndIpWithOpaqueAccountKeys()
+    {
+        using var factory = new BackendFactory(configure: services => services.Configure<AccountOptions>(options =>
+        {
+            options.ConfirmationResendsPerAccount = 1;
+            options.ConfirmationResendsPerIp = 2;
+        }));
+        using var client = factory.CreateDatabaseClient();
+        await client.PostAsJsonAsync("/v1/auth/register", Registration());
+        await client.PostAsJsonAsync("/v1/auth/register", Registration("second@example.test", "Second"));
+        await client.PostAsJsonAsync("/v1/auth/register", Registration("third@example.test", "Third"));
+
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await client.PostAsJsonAsync("/v1/auth/resend-confirmation", new { Email = "first@example.test" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await client.PostAsJsonAsync("/v1/auth/resend-confirmation", new { Email = "FIRST@example.test" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await client.PostAsJsonAsync("/v1/auth/resend-confirmation", new { Email = "second@example.test" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await client.PostAsJsonAsync("/v1/auth/resend-confirmation", new { Email = "third@example.test" })).StatusCode);
+        Assert.Equal(5, factory.Email.Sent.Count); // three registrations plus two permitted resends
+
+        Type limiterType = typeof(AccountEndpoints).Assembly.GetTypes()
+            .Single(type => type == typeof(ConfirmationResendLimiter));
+        var instance = new ConfirmationResendLimiter(
+            Microsoft.Extensions.Options.Options.Create(new AccountOptions()), TimeProvider.System);
+        Assert.True(instance.TryAcquire(IPAddress.Loopback, "PRIVATE@EXAMPLE.TEST"));
+        var accounts = Assert.IsAssignableFrom<System.Collections.IDictionary>(
+            limiterType.GetField("_accounts", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(instance));
+        string key = Assert.IsType<string>(Assert.Single(accounts.Keys.Cast<object>()));
+        Assert.DoesNotContain("PRIVATE", key, StringComparison.OrdinalIgnoreCase);
+        Assert.Matches("^[0-9A-F]{64}$", key);
+
+        var boundedOptions = new AccountOptions
+        {
+            ConfirmationResendsPerAccount = 100,
+            ConfirmationResendsPerIp = 100,
+            ConfirmationResendTrackedEntries = 100
+        };
+        var bounded = new ConfirmationResendLimiter(Options.Create(boundedOptions), TimeProvider.System);
+        for (int i = 1; i <= 50; i++)
+            Assert.True(bounded.TryAcquire(IPAddress.Parse($"10.0.0.{i}"), $"account-{i}@example.test"));
+        Assert.False(bounded.TryAcquire(IPAddress.Parse("10.0.0.51"), "overflow@example.test"));
+    }
+
+    [Fact]
+    public async Task ProviderOutageLeavesRecoverableAccountAndEnumerationSafeResend()
+    {
+        using var factory = new BackendFactory(requireConfirmation: true);
+        factory.Email.SendSucceeds = false;
+        using var client = factory.CreateDatabaseClient();
+        HttpResponseMessage registration = await client.PostAsJsonAsync("/v1/auth/register", Registration());
+        Assert.Equal(HttpStatusCode.Created, registration.StatusCode);
+        Assert.True((await registration.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("confirmationDeliveryPending").GetBoolean());
+        Assert.Equal(1, factory.Email.Attempts);
+
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await client.PostAsJsonAsync("/v1/auth/resend-confirmation", new { Email = "first@example.test" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await client.PostAsJsonAsync("/v1/auth/resend-confirmation", new { Email = "unknown@example.test" })).StatusCode);
+        Assert.Equal(2, factory.Email.Attempts);
+        using var scope = factory.Services.CreateScope();
+        Assert.Equal(1, await scope.ServiceProvider.GetRequiredService<BackendDbContext>().Users.CountAsync());
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, true)]
+    [InlineData(60, true)]
+    [InlineData(61, false)]
+    public void SmtpConfigurationRequiresABoundedTimeout(int timeoutSeconds, bool configured)
+    {
+        var email = new ConfirmationEmail(Options.Create(new EmailOptions
+        {
+            Host = "smtp.example.test", Port = 587, Sender = "sender@example.test",
+            TimeoutSeconds = timeoutSeconds
+        }), NullLogger<ConfirmationEmail>.Instance);
+        Assert.Equal(configured, email.IsConfigured);
+    }
+
+    [Fact]
     public async Task RefreshUsesFrameworkTokensAndRevocationInvalidatesRefresh()
     {
         using var factory = new BackendFactory();
@@ -158,4 +264,11 @@ public sealed class AccountTests
         for (int i = 0; i < 20; i++) await client.PostAsJsonAsync("/v1/auth/login", new { Email = "bad", Password = "bad" });
         Assert.Equal(HttpStatusCode.TooManyRequests, (await client.PostAsJsonAsync("/v1/auth/login", new { Email = "bad", Password = "bad" })).StatusCode);
     }
+}
+
+internal sealed class AdjustableTimeProvider(DateTimeOffset now) : TimeProvider
+{
+    private DateTimeOffset _now = now;
+    public override DateTimeOffset GetUtcNow() => _now;
+    public void Advance(TimeSpan duration) => _now += duration;
 }

@@ -80,10 +80,14 @@ internal sealed class BackendFactory(bool requireConfirmation = false, Action<IS
 internal sealed class CapturedEmail : IConfirmationEmail
 {
     public bool IsConfigured { get; set; } = true;
+    public bool SendSucceeds { get; set; } = true;
+    public int Attempts { get; private set; }
     public List<(string Email, PlayerId PlayerId, string Code)> Sent { get; } = [];
-    public Task SendAsync(string email, PlayerId playerId, string code, CancellationToken cancellationToken)
+    public Task<bool> TrySendAsync(string email, PlayerId playerId, string code, CancellationToken cancellationToken)
     {
+        Attempts++;
+        if (!SendSucceeds) return Task.FromResult(false);
         Sent.Add((email, playerId, code));
-        return Task.CompletedTask;
+        return Task.FromResult(true);
     }
 }

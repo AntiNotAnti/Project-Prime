@@ -23,15 +23,24 @@ public sealed class GameServerRegistration
     public MatchTrustClass TrustClass { get; set; } = MatchTrustClass.Community;
 }
 
+public sealed record RankedAvailabilityStatus(bool Available, string? UnavailableReason);
+
 public sealed class GameServerRegistry
 {
+    public const string RankedUnavailableReason =
+        "Ranked is disabled for public deployments until authenticated transport proof-of-possession is implemented.";
     private readonly Dictionary<Guid, byte[]> _credentials = [];
     private readonly ConcurrentDictionary<Guid, Guid> _sessions = new();
     private readonly Dictionary<Guid, MatchTrustClass> _trust = [];
     private readonly Dictionary<Guid, IPEndPoint> _endpoints = [];
+    public RankedAvailabilityStatus RankedAvailability { get; }
 
-    public GameServerRegistry(IOptions<GameServerOptions> options)
+    public GameServerRegistry(IOptions<GameServerOptions> options, IHostEnvironment environment)
     {
+        bool publicDeployment = !environment.IsDevelopment() && !environment.IsEnvironment("Testing");
+        RankedAvailability = publicDeployment
+            ? new(false, RankedUnavailableReason)
+            : new(true, null);
         foreach (var server in options.Value.Servers)
         {
             if (!server.Enabled) { continue; }
@@ -52,7 +61,7 @@ public sealed class GameServerRegistry
 
     public bool TryRegister(Guid serverId, string secret, Guid incarnation)
     {
-        if (incarnation == Guid.Empty || !TryAuthenticate(serverId, secret, out _)) { return false; }
+        if (incarnation == Guid.Empty || !TryAuthenticate(serverId, secret, out _)) return false;
         _sessions[serverId] = incarnation;
         return true;
     }
@@ -62,7 +71,9 @@ public sealed class GameServerRegistry
         trust = default;
         if (secret.Length is < 32 or > 512 || !_credentials.TryGetValue(serverId, out var expected)) return false;
         if (!CryptographicOperations.FixedTimeEquals(SHA256.HashData(Encoding.UTF8.GetBytes(secret)), expected)) return false;
-        trust = _trust[serverId];
+        MatchTrustClass authenticatedTrust = _trust[serverId];
+        if (authenticatedTrust == MatchTrustClass.Ranked && !RankedAvailability.Available) return false;
+        trust = authenticatedTrust;
         return true;
     }
 
@@ -73,10 +84,16 @@ public sealed class GameServerRegistry
 
     public bool TryGetTicketDestination(Guid serverId, out Guid incarnation, out string address, out int port)
     {
-        address = ""; port = 0;
+        incarnation = Guid.Empty; address = ""; port = 0;
+        if (_trust.GetValueOrDefault(serverId) == MatchTrustClass.Ranked && !RankedAvailability.Available) return false;
         if (!_sessions.TryGetValue(serverId, out incarnation) || !_endpoints.TryGetValue(serverId, out var endpoint)) return false;
         address = endpoint.Address.ToString(); port = endpoint.Port; return true;
     }
 
-    public bool TryGetIncarnation(Guid serverId, out Guid incarnation) => _sessions.TryGetValue(serverId, out incarnation);
+    public bool TryGetIncarnation(Guid serverId, out Guid incarnation)
+    {
+        incarnation = Guid.Empty;
+        return !(_trust.GetValueOrDefault(serverId) == MatchTrustClass.Ranked && !RankedAvailability.Available)
+            && _sessions.TryGetValue(serverId, out incarnation);
+    }
 }

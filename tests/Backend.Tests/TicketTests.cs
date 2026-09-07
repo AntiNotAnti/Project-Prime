@@ -5,6 +5,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -107,7 +109,7 @@ public sealed class TicketTests
             Id = ServerId, Enabled = true, PublicAddress = address, PublicPort = port,
             ApiKeySha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Secret)))
         }] });
-        Assert.Throws<InvalidOperationException>(() => new GameServerRegistry(options));
+        Assert.Throws<InvalidOperationException>(() => new GameServerRegistry(options, TestHostEnvironment.Testing));
     }
 
     [Fact]
@@ -117,18 +119,41 @@ public sealed class TicketTests
         {
             Id = ServerId, Enabled = true, ApiKeySha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Secret)))
         }] });
-        var registry = new GameServerRegistry(options);
+        var registry = new GameServerRegistry(options, TestHostEnvironment.Testing);
         Assert.False(registry.TryRegister(Guid.NewGuid(), Secret, Incarnation));
         Assert.False(registry.TryRegister(ServerId, Secret, Guid.Empty));
         Assert.True(registry.TryRegister(ServerId, Secret, Incarnation));
         Assert.False(registry.TryGetTicketDestination(ServerId, out _, out _, out _));
         Assert.True(registry.TryGetIncarnation(ServerId, out Guid sid));
         Assert.Equal(Incarnation, sid);
-        Assert.False(new GameServerRegistry(options).TryGetIncarnation(ServerId, out _));
+        Assert.False(new GameServerRegistry(options, TestHostEnvironment.Testing).TryGetIncarnation(ServerId, out _));
         var replacement = Guid.NewGuid();
         Assert.True(registry.TryRegister(ServerId, Secret, replacement));
         Assert.True(registry.TryGetIncarnation(ServerId, out sid));
         Assert.Equal(replacement, sid);
+    }
+
+    [Fact]
+    public void PublicDeploymentDisablesRankedRegistrationAndAuthenticationCentrally()
+    {
+        var options = Options.Create(new GameServerOptions { Servers = [new()
+        {
+            Id = ServerId, Enabled = true, TrustClass = MatchTrustClass.Ranked,
+            PublicAddress = "203.0.113.7", PublicPort = 5000,
+            ApiKeySha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Secret)))
+        }] });
+        var production = new GameServerRegistry(options, TestHostEnvironment.Production);
+        Assert.False(production.RankedAvailability.Available);
+        Assert.Equal(GameServerRegistry.RankedUnavailableReason, production.RankedAvailability.UnavailableReason);
+        Assert.False(production.TryRegister(ServerId, Secret, Incarnation));
+        Assert.False(production.TryAuthenticate(ServerId, Secret, out _));
+        Assert.False(production.TryGetTicketDestination(ServerId, out _, out _, out _));
+
+        var testing = new GameServerRegistry(options, TestHostEnvironment.Testing);
+        Assert.True(testing.RankedAvailability.Available);
+        Assert.True(testing.TryRegister(ServerId, Secret, Incarnation));
+        Assert.True(testing.TryAuthenticate(ServerId, Secret, out MatchTrustClass trust));
+        Assert.Equal(MatchTrustClass.Ranked, trust);
     }
 
     [Fact]
@@ -198,4 +223,14 @@ public sealed class TicketTests
         }
         public void Dispose() => Directory.Delete(_directory, recursive: true);
     }
+}
+
+internal sealed class TestHostEnvironment(string environmentName) : IHostEnvironment
+{
+    public static readonly TestHostEnvironment Testing = new("Testing");
+    public static readonly TestHostEnvironment Production = new(Environments.Production);
+    public string EnvironmentName { get; set; } = environmentName;
+    public string ApplicationName { get; set; } = "PrimeHunters.Backend.Tests";
+    public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+    public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
 }

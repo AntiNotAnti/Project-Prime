@@ -13,6 +13,8 @@ public static class TicketEndpoints
 {
     public static void MapGameTickets(this WebApplication app)
     {
+        app.MapGet("/v1/ranked-availability", (GameServerRegistry registry) =>
+            Results.Ok(registry.RankedAvailability)).RequireRateLimiting("api");
         app.MapGet("/v1/game-ticket-keys", (GameTicketIssuer issuer) =>
             issuer.IsConfigured ? Results.Ok(new { Keys = issuer.PublicKeys })
                 : Results.StatusCode(StatusCodes.Status503ServiceUnavailable)).RequireRateLimiting("api");

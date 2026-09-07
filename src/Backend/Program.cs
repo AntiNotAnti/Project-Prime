@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using MphRead.Backend.Data;
 using MphRead.Backend.Matches;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using MphRead.Backend.Identity;
 using MphRead.Backend.Profiles;
 using MphRead.Backend.Tickets;
@@ -15,7 +16,7 @@ namespace MphRead.Backend;
 
 public sealed class Program
 {
-    public static void Main(string[] args)
+    public static async Task Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
         builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 16 * 1024);
@@ -25,7 +26,10 @@ public sealed class Program
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.Configure<AccountOptions>(builder.Configuration.GetSection("Accounts"));
         builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+        builder.Services.Configure<BackendSecurityOptions>(builder.Configuration.GetSection("Backend"));
         var accountOptions = builder.Configuration.GetSection("Accounts").Get<AccountOptions>() ?? new();
+        var securityOptions = builder.Configuration.GetSection("Backend").Get<BackendSecurityOptions>() ?? new();
+        BackendSecurity.ValidateCommon(securityOptions);
         if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing")
             && string.IsNullOrWhiteSpace(accountOptions.DataProtectionKeyPath))
             throw new InvalidOperationException("Accounts__DataProtectionKeyPath must be configured outside Development/Testing.");
@@ -55,6 +59,8 @@ public sealed class Program
         builder.Services.AddScoped<IConfirmationEmail, ConfirmationEmail>();
         builder.Services.Configure<TicketOptions>(builder.Configuration.GetSection("Tickets"));
         builder.Services.Configure<GameServerOptions>(builder.Configuration.GetSection("GameServers"));
+        var ticketOptions = builder.Configuration.GetSection("Tickets").Get<TicketOptions>() ?? new();
+        var serverOptions = builder.Configuration.GetSection("GameServers").Get<GameServerOptions>() ?? new();
         builder.Services.AddSingleton<GameTicketIssuer>();
         builder.Services.AddSingleton<GameServerRegistry>();
         builder.Services.AddScoped<MatchIngestion>();
@@ -62,24 +68,53 @@ public sealed class Program
         builder.Services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
-                RateLimitPartition.GetFixedWindowLimiter("global", _ => new FixedWindowRateLimiterOptions
-                { PermitLimit = 600, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.AddPolicy("auth", http => RateLimitPartition.GetFixedWindowLimiter(
-                http.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
+                BackendSecurity.EndpointPartitionKey(http), _ => new FixedWindowRateLimiterOptions
                 { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.AddPolicy("api", http => RateLimitPartition.GetFixedWindowLimiter(
-                http.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
+                BackendSecurity.EndpointPartitionKey(http), _ => new FixedWindowRateLimiterOptions
                 { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         });
+        builder.Services.AddSingleton(new ConcurrencyLimiter(new ConcurrencyLimiterOptions
+        {
+            PermitLimit = securityOptions.MaxConcurrentRequests,
+            QueueLimit = 0
+        }));
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            BackendSecurity.ConfigureForwarding(options, securityOptions));
         var app = builder.Build();
         // Validate configured operator identities/keys before accepting requests.
         _ = app.Services.GetRequiredService<GameServerRegistry>();
-        _ = app.Services.GetRequiredService<GameTicketIssuer>();
+        var ticketIssuer = app.Services.GetRequiredService<GameTicketIssuer>();
+        var confirmationEmail = app.Services.GetRequiredService<IConfirmationEmail>();
+        if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
+        {
+            BackendSecurity.ValidateProduction(securityOptions, accountOptions, ticketOptions,
+                serverOptions, confirmationEmail.IsConfigured, ticketIssuer.IsConfigured);
+        }
+        if (args.Contains("--rebuild-career", StringComparer.Ordinal))
+        {
+            await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
+            BackendDbContext database = scope.ServiceProvider.GetRequiredService<BackendDbContext>();
+            await database.Database.MigrateAsync();
+            await scope.ServiceProvider.GetRequiredService<CareerRebuild>().RebuildAsync();
+            return;
+        }
+        if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
+        {
+            await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
+            bool rebuildRequired = await scope.ServiceProvider.GetRequiredService<BackendDbContext>()
+                .ProjectionStates.AsNoTracking().AnyAsync(x => x.Id == 1 && x.RebuildRequired);
+            if (rebuildRequired)
+                throw new InvalidOperationException("Run the Backend once with --rebuild-career before serving requests.");
+        }
+        app.UseForwardedHeaders();
         app.UseExceptionHandler();
         app.Use(async (http, next) =>
         {
-            if (!http.Request.IsHttps && !app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
+            if (!http.Request.IsHttps && !app.Environment.IsEnvironment("Testing")
+                && !(app.Environment.IsDevelopment()
+                    && BackendSecurity.IsExplicitLoopbackDevelopmentRequest(http, securityOptions)))
             { http.Response.StatusCode = StatusCodes.Status400BadRequest; return; }
             // Reject known oversized bodies before binding; Kestrel also bounds chunked bodies.
             long limit = http.Request.Path == "/v1/server/matches" ? ReportValidation.MaximumBytes : 16 * 1024;
@@ -90,8 +125,20 @@ public sealed class Program
             http.Response.Headers.CacheControl = "no-store";
             await next(http);
         });
-        app.UseRateLimiter();
+        app.UseRouting();
+        app.Use(async (http, next) =>
+        {
+            var limiter = http.RequestServices.GetRequiredService<ConcurrencyLimiter>();
+            using RateLimitLease lease = await limiter.AcquireAsync(1, http.RequestAborted);
+            if (!lease.IsAcquired)
+            {
+                http.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                return;
+            }
+            await next(http);
+        });
         app.UseAuthentication();
+        app.UseRateLimiter();
         app.UseAuthorization();
         app.MapAccounts();
         app.MapProfiles();
@@ -99,6 +146,6 @@ public sealed class Program
         app.MapMatches();
         app.MapCareerQueries();
         app.MapMatchExports();
-        app.Run();
+        await app.RunAsync();
     }
 }
