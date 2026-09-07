@@ -156,6 +156,14 @@ namespace MphRead
             return Presentation?.IsEntityAudible(nodeRef) ?? true;
         }
 
+        internal void RestorePresentationClock(ulong frame, ulong liveFrames, float elapsed, float globalElapsed)
+        {
+            if (!float.IsFinite(elapsed) || !float.IsFinite(globalElapsed) || elapsed < 0 || globalElapsed < 0)
+                throw new ArgumentOutOfRangeException(nameof(elapsed));
+            _frameCount = frame; _liveFrames = liveFrames; _elapsedTime = elapsed; _globalElapsedTime = globalElapsed;
+            _frameTime = 1f / SimTicks.Hz;
+        }
+
         public void ResetFrameCount()
         {
             _frameCount = 0;

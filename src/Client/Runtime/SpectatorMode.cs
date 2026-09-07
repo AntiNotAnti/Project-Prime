@@ -24,6 +24,15 @@ namespace MphRead.Mods
     public static class SpectatorMode
     {
         public static bool IsSpectating { get; private set; }
+        public static bool WaitingForNextMatch { get; private set; }
+
+        internal static void ApplyWaitingForMatch(bool waiting)
+        {
+            bool wasWaiting = WaitingForNextMatch;
+            WaitingForNextMatch = waiting;
+            if (waiting) Start(watchSomeone: true);
+            else if (wasWaiting) Rejoin();
+        }
 
         /// <summary>
         /// Looking around the map on the spectator's own camera, rather than
@@ -189,6 +198,12 @@ namespace MphRead.Mods
         /// a HUD for all eight slots up front for players nobody may ever
         /// spectate.
         /// </summary>
+        internal static void SelectTarget(int slot)
+        {
+            _cameraRequest = false;
+            Switch(slot);
+        }
+
         private static void Switch(int slot)
         {
             PlayerEntity target = PlayerEntity.Players[slot];
@@ -226,7 +241,7 @@ namespace MphRead.Mods
         /// </summary>
         public static void Rejoin()
         {
-            if (!IsSpectating)
+            if (!IsSpectating || WaitingForNextMatch || Network.AuthoritativePlay.Current?.IsObserver == true)
             {
                 return;
             }
@@ -254,6 +269,7 @@ namespace MphRead.Mods
         /// <summary>Forget spectating without the rejoin bookkeeping -- the match itself is ending.</summary>
         public static void Reset()
         {
+            WaitingForNextMatch = false;
             IsSpectating = false;
             FreeCamera = false;
             ShowScoreboard = false;

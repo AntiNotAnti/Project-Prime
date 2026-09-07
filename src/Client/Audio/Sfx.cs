@@ -438,6 +438,7 @@ namespace MphRead.Sound
         private SoundInstance? PlaySampleGetInst(int id, SoundSource? source, bool? loop, bool noUpdate,
             float recency, bool sourceOnly, bool cancellable)
         {
+            if (Mods.Network.DemoPlayback.IsSeeking) return null;
             bool setUp = SetUpInstance(id, source, loop.GetValueOrDefault(),
                 recency, sourceOnly, cancellable, out SoundInstance inst);
             if (!setUp)
@@ -494,6 +495,7 @@ namespace MphRead.Sound
         public override void PlayScript(int id, SoundSource? source, bool noUpdate,
             float recency, bool sourceOnly, bool cancellable)
         {
+            if (Mods.Network.DemoPlayback.IsSeeking) return;
             Debug.Assert((id & 0x4000) != 0);
             int scriptId = id & 0x3FFF;
             Debug.Assert(scriptId >= 0 && scriptId < _sfxScripts.Count);

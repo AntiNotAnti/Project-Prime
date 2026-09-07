@@ -39,7 +39,7 @@ namespace MphRead.Mods.Network
         private sealed record KeepAlive(IPEndPoint Target, byte[] Datagram);
         private KeepAlive[] _keepAlives = Array.Empty<KeepAlive>();
         private long _keepAliveDue;
-        public const int MaxKeepAlives = 8;
+        public const int MaxKeepAlives = 24; // Eight players plus sixteen observers.
 
         /// <summary>
         /// A client liveness packet that continues during synchronous room loading.
@@ -51,7 +51,7 @@ namespace MphRead.Mods.Network
         }
 
         /// <summary>
-        /// Publish at most eight prepared authoritative keepalives atomically. The
+        /// Publish at most twenty-four prepared authoritative keepalives atomically. The
         /// receive worker reads no connection, ACK or simulation state while the
         /// owner loads a room. Republish when a peer changes its endpoint.
         /// </summary>
@@ -59,7 +59,7 @@ namespace MphRead.Mods.Network
         {
             if (entries.Length > MaxKeepAlives)
             {
-                throw new ArgumentOutOfRangeException(nameof(entries), "At most eight keepalive endpoints are supported.");
+                throw new ArgumentOutOfRangeException(nameof(entries), "At most twenty-four keepalive endpoints are supported.");
             }
             var copies = entries.IsEmpty ? Array.Empty<KeepAlive>() : new KeepAlive[entries.Length];
             for (int i = 0; i < entries.Length; i++)
@@ -135,7 +135,9 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static long TotalPacketsSent;
 
-        public UdpTransport(int port)
+        public UdpTransport(int port) : this(port, null) { }
+
+        public UdpTransport(int port, IPAddress? bindAddress)
         {
             _socket = new UdpClient(AddressFamily.InterNetwork);
             if (OperatingSystem.IsWindows())
@@ -160,7 +162,7 @@ namespace MphRead.Mods.Network
             // Only so the worker notices _running going false; nothing waits
             // on this in normal operation.
             _socket.Client.ReceiveTimeout = 500;
-            _socket.Client.Bind(new IPEndPoint(IPAddress.Any, port));
+            _socket.Client.Bind(new IPEndPoint(bindAddress ?? IPAddress.Any, port));
             LocalPort = ((IPEndPoint)_socket.Client.LocalEndPoint!).Port;
             _running = true;
             _worker = new Thread(ReceiveLoop)

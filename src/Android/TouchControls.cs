@@ -299,6 +299,15 @@ namespace MphRead.Droid
             });
         }
 
+        private bool _results, _replay, _recaps, _voting;
+        public void SetResultNavigation(bool results, bool replay, bool recaps, bool voting = false)
+        {
+            Change(() =>
+            {
+                if (_results == results && _replay == replay && _recaps == recaps && _voting == voting) return false;
+                _results = results; _replay = replay; _recaps = recaps; _voting = voting; return true;
+            });
+        }
         private bool _spectating;
         private bool _spectatorFreeCam;
 
@@ -340,7 +349,16 @@ namespace MphRead.Droid
             {
                 bool visible;
                 string? label = null;
-                if (_spectating)
+                if (_results || _recaps)
+                {
+                    visible = button.Action is TouchAction.Shoot or TouchAction.Morph or TouchAction.Pause
+                        || ((!_results || _voting) && button.Action == TouchAction.WeaponMenu);
+                    label = button.Action switch { TouchAction.Shoot => "NEXT", TouchAction.Morph => "PREV",
+                        TouchAction.WeaponMenu => _voting ? "VOTE" : "CLOSE", _ => null };
+                }
+                else if (_replay && button.Action == TouchAction.WeaponMenu)
+                { visible = true; label = "RECAP"; }
+                else if (_spectating)
                 {
                     // Nothing a spectator presses does anything in the world:
                     // PlayerEntity.ProcessInput skips the local player while
@@ -653,6 +671,12 @@ namespace MphRead.Droid
 
         public void PointerDown(int pointerId, float x, float y)
         {
+            if (Width > 0 && Height > 0 && MphRead.Mods.Network.IntermissionVoteControls.QueuePointerDown(
+                x * 256 / Width, y * 192 / Height)) return;
+            if (Width > 0 && Height > 0 && MphRead.Mods.Network.ReplayControls.QueuePointerDown(
+                x * 256 / Width, y * 192 / Height)) return;
+            if (Width > 0 && Height > 0 && SpectatorCameraController.QueuePointerDown(
+                x * 256 / Width, y * 192 / Height)) return;
             bool revealed = false;
             lock (_lock)
             {

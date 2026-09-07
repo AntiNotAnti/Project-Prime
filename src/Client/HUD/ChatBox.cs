@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using MphRead.Mods.Network;
 using OpenTK.Windowing.Common;
@@ -63,6 +64,44 @@ namespace MphRead.Mods.Chat
         /// rather than what fits on the wire.
         /// </summary>
         public const int MaxLength = 80;
+
+        // Recorded chat ages with the replay timeline, including pause, slow motion and seek.
+        private static long Clock => DemoPlayback.IsActive ? DemoPlayback.CurrentFrame * 1000L / 60 : Environment.TickCount64;
+        internal static byte[] CaptureReplay()
+        {
+            var visible = new List<(ChatLine Line, float Alpha)>(); CollectVisible(visible);
+            using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);
+            writer.Write((byte)visible.Count);
+            foreach (var entry in visible)
+            {
+                writer.Write(Math.Clamp(Clock - entry.Line.ArrivedAt, 0, HoldMilliseconds));
+                writer.Write(entry.Line.Kind);
+                MphRead.Combat.ReplayFeedbackState.Text(writer, entry.Line.Name);
+                MphRead.Combat.ReplayFeedbackState.Text(writer, entry.Line.Text);
+            }
+            return stream.ToArray();
+        }
+        internal static bool RestoreReplay(byte[] bytes)
+        {
+            try
+            {
+                using var stream = new MemoryStream(bytes, false); using var reader = new BinaryReader(stream);
+                int count = reader.ReadByte(); if (count > VisibleLines) return false;
+                var lines = new List<ChatLine>(count);
+                for (int i = 0; i < count; i++)
+                {
+                    long age = reader.ReadInt64(); byte kind = reader.ReadByte();
+                    if (age < 0 || age > HoldMilliseconds) return false;
+                    string name = MphRead.Combat.ReplayFeedbackState.Text(reader);
+                    string text = MphRead.Combat.ReplayFeedbackState.Text(reader);
+                    lines.Add(new ChatLine(name, text, kind, Clock - age));
+                }
+                if (stream.Position != stream.Length) return false;
+                lock (_lock) { _lines.Clear(); _lines.AddRange(lines); }
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException) { return false; }
+        }
 
         private const long HoldMilliseconds = 10_000;
         private const long FadeMilliseconds = 1_000;
@@ -139,7 +178,7 @@ namespace MphRead.Mods.Chat
         internal static void CollectVisible(List<(ChatLine Line, float Alpha)> into)
         {
             into.Clear();
-            long now = Environment.TickCount64;
+            long now = Clock;
             lock (_lock)
             {
                 for (int i = _lines.Count - 1; i >= 0 && into.Count < VisibleLines; i--)
@@ -171,7 +210,7 @@ namespace MphRead.Mods.Chat
                 {
                     return true;
                 }
-                long now = Environment.TickCount64;
+                long now = Clock;
                 lock (_lock)
                 {
                     return _lines.Count > 0
@@ -220,7 +259,7 @@ namespace MphRead.Mods.Chat
             }
             lock (_lock)
             {
-                _lines.Add(new ChatLine(name, text, kind, Environment.TickCount64));
+                _lines.Add(new ChatLine(name, text, kind, Clock));
                 // A cap, not a window: CollectVisible only ever reads the tail,
                 // and a match left running all night must not grow a list of
                 // every word anyone said in it.

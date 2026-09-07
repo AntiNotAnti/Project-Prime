@@ -161,6 +161,7 @@ namespace MphRead
         public static void PlaySeq(SeqId seqId, ushort tracks, bool queue = false, bool notReady = false,
             ushort fadeOutFrames = 0, ushort fadeInFrames = 0)
         {
+            if (Mods.Network.DemoPlayback.IsSeeking) return;
             // the game may update the seq ID first using download play values
             if (!queue)
             {

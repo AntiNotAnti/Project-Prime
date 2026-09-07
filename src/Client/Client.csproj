@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Game/Game.csproj" />
+    <ProjectReference Include="../Shared.Replay/Shared.Replay.csproj" />
     <ProjectReference Include="../Audio.Ncsf/Audio.Ncsf.csproj" />
 
     <PackageReference Include="Avalonia" Version="11.3.11" />

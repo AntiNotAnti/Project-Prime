@@ -334,6 +334,7 @@ namespace MphRead.Droid
             /// </summary>
             private readonly Action<bool> _onSoftKeyboard;
             private bool _menuWasHeld;
+            private bool _resultNextHeld, _resultPrevHeld, _resultToggleHeld;
             private bool _spectateCycleHeld;
             private bool _spectateViewHeld;
             private bool _missileWasHeld;
@@ -955,16 +956,14 @@ namespace MphRead.Droid
                 bool cycle = _controls.IsHeld(TouchAction.Shoot);
                 if (cycle && !_spectateCycleHeld)
                 {
-                    Mods.SpectatorMode.CycleNext();
+                    if (Scene != null) ScenePresentation.Get(Scene).SpectatorCamera.CycleTarget(ScenePresentation.Get(Scene));
                 }
                 _spectateCycleHeld = cycle;
-                // VIEW: the desktop's Space -- the map, or the player being
-                // watched. Without it the free camera was a one-way trip on
-                // this head: NEXT leaves it and nothing brought it back.
+                // VIEW cycles all presentation camera modes, including free camera.
                 bool view = _controls.IsHeld(TouchAction.SpectatorView);
                 if (view && !_spectateViewHeld)
                 {
-                    Mods.SpectatorMode.ToggleView();
+                    if (Scene != null) ScenePresentation.Get(Scene).SpectatorCamera.CycleMode(ScenePresentation.Get(Scene));
                 }
                 _spectateViewHeld = view;
                 bool menuHeld = _controls.IsHeld(TouchAction.Pause);
@@ -1051,6 +1050,45 @@ namespace MphRead.Droid
 
             private void CollectInput(PlayerEntity main)
             {
+                PlayerPresentation presentation = main.GetPresentation();
+                bool results = presentation.ResultsAvailable;
+                bool replay = presentation.ReplayRecapsAvailable;
+                bool voting = Mods.Network.IntermissionVoteControls.Available;
+                _controls.SetResultNavigation(results, replay, presentation.RecapViewOpen, voting);
+                if (voting)
+                {
+                    Mods.Network.IntermissionVoteControls.ConsumePointerVote();
+                    bool vote = _controls.IsHeld(TouchAction.WeaponMenu);
+                    bool next = _controls.IsHeld(TouchAction.Shoot);
+                    bool previous = _controls.IsHeld(TouchAction.Morph);
+                    if (vote && !_resultToggleHeld) Mods.Network.IntermissionVoteControls.Submit();
+                    if (next && !_resultNextHeld) Mods.Network.IntermissionVoteControls.Move(1);
+                    if (previous && !_resultPrevHeld) Mods.Network.IntermissionVoteControls.Move(-1);
+                    _resultToggleHeld = vote; _resultNextHeld = next; _resultPrevHeld = previous;
+                    _controls.TakeDoubleTapJump(); _controls.TakeSwipeBoost(); _controls.TakeAimDelta();
+                    bool votingMenu = _controls.IsHeld(TouchAction.Pause);
+                    if (votingMenu && !_menuWasHeld) _onPauseMenu();
+                    _menuWasHeld = votingMenu;
+                    return;
+                }
+                bool toggleRecaps = replay && _controls.IsHeld(TouchAction.WeaponMenu);
+                if (toggleRecaps && !_resultToggleHeld) presentation.NavigateResults(0, toggleRecaps: true);
+                _resultToggleHeld = toggleRecaps;
+                bool browsing = results || presentation.RecapViewOpen;
+                bool nextResult = browsing && _controls.IsHeld(TouchAction.Shoot);
+                bool previousResult = browsing && _controls.IsHeld(TouchAction.Morph);
+                if (nextResult && !_resultNextHeld) presentation.NavigateResults(1);
+                if (previousResult && !_resultPrevHeld) presentation.NavigateResults(-1);
+                _resultNextHeld = nextResult; _resultPrevHeld = previousResult;
+                if (browsing)
+                {
+                    _controls.TakeDoubleTapJump(); _controls.TakeSwipeBoost(); _controls.TakeAimDelta();
+                    bool resultMenu = _controls.IsHeld(TouchAction.Pause);
+                    if (resultMenu && !_menuWasHeld) _onPauseMenu();
+                    _menuWasHeld = resultMenu;
+                    return;
+                }
+
                 if (Mods.SpectatorMode.IsSpectating)
                 {
                     Spectate();

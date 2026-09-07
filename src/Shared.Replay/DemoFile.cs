@@ -20,6 +20,7 @@ namespace MphRead.Mods.Network
         /// that could read one by accident.
         /// </summary>
         public const byte FormatVersion = 2;
+        public const byte IndexedFormatVersion = 3;
         // Authoritative protocol 5 was checkpointed before the live wire moved
         // to 6. These formats contain server facts, not joins or input commands;
         // both remain readable through demo-only adapters after version 7 without enabling either old wire on a socket.
@@ -49,12 +50,13 @@ namespace MphRead.Mods.Network
         private const uint FlushIntervalFrames = 15;
 
         private readonly FileStream _stream;
-        private readonly DeflateStream _deflate;
+        private readonly DeflateStream? _deflate;
+        private readonly ReplayArchive? _archive;
         private uint _lastFrame;
         private uint _lastFlushFrame;
         private readonly byte[] _header = new byte[7];
 
-        public DemoWriter(string path, byte protocolVersion = NetHeader.Version)
+        public DemoWriter(string path, byte protocolVersion = NetHeader.Version, bool indexed = false)
         {
             string? dir = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(dir))
@@ -63,17 +65,19 @@ namespace MphRead.Mods.Network
             }
             _stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
             _stream.Write(DemoFile.Magic);
-            _stream.WriteByte(DemoFile.FormatVersion);
+            _stream.WriteByte(indexed ? DemoFile.IndexedFormatVersion : DemoFile.FormatVersion);
             _stream.WriteByte(protocolVersion);
             _stream.Flush();
-            _deflate = new DeflateStream(_stream, CompressionLevel.Fastest, leaveOpen: true);
+            if (indexed) _archive = new ReplayArchive(_stream, scan: false);
+            else _deflate = new DeflateStream(_stream, CompressionLevel.Fastest, leaveOpen: true);
         }
 
         /// <param name="frame">Simulation frames since this writer was created.</param>
-        public void WriteRecord(uint frame, ReadOnlySpan<byte> data)
+        public void WriteRecord(uint frame, ReadOnlySpan<byte> data, ReplayMarker marker = ReplayMarker.None)
         {
             if (data.Length is < 1 or > NetConfig.MaxPacketSize)
             { throw new ArgumentOutOfRangeException(nameof(data)); }
+            if (_archive != null) { _archive.Write(frame, data, marker: marker); return; }
             if (frame < _lastFrame)
             {
                 // Only reachable if the frame counter were ever wound back.
@@ -98,22 +102,28 @@ namespace MphRead.Mods.Network
             System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(
                 _header.AsSpan(at), (ushort)data.Length);
             at += 2;
-            _deflate.Write(_header.AsSpan(0, at));
-            _deflate.Write(data);
+            _deflate!.Write(_header.AsSpan(0, at));
+            _deflate!.Write(data);
             if (frame - _lastFlushFrame >= FlushIntervalFrames)
             {
                 _lastFlushFrame = frame;
                 // The deflate stream first, which turns its pending symbols
                 // into bytes the file can hold, then the file, which puts
                 // them where a reader could find them after a crash.
-                _deflate.Flush();
+                _deflate!.Flush();
                 _stream.Flush();
             }
         }
 
+        internal void WriteKeyframe(uint frame, System.Collections.Generic.IReadOnlyList<byte[]> records)
+        {
+            if (_archive == null) throw new InvalidOperationException("Keyframes require demo format 3.");
+            _archive.Write(frame, ReplayArchive.Pack(records), keyframe: true);
+        }
+
         public void Dispose()
         {
-            try { _deflate.Dispose(); }
+            try { _deflate?.Dispose(); }
             finally { _stream.Dispose(); }
         }
     }
@@ -136,11 +146,22 @@ namespace MphRead.Mods.Network
     internal sealed class DemoReader : IDisposable
     {
         private readonly FileStream _stream;
-        private readonly DeflateStream _deflate;
+        private readonly DeflateStream? _deflate;
+        private readonly ReplayArchive? _archive;
         private readonly byte[] _header = new byte[7];
         private uint _frame;
 
         public byte ProtocolVersion { get; }
+        public byte FormatVersion { get; }
+        internal System.Collections.Generic.IReadOnlyList<ReplayIndexEntry> Index => _archive?.Index ?? Array.Empty<ReplayIndexEntry>();
+        internal uint LastFrame => _archive?.LastFrame ?? _frame;
+        internal bool CanSeek => _archive != null;
+        internal bool RecoveredTail => _archive?.RecoveredTail ?? false;
+        internal DemoRecord[]? Seek(uint frame, out uint restoredFrame)
+        {
+            restoredFrame = 0;
+            return _archive?.Seek(frame, out restoredFrame);
+        }
 
         /// <summary>Null if the file doesn't look like a demo at all (bad magic, wrong version, truncated header).</summary>
         public static DemoReader? Open(string path)
@@ -157,30 +178,37 @@ namespace MphRead.Mods.Network
                     return null;
                 }
                 if (!header[..DemoFile.Magic.Length].SequenceEqual(DemoFile.Magic)
-                    || header[4] != DemoFile.FormatVersion)
+                    || header[4] is not (DemoFile.FormatVersion or DemoFile.IndexedFormatVersion))
                 {
                     stream.Dispose();
                     return null;
                 }
-                return new DemoReader(stream, header[5]);
+                return new DemoReader(stream, header[5], header[4]);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
             {
                 stream?.Dispose();
                 return null;
             }
         }
 
-        private DemoReader(FileStream stream, byte protocolVersion)
+        private DemoReader(FileStream stream, byte protocolVersion, byte formatVersion)
         {
             _stream = stream;
-            _deflate = new DeflateStream(stream, CompressionMode.Decompress, leaveOpen: true);
+            FormatVersion = formatVersion;
+            if (formatVersion == DemoFile.IndexedFormatVersion) _archive = new ReplayArchive(stream, scan: true);
+            else _deflate = new DeflateStream(stream, CompressionMode.Decompress, leaveOpen: true);
             ProtocolVersion = protocolVersion;
         }
 
         /// <summary>The next record, or null at end of file.</summary>
         public DemoRecord? ReadNext()
         {
+            if (_archive != null)
+            {
+                try { return _archive.ReadNext(); }
+                catch (IOException) { return null; }
+            }
             try
             {
                 if (!Fill(_header.AsSpan(0, 1)))
@@ -226,13 +254,13 @@ namespace MphRead.Mods.Network
         /// <summary>True when the whole span was read; false at a clean or ragged end of file.</summary>
         private bool Fill(Span<byte> destination)
         {
-            return _deflate.ReadAtLeast(destination, destination.Length,
+            return _deflate!.ReadAtLeast(destination, destination.Length,
                 throwOnEndOfStream: false) == destination.Length;
         }
 
         public void Dispose()
         {
-            try { _deflate.Dispose(); }
+            try { _deflate?.Dispose(); }
             finally { _stream.Dispose(); }
         }
     }

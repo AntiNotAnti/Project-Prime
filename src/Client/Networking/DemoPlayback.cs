@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 
 namespace MphRead.Mods.Network
 {
@@ -9,6 +12,7 @@ namespace MphRead.Mods.Network
     public static class DemoPlayback
     {
         private static DemoReader? _reader;
+        internal static object? SessionIdentity => _reader;
         private static MatchRules? _initialRules;
         private static readonly ModernDemoState _modern = new();
         internal static ModernDemoState Modern => _modern;
@@ -26,8 +30,104 @@ namespace MphRead.Mods.Network
 
         public static bool IsActive { get; private set; }
 
+        public static ReplayTransport Transport { get; } = new();
+        public static bool IsSeeking { get; private set; }
+        public static uint CurrentFrame => _frame;
+        public static uint DurationFrames => _reader?.LastFrame ?? 0;
+        public static bool CanSeek => IsModern && _reader?.CanSeek == true;
+        public static IReadOnlyList<ReplayIndexEntry> Index => _reader?.Index ?? Array.Empty<ReplayIndexEntry>();
+        public static uint LastRestoreFrame { get; private set; }
+        public static int LastSeekSteps { get; private set; }
+        public static double LastSeekMilliseconds { get; private set; }
+        private static uint? _requestedSeek;
+        private static uint _seekTarget;
+        private static long _seekStarted;
+        // Lockjaw bombs expire after 1800 ticks plus the removal step. The preceding
+        // five-second checkpoint provides at most 2101 simulation steps of warmup.
+        internal const uint TransientWarmupTicks = 1801;
+        public static bool Seek(uint frame)
+        {
+            if (!CanSeek) return false;
+            LastError = null;
+            _requestedSeek = Math.Min(frame, DurationFrames);
+            return true;
+        }
+        public static bool SeekEvent(bool next)
+        {
+            ReplayIndexEntry? selected = null;
+            foreach (ReplayIndexEntry entry in Index)
+            {
+                if (entry.Marker == ReplayMarker.None) continue;
+                if (next && entry.Frame > _frame) { selected = entry; break; }
+                if (!next && entry.Frame < _frame) selected = entry;
+            }
+            return selected.HasValue && Seek(selected.Value.Frame);
+        }
+        internal static int TakeSimulationSteps() => IsActive ? (AtEnd ? 0 : Transport.TakeSteps()) : 1;
+
+        /// <summary>Runs actual fixed simulation steps in bounded batches; the caller suppresses drawing.</summary>
+        internal static bool ProcessSeek(Action simulationStep, Action? beginSeek = null)
+        {
+            if (!IsActive || _reader == null) return false;
+            if (_requestedSeek is uint target)
+            {
+                _requestedSeek = null;
+                _seekTarget = target;
+                uint warmup = target > TransientWarmupTicks ? target - TransientWarmupTicks : 0;
+                uint candidate = 0;
+                foreach (ReplayIndexEntry entry in Index)
+                {
+                    if (entry.Frame > warmup) break;
+                    if (entry.Keyframe) candidate = entry.Frame;
+                }
+                if (target - candidate > TransientWarmupTicks + 300)
+                { LastError = "Replay has no checkpoint within the bounded seek window."; return true; }
+                DemoRecord[]? checkpoint = _reader.Seek(warmup, out uint restoreFrame);
+                if (checkpoint == null) { FailSeek("Replay checkpoint is damaged."); return true; }
+                NetSession.RewindPlayback();
+                Chat.ChatBox.Clear();
+                _modern.Reset(_reader.ProtocolVersion);
+                foreach (DemoRecord record in checkpoint)
+                    if (!_modern.Receive(record.Data))
+                    { FailSeek("Replay checkpoint contains an invalid fact."); return true; }
+                if (checkpoint.Length != 0 && !_modern.HasCompleteCheckpoint)
+                { FailSeek("Replay checkpoint is incomplete."); return true; }
+                _modern.RequestSceneReload();
+                _frame = restoreFrame; _started = false;
+                _pending = _reader.ReadNext();
+                LastRestoreFrame = restoreFrame; LastSeekSteps = 0;
+                _seekStarted = Stopwatch.GetTimestamp();
+                IsSeeking = true;
+                beginSeek?.Invoke();
+            }
+            if (!IsSeeking) return false;
+            for (int i = 0; i < 120; i++)
+            {
+                try { simulationStep(); }
+                catch (Exception error) when (error is IOException or InvalidDataException or ProgramException)
+                { FailSeek(error.Message); break; }
+                LastSeekSteps++;
+                if (_frame >= _seekTarget)
+                {
+                    IsSeeking = false;
+                    LastSeekMilliseconds = Stopwatch.GetElapsedTime(_seekStarted).TotalMilliseconds;
+                    break;
+                }
+            }
+            return true;
+        }
+
+        private static void FailSeek(string message)
+        {
+            LastError = message;
+            IsSeeking = false; _requestedSeek = null;
+            Transport.Paused = true;
+            _pending = null; _frame = DurationFrames; _started = true;
+        }
+
         /// <summary>True once the file has no more records -- the scene holds on the last state rather than closing itself.</summary>
-        public static bool AtEnd => IsActive && _pending == null;
+        public static bool AtEnd => IsActive && _pending == null
+            && (_reader?.CanSeek != true || (_started && _frame >= _reader.LastFrame));
 
         /// <summary>
         /// Why the last <see cref="Join"/> failed, for a screen that is
@@ -207,6 +307,7 @@ namespace MphRead.Mods.Network
         internal static void CloseFile()
         {
             IsActive = false;
+            IsSeeking = false; _requestedSeek = null; Transport.Reset();
             _reader?.Dispose();
             _reader = null;
             _initialRules = null;
