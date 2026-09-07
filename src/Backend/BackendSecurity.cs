@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
 using MphRead.Backend.Identity;
 using MphRead.Backend.Tickets;
 
@@ -74,6 +75,23 @@ public static class BackendSecurity
             && http.Connection.LocalIpAddress is { } local && IPAddress.IsLoopback(local)
             && http.Connection.RemoteIpAddress is { } remote && IPAddress.IsLoopback(remote);
 
+    public static void ValidateProductionListeners(IConfiguration configuration, BackendSecurityOptions security)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(security);
+
+        string[] listeners = ConfiguredListeners(configuration);
+        bool trustedTlsTermination = security.TrustedProxies.Count > 0;
+        foreach (string listener in listeners)
+        {
+            if (listener.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) continue;
+            if (trustedTlsTermination
+                && listener.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) continue;
+            throw new InvalidOperationException(
+                "Production Backend listeners must use HTTPS. Plain HTTP requires an explicitly configured Backend__TrustedProxies TLS terminator.");
+        }
+    }
+
     public static void ValidateProduction(BackendSecurityOptions security, AccountOptions accounts,
         TicketOptions tickets, GameServerOptions servers, bool emailConfigured,
         bool ticketsConfigured)
@@ -114,4 +132,43 @@ public static class BackendSecurity
 
     private static string Hash(string value)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private static string[] ConfiguredListeners(IConfiguration configuration)
+    {
+        IConfigurationSection endpoints = configuration.GetSection("Kestrel:Endpoints");
+        IConfigurationSection[] configuredEndpoints = endpoints.GetChildren().ToArray();
+        if (configuredEndpoints.Length > 0)
+        {
+            string[] values = configuredEndpoints.Select(endpoint => endpoint["Url"]?.Trim() ?? "")
+                .ToArray();
+            if (values.Any(string.IsNullOrWhiteSpace))
+                throw new InvalidOperationException("Every production Kestrel endpoint must define an explicit URL.");
+            return values;
+        }
+
+        string? urls = configuration["urls"];
+        if (!string.IsNullOrWhiteSpace(urls))
+        {
+            string[] values = urls.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (values.Length == 0)
+                throw new InvalidOperationException("Production Backend listener configuration is empty.");
+            return values;
+        }
+
+        string[] httpPorts = Ports(configuration["HTTP_PORTS"]);
+        string[] httpsPorts = Ports(configuration["HTTPS_PORTS"]);
+        if (httpPorts.Length > 0 || httpsPorts.Length > 0)
+        {
+            return httpPorts.Select(port => $"http://*:{port}")
+                .Concat(httpsPorts.Select(port => $"https://*:{port}"))
+                .ToArray();
+        }
+
+        // Kestrel's unconfigured fallback is an HTTP localhost listener.
+        return ["http://localhost:5000"];
+    }
+
+    private static string[] Ports(string? value) => string.IsNullOrWhiteSpace(value)
+        ? []
+        : value.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 }

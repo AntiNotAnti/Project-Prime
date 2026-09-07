@@ -14,7 +14,7 @@ public sealed record RatingTransactionReceipt(Guid PlayerId, int PointsBefore, i
 public sealed record RatingReceipt(string Status, string Policy, string? IneligibilityReason,
     IReadOnlyList<RatingTransactionReceipt> Transactions);
 public sealed record RatingSummary(int Points, int Tier, string Title, int? NextThreshold,
-    int? LastOfficialDelta, string Policy);
+    int? LastOfficialDelta, string Policy, Guid? LastOfficialMatchId);
 
 public static class RatingProjection
 {
@@ -30,7 +30,8 @@ public static class RatingProjection
         int tier = RetailPointMatrix.TierForPoints(license.RatingPoints);
         int? next = tier < RetailPointMatrix.TierCount ? RetailPointMatrix.TierMinimums[tier] : null;
         return new(license.RatingPoints, tier, Title(tier), next, latest?.AppliedDelta,
-            (latest == null ? RatingPolicyVersion.PairwiseNormalizedV1 : (RatingPolicyVersion)latest.PolicyVersion).ToString());
+            (latest == null ? RatingPolicyVersion.PairwiseNormalizedV1 : (RatingPolicyVersion)latest.PolicyVersion).ToString(),
+            latest?.MatchId);
     }
 
     public static string Title(int tier) => tier switch

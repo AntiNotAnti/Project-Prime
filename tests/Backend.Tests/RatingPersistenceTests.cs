@@ -115,9 +115,17 @@ public sealed class RatingPersistenceTests
         Assert.Equal("Bounty Hunter", license.GetProperty("title").GetString());
         Assert.Equal(40, license.GetProperty("nextThreshold").GetInt32());
         Assert.Equal(2, license.GetProperty("lastOfficialDelta").GetInt32());
+        Assert.Equal(report.MatchId, license.GetProperty("lastOfficialMatchId").GetGuid());
         Assert.Equal("PairwiseNormalizedV1", license.GetProperty("policy").GetString());
+        JsonElement zeroDeltaLicense = await client.GetFromJsonAsync<JsonElement>(
+            $"/v1/players/{loser:D}/license");
+        Assert.Equal(0, zeroDeltaLicense.GetProperty("points").GetInt32());
+        Assert.Equal(0, zeroDeltaLicense.GetProperty("lastOfficialDelta").GetInt32());
+        Assert.Equal(report.MatchId, zeroDeltaLicense.GetProperty("lastOfficialMatchId").GetGuid());
         JsonElement career = await client.GetFromJsonAsync<JsonElement>($"/v1/players/{winner:D}/career");
         Assert.Equal(2, career.GetProperty("rating").GetProperty("points").GetInt32());
+        Assert.Equal(report.MatchId,
+            career.GetProperty("rating").GetProperty("lastOfficialMatchId").GetGuid());
         Assert.Equal(1, career.GetProperty("favoriteWeapon").GetProperty("matchesUsed").GetInt64());
         JsonElement board = await client.GetFromJsonAsync<JsonElement>("/v1/leaderboards/career?metric=rp");
         Assert.Equal(winner, board.GetProperty("entries")[0].GetProperty("playerId").GetGuid());

@@ -30,9 +30,12 @@ public sealed class Program
         var accountOptions = builder.Configuration.GetSection("Accounts").Get<AccountOptions>() ?? new();
         var securityOptions = builder.Configuration.GetSection("Backend").Get<BackendSecurityOptions>() ?? new();
         BackendSecurity.ValidateCommon(securityOptions);
-        if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing")
-            && string.IsNullOrWhiteSpace(accountOptions.DataProtectionKeyPath))
-            throw new InvalidOperationException("Accounts__DataProtectionKeyPath must be configured outside Development/Testing.");
+        if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"))
+        {
+            BackendSecurity.ValidateProductionListeners(builder.Configuration, securityOptions);
+            if (string.IsNullOrWhiteSpace(accountOptions.DataProtectionKeyPath))
+                throw new InvalidOperationException("Accounts__DataProtectionKeyPath must be configured outside Development/Testing.");
+        }
         var protection = builder.Services.AddDataProtection().SetApplicationName("PrimeHunters.Backend");
         if (!string.IsNullOrWhiteSpace(accountOptions.DataProtectionKeyPath))
         {

@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MphRead.Backend.Identity;
 using MphRead.Backend.Tickets;
@@ -122,6 +123,44 @@ public sealed class BackendSecurityTests
     }
 
     [Fact]
+    public void ProductionListenersRequireHttpsIncludingDefaultsAndMixedBindings()
+    {
+        Assert.Throws<InvalidOperationException>(() => ValidateListeners([]));
+        Assert.Throws<InvalidOperationException>(() => ValidateListeners(new() { ["urls"] = "http://127.0.0.1:8080" }));
+        Assert.Throws<InvalidOperationException>(() => ValidateListeners(new()
+        {
+            ["urls"] = "https://0.0.0.0:8443;http://127.0.0.1:8080"
+        }));
+        Assert.Throws<InvalidOperationException>(() => ValidateListeners(new() { ["HTTP_PORTS"] = "8080;8081" }));
+
+        ValidateListeners(new() { ["urls"] = "https://0.0.0.0:8443" });
+        ValidateListeners(new() { ["HTTPS_PORTS"] = "8443;8444" });
+    }
+
+    [Fact]
+    public void KestrelEndpointsTakePrecedenceAndTrustedTlsTerminationIsExplicit()
+    {
+        ValidateListeners(new()
+        {
+            ["urls"] = "http://127.0.0.1:8080",
+            ["Kestrel:Endpoints:Public:Url"] = "https://*:8443"
+        });
+        Assert.Throws<InvalidOperationException>(() => ValidateListeners(new()
+        {
+            ["urls"] = "https://*:8443",
+            ["Kestrel:Endpoints:Public:Url"] = "http://*:8080"
+        }));
+        Assert.Throws<InvalidOperationException>(() => ValidateListeners(new()
+        {
+            ["Kestrel:Endpoints:Public:Protocols"] = "Http1"
+        }));
+        ValidateListeners(new() { ["urls"] = "http://*:8080" }, new BackendSecurityOptions
+        {
+            TrustedProxies = ["192.0.2.10"]
+        });
+    }
+
+    [Fact]
     public void ProductionValidationRequiresSecureOriginsDurableKeysProvidersAndCredentials()
     {
         var security = new BackendSecurityOptions { PublicUrl = "https://backend.example.test" };
@@ -151,5 +190,12 @@ public sealed class BackendSecurityTests
             Encoding.UTF8.GetBytes("test-only-server-credential-not-for-production-123456")));
         Assert.Throws<InvalidOperationException>(() => BackendSecurity.ValidateProduction(
             security, accounts, tickets, servers, true, true));
+    }
+
+    private static void ValidateListeners(Dictionary<string, string?> values,
+        BackendSecurityOptions? security = null)
+    {
+        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+        BackendSecurity.ValidateProductionListeners(configuration, security ?? new());
     }
 }

@@ -9,7 +9,7 @@ namespace MphRead.Backend.Profiles;
 public sealed record ProfilePatch(string? DisplayName, Hunter? FavoriteHunter);
 public sealed record LicenseResponse(PlayerId PlayerId, string DisplayName, Hunter FavoriteHunter,
     DateTimeOffset JoinedAt, int Points, int Tier, string Title, int? NextThreshold,
-    int? LastOfficialDelta, string Policy);
+    int? LastOfficialDelta, string Policy, Guid? LastOfficialMatchId);
 
 public static class ProfileEndpoints
 {
@@ -60,7 +60,8 @@ public static class ProfileEndpoints
             RatingSummary rating = await RatingProjection.ReadSummaryAsync(db, result.License, cancellationToken);
             return Results.Ok(new LicenseResponse(playerId, result.Profile.DisplayName,
                 result.Profile.FavoriteHunter, result.License.CreatedAt, rating.Points, rating.Tier,
-                rating.Title, rating.NextThreshold, rating.LastOfficialDelta, rating.Policy));
+                rating.Title, rating.NextThreshold, rating.LastOfficialDelta, rating.Policy,
+                rating.LastOfficialMatchId));
         }).RequireRateLimiting("api");
     }
 }
