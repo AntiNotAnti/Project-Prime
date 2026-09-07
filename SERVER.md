@@ -20,6 +20,16 @@ not relay gameplay packets. A directory-only instance needs no game files, but
 every match server needs content from the operator's own cartridge dump.
 Release packages contain no cartridge data.
 
+The final implementation head is `1c8df59`. The server/lobby vertical is
+`fc5b7dc`; Backend security and rating completion are `54722f9`. The validation
+record for this code is 1122/1122 main tests with extracted AMHE1, 198/198
+Backend tests against isolated PostgreSQL with no skips, Imaging 18/18, Python
+58/58, zero project-boundary violations, a successful Server publish, and no
+vulnerable solution packages. UI acceptance is 14/14 with 68/68 deterministic
+captures. Physical Android/high-refresh, 30-second/16-observer, combined
+endurance, and long tests were explicitly skipped by the owner and remain
+assumed gates rather than server measurements.
+
 ## Build the server package
 
 The server build omits the launcher, UI toolkit and audio dependencies. Build a
@@ -140,6 +150,10 @@ processes for separate matches.
 | `-cancelspawnprotection true\|false` | End protection on an accepted offensive action; default `false`. |
 | `-overtime disabled\|mode` | Optional mode-specific overtime; default `disabled`. Overtime remains in the Playing phase. |
 | `-latejoin immediate\|next\|disabled` | Admission policy; without an override Survival waits until the next match and other current modes admit immediately. |
+| `-lobbypolicy NoLobby\|IntermissionLobby\|PersistentLobby` | Select the session-shell policy. `PersistentLobby` keeps one server session across results and rematches. |
+| `-readyrequired true\|false` | Require every human player to be ready before a lobby start. Bots are ready automatically. |
+| `-minplayers N` | Lobby start minimum, bounded to 1–8. |
+| `-hostforce true\|false` | Allow the lobby host to force-start before all humans are ready. |
 | `-master HOST:PORT` | Opt in to directory listing. `-masterport N` can supply the port separately. |
 | `-nomaster` | Disable listing, even if `-master` is present. |
 | `-mapdir DIRECTORY` | Use an external custom-map directory. |
@@ -158,6 +172,42 @@ Catch-up advances player collision against immutable history while using current
 map geometry. See [the weapon timing policies](docs/NETWORK_WEAPON_POLICIES.md)
 for variant coverage and [the comparison harness](docs/NETWORK_LAGCOMP_COMPARISON.md)
 for reproducible ON/OFF checks.
+
+## Persistent lobby, private sessions, and Practice
+
+`PersistentLobby` is a server-owned session shell around the existing match
+runtime. The lobby owns its session ID, revision, roster, observers, host/admin
+permissions, draft rules, ready state, and post-match summary; it never owns
+gameplay entities, score, health, damage, or the simulation clock. Lobby requests
+are reliable protocol-8 records carrying the session ID, expected revision, and a
+request ID. Stale revisions, duplicate requests, invalid phases, and missing
+permissions are rejected. Rules are frozen before the server sends the match
+transition, and a completed summary returns eligible members to the lobby without
+replacing the network session.
+
+`IntermissionLobby` applies the same server-owned boundary between rotations.
+`NoLobby` keeps the ordinary waiting/countdown flow. Private hosted sessions use
+`PersistentLobby`, ready required, a minimum of one player, and host force-start
+enabled by default. `-spectators` and `-spectatordelay` still apply to the lobby
+and match separately; observers never occupy a player slot and never become host.
+
+Practice is an unlisted, loopback-only child server with unranked rules and local
+server bots. The launcher removes Backend, ticket, and report credentials from
+the Practice child environment. A Practice child is never advertised or admitted
+to Ranked.
+
+### Lobby operation
+
+For a persistent or private session, the host creates the session, selects the
+room/mode/rules and optional bot fill, then waits for the server snapshot to show
+the admitted roster. Each human sets Ready; bots are ready automatically. The
+host can start when the configured minimum is met, or use `-hostforce true` to
+start before every human is ready. The server freezes rules before sending the
+match transition. On completion, the server publishes the immutable summary and
+returns eligible members to the same lobby for rematch, return-to-lobby, or leave.
+Observers remain observers, never occupy a player slot, and cannot become host.
+Every mutation is revision-checked and request-idempotent, so a stale UI action
+must be retried from the latest snapshot rather than guessed locally.
 
 ## Optional automatic server updates
 
@@ -281,7 +331,20 @@ directory queries continue to work but host requests are refused.
 Each hosted match is a separate child server process. The directory reclaims a
 match that never gets a player after three minutes, and an empty match after
 roughly 45 seconds once it has been played; it also stops owned children during
-shutdown. The master sees discovery traffic only, not gameplay.
+shutdown. Players and observers both count as occupancy. The master sees
+discovery traffic only, not gameplay.
+
+Hosted-session requests use a fixed, versioned protocol record. It carries the
+complete validated `MatchRules`, persistent-lobby policy, ready and minimum-player
+requirements, bot population and skill, and observer capacity and delay. The
+directory echoes a cryptographically random request nonce and returns a separate
+128-bit owner capability only in the matching reply. The launcher passes that
+capability in the first gameplay join; the child checks the source IPv4 address,
+consumes the capability once, and grants the private lobby host permission. If
+that owner does not claim the lobby, migration prefers authenticated humans in
+join order and then guests; bots and observers never become host. UDP does not
+keep this reserved capability confidential from an on-path observer. It is a
+private-lobby host capability, not Ranked session proof-of-possession.
 
 The command-line host flow is:
 
@@ -330,7 +393,11 @@ readable through passive playback without opening a gameplay socket.
 Protocol 8 carries authoritative afflictions, assists, kill attribution, reliable
 objective events and complete immutable result statistics. The browser's optional
 status extension advertises actual match policies while retaining the base status
-response. Remote interpolation remains fixed at six ticks: the tested adaptive
+response. Status extension v4 also reports Lobby, Countdown, Playing, Ending, or
+Intermission; the authoritative join disposition; lobby player, spectator, and
+ready counts; bots; and ranked/tournament locks. The browser therefore labels a
+server Join now, Join lobby, Spectate, Wait for next match, Full, or Closed without
+guessing from the match clock. Remote interpolation remains fixed at six ticks: the tested adaptive
 candidate failed asymmetric-network quality gates and is not enabled.
 
 Late-join waiting sessions currently reserve a player slot but have no gameplay
@@ -371,7 +438,52 @@ Each startup registers a new incarnation with `PUT /v1/server/session` and perio
 
 The Backend registration must include the operator-owned canonical public IPv4 address and UDP port (`PublicAddress`/`PublicPort`); use the external NAT destination when applicable. Ticket issuance without that destination fails closed. The client resolves its selected hostname once, requires that the Backend-returned address and port match that resolved destination, and pins the verified IP before sending credentials. A UDP advertisement alone cannot authorize a ticket destination.
 
-A signed ticket binds account, server, startup incarnation, canonical name and client nonce. Repeated initial joins are idempotent for the same endpoint/nonce/ticket. Reconnect requires a fresh ticket; a matching account can recover its reserved participant slot from a new endpoint during the existing grace period. A guest or different account cannot reclaim that slot using its public connection ID. There are at most64 pending admission decisions and4096 unexpired replay entries; saturation rejects new authentication work rather than growing without bound.
+A signed ticket binds account, server, startup incarnation, canonical name and client nonce. Repeated initial joins are idempotent for the same endpoint/nonce/ticket. Reconnect requires a fresh ticket; a matching account can recover its reserved participant slot from a new endpoint during the existing grace period. A guest or different account cannot reclaim that slot using its public connection ID. There are at most 64 pending admission decisions and 4096 unexpired replay entries; saturation rejects new authentication work rather than growing without bound.
+
+## Backend production configuration and operations
+
+Run the Backend with a separately managed PostgreSQL database and secret store.
+In every shared or public environment configure:
+
+- `ConnectionStrings__Backend` for the least-privileged application role;
+  migrations are an explicit operator step and are not applied by ordinary
+  service startup.
+- `Backend__PublicUrl` as the public HTTPS origin,
+  `Backend__AllowLoopbackHttp=false`, and `Backend__TrustedProxies` only for
+  directly connected, canonical proxy IP literals. HTTP is accepted only for
+  explicit loopback Development requests.
+- `Accounts__RequireConfirmedEmail=true` and an absolute durable
+  `Accounts__DataProtectionKeyPath` protected by the operator. Configure
+  `Email__Host`, `Email__Port`, `Email__Sender`, and provider credentials through
+  secret storage when required.
+- `Tickets__Issuer`, `Tickets__KeyId`, and
+  `Tickets__SigningKeyPemPath` for an operator-owned P-256 key. Keep old public
+  keys only for the bounded rotation window; never distribute the private key.
+- At least one enabled `GameServers__Servers__*` entry with a unique server ID,
+  canonical public IPv4/UDP destination, explicit `VerifiedCasual` trust, and a
+  distinct high-entropy credential hash. Development/default credentials are
+  rejected in production.
+
+The service applies per-endpoint/per-account rate limits (20 requests per minute
+for `auth`, 120 for `api`) and a no-queue concurrency limit controlled by
+`Backend__MaxConcurrentRequests` (default 128). Oversized ordinary requests are
+limited to 16 KiB; match reports are limited to 512 KiB. Monitor 429 and 503
+responses rather than increasing limits without a workload decision.
+
+After applying `20260907171057_RatingLedger`, run the one-shot operator rebuild
+before serving requests:
+
+```bash
+dotnet run --project src/Backend -c Release -- --rebuild-career
+```
+
+The command applies pending migrations, takes the exclusive rebuild barrier,
+replays immutable accepted reports in processing order, verifies report hashes,
+identities, rating transactions and pair contributions, restores balances, and
+rebuilds career projections without opening an HTTP listener. A production
+startup refuses service while `career_projection_state.RebuildRequired` remains
+true. Take and verify a restorable PostgreSQL backup, Data Protection key backup,
+ticket-key history, and report-spool backup before migration or rebuild.
 
 ## Accounts, career reports, and ranking status
 
@@ -380,7 +492,10 @@ The account service is a separate PostgreSQL-backed application. Follow
 identity/email configuration, signing keys, and registered server credentials.
 The launcher's **Hunter License** screen supports registration, confirmation,
 sign-in, profile changes, career totals, match history and leaderboards. Account
-tokens stay in memory; the launcher saves only the chosen backend address.
+access tokens and passwords stay in memory. Only refresh material may cross the
+`ISecureSessionStore` boundary, scoped to the exact Backend URL; the default
+fallback is memory-only. Platform integration must provide protected storage
+(for example Credential Manager/DPAPI, Keychain, Keystore, or Secret Service).
 
 For durable result delivery, configure `PRIME_REPORT_DIRECTORY` to an operator-owned
 spool directory and `PRIME_REPORT_URL` to the Backend's HTTPS `/v1/server/matches`
@@ -388,14 +503,35 @@ endpoint. Reports use `PRIME_SERVER_ID` and `PRIME_SERVER_SECRET` (an explicit
 `PRIME_REPORT_CREDENTIAL` overrides the latter). Keep credentials in private service
 environment configuration. The bounded outbox reserves capacity before play,
 atomically spools immutable reports, retries in order and verifies the exact
-match-ID/hash receipt. Authentication failures and quarantined files require
-operator attention; a generic HTTP 200 is not acceptance. See
+match-ID/hash receipt. Its periodic status includes `Ready`, `ReservedReports`,
+`ReservedBytes`, `Quarantined`, `DurablePending`, `QueuedPending`,
+`OldestAgeSeconds`, and `LastError`. Per-report states are `Queued`,
+`DurablyStored`, `BackendAccepted`, `Quarantined`, and `Failed`.
+Authentication failures and quarantined files require operator attention; a
+generic HTTP 200 is not acceptance. See
 [docs/G4_REPORTING.md](docs/G4_REPORTING.md).
 
 The Backend assigns trust from its server registry. A server's own report claim
 does not promote it to official status. Career data keeps practice/community
-scopes separate from official data. Ranking Points are currently **pending policy
-approval**, not calculated; empty RP boards do not mean a player has zero RP.
+scopes separate from official data. Eligible official reports use
+`PairwiseNormalizedV1` (policy version 1, report schema 2): registered human
+participants only, 2–8 players, verified-server rules, explicit complete/forfeit
+outcomes, frozen points, opposing-pair evidence, normalization capped at three
+opponents, one final clamp to 0–850, and durable before/after transactions.
+Career outcomes distinguish finished win/loss, tie, forfeit, grace-expired
+departure, and no-contest. Community/private/practice/tournament-disabled,
+guest, bot, invalid, and incomplete reports are explicitly ineligible.
+
+The license and career projections also expose `LastOfficialMatchId` beside the
+last official delta and `PairwiseNormalizedV1` policy. It is written only when an
+eligible official report commits; clients must not infer it from local post-match
+state or history-page order.
+
+Public Ranked remains **intentionally disabled** until authenticated session
+proof-of-possession protects the plain UDP handshake. Do not register or advertise
+Ranked, and do not treat the private lobby owner capability as that security
+proof. Verified Casual is a separate trust class. Empty Ranked boards reflect the
+disabled policy, not a player's zero score.
 
 ## Rulesets, bots, and spectators
 
@@ -417,9 +553,18 @@ Only the Backend's explicit trusted-observer capability can bypass delay.
 
 Optional `PRIME_BOT_FILL` sets a target participant count and `PRIME_BOT_SKILL`
 selects 0–2. Bots use normal authoritative entities without network connections;
-human joins retire them at safe boundaries and release objectives. Duel requires
-bot fill disabled. The launcher's **Practice** action starts an unlisted,
-loopback-only authoritative server with bots. See [docs/G5_BOTS.md](docs/G5_BOTS.md).
+the lobby server marks them ready automatically, never promotes them to host, and
+human joins retire them only at safe boundaries while releasing objectives. Bots
+never receive or contribute official rating. Duel requires bot fill disabled. The
+launcher's **Practice** action starts an unlisted, loopback-only authoritative
+server with bots. See [docs/G5_BOTS.md](docs/G5_BOTS.md).
+
+Lobby chat is server-routed and bounded. A server administrator can mute a
+connection at the live chat gate; the launcher also offers local per-sender mute
+and unmute keyed by the published sender identity. Local mute changes only the
+client's chat projection and cannot alter the authoritative roster or gameplay.
+Movement, combat, score, match results, lobby revisions, bot state, and observer
+history remain server-owned. Delayed observers never receive a live fallback.
 
 ## Map telemetry
 

@@ -1,6 +1,11 @@
-# G4 ranking specification — draft awaiting approval
+# G4 ranking specification — implemented policy and binary reference
 
-Status: **proposal only; the eight-player policy has not been approved and must not be implemented yet.** This document follows G4.1–G4.15 of [the implementation plan](PRIME_HUNTERS_G1_G5_IMPLEMENTATION_PLAN.md). The evidence section records static observations from the exact user-owned ROM. Later sections propose new behavior and explicitly identify departures. No ROM assets are included.
+Status: **implemented as `PairwiseNormalizedV1` for eligible Verified Casual
+reports; public Ranked remains disabled under Path B.** This document follows
+G4.1–G4.15 of [the implementation plan](PRIME_HUNTERS_G1_G5_IMPLEMENTATION_PLAN.md).
+The evidence section records static observations from the exact user-owned ROM.
+The modern policy section records the implemented departures and versioned
+contracts. No ROM assets are included.
 
 Read-only investigation scratch: `/tmp/codex-re-prime-g4/rp/audit.py` and `audit.txt`. The standalone reproduction below makes the numeric evidence recoverable without depending on those temporary files.
 
@@ -66,19 +71,22 @@ for self_rank in range(5):
         for opponent_rank in range(5)])
 ```
 
-## Proposed modern policy: PairwiseNormalizedV1
+## Implemented modern policy: PairwiseNormalizedV1
 
-This is a concrete proposal for approval, not a claim of retail equivalence. The recommended model uses the verified matrix unchanged, current Backend ranks frozen together inside the report transaction, signed integer summation, a three-opponent normalization cap and one final clamp. Its version identifier must be recorded with every transaction.
+This is a modern server policy, not a claim of retail equivalence. It uses the
+verified matrix unchanged, current Backend ranks frozen together inside the report
+transaction, signed integer summation, a three-opponent normalization cap and one
+final clamp. Its version identifier is recorded with every transaction.
 
 ### Eligibility and standings
 
-Only completed official matches between authenticated registered humans on backend-authorized VerifiedCasual or Ranked servers qualify. Tournament rating is disabled until an explicit backend policy enables it. Practice, Private, Community, guests and bots never receive or contribute official RP. Proposed v1 conservatively excludes the entire match from RP if a participating combatant is a bot or unauthenticated guest; spectators are not combatants. This is stricter than merely omitting bot pairs and avoids indirect bot influence on official placement. Separate practice/community ledgers remain possible.
+Only completed official matches between authenticated registered humans on backend-authorized VerifiedCasual or Ranked servers qualify. Tournament rating is disabled until an explicit backend policy enables it. Practice, Private, Community, guests and bots never receive or contribute official RP. The implemented policy conservatively excludes the entire match from RP if a participating combatant is a bot or unauthenticated guest; spectators are not combatants. This is stricter than merely omitting bot pairs and avoids indirect bot influence on official placement. Separate practice/community ledgers remain possible.
 
 Require at least two eligible humans and at least one opposing pair. Use the authority's immutable finalized standings: individual `Standings` for free-for-all; `TeamStanding` for team modes, comparing only opposing teams. Among finishers, equal standings contribute zero, even if display order has a slot/name tie-break; the forfeit ordering below takes precedence. Teammates never exchange RP. Reject malformed, missing or contradictory standings instead of inventing an order. Team membership and participant identity must refer to the completed participation record, not whichever connection currently occupies a slot.
 
 The official rating roster and team assignment are frozen when Playing begins and retain every starting participant through completion, including quitters. Official matches require `SpectateUntilNextMatch`: mid-match arrivals and slot replacements observe until the next match and cannot acquire a rating place. A guest or bot cannot replace a departing official participant. A valid match is not cancelled merely because a participant leaves.
 
-**Proposed anti-quit rule (new behavior, not attributed to retail):**
+**Implemented anti-quit rule (new behavior, not attributed to retail):**
 
 - An explicit Leave/forfeit immediately marks that participant forfeited for this match. Transport loss begins a **30-second grace period (1,800 authoritative ticks)** when the authority detects the disconnect. Reconnection must prove the same PlayerId, occur before that deadline and before match completion, and resume the retained participant. It does not create a second entry or erase earlier statistics.
 - A grace deadline that expires, or a match that completes while the participant is still disconnected, finalizes a forfeit. No post-result reconnect can rewrite the ledger. Once forfeited, a reconnect can spectate until the next match; repeatedly reconnecting after the deadline cannot reset the penalty.
@@ -113,7 +121,7 @@ The multiplier is one for one, two or three opponents and `3/n` for four through
 
 Team pairs compare finalized team standings; teammates are excluded from both the sum and denominator. A tied match produces zero. Uneven teams are handled by each player's own opposing-human count; this is deterministic but does not assert balanced progression for unequal team sizes. The verified-server rules policy may restrict official team sizes separately.
 
-At 848 RP with normalizedDelta+12, the final balance is 850 and appliedDelta+2. At 2 RP with normalizedDelta-10, the balance is 0 and appliedDelta-2. At 0 RP with two opposing contributions -2 and+4, raw and scaled deltas are+2 and the final balance is 2 regardless of enumeration order. Retail per-opponent saturation could produce 4 if the loss is processed first; this proposal intentionally removes that ordering effect. The asymmetric retail matrix is not zero-sum; this proposal does not silently rebalance it. The raw magnitude is at most 105 across seven pairs; normalization bounds magnitude to 45 before the final balance clamp.
+At 848 RP with normalizedDelta+12, the final balance is 850 and appliedDelta+2. At 2 RP with normalizedDelta-10, the balance is 0 and appliedDelta-2. At 0 RP with two opposing contributions -2 and+4, raw and scaled deltas are+2 and the final balance is 2 regardless of enumeration order. Retail per-opponent saturation could produce 4 if the loss is processed first; the implemented policy intentionally removes that ordering effect. The asymmetric retail matrix is not zero-sum; the implementation does not silently rebalance it. The raw magnitude is at most 105 across seven pairs; normalization bounds magnitude to 45 before the final balance clamp.
 
 ### Anti-quit and transaction examples
 
@@ -128,14 +136,14 @@ A simpler `PairwiseSumV1` would use `rawDelta` directly and clamp once. Eight-pl
 
 ### Deliberate departures and approval scope
 
-- Retail iterates up to four participant slots and saturates after each opponent; proposal supports up to eight, normalizes to at most three opposing-player contributions, and clamps once.
+- Retail iterates up to four participant slots and saturates after each opponent; the implemented policy supports up to eight, normalizes to at most three opposing-player contributions, and clamps once.
 - Numeric table and thresholds are verified for USA Rev1 only. Titles and win-emblem milestones come from the plan/historical research, not this table consumer.
 - Modern identity, server trust, roster eligibility, authenticated reports and idempotency are new backend rules. Retail participation bits and the second loss consumer remain unresolved.
-- Current-at-transaction rank semantics, the fixed starting roster, 30-second reconnect grace, forfeit ordering, eligibility exclusions and normalization/rounding are proposed modern choices requiring approval together. No hidden MMR is introduced; future MMR remains separate.
+- Current-at-transaction rank semantics, the fixed starting roster, 30-second reconnect grace, forfeit ordering, eligibility exclusions and normalization/rounding are implemented policy choices. No hidden MMR is introduced; future MMR remains separate.
 
 ## Backend domain review and implementation boundaries
 
-The initial audit found only the immutable gameplay snapshot and session-scoped wire MatchId. The G4 foundation now adds persistent PlayerId, a separate UUID report MatchId, authenticated Backend admission, a durable server outbox, and PostgreSQL career/history projections. The wire match counter remains distinct from the durable report identity. Ranking Points, star progression, rating transactions, and the proposed anti-quit lifecycle remain pending approval of this specification; existing gameplay result fields do not establish a persisted Hunter License rank.
+The initial audit found only the immutable gameplay snapshot and session-scoped wire MatchId. The G4 implementation adds persistent PlayerId, a separate UUID report MatchId, authenticated Backend admission, a durable server outbox, PostgreSQL career/history projections, and the RatingLedger migration. The wire match counter remains distinct from the durable report identity. Ranking Points, star progression, rating transactions, and the anti-quit lifecycle are persisted through the versioned report/rating contracts; existing gameplay result fields alone do not establish a persisted Hunter License rank.
 
 | Boundary | Owns | Must not own |
 |---|---|---|
@@ -143,21 +151,30 @@ The initial audit found only the immutable gameplay snapshot and session-scoped 
 | Server | Validated ticket-to-participant binding; UUID match/report envelope; trust identity; bounded asynchronous outbox | Client-supplied RP/trust; synchronous database/network work on simulation thread |
 | Backend identity | ASP.NET Identity account authentication; immutable PlayerId mapping; short-lived server-bound tickets and replay checks | Game slot/IP/name as persistent identity; custom password cryptography |
 | Backend match ledger | Authenticated reporter, schema/content validation, canonical payload hash, idempotent report transaction | Trusting a body's claimed server or accepting changed data under an existing MatchId |
-| Backend rating | Approved versioned pure calculation, transaction-frozen current balances and immutable transactions | Client standings authority; unapproved eight-player/forfeit policy |
+| Backend rating | Versioned pure calculation, transaction-frozen current balances and immutable transactions | Client standings authority; local or client-supplied rating policy |
 | Backend queries / Client | Paginated license/history/leaderboard DTOs and presentation | Mutating career stats or deriving official RP locally |
 
 The server report should wrap the gameplay result in a persistence envelope containing globally unique MatchId, reporter identity, UTC start/end, protocol/build and canonical rules version, authenticated participant IDs, human/bot classification and completion status. Keep the small network counter distinct. Capture participants throughout the match so disconnected/replaced slots do not erase attribution. Map display names as historical labels while PlayerId retains ownership across renames.
 
 The raw match ledger plus versioned rating input/contribution ledger must be sufficient for rebuilding aggregates. Store before/after points, raw/applied delta, transaction-frozen input points/tiers and processing sequence, policy version and explicit eligibility result. Derived tier should not be independently mutable. Match UUID uniqueness and per-match/per-player transaction uniqueness belong in database constraints; match validation, rating writes and aggregate writes share one database transaction. Lock affected player records in stable PlayerId order and read current balances only after acquiring those locks. Freeze all inputs before calculating any participant output, so row/update enumeration cannot change opponent tiers.
 
+The completed projection exposes the durable `LastOfficialMatchId` alongside the
+last official delta, policy, points and tier. A null marker means that no eligible
+official report has applied to that account; it is not inferred from history-page
+ordering or a client-local result.
+
 **Current-rating transaction policy:** no match-start rating reservation, snapshot-version rejection or long-lived account lock is required. Overlapping matches are permitted; their reports serialize only while they update shared player rows. Whichever valid report transaction processes first uses the current balances first; the next uses the committed outputs. Preserve per-server FIFO submission, record the accepted calculation order and each player's before/after points plus policy inputs, and do not retroactively sort rating changes by played-at time. Delayed outbox reports therefore may use tiers different from those visible during play. This is an explicit modern choice consistent with the plan's CURRENT RP input, not an assertion about retail timing. It keeps gameplay independent of Backend availability. Replaying the committed input/contribution ledger reproduces ratings; replaying raw match times alone does not. Serialization/deadlock failures retry the whole transaction with fresh current balances, while an ambiguous successful commit is recovered by MatchId idempotency.
 
 The outbox should serialize immutable reports in background, write them atomically to a durable local spool, retry with bounded backoff, and expose pending/rejected states to operators. A bounded memory queue alone is not durable: define the crash gap between result creation and persisted spool, enqueue-full handling, disk-full handling and shutdown drain. Gameplay must continue; an unpersisted report must be visibly unranked/pending, never reported as successfully submitted. Do not perform durable disk writes on the 60 Hz thread simply to hide this gap.
 
-Implement foundation work in dependency order: stable identity and contracts; established account authentication; authenticated server identities and replay-protected tickets; participant-preserving report envelope; durable outbox; PostgreSQL ledger/idempotency and aggregate rebuild; only then the approved RatingService and license queries/UI. Do not add unused future telemetry/achievement/season tables. Backend may reference Game's small contracts but no Client, executable Server, Android, graphics or audio dependencies.
+The implemented foundation follows this dependency order: stable identity and contracts; established account authentication; authenticated server identities and replay-protected tickets; participant-preserving report envelope; durable outbox; PostgreSQL ledger/idempotency and aggregate rebuild; then the versioned RatingService and license queries/UI. Do not add unused future telemetry/achievement/season tables. Backend may reference Game's small contracts but no Client, executable Server, Android, graphics or audio dependencies.
 
-## Required approval and validation gates
+## Historical approval and validation gates
 
-Before rating implementation: approve PairwiseNormalizedV1 or an explicitly named alternative, the fixed starting roster, forfeit ordering/30-second reconnect grace, current-at-transaction balances, completion exclusions and policy-version rules. These decisions can be reviewed without blocking unrelated identity/outbox scaffolding.
+The original plan required approval before rating implementation. That approval gate
+is now satisfied by the checked-in `PairwiseNormalizedV1` implementation, the
+fixed starting roster, forfeit ordering/30-second reconnect grace,
+current-at-transaction balances, completion exclusions, and policy-version rules.
+Keep this section as the historical test inventory for the implemented policy.
 
-After approval, required tests include all 25 matrix cells (gain and loss), tier boundaries0/39/40/139/140/389/390/749/750/850 and invalid values; pair ties; mixed signed sums; permutation invariance; saturation; eight-human/team examples; guest/bot/private exclusion; duplicate/conflicting reports; transaction rollback; concurrent current-balance updates; overlapping matches; out-of-order submissions; immediate Leave and grace timeout; same-identity reconnect before deadline; reconnect at/after deadline; completion during grace; quitters retained below finishers; equal forfeits; losing/winning-team quitters; last-team departure without whole-match cancellation; all-forfeit completion; rename continuity; expired/replayed/wrong-server tickets; outbox outage/crash/disk-full recovery; deterministic leaderboard ties; and complete aggregate reconstruction from persisted ledgers. Static ROM verification is not backend integration, live authentication, deployed PostgreSQL or public ranking evidence.
+The implemented-policy validation inventory includes all 25 matrix cells (gain and loss), tier boundaries0/39/40/139/140/389/390/749/750/850 and invalid values; pair ties; mixed signed sums; permutation invariance; saturation; eight-human/team examples; guest/bot/private exclusion; duplicate/conflicting reports; transaction rollback; concurrent current-balance updates; overlapping matches; out-of-order submissions; immediate Leave and grace timeout; same-identity reconnect before deadline; reconnect at/after deadline; completion during grace; quitters retained below finishers; equal forfeits; losing/winning-team quitters; last-team departure without whole-match cancellation; all-forfeit completion; rename continuity; expired/replayed/wrong-server tickets; outbox outage/crash/disk-full recovery; deterministic leaderboard ties; and complete aggregate reconstruction from persisted ledgers. Static ROM verification is not backend integration, live authentication, deployed PostgreSQL or public ranking evidence.

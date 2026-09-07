@@ -8,7 +8,7 @@ has already been performed.
 | Surface | Status | Boundary |
 | --- | --- | --- |
 | Account system | **Ready** | Registration, confirmation, bearer login/refresh, profile ownership, and session revocation are implemented. Production requires the startup and external-service gates below. |
-| Verified Casual | **Ready** | A confirmed account can receive a server-bound ticket, a registered `VerifiedCasual` server can admit it, and authenticated immutable reports can feed career projections. `RatingStatus` remains `policyPending`; this status does not claim Ranking Points. |
+| Verified Casual | **Ready** | A confirmed account can receive a server-bound ticket, a registered `VerifiedCasual` server can admit it, and authenticated immutable reports can feed career projections. Eligible reports use `PairwiseNormalizedV1` with `RatingStatus=applied`; ineligible reports retain an explicit reason. |
 | Ranked | **Intentionally disabled under Path B** | Public Ranked remains unavailable until authenticated transport proof-of-possession is implemented. It must not be advertised or registered. |
 
 ## Production startup gate
@@ -150,10 +150,10 @@ registration closes new ticket admission for that process.
 Keep these operations separate from application startup and from a normal
 release health check:
 
-1. Review the exact EF migration set (`InitialAccounts`, `MatchLedger`, and
-   `CareerStatistics` in the current tree), generate an idempotent SQL script
-   or migration bundle, and apply it with a migration-only role during a
-   maintenance window.
+1. Review the exact EF migration set (`InitialAccounts`, `MatchLedger`,
+   `CareerStatistics`, and `RatingLedger` in the current tree), generate an
+   idempotent SQL script or migration bundle, and apply it with a migration-only
+   role during a maintenance window.
 2. Take and verify a restorable PostgreSQL backup before applying schema
    changes. Include the durable Data Protection directory, ticket key material
    and public-key history, and any pending server report spool in the recovery
@@ -228,6 +228,13 @@ separate trust class and does not inherit Ranked availability.
 
 ## Evidence boundaries
 
+The final focused validation passed 198/198 Backend tests against isolated
+PostgreSQL with no skips. The final source path includes `PairwiseNormalizedV1`,
+report schema 2 outcome reasons, durable rating transactions, and the
+`LastOfficialMatchId` marker exposed by license and career projections. This is
+source/integration evidence; it does not promote a local run into a deployed
+public service.
+
 The evidence for this disposition is the current source path, including
 `BackendSecurity`, `Program`, the account confirmation classes,
 `GameTicketIssuer`, `GameServerRegistry`, `MatchIngestion`, and
@@ -238,7 +245,8 @@ SMTP delivery, secret restoration, server revocation, physical spool durability,
 WAN admission, or live client interoperability. Those gates require a separate
 deployment record with captured results.
 
-The combined endurance run, physical Android checks, and high-refresh checks
-were waived and remain evidence limitations; no pass is claimed for them here.
-They do not change the Ranked Path B decision or authorize a production
-advertisement.
+The combined bots + observers + replay + telemetry + Backend-outage endurance
+run, physical Android checks, high-refresh checks, 30-second/16-observer gate, and
+long tests were waived by the user and remain evidence limitations; no pass is
+claimed for them here. They do not change the Ranked Path B decision or authorize
+a production advertisement.
