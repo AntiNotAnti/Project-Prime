@@ -330,7 +330,6 @@ namespace MphRead.Entities
                 PlayerEntity player = PlayerEntity.Players[i];
                 player.ResetReferences();
             }
-            _scene.AreaId = Metadata.GetAreaInfo(_scene.TransitionRoomId);
         }
 
         private void ProcessTransition()
@@ -343,7 +342,7 @@ namespace MphRead.Entities
 
             (_, IReadOnlyList<EntityBase> entities) = SceneSetup.SetUpRoom(_scene.Match.Rules.Mode.ToLegacyMode(),
                 Mods.Network.NetRoomChange.RoomPlayerCount,
-                BossFlags.Unspecified, nodeLayerMask: 0, entityLayer, roomMeta, room: this, _scene, isRoomTransition: true);
+                nodeLayerMask: 0, entityLayer, roomMeta, room: this, _scene, isRoomTransition: true);
             AiPersonality.LoadAll(_scene.Match.Rules.Mode.ToLegacyMode());
             SetNodeData(SceneSetup.LoadNodeData(roomMeta.NodePath, roomMeta.Id, _scene.Match.Rules.Mode.ToLegacyMode(), entities, roomMeta.FirstHunt));
             PlayerEntity.PlayerAiData.InitializeGlobals();

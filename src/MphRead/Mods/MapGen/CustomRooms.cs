@@ -84,6 +84,13 @@ namespace MphRead.Mods.MapGen
                 try
                 {
                     MapDefinition definition = MapDefinition.Load(path);
+                    if (definition.Import == null && definition.Brushes.Count == 0)
+                    {
+                        // Source folders also contain JSON reports. Deserializing one
+                        // must not register the default empty CUSTOM room.
+                        Console.WriteLine($"Ignoring map {Path.GetFileName(path)}: no imported level or brushes.");
+                        continue;
+                    }
                     definition.Name = definition.Name.ToUpperInvariant();
                     if (definition.Import != null && definition.Import.Resolve() == null)
                     {
@@ -110,11 +117,14 @@ namespace MphRead.Mods.MapGen
             return results;
         }
 
-        /// <summary>Called from the room ID table, which fixes each room's ID as its index.</summary>
-        public static IReadOnlyList<string> AppendIds(List<string> ids)
+        /// <summary>Called from the sparse room ID table; custom identities retain their original base.</summary>
+        public static IReadOnlyDictionary<int, string> AppendIds(Dictionary<int, string> ids)
         {
-            _firstId = ids.Count;
-            ids.AddRange(Definitions.Select(d => d.Name));
+            _firstId = 138; // Preserve original global IDs despite removed campaign holes.
+            for (int i = 0; i < Definitions.Count; i++)
+            {
+                ids.Add(_firstId + i, Definitions[i].Name);
+            }
             return ids;
         }
 

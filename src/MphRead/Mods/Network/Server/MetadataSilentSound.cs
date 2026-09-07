@@ -12,10 +12,8 @@ namespace MphRead
             HunterSfx = SilentTable(8, 17);
             BeamSfx = SilentTable(9, 10);
             TerrainSfx = SilentTable(12, 6);
-            EnemyDamageSfx = new int[52];
-            EnemyDeathSfx = new int[52];
-            Array.Fill(EnemyDamageSfx, -1);
-            Array.Fill(EnemyDeathSfx, -1);
+            ForceFieldLockDamageSfx = -1;
+            ForceFieldLockDeathSfx = -1;
         }
 
         private static int[,] SilentTable(int rows, int columns)

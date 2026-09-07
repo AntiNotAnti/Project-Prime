@@ -4,7 +4,6 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
-using MphRead.Entities.Enemies;
 using MphRead.Formats;
 using MphRead.Hud;
 using MphRead.Text;

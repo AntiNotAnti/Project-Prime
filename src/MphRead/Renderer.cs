@@ -187,7 +187,6 @@ namespace MphRead
         private bool _roomLoaded = false;
         private RoomEntity? _room = null;
         public int RoomId { get; set; } = -1;
-        public int AreaId { get; set; } = -1;
 
         private static Language _language = Language.English;
         public static Language Language
@@ -266,7 +265,7 @@ namespace MphRead
 
         // called before load
         public void AddRoom(string name, GameMode mode = GameMode.None, int playerCount = 0,
-            BossFlags bossFlags = BossFlags.Unspecified, int nodeLayerMask = 0, int entityLayerId = -1)
+            int nodeLayerMask = 0, int entityLayerId = -1)
         {
             if (_roomLoaded)
             {
@@ -281,9 +280,9 @@ namespace MphRead
                 + $"players={playerCount} layers={nodeLayerMask}/{entityLayerId}");
             using IDisposable? loadStep = Mods.DebugLog.Step("room", $"load \"{name}\"");
             (RoomEntity room, RoomMetadata meta, CollisionInstance collision, IReadOnlyList<EntityBase> entities)
-                = SceneSetup.LoadGame(name, this, mode, playerCount, bossFlags, nodeLayerMask, entityLayerId);
+                = SceneSetup.LoadGame(name, this, mode, playerCount, nodeLayerMask, entityLayerId);
             Mods.DebugLog.Line("room", $"\"{name}\" read: {entities.Count} entit(ies), "
-                + $"id={RoomId}, area={AreaId}");
+                + $"id={RoomId}");
             _entities.AddFirst(room);
             InitEntity(room);
             _room = room;
@@ -302,7 +301,6 @@ namespace MphRead
             SceneSetup.LoadItemResources(this);
             SceneSetup.LoadObjectResources(this);
             SceneSetup.LoadPlatformResources(this);
-            SceneSetup.LoadEnemyResources(this);
             Match.Flow.Setup();
             PlayerEntity.PlayerAiData.InitializeGlobals();
             MatchRules? serverRules = Mods.Network.AuthoritativePlay.Current?.Client.Accepted.Rules
@@ -3938,7 +3936,7 @@ namespace MphRead
             {
                 _exiting = true;
                 PlatformEntity.DestroyBeams();
-                EnemyInstanceEntity.DestroyBeams();
+                ResetForceFieldLockProjectiles();
                 Sound.Sfx.ShutDown();
                 OutputStop();
                 Selection.Clear();
@@ -5938,14 +5936,6 @@ namespace MphRead
                     _sb.Append(", Target: None");
                 }
             }
-            else if (entity is EnemySpawnEntity enemySpawn)
-            {
-                _sb.Append($" ({enemySpawn.Data.EnemyType})");
-            }
-            else if (entity is EnemyInstanceEntity enemyInst)
-            {
-                _sb.Append($" ({enemyInst.EnemyType})");
-            }
             else if (entity is ItemSpawnEntity itemSpawn)
             {
                 _sb.Append($" ({itemSpawn.Data.ItemType})");
@@ -6189,20 +6179,20 @@ namespace MphRead
         }
 
         public void AddRoom(int id, GameMode mode = GameMode.None, int playerCount = 0,
-            BossFlags bossFlags = BossFlags.Unspecified, int nodeLayerMask = 0, int entityLayerId = -1)
+            int nodeLayerMask = 0, int entityLayerId = -1)
         {
             RoomMetadata? meta = Metadata.GetRoomById(id);
             if (meta == null)
             {
                 throw new ProgramException("No room with this ID is known.");
             }
-            Scene.AddRoom(meta.Name, mode, playerCount, bossFlags, nodeLayerMask, entityLayerId);
+            Scene.AddRoom(meta.Name, mode, playerCount, nodeLayerMask, entityLayerId);
         }
 
         public void AddRoom(string name, GameMode mode = GameMode.None, int playerCount = 0,
-            BossFlags bossFlags = BossFlags.Unspecified, int nodeLayerMask = 0, int entityLayerId = -1)
+            int nodeLayerMask = 0, int entityLayerId = -1)
         {
-            Scene.AddRoom(name, mode, playerCount, bossFlags, nodeLayerMask, entityLayerId);
+            Scene.AddRoom(name, mode, playerCount, nodeLayerMask, entityLayerId);
         }
 
         public void AddModel(string name, int recolor = 0, bool firstHunt = false, MetaDir dir = MetaDir.Models, Vector3? pos = null)

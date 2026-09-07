@@ -174,7 +174,7 @@ namespace MphRead.Entities
                     }
                     Flags2 |= PlayerFlags2.DrawnThirdPerson;
                 }
-                else if (AttachedEnemy == null && !_field6D0 && Hunter != Hunter.Guardian)
+                else if (!_field6D0 && Hunter != Hunter.Guardian)
                 {
                     Matrix4 transform = GetTransformMatrix(_aimVec, _upVector, _gunDrawPos);
                     UpdateTransforms(_gunModel, transform, Recolor);

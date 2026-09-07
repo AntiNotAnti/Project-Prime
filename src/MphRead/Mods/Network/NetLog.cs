@@ -172,7 +172,7 @@ namespace MphRead.Mods.Network
                     line.Append($"{scene.Match.Players[slot].Kills}k{scene.Match.Players[slot].Deaths}d ");
                 }
                 // The respawn path is guarded by `_health == 0 &&
-                // _respawnTimer == 0 && EnemySpawner == null`. A player stuck
+                // _respawnTimer == 0`. A player stuck
                 // at the origin with hp=0 is waiting on one of these, so log
                 // them rather than inferring which.
                 line.Append($"respawnTimer={p.RespawnTimer,-5} ");

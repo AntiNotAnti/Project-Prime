@@ -123,6 +123,7 @@ namespace MphRead
                 {
                     entity.Destroy();
                 }
+                ResetForceFieldLockProjectiles();
                 _entities.Clear();
                 _entityMap.Clear();
                 _entityNodesByType.Clear();

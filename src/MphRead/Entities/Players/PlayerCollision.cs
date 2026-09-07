@@ -240,10 +240,10 @@ namespace MphRead.Entities
             attacker.EndAltAttack();
         }
 
-        // note: the game does not have the functionality of alt attacks hitting enemies or doors
-        public bool CheckAltAttackHitEnemy1(EnemyInstanceEntity target)
+        // Preserve the existing alt-attack extension for bomb-compatible force-field locks.
+        public bool CheckAltAttackHitForceField1(ForceFieldLockEntity target)
         {
-            if (target.Flags.TestAny(EnemyFlags.Invincible | EnemyFlags.NoBombDamage))
+            if (!target.CanTakeAltAttackDamage)
             {
                 return false;
             }
@@ -281,9 +281,9 @@ namespace MphRead.Entities
             return false;
         }
 
-        public bool CheckAltAttackHitEnemy2(EnemyInstanceEntity target)
+        public bool CheckAltAttackHitForceField2(ForceFieldLockEntity target)
         {
-            if (target.Flags.TestAny(EnemyFlags.Invincible | EnemyFlags.NoBombDamage))
+            if (!target.CanTakeAltAttackDamage)
             {
                 return false;
             }

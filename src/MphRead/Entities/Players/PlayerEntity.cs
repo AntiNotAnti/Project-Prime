@@ -358,8 +358,6 @@ namespace MphRead.Entities
 
         private HalfturretEntity _halfturret = null!;
         public HalfturretEntity Halfturret => _halfturret;
-        public EnemySpawnEntity? EnemySpawner { get; set; }
-        public EnemyInstanceEntity? AttachedEnemy { get; set; } = null;
         private EntityBase? _field35C = null;
         public MorphCameraEntity? MorphCamera { get; set; }
         public OctolithFlagEntity? OctolithFlag { get; set; }
@@ -597,7 +595,6 @@ namespace MphRead.Entities
             _walkViewBob = 0;
             _health = 0;
             Flags2 |= PlayerFlags2.HideModel;
-            AttachedEnemy = null;
             _field35C = null;
             EquipInfo.ChargeLevel = 0;
             _timeSinceShot = 255;
@@ -815,7 +812,6 @@ namespace MphRead.Entities
             Flags2 = PlayerFlags2.NoShotsFired;
             _volumeUnxf = PlayerVolumes[(int)Hunter, 0];
             _volume = CollisionVolume.Move(_volumeUnxf, Position);
-            AttachedEnemy = null;
             _field35C = null;
             _timeSinceShot = 255;
             _timeSinceDamage = 255;
@@ -923,61 +919,14 @@ namespace MphRead.Entities
             }
         }
 
-        public void InitEnemyHunter()
-        {
-            Debug.Assert(EnemySpawner != null);
-            EnemySpawnFields09 data = EnemySpawner.Data.Fields.S09;
-            _healthMax = data.HunterHealthMax;
-            _health = data.HunterHealth;
-            AiData.HealthThreshold = data.HunterHealthThreshold;
-            // todo: update story save for multiplayer unlock
-            if (data.HunterWeapon != 255)
-            {
-                var weapon = (BeamType)data.HunterWeapon;
-                _availableWeapons[weapon] = true;
-                _availableCharges[weapon] = true;
-                _weaponSlots[0] = BeamType.None;
-                _weaponSlots[1] = BeamType.None;
-                _weaponSlots[2] = weapon;
-                _ammo[0] = 0;
-                _ammo[1] = 0;
-                WeaponInfo weaponInfo = Weapons.Current[(int)weapon];
-                _ammo[weaponInfo.AmmoType] = Int32.MaxValue;
-                EquipInfo.InfiniteAmmo = true;
-                EquipInfo.ChargeLevel = 0;
-                EquipInfo.SmokeLevel = 0;
-                _doubleDmgTimer = 0;
-                PreviousWeapon = weapon;
-                TryEquipWeapon(weapon, silent: true);
-                if (Hunter == Hunter.Guardian)
-                {
-                    // todo: move to metadata
-                    if (weapon == BeamType.VoltDriver)
-                    {
-                        Metadata.LoadEffectiveness(0x255A1, BeamEffectiveness);
-                    }
-                    else if (weapon == BeamType.Magmaul)
-                    {
-                        Metadata.LoadEffectiveness(0x24D55, BeamEffectiveness);
-                    }
-                    else if (weapon == BeamType.Judicator)
-                    {
-                        Metadata.LoadEffectiveness(0x27155, BeamEffectiveness);
-                    }
-                }
-            }
-            LoadFlags |= LoadFlags.Active;
-        }
 
 
         public void ResetReferences()
         {
             // Field35C and point module are also reset here
-            AttachedEnemy = null;
             MorphCamera = null;
             _lastJumpPad = null;
             OctolithFlag = null;
-            EnemySpawner = null;
             _lastTarget = null;
         }
 
@@ -1725,13 +1674,6 @@ namespace MphRead.Entities
                     flags |= DamageFlags.FromAlt;
                 }
                 _scene.SendMessage(Message.Destroyed, this, null, 0, 0, delay: 1);
-                if (EnemySpawner != null)
-                {
-                    _scene.SendMessage(Message.Destroyed, this, EnemySpawner, 0, 0);
-                    Debug.Assert(EnemySpawner.Type == EntityType.EnemySpawn);
-                    ItemSpawnEntity.SpawnItemDrop(EnemySpawner.Data.ItemType, Position,
-                        NodeRef, EnemySpawner.Data.ItemChance, _scene);
-                }
                 if (Flags2.TestFlag(PlayerFlags2.Halfturret))
                 {
                     _halfturret.Die();

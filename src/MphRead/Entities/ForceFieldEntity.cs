@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Diagnostics;
-using MphRead.Entities.Enemies;
 using MphRead.Formats;
 using MphRead.Sound;
 using OpenTK.Mathematics;
@@ -10,7 +9,7 @@ namespace MphRead.Entities
     public class ForceFieldEntity : EntityBase
     {
         private readonly ForceFieldEntityData _data;
-        private Enemy49Entity? _lock;
+        private ForceFieldLockEntity? _lock;
         private readonly Vector3 _upVector;
         private readonly Vector3 _facingVector;
         private readonly Vector3 _rightVector;
@@ -28,7 +27,7 @@ namespace MphRead.Entities
         public float Height => _height;
 
         public new bool Active => _active;
-        public Enemy49Entity? Lock => _lock;
+        public ForceFieldLockEntity? Lock => _lock;
 
         private static readonly IReadOnlyList<int> _scanIds = new int[10]
         {
@@ -69,11 +68,8 @@ namespace MphRead.Entities
             base.Initialize();
             if (_active && _data.Type != 9)
             {
-                _lock = EnemySpawnEntity.SpawnEnemy(this, EnemyType.ForceFieldLock, NodeRef, _scene) as Enemy49Entity;
-                if (_lock != null)
-                {
-                    _scene.AddEntity(_lock);
-                }
+                _lock = new ForceFieldLockEntity(this, NodeRef, _scene);
+                _scene.AddEntity(_lock);
             }
             _scene.LoadEffect(77, persistent: false); // deathMech1
         }
@@ -128,11 +124,8 @@ namespace MphRead.Entities
                 }
                 if (_lock == null && _data.Type != 9)
                 {
-                    _lock = EnemySpawnEntity.SpawnEnemy(this, EnemyType.ForceFieldLock, NodeRef, _scene) as Enemy49Entity;
-                    if (_lock != null)
-                    {
-                        _scene.AddEntity(_lock);
-                    }
+                    _lock = new ForceFieldLockEntity(this, NodeRef, _scene);
+                    _scene.AddEntity(_lock);
                 }
             }
         }

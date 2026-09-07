@@ -144,23 +144,8 @@ namespace MphRead.Entities
             }
             else if (info.Message == Message.MoveItemSpawner && info.Sender != null)
             {
-                if (info.Sender.Type == EntityType.EnemySpawn && ((EnemySpawnEntity)info.Sender).Data.EnemyType == EnemyType.Hunter)
-                {
-                    foreach (PlayerEntity player in _scene.GetPlayerEntities())
-                    {
-                        if (player.EnemySpawner == info.Sender)
-                        {
-                            player.GetPosition(out Vector3 position);
-                            Position = position;
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    info.Sender.GetPosition(out Vector3 position);
-                    Position = position;
-                }
+                info.Sender.GetPosition(out Vector3 position);
+                Position = position;
                 if (Item != null)
                 {
                     Item.Position = Position.AddY(1);

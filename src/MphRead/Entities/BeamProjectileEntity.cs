@@ -403,23 +403,18 @@ namespace MphRead.Entities
                 }
             }
             Debug.Assert(Owner != null);
-            if (Owner.Type != EntityType.EnemyInstance)
+            if (Owner.Type != EntityType.ForceFieldLock)
             {
-                foreach (EnemyInstanceEntity enemy in _scene.GetEnemyInstanceEntities())
+                foreach (ForceFieldLockEntity fieldLock in _scene.GetForceFieldLockEntities())
                 {
                     CollisionResult res = default;
-                    if (enemy.Flags.TestFlag(EnemyFlags.CollideBeam)
-                        && CollisionDetection.CheckCylinderOverlapVolume(enemy.HurtVolume, BackPosition, Position, CylinderRadius, ref res))
+                    if (CollisionDetection.CheckCylinderOverlapVolume(fieldLock.HurtVolume, BackPosition, Position, CylinderRadius, ref res))
                     {
-                        if (Beam == BeamType.OmegaCannon && enemy.EnemyType == EnemyType.GoreaMeteor)
-                        {
-                            if (!AuthoritativePlay.Active) enemy.TakeDamage(500, this);
-                        }
-                        else if (res.Distance < minDist)
+                        if (res.Distance < minDist)
                         {
                             minDist = res.Distance;
                             anyRes = res;
-                            colWith = enemy;
+                            colWith = fieldLock;
                             noColEff = false;
                         }
                     }
@@ -641,40 +636,22 @@ namespace MphRead.Entities
                         PlayBeamHitSfx();
                         ricochet = false;
                     }
-                    else if (colWith.Type == EntityType.EnemyInstance)
+                    else if (colWith.Type == EntityType.ForceFieldLock)
                     {
-                        var enemy = (EnemyInstanceEntity)colWith;
-                        if (enemy.GetEffectiveness(Beam) == Effectiveness.Zero && (enemy.EnemyType == EnemyType.FireSpawn
-                            || (enemy.Owner as EnemyInstanceEntity)?.EnemyType == EnemyType.FireSpawn))
+                        var fieldLock = (ForceFieldLockEntity)colWith;
+                        float damage = Damage;
+                        if (MaxDistance > 0)
                         {
-                            // when ineffective + FireSpawn or HitZone owned by FireSpawn
-                            Vector3 facing = enemy.Transform.Row2.Xyz.Normalized();
-                            float w = Vector3.Dot(facing, enemy.Position + facing * Fixed.ToFloat(0x3800));
-                            anyRes.Plane = new Vector4(facing, w);
-                            float dot = Vector3.Dot(Position, facing);
-                            anyRes.Position = new Vector3(
-                                Position.X + facing.X * (dot - w),
-                                Position.Y + facing.Y * (dot - w),
-                                Position.Z + facing.Z * (dot - w)
-                            );
-                            ProcessRicochet(anyRes);
+                            float pct = Vector3.Distance(Position, SpawnPosition) / MaxDistance;
+                            damage = GetInterpolatedValue(DamageInterpolation, Damage, 0, pct);
                         }
-                        else
+                        if (damage > 0 && (Beam != BeamType.ShockCoil || _scene.FrameCount % 2 == 0)) // todo: FPS stuff
                         {
-                            float damage = Damage;
-                            if (MaxDistance > 0)
-                            {
-                                float pct = Vector3.Distance(Position, SpawnPosition) / MaxDistance;
-                                damage = GetInterpolatedValue(DamageInterpolation, Damage, 0, pct);
-                            }
-                            if (damage > 0 && (Beam != BeamType.ShockCoil || _scene.FrameCount % 2 == 0)) // todo: FPS stuff
-                            {
-                                if (!AuthoritativePlay.Active) enemy.TakeDamage((uint)damage, this);
-                                SpawnCollisionEffect(anyRes, noSplat: true);
-                            }
-                            OnCollision(anyRes, colWith);
-                            PlayBeamHitSfx();
+                            if (!AuthoritativePlay.Active) fieldLock.TakeDamage((uint)damage, this);
+                            SpawnCollisionEffect(anyRes, noSplat: true);
                         }
+                        OnCollision(anyRes, colWith);
+                        PlayBeamHitSfx();
                         ricochet = false;
                     }
                     else if (colWith.Type == EntityType.Door)
@@ -714,65 +691,6 @@ namespace MphRead.Entities
                             if (!AuthoritativePlay.Active) forceField.Lock?.LockHit(this);
                             ricochet = false;
                         }
-                    }
-                    else if (colWith.Type == EntityType.BeamProjectile)
-                    {
-                        var other = (BeamProjectileEntity)colWith;
-                        if (Flags.TestFlag(BeamFlags.ForceEffect))
-                        {
-                            SpawnCollisionEffect(anyRes, noSplat: true);
-                        }
-                        OnCollision(anyRes, colWith);
-                        PlayBeamHitSfx();
-                        if (other.Flags.TestFlag(BeamFlags.ForceEffect))
-                        {
-                            other.SpawnCollisionEffect(anyRes, noSplat: true);
-                        }
-                        if (other.DrawFuncId == 12) // Slench tear
-                        {
-                            _soundSource.PlaySfx(SfxId.BIGEYE_ATTACK1C, noUpdate: true);
-                            ItemType item = ItemType.None;
-                            uint rand = Rng.GetRandomInt2(100);
-                            if (_scene.AreaId == 0) // Slench 1 (Alinos 1)
-                            {
-                                // 5% small missile, 5% medium health, 90% nothing
-                                if (rand < 5)
-                                {
-                                    item = ItemType.HealthMedium;
-                                }
-                                else if (rand < 10)
-                                {
-                                    item = ItemType.MissileSmall;
-                                }
-                            }
-                            else // Slench 2 (Arcterra 1), Slench 3 (Archives 2), Slench 4 (VDO 2)
-                            {
-                                // 50% small UA, 25% medium health, 25% nothing
-                                if (rand < 25)
-                                {
-                                    item = ItemType.HealthMedium;
-                                }
-                                else if (rand < 75)
-                                {
-                                    item = ItemType.UASmall;
-                                }
-                            }
-                            if (item != ItemType.None)
-                            {
-                                NodeRef nodeRef = _scene.GetNodeRefByPosition(other.Position);
-                                ItemSpawnEntity.SpawnItemDrop(item, other.Position, nodeRef, chance: 100, _scene);
-                            }
-                        }
-                        else if (other.DrawFuncId == 11) // Omega Cannon
-                        {
-                            _soundSource.PlaySfx(SfxId.GOREA_ATTACK3B, noUpdate: true);
-                        }
-                        else
-                        {
-                            _soundSource.PlaySfx(SfxId.LOB_GUN_HIT, noUpdate: true);
-                        }
-                        other.OnCollision(anyRes, this);
-                        ricochet = false;
                     }
                 }
                 else
@@ -1019,22 +937,22 @@ namespace MphRead.Entities
                     OmegaCannonFlash();
                 }
             }
-            foreach (EnemyInstanceEntity enemy in _scene.GetEnemyInstanceEntities())
+            foreach (ForceFieldLockEntity fieldLock in _scene.GetForceFieldLockEntities())
             {
-                if (enemy == colWith || !enemy.Flags.TestFlag(EnemyFlags.CollideBeam))
+                if (fieldLock == colWith)
                 {
                     continue;
                 }
                 CollisionResult res = default;
-                float dist = Vector3.Distance(enemy.Position, Position);
+                float dist = Vector3.Distance(fieldLock.Position, Position);
                 if (dist < SplashRadius
-                    && !CollisionDetection.CheckBetweenPoints(Position, enemy.Position, TestFlags.Beams, _scene, ref res))
+                    && !CollisionDetection.CheckBetweenPoints(Position, fieldLock.Position, TestFlags.Beams, _scene, ref res))
                 {
                     float damage = GetInterpolatedValue(SplashDamageType, SplashDamage, 0, dist / SplashRadius);
-                    if (!AuthoritativePlay.Active) enemy.TakeDamage((uint)damage, this);
+                    if (!AuthoritativePlay.Active) fieldLock.TakeDamage((uint)damage, this);
                     if (Owner != null)
                     {
-                        if (!AuthoritativePlay.Active) _scene.SendMessage(Message.Impact, this, Owner, enemy, 0);
+                        if (!AuthoritativePlay.Active) _scene.SendMessage(Message.Impact, this, Owner, fieldLock, 0);
                         StopHomingSfx();
                     }
                 }
@@ -1139,7 +1057,7 @@ namespace MphRead.Entities
             DrawTrail2(Fixed.ToFloat(204), 5);
         }
 
-        // enemy tear/Judicator
+        // fieldLock tear/Judicator
         private void Draw06()
         {
             if (!Flags.TestFlag(BeamFlags.Collided))
@@ -1822,7 +1740,7 @@ namespace MphRead.Entities
         {
             EntityType.Player,
             EntityType.Halfturret,
-            EntityType.EnemyInstance,
+            EntityType.ForceFieldLock,
             EntityType.Door,
             EntityType.Platform
         };
@@ -1837,8 +1755,8 @@ namespace MphRead.Entities
             for (int i = 0; i < _homingTargetTypes.Count; i++)
             {
                 EntityType type = _homingTargetTypes[i];
-                if (type == EntityType.EnemyInstance
-                    && (beam.Owner.Type == EntityType.EnemyInstance || beam.Owner.Type == EntityType.Platform))
+                if (type == EntityType.ForceFieldLock
+                    && (beam.Owner.Type == EntityType.ForceFieldLock || beam.Owner.Type == EntityType.Platform))
                 {
                     continue;
                 }
@@ -1899,16 +1817,10 @@ namespace MphRead.Entities
                             tryTarget = halfturret.Owner.TeamIndex != ownerPlayer.TeamIndex;
                         }
                     }
-                    else if (type == EntityType.EnemyInstance)
+                    else if (type == EntityType.ForceFieldLock)
                     {
-                        var enemy = (EnemyInstanceEntity)entity;
-                        EnemyFlags flags = enemy.Flags;
-                        if (flags.TestFlag(EnemyFlags.CollideBeam)
-                            && (!flags.TestFlag(EnemyFlags.NoHomingNc) || beam.Flags.TestFlag(BeamFlags.Continuous))
-                            && (!flags.TestFlag(EnemyFlags.NoHomingCo) || !beam.Flags.TestFlag(BeamFlags.Continuous)))
-                        {
-                            tryTarget = true;
-                        }
+                        var fieldLock = (ForceFieldLockEntity)entity;
+                        tryTarget = fieldLock.Health > 0;
                     }
                     else if (type == EntityType.Platform)
                     {
@@ -2218,7 +2130,7 @@ namespace MphRead.Entities
         Continuous = 0x40,
         Destroyable = 0x80,
         HasModel = 0x100,
-        RadiusIndex1 = 0x200, // pair with bit 10: index 0-3 of radius for enemy beam collision with player beams
+        RadiusIndex1 = 0x200, // pair with bit 10: index 0-3 of radius for fieldLock beam collision with player beams
         RadiusIndex2 = 0x400,
         LifeDrain = 0x800,
         SurfaceCollision = 0x1000,

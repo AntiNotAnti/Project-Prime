@@ -1583,79 +1583,28 @@ namespace MphRead
         {
             if (RoomMetadata.TryGetValue(name, out RoomMetadata? metadata))
             {
-                return (metadata, _roomIds.IndexOf(i => i == metadata.Name));
+                foreach ((int id, string key) in _roomIds)
+                {
+                    if (key == metadata.Name) { return (metadata, id); }
+                }
             }
             return (null, -1);
         }
 
         public static RoomMetadata? GetRoomById(int id, bool noThrow = false)
         {
-            if (id < 0 || id > _roomIds.Count)
+            if (id < 0 || id >= 138 + Mods.MapGen.CustomRooms.Definitions.Count)
             {
-                if (noThrow)
-                {
-                    return null;
-                }
-                throw new ArgumentException(nameof(id));
+                if (noThrow) { return null; }
+                throw new ArgumentOutOfRangeException(nameof(id));
             }
-            if (RoomMetadata.TryGetValue(_roomIds[id], out RoomMetadata? metadata))
-            {
-                return metadata;
-            }
-            return null;
+            return _roomIds.TryGetValue(id, out string? name)
+                && RoomMetadata.TryGetValue(name, out RoomMetadata? metadata) ? metadata : null;
         }
 
         private static uint TimeLimit(uint minutes, uint seconds, uint frames)
         {
             return minutes * 1800 + seconds * 30 + frames;
-        }
-
-        public static int GetAreaInfo(int roomId)
-        {
-            // Oubliette
-            int areaId = 8;
-            if (roomId >= 27 && roomId < 36)
-            {
-                // Alinos 1
-                areaId = 0;
-            }
-            else if (roomId >= 36 && roomId < 45)
-            {
-                // Alinos 2
-                areaId = 1;
-            }
-            else if (roomId >= 45 && roomId < 56)
-            {
-                // Celestial Archives 1
-                areaId = 2;
-            }
-            else if (roomId >= 56 && roomId < 65)
-            {
-                // Celestial Archives 2
-                areaId = 3;
-            }
-            else if (roomId >= 65 && roomId < 72)
-            {
-                // Vesper Defense Outpost 1
-                areaId = 4;
-            }
-            else if (roomId >= 72 && roomId < 77)
-            {
-                // Vesper Defense Outpost 2
-                areaId = 5;
-            }
-            else if (roomId >= 77 && roomId < 83)
-            {
-                // Arcterra 1
-                areaId = 6;
-            }
-            else if (roomId >= 83 && roomId < 89)
-            {
-                // Arcterra 2
-                areaId = 7;
-            }
-            //bool multiplayer = roomId >= 93 && roomId <= 119;
-            return areaId;
         }
 
         public static readonly Vector4 RedPalette = new Vector4(189 / 255f, 66 / 255f, 0f, 1f);

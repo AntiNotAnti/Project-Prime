@@ -16,14 +16,12 @@ namespace MphRead.Testing
 
         public static void TestWeaponInfo()
         {
-            IReadOnlyList<WeaponInfo> weapons1P = Weapons.Weapons1P;
+            IReadOnlyList<WeaponInfo> lockWeapons = Weapons.ForceFieldLockWeapons;
             IReadOnlyList<WeaponInfo> weaponsMP = Weapons.WeaponsMP;
-            IReadOnlyList<WeaponInfo> enemies = Weapons.EnemyWeapons;
-            IReadOnlyList<WeaponInfo> bosses = Weapons.BossWeapons;
             IReadOnlyList<WeaponInfo> platforms = Weapons.PlatformWeapons;
             IReadOnlyList<WeaponInfo> ricochets = Weapons.Ricochets;
 
-            foreach (WeaponInfo weap in weapons1P.Concat(weaponsMP).Concat(enemies).Concat(bosses).Concat(platforms).Concat(ricochets))
+            foreach (WeaponInfo weap in lockWeapons.Concat(weaponsMP).Concat(platforms).Concat(ricochets))
             {
                 if (weap.Flags.TestFlag(WeaponFlags.AutoRelease))
                 {
@@ -37,39 +35,12 @@ namespace MphRead.Testing
 
             for (int i = 0; i < 9; i++)
             {
-                WeaponInfo singleNormal = weapons1P[i];
-                WeaponInfo multiNormal = weaponsMP[i];
-                WeaponInfo singleAffinity = weapons1P[i + 9];
-                WeaponInfo multiAffinity = weaponsMP[i + 9];
-
-                Console.WriteLine(singleNormal.Name);
-                Console.WriteLine($"1P Nrm: {singleNormal.UnchargedSpread} / {singleNormal.MinChargeSpread} / {singleNormal.ChargedSpread}");
-                Console.WriteLine($"MP Nrm: {multiNormal.UnchargedSpread} / {multiNormal.MinChargeSpread} / {multiNormal.ChargedSpread}");
-                Console.WriteLine($"1P Aff: {singleAffinity.UnchargedSpread} / {singleAffinity.MinChargeSpread} / {singleAffinity.ChargedSpread}");
-                Console.WriteLine($"MP Aff: {multiAffinity.UnchargedSpread} / {multiAffinity.MinChargeSpread} / {multiAffinity.ChargedSpread}");
+                WeaponInfo normal = weaponsMP[i];
+                WeaponInfo affinity = weaponsMP[i + 9];
+                Console.WriteLine(normal.Name);
+                Console.WriteLine($"MP Nrm: {normal.UnchargedSpread} / {normal.MinChargeSpread} / {normal.ChargedSpread}");
+                Console.WriteLine($"MP Aff: {affinity.UnchargedSpread} / {affinity.MinChargeSpread} / {affinity.ChargedSpread}");
                 Console.WriteLine();
-
-                //int bit = 9;
-                //uint mask = (uint)Math.Pow(2, bit);
-                //bool snTest = (singleNormal.Flags & mask) != 0;
-                //bool mnTest = (multiNormal.Flags & mask) != 0;
-                //bool saTest = (singleAffinity.Flags & mask) != 0;
-                //bool maTest = (multiAffinity.Flags & mask) != 0;
-                //var results = new HashSet<bool>();
-                //results.Add(snTest);
-                //results.Add(mnTest);
-                //results.Add(saTest);
-                //results.Add(maTest);
-                //if (results.Count != 1)
-                //{
-                //    Debugger.Break();
-                //}
-                //Console.WriteLine(singleNormal.Name);
-                //Console.WriteLine($"1P Nrm: {snTest}");
-                //Console.WriteLine($"MP Nrm: {mnTest}");
-                //Console.WriteLine($"1P Aff: {saTest}");
-                //Console.WriteLine($"MP Aff: {maTest}");
-                //Console.WriteLine();
             }
 
             Nop();

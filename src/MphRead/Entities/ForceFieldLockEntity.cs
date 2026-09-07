@@ -1,11 +1,13 @@
 using System;
 using System.Diagnostics;
 using MphRead.Formats.Culling;
+using MphRead.Formats;
+using MphRead.Effects;
 using OpenTK.Mathematics;
 
-namespace MphRead.Entities.Enemies
+namespace MphRead.Entities
 {
-    public class Enemy49Entity : EnemyInstanceEntity
+    public sealed class ForceFieldLockEntity : EntityBase
     {
         private Vector3 _vec1;
         private Vector3 _vec2;
@@ -17,30 +19,155 @@ namespace MphRead.Entities.Enemies
         private int _ammo = -1;
         private Vector3 _ownSpeed; // todo: revisit this?
 
-        // todo?: technically this has a custom draw function, but I don't think we need it
-        // (unless it's possible to observe the damage flash)
-        public Enemy49Entity(EnemyInstanceEntityData data, NodeRef nodeRef, Scene scene)
-            : base(data, nodeRef, scene)
+        private ushort _health = 1;
+        private ushort _timeSinceDamage = 510;
+        private CollisionVolume _hurtVolumeInit;
+        private CollisionVolume _hurtVolume;
+        private Vector3 _prevPos;
+        private Vector3 _speed;
+        private readonly Effectiveness[] BeamEffectiveness = new Effectiveness[9];
+        public ushort Health => _health;
+        public CollisionVolume HurtVolume => _hurtVolume;
+        public ForceFieldEntity Owner => _forceField;
+        // The original damage flag remains enabled until removal, including same-frame lethal hits.
+        public bool CanTakeAltAttackDamage => _forceField.Data.Type == 8;
+
+        public Effectiveness GetEffectiveness(BeamType beam) => BeamEffectiveness[(int)beam];
+        public void SetHealth(ushort health) => _health = health;
+        public override bool GetTargetable() => _health != 0;
+        public override void GetPosition(out Vector3 position) => position = _hurtVolume.GetCenter();
+        public override void GetVectors(out Vector3 position, out Vector3 up, out Vector3 facing)
         {
-            var spawner = data.Spawner as ForceFieldEntity;
-            Debug.Assert(spawner != null);
-            _forceField = spawner;
+            position = _hurtVolume.GetCenter(); up = UpVector; facing = FacingVector;
+        }
+        public override void Destroy()
+        {
+            _soundSource.StopAllSfx(force: true);
+            base.Destroy();
+        }
+        public override bool Process()
+        {
+            if (_timeSinceDamage < 510) { _timeSinceDamage++; }
+            if (_health == 0)
+            {
+                _scene.SendMessage(Message.Destroyed, this, _forceField, 0, 0);
+                return false;
+            }
+            _prevPos = Position;
+            Position += _speed;
+            _hurtVolume = CollisionVolume.Transform(_hurtVolumeInit, Transform);
+            _soundSource.Update(Position, 4);
+            UpdateNodeRefVolume();
+            foreach (PlayerEntity player in _scene.GetPlayerEntities())
+            {
+                if (player.Health == 0) { continue; }
+                bool hit = player.CheckAltAttackHitForceField1(this);
+                if (!hit) { hit = player.CheckAltAttackHitForceField2(this); }
+                CollisionResult result = default;
+                if (!hit && CollisionDetection.CheckVolumesOverlap(player.Volume, HurtVolume, ref result))
+                {
+                    player.HandleCollision(result);
+                }
+            }
+            ProcessLock();
+            _hurtVolume = CollisionVolume.Transform(_hurtVolumeInit, Transform);
+            if (NodeRef != NodeRef.None) { NodeRef = _scene.UpdateNodeRef(NodeRef, _prevPos, Position); }
+            // The lock advances animation here and in ProcessLock, matching the original wrapper.
+            return base.Process();
+        }
+        public override void GetDrawInfo()
+        {
+            if (_health == 0) { return; }
+            if (_timeSinceDamage < 10) { PaletteOverride = Metadata.RedPalette; }
+            base.GetDrawInfo();
+            PaletteOverride = null;
+        }
+        public bool CheckHitByBomb(BombEntity bomb)
+        {
+            if ((Position - bomb.Position).LengthSquared > bomb.Radius * bomb.Radius) { return false; }
+            TakeDamage(bomb.EnemyDamage, bomb);
+            _scene.SendMessage(Message.Impact, bomb, bomb.Owner, this, 0);
+            return true;
+        }
+        public void TakeDamage(uint damage, EntityBase? source)
+        {
+            BeamProjectileEntity? beam = source as BeamProjectileEntity;
+            if (beam?.Owner is ForceFieldLockEntity) { return; }
+            Effectiveness effectiveness = beam == null ? Effectiveness.Normal : GetEffectiveness(beam.Beam);
+            bool unaffected = effectiveness == Effectiveness.Zero || source is BombEntity && _forceField.Data.Type != 8;
+            bool dead = false;
+            bool doubleDead = false;
+            if (!unaffected)
+            {
+                if (beam?.Owner is PlayerEntity && damage == 0) { damage = 1; }
+                if (damage >= _health)
+                {
+                    dead = true; doubleDead = _health == 0; _health = 0;
+                }
+                else { _health -= (ushort)damage; }
+            }
+            if (_health > 0)
+            {
+                if (beam != null) { LockHit(beam); }
+            }
+            else { _scene.SendMessage(Message.Unlock, this, _forceField, 0, 0); }
+            if (unaffected)
+            {
+                if (effectiveness == Effectiveness.Zero)
+                {
+                    Matrix4 transform = GetTransformMatrix(Vector3.UnitX, Vector3.UnitY);
+                    transform.Row3.Xyz = _hurtVolume.GetCenter();
+                    EffectEntry? effect = _scene.SpawnEffectGetEntry(115, transform);
+                    if (effect != null)
+                    {
+                        effect.SetReadOnlyField(0, 0.5f);
+                        _scene.DetachEffectEntry(effect, setExpired: false);
+                    }
+                }
+                return;
+            }
+            if (doubleDead && Bugfixes.NoDoubleEnemyDeath) { return; }
+            beam?.SpawnDamageEffect(effectiveness);
+            if (dead)
+            {
+                _soundSource.StopAllSfx();
+                PlayLockSfx(Metadata.ForceFieldLockDeathSfx, noUpdate: true);
+                _scene.SpawnEffect(77, Transform.ClearScale());
+            }
+            else
+            {
+                _timeSinceDamage = 0;
+                PlayLockSfx(Metadata.ForceFieldLockDamageSfx, noUpdate: false);
+            }
+        }
+        private void PlayLockSfx(int sfx, bool noUpdate)
+        {
+            if (sfx == -1) { return; }
+            float recency = -1;
+            bool sourceOnly = false;
+            if ((sfx & 0x20000) != 0) { recency = Single.MaxValue; sourceOnly = true; }
+            else if ((sfx & 0x80000) != 0) { recency = 0; }
+            _soundSource.PlaySfx(sfx & ~0xA0000, noUpdate: noUpdate, recency: recency, sourceOnly: sourceOnly);
         }
 
-        protected override void EnemyInitialize()
+        public ForceFieldLockEntity(ForceFieldEntity forceField, NodeRef nodeRef, Scene scene)
+            : base(EntityType.ForceFieldLock, nodeRef, scene)
         {
+            _forceField = forceField;
+        }
+
+        public override void Initialize()
+        {
+            base.Initialize();
             Vector3 position = _forceField.Data.Header.Position.ToFloatVector();
             _fieldPosition = position;
             _vec1 = _forceField.Data.Header.UpVector.ToFloatVector();
             _vec2 = _forceField.Data.Header.FacingVector.ToFloatVector();
             position += _vec2 * Fixed.ToFloat(409);
             SetTransform(_vec2, _vec1, position);
-            Flags |= EnemyFlags.NoMaxDistance;
-            Flags |= EnemyFlags.Visible;
-            Flags |= EnemyFlags.NoBombDamage;
-            _health = _healthMax = 1;
-            _boundingRadius = 0.5f;
-            _hurtVolumeInit = new CollisionVolume(Vector3.Zero, _boundingRadius);
+            _health = 1;
+
+            _hurtVolumeInit = new CollisionVolume(Vector3.Zero, 0.5f);
             ClearEffectiveness();
             switch (_forceField.Data.Type)
             {
@@ -69,14 +196,14 @@ namespace MphRead.Entities.Enemies
                 SetEffectiveness(BeamType.ShockCoil, Effectiveness.Normal);
                 break;
             case 8:
-                Flags &= ~EnemyFlags.NoBombDamage;
                 break;
             }
             SetUpModel("ForceFieldLock");
             Recolor = _forceField.Recolor;
-            _equipInfo = new EquipInfo(Weapons.Weapons1P[(int)_forceField.Data.Type], _beams);
+            _equipInfo = new EquipInfo(Weapons.ForceFieldLockWeapons[(int)_forceField.Data.Type], _scene.GetForceFieldLockProjectiles());
             _equipInfo.GetAmmo = () => _ammo;
             _equipInfo.SetAmmo = (newAmmo) => _ammo = newAmmo;
+            _prevPos = Position;
         }
 
         private void ClearEffectiveness()
@@ -94,7 +221,7 @@ namespace MphRead.Entities.Enemies
             BeamEffectiveness[index] = effectiveness;
         }
 
-        protected override void EnemyProcess()
+        private void ProcessLock()
         {
             // this is called twice per tick, so the animation plays twice as fast
             if (Active)
@@ -177,22 +304,6 @@ namespace MphRead.Entities.Enemies
                 _ownSpeed *= Fixed.ToFloat(3973);
             }
             _speed = _ownSpeed / 2; // todo: FPS stuff
-        }
-
-        protected override bool EnemyTakeDamage(EntityBase? source)
-        {
-            if (_health > 0)
-            {
-                if (source?.Type == EntityType.BeamProjectile)
-                {
-                    LockHit(source);
-                }
-            }
-            else
-            {
-                _scene.SendMessage(Message.Unlock, this, _owner, 0, 0);
-            }
-            return false;
         }
 
         public void LockHit(EntityBase source)

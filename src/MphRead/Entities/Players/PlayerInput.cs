@@ -861,7 +861,7 @@ namespace MphRead.Entities
                             }
 
                             CheckZoomTargets(EntityType.Player);
-                            CheckZoomTargets(EntityType.EnemyInstance);
+                            CheckZoomTargets(EntityType.ForceFieldLock);
                             CheckZoomTargets(EntityType.Object);
                             zoomFov *= 2;
                             float currentFov = CameraInfo.Fov;
@@ -978,10 +978,6 @@ namespace MphRead.Entities
             if (!Flags2.TestFlag(PlayerFlags2.Cloaking))
             {
                 _cloakTimer = 0;
-            }
-            if (AttachedEnemy != null)
-            {
-                return false;
             }
             bool pressed = Controls.Shoot.IsPressed;
             if (pressed || CurrentWeapon != BeamType.PowerBeam)
@@ -1458,7 +1454,7 @@ namespace MphRead.Entities
                             _soundSource.PlaySfx(SfxId.WEAVEL_ALT_ATTACK);
                         }
                     }
-                    if (_abilities.TestFlag(AbilityFlags.Boost) && AttachedEnemy == null)
+                    if (_abilities.TestFlag(AbilityFlags.Boost))
                     {
                         // A touch platform's swipe gesture is a flick, not a
                         // hold-and-release: it forces a full charge straight
@@ -1580,10 +1576,6 @@ namespace MphRead.Entities
                 if (_field35C != null)
                 {
                     Speed = Speed.WithX(0).WithZ(0);
-                }
-                else if (AttachedEnemy != null)
-                {
-                    Speed = Speed.WithX(Speed.X / 2).WithZ(Speed.Z / 2);
                 }
                 // the game doesn't require pressed here, but presumably the control scheme would have the pressed flag
                 // the game also doesn't check the ability flag here
@@ -1909,11 +1901,6 @@ namespace MphRead.Entities
                     Speed = Speed.AddY(_gravity / 2); // todo: FPS stuff
                 }
                 Vector3 position = Position + Speed / 2; // todo: FPS stuff
-                if (AttachedEnemy?.EnemyType == EnemyType.Quadtroid)
-                {
-                    position.X = Position.X;
-                    position.Z = Position.Z;
-                }
                 Position = position;
                 // unimpl-controls: the game does more calculation here if exact aim is off
                 // --> does so outside of the _health > 0 condition, before the player collision check (which is inside another _health > 0)

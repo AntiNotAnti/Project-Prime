@@ -164,9 +164,40 @@ previously recorded warnings. Both asset guards passed. Rendered/native platform
 acceptance was not repeated. Enemy runtime and campaign catalog deletion remain
 R8 work.
 
+## R8 — Remove campaign runtime entities and catalogs
+
+Deleted the campaign enemy hierarchy, campaign spawner and artifact runtime.
+The shared force-field lock is a standalone entity, retaining its original tick
+ordering, reflection weapons, movement, damage rules and same-frame death
+behavior. Its 64 projectiles are shared within the scene. First Hunt's spawner
+placeholder was moved intact; raw entity parsers and memory layouts remain.
+
+The runtime room catalog retains 39 built-in multiplayer records with their
+original sparse global IDs. First Hunt's separate local metadata IDs remain
+unchanged, and custom IDs still start at 138. Generic model lookup metadata is
+retained because shared objects/platforms and export tools depend on it.
+External teleporter targets cannot become intra-room destinations when campaign
+catalog entries disappear. JSON reports without geometry/imports no longer
+register an empty custom room.
+
+AI action 82 (campaign Echo Hall logic) now rejects explicitly without shifting
+later action numbers. It is absent from all reachable multiplayer personality
+trees in the supplied AMHE1 data (SHA-256
+`22a6b88091a754123720fbdb83336023d19765a7aa6f004d654a6057c62b81b3`).
+
+Validation: 433 C# tests passed. The shared-lock fixture passed all nine beam
+mappings and focused beam/bomb/alt/same-frame checks using synthetic map records
+with real AMHE1 assets; this is not proof of unavailable First Hunt maps.
+All 12 scoring modes, UDP phase/objective checks and the server/content suite
+passed. The 42-room audit preserves every baseline room ID and entity-file hash;
+its original six missing First Hunt roots and six retail null entity paths remain
+explicit completeness limits. Server/nettest compiled without warnings, and final
+desktop/Android managed builds passed with the known warnings. Asset guards and
+scoped diff checks passed. No rendered/native acceptance run was repeated.
+
 ## Planned remaining passes
 
-R8–R9 remove
+R9 adds guards against reintroducing
 campaign behavior with content-aware guards. R10–R12 split the projects, converge
 Android and enforce dependency boundaries. No later pass is marked complete
 before its implementation and checks finish.

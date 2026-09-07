@@ -10,8 +10,8 @@ namespace MphRead
         public static int[,] HunterSfx { get; private set; } = null!;
         public static int[,] BeamSfx { get; private set; } = null!;
         public static int[,] TerrainSfx { get; private set; } = null!;
-        public static int[] EnemyDamageSfx { get; private set; } = null!;
-        public static int[] EnemyDeathSfx { get; private set; } = null!;
+        public static int ForceFieldLockDamageSfx { get; private set; } = -1;
+        public static int ForceFieldLockDeathSfx { get; private set; } = -1;
 
         public static void SetHunterSfxData(byte[] data)
         {
@@ -35,12 +35,12 @@ namespace MphRead
 
         public static void SetEnemyDamageSfxData(byte[] data)
         {
-            EnemyDamageSfx = ParseSfxData4(data, count: 52);
+            ForceFieldLockDamageSfx = ReadForceFieldLockSfx(data);
         }
 
         public static void SetEnemyDeathSfxData(byte[] data)
         {
-            EnemyDeathSfx = ParseSfxData4(data, count: 52);
+            ForceFieldLockDeathSfx = ReadForceFieldLockSfx(data);
         }
 
         private static int[,] ParseSfxData2(byte[] data, int rows, int columns)
@@ -61,19 +61,17 @@ namespace MphRead
             return dest;
         }
 
-        private static int[] ParseSfxData4(byte[] data, int count)
+        private static int ReadForceFieldLockSfx(byte[] data)
         {
-            Debug.Assert(data.Length > 0 && data.Length % 4 == 0);
-            Debug.Assert(data.Length / 4 == count);
-            int[] dest = new int[count];
-            for (int i = 0; i < count; i++)
+            // The extracted raw table remains 52 entries. Only the shared lock
+            // entry (legacy enemy ID 49) belongs to multiplayer runtime.
+            if (data.Length != 52 * sizeof(uint))
             {
-                int start = i * 4;
-                int end = start + 4;
-                uint value = BitConverter.ToUInt32(data[start..end]);
-                dest[i] = value == 0xFFFFFFFF ? -1 : (int)value;
+                throw new ArgumentException("Sound table must contain 52 entries.", nameof(data));
             }
-            return dest;
+            uint value = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(
+                data.AsSpan(49 * sizeof(uint), sizeof(uint)));
+            return value == UInt32.MaxValue ? -1 : unchecked((int)value);
         }
 
         public static readonly ImmutableArray<string> SequenceFiles =

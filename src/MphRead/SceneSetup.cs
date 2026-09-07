@@ -13,14 +13,13 @@ namespace MphRead
     {
         // todo: artifact flags
         public static (RoomEntity, RoomMetadata, CollisionInstance, IReadOnlyList<EntityBase>)
-            LoadGame(string name, Scene scene, GameMode mode, int playerCount = 0, BossFlags bossFlags = BossFlags.Unspecified,
+            LoadGame(string name, Scene scene, GameMode mode, int playerCount = 0,
             int nodeLayerMask = 0, int entityLayerId = -1)
         {
             (RoomMetadata? metadata, int roomId) = Metadata.GetRoomByName(name);
-            scene.AreaId = Metadata.GetAreaInfo(roomId);
-            if (metadata == null)
+            if (metadata == null || !metadata.Multiplayer)
             {
-                throw new ProgramException("No room with this name is known.");
+                throw new ProgramException("No supported multiplayer room with this name is known.");
             }
             if (mode == GameMode.None)
             {
@@ -70,7 +69,7 @@ namespace MphRead
             Sound.Sfx.Load(scene);
             var room = new RoomEntity(scene);
             (CollisionInstance collision, IReadOnlyList<EntityBase> entities) = SetUpRoom(mode, playerCount,
-                bossFlags, nodeLayerMask, entityLayerId, metadata, room, scene, isRoomTransition: false);
+                nodeLayerMask, entityLayerId, metadata, room, scene, isRoomTransition: false);
             if (!scene.IsHeadless)
             {
                 Music.TryPlayRoomMusic(room.RoomId, 0);
@@ -143,7 +142,7 @@ namespace MphRead
         }
 
         public static (CollisionInstance, IReadOnlyList<EntityBase>) SetUpRoom(GameMode mode,
-            int playerCount, BossFlags bossFlags, int nodeLayerMask, int entityLayerId,
+            int playerCount, int nodeLayerMask, int entityLayerId,
             RoomMetadata metadata, RoomEntity room, Scene scene, bool isRoomTransition)
         {
             if (playerCount == 0)
@@ -152,23 +151,13 @@ namespace MphRead
             }
             if (entityLayerId < 0 || entityLayerId > 15)
             {
-                if (!metadata.Multiplayer)
-                {
-                    if (bossFlags == BossFlags.Unspecified)
-                    {
-                        bossFlags = 0;
-                    }
-                    entityLayerId = ((int)bossFlags >> (2 * scene.AreaId)) & 3;
-                }
-                else
-                {
-                    entityLayerId = Metadata.GetMultiplayerEntityLayer(mode, playerCount);
-                }
+                entityLayerId = Metadata.GetMultiplayerEntityLayer(mode, playerCount);
+
             }
             if (nodeLayerMask == 0)
             {
                 int nodePlayerCount = Features.MaxRoomDetail ? 2 : playerCount;
-                nodeLayerMask = GetNodeLayer(metadata.Multiplayer ? mode : GameMode.None, metadata.NodeLayer, nodePlayerCount);
+                nodeLayerMask = GetNodeLayer(mode, metadata.NodeLayer, nodePlayerCount);
             }
             CollisionInstance collision = Collision.GetCollision(metadata, nodeLayerMask);
             if (isRoomTransition)
@@ -253,10 +242,6 @@ namespace MphRead
                 {
                     results.Add(new FhItemSpawnEntity(((Entity<FhItemSpawnEntityData>)entity).Data, scene));
                 }
-                else if (entity.Type == EntityType.EnemySpawn)
-                {
-                    results.Add(new EnemySpawnEntity(((Entity<EnemySpawnEntityData>)entity).Data, nodeName, scene));
-                }
                 else if (entity.Type == EntityType.FhEnemySpawn)
                 {
                     results.Add(new FhEnemySpawnEntity(((Entity<FhEnemySpawnEntityData>)entity).Data, scene));
@@ -316,10 +301,6 @@ namespace MphRead
                 else if (entity.Type == EntityType.LightSource)
                 {
                     results.Add(new LightSourceEntity(((Entity<LightSourceEntityData>)entity).Data, scene));
-                }
-                else if (entity.Type == EntityType.Artifact)
-                {
-                    results.Add(new ArtifactEntity(((Entity<ArtifactEntityData>)entity).Data, nodeName, scene));
                 }
                 else if (entity.Type == EntityType.CameraSequence)
                 {
@@ -583,10 +564,6 @@ namespace MphRead
             {
                 LoadPlatformResources(plat, scene);
             }
-            else if (entity is EnemySpawnEntity spawner)
-            {
-                LoadEnemyResources(spawner, scene);
-            }
             else if (entity is ItemSpawnEntity itemSpawner)
             {
                 LoadItemResources(itemSpawner, scene);
@@ -640,220 +617,6 @@ namespace MphRead
             if (platform.Data.ItemChance > 0)
             {
                 LoadItem(platform.Data.ItemType, scene);
-            }
-        }
-
-        public static void LoadEnemyResources(Scene scene)
-        {
-            // todo?: pre-allocation(?)
-            foreach (EnemySpawnEntity spawner in scene.GetEnemySpawnEntities())
-            {
-                LoadEnemyResources(spawner, scene);
-            }
-        }
-
-        public static void LoadEnemyResources(EnemySpawnEntity spawner, Scene scene)
-        {
-            LoadEnemy(spawner.Data.EnemyType, scene);
-            if (spawner.Data.SpawnerHealth > 0)
-            {
-                if (spawner.Data.EnemyType == EnemyType.WarWasp || spawner.Data.EnemyType == EnemyType.BarbedWarWasp)
-                {
-                    scene.LoadModel("PlantCarnivarous_Pod");
-                }
-                else
-                {
-                    scene.LoadModel("EnemySpawner");
-                }
-            }
-            if (spawner.Data.ItemChance > 0)
-            {
-                LoadItem(spawner.Data.ItemType, scene);
-            }
-            switch (spawner.Data.EnemyType)
-            {
-            case EnemyType.Cretaphid:
-                LoadEnemy(EnemyType.CretaphidEye, scene);
-                scene.LoadEffect(65, persistent: false); // cylCrystalCharge
-                scene.LoadEffect(66, persistent: false); // cylCrystalKill
-                scene.LoadEffect(67, persistent: false); // cylCrystalShot
-                scene.LoadEffect(73, persistent: false); // cylCrystalKill2
-                scene.LoadEffect(74, persistent: false); // cylCrystalKill3
-                scene.LoadEffect(116, persistent: false); // cylCrystalProjectile
-                scene.LoadEffect(117, persistent: false); // cylWeakSpotShot
-                scene.LoadEffect(138, persistent: false); // cylHomingProjectile
-                scene.LoadEffect(139, persistent: false); // cylHomingKill
-                LoadItem(ItemType.HealthMedium, scene);
-                LoadItem(ItemType.UASmall, scene);
-                LoadItem(ItemType.MissileSmall, scene);
-                break;
-            case EnemyType.Gorea1A:
-                LoadEnemy(EnemyType.Gorea1B, scene);
-                scene.LoadEffect(48, persistent: false); // goreaChargeJak
-                scene.LoadEffect(46, persistent: false); // goreaChargeElc
-                scene.LoadEffect(49, persistent: false); // goreaChargeMrt
-                scene.LoadEffect(47, persistent: false); // goreaChargeIce
-                scene.LoadEffect(50, persistent: false); // goreaChargeSnp
-                scene.LoadEffect(41, persistent: false); // goreaArmChargeUp
-                scene.LoadEffect(42, persistent: false); // goreaBallExplode
-                scene.LoadEffect(43, persistent: false); // goreaShoulderDamageLoop
-                scene.LoadEffect(44, persistent: false); // goreaShoulderHits
-                scene.LoadEffect(45, persistent: false); // goreaShoulderKill
-                scene.LoadEffect(54, persistent: false); // goreaFireJak
-                scene.LoadEffect(51, persistent: false); // goreaFireElc
-                scene.LoadEffect(55, persistent: false); // goreaFireMrt
-                scene.LoadEffect(53, persistent: false); // goreaFireIce
-                scene.LoadEffect(56, persistent: false); // goreaFireSnp
-                scene.LoadEffect(52, persistent: false); // goreaFireGst
-                scene.LoadEffect(71, persistent: false); // goreaSlam
-                scene.LoadEffect(72, persistent: false); // goreaBallExplode2
-                scene.LoadEffect(104, persistent: false); // goreaEyeFlash
-                scene.LoadEffect(148, persistent: false); // grappleEnd
-                scene.LoadEffect(175, persistent: false); // goreaReveal
-                scene.LoadEffect(179, persistent: false); // goreaGrappleDamage
-                scene.LoadEffect(180, persistent: false); // goreaGrappleDie
-                LoadItem(ItemType.HealthBig, scene);
-                LoadItem(ItemType.UABig, scene);
-                LoadItem(ItemType.MissileBig, scene);
-                break;
-            case EnemyType.Trocra:
-                scene.LoadEffect(164, persistent: false); // goreaCrystalHit
-                scene.LoadEffect(75, persistent: false); // goreaCrystalExplode
-                LoadItem(ItemType.HealthSmall, scene);
-                LoadItem(ItemType.UASmall, scene);
-                LoadItem(ItemType.MissileSmall, scene);
-                break;
-            case EnemyType.Gorea2:
-                LoadEnemy(EnemyType.GoreaMeteor, scene);
-                scene.LoadEffect(104, persistent: false); // goreaEyeFlash
-                scene.LoadEffect(224, persistent: false); // goreaLaserCol
-                scene.LoadEffect(79, persistent: false); // goreaMeteor
-                scene.LoadEffect(176, persistent: false); // goreaMeteorDamage
-                scene.LoadEffect(177, persistent: false); // goreaMeteorDestroy
-                scene.LoadEffect(178, persistent: false); // goreaMeteorHit
-                scene.LoadEffect(80, persistent: false); // goreaTeleport
-                scene.LoadEffect(225, persistent: false); // goreaHurt
-                scene.LoadEffect(44, persistent: false); // goreaShoulderHits
-                scene.LoadEffect(72, persistent: false); // goreaBallExplode2
-                scene.LoadEffect(174, persistent: false); // goreaMeteorLaunch
-                scene.LoadEffect(210, persistent: false); // goreaLaserCharge
-                LoadItem(ItemType.HealthSmall, scene);
-                LoadItem(ItemType.UASmall, scene);
-                LoadItem(ItemType.MissileSmall, scene);
-                break;
-            case EnemyType.Slench:
-                LoadEnemy(EnemyType.SlenchNest, scene);
-                LoadEnemy(EnemyType.SlenchSynapse, scene);
-                scene.LoadEffect(64, persistent: false); // tear
-                scene.LoadEffect(81, persistent: false); // tearChargeUp
-                scene.LoadEffect(68, persistent: false); // tearSplat
-                scene.LoadEffect(82, persistent: false); // eyeShield
-                scene.LoadEffect(70, persistent: false); // eyeShieldHit
-                scene.LoadEffect(69, persistent: false); // eyeShieldCharge
-                scene.LoadEffect(83, persistent: false); // eyeShieldDefeat
-                scene.LoadEffect(109, persistent: false); // eyeTurretCharge
-                scene.LoadEffect(135, persistent: false); // synapseKill
-                scene.LoadEffect(201, persistent: false); // eyeDamageLoop
-                scene.LoadEffect(202, persistent: false); // eyeHit
-                scene.LoadEffect(203, persistent: false); // eyelKill
-                scene.LoadEffect(204, persistent: false); // eyeKill2
-                scene.LoadEffect(205, persistent: false); // eyeKill3
-                scene.LoadEffect(206, persistent: false); // eyeFinalKill
-                LoadItem(ItemType.HealthMedium, scene);
-                LoadItem(ItemType.UASmall, scene);
-                LoadItem(ItemType.MissileSmall, scene);
-                break;
-            case EnemyType.Blastcap:
-                scene.LoadEffect(3, persistent: false); // blastCapHit
-                scene.LoadEffect(4, persistent: false); // blastCapBlow
-                break;
-            case EnemyType.PsychoBit1:
-                scene.LoadEffect(240, persistent: false); // psychoCharge
-                break;
-            case EnemyType.AlimbicTurret:
-                scene.LoadEffect(207, persistent: false); // chargeTurret
-                scene.LoadEffect(208, persistent: false); // flashTurret
-                break;
-            case EnemyType.FireSpawn:
-                if (spawner.Data.Fields.S06.EnemySubtype == 1)
-                {
-                    scene.LoadEffect(96, persistent: false); // iceDemonHurl
-                    scene.LoadEffect(132, persistent: false); // iceDemonRise
-                    scene.LoadEffect(133, persistent: false); // iceDemonDive
-                    scene.LoadEffect(131, persistent: false); // iceDemonSplat
-                    scene.LoadEffect(217, persistent: false); // iceDemonDeath
-                }
-                else
-                {
-                    scene.LoadEffect(94, persistent: false); // lavaDemonHurl
-                    scene.LoadEffect(95, persistent: false); // lavaDemonRise
-                    scene.LoadEffect(93, persistent: false); // lavaDemonDive
-                    scene.LoadEffect(110, persistent: false); // lavaDemonSplat
-                    scene.LoadEffect(218, persistent: false); // lavaDemonDeath
-                }
-                break;
-            case EnemyType.GreaterIthrak:
-                scene.LoadEffect(102, persistent: false); // hangingSpit
-                scene.LoadEffect(101, persistent: false); // hangingDrip
-                scene.LoadEffect(103, persistent: false); // hangingSplash
-                break;
-            case EnemyType.Shriekbat:
-                scene.LoadEffect(29, persistent: false); // shriekBatTrail
-                scene.LoadEffect(108, persistent: false); // shriekBatCol
-                break;
-            case EnemyType.CarnivorousPlant:
-                ObjectMetadata meta = Metadata.GetObjectById(spawner.Data.Fields.S07.EnemySubtype);
-                scene.LoadModel(meta.Name);
-                break;
-            }
-        }
-
-        private static void LoadEnemy(EnemyType enemy, Scene scene)
-        {
-            if (enemy == EnemyType.SlenchSynapse)
-            {
-                if (scene.RoomId == 76) // UNIT3_B2
-                {
-                    scene.LoadModel("BigEyeSynapse_04");
-                }
-                else if (scene.RoomId == 64) // UNIT2_B2
-                {
-                    scene.LoadModel("BigEyeSynapse_03");
-                }
-                else if (scene.RoomId == 82) // UNIT4_B1
-                {
-                    scene.LoadModel("BigEyeSynapse_02");
-                }
-                else // if(scene.RoomId == 35) // UNIT1_B1
-                {
-                    scene.LoadModel("BigEyeSynapse_01");
-                }
-            }
-            else
-            {
-                string? model = Metadata.GetEnemyModelName(enemy);
-                if (model != null)
-                {
-                    scene.LoadModel(model);
-                }
-                if (enemy == EnemyType.Gorea1A)
-                {
-                    scene.LoadModel("Gorea1B_lod0");
-                    scene.LoadModel("goreaArmRegen");
-                    scene.LoadModel("goreaMindTrick");
-                    scene.LoadModel("goreaMindTrick");
-                }
-                else if (enemy == EnemyType.Gorea2)
-                {
-                    scene.LoadModel("goreaMeteor");
-                    scene.LoadModel("goreaLaser");
-                    scene.LoadModel("goreaLaserColl");
-                }
-            }
-            int effectId = Metadata.GetEnemyDeathEffect(enemy);
-            if (effectId > 0)
-            {
-                scene.LoadEffect(effectId, persistent: false);
             }
         }
 

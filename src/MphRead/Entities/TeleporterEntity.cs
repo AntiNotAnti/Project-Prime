@@ -30,7 +30,7 @@ namespace MphRead.Entities
             Array.Fill(slots, true);
             return slots;
         }
-        private readonly int _targetRoomId = -1;
+        private readonly bool _hasExternalDestination;
         private NodeRef _targetNodeRef = NodeRef.None;
 
         // used for invisible teleporters
@@ -66,19 +66,9 @@ namespace MphRead.Entities
                 inst.AnimInfo.Frame[0] = 0;
                 inst.AnimInfo.Flags[0] |= AnimFlags.Ended;
             }
-            if (data.EntityFilename[0] != '\0')
-            {
-                for (int i = 0; i < Metadata.RoomList.Count; i++)
-                {
-                    RoomMetadata room = Metadata.RoomList[i];
-                    string? filename = room.EntityFilename;
-                    if (filename != null && Compare(data.EntityFilename, filename))
-                    {
-                        _targetRoomId = room.Id;
-                        break;
-                    }
-                }
-            }
+            // A removed campaign destination must never become an intra-room pad
+            // just because its target no longer exists in the runtime catalog.
+            _hasExternalDestination = data.EntityFilename[0] != '\0';
             Active = data.Active != 0;
 
             // 0-7 = big teleporter using the corresponding artifact model
@@ -119,11 +109,6 @@ namespace MphRead.Entities
             }
         }
 
-        private bool Compare(ReadOnlySpan<char> data, ReadOnlySpan<char> room)
-        {
-            return MemoryExtensions.StartsWith(room, data[..15], StringComparison.InvariantCultureIgnoreCase);
-        }
-
         public override void Initialize()
         {
             base.Initialize();
@@ -149,7 +134,7 @@ namespace MphRead.Entities
                     InitiateAnimaton();
                 }
             }
-            if (!Active)
+            if (!Active || _hasExternalDestination)
             {
                 return true;
             }
@@ -179,10 +164,8 @@ namespace MphRead.Entities
                             if (CollisionDetection.CheckCylinderOverlapSphere(player.PrevPosition, player.Volume.SpherePosition,
                                 testPos, radius, ref discard))
                             {
-                                if (_targetRoomId == -1)
-                                {
-                                    player.Teleport(_targetPos.AddY(0.5f), FacingVector, _targetNodeRef);
-                                }
+                                player.Teleport(_targetPos.AddY(0.5f), FacingVector, _targetNodeRef);
+
                                 player.Speed = new Vector3(0, player.Speed.Y, 0);
                                 if (player.IsBot)
                                 {

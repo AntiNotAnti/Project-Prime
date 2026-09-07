@@ -157,11 +157,6 @@ namespace MphRead
             return new LinkedListIteratorSpecialized<ItemInstanceEntity>(_entityNodesByType[EntityType.ItemInstance]);
         }
 
-        public LinkedListIteratorSpecialized<EnemySpawnEntity> GetEnemySpawnEntities()
-        {
-            return new LinkedListIteratorSpecialized<EnemySpawnEntity>(_entityNodesByType[EntityType.EnemySpawn]);
-        }
-
         public LinkedListIteratorSpecialized<TriggerVolumeEntity> GetTriggerVolumeEntities()
         {
             return new LinkedListIteratorSpecialized<TriggerVolumeEntity>(_entityNodesByType[EntityType.TriggerVolume]);
@@ -212,11 +207,6 @@ namespace MphRead
             return new LinkedListIteratorSpecialized<LightSourceEntity>(_entityNodesByType[EntityType.LightSource]);
         }
 
-        public LinkedListIteratorSpecialized<ArtifactEntity> GetArtifactEntities()
-        {
-            return new LinkedListIteratorSpecialized<ArtifactEntity>(_entityNodesByType[EntityType.Artifact]);
-        }
-
         public LinkedListIteratorSpecialized<CamSeqEntity> GetCamSeqEntities()
         {
             return new LinkedListIteratorSpecialized<CamSeqEntity>(_entityNodesByType[EntityType.CameraSequence]);
@@ -237,9 +227,9 @@ namespace MphRead
             return new LinkedListIteratorSpecialized<BombEntity>(_entityNodesByType[EntityType.Bomb]);
         }
 
-        public LinkedListIteratorSpecialized<EnemyInstanceEntity> GetEnemyInstanceEntities()
+        public LinkedListIteratorSpecialized<ForceFieldLockEntity> GetForceFieldLockEntities()
         {
-            return new LinkedListIteratorSpecialized<EnemyInstanceEntity>(_entityNodesByType[EntityType.EnemyInstance]);
+            return new LinkedListIteratorSpecialized<ForceFieldLockEntity>(_entityNodesByType[EntityType.ForceFieldLock]);
         }
 
         public LinkedListIteratorSpecialized<HalfturretEntity> GetHalfturretEntities()
@@ -308,7 +298,6 @@ namespace MphRead
                 { EntityType.Door, null },
                 { EntityType.ItemSpawn, null },
                 { EntityType.ItemInstance, null },
-                { EntityType.EnemySpawn, null },
                 { EntityType.TriggerVolume, null },
                 { EntityType.AreaVolume, null },
                 { EntityType.JumpPad, null },
@@ -319,12 +308,11 @@ namespace MphRead
                 { EntityType.Teleporter, null },
                 { EntityType.NodeDefense, null },
                 { EntityType.LightSource, null },
-                { EntityType.Artifact, null },
                 { EntityType.CameraSequence, null },
                 { EntityType.ForceField, null },
                 { EntityType.BeamEffect, null },
                 { EntityType.Bomb, null },
-                { EntityType.EnemyInstance, null },
+                { EntityType.ForceFieldLock, null },
                 { EntityType.Halfturret, null },
                 { EntityType.Player, null },
                 { EntityType.BeamProjectile, null },
@@ -438,7 +426,6 @@ namespace MphRead
             new(typeof(DoorEntity), EntityType.Door),
             new(typeof(ItemSpawnEntity), EntityType.ItemSpawn),
             new(typeof(ItemInstanceEntity), EntityType.ItemInstance),
-            new(typeof(EnemySpawnEntity), EntityType.EnemySpawn),
             new(typeof(TriggerVolumeEntity), EntityType.TriggerVolume),
             new(typeof(AreaVolumeEntity), EntityType.AreaVolume),
             new(typeof(JumpPadEntity), EntityType.JumpPad),
@@ -449,12 +436,11 @@ namespace MphRead
             new(typeof(TeleporterEntity), EntityType.Teleporter),
             new(typeof(NodeDefenseEntity), EntityType.NodeDefense),
             new(typeof(LightSourceEntity), EntityType.LightSource),
-            new(typeof(ArtifactEntity), EntityType.Artifact),
             new(typeof(CamSeqEntity), EntityType.CameraSequence),
             new(typeof(ForceFieldEntity), EntityType.ForceField),
             new(typeof(BeamEffectEntity), EntityType.BeamEffect),
             new(typeof(BombEntity), EntityType.Bomb),
-            new(typeof(EnemyInstanceEntity), EntityType.EnemyInstance),
+            new(typeof(ForceFieldLockEntity), EntityType.ForceFieldLock),
             new(typeof(HalfturretEntity), EntityType.Halfturret),
             new(typeof(PlayerEntity), EntityType.Player),
             new(typeof(BeamProjectileEntity), EntityType.BeamProjectile),

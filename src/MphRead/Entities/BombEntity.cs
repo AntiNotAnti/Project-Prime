@@ -2,7 +2,6 @@ using System;
 using System.Buffers;
 using System.Diagnostics;
 using MphRead.Effects;
-using MphRead.Entities.Enemies;
 using MphRead.Formats;
 using MphRead.Formats.Culling;
 using MphRead.Mods.Network;
@@ -156,21 +155,12 @@ namespace MphRead.Entities
                         }
                     }
                 }
-                foreach (EnemyInstanceEntity enemy in _scene.GetEnemyInstanceEntities())
+                foreach (ForceFieldLockEntity fieldLock in _scene.GetForceFieldLockEntities())
                 {
-                    if (enemy.Flags.TestFlag(EnemyFlags.CollideBeam) && (enemy.EnemyType != EnemyType.Temroid || enemy.StateA != 8)
-                        && enemy.CheckHitByBomb(this))
+                    if (fieldLock.CheckHitByBomb(this))
                     {
-                        hitEntity = enemy;
+                        hitEntity = fieldLock;
                         Flags |= BombFlags.Exploding;
-                    }
-                }
-                foreach (EnemyInstanceEntity enemy in _scene.GetEnemyInstanceEntities())
-                {
-                    if (enemy.Flags.TestFlag(EnemyFlags.CollideBeam) && enemy.EnemyType == EnemyType.Temroid && enemy.StateA == 8
-                        && ((Enemy02Entity)enemy).CheckTemroidHitByBomb(this))
-                    {
-                        hitEntity = enemy;
                     }
                 }
                 if (Owner.IsAltForm)

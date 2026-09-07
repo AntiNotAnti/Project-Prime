@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using MphRead.Entities.Enemies;
 using MphRead.Formats;
 using MphRead.Formats.Culling;
 using MphRead.Sound;
@@ -54,10 +53,6 @@ namespace MphRead.Entities
                             continue;
                         }
                         _scene.SendMessage(Message.Destroyed, this, null, 0, 0, delay: 1);
-                        if (other.EnemySpawner != null)
-                        {
-                            _scene.SendMessage(Message.Destroyed, this, other.EnemySpawner, 0, 0);
-                        }
                         other.AiData.Flags2 |= AiFlags2.Bit13;
                     }
                     AiData.Flags3 &= ~AiFlags3.Bit5;
@@ -88,10 +83,6 @@ namespace MphRead.Entities
                 if (AiData.Flags3.TestFlag(AiFlags3.Despawned))
                 {
                     _scene.SendMessage(Message.Destroyed, this, null, 0, 0, delay: 1);
-                    if (EnemySpawner != null)
-                    {
-                        _scene.SendMessage(Message.Destroyed, this, EnemySpawner, 0, 0);
-                    }
                     _health = 0;
                     Flags2 |= PlayerFlags2.HideModel;
                     AiData.Flags3 &= ~AiFlags3.Despawned;
@@ -135,7 +126,7 @@ namespace MphRead.Entities
             }
             if (_health == 0)
             {
-                if (_respawnTimer == 0 && EnemySpawner == null)
+                if (_respawnTimer == 0)
                 {
                     if (_scene.Room?.LoadEntityId >= 0)
                     {
@@ -818,18 +809,6 @@ namespace MphRead.Entities
                     float factor = (MathF.Cos(MathHelper.DegreesToRadians(angle)) + 1) / 2;
                     _facingVector = _field410 + (_field41C - _field410) * factor;
                     _facingVector = _facingVector.Normalized();
-                }
-            }
-            if (AttachedEnemy != null && !IsAltForm && (_bipedModel2.AnimInfo.Index[0] != (int)PlayerAnimation.Unmorph
-                || _bipedModel2.AnimInfo.Flags[0].TestFlag(AnimFlags.Ended)))
-            {
-                if (AttachedEnemy.EnemyType == EnemyType.Temroid)
-                {
-                    ((Enemy02Entity)AttachedEnemy).UpdateAttached(this);
-                }
-                else if (AttachedEnemy.EnemyType == EnemyType.Quadtroid)
-                {
-                    ((Enemy37Entity)AttachedEnemy).UpdateAttached(this);
                 }
             }
             if (EquipInfo.SmokeLevel < EquipInfo.Weapon.SmokeStart * 2) // todo: FPS stuff
@@ -2043,7 +2022,7 @@ namespace MphRead.Entities
             else if (info.Message == Message.Impact)
             {
                 if (info.Param1 is EntityBase target && target != this
-                    && (target.Type == EntityType.EnemyInstance || target.Type == EntityType.Halfturret || target.Type == EntityType.Player))
+                    && (target is ForceFieldLockEntity || target.Type == EntityType.Halfturret || target.Type == EntityType.Player))
                 {
                     _lastTarget = target;
                     _timeSinceHitTarget = 0;

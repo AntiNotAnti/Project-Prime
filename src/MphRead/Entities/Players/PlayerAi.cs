@@ -1675,8 +1675,8 @@ namespace MphRead.Entities
                         Func1_2148D50();
                         break;
                     case 82:
-                        Func1_UnlockEchoHallForceField();
-                        break;
+                        // AMHE1 multiplayer personality roots never reference campaign action 82.
+                        throw new ProgramException("Campaign AI action 82 is unsupported in multiplayer.");
                     case 83:
                         Func1_SetInvulnerable();
                         break;
@@ -3040,17 +3040,6 @@ namespace MphRead.Entities
                 }
             }
 
-            private void Func1_UnlockEchoHallForceField()
-            {
-                foreach (ForceFieldEntity forceField in _scene.GetForceFieldEntities())
-                {
-                    if (forceField.Id == 19)
-                    {
-                        _scene.SendMessage(Message.Unlock, _player, forceField, 0, 0);
-                        break;
-                    }
-                }
-            }
 
             private void Func1_SetInvulnerable()
             {
@@ -11392,7 +11381,7 @@ namespace MphRead.Entities
                     79 => nameof(Func1_2148DF8),
                     80 => nameof(Func1_2148DE8),
                     81 => nameof(Func1_2148D50),
-                    82 => nameof(Func1_UnlockEchoHallForceField),
+                    82 => "UnsupportedCampaignAction82",
                     83 => nameof(Func1_SetInvulnerable),
                     _ => throw new ProgramException("Invalid AI func 1.")
                 };

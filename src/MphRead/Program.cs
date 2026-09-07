@@ -102,7 +102,6 @@ namespace MphRead
             {
                 var rooms = new List<string>();
                 var models = new List<(string, int)>();
-                BossFlags bossFlags = BossFlags.None;
                 int nodeLayerMask = 0;
                 int entityLayerId = -1;
                 if (TryGetInt(arguments, "room", "r", out int roomId))
@@ -122,10 +121,6 @@ namespace MphRead
                 {
                     Console.Error.WriteLine("Local gameplay options -mode and -players are no longer supported. Use -launcher to host or join a server.");
                     Exit();
-                }
-                if (TryGetInt(arguments, "boss", "b", out int bossValue))
-                {
-                    bossFlags = (BossFlags)bossValue;
                 }
                 if (TryGetInt(arguments, "node", "n", out int nodeValue))
                 {
@@ -156,7 +151,7 @@ namespace MphRead
                 foreach (string room in rooms)
                 {
                     // No player is created: this is the existing free-camera asset viewer.
-                    renderer.AddRoom(room, GameMode.Battle, 0, bossFlags, nodeLayerMask, entityLayerId);
+                    renderer.AddRoom(room, GameMode.Battle, 0, nodeLayerMask, entityLayerId);
                 }
                 bool firstHunt = arguments.Any(a => a.Name == "fh");
                 foreach ((string model, int recolor) in models)
@@ -324,7 +319,7 @@ namespace MphRead
             Console.WriteLine("    -model <model_name> [recolor_index]");
             Console.WriteLine("At most one room may be specified. Any number of models may be specified.");
             Console.WriteLine("To load First Hunt models, include -fh in the argument list.");
-            Console.WriteLine("Available room inspection options: -boss, -node, -entity");
+            Console.WriteLine("Available room inspection options: -node, -entity");
             Console.WriteLine("- or -");
             Console.WriteLine("    -extract <archive_path>");
             Console.WriteLine("If the target archive is LZ10-compressed, it will be decompressed.");

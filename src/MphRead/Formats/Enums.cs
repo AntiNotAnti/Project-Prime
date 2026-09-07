@@ -27,7 +27,8 @@ namespace MphRead
         // 20 = missing?
         BeamEffect = 21,
         Bomb = 22,
-        EnemyInstance = 23,
+        EnemyInstance = 23, // Raw legacy format identity; no campaign runtime class.
+        ForceFieldLock = 23, // Same tick ordering as the former lock enemy instance.
         Halfturret = 24,
         Player = 25,
         BeamProjectile = 26,
