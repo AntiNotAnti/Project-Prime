@@ -984,7 +984,7 @@ namespace MphRead.Entities
                     }
                     // Mark the old generation before a child can recycle this
                     // slot; otherwise recycling would apply its splash again.
-                    if (ServerCombat.Current?.CatchUp.CollisionTick != null)
+                    if (ServerCombat.Current != null)
                     {
                         Flags |= BeamFlags.Collided;
                         // The old generation must emit its impact before the

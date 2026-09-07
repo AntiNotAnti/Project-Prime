@@ -44,6 +44,7 @@ namespace MphRead.NetTest
                 player.Teleport(origin + side * (5 + player.SlotIndex * 2), -direction, scene.GetNodeRefByPosition(origin));
             // One physical slot forces the real child Spawn to reuse the parent while its collision stack is active.
             var beam = new BeamProjectileEntity(scene);
+            var impactObserver = new ImpactObserver(scene);
             var equip = new EquipInfo(Weapons.Current[(int)BeamType.Judicator], new[] { beam }) { InfiniteAmmo = true };
             var combat = new ServerCombat();
             for (uint tick = ActionTick; tick < Tick; tick++)
@@ -57,6 +58,7 @@ namespace MphRead.NetTest
                 combat.SetCommand(0, new(1, Tick, later ? Tick - 1 : ActionTick, 0, 0, direction, (byte)BeamType.Judicator), 250);
                 BeamProjectileEntity.Spawn(shooter, equip, origin, direction,
                     BeamSpawnFlags.NoMuzzle, scene.GetNodeRefByPosition(origin), scene);
+                beam.Owner = impactObserver;
                 scene.StepHeadlessFrame(advanceMatch: false);
                 combat.CatchUp.Drain();
             }
@@ -82,13 +84,27 @@ namespace MphRead.NetTest
             Require(beam.Generation == 2 && beam.RicochetWeapon == null && beam.Lifespan > 0
                 && !beam.Flags.TestFlag(BeamFlags.Collided), "Parent stack corrupted the recycled child.");
             Require(combat.ShotsConsidered == 1 && combat.CatchUp.QueueDrops == 0, "Child inflated root timing or queue metrics.");
-            int impacts = 0;
-            foreach (MessageInfo message in scene.MessageQueue)
-                if (message.Message == Message.Impact && message.Sender == beam) impacts++;
-            if (!later) Require(impacts == 1, "Recycled parent must emit exactly one impact.");
+            int impacts = impactObserver.Count;
+            Require(impacts == 1 && impactObserver.Generation == 1,
+                "Parent impact must dispatch exactly once before slot reuse.");
             Require(combat.CatchUp.Pending == 0 && beam.CombatShot.CommandSequence == 1
                 && beam.CombatShot.ActionServerTick == (later ? Tick - 1 : ActionTick), "Child lost immutable timing or remained queued.");
             Console.WriteLine($"CATCHUP-CHILD later={later} generation={beam.Generation} age={beam.Age:F6} steps={combat.CatchUp.Steps} collisions={combat.CatchUp.Collisions} impacts={impacts} PASS");
+        }
+
+        private sealed class ImpactObserver : EntityBase
+        {
+            public int Count { get; private set; }
+            public uint Generation { get; private set; }
+            public ImpactObserver(Scene scene) : base(EntityType.Object, scene) { }
+            public override void HandleMessage(MessageInfo info)
+            {
+                if (info.Message == Message.Impact)
+                {
+                    Count++;
+                    Generation = ((BeamProjectileEntity)info.Sender).Generation;
+                }
+            }
         }
 
         private static void Run(Scene scene, string name)

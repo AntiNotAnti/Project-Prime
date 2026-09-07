@@ -1,6 +1,9 @@
 # Post-upstream authoritative networking upgrades
 
-This work starts from authoritative checkpoint `ab07a38`, based on `830e15e`.
+This work originally started from authoritative checkpoint `ab07a38`, based on
+`830e15e`. The repository history was subsequently reorganized into the current
+`main` baseline through `6b1f65b`; the earlier hashes below identify the original
+validation checkpoints, not commits that must be restored or reapplied.
 The reference is upstream [PR #13](https://github.com/liveteklol/Fruity-Prime/pull/13),
 merged as `b5b6b1f`. Its relay implementation is reference material; the online
 architecture remains one dedicated, single-writer simulation with ordinary clients.
@@ -133,6 +136,36 @@ The real-content regression failed on the first spawn before this fix. Afterward
 two generations each spawned 32 bombs, rejected a 33rd, respected the normal
 86-tick fuse and reused the same 32 objects after expiry. The fixture runs via
 `nettest --bomb-pool DATA [VERSION]` and the data-enabled server smoke script.
+
+### Pass 5: bounded ordinary projectile catch-up
+
+Eligible projectiles defer their ordinary scene step until all players have
+finished moving. They then run the existing projectile simulation for completed
+boundaries T+1 through N, at most 15 steps. The current endpoint uses current
+player geometry; earlier steps require immutable history for the target's exact
+connection and life. A missing historical identity never falls back to its
+replacement's current body. Splash uses the same historical player position and
+current map line of sight. Surviving caught-up projectiles use present targets
+on subsequent ordinary frames, avoiding a second compensation interval.
+
+A fixed 512-entry queue defers children until the parent collision stack has
+unwound. Pool generations invalidate stale entries. Children born during
+catch-up receive only the remaining interval; later ordinary children receive
+no repeated catch-up. Parent impacts dispatch before a recycled slot becomes its
+child, both during catch-up and during subsequent normal simulation.
+
+The actual-content fixture passes bit-exact position, velocity and age checks
+for seven ordinary weapons and all three charged Judicator pellets across nine
+steps, with a distinct OFF control. It also checks zero rewind, the 15-step cap,
+expiry, queue bounds, moving historical targets, wall order, life/connection
+replacement, current endpoint hits, one kill, historical splash and splash LOS.
+Both immediate and later single-slot child cases verify exactly one synchronous
+parent impact and preserved child state. The test observes message dispatch,
+because targeted impacts are synchronous and do not remain in the message queue.
+
+The integrated C# suite passed 202 tests. Server/nettest builds passed without
+warnings and real-content directory, connection, history and bomb smoke checks
+passed. These results precede homing support and the final mixed-combat soak.
 
 ## Reproduction
 
