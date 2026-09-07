@@ -136,6 +136,9 @@ jobs:
         with:
           ref: refs/tags/${{ steps.name.outputs.tag }}
 
+      - name: test authoritative server update packaging
+        run: python3 -m unittest discover -s tools/tests -p test_server_update_package.py
+
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '9.0.x'
@@ -491,6 +494,27 @@ jobs:
           # are not -- the second installs, and can never be updated in place.
           cp publish/android/*-Signed.apk "dist/FruityPrime-$TAG-android.apk"
           ls -la dist
+
+      # Update assets require an explicitly configured authoritative fork.
+      # Without this repository variable, normal release packages are unchanged.
+      - name: generate-authoritative-server-update-assets
+        if: vars.AUTHORITATIVE_RELEASE_REPOSITORY == github.repository && github.repository != 'liveteklol/Fruity-Prime'
+        env:
+          TAG: ${{ steps.name.outputs.tag }}
+          REPOSITORY: ${{ vars.AUTHORITATIVE_RELEASE_REPOSITORY }}
+        run: |
+          set -euo pipefail
+          python3 tools/server-update-package.py build --publish publish/win-x64-server \
+            --rid win-x64 --tag "$TAG" --repository "$REPOSITORY" --output dist
+          python3 tools/server-update-package.py build --publish publish/linux-x64-server \
+            --rid linux-x64 --tag "$TAG" --repository "$REPOSITORY" --output dist
+          python3 tools/server-update-package.py build --publish publish/linux-arm64 \
+            --rid linux-arm64 --tag "$TAG" --repository "$REPOSITORY" --output dist
+          for rid in win-x64 linux-x64 linux-arm64; do
+            python3 tools/server-update-package.py verify \
+              --manifest "dist/authoritative-update-$rid-server.json" \
+              --directory dist --tag "$TAG" --rid "$rid"
+          done
 
       # A draft: everything is built and uploaded, and a person presses the
       # button. This is the one workflow whose output people download, and a
