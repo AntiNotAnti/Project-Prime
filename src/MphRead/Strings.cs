@@ -35,7 +35,7 @@ namespace MphRead.Text
             var entries = new List<StringTableEntry>();
             string filename = name == StringTables.ScanLog && Paths.MphKey == Ver.AMHK0 ? StringTables.ScanLogSorted : name;
             string path = Paths.Combine(Paths.FileSystem, GetFolder(), filename);
-            var bytes = new ReadOnlySpan<byte>(File.ReadAllBytes(path));
+            var bytes = new ReadOnlySpan<byte>(Mods.Network.ServerContent.ReadBytes(path));
             uint count = Read.SpanReadUint(bytes, 0);
             // ScanLog has an 8-byte header and 8 bytes between the last entry and first string,
             // which are related to parsing max string length and not necessary for us to use
@@ -77,6 +77,7 @@ namespace MphRead.Text
 
         public static string GetHudMessage(uint id)
         {
+            if (Read.ServerMode) { return String.Empty; }
             if (id >= 1 && id <= 11)
             {
                 return GetMessage('H', id, StringTables.HudMsgsCommon);
@@ -103,6 +104,7 @@ namespace MphRead.Text
 
         public static string GetMessage(char type, uint id, string table)
         {
+            if (Read.ServerMode) { return String.Empty; }
             StringTableEntry? entry = GetEntry(type, id, table);
             return entry?.Value1 ?? " ";
         }
@@ -235,7 +237,7 @@ namespace MphRead.Text
             {
                 path = path.Replace("amhe0", "amhp1");
             }
-            var bytes = new ReadOnlySpan<byte>(File.ReadAllBytes(path));
+            var bytes = new ReadOnlySpan<byte>(Mods.Network.ServerContent.ReadBytes(path));
             // in practice the entries are always tightly packed in order, but we'll read them through the offsets anyway
             int offset = 0;
             var list = new List<uint>();

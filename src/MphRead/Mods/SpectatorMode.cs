@@ -71,12 +71,16 @@ namespace MphRead.Mods
                 return;
             }
             IsSpectating = true;
+            // Protocol 5 sends the desired state as input; authoritative
+            // snapshots decide when the body leaves or returns to the match.
+            // The legacy/offline path still changes its local entity here.
             // Hidden and non-solid on every client, like Quake 3's
             // spectator -- not just a body left standing still. Set on the
             // real local entity (not whoever Main points at); NetSession
             // reads this flag into the outgoing snapshot for everyone else.
             int localSlot = Network.NetHooks.LocalSlot;
-            if (localSlot >= 0 && localSlot < PlayerEntity.Players.Count)
+            if (!Network.AuthoritativePlay.Active
+                && localSlot >= 0 && localSlot < PlayerEntity.Players.Count)
             {
                 PlayerEntity.Players[localSlot].ModSetSpectating(true);
             }
@@ -207,7 +211,8 @@ namespace MphRead.Mods
         }
 
         /// <summary>
-        /// Back into the match. The score resets because time spent
+        /// Protocol 5 requests a delayed server respawn and preserves combat
+        /// scores. In offline and legacy matches the score resets because time spent
         /// spectating was time not playing -- picking the match back up with
         /// whatever score was left standing would credit or fault a period
         /// nothing was actually being played.
@@ -226,13 +231,17 @@ namespace MphRead.Mods
                 return;
             }
             int localSlot = Network.NetHooks.LocalSlot;
-            PlayerEntity.MainPlayerIndex = localSlot;
+            if (localSlot >= 0 && localSlot < PlayerEntity.Players.Count)
+            {
+                PlayerEntity.MainPlayerIndex = localSlot;
+            }
             IsSpectating = false;
             ShowScoreboard = false;
             // Back behind your own eyes, whichever of the two spectator
             // cameras was up.
             _cameraRequest = false;
-            if (localSlot >= 0 && localSlot < GameState.Points.Length)
+            if (!Network.AuthoritativePlay.Active
+                && localSlot >= 0 && localSlot < GameState.Points.Length)
             {
                 PlayerEntity.Players[localSlot].ModSetSpectating(false);
                 GameState.Points[localSlot] = Math.Min(0, GameState.Points[localSlot]);

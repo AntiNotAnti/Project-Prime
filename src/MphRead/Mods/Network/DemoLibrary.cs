@@ -89,24 +89,24 @@ namespace MphRead.Mods.Network
             return found;
         }
 
-        /// <summary>
-        /// Take the room and the moment back out of "ROOM_2026-09-04_18-22-07".
-        ///
-        /// The stamp is a fixed nineteen characters at the end, which is what
-        /// makes this safe: a room name may contain underscores of its own
-        /// (SanitizeFileName puts one in for every character a file name
-        /// cannot hold), so splitting on the separator would cut the wrong one.
-        /// </summary>
+        /// <summary>Read both legacy timestamps and collision-safe modern recording names.</summary>
         private static (string Room, DateTime? Stamp) ReadName(string fileName)
         {
             string name = Path.GetFileNameWithoutExtension(fileName);
-            const int stampLength = 19; // yyyy-MM-dd_HH-mm-ss
+            string format = "yyyy-MM-dd_HH-mm-ss";
+            int stampLength = 19;
+            if (name.Length > 33 && name[^33] == '_' && Guid.TryParseExact(name[^32..], "N", out _))
+            {
+                name = name[..^33];
+                format += "-fff";
+                stampLength += 4;
+            }
             if (name.Length < stampLength + 2 || name[^(stampLength + 1)] != '_')
             {
                 return (name, null);
             }
             string stamp = name[^stampLength..];
-            if (!DateTime.TryParseExact(stamp, "yyyy-MM-dd_HH-mm-ss",
+            if (!DateTime.TryParseExact(stamp, format,
                 CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsed))
             {
                 return (name, null);

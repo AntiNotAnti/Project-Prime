@@ -90,6 +90,10 @@ namespace MphRead.Entities
 
         public static BeamEffectEntity? Create(BeamEffectEntityData data, Scene scene)
         {
+            if (scene.IsHeadless)
+            {
+                return null;
+            }
             // ptodo: effect and type 0 both need to use mtxptr
             if (data.Type >= 3)
             {

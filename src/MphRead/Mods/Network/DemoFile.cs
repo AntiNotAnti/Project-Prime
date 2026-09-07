@@ -5,53 +5,9 @@ using System.IO.Compression;
 namespace MphRead.Mods.Network
 {
     /// <summary>
-    /// A recorded match: every packet a client received, verbatim, each
-    /// tagged with the simulation frame it was acted on. Played back by
-    /// handing them to <see cref="NetSession"/> on the matching frame of the
-    /// replay, through the exact code path that applied them live -- see
-    /// <see cref="DemoPlayback"/>.
-    ///
-    /// One file, sequential, no index: this is the format a "press record,
-    /// press stop" button needs. Seeking would need one; nothing here reads
-    /// or writes one yet.
-    ///
-    /// **Frames, not milliseconds.** Version 1 stamped each record with
-    /// <c>Environment.TickCount64</c> and the player released them against a
-    /// stopwatch. Three things were wrong with that and all three were
-    /// visible:
-    ///
-    /// - The engine's clock is not the wall clock. <c>Renderer</c> advances
-    ///   the simulation by a fixed 1/60 s per frame however long the frame
-    ///   actually took, so a replay running at 58 fps consumed 60 frames of
-    ///   recording every 60 frames and fell behind real time -- and then
-    ///   caught up in bursts, several packets landing on one frame. Only the
-    ///   newest survives that: <c>RemoteStates</c> and <c>RemoteIntents</c>
-    ///   are one slot each, so every position, aim and button level in
-    ///   between was dropped on the floor.
-    /// - <c>TickCount64</c> ticks every 15.6 ms on Windows. A 60 Hz stream
-    ///   stamped on a 64 Hz clock quantises into clumps that drift against
-    ///   the frame boundaries, which produced exactly the same bursts on a
-    ///   machine holding a perfect 60 fps.
-    /// - The stopwatch starts in <see cref="DemoPlayback.Join"/> and the room
-    ///   loads after it. Loading takes seconds, nothing is pumped while it
-    ///   runs, and the first frame afterwards therefore released every packet
-    ///   recorded during it at once -- so a replay opened several seconds in,
-    ///   having discarded all but the last of them.
-    ///
-    /// A frame number has none of those failure modes. The recorder counts
-    /// the same frames the simulation does, the player releases one frame's
-    /// worth per simulated frame, and the replay reproduces the packet
-    /// distribution of the recording exactly, on any machine, at any frame
-    /// rate, with any load time in the middle.
-    ///
-    /// **Deflate.** The stream is dominated by 60 snapshots a second whose
-    /// neighbours differ in a few floats, so it compresses better than two to
-    /// one -- which is what pays for the authority recording its own outgoing
-    /// snapshots (see <see cref="DemoRecorder.RecordOwnSnapshot"/>) without
-    /// the file growing. Flushed a few times a second rather than per record:
-    /// a sync flush costs a fraction of a percent at that rate and 14% at one
-    /// per record, and a quarter second is what a demo that dies with the
-    /// game loses.
+    /// FPDM format 2: frame deltas and length-prefixed records in a deflate
+    /// stream. The uncompressed protocol byte selects the record decoder:
+    /// legacy protocol-4 packets or authoritative server presentation facts.
     /// </summary>
     internal static class DemoFile
     {
@@ -64,6 +20,11 @@ namespace MphRead.Mods.Network
         /// that could read one by accident.
         /// </summary>
         public const byte FormatVersion = 2;
+        // Authoritative protocol 5 was checkpointed before the live wire moved
+        // to 6. These formats contain server facts, not joins or input commands;
+        // both remain readable without enabling either old wire on a socket.
+        public static bool IsAuthoritativeProtocol(byte protocol) => protocol is 5 or 6;
+        public static bool IsSupportedProtocol(byte protocol) => protocol == 4 || IsAuthoritativeProtocol(protocol);
         public const string Extension = ".fpdemo";
 
         /// <summary>Magic, format version, protocol version. Never compressed: it says how to read the rest.</summary>
@@ -93,21 +54,17 @@ namespace MphRead.Mods.Network
         private uint _lastFlushFrame;
         private readonly byte[] _header = new byte[7];
 
-        public DemoWriter(string path)
+        public DemoWriter(string path, byte protocolVersion = NetHeader.Version)
         {
             string? dir = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(dir))
             {
                 Directory.CreateDirectory(dir);
             }
-            _stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read);
+            _stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
             _stream.Write(DemoFile.Magic);
             _stream.WriteByte(DemoFile.FormatVersion);
-            // NetConfig.ProtocolVersion is a const int, not a byte -- writing
-            // it as one would put four bytes here while the reader takes one
-            // back, desyncing every record after it. Narrow it explicitly so
-            // there is exactly one byte to disagree about.
-            _stream.WriteByte((byte)NetConfig.ProtocolVersion);
+            _stream.WriteByte(protocolVersion);
             _stream.Flush();
             _deflate = new DeflateStream(_stream, CompressionLevel.Fastest, leaveOpen: true);
         }
@@ -115,6 +72,8 @@ namespace MphRead.Mods.Network
         /// <param name="frame">Simulation frames since this writer was created.</param>
         public void WriteRecord(uint frame, ReadOnlySpan<byte> data)
         {
+            if (data.Length is < 1 or > NetConfig.MaxPacketSize)
+            { throw new ArgumentOutOfRangeException(nameof(data)); }
             if (frame < _lastFrame)
             {
                 // Only reachable if the frame counter were ever wound back.
@@ -154,8 +113,8 @@ namespace MphRead.Mods.Network
 
         public void Dispose()
         {
-            _deflate.Dispose();
-            _stream.Dispose();
+            try { _deflate.Dispose(); }
+            finally { _stream.Dispose(); }
         }
     }
 
@@ -205,7 +164,7 @@ namespace MphRead.Mods.Network
                 }
                 return new DemoReader(stream, header[5]);
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 stream?.Dispose();
                 return null;
@@ -242,6 +201,7 @@ namespace MphRead.Mods.Network
                     return null;
                 }
                 int length = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(_header);
+                if (length is < 1 or > NetConfig.MaxPacketSize || uint.MaxValue - _frame < delta) { return null; }
                 byte[] data = new byte[length];
                 if (!Fill(data))
                 {
@@ -272,8 +232,8 @@ namespace MphRead.Mods.Network
 
         public void Dispose()
         {
-            _deflate.Dispose();
-            _stream.Dispose();
+            try { _deflate.Dispose(); }
+            finally { _stream.Dispose(); }
         }
     }
 }

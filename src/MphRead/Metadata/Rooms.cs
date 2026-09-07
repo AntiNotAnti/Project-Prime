@@ -4099,8 +4099,8 @@ namespace MphRead
 
         public static readonly FrozenDictionary<int, string> CtfNodeDataOverrides = Frozen.Create<int, string>(
         [
-            new( 93, @"levels\nodeData\mp1_CTF_node.bi)"),    // MP1 SANCTORUS (Data Shrine)
-            new( 99, @"levels\nodeData\mp6_CTF_node.bi)"),    // MP6 HEADSHOT (Head Shot)
+            new( 93, @"levels\nodeData\mp1_CTF_node.bin"),    // MP1 SANCTORUS (Data Shrine)
+            new( 99, @"levels\nodeData\mp6_CTF_node.bin"),    // MP6 HEADSHOT (Head Shot)
             new(101, @"levels\nodeData\mp8_CTF_node.bin"),    // MP8 FIRE CONTROL (Weapons Complex)
             new(102, @"levels\nodeData\mp9_CTF_node.bin"),    // MP9 CRYOCHASM (Ice Hive)
             new(105, @"levels\nodeData\mp12_CTF_node.bin"),   // MP12 SIC TRANSIT (Sic Transit)

@@ -774,14 +774,20 @@ namespace MphRead.Droid
                     return false;
                 }
                 scene.AfterRenderFrame();
-                if (_display != null && _eglSurface != null
-                    && !EGL14.EglSwapBuffers(_display, _eglSurface))
+                if (_display != null && _eglSurface != null)
                 {
-                    // The framework took the surface back. Let go of it and
-                    // wait for the next one rather than drawing into nothing.
-                    Console.WriteLine("[android] the surface stopped accepting frames; "
-                        + $"waiting for another (0x{EGL14.EglGetError():X})");
-                    ReleaseSurface();
+                    if (EGL14.EglSwapBuffers(_display, _eglSurface))
+                    {
+                        scene.OnFramePresented();
+                    }
+                    else
+                    {
+                        // The framework took the surface back. Let go of it and
+                        // wait for the next one rather than drawing into nothing.
+                        Console.WriteLine("[android] the surface stopped accepting frames; "
+                            + $"waiting for another (0x{EGL14.EglGetError():X})");
+                        ReleaseSurface();
+                    }
                 }
                 return true;
             }

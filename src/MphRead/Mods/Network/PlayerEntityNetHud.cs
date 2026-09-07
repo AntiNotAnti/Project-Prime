@@ -23,15 +23,15 @@ namespace MphRead.Entities
         /// match the two of them move left to make room, and offline nothing
         /// moves at all.
         /// </summary>
-        internal float ModScoreColumn1 => NetSession.Active ? 145 : 160;
+        internal float ModScoreColumn1 => (NetSession.Active || AuthoritativePlay.Active) ? 145 : 160;
 
-        internal float ModScoreColumn2 => NetSession.Active ? 193 : 215;
+        internal float ModScoreColumn2 => (NetSession.Active || AuthoritativePlay.Active) ? 193 : 215;
 
         private const float _pingColumnX = 236;
 
         internal void ModDrawPingHeader(float posY)
         {
-            if (!NetSession.Active)
+            if (!NetSession.Active && !AuthoritativePlay.Active)
             {
                 return;
             }
@@ -41,11 +41,19 @@ namespace MphRead.Entities
 
         internal void ModDrawPingRow(float posY, ColorRgba rowColor, int slot)
         {
-            if (!NetSession.Active || slot < 0 || slot >= NetSession.SlotPing.Length)
+            if ((!NetSession.Active && !AuthoritativePlay.Active) || slot < 0 || slot >= PlayerEntity.SlotCapacity)
             {
                 return;
             }
             int ping = NetSession.SlotPing[slot];
+            if (AuthoritativePlay.Current is { } play)
+            {
+                ping = 0;
+                foreach (NetRosterEntry entry in play.Client.Roster)
+                {
+                    if (entry.Slot == slot) { ping = entry.PingMs; break; }
+                }
+            }
             // Zero means the server has not timed this peer yet -- a dash says
             // that, where "0" would read as a perfect connection.
             string text = ping <= 0 ? "--" : (ping > 999 ? "999" : ping.ToString());

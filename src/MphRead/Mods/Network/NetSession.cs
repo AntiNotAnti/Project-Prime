@@ -1,844 +1,174 @@
 using System;
-using System.Collections.Generic;
-using System.Net;
-using System.Net.Sockets;
+using System.Diagnostics;
 using MphRead.Entities;
 
 namespace MphRead.Mods.Network
 {
-    public enum NetRole
-    {
-        Offline,
-        Host,
-        Client
-    }
-
-    internal sealed class RemotePeer
-    {
-        public IPEndPoint EndPoint = null!;
-        public int SlotIndex = -1;
-        public IntentPacket LatestIntent;
-        public uint LastIntentFrame;
-        public double LastSeenTime;
-    }
+    public enum NetRole { Offline, Client }
 
     /// <summary>
-    /// Session state and per-frame network step.
-    ///
-    /// Host authority, not lockstep: the simulation runs in float (Fixed
-    /// only converts the ROM's 20.12 values on load), so two machines
-    /// stepping the same inputs are not guaranteed to stay bit-identical.
-    /// The host therefore owns the simulation and clients apply what it
-    /// sends. Divergence becomes a correction rather than a desync.
+    /// Passive recorded-match state. Live connections belong to AuthoritativePlay;
+    /// this adapter never opens a socket, sends input, or acquires simulation authority.
     /// </summary>
     public static class NetSession
     {
-        private static NetTransport? _transport;
-        private static readonly List<RemotePeer> _peers = new();
-        private static IPEndPoint? _hostEndPoint;
-        private static readonly byte[] _scratch = new byte[NetConfig.MaxPacketSize];
-
-        public static NetRole Role { get; private set; } = NetRole.Offline;
-        public static bool Active => Role != NetRole.Offline;
-        public static bool IsHost => Role == NetRole.Host;
-        public static bool IsClient => Role == NetRole.Client;
-        public static int LocalSlot { get; private set; } = 0;
+        public static bool Active { get; private set; }
+        public static NetRole Role => Active ? NetRole.Client : NetRole.Offline;
+        public static int LocalSlot => Active ? -1 : 0;
         public static uint NetFrame { get; private set; }
         public static uint LastSnapshotFrame => _lastSnapshotFrame;
-        public static string? LastError { get; private set; }
-
-        /// <summary>Latest authoritative state per slot, applied by clients.</summary>
+        public static string PlayerName { get; set; } = "Player";
+        public static MatchStatePacket? ServerMatch { get; private set; }
         public static readonly PlayerState[] RemoteStates = new PlayerState[PlayerEntity.SlotCapacity];
         public static readonly bool[] RemoteStateValid = new bool[PlayerEntity.SlotCapacity];
-
-        /// <summary>Latest intent per slot, consumed by the host's input step.</summary>
         public static readonly IntentPacket[] RemoteIntents = new IntentPacket[PlayerEntity.SlotCapacity];
         public static readonly bool[] RemoteIntentValid = new bool[PlayerEntity.SlotCapacity];
-
-        /// <summary>
-        /// The local frame each slot's intent last arrived on, so a receiver
-        /// can tell a current one from one that stopped coming.
-        ///
-        /// The intent carries where its owner says they are, and every client
-        /// pins that slot's puppet there (ApplyReportedPosition). When a
-        /// player's line goes away the intents stop, the last one stays in
-        /// the array, and the pin keeps pulling the puppet back to where they
-        /// were while the authority's snapshots -- which do not stop -- keep
-        /// moving it. On everyone's screen the missing player strobes between
-        /// two places at 60 Hz for as long as the outage lasts: 1600 to 2176
-        /// position snaps per client in a 200 s run with 52 s of cuts in it,
-        /// against zero in the same run with no cuts.
-        /// </summary>
-        public static readonly uint[] RemoteIntentArrived = new uint[PlayerEntity.SlotCapacity];
-
-        /// <summary>
-        /// How long ago, in frames, this slot's owner last said anything.
-        /// <see cref="UInt32.MaxValue"/> when they never have.
-        /// </summary>
-        public static uint RemoteIntentAge(int slot)
-        {
-            if (slot < 0 || slot >= RemoteIntentArrived.Length || RemoteIntentArrived[slot] == 0)
-            {
-                return UInt32.MaxValue;
-            }
-            return NetFrame >= RemoteIntentArrived[slot]
-                ? NetFrame - RemoteIntentArrived[slot]
-                : 0;
-        }
-
-        /// <summary>
-        /// Counters the log reads to tell "nothing arrived" from "it arrived
-        /// and was ignored". Two clients that are demonstrably exchanging
-        /// packets can still each hold a scene containing only themselves,
-        /// and only the difference between these two numbers says which half
-        /// of the path is at fault.
-        /// </summary>
+        public static readonly Hunter[] SlotHunter = new Hunter[PlayerEntity.SlotCapacity];
+        public static readonly int[] SlotPing = new int[PlayerEntity.SlotCapacity];
+        public static readonly bool[] SlotOccupied = new bool[PlayerEntity.SlotCapacity];
+        private static readonly uint[] _lastSlotIntentFrame = new uint[PlayerEntity.SlotCapacity];
+        private static uint _lastSnapshotFrame;
+        private static int _lateSnapshotRun;
+        private const uint SnapshotResetGap = 600;
+        private const uint IntentResetGap = 600;
+        private const int LateSnapshotsBeforeReset = 12;
         public static long SnapshotsReceived { get; private set; }
-        public static long SnapshotsSent { get; private set; }
         public static long StatesApplied { get; private set; }
         public static long IntentsReceived { get; private set; }
+        public static long SnapshotsOutOfOrder { get; private set; }
+        public static long IntentsOutOfOrder { get; private set; }
+        public static int SnapshotStreamResets { get; private set; }
+        public static NetMetrics Metrics { get; private set; } = new();
+        public static NetTrafficMetrics? TrafficMetrics => null;
 
         public static void NoteStatesApplied() => StatesApplied++;
-
-        public static void StartHost(int port = NetConfig.DefaultPort)
-        {
-            Stop();
-            try
-            {
-                _transport = new NetTransport(port);
-                Role = NetRole.Host;
-                LocalSlot = 0;
-                NetFrame = 0;
-                LastError = null;
-                Console.WriteLine($"[net] hosting on UDP {_transport.LocalPort}");
-            }
-            catch (Exception ex)
-            {
-                LastError = ex.Message;
-                Console.WriteLine($"[net] host failed: {ex.Message}");
-                Role = NetRole.Offline;
-            }
-        }
-
-        public static void StartClient(string address, int port = NetConfig.DefaultPort)
-        {
-            Stop();
-            try
-            {
-                _transport = new NetTransport(0);
-                // The server measures everyone's round trip by pinging them,
-                // so the reply must not wait for a frame boundary: see
-                // NetTransport.AnswerPingsImmediately.
-                _transport.AnswerPingsImmediately();
-                // Resolve rather than Parse: IPAddress.Parse only accepts a
-                // literal, so a hostname threw here and the join silently
-                // failed -- the session stayed offline while the launcher
-                // reported nothing wrong.
-                _hostEndPoint = new IPEndPoint(ResolveIPv4(address), port);
-                Role = NetRole.Client;
-                LocalSlot = -1; // assigned by the host's Welcome
-                NetFrame = 0;
-                LastError = null;
-                NetLog.Open(PlayerName);
-                NetLog.Event($"joining {address}:{port} as \"{PlayerName}\"");
-                SendHello();
-                SendIdentify();
-                Console.WriteLine($"[net] joining {address}:{port} as \"{PlayerName}\"");
-            }
-            catch (Exception ex)
-            {
-                LastError = ex.Message;
-                Console.WriteLine($"[net] join failed: {ex.Message}");
-                Role = NetRole.Offline;
-            }
-        }
-
-        /// <summary>
-        /// A session that never actually talks to anyone: fed only from a
-        /// recorded demo file, played back through <see cref="DemoPlayback"/>.
-        ///
-        /// Deliberately not <see cref="StartClient"/> minus the address --
-        /// <see cref="_hostEndPoint"/> stays null for the whole session,
-        /// which is what keeps every send in this class a no-op (each one
-        /// already guards on it), and <see cref="LocalSlot"/> stays -1
-        /// forever instead of resolving from a Welcome packet, since a demo
-        /// only ever starts recording after the real join already happened.
-        /// </summary>
         public static void StartPlayback()
         {
             Stop();
-            _transport = new NetTransport(0);
-            Role = NetRole.Client;
-            LocalSlot = -1;
-            NetFrame = 0;
-            LastError = null;
+            Active = true;
         }
 
-        /// <summary>
-        /// Forget what has already been seen, because the demo is about to be
-        /// played again from its first frame.
-        ///
-        /// <see cref="DemoPlayback.Join"/> reads the opening of the file to
-        /// find out what room to load, and then rewinds so that opening is
-        /// actually watched rather than spent. Everything learned along the
-        /// way is kept -- the match state, the roster, who is in which slot
-        /// and as which hunter, all of which the scene is about to be built
-        /// from. What has to go is the bookkeeping that says "I have seen
-        /// newer than this": the ordering guards on the snapshot and intent
-        /// streams would otherwise refuse every rewound packet as stale,
-        /// which is a worse version of the problem the rewind is fixing.
-        /// </summary>
         public static void RewindPlayback()
         {
+            NetFrame = 0;
+            Metrics = new NetMetrics();
             _lastSnapshotFrame = 0;
+            _lateSnapshotRun = 0;
             Array.Clear(_lastSlotIntentFrame);
             Array.Clear(RemoteStateValid);
             Array.Clear(RemoteIntentValid);
-            SnapshotsReceived = 0;
-            SnapshotsSent = 0;
-            SnapshotsOutOfOrder = 0;
-            StatesApplied = 0;
-            IntentsReceived = 0;
-            IntentsOutOfOrder = 0;
+            SnapshotsReceived = StatesApplied = IntentsReceived = 0;
+            SnapshotsOutOfOrder = IntentsOutOfOrder = 0;
+            SnapshotStreamResets = 0;
             NetPlayerBridge.Reset();
             NetDamage.Reset();
         }
 
-        /// <summary>Hands a packet read back from a demo file to this session as if it had just arrived.</summary>
+        /// <summary>Decode a file record synchronously, without a socket or receive queue.</summary>
         public static void InjectPlaybackPacket(byte[] data, int length)
         {
-            _transport?.EnqueueForPlayback(data, length);
+            if (!Active) { return; }
+            if (length < 1 || length > data.Length || length > NetConfig.MaxPacketSize)
+            {
+                Metrics.Reject();
+                return;
+            }
+            ReadOnlySpan<byte> payload = data.AsSpan(1, length - 1);
+            switch ((PacketType)data[0])
+            {
+                case PacketType.SlotIntent: HandleSlotIntent(payload); break;
+                case PacketType.Snapshot: HandleSnapshot(payload); break;
+                case PacketType.Roster: HandleRoster(payload); break;
+                case PacketType.MatchState: HandleMatchState(payload, false); break;
+                case PacketType.MapChange: HandleMatchState(payload, true); break;
+                case PacketType.Chat:
+                    if (payload.Length == ChatPacket.Size) { Chat.ChatBox.Receive(ChatPacket.Read(payload)); }
+                    else { Metrics.Reject(); }
+                    break;
+                // Connection, admission and historical authority records are inert.
+                // A recording never assigns a local player or changes networking roles.
+            }
         }
 
-        /// <summary>
-        /// Turn a hostname or literal address into an IPv4 endpoint address.
-        /// IPv4 specifically: the transport binds an InterNetwork socket, so
-        /// handing it a v6 address would fail at send time instead of here.
-        /// </summary>
-        private static IPAddress ResolveIPv4(string address)
+        public static void Update(double time)
         {
-            if (IPAddress.TryParse(address, out IPAddress? literal)
-                && literal.AddressFamily == AddressFamily.InterNetwork)
-            {
-                return literal;
-            }
-            IPAddress[] resolved = Dns.GetHostAddresses(address);
-            foreach (IPAddress candidate in resolved)
-            {
-                if (candidate.AddressFamily == AddressFamily.InterNetwork)
-                {
-                    return candidate;
-                }
-            }
-            throw new InvalidOperationException($"{address} has no IPv4 address");
+            if (!Active) { return; }
+            NetFrame++;
+            Metrics.BeginWork(Stopwatch.GetTimestamp());
         }
 
         public static void Stop()
         {
+            AuthoritativePlay.Current?.Dispose();
+            DemoPlayback.CloseFile();
+            DemoRecorder.Stop();
             NetPlayerSetup.Reset();
             SpectatorMode.Reset();
-            DemoRecorder.Stop();
             NetMatchSync.Reset();
             NetSlotManager.Reset();
-            NetDamage.Reset();
             NetRoomChange.Reset();
-            NetMatchEnd.Reset();
-            NetPlayerBridge.Reset();
             Chat.ChatBox.Clear();
-            IsAuthority = false;
-            _authorityNeedsStateApply = false;
-            if (_transport != null)
-            {
-                if (Role == NetRole.Client && _hostEndPoint != null)
-                {
-                    _transport.Send(_hostEndPoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);
-                }
-                _transport.Dispose();
-                _transport = null;
-            }
-            _peers.Clear();
-            _hostEndPoint = null;
-            Role = NetRole.Offline;
-            LocalSlot = 0;
-            Array.Clear(RemoteStateValid);
-            Array.Clear(RemoteIntentValid);
-            Array.Clear(RemoteIntentArrived);
-            Array.Clear(SlotPing);
-            Array.Clear(_lastSlotIntentFrame);
-            _lastServerPacket = 0;
-            ReAnnouncements = 0;
-            LongestServerSilence = 0;
-            AuthorityStandDowns = 0;
-            AuthorityFrames = 0;
-            Refused = false;
-            SnapshotStreamResets = 0;
-            _lateSnapshotRun = 0;
-            _reAnnounced = false;
+            RewindPlayback();
             Array.Clear(SlotOccupied);
-            SnapshotsReceived = 0;
-            SnapshotsSent = 0;
-            SnapshotsOutOfOrder = 0;
-            IntentsOutOfOrder = 0;
-            _lastSnapshotFrame = 0;
-            StatesApplied = 0;
-            IntentsReceived = 0;
+            Array.Clear(SlotHunter);
+            Array.Clear(SlotPing);
             ServerMatch = null;
+            Active = false;
         }
 
-        /// <summary>
-        /// Tell the server who we are: display name and hunter. The hunter
-        /// leads so the name stays a plain trailing string, which is what the
-        /// server reads it as.
-        /// </summary>
-        public static void SendIdentify()
+        public static void ForgetSlot(int slot)
         {
-            if (_transport == null || _hostEndPoint == null)
-            {
-                return;
-            }
-            byte[] name = System.Text.Encoding.ASCII.GetBytes(PlayerName);
-            int count = Math.Min(name.Length, RosterPacket.MaxNameBytes);
-            _scratch[0] = (byte)LocalHunter;
-            name.AsSpan(0, count).CopyTo(_scratch.AsSpan(1));
-            _transport.Send(_hostEndPoint, PacketType.Identify, _scratch.AsSpan(0, count + 1));
+            if ((uint)slot >= PlayerEntity.SlotCapacity) { return; }
+            _lastSlotIntentFrame[slot] = 0;
+            RemoteIntentValid[slot] = false;
+            RemoteIntents[slot] = default;
+            RemoteStateValid[slot] = false;
+            RemoteStates[slot] = default;
         }
 
-        /// <summary>The hunter this machine plays, announced in Identify.</summary>
-        public static Hunter LocalHunter { get; set; } = Hunter.Samus;
-
-        /// <summary>
-        /// Which hunter each slot is playing, per the server's roster. A
-        /// client that assumed its own choice for everybody drew the other
-        /// player as the wrong character -- correct position, correct name,
-        /// wrong model.
-        /// </summary>
-        public static readonly Hunter[] SlotHunter = new Hunter[PlayerEntity.SlotCapacity];
-
-        /// <summary>
-        /// Round trip to the server per slot, in milliseconds, as the server
-        /// measured it. Zero means "not measured yet", which the scoreboard
-        /// draws as a dash rather than as a suspiciously perfect connection.
-        ///
-        /// Measured by the server rather than by each client because clients
-        /// never exchange packets with each other: a client can time its own
-        /// round trip and nobody else's, and a scoreboard that showed one real
-        /// number and five zeroes would be worse than none.
-        /// </summary>
-        public static readonly int[] SlotPing = new int[PlayerEntity.SlotCapacity];
-
-        private static void SendHello()
+        internal static void SetPlaybackMatch(in MatchTransitionPacket match)
         {
-            if (_transport == null || _hostEndPoint == null)
-            {
-                return;
-            }
-            _scratch[0] = NetConfig.ProtocolVersion;
-            // Ask for the slot we already hold. A reconnection is normally a
-            // client the server forgot while it was loading, and coming back
-            // as a different player would swap two people's scores, names and
-            // hunters mid-match.
-            _scratch[1] = LocalSlot >= 0 && LocalSlot < 0xFF ? (byte)LocalSlot : (byte)0xFF;
-            _transport.Send(_hostEndPoint, PacketType.Hello, _scratch.AsSpan(0, 2));
+            ServerMatch = new MatchStatePacket { Mode = (byte)match.Mode,
+                MatchId = unchecked((ushort)match.MatchId), RoomKey = match.Room,
+                NextRoomKey = string.Empty, Flags = MatchStatePacket.FlagInProgress };
         }
 
-        /// <summary>
-        /// Pump the network once per simulation frame. Call before input is
-        /// sampled so a remote intent that arrived this frame is visible to
-        /// the input step that follows.
-        /// </summary>
-        public static void Update(double time)
+        private static void HandleSlotIntent(ReadOnlySpan<byte> payload)
         {
-            if (_transport == null)
+            if (payload.Length < 1 + IntentPacket.Size)
             {
                 return;
             }
-            NetFrame++;
-            if (IsAuthority)
-            {
-                AuthorityFrames++;
-            }
-            foreach (ReceivedPacket packet in _transport.Drain())
-            {
-                DemoRecorder.Record(packet);
-                Handle(packet, time);
-            }
-            if (Role == NetRole.Host)
-            {
-                DropTimedOutPeers(time);
-            }
-            else if (Role == NetRole.Client && LocalSlot < 0 && NetFrame % 60 == 0)
-            {
-                SendHello(); // still waiting to be admitted
-            }
-            else if (Role == NetRole.Client && NetFrame % 60 == 0
-                && time - _lastServerPacket > SilenceBeforeRejoin)
-            {
-                // The server has not said anything for a long time, which
-                // means it has forgotten us -- dropped while a room was
-                // loading, or restarted. Saying hello again re-registers this
-                // endpoint, and since the slot we held is free by then, we
-                // normally get it straight back. Without this a client that
-                // was dropped once kept playing alone forever, sending
-                // packets to a server that ignored every one of them.
-                ReAnnouncements++;
-                _reAnnounced = true;
-                Console.WriteLine("[net] no word from the server; re-announcing "
-                    + $"(#{ReAnnouncements}, silent for {time - _lastServerPacket:0.0} s)");
-                NetLog.Event("server silent, re-announcing");
-                SendHello();
-                SendIdentify();
-            }
-            else if (Role == NetRole.Client && NetFrame % 120 == 0
-                && LocalSlot >= 0 && LocalSlot < GameState.Nicknames.Length
-                && GameState.Nicknames[LocalSlot] != PlayerName)
-            {
-                // The roster still has a placeholder for this slot, so the
-                // Identify that went out with the join was lost. Nothing else
-                // resends it, and a client whose name never landed shows up as
-                // "PlayerN" on every other scoreboard for the whole match.
-                SendIdentify();
-            }
-        }
-
-        /// <summary>Seconds of silence from the server before saying hello again.</summary>
-        private const double SilenceBeforeRejoin = 5.0;
-
-        private static double _lastServerPacket;
-
-        /// <summary>
-        /// How many times this client found the server silent long enough to
-        /// re-announce itself. Zero on a healthy connection; one per outage
-        /// on a line that comes and goes, which is the number a report about
-        /// a dropped connection should carry instead of a grep for a console
-        /// line.
-        /// </summary>
-        public static int ReAnnouncements { get; private set; }
-
-        /// <summary>
-        /// The longest the server went without a word, in seconds. The
-        /// measurement a player's "it froze for a moment" is actually about.
-        /// </summary>
-        public static double LongestServerSilence { get; private set; }
-
-        /// <summary>
-        /// How many times this client gave the simulation back on being
-        /// re-admitted. Non-zero means it was out of touch long enough for the
-        /// server to have moved the authority.
-        /// </summary>
-        public static int AuthorityStandDowns { get; private set; }
-
-        /// <summary>Set when a Hello goes out because the server had gone quiet.</summary>
-        private static bool _reAnnounced;
-
-        /// <summary>
-        /// Frames this client has spent believing it runs the simulation.
-        /// Printed beside the snap count because the two only make sense
-        /// together: snaps are counted on the authority and nowhere else, so
-        /// a client reporting a thousand of them while never having been the
-        /// authority is a contradiction worth seeing rather than reasoning
-        /// about.
-        /// </summary>
-        public static long AuthorityFrames { get; private set; }
-
-        /// <summary>The server said no, in as many words. See <see cref="RefusedPacket"/>.</summary>
-        public static bool Refused { get; private set; }
-
-        /// <summary>What it said. Only meaningful while <see cref="Refused"/>.</summary>
-        public static RefusedPacket RefusedReason { get; private set; }
-
-        private static void Handle(ReceivedPacket packet, double time)
-        {
-            if (Role == NetRole.Client)
-            {
-                if (_lastServerPacket > 0 && time > _lastServerPacket)
-                {
-                    LongestServerSilence = Math.Max(LongestServerSilence,
-                        time - _lastServerPacket);
-                }
-                _lastServerPacket = time;
-            }
-            switch (packet.Type)
-            {
-                case PacketType.Hello when Role == NetRole.Host:
-                    HandleHello(packet, time);
-                    break;
-                case PacketType.Welcome when Role == NetRole.Client:
-                    if (_reAnnounced)
-                    {
-                        // Re-admitted after the server had stopped talking to
-                        // us. While we were away it may have given the
-                        // simulation to somebody else -- it promotes the next
-                        // peer the moment it drops one (DedicatedServer.Remove)
-                        // -- and it has no way to say so: PacketType.Authority
-                        // only ever promotes. So stand down here and wait to be
-                        // told again; the server re-sends Authority to whoever
-                        // holds it once a second, so a client that really is
-                        // still the authority has it back within one.
-                        //
-                        // Without this, an authority whose line dropped for
-                        // longer than the server's timeout came back believing
-                        // it still ran the match: it ignored every snapshot it
-                        // received, its own were dropped by the server as
-                        // coming from a non-authority, and it played on in a
-                        // private copy of the match that looked entirely
-                        // healthy from inside. Found by cutting the
-                        // authority's line for 40 s against the Pi.
-                        _reAnnounced = false;
-                        if (IsAuthority)
-                        {
-                            IsAuthority = false;
-                            AuthorityStandDowns++;
-                            Console.WriteLine("[net] re-admitted; standing down as the "
-                                + "simulation authority until the server says otherwise");
-                            NetLog.Event("re-admitted, authority relinquished");
-                        }
-                    }
-                    if (packet.Payload.Length >= 1)
-                    {
-                        LocalSlot = packet.Payload[0];
-                        Console.WriteLine($"[net] joined as slot {LocalSlot}");
-                        NetLog.Event($"server assigned slot {LocalSlot}");
-                    }
-                    break;
-                case PacketType.Intent when Role == NetRole.Host:
-                    HandleIntent(packet, time);
-                    break;
-                case PacketType.SlotIntent when Role == NetRole.Client:
-                    HandleSlotIntent(packet);
-                    break;
-                case PacketType.Snapshot when Role == NetRole.Client:
-                    HandleSnapshot(packet);
-                    break;
-                case PacketType.Authority when Role == NetRole.Client:
-                    if (!IsAuthority)
-                    {
-                        IsAuthority = true;
-                        _authorityNeedsStateApply = true;
-                        Console.WriteLine("[net] this client is now the simulation authority");
-                        NetLog.Event("became the simulation authority");
-                    }
-                    break;
-                case PacketType.Refused when Role == NetRole.Client:
-                    if (packet.Payload.Length >= 1 && LocalSlot < 0)
-                    {
-                        // Only while still waiting to be let in. A refusal
-                        // arriving mid-match would be a stale datagram from
-                        // the join, and acting on one of those would throw a
-                        // player out of a match they are already in.
-                        RefusedReason = RefusedPacket.Read(packet.Payload);
-                        Refused = true;
-                    }
-                    break;
-                case PacketType.Roster when Role == NetRole.Client:
-                    HandleRoster(packet);
-                    break;
-                case PacketType.Ping when Role == NetRole.Client:
-                    // Normally answered on the transport's own thread before
-                    // it ever reaches here, which is what keeps the reported
-                    // ping a measurement of the network rather than of this
-                    // machine's frame rate. Kept as the fallback for a
-                    // transport that was not asked to.
-                    if (_hostEndPoint != null)
-                    {
-                        _transport?.Send(_hostEndPoint, PacketType.Pong, packet.Payload);
-                    }
-                    break;
-                case PacketType.MatchState when Role == NetRole.Client:
-                case PacketType.MapChange when Role == NetRole.Client:
-                    HandleMatchState(packet, packet.Type == PacketType.MapChange);
-                    break;
-                case PacketType.Chat:
-                    HandleChat(packet, time);
-                    break;
-                case PacketType.Bye:
-                    HandleBye(packet);
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// One line somebody typed, as the server passed it on.
-        ///
-        /// Not guarded by role, unlike almost everything above it: a listen
-        /// host receives these from its own peers and has to hand them round,
-        /// and a client receives them from the server and only has to read
-        /// them. The server is the one that decides whose name goes on a line
-        /// (see <see cref="ChatPacket"/>), so nothing here re-checks it --
-        /// but a *host* is the server for its peers, so it does.
-        /// </summary>
-        private static void HandleChat(ReceivedPacket packet, double time)
-        {
-            if (packet.Payload.Length < ChatPacket.Size)
-            {
-                return;
-            }
-            ChatPacket chat = ChatPacket.Read(packet.Payload);
-            if (chat.Text.Length == 0)
-            {
-                return;
-            }
-            if (Role == NetRole.Host)
-            {
-                RemotePeer? peer = FindPeer(packet.Sender);
-                if (peer == null || peer.SlotIndex < 0)
-                {
-                    return;
-                }
-                peer.LastSeenTime = time;
-                // The sender's own claim about who it is, replaced with what
-                // this host knows. Same rule the dedicated server applies.
-                chat.Slot = (byte)peer.SlotIndex;
-                if (peer.SlotIndex < GameState.Nicknames.Length
-                    && !String.IsNullOrEmpty(GameState.Nicknames[peer.SlotIndex]))
-                {
-                    chat.Name = GameState.Nicknames[peer.SlotIndex];
-                }
-                chat.Kind = ChatPacket.KindSay;
-                chat.Write(_scratch);
-                for (int i = 0; i < _peers.Count; i++)
-                {
-                    if (_peers[i] != peer)
-                    {
-                        _transport?.Send(_peers[i].EndPoint, PacketType.Chat,
-                            _scratch.AsSpan(0, ChatPacket.Size));
-                    }
-                }
-            }
-            Chat.ChatBox.Receive(chat);
-        }
-
-        /// <summary>
-        /// Put a line on the wire. The server stamps it with this client's
-        /// real slot and name before anyone else sees it, so what goes in
-        /// these two fields only matters to a demo recorded here.
-        /// </summary>
-        public static void SendChat(string text)
-        {
-            if (_transport == null || String.IsNullOrWhiteSpace(text))
-            {
-                return;
-            }
-            var chat = new ChatPacket
-            {
-                Slot = (byte)Math.Max(LocalSlot, 0),
-                Kind = ChatPacket.KindSay,
-                Name = PlayerName,
-                Text = text
-            };
-            chat.Write(_scratch);
-            if (Role == NetRole.Host)
-            {
-                // Nobody upstream to send to: a host is the server. Straight
-                // out to the peers, exactly as the relay above would.
-                for (int i = 0; i < _peers.Count; i++)
-                {
-                    _transport.Send(_peers[i].EndPoint, PacketType.Chat,
-                        _scratch.AsSpan(0, ChatPacket.Size));
-                }
-                return;
-            }
-            if (_hostEndPoint != null)
-            {
-                _transport.Send(_hostEndPoint, PacketType.Chat,
-                    _scratch.AsSpan(0, ChatPacket.Size));
-            }
-        }
-
-        private static void HandleHello(ReceivedPacket packet, double time)
-        {
-            if (packet.Payload.Length < 1 || packet.Payload[0] != NetConfig.ProtocolVersion)
-            {
-                return;
-            }
-            RemotePeer? peer = FindPeer(packet.Sender);
-            if (peer == null)
-            {
-                int slot = NextFreeSlot();
-                if (slot < 0)
-                {
-                    return; // session full
-                }
-                peer = new RemotePeer
-                {
-                    EndPoint = packet.Sender,
-                    SlotIndex = slot
-                };
-                _peers.Add(peer);
-                Console.WriteLine($"[net] peer {packet.Sender} -> slot {slot}");
-            }
-            peer.LastSeenTime = time;
-            // Re-answered on every Hello: the first Welcome may have been lost.
-            _scratch[0] = (byte)peer.SlotIndex;
-            _transport!.Send(peer.EndPoint, PacketType.Welcome, _scratch.AsSpan(0, 1));
-        }
-
-        private static void HandleIntent(ReceivedPacket packet, double time)
-        {
-            if (packet.Payload.Length < IntentPacket.Size)
-            {
-                return;
-            }
-            RemotePeer? peer = FindPeer(packet.Sender);
-            if (peer == null || peer.SlotIndex < 0)
-            {
-                return;
-            }
-            IntentPacket intent = IntentPacket.Read(packet.Payload);
-            // UDP reorders; an older frame must not overwrite a newer one --
-            // unless it is so much older that the peer restarted its counter.
-            // See HandleSlotIntent.
-            if (peer.LastIntentFrame != 0 && intent.Frame <= peer.LastIntentFrame
-                && peer.LastIntentFrame - intent.Frame < IntentResetGap)
-            {
-                return;
-            }
-            peer.LastIntentFrame = intent.Frame;
-            peer.LatestIntent = intent;
-            peer.LastSeenTime = time;
-            RemoteIntents[peer.SlotIndex] = intent;
-            RemoteIntentValid[peer.SlotIndex] = true;
-        }
-
-        /// <summary>
-        /// A peer's input, relayed by the server and tagged with its slot.
-        ///
-        /// Every client gets these, not only the authority. The authority
-        /// needs them to simulate the match; everyone else needs them because
-        /// a player's input is what makes it do anything a position cannot
-        /// express -- firing, morphing, laying a bomb, an alt attack. Clients
-        /// that had only positions drew opponents gliding around in silence.
-        /// The authority still owns where everyone ends up: its snapshot
-        /// corrects whatever the local simulation of that input produced.
-        /// </summary>
-        private static void HandleSlotIntent(ReceivedPacket packet)
-        {
-            if (packet.Payload.Length < 1 + IntentPacket.Size)
-            {
-                return;
-            }
-            int slot = packet.Payload[0];
+            int slot = payload[0];
             if (slot < 0 || slot >= RemoteIntents.Length || slot == LocalSlot)
             {
                 return;
             }
-            IntentPacket intent = IntentPacket.Read(packet.Payload[1..]);
-            // UDP reorders; an older frame must not overwrite a newer one.
-            //
-            // "Older", though, means older than what this peer was sending a
-            // moment ago -- not older than what the peer who held this slot
-            // before them was sending. A client's frame counter starts at
-            // zero on NetSession.StartClient, so somebody rejoining a match
-            // they had been playing for five minutes comes back numbering
-            // from 1 while this array still holds 18000, and every intent
-            // they send is refused for the next five minutes: they are drawn
-            // wherever they were standing when they left, their aim and their
-            // trigger never arrive, and on the authority -- which is the only
-            // machine whose shots count -- they can neither hit nor be hit
-            // where anyone can see them. The same gap the snapshot stream
-            // has: below it this is a reordered straggler, above it the
-            // counter has restarted and the newcomer is who to believe.
+            if (!NetPacketReader.TryReadIntent(payload[1..], out IntentPacket intent))
+            {
+                Metrics.Reject();
+                return;
+            }
             if (_lastSlotIntentFrame[slot] != 0 && intent.Frame <= _lastSlotIntentFrame[slot]
                 && _lastSlotIntentFrame[slot] - intent.Frame < IntentResetGap)
             {
+                Metrics.LateInput(intent.Frame == _lastSlotIntentFrame[slot]);
                 IntentsOutOfOrder++;
                 return;
             }
             _lastSlotIntentFrame[slot] = intent.Frame;
             RemoteIntents[slot] = intent;
             RemoteIntentValid[slot] = true;
-            RemoteIntentArrived[slot] = Math.Max(NetFrame, 1);
             IntentsReceived++;
         }
 
-        private static readonly uint[] _lastSlotIntentFrame = new uint[PlayerEntity.SlotCapacity];
-
-        /// <summary>
-        /// How far behind the newest intent a packet may be and still be
-        /// treated as a reordered straggler rather than a peer whose counter
-        /// has restarted. The same ten seconds at sixty frames the snapshot
-        /// stream allows: reordering is a matter of milliseconds, so anything
-        /// this far back is a different session.
-        /// </summary>
-        private const uint IntentResetGap = 600;
-
-        /// <summary>Relayed intents thrown away as out of order, for the report.</summary>
-        public static long IntentsOutOfOrder { get; private set; }
-
-        /// <summary>
-        /// Forget everything this session keeps for one slot, because
-        /// somebody else is in it now.
-        ///
-        /// The per-slot state <see cref="NetPlayerBridge.ForgetSlot"/> clears
-        /// is the simulation's; this is the wire's, and it was not cleared
-        /// anywhere. A vacated slot kept its last occupant's intent flagged
-        /// valid, so the authority went on placing, aiming and firing a
-        /// player who had left -- and kept their frame counter, which is what
-        /// refused the next occupant's packets.
-        /// </summary>
-        public static void ForgetSlot(int slot)
+        private static void HandleRoster(ReadOnlySpan<byte> payload)
         {
-            if (slot < 0 || slot >= PlayerEntity.SlotCapacity)
+            if (!NetPacketReader.TryReadRoster(payload, out RosterPacket roster))
             {
+                Metrics.Reject();
                 return;
             }
-            _lastSlotIntentFrame[slot] = 0;
-            RemoteIntentValid[slot] = false;
-            RemoteIntents[slot] = default;
-            RemoteStateValid[slot] = false;
-            RemoteStates[slot] = default;
-            for (int i = 0; i < _peers.Count; i++)
-            {
-                if (_peers[i].SlotIndex == slot)
-                {
-                    _peers[i].LastIntentFrame = 0;
-                }
-            }
-        }
-
-        /// <summary>
-        /// The running match, as last reported by a dedicated server. Null
-        /// when hosting or offline, where there is no server clock to follow.
-        /// </summary>
-        public static MatchStatePacket? ServerMatch { get; private set; }
-
-        /// <summary>
-        /// True when a dedicated server has designated this client as the
-        /// simulation authority. On a dedicated server every peer is
-        /// NetRole.Client, so without this nothing would ever broadcast
-        /// snapshots and no player would see another move.
-        /// </summary>
-        public static bool IsAuthority { get; private set; }
-        private static bool _authorityNeedsStateApply;
-
-        public static bool ConsumeAuthorityStateSync()
-        {
-            if (!_authorityNeedsStateApply)
-            {
-                return false;
-            }
-            _authorityNeedsStateApply = false;
-            return true;
-        }
-
-        /// <summary>How many peers the server last reported, including us.</summary>
-        public static int ServerPlayerCount => ServerMatch?.PlayerCount ?? 0;
-
-        /// <summary>Display name sent to the server on join.</summary>
-        public static string PlayerName { get; set; } = "Player";
-
-        /// <summary>Raised when the server rotates to a different map.</summary>
-        public static event Action<MatchStatePacket>? MapChanged;
-
-        /// <summary>Slots currently occupied by a real peer, per the server.</summary>
-        public static readonly bool[] SlotOccupied = new bool[PlayerEntity.SlotCapacity];
-
-        private static void HandleRoster(ReceivedPacket packet)
-        {
-            if (packet.Payload.Length < RosterPacket.Size)
-            {
-                return;
-            }
-            RosterPacket roster = RosterPacket.Read(packet.Payload);
             Array.Clear(SlotOccupied);
             for (int i = 0; i < roster.Count; i++)
             {
@@ -848,8 +178,6 @@ namespace MphRead.Mods.Network
                     continue;
                 }
                 SlotOccupied[slot] = true;
-                // Nicknames is what the scoreboard draws, so writing here is
-                // what makes the other player's name appear on Tab.
                 GameState.Nicknames[slot] = roster.Names[i];
                 if (Enum.IsDefined(typeof(Hunter), roster.Hunters[i]))
                 {
@@ -859,96 +187,34 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private static void HandleMatchState(ReceivedPacket packet, bool rotated)
+        private static void HandleMatchState(ReadOnlySpan<byte> payload, bool rotated)
         {
-            if (packet.Payload.Length < MatchStatePacket.Size)
+            if (!NetPacketReader.TryReadMatchState(payload, out MatchStatePacket state))
             {
+                Metrics.Reject();
                 return;
             }
-            MatchStatePacket state = MatchStatePacket.Read(packet.Payload);
             string? previous = ServerMatch?.RoomKey;
             ServerMatch = state;
-            // Fire on an actual map change, whether the server announced it
-            // as a rotation or the periodic state simply differs -- a joiner
-            // arriving mid-match learns the map this same way.
             if (rotated || previous == null || previous != state.RoomKey)
             {
                 Console.WriteLine($"[net] server map: {state.RoomKey} "
                     + $"({(GameMode)state.Mode}, {state.TimeRemaining:0} s left)");
-                MapChanged?.Invoke(state);
             }
         }
 
-        /// <summary>
-        /// The newest snapshot frame this client has accepted. Snapshots are
-        /// the one stream that was not ordered.
-        /// </summary>
-        private static uint _lastSnapshotFrame;
-
-        /// <summary>
-        /// How far behind the newest snapshot a packet may be and still be
-        /// treated as a reordered straggler rather than a fresh start. Ten
-        /// seconds at sixty frames: a client that has been away longer than
-        /// that has been away long enough for the authority to have changed
-        /// or the room to have reloaded.
-        /// </summary>
-        private const uint SnapshotResetGap = 600;
-
-        /// <summary>
-        /// How many consecutive "older than what I have" snapshots it takes
-        /// before the stream is treated as a new source rather than as
-        /// stragglers. A fifth of a second: longer than any reordering seen
-        /// on a real path, shorter than a player would notice.
-        /// </summary>
-        private const int LateSnapshotsBeforeReset = 12;
-
-        private static int _lateSnapshotRun;
-
-        /// <summary>
-        /// How many times this client re-based its snapshot ordering on a new
-        /// source. One per authority handover is expected; a stream of them
-        /// means two machines are publishing.
-        /// </summary>
-        public static int SnapshotStreamResets { get; private set; }
-
-        /// <summary>Reordered snapshots thrown away, for the report.</summary>
-        public static long SnapshotsOutOfOrder { get; private set; }
-
-        private static void HandleSnapshot(ReceivedPacket packet)
+        private static void HandleSnapshot(ReadOnlySpan<byte> payload)
         {
-            ReadOnlySpan<byte> payload = packet.Payload;
-            if (payload.Length < SnapshotHeader.Size)
+            if (!NetPacketReader.TryReadSnapshot(payload, out SnapshotHeader header))
             {
+                Metrics.Reject();
                 return;
             }
-            SnapshotHeader header = SnapshotHeader.Read(payload);
-            // Both the intent streams already refuse an older frame; this one
-            // did not, and it is the stream that carries health, score and the
-            // damage counter. A datagram overtaken in flight therefore put a
-            // player back where they had been, undid a kill on the scoreboard,
-            // and -- worst of it -- ran the damage counter backwards, which the
-            // replay reads as two hundred and fifty-odd new hits because the
-            // counter is a byte. UDP reorders as a matter of course; a
-            // snapshot arrives sixty times a second, so throwing away a late
-            // one costs nothing at all.
             if (_lastSnapshotFrame != 0 && header.Frame <= _lastSnapshotFrame
                 && _lastSnapshotFrame - header.Frame < SnapshotResetGap)
             {
+                Metrics.LateSnapshot(header.Frame == _lastSnapshotFrame);
                 SnapshotsOutOfOrder++;
-                // A straggler is a packet; this is a stream. When the server
-                // moves the authority to another client, the snapshots start
-                // coming from a machine whose own frame counter is its own --
-                // typically a few seconds behind, because it joined a few
-                // seconds later -- and every one of them looks late. Refusing
-                // the lot freezes every puppet on every screen until the new
-                // authority's counter climbs past the old one's: 159 and 169
-                // consecutive refusals, about 2.7 s, measured on two clients
-                // in one churn run against the Pi.
-                //
-                // Genuine reordering never lasts: a late datagram arrives
-                // among packets that are not late, and each of those resets
-                // this. A fifth of a second of nothing but "older" is a new
-                // source, so take it and re-base on it.
                 if (++_lateSnapshotRun < LateSnapshotsBeforeReset)
                 {
                     return;
@@ -960,9 +226,7 @@ namespace MphRead.Mods.Network
             _lateSnapshotRun = 0;
             _lastSnapshotFrame = header.Frame;
             SnapshotsReceived++;
-            // Rng.cs reproduces the game's original LCG and its state is
-            // global, so adopting the host's words keeps every random
-            // consumer agreeing without replicating each one individually.
+            Metrics.Snapshot(Stopwatch.GetTimestamp());
             Rng.SetRng1(header.Rng1);
             Rng.SetRng2(header.Rng2);
             int offset = SnapshotHeader.Size;
@@ -983,195 +247,5 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private static void HandleBye(ReceivedPacket packet)
-        {
-            if (Role == NetRole.Host)
-            {
-                RemotePeer? peer = FindPeer(packet.Sender);
-                if (peer != null)
-                {
-                    Console.WriteLine($"[net] peer {peer.EndPoint} left (slot {peer.SlotIndex})");
-                    RemoteIntentValid[peer.SlotIndex] = false;
-                    _peers.Remove(peer);
-                }
-            }
-            else
-            {
-                Console.WriteLine("[net] host closed the session");
-                Stop();
-            }
-        }
-
-        private static void DropTimedOutPeers(double time)
-        {
-            for (int i = _peers.Count - 1; i >= 0; i--)
-            {
-                RemotePeer peer = _peers[i];
-                if (time - peer.LastSeenTime > NetConfig.TimeoutSeconds)
-                {
-                    Console.WriteLine($"[net] peer {peer.EndPoint} timed out (slot {peer.SlotIndex})");
-                    RemoteIntentValid[peer.SlotIndex] = false;
-                    _peers.RemoveAt(i);
-                }
-            }
-        }
-
-        private static RemotePeer? FindPeer(IPEndPoint endPoint)
-        {
-            for (int i = 0; i < _peers.Count; i++)
-            {
-                if (_peers[i].EndPoint.Equals(endPoint))
-                {
-                    return _peers[i];
-                }
-            }
-            return null;
-        }
-
-        private static int NextFreeSlot()
-        {
-            for (int slot = 1; slot < PlayerEntity.MaxPlayers; slot++)
-            {
-                bool taken = false;
-                for (int i = 0; i < _peers.Count; i++)
-                {
-                    if (_peers[i].SlotIndex == slot)
-                    {
-                        taken = true;
-                        break;
-                    }
-                }
-                if (!taken)
-                {
-                    return slot;
-                }
-            }
-            return -1;
-        }
-
-        /// <summary>Client -> host: this frame's intent for the local player.</summary>
-        public static void SendIntent(IntentPacket intent)
-        {
-            if (_transport == null || Role != NetRole.Client || _hostEndPoint == null)
-            {
-                return;
-            }
-            intent.Frame = NetFrame;
-            intent.Write(_scratch);
-            _transport.Send(_hostEndPoint, PacketType.Intent, _scratch.AsSpan(0, IntentPacket.Size));
-            // A demo only ever contains what this client *received* -- and
-            // this client never receives its own SlotIntent back, since it
-            // already knows what it pressed. Without this, playback shows
-            // every remote player's shooting/morphing/alt-attack animation
-            // correctly (their SlotIntent really was received and recorded)
-            // and never this player's own, because nothing ever told it to.
-            if (LocalSlot >= 0)
-            {
-                DemoRecorder.RecordOwnIntent(LocalSlot, _scratch.AsSpan(0, IntentPacket.Size));
-            }
-        }
-
-        /// <summary>
-        /// Authority -> server: the match this client is simulating is over.
-        ///
-        /// The server keeps the rotation but has no scoreboard, so a match
-        /// won on points ends on the authority's machine and nowhere else.
-        /// Sent repeatedly by NetMatchEnd until the server's state comes back
-        /// saying it heard.
-        /// </summary>
-        public static void SendMatchEnd()
-        {
-            if (_transport == null || Role != NetRole.Client || _hostEndPoint == null)
-            {
-                return;
-            }
-            _transport.Send(_hostEndPoint, PacketType.MatchEnd, ReadOnlySpan<byte>.Empty);
-        }
-
-        /// <summary>Host -> clients: authoritative state for every active player.</summary>
-        public static void BroadcastSnapshot()
-        {
-            if (_transport == null)
-            {
-                return;
-            }
-            bool asHost = Role == NetRole.Host && _peers.Count > 0;
-            bool asAuthority = Role == NetRole.Client && IsAuthority && _hostEndPoint != null;
-            if (!asHost && !asAuthority)
-            {
-                return;
-            }
-            int count = 0;
-            int offset = SnapshotHeader.Size;
-            for (int i = 0; i < PlayerEntity.Players.Count; i++)
-            {
-                PlayerEntity player = PlayerEntity.Players[i];
-                if (!player.LoadFlags.TestFlag(LoadFlags.Active))
-                {
-                    continue;
-                }
-                if (offset + PlayerState.Size > NetConfig.MaxPacketSize - 1)
-                {
-                    break;
-                }
-                if (!Single.IsFinite(player.Position.X) || !Single.IsFinite(player.Position.Y)
-                    || !Single.IsFinite(player.Position.Z))
-                {
-                    // Publishing this would hand the corruption to everyone
-                    // else, and they would hand it back as an authoritative
-                    // correction. Skip the slot until it makes sense again.
-                    NetLog.Event($"slot {i} not published: position is {player.Position}");
-                    continue;
-                }
-                var state = new PlayerState
-                {
-                    SlotIndex = (byte)i,
-                    Flags = (byte)(PlayerState.FlagActive
-                        | (player.IsAltForm ? PlayerState.FlagAltForm : 0)
-                        | (player.ModIsInPlay ? PlayerState.FlagSpawned : 0)
-                        | (player.EquipInfo.Zoomed ? PlayerState.FlagZoomed : 0)
-                        | (player.Flags2.TestFlag(PlayerFlags2.Spectating) ? PlayerState.FlagSpectating : 0)
-                        | (player.ModFrozen ? PlayerState.FlagFrozen : 0)),
-                    Position = player.Position,
-                    Speed = player.Speed,
-                    Facing = player.FacingVector,
-                    Health = (ushort)Math.Clamp(player.Health, 0, ushort.MaxValue),
-                    CurrentWeapon = (byte)player.CurrentWeapon,
-                    Team = (byte)player.Team
-                };
-                state.Points = (short)Math.Clamp(GameState.Points[i], Int16.MinValue, Int16.MaxValue);
-                state.Kills = (ushort)Math.Clamp(GameState.Kills[i], 0, UInt16.MaxValue);
-                state.Deaths = (ushort)Math.Clamp(GameState.Deaths[i], 0, UInt16.MaxValue);
-                NetDamage.Write(i, ref state);
-                state.Write(_scratch.AsSpan(offset));
-                offset += PlayerState.Size;
-                count++;
-            }
-            var header = new SnapshotHeader
-            {
-                Frame = NetFrame,
-                Rng1 = Rng.Rng1,
-                Rng2 = Rng.Rng2,
-                PlayerCount = (byte)count
-            };
-            header.Write(_scratch);
-            SnapshotsSent++;
-            // A demo only ever contains what this client *received*, and the
-            // server forwards a snapshot to every peer except the one that
-            // sent it -- so the authority's own demo had no snapshots in it
-            // at all, which is every spawn, every hit and the whole
-            // scoreboard. Same trick as the intent below.
-            DemoRecorder.RecordOwnSnapshot(_scratch.AsSpan(0, offset));
-            if (asAuthority)
-            {
-                // One send to the server, which relays to every other peer.
-                _transport.Send(_hostEndPoint!, PacketType.Snapshot, _scratch.AsSpan(0, offset));
-                return;
-            }
-            for (int i = 0; i < _peers.Count; i++)
-            {
-                _transport.Send(_peers[i].EndPoint, PacketType.Snapshot, _scratch.AsSpan(0, offset));
-            }
-        }
     }
 }

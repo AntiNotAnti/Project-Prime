@@ -1,4 +1,5 @@
 using MphRead.Formats;
+using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
 namespace MphRead.Entities
@@ -38,6 +39,7 @@ namespace MphRead.Entities
         public override bool Process()
         {
             base.Process();
+            if (AuthoritativePlay.Active) { return true; }
             foreach (PlayerEntity player in _scene.GetPlayerEntities())
             {
                 if (player.OctolithFlag == null || _capture && player.TeamIndex != _data.TeamId)

@@ -271,6 +271,7 @@ namespace MphRead
 
         public static void UpdateTime(Scene scene)
         {
+            if (Mods.Network.AuthoritativePlay.Active) { return; }
             // todo: update license info etc.
             if (MatchTime > 0)
             {
@@ -290,6 +291,7 @@ namespace MphRead
 
         public static void ProcessFrame(Scene scene)
         {
+            if (Mods.Network.AuthoritativePlay.Active) { return; }
             if (Multiplayer && CameraSequence.Current?.IsIntro == true)
             {
                 Debug.Assert(CameraSequence.Current.CamInfoRef == PlayerEntity.Main.CameraInfo);
@@ -386,7 +388,10 @@ namespace MphRead
                         var time = TimeSpan.FromSeconds(MatchTime);
                         if (time.TotalMinutes < 1 && time.Seconds <= 59 && !_tempoChanged)
                         {
-                            Music.UpdateTempo(307, 900 / 30f);
+                            if (!scene.IsHeadless)
+                            {
+                                Music.UpdateTempo(307, 900 / 30f);
+                            }
                             _tempoChanged = true;
                         }
                         if (time.TotalMinutes < 1 && time.Seconds <= 9)
@@ -419,7 +424,10 @@ namespace MphRead
                 }
                 else
                 {
-                    PlayerEntity.Main.HudEndDisrupted();
+                    if (!scene.IsHeadless)
+                    {
+                        PlayerEntity.Main.HudEndDisrupted();
+                    }
                     if ((Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams) && !ForceEndGame)
                     {
                         for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
@@ -446,7 +454,7 @@ namespace MphRead
                     Sfx.Instance.StopAllSound();
                     PlayerEntity.Main.StopLongSfx();
                     // sfxtodo: stop more kinds of SFX? fade for 1P mode?
-                    if (!GameState.SinglePlayer)
+                    if (!GameState.SinglePlayer && !scene.IsHeadless)
                     {
                         Music.PlaySeq(SeqId.TIMEOUT);
                     }
@@ -455,7 +463,7 @@ namespace MphRead
             else if (MatchState == MatchState.GameOver)
             {
                 PlayerEntity winner = PlayerEntity.Players[ResultSlots[0]];
-                if (winner.Health > 0 && winner.LoadFlags.TestFlag(LoadFlags.Active)
+                if (!scene.IsHeadless && winner.Health > 0 && winner.LoadFlags.TestFlag(LoadFlags.Active)
                     && winner.LoadFlags.TestFlag(LoadFlags.Spawned))
                 {
                     if (_stateChanged)
@@ -465,7 +473,7 @@ namespace MphRead
                     }
                     PlayerEntity.Main.UpdateMatchEndCamera(winner, scene.GlobalElapsedTime - _matchEndTime);
                 }
-                else
+                else if (!scene.IsHeadless)
                 {
                     EnsureIntroCamSeq();
                 }
@@ -478,7 +486,10 @@ namespace MphRead
             }
             else if (MatchState == MatchState.Ending)
             {
-                EnsureIntroCamSeq();
+                if (!scene.IsHeadless)
+                {
+                    EnsureIntroCamSeq();
+                }
                 // todo: more stuff?
                 if (MatchTime == 0)
                 {
@@ -643,7 +654,8 @@ namespace MphRead
                     }
                 }
             }
-            if (playersAlive == 0 || playersAlive + botsAlive < 2 || Teams && (!teamsAlive[0] || !teamsAlive[1]))
+            if ((!scene.IsHeadless && playersAlive == 0) || playersAlive + botsAlive < 2
+                || Teams && (!teamsAlive[0] || !teamsAlive[1]))
             {
                 MatchTime = 0;
                 for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
@@ -1804,15 +1816,18 @@ namespace MphRead
             WeaponSlots[1] = (int)BeamType.Missile;
             WeaponSlots[2] = (int)BeamType.None;
             // todo: initialize more fields
-            UpdateLogbook(0); // SCAN VISOR
-            UpdateLogbook(1); // THERMAL POSITIONER
-            UpdateLogbook(2); // ARM CANNON
-            UpdateLogbook(3); // POWER BEAM
-            UpdateLogbook(4); // MISSILE LAUNCHER
-            UpdateLogbook(5); // MORPH BALL
-            UpdateLogbook(6); // MORPH BALL BOMB
-            UpdateLogbook(26); // JUMP BOOTS
-            UpdateLogbook(28); // CHARGE SHOT
+            if (!Read.ServerMode)
+            {
+                UpdateLogbook(0); // SCAN VISOR
+                UpdateLogbook(1); // THERMAL POSITIONER
+                UpdateLogbook(2); // ARM CANNON
+                UpdateLogbook(3); // POWER BEAM
+                UpdateLogbook(4); // MISSILE LAUNCHER
+                UpdateLogbook(5); // MORPH BALL
+                UpdateLogbook(6); // MORPH BALL BOMB
+                UpdateLogbook(26); // JUMP BOOTS
+                UpdateLogbook(28); // CHARGE SHOT
+            }
             if (Cheats.StartWithAllOctoliths)
             {
                 FoundOctoliths = CurrentOctoliths = 0xFF;

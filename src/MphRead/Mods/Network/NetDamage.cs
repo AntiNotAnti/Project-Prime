@@ -231,11 +231,10 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static bool Suppress(PlayerEntity victim)
         {
-            if (!NetSession.Active || Replaying)
-            {
-                return false;
-            }
-            return !NetSession.IsHost && !NetSession.IsAuthority;
+            if (AuthoritativePlay.Active) { return !(AuthoritativePlay.ApplyingSnapshot || DemoPlayback.ApplyingSnapshot); }
+            // Recorded demos render resolved hits through Replay. Their local
+            // projectile echoes must not produce a second outcome.
+            return DemoPlayback.IsActive && !Replaying;
         }
 
         /// <summary>Called by the authority for every hit it resolves.</summary>

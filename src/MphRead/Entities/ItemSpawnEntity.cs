@@ -1,4 +1,5 @@
 using MphRead.Formats;
+using MphRead.Mods.Network;
 using MphRead.Formats.Culling;
 using OpenTK.Mathematics;
 
@@ -66,6 +67,7 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            if (AuthoritativePlay.Active) { return base.Process(); }
             if (!_linkDone && _data.ParentId != -1)
             {
                 if (_scene.TryGetEntity(_data.ParentId, out EntityBase? parent))
@@ -115,8 +117,22 @@ namespace MphRead.Entities
             return base.Process();
         }
 
-        public void OnItemPickedUp()
+        public ushort ServerRespawnTicks => _spawnCooldown;
+        public ushort ServerSpawnCount => _spawnCount;
+        public byte LastConsumerSlot { get; private set; } = 255;
+
+        public void ApplyWorldState(in WorldRecord state)
         {
+            Active = (state.Flags & 1) != 0;
+            _spawnCooldown = (ushort)state.A;
+            _spawnCount = (ushort)state.B;
+            LastConsumerSlot = (byte)state.C;
+            Position = state.Position;
+        }
+
+        public void OnItemPickedUp(PlayerEntity? consumer = null)
+        {
+            LastConsumerSlot = (byte)(consumer?.SlotIndex ?? 255);
             if (_data.CollectedMessage != Message.None)
             {
                 _scene.SendMessage(_data.CollectedMessage, this, _pickupNotifyEntity, _data.CollectedMsgParam1, _data.CollectedMsgParam2);
@@ -125,6 +141,7 @@ namespace MphRead.Entities
 
         public override void HandleMessage(MessageInfo info)
         {
+            if (AuthoritativePlay.Active) { return; }
             if (info.Message == Message.Activate || (info.Message == Message.SetActive && (int)info.Param1 != 0))
             {
                 Active = true;
@@ -197,6 +214,7 @@ namespace MphRead.Entities
             Scene scene, uint? chance = null, int despawnTime = 0)
         {
             ItemInstanceEntity? item = null;
+            if (AuthoritativePlay.Active) { return null; }
             if (type != ItemType.None && (!chance.HasValue || Rng.GetRandomInt2(100) < chance.Value))
             {
                 item = new ItemInstanceEntity(new ItemInstanceEntityData(position, type, despawnTime), nodeRef, scene);

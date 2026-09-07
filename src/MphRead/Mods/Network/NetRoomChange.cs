@@ -62,10 +62,10 @@ namespace MphRead.Mods.Network
         /// decides where the spawn points are, and clients that disagreed
         /// about it would be playing subtly different levels.
         /// </summary>
-        public static int RoomPlayerCount => NetSession.Active ? NetLaunch.RoomPlayerCount : 0;
+        public static int RoomPlayerCount => NetSession.Active || AuthoritativePlay.Active ? NetLaunch.RoomPlayerCount : 0;
 
         /// <summary>True while a networked session is rebuilding its players for a new room.</summary>
-        public static bool Rebuilding => NetSession.Active;
+        public static bool Rebuilding => NetSession.Active || AuthoritativePlay.Active;
 
         public static void Reset()
         {
@@ -143,6 +143,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static PlayerEntity RebuildPlayers(Scene scene, Hunter hunter, int recolor)
         {
+            if (AuthoritativePlay.Current is { } play) { return play.RebuildPlayers(hunter, recolor); }
             int localSlot = Math.Max(NetSession.LocalSlot, 0);
             for (int slot = 0; slot < PlayerEntity.MaxPlayers; slot++)
             {
@@ -211,6 +212,10 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void AfterRebuild(Scene scene)
         {
+            // A spectator can load a new room while the free camera is active.
+            // Player.Initialize then skips its main-camera HUD setup, but the
+            // renderer still updates that slot's HUD and rejoin uses it later.
+            if (!PlayerEntity.Main.HudReady) { PlayerEntity.Main.SetUpHud(); }
             _loadedFrame = Math.Max(NetSession.NetFrame, 1);
             // Everything the bridge remembered about where players were
             // standing was about the room that has just been left.
@@ -261,7 +266,6 @@ namespace MphRead.Mods.Network
             // loading is a new round, and the flags that say the last one had
             // already ended have to go with the points.
             GameState.ResetMatchProgress();
-            NetMatchEnd.Reset();
         }
     }
 }

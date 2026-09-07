@@ -37,7 +37,7 @@ namespace MphRead.Entities
                     // That is why a peer who joined afterwards existed on the
                     // roster, went active, and still never spawned: nothing was
                     // calling Process on it any more.
-                    return Mods.Network.NetHooks.KeepSlotAlive(this);
+                    return _scene.IsHeadless || Mods.Network.NetHooks.KeepSlotAlive(this);
                 }
                 return LoadFlags.TestFlag(LoadFlags.SlotActive);
             }
@@ -210,8 +210,9 @@ namespace MphRead.Entities
                                 }
                             }
                         }
-                        if (GameState.SinglePlayer || Controls.Shoot.IsDown || time <= 0 || IsBot
-                            || Mods.Network.NetHooks.ForceSpawn(this)) // todo: or forced
+                        if (!Mods.Network.AuthoritativePlay.Active
+                            && (GameState.SinglePlayer || Controls.Shoot.IsDown || time <= 0 || IsBot
+                            || Mods.Network.NetHooks.ForceSpawn(this))) // todo: or forced
                         {
                             // todo?: something with wi-fi
                             // else...
@@ -876,14 +877,17 @@ namespace MphRead.Entities
                 if (!Flags1.TestFlag(PlayerFlags1.DrawGunSmoke))
                 {
                     Flags1 |= PlayerFlags1.DrawGunSmoke;
-                    _gunSmokeModel.SetAnimation(0);
+                    if (!_scene.IsHeadless)
+                    {
+                        _gunSmokeModel.SetAnimation(0);
+                    }
                 }
                 if (_smokeAlpha < 1)
                 {
                     _smokeAlpha = Math.Min(_smokeAlpha + 1 / 31f / 2, 1); // todo: FPS stuff
                 }
             }
-            if (Flags1.TestFlag(PlayerFlags1.DrawGunSmoke))
+            if (!_scene.IsHeadless && Flags1.TestFlag(PlayerFlags1.DrawGunSmoke))
             {
                 UpdateAnimFrames(_gunSmokeModel);
             }
@@ -1211,6 +1215,7 @@ namespace MphRead.Entities
 
         private void PickUpItems()
         {
+            if (Mods.Network.AuthoritativePlay.Active) { return; }
             if (_health == 0 || (IsBot && GameState.SinglePlayer) || IgnoreItemPickups
                 || IsMainPlayer && CameraSequence.Current?.BlockInput == true)
             {
@@ -1400,7 +1405,7 @@ namespace MphRead.Entities
                 }
                 if (pickedUp)
                 {
-                    item.OnPickedUp();
+                        item.OnPickedUp(this);
                 }
             }
         }

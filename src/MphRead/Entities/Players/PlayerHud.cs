@@ -2327,7 +2327,7 @@ namespace MphRead.Entities
             foreach (NodeDefenseEntity defense in _scene.GetNodeDefenseEntities())
             {
                 ColorRgb color;
-                if (defense.CurrentTeam == 4)
+                if (defense.CurrentTeam == NodeDefenseEntity.NeutralTeam)
                 {
                     color = new ColorRgb(31, 31, 31);
                 }
@@ -2350,7 +2350,7 @@ namespace MphRead.Entities
 
         private int _nodeBonusOpponent = -1;
         private bool _mainNodeBonus = false;
-        private readonly int[] _teamNodeCounts = new int[4];
+        private readonly int[] _teamNodeCounts = new int[SlotCapacity];
         public int _nodesHudState = 0;
         public int _nodesProgressAmount = 0;
 
@@ -2358,7 +2358,7 @@ namespace MphRead.Entities
         {
             _nodeBonusOpponent = -1;
             _mainNodeBonus = false;
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < _teamNodeCounts.Length; i++)
             {
                 _teamNodeCounts[i] = 0;
             }
@@ -2366,7 +2366,7 @@ namespace MphRead.Entities
             foreach (NodeDefenseEntity defense in _scene.GetNodeDefenseEntities())
             {
                 ColorRgb color;
-                if (defense.CurrentTeam == 4)
+                if (defense.CurrentTeam == NodeDefenseEntity.NeutralTeam)
                 {
                     if (defense.Blinking)
                     {
@@ -2416,7 +2416,7 @@ namespace MphRead.Entities
                     }
                 }
                 AddLocatorInfo(defense.Position, _nodeLocator, color);
-                if (defense.CurrentTeam != 4 && defense.OccupyingTeam == 4)
+                if (defense.CurrentTeam != NodeDefenseEntity.NeutralTeam && defense.OccupyingTeam == NodeDefenseEntity.NeutralTeam)
                 {
                     int count = _teamNodeCounts[defense.CurrentTeam] + 1;
                     _teamNodeCounts[defense.CurrentTeam] = count;
@@ -2740,7 +2740,7 @@ namespace MphRead.Entities
             foreach (NodeDefenseEntity defense in _scene.GetNodeDefenseEntities())
             {
                 int frame;
-                if (defense.CurrentTeam == 4)
+                if (defense.CurrentTeam == NodeDefenseEntity.NeutralTeam)
                 {
                     if (defense.Blinking)
                     {
@@ -3469,6 +3469,10 @@ namespace MphRead.Entities
         public void QueueHudMessage(float x, float y, float duration,
             byte category, int messageId, bool dialogHide = false)
         {
+            if (_scene.IsHeadless)
+            {
+                return;
+            }
             string text = Strings.GetHudMessage(messageId);
             QueueHudMessage(x, y, Align.Center, 256, 8, new ColorRgba(0x3FEF), 1, duration, category, text, dialogHide);
         }
@@ -3476,6 +3480,10 @@ namespace MphRead.Entities
         public void QueueHudMessage(float x, float y, int maxWidth, float duration,
             byte category, int messageId, bool dialogHide = false)
         {
+            if (_scene.IsHeadless)
+            {
+                return;
+            }
             string text = Strings.GetHudMessage(messageId);
             QueueHudMessage(x, y, Align.Center, maxWidth, 8, new ColorRgba(0x3FEF), 1, duration, category, text, dialogHide);
         }
@@ -3495,6 +3503,10 @@ namespace MphRead.Entities
         public void QueueHudMessage(float x, float y, Align align, int maxWidth, float fontSize,
             ColorRgba color, float alpha, float duration, byte category, string text, bool dialogHide = false)
         {
+            if (_scene.IsHeadless)
+            {
+                return;
+            }
             Debug.Assert(text.Length < 256);
             char[] buffer = new char[512];
             int lineCount = WrapText(text, maxWidth, buffer);

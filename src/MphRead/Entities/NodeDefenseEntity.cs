@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using MphRead.Formats;
+using MphRead.Mods.Network;
 using MphRead.Hud;
 using OpenTK.Mathematics;
 
@@ -15,9 +17,11 @@ namespace MphRead.Entities
         public CollisionVolume Volume => _volume;
         private readonly bool _defender = false;
 
-        private int _currentTeam = 4;
-        private int _occupyingTeam = 4;
+        public const int NeutralTeam = PlayerEntity.SlotCapacity;
+        private int _currentTeam = NeutralTeam;
+        private int _occupyingTeam = NeutralTeam;
         private readonly bool[] _occupiedBy = new bool[PlayerEntity.SlotCapacity];
+        private readonly bool[] _previousOccupiedBy = new bool[PlayerEntity.SlotCapacity];
         private float _blinkTimer = 0;
         private PlayerEntity? _capturedPlayer = null;
         public PlayerEntity? CapturedPlayer => _capturedPlayer;
@@ -34,7 +38,7 @@ namespace MphRead.Entities
         public int OccupyingTeam => _occupyingTeam;
         public bool Blinking => _blinkTimer > 0;
         public IReadOnlyList<bool> OccupiedBy => _occupiedBy;
-        public bool IsOccupied => _occupiedBy[0] || _occupiedBy[1] || _occupiedBy[2] || _occupiedBy[3];
+        public bool IsOccupied => _occupiedBy.AsSpan().Contains(true);
         public float Progress => _progress;
 
         private readonly Material _terminalMat = null!;
@@ -68,6 +72,11 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            if (AuthoritativePlay.Active)
+            {
+                _curRotation = (_curRotation + _spinSpeed * _scene.FrameTime) % 360;
+                return true;
+            }
             if (_defender)
             {
                 ProcessDefender();
@@ -79,15 +88,62 @@ namespace MphRead.Entities
             return true;
         }
 
+        public WorldRecord CaptureWorldState()
+        {
+            uint occupied = 0;
+            for (int i = 0; i < _occupiedBy.Length; i++) { if (_occupiedBy[i]) { occupied |= 1u << i; } }
+            return new WorldRecord(WorldRecordKind.Node, (byte)(_capturedPlayer?.SlotIndex ?? 255),
+                (ushort)((_contested ? 1 : 0) | (_inProgress ? 2 : 0) | (_blinkTimer > 0 ? 4 : 0)),
+                unchecked((uint)Id), Position, (uint)_currentTeam | ((uint)_occupyingTeam << 8) | (occupied << 16),
+                0, WorldRecord.Bits(_progress), WorldRecord.Bits(_curRotation), WorldRecord.Bits(_spinSpeed));
+        }
+
+        public void ApplyWorldState(in WorldRecord state)
+        {
+            _capturedPlayer = state.Slot < 8 ? PlayerEntity.Players[state.Slot] : null;
+            _currentTeam = (int)(state.A & 255);
+            _occupyingTeam = (int)((state.A >> 8) & 255);
+            for (int i = 0; i < _occupiedBy.Length; i++) { _occupiedBy[i] = (state.A & (1u << (16 + i))) != 0; }
+            _contested = (state.Flags & 1) != 0;
+            _inProgress = (state.Flags & 2) != 0;
+            _blinkTimer = (state.Flags & 4) != 0 ? 1 / 30f : 0;
+            _progress = WorldRecord.Float(state.C);
+            _curRotation = WorldRecord.Float(state.D);
+            _spinSpeed = WorldRecord.Float(state.E);
+        }
+
+        internal void ReleaseServerPlayer(PlayerEntity player)
+        {
+            _occupiedBy[player.SlotIndex] = false;
+            _previousOccupiedBy[player.SlotIndex] = false;
+            if (_capturedPlayer != player) { return; }
+            _capturedPlayer = null;
+            if (GameState.Teams)
+            {
+                foreach (PlayerEntity teammate in _scene.GetPlayerEntities())
+                {
+                    if (teammate != player && teammate.TeamIndex == _currentTeam && teammate.LoadFlags.TestFlag(LoadFlags.Active))
+                    { _capturedPlayer = teammate; break; }
+                }
+            }
+            if (_capturedPlayer == null)
+            {
+                _currentTeam = _occupyingTeam = NeutralTeam;
+                _progress = _scoreTimer = _blinkTimer = 0;
+                _inProgress = _contested = false;
+                Array.Clear(_occupiedBy); Array.Clear(_previousOccupiedBy);
+            }
+        }
+
         private void ProcessDefender()
         {
-            int team = 4;
+            int team = NeutralTeam;
             _contested = false;
             foreach (PlayerEntity player in _scene.GetPlayerEntities())
             {
                 if (player.Health > 0 && _volume.TestPoint(player.Volume.SpherePosition))
                 {
-                    if (team == 4)
+                    if (team == NeutralTeam)
                     {
                         team = player.TeamIndex;
                     }
@@ -99,11 +155,11 @@ namespace MphRead.Entities
             }
             if (_contested)
             {
-                team = 4;
+                team = NeutralTeam;
             }
             float speed;
             float rotation;
-            if (team == 4)
+            if (team == NeutralTeam)
             {
                 (speed, rotation) = ConstantAcceleration(-0.25f, _spinSpeed, minVelocity: 0);
             }
@@ -125,8 +181,8 @@ namespace MphRead.Entities
         {
             int value1 = 0;
             int value2 = 0;
-            bool[] prevOccupiedBy = new bool[PlayerEntity.SlotCapacity];
-            for (int i = 0; i < 4; i++)
+            bool[] prevOccupiedBy = _previousOccupiedBy;
+            for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
             {
                 prevOccupiedBy[i] = _occupiedBy[i];
                 _occupiedBy[i] = false;
@@ -145,7 +201,7 @@ namespace MphRead.Entities
                         occupiedByAny = true;
                         slot = player.SlotIndex;
                     }
-                    else if (_occupyingTeam == 4 && _currentTeam != player.TeamIndex)
+                    else if (_occupyingTeam == NeutralTeam && _currentTeam != player.TeamIndex)
                     {
                         _occupiedBy[player.SlotIndex] = true;
                         occupiedByAny = true;
@@ -176,7 +232,10 @@ namespace MphRead.Entities
                     {
                         if (!_inProgress && _progress >= 10 / 30f)
                         {
-                            Music.PlayRoomMusic(_scene.RoomId, track: 2);
+                            if (!_scene.IsHeadless)
+                            {
+                                Music.PlayRoomMusic(_scene.RoomId, track: 2);
+                            }
                             value1 = 1;
                             _inProgress = true;
                         }
@@ -197,13 +256,16 @@ namespace MphRead.Entities
             {
                 if (prevOccupiedBy[PlayerEntity.Main.SlotIndex])
                 {
-                    Music.PlayRoomMusic(_scene.RoomId, track: 0);
+                    if (!_scene.IsHeadless)
+                    {
+                        Music.PlayRoomMusic(_scene.RoomId, track: 0);
+                    }
                     if (value1 != 2)
                     {
                         value1 = 3;
                     }
                 }
-                _occupyingTeam = 4;
+                _occupyingTeam = NeutralTeam;
                 _progress = 0;
                 _inProgress = false;
                 (_spinSpeed, rotation) = ConstantAcceleration(-0.15f, _spinSpeed, minVelocity: 0);
@@ -211,15 +273,15 @@ namespace MphRead.Entities
             int nodeCount = 0;
             int team = _currentTeam;
             float scoreThreshold = 150 / 30f;
-            if (team == 4)
+            if (team == NeutralTeam)
             {
                 team = _occupyingTeam;
             }
-            if (team != 4)
+            if (team != NeutralTeam)
             {
                 foreach (NodeDefenseEntity node in _scene.GetNodeDefenseEntities())
                 {
-                    if (node._currentTeam == team && node._occupyingTeam == 4)
+                    if (node._currentTeam == team && node._occupyingTeam == NeutralTeam)
                     {
                         nodeCount++;
                         if (nodeCount > 1)
@@ -229,7 +291,7 @@ namespace MphRead.Entities
                     }
                 }
             }
-            if (_currentTeam != 4 && !occupiedByAny)
+            if (_currentTeam != NeutralTeam && !occupiedByAny)
             {
                 _scoreTimer += _scene.FrameTime;
                 if (_scoreTimer >= scoreThreshold)
@@ -308,7 +370,7 @@ namespace MphRead.Entities
                 string msg = Text.Strings.GetHudMessage(211); // node stolen
                 PlayerEntity.Main.QueueHudMessage(128, 133, Align.Center, 256, 8, new ColorRgba(31), 1, 90 / 30f, 17, msg);
             }
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
             {
                 PlayerEntity player = PlayerEntity.Players[i];
                 if (_occupiedBy[i])
@@ -332,11 +394,14 @@ namespace MphRead.Entities
             _currentTeam = _occupyingTeam;
             _progress = 0;
             _inProgress = false;
-            _occupyingTeam = 4;
+            _occupyingTeam = NeutralTeam;
             _scoreTimer = 150 / 30f;
             if (_currentTeam == PlayerEntity.Main.TeamIndex)
             {
-                Music.PlayRoomMusic(_scene.RoomId, track: 0);
+                if (!_scene.IsHeadless)
+                {
+                    Music.PlayRoomMusic(_scene.RoomId, track: 0);
+                }
                 dest1 = 2;
             }
             else
@@ -355,7 +420,7 @@ namespace MphRead.Entities
         {
             bool blinking = _blinkTimer > 0;
             ColorRgb color = _neutralColor;
-            if (_currentTeam == 4)
+            if (_currentTeam == NeutralTeam)
             {
                 if (blinking)
                 {

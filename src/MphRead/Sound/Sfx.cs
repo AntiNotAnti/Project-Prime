@@ -230,7 +230,7 @@ namespace MphRead.Sound
 
         public static void Load(Scene scene)
         {
-            if (Mods.ThumbnailMode.Active)
+            if (scene.IsHeadless || Mods.ThumbnailMode.Active)
             {
                 // Reading and decoding every sample in the game, plus the
                 // whole stream bank, is the single most expensive thing a

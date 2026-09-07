@@ -123,7 +123,6 @@ namespace MphRead.Mods.Network
             var sb = new StringBuilder();
             sb.Append($"[{DateTime.Now:HH:mm:ss.fff}] STATE  ");
             sb.Append($"role={NetSession.Role} slot={NetSession.LocalSlot} ");
-            sb.Append($"authority={NetSession.IsAuthority} ");
             sb.Append($"main={PlayerEntity.MainPlayerIndex} ");
             sb.Append($"mode={GameState.Mode} matchTime={GameState.MatchTime:0.0} ");
             // The two numbers that decide whether this client is still

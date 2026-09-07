@@ -20,71 +20,44 @@ namespace MphRead.Mods.Network
     public static class NetLaunch
     {
         /// <summary>
-        /// Join a server and wait for it to say what is running.
-        ///
-        /// Both halves matter. The room key is what makes joining mid-match
-        /// work -- the server owns the rotation, so loading whatever the menu
-        /// had selected would put this client in a different level from
-        /// everyone else. The slot matters because <see cref="BuildPlayers"/>
-        /// keys off it, and starting before the Welcome arrived left a second
-        /// client with no entity in its own slot.
+        /// Join the authoritative server before loading a scene. The server
+        /// assigns the slot, match identity, room, and game mode. Cancellation
+        /// releases the new session without creating or mutating game entities.
         /// </summary>
         public static bool Join(string address, int port, string playerName, Hunter hunter,
-            int timeoutMs = 8000)
+            int timeoutMs = 8000, CancellationToken cancel = default)
         {
-            NetSession.PlayerName = playerName;
-            // Rolled here as well as in the launch plan, because joining
-            // happens *before* the plan is built: the hunter announced in
-            // Identify is what every other client draws this player as, and
-            // Hunter.Random has no model for anybody to draw.
-            NetSession.LocalHunter = Launcher.Hunters.Resolve(hunter);
-            // A networked match is not limited to the four the DS could hold:
-            // the server decides how many it admits, and every client has to
-            // be able to hold that many slots for it to matter.
-            PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
-            NetSession.StartClient(address, port);
-            if (!NetSession.Active)
+            AuthoritativePlay? play = null;
+            LastJoinError = String.Empty;
+            try
             {
-                LastJoinError = $"Could not open a socket for {address}:{port}.";
+                cancel.ThrowIfCancellationRequested();
+                play = new AuthoritativePlay(address, port, playerName, hunter);
+                var clock = Stopwatch.StartNew();
+                while (play.Client.State == NetConnectionState.Connecting)
+                {
+                    cancel.ThrowIfCancellationRequested();
+                    if (clock.ElapsedMilliseconds >= timeoutMs)
+                    {
+                        throw new TimeoutException($"No admission from {address}:{port} before the connection deadline.");
+                    }
+                    play.Client.Poll();
+                    if (play.Client.Failure != null) { throw new ProgramException(play.Client.Failure); }
+                    if (play.Client.State == NetConnectionState.Connecting) { Thread.Sleep(10); }
+                }
+                cancel.ThrowIfCancellationRequested();
+                DisableCheatsForMatch();
+                Console.WriteLine($"[net] joined {play.Client.Accepted.Room} ({play.Client.Accepted.Mode}), "
+                    + $"slot {play.LocalSlot}, protocol {NetHeader.Version}");
+                return true;
+            }
+            catch (Exception exception)
+            {
+                play?.Dispose();
+                LastJoinError = exception is OperationCanceledException ? "Connection cancelled." : exception.Message;
+                Console.WriteLine($"[net] {LastJoinError}");
                 return false;
             }
-            var clock = Stopwatch.StartNew();
-            int lastIdentify = 0;
-            while (clock.ElapsedMilliseconds < timeoutMs)
-            {
-                NetSession.Update(clock.Elapsed.TotalSeconds);
-                if (NetSession.Refused)
-                {
-                    // The server answered the Hello with a no. Nothing is
-                    // gained by spending the rest of the eight seconds asking
-                    // again, and the player gets the actual reason instead of
-                    // a list of three.
-                    LastJoinError = NetSession.RefusedReason.Describe($"{address}:{port}");
-                    Console.WriteLine($"[net] {LastJoinError}");
-                    return false;
-                }
-                if (NetSession.LocalSlot >= 0 && NetSession.ServerMatch?.RoomKey.Length > 0)
-                {
-                    MatchStatePacket state = NetSession.ServerMatch.Value;
-                    Console.WriteLine($"[net] joining {state.RoomKey} ({(GameMode)state.Mode}), "
-                        + $"{state.TimeRemaining:0} s remaining, slot {NetSession.LocalSlot}");
-                    DisableCheatsForMatch();
-                    return true;
-                }
-                // The name is what the roster keys off, and the first
-                // Identify can be lost like any other datagram; a client whose
-                // name never landed shows up on everyone else's scoreboard as
-                // "PlayerN" for the rest of the match.
-                if (clock.ElapsedMilliseconds - lastIdentify > 500)
-                {
-                    lastIdentify = (int)clock.ElapsedMilliseconds;
-                    NetSession.SendIdentify();
-                }
-                Thread.Sleep(20);
-            }
-            LastJoinError = DescribeJoinFailure(address, port);
-            Console.WriteLine($"[net] {LastJoinError}");
-            return false;
         }
 
         /// <summary>
@@ -94,59 +67,9 @@ namespace MphRead.Mods.Network
         public static string LastJoinError { get; private set; } = "";
 
         /// <summary>
-        /// Turn a silence into an answer.
-        ///
-        /// A server refuses a Hello by ignoring it -- when it is full, and
-        /// when the client is a different build -- so all three of "off",
-        /// "full" and "wrong version" reach the client as the same eight
-        /// seconds of nothing, and every screen in this program guessed all
-        /// three at once: "it may be off, full, or UDP may be blocked."
-        ///
-        /// The server does answer a StatusQuery in two of those three cases,
-        /// and that reply carries both the player count and the protocol
-        /// version, so the guess is unnecessary: ask, and say which it was.
-        /// Client-side on purpose -- it works against servers already
-        /// deployed, which an explicit refusal packet would not.
-        /// </summary>
-        private static string DescribeJoinFailure(string address, int port)
-        {
-            ServerStatus status = NetStatus.Query(address, port,
-                allowJoinProbe: false, timeoutMs: 1500);
-            if (!status.Online)
-            {
-                return $"No answer from {address}:{port}. The server may be off, "
-                    + "or UDP may be blocked between here and it.";
-            }
-            if (status.MaxPlayers > 0 && status.Players >= status.MaxPlayers)
-            {
-                return $"{address}:{port} is full ({status.Players}/{status.MaxPlayers} "
-                    + "players). Try again when somebody leaves.";
-            }
-            if (status.Protocol > 0 && status.Protocol != NetConfig.ProtocolVersion)
-            {
-                return $"{address}:{port} is running protocol {status.Protocol} and this "
-                    + $"build speaks {NetConfig.ProtocolVersion}. One of you needs updating.";
-            }
-            return $"{address}:{port} answered, but would not admit this client "
-                + $"({status.Players}/{status.MaxPlayers} players). "
-                + "It may have filled up while joining.";
-        }
-
-        /// <summary>
-        /// Turn every cheat off for the duration of a networked match.
-        ///
-        /// They are loaded from settings.json for every session, single or
-        /// networked -- and `FreeWeaponSelect` even defaults to on -- and in a
-        /// networked one they are not a private choice: the authority resolves
-        /// damage and collision for everybody, so one player's Quadruple
-        /// Damage multiplies what everyone deals or takes, depending only on
-        /// who happened to connect first.
-        ///
-        /// All of them rather than the four that obviously matter: the list
-        /// grows as upstream develops, and "which of these leaks into a match"
-        /// is not a question worth re-answering every time it does. Single
-        /// player is untouched -- these are restored from the settings file on
-        /// the next launch.
+        /// Remove local cheat overrides before prediction begins, so client
+        /// controls follow the authoritative server's rules. Offline settings
+        /// are restored on the next launcher session.
         /// </summary>
         public static void DisableCheatsForMatch()
         {
@@ -178,6 +101,10 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static (string RoomKey, GameMode Mode)? ServerRoom()
         {
+            if (AuthoritativePlay.Current is { } play)
+            {
+                return (play.Client.Accepted.Room, play.Client.Accepted.Mode);
+            }
             MatchStatePacket? state = NetSession.ServerMatch;
             if (state == null || state.Value.RoomKey.Length == 0)
             {
@@ -227,6 +154,11 @@ namespace MphRead.Mods.Network
         public static void BuildPlayers(Scene scene, Hunter localHunter, int localRecolor,
             int teamId = -1, int? localSlot = null)
         {
+            if (AuthoritativePlay.Current is { } play)
+            {
+                play.BuildPlayers(scene, Launcher.Hunters.Resolve(localHunter), localRecolor);
+                return;
+            }
             int resolvedSlot = localSlot ?? Math.Max(NetSession.LocalSlot, 0);
             for (int slot = 0; slot < PlayerEntity.MaxPlayers; slot++)
             {

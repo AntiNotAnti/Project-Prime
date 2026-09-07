@@ -245,8 +245,9 @@ namespace MphRead
         private readonly Action _close;
 
         public Scene(Vector2i size, KeyboardState keyboardState, MouseState mouseState,
-            Action<string> setTitle, Action close)
+            Action<string> setTitle, Action close, bool headless = false)
         {
+            IsHeadless = headless;
             Size = size;
             _keyboardState = keyboardState;
             _mouseState = mouseState;
@@ -256,7 +257,10 @@ namespace MphRead
             Text.Strings.ClearCache();
             GameState.Reset();
             PlayerEntity.Construct(this);
-            Music.Init();
+            if (!IsHeadless)
+            {
+                Music.Init();
+            }
         }
 
         // called before load
@@ -332,7 +336,8 @@ namespace MphRead
                 }
             }
             // the game has a redundant/early call for playing room track 0 in bounty/nodes
-            _cameraMode = PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active) ? CameraMode.Player : CameraMode.Roam;
+            _cameraMode = !IsHeadless && PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active)
+                ? CameraMode.Player : CameraMode.Roam;
             _inputMode = _cameraMode == CameraMode.Player ? InputMode.All : InputMode.CameraOnly;
             if (GameState.SinglePlayer && !meta.FirstHunt && PlayerEntity.PlayerCount > 0 && !Cheats.SkipPlanetIntros)
             {
@@ -876,6 +881,10 @@ namespace MphRead
 
         private void GenerateLists(Model model, bool isRoom)
         {
+            if (IsHeadless)
+            {
+                return;
+            }
             var tempListIds = new Dictionary<int, int>();
             foreach (Mesh mesh in model.Meshes)
             {
@@ -1175,6 +1184,10 @@ namespace MphRead
 
         private void InitTextures(Model model)
         {
+            if (IsHeadless)
+            {
+                return;
+            }
             if (_texPalMap.ContainsKey(model.Id))
             {
                 return;
@@ -1227,6 +1240,10 @@ namespace MphRead
 
         public int BindGetTexture(Model model, int textureId, int paletteId, int recolorId)
         {
+            if (IsHeadless)
+            {
+                return 0;
+            }
             if (_texPalMap.TryGetValue(model.Id, out TextureMap? value))
             {
                 return value.Get(textureId, paletteId, recolorId).BindingId;
@@ -1541,6 +1558,7 @@ namespace MphRead
         /// </summary>
         public void OnDrawFrame()
         {
+            Mods.Network.AuthoritativePlay.Current?.AdvancePresentation();
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
             // The scene's own target, which the resolution scale may have made
             // smaller than the window. Reallocated here rather than only on a
@@ -1584,7 +1602,13 @@ namespace MphRead
                 UpdateCameraPosition();
             }
             UpdateProjection();
-            GetDrawItems();
+            Mods.Network.AuthoritativePlay? presentation = Mods.Network.AuthoritativePlay.Current;
+            try
+            {
+                presentation?.BeginRemotePresentation(this);
+                GetDrawItems();
+            }
+            finally { presentation?.EndRemotePresentation(); }
         }
 
         public Matrix4 GetPerspectiveMatrix(float fov)
@@ -1761,6 +1785,12 @@ namespace MphRead
             GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, buffer);
             GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, 0);
             return buffer;
+        }
+
+        /// <summary>Called only after a window successfully presents this scene.</summary>
+        public void OnFramePresented()
+        {
+            Mods.Network.AuthoritativePlay.Current?.CommitRemotePresentation(this);
         }
 
         public void AfterRenderFrame()
@@ -2535,6 +2565,10 @@ namespace MphRead
                 if (_cameraMode == CameraMode.Player)
                 {
                     _viewMatrix = PlayerEntity.Main.CameraInfo.ViewMatrix;
+                    if (Mods.Network.AuthoritativePlay.Current is { } play)
+                    {
+                        _viewMatrix = Matrix4.CreateTranslation(-play.VisualOffset) * _viewMatrix;
+                    }
                     float fov = PlayerEntity.Main.CameraInfo.Fov > 0 ? PlayerEntity.Main.CameraInfo.Fov : 78;
                     _cameraFov = MathHelper.DegreesToRadians(fov);
                 }
@@ -2576,6 +2610,7 @@ namespace MphRead
             else if (_cameraMode == CameraMode.Player)
             {
                 _cameraPosition = PlayerEntity.Main.CameraInfo.Position;
+                _cameraPosition += Mods.Network.AuthoritativePlay.Current?.VisualOffset ?? Vector3.Zero;
             }
         }
 
@@ -2686,6 +2721,11 @@ namespace MphRead
             {
                 _inactiveBeamEffects.Enqueue(new BeamEffectEntity(this));
             }
+            AllocateBombs();
+        }
+
+        private void AllocateBombs()
+        {
             for (int i = 0; i < _bombMax; i++)
             {
                 _inactiveBombs.Enqueue(new BombEntity(this));
@@ -2726,6 +2766,7 @@ namespace MphRead
 
         public void AddSingleParticle(SingleType type, Vector3 position, Vector3 color, float alpha, float scale)
         {
+            if (IsHeadless) { return; }
             // note: skipping the room size limit check; singles get cleared every frame anyway
             if (_singleParticleCount < _singleParticleMax)
             {
@@ -2880,6 +2921,10 @@ namespace MphRead
 
         public void LoadEffect(int effectId, bool persistent)
         {
+            if (IsHeadless)
+            {
+                return;
+            }
             Effect effect = Read.LoadEffect(effectId, persistent);
             foreach (EffectElement element in effect.Elements)
             {
@@ -2898,6 +2943,10 @@ namespace MphRead
 
         public EffectEntry? SpawnEffectGetEntry(int effectId, Matrix4 transform, EntityCollision? entCol = null)
         {
+            if (IsHeadless)
+            {
+                return null;
+            }
             EffectEntry? entry = InitEffectEntry();
             if (entry == null)
             {
@@ -2921,6 +2970,10 @@ namespace MphRead
 
         private void SpawnEffect(int effectId, Matrix4 transform, bool child, EffectEntry? entry, EntityCollision? entCol)
         {
+            if (IsHeadless)
+            {
+                return;
+            }
             Effect? effect = Read.GetEffect(effectId);
             if (effect == null)
             {
@@ -3671,7 +3724,7 @@ namespace MphRead
             {
                 return;
             }
-            bool playerActive = PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active);
+            bool playerActive = !IsHeadless && PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active);
             if (!GameState.DialogPause)
             {
                 if (playerActive)
@@ -6379,6 +6432,7 @@ namespace MphRead
                 return;
             }
             SwapBuffers();
+            Scene.OnFramePresented();
             if (_startedHidden)
             {
                 IsVisible = true;

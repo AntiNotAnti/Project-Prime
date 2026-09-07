@@ -3,29 +3,18 @@ using System;
 namespace MphRead.Mods.Network
 {
     /// <summary>
-    /// Watching a recorded match. A demo file is fed into
-    /// <see cref="NetSession"/> exactly like a live connection would be --
-    /// see <see cref="NetSession.StartPlayback"/> and
-    /// <see cref="NetTransport.EnqueueForPlayback"/> -- so every packet-type
-    /// handler, room transition and match-end sequence runs unchanged; this
-    /// class only decides *when* each recorded packet gets handed over.
-    ///
-    /// "When" is a frame number, not a moment. <see cref="PumpFrame"/> is
-    /// called once per simulated frame and releases exactly the packets the
-    /// recorder saw on the matching frame of its own run, so the replay has
-    /// the same packets-per-frame the recording did -- however fast this
-    /// machine is drawing, and however long the room took to load in the
-    /// middle. See <see cref="DemoFile"/> for the three ways the stopwatch
-    /// this replaces got that wrong.
-    ///
-    /// There is no real local player during playback, so the viewer starts
-    /// and stays in <see cref="SpectatorMode"/>; Space additionally toggles
-    /// a free no-clip camera on top of that, for looking around rather than
-    /// only following whoever is spectated.
+    /// Plays frame-stamped files without opening a socket. Protocol 4 uses
+    /// the legacy presentation adapter; authoritative recordings replay server facts only.
     /// </summary>
     public static class DemoPlayback
     {
         private static DemoReader? _reader;
+        private static readonly ModernDemoState _modern = new();
+        internal static ModernDemoState Modern => _modern;
+        public static bool IsModern => IsActive && _reader != null && DemoFile.IsAuthoritativeProtocol(_reader.ProtocolVersion);
+        public static bool ApplyingSnapshot => IsModern && _modern.ApplyingSnapshot;
+        public static void BeforeSimulation(Scene scene) { if (IsModern) { _modern.BeforeSimulation(scene); } }
+        public static void AfterSimulation() { if (IsModern) { _modern.AfterSimulation(); } }
         private static DemoRecord? _pending;
         /// <summary>The frame of the recording about to be replayed.</summary>
         private static uint _frame;
@@ -78,21 +67,25 @@ namespace MphRead.Mods.Network
         public static bool Join(string path, int timeoutMs = 8000)
         {
             _ = timeoutMs; // kept for the call site; nothing here waits on a clock
+            Stop();
             LastError = null;
-            _reader = DemoReader.Open(path);
-            if (_reader == null)
+            DemoReader? reader = DemoReader.Open(path);
+            if (reader == null)
             {
                 LastError = "That file isn't a demo this build recognises "
                     + "(wrong extension, damaged, or from a different build).";
                 Console.WriteLine($"[demo] \"{path}\": {LastError}");
                 return false;
             }
-            if (_reader.ProtocolVersion != NetConfig.ProtocolVersion)
+            if (!DemoFile.IsSupportedProtocol(reader.ProtocolVersion))
             {
-                Console.WriteLine($"[demo] recorded with protocol {_reader.ProtocolVersion}, "
-                    + $"this build is {NetConfig.ProtocolVersion} -- it may not play back correctly");
+                LastError = $"Unsupported demo protocol {reader.ProtocolVersion}.";
+                reader.Dispose();
+                Stop();
+                return false;
             }
             NetSession.StartPlayback();
+            _reader = reader;
             IsActive = true;
             _frame = 0;
             _started = false;
@@ -102,7 +95,9 @@ namespace MphRead.Mods.Network
             while (_frame < JoinSearchFrames)
             {
                 PumpFrame();
+                _modern.DiscardEvents();
                 NetSession.Update(_frame / 60.0);
+                if (IsModern && _modern.HasSnapshot && _modern.World.HasState) { return Rewind(path); }
                 if (NetSession.ServerMatch?.RoomKey.Length > 0)
                 {
                     if (knownAt < 0)
@@ -160,6 +155,8 @@ namespace MphRead.Mods.Network
             _started = false;
             _pending = _reader.ReadNext();
             NetSession.RewindPlayback();
+            Chat.ChatBox.Clear();
+            _modern.Reset();
             return true;
         }
 
@@ -181,14 +178,27 @@ namespace MphRead.Mods.Network
                 _frame++;
             }
             _started = true;
+            int records = 0;
             while (_pending is DemoRecord record && record.Frame <= _frame)
             {
-                NetSession.InjectPlaybackPacket(record.Data, record.Data.Length);
+                if (++records > 4096)
+                {
+                    LastError = "Demo exceeds the per-frame record limit.";
+                    Stop();
+                    throw new ProgramException(LastError);
+                }
+                if (IsModern)
+                {
+                    if (!_modern.Receive(record.Data)) { NetSession.Metrics.Reject(); }
+                }
+                else { NetSession.InjectPlaybackPacket(record.Data, record.Data.Length); }
                 _pending = _reader.ReadNext();
             }
         }
 
-        public static void Stop()
+        public static void Stop() => NetSession.Stop();
+
+        internal static void CloseFile()
         {
             IsActive = false;
             _reader?.Dispose();
@@ -196,6 +206,7 @@ namespace MphRead.Mods.Network
             _pending = null;
             _frame = 0;
             _started = false;
+            _modern.Reset();
         }
     }
 }

@@ -318,12 +318,13 @@ namespace MphRead.Mods.Chat
         /// </summary>
         public static void Send(string text)
         {
-            Add(NetSession.Active ? NetSession.PlayerName : "You", text, ChatPacket.KindSay);
-            if (NetSession.Active)
+            if (AuthoritativePlay.Current is { } play)
             {
-                NetSession.SendChat(text);
-                Sent++;
+                if (play.Client.SendChat(text)) { Sent++; }
+                else { System("Chat could not be sent. Try again when connected."); }
+                return;
             }
+            Add("You", text, ChatPacket.KindSay);
         }
 
         /// <summary>

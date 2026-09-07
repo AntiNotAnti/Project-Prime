@@ -22,8 +22,8 @@ namespace MphRead.Mods.Launcher
         /// Load what the plan asked for and run until the match ends.
         ///
         /// For an online or hosted game the front screen has already joined --
-        /// hosting included, because a host runs the server in this process and
-        /// joins it over the loopback like everybody else -- so all that is
+        /// hosting included, because a host runs a separate server process and
+        /// joins it over loopback like everybody else -- so all that is
         /// left is to load what the server says is running.
         /// </summary>
         public static void Launch(MenuSettings settings, LaunchPlan plan)
@@ -101,7 +101,7 @@ namespace MphRead.Mods.Launcher
             bool teamPlay = settings.TeamPlay == "on" || GameState.IsTeamMode(plan.Mode);
             GameMode mode = plan.Mode;
 
-            if (NetSession.Active)
+            if (AuthoritativePlay.Active || NetSession.Active)
             {
                 NetLaunch.BuildPlayers(renderer.Scene, plan.Hunter, localRecolor: 0,
                     teamId: teamPlay ? 0 : -1);
@@ -117,7 +117,7 @@ namespace MphRead.Mods.Launcher
             {
                 AddLocalPlayers(renderer, plan, teamPlay);
             }
-            renderer.AddRoom(roomKey, mode, playerCount: NetSession.Active
+            renderer.AddRoom(roomKey, mode, playerCount: AuthoritativePlay.Active || NetSession.Active
                 ? NetLaunch.RoomPlayerCount
                 : 0);
             renderer.Run();

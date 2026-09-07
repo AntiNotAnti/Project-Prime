@@ -86,7 +86,7 @@ namespace MphRead.Mods.Launcher.Gui
                     Add(stack, "Spectate",
                         () => SpectateRequested?.Invoke(this, EventArgs.Empty));
                 }
-                if (NetSession.Active)
+                if (AuthoritativePlay.Current != null)
                 {
                     Add(stack, DemoRecorder.IsRecording ? "Stop recording" : "Record demo",
                         () => RecordToggleRequested?.Invoke(this, EventArgs.Empty));

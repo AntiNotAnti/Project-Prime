@@ -41,7 +41,14 @@ namespace MphRead
             {
                 Menu.ApplyAdventureSettings();
             }
-            Extract.LoadRuntimeData();
+            if (!scene.IsHeadless)
+            {
+                Extract.LoadRuntimeData();
+            }
+            else
+            {
+                Metadata.UseSilentSoundTables();
+            }
             LoadResources(scene);
             // currently no differentiation between loading a file and choosing a planet,
             // so reset the RNG when loading a different save slot from the previous
@@ -55,7 +62,7 @@ namespace MphRead
             CamSeqEntity.Current = null;
             CameraSequence.Current = null;
             CameraSequence.Intro = null;
-            if (GameState.Multiplayer && PlayerEntity.PlayerCount > 0)
+            if (!scene.IsHeadless && GameState.Multiplayer && PlayerEntity.PlayerCount > 0)
             {
                 int seqId = roomId - 93 + 172;
                 if (seqId >= 172 && seqId < 199)
@@ -67,7 +74,10 @@ namespace MphRead
             var room = new RoomEntity(scene);
             (CollisionInstance collision, IReadOnlyList<EntityBase> entities) = SetUpRoom(mode, playerCount,
                 bossFlags, nodeLayerMask, entityLayerId, metadata, room, scene, isRoomTransition: false);
-            Music.TryPlayRoomMusic(room.RoomId, GameState.SinglePlayer && (((int)GameState.StorySave.BossFlags >> (2 * scene.AreaId)) & 3) != 0 ? 1 : 0);
+            if (!scene.IsHeadless)
+            {
+                Music.TryPlayRoomMusic(room.RoomId, GameState.SinglePlayer && (((int)GameState.StorySave.BossFlags >> (2 * scene.AreaId)) & 3) != 0 ? 1 : 0);
+            }
             if (GameState.SinglePlayer)
             {
                 UpdateAreaHunters();
@@ -553,7 +563,7 @@ namespace MphRead
             // todo: add an assert if any loading occurs after room init (besides manual model/entity loading)
             if (scene != null)
             {
-                if (Paths.IsMphJapan || Paths.IsMphKorea)
+                if (!scene.IsHeadless && (Paths.IsMphJapan || Paths.IsMphKorea))
                 {
                     (int count, byte[] charData) = Read.ReadKanjiFont(GameState.SinglePlayer);
                     byte[] widths = new byte[count];
@@ -594,6 +604,11 @@ namespace MphRead
 
         public static void LoadCommonHunterResources(Scene scene)
         {
+            PlayerEntity.GeneratePlayerVolumes();
+            if (scene.IsHeadless)
+            {
+                return;
+            }
             scene.LoadModel("doubleDamage_img");
             scene.LoadModel("alt_ice");
             scene.LoadModel("gunSmoke");
@@ -613,7 +628,6 @@ namespace MphRead
                 scene.LoadEffect(Metadata.ChargeLoopEffectIds[i], persistent: true);
             }
             PlayerEntity.LoadWeaponNames();
-            PlayerEntity.GeneratePlayerVolumes();
             Strings.ReadStringTable(StringTables.HudMsgsCommon);
             Strings.ReadStringTable(StringTables.HudMessagesSP);
             Strings.ReadStringTable(StringTables.HudMessagesMP);
@@ -625,7 +639,10 @@ namespace MphRead
 
         public static void LoadHunterResources(Hunter hunter, Scene scene)
         {
-            scene.LoadModel(hunter == Hunter.Noxus || hunter == Hunter.Trace ? "nox_ice" : "samus_ice");
+            if (!scene.IsHeadless)
+            {
+                scene.LoadModel(hunter == Hunter.Noxus || hunter == Hunter.Trace ? "nox_ice" : "samus_ice");
+            }
             foreach (string modelName in Metadata.HunterModels[hunter])
             {
                 scene.LoadModel(modelName);
@@ -653,8 +670,11 @@ namespace MphRead
         {
             // todo?: not all of these need to be loaded depending on the hunters/mode
             scene.LoadModel("KandenAlt_TailBomb");
-            scene.LoadModel("arcWelder");
-            scene.LoadModel("arcWelder1");
+            if (!scene.IsHeadless)
+            {
+                scene.LoadModel("arcWelder");
+                scene.LoadModel("arcWelder1");
+            }
             scene.LoadEffect(9, persistent: true); // bombStart
             scene.LoadEffect(113, persistent: true); // bombStartSylux
             scene.LoadEffect(119, persistent: true); // bombStartMP
@@ -671,6 +691,10 @@ namespace MphRead
 
         private static void LoadBeamEffectResources(Scene scene)
         {
+            if (scene.IsHeadless)
+            {
+                return;
+            }
             scene.LoadModel("iceWave");
             scene.LoadModel("sniperBeam");
             scene.LoadModel("cylBossLaserBurn");
@@ -680,9 +704,12 @@ namespace MphRead
         {
             scene.LoadModel("iceShard");
             scene.LoadModel("energyBeam");
-            scene.LoadModel("trail");
-            scene.LoadModel("electroTrail");
-            scene.LoadModel("arcWelder");
+            if (!scene.IsHeadless)
+            {
+                scene.LoadModel("trail");
+                scene.LoadModel("electroTrail");
+                scene.LoadModel("arcWelder");
+            }
             scene.LoadEffect(57, persistent: true); // muzzleElc
             scene.LoadEffect(58, persistent: true); // muzzleGst
             scene.LoadEffect(59, persistent: true); // muzzleIce
@@ -760,8 +787,11 @@ namespace MphRead
             scene.LoadEffect(192, persistent: true); // mortarChargedAffinity
             scene.LoadEffect(231, persistent: true); // iceShatter
             scene.LoadEffect(239, persistent: true); // enemyCol1
-            scene.LoadModel(Read.GetSingleParticle(SingleType.Death).Model);
-            scene.LoadModel(Read.GetSingleParticle(SingleType.Fuzzball).Model);
+            if (!scene.IsHeadless)
+            {
+                scene.LoadModel(Read.GetSingleParticle(SingleType.Death).Model);
+                scene.LoadModel(Read.GetSingleParticle(SingleType.Fuzzball).Model);
+            }
             if (GameState.SinglePlayer)
             {
                 scene.LoadModel(Read.GetModelInstance("icons", dir: MetaDir.Hud).Model);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace MphRead.Mods.Network
 {
@@ -55,11 +56,11 @@ namespace MphRead.Mods.Network
 
         /// <summary>
         /// How many servers fit in one reply. The packet cap is 1024 bytes
-        /// and an entry is 82, so this is what the datagram holds rather than
+        /// and an entry is 83, so this is what the datagram holds rather than
         /// a policy about how many servers may exist.
         /// </summary>
         public static int EntriesPerPacket =>
-            (NetConfig.MaxPacketSize - 1 - 2) / MasterEntryPacket.Size;
+            (NetConfig.MaxPacketSize - 1 - 4) / MasterEntryPacket.Size;
     }
 
     /// <summary>
@@ -92,7 +93,7 @@ namespace MphRead.Mods.Network
 
         /// <summary>Announce, if enough time has passed since the last one.</summary>
         public void Beat(double now, string serverName, ushort port, byte players,
-            byte maxPlayers, byte mode, string roomKey)
+            byte maxPlayers, byte mode, string roomKey, byte protocol = 0)
         {
             if (now - _lastBeat < NetMasterConfig.HeartbeatSeconds)
             {
@@ -107,7 +108,8 @@ namespace MphRead.Mods.Network
                 }
                 var beat = new MasterHeartbeatPacket
                 {
-                    Protocol = NetConfig.ProtocolVersion,
+                    Protocol = protocol == 0 ? (byte)NetConfig.ProtocolVersion : protocol,
+                    Family = NetWireIdentity.Family,
                     Port = port,
                     Players = players,
                     MaxPlayers = maxPlayers,
@@ -224,6 +226,7 @@ namespace MphRead.Mods.Network
             public byte MaxPlayers;
             public byte Mode;
             public byte Protocol;
+            public NetWireFamily Family;
             public string ServerName = "";
             public string RoomKey = "";
             public double LastSeen;
@@ -232,12 +235,13 @@ namespace MphRead.Mods.Network
         /// <summary>A game this directory is running on somebody else's behalf.</summary>
         private sealed class Hosted
         {
-            public DedicatedServer Server = null!;
+            public ServerProcess? Server;
+            public Task<ServerProcess> Startup = null!;
             public CancellationTokenSource Cancel = null!;
             public int Port;
             public string Name = "";
             /// <summary>Who asked for it, so a second request replaces it rather than piling up.</summary>
-            public IPAddress Asker = IPAddress.None;
+            public IPEndPoint Asker = new(IPAddress.None, 0);
             public double StartedAt;
             /// <summary>When it last had anybody in it, so an abandoned game can be reaped.</summary>
             public double LastOccupied;
@@ -245,6 +249,9 @@ namespace MphRead.Mods.Network
 
         private readonly int _port;
         private readonly List<Entry> _entries = new();
+        private NetRateLimit _queries = new(5, 10, 0);
+        private NetRateLimit _heartbeats = new(64, 128, 0);
+        private NetRateLimit _hostRequests = new(2, 8, 0);
         private readonly List<Hosted> _hosted = new();
         private readonly byte[] _scratch = new byte[NetConfig.MaxPacketSize];
         private NetTransport? _transport;
@@ -254,6 +261,8 @@ namespace MphRead.Mods.Network
         private string _publicName = "";
         private int _hostPortFirst;
         private int _hostPortLast = -1;
+        private string? _hostData;
+        private string _hostVersion = "AMHE1";
         /// <summary>Ports just given up, and when. See <see cref="FreeHostPort"/>.</summary>
         private readonly Dictionary<int, double> _cooling = new();
 
@@ -304,11 +313,34 @@ namespace MphRead.Mods.Network
         /// </summary>
         public void SetHostPorts(int first, int last)
         {
+            if (first < 1 || last < first || last > UInt16.MaxValue || last - first >= 64)
+            {
+                throw new ArgumentOutOfRangeException(nameof(first), "Use a range of 1–64 valid UDP host ports.");
+            }
             _hostPortFirst = first;
             _hostPortLast = last;
         }
 
-        public bool CanHost => _hostPortLast >= _hostPortFirst && _hostPortFirst > 0;
+        /// <summary>
+        /// Explicit operator content for child matches. Directory-only operation
+        /// neither loads this content nor requires a local game installation.
+        /// </summary>
+        public void SetHostContent(string directory, string version)
+        {
+            if (String.IsNullOrWhiteSpace(directory) || !System.IO.Directory.Exists(directory))
+            {
+                throw new ArgumentException("Hosted games require an extracted game directory or server content package.", nameof(directory));
+            }
+            if (version is not ("AMHE0" or "AMHE1" or "AMHP0" or "AMHP1" or "AMHJ0" or "AMHJ1" or "AMHK0"))
+            {
+                throw new ArgumentException("Unsupported hosted game data version: " + version, nameof(version));
+            }
+            _hostData = System.IO.Path.GetFullPath(directory);
+            _hostVersion = version;
+        }
+
+        public bool CanHost => _hostPortLast >= _hostPortFirst && _hostPortFirst > 0 && _hostData != null;
+        public int BoundPort => _transport?.LocalPort ?? 0;
 
         public MasterServer(int port = NetMasterConfig.DefaultPort)
         {
@@ -390,50 +422,56 @@ namespace MphRead.Mods.Network
             Log(CanHost
                 ? $"can start games on ports {_hostPortFirst}-{_hostPortLast} "
                     + "for players who cannot open one of their own"
-                : "not starting games for anybody (no host port range)");
+                : "directory only: hosted games require a host port range and explicit game content");
             _clock.Restart();
             double lastReport = 0;
-            while (_running && !cancel.IsCancellationRequested)
+            try
             {
-                double now = _clock.Elapsed.TotalSeconds;
-                foreach (ReceivedPacket packet in _transport.Drain())
+                while (_running && !cancel.IsCancellationRequested)
                 {
-                    Handle(packet, now);
+                    double now = _clock.Elapsed.TotalSeconds;
+                    foreach (ReceivedPacket packet in _transport.Drain())
+                    {
+                        Handle(packet, now);
+                    }
+                    Expire(now);
+                    ReapHosted(now);
+                    if (now - lastReport >= 60)
+                    {
+                        lastReport = now;
+                        Log($"{_entries.Count} server(s) listed"
+                            + (_hosted.Count > 0 ? $", {_hosted.Count} started here" : ""));
+                    }
+                    // Nothing here is time-critical: a heartbeat every fifteen
+                    // seconds and a query whenever somebody opens a launcher.
+                    Thread.Sleep(20);
                 }
-                Expire(now);
-                ReapHosted(now);
-                if (now - lastReport >= 60)
-                {
-                    lastReport = now;
-                    Log($"{_entries.Count} server(s) listed"
-                        + (_hosted.Count > 0 ? $", {_hosted.Count} started here" : ""));
-                }
-                // Nothing here is time-critical: a heartbeat every fifteen
-                // seconds and a query whenever somebody opens a launcher.
-                Thread.Sleep(20);
             }
-            Log("shutting down");
-            for (int i = _hosted.Count - 1; i >= 0; i--)
+            finally
             {
-                StopHosted(_hosted[i], "the directory is shutting down");
+                Log("shutting down");
+                for (int i = _hosted.Count - 1; i >= 0; i--)
+                {
+                    StopHosted(_hosted[i], "the directory is shutting down");
+                }
+                _transport.Dispose();
+                _transport = null;
             }
-            _transport.Dispose();
-            _transport = null;
         }
 
         private void Handle(ReceivedPacket packet, double now)
         {
             if (packet.Type == PacketType.MasterHeartbeat)
             {
-                HandleHeartbeat(packet, now);
+                if (_heartbeats.Take(now)) { HandleHeartbeat(packet, now); }
             }
             else if (packet.Type == PacketType.MasterQuery)
             {
-                SendList(packet.Sender);
+                if (packet.Payload.Length == 1 && _queries.Take(now)) { SendList(packet.Sender); }
             }
             else if (packet.Type == PacketType.HostRequest)
             {
-                HandleHostRequest(packet, now);
+                if (_hostRequests.Take(now)) { HandleHostRequest(packet, now); }
             }
             else if (packet.Type == PacketType.Bye)
             {
@@ -444,7 +482,7 @@ namespace MphRead.Mods.Network
         /// <summary>A server saying it is stopping. Take it off the list now.</summary>
         private void HandleFarewell(ReceivedPacket packet)
         {
-            if (packet.Payload.Length < 2)
+            if (packet.Payload.Length != 2)
             {
                 return;
             }
@@ -473,25 +511,27 @@ namespace MphRead.Mods.Network
         private void HandleHostRequest(ReceivedPacket packet, double now)
         {
             var reply = new HostReplyPacket();
-            if (packet.Payload.Length < HostRequestPacket.Size)
+            if (!HostRequestPacket.TryRead(packet.Payload, out HostRequestPacket request))
             {
                 reply.Reason = "malformed request";
             }
             else
             {
-                HostRequestPacket request = HostRequestPacket.Read(packet.Payload);
-                if (request.Protocol != NetConfig.ProtocolVersion)
+                if (!NetWireIdentity.IsCompatible(request.Family, request.Protocol))
                 {
-                    reply.Reason = $"this directory speaks protocol {NetConfig.ProtocolVersion}, "
-                        + $"your build speaks {request.Protocol}";
+                    reply.Reason = NetWireIdentity.IncompatibilityReason(request.Family, request.Protocol);
                 }
                 else if (!CanHost)
                 {
-                    reply.Reason = "this directory does not start games";
+                    reply.Reason = _hostData == null
+                        ? "hosting is disabled: the directory has no configured game content"
+                        : "this directory does not start games";
                 }
                 else
                 {
-                    reply = StartHosted(request, packet.Sender, now);
+                    HostReplyPacket? result = StartHosted(request, packet.Sender, now);
+                    if (result == null) { return; } // Reply when the child is ready; keep serving the directory.
+                    reply = result.Value;
                 }
             }
             reply.Write(_scratch);
@@ -503,7 +543,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private HostReplyPacket StartHosted(HostRequestPacket request, IPEndPoint asker, double now)
+        private HostReplyPacket? StartHosted(HostRequestPacket request, IPEndPoint asker, double now)
         {
             // One game per host. Somebody who quits and asks again is asking
             // for a *replacement*, not a second one -- and the old one is
@@ -516,9 +556,16 @@ namespace MphRead.Mods.Network
             for (int i = _hosted.Count - 1; i >= 0; i--)
             {
                 Hosted previous = _hosted[i];
-                if (previous.Asker.Equals(asker.Address) && previous.Server.PeerCount == 0)
+                if (previous.Asker.Address.Equals(asker.Address))
                 {
-                    StopHosted(previous, "the same player asked for another game");
+                    if (previous.Server == null)
+                    {
+                        return new HostReplyPacket { Reason = "a game for this address is still starting" };
+                    }
+                    if (previous.Server.PeerCount == 0 && now - previous.LastOccupied >= HostedEmptySeconds)
+                    {
+                        StopHosted(previous, "the same player asked for another game");
+                    }
                 }
             }
             int port = FreeHostPort(now);
@@ -535,60 +582,23 @@ namespace MphRead.Mods.Network
             string name = request.ServerName.Length > 0 ? request.ServerName : "Hosted game";
             var rotation = MapRotation.SingleMatch(request.RoomKey, mode,
                 request.TimeLimit, request.PointGoal);
-            var server = new DedicatedServer(port,
-                Math.Clamp((int)request.MaxPlayers, 2, MphRead.Entities.PlayerEntity.SlotCapacity),
-                rotation)
-            {
-                ServerName = name,
-                // It lists itself the way any other server does, over the
-                // loopback -- which is exactly the case SetPublicAddress
-                // exists for.
-                Reporter = new MasterReporter("127.0.0.1", _port)
-            };
             var cancel = new CancellationTokenSource();
+            int directoryPort = _transport!.LocalPort;
             var entry = new Hosted
             {
-                Server = server,
                 Cancel = cancel,
                 Port = port,
                 Name = name,
-                Asker = asker.Address,
+                Asker = asker,
                 StartedAt = now,
-                LastOccupied = now
+                LastOccupied = now,
+                Startup = ServerProcess.StartAsync(_hostData!, _hostVersion, rotation, port,
+                    Math.Clamp((int)request.MaxPlayers, 2, MphRead.Entities.PlayerEntity.SlotCapacity),
+                    friendlyFire: false, listing: ("127.0.0.1", directoryPort, name), cancel: cancel.Token)
             };
-            var thread = new Thread(() =>
-            {
-                try
-                {
-                    server.Run(cancel.Token);
-                }
-                catch (Exception ex)
-                {
-                    Log($"game on {port} stopped: {ex.Message}");
-                }
-            })
-            {
-                IsBackground = true,
-                Name = $"MphRead hosted {port}"
-            };
-            thread.Start();
-            // The socket binds a few milliseconds in, and the asker is about
-            // to send a Hello at it. Its own join retries for several seconds,
-            // so this only avoids the first one going into nothing.
-            for (int i = 0; i < 50 && !server.Listening; i++)
-            {
-                Thread.Sleep(10);
-            }
-            if (!server.Listening)
-            {
-                cancel.Cancel();
-                server.Stop();
-                return new HostReplyPacket { Reason = $"could not listen on port {port}" };
-            }
-            _hosted.Add(entry);
-            Log($"started \"{name}\" on port {port} for {asker.Address} "
-                + $"({request.RoomKey}, {mode})");
-            return new HostReplyPacket { Started = true, Port = (ushort)port, Reason = "" };
+            _hosted.Add(entry); // Reserve the port before processing another request.
+            Log($"starting \"{name}\" on port {port} for {asker.Address} ({request.RoomKey}, {mode})");
+            return null;
         }
 
         private int FreeHostPort(double now)
@@ -631,6 +641,35 @@ namespace MphRead.Mods.Network
             for (int i = _hosted.Count - 1; i >= 0; i--)
             {
                 Hosted entry = _hosted[i];
+                if (entry.Server == null)
+                {
+                    if (!entry.Startup.IsCompleted) { continue; }
+                    HostReplyPacket reply;
+                    try
+                    {
+                        entry.Server = entry.Startup.GetAwaiter().GetResult();
+                        entry.LastOccupied = now;
+                        reply = new HostReplyPacket { Started = true, Port = (ushort)entry.Server.Port, Reason = "" };
+                        Log($"started \"{entry.Name}\" on port {entry.Server.Port}");
+                    }
+                    catch (Exception ex)
+                    {
+                        reply = new HostReplyPacket { Reason = "server startup failed: " + ex.Message };
+                        Log($"game on {entry.Port} failed: {ex.Message}");
+                    }
+                    reply.Write(_scratch);
+                    _transport?.Send(entry.Asker, PacketType.HostReply, _scratch.AsSpan(0, HostReplyPacket.Size));
+                    if (entry.Server == null)
+                    {
+                        StopHosted(entry, "startup failed");
+                        continue;
+                    }
+                }
+                if (!entry.Server.Running)
+                {
+                    StopHosted(entry, "the server process exited");
+                    continue;
+                }
                 if (entry.Server.PeerCount > 0)
                 {
                     entry.LastOccupied = now;
@@ -649,23 +688,18 @@ namespace MphRead.Mods.Network
         {
             Log($"stopping \"{entry.Name}\" on port {entry.Port}: {why}");
             entry.Cancel.Cancel();
-            entry.Server.Stop();
-            // Wait for the socket to actually come back before the port is
-            // considered free. The run loop notices within a couple of
-            // milliseconds; handing the port out while it is still bound made
-            // the next game fail to start with "could not listen".
-            for (int i = 0; i < 100 && entry.Server.Listening; i++)
+            try
             {
-                Thread.Sleep(10);
+                // Cancellation wakes a pending startup immediately; it owns and
+                // shuts down its child before completing the task.
+                ServerProcess server = entry.Server ?? entry.Startup.GetAwaiter().GetResult();
+                server.Dispose();
             }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { Log($"game on {entry.Port} stopped: {ex.Message}"); }
             entry.Cancel.Dispose();
             _hosted.Remove(entry);
             _cooling[entry.Port] = _clock.Elapsed.TotalSeconds;
-            // Off the list now, not in fifty seconds' time. This directory
-            // does not have to infer that a server is gone from missing
-            // heartbeats when it is the thing that just stopped it -- and a
-            // game still being offered after it ended is the whole of what a
-            // zombie server is.
             Unlist(entry.Port);
         }
 
@@ -683,11 +717,10 @@ namespace MphRead.Mods.Network
 
         private void HandleHeartbeat(ReceivedPacket packet, double now)
         {
-            if (packet.Payload.Length < MasterHeartbeatPacket.Size)
+            if (!MasterHeartbeatPacket.TryRead(packet.Payload, out MasterHeartbeatPacket beat))
             {
                 return;
             }
-            MasterHeartbeatPacket beat = MasterHeartbeatPacket.Read(packet.Payload);
             if (packet.Sender.Address.AddressFamily != AddressFamily.InterNetwork)
             {
                 return;
@@ -708,6 +741,7 @@ namespace MphRead.Mods.Network
             Entry? entry = _entries.Find(e => e.Key.Equals(key));
             if (entry == null)
             {
+                if (_entries.Count >= 255) { return; }
                 entry = new Entry { Key = key };
                 _entries.Add(entry);
                 Log($"+ {key} \"{beat.ServerName}\"");
@@ -718,6 +752,7 @@ namespace MphRead.Mods.Network
             entry.MaxPlayers = beat.MaxPlayers;
             entry.Mode = beat.Mode;
             entry.Protocol = beat.Protocol;
+            entry.Family = beat.Family;
             entry.ServerName = beat.ServerName;
             entry.RoomKey = beat.RoomKey;
             entry.LastSeen = now;
@@ -753,7 +788,9 @@ namespace MphRead.Mods.Network
                 int count = Math.Min(perPacket, total - sent);
                 _scratch[0] = (byte)count;
                 _scratch[1] = (byte)total;
-                int offset = 2;
+                _scratch[2] = (byte)NetWireIdentity.Family;
+                _scratch[3] = NetHeader.Version;
+                int offset = 4;
                 for (int i = 0; i < count; i++)
                 {
                     Entry entry = _entries[sent + i];
@@ -765,6 +802,7 @@ namespace MphRead.Mods.Network
                         MaxPlayers = entry.MaxPlayers,
                         Mode = entry.Mode,
                         Protocol = entry.Protocol,
+                        Family = entry.Family,
                         ServerName = entry.ServerName,
                         RoomKey = entry.RoomKey
                     };
@@ -815,6 +853,9 @@ namespace MphRead.Mods.Network
         public int Players { get; init; }
         public int MaxPlayers { get; init; }
         public int Protocol { get; init; }
+        public NetWireFamily Family { get; init; }
+        public bool Compatible => NetWireIdentity.IsCompatible(Family, Protocol);
+        public string IncompatibilityReason => NetWireIdentity.IncompatibilityReason(Family, Protocol);
 
         public string Endpoint => Port == NetConfig.DefaultPort
             ? Address
@@ -833,6 +874,10 @@ namespace MphRead.Mods.Network
     {
         public IReadOnlyList<MasterListing> Servers { get; init; }
         public bool Answered { get; init; }
+        public NetWireFamily Family { get; init; }
+        public int Protocol { get; init; }
+        public bool Compatible => Answered && NetWireIdentity.IsCompatible(Family, Protocol);
+        public string IncompatibilityReason => !Answered ? "Directory did not answer." : NetWireIdentity.IncompatibilityReason(Family, Protocol);
     }
 
     /// <summary>What came back from asking the directory to start a game.</summary>
@@ -869,7 +914,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static HostedGame RequestGame(string masterHost, int masterPort,
             string roomKey, GameMode mode, float timeLimit, int pointGoal,
-            int maxPlayers, string serverName, int timeoutMs = 6000)
+            int maxPlayers, string serverName, int timeoutMs = ServerProcess.StartupTimeoutMs + 5000)
         {
             IPEndPoint endPoint;
             try
@@ -887,6 +932,10 @@ namespace MphRead.Mods.Network
             {
                 return new HostedGame { Reason = $"cannot find {masterHost}: {ex.Message}" };
             }
+            // Probe the resolved endpoint we will mutate; a second hostname lookup
+            // must not switch to an unverified address between discovery and hosting.
+            MasterListResult directory = Query(endPoint.Address.ToString(), endPoint.Port, Math.Min(timeoutMs, 1500));
+            if (!directory.Compatible) { return new HostedGame { Reason = directory.IncompatibilityReason }; }
             try
             {
                 using var socket = new UdpClient(AddressFamily.InterNetwork);
@@ -894,6 +943,7 @@ namespace MphRead.Mods.Network
                 var request = new HostRequestPacket
                 {
                     Protocol = NetConfig.ProtocolVersion,
+                    Family = NetWireIdentity.Family,
                     MaxPlayers = (byte)Math.Clamp(maxPlayers, 2,
                         MphRead.Entities.PlayerEntity.SlotCapacity),
                     Mode = (byte)mode,
@@ -907,16 +957,18 @@ namespace MphRead.Mods.Network
                 request.Write(datagram.AsSpan(1));
                 socket.Send(datagram, datagram.Length, endPoint);
                 var from = new IPEndPoint(IPAddress.Any, 0);
-                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-                while (DateTime.UtcNow < deadline)
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                while (clock.ElapsedMilliseconds < timeoutMs)
                 {
+                    socket.Client.ReceiveTimeout = Math.Max(1, timeoutMs - (int)clock.ElapsedMilliseconds);
                     byte[] reply = socket.Receive(ref from);
-                    if (reply.Length < 1 + HostReplyPacket.Size
-                        || reply[0] != (byte)PacketType.HostReply)
+                    if (!from.Equals(endPoint) || reply.Length != 1 + HostReplyPacket.Size
+                        || reply[0] != (byte)PacketType.HostReply
+                        || !HostReplyPacket.TryRead(reply.AsSpan(1), out HostReplyPacket answer)
+                        || !NetWireIdentity.IsCompatible(answer.Family, answer.Protocol))
                     {
                         continue;
                     }
-                    HostReplyPacket answer = HostReplyPacket.Read(reply.AsSpan(1));
                     return new HostedGame
                     {
                         Started = answer.Started,
@@ -946,6 +998,8 @@ namespace MphRead.Mods.Network
         {
             var found = new List<MasterListing>();
             bool answered = false;
+            NetWireFamily resultFamily = NetWireFamily.Unknown;
+            byte resultProtocol = 0;
             IPEndPoint endPoint;
             try
             {
@@ -971,48 +1025,40 @@ namespace MphRead.Mods.Network
                     (byte)PacketType.MasterQuery, NetConfig.ProtocolVersion
                 }, 2, endPoint);
                 var from = new IPEndPoint(IPAddress.Any, 0);
-                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                var entries = new MasterEntryPacket[NetMasterConfig.EntriesPerPacket];
+                var endpoints = new HashSet<string>(StringComparer.Ordinal);
                 int total = -1;
-                while (DateTime.UtcNow < deadline && (total < 0 || found.Count < total))
+                while (clock.ElapsedMilliseconds < timeoutMs && (total < 0 || found.Count < total))
                 {
+                    socket.Client.ReceiveTimeout = Math.Max(1, timeoutMs - (int)clock.ElapsedMilliseconds);
                     byte[] reply = socket.Receive(ref from);
-                    if (reply.Length < 3 || reply[0] != (byte)PacketType.MasterList)
+                    if (!from.Equals(endPoint) || reply.Length < 3 || reply[0] != (byte)PacketType.MasterList
+                        || !MasterListPacket.TryRead(reply.AsSpan(1), entries, out int count, out int advertisedTotal,
+                            out NetWireFamily family, out byte protocol)
+                        || (answered && (advertisedTotal != total || family != resultFamily || protocol != resultProtocol)))
                     {
                         continue;
                     }
                     answered = true;
-                    int count = reply[1];
-                    total = reply[2];
-                    int offset = 3;
+                    total = advertisedTotal;
+                    resultFamily = family;
+                    resultProtocol = protocol;
                     for (int i = 0; i < count; i++)
                     {
-                        if (offset + MasterEntryPacket.Size > reply.Length)
+                        MasterEntryPacket entry = entries[i];
+                        string address = new IPAddress(new[]
                         {
-                            break;
-                        }
-                        MasterEntryPacket entry = MasterEntryPacket.Read(reply.AsSpan(offset));
-                        offset += MasterEntryPacket.Size;
+                            (byte)(entry.Address >> 24), (byte)(entry.Address >> 16),
+                            (byte)(entry.Address >> 8), (byte)entry.Address
+                        }).ToString();
+                        if (found.Count >= total || !endpoints.Add(address + ":" + entry.Port)) { continue; }
                         found.Add(new MasterListing
                         {
-                            Address = new IPAddress(new[]
-                            {
-                                (byte)(entry.Address >> 24), (byte)(entry.Address >> 16),
-                                (byte)(entry.Address >> 8), (byte)entry.Address
-                            }).ToString(),
-                            Port = entry.Port,
-                            ServerName = entry.ServerName,
-                            RoomKey = entry.RoomKey,
-                            Mode = Enum.IsDefined(typeof(GameMode), entry.Mode)
-                                ? (GameMode)entry.Mode
-                                : GameMode.Battle,
-                            Players = entry.Players,
-                            MaxPlayers = entry.MaxPlayers,
-                            Protocol = entry.Protocol
+                            Address = address, Port = entry.Port, ServerName = entry.ServerName,
+                            RoomKey = entry.RoomKey, Mode = (GameMode)entry.Mode, Players = entry.Players,
+                            MaxPlayers = entry.MaxPlayers, Protocol = entry.Protocol, Family = entry.Family
                         });
-                    }
-                    if (total == 0)
-                    {
-                        break;
                     }
                 }
             }
@@ -1024,7 +1070,7 @@ namespace MphRead.Mods.Network
             catch (Exception)
             {
             }
-            return new MasterListResult { Servers = found, Answered = answered };
+            return new MasterListResult { Servers = found, Answered = answered, Family = resultFamily, Protocol = resultProtocol };
         }
     }
 }

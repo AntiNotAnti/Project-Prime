@@ -1,145 +1,154 @@
 using System;
+using System.Buffers.Binary;
 using System.IO;
 
 namespace MphRead.Mods.Network
 {
-    /// <summary>
-    /// Records every packet this client receives to a demo file, from
-    /// whenever the player asks (the pause menu's "Record demo", online
-    /// matches only) to whenever they ask again or the match ends.
-    ///
-    /// Fed from <see cref="NetSession.Update"/>'s own drain loop -- it sees
-    /// exactly what the session sees, in the same order, on the same frame,
-    /// so a replay through <see cref="DemoPlayback"/> reproduces exactly what
-    /// this client saw.
-    ///
-    /// Two things this client never receives are synthesized instead, because
-    /// a demo made of arrivals alone is missing whatever this machine already
-    /// knew: its own intent (<see cref="RecordOwnIntent"/>) and, when it is
-    /// the authority, its own snapshot (<see cref="RecordOwnSnapshot"/>).
-    /// </summary>
+    /// <summary>Records accepted server facts at presentation frames, independently of connection traffic.</summary>
     internal static class DemoRecorder
     {
         private static DemoWriter? _writer;
-        private static uint _startFrame;
-
+        private static readonly ClientWorldState _world = new();
+        private static uint _frame;
+        private static uint _match;
+        private static uint _rosterRevision;
+        private static uint _worldRevision;
+        private static long _snapshotCount;
+        private static bool _hasRoster;
+        private static bool _hasWorld;
         public static bool IsRecording => _writer != null;
-
-        /// <summary>Where the file being written now lives, for a "saved to..." message.</summary>
         public static string? CurrentPath { get; private set; }
+        public static string? LastError { get; private set; }
 
         public static bool Start()
         {
-            if (IsRecording || !NetSession.Active || DemoPlayback.IsActive)
+            LastError = null;
+            if (IsRecording || DemoPlayback.IsActive || AuthoritativePlay.Current is not { } play
+                || play.Client.Accepted.MatchId == 0)
             {
+                LastError = "Join a match before recording a demo.";
                 return false;
             }
-            string room = SanitizeFileName(NetSession.ServerMatch?.RoomKey ?? "match");
-            string fileName = $"{room}_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}{DemoFile.Extension}";
+            string room = SanitizeFileName(play.Client.Accepted.Room);
+            string fileName = $"{room}_{DateTime.Now:yyyy-MM-dd_HH-mm-ss-fff}_{Guid.NewGuid():N}{DemoFile.Extension}";
             string path = Paths.Combine(Paths.Export, "_demos", fileName);
-            try
+            return Start(path, play.Client);
+        }
+
+        internal static bool Start(string path, NetClient client)
+        {
+            if (_writer != null || client.Accepted.MatchId == 0) { return false; }
+            LastError = null;
+            try { _writer = new DemoWriter(path, NetHeader.Version); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                _writer = new DemoWriter(path);
-            }
-            catch (IOException ex)
-            {
-                Console.WriteLine($"[demo] could not start recording: {ex.Message}");
-                _writer = null;
+                LastError = ex.Message;
+                Console.WriteLine($"[demo] could not start recording: {LastError}");
                 return false;
             }
             CurrentPath = path;
-            _startFrame = NetSession.NetFrame;
-            return true;
+            _frame = uint.MaxValue;
+            _match = _rosterRevision = _worldRevision = 0;
+            _snapshotCount = -1;
+            _hasRoster = _hasWorld = false;
+            RecordFrame(client);
+            return IsRecording;
         }
 
         public static void Stop()
         {
-            _writer?.Dispose();
+            DemoWriter? writer = _writer;
             _writer = null;
             CurrentPath = null;
-        }
-
-        internal static void Record(ReceivedPacket packet)
-        {
-            if (_writer == null)
+            _world.Reset(0);
+            try { writer?.Dispose(); }
+            catch (IOException ex)
             {
-                return;
+                LastError = ex.Message;
+                Console.WriteLine($"[demo] could not finish recording: {LastError}");
             }
-            _writer.WriteRecord(Frame(), packet.Data.AsSpan(0, packet.Length));
         }
 
-        /// <summary>
-        /// Synthesizes a SlotIntent record for this client's own outgoing
-        /// Intent, exactly the shape <see cref="NetSession"/> would have
-        /// received one in from the server for anybody else's input
-        /// (<c>[PacketType.SlotIntent][slot][IntentPacket bytes]</c>) -- see
-        /// the call site in <see cref="NetSession.SendIntent"/> for why this
-        /// is the only way the recording player's own shooting/morphing/
-        /// alt-attack animations end up in the file at all.
-        /// </summary>
-        internal static void RecordOwnIntent(int slot, ReadOnlySpan<byte> intentBytes)
+        internal static void RecordFrame(NetClient client)
         {
-            if (_writer == null)
+            if (_writer == null || client.Accepted.MatchId == 0) { return; }
+            _frame = unchecked(_frame + 1);
+            Span<byte> body = stackalloc byte[NetConfig.MaxPacketSize - 1];
+            if (_match != client.Accepted.MatchId)
             {
-                return;
+                _match = client.Accepted.MatchId;
+                _hasRoster = _hasWorld = false;
+                _snapshotCount = -1;
+                new MatchTransitionPacket(_match, client.Accepted.ServerTick, client.Accepted.Mode, client.Accepted.Room).Write(body);
+                Write(DemoRecordKind.Match, body[..MatchTransitionPacket.Size]);
             }
-            Span<byte> buffer = stackalloc byte[2 + intentBytes.Length];
-            buffer[0] = (byte)PacketType.SlotIntent;
-            buffer[1] = (byte)slot;
-            intentBytes.CopyTo(buffer[2..]);
-            _writer.WriteRecord(Frame(), buffer);
-        }
-
-        /// <summary>
-        /// Synthesizes a Snapshot record for the one this machine is about to
-        /// publish, when this machine is the one publishing them.
-        ///
-        /// Without it, a demo recorded by the authority contains no snapshots
-        /// at all -- the server forwards them to every peer *except* the one
-        /// that sent them, which is right on the wire and leaves a hole in the
-        /// file. And the snapshot is not one stream among several: it is the
-        /// only carrier of health, score, the damage sequence and the spawn
-        /// flag, and <see cref="NetPlayerBridge.ApplyState"/> is the only
-        /// thing during playback that ever calls <c>ModNetSpawn</c>. So an
-        /// authority's demo did not merely look thin, it opened on an empty
-        /// room: nobody was ever placed, nothing was ever hit, and no score
-        /// ever moved.
-        ///
-        /// The authority is whichever client connected first, which is
-        /// normally whoever set the match up -- so this was the common case,
-        /// not the corner one.
-        /// </summary>
-        internal static void RecordOwnSnapshot(ReadOnlySpan<byte> payload)
-        {
-            if (_writer == null)
+            if (client.HasRoster && (!_hasRoster || _rosterRevision != client.RosterRevision))
             {
-                return;
+                BinaryPrimitives.WriteUInt32LittleEndian(body, _match);
+                int count = SessionRosterPacket.Write(body[4..], client.RosterRevision, client.Roster);
+                Write(DemoRecordKind.Roster, body[..(count + 4)]);
+                _rosterRevision = client.RosterRevision;
+                _hasRoster = true;
             }
-            Span<byte> buffer = stackalloc byte[1 + payload.Length];
-            buffer[0] = (byte)PacketType.Snapshot;
-            payload.CopyTo(buffer[1..]);
-            _writer.WriteRecord(Frame(), buffer);
+            if (client.HasSnapshot && _snapshotCount != client.SnapshotsReceived)
+            {
+                int count = client.Snapshot.Write(body, client.SnapshotPlayers);
+                Write(DemoRecordKind.Snapshot, body[..count]);
+                _snapshotCount = client.SnapshotsReceived;
+            }
+            if (_world.HasState && _world.MatchId == _match && (!_hasWorld || _worldRevision != _world.Revision))
+            {
+                for (int offset = 0; offset < _world.Count; offset += WorldPacket.RecordsPerBatch)
+                {
+                    int count = WorldPacket.Write(body, _match, _world.Revision, _world.ServerTick, _world.Records, offset);
+                    Write(DemoRecordKind.World, body[..count]);
+                }
+                _worldRevision = _world.Revision;
+                _hasWorld = true;
+            }
         }
 
-        /// <summary>
-        /// Simulation frames since recording started.
-        ///
-        /// The frame counter and not the clock: the whole point is that the
-        /// player releases these on the frame they were recorded on, whatever
-        /// either machine's frame rate is doing. See <see cref="DemoFile"/>.
-        /// </summary>
-        private static uint Frame()
+        /// <summary>Cache complete worlds even before recording starts, so the opening frame has a baseline.</summary>
+        internal static void RecordWorld(ReadOnlySpan<byte> payload)
         {
-            uint now = NetSession.NetFrame;
-            return now > _startFrame ? now - _startFrame : 0;
+            if (payload.Length < WorldPacket.HeaderSize) { return; }
+            uint match = BinaryPrimitives.ReadUInt32LittleEndian(payload);
+            if (!WorldPacket.TryValidate(payload, match)) { return; }
+            if (_world.MatchId != match) { _world.Reset(match); }
+            _world.Receive(payload);
+        }
+
+        internal static void RecordEvent(in NetApplicationEvent message)
+        {
+            if (_writer == null || message.MatchId != _match
+                || message.Type is not (ReliableEventType.Combat or ReliableEventType.Chat)) { return; }
+            Span<byte> body = stackalloc byte[5 + message.Payload.Length];
+            BinaryPrimitives.WriteUInt32LittleEndian(body, message.MatchId);
+            body[4] = (byte)message.Type;
+            message.Payload.Span.CopyTo(body[5..]);
+            Write(DemoRecordKind.Event, body);
+        }
+
+        private static void Write(DemoRecordKind kind, ReadOnlySpan<byte> payload)
+        {
+            if (_writer == null) { return; }
+            if (payload.Length >= NetConfig.MaxPacketSize)
+            { throw new ArgumentOutOfRangeException(nameof(payload)); }
+            Span<byte> record = stackalloc byte[payload.Length + 1];
+            record[0] = (byte)kind;
+            payload.CopyTo(record[1..]);
+            try { _writer.WriteRecord(_frame, record); }
+            catch (IOException ex)
+            {
+                LastError = ex.Message;
+                Console.WriteLine($"[demo] recording stopped: {LastError}");
+                Stop();
+            }
         }
 
         private static string SanitizeFileName(string name)
         {
-            foreach (char c in Path.GetInvalidFileNameChars())
-            {
-                name = name.Replace(c, '_');
-            }
+            foreach (char c in Path.GetInvalidFileNameChars()) { name = name.Replace(c, '_'); }
             return name;
         }
     }

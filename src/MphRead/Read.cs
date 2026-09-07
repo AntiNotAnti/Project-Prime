@@ -14,6 +14,18 @@ namespace MphRead
 {
     public static class Read
     {
+        private static bool _serverMode;
+        public static bool ServerMode
+        {
+            get => _serverMode;
+            set
+            {
+                if (_serverMode == value) { return; }
+                ClearCache();
+                _serverMode = value;
+            }
+        }
+
         public static bool ApplyFixes { get; set; } = true;
 
         private static readonly Dictionary<string, Model> _modelCache = [];
@@ -194,6 +206,7 @@ namespace MphRead
             string root = firstHunt ? Paths.FhFileSystem : Paths.FileSystem;
             string path = Paths.Combine(root, modelPath);
             ReadOnlySpan<byte> initialBytes = ReadBytes(path, firstHunt);
+            if (ServerMode) { Mods.Network.ServerContent.RecordModel(path); }
             Header header = ReadStruct<Header>(initialBytes[0..Sizes.Header]);
             IReadOnlyList<RawNode> nodes = DoOffsets<RawNode>(initialBytes, header.NodeOffset, header.NodeCount);
             IReadOnlyList<RawMesh> meshes = DoOffsets<RawMesh>(initialBytes, header.MeshOffset, header.MeshCount);
@@ -201,12 +214,18 @@ namespace MphRead
             var instructions = new List<IReadOnlyList<RenderInstruction>>(dlists.Count);
             foreach (DisplayList dlist in dlists)
             {
-                instructions.Add(DoRenderInstructions(initialBytes, dlist));
+                instructions.Add(ServerMode ? Array.Empty<RenderInstruction>() : DoRenderInstructions(initialBytes, dlist));
             }
             IReadOnlyList<RawMaterial> materials = DoOffsets<RawMaterial>(initialBytes, header.MaterialOffset, header.MaterialCount);
             var recolors = new List<Recolor>(recolorMeta.Count);
             foreach (RecolorMetadata meta in recolorMeta)
             {
+                if (ServerMode)
+                {
+                    recolors.Add(new Recolor(meta.Name, Array.Empty<Texture>(), Array.Empty<Palette>(),
+                        Array.Empty<IReadOnlyList<TextureData>>(), Array.Empty<IReadOnlyList<PaletteData>>()));
+                    continue;
+                }
                 ReadOnlySpan<byte> modelBytes = initialBytes;
                 Header modelHeader = header;
                 if (Paths.Combine(root, meta.ModelPath) != path)
@@ -454,7 +473,7 @@ namespace MphRead
                 return results;
             }
             path = Paths.Combine(firstHunt ? Paths.FhFileSystem : Paths.FileSystem, path);
-            var bytes = new ReadOnlySpan<byte>(File.ReadAllBytes(path));
+            var bytes = new ReadOnlySpan<byte>(Mods.Network.ServerContent.ReadBytes(path));
             AnimationHeader header = ReadStruct<AnimationHeader>(bytes);
             IReadOnlyList<uint> nodeGroupOffsets = DoOffsets<uint>(bytes, header.NodeGroupOffset, header.Count);
             IReadOnlyList<uint> materialGroupOffsets = DoOffsets<uint>(bytes, header.MaterialGroupOffset, header.Count);
@@ -616,7 +635,7 @@ namespace MphRead
 
         public static ReadOnlySpan<byte> ReadBytes(string path, bool firstHunt)
         {
-            return new ReadOnlySpan<byte>(File.ReadAllBytes(Paths.Combine(firstHunt ? Paths.FhFileSystem : Paths.FileSystem, path)));
+            return new ReadOnlySpan<byte>(Mods.Network.ServerContent.ReadBytes(Paths.Combine(firstHunt ? Paths.FhFileSystem : Paths.FileSystem, path)));
         }
 
         private static IReadOnlyList<TextureData> GetTextureData(Texture texture, ReadOnlySpan<byte> textureBytes)
@@ -891,7 +910,7 @@ namespace MphRead
             {
                 return cached;
             }
-            var bytes = new ReadOnlySpan<byte>(File.ReadAllBytes(Paths.Combine(Paths.FileSystem, path)));
+            var bytes = new ReadOnlySpan<byte>(Mods.Network.ServerContent.ReadBytes(Paths.Combine(Paths.FileSystem, path)));
             RawEffect effect = ReadStruct<RawEffect>(bytes);
             var funcs = new Dictionary<uint, FxFuncInfo>();
             foreach (uint offset in DoOffsets<uint>(bytes, effect.FuncOffset, effect.FuncCount))
@@ -1296,7 +1315,7 @@ namespace MphRead
                 int filesWritten = 0;
                 Directory.CreateDirectory(output);
                 Console.Write($"Reading {name}...");
-                var bytes = new ReadOnlySpan<byte>(File.ReadAllBytes(path));
+                var bytes = new ReadOnlySpan<byte>(Mods.Network.ServerContent.ReadBytes(path));
                 if (Encoding.ASCII.GetString(bytes[0..8]) == Archiver.MagicString)
                 {
                     Console.Write(" Extracting archive...");

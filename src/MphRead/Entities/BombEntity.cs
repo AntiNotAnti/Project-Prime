@@ -5,12 +5,14 @@ using MphRead.Effects;
 using MphRead.Entities.Enemies;
 using MphRead.Formats;
 using MphRead.Formats.Culling;
+using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
 namespace MphRead.Entities
 {
     public class BombEntity : EntityBase
     {
+        internal CombatShot CombatShot { get; private set; }
         public BombFlags Flags { get; private set; }
         public PlayerEntity Owner { get; private set; } = null!;
         public BombType BombType { get; private set; }
@@ -45,13 +47,9 @@ namespace MphRead.Entities
             }
             else if (BombType == BombType.Lockjaw)
             {
-                if (Recolor == 0)
+                if (!_scene.IsHeadless)
                 {
-                    _trailModel = Read.GetModelInstance("arcWelder");
-                }
-                else
-                {
-                    _trailModel = Read.GetModelInstance("arcWelder1");
+                    _trailModel = Read.GetModelInstance(Recolor == 0 ? "arcWelder" : "arcWelder1");
                 }
                 Countdown = 900 * 2;
                 // bombStartSylux, bombStartSyluxR, bombStartSyluxP, bombStartSyluxW, bombStartSyluxO, or bombStartSyluxG
@@ -651,12 +649,14 @@ namespace MphRead.Entities
                 return null;
             }
             bomb.Owner = owner;
+            bomb.CombatShot = ServerCombat.Current?.CaptureAttribution(owner) ?? default;
             bomb.BombType = type;
             bomb.Transform = transform;
             bomb.Recolor = owner.Recolor;
             bomb.Flags = BombFlags.None;
             bomb.NodeRef = NodeRef.None;
             scene.AddEntity(bomb);
+            ServerCombat.Current?.NoteBomb(bomb.CombatShot, type, bomb.Position, bomb.FacingVector);
             return bomb;
         }
     }

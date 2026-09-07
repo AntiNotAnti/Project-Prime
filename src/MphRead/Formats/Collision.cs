@@ -36,6 +36,12 @@ namespace MphRead.Formats.Collision
         private static readonly Dictionary<string, CollisionInfo> _cache = new Dictionary<string, CollisionInfo>();
         private static readonly Dictionary<string, CollisionInfo> _fhCache = new Dictionary<string, CollisionInfo>();
 
+        public static void ClearCache()
+        {
+            _cache.Clear();
+            _fhCache.Clear();
+        }
+
         public static CollisionInstance GetCollision(ModelMetadata meta, bool extra = false)
         {
             string? path = extra ? meta.ExtraCollisionPath : meta.CollisionPath;
@@ -64,7 +70,7 @@ namespace MphRead.Formats.Collision
             {
                 return new CollisionInstance(name, info, isEntity);
             }
-            var bytes = new ReadOnlySpan<byte>(File.ReadAllBytes(Paths.Combine(firstHunt ? Paths.FhFileSystem : Paths.FileSystem, path)));
+            var bytes = new ReadOnlySpan<byte>(Mods.Network.ServerContent.ReadBytes(Paths.Combine(firstHunt ? Paths.FhFileSystem : Paths.FileSystem, path)));
             CollisionHeader header = Read.ReadStruct<CollisionHeader>(bytes);
             if (header.Type.MarshalString() == "wc01")
             {

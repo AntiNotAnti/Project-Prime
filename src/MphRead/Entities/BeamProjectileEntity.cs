@@ -13,6 +13,12 @@ namespace MphRead.Entities
 {
     public class BeamProjectileEntity : EntityBase
     {
+        internal CombatShot CombatShot { get; private set; }
+        private uint? _spreadSeed;
+        internal uint Generation { get; private set; }
+        internal bool CatchUpPending { get; set; }
+        internal BeamMechanics Mechanics { get; private set; }
+        internal LagCompensationMode TimingMode { get; private set; }
         public BeamFlags Flags { get; set; }
         public BeamType Beam { get; set; }
         public BeamType BeamKind { get; set; }
@@ -74,6 +80,7 @@ namespace MphRead.Entities
         public override void Initialize()
         {
             base.Initialize();
+            if (_scene.IsHeadless) return;
             // model will be loaded and bound by scene setup
             if (DrawFuncId == 0 || DrawFuncId == 3 || DrawFuncId == 6 || DrawFuncId == 7 || DrawFuncId == 10 || DrawFuncId == 12)
             {
@@ -105,8 +112,24 @@ namespace MphRead.Entities
             }
         }
 
-        public override bool Process()
+        public override bool Process() => CatchUpPending || ProcessCore();
+        private bool _catchUpCollision;
+        internal bool ProcessCatchUpStep(out bool collided)
         {
+            _catchUpCollision = false;
+            bool alive = ProcessCore();
+            collided = _catchUpCollision;
+            return alive;
+        }
+        internal void RemoveAfterCatchUp()
+        {
+            _scene.SendMessage(Message.Destroyed, this, null, 0, 0, delay: 1);
+            Destroy();
+            _scene.RemoveEntity(this);
+        }
+        private bool ProcessCore()
+        {
+            uint generation = Generation;
             if (Lifespan <= 0)
             {
                 return false;
@@ -189,6 +212,7 @@ namespace MphRead.Entities
             if (!Flags.TestFlag(BeamFlags.Continuous) || firstFrame)
             {
                 CheckCollision();
+                if (Generation != generation) return true;
             }
             if (Flags.TestFlag(BeamFlags.Homing) && !Flags.TestFlag(BeamFlags.Continuous) && Target != null)
             {
@@ -372,7 +396,7 @@ namespace MphRead.Entities
                     {
                         if (Beam == BeamType.OmegaCannon && enemy.EnemyType == EnemyType.GoreaMeteor)
                         {
-                            enemy.TakeDamage(500, this);
+                            if (!AuthoritativePlay.Active) enemy.TakeDamage(500, this);
                         }
                         else if (res.Distance < minDist)
                         {
@@ -385,6 +409,9 @@ namespace MphRead.Entities
                 }
             }
             bool hitHalfturret = false;
+            bool historicalHit = false;
+            LagCompensationState historicalTarget = default;
+            ServerCombat? combat = ServerCombat.Current;
             // todo: visualize player collision (and rename some "pickup" fields)
             foreach (PlayerEntity player in _scene.GetPlayerEntities())
             {
@@ -396,7 +423,11 @@ namespace MphRead.Entities
                 {
                     NetDamage.PlayerChecks[player.SlotIndex]++;
                 }
-                bool hasHalfturret = player.Hunter == Hunter.Weavel && player.Flags2.TestFlag(PlayerFlags2.Halfturret);
+                LagCompensationState history = default;
+                bool historical = combat != null && CombatShot.IsValid;
+                if (historical && !combat!.TryGetPlayerCollider(player, CombatShot, out history)) continue;
+                bool hasHalfturret = historical ? history.HasHalfturret
+                    : player.Hunter == Hunter.Weavel && player.Flags2.TestFlag(PlayerFlags2.Halfturret);
                 if ((Owner == player || hasHalfturret && Owner == player.Halfturret)
                     && (!Flags.TestFlag(BeamFlags.SelfDamage) || Age < 1 / 30f * 4))
                 {
@@ -405,7 +436,11 @@ namespace MphRead.Entities
                 bool hitPlayer = false;
                 CollisionResult playerRes = default;
                 float radii = player.Volume.SphereRadius + CylinderRadius;
-                if (player.IsAltForm)
+                if (historical)
+                {
+                    hitPlayer = history.CheckPlayer(BackPosition, Position, CylinderRadius, ref playerRes);
+                }
+                else if (player.IsAltForm)
                 {
                     if (player.Hunter == Hunter.Kanden)
                     {
@@ -458,24 +493,30 @@ namespace MphRead.Entities
                     colWith = player;
                     noColEff = false;
                     hitHalfturret = false;
+                    historicalHit = historical;
+                    historicalTarget = history;
                 }
                 else if (hitPlayer && NetLog.Enabled)
                 {
                     NetDamage.PlayerOverlaps[player.SlotIndex]++;
                 }
                 // todo?: else wifi check
-                if (hasHalfturret && Owner != player.Halfturret)
+                if (hasHalfturret && player.Flags2.TestFlag(PlayerFlags2.Halfturret) && Owner != player.Halfturret)
                 {
                     CollisionResult turretRes = default;
                     float radius = CylinderRadius + 0.45f;
-                    if (CollisionDetection.CheckCylinderOverlapSphere(BackPosition, Position, player.Halfturret.Position,
-                        radius, ref turretRes) && turretRes.Distance < minDist)
+                    bool hitTurret = historical
+                        ? history.CheckHalfturret(BackPosition, Position, CylinderRadius, ref turretRes)
+                        : CollisionDetection.CheckCylinderOverlapSphere(BackPosition, Position, player.Halfturret.Position, radius, ref turretRes);
+                    if (hitTurret && turretRes.Distance < minDist)
                     {
                         minDist = turretRes.Distance;
                         anyRes = turretRes;
                         colWith = player.Halfturret;
                         noColEff = false;
                         hitHalfturret = true;
+                        historicalHit = historical;
+                        historicalTarget = history;
                     }
                 }
             }
@@ -547,12 +588,13 @@ namespace MphRead.Entities
                             {
                                 damageFlags |= DamageFlags.Halfturret;
                             }
-                            Vector3 damageDir = GetDamageDirection(anyRes.Position, player.Position);
+                            Vector3 damageDir = GetDamageDirection(anyRes.Position, historicalHit ? historicalTarget.Position : player.Position);
                             float damage = 0;
                             uint wholeDamage = 0;
                             bool isHeadshot = false;
-                            if (!player.IsAltForm && Beam != BeamType.ShockCoil
-                                && anyRes.Position.Y - player.Position.Y >= Fixed.ToFloat(player.Values.MaxPickupHeight) - 0.3f)
+                            bool headshotHeight = historicalHit ? historicalTarget.IsHeadshot(anyRes.Position)
+                                : !player.IsAltForm && anyRes.Position.Y - player.Position.Y >= Fixed.ToFloat(player.Values.MaxPickupHeight) - 0.3f;
+                            if (headshotHeight && Beam != BeamType.ShockCoil)
                             {
                                 if (Beam == BeamType.Imperialist)
                                 {
@@ -598,7 +640,8 @@ namespace MphRead.Entities
                             {
                                 player.TakeDamage(wholeDamage, damageFlags, damageDir, this);
                             }
-                            if (Flags.TestFlag(BeamFlags.LifeDrain) && Owner.Type == EntityType.Player)
+                            if (!AuthoritativePlay.Active && !ServerCombat.IsStaleSource(this)
+                                && Flags.TestFlag(BeamFlags.LifeDrain) && Owner.Type == EntityType.Player)
                             {
                                 var ownerPlayer = (PlayerEntity)Owner;
                                 if (!ownerPlayer.IsPrimeHunter && ownerPlayer.TeamIndex != player.TeamIndex)
@@ -644,7 +687,7 @@ namespace MphRead.Entities
                             }
                             if (damage > 0 && (Beam != BeamType.ShockCoil || _scene.FrameCount % 2 == 0)) // todo: FPS stuff
                             {
-                                enemy.TakeDamage((uint)damage, this);
+                                if (!AuthoritativePlay.Active) enemy.TakeDamage((uint)damage, this);
                                 SpawnCollisionEffect(anyRes, noSplat: true);
                             }
                             OnCollision(anyRes, colWith);
@@ -661,7 +704,7 @@ namespace MphRead.Entities
                         if (Owner?.Type == EntityType.Player)
                         {
                             var player = (PlayerEntity)Owner;
-                            if (player.IsMainPlayer || _scene.CameraMode != CameraMode.Player) // skdebug
+                            if (!AuthoritativePlay.Active && (player.IsMainPlayer || _scene.CameraMode != CameraMode.Player)) // skdebug
                             {
                                 if (door.Flags.TestFlag(DoorFlags.Locked) && !door.Flags.TestFlag(DoorFlags.ShowLock))
                                 {
@@ -691,7 +734,7 @@ namespace MphRead.Entities
                             SpawnCollisionEffect(anyRes, noSplat: true);
                             OnCollision(anyRes, colWith);
                             PlayBeamHitSfx();
-                            forceField.Lock?.LockHit(this);
+                            if (!AuthoritativePlay.Active) forceField.Lock?.LockHit(this);
                             ricochet = false;
                         }
                     }
@@ -761,7 +804,8 @@ namespace MphRead.Entities
                     bool reflected = anyRes.Flags.TestFlag(CollisionFlags.ReflectBeams);
                     if (anyRes.EntityCollision != null)
                     {
-                        _scene.SendMessage(Message.BeamCollideWith, this, anyRes.EntityCollision.Entity, anyRes, 0);
+                        if (!AuthoritativePlay.Active)
+                            _scene.SendMessage(Message.BeamCollideWith, this, anyRes.EntityCollision.Entity, anyRes, 0);
                         anyRes.EntityCollision.Entity.CheckBeamReflection(ref reflected);
                     }
                     if ((!Flags.TestFlag(BeamFlags.Ricochet) && !reflected)
@@ -884,6 +928,9 @@ namespace MphRead.Entities
 
         public void OnCollision(CollisionResult colRes, EntityBase? colWith)
         {
+            _catchUpCollision = true;
+            uint generation = Generation;
+            bool impactSent = false;
             if (Effect != null) // game also checks the HasModel flag, but it's either-or
             {
                 _scene.DetachEffectEntry(Effect, setExpired: true);
@@ -935,7 +982,20 @@ namespace MphRead.Entities
                     {
                         flags |= BeamSpawnFlags.Charged;
                     }
-                    Spawn(Owner, _ricochetEquip, colRes.Position, spawnDir, flags, NodeRef, _scene);
+                    // Mark the old generation before a child can recycle this
+                    // slot; otherwise recycling would apply its splash again.
+                    if (ServerCombat.Current?.CatchUp.CollisionTick != null)
+                    {
+                        Flags |= BeamFlags.Collided;
+                        // The old generation must emit its impact before the
+                        // shared slot can become a child with a different owner.
+                        if (!AuthoritativePlay.Active)
+                            _scene.SendMessage(Message.Impact, this, Owner, colWith ?? (object)0, 0);
+                        StopHomingSfx();
+                        impactSent = true;
+                    }
+                    Spawn(Owner, _ricochetEquip, colRes.Position, spawnDir, flags, NodeRef, _scene, CombatShot, _spreadSeed);
+                    if (Generation != generation) return;
                 }
             }
             if (!Flags.TestFlag(BeamFlags.Continuous))
@@ -944,9 +1004,10 @@ namespace MphRead.Entities
                 Lifespan = 4 * (1 / 30f); // todo: frame time stuff
                 Velocity = Vector3.Zero;
             }
-            if (Owner != null)
+            if (!impactSent && Owner != null)
             {
-                _scene.SendMessage(Message.Impact, this, Owner, colWith ?? (object)0, 0);
+                if (!AuthoritativePlay.Active)
+                    _scene.SendMessage(Message.Impact, this, Owner, colWith ?? (object)0, 0);
                 StopHomingSfx();
             }
         }
@@ -973,22 +1034,28 @@ namespace MphRead.Entities
                     if (!player.Flags2.TestFlag(PlayerFlags2.Halfturret) || Owner != player.Halfturret)
                     {
                         CollisionResult discard = default;
-                        float dist = Vector3.Distance(player.Position, Position);
+                        Vector3 targetPosition = player.Position;
+                        if (ServerCombat.Current is {} combat && CombatShot.IsValid)
+                        {
+                            if (!combat.TryGetPlayerCollider(player, CombatShot, out LagCompensationState collider)) continue;
+                            targetPosition = collider.Position;
+                        }
+                        float dist = Vector3.Distance(targetPosition, Position);
                         // todo?: wifi conditions
                         if (dist >= SplashRadius
-                            || CollisionDetection.CheckBetweenPoints(Position, player.Position, TestFlags.Beams, _scene, ref discard))
+                            || CollisionDetection.CheckBetweenPoints(Position, targetPosition, TestFlags.Beams, _scene, ref discard))
                         {
                             OmegaCannonFlash();
                         }
                         else
                         {
-                            Vector3 damageDir = GetDamageDirection(Position, player.Position);
+                            Vector3 damageDir = GetDamageDirection(Position, targetPosition);
                             float ratio = dist / SplashRadius;
                             int damage = (int)GetInterpolatedValue(SplashDamageType, SplashDamage, 0, ratio);
                             player.TakeDamage(damage, DamageFlags.NoDmgInvuln, damageDir, this);
                             if (Owner != null)
                             {
-                                _scene.SendMessage(Message.Impact, this, Owner, player, 0);
+                                if (!AuthoritativePlay.Active) _scene.SendMessage(Message.Impact, this, Owner, player, 0);
                                 StopHomingSfx();
                             }
                         }
@@ -1011,10 +1078,10 @@ namespace MphRead.Entities
                     && !CollisionDetection.CheckBetweenPoints(Position, enemy.Position, TestFlags.Beams, _scene, ref res))
                 {
                     float damage = GetInterpolatedValue(SplashDamageType, SplashDamage, 0, dist / SplashRadius);
-                    enemy.TakeDamage((uint)damage, this);
+                    if (!AuthoritativePlay.Active) enemy.TakeDamage((uint)damage, this);
                     if (Owner != null)
                     {
-                        _scene.SendMessage(Message.Impact, this, Owner, enemy, 0);
+                        if (!AuthoritativePlay.Active) _scene.SendMessage(Message.Impact, this, Owner, enemy, 0);
                         StopHomingSfx();
                     }
                 }
@@ -1380,7 +1447,7 @@ namespace MphRead.Entities
         }
 
         public static BeamResultFlags Spawn(EntityBase owner, EquipInfo equip, Vector3 position, Vector3 direction,
-            BeamSpawnFlags spawnFlags, NodeRef nodeRef, Scene scene)
+            BeamSpawnFlags spawnFlags, NodeRef nodeRef, Scene scene, CombatShot? inheritedShot = null, uint? spreadSeed = null)
         {
             BeamResultFlags result = BeamResultFlags.Spawned;
             WeaponInfo weapon = equip.Weapon;
@@ -1612,6 +1679,23 @@ namespace MphRead.Entities
             {
                 velocity = direction * speed;
             }
+            var mechanics = new BeamMechanics(weapon.Beam, weapon.BeamKind, flags.TestFlag(BeamFlags.Continuous),
+                instantAoe, homing, speed, lifespan);
+            CombatShot combatShot = inheritedShot ?? ServerCombat.Current?.CaptureShot(owner, mechanics) ?? default;
+            if (!spreadSeed.HasValue && ServerCombat.Current != null && maxSpread > 0)
+            {
+                // Advance the authoritative global stream once per spread shot;
+                // every pellet then uses only this seed, including after pool reuse.
+                Rng.GetRandomInt2(0);
+                spreadSeed = Rng.Rng2;
+            }
+            var spread = new BeamSpread(spreadSeed.GetValueOrDefault());
+            if (!inheritedShot.HasValue)
+            {
+                ServerCombat.Current?.NoteShot(combatShot, weapon.Beam, charged, position, direction, equip.ChargeLevel,
+                    (int)weapon.Beam is >= 0 and <= 8 && ReferenceEquals(weapon, Weapons.Current[(int)weapon.Beam + 9]),
+                    spreadSeed.GetValueOrDefault());
+            }
             for (int i = 0; i < projectiles; i++)
             {
                 BeamProjectileEntity beam = ChooseBeamSlot(equip, owner);
@@ -1634,7 +1718,13 @@ namespace MphRead.Entities
                         equip.SmokeLevel = weapon.SmokeStart;
                     }
                 }
+                beam.Generation++;
+                beam.CatchUpPending = false;
+                beam.Mechanics = mechanics;
+                beam.TimingMode = ServerCombat.Current?.GetMode(mechanics) ?? LagCompensationMode.None;
                 beam.Owner = owner;
+                beam.CombatShot = combatShot;
+                beam._spreadSeed = spreadSeed;
                 beam.Beam = weapon.Beam;
                 beam.BeamKind = weapon.BeamKind;
                 beam.Flags = flags;
@@ -1676,7 +1766,7 @@ namespace MphRead.Entities
                 if (owner.Type == EntityType.Player)
                 {
                     var ownerPlayer = (PlayerEntity)owner;
-                    GameState.BeamDamageMax[ownerPlayer.SlotIndex] += damage;
+                    if (!AuthoritativePlay.Active) GameState.BeamDamageMax[ownerPlayer.SlotIndex] += damage;
                 }
                 if (instantAoe)
                 {
@@ -1690,16 +1780,10 @@ namespace MphRead.Entities
                 }
                 if (maxSpread > 0)
                 {
-                    float angle1 = MathHelper.DegreesToRadians(Rng.GetRandomInt2((uint)maxSpread) / 4096f);
-                    float angle2 = MathHelper.DegreesToRadians(Rng.GetRandomInt2(0x168000) / 4096f);
-                    float sin1 = MathF.Sin(angle1);
-                    float cos1 = MathF.Cos(angle1);
-                    float sin2 = MathF.Sin(angle2);
-                    float cos2 = MathF.Cos(angle2);
-                    velocity.X = direction.X * cos1 + (beam.Up.X * cos2 + beam.Right.X * sin2) * sin1;
-                    velocity.Y = direction.Y * cos1 + (beam.Up.Y * cos2 + beam.Right.Y * sin2) * sin1;
-                    velocity.Z = direction.Z * cos1 + (beam.Up.Z * cos2 + beam.Right.Z * sin2) * sin1;
-                    velocity *= beam.Speed;
+                    velocity = spreadSeed.HasValue
+                        ? spread.Next(direction, beam.Up, beam.Right, (uint)maxSpread, beam.Speed)
+                        : BeamSpread.Velocity(direction, beam.Up, beam.Right, beam.Speed,
+                            Rng.GetRandomInt2((uint)maxSpread), Rng.GetRandomInt2(0x168000));
                 }
                 beam.Velocity = velocity;
                 beam.Acceleration = acceleration;
@@ -1769,6 +1853,7 @@ namespace MphRead.Entities
                 }
                 beam._soundSource.Update(beam.Position, rangeIndex: 0);
                 scene.AddEntity(beam);
+                ServerCombat.Current?.CatchUp.Enqueue(beam, inheritedShot.HasValue);
             }
             return result;
         }

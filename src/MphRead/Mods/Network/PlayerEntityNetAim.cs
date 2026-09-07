@@ -57,6 +57,11 @@ namespace MphRead.Entities
 
         internal void ModRefreshNetworkAim()
         {
+            if (_networkInputActive)
+            {
+                ModSetAim(_networkAim);
+                return;
+            }
             if (NetSession.Active && SlotIndex != NetHooks.LocalSlot
                 && NetSession.RemoteIntentValid[SlotIndex])
             {
@@ -78,7 +83,7 @@ namespace MphRead.Entities
             {
                 return;
             }
-            if (NetSession.Active && SlotIndex != NetHooks.LocalSlot)
+            if (_networkInputActive || NetSession.Active && SlotIndex != NetHooks.LocalSlot)
             {
                 // A remote player's camera is not the authoritative state.
                 // Repositioning the player without moving this cached camera
@@ -967,6 +972,11 @@ namespace MphRead.Entities
 
         private void ApplyModAim()
         {
+            if (_networkInputActive)
+            {
+                ModSetAim(_networkAim);
+                return;
+            }
             ApplyGamepadAim();
             if (!NetSession.Active)
             {

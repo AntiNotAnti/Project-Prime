@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
@@ -8,54 +7,46 @@ using System.Threading;
 
 namespace MphRead.Mods.Network
 {
+    public readonly record struct NetKeepAlive(IPEndPoint Endpoint, ReadOnlyMemory<byte> Datagram);
+
     public readonly struct ReceivedPacket
     {
         public readonly IPEndPoint Sender;
         public readonly byte[] Data;
         public readonly int Length;
+        public readonly long ReceivedAt;
 
         public ReceivedPacket(IPEndPoint sender, byte[] data, int length)
         {
             Sender = sender;
             Data = data;
             Length = length;
+            ReceivedAt = Stopwatch.GetTimestamp();
         }
 
         public PacketType Type => Length > 0 ? (PacketType)Data[0] : default;
-        public ReadOnlySpan<byte> Payload => Data.AsSpan(1, Length - 1);
+        public ReadOnlySpan<byte> Payload => Length > 0 ? Data.AsSpan(1, Length - 1) : default;
     }
 
     /// <summary>
-    /// UDP transport on a dedicated worker thread.
-    ///
-    /// The game loop never touches a socket: it only drains a bounded
-    /// concurrent queue. This mirrors the threading decision documented in
-    /// ndsrecomp's wifi_net.cpp, and it matters for the same reason -- a
-    /// blocking recv on the simulation thread turns a network hiccup into a
-    /// frame hitch. Bounded, because an unbounded queue converts a flood
-    /// into unbounded memory growth instead of dropped packets.
+    /// UDP receives run on a dedicated worker; the simulation polls a bounded
+    /// inbox with a fixed packet budget. Sends use the socket directly unless
+    /// the optional impairment worker holds them. Every retained queue is bounded.
     /// </summary>
     public sealed class NetTransport : IDisposable
     {
         private readonly UdpClient _socket;
         private readonly Thread _worker;
-        private readonly ConcurrentQueue<ReceivedPacket> _inbox = new();
-        private readonly CancellationTokenSource _cancel = new();
+        private readonly Queue<ReceivedPacket> _inbox = new();
+        private int _disposed;
+        private long _packetsDropped;
         private volatile bool _running;
-        private int _inboxCount;
 
-        /// <summary>
-        /// How many received packets may wait for the game loop.
-        ///
-        /// The number that matters is how long a frame can take while the
-        /// queue still holds everything that arrived during it. Eight clients
-        /// on one machine produce roughly two thousand packets a second
-        /// between them, so 256 covers a 130 ms frame -- which sounds
-        /// generous until eight copies of the engine share one CPU and a
-        /// frame takes exactly that long. At that point the queue overflows,
-        /// and what was dropped was a player's aim.
-        /// </summary>
-        private const int MaxQueuedPackets = 2048;
+        /// <summary>Hard capacity of each inbox and simulated-delay queue.</summary>
+        public const int MaxQueuedPackets = 2048;
+
+        /// <summary>Maximum packets returned by one poll, even under a continuous flood.</summary>
+        public const int MaxPacketsPerDrain = 256;
 
         /// <summary>
         /// Bytes the OS may hold before the worker thread gets to them. The
@@ -66,6 +57,60 @@ namespace MphRead.Mods.Network
         private const int SocketBufferBytes = 1 << 20;
 
         private volatile bool _autoPong;
+        private sealed record KeepAlive(IPEndPoint Target, byte[] Datagram);
+        private KeepAlive[] _keepAlives = Array.Empty<KeepAlive>();
+        private long _keepAliveDue;
+        public const int MaxKeepAlives = 8;
+
+        /// <summary>
+        /// A client liveness packet that continues during synchronous room loading.
+        /// Passing null clears it. The transport owns copies of its endpoint and bytes.
+        /// </summary>
+        public void SetKeepAlive(IPEndPoint? target, ReadOnlySpan<byte> datagram = default)
+        {
+            PublishKeepAlives(target == null ? Array.Empty<KeepAlive>() : [CopyKeepAlive(target, datagram)]);
+        }
+
+        /// <summary>
+        /// Publish at most eight prepared authoritative keepalives atomically. The
+        /// receive worker reads no connection, ACK or simulation state while the
+        /// owner loads a room. Republish when a peer changes its endpoint.
+        /// </summary>
+        public void SetKeepAlives(ReadOnlySpan<NetKeepAlive> entries)
+        {
+            if (entries.Length > MaxKeepAlives)
+            {
+                throw new ArgumentOutOfRangeException(nameof(entries), "At most eight keepalive endpoints are supported.");
+            }
+            var copies = entries.IsEmpty ? Array.Empty<KeepAlive>() : new KeepAlive[entries.Length];
+            for (int i = 0; i < entries.Length; i++)
+            {
+                copies[i] = CopyKeepAlive(entries[i].Endpoint, entries[i].Datagram.Span);
+            }
+            PublishKeepAlives(copies);
+        }
+
+        private static KeepAlive CopyKeepAlive(IPEndPoint target, ReadOnlySpan<byte> datagram)
+        {
+            if (target == null || target.AddressFamily != AddressFamily.InterNetwork)
+            {
+                throw new ArgumentException("Keepalive requires an IPv4 endpoint.", nameof(target));
+            }
+            if (datagram.Length != NetHeader.Size || !NetHeader.TryRead(datagram, out NetHeader header)
+                || header.Type != NetMessageType.KeepAlive)
+            {
+                throw new ArgumentException("Expected an authoritative keepalive header.", nameof(datagram));
+            }
+            return new KeepAlive(new IPEndPoint(new IPAddress(target.Address.GetAddressBytes()), target.Port), datagram.ToArray());
+        }
+
+        private void PublishKeepAlives(KeepAlive[] entries)
+        {
+            lock (_heldLock)
+            {
+                if (_running) { Volatile.Write(ref _keepAlives, entries); }
+            }
+        }
 
         /// <summary>
         /// Packets held back because <see cref="NetLag"/> is on: arrivals
@@ -91,7 +136,11 @@ namespace MphRead.Mods.Network
         public void AnswerPingsImmediately() => _autoPong = true;
 
         public int LocalPort { get; }
-        public long PacketsDropped { get; private set; }
+        public long PacketsDropped => Interlocked.Read(ref _packetsDropped);
+        public int QueuedPackets { get { lock (_heldLock) { return _inbox.Count; } } }
+        public int HeldIncomingPackets { get { lock (_heldLock) { return _heldIn.Count; } } }
+        public int HeldOutgoingPackets { get { lock (_heldLock) { return _heldOut.Count; } } }
+        public NetTrafficMetrics Metrics { get; } = new();
 
         /// <summary>
         /// Packets dropped by every transport in this process, for the test
@@ -168,7 +217,7 @@ namespace MphRead.Mods.Network
             while (_running)
             {
                 long now = Stopwatch.GetTimestamp();
-                while (true)
+                for (int i = 0; i < MaxPacketsPerDrain && _running; i++)
                 {
                     (long DueAt, IPEndPoint Target, byte[] Data, int Length) held;
                     lock (_heldLock)
@@ -192,6 +241,19 @@ namespace MphRead.Mods.Network
             {
                 try
                 {
+                    KeepAlive[] keepAlives = Volatile.Read(ref _keepAlives);
+                    if (keepAlives.Length > 0)
+                    {
+                        long now = Stopwatch.GetTimestamp();
+                        if (now >= _keepAliveDue)
+                        {
+                            foreach (KeepAlive keepAlive in keepAlives)
+                            {
+                                SendDatagram(keepAlive.Target, keepAlive.Datagram);
+                            }
+                            _keepAliveDue = now + Stopwatch.Frequency;
+                        }
+                    }
                     // Blocking, with a timeout only so shutdown is prompt.
                     //
                     // This used to poll Available and Thread.Sleep(1) between
@@ -216,8 +278,10 @@ namespace MphRead.Mods.Network
                     {
                         continue;
                     }
-                    if (data.Length == 0)
+                    Metrics.Received(data.Length);
+                    if (data.Length == 0 || data.Length > NetConfig.MaxPacketSize)
                     {
+                        Metrics.Reject();
                         continue;
                     }
                     // Answered here rather than from the game loop, when the
@@ -243,21 +307,6 @@ namespace MphRead.Mods.Network
                             _lagWorker != null ? NetLag.HoldTicks() : 0);
                         continue;
                     }
-                    if (Volatile.Read(ref _inboxCount) >= MaxQueuedPackets)
-                    {
-                        // Drop rather than grow -- but drop the *oldest*, not
-                        // this one. In a real-time protocol the newest packet
-                        // is the one worth having: it carries where the player
-                        // is aiming now. Discarding arrivals while a queue of
-                        // stale ones drains is how a backlogged client ends up
-                        // seeing a third of an opponent's turn.
-                        if (_inbox.TryDequeue(out _))
-                        {
-                            Interlocked.Decrement(ref _inboxCount);
-                        }
-                        PacketsDropped++;
-                        Interlocked.Increment(ref TotalPacketsDropped);
-                    }
                     // The worker rather than NetLag.Active, so the two
                     // halves cannot disagree: nothing may be held back unless
                     // there is something running that lets it out again.
@@ -265,6 +314,7 @@ namespace MphRead.Mods.Network
                     {
                         if (NetLag.Drops())
                         {
+                            Metrics.DropSimulated();
                             continue;
                         }
                         long holdFor = NetLag.HoldTicks();
@@ -272,14 +322,17 @@ namespace MphRead.Mods.Network
                         {
                             lock (_heldLock)
                             {
-                                _heldIn.Enqueue((Stopwatch.GetTimestamp() + holdFor,
-                                    new ReceivedPacket(sender, data, data.Length)));
+                                if (_running)
+                                {
+                                    MakeRoom(_heldIn);
+                                    _heldIn.Enqueue((Stopwatch.GetTimestamp() + holdFor,
+                                        new ReceivedPacket(sender, data, data.Length)));
+                                }
                             }
                             continue;
                         }
                     }
-                    Interlocked.Increment(ref _inboxCount);
-                    _inbox.Enqueue(new ReceivedPacket(sender, data, data.Length));
+                    Enqueue(new ReceivedPacket(sender, data, data.Length));
                 }
                 catch (SocketException)
                 {
@@ -293,36 +346,70 @@ namespace MphRead.Mods.Network
             }
         }
 
-        /// <summary>Drain everything received since the last call. Called once per frame.</summary>
+        /// <summary>
+        /// Return at most MaxPacketsPerDrain packets. The caller's simulation tick
+        /// must finish even when the receive worker continuously fills the queue.
+        /// </summary>
         public IEnumerable<ReceivedPacket> Drain()
         {
             if (_lagWorker != null)
             {
                 PromoteHeldArrivals();
             }
-            while (_inbox.TryDequeue(out ReceivedPacket packet))
+            for (int i = 0; i < MaxPacketsPerDrain; i++)
             {
-                Interlocked.Decrement(ref _inboxCount);
+                ReceivedPacket packet;
+                lock (_heldLock)
+                {
+                    if (!_inbox.TryDequeue(out packet))
+                    {
+                        yield break;
+                    }
+                }
                 yield return packet;
+            }
+        }
+
+        // All queue mutations share one short lock. This keeps capacities exact
+        // across the receiver, delayed-arrival promotion and demo playback.
+        private void Enqueue(ReceivedPacket packet)
+        {
+            lock (_heldLock)
+            {
+                if (_running)
+                {
+                    MakeRoom(_inbox);
+                    _inbox.Enqueue(packet);
+                }
+            }
+        }
+
+        private void MakeRoom<T>(Queue<T> queue)
+        {
+            if (queue.Count == MaxQueuedPackets)
+            {
+                // Prefer fresh state; reliable messages recover through retries.
+                queue.Dequeue();
+                Interlocked.Increment(ref _packetsDropped);
+                Metrics.DropQueued();
+                Interlocked.Increment(ref TotalPacketsDropped);
             }
         }
 
         private void PromoteHeldArrivals()
         {
             long now = Stopwatch.GetTimestamp();
-            while (true)
+            lock (_heldLock)
             {
-                ReceivedPacket packet;
-                lock (_heldLock)
+                for (int i = 0; i < MaxPacketsPerDrain; i++)
                 {
                     if (_heldIn.Count == 0 || _heldIn.Peek().DueAt > now)
                     {
-                        return;
+                        break;
                     }
-                    packet = _heldIn.Dequeue().Packet;
+                    MakeRoom(_inbox);
+                    _inbox.Enqueue(_heldIn.Dequeue().Packet);
                 }
-                Interlocked.Increment(ref _inboxCount);
-                _inbox.Enqueue(packet);
             }
         }
 
@@ -340,12 +427,12 @@ namespace MphRead.Mods.Network
         /// </summary>
         public void EnqueueForPlayback(byte[] data, int length)
         {
-            if (Volatile.Read(ref _inboxCount) >= MaxQueuedPackets)
+            if (length <= 0 || length > NetConfig.MaxPacketSize || length > data.Length)
             {
+                Metrics.Reject();
                 return;
             }
-            Interlocked.Increment(ref _inboxCount);
-            _inbox.Enqueue(new ReceivedPacket(_playbackSender, data, length));
+            Enqueue(new ReceivedPacket(_playbackSender, data, length));
         }
 
         /// <param name="extraHoldTicks">
@@ -355,13 +442,34 @@ namespace MphRead.Mods.Network
         public void Send(IPEndPoint target, PacketType type, ReadOnlySpan<byte> payload,
             long extraHoldTicks = 0)
         {
+            if (payload.Length >= NetConfig.MaxPacketSize)
+            {
+                Metrics.Reject();
+                return;
+            }
             Span<byte> buffer = stackalloc byte[NetConfig.MaxPacketSize];
             buffer[0] = (byte)type;
             payload.CopyTo(buffer[1..]);
+            SendDatagram(target, buffer[..(payload.Length + 1)], extraHoldTicks);
+        }
+
+        /// <summary>Send a complete datagram through the same UDP impairment path.</summary>
+        public void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram, long extraHoldTicks = 0)
+        {
+            if (datagram.Length == 0 || datagram.Length > NetConfig.MaxPacketSize)
+            {
+                Metrics.Reject();
+                return;
+            }
+            if (!_running)
+            {
+                return;
+            }
             if (_lagWorker != null)
             {
                 if (NetLag.Drops())
                 {
+                    Metrics.DropSimulated();
                     return;
                 }
                 long holdFor = NetLag.HoldTicks() + extraHoldTicks;
@@ -369,16 +477,20 @@ namespace MphRead.Mods.Network
                 {
                     // Copied, because the caller's span is a scratch buffer it
                     // is about to write the next packet into.
-                    byte[] copy = buffer[..(payload.Length + 1)].ToArray();
                     lock (_heldLock)
                     {
-                        _heldOut.Enqueue((Stopwatch.GetTimestamp() + holdFor,
-                            target, copy, copy.Length));
+                        if (_running)
+                        {
+                            MakeRoom(_heldOut);
+                            byte[] copy = datagram.ToArray();
+                            _heldOut.Enqueue((Stopwatch.GetTimestamp() + holdFor,
+                                target, copy, copy.Length));
+                        }
                     }
                     return;
                 }
             }
-            SendNow(target, buffer[..(payload.Length + 1)]);
+            SendNow(target, datagram);
         }
 
         private void SendNow(IPEndPoint target, ReadOnlySpan<byte> datagram)
@@ -386,10 +498,12 @@ namespace MphRead.Mods.Network
             try
             {
                 _socket.Send(datagram, target);
+                Metrics.Sent(datagram.Length);
                 Interlocked.Increment(ref TotalPacketsSent);
             }
             catch (SocketException)
             {
+                Metrics.SendFailed();
                 // Same rationale as above: one unreachable peer must not
                 // take down the session for everyone else.
             }
@@ -401,14 +515,24 @@ namespace MphRead.Mods.Network
 
         public void Dispose()
         {
-            _running = false;
-            _cancel.Cancel();
-            _socket.Dispose();
-            if (!_worker.Join(TimeSpan.FromSeconds(1)))
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
             {
-                // Background thread; the process can exit regardless.
+                return;
             }
-            _cancel.Dispose();
+            lock (_heldLock)
+            {
+                _running = false;
+                Volatile.Write(ref _keepAlives, Array.Empty<KeepAlive>());
+            }
+            _socket.Dispose(); // Interrupt the blocking receive before joining it.
+            _worker.Join();
+            _lagWorker?.Join();
+            lock (_heldLock)
+            {
+                _inbox.Clear();
+                _heldIn.Clear();
+                _heldOut.Clear();
+            }
         }
     }
 }

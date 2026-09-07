@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using MphRead.Effects;
 using MphRead.Formats;
+using MphRead.Mods.Network;
 using MphRead.Formats.Culling;
 using OpenTK.Mathematics;
 
@@ -84,6 +85,10 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            if (AuthoritativePlay.Active && DespawnTimer != 0)
+            {
+                return base.Process(); // cosmetic spin only; server owns lifetime and movement
+            }
             if (!_linkDone && ParentId != -1)
             {
                 if (_scene.TryGetEntity(ParentId, out EntityBase? parent))
@@ -158,10 +163,11 @@ namespace MphRead.Entities
             return base.Process();
         }
 
-        public void OnPickedUp()
+        public void OnPickedUp(PlayerEntity? consumer = null)
         {
+            if (AuthoritativePlay.Active) { return; }
             DespawnTimer = 0;
-            Owner?.OnItemPickedUp();
+            Owner?.OnItemPickedUp(consumer);
             if (GameState.SinglePlayer)
             {
                 int scanId = GetScanId();

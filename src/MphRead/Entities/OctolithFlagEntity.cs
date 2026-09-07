@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using MphRead.Formats;
+using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
 namespace MphRead.Entities
@@ -72,6 +73,7 @@ namespace MphRead.Entities
         public override bool Process()
         {
             base.Process();
+            if (AuthoritativePlay.Active) { return true; }
             // todo?: lots of wifi stuff
             bool pickedUp = false;
             if (_carrier == null)
@@ -131,7 +133,10 @@ namespace MphRead.Entities
                         {
                             _soundSource.QueueStream(VoiceId.VOICE_OCTO_PICKUP, delay: 1, expiration: 2);
                             PlayerEntity.Main.StartFlagCarrySfx();
-                            Music.PlayRoomMusic(_scene.RoomId, track: 1);
+                            if (!_scene.IsHeadless)
+                            {
+                                Music.PlayRoomMusic(_scene.RoomId, track: 1);
+                            }
                         }
                         else
                         {
@@ -140,7 +145,10 @@ namespace MphRead.Entities
                     }
                     else
                     {
-                        Music.PlayRoomMusic(_scene.RoomId, track: 1);
+                        if (!_scene.IsHeadless)
+                        {
+                            Music.PlayRoomMusic(_scene.RoomId, track: 1);
+                        }
                         if (_carrier == PlayerEntity.Main)
                         {
                             _soundSource.QueueStream(VoiceId.VOICE_OCTO_PICKUP, delay: 1, expiration: 2);
@@ -187,6 +195,28 @@ namespace MphRead.Entities
                 }
             }
             return true;
+        }
+
+        public WorldRecord CaptureWorldState() => new WorldRecord(WorldRecordKind.Flag,
+            (byte)(_carrier?.SlotIndex ?? 255), (ushort)((_atBase ? 1 : 0) | (_grounded ? 2 : 0)),
+            unchecked((uint)Id), Position, _data.TeamId, WorldRecord.Bits(_resetTimer), 0, 0, 0);
+
+        public void ApplyWorldState(in WorldRecord state)
+        {
+            if (_carrier != null && _carrier.OctolithFlag == this) { _carrier.OctolithFlag = null; }
+            _carrier = state.Slot < 8 ? PlayerEntity.Players[state.Slot] : null;
+            if (_carrier != null) { _carrier.OctolithFlag = this; }
+            _atBase = (state.Flags & 1) != 0;
+            _grounded = (state.Flags & 2) != 0;
+            _resetTimer = WorldRecord.Float(state.B);
+            Position = state.Position;
+        }
+
+        internal void ReleaseServerPlayer(PlayerEntity player)
+        {
+            if (_carrier == player) { OnDropped(GameState.OctolithReset); }
+            if (_lastCarrier == player) { _lastCarrier = null; }
+            if (player.OctolithFlag == this) { player.OctolithFlag = null; }
         }
 
         private bool OnTouched(PlayerEntity player)
@@ -289,7 +319,10 @@ namespace MphRead.Entities
             }
             PlayerEntity.Main.QueueHudMessage(128, 133, 60 / 30f, 1, messageId);
             PlayerEntity.Main.StopFlagCarrySfx();
-            Music.PlayRoomMusic(_scene.RoomId, track: 0);
+            if (!_scene.IsHeadless)
+            {
+                Music.PlayRoomMusic(_scene.RoomId, track: 0);
+            }
             if (reset)
             {
                 SetAtBase();
@@ -309,6 +342,7 @@ namespace MphRead.Entities
 
         public void OnCaptured()
         {
+            if (AuthoritativePlay.Active) { return; }
             Debug.Assert(_carrier != null);
             if (!_bounty)
             {
@@ -337,7 +371,10 @@ namespace MphRead.Entities
                 PlayerEntity.Main.QueueHudMessage(128, 133, 90 / 30f, 1, 203); // bounty received
             }
             PlayerEntity.Main.StopFlagCarrySfx();
-            Music.PlayRoomMusic(_scene.RoomId, track: 0);
+            if (!_scene.IsHeadless)
+            {
+                Music.PlayRoomMusic(_scene.RoomId, track: 0);
+            }
             GameState.Points[_carrier.SlotIndex]++;
             GameState.OctolithScores[_carrier.SlotIndex]++;
             SetAtBase();

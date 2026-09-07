@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System;
 using System.Text;
 using MphRead.Entities;
@@ -15,7 +16,7 @@ namespace MphRead.Mods.Network
     /// process can see that, so it reports it here rather than a test trying
     /// to reconstruct the engine's state from outside.
     ///
-    /// Printed to the console once a second while NDS_NET_DEBUG is set, or
+    /// Printed to the console once a second while MPHREAD_NET_DEBUG is set, or
     /// whenever -netdebug is passed.
     /// </summary>
     public static class NetDiagnostics
@@ -23,6 +24,7 @@ namespace MphRead.Mods.Network
         private static double _lastReport;
         private static bool _enabled;
         private static bool _checked;
+        private static NetDiagnosticWindow _authoritativeWindow = new();
 
         public static bool Enabled
         {
@@ -37,10 +39,64 @@ namespace MphRead.Mods.Network
             }
             set
             {
+                if (_enabled != value) _authoritativeWindow = new NetDiagnosticWindow();
                 _checked = true;
                 _enabled = value;
             }
         }
+
+        /// <summary>
+        /// Call from the authoritative client owner after polling. Only periodic
+        /// reports allocate. RTT variation, local drops and sequence gaps remain
+        /// distinct observations; none is relabelled as measured WAN packet loss.
+        /// </summary>
+        public static void ReportAuthoritative(NetClient client, ClientPrediction prediction,
+            SnapshotInterpolation interpolation, NetTrafficMetrics traffic)
+        {
+            if (!Enabled) return;
+            long now = Stopwatch.GetTimestamp();
+            var counters = new NetDiagnosticCounters(client.Connection?.Id ?? 0, client.Accepted.MatchId,
+                client.State, client.HasSnapshot, client.Snapshot.Sequence, client.SnapshotsReceived,
+                traffic.BytesReceived, traffic.BytesSent);
+            if (!_authoritativeWindow.TrySample(now, counters, out NetDiagnosticRates rates)) return;
+
+            NetMetrics clock = client.Clock.Metrics;
+            NetMetrics? connection = client.Connection?.Metrics;
+            NetSample error = prediction.Error;
+            double? estimatedAge = client.HasSnapshot && client.Clock.Synchronized
+                ? NetDiagnosticWindow.EstimatedSnapshotAgeMs(client.Clock.EstimateServerTick(now), client.Snapshot.ServerTick)
+                : null;
+            double? receivedGap = client.HasSnapshot && client.SnapshotReceivedAt > 0
+                ? Math.Max(0, now - client.SnapshotReceivedAt) * (1000.0 / Stopwatch.Frequency) : null;
+
+            Console.WriteLine($"[net] slot={client.Accepted.Slot} state={client.State}"
+                + $" players={client.SnapshotPlayers.Length} RTT last/smoothed/min="
+                + $"{Sample(clock.Rtt.Count > 0 ? clock.Rtt.Last : null)}/"
+                + $"{Sample(clock.Rtt.Count > 0 ? clock.SmoothedRttMs : null)}/"
+                + $"{Sample(clock.Rtt.Count > 0 ? clock.Rtt.Min : null)} ms"
+                + $" RTT-jitter={Sample(clock.Rtt.Count > 1 ? clock.JitterMs : null)} ms"
+                + $" snapshots={Sample(rates.SnapshotHz)} Hz age-est={Sample(estimatedAge)} ms"
+                + $" received-gap={Sample(receivedGap)} ms server-silence={Sample(connection?.SilenceMs(now))} ms"
+                + $" missing-or-stale={Sample(rates.MissingOrStalePercent)}%"
+                + $" ({rates.MissingOrStaleSnapshots}/{rates.SnapshotSequenceSpan}) WAN-loss=n/a");
+            Console.WriteLine($"[net-render] prediction-error last/avg/max="
+                + $"{Sample(error.Count > 0 ? error.Last : null)}/{Sample(error.Count > 0 ? error.Mean : null)}/"
+                + $"{Sample(error.Count > 0 ? error.Max : null)} world-units"
+                + $" corrections={prediction.Corrections} hard={prediction.HardCorrections} history-misses={prediction.HistoryMisses}"
+                + $" interpolation-samples={interpolation.InterpolatedSamples} underrun={interpolation.UnderrunSamples}"
+                + $" extrapolated={interpolation.ExtrapolatedSamples} held={interpolation.HeldSamples}"
+                + $" max-extrapolation={Sample(interpolation.MaximumExtrapolationTicks * (1000.0 / 60))} ms");
+            Console.WriteLine($"[net-traffic] packets in/out={traffic.PacketsReceived}/{traffic.PacketsSent}"
+                + $" bytes in/out={counters.BytesReceived}/{counters.BytesSent}"
+                + $" KiB/s in/out={Sample(rates.BytesReceivedPerSecond / 1024)}/{Sample(rates.BytesSentPerSecond / 1024)}"
+                + $" queue-age avg/max={Sample(connection?.QueueAgeMs.Count > 0 ? connection.QueueAgeMs.Mean : null)}/"
+                + $"{Sample(connection?.QueueAgeMs.Count > 0 ? connection.QueueAgeMs.Max : null)} ms"
+                + $" rejected transport/protocol={traffic.PacketsRejected}/{client.Rejected}"
+                + $" queue-drops={traffic.QueueDrops} simulated-drops={traffic.SimulatedDrops} send-errors={traffic.SendErrors}");
+        }
+
+        private static string Sample(double? value)
+            => value?.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) ?? "n/a";
 
         public static void Report(double time)
         {
@@ -122,6 +178,13 @@ namespace MphRead.Mods.Network
                 line.Append(" serverPlayers=").Append(match.Value.PlayerCount);
             }
             Console.WriteLine(line.ToString());
+            Console.WriteLine("[netmetrics] " + NetSession.Metrics.Describe(Stopwatch.GetTimestamp())
+                + $" frame-work avg/max {NetSession.Metrics.WorkDurationMs.Mean:0.000}"
+                + $"/{NetSession.Metrics.WorkDurationMs.Max:0.000} ms");
+            if (NetSession.TrafficMetrics is NetTrafficMetrics traffic)
+            {
+                Console.WriteLine("[nettraffic] " + traffic.Describe());
+            }
         }
     }
 }

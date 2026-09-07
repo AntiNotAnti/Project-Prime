@@ -31,8 +31,8 @@ namespace MphRead.Mods.Network
                     + $"(bad magic, or not format version {DemoFile.FormatVersion})");
                 return 1;
             }
-            var counts = new Dictionary<PacketType, int>();
-            var bytes = new Dictionary<PacketType, long>();
+            var counts = new Dictionary<string, int>();
+            var bytes = new Dictionary<string, long>();
             long records = 0;
             long payload = 0;
             uint firstFrame = 0;
@@ -55,7 +55,8 @@ namespace MphRead.Mods.Network
                 lastFrame = record.Frame;
                 if (record.Data.Length > 0)
                 {
-                    var type = (PacketType)record.Data[0];
+                    string type = DemoFile.IsAuthoritativeProtocol(reader.ProtocolVersion)
+                        ? ((DemoRecordKind)record.Data[0]).ToString() : ((PacketType)record.Data[0]).ToString();
                     counts.TryGetValue(type, out int count);
                     counts[type] = count + 1;
                     bytes.TryGetValue(type, out long size);
@@ -68,20 +69,20 @@ namespace MphRead.Mods.Network
             Console.WriteLine($"[demo] {path}");
             Console.WriteLine($"  protocol {reader.ProtocolVersion} "
                 + $"(this build: {NetConfig.ProtocolVersion})"
-                + (reader.ProtocolVersion == NetConfig.ProtocolVersion ? "" : "  -- MISMATCH"));
+                + (DemoFile.IsSupportedProtocol(reader.ProtocolVersion) ? "" : "  -- UNSUPPORTED"));
             Console.WriteLine($"  {records} record(s) over frames {firstFrame}-{lastFrame} "
                 + $"({seconds:0.0} s at 60 fps)");
             Console.WriteLine($"  {onDisk / 1024.0:0.0} KiB on disk, {payload / 1024.0:0.0} KiB of "
                 + $"packets -- {(payload > 0 ? (double)payload / onDisk : 0):0.00}x, "
                 + $"{onDisk / Math.Max(seconds, 0.001) / 1024.0:0.0} KiB/s");
             Console.WriteLine($"  longest gap between records: {biggestGap} frame(s)");
-            foreach (KeyValuePair<PacketType, int> entry in counts)
+            foreach (KeyValuePair<string, int> entry in counts)
             {
                 Console.WriteLine($"  {entry.Key,-14} {entry.Value,7} "
                     + $"({entry.Value / Math.Max(seconds, 0.001),6:0.0}/s, "
                     + $"{bytes[entry.Key] / 1024.0:0.0} KiB)");
             }
-            if (!counts.ContainsKey(PacketType.Snapshot))
+            if (!counts.ContainsKey("Snapshot"))
             {
                 Console.WriteLine("  NO SNAPSHOTS -- nothing in this file ever places a player, "
                     + "so it will play back as an empty room.");
@@ -100,6 +101,9 @@ namespace MphRead.Mods.Network
         /// recording had, none-then-two is the stutter, and the longest run
         /// of frames with nothing is how long a player stands still.
         /// </summary>
+        private static long SnapshotCount() => DemoPlayback.IsModern
+            ? DemoPlayback.Modern.SnapshotsReceived : NetSession.SnapshotsReceived;
+
         private static int Replay(string path)
         {
             Console.WriteLine("  --- replayed through DemoPlayback ---");
@@ -108,7 +112,7 @@ namespace MphRead.Mods.Network
                 Console.WriteLine($"  replay failed: {DemoPlayback.LastError}");
                 return 1;
             }
-            long previousSnapshots = NetSession.SnapshotsReceived;
+            long previousSnapshots = SnapshotCount();
             long previousIntents = NetSession.IntentsReceived;
             long frames = 0;
             long framesWithSnapshot = 0;
@@ -121,8 +125,11 @@ namespace MphRead.Mods.Network
                 DemoPlayback.PumpFrame();
                 NetSession.Update(frames / 60.0);
                 frames++;
-                long snapshots = NetSession.SnapshotsReceived - previousSnapshots;
-                previousSnapshots = NetSession.SnapshotsReceived;
+                long snapshots = SnapshotCount() - previousSnapshots;
+                previousSnapshots = SnapshotCount();
+                // This command measures framing without a scene; presentation
+                // events are validated and discarded instead of accumulating.
+                DemoPlayback.Modern.DiscardEvents();
                 intents += NetSession.IntentsReceived - previousIntents;
                 previousIntents = NetSession.IntentsReceived;
                 if (snapshots == 0)

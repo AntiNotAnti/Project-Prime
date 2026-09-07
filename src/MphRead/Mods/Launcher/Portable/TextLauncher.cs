@@ -290,14 +290,16 @@ namespace MphRead.Mods.Launcher
                     return false;
                 }
             }
-            ServerStatus status = NetStatus.Query(address, port, allowJoinProbe: true);
+            ServerStatus status = NetStatus.Query(address, port, allowJoinProbe: false);
             if (status.Online)
             {
                 Console.WriteLine($"  {Describe(status)}");
+                if (!status.Compatible) { return false; }
             }
             else
             {
-                Console.WriteLine("  That server did not answer. Joining anyway.");
+                Console.WriteLine("  That server did not answer. Compatibility could not be verified.");
+                return false;
             }
             string name = AskName();
             Hunter hunter = AskHunter();
@@ -340,12 +342,15 @@ namespace MphRead.Mods.Launcher
                     + "or UDP may not reach it.");
                 return false;
             }
+            if (!result.Compatible) { Console.WriteLine("  Directory online — " + result.IncompatibilityReason); }
             if (result.Servers.Count == 0)
             {
+                if (!result.Compatible) { return false; }
                 Console.WriteLine("  The directory is up and has nobody listed.");
                 return false;
             }
             var listed = new List<MasterListing>(result.Servers);
+            var statuses = new ServerStatus[listed.Count];
             Console.WriteLine();
             for (int i = 0; i < listed.Count; i++)
             {
@@ -355,6 +360,7 @@ namespace MphRead.Mods.Launcher
                 // server is reachable from here rather than only from there.
                 ServerStatus status = NetStatus.Query(listing.Address, listing.Port,
                     allowJoinProbe: false);
+                statuses[i] = status;
                 string name = status.ServerName.Length > 0
                     ? status.ServerName
                     : listing.ServerName.Length > 0 ? listing.ServerName : listing.Endpoint;
@@ -368,13 +374,21 @@ namespace MphRead.Mods.Launcher
             {
                 return false;
             }
+            ServerStatus selected = statuses[index - 1];
+            if (!selected.Online || !selected.Compatible)
+            {
+                Console.WriteLine(selected.Online ? "  " + selected.IncompatibilityReason
+                    : "  Compatibility could not be verified.");
+                return false;
+            }
             address = listed[index - 1].Address;
             port = listed[index - 1].Port;
             return true;
         }
 
-        private static string Describe(ServerStatus status)
+        internal static string Describe(ServerStatus status)
         {
+            if (!status.Compatible) { return "Online — " + status.IncompatibilityReason; }
             string players = status.MaxPlayers > 0
                 ? $"{status.Players}/{status.MaxPlayers}"
                 : status.Players.ToString(CultureInfo.InvariantCulture);

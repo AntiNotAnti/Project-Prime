@@ -7,49 +7,36 @@ using OpenTK.Mathematics;
 namespace MphRead.Mods.Network
 {
     /// <summary>
-    /// Wire format for MphRead's own LAN play. This is NOT the DS Wi-Fi
-    /// protocol: it cannot talk to real hardware, melonDS, or Wiimmfi. It
-    /// only connects MphRead instances to each other, which is why it can
-    /// send gameplay intent instead of emulated 802.11 frames.
-    ///
-    /// The simulation runs in float (see Fixed.ToFloat -- the 20.12 values
-    /// from the ROM are converted on load, not kept as integers), so two
-    /// machines cannot be trusted to stay bit-identical from inputs alone.
-    /// That rules out lockstep and makes the host authoritative: clients
-    /// send intent, the host simulates, the host broadcasts resulting state.
+    /// Record tags for passive protocol-4 demos and the shared directory API.
+    /// Live gameplay uses the checked authoritative NetHeader/NetMessageType codecs.
+    /// Old gameplay tags are retained only to describe existing recordings;
+    /// ServerNetwork never accepts them as live gameplay messages.
     /// </summary>
     public enum PacketType : byte
     {
-        Hello = 1,          // client -> host, join request
-        Welcome = 2,        // host -> client, assigns a slot
-        Intent = 3,         // client -> host, one frame of input
-        Snapshot = 4,       // host -> clients, authoritative state
-        Bye = 5,            // either direction, clean disconnect
-        Ping = 6,
-        Pong = 7,
-        MatchState = 8,     // server -> clients, current map/mode/clock
-        MapChange = 9,      // server -> clients, rotation advanced
-        Roster = 10,        // server -> clients, who is in which slot
-        Identify = 11,      // client -> server, my display name and hunter
-        Authority = 12,     // server -> client, you are the simulation authority
-        SlotIntent = 13,    // server -> authority, one peer's input, tagged with its slot
-        StatusQuery = 14,   // anyone -> server, "what is running?" -- claims no slot
-        StatusReply = 15,   // server -> asker, the running match plus the player cap
-        MatchEnd = 16,      // authority -> server, somebody won or the clock ran out
-        MasterHeartbeat = 17, // dedicated server -> master, "I am up, here is what I run"
-        MasterQuery = 18,   // launcher -> master, "who is up?"
-        MasterList = 19,    // master -> launcher, one page of the answer
-        HostRequest = 20,   // launcher -> master, "run a game for me"
-        HostReply = 21,     // master -> launcher, the port it is on, or why not
-        Refused = 22,       // server -> client, "not you, and here is why"
-        Chat = 23           // client -> server -> everyone else, one line of text
-        // 24 and 25 are left free for a voice channel. Speech is a stream of
-        // frames rather than a line of text -- it wants its own type, its own
-        // cadence and its own "who is talking" packet, and squeezing it into
-        // Chat's Kind byte would put an audio codec inside the packet the
-        // scoreboard reads. Nothing here needs to change when it arrives: the
-        // server relays what it recognises and drops what it does not, so a
-        // build that speaks voice and a build that does not can share a match.
+        Hello = 1,           // legacy recording tag
+        Welcome = 2,         // legacy recording tag
+        Intent = 3,          // legacy recording tag
+        Snapshot = 4,        // passive legacy demo state
+        Bye = 5,             // directory unregister; legacy recording tag
+        Ping = 6,            // legacy recording tag
+        Pong = 7,            // legacy recording tag
+        MatchState = 8,      // passive legacy demo metadata
+        MapChange = 9,       // passive legacy demo transition
+        Roster = 10,         // passive legacy demo roster
+        Identify = 11,       // legacy recording tag
+        // 12 was player authority. It is deliberately unsupported.
+        SlotIntent = 13,     // passive legacy demo presentation input
+        StatusQuery = 14,    // read-only server discovery
+        StatusReply = 15,
+        MatchEnd = 16,       // legacy recording tag
+        MasterHeartbeat = 17,
+        MasterQuery = 18,
+        MasterList = 19,
+        HostRequest = 20,
+        HostReply = 21,
+        Refused = 22,        // legacy recording tag
+        Chat = 23            // passive legacy demo chat
     }
 
     /// <summary>
@@ -111,27 +98,17 @@ namespace MphRead.Mods.Network
     }
 
     /// <summary>
-    /// "Start a server for me, on your machine."
-    ///
-    /// This is how a game gets hosted without anybody opening a port. The
-    /// player's own router is the problem -- a server on a home machine is
-    /// unreachable from outside unless UDP is forwarded to it, which most
-    /// people cannot or will not do -- and the fix that needs no cooperation
-    /// from it is not to put the server there. The directory already runs on a
-    /// machine with a reachable port; it starts the match there instead, and
-    /// the host joins it by connecting *out*, exactly like every other player.
-    ///
-    /// Punching a hole through the NAT was the other candidate and is what a
-    /// peer-to-peer game would have to do. It is not worth it here: this
-    /// engine's netcode is already "everyone connects to one relay", so
-    /// putting the relay somewhere reachable is the whole of the work, and it
-    /// has no failure mode -- hole punching has one for every symmetric NAT.
+    /// Requests a separate authoritative server process on the directory's host.
+    /// The host validates architecture and protocol before starting a process.
     /// </summary>
     public struct HostRequestPacket
     {
         public const int MaxRoomBytes = 40;
         public const int MaxNameBytes = 32;
-        public const int Size = 1 + 1 + 1 + 2 + 2 + MaxRoomBytes + MaxNameBytes;
+        public const int LegacySize = 1 + 1 + 1 + 2 + 2 + MaxRoomBytes + MaxNameBytes;
+        public const int Size = LegacySize + 1;
+
+        public NetWireFamily Family;
 
         public byte Protocol;
         public byte MaxPlayers;
@@ -151,12 +128,22 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt16LittleEndian(dest[5..], PointGoal);
             NetText.Write(dest.Slice(7, MaxRoomBytes), RoomKey);
             NetText.Write(dest.Slice(7 + MaxRoomBytes, MaxNameBytes), ServerName);
+            dest[LegacySize] = (byte)(Family == NetWireFamily.Unknown ? NetWireIdentity.Family : Family);
         }
 
-        public static HostRequestPacket Read(ReadOnlySpan<byte> src)
+        public static bool TryRead(ReadOnlySpan<byte> src, out HostRequestPacket packet)
         {
-            return new HostRequestPacket
+            packet = default;
+            if (src.Length != Size || !NetWireIdentity.IsKnownFamily(src[LegacySize])
+                || !NetWireIdentity.ValidCounts(0, src[1]) || !NetWireIdentity.ValidMode(src[2])
+                || !NetWireIdentity.ValidText(src.Slice(7, MaxRoomBytes))
+                || !NetWireIdentity.ValidText(src.Slice(7 + MaxRoomBytes, MaxNameBytes)))
             {
+                return false;
+            }
+            packet = new HostRequestPacket
+            {
+                Family = (NetWireFamily)src[LegacySize],
                 Protocol = src[0],
                 MaxPlayers = src[1],
                 Mode = src[2],
@@ -165,6 +152,13 @@ namespace MphRead.Mods.Network
                 RoomKey = NetText.Read(src.Slice(7, MaxRoomBytes)),
                 ServerName = NetText.Read(src.Slice(7 + MaxRoomBytes, MaxNameBytes))
             };
+            return true;
+        }
+
+        public static HostRequestPacket Read(ReadOnlySpan<byte> src)
+        {
+            return TryRead(src, out var packet) ? packet
+                : throw new ArgumentException("Malformed HostRequestPacket.", nameof(src));
         }
     }
 
@@ -172,8 +166,12 @@ namespace MphRead.Mods.Network
     public struct HostReplyPacket
     {
         public const int MaxReasonBytes = 96;
-        public const int Size = 1 + 2 + MaxReasonBytes;
+        public const int LegacySize = 1 + 2 + MaxReasonBytes;
+        public const int Size = LegacySize + 2;
 
+        public NetWireFamily Family;
+
+        public byte Protocol;
         public bool Started;
         public ushort Port;
         public string Reason;
@@ -183,37 +181,49 @@ namespace MphRead.Mods.Network
             dest[0] = (byte)(Started ? 1 : 0);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[1..], Port);
             NetText.Write(dest.Slice(3, MaxReasonBytes), Reason);
+            dest[LegacySize] = (byte)(Family == NetWireFamily.Unknown ? NetWireIdentity.Family : Family);
+            dest[LegacySize + 1] = Protocol == 0 ? NetWireIdentity.Protocol : Protocol;
         }
 
-        public static HostReplyPacket Read(ReadOnlySpan<byte> src)
+        public static bool TryRead(ReadOnlySpan<byte> src, out HostReplyPacket packet)
         {
-            return new HostReplyPacket
+            packet = default;
+            if (src.Length != Size || !NetWireIdentity.IsKnownFamily(src[LegacySize])
+                || src[0] > 1 || (src[0] == 1 && BinaryPrimitives.ReadUInt16LittleEndian(src[1..]) == 0)
+                || !NetWireIdentity.ValidText(src.Slice(3, MaxReasonBytes)))
             {
+                return false;
+            }
+            packet = new HostReplyPacket
+            {
+                Family = (NetWireFamily)src[LegacySize],
+                Protocol = src[LegacySize + 1],
                 Started = src[0] != 0,
                 Port = BinaryPrimitives.ReadUInt16LittleEndian(src[1..]),
                 Reason = NetText.Read(src.Slice(3, MaxReasonBytes))
             };
+            return true;
+        }
+
+        public static HostReplyPacket Read(ReadOnlySpan<byte> src)
+        {
+            return TryRead(src, out var packet) ? packet
+                : throw new ArgumentException("Malformed HostReplyPacket.", nameof(src));
         }
     }
 
     /// <summary>
-    /// What a launcher needs to show a server on a list, answered without
-    /// joining.
-    ///
-    /// A Hello would answer the same questions, but it takes a slot to do it:
-    /// polling with Hello churns the roster, can be refused outright when the
-    /// server is full -- reporting a busy server as a dead one -- and on an
-    /// empty server briefly makes the poller the simulation authority. This
-    /// asks and leaves nothing behind.
-    ///
-    /// A server built before this packet existed ignores it, so the caller
-    /// falls back to the Hello probe rather than reporting the server down.
+    /// Read-only server discovery. Legacy layouts remain readable to report
+    /// incompatibility; discovery never sends a gameplay join or claims a slot.
     /// </summary>
     public struct ServerStatusPacket
     {
         /// <summary>What the server calls itself on a browser's list.</summary>
         public const int MaxNameBytes = 32;
-        public const int Size = MatchStatePacket.Size + 2 + MaxNameBytes;
+        public const int LegacySize = MatchStatePacket.Size + 2 + MaxNameBytes;
+        public const int Size = LegacySize + 1;
+
+        public NetWireFamily Family;
 
         public MatchStatePacket Match;
         public byte MaxPlayers;
@@ -231,19 +241,36 @@ namespace MphRead.Mods.Network
             dest[MatchStatePacket.Size] = MaxPlayers;
             dest[MatchStatePacket.Size + 1] = Protocol;
             NetText.Write(dest.Slice(MatchStatePacket.Size + 2, MaxNameBytes), ServerName);
+            dest[LegacySize] = (byte)(Family == NetWireFamily.Unknown ? NetWireIdentity.Family : Family);
+        }
+
+        public static bool TryRead(ReadOnlySpan<byte> src, out ServerStatusPacket packet)
+        {
+            packet = default;
+            if (!NetWireIdentity.TryReadFamily(src, LegacySize, out NetWireFamily family)
+                || !NetPacketReader.TryReadMatchState(src[..MatchStatePacket.Size], out MatchStatePacket match)
+                || !NetWireIdentity.ValidCounts(match.PlayerCount, src[MatchStatePacket.Size])
+                || !NetWireIdentity.ValidText(src.Slice(15, MatchStatePacket.MaxNameBytes))
+                || !NetWireIdentity.ValidText(src.Slice(15 + MatchStatePacket.MaxNameBytes, MatchStatePacket.MaxNameBytes))
+                || !NetWireIdentity.ValidText(src.Slice(MatchStatePacket.Size + 2, MaxNameBytes)))
+            {
+                return false;
+            }
+            packet = new ServerStatusPacket
+            {
+                Family = family,
+                Match = match,
+                MaxPlayers = src[MatchStatePacket.Size],
+                Protocol = src[MatchStatePacket.Size + 1],
+                ServerName = NetText.Read(src.Slice(MatchStatePacket.Size + 2, MaxNameBytes))
+            };
+            return true;
         }
 
         public static ServerStatusPacket Read(ReadOnlySpan<byte> src)
         {
-            return new ServerStatusPacket
-            {
-                Match = MatchStatePacket.Read(src),
-                MaxPlayers = src[MatchStatePacket.Size],
-                Protocol = src[MatchStatePacket.Size + 1],
-                ServerName = src.Length >= Size
-                    ? NetText.Read(src.Slice(MatchStatePacket.Size + 2, MaxNameBytes))
-                    : ""
-            };
+            return TryRead(src, out var packet) ? packet
+                : throw new ArgumentException("Malformed ServerStatusPacket.", nameof(src));
         }
     }
 
@@ -302,7 +329,10 @@ namespace MphRead.Mods.Network
         public const int MaxNameBytes = 32;
         public const int MaxRoomBytes = 40;
         // address, port, players, max, mode, protocol, name, room
-        public const int Size = 4 + 2 + 1 + 1 + 1 + 1 + MaxNameBytes + MaxRoomBytes;
+        public const int LegacySize = 4 + 2 + 1 + 1 + 1 + 1 + MaxNameBytes + MaxRoomBytes;
+        public const int Size = LegacySize + 1;
+
+        public NetWireFamily Family;
 
         /// <summary>IPv4, network order, as the master saw the heartbeat arrive.</summary>
         public uint Address;
@@ -324,12 +354,23 @@ namespace MphRead.Mods.Network
             dest[9] = Protocol;
             NetText.Write(dest.Slice(10, MaxNameBytes), ServerName);
             NetText.Write(dest.Slice(10 + MaxNameBytes, MaxRoomBytes), RoomKey);
+            dest[LegacySize] = (byte)(Family == NetWireFamily.Unknown ? NetWireIdentity.Family : Family);
         }
 
-        public static MasterEntryPacket Read(ReadOnlySpan<byte> src)
+        public static bool TryRead(ReadOnlySpan<byte> src, out MasterEntryPacket packet)
         {
-            return new MasterEntryPacket
+            packet = default;
+            if (!NetWireIdentity.TryReadFamily(src, LegacySize, out NetWireFamily family)
+                || BinaryPrimitives.ReadUInt16LittleEndian(src[4..]) == 0
+                || !NetWireIdentity.ValidCounts(src[6], src[7]) || !NetWireIdentity.ValidMode(src[8])
+                || !NetWireIdentity.ValidText(src.Slice(10, MaxNameBytes))
+                || !NetWireIdentity.ValidText(src.Slice(10 + MaxNameBytes, MaxRoomBytes)))
             {
+                return false;
+            }
+            packet = new MasterEntryPacket
+            {
+                Family = family,
                 Address = BinaryPrimitives.ReadUInt32BigEndian(src),
                 Port = BinaryPrimitives.ReadUInt16LittleEndian(src[4..]),
                 Players = src[6],
@@ -339,6 +380,13 @@ namespace MphRead.Mods.Network
                 ServerName = NetText.Read(src.Slice(10, MaxNameBytes)),
                 RoomKey = NetText.Read(src.Slice(10 + MaxNameBytes, MaxRoomBytes))
             };
+            return true;
+        }
+
+        public static MasterEntryPacket Read(ReadOnlySpan<byte> src)
+        {
+            return TryRead(src, out var packet) ? packet
+                : throw new ArgumentException("Malformed MasterEntryPacket.", nameof(src));
         }
     }
 
@@ -353,8 +401,11 @@ namespace MphRead.Mods.Network
     /// </summary>
     public struct MasterHeartbeatPacket
     {
-        public const int Size = 1 + 2 + 1 + 1 + 1 + MasterEntryPacket.MaxNameBytes
+        public const int LegacySize = 1 + 2 + 1 + 1 + 1 + MasterEntryPacket.MaxNameBytes
             + MasterEntryPacket.MaxRoomBytes;
+        public const int Size = LegacySize + 1;
+
+        public NetWireFamily Family;
 
         public byte Protocol;
         public ushort Port;
@@ -374,12 +425,22 @@ namespace MphRead.Mods.Network
             NetText.Write(dest.Slice(6, MasterEntryPacket.MaxNameBytes), ServerName);
             NetText.Write(dest.Slice(6 + MasterEntryPacket.MaxNameBytes,
                 MasterEntryPacket.MaxRoomBytes), RoomKey);
+            dest[LegacySize] = (byte)(Family == NetWireFamily.Unknown ? NetWireIdentity.Family : Family);
         }
 
-        public static MasterHeartbeatPacket Read(ReadOnlySpan<byte> src)
+        public static bool TryRead(ReadOnlySpan<byte> src, out MasterHeartbeatPacket packet)
         {
-            return new MasterHeartbeatPacket
+            packet = default;
+            if (!NetWireIdentity.TryReadFamily(src, LegacySize, out NetWireFamily family)
+                || !NetWireIdentity.ValidCounts(src[3], src[4]) || !NetWireIdentity.ValidMode(src[5])
+                || !NetWireIdentity.ValidText(src.Slice(6, MasterEntryPacket.MaxNameBytes))
+                || !NetWireIdentity.ValidText(src.Slice(6 + MasterEntryPacket.MaxNameBytes, MasterEntryPacket.MaxRoomBytes)))
             {
+                return false;
+            }
+            packet = new MasterHeartbeatPacket
+            {
+                Family = family,
                 Protocol = src[0],
                 Port = BinaryPrimitives.ReadUInt16LittleEndian(src[1..]),
                 Players = src[3],
@@ -389,6 +450,13 @@ namespace MphRead.Mods.Network
                 RoomKey = NetText.Read(src.Slice(6 + MasterEntryPacket.MaxNameBytes,
                     MasterEntryPacket.MaxRoomBytes))
             };
+            return true;
+        }
+
+        public static MasterHeartbeatPacket Read(ReadOnlySpan<byte> src)
+        {
+            return TryRead(src, out var packet) ? packet
+                : throw new ArgumentException("Malformed MasterHeartbeatPacket.", nameof(src));
         }
     }
 
@@ -446,7 +514,7 @@ namespace MphRead.Mods.Network
         /// <summary>
         /// Same-team damage counts. Server-decided and broadcast rather than
         /// left to each client's own local setting -- see
-        /// <see cref="DedicatedServer.FriendlyFire"/>.
+        /// the authoritative server's friendly-fire rule.
         /// </summary>
         public const byte FlagFriendlyFire = 1 << 2;
 
@@ -827,6 +895,10 @@ namespace MphRead.Mods.Network
         }
     }
 
+    /// <summary>
+    /// Historical protocol-4 presentation input, decoded only from passive
+    /// demo records. Position, health and ammo claims never enter live simulation.
+    /// </summary>
     public struct IntentPacket
     {
         /// <summary>
@@ -1114,57 +1186,8 @@ namespace MphRead.Mods.Network
     {
         public const ushort DefaultPort = 27888;
         public const int MaxPacketSize = 1024;
-        /// <summary>
-        /// Bumped when the wire format changes in a way an older build would
-        /// misread rather than notice. Version 2 added the ping to the roster:
-        /// its entries grew from 18 bytes to 20, and a version 1 client would
-        /// have accepted the longer packet and read every name at the wrong
-        /// offset. Version 3 added the shooter's ammo to the intent, the
-        /// end-of-match handshake, and a name to the status reply. A mismatch
-        /// is refused at Hello, with a line in the server log, which is a far
-        /// better failure than garbled names.
-        ///
-        /// Version 4 is the odd one: nothing in the layout moved. It is a
-        /// refusal on *behaviour*, because a version 3 build reads every byte
-        /// correctly and then plays a different game -- its own player frozen
-        /// where it stands, its shots leaving from its ankles, its respawns
-        /// putting it back inside whatever it died in. Two of those are worse
-        /// coming from the authority than from anyone else, and the authority
-        /// is simply the first client to connect, so one stale copy joining
-        /// first hands every one of those faults to everybody in the match.
-        /// Nothing in the wire would have noticed; this is what makes the
-        /// server say no.
-        /// </summary>
-        public const int ProtocolVersion = 4;
-        /// <summary>
-        /// Frames between intent packets. One, so every frame.
-        ///
-        /// This is the rate at which a remote player exists, not just the rate
-        /// it is corrected at: a puppet is pinned to the position its owner
-        /// reported (see NetPlayerBridge.RestoreReportedPosition, which runs
-        /// after the engine's own movement step), so whatever the engine
-        /// simulates in between is thrown away. At 2 that made every player
-        /// but your own move in 30 Hz steps -- on a 60 Hz screen, in a 60 Hz
-        /// simulation -- and a recorded demo, where every player is a puppet,
-        /// stepped from end to end.
-        ///
-        /// It was 2 because the server relays N*(N-1) intents per frame and at
-        /// six players that was losing enough of them to leave gaps. What made
-        /// that true was a transport whose send queue dropped the *newest*
-        /// packets when it filled, which is the opposite of what a position
-        /// stream wants and was fixed since (see NETWORK-DIAGNOSTICS). Doubled
-        /// traffic is the cost: about 100 bytes on the wire per player per
-        /// frame, so 42 KB/s into each client of an eight-player match.
-        ///
-        /// The feature check samples both sides of a comparison on this
-        /// cadence, which is now every frame.
-        /// </summary>
-        public const int IntentSendInterval = 1;
-        // A client that has sent nothing for this long is dropped. Generous
-        // on purpose: loading a room is synchronous and sends nothing while
-        // it runs, and a client dropped mid-load used to be gone for good --
-        // it had a slot, so it never said hello again, and every packet it
-        // sent afterwards was from an endpoint the server no longer knew.
+        public const int ProtocolVersion = NetHeader.Version;
+        // Both peers maintain independent transport liveness during content loads.
         public const double TimeoutSeconds = 30.0;
     }
 }

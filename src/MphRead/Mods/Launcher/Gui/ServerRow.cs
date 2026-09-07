@@ -93,6 +93,7 @@ namespace MphRead.Mods.Launcher.Gui
         private string _ping = "";
         private IBrush _pingBrush = GuiTheme.TextDimBrush;
         private bool _answered;
+        private string _incompatibility = "";
         private bool _hot;
 
         public ServerRow(string name, string endpoint)
@@ -101,14 +102,19 @@ namespace MphRead.Mods.Launcher.Gui
             _endpoint = endpoint;
             _map = "asking...";
             Height = 30;
-            Focusable = true;
-            Cursor = new Cursor(StandardCursorType.Hand);
+            IsEnabled = false;
+            Cursor = new Cursor(StandardCursorType.Arrow);
         }
 
         /// <summary>Fill the columns in once the server has answered.</summary>
         public void SetStatus(ServerStatus status)
         {
             _answered = status.Online;
+            IsEnabled = status.Online && status.Compatible;
+            Focusable = IsEnabled;
+            Cursor = new Cursor(IsEnabled ? StandardCursorType.Hand : StandardCursorType.Arrow);
+            _incompatibility = status.Online && !status.Compatible ? status.IncompatibilityReason : "";
+            ToolTip.SetTip(this, _endpoint + (_incompatibility.Length > 0 ? " — " + _incompatibility : ""));
             if (!status.Online)
             {
                 _map = "did not answer";
@@ -159,6 +165,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
+            if (!IsEnabled) { return; }
             Focus();
             Clicked?.Invoke(this, EventArgs.Empty);
             base.OnPointerPressed(e);
@@ -166,7 +173,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
-            if (e.Key == Key.Enter || e.Key == Key.Space)
+            if (IsEnabled && (e.Key == Key.Enter || e.Key == Key.Space))
             {
                 Clicked?.Invoke(this, EventArgs.Empty);
                 e.Handled = true;
@@ -194,6 +201,12 @@ namespace MphRead.Mods.Launcher.Gui
             IBrush nameBrush = _answered ? GuiTheme.TextBrush : GuiTheme.TextDimBrush;
             Draw(context, _name, columns.NameX, columns.NameWidth, nameBrush,
                 bold: true, rightAlign: false);
+            if (_incompatibility.Length > 0)
+            {
+                Draw(context, "Online — " + _incompatibility, columns.MapX,
+                    Bounds.Width - columns.MapX - 8, GuiTheme.BadBrush, bold: false, rightAlign: false);
+                return;
+            }
             Draw(context, _map, columns.MapX, columns.MapWidth, GuiTheme.TextDimBrush,
                 bold: false, rightAlign: false);
             Draw(context, _mode, columns.ModeX, columns.ModeWidth, GuiTheme.TextDimBrush,

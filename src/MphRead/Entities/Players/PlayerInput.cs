@@ -760,7 +760,6 @@ namespace MphRead.Entities
                 }
             }
             ProcessMovement();
-            Mods.Network.NetHooks.AfterRemoteMovement(this);
             UpdateCamera();
             ModRefreshNetworkAim();
             UpdateAimVecs();
@@ -1055,11 +1054,10 @@ namespace MphRead.Entities
             {
                 return false;
             }
-            Vector3 shotOrigin = Mods.Network.NetHooks.RemoteShotOrigin(this, _muzzlePos);
-            Vector3 shotVec = Mods.Network.NetHooks.RemoteShotDirection(this, _aimPosition - _muzzlePos);
+            Vector3 shotOrigin = _muzzlePos;
+            Vector3 shotVec = _aimPosition - _muzzlePos;
             if (shotOrigin != _muzzlePos)
             {
-                shotVec = Mods.Network.NetHooks.RemoteShotDirection(this, shotVec);
             }
             if (_disruptedTimer > 0)
             {
@@ -1743,7 +1741,6 @@ namespace MphRead.Entities
                 }
             }
             ProcessMovement();
-            Mods.Network.NetHooks.AfterRemoteMovement(this);
             UpdateCamera();
         }
 

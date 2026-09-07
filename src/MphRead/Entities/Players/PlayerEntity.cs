@@ -555,26 +555,29 @@ namespace MphRead.Entities
             _bipedModel2 = Read.GetModelInstance(Metadata.HunterModels[Hunter][0]);
             _altModel = Read.GetModelInstance(Metadata.HunterModels[Hunter][2]);
             _gunModel = Read.GetModelInstance(Metadata.HunterModels[Hunter][3]);
-            _gunSmokeModel = Read.GetModelInstance("gunSmoke");
-            _bipedIceModel = Read.GetModelInstance(Hunter == Hunter.Noxus || Hunter == Hunter.Trace ? "nox_ice" : "samus_ice");
-            _altIceModel = Read.GetModelInstance("alt_ice");
-            _doubleDmgModel = Read.GetModelInstance("doubleDamage_img");
-            _octolithSimpleModel = Read.GetModelInstance("octolith_simple");
             _models.Add(_bipedModel1);
             _models.Add(_bipedModel2);
             _models.Add(_altModel);
             _models.Add(_gunModel);
-            _models.Add(_gunSmokeModel);
-            _models.Add(_bipedIceModel);
-            _models.Add(_altIceModel);
-            _models.Add(_doubleDmgModel);
-            _models.Add(_octolithSimpleModel);
-            _trailModel = Read.GetModelInstance("trail");
-            Material material = _trailModel.Model.Materials[0];
-            _trailBindingId1 = _scene.BindGetTexture(_trailModel.Model, material.TextureId, material.PaletteId, 0);
-            material = _trailModel.Model.Materials[1];
-            _trailBindingId2 = _scene.BindGetTexture(_trailModel.Model, material.TextureId, material.PaletteId, 0);
-            _doubleDmgBindingId = _scene.BindGetTexture(_doubleDmgModel.Model, 0, 0, 0);
+            if (!_scene.IsHeadless)
+            {
+                _gunSmokeModel = Read.GetModelInstance("gunSmoke");
+                _bipedIceModel = Read.GetModelInstance(Hunter == Hunter.Noxus || Hunter == Hunter.Trace ? "nox_ice" : "samus_ice");
+                _altIceModel = Read.GetModelInstance("alt_ice");
+                _doubleDmgModel = Read.GetModelInstance("doubleDamage_img");
+                _octolithSimpleModel = Read.GetModelInstance("octolith_simple");
+                _models.Add(_gunSmokeModel);
+                _models.Add(_bipedIceModel);
+                _models.Add(_altIceModel);
+                _models.Add(_doubleDmgModel);
+                _models.Add(_octolithSimpleModel);
+                _trailModel = Read.GetModelInstance("trail");
+                Material material = _trailModel.Model.Materials[0];
+                _trailBindingId1 = _scene.BindGetTexture(_trailModel.Model, material.TextureId, material.PaletteId, 0);
+                material = _trailModel.Model.Materials[1];
+                _trailBindingId2 = _scene.BindGetTexture(_trailModel.Model, material.TextureId, material.PaletteId, 0);
+                _doubleDmgBindingId = _scene.BindGetTexture(_doubleDmgModel.Model, 0, 0, 0);
+            }
             base.Initialize();
             EquipInfo.Beams = _beams;
             Values = Metadata.PlayerValues[(int)Hunter];
@@ -896,7 +899,10 @@ namespace MphRead.Entities
             SetBipedAnimation(PlayerAnimation.Spawn, AnimFlags.None);
             _altModel.SetAnimation(0, AnimFlags.Paused);
             SetGunAnimation(GunAnimation.Idle, AnimFlags.NoLoop);
-            _gunSmokeModel.SetAnimation(0);
+            if (!_scene.IsHeadless)
+            {
+                _gunSmokeModel.SetAnimation(0);
+            }
             _smokeAlpha = 0;
             MorphCamera = null;
             OctolithFlag = null;
@@ -950,6 +956,7 @@ namespace MphRead.Entities
             _light1Color = _scene.Light1Color;
             _light2Vector = _scene.Light2Vector;
             _light2Color = _scene.Light2Color;
+            NoteServerCombatSpawn();
             Controls.ClearPressed();
             if (IsBot)
             {
@@ -1665,7 +1672,8 @@ namespace MphRead.Entities
 
         public void TakeDamage(uint damage, DamageFlags flags, Vector3? direction, EntityBase? source)
         {
-            if (Mods.Network.NetDamage.Suppress(this))
+            if (Mods.Network.NetDamage.Suppress(this) || Mods.Network.ServerCombat.IsStaleSource(source)
+                || flags.TestFlag(DamageFlags.Burn) && Mods.Network.ServerCombat.IsStaleActor(CombatBurnSource.Actor))
             {
                 return;
             }
@@ -1823,6 +1831,8 @@ namespace MphRead.Entities
             }
             // todo?: something for wifi
             // else...
+            int combatPreviousHealth = _health;
+            ushort combatFrozen = _frozenTimer, combatBurn = _burnTimer, combatDisrupt = _disruptedTimer;
             Mods.Network.NetDamage.Note(this, attacker, beam?.Beam ?? BeamType.None, flags, direction);
             bool dead = false;
             if (IsBot && GameState.SinglePlayer && AiData.Flags1 && _health <= AiData.HealthThreshold)
@@ -2426,6 +2436,7 @@ namespace MphRead.Entities
                                 }
                             }
                             _burnedBy = beam.Owner;
+                            CombatBurnSource = beam.CombatShot;
                             _burnTimer = time;
                             CreateBurnEffect();
                         }
@@ -2563,6 +2574,9 @@ namespace MphRead.Entities
                 }
                 CameraInfo.SetShake(shake);
             }
+            Mods.Network.ServerCombat.Current?.NoteDamage(this, source, attacker, beam?.Beam ?? BeamType.None,
+                flags, direction, combatPreviousHealth, _frozenTimer, _burnTimer, _disruptedTimer,
+                combatFrozen != _frozenTimer || combatBurn != _burnTimer || combatDisrupt != _disruptedTimer);
             if (IsMainPlayer)
             {
                 // todo: rumble

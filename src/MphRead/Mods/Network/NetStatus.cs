@@ -56,12 +56,13 @@ namespace MphRead.Mods.Network
         /// <summary>
         /// The protocol version the server speaks, or 0 when it did not say.
         ///
-        /// A server refuses a Hello from a different version in silence, which
-        /// from the client's side is indistinguishable from a server that is
-        /// not there -- except that this packet still comes back, and carries
-        /// the number. See <see cref="NetLaunch.DescribeJoinFailure"/>.
+        /// Discovery reports the protocol independently of admission, so an
+        /// incompatible server can be identified without taking a player slot.
         /// </summary>
         public int Protocol { get; init; }
+        public NetWireFamily Family { get; init; }
+        public bool Compatible => Online && NetWireIdentity.IsCompatible(Family, Protocol);
+        public string IncompatibilityReason => NetWireIdentity.IncompatibilityReason(Family, Protocol);
 
         public static ServerStatus Offline(string message) => new()
         {
@@ -76,19 +77,16 @@ namespace MphRead.Mods.Network
     /// Asks a server what is running, for a launcher to show before anybody
     /// commits to joining.
     ///
-    /// Two paths on purpose. <see cref="PacketType.StatusQuery"/> is the
-    /// cheap one and takes no slot, so it can be repeated while the screen is
-    /// open. A server built before that packet existed ignores it, and rather
-    /// than reporting a live server as dead we fall back to the join probe --
-    /// a Hello followed immediately by a Bye, which does claim a slot for a
-    /// moment. The fallback is opt-in per call so the polling loop can use it
-    /// rarely and the "test this address" button can use it always.
+    /// Status queries are always read-only; incompatible legacy servers are
+    /// never joined as a fallback probe.
     /// </summary>
     public static class NetStatus
     {
         public static ServerStatus Query(string address, int port, bool allowJoinProbe,
             int timeoutMs = 1200)
         {
+            // Retained for existing launcher callsites; probes never join.
+            _ = allowJoinProbe;
             if (String.IsNullOrWhiteSpace(address))
             {
                 return ServerStatus.Offline("No server address.");
@@ -125,101 +123,29 @@ namespace MphRead.Mods.Network
                     (byte)PacketType.StatusQuery, NetConfig.ProtocolVersion
                 }, 2, endPoint);
                 var from = new IPEndPoint(IPAddress.Any, 0);
-                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-                while (DateTime.UtcNow < deadline)
+                while (clock.ElapsedMilliseconds < timeoutMs)
                 {
+                    socket.Client.ReceiveTimeout = Math.Max(1, timeoutMs - (int)clock.ElapsedMilliseconds);
                     byte[] reply = socket.Receive(ref from);
-                    if (reply.Length >= 1 + ServerStatusPacket.Size
-                        && reply[0] == (byte)PacketType.StatusReply)
+                    if (from.Equals(endPoint) && reply.Length > 1
+                        && reply[0] == (byte)PacketType.StatusReply
+                        && ServerStatusPacket.TryRead(reply.AsSpan(1), out ServerStatusPacket status))
                     {
-                        return Describe(ServerStatusPacket.Read(reply.AsSpan(1)), legacy: false,
+                        return Describe(status, legacy: status.Family == NetWireFamily.LegacyRelay,
                             latency: (int)clock.ElapsedMilliseconds);
                     }
                 }
             }
             catch (SocketException)
             {
-                // Timed out or the host refused the datagram; either way the
-                // fallback below is the next thing to try.
+                // Timeout or refusal leaves discovery offline without admission.
             }
             catch (Exception ex)
             {
                 return ServerStatus.Offline($"Cannot reach {address}: {ex.Message}");
             }
 
-            return allowJoinProbe
-                ? JoinProbe(socket, endPoint, address, timeoutMs)
-                : ServerStatus.Offline($"No answer from {address}:{port}.");
-        }
-
-        /// <summary>
-        /// The old way: say hello, read what comes back, say goodbye.
-        ///
-        /// Kept because the running server may predate StatusQuery, and a
-        /// launcher that showed "offline" for a server people are playing on
-        /// would be worse than a probe that borrows a slot for 200 ms.
-        /// </summary>
-        private static ServerStatus JoinProbe(UdpClient socket, IPEndPoint endPoint,
-            string address, int timeoutMs)
-        {
-            try
-            {
-                // 0xFF asks for any free slot rather than a particular one.
-                socket.Send(new byte[]
-                {
-                    (byte)PacketType.Hello, NetConfig.ProtocolVersion, 0xFF
-                }, 3, endPoint);
-                var from = new IPEndPoint(IPAddress.Any, 0);
-                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-                bool welcomed = false;
-                while (DateTime.UtcNow < deadline)
-                {
-                    byte[] reply = socket.Receive(ref from);
-                    if (reply.Length >= 1 && reply[0] == (byte)PacketType.Welcome)
-                    {
-                        welcomed = true;
-                        continue;
-                    }
-                    if (reply.Length >= 1 + MatchStatePacket.Size
-                        && reply[0] == (byte)PacketType.MatchState)
-                    {
-                        socket.Send(new byte[] { (byte)PacketType.Bye }, 1, endPoint);
-                        MatchStatePacket match = MatchStatePacket.Read(reply.AsSpan(1));
-                        // The probe is in the roster while it asks, so the
-                        // count it is told includes itself. Reporting one
-                        // player on an empty server is worse than reporting
-                        // none: it is the difference between "somebody is on"
-                        // and "nobody is on".
-                        match.PlayerCount = (byte)Math.Max(0, match.PlayerCount - 1);
-                        return Describe(new ServerStatusPacket
-                        {
-                            Match = match,
-                            MaxPlayers = 0,
-                            ServerName = ""
-                        }, legacy: true, latency: -1);
-                    }
-                }
-                if (welcomed)
-                {
-                    socket.Send(new byte[] { (byte)PacketType.Bye }, 1, endPoint);
-                    return new ServerStatus
-                    {
-                        Online = true,
-                        RoomKey = "",
-                        ServerName = "",
-                        Latency = -1,
-                        Legacy = true,
-                        Message = "Online \u00B7 the server did not say what is running."
-                    };
-                }
-            }
-            catch (Exception)
-            {
-                // Fall through to the offline answer: an exception here means
-                // no reply, which is the same thing as far as the screen goes.
-            }
-            return ServerStatus.Offline($"No answer from {address}. It may be off, "
-                + "or a firewall may be blocking UDP.");
+            return ServerStatus.Offline($"No answer from {address}:{port}.");
         }
 
         private static ServerStatus Describe(ServerStatusPacket status, bool legacy, int latency)
@@ -271,6 +197,7 @@ namespace MphRead.Mods.Network
                 Latency = latency,
                 Legacy = legacy,
                 Protocol = status.Protocol,
+                Family = status.Family,
                 Message = message
             };
         }

@@ -1471,7 +1471,7 @@ namespace MphRead.Mods.Launcher.Gui
             _onlineStatus = new Note("Checking...");
             _onlineAddress.Box.LostFocus += (_, _) => QueryStatusSoon();
 
-            _connect = new MenuEntry("Connect", titleSize: 16) { Primary = true, Height = 44 };
+            _connect = new MenuEntry("Connect", titleSize: 16) { Primary = true, Height = 44, IsEnabled = false };
             _connect.Click += async (_, _) => await Connect();
 
             // There is no "find a server" entry any more: Join opens the list
@@ -1499,9 +1499,8 @@ namespace MphRead.Mods.Launcher.Gui
         /// <summary>
         /// Poll what the server is running while somebody is reading the card.
         ///
-        /// StatusQuery answers without claiming a slot, which is what makes
-        /// polling it reasonable; a server too old to know the packet is asked
-        /// once with a join probe and then left alone.
+        /// Discovery is read-only. Admission stays disabled until the server
+        /// reports a compatible architecture and protocol.
         /// </summary>
         private void StartStatusPolling()
         {
@@ -1521,13 +1520,14 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void QueryStatusSoon()
         {
+            _connect.IsEnabled = false;
             _statusCancel?.Cancel();
             var cancel = new CancellationTokenSource();
             _statusCancel = cancel;
             (string host, int port) = OnlineEndpoint();
             Task.Run(() =>
             {
-                ServerStatus status = NetStatus.Query(host, port, allowJoinProbe: true);
+                ServerStatus status = NetStatus.Query(host, port, allowJoinProbe: false);
                 if (cancel.IsCancellationRequested)
                 {
                     return;
@@ -1538,10 +1538,11 @@ namespace MphRead.Mods.Launcher.Gui
                     {
                         return;
                     }
+                    _connect.IsEnabled = status.Online && status.Compatible;
                     if (status.Online)
                     {
                         _onlineStatus.Text = Describe(status);
-                        _onlineStatus.Foreground = GuiTheme.GoodBrush;
+                        _onlineStatus.Foreground = status.Compatible ? GuiTheme.GoodBrush : GuiTheme.BadBrush;
                         _splash.ShowRoom(status.RoomKey);
                     }
                     else
@@ -1555,6 +1556,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static string Describe(ServerStatus status)
         {
+            if (!status.Compatible) { return "Online — " + status.IncompatibilityReason; }
             string players = status.MaxPlayers > 0
                 ? $"{status.Players}/{status.MaxPlayers}"
                 : status.Players.ToString(CultureInfo.InvariantCulture);
@@ -1567,6 +1569,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private async Task Connect()
         {
+            if (!_connect.IsEnabled) { return; }
             (string host, int port) = OnlineEndpoint();
             string name = PlayerName();
             var hunter = (Hunter)Enum.Parse(typeof(Hunter), _onlineHunter.Value);
@@ -1619,6 +1622,7 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _matchOnMaster = null!;
         private ToggleRow _matchListed = null!;
         private MenuEntry _matchStart = null!;
+        private int _hostCheckGeneration;
         private Note _matchNote = null!;
 
         /// <summary>
@@ -1914,6 +1918,8 @@ namespace MphRead.Mods.Launcher.Gui
         private void RefreshMatchCard()
         {
             bool host = _matchKind == LaunchKind.Host;
+            int generation = ++_hostCheckGeneration;
+            _matchStart.IsEnabled = !host;
             _matchBots.IsVisible = !host;
             _matchSkill.IsVisible = !host;
             _matchOnMaster.On = true;
@@ -1927,10 +1933,31 @@ namespace MphRead.Mods.Launcher.Gui
                     + "dedicated server."
                 : "";
             _matchNote.IsVisible = _matchNote.Text.Length > 0;
+            _matchNote.Foreground = GuiTheme.TextDimBrush;
+            if (host) { _ = CheckHostCompatibility(generation); }
+        }
+
+        private async Task CheckHostCompatibility(int generation)
+        {
+            string host = LauncherPrefs.MasterHost;
+            int port = LauncherPrefs.MasterPort;
+            MasterListResult result = await Task.Run(() => NetMasterClient.Query(host, port));
+            if (generation != _hostCheckGeneration || _matchKind != LaunchKind.Host
+                || host != LauncherPrefs.MasterHost || port != LauncherPrefs.MasterPort) { return; }
+            _matchStart.IsEnabled = result.Answered && result.Compatible;
+            if (!_matchStart.IsEnabled)
+            {
+                _matchNote.Text = result.Answered ? "Directory online — " + result.IncompatibilityReason
+                    : "The directory did not answer. Return here to check again.";
+                _matchNote.Foreground = GuiTheme.BadBrush;
+                _matchNote.IsVisible = true;
+            }
         }
 
         private async Task StartMatch()
         {
+            if (!_matchStart.IsEnabled) { return; }
+            ++_hostCheckGeneration;
             if (_playable.Count == 0)
             {
                 _matchNote.Text = "No multiplayer rooms were found.";
@@ -1977,6 +2004,7 @@ namespace MphRead.Mods.Launcher.Gui
             _matchStart.Title = "Starting";
             _matchNote.IsVisible = true;
             bool ok;
+            string? startError = null;
             if (_matchOnMaster.On)
             {
                 _matchNote.Text = $"Asking {LauncherPrefs.MasterHost} to run {roomKey}...";
@@ -1986,8 +2014,10 @@ namespace MphRead.Mods.Launcher.Gui
                         LauncherPrefs.MasterPort, roomKey, mode, timeLimit: 7 * 60,
                         pointGoal: 7, maxPlayers: PlayerEntity.SlotCapacity,
                         serverName: $"{name}'s game");
-                    return game.Started
-                        && NetLaunch.Join(game.Host, game.Port, name, hunter);
+                    if (!game.Started) { startError = game.Reason; return false; }
+                    bool joined = NetLaunch.Join(game.Host, game.Port, name, hunter);
+                    if (!joined) { startError = NetLaunch.LastJoinError; }
+                    return joined;
                 });
             }
             else
@@ -2006,10 +2036,11 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 NetSession.Stop();
                 NetHostSession.Stop();
-                _matchNote.Text = NetHostSession.LastError
+                _matchNote.Text = startError ?? NetHostSession.LastError
                     ?? "The game could not be started. The port may be in use, or the "
                         + "directory may be down.";
                 _matchNote.Foreground = GuiTheme.BadBrush;
+                if (_matchOnMaster.On) { _ = CheckHostCompatibility(++_hostCheckGeneration); }
                 return;
             }
             Finish(new LaunchPlan
@@ -2077,13 +2108,19 @@ namespace MphRead.Mods.Launcher.Gui
                         _browseNote.Foreground = GuiTheme.WarmBrush;
                         return;
                     }
+                    if (!result.Compatible)
+                    {
+                        _browseNote.Text = "Directory online — " + result.IncompatibilityReason;
+                        _browseNote.Foreground = GuiTheme.BadBrush;
+                    }
                     if (result.Servers.Count == 0)
                     {
+                        if (!result.Compatible) { return; }
                         _browseNote.Text = "The directory is up and has nobody listed.";
                         _browseNote.Foreground = GuiTheme.WarmBrush;
                         return;
                     }
-                    _browseNote.Text = $"{result.Servers.Count} listed.";
+                    if (result.Compatible) { _browseNote.Text = $"{result.Servers.Count} listed."; }
                     foreach (MasterListing listing in result.Servers)
                     {
                         AddServerRow(listing);

@@ -42,7 +42,7 @@ namespace MphRead.Mods.Network
         /// <summary>Datagrams thrown away, as a percentage, each way.</summary>
         public static double LossPercent { get; private set; }
 
-        public static bool Active => RoundTripMs > 0 || LossPercent > 0;
+        public static bool Active => RoundTripMs > 0 || JitterMs > 0 || LossPercent > 0;
 
         /// <summary>Half the round trip, in stopwatch ticks, plus this call's jitter.</summary>
         internal static long HoldTicks()
@@ -54,7 +54,7 @@ namespace MphRead.Mods.Network
             double ms = RoundTripMs / 2.0;
             if (JitterMs > 0)
             {
-                ms += _random.NextDouble() * JitterMs;
+                ms += Random.Shared.NextDouble() * JitterMs;
             }
             return (long)(ms * Stopwatch.Frequency / 1000.0);
         }
@@ -62,13 +62,9 @@ namespace MphRead.Mods.Network
         /// <summary>Whether this datagram is one of the ones the line eats.</summary>
         internal static bool Drops()
         {
-            return LossPercent > 0 && _random.NextDouble() * 100 < LossPercent;
+            // Thread-safe and independent of the replicated gameplay RNG.
+            return LossPercent > 0 && Random.Shared.NextDouble() * 100 < LossPercent;
         }
-
-        // Not Rng: that one is the game's own LCG, its state is replicated
-        // between machines, and drawing from it here would make a simulated
-        // dropped packet change what every player's weapon does.
-        private static readonly Random _random = new Random();
 
         /// <summary>
         /// "200", or "200:40" for two hundred milliseconds give or take
@@ -82,6 +78,10 @@ namespace MphRead.Mods.Network
                 return false;
             }
             string[] parts = value.Split(':', ',');
+            if (parts.Length > 2)
+            {
+                return false;
+            }
             if (!Int32.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture,
                 out int rtt) || rtt < 0 || rtt > 10000)
             {
@@ -101,7 +101,7 @@ namespace MphRead.Mods.Network
         public static bool ConfigureLoss(string? value)
         {
             if (!Double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture,
-                out double percent) || percent < 0 || percent > 100)
+                out double percent) || !Double.IsFinite(percent) || percent < 0 || percent > 100)
             {
                 return false;
             }

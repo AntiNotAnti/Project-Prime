@@ -84,6 +84,15 @@ namespace MphRead.Formats
         private static string _cachedVersion = "";
         private static byte[]? _aiPersonalityData = null;
 
+        public static void ClearCache()
+        {
+            _cachedVersion = "";
+            _aiPersonalityData = null;
+            _data1Cache.Clear();
+            _data2Cache.Clear();
+            _data3Cache.Clear();
+        }
+
         private static AiPersonalityData1 LoadData(int offset)
         {
             if (Paths.MphKey != _cachedVersion)
@@ -95,7 +104,7 @@ namespace MphRead.Formats
             }
             if (_aiPersonalityData == null)
             {
-                _aiPersonalityData = File.ReadAllBytes(Paths.Combine(Paths.FileSystem, @"aiPersonalityData\aiPersonalityData.bin"));
+                _aiPersonalityData = Mods.Network.ServerContent.ReadBytes(Paths.Combine(Paths.FileSystem, @"aiPersonalityData\aiPersonalityData.bin"));
             }
             AiPersonalityData1 data = ParseData1(offset, count: 1)[0];
             data.SetLabels();
@@ -232,7 +241,7 @@ namespace MphRead.Formats
         // skdebug
         public static void TestRead()
         {
-            var bytes = new ReadOnlySpan<byte>(File.ReadAllBytes(Paths.Combine(Paths.FileSystem, @"aiPersonalityData\aiPersonalityData.bin")));
+            var bytes = new ReadOnlySpan<byte>(Mods.Network.ServerContent.ReadBytes(Paths.Combine(Paths.FileSystem, @"aiPersonalityData\aiPersonalityData.bin")));
             var offsets = new List<int>()
             {
                 13480, 32896, 32932, 32968, 33012, 33152, 33196, 33232, 33372, 33416, 33556, 33696, 33836,

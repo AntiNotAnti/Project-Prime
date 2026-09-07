@@ -26,13 +26,70 @@ namespace MphRead.Mods
         /// be refactored later.
         /// </summary>
         /// <summary>
-        /// Commands that must run before the game-file setup check, because
-        /// they need neither paths.txt nor extracted assets. Kept separate
-        /// from TryHandle so the dedicated server can run on a machine that
-        /// has no game data at all.
+        /// Commands that run before interactive game-file setup. Simulation
+        /// accepts an explicit content directory; directory and metadata tools
+        /// can run without game files or a graphics device.
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+            // Where the maps are. Read for every invocation and before
+            // anything reads the map list, which is loaded once -- and against
+            // the directory the command was typed in rather than the one the
+            // process moved itself to (see ConsoleSetup.LaunchDirectory), so
+            // `-mapdir maps` from a checkout means that checkout's maps.
+            string? mapDir = ValueAfter(args, "mapdir");
+            if (mapDir != null)
+            {
+                MapGen.CustomRooms.MapDirectory = System.IO.Path.GetFullPath(
+                    System.IO.Path.Combine(ConsoleSetup.LaunchDirectory, mapDir));
+            }
+
+            if (HasFlag(args, "combatcheck") || HasFlag(args, "spectatorcheck"))
+            {
+                string? data = ValueAfter(args, "data");
+                if (data == null) { Console.Error.WriteLine("This check requires -data DIRECTORY."); Environment.ExitCode = 2; }
+                else
+                {
+                    string version = ValueAfter(args, "dataversion") ?? "AMHE1";
+                    Environment.ExitCode = HasFlag(args, "combatcheck")
+                        ? ServerCombatCheck.Run(data, version, ValueAfter(args, "combatcheck") ?? "MP1 SANCTORUS")
+                        : ServerSpectatorCheck.Run(data, version, ValueAfter(args, "spectatorcheck") ?? "MP1 SANCTORUS");
+                }
+                return true;
+            }
+            if (HasFlag(args, "servercontent"))
+            {
+                string? source = ValueAfter(args, "data");
+                string? output = ValueAfter(args, "servercontent");
+                if (source == null || output == null)
+                {
+                    Console.Error.WriteLine("-servercontent OUTPUT -data EXTRACTED_DIRECTORY [-room ROOM ...] [-dataversion AMHE1]");
+                    Environment.ExitCode = 2;
+                    return true;
+                }
+                try
+                {
+                    List<string> rooms = ValuesAfter(args, "room");
+                    if (HasFlag(args, "allrooms")) { rooms.AddRange(ServerContentPack.RetailRooms); }
+                    if (rooms.Count == 0) { rooms.Add("MP1 SANCTORUS"); }
+                    ServerContentPack.Bake(source, output, ValueAfter(args, "dataversion") ?? "AMHE1", rooms);
+                    Console.WriteLine($"Server content written to {System.IO.Path.GetFullPath(output)}");
+                }
+                catch (Exception ex) { Console.Error.WriteLine(ex); Environment.ExitCode = 1; }
+                return true;
+            }
+            if (HasFlag(args, "headlesscheck") || HasFlag(args, "server-sim"))
+            {
+                Environment.ExitCode = HeadlessCheck.Run(ValueAfter(args, "data"),
+                    ValueAfter(args, "dataversion") ?? "AMHE1",
+                    ValueAfter(args, "headlesscheck") ?? ValueAfter(args, "server-sim") ?? "MP1 SANCTORUS",
+                    Int32.TryParse(ValueAfter(args, "frames"), out int frames) ? frames
+                        : HasFlag(args, "server-sim") ? -1 : 600,
+                    Int32.TryParse(ValueAfter(args, "players"), out int players) ? players : 8,
+                    Enum.TryParse(ValueAfter(args, "mode"), true, out GameMode mode) ? mode : GameMode.Battle,
+                    realtime: HasFlag(args, "realtime") || HasFlag(args, "server-sim"));
+                return true;
+            }
             // Keys and mouse feel, before anything creates a player. Called
             // here because this runs for every invocation, launcher or not.
             InputSettings.Load();
@@ -98,22 +155,90 @@ namespace MphRead.Mods
                 Console.WriteLine($"[net] simulating a bad line: {Network.NetLag.Describe()}");
             }
 
+            if (HasFlag(args, "combatduel"))
+            {
+                string? data = ValueAfter(args, "data");
+                if (data == null) { throw new ProgramException("-combatduel requires -data DIRECTORY."); }
+                int seconds = Int32.TryParse(ValueAfter(args, "seconds"), out int duration) ? duration : 30;
+                BeamType weapon = Enum.TryParse(ValueAfter(args, "weapon"), true, out BeamType selected)
+                    ? selected : BeamType.Imperialist;
+                Environment.ExitCode = ServerCombatDuelCheck.Run(data, ValueAfter(args, "dataversion") ?? "AMHE1",
+                    ValueAfter(args, "combatduel") ?? "MP1 SANCTORUS", seconds, weapon);
+                return true;
+            }
+
+            if (HasFlag(args, "server") || HasFlag(args, "dedicated") || HasFlag(args, "authoritative-server"))
+            {
+                string? data = ValueAfter(args, "data");
+                if (data == null)
+                {
+                    Console.Error.WriteLine("-server requires -data DIRECTORY (extracted game data or a baked server package). -dataversion defaults to AMHE1.");
+                    Environment.ExitCode = 2;
+                    return true;
+                }
+                try
+                {
+                    string? requestedRoom = ValueAfter(args, "server") ?? ValueAfter(args, "authoritative-server");
+                    var entry = new RotationEntry
+                    {
+                        RoomKey = requestedRoom != null && !requestedRoom.StartsWith('-')
+                            ? requestedRoom : "MP1 SANCTORUS",
+                        Mode = Enum.TryParse(ValueAfter(args, "mode"), true, out GameMode mode) ? mode : GameMode.Battle,
+                        TimeLimit = 600,
+                        PointGoal = 0
+                    };
+                    string? cycle = ValueAfter(args, "rotation");
+                    MapRotation? simulationRotation = cycle == null ? null : MapRotation.Load(cycle);
+                    MasterReporter? reporter = null;
+                    string? listing = ValueAfter(args, "master");
+                    if (listing != null && !HasFlag(args, "nomaster"))
+                    {
+                        if (!Uri.TryCreate("udp://" + listing, UriKind.Absolute, out Uri? endpoint))
+                        {
+                            throw new ProgramException("Invalid directory address.");
+                        }
+                        int listingPort = endpoint.Port > 0 ? endpoint.Port : NetMasterConfig.DefaultPort;
+                        if (Int32.TryParse(ValueAfter(args, "masterport"), out int configuredListingPort))
+                        {
+                            listingPort = configuredListingPort;
+                        }
+                        reporter = new MasterReporter(endpoint.Host, listingPort);
+                    }
+                    var simulationServer = new AuthoritativeServer(ParsePort(args), data,
+                        ValueAfter(args, "dataversion") ?? "AMHE1", simulationRotation?.Current ?? entry)
+                    {
+                        Rotation = simulationRotation,
+                        MaxPlayers = Int32.TryParse(ValueAfter(args, "players"), out int capacity) ? capacity : 8,
+                        FriendlyFire = HasFlag(args, "friendlyfire")
+                            && (!Boolean.TryParse(ValueAfter(args, "friendlyfire"), out bool friendly) || friendly),
+                        ServerName = ValueAfter(args, "servername") ?? ValueAfter(args, "name") ?? "Fruity Prime",
+                        Reporter = reporter
+                    };
+                    using var simulationSignals = new ShutdownSignals();
+                    simulationSignals.OnShutdown(simulationServer.Stop);
+                    if (HasFlag(args, "parent-stdin"))
+                    {
+                        new System.Threading.Thread(() =>
+                        {
+                            string? line;
+                            do { line = Console.ReadLine(); } while (line != null && line != "stop");
+                            simulationServer.Stop();
+                        }) { IsBackground = true, Name = "Server parent lifetime" }.Start();
+                    }
+                    simulationServer.Run();
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("[server] " + ex);
+                    Environment.ExitCode = 1;
+                }
+                return true;
+            }
+
             if (HasFlag(args, "credits"))
             {
                 Credits.Print();
                 return true;
-            }
-
-            // Where the maps are. Read for every invocation and before
-            // anything reads the map list, which is loaded once -- and against
-            // the directory the command was typed in rather than the one the
-            // process moved itself to (see ConsoleSetup.LaunchDirectory), so
-            // `-mapdir maps` from a checkout means that checkout's maps.
-            string? mapDir = ValueAfter(args, "mapdir");
-            if (mapDir != null)
-            {
-                MapGen.CustomRooms.MapDirectory = System.IO.Path.GetFullPath(
-                    System.IO.Path.Combine(ConsoleSetup.LaunchDirectory, mapDir));
             }
 
             // Cooking a bundle is here, before the game-file check, for the
@@ -274,6 +399,11 @@ namespace MphRead.Mods
                     masterPort = parsedMasterPort;
                 }
                 var master = new MasterServer(masterPort);
+                string? hostData = ValueAfter(args, "data");
+                if (hostData != null)
+                {
+                    master.SetHostContent(hostData, ValueAfter(args, "dataversion") ?? "AMHE1");
+                }
                 using var masterSignals = new ShutdownSignals();
                 // The ports it may start games on, for players whose routers
                 // will not forward one. A range by default, because the whole
@@ -324,60 +454,7 @@ namespace MphRead.Mods
                     ValueAfter(args, "masterport"));
                 return true;
             }
-            if (!HasFlag(args, "server") && !HasFlag(args, "dedicated"))
-            {
-                return false;
-            }
-            int port = NetConfig.DefaultPort;
-            string? portValue = ValueAfter(args, "port");
-            if (portValue != null && Int32.TryParse(portValue, out int parsedPort))
-            {
-                port = parsedPort;
-            }
-            int maxPlayers = 4;
-            string? playersValue = ValueAfter(args, "players");
-            if (playersValue != null && Int32.TryParse(playersValue, out int parsedPlayers))
-            {
-                maxPlayers = parsedPlayers;
-            }
-
-            // Rotation file lives beside the executable, the way a Quake 3
-            // server keeps its config next to the binary.
-            string rotationPath = ValueAfter(args, "rotation")
-                ?? System.IO.Path.Combine(AppContext.BaseDirectory, "maprotation.txt");
-            MapRotation rotation = MapRotation.LoadOrCreate(rotationPath);
-
-            var server = new Network.DedicatedServer(port, maxPlayers, rotation)
-            {
-                ServerName = ValueAfter(args, "servername") ?? ValueAfter(args, "name")
-                    ?? Environment.MachineName,
-                FriendlyFire = HasFlag(args, "friendlyfire")
-            };
-            // Listed by default. A dedicated server exists to be found, and a
-            // server that has to be told to advertise itself is a server
-            // nobody finds -- so the flag is the one that opts out.
-            if (!HasFlag(args, "nomaster") && !HasFlag(args, "unlisted"))
-            {
-                string masterHost = ValueAfter(args, "master") ?? NetMasterConfig.DefaultHost;
-                int reportPort = NetMasterConfig.DefaultPort;
-                string? reportPortValue = ValueAfter(args, "masterport");
-                if (reportPortValue != null && Int32.TryParse(reportPortValue, out int parsedReport))
-                {
-                    reportPort = parsedReport;
-                }
-                server.Reporter = new MasterReporter(masterHost, reportPort);
-                Console.WriteLine($"[server] listing on {masterHost}:{reportPort} "
-                    + $"as \"{server.ServerName}\" (-nomaster to stay private)");
-            }
-            using var cancel = new System.Threading.CancellationTokenSource();
-            using var signals = new ShutdownSignals();
-            signals.OnShutdown(() =>
-            {
-                cancel.Cancel();
-                server.Stop();
-            });
-            server.Run(cancel.Token);
-            return true;
+            return false;
         }
 
 #if MPHREAD_SERVER
@@ -390,12 +467,12 @@ namespace MphRead.Mods
             string exe = System.IO.Path.GetFileNameWithoutExtension(
                 Environment.ProcessPath) ?? "MphReadServer";
             Console.WriteLine();
-            Console.WriteLine($"{Branding.Name} dedicated server. It needs no game files.");
+            Console.WriteLine($"{Branding.Name} authoritative dedicated server. It requires game data.");
             Console.WriteLine();
-            Console.WriteLine($"  {exe} -server -port {NetConfig.DefaultPort} -players 8 "
+            Console.WriteLine($"  {exe} -server -data GAME_DATA_DIRECTORY -port {NetConfig.DefaultPort} -players 8 "
                 + "-servername \"My server\"");
-            Console.WriteLine("      run a server. Maps come from maprotation.txt, written");
-            Console.WriteLine("      beside this program on first run.");
+            Console.WriteLine("      run a server with extracted game data or a baked server package.");
+            Console.WriteLine("      Use -rotation FILE for a map cycle and -master HOST:PORT to list it.");
             Console.WriteLine();
             Console.WriteLine($"  {exe} -masterserver -port {NetMasterConfig.DefaultPort}");
             Console.WriteLine("      run a server directory of your own.");
@@ -403,9 +480,8 @@ namespace MphRead.Mods
             Console.WriteLine($"  {exe} -servers");
             Console.WriteLine("      list the servers that are up right now.");
             Console.WriteLine();
-            Console.WriteLine("A server lists itself on " + NetMasterConfig.DefaultHost
-                + " so players can find it;");
-            Console.WriteLine("-nomaster keeps it off every list. See SERVER.txt.");
+            Console.WriteLine("Listing is opt-in: use -master " + NetMasterConfig.DefaultHost + ":"
+                + NetMasterConfig.DefaultPort + " to advertise. See SERVER.txt.");
             Console.WriteLine();
             // Double-clicked, so this window is about to close with everything
             // above it still unread.
@@ -849,6 +925,15 @@ namespace MphRead.Mods
                     ParseName(args), ParseHunter(args), seconds, shots, width, height,
                     recordDemo: HasFlag(args, "recorddemo"),
                     spectateAt: spectateAt, rejoinAt: rejoinAt);
+                return true;
+            }
+
+            string? demoCheck = ValueAfter(args, "democheck");
+            if (demoCheck != null)
+            {
+                double seconds = Double.TryParse(ValueAfter(args, "seconds"),
+                    System.Globalization.CultureInfo.InvariantCulture, out double duration) ? duration : 60;
+                Environment.ExitCode = DemoPlaybackCheck.Run(demoCheck, seconds);
                 return true;
             }
 

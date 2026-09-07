@@ -47,7 +47,10 @@ namespace MphRead.Entities
             ModelInstance inst = SetUpModel("WeavelAlt_Turret_lod0");
             _baseNode = inst.Model.GetNodeByName("TurretBase")!;
             _baseNodeParent = inst.Model.Nodes[_baseNode.ParentIndex];
-            _altIceModel = SetUpModel("alt_ice");
+            if (!_scene.IsHeadless)
+            {
+                _altIceModel = SetUpModel("alt_ice");
+            }
         }
 
         public override void Initialize()
