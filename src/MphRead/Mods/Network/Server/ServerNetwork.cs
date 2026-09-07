@@ -231,8 +231,11 @@ namespace MphRead.Mods.Network
             return true;
         }
 
+        public bool AdmissionClosed { get; set; }
+
         private bool Admit(IPEndPoint endpoint, in JoinPacket join)
         {
+            if (AdmissionClosed) { return false; }
             if (join.Protocol != NetHeader.Version)
             {
                 Refuse(endpoint, join.Nonce, $"Authoritative protocol {NetHeader.Version} required.");

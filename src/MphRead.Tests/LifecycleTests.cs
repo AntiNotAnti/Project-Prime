@@ -77,7 +77,42 @@ namespace MphRead.Tests
         }
 
         [Fact]
-        public void ReadOnlyDiscoveryReportsProtocolFiveWithoutTakingSlot()
+        public void LoadingPeersPreventIdleAndAdmissionCanCloseAndReopen()
+        {
+            using var transport = new NetTransport(0);
+            using var firstSocket = new NetTransport(0);
+            using var secondSocket = new NetTransport(0);
+            var endpoint = new IPEndPoint(IPAddress.Loopback, transport.LocalPort);
+            var server = new ServerNetwork(transport, "MP1 SANCTORUS", GameMode.Battle);
+            using var first = new NetClient(firstSocket, endpoint, "LOADING", Hunter.Samus);
+            Pump(server, first, () => first.Connection != null);
+            ServerPeer peer = Assert.IsType<ServerPeer>(server.Find(first.Connection!.Id));
+            Assert.Equal(NetConnectionState.Loading, peer.Connection.State);
+            Assert.Equal(1, server.Count); // The updater's owner gate includes unready players.
+
+            server.AdmissionClosed = true;
+            long rejected = server.Rejected;
+            using var second = new NetClient(secondSocket, endpoint, "WAITING", Hunter.Samus);
+            Pump(server, second, () => { first.Poll(); return server.Rejected > rejected; });
+            Assert.Null(second.Connection);
+            Assert.Equal(1, server.Count);
+            Assert.Equal(NetConnectionState.Loading, peer.Connection.State);
+
+            Assert.True(first.Disconnect());
+            Pump(server, second, () => { first.Poll(); return server.Count == 0; });
+            Assert.True(server.AdmissionClosed);
+            Assert.Null(second.Connection);
+
+            server.AdmissionClosed = false;
+            Pump(server, second, () => second.Connection != null);
+            Assert.Equal(1, server.Count);
+            Assert.Equal(NetConnectionState.Loading, server.Find(second.Connection!.Id)!.Connection.State);
+            Assert.True(second.Disconnect());
+            Pump(server, second, () => server.Count == 0);
+        }
+
+        [Fact]
+        public void ReadOnlyDiscoveryReportsCurrentProtocolWithoutTakingSlot()
         {
             using var transport = new NetTransport(0);
             using var socket = new NetTransport(0);

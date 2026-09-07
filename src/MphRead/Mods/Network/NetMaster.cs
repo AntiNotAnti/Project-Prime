@@ -256,6 +256,8 @@ namespace MphRead.Mods.Network
         private readonly byte[] _scratch = new byte[NetConfig.MaxPacketSize];
         private NetTransport? _transport;
         private volatile bool _running;
+        private bool _admissionClosed;
+        public Update.ServerUpdateRuntime? Updates { get; init; }
         private readonly System.Diagnostics.Stopwatch _clock = new();
         private uint _publicAddress;
         private string _publicName = "";
@@ -436,6 +438,12 @@ namespace MphRead.Mods.Network
                     }
                     Expire(now);
                     ReapHosted(now);
+                    if (Updates?.PollIdle(() => _hosted.Count == 0,
+                        () => _admissionClosed = true, () => _admissionClosed = false) == true)
+                    {
+                        _running = false;
+                        break;
+                    }
                     if (now - lastReport >= 60)
                     {
                         lastReport = now;
@@ -471,7 +479,7 @@ namespace MphRead.Mods.Network
             }
             else if (packet.Type == PacketType.HostRequest)
             {
-                if (_hostRequests.Take(now)) { HandleHostRequest(packet, now); }
+                if (!_admissionClosed && _hostRequests.Take(now)) { HandleHostRequest(packet, now); }
             }
             else if (packet.Type == PacketType.Bye)
             {

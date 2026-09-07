@@ -130,7 +130,9 @@ processes for separate matches.
 | `-mapdir DIRECTORY` | Use an external custom-map directory. |
 | `-nolagcomp` | Disable all historical shot compensation for this server, including projectile catch-up. |
 | `-noprojectilecatchup` | Disable projectile fast-forward while retaining historical Imperialist traces. |
-| `-noupdate` | Skip the startup update check. |
+| `-autoupdate` | Opt in to staged, idle-only updates from the explicitly configured authoritative fork. |
+| `-update-repository OWNER/REPO` | Trusted authoritative release repository; required with `-autoupdate`. Relay upstream is refused. |
+| `-noupdate` | Disable automatic updating, including when `-autoupdate` is present. Child servers always use this. |
 | `-parent-stdin` | Stop when the supervising parent closes stdin; used by directory-owned child servers. |
 
 Historical compensation is enabled by default and remains capped at 15 ticks
@@ -141,6 +143,61 @@ Catch-up advances player collision against immutable history while using current
 map geometry. See [the weapon timing policies](docs/NETWORK_WEAPON_POLICIES.md)
 for variant coverage and [the comparison harness](docs/NETWORK_LAGCOMP_COMPARISON.md)
 for reproducible ON/OFF checks.
+
+## Optional automatic server updates
+
+Use a stamped dedicated-server release that publishes authoritative update
+manifests. Local development builds and desktop packages cannot auto-update.
+For example, add these arguments to your existing server or directory command:
+
+```text
+-autoupdate -update-repository YOUR/AUTHORITATIVE-FORK
+```
+
+Checks run at startup and every 15 minutes. Downloads are staged beside the
+installation, outside live files. Before any downloaded executable runs, the
+updater checks the release repository, authoritative family/protocol, platform,
+archive hash and every file hash. The staged **new binary** then validates the
+currently configured content, rotation and custom maps without opening a port.
+Failed checks keep the existing server running and log the reason.
+
+Installation waits until all admitted players have left, including loading and
+spectating players. A directory waits for every owned or starting child match;
+external server listings do not block it. Locally hosted children never update
+independently. Standalone processes restart with their exact original arguments
+and working directory. Under systemd, installation finishes before exit and the
+supervisor restarts the service; configure `Restart=always`. Standalone Windows
+uses the verified staged helper after the original process exits. Automatic
+Windows service-supervisor handoff is not supported by this initial updater.
+
+The installation parent must be writable. Replacement uses atomic file renames
+with backups and rollback on ordinary installation errors. It is not a whole
+directory switch or power-failure recovery journal. Operator files absent from
+the release inventory remain in place. Failed rollback keeps admission closed
+and logs retained recovery files. Four retained staging directories suspend
+further downloads until an operator reviews them.
+
+To check content manually, run the candidate dedicated binary:
+
+```sh
+./FruityPrime -authoritative-server-validate -data /srv/fruity-content \
+  -dataversion AMHE1 -rotation /srv/fruity/rotation.txt -mapdir /srv/fruity/maps
+./FruityPrime -authoritative-server-validate -masterserver
+```
+
+Success requires exit code 0 and the `authoritative-server-validation` JSON
+report with `Success: true`. Directory-only validation needs no game data.
+Content packages validate their manifest, profile and hashes; extracted cartridge
+directories have no trusted manifest and are checked through the candidate's
+parsers and gameplay probes. Relative data/rotation paths follow the installation
+directory; an explicit relative map directory follows the original launch directory.
+
+Release maintainers must set the repository variable
+`AUTHORITATIVE_RELEASE_REPOSITORY` to their exact authoritative `OWNER/REPO` to
+generate the three dedicated update ZIPs and manifests in the existing draft
+release workflow. Missing configuration leaves ordinary release packaging in
+place. Hash integrity trusts that configured HTTPS publisher; it is not code
+signing. No public update or deployment was performed by the local checks.
 
 ## Map rotation
 

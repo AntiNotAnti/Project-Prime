@@ -12,6 +12,9 @@ namespace MphRead.Mods.Network
     public static class ServerContent
     {
         private static ServerContentManifest? _manifest;
+
+        internal static ReadOnlySpan<ServerContentScenario> ValidatedScenarios
+            => _manifest?.Scenarios ?? Array.Empty<ServerContentScenario>();
         [ThreadStatic] private static Action<string, byte[]>? _recordRead;
         [ThreadStatic] private static Action<string>? _recordModel;
 

@@ -18,6 +18,7 @@ namespace MphRead.Mods.Network
         public bool ProjectileCatchUpEnabled { get; init; } = true;
         public string ServerName { get; init; } = "Fruity Prime";
         public MasterReporter? Reporter { get; init; }
+        public Update.ServerUpdateRuntime? Updates { get; init; }
         public int BoundPort { get; private set; }
 
         public AuthoritativeServer(int port, string data, string version, RotationEntry entry)
@@ -91,6 +92,12 @@ namespace MphRead.Mods.Network
                     {
                         long start = Stopwatch.GetTimestamp();
                         network.Poll(tick);
+                        if (Updates?.PollIdle(() => network.Count == 0,
+                            () => network.AdmissionClosed = true, () => network.AdmissionClosed = false) == true)
+                        {
+                            _running = false;
+                            break;
+                        }
                         if (reportedPeers != network.Count)
                         {
                             reportedPeers = network.Count;

@@ -209,6 +209,40 @@ invalid source and zero-rewind cases passed. The 61-case weapon matrix and 26
 focused tests passed; six strict homing A/B pairs preserved 11 root shots each
 across 0/4/8-tick delays and both baselines. Server/nettest built without warnings.
 
+### Pass 8: staged dedicated-server updates
+
+Updating is opt-in and requires an explicitly named authoritative release fork
+and stamped dedicated package. The release ZIP and each executable/library are
+checked against bounded family/protocol/RID/version/hash metadata before running
+the staged content validator. Download deadlines cover response bodies as well
+as headers. Cancellation reaps the owned validator before cleaning its stage;
+unconfirmed termination preserves that stage for operator review.
+
+The owner thread closes admission only when all admitted peers or owned/pending
+children have left. It rechecks idleness after closure. Ordinary installation
+failures roll back; failed rollback retains recovery files and keeps admission
+closed. Cleanup failures cannot turn a committed install into an apparent
+failure. Unix completes replacement before exit; systemd launches no competing
+child. The standalone Windows helper releases its installation lock before
+restarting with the exact original arguments.
+
+The integrated full suite passed 286 C# tests and 29 Python tests. Dedicated
+server/nettest and desktop builds passed with zero warnings. Actual subprocess
+tests cover validator success markers, missing content, pre-execution integrity,
+bounded output, cancellation and stalled downloads. Real UDP tests confirm that
+loading peers count as occupied and that closed admission prevents a new Join.
+Real filesystem tests cover replacement, rollback, cleanup failure and Unix
+executable permissions.
+
+The candidate validated raw AMHE1 retail and TEST ARENA/DUST2/PARALLAX Battle
+scenarios, plus 260 supported hosting scenarios in about 13 seconds. Directory
+validation requires no content. The 3,584-file data/map inventory and six focused
+hashes were unchanged. Root also reran directory, retail and Parallax validation
+with the integrated binary and observed explicit family-2/protocol-6 success.
+Native Windows helper execution and real systemd restart remain platform gates;
+local tests do not establish public update or deployment success. See SERVER.md
+for operation and the documented per-file, rather than whole-directory, atomicity.
+
 ## Reproduction
 
 Use .NET SDK 9 and your own extracted AMHE1 data:

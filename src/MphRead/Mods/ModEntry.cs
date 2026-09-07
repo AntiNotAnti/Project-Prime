@@ -32,6 +32,19 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+            // Update maintenance must not load settings, clean another stage,
+            // generate content or open a transport before handling its command.
+            if (HasFlag(args, "server-apply-update"))
+            {
+                string? plan = ValueAfter(args, "server-apply-update");
+                Environment.ExitCode = plan == null ? 1 : Update.ServerUpdateInstall.ApplyHandoff(plan);
+                return true;
+            }
+            if (HasFlag(args, "authoritative-server-validate"))
+            {
+                Environment.ExitCode = Update.ServerUpdateRuntime.RunValidation(args);
+                return true;
+            }
             // Where the maps are. Read for every invocation and before
             // anything reads the map list, which is loaded once -- and against
             // the directory the command was typed in rather than the one the
@@ -204,6 +217,7 @@ namespace MphRead.Mods
                         }
                         reporter = new MasterReporter(endpoint.Host, listingPort);
                     }
+                    using var simulationUpdates = Update.ServerUpdateRuntime.Create(args);
                     var simulationServer = new AuthoritativeServer(ParsePort(args), data,
                         ValueAfter(args, "dataversion") ?? "AMHE1", simulationRotation?.Current ?? entry)
                     {
@@ -214,7 +228,8 @@ namespace MphRead.Mods
                         FriendlyFire = HasFlag(args, "friendlyfire")
                             && (!Boolean.TryParse(ValueAfter(args, "friendlyfire"), out bool friendly) || friendly),
                         ServerName = ValueAfter(args, "servername") ?? ValueAfter(args, "name") ?? "Fruity Prime",
-                        Reporter = reporter
+                        Reporter = reporter,
+                        Updates = simulationUpdates
                     };
                     using var simulationSignals = new ShutdownSignals();
                     simulationSignals.OnShutdown(simulationServer.Stop);
@@ -228,6 +243,7 @@ namespace MphRead.Mods
                         }) { IsBackground = true, Name = "Server parent lifetime" }.Start();
                     }
                     simulationServer.Run();
+                    simulationUpdates?.RestartAfterShutdown();
                 }
                 catch (Exception ex)
                 {
@@ -364,29 +380,6 @@ namespace MphRead.Mods
                 return true;
             }
 #endif
-            // Both servers say so at startup if they are behind, and then get
-            // on with it.
-            //
-            // A protocol change makes a server refuse every client on an older
-            // build at Hello, so a stale server is a server nobody can join,
-            // and that is worth one line in the journal where an operator will
-            // find it. It is a line and not an install: nothing here has a
-            // person at the keyboard to decide, and a server that replaced its
-            // own binary and restarted would drop whoever was playing.
-            if (HasFlag(args, "masterserver") || HasFlag(args, "server")
-                || HasFlag(args, "dedicated"))
-            {
-                Update.UpdateInfo? update = Update.Updater.Check();
-                if (update != null)
-                {
-                    Console.WriteLine($"[update] {Update.Updater.Describe(update.Value)}");
-                    Console.WriteLine($"[update] {update.Value.PageUrl}");
-                    Console.WriteLine("[update] this server keeps running on "
-                        + $"{Update.BuildVersion.Display}; clients on the new build "
-                        + "will be refused until it is updated by hand");
-                }
-            }
-
             // The server directory: -masterserver. Same binary as the game
             // server on purpose -- the machine that runs one usually runs the
             // other, and a second thing to install is a second thing to forget
@@ -400,7 +393,8 @@ namespace MphRead.Mods
                 {
                     masterPort = parsedMasterPort;
                 }
-                var master = new MasterServer(masterPort);
+                using var masterUpdates = Update.ServerUpdateRuntime.Create(args);
+                var master = new MasterServer(masterPort) { Updates = masterUpdates };
                 string? hostData = ValueAfter(args, "data");
                 if (hostData != null)
                 {
@@ -444,6 +438,7 @@ namespace MphRead.Mods
                     master.Stop();
                 });
                 master.Run(masterCancel.Token);
+                masterUpdates?.RestartAfterShutdown();
                 return true;
             }
             // The server list, printed. Same two calls the launcher's browser
