@@ -28,7 +28,7 @@ namespace MphRead.Mods.Network
         private DemoPlaybackCheck(double seconds) : base(new GameWindowSettings { UpdateFrequency = 60 },
             new NativeWindowSettings
             {
-                ClientSize = new Vector2i(320, 180), Title = "Fruity-Prime demo playback check",
+                ClientSize = new Vector2i(320, 180), Title = "Prime Hunters demo playback check",
                 Profile = ContextProfile.Compatability, Flags = ContextFlags.Default,
                 APIVersion = new Version(3, 2), StartVisible = false
             })

@@ -10,7 +10,7 @@
     <OutputType Condition="!$(RuntimeIdentifier.StartsWith('win'))">Exe</OutputType>
     <RootNamespace>MphRead</RootNamespace>
     <AssemblyName>FruityPrime</AssemblyName>
-    <Product>Fruity Prime</Product>
+    <Product>Prime Hunters</Product>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DebugType>embedded</DebugType>

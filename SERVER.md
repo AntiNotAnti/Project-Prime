@@ -1,6 +1,6 @@
-# Running a Fruity Prime server
+# Running a Prime Hunters server
 
-Fruity Prime online matches use authoritative wire family 2, protocol 7. The
+Prime Hunters online matches use authoritative wire family 2, protocol 7. The
 server owns one headless simulation: movement, combat, pickups, objectives,
 score and match transitions. Clients send input and receive authoritative
 snapshots, world updates and reliable gameplay events; the local player is a

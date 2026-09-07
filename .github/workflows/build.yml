@@ -225,7 +225,7 @@ jobs:
           mkdir -p artifact
           cp publish/android/*-Signed.apk artifact/FruityPrime-release.apk
           cat > artifact/INSTALL.txt <<'NOTE'
-          Fruity Prime for Android.
+          Prime Hunters for Android.
 
             adb install -r FruityPrime-release.apk
 

@@ -1,7 +1,7 @@
 # Data-free directory. To enable hosted matches, explicitly add -data DIRECTORY,
 # -dataversion AMHE1, -hostports FIRST-LAST and -public REACHABLE_HOST.
 [Unit]
-Description=Fruity Prime server directory
+Description=Prime Hunters server directory
 After=network-online.target
 Wants=network-online.target
 

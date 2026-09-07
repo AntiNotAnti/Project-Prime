@@ -16,7 +16,7 @@ namespace MphRead.Mods.Network
         public bool FriendlyFire { get; init; }
         public bool LagCompEnabled { get; init; } = true;
         public bool ProjectileCatchUpEnabled { get; init; } = true;
-        public string ServerName { get; init; } = "Fruity Prime";
+        public string ServerName { get; init; } = "Prime Hunters";
         public MasterReporter? Reporter { get; init; }
         public Update.ServerUpdateRuntime? Updates { get; init; }
         public int BoundPort { get; private set; }

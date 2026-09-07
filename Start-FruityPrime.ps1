@@ -13,7 +13,7 @@ param(
     [ValidateRange(2, 8)]
     [int]$Players = 8,
 
-    [string]$ServerName = 'Fruity Prime',
+    [string]$ServerName = 'Prime Hunters',
 
     [string]$Master = '',
 
@@ -112,7 +112,7 @@ function New-DevelopmentSpec([string]$kind) {
         }
         & $dotnet @buildArguments | Out-Host
         if ($LASTEXITCODE -ne 0) {
-            throw "The $kind build failed with exit code $LASTEXITCODE. Install/repair the .NET 10 SDK required by global.json, or place a published Fruity Prime binary beside this launcher."
+            throw "The $kind build failed with exit code $LASTEXITCODE. Install/repair the .NET 10 SDK required by global.json, or place a published Prime Hunters binary beside this launcher."
         }
     }
     finally {
@@ -294,7 +294,7 @@ function Start-Directory {
 
 if ($Mode -eq 'menu') {
     Write-Host ''
-    Write-Host 'Fruity Prime launcher' -ForegroundColor Green
+    Write-Host 'Prime Hunters launcher' -ForegroundColor Green
     Write-Host '  1. Start game'
     Write-Host '  2. Start dedicated server'
     Write-Host '  3. Start server directory'

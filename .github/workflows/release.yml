@@ -130,7 +130,7 @@ jobs:
           # the tag on GitHub, so a build that is not stamped here is one that
           # can never know it is out of date.
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
-          echo "### Fruity Prime $TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Prime Hunters $TAG" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/checkout@v7
         with:
@@ -320,7 +320,7 @@ jobs:
           mkdir -p dist
           cp LICENSE publish/win-x64/ 2>/dev/null || true
           cat > publish/win-x64/README.txt <<'NOTE'
-          Fruity Prime -- Metroid Prime Hunters, on a PC, with multiplayer.
+          Prime Hunters -- Metroid Prime Hunters, on a PC, with multiplayer.
 
           Double-click FruityPrime.exe. The first thing it asks for is your own
           Metroid Prime Hunters cartridge dump (.nds); it unpacks what it needs
@@ -341,7 +341,7 @@ jobs:
 
           cp LICENSE publish/linux-x64/ 2>/dev/null || true
           cat > publish/linux-x64/README.txt <<'NOTE'
-          Fruity Prime -- Metroid Prime Hunters, on a PC, with multiplayer.
+          Prime Hunters -- Metroid Prime Hunters, on a PC, with multiplayer.
 
           Set up with your own Metroid Prime Hunters cartridge dump (.nds).
           It is unpacked next to this program and the file is left alone. No
@@ -379,7 +379,7 @@ jobs:
           for rid in osx-x64 osx-arm64; do
             cp LICENSE "publish/$rid/" 2>/dev/null || true
             cat > "publish/$rid/README.txt" <<'NOTE'
-          Fruity Prime -- Metroid Prime Hunters, on a Mac, with multiplayer.
+          Prime Hunters -- Metroid Prime Hunters, on a Mac, with multiplayer.
 
           Set up with your own Metroid Prime Hunters cartridge dump (.nds).
           It is unpacked next to this program and the file is left alone. No
@@ -401,7 +401,7 @@ jobs:
             ( cd "publish/$rid" && tar czf "../../dist/FruityPrime-$TAG-$rid.tar.gz" . )
           done
           cat > publish/linux-arm64/SERVER.txt <<'NOTE'
-          Fruity Prime dedicated server.
+          Prime Hunters dedicated server.
 
             ./FruityPrimeServer -server -data /srv/fruity-content -dataversion AMHE1 -port 27888 -players 8 -servername "My server"
 
@@ -421,7 +421,7 @@ jobs:
 
           cp LICENSE publish/linux-x64-server/ 2>/dev/null || true
           cat > publish/linux-x64-server/SERVER.txt <<'NOTE'
-          Fruity Prime dedicated server, for a plain x64 Linux machine -- a
+          Prime Hunters dedicated server, for a plain x64 Linux machine -- a
           VPS, a spare desktop, anything that is not a Raspberry Pi (see the
           ARM64 package for that) and that nobody is playing on.
 
@@ -447,7 +447,7 @@ jobs:
 
           cp LICENSE publish/win-x64-server/ 2>/dev/null || true
           cat > publish/win-x64-server/SERVER.txt <<'NOTE'
-          Fruity Prime dedicated server, for Windows.
+          Prime Hunters dedicated server, for Windows.
 
           From a Command Prompt or PowerShell, in this folder:
 
@@ -562,8 +562,8 @@ jobs:
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/* --clobber
-            gh release edit "$TAG" --title "Fruity Prime $TAG" --notes-file notes.md
+            gh release edit "$TAG" --title "Prime Hunters $TAG" --notes-file notes.md
           else
             gh release create "$TAG" dist/* --draft --verify-tag \
-              --title "Fruity Prime $TAG" --notes-file notes.md
+              --title "Prime Hunters $TAG" --notes-file notes.md
           fi

@@ -10,7 +10,7 @@
     <RootNamespace>MphRead</RootNamespace>
     <!-- Dedicated server keeps one stable name on every platform. -->
     <AssemblyName>FruityPrimeServer</AssemblyName>
-    <Product>Fruity Prime</Product>
+    <Product>Prime Hunters</Product>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DebugType>embedded</DebugType>

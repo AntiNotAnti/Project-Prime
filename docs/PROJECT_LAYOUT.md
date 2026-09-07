@@ -1,5 +1,9 @@
 # Project layout
 
+The official product name is **Prime Hunters**. Existing `FruityPrime` binary
+names, Android package IDs, asset filenames and repository URLs remain stable
+for installation and update compatibility. The C# namespace remains `MphRead`.
+
 The simulation is a platform-neutral .NET 10 library. Client and Server are
 separate executables and communicate through the protocol in Game.
 

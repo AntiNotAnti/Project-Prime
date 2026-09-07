@@ -61,7 +61,7 @@ namespace MphRead.Mods.Network
         public MatchRules Rules { get; private set; }
         public MatchPhase Phase { get; set; } = MatchPhase.WaitingForPlayers;
         public uint PhaseRevision { get; set; }
-        public string ServerName { get; set; } = "Fruity Prime";
+        public string ServerName { get; set; } = "Prime Hunters";
         public Func<MatchStatePacket>? StatusProvider { get; set; }
         public ReadOnlySpan<ServerPeer?> Peers => _peers;
         public int Count { get; private set; }

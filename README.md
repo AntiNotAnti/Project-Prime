@@ -1,4 +1,6 @@
-<img src="src/Client/Assets/fruity-prime-intro.png" alt="Fruity Prime" width="100%">
+# Prime Hunters
+
+<img src="src/Client/Assets/fruity-prime-intro.png" alt="Prime Hunters" width="100%">
 
 **Metroid Prime Hunters on PC and Android.** Online matches for up to 8 players, widescreen, 60 FPS,
 and a launcher that does the setting up for you.
@@ -31,7 +33,7 @@ A fork of [NoneGiven/MphRead](https://github.com/NoneGiven/MphRead).
 
 If you enjoy it: **[ko-fi.com/livetek](https://ko-fi.com/livetek)** ☕
 
-<img width="500" height="300" alt="Fruity Prime" src="https://github.com/user-attachments/assets/ec6a2871-2b67-4de0-8b1a-ac6740c8d388" />
+<img width="500" height="300" alt="Prime Hunters" src="https://github.com/user-attachments/assets/ec6a2871-2b67-4de0-8b1a-ac6740c8d388" />
 
 ## Getting started
 
@@ -97,7 +99,7 @@ Client, Server, Tools and Android boundaries. Client output includes a separate
 
 ## Credits
 
-Fruity Prime is Livetek's fork of [MphRead](https://github.com/NoneGiven/MphRead) by **NoneGiven** —
+Prime Hunters (formerly Fruity Prime) is Livetek's fork of [MphRead](https://github.com/NoneGiven/MphRead) by **NoneGiven** —
 the model viewer, the renderer, the format parsers and the recreation of the game itself are theirs.
 That work is in turn built on **dsgraph**, [Chemical](https://gitlab.com/ch-mcl/metroid-prime-hunters-file-document),
 [McKay42](https://github.com/McKay42), [Barubary](https://github.com/Barubary/dsdecmp),

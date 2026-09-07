@@ -36,7 +36,7 @@ namespace MphRead.Mods.Network
             string? shotDirectory, int width, int height, double spectateAt, double rejoinAt)
             : base(new GameWindowSettings { UpdateFrequency = 60 }, new NativeWindowSettings
             {
-                ClientSize = new Vector2i(width, height), Title = "Fruity-Prime authoritative check",
+                ClientSize = new Vector2i(width, height), Title = "Prime Hunters authoritative check",
                 Profile = ContextProfile.Compatability, Flags = ContextFlags.Default,
                 APIVersion = new Version(3, 2), StartVisible = false
             })

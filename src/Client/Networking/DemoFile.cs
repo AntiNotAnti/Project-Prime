@@ -11,7 +11,7 @@ namespace MphRead.Mods.Network
     /// </summary>
     internal static class DemoFile
     {
-        // "FPDM" -- Fruity Prime DeMo.
+        // "FPDM" -- original Fruity Prime DeMo format identifier.
         public static readonly byte[] Magic = { (byte)'F', (byte)'P', (byte)'D', (byte)'M' };
         /// <summary>
         /// 2: frame-stamped records over a deflate stream. Version 1 files

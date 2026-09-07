@@ -3,26 +3,17 @@ namespace MphRead.Mods
     /// <summary>
     /// What this program is called, in one place.
     ///
-    /// The project is Fruity Prime; the code is still <c>namespace MphRead</c>
-    /// and always will be. Upstream is NoneGiven/MphRead and the whole mod is
-    /// arranged so that pulling from it stays a fast-forward -- renaming the
-    /// namespace would put a conflict in all 221 files that declare it and all
-    /// 271 that import it, for a string nobody but a developer ever reads.
-    /// So the rename is the product, the binaries and the window title, and
-    /// this class is where the product name lives.
-    ///
-    /// <see cref="Executable"/> is deliberately not a constant: the game and
-    /// the dedicated server ship as differently named binaries on Windows, and
-    /// usage text that names the wrong one is worse than usage text with no
-    /// name in it at all.
+    /// The official product name is Prime Hunters. Existing binary names,
+    /// package identities and repository URLs remain compatible with installs
+    /// released before the rename. The root namespace remains MphRead.
     /// </summary>
     public static class Branding
     {
         public static System.Version EngineVersion { get; } = new System.Version(0, 35, 1, 0);
         /// <summary>The product, as a person would write it.</summary>
-        public const string Name = "Fruity Prime";
+        public const string Name = "Prime Hunters";
 
-        /// <summary>The product with no space, for file names and archives.</summary>
+        /// <summary>The existing binary/archive identifier, preserved for update compatibility.</summary>
         public const string FileName = "FruityPrime";
 
         /// <summary>What upstream is, and what this is a fork of.</summary>
@@ -59,7 +50,7 @@ namespace MphRead.Mods
         }
 
         /// <summary>
-        /// "Fruity Prime v1.2.0", or "Fruity Prime (a local build)" when this
+        /// "Prime Hunters v1.2.0", or "Prime Hunters (a local build)" when this
         /// was not made by the release workflow -- which is worth saying out
         /// loud, because it is also the case where the updater stands down.
         /// </summary>

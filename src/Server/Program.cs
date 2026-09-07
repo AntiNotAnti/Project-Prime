@@ -16,7 +16,7 @@ internal static class ServerProgram
         {
             if (!Run(args))
             {
-                Console.WriteLine("Fruity Prime dedicated server\n-server [ROOM] -data DIRECTORY [-port 27888] [-rotation FILE] [-players 8] [-friendlyfire true]\n-masterserver [-port 27889] [-data DIRECTORY] [-hostports 27900-27919] [-public HOST]");
+                Console.WriteLine("Prime Hunters dedicated server\n-server [ROOM] -data DIRECTORY [-port 27888] [-rotation FILE] [-players 8] [-friendlyfire true]\n-masterserver [-port 27889] [-data DIRECTORY] [-hostports 27900-27919] [-public HOST]");
                 return args.Length == 0 || HasFlag(args, "help") ? 0 : 2;
             }
             return Environment.ExitCode;
@@ -108,7 +108,7 @@ internal static class ServerProgram
                         MaxPlayers = Int32.TryParse(ValueAfter(args, "players"), out int capacity) ? capacity : 8,
                         FriendlyFire = HasFlag(args, "friendlyfire")
                             && (!Boolean.TryParse(ValueAfter(args, "friendlyfire"), out bool friendly) || friendly),
-                        ServerName = ValueAfter(args, "servername") ?? ValueAfter(args, "name") ?? "Fruity Prime",
+                        ServerName = ValueAfter(args, "servername") ?? ValueAfter(args, "name") ?? "Prime Hunters",
                         Reporter = reporter,
                         Updates = simulationUpdates
                     };

@@ -30,7 +30,7 @@ namespace MphRead.Droid
     /// <see cref="LaunchPlan"/> across a process boundary for no gain.
     /// </summary>
     [Activity(
-        Label = "Fruity Prime",
+        Label = "Prime Hunters",
         // Must be an AppCompat descendant: Avalonia's activity is an AndroidX
         // AppCompatActivity and throws out of onCreate under anything else.
         // See Resources/values/styles.xml.

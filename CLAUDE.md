@@ -1,6 +1,6 @@
-# Fruity Prime — tools, design, and the mechanics catalogue
+# Prime Hunters — tools, design, and the mechanics catalogue
 
-**The project is Fruity Prime. The root C# namespace remains `MphRead`.**
+**The project is Prime Hunters. The root C# namespace remains `MphRead`.**
 The multiplayer refactor uses separate Game, Client, Server, Android, Audio.Ncsf
 and Tools projects. See [the project layout](docs/PROJECT_LAYOUT.md) for the
 current dependency boundaries and build commands. Upstream merges require
