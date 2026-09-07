@@ -11,7 +11,7 @@
 #   tools/check-maps-shipped.sh                    # the repository
 #   tools/check-maps-shipped.sh publish/win-x64    # a build we are about to release
 set -uo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
+cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
 root="${1:-}"
 if [ -n "$root" ]; then
@@ -36,7 +36,11 @@ fi
 while IFS= read -r file; do
   found=$((found + 1))
   name=$(basename "$file")
-  if unzip -l "$file" 2>/dev/null | grep -qiE '\.bsp$'; then
+  # Do not use grep -q here. With pipefail, grep can exit as soon as it sees
+  # the level while unzip is still writing the listing; unzip then receives
+  # SIGPIPE and the pipeline is reported as failed even though the level is
+  # present. Let grep consume the complete listing and discard its output.
+  if unzip -l "$file" 2>/dev/null | grep -iE '\.bsp$' >/dev/null; then
     echo "ok:      $name carries its level inside it"
   else
     echo "MISSING: $name is a bundle with no level in it"
@@ -52,7 +56,7 @@ while IFS= read -r file; do
     | grep -oiE '"textures"[[:space:]]*:[[:space:]]*"[^"]*"' \
     | head -n1 | sed -E 's/.*:[[:space:]]*"([^"]*)".*/\1/')
   if [ -n "$textures" ]; then
-    if unzip -l "$file" 2>/dev/null | grep -qiF "$textures"; then
+    if unzip -l "$file" 2>/dev/null | grep -iF "$textures" >/dev/null; then
       echo "ok:      $name carries its textures ($textures)"
     else
       echo "MISSING: $name names $textures and does not carry it"

@@ -23,3 +23,17 @@ src/MphRead/Assets/fruity-prime-intro.png
 # fruity-prime-mark.png above, committed so a build needs no image tooling.
 src/MphRead.Android/Resources/mipmap-*/appicon.png
 src/MphRead.Android/Resources/mipmap-*/appicon_foreground.png
+
+# Parallax's ten original 64x64 temporary materials. The map authoring README
+# identifies these as custom MIT-licensed inputs, not cartridge or commercial
+# Quake art; keep each path explicit so an unrelated image remains refused.
+maps/parallax/source/textures/parallax/accent.tga
+maps/parallax/source/textures/parallax/boost.tga
+maps/parallax/source/textures/parallax/climb.tga
+maps/parallax/source/textures/parallax/floor.tga
+maps/parallax/source/textures/parallax/lower.tga
+maps/parallax/source/textures/parallax/pad.tga
+maps/parallax/source/textures/parallax/spawn.tga
+maps/parallax/source/textures/parallax/trim.tga
+maps/parallax/source/textures/parallax/upper.tga
+maps/parallax/source/textures/parallax/wall.tga

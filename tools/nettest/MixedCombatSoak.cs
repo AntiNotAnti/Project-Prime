@@ -141,9 +141,7 @@ namespace MphRead.NetTest
                             if (value.Kind == CombatEventKind.Death) deaths++;
                         }
                         int length = CombatEventBatch.Write(packet, events[..count]);
-                        foreach (ServerPeer? peer in network.Peers)
-                            if (peer?.Connection.State == NetConnectionState.Playing
-                                && !network.TrySendEvent(peer, ReliableEventType.Combat, packet[..length])) reliableOverflow++;
+                        reliableOverflow += SendCombatBatch(network, packet[..length]);
                         simulation.Combat.Consume(count);
                     }
                     if (measuring)
@@ -216,6 +214,24 @@ namespace MphRead.NetTest
                 }
             }
             return success ? 0 : 1;
+        }
+
+        // Match AuthoritativeServer's bounded per-peer admission policy. A refusal
+        // disconnects that peer; retrying the shared batch would duplicate healthy peers' events.
+        internal static int SendCombatBatch(ServerNetwork network, ReadOnlySpan<byte> payload)
+        {
+            int refused = 0;
+            foreach (ServerPeer? peer in network.Peers)
+            {
+                if (peer?.Connection.State == NetConnectionState.Playing
+                    && !network.TrySendEvent(peer, ReliableEventType.Combat, payload))
+                {
+                    refused++;
+                    Console.Error.WriteLine($"MIXEDSOAK slot {peer.Slot} disconnected: reliable queue exhausted.");
+                    network.Remove(peer.Slot);
+                }
+            }
+            return refused;
         }
 
         private static void Arrange(Scene scene, Vector3[] positions)

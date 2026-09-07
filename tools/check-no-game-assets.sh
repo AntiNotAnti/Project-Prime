@@ -20,7 +20,7 @@
 # exempts a path -- for a logo or a screenshot of the launcher itself, which
 # are ours. Nothing is exempt by default.
 set -uo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
+cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
 ALLOW_FILE="tools/asset-guard-allow.txt"
 # Extensions that only ever come from the game's files, plus the picture
@@ -95,8 +95,9 @@ check_list() {
 
 if [ "$#" -eq 0 ]; then
   echo "== checking what git is tracking =="
-  mapfile -t tracked < <(git ls-files)
-  check_list "tracked by git" "${tracked[@]}"
+  while IFS= read -r path; do
+    check_list "tracked by git" "$path"
+  done < <(git ls-files)
   if ! grep -q '^thumbnails/$' .gitignore; then
     report ".gitignore" "no longer ignores thumbnails/, so previews can be committed"
   fi
@@ -108,8 +109,9 @@ else
       report "$dir" "not a directory"
       continue
     fi
-    mapfile -t found < <(find "$dir" -type f | sed 's|^\./||')
-    check_list "in $dir" "${found[@]}"
+    while IFS= read -r path; do
+      check_list "in $dir" "$path"
+    done < <(find "$dir" -type f | sed 's|^\./||')
   done
 fi
 

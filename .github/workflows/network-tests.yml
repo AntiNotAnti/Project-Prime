@@ -24,6 +24,10 @@ jobs:
         run: python3 -m unittest discover -s tools/tests -v
       - name: build authoritative server and authoritative conformance harness
         run: dotnet build tools/nettest/nettest.csproj -c Release -p:MphReadServer=true -o artifacts/nettest
+      - name: multiplayer content audit malformed-input checks
+        run: dotnet artifacts/nettest/nettest.dll --audit-multiplayer-self-test
+      - name: mixed-combat reliable backpressure checks
+        run: dotnet artifacts/nettest/nettest.dll --mixed-backpressure-self-test
       - name: data requirement, directory and connection smoke tests
         run: bash tools/check-dedicated-server.sh artifacts/nettest
       - name: authoritative WAN connection baseline (synthetic states, not gameplay)

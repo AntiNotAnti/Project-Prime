@@ -1,0 +1,3786 @@
+{
+  "SchemaVersion": 1,
+  "RetailVersion": "AMHE1",
+  "FirstHuntVersion": "AMFE0",
+  "Complete": false,
+  "Scope": "Catalog Multiplayer=true entries including registered custom maps; binary entity inventory only. No model, collision, objective, spawn viability or live-client validation.",
+  "DeletionCaveat": "Missing or malformed rooms prohibit global absence claims. Entries include unused masks. First Hunt version 1 has no layer masks. Custom registration may omit definitions with missing import sources; registration messages must be retained with this report. Runtime-generated entities are outside this inventory.",
+  "Scenarios": [
+    {
+      "Mode": "Battle",
+      "Players": 1,
+      "Layer": 0
+    },
+    {
+      "Mode": "Battle",
+      "Players": 2,
+      "Layer": 0
+    },
+    {
+      "Mode": "Battle",
+      "Players": 3,
+      "Layer": 1
+    },
+    {
+      "Mode": "Battle",
+      "Players": 4,
+      "Layer": 2
+    },
+    {
+      "Mode": "Battle",
+      "Players": 5,
+      "Layer": 0
+    },
+    {
+      "Mode": "Battle",
+      "Players": 6,
+      "Layer": 0
+    },
+    {
+      "Mode": "Battle",
+      "Players": 7,
+      "Layer": 0
+    },
+    {
+      "Mode": "Battle",
+      "Players": 8,
+      "Layer": 0
+    },
+    {
+      "Mode": "BattleTeams",
+      "Players": 1,
+      "Layer": 3
+    },
+    {
+      "Mode": "BattleTeams",
+      "Players": 2,
+      "Layer": 3
+    },
+    {
+      "Mode": "BattleTeams",
+      "Players": 3,
+      "Layer": 3
+    },
+    {
+      "Mode": "BattleTeams",
+      "Players": 4,
+      "Layer": 3
+    },
+    {
+      "Mode": "BattleTeams",
+      "Players": 5,
+      "Layer": 3
+    },
+    {
+      "Mode": "BattleTeams",
+      "Players": 6,
+      "Layer": 3
+    },
+    {
+      "Mode": "BattleTeams",
+      "Players": 7,
+      "Layer": 3
+    },
+    {
+      "Mode": "BattleTeams",
+      "Players": 8,
+      "Layer": 3
+    },
+    {
+      "Mode": "Survival",
+      "Players": 1,
+      "Layer": 15
+    },
+    {
+      "Mode": "Survival",
+      "Players": 2,
+      "Layer": 15
+    },
+    {
+      "Mode": "Survival",
+      "Players": 3,
+      "Layer": 15
+    },
+    {
+      "Mode": "Survival",
+      "Players": 4,
+      "Layer": 15
+    },
+    {
+      "Mode": "Survival",
+      "Players": 5,
+      "Layer": 15
+    },
+    {
+      "Mode": "Survival",
+      "Players": 6,
+      "Layer": 15
+    },
+    {
+      "Mode": "Survival",
+      "Players": 7,
+      "Layer": 15
+    },
+    {
+      "Mode": "Survival",
+      "Players": 8,
+      "Layer": 15
+    },
+    {
+      "Mode": "SurvivalTeams",
+      "Players": 1,
+      "Layer": 15
+    },
+    {
+      "Mode": "SurvivalTeams",
+      "Players": 2,
+      "Layer": 15
+    },
+    {
+      "Mode": "SurvivalTeams",
+      "Players": 3,
+      "Layer": 15
+    },
+    {
+      "Mode": "SurvivalTeams",
+      "Players": 4,
+      "Layer": 15
+    },
+    {
+      "Mode": "SurvivalTeams",
+      "Players": 5,
+      "Layer": 15
+    },
+    {
+      "Mode": "SurvivalTeams",
+      "Players": 6,
+      "Layer": 15
+    },
+    {
+      "Mode": "SurvivalTeams",
+      "Players": 7,
+      "Layer": 15
+    },
+    {
+      "Mode": "SurvivalTeams",
+      "Players": 8,
+      "Layer": 15
+    },
+    {
+      "Mode": "Capture",
+      "Players": 1,
+      "Layer": 12
+    },
+    {
+      "Mode": "Capture",
+      "Players": 2,
+      "Layer": 12
+    },
+    {
+      "Mode": "Capture",
+      "Players": 3,
+      "Layer": 12
+    },
+    {
+      "Mode": "Capture",
+      "Players": 4,
+      "Layer": 12
+    },
+    {
+      "Mode": "Capture",
+      "Players": 5,
+      "Layer": 12
+    },
+    {
+      "Mode": "Capture",
+      "Players": 6,
+      "Layer": 12
+    },
+    {
+      "Mode": "Capture",
+      "Players": 7,
+      "Layer": 12
+    },
+    {
+      "Mode": "Capture",
+      "Players": 8,
+      "Layer": 12
+    },
+    {
+      "Mode": "Bounty",
+      "Players": 1,
+      "Layer": 8
+    },
+    {
+      "Mode": "Bounty",
+      "Players": 2,
+      "Layer": 8
+    },
+    {
+      "Mode": "Bounty",
+      "Players": 3,
+      "Layer": 9
+    },
+    {
+      "Mode": "Bounty",
+      "Players": 4,
+      "Layer": 10
+    },
+    {
+      "Mode": "Bounty",
+      "Players": 5,
+      "Layer": 8
+    },
+    {
+      "Mode": "Bounty",
+      "Players": 6,
+      "Layer": 8
+    },
+    {
+      "Mode": "Bounty",
+      "Players": 7,
+      "Layer": 8
+    },
+    {
+      "Mode": "Bounty",
+      "Players": 8,
+      "Layer": 8
+    },
+    {
+      "Mode": "BountyTeams",
+      "Players": 1,
+      "Layer": 11
+    },
+    {
+      "Mode": "BountyTeams",
+      "Players": 2,
+      "Layer": 11
+    },
+    {
+      "Mode": "BountyTeams",
+      "Players": 3,
+      "Layer": 11
+    },
+    {
+      "Mode": "BountyTeams",
+      "Players": 4,
+      "Layer": 11
+    },
+    {
+      "Mode": "BountyTeams",
+      "Players": 5,
+      "Layer": 11
+    },
+    {
+      "Mode": "BountyTeams",
+      "Players": 6,
+      "Layer": 11
+    },
+    {
+      "Mode": "BountyTeams",
+      "Players": 7,
+      "Layer": 11
+    },
+    {
+      "Mode": "BountyTeams",
+      "Players": 8,
+      "Layer": 11
+    },
+    {
+      "Mode": "Nodes",
+      "Players": 1,
+      "Layer": 4
+    },
+    {
+      "Mode": "Nodes",
+      "Players": 2,
+      "Layer": 4
+    },
+    {
+      "Mode": "Nodes",
+      "Players": 3,
+      "Layer": 5
+    },
+    {
+      "Mode": "Nodes",
+      "Players": 4,
+      "Layer": 6
+    },
+    {
+      "Mode": "Nodes",
+      "Players": 5,
+      "Layer": 4
+    },
+    {
+      "Mode": "Nodes",
+      "Players": 6,
+      "Layer": 4
+    },
+    {
+      "Mode": "Nodes",
+      "Players": 7,
+      "Layer": 4
+    },
+    {
+      "Mode": "Nodes",
+      "Players": 8,
+      "Layer": 4
+    },
+    {
+      "Mode": "NodesTeams",
+      "Players": 1,
+      "Layer": 7
+    },
+    {
+      "Mode": "NodesTeams",
+      "Players": 2,
+      "Layer": 7
+    },
+    {
+      "Mode": "NodesTeams",
+      "Players": 3,
+      "Layer": 7
+    },
+    {
+      "Mode": "NodesTeams",
+      "Players": 4,
+      "Layer": 7
+    },
+    {
+      "Mode": "NodesTeams",
+      "Players": 5,
+      "Layer": 7
+    },
+    {
+      "Mode": "NodesTeams",
+      "Players": 6,
+      "Layer": 7
+    },
+    {
+      "Mode": "NodesTeams",
+      "Players": 7,
+      "Layer": 7
+    },
+    {
+      "Mode": "NodesTeams",
+      "Players": 8,
+      "Layer": 7
+    },
+    {
+      "Mode": "Defender",
+      "Players": 1,
+      "Layer": 14
+    },
+    {
+      "Mode": "Defender",
+      "Players": 2,
+      "Layer": 14
+    },
+    {
+      "Mode": "Defender",
+      "Players": 3,
+      "Layer": 14
+    },
+    {
+      "Mode": "Defender",
+      "Players": 4,
+      "Layer": 14
+    },
+    {
+      "Mode": "Defender",
+      "Players": 5,
+      "Layer": 14
+    },
+    {
+      "Mode": "Defender",
+      "Players": 6,
+      "Layer": 14
+    },
+    {
+      "Mode": "Defender",
+      "Players": 7,
+      "Layer": 14
+    },
+    {
+      "Mode": "Defender",
+      "Players": 8,
+      "Layer": 14
+    },
+    {
+      "Mode": "DefenderTeams",
+      "Players": 1,
+      "Layer": 14
+    },
+    {
+      "Mode": "DefenderTeams",
+      "Players": 2,
+      "Layer": 14
+    },
+    {
+      "Mode": "DefenderTeams",
+      "Players": 3,
+      "Layer": 14
+    },
+    {
+      "Mode": "DefenderTeams",
+      "Players": 4,
+      "Layer": 14
+    },
+    {
+      "Mode": "DefenderTeams",
+      "Players": 5,
+      "Layer": 14
+    },
+    {
+      "Mode": "DefenderTeams",
+      "Players": 6,
+      "Layer": 14
+    },
+    {
+      "Mode": "DefenderTeams",
+      "Players": 7,
+      "Layer": 14
+    },
+    {
+      "Mode": "DefenderTeams",
+      "Players": 8,
+      "Layer": 14
+    },
+    {
+      "Mode": "PrimeHunter",
+      "Players": 1,
+      "Layer": 0
+    },
+    {
+      "Mode": "PrimeHunter",
+      "Players": 2,
+      "Layer": 0
+    },
+    {
+      "Mode": "PrimeHunter",
+      "Players": 3,
+      "Layer": 1
+    },
+    {
+      "Mode": "PrimeHunter",
+      "Players": 4,
+      "Layer": 2
+    },
+    {
+      "Mode": "PrimeHunter",
+      "Players": 5,
+      "Layer": 0
+    },
+    {
+      "Mode": "PrimeHunter",
+      "Players": 6,
+      "Layer": 0
+    },
+    {
+      "Mode": "PrimeHunter",
+      "Players": 7,
+      "Layer": 0
+    },
+    {
+      "Mode": "PrimeHunter",
+      "Players": 8,
+      "Layer": 0
+    }
+  ],
+  "Rooms": [
+    {
+      "Id": 0,
+      "Name": "Level MP1",
+      "Source": "FirstHunt",
+      "EntityPath": "levels/entities/mp1_Ent.bin",
+      "Sha256": null,
+      "FormatVersion": null,
+      "Errors": [
+        "Missing First Hunt extracted data root (supply FH_DATA)."
+      ],
+      "EntryCount": 0,
+      "LayerGroups": []
+    },
+    {
+      "Id": 1,
+      "Name": "Level MP2",
+      "Source": "FirstHunt",
+      "EntityPath": "levels/entities/mp2_Ent.bin",
+      "Sha256": null,
+      "FormatVersion": null,
+      "Errors": [
+        "Missing First Hunt extracted data root (supply FH_DATA)."
+      ],
+      "EntryCount": 0,
+      "LayerGroups": []
+    },
+    {
+      "Id": 2,
+      "Name": "Level MP3",
+      "Source": "FirstHunt",
+      "EntityPath": "levels/entities/mp3_Ent.bin",
+      "Sha256": null,
+      "FormatVersion": null,
+      "Errors": [
+        "Missing First Hunt extracted data root (supply FH_DATA)."
+      ],
+      "EntryCount": 0,
+      "LayerGroups": []
+    },
+    {
+      "Id": 7,
+      "Name": "Level MP5",
+      "Source": "FirstHunt",
+      "EntityPath": "levels/entities/mp5_Ent.bin",
+      "Sha256": null,
+      "FormatVersion": null,
+      "Errors": [
+        "Missing First Hunt extracted data root (supply FH_DATA)."
+      ],
+      "EntryCount": 0,
+      "LayerGroups": []
+    },
+    {
+      "Id": 8,
+      "Name": "Level MP1b",
+      "Source": "FirstHunt",
+      "EntityPath": "levels/entities/mp1_Ent.bin",
+      "Sha256": null,
+      "FormatVersion": null,
+      "Errors": [
+        "Missing First Hunt extracted data root (supply FH_DATA)."
+      ],
+      "EntryCount": 0,
+      "LayerGroups": []
+    },
+    {
+      "Id": 9,
+      "Name": "E3 level",
+      "Source": "FirstHunt",
+      "EntityPath": "levels/entities/e3Level_Ent.bin",
+      "Sha256": null,
+      "FormatVersion": null,
+      "Errors": [
+        "Missing First Hunt extracted data root (supply FH_DATA)."
+      ],
+      "EntryCount": 0,
+      "LayerGroups": []
+    },
+    {
+      "Id": 93,
+      "Name": "MP1 SANCTORUS",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp1_Ent.bin",
+      "Sha256": "e44cc3e465dc5f8614fd579c9b5ad79773b2961b2cb98552a68bdc147e3c54bb",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 58,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 13,
+            "LightSource": 6,
+            "PlayerSpawn": 22
+          }
+        },
+        {
+          "Layers": [
+            1,
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 15,
+            "LightSource": 6,
+            "PlayerSpawn": 22
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 13,
+            "LightSource": 6,
+            "NodeDefense": 2,
+            "PlayerSpawn": 18
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 15,
+            "LightSource": 6,
+            "NodeDefense": 2,
+            "PlayerSpawn": 18
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 16,
+            "LightSource": 6,
+            "NodeDefense": 3,
+            "PlayerSpawn": 12
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 11,
+            "LightSource": 6,
+            "PlayerSpawn": 12
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 15,
+            "LightSource": 6,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 14,
+            "LightSource": 6,
+            "NodeDefense": 1,
+            "PlayerSpawn": 8
+          }
+        }
+      ]
+    },
+    {
+      "Id": 94,
+      "Name": "MP2 HARVESTER",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp2_Ent.bin",
+      "Sha256": "6f97229d50d648de51f3cd5caccc37b6a8b0fa77923766d158ff253e6bb86a2b",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 55,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 24,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 26,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 20,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "NodeDefense": 1,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 22,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "NodeDefense": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 22,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "NodeDefense": 3,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 4,
+            "LightSource": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 24,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 24,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "NodeDefense": 1,
+            "PlayerSpawn": 4
+          }
+        }
+      ]
+    },
+    {
+      "Id": 95,
+      "Name": "MP3 PROVING GROUND",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp3_Ent.bin",
+      "Sha256": "8121bd759ad3c14c76b56cabf46d3ec8f74e408850b870c56b24f7ea04d6da6a",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 27,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 11,
+            "JumpPad": 1,
+            "LightSource": 3,
+            "MorphCamera": 2,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 11,
+            "JumpPad": 1,
+            "LightSource": 3,
+            "MorphCamera": 2,
+            "NodeDefense": 2,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            5,
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 11,
+            "JumpPad": 1,
+            "LightSource": 3,
+            "MorphCamera": 2,
+            "NodeDefense": 3,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 1,
+            "LightSource": 3,
+            "MorphCamera": 2,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 11,
+            "JumpPad": 1,
+            "LightSource": 3,
+            "MorphCamera": 2,
+            "NodeDefense": 1,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 10,
+            "JumpPad": 1,
+            "LightSource": 3,
+            "MorphCamera": 2,
+            "PlayerSpawn": 6
+          }
+        }
+      ]
+    },
+    {
+      "Id": 96,
+      "Name": "MP4 HIGHGROUND - EXPANDED",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp4_Ent.bin",
+      "Sha256": "511eef9f629fad3d92eeac765d760bb9fb6ae9f34584f391adf873d864d1134d",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 70,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            2
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 22,
+            "JumpPad": 5,
+            "LightSource": 7,
+            "PlayerSpawn": 10
+          }
+        },
+        {
+          "Layers": [
+            1,
+            3
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 24,
+            "JumpPad": 5,
+            "LightSource": 7,
+            "PlayerSpawn": 10
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 21,
+            "JumpPad": 5,
+            "LightSource": 7,
+            "NodeDefense": 2,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 21,
+            "JumpPad": 5,
+            "LightSource": 7,
+            "NodeDefense": 3,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 23,
+            "JumpPad": 5,
+            "LightSource": 7,
+            "NodeDefense": 4,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 21,
+            "JumpPad": 5,
+            "LightSource": 7,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 23,
+            "JumpPad": 5,
+            "LightSource": 7,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 21,
+            "JumpPad": 5,
+            "LightSource": 7,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 23,
+            "JumpPad": 5,
+            "LightSource": 7,
+            "NodeDefense": 1,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 23,
+            "JumpPad": 5,
+            "LightSource": 7,
+            "PlayerSpawn": 14
+          }
+        }
+      ]
+    },
+    {
+      "Id": 97,
+      "Name": "MP4 HIGHGROUND",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp4_dm1_Ent.bin",
+      "Sha256": "0a157741f9478eb0d30b024cf5cb40d7df614e4e17633b24f41cbbfd98e39799",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 44,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 17,
+            "JumpPad": 2,
+            "LightSource": 5,
+            "PlayerSpawn": 10
+          }
+        },
+        {
+          "Layers": [
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 19,
+            "JumpPad": 2,
+            "LightSource": 5,
+            "PlayerSpawn": 10
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 17,
+            "JumpPad": 2,
+            "LightSource": 5,
+            "NodeDefense": 2,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 18,
+            "JumpPad": 2,
+            "LightSource": 5,
+            "NodeDefense": 3,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            6
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 18,
+            "JumpPad": 2,
+            "LightSource": 5,
+            "NodeDefense": 4,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 17,
+            "JumpPad": 2,
+            "LightSource": 5,
+            "NodeDefense": 4,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 2,
+            "LightSource": 5,
+            "PlayerSpawn": 3
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 2,
+            "LightSource": 5
+          }
+        },
+        {
+          "Layers": [
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 2,
+            "LightSource": 5,
+            "PlayerSpawn": 2
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 17,
+            "JumpPad": 2,
+            "LightSource": 5,
+            "NodeDefense": 1,
+            "PlayerSpawn": 2
+          }
+        }
+      ]
+    },
+    {
+      "Id": 98,
+      "Name": "MP5 FUEL SLUICE",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp5_Ent.bin",
+      "Sha256": "0dbf7c09b5f243dcdc2b33d139af4ed6d2c580cadc0ee4a1f53cbe69302d6f25",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 30,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 12,
+            "JumpPad": 4,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            2,
+            3,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 13,
+            "JumpPad": 4,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 14,
+            "JumpPad": 4,
+            "NodeDefense": 2,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 14,
+            "JumpPad": 4,
+            "NodeDefense": 3,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 15,
+            "JumpPad": 4,
+            "NodeDefense": 3,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "EntityCounts": {
+            "PlayerSpawn": 6
+          }
+        }
+      ]
+    },
+    {
+      "Id": 99,
+      "Name": "MP6 HEADSHOT",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp6_Ent.bin",
+      "Sha256": "7ddbfbf0fd60724255da64fb629282eef7eaa8c82ce87edb76edfbbec2999a70",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 60,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "AreaVolume": 3,
+            "ItemSpawn": 18,
+            "JumpPad": 8,
+            "LightSource": 1,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "AreaVolume": 3,
+            "ItemSpawn": 18,
+            "JumpPad": 8,
+            "LightSource": 1,
+            "NodeDefense": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "AreaVolume": 3,
+            "ItemSpawn": 18,
+            "JumpPad": 8,
+            "LightSource": 1,
+            "NodeDefense": 4,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "AreaVolume": 3,
+            "ItemSpawn": 14,
+            "JumpPad": 8,
+            "LightSource": 1,
+            "NodeDefense": 4,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            8,
+            14
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 13,
+            "JumpPad": 2,
+            "LightSource": 1,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            9,
+            10,
+            11,
+            13
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 9,
+            "JumpPad": 2,
+            "LightSource": 1,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "AreaVolume": 3,
+            "FlagBase": 2,
+            "ItemSpawn": 16,
+            "JumpPad": 4,
+            "LightSource": 1,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            15
+          ],
+          "EntityCounts": {
+            "AreaVolume": 3,
+            "ItemSpawn": 18,
+            "JumpPad": 8,
+            "LightSource": 1,
+            "PlayerSpawn": 8
+          }
+        }
+      ]
+    },
+    {
+      "Id": 100,
+      "Name": "MP7 PROCESSOR CORE",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp7_Ent.bin",
+      "Sha256": "6bca8e8546ce65bdc19b9b72af66a51f956a9b959966fcdca4f3b4bd17908f46",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 28,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 10,
+            "JumpPad": 1,
+            "LightSource": 4,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            1
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 11,
+            "JumpPad": 1,
+            "LightSource": 4,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 12,
+            "JumpPad": 1,
+            "LightSource": 4,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 9,
+            "JumpPad": 1,
+            "LightSource": 4,
+            "NodeDefense": 2,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 11,
+            "JumpPad": 1,
+            "LightSource": 4,
+            "NodeDefense": 2,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 12,
+            "JumpPad": 1,
+            "LightSource": 4,
+            "NodeDefense": 2,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13
+          ],
+          "EntityCounts": {
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 10,
+            "JumpPad": 1,
+            "NodeDefense": 1,
+            "PlayerSpawn": 5
+          }
+        }
+      ]
+    },
+    {
+      "Id": 101,
+      "Name": "MP8 FIRE CONTROL",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp8_Ent.bin",
+      "Sha256": "b1f29253d56aeba71786f3722f2005f71313f02ac7ba83e7d417fd8163c726c3",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 60,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1
+          ],
+          "EntityCounts": {
+            "AreaVolume": 7,
+            "ItemSpawn": 22,
+            "JumpPad": 1,
+            "PlayerSpawn": 12
+          }
+        },
+        {
+          "Layers": [
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "AreaVolume": 7,
+            "ItemSpawn": 23,
+            "JumpPad": 1,
+            "PlayerSpawn": 12
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "AreaVolume": 7,
+            "ItemSpawn": 22,
+            "JumpPad": 1,
+            "NodeDefense": 2,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            5,
+            6
+          ],
+          "EntityCounts": {
+            "AreaVolume": 7,
+            "ItemSpawn": 21,
+            "JumpPad": 1,
+            "NodeDefense": 3,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            7
+          ],
+          "EntityCounts": {
+            "AreaVolume": 7,
+            "ItemSpawn": 20,
+            "JumpPad": 1,
+            "NodeDefense": 3,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "EntityCounts": {
+            "AreaVolume": 5,
+            "ItemSpawn": 2,
+            "PlayerSpawn": 12
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "AreaVolume": 7,
+            "FlagBase": 2,
+            "ItemSpawn": 21,
+            "JumpPad": 1,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            13
+          ],
+          "EntityCounts": {
+            "AreaVolume": 5,
+            "ItemSpawn": 2,
+            "JumpPad": 2,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "AreaVolume": 7,
+            "ItemSpawn": 22,
+            "JumpPad": 1,
+            "NodeDefense": 1,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            15
+          ],
+          "EntityCounts": {
+            "AreaVolume": 5,
+            "ItemSpawn": 22,
+            "JumpPad": 1,
+            "PlayerSpawn": 12
+          }
+        }
+      ]
+    },
+    {
+      "Id": 102,
+      "Name": "MP9 CRYOCHASM",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp9_Ent.bin",
+      "Sha256": "ff9d62d7e0faece47f6398f921b3c0087d3f4056e8b8937145e0e439f97fa454",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 45,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            15
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 15,
+            "JumpPad": 4,
+            "LightSource": 5,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            1
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 16,
+            "JumpPad": 4,
+            "LightSource": 5,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 17,
+            "JumpPad": 4,
+            "LightSource": 5,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 14,
+            "JumpPad": 4,
+            "LightSource": 5,
+            "NodeDefense": 3,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 15,
+            "JumpPad": 4,
+            "LightSource": 5,
+            "NodeDefense": 3,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 16,
+            "JumpPad": 4,
+            "LightSource": 5,
+            "NodeDefense": 3,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            13
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 2,
+            "LightSource": 5,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "FlagBase": 2,
+            "ItemSpawn": 13,
+            "JumpPad": 4,
+            "LightSource": 5,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 17,
+            "JumpPad": 4,
+            "LightSource": 5,
+            "NodeDefense": 1,
+            "PlayerSpawn": 4
+          }
+        }
+      ]
+    },
+    {
+      "Id": 103,
+      "Name": "MP10 OVERLOAD",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp10_Ent.bin",
+      "Sha256": "d9e802b7a82bf2ae5c4bdaa23edab626885e9bd49493dadd0e659cc05dd2139d",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 31,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            15
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 10,
+            "JumpPad": 2,
+            "LightSource": 4,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            1,
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 12,
+            "JumpPad": 2,
+            "LightSource": 4,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 10,
+            "JumpPad": 2,
+            "LightSource": 4,
+            "NodeDefense": 3,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            5,
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 12,
+            "JumpPad": 2,
+            "LightSource": 4,
+            "NodeDefense": 3,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            8
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 2,
+            "LightSource": 4,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            9,
+            10,
+            11,
+            12,
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 2,
+            "LightSource": 4,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 11,
+            "JumpPad": 2,
+            "LightSource": 4,
+            "PlayerSpawn": 6
+          }
+        }
+      ]
+    },
+    {
+      "Id": 104,
+      "Name": "MP11 BREAKTHROUGH",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp11_Ent.bin",
+      "Sha256": "7891fb38b81b6ca07ec79fdb94d30f5352a7b94cd12a3217e2848e9efa4508da",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 25,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 10,
+            "JumpPad": 1,
+            "LightSource": 1,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            1
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 11,
+            "JumpPad": 1,
+            "LightSource": 1,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 12,
+            "JumpPad": 1,
+            "LightSource": 1,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 10,
+            "JumpPad": 1,
+            "LightSource": 1,
+            "NodeDefense": 2,
+            "PlayerSpawn": 2
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 11,
+            "JumpPad": 1,
+            "LightSource": 1,
+            "NodeDefense": 2,
+            "PlayerSpawn": 2
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 12,
+            "JumpPad": 1,
+            "LightSource": 1,
+            "NodeDefense": 2,
+            "PlayerSpawn": 3
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13
+          ],
+          "EntityCounts": {
+            "LightSource": 1,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 12,
+            "JumpPad": 1,
+            "LightSource": 1,
+            "NodeDefense": 1,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 11,
+            "JumpPad": 1,
+            "LightSource": 1,
+            "PlayerSpawn": 7
+          }
+        }
+      ]
+    },
+    {
+      "Id": 105,
+      "Name": "MP12 SIC TRANSIT",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp12_Ent.bin",
+      "Sha256": "89e2656e3f688907af316b3f80db2bfa7f81fbc2e645e80cc87fe6e3a8c96058",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 74,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 16,
+            "JumpPad": 5,
+            "LightSource": 11,
+            "PlayerSpawn": 9
+          }
+        },
+        {
+          "Layers": [
+            1,
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 17,
+            "JumpPad": 5,
+            "LightSource": 11,
+            "PlayerSpawn": 9
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 16,
+            "JumpPad": 5,
+            "LightSource": 11,
+            "NodeDefense": 3,
+            "PlayerSpawn": 17
+          }
+        },
+        {
+          "Layers": [
+            5,
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 17,
+            "JumpPad": 5,
+            "LightSource": 11,
+            "NodeDefense": 3,
+            "PlayerSpawn": 17
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 2,
+            "LightSource": 11,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 14,
+            "JumpPad": 4,
+            "LightSource": 11,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 17,
+            "JumpPad": 5,
+            "LightSource": 11,
+            "NodeDefense": 1,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 9
+          }
+        },
+        {
+          "Layers": [
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 16,
+            "JumpPad": 5,
+            "LightSource": 12,
+            "PlayerSpawn": 9
+          }
+        }
+      ]
+    },
+    {
+      "Id": 106,
+      "Name": "MP13 ACCELERATOR",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp13_Ent.bin",
+      "Sha256": "fc6a363e0279505eae0f2dd6108f0a0bcfca54820453f8e5143bb2717f05fd66",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 56,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1,
+            2,
+            3,
+            15
+          ],
+          "EntityCounts": {
+            "AreaVolume": 4,
+            "ItemSpawn": 28,
+            "JumpPad": 5,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "AreaVolume": 4,
+            "ItemSpawn": 24,
+            "JumpPad": 5,
+            "NodeDefense": 3,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "EntityCounts": {
+            "AreaVolume": 4,
+            "FlagBase": 1,
+            "ItemSpawn": 24,
+            "JumpPad": 5,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            12,
+            13,
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 1,
+            "JumpPad": 5,
+            "PlayerSpawn": 5
+          }
+        }
+      ]
+    },
+    {
+      "Id": 107,
+      "Name": "MP14 OUTER REACH",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/mp14_Ent.bin",
+      "Sha256": "917fca7985ea1e584823e7bbe7178185eacc8d9618ea1d317294871dd7d70050",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 47,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 17,
+            "JumpPad": 7,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            1,
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 18,
+            "JumpPad": 7,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 17,
+            "JumpPad": 6,
+            "NodeDefense": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            5,
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 18,
+            "JumpPad": 6,
+            "NodeDefense": 3,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 1,
+            "JumpPad": 2
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 18,
+            "JumpPad": 5,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 13,
+            "JumpPad": 6,
+            "NodeDefense": 1,
+            "PlayerSpawn": 4
+          }
+        }
+      ]
+    },
+    {
+      "Id": 108,
+      "Name": "CTF1 FAULT LINE - EXPANDED",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/ctf1_Ent.bin",
+      "Sha256": "fa215a89b6f03c5db109cfe3fc760820aacd8c3c07409f452546ef26c934724c",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 82,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 22,
+            "JumpPad": 9,
+            "LightSource": 6,
+            "PlayerSpawn": 25
+          }
+        },
+        {
+          "Layers": [
+            1,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 23,
+            "JumpPad": 9,
+            "LightSource": 6,
+            "PlayerSpawn": 25
+          }
+        },
+        {
+          "Layers": [
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 26,
+            "JumpPad": 9,
+            "LightSource": 6,
+            "PlayerSpawn": 25
+          }
+        },
+        {
+          "Layers": [
+            4,
+            5,
+            6,
+            7,
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 2
+          }
+        },
+        {
+          "Layers": [
+            8
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 20,
+            "JumpPad": 9,
+            "LightSource": 6,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            9
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 21,
+            "JumpPad": 9,
+            "LightSource": 6,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            10
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 22,
+            "JumpPad": 9,
+            "LightSource": 6,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            11
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 23,
+            "JumpPad": 9,
+            "LightSource": 6,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 20,
+            "JumpPad": 8,
+            "LightSource": 6,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 2,
+            "LightSource": 6,
+            "PlayerSpawn": 6
+          }
+        }
+      ]
+    },
+    {
+      "Id": 109,
+      "Name": "CTF1_FAULT LINE",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/ctf1_dm1_Ent.bin",
+      "Sha256": "43565108dd0d4228db85e58d5cabb61c6230668b710fc9e4d2f041a43e51ae54",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 52,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 21,
+            "JumpPad": 7,
+            "LightSource": 2,
+            "PlayerSpawn": 13
+          }
+        },
+        {
+          "Layers": [
+            1,
+            3
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 24,
+            "JumpPad": 7,
+            "LightSource": 2,
+            "PlayerSpawn": 13
+          }
+        },
+        {
+          "Layers": [
+            2
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 25,
+            "JumpPad": 7,
+            "LightSource": 2,
+            "PlayerSpawn": 13
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 20,
+            "JumpPad": 7,
+            "LightSource": 2,
+            "NodeDefense": 2,
+            "PlayerSpawn": 11
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 23,
+            "JumpPad": 7,
+            "LightSource": 2,
+            "NodeDefense": 3,
+            "PlayerSpawn": 11
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 23,
+            "JumpPad": 7,
+            "LightSource": 2,
+            "NodeDefense": 4,
+            "PlayerSpawn": 11
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 2,
+            "JumpPad": 2,
+            "LightSource": 2,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            12,
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 2,
+            "JumpPad": 1,
+            "LightSource": 2,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 23,
+            "JumpPad": 7,
+            "LightSource": 2,
+            "NodeDefense": 1,
+            "PlayerSpawn": 6
+          }
+        }
+      ]
+    },
+    {
+      "Id": 110,
+      "Name": "AD1 TRANSFER LOCK BT",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/ad1_Ent.bin",
+      "Sha256": "dda55fe08c1d2d049000e695641b263634d372f269c75ed12d8b202d36bb9c4c",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 53,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            13,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 3,
+            "LightSource": 5,
+            "PlayerSpawn": 4,
+            "Teleporter": 2
+          }
+        },
+        {
+          "Layers": [
+            8
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "FlagBase": 1,
+            "ItemSpawn": 14,
+            "JumpPad": 3,
+            "LightSource": 5,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 4,
+            "Teleporter": 2
+          }
+        },
+        {
+          "Layers": [
+            9
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "FlagBase": 1,
+            "ItemSpawn": 16,
+            "JumpPad": 3,
+            "LightSource": 5,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 4,
+            "Teleporter": 2
+          }
+        },
+        {
+          "Layers": [
+            10,
+            11
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "FlagBase": 1,
+            "ItemSpawn": 18,
+            "JumpPad": 3,
+            "LightSource": 5,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 4,
+            "Teleporter": 2
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "FlagBase": 2,
+            "ItemSpawn": 14,
+            "JumpPad": 3,
+            "LightSource": 5,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "AreaVolume": 1,
+            "ItemSpawn": 17,
+            "JumpPad": 3,
+            "LightSource": 5,
+            "NodeDefense": 1,
+            "PlayerSpawn": 4,
+            "Teleporter": 2
+          }
+        }
+      ]
+    },
+    {
+      "Id": 111,
+      "Name": "AD1 TRANSFER LOCK DM",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/ad1_dm1_Ent.bin",
+      "Sha256": "6e2aa1cb66fda5a9f9ce84110ede0c301cce277f3af6ff1b76a814f01a966c85",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 40,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1,
+            2,
+            3,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 12,
+            "JumpPad": 1,
+            "LightSource": 4,
+            "PlayerSpawn": 14,
+            "Teleporter": 2
+          }
+        },
+        {
+          "Layers": [
+            4,
+            5
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 12,
+            "JumpPad": 1,
+            "LightSource": 4,
+            "NodeDefense": 3,
+            "PlayerSpawn": 4,
+            "Teleporter": 2
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 13,
+            "JumpPad": 1,
+            "LightSource": 4,
+            "NodeDefense": 4,
+            "PlayerSpawn": 4,
+            "Teleporter": 2
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 2,
+            "LightSource": 4,
+            "PlayerSpawn": 8,
+            "Teleporter": 2
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 2,
+            "PlayerSpawn": 8,
+            "Teleporter": 2
+          }
+        }
+      ]
+    },
+    {
+      "Id": 112,
+      "Name": "AD2 MAGMA VENTS",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/ad2_Ent.bin",
+      "Sha256": "e7e3dcdbad53b789a678ed8864a86740ad4c93e9935b36d2887a641eae93e00a",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 63,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            15
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 20,
+            "JumpPad": 4,
+            "LightSource": 4,
+            "PlayerSpawn": 14
+          }
+        },
+        {
+          "Layers": [
+            1,
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 22,
+            "JumpPad": 4,
+            "LightSource": 4,
+            "PlayerSpawn": 14
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 19,
+            "JumpPad": 4,
+            "LightSource": 4,
+            "NodeDefense": 2,
+            "PlayerSpawn": 9
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 22,
+            "JumpPad": 4,
+            "LightSource": 4,
+            "NodeDefense": 3,
+            "PlayerSpawn": 9
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 22,
+            "JumpPad": 4,
+            "LightSource": 4,
+            "NodeDefense": 4,
+            "PlayerSpawn": 9
+          }
+        },
+        {
+          "Layers": [
+            8
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 17,
+            "JumpPad": 4,
+            "LightSource": 4,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            9
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 19,
+            "JumpPad": 4,
+            "LightSource": 4,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            10,
+            11
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 22,
+            "JumpPad": 4,
+            "LightSource": 4,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 22,
+            "JumpPad": 4,
+            "LightSource": 4,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 1,
+            "LightSource": 4,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 21,
+            "JumpPad": 4,
+            "LightSource": 4,
+            "NodeDefense": 1,
+            "PlayerSpawn": 8
+          }
+        }
+      ]
+    },
+    {
+      "Id": 113,
+      "Name": "AD2 ALINOS PERCH",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/ad2_dm1_Ent.bin",
+      "Sha256": "758c3e52356e940758034d7d46edbe3fd7f544151805a8d04774d11e78e9d0f3",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 45,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 13,
+            "JumpPad": 2,
+            "LightSource": 2,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 13,
+            "JumpPad": 2,
+            "LightSource": 2,
+            "NodeDefense": 2,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            5,
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 13,
+            "JumpPad": 2,
+            "LightSource": 2,
+            "NodeDefense": 3,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 1,
+            "LightSource": 2,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 12,
+            "JumpPad": 2,
+            "LightSource": 2,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 14,
+            "JumpPad": 2,
+            "LightSource": 2,
+            "NodeDefense": 1,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 14,
+            "JumpPad": 2,
+            "LightSource": 2,
+            "PlayerSpawn": 6
+          }
+        }
+      ]
+    },
+    {
+      "Id": 114,
+      "Name": "UNIT1 ALINOS LANDFALL",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/Unit1_Land_dm1_Ent.bin",
+      "Sha256": "e68021a110cf92bc75491ecffceceda29ab43c90534b474bc9e05601d4bbb6e2",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 46,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1,
+            2,
+            3,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 16,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "PlayerSpawn": 15
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 16,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "NodeDefense": 2,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 16,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "NodeDefense": 3,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 16,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "NodeDefense": 4,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            8
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 14,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            9
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 15,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            10,
+            11
+          ],
+          "EntityCounts": {
+            "FlagBase": 1,
+            "ItemSpawn": 16,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "OctolithFlag": 1,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            12,
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 4,
+            "LightSource": 2,
+            "PlayerSpawn": 15
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 16,
+            "JumpPad": 6,
+            "LightSource": 2,
+            "NodeDefense": 1,
+            "PlayerSpawn": 7
+          }
+        }
+      ]
+    },
+    {
+      "Id": 115,
+      "Name": "UNIT2 LANDING BAY",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/unit2_land_dm1_Ent.bin",
+      "Sha256": "3ba57ffaa3f6b8a79caa267e7415d8495a918391cf292719053ddd42b6455aea",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 44,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 13,
+            "PlayerSpawn": 4,
+            "Teleporter": 4
+          }
+        },
+        {
+          "Layers": [
+            1,
+            2,
+            3,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 14,
+            "PlayerSpawn": 4,
+            "Teleporter": 4
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 13,
+            "NodeDefense": 2,
+            "PlayerSpawn": 4,
+            "Teleporter": 4
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 13,
+            "NodeDefense": 3,
+            "PlayerSpawn": 4,
+            "Teleporter": 4
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 13,
+            "NodeDefense": 4,
+            "PlayerSpawn": 4,
+            "Teleporter": 4
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 10,
+            "PlayerSpawn": 4,
+            "Teleporter": 4
+          }
+        },
+        {
+          "Layers": [
+            11,
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 4,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 13,
+            "JumpPad": 2,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 4,
+            "Teleporter": 4
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 14,
+            "NodeDefense": 1,
+            "PlayerSpawn": 4,
+            "Teleporter": 4
+          }
+        }
+      ]
+    },
+    {
+      "Id": 116,
+      "Name": "UNIT 3 VESPER STARPORT",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/unit3_Land_dm1_Ent.bin",
+      "Sha256": "d37380156e6af69072cbcb4d47516b58be50904d60cfb39a1e5725c1bba83e4b",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 40,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1,
+            2,
+            3,
+            15
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 14,
+            "JumpPad": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 15,
+            "JumpPad": 2,
+            "NodeDefense": 1,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 15,
+            "JumpPad": 2,
+            "NodeDefense": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 15,
+            "JumpPad": 2,
+            "NodeDefense": 3,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            13
+          ],
+          "EntityCounts": {
+            "JumpPad": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 14,
+            "JumpPad": 2,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 13,
+            "JumpPad": 2,
+            "NodeDefense": 1,
+            "PlayerSpawn": 4
+          }
+        }
+      ]
+    },
+    {
+      "Id": 117,
+      "Name": "UNIT 4 ARCTERRA BASE",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/unit4_Land_dm1_Ent.bin",
+      "Sha256": "738698b489b1544157939894f67a96e4c07e4897ba5df35def8e9a86e145bad2",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 40,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 9,
+            "JumpPad": 5,
+            "LightSource": 5,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            1,
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 11,
+            "JumpPad": 5,
+            "LightSource": 5,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 10,
+            "JumpPad": 5,
+            "LightSource": 5,
+            "NodeDefense": 2,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            5,
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 12,
+            "JumpPad": 5,
+            "LightSource": 5,
+            "NodeDefense": 3,
+            "PlayerSpawn": 5
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            13
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 1,
+            "LightSource": 5,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 9,
+            "JumpPad": 5,
+            "LightSource": 5,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 4
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 10,
+            "JumpPad": 5,
+            "LightSource": 5,
+            "NodeDefense": 1,
+            "PlayerSpawn": 6
+          }
+        }
+      ]
+    },
+    {
+      "Id": 118,
+      "Name": "Gorea Prison",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/gorea_b2_dm_Ent.bin",
+      "Sha256": "21ffe432a279fb24642d8fb365ac0e07a96c89352bae9654e928db0c4243f688",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 23,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1,
+            2,
+            3,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 6,
+            "JumpPad": 5,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 5,
+            "JumpPad": 5,
+            "NodeDefense": 2,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            5,
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 5,
+            "JumpPad": 5,
+            "NodeDefense": 3,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13
+          ],
+          "EntityCounts": {
+            "JumpPad": 5
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 6,
+            "JumpPad": 5,
+            "NodeDefense": 1,
+            "PlayerSpawn": 8
+          }
+        }
+      ]
+    },
+    {
+      "Id": 119,
+      "Name": "E3 FIRST HUNT",
+      "Source": "Retail",
+      "EntityPath": "levels/entities/e3Level_Ent.bin",
+      "Sha256": "66e0a4bc594e9c47d673710d0736f02569b404635f376878c9c5fbbf5e24129f",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 46,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 14,
+            "JumpPad": 2,
+            "LightSource": 5,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            1,
+            2,
+            3
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 15,
+            "JumpPad": 2,
+            "LightSource": 5,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            4
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 14,
+            "JumpPad": 2,
+            "LightSource": 5,
+            "NodeDefense": 2,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            5
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 15,
+            "JumpPad": 2,
+            "LightSource": 5,
+            "NodeDefense": 2,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            6,
+            7
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 14,
+            "JumpPad": 2,
+            "LightSource": 5,
+            "NodeDefense": 3,
+            "PlayerSpawn": 7
+          }
+        },
+        {
+          "Layers": [
+            8,
+            9,
+            10,
+            11,
+            13
+          ],
+          "EntityCounts": {
+            "JumpPad": 1,
+            "LightSource": 5,
+            "PlayerSpawn": 6
+          }
+        },
+        {
+          "Layers": [
+            12
+          ],
+          "EntityCounts": {
+            "FlagBase": 2,
+            "ItemSpawn": 14,
+            "JumpPad": 1,
+            "LightSource": 5,
+            "OctolithFlag": 2,
+            "PlayerSpawn": 8
+          }
+        },
+        {
+          "Layers": [
+            14
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 14,
+            "JumpPad": 2,
+            "LightSource": 5,
+            "NodeDefense": 1,
+            "PlayerSpawn": 4
+          }
+        }
+      ]
+    },
+    {
+      "Id": 122,
+      "Name": "biodefense chamber 06",
+      "Source": "Retail",
+      "EntityPath": null,
+      "Sha256": null,
+      "FormatVersion": null,
+      "Errors": [
+        "Catalog entry has no entity path; absence is not proof of unused types."
+      ],
+      "EntryCount": 0,
+      "LayerGroups": []
+    },
+    {
+      "Id": 123,
+      "Name": "biodefense chamber 05",
+      "Source": "Retail",
+      "EntityPath": null,
+      "Sha256": null,
+      "FormatVersion": null,
+      "Errors": [
+        "Catalog entry has no entity path; absence is not proof of unused types."
+      ],
+      "EntryCount": 0,
+      "LayerGroups": []
+    },
+    {
+      "Id": 124,
+      "Name": "biodefense chamber 03",
+      "Source": "Retail",
+      "EntityPath": null,
+      "Sha256": null,
+      "FormatVersion": null,
+      "Errors": [
+        "Catalog entry has no entity path; absence is not proof of unused types."
+      ],
+      "EntryCount": 0,
+      "LayerGroups": []
+    },
+    {
+      "Id": 125,
+      "Name": "biodefense chamber 08",
+      "Source": "Retail",
+      "EntityPath": null,
+      "Sha256": null,
+      "FormatVersion": null,
+      "Errors": [
+        "Catalog entry has no entity path; absence is not proof of unused types."
+      ],
+      "EntryCount": 0,
+      "LayerGroups": []
+    },
+    {
+      "Id": 126,
+      "Name": "biodefense chamber 04",
+      "Source": "Retail",
+      "EntityPath": null,
+      "Sha256": null,
+      "FormatVersion": null,
+      "Errors": [
+        "Catalog entry has no entity path; absence is not proof of unused types."
+      ],
+      "EntryCount": 0,
+      "LayerGroups": []
+    },
+    {
+      "Id": 127,
+      "Name": "biodefense chamber 07",
+      "Source": "Retail",
+      "EntityPath": null,
+      "Sha256": null,
+      "FormatVersion": null,
+      "Errors": [
+        "Catalog entry has no entity path; absence is not proof of unused types."
+      ],
+      "EntryCount": 0,
+      "LayerGroups": []
+    },
+    {
+      "Id": 138,
+      "Name": "TEST ARENA",
+      "Source": "Custom",
+      "EntityPath": "levels/entities/test arena_Ent.bin",
+      "Sha256": "ee808f8516ea02c27cca6f8ab7f9f2b7a774262876692c93ee19d37db7dec440",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 12,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 4,
+            "PlayerSpawn": 8
+          }
+        }
+      ]
+    },
+    {
+      "Id": 139,
+      "Name": "DUST2",
+      "Source": "Custom",
+      "EntityPath": "levels/entities/dust2_Ent.bin",
+      "Sha256": "9dcd0497326aae6523d86357a0db3a54415588270b0e85a960e58041272910eb",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 40,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 30,
+            "PlayerSpawn": 10
+          }
+        }
+      ]
+    },
+    {
+      "Id": 140,
+      "Name": "PARALLAX",
+      "Source": "Custom",
+      "EntityPath": "levels/entities/parallax_Ent.bin",
+      "Sha256": "cbd76c664a7e49303760fa7addcf04ff1ac12ad0d92df160f7b86785726f191e",
+      "FormatVersion": 2,
+      "Errors": [],
+      "EntryCount": 15,
+      "LayerGroups": [
+        {
+          "Layers": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "EntityCounts": {
+            "ItemSpawn": 9,
+            "JumpPad": 2,
+            "PlayerSpawn": 4
+          }
+        }
+      ]
+    }
+  ],
+  "SourceSummary": [
+    {
+      "Source": "Custom",
+      "CatalogEntries": 3,
+      "Audited": 3,
+      "Errors": 0,
+      "ObservedEntities": 67
+    },
+    {
+      "Source": "FirstHunt",
+      "CatalogEntries": 6,
+      "Audited": 0,
+      "Errors": 6,
+      "ObservedEntities": 0
+    },
+    {
+      "Source": "Retail",
+      "CatalogEntries": 33,
+      "Audited": 27,
+      "Errors": 6,
+      "ObservedEntities": 1284
+    }
+  ],
+  "ObservedTypes": {
+    "AreaVolume": 17,
+    "FlagBase": 36,
+    "ItemSpawn": 606,
+    "JumpPad": 105,
+    "LightSource": 85,
+    "MorphCamera": 2,
+    "NodeDefense": 84,
+    "OctolithFlag": 36,
+    "PlayerSpawn": 372,
+    "Teleporter": 8
+  },
+  "MutableCollisionTypes": {},
+  "ArtifactKind": "R0 developer inventory; incomplete, not a deletion allowlist"
+}
