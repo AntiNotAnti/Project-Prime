@@ -472,6 +472,9 @@ public sealed class ServerUpdateTests
         Assert.True(ServerUpdate.Enabled(new[] { "-AUTOUPDATE" }));
         Assert.False(ServerUpdate.Enabled(new[] { "-autoupdate", "-noupdate" }));
         Assert.False(ServerUpdate.Enabled(new[] { "-noupdate", "-autoupdate" }));
+        Assert.True(ServerUpdate.Enabled(new[] { "--autoupdate" }));
+        Assert.False(ServerUpdate.Enabled(new[] { "-autoupdate", "--noupdate" }));
+        Assert.False(ServerUpdate.Enabled(new[] { "--noupdate", "--autoupdate" }));
         using var fixture = new Fixture();
         Assert.Throws<ArgumentException>(() => new ServerUpdate(fixture.Options with { Repository = "liveteklol/Fruity-Prime" },
             (_, _) => Task.FromResult<string?>(null), new Handler(fixture)));

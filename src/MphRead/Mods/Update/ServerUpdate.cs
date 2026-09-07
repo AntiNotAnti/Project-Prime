@@ -50,8 +50,10 @@ public sealed class ServerUpdate : IDisposable
         bool enabled = false;
         foreach (string argument in arguments)
         {
-            if (argument.Equals("-noupdate", StringComparison.OrdinalIgnoreCase)) { return false; }
-            enabled |= argument.Equals("-autoupdate", StringComparison.OrdinalIgnoreCase);
+            // Match the application's flag parser, including double-dash aliases.
+            string flag = argument.TrimStart('-');
+            if (flag.Equals("noupdate", StringComparison.OrdinalIgnoreCase)) { return false; }
+            enabled |= flag.Equals("autoupdate", StringComparison.OrdinalIgnoreCase);
         }
         return enabled;
     }
