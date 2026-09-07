@@ -725,7 +725,7 @@ namespace MphRead.Entities
                                 // the game doesn't need this condition, but we do because "the next frame will
                                 // overwrite it" type stuff isn't guaranteed to get in ahead of the audio system
                                 if (CurrentWeapon != BeamType.PowerBeam
-                                    || EquipInfo.ChargeLevel >= EquipInfo.Weapon.MinCharge * 2) // todo: FPS stuff
+                                    || EquipInfo.ChargeLevel >= SimTicks.From30HzFrames(EquipInfo.Weapon.MinCharge))
                                 {
                                     PlayBeamChargeSfx(CurrentWeapon);
                                 }
@@ -735,7 +735,7 @@ namespace MphRead.Entities
                                     anim2 = PlayerAnimation.Charge;
                                 }
                             }
-                            if (EquipInfo.ChargeLevel >= EquipWeapon.FullCharge * 2) // todo: FPS stuff
+                            if (EquipInfo.ChargeLevel >= SimTicks.From30HzFrames(EquipWeapon.FullCharge))
                             {
                                 EquipInfo.SmokeLevel += EquipWeapon.SmokeChargeAmount;
                                 EquipInfo.SmokeLevel = (ushort)Math.Min(EquipInfo.SmokeLevel, EquipWeapon.SmokeStart * 2); // todo: FPS stuff
@@ -743,10 +743,10 @@ namespace MphRead.Entities
                             else
                             {
                                 EquipInfo.ChargeLevel++;
-                                int minCharge = EquipWeapon.MinCharge * 2; // todo: FPS stuff
+                                int minCharge = SimTicks.From30HzFrames(EquipWeapon.MinCharge);
                                 if (EquipInfo.ChargeLevel > minCharge)
                                 {
-                                    int fullCharge = EquipWeapon.FullCharge * 2; // todo: FPS stuff
+                                    int fullCharge = SimTicks.From30HzFrames(EquipWeapon.FullCharge);
                                     int chargeCost = EquipWeapon.ChargeCost * 2; // todo: FPS stuff
                                     int minCost = EquipWeapon.MinChargeCost * 2; // todo: FPS stuff
                                     int cost = minCost + (chargeCost - minCost) * (EquipInfo.ChargeLevel - minCharge) / (fullCharge - minCharge);
@@ -761,7 +761,7 @@ namespace MphRead.Entities
                         if (releaseCharge)
                         {
                             StopBeamChargeSfx(CurrentWeapon);
-                            if (EquipInfo.ChargeLevel >= EquipWeapon.MinCharge * 2) // todo: FPS stuff
+                            if (EquipInfo.ChargeLevel >= SimTicks.From30HzFrames(EquipWeapon.MinCharge))
                             {
                                 TryFireWeapon();
                                 anim2 = PlayerAnimation.ChargeShoot;
@@ -834,9 +834,9 @@ namespace MphRead.Entities
                             CameraInfo.Fov = currentFov;
                         }
                     }
-                    if (Controls.Shoot.IsPressed && EquipInfo.ChargeLevel <= 1 * 2 // todo: FPS stuff
+                    if (Controls.Shoot.IsPressed && EquipInfo.ChargeLevel <= SimTicks.From30HzFrames(1)
                         || EquipWeapon.Flags.TestFlag(WeaponFlags.RepeatFire) && Flags2.TestFlag(PlayerFlags2.Shooting)
-                        && (!EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge) || EquipInfo.ChargeLevel < EquipWeapon.MinCharge * 2)) // todo: FPS stuff
+                        && (!EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge) || EquipInfo.ChargeLevel < SimTicks.From30HzFrames(EquipWeapon.MinCharge)))
                     {
                         if (TryFireWeapon())
                         {
@@ -932,7 +932,7 @@ namespace MphRead.Entities
             bool pressed = Controls.Shoot.IsPressed;
             if (pressed || CurrentWeapon != BeamType.PowerBeam)
             {
-                _autofireCooldown = (ushort)(EquipWeapon.AutofireCooldown * 2); // todo: FPS stuff
+                _autofireCooldown = (ushort)SimTicks.From30HzFrames(EquipWeapon.AutofireCooldown);
                 _powerBeamAutofire = 0;
             }
             else
@@ -945,9 +945,9 @@ namespace MphRead.Entities
                 // --> could add more, but the min charge is reaached quickly
                 int pbAuto = Math.Min(_powerBeamAutofire / 2, 90); // todo: FPS stuff
                 pbAuto = (int)(pbAuto * 15 / 90f);
-                _autofireCooldown = (ushort)((pbAuto + EquipWeapon.AutofireCooldown) * 2); // todo: FPS stuff
+                _autofireCooldown = (ushort)SimTicks.From30HzFrames(pbAuto + EquipWeapon.AutofireCooldown);
             }
-            if ((_timeSinceShot < EquipWeapon.ShotCooldown * 2 // todo: FPS stuff
+            if ((_timeSinceShot < SimTicks.From30HzFrames(EquipWeapon.ShotCooldown)
                 || !pressed && _timeSinceShot < _autofireCooldown)
                 && (!IsBot || !AiData.Flags2.TestFlag(AiFlags2.Bit20)))
             {
@@ -1003,7 +1003,7 @@ namespace MphRead.Entities
             {
                 Flags1 |= PlayerFlags1.ShotMissile;
             }
-            if (EquipInfo.ChargeLevel < EquipWeapon.MinCharge * 2) // todo: FPS stuff
+            if (EquipInfo.ChargeLevel < SimTicks.From30HzFrames(EquipWeapon.MinCharge))
             {
                 Flags1 |= PlayerFlags1.ShotUncharged;
             }
@@ -1032,7 +1032,7 @@ namespace MphRead.Entities
             }
             else
             {
-                charged = EquipInfo.ChargeLevel >= EquipInfo.Weapon.FullCharge * 2; // todo: FPS stuff
+                charged = EquipInfo.ChargeLevel >= SimTicks.From30HzFrames(EquipInfo.Weapon.FullCharge);
             }
             bool continuous = EquipInfo.Weapon.Flags.TestFlag(WeaponFlags.Continuous);
             bool homing = result.TestFlag(BeamResultFlags.Homing);

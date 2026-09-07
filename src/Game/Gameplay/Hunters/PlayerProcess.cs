@@ -183,10 +183,10 @@ namespace MphRead.Entities
                                 || _scene.Match.Rules.Mode != MatchMode.Survival && _scene.Match.Rules.Mode != MatchMode.TeamSurvival)
                             {
                                 QueueHudMessage(128, 162, 1 / 1000f, 0, messageId);
-                                if (time < 150 * 2) // todo: FPS stuff
+                                if (time < SimTicks.From30HzFrames(150))
                                 {
                                     string message = Text.Strings.GetHudMessage(246); // SPAWNING IN %d...
-                                    int seconds = (time + 30 * 2) / (30 * 2); // todo: FPS stuff
+                                    int seconds = (time + SimTicks.Hz) / SimTicks.Hz;
                                     QueueHudMessage(128, 152, 1 / 1000f, 0, message.Replace("%d", seconds.ToString()));
                                 }
                             }
@@ -658,7 +658,7 @@ namespace MphRead.Entities
                     _muzzleEffect.Transform(_gunVec2, _gunVec1, _muzzlePos);
                 }
             }
-            if (EquipInfo.ChargeLevel < EquipInfo.Weapon.MinCharge * 2) // todo: FPS stuff
+            if (EquipInfo.ChargeLevel < SimTicks.From30HzFrames(EquipInfo.Weapon.MinCharge))
             {
                 if (_chargeEffect != null)
                 {
@@ -668,7 +668,7 @@ namespace MphRead.Entities
             }
             else
             {
-                if (EquipInfo.ChargeLevel == EquipInfo.Weapon.MinCharge * 2) // todo: FPS stuff
+                if (EquipInfo.ChargeLevel == SimTicks.From30HzFrames(EquipInfo.Weapon.MinCharge))
                 {
                     if (_chargeEffect != null)
                     {
@@ -683,7 +683,7 @@ namespace MphRead.Entities
                     }
                     Flags2 &= ~PlayerFlags2.ChargeEffect;
                 }
-                else if (EquipInfo.ChargeLevel == EquipInfo.Weapon.FullCharge * 2) // todo: FPS stuff
+                else if (EquipInfo.ChargeLevel == SimTicks.From30HzFrames(EquipInfo.Weapon.FullCharge))
                 {
                     if (!Flags2.TestFlag(PlayerFlags2.ChargeEffect))
                     {
@@ -1038,7 +1038,7 @@ namespace MphRead.Entities
             if (_burnTimer > 0)
             {
                 _burnTimer--;
-                if (_burnTimer % (8 * 2) == 0) // todo:FPS stuff
+                if (_burnTimer % SimTicks.From30HzFrames(8) == 0)
                 {
                     TakeDamage(1, DamageFlags.NoSfx | DamageFlags.Burn | DamageFlags.NoDmgInvuln, direction: null, _burnedBy);
                 }
@@ -1964,33 +1964,32 @@ namespace MphRead.Entities
             }
             if (chosenSpawn != null)
             {
-                chosenSpawn.Cooldown = 2 * 2; // todo: FPS stuff
+                chosenSpawn.Cooldown = 2 * SimTicks.TicksPer30HzFrame;
             }
             return chosenSpawn;
         }
 
         private int GetTimeUntilRespawn()
         {
-            // todo: FPS stuff
             int count = 0;
             if (_scene.Match.Rules.Mode != MatchMode.Survival && _scene.Match.Rules.Mode != MatchMode.TeamSurvival)
             {
                 if (PlayerCount > 3)
                 {
-                    count = 900 * 2 - _timeSinceDead;
+                    count = SimTicks.From30HzFrames(900) - _timeSinceDead;
                 }
                 else if (PlayerCount > 2)
                 {
-                    count = 600 * 2 - _timeSinceDead;
+                    count = SimTicks.From30HzFrames(600) - _timeSinceDead;
                 }
                 else
                 {
-                    count = 300 * 2 - _timeSinceDead;
+                    count = SimTicks.From30HzFrames(300) - _timeSinceDead;
                 }
             }
             else if (!LoadFlags.TestFlag(LoadFlags.Spawned))
             {
-                count = 210 * 2 - _timeSinceDead;
+                count = SimTicks.From30HzFrames(210) - _timeSinceDead;
             }
             return count;
         }

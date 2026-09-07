@@ -1057,17 +1057,16 @@ namespace MphRead.Entities
             float chargePct = 0;
             if (weapon.Flags.TestFlag(WeaponFlags.CanCharge))
             {
-                // todo: FPS stuff
                 if (weapon.Flags.TestFlag(WeaponFlags.PartialCharge))
                 {
-                    if (equip.ChargeLevel >= weapon.MinCharge * 2) // todo: FPS stuff
+                    if (equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.MinCharge))
                     {
                         charged = true;
-                        // todo: FPS stuff
-                        chargePct = (equip.ChargeLevel - weapon.MinCharge * 2) / (float)(weapon.FullCharge * 2 - weapon.MinCharge * 2);
+                        chargePct = (equip.ChargeLevel - SimTicks.From30HzFrames(weapon.MinCharge))
+                            / (float)(SimTicks.From30HzFrames(weapon.FullCharge) - SimTicks.From30HzFrames(weapon.MinCharge));
                     }
                 }
-                else if (equip.ChargeLevel >= weapon.FullCharge * 2) // todo: FPS stuff
+                else if (equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.FullCharge))
                 {
                     charged = true;
                     chargePct = 1;

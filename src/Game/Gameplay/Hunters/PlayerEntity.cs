@@ -397,7 +397,7 @@ namespace MphRead.Entities
         private ushort _timeSinceJumpPad = 0;
         private Vector3 _jumpPadAccel;
 
-        public const ushort RespawnTime = 90 * 2; // todo: FPS stuff
+        public const ushort RespawnTime = 3 * SimTicks.Hz;
 
         private ushort _autofireCooldown = 0;
         private ushort _powerBeamAutofire = 0;
@@ -794,7 +794,7 @@ namespace MphRead.Entities
             _bombRefillTimer = 0;
             _bombAmmo = 3;
             _damageInvulnTimer = 0;
-            _spawnInvulnTimer = (ushort)(Values.SpawnInvulnerability * 2); // todo: FPS stuff
+            _spawnInvulnTimer = (ushort)SimTicks.From30HzFrames(Values.SpawnInvulnerability);
             _boostCharge = 0;
             _altAttackCooldown = 0;
             _field4E8 = Vector3.Zero;
@@ -1319,7 +1319,7 @@ namespace MphRead.Entities
                 SetGunAnimation(GunAnimation.ChargeShot, AnimFlags.NoLoop);
                 return;
             }
-            if (EquipInfo.ChargeLevel >= EquipInfo.Weapon.MinCharge * 2) // todo: FPS stuff
+            if (EquipInfo.ChargeLevel >= SimTicks.From30HzFrames(EquipInfo.Weapon.MinCharge))
             {
                 if ((GunAnimation == GunAnimation.Charging || GunAnimation == GunAnimation.ChargingMissile)
                     && _scene.FrameCount != 0 && _scene.FrameCount % 2 == 0) // todo: FPS stuff
@@ -1417,7 +1417,7 @@ namespace MphRead.Entities
                 {
                     return;
                 }
-                _damageInvulnTimer = (ushort)(Values.DamageInvuln * 2); // todo: FPS stuff
+                _damageInvulnTimer = (ushort)SimTicks.From30HzFrames(Values.DamageInvuln);
             }
             PlayerEntity? attacker = null;
             bool fromHalfturret = false;
@@ -1920,23 +1920,23 @@ namespace MphRead.Entities
                             }
                             if (_frozenTimer == 0)
                             {
-                                if (_timeSinceFrozen > 60 * 2) // todo: FPS stuff
+                                if (_timeSinceFrozen > SimTicks.From30HzFrames(60))
                                 {
-                                    int time = 75 * 2; // todo: FPS stuff
+                                    int time = SimTicks.From30HzFrames(75);
                                     _frozenTimer = (ushort)time;
                                 }
-                                else if (_frozenTimer < 15 * 2) // todo: FPS stuff
+                                else if (_frozenTimer < SimTicks.From30HzFrames(15))
                                 {
-                                    _frozenTimer = 15 * 2; // todo: FPS stuff
+                                    _frozenTimer = (ushort)SimTicks.From30HzFrames(15);
                                 }
-                                _frozenGfxTimer = (ushort)(_frozenTimer + 5 * 2); // todo: FPS stuff
+                                _frozenGfxTimer = (ushort)(_frozenTimer + SimTicks.From30HzFrames(5));
                             }
                             EndAltAttack();
                         }
                     }
                     if (beam.Afflictions.TestFlag(Affliction.Disrupt) && !flags.TestFlag(DamageFlags.Halfturret))
                     {
-                        _disruptedTimer = 60 * 2; // todo: FPS stuff
+                        _disruptedTimer = (ushort)SimTicks.From30HzFrames(60);
                         if (IsMainPlayer)
                         {
                             skipSfx = true;
@@ -1952,7 +1952,7 @@ namespace MphRead.Entities
                         }
                         else // todo?: if wifi, only do this if main player
                         {
-                            ushort time = 150 * 2; // todo: FPS stuff
+                            ushort time = (ushort)SimTicks.From30HzFrames(150);
                             _burnedBy = beam.Owner;
                             CombatBurnSource = beam.CombatShot;
                             _burnTimer = time;
