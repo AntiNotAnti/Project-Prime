@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Buffers.Binary;
+using System.Runtime.InteropServices;
 using System.IO;
 using System.Linq;
 using MphRead.Entities;
@@ -187,6 +189,265 @@ namespace MphRead.Tests
             Assert.Equal(firstState, scene.SpawnDirector.RandomState);
         }
 
+        [Theory]
+        [InlineData(MatchMode.Battle)]
+        [InlineData(MatchMode.Capture)]
+        public void ClassicMatchesFrozenSelectorAcrossFrameCrowdingCooldownAndTeamFallback(MatchMode mode)
+        {
+            using var fixture = Open(mode, SpawnPolicy.Classic);
+            Scene scene = fixture.Scene;
+            List<PlayerSpawnEntity> spawns = Spawns(scene);
+            PlayerSpawnEntity template = spawns.First(p => p.IsActive);
+            // Extend the real authored list beyond 25 to exercise its exact legacy bound.
+            while (spawns.Count < 30)
+            {
+                byte[] bytes = new byte[Marshal.SizeOf<PlayerSpawnEntityData>()];
+                PlayerSpawnEntityData data = template.Data;
+                MemoryMarshal.Write(bytes, in data);
+                BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(2), (short)(30000 + spawns.Count));
+                bytes[40] = 0; bytes[41] = 1; bytes[42] = 1;
+                var extra = new PlayerSpawnEntity(MemoryMarshal.Read<PlayerSpawnEntityData>(bytes), "", scene);
+                scene.AddEntity(extra);
+                spawns.Add(extra);
+            }
+            PlayerEntity requester = PlayerEntity.Players[0];
+            requester.TeamIndex = 0;
+            scene.ResetFrameCount();
+            const uint seed = 0x12345678;
+            for (int frame = 0; frame < 6; frame++)
+            {
+                for (int scenario = 0; scenario < 5; scenario++)
+                {
+                    foreach (PlayerSpawnEntity point in spawns)
+                    {
+                        SetActive(scene, point, true);
+                        point.Cooldown = scenario == 2 ? (ushort)500 : (ushort)0;
+                    }
+                    for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
+                    {
+                        PlayerEntity player = PlayerEntity.Players[slot];
+                        player.Health = scenario == 1 ? 99 : 0;
+                        player.Position = spawns[slot % spawns.Count].Position;
+                    }
+                    if (scenario == 3)
+                    {
+                        foreach (PlayerSpawnEntity point in spawns) SetActive(scene, point, false);
+                        // Opposite team, outside the first 25 and on cooldown: Classic still falls back.
+                        SetActive(scene, spawns[27], true);
+                        spawns[27].Cooldown = 500;
+                    }
+                    if (scenario == 4)
+                        foreach (PlayerSpawnEntity point in spawns) SetActive(scene, point, false);
+                    PlayerSpawnEntity? expected = FrozenClassic(scene, requester);
+                    uint rng1 = Rng.Rng1, rng2 = Rng.Rng2;
+                    scene.SpawnDirector.Reset(seed);
+                    PlayerSpawnEntity? actual = scene.SpawnDirector.Select(requester);
+                    Assert.Same(expected, actual);
+                    Assert.Equal(seed, scene.SpawnDirector.RandomState);
+                    Assert.Equal(rng1, Rng.Rng1); Assert.Equal(rng2, Rng.Rng2);
+                    if (actual != null) Assert.Equal((ushort)4, actual.Cooldown);
+                    if (scenario == 3) Assert.Same(spawns[27], actual);
+                }
+                foreach (PlayerEntity player in scene.GetPlayerEntities()) player.Health = 0;
+                fixture.Scene.StepHeadlessFrame(advanceMatch: false);
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void ActualBeamAndNoAmmoFireCancelProtectionOnlyWhenEnabledAndSpawned(bool cancel)
+        {
+            using var fixture = Open(MatchMode.Battle, SpawnPolicy.Classic);
+            PlayerEntity player = Activate(fixture, Hunter.Samus, cancel, alt: false);
+            var observer = new FireObserver(fixture.Scene.Services);
+            fixture.Scene.Services = observer;
+            player.ModSetAmmo(0, 10);
+            player.ModSetWeapon(BeamType.Missile);
+            Assert.Equal(BeamType.Missile, player.CurrentWeapon);
+            player.ModSetAmmo(0, 0);
+            AssertProtected(player, true);
+            // Normal ProcessPlayer auto-equips an affordable weapon before input.
+            // Invoke the actual firing branch to exercise its NoSpawn return without
+            // replacing weapon math or mutating the protection timer.
+            var fire = typeof(PlayerEntity).GetMethod("TryFireWeapon",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            Assert.False((bool)fire.Invoke(player, null)!);
+            Assert.Equal(1, observer.Attempts); // NoteFired is reached even on BeamResultFlags.NoSpawn.
+            Assert.Equal(BeamType.Missile, player.CurrentWeapon);
+            Assert.Equal(0, player.ModAmmo.Missiles);
+            AssertProtected(player, true);
+            player.ModSetAmmo(0, 10);
+            fixture.Input(player, InputButtons.None);
+            fixture.Input(player, InputButtons.Shoot, InputButtons.Shoot);
+            Assert.Equal(2, observer.Attempts);
+            Assert.Equal((ushort)0, player.TimeSinceShot);
+            Assert.True(player.ModAmmo.Missiles < 10);
+            AssertProtected(player, !cancel);
+        }
+
+        [Fact]
+        public void ActualBombAllocationFailureKeepsProtectionAndSuccessfulDropClearsIt()
+        {
+            using var fixture = Open(MatchMode.Battle, SpawnPolicy.Classic);
+            PlayerEntity player = Activate(fixture, Hunter.Samus, true, alt: true);
+            var reserved = new List<BombEntity>();
+            while (fixture.Scene.InitBomb() is BombEntity unused) reserved.Add(unused);
+            Assert.NotEmpty(reserved);
+            fixture.Input(player, InputButtons.AltAttack, InputButtons.AltAttack);
+            Assert.Empty(Bombs(fixture.Scene));
+            AssertProtected(player, true);
+            foreach (BombEntity unused in reserved) fixture.Scene.UnlinkBomb(unused);
+            fixture.Input(player, InputButtons.None);
+            fixture.Input(player, InputButtons.AltAttack, InputButtons.AltAttack);
+            Assert.Single(Bombs(fixture.Scene));
+            AssertProtected(player, false);
+        }
+
+        [Theory]
+        [InlineData(Hunter.Spire)]
+        [InlineData(Hunter.Trace)]
+        [InlineData(Hunter.Weavel)]
+        public void AcceptedAltAttacksClearProtection(Hunter hunter)
+        {
+            using var fixture = Open(MatchMode.Battle, SpawnPolicy.Classic);
+            PlayerEntity player = Activate(fixture, hunter, true, alt: true);
+            AssertProtected(player, true);
+            fixture.Input(player, InputButtons.AltAttack, InputButtons.AltAttack);
+            Assert.True(player.Flags2.TestFlag(PlayerFlags2.AltAttack));
+            AssertProtected(player, false);
+        }
+
+        [Fact]
+        public void NoxusWindupKeepsProtectionUntilTheActualAttackBegins()
+        {
+            using var fixture = Open(MatchMode.Battle, SpawnPolicy.Classic);
+            PlayerEntity player = Activate(fixture, Hunter.Noxus, true, alt: true);
+            int startup = SimTicks.From30HzFrames(player.Values.AltAttackStartup);
+            Assert.True(startup < SimTicks.From30HzFrames(player.Values.SpawnInvulnerability));
+            fixture.Input(player, InputButtons.AltAttack, InputButtons.AltAttack);
+            Assert.False(player.Flags2.TestFlag(PlayerFlags2.AltAttack));
+            AssertProtected(player, true);
+            for (int tick = 1; tick < startup - 1; tick++) fixture.Input(player, InputButtons.AltAttack);
+            Assert.False(player.Flags2.TestFlag(PlayerFlags2.AltAttack));
+            AssertProtected(player, true);
+            fixture.Input(player, InputButtons.AltAttack);
+            Assert.True(player.Flags2.TestFlag(PlayerFlags2.AltAttack));
+            AssertProtected(player, false);
+        }
+
+        [Fact]
+        public void SamusBoostChargeKeepsProtectionAndReleasedBoostClearsIt()
+        {
+            using var fixture = Open(MatchMode.Battle, SpawnPolicy.Classic);
+            PlayerEntity player = Activate(fixture, Hunter.Samus, true, alt: true);
+            int charge = SimTicks.From30HzFrames(player.Values.BoostChargeMin) + 2;
+            for (int tick = 0; tick < charge; tick++)
+                fixture.Input(player, InputButtons.Boost, tick == 0 ? InputButtons.Boost : InputButtons.None);
+            Assert.False(player.Flags1.TestFlag(PlayerFlags1.Boosting));
+            AssertProtected(player, true);
+            fixture.Input(player, InputButtons.None);
+            AssertProtected(player, false); // low-speed collision can clear Boosting again during this same tick.
+        }
+
+        [Fact]
+        public void SyluxSuccessfulBombDropClearsProtection()
+        {
+            using var fixture = Open(MatchMode.Battle, SpawnPolicy.Classic);
+            PlayerEntity player = Activate(fixture, Hunter.Sylux, true, alt: true);
+            AssertProtected(player, true);
+            fixture.Input(player, InputButtons.AltAttack, InputButtons.AltAttack);
+            Assert.Single(Bombs(fixture.Scene));
+            Assert.Equal(1, player.SyluxBombCount);
+            AssertProtected(player, false);
+        }
+
+        [Fact]
+        public void SyluxFullBombInventoryRejectsAdditionalAttackAndKeepsProtection()
+        {
+            using var fixture = Open(MatchMode.Battle, SpawnPolicy.Classic);
+            PlayerEntity player = Activate(fixture, Hunter.Sylux, true, alt: true);
+            var bombs = new List<BombEntity>();
+            for (int index = 0; index < 3; index++)
+            {
+                Matrix4 transform = Matrix4.CreateTranslation(player.Position + new Vector3(index * 0.25f, 0, 0));
+                BombEntity bomb = Assert.IsType<BombEntity>(BombEntity.Spawn(player, transform, fixture.Scene));
+                bomb.BombIndex = index;
+                player.SyluxBombs[index] = bomb;
+                player.SyluxBombCount++;
+                bombs.Add(bomb);
+            }
+            AssertProtected(player, true);
+            // The inventory refresh sets bomb ammo to zero before input. The legacy
+            // three-bomb detonation branch inside SpawnBomb is therefore not reachable
+            // through this fourth input; autonomous linking is a separate bomb pass.
+            fixture.Input(player, InputButtons.AltAttack, InputButtons.AltAttack, playerOnly: true);
+            Assert.All(bombs, bomb => Assert.True(bomb.Countdown > 0));
+            AssertProtected(player, true);
+        }
+
+        private static PlayerEntity Activate(SimulationFixture fixture, Hunter hunter, bool cancel, bool alt)
+        {
+            fixture.Scene.Match.ApplyRules(fixture.Scene.Match.Rules.With(cancelSpawnProtectionOnOffensiveAction: cancel));
+            PlayerEntity player = PlayerEntity.Players[0];
+            player.ServerActivate(0xABCD, hunter, -1);
+            if (alt) player.ModForceForm(true); // real form transition setup; the tested attack still uses normalized input.
+            Assert.Equal(alt, player.IsAltForm);
+            return player;
+        }
+
+        private static void AssertProtected(PlayerEntity player, bool expected)
+        {
+            int health = player.Health;
+            player.TakeDamage(1, DamageFlags.NoSfx | DamageFlags.NoDmgInvuln, null, null);
+            Assert.Equal(expected ? health : health - 1, player.Health);
+        }
+
+        private static List<BombEntity> Bombs(Scene scene)
+        {
+            var result = new List<BombEntity>();
+            foreach (BombEntity bomb in scene.GetBombEntities()) result.Add(bomb);
+            return result;
+        }
+
+        private static void SetActive(Scene scene, PlayerSpawnEntity point, bool active)
+            => point.HandleMessage(new MessageInfo(Message.SetActive, point, point, active ? 1 : 0, 0,
+                scene.FrameCount, scene.FrameCount));
+
+        // Frozen pre-director algorithm from b31bc57, intentionally kept separate from production helpers.
+        private static PlayerSpawnEntity? FrozenClassic(Scene scene, PlayerEntity requester)
+        {
+            int limit = 0;
+            var valid = new List<PlayerSpawnEntity>();
+            PlayerSpawnEntity? best = null;
+            float bestDistance = 0;
+            foreach (PlayerSpawnEntity candidate in scene.GetPlayerSpawnEntities())
+            {
+                if (limit >= 25) break;
+                if (!candidate.IsActive || candidate.Cooldown != 0 || scene.FrameCount == 0 && candidate.Availability)
+                { limit++; continue; }
+                if (scene.Match.Rules.Mode == MatchMode.Capture && candidate.Data.TeamIndex != -1
+                    && candidate.Data.TeamIndex != requester.TeamIndex)
+                { limit++; continue; }
+                float minimum = 100;
+                foreach (PlayerEntity player in scene.GetPlayerEntities())
+                    if (player.Health > 0)
+                    {
+                        Vector3 between = candidate.Position - player.Position;
+                        float distance = Vector3.Dot(between, between);
+                        if (distance < minimum) minimum = distance;
+                    }
+                if (minimum >= 100) valid.Add(candidate);
+                else if (minimum > bestDistance) { bestDistance = minimum; best = candidate; }
+                limit++;
+            }
+            PlayerSpawnEntity? chosen = valid.Count > 0 ? valid[(int)(scene.FrameCount % (ulong)valid.Count)] : best;
+            if (chosen == null)
+                foreach (PlayerSpawnEntity fallback in scene.GetPlayerSpawnEntities())
+                    if (fallback.IsActive) { chosen = fallback; break; }
+            return chosen;
+        }
+
         private static List<PlayerSpawnEntity> Spawns(Scene scene)
         {
             var result = new List<PlayerSpawnEntity>();
@@ -224,6 +485,21 @@ namespace MphRead.Tests
             throw new DirectoryNotFoundException("AMHE1 extracted content was not found.");
         }
 
+        private sealed class FireObserver : ISceneServices
+        {
+            private readonly ISceneServices _inner;
+            public int Attempts { get; private set; }
+            public FireObserver(ISceneServices inner) => _inner = inner;
+            public ICombatAuthority? Combat => _inner.Combat;
+            public bool ShouldLeaveAfterMatch => _inner.ShouldLeaveAfterMatch;
+            public bool KeepSlotAlive(PlayerEntity player) => _inner.KeepSlotAlive(player);
+            public void NoteFired(PlayerEntity shooter, Vector3 shot, Vector3 aim)
+            {
+                Attempts++;
+                _inner.NoteFired(shooter, shot, aim);
+            }
+        }
+
         private sealed class SimulationFixture : IDisposable
         {
             private readonly IDisposable _content;
@@ -247,6 +523,17 @@ namespace MphRead.Tests
                     _content.Dispose();
                     throw;
                 }
+            }
+
+            public void Input(PlayerEntity player, InputButtons held, InputButtons pressed = InputButtons.None,
+                bool playerOnly = false)
+            {
+                uint tick = unchecked((uint)Scene.FrameCount);
+                using var scope = _simulation.Combat.Enter(tick);
+                player.CaptureServerState();
+                player.ApplyNetworkInput(new InputCommand(tick, tick, tick, held, pressed, player.FacingVector, 255));
+                if (playerOnly) player.Process();
+                else Scene.StepHeadlessFrame(advanceMatch: false);
             }
 
             public void Dispose()

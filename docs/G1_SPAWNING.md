@@ -39,8 +39,19 @@ LastSelection exposes the selected weighted SpawnCandidate components, including
 
 ## Protection cancellation boundaries
 
-The option defaults to false even when Enhanced or Duel is selected. The private player hook clears only spawn protection, leaving damage invulnerability and all duration defaults intact. It runs after successful beam creation (after the NoSpawn early return), after a bomb is actually created, when Sylux explicitly detonates its existing three bombs, at accepted Spire/Trace/Weavel attacks, once Noxus reaches its active attack phase, and when a Samus boost starts. Failed fire/bomb creation, charge-only input, and Noxus windup do not cancel protection. Classic with the option false preserves existing protection behavior.
+The option defaults to false even when Enhanced or Duel is selected. The private player hook clears only spawn protection, leaving damage invulnerability and all duration defaults intact. It runs after successful beam creation (after the NoSpawn early return), after a bomb is actually created, inside Sylux's legacy explicit three-bomb detonation branch, at accepted Spire/Trace/Weavel attacks, once Noxus reaches its active attack phase, and when a Samus boost starts. Failed fire/bomb creation, charge-only input, and Noxus windup do not cancel protection. Classic with the option false preserves existing protection behavior.
 
 ## Protocol and validation
 
 The protocol owner is extending live MatchRules encoding and testing replica round trips; frozen protocol-7 demo rules retain Classic/false defaults. Completion requires those checks, the CLI tests, and real-content spawn behavior tests. Validation results are appended after they finish; this document does not claim live multiplayer balance or device evidence.
+
+
+### Real-content protection and Classic characterization
+
+`SpawnDirectorTests` now compares Classic selection to an independent frozen selector over six frame counts and five scenarios in both Battle and Capture: clear candidates, eight living players, all candidates on cooldown, an active fallback beyond the first 25 on the opposite team, and no active candidates. It checks the selected entity, cooldown, and unchanged director/global RNG streams. Synthetic spawn records are appended to the retail SANCTORUS scene through the real entity data constructor; room collision and player simulation use extracted AMHE1 content.
+
+Attack cases use actual normalized input and damage probes to verify successful missiles, bombs, Spire/Trace/Weavel attacks, Noxus windup versus activation, and Samus boost charge versus release. Failed bomb allocation exhausts and restores the real scene pool. The NoSpawn firing case invokes the private real `TryFireWeapon` method because ordinary player processing automatically switches away from an unaffordable weapon before input; it does not read or write the spawn-protection timer.
+
+A characterization exposed an existing Sylux boundary: `PlayerProcess` sets bomb ammo to `3 - SyluxBombCount`, then input requires positive bomb ammo before calling `SpawnBomb`. Thus the explicit three-bomb branch is unreachable through a normal fourth attack input; the autonomous bomb linking pass is separate. Tests preserve this guard and verify successful Sylux bomb placement cancels protection. No Sylux balance or inventory behavior was changed.
+
+Validation: all 17 `SpawnDirectorTests` passed with AMHE1 content in Release, rebuilding referenced projects. Log: `/tmp/codex-re-prime-g1/spawn-gaps-tests.log`. This is deterministic headless gameplay evidence, not a live-client or balance evaluation.
