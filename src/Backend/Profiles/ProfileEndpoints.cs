@@ -1,12 +1,15 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MphRead.Backend.Data;
+using MphRead.Backend.Matches;
 using MphRead.Identity;
 
 namespace MphRead.Backend.Profiles;
 
 public sealed record ProfilePatch(string? DisplayName, Hunter? FavoriteHunter);
-public sealed record LicenseResponse(PlayerId PlayerId, string DisplayName, Hunter FavoriteHunter, DateTimeOffset JoinedAt);
+public sealed record LicenseResponse(PlayerId PlayerId, string DisplayName, Hunter FavoriteHunter,
+    DateTimeOffset JoinedAt, int Points, int Tier, string Title, int? NextThreshold,
+    int? LastOfficialDelta, string Policy);
 
 public static class ProfileEndpoints
 {
@@ -51,9 +54,13 @@ public static class ProfileEndpoints
             var result = await (from profile in db.Profiles.AsNoTracking()
                 join license in db.Licenses.AsNoTracking() on profile.PlayerId equals license.PlayerId
                 where profile.PlayerId == playerId.Value
-                select new LicenseResponse(playerId, profile.DisplayName, profile.FavoriteHunter, license.CreatedAt))
+                select new { Profile = profile, License = license })
                 .SingleOrDefaultAsync(cancellationToken);
-            return result == null ? Results.NotFound() : Results.Ok(result);
+            if (result == null) return Results.NotFound();
+            RatingSummary rating = await RatingProjection.ReadSummaryAsync(db, result.License, cancellationToken);
+            return Results.Ok(new LicenseResponse(playerId, result.Profile.DisplayName,
+                result.Profile.FavoriteHunter, result.License.CreatedAt, rating.Points, rating.Tier,
+                rating.Title, rating.NextThreshold, rating.LastOfficialDelta, rating.Policy));
         }).RequireRateLimiting("api");
     }
 }

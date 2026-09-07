@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MphRead.Backend.Rating;
 
 namespace MphRead.Backend.Matches;
 
@@ -17,7 +18,48 @@ public sealed class AcceptedMatch
     public int Mode { get; set; }
     public int TrustClass { get; set; }
     public bool CareerEligible { get; set; }
-    public string RatingStatus { get; set; } = "policyPending";
+    public string RatingStatus { get; set; } = RatingProjection.IneligibleStatus;
+    public int RatingPolicyVersion { get; set; } = (int)MphRead.Backend.Rating.RatingPolicyVersion.PairwiseNormalizedV1;
+    public int? RatingIneligibilityReason { get; set; }
+}
+
+/// <summary>Immutable committed RP transition for one match participant.</summary>
+public sealed class RatingLedgerEntry
+{
+    public Guid MatchId { get; set; }
+    public Guid PlayerId { get; set; }
+    public long ProcessingOrder { get; set; }
+    public int PointsBefore { get; set; }
+    public int TierBefore { get; set; }
+    public int OpponentCount { get; set; }
+    public int RawDelta { get; set; }
+    public int NormalizedDelta { get; set; }
+    public int AppliedDelta { get; set; }
+    public int PointsAfter { get; set; }
+    public int TierAfter { get; set; }
+    public int PolicyVersion { get; set; }
+}
+
+/// <summary>Immutable pair evidence used to audit and rebuild a committed RP transition.</summary>
+public sealed class RatingPairLedgerEntry
+{
+    public Guid MatchId { get; set; }
+    public Guid PlayerId { get; set; }
+    public Guid OpponentPlayerId { get; set; }
+    public int OpponentPointsBefore { get; set; }
+    public int OpponentTierBefore { get; set; }
+    public int Result { get; set; }
+    public int Delta { get; set; }
+}
+
+public enum CareerOutcome
+{
+    FinishedWin,
+    FinishedLoss,
+    Tie,
+    Forfeit,
+    DepartedGraceExpired,
+    NoContest
 }
 
 public sealed class CareerParticipation
@@ -47,6 +89,7 @@ public sealed class CareerAggregate
     public long Matches { get; set; }
     public long Wins { get; set; }
     public long Ties { get; set; }
+    public long Losses { get; set; }
     public long PlayedTicks { get; set; }
     public long Kills { get; set; }
     public long Deaths { get; set; }
@@ -76,6 +119,20 @@ public static class MatchDataModel
             e.Property(x => x.PayloadHash).HasMaxLength(64);
             e.Property(x => x.RoomKey).HasMaxLength(128);
             e.Property(x => x.RatingStatus).HasMaxLength(32);
+            e.Property(x => x.RatingPolicyVersion).HasDefaultValue((int)MphRead.Backend.Rating.RatingPolicyVersion.PairwiseNormalizedV1);
+        });
+        model.Entity<RatingLedgerEntry>(e =>
+        {
+            e.ToTable("rating_transactions"); e.HasKey(x => new { x.MatchId, x.PlayerId });
+            e.HasIndex(x => new { x.PlayerId, x.ProcessingOrder }).IsUnique();
+            e.HasOne<AcceptedMatch>().WithMany().HasForeignKey(x => x.MatchId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Data.HunterLicense>().WithMany().HasForeignKey(x => x.PlayerId).OnDelete(DeleteBehavior.Restrict);
+        });
+        model.Entity<RatingPairLedgerEntry>(e =>
+        {
+            e.ToTable("rating_pair_contributions");
+            e.HasKey(x => new { x.MatchId, x.PlayerId, x.OpponentPlayerId });
+            e.HasOne<RatingLedgerEntry>().WithMany().HasForeignKey(x => new { x.MatchId, x.PlayerId }).OnDelete(DeleteBehavior.Restrict);
         });
         model.Entity<CareerParticipation>(e =>
         {

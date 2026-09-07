@@ -21,24 +21,40 @@ public static class CareerProjection
             var m = participant.Metrics;
             bool finished = participant.Outcome == ParticipantOutcome.Finished;
             int standing = report.Rules.Teams ? m.TeamStanding : m.Standing;
-            var opponents = report.Participants.Where(p => p.ParticipantId != participant.ParticipantId
+            var opponents = report.Participants.Where(p => p.StartedMatch
+                && p.ParticipantId != participant.ParticipantId
                 && (!report.Rules.Teams || p.Spans[0].TeamIndex != participant.Spans[0].TeamIndex)).ToArray();
-            bool tied = finished && standing == 0 && opponents.Any(p => p.Outcome == ParticipantOutcome.Finished
+            bool tied = finished && opponents.Any(p => p.Outcome == ParticipantOutcome.Finished
                 && (report.Rules.Teams ? p.Metrics.TeamStanding : p.Metrics.Standing) == standing);
             bool won = finished && standing == 0 && !tied && opponents.Length > 0;
+            CareerOutcome outcome = !accepted.CareerEligible || !participant.StartedMatch
+                ? CareerOutcome.NoContest
+                : participant.Outcome switch
+                {
+                    ParticipantOutcome.Finished when won => CareerOutcome.FinishedWin,
+                    ParticipantOutcome.Finished when tied => CareerOutcome.Tie,
+                    ParticipantOutcome.Finished => CareerOutcome.FinishedLoss,
+                    ParticipantOutcome.Forfeited when participant.OutcomeReason == ParticipantOutcomeReason.ReconnectGraceExpired
+                        => CareerOutcome.DepartedGraceExpired,
+                    ParticipantOutcome.Forfeited => CareerOutcome.Forfeit,
+                    _ => CareerOutcome.NoContest
+                };
+            bool eligible = outcome != CareerOutcome.NoContest;
+            bool lost = outcome is CareerOutcome.FinishedLoss or CareerOutcome.Forfeit or CareerOutcome.DepartedGraceExpired;
             db.Participations.Add(new CareerParticipation
             {
                 MatchId = report.MatchId, PlayerId = playerId, ProcessingOrder = accepted.ProcessingOrder,
-                Eligible = accepted.CareerEligible, Won = won, Tied = tied, Outcome = (int)participant.Outcome,
+                Eligible = eligible, Won = won, Tied = tied, Outcome = (int)outcome,
                 PlayedTicks = participant.PlayedTicks, Kills = m.Kills, Deaths = m.Deaths, Assists = m.Assists, Damage = m.DamageDealt
             });
-            if (!accepted.CareerEligible) continue;
+            if (!eligible) continue;
             foreach (int trust in IsOfficial(report.TrustClass) ? new[] { (int)report.TrustClass, OfficialScope } : new[] { (int)report.TrustClass })
             {
                 foreach (var dimension in new[] { ("career", "all"), ("map", report.Rules.RoomKey), ("mode", ((int)report.Rules.Mode).ToString()) })
                 {
                     var aggregate = await GetAsync(db, playerId, trust, dimension.Item1, dimension.Item2, ct);
                     aggregate.Matches++; aggregate.Wins += won ? 1 : 0; aggregate.Ties += tied ? 1 : 0;
+                    aggregate.Losses += lost ? 1 : 0;
                     aggregate.PlayedTicks += participant.PlayedTicks; aggregate.Kills += m.Kills;
                     aggregate.Deaths += m.Deaths; aggregate.Assists += m.Assists; aggregate.Damage += m.DamageDealt;
                     aggregate.OctolithScores += m.OctolithScores; aggregate.NodesCaptured += m.NodesCaptured; aggregate.KillsAsPrime += m.KillsAsPrime;
@@ -57,6 +73,7 @@ public static class CareerProjection
                     if (participant.Spans.All(s => s.Hunter == group.Key))
                     {
                         aggregate.OutcomeSamples++; aggregate.Wins += won ? 1 : 0; aggregate.Ties += tied ? 1 : 0;
+                        aggregate.Losses += lost ? 1 : 0;
                         aggregate.Kills += m.Kills; aggregate.Deaths += m.Deaths; aggregate.Assists += m.Assists;
                         aggregate.Damage += m.DamageDealt; aggregate.OctolithScores += m.OctolithScores; aggregate.NodesCaptured += m.NodesCaptured; aggregate.KillsAsPrime += m.KillsAsPrime;
                         aggregate.HeadshotKills += m.HeadshotKills;
@@ -65,6 +82,7 @@ public static class CareerProjection
                 }
                 for (int i = 0; i < m.BeamKills.Length; i++)
                 {
+                    if (m.BeamKills[i] <= 0) continue;
                     var aggregate = await GetAsync(db, playerId, trust, "weapon", i.ToString(), ct);
                     aggregate.Matches++; aggregate.Kills += m.BeamKills[i];
                 }

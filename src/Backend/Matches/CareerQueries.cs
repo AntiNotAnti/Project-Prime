@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MphRead.Backend.Data;
+using MphRead.Backend.Rating;
 using MphRead.Identity;
 
 namespace MphRead.Backend.Matches;
@@ -7,11 +8,11 @@ namespace MphRead.Backend.Matches;
 public sealed record CareerTotals(long Matches, long Wins, long Ties, long PlayedTicks, long Kills,
     long Deaths, long Assists, long Damage, long Losses, long HeadshotKills, long? BipedKills, long? AltFormKills,
     long LongestKillStreak, long LongestWinStreak, decimal? KillDeathRatio, decimal? WinRatio);
-public sealed record CareerChoice(string Key, long Samples, long Value);
+public sealed record CareerChoice(string Key, long Samples, long Value, long? MatchesUsed = null);
 public sealed record CareerView(string Scope, MatchTrustClass? TrustClass, CareerTotals Totals,
     CareerChoice? MostPlayedHunter, CareerChoice? FavoriteMap, CareerChoice? FavoriteMode,
     CareerChoice? FavoriteWeapon, CareerChoice? BestMap, CareerChoice? BestHunter, int BestMinimumMatches,
-    string RatingStatus = "policyPending", object? Rating = null);
+    string RatingStatus, RatingSummary Rating);
 
 public static class CareerQueries
 {
@@ -21,12 +22,15 @@ public static class CareerQueries
         MatchTrustClass? trust, CancellationToken ct)
     {
         var rows = await db.Aggregates.AsNoTracking().Where(x => x.PlayerId == player && (trust.HasValue ? x.TrustClass == (int)trust.Value : x.TrustClass == CareerProjection.OfficialScope)).ToListAsync(ct);
+        HunterLicense license = await db.Licenses.AsNoTracking().SingleAsync(x => x.PlayerId == player, ct);
+        RatingSummary rating = await RatingProjection.ReadSummaryAsync(db, license, ct);
         var career = rows.SingleOrDefault(x => x.Dimension == "career");
         CareerChoice? Favorite(string dimension, Func<CareerAggregate, long> score)
         {
             var row = rows.Where(x => x.Dimension == dimension && score(x) > 0)
                 .OrderByDescending(score).ThenBy(x => x.Key, StringComparer.Ordinal).FirstOrDefault();
-            return row == null ? null : new(row.Key, row.Matches, score(row));
+            return row == null ? null : new(row.Key, row.Matches, score(row),
+                dimension == "weapon" ? row.Matches : null);
         }
         var best = rows.Where(x => x.Dimension == "map" && x.Matches >= BestMinimumMatches)
             .OrderByDescending(x => (decimal)x.Wins / x.Matches).ThenByDescending(x => x.Matches)
@@ -35,13 +39,14 @@ public static class CareerQueries
             .OrderByDescending(x => (decimal)x.Wins / x.OutcomeSamples).ThenByDescending(x => x.OutcomeSamples)
             .ThenBy(x => x.Key, StringComparer.Ordinal).FirstOrDefault();
         return new(trust.HasValue ? "trustClass" : "official", trust, career == null ? new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, null)
-            : new(career.Matches, career.Wins, career.Ties, career.PlayedTicks, career.Kills, career.Deaths, career.Assists, career.Damage, career.Matches - career.Wins - career.Ties,
+            : new(career.Matches, career.Wins, career.Ties, career.PlayedTicks, career.Kills, career.Deaths, career.Assists, career.Damage, career.Losses,
                 career.HeadshotKills, career.BipedKills, career.AltFormKills, career.LongestKillStreak,
                 career.LongestWinStreak, career.Deaths > 0 ? (decimal)career.Kills / career.Deaths : null,
                 career.Matches > 0 ? (decimal)career.Wins / career.Matches : null),
             Favorite("hunter", x => x.PlayedTicks), Favorite("map", x => x.PlayedTicks),
             Favorite("mode", x => x.PlayedTicks), Favorite("weapon", x => x.Kills),
-            best == null ? null : new(best.Key, best.Matches, best.Wins), bestHunter == null ? null : new(bestHunter.Key, bestHunter.OutcomeSamples, bestHunter.Wins), BestMinimumMatches);
+            best == null ? null : new(best.Key, best.Matches, best.Wins), bestHunter == null ? null : new(bestHunter.Key, bestHunter.OutcomeSamples, bestHunter.Wins), BestMinimumMatches,
+            "active", rating);
     }
 
     public static void MapCareerQueries(this WebApplication app)
@@ -92,8 +97,36 @@ public static class CareerQueries
                 || after.Metric != metric || after.TrustClass != trustClass || after.Hunter != hunter) return Results.BadRequest();
         }
         string scope = trustClass.HasValue ? "trustClass" : "official";
-        if (metric == "rp") return Results.Ok(new { Metric = metric, Scope = scope, TrustClass = trustClass,
-            RatingStatus = "policyPending", Entries = Array.Empty<object>(), NextCursor = (string?)null });
+        if (metric == "rp")
+        {
+            if (trustClass.HasValue || hunter.HasValue) return Results.BadRequest();
+            var ratings = from license in db.Licenses.AsNoTracking()
+                join profile in db.Profiles.AsNoTracking() on license.PlayerId equals profile.PlayerId
+                select new
+                {
+                    license.PlayerId, profile.DisplayName, Kills = 0L, Deaths = 0L, Wins = 0L,
+                    Matches = 0L, AttributedMatches = 0L, Score = (decimal)license.RatingPoints,
+                    Points = license.RatingPoints
+                };
+            if (after != null) ratings = ratings.Where(x => x.Score < after.Score
+                || x.Score == after.Score && x.PlayerId.CompareTo(after.PlayerId) > 0);
+            int ratingCount = limit ?? 25;
+            var ratingRows = await ratings.OrderByDescending(x => x.Score).ThenBy(x => x.PlayerId)
+                .Take(ratingCount + 1).ToListAsync(ct);
+            bool ratingMore = ratingRows.Count > ratingCount;
+            if (ratingMore) ratingRows.RemoveAt(ratingCount);
+            var entries = ratingRows.Select(x => new
+            {
+                x.PlayerId, x.DisplayName, x.Kills, x.Deaths, x.Wins, x.Matches, x.AttributedMatches,
+                x.Score, x.Points, Tier = RetailPointMatrix.TierForPoints(x.Points),
+                Title = RatingProjection.Title(RetailPointMatrix.TierForPoints(x.Points))
+            }).ToArray();
+            string? ratingNext = ratingMore ? Convert.ToBase64String(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(
+                new BoardCursor(ratingRows[^1].Score, ratingRows[^1].PlayerId, metric, trustClass, hunter))) : null;
+            return Results.Ok(new { Metric = metric, Scope = scope, TrustClass = trustClass,
+                RatingStatus = "active", Policy = RatingPolicyVersion.PairwiseNormalizedV1.ToString(),
+                Entries = entries, NextCursor = ratingNext });
+        }
         var totals = db.Aggregates.AsNoTracking().Where(a => (hunter.HasValue ? a.Dimension == "hunter" && a.Key == ((int)hunter.Value).ToString() : a.Dimension == "career")
             && (trustClass.HasValue ? a.TrustClass == (int)trustClass.Value : a.TrustClass == CareerProjection.OfficialScope))
             .Select(a => new { a.PlayerId, a.Kills, a.Deaths, a.Wins, a.Matches, a.OutcomeSamples,

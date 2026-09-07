@@ -18,6 +18,13 @@ public sealed class HunterLicense
 {
     public Guid PlayerId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    public int RatingPoints { get; set; }
+}
+
+public sealed class CareerProjectionState
+{
+    public int Id { get; set; } = 1;
+    public bool RebuildRequired { get; set; } = true;
 }
 
 public sealed class BackendDbContext(DbContextOptions<BackendDbContext> options)
@@ -28,6 +35,9 @@ public sealed class BackendDbContext(DbContextOptions<BackendDbContext> options)
     public DbSet<CareerAggregate> Aggregates => Set<CareerAggregate>();
     public DbSet<PlayerProfile> Profiles => Set<PlayerProfile>();
     public DbSet<HunterLicense> Licenses => Set<HunterLicense>();
+    public DbSet<RatingLedgerEntry> RatingTransactions => Set<RatingLedgerEntry>();
+    public DbSet<RatingPairLedgerEntry> RatingPairContributions => Set<RatingPairLedgerEntry>();
+    public DbSet<CareerProjectionState> ProjectionStates => Set<CareerProjectionState>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -49,6 +59,12 @@ public sealed class BackendDbContext(DbContextOptions<BackendDbContext> options)
             entity.ToTable("hunter_licenses");
             entity.HasKey(x => x.PlayerId);
             entity.HasOne<HunterAccount>().WithOne().HasForeignKey<HunterLicense>(x => x.PlayerId);
+        });
+        builder.Entity<CareerProjectionState>(entity =>
+        {
+            entity.ToTable("career_projection_state");
+            entity.HasKey(x => x.Id);
+            entity.HasData(new CareerProjectionState());
         });
     }
 }

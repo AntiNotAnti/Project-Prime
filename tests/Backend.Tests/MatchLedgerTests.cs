@@ -87,7 +87,9 @@ public sealed class MatchLedgerTests
         Assert.Equal(HttpStatusCode.Unauthorized, (await Submit(client, report, "wrong")).StatusCode);
         var first = await Submit(client, report); Assert.Equal(HttpStatusCode.Created, first.StatusCode);
         var receipt = await first.Content.ReadFromJsonAsync<MatchReceipt>();
-        Assert.NotNull(receipt); Assert.Null(receipt.Rating); Assert.Equal("policyPending", receipt.RatingStatus);
+        Assert.NotNull(receipt); Assert.Equal("ineligible", receipt.RatingStatus);
+        Assert.Equal("LegacyReport", receipt.Rating.IneligibilityReason);
+        Assert.Empty(receipt.Rating.Transactions);
         Assert.Equal(HttpStatusCode.OK, (await Submit(client, report)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await Submit(client, report with { BuildVersion = "changed" })).StatusCode);
         using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<BackendDbContext>();

@@ -17,7 +17,7 @@ public sealed class PersistenceBoundaryTests
     {
         using var db = new BackendDbContext(new DbContextOptionsBuilder<BackendDbContext>()
             .UseNpgsql("Host=unused;Database=offline_model_only").Options);
-        Assert.Equal(3, db.Database.GetMigrations().Count());
+        Assert.Equal(4, db.Database.GetMigrations().Count());
         Assert.False(db.Database.HasPendingModelChanges());
         string sql = db.GetService<IMigrator>().GenerateScript(options: MigrationsSqlGenerationOptions.Idempotent);
         Assert.Contains("CREATE TABLE players", sql);
@@ -27,6 +27,8 @@ public sealed class PersistenceBoundaryTests
         Assert.Contains("FOREIGN KEY (\"PlayerId\") REFERENCES players (\"Id\")", sql);
         Assert.Contains("uuid NOT NULL", sql);
         Assert.Contains("CREATE TABLE accepted_matches", sql);
+        Assert.Contains("CREATE TABLE rating_transactions", sql);
+        Assert.Contains("CREATE TABLE rating_pair_contributions", sql);
     }
 
     [Fact]

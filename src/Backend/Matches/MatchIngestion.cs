@@ -4,12 +4,13 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using MphRead.Backend.Data;
+using MphRead.Backend.Rating;
 using MphRead.Identity;
 
 namespace MphRead.Backend.Matches;
 
 public sealed record MatchReceipt(Guid MatchId, string PayloadHash, long ProcessingOrder,
-    string RatingStatus, object? Rating = null);
+    string RatingStatus, RatingReceipt Rating);
 public sealed record IngestionResult(int StatusCode, MatchReceipt? Receipt = null, string? Error = null);
 
 public sealed class MatchIngestion(BackendDbContext db, TimeProvider clock)
@@ -47,7 +48,7 @@ public sealed class MatchIngestion(BackendDbContext db, TimeProvider clock)
         var existing = await db.Matches.AsNoTracking().SingleOrDefaultAsync(m => m.MatchId == matchId, ct);
         if (existing != null)
             return existing.ServerId == serverId && existing.PayloadHash == hash
-                ? new(200, Receipt(existing)) : new(409, Error: "MatchId already contains a different report.");
+                ? new(200, await ReceiptAsync(existing, ct)) : new(409, Error: "MatchId already contains a different report.");
 
         if (!ReportValidation.Validate(report, serverId, trust, clock.GetUtcNow()))
             return new(400, Error: "Invalid authoritative report facts.");
@@ -56,6 +57,7 @@ public sealed class MatchIngestion(BackendDbContext db, TimeProvider clock)
         var effective = report with { TrustClass = trust };
         Guid[] players = report.Participants.Where(p => p.PlayerId.HasValue).Select(p => p.PlayerId!.Value.Value)
             .OrderBy(id => id.ToString("D"), StringComparer.Ordinal).ToArray();
+        var licenses = new Dictionary<Guid, HunterLicense>();
         foreach (Guid player in players)
         {
             // Every aggregate update (and future approved current-balance rating calculation)
@@ -64,24 +66,32 @@ public sealed class MatchIngestion(BackendDbContext db, TimeProvider clock)
                 ? await db.Licenses.FromSqlInterpolated($"SELECT * FROM hunter_licenses WHERE \"PlayerId\" = {player} FOR UPDATE").SingleOrDefaultAsync(ct)
                 : await db.Licenses.SingleOrDefaultAsync(p => p.PlayerId == player, ct);
             if (license == null) return new(400, Error: "Report contains an unknown registered player.");
+            licenses.Add(player, license);
         }
+        RatingCalculation rating = RatingProjection.Calculate(effective, licenses);
         var accepted = new AcceptedMatch
         {
             MatchId = matchId, ServerId = serverId, ServerIncarnation = report.ServerIncarnation,
             PayloadHash = hash, OriginalReport = payload, AcceptedAt = clock.GetUtcNow(), EndedAt = report.EndedAtUtc,
             RoomKey = report.Rules.RoomKey, Mode = (int)report.Rules.Mode, TrustClass = (int)trust,
-            CareerEligible = CareerProjection.IsEligible(effective)
+            CareerEligible = CareerProjection.IsEligible(effective),
+            RatingStatus = rating.IsEligible ? RatingProjection.AppliedStatus : RatingProjection.IneligibleStatus,
+            RatingPolicyVersion = (int)rating.PolicyVersion,
+            RatingIneligibilityReason = rating.IsEligible ? null : (int)rating.Eligibility.Reason
         };
         // SQLite is used only by focused HTTP tests. Production PostgreSQL owns its sequence.
         if (!db.Database.IsNpgsql()) accepted.ProcessingOrder = (await db.Matches.MaxAsync(m => (long?)m.ProcessingOrder, ct) ?? 0) + 1;
         db.Matches.Add(accepted);
         await db.SaveChangesAsync(ct);
+        RatingProjection.Apply(db, accepted, rating, licenses);
         await CareerProjection.ApplyAsync(db, accepted, effective, ct);
         await db.SaveChangesAsync(ct);
+        MatchReceipt receipt = await ReceiptAsync(accepted, ct);
         await transaction.CommitAsync(ct);
-        return new(201, Receipt(accepted));
+        return new(201, receipt);
     }
 
-    public static MatchReceipt Receipt(AcceptedMatch match) => new(match.MatchId, match.PayloadHash,
-        match.ProcessingOrder, match.RatingStatus);
+    private async Task<MatchReceipt> ReceiptAsync(AcceptedMatch match, CancellationToken ct) => new(
+        match.MatchId, match.PayloadHash, match.ProcessingOrder, match.RatingStatus,
+        await RatingProjection.ReadReceiptAsync(db, match, ct));
 }
