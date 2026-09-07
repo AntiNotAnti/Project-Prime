@@ -38,12 +38,16 @@ public sealed class CareerQueryTests
             mostPlayedHunter = new { key = "0", samples = 12L, value = 5200L },
             favoriteMap = new { key = "Arcterra", samples = 4L, value = 2100L },
             favoriteMode = new { key = "0", samples = 8L, value = 3200L },
-            favoriteWeapon = (object?)null,
+            favoriteWeapon = new { key = "2", samples = 3L, value = 9L, matchesUsed = 3L },
             bestMap = (object?)null,
             bestHunter = (object?)null,
             bestMinimumMatches = 10,
-            ratingStatus = "policyPending",
-            rating = (object?)null
+            ratingStatus = "active",
+            rating = new
+            {
+                points = 390, tier = 4, title = "Master Hunter", nextThreshold = (int?)750,
+                lastOfficialDelta = (int?)-2, policy = "PairwiseNormalizedV1"
+            }
         })));
         using var session = new AccountSession(new Uri("https://accounts.example.test/"), handler);
 
@@ -60,8 +64,15 @@ public sealed class CareerQueryTests
         Assert.Equal(5200, career.MostPlayedHunter.Value);
         Assert.Null(career.Totals.BipedKills);
         Assert.Null(career.Totals.AltFormKills);
-        Assert.Null(career.FavoriteWeapon);
-        Assert.Equal("policyPending", career.RatingStatus);
+        Assert.Equal(3, career.FavoriteWeapon!.MatchesUsed);
+        Assert.Equal(9, career.FavoriteWeapon.Value);
+        Assert.Equal("active", career.RatingStatus);
+        Assert.Equal(390, career.Rating.Points);
+        Assert.Equal(4, career.Rating.Tier);
+        Assert.Equal("Master Hunter", career.Rating.Title);
+        Assert.Equal(750, career.Rating.NextThreshold);
+        Assert.Equal(-2, career.Rating.LastOfficialDelta);
+        Assert.Equal("PairwiseNormalizedV1", career.Rating.Policy);
         RequestLog request = Assert.Single(handler.Snapshot());
         Assert.Equal($"/v1/players/{Player}/career", request.Uri.AbsolutePath);
         Assert.Null(request.Authorization);
@@ -88,8 +99,12 @@ public sealed class CareerQueryTests
             bestMap = (object?)null,
             bestHunter = (object?)null,
             bestMinimumMatches = 10,
-            ratingStatus = "policyPending",
-            rating = (object?)null
+            ratingStatus = "active",
+            rating = new
+            {
+                points = 0, tier = 1, title = "Bounty Hunter", nextThreshold = (int?)40,
+                lastOfficialDelta = (int?)null, policy = "PairwiseNormalizedV1"
+            }
         })));
         using var session = new AccountSession(new Uri("https://accounts.example.test/"), handler);
 
@@ -122,7 +137,9 @@ public sealed class CareerQueryTests
                 trustClass = (int?)null,
                 entries = Array.Empty<object>(),
                 nextCursor = (string?)null,
-                ratingStatus = metric == "rp" ? "policyPending" : null
+                hunter = (int?)null,
+                ratingStatus = metric == "rp" ? "active" : null,
+                policy = metric == "rp" ? "PairwiseNormalizedV1" : null
             }));
         });
         using var session = new AccountSession(new Uri("https://accounts.example.test/"), handler);
@@ -155,8 +172,16 @@ public sealed class CareerQueryTests
             Assert.Equal("0", QueryValue(request.RequestUri!, "hunter"));
             return Task.FromResult(JsonResponse(new
             {
-                metric = "kills", scope = "official", trustClass = (int?)null,
-                entries = Array.Empty<object>(), nextCursor = "next-page"
+                metric = "kills", scope = "official", trustClass = (int?)null, hunter = (int?)Hunter.Samus,
+                entries = new[]
+                {
+                    new
+                    {
+                        playerId = Player, displayName = "Hunter", kills = 2L, deaths = 1L,
+                        wins = 1L, matches = 1L, attributedMatches = 1L, score = 2m
+                    }
+                },
+                nextCursor = "next-page"
             }));
         });
         using var session = new AccountSession(new Uri("https://accounts.example.test/"), handler);
@@ -176,11 +201,12 @@ public sealed class CareerQueryTests
         {
             playerId = new PlayerId(Guid.Parse($"22222222-2222-2222-2222-{index + 1:000000000000}")),
             displayName = "Player" + index.ToString(CultureInfo.InvariantCulture),
-            kills = 26L - index, deaths = 1L, wins = 1L, matches = 1L, score = (decimal)(26 - index)
+            kills = 26L - index, deaths = 1L, wins = 1L, matches = 1L,
+            attributedMatches = 1L, score = (decimal)(26 - index)
         }).ToArray();
         var oversized = new RecordingHandler((_, _) => Task.FromResult(JsonResponse(new
         {
-            metric = "kills", scope = "official", trustClass = (int?)null,
+            metric = "kills", scope = "official", trustClass = (int?)null, hunter = (int?)null,
             entries, nextCursor = (string?)null
         })));
         using (var session = new AccountSession(new Uri("https://accounts.example.test/"), oversized))
@@ -190,11 +216,44 @@ public sealed class CareerQueryTests
 
         var repeated = new RecordingHandler((_, _) => Task.FromResult(JsonResponse(new
         {
-            metric = "kills", scope = "official", trustClass = (int?)null,
+            metric = "kills", scope = "official", trustClass = (int?)null, hunter = (int?)null,
             entries = Array.Empty<object>(), nextCursor = "same"
         })));
         using var repeatedSession = new AccountSession(new Uri("https://accounts.example.test/"), repeated);
         await Assert.ThrowsAsync<InvalidOperationException>(() => repeatedSession.GetLeaderboardAsync("kills", "same"));
+    }
+
+    [Fact]
+    public async Task RpLeaderboardMapsAuthoritativePointsTierTitleAndPolicy()
+    {
+        var handler = new RecordingHandler((_, _) => Task.FromResult(JsonResponse(new
+        {
+            metric = "rp",
+            scope = "official",
+            trustClass = (int?)null,
+            ratingStatus = "active",
+            policy = "PairwiseNormalizedV1",
+            entries = new[]
+            {
+                new
+                {
+                    playerId = Player, displayName = "Hunter", kills = 0L, deaths = 0L,
+                    wins = 0L, matches = 0L, attributedMatches = 0L, score = 750m,
+                    points = 750, tier = 5, title = "Legendary Hunter"
+                }
+            },
+            nextCursor = (string?)null
+        })));
+        using var session = new AccountSession(new Uri("https://accounts.example.test/"), handler);
+
+        LeaderboardPage page = await session.GetLeaderboardAsync("rp");
+
+        LeaderboardEntry entry = Assert.Single(page.Entries);
+        Assert.Equal(750, entry.Points);
+        Assert.Equal(5, entry.Tier);
+        Assert.Equal("Legendary Hunter", entry.Title);
+        Assert.Equal("PairwiseNormalizedV1", page.Policy);
+        Assert.Equal("active", page.RatingStatus);
     }
 
     [Fact]
@@ -238,6 +297,85 @@ public sealed class CareerQueryTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => session.GetHistoryAsync(Player));
     }
 
+    [Theory]
+    [InlineData(CareerOutcome.FinishedWin, true, true, false)]
+    [InlineData(CareerOutcome.FinishedLoss, true, false, false)]
+    [InlineData(CareerOutcome.Tie, true, false, true)]
+    [InlineData(CareerOutcome.Forfeit, true, false, false)]
+    [InlineData(CareerOutcome.DepartedGraceExpired, true, false, false)]
+    [InlineData(CareerOutcome.NoContest, false, false, false)]
+    public async Task HistoryMapsExplicitCareerOutcome(CareerOutcome outcome, bool eligible, bool won, bool tied)
+    {
+        var handler = new RecordingHandler((_, _) => Task.FromResult(JsonResponse(new
+        {
+            entries = new[] { HistoryEntry(10, "room", outcome, eligible, won, tied) },
+            nextCursor = (long?)null
+        })));
+        using var session = new AccountSession(new Uri("https://accounts.example.test/"), handler);
+
+        MatchHistoryPage page = await session.GetHistoryAsync(Player);
+
+        Assert.Equal(outcome, Assert.Single(page.Entries).Outcome);
+    }
+
+    [Fact]
+    public async Task CareerRejectsMissingRatingAndUnprovenWeaponMatchesUsed()
+    {
+        object Totals() => new
+        {
+            matches = 1L, wins = 1L, ties = 0L, playedTicks = 600L, kills = 1L,
+            deaths = 0L, assists = 0L, damage = 10L, losses = 0L, headshotKills = 0L,
+            bipedKills = (long?)null, altFormKills = (long?)null, longestKillStreak = 1L,
+            longestWinStreak = 1L, killDeathRatio = (decimal?)null, winRatio = (decimal?)1m
+        };
+        var missingRating = new RecordingHandler((_, _) => Task.FromResult(JsonResponse(new
+        {
+            scope = "official", trustClass = (int?)null, totals = Totals(),
+            mostPlayedHunter = (object?)null, favoriteMap = (object?)null, favoriteMode = (object?)null,
+            favoriteWeapon = (object?)null, bestMap = (object?)null, bestHunter = (object?)null,
+            bestMinimumMatches = 10, ratingStatus = "active"
+        })));
+        using (var session = new AccountSession(new Uri("https://accounts.example.test/"), missingRating))
+        {
+            await Assert.ThrowsAsync<JsonException>(() => session.GetCareerAsync(Player));
+        }
+
+        var unprovenWeapon = new RecordingHandler((_, _) => Task.FromResult(JsonResponse(new
+        {
+            scope = "official", trustClass = (int?)null, totals = Totals(),
+            mostPlayedHunter = (object?)null, favoriteMap = (object?)null, favoriteMode = (object?)null,
+            favoriteWeapon = new { key = "1", samples = 1L, value = 1L },
+            bestMap = (object?)null, bestHunter = (object?)null, bestMinimumMatches = 10,
+            ratingStatus = "active", rating = new
+            {
+                points = 40, tier = 2, title = "Super Hunter", nextThreshold = (int?)140,
+                lastOfficialDelta = (int?)1, policy = "PairwiseNormalizedV1"
+            }
+        })));
+        using var invalid = new AccountSession(new Uri("https://accounts.example.test/"), unprovenWeapon);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => invalid.GetCareerAsync(Player));
+    }
+
+    [Fact]
+    public async Task CareerRequestPropagatesCancellation()
+    {
+        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new RecordingHandler(async (_, cancel) =>
+        {
+            requestStarted.SetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancel);
+            throw new InvalidOperationException("Canceled career request continued.");
+        });
+        using var session = new AccountSession(new Uri("https://accounts.example.test/"), handler);
+        using var stop = new CancellationTokenSource();
+
+        Task request = session.GetCareerAsync(Player, stop.Token);
+        await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        stop.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => request);
+    }
+
     [Fact]
     public async Task LeaderboardArgumentsRejectInvalidCategoriesHuntersAndCursors()
     {
@@ -248,27 +386,35 @@ public sealed class CareerQueryTests
         await Assert.ThrowsAsync<ArgumentException>(() => session.GetLeaderboardAsync("kills", ""));
         await Assert.ThrowsAsync<ArgumentException>(() => session.GetLeaderboardAsync("kills", new string('x', 257)));
         await Assert.ThrowsAsync<ArgumentException>(() => session.GetLeaderboardAsync("kills", hunter: (Hunter)7));
+        await Assert.ThrowsAsync<ArgumentException>(() => session.GetLeaderboardAsync("rp", hunter: Hunter.Samus));
     }
 
-    private static object HistoryEntry(long order, string room) => new
+    private static object HistoryEntry(long order, string room, CareerOutcome? explicitOutcome = null,
+        bool? explicitEligible = null, bool? explicitWon = null, bool? explicitTied = null)
     {
-        matchId = Guid.Parse($"33333333-3333-3333-3333-{order:000000000000}"),
-        processingOrder = order,
-        endedAt = MatchEnded.AddMinutes(-order),
-        roomKey = room,
-        mode = (int)MatchMode.Battle,
-        trustClass = (int)MatchTrustClass.VerifiedCasual,
-        eligible = true,
-        won = order == 30,
-        tied = false,
-        outcome = (int)ParticipantOutcome.Finished,
-        playedTicks = 600L,
-        kills = order,
-        deaths = 2L,
-        assists = 1L,
-        damage = 1000L,
-        ratingStatus = "policyPending"
-    };
+        bool won = explicitWon ?? order == 30;
+        bool tied = explicitTied ?? false;
+        CareerOutcome outcome = explicitOutcome ?? (won ? CareerOutcome.FinishedWin : CareerOutcome.FinishedLoss);
+        return new
+        {
+            matchId = Guid.Parse($"33333333-3333-3333-3333-{order:000000000000}"),
+            processingOrder = order,
+            endedAt = MatchEnded.AddMinutes(-order),
+            roomKey = room,
+            mode = (int)MatchMode.Battle,
+            trustClass = (int)MatchTrustClass.VerifiedCasual,
+            eligible = explicitEligible ?? true,
+            won,
+            tied,
+            outcome = (int)outcome,
+            playedTicks = 600L,
+            kills = order,
+            deaths = 2L,
+            assists = 1L,
+            damage = 1000L,
+            ratingStatus = outcome == CareerOutcome.NoContest ? "ineligible" : "applied"
+        };
+    }
 
     private static string? QueryValue(Uri uri, string key)
     {

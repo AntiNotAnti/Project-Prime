@@ -6,6 +6,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Identity;
@@ -14,7 +15,17 @@ using MphRead.Mods.Network;
 namespace MphRead.Mods.Accounts;
 
 public sealed record AccountIdentity(PlayerId PlayerId, bool EmailConfirmed, bool EmailEligibleForOfficialPlay);
-public sealed record HunterLicense(PlayerId PlayerId, string DisplayName, int? FavoriteHunter, DateTimeOffset JoinedAt);
+public sealed record HunterLicense(
+    [property: JsonRequired] PlayerId PlayerId,
+    [property: JsonRequired] string DisplayName,
+    [property: JsonRequired] int? FavoriteHunter,
+    [property: JsonRequired] DateTimeOffset JoinedAt,
+    [property: JsonRequired] int Points = 0,
+    [property: JsonRequired] int Tier = 1,
+    [property: JsonRequired] string Title = "Bounty Hunter",
+    [property: JsonRequired] int? NextThreshold = 40,
+    [property: JsonRequired] int? LastOfficialDelta = null,
+    [property: JsonRequired] string Policy = "PairwiseNormalizedV1");
 public sealed record AccountRegistration(PlayerId PlayerId, bool ConfirmationRequired);
 public sealed record GameTicket(string Ticket, DateTimeOffset ExpiresAt, Guid ServerId, Guid ServerIncarnation,
     string PublicAddress = "", int PublicPort = 0)
@@ -32,7 +43,8 @@ public sealed record GameTicket(string Ticket, DateTimeOffset ExpiresAt, Guid Se
     }
 }
 
-/// <summary>Account credentials live only in memory and are sent only to the configured backend.</summary>
+/// <summary>Account credentials are sent only to the configured backend. Only refresh material may
+/// cross the protected-storage boundary; passwords and access tokens remain in memory.</summary>
 public sealed partial class AccountSession : IDisposable
 {
     private sealed record Tokens(string TokenType, string AccessToken, int ExpiresIn, string RefreshToken)
@@ -42,14 +54,17 @@ public sealed partial class AccountSession : IDisposable
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly HttpClient _http;
     private readonly SemaphoreSlim _tokensGate = new(1, 1);
+    private readonly ISecureSessionStore _sessionStore;
     private readonly TimeProvider _time;
     private Tokens? _tokens;
     private DateTimeOffset _expires;
     public Uri Backend { get; }
+    public string BackendScope => Backend.AbsoluteUri;
     public AccountIdentity? Identity { get; private set; }
     public bool IsSignedIn => Identity != null && _tokens != null;
 
-    public AccountSession(Uri backend, HttpMessageHandler? handler = null, TimeProvider? time = null)
+    public AccountSession(Uri backend, HttpMessageHandler? handler = null, TimeProvider? time = null,
+        ISecureSessionStore? sessionStore = null)
     {
         if (!IsAllowedBackend(backend)) throw new ArgumentException("Use an HTTPS backend URL, or HTTP on loopback for local testing.", nameof(backend));
         Backend = new Uri(backend.AbsoluteUri.TrimEnd('/') + "/");
@@ -57,6 +72,7 @@ public sealed partial class AccountSession : IDisposable
         _http.BaseAddress = Backend;
         _http.Timeout = TimeSpan.FromSeconds(15);
         _time = time ?? TimeProvider.System;
+        _sessionStore = sessionStore ?? new MemoryOnlySessionStore();
     }
 
     public static bool IsAllowedBackend(Uri? uri) => uri is { IsAbsoluteUri: true }
@@ -71,20 +87,104 @@ public sealed partial class AccountSession : IDisposable
         await _tokensGate.WaitAsync(cancel).ConfigureAwait(false);
         try
         {
-            Identity = null;
-            _tokens = null;
-            SetTokens(await SendAsync<Tokens>(HttpMethod.Post, "v1/auth/login", new { email, password }, null, cancel).ConfigureAwait(false));
-            Identity = await SendAsync<AccountIdentity>(HttpMethod.Get, "v1/me", null, _tokens!.AccessToken, cancel).ConfigureAwait(false);
-            if (Identity.PlayerId.IsEmpty) throw new InvalidOperationException("The backend returned an invalid account identity.");
+            ResetMemory();
+            await _sessionStore.DeleteAsync(BackendScope, cancel).ConfigureAwait(false);
+            Tokens tokens = ValidateTokens(await SendAsync<Tokens>(HttpMethod.Post, "v1/auth/login",
+                new { email, password }, null, cancel).ConfigureAwait(false));
+            AccountIdentity identity = ValidateIdentity(await SendAsync<AccountIdentity>(HttpMethod.Get,
+                "v1/me", null, tokens.AccessToken, cancel).ConfigureAwait(false));
+            await PersistAsync(tokens.RefreshToken, cancel).ConfigureAwait(false);
+            SetMemory(tokens, identity);
         }
-        catch { _tokens = null; Identity = null; throw; }
+        catch { ResetMemory(); throw; }
+        finally { _tokensGate.Release(); }
+    }
+
+    /// <summary>Attempts automatic sign-in from protected refresh material.</summary>
+    public async Task<bool> RestoreAsync(CancellationToken cancel = default)
+    {
+        await _tokensGate.WaitAsync(cancel).ConfigureAwait(false);
+        try
+        {
+            ResetMemory();
+            byte[]? record = await _sessionStore.ReadAsync(BackendScope, cancel).ConfigureAwait(false);
+            if (record == null) return false;
+            if (!SecureSessionRecordCodec.TryDecode(BackendScope, record, out string refreshToken))
+            {
+                await _sessionStore.DeleteAsync(BackendScope, cancel).ConfigureAwait(false);
+                return false;
+            }
+            try
+            {
+                Tokens tokens = ValidateTokens(await SendAsync<Tokens>(HttpMethod.Post, "v1/auth/refresh",
+                    new { refreshToken }, null, cancel).ConfigureAwait(false));
+                AccountIdentity identity = ValidateIdentity(await SendAsync<AccountIdentity>(HttpMethod.Get,
+                    "v1/me", null, tokens.AccessToken, cancel).ConfigureAwait(false));
+                await PersistAsync(tokens.RefreshToken, cancel).ConfigureAwait(false);
+                SetMemory(tokens, identity);
+                return true;
+            }
+            catch (OperationCanceledException) when (cancel.IsCancellationRequested) { throw; }
+            catch (Exception operationError)
+            {
+                ResetMemory();
+                await ClearStoredAfterFailureAsync(operationError).ConfigureAwait(false);
+                throw;
+            }
+        }
         finally { _tokensGate.Release(); }
     }
 
     public async Task SignOutAsync(CancellationToken cancel = default)
     {
         await _tokensGate.WaitAsync(cancel).ConfigureAwait(false);
-        try { _tokens = null; Identity = null; }
+        try
+        {
+            ResetMemory();
+            await _sessionStore.DeleteAsync(BackendScope, cancel).ConfigureAwait(false);
+        }
+        finally { _tokensGate.Release(); }
+    }
+
+    public async Task RevokeSessionsAsync(CancellationToken cancel = default)
+    {
+        await _tokensGate.WaitAsync(cancel).ConfigureAwait(false);
+        Exception? operationError = null;
+        try
+        {
+            string accessToken = await AccessTokenLockedAsync(cancel).ConfigureAwait(false);
+            await SendAsync<JsonElement>(HttpMethod.Post, "v1/auth/revoke-sessions", null,
+                accessToken, cancel).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            operationError = exception;
+            throw;
+        }
+        finally
+        {
+            ResetMemory();
+            try
+            {
+                await _sessionStore.DeleteAsync(BackendScope, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception cleanupError) when (operationError != null)
+            {
+                throw new AggregateException("Session revocation failed and protected session material could not be cleared.",
+                    operationError, cleanupError);
+            }
+            finally { _tokensGate.Release(); }
+        }
+    }
+
+    internal async Task ClearStoredSessionAsync(CancellationToken cancel = default)
+    {
+        await _tokensGate.WaitAsync(cancel).ConfigureAwait(false);
+        try
+        {
+            ResetMemory();
+            await _sessionStore.DeleteAsync(BackendScope, cancel).ConfigureAwait(false);
+        }
         finally { _tokensGate.Release(); }
     }
 
@@ -96,7 +196,9 @@ public sealed partial class AccountSession : IDisposable
         if (license.PlayerId != player || license.DisplayName is not { Length: >= 1 and <= 16 }
             || license.DisplayName != license.DisplayName.Trim()
             || license.DisplayName.Any(c => c is < ' ' or > '~')
-            || license.FavoriteHunter is < 0 or > 6)
+            || license.FavoriteHunter is < 0 or > 6 || license.JoinedAt.Offset != TimeSpan.Zero
+            || !ValidRating(new(license.Points, license.Tier, license.Title, license.NextThreshold,
+                license.LastOfficialDelta, license.Policy)))
         {
             throw new InvalidOperationException("The backend returned an invalid Hunter License.");
         }
@@ -134,25 +236,72 @@ public sealed partial class AccountSession : IDisposable
         await _tokensGate.WaitAsync(cancel).ConfigureAwait(false);
         try
         {
-            if (_tokens == null || Identity == null) throw new InvalidOperationException("Sign in before joining an authenticated server.");
-            if (_expires <= _time.GetUtcNow().AddSeconds(30))
-            {
-                try { SetTokens(await SendAsync<Tokens>(HttpMethod.Post, "v1/auth/refresh", new { refreshToken = _tokens.RefreshToken }, null, cancel).ConfigureAwait(false)); }
-                catch { _tokens = null; Identity = null; throw; }
-            }
-            return _tokens.AccessToken;
+            return await AccessTokenLockedAsync(cancel).ConfigureAwait(false);
         }
         finally { _tokensGate.Release(); }
     }
 
-    private void SetTokens(Tokens tokens)
+    private async Task<string> AccessTokenLockedAsync(CancellationToken cancel)
+    {
+        if (_tokens == null || Identity == null)
+            throw new InvalidOperationException("Sign in before joining an authenticated server.");
+        if (_expires <= _time.GetUtcNow().AddSeconds(30))
+        {
+            try
+            {
+                Tokens tokens = ValidateTokens(await SendAsync<Tokens>(HttpMethod.Post, "v1/auth/refresh",
+                    new { refreshToken = _tokens.RefreshToken }, null, cancel).ConfigureAwait(false));
+                await PersistAsync(tokens.RefreshToken, cancel).ConfigureAwait(false);
+                _tokens = tokens;
+                _expires = _time.GetUtcNow().AddSeconds(tokens.ExpiresIn);
+            }
+            catch (OperationCanceledException) when (cancel.IsCancellationRequested) { throw; }
+            catch (Exception operationError)
+            {
+                ResetMemory();
+                await ClearStoredAfterFailureAsync(operationError).ConfigureAwait(false);
+                throw;
+            }
+        }
+        return _tokens.AccessToken;
+    }
+
+    private static Tokens ValidateTokens(Tokens tokens)
     {
         if (tokens.TokenType != "Bearer" || string.IsNullOrEmpty(tokens.AccessToken) || tokens.AccessToken.Length > 16384
             || string.IsNullOrEmpty(tokens.RefreshToken) || tokens.RefreshToken.Length > 16384 || tokens.ExpiresIn is < 1 or > 86400)
             throw new InvalidOperationException("The backend returned an invalid login response.");
+        return tokens;
+    }
+
+    private static AccountIdentity ValidateIdentity(AccountIdentity identity)
+    {
+        if (identity.PlayerId.IsEmpty) throw new InvalidOperationException("The backend returned an invalid account identity.");
+        return identity;
+    }
+
+    private void SetMemory(Tokens tokens, AccountIdentity identity)
+    {
         _tokens = tokens;
         _expires = _time.GetUtcNow().AddSeconds(tokens.ExpiresIn);
+        Identity = identity;
     }
+
+    private ValueTask PersistAsync(string refreshToken, CancellationToken cancel)
+        => _sessionStore.WriteAsync(BackendScope,
+            SecureSessionRecordCodec.Encode(BackendScope, refreshToken), cancel);
+
+    private async ValueTask ClearStoredAfterFailureAsync(Exception operationError)
+    {
+        try { await _sessionStore.DeleteAsync(BackendScope, CancellationToken.None).ConfigureAwait(false); }
+        catch (Exception cleanupError)
+        {
+            throw new AggregateException("The account operation failed and protected session material could not be cleared.",
+                operationError, cleanupError);
+        }
+    }
+
+    private void ResetMemory() { _tokens = null; _expires = default; Identity = null; }
 
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, string? accessToken, CancellationToken cancel)
     {
@@ -188,17 +337,47 @@ public sealed partial class AccountSession : IDisposable
             ?? throw new InvalidOperationException("The account response was empty.");
     }
 
-    public void Dispose() { _tokens = null; Identity = null; _http.Dispose(); }
+    public void Dispose() { ResetMemory(); _http.Dispose(); }
 }
 
 public static class AccountSessions
 {
+    private static readonly SemaphoreSlim Gate = new(1, 1);
+    private static ISecureSessionStore _store = new MemoryOnlySessionStore();
     public static AccountSession? Current { get; private set; }
-    public static AccountSession Configure(Uri backend)
+
+    public static void UseSecureStore(ISecureSessionStore store)
     {
-        if (Current?.Backend == new Uri(backend.AbsoluteUri.TrimEnd('/') + "/")) return Current;
-        var next = new AccountSession(backend);
-        Current?.Dispose();
-        return Current = next;
+        ArgumentNullException.ThrowIfNull(store);
+        if (Current != null) throw new InvalidOperationException("Configure the secure session store before creating an account session.");
+        _store = store;
+    }
+
+    public static AccountSession Configure(Uri backend)
+        => ConfigureAsync(backend, restore: false).GetAwaiter().GetResult();
+
+    public static async Task<AccountSession> ConfigureAsync(Uri backend, bool restore = true,
+        CancellationToken cancel = default)
+    {
+        await Gate.WaitAsync(cancel).ConfigureAwait(false);
+        try
+        {
+            if (!AccountSession.IsAllowedBackend(backend))
+                throw new ArgumentException("Use an HTTPS backend URL, or HTTP on loopback for local testing.", nameof(backend));
+            Uri normalized = new(backend.AbsoluteUri.TrimEnd('/') + "/");
+            if (Current?.Backend == normalized)
+            {
+                if (restore && !Current.IsSignedIn) await Current.RestoreAsync(cancel).ConfigureAwait(false);
+                return Current;
+            }
+            AccountSession? previous = Current;
+            if (previous != null) await previous.ClearStoredSessionAsync(cancel).ConfigureAwait(false);
+            var next = new AccountSession(normalized, sessionStore: _store);
+            Current = next;
+            previous?.Dispose();
+            if (restore) await next.RestoreAsync(cancel).ConfigureAwait(false);
+            return next;
+        }
+        finally { Gate.Release(); }
     }
 }

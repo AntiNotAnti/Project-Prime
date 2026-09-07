@@ -113,6 +113,26 @@ public sealed class AccountSessionTests
     }
 
     [Fact]
+    public async Task LicenseResponseMapsAuthoritativeRatingSummary()
+    {
+        PlayerId player = new(Guid.NewGuid());
+        DateTimeOffset joined = new(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
+        var response = new HunterLicense(player, "Hunter", 2, joined, 750, 5,
+            "Legendary Hunter", null, 8, "PairwiseNormalizedV1");
+        using var session = new AccountSession(new Uri("https://accounts.example.test/"),
+            new RecordingHandler((_, _) => Task.FromResult(JsonResponse(response))));
+
+        HunterLicense license = await session.GetLicenseAsync(player);
+
+        Assert.Equal(750, license.Points);
+        Assert.Equal(5, license.Tier);
+        Assert.Equal("Legendary Hunter", license.Title);
+        Assert.Null(license.NextThreshold);
+        Assert.Equal(8, license.LastOfficialDelta);
+        Assert.Equal("PairwiseNormalizedV1", license.Policy);
+    }
+
+    [Fact]
     public async Task DefaultHandlerDoesNotFollowBackendRedirects()
     {
         await using var server = new RedirectServer();
@@ -252,6 +272,169 @@ public sealed class AccountSessionTests
         Assert.All(tickets, ticket => Assert.Equal("aaa.bbb.ccc", ticket.Ticket));
         Assert.All(handler.Snapshot().Where(x => x.Uri.AbsolutePath == "/v1/game-tickets"),
             request => Assert.Equal("Bearer access-after-refresh", request.Authorization));
+    }
+
+    [Fact]
+    public async Task SignInStoresOnlyScopedRefreshMaterialAndRestoreRotatesIt()
+    {
+        const string password = "A-long-password-1!";
+        const string email = "hunter@example.test";
+        const string firstAccess = "account-access-secret";
+        const string firstRefresh = "account-refresh-secret";
+        const string secondAccess = "rotated-access-secret";
+        const string secondRefresh = "rotated-refresh-secret";
+        var backend = new Uri("https://accounts.example.test/base/");
+        Guid player = Guid.NewGuid();
+        var store = new FakeSecureSessionStore();
+        using (var signedIn = new AccountSession(backend, new RecordingHandler((request, _) =>
+            request.RequestUri!.AbsolutePath switch
+            {
+                "/base/v1/auth/login" => Task.FromResult(JsonResponse(new
+                {
+                    tokenType = "Bearer", accessToken = firstAccess, expiresIn = 3600,
+                    refreshToken = firstRefresh
+                })),
+                "/base/v1/me" => Task.FromResult(JsonResponse(new AccountIdentity(new PlayerId(player), true, true))),
+                _ => throw new InvalidOperationException($"Unexpected account path {request.RequestUri.AbsolutePath}.")
+            }), sessionStore: store))
+        {
+            await signedIn.SignInAsync(email, password);
+        }
+
+        byte[]? storedValue = store.Read(backend.AbsoluteUri);
+        Assert.NotNull(storedValue);
+        byte[] stored = storedValue;
+        string text = Encoding.UTF8.GetString(stored);
+        Assert.Contains(firstRefresh, text, StringComparison.Ordinal);
+        Assert.DoesNotContain(firstAccess, text, StringComparison.Ordinal);
+        Assert.DoesNotContain(password, text, StringComparison.Ordinal);
+        Assert.DoesNotContain(email, text, StringComparison.Ordinal);
+        Assert.Contains(backend.AbsoluteUri, text, StringComparison.Ordinal);
+
+        var restoreHandler = new RecordingHandler(async (request, cancel) =>
+        {
+            if (request.RequestUri!.AbsolutePath == "/base/v1/auth/refresh")
+            {
+                Assert.Null(request.Headers.Authorization);
+                Assert.Contains(firstRefresh, await request.Content!.ReadAsStringAsync(cancel), StringComparison.Ordinal);
+                return JsonResponse(new
+                {
+                    tokenType = "Bearer", accessToken = secondAccess, expiresIn = 3600,
+                    refreshToken = secondRefresh
+                });
+            }
+            if (request.RequestUri.AbsolutePath == "/base/v1/me")
+            {
+                Assert.Equal("Bearer " + secondAccess, request.Headers.Authorization?.ToString());
+                return JsonResponse(new AccountIdentity(new PlayerId(player), true, true));
+            }
+            throw new InvalidOperationException($"Unexpected account path {request.RequestUri.AbsolutePath}.");
+        });
+        using var restored = new AccountSession(backend, restoreHandler, sessionStore: store);
+
+        Assert.True(await restored.RestoreAsync());
+        Assert.True(restored.IsSignedIn);
+        Assert.Equal(new PlayerId(player), restored.Identity!.PlayerId);
+        storedValue = store.Read(backend.AbsoluteUri);
+        Assert.NotNull(storedValue);
+        text = Encoding.UTF8.GetString(storedValue);
+        Assert.Contains(secondRefresh, text, StringComparison.Ordinal);
+        Assert.DoesNotContain(firstRefresh, text, StringComparison.Ordinal);
+        Assert.DoesNotContain(secondAccess, text, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("{\"version\":2,\"backendScope\":\"https://accounts.example.test/\",\"refreshToken\":\"refresh\"}")]
+    [InlineData("{\"version\":1,\"backendScope\":\"https://other.example.test/\",\"refreshToken\":\"refresh\"}")]
+    [InlineData("{\"version\":1,\"backendScope\":\"https://accounts.example.test/\",\"refreshToken\":\"refresh\",\"extra\":true}")]
+    [InlineData("{\"version\":1,\"version\":1,\"backendScope\":\"https://accounts.example.test/\",\"refreshToken\":\"refresh\"}")]
+    public async Task RestoreRejectsAndDeletesNonCurrentNonScopedOrNonStrictRecords(string json)
+    {
+        var backend = new Uri("https://accounts.example.test/");
+        var store = new FakeSecureSessionStore();
+        store.Seed(backend.AbsoluteUri, Encoding.UTF8.GetBytes(json));
+        using var session = new AccountSession(backend,
+            new RecordingHandler((_, _) => throw new InvalidOperationException("No request expected.")),
+            sessionStore: store);
+
+        Assert.False(await session.RestoreAsync());
+        Assert.Null(store.Read(backend.AbsoluteUri));
+        Assert.Equal(1, store.DeleteCount);
+    }
+
+    [Fact]
+    public async Task FailedStoredRefreshClearsProtectedAndMemorySessions()
+    {
+        var backend = new Uri("https://accounts.example.test/");
+        var store = new FakeSecureSessionStore();
+        store.Seed(backend.AbsoluteUri, SecureSessionRecordCodec.Encode(backend.AbsoluteUri, "expired-refresh"));
+        using var session = new AccountSession(backend, new RecordingHandler((request, _) =>
+            Task.FromResult(new HttpResponseMessage(request.RequestUri!.AbsolutePath == "/v1/auth/refresh"
+                ? HttpStatusCode.Unauthorized : HttpStatusCode.InternalServerError))), sessionStore: store);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => session.RestoreAsync());
+
+        Assert.False(session.IsSignedIn);
+        Assert.Null(session.Identity);
+        Assert.Null(store.Read(backend.AbsoluteUri));
+    }
+
+    [Fact]
+    public async Task RestoreCancellationPreservesProtectedRefreshMaterial()
+    {
+        var backend = new Uri("https://accounts.example.test/");
+        var store = new FakeSecureSessionStore();
+        store.Seed(backend.AbsoluteUri, SecureSessionRecordCodec.Encode(backend.AbsoluteUri, "refresh-token"));
+        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var session = new AccountSession(backend, new RecordingHandler(async (request, cancel) =>
+        {
+            Assert.Equal("/v1/auth/refresh", request.RequestUri!.AbsolutePath);
+            requestStarted.SetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancel);
+            throw new InvalidOperationException("The canceled refresh must not continue.");
+        }), sessionStore: store);
+        using var stop = new CancellationTokenSource();
+
+        Task restore = session.RestoreAsync(stop.Token);
+        await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        stop.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => restore);
+        Assert.NotNull(store.Read(backend.AbsoluteUri));
+        Assert.False(session.IsSignedIn);
+    }
+
+    [Fact]
+    public async Task SignOutAndServerRevocationDeleteProtectedRefreshMaterial()
+    {
+        Guid player = Guid.NewGuid();
+        var backend = new Uri("https://accounts.example.test/");
+        var store = new FakeSecureSessionStore();
+        var handler = new RecordingHandler((request, _) => request.RequestUri!.AbsolutePath switch
+        {
+            "/v1/auth/login" => Task.FromResult(JsonResponse(new
+            {
+                tokenType = "Bearer", accessToken = "access-token", expiresIn = 3600,
+                refreshToken = "refresh-token"
+            })),
+            "/v1/me" => Task.FromResult(JsonResponse(new AccountIdentity(new PlayerId(player), true, true))),
+            "/v1/auth/revoke-sessions" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)),
+            _ => throw new InvalidOperationException($"Unexpected account path {request.RequestUri.AbsolutePath}.")
+        });
+        using var session = new AccountSession(backend, handler, sessionStore: store);
+        await session.SignInAsync("hunter@example.test", "A-long-password-1!");
+        Assert.NotNull(store.Read(backend.AbsoluteUri));
+
+        await session.SignOutAsync();
+        Assert.Null(store.Read(backend.AbsoluteUri));
+        await session.SignInAsync("hunter@example.test", "A-long-password-1!");
+        await session.RevokeSessionsAsync();
+
+        Assert.Null(store.Read(backend.AbsoluteUri));
+        Assert.False(session.IsSignedIn);
+        RequestLog revoke = Assert.Single(handler.Snapshot(), request => request.Uri.AbsolutePath == "/v1/auth/revoke-sessions");
+        Assert.Equal("Bearer access-token", revoke.Authorization);
+        Assert.DoesNotContain("refresh-token", revoke.Body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -472,6 +655,46 @@ public sealed class AccountSessionTests
         };
 
     private sealed record RequestLog(HttpMethod Method, Uri Uri, string? Authorization, string Body);
+
+    private sealed class FakeSecureSessionStore : ISecureSessionStore
+    {
+        private readonly object _gate = new();
+        private readonly Dictionary<string, byte[]> _records = new(StringComparer.Ordinal);
+        private int _deletes;
+        public int DeleteCount => Volatile.Read(ref _deletes);
+
+        public byte[]? Read(string scope)
+        {
+            lock (_gate) return _records.TryGetValue(scope, out byte[]? value) ? value.ToArray() : null;
+        }
+
+        public void Seed(string scope, byte[] value)
+        {
+            lock (_gate) _records[scope] = value.ToArray();
+        }
+
+        public ValueTask<byte[]?> ReadAsync(string backendScope, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(Read(backendScope));
+        }
+
+        public ValueTask WriteAsync(string backendScope, ReadOnlyMemory<byte> record,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate) _records[backendScope] = record.ToArray();
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask DeleteAsync(string backendScope, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate) _records.Remove(backendScope);
+            Interlocked.Increment(ref _deletes);
+            return ValueTask.CompletedTask;
+        }
+    }
 
     private sealed class RecordingHandler(
         Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder) : HttpMessageHandler
