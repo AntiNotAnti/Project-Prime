@@ -28,10 +28,13 @@ namespace MphRead.NetTest
                     case "--lagcomp-script": return LagCompScriptCheck.Run(args);
                     case "--mixed-soak-server": return MixedCombatSoak.RunServer(args);
                     case "--mixed-soak-clients": return MixedCombatClients.Run(args);
+                    case "--interpolation-ab": return InterpolationExperimentCheck.Run(args);
                     case "--mixed-backpressure-self-test": return MixedCombatBackpressureCheck.Run();
                     case "--simulation": return SimulationCheck.Run(args);
                     case "--match-lifecycle": return MatchLifecycleCheck.Run(args);
                     case "--match-phases": return MatchPhaseCheck.Run(args);
+                    case "--overtime-check": return OvertimeCheck.Run(args);
+                    case "--observer-soak": return ObserverSoakCheck.Run(args);
                     case "--simulation-order": return SimulationOrderingCheck.Run(args);
                     case "--match-baseline": return MatchBaselineCheck.Run(args);
                     case "--baseline": return ConnectionBaseline.Run(args);
@@ -113,6 +116,8 @@ namespace MphRead.NetTest
             Console.WriteLine("--simulation-order DATA: real-content simultaneous-event ordering and lifecycle boundaries");
             Console.WriteLine("--match-baseline DATA: current multiplayer scoring and objective behavior");
             Console.WriteLine("--match-phases DATA: authoritative waiting, countdown reset, phase timing and input epochs");
+            Console.WriteLine("--overtime-check DATA [VERSION]: real-content regulation expiry and mode-specific overtime");
+            Console.WriteLine("--observer-soak DATA SECONDS REPORT_JSON: eight players plus sixteen delayed observers");
             Console.WriteLine("--audit-multiplayer DATA OUTPUT_JSON [FH_DATA|-] [MAP_DIRECTORY|-]: read-only multiplayer entity inventory");
             Console.WriteLine("--audit-multiplayer-self-test: malformed and edge-case content audit checks");
             Console.WriteLine("--history-boundary DATA [VERSION]: completed simulation history and snapshot invariants");
@@ -123,6 +128,7 @@ namespace MphRead.NetTest
             Console.WriteLine("--lagcomp-script DATA CONFIG_JSON OUTPUT_JSON: deterministic comparison fixture");
             Console.WriteLine("--mixed-soak-server DATA PORT SECONDS REPORT_JSON MODE SEED: MODE on, trace-only or off");
             Console.WriteLine("--mixed-soak-clients SECONDS PORT,... REPORT_JSON SERVER_COMPLETION_JSON: eight UDP clients");
+            Console.WriteLine("--interpolation-ab OUTPUT_JSON: deterministic fixed-six versus experimental adaptive policy comparison");
             Console.WriteLine("--mixed-backpressure-self-test: reliable admission failure follows dedicated-server policy");
             Console.WriteLine("The connection-server is a data-free test fixture; it does not simulate gameplay.");
         }
