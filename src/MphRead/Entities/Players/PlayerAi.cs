@@ -507,18 +507,11 @@ namespace MphRead.Entities
 
             private void InitializeSub()
             {
-                if (GameState.SinglePlayer && GameState.EncounterState[_player.SlotIndex] != 0)
-                {
-                    _field102C = 0;
-                    _field1030 = 0;
-                }
-                else
-                {
-                    // note: the game uses index 1, not index 2, for out-of-range bot levels
-                    int index = Math.Clamp(_player.BotLevel, 0, 2);
-                    _field102C = _botLevelRandomValues1[index][(int)_player.Hunter] * 2; // todo: FPS stuff
-                    _field1030 = _botLevelRandomValues2[index] * 2; // todo: FPS stuff
-                }
+                // note: the game uses index 1, not index 2, for out-of-range bot levels
+                int index = Math.Clamp(_player.BotLevel, 0, 2);
+                _field102C = _botLevelRandomValues1[index][(int)_player.Hunter] * 2; // todo: FPS stuff
+                _field1030 = _botLevelRandomValues2[index] * 2; // todo: FPS stuff
+
             }
 
             public void ProcessInput()
@@ -4738,7 +4731,7 @@ namespace MphRead.Entities
             {
                 if (_player.Hunter == Hunter.Spire)
                 {
-                    return _player._health < (GameState.EncounterState[_player.SlotIndex] == 4 ? 270 : 500) ? 1 : 0;
+                    return _player._health < 500 ? 1 : 0;
                 }
                 if (_player.Hunter == Hunter.Weavel)
                 {

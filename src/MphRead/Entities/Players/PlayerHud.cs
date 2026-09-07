@@ -60,16 +60,6 @@ namespace MphRead.Entities
         private HudObjectInstance _dialogPickupInst = null!;
         private HudObjectInstance _dialogFrameInst = null!;
 
-        private HudObjectInstance _mapTeleporterInst = null!;
-        private readonly HudObjectInstance[] _mapOctolithInsts = new HudObjectInstance[8];
-        private HudObjectInstance _mapLostOctolithInst = null!;
-        private readonly HudObjectInstance[] _mapArtifactDotInsts = new HudObjectInstance[8];
-        private HudObjectInstance _mapLegendDoorInst = null!;
-        private HudObjectInstance _mapLegendOtherInst = null!;
-        private HudObjectInstance _mapQuitInst = null!;
-        private ModelInstance _navPlayerPosModel = null!;
-        private ModelInstance _navDoorModel = null!;
-        private readonly ModelInstance?[] _navMapModels = new ModelInstance?[8];
 
         private ModelInstance _filterModel = null!;
         private bool _showScoreboard = false;
@@ -226,104 +216,6 @@ namespace MphRead.Entities
                 _enemyHealthMeter.BarInst.SetCharacterData(damageBar.CharacterData, _scene);
                 _enemyHealthMeter.BarInst.SetPaletteData(damageBar.PaletteData, _scene);
                 _enemyHealthMeter.BarInst.Enabled = true;
-            }
-            else
-            {
-                _enemyHealthMeter = HudElements.EnemyHealthbar;
-                _enemyHealthMeter.BarInst = new HudObjectInstance(samusSubBar.Width, samusSubBar.Height);
-                _enemyHealthMeter.BarInst.SetCharacterData(samusSubBar.CharacterData, _scene);
-                _enemyHealthMeter.BarInst.SetPaletteData(healthbarSub.PaletteData, _scene);
-                _enemyHealthMeter.BarInst.Enabled = true;
-                HudObject teleporter = HudInfo.GetHudObject(HudElements.MapPortal);
-                _mapTeleporterInst = new HudObjectInstance(teleporter.Width, teleporter.Height);
-                _mapTeleporterInst.SetCharacterData(teleporter.CharacterData, _scene);
-                _mapTeleporterInst.SetPaletteData(teleporter.PaletteData, _scene);
-                _mapTeleporterInst.Enabled = true;
-                HudObject mapOctolith = HudInfo.GetHudObject(HudElements.MapOctolith);
-                for (int i = 0; i < 8; i++)
-                {
-                    HudObject dot = HudInfo.GetHudObject(HudElements.MapDots[i]);
-                    var dotInst = new HudObjectInstance(dot.Width, dot.Height);
-                    dotInst.SetCharacterData(dot.CharacterData, _scene);
-                    dotInst.SetPaletteData(dot.PaletteData, _scene);
-                    dotInst.Enabled = true;
-                    _mapArtifactDotInsts[i] = dotInst;
-                    var mapOctolithInst = new HudObjectInstance(mapOctolith.Width, mapOctolith.Height);
-                    mapOctolithInst.SetCharacterData(mapOctolith.CharacterData, _scene);
-                    mapOctolithInst.SetPaletteData(mapOctolith.PaletteData, _scene);
-                    mapOctolithInst.SetAnimationFrames(mapOctolith.AnimParams);
-                    mapOctolithInst.Enabled = true;
-                    _mapOctolithInsts[i] = mapOctolithInst;
-                }
-                HudObject lostOctolith = HudInfo.GetHudObject(HudElements.MapLostOctolith);
-                _mapLostOctolithInst = new HudObjectInstance(lostOctolith.Width, lostOctolith.Height);
-                _mapLostOctolithInst.SetCharacterData(lostOctolith.CharacterData, _scene);
-                _mapLostOctolithInst.SetPaletteData(lostOctolith.PaletteData, _scene);
-                _mapLostOctolithInst.SetAnimationFrames(lostOctolith.AnimParams);
-                _mapLostOctolithInst.Enabled = true;
-                HudObject legendDoor = HudInfo.GetHudObject(HudElements.MapLegendDoors);
-                _mapLegendDoorInst = new HudObjectInstance(legendDoor.Width, legendDoor.Height);
-                _mapLegendDoorInst.SetCharacterData(legendDoor.CharacterData, _scene);
-                _mapLegendDoorInst.SetPaletteData(legendDoor.PaletteData, _scene);
-                _mapLegendDoorInst.Enabled = true;
-                HudObject legendOther = HudInfo.GetHudObject(HudElements.MapLegendOther);
-                _mapLegendOtherInst = new HudObjectInstance(legendOther.Width, legendOther.Height);
-                _mapLegendOtherInst.SetCharacterData(legendOther.CharacterData, _scene);
-                _mapLegendOtherInst.SetPaletteData(legendOther.PaletteData, _scene);
-                _mapLegendOtherInst.Enabled = true;
-                // todo?: could also show Omega Cannon doors here
-                _mapLegendInfo = ImmutableCollectionsMarshal.AsImmutableArray(new MapLegendInfo[10]
-                {
-                    new MapLegendInfo(unlocked: false, messageId: 4, offsetX: 0, offsetY: 0, _mapLegendDoorInst, objectIndex: 4),   // BATTLEHAMMER
-                    new MapLegendInfo(unlocked: false, messageId: 2, offsetX: 0, offsetY: 0, _mapLegendDoorInst, objectIndex: 5),   // VOLT DRIVER
-                    new MapLegendInfo(unlocked: false, messageId: 8, offsetX: 0, offsetY: 0, _mapLegendDoorInst, objectIndex: 1),   // SHOCK COIL
-                    new MapLegendInfo(unlocked: false, messageId: 5, offsetX: 0, offsetY: 0, _mapLegendDoorInst, objectIndex: 0),   // IMPERIALIST
-                    new MapLegendInfo(unlocked: false, messageId: 6, offsetX: 0, offsetY: 0, _mapLegendDoorInst, objectIndex: 3),   // JUDICATOR
-                    new MapLegendInfo(unlocked: false, messageId: 7, offsetX: 0, offsetY: 0, _mapLegendDoorInst, objectIndex: 2),   // MAGMAUL
-                    new MapLegendInfo(unlocked: true, messageId: 1, offsetX: 0, offsetY: 0, _mapLegendDoorInst, objectIndex: 7),    // ANY BEAM
-                    new MapLegendInfo(unlocked: true, messageId: 3, offsetX: 0, offsetY: 0, _mapLegendDoorInst, objectIndex: 8),    // MISSILE
-                    new MapLegendInfo(unlocked: true, messageId: 2, offsetX: -3, offsetY: -4, _mapLegendOtherInst, objectIndex: 0), // PORTAL
-                    new MapLegendInfo(unlocked: true, messageId: 4, offsetX: -3, offsetY: -4, _mapLegendOtherInst, objectIndex: 1)  // BOSS PORTAL
-                });
-                HudObject quit = HudInfo.GetHudObject(HudElements.MapQuit);
-                _mapQuitInst = new HudObjectInstance(quit.Width, quit.Height);
-                _mapQuitInst.SetCharacterData(quit.CharacterData, _scene);
-                _mapQuitInst.SetPaletteData(quit.PaletteData, _scene);
-                _mapQuitInst.Enabled = true;
-                _navPlayerPosModel = Read.GetModelInstance("PlayerPos_NAV", dir: MetaDir.Hud);
-                _scene.LoadModel(_navPlayerPosModel.Model);
-                _navPlayerPosModel.SetAnimation(0, AnimFlags.None);
-                _navDoorModel = Read.GetModelInstance("Door_NAV", dir: MetaDir.Hud);
-                _scene.LoadModel(_navDoorModel.Model);
-                for (int i = 0; i < 7; i++)
-                {
-                    ModelInstance mapModel = Read.GetModelInstance(Metadata.NavMapModelNames[i], dir: MetaDir.Hud, noCache: true);
-                    for (int j = 0; j < mapModel.Model.Materials.Count; j++)
-                    {
-                        Material material = mapModel.Model.Materials[j];
-                        if (material.Culling == CullingMode.Front)
-                        {
-                            material.Culling = CullingMode.Back;
-                        }
-                        else
-                        {
-                            material.Culling = CullingMode.Front;
-                        }
-                        material.Wireframe = 0;
-                        material.Lighting = 1;
-                        material.Ambient = new ColorRgb(8, 8, 8);
-                    }
-                    for (int j = 0; j < mapModel.Model.Nodes.Count; j++)
-                    {
-                        Node node = mapModel.Model.Nodes[j];
-                        if (node.Name.StartsWith("cent"))
-                        {
-                            node.Enabled = false;
-                        }
-                    }
-                    _scene.LoadModel(mapModel.Model);
-                    _navMapModels[i] = mapModel;
-                }
             }
             if (GameState.SinglePlayer && _hudObjects.EnergyTanks != null)
             {
@@ -653,30 +545,10 @@ namespace MphRead.Entities
 
         public void UpdateHud()
         {
-            if (GameState.MenuPause)
-            {
-                InitHudState();
-                // although we don't set HUD shift back to what it was before pausing, if the camera was moving, then it may have some
-                // momentum left after unpausing and may cause the HUD to shift. the game has a different behavior (bug) where HUD shift
-                // from before the pause reappears after unpausing, now stuck in place and not updating until the camera is moved.
-                // use visor layer for the pause bg
-                _scene.Layer1Info.BindingId = _pauseBindingId;
-                _scene.Layer1Info.Alpha = 0.75f;
-                _scene.Layer1Info.ShiftX = 0;
-                _scene.Layer1Info.ShiftY = -1 / 3f;
-                _scene.Layer1Info.MaskId = -1;
-                // continue to draw the helmet front
-                _scene.Layer2Info.BindingId = _pausedPrevBindingId2;
-                _scene.Layer2Info.Alpha = 1;
-                _scene.Layer2Info.ShiftX = 0;
-                _scene.Layer2Info.ShiftY = 0;
-                return;
-            }
             if (GameState.DialogPause)
             {
                 return;
             }
-            UpdateScanState();
             if (GameState.SinglePlayer)
             {
                 UpdateDialogs();
@@ -709,10 +581,6 @@ namespace MphRead.Entities
             else
             {
                 _hudWeaponMenuOpen = false;
-            }
-            if (ScanVisor)
-            {
-                UpdateScanHud();
             }
             InitHudState();
             _scene.Layer1Info.ShiftX = 0;
@@ -3019,11 +2887,6 @@ namespace MphRead.Entities
             _enemyHealthMeter.Length = HudElements.SubHealthbars[0].Length; // should not vary with hunter values
             DrawMeter(_hudObjects.EnemyHealthPosX + _objShiftX, _hudObjects.EnemyHealthPosY + _objShiftY, max, current,
                 palette, _enemyHealthMeter, drawText: false, drawTanks: false);
-            int scanId = target.GetScanId();
-            if (scanId != 0 && GameState.SinglePlayer && !GameState.StorySave.CheckLogbook(scanId))
-            {
-                text = Strings.GetMessage('E', 6, StringTables.HudMessagesSP); // enemy
-            }
             if (text != null)
             {
                 DrawText2D(_hudObjects.EnemyHealthTextPosX + _objShiftX, _hudObjects.EnemyHealthTextPosY + _objShiftY,

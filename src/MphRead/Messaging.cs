@@ -29,6 +29,19 @@ namespace MphRead
 
     public partial class Scene
     {
+        private uint _triggerState;
+
+        private static uint GetTriggerStateMask(int index)
+        {
+            if ((uint)index >= 32)
+            {
+                throw new ProgramException("Trigger state index must be between 0 and 31.");
+            }
+            return 1u << index;
+        }
+
+        public bool IsTriggerStateSet(int index) => (_triggerState & GetTriggerStateMask(index)) != 0;
+
         private const int _queueSize = 40;
         private readonly List<MessageInfo> _queue = new List<MessageInfo>(_queueSize);
         public IReadOnlyList<MessageInfo> MessageQueue => _queue;
@@ -70,12 +83,12 @@ namespace MphRead
             if (info.Message == Message.SetTriggerState)
             {
                 int index = (int)info.Param1;
-                GameState.StorySave.TriggerState[index / 8] |= (byte)(1 << (index % 8));
+                _triggerState |= GetTriggerStateMask(index);
             }
             else if (info.Message == Message.ClearTriggerState)
             {
                 int index = (int)info.Param1;
-                GameState.StorySave.TriggerState[index / 8] &= (byte)~(1 << (index % 8));
+                _triggerState &= ~GetTriggerStateMask(index);
             }
             else if (info.Target != null)
             {

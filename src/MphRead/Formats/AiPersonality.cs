@@ -10,16 +10,6 @@ namespace MphRead.Formats
 {
     public static class AiPersonality
     {
-        // copied Kanden 0 for Samus and Guardian 0 for Guardian, but they're unused anyway
-        private static readonly IReadOnlyList<IReadOnlyList<int>> _encounterAiOffsets =
-        [
-            //                  Sam    Kan    Tra    Syl    Nox    Spi    Wea    Gua
-            /* encounter 0 */ [33152, 33152, 33696, 33836, 33556, 33372, 33976, 13480 ],
-            /* encounter 1 */ [ 33152, 33196, 37576, 41948, 35428, 33416, 41492, 13480 ],
-            /* encounter 3 */ [ 33152, 33152, 39420, 42772, 33556, 40312, 33976, 13480 ],
-            /* encounter 4 */ [ 33152, 33152, 33696, 45176, 33556, 40556, 33976, 13480 ]
-        ];
-
         public static void LoadAll(GameMode mode)
         {
             for (int i = 0; i < PlayerEntity.Players.Count; i++)
@@ -31,35 +21,7 @@ namespace MphRead.Formats
                     continue;
                 }
                 int aiOffset = 32896; // default, Battle, BattleTeams
-                if (mode == GameMode.SinglePlayer)
-                {
-                    int encounterState = GameState.EncounterState[i];
-                    if (player.Hunter == Hunter.Guardian)
-                    {
-                        aiOffset = encounterState == 2 ? 32932 : 13480;
-                    }
-                    else
-                    {
-                        if (encounterState == 2)
-                        {
-                            aiOffset = 33232;
-                        }
-                        else
-                        {
-                            int index = encounterState switch
-                            {
-                                1 => 1,
-                                3 => 2,
-                                4 => 3,
-                                _ => 0
-                            };
-                            // todo?: if replacing enemy hunters, consider loading the offset belonging to the one replaced
-                            aiOffset = _encounterAiOffsets[index][(int)player.Hunter];
-                        }
-                        player.AiData.Flags1 = true;
-                    }
-                }
-                else if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
+                if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
                 {
                     aiOffset = 45696;
                 }

@@ -44,7 +44,7 @@ namespace MphRead.Entities
             _cooldownTime *= 2; // todo: FPS stuff
             if (GameState.Mode == GameMode.SinglePlayer)
             {
-                int state = GameState.StorySave.InitRoomState(_scene.RoomId, Id, active: data.Active != 0);
+                int state = _scene.GetInitialEntityState(Id, active: data.Active != 0);
                 if (data.AlwaysActive != 0)
                 {
                     Active = data.Active != 0;
@@ -83,28 +83,16 @@ namespace MphRead.Entities
             if (info.Message == Message.Activate)
             {
                 Active = true;
-                if (GameState.Mode == GameMode.SinglePlayer)
-                {
-                    GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 3);
-                }
             }
             else if (info.Message == Message.SetActive)
             {
                 if ((int)info.Param1 != 0)
                 {
                     Active = true;
-                    if (GameState.Mode == GameMode.SinglePlayer)
-                    {
-                        GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 3);
-                    }
                 }
                 else
                 {
                     Active = false;
-                    if (GameState.Mode == GameMode.SinglePlayer)
-                    {
-                        GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 1);
-                    }
                 }
             }
         }

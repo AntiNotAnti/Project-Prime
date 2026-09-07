@@ -121,14 +121,6 @@ namespace MphRead.Entities
                 if (Owner != null)
                 {
                     Owner.Item = null;
-                    if (GameState.SinglePlayer)
-                    {
-                        GameState.StorySave.SetRoomState(_scene.RoomId, Owner.Id, state: 1);
-                        if (!Owner.AlwaysActive)
-                        {
-                            Owner.Active = false;
-                        }
-                    }
                 }
                 if (_effectEntry != null)
                 {
@@ -168,11 +160,6 @@ namespace MphRead.Entities
             if (AuthoritativePlay.Active) { return; }
             DespawnTimer = 0;
             Owner?.OnItemPickedUp(consumer);
-            if (GameState.SinglePlayer)
-            {
-                int scanId = GetScanId();
-                GameState.StorySave.UpdateLogbook(scanId);
-            }
         }
 
         public override void GetDrawInfo()

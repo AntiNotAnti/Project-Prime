@@ -185,32 +185,12 @@ namespace MphRead.Entities
             );
             _animFlags |= PlatAnimFlags.Draw;
             Debug.Assert(GameState.Mode == GameMode.SinglePlayer);
-            if (Flags.TestFlag(PlatformFlags.UseRoomState) && !Flags.TestFlag(PlatformFlags.PersistRoomState))
-            {
-                int state = GameState.StorySave.GetRoomState(scene.RoomId, Id);
-                if (state == 1)
-                {
-                    _fromIndex = _data.PositionCount - 1;
-                    UpdatePosition();
-                }
-                else if (state == 2)
-                {
-                    _animFlags &= ~PlatAnimFlags.Draw;
-                }
-            }
             if (Flags.TestFlag(PlatformFlags.SamusShip) && !Cheats.SkipPlanetIntros)
             {
                 SleepWake(wake: true, instant: true);
                 _currentAnimState = -2;
-                if (GameState.StorySave.CheckVisitedRoom(scene.RoomId))
-                {
-                    SetPlatAnimation(PlatAnimId.InstantWake, AnimFlags.None);
-                }
-                else
-                {
-                    SetPlatAnimation(PlatAnimId.Wake, AnimFlags.NoLoop);
-                    _currentAnimState = GetAnimation(PlatAnimId.InstantWake);
-                }
+                SetPlatAnimation(PlatAnimId.Wake, AnimFlags.NoLoop);
+                _currentAnimState = GetAnimation(PlatAnimId.InstantWake);
                 if (data.Active != 0)
                 {
                     _animFlags |= PlatAnimFlags.Active;
@@ -228,7 +208,7 @@ namespace MphRead.Entities
                 }
                 if (Flags.TestFlag(PlatformFlags.PersistRoomState))
                 {
-                    if (GameState.StorySave.InitRoomState(_scene.RoomId, Id, active: _data.Active != 0) != 0)
+                    if (_scene.GetInitialEntityState(Id, active: _data.Active != 0) != 0)
                     {
                         _animFlags |= PlatAnimFlags.Active;
                     }
@@ -401,15 +381,6 @@ namespace MphRead.Entities
             return awake ? _data.ScanData1 : _data.ScanData2;
         }
 
-        public override void OnScanned()
-        {
-            if (_data.ScanMessage != Message.None && _scanMessageTarget != null
-                && !GameState.StorySave.CheckLogbook(GetScanId()))
-            {
-                _scene.SendMessage(_data.ScanMessage, this, _scanMessageTarget, -1, 0);
-            }
-        }
-
         private void SetPlatAnimation(PlatAnimId id, AnimFlags flags)
         {
             int index = _meta.AnimationIds[(int)id];
@@ -477,7 +448,6 @@ namespace MphRead.Entities
                     {
                         _soundSource.StopAllSfx();
                     }
-                    GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 3);
                 }
             }
         }
@@ -485,10 +455,6 @@ namespace MphRead.Entities
         private void Activate()
         {
             _animFlags |= PlatAnimFlags.Active;
-            if (Flags.TestFlag(PlatformFlags.UseRoomState) && Flags.TestFlag(PlatformFlags.PersistRoomState))
-            {
-                GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 3);
-            }
             if (_state == PlatformState.Inactive)
             {
                 if (Flags.TestFlag(PlatformFlags.DripMoat))
@@ -532,10 +498,6 @@ namespace MphRead.Entities
             {
                 _state = PlatformState.Inactive;
                 _animFlags &= ~PlatAnimFlags.Active;
-                if (Flags.TestFlag(PlatformFlags.UseRoomState) && Flags.TestFlag(PlatformFlags.PersistRoomState))
-                {
-                    GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 1);
-                }
                 if (Flags.TestFlag(PlatformFlags.DripMoat))
                 {
                     _scene.SendMessage(Message.DripMoatPlatform, this, PlayerEntity.Main, 0, 0);
@@ -1123,17 +1085,6 @@ namespace MphRead.Entities
                                 _scene.SendMessage(message, this, target,
                                     _lifetimeMessageParam1s[i], _lifetimeMessageParam2s[i]);
                             }
-                        }
-                    }
-                    if (Flags.TestFlag(PlatformFlags.UseRoomState) && !Flags.TestFlag(PlatformFlags.PersistRoomState))
-                    {
-                        if (_fromIndex == 0)
-                        {
-                            GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 1);
-                        }
-                        else if (_fromIndex == _data.PositionCount - 1)
-                        {
-                            GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 2);
                         }
                     }
                     if (_state != PlatformState.Inactive)

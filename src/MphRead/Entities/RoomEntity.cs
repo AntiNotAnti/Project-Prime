@@ -475,7 +475,7 @@ namespace MphRead.Entities
             ProcessTransition(CancellationToken.None);
             EndTransition();
             GameState.PausePrevented = false;
-            Music.TryPlayRoomMusic(_scene.RoomId, GameState.SinglePlayer && (((int)GameState.StorySave.BossFlags >> (2 * _scene.AreaId)) & 3) != 0 ? 1 : 0);
+            Music.TryPlayRoomMusic(_scene.RoomId, 0);
             if (!resume)
             {
                 _scene.InsertEntity(player);
@@ -603,15 +603,6 @@ namespace MphRead.Entities
             if (token.IsCancellationRequested)
             {
                 return;
-            }
-            if (GameState.SinglePlayer)
-            {
-                // Guarded the way the same call is at first load (SceneSetup.LoadGame).
-                // It is adventure mode's hunter-encounter setup: it clears Active
-                // and SlotActive on slots 1-3 and resets PlayersCreated to 1, which
-                // in a multiplayer room transition silently emptied every other
-                // player out of the scene for the rest of the map.
-                SceneSetup.InitHunterSpawns(_scene, entities, initialize: true); // see: "probably revisit this"
             }
             if (token.IsCancellationRequested)
             {
@@ -772,68 +763,6 @@ namespace MphRead.Entities
                     player.AiData.InitializeAtLoad();
                 }
             }
-            if (newLoader?.ConnectorDoor != null)
-            {
-                DoorEntity targetDoor = newLoader.ConnectorDoor;
-                foreach (EnemySpawnEntity spawner in _scene.GetEnemySpawnEntities())
-                {
-                    if (spawner.Data.EnemyType != EnemyType.Cretaphid && spawner.Data.EnemyType != EnemyType.Slench)
-                    {
-                        continue;
-                    }
-                    if (GameState.StorySave.GetRoomState(_scene.RoomId, spawner.Id) != 0)
-                    {
-                        Movie movieId;
-                        if (spawner.Data.EnemyType == EnemyType.Cretaphid)
-                        {
-                            movieId = spawner.Data.Fields.S05.EnemySubtype switch
-                            {
-                                3 => Movie.CretaphidArcterra2Intro,
-                                2 => Movie.CretaphidAlinso2Intro,
-                                1 => Movie.CretaphidVDO1Intro,
-                                _ => Movie.CretaphidCA1Intro // 0
-                            };
-                        }
-                        else // if (spawner.Data.EnemyType == EnemyType.Slench)
-                        {
-                            movieId = _scene.RoomId switch
-                            {
-                                76 => Movie.SlenchVDO2Intro,
-                                64 => Movie.SlenchCA2Intro,
-                                82 => Movie.SlenchArcterra1Intro,
-                                _ => Movie.SlenchAlinos1Intro // 35
-                            };
-                        }
-                        Vector3 newPosition = (targetDoor.Position + targetDoor.FacingVector * 0.75f)
-                            .AddY(Fixed.ToFloat(-PlayerEntity.Main.Values.MinPickupHeight));
-                        // todo?: faster loading makes this transition kind of abrupt
-                        GameState.PausePrevented = true;
-                        _scene.StartMovie(movieId, FadeType.FadeOutInBlack, 0, FadeType.FadeOutInBlack, 5 / 30f, newPosition, targetDoor.FacingVector);
-                    }
-                    break;
-                }
-            }
-            if (GameState.GetAreaState(_scene.AreaId) == AreaState.Clear && PlayerEntity.PlayerCount > 1)
-            {
-                foreach (DoorEntity entity in _scene.GetDoorEntities())
-                {
-                    if (entity.Type != EntityType.Door)
-                    {
-                        continue;
-                    }
-                    DoorEntity door = entity;
-                    if (door.Id != -1 && door.Data.ConnectorId != 255)
-                    {
-                        if (door.LoaderDoor != null && door.LoaderDoor == newLoader)
-                        {
-                            door = door.LoaderDoor;
-                        }
-                        door.Lock(updateState: false);
-                        door.Flags |= DoorFlags.ShowLock;
-                    }
-                }
-            }
-            GameState.StorySave.SetVisitedRoom(RoomId);
             if (_unloadModel != null)
             {
                 _scene.UnloadModel(_unloadModel);

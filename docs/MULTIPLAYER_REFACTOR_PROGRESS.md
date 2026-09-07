@@ -115,9 +115,35 @@ without warnings; desktop and Android managed Release builds retained only the
 previously documented warnings. Rendered client/platform acceptance remains a
 separate release gate.
 
+The frozen R5 artifacts passed all 16 UDP impairment cases (74 client runs,
+20 seconds per case). The live Imperialist duel passed with three damage events,
+one death, two occluded shots and no miss damage; both clients observed the
+damage/death events. These are local socket checks, not rendered Internet play.
+
+## R6 — Remove campaign persistence and progression
+
+Removed `StorySave`, save-slot runtime, clean-save restoration, checkpoints,
+inventory/progression persistence, campaign encounter state and logbook writes.
+Player initialization retains the existing multiplayer health, ammunition and
+weapon values. Settings persistence remains unchanged.
+
+Shared entities retain the legacy initial-state sentinel behavior without save
+storage. Trigger-state bits now belong to each scene, with explicit bounds
+validation. First Hunt and shared force-field machinery remain for the later
+content-aware deletion pass. Campaign scan/dialog and transition behavior still
+await R7; no campaign-free runtime claim is made for this intermediate pass.
+
+Validation: 413 C# tests and 34 Python tests passed, including initial-state
+goldens and independent scene trigger bits. All 12 real-content scoring modes,
+the dedicated-server/content suite, and UDP phase/objective checks passed.
+Server/nettest built with zero warnings/errors. Desktop and Android managed
+Release builds passed with the existing dependency/documentation warnings.
+Both asset guards and the scoped whitespace check passed. No native publish
+or emulator acceptance run was repeated.
+
 ## Planned remaining passes
 
-R6–R9 remove
+R7–R9 remove
 campaign behavior with content-aware guards. R10–R12 split the projects, converge
 Android and enforce dependency boundaries. No later pass is marked complete
 before its implementation and checks finish.

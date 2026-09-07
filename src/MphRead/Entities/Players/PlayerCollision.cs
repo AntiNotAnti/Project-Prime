@@ -155,23 +155,6 @@ namespace MphRead.Entities
                         dir.Z = z / factor;
                     }
                     ushort damage = attacker.Values.AltAttackDamage;
-                    if (attacker.IsBot && GameState.SinglePlayer)
-                    {
-                        int encounter = GameState.EncounterState[attacker.SlotIndex];
-                        if (encounter == 1 || encounter == 3 || encounter == 4
-                            || encounter == 0 && attacker.BotLevel == 0)
-                        {
-                            damage = 2;
-                        }
-                        else if (encounter != 0 || attacker.BotLevel < 2) // in-game: level !=2
-                        {
-                            damage = 3;
-                        }
-                        else
-                        {
-                            damage = 5;
-                        }
-                    }
                     DamageFlags flags = DamageFlags.NoSfx | DamageFlags.NoDmgInvuln;
                     if (halfturret)
                     {
@@ -205,23 +188,6 @@ namespace MphRead.Entities
                         target.Acceleration = dir;
                         target._accelerationTimer = 8 * 2; // todo: FPS stuff
                         ushort damage = attacker.Values.AltAttackDamage;
-                        if (attacker.IsBot && GameState.SinglePlayer)
-                        {
-                            int encounter = GameState.EncounterState[attacker.SlotIndex];
-                            if (encounter == 1 || encounter == 3 || encounter == 4
-                                || encounter == 0 && attacker.BotLevel == 0)
-                            {
-                                damage = 10;
-                            }
-                            else if (encounter != 0 || attacker.BotLevel < 2) // in-game: level !=2
-                            {
-                                damage = 12;
-                            }
-                            else
-                            {
-                                damage = 15;
-                            }
-                        }
                         DamageFlags flags = DamageFlags.NoSfx | DamageFlags.NoDmgInvuln;
                         if (halfturret)
                         {
@@ -263,26 +229,6 @@ namespace MphRead.Entities
                 target._accelerationTimer = (ushort)(attacker.Values.AltAttackKnockbackTime * 2); // todo: FPS stuff
             }
             ushort damage = attacker.Values.AltAttackDamage;
-            if (attacker.IsBot && GameState.SinglePlayer)
-            {
-                int encounter = GameState.EncounterState[attacker.SlotIndex];
-                if (encounter == 1 || encounter == 3 || encounter == 4)
-                {
-                    damage = (ushort)(attacker.Hunter == Hunter.Trace ? 15 : 10);
-                }
-                else if (encounter == 0 && attacker.BotLevel == 0)
-                {
-                    damage = 10;
-                }
-                else if (encounter != 0 || attacker.BotLevel < 2) // in-game: level !=2
-                {
-                    damage = 15;
-                }
-                else
-                {
-                    damage = (ushort)(attacker.Hunter == Hunter.Trace ? 20 : 18);
-                }
-            }
             DamageFlags flags = DamageFlags.NoSfx | DamageFlags.NoDmgInvuln;
             if (halfturret)
             {

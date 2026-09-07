@@ -123,7 +123,6 @@ namespace MphRead.Entities
                         }
                         int musicValue = CameraSequence.MusicData[Data.SequenceId];
                         if (musicValue != 0
-                            && ((musicValue & 0x2000) == 0 || (((int)GameState.StorySave.BossFlags >> (2 * _scene.AreaId)) & 3) == 0)
                             && ((musicValue & 0x400) == 0 || GameState.EscapeTimer == -1 || GameState.EscapeState != EscapeState.Escape)
                             && (musicValue & 0x4000) == 0
                             && (musicValue & 0x8000) == 0)
@@ -150,7 +149,6 @@ namespace MphRead.Entities
             }
             int musicValue = CameraSequence.MusicData[Data.SequenceId];
             bool hasMusic = musicValue != 0
-                && ((musicValue & 0x2000) == 0 || (((int)GameState.StorySave.BossFlags >> (2 * _scene.AreaId)) & 3) == 0)
                 && ((musicValue & 0x400) == 0 || GameState.EscapeTimer == -1 || GameState.EscapeState != EscapeState.Escape);
             int sfxData = CameraSequence.SfxData[Data.SequenceId];
             if (_delayTimer == 0)

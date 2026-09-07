@@ -897,85 +897,7 @@ namespace MphRead.Entities
                 {
                     _timeSinceDead++;
                 }
-                if (GameState.SinglePlayer && IsMainPlayer && _deathCountdown > 0)
-                {
-                    _deathCountdown -= _scene.FrameTime;
-                    float pct = (150 / 30f - _deathCountdown) / (150 / 30f);
-                    CameraInfo.SetShake(0.15f * pct);
-                    if (_lostOctolithEnemyIndex != -1 && _deathCountdown <= 119 / 30f)
-                    {
-                        if (!_deathLostOctolithSfxPlayed)
-                        {
-                            // the game does this in the draw function with 119 ticks left
-                            _soundSource.PlayFreeSfx(SfxId.DIE_LOSE_CRYSTAL);
-                            _deathLostOctolithSfxPlayed = true;
-                        }
-                        if (_deathCountdown <= 90 / 30f)
-                        {
-                            // the game does this in the process frame function with 90 ticks left
-                            if (!_deathLostOctolithDialogShown)
-                            {
-                                // HUNTER HAS TAKEN AN OCTOLITH
-                                ShowDialog(DialogType.Hud, messageId: 117, param1: 90, param2: 1);
-                                _deathLostOctolithDialogShown = true;
-                            }
-                        }
-                        else if (_deathCountdown >= 117 / 30f)
-                        {
-                            // this is done between 119 and 117, so we don't need a boolean to simulate calling on a specific frame
-                            CameraInfo.SetShake(0.4f);
-                        }
-                        (_lostOctolithSpeed, float displacement) = Drag(0.88f, _lostOctolithSpeed);
-                        if (!IsAltForm)
-                        {
-                            _lostOctolithDrawPos = _lostOctolithDrawPos
-                                .AddX(_field70 * displacement).AddZ(_field74 * displacement);
-                        }
-                        else
-                        {
-                            _lostOctolithDrawPos = _lostOctolithDrawPos
-                                .AddX(-_field80 * displacement).AddZ(-_field84 * displacement);
-                        }
-                    }
-                    if (!IsAltForm)
-                    {
-                        _facingVector.Y = ExponentialDecay(0.9f, _facingVector.Y);
-                        _facingVector = _facingVector.Normalized();
-                        _gunVec1 = _facingVector;
-                    }
-                    if (_deathCountdown <= 1 / 30f && !_deathProcessed)
-                    {
-                        _deathProcessed = true;
-                        Flags2 |= PlayerFlags2.HideModel;
-                        // make the visor layer show up
-                        Flags1 &= ~PlayerFlags1.AltForm;
-                        Flags1 &= ~PlayerFlags1.Morphing;
-                        Flags1 &= ~PlayerFlags1.Unmorphing;
-                        if (_lostOctolithEnemyIndex != -1)
-                        {
-                            int octolithCount = System.Numerics.BitOperations.PopCount(GameState.StorySave.CurrentOctoliths);
-                            uint lostNum = Rng.GetRandomInt2(octolithCount);
-                            uint curNum = 0;
-                            for (int i = 0; i < 8; i++)
-                            {
-                                if ((GameState.StorySave.CurrentOctoliths & (1 << i)) != 0)
-                                {
-                                    if (curNum == lostNum)
-                                    {
-                                        int hunter = (int)_players[_lostOctolithEnemyIndex].Hunter;
-                                        GameState.StorySave.CurrentOctoliths &= (ushort)~(1 << i);
-                                        GameState.StorySave.LostOctoliths = GameState.StorySave.LostOctoliths
-                                            & (uint)(~(15 << (4 * i)) | (hunter << (4 * i)));
-                                        GameState.StorySave.AreaHunters[_scene.AreaId / 2] &= (byte)~(1 << hunter);
-                                        break;
-                                    }
-                                    curNum++;
-                                }
-                            }
-                        }
-                    }
-                }
-                else if (_respawnTimer <= 1)
+                if (_respawnTimer <= 1)
                 {
                     Flags2 |= PlayerFlags2.HideModel;
                 }
@@ -1347,51 +1269,6 @@ namespace MphRead.Entities
                         _soundSource.PlayFreeSfx(SfxId.DOUBLE_DAMAGE_POWER_UP);
                     }
                     break;
-                case ItemType.EnergyTank:
-                    if (!IsBot)
-                    {
-                        pickedUp = true;
-                        _timeSincePickup = 0;
-                        _healthMax += Values.EnergyTank;
-                        _healthRecovery = _healthMax - _health;
-                        GameState.StorySave.HealthMax = _healthMax;
-                        if (IsMainPlayer)
-                        {
-                            // ENERGY TANK FOUND the POWER SUIT can now store 100 more UNITS of energy.
-                            ShowDialog(DialogType.Event, messageId: 4, param1: (int)EventType.EnergyTank);
-                        }
-                    }
-                    break;
-                case ItemType.MissileExpansion:
-                    if (!IsBot)
-                    {
-                        pickedUp = true;
-                        _timeSincePickup = 0;
-                        _ammoMax[1] += 100;
-                        _ammoRecovery[1] = _ammoMax[1] - _ammo[1];
-                        GameState.StorySave.AmmoMax[1] = _ammoMax[1];
-                        if (IsMainPlayer)
-                        {
-                            // MISSILE EXPANSION FOUND your MISSILE capacity is increased by 10 UNITS.
-                            ShowDialog(DialogType.Event, messageId: 3, param1: (int)EventType.MissileTank);
-                        }
-                    }
-                    break;
-                case ItemType.UAExpansion:
-                    if (!IsBot)
-                    {
-                        pickedUp = true;
-                        _timeSincePickup = 0;
-                        _ammoMax[0] += 300;
-                        _ammoRecovery[0] = _ammoMax[0] - _ammo[0];
-                        GameState.StorySave.AmmoMax[0] = _ammoMax[0];
-                        if (IsMainPlayer)
-                        {
-                            // UA EXPANSION FOUND your UNIVERSAL AMMO capacity is increased by 30 UNITS.
-                            ShowDialog(DialogType.Event, messageId: 46, param1: (int)EventType.UATank);
-                        }
-                    }
-                    break;
                 case ItemType.ArtifactKey:
                     pickedUp = true;
                     if (IsMainPlayer)
@@ -1443,20 +1320,6 @@ namespace MphRead.Entities
             if (weapon == BeamType.None)
             {
                 return;
-            }
-            if (GameState.SinglePlayer && (GameState.StorySave.Weapons & (1 << (int)weapon)) == 0)
-            {
-                GameState.StorySave.Weapons |= (ushort)(1 << (int)weapon);
-                int weaponId = (int)weapon;
-                string value1 = Metadata.WeaponNamesUpper[weaponId];
-                string value2 = "";
-                int messageId = Metadata.WeaponMessageIds[weaponId];
-                if (messageId != 0)
-                {
-                    value2 = Strings.GetHudMessage(messageId);
-                }
-                // &tab0 FOUND you've obtained the &tab0. &tab1
-                ShowDialog(DialogType.Event, messageId: 5, param1: weaponId, value1: value1, value2: value2);
             }
             WeaponInfo info = Weapons.Current[(int)weapon];
             if (_ammo[info.AmmoType] < 60)

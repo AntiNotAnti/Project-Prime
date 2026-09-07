@@ -968,30 +968,6 @@ namespace MphRead.Entities
                         colRes.Plane.Y + factor.Y - colRes.Plane.Y * 2 * dot,
                         colRes.Plane.Z + factor.Z - colRes.Plane.Z * 2 * dot
                     ).Normalized();
-                    if (Owner.Type == EntityType.Player)
-                    {
-                        var player = (PlayerEntity)Owner;
-                        if (player.IsBot && GameState.SinglePlayer && player.Hunter == Hunter.Spire)
-                        {
-                            int encounter = GameState.EncounterState[player.SlotIndex];
-                            ushort damage = 3;
-                            if (encounter == 2 || encounter == 0 && player.BotLevel > 0)
-                            {
-                                damage = 4;
-                            }
-                            _ricochetEquip.UnchargedDamage = damage;
-                            _ricochetEquip.MinChargeDamage = damage;
-                            _ricochetEquip.ChargedDamage = damage;
-                            _ricochetEquip.HeadshotDamage = damage;
-                            _ricochetEquip.MinChargeHeadshotDamage = damage;
-                            _ricochetEquip.ChargedHeadshotDamage = damage;
-                            _ricochetEquip.SplashDamage = damage;
-                            _ricochetEquip.MinChargeSplashDamage = damage;
-                            _ricochetEquip.ChargedSplashDamage = damage;
-                            _ricochetEquip.DmgDirTypes[0] = 0;
-                            _ricochetEquip.DmgDirTypes[1] = 0;
-                        }
-                    }
                     _ricochetEquip.Beams = Equip.Beams;
                     _ricochetEquip.Weapon = RicochetWeapon;
                     BeamSpawnFlags flags = BeamSpawnFlags.None;

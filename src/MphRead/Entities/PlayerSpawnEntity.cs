@@ -28,7 +28,7 @@ namespace MphRead.Entities
             if (GameState.Mode == GameMode.SinglePlayer)
             {
                 bool active = Cheats.SkipPlanetIntros ? true : (_data.Active != 0);
-                _active = GameState.StorySave.InitRoomState(_scene.RoomId, Id, active) != 0;
+                _active = _scene.GetInitialEntityState(Id, active) != 0;
             }
             else
             {
@@ -50,18 +50,10 @@ namespace MphRead.Entities
             if (info.Message == Message.Activate || (info.Message == Message.SetActive && (int)info.Param1 != 0))
             {
                 _active = true;
-                if (GameState.Mode == GameMode.SinglePlayer)
-                {
-                    GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 3);
-                }
             }
             else if (info.Message == Message.SetActive && (int)info.Param1 == 0)
             {
                 _active = false;
-                if (GameState.Mode == GameMode.SinglePlayer)
-                {
-                    GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 1);
-                }
             }
         }
     }

@@ -34,7 +34,7 @@ namespace MphRead.Entities
             AlwaysActive = data.AlwaysActive != 0;
             if (GameState.Mode == GameMode.SinglePlayer)
             {
-                int state = GameState.StorySave.InitRoomState(_scene.RoomId, Id, active: data.Enabled != 0);
+                int state = _scene.GetInitialEntityState(Id, active: data.Enabled != 0);
                 if (AlwaysActive)
                 {
                     Active = data.Enabled != 0;
@@ -146,18 +146,10 @@ namespace MphRead.Entities
             {
                 Active = true;
                 _playKeySfx = true;
-                if (GameState.Mode == GameMode.SinglePlayer)
-                {
-                    GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 3);
-                }
             }
             else if (info.Message == Message.SetActive && (int)info.Param1 == 0)
             {
                 Active = false;
-                if (GameState.Mode == GameMode.SinglePlayer)
-                {
-                    GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 1);
-                }
                 if (Item != null)
                 {
                     Item.DespawnTimer = 0;

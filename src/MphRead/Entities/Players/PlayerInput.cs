@@ -1073,10 +1073,6 @@ namespace MphRead.Entities
                 // todo?: make this more solid to avoid e.g. the battlehammer ammo cost thing
                 EquipInfo.Weapon = Weapons.Current[(int)CurrentWeapon + 9];
             }
-            if (IsBot && GameState.SinglePlayer)
-            {
-                UpdateAdventureModeBotWeapon();
-            }
             BeamSpawnFlags flags = BeamSpawnFlags.NoMuzzle;
             if (_doubleDmgTimer > 0)
             {
@@ -1148,87 +1144,7 @@ namespace MphRead.Entities
             return true;
         }
 
-        public void ResetAdventureModeBotWeapon()
-        {
-            EquipInfo.DrawFuncIds[0] = 255;
-            EquipInfo.DrawFuncIds[1] = 255;
-            EquipInfo.DmgDirTypes[0] = 255;
-            EquipInfo.DmgDirTypes[1] = 255;
-            EquipInfo.UnchargedDamage = UInt16.MaxValue;
-            EquipInfo.HeadshotDamage = UInt16.MaxValue;
-            EquipInfo.MinChargeDamage = UInt16.MaxValue;
-            EquipInfo.ChargedDamage = UInt16.MaxValue;
-            EquipInfo.MinChargeHeadshotDamage = UInt16.MaxValue;
-            EquipInfo.ChargedHeadshotDamage = UInt16.MaxValue;
-            EquipInfo.SplashDamage = UInt16.MaxValue;
-            EquipInfo.MinChargeSplashDamage = UInt16.MaxValue;
-            EquipInfo.ChargedSplashDamage = UInt16.MaxValue;
-            EquipInfo.HomingTolerance = Int32.MaxValue;
-            EquipInfo.InfiniteAmmo = false;
-        }
 
-        private void UpdateAdventureModeBotWeapon()
-        {
-            int encounter = GameState.EncounterState[SlotIndex];
-            if (encounter == 1 || encounter == 3 || encounter == 4)
-            {
-                if (Hunter == Hunter.Kanden)
-                {
-                    EquipInfo.HomingTolerance = 4006;
-                }
-                else if (Hunter == Hunter.Spire || Hunter == Hunter.Weavel)
-                {
-                    EquipInfo.DmgDirTypes[0] = 0;
-                    EquipInfo.DmgDirTypes[1] = 0;
-                }
-            }
-            int index;
-            if (Hunter == Hunter.Guardian)
-            {
-                index = 0;
-                if (EquipInfo.Weapon.Beam == BeamType.Magmaul)
-                {
-                    EquipInfo.DrawFuncIds[0] = 22;
-                    EquipInfo.DrawFuncIds[1] = 22;
-                }
-            }
-            else if (encounter == 1 || encounter == 3 || encounter == 4)
-            {
-                index = 1;
-            }
-            else if (BotLevel == 0)
-            {
-                index = 2;
-            }
-            else if (BotLevel == 1)
-            {
-                index = 3;
-            }
-            else // if (BotLevel == 2)
-            {
-                // note: the game uses index 3, not index 4, for out-of-range bot levels
-                index = 4;
-            }
-            if (encounter == 3 && Hunter == Hunter.Trace)
-            {
-                EquipInfo.UnchargedDamage = 50;
-                EquipInfo.HeadshotDamage = 50;
-            }
-            else if (EquipInfo.Weapon.Beam != BeamType.OmegaCannon) // the game doesn't have this check
-            {
-                Weapons.BotWeaponValues values = Weapons.BotWeapons[index][(int)EquipInfo.Weapon.Beam];
-                EquipInfo.UnchargedDamage = values.UnchargedDamage;
-                EquipInfo.HeadshotDamage = values.UnchargedDamage;
-                EquipInfo.MinChargeDamage = values.ChargedDamage;
-                EquipInfo.ChargedDamage = values.ChargedDamage;
-                EquipInfo.MinChargeHeadshotDamage = values.ChargedDamage;
-                EquipInfo.ChargedHeadshotDamage = values.ChargedDamage;
-                EquipInfo.SplashDamage = values.SplashDamage;
-                EquipInfo.MinChargeSplashDamage = values.ChargedSplashDamage;
-                EquipInfo.ChargedSplashDamage = values.ChargedSplashDamage;
-            }
-            EquipInfo.InfiniteAmmo = true;
-        }
 
         private void ProcessAlt()
         {
@@ -1567,11 +1483,6 @@ namespace MphRead.Entities
                             Flags2 |= PlayerFlags2.AltAttack;
                             float attackHSpeed = Fixed.ToFloat(Values.LungeHSpeed);
                             float attackVSpeed = Fixed.ToFloat(Values.LungeVSpeed);
-                            if (IsBot && GameState.SinglePlayer && GameState.EncounterState[SlotIndex] == 1)
-                            {
-                                attackHSpeed = 0.3f;
-                                attackVSpeed = 0.45f;
-                            }
                             if (_field70 * Speed.X + _field74 * Speed.Z < attackHSpeed)
                             {
                                 Speed = Speed.WithX(_field70 * attackHSpeed).WithZ(_field74 * attackHSpeed);
@@ -1778,23 +1689,6 @@ namespace MphRead.Entities
                 bomb.SelfRadius = Fixed.ToFloat(Values.BombSelfRadius);
                 bomb.Damage = (ushort)Values.BombDamage;
                 bomb.EnemyDamage = (ushort)Values.BombEnemyDamage;
-                if (IsBot && GameState.SinglePlayer && (Hunter == Hunter.Kanden || Hunter == Hunter.Sylux))
-                {
-                    int encounter = GameState.EncounterState[SlotIndex];
-                    if (encounter == 1 || encounter == 3 || encounter == 4
-                        || encounter == 0 && BotLevel == 0)
-                    {
-                        bomb.Damage = bomb.EnemyDamage = (ushort)(Hunter == Hunter.Kanden ? 2 : 6);
-                    }
-                    else if (encounter != 0 || BotLevel < 2) // in-game: level !=2
-                    {
-                        bomb.Damage = bomb.EnemyDamage = (ushort)(Hunter == Hunter.Kanden ? 4 : 3);
-                    }
-                    else
-                    {
-                        bomb.Damage = bomb.EnemyDamage = (ushort)(Hunter == Hunter.Kanden ? 8 : 6);
-                    }
-                }
                 if (_doubleDmgTimer > 0)
                 {
                     bomb.Damage *= 2;
@@ -1833,14 +1727,8 @@ namespace MphRead.Entities
             {
                 if (Flags2.TestFlag(PlayerFlags2.AltAttack))
                 {
-                    if (IsBot && GameState.SinglePlayer && GameState.EncounterState[SlotIndex] == 1)
-                    {
-                        _altAttackCooldown = 10 * 2; // todo: FPS stuff
-                    }
-                    else
-                    {
-                        _altAttackCooldown = (ushort)(Values.AltAttackCooldown * 2); // todo: FPS stuff
-                    }
+                    _altAttackCooldown = (ushort)(Values.AltAttackCooldown * 2); // todo: FPS stuff
+
                 }
             }
             else if (Hunter == Hunter.Noxus)

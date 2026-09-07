@@ -82,7 +82,7 @@ namespace MphRead.Entities
             }
             if (GameState.Mode == GameMode.SinglePlayer)
             {
-                int state = GameState.StorySave.InitRoomState(_scene.RoomId, Id, active: data.Active != 0);
+                int state = _scene.GetInitialEntityState(Id, active: data.Active != 0);
                 Active = state != 0;
             }
             else
@@ -117,21 +117,7 @@ namespace MphRead.Entities
             }
             if (data.Invisible == 0)
             {
-                if (_big)
-                {
-                    Debug.Assert(GameState.Mode == GameMode.SinglePlayer);
-                    bool active = GameState.StorySave.CountFoundArtifacts(data.ArtifactId) > 2;
-                    if (active && (GameState.EscapeTimer == -1 || GameState.EscapeState != EscapeState.Escape))
-                    {
-                        Active = true;
-                        GameState.StorySave.SetRoomState(scene.RoomId, Id, state: 3);
-                    }
-                    else
-                    {
-                        Active = false;
-                        GameState.StorySave.SetRoomState(scene.RoomId, Id, state: 1);
-                    }
-                }
+                if (_big) { Active = false; }
                 if (Active)
                 {
                     _scanId = _big ? 46 : 26;
@@ -167,15 +153,6 @@ namespace MphRead.Entities
                     && !animInfo.Flags[0].TestFlag(AnimFlags.Reverse) && animInfo.Flags[0].TestFlag(AnimFlags.Ended))
                 {
                     _models[0].SetAnimation(0);
-                }
-                else if (_big && !Active)
-                {
-                    bool active = GameState.StorySave.CountFoundArtifacts(_data.ArtifactId) > 2;
-                    if (active && PlayerEntity.Main.Health > 0
-                        && (GameState.EscapeTimer == -1 || GameState.EscapeState != EscapeState.Escape))
-                    {
-                        Activate();
-                    }
                 }
                 if (_bool4 && (animInfo.Index[0] != 0 || animInfo.Frame[0] == animInfo.FrameCount[0] - 1))
                 {
@@ -285,10 +262,6 @@ namespace MphRead.Entities
                     Active = false;
                     _scanId = 25;
                     _bool4 = true;
-                    if (GameState.Mode == GameMode.SinglePlayer)
-                    {
-                        GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 1);
-                    }
                 }
             }
         }
@@ -399,13 +372,6 @@ namespace MphRead.Entities
 
         public override void GetDrawInfo()
         {
-            if (_models.Count == 4)
-            {
-                StorySave save = GameState.StorySave;
-                _models[1].Active = save.CheckFoundArtifact(artifactId: 0, _data.ArtifactId);
-                _models[2].Active = save.CheckFoundArtifact(artifactId: 1, _data.ArtifactId);
-                _models[3].Active = save.CheckFoundArtifact(artifactId: 2, _data.ArtifactId);
-            }
             if (IsVisible(NodeRef))
             {
                 base.GetDrawInfo();

@@ -42,10 +42,6 @@ namespace MphRead
                 scene.Match.ApplyRules(MatchRules.CreateDefault(mode.ToMatchMode(), metadata.Name));
                 scene.Match.Phase = MatchPhase.Playing;
             }
-            if (mode == GameMode.SinglePlayer)
-            {
-                Menu.ApplyAdventureSettings();
-            }
             if (!scene.IsHeadless)
             {
                 Extract.LoadRuntimeData();
@@ -55,14 +51,6 @@ namespace MphRead
                 Metadata.UseSilentSoundTables();
             }
             LoadResources(scene);
-            // currently no differentiation between loading a file and choosing a planet,
-            // so reset the RNG when loading a different save slot from the previous
-            if (Menu.SaveSlot != Menu.PreviousSaveSlot)
-            {
-                Rng.SetRng1(Rng.Rng1StartValue);
-                Rng.SetRng2(Rng.Rng2StartValue);
-                Menu.PreviousSaveSlot = Menu.SaveSlot;
-            }
             CamSeqEntity.ClearData();
             CamSeqEntity.Current = null;
             CameraSequence.Current = null;
@@ -81,17 +69,10 @@ namespace MphRead
                 bossFlags, nodeLayerMask, entityLayerId, metadata, room, scene, isRoomTransition: false);
             if (!scene.IsHeadless)
             {
-                Music.TryPlayRoomMusic(room.RoomId, GameState.SinglePlayer && (((int)GameState.StorySave.BossFlags >> (2 * scene.AreaId)) & 3) != 0 ? 1 : 0);
-            }
-            if (GameState.SinglePlayer)
-            {
-                UpdateAreaHunters();
-                InitHunterSpawns(scene, entities, initialize: false); // see: "probably revisit this"
-                scene.LoadMapSymbolEntities(scene.AreaId);
+                Music.TryPlayRoomMusic(room.RoomId, 0);
             }
             AiPersonality.LoadAll(mode);
             room.SetNodeData(LoadNodeData(metadata.NodePath, room.RoomId, mode, entities, metadata.FirstHunt));
-            GameState.StorySave.CheckpointRoomId = room.RoomId;
             return (room, metadata, collision, entities);
         }
 
@@ -99,23 +80,7 @@ namespace MphRead
             IReadOnlyList<EntityBase> entities, bool firstHunt)
         {
             NodeData? nodeData = null;
-            if (mode == GameMode.SinglePlayer)
-            {
-                for (int i = 0; i < PlayerEntity.Players.Count; i++)
-                {
-                    PlayerEntity player = PlayerEntity.Players[i];
-                    int encounterState = GameState.EncounterState[i];
-                    if (player.IsBot && encounterState >= 1 && encounterState <= 4)
-                    {
-                        if (Metadata.EncounterNodeDataOverrides.TryGetValue(roomId, out string? nodeOverride))
-                        {
-                            nodePath = nodeOverride;
-                        }
-                        break;
-                    }
-                }
-            }
-            else if (mode == GameMode.Capture)
+            if (mode == GameMode.Capture)
             {
                 if (Metadata.CtfNodeDataOverrides.TryGetValue(roomId, out string? nodeOverride))
                 {
@@ -173,198 +138,6 @@ namespace MphRead
             return nodeData;
         }
 
-        public static void UpdateAreaHunters(StorySave? save = null)
-        {
-            // temporary parameter(?) so the menu can call this in advance on a not-yet-loaded save
-            if (save == null)
-            {
-                save = GameState.StorySave;
-                Array.Fill(GameState.CompletedRandomEncounterRooms, false);
-            }
-            // todo?: the game does this in the cockpit
-            Array.Fill(save.AreaHunters, (byte)0);
-            byte chance = 0;
-            byte[] chances = new byte[4];
-            byte[] counts = new byte[4];
-            for (int i = 0; i < 4; i++)
-            {
-                int area1 = i * 2;
-                if (GameState.GetAreaState(area1, save) == AreaState.Clear)
-                {
-                    uint lostOctoliths = save.LostOctoliths;
-                    if (((lostOctoliths >> (8 * i)) & 15) == 15 || ((lostOctoliths >> (4 * (2 * i + 1))) & 15) == 15)
-                    {
-                        // increased chance if you haven't lost either of the planet's octoliths
-                        chance += 2;
-                    }
-                    else
-                    {
-                        chance++;
-                    }
-                    chances[i] = chance;
-                }
-            }
-            for (int i = 0; i < 8; i++)
-            {
-                if ((save.DefeatedHunters & (1 << i)) == 0)
-                {
-                    continue;
-                }
-                uint rand = Rng.GetRandomInt2(chance);
-                for (int j = 0; j < 4; j++)
-                {
-                    if (rand < chances[j])
-                    {
-                        save.AreaHunters[j] |= (byte)(1 << i);
-                        if (++counts[j] >= 3)
-                        {
-                            for (int k = 3; k > j; k--)
-                            {
-                                chances[k] = chances[k - 1];
-                            }
-                            chances[j] = 0;
-                            chance = chances[3];
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-
-        public static void InitHunterSpawns(Scene scene, IReadOnlyList<EntityBase> entities, bool initialize)
-        {
-            for (int i = 1; i < PlayerEntity.MaxPlayers; i++)
-            {
-                PlayerEntity player = PlayerEntity.Players[i];
-                player.LoadFlags &= ~LoadFlags.Active;
-                player.LoadFlags &= ~LoadFlags.SlotActive;
-                player.IsBot = false;
-                player.BotLevel = 0;
-                player.ResetAdventureModeBotWeapon();
-            }
-            PlayerEntity.PlayerCount = 1;
-            PlayerEntity.PlayersCreated = 1;
-            Array.Fill(GameState.EncounterState, 0);
-            if (scene.AreaId >= 8) // handled differently in-game
-            {
-                return;
-            }
-            if (GameState.GetAreaState(scene.AreaId) != AreaState.Clear
-                || scene.RoomId != 50 // Data Shrine 02 (UNIT2_RM2)
-                || PlayerEntity.Main.AvailableWeapons[BeamType.Battlehammer])
-            {
-                int randomHunters = GameState.StorySave.AreaHunters[scene.AreaId / 2] & 0x7E; // ignore Samus and Guardian
-                int randomHunterCount = System.Numerics.BitOperations.PopCount((uint)randomHunters);
-                int extraCount = 0; // extra index to roll Guardian if at least one hunter has already been rolled
-                for (int i = 0; i < entities.Count; i++)
-                {
-                    if (PlayerEntity.PlayerCount >= PlayerEntity.MaxPlayers)
-                    {
-                        break;
-                    }
-                    EntityBase entity = entities[i];
-                    if (entity.Type != EntityType.EnemySpawn)
-                    {
-                        continue;
-                    }
-                    var spawner = (EnemySpawnEntity)entity;
-                    if (spawner.Data.EnemyType != EnemyType.Hunter)
-                    {
-                        continue;
-                    }
-                    if (spawner.Data.Fields.S09.HunterId == 8 && (Cheats.NoRandomEncounters || Features.NoRepeatEncounters
-                        && scene.RoomId >= 27 && scene.RoomId <= 92 && GameState.CompletedRandomEncounterRooms[scene.RoomId - 27]))
-                    {
-                        return;
-                    }
-                    if (Rng.GetRandomInt2(100) >= spawner.Data.Fields.S09.HunterChance)
-                    {
-                        continue;
-                    }
-                    PlayerEntity player = PlayerEntity.Players[PlayerEntity.PlayerCount];
-                    player.IsBot = true;
-                    player.EnemySpawner = spawner;
-                    Hunter hunter;
-                    if (spawner.Data.Fields.S09.HunterId == 8) // random
-                    {
-                        uint rand = Rng.GetRandomInt2(randomHunterCount + extraCount);
-                        if (rand < randomHunterCount)
-                        {
-                            // todo?: determine bot level based on octoliths (unused)
-                            int index = 0;
-                            int j;
-                            for (j = 0; j < 8; j++)
-                            {
-                                if ((randomHunters & (1 << j)) != 0)
-                                {
-                                    if (index++ == rand)
-                                    {
-                                        break;
-                                    }
-                                }
-                            }
-                            hunter = (Hunter)j;
-                            if (hunter != Hunter.Samus && hunter != Hunter.Guardian)
-                            {
-                                Music.PlayEncounterMusic(hunter);
-                            }
-                        }
-                        else
-                        {
-                            hunter = Hunter.Guardian;
-                        }
-                    }
-                    else
-                    {
-                        hunter = (Hunter)spawner.Data.Fields.S09.HunterId;
-                    }
-                    if (hunter != Hunter.Guardian)
-                    {
-                        extraCount = 1;
-                    }
-                    if ((randomHunters & (1 << (int)hunter)) != 0)
-                    {
-                        randomHunters &= ~(1 << (int)hunter);
-                        randomHunterCount--;
-                    }
-                    int suitColor = spawner.Data.Fields.S09.HunterColor;
-                    if (hunter == PlayerEntity.Main.Hunter && suitColor == PlayerEntity.Main.Recolor
-                        && Features.AlternateHunters1P)
-                    {
-                        suitColor = PlayerEntity.Main.Recolor == 0 ? 1 : 0;
-                    }
-                    PlayerEntity.Create(hunter, suitColor);
-                    if (initialize)
-                    {
-                        player.LoadFlags |= LoadFlags.SlotActive;
-                        player.Initialized = false;
-                        scene.AddEntity(player);
-                    }
-                    GameState.EncounterState[PlayerEntity.PlayerCount] = (int)spawner.Data.Fields.S09.EncounterType;
-                    player.BotLevel = 1;
-                    PlayerEntity.PlayerCount++;
-                }
-            }
-            for (int i = 1; i < PlayerEntity.MaxPlayers; i++)
-            {
-                PlayerEntity player = PlayerEntity.Players[i];
-                if (player.IsBot)
-                {
-                    int dropId = GameState.StorySave.GetEnemyOctolithDrop((int)player.Hunter);
-                    if (dropId < 8)
-                    {
-                        var header = new EntityDataHeader((ushort)EntityType.Artifact, entityId: -1,
-                            position: Vector3.Zero, upVector: Vector3.UnitY, facingVector: Vector3.UnitX);
-                        var data = new ArtifactEntityData(header, modelId: 8, artifactId: (byte)dropId, active: 0,
-                            hasBase: 0, message1Target: 0, message1: Message.None, message2Target: 0, message2: Message.None,
-                            message3Target: 0, message3: Message.None, linkedEntityId: -1);
-                        var artifact = new ArtifactEntity(data, nodeName: "", scene);
-                        scene.AddEntity(artifact);
-                    }
-                }
-            }
-        }
-
         public static (CollisionInstance, IReadOnlyList<EntityBase>) SetUpRoom(GameMode mode,
             int playerCount, BossFlags bossFlags, int nodeLayerMask, int entityLayerId,
             RoomMetadata metadata, RoomEntity room, Scene scene, bool isRoomTransition)
@@ -379,7 +152,7 @@ namespace MphRead
                 {
                     if (bossFlags == BossFlags.Unspecified)
                     {
-                        bossFlags = GameState.StorySave.BossFlags;
+                        bossFlags = 0;
                     }
                     entityLayerId = ((int)bossFlags >> (2 * scene.AreaId)) & 3;
                 }

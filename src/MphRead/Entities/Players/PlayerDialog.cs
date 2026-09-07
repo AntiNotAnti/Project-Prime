@@ -501,15 +501,10 @@ namespace MphRead.Entities
                         {
                             RestartLongSfx();
                         }
-                        bool scan = DialogType == DialogType.Scan;
                         _soundSource.PlayFreeSfx(SfxId.SCAN_OK);
                         CloseDialogs();
                         DialogConfirmState = ConfirmState.Okay;
                         GameState.UnpauseDialog();
-                        if (scan)
-                        {
-                            AfterScan();
-                        }
                     }
                 }
                 if (closed)

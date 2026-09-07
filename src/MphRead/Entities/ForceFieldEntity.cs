@@ -48,7 +48,7 @@ namespace MphRead.Entities
             SetTransform(data.Header.FacingVector, data.Header.UpVector, data.Header.Position);
             Scale = new Vector3(_width, _height, 1.0f);
             Debug.Assert(GameState.Mode == GameMode.SinglePlayer);
-            int state = GameState.StorySave.InitRoomState(_scene.RoomId, Id, active: _data.Active != 0);
+            int state = _scene.GetInitialEntityState(Id, active: _data.Active != 0);
             _active = state != 0;
             if (_active)
             {
@@ -122,7 +122,6 @@ namespace MphRead.Entities
                     {
                         _soundSource.PlayFreeSfx(SfxId.GEN_OFF);
                     }
-                    GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 1);
                 }
                 _active = false;
                 _scanId = 0;
@@ -144,7 +143,6 @@ namespace MphRead.Entities
                 {
                     _scanId = _scanIds[(int)_data.Type];
                 }
-                GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 3);
                 if (_lock == null && _data.Type != 9)
                 {
                     _lock = EnemySpawnEntity.SpawnEnemy(this, EnemyType.ForceFieldLock, NodeRef, _scene) as Enemy49Entity;

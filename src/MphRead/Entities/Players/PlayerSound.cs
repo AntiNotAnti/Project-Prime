@@ -631,7 +631,10 @@ namespace MphRead.Entities
                 }
                 else if (message.Message == Message.UpdateMusic)
                 {
-                    musicId = CheckMusicUpdate(musicId, (int)message.Param1, (int)message.Param2);
+                    if ((int)message.Param2 == 0)
+                    {
+                        musicId = (MusicId)(int)message.Param1;
+                    }
                 }
             }
             if (musicId != MusicId.Invalid && PlayerEntity.Main.Health > 0
@@ -713,45 +716,5 @@ namespace MphRead.Entities
             }
         }
 
-        private MusicId CheckMusicUpdate(MusicId currentMusicId, int param1, int param2)
-        {
-            MusicId newMusicId = (MusicId)param1;
-            if (param2 == 0)
-            {
-                return newMusicId;
-            }
-            int idValue = (param2 & 0x7F); // bits 0-6
-            bool negation = (param2 & 0x80) >> 7 != 0; // bit 7
-            if (idValue > 70)
-            {
-                // artifact ID (with model ID baked in)
-                bool hasArtifact = (GameState.StorySave.CheckFoundArtifact(idValue - 71, modelId: 0)) ^ negation;
-                if (hasArtifact)
-                {
-                    return newMusicId;
-                }
-            }
-            else if ((param2 & 0x100) >> 8 != 0) // bit 8
-            {
-                // entity ID
-                bool hasRoomState = (GameState.StorySave.GetRoomState(_scene.RoomId, idValue) != 0) ^ negation;
-                if (hasRoomState)
-                {
-                    return newMusicId;
-                }
-            }
-            else
-            {
-                // enemy type
-                int byteIndex = idValue >> 3;
-                int bitmask = (byte)(1 << (idValue & 7));
-                bool hasEncounterState = ((GameState.StorySave.EnemyEncounters[_scene.AreaId][byteIndex] & bitmask) == 0) ^ negation;
-                if (hasEncounterState)
-                {
-                    return newMusicId;
-                }
-            }
-            return currentMusicId;
-        }
     }
 }

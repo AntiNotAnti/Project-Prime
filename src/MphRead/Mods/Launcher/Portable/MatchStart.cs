@@ -34,7 +34,6 @@ namespace MphRead.Mods.Launcher
                 Console.WriteLine($"[launcher] {unplayable}");
                 return;
             }
-            Menu.SaveSlot = 0;
             settings.RoomKey = room.RoomKey;
             using var renderer = new RenderWindow();
             NetLaunch.BuildPlayers(renderer.Scene, plan.Hunter, localRecolor: 0);
@@ -57,7 +56,6 @@ namespace MphRead.Mods.Launcher
                 DemoPlayback.Stop();
                 return;
             }
-            Menu.SaveSlot = 0;
             using var renderer = new RenderWindow();
             NetLaunch.BuildPlayers(renderer.Scene, Hunter.Samus, localRecolor: 0, teamId: -1, localSlot: -1);
             renderer.AddRoom(room.Value.RoomKey, room.Value.Mode, playerCount: NetLaunch.RoomPlayerCount);

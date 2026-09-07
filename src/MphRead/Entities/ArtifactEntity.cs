@@ -40,22 +40,7 @@ namespace MphRead.Entities
                 SetUpModel("ArtifactBase");
             }
             Debug.Assert(GameState.Mode == GameMode.SinglePlayer);
-            Active = GameState.StorySave.InitRoomState(_scene.RoomId, Id, active: _data.Active != 0, activeState: 2) != 0;
-            if (data.ModelId < 8)
-            {
-                if (GameState.StorySave.CheckFoundArtifact(data.ArtifactId, data.ModelId))
-                {
-                    Active = false;
-                }
-            }
-            else if (Id != -1)
-            {
-                // the game does this by checking both current and lost octoliths, but this is simpler
-                if (GameState.StorySave.CheckFoundOctolith(data.ArtifactId))
-                {
-                    Active = false;
-                }
-            }
+            Active = _scene.GetInitialEntityState(Id, active: _data.Active != 0, activeState: 2) != 0;
         }
 
         public override void Initialize()
@@ -86,11 +71,6 @@ namespace MphRead.Entities
         {
             48, 48, 48, 48, 48, 48, 48, 48, 40, 41, 42, 40, 41, 42, 40, 41,
             42, 40, 41, 42, 40, 41, 42, 40, 41, 42, 40, 41, 42, 40, 41, 42
-        };
-
-        private readonly IReadOnlyList<int> _octolithMessageIds = new int[8]
-        {
-            14, 31, 32, 33, 34, 35, 36, 51
         };
 
         public override bool Process()
@@ -177,51 +157,7 @@ namespace MphRead.Entities
                 {
                     _scene.SendMessage(_data.Message3, this, _msgTarget3, 0, 0);
                 }
-                if (_data.ModelId >= 8)
-                {
-                    GameState.StorySave.UpdateFoundOctolith(_data.ArtifactId);
-                    if (Id == -1)
-                    {
-                        // OCTOLITH RECLAIMED you recovered a stolen OCTOLITH!
-                        PlayerEntity.Main.ShowDialog(DialogType.Event, messageId: 54, param1: (int)EventType.Octolith);
-                    }
-                    else
-                    {
-                        GameState.UpdateCleanSave(force: false);
-                        GameState.PausePrevented = true;
-                        _scene.StartMovie(Movie.OctolithPickUp, FadeType.FadeOutInWhite, 5 / 30f, FadeType.FadeOutInWhite, 5 / 30f);
-                        GameState.UpdateBossFlags(_scene.AreaId);
-                        int collected = GameState.StorySave.CountFoundOctoliths();
-                        GameState.QueuedOctolithMessageId = _octolithMessageIds[collected - 1];
-                    }
-                }
-                else
-                {
-                    int collected = GameState.StorySave.CountFoundArtifacts(_data.ModelId);
-                    if (collected >= 2)
-                    {
-                        _soundSource.PlayFreeSfx(SfxId.ARTIFACT3);
-                    }
-                    else if (collected == 1)
-                    {
-                        _soundSource.PlayFreeSfx(SfxId.ARTIFACT2);
-                    }
-                    else
-                    {
-                        _soundSource.PlayFreeSfx(SfxId.ARTIFACT1);
-                    }
-                    GameState.StorySave.UpdateFoundArtifact(_data.ArtifactId, _data.ModelId);
-                    // ARTIFACT DISCOVERED you retrieved an ALIMBIC ARTIFACT!
-                    PlayerEntity.Main.ShowDialog(DialogType.Event, messageId: 6, param1: (int)EventType.Artifact);
-                    if (collected >= 2)
-                    {
-                        // PORTAL ACTIVATED long-range thermomagnetic-resonance scanners indicate remote
-                        // and inaccessible chambers. use the PORTAL to access the inaccessible.
-                        _scene.SendMessage(Message.ShowPrompt, this, null, param1: 13, param2: 0, delay: 1);
-                    }
-                }
                 Active = false;
-                GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 1);
                 _soundSource.StopAllSfx(force: true);
             }
             else
@@ -244,19 +180,16 @@ namespace MphRead.Entities
             if (info.Message == Message.Activate)
             {
                 Active = true;
-                GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 3);
             }
             else if (info.Message == Message.SetActive)
             {
                 if ((int)info.Param1 != 0)
                 {
                     Active = true;
-                    GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 3);
                 }
                 else
                 {
                     Active = false;
-                    GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 1);
                 }
             }
             else if (info.Message == Message.MoveItemSpawner && info.Sender != null)

@@ -386,23 +386,6 @@ namespace MphRead.Entities
                         Debug.Assert(bomb != null);
                         bomb.Damage = 60;
                         bomb.EnemyDamage = 60;
-                        if (Owner.IsBot && GameState.SinglePlayer)
-                        {
-                            int encounter = GameState.EncounterState[Owner.SlotIndex];
-                            if (encounter == 1 || encounter == 3 || encounter == 4
-                                || encounter == 0 && Owner.BotLevel == 0)
-                            {
-                                bomb.Damage = bomb.EnemyDamage = 4;
-                            }
-                            else if (encounter != 0 || Owner.BotLevel < 2) // in-game: level !=2
-                            {
-                                bomb.Damage = bomb.EnemyDamage = 7;
-                            }
-                            else
-                            {
-                                bomb.Damage = bomb.EnemyDamage = 10;
-                            }
-                        }
                     }
                 }
                 else if (player.Flags2.TestFlag(PlayerFlags2.Halfturret) && LockjawCheckSnare(player.Halfturret.Position))
@@ -424,19 +407,6 @@ namespace MphRead.Entities
                 Debug.Assert(!lineHitHalfturret);
                 hitEntity = player;
                 uint damage = 20;
-                if (Owner.IsBot && GameState.SinglePlayer)
-                {
-                    int encounter = GameState.EncounterState[Owner.SlotIndex];
-                    if (encounter == 1 || encounter == 3 || encounter == 4
-                        || encounter == 0 && Owner.BotLevel == 0)
-                    {
-                        damage = 1;
-                    }
-                    else
-                    {
-                        damage = 3;
-                    }
-                }
                 player.TakeDamage(damage, DamageFlags.NoDmgInvuln, null, this);
             }
             else if (lineHitHalfturret)

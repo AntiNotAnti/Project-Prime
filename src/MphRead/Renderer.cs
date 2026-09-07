@@ -288,8 +288,6 @@ namespace MphRead
                 = SceneSetup.LoadGame(name, this, playerCount, bossFlags, nodeLayerMask, entityLayerId);
             Mods.DebugLog.Line("room", $"\"{name}\" read: {entities.Count} entit(ies), "
                 + $"id={RoomId}, area={AreaId}");
-            GameState.StorySave.SetVisitedRoom(RoomId);
-            GameState.StorySave.Areas |= (ushort)(1 << AreaId);
             if (GameState.Mode == GameMode.None)
             {
                 GameState.Mode = meta.Multiplayer ? GameMode.Battle : GameMode.SinglePlayer;
@@ -1520,8 +1518,7 @@ namespace MphRead
                 && Match.Phase is MatchPhase.WaitingForPlayers or MatchPhase.Countdown;
             if (ProcessFrame && _room != null)
             {
-                if (GameState.SinglePlayer) { GameState.ProcessFrame(this); }
-                else { Match.Flow.ProcessFrame(); }
+                if (GameState.Multiplayer) { Match.Flow.ProcessFrame(); }
                 if (!waitingForServer && Match.LegacyState == MatchState.InProgress && !GameState.MenuPause)
                 {
                     UpdateScene();
@@ -2262,7 +2259,6 @@ namespace MphRead
             GL.ClearStencil(0);
 
             UpdateUniforms();
-            SetPauseMenuUniforms();
             if (_exiting)
             {
                 return false;
@@ -2419,10 +2415,6 @@ namespace MphRead
             GL.Uniform4(_shaderLocations.FadeColor, _fadeColor, _fadeColor, _fadeColor, 0);
             if (PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
             {
-                if (GameState.MenuPause)
-                {
-                    PlayerEntity.Main.DrawPauseMenuBackground();
-                }
                 DrawHudLayer(Layer4Info); // ice layer
                 DrawHudLayer(Layer3Info); // helmet back
                 DrawHudLayer(Layer1Info); // visor
@@ -2443,10 +2435,6 @@ namespace MphRead
                     GL.ActiveTexture(TextureUnit.Texture1);
                     GL.BindTexture(TextureTarget.Texture2D, 0);
                     GL.ActiveTexture(TextureUnit.Texture0);
-                }
-                if (GameState.MenuPause)
-                {
-                    PlayerEntity.Main.DrawPauseMenuForeground();
                 }
             }
             else if (ScoreboardOverFreeCamera)
@@ -3775,7 +3763,6 @@ namespace MphRead
                 {
                     PlayerEntity.Main.ProcessModeHud();
                 }
-                GameState.UpdateFrame(this);
                 Match.Logic.UpdateState();
             }
             else if (GameState.SinglePlayer)
@@ -3784,31 +3771,11 @@ namespace MphRead
                 {
                     PlayerEntity.Main.UpdateDialogs();
                 }
-                GameState.UpdateFrame(this);
             }
         }
 
         private void GetDrawItems()
         {
-            if (GameState.MenuPause)
-            {
-                // The pause map's own animations -- the spinning octoliths,
-                // the dialog button -- advance from Scene.FrameTime inside the
-                // draw call, so they are handed the steps actually taken
-                // rather than one per picture. Zero on a frame with no step
-                // behind it, which simply draws them where they are.
-                //
-                // The effect steps owed are cleared for a different reason:
-                // nothing below consumes them while the menu is up, so they
-                // would pile up for as long as it is open and then all run at
-                // once when it closes.
-                float simFrameTime = _frameTime;
-                _frameTime = 1 / 60f * _pendingEffectSteps;
-                _pendingEffectSteps = 0;
-                PlayerEntity.Main.GetPauseMapRenderItems();
-                _frameTime = simFrameTime;
-                return;
-            }
             if (_room != null)
             {
                 _room.GetDrawInfo();
@@ -4029,16 +3996,6 @@ namespace MphRead
         {
             _fadeType = FadeType.None;
             DoCleanup();
-            if (GameState.SinglePlayer)
-            {
-                Menu.NeededSave = enteringShip ? Menu.SaveFromShip : Menu.SaveFromExit;
-                if (enteringShip)
-                {
-                    GameState.StorySave.Health = GameState.StorySave.HealthMax;
-                    GameState.StorySave.Ammo[0] = GameState.StorySave.AmmoMax[0];
-                    GameState.StorySave.Ammo[1] = GameState.StorySave.AmmoMax[1];
-                }
-            }
             _close.Invoke();
         }
 
@@ -4464,15 +4421,6 @@ namespace MphRead
             }
         }
 
-        private void SetPauseMenuUniforms()
-        {
-            if (GameState.MenuPause && _cameraMode == CameraMode.Player)
-            {
-                (Matrix4 viewMtx, Matrix4 orthoMtx) = PlayerEntity.Main.GetPauseMapMatrices();
-                GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref viewMtx);
-                GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref orthoMtx);
-            }
-        }
 
         public LayerInfo Layer1Info { get; } = new LayerInfo();
         public LayerInfo Layer2Info { get; } = new LayerInfo();
@@ -6590,10 +6538,6 @@ namespace MphRead
             if (e.Key == Keys.Escape)
             {
                 Scene.DoCleanup();
-                if (GameState.SinglePlayer)
-                {
-                    Menu.NeededSave = Menu.SaveFromExit;
-                }
                 Close();
             }
             else

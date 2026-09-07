@@ -70,7 +70,7 @@ namespace MphRead.Entities
             _lock = SetUpModel(meta.LockName);
             _lockTransform = Matrix4.CreateTranslation(0, meta.LockOffset, 0);
             Debug.Assert(GameState.Mode == GameMode.SinglePlayer);
-            int state = GameState.StorySave.InitRoomState(_scene.RoomId, Id, active: _data.Locked != 0);
+            int state = _scene.GetInitialEntityState(Id, active: _data.Locked != 0);
             if (state != 0 && !Cheats.UnlockAllDoors)
             {
                 Flags |= DoorFlags.Locked;
@@ -215,11 +215,7 @@ namespace MphRead.Entities
             if (Unlocked && _lock.AnimInfo.Flags[0].TestFlag(AnimFlags.Ended))
             {
                 Flags &= ~DoorFlags.Locked;
-                // the game doesn't clear the unlocked flag, which results in the story save update happening
-                // every frame after a door is unlocked. in our case, that can cause room state issues during
-                // room transitions, so we clear it. shouldn't cause any differences in behavior.
                 Flags &= ~DoorFlags.Unlocked;
-                GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 1);
             }
             UpdateScanId();
             if (Locked && !Unlocked)
@@ -319,14 +315,6 @@ namespace MphRead.Entities
                 {
                     Debug.Assert(_scene.Room != null);
                     _scene.Room.ActivateConnector(this);
-                }
-                if (_data.ConnectorId != 255)
-                {
-                    Span<char> roomName = _data.RoomName.AsSpan();
-                    if (roomName.StartsWith("Con") && Int32.TryParse(roomName.Slice(3, 2), out int id) && id >= 1)
-                    {
-                        GameState.StorySave.SetVisitedConnector(id - 1, _scene.AreaId);
-                    }
                 }
                 // todo: FPS stuff
                 if (AnimInfo.Frame[0] > AnimInfo.FrameCount[0] / 2)
@@ -451,10 +439,6 @@ namespace MphRead.Entities
         public void Lock(bool updateState)
         {
             Flags |= DoorFlags.Locked;
-            if (updateState)
-            {
-                GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 3);
-            }
         }
 
         public void Unlock(bool updateState, bool noLockAnimSfx)
@@ -480,10 +464,6 @@ namespace MphRead.Entities
             }
             _lock.SetAnimation(1, AnimFlags.NoLoop);
             _scene.SpawnEffect(114, UpVector, FacingVector, LockPosition); // lockDefeat
-            if (updateState)
-            {
-                GameState.StorySave.SetRoomState(_scene.RoomId, Id, state: 1);
-            }
         }
 
         public override void HandleMessage(MessageInfo info)

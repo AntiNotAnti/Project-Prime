@@ -201,24 +201,8 @@ namespace MphRead.Entities
                 if (_target != null)
                 {
                     Vector3 muzzlePos = Position.AddY(0.4f);
-                    int encounter = GameState.EncounterState[Owner.SlotIndex];
-                    if (Owner.IsBot && GameState.SinglePlayer
-                        && (encounter == 1 || encounter == 3 || encounter == 4))
-                    {
-                        if (_cooldownTimer > 0)
-                        {
-                            _cooldownTimer--;
-                        }
-                        else
-                        {
-                            _cooldownTimer = 65 * 2; // todo: FPS stuff
-                        }
+                    _cooldownTimer = 1; // not being used
 
-                    }
-                    else
-                    {
-                        _cooldownTimer = 1; // not being used
-                    }
                     UpdateAim(muzzlePos, _target.Position, EquipInfo, out _aimVector);
                     float cooldown = EquipInfo.Weapon.ShotCooldown * _cooldownFactor;
                     if (cooldown < 7.5f)
@@ -227,18 +211,6 @@ namespace MphRead.Entities
                     }
                     if (Owner.TimeSinceShot >= cooldown * 2 && _cooldownTimer < 60 * 2) // todo: FPS stuff
                     {
-                        if (Owner.IsBot && GameState.SinglePlayer
-                            && (encounter == 1 || encounter == 3 || encounter == 4))
-                        {
-                            // no need to set infinite ammo since we don't have an ammo getter/setter
-                            EquipInfo.UnchargedDamage = 3;
-                            EquipInfo.HeadshotDamage = 3;
-                            EquipInfo.SplashDamage = 3;
-                            EquipInfo.MinChargeSplashDamage = 3;
-                            EquipInfo.ChargedSplashDamage = 3;
-                            EquipInfo.DmgDirTypes[0] = 0;
-                            EquipInfo.DmgDirTypes[1] = 0;
-                        }
                         BeamSpawnFlags flags = Owner.DoubleDamage ? BeamSpawnFlags.DoubleDamage : BeamSpawnFlags.None;
                         BeamResultFlags result = BeamProjectileEntity.Spawn(this, EquipInfo, muzzlePos, _aimVector, flags, NodeRef, _scene);
                         if (result != BeamResultFlags.NoSpawn)

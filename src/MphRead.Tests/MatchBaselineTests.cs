@@ -327,9 +327,6 @@ public sealed class MatchBaselineTests
         private readonly int _count = PlayerEntity.PlayerCount, _main = PlayerEntity.MainPlayerIndex;
         private readonly CameraSequence? _intro = CameraSequence.Intro;
         private readonly bool _serverMode = Read.ServerMode;
-        private readonly byte _saveSlot = Menu.SaveSlot;
-        private readonly int _previousSaveSlot = Menu.PreviousSaveSlot;
-        private readonly SaveWhen _neededSave = Menu.NeededSave;
         private Scene? _scene;
         public Scene Scene => _scene ?? throw new ObjectDisposedException(nameof(State));
 
@@ -349,9 +346,6 @@ public sealed class MatchBaselineTests
                     else if (!field.IsInitOnly && !field.IsLiteral) { _values.Add((field, value)); }
                 }
                 Array.Clear(Players);
-                // Reset() reads and commits the selected save. Slot zero is
-                // the no-file slot; restore the caller's selection in Dispose.
-                Menu.SaveSlot = 0;
                 _scene = Scene.CreateHeadless();
                 for (int i = 0; i < Players.Length; i++)
                 {
@@ -400,9 +394,6 @@ public sealed class MatchBaselineTests
                 PlayerEntity.PlayerCount = _count; PlayerEntity.MainPlayerIndex = _main;
                 CameraSequence.Intro = _intro;
                 Read.ServerMode = _serverMode;
-                Menu.SaveSlot = _saveSlot;
-                Menu.PreviousSaveSlot = _previousSaveSlot;
-                Menu.NeededSave = _neededSave;
             }
         }
     }
