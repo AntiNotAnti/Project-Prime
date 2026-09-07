@@ -131,18 +131,11 @@ public sealed class DiscoveryIntegrationTests
         await directory.SendAsync(modernList, request.RemoteEndPoint);
         request = await directory.ReceiveAsync(timeout.Token);
         Assert.Equal((byte)PacketType.HostRequest, request.Buffer[0]);
-        Assert.True(HostRequestPacket.TryRead(request.Buffer.AsSpan(1), out HostRequestPacket hostRequest));
-        Assert.Equal(LobbyPolicyKind.PersistentLobby, hostRequest.LobbyPolicy);
-        Assert.True(hostRequest.ReadyRequired);
-        Assert.Equal("MP1 SANCTORUS", hostRequest.Rules.RoomKey);
         byte[] answer = new byte[1 + HostReplyPacket.Size];
         answer[0] = (byte)PacketType.HostReply;
-        new HostReplyPacket { Started = true, Port = 27888, RequestNonce = hostRequest.RequestNonce,
-            OwnerToken = Guid.NewGuid() }.Write(answer.AsSpan(1));
+        new HostReplyPacket { Started = true, Port = 27888 }.Write(answer.AsSpan(1));
         await impostor.SendAsync(answer, request.RemoteEndPoint);
-        new HostReplyPacket { RequestNonce = Guid.NewGuid(), Reason = "WRONG NONCE" }.Write(answer.AsSpan(1));
-        await directory.SendAsync(answer, request.RemoteEndPoint);
-        new HostReplyPacket { RequestNonce = hostRequest.RequestNonce, Reason = "DENIED" }.Write(answer.AsSpan(1));
+        new HostReplyPacket { Reason = "DENIED" }.Write(answer.AsSpan(1));
         await directory.SendAsync(answer, request.RemoteEndPoint);
         HostedGame result = await hosting;
         Assert.False(result.Started); Assert.Equal("DENIED", result.Reason);

@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using System.Reflection;
 using System.Linq;
-using System.Net;
 using System.Threading.Tasks;
 using MphRead.Admin;
 using MphRead.Replay;
@@ -42,11 +41,6 @@ namespace MphRead.Mods.Network
         public ServerReportingOptions? Reporting { get; init; }
         public BotFillPolicy? BotFill { get; init; }
         public string? TelemetryDirectory { get; init; }
-        public MatchRules? InitialRules { get; init; }
-        public LobbyPolicy LobbyPolicy { get; init; } = new(
-            LobbyPolicyKind.NoLobby, readyRequired: false, minimumPlayers: 1, hostMayForceStart: true);
-        public Guid LobbyOwnerCapability { get; init; }
-        public IPAddress? LobbyOwnerAddress { get; init; }
 
         public AuthoritativeServer(int port, string data, string version, RotationEntry entry)
         {
@@ -64,16 +58,6 @@ namespace MphRead.Mods.Network
             return RulesetPreset is RulesetPreset.Competitive or RulesetPreset.Duel ? rules : rules.With(
                 spawnPolicy: SpawnPolicy, cancelSpawnProtectionOnOffensiveAction: CancelSpawnProtectionOnOffensiveAction,
                 overtimePolicy: OvertimePolicy, lateJoinPolicy: LateJoinPolicy);
-        }
-
-        private MatchRules ResolveInitialRules()
-        {
-            if (InitialRules == null) return ResolveRules(_entry);
-            MatchLifecycle.ValidateRules(InitialRules);
-            if (!String.Equals(InitialRules.RoomKey, _entry.RoomKey, StringComparison.OrdinalIgnoreCase)
-                || InitialRules.MaxPlayers != MaxPlayers)
-                throw new ArgumentException("Initial lobby rules must match the requested room and session capacity.");
-            return InitialRules;
         }
 
         public void Run()
@@ -96,9 +80,6 @@ namespace MphRead.Mods.Network
             using IDisposable? reportTransportLifetime = reportTransport as IDisposable;
             using MatchReportOutbox? outbox = reportOptions == null ? null : new(reportOptions.Outbox, reportTransport!);
             Guid incarnation = TicketOptions?.SessionId ?? Guid.NewGuid();
-            Guid ledgerServerId = reportOptions?.ServerId ?? TicketOptions?.ServerId ?? Guid.NewGuid();
-            string buildVersion = typeof(AuthoritativeServer).Assembly
-                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown-build";
             string? telemetryDirectory = TelemetryDirectory ?? Environment.GetEnvironmentVariable("PRIME_TELEMETRY_DIRECTORY");
             using TelemetryWriter? telemetryWriter = String.IsNullOrWhiteSpace(telemetryDirectory) ? null : new(telemetryDirectory);
             ServerContent.Open(_data, _version);
@@ -108,20 +89,16 @@ namespace MphRead.Mods.Network
             if (Rotation != null)
                 foreach (RotationEntry entry in Rotation.Entries) _ = ResolveRules(entry);
             string? replayDirectory = ReplayDirectory ?? Environment.GetEnvironmentVariable("PRIME_SERVER_REPLAY_DIRECTORY");
-            MatchRules rules = ResolveInitialRules();
-            ServerRankedPolicy.ValidatePublicStart(rules);
+            MatchRules rules = ResolveRules(_entry);
             bool automaticReplay = ServerReplayPolicy.Validate(rules, TicketOptions != null, reportOptions != null, replayDirectory);
             if (Rotation != null)
                 foreach (RotationEntry entry in Rotation.Entries)
-                {
-                    ServerRankedPolicy.ValidatePublicStart(ResolveRules(entry));
                     ServerReplayPolicy.Validate(ResolveRules(entry), TicketOptions != null, reportOptions != null, replayDirectory);
-                }
             BotFillPolicy botFill = BotFill ?? BotFillPolicy.FromEnvironment();
             if (rules.RulesetPreset == RulesetPreset.Duel && botFill.MinimumParticipants != 0)
                 throw new ArgumentException("Duel requires bot fill to be disabled.");
             ServerSimulation simulation = new(rules, LagCompEnabled, ProjectileCatchUpEnabled, botFill);
-            simulation.Reports = new(ledgerServerId, incarnation, buildVersion);
+            if (reportOptions != null) simulation.Reports = new(reportOptions.ServerId, incarnation, typeof(AuthoritativeServer).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown-build");
             TelemetryCollector? telemetry = telemetryWriter == null ? null : new(rules, 1, 0);
             uint telemetryTick = 0;
             TournamentAdmin? admin = null;
@@ -135,8 +112,7 @@ namespace MphRead.Mods.Network
             MatchReportOutbox.Reservation? reportReservation = null;
             try
             {
-                var network = new ServerNetwork(transport, rules, observers: Observers,
-                    lobbyOwnerCapability: LobbyOwnerCapability, lobbyOwnerAddress: LobbyOwnerAddress)
+                var network = new ServerNetwork(transport, rules, observers: Observers)
                 {
                     ServerName = ServerName,
                     TicketAuthority = tickets,
@@ -168,55 +144,6 @@ namespace MphRead.Mods.Network
                     ServerReplayPolicy.Validate(resolved, TicketOptions != null, reportOptions != null, replayDirectory);
                     ServerContent.RequireRoom(resolved.RoomKey, resolved.Mode.ToLegacyMode());
                     return resolved;
-                }
-                ServerLobby? lobby = null;
-                ServerLobbyNetwork? lobbyNetwork = null;
-                if (LobbyPolicy.Kind != LobbyPolicyKind.NoLobby)
-                {
-                    uint sessionId = unchecked((uint)NetConnection.NewIdentity());
-                    if (sessionId == 0) sessionId = 1;
-                    bool MapAllowed(string map) => (Rotation?.Entries ?? new[] { _entry })
-                        .Any(entry => String.Equals(entry.RoomKey, map, StringComparison.OrdinalIgnoreCase));
-                    bool SelectionAllowed(string map, MatchMode mode)
-                    {
-                        if (!MapAllowed(map)) return false;
-                        try
-                        {
-                            ServerContent.RequireRoom(map, mode.ToLegacyMode());
-                            return true;
-                        }
-                        catch (ArgumentException) { return false; }
-                        catch (ProgramException) { return false; }
-                    }
-                    bool StartGate(MatchRules candidate)
-                    {
-                        try
-                        {
-                            if (candidate.MaxPlayers != network.Rules.MaxPlayers) return false;
-                            if (!SelectionAllowed(candidate.RoomKey, candidate.Mode)) return false;
-                            ServerReplayPolicy.Validate(candidate, TicketOptions != null, reportOptions != null, replayDirectory);
-                            if (!ServerRankedPolicy.HasLockedConstraints(candidate)
-                                || !ServerRankedPolicy.PublicStartAllowed(candidate)) return false;
-                            if (candidate.RankingEligibility == RankingEligibility.VerifiedServerOnly
-                                && (TicketOptions?.RequireTickets != true || reportOptions == null
-                                    || botFill.MinimumParticipants != 0)) return false;
-                            return true;
-                        }
-                        catch (ArgumentException) { return false; }
-                        catch (ProgramException) { return false; }
-                    }
-                    lobby = new ServerLobby(sessionId, LobbyPolicy, rules, MapAllowed,
-                        selectionAllowed: SelectionAllowed, reconnectGraceTicks: ServerNetwork.ReconnectGraceTicks,
-                        botPolicy: botFill)
-                    {
-                        StartGate = StartGate
-                    };
-                    lobbyNetwork = new ServerLobbyNetwork(lobby, network, () => simulation.Bots);
-                    if (LobbyStartPolicy.UsesLobbyBeforeFirstMatch(LobbyPolicy.Kind))
-                    {
-                        simulation.LobbyMayStart = false;
-                        lobbyNetwork.Open(0);
-                    }
                 }
                 var adminOptions = AdminOptions ?? ServerAdminOptions.FromEnvironment();
                 if (adminOptions != null)
@@ -265,46 +192,15 @@ namespace MphRead.Mods.Network
                         long start = Stopwatch.GetTimestamp();
                         if (outbox != null)
                         {
-                            if (network.LobbyAdmissionOpen && reportSubmission?.State is
-                                ReportSubmissionState.DurablyStored or ReportSubmissionState.BackendAccepted)
-                                reportSubmission = null;
                             if (reportReservation == null && reportSubmission == null) outbox.TryReserve(out reportReservation);
                             simulation.ReportingMayStart = reportReservation != null && outbox.Healthy;
-                            network.AdmissionClosed = !network.LobbyAdmissionOpen
-                                && (reportReservation == null || !outbox.Healthy || simulation.Reports?.CapacityAvailable == false);
+                            network.AdmissionClosed = reportReservation == null || !outbox.Healthy || simulation.Reports?.CapacityAvailable == false;
                         }
                         network.Poll(tick);
                         if (closingReplay?.Status.State == "failed")
                             throw new InvalidOperationException("Previous authoritative replay failed: " + closingReplay.Status.Error);
-                        if (automaticReplay && replay == null && !network.LobbyAdmissionOpen) StartReplay();
+                        if (automaticReplay && replay == null) StartReplay();
                         admin?.BeforeStep(tick, replay);
-                        if (lobby != null)
-                        {
-                            lobby.TournamentRosterLocked = network.AdminRosterLocked;
-                            lobby.TournamentStartAllowed = admin?.RotationAllowed ?? true;
-                            if (admin?.StartRequested == true && lobby.AdmissionOpen)
-                                _ = lobby.TryStartAsServer(out _);
-                            lobbyNetwork!.Tick(tick);
-                            if (lobbyNetwork.TryStart(tick, out MatchRules? lobbyRules))
-                            {
-                                // A lobby start is always a new match boundary. Reusing the
-                                // previous simulation when the rules are unchanged would retain
-                                // its terminal MatchResult and prevent a rematch from starting.
-                                botFill = lobby.BotPolicy;
-                                simulation.Dispose();
-                                simulation = new ServerSimulation(lobbyRules!, LagCompEnabled, ProjectileCatchUpEnabled, botFill);
-                                simulation.Reports = new(ledgerServerId, incarnation, buildVersion);
-                                telemetry = telemetryWriter == null ? null : new(lobbyRules!, network.MatchId, tick);
-                                admin?.NewRound();
-                                simulation.LobbyMayStart = true;
-                                network.Phase = simulation.Scene.Match.Phase;
-                                network.PhaseRevision = simulation.Scene.Match.PhaseRevision;
-                            }
-                            else if (network.LobbyAdmissionOpen)
-                            {
-                                simulation.LobbyMayStart = false;
-                            }
-                        }
                         simulation.ReplayMayStart = ServerReplayPolicy.MayStart(automaticReplay, replay);
                         if (admin == null && replay != null && simulation.Reports is { Started: false } ledger
                             && !ReferenceEquals(replayLedger, ledger))
@@ -312,36 +208,21 @@ namespace MphRead.Mods.Network
                             ledger.ConfigureRoundIdentity(null, null, replay.ReplayId);
                             replayLedger = ledger;
                         }
-                        if (Updates?.PollIdle(() => network.Count + network.ObserverCount == 0,
+                        if (Updates?.PollIdle(() => network.Count == 0,
                             () => network.AdmissionClosed = true, () => network.AdmissionClosed = false) == true)
                         {
                             _running = false;
                             break;
                         }
-                        int currentPeers = network.Count + network.ObserverCount;
-                        if (reportedPeers != currentPeers)
+                        if (reportedPeers != network.Count)
                         {
-                            reportedPeers = currentPeers;
+                            reportedPeers = network.Count;
                             Console.WriteLine($"[server] peers={reportedPeers}");
                         }
-                        if (!network.LobbyAdmissionOpen) simulation.Step(network, tick);
+                        simulation.Step(network, tick);
                         voting.Tick(tick);
                         telemetryTick = tick;
                         telemetry?.Sample(tick, simulation.States, simulation.Scene.Match.Phase == MatchPhase.Playing, simulation.Scene);
-                        if (lobbyNetwork != null && simulation.Scene.Match.Result is { } completed
-                            && lobby!.LastMatchSummary?.MatchId != completed.MatchId)
-                        {
-                            bool ratingEligible = completed.Rules.RankingEligibility == RankingEligibility.VerifiedServerOnly
-                                && simulation.Bots.Count == 0
-                                && simulation.Reports?.Report is { } completedReport
-                                && completedReport.Participants.All(participant => participant.Kind == ParticipantKind.RegisteredHuman);
-                            MatchSummaryFlags flags = ratingEligible
-                                ? MatchSummaryFlags.RatingEligible | MatchSummaryFlags.RatingPending
-                                : MatchSummaryFlags.None;
-                            // Publish from the immutable result before handing the Backend
-                            // report to its asynchronous durability path below.
-                            lobbyNetwork.PublishSummary(completed, flags, simulation.Reports?.Report);
-                        }
                         if (outbox != null && reportSubmission == null && simulation.Reports?.Report is { } report)
                             if (reportReservation != null && outbox.TryEnqueue(report, reportReservation, out reportSubmission))
                             { reportReservation.Dispose(); reportReservation = null; }
@@ -432,39 +313,7 @@ namespace MphRead.Mods.Network
                         }
                         network.CommitObserverTick(tick);
                         telemetry?.CommitTick(tick, simulation.Scene.Match.Result != null);
-                        bool enterLobby = lobby != null && LobbyStartPolicy.UsesLobbyAfterMatch(lobby.Policy.Kind)
-                            && simulation.Lifecycle.RotationDue && (admin?.RotationAllowed ?? true);
-                        if (enterLobby)
-                        {
-                            VoteResolution choice = selectedRules == null ? voting.ResolveForRotation() : new(IntermissionChoice.NextMap, -1);
-                            MatchRules nextRules;
-                            if (selectedRules != null) nextRules = selectedRules;
-                            else if (choice.Kind is IntermissionChoice.Rematch or IntermissionChoice.Lobby) nextRules = simulation.Scene.Match.Rules;
-                            else
-                            {
-                                RotationEntry next = choice.Kind == IntermissionChoice.Map
-                                    ? (Rotation ?? throw new InvalidOperationException("Vote has no admitted rotation.")).Select(choice.RotationIndex)
-                                    : Rotation?.Advance() ?? _entry;
-                                nextRules = ResolveRules(next);
-                            }
-                            selectedRules = null;
-                            if (!lobby!.TrySetServerRules(nextRules))
-                                throw new InvalidOperationException("The validated rotation could not update the lobby draft.");
-                            if (replay != null)
-                            {
-                                network.ObserverFrameCaptured = null; replay.Complete(tick); closingReplay = replay;
-                                replayClosing = replay.Completion; replay = null;
-                            }
-                            if (telemetry != null && !telemetryWriter!.TryWrite(telemetry.Complete(tick,
-                                simulation.Scene.Match.Result != null, simulation.Reports?.Report?.MatchId)))
-                                Console.Error.WriteLine("[telemetry] writer queue full; match telemetry dropped");
-                            telemetry = null;
-                            lobbyNetwork!.Open(tick);
-                            simulation.LobbyMayStart = false;
-                            voting.NewMatch();
-                            Console.WriteLine($"[server] lobby={lobby.Runtime.SessionId} after match={network.MatchId} tick={tick}");
-                        }
-                        else if ((selectedRules != null || (simulation.Lifecycle.RotationDue || voting.LobbyChoiceReady) && (admin?.RotationAllowed ?? true)) && (outbox == null
+                        if ((selectedRules != null || (simulation.Lifecycle.RotationDue || voting.LobbyChoiceReady) && (admin?.RotationAllowed ?? true)) && (outbox == null
                             || selectedRules != null
                             || voting.LobbyChoiceReady && simulation.VoteLobbyHold && simulation.Scene.Match.Phase == MatchPhase.WaitingForPlayers
                             || reportSubmission?.State is ReportSubmissionState.DurablyStored or ReportSubmissionState.BackendAccepted))
@@ -498,7 +347,7 @@ namespace MphRead.Mods.Network
                             simulation = new ServerSimulation(nextRules, LagCompEnabled, ProjectileCatchUpEnabled, botFill);
                             simulation.VoteLobbyHold = lobbyHold;
                             voting.NewMatch();
-                            simulation.Reports = new(ledgerServerId, incarnation, buildVersion);
+                            if (reportOptions != null) simulation.Reports = new(reportOptions.ServerId, incarnation, typeof(AuthoritativeServer).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown-build");
                             reportSubmission = null;
                             admin?.NewRound();
                             network.Phase = simulation.Scene.Match.Phase;

@@ -8,10 +8,7 @@ namespace MphRead.Mods.Network
         bool StartAndJoin(bool friendlyFire, int port, string playerName, Hunter hunter,
             string roomKey, GameMode mode, float timeLimit, int pointGoal,
             int maxPlayers = PlayerEntity.SlotCapacity,
-            (string Host, int Port, string Name)? listing = null, bool practice = false,
-            int? botMinimumParticipants = null, int botSkill = 1,
-            MatchRules? configuredRules = null, LobbyPolicy? lobbyPolicy = null,
-            int maxObservers = 4);
+            (string Host, int Port, string Name)? listing = null, bool practice = false);
         void Stop();
     }
 
@@ -24,13 +21,9 @@ namespace MphRead.Mods.Network
         public static bool StartAndJoin(bool friendlyFire, int port, string playerName, Hunter hunter,
             string roomKey, GameMode mode, float timeLimit, int pointGoal,
             int maxPlayers = PlayerEntity.SlotCapacity,
-            (string Host, int Port, string Name)? listing = null, bool practice = false,
-            int? botMinimumParticipants = null, int botSkill = 1,
-            MatchRules? configuredRules = null, LobbyPolicy? lobbyPolicy = null,
-            int maxObservers = 4)
+            (string Host, int Port, string Name)? listing = null, bool practice = false)
             => Host?.StartAndJoin(friendlyFire, port, playerName, hunter, roomKey, mode,
-                timeLimit, pointGoal, maxPlayers, listing, practice, botMinimumParticipants,
-                botSkill, configuredRules, lobbyPolicy, maxObservers) ?? false;
+                timeLimit, pointGoal, maxPlayers, listing, practice) ?? false;
         public static void Stop() => Host?.Stop();
     }
 }

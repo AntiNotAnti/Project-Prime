@@ -27,14 +27,6 @@ namespace MphRead.Mods.Network
         public int MaxObservers { get; init; }
         public int Bots { get; init; }
         public int ObserverDelaySeconds { get; init; }
-        public bool HasSessionState { get; init; }
-        public AuthoritativeSessionPhase Phase { get; init; }
-        public ServerJoinDisposition JoinDisposition { get; init; }
-        public int LobbyPlayers { get; init; }
-        public int LobbyObservers { get; init; }
-        public int ReadyPlayers { get; init; }
-        public bool RankedLocked { get; init; }
-        public bool TournamentLocked { get; init; }
         public bool HasRules { get; init; }
         public bool FriendlyFire { get; init; }
         public bool PlayerRadar { get; init; }
@@ -211,9 +203,6 @@ namespace MphRead.Mods.Network
             {
                 RulesetPreset = status.RulesetPreset, RankingEligibility = status.RankingEligibility,
                 Bots = status.Bots, Observers = status.Observers, MaxObservers = status.MaxObservers, ObserverDelaySeconds = status.ObserverDelaySeconds,
-                HasSessionState = status.HasSessionState, Phase = status.Phase, JoinDisposition = status.JoinDisposition,
-                LobbyPlayers = status.LobbyPlayers, LobbyObservers = status.LobbyObservers, ReadyPlayers = status.ReadyPlayers,
-                RankedLocked = status.RankedLocked, TournamentLocked = status.TournamentLocked,
                 ServerId = status.ServerId, RequiresTicket = status.RequiresTicket, HasRules = status.HasRules, FriendlyFire = status.FriendlyFire, PlayerRadar = status.PlayerRadar,
                 SpawnPolicy = status.SpawnPolicy, OvertimePolicy = status.OvertimePolicy, LateJoinPolicy = status.LateJoinPolicy,
                 Online = true,

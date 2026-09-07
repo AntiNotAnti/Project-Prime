@@ -103,75 +103,54 @@ namespace MphRead.Mods.Network
     /// </summary>
     public struct HostRequestPacket
     {
-        public const byte CurrentVersion = 1;
+        public const int MaxRoomBytes = 40;
         public const int MaxNameBytes = 32;
-        /// <summary>Retired pre-lobby request width, retained for rejecting old datagrams in tests/tools.</summary>
-        public const int LegacySize = 80;
-        public const int HeaderSize = 28;
-        public const int Size = HeaderSize + MatchRulesWire.Size + MaxNameBytes;
+        public const int LegacySize = 1 + 1 + 1 + 2 + 2 + MaxRoomBytes + MaxNameBytes;
+        public const int Size = LegacySize + 1;
 
-        public byte Version;
         public NetWireFamily Family;
+
         public byte Protocol;
-        public bool Practice;
-        public LobbyPolicyKind LobbyPolicy;
-        public bool ReadyRequired;
-        public bool HostMayForceStart;
-        public byte MinimumPlayers;
-        public byte BotMinimumParticipants;
-        public byte BotSkill;
-        public byte MaxObservers;
-        public byte ObserverDelaySeconds;
-        public Guid RequestNonce;
-        public MatchRules Rules;
+        public byte MaxPlayers;
+        public byte Mode;
+        /// <summary>Match length in seconds. Zero means no limit.</summary>
+        public ushort TimeLimit;
+        public ushort PointGoal;
+        public string RoomKey;
         public string ServerName;
 
         public void Write(Span<byte> dest)
         {
-            if (dest.Length != Size || Rules == null) throw new ArgumentException("Invalid hosted-session output buffer.", nameof(dest));
-            dest.Clear();
-            dest[0] = Version == 0 ? CurrentVersion : Version;
-            dest[1] = (byte)(Family == NetWireFamily.Unknown ? NetWireIdentity.Family : Family);
-            dest[2] = Protocol == 0 ? NetWireIdentity.Protocol : Protocol;
-            dest[3] = Practice ? (byte)1 : (byte)0;
-            dest[4] = (byte)LobbyPolicy;
-            dest[5] = (byte)((ReadyRequired ? 1 : 0) | (HostMayForceStart ? 2 : 0));
-            dest[6] = MinimumPlayers;
-            dest[7] = BotMinimumParticipants;
-            dest[8] = BotSkill;
-            dest[9] = MaxObservers;
-            dest[10] = ObserverDelaySeconds;
-            if (RequestNonce == Guid.Empty) throw new ArgumentException("A nonempty request nonce is required.", nameof(RequestNonce));
-            RequestNonce.TryWriteBytes(dest.Slice(12, 16));
-            MatchRulesWire.Write(dest.Slice(HeaderSize, MatchRulesWire.Size), Rules);
-            NetText.Write(dest.Slice(HeaderSize + MatchRulesWire.Size, MaxNameBytes), ServerName);
-            if (!TryRead(dest, out _)) throw new ArgumentException("Invalid hosted-session settings.", nameof(dest));
+            dest[0] = Protocol;
+            dest[1] = MaxPlayers;
+            dest[2] = Mode;
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[3..], TimeLimit);
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[5..], PointGoal);
+            NetText.Write(dest.Slice(7, MaxRoomBytes), RoomKey);
+            NetText.Write(dest.Slice(7 + MaxRoomBytes, MaxNameBytes), ServerName);
+            dest[LegacySize] = (byte)(Family == NetWireFamily.Unknown ? NetWireIdentity.Family : Family);
         }
 
         public static bool TryRead(ReadOnlySpan<byte> src, out HostRequestPacket packet)
         {
             packet = default;
-            if (src.Length != Size || src[0] != CurrentVersion || !NetWireIdentity.IsKnownFamily(src[1])
-                || src[2] == 0 || src[3] > 1 || src[4] > (byte)LobbyPolicyKind.PersistentLobby
-                || src[5] > 3 || src[6] is < 1 or > LobbyRuntime.MaximumPlayers
-                || src[8] > 2 || src[9] > LobbyRuntime.MaximumObservers || src[10] > 30 || src[11] != 0
-                || new Guid(src.Slice(12, 16)) == Guid.Empty
-                || !MatchRulesWire.TryRead(src.Slice(HeaderSize, MatchRulesWire.Size), out MatchRules rules)
-                || src[6] > rules.MaxPlayers || src[7] > rules.MaxPlayers
-                || src[4] == (byte)LobbyPolicyKind.NoLobby && (src[5] != 0 || src[6] != 1)
-                || src[3] == 1 && rules.RankingEligibility != RankingEligibility.Unranked
-                || !NetWireIdentity.ValidText(src.Slice(HeaderSize + MatchRulesWire.Size, MaxNameBytes)))
+            if (src.Length != Size || !NetWireIdentity.IsKnownFamily(src[LegacySize])
+                || !NetWireIdentity.ValidCounts(0, src[1]) || !NetWireIdentity.ValidMode(src[2])
+                || !NetWireIdentity.ValidText(src.Slice(7, MaxRoomBytes))
+                || !NetWireIdentity.ValidText(src.Slice(7 + MaxRoomBytes, MaxNameBytes)))
             {
                 return false;
             }
             packet = new HostRequestPacket
             {
-                Version = src[0], Family = (NetWireFamily)src[1], Protocol = src[2], Practice = src[3] != 0,
-                LobbyPolicy = (LobbyPolicyKind)src[4], ReadyRequired = (src[5] & 1) != 0,
-                HostMayForceStart = (src[5] & 2) != 0, MinimumPlayers = src[6],
-                BotMinimumParticipants = src[7], BotSkill = src[8], MaxObservers = src[9],
-                ObserverDelaySeconds = src[10], RequestNonce = new Guid(src.Slice(12, 16)), Rules = rules,
-                ServerName = NetText.Read(src.Slice(HeaderSize + MatchRulesWire.Size, MaxNameBytes))
+                Family = (NetWireFamily)src[LegacySize],
+                Protocol = src[0],
+                MaxPlayers = src[1],
+                Mode = src[2],
+                TimeLimit = BinaryPrimitives.ReadUInt16LittleEndian(src[3..]),
+                PointGoal = BinaryPrimitives.ReadUInt16LittleEndian(src[5..]),
+                RoomKey = NetText.Read(src.Slice(7, MaxRoomBytes)),
+                ServerName = NetText.Read(src.Slice(7 + MaxRoomBytes, MaxNameBytes))
             };
             return true;
         }
@@ -186,52 +165,42 @@ namespace MphRead.Mods.Network
     /// <summary>Where the game the directory just started is listening, or why it did not.</summary>
     public struct HostReplyPacket
     {
-        public const byte CurrentVersion = 1;
         public const int MaxReasonBytes = 96;
-        public const int HeaderSize = 38;
-        public const int Size = HeaderSize + MaxReasonBytes;
+        public const int LegacySize = 1 + 2 + MaxReasonBytes;
+        public const int Size = LegacySize + 2;
 
-        public byte Version;
         public NetWireFamily Family;
+
         public byte Protocol;
         public bool Started;
         public ushort Port;
-        public Guid RequestNonce;
-        public Guid OwnerToken;
         public string Reason;
 
         public void Write(Span<byte> dest)
         {
-            if (dest.Length < Size) throw new ArgumentException("Invalid host reply output buffer.", nameof(dest));
-            dest[..Size].Clear();
-            dest[0] = Version == 0 ? CurrentVersion : Version;
-            dest[1] = (byte)(Family == NetWireFamily.Unknown ? NetWireIdentity.Family : Family);
-            dest[2] = Protocol == 0 ? NetWireIdentity.Protocol : Protocol;
-            dest[3] = Started ? (byte)1 : (byte)0;
-            BinaryPrimitives.WriteUInt16LittleEndian(dest[4..], Port);
-            RequestNonce.TryWriteBytes(dest.Slice(6, 16));
-            OwnerToken.TryWriteBytes(dest.Slice(22, 16));
-            NetText.Write(dest.Slice(HeaderSize, MaxReasonBytes), Reason);
+            dest[0] = (byte)(Started ? 1 : 0);
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[1..], Port);
+            NetText.Write(dest.Slice(3, MaxReasonBytes), Reason);
+            dest[LegacySize] = (byte)(Family == NetWireFamily.Unknown ? NetWireIdentity.Family : Family);
+            dest[LegacySize + 1] = Protocol == 0 ? NetWireIdentity.Protocol : Protocol;
         }
 
         public static bool TryRead(ReadOnlySpan<byte> src, out HostReplyPacket packet)
         {
             packet = default;
-            if (src.Length != Size || src[0] != CurrentVersion || !NetWireIdentity.IsKnownFamily(src[1])
-                || src[2] == 0 || src[3] > 1 || new Guid(src.Slice(6, 16)) == Guid.Empty
-                || src[3] == 1 && (BinaryPrimitives.ReadUInt16LittleEndian(src[4..]) == 0
-                    || new Guid(src.Slice(22, 16)) == Guid.Empty)
-                || src[3] == 0 && (BinaryPrimitives.ReadUInt16LittleEndian(src[4..]) != 0
-                    || new Guid(src.Slice(22, 16)) != Guid.Empty)
-                || !NetWireIdentity.ValidText(src.Slice(HeaderSize, MaxReasonBytes)))
+            if (src.Length != Size || !NetWireIdentity.IsKnownFamily(src[LegacySize])
+                || src[0] > 1 || (src[0] == 1 && BinaryPrimitives.ReadUInt16LittleEndian(src[1..]) == 0)
+                || !NetWireIdentity.ValidText(src.Slice(3, MaxReasonBytes)))
             {
                 return false;
             }
             packet = new HostReplyPacket
             {
-                Version = src[0], Family = (NetWireFamily)src[1], Protocol = src[2], Started = src[3] != 0,
-                Port = BinaryPrimitives.ReadUInt16LittleEndian(src[4..]), RequestNonce = new Guid(src.Slice(6, 16)),
-                OwnerToken = new Guid(src.Slice(22, 16)), Reason = NetText.Read(src.Slice(HeaderSize, MaxReasonBytes))
+                Family = (NetWireFamily)src[LegacySize],
+                Protocol = src[LegacySize + 1],
+                Started = src[0] != 0,
+                Port = BinaryPrimitives.ReadUInt16LittleEndian(src[1..]),
+                Reason = NetText.Read(src.Slice(3, MaxReasonBytes))
             };
             return true;
         }
@@ -255,8 +224,7 @@ namespace MphRead.Mods.Network
         public const int Size = LegacySize + 1;
         public const int RulesV1Size = Size + 8;
         public const int IdentityV2Size = RulesV1Size + 16;
-        public const int ObserverV3Size = IdentityV2Size + 6;
-        public const int ExtendedSize = ObserverV3Size + 6;
+        public const int ExtendedSize = IdentityV2Size + 6;
         public RulesetPreset RulesetPreset;
         public RankingEligibility RankingEligibility;
         public byte Observers, MaxObservers, ObserverDelaySeconds, Bots;
@@ -265,14 +233,9 @@ namespace MphRead.Mods.Network
         public const byte RulesCapability = 0x80;
         public bool HasRules;
         public bool FriendlyFire, PlayerRadar;
-        public bool HasSessionState;
         public SpawnPolicy SpawnPolicy;
         public OvertimePolicy OvertimePolicy;
         public LateJoinPolicy LateJoinPolicy;
-        public AuthoritativeSessionPhase Phase;
-        public ServerJoinDisposition JoinDisposition;
-        public byte LobbyPlayers, LobbyObservers, ReadyPlayers;
-        public bool RankedLocked, TournamentLocked;
 
         public NetWireFamily Family;
 
@@ -293,65 +256,35 @@ namespace MphRead.Mods.Network
             dest[MatchStatePacket.Size + 1] = Protocol;
             NetText.Write(dest.Slice(MatchStatePacket.Size + 2, MaxNameBytes), ServerName);
             dest[LegacySize] = (byte)(Family == NetWireFamily.Unknown ? NetWireIdentity.Family : Family);
-            int extensionVersion = dest.Length == ExtendedSize ? 4
-                : dest.Length == ObserverV3Size ? 3
-                : dest.Length == IdentityV2Size ? 2
-                : dest.Length == RulesV1Size ? 1 : 0;
-            if (HasRules && extensionVersion != 0)
+            if (HasRules && dest.Length >= ExtendedSize)
             {
-                dest[Size..].Clear();
-                dest[Size] = (byte)extensionVersion;
+                dest.Slice(Size, ExtendedSize - Size).Clear();
+                dest[Size] = 3; // rules, identity, and observer discovery version
                 dest[Size + 1] = (byte)((FriendlyFire ? 1 : 0) | (PlayerRadar ? 2 : 0));
                 dest[Size + 2] = (byte)SpawnPolicy;
                 dest[Size + 3] = (byte)OvertimePolicy;
                 dest[Size + 4] = (byte)LateJoinPolicy;
-                if (extensionVersion >= 2)
-                {
-                    dest[Size + 5] = RequiresTicket ? (byte)1 : (byte)0;
-                    ServerId.TryWriteBytes(dest.Slice(RulesV1Size, 16));
-                }
-                if (extensionVersion >= 3)
-                {
-                    dest[IdentityV2Size] = (byte)RulesetPreset;
-                    dest[IdentityV2Size + 1] = Observers;
-                    dest[IdentityV2Size + 2] = MaxObservers;
-                    dest[IdentityV2Size + 3] = ObserverDelaySeconds;
-                    dest[IdentityV2Size + 4] = (byte)RankingEligibility;
-                    dest[IdentityV2Size + 5] = Bots;
-                }
-                if (extensionVersion >= 4)
-                {
-                    dest[ObserverV3Size] = (byte)Phase;
-                    dest[ObserverV3Size + 1] = (byte)JoinDisposition;
-                    dest[ObserverV3Size + 2] = LobbyPlayers;
-                    dest[ObserverV3Size + 3] = LobbyObservers;
-                    dest[ObserverV3Size + 4] = ReadyPlayers;
-                    dest[ObserverV3Size + 5] = (byte)((RankedLocked ? 1 : 0) | (TournamentLocked ? 2 : 0));
-                }
+                dest[Size + 5] = RequiresTicket ? (byte)1 : (byte)0;
+                ServerId.TryWriteBytes(dest.Slice(RulesV1Size, 16));
+                dest[IdentityV2Size] = (byte)RulesetPreset;
+                dest[IdentityV2Size + 1] = Observers;
+                dest[IdentityV2Size + 2] = MaxObservers;
+                dest[IdentityV2Size + 3] = ObserverDelaySeconds;
+                dest[IdentityV2Size + 4] = (byte)RankingEligibility;
+                dest[IdentityV2Size + 5] = Bots;
             }
         }
 
         public static bool TryRead(ReadOnlySpan<byte> src, out ServerStatusPacket packet)
         {
             packet = default;
-            bool sessionExtension = src.Length == ExtendedSize;
-            bool observerExtension = sessionExtension || src.Length == ObserverV3Size;
+            bool observerExtension = src.Length == ExtendedSize;
             bool identityExtension = observerExtension || src.Length == IdentityV2Size;
             if (observerExtension && (src[IdentityV2Size] > (byte)RulesetPreset.Custom
                 || src[IdentityV2Size + 2] > 16 || src[IdentityV2Size + 1] > src[IdentityV2Size + 2]
                 || src[IdentityV2Size + 3] > 30 || src[IdentityV2Size + 4] > (byte)RankingEligibility.VerifiedServerOnly)) return false;
-            if (sessionExtension && (src[ObserverV3Size] > (byte)AuthoritativeSessionPhase.Intermission
-                || src[ObserverV3Size + 1] > (byte)ServerJoinDisposition.Closed
-                || src[ObserverV3Size + 2] > LobbyRuntime.MaximumPlayers
-                || src[ObserverV3Size + 3] > LobbyRuntime.MaximumObservers
-                || src[ObserverV3Size + 4] > src[ObserverV3Size + 2]
-                || src[ObserverV3Size + 5] > 3
-                || src[ObserverV3Size + 2] > src[MatchStatePacket.Size]
-                || src[ObserverV3Size + 3] > src[IdentityV2Size + 2]
-                || src[ObserverV3Size + 1] == (byte)ServerJoinDisposition.JoinLobby
-                    && src[ObserverV3Size] != (byte)AuthoritativeSessionPhase.Lobby)) return false;
             bool extended = identityExtension || src.Length == RulesV1Size;
-            if (extended && (src[Size] != (sessionExtension ? 4 : observerExtension ? 3 : identityExtension ? 2 : 1) || src[Size + 1] > 3 || src[Size + 2] > 2
+            if (extended && (src[Size] != (observerExtension ? 3 : identityExtension ? 2 : 1) || src[Size + 1] > 3 || src[Size + 2] > 2
                 || src[Size + 3] > 1 || src[Size + 4] > 2 || src[Size + 5] > (identityExtension ? 1 : 0) || src[Size + 6] != 0 || src[Size + 7] != 0)) return false;
             if (!NetWireIdentity.TryReadFamily(extended ? src[..Size] : src, LegacySize, out NetWireFamily family)
                 || !NetPacketReader.TryReadMatchState(src[..MatchStatePacket.Size], out MatchStatePacket match)
@@ -366,7 +299,6 @@ namespace MphRead.Mods.Network
             packet = new ServerStatusPacket
             {
                 HasRules = extended,
-                HasSessionState = sessionExtension,
                 Bots = observerExtension ? src[IdentityV2Size + 5] : (byte)0,
                 RulesetPreset = observerExtension ? (RulesetPreset)src[IdentityV2Size] : RulesetPreset.Classic,
                 Observers = observerExtension ? src[IdentityV2Size + 1] : (byte)0,
@@ -380,13 +312,6 @@ namespace MphRead.Mods.Network
                 SpawnPolicy = extended ? (SpawnPolicy)src[Size + 2] : default,
                 OvertimePolicy = extended ? (OvertimePolicy)src[Size + 3] : default,
                 LateJoinPolicy = extended ? (LateJoinPolicy)src[Size + 4] : default,
-                Phase = sessionExtension ? (AuthoritativeSessionPhase)src[ObserverV3Size] : default,
-                JoinDisposition = sessionExtension ? (ServerJoinDisposition)src[ObserverV3Size + 1] : ServerJoinDisposition.JoinNow,
-                LobbyPlayers = sessionExtension ? src[ObserverV3Size + 2] : (byte)0,
-                LobbyObservers = sessionExtension ? src[ObserverV3Size + 3] : (byte)0,
-                ReadyPlayers = sessionExtension ? src[ObserverV3Size + 4] : (byte)0,
-                RankedLocked = sessionExtension && (src[ObserverV3Size + 5] & 1) != 0,
-                TournamentLocked = sessionExtension && (src[ObserverV3Size + 5] & 2) != 0,
                 Family = family,
                 Match = match,
                 MaxPlayers = src[MatchStatePacket.Size],
@@ -401,25 +326,6 @@ namespace MphRead.Mods.Network
             return TryRead(src, out var packet) ? packet
                 : throw new ArgumentException("Malformed ServerStatusPacket.", nameof(src));
         }
-    }
-
-    public enum AuthoritativeSessionPhase : byte
-    {
-        Lobby,
-        Countdown,
-        Playing,
-        Ending,
-        Intermission
-    }
-
-    public enum ServerJoinDisposition : byte
-    {
-        JoinNow,
-        JoinLobby,
-        Spectate,
-        WaitForNextMatch,
-        Full,
-        Closed
     }
 
     /// <summary>

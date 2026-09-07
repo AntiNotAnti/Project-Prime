@@ -13,40 +13,6 @@ public sealed partial class ServerNetwork
     public bool ObserverFramesRequired => ObserverConfiguration.MaxSpectators > 0 || ObserverFrameCaptured != null;
     public ReadOnlySpan<ServerPeer?> ObserverPeers => _observers.AsSpan(0, ObserverConfiguration.MaxSpectators);
     public ReadOnlySpan<ServerPeer?> AllConnections => _connections;
-    private bool AdmitLobbyObserver(IPEndPoint endpoint, in JoinPacket join, TicketIdentity? identity)
-    {
-        foreach (ServerPeer? existing in _connections)
-        {
-            if (existing == null) continue;
-            if (existing.Nonce == join.Nonce)
-                return existing.IsObserver && existing.Connection.Endpoint.Equals(endpoint)
-                    && existing.PlayerId == identity?.PlayerId && existing.TicketId == (identity?.TicketId ?? Guid.Empty);
-            if (existing.Connection.Endpoint.Equals(endpoint)) return false;
-        }
-        int free = Array.FindIndex(_observers, 0, ObserverConfiguration.MaxSpectators, peer => peer == null);
-        if (free < 0) { Refuse(endpoint, join.Nonce, "Observer connections are full or disabled."); return true; }
-        ulong id;
-        do { id = NetConnection.NewIdentity(); } while (Find(id) != null);
-        var connection = new NetConnection(id, endpoint, 0, _now, LobbySessionId);
-        connection.EnterLobby(LobbySessionId);
-        var peer = new ServerPeer(connection, join, byte.MaxValue, _now)
-        {
-            ConnectionIndex = (byte)(8 + free), TeamIndex = byte.MaxValue,
-            PlayerId = identity?.PlayerId, TicketId = identity?.TicketId ?? Guid.Empty,
-            TrustedObserver = identity?.TrustedObserver == true,
-            ObserverDelayTicks = identity?.TrustedObserver == true ? 0 : (uint)ObserverConfiguration.DelaySeconds * 60,
-            ObserverNeedsBaseline = true
-        };
-        var accepted = new JoinAcceptedPacket(join.Nonce, byte.MaxValue, LobbySessionId,
-            JoinDestination.Lobby, 0, Tick, 60, Rules);
-        Span<byte> payload = stackalloc byte[JoinAcceptedPacket.Size];
-        accepted.Write(payload);
-        connection.Reliable.TryEnqueue(ReliableEventType.Welcome, payload, out _);
-        _observers[free] = peer; _connections[8 + free] = peer; ObserverCount++;
-        LobbyPeerAdmitted?.Invoke(peer);
-        PublishKeepAlives();
-        return true;
-    }
     private bool AdmitObserver(IPEndPoint endpoint, in JoinPacket join, TicketIdentity? identity)
     {
         foreach (ServerPeer? existing in _connections)
@@ -110,12 +76,11 @@ public sealed partial class ServerNetwork
         _rosterDirty = true; PublishKeepAlives();
         return true;
     }
-    private void RemoveObserver(int connectionIndex, MphRead.Identity.ParticipantExitReason reason = MphRead.Identity.ParticipantExitReason.Disconnected)
+    private void RemoveObserver(int connectionIndex)
     {
         int index = connectionIndex - 8;
         if ((uint)index >= _observers.Length || _observers[index] is not ServerPeer peer) return;
         _adminMuted.Remove(peer.Connection.Id);
-        if (LobbySessionId != 0) LobbyPeerLeaving?.Invoke(peer, reason);
         peer.Connection.Disconnect(); _observers[index] = null; _connections[connectionIndex] = null;
         ObserverCount--; PublishKeepAlives();
     }
@@ -138,6 +103,8 @@ public sealed partial class ServerNetwork
         foreach (ServerPeer? peer in _observers)
         {
             if (peer == null || peer.Connection.State != NetConnectionState.Playing) continue;
+            if (peer.ObserverCursor == null || !_observerTimeline.Owns(peer.ObserverCursor))
+            { RemoveObserver(peer.ConnectionIndex); continue; }
             if (peer.ObserverNeedsBaseline)
             {
                 // Loading can take time. Start from a complete due baseline,
@@ -149,8 +116,6 @@ public sealed partial class ServerNetwork
                 if (!SendObserverBaseline(peer, baseline.Value)) { RemoveObserver(peer.ConnectionIndex); continue; }
                 peer.ObserverCursor = baseline; peer.ObserverNeedsBaseline = false;
             }
-            if (peer.ObserverCursor == null || !_observerTimeline.Owns(peer.ObserverCursor))
-            { RemoveObserver(peer.ConnectionIndex); continue; }
             for (int sent = 0; sent < 120 && peer.ObserverCursor.Next is { } next
                 && ObserverTimeline.Due(tick, next.Value.Tick, peer.ObserverDelayTicks); sent++)
             {

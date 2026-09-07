@@ -24,13 +24,6 @@ namespace MphRead.Mods.Network
         public bool ReportingMayStart { get; set; } = true;
         public bool ReplayMayStart { get; set; } = true;
         public bool AdminMayStart { get; set; } = true;
-        /// <summary>
-        /// The lobby is an independent session owner. It releases this gate only
-        /// after the authoritative draft has been frozen and peers have entered
-        /// the match-loading state. Storage, replay and tournament gates remain
-        /// independent conditions for the existing MatchLifecycle countdown.
-        /// </summary>
-        public bool LobbyMayStart { get; set; } = true;
         public bool VoteLobbyHold { get; set; }
         public ReadOnlySpan<SnapshotPlayer> States => _states.AsSpan(0, _stateCount);
         internal int CountdownResets { get; private set; }
@@ -141,7 +134,7 @@ namespace MphRead.Mods.Network
             foreach (var bot in Bots.Participants)
                 if (bot != null) { active++; if (bot.TeamIndex < 2) teams |= 1u << bot.TeamIndex; }
             PlayerEntity.PlayerCount = active;
-            bool eligible = ((ReportingMayStart && AdminMayStart && ReplayMayStart && LobbyMayStart && !VoteLobbyHold) || Scene.Match.Phase == MatchPhase.Playing) && active >= (Scene.Match.Rules.MaxPlayers == 1 ? 1 : 2)
+            bool eligible = ((ReportingMayStart && AdminMayStart && ReplayMayStart && !VoteLobbyHold) || Scene.Match.Phase == MatchPhase.Playing) && active >= (Scene.Match.Rules.MaxPlayers == 1 ? 1 : 2)
                 && (!Scene.Match.Rules.Teams || teams == 3);
             MatchPhase previousPhase = Scene.Match.Phase;
             Lifecycle.AdvanceBeforeStep(tick, eligible, _resetForCountdown);

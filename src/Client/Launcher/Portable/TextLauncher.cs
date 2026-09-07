@@ -407,8 +407,7 @@ namespace MphRead.Mods.Launcher
                 }
                 LauncherPrefs.Save();
                 Console.WriteLine($"  Running on {game.Host}:{game.Port}; joining it.");
-                if (!NetLaunch.Join(game.Host, game.Port, name, hunter,
-                    ownerCapability: game.OwnerToken))
+                if (!NetLaunch.Join(game.Host, game.Port, name, hunter))
                 {
                     Console.WriteLine("  The game started but could not be joined.");
                     NetSession.Stop();

@@ -25,8 +25,6 @@ public sealed class MatchParticipantLedger
         public MatchReportMetrics? PriorCounters;
         public readonly List<MatchParticipationSpan> Spans = new();
         public bool Connected;
-        public ParticipantOutcome? TerminalOutcome;
-        public ParticipantOutcomeReason OutcomeReason;
     }
     private readonly Participant?[] _slots = new Participant?[8];
     private readonly List<Participant> _participants = new();
@@ -86,9 +84,6 @@ public sealed class MatchParticipantLedger
             returning = _participants.Find(p => !p.Connected && p.PlayerId == peer.PlayerId);
         else if (peer.ReturningParticipant)
             returning = _participants.Find(p => !p.Connected && p.Connection == peer.ReturningFromConnectionId);
-        // An authoritative forfeit is terminal. A later admission of the same
-        // account cannot turn it back into the official participant.
-        if (returning?.TerminalOutcome == ParticipantOutcome.Forfeited) return;
         if (returning != null && !peer.ReturningParticipant) returning.PriorCounters = returning.Metrics;
         if (returning == null)
         {
@@ -119,31 +114,11 @@ public sealed class MatchParticipantLedger
     public void LeaveSlot(Scene scene, int slot, uint tick, ParticipantExitReason reason = ParticipantExitReason.Disconnected, ulong connection = 0)
     {
         Participant? participant = _slots[slot];
-        if (Report != null || participant == null || connection != 0 && participant.Connection != connection) return;
-        if (participant.Connected)
-        {
-            participant.Metrics = Merge(participant.PriorCounters, Snapshot(scene, slot, participant.Name));
-            participant.Connected = false;
-            int last = participant.Spans.Count - 1;
-            participant.Spans[last] = participant.Spans[last] with { LeftTick = tick, ExitReason = reason };
-        }
-        else if (reason != ParticipantExitReason.ReconnectGraceExpired) return;
-
-        if (participant.Started && reason == ParticipantExitReason.ExplicitLeave)
-        {
-            participant.TerminalOutcome = ParticipantOutcome.Forfeited;
-            participant.OutcomeReason = ParticipantOutcomeReason.ExplicitLeave;
-        }
-        else if (participant.Started && reason == ParticipantExitReason.ReconnectGraceExpired)
-        {
-            participant.TerminalOutcome = ParticipantOutcome.Forfeited;
-            participant.OutcomeReason = ParticipantOutcomeReason.ReconnectGraceExpired;
-        }
-        else if (!participant.Started && reason is ParticipantExitReason.ExplicitLeave or ParticipantExitReason.ReconnectGraceExpired)
-        {
-            participant.TerminalOutcome = ParticipantOutcome.Departed;
-            participant.OutcomeReason = ParticipantOutcomeReason.DepartedOutsideOfficialRoster;
-        }
+        if (Report != null || participant == null || !participant.Connected || connection != 0 && participant.Connection != connection) return;
+        participant.Metrics = Merge(participant.PriorCounters, Snapshot(scene, slot, participant.Name));
+        participant.Connected = false;
+        int last = participant.Spans.Count - 1;
+        participant.Spans[last] = participant.Spans[last] with { LeftTick = tick, ExitReason = reason };
     }
     public MatchReportV1? Complete(Scene scene, uint tick)
     {
@@ -151,8 +126,6 @@ public sealed class MatchParticipantLedger
         var participants = ImmutableArray.CreateBuilder<MatchReportParticipant>(_participants.Count);
         foreach (Participant participant in _participants)
         {
-            ParticipantOutcome outcome;
-            ParticipantOutcomeReason outcomeReason;
             if (participant.Connected)
             {
                 int last = participant.Spans.Count - 1;
@@ -160,30 +133,15 @@ public sealed class MatchParticipantLedger
                 participant.Metrics = Merge(participant.PriorCounters, Convert(result.Players[span.Slot]));
                 participant.Spans[last] = span with { LeftTick = participant.HasPlayed && Sequence32.IsNewer(participant.LastPlayedExclusive, tick)
                     ? participant.LastPlayedExclusive : tick, ExitReason = ParticipantExitReason.Completed };
-                outcome = ParticipantOutcome.Finished;
-                outcomeReason = ParticipantOutcomeReason.Completed;
-            }
-            else if (participant.TerminalOutcome.HasValue)
-            {
-                outcome = participant.TerminalOutcome.Value;
-                outcomeReason = participant.OutcomeReason;
-            }
-            else if (participant.Started)
-            {
-                outcome = ParticipantOutcome.Forfeited;
-                outcomeReason = ParticipantOutcomeReason.MatchCompletedWhileDisconnected;
-            }
-            else
-            {
-                outcome = ParticipantOutcome.Departed;
-                outcomeReason = ParticipantOutcomeReason.DepartedOutsideOfficialRoster;
             }
             participants.Add(new(participant.Id, participant.PlayerId, participant.Kind, participant.Name, participant.Started,
-                outcome, participant.Played, participant.Spans.ToImmutableArray(), participant.Metrics, outcomeReason));
+                participant.Connected ? ParticipantOutcome.Finished : ParticipantOutcome.Departed,
+                participant.Played, participant.Spans.ToImmutableArray(), participant.Metrics));
         }
         DateTimeOffset ended = _utc().ToUniversalTime();
         if (ended < _started) ended = _started;
-        Report = new(MatchReportV1.CurrentSchema, _match, result.MatchId, _server, _incarnation, _build,
+        // The restored match lifecycle does not provide schema 2 outcome evidence.
+        Report = new(MatchReportV1.LegacySchema, _match, result.MatchId, _server, _incarnation, _build,
             NetHeader.Version, null, MatchTrustClass.Community, result.Rules.RulesetPreset.ToString(), result.Rules.RulesetPreset == RulesetPreset.Duel ? "Duel" : null, result.Rules, _started,
             ended, _played, result.EndReason, participants.MoveToImmutable(), _tournamentId, _roundId, _replayId);
         return Report;

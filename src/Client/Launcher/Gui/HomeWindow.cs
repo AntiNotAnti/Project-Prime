@@ -1,13 +1,10 @@
-using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
-using MphRead.Mods.UI.Adapters;
-using MphRead.Mods.UI.AppShell;
 
 namespace MphRead.Mods.Launcher.Gui
 {
     /// <summary>
-    /// Persistent desktop frame around the current launcher/app-shell view.
+    /// A frame around <see cref="HomeView"/>, and nothing else.
     ///
     /// Everything the front screen *is* lives in the view, which is what the
     /// Android head shows directly; this is the title bar, the icon and the
@@ -19,20 +16,15 @@ namespace MphRead.Mods.Launcher.Gui
     /// </summary>
     internal sealed class HomeWindow : Window
     {
-        private LaunchPlan _plan;
+        private readonly HomeView _view;
 
         /// <summary>What the screen decided. Kind None means it was closed.</summary>
-        public LaunchPlan Plan => _plan;
-        public bool IsClosed { get; private set; }
-        public ClientUiRuntime Runtime { get; }
-
-        /// <summary>Raised when the shell should yield to a match.</summary>
-        public event EventHandler<LaunchPlan>? Selected;
+        public LaunchPlan Plan => _view.Plan;
 
         public HomeWindow(MenuSettings settings, IReadOnlyList<string> rooms)
         {
-            Runtime = new ClientUiRuntime(settings, rooms, isAndroid: false);
-            Runtime.LaunchRequested += RuntimeLaunchRequested;
+            _view = new HomeView(settings, rooms);
+            _view.Done += (_, _) => Close();
 
             Title = Mods.Branding.Name;
             Icon = GuiTheme.AppIcon.Value;
@@ -43,27 +35,7 @@ namespace MphRead.Mods.Launcher.Gui
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Background = GuiTheme.PanelBrush;
             RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
-            Content = RootFor(Runtime);
-            Closed += (_, _) =>
-            {
-                IsClosed = true;
-                Runtime.LaunchRequested -= RuntimeLaunchRequested;
-                Runtime.Dispose();
-            };
-        }
-
-        internal static AppShellView RootFor(ClientUiRuntime runtime) => runtime.Shell;
-
-        /// <summary>Clear the result from the previous time this persistent window was shown.</summary>
-        internal void BeginSelection() => _plan = default;
-
-        private void RuntimeLaunchRequested(object? sender, LaunchPlan plan)
-        {
-            _plan = plan;
-            // Hiding keeps the native shell and Avalonia lifetime intact while
-            // OpenTK owns the foreground. Closing is reserved for app exit.
-            Hide();
-            Selected?.Invoke(this, plan);
+            Content = _view;
         }
     }
 }

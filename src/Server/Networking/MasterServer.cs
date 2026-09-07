@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -38,8 +37,6 @@ namespace MphRead.Mods.Network
             public double StartedAt;
             /// <summary>When it last had anybody in it, so an abandoned game can be reaped.</summary>
             public double LastOccupied;
-            public Guid RequestNonce;
-            public Guid OwnerToken;
         }
 
         private readonly int _port;
@@ -316,12 +313,10 @@ namespace MphRead.Mods.Network
             var reply = new HostReplyPacket();
             if (!HostRequestPacket.TryRead(packet.Payload, out HostRequestPacket request))
             {
-                reply.RequestNonce = CreateToken();
                 reply.Reason = "malformed request";
             }
             else
             {
-                reply.RequestNonce = request.RequestNonce;
                 if (!NetWireIdentity.IsCompatible(request.Family, request.Protocol))
                 {
                     reply.Reason = NetWireIdentity.IncompatibilityReason(request.Family, request.Protocol);
@@ -331,10 +326,6 @@ namespace MphRead.Mods.Network
                     reply.Reason = _hostData == null
                         ? "hosting is disabled: the directory has no configured game content"
                         : "this directory does not start games";
-                }
-                else if (request.Practice)
-                {
-                    reply.Reason = "practice sessions must run on the player's local loopback server";
                 }
                 else
                 {
@@ -369,8 +360,7 @@ namespace MphRead.Mods.Network
                 {
                     if (previous.Server == null)
                     {
-                        return new HostReplyPacket { RequestNonce = request.RequestNonce,
-                            Reason = "a game for this address is still starting" };
+                        return new HostReplyPacket { Reason = "a game for this address is still starting" };
                     }
                     if (previous.Server.PeerCount == 0 && now - previous.LastOccupied >= HostedEmptySeconds)
                     {
@@ -383,18 +373,16 @@ namespace MphRead.Mods.Network
             {
                 return new HostReplyPacket
                 {
-                    RequestNonce = request.RequestNonce,
                     Reason = $"all {_hostPortLast - _hostPortFirst + 1} game slots are busy"
                 };
             }
-            MatchRules rules = request.Rules;
-            GameMode mode = rules.Mode.ToLegacyMode();
+            GameMode mode = Enum.IsDefined(typeof(GameMode), request.Mode)
+                ? (GameMode)request.Mode
+                : GameMode.Battle;
             string name = request.ServerName.Length > 0 ? request.ServerName : "Hosted game";
-            var rotation = MapRotation.SingleMatch(rules.RoomKey, mode,
-                (float)(rules.TimeLimit?.TotalSeconds ?? 0), rules.LegacyPointGoal,
-                rules.ObjectiveTimeGoal.HasValue ? (float)rules.ObjectiveTimeGoal.Value.TotalSeconds : null);
+            var rotation = MapRotation.SingleMatch(request.RoomKey, mode,
+                request.TimeLimit, request.PointGoal);
             var cancel = new CancellationTokenSource();
-            Guid ownerToken = CreateToken();
             int directoryPort = _transport!.LocalPort;
             var entry = new Hosted
             {
@@ -404,19 +392,12 @@ namespace MphRead.Mods.Network
                 Asker = asker,
                 StartedAt = now,
                 LastOccupied = now,
-                RequestNonce = request.RequestNonce,
-                OwnerToken = ownerToken,
                 Startup = ServerProcessHost.StartAsync(_hostData!, _hostVersion, rotation, port,
-                    rules.MaxPlayers, rules.FriendlyFire, listing: ("127.0.0.1", directoryPort, name),
-                    cancel: cancel.Token, practice: request.Practice,
-                    options: new HostedProcessOptions(rules,
-                        new LobbyPolicy(request.LobbyPolicy, request.ReadyRequired,
-                            request.MinimumPlayers, request.HostMayForceStart),
-                        request.BotMinimumParticipants, request.BotSkill,
-                        request.MaxObservers, request.ObserverDelaySeconds, ownerToken, asker.Address))
+                    Math.Clamp((int)request.MaxPlayers, 2, MphRead.Entities.PlayerEntity.SlotCapacity),
+                    friendlyFire: false, listing: ("127.0.0.1", directoryPort, name), cancel: cancel.Token)
             };
             _hosted.Add(entry); // Reserve the port before processing another request.
-            Log($"starting \"{name}\" on port {port} for {asker.Address} ({rules.RoomKey}, {mode})");
+            Log($"starting \"{name}\" on port {port} for {asker.Address} ({request.RoomKey}, {mode})");
             return null;
         }
 
@@ -467,22 +448,17 @@ namespace MphRead.Mods.Network
                     try
                     {
                         entry.Server = entry.Startup.GetAwaiter().GetResult();
-                        _ = entry.Server.TakeOwnerCapability();
                         entry.LastOccupied = now;
-                        reply = new HostReplyPacket { Started = true, Port = (ushort)entry.Server.Port,
-                            RequestNonce = entry.RequestNonce, OwnerToken = entry.OwnerToken, Reason = "" };
+                        reply = new HostReplyPacket { Started = true, Port = (ushort)entry.Server.Port, Reason = "" };
                         Log($"started \"{entry.Name}\" on port {entry.Server.Port}");
                     }
                     catch (Exception ex)
                     {
-                        reply = new HostReplyPacket { RequestNonce = entry.RequestNonce,
-                            Reason = "server startup failed: " + ex.Message };
+                        reply = new HostReplyPacket { Reason = "server startup failed: " + ex.Message };
                         Log($"game on {entry.Port} failed: {ex.Message}");
                     }
                     reply.Write(_scratch);
                     _transport?.Send(entry.Asker, PacketType.HostReply, _scratch.AsSpan(0, HostReplyPacket.Size));
-                    CryptographicOperations.ZeroMemory(_scratch.AsSpan(22, 16));
-                    entry.OwnerToken = Guid.Empty;
                     if (entry.Server == null)
                     {
                         StopHosted(entry, "startup failed");
@@ -506,13 +482,6 @@ namespace MphRead.Mods.Network
                     StopHosted(entry, played ? "everyone left" : "nobody joined");
                 }
             }
-        }
-
-        private static Guid CreateToken()
-        {
-            Span<byte> bytes = stackalloc byte[16];
-            RandomNumberGenerator.Fill(bytes);
-            return new Guid(bytes);
         }
 
         private void StopHosted(Hosted entry, string why)

@@ -5,7 +5,6 @@ using System.Net;
 using System.Reflection;
 using System.Threading;
 using MphRead.Entities;
-using MphRead.Identity;
 using MphRead.Mods;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
@@ -206,11 +205,8 @@ public sealed class LateJoinTests
         stats.Kills = 3;
         stats.Deaths = 2;
 
-        // Model an involuntary transport loss. The reliable Disconnect event is
-        // an explicit leave and intentionally does not create a grace reservation.
-        server.Remove(original.Slot, reason: ParticipantExitReason.Disconnected);
-        Assert.Equal(0, server.Count);
-        Assert.True(server.HasReconnectReservation(slot));
+        Assert.True(client.Disconnect());
+        Pump(server, new[] { client }, () => server.Count == 0);
         simulation.Step(server, 3); // Release the body while preserving the reservation's scoreboard.
         Assert.Equal(5, stats.Points);
         Assert.Equal(3, stats.Kills);
@@ -251,15 +247,14 @@ public sealed class LateJoinTests
         peer.HasParticipated = true;
         ulong oldConnectionId = peer.Connection.Id;
         byte oldTeam = peer.TeamIndex;
-        server.Remove(peer.Slot, reason: ParticipantExitReason.Disconnected);
-        Assert.Equal(0, server.Count);
-        Assert.True(server.HasReconnectReservation(peer.Slot));
+        Assert.True(client.Disconnect());
+        Pump(server, new[] { client }, () => server.Count == 0);
 
         SendJoin(foreignSocket, endpoint, "RETURN", Hunter.Samus, oldConnectionId);
         long rejected = server.Rejected;
         for (int attempt = 0; attempt < 100 && server.Rejected == rejected; attempt++)
         {
-            server.Poll(unchecked(server.Tick + 1));
+            server.Poll(1);
             if (server.Rejected == rejected) Thread.Sleep(1);
         }
         Assert.True(server.Rejected > rejected);
@@ -288,14 +283,12 @@ public sealed class LateJoinTests
         ServerPeer peer = Assert.IsType<ServerPeer>(server.Find(client.Connection!.Id));
         peer.Connection.StartPlaying();
         peer.HasParticipated = true;
-        server.Remove(peer.Slot, reason: ParticipantExitReason.Disconnected);
-        Assert.Equal(0, server.Count);
-        Assert.True(server.HasReconnectReservation(peer.Slot));
-        uint expiryTick = unchecked(server.Tick + 1800);
+        Assert.True(client.Disconnect());
+        Pump(server, new[] { client }, () => server.Count == 0);
 
         client.Reconnect();
         Pump(server, new[] { client }, () => client.Connection != null || client.Failure != null,
-            initialTick: expiryTick);
+            initialTick: 1800);
         Assert.Null(client.Connection);
         Assert.Contains("disabled", client.Failure!, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, server.Count);
@@ -317,9 +310,8 @@ public sealed class LateJoinTests
         ServerPeer peer = Assert.IsType<ServerPeer>(server.Find(client.Connection!.Id));
         peer.Connection.StartPlaying();
         peer.HasParticipated = true;
-        server.Remove(peer.Slot, reason: ParticipantExitReason.Timeout);
-        Assert.Equal(0, server.Count);
-        Assert.True(server.HasReconnectReservation(peer.Slot));
+        Assert.True(client.Disconnect());
+        Pump(server, new[] { client }, () => server.Count == 0);
 
         server.ChangeMatch(2, rules, 1);
         server.Phase = MatchPhase.Playing;
@@ -347,9 +339,8 @@ public sealed class LateJoinTests
         server.PhaseRevision = 1;
         ServerPeer peer = Assert.IsType<ServerPeer>(server.Find(client.Connection!.Id));
         Assert.False(peer.HasParticipated);
-        server.Remove(peer.Slot, reason: ParticipantExitReason.Timeout);
-        Assert.Equal(0, server.Count);
-        Assert.False(server.HasReconnectReservation(peer.Slot));
+        Assert.True(client.Disconnect());
+        Pump(server, new[] { client }, () => server.Count == 0);
 
         client.Reconnect();
         Pump(server, new[] { client }, () => client.Connection != null || client.Failure != null);
@@ -383,9 +374,8 @@ public sealed class LateJoinTests
         stats.Deaths = rules.LegacyPointGoal + 1;
         simulation.Scene.Match.TeamDeaths[slot] = rules.LegacyPointGoal + 1;
 
-        server.Remove(slot, reason: ParticipantExitReason.Timeout);
-        Assert.Equal(0, server.Count);
-        Assert.True(server.HasReconnectReservation(slot));
+        Assert.True(client.Disconnect());
+        Pump(server, new[] { client }, () => server.Count == 0);
         simulation.Step(server, 3);
         client.Reconnect();
         JoinAndReady(server, client);
@@ -584,7 +574,23 @@ public sealed class LateJoinTests
                 peer.Connection.Send(transport, NetMessageType.Snapshot, packet[..length]);
             }
         }
-        foreach (NetClient client in clients) { client.Poll(); }
+        // UDP delivery may complete after SendDatagram returns. Wait for the
+        // snapshot under test before asserting the client's admission state.
+        foreach (NetClient client in clients)
+        {
+            if (client.Connection == null || server.Find(client.Connection.Id)?.Connection.State
+                is not (NetConnectionState.Playing or NetConnectionState.Ready)) continue;
+            var watch = Stopwatch.StartNew();
+            do
+            {
+                client.Poll();
+                if (client.HasSnapshot && (client.Snapshot.Sequence == tick
+                    || Sequence32.IsNewer(client.Snapshot.Sequence, tick))) break;
+                Thread.Sleep(1);
+            } while (watch.Elapsed < TimeSpan.FromSeconds(5));
+            Assert.True(client.HasSnapshot && (client.Snapshot.Sequence == tick
+                || Sequence32.IsNewer(client.Snapshot.Sequence, tick)), "Loopback snapshot was not received.");
+        }
     }
 
     private static void SendJoin(NetTransport transport, IPEndPoint endpoint, string name,
@@ -598,10 +604,10 @@ public sealed class LateJoinTests
     }
 
     private static void Pump(ServerNetwork server, NetClient[] clients, Func<bool> done,
-        uint? initialTick = null)
+        uint initialTick = 0)
     {
         var watch = Stopwatch.StartNew();
-        uint tick = initialTick ?? unchecked(server.Tick + 1);
+        uint tick = initialTick;
         while (watch.Elapsed < TimeSpan.FromSeconds(5))
         {
             server.Poll(tick++);

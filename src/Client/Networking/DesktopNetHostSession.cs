@@ -18,10 +18,7 @@ namespace MphRead.Mods.Network
         public bool StartAndJoin(bool friendlyFire, int port, string playerName, Hunter hunter,
             string roomKey, GameMode mode, float timeLimit, int pointGoal,
             int maxPlayers = PlayerEntity.SlotCapacity,
-            (string Host, int Port, string Name)? listing = null, bool practice = false,
-            int? botMinimumParticipants = null, int botSkill = 1,
-            MatchRules? configuredRules = null, LobbyPolicy? lobbyPolicy = null,
-            int maxObservers = 4)
+            (string Host, int Port, string Name)? listing = null, bool practice = false)
         {
             var cancel = new CancellationTokenSource();
             long generation;
@@ -42,28 +39,9 @@ namespace MphRead.Mods.Network
                 {
                     throw new ProgramException("Hosting requires extracted game data. Select your game files in the launcher first.");
                 }
-                MapRotation rotation = MapRotation.SingleMatch(roomKey, mode, timeLimit, pointGoal,
-                    configuredRules?.ObjectiveTimeGoal is { } objective
-                        ? (float)objective.TotalSeconds : null);
-                ServerProcess server;
-                if (configuredRules is not null || botMinimumParticipants is not null
-                    || lobbyPolicy is not null || maxObservers != 4)
-                {
-                    MatchRules rules = configuredRules
-                        ?? rotation.Current.ToMatchRules(maxPlayers, friendlyFire);
-                    int minimum = botMinimumParticipants ?? (practice ? Math.Min(4, maxPlayers) : 0);
-                    var options = new HostedProcessOptions(rules,
-                        lobbyPolicy ?? LobbyPolicy.PrivateHosted,
-                        minimum, botSkill, maxObservers, 0, Guid.NewGuid(),
-                        System.Net.IPAddress.Loopback);
-                    server = ServerProcess.StartConfigured(data, Paths.MphKey, rotation,
-                        port, maxPlayers, friendlyFire, listing, cancel.Token, practice, options);
-                }
-                else
-                {
-                    server = ServerProcess.Start(data, Paths.MphKey, rotation,
-                        port, maxPlayers, friendlyFire, listing, cancel.Token, practice);
-                }
+                var server = ServerProcess.Start(data, Paths.MphKey,
+                    MapRotation.SingleMatch(roomKey, mode, timeLimit, pointGoal),
+                    port, maxPlayers, friendlyFire, listing, cancel.Token, practice);
                 bool current;
                 lock (_gate)
                 {
@@ -75,9 +53,7 @@ namespace MphRead.Mods.Network
                     server.Dispose();
                     return false;
                 }
-                Guid ownerCapability = server.TakeOwnerCapability();
-                if (!NetLaunch.Join("127.0.0.1", server.Port, playerName, hunter,
-                    cancel: cancel.Token, ownerCapability: ownerCapability))
+                if (!NetLaunch.Join("127.0.0.1", server.Port, playerName, hunter, cancel: cancel.Token))
                 {
                     throw new ProgramException(String.IsNullOrWhiteSpace(NetLaunch.LastJoinError)
                         ? "The local server started, but the player could not join it."

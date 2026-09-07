@@ -238,16 +238,6 @@ namespace MphRead.Droid
             _loop.RequestStop();
         }
 
-        /// <summary>
-        /// Stop and wait until scene detachment and GL-owned cleanup finish.
-        /// Activity view restoration must happen after this boundary.
-        /// </summary>
-        public void StopAndWait()
-        {
-            _loop.RequestStop();
-            _loop.WaitForStop();
-        }
-
         public void OnPause()
         {
             _loop.SetPaused(true);
@@ -385,14 +375,6 @@ namespace MphRead.Droid
                 {
                     _stopping = true;
                     Monitor.PulseAll(_lock);
-                }
-            }
-
-            public void WaitForStop()
-            {
-                if (Thread.CurrentThread != _thread)
-                {
-                    _thread.Join();
                 }
             }
 
@@ -874,7 +856,6 @@ namespace MphRead.Droid
                 _ended = true;
                 try
                 {
-                    MphRead.Mods.Network.ClientSessionCoordinator.Shared.DetachScene(scene);
                     ScenePresentation.Get(scene).DoCleanup();
                 }
                 finally

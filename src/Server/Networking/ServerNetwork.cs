@@ -2,7 +2,6 @@ using System;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
-using System.Security.Cryptography;
 using MphRead.Identity;
 
 namespace MphRead.Mods.Network
@@ -18,7 +17,6 @@ namespace MphRead.Mods.Network
         internal bool ObserverNeedsBaseline { get; set; }
         internal Guid TicketId { get; set; }
         internal bool TrustedObserver { get; set; }
-        internal bool LobbyOwnerAuthorized { get; set; }
         public NetConnection Connection { get; }
         public ulong Nonce { get; }
         public byte Slot { get; }
@@ -29,7 +27,7 @@ namespace MphRead.Mods.Network
         public bool HasParticipated { get; internal set; }
         internal bool SurvivalEliminated { get; set; }
         public string Name { get; }
-        public Hunter Hunter { get; internal set; }
+        public Hunter Hunter { get; }
         public ServerInputStream Inputs { get; internal set; } = new();
         internal NetRateLimit Packets;
         internal long PingSent;
@@ -67,25 +65,11 @@ namespace MphRead.Mods.Network
 
         internal bool HasReconnectReservation(int slot)
         {
-            ExpireReconnectReservation(slot);
+            if (_reconnectPeers[slot] != null && unchecked(Tick - _reconnectTicks[slot]) >= ReconnectGraceTicks)
+                _reconnectPeers[slot] = null;
             return _reconnectPeers[slot] != null;
         }
-        private void ExpireReconnectReservation(int slot)
-        {
-            ServerPeer? peer = _reconnectPeers[slot];
-            if (peer == null || unchecked(Tick - _reconnectTicks[slot]) < ReconnectGraceTicks) return;
-            _reconnectPeers[slot] = null;
-            _reconnectTicks[slot] = 0;
-            ParticipantLeaving?.Invoke(peer, ParticipantExitReason.ReconnectGraceExpired, Tick);
-        }
-        private void ExpireReconnectReservations()
-        {
-            for (int slot = 0; slot < _reconnectPeers.Length; slot++) ExpireReconnectReservation(slot);
-        }
         private readonly int _capacity;
-        private readonly byte[] _expectedLobbyOwnerCapability = new byte[JoinPacket.OwnerCapabilitySize];
-        private readonly IPAddress? _expectedLobbyOwnerAddress;
-        private bool _lobbyOwnerCapabilityConsumed;
         private NetRateLimit _joins;
         private NetRateLimit _statusQueries;
         private double _now;
@@ -108,14 +92,6 @@ namespace MphRead.Mods.Network
         public ServerTicketAuthority? TicketAuthority { get; set; }
         public Guid ServerId => TicketAuthority?.ServerId ?? Guid.Empty;
         public Action<ServerPeer, ParticipantExitReason, uint>? ParticipantLeaving { get; set; }
-        /// <summary>Lobby callbacks execute on the same single-owner thread as Poll.</summary>
-        public Func<ServerPeer, LobbyRequestPacket, bool>? LobbyRequestReceived { get; set; }
-        public Func<ServerPeer, LobbyChatRequestPacket, bool>? LobbyChatReceived { get; set; }
-        public Action<ServerPeer>? LobbyPeerAdmitted { get; set; }
-        public Action<ServerPeer, ParticipantExitReason>? LobbyPeerLeaving { get; set; }
-        public uint LobbySessionId { get; private set; }
-        public bool LobbyAdmissionOpen { get; private set; }
-        public ServerLobby? Lobby { get; internal set; }
         public ReadOnlySpan<ServerPeer?> Peers => _peers;
         public int Count { get; private set; }
         public long Rejected { get; private set; }
@@ -124,12 +100,8 @@ namespace MphRead.Mods.Network
             uint matchId = 1, int capacity = RosterPacket.MaxSlots)
             : this(transport, MatchRules.CreateDefault(mode.ToMatchMode(), room, capacity), matchId) { }
 
-        public ServerNetwork(INetTransport transport, MatchRules rules, uint matchId = 1,
-            ObserverOptions? observers = null, Guid lobbyOwnerCapability = default,
-            IPAddress? lobbyOwnerAddress = null)
+        public ServerNetwork(INetTransport transport, MatchRules rules, uint matchId = 1, ObserverOptions? observers = null)
         {
-            if ((lobbyOwnerCapability == Guid.Empty) != (lobbyOwnerAddress == null))
-                throw new ArgumentException("Lobby owner capability and source address must be configured together.");
             ObserverConfiguration = observers ?? new();
             ObserverConfiguration.Validate();
             _observerTimeline.BeginMatch(matchId);
@@ -145,8 +117,6 @@ namespace MphRead.Mods.Network
             }
             _transport = transport;
             _capacity = capacity;
-            lobbyOwnerCapability.TryWriteBytes(_expectedLobbyOwnerCapability);
-            _expectedLobbyOwnerAddress = lobbyOwnerAddress;
             Room = room;
             Mode = mode;
             MatchId = matchId;
@@ -155,26 +125,9 @@ namespace MphRead.Mods.Network
             _statusQueries = new NetRateLimit(8, 16, _now);
         }
 
-        private bool TryClaimLobbyOwner(IPEndPoint endpoint, in JoinPacket join)
-        {
-            if (_expectedLobbyOwnerAddress == null || _lobbyOwnerCapabilityConsumed) return false;
-            Span<byte> presented = stackalloc byte[JoinPacket.OwnerCapabilitySize];
-            join.OwnerCapability.TryWriteBytes(presented);
-            bool tokenMatches = CryptographicOperations.FixedTimeEquals(
-                _expectedLobbyOwnerCapability, presented);
-            bool addressMatches = endpoint.Address.Equals(_expectedLobbyOwnerAddress);
-            if (!(tokenMatches & addressMatches)) return false;
-            _lobbyOwnerCapabilityConsumed = true;
-            CryptographicOperations.ZeroMemory(_expectedLobbyOwnerCapability);
-            return true;
-        }
-
         public void Poll(uint tick)
         {
             Tick = tick;
-            // A reconnect is valid only before its deadline. Expire reservations
-            // before processing this tick's joins so the 1,800-tick boundary is exact.
-            ExpireReconnectReservations();
             long timestamp = Stopwatch.GetTimestamp();
             double now = timestamp / (double)Stopwatch.Frequency;
             if (now - _now > 1)
@@ -235,13 +188,12 @@ namespace MphRead.Mods.Network
                 if (!_statusQueries.Take(_now)) { return false; }
                 var status = new ServerStatusPacket
                 {
-                    Match = LobbyAdmissionOpen ? LobbyStatusProjection()
-                        : StatusProvider?.Invoke() ?? new MatchStatePacket
-                        {
-                            MatchId = unchecked((ushort)MatchId), Mode = (byte)Mode, RoomKey = Room,
-                            NextRoomKey = Room, PlayerCount = (byte)Count,
-                            Flags = MatchStatePacket.FlagInProgress
-                        },
+                    Match = StatusProvider?.Invoke() ?? new MatchStatePacket
+                    {
+                        MatchId = unchecked((ushort)MatchId), Mode = (byte)Mode, RoomKey = Room,
+                        NextRoomKey = Room, PlayerCount = (byte)Count,
+                        Flags = MatchStatePacket.FlagInProgress
+                    },
                     RulesetPreset = Rules.RulesetPreset, RankingEligibility = Rules.RankingEligibility,
                     Observers = (byte)ObserverCount, MaxObservers = (byte)ObserverConfiguration.MaxSpectators,
                     ObserverDelaySeconds = (byte)ObserverConfiguration.DelaySeconds,
@@ -250,14 +202,6 @@ namespace MphRead.Mods.Network
                     HasRules = (bytes[1] & ServerStatusPacket.RulesCapability) != 0,
                     FriendlyFire = Rules.FriendlyFire, PlayerRadar = Rules.PlayerRadar, SpawnPolicy = Rules.SpawnPolicy,
                     OvertimePolicy = Rules.OvertimePolicy, LateJoinPolicy = Rules.LateJoinPolicy,
-                    HasSessionState = true,
-                    Phase = StatusPhase(), JoinDisposition = StatusJoinDisposition(),
-                    LobbyPlayers = (byte)(Lobby?.Runtime.Players.Count ?? 0),
-                    LobbyObservers = (byte)(Lobby?.Runtime.Observers.Count ?? 0),
-                    ReadyPlayers = ReadyLobbyPlayers(),
-                    RankedLocked = (Lobby?.Runtime.Draft.Current.RankingEligibility ?? Rules.RankingEligibility)
-                        == RankingEligibility.VerifiedServerOnly,
-                    TournamentLocked = Lobby?.TournamentRosterLocked == true || AdminRosterLocked,
                     MaxPlayers = (byte)_capacity, Protocol = NetHeader.Version, Family = NetWireIdentity.Family, ServerName = ServerName
                 };
                 Span<byte> reply = stackalloc byte[status.HasRules ? ServerStatusPacket.ExtendedSize : ServerStatusPacket.Size];
@@ -297,10 +241,6 @@ namespace MphRead.Mods.Network
                 NetMessageType.Event => ReliableEventPacket.TryRead(body, out eventId, out eventType, out eventBody)
                     && (eventType == ReliableEventType.ClientReady && eventBody.Length == 4
                         || eventType == ReliableEventType.Disconnect && eventBody.IsEmpty
-                        || peer.Connection.State == NetConnectionState.Lobby && eventType == ReliableEventType.LobbyRequest
-                            && LobbyRequestReceived != null && LobbyRequestPacket.TryRead(eventBody, out _)
-                        || peer.Connection.State == NetConnectionState.Lobby && eventType == ReliableEventType.LobbyChat
-                            && LobbyChatReceived != null && LobbyChatRequestPacket.TryRead(eventBody, out _)
                         || !peer.IsObserver && !peer.IsBot && eventType == ReliableEventType.IntermissionVote
                             && IntermissionVoteRequest.TryRead(eventBody, out _)
                         || !peer.IsObserver && eventType == ReliableEventType.ChatRequest && eventBody.Length == 4 + SessionChatRequest.Size
@@ -326,7 +266,7 @@ namespace MphRead.Mods.Network
                 connection.Send(_transport, NetMessageType.Ack);
                 if (connection.Reliable.Receive(eventId))
                 {
-                    if (eventType == ReliableEventType.Disconnect) { Remove(peer.ConnectionIndex, allowReconnect: false, reason: ParticipantExitReason.ExplicitLeave); }
+                    if (eventType == ReliableEventType.Disconnect) { Remove(peer.ConnectionIndex, reason: ParticipantExitReason.ExplicitLeave); }
                     else if (eventType == ReliableEventType.ClientReady)
                     {
                         bool ready = connection.Ready(BinaryPrimitives.ReadUInt32LittleEndian(eventBody));
@@ -336,14 +276,6 @@ namespace MphRead.Mods.Network
                     else if (eventType == ReliableEventType.IntermissionVote)
                     {
                         if (IntermissionVoteRequest.TryRead(eventBody, out var vote)) IntermissionVoteReceived?.Invoke(peer, vote);
-                    }
-                    else if (eventType == ReliableEventType.LobbyRequest)
-                    {
-                        if (LobbyRequestPacket.TryRead(eventBody, out var request)) LobbyRequestReceived?.Invoke(peer, request);
-                    }
-                    else if (eventType == ReliableEventType.LobbyChat)
-                    {
-                        if (LobbyChatRequestPacket.TryRead(eventBody, out var request)) LobbyChatReceived?.Invoke(peer, request);
                     }
                     else if (BinaryPrimitives.ReadUInt32LittleEndian(eventBody) == MatchId)
                     {
@@ -364,62 +296,6 @@ namespace MphRead.Mods.Network
                 connection.Send(_transport, NetMessageType.Pong, reply);
             }
             return true;
-        }
-
-        private MatchStatePacket LobbyStatusProjection() => new()
-        {
-            MatchId = unchecked((ushort)MatchId),
-            Mode = (byte)Mode,
-            RoomKey = Room,
-            NextRoomKey = Room,
-            PlayerCount = (byte)(Lobby?.Runtime.ConnectedPlayerCount ?? Count),
-            PointGoal = (ushort)Math.Clamp(Rules.LegacyPointGoal, 0, UInt16.MaxValue),
-            Flags = Rules.FriendlyFire ? MatchStatePacket.FlagFriendlyFire : (byte)0
-        };
-
-        private AuthoritativeSessionPhase StatusPhase()
-        {
-            if (LobbyAdmissionOpen) return AuthoritativeSessionPhase.Lobby;
-            return Phase switch
-            {
-                MatchPhase.Playing => AuthoritativeSessionPhase.Playing,
-                MatchPhase.Ending => AuthoritativeSessionPhase.Ending,
-                MatchPhase.Intermission => AuthoritativeSessionPhase.Intermission,
-                _ => AuthoritativeSessionPhase.Countdown
-            };
-        }
-
-        private ServerJoinDisposition StatusJoinDisposition()
-        {
-            if (AdmissionClosed) return ServerJoinDisposition.Closed;
-            bool observerRoom = ObserverCount < ObserverConfiguration.MaxSpectators;
-            if (LobbyAdmissionOpen && Lobby != null)
-            {
-                if (Lobby.Runtime.Players.Count < Lobby.Runtime.Draft.Current.MaxPlayers)
-                    return ServerJoinDisposition.JoinLobby;
-                return observerRoom ? ServerJoinDisposition.Spectate : ServerJoinDisposition.Full;
-            }
-            if (Count >= _capacity)
-                return observerRoom ? ServerJoinDisposition.Spectate : ServerJoinDisposition.Full;
-            if (Phase is MatchPhase.Playing or MatchPhase.Ending or MatchPhase.Intermission)
-            {
-                return Rules.LateJoinPolicy switch
-                {
-                    LateJoinPolicy.JoinImmediately => ServerJoinDisposition.JoinNow,
-                    LateJoinPolicy.SpectateUntilNextMatch => ServerJoinDisposition.WaitForNextMatch,
-                    _ => observerRoom ? ServerJoinDisposition.Spectate : ServerJoinDisposition.WaitForNextMatch
-                };
-            }
-            return ServerJoinDisposition.JoinNow;
-        }
-
-        private byte ReadyLobbyPlayers()
-        {
-            if (Lobby == null) return 0;
-            byte ready = 0;
-            foreach (LobbyPlayer player in Lobby.Runtime.Players)
-                if (player.Ready) ready++;
-            return ready;
         }
 
         public bool AdmissionClosed { get; set; }
@@ -455,9 +331,7 @@ namespace MphRead.Mods.Network
                 Refuse(endpoint, join.Nonce, $"Authoritative protocol {NetHeader.Version} required.");
                 return true;
             }
-            if (join.Observer) return LobbyAdmissionOpen
-                ? AdmitLobbyObserver(endpoint, join, authenticated)
-                : AdmitObserver(endpoint, join, authenticated);
+            if (join.Observer) return AdmitObserver(endpoint, join, authenticated);
             foreach (ServerPeer? observer in _observers)
                 if (observer != null && (observer.Connection.Endpoint.Equals(endpoint) || observer.Nonce == join.Nonce)) return false;
             int free = -1;
@@ -552,14 +426,8 @@ namespace MphRead.Mods.Network
             }
             ulong id;
             do { id = NetConnection.NewIdentity(); } while (Find(id) != null);
-            bool lobbyAdmission = LobbyAdmissionOpen;
-            var connection = new NetConnection(id, endpoint, lobbyAdmission ? 0 : MatchId, _now,
-                lobbyAdmission ? LobbySessionId : MatchId);
-            if (lobbyAdmission) connection.EnterLobby(LobbySessionId);
-            var accepted = lobbyAdmission
-                ? new JoinAcceptedPacket(join.Nonce, (byte)free, LobbySessionId,
-                    JoinDestination.Lobby, 0, Tick, 60, Rules)
-                : new JoinAcceptedPacket(join.Nonce, (byte)free, MatchId, Tick, 60, Rules);
+            var connection = new NetConnection(id, endpoint, MatchId, _now);
+            var accepted = new JoinAcceptedPacket(join.Nonce, (byte)free, MatchId, Tick, 60, Rules);
             Span<byte> payload = stackalloc byte[JoinAcceptedPacket.Size];
             accepted.Write(payload);
             connection.Reliable.TryEnqueue(ReliableEventType.Welcome, payload, out _);
@@ -569,10 +437,9 @@ namespace MphRead.Mods.Network
                 PlayerId = authenticated?.PlayerId,
                 TicketId = authenticated?.TicketId ?? Guid.Empty,
                 TrustedObserver = authenticated?.TrustedObserver == true,
-                LobbyOwnerAuthorized = lobbyAdmission && TryClaimLobbyOwner(endpoint, join),
                 TeamIndex = returningTeam ?? (Rules.Teams ? SelectJoiningTeam((byte)free) : (byte)free),
                 ReturningParticipant = returningParticipant,
-                ReturningFromConnectionId = returningParticipant || lobbyAdmission ? returningFrom : 0,
+                ReturningFromConnectionId = returningParticipant ? returningFrom : 0,
                 HasParticipated = returningParticipant,
                 SurvivalEliminated = returningEliminated,
                 WaitingForNextMatch = inProgress && !returningParticipant
@@ -581,7 +448,6 @@ namespace MphRead.Mods.Network
             _connections[free] = _peers[free];
             _reconnectPeers[free] = null;
             Count++;
-            if (lobbyAdmission) LobbyPeerAdmitted?.Invoke(_peers[free]!);
             PublishKeepAlives();
             _rosterDirty = true;
             return true;
@@ -716,23 +582,11 @@ namespace MphRead.Mods.Network
             if (ObserverFramesRequired) _observerTimeline.Event(ReliableEventType.Chat, payload);
         }
 
-        internal bool TryAcceptLobbyChat(ServerPeer speaker)
-        {
-            if (Find(speaker.Connection.Id) != speaker || IsAdminMuted(speaker.Connection.Id)
-                || !speaker.ChatCredit.Take(_now))
-            {
-                speaker.ChatDropped++;
-                return false;
-            }
-            return true;
-        }
-
         /// <summary>Called by the simulation owner before loading the next room.</summary>
         public void ChangeMatch(uint matchId, string room, GameMode mode, uint tick)
             => ChangeMatch(matchId, MatchRules.CreateDefault(mode.ToMatchMode(), room, _capacity), tick);
 
-        public void ChangeMatch(uint matchId, MatchRules rules, uint tick,
-            bool preserveTeamAssignments = false)
+        public void ChangeMatch(uint matchId, MatchRules rules, uint tick)
         {
             string room = rules.RoomKey;
             GameMode mode = rules.Mode.ToLegacyMode();
@@ -766,8 +620,7 @@ namespace MphRead.Mods.Network
             {
                 ServerPeer? peer = _peers[slot];
                 if (peer == null) { continue; }
-                if (!AdminTeamsAssigned && !preserveTeamAssignments)
-                    peer.TeamIndex = rules.Teams ? (byte)(teamMember++ & 1) : peer.Slot;
+                if (!AdminTeamsAssigned) peer.TeamIndex = rules.Teams ? (byte)(teamMember++ & 1) : peer.Slot;
                 peer.WaitingForNextMatch = false;
                 peer.ReturningParticipant = false;
                 peer.ReturningFromConnectionId = 0;
@@ -781,76 +634,6 @@ namespace MphRead.Mods.Network
                 {
                     Remove(slot, reason: ParticipantExitReason.Backpressure); // Explicit backpressure: never start a peer in the wrong room.
                 }
-            }
-        }
-
-        /// <summary>
-        /// Opens the server-owned lobby without replacing the current match runtime.
-        /// Connected player and observer transports stay alive; gameplay state is
-        /// fenced by NetConnectionState.Lobby until a validated start transition.
-        /// </summary>
-        public void EnterLobby(uint sessionId, MatchRules draftRules, uint tick)
-        {
-            if (sessionId == 0) throw new ArgumentOutOfRangeException(nameof(sessionId));
-            MatchLifecycle.ValidateRules(draftRules);
-            if (draftRules.MaxPlayers != _capacity)
-                throw new ArgumentException("Lobby draft cannot change session capacity.", nameof(draftRules));
-            LobbySessionId = sessionId;
-            LobbyAdmissionOpen = true;
-            Rules = draftRules;
-            Room = draftRules.RoomKey;
-            Mode = draftRules.Mode.ToLegacyMode();
-            Tick = tick;
-            _rosterDirty = true;
-            foreach (ServerPeer? peer in _connections)
-            {
-                if (peer == null) continue;
-                peer.Inputs = new ServerInputStream();
-                peer.WaitingForNextMatch = false;
-                peer.ReturningParticipant = false;
-                peer.SurvivalEliminated = false;
-                peer.Connection.Reliable.CancelPendingExceptWelcome();
-                peer.Connection.EnterLobby(sessionId);
-                if (peer.IsObserver)
-                {
-                    peer.ObserverCursor = null;
-                    peer.ObserverNeedsBaseline = true;
-                }
-                LobbyPeerAdmitted?.Invoke(peer);
-                peer.ReturningFromConnectionId = 0;
-            }
-        }
-
-        /// <summary>Refreshes the discovery projection after an accepted lobby edit.</summary>
-        internal void RefreshLobbyDraft(MatchRules draftRules)
-        {
-            ArgumentNullException.ThrowIfNull(draftRules);
-            if (!LobbyAdmissionOpen || LobbySessionId == 0)
-                throw new InvalidOperationException("No authoritative lobby is open.");
-            MatchLifecycle.ValidateRules(draftRules);
-            Rules = draftRules;
-            Room = draftRules.RoomKey;
-            Mode = draftRules.Mode.ToLegacyMode();
-        }
-
-        /// <summary>Creates the real match boundary after LobbyRuntime freezes its draft.</summary>
-        public void StartLobbyMatch(uint matchId, MatchRules frozenRules, uint tick)
-        {
-            if (!LobbyAdmissionOpen || LobbySessionId == 0)
-                throw new InvalidOperationException("No authoritative lobby is open.");
-            LobbyAdmissionOpen = false;
-            ChangeMatch(matchId, frozenRules, tick, preserveTeamAssignments: true);
-            Span<byte> payload = stackalloc byte[MatchTransitionPacket.Size];
-            new MatchTransitionPacket(matchId, tick, frozenRules).Write(payload);
-            foreach (ServerPeer? observer in _observers)
-            {
-                if (observer == null) continue;
-                observer.ObserverCursor = null;
-                observer.ObserverNeedsBaseline = true;
-                observer.Connection.BeginLoading(LobbySessionId, matchId);
-                observer.Connection.Reliable.CancelPendingExceptWelcome();
-                if (!observer.Connection.Reliable.TryEnqueue(ReliableEventType.MapTransition, payload, out _))
-                    RemoveObserver(observer.ConnectionIndex, ParticipantExitReason.Backpressure);
             }
         }
 
@@ -916,26 +699,16 @@ namespace MphRead.Mods.Network
 
         public void Remove(int slot, bool allowReconnect = true, ParticipantExitReason reason = ParticipantExitReason.Disconnected)
         {
-            if (slot >= 8) { RemoveObserver(slot, reason); return; }
+            if (slot >= 8) { RemoveObserver(slot); return; }
             ServerPeer? peer = _peers[slot];
             if (peer != null)
             {
-                bool transientLoss = reason is ParticipantExitReason.Disconnected
-                    or ParticipantExitReason.Timeout or ParticipantExitReason.Backpressure;
-                if (allowReconnect && transientLoss
-                    && (LobbySessionId != 0 && peer.Connection.State == NetConnectionState.Lobby
-                        || peer.HasParticipated && Phase is MatchPhase.Playing or MatchPhase.Ending or MatchPhase.Intermission))
+                if (allowReconnect && peer.HasParticipated && Phase is MatchPhase.Playing or MatchPhase.Ending or MatchPhase.Intermission)
                 {
                     _reconnectPeers[slot] = peer;
                     _reconnectTicks[slot] = Tick;
                 }
-                else
-                {
-                    _reconnectPeers[slot] = null;
-                    _reconnectTicks[slot] = 0;
-                }
                 _adminMuted.Remove(peer.Connection.Id);
-                if (LobbySessionId != 0) LobbyPeerLeaving?.Invoke(peer, reason);
                 ParticipantLeaving?.Invoke(peer, reason, Tick);
                 peer.Connection.Disconnect();
                 _peers[slot] = null;

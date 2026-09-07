@@ -23,7 +23,6 @@ namespace MphRead.Mods
     {
         private static volatile bool _open;
         private static volatile bool _leave;
-        private static volatile bool _leaveServer;
         private static volatile bool _quit;
         private static volatile bool _toggleFullscreen;
         private static volatile bool _refocus;
@@ -32,7 +31,6 @@ namespace MphRead.Mods
 
         /// <summary>The player asked to leave the match but not the program.</summary>
         public static bool LeftMatch { get; private set; }
-        public static bool LeftServer { get; private set; }
 
         /// <summary>The player asked to close the program outright.</summary>
         public static bool QuitProgram { get; private set; }
@@ -159,13 +157,10 @@ namespace MphRead.Mods
                 Close();
                 window.Close();
             }
-            else if (_leave || _leaveServer)
+            else if (_leave)
             {
                 _leave = false;
-                bool server = _leaveServer;
-                _leaveServer = false;
                 LeftMatch = true;
-                LeftServer = server;
                 Close();
                 window.Close();
             }
@@ -175,16 +170,12 @@ namespace MphRead.Mods
         public static void Reset()
         {
             LeftMatch = false;
-            LeftServer = false;
             QuitProgram = false;
             _leave = false;
-            _leaveServer = false;
             _quit = false;
         }
 
         internal static void RequestLeave() => _leave = true;
-
-        internal static void RequestLeaveServer() => _leaveServer = true;
 
         internal static void RequestQuit() => _quit = true;
 

@@ -25,8 +25,7 @@ public sealed record HunterLicense(
     [property: JsonRequired] string Title = "Bounty Hunter",
     [property: JsonRequired] int? NextThreshold = 40,
     [property: JsonRequired] int? LastOfficialDelta = null,
-    [property: JsonRequired] string Policy = "PairwiseNormalizedV1",
-    [property: JsonRequired] Guid? LastOfficialMatchId = null);
+    [property: JsonRequired] string Policy = "PairwiseNormalizedV1");
 public sealed record AccountRegistration(PlayerId PlayerId, bool ConfirmationRequired);
 public sealed record GameTicket(string Ticket, DateTimeOffset ExpiresAt, Guid ServerId, Guid ServerIncarnation,
     string PublicAddress = "", int PublicPort = 0)
@@ -199,7 +198,7 @@ public sealed partial class AccountSession : IDisposable
             || license.DisplayName.Any(c => c is < ' ' or > '~')
             || license.FavoriteHunter is < 0 or > 6 || license.JoinedAt.Offset != TimeSpan.Zero
             || !ValidRating(new(license.Points, license.Tier, license.Title, license.NextThreshold,
-                license.LastOfficialDelta, license.Policy, license.LastOfficialMatchId)))
+                license.LastOfficialDelta, license.Policy)))
         {
             throw new InvalidOperationException("The backend returned an invalid Hunter License.");
         }

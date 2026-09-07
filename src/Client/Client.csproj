@@ -30,7 +30,7 @@
     <PackageReference Include="Avalonia.Desktop" Version="11.3.11" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.11" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
-    <!-- Avalonia.FreeDesktop 11.3.11 selects 0.21.2; 0.21.3 is the first patched release. -->
+    <!-- Retain the patched transitive dependency across the UI rollback. -->
     <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
     <!-- Full OpenTK is client-only: GL, GLFW/windowing and OpenAL bindings. -->
     <PackageReference Include="OpenTK" Version="4.9.4" />

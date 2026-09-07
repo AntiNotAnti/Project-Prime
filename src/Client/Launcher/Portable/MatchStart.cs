@@ -14,11 +14,6 @@ namespace MphRead.Mods.Launcher
             {
                 throw new InvalidOperationException("Join an authoritative server before starting a match.");
             }
-            if (plan.Kind != LaunchKind.Demo
-                && AuthoritativePlay.Current!.Client.State == NetConnectionState.Lobby)
-            {
-                throw new InvalidOperationException("The server has not sent a match transition.");
-            }
             if (!GameFiles.Ready)
             {
                 Console.WriteLine("[launcher] no game files; nothing to load");
@@ -41,26 +36,9 @@ namespace MphRead.Mods.Launcher
             }
             settings.RoomKey = room.RoomKey;
             using var renderer = new RenderWindow();
-            ClientSessionCoordinator coordinator = ClientSessionCoordinator.Shared;
-            if (coordinator.Session == null)
-                coordinator.AttachSession(AuthoritativePlay.Current!);
-            coordinator.AttachScene(renderer.Scene);
-            try
-            {
-                NetLaunch.BuildPlayers(renderer.Scene, plan.Hunter, localRecolor: 0);
-                renderer.AddRoom(room.RoomKey, room.Mode, playerCount: NetLaunch.RoomPlayerCount);
-                renderer.Run();
-                if (PauseMenu.LeftServer) coordinator.Leave();
-            }
-            catch (Exception error)
-            {
-                if (!coordinator.CanReconnect) coordinator.Fail(error.Message);
-                throw;
-            }
-            finally
-            {
-                coordinator.DetachScene(renderer.Scene);
-            }
+            NetLaunch.BuildPlayers(renderer.Scene, plan.Hunter, localRecolor: 0);
+            renderer.AddRoom(room.RoomKey, room.Mode, playerCount: NetLaunch.RoomPlayerCount);
+            renderer.Run();
         }
 
         private static void LaunchDemo(LaunchPlan plan)

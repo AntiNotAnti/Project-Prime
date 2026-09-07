@@ -53,26 +53,17 @@ namespace MphRead.Mods.Network
         public JoinAcceptedPacket Accepted { get; private set; }
         public NetClock Clock { get; private set; } = new();
         public string? Failure { get; private set; }
-        public bool RequiresFreshTicket => !String.IsNullOrEmpty(_join.Ticket);
-        public MatchTransitionPacket LastMatchTransition { get; private set; }
-        public uint MatchTransitionRevision { get; private set; }
-        public LobbySnapshotPacket? LobbySnapshot { get; private set; }
-        public LobbyFeedbackPacket? LobbyFeedback { get; private set; }
-        public LobbyChatPacket? LobbyChat { get; private set; }
-        public MatchSummaryPacket? MatchSummary { get; private set; }
         public long Rejected { get; private set; }
         public NetConnectionState State => IsDisconnecting ? NetConnectionState.Disconnecting : Connection?.State ?? (Failure == null
             ? NetConnectionState.Connecting : NetConnectionState.Disconnecting);
 
-        public NetClient(NetTransport transport, IPEndPoint server, string name, Hunter hunter, ulong? nonce = null,
-            string ticket = "", bool observer = false, Guid ownerCapability = default)
+        public NetClient(NetTransport transport, IPEndPoint server, string name, Hunter hunter, ulong? nonce = null, string ticket = "", bool observer = false)
         {
             _transport = transport;
             _server = server;
             if (nonce == 0 || (!string.IsNullOrEmpty(ticket) && (!nonce.HasValue || !JoinPacket.ValidTicketText(ticket))))
                 throw new ArgumentException("An authenticated join requires its ticket's nonzero nonce.");
-            _join = new JoinPacket(NetHeader.Version, nonce ?? NetConnection.NewIdentity(), hunter, name,
-                Ticket: ticket, Observer: observer, OwnerCapability: ownerCapability);
+            _join = new JoinPacket(NetHeader.Version, nonce ?? NetConnection.NewIdentity(), hunter, name, Ticket: ticket, Observer: observer);
             AwaitingBotRetirement = false;
             _joinStarted = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
         }
@@ -100,10 +91,6 @@ namespace MphRead.Mods.Network
             _joinDue = _pingDue = 0;
             _pingSent = 0;
             ClearMatchState();
-            LobbySnapshot = null;
-            LobbyFeedback = null;
-            LobbyChat = null;
-            MatchSummary = null;
             _disconnectDeadline = 0;
         }
 
@@ -220,15 +207,8 @@ namespace MphRead.Mods.Network
                 {
                     return false;
                 }
-                Connection = new NetConnection(header.ConnectionId, _server, accepted.MatchId, now, accepted.SessionId);
+                Connection = new NetConnection(header.ConnectionId, _server, accepted.MatchId, now);
                 Accepted = accepted;
-                // The capability is an admission-only secret. UDP retries before
-                // acceptance carry it; established sessions and reconnects do not.
-                _join = _join with { OwnerCapability = Guid.Empty };
-                if (accepted.Destination == JoinDestination.Lobby)
-                {
-                    Connection.EnterLobby(accepted.SessionId);
-                }
                 if (accepted.IsObserver) _join = _join with { Observer = true };
                 Span<byte> keepalive = stackalloc byte[NetHeader.Size];
                 new NetHeader(NetMessageType.KeepAlive, NetHeaderFlags.Unsequenced,
@@ -353,18 +333,6 @@ namespace MphRead.Mods.Network
                     out _incomingRosterRevision, out _incomingRosterCount))) { return false; }
             if (type == ReliableEventType.Chat && (payload.Length < 4
                 || !SessionChatPacket.TryRead(payload[4..], out _))) { return false; }
-            if (type == ReliableEventType.LobbySnapshot)
-                return LobbySnapshotPacket.TryRead(payload, out LobbySnapshotPacket? lobby)
-                    && lobby!.SessionId == Connection!.SessionId;
-            if (type == ReliableEventType.LobbyFeedback)
-                return LobbyFeedbackPacket.TryRead(payload, out LobbyFeedbackPacket feedback)
-                    && feedback.SessionId == Connection!.SessionId;
-            if (type == ReliableEventType.LobbyChat)
-                return LobbyChatPacket.TryRead(payload, out LobbyChatPacket chat)
-                    && chat.SessionId == Connection!.SessionId;
-            if (type == ReliableEventType.MatchSummary)
-                return MatchSummaryPacket.TryRead(payload, out MatchSummaryPacket? summary)
-                    && summary!.SessionId == Connection!.SessionId;
             return type switch
             {
                 ReliableEventType.MapTransition or ReliableEventType.ObserverTransition => MatchTransitionPacket.TryRead(payload, out _),
@@ -389,60 +357,25 @@ namespace MphRead.Mods.Network
             }
             NetConnection connection = Connection!;
             if (IsDisconnecting && type != ReliableEventType.Disconnect) { return; }
-            if (type == ReliableEventType.LobbySnapshot)
-            {
-                LobbySnapshotPacket.TryRead(payload, out LobbySnapshotPacket? snapshot);
-                LobbySnapshotPacket current = snapshot!;
-                if (LobbySnapshot == null || Sequence32.IsNewer(current.Revision, LobbySnapshot.Revision))
-                {
-                    LobbySnapshot = current;
-                    Accepted = Accepted with { Destination = JoinDestination.Lobby, MatchId = 0, Rules = current.Rules };
-                    connection.EnterLobby(current.SessionId);
-                    ClearMatchState();
-                }
-                return;
-            }
-            if (type == ReliableEventType.LobbyFeedback)
-            {
-                LobbyFeedbackPacket.TryRead(payload, out LobbyFeedbackPacket feedback);
-                LobbyFeedback = feedback;
-                return;
-            }
-            if (type == ReliableEventType.LobbyChat)
-            {
-                LobbyChatPacket.TryRead(payload, out LobbyChatPacket chat);
-                LobbyChat = chat;
-                return;
-            }
-            if (type == ReliableEventType.MatchSummary)
-            {
-                MatchSummaryPacket.TryRead(payload, out MatchSummaryPacket? summary);
-                if (MatchSummary == null || Sequence32.IsNewer(summary!.MatchId, MatchSummary.MatchId))
-                    MatchSummary = summary;
-                return;
-            }
             if (type == ReliableEventType.ObserverTransition)
             {
                 if (_join.Observer) return;
                 MatchTransitionPacket.TryRead(payload, out MatchTransitionPacket transition);
                 _join = _join with { Observer = true };
-                connection.BeginLoading(connection.SessionId, transition.MatchId);
+                connection.BeginLoading(transition.MatchId);
                 connection.Reliable.CancelPendingExceptWelcome();
-                Accepted = Accepted with { Slot = byte.MaxValue, Destination = JoinDestination.Match, MatchId = transition.MatchId,
+                Accepted = Accepted with { Slot = byte.MaxValue, MatchId = transition.MatchId,
                     ServerTick = transition.ServerTick, Rules = transition.Rules };
-                RoleRevision++;
-                NoteMatchTransition(transition);
-                ClearMatchState();
+                RoleRevision++; ClearMatchState();
             }
             else if (type == ReliableEventType.MapTransition)
             {
                 MatchTransitionPacket.TryRead(payload, out MatchTransitionPacket transition);
                 if (!Sequence32.IsNewer(transition.MatchId, connection.MatchId)) { return; }
-                connection.BeginLoading(connection.SessionId, transition.MatchId);
+                connection.BeginLoading(transition.MatchId);
                 connection.Reliable.CancelPendingExceptWelcome();
-                Accepted = Accepted with { Destination = JoinDestination.Match, MatchId = transition.MatchId, ServerTick = transition.ServerTick,
+                Accepted = Accepted with { MatchId = transition.MatchId, ServerTick = transition.ServerTick,
                     Rules = transition.Rules };
-                NoteMatchTransition(transition);
                 ClearMatchState();
             }
             else if (type == ReliableEventType.Disconnect) { Fail("Server disconnected the session."); }
@@ -481,16 +414,6 @@ namespace MphRead.Mods.Network
             RosterRevision = 0;
             HasRoster = false;
             _eventHead = _eventCount = 0;
-        }
-
-        private void NoteMatchTransition(in MatchTransitionPacket transition)
-        {
-            LastMatchTransition = transition;
-            uint revision = unchecked(MatchTransitionRevision + 1);
-            MatchTransitionRevision = revision == 0 ? 1 : revision;
-            LobbyFeedback = null;
-            LobbyChat = null;
-            MatchSummary = null;
         }
 
         public bool TryDequeueEvent(out NetApplicationEvent item)

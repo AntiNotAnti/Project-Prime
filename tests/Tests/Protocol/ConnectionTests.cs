@@ -35,23 +35,17 @@ namespace MphRead.Tests
         [Fact]
         public void JoinPreservesNonceIdentityAndRejectsBadHunter()
         {
-            Guid capability = Guid.NewGuid();
-            var join = new JoinPacket(NetHeader.Version, 42, Hunter.Trace, "TRACE", 99,
-                OwnerCapability: capability);
+            var join = new JoinPacket(NetHeader.Version, 42, Hunter.Trace, "TRACE", 99);
             byte[] bytes = new byte[JoinPacket.Size];
             join.Write(bytes);
-            Assert.Equal(50, bytes.Length);
             Assert.True(JoinPacket.TryRead(bytes, out JoinPacket decoded));
             Assert.Equal(join, decoded);
-            Assert.Equal(capability, decoded.OwnerCapability);
             bytes[9] = 255;
             Assert.False(JoinPacket.TryRead(bytes, out _));
             join.Write(bytes);
             bytes[10] = 10;
             Assert.False(JoinPacket.TryRead(bytes, out _));
             Assert.False(JoinPacket.TryRead(bytes.AsSpan(1), out _));
-            byte[] missingCapability = new byte[JoinPacket.Size - JoinPacket.OwnerCapabilitySize];
-            Assert.False(JoinPacket.TryRead(missingCapability, out _));
         }
 
         [Fact]

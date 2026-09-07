@@ -34,20 +34,11 @@ namespace MphRead.Droid
             }
             var scene = new Scene(preserveNicknames: NetSession.Active);
             var presentation = new ScenePresentation(scene, size, input.Keyboard, input.Mouse, _ => { }, close);
-            ClientSessionCoordinator.Shared.AttachScene(scene);
-            try
-            {
-                bool teamPlay = room.Value.Mode.IsTeamMode();
-                NetLaunch.BuildPlayers(scene, plan.Hunter, localRecolor: 0,
-                    teamId: teamPlay ? 0 : -1);
-                presentation.AddRoom(room.Value.RoomKey, room.Value.Mode, playerCount: NetLaunch.RoomPlayerCount);
-                return scene;
-            }
-            catch
-            {
-                ClientSessionCoordinator.Shared.DetachScene(scene);
-                throw;
-            }
+            bool teamPlay = room.Value.Mode.IsTeamMode();
+            NetLaunch.BuildPlayers(scene, plan.Hunter, localRecolor: 0,
+                teamId: teamPlay ? 0 : -1);
+            presentation.AddRoom(room.Value.RoomKey, room.Value.Mode, playerCount: NetLaunch.RoomPlayerCount);
+            return scene;
         }
 
         /// <summary>

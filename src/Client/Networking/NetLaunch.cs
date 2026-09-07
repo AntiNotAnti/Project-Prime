@@ -29,19 +29,15 @@ namespace MphRead.Mods.Network
         /// releases the new session without creating or mutating game entities.
         /// </summary>
         public static bool Join(string address, int port, string playerName, Hunter hunter,
-            int timeoutMs = 8000, CancellationToken cancel = default, bool observer = false,
-            Guid ownerCapability = default)
-            => JoinAsync(address, port, playerName, hunter, timeoutMs, cancel, observer, ownerCapability).GetAwaiter().GetResult();
+            int timeoutMs = 8000, CancellationToken cancel = default, bool observer = false)
+            => JoinAsync(address, port, playerName, hunter, timeoutMs, cancel, observer).GetAwaiter().GetResult();
 
         public static async Task<bool> JoinAsync(string address, int port, string playerName, Hunter hunter,
-            int timeoutMs = 8000, CancellationToken cancel = default, bool observer = false,
-            Guid ownerCapability = default)
+            int timeoutMs = 8000, CancellationToken cancel = default, bool observer = false)
         {
             LastJoinError = string.Empty;
             try
             {
-                if (AuthoritativePlay.Current != null || NetSession.Active) NetSession.Stop();
-                ClientSessionCoordinator.Shared.BeginConnecting();
                 cancel.ThrowIfCancellationRequested();
                 IPAddress[] addresses = await Dns.GetHostAddressesAsync(address, cancel).ConfigureAwait(false);
                 IPAddress destination = Array.Find(addresses, item => item.AddressFamily == AddressFamily.InterNetwork)
@@ -52,7 +48,6 @@ namespace MphRead.Mods.Network
                 AccountSession? account = AccountSessions.Current;
                 ulong? nonce = null;
                 string ticket = "";
-                FreshTicketCallback? freshTicket = null;
                 if (status.RequiresTicket && account?.IsSignedIn != true)
                     throw new InvalidOperationException("Sign in through Hunter License before joining this server.");
                 if (status.ServerId != Guid.Empty && account?.IsSignedIn == true)
@@ -62,21 +57,12 @@ namespace MphRead.Mods.Network
                     GameTicket grant = await account.GetTicketAsync(status.ServerId, nonce.Value, cancel).ConfigureAwait(false);
                     pinnedAddress = PinTicketDestination(grant, addresses, port);
                     ticket = grant.Ticket;
-                    freshTicket = async (request, cancellationToken) =>
-                    {
-                        GameTicket replacement = await account.GetTicketAsync(
-                            status.ServerId, request.Nonce, cancellationToken).ConfigureAwait(false);
-                        _ = PinTicketDestination(replacement, addresses, port);
-                        return replacement.Ticket;
-                    };
                 }
-                return await Task.Run(() => JoinCore(pinnedAddress, port, playerName, hunter,
-                    timeoutMs, cancel, nonce, ticket, observer, freshTicket, ownerCapability), cancel).ConfigureAwait(false);
+                return await Task.Run(() => JoinCore(pinnedAddress, port, playerName, hunter, timeoutMs, cancel, nonce, ticket, observer), cancel).ConfigureAwait(false);
             }
             catch (Exception error)
             {
                 LastJoinError = error is OperationCanceledException ? "Connection cancelled." : error.Message;
-                ClientSessionCoordinator.Shared.Fail(LastJoinError);
                 return false;
             }
         }
@@ -90,15 +76,14 @@ namespace MphRead.Mods.Network
         }
 
         private static bool JoinCore(string address, int port, string playerName, Hunter hunter,
-            int timeoutMs, CancellationToken cancel, ulong? nonce, string ticket, bool observer,
-            FreshTicketCallback? freshTicket, Guid ownerCapability)
+            int timeoutMs, CancellationToken cancel, ulong? nonce, string ticket, bool observer)
         {
             AuthoritativePlay? play = null;
             LastJoinError = String.Empty;
             try
             {
                 cancel.ThrowIfCancellationRequested();
-                play = new AuthoritativePlay(address, port, playerName, hunter, nonce, ticket, observer, ownerCapability);
+                play = new AuthoritativePlay(address, port, playerName, hunter, nonce, ticket, observer);
                 var clock = Stopwatch.StartNew();
                 bool announcedPending = false;
                 while (play.Client.State == NetConnectionState.Connecting)
@@ -108,7 +93,7 @@ namespace MphRead.Mods.Network
                     {
                         throw new TimeoutException($"No admission from {address}:{port} before the connection deadline.");
                     }
-                    play.PollSession();
+                    play.Client.Poll();
                     if (play.Client.AwaitingBotRetirement && !announcedPending)
                     {
                         Console.WriteLine("[net] waiting for a bot to finish its current life (up to 30 seconds).");
@@ -119,7 +104,6 @@ namespace MphRead.Mods.Network
                 }
                 cancel.ThrowIfCancellationRequested();
                 DisableCheatsForMatch();
-                ClientSessionCoordinator.Shared.AttachSession(play, freshTicket);
                 Console.WriteLine($"[net] joined {play.Client.Accepted.Room} ({play.Client.Accepted.Mode}), "
                     + $"slot {play.LocalSlot}, protocol {NetHeader.Version}");
                 return true;
@@ -129,7 +113,6 @@ namespace MphRead.Mods.Network
                 play?.Dispose();
                 LastJoinError = exception is OperationCanceledException ? "Connection cancelled." : exception.Message;
                 Console.WriteLine($"[net] {LastJoinError}");
-                ClientSessionCoordinator.Shared.Fail(LastJoinError);
                 return false;
             }
         }

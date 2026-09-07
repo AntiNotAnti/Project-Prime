@@ -1,9 +1,8 @@
 # G1–G5 integration evidence
 
-This records the final committed integration of the supplied plan at
-`1c8df59` (`feat: adopt persistent Prime Hunters client shell`). It does not
+This records the final working-tree integration of the supplied plan. It does not
 replace the frozen G1 baseline or establish rendered, physical-device, deployed
-service, or external WAN acceptance. Protocol 8 remains unreleased.
+Backend, or external WAN acceptance. Protocol 8 remains unreleased.
 
 ## Environment and reproduction
 
@@ -25,20 +24,11 @@ server outbox → HTTP → committed PostgreSQL receipt → spool removal path.
 
 ## Regression results
 
-The final main suite passed **1122/1122** with `GAME_DATA_DIRECTORY` set to the
-extracted AMHE1 content. Backend passed **198/198** against isolated PostgreSQL
-with no skips, Imaging passed **18/18**, and Python passed **58/58**. The
-solution Release build completed with zero warnings and errors, the dedicated
-Server publish succeeded, and the Android managed `arm64` Release build completed
-with zero warnings and errors. The project boundary guard found zero violations,
-and the solution has no vulnerable packages. A redacted Gitleaks scan of the
+The final main suite passed **954/954**, Backend **43/43**, Imaging **18/18**, and
+Python **58/58**, with no skipped tests. Long-run results follow separately.
+The solution, dedicated server publish and Android managed Release built successfully.
+The project boundary guard found zero violations. A redacted Gitleaks scan of the
 changed source/doc/test files found no leaks; LICENSE and maps were excluded.
-
-The focused UI acceptance suite passed **14/14**, and the deterministic capture
-matrix contains **68/68** PNGs at 1280x720, 1920x1080, 2560x1440, 3440x1440,
-360x640, and 768x1024. These captures cover the shared shell, lobby/browser,
-private match, post-match, settings, and replay surfaces; physical Android and
-high-refresh presentation remain owner-assumed gates.
 
 All twelve multiplayer world modes pass real-content capture/replica checks.
 Lifecycle, match phases, overtime, simulation ordering, projectile catch-up/homing,
@@ -89,7 +79,7 @@ The fix separates a fixed 16,384-bit reliable-event deduplication ring (2 KiB pe
 connection) from the unchanged 32-bit packet ACK history. Pending payload capacity
 remains 32. The event history covers 30 seconds at the nominal eight-send-per-tick
 budget, and a matching sender span bound still prevents unbounded selective loss.
-All 57 focused reliability checks and the full 1122-test suite pass, including lost
+All 57 focused reliability checks and the full 954-test suite pass, including lost
 events, lost ACKs, exactly-once delivery, wrap and the inclusive capacity edge.
 Oldest-event type/ID/attempt count/age diagnostics contain no payload or credentials.
 The runner now retains incomplete failures and continues requested modes; four
@@ -119,21 +109,16 @@ weapon fixture. They are retained in the work logs; they are not reported as pas
 The original long mixed-combat failures remain recorded in G1_NETWORK_BASELINE.md.
 New controlled runs must be interpreted independently of those frozen observations.
 
-- `PairwiseNormalizedV1` is the implemented policy version 1 for eligible official
-  reports, and report schema 2 records explicit participant outcome reasons. The
-  durable `LastOfficialMatchId` marker is exposed through the rating/license and
-  career contracts. Public Ranked remains intentionally disabled under Path B
-  until authenticated UDP session proof-of-possession is implemented.
+- Ranking Points, original star progression and the proposed rating/forfeit policy
+  await approval of G4_RANKING_SPEC.md; the Backend reports policy pending.
 - Real 60/120/144/165/240 Hz render traces, visual/audio quality, and physical Android
   touch/HUD/radar/spectator/replay acceptance remain open. The macOS compatibility
   OpenGL probe failed before gameplay; managed tests cannot replace these checks.
 - Public TLS/SMTP deployment, external WAN traffic and production operations are not
   established by loopback UDP, an impairment proxy or disposable PostgreSQL.
 - The long spectator/recording run and impaired-combat runs are separate workloads.
-  The user explicitly skipped the 30-second/16-observer gate, the combined bots +
-  observers + replay + telemetry + Backend-outage endurance run, and long/device
-  tests. They remain owner-assumed administrative acceptance; focused tests cover
-  the individual outbox recovery, admission, bot handoff and gate behavior.
-- `Tmds.DBus.Protocol` is pinned to 0.21.3, and the final solution vulnerability
-  audit reports no vulnerable packages.
+  A combined release soak with dynamic bots and a Backend outage alongside all
+  observer/recording features remains open; focused tests cover the individual
+  outbox recovery, admission, bot handoff and gate behavior.
+- Tmds.DBus.Protocol 0.21.2 still produces the existing NU1903 dependency advisory.
 - No weapon, Hunter health/speed, charge or item-timing balance tuning was introduced.

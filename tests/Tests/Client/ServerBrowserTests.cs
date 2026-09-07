@@ -50,27 +50,6 @@ public class ServerBrowserTests
         var filter = new ServerBrowserFilter(null, true, true, 40, ServerSort.Population, ServerGroup.All);
         Assert.Equal(new[] { "populated", "empty" }, ServerBrowser.Select(entries, filter, new()).Select(e => e.Listing.Address));
     }
-
-    [Theory]
-    [InlineData(ServerJoinDisposition.JoinNow, "Join now", true)]
-    [InlineData(ServerJoinDisposition.JoinLobby, "Join lobby", true)]
-    [InlineData(ServerJoinDisposition.Spectate, "Spectate", false)]
-    [InlineData(ServerJoinDisposition.WaitForNextMatch, "Wait for next match", false)]
-    [InlineData(ServerJoinDisposition.Full, "Full", false)]
-    [InlineData(ServerJoinDisposition.Closed, "Closed", false)]
-    public void BrowserUsesAuthoritativeJoinDisposition(ServerJoinDisposition disposition,
-        string label, bool quickJoin)
-    {
-        var entry = Entry("phase", 10, 2);
-        entry.Status = new ServerStatus { Online = true, Protocol = NetHeader.Version,
-            Family = NetWireFamily.Authoritative, Mode = GameMode.Battle, Players = 2,
-            MaxPlayers = 8, Latency = 10, HasSessionState = true,
-            Phase = disposition == ServerJoinDisposition.JoinLobby
-                ? AuthoritativeSessionPhase.Lobby : AuthoritativeSessionPhase.Playing,
-            JoinDisposition = disposition };
-        Assert.Equal(label, ServerBrowser.JoinLabel(entry.Status));
-        Assert.Equal(quickJoin, ServerBrowser.QuickJoin(new[] { entry }, null) != null);
-    }
     [Fact]
     public void PreferencesAreBoundedAndRecentOrderIsUnique()
     {
@@ -99,7 +78,7 @@ public class ServerBrowserTests
         Assert.True(ServerStatusPacket.TryRead(bytes.AsSpan(0, ServerStatusPacket.LegacySize), out _));
         for (int length = ServerStatusPacket.Size + 1; length < bytes.Length; length++)
             Assert.False(ServerStatusPacket.TryRead(bytes.AsSpan(0, length), out _));
-        foreach (var (offset, value) in new[] { (0, 5), (1, 4), (2, 3), (3, 2), (4, 3), (5, 2), (6, 1), (7, 1) })
+        foreach (var (offset, value) in new[] { (0, 4), (1, 4), (2, 3), (3, 2), (4, 3), (5, 2), (6, 1), (7, 1) })
         {
             var bad = (byte[])bytes.Clone(); bad[ServerStatusPacket.Size + offset] = (byte)value;
             Assert.False(ServerStatusPacket.TryRead(bad, out _));
@@ -107,7 +86,7 @@ public class ServerBrowserTests
     }
 
     [Fact]
-    public void RulesDiscoveryReadsBackwardCompatibleV1V2V3AndCurrentV4Tails()
+    public void RulesDiscoveryReadsBackwardCompatibleV1V2AndCurrentV3Tails()
     {
         Guid serverId = Guid.NewGuid();
         ServerStatusPacket current = new()
@@ -152,7 +131,7 @@ public class ServerBrowserTests
         Assert.Equal(RulesetPreset.Classic, decodedV2.RulesetPreset);
         Assert.Equal(0, decodedV2.Observers);
 
-        byte[] v3 = new byte[ServerStatusPacket.ObserverV3Size];
+        byte[] v3 = new byte[ServerStatusPacket.ExtendedSize];
         current.Write(v3);
         Assert.True(ServerStatusPacket.TryRead(v3, out ServerStatusPacket decodedV3));
         Assert.Equal(current.RulesetPreset, decodedV3.RulesetPreset);
@@ -162,40 +141,12 @@ public class ServerBrowserTests
         Assert.Equal(current.RankingEligibility, decodedV3.RankingEligibility);
         Assert.Equal(current.ServerId, decodedV3.ServerId);
         Assert.True(decodedV3.RequiresTicket);
-
-        current.Phase = AuthoritativeSessionPhase.Lobby;
-        current.JoinDisposition = ServerJoinDisposition.JoinLobby;
-        current.LobbyPlayers = 2;
-        current.LobbyObservers = 1;
-        current.ReadyPlayers = 1;
-        current.RankedLocked = true;
-        byte[] v4 = new byte[ServerStatusPacket.ExtendedSize];
-        current.Write(v4);
-        Assert.True(ServerStatusPacket.TryRead(v4, out ServerStatusPacket decodedV4));
-        Assert.True(decodedV4.HasSessionState);
-        Assert.Equal(current.Phase, decodedV4.Phase);
-        Assert.Equal(current.JoinDisposition, decodedV4.JoinDisposition);
-        Assert.Equal(2, decodedV4.LobbyPlayers);
-        Assert.Equal(1, decodedV4.LobbyObservers);
-        Assert.Equal(1, decodedV4.ReadyPlayers);
-        Assert.True(decodedV4.RankedLocked);
-
-        foreach ((int offset, byte value) in new[]
-        {
-            (0, (byte)5), (1, (byte)6), (2, (byte)9), (3, (byte)17),
-            (4, (byte)3), (5, (byte)4)
-        })
-        {
-            byte[] bad = (byte[])v4.Clone();
-            bad[ServerStatusPacket.ObserverV3Size + offset] = value;
-            Assert.False(ServerStatusPacket.TryRead(bad, out _));
-        }
     }
 
     [Fact]
     public void RulesDiscoveryRejectsMalformedVersionedTailsAndReservedBytes()
     {
-        byte[] v3 = new byte[ServerStatusPacket.ObserverV3Size];
+        byte[] v3 = new byte[ServerStatusPacket.ExtendedSize];
         new ServerStatusPacket
         {
             Match = new MatchStatePacket { Mode = (byte)GameMode.Battle,

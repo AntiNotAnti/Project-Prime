@@ -16,10 +16,9 @@ namespace MphRead.Mods.Network
     /// </summary>
     public static class NetConnectCommand
     {
-        public static void Run(string host, int port, string playerName, Hunter hunter, int recolor,
-            Guid ownerCapability = default)
+        public static void Run(string host, int port, string playerName, Hunter hunter, int recolor)
         {
-            if (!NetLaunch.Join(host, port, playerName, hunter, ownerCapability: ownerCapability))
+            if (!NetLaunch.Join(host, port, playerName, hunter))
             {
                 Console.WriteLine("[net] could not join; giving up");
                 NetSession.Stop();

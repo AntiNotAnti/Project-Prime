@@ -54,8 +54,7 @@ public sealed record CareerRatingSummary(
     [property: JsonRequired] string Title,
     [property: JsonRequired] int? NextThreshold,
     [property: JsonRequired] int? LastOfficialDelta,
-    [property: JsonRequired] string Policy,
-    [property: JsonRequired] Guid? LastOfficialMatchId);
+    [property: JsonRequired] string Policy);
 
 public sealed record CareerSummary(
     [property: JsonRequired] string Scope,
@@ -236,9 +235,7 @@ public sealed partial class AccountSession
     private static bool ValidRating(CareerRatingSummary rating)
     {
         if (rating == null || rating.Points is < 0 or > 850 || rating.Tier is < 1 or > 5
-            || rating.Policy != RatingPolicy || rating.LastOfficialDelta is < -850 or > 850
-            || rating.LastOfficialMatchId == Guid.Empty
-            || (rating.LastOfficialMatchId is null) != (rating.LastOfficialDelta is null)) return false;
+            || rating.Policy != RatingPolicy || rating.LastOfficialDelta is < -850 or > 850) return false;
         (int minimum, int? next, string title) = rating.Tier switch
         {
             1 => (0, 40, "Bounty Hunter"),
@@ -278,8 +275,7 @@ public sealed partial class AccountSession
         if (metric == "rp")
             return entry.Points is { } points && entry.Tier is { } tier && entry.Title != null
                 && entry.Score == points && ValidRating(new(points, tier, entry.Title,
-                    tier == 5 ? null : new[] { 0, 40, 140, 390, 750 }[tier], null, RatingPolicy,
-                    null));
+                    tier == 5 ? null : new[] { 0, 40, 140, 390, 750 }[tier], null, RatingPolicy));
         if (entry.Points != null || entry.Tier != null || entry.Title != null) return false;
         return metric != "winPercentage" || entry.Score <= 1;
     }

@@ -8,7 +8,6 @@ namespace MphRead.Mods.Network
     public enum NetConnectionState
     {
         Connecting,
-        Lobby,
         Loading,
         Ready,
         Playing,
@@ -28,13 +27,12 @@ namespace MphRead.Mods.Network
         public ulong Id { get; }
         public IPEndPoint Endpoint { get; private set; }
         public NetConnectionState State { get; private set; } = NetConnectionState.Loading;
-        public uint SessionId { get; private set; }
         public uint MatchId { get; private set; }
         public double LastReceived { get; private set; }
         public ReliableChannel Reliable { get; } = new();
         public NetMetrics Metrics { get; } = new();
 
-        public NetConnection(ulong id, IPEndPoint endpoint, uint matchId, double now, uint sessionId = 0)
+        public NetConnection(ulong id, IPEndPoint endpoint, uint matchId, double now)
         {
             if (id == 0)
             {
@@ -43,7 +41,6 @@ namespace MphRead.Mods.Network
             Id = id;
             Endpoint = endpoint;
             MatchId = matchId;
-            SessionId = sessionId == 0 ? matchId : sessionId;
             LastReceived = now;
         }
 
@@ -116,22 +113,6 @@ namespace MphRead.Mods.Network
             }
             MatchId = matchId;
             State = NetConnectionState.Loading;
-        }
-
-        public void BeginLoading(uint sessionId, uint matchId)
-        {
-            if (sessionId == 0) { throw new ArgumentOutOfRangeException(nameof(sessionId)); }
-            SessionId = sessionId;
-            BeginLoading(matchId);
-        }
-
-        public bool EnterLobby(uint sessionId)
-        {
-            if (sessionId == 0 || State == NetConnectionState.Disconnecting) { return false; }
-            SessionId = sessionId;
-            MatchId = 0;
-            State = NetConnectionState.Lobby;
-            return true;
         }
 
         public bool Ready(uint matchId)
