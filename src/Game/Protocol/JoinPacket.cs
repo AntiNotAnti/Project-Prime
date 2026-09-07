@@ -3,11 +3,20 @@ using System.Buffers.Binary;
 
 namespace MphRead.Mods.Network
 {
-    public readonly record struct JoinPacket(byte Protocol, ulong Nonce, Hunter Hunter, string Name,
-        ulong PreviousConnectionId = 0, string Ticket = "", bool Observer = false)
+    public enum JoinDestination : byte
     {
-        public const int Size = 1 + 8 + 1 + RosterPacket.MaxNameBytes + 8;
-        public const int MaxTicketBytes = 963;
+        Lobby = 1,
+        Match = 2
+    }
+
+    public readonly record struct JoinPacket(byte Protocol, ulong Nonce, Hunter Hunter, string Name,
+        ulong PreviousConnectionId = 0, string Ticket = "", bool Observer = false,
+        Guid OwnerCapability = default)
+    {
+        public const int OwnerCapabilitySize = 16;
+        public const int Size = 1 + 8 + 1 + RosterPacket.MaxNameBytes + 8 + OwnerCapabilitySize;
+        // Preserve the 1,024-byte UDP envelope after adding the fixed capability.
+        public const int MaxTicketBytes = 947;
         public override string ToString() => $"JoinPacket {{ Protocol = {Protocol}, Hunter = {Hunter}, HasTicket = {!string.IsNullOrEmpty(Ticket)} }}";
         public int EncodedSize => Size + (string.IsNullOrEmpty(Ticket) && !Observer ? 0 : 3 + (Ticket?.Length ?? 0));
         public static bool ValidTicketText(string ticket)
@@ -29,6 +38,7 @@ namespace MphRead.Mods.Network
             destination[9] = (byte)Hunter;
             NetText.Write(destination.Slice(10, RosterPacket.MaxNameBytes), Name);
             BinaryPrimitives.WriteUInt64LittleEndian(destination[26..], PreviousConnectionId);
+            OwnerCapability.TryWriteBytes(destination.Slice(34, OwnerCapabilitySize));
             if (!string.IsNullOrEmpty(Ticket) || Observer)
             {
                 destination[Size] = Observer ? (byte)1 : (byte)0;
@@ -62,18 +72,21 @@ namespace MphRead.Mods.Network
             }
             packet = new JoinPacket(source[0], BinaryPrimitives.ReadUInt64LittleEndian(source[1..]),
                 (Hunter)source[9], NetText.Read(source.Slice(10, RosterPacket.MaxNameBytes)),
-                BinaryPrimitives.ReadUInt64LittleEndian(source[26..]), ticket, source.Length != Size && source[Size] == 1);
+                BinaryPrimitives.ReadUInt64LittleEndian(source[26..]), ticket, source.Length != Size && source[Size] == 1,
+                new Guid(source.Slice(34, OwnerCapabilitySize)));
             return packet.Name.Length > 0;
         }
     }
 
-    public readonly record struct JoinAcceptedPacket(ulong ClientNonce, byte Slot, uint MatchId,
-        uint ServerTick, byte TickRate, MatchRules Rules)
+    public readonly record struct JoinAcceptedPacket(ulong ClientNonce, byte Slot, uint SessionId,
+        JoinDestination Destination, uint MatchId, uint ServerTick, byte TickRate, MatchRules Rules)
     {
         public bool IsObserver => Slot == byte.MaxValue;
         public GameMode Mode => Rules?.Mode.ToLegacyMode() ?? GameMode.None;
         public string Room => Rules?.RoomKey ?? "";
-        public const int Size = 18 + MatchRulesWire.Size;
+        public const int Size = 26 + MatchRulesWire.Size;
+        public JoinAcceptedPacket(ulong nonce, byte slot, uint matchId, uint tick, byte rate, MatchRules rules)
+            : this(nonce, slot, matchId, JoinDestination.Match, matchId, tick, rate, rules) { }
         public JoinAcceptedPacket(ulong nonce, byte slot, uint matchId, uint tick, byte rate, GameMode mode, string room)
             : this(nonce, slot, matchId, tick, rate, MatchRules.CreateDefault(mode.ToMatchMode(), room)) { }
 
@@ -81,23 +94,35 @@ namespace MphRead.Mods.Network
         {
             BinaryPrimitives.WriteUInt64LittleEndian(destination, ClientNonce);
             destination[8] = Slot;
-            BinaryPrimitives.WriteUInt32LittleEndian(destination[9..], MatchId);
-            BinaryPrimitives.WriteUInt32LittleEndian(destination[13..], ServerTick);
-            destination[17] = TickRate;
-            MatchRulesWire.Write(destination.Slice(18, MatchRulesWire.Size), Rules);
+            BinaryPrimitives.WriteUInt32LittleEndian(destination[9..], SessionId);
+            destination[13] = (byte)Destination;
+            destination.Slice(14, 3).Clear();
+            BinaryPrimitives.WriteUInt32LittleEndian(destination[17..], MatchId);
+            BinaryPrimitives.WriteUInt32LittleEndian(destination[21..], ServerTick);
+            destination[25] = TickRate;
+            MatchRulesWire.Write(destination.Slice(26, MatchRulesWire.Size), Rules);
+            if (!TryRead(destination[..Size], out _))
+            {
+                throw new ArgumentException("Invalid accepted admission.", nameof(destination));
+            }
         }
 
         public static bool TryRead(ReadOnlySpan<byte> source, out JoinAcceptedPacket packet)
         {
             packet = default;
-            if (source.Length != Size || (source[8] >= RosterPacket.MaxSlots && source[8] != byte.MaxValue) || source[17] != 60
+            if (source.Length != Size || (source[8] >= RosterPacket.MaxSlots && source[8] != byte.MaxValue) || source[25] != 60
                 || BinaryPrimitives.ReadUInt64LittleEndian(source) == 0
                 || BinaryPrimitives.ReadUInt32LittleEndian(source[9..]) == 0
-                || !MatchRulesWire.TryRead(source[18..], out MatchRules rules)
+                || source[13] is < (byte)JoinDestination.Lobby or > (byte)JoinDestination.Match
+                || (source[14] | source[15] | source[16]) != 0
+                || !MatchRulesWire.TryRead(source[26..], out MatchRules rules)) { return false; }
+            JoinDestination destination = (JoinDestination)source[13];
+            uint matchId = BinaryPrimitives.ReadUInt32LittleEndian(source[17..]);
+            if ((destination == JoinDestination.Lobby ? matchId != 0 : matchId == 0)
                 || source[8] != byte.MaxValue && source[8] >= rules.MaxPlayers) { return false; }
             packet = new(BinaryPrimitives.ReadUInt64LittleEndian(source), source[8],
-                BinaryPrimitives.ReadUInt32LittleEndian(source[9..]),
-                BinaryPrimitives.ReadUInt32LittleEndian(source[13..]), source[17], rules);
+                BinaryPrimitives.ReadUInt32LittleEndian(source[9..]), destination, matchId,
+                BinaryPrimitives.ReadUInt32LittleEndian(source[21..]), source[25], rules);
             return true;
         }
     }
@@ -113,7 +138,7 @@ namespace MphRead.Mods.Network
             type = default;
             payload = default;
             if (source.Length < HeaderSize || source.Length > HeaderSize + ReliableChannel.MaxPayloadSize
-                || source[4] < (byte)ReliableEventType.Welcome || source[4] > (byte)ReliableEventType.IntermissionVote
+                || source[4] < (byte)ReliableEventType.Welcome || source[4] > (byte)ReliableEventType.MatchSummary
                 || BinaryPrimitives.ReadUInt16LittleEndian(source[5..]) != source.Length - HeaderSize)
             {
                 return false;

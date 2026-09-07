@@ -18,6 +18,51 @@ namespace MphRead.Tests.Admin;
 public sealed class TournamentIntegrationTests
 {
     [Fact]
+    public void TournamentAdminQueuesPersistentLobbyStartWithoutPlayerOwner()
+    {
+        using var saved = ServerContent.PreserveContext("AMHE1");
+        string root = Environment.GetEnvironmentVariable("GAME_DATA_DIRECTORY") ?? Directory.GetCurrentDirectory();
+        while (!Directory.Exists(Path.Combine(root, "AMHE1")))
+            root = Directory.GetParent(root)?.FullName ?? throw new DirectoryNotFoundException("AMHE1 required.");
+        ServerContent.Open(Path.Combine(root, "AMHE1"), "AMHE1");
+        var rules = new MatchRules(MatchMode.Battle, "MP1 SANCTORUS", maxPlayers: 1);
+        using var simulation = new ServerSimulation(rules);
+        using var transport = new NetTransport(0);
+        var network = new ServerNetwork(transport, rules);
+        var connection = new NetConnection(100, new IPEndPoint(IPAddress.Loopback, 23001), 1, 0);
+        connection.Ready(1);
+        var peer = new ServerPeer(connection,
+            new JoinPacket { Nonce = 99, Name = "AdminLobby", Hunter = Hunter.Samus }, 0, 0);
+        ((ServerPeer?[])typeof(ServerNetwork).GetField("_peers", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(network)!)[0] = peer;
+        ((ServerPeer?[])typeof(ServerNetwork).GetField("_connections", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(network)!)[0] = peer;
+        typeof(ServerNetwork).GetProperty(nameof(ServerNetwork.Count))!.SetValue(network, 1);
+        var lobby = new ServerLobby(77, LobbyPolicy.PrivateHosted, rules);
+        var bridge = new ServerLobbyNetwork(lobby, network);
+        bridge.Open(1);
+        Assert.Equal(NetConnectionState.Lobby, peer.Connection.State);
+        Assert.Equal(0ul, lobby.Runtime.HostConnectionId);
+
+        var admin = new TournamentAdmin(() => simulation, network, (_, _) => rules, _ => { }, () => null);
+        void Submit(AdminCommand command) => Assert.Equal("queued", admin.Commands.Submit(command).State);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        Submit(new(Guid.NewGuid(), AdminCommandKind.ReadyCheck, now));
+        Submit(new(Guid.NewGuid(), AdminCommandKind.ConfirmReady, now, ConnectionId: peer.Connection.Id));
+        Submit(new(Guid.NewGuid(), AdminCommandKind.SetRoundIdentity, now,
+            TournamentId: "cup-1", RoundId: "round-1"));
+        Submit(new(Guid.NewGuid(), AdminCommandKind.StartCountdown, now));
+
+        admin.BeforeStep(2, null);
+        Assert.True(admin.StartRequested);
+        lobby.TournamentStartAllowed = admin.RotationAllowed;
+        Assert.True(lobby.TryStartAsServer(out MatchRules? frozen));
+        Assert.Same(rules, frozen);
+        Assert.True(bridge.TryStart(2, out _));
+        Assert.False(network.LobbyAdmissionOpen);
+    }
+
+    [Fact]
     public void RealSimulationRequiresReadyCheckAndCancelsPrestartWithoutFreezingPlaying()
     {
         using var saved = ServerContent.PreserveContext("AMHE1");

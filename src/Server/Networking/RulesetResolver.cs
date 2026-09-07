@@ -25,9 +25,9 @@ namespace MphRead.Mods.Network
             return rules.With(rulesetPreset: preset,
                 spawnPolicy: preset == RulesetPreset.Duel ? SpawnPolicy.Duel : SpawnPolicy.Enhanced,
                 cancelSpawnProtectionOnOffensiveAction: true, overtimePolicy: OvertimePolicy.ModeDefault,
-                lateJoinPolicy: LateJoinPolicy.SpectateUntilNextMatch,
+                lateJoinPolicy: LateJoinPolicy.Disabled,
                 rankingEligibility: RankingEligibility.VerifiedServerOnly,
-                radarPolicy: RadarPolicy.Disabled, teamBalancePolicy: TeamBalancePolicy.BeforeStart);
+                radarPolicy: RadarPolicy.Disabled, teamBalancePolicy: TeamBalancePolicy.Locked);
         }
     }
 }

@@ -8,8 +8,21 @@ namespace MphRead.Identity;
 
 public enum MatchTrustClass { Community = 0, Private = 1, VerifiedCasual = 2, Ranked = 3, Tournament = 4, Practice = 5 }
 public enum ParticipantKind { Guest, RegisteredHuman, Bot }
-public enum ParticipantExitReason { Disconnected, ExplicitLeave, Timeout, Backpressure, Replaced, Completed, ServerStopped }
+public enum ParticipantExitReason { Disconnected, ExplicitLeave, Timeout, Backpressure, Replaced, Completed, ServerStopped, ReconnectGraceExpired }
 public enum ParticipantOutcome { Finished, Departed, Forfeited }
+/// <summary>
+/// Terminal participant disposition introduced by report schema 2. Schema 1 reports use
+/// LegacyUnspecified and remain readable, but cannot claim schema 2 forfeit semantics.
+/// </summary>
+public enum ParticipantOutcomeReason
+{
+    LegacyUnspecified,
+    Completed,
+    ExplicitLeave,
+    ReconnectGraceExpired,
+    MatchCompletedWhileDisconnected,
+    DepartedOutsideOfficialRoster
+}
 
 /// <summary>Measured facts only. Null optional telemetry is unavailable, not zero.</summary>
 public sealed record MatchReportMetrics(int Standing, int TeamStanding, int Points, int Kills, int Deaths,
@@ -24,7 +37,8 @@ public readonly record struct MatchParticipationSpan(uint JoinedTick, uint? Left
 
 public sealed record MatchReportParticipant(Guid ParticipantId, PlayerId? PlayerId, ParticipantKind Kind,
     string DisplayName, bool StartedMatch, ParticipantOutcome Outcome, uint PlayedTicks,
-    ImmutableArray<MatchParticipationSpan> Spans, MatchReportMetrics Metrics);
+    ImmutableArray<MatchParticipationSpan> Spans, MatchReportMetrics Metrics,
+    ParticipantOutcomeReason OutcomeReason = ParticipantOutcomeReason.LegacyUnspecified);
 
 /// <summary>Immutable database-free authority envelope. UUID is distinct from WireMatchId.
 /// TrustClass is a claim which Backend must validate against the authenticated reporter.</summary>
@@ -34,10 +48,11 @@ public sealed record MatchReportV1(int SchemaVersion, Guid MatchId, uint WireMat
     DateTimeOffset StartedAtUtc, DateTimeOffset EndedAtUtc, uint PlayedTicks, MatchEndReason EndReason,
     ImmutableArray<MatchReportParticipant> Participants, string? TournamentId = null, string? RoundId = null, Guid? ReplayId = null)
 {
-    public const int CurrentSchema = 1;
+    public const int LegacySchema = 1;
+    public const int CurrentSchema = 2;
     public const int MaximumParticipants = 256;
     [JsonIgnore]
-    public bool IsValid => SchemaVersion == CurrentSchema && MatchId != Guid.Empty && ServerId != Guid.Empty
+    public bool IsValid => SchemaVersion is LegacySchema or CurrentSchema && MatchId != Guid.Empty && ServerId != Guid.Empty
         && ServerIncarnation != Guid.Empty && WireMatchId != 0 && ProtocolVersion > 0
         && BuildVersion is { Length: > 0 and <= 128 } && Ruleset is { Length: > 0 and <= 64 }
         && Variant?.Length is not > 64 && ContentHash?.Length is not > 128
@@ -56,7 +71,9 @@ public sealed record MatchReportV1(int SchemaVersion, Guid MatchId, uint WireMat
         foreach (MatchReportParticipant p in Participants)
         {
             if (p == null || p.ParticipantId == Guid.Empty || !ids.Add(p.ParticipantId)
-                || !Enum.IsDefined(p.Kind) || !Enum.IsDefined(p.Outcome) || p.DisplayName is not { Length: > 0 and <= 64 }
+                || !Enum.IsDefined(p.Kind) || !Enum.IsDefined(p.Outcome) || !Enum.IsDefined(p.OutcomeReason)
+                || !ValidOutcome(p)
+                || p.DisplayName is not { Length: > 0 and <= 64 }
                 || p.PlayerId is { IsEmpty: true } || p.Kind == ParticipantKind.RegisteredHuman && !p.PlayerId.HasValue
                 || p.Kind != ParticipantKind.RegisteredHuman && p.PlayerId.HasValue
                 || p.PlayerId is { } account && !accounts.Add(account)
@@ -78,5 +95,20 @@ public sealed record MatchReportV1(int SchemaVersion, Guid MatchId, uint WireMat
             foreach (int kills in m.BeamKills) if (kills < 0) return false;
         }
         return true;
+    }
+
+    private bool ValidOutcome(MatchReportParticipant participant)
+    {
+        if (SchemaVersion == LegacySchema)
+            return participant.OutcomeReason == ParticipantOutcomeReason.LegacyUnspecified;
+        return participant.Outcome switch
+        {
+            ParticipantOutcome.Finished => participant.OutcomeReason == ParticipantOutcomeReason.Completed,
+            ParticipantOutcome.Forfeited => participant.OutcomeReason is ParticipantOutcomeReason.ExplicitLeave
+                or ParticipantOutcomeReason.ReconnectGraceExpired
+                or ParticipantOutcomeReason.MatchCompletedWhileDisconnected,
+            ParticipantOutcome.Departed => participant.OutcomeReason == ParticipantOutcomeReason.DepartedOutsideOfficialRoster,
+            _ => false
+        };
     }
 }

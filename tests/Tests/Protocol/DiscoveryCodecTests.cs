@@ -125,48 +125,61 @@ namespace MphRead.Tests
         [Fact]
         public void HostRequestRejectsLegacyMutationAndMalformedSettings()
         {
+            MatchRules rules = MatchRules.CreateDefault(MatchMode.Battle, "MP1 SANCTORUS", 8);
             var packet = new HostRequestPacket
             {
-                Protocol = NetHeader.Version, MaxPlayers = 8, Mode = (byte)GameMode.Battle,
-                TimeLimit = 600, PointGoal = 10, RoomKey = "MP1 SANCTORUS", ServerName = "TEST"
+                Protocol = NetHeader.Version, RequestNonce = Guid.NewGuid(), Rules = rules,
+                LobbyPolicy = LobbyPolicyKind.PersistentLobby, ReadyRequired = true,
+                HostMayForceStart = true, MinimumPlayers = 1, BotSkill = 1,
+                MaxObservers = 4, ServerName = "TEST"
             };
             byte[] bytes = new byte[HostRequestPacket.Size];
             packet.Write(bytes);
-            Assert.Equal(80, bytes.Length);
-            Assert.Equal((byte)'M', bytes[7]);
-            Assert.Equal((byte)'T', bytes[47]);
+            Assert.Equal(144, bytes.Length);
+            Assert.Equal(HostRequestPacket.CurrentVersion, bytes[0]);
+            Assert.Equal((byte)'M', bytes[HostRequestPacket.HeaderSize + 28]);
+            Assert.Equal((byte)'T', bytes[HostRequestPacket.HeaderSize + MatchRulesWire.Size]);
             Assert.True(HostRequestPacket.TryRead(bytes, out var read));
-            Assert.Equal(packet.TimeLimit, read.TimeLimit);
-            Assert.Equal(packet.PointGoal, read.PointGoal);
-            Assert.Equal(packet.RoomKey, read.RoomKey);
+            Assert.Equal(packet.RequestNonce, read.RequestNonce);
+            Assert.Equal(rules, read.Rules);
+            Assert.Equal(LobbyPolicyKind.PersistentLobby, read.LobbyPolicy);
             Assert.Equal(NetWireFamily.Authoritative, read.Family);
             CheckLengths(bytes, -1, value => HostRequestPacket.TryRead(value, out _));
             CheckMutations(bytes, value => HostRequestPacket.TryRead(value, out _),
-                (1, 0), (1, 9), (2, 1), (2, 16), (7, 0xFF), (47, 1), (52, (byte)'X'), (79, 0), (79, 3));
+                (0, 2), (1, 0), (1, 3), (3, 2), (4, 3), (5, 4), (6, 0),
+                (8, 3), (9, 17), (10, 31), (11, 1),
+                (HostRequestPacket.HeaderSize + 28, 0xFF),
+                (HostRequestPacket.HeaderSize + MatchRulesWire.Size, 1));
+            Array.Clear(bytes, 12, 16);
+            Assert.False(HostRequestPacket.TryRead(bytes, out _));
         }
 
         [Fact]
         public void HostReplyRequiresFullIdentityAndValidStartedPort()
         {
-            var packet = new HostReplyPacket { Started = true, Port = 27015, Reason = "OK" };
+            var packet = new HostReplyPacket { Started = true, Port = 27015,
+                RequestNonce = Guid.NewGuid(), OwnerToken = Guid.NewGuid(), Reason = "OK" };
             byte[] bytes = new byte[HostReplyPacket.Size];
             packet.Write(bytes);
-            Assert.Equal(101, bytes.Length);
-            Assert.Equal((byte)NetWireFamily.Authoritative, bytes[99]);
-            Assert.Equal(NetHeader.Version, bytes[100]);
+            Assert.Equal(134, bytes.Length);
+            Assert.Equal((byte)NetWireFamily.Authoritative, bytes[1]);
+            Assert.Equal(NetHeader.Version, bytes[2]);
             Assert.True(HostReplyPacket.TryRead(bytes, out var read));
             Assert.True(read.Started);
             Assert.Equal(packet.Port, read.Port);
+            Assert.Equal(packet.RequestNonce, read.RequestNonce);
+            Assert.Equal(packet.OwnerToken, read.OwnerToken);
             Assert.Equal("OK", read.Reason);
             Assert.True(NetWireIdentity.IsCompatible(read.Family, read.Protocol));
             CheckLengths(bytes, -1, value => HostReplyPacket.TryRead(value, out _));
             CheckMutations(bytes, value => HostReplyPacket.TryRead(value, out _),
-                (0, 2), (3, 0xFF), (6, (byte)'X'), (99, 0), (99, 3));
-            Array.Clear(bytes, 1, 2);
+                (0, 2), (1, 0), (1, 3), (3, 2), (HostReplyPacket.HeaderSize, 0xFF));
+            Array.Clear(bytes, 4, 2);
             Assert.False(HostReplyPacket.TryRead(bytes, out _));
-            bytes[0] = 0;
+            bytes[3] = 0;
+            Array.Clear(bytes, 22, 16);
             Assert.True(HostReplyPacket.TryRead(bytes, out _));
-            bytes[100]--;
+            bytes[2]--;
             Assert.True(HostReplyPacket.TryRead(bytes, out read));
             Assert.False(NetWireIdentity.IsCompatible(read.Family, read.Protocol));
         }

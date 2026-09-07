@@ -35,6 +35,7 @@ public sealed class TournamentAdmin
     public AdminCommandQueue Commands { get; } = new();
     public TournamentStatus Status => Volatile.Read(ref _status);
     public bool RotationAllowed => !_paused;
+    public bool StartRequested => _startRequested && !_paused;
 
     public TournamentAdmin(Func<ServerSimulation> simulation, ServerNetwork network,
         Func<string?, string?, MatchRules> resolve, Action<MatchRules> select, Func<ServerReplaySession?> record)
@@ -112,12 +113,17 @@ public sealed class TournamentAdmin
                 if (_tournamentId == null || _roundId == null) return Reject("Set tournament and round identity before starting.");
                 var humans = _network.Peers.ToArray().Where(p => p != null).ToArray();
                 if (!_checked.SetEquals(humans.Select(p => p!.Connection.Id))
-                    || humans.Any(p => p!.WaitingForNextMatch || p.Connection.State is not (NetConnectionState.Ready or NetConnectionState.Playing)))
+                    || humans.Any(p => p!.WaitingForNextMatch || p.Connection.State is not (NetConnectionState.Ready
+                        or NetConnectionState.Playing or NetConnectionState.Lobby)))
                     return Reject("The checked roster changed or a participant is still loading.");
-                var bots = simulation.Bots.Participants.ToArray().Where(b => b != null).ToArray();
-                if (humans.Length + bots.Length < (simulation.Scene.Match.Rules.MaxPlayers == 1 ? 1 : 2)
-                    || simulation.Scene.Match.Rules.Teams && humans.Select(p => (int)p!.TeamIndex).Concat(bots.Select(b => (int)b!.TeamIndex)).Distinct().Count() != 2)
-                    return Reject("The configured mode does not yet have enough participants on its required teams.");
+                if (!_network.LobbyAdmissionOpen)
+                {
+                    var bots = simulation.Bots.Participants.ToArray().Where(b => b != null).ToArray();
+                    if (humans.Length + bots.Length < (simulation.Scene.Match.Rules.MaxPlayers == 1 ? 1 : 2)
+                        || simulation.Scene.Match.Rules.Teams && humans.Select(p => (int)p!.TeamIndex)
+                            .Concat(bots.Select(b => (int)b!.TeamIndex)).Distinct().Count() != 2)
+                        return Reject("The configured mode does not yet have enough participants on its required teams.");
+                }
                 if (!simulation.ReportingMayStart || _recordingRequired && _replay?.Ready != true)
                     return Reject("Required result/replay storage is not ready.");
                 _paused = false; _startRequested = true; break;

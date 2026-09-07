@@ -74,11 +74,11 @@ public sealed class RulesetResolverTests
         Assert.Equal(SpawnPolicy.Enhanced, resolved.SpawnPolicy);
         Assert.True(resolved.CancelSpawnProtectionOnOffensiveAction);
         Assert.Equal(OvertimePolicy.ModeDefault, resolved.OvertimePolicy);
-        Assert.Equal(LateJoinPolicy.SpectateUntilNextMatch, resolved.LateJoinPolicy);
+        Assert.Equal(LateJoinPolicy.Disabled, resolved.LateJoinPolicy);
         Assert.Equal(RankingEligibility.VerifiedServerOnly, resolved.RankingEligibility);
         Assert.Equal(RadarPolicy.Disabled, resolved.RadarPolicy);
         Assert.False(resolved.PlayerRadar);
-        Assert.Equal(TeamBalancePolicy.BeforeStart, resolved.TeamBalancePolicy);
+        Assert.Equal(TeamBalancePolicy.Locked, resolved.TeamBalancePolicy);
     }
 
     [Fact]
@@ -96,6 +96,8 @@ public sealed class RulesetResolverTests
         Assert.Equal(RulesetPreset.Duel, duel.RulesetPreset);
         Assert.Equal(SpawnPolicy.Duel, duel.SpawnPolicy);
         Assert.Equal(RankingEligibility.VerifiedServerOnly, duel.RankingEligibility);
+        Assert.Equal(LateJoinPolicy.Disabled, duel.LateJoinPolicy);
+        Assert.Equal(TeamBalancePolicy.Locked, duel.TeamBalancePolicy);
 
         Assert.Throws<ArgumentException>(() => RulesetResolver.Resolve(new RotationEntry
         {
@@ -104,6 +106,28 @@ public sealed class RulesetResolverTests
             TimeLimit = 420,
             PointGoal = 7
         }, RulesetPreset.Duel));
+    }
+
+    [Fact]
+    public void RankedRulesAreLockedAndPublicStartRemainsFailClosed()
+    {
+        MatchRules ranked = RulesetResolver.Resolve(new RotationEntry
+        {
+            RoomKey = "MP1 SANCTORUS",
+            Mode = GameMode.Battle,
+            TimeLimit = 420,
+            PointGoal = 7
+        }, RulesetPreset.Competitive);
+
+        Assert.True(ServerRankedPolicy.HasLockedConstraints(ranked));
+        Assert.False(ServerRankedPolicy.PublicStartAllowed(ranked));
+        InvalidOperationException disabled = Assert.Throws<InvalidOperationException>(
+            () => ServerRankedPolicy.ValidatePublicStart(ranked));
+        Assert.Equal(ServerRankedPolicy.PublicDisabledReason, disabled.Message);
+
+        MatchRules inconsistent = ranked.With(lateJoinPolicy: LateJoinPolicy.SpectateUntilNextMatch);
+        Assert.False(ServerRankedPolicy.HasLockedConstraints(inconsistent));
+        Assert.Throws<ArgumentException>(() => ServerRankedPolicy.ValidatePublicStart(inconsistent));
     }
 
     [Fact]

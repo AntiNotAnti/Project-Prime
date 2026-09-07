@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Net;
 using MphRead.Mods;
 using MphRead.Mods.Network;
 using Update = MphRead.Mods.Update;
@@ -16,7 +17,7 @@ internal static class ServerProgram
         {
             if (!Run(args))
             {
-                Console.WriteLine("Prime Hunters dedicated server\n-server [ROOM] -data DIRECTORY [-port 27888] [-rotation FILE] [-players 8] [-friendlyfire true] [-spawnpolicy classic|enhanced|duel] [-cancelspawnprotection true|false] [-overtime disabled|mode] [-latejoin immediate|next|disabled] [-votepolicy public|private] [-spectators 4] [-spectatordelay 0..30]\n-masterserver [-port 27889] [-data DIRECTORY] [-hostports 27900-27919] [-public HOST]");
+                Console.WriteLine("Prime Hunters dedicated server\n-server [ROOM] -data DIRECTORY [-port 27888] [-rotation FILE] [-players 8] [-friendlyfire true] [-spawnpolicy classic|enhanced|duel] [-cancelspawnprotection true|false] [-overtime disabled|mode] [-latejoin immediate|next|disabled] [-votepolicy public|private] [-spectators 4] [-spectatordelay 0..30] [-lobbypolicy NoLobby|IntermissionLobby|PersistentLobby] [-readyrequired true|false] [-minplayers 1..8] [-hostforce true|false]\n-masterserver [-port 27889] [-data DIRECTORY] [-hostports 27900-27919] [-public HOST]");
                 return args.Length == 0 || HasFlag(args, "help") ? 0 : 2;
             }
             return Environment.ExitCode;
@@ -99,6 +100,7 @@ internal static class ServerProgram
                         reporter = new MasterReporter(endpoint.Host, listingPort);
                     }
                     using var simulationUpdates = Update.ServerUpdateRuntime.Create(args);
+                    (Guid ownerCapability, IPAddress? ownerAddress) = ParseLobbyOwnerCapability();
                     var simulationServer = new AuthoritativeServer(ParsePort(args), data,
                         ValueAfter(args, "dataversion") ?? "AMHE1", simulationRotation?.Current ?? entry)
                     {
@@ -119,6 +121,10 @@ internal static class ServerProgram
                         FriendlyFire = HasFlag(args, "friendlyfire")
                             && (!Boolean.TryParse(ValueAfter(args, "friendlyfire"), out bool friendly) || friendly),
                         ServerName = ValueAfter(args, "servername") ?? ValueAfter(args, "name") ?? "Prime Hunters",
+                        InitialRules = ParseHostedRules(args),
+                        LobbyPolicy = ParseLobbyPolicy(args),
+                        LobbyOwnerCapability = ownerCapability,
+                        LobbyOwnerAddress = ownerAddress,
                         Reporter = reporter,
                         Updates = simulationUpdates
                     };
@@ -214,4 +220,46 @@ internal static class ServerProgram
     }
     private static int ParsePort(string[] args)
         => Int32.TryParse(ValueAfter(args, "port"), out int port) ? port : NetConfig.DefaultPort;
+
+    private static MatchRules? ParseHostedRules(string[] args)
+    {
+        string? encoded = ValueAfter(args, "hostrules");
+        if (encoded == null) return null;
+        byte[] bytes;
+        try { bytes = Convert.FromBase64String(encoded); }
+        catch (FormatException) { throw new ProgramException("Invalid hosted match-rules encoding."); }
+        if (!MatchRulesWire.TryRead(bytes, out MatchRules rules))
+            throw new ProgramException("Invalid hosted match rules.");
+        return rules;
+    }
+
+    private static LobbyPolicy ParseLobbyPolicy(string[] args)
+    {
+        string? value = ValueAfter(args, "lobbypolicy");
+        if (value == null)
+            return new LobbyPolicy(LobbyPolicyKind.NoLobby, readyRequired: false,
+                minimumPlayers: 1, hostMayForceStart: true);
+        if (!Enum.TryParse(value, true, out LobbyPolicyKind kind) || !Enum.IsDefined(kind)
+            || !Boolean.TryParse(ValueAfter(args, "readyrequired"), out bool readyRequired)
+            || !Byte.TryParse(ValueAfter(args, "minplayers"), out byte minimumPlayers)
+            || !Boolean.TryParse(ValueAfter(args, "hostforce"), out bool hostMayForceStart))
+            throw new ProgramException("Hosted lobby policy requires a valid policy, ready flag, minimum players, and host-force flag.");
+        return new LobbyPolicy(kind, readyRequired, minimumPlayers, hostMayForceStart);
+    }
+
+    private static (Guid Capability, IPAddress? Address) ParseLobbyOwnerCapability()
+    {
+        const string capabilityVariable = "PRIME_LOBBY_OWNER_CAPABILITY";
+        const string addressVariable = "PRIME_LOBBY_OWNER_ADDRESS";
+        string? encoded = Environment.GetEnvironmentVariable(capabilityVariable);
+        string? addressText = Environment.GetEnvironmentVariable(addressVariable);
+        Environment.SetEnvironmentVariable(capabilityVariable, null);
+        Environment.SetEnvironmentVariable(addressVariable, null);
+        if (encoded == null && addressText == null) return (Guid.Empty, null);
+        if (!Guid.TryParseExact(encoded, "N", out Guid capability) || capability == Guid.Empty
+            || !IPAddress.TryParse(addressText, out IPAddress? address)
+            || address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+            throw new ProgramException("Invalid lobby owner admission configuration.");
+        return (capability, address);
+    }
 }

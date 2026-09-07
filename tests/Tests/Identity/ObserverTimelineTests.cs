@@ -13,11 +13,11 @@ public sealed class ObserverTimelineTests
     {
         var join = new JoinPacket(NetHeader.Version, 123, Hunter.Samus, "WATCH", Observer: true);
         byte[] bytes = new byte[join.EncodedSize]; join.Write(bytes);
-        Assert.Equal(37, bytes.Length); Assert.True(JoinPacket.TryRead(bytes, out var parsed)); Assert.True(parsed.Observer);
-        bytes[34] = 2; Assert.False(JoinPacket.TryRead(bytes, out _));
-        bytes[34] = 0; Assert.False(JoinPacket.TryRead(bytes, out _));
-        bytes[34] = 1; bytes[35] = 1; Assert.False(JoinPacket.TryRead(bytes, out _));
-        Assert.Equal(963, JoinPacket.MaxTicketBytes);
+        Assert.Equal(53, bytes.Length); Assert.True(JoinPacket.TryRead(bytes, out var parsed)); Assert.True(parsed.Observer);
+        bytes[JoinPacket.Size] = 2; Assert.False(JoinPacket.TryRead(bytes, out _));
+        bytes[JoinPacket.Size] = 0; Assert.False(JoinPacket.TryRead(bytes, out _));
+        bytes[JoinPacket.Size] = 1; bytes[JoinPacket.Size + 1] = 1; Assert.False(JoinPacket.TryRead(bytes, out _));
+        Assert.Equal(947, JoinPacket.MaxTicketBytes);
     }
 
     [Theory]

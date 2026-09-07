@@ -8,11 +8,19 @@ public sealed class ServerBotManager
 {
     private readonly ServerSimulation _simulation;
     private readonly BotParticipant?[] _slots = new BotParticipant?[8];
-    public BotFillPolicy Policy { get; }
+    public BotFillPolicy Policy { get; private set; }
     public ReadOnlySpan<BotParticipant?> Participants => _slots;
     public int Count { get { int count = 0; foreach (var bot in _slots) if (bot != null) count++; return count; } }
     public ServerBotManager(ServerSimulation simulation, BotFillPolicy policy)
     { _simulation = simulation; policy.Validate(simulation.Scene.Match.Rules.MaxPlayers); Policy = policy; }
+    public bool ApplyLobbyPolicy(BotFillPolicy policy)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        policy.Validate(_simulation.Scene.Match.Rules.MaxPlayers);
+        if (Policy == policy) return false;
+        Policy = policy;
+        return true;
+    }
     public bool Occupied(int slot) => _slots[slot] != null;
     public NetRosterEntry? Roster(int slot) => _slots[slot] is {} bot
         ? new(bot.Slot, bot.Identity, bot.Hunter, bot.TeamIndex, bot.Name, 0, true) : null;
@@ -61,6 +69,48 @@ public sealed class ServerBotManager
             var bot = new BotParticipant((byte)slot, identity, (Hunter)(slot % 7), team, $"BOT {slot + 1}");
             _slots[slot] = bot; NetScoreboard.ForgetSlot(_simulation.Scene, slot);
             Activate(bot); count++; if (team < 2) teams[team]++;
+            network.InvalidateRoster();
+        }
+    }
+
+    /// <summary>
+    /// Reuses the authoritative bot roster while the gameplay scene is fenced by
+    /// the lobby. Bodies are activated later by the existing countdown reset.
+    /// </summary>
+    public void UpdateLobby(ServerNetwork network)
+    {
+        int humans = 0, count = 0;
+        Span<int> teams = stackalloc int[2];
+        teams.Clear();
+        foreach (ServerPeer? peer in network.Peers)
+        {
+            if (peer == null || peer.IsObserver) continue;
+            humans++;
+            if (peer.TeamIndex < 2) teams[peer.TeamIndex]++;
+        }
+        foreach (BotParticipant? bot in _slots)
+            if (bot != null) { count++; if (bot.TeamIndex < 2) teams[bot.TeamIndex]++; }
+        int desired = network.Rules.RankingEligibility == RankingEligibility.VerifiedServerOnly
+            || network.Rules.RulesetPreset == RulesetPreset.Duel
+            ? 0 : Policy.DesiredBots(humans, network.Rules.MaxPlayers);
+        for (int slot = _slots.Length - 1; slot >= 0 && count > desired; slot--)
+        {
+            if (_slots[slot] is not { } bot) continue;
+            _slots[slot] = null;
+            count--;
+            if (bot.TeamIndex < 2) teams[bot.TeamIndex]--;
+            network.InvalidateRoster();
+        }
+        for (int slot = 0; slot < network.Rules.MaxPlayers && count < desired; slot++)
+        {
+            if (_slots[slot] != null || network.Peers[slot] != null
+                || network.HasReconnectReservation(slot) || network.HasPendingBotAdmission(slot)) continue;
+            byte team = (byte)(network.Rules.Teams ? teams[0] <= teams[1] ? 0 : 1 : slot);
+            var bot = new BotParticipant((byte)slot, NetConnection.NewIdentity(),
+                (Hunter)(slot % 7), team, $"BOT {slot + 1}");
+            _slots[slot] = bot;
+            count++;
+            if (team < 2) teams[team]++;
             network.InvalidateRoster();
         }
     }

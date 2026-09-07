@@ -5,6 +5,7 @@ using System.Net;
 using System.Reflection;
 using System.Threading;
 using MphRead.Entities;
+using MphRead.Identity;
 using MphRead.Mods;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
@@ -205,8 +206,11 @@ public sealed class LateJoinTests
         stats.Kills = 3;
         stats.Deaths = 2;
 
-        Assert.True(client.Disconnect());
-        Pump(server, new[] { client }, () => server.Count == 0);
+        // Model an involuntary transport loss. The reliable Disconnect event is
+        // an explicit leave and intentionally does not create a grace reservation.
+        server.Remove(original.Slot, reason: ParticipantExitReason.Disconnected);
+        Assert.Equal(0, server.Count);
+        Assert.True(server.HasReconnectReservation(slot));
         simulation.Step(server, 3); // Release the body while preserving the reservation's scoreboard.
         Assert.Equal(5, stats.Points);
         Assert.Equal(3, stats.Kills);
@@ -247,14 +251,15 @@ public sealed class LateJoinTests
         peer.HasParticipated = true;
         ulong oldConnectionId = peer.Connection.Id;
         byte oldTeam = peer.TeamIndex;
-        Assert.True(client.Disconnect());
-        Pump(server, new[] { client }, () => server.Count == 0);
+        server.Remove(peer.Slot, reason: ParticipantExitReason.Disconnected);
+        Assert.Equal(0, server.Count);
+        Assert.True(server.HasReconnectReservation(peer.Slot));
 
         SendJoin(foreignSocket, endpoint, "RETURN", Hunter.Samus, oldConnectionId);
         long rejected = server.Rejected;
         for (int attempt = 0; attempt < 100 && server.Rejected == rejected; attempt++)
         {
-            server.Poll(1);
+            server.Poll(unchecked(server.Tick + 1));
             if (server.Rejected == rejected) Thread.Sleep(1);
         }
         Assert.True(server.Rejected > rejected);
@@ -283,12 +288,14 @@ public sealed class LateJoinTests
         ServerPeer peer = Assert.IsType<ServerPeer>(server.Find(client.Connection!.Id));
         peer.Connection.StartPlaying();
         peer.HasParticipated = true;
-        Assert.True(client.Disconnect());
-        Pump(server, new[] { client }, () => server.Count == 0);
+        server.Remove(peer.Slot, reason: ParticipantExitReason.Disconnected);
+        Assert.Equal(0, server.Count);
+        Assert.True(server.HasReconnectReservation(peer.Slot));
+        uint expiryTick = unchecked(server.Tick + 1800);
 
         client.Reconnect();
         Pump(server, new[] { client }, () => client.Connection != null || client.Failure != null,
-            initialTick: 1800);
+            initialTick: expiryTick);
         Assert.Null(client.Connection);
         Assert.Contains("disabled", client.Failure!, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, server.Count);
@@ -310,8 +317,9 @@ public sealed class LateJoinTests
         ServerPeer peer = Assert.IsType<ServerPeer>(server.Find(client.Connection!.Id));
         peer.Connection.StartPlaying();
         peer.HasParticipated = true;
-        Assert.True(client.Disconnect());
-        Pump(server, new[] { client }, () => server.Count == 0);
+        server.Remove(peer.Slot, reason: ParticipantExitReason.Timeout);
+        Assert.Equal(0, server.Count);
+        Assert.True(server.HasReconnectReservation(peer.Slot));
 
         server.ChangeMatch(2, rules, 1);
         server.Phase = MatchPhase.Playing;
@@ -339,8 +347,9 @@ public sealed class LateJoinTests
         server.PhaseRevision = 1;
         ServerPeer peer = Assert.IsType<ServerPeer>(server.Find(client.Connection!.Id));
         Assert.False(peer.HasParticipated);
-        Assert.True(client.Disconnect());
-        Pump(server, new[] { client }, () => server.Count == 0);
+        server.Remove(peer.Slot, reason: ParticipantExitReason.Timeout);
+        Assert.Equal(0, server.Count);
+        Assert.False(server.HasReconnectReservation(peer.Slot));
 
         client.Reconnect();
         Pump(server, new[] { client }, () => client.Connection != null || client.Failure != null);
@@ -374,8 +383,9 @@ public sealed class LateJoinTests
         stats.Deaths = rules.LegacyPointGoal + 1;
         simulation.Scene.Match.TeamDeaths[slot] = rules.LegacyPointGoal + 1;
 
-        Assert.True(client.Disconnect());
-        Pump(server, new[] { client }, () => server.Count == 0);
+        server.Remove(slot, reason: ParticipantExitReason.Timeout);
+        Assert.Equal(0, server.Count);
+        Assert.True(server.HasReconnectReservation(slot));
         simulation.Step(server, 3);
         client.Reconnect();
         JoinAndReady(server, client);
@@ -588,10 +598,10 @@ public sealed class LateJoinTests
     }
 
     private static void Pump(ServerNetwork server, NetClient[] clients, Func<bool> done,
-        uint initialTick = 0)
+        uint? initialTick = null)
     {
         var watch = Stopwatch.StartNew();
-        uint tick = initialTick;
+        uint tick = initialTick ?? unchecked(server.Tick + 1);
         while (watch.Elapsed < TimeSpan.FromSeconds(5))
         {
             server.Poll(tick++);

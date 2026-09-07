@@ -18,7 +18,12 @@ namespace MphRead.Mods.Network
         WorldEvent = 12,
         ObserverTransition = 13,
         IntermissionBallot = 14,
-        IntermissionVote = 15
+        IntermissionVote = 15,
+        LobbySnapshot = 16,
+        LobbyRequest = 17,
+        LobbyFeedback = 18,
+        LobbyChat = 19,
+        MatchSummary = 20
     }
 
     public enum ReliableAdmissionFailure
@@ -31,7 +36,7 @@ namespace MphRead.Mods.Network
     }
 
     /// <summary>
-    /// Small independent reliable events. No state packets enter this channel.
+    /// Small independent reliable events and bounded lobby state.
     /// One owner thread; bounded pending messages and send-attempt bookkeeping.
     /// Backpressure is explicit: the caller retries admission or disconnects.
     /// </summary>
@@ -39,7 +44,8 @@ namespace MphRead.Mods.Network
     {
         public const int Capacity = 32;
         public const int EventWindowCapacity = ReliableEventWindow.Capacity;
-        public const int MaxPayloadSize = 512;
+        // One reliable event must still fit one UDP datagram with both headers.
+        public const int MaxPayloadSize = NetConfig.MaxPacketSize - NetHeader.Size - ReliableEventPacket.HeaderSize;
         private const int AttemptCapacity = 256;
         private const double RetrySeconds = 0.15;
 
@@ -140,7 +146,7 @@ namespace MphRead.Mods.Network
                 OversizedPayloadRejections++;
                 return false;
             }
-            if (type < ReliableEventType.Welcome || type > ReliableEventType.IntermissionVote)
+            if (type < ReliableEventType.Welcome || type > ReliableEventType.MatchSummary)
             {
                 LastAdmissionFailure = ReliableAdmissionFailure.InvalidType;
                 InvalidTypeRejections++;
