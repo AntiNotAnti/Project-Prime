@@ -17,6 +17,8 @@ namespace MphRead
             ConsoleSetup.Run();
             try
             {
+                if (args.Length > 0 && args[0] == "balance") return BalanceCommand.Run(args);
+                if (args.Length > 0 && args[0] == "telemetry") return TelemetryCommand.Run(args);
                 MapGen.MapImageDecoding.Decoder = MphRead.Imaging.StbImageDecoder.Decode;
                 if (args.Length == 0 || HasFlag(args, "help"))
                 { Console.WriteLine("FruityPrimeTools: -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -mapbundle, -mapgen, -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return 0; }

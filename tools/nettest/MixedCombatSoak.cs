@@ -227,7 +227,7 @@ namespace MphRead.NetTest
                     && !network.TrySendEvent(peer, ReliableEventType.Combat, payload))
                 {
                     refused++;
-                    Console.Error.WriteLine($"MIXEDSOAK slot {peer.Slot} disconnected: reliable queue exhausted.");
+                    Console.Error.WriteLine($"MIXEDSOAK slot {peer.Slot} disconnected: reliable admission refused. {ReliableDiagnostics.Describe(peer.Connection.Reliable)}");
                     network.Remove(peer.Slot);
                 }
             }

@@ -66,12 +66,12 @@ namespace MphRead.Mods.Network
 
         public static ServerProcessHost Start(string data, string version, MapRotation rotation,
             int port, int maxPlayers, bool friendlyFire,
-            (string Host, int Port, string Name)? listing = null, CancellationToken cancel = default)
-            => StartAsync(data, version, rotation, port, maxPlayers, friendlyFire, listing, cancel).GetAwaiter().GetResult();
+            (string Host, int Port, string Name)? listing = null, CancellationToken cancel = default, bool practice = false)
+            => StartAsync(data, version, rotation, port, maxPlayers, friendlyFire, listing, cancel, practice).GetAwaiter().GetResult();
 
         public static async Task<ServerProcessHost> StartAsync(string data, string version, MapRotation rotation,
             int port, int maxPlayers, bool friendlyFire,
-            (string Host, int Port, string Name)? listing = null, CancellationToken cancel = default)
+            (string Host, int Port, string Name)? listing = null, CancellationToken cancel = default, bool practice = false)
         {
             if (String.IsNullOrWhiteSpace(data) || !Directory.Exists(data))
             {
@@ -113,6 +113,14 @@ namespace MphRead.Mods.Network
                     }
                 }
                 ProcessStartInfo start = CreateStartInfo(CustomRooms.MapDirectory);
+                if (practice)
+                {
+                    if (listing != null) throw new ArgumentException("Practice cannot be listed.");
+                    start.Environment["PRIME_PRACTICE"] = "1";
+                    start.Environment["PRIME_BOT_FILL"] = Math.Min(4, maxPlayers).ToString(CultureInfo.InvariantCulture);
+                    start.Environment["PRIME_BOT_SKILL"] = "1";
+                    foreach (string key in new[] { "PRIME_REPORT_DIRECTORY", "PRIME_REPORT_URL", "PRIME_REPORT_CREDENTIAL", "PRIME_TICKET_BACKEND", "PRIME_TICKET_ISSUER", "PRIME_REQUIRE_TICKETS", "PRIME_SERVER_SECRET" }) start.Environment.Remove(key);
+                }
                 void Add(string key, string? value = null)
                 {
                     start.ArgumentList.Add(key);

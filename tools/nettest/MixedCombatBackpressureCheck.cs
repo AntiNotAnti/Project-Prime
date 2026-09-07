@@ -14,6 +14,7 @@ internal static class MixedCombatBackpressureCheck
     {
         try
         {
+            CheckSnapshotFreshness();
             using var transport = new NetTransport(0);
             using var firstSocket = new NetTransport(0);
             using var secondSocket = new NetTransport(0);
@@ -71,6 +72,30 @@ internal static class MixedCombatBackpressureCheck
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine("MIXEDBACKPRESSURE FAIL " + error); return 1; }
+    }
+
+    private static void CheckSnapshotFreshness()
+    {
+        long now = Stopwatch.Frequency * 100;
+        var received = new long[8];
+        Array.Fill(received, now - Stopwatch.Frequency / 2);
+        bool AllFresh()
+        {
+            foreach (long timestamp in received)
+                if (!MixedCombatClients.SnapshotIsFresh(true, timestamp, now)) return false;
+            return true;
+        }
+        Require(AllFresh(), "Eight recent snapshot streams should pass.");
+        for (int staleSlot = 0; staleSlot < received.Length; staleSlot++)
+        {
+            long fresh = received[staleSlot];
+            received[staleSlot] = now - Stopwatch.Frequency * 15;
+            Require(!AllFresh(), $"Stale snapshot stream in slot {staleSlot} escaped the eight-client health check.");
+            received[staleSlot] = fresh;
+        }
+        Require(!MixedCombatClients.SnapshotIsFresh(false, now, now), "Missing snapshot passed freshness.");
+        Require(!MixedCombatClients.SnapshotIsFresh(true, now + 1, now), "Future timestamp passed freshness.");
+        Console.WriteLine("MIXEDFRESHNESS PASS: each stale slot fails eight-client health despite prior snapshot totals.");
     }
 
     private static void Require(bool condition, string reason)

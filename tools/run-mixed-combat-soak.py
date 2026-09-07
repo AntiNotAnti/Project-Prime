@@ -26,19 +26,74 @@ def run(args, label, binary):
     work = args.output / label
     work.mkdir()
     children, streams = [], []
+    named_children, log_paths = {}, {}
+    server = client = None
+    server_code = client_code = None
+    errors = []
 
     def start(command, name, marker, env=None):
         path = work / (name + ".log")
+        log_paths[name] = path
         stream = path.open("w")
         streams.append(stream)
         child = subprocess.Popen(command, stdout=stream, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, env=env)
         children.append(child)
+        named_children[name] = child
         deadline = time.monotonic() + 20
         while marker and marker not in path.read_text(errors="replace"):
             if child.poll() is not None or time.monotonic() >= deadline:
                 raise RuntimeError("Readiness failed: " + str(path))
             time.sleep(.05)
         return child
+
+    def stop_owned():
+        for child in reversed(children):
+            if child.poll() is None:
+                try:
+                    child.terminate()
+                except ProcessLookupError:
+                    pass
+        for child in reversed(children):
+            try:
+                child.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    child.kill()
+                except ProcessLookupError:
+                    pass
+                child.wait()
+
+    def read_report(path, name):
+        if not path.exists():
+            errors.append(f"{name} report missing: {path}")
+            return None
+        try:
+            report = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as error:
+            errors.append(f"{name} report unreadable: {path} ({error})")
+            return None
+        if not isinstance(report, dict):
+            errors.append(f"{name} report is not an object: {path}")
+            return None
+        return report
+
+    def result(server_report=None, client_report=None):
+        value = {
+            "label": label,
+            "passed": bool(not errors and server_code == client_code == 0
+                           and server_report is not None and client_report is not None
+                           and server_report.get("passed") and client_report.get("passed")),
+            "server": server_report,
+            "clients": client_report,
+            "exitCodes": {name: child.poll() for name, child in named_children.items()},
+            "logs": {name: str(path) for name, path in log_paths.items()},
+            "incomplete": server_report is None or client_report is None,
+        }
+        if errors:
+            value["errors"] = list(errors)
+        root_shots = server_report.get("rootShots", "n/a") if server_report else "n/a"
+        print(label, "PASS" if value["passed"] else "FAIL", root_shots, flush=True)
+        return value
 
     try:
         server_port = port()
@@ -56,24 +111,37 @@ def run(args, label, binary):
             destinations.append(proxy)
         client = start([args.dotnet, str(binary), "--mixed-soak-clients", str(args.seconds),
                         ",".join(map(str, destinations)), str(work / "clients.json"), str(work / "server.json")], "clients", None)
-        client_code = client.wait(timeout=args.seconds + 45)
-        server_code = server.wait(timeout=25)
-        server_report = json.loads((work / "server.json").read_text())
-        client_report = json.loads((work / "clients.json").read_text())
-        result = {"label": label, "passed": server_code == client_code == 0 and server_report["passed"] and client_report["passed"],
-                  "server": server_report, "clients": client_report}
-        print(label, "PASS" if result["passed"] else "FAIL", server_report["rootShots"], flush=True)
-        return result
+        try:
+            client_code = client.wait(timeout=args.seconds + 45)
+        except subprocess.TimeoutExpired:
+            errors.append(f"clients did not exit within {args.seconds + 45}s")
+            stop_owned()
+            server_code = server.poll()
+            client_code = client.poll()
+        else:
+            if client_code != 0:
+                errors.append(f"clients exited early with code {client_code}")
+                # Do not wait for a failed client run's server to finish the
+                # remaining soak. Its log, exit code, and missing reports are
+                # retained in the result below.
+                stop_owned()
+                server_code = server.poll()
+            else:
+                try:
+                    server_code = server.wait(timeout=25)
+                except subprocess.TimeoutExpired:
+                    errors.append("server did not exit within 25s after clients completed")
+                    stop_owned()
+                    server_code = server.poll()
+        server_report = read_report(work / "server.json", "server")
+        client_report = read_report(work / "clients.json", "clients")
+        return result(server_report, client_report)
+    except Exception as error:
+        errors.append(f"runner error: {error}")
+        stop_owned()
+        return result(read_report(work / "server.json", "server"), read_report(work / "clients.json", "clients"))
     finally:
-        for child in reversed(children):
-            if child.poll() is None:
-                child.terminate()
-        for child in reversed(children):
-            try:
-                child.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                child.kill()
-                child.wait()
+        stop_owned()
         for stream in streams:
             stream.close()
 
@@ -103,15 +171,23 @@ def main():
                "seconds": args.seconds, "rttMs": args.rtt, "jitterMs": args.jitter, "lossPercent": args.loss, "seed": args.seed,
                "evidence": "real UDP/headless simulation; controlled loadouts/infinite ammo; no rendering", "runs": results}
     summary["comparisons"] = []
-    reference = results[0]["server"]
+    reference = results[0].get("server")
     for result in results[1:]:
-        baseline = result["server"]
-        summary["comparisons"].append({"reference": results[0]["label"], "baseline": result["label"],
-            "exactRootShotCountsEqual": reference["rootShots"] == baseline["rootShots"],
-            "rootShotCountDelta": [a-b for a, b in zip(reference["rootShots"], baseline["rootShots"])],
-            "cpuSecondsDelta": reference["cpuSeconds"] - baseline["cpuSeconds"],
-            "allocatedBytesPerTickDelta": reference["allocatedBytesPerTick"] - baseline["allocatedBytesPerTick"],
-            "interpretation": "Observed process cost under the same scheduling parameters; differing combat outcomes prevent exact workload equivalence."})
+        baseline = result.get("server")
+        comparison = {"reference": results[0]["label"], "baseline": result["label"]}
+        required = ("rootShots", "cpuSeconds", "allocatedBytesPerTick")
+        if not isinstance(reference, dict) or not isinstance(baseline, dict) or not all(
+            key in reference and key in baseline for key in required):
+            comparison.update({"incomplete": True,
+                "interpretation": "Comparison unavailable because one run did not produce a complete server report."})
+        else:
+            comparison.update({
+                "exactRootShotCountsEqual": reference["rootShots"] == baseline["rootShots"],
+                "rootShotCountDelta": [a-b for a, b in zip(reference["rootShots"], baseline["rootShots"])],
+                "cpuSecondsDelta": reference["cpuSeconds"] - baseline["cpuSeconds"],
+                "allocatedBytesPerTickDelta": reference["allocatedBytesPerTick"] - baseline["allocatedBytesPerTick"],
+                "interpretation": "Observed process cost under the same scheduling parameters; differing combat outcomes prevent exact workload equivalence."})
+        summary["comparisons"].append(comparison)
     (args.output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     return 0 if all(result["passed"] for result in results) else 1
 

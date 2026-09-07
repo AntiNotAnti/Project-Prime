@@ -10,6 +10,12 @@ namespace MphRead.NetTest
 {
     internal static class MixedCombatClients
     {
+        internal const double MaximumSnapshotAgeSeconds = 1;
+
+        internal static bool SnapshotIsFresh(bool hasSnapshot, long receivedAt, long now)
+            => hasSnapshot && receivedAt > 0 && now >= receivedAt
+                && Stopwatch.GetElapsedTime(receivedAt, now).TotalSeconds <= MaximumSnapshotAgeSeconds;
+
         public static int Run(string[] args)
         {
             if (args.Length != 5 || !Int32.TryParse(args[1], out int seconds) || seconds < 10 || seconds > 330)
@@ -141,14 +147,18 @@ namespace MphRead.NetTest
                 for (int i = 0; i < clients.Length; i++)
                 {
                     NetClient client = clients[i];
-                    bool healthy = client.State == NetConnectionState.Playing && client.SnapshotsReceived >= seconds * 10
+                    double snapshotAgeSeconds = client.HasSnapshot
+                        ? Stopwatch.GetElapsedTime(client.SnapshotReceivedAt).TotalSeconds : double.PositiveInfinity;
+                    bool snapshotFresh = SnapshotIsFresh(client.HasSnapshot, client.SnapshotReceivedAt, Stopwatch.GetTimestamp());
+                    bool healthy = snapshotFresh && client.State == NetConnectionState.Playing && client.SnapshotsReceived >= seconds * 10
                         && placed[i] && client.Snapshot.HasProcessedInput
                         && ownShots[i] >= seconds / 8 && transports[i].Metrics.QueueDrops == 0;
                     success &= healthy;
                     reports[i] = new { client = i, slot = client.Accepted.Slot, healthy,
+                        snapshotFresh, snapshotAgeSeconds = double.IsFinite(snapshotAgeSeconds) ? (double?)snapshotAgeSeconds : null,
                         snapshots = client.SnapshotsReceived, ownRootShots = ownShots[i], inputsSent = sent[i],
                         rttMs = client.Clock.Metrics.SmoothedRttMs, queueDrops = transports[i].Metrics.QueueDrops };
-                    Console.WriteLine(FormattableString.Invariant($"MIXEDCLIENT client={i} slot={client.Accepted.Slot} state={client.State} snapshots={client.SnapshotsReceived} moved={maxDistance[i]:F2} inputAck={client.Snapshot.LastProcessedInput} rejected={client.Rejected} result={(healthy ? "PASS" : "FAIL")}"));
+                    Console.WriteLine(FormattableString.Invariant($"MIXEDCLIENT client={i} slot={client.Accepted.Slot} state={client.State} snapshots={client.SnapshotsReceived} moved={maxDistance[i]:F2} inputAck={client.Snapshot.LastProcessedInput} rejected={client.Rejected} snapshotAgeSeconds={snapshotAgeSeconds:F3} snapshotFresh={snapshotFresh} result={(healthy ? "PASS" : "FAIL")}"));
                     Console.WriteLine($"MIXEDWORLD client={i} complete={worlds[i].HasState} records={worlds[i].Count} events={eventCounts[i]}");
                     Console.WriteLine($"MIXEDCOMBAT client={i} shots={combatCounts[i, 1]} damage={combatCounts[i, 2]} "
                         + $"deaths={combatCounts[i, 3]} spawns={combatCounts[i, 4]} afflictions={combatCounts[i, 5]} bombs={combatCounts[i, 6]}");

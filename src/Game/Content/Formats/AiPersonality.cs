@@ -20,6 +20,12 @@ namespace MphRead.Formats
                 {
                     continue;
                 }
+                Load(player, mode);
+            }
+        }
+
+        public static void Load(PlayerEntity player, GameMode mode)
+        {
                 int aiOffset = 32896; // default, Battle, BattleTeams
                 if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
                 {
@@ -40,7 +46,6 @@ namespace MphRead.Formats
                     aiOffset = 45220;
                 }
                 player.AiData.Personality = LoadData(aiOffset);
-            }
         }
 
         private static string _cachedVersion = "";
