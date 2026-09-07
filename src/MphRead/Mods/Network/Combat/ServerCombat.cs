@@ -25,15 +25,25 @@ namespace MphRead.Mods.Network
         private readonly double[] _rtt = new double[8];
         private int _head, _count;
         private uint _nextId;
+        private readonly uint _initialSpreadSeed;
+        private uint _spreadSeed;
         public LagCompensationHistory History { get; } = new();
         public ProjectileCatchUp CatchUp { get; }
         public bool LagCompEnabled { get; }
         public bool ProjectileCatchUpEnabled { get; }
-        public ServerCombat(bool lagCompEnabled = true, bool projectileCatchUpEnabled = true)
+        public ServerCombat(bool lagCompEnabled = true, bool projectileCatchUpEnabled = true, uint? spreadSeed = null)
         {
+            _initialSpreadSeed = _spreadSeed = spreadSeed ?? Rng.Rng2;
             LagCompEnabled = lagCompEnabled;
             ProjectileCatchUpEnabled = lagCompEnabled && projectileCatchUpEnabled;
             CatchUp = new ProjectileCatchUp(this);
+        }
+        // Only accepted spreading root shots advance this match-owned stream.
+        // Damage and effects still consume the ordinary gameplay RNG independently.
+        internal uint NextSpreadSeed()
+        {
+            Rng.CallRng(ref _spreadSeed, 0);
+            return _spreadSeed;
         }
         internal LagCompensationMode GetMode(in BeamMechanics mechanics)
         {
@@ -74,6 +84,7 @@ namespace MphRead.Mods.Network
         public void Reset()
         {
             _head = _count = 0; _nextId = 0; Dropped = 0;
+            _spreadSeed = _initialSpreadSeed;
             Array.Clear(_commands); Array.Clear(_rtt); History.Clear(); CatchUp.Clear();
             ShotsConsidered = ShotsEligible = ShotsRewound = ShotsClamped = 0;
             RequestedRewindTicks = ValidatedRewindTicks = default;

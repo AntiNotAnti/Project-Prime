@@ -1684,10 +1684,11 @@ namespace MphRead.Entities
             CombatShot combatShot = inheritedShot ?? ServerCombat.Current?.CaptureShot(owner, mechanics) ?? default;
             if (!spreadSeed.HasValue && ServerCombat.Current != null && maxSpread > 0)
             {
-                // Advance the authoritative global stream once per spread shot;
-                // every pellet then uses only this seed, including after pool reuse.
+                // Preserve the ordinary gameplay stream's advance. Root spread
+                // uses a separate match stream so impact timing cannot change
+                // future aim samples; pellets and children retain their seed.
                 Rng.GetRandomInt2(0);
-                spreadSeed = Rng.Rng2;
+                spreadSeed = inheritedShot.HasValue ? 0u : ServerCombat.Current.NextSpreadSeed();
             }
             var spread = new BeamSpread(spreadSeed.GetValueOrDefault());
             if (!inheritedShot.HasValue)
