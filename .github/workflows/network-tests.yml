@@ -1,0 +1,39 @@
+name: network tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '9.0.x'
+      - name: protocol and UDP safety tests
+        run: dotnet test src/MphRead.Tests/MphRead.Tests.csproj -c Release -p:MphReadServer=true
+      - name: network and deployment tooling tests
+        run: python3 -m unittest discover -s tools/tests -v
+      - name: build authoritative server and authoritative conformance harness
+        run: dotnet build tools/nettest/nettest.csproj -c Release -p:MphReadServer=true -o artifacts/nettest
+      - name: data requirement, directory and connection smoke tests
+        run: bash tools/check-dedicated-server.sh artifacts/nettest
+      - name: authoritative WAN connection baseline (synthetic states, not gameplay)
+        run: >
+          python3 tools/run-network-baseline.py
+          --nettest artifacts/nettest/nettest.dll
+          --output artifacts/network-baseline --seconds 10
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: network-baseline
+          path: artifacts/network-baseline
+          if-no-files-found: ignore

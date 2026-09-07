@@ -1,123 +1,120 @@
 #!/usr/bin/env bash
-# Build the ARM64 dedicated server and push it to the Pi.
-#
-# The service is stopped before the binary is replaced: systemd holds the
-# executable open while it runs, so overwriting it in place fails.
-#
-# Credentials come from the environment, not this file:
-#   MPH_SERVER_HOST=net.livetek.fr MPH_SERVER_USER=livetek ./deploy-server.sh
-# With an SSH key installed, no password is needed at all -- which is the
-# setup worth moving to.
+# Build and upload only the ARM64 binary. Content must already exist remotely.
+# Example: MPH_SERVER_HOST=games.example.com MPH_SERVER_USER=gameuser \
+#   MPH_SERVER_DATA=/srv/fruity-content ./deploy-server.sh
 set -euo pipefail
 
-HOST="${MPH_SERVER_HOST:-net.livetek.fr}"
-USER="${MPH_SERVER_USER:-livetek}"
-REMOTE_DIR="${MPH_SERVER_DIR:-/home/$USER/mphread-server}"
-SERVICE="mphread-server"
-# The same binary also runs the server directory the launcher's browser asks.
-# One upload, two units; set MPH_DEPLOY_MASTER=0 to leave the directory alone.
-MASTER_SERVICE="mphread-master"
+DEPLOY_HOST="${MPH_SERVER_HOST:-net.livetek.fr}"
+DEPLOY_USER="${MPH_SERVER_USER:-livetek}"
+DEPLOY_DIR="${MPH_SERVER_DIR:-/home/$DEPLOY_USER/mphread-server}"
+DEPLOY_DATA="${MPH_SERVER_DATA:?Set MPH_SERVER_DATA to the existing absolute content directory on the remote machine}"
+DEPLOY_VERSION="${MPH_SERVER_DATA_VERSION:-AMHE1}"
 DEPLOY_MASTER="${MPH_DEPLOY_MASTER:-1}"
+DEPLOY_LISTING="${MPH_SERVER_MASTER:-}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT="$ROOT/src/MphRead"
-STAGE="$ROOT/publish/server-arm64"
-# The project used to be MphRead and the Pi has been running a binary of that
-# name under systemd since before the rename. Both names appear below: the new
-# one is what gets installed, the old one is what has to be cleaned up and what
-# the existing units still point at until they are rewritten.
-BINARY="FruityPrime"
-OLD_BINARY="MphRead"
+STAGE="$(mktemp -d -t fruity-deploy.XXXXXXXX)"
+REMOTE_STAGE="$DEPLOY_DIR/.$(basename "$STAGE")"
+REMOTE_STAGE_CREATED=0
 
-# sshpass is only used when a password is supplied; a key-based setup skips it.
+# Pass each remote argument through POSIX shell quoting. No configuration value
+# becomes shell source, including paths containing spaces or apostrophes.
+shell_quote() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
 ssh_run() {
-  if [ -n "${MPH_SERVER_PASS:-}" ]; then
-    sshpass -p "$MPH_SERVER_PASS" ssh -o StrictHostKeyChecking=no "$USER@$HOST" "$@"
+  # SC2029: remote() passes a complete POSIX-quoted command string. The caller
+  # deliberately constructs it locally; no unquoted configuration enters it.
+  # shellcheck disable=SC2029
+  if [[ -n "${MPH_SERVER_PASS:-}" ]]; then
+    SSHPASS="$MPH_SERVER_PASS" sshpass -e ssh "$DEPLOY_USER@$DEPLOY_HOST" "$@"
   else
-    ssh -o StrictHostKeyChecking=no "$USER@$HOST" "$@"
+    ssh "$DEPLOY_USER@$DEPLOY_HOST" "$@"
   fi
 }
-
-scp_put() {
-  if [ -n "${MPH_SERVER_PASS:-}" ]; then
-    sshpass -p "$MPH_SERVER_PASS" scp -o StrictHostKeyChecking=no "$1" "$USER@$HOST:$2"
-  else
-    scp -o StrictHostKeyChecking=no "$1" "$USER@$HOST:$2"
-  fi
+remote() {
+  local command="" argument
+  for argument in "$@"; do command+="$(shell_quote "$argument") "; done
+  ssh_run "$command"
 }
-
-echo "==> building linux-arm64"
-# -p:MphReadServer=true: this box runs the server and the directory and nobody
-# plays on it, so the launcher and the UI toolkit behind it are left out.
-dotnet publish "$PROJECT" -c Release -r linux-arm64 -p:MphReadServer=true \
-  --self-contained true -p:PublishSingleFile=true -o "$STAGE" \
-  | grep -E "error|-> " || true
-test -f "$STAGE/$BINARY" || { echo "build produced no $BINARY" >&2; exit 1; }
-
-# Install a unit the first time, and leave a hand-edited one alone after that:
-# an operator who changed the server name or the port on the box should not
-# have it overwritten by a deploy.
-#
-# The rename is the one exception. A unit that still starts the old binary
-# would keep starting it after this deploy -- the file would still be there,
-# one release behind, refusing every client at Hello -- so a unit whose
-# ExecStart names the old binary is rewritten in place. Only that line: an
-# edited port or server name is preserved by patching rather than replacing.
-install_unit() {
-  local name="$1" template="$ROOT/tools/systemd/$1.service"
-  if ssh_run "test -f /etc/systemd/system/$name.service"; then
-    if ssh_run "grep -q '$REMOTE_DIR/$OLD_BINARY ' /etc/systemd/system/$name.service"; then
-      echo "==> $name.service still starts $OLD_BINARY; pointing it at $BINARY"
-      ssh_run "sudo sed -i 's|$REMOTE_DIR/$OLD_BINARY |$REMOTE_DIR/$BINARY |' \
-        /etc/systemd/system/$name.service && sudo systemctl daemon-reload"
-    fi
-    return 0
-  fi
-  echo "==> installing $name.service"
-  sed -e "s|__USER__|$USER|g" -e "s|__DIR__|$REMOTE_DIR|g" "$template" \
-    | ssh_run "cat > /tmp/$name.service"
-  ssh_run "sudo mv /tmp/$name.service /etc/systemd/system/$name.service \
-    && sudo systemctl daemon-reload && sudo systemctl enable $name"
+upload_file() {
+  remote python3 -c '
+import shutil, sys
+with open(sys.argv[1], "xb") as target:
+    shutil.copyfileobj(sys.stdin.buffer, target, 1024 * 1024)
+' "$2" < "$1"
 }
+cleanup() {
+  if [[ "$REMOTE_STAGE_CREATED" == 1 ]]; then remote rm -rf -- "$REMOTE_STAGE" || true; fi
+  rm -rf -- "$STAGE"
+}
+trap cleanup EXIT
 
-echo "==> stopping $SERVICE"
-ssh_run "sudo systemctl stop $SERVICE" || true
-if [ "$DEPLOY_MASTER" = "1" ]; then
-  ssh_run "sudo systemctl stop $MASTER_SERVICE" || true
-fi
+# Validate arguments and template rendering before opening an SSH connection.
+server_args=(--user "$DEPLOY_USER" --directory "$DEPLOY_DIR" --data "$DEPLOY_DATA" --version "$DEPLOY_VERSION")
+[[ -z "$DEPLOY_LISTING" ]] || server_args+=(--master "$DEPLOY_LISTING")
+python3 "$ROOT/tools/render-server-unit.py" "$ROOT/tools/systemd/mphread-server.service" \
+  "${server_args[@]}" > "$STAGE/mphread-server.service"
+[[ "$DEPLOY_MASTER" == 0 || "$DEPLOY_MASTER" == 1 ]] || { echo "MPH_DEPLOY_MASTER must be 0 or 1" >&2; exit 1; }
 
-echo "==> uploading"
-scp_put "$STAGE/$BINARY" "$REMOTE_DIR/$BINARY.new"
-ssh_run "chmod +x $REMOTE_DIR/$BINARY.new && mv $REMOTE_DIR/$BINARY.new $REMOTE_DIR/$BINARY"
+printf 'Checking installed content on %s...\n' "$DEPLOY_HOST"
+remote python3 -c '
+import json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+manifest = root / "server-content.json"
+if not root.is_dir() or not (manifest.is_file() or (
+    (root / "_bin/arm9.bin").is_file() and (root / "models").is_dir() and (root / "levels").is_dir())):
+    raise SystemExit("Missing installed server content at " + str(root) + "; install it separately before deploying")
+if manifest.is_file() and (manifest.stat().st_size > 2 * 1024 * 1024 or json.loads(manifest.read_text()).get("Version") != sys.argv[2]):
+    raise SystemExit("Installed content manifest does not match " + sys.argv[2])
+' "$DEPLOY_DATA" "$DEPLOY_VERSION"
 
-# The units have to be pointing at the new binary before the old one is taken
-# away, or a deploy that stops half way leaves a box with neither.
-install_unit "$SERVICE"
-if [ "$DEPLOY_MASTER" = "1" ]; then
-  install_unit "$MASTER_SERVICE"
-fi
+printf 'Building linux-arm64...\n'
+dotnet publish "$ROOT/src/MphRead/MphRead.csproj" -c Release -r linux-arm64 -p:MphReadServer=true \
+  --self-contained true -p:PublishSingleFile=true -o "$STAGE/publish"
+test -f "$STAGE/publish/FruityPrime"
+bash "$ROOT/tools/check-no-game-assets.sh" "$STAGE/publish"
 
-if [ "$BINARY" != "$OLD_BINARY" ]; then
-  if ssh_run "test -f $REMOTE_DIR/$OLD_BINARY"; then
-    echo "==> removing the old $OLD_BINARY binary"
-    ssh_run "rm -f $REMOTE_DIR/$OLD_BINARY"
+services=(mphread-server)
+[[ "$DEPLOY_MASTER" == 0 ]] || services+=(mphread-master)
+for service in "${services[@]}"; do
+  source="$ROOT/tools/systemd/$service.service"
+  if remote test -f "/etc/systemd/system/$service.service"; then
+    remote cat "/etc/systemd/system/$service.service" > "$STAGE/$service.original"
+    source="$STAGE/$service.original"
   fi
-fi
+  args=(--user "$DEPLOY_USER" --directory "$DEPLOY_DIR")
+  [[ "$service" != mphread-server ]] || args=("${server_args[@]}")
+  python3 "$ROOT/tools/render-server-unit.py" "$source" "${args[@]}" > "$STAGE/$service.service"
+done
 
-echo "==> starting $SERVICE"
-ssh_run "sudo systemctl start $SERVICE"
-if [ "$DEPLOY_MASTER" = "1" ]; then
-  echo "==> starting $MASTER_SERVICE"
-  ssh_run "sudo systemctl start $MASTER_SERVICE"
-fi
+# Upload exactly one binary and the rendered units; never upload a publish tree,
+# an extracted directory, paths.txt, or a content package.
+remote mkdir -p -- "$DEPLOY_DIR"
+remote mkdir -m 700 -- "$REMOTE_STAGE"
+REMOTE_STAGE_CREATED=1
+upload_file "$STAGE/publish/FruityPrime" "$REMOTE_STAGE/FruityPrime"
+remote chmod +x -- "$REMOTE_STAGE/FruityPrime"
+for service in "${services[@]}"; do
+  upload_file "$STAGE/$service.service" "$REMOTE_STAGE/$service.service"
+done
+
+# Keep the current processes running until upload and configuration validation
+# have succeeded. A failed stop is an error, not permission to replace a server.
+for service in "${services[@]}"; do
+  if remote test -f "/etc/systemd/system/$service.service"; then
+    remote sudo -n systemctl stop "$service"
+  fi
+done
+remote mv -- "$REMOTE_STAGE/FruityPrime" "$DEPLOY_DIR/FruityPrime"
+for service in "${services[@]}"; do
+  remote sudo -n install -m 644 -- "$REMOTE_STAGE/$service.service" "/etc/systemd/system/$service.service"
+done
+remote sudo -n systemctl daemon-reload
+for service in "${services[@]}"; do
+  remote sudo -n systemctl enable "$service"
+  remote sudo -n systemctl start "$service"
+done
 sleep 3
-ssh_run "systemctl is-active $SERVICE && journalctl -u $SERVICE -n 5 --no-pager | tail -4"
-if [ "$DEPLOY_MASTER" = "1" ]; then
-  ssh_run "systemctl is-active $MASTER_SERVICE \
-    && journalctl -u $MASTER_SERVICE -n 5 --no-pager | tail -4"
-fi
-
-echo "==> done"
-echo
-echo "The browser in the launcher asks net.livetek.fr:27889 by default."
-echo "That name has to resolve to this machine, and UDP 27889 has to reach it,"
-echo "before any server shows up in anybody's list."
+for service in "${services[@]}"; do
+  remote systemctl is-active "$service"
+  remote journalctl -u "$service" -n 8 --no-pager
+done
+printf 'Deployment complete. Content stayed on the remote machine; no cartridge assets were uploaded.\n'

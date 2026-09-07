@@ -303,15 +303,10 @@ jobs:
           tools/check-subsystem.sh gui publish/win-x64/FruityPrime.exe
           tools/check-subsystem.sh console publish/win-x64-server/FruityPrimeServer.exe
 
-      # Nothing gets tagged as a release until a server out of it has actually
-      # started, registered with a directory and answered a query. This runner
-      # is x64 Linux, so both x64 builds can be started here -- the game
-      # build's server capability and the standalone server package, which is
-      # otherwise the one server target nothing runs on a real machine before
-      # it reaches a player. The Windows server gets the same check on a
-      # Windows runner in build.yml; the ARM64 one cannot run on this runner
-      # at all, being cross-compiled for a different processor.
-      - name: the dedicated server runs
+      # Without cartridge assets, validate the required-data error and a
+      # directory-only query. This is a packaging smoke check, not gameplay
+      # evidence. The Windows server gets the same check in build.yml.
+      - name: the server content contract and directory run
         run: |
           set -euo pipefail
           tools/check-dedicated-server.sh publish/linux-x64
@@ -339,7 +334,8 @@ jobs:
 
           To run a server for other people without playing on it yourself,
           download the server package instead -- it is a separate, smaller
-          download that needs no game files at all.
+          download. Authoritative matches require your extracted game files or
+          a baked server content package. See SERVER.md in the source.
           NOTE
           ( cd publish/win-x64 && zip -qr "../../dist/FruityPrime-$TAG-win-x64.zip" . )
 
@@ -368,10 +364,13 @@ jobs:
             ./FruityPrime -hostgame "ROOM"      have a server run a match for you
             ./FruityPrime -menu                 volumes, controls, match rules
 
-          This build can also run a dedicated server, with -server; it needs no
-          game files to do it. If that is all a machine is for, the server
-          package is a smaller download with no launcher in it -- there is one
-          for plain x64 Linux and one for a Raspberry Pi.
+          This build can also run an authoritative dedicated server:
+
+            ./FruityPrime -server -data /path/to/files/AMHE1 -dataversion AMHE1
+
+          Match simulation requires your extracted game files or a baked server
+          content package. The server packages omit the launcher and provide the
+          same simulation, for plain x64 Linux and Raspberry Pi ARM64.
 
           F11 or Alt+Enter switches to fullscreen, Escape opens the pause menu.
           NOTE
@@ -408,18 +407,19 @@ jobs:
           cat > publish/linux-arm64/SERVER.txt <<'NOTE'
           Fruity Prime dedicated server.
 
-            ./FruityPrime -server -port 27888 -players 8 -servername "My server"
+            ./FruityPrime -server -data /srv/fruity-content -dataversion AMHE1 -port 27888 -players 8 -servername "My server"
 
-          It needs no game files. Maps come from maprotation.txt, written
-          beside the binary on first run.
+          Supply your extracted game directory or a baked server content package.
+          The .nds file is not a directory. No cartridge data is included here.
+          Use -rotation FILE for an existing map cycle; none is created automatically.
 
-          The server lists itself on net.livetek.fr so that players can find it
-          in the launcher's server browser. Pass -nomaster to stay private, or
-          -master HOST to use a different directory.
+          The server is unlisted by default. Add -master net.livetek.fr:27889
+          to publish it in that directory, or specify your own HOST:PORT.
+          -nomaster disables listing even when -master is present.
 
-          To run a directory of your own:
+          A directory-only instance needs no game files:
 
-            ./FruityPrime -masterserver -port 27889
+            ./FruityPrime -masterserver -port 27889 -hostports none
           NOTE
           ( cd publish/linux-arm64 && tar czf "../../dist/FruityPrime-$TAG-server-linux-arm64.tar.gz" . )
 
@@ -429,22 +429,23 @@ jobs:
           VPS, a spare desktop, anything that is not a Raspberry Pi (see the
           ARM64 package for that) and that nobody is playing on.
 
-            ./FruityPrime -server -port 27888 -players 8 -servername "My server"
+            ./FruityPrime -server -data /srv/fruity-content -dataversion AMHE1 -port 27888 -players 8 -servername "My server"
 
-          It needs no game files. Maps come from maprotation.txt, written
-          beside the binary on first run.
+          Supply your extracted game directory or a baked server content package.
+          The .nds file is not a directory. No cartridge data is included here.
+          Use -rotation FILE for an existing map cycle; none is created automatically.
 
-          The server lists itself on net.livetek.fr so that players can find it
-          in the launcher's server browser. Pass -nomaster to stay private, or
-          -master HOST to use a different directory.
+          The server is unlisted by default. Add -master net.livetek.fr:27889
+          to publish it in that directory, or specify your own HOST:PORT.
+          -nomaster disables listing even when -master is present.
 
-          To run a directory of your own:
+          A directory-only instance needs no game files:
 
-            ./FruityPrime -masterserver -port 27889
+            ./FruityPrime -masterserver -port 27889 -hostports none
 
-          tools/systemd/ in the source has unit files to run this under
-          systemd; deploy-server.sh automates that end to end for the ARM64
-          build, and the same units work here with the RID changed.
+          See SERVER.md in the source for content baking, hosted-game directories
+          and service setup. deploy-server.sh uploads only the ARM64 binary and
+          requires MPH_SERVER_DATA to point to content already on that machine.
           NOTE
           ( cd publish/linux-x64-server && tar czf "../../dist/FruityPrime-$TAG-server-linux-x64.tar.gz" . )
 
@@ -454,29 +455,29 @@ jobs:
 
           From a Command Prompt or PowerShell, in this folder:
 
-            FruityPrimeServer.exe -server -port 27888 -players 8 -servername "My server"
+            FruityPrimeServer.exe -server -data "C:\FruityPrime\content" -dataversion AMHE1 -port 27888 -players 8 -servername "My server"
 
-          It needs no game files, and no copy of the game on this machine.
-          Maps come from maprotation.txt, written beside the binary on first
-          run.
+          Supply your extracted game directory or a baked server content package.
+          The .nds file is not a directory. No cartridge data is included here.
+          Use -rotation FILE for an existing map cycle; none is created automatically.
 
           This is a console program, unlike FruityPrime.exe: the window stays until
           the server stops, Ctrl+C shuts it down cleanly, and its exit code is
           reported, so it can be run under a service supervisor (NSSM, or
           sc.exe with a wrapper) the way the Linux build runs under systemd.
-          Double-clicking it works too and opens a window of its own.
+          Double-clicking it displays usage; starting a match requires -data.
 
           Windows will ask once whether to allow it through the firewall.
           Nobody outside this machine can reach the server until that is
           allowed for UDP on the port above, and until the router forwards it.
 
-          The server lists itself on net.livetek.fr so that players can find it
-          in the launcher's server browser. Pass -nomaster to stay private, or
-          -master HOST to use a different directory.
+          The server is unlisted by default. Add -master net.livetek.fr:27889
+          to publish it in that directory, or specify your own HOST:PORT.
+          -nomaster disables listing even when -master is present.
 
-          To run a directory of your own:
+          A directory-only instance needs no game files:
 
-            FruityPrimeServer.exe -masterserver -port 27889
+            FruityPrimeServer.exe -masterserver -port 27889 -hostports none
 
           To see what is up right now:
 
@@ -520,7 +521,7 @@ jobs:
           - **Windows** -- the `win-x64` zip, run `FruityPrime.exe`
           - **Linux / macOS** -- the `.tar.gz`, run `./FruityPrime -launcher`
           - **Android** -- the `.apk`
-          - **Running a server** -- the `server-` packages, which need no game files
+          - **Running a server** -- the `server-` packages plus your own extracted or baked game content; directory-only mode needs no game files
 
           Setup and everything else is in the [README](https://github.com/liveteklol/Fruity-Prime#readme).
           NOTE

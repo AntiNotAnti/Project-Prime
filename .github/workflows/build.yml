@@ -115,13 +115,10 @@ jobs:
         if: matrix.id == 'win-x64'
         run: tools/check-subsystem.sh gui publish/${{ matrix.id }}/FruityPrime.exe
 
-      # Both x64 Linux builds exist to be servers -- one with a launcher
-      # attached, one without -- so neither is finished until it has actually
-      # started. Keyed on rid rather than id: it needs no game files, no
-      # display and no sound device, which is what makes it runnable on this
-      # x64 runner, and the ARM64 build cannot say the same being built for a
-      # processor this runner does not have.
-      - name: the dedicated server runs
+      # Without cartridge data, exercise the required-data error and the
+      # directory-only query path. Real simulation needs separately supplied
+      # content. Both x64 packages run here; ARM64 is cross-compiled.
+      - name: the server content contract and directory run
         if: matrix.rid == 'linux-x64'
         run: tools/check-dedicated-server.sh publish/${{ matrix.id }}
 
@@ -281,7 +278,7 @@ jobs:
         run: tools/check-no-game-assets.sh publish/win-x64-server
 
       # The same script the Linux job runs, on Windows.
-      - name: the dedicated server runs
+      - name: the server content contract and directory run
         shell: bash
         run: tools/check-dedicated-server.sh publish/win-x64-server
 

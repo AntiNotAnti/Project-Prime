@@ -12,7 +12,10 @@ number rather than whatever the internet is doing this minute.
 Each client that talks to the listen port gets its own upstream socket, so
 the server sees several distinct peers exactly as it would over the wire.
 """
-import heapq, random, select, socket, sys, threading, time
+import heapq, os, random, select, socket, sys, threading, time
+
+if "MPHREAD_LAG_SEED" in os.environ:
+    random.seed(int(os.environ["MPHREAD_LAG_SEED"]))
 
 listen_port = int(sys.argv[1])
 server = (sys.argv[2], int(sys.argv[3]))

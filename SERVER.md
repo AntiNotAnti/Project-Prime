@@ -1,82 +1,256 @@
 # Running a Fruity Prime server
 
-You do not need any of this to play online. **Host → Where: Online** in the launcher asks a public
-machine to run the match and joins you to it, with nothing to open on your router. This page is for
-running a machine of your own that is always up.
+Fruity Prime online matches use authoritative wire family 2, protocol 6. The
+server owns one headless simulation: movement, combat, pickups, objectives,
+score and match transitions. Clients send input and receive authoritative
+snapshots, world updates and reliable gameplay events; the local player is a
+normal client too. The simulation runs at 60 Hz, publishes player snapshots at
+30 Hz and complete world state at 5 Hz.
 
-A server needs **no game files** and keeps nothing on disk. A Raspberry Pi is enough.
+The server directory is only for discovery and optional hosted matches. It does
+not relay gameplay packets. A directory-only instance needs no game files, but
+every match server needs content from the operator's own cartridge dump.
+Release packages contain no cartridge data.
+
+## Build the server package
+
+The server build omits the launcher, UI toolkit and audio dependencies. Build a
+self-contained package with .NET 9 or later:
 
 ```bash
-# Linux
-./FruityPrime -server -port 27888 -players 8 -servername "My server"
-# Windows -- the console binary, not FruityPrime.exe
-FruityPrimeServer.exe -server -port 27888 -players 8 -servername "My server"
+dotnet publish src/MphRead/MphRead.csproj -c Release -r linux-x64 \
+  -p:MphReadServer=true --self-contained true -p:PublishSingleFile=true \
+  -o publish/linux-x64-server
 ```
 
-| Flag | |
+Use `linux-arm64` for a Raspberry Pi and `win-x64` for Windows. The Linux
+binary is `FruityPrime`; the Windows server package contains the console binary
+`FruityPrimeServer.exe`. On Windows, use that binary rather than the graphical
+`FruityPrime.exe` so the shell/service receives the server's lifetime and exit
+code.
+
+For a development checkout, the equivalent is:
+
+```bash
+dotnet run --project src/MphRead/MphRead.csproj -c Release \
+  -p:MphReadServer=true -- -server -data /path/to/files/AMHE1
+```
+
+For a local Windows one-click launcher, run `Start-FruityPrime.cmd` from the
+repository root. It offers **Game**, **Dedicated server** and **Server
+directory** in a menu, and accepts the same choices without a menu:
+
+```powershell
+.\Start-FruityPrime.cmd game
+.\Start-FruityPrime.cmd server
+.\Start-FruityPrime.cmd directory
+```
+
+The script assumes `AMHE1` is beside it, passes that directory to the server,
+and creates the game's `paths.txt` automatically when needed. It uses a
+published executable when one is present; otherwise it builds a local copy
+under `.fruity-launcher/`. The server starts unlisted on UDP 27888, while the
+directory starts discovery-only on UDP 27889. Enable hosted matches with, for
+example, `powershell -File .\Start-FruityPrime.ps1 directory -HostPorts
+27900-27919 -PublicAddress games.example.com`.
+
+The repository's `global.json` targets .NET SDK 9. If SDK 9 is not installed
+but a newer SDK is available, the launcher uses that SDK's MSBuild only for the
+local fallback build, leaves `global.json` unchanged, and enables major
+runtime roll-forward for that launched process. Install .NET 9 for reproducible
+development and release builds; a published binary beside the launcher avoids
+the build step entirely.
+
+## Game content
+
+The **game data directory** is the extracted version folder, for example
+`files/AMHE1`, containing `_bin/arm9.bin`, `models/` and `levels/`. An `.nds`
+file, or the directory that merely contains the `.nds`, is not server content.
+
+An extracted directory can be supplied directly. The server accepts the
+supported extracted revisions `AMHE0`, `AMHE1`, `AMHP0`, `AMHP1`, `AMHJ0`,
+`AMHJ1` and `AMHK0`:
+
+```bash
+./FruityPrime -server -data /srv/fruity-content -dataversion AMHE1
+```
+
+For a smaller headless package, bake the dependencies into a new directory:
+
+```bash
+./FruityPrime -servercontent /srv/fruity-content-amhe1 \
+  -data /path/to/files/AMHE1 -dataversion AMHE1 -allrooms
+```
+
+The baker currently supports only the USA revision 1 (`AMHE1`). Use repeated
+`-room "ROOM KEY"` arguments instead of `-allrooms` to select rooms. The bake
+records supported room/mode combinations and SHA-256 file hashes in
+`server-content.json`, validates the package before use, and never changes the
+source extraction. Keep the output outside the repository; neither binaries
+nor `deploy-server.sh` transfer cartridge assets. See
+[`docs/NETWORK_SERVER_CONTENT.md`](docs/NETWORK_SERVER_CONTENT.md) for the
+package contract and coverage rules.
+
+## Start an authoritative match server
+
+`-server`, `-authoritative-server` and `-dedicated` select the same authoritative server.
+The room argument is optional; without a rotation file the default is
+`MP1 SANCTORUS`, Battle, with a ten-minute limit and no point-goal limit.
+
+```bash
+# Linux: extracted directory or baked package
+./FruityPrime -server "MP1 SANCTORUS" \
+  -data /srv/fruity-content -dataversion AMHE1 \
+  -port 27888 -players 8 -servername "My server"
+
+# Windows: use the console server binary
+FruityPrimeServer.exe -server "MP1 SANCTORUS" \
+  -data "C:\\FruityPrime\\content" -dataversion AMHE1 \
+  -port 27888 -players 8 -servername "My server"
+```
+
+The process prints a line such as
+`[server] listening on UDP 27888` when it is ready. Ctrl+C and SIGTERM stop
+the simulation cleanly. With `-parent-stdin`, closing the parent stdin also
+stops it. A server must have exactly one simulation process; run separate
+processes for separate matches.
+
+| Option | Meaning |
 |---|---|
-| `-port N` | UDP port. Default 27888 |
-| `-players N` | slots. Default 4, use 8 |
-| `-servername "NAME"` | the name shown in the browser |
-| `-rotation FILE` | default `maprotation.txt`, written beside the binary on first run |
-| `-friendlyfire` | team damage on |
-| `-nomaster` | stay off every server list |
-| `-master HOST` `-masterport N` | use a server list other than `net.livetek.fr:27889` |
-
-## Ports
-
-UDP only. Forward **27888** to the machine. The server list uses **27889**.
-
-Your server is listed on `net.livetek.fr` automatically, so people find it in **Join → Find a
-server**. Check it arrived with `FruityPrime -servers`, which prints the list the browser shows.
-`-nomaster` keeps it private.
+| `-data DIRECTORY` | Required extracted directory or validated server-content package. |
+| `-dataversion VERSION` | Content revision; defaults to `AMHE1`. |
+| `-port N` | UDP match port; default `27888`; `0` asks the OS for an ephemeral port. |
+| `-players N` | Capacity from 2 through 8; default `8`. |
+| `-mode MODE` | Mode for the single default match when no rotation file is supplied. |
+| `-servername "NAME"` | Name shown by discovery; `-name` is an alias. |
+| `-rotation FILE` | Map/mode/time/point cycle. The file is read at startup; it is not created automatically. |
+| `-friendlyfire` / `-friendlyfire false` | Enable or disable team damage. |
+| `-master HOST:PORT` | Opt in to directory listing. `-masterport N` can supply the port separately. |
+| `-nomaster` | Disable listing, even if `-master` is present. |
+| `-mapdir DIRECTORY` | Use an external custom-map directory. |
+| `-noupdate` | Skip the startup update check. |
+| `-parent-stdin` | Stop when the supervising parent closes stdin; used by directory-owned child servers. |
 
 ## Map rotation
 
-`maprotation.txt`, one match per line, `#` for comments:
+Create a plain text file with one match per line. `#` starts a comment:
 
-```
+```text
 MP1 SANCTORUS      | Battle | 7 | 7
 MP3 PROVING GROUND | Battle | 7 | 7
 ```
 
-`ROOM KEY | mode | minutes | points`. Only the key is required.
+The fields are `ROOM KEY | mode | minutes | points`. Only the room key is
+required; omitted rotation values default to Battle, 7 minutes and 7 points.
+Every selected room/mode must be present in the supplied content package. Use
+`-rooms` on a machine with configured extracted game files to print the room
+keys. After a match ends, the server advances to the next rotation entry.
 
-`FruityPrime -rooms` lists every key — the 27 cartridge rooms and any custom map. It reads the game
-files to do that, so run it on a machine that has them, not necessarily on the server.
+## Ports, listing and direct joins
 
-## As a service
+Gameplay is UDP only. Allow inbound UDP on the configured match port (27888 in
+the examples) and forward it through the router when the server is behind NAT.
+The server does not open firewall or router ports for you.
 
-systemd units are in `tools/systemd/`:
-
-```bash
-sed -e 's|__USER__|youruser|' -e 's|__DIR__|/home/youruser/fruityprime-server|' \
-    tools/systemd/mphread-server.service | sudo tee /etc/systemd/system/mphread-server.service
-sudo systemctl enable --now mphread-server
-```
-
-Stop the service before replacing the binary — systemd holds the file open, and .NET maps it into
-memory, so copying over a running one takes the process down in a way nothing explains.
-
-`deploy-server.sh` does build, upload, units and restart against a remote box in one go.
-
-## Your own server list
-
-The list players' browsers ask is the same binary:
+Listing is opt-in:
 
 ```bash
-FruityPrime -masterserver -port 27889
+./FruityPrime -server -data /srv/fruity-content \
+  -master net.livetek.fr:27889 -servername "My server"
+./FruityPrime -servers
 ```
 
-Add `-public HOST` if a game server shares the box (its heartbeats arrive over the loopback, and the
-address published for it has to be the one the internet can reach), and `-hostports A-B` for the
-port range it may run matches on for players who cannot open one.
+The directory receives a heartbeat approximately every 15 seconds and removes
+silent entries after about 50 seconds. `-servers` asks the directory and then
+probes each listed match server directly, so the displayed latency is the
+client's path to the game server. An unlisted server can still be joined when
+its address is known; listing does not change reachability.
 
-Point servers at it with `-master HOST`, and players in **Settings → Servers**.
+## Run your own server directory
 
-## Versions must match
+A directory-only process serves discovery without loading content:
 
-A server refuses a client built against a different protocol, at the first packet, with a line in
-its log. That is deliberate: the wire format does not move between versions, so an old client would
-read every byte correctly and then play a different game. Update the server before handing out a
-client built from a newer release.
+```bash
+./FruityPrime -masterserver -port 27889 -hostports none
+```
+
+To let the directory start authoritative matches for players who cannot open a
+port, configure content and a UDP port range for child servers:
+
+```bash
+./FruityPrime -masterserver -port 27889 \
+  -data /srv/fruity-content -dataversion AMHE1 \
+  -hostports 27900-27919 -public games.example.com
+```
+
+Open UDP 27889 and every port in the selected host range. A range may contain
+at most 64 ports. `-hostports none` disables hosted matches explicitly.
+`-public` (or `-publicaddress`) is the externally reachable address to publish
+when match heartbeats arrive over loopback or a private LAN. Without content,
+directory queries continue to work but host requests are refused.
+
+Each hosted match is a separate child server process. The directory reclaims a
+match that never gets a player after three minutes, and an empty match after
+roughly 45 seconds once it has been played; it also stops owned children during
+shutdown. The master sees discovery traffic only, not gameplay.
+
+The command-line host flow is:
+
+```bash
+./FruityPrime -hostgame "MP1 SANCTORUS" -mode Battle \
+  -master games.example.com:27889
+```
+
+This asks the directory to start a match and joins it through the normal
+authoritative client, so the hosting player's router needs no inbound rule.
+The graphical launcher uses the same path for **Host → Where: Online**.
+
+## Services and deployment
+
+Templates are in `tools/systemd/`. The match unit requires `-data`; the
+directory-only unit uses `-hostports none` unless you explicitly add content
+and a host range. Fill in the placeholders with
+`tools/render-server-unit.py`, then install the rendered unit. systemd stop
+requests and Ctrl+C both shut down the simulation cleanly.
+
+`deploy-server.sh` builds and uploads only the ARM64 server binary. Install the
+content on the remote machine first and provide its existing absolute path:
+
+```bash
+MPH_SERVER_HOST=games.example.com MPH_SERVER_USER=gameuser \
+MPH_SERVER_DIR=/home/gameuser/fruityprime-server \
+MPH_SERVER_DATA=/srv/fruity-content \
+MPH_SERVER_MASTER=games.example.com:27889 ./deploy-server.sh
+```
+
+`MPH_SERVER_DATA` is required. `MPH_SERVER_DATA_VERSION` defaults to `AMHE1`;
+omit `MPH_SERVER_MASTER` to leave the match unlisted; and set
+`MPH_DEPLOY_MASTER=0` to leave the directory service untouched. Deployment
+validates the remote content before stopping services, preserves existing unit
+rules, and never uploads extracted files or a server-content package.
+
+## Compatibility and verification
+
+Live clients, match servers and directories use authoritative wire family 2,
+protocol 6, and should be updated together. Both family and protocol must match.
+Discovery identifies upstream protocol-5 relays as online but incompatible;
+the client sends no authoritative join to them. There is one live networking
+implementation. Protocol-4 relay and protocol-5 authoritative demo files remain
+readable through passive playback without opening a gameplay socket.
+
+The server's status query is read-only and safe for browser polling. A normal
+CI smoke check verifies the required-content error, directory query and
+authoritative connection fixture. It does not prove a playable match without
+separately supplied game data. For headless, content-bake and real UDP
+validation commands, see
+[`docs/NETWORK_MODERNIZATION.md`](docs/NETWORK_MODERNIZATION.md).
+
+## Custom map directories
+
+Pass `-mapdir /path/to/maps` when map definitions live outside the executable's
+default `maps` directory. Locally hosted child servers inherit the launcher's
+configured map directory. The generated collision/entity/model files must
+already exist in the selected extracted data directory; server startup does not
+regenerate or overwrite them. The retail content baker covers the retail room
+table only; custom definitions and their generated data must be supplied and
+validated separately.
