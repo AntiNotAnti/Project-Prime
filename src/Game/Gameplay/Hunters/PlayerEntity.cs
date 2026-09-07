@@ -1681,6 +1681,7 @@ namespace MphRead.Entities
                 // the game stops the boost charge SFX here, but that SFX is empty
                 _boostCharge = 0;
                 _scene.Match.Players[SlotIndex].Deaths++;
+                _scene.SpawnDirector.RecordDeath(Position);
                 if (this == Main && beamType == BeamType.OmegaCannon)
                 {
                     ShowDeathFade();

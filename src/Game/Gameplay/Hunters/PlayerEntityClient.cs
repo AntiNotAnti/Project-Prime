@@ -80,7 +80,8 @@ namespace MphRead.Entities
             bool alt = (state.Flags & SnapshotPlayerFlags.AltForm) != 0;
             if ((!predicted || newLife) && IsAltForm != alt) { ModForceForm(alt); }
             ModSetSpectating((state.Flags & SnapshotPlayerFlags.Spectating) != 0);
-            ModSetFrozen((state.Flags & SnapshotPlayerFlags.Frozen) != 0);
+            // Freeze gates local prediction; burn/disruption remain presentation-only
+            // so snapshot reconciliation cannot start client-generated burn damage.
             _frozenTimer = state.FrozenTicks;
         }
 

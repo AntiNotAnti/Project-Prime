@@ -74,7 +74,7 @@ namespace MphRead.Mods.Network
                     return true;
                 case DemoRecordKind.Snapshot:
                     Span<SnapshotPlayer> players = stackalloc SnapshotPlayer[8];
-                    if (!SnapshotPacket.TryRead(body, players, out SnapshotPacket snapshot, out int count)
+                    if (!TryReadSnapshot(body, players, out SnapshotPacket snapshot, out int count)
                         || snapshot.MatchId != Match.MatchId || Match.MatchId == 0) { return false; }
                     if (HasSnapshot && !Sequence32.IsNewer(snapshot.Sequence, Snapshot.Sequence)) { return true; }
                     players[..count].CopyTo(_players);
@@ -94,7 +94,7 @@ namespace MphRead.Mods.Network
                 case DemoRecordKind.Roster:
                     // Entries contain strings, so use the small fixed-size managed table.
                     if (body.Length < 4 || BinaryPrimitives.ReadUInt32LittleEndian(body) != Match.MatchId
-                        || !SessionRosterPacket.TryRead(body[4..], _roster, out _, out int rosterCount)) { return false; }
+                        || !TryReadRoster(body[4..], _roster, out int rosterCount)) { return false; }
                     Array.Clear(NetSession.SlotOccupied);
                     foreach (NetRosterEntry entry in _roster.AsSpan(0, rosterCount))
                     {
@@ -126,9 +126,19 @@ namespace MphRead.Mods.Network
             }
         }
 
+        private bool TryReadSnapshot(ReadOnlySpan<byte> body, Span<SnapshotPlayer> players,
+            out SnapshotPacket packet, out int count)
+            => _protocol >= 8 ? SnapshotPacket.TryRead(body, players, out packet, out count)
+                : Protocol7DemoCodec.TryReadSnapshot(body, players, out packet, out count);
+
+        private bool TryReadRoster(ReadOnlySpan<byte> body, Span<NetRosterEntry> entries, out int count)
+            => _protocol >= 8 ? SessionRosterPacket.TryRead(body, entries, out _, out count)
+                : Protocol7DemoRoster.TryRead(body, entries, out _, out count);
+
         private bool TryReadMatch(ReadOnlySpan<byte> body, out MatchTransitionPacket match)
         {
-            if (_protocol >= 7) { return MatchTransitionPacket.TryRead(body, out match); }
+            if (_protocol >= 8) { return MatchTransitionPacket.TryRead(body, out match); }
+            if (_protocol == 7) { return Protocol7DemoCodec.TryReadMatch(body, out match); }
             // Protocol 5/6 demo-only layout. Never use this decoder on a live socket.
             match = default;
             if (body.Length != 9 + MatchStatePacket.MaxNameBytes || body[8] < (byte)GameMode.Battle
@@ -214,6 +224,7 @@ namespace MphRead.Mods.Network
                     _lives[slot] = 0;
                 }
                 player.ApplyServerState(state, _lives[slot] != state.Life);
+                player.GetPresentation().ReconcileNetworkAfflictions(state, Snapshot.ServerTick, legacy: _protocol < 8);
                 player.ApplySnapshotTransform(state);
                 player.Controls.ClearAll();
                 _lives[slot] = state.Life;
@@ -222,6 +233,7 @@ namespace MphRead.Mods.Network
             {
                 if ((occupied & (1 << slot)) == 0 && _identities[slot] != 0)
                 {
+                    PlayerEntity.Players[slot].GetPresentation().ClearNetworkAfflictions();
                     PlayerEntity.Players[slot].ServerDeactivate();
                     NetScoreboard.ForgetSlot(scene, slot);
                     _identities[slot] = 0;

@@ -13,6 +13,7 @@ namespace MphRead.Mods.Network
         private static readonly ModernDemoState _modern = new();
         internal static ModernDemoState Modern => _modern;
         public static MatchRules? InitialRules => IsModern ? _modern.InitialRules ?? _initialRules : null;
+        public static uint? SnapshotServerTick => IsModern && _modern.HasSnapshot ? _modern.Snapshot.ServerTick : null;
         public static uint? WorldServerTick => IsModern && _modern.World.HasState ? _modern.World.ServerTick : null;
         public static bool IsModern => IsActive && _reader != null && DemoFile.IsAuthoritativeProtocol(_reader.ProtocolVersion);
         public static bool ApplyingSnapshot => IsModern && _modern.ApplyingSnapshot;

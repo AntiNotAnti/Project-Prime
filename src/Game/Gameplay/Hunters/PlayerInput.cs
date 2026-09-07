@@ -993,6 +993,7 @@ namespace MphRead.Entities
                 PlayBeamEmptySfx(EquipInfo.Weapon.Beam);
                 return false;
             }
+            NoteOffensiveAction();
             // todo: update license stats
             _timeSinceShot = 0;
             if (IsMainPlayer)
@@ -1304,6 +1305,7 @@ namespace MphRead.Entities
                                     {
                                         _altAttackTime = (ushort)startupTime;
                                         Flags2 |= PlayerFlags2.AltAttack;
+                                        NoteOffensiveAction();
                                     }
                                 }
                             }
@@ -1327,6 +1329,7 @@ namespace MphRead.Entities
                         else if (Controls.AltAttack.IsPressed)
                         {
                             Flags2 |= PlayerFlags2.AltAttack;
+                            NoteOffensiveAction();
                             _altModel.SetAnimation((int)SpireAltAnim.Attack, AnimFlags.NoLoop);
                             _soundSource.PlaySfx(SfxId.SPIRE_ALT_ATTACK);
                             _spireRockPosR = Position;
@@ -1348,6 +1351,7 @@ namespace MphRead.Entities
                         else if (Controls.AltAttack.IsPressed)
                         {
                             Flags2 |= PlayerFlags2.AltAttack;
+                            NoteOffensiveAction();
                             float attackHSpeed = Fixed.ToFloat(Values.LungeHSpeed);
                             float attackVSpeed = Fixed.ToFloat(Values.LungeVSpeed);
                             float accelX = _field70 * attackHSpeed;
@@ -1384,6 +1388,7 @@ namespace MphRead.Entities
                         else if (Controls.AltAttack.IsPressed)
                         {
                             Flags2 |= PlayerFlags2.AltAttack;
+                            NoteOffensiveAction();
                             float attackHSpeed = Fixed.ToFloat(Values.LungeHSpeed);
                             float attackVSpeed = Fixed.ToFloat(Values.LungeVSpeed);
                             if (_field70 * Speed.X + _field74 * Speed.Z < attackHSpeed)
@@ -1476,6 +1481,7 @@ namespace MphRead.Entities
                                 speedDelta = speedDelta.AddX(boostDirX * factor).AddZ(boostDirZ * factor);
                                 _altAttackCooldown = (ushort)(Values.AltAttackCooldown * 2); // todo: FPS stuff
                                 Flags1 |= PlayerFlags1.Boosting;
+                                NoteOffensiveAction();
                                 _boostDamage = (ushort)(Values.AltAttackDamage * _boostCharge / (Values.BoostChargeMax * 2)); // todo: FPS stuff
                                 if (IsMainPlayer)
                                 {
@@ -1554,6 +1560,12 @@ namespace MphRead.Entities
             UpdateCamera();
         }
 
+        private void NoteOffensiveAction()
+        {
+            if (_scene.Match.Rules.CancelSpawnProtectionOnOffensiveAction)
+                _spawnInvulnTimer = 0;
+        }
+
         private void SpawnBomb()
         {
             // todo?: wi-fi condition and alternate function for spawning Lockjaw bombs
@@ -1567,6 +1579,7 @@ namespace MphRead.Entities
             {
                 if (Hunter == Hunter.Sylux && SyluxBombCount >= 3)
                 {
+                    NoteOffensiveAction();
                     SyluxBombs[2]!.Countdown = 0;
                     SyluxBombs[1]!.Countdown = 0;
                     SyluxBombs[0]!.Countdown = 0;
@@ -1577,6 +1590,7 @@ namespace MphRead.Entities
             var bomb = BombEntity.Spawn(this, transform, _scene);
             if (bomb != null)
             {
+                NoteOffensiveAction();
                 if (Hunter == Hunter.Sylux)
                 {
                     SyluxBombs[SyluxBombCount] = bomb;

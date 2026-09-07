@@ -36,7 +36,7 @@ namespace MphRead.Mods.Network
     {
         public const ushort Magic = 0x5046;
         public const int Size = 24;
-        public const byte Version = 7;
+        public const byte Version = 8;
 
         public void Write(Span<byte> destination)
         {

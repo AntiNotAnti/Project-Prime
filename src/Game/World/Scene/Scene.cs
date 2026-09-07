@@ -19,6 +19,7 @@ namespace MphRead
     public partial class Scene
     {
         public MatchRuntime Match { get; }
+        public SpawnDirector SpawnDirector { get; }
         public event Action<PlayerEntity, int>? JumpPadActivated;
         public event Action<PlayerEntity, int>? PlayerTeleported;
         internal void NoteJumpPad(PlayerEntity player, int entityId) => JumpPadActivated?.Invoke(player, entityId);
@@ -29,6 +30,7 @@ namespace MphRead
         public Scene(bool headless = false, bool preserveNicknames = false)
         {
             IsHeadless = headless;
+            SpawnDirector = new SpawnDirector(this);
             Read.ClearCache();
             Text.Strings.ClearCache();
             Match = new MatchRuntime(new MatchRules(MatchMode.Battle, "__unconfigured__"), this)

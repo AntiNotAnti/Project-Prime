@@ -1,3 +1,4 @@
+// Frozen protocol 5/6/7 snapshot layout. Never called by live networking.
 using System;
 using System.Buffers.Binary;
 using OpenTK.Mathematics;
@@ -5,7 +6,7 @@ using OpenTK.Mathematics;
 namespace MphRead.Mods.Network
 {
     [Flags]
-    public enum SnapshotPlayerFlags : ushort
+    internal enum Protocol7SnapshotPlayerFlags : ushort
     {
         None = 0,
         Active = 1,
@@ -22,14 +23,14 @@ namespace MphRead.Mods.Network
         All = 2047
     }
 
-    public struct SnapshotPlayer
+    internal struct Protocol7SnapshotPlayer
     {
-        public const int Size = 96;
+        public const int Size = 88;
         public byte Slot;
         public Hunter Hunter;
         public byte TeamIndex;
         public byte Weapon;
-        public SnapshotPlayerFlags Flags;
+        public Protocol7SnapshotPlayerFlags Flags;
         public ushort Health;
         public ushort AmmoUa;
         public ushort AmmoMissiles;
@@ -44,13 +45,9 @@ namespace MphRead.Mods.Network
         public int Deaths;
         public ushort AvailableWeapons;
         public ushort FrozenTicks;
-        public ushort BurnTicks;
-        public ushort DisruptTicks;
-        public int Assists;
 
         public readonly void Write(Span<byte> destination)
         {
-            if (destination.Length != Size) throw new ArgumentException("Snapshot player requires exactly 96 bytes.", nameof(destination));
             destination[0] = Slot;
             destination[1] = (byte)Hunter;
             destination[2] = TeamIndex;
@@ -70,24 +67,17 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteInt32LittleEndian(destination[80..], Deaths);
             BinaryPrimitives.WriteUInt16LittleEndian(destination[84..], AvailableWeapons);
             BinaryPrimitives.WriteUInt16LittleEndian(destination[86..], FrozenTicks);
-            BinaryPrimitives.WriteUInt16LittleEndian(destination[88..], BurnTicks);
-            BinaryPrimitives.WriteUInt16LittleEndian(destination[90..], DisruptTicks);
-            BinaryPrimitives.WriteInt32LittleEndian(destination[92..], Assists);
         }
 
-        public static bool TryRead(ReadOnlySpan<byte> source, out SnapshotPlayer player)
+        public static bool TryRead(ReadOnlySpan<byte> source, out Protocol7SnapshotPlayer player)
         {
             player = default;
             if (source.Length != Size || source[0] >= 8 || source[1] > (byte)Hunter.Guardian
                 || source[2] >= 8 || source[3] > 8
-                || (BinaryPrimitives.ReadUInt16LittleEndian(source[4..]) & ~(ushort)SnapshotPlayerFlags.All) != 0
+                || (BinaryPrimitives.ReadUInt16LittleEndian(source[4..]) & ~(ushort)Protocol7SnapshotPlayerFlags.All) != 0
                 || BinaryPrimitives.ReadUInt64LittleEndian(source[16..]) == 0
                 || BinaryPrimitives.ReadInt32LittleEndian(source[76..]) < 0
                 || BinaryPrimitives.ReadInt32LittleEndian(source[80..]) < 0
-                || BinaryPrimitives.ReadInt32LittleEndian(source[92..]) < 0
-                || BinaryPrimitives.ReadUInt32LittleEndian(source[12..]) == 0
-                || (((SnapshotPlayerFlags)BinaryPrimitives.ReadUInt16LittleEndian(source[4..]) & SnapshotPlayerFlags.Burning) != 0) != (BinaryPrimitives.ReadUInt16LittleEndian(source[88..]) > 0)
-                || (((SnapshotPlayerFlags)BinaryPrimitives.ReadUInt16LittleEndian(source[4..]) & SnapshotPlayerFlags.Disrupted) != 0) != (BinaryPrimitives.ReadUInt16LittleEndian(source[90..]) > 0)
                 || (BinaryPrimitives.ReadUInt16LittleEndian(source[84..]) & ~0x1FF) != 0)
             {
                 return false;
@@ -102,10 +92,10 @@ namespace MphRead.Mods.Network
             {
                 return false;
             }
-            player = new SnapshotPlayer
+            player = new Protocol7SnapshotPlayer
             {
                 Slot = source[0], Hunter = (Hunter)source[1], TeamIndex = source[2], Weapon = source[3],
-                Flags = (SnapshotPlayerFlags)BinaryPrimitives.ReadUInt16LittleEndian(source[4..]),
+                Flags = (Protocol7SnapshotPlayerFlags)BinaryPrimitives.ReadUInt16LittleEndian(source[4..]),
                 Health = BinaryPrimitives.ReadUInt16LittleEndian(source[6..]),
                 AmmoUa = BinaryPrimitives.ReadUInt16LittleEndian(source[8..]),
                 AmmoMissiles = BinaryPrimitives.ReadUInt16LittleEndian(source[10..]),
@@ -116,10 +106,7 @@ namespace MphRead.Mods.Network
                 Kills = BinaryPrimitives.ReadInt32LittleEndian(source[76..]),
                 Deaths = BinaryPrimitives.ReadInt32LittleEndian(source[80..]),
                 AvailableWeapons = BinaryPrimitives.ReadUInt16LittleEndian(source[84..]),
-                FrozenTicks = BinaryPrimitives.ReadUInt16LittleEndian(source[86..]),
-                BurnTicks = BinaryPrimitives.ReadUInt16LittleEndian(source[88..]),
-                DisruptTicks = BinaryPrimitives.ReadUInt16LittleEndian(source[90..]),
-                Assists = BinaryPrimitives.ReadInt32LittleEndian(source[92..])
+                FrozenTicks = BinaryPrimitives.ReadUInt16LittleEndian(source[86..])
             };
             return true;
         }
@@ -139,13 +126,13 @@ namespace MphRead.Mods.Network
         }
     }
 
-    public readonly record struct SnapshotPacket(uint ServerTick, uint Sequence, uint MatchId,
+    internal readonly record struct Protocol7SnapshotPacket(uint ServerTick, uint Sequence, uint MatchId,
         uint LastProcessedInput, bool HasProcessedInput, uint Rng1, uint Rng2)
     {
         public const int HeaderSize = 26;
-        public const int MaxSize = HeaderSize + 8 * SnapshotPlayer.Size;
+        public const int MaxSize = HeaderSize + 8 * Protocol7SnapshotPlayer.Size;
 
-        public int Write(Span<byte> destination, ReadOnlySpan<SnapshotPlayer> players)
+        public int Write(Span<byte> destination, ReadOnlySpan<Protocol7SnapshotPlayer> players)
         {
             if (players.Length > 8) { throw new ArgumentOutOfRangeException(nameof(players)); }
             BinaryPrimitives.WriteUInt32LittleEndian(destination, ServerTick);
@@ -158,34 +145,32 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt32LittleEndian(destination[22..], Rng2);
             for (int i = 0; i < players.Length; i++)
             {
-                players[i].Write(destination.Slice(HeaderSize + i * SnapshotPlayer.Size, SnapshotPlayer.Size));
+                players[i].Write(destination.Slice(HeaderSize + i * Protocol7SnapshotPlayer.Size, Protocol7SnapshotPlayer.Size));
             }
-            return HeaderSize + players.Length * SnapshotPlayer.Size;
+            return HeaderSize + players.Length * Protocol7SnapshotPlayer.Size;
         }
 
-        public static bool TryRead(ReadOnlySpan<byte> source, Span<SnapshotPlayer> players,
-            out SnapshotPacket packet, out int count)
+        public static bool TryRead(ReadOnlySpan<byte> source, Span<Protocol7SnapshotPlayer> players,
+            out Protocol7SnapshotPacket packet, out int count)
         {
             packet = default;
             count = 0;
             if (source.Length < HeaderSize || source[16] > 1 || source[17] > 8 || source[17] > players.Length
-                || source.Length != HeaderSize + source[17] * SnapshotPlayer.Size)
+                || source.Length != HeaderSize + source[17] * Protocol7SnapshotPlayer.Size)
             {
                 return false;
             }
             int mask = 0;
             for (int i = 0; i < source[17]; i++)
             {
-                if (!SnapshotPlayer.TryRead(source.Slice(HeaderSize + i * SnapshotPlayer.Size, SnapshotPlayer.Size), out SnapshotPlayer decoded)
-                    || (mask & (1 << decoded.Slot)) != 0)
+                if (!Protocol7SnapshotPlayer.TryRead(source.Slice(HeaderSize + i * Protocol7SnapshotPlayer.Size, Protocol7SnapshotPlayer.Size), out players[i])
+                    || (mask & (1 << players[i].Slot)) != 0)
                 {
                     return false;
                 }
-                mask |= 1 << decoded.Slot;
+                mask |= 1 << players[i].Slot;
             }
-            for (int i = 0; i < source[17]; i++)
-                SnapshotPlayer.TryRead(source.Slice(HeaderSize + i * SnapshotPlayer.Size, SnapshotPlayer.Size), out players[i]);
-            packet = new SnapshotPacket(BinaryPrimitives.ReadUInt32LittleEndian(source),
+            packet = new Protocol7SnapshotPacket(BinaryPrimitives.ReadUInt32LittleEndian(source),
                 BinaryPrimitives.ReadUInt32LittleEndian(source[4..]), BinaryPrimitives.ReadUInt32LittleEndian(source[8..]),
                 BinaryPrimitives.ReadUInt32LittleEndian(source[12..]), source[16] != 0,
                 BinaryPrimitives.ReadUInt32LittleEndian(source[18..]), BinaryPrimitives.ReadUInt32LittleEndian(source[22..]));

@@ -16,7 +16,7 @@ internal static class ServerProgram
         {
             if (!Run(args))
             {
-                Console.WriteLine("Prime Hunters dedicated server\n-server [ROOM] -data DIRECTORY [-port 27888] [-rotation FILE] [-players 8] [-friendlyfire true]\n-masterserver [-port 27889] [-data DIRECTORY] [-hostports 27900-27919] [-public HOST]");
+                Console.WriteLine("Prime Hunters dedicated server\n-server [ROOM] -data DIRECTORY [-port 27888] [-rotation FILE] [-players 8] [-friendlyfire true] [-spawnpolicy classic|enhanced|duel] [-cancelspawnprotection true|false]\n-masterserver [-port 27889] [-data DIRECTORY] [-hostports 27900-27919] [-public HOST]");
                 return args.Length == 0 || HasFlag(args, "help") ? 0 : 2;
             }
             return Environment.ExitCode;
@@ -103,6 +103,9 @@ internal static class ServerProgram
                         ValueAfter(args, "dataversion") ?? "AMHE1", simulationRotation?.Current ?? entry)
                     {
                         Rotation = simulationRotation,
+                        SpawnPolicy = ServerSpawnOptions.ParsePolicy(ValueAfter(args, "spawnpolicy"), HasFlag(args, "spawnpolicy")),
+                        CancelSpawnProtectionOnOffensiveAction = ServerSpawnOptions.ParseCancellation(
+                            ValueAfter(args, "cancelspawnprotection"), HasFlag(args, "cancelspawnprotection")),
                         LagCompEnabled = !HasFlag(args, "nolagcomp"),
                         ProjectileCatchUpEnabled = !HasFlag(args, "noprojectilecatchup"),
                         MaxPlayers = Int32.TryParse(ValueAfter(args, "players"), out int capacity) ? capacity : 8,

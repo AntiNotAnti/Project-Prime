@@ -14,6 +14,8 @@ namespace MphRead.Mods.Network
         public MapRotation? Rotation { get; init; }
         public int MaxPlayers { get; init; } = 8;
         public bool FriendlyFire { get; init; }
+        public SpawnPolicy SpawnPolicy { get; init; } = SpawnPolicy.Classic;
+        public bool CancelSpawnProtectionOnOffensiveAction { get; init; }
         public bool LagCompEnabled { get; init; } = true;
         public bool ProjectileCatchUpEnabled { get; init; } = true;
         public string ServerName { get; init; } = "Prime Hunters";
@@ -46,7 +48,8 @@ namespace MphRead.Mods.Network
             ServerContent.Open(_data, _version);
             using var transport = new UdpTransport(_port);
             BoundPort = transport.LocalPort;
-            MatchRules rules = _entry.ToMatchRules(MaxPlayers, FriendlyFire);
+            MatchRules rules = _entry.ToMatchRules(MaxPlayers, FriendlyFire).With(
+                spawnPolicy: SpawnPolicy, cancelSpawnProtectionOnOffensiveAction: CancelSpawnProtectionOnOffensiveAction);
             ServerSimulation simulation = new(rules, LagCompEnabled, ProjectileCatchUpEnabled);
             try
             {
@@ -152,7 +155,8 @@ namespace MphRead.Mods.Network
                         if (simulation.Lifecycle.RotationDue)
                         {
                             RotationEntry next = Rotation?.Advance() ?? _entry;
-                            MatchRules nextRules = next.ToMatchRules(MaxPlayers, FriendlyFire);
+                            MatchRules nextRules = next.ToMatchRules(MaxPlayers, FriendlyFire).With(
+                                spawnPolicy: SpawnPolicy, cancelSpawnProtectionOnOffensiveAction: CancelSpawnProtectionOnOffensiveAction);
                             uint match = unchecked(network.MatchId + 1);
                             if (match == 0) { match = 1; }
                             network.ChangeMatch(match, nextRules, tick);

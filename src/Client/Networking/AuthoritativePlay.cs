@@ -275,6 +275,7 @@ namespace MphRead.Mods.Network
                     bool newLife = _lives[slot] != state.Life;
                     bool local = slot == LocalSlot;
                     player.ApplyServerState(state, newLife, local);
+                    player.GetPresentation().ReconcileNetworkAfflictions(state, Client.Snapshot.ServerTick);
                     if (!local)
                     {
                         player.ApplySnapshotTransform(state);
@@ -301,6 +302,7 @@ namespace MphRead.Mods.Network
                 {
                     if ((occupied & (1 << slot)) == 0 && _identities[slot] != 0)
                     {
+                        PlayerEntity.Players[slot].GetPresentation().ClearNetworkAfflictions();
                         PlayerEntity.Players[slot].ServerDeactivate();
                         NetScoreboard.ForgetSlot(scene, slot);
                         _identities[slot] = 0;

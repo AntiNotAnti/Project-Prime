@@ -51,6 +51,7 @@ namespace MphRead.Mods.Network
                 Lifecycle = new MatchLifecycle(Scene.Match);
                 _initialRng1 = Rng.Rng1;
                 _initialRng2 = Rng.Rng2;
+                Scene.SpawnDirector.Reset(_initialRng2);
                 _pristineWorld = CaptureCompetitiveWorld();
                 _resetForCountdown = ResetForCountdown;
             }
@@ -150,6 +151,7 @@ namespace MphRead.Mods.Network
             for (int slot = 0; slot < 8; slot++) { PlayerEntity.Players[slot].ServerDeactivate(); }
             Rng.SetRng1(_initialRng1);
             Rng.SetRng2(_initialRng2);
+            Scene.SpawnDirector.Reset(_initialRng2);
             for (int slot = 0; slot < 8; slot++)
             {
                 ServerPeer? peer = network.Peers[slot];

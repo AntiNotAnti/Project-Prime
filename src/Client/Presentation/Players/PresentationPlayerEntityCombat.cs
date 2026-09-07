@@ -12,6 +12,11 @@ namespace MphRead.Entities
         {
             if (_player._scene.IsHeadless || !AuthoritativePlay.Active)
                 return;
+            if (value.Kind == CombatEventKind.Affliction)
+            {
+                PresentNetworkAffliction(value);
+                return;
+            }
             if (value.Kind == CombatEventKind.Shot)
             {
                 if (predictedLocalShot || value.Weapon > 8)

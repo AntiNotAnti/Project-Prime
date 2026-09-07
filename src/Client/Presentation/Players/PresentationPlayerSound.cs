@@ -350,6 +350,11 @@ namespace MphRead.Entities
 
         public void UpdateBurningSfx(bool burning)
         {
+            if (_player._scene.Services.IsReplica)
+            {
+                UpdateNetworkAfflictionPresentation();
+                burning |= NetworkAfflictions.At(AfflictionPresentationTick()).Burn > 0 && _player.Health > 0;
+            }
             float prevAmount = _burnSfxAmount;
             float newAmount = 0xFFFF;
             if (!burning)

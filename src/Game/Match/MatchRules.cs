@@ -20,6 +20,8 @@ namespace MphRead
         public bool PlayerRadar { get; }
         public bool OctolithReset { get; }
         public int DamageLevel { get; }
+        public SpawnPolicy SpawnPolicy { get; }
+        public bool CancelSpawnProtectionOnOffensiveAction { get; }
         public bool Teams => Mode.IsTeamMode();
         public bool IsOctolithMode => Mode is MatchMode.Capture or MatchMode.Bounty or MatchMode.TeamBounty;
         public bool IsSurvival => Mode is MatchMode.Survival or MatchMode.TeamSurvival;
@@ -30,7 +32,8 @@ namespace MphRead
         public MatchRules(MatchMode mode, string roomKey, int maxPlayers = PlayerEntity.SlotCapacity,
             TimeSpan? timeLimit = null, int scoreGoal = 0, TimeSpan? objectiveTimeGoal = null,
             int startingLives = 0, bool friendlyFire = false, bool affinityWeapons = false,
-            bool playerRadar = false, bool octolithReset = false, int damageLevel = 1)
+            bool playerRadar = false, bool octolithReset = false, int damageLevel = 1,
+            SpawnPolicy spawnPolicy = SpawnPolicy.Classic, bool cancelSpawnProtectionOnOffensiveAction = false)
         {
             _ = mode.ToLegacyMode();
             if (String.IsNullOrWhiteSpace(roomKey)) { throw new ArgumentException("A room key is required.", nameof(roomKey)); }
@@ -42,6 +45,9 @@ namespace MphRead
             if (scoreGoal < 0) { throw new ArgumentOutOfRangeException(nameof(scoreGoal)); }
             if (startingLives < 0) { throw new ArgumentOutOfRangeException(nameof(startingLives)); }
             if ((uint)damageLevel > 2) { throw new ArgumentOutOfRangeException(nameof(damageLevel)); }
+            if (!Enum.IsDefined(spawnPolicy)) { throw new ArgumentOutOfRangeException(nameof(spawnPolicy)); }
+            SpawnPolicy = spawnPolicy;
+            CancelSpawnProtectionOnOffensiveAction = cancelSpawnProtectionOnOffensiveAction;
             Mode = mode;
             RoomKey = roomKey;
             MaxPlayers = maxPlayers;
@@ -78,13 +84,15 @@ namespace MphRead
             TimeSpan? timeLimit = null, bool clearTimeLimit = false, int? scoreGoal = null,
             TimeSpan? objectiveTimeGoal = null, int? startingLives = null,
             bool? friendlyFire = null, bool? affinityWeapons = null, bool? playerRadar = null,
-            bool? octolithReset = null, int? damageLevel = null)
+            bool? octolithReset = null, int? damageLevel = null,
+            SpawnPolicy? spawnPolicy = null, bool? cancelSpawnProtectionOnOffensiveAction = null)
         {
             return new MatchRules(mode ?? Mode, roomKey ?? RoomKey, maxPlayers ?? MaxPlayers,
                 clearTimeLimit ? null : timeLimit ?? TimeLimit, scoreGoal ?? ScoreGoal,
                 objectiveTimeGoal ?? ObjectiveTimeGoal, startingLives ?? StartingLives,
                 friendlyFire ?? FriendlyFire, affinityWeapons ?? AffinityWeapons,
-                playerRadar ?? PlayerRadar, octolithReset ?? OctolithReset, damageLevel ?? DamageLevel);
+                playerRadar ?? PlayerRadar, octolithReset ?? OctolithReset, damageLevel ?? DamageLevel,
+                spawnPolicy ?? SpawnPolicy, cancelSpawnProtectionOnOffensiveAction ?? CancelSpawnProtectionOnOffensiveAction);
         }
 
         public static MatchRules CreateDefault(MatchMode mode, string roomKey, int maxPlayers = PlayerEntity.SlotCapacity)
