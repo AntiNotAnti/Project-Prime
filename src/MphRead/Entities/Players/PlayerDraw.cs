@@ -20,10 +20,6 @@ namespace MphRead.Entities
                 return;
             }
             DrawShadow();
-            if (IsMainPlayer && ScanVisor)
-            {
-                DrawScanModels();
-            }
             if (Flags2.TestFlag(PlayerFlags2.HideModel))
             {
                 return;
@@ -374,7 +370,7 @@ namespace MphRead.Entities
                     float alpha = _curAlpha * pct;
                     if (_health == 0)
                     {
-                        float respawnTime = _deathCountdown > 0 ? UInt16.MaxValue : RespawnTime;
+                        float respawnTime = RespawnTime;
                         float decrease = 2 * (respawnTime - _respawnTimer) / 2f; // todo: FPS stuff
                         alpha -= decrease;
                     }

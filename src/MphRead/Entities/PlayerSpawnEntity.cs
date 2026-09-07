@@ -25,15 +25,8 @@ namespace MphRead.Entities
         {
             base.Initialize();
             SetTransform(_data.Header.FacingVector, _data.Header.UpVector, _data.Header.Position);
-            if (GameState.Mode == GameMode.SinglePlayer)
-            {
-                bool active = Cheats.SkipPlanetIntros ? true : (_data.Active != 0);
-                _active = _scene.GetInitialEntityState(Id, active) != 0;
-            }
-            else
-            {
-                _active = _data.Active != 0;
-            }
+            _active = _data.Active != 0;
+
         }
 
         public override bool Process()

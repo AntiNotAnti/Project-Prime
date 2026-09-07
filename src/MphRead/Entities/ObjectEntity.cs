@@ -44,7 +44,6 @@ namespace MphRead.Entities
             UpdateVisiblePosition();
             _flags = data.Flags;
             _state = (int)(data.Flags & ObjectFlags.State);
-            Debug.Assert(GameState.Mode == GameMode.SinglePlayer);
             // Legacy reads returned zero outside campaign rooms, including custom maps.
             _state = scene.RoomId < 27 || scene.RoomId > 92 || Id == -1 ? 0
                 : Id > 239 ? 1 : (int)(data.Flags & ObjectFlags.State);

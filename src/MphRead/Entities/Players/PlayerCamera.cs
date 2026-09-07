@@ -447,7 +447,7 @@ namespace MphRead.Entities
                 }
                 foreach (DoorEntity door in _scene.GetDoorEntities())
                 {
-                    if (door.Flags.TestFlag(DoorFlags.Open) || door.ConnectorInactive)
+                    if (door.Flags.TestFlag(DoorFlags.Open))
                     {
                         continue;
                     }

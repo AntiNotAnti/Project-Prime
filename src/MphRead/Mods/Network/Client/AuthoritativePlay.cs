@@ -127,7 +127,6 @@ namespace MphRead.Mods.Network
                 Prediction.Reset();
                 ResetPresentation();
                 _world.Reset(_loadedMatch);
-                GameState.Mode = Client.Accepted.Mode;
                 // Reliable rotation configuration is authoritative before any player rebuild.
                 scene.Match.ApplyRules(Client.Accepted.Rules);
                 scene.Match.Flow.ResetProgress();
@@ -139,7 +138,7 @@ namespace MphRead.Mods.Network
                     ? (float)Client.Accepted.Rules.TimeLimit.Value.TotalSeconds : -1;
                 scene.Match.RadarPlayers = Client.Accepted.Rules.PlayerRadar;
                 (RoomMetadata? metadata, _) = Metadata.GetRoomByName(Client.Accepted.Room);
-                GameState.TransitionRoomId = metadata?.Id
+                scene.TransitionRoomId = metadata?.Id
                     ?? throw new ProgramException($"Unknown server room: {Client.Accepted.Room}");
                 (scene.Room ?? throw new ProgramException("Network scene has no room.")).LoadRoom(resume: false);
             }
@@ -348,7 +347,7 @@ namespace MphRead.Mods.Network
             _presentationPending = false;
             // The pause map replaces the world in GetDrawItems. It cannot
             // advance a claim about remote poses the player did not see.
-            if (!Client.HasSnapshot || GameState.MenuPause) return;
+            if (!Client.HasSnapshot) return;
             long now = Stopwatch.GetTimestamp();
             double estimated = Client.Clock.Synchronized ? Client.Clock.EstimateServerTick(now)
                 : Client.Snapshot.ServerTick + Stopwatch.GetElapsedTime(Client.SnapshotReceivedAt, now).TotalSeconds * 60;

@@ -30,13 +30,13 @@ namespace MphRead.Entities
             _data = data;
             Id = data.Header.EntityId;
             SetTransform(data.Header.FacingVector, data.Header.UpVector, data.Header.Position);
-            GameMode mode = GameState.Mode;
-            Recolor = mode == GameMode.Capture ? data.TeamId : 2;
-            _bounty = mode != GameMode.Capture;
-            if (mode == GameMode.Capture || mode == GameMode.Bounty || mode == GameMode.BountyTeams)
+            MatchMode mode = _scene.Match.Rules.Mode;
+            Recolor = mode == MatchMode.Capture ? data.TeamId : 2;
+            _bounty = mode != MatchMode.Capture;
+            if (mode == MatchMode.Capture || mode == MatchMode.Bounty || mode == MatchMode.TeamBounty)
             {
                 SetUpModel("octolith_ctf");
-                SetUpModel(mode == GameMode.Capture ? "flagbase_ctf" : "flagbase_bounty");
+                SetUpModel(mode == MatchMode.Capture ? "flagbase_ctf" : "flagbase_bounty");
                 _basePosition = Position;
                 SetAtBase();
             }

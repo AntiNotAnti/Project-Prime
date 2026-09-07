@@ -8,9 +8,20 @@ using OpenTK.Mathematics;
 
 namespace MphRead
 {
+    public enum TransitionState
+    {
+        None = 0,
+        Start = 1,
+        Process = 2,
+        End = 3
+    }
+
     public partial class Scene
     {
         public MatchRuntime Match { get; }
+        public TransitionState TransitionState { get; set; }
+        public int TransitionRoomId { get; set; } = -1;
+        public bool InRoomTransition => TransitionState != TransitionState.None;
 
         // Preserve legacy initial-state sentinels for First Hunt, multiplayer and
         // custom rooms without retaining campaign save storage.

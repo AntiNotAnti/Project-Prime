@@ -155,8 +155,6 @@ namespace MphRead.Mods.Input
             Name(text, buttons, GamepadButtons.LeftTrigger, "zoom");
             Name(text, buttons, GamepadButtons.A, "jump/boost");
             Name(text, buttons, GamepadButtons.B, "morph");
-            Name(text, buttons, GamepadButtons.X, "scan");
-            Name(text, buttons, GamepadButtons.Y, "scan visor");
             Name(text, buttons, GamepadButtons.Back, "scoreboard");
             Name(text, buttons, GamepadButtons.RightBumper | GamepadButtons.DpadRight,
                 "next weapon");

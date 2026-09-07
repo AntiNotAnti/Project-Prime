@@ -50,8 +50,8 @@ namespace MphRead.Mods
         /// </summary>
         private static bool? _cameraRequest;
 
-        /// <summary>Hidden in the adventure/single-player pause menu -- there is nobody else to watch.</summary>
-        public static bool CanSpectate => GameState.Multiplayer;
+        /// <summary>Spectating is available in every supported match.</summary>
+        public static bool CanSpectate => true;
 
         /// <param name="watchSomeone">
         /// Skip the overview and go straight to a player, for demo playback,
@@ -59,7 +59,7 @@ namespace MphRead.Mods
         /// </param>
         public static void Start(bool watchSomeone = false)
         {
-            if (IsSpectating || !CanSpectate)
+            if (IsSpectating)
             {
                 return;
             }

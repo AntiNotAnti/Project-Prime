@@ -159,26 +159,14 @@ namespace MphRead.Mods.Chat
             into.Reverse();
         }
 
-        /// <summary>
-        /// Whether there is anybody to talk to.
-        ///
-        /// The story is a match with one player in it: there is no server, no
-        /// roster and nobody to read a line -- and T is a key the adventure's
-        /// own controls may want. Not "is a session running", because an
-        /// offline match against bots is still a match, and the log is where
-        /// the game's own notices go.
-        /// </summary>
-        public static bool Available => !GameState.SinglePlayer;
+        /// <summary>The chat log is available in every supported match.</summary>
+        public static bool Available => true;
 
         /// <summary>Anything on screen at all -- the log or the prompt.</summary>
         internal static bool Visible
         {
             get
             {
-                if (!Available)
-                {
-                    return false;
-                }
                 if (Composing)
                 {
                     return true;
@@ -258,7 +246,7 @@ namespace MphRead.Mods.Chat
         /// </param>
         public static void Open(bool swallowOpeningChar = true)
         {
-            if (Composing || !Available)
+            if (Composing)
             {
                 return;
             }
@@ -386,7 +374,7 @@ namespace MphRead.Mods.Chat
                 // chat_key=none has bound it to nothing, and Android reports
                 // every key this build does not map as Unknown -- so without
                 // this, unbinding chat would open it on any key at all.
-                if (canOpen && Available && key != Keys.Unknown
+                if (canOpen && key != Keys.Unknown
                     && key == InputSettings.ChatKey && !alt && !control)
                 {
                     Open(swallowOpeningChar);

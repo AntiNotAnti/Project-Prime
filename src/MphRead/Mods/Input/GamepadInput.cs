@@ -218,7 +218,7 @@ namespace MphRead.Mods.Input
             // Which button each of these is on is the player's business now:
             // see PadBindings, which starts as the table that used to be
             // written out here. Two of them drive two binds apiece, which is
-            // why PadAction has twelve entries and PlayerControls has more --
+            // why PadAction has fewer entries and PlayerControls has more --
             // FIRE is both attacks, for the reason the touch button is (the DS
             // had one attack button, and the game's own defaults still bind
             // the gun and the alt form's attack to the same one), and JUMP is
@@ -231,8 +231,6 @@ namespace MphRead.Mods.Input
             Hold(controls.Jump, jump);
             Hold(controls.Boost, jump);
             Hold(controls.Morph, PadBindings.Get(PadAction.Morph));
-            Hold(controls.Scan, PadBindings.Get(PadAction.Scan));
-            Hold(controls.ScanVisor, PadBindings.Get(PadAction.ScanVisor));
             // No weapon wheel on a pad, deliberately: PlayerHud's weapon
             // select reads the *absolute* pointer position, because on the DS
             // it was a touch screen and the slot under the stylus is the one

@@ -42,22 +42,8 @@ namespace MphRead.Entities
                 _cooldownTime--;
             }
             _cooldownTime *= 2; // todo: FPS stuff
-            if (GameState.Mode == GameMode.SinglePlayer)
-            {
-                int state = _scene.GetInitialEntityState(Id, active: data.Active != 0);
-                if (data.AlwaysActive != 0)
-                {
-                    Active = data.Active != 0;
-                }
-                else
-                {
-                    Active = state != 0;
-                }
-            }
-            else
-            {
-                Active = data.Active != 0;
-            }
+            Active = data.Active != 0;
+
         }
 
         public override void Initialize()
@@ -233,10 +219,6 @@ namespace MphRead.Entities
             TriggerFlags flags = _data.TriggerFlags;
             foreach (PlayerEntity player in _scene.GetPlayerEntities())
             {
-                if (GameState.Mode == GameMode.SinglePlayer && player != PlayerEntity.Main)
-                {
-                    continue;
-                }
                 for (int i = 0; i < player.EquipInfo.Beams.Length; i++)
                 {
                     BeamProjectileEntity beam = player.EquipInfo.Beams[i];

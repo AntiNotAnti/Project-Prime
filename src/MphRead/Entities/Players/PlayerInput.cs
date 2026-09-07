@@ -33,7 +33,7 @@ namespace MphRead.Entities
                 {
                     ProcessTouchInput();
                     // todo: actual pause menu should require pressed
-                    if (GameState.Multiplayer && !Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen) && Controls.Pause.IsDown)
+                    if (!Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen) && Controls.Pause.IsDown)
                     {
                         _showScoreboard = true;
                     }
@@ -79,7 +79,7 @@ namespace MphRead.Entities
             }
             else
             {
-                _showScoreboard = GameState.Multiplayer && Controls.Pause.IsDown;
+                _showScoreboard = Controls.Pause.IsDown;
             }
             if (IsAltForm || IsMorphing)
             {
@@ -106,22 +106,7 @@ namespace MphRead.Entities
 
         private void ProcessTouchInput()
         {
-            // the game explicitly checks for Samus, and doesn't check if the weapon menu is open
-            if (GameState.SinglePlayer && Controls.ScanVisor.IsPressed && !Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen)
-                && !IsAltForm && !IsMorphing)
-            {
-                if (ScanVisor)
-                {
-                    SwitchVisors(reset: false);
-                }
-                else
-                {
-                    // todo?: play SFX for the "hold scan" feature
-                    SwitchVisors(reset: false);
-                    UpdateZoom(zoom: false);
-                }
-            }
-            if ((GameState.Multiplayer || _weaponSlots[2] != BeamType.OmegaCannon) && Controls.WeaponMenu.IsDown)
+            if (Controls.WeaponMenu.IsDown)
             {
                 Flags1 |= PlayerFlags1.NoAimInput;
                 Flags1 |= PlayerFlags1.WeaponMenuOpen;
@@ -485,10 +470,6 @@ namespace MphRead.Entities
 
         private void ProcessBiped()
         {
-            if (IsMainPlayer && GameState.SinglePlayer && CameraSequence.Current != null)
-            {
-                _timeIdle = 0;
-            }
             if (EquipInfo.SmokeLevel < EquipInfo.Weapon.SmokeDrain)
             {
                 EquipInfo.SmokeLevel = 0;
@@ -765,31 +746,7 @@ namespace MphRead.Entities
             UpdateAimVecs();
             if (_frozenTimer == 0 && _health > 0 && !_field6D0)
             {
-                bool scanInput = false;
-                if (ScanVisor)
-                {
-                    scanInput = true;
-                    if (!_scanning && Controls.Scan.IsPressed || _scanning && Controls.Scan.IsDown)
-                    {
-                        UpdateScanning(scanning: true);
-                    }
-                    else
-                    {
-                        UpdateScanning(scanning: false);
-                        if (Controls.Scan != Controls.Shoot
-                            && (Controls.Shoot.IsPressed || Controls.Morph.IsPressed))
-                        {
-                            SwitchVisors(reset: false);
-                            scanInput = false;
-                        }
-                    }
-                    if (EquipInfo.ChargeLevel > 0)
-                    {
-                        EquipInfo.ChargeLevel = 0;
-                        StopBeamChargeSfx(CurrentWeapon);
-                    }
-                }
-                if (!scanInput && !IsUnmorphing)
+                if (!IsUnmorphing)
                 {
                     if (!Controls.Shoot.IsDown)
                     {
@@ -2183,17 +2140,9 @@ namespace MphRead.Entities
                         }
                         else if (control.Type == ButtonType.Mouse)
                         {
-                            if (GameState.DialogPause)
-                            {
-                                continue;
-                            }
-                            if (control.MouseButton == MouseButton.Left && player._ignoreClick)
-                            {
-                                control.NeedsRepress = true;
-                            }
                             bool down = mouseSnap.IsButtonDown(control.MouseButton);
                             bool prevDown = prevMouseSnap?.IsButtonDown(control.MouseButton) ?? false;
-                            if (control.NeedsRepress && !player._ignoreClick)
+                            if (control.NeedsRepress)
                             {
                                 if (!down || !prevDown)
                                 {
@@ -2224,7 +2173,6 @@ namespace MphRead.Entities
                         }
                     }
                 }
-                player._ignoreClick = false;
                 if (mouseSnap.IsButtonDown(MouseButton.Left) && prevMouseSnap?.IsButtonDown(MouseButton.Left) != true)
                 {
                     player.Input.ClickX = mouseSnap.X;
@@ -2238,38 +2186,6 @@ namespace MphRead.Entities
                 }
                 // todo?: besides the code duplication, input processing like this should work even if
                 // there's no player or the player is not active (will need to revisit this for menus)
-                if (i == 0 && player._scene.MoviePlaying)
-                {
-                    bool skipMovie = false;
-                    Keybind skipControl = player.Controls.Shoot;
-                    if (skipControl.Type == ButtonType.Key)
-                    {
-                        if (skipControl.Key != Keys.Unknown)
-                        {
-                            bool prevDown = prevKeyboardSnap?.IsKeyDown(skipControl.Key) ?? false;
-                            bool isDown = keyboardSnap.IsKeyDown(skipControl.Key);
-                            bool isPressed = isDown && !prevDown;
-                            skipMovie = isPressed;
-                        }
-                    }
-                    else if (skipControl.Type == ButtonType.Mouse)
-                    {
-                        bool prevDown = prevMouseSnap?.IsButtonDown(skipControl.MouseButton) ?? false;
-                        bool isDown = mouseSnap.IsButtonDown(skipControl.MouseButton);
-                        bool isPressed = isDown && !prevDown;
-                        skipMovie = isPressed;
-                    }
-                    else
-                    {
-                        bool isDown = skipControl.Type == ButtonType.ScrollUp && _isScrollingUp
-                            || skipControl.Type == ButtonType.ScrollDown && _isScrollingDown;
-                        skipMovie = isDown;
-                    }
-                    if (skipMovie)
-                    {
-                        player._scene.SkipMovie();
-                    }
-                }
             }
         }
 
@@ -2375,8 +2291,6 @@ namespace MphRead.Entities
         public Keybind Morph { get; }
         public Keybind Boost { get; }
         public Keybind AltAttack { get; }
-        public Keybind ScanVisor { get; }
-        public Keybind Scan { get; }
         public Keybind NextWeapon { get; }
         public Keybind PrevWeapon { get; }
         public Keybind WeaponMenu { get; }
@@ -2412,7 +2326,7 @@ namespace MphRead.Entities
 
         public PlayerControls(Keybind moveLeft, Keybind moveRight, Keybind moveUp, Keybind moveDown, Keybind rollLeft, Keybind rollRight,
             Keybind rollUp, Keybind rollDown, Keybind aimLeft, Keybind aimRight, Keybind aimUp, Keybind aimDown, Keybind shoot, Keybind zoom,
-            Keybind jump, Keybind morph, Keybind boost, Keybind altAttack, Keybind scanVisor, Keybind scan, Keybind nextWeapon,
+            Keybind jump, Keybind morph, Keybind boost, Keybind altAttack, Keybind nextWeapon,
             Keybind prevWeapon, Keybind weaponMenu, Keybind powerBeam, Keybind missile, Keybind voltDriver, Keybind battlehammer,
             Keybind imperialist, Keybind judicator, Keybind magmaul, Keybind shockCoil, Keybind omegaCannon, Keybind affinitySlot,
             Keybind pause, Keybind hudOverlay)
@@ -2438,8 +2352,6 @@ namespace MphRead.Entities
             Morph = morph;
             Boost = boost;
             AltAttack = altAttack;
-            ScanVisor = scanVisor;
-            Scan = scan;
             NextWeapon = nextWeapon;
             PrevWeapon = prevWeapon;
             WeaponMenu = weaponMenu;
@@ -2458,7 +2370,7 @@ namespace MphRead.Entities
             All = new[]
             {
                 moveLeft, moveRight, moveUp, moveDown, rollLeft, rollRight, rollUp, rollDown, aimLeft, aimRight, aimUp, aimDown,
-                shoot, zoom, jump, morph, boost, altAttack, scanVisor, scan, nextWeapon, prevWeapon, weaponMenu, powerBeam,
+                shoot, zoom, jump, morph, boost, altAttack, nextWeapon, prevWeapon, weaponMenu, powerBeam,
                 missile, voltDriver, battlehammer, imperialist, judicator, magmaul, shockCoil, omegaCannon, affinitySlot,
                 pause, hudOverlay
             };
@@ -2512,8 +2424,6 @@ namespace MphRead.Entities
                 morph: new Keybind(Keys.C),
                 boost: new Keybind(Keys.Space),
                 altAttack: new Keybind(MouseButton.Left),
-                scanVisor: new Keybind(Keys.E),
-                scan: new Keybind(Keys.Q),
                 nextWeapon: new Keybind(ButtonType.ScrollDown),
                 prevWeapon: new Keybind(ButtonType.ScrollUp),
                 weaponMenu: new Keybind(MouseButton.Middle),

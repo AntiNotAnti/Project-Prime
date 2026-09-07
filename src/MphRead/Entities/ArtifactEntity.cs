@@ -39,7 +39,6 @@ namespace MphRead.Entities
             {
                 SetUpModel("ArtifactBase");
             }
-            Debug.Assert(GameState.Mode == GameMode.SinglePlayer);
             Active = _scene.GetInitialEntityState(Id, active: _data.Active != 0, activeState: 2) != 0;
         }
 

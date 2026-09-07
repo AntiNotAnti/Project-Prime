@@ -44,18 +44,17 @@ namespace MphRead.Entities
             _data = data;
             Id = data.Header.EntityId;
             SetTransform(data.Header.FacingVector, data.Header.UpVector, data.Header.Position);
-            bool multiplayer = GameState.Multiplayer || forceMultiplayer;
             if (data.Invisible != 0)
             {
                 AddPlaceholderModel();
             }
             else
             {
-                Recolor = multiplayer ? 0 : scene.AreaId;
+                Recolor = 0;
                 string modelName;
                 if (data.ArtifactId >= 8)
                 {
-                    modelName = multiplayer ? "TeleporterMP" : "TeleporterSmall";
+                    modelName = "TeleporterMP";
                 }
                 else
                 {
@@ -80,15 +79,8 @@ namespace MphRead.Entities
                     }
                 }
             }
-            if (GameState.Mode == GameMode.SinglePlayer)
-            {
-                int state = _scene.GetInitialEntityState(Id, active: data.Active != 0);
-                Active = state != 0;
-            }
-            else
-            {
-                Active = data.Active != 0;
-            }
+            Active = data.Active != 0;
+
             // 0-7 = big teleporter using the corresponding artifact model
             // 8, 10, 11, 255 = small teleporter (no apparent meaning to each value beyond that)
             if (data.ArtifactId < 8)
@@ -110,11 +102,9 @@ namespace MphRead.Entities
                 angleY = MathHelper.DegreesToRadians(2730 * (360 / 4096f));
                 _artifact3Transform = _artifact1Transform * Matrix4.CreateRotationY(angleY);
             }
-            if (multiplayer)
-            {
-                AddPlaceholderModel();
-                _targetPos = data.TargetPosition.ToFloatVector();
-            }
+            AddPlaceholderModel();
+            _targetPos = data.TargetPosition.ToFloatVector();
+
             if (data.Invisible == 0)
             {
                 if (_big) { Active = false; }
@@ -170,7 +160,7 @@ namespace MphRead.Entities
             Vector3 testPos = Position.AddY(1);
             foreach (PlayerEntity player in _scene.GetPlayerEntities())
             {
-                if (player.Health == 0 || player.IsBot && !GameState.Multiplayer)
+                if (player.Health == 0)
                 {
                     continue;
                 }
@@ -192,19 +182,6 @@ namespace MphRead.Entities
                                 if (_targetRoomId == -1)
                                 {
                                     player.Teleport(_targetPos.AddY(0.5f), FacingVector, _targetNodeRef);
-                                }
-                                else if (GameState.TransitionRoomId == -1) // the game doesn't do this check
-                                {
-                                    Debug.Assert(_scene.Room != null);
-                                    if (_soundSource.CountPlayingSfx(SfxId.TELEPORT_OUT) == 0)
-                                    {
-                                        _soundSource.PlayFreeSfx(SfxId.TELEPORT_OUT);
-                                    }
-                                    GameState.TransitionAltForm = PlayerEntity.Main.IsAltForm;
-                                    GameState.TransitionRoomId = _targetRoomId;
-                                    _scene.Room.LoadEntityId = _data.TargetIndex;
-                                    GameState.PausePrevented = true;
-                                    _scene.SetFade(FadeType.FadeOutBlack, length: 10 / 30f, overwrite: true, AfterFade.LoadRoom);
                                 }
                                 player.Speed = new Vector3(0, player.Speed.Y, 0);
                                 if (player.IsBot)

@@ -322,7 +322,6 @@ namespace MphRead.Mods.Network
 
         protected override void OnRenderFrame(FrameEventArgs args)
         {
-            GameState.ApplyPause();
             // One simulation step, then however many pictures of it were
             // asked for. _frame counts steps, not pictures, so -seconds still
             // means seconds of game and every existing probe keeps its timing.

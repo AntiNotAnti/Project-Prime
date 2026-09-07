@@ -19,9 +19,6 @@ namespace MphRead.Entities
 
         public PlatformFlags Flags { get; private set; }
         public PlatStateFlags StateFlags => _stateFlags;
-        private readonly List<int> _effectNodeIds = new List<int>() { -1, -1, -1, -1 };
-        private readonly List<EffectEntry?> _effects = new List<EffectEntry?>() { null, null, null, null };
-        private const int _nozzleEffectId = 182; // nozzleJet
 
         private bool _beamActive = false;
         private readonly int _beamInterval = 0;
@@ -184,60 +181,46 @@ namespace MphRead.Entities
                 destoryed: new SfxData(Metadata.PlatformSfx[_data.ModelId, 3])
             );
             _animFlags |= PlatAnimFlags.Draw;
-            Debug.Assert(GameState.Mode == GameMode.SinglePlayer);
-            if (Flags.TestFlag(PlatformFlags.SamusShip) && !Cheats.SkipPlanetIntros)
+            if (Flags.TestFlag(PlatformFlags.StartSleep))
             {
-                SleepWake(wake: true, instant: true);
-                _currentAnimState = -2;
-                SetPlatAnimation(PlatAnimId.Wake, AnimFlags.NoLoop);
-                _currentAnimState = GetAnimation(PlatAnimId.InstantWake);
-                if (data.Active != 0)
-                {
-                    _animFlags |= PlatAnimFlags.Active;
-                }
+                SleepWake(wake: false, instant: true);
             }
             else
             {
-                if (Flags.TestFlag(PlatformFlags.StartSleep))
-                {
-                    SleepWake(wake: false, instant: true);
-                }
-                else
-                {
-                    SleepWake(wake: true, instant: true);
-                }
-                if (Flags.TestFlag(PlatformFlags.PersistRoomState))
-                {
-                    if (_scene.GetInitialEntityState(Id, active: _data.Active != 0) != 0)
-                    {
-                        _animFlags |= PlatAnimFlags.Active;
-                    }
-                }
-                else if (_data.Active != 0)
+                SleepWake(wake: true, instant: true);
+            }
+            if (Flags.TestFlag(PlatformFlags.PersistRoomState))
+            {
+                if (_scene.GetInitialEntityState(Id, active: _data.Active != 0) != 0)
                 {
                     _animFlags |= PlatAnimFlags.Active;
                 }
-                if (_animFlags.TestFlag(PlatAnimFlags.Active))
+            }
+            else if (_data.Active != 0)
+            {
+                _animFlags |= PlatAnimFlags.Active;
+            }
+            if (_animFlags.TestFlag(PlatAnimFlags.Active))
+            {
+                Activate();
+            }
+            else
+            {
+                Deactivate();
+            }
+            _currentAnimState = -2;
+            if (_animFlags.TestFlag(PlatAnimFlags.HasAnim))
+            {
+                if (StateFlags.TestFlag(PlatStateFlags.Awake))
                 {
-                    Activate();
+                    SetPlatAnimation(PlatAnimId.InstantWake, AnimFlags.None);
                 }
                 else
                 {
-                    Deactivate();
-                }
-                _currentAnimState = -2;
-                if (_animFlags.TestFlag(PlatAnimFlags.HasAnim))
-                {
-                    if (StateFlags.TestFlag(PlatStateFlags.Awake))
-                    {
-                        SetPlatAnimation(PlatAnimId.InstantWake, AnimFlags.None);
-                    }
-                    else
-                    {
-                        SetPlatAnimation(PlatAnimId.InstantSleep, AnimFlags.None);
-                    }
+                    SetPlatAnimation(PlatAnimId.InstantSleep, AnimFlags.None);
                 }
             }
+
             _sfxRangeIndex = 14;
             if (_data.ModelId == 7) // Door_Unit4_RM1
             {
@@ -257,17 +240,6 @@ namespace MphRead.Entities
         public override void Initialize()
         {
             base.Initialize();
-            if (Flags.TestFlag(PlatformFlags.SamusShip))
-            {
-                _effectNodeIds[0] = _models[0].Model.GetNodeIndexByName("R_Turret");
-                _effectNodeIds[1] = _models[0].Model.GetNodeIndexByName("R_Turret1");
-                _effectNodeIds[2] = _models[0].Model.GetNodeIndexByName("R_Turret2");
-                _effectNodeIds[3] = _models[0].Model.GetNodeIndexByName("R_Turret3");
-                if (_effectNodeIds[0] != -1 || _effectNodeIds[1] != -1 || _effectNodeIds[2] != -1 || _effectNodeIds[3] != -1)
-                {
-                    _scene.LoadEffect(_nozzleEffectId, persistent: false);
-                }
-            }
             if (_data.ResistEffectId != 0)
             {
                 _scene.LoadEffect(_data.ResistEffectId, persistent: false);
@@ -330,14 +302,6 @@ namespace MphRead.Entities
         public override void Destroy()
         {
             _soundSource.StopAllSfx(force: true);
-            for (int i = 0; i < _effects.Count; i++)
-            {
-                EffectEntry? effectEntry = _effects[i];
-                if (effectEntry != null)
-                {
-                    _scene.UnlinkEffectEntry(effectEntry);
-                }
-            }
             base.Destroy();
         }
 
@@ -348,13 +312,7 @@ namespace MphRead.Entities
 
         public override void GetVectors(out Vector3 position, out Vector3 up, out Vector3 facing)
         {
-            if (Flags.TestFlag(PlatformFlags.SamusShip))
-            {
-                Matrix4 transform = GetTransform();
-                Vector3 offset = Matrix.Vec3MultMtx3(new Vector3(0, 0.8f, 4.2f), transform);
-                position = transform.Row3.Xyz + offset;
-            }
-            else if (Flags.TestFlag(PlatformFlags.SyluxShip) && _parentEntCol != null)
+            if (Flags.TestFlag(PlatformFlags.SyluxShip) && _parentEntCol != null)
             {
                 Matrix4 transform = GetTransform();
                 position = Matrix.Vec3MultMtx4(_beamSpawnPos, transform);
@@ -776,7 +734,6 @@ namespace MphRead.Entities
                 SetPlatAnimation(_currentAnimState, AnimFlags.None);
                 _currentAnimState = -2;
                 _stateFlags &= ~PlatStateFlags.WasAwake;
-                // the game also sets unused flags for SamusShip
             }
             if (!soundUpdated)
             {
@@ -788,30 +745,6 @@ namespace MphRead.Entities
                 else
                 {
                     UpdateNodeRefVolume();
-                }
-            }
-            // todo: if "is_visible" returns false (and other conditions), don't draw the effects
-            Model model = _models[0].Model;
-            for (int i = 0; i < 4; i++)
-            {
-                EffectEntry? effect = _effects[i];
-                if (_effectNodeIds[i] >= 0 && effect == null)
-                {
-                    Matrix4 transform = Matrix.GetTransform4(Vector3.UnitX, Vector3.UnitY, new Vector3(0, 2, 0));
-                    effect = _scene.SpawnEffectGetEntry(_nozzleEffectId, transform);
-                }
-                if (effect != null)
-                {
-                    effect.SetElementExtension(true);
-                    Matrix4 transform = model.Nodes[_effectNodeIds[i]].Animation;
-                    var position = new Vector3(
-                        transform.M31 * 1.5f + transform.M41,
-                        transform.M32 * 1.5f + transform.M42,
-                        transform.M33 * 1.5f + transform.M43
-                    );
-                    transform = Matrix.GetTransform4(new Vector3(transform.Row1), new Vector3(transform.Row2), position);
-                    effect.Transform(position, transform);
-                    _effects[i] = effect;
                 }
             }
             if (_data.PositionCount > 0)
@@ -865,17 +798,6 @@ namespace MphRead.Entities
                 {
                     base.GetDrawInfo();
                     _animFlags |= PlatAnimFlags.WasDrawn;
-                }
-                if (Flags.TestFlag(PlatformFlags.SamusShip))
-                {
-                    for (int i = 0; i < 4; i++)
-                    {
-                        EffectEntry? effect = _effects[i];
-                        if (effect != null)
-                        {
-                            effect.SetDrawEnabled(draw);
-                        }
-                    }
                 }
             }
         }
@@ -1296,184 +1218,181 @@ namespace MphRead.Entities
                 _beamActive = false;
             }
 
-            // the game updates unused flags for SamusShip
-            if (!Flags.TestFlag(PlatformFlags.SamusShip))
+            if (StateFlags.TestFlag(PlatStateFlags.Awake))
             {
-                if (StateFlags.TestFlag(PlatStateFlags.Awake))
+                if (info.Message == Message.Activate)
                 {
-                    if (info.Message == Message.Activate)
+                    OnActivate();
+                }
+                else if (info.Message == Message.SetActive)
+                {
+                    if ((int)info.Param1 != 0)
                     {
                         OnActivate();
                     }
-                    else if (info.Message == Message.SetActive)
+                    else
                     {
-                        if ((int)info.Param1 != 0)
+                        Deactivate();
+                    }
+                }
+                else if (info.Message == Message.Damage)
+                {
+                    _health = (int)info.Param1;
+                }
+                else if (info.Message == Message.SetSeekPlayerY)
+                {
+                    _animFlags &= ~PlatAnimFlags.SeekPlayerHeight;
+                    if ((int)info.Param1 != 0)
+                    {
+                        _animFlags |= PlatAnimFlags.SeekPlayerHeight;
+                    }
+                }
+                else if (info.Message == Message.SetBeamReflection)
+                {
+                    _animFlags &= ~PlatAnimFlags.DisableReflect;
+                    if ((int)info.Param1 != 0)
+                    {
+                        _animFlags |= PlatAnimFlags.DisableReflect;
+                    }
+                }
+                else if (info.Message == Message.PlatformSleep)
+                {
+                    SleepWake(wake: false, instant: false);
+                    Deactivate();
+                }
+                else if (info.Message == Message.BeamCollideWith)
+                {
+                    if (_health > 0)
+                    {
+                        if (_data.BeamHitMessage != Message.None && _hitMessageTarget != null)
                         {
-                            OnActivate();
+                            _scene.SendMessage(_data.BeamHitMessage, this, _hitMessageTarget,
+                                _data.BeamHitMsgParam1, _data.BeamHitMsgParam2);
+                        }
+                        int effectId = 0;
+                        if (!Flags.TestFlag(PlatformFlags.BeamColEffect)
+                            || Flags.TestFlag(PlatformFlags.BeamReflection) && !_animFlags.TestFlag(PlatAnimFlags.DisableReflect))
+                        {
+                            effectId = _data.ResistEffectId;
                         }
                         else
                         {
-                            Deactivate();
-                        }
-                    }
-                    else if (info.Message == Message.Damage)
-                    {
-                        _health = (int)info.Param1;
-                    }
-                    else if (info.Message == Message.SetSeekPlayerY)
-                    {
-                        _animFlags &= ~PlatAnimFlags.SeekPlayerHeight;
-                        if ((int)info.Param1 != 0)
-                        {
-                            _animFlags |= PlatAnimFlags.SeekPlayerHeight;
-                        }
-                    }
-                    else if (info.Message == Message.SetBeamReflection)
-                    {
-                        _animFlags &= ~PlatAnimFlags.DisableReflect;
-                        if ((int)info.Param1 != 0)
-                        {
-                            _animFlags |= PlatAnimFlags.DisableReflect;
-                        }
-                    }
-                    else if (info.Message == Message.PlatformSleep)
-                    {
-                        SleepWake(wake: false, instant: false);
-                        Deactivate();
-                    }
-                    else if (info.Message == Message.BeamCollideWith)
-                    {
-                        if (_health > 0)
-                        {
-                            if (_data.BeamHitMessage != Message.None && _hitMessageTarget != null)
-                            {
-                                _scene.SendMessage(_data.BeamHitMessage, this, _hitMessageTarget,
-                                    _data.BeamHitMsgParam1, _data.BeamHitMsgParam2);
-                            }
-                            int effectId = 0;
-                            if (!Flags.TestFlag(PlatformFlags.BeamColEffect)
-                                || Flags.TestFlag(PlatformFlags.BeamReflection) && !_animFlags.TestFlag(PlatAnimFlags.DisableReflect))
+                            var beam = (BeamProjectileEntity)info.Sender;
+                            // bug?: checking BeamKind instead of Beam here
+                            // the game does't do the bounds check, I guess assuming a platform can't be hit by a platform beam
+                            // --> in our case it can (seen with SyluxShip aiming bug at one point), so we'll handle it
+                            int index = (int)beam.BeamKind;
+                            if (index >= _beamEffectiveness.Length || _beamEffectiveness[index] == Effectiveness.Zero)
                             {
                                 effectId = _data.ResistEffectId;
                             }
                             else
                             {
-                                var beam = (BeamProjectileEntity)info.Sender;
-                                // bug?: checking BeamKind instead of Beam here
-                                // the game does't do the bounds check, I guess assuming a platform can't be hit by a platform beam
-                                // --> in our case it can (seen with SyluxShip aiming bug at one point), so we'll handle it
-                                int index = (int)beam.BeamKind;
-                                if (index >= _beamEffectiveness.Length || _beamEffectiveness[index] == Effectiveness.Zero)
+                                effectId = _data.DamageEffectId;
+                                _health -= (int)beam.Damage;
+                                if (_health <= _halfHealth)
                                 {
-                                    effectId = _data.ResistEffectId;
-                                }
-                                else
-                                {
-                                    effectId = _data.DamageEffectId;
-                                    _health -= (int)beam.Damage;
-                                    if (_health <= _halfHealth)
+                                    if (_halfHealth > 0)
                                     {
-                                        if (_halfHealth > 0)
+                                        // SyluxShip/Turret at half health
+                                        for (int i = 0; i < _lifetimeMessages.Length; i++)
                                         {
-                                            // SyluxShip/Turret at half health
-                                            for (int i = 0; i < _lifetimeMessages.Length; i++)
+                                            Message message = _lifetimeMessages[i];
+                                            EntityBase? target = _lifetimeMessageTargets[i];
+                                            if (message != Message.None && target != null)
                                             {
-                                                Message message = _lifetimeMessages[i];
-                                                EntityBase? target = _lifetimeMessageTargets[i];
-                                                if (message != Message.None && target != null)
-                                                {
-                                                    _scene.SendMessage(message, this, target,
-                                                        _lifetimeMessageParam1s[i], _lifetimeMessageParam2s[i]);
-                                                }
+                                                _scene.SendMessage(message, this, target,
+                                                    _lifetimeMessageParam1s[i], _lifetimeMessageParam2s[i]);
                                             }
-                                            _halfHealth = 0;
                                         }
-                                        else
-                                        {
-                                            // destroyed
-                                            effectId = _data.DeadEffectId;
-                                            if (Flags.TestFlag(PlatformFlags.Breakable))
-                                            {
-                                                _scene.SendMessage(Message.PlatformSleep, this, this, 0, 0);
-                                                PlaySfx(_moveSfx.Destoryed);
-                                            }
-                                            Vector3 spawnPos = _visiblePosition.AddY(1);
-                                            ItemSpawnEntity.SpawnItemDrop(_data.ItemType, spawnPos,
-                                                NodeRef, _data.ItemChance, _scene);
-                                            if (_data.DeadMessage != Message.None && _deathMessageTarget != null)
-                                            {
-                                                _scene.SendMessage(_data.DeadMessage, this, _deathMessageTarget,
-                                                    _data.DeadMsgParam1, _data.DeadMsgParam2);
-                                            }
-                                            _health = 0;
-                                        }
-                                    }
-                                }
-                                if (effectId != 0)
-                                {
-                                    var result = (CollisionResult)info.Param1;
-                                    Debug.Assert(result.EntityCollision != null);
-                                    Vector3 spawnPos = result.Position;
-                                    Vector3 spawnUp = result.Plane.Xyz;
-                                    spawnPos = Matrix.Vec3MultMtx4(spawnPos, result.EntityCollision.Inverse1);
-                                    spawnUp = Matrix.Vec3MultMtx4(spawnUp, result.EntityCollision.Inverse1);
-                                    Vector3 spawnFacing;
-                                    if (spawnUp.Z <= -0.9f || spawnUp.Z >= 0.9f)
-                                    {
-                                        spawnFacing = Vector3.Cross(Vector3.UnitX, spawnUp).Normalized();
+                                        _halfHealth = 0;
                                     }
                                     else
                                     {
-                                        spawnFacing = Vector3.Cross(Vector3.UnitZ, spawnUp).Normalized();
+                                        // destroyed
+                                        effectId = _data.DeadEffectId;
+                                        if (Flags.TestFlag(PlatformFlags.Breakable))
+                                        {
+                                            _scene.SendMessage(Message.PlatformSleep, this, this, 0, 0);
+                                            PlaySfx(_moveSfx.Destoryed);
+                                        }
+                                        Vector3 spawnPos = _visiblePosition.AddY(1);
+                                        ItemSpawnEntity.SpawnItemDrop(_data.ItemType, spawnPos,
+                                            NodeRef, _data.ItemChance, _scene);
+                                        if (_data.DeadMessage != Message.None && _deathMessageTarget != null)
+                                        {
+                                            _scene.SendMessage(_data.DeadMessage, this, _deathMessageTarget,
+                                                _data.DeadMsgParam1, _data.DeadMsgParam2);
+                                        }
+                                        _health = 0;
                                     }
-                                    _scene.SpawnEffect(effectId, spawnFacing, spawnUp, spawnPos, entCol: result.EntityCollision);
                                 }
+                            }
+                            if (effectId != 0)
+                            {
+                                var result = (CollisionResult)info.Param1;
+                                Debug.Assert(result.EntityCollision != null);
+                                Vector3 spawnPos = result.Position;
+                                Vector3 spawnUp = result.Plane.Xyz;
+                                spawnPos = Matrix.Vec3MultMtx4(spawnPos, result.EntityCollision.Inverse1);
+                                spawnUp = Matrix.Vec3MultMtx4(spawnUp, result.EntityCollision.Inverse1);
+                                Vector3 spawnFacing;
+                                if (spawnUp.Z <= -0.9f || spawnUp.Z >= 0.9f)
+                                {
+                                    spawnFacing = Vector3.Cross(Vector3.UnitX, spawnUp).Normalized();
+                                }
+                                else
+                                {
+                                    spawnFacing = Vector3.Cross(Vector3.UnitZ, spawnUp).Normalized();
+                                }
+                                _scene.SpawnEffect(effectId, spawnFacing, spawnUp, spawnPos, entCol: result.EntityCollision);
                             }
                         }
                     }
-                    else if (info.Message == Message.PlayerCollideWith)
-                    {
-                        bool alreadyColliding = _playerCol;
-                        _timeSincePlayerCol = 0;
-                        _playerCol = true;
-                        if (_data.PlayerColMessage != Message.None && _playerColMessageTarget != null && !alreadyColliding
-                            && !(Flags.TestFlag(PlatformFlags.StandingColOnly) && (int)info.Param2 == 0))
-                        {
-                            _scene.SendMessage(_data.PlayerColMessage, this, _playerColMessageTarget,
-                                _data.PlayerColMsgParam1, _data.PlayerColMsgParam2);
-                        }
-                    }
                 }
-                else if (info.Message == Message.PlatformWakeup)
+                else if (info.Message == Message.PlayerCollideWith)
                 {
-                    SleepWake(wake: true, instant: false);
-                    if ((int)info.Param1 != 0)
+                    bool alreadyColliding = _playerCol;
+                    _timeSincePlayerCol = 0;
+                    _playerCol = true;
+                    if (_data.PlayerColMessage != Message.None && _playerColMessageTarget != null && !alreadyColliding
+                        && !(Flags.TestFlag(PlatformFlags.StandingColOnly) && (int)info.Param2 == 0))
                     {
-                        OnActivate();
-                    }
-                }
-                if (info.Message == Message.SetPlatformIndex)
-                {
-                    int index = (int)info.Param1 - 1;
-                    if (_fromIndex != index)
-                    {
-                        if (_state == PlatformState.Inactive)
-                        {
-                            _fromIndex = index;
-                            UpdatePosition();
-                            Deactivate();
-                            _velocity = Vector3.Zero;
-                            _movePercent = 0;
-                            _moveIncrement = 0;
-                        }
-                        else if ((int)info.Param2 != 0)
-                        {
-                            _fromIndex = index;
-                            UpdatePosition();
-                        }
+                        _scene.SendMessage(_data.PlayerColMessage, this, _playerColMessageTarget,
+                            _data.PlayerColMsgParam1, _data.PlayerColMsgParam2);
                     }
                 }
             }
+            else if (info.Message == Message.PlatformWakeup)
+            {
+                SleepWake(wake: true, instant: false);
+                if ((int)info.Param1 != 0)
+                {
+                    OnActivate();
+                }
+            }
+            if (info.Message == Message.SetPlatformIndex)
+            {
+                int index = (int)info.Param1 - 1;
+                if (_fromIndex != index)
+                {
+                    if (_state == PlatformState.Inactive)
+                    {
+                        _fromIndex = index;
+                        UpdatePosition();
+                        Deactivate();
+                        _velocity = Vector3.Zero;
+                        _movePercent = 0;
+                        _moveIncrement = 0;
+                    }
+                    else if ((int)info.Param2 != 0)
+                    {
+                        _fromIndex = index;
+                        UpdatePosition();
+                    }
+                }
+            }
+
         }
     }
 

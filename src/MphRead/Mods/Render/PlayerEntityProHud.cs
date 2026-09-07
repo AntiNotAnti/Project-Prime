@@ -173,11 +173,7 @@ namespace MphRead.Entities
 
         private int ProHealthSpan()
         {
-            if (GameState.Multiplayer)
-            {
-                return Math.Max(Values.EnergyTank - 1, 1);
-            }
-            return Math.Max(_healthMax, 1);
+            return Math.Max(Values.EnergyTank - 1, 1);
         }
 
         /// <summary>
@@ -241,7 +237,7 @@ namespace MphRead.Entities
         /// them, at ten a shot. So one big pickup is what "full" means here,
         /// and the spawn loadout reads full, which is what it is.
         /// </summary>
-        private static int ProAmmoFull => GameState.Multiplayer ? 100 : 250;
+        private const int ProAmmoFull = 100;
 
         /// <summary>How full the ammo pool is, against <see cref="ProAmmoFull"/>.</summary>
         private float ProAmmoFraction()
@@ -341,25 +337,25 @@ namespace MphRead.Entities
         /// the label does not quietly become "points" in a mode that counts
         /// octoliths.
         /// </summary>
-        private static int ProScoreMessageId()
+        private int ProScoreMessageId()
         {
-            switch (GameState.Mode)
+            switch (_scene.Match.Rules.Mode)
             {
-                case GameMode.Survival:
-                case GameMode.SurvivalTeams:
+                case MatchMode.Survival:
+                case MatchMode.TeamSurvival:
                     return 213; // lives left
-                case GameMode.PrimeHunter:
+                case MatchMode.PrimeHunter:
                     return 214; // prime time
-                case GameMode.Bounty:
-                case GameMode.BountyTeams:
+                case MatchMode.Bounty:
+                case MatchMode.TeamBounty:
                     return 215; // octoliths
-                case GameMode.Capture:
+                case MatchMode.Capture:
                     return 216; // octoliths
-                case GameMode.Defender:
-                case GameMode.DefenderTeams:
+                case MatchMode.Defender:
+                case MatchMode.TeamDefender:
                     return 217; // ring time
-                case GameMode.Nodes:
-                case GameMode.NodesTeams:
+                case MatchMode.Nodes:
+                case MatchMode.TeamNodes:
                     return 218; // points
                 default:
                     return 212; // points

@@ -21,25 +21,21 @@ namespace MphRead.Entities
 
         public bool ProcessPlayer()
         {
-            if (GameState.Multiplayer && !LoadFlags.TestFlag(LoadFlags.Connected) && LoadFlags.TestFlag(LoadFlags.WasConnected))
+            if (!LoadFlags.TestFlag(LoadFlags.Connected) && LoadFlags.TestFlag(LoadFlags.WasConnected))
             {
                 LoadFlags |= LoadFlags.Disconnected;
                 LoadFlags &= ~LoadFlags.Active;
             }
             if (!LoadFlags.TestFlag(LoadFlags.Active))
             {
-                if (GameState.Multiplayer)
-                {
-                    // Returning false here makes Scene.UpdateScene destroy the
-                    // entity and drop it from the entity list, and AddPlayer is
-                    // inert once the room has loaded -- so a slot vacated (or
-                    // never occupied) at load time could never be filled again.
-                    // That is why a peer who joined afterwards existed on the
-                    // roster, went active, and still never spawned: nothing was
-                    // calling Process on it any more.
-                    return _scene.IsHeadless || Mods.Network.NetHooks.KeepSlotAlive(this);
-                }
-                return LoadFlags.TestFlag(LoadFlags.SlotActive);
+                // Returning false here makes Scene.UpdateScene destroy the
+                // entity and drop it from the entity list, and AddPlayer is
+                // inert once the room has loaded -- so a slot vacated (or
+                // never occupied) at load time could never be filled again.
+                // That is why a peer who joined afterwards existed on the
+                // roster, went active, and still never spawned: nothing was
+                // calling Process on it any more.
+                return _scene.IsHeadless || Mods.Network.NetHooks.KeepSlotAlive(this);
             }
             // todo?: something with wifi lockjaw bomb
             if (Flags2.TestFlag(PlayerFlags2.UnequipOmegaCannon))
@@ -75,7 +71,7 @@ namespace MphRead.Entities
                 if (AiData.Flags3.TestFlag(AiFlags3.Bit1))
                 {
                     // spawnEffectMP or spawnEffect
-                    int effectId = GameState.Multiplayer && PlayerCount > 2 && !Features.MaxPlayerDetail ? 33 : 31;
+                    int effectId = PlayerCount > 2 && !Features.MaxPlayerDetail ? 33 : 31;
                     _scene.SpawnEffect(effectId, Vector3.UnitX, Vector3.UnitY, Position);
                     PlayHunterSfx(HunterSfx.Spawn);
                     AiData.Flags3 &= ~AiFlags3.Bit1;
@@ -124,7 +120,7 @@ namespace MphRead.Entities
             if (_respawnTimer > 0)
             {
                 _respawnTimer--;
-                if ((GameState.Mode == GameMode.Survival || GameState.Mode == GameMode.SurvivalTeams)
+                if ((_scene.Match.Rules.Mode == MatchMode.Survival || _scene.Match.Rules.Mode == MatchMode.TeamSurvival)
                     && _scene.Match.TeamDeaths[SlotIndex] > _scene.Match.Rules.LegacyPointGoal)
                 {
                     if (IsMainPlayer)
@@ -157,18 +153,6 @@ namespace MphRead.Entities
                             targetTeleporter.SetTriggered();
                             Spawn(targetTeleporter.Position, targetTeleporter.FacingVector,
                                 targetTeleporter.UpVector, targetTeleporter.NodeRef, respawn: true);
-                            if (GameState.TransitionAltForm)
-                            {
-                                TrySwitchForms(force: true);
-                                UpdateForm(altForm: true);
-                                // unstick Halfturret after teleporting (the game doesn't do this)
-                                if (Halfturret.Health > 0)
-                                {
-                                    Halfturret.ResetGroundedState();
-                                }
-                                ResumeOwnCamera();
-                                HudOnMorphStart();
-                            }
                         }
                         else
                         {
@@ -189,17 +173,16 @@ namespace MphRead.Entities
                             }
                         }
                         _scene.Room.LoadEntityId = -1;
-                        GameState.TransitionAltForm = false;
                     }
                     else
                     {
                         int time = GetTimeUntilRespawn();
-                        if (IsMainPlayer && GameState.Multiplayer) // todo: and some global is not set
+                        if (IsMainPlayer) // todo: and some global is not set
                         {
                             // press FIRE to begin / press FIRE to respawn
                             int messageId = CameraSequence.Current?.IsIntro == true ? 245 : 244;
                             if (!Bugfixes.NoStrayRespawnText || time > 0
-                                || GameState.Mode != GameMode.Survival && GameState.Mode != GameMode.SurvivalTeams)
+                                || _scene.Match.Rules.Mode != MatchMode.Survival && _scene.Match.Rules.Mode != MatchMode.TeamSurvival)
                             {
                                 QueueHudMessage(128, 162, 1 / 1000f, 0, messageId);
                                 if (time < 150 * 2) // todo: FPS stuff
@@ -211,7 +194,7 @@ namespace MphRead.Entities
                             }
                         }
                         if (!Mods.Network.AuthoritativePlay.Active
-                            && (GameState.SinglePlayer || Controls.Shoot.IsDown || time <= 0 || IsBot
+                            && (Controls.Shoot.IsDown || time <= 0 || IsBot
                             || Mods.Network.NetHooks.ForceSpawn(this))) // todo: or forced
                         {
                             // todo?: something with wi-fi
@@ -234,10 +217,6 @@ namespace MphRead.Entities
             else
             {
                 int rangeIndex = 1;
-                if (GameState.SinglePlayer && Hunter == Hunter.Guardian) // todo: MP1P
-                {
-                    rangeIndex = 21;
-                }
                 _soundSource.Update(Position, rangeIndex);
             }
             if (IsMainPlayer)
@@ -260,7 +239,7 @@ namespace MphRead.Entities
             {
                 _disruptedTimer--;
             }
-            if (GameState.Mode == GameMode.Survival || GameState.Mode == GameMode.SurvivalTeams)
+            if (_scene.Match.Rules.Mode == MatchMode.Survival || _scene.Match.Rules.Mode == MatchMode.TeamSurvival)
             {
                 if (Flags2.TestFlag(PlayerFlags2.RadarReveal))
                 {
@@ -1010,7 +989,7 @@ namespace MphRead.Entities
                 TakeDamage(1, flags, direction: null, source: null);
             }
             Debug.Assert(_scene.Room != null);
-            if (GameState.Multiplayer && _scene.Room.Meta.HasLimits)
+            if (_scene.Room.Meta.HasLimits)
             {
                 if (Position.Y < _scene.Room.Meta.PlayerMin.Y)
                 {
@@ -1138,7 +1117,7 @@ namespace MphRead.Entities
         private void PickUpItems()
         {
             if (Mods.Network.AuthoritativePlay.Active) { return; }
-            if (_health == 0 || (IsBot && GameState.SinglePlayer) || IgnoreItemPickups
+            if (_health == 0 || IgnoreItemPickups
                 || IsMainPlayer && CameraSequence.Current?.BlockInput == true)
             {
                 return;
@@ -1208,12 +1187,12 @@ namespace MphRead.Entities
                     int amount;
                     if (item.ItemType == ItemType.UABig || item.ItemType == ItemType.MissileBig)
                     {
-                        amount = GameState.Multiplayer ? 100 : 250;
+                        amount = 100;
                         PlaySfx(SfxId.AMMO_POWER_UP2);
                     }
                     else
                     {
-                        amount = GameState.Multiplayer ? 50 : 100;
+                        amount = 50;
                         PlaySfx(SfxId.AMMO_POWER_UP1);
                     }
                     _ammo[slot] += amount;
@@ -1770,7 +1749,6 @@ namespace MphRead.Entities
                 Flags1 &= ~PlayerFlags1.AltForm;
             }
             // todo?: update HUD if main player
-            UpdateScanIds();
             if (altForm)
             {
                 CollisionVolume altVolume = PlayerVolumes[(int)Hunter, 2];
@@ -1946,7 +1924,7 @@ namespace MphRead.Entities
                     limit++;
                     continue;
                 }
-                if (GameState.Mode == GameMode.Capture && candidate.Data.TeamIndex != -1
+                if (_scene.Match.Rules.Mode == MatchMode.Capture && candidate.Data.TeamIndex != -1
                     && candidate.Data.TeamIndex != TeamIndex)
                 {
                     limit++;
@@ -2013,7 +1991,7 @@ namespace MphRead.Entities
         {
             // todo: FPS stuff
             int count = 0;
-            if (GameState.Mode != GameMode.Survival && GameState.Mode != GameMode.SurvivalTeams)
+            if (_scene.Match.Rules.Mode != MatchMode.Survival && _scene.Match.Rules.Mode != MatchMode.TeamSurvival)
             {
                 if (PlayerCount > 3)
                 {

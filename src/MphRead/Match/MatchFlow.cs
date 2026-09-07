@@ -79,7 +79,7 @@ namespace MphRead
                     }
                     invalid = !teams[0] || !teams[1];
                 }
-                if (invalid && !GameState.MenuPause)
+                if (invalid)
                 {
                     _match.PendingEndReason = MatchEndReason.InvalidTeams;
                     _match.MatchTime = 0;

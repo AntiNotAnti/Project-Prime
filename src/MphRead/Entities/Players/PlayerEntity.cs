@@ -230,7 +230,6 @@ namespace MphRead.Entities
         public static readonly PlayerEntity[] _players = new PlayerEntity[SlotCapacity];
         public static IReadOnlyList<PlayerEntity> Players => _players;
         public bool IsMainPlayer => this == Main && _scene.CameraMode == CameraMode.Player;
-        private int _altScanId = 0;
 
         private const int UA = 0;
         private const int Missiles = 1;
@@ -423,8 +422,6 @@ namespace MphRead.Entities
         private ushort _timeSinceHeal = 0;
         private ushort _respawnTimer = 0;
         public ushort RespawnTimer { get => _respawnTimer; set => _respawnTimer = value; }
-        private float _deathCountdown = 0;
-        public float DeathCountdown => _deathCountdown;
         private ushort _damageInvulnTimer = 0;
         private ushort _spawnInvulnTimer = 0;
         private ushort _camSwitchTimer = 0;
@@ -792,31 +789,22 @@ namespace MphRead.Entities
             NodeRef = nodeRef;
             _gunViewBob = 0;
             _walkViewBob = 0;
-            if (GameState.SinglePlayer && CameraSequence.Current != null)
+            if (IsMainPlayer && CameraSequence.Current?.IsIntro == true)
             {
-                _camSwitchTimer = (ushort)(Values.CamSwitchTime * 2); // todo: FPS stuff
-                _viewTiltAngleH = 0;
-                _viewTiltAngleV = 0;
+                CameraSequence.Current.End();
             }
-            else
-            {
-                if (IsMainPlayer && GameState.Multiplayer && CameraSequence.Current?.IsIntro == true)
-                {
-                    CameraSequence.Current.End();
-                }
-                CameraInfo.Reset();
-                CameraInfo.Position = Position;
-                CameraInfo.UpVector = Vector3.UnitY;
-                CameraInfo.Target = Position + facing;
-                CameraInfo.Fov = Fixed.ToFloat(Values.NormalFov) * 2;
-                CameraInfo.NodeRef = NodeRef;
-                SwitchCamera(CameraType.First, facing);
-                _camSwitchTimer = (ushort)(Values.CamSwitchTime * 2); // todo: FPS stuff
-                _viewTiltAngleH = 0;
-                _viewTiltAngleV = 0;
-                UpdateCameraFirst();
-                CameraInfo.Update();
-            }
+            CameraInfo.Reset();
+            CameraInfo.Position = Position;
+            CameraInfo.UpVector = Vector3.UnitY;
+            CameraInfo.Target = Position + facing;
+            CameraInfo.Fov = Fixed.ToFloat(Values.NormalFov) * 2;
+            CameraInfo.NodeRef = NodeRef;
+            SwitchCamera(CameraType.First, facing);
+            _camSwitchTimer = (ushort)(Values.CamSwitchTime * 2); // todo: FPS stuff
+            _viewTiltAngleH = 0;
+            _viewTiltAngleV = 0;
+            UpdateCameraFirst();
+            CameraInfo.Update();
             _gunDrawPos = Fixed.ToFloat(Values.FieldB8) * facing
                 + CameraInfo.Position
                 + Fixed.ToFloat(Values.FieldB0) * _gunVec2
@@ -846,14 +834,7 @@ namespace MphRead.Entities
             _bombRefillTimer = 0;
             _bombAmmo = 3;
             _damageInvulnTimer = 0;
-            if (IsBot && GameState.SinglePlayer)
-            {
-                _spawnInvulnTimer = 0;
-            }
-            else
-            {
-                _spawnInvulnTimer = (ushort)(Values.SpawnInvulnerability * 2); // todo: FPS stuff
-            }
+            _spawnInvulnTimer = (ushort)(Values.SpawnInvulnerability * 2); // todo: FPS stuff
             _boostCharge = 0;
             _altAttackCooldown = 0;
             _field4E8 = Vector3.Zero;
@@ -878,10 +859,6 @@ namespace MphRead.Entities
             else
             {
                 int rangeIndex = 1;
-                if (GameState.SinglePlayer && Hunter == Hunter.Guardian) // todo: MP1P
-                {
-                    rangeIndex = 21;
-                }
                 _soundSource.Update(Position, rangeIndex);
                 UpdateNodeRefVolume();
             }
@@ -907,9 +884,6 @@ namespace MphRead.Entities
             _hudShiftY = 0;
             _objShiftX = 0;
             _objShiftY = 0;
-            ScanVisor = false;
-            SwitchVisors(reset: true);
-            CloseDialogs();
             // todo: update more UI fields
             _altRollFbX = CameraInfo.Field48;
             _altRollFbZ = CameraInfo.Field4C;
@@ -927,11 +901,10 @@ namespace MphRead.Entities
             }
             // the player clears the enemy spawner reference here, using a global array to track them
             _lastTarget = null;
-            UpdateScanIds();
-            if (respawn && (IsMainPlayer || GameState.Multiplayer))
+            if (respawn)
             {
                 // spawnEffectMP or spawnEffect
-                int effectId = GameState.Multiplayer && PlayerCount > 2 && !Features.MaxPlayerDetail ? 33 : 31;
+                int effectId = PlayerCount > 2 && !Features.MaxPlayerDetail ? 33 : 31;
                 _scene.SpawnEffect(effectId, Vector3.UnitX, Vector3.UnitY, Position);
             }
             if (IsMainPlayer)
@@ -953,15 +926,10 @@ namespace MphRead.Entities
         public void InitEnemyHunter()
         {
             Debug.Assert(EnemySpawner != null);
-            Debug.Assert(GameState.Mode == GameMode.SinglePlayer);
             EnemySpawnFields09 data = EnemySpawner.Data.Fields.S09;
             _healthMax = data.HunterHealthMax;
             _health = data.HunterHealth;
             AiData.HealthThreshold = data.HunterHealthThreshold;
-            if (Hunter == Hunter.Guardian)
-            {
-                Music.PlayEncounterMusic(Hunter.Guardian);
-            }
             // todo: update story save for multiplayer unlock
             if (data.HunterWeapon != 255)
             {
@@ -1030,25 +998,8 @@ namespace MphRead.Entities
             return _health != 0;
         }
 
-        public override int GetScanId(bool alternate = false)
-        {
-            return alternate ? _altScanId : _scanId;
-        }
 
-        public override bool ScanVisible()
-        {
-            if (Health == 0 || IsMainPlayer)
-            {
-                return false;
-            }
-            return base.ScanVisible();
-        }
 
-        private void UpdateScanIds()
-        {
-            _scanId = ScanIds[(int)Hunter, IsAltForm ? 1 : 0];
-            _altScanId = ScanIds[(int)Hunter, IsAltForm ? 3 : 2];
-        }
 
         private void SetBiped1Animation(PlayerAnimation anim, AnimFlags animFlags)
         {
@@ -1277,10 +1228,7 @@ namespace MphRead.Entities
             {
                 if (IsMainPlayer)
                 {
-                    if (!GameState.MenuPause)
-                    {
-                        _soundSource.PlayFreeSfx(SfxId.BEAM_SWITCH_FAIL);
-                    }
+                    _soundSource.PlayFreeSfx(SfxId.BEAM_SWITCH_FAIL);
                     if (!hasAmmo)
                     {
                         ShowNoAmmoMessage();
@@ -1292,9 +1240,7 @@ namespace MphRead.Entities
             UpdateZoom(false);
             PreviousWeapon = CurrentWeapon;
             CurrentWeapon = WeaponSelection = beam;
-            if (beam == Weapons.GetAffinityBeam(Hunter)
-                || GameState.SinglePlayer && (Hunter == Hunter.Samus && (beam == BeamType.PowerBeam || beam == BeamType.OmegaCannon)
-                || Hunter == Hunter.Guardian && beam == BeamType.VoltDriver))
+            if (beam == Weapons.GetAffinityBeam(Hunter))
             {
                 EquipInfo.Weapon = Weapons.Current[(int)beam + 9];
             }
@@ -1309,7 +1255,7 @@ namespace MphRead.Entities
             _timeSinceInput = 0;
             if (!silent)
             {
-                if (IsMainPlayer && !IsAltForm && beam != BeamType.Missile && !GameState.MenuPause)
+                if (IsMainPlayer && !IsAltForm && beam != BeamType.Missile)
                 {
                     int sfx = Metadata.HunterSfx[(int)Hunter, (int)HunterSfx.BeamSwitch];
                     if (sfx != -1)
@@ -1377,7 +1323,7 @@ namespace MphRead.Entities
 
         private void UnequipOmegaCannon()
         {
-            if (CurrentWeapon == BeamType.OmegaCannon && GameState.Multiplayer)
+            if (CurrentWeapon == BeamType.OmegaCannon)
             {
                 _availableCharges[BeamType.OmegaCannon] = false;
                 _availableWeapons[BeamType.OmegaCannon] = false;
@@ -1667,7 +1613,7 @@ namespace MphRead.Entities
                 }
             }
             bool ignoreDamage = false;
-            if (GameState.SinglePlayer && IsBot && attacker == this || _scene.Match.Rules.Teams && !_scene.Match.Rules.FriendlyFire
+            if (_scene.Match.Rules.Teams && !_scene.Match.Rules.FriendlyFire
                 && attacker != null && attacker != this && attacker.TeamIndex == TeamIndex)
             {
                 ignoreDamage = true;
@@ -1675,7 +1621,7 @@ namespace MphRead.Entities
             }
             if (!ignoreDamage && flags.TestFlag(DamageFlags.Headshot) && attacker == Main) // todo: and not on wifi
             {
-                int messageId = GameState.Multiplayer ? 228 : 121; // HEADSHOT!
+                int messageId = 228; // HEADSHOT!
                 QueueHudMessage(128, 40, 20 / 30f, 0, messageId);
             }
             if (attacker != null && attacker != this && beam != null)
@@ -1719,14 +1665,7 @@ namespace MphRead.Entities
                     _halfturret.Health -= (int)turretDamage;
                 }
                 damage -= turretDamage;
-                if (IsBot && GameState.SinglePlayer && AiData.Flags1)
-                {
-                    if (_health > AiData.HealthThreshold && (_health - damage) <= AiData.HealthThreshold)
-                    {
-                        damage = (uint)(_health - AiData.HealthThreshold - 1);
-                    }
-                }
-                else if (_health <= damage)
+                if (_health <= damage)
                 {
                     damage = (uint)(_health - 1);
                 }
@@ -1746,11 +1685,7 @@ namespace MphRead.Entities
             ushort combatFrozen = _frozenTimer, combatBurn = _burnTimer, combatDisrupt = _disruptedTimer;
             Mods.Network.NetDamage.Note(this, attacker, beam?.Beam ?? BeamType.None, flags, direction);
             bool dead = false;
-            if (IsBot && GameState.SinglePlayer && AiData.Flags1 && _health <= AiData.HealthThreshold)
-            {
-                dead = true;
-            }
-            else if (_health <= damage || flags.TestFlag(DamageFlags.Death))
+            if (_health <= damage || flags.TestFlag(DamageFlags.Death))
             {
                 dead = true;
             }
@@ -1797,7 +1732,6 @@ namespace MphRead.Entities
                     ItemSpawnEntity.SpawnItemDrop(EnemySpawner.Data.ItemType, Position,
                         NodeRef, EnemySpawner.Data.ItemChance, _scene);
                 }
-                ResetCombatVisor();
                 if (Flags2.TestFlag(PlayerFlags2.Halfturret))
                 {
                     _halfturret.Die();
@@ -1876,20 +1810,10 @@ namespace MphRead.Entities
                         UpdateDoubleDamageSfx(index: 0, play: false);
                         UpdateCloakSfx(index: 0, play: false);
                         _soundSource.StopFreeSfxScripts();
-                        if (GameState.Multiplayer)
-                        {
-                            PlayHunterSfx(HunterSfx.Death);
-                        }
-                        else
-                        {
-                            _sfxStopTimer = 10 / 30f;
-                            // todo: rumble
-                            _soundSource.PlayFreeSfx(SfxId.SAMUS_DEATH);
-                        }
+                        PlayHunterSfx(HunterSfx.Death);
                     }
                     else
                     {
-                        Music.UpdateEncounterMusic((int)Hunter);
                         PlayHunterSfx(HunterSfx.Death);
                     }
                     StopBeamChargeSfx(CurrentWeapon);
@@ -1918,7 +1842,6 @@ namespace MphRead.Entities
                 {
                     if (IsMainPlayer)
                     {
-                        CloseDialogs();
                         if (attacker == this)
                         {
                             QueueHudMessage(128, 70, 140, 90 / 30f, 2, 235); // YOU SELF-DESTRUCTED!
@@ -1982,7 +1905,7 @@ namespace MphRead.Entities
                     if (attacker == this)
                     {
                         _scene.Match.Players[SlotIndex].Suicides++;
-                        if (GameState.Mode == GameMode.Battle || GameState.Mode == GameMode.BattleTeams)
+                        if (_scene.Match.Rules.Mode == MatchMode.Battle || _scene.Match.Rules.Mode == MatchMode.TeamBattle)
                         {
                             _scene.Match.Players[SlotIndex].Points--;
                         }
@@ -2047,7 +1970,7 @@ namespace MphRead.Entities
                                 }
                                 QueueHudMessage(128, 70, 140, 90 / 30f, 2, message);
                             }
-                            if (GameState.Mode == GameMode.PrimeHunter)
+                            if (_scene.Match.Rules.Mode == MatchMode.PrimeHunter)
                             {
                                 if (attacker.IsPrimeHunter)
                                 {
@@ -2066,7 +1989,7 @@ namespace MphRead.Entities
                                     QueueHudMessage(128, 70, 140, 90 / 30f, 2, message.Replace("%s", nickname));
                                 }
                             }
-                            else if (GameState.Mode == GameMode.Battle || GameState.Mode == GameMode.BattleTeams)
+                            else if (_scene.Match.Rules.Mode == MatchMode.Battle || _scene.Match.Rules.Mode == MatchMode.TeamBattle)
                             {
                                 if (_scene.Match.Players[attacker.SlotIndex].Points < 99999)
                                 {
@@ -2088,7 +2011,7 @@ namespace MphRead.Entities
                 else // no attacker
                 {
                     _scene.Match.Players[SlotIndex].Suicides++;
-                    if (GameState.Mode == GameMode.Battle || GameState.Mode == GameMode.BattleTeams)
+                    if (_scene.Match.Rules.Mode == MatchMode.Battle || _scene.Match.Rules.Mode == MatchMode.TeamBattle)
                     {
                         _scene.Match.Players[SlotIndex].Points--;
                     }
@@ -2112,7 +2035,7 @@ namespace MphRead.Entities
                     QueueHudMessage(128, 70, 140, 90 / 30f, 2, 242); // the prime hunter is dead!
                 }
 
-                if (GameState.Multiplayer && attacker != null && attacker != this)
+                if (attacker != null && attacker != this)
                 {
                     ItemType itemType = ItemType.UASmall;
                     if (attacker.EquipInfo.Weapon.AmmoType == 1)
@@ -2143,14 +2066,13 @@ namespace MphRead.Entities
                             _soundSource.PlaySfx(SfxId.SHOTGUN_FREEZE);
                             if (IsMainPlayer)
                             {
-                                ResetCombatVisor();
                                 _drawIceLayer = true;
                             }
                             if (_frozenTimer == 0)
                             {
                                 if (_timeSinceFrozen > 60 * 2) // todo: FPS stuff
                                 {
-                                    int time = (GameState.Multiplayer || attacker != null ? 75 : 30) * 2; // todo: FPS stuff
+                                    int time = 75 * 2; // todo: FPS stuff
                                     _frozenTimer = (ushort)time;
                                 }
                                 else if (_frozenTimer < 15 * 2) // todo: FPS stuff

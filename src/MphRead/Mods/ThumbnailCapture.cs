@@ -154,7 +154,6 @@ namespace MphRead.Mods
 
         protected override void OnRenderFrame(FrameEventArgs args)
         {
-            GameState.ApplyPause();
             Scene.OnUpdateFrame();
             ApplyPreviewCamera();
             bool capturing = !_captured && _settleFrames-- <= 0;

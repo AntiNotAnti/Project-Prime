@@ -124,7 +124,7 @@ namespace MphRead.Mods.Network
             sb.Append($"[{DateTime.Now:HH:mm:ss.fff}] STATE  ");
             sb.Append($"role={NetSession.Role} slot={NetSession.LocalSlot} ");
             sb.Append($"main={PlayerEntity.MainPlayerIndex} ");
-            sb.Append($"mode={GameState.Mode} ");
+            if (scene != null) { sb.Append($"mode={scene.Match.Rules.Mode} "); }
             if (scene != null) { sb.Append($"matchTime={scene.Match.MatchTime:0.0} "); }
             // The two numbers that decide whether this client is still
             // playing. A client that ended its match early looks, in every

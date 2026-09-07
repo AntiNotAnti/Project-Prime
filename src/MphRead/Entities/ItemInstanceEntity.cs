@@ -47,7 +47,7 @@ namespace MphRead.Entities
             Position = data.Position;
             ItemType = data.ItemType;
             _scanId = _scanIds[(int)data.ItemType];
-            if (GameState.Multiplayer && _scene.Match.Rules.AffinityWeapons && (ItemType == ItemType.VoltDriver
+            if (_scene.Match.Rules.AffinityWeapons && (ItemType == ItemType.VoltDriver
                 || ItemType == ItemType.Battlehammer || ItemType == ItemType.Imperialist
                 || ItemType == ItemType.Judicator || ItemType == ItemType.Magmaul || ItemType == ItemType.ShockCoil))
             {
@@ -133,24 +133,6 @@ namespace MphRead.Entities
             if (sfx != -1)
             {
                 _soundSource.PlaySfx(sfx, loop: true);
-            }
-            if (Owner == null && GameState.SinglePlayer && PlayerEntity.Main.EquipInfo.Weapon != null)
-            {
-                EquipInfo equip = PlayerEntity.Main.EquipInfo;
-                if (equip.ChargeLevel >= equip.Weapon.MinCharge * 2) // todo: FPS stuff
-                {
-                    // todo: visualize
-                    Vector3 between = PlayerEntity.Main.Position - Position;
-                    float distSqr = between.LengthSquared;
-                    if (distSqr > 0 && distSqr < 20 * 20)
-                    {
-                        // hyperbolic function -- (20 - x) / (80 * x)
-                        float distance = MathF.Sqrt(distSqr);
-                        float div = distance / 20;
-                        float pct = (1 - div) / distance;
-                        Position += between * (pct / (4 * 2)); // todo: FPS stuff
-                    }
-                }
             }
             return base.Process();
         }

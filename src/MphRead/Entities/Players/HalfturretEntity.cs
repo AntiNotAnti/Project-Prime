@@ -81,7 +81,6 @@ namespace MphRead.Entities
             _light1Color = Owner.Light1Color;
             _light2Vector = Owner.Light2Vector;
             _light2Color = Owner.Light2Color;
-            _scanId = PlayerEntity.ScanIds[(int)Hunter.Weavel, 1];
         }
 
         public override void GetVectors(out Vector3 position, out Vector3 up, out Vector3 facing)
@@ -237,8 +236,7 @@ namespace MphRead.Entities
             if (Owner == PlayerEntity.Main)
             {
                 string message = Text.Strings.GetHudMessage(233); // turret energy: %d
-                // hide during dialog pause to prevent overlap -- the game doesn't do this, and also can't play as Weavel in 1P anyway
-                Owner.QueueHudMessage(128, 150, 1 / 1000f, 0, message.Replace("%d", _health.ToString()), dialogHide: true);
+                Owner.QueueHudMessage(128, 150, 1 / 1000f, 0, message.Replace("%d", _health.ToString()));
             }
             if (!_grounded)
             {

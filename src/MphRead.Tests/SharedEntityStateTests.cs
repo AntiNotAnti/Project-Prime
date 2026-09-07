@@ -66,6 +66,23 @@ namespace MphRead.Tests
             Assert.Throws<ProgramException>(() => ClearTrigger(state.Scene, 32));
         }
 
+        [Fact]
+        public void RoomTransitionStateIsOwnedByItsScene()
+        {
+            using SceneState first = new();
+            first.Scene.TransitionRoomId = 93;
+            first.Scene.TransitionState = TransitionState.Start;
+
+            Assert.Equal(93, first.Scene.TransitionRoomId);
+            Assert.Equal(TransitionState.Start, first.Scene.TransitionState);
+            Assert.True(first.Scene.InRoomTransition);
+
+            using SceneState second = new();
+            Assert.Equal(-1, second.Scene.TransitionRoomId);
+            Assert.Equal(TransitionState.None, second.Scene.TransitionState);
+            Assert.False(second.Scene.InRoomTransition);
+        }
+
         private static void SetTrigger(Scene scene, int index)
         {
             scene.SendMessage(Message.SetTriggerState, null!, null, index, null!, delay: 0);

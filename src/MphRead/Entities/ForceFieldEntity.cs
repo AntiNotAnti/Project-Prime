@@ -47,7 +47,6 @@ namespace MphRead.Entities
             _height = data.Height.FloatValue;
             SetTransform(data.Header.FacingVector, data.Header.UpVector, data.Header.Position);
             Scale = new Vector3(_width, _height, 1.0f);
-            Debug.Assert(GameState.Mode == GameMode.SinglePlayer);
             int state = _scene.GetInitialEntityState(Id, active: _data.Active != 0);
             _active = state != 0;
             if (_active)
@@ -112,27 +111,11 @@ namespace MphRead.Entities
                 {
                     _lock.SetHealth(0);
                 }
-                if (GameState.SinglePlayer)
-                {
-                    if (CameraSequence.Current == null)
-                    {
-                        PlayerEntity.Main.ForceFieldSfxTimer = 2 / 30f;
-                    }
-                    else if (Sfx.ForceFieldSfxMute == 0 && _soundSource.CountPlayingSfx(SfxId.GEN_OFF) == 0)
-                    {
-                        _soundSource.PlayFreeSfx(SfxId.GEN_OFF);
-                    }
-                }
                 _active = false;
                 _scanId = 0;
             }
             else if (info.Message == Message.Lock)
             {
-                if (!_active && GameState.SinglePlayer && CameraSequence.Current != null
-                    && _soundSource.CountPlayingSfx(SfxId.FORCEFIELD_APPEAR) == 0)
-                {
-                    _soundSource.PlayFreeSfx(SfxId.FORCEFIELD_APPEAR);
-                }
                 _active = true;
                 if (_data.Type == 9)
                 {

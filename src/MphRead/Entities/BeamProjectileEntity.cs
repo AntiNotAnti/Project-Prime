@@ -348,7 +348,7 @@ namespace MphRead.Entities
                 }
                 foreach (DoorEntity door in _scene.GetDoorEntities())
                 {
-                    if (door.Flags.TestFlag(DoorFlags.Open) || door.ConnectorInactive)
+                    if (door.Flags.TestFlag(DoorFlags.Open))
                     {
                         continue;
                     }
@@ -537,28 +537,6 @@ namespace MphRead.Entities
                     }
                 }
             }
-            if (GameState.SinglePlayer)
-            {
-                foreach (BeamProjectileEntity other in _scene.GetBeamProjectileEntities())
-                {
-                    if (other.Owner == Owner || other.Flags.TestFlag(BeamFlags.Collided) || !other.Flags.TestFlag(BeamFlags.Destroyable)
-                        || other.Owner?.Type == EntityType.EnemyInstance && Owner.Type == EntityType.EnemyInstance)
-                    {
-                        continue;
-                    }
-                    CollisionResult beamRes = default;
-                    int radiusIndex = (int)(other.Flags & (BeamFlags.RadiusIndex1 | BeamFlags.RadiusIndex2)) >> 9;
-                    float radius = Metadata.BeamRadiusValues[radiusIndex];
-                    if (CollisionDetection.CheckCylinderOverlapSphere(BackPosition, Position, other.Position,
-                        radius, ref beamRes) && beamRes.Distance < minDist)
-                    {
-                        minDist = beamRes.Distance;
-                        anyRes = beamRes;
-                        colWith = other;
-                        noColEff = true;
-                    }
-                }
-            }
             if (minDist >= 0 && minDist <= 1)
             {
                 float amt = Fixed.ToFloat(204);
@@ -586,20 +564,7 @@ namespace MphRead.Entities
                             player = ((HalfturretEntity)colWith).Owner;
                         }
                         DamageFlags damageFlags = DamageFlags.NoDmgInvuln;
-                        if (player.BeamEffectiveness[(int)Beam] == Effectiveness.Zero)
-                        {
-                            if (GameState.SinglePlayer && Owner == PlayerEntity.Main)
-                            {
-                                Matrix4 transform = GetTransformMatrix(Vector3.UnitX, Vector3.UnitY, player.Position);
-                                EffectEntry? effect = _scene.SpawnEffectGetEntry(115, transform); // ineffectivePsycho
-                                if (effect != null)
-                                {
-                                    effect.SetReadOnlyField(0, 1); // radius
-                                    _scene.DetachEffectEntry(effect, setExpired: false);
-                                }
-                            }
-                        }
-                        else
+                        if (player.BeamEffectiveness[(int)Beam] != Effectiveness.Zero)
                         {
                             if (hitHalfturret)
                             {
@@ -729,13 +694,8 @@ namespace MphRead.Entities
                                     {
                                         door.Unlock(updateState: true, noLockAnimSfx: true);
                                     }
-                                    else if (GameState.SinglePlayer)
-                                    {
-                                        // todo: handle messages like this
-                                        _scene.SendMessage(Message.ShowWarning, this, null, 40, 90 * 2, 5 * 2); // todo: FPS stuff
-                                    }
                                 }
-                                if (!GameState.InRoomTransition)
+                                if (!_scene.InRoomTransition)
                                 {
                                     door.Flags |= DoorFlags.ShotOpen;
                                 }
@@ -1831,7 +1791,7 @@ namespace MphRead.Entities
                     if (beam.Beam == BeamType.ShockCoil && owner.Type == EntityType.Player)
                     {
                         var ownerPlayer = (PlayerEntity)owner;
-                        if ((GameState.Multiplayer || !ownerPlayer.IsBot) && ownerPlayer.ShockCoilTarget == beam.Target
+                        if (ownerPlayer.ShockCoilTarget == beam.Target
                             && scene.FrameCount % 2 == 0) // todo: FPS stuff
                         {
                             // todo: FPS stuff
@@ -2160,31 +2120,15 @@ namespace MphRead.Entities
                 Vector3 facing = GetCrossVector(up);
                 Matrix4 transform = GetTransformMatrix(facing, up);
                 transform.Row3.Xyz = spawnPos;
-                // the game uses BeamKind against "511" bits which accomplish the same thing as this terrain type check
-                if (!GameState.SinglePlayer || colRes.Terrain <= Terrain.Lava)
+                var ent = BeamEffectEntity.Create(
+                    new BeamEffectEntityData(CollisionEffect, noSplat, transform, colRes.EntityCollision), _scene);
+                if (ent != null)
                 {
-                    var ent = BeamEffectEntity.Create(
-                        new BeamEffectEntityData(CollisionEffect, noSplat, transform, colRes.EntityCollision), _scene);
-                    if (ent != null)
+                    if (SplashDamage > 0)
                     {
-                        if (SplashDamage > 0)
-                        {
-                            ent.Scale = new Vector3(SplashRadius);
-                        }
-                        _scene.AddEntity(ent);
+                        ent.Scale = new Vector3(SplashRadius);
                     }
-                }
-                // there are actually effect IDs to cover platform/enemy beams in these arrays (although most are 255)
-                byte splatEffect = _terSplat1P[(int)BeamKind][(int)colRes.Terrain];
-                if (GameState.SinglePlayer && splatEffect != 255)
-                {
-                    splatEffect += 3;
-                    var ent = BeamEffectEntity.Create(
-                        new BeamEffectEntityData(splatEffect, noSplat, transform, colRes.EntityCollision), _scene);
-                    if (ent != null)
-                    {
-                        _scene.AddEntity(ent);
-                    }
+                    _scene.AddEntity(ent);
                 }
             }
         }
@@ -2211,19 +2155,6 @@ namespace MphRead.Entities
                 // 28 - sniperCol (unintended)
                 effectId = (int)Beam + 20;
             }
-            else if (GameState.SinglePlayer)
-            {
-                // 12 - effectiveHitPB
-                // 13 - effectiveHitElectric
-                // 14 - effectiveHitMsl
-                // 15 - effectiveHitJack
-                // 16 - effectiveHitSniper
-                // 17 - effectiveHitIce
-                // 18 - effectiveHitMortar
-                // 19 - effectiveHitGhost
-                // 20 - sprEffectivePB (unintended)
-                effectId = (int)Beam + 12;
-            }
             else
             {
                 // 154 - mpEffectivePB
@@ -2242,23 +2173,6 @@ namespace MphRead.Entities
                 _scene.SpawnEffect(effectId, transform);
             }
         }
-
-        private static readonly IReadOnlyList<IReadOnlyList<byte>> _terSplat1P
-            = new List<IReadOnlyList<byte>>()
-            {
-                // metal, orange holo, green holo, blue holo, ice, snow, sand, rock, lava, acid, Gorea, unknown
-                new List<byte>() { 255, 99, 121, 122, 123, 126, 125, 124, 100, 142, 141, 140 }, // Power Beam
-                new List<byte>() { 255, 99, 121, 122, 123, 126, 125, 124, 100, 142, 141, 140 }, // Volt Driver
-                new List<byte>() { 255, 255, 255, 255, 255, 255, 255, 255, 255, 142, 141, 140 }, // Missile
-                new List<byte>() { 255, 99, 121, 122, 123, 126, 125, 124, 100, 142, 141, 140 }, // Battlehammer
-                new List<byte>() { 255, 99, 121, 122, 123, 126, 125, 124, 100, 142, 141, 140 }, // Imperialist
-                new List<byte>() { 255, 99, 121, 122, 123, 126, 125, 124, 100, 142, 141, 140 }, // Judicator
-                new List<byte>() { 255, 255, 255, 255, 255, 255, 255, 255, 255, 142, 141, 140 }, // Magmaul
-                new List<byte>() { 255, 255, 255, 255, 255, 255, 255, 255, 255, 142, 141, 140 }, // Shock Coil
-                new List<byte>() { 255, 255, 255, 255, 255, 255, 255, 255, 255, 142, 141, 140 }, // Omega Cannon
-                new List<byte>() { 255, 255, 255, 255, 255, 255, 255, 255, 255, 142, 141, 140 }, // Platform
-                new List<byte>() { 255, 255, 255, 255, 255, 255, 255, 255, 255, 142, 141, 140 } // Enemy
-            };
 
         private void SpawnSniperBeam()
         {

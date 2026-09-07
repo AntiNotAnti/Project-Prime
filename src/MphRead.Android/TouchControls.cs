@@ -16,15 +16,8 @@ namespace MphRead.Droid
         Shoot,
         Jump,
         Morph,
-        /// <summary>Opens and closes the scan visor: the desktop's SCAN VISOR (E).</summary>
-        ScanVisor,
-        /// <summary>
-        /// Scans whatever is targeted, held: the desktop's SCAN (Q). Its own
-        /// button, because it is a second step rather than another way to
-        /// press VISOR -- reading an entry is not leaving the visor, and one
-        /// button trying to be both made a press mean either.
-        /// </summary>
-        Scan,
+        /// <summary>Switches spectator view between a player and the free camera.</summary>
+        SpectatorView,
         /// <summary>
         /// Missile, and back again. The wheel is the six affinity weapons and
         /// nothing else -- PlayerHud's weapon select has six slots, none of
@@ -76,8 +69,7 @@ namespace MphRead.Droid
         public float CentreY { get; set; }
         public float Radius { get; set; }
         /// <summary>
-        /// Whether it is on screen at all. FIRE and SCAN share a place and
-        /// take turns: the visor cannot shoot and the gun cannot scan.
+        /// Whether this control is visible for the current player or spectator mode.
         /// </summary>
         public bool Visible { get; set; } = true;
 
@@ -128,9 +120,6 @@ namespace MphRead.Droid
         public IReadOnlyList<TouchButton> Buttons => _buttons;
         private readonly List<TouchButton> _buttons = new List<TouchButton>
         {
-            // SCAN before FIRE: they sit in the same place, and the one that
-            // is visible is the one a thumb should find there.
-            new TouchButton(TouchAction.Scan, "SCAN") { Visible = false },
             new TouchButton(TouchAction.Shoot, "FIRE"),
             new TouchButton(TouchAction.Jump, "JUMP"),
             new TouchButton(TouchAction.Morph, "MORPH"),
@@ -138,8 +127,8 @@ namespace MphRead.Droid
             // game's own default, the DS having had one attack button -- so
             // it was a second way to press the thing FIRE presses, and having
             // both is what stopped FIRE working at all. FIRE is both attacks
-            // now; see GameView.CollectInput. VISOR now sits where ALT did.
-            new TouchButton(TouchAction.ScanVisor, "VISOR"),
+            // now; see GameView.CollectInput. VIEW is reserved for spectators.
+            new TouchButton(TouchAction.SpectatorView, "VIEW") { Visible = false },
             new TouchButton(TouchAction.Missile, "MSSL"),
             new TouchButton(TouchAction.WeaponMenu, "WEAPON"),
             new TouchButton(TouchAction.Zoom, "ZOOM"),
@@ -165,7 +154,6 @@ namespace MphRead.Droid
         // The controls step aside for a pad and come back at the first
         // touch. See NotePadActivity.
         private bool _padDriving;
-        private bool _forceVisible;
 
         private readonly HashSet<TouchAction> _held = new HashSet<TouchAction>();
         private readonly Dictionary<int, TouchAction> _buttonPointers = new Dictionary<int, TouchAction>();
@@ -258,35 +246,6 @@ namespace MphRead.Droid
                 }
             }
         }
-
-        /// <summary>
-        /// Whether the scan visor is open, which is what swaps FIRE for SCAN.
-        /// Set from the game thread, so a change repaints through
-        /// <see cref="Invalidated"/> rather than waiting for the next touch.
-        /// </summary>
-        public bool ScanVisorActive
-        {
-            get
-            {
-                lock (_lock)
-                {
-                    return _scanVisorActive;
-                }
-            }
-            set
-            {
-                Change(() =>
-                {
-                    if (_scanVisorActive == value)
-                    {
-                        return false;
-                    }
-                    _scanVisorActive = value;
-                    return true;
-                });
-            }
-        }
-        private bool _scanVisorActive;
 
         /// <summary>
         /// Whether the CHAT button is on screen. Set once a frame from the
@@ -385,7 +344,7 @@ namespace MphRead.Droid
                 {
                     // Nothing a spectator presses does anything in the world:
                     // PlayerEntity.ProcessInput skips the local player while
-                    // this is on. So the buttons that would shoot, scan, pick
+                    // this is on. So the buttons that would shoot, pick
                     // a weapon or zoom go away, and the ones that are left are
                     // renamed to what they now do.
                     switch (button.Action)
@@ -395,7 +354,7 @@ namespace MphRead.Droid
                         visible = true;
                         label = "NEXT";
                         break;
-                    case TouchAction.ScanVisor:
+                    case TouchAction.SpectatorView:
                         // The desktop's Space: the map, or the player you were
                         // watching.
                         visible = true;
@@ -425,10 +384,7 @@ namespace MphRead.Droid
                 {
                     visible = button.Action switch
                     {
-                        // FIRE and SCAN share a place and take turns: the
-                        // visor cannot shoot and the gun cannot scan.
-                        TouchAction.Scan => _scanVisorActive,
-                        TouchAction.Shoot => !_scanVisorActive,
+                        TouchAction.SpectatorView => false,
                         TouchAction.Chat => _chatEnabled,
                         _ => true
                     };
@@ -454,8 +410,7 @@ namespace MphRead.Droid
                 TouchAction.Shoot => TouchControl.Shoot,
                 TouchAction.Jump => TouchControl.Jump,
                 TouchAction.Morph => TouchControl.Morph,
-                TouchAction.ScanVisor => TouchControl.ScanVisor,
-                TouchAction.Scan => TouchControl.Scan,
+                TouchAction.SpectatorView => TouchControl.SpectatorView,
                 TouchAction.Missile => TouchControl.Missile,
                 TouchAction.WeaponMenu => TouchControl.WeaponMenu,
                 TouchAction.Zoom => TouchControl.Zoom,
@@ -501,45 +456,7 @@ namespace MphRead.Droid
         }
 
         /// <summary>Called with the lock held.</summary>
-        private bool HiddenLocked => _padDriving && !_forceVisible;
-
-        /// <summary>
-        /// Keep the controls on screen whatever the pad is doing.
-        ///
-        /// Set once a frame by the game loop, for the one thing a pad cannot
-        /// do: a dialog box is dismissed by pressing its OK button, which is
-        /// read as a *position* on what used to be a touch screen (see
-        /// PlayerDialog.CheckButtonPressed), and GamepadInput deliberately
-        /// drives no pointer. Hiding the controls through one of those would
-        /// be a story that cannot be continued.
-        ///
-        /// A flag the loop keeps setting rather than a one-shot "show
-        /// yourself", because a thumb still on the stick would otherwise put
-        /// them away again on the very next motion event and the box would
-        /// flicker for as long as the pad was held.
-        /// </summary>
-        public bool ForceVisible
-        {
-            get
-            {
-                lock (_lock)
-                {
-                    return _forceVisible;
-                }
-            }
-            set
-            {
-                bool before;
-                bool after;
-                lock (_lock)
-                {
-                    before = HiddenLocked;
-                    _forceVisible = value;
-                    after = HiddenLocked;
-                }
-                Settle(before, after);
-            }
-        }
+        private bool HiddenLocked => _padDriving;
 
         /// <summary>
         /// A pad button or stick moved: put the controls away.
@@ -600,12 +517,9 @@ namespace MphRead.Droid
                 StickRadius = 0.15f * h;
                 StickKnobRadius = 0.06f * h;
                 Place(TouchAction.Shoot, width - 0.17f * h, h - 0.19f * h, 0.105f * h);
-                // The same place and the same size: in the visor, that thumb
-                // has nothing to shoot with and everything to scan with.
-                Place(TouchAction.Scan, width - 0.17f * h, h - 0.19f * h, 0.105f * h);
                 Place(TouchAction.Jump, width - 0.40f * h, h - 0.15f * h, 0.085f * h);
                 Place(TouchAction.Morph, width - 0.15f * h, h - 0.47f * h, 0.080f * h);
-                Place(TouchAction.ScanVisor, width - 0.38f * h, h - 0.42f * h, 0.075f * h);
+                Place(TouchAction.SpectatorView, width - 0.38f * h, h - 0.42f * h, 0.075f * h);
                 // Within the firing thumb's reach, since a missile is fired
                 // rather than administered, and clear of JUMP above it and
                 // VISOR beside it.
@@ -694,23 +608,10 @@ namespace MphRead.Droid
         /// Treat the whole screen as a place to point at, rather than the left
         /// half as a stick.
         ///
-        /// The DS had a touch screen and parts of this game still read a
-        /// position off it -- the dialog boxes and their OK button among them.
-        /// Those parts are drawn across the middle of the screen, which is the
-        /// seam between the stick and the aim, so half of an OK button lands on
-        /// a thumbstick that is not being used: the game is paused behind the
-        /// box. While one of those is up the split does more harm than good.
+        /// The weapon wheel spans both halves of the screen and consumes
+        /// absolute pointer positions while it is open.
         /// </summary>
         public bool PointerIsAbsolute { get; set; }
-
-        /// <summary>Where the aiming finger is, for the parts that read a position.</summary>
-        public (bool Down, float X, float Y) AimPosition()
-        {
-            lock (_lock)
-            {
-                return (_aimDown, _aimAbsX, _aimAbsY);
-            }
-        }
 
         /// <summary>
         /// Where the weapon wheel should read its cursor from.
@@ -722,9 +623,6 @@ namespace MphRead.Droid
         /// what somebody who learnt it will do. A second finger put down
         /// while the wheel is open is an explicit choice and wins.
         ///
-        /// Separate from <see cref="AimPosition"/> rather than folded into it
-        /// because that one also answers for the dialog boxes, and a WEAPON
-        /// press has no business moving a cursor over an OK button.
         /// </summary>
         public (bool Down, float X, float Y) WeaponWheelPosition()
         {
@@ -790,11 +688,8 @@ namespace MphRead.Droid
                 {
                     _buttonPointers[pointerId] = button.Action;
                     _held.Add(button.Action);
-                    // Both of the buttons that live under the aiming
-                    // thumb drag the aim as well: keeping a target
-                    // centred matters as much while scanning it as it
-                    // does while shooting at it.
-                    if (button.Action == TouchAction.Shoot || button.Action == TouchAction.Scan)
+                    // Dragging the fire button also aims at the target.
+                    if (button.Action == TouchAction.Shoot)
                     {
                         _fireAimPointer = pointerId;
                         _fireAimLastX = x;

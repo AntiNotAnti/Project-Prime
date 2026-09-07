@@ -149,7 +149,6 @@ namespace MphRead.Mods.Network
             {
                 _loadedMatch = Match.MatchId;
                 MatchesLoaded++;
-                GameState.Mode = Match.Mode;
                 // Rotation owns mode/room immediately; retain the prior legacy goal
                 // until the authoritative world stream supplies the new round's rules.
                 int pointGoal = scene.Match.Rules.LegacyPointGoal;
@@ -166,7 +165,7 @@ namespace MphRead.Mods.Network
                     scene.Match.MatchTime = Match.Rules.TimeLimit.HasValue ? (float)Match.Rules.TimeLimit.Value.TotalSeconds : -1;
                     scene.Match.RadarPlayers = Match.Rules.PlayerRadar;
                 }
-                GameState.TransitionRoomId = Metadata.GetRoomByName(Match.Room).Item1?.Id
+                scene.TransitionRoomId = Metadata.GetRoomByName(Match.Room).Item1?.Id
                     ?? throw new ProgramException($"Unknown demo room: {Match.Room}");
                 (scene.Room ?? throw new ProgramException("Demo scene has no room.")).LoadRoom(resume: false);
             }

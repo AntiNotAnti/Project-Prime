@@ -111,10 +111,8 @@ namespace MphRead.Droid
                 // settle went from most of the room's time to 15 ms.
                 for (int frame = 0; frame < SettleFrames; frame++)
                 {
-                    GameState.ApplyPause();
                     scene.OnUpdateFrame();
                 }
-                GameState.ApplyPause();
                 scene.OnUpdateFrame();
                 if (!scene.OnRenderFrame())
                 {

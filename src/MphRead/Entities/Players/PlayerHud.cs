@@ -34,7 +34,6 @@ namespace MphRead.Entities
         private HudObjectInstance _boostInst = null!;
         private HudObjectInstance _bombInst = null!;
         private HudMeter _enemyHealthMeter = null!;
-        private HudMeter _scanProgressMeter = null!;
 
         private HudObjectInstance _octolithInst = null!;
         private HudObjectInstance _primeHunterInst = null!;
@@ -52,13 +51,6 @@ namespace MphRead.Entities
         private HudObjectInstance _starsInst = null!;
         private readonly HudObjectInstance[] _hunterInsts = new HudObjectInstance[8];
 
-        private HudObjectInstance _messageBoxInst = null!;
-        private HudObjectInstance _messageSpacerInst = null!;
-        private HudObjectInstance _dialogButtonInst = null!;
-        private HudObjectInstance _dialogArrowInst = null!;
-        private HudObjectInstance _dialogCrystalInst = null!;
-        private HudObjectInstance _dialogPickupInst = null!;
-        private HudObjectInstance _dialogFrameInst = null!;
 
 
         private ModelInstance _filterModel = null!;
@@ -91,12 +83,8 @@ namespace MphRead.Entities
         private int _helmetBindingId = -1;
         private int _helmetDropBindingId = -1;
         private int _visorBindingId = -1;
-        private int _scanBindingId = -1;
-        private int _pauseBindingId = -1;
-        private readonly int[] _dialogBindingIds = new int[5] { -1, -1, -1, -1, -1 };
 
         private IReadOnlyList<ColorRgba> _textPaletteData = null!;
-        private IReadOnlyList<ColorRgba> _dialogPaletteData = null!;
 
         public void SetUpHud()
         {
@@ -110,10 +98,6 @@ namespace MphRead.Entities
             {
                 visorPal = null;
             }
-            (_scanBindingId, _) = HudInfo.CharMapToTexture(_hudObjects.ScanVisor, startX: 0, startY: 96,
-                tilesX: 0, tilesY: 32, _scene, visorPal);
-            (_pauseBindingId, _) = HudInfo.CharMapToTexture(_hudObjects.ScanVisor, startX: 0, startY: 64,
-                tilesX: 0, tilesY: 32, _scene, visorPal);
             // todo: only load what needs to be loaded for the mode
             _filterModel = Read.GetModelInstance("filter");
             _scene.LoadModel(_filterModel.Model);
@@ -203,35 +187,12 @@ namespace MphRead.Entities
             _healthbarSubMeter.BarInst.SetCharacterData(healthbarSub.CharacterData, _scene);
             _healthbarSubMeter.BarInst.SetPaletteData(healthbarSub.PaletteData, _scene);
             _healthbarSubMeter.BarInst.Enabled = true;
-            HudObject samusSubBar = healthbarSub;
-            if (Hunter != Hunter.Samus)
-            {
-                samusSubBar = HudInfo.GetHudObject(HudElements.HunterObjects[(int)Hunter.Samus].HealthBarB);
-            }
-            if (GameState.Multiplayer)
-            {
-                HudObject damageBar = HudInfo.GetHudObject(_hudObjects.DamageBar);
-                _enemyHealthMeter = new HudMeter() { Horizontal = true, };
-                _enemyHealthMeter.BarInst = new HudObjectInstance(damageBar.Width, damageBar.Height);
-                _enemyHealthMeter.BarInst.SetCharacterData(damageBar.CharacterData, _scene);
-                _enemyHealthMeter.BarInst.SetPaletteData(damageBar.PaletteData, _scene);
-                _enemyHealthMeter.BarInst.Enabled = true;
-            }
-            if (GameState.SinglePlayer && _hudObjects.EnergyTanks != null)
-            {
-                HudObject healthbarTank = HudInfo.GetHudObject(_hudObjects.EnergyTanks);
-                _healthbarMainMeter.TankInst = new HudObjectInstance(healthbarTank.Width, healthbarTank.Height);
-                _healthbarMainMeter.TankInst.SetCharacterData(healthbarTank.CharacterData, _scene);
-                if (Hunter == Hunter.Samus || Hunter == Hunter.Guardian)
-                {
-                    _healthbarMainMeter.TankInst.SetPaletteData(healthbarTank.PaletteData, _scene);
-                }
-                else
-                {
-                    _healthbarMainMeter.TankInst.SetPaletteData(healthbarMain.PaletteData, _scene);
-                }
-                _healthbarMainMeter.TankInst.Enabled = true;
-            }
+            HudObject damageBar = HudInfo.GetHudObject(_hudObjects.DamageBar);
+            _enemyHealthMeter = new HudMeter() { Horizontal = true, };
+            _enemyHealthMeter.BarInst = new HudObjectInstance(damageBar.Width, damageBar.Height);
+            _enemyHealthMeter.BarInst.SetCharacterData(damageBar.CharacterData, _scene);
+            _enemyHealthMeter.BarInst.SetPaletteData(damageBar.PaletteData, _scene);
+            _enemyHealthMeter.BarInst.Enabled = true;
             _healthbarYOffset = _hudObjects.HealthOffsetY;
             HudObject ammoBar = HudInfo.GetHudObject(_hudObjects.AmmoBar);
             _ammoBarMeter = HudElements.AmmoBars[(int)Hunter];
@@ -343,103 +304,7 @@ namespace MphRead.Entities
             {
                 _hudMessageQueue[i].Lifetime = 0;
             }
-            if (GameState.Multiplayer)
-            {
-                LoadModeRules();
-            }
-            else
-            {
-                _scanCornerObj = HudInfo.GetHudObject(HudElements.ScanCorner);
-                _scanCornerSmallObj = HudInfo.GetHudObject(HudElements.ScanCornerSmall);
-                _scanCornerInst = new HudObjectInstance(_scanCornerObj.Width, _scanCornerObj.Height);
-                _scanCornerInst.SetCharacterData(_scanCornerObj.CharacterData, _scene);
-                _scanCornerInst.Enabled = true;
-                HudObject lineHoriz = HudInfo.GetHudObject(HudElements.ScanLineHoriz);
-                _scanLineHorizInst = new HudObjectInstance(lineHoriz.Width, lineHoriz.Height);
-                _scanLineHorizInst.SetCharacterData(lineHoriz.CharacterData, _scene);
-                _scanLineHorizInst.Enabled = true;
-                HudObject lineVert = HudInfo.GetHudObject(HudElements.ScanLineVert);
-                _scanLineVertInst = new HudObjectInstance(lineVert.Width, lineVert.Height);
-                _scanLineVertInst.SetCharacterData(lineVert.CharacterData, _scene);
-                _scanLineVertInst.Enabled = true;
-                if (Hunter == Hunter.Samus)
-                {
-                    _scanCornerInst.SetPaletteData(_scanCornerObj.PaletteData, _scene);
-                    _scanLineHorizInst.SetPaletteData(lineHoriz.PaletteData, _scene);
-                    _scanLineVertInst.SetPaletteData(lineVert.PaletteData, _scene);
-                }
-                else
-                {
-                    _scanCornerInst.SetPaletteData(_targetCircleObj.PaletteData, _scene);
-                    _scanLineHorizInst.SetPaletteData(_targetCircleObj.PaletteData, _scene);
-                    _scanLineVertInst.SetPaletteData(_targetCircleObj.PaletteData, _scene);
-                }
-                for (int i = 0; i < _scanIconInsts.Length; i++)
-                {
-                    HudObject scanIcon = HudInfo.GetHudObject(HudElements.ScanIcons[i]);
-                    var scanIconInst = new HudObjectInstance(scanIcon.Width, scanIcon.Height);
-                    scanIconInst.SetCharacterData(scanIcon.CharacterData, _scene);
-                    scanIconInst.SetPaletteData(scanIcon.PaletteData, _scene);
-                    scanIconInst.Enabled = true;
-                    _scanIconInsts[i] = scanIconInst;
-                }
-                _scanProgressMeter = HudElements.SubHealthbars[(int)Hunter.Samus];
-                _scanProgressMeter.BarInst = new HudObjectInstance(samusSubBar.Width, samusSubBar.Height);
-                _scanProgressMeter.BarInst.SetCharacterData(samusSubBar.CharacterData, _scene);
-                _scanProgressMeter.BarInst.SetPaletteData(healthbarSub.PaletteData, _scene);
-                _scanProgressMeter.Horizontal = true;
-                _scanProgressMeter.BarInst.Enabled = true;
-                HudObject samusAmmo = ammoBar;
-                if (Hunter != Hunter.Samus)
-                {
-                    samusAmmo = HudInfo.GetHudObject(HudElements.HunterObjects[(int)Hunter.Samus].AmmoBar);
-                }
-                _dialogPaletteData = samusAmmo.PaletteData;
-                HudObject messageBox = HudInfo.GetHudObject(HudElements.MessageBox);
-                _messageBoxInst = new HudObjectInstance(messageBox.Width, messageBox.Height);
-                _messageBoxInst.SetCharacterData(messageBox.CharacterData, _scene);
-                _messageBoxInst.SetPaletteData(samusAmmo.PaletteData, _scene);
-                _messageBoxInst.SetAnimationFrames(messageBox.AnimParams);
-                _messageBoxInst.Enabled = true;
-                HudObject messageSpacer = HudInfo.GetHudObject(HudElements.MessageSpacer);
-                _messageSpacerInst = new HudObjectInstance(messageSpacer.Width, messageSpacer.Height);
-                _messageSpacerInst.SetCharacterData(messageSpacer.CharacterData, _scene);
-                _messageSpacerInst.SetPaletteData(samusAmmo.PaletteData, _scene);
-                _messageSpacerInst.Enabled = true;
-                for (int i = 0; i < 5; i++)
-                {
-                    (_dialogBindingIds[i], _) = HudInfo.CharMapToTexture(HudElements.MapScan,
-                        startX: 0, startY: 0, tilesX: 32, tilesY: 24, _scene, paletteId: i);
-                }
-                HudObject dialogButton = HudInfo.GetHudObject(HudElements.DialogButton);
-                _dialogButtonInst = new HudObjectInstance(dialogButton.Width, dialogButton.Height);
-                _dialogButtonInst.SetCharacterData(dialogButton.CharacterData, _scene);
-                _dialogButtonInst.SetPaletteData(dialogButton.PaletteData, _scene);
-                _dialogButtonInst.SetAnimationFrames(dialogButton.AnimParams);
-                _dialogButtonInst.Enabled = true;
-                HudObject dialogArrow = HudInfo.GetHudObject(HudElements.DialogArrow);
-                _dialogArrowInst = new HudObjectInstance(dialogArrow.Width, dialogArrow.Height);
-                _dialogArrowInst.SetCharacterData(dialogArrow.CharacterData, _scene);
-                _dialogArrowInst.SetPaletteData(dialogArrow.PaletteData, _scene);
-                _dialogArrowInst.SetAnimationFrames(dialogArrow.AnimParams);
-                _dialogArrowInst.Enabled = true;
-                HudObject dialogCrystal = HudInfo.GetHudObject(HudElements.DialogCrystal);
-                _dialogCrystalInst = new HudObjectInstance(dialogCrystal.Width, dialogCrystal.Height);
-                _dialogCrystalInst.SetCharacterData(dialogCrystal.CharacterData, _scene);
-                _dialogCrystalInst.SetPaletteData(dialogCrystal.PaletteData, _scene);
-                _dialogCrystalInst.SetAnimationFrames(dialogCrystal.AnimParams);
-                _dialogCrystalInst.Enabled = true;
-                HudObject dialogPickup = HudInfo.GetHudObject(HudElements.DialogPickup);
-                _dialogPickupInst = new HudObjectInstance(dialogPickup.Width, dialogPickup.Height);
-                _dialogPickupInst.SetCharacterData(dialogPickup.CharacterData, _scene);
-                _dialogPickupInst.SetPaletteData(dialogPickup.PaletteData, _scene);
-                _dialogPickupInst.Enabled = true;
-                HudObject dialogFrame = HudInfo.GetHudObject(HudElements.DialogFrame);
-                _dialogFrameInst = new HudObjectInstance(dialogFrame.Width, dialogFrame.Height);
-                _dialogFrameInst.SetCharacterData(dialogFrame.CharacterData, _scene);
-                _dialogFrameInst.SetPaletteData(dialogFrame.PaletteData, _scene);
-                _dialogFrameInst.Enabled = true;
-            }
+            LoadModeRules();
             HudReady = true;
         }
 
@@ -463,32 +328,32 @@ namespace MphRead.Entities
                 _rulesLines[i] = null;
                 _rulesLengths[i] = (0, 0);
             }
-            GameMode mode = GameState.Mode;
-            if (mode == GameMode.Battle || mode == GameMode.BattleTeams)
+            MatchMode mode = _scene.Match.Rules.Mode;
+            if (mode == MatchMode.Battle || mode == MatchMode.TeamBattle)
             {
                 _rulesInfo = HudElements.RulesInfo[0];
             }
-            else if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
+            else if (mode == MatchMode.Survival || mode == MatchMode.TeamSurvival)
             {
                 _rulesInfo = HudElements.RulesInfo[1];
             }
-            else if (mode == GameMode.PrimeHunter)
+            else if (mode == MatchMode.PrimeHunter)
             {
                 _rulesInfo = HudElements.RulesInfo[2];
             }
-            else if (mode == GameMode.Bounty || mode == GameMode.BountyTeams)
+            else if (mode == MatchMode.Bounty || mode == MatchMode.TeamBounty)
             {
                 _rulesInfo = HudElements.RulesInfo[3];
             }
-            else if (mode == GameMode.Capture)
+            else if (mode == MatchMode.Capture)
             {
                 _rulesInfo = HudElements.RulesInfo[4];
             }
-            else if (mode == GameMode.Defender || mode == GameMode.DefenderTeams)
+            else if (mode == MatchMode.Defender || mode == MatchMode.TeamDefender)
             {
                 _rulesInfo = HudElements.RulesInfo[5];
             }
-            else if (mode == GameMode.Nodes || mode == GameMode.NodesTeams)
+            else if (mode == MatchMode.Nodes || mode == MatchMode.TeamNodes)
             {
                 _rulesInfo = HudElements.RulesInfo[6];
             }
@@ -528,7 +393,6 @@ namespace MphRead.Entities
         private float _objShiftX = 0;
         private float _objShiftY = 0;
         private bool _hudWeaponMenuOpen = false;
-        public bool ScanVisor { get; private set; }
 
         private void InitHudState()
         {
@@ -545,19 +409,10 @@ namespace MphRead.Entities
 
         public void UpdateHud()
         {
-            if (GameState.DialogPause)
-            {
-                return;
-            }
-            if (GameState.SinglePlayer)
-            {
-                UpdateDialogs();
-            }
             ProcessDoubleDamageHud();
             ProcessCloakHud();
             UpdateHealthbars();
             UpdateAmmoBar();
-            UpdateVisorMessage();
             _weaponIconInst.ProcessAnimation(_scene);
             _boostInst.ProcessAnimation(_scene);
             UpdateBoostBombs();
@@ -569,10 +424,6 @@ namespace MphRead.Entities
             {
                 if (!_hudWeaponMenuOpen)
                 {
-                    if (ScanVisor)
-                    {
-                        SwitchVisors(reset: false);
-                    }
                     _soundSource.PlayFreeSfx(SfxId.HUD_WEAPON_SWITCH1);
                 }
                 _hudWeaponMenuOpen = true;
@@ -597,7 +448,7 @@ namespace MphRead.Entities
             {
                 return;
             }
-            if (_health > 0 || _deathCountdown > 0)
+            if (_health > 0)
             {
                 if (!IsAltForm && !IsMorphing && !IsUnmorphing)
                 {
@@ -618,16 +469,8 @@ namespace MphRead.Entities
                         _scene.Layer3Info.ScaleX = 2;
                         _scene.Layer3Info.ScaleY = 256 / 192f;
                         // visor
-                        if (ScanVisor)
-                        {
-                            _scene.Layer1Info.BindingId = _scanBindingId;
-                            _scene.Layer1Info.MaskId = _scanBindingId;
-                        }
-                        else
-                        {
-                            _scene.Layer1Info.BindingId = _visorBindingId;
-                            _scene.Layer1Info.MaskId = -1;
-                        }
+                        _scene.Layer1Info.BindingId = _visorBindingId;
+                        _scene.Layer1Info.MaskId = -1;
                         _scene.Layer1Info.Alpha = Features.VisorOpacity;
                         _scene.Layer1Info.ScaleX = 1;
                         _scene.Layer1Info.ScaleY = 256 / 192f;
@@ -846,7 +689,7 @@ namespace MphRead.Entities
 
         private void HudOnFiredShot()
         {
-            if (ScanVisor || Features.FixedCrosshair)
+            if (Features.FixedCrosshair)
             {
                 return;
             }
@@ -915,12 +758,10 @@ namespace MphRead.Entities
         private void HudOnMorphStart()
         {
             _targetCircleInst.SetIndex(0, _scene);
-            SetCombatVisor();
         }
 
         private void HudOnWeaponSwitch(BeamType beam)
         {
-            SetCombatVisor();
             if (beam != BeamType.Imperialist || _sniperReticle)
             {
                 _sniperReticle = false;
@@ -929,11 +770,8 @@ namespace MphRead.Entities
             else
             {
                 _sniperReticle = true;
-                if (!ScanVisor)
-                {
-                    _targetCircleInst.SetCharacterData(_sniperCircleObj.CharacterData, _sniperCircleObj.Width,
-                        _sniperCircleObj.Height, _scene);
-                }
+                _targetCircleInst.SetCharacterData(_sniperCircleObj.CharacterData, _sniperCircleObj.Width,
+                    _sniperCircleObj.Height, _scene);
             }
             _weaponIconInst.SetAnimation(start: 9, target: 27, frames: 19, afterAnim: (int)beam);
         }
@@ -1152,15 +990,11 @@ namespace MphRead.Entities
                 // and not a player's: it is what somebody watching from the
                 // map is most likely to want, and holding the button for it
                 // still answers here.
-                if (ShowScoreboard && !GameState.MenuPause)
+                if (ShowScoreboard)
                 {
                     DrawMatchTime();
                     DrawScoreboard();
                 }
-                return;
-            }
-            if (GameState.MenuPause)
-            {
                 return;
             }
             if (_scene.Match.LegacyState == MatchState.GameOver)
@@ -1174,7 +1008,6 @@ namespace MphRead.Entities
             }
             else if (CameraSequence.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true)
             {
-                DrawDialogs();
                 return;
             }
             else if (CameraSequence.Current?.IsIntro == true)
@@ -1198,69 +1031,53 @@ namespace MphRead.Entities
             }
             else
             {
-                // hiding during dialog pause due to overlap with "bottom screen" elements
-                // (which causes one frame of flicker when the escape starts)
-                if (GameState.SinglePlayer && !GameState.DialogPause)
-                {
-                    DrawEscapeTime();
-                }
                 if (Health > 0)
                 {
-                    if (!GameState.DialogPause)
+                    if (IsAltForm || IsMorphing || IsUnmorphing)
                     {
-                        if (IsAltForm || IsMorphing || IsUnmorphing)
-                        {
-                            DrawBoostBombs();
-                        }
-                        else if (!ScanVisor)
-                        {
-                            // The ammo meter and the weapon icon beside it are
-                            // both drawn into the helmet's moulding, so Pro
-                            // mode -- which has no helmet -- draws neither.
-                            // What it puts in their place is in DrawProHud.
-                            if (!Features.ProHud)
-                            {
-                                DrawAmmoBar();
-                                _weaponIconInst.PositionX = (_hudObjects.WeaponIconPosX + _objShiftX) / 256f;
-                                _weaponIconInst.PositionY = (_hudObjects.WeaponIconPosY + _objShiftY) / 192f;
-                                _weaponIconInst.Alpha = Features.HudOpacity;
-                                _scene.DrawHudObject(_weaponIconInst);
-                            }
-                            if (Features.CustomCrosshair)
-                            {
-                                _scene.DrawCustomCrosshair(GetCrosshairColor());
-                            }
-                            else
-                            {
-                                _targetCircleInst.Alpha = Features.ReticleOpacity;
-                                _scene.DrawHudObject(_targetCircleInst);
-                            }
-                            if (Features.ModernHud)
-                            {
-                                DrawWeaponList();
-                            }
-                        }
-                        DrawModeHud();
-                        DrawDoubleDamageHud();
-                        DrawCloakHud();
+                        DrawBoostBombs();
                     }
-                    // todo: once we have masking that can account for various things (in this case, not drawing the scan lines
-                    // on top of the layer for the scan log title box), call DrawModeHud when dialog pause is active
+                    else
+                    {
+                        // The ammo meter and the weapon icon beside it are
+                        // both drawn into the helmet's moulding, so Pro
+                        // mode -- which has no helmet -- draws neither.
+                        // What it puts in their place is in DrawProHud.
+                        if (!Features.ProHud)
+                        {
+                            DrawAmmoBar();
+                            _weaponIconInst.PositionX = (_hudObjects.WeaponIconPosX + _objShiftX) / 256f;
+                            _weaponIconInst.PositionY = (_hudObjects.WeaponIconPosY + _objShiftY) / 192f;
+                            _weaponIconInst.Alpha = Features.HudOpacity;
+                            _scene.DrawHudObject(_weaponIconInst);
+                        }
+                        if (Features.CustomCrosshair)
+                        {
+                            _scene.DrawCustomCrosshair(GetCrosshairColor());
+                        }
+                        else
+                        {
+                            _targetCircleInst.Alpha = Features.ReticleOpacity;
+                            _scene.DrawHudObject(_targetCircleInst);
+                        }
+                        if (Features.ModernHud)
+                        {
+                            DrawWeaponList();
+                        }
+                    }
+                    DrawModeHud();
+                    DrawDoubleDamageHud();
+                    DrawCloakHud();
                     if (Features.ProHud)
                     {
-                        if (!ScanVisor)
-                        {
-                            DrawProHud();
-                        }
+                        DrawProHud();
                     }
-                    else if (!GameState.DialogPause || DialogType != DialogType.Event
-                        && (Hunter == Hunter.Samus || Hunter == Hunter.Guardian))
+                    else
                     {
                         DrawHealthbars();
                     }
                 }
                 DrawQueuedHudMessages();
-                DrawDialogs();
             }
         }
 
@@ -1433,17 +1250,6 @@ namespace MphRead.Entities
             }
         }
 
-        private void DrawEscapeTime()
-        {
-            if (GameState.EscapeTimer < 0)
-            {
-                return;
-            }
-            var time = TimeSpan.FromSeconds(GameState.EscapeTimer);
-            int palette = time.TotalSeconds < 10 ? 2 : 0;
-            string text = $"{time.Hours * 60 + time.Minutes}:{time.Seconds:00}:{time.Milliseconds / 10:00}";
-            DrawText2D(128 + _objShiftX, 180 + _objShiftY, Align.Center, palette, text);
-        }
 
         private string FormatTime(TimeSpan time)
         {
@@ -1537,7 +1343,7 @@ namespace MphRead.Entities
 
         private void DrawScoreboard()
         {
-            GameMode mode = GameState.Mode;
+            MatchMode mode = _scene.Match.Rules.Mode;
             float rowSpace = GetScoreboardRowSpace();
             float posY = 104 - GetScoreboardHeight() / 2;
             if (_scene.Match.LegacyState == MatchState.Ending)
@@ -1548,12 +1354,12 @@ namespace MphRead.Entities
             }
             string header1 = "";
             string header2 = "";
-            if (mode == GameMode.Battle || mode == GameMode.BattleTeams
-                || mode == GameMode.Nodes || mode == GameMode.NodesTeams)
+            if (mode == MatchMode.Battle || mode == MatchMode.TeamBattle
+                || mode == MatchMode.Nodes || mode == MatchMode.TeamNodes)
             {
                 header1 = Strings.GetHudMessage(225); // points
             }
-            else if (mode == GameMode.Capture || mode == GameMode.Bounty || mode == GameMode.BountyTeams)
+            else if (mode == MatchMode.Capture || mode == MatchMode.Bounty || mode == MatchMode.TeamBounty)
             {
                 header1 = Strings.GetHudMessage(227); // octoliths
             }
@@ -1561,8 +1367,8 @@ namespace MphRead.Entities
             {
                 header1 = Strings.GetHudMessage(224); // time
             }
-            if (mode == GameMode.Battle || mode == GameMode.BattleTeams
-                || mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
+            if (mode == MatchMode.Battle || mode == MatchMode.TeamBattle
+                || mode == MatchMode.Survival || mode == MatchMode.TeamSurvival)
             {
                 header2 = Strings.GetHudMessage(223); // deaths
             }
@@ -1578,8 +1384,8 @@ namespace MphRead.Entities
 
             string ChooseValue1(float time, int points)
             {
-                if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams || mode == GameMode.Defender
-                    || mode == GameMode.DefenderTeams || mode == GameMode.PrimeHunter)
+                if (mode == MatchMode.Survival || mode == MatchMode.TeamSurvival || mode == MatchMode.Defender
+                    || mode == MatchMode.TeamDefender || mode == MatchMode.PrimeHunter)
                 {
                     // time should only be -1 to indicate max in survival/teams
                     return time < 0 ? maxText : FormatTime(TimeSpan.FromSeconds(time));
@@ -1590,8 +1396,8 @@ namespace MphRead.Entities
 
             string ChooseValue2(int deaths, int kills)
             {
-                if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams
-                    || mode == GameMode.Battle || mode == GameMode.BattleTeams)
+                if (mode == MatchMode.Survival || mode == MatchMode.TeamSurvival
+                    || mode == MatchMode.Battle || mode == MatchMode.TeamBattle)
                 {
                     return deaths.ToString();
                 }
@@ -1673,20 +1479,17 @@ namespace MphRead.Entities
             _healthbarMainMeter.TankCount = _healthMax / Values.EnergyTank;
             DrawMeter(_hudObjects.HealthMainPosX + _objShiftX, _hudObjects.HealthMainPosY + _healthbarYOffset + _objShiftY,
                 Values.EnergyTank - 1, _health, _healthbarPalette, _healthbarMainMeter,
-                drawText: true, drawTanks: GameState.SinglePlayer, Features.HudOpacity);
-            if (GameState.Multiplayer)
+                drawText: true, drawTanks: false, Features.HudOpacity);
+            int amount = 0;
+            if (_health >= Values.EnergyTank)
             {
-                int amount = 0;
-                if (_health >= Values.EnergyTank)
-                {
-                    amount = _health - Values.EnergyTank;
-                }
-                _healthbarSubMeter.TankAmount = Values.EnergyTank;
-                _healthbarSubMeter.TankCount = _healthMax / Values.EnergyTank;
-                DrawMeter(_hudObjects.HealthSubPosX + _objShiftX, _hudObjects.HealthSubPosY + _healthbarYOffset + _objShiftY,
-                    Values.EnergyTank - 1, amount, _healthbarPalette, _healthbarSubMeter,
-                    drawText: false, drawTanks: false, Features.HudOpacity);
+                amount = _health - Values.EnergyTank;
             }
+            _healthbarSubMeter.TankAmount = Values.EnergyTank;
+            _healthbarSubMeter.TankCount = _healthMax / Values.EnergyTank;
+            DrawMeter(_hudObjects.HealthSubPosX + _objShiftX, _hudObjects.HealthSubPosY + _healthbarYOffset + _objShiftY,
+                Values.EnergyTank - 1, amount, _healthbarPalette, _healthbarSubMeter,
+                drawText: false, drawTanks: false, Features.HudOpacity);
         }
 
         private void DrawAmmoBar()
@@ -1985,14 +1788,7 @@ namespace MphRead.Entities
                 }
             }
             int barAmount;
-            if (GameState.SinglePlayer)
-            {
-                barAmount = curAmount - filledTanks * meter.TankAmount;
-            }
-            else
-            {
-                barAmount = Math.Min(baseAmount, curAmount);
-            }
+            barAmount = Math.Min(baseAmount, curAmount);
             int tiles = (meter.Length + 7) / 8;
             int filledTiles = 100000 * barAmount / (99000 * meter.TankAmount / meter.Length);
             if (filledTiles == 0 && barAmount > 0)
@@ -2001,7 +1797,7 @@ namespace MphRead.Entities
             }
             if (drawText)
             {
-                int amount = GameState.Multiplayer ? curAmount : barAmount;
+                int amount = curAmount;
                 DrawText2D(x + meter.BarOffsetX, y + meter.BarOffsetY, meter.Align, _healthbarPalette, $"{amount:00}", alpha: alpha);
                 if (meter.MessageId > 0)
                 {
@@ -2072,27 +1868,27 @@ namespace MphRead.Entities
         {
             _locatorInfo.Clear();
             ProcessOpponent();
-            if (GameState.Mode == GameMode.Survival || GameState.Mode == GameMode.SurvivalTeams)
+            if (_scene.Match.Rules.Mode == MatchMode.Survival || _scene.Match.Rules.Mode == MatchMode.TeamSurvival)
             {
                 ProcessHudSurvival();
             }
-            else if (GameState.Mode == GameMode.Bounty || GameState.Mode == GameMode.BountyTeams)
+            else if (_scene.Match.Rules.Mode == MatchMode.Bounty || _scene.Match.Rules.Mode == MatchMode.TeamBounty)
             {
                 ProcessHudBounty();
             }
-            else if (GameState.Mode == GameMode.Capture)
+            else if (_scene.Match.Rules.Mode == MatchMode.Capture)
             {
                 ProcessHudCapture();
             }
-            else if (GameState.Mode == GameMode.Defender || GameState.Mode == GameMode.DefenderTeams)
+            else if (_scene.Match.Rules.Mode == MatchMode.Defender || _scene.Match.Rules.Mode == MatchMode.TeamDefender)
             {
                 ProcessHudDefender();
             }
-            else if (GameState.Mode == GameMode.Nodes || GameState.Mode == GameMode.NodesTeams)
+            else if (_scene.Match.Rules.Mode == MatchMode.Nodes || _scene.Match.Rules.Mode == MatchMode.TeamNodes)
             {
                 ProcessHudNodes();
             }
-            else if (GameState.Mode == GameMode.PrimeHunter)
+            else if (_scene.Match.Rules.Mode == MatchMode.PrimeHunter)
             {
                 ProcessHudPrimeHunter();
             }
@@ -2374,90 +2170,44 @@ namespace MphRead.Entities
 
         private void DrawModeHud()
         {
-            GameMode mode = GameState.Mode;
-            if (mode == GameMode.SinglePlayer)
+            MatchMode mode = _scene.Match.Rules.Mode;
+            if (mode == MatchMode.Battle || mode == MatchMode.TeamBattle)
             {
-                DrawHudAdventure();
+                DrawHudBattle();
             }
-            else
+            else if (mode == MatchMode.Survival || mode == MatchMode.TeamSurvival)
             {
-                if (mode == GameMode.Battle || mode == GameMode.BattleTeams)
-                {
-                    DrawHudBattle();
-                }
-                else if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
-                {
-                    DrawHudSurvival();
-                }
-                else if (mode == GameMode.Bounty || mode == GameMode.BountyTeams)
-                {
-                    DrawHudBounty();
-                }
-                else if (mode == GameMode.Capture)
-                {
-                    DrawHudCapture();
-                }
-                else if (mode == GameMode.Defender || mode == GameMode.DefenderTeams)
-                {
-                    DrawHudDefender();
-                }
-                else if (mode == GameMode.Nodes || mode == GameMode.NodesTeams)
-                {
-                    DrawHudNodes();
-                }
-                else if (mode == GameMode.PrimeHunter)
-                {
-                    DrawHudPrimeHunter();
-                }
-                DrawOpponent();
+                DrawHudSurvival();
             }
+            else if (mode == MatchMode.Bounty || mode == MatchMode.TeamBounty)
+            {
+                DrawHudBounty();
+            }
+            else if (mode == MatchMode.Capture)
+            {
+                DrawHudCapture();
+            }
+            else if (mode == MatchMode.Defender || mode == MatchMode.TeamDefender)
+            {
+                DrawHudDefender();
+            }
+            else if (mode == MatchMode.Nodes || mode == MatchMode.TeamNodes)
+            {
+                DrawHudNodes();
+            }
+            else if (mode == MatchMode.PrimeHunter)
+            {
+                DrawHudPrimeHunter();
+            }
+            DrawOpponent();
         }
 
-        private void DrawHudAdventure()
-        {
-            if (ScanVisor)
-            {
-                if (_scanning)
-                {
-                    DrawScanProgress();
-                }
-                DrawScanObjects();
-                if (!GameState.DialogPause)
-                {
-                    DrawVisorMessage();
-                }
-                return;
-            }
-            if (_scene.RoomId == 92) // Gorea_b2
-            {
-                foreach (EnemyInstanceEntity enemy in _scene.GetEnemyInstanceEntities())
-                {
-                    if (enemy.EnemyType == EnemyType.GoreaSealSphere2)
-                    {
-                        var sphere = (Enemy32Entity)enemy;
-                        if (sphere.Damage < sphere.HealthMax && sphere.Targetable)
-                        {
-                            DrawTargetHealthbar(sphere);
-                        }
-                        break;
-                    }
-                }
-            }
-            else if (_lastTarget != null)
-            {
-                if (!DrawTargetHealthbar(_lastTarget))
-                {
-                    _lastTarget = null;
-                }
-            }
-            DrawVisorMessage();
-        }
 
         private string FormatModeScore(int slot)
         {
-            GameMode mode = GameState.Mode;
-            if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.Capture || mode == GameMode.Nodes
-                || mode == GameMode.NodesTeams || mode == GameMode.Bounty || mode == GameMode.BountyTeams)
+            MatchMode mode = _scene.Match.Rules.Mode;
+            if (mode == MatchMode.Battle || mode == MatchMode.TeamBattle || mode == MatchMode.Capture || mode == MatchMode.Nodes
+                || mode == MatchMode.TeamNodes || mode == MatchMode.Bounty || mode == MatchMode.TeamBounty)
             {
                 if (_scene.Match.Rules.Teams)
                 {
@@ -2465,12 +2215,12 @@ namespace MphRead.Entities
                 }
                 return $"{_scene.Match.Players[slot].Points} / {_scene.Match.Rules.LegacyPointGoal}";
             }
-            if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
+            if (mode == MatchMode.Survival || mode == MatchMode.TeamSurvival)
             {
                 int lives = Math.Max(_scene.Match.Rules.LegacyPointGoal - _scene.Match.TeamDeaths[Players[slot].TeamIndex], 0);
                 return lives.ToString();
             }
-            if (mode == GameMode.Defender || mode == GameMode.DefenderTeams || mode == GameMode.PrimeHunter)
+            if (mode == MatchMode.Defender || mode == MatchMode.TeamDefender || mode == MatchMode.PrimeHunter)
             {
                 return $"{FormatTime(TimeSpan.FromSeconds(_scene.Match.Players[slot].Time))}/" +
                     $"{FormatTime(TimeSpan.FromSeconds(_scene.Match.Rules.LegacyTimeGoal))}";
@@ -2823,84 +2573,13 @@ namespace MphRead.Entities
             }
         }
 
-        private bool DrawTargetHealthbar(EntityBase target)
-        {
-            int max = 0;
-            int current = 0;
-            string? text = null;
-            int lowHealth = 0;
-            if (target.Type == EntityType.EnemyInstance)
-            {
-                var enemy = (EnemyInstanceEntity)target;
-                if (enemy.EnemyType != EnemyType.FireSpawn && enemy.EnemyType != EnemyType.CretaphidCrystal
-                    && enemy.EnemyType != EnemyType.Slench && enemy.EnemyType != EnemyType.SlenchShield
-                    && enemy.EnemyType != EnemyType.GoreaArm && enemy.EnemyType != EnemyType.GoreaSealSphere1
-                    && enemy.EnemyType != EnemyType.GoreaSealSphere2)
-                {
-                    return true;
-                }
-                text = Strings.GetMessage('E', enemy.HealthbarMessageId, StringTables.HudMessagesSP);
-                max = enemy.HealthMax;
-                current = enemy.Health;
-                if (enemy.EnemyType == EnemyType.SlenchShield)
-                {
-                    var shield = (Enemy42Entity)enemy;
-                    max = shield.Slench.HealthMax;
-                    current = shield.Slench.Health;
-                }
-                else if (enemy.EnemyType == EnemyType.GoreaArm)
-                {
-                    var arm = (Enemy26Entity)enemy;
-                    current = max - arm.Damage;
-                }
-                else if (enemy.EnemyType == EnemyType.GoreaSealSphere1)
-                {
-                    var sphere = (Enemy29Entity)enemy;
-                    current = max - sphere.Damage;
-                }
-                else if (enemy.EnemyType == EnemyType.GoreaSealSphere2)
-                {
-                    var sphere = (Enemy32Entity)enemy;
-                    current = max - sphere.Damage;
-                }
-                lowHealth = max / 4;
-            }
-            else if (target.Type == EntityType.Player)
-            {
-                var player = (PlayerEntity)target;
-                max = player.HealthMax;
-                current = player.Health;
-                text = _hunterNames[(int)player.Hunter];
-                lowHealth = 25;
-            }
-            else if (target.Type == EntityType.Halfturret)
-            {
-                var turret = (HalfturretEntity)target;
-                max = turret.Owner.HealthMax / 2;
-                current = turret.Health;
-                text = _altAttackNames[(int)Hunter.Weavel];
-                lowHealth = 25;
-            }
-            int palette = current > lowHealth ? 0 : 2;
-            _enemyHealthMeter.TankAmount = max;
-            _enemyHealthMeter.TankCount = 0;
-            _enemyHealthMeter.Length = HudElements.SubHealthbars[0].Length; // should not vary with hunter values
-            DrawMeter(_hudObjects.EnemyHealthPosX + _objShiftX, _hudObjects.EnemyHealthPosY + _objShiftY, max, current,
-                palette, _enemyHealthMeter, drawText: false, drawTanks: false);
-            if (text != null)
-            {
-                DrawText2D(_hudObjects.EnemyHealthTextPosX + _objShiftX, _hudObjects.EnemyHealthTextPosY + _objShiftY,
-                    Align.Center, palette, text);
-            }
-            return current > 0;
-        }
 
         private float _opponentHealthbarTimer = 0;
         private int _opponentIndex = -1;
 
         private void UpdateOpponent(int slot)
         {
-            if (GameState.Multiplayer && slot != SlotIndex)
+            if (slot != SlotIndex)
             {
                 _opponentHealthbarTimer = 60 / 30f;
                 _opponentIndex = slot;
@@ -3342,41 +3021,41 @@ namespace MphRead.Entities
         }
 
         public void QueueHudMessage(float x, float y, float duration,
-            byte category, int messageId, bool dialogHide = false)
+            byte category, int messageId)
         {
             if (_scene.IsHeadless)
             {
                 return;
             }
             string text = Strings.GetHudMessage(messageId);
-            QueueHudMessage(x, y, Align.Center, 256, 8, new ColorRgba(0x3FEF), 1, duration, category, text, dialogHide);
+            QueueHudMessage(x, y, Align.Center, 256, 8, new ColorRgba(0x3FEF), 1, duration, category, text);
         }
 
         public void QueueHudMessage(float x, float y, int maxWidth, float duration,
-            byte category, int messageId, bool dialogHide = false)
+            byte category, int messageId)
         {
             if (_scene.IsHeadless)
             {
                 return;
             }
             string text = Strings.GetHudMessage(messageId);
-            QueueHudMessage(x, y, Align.Center, maxWidth, 8, new ColorRgba(0x3FEF), 1, duration, category, text, dialogHide);
+            QueueHudMessage(x, y, Align.Center, maxWidth, 8, new ColorRgba(0x3FEF), 1, duration, category, text);
         }
 
         public void QueueHudMessage(float x, float y, float duration,
-            byte category, string text, bool dialogHide = false)
+            byte category, string text)
         {
-            QueueHudMessage(x, y, Align.Center, 256, 8, new ColorRgba(0x3FEF), 1, duration, category, text, dialogHide);
+            QueueHudMessage(x, y, Align.Center, 256, 8, new ColorRgba(0x3FEF), 1, duration, category, text);
         }
 
         public void QueueHudMessage(float x, float y, int maxWidth, float duration,
-            byte category, string text, bool dialogHide = false)
+            byte category, string text)
         {
-            QueueHudMessage(x, y, Align.Center, maxWidth, 8, new ColorRgba(0x3FEF), 1, duration, category, text, dialogHide);
+            QueueHudMessage(x, y, Align.Center, maxWidth, 8, new ColorRgba(0x3FEF), 1, duration, category, text);
         }
 
         public void QueueHudMessage(float x, float y, Align align, int maxWidth, float fontSize,
-            ColorRgba color, float alpha, float duration, byte category, string text, bool dialogHide = false)
+            ColorRgba color, float alpha, float duration, byte category, string text)
         {
             if (_scene.IsHeadless)
             {
@@ -3422,7 +3101,6 @@ namespace MphRead.Entities
             message.Align = align;
             message.Category = category;
             message.Lifetime = duration;
-            message.DialogHide = dialogHide;
         }
 
         private int WrapText(string text, int maxWidth, Span<char> dest, int maxTiles = 0)
@@ -3567,19 +3245,15 @@ namespace MphRead.Entities
 
         private void DrawQueuedHudMessages()
         {
-            if (!GameState.MenuPause)
+            for (int i = 0; i < _hudMessageQueue.Count; i++)
             {
-                for (int i = 0; i < _hudMessageQueue.Count; i++)
+                HudMessage message = _hudMessageQueue[i];
+                if (message.Lifetime > 0
+                    && ((message.Category & 1) == 0 || (_scene.FrameCount & (7 * 2)) <= 3 * 2)) // todo: FPS stuff
                 {
-                    HudMessage message = _hudMessageQueue[i];
-                    if (message.Lifetime > 0
-                        && ((message.Category & 1) == 0 || (_scene.FrameCount & (7 * 2)) <= 3 * 2) // todo: FPS stuff
-                        && (!GameState.DialogPause || !message.DialogHide))
-                    {
-                        // todo: support font size
-                        DrawText2D(message.Position.X, message.Position.Y, message.Align, palette: 0,
-                            message.Text, message.Color, message.Alpha, fontSpacing: message.FontSize);
-                    }
+                    // todo: support font size
+                    DrawText2D(message.Position.X, message.Position.Y, message.Align, palette: 0,
+                        message.Text, message.Color, message.Alpha, fontSpacing: message.FontSize);
                 }
             }
         }
@@ -3595,7 +3269,6 @@ namespace MphRead.Entities
             public int MaxWidth { get; set; }
             public Align Align { get; set; }
             public char[] Text { get; } = new char[256];
-            public bool DialogHide { get; set; }
         }
 
         private static readonly IReadOnlyList<HudMessage> _hudMessageQueue = new HudMessage[20]

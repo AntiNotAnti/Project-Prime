@@ -35,7 +35,6 @@ namespace MphRead.Entities
             SetTransform(data.Header.FacingVector, data.Header.UpVector, data.Header.Position);
             _volume = CollisionVolume.Move(data.Volume, Position);
             AddPlaceholderModel();
-            Debug.Assert(GameState.Mode == GameMode.SinglePlayer);
             int state = _scene.GetInitialEntityState(Id, active: data.Active != 0);
             if (data.AlwaysActive != 0)
             {

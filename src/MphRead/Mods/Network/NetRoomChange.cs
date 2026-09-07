@@ -81,7 +81,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void Sync(Scene scene)
         {
-            if (!NetSession.Active || scene.Room == null || GameState.InRoomTransition)
+            if (!NetSession.Active || scene.Room == null || scene.InRoomTransition)
             {
                 return;
             }
@@ -127,7 +127,10 @@ namespace MphRead.Mods.Network
                 ? $"[net] server started a new match on {wanted}; loading it"
                 : $"[net] server rotated to {wanted}; loading it");
             NetLog.Event($"loading {wanted} for match {match}");
-            GameState.TransitionRoomId = meta.Id;
+            int pointGoal = scene.Match.Rules.LegacyPointGoal;
+            scene.Match.ApplyRules(scene.Match.Rules.With(mode: ((GameMode)state!.Value.Mode).ToMatchMode(),
+                roomKey: meta.Name, scoreGoal: pointGoal, startingLives: pointGoal));
+            scene.TransitionRoomId = meta.Id;
             scene.SetFade(FadeType.FadeOutBlack, length: 10 / 30f, overwrite: true, AfterFade.LoadRoom);
         }
 

@@ -141,9 +141,32 @@ Release builds passed with the existing dependency/documentation warnings.
 Both asset guards and the scoped whitespace check passed. No native publish
 or emulator acceptance run was repeated.
 
+## R7 — Remove player and scene campaign behavior
+
+Removed campaign scan/dialog HUD, pause/escape state, landing/movie playback,
+encounter music, projectile effects and item attraction. Runtime mode consumers
+now use scene-owned rules. Full admitted rules are installed before entity
+construction. Settings, nicknames and reset remain in `GameState`.
+
+Room transition state belongs to the scene. Synchronous live/demo rotation
+rebuild remains; asynchronous campaign door/connector loading is removed.
+Multiplayer intro/spectator cameras and the offline Vx export codec remain.
+Retired input controls keep legacy wire bit positions reserved, and Android
+spectator VIEW has its own control. The modern pause menu still suppresses
+client input without stopping the authoritative simulation.
+
+Validation: 417 C# tests and 34 Python tests passed, including transition-state
+isolation and retired-input compatibility. All 12 real-content scoring modes,
+the dedicated-server/content suite, UDP phase/objective checks, and process
+rotation/late-join/stale-replay checks passed. Server/nettest compiled with zero
+warnings/errors; desktop and Android managed Release builds passed with the
+previously recorded warnings. Both asset guards passed. Rendered/native platform
+acceptance was not repeated. Enemy runtime and campaign catalog deletion remain
+R8 work.
+
 ## Planned remaining passes
 
-R7–R9 remove
+R8–R9 remove
 campaign behavior with content-aware guards. R10–R12 split the projects, converge
 Android and enforce dependency boundaries. No later pass is marked complete
 before its implementation and checks finish.

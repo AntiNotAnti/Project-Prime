@@ -385,7 +385,7 @@ namespace MphRead.Entities
                     MathF.Max(MathF.Max(Single.MinValue, point1.Z), point2.Z) + margin
                 );
             }
-            bool includeEntities = GameState.TransitionState == TransitionState.None; // handled differently in-game
+            bool includeEntities = _scene.TransitionState == TransitionState.None; // handled differently in-game
             // point1/point2/margin aren't used, but point1 has to be passed in order to include entities
             IReadOnlyList<CollisionCandidate> candidates
                 = CollisionDetection.GetCandidatesForLimits(point1, point2, margin, limitMin, limitMax, includeEntities, _scene);
@@ -464,7 +464,7 @@ namespace MphRead.Entities
             }
             foreach (DoorEntity door in _scene.GetDoorEntities())
             {
-                if (door.Flags.TestFlag(DoorFlags.Open) || door.ConnectorInactive)
+                if (door.Flags.TestFlag(DoorFlags.Open))
                 {
                     continue;
                 }
@@ -829,18 +829,6 @@ namespace MphRead.Entities
             if (IsAltForm)
             {
                 bool climbing = Hunter == Hunter.Spire && result.Field0 == 0;
-                if (climbing)
-                {
-                    if ((_scene.RoomId == 30 || _scene.RoomId == 67) // Magma Drop, Cortex CPU
-                        && result.Plane.Y == 0 && result.Plane.Z == 0)
-                    {
-                        climbing = false;
-                    }
-                    else if (_scene.RoomId == 80 && CameraSequence.Current != null) // Frost Labyrinth
-                    {
-                        climbing = false;
-                    }
-                }
                 if (climbing)
                 {
                     for (int i = 0; i < _spireAltVecs.Length; i++)

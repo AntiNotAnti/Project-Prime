@@ -70,7 +70,7 @@ namespace MphRead.Mods.Network
                 Add(new WorldRecord(WorldRecordKind.Item, (byte)item.ItemType, 0, id, item.Position,
                     unchecked((uint)(item.Owner?.Id ?? -1)), unchecked((uint)item.DespawnTimer), 0, 0, 0));
             }
-            if (GameState.Mode is GameMode.Nodes or GameMode.NodesTeams or GameMode.Defender or GameMode.DefenderTeams)
+            if (scene.Match.Rules.Mode is MatchMode.Nodes or MatchMode.TeamNodes or MatchMode.Defender or MatchMode.TeamDefender)
             {
                 foreach (NodeDefenseEntity node in scene.GetNodeDefenseEntities()) { Add(node.CaptureWorldState()); }
             }

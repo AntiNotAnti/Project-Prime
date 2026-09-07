@@ -178,20 +178,13 @@ namespace MphRead.Entities
                     return between.LengthSquared < distSqr && between.Y > -15 && between.Y < 15;
                 }
 
-                if (GameState.Multiplayer)
+                foreach (PlayerEntity player in _scene.GetPlayerEntities())
                 {
-                    foreach (PlayerEntity player in _scene.GetPlayerEntities())
+                    if (player.Health > 0 && CheckInRange(player.Position))
                     {
-                        if (player.Health > 0 && CheckInRange(player.Position))
-                        {
-                            inRange = true;
-                            break;
-                        }
+                        inRange = true;
+                        break;
                     }
-                }
-                else
-                {
-                    inRange = CheckInRange(PlayerEntity.Main.Position);
                 }
             }
             if (inRange)

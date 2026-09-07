@@ -1247,10 +1247,6 @@ namespace MphRead.Entities.Enemies
                     ChangeState(SlenchState.Dead);
                     _soundSource.PlaySfx(SfxId.BIGEYE_DIE_SCR, noUpdate: true, recency: Single.MaxValue, sourceOnly: true);
                 }
-                if (PlayerEntity.Main.Health > 0 && GameState.SinglePlayer)
-                {
-                    _scene.StartMovie(_deathMovieIds[_subtype], FadeType.FadeOutInWhite, 40 / 30f, FadeType.FadeOutInWhite, 5 / 30f);
-                }
             }
             return false;
         }

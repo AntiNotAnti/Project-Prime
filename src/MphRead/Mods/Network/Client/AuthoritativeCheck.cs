@@ -115,7 +115,6 @@ namespace MphRead.Mods.Network
 
         protected override void OnRenderFrame(FrameEventArgs args)
         {
-            GameState.ApplyPause();
             _scene.OnUpdateFrame();
             if (_scene.OnRenderFrame())
             {

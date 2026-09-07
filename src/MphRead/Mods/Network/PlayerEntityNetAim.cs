@@ -798,7 +798,6 @@ namespace MphRead.Entities
                     _soundSource.PlaySfx(SfxId.SHOTGUN_FREEZE);
                     if (IsMainPlayer)
                     {
-                        ResetCombatVisor();
                         _drawIceLayer = true;
                     }
                     _frozenTimer = _timeSinceFrozen > 60 * 2 // todo: FPS stuff

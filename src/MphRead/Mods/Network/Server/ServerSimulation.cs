@@ -33,6 +33,7 @@ namespace MphRead.Mods.Network
             Scene = Scene.CreateHeadless();
             try
             {
+                Scene.Match.ApplyRules(rules);
                 Scene.LoadServerRoom(rules.RoomKey, rules.Mode.ToLegacyMode(), players: 8,
                     roomPlayerCount: NetLaunch.RoomPlayerCount);
                 WorldStateCapture.ValidateRoom(Scene);

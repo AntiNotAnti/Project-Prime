@@ -597,7 +597,8 @@ namespace MphRead.Mods.Network
         Morph = 1u << 7,
         Boost = 1u << 8,
         AltAttack = 1u << 9,
-        ScanVisor = 1u << 10,
+        // Protocol-4 demo bit 10 was the scan visor. Reserved and ignored.
+        ReservedScanVisor = 1u << 10,
         NextWeapon = 1u << 11,
         PrevWeapon = 1u << 12,
         RollLeft = 1u << 13,

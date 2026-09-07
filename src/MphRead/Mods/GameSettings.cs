@@ -105,7 +105,7 @@ namespace MphRead.Mods
         public static void ApplyMatchRules(Scene scene)
         {
             MenuSettings? settings = Current;
-            if (settings == null || !GameState.Multiplayer)
+            if (settings == null)
             {
                 return;
             }

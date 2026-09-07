@@ -325,7 +325,6 @@ namespace MphRead.Droid
             private bool _stopping;
             private bool _holdingSurface;
             private bool _ended;
-            private bool _dialogClickDown;
             private readonly Action _onPauseMenu;
             /// <summary>
             /// Show or hide the soft keyboard. An IME call belongs to the UI
@@ -771,7 +770,6 @@ namespace MphRead.Droid
             {
                 Scene scene = Scene!;
                 double elapsed = WaitForTick();
-                GameState.ApplyPause();
                 int steps = FrameTiming.Advance(elapsed);
                 for (int i = 0; i < steps; i++)
                 {
@@ -914,14 +912,6 @@ namespace MphRead.Droid
                 // there is to do, and a player whose entity is not active yet
                 // has still asked for the keyboard if they pressed CHAT.
                 HandleChat();
-                // The one thing a pad cannot do. A dialog's OK button is
-                // pressed by *position* -- PlayerDialog.CheckButtonPressed
-                // reads Input.ClickX/Y, because on the DS it was a touch
-                // screen -- and GamepadInput deliberately drives no pointer.
-                // So the touch controls stay on screen through one whether or
-                // not a pad is in the player's hands, or the story stops at
-                // the first scan with nothing to press.
-                _controls.ForceVisible = GameState.DialogPause;
                 PlayerEntity main = PlayerEntity.Main;
                 if (main == null || !main.LoadFlags.TestFlag(LoadFlags.Active))
                 {
@@ -971,7 +961,7 @@ namespace MphRead.Droid
                 // VIEW: the desktop's Space -- the map, or the player being
                 // watched. Without it the free camera was a one-way trip on
                 // this head: NEXT leaves it and nothing brought it back.
-                bool view = _controls.IsHeld(TouchAction.ScanVisor);
+                bool view = _controls.IsHeld(TouchAction.SpectatorView);
                 if (view && !_spectateViewHeld)
                 {
                     Mods.SpectatorMode.ToggleView();
@@ -1018,10 +1008,7 @@ namespace MphRead.Droid
                 }
                 _controls.TakeSwipeBoost();
                 _controls.TakeDoubleTapJump();
-                // Nothing to scan or boost from here, and FIRE has to be the
-                // button that cycles players rather than a SCAN left over from
-                // whatever the visor was doing.
-                _controls.ScanVisorActive = false;
+                // Spectator input never boosts the watched player.
                 _controls.SwipeBoostEnabled = false;
             }
 
@@ -1093,15 +1080,11 @@ namespace MphRead.Droid
                 // JUMP, or two quick taps on the aiming side, which is how the
                 // DS jumped with a stylus in hand.
                 //
-                // Taken every frame whether it is wanted or not, so it cannot
-                // go stale and jump later. It is not wanted while a dialog or
-                // the wheel is up: both turn the screen into a thing to press,
-                // and pressing OK twice, or two weapons in a row, is not a
-                // request to jump.
+                // Consume every frame so a tap cannot jump later. The weapon
+                // wheel uses taps for selection rather than jumping.
                 bool doubleTap = _controls.TakeDoubleTapJump();
                 bool jump = _controls.IsHeld(TouchAction.Jump)
-                    || (doubleTap && !GameState.DialogPause
-                        && !_controls.IsHeld(TouchAction.WeaponMenu));
+                    || (doubleTap && !_controls.IsHeld(TouchAction.WeaponMenu));
                 // FIRE is the only attack button, and it is both attacks.
                 //
                 // There used to be an ALT button beside it, which is what the
@@ -1139,18 +1122,6 @@ namespace MphRead.Droid
                     main.SwipeBoostY = swipe.Y;
                 }
                 _input.Apply(controls.Morph, _controls.IsHeld(TouchAction.Morph));
-                // Two binds, two buttons, exactly as the desktop has them:
-                // VISOR opens and closes the scan visor (E) and SCAN reads
-                // what is targeted while it is held (Q). One button trying to
-                // be both could not tell "read this again" from "put the
-                // visor away", and answered a press with both.
-                //
-                // SCAN is only there while the visor is: it takes FIRE's
-                // place, which is idle in the visor anyway. See
-                // TouchControls.ScanVisorActive.
-                _controls.ScanVisorActive = main.ScanVisor;
-                _input.Apply(controls.ScanVisor, _controls.IsHeld(TouchAction.ScanVisor));
-                _input.Apply(controls.Scan, _controls.IsHeld(TouchAction.Scan));
                 _input.Apply(controls.Zoom, _controls.IsHeld(TouchAction.Zoom));
                 // MSSL swaps to the Missile and back to the Power Beam, since
                 // neither is on the wheel and a thumb has no number row. The
@@ -1179,31 +1150,6 @@ namespace MphRead.Droid
                 }
                 _menuWasHeld = menu;
 
-                // A dialog box waiting to be dismissed reads a click position
-                // and nothing else: PlayerDialog.CheckButtonPressed compares
-                // Input.ClickX/Y against the button rectangle, and on this
-                // platform nothing ever set them. The pointer was only ever
-                // *moved*, for aiming, and no touch ever pressed the left
-                // mouse button -- so the OK button could not be pressed at all,
-                // and a scan or a prompt could only be left by quitting.
-                //
-                // While one is up, the screen is the DS's touch screen: a
-                // finger is a position and holding it is holding the button.
-                if (GameState.DialogPause)
-                {
-                    _controls.PointerIsAbsolute = true;
-                    (bool Down, float X, float Y) tap = _controls.AimPosition();
-                    if (tap.Down)
-                    {
-                        _input.PlacePointer(tap.X, tap.Y);
-                    }
-                    _input.ApplyButton(OpenTK.Windowing.GraphicsLibraryFramework.MouseButton.Left, tap.Down);
-                    _dialogClickDown = tap.Down;
-                    // Swallowed, so the aim does not lurch by however far the
-                    // finger travelled once the box is gone.
-                    _controls.TakeAimDelta();
-                    return;
-                }
                 // The weapon wheel is the other part that reads a position off
                 // what used to be a touch screen, so while it is open the
                 // screen is one -- the left half stops being a thumbstick.
@@ -1216,15 +1162,6 @@ namespace MphRead.Droid
                 // the icons appeared, and choosing one did nothing but play
                 // the "cannot switch" sound.
                 _controls.PointerIsAbsolute = _controls.IsHeld(TouchAction.WeaponMenu);
-                if (_dialogClickDown)
-                {
-                    // Released explicitly rather than left to the next tap:
-                    // the box can close on the same frame the finger is still
-                    // down, and a mouse button stuck down outlives the dialog.
-                    // Nothing to do but stop asking for it: CommitFrame
-                    // releases every button no action asked for this frame.
-                    _dialogClickDown = false;
-                }
                 bool weaponMenu = _controls.IsHeld(TouchAction.WeaponMenu);
                 _input.Apply(controls.WeaponMenu, weaponMenu);
                 if (weaponMenu)

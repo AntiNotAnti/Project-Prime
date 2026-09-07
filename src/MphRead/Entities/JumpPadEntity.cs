@@ -37,14 +37,8 @@ namespace MphRead.Entities
             _beamTransform = GetTransformMatrix(beamVector, beamVector.X != 0 || beamVector.Z != 0 ? Vector3.UnitY : Vector3.UnitX);
             _beamTransform.Row3.Y = 0.25f;
             _beamVector = Matrix.Vec3MultMtx3(beamVector, Transform) * _data.Speed.FloatValue;
-            if (GameState.Mode == GameMode.SinglePlayer)
-            {
-                Active = _scene.GetInitialEntityState(Id, active: data.Active != 0) != 0;
-            }
-            else
-            {
-                Active = data.Active != 0;
-            }
+            Active = data.Active != 0;
+
             beamInst.Active = Active;
         }
 

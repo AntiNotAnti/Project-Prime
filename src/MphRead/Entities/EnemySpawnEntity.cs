@@ -48,7 +48,6 @@ namespace MphRead.Entities
             Id = data.Header.EntityId;
             _rangeNodeRef = scene.GetNodeRefByName(data.NodeName.MarshalString());
             _cooldownTimer = _data.InitialCooldown * 2; // todo: FPS stuff
-            Debug.Assert(GameState.Mode == GameMode.SinglePlayer);
             bool active = false;
             int state = _scene.GetInitialEntityState(Id, active: data.Active != 0);
             if (data.AlwaysActive != 0)

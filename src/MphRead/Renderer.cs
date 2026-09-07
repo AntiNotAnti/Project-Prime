@@ -76,9 +76,6 @@ namespace MphRead
         None,
         Exit,
         LoadRoom,
-        PlayMovie,
-        StopMovie,
-        EnterShip
     }
 
     public partial class Scene
@@ -226,7 +223,7 @@ namespace MphRead
         public VolumeDisplay ShowVolumes => _showVolumes;
         public bool ShowForceFields => _showVolumes != VolumeDisplay.Portal;
         public float KillHeight => _killHeight;
-        public bool ScanVisor => _cameraMode == CameraMode.Player ? PlayerEntity.Main.ScanVisor : _scanVisor;
+        public bool ScanVisor => _scanVisor;
         public Vector3 Light1Vector => _light1Vector;
         public Vector3 Light1Color => _light1Color;
         public Vector3 Light2Vector => _light2Vector;
@@ -276,7 +273,6 @@ namespace MphRead
                 throw new ProgramException("Cannot load more than one room in a scene.");
             }
             _roomLoaded = true;
-            GameState.Mode = mode;
             // The report this is here for is "it crashes when the map loads",
             // from a machine with no console window: a log that says which
             // room, and which of the load's steps it reached, is the whole
@@ -285,13 +281,9 @@ namespace MphRead
                 + $"players={playerCount} layers={nodeLayerMask}/{entityLayerId}");
             using IDisposable? loadStep = Mods.DebugLog.Step("room", $"load \"{name}\"");
             (RoomEntity room, RoomMetadata meta, CollisionInstance collision, IReadOnlyList<EntityBase> entities)
-                = SceneSetup.LoadGame(name, this, playerCount, bossFlags, nodeLayerMask, entityLayerId);
+                = SceneSetup.LoadGame(name, this, mode, playerCount, bossFlags, nodeLayerMask, entityLayerId);
             Mods.DebugLog.Line("room", $"\"{name}\" read: {entities.Count} entit(ies), "
                 + $"id={RoomId}, area={AreaId}");
-            if (GameState.Mode == GameMode.None)
-            {
-                GameState.Mode = meta.Multiplayer ? GameMode.Battle : GameMode.SinglePlayer;
-            }
             _entities.AddFirst(room);
             InitEntity(room);
             _room = room;
@@ -313,22 +305,20 @@ namespace MphRead
             SceneSetup.LoadEnemyResources(this);
             Match.Flow.Setup();
             PlayerEntity.PlayerAiData.InitializeGlobals();
-            if (GameState.Multiplayer)
+            MatchRules? serverRules = Mods.Network.AuthoritativePlay.Current?.Client.Accepted.Rules
+                ?? Mods.Network.DemoPlayback.InitialRules;
+            if (serverRules != null)
             {
-                MatchRules? serverRules = Mods.Network.AuthoritativePlay.Current?.Client.Accepted.Rules
-                    ?? Mods.Network.DemoPlayback.InitialRules;
-                if (serverRules != null)
-                {
-                    Match.ApplyRules(serverRules);
-                    Match.MatchTime = serverRules.TimeLimit.HasValue ? (float)serverRules.TimeLimit.Value.TotalSeconds : -1;
-                    Match.RadarPlayers = serverRules.PlayerRadar;
-                    Match.Phase = MatchPhase.WaitingForPlayers;
-                }
-                else
-                {
-                    Mods.GameSettings.ApplyMatchRules(this);
-                }
+                Match.ApplyRules(serverRules);
+                Match.MatchTime = serverRules.TimeLimit.HasValue ? (float)serverRules.TimeLimit.Value.TotalSeconds : -1;
+                Match.RadarPlayers = serverRules.PlayerRadar;
+                Match.Phase = MatchPhase.WaitingForPlayers;
             }
+            else
+            {
+                Mods.GameSettings.ApplyMatchRules(this);
+            }
+
             SetRoomValues(meta);
             for (int i = 0; i < PlayerEntity.Players.Count; i++)
             {
@@ -350,24 +340,6 @@ namespace MphRead
             _cameraMode = !IsHeadless && PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active)
                 ? CameraMode.Player : CameraMode.Roam;
             _inputMode = _cameraMode == CameraMode.Player ? InputMode.All : InputMode.CameraOnly;
-            if (GameState.SinglePlayer && !meta.FirstHunt && PlayerEntity.PlayerCount > 0 && !Cheats.SkipPlanetIntros)
-            {
-                Movie movieId = _room.RoomId switch
-                {
-                    27 => Movie.AlinosLanding,
-                    45 => Movie.CALanding,
-                    65 => Movie.VDOLanding,
-                    77 => Movie.ArcterraLanding,
-                    89 => Movie.OublietteLanding,
-                    _ => Movie.None
-                };
-                if (movieId != Movie.None)
-                {
-                    _playingLandingMovie = true;
-                    Music.Pause(); // set the room music to be resumed (unless a cam seq plays to overwrite it)
-                    StartMovie(movieId, FadeType.FadeOutInBlack, 0, FadeType.FadeOutWhite, 5 / 30f, afterMovieAction: AfterMovie.StartGame);
-                }
-            }
         }
 
         public void SetRoomValues(RoomMetadata meta)
@@ -480,7 +452,6 @@ namespace MphRead
         {
             return Room?.GetNodeRefByPosition(position) ?? NodeRef.None;
         }
-
 
         public bool IsNodeRefVisible(NodeRef nodeRef)
         {
@@ -1457,7 +1428,7 @@ namespace MphRead
             if (ProcessFrame)
             {
                 _globalElapsedTime += _frameTime;
-                if (Match.LegacyState == MatchState.InProgress && !GameState.DialogPause && !GameState.MenuPause)
+                if (Match.LegacyState == MatchState.InProgress)
                 {
                     _elapsedTime += _frameTime;
                 }
@@ -1511,23 +1482,20 @@ namespace MphRead
                     Mods.Input.GamepadInput.Apply(PlayerEntity.Main);
                 }
                 Mods.Network.NetHooks.AfterInput(this);
-                _room?.UpdateTransition();
             }
             OnKeyHeld();
             bool waitingForServer = Mods.Network.AuthoritativePlay.Active
                 && Match.Phase is MatchPhase.WaitingForPlayers or MatchPhase.Countdown;
             if (ProcessFrame && _room != null)
             {
-                if (GameState.Multiplayer) { Match.Flow.ProcessFrame(); }
-                if (!waitingForServer && Match.LegacyState == MatchState.InProgress && !GameState.MenuPause)
+                Match.Flow.ProcessFrame();
+                if (!waitingForServer && Match.LegacyState == MatchState.InProgress)
                 {
                     UpdateScene();
                 }
                 Mods.Network.NetHooks.AfterSimulation(this);
-                if (!GameState.MenuPause)
-                {
-                    Sound.Sfx.Update(_frameTime);
-                }
+                Sound.Sfx.Update(_frameTime);
+
                 Music.UpdateMusic();
             }
             if (ProcessFrame && PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active))
@@ -1536,20 +1504,14 @@ namespace MphRead
             }
             if (ProcessFrame)
             {
-                if (!waitingForServer && Match.LegacyState == MatchState.InProgress && !GameState.DialogPause && !GameState.MenuPause)
+                if (!waitingForServer && Match.LegacyState == MatchState.InProgress)
                 {
                     ProcessMessageQueue();
                     _liveFrames++;
                 }
-                if (!GameState.DialogPause && !GameState.MenuPause)
-                {
-                    _frameCount++;
-                }
+                _frameCount++;
+
                 Match.Flow.UpdateTime();
-                if (_movieFrameIndex != -1)
-                {
-                    UpdateMovie();
-                }
             }
             _frameAdvanceLastFrame = _frameAdvanceOn;
             // Effects are advanced inside GetDrawItems, where their ordering
@@ -2445,10 +2407,6 @@ namespace MphRead
                 // be asked, since the HUD is otherwise not drawn at all while
                 // the camera is not a player's.
                 PlayerEntity.Main.DrawHudObjects();
-            }
-            if (_movieFrameIndex != -1)
-            {
-                DrawMovieFrame();
             }
             if (PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player && _fadeType != FadeType.None)
             {
@@ -3724,54 +3682,41 @@ namespace MphRead
 
         private void UpdateScene()
         {
-            if (_playingLandingMovie)
-            {
-                return;
-            }
             bool playerActive = !IsHeadless && PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active);
-            if (!GameState.DialogPause)
+            if (playerActive)
             {
-                if (playerActive)
-                {
-                    PlayerEntity.Main.UpdateTimedSounds();
-                    PlayerEntity.Main.ProcessHudMessageQueue();
-                }
-                foreach (EntityBase entity in Entities)
-                {
-                    if (entity.Initialized && !entity.Process())
-                    {
-                        SendMessage(Message.Destroyed, entity, null, 0, 0, delay: 1);
-                        // todo: need to handle destroying vs. unloading etc.
-                        entity.Destroy();
-                        RemoveEntity(entity);
-                    }
-                }
-                PlayerEntity.PlayerAiData.UpdateVisibilityAndGlobals(this);
-                for (int i = 0; i < PlayerEntity.Players.Count; i++)
-                {
-                    PlayerEntity.Players[i].ClosestNode = null;
-                }
-                for (int i = 0; i < PlayerEntity.Players.Count; i++)
-                {
-                    PlayerEntity player = PlayerEntity.Players[i];
-                    if (player.IsBot && player.Health != 0)
-                    {
-                        player.AiData.Process();
-                    }
-                }
-                if (playerActive)
-                {
-                    PlayerEntity.Main.ProcessModeHud();
-                }
-                Match.Logic.UpdateState();
+                PlayerEntity.Main.UpdateTimedSounds();
+                PlayerEntity.Main.ProcessHudMessageQueue();
             }
-            else if (GameState.SinglePlayer)
+            foreach (EntityBase entity in Entities)
             {
-                if (playerActive)
+                if (entity.Initialized && !entity.Process())
                 {
-                    PlayerEntity.Main.UpdateDialogs();
+                    SendMessage(Message.Destroyed, entity, null, 0, 0, delay: 1);
+                    // todo: need to handle destroying vs. unloading etc.
+                    entity.Destroy();
+                    RemoveEntity(entity);
                 }
             }
+            PlayerEntity.PlayerAiData.UpdateVisibilityAndGlobals(this);
+            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            {
+                PlayerEntity.Players[i].ClosestNode = null;
+            }
+            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            {
+                PlayerEntity player = PlayerEntity.Players[i];
+                if (player.IsBot && player.Health != 0)
+                {
+                    player.AiData.Process();
+                }
+            }
+            if (playerActive)
+            {
+                PlayerEntity.Main.ProcessModeHud();
+            }
+            Match.Logic.UpdateState();
+
         }
 
         private void GetDrawItems()
@@ -3810,7 +3755,7 @@ namespace MphRead
                 }
             }
 
-            if (ProcessFrame && Match.LegacyState == MatchState.InProgress && !GameState.DialogPause)
+            if (ProcessFrame && Match.LegacyState == MatchState.InProgress)
             {
                 for (int i = 0; i < _pendingEffectSteps; i++)
                 {
@@ -3893,18 +3838,6 @@ namespace MphRead
             GL.Uniform3(_shaderLocations.Light2Color, color);
         }
 
-        private class MovieFadeSettings
-        {
-            public Movie MovieId { get; set; }
-            public Movie? AfterMovieId { get; set; } // for bad ending
-            public FadeType AfterFadeType { get; set; }
-            public float AfterFadeLength { get; set; }
-            public Vector3? AfterPosition { get; set; }
-            public Vector3? AfterFacing { get; set; }
-            public AfterMovie AfterMovieAction { get; set; }
-        }
-
-        private readonly MovieFadeSettings _movieSettings = new MovieFadeSettings();
         private FadeType _fadeType = FadeType.None;
         public FadeType FadeType => _fadeType;
         private float _fadeColor = 0;
@@ -3992,7 +3925,7 @@ namespace MphRead
             GL.ClearColor(_clearColor);
         }
 
-        private void QuitGame(bool enteringShip)
+        private void QuitGame()
         {
             _fadeType = FadeType.None;
             DoCleanup();
@@ -4004,39 +3937,22 @@ namespace MphRead
             if (!_exiting)
             {
                 _exiting = true;
-                _room?.CancelTransition();
                 PlatformEntity.DestroyBeams();
                 EnemyInstanceEntity.DestroyBeams();
                 Sound.Sfx.ShutDown();
                 OutputStop();
-                _decoderCts?.Cancel();
                 Selection.Clear();
             }
         }
 
         private void EndFade()
         {
-            if (_afterFade == AfterFade.Exit || _afterFade == AfterFade.EnterShip)
+            if (_afterFade == AfterFade.Exit)
             {
-                QuitGame(enteringShip: _afterFade == AfterFade.EnterShip);
+                QuitGame();
                 return;
             }
             AfterFade afterFade = _afterFade; // may get updated
-            if (afterFade == AfterFade.PlayMovie)
-            {
-                PlayMovie(_movieSettings.MovieId);
-            }
-            else if (afterFade == AfterFade.StopMovie)
-            {
-                if (_movieSettings.AfterPosition.HasValue)
-                {
-                    Vector3 position = _movieSettings.AfterPosition.Value;
-                    Vector3 facing = _movieSettings.AfterFacing ?? PlayerEntity.Main.FacingVector;
-                    NodeRef newNodeRef = GetNodeRefByName("rmMain");
-                    PlayerEntity.Main.Reposition(position, facing, newNodeRef);
-                }
-                StopMovie();
-            }
             if (_fadeType == FadeType.FadeOutInBlack)
             {
                 SetFade(FadeType.FadeInBlack, _fadeLength, overwrite: true);
@@ -4052,7 +3968,7 @@ namespace MphRead
                 FadeType fadeType = _fadeType == FadeType.FadeOutWhite ? FadeType.FadeInWhite : FadeType.FadeInBlack;
                 SetFade(fadeType, 10 / 30f, overwrite: true);
             }
-            else if (afterFade != AfterFade.PlayMovie && afterFade != AfterFade.StopMovie)
+            else
             {
                 _fadeType = FadeType.None;
                 _fadeColor = 0;
@@ -4420,7 +4336,6 @@ namespace MphRead
                 GL.End();
             }
         }
-
 
         public LayerInfo Layer1Info { get; } = new LayerInfo();
         public LayerInfo Layer2Info { get; } = new LayerInfo();
@@ -4943,7 +4858,6 @@ namespace MphRead
         private static bool ScoreboardOverFreeCamera => Mods.SpectatorMode.FreeCamera
             && Mods.SpectatorMode.ShowScoreboard
             && PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active);
-
 
         /// <summary>
         /// The spectator's own no-clip camera: an independent view of the map
@@ -6301,13 +6215,6 @@ namespace MphRead
             Scene.AddPlayer(hunter, recolor, team, position);
         }
 
-        public void QueueMovie(int movieId)
-        {
-            Sound.Sfx.Load(Scene);
-            GameState.Mode = GameMode.Unknown15; // avoid save prompt from 1P mode
-            Scene.StartMovie((Movie)movieId, FadeType.FadeOutInBlack, 0, FadeType.FadeOutBlack, 0, afterMovieAction: AfterMovie.EndGame);
-        }
-
         protected override void OnLoad()
         {
             Scene.OnLoad();
@@ -6352,10 +6259,9 @@ namespace MphRead
             // The pause menu wants the pointer back.
             CursorState = (Scene.CameraMode == CameraMode.Player || Scene.IsFreeCam) && !Scene.FrameAdvance
                 && !Mods.PauseMenu.Open
-                && !Scene.ShowCursor && !GameState.DialogPause && !GameState.MenuPause
+                && !Scene.ShowCursor
                 ? CursorState.Grabbed
                 : CursorState.Normal;
-            GameState.ApplyPause();
             ApplyFrameRateSettings();
             // The simulation runs at 60 Hz and the picture runs at the
             // display's rate, so this is 1 on a 60 Hz screen, 0 or 1 on a

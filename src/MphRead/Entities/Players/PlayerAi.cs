@@ -327,7 +327,7 @@ namespace MphRead.Entities
                 }
                 _nodeData = _scene.Room.NodeData;
                 SetClosestNodeList(_player.Position);
-                if (GameState.Mode == GameMode.Capture)
+                if (_scene.Match.Rules.Mode == MatchMode.Capture)
                 {
                     foreach (EntityBase entity in _scene.Entities)
                     {
@@ -362,7 +362,7 @@ namespace MphRead.Entities
                         _forceDisable = true;
                     }
                 }
-                else if (GameState.Mode == GameMode.Bounty || GameState.Mode == GameMode.BountyTeams)
+                else if (_scene.Match.Rules.Mode == MatchMode.Bounty || _scene.Match.Rules.Mode == MatchMode.TeamBounty)
                 {
                     foreach (EntityBase entity in _scene.Entities)
                     {
@@ -763,7 +763,7 @@ namespace MphRead.Entities
             {
                 _entityRefs.Clear();
                 UpdateAggro();
-                if (GameState.Mode == GameMode.PrimeHunter && _scene.Match.PrimeHunter == _player.SlotIndex
+                if (_scene.Match.Rules.Mode == MatchMode.PrimeHunter && _scene.Match.PrimeHunter == _player.SlotIndex
                     && Flags2.TestFlag(AiFlags2.TargetItem) && _itemC8 != null && (_itemC8.ItemType == ItemType.HealthSmall
                     || _itemC8.ItemType == ItemType.HealthMedium || _itemC8.ItemType == ItemType.HealthBig))
                 {
@@ -2938,7 +2938,7 @@ namespace MphRead.Entities
                     Span<int> offsets = stackalloc int[10];
                     while (offsetCount < 10 && i < specIndex - navIndex)
                     {
-                        if (GameState.Mode == GameMode.Capture && _player.TeamIndex == 1)
+                        if (_scene.Match.Rules.Mode == MatchMode.Capture && _player.TeamIndex == 1)
                         {
                             uint field4 = _nodeList[navIndex + i].Field4;
                             if (field4 > 100 && field4 <= 110)
@@ -4329,18 +4329,11 @@ namespace MphRead.Entities
             private int Func3_213D388(AiContext context, AiPersonalityData5 param)
             {
                 PlayerEntity? player = null;
-                if (GameState.Mode == GameMode.SinglePlayer)
+                // todo?: if we exposed "get entity from storage," we wouldn't need a loop
+                foreach (PlayerEntity entity in _scene.GetPlayerEntities())
                 {
-                    player = PlayerEntity.Main;
-                }
-                else
-                {
-                    // todo?: if we exposed "get entity from storage," we wouldn't need a loop
-                    foreach (PlayerEntity entity in _scene.GetPlayerEntities())
-                    {
-                        player = entity;
-                        break;
-                    }
+                    player = entity;
+                    break;
                 }
                 if (player == null)
                 {
@@ -5161,7 +5154,7 @@ namespace MphRead.Entities
 
             private int Func3_213B690(AiContext context, AiPersonalityData5 param)
             {
-                if (GameState.Mode == GameMode.Capture)
+                if (_scene.Match.Rules.Mode == MatchMode.Capture)
                 {
                     return 0;
                 }
@@ -5480,17 +5473,17 @@ namespace MphRead.Entities
 
             private int Func3_213AE14(AiContext context, AiPersonalityData5 param)
             {
-                return GameState.Mode == GameMode.Capture ? 1 : 0;
+                return _scene.Match.Rules.Mode == MatchMode.Capture ? 1 : 0;
             }
 
             private int Func3_213ADF8(AiContext context, AiPersonalityData5 param)
             {
-                return GameState.Mode != GameMode.Capture ? 1 : 0; // inverted
+                return _scene.Match.Rules.Mode != MatchMode.Capture ? 1 : 0; // inverted
             }
 
             private int Func3_213ADC4(AiContext context, AiPersonalityData5 param)
             {
-                return GameState.Mode == GameMode.PrimeHunter && _player.IsPrimeHunter ? 1 : 0;
+                return _scene.Match.Rules.Mode == MatchMode.PrimeHunter && _player.IsPrimeHunter ? 1 : 0;
             }
 
             private int Func3_213ADA0(AiContext context, AiPersonalityData5 param)
@@ -5510,7 +5503,7 @@ namespace MphRead.Entities
 
             private int Func3_213ACE8(AiContext context, AiPersonalityData5 param)
             {
-                if (GameState.Mode == GameMode.Capture && _player.TeamIndex == 0 && _field30 > 100) // sktodo-ai: FPS stuff?
+                if (_scene.Match.Rules.Mode == MatchMode.Capture && _player.TeamIndex == 0 && _field30 > 100) // sktodo-ai: FPS stuff?
                 {
                     return 1;
                 }
@@ -7089,7 +7082,7 @@ namespace MphRead.Entities
                     Debug.Assert(_targetPlayer != null);
                     Vector3 toTarget = _targetPlayer.Position - _player.Position;
                     float distSqr = toTarget.LengthSquared;
-                    if (GameState.SinglePlayer || distSqr <= 15 * 15 || !_player.AvailableWeapons[BeamType.PowerBeam])
+                    if (distSqr <= 15 * 15 || !_player.AvailableWeapons[BeamType.PowerBeam])
                     {
                         if (!_player.AvailableWeapons[beam])
                         {
@@ -10414,7 +10407,7 @@ namespace MphRead.Entities
                         continue;
                     }
                     if ((!checkNeeded || !IsItemNotNeeded(itemSpawn.Data.ItemType))
-                        && (GameState.Mode != GameMode.PrimeHunter || _scene.Match.PrimeHunter != _player.SlotIndex || !IsHealth(itemSpawn))
+                        && (_scene.Match.Rules.Mode != MatchMode.PrimeHunter || _scene.Match.PrimeHunter != _player.SlotIndex || !IsHealth(itemSpawn))
                         && (result == null || result.Item == null || itemSpawn.Item != null)
                         && (itemSpawn.Item == null || !Func21377FC(itemSpawn.Item)))
                     {
@@ -10479,7 +10472,7 @@ namespace MphRead.Entities
                 foreach (ItemInstanceEntity item in _scene.GetItemInstanceEntities())
                 {
                     if ((!checkNeeded || !IsItemNotNeeded(item.ItemType))
-                        && (GameState.Mode != GameMode.PrimeHunter || _scene.Match.PrimeHunter != _player.SlotIndex || !IsHealth(item))
+                        && (_scene.Match.Rules.Mode != MatchMode.PrimeHunter || _scene.Match.PrimeHunter != _player.SlotIndex || !IsHealth(item))
                         && item.DespawnTimer != 0
                         && !Func21377FC(item))
                     {

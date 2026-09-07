@@ -27,10 +27,8 @@ namespace MphRead.Mods.Input
         /// <summary>Jumping on foot, boosting in the ball: one button, as on the DS.</summary>
         Jump,
         Morph,
-        Scan,
-        ScanVisor,
-        /// <summary>The DS's own pause button: map and status, scoreboard in a match.</summary>
-        Scoreboard,
+        /// <summary>The match scoreboard.</summary>
+        Scoreboard = 6,
         NextWeapon,
         PrevWeapon,
         Missile,
@@ -69,8 +67,8 @@ namespace MphRead.Mods.Input
             /* Zoom       */ GamepadButtons.LeftTrigger,
             /* Jump       */ GamepadButtons.A,
             /* Morph      */ GamepadButtons.B,
-            /* Scan       */ GamepadButtons.X,
-            /* ScanVisor  */ GamepadButtons.Y,
+            /* Retired 4  */ GamepadButtons.None,
+            /* Retired 5  */ GamepadButtons.None,
             /* Scoreboard */ GamepadButtons.Back,
             /* NextWeapon */ GamepadButtons.RightBumper | GamepadButtons.DpadRight,
             /* PrevWeapon */ GamepadButtons.LeftBumper | GamepadButtons.DpadLeft,
@@ -85,7 +83,7 @@ namespace MphRead.Mods.Input
         public static IReadOnlyList<PadAction> Actions { get; } = new[]
         {
             PadAction.Shoot, PadAction.Jump, PadAction.Morph, PadAction.Zoom,
-            PadAction.ScanVisor, PadAction.Scan, PadAction.NextWeapon,
+            PadAction.NextWeapon,
             PadAction.PrevWeapon, PadAction.Missile, PadAction.PowerBeam,
             PadAction.Scoreboard, PadAction.Menu
         };
@@ -120,9 +118,7 @@ namespace MphRead.Mods.Input
                 PadAction.Zoom => "Zoom",
                 PadAction.Jump => "Jump / boost",
                 PadAction.Morph => "Morph ball",
-                PadAction.Scan => "Scan",
-                PadAction.ScanVisor => "Scan visor",
-                PadAction.Scoreboard => "Map / scoreboard",
+                PadAction.Scoreboard => "Scoreboard",
                 PadAction.NextWeapon => "Next weapon",
                 PadAction.PrevWeapon => "Previous weapon",
                 PadAction.Missile => "Missile",
@@ -197,6 +193,7 @@ namespace MphRead.Mods.Input
         {
             if (!key.StartsWith("pad_", StringComparison.Ordinal)
                 || !Enum.TryParse(key[4..], out PadAction action)
+                || !Enum.IsDefined(action)
                 || !Enum.TryParse(value, out GamepadButtons buttons))
             {
                 return false;

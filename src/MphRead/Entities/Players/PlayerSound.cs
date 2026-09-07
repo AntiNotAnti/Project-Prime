@@ -12,7 +12,7 @@ namespace MphRead.Entities
             int id = Metadata.HunterSfx[(int)Hunter, (int)sfx];
             if (id == -1)
             {
-                if (!GameState.Multiplayer || Hunter != Hunter.Guardian || sfx != HunterSfx.Spawn) // todo: MP1P
+                if (Hunter != Hunter.Guardian || sfx != HunterSfx.Spawn) // todo: MP1P
                 {
                     return;
                 }
@@ -447,49 +447,9 @@ namespace MphRead.Entities
         }
 
         private readonly SoundSource _timedSfxSource = new SoundSource();
-        private float _sfxStopTimer = 0;
         public float ForceFieldSfxTimer = 0;
         public float DoorUnlockSfxTimer = 0;
         public float DoorChimeSfxTimer = 0;
-        private readonly bool[] _scanSfxOn = new bool[3];
-        private readonly int[] _scanSfxHandles = new int[3] { -1, -1, -1 };
-        private static readonly IReadOnlyList<SfxId> _scanSfxIds = new SfxId[3]
-        {
-            SfxId.SCAN_VISOR_ON, SfxId.SCAN_STATUS_BAR, SfxId.SCAN_VISOR_LOOP
-        };
-
-        private void UpdateScanSfx(int index, bool enable)
-        {
-            if (index == -1)
-            {
-                for (int i = 0; i < _scanSfxOn.Length; i++)
-                {
-                    if (_scanSfxOn[i])
-                    {
-                        _soundSource.StopSfxByHandle(_scanSfxHandles[i]);
-                        _scanSfxHandles[i] = -1;
-                    }
-                }
-                if (!enable)
-                {
-                    for (int i = 0; i < _scanSfxOn.Length; i++)
-                    {
-                        _scanSfxOn[i] = false;
-                    }
-                }
-            }
-            else if (enable)
-            {
-                _scanSfxOn[index] = true;
-            }
-            else
-            {
-                _soundSource.StopSfxByHandle(_scanSfxHandles[index]);
-                _scanSfxHandles[index] = -1;
-                _scanSfxOn[index] = false;
-            }
-        }
-
         public void StopAllSfx()
         {
             StopFlagCarrySfx();
@@ -497,7 +457,6 @@ namespace MphRead.Entities
             UpdateHealthSfx(health: 0);
             UpdateDoubleDamageSfx(index: 0, play: false);
             UpdateCloakSfx(index: 0, play: false);
-            UpdateScanSfx(index: -1, enable: false);
             // the game doesn't stop music if a likely download play check passes
             // todo: the game stops music here, but I think we have other cases covered, and need to not stop for teleporters
             _soundSource.StopFreeSfxScripts();
@@ -530,7 +489,6 @@ namespace MphRead.Entities
                 }
                 UpdateHealthSfx(health: 0);
                 // the game also suspends the weapon alarm SFX here
-                UpdateScanSfx(index: -1, enable: true);
             }
             Sfx.TimedSfxMute++;
         }
@@ -579,15 +537,6 @@ namespace MphRead.Entities
         public void UpdateTimedSounds()
         {
             _timedSfxSource.Update(Position, rangeIndex: -1);
-            if (_sfxStopTimer > 0)
-            {
-                _sfxStopTimer -= _scene.FrameTime;
-                if (_sfxStopTimer <= 0)
-                {
-                    _sfxStopTimer = 0;
-                    StopLongSfx();
-                }
-            }
             if (_damageSfxTimer > 0)
             {
                 _damageSfxTimer -= _scene.FrameTime;
@@ -637,14 +586,9 @@ namespace MphRead.Entities
                     }
                 }
             }
-            if (musicId != MusicId.Invalid && PlayerEntity.Main.Health > 0
-                && (GameState.EscapeTimer == -1 || GameState.EscapeState != EscapeState.Escape))
+            if (musicId != MusicId.Invalid && PlayerEntity.Main.Health > 0)
             {
-                if (Music.MusicEncounterSuspension != 0)
-                {
-                    Music.MusicToResume = musicId;
-                }
-                else if (Sfx.TimedSfxMute > 0)
+                if (Sfx.TimedSfxMute > 0)
                 {
                     Music.UpdateMusicIdIfPaused(musicId);
                 }
@@ -654,16 +598,6 @@ namespace MphRead.Entities
                 }
             }
             // sfxtodo: escape sequence and pause stuff
-            if (Sfx.TimedSfxMute == 0)
-            {
-                for (int i = 0; i < _scanSfxOn.Length; i++)
-                {
-                    if (_scanSfxOn[i] && _scanSfxHandles[i] == -1)
-                    {
-                        _scanSfxHandles[i] = _soundSource.PlayFreeSfx(_scanSfxIds[i]);
-                    }
-                }
-            }
             if (Sfx.LongSfxMute == 0 && DoorUnlockSfxTimer > 0)
             {
                 DoorUnlockSfxTimer -= _scene.FrameTime;

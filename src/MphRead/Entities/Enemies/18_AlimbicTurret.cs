@@ -195,8 +195,8 @@ namespace MphRead.Entities.Enemies
             {
                 foreach (PlayerEntity player in _scene.GetPlayerEntities())
                 {
-                    if (player.IsBot && GameState.SinglePlayer || player.Health == 0 || !_rangeVolume.TestPoint(player.Position)
-                        || GameState.Mode == GameMode.BountyTeams && player.TeamIndex == 0)
+                    if (player.Health == 0 || !_rangeVolume.TestPoint(player.Position)
+                        || _scene.Match.Rules.Mode == MatchMode.TeamBounty && player.TeamIndex == 0)
                     {
                         continue;
                     }
@@ -238,7 +238,7 @@ namespace MphRead.Entities.Enemies
             {
                 // bug?: condition to ignore 1P bots is missing
                 if (player.Health == 0 || !_rangeVolume.TestPoint(player.Position)
-                    || GameState.Mode == GameMode.BountyTeams && player.TeamIndex == 0)
+                    || _scene.Match.Rules.Mode == MatchMode.TeamBounty && player.TeamIndex == 0)
                 {
                     continue;
                 }

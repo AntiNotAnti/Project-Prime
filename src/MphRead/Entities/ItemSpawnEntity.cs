@@ -32,22 +32,8 @@ namespace MphRead.Entities
             Id = data.Header.EntityId;
             Position = data.Header.Position.ToFloatVector(); // vecs from header are not used
             AlwaysActive = data.AlwaysActive != 0;
-            if (GameState.Mode == GameMode.SinglePlayer)
-            {
-                int state = _scene.GetInitialEntityState(Id, active: data.Enabled != 0);
-                if (AlwaysActive)
-                {
-                    Active = data.Enabled != 0;
-                }
-                else
-                {
-                    Active = state != 0;
-                }
-            }
-            else
-            {
-                Active = data.Enabled != 0;
-            }
+            Active = data.Enabled != 0;
+
             _spawnCooldown = (ushort)(data.SpawnDelay * 2); // todo: FPS stuff
             if (data.HasBase != 0)
             {

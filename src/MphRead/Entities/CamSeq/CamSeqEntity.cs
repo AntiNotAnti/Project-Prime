@@ -123,7 +123,6 @@ namespace MphRead.Entities
                         }
                         int musicValue = CameraSequence.MusicData[Data.SequenceId];
                         if (musicValue != 0
-                            && ((musicValue & 0x400) == 0 || GameState.EscapeTimer == -1 || GameState.EscapeState != EscapeState.Escape)
                             && (musicValue & 0x4000) == 0
                             && (musicValue & 0x8000) == 0)
                         {
@@ -143,13 +142,8 @@ namespace MphRead.Entities
         private void TryStart()
         {
             PlayerEntity player = PlayerEntity.Main;
-            if (player.Health == 0 && player.DeathCountdown > 0 && Data.BlockInput != 0 || GameState.DialogPause)
-            {
-                return;
-            }
             int musicValue = CameraSequence.MusicData[Data.SequenceId];
-            bool hasMusic = musicValue != 0
-                && ((musicValue & 0x400) == 0 || GameState.EscapeTimer == -1 || GameState.EscapeState != EscapeState.Escape);
+            bool hasMusic = musicValue != 0;
             int sfxData = CameraSequence.SfxData[Data.SequenceId];
             if (_delayTimer == 0)
             {
@@ -183,16 +177,7 @@ namespace MphRead.Entities
                 if (hasMusic)
                 {
                     int musicOrSeqId = musicValue & 0x3FF;
-                    if ((musicValue & 0x800) != 0)
-                    {
-                        Music.MusicToResume = (MusicId)musicOrSeqId;
-                    }
-                    else if ((musicValue & 0x1000) != 0 && GameState.EscapeTimer != -1 && GameState.EscapeState == EscapeState.Escape)
-                    {
-                        Music.PlayMusic(MusicId.SEQ_OREGANO_M55);
-                        Music.UpdateEscapeMusic();
-                    }
-                    else if ((musicValue & 0x4000) != 0)
+                    if ((musicValue & 0x4000) != 0)
                     {
                         Music.PlayMusic((MusicId)musicOrSeqId);
                     }
@@ -271,10 +256,6 @@ namespace MphRead.Entities
             if (info.Message == Message.Activate || (info.Message == Message.SetActive && (int)info.Param1 != 0))
             {
                 PlayerEntity player = PlayerEntity.Main;
-                if (player.Health == 0 && player.DeathCountdown > 0 && Data.BlockInput != 0)
-                {
-                    return;
-                }
                 bool activate = true;
                 bool handoff = false;
                 if (Current != null)
@@ -298,11 +279,6 @@ namespace MphRead.Entities
                 }
                 if (activate)
                 {
-                    if (Cheats.SkipPlanetIntros && (Name == "unit2_land_intro" || Name == "unit1_land_intro"
-                        || Name == "unit3_land_intro" || Name == "unit4_land_intro" || Name == "gorea_land_intro"))
-                    {
-                        return;
-                    }
                     if (Current != null && Current != this)
                     {
                         if (handoff)
@@ -317,14 +293,12 @@ namespace MphRead.Entities
                     }
                     if (!_active)
                     {
-                        // hack to avoid delay when Octolith intro seqs start at room reload (player view should not be visible in between)
-                        bool quickStart = Name == "unit2_b1_octolith_intro" || Name == "bigeye_octolith_intro";
                         _active = true;
-                        _delayTimer = (byte)(quickStart ? 7 : 0);
+                        _delayTimer = 0;
                         _handoffTimer = 0;
                         _handoff = handoff;
                         Current = this;
-                        if (Data.DelayFrames == 0 || quickStart)
+                        if (Data.DelayFrames == 0)
                         {
                             TryStart();
                         }

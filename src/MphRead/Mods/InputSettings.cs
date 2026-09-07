@@ -151,7 +151,7 @@ namespace MphRead.Mods
             nameof(PlayerControls.Shoot), nameof(PlayerControls.Zoom),
             nameof(PlayerControls.Morph), nameof(PlayerControls.AltAttack),
             nameof(PlayerControls.NextWeapon), nameof(PlayerControls.PrevWeapon),
-            nameof(PlayerControls.WeaponMenu), nameof(PlayerControls.ScanVisor),
+            nameof(PlayerControls.WeaponMenu),
             nameof(PlayerControls.Pause), nameof(PlayerControls.HudOverlay)
         };
 

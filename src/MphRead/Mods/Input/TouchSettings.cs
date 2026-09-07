@@ -13,14 +13,13 @@ namespace MphRead.Mods.Input
         Shoot,
         Jump,
         Morph,
-        ScanVisor,
-        Scan,
-        Missile,
+        Missile = 5,
         WeaponMenu,
         Zoom,
         Pause,
         Scoreboard,
-        Chat
+        Chat,
+        SpectatorView
     }
 
     /// <summary>
@@ -62,8 +61,7 @@ namespace MphRead.Mods.Input
             (TouchControl.Shoot, "FIRE"),
             (TouchControl.Jump, "JUMP"),
             (TouchControl.Morph, "MORPH"),
-            (TouchControl.ScanVisor, "VISOR"),
-            (TouchControl.Scan, "SCAN"),
+            (TouchControl.SpectatorView, "SPECTATOR VIEW"),
             (TouchControl.Missile, "MISSILE"),
             (TouchControl.WeaponMenu, "WEAPON wheel"),
             (TouchControl.Zoom, "ZOOM"),
@@ -91,8 +89,8 @@ namespace MphRead.Mods.Input
 
         /// <summary>
         /// Whether this button belongs on the screen at all right now. The
-        /// head still decides whether it makes sense in the situation -- SCAN
-        /// only in the visor, CHAT only in a networked match -- and this is
+        /// head still decides whether it makes sense in the situation -- VIEW
+        /// only while spectating, CHAT only in a networked match -- and this is
         /// the player's answer on top of that.
         /// </summary>
         public static bool Shown(TouchControl control)

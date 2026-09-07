@@ -52,9 +52,9 @@ namespace MphRead.Entities
             Id = data.Header.EntityId;
             SetTransform(data.Header.FacingVector, data.Header.UpVector, data.Header.Position);
             _volume = CollisionVolume.Move(_data.Volume, Position);
-            GameMode mode = GameState.Mode;
-            if (mode == GameMode.Defender || mode == GameMode.DefenderTeams
-                || mode == GameMode.Nodes || mode == GameMode.NodesTeams)
+            MatchMode mode = _scene.Match.Rules.Mode;
+            if (mode == MatchMode.Defender || mode == MatchMode.TeamDefender
+                || mode == MatchMode.Nodes || mode == MatchMode.TeamNodes)
             {
                 // yes, these names are correct
                 ModelInstance terminalInst = SetUpModel("koth_data_flow");
@@ -64,7 +64,7 @@ namespace MphRead.Entities
                 _terminalMat = terminalInst.Model.Materials.First(m => m.Name == "lambert4");
                 _ringMat = ringInst.Model.Materials.First(m => m.Name == "lambert2");
             }
-            if (mode == GameMode.Defender || mode == GameMode.DefenderTeams)
+            if (mode == MatchMode.Defender || mode == MatchMode.TeamDefender)
             {
                 _defender = true;
             }

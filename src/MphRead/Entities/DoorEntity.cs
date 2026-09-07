@@ -16,14 +16,7 @@ namespace MphRead.Entities
         public float Radius { get; }
         public float RadiusSquared { get; }
         public DoorFlags Flags { get; set; } = DoorFlags.None;
-        public int TargetRoomId { get; } = -1;
-        public int TargetLayerId { get; } = -1; // see note at usage
-        public DoorEntity? LoaderDoor { get; set; }
-        public DoorEntity? ConnectorDoor { get; set; }
         public Portal? Portal { get; private set; }
-        public ModelInstance? ConnectorModel { get; set; }
-        public CollisionInstance? ConnectorCollision { get; set; }
-        public bool ConnectorInactive { get; set; }
 
         private bool Locked => Flags.TestFlag(DoorFlags.Locked);
         private bool Unlocked => Flags.TestFlag(DoorFlags.Unlocked);
@@ -35,8 +28,7 @@ namespace MphRead.Entities
             0, 255, 264, 252, 256, 253, 254, 249, 266, 265
         };
 
-        public DoorEntity(DoorEntityData data, string nodeName, Scene scene,
-            int targetRoomId = -1, int targetLayerId = -1) : base(EntityType.Door, nodeName, scene)
+        public DoorEntity(DoorEntityData data, string nodeName, Scene scene) : base(EntityType.Door, nodeName, scene)
         {
             _data = data;
             Id = data.Header.EntityId;
@@ -69,7 +61,6 @@ namespace MphRead.Entities
             inst.AnimInfo.Flags[1] |= AnimFlags.Reverse;
             _lock = SetUpModel(meta.LockName);
             _lockTransform = Matrix4.CreateTranslation(0, meta.LockOffset, 0);
-            Debug.Assert(GameState.Mode == GameMode.SinglePlayer);
             int state = _scene.GetInitialEntityState(Id, active: _data.Locked != 0);
             if (state != 0 && !Cheats.UnlockAllDoors)
             {
@@ -81,90 +72,20 @@ namespace MphRead.Entities
             {
                 Flags |= DoorFlags.ShowLock;
             }
-            TargetRoomId = targetRoomId;
-            if (TargetRoomId == -1 && _data.EntityFilename[0] != '\0')
-            {
-                for (int i = 0; i < Metadata.RoomList.Count; i++)
-                {
-                    RoomMetadata room = Metadata.RoomList[i];
-                    string? filename = room.EntityFilename;
-                    if (filename != null && Compare(_data.EntityFilename, filename))
-                    {
-                        TargetRoomId = room.Id;
-                        break;
-                    }
-                }
-            }
-            if (_data.ConnectorId != 255 && TargetRoomId == -1)
-            {
-                throw new ProgramException("Loader door failed to find target room.");
-            }
-            TargetLayerId = targetLayerId;
-        }
-
-        private bool Compare(ReadOnlySpan<char> data, ReadOnlySpan<char> room)
-        {
-            return MemoryExtensions.StartsWith(room, data[..15], StringComparison.InvariantCultureIgnoreCase);
         }
 
         public override void Initialize()
         {
             base.Initialize();
             _scene.LoadEffect(114, persistent: false); // lockDefeat
-            if (_data.ConnectorId != 255 && _scene.Room != null)
+            string portalName = $"{_data.NodeName.MarshalString()}_{_nodeName}";
+            Portal? portal = _scene.Room?.GetPortalByName(portalName);
+            if (portal != null)
             {
-                _scene.Room.AddConnector(this);
+                portal.Active = false;
+                Portal = portal;
             }
-            else
-            {
-                string portalName = $"{_data.NodeName.MarshalString()}_{_nodeName}";
-                Portal? portal = _scene.Room?.GetPortalByName(portalName);
-                if (portal != null)
-                {
-                    portal.Active = false;
-                    Portal = portal;
-                }
-            }
-        }
 
-        private const float _portWidth = 2.1f;
-        private static readonly IReadOnlyList<float> _portHeights = new float[4]
-        {
-            3.4f, 3.4f, 6.4f, 3.4f
-        };
-
-        public Portal SetUpPort(string roomNodeName, string conNodeName)
-        {
-            Debug.Assert(Portal == null);
-            float height = _portHeights[(int)Data.DoorType];
-            Vector3 facing = FacingVector;
-            Vector3 pos = Position;
-            Vector3 up = UpVector;
-            Vector3 negUp = -up;
-            Vector3 right = Vector3.Cross(facing, up).Normalized();
-            Vector3 negRight = -right;
-            Vector3 widthVec = right * _portWidth;
-            Vector3 heightVec = up * height;
-            var points = new List<Vector3>(4)
-            {
-                pos - widthVec,
-                pos - widthVec + heightVec,
-                pos + widthVec + heightVec,
-                pos + widthVec
-            };
-            var plane = new Vector4(facing, Vector3.Dot(facing, pos));
-            // unlike with portals in collision files, these planes are computed
-            // based on the assumption that doors are always axis aligned
-            var planes = new List<Vector4>(4)
-            {
-                new Vector4(negRight, Vector3.Dot(negRight, points[3])),
-                new Vector4(negUp, Vector3.Dot(negUp, points[2])),
-                new Vector4(right, Vector3.Dot(right, points[1])),
-                new Vector4(up, Vector3.Dot(up, points[0]))
-            };
-            Portal = new Portal(roomNodeName, conNodeName, points, planes, plane);
-            Portal.Active = false;
-            return Portal;
         }
 
         private void UpdateScanId()
@@ -206,12 +127,6 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
-            if (ConnectorInactive)
-            {
-                Flags &= ~DoorFlags.ShotOpen;
-                Flags &= ~DoorFlags.ShouldOpen;
-                ForceClose();
-            }
             if (Unlocked && _lock.AnimInfo.Flags[0].TestFlag(AnimFlags.Ended))
             {
                 Flags &= ~DoorFlags.Locked;
@@ -222,7 +137,7 @@ namespace MphRead.Entities
             {
                 Flags &= ~DoorFlags.ShotOpen;
             }
-            if (!GameState.InRoomTransition)
+            if (!_scene.InRoomTransition)
             {
                 if (ShouldOpen())
                 {
@@ -231,22 +146,6 @@ namespace MphRead.Entities
                 else
                 {
                     Flags &= ~DoorFlags.ShouldOpen;
-                }
-            }
-            if (Flags.TestFlag(DoorFlags.ShouldOpen) && _data.ConnectorId == 255 && TargetRoomId >= 0)
-            {
-                // the game also checks for loading connectors behind doors, but we do that at room load
-                Flags &= ~DoorFlags.ShouldOpen;
-                GameState.TransitionState = TransitionState.Start;
-                Debug.Assert(_scene.Room != null && _scene.Room.LoaderDoor == null);
-                _scene.Room.LoaderDoor = this;
-                GameState.TransitionRoomId = TargetRoomId;
-                foreach (DoorEntity other in _scene.GetDoorEntities())
-                {
-                    if (other.LoaderDoor == this)
-                    {
-                        other.ForceClose();
-                    }
                 }
             }
             _soundSource.Update(Position, rangeIndex: 6);
@@ -311,11 +210,6 @@ namespace MphRead.Entities
             bool portalActive = false;
             if (Flags.TestFlag(DoorFlags.ShouldOpen))
             {
-                if (ConnectorModel?.Active == false)
-                {
-                    Debug.Assert(_scene.Room != null);
-                    _scene.Room.ActivateConnector(this);
-                }
                 // todo: FPS stuff
                 if (AnimInfo.Frame[0] > AnimInfo.FrameCount[0] / 2)
                 {
@@ -388,16 +282,6 @@ namespace MphRead.Entities
             return true;
         }
 
-        public void SetAnimationFrame(int frame)
-        {
-            _models[0].AnimInfo.Frame[1] = frame;
-        }
-
-        public int GetAnimationFrame()
-        {
-            return _models[0].AnimInfo.Frame[1];
-        }
-
         private bool ShouldOpen()
         {
             if (Locked || !Flags.TestFlag(DoorFlags.ShotOpen))
@@ -443,7 +327,7 @@ namespace MphRead.Entities
 
         public void Unlock(bool updateState, bool noLockAnimSfx)
         {
-            if (GameState.InRoomTransition)
+            if (_scene.InRoomTransition)
             {
                 return;
             }
@@ -501,20 +385,12 @@ namespace MphRead.Entities
         public override void Destroy()
         {
             _soundSource.StopSfx(SfxId.DOOR_OPEN);
-            LoaderDoor = null;
-            ConnectorDoor = null;
             Portal = null;
-            ConnectorModel = null;
-            ConnectorCollision = null;
             base.Destroy();
         }
 
         public override void GetDrawInfo()
         {
-            if (ConnectorInactive)
-            {
-                return;
-            }
             if (!IsVisible(NodeRef) && (Portal == null || !IsVisible(Portal.NodeRef1) && !IsVisible(Portal.NodeRef2)))
             {
                 return;

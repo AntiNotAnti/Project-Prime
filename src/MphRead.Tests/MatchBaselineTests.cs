@@ -370,7 +370,6 @@ public sealed class MatchBaselineTests
 
         public MatchRuntime Configure(GameMode mode)
         {
-            GameState.Mode = mode;
             MatchRuntime match = Scene.Match;
             match.ApplyRules(MatchRules.CreateDefault(mode.ToMatchMode(), "match-baseline"));
             return match;
