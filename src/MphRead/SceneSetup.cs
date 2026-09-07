@@ -37,6 +37,11 @@ namespace MphRead
                 Weapons.Current = GameState.Multiplayer ? Weapons.WeaponsMP : Weapons.Weapons1P;
             }
             GameState.Mode = mode;
+            if (mode >= GameMode.Battle && mode <= GameMode.PrimeHunter)
+            {
+                scene.Match.ApplyRules(MatchRules.CreateDefault(mode.ToMatchMode(), metadata.Name));
+                scene.Match.Phase = MatchPhase.Playing;
+            }
             if (mode == GameMode.SinglePlayer)
             {
                 Menu.ApplyAdventureSettings();

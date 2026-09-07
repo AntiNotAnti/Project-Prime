@@ -13,6 +13,7 @@ namespace MphRead
 {
     public partial class Scene
     {
+        public MatchRuntime Match { get; }
         private readonly LinkedList<EntityBase> _entities = new LinkedList<EntityBase>();
         public LinkedListIterator<EntityBase> Entities => new LinkedListIterator<EntityBase>(_entities);
 

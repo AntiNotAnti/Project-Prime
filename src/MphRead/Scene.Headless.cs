@@ -110,16 +110,23 @@ namespace MphRead
             {
                 throw new InvalidOperationException("This scene has a renderer.");
             }
-            foreach (EntityBase entity in Entities)
+            try
             {
-                entity.Destroy();
+                foreach (EntityBase entity in Entities)
+                {
+                    entity.Destroy();
+                }
+                _entities.Clear();
+                _entityMap.Clear();
+                _entityNodesByType.Clear();
+                Sound.Sfx.ShutDown();
             }
-            _entities.Clear();
-            _entityMap.Clear();
-            _entityNodesByType.Clear();
-            Sound.Sfx.ShutDown();
-            _headlessInitialized = false;
-            Read.ServerMode = false;
+            finally
+            {
+                _headlessInitialized = false;
+                Read.ServerMode = false;
+                GameState.UnbindScene(this);
+            }
         }
     }
 }

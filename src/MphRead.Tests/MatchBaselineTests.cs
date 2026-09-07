@@ -273,19 +273,48 @@ public sealed class MatchBaselineTests
         GameState.MatchState = MatchState.Ending;
         GameState.ForceEndGame = true;
         GameState.PointGoal = 17; GameState.MatchTime = 33; GameState.Points[0] = 9;
-        foreach (string name in new[] { "_tempoChanged", "_stateChanged" }) { Field(name).SetValue(null, true); }
-        foreach (string name in new[] { "_matchEndTime", "_lastAlarmTime" }) { Field(name).SetValue(null, 12f); }
-        Field("_nextAlarmIndex").SetValue(null, 3);
+        foreach (string name in new[] { "_tempoChanged", "_stateChanged" }) { SetMember(name, true); }
+        foreach (string name in new[] { "_matchEndTime", "_lastAlarmTime" }) { SetMember(name, 12f); }
+        SetMember("_nextAlarmIndex", 3);
         GameState.ResetMatchProgress();
         Assert.Equal(MatchState.InProgress, GameState.MatchState);
         Assert.False(GameState.ForceEndGame);
         Assert.Equal(17, GameState.PointGoal); Assert.Equal(33, GameState.MatchTime); Assert.Equal(9, GameState.Points[0]);
-        foreach (string name in new[] { "_tempoChanged", "_stateChanged" }) { Assert.Equal(false, Field(name).GetValue(null)); }
-        foreach (string name in new[] { "_matchEndTime", "_lastAlarmTime" }) { Assert.Equal(0f, Field(name).GetValue(null)); }
-        Assert.Equal(0, Field("_nextAlarmIndex").GetValue(null));
+        foreach (string name in new[] { "_tempoChanged", "_stateChanged" }) { Assert.Equal(false, GetMember(name)); }
+        foreach (string name in new[] { "_matchEndTime", "_lastAlarmTime" }) { Assert.Equal(0f, GetMember(name)); }
+        Assert.Equal(0, GetMember("_nextAlarmIndex"));
     }
 
-    private static FieldInfo Field(string name) => typeof(GameState).GetField(name, BindingFlags.Static | BindingFlags.NonPublic)!;
+    private static MemberInfo Member(string name)
+    {
+        return (MemberInfo?)typeof(GameState).GetProperty(name,
+            BindingFlags.Static | BindingFlags.NonPublic)
+            ?? typeof(GameState).GetField(name, BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new MissingMemberException(typeof(GameState).FullName, name);
+    }
+
+    private static object? GetMember(string name) => Member(name) switch
+    {
+        PropertyInfo property => property.GetValue(null),
+        FieldInfo field => field.GetValue(null),
+        _ => throw new InvalidOperationException($"Unsupported member kind: {name}")
+    };
+
+    private static void SetMember(string name, object value)
+    {
+        switch (Member(name))
+        {
+            case PropertyInfo property:
+                property.SetValue(null, value);
+                break;
+            case FieldInfo field:
+                field.SetValue(null, value);
+                break;
+            default:
+                throw new InvalidOperationException($"Unsupported member kind: {name}");
+        }
+    }
+
     private static int Compare(string method, int first = 0, int second = 1) => (int)typeof(GameState)
         .GetMethod(method, BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, new object[] { first, second })!;
 
@@ -298,17 +327,32 @@ public sealed class MatchBaselineTests
         private readonly PlayerEntity[] _players;
         private readonly int _count = PlayerEntity.PlayerCount, _main = PlayerEntity.MainPlayerIndex;
         private readonly CameraSequence? _intro = CameraSequence.Intro;
+        private readonly bool _serverMode = Read.ServerMode;
+        private readonly byte _saveSlot = Menu.SaveSlot;
+        private readonly int _previousSaveSlot = Menu.PreviousSaveSlot;
+        private readonly SaveWhen _neededSave = Menu.NeededSave;
+        private Scene? _scene;
+
         public State()
         {
             _players = (PlayerEntity[])Players.Clone();
             try
             {
+                // Snapshot and clear the static fields before binding a fresh
+                // scene. The runtime arrays are scene-owned in R3, while the
+                // old fields still include process-wide save and transition
+                // state that must be restored after the scene is gone.
                 foreach (FieldInfo field in typeof(GameState).GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
                 {
                     object? value = field.GetValue(null);
                     if (value is Array array) { _arrays.Add((array, (Array)array.Clone())); Array.Clear(array); }
                     else if (!field.IsInitOnly && !field.IsLiteral) { _values.Add((field, value)); }
                 }
+                Array.Clear(Players);
+                // Reset() reads and commits the selected save. Slot zero is
+                // the no-file slot; restore the caller's selection in Dispose.
+                Menu.SaveSlot = 0;
+                _scene = Scene.CreateHeadless();
                 for (int i = 0; i < Players.Length; i++)
                 {
                     Players[i] = (PlayerEntity)RuntimeHelpers.GetUninitializedObject(typeof(PlayerEntity));
@@ -332,11 +376,27 @@ public sealed class MatchBaselineTests
         }
         public void Dispose()
         {
-            foreach (var entry in _arrays) { Array.Copy(entry.Copy, entry.Original, entry.Copy.Length); }
-            foreach (var entry in _values) { entry.Field.SetValue(null, entry.Value); }
-            Array.Copy(_players, Players, Players.Length);
-            PlayerEntity.PlayerCount = _count; PlayerEntity.MainPlayerIndex = _main;
-            CameraSequence.Intro = _intro;
+            Scene? scene = _scene;
+            _scene = null;
+            try
+            {
+                // Unbind the test owner before restoring the fields captured
+                // above; otherwise restoration would target its discarded
+                // runtime arrays.
+                scene?.CloseHeadless();
+            }
+            finally
+            {
+                foreach (var entry in _arrays) { Array.Copy(entry.Copy, entry.Original, entry.Copy.Length); }
+                foreach (var entry in _values) { entry.Field.SetValue(null, entry.Value); }
+                Array.Copy(_players, Players, Players.Length);
+                PlayerEntity.PlayerCount = _count; PlayerEntity.MainPlayerIndex = _main;
+                CameraSequence.Intro = _intro;
+                Read.ServerMode = _serverMode;
+                Menu.SaveSlot = _saveSlot;
+                Menu.PreviousSaveSlot = _previousSaveSlot;
+                Menu.NeededSave = _neededSave;
+            }
         }
     }
 }

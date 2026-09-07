@@ -255,11 +255,22 @@ namespace MphRead
             _close = close;
             Read.ClearCache();
             Text.Strings.ClearCache();
-            GameState.Reset();
-            PlayerEntity.Construct(this);
-            if (!IsHeadless)
+            Match = new MatchRuntime(GameState.TakePendingRules()) { Phase = MatchPhase.WaitingForPlayers };
+            GameState.BindScene(this);
+            try
             {
-                Music.Init();
+                GameState.Reset();
+                Match.Phase = MatchPhase.WaitingForPlayers;
+                PlayerEntity.Construct(this);
+                if (!IsHeadless)
+                {
+                    Music.Init();
+                }
+            }
+            catch
+            {
+                GameState.UnbindScene(this);
+                throw;
             }
         }
 
@@ -317,6 +328,7 @@ namespace MphRead
                 // The same job for the launcher's path, which never runs the
                 // console menu and so never had a set of rules to apply.
                 Mods.GameSettings.ApplyMatchRules();
+                GameState.CaptureSetupRules();
             }
             SetRoomValues(meta);
             for (int i = 0; i < PlayerEntity.Players.Count; i++)
@@ -6304,10 +6316,24 @@ namespace MphRead
             MinimumSize = floor;
         }
 
+        public override void Dispose()
+        {
+            try
+            {
+                base.Dispose();
+            }
+            finally
+            {
+                // A failed AddRoom can dispose the window before Run/OnClosing.
+                if (_sceneReady) { GameState.UnbindScene(Scene); }
+            }
+        }
+
         protected override void OnClosing(CancelEventArgs e)
         {
             Scene.DoCleanup();
             base.OnClosing(e);
+            if (!e.Cancel) { GameState.UnbindScene(Scene); }
         }
 
         public void AddRoom(int id, GameMode mode = GameMode.None, int playerCount = 0,

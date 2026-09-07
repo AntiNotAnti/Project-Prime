@@ -28,6 +28,7 @@ namespace MphRead.Mods.Network
                 PlayerEntity.PlayerCount = 0;
                 GameState.MatchTime = entry.TimeLimit > 0 ? entry.TimeLimit : -1;
                 GameState.PointGoal = entry.PointGoal;
+                GameState.CaptureSetupRules();
             }
             catch
             {

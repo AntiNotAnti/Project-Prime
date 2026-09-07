@@ -30,10 +30,35 @@ remain recorded in the build log; no emulator run was repeated for R2. Both asse
 guards passed; available-room audit results exactly match R1, including the
 explicit missing-content completeness limits.
 
+## R3 — Scene-owned match model
+
+Added multiplayer-only `MatchMode` with explicit legacy-format conversions,
+validated immutable `MatchRules`, `MatchPhase`, `MatchRuntime` and per-slot
+`PlayerMatchStats`. Each scene owns its runtime; statistics views share the
+existing array storage without copying counters. Extra lives retain the legacy
+spare-life meaning, float accumulators retain the Survival sentinel, and
+Survival's effective radar state remains separate from configured rules.
+
+The temporary `GameState` bridge forwards multiplayer counters, rules and
+lifecycle flags to the scene. There is no detached global statistics runtime.
+Setup captures configured time limits separately from the remaining clock.
+Desktop/Android/headless teardown and failed setup release the binding. This
+bridge and its compatibility arrays are R4 migration surfaces; campaign state
+and the legacy format selector remain until the deletion passes. R5 still owns
+complete server rule/capacity replication and synchronized phase transitions.
+
+Validation: 357 C# tests passed (zero skipped), including new rule/conversion,
+storage isolation and aliasing tests. Existing scoring assertions are unchanged;
+their fixture now explicitly owns a headless scene and disables save slots.
+The server/nettest build passed without warnings; all 12 real-content scoring
+cases and the dedicated-server/content regressions passed. Desktop Release and
+Android managed-only Release builds passed after the teardown fixes, retaining
+the existing dependency/XML warnings. No full Android publish or emulator run
+was repeated for this pass.
+
 ## Planned remaining passes
 
-R3 introduces scene-owned match state and immutable rules; R4 migrates scoring
-and results; R5 owns lifecycle and rule replication on the server. R6–R9 remove
+R4 migrates scoring and results; R5 owns lifecycle and rule replication on the server. R6–R9 remove
 campaign behavior with content-aware guards. R10–R12 split the projects, converge
 Android and enforce dependency boundaries. No later pass is marked complete
 before its implementation and checks finish.

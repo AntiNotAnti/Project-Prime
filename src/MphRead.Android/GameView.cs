@@ -443,6 +443,9 @@ namespace MphRead.Droid
                 }
                 finally
                 {
+                    // An exception can bypass End; the facade must not retain
+                    // the scene after its render thread has stopped.
+                    if (Scene is { } scene) { GameState.UnbindScene(scene); }
                     ReleaseSurface();
                     DestroyContext();
                 }
@@ -724,7 +727,20 @@ namespace MphRead.Droid
                     // match with what went wrong on screen, rather than taking
                     // the process down from a thread nobody is watching.
                     Console.WriteLine($"[android] the match could not start: {ex}");
-                    Scene = null;
+                    Scene? failedScene = Scene;
+                    try
+                    {
+                        failedScene?.DoCleanup();
+                    }
+                    catch (Exception cleanupError)
+                    {
+                        Console.WriteLine($"[android] failed match cleanup: {cleanupError}");
+                    }
+                    finally
+                    {
+                        if (failedScene != null) { GameState.UnbindScene(failedScene); }
+                        Scene = null;
+                    }
                     _ended = true;
                     _onError(ex.Message);
                     lock (_lock)
@@ -843,8 +859,15 @@ namespace MphRead.Droid
             private void End(Scene scene)
             {
                 _ended = true;
-                scene.DoCleanup();
-                Scene = null;
+                try
+                {
+                    scene.DoCleanup();
+                }
+                finally
+                {
+                    GameState.UnbindScene(scene);
+                    Scene = null;
+                }
                 _onEnd();
             }
 

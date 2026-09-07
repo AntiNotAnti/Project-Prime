@@ -37,14 +37,99 @@ namespace MphRead
 
     public static class GameState
     {
-        public static GameMode Mode { get; set; } = GameMode.SinglePlayer;
+        // R3 compatibility bridge: the scene owns every runtime value. Remove this
+        // binding in R4 as callers move to their explicit scene.Match reference.
+        private static Scene? _matchScene;
+        private static MatchRules? _pendingRules = new MatchRules(MatchMode.Battle, "__unconfigured__");
+        private static GameMode? _legacyMode = GameMode.SinglePlayer;
+        private static bool _disconnected;
+        private static MatchRuntime Match => _matchScene?.Match
+            ?? throw new InvalidOperationException("Match state requires an owning scene.");
+        private static MatchRules Rules => _matchScene?.Match.Rules ?? _pendingRules!;
+
+        internal static MatchRules TakePendingRules()
+        {
+            return _pendingRules ?? new MatchRules(MatchMode.Battle, "__unconfigured__");
+        }
+
+        internal static void BindScene(Scene scene)
+        {
+            _matchScene = scene;
+            _pendingRules = null;
+            _disconnected = false;
+        }
+
+        internal static void UnbindScene(Scene scene)
+        {
+            if (ReferenceEquals(_matchScene, scene))
+            {
+                _matchScene = null;
+                _pendingRules = new MatchRules(MatchMode.Battle, "__unconfigured__");
+                _disconnected = false;
+            }
+        }
+
+        private static void ReplaceRules(MatchRules rules)
+        {
+            if (_matchScene != null) { _matchScene.Match.ApplyRules(rules); }
+            else { _pendingRules = rules; }
+        }
+
+        // Capture configuration once after launcher/menu setup. During simulation,
+        // MatchTime and RadarPlayers are mutable effective state, not rule setters.
+        internal static void CaptureSetupRules()
+        {
+            ReplaceRules(Rules.With(timeLimit: MatchTime < 0 ? null : TimeSpan.FromSeconds(MatchTime),
+                clearTimeLimit: MatchTime < 0, playerRadar: RadarPlayers));
+        }
+
+        public static GameMode Mode
+        {
+            get => _legacyMode ?? Rules.Mode.ToLegacyMode();
+            set
+            {
+                // Campaign/content-only selectors remain isolated until R6 removes their callers.
+                if (value is GameMode.None or GameMode.SinglePlayer or GameMode.Unknown15)
+                {
+                    _legacyMode = value;
+                    return;
+                }
+                MatchMode mode = value.ToMatchMode();
+                if (Rules.Mode != mode)
+                {
+                    int goal = Rules.LegacyPointGoal;
+                    ReplaceRules(Rules.With(mode: mode, scoreGoal: goal, startingLives: goal));
+                }
+                _legacyMode = null;
+            }
+        }
         public static bool SinglePlayer => Mode == GameMode.SinglePlayer;
         public static bool Multiplayer => Mode != GameMode.SinglePlayer;
         public static bool IsOctolithMode => Mode == GameMode.Capture || Mode == GameMode.Bounty || Mode == GameMode.BountyTeams;
         public static bool PausePrevented { get; set; }
         public static bool MenuPause { get; private set; }
         public static bool DialogPause { get; private set; }
-        public static MatchState MatchState { get; set; } = MatchState.InProgress;
+        public static MatchState MatchState
+        {
+            get => _disconnected ? MatchState.Disconnected : Match.Phase switch
+            {
+                MatchPhase.Ending => MatchState.GameOver,
+                MatchPhase.Intermission => MatchState.Ending,
+                _ => MatchState.InProgress
+            };
+            set
+            {
+                if (value == MatchState.Disconnected) { _disconnected = true; return; }
+                Match.Phase = value switch
+                {
+                    MatchState.InProgress => MatchPhase.Playing,
+                    MatchState.GameOver => MatchPhase.Ending,
+                    MatchState.Ending => MatchPhase.Intermission,
+                    _ => throw new ArgumentOutOfRangeException(nameof(value))
+                };
+                _disconnected = false;
+            }
+        }
         public static TransitionState TransitionState { get; set; } = TransitionState.None;
         public static bool InRoomTransition => TransitionState != TransitionState.None;
         public static EscapeState EscapeState { get; set; } = EscapeState.None;
@@ -64,53 +149,81 @@ namespace MphRead
         public static bool[] CompletedRandomEncounterRooms { get; } = new bool[66]; // only for the no repeat encounters feature
         public static int TransitionRoomId { get; set; } = -1;
         public static bool TransitionAltForm { get; set; }
-        public static int ActivePlayers { get; set; } = 0;
+        public static int ActivePlayers { get => Match.ActivePlayers; set => Match.ActivePlayers = value; }
         public static string[] Nicknames { get; } = BuildDefaultNicknames();
-        public static int[] Stars { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] Standings { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] TeamStandings { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] ResultSlots { get; } = new int[PlayerEntity.SlotCapacity]; // ordered by team rank, then by player rank
-        public static int PrimeHunter { get; set; } = -1;
+        public static int[] Stars => Match.Stars;
+        public static int[] Standings => Match.Standings;
+        public static int[] TeamStandings => Match.TeamStandings;
+        public static int[] ResultSlots => Match.ResultSlots; // ordered by team rank, then by player rank
+        public static int PrimeHunter { get => Match.PrimeHunter; set => Match.PrimeHunter = value; }
 
-        public static bool Teams { get; set; } = false;
-        public static bool FriendlyFire { get; set; } = false;
-        public static int PointGoal { get; set; } = 0; // also used for starting extra lives
-        public static float TimeGoal { get; set; } = 0; // also used for starting extra lives
-        public static int DamageLevel { get; set; } = 1;
-        public static bool OctolithReset { get; set; } = false;
-        public static bool RadarPlayers { get; set; } = false;
-        public static bool AffinityWeapons { get; set; } = false;
+        public static bool Teams
+        {
+            get => Rules.Teams;
+            set
+            {
+                if (value != Rules.Teams)
+                {
+                    throw new InvalidOperationException("Team play is determined by the match mode.");
+                }
+            }
+        }
+        public static bool FriendlyFire { get => Rules.FriendlyFire; set { if (value != Rules.FriendlyFire) { ReplaceRules(Rules.With(friendlyFire: value)); } } }
+        public static int PointGoal
+        {
+            get => Rules.LegacyPointGoal;
+            set
+            {
+                if (value != Rules.LegacyPointGoal)
+                {
+                    ReplaceRules(Rules.IsSurvival ? Rules.With(startingLives: value) : Rules.With(scoreGoal: value));
+                }
+            }
+        } // also used for starting extra lives
+        public static float TimeGoal
+        {
+            get => Rules.LegacyTimeGoal;
+            set
+            {
+                if (!Single.IsFinite(value) || value < 0) { throw new ArgumentOutOfRangeException(nameof(value)); }
+                if (value != Rules.LegacyTimeGoal) { ReplaceRules(Rules.With(objectiveTimeGoal: TimeSpan.FromSeconds(value))); }
+            }
+        } // also used for starting extra lives
+        public static int DamageLevel { get => Rules.DamageLevel; set { if (value != Rules.DamageLevel) { ReplaceRules(Rules.With(damageLevel: value)); } } }
+        public static bool OctolithReset { get => Rules.OctolithReset; set { if (value != Rules.OctolithReset) { ReplaceRules(Rules.With(octolithReset: value)); } } }
+        public static bool RadarPlayers { get => Match.RadarPlayers; set => Match.RadarPlayers = value; }
+        public static bool AffinityWeapons { get => Rules.AffinityWeapons; set { if (value != Rules.AffinityWeapons) { ReplaceRules(Rules.With(affinityWeapons: value)); } } }
 
-        public static float MatchTime { get; set; } = -1;
-        public static bool ForceEndGame { get; set; } = false;
+        public static float MatchTime { get => Match.MatchTime; set => Match.MatchTime = value; }
+        public static bool ForceEndGame { get => Match.ForceEndGame; set => Match.ForceEndGame = value; }
 
-        public static int[] Points { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] TeamPoints { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] Kills { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] TeamKills { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] Deaths { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] TeamDeaths { get; } = new int[PlayerEntity.SlotCapacity];
-        public static float[] Time { get; } = new float[PlayerEntity.SlotCapacity]; // used for prime hunter time, player survival time
-        public static float[] TeamTime { get; } = new float[PlayerEntity.SlotCapacity]; // used for defense time, max team survival time
-        public static int[] BeamDamageMax { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] BeamDamageDealt { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] DamageCount { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] AltDamageCount { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] KillStreak { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] Suicides { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] FriendlyKills { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[] HeadshotKills { get; } = new int[PlayerEntity.SlotCapacity];
-        public static int[,] BeamKills { get; } = new int[PlayerEntity.SlotCapacity, 9];
+        public static int[] Points => Match.Points;
+        public static int[] TeamPoints => Match.TeamPoints;
+        public static int[] Kills => Match.Kills;
+        public static int[] TeamKills => Match.TeamKills;
+        public static int[] Deaths => Match.Deaths;
+        public static int[] TeamDeaths => Match.TeamDeaths;
+        public static float[] Time => Match.Time; // used for prime hunter time, player survival time
+        public static float[] TeamTime => Match.TeamTime; // used for defense time, max team survival time
+        public static int[] BeamDamageMax => Match.BeamDamageMax;
+        public static int[] BeamDamageDealt => Match.BeamDamageDealt;
+        public static int[] DamageCount => Match.DamageCount;
+        public static int[] AltDamageCount => Match.AltDamageCount;
+        public static int[] KillStreak => Match.KillStreak;
+        public static int[] Suicides => Match.Suicides;
+        public static int[] FriendlyKills => Match.FriendlyKills;
+        public static int[] HeadshotKills => Match.HeadshotKills;
+        public static int[,] BeamKills => Match.BeamKills;
 
-        public static int[] OctolithScores { get; } = new int[PlayerEntity.SlotCapacity]; // field260 in-game
-        public static int[] OctolithDrops { get; } = new int[PlayerEntity.SlotCapacity]; // field268 in-game
-        public static int[] OctolithStops { get; } = new int[PlayerEntity.SlotCapacity]; // field270 in-game
+        public static int[] OctolithScores => Match.OctolithScores; // field260 in-game
+        public static int[] OctolithDrops => Match.OctolithDrops; // field268 in-game
+        public static int[] OctolithStops => Match.OctolithStops; // field270 in-game
 
-        public static int[] NodesCaptured { get; } = new int[PlayerEntity.SlotCapacity]; // field260 in-game
-        public static int[] NodesLost { get; } = new int[PlayerEntity.SlotCapacity]; // field268 in-game
+        public static int[] NodesCaptured => Match.NodesCaptured; // field260 in-game
+        public static int[] NodesLost => Match.NodesLost; // field268 in-game
 
-        public static int[] KillsAsPrime { get; } = new int[PlayerEntity.SlotCapacity]; // field260 in-game
-        public static int[] PrimesKilled { get; } = new int[PlayerEntity.SlotCapacity]; // field268 in-game
+        public static int[] KillsAsPrime => Match.KillsAsPrime; // field260 in-game
+        public static int[] PrimesKilled => Match.PrimesKilled; // field268 in-game
 
         public static Action<Scene> ModeState { get; private set; } = ModeStateAdventure;
         private static bool _pausingDialog = false;
@@ -170,9 +283,8 @@ namespace MphRead
         /// </summary>
         public static bool IsTeamMode(GameMode mode)
         {
-            return mode == GameMode.BattleTeams || mode == GameMode.SurvivalTeams
-                || mode == GameMode.Capture || mode == GameMode.BountyTeams
-                || mode == GameMode.NodesTeams || mode == GameMode.DefenderTeams;
+            return mode >= GameMode.Battle && mode <= GameMode.PrimeHunter
+                && mode.ToMatchMode().IsTeamMode();
         }
 
         public static void Setup(Scene scene)
@@ -279,11 +391,11 @@ namespace MphRead
             }
         }
 
-        private static bool _tempoChanged = false;
-        private static bool _stateChanged = false;
-        private static float _matchEndTime = 0;
-        private static float _lastAlarmTime = 0;
-        private static int _nextAlarmIndex = 0;
+        private static bool _tempoChanged { get => Match.TempoChanged; set => Match.TempoChanged = value; }
+        private static bool _stateChanged { get => Match.StateChanged; set => Match.StateChanged = value; }
+        private static float _matchEndTime { get => Match.MatchEndTime; set => Match.MatchEndTime = value; }
+        private static float _lastAlarmTime { get => Match.LastAlarmTime; set => Match.LastAlarmTime = value; }
+        private static int _nextAlarmIndex { get => Match.NextAlarmIndex; set => Match.NextAlarmIndex = value; }
         private static readonly IReadOnlyList<float> _alarmIntervals = new float[4]
         {
             1 / 30f, 8 / 30f, 15 / 30f, 6 / 30f
@@ -1732,7 +1844,6 @@ namespace MphRead
                 }
             }
             PrimeHunter = -1;
-            Teams = false;
             FriendlyFire = false;
             PointGoal = 0;
             TimeGoal = 0;
