@@ -18,6 +18,7 @@ namespace MphRead.NetTest
             {
                 ServerContent.Open(args[1], "AMHE1");
                 using (var fixture = new Fixture()) { fixture.Run(); }
+                using (var fixture = new Fixture()) { fixture.Run(allLeaveDuringEnding: true); }
                 VerifyFrozenObjectives(MatchMode.Bounty);
                 VerifyFrozenObjectives(MatchMode.Nodes);
                 Console.WriteLine("MATCHPHASES PASS waiting/countdown pristine, reset, input epochs, team quorum, deadline cycle, replicated rules/world");
@@ -113,7 +114,7 @@ namespace MphRead.NetTest
                 Require(_world.PhaseRevision == _simulation.Scene.Match.PhaseRevision, "Client phase epoch differs.");
             }
 
-            public void Run()
+            public void Run(bool allLeaveDuringEnding = false)
             {
                 Until(() => _first.State == NetConnectionState.Loading && _second.State == NetConnectionState.Loading, "Join handshake failed.");
                 Require(_first.Accepted.Rules == _rules && _second.Accepted.Rules == _rules, "Join rules were not lossless.");
@@ -186,9 +187,16 @@ namespace MphRead.NetTest
                 Require(match.Players[second.Slot].Points == points && ReferenceEquals(result, match.Result),
                     "Terminal departure changed completed statistics.");
                 VerifyWorld();
+                if (allLeaveDuringEnding)
+                {
+                    _network.Remove(first.Slot);
+                    Pump();
+                    Require(_network.Count == 0 && ReferenceEquals(result, match.Result),
+                        "All terminal departures must preserve the completed result and phase deadline.");
+                }
                 _tick = match.PhaseEndTick; Pump();
                 Require(match.Phase == MatchPhase.Intermission && ReferenceEquals(result, match.Result), "Intermission replaced the result.");
-                VerifyWorld();
+                if (!allLeaveDuringEnding) { VerifyWorld(); }
                 _tick = match.PhaseEndTick - 1; Pump();
                 Require(!_simulation.Lifecycle.RotationDue, "Rotation ran early.");
                 _tick++; Pump();

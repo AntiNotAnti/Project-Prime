@@ -121,7 +121,7 @@ internal static class MatchBaselineCheck
         Console.WriteLine($"MATCH_BASELINE mode={mode} killPoints={expected} kills=1 deaths=1 PASS");
     }
 
-    private static string SelectRoom(GameMode mode)
+    internal static string SelectRoom(GameMode mode)
     {
         int layer = Metadata.GetMultiplayerEntityLayer(mode, NetLaunch.RoomPlayerCount);
         foreach (RoomMetadata room in Metadata.RoomList)
