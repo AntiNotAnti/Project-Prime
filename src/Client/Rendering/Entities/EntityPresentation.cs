@@ -30,10 +30,12 @@ namespace MphRead.Entities
         protected void GetDrawItems(ModelInstance inst, int i, LightInfo? lightInfo = null)
         {
             int polygonId = Presentation.GetNextPolygonId();
-            GetItems(inst, i, inst.Model.Nodes[0], polygonId);
-            void GetItems(ModelInstance inst, int index, Node node, int polygonId)
+            bool interpolateNodes = Presentation.ResolveNodeSubmission(Entity, inst, out Matrix4[] nodePoses, out float[] nodeStack);
+            GetItems(inst, i, 0, polygonId);
+            void GetItems(ModelInstance inst, int index, int nodeIndex, int polygonId)
             {
                 Model model = inst.Model;
+                Node node = model.Nodes[nodeIndex];
                 if (node.Enabled)
                 {
                     int start = node.MeshId / 2;
@@ -51,18 +53,18 @@ namespace MphRead.Entities
                         Vector4? color = inst.IsPlaceholder ? Entity.GetOverrideColor(inst, index) : null;
                         SelectionType selectionType = Selection.CheckSelection(Entity, inst, node, mesh);
                         int? bindingOverride = GetBindingOverride(inst, material, mesh.MaterialId);
-                        Presentation.AddRenderItem(material, polygonId, Entity.Alpha, emission, lightInfo ?? GetLightInfo(), texcoordMatrix, node.Animation, Presentation.GetMeshListId(mesh), model.NodeMatrixIds.Count, model.MatrixStackValues, color, Entity.PaletteOverride, selectionType, node.BillboardMode, Entity._drawScale, bindingOverride);
+                        Presentation.AddRenderItem(material, polygonId, Entity.Alpha, emission, lightInfo ?? GetLightInfo(), texcoordMatrix, interpolateNodes ? nodePoses[nodeIndex] : node.Animation, Presentation.GetMeshListId(mesh), model.NodeMatrixIds.Count, interpolateNodes ? nodeStack : model.MatrixStackValues, color, Entity.PaletteOverride, selectionType, node.BillboardMode, Entity._drawScale, bindingOverride);
                     }
 
                     if (node.ChildIndex != -1)
                     {
-                        GetItems(inst, index, model.Nodes[node.ChildIndex], polygonId);
+                        GetItems(inst, index, node.ChildIndex, polygonId);
                     }
                 }
 
                 if (node.NextIndex != -1)
                 {
-                    GetItems(inst, index, model.Nodes[node.NextIndex], polygonId);
+                    GetItems(inst, index, node.NextIndex, polygonId);
                 }
             }
         }

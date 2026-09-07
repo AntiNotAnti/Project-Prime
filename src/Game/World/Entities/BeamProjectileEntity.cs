@@ -30,8 +30,21 @@ namespace MphRead.Entities
         public Vector3[] PastPositions { get; } = new Vector3[10];
 
         public int DrawFuncId { get; set; }
-        public float Age { get; set; }
-        public float Lifespan { get; set; }
+        private int _ageTicks;
+        private int _remainingLifeTicks;
+        private LegacyTickProjection.Countdown _lifeProjection = LegacyTickProjection.ForCountdown(0);
+        public int AgeTicks => _ageTicks;
+        public int RemainingLifeTicks => _remainingLifeTicks;
+        public float Age => LegacyTickProjection.Elapsed(_ageTicks);
+        public float Lifespan
+        {
+            get => _lifeProjection.Remaining(_remainingLifeTicks);
+            set
+            {
+                _lifeProjection = LegacyTickProjection.ForCountdown(value);
+                _remainingLifeTicks = _lifeProjection.Ticks;
+            }
+        }
 
         public Vector3 Color { get; set; }
         public byte CollisionEffect { get; set; }
@@ -60,7 +73,10 @@ namespace MphRead.Entities
 
         public int DamageInterpolation { get; set; }
         public int SpeedInterpolation { get; set; }
-        public float SpeedDecayTime { get; set; }
+        private ushort _speedDecayFrames;
+        private int _speedDecayEndAgeTicks;
+        // Authored interpolation duration is a scalar, not an advancing clock.
+        public float SpeedDecayTime => _speedDecayFrames * SimTicks.LegacyFrameSeconds;
         public float Speed { get; set; }
         public float InitialSpeed { get; set; }
         public float FinalSpeed { get; set; }
@@ -124,17 +140,17 @@ namespace MphRead.Entities
         private bool ProcessCore()
         {
             uint generation = Generation;
-            if (Lifespan <= 0)
+            if (_remainingLifeTicks == 0)
             {
                 return false;
             }
-            Lifespan -= _scene.FrameTime;
+            _remainingLifeTicks--;
             if (Flags.TestFlag(BeamFlags.Collided))
             {
                 return true;
             }
-            bool firstFrame = Age == 0;
-            if (Flags.TestFlag(BeamFlags.Continuous) && Age > 0)
+            bool firstFrame = _ageTicks == 0;
+            if (Flags.TestFlag(BeamFlags.Continuous) && _ageTicks > 0)
             {
                 // avoid any frame time issues by just getting rid of continuous beams as soon as they're no longer being replaced
                 // --> in game they stick around for a frame or two, but their lifespan will have already made it so they can't interact
@@ -147,7 +163,7 @@ namespace MphRead.Entities
                 }
                 return false;
             }
-            Age += _scene.FrameTime;
+            _ageTicks++;
             BackPosition = Position;
             // the game does this every other frame at 30 fps and keeps 5 past positions; we do it every other frame at 60 fps and keep 10,
             // and use only every other position to draw each trail segment, which results in the beam trail updating at the same frequency
@@ -179,7 +195,7 @@ namespace MphRead.Entities
                 Position += Velocity;
                 Velocity += Acceleration / 2; // todo: FPS stuff
                 Debug.Assert(SpeedDecayTime >= 0);
-                if (SpeedDecayTime > 0 && Age <= SpeedDecayTime)
+                if (_speedDecayFrames > 0 && _ageTicks <= _speedDecayEndAgeTicks)
                 {
                     float magnitude = Velocity.Length;
                     if (magnitude > 0)
@@ -270,7 +286,7 @@ namespace MphRead.Entities
             {
                 Effect.Transform(Position, Transform.ClearScale());
             }
-            if (Lifespan <= 0)
+            if (_remainingLifeTicks == 0)
             {
                 CollisionResult colRes = default;
                 colRes.Plane = new Vector4(-Direction);
@@ -431,7 +447,7 @@ namespace MphRead.Entities
                 bool hasHalfturret = historical ? history.HasHalfturret
                     : player.Hunter == Hunter.Weavel && player.Flags2.TestFlag(PlayerFlags2.Halfturret);
                 if ((Owner == player || hasHalfturret && Owner == player.Halfturret)
-                    && (!Flags.TestFlag(BeamFlags.SelfDamage) || Age < SimTicks.LegacyFrameSeconds * 4))
+                    && (!Flags.TestFlag(BeamFlags.SelfDamage) || _ageTicks < LegacyTickProjection.FirstAtLeast(SimTicks.LegacyFrameSeconds * 4)))
                 {
                     continue;
                 }
@@ -1283,6 +1299,12 @@ namespace MphRead.Entities
             var mechanics = new BeamMechanics(weapon.Beam, weapon.BeamKind, flags.TestFlag(BeamFlags.Continuous),
                 instantAoe, homing, speed, lifespan);
             CombatShot combatShot = inheritedShot ?? scene.Services.Combat?.CaptureShot(owner, mechanics) ?? default;
+            if (!inheritedShot.HasValue)
+                combatShot = combatShot with
+                {
+                    Affinity = (int)weapon.Beam is >= 0 and <= 8
+                        && ReferenceEquals(weapon, Weapons.Current[(int)weapon.Beam + 9])
+                };
             if (!spreadSeed.HasValue && scene.Services.Combat != null && maxSpread > 0)
             {
                 // Preserve the ordinary gameplay stream's advance. Root spread
@@ -1295,7 +1317,7 @@ namespace MphRead.Entities
             if (!inheritedShot.HasValue)
             {
                 scene.Services.Combat?.NoteShot(combatShot, weapon.Beam, charged, position, direction, equip.ChargeLevel,
-                    (int)weapon.Beam is >= 0 and <= 8 && ReferenceEquals(weapon, Weapons.Current[(int)weapon.Beam + 9]),
+                    combatShot.Affinity,
                     spreadSeed.GetValueOrDefault());
             }
             for (int i = 0; i < projectiles; i++)
@@ -1336,10 +1358,11 @@ namespace MphRead.Entities
                 beam.BeamKind = weapon.BeamKind;
                 beam.Flags = flags;
                 beam.NodeRef = nodeRef;
-                beam.Age = 0;
+                beam._ageTicks = 0;
                 beam.InitialSpeed = beam.Speed = speed;
                 beam.FinalSpeed = finalSpeed;
-                beam.SpeedDecayTime = speedDecayTime;
+                beam._speedDecayFrames = weapon.SpeedDecayTimes[charged ? 1 : 0];
+                beam._speedDecayEndAgeTicks = LegacyTickProjection.LastAtMost(speedDecayTime);
                 beam.SpeedInterpolation = speedInterpolation;
                 beam.Homing = homing;
                 beam.DrawFuncId = drawFuncId;

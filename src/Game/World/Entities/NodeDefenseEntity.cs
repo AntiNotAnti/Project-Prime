@@ -24,8 +24,27 @@ namespace MphRead.Entities
         internal float _blinkTimer = 0;
         private PlayerEntity? _capturedPlayer = null;
         public PlayerEntity? CapturedPlayer => _capturedPlayer;
-        private float _progress = 0;
-        private float _scoreTimer = 0;
+        private int _progressTicks;
+        private int _scoreTicks;
+        // Replicas display the existing wire projection; only the authority advances ticks.
+        private float _replicaProgress;
+        private static readonly float[] ProgressSeconds = CreateProgressProjection();
+        private static float[] CreateProgressProjection()
+        {
+            var samples = new float[SimTicks.FromSeconds(10) + 1];
+            for (int tick = 1; tick < samples.Length; tick++)
+                samples[tick] = samples[tick - 1] + 1f / SimTicks.Hz;
+            return samples;
+        }
+        internal static int ScoreIntervalTicks(int nodeCount) => nodeCount switch
+        {
+            // Repeated binary32 addition crossed 3.5s and 2s one tick late.
+            <= 1 => 300,
+            2 => 211,
+            3 => 121,
+            4 => 30,
+            _ => 1
+        };
         private float _curRotation = 0;
         private float _spinSpeed = 0;
         private bool _contested = false;
@@ -38,7 +57,7 @@ namespace MphRead.Entities
         public bool Blinking => _blinkTimer > 0;
         public IReadOnlyList<bool> OccupiedBy => _occupiedBy;
         public bool IsOccupied => _occupiedBy.AsSpan().Contains(true);
-        public float Progress => _progress;
+        public float Progress => _scene.Services.IsReplica ? _replicaProgress : ProgressSeconds[_progressTicks];
         internal readonly Material _terminalMat = null!;
         internal readonly Material _ringMat = null!;
 
@@ -75,6 +94,8 @@ namespace MphRead.Entities
                 _curRotation = (_curRotation + _spinSpeed * _scene.FrameTime) % 360;
                 return true;
             }
+            bool previouslyContested = _contested;
+            int previousTeam = _currentTeam;
             if (_defender)
             {
                 ProcessDefender();
@@ -83,6 +104,9 @@ namespace MphRead.Entities
             {
                 ProcessNodes();
             }
+            if (_defender ? previousTeam != _currentTeam || previouslyContested != _contested : previouslyContested != _contested)
+                _scene.Services.PublishWorldSignal(_scene, new(_defender ? WorldSignalKind.DefenderStateChanged : WorldSignalKind.NodeContested,
+                    WorldSubjectKind.Node, this, null, _currentTeam < 8 ? (byte)_currentTeam : (byte)255, Position, _contested ? 1u : 0u));
             return true;
         }
 
@@ -93,7 +117,7 @@ namespace MphRead.Entities
             return new WorldRecord(WorldRecordKind.Node, (byte)(_capturedPlayer?.SlotIndex ?? 255),
                 (ushort)((_contested ? 1 : 0) | (_inProgress ? 2 : 0) | (_blinkTimer > 0 ? 4 : 0)),
                 unchecked((uint)Id), Position, (uint)_currentTeam | ((uint)_occupyingTeam << 8) | (occupied << 16),
-                0, WorldRecord.Bits(_progress), WorldRecord.Bits(_curRotation), WorldRecord.Bits(_spinSpeed));
+                0, WorldRecord.Bits(Progress), WorldRecord.Bits(_curRotation), WorldRecord.Bits(_spinSpeed));
         }
 
         public void ApplyWorldState(in WorldRecord state)
@@ -105,7 +129,7 @@ namespace MphRead.Entities
             _contested = (state.Flags & 1) != 0;
             _inProgress = (state.Flags & 2) != 0;
             _blinkTimer = (state.Flags & 4) != 0 ? 1 / (float)SimTicks.LegacyHz : 0;
-            _progress = WorldRecord.Float(state.C);
+            _replicaProgress = WorldRecord.Float(state.C);
             _curRotation = WorldRecord.Float(state.D);
             _spinSpeed = WorldRecord.Float(state.E);
         }
@@ -126,10 +150,16 @@ namespace MphRead.Entities
             }
             if (_capturedPlayer == null)
             {
+                bool wasContested = _contested;
+                int previousTeam = _currentTeam;
                 _currentTeam = _occupyingTeam = NeutralTeam;
-                _progress = _scoreTimer = _blinkTimer = 0;
+                _progressTicks = _scoreTicks = 0;
+                _blinkTimer = 0;
                 _inProgress = _contested = false;
                 Array.Clear(_occupiedBy); Array.Clear(_previousOccupiedBy);
+                if (_defender ? previousTeam != _currentTeam || wasContested : wasContested)
+                    _scene.Services.PublishWorldSignal(_scene, new(_defender ? WorldSignalKind.DefenderStateChanged : WorldSignalKind.NodeContested,
+                        WorldSubjectKind.Node, this, null, 255, Position, 0));
             }
         }
 
@@ -204,7 +234,7 @@ namespace MphRead.Entities
                         _occupiedBy[player.SlotIndex] = true;
                         occupiedByAny = true;
                         _occupyingTeam = player.TeamIndex;
-                        _progress = 0;
+                        _progressTicks = 0;
                         _inProgress = false;
                         slot = player.SlotIndex;
                     }
@@ -228,7 +258,7 @@ namespace MphRead.Entities
                 {
                     if (_occupiedBy[PlayerEntity.Main.SlotIndex])
                     {
-                        if (!_inProgress && _progress >= 10 / (float)SimTicks.LegacyHz)
+                        if (!_inProgress && _progressTicks >= SimTicks.From30HzFrames(10))
                         {
                             if (!_scene.IsHeadless)
                             {
@@ -239,11 +269,11 @@ namespace MphRead.Entities
                         }
                         _soundSource.SetPausedFreeSfxScripts(false);
                     }
-                    _progress += _scene.FrameTime;
-                    float spinSpeed = _progress / (300 / (float)SimTicks.LegacyHz) * (15 * 30f);
+                    _progressTicks++;
+                    float spinSpeed = Progress / (300 / (float)SimTicks.LegacyHz) * (15 * 30f);
                     rotation = _spinSpeed * _scene.FrameTime + (spinSpeed - _spinSpeed) / 2 * _scene.FrameTime;
                     _spinSpeed = spinSpeed;
-                    if (_progress >= 300 / (float)SimTicks.LegacyHz)
+                    if (_progressTicks >= SimTicks.From30HzFrames(300))
                     {
                         Complete(ref value1, ref value2);
                         occupiedByAny = false;
@@ -264,13 +294,12 @@ namespace MphRead.Entities
                     }
                 }
                 _occupyingTeam = NeutralTeam;
-                _progress = 0;
+                _progressTicks = 0;
                 _inProgress = false;
                 (_spinSpeed, rotation) = ConstantAcceleration(-0.15f, _spinSpeed, minVelocity: 0);
             }
             int nodeCount = 0;
             int team = _currentTeam;
-            float scoreThreshold = 150 / (float)SimTicks.LegacyHz;
             if (team == NeutralTeam)
             {
                 team = _occupyingTeam;
@@ -282,21 +311,17 @@ namespace MphRead.Entities
                     if (node._currentTeam == team && node._occupyingTeam == NeutralTeam)
                     {
                         nodeCount++;
-                        if (nodeCount > 1)
-                        {
-                            scoreThreshold -= 45 / (float)SimTicks.LegacyHz;
-                        }
                     }
                 }
             }
             if (_currentTeam != NeutralTeam && !occupiedByAny)
             {
-                _scoreTimer += _scene.FrameTime;
-                if (_scoreTimer >= scoreThreshold)
+                _scoreTicks++;
+                if (_scoreTicks >= ScoreIntervalTicks(nodeCount))
                 {
                     Debug.Assert(_capturedPlayer != null);
                     _scene.Match.Players[_capturedPlayer.SlotIndex].Points++;
-                    _scoreTimer = 0;
+                    _scoreTicks = 0;
                 }
                 // these SFX are empty
                 if (nodeCount == 1)
@@ -389,10 +414,12 @@ namespace MphRead.Entities
                 PlayerEntity.Main.ShowObjectiveMessage(206, 90 / (float)SimTicks.LegacyHz); // complete
             }
             _currentTeam = _occupyingTeam;
-            _progress = 0;
+            if (_capturedPlayer != null) _scene.Services.PublishWorldSignal(_scene, new(WorldSignalKind.NodeCaptured,
+                WorldSubjectKind.Node, this, _capturedPlayer, (byte)_currentTeam, Position));
+            _progressTicks = 0;
             _inProgress = false;
             _occupyingTeam = NeutralTeam;
-            _scoreTimer = 150 / (float)SimTicks.LegacyHz;
+            _scoreTicks = SimTicks.FromSeconds(5);
             if (_currentTeam == PlayerEntity.Main.TeamIndex)
             {
                 if (!_scene.IsHeadless)

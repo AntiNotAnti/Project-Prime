@@ -107,7 +107,7 @@ namespace MphRead
                 }
                 else
                 {
-                    transform = Matrix4.CreateTranslation(particle.Position);
+                    transform = scene.ResolveParticleTransform(particle);
                 }
                 scene.AddRenderItem(RenderItemType.Particle, particle.Alpha, scene.GetNextPolygonId(), particle.Color, xRepeat, yRepeat,
                     scaleS, scaleT, transform, uvsAndVerts, bindingId, particle.BillboardMode);

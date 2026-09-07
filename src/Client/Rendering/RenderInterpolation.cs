@@ -14,6 +14,7 @@ namespace MphRead
             public readonly SimulationPoseHistory History = new();
             public ulong Seen;
             public int State;
+            public readonly Dictionary<ModelInstance, ModelPoseHistory> Models = new();
         }
         private readonly Dictionary<EntityBase, PoseTrack> _poses = new();
         private readonly List<EntityBase> _removedPoses = new();
@@ -47,6 +48,7 @@ namespace MphRead
         {
             _poseGeneration++;
             _poses.Clear();
+            _particlePoses.Clear();
             _cameraHistory.Reset();
             ResetRenderLook();
         }
@@ -75,6 +77,16 @@ namespace MphRead
                     player.IsAltForm, player.LoadFlags, player.CameraType, player.IsMorphing, player.IsUnmorphing)
                     : entity is BeamProjectileEntity beam ? HashCode.Combine(beam.Generation, beam.Lifespan > 0, beam.Flags.TestFlag(BeamFlags.Collided)) : 0;
                 track.History.Capture(entity.Transform, _poseTick, _poseGeneration, track.State != state);
+                if (entity is DoorEntity or PlatformEntity)
+                {
+                    for (int i = 0; i < entity._models.Count; i++)
+                    {
+                        ModelInstance inst = entity._models[i];
+                        if (!track.Models.TryGetValue(inst, out ModelPoseHistory? modelPose))
+                            track.Models.Add(inst, modelPose = new(inst.Model));
+                        modelPose.Capture(inst.AnimInfo, entity.GetModelTransform(inst, i), _poseTick, _poseGeneration);
+                    }
+                }
                 track.State = state;
                 track.Seen = _poseTick;
             }
@@ -99,6 +111,17 @@ namespace MphRead
             _submissionDelta = entity is PlayerEntity player && player.IsMainPlayer && player.CameraType == CameraType.First
                 ? player.CameraInfo.ViewMatrix * _viewMatrix.Inverted() : track.History.Delta(FrameTiming.RenderAlpha);
             _submissionInterpolated = true;
+        }
+        internal bool ResolveNodeSubmission(EntityBase entity, ModelInstance inst, out Matrix4[] nodes, out float[] stack)
+        {
+            nodes = Array.Empty<Matrix4>();
+            stack = Array.Empty<float>();
+            if (!InterpolationEnabled || entity is not (DoorEntity or PlatformEntity) || !_poses.TryGetValue(entity, out PoseTrack? track)
+                || !track.Models.TryGetValue(inst, out ModelPoseHistory? history)) return false;
+            history.Resolve(FrameTiming.RenderAlpha, out nodes, out stack);
+            // These copied matrices already include the interpolated world root.
+            _submissionInterpolated = false;
+            return true;
         }
         private void EndEntitySubmission() { _submissionDelta = Matrix4.Identity; _submissionInterpolated = false; }
         private Matrix4 SubmissionTransform(Matrix4 transform) => _submissionInterpolated ? transform * _submissionDelta : transform;

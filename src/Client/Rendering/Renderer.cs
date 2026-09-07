@@ -166,7 +166,7 @@ namespace MphRead
         private bool _advanceOneFrame = false;
         private bool _recording = false;
         private int _framesRecorded = 0;
-        public bool ProcessFrame => (World.FrameCount == 0 || !_frameAdvanceOn || _advanceOneFrame) && !_exiting;
+        public bool ProcessFrame => (Mods.Network.DemoPlayback.IsActive || World.FrameCount == 0 || !_frameAdvanceOn || _advanceOneFrame) && !_exiting;
         private bool _exiting = false;
         public bool Exiting => _exiting;
 
@@ -1286,7 +1286,41 @@ namespace MphRead
         /// 800-odd frame-counted timers in the entity code, the per-frame
         /// intent stream or the demo format noticing anything.
         /// </summary>
+        public SpectatorCameraController SpectatorCamera { get; } = new();
+
         public void OnSimulationFrame()
+        {
+            SpectatorCamera.Poll(this, _keyboardState);
+            Mods.Network.ReplayControls.Poll(_keyboardState, _mouseState, Size);
+            Mods.Network.IntermissionVoteControls.Poll(_keyboardState, _mouseState, Size);
+            if (Mods.Network.DemoPlayback.ProcessSeek(OnSimulationStep, BeginReplaySeek))
+            {
+                if (!Mods.Network.DemoPlayback.IsSeeking)
+                {
+                    ResetPoseHistory(); ResetRenderLook();
+                    foreach (PlayerEntity player in World.GetPlayerEntities()) player.GetPresentation().SynchronizeReplayFeedbackAudio();
+                    var local = CombatFeedback.Local;
+                    FeedbackAudio.RestoreReplayBaseline(local, local.IsValid ? (ushort)PlayerEntity.Players[local.Slot].Health : (ushort)0);
+                    Music.TryPlayRoomMusic(World.RoomId, 0);
+                }
+                return;
+            }
+            int steps = Mods.Network.DemoPlayback.TakeSimulationSteps();
+            if (steps == 0 && Mods.SpectatorMode.IsSpectating) OnKeyHeld();
+            for (int step = 0; step < steps; step++)
+            {
+                if (Mods.Network.DemoPlayback.AtEnd) break;
+                OnSimulationStep();
+            }
+        }
+
+        private void BeginReplaySeek()
+        {
+            Sound.Sfx.Instance.StopAllSound(force: true);
+            Music.Stop();
+        }
+
+        private void OnSimulationStep()
         {
             // The effect clock, before anything can spawn an effect. See
             // _effectFrame: it has to be the same value for the spawn and for
@@ -1344,18 +1378,27 @@ namespace MphRead
                 // binds ProcessInput has just filled in. Suppressed by exactly
                 // the things that suppress a keyboard, and by spectating,
                 // where PlayerEntity.Main is somebody else's hunter.
-                Mods.Input.GamepadDesktop.Poll();
-                Mods.Input.GamepadInput.BeginFrame();
-                bool noPlayerInput = _inputMode == InputMode.CameraOnly
-                    || Mods.ClientInputState.PauseOpen || Mods.Chat.ChatBox.Composing;
-                PlayerPresentation.ProcessInput(_keyboardState, _mouseState, noPlayerInput);
-                if (!noPlayerInput && !Mods.SpectatorMode.IsSpectating)
+                if (!Mods.Network.DemoPlayback.IsSeeking)
                 {
-                    Mods.Input.GamepadInput.Apply(PlayerEntity.Main);
+                    Mods.Input.GamepadDesktop.Poll();
+                    Mods.Input.GamepadInput.BeginFrame();
+                    bool noPlayerInput = Mods.Network.DemoPlayback.IsSeeking || _inputMode == InputMode.CameraOnly
+                        || Mods.ClientInputState.PauseOpen || Mods.Chat.ChatBox.Composing;
+                    PlayerPresentation.ProcessInput(_keyboardState, _mouseState, noPlayerInput);
+                    if (!noPlayerInput && !Mods.SpectatorMode.IsSpectating)
+                    {
+                        Mods.Input.GamepadInput.Apply(PlayerEntity.Main);
+                    }
+                    World.Services.AfterInput(World);
+                    PlayerEntity.Main.GetPresentation().ApplyWeaponSelection(noPlayerInput || Mods.SpectatorMode.IsSpectating);
                 }
-                World.Services.AfterInput(World);
+                else
+                {
+                    foreach (PlayerEntity player in World.GetPlayerEntities()) player.Controls.ClearAll();
+                    World.Services.AfterInput(World);
+                }
             }
-            OnKeyHeld();
+            if (!Mods.Network.DemoPlayback.IsSeeking) OnKeyHeld();
             bool waitingForServer = Mods.Network.AuthoritativePlay.Active
                 && World.Match.Phase is MatchPhase.WaitingForPlayers or MatchPhase.Countdown;
             if (ProcessFrame && World.Room != null)
@@ -1378,10 +1421,16 @@ namespace MphRead
             // Effects are advanced inside GetDrawItems, where their ordering
             // against the entity draw pass is what it has always been. This is
             // how many times it owes when the next frame gets there.
-            _pendingEffectSteps = Math.Min(_pendingEffectSteps + 1,
+            if (Mods.Network.DemoPlayback.IsSeeking && World.Match.LegacyState == MatchState.InProgress)
+            {
+                ProcessEffects(_effectFrame);
+                _pendingEffectSteps = 0;
+            }
+            else _pendingEffectSteps = Math.Min(_pendingEffectSteps + 1,
                 Mods.Render.FrameTiming.MaxCatchUpSteps);
             _pendingFadeSteps = Math.Min(_pendingFadeSteps + 1,
                 Mods.Render.FrameTiming.MaxCatchUpSteps);
+            if (Mods.Network.DemoPlayback.IsSeeking) UpdateFade(updateDevice: false);
         }
 
         /// <summary>
@@ -1394,6 +1443,7 @@ namespace MphRead
         /// </summary>
         public void OnDrawFrame()
         {
+            if (Mods.Network.DemoPlayback.IsSeeking) return;
             Mods.Network.AuthoritativePlay.Current?.AdvancePresentation();
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
             // The scene's own target, which the resolution scale may have made
@@ -2269,6 +2319,8 @@ namespace MphRead
                 // the camera is not a player's.
                 PlayerEntity.Main.GetPresentation().DrawHudObjects();
             }
+            SpectatorCamera.Draw(this);
+            Mods.Network.ReplayControls.Draw(this);
             if (PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player && _fadeType != FadeType.None)
             {
                 float percent = _fadePercent;
@@ -2408,12 +2460,14 @@ namespace MphRead
                 }
             }
             ApplyRenderCamera();
+            if (SpectatorCamera.TryView(out Matrix4 spectatorView)) _viewMatrix = spectatorView;
             _viewInvRotMatrix = Matrix4.Transpose(_viewMatrix.ClearTranslation());
             if (_viewInvRotMatrix.Row0.X != 0 || _viewInvRotMatrix.Row0.Z != 0)
             {
                 _viewInvRotYMatrix.Row0.Xyz = new Vector3(_viewInvRotMatrix.Row0.X, 0, _viewInvRotMatrix.Row0.Z).Normalized();
                 _viewInvRotYMatrix.Row2.Xyz = new Vector3(_viewInvRotMatrix.Row2.X, 0, _viewInvRotMatrix.Row2.Z).Normalized();
             }
+            if (Mods.SpectatorMode.IsSpectating) _cameraFov = MathHelper.DegreesToRadians(SpectatorCamera.FieldOfView);
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
         }
 
@@ -2707,6 +2761,7 @@ namespace MphRead
             particle.RwField2 = 0;
             particle.RwField3 = 0;
             particle.RwField4 = 0;
+            _particlePoses.Remove(particle); // pooled identity starts a fresh render history
             particle.CreationTime = World.ElapsedTime;
             return particle;
         }
@@ -3539,7 +3594,9 @@ namespace MphRead
                     // effect frame -- so an element spawned during that step
                     // sees the parity it was created with.
                     ulong owed = (ulong)(_pendingEffectSteps - 1 - i);
-                    ProcessEffects(_effectFrame >= owed ? _effectFrame - owed : _effectFrame);
+                    ulong effectTick = _effectFrame >= owed ? _effectFrame - owed : _effectFrame;
+                    ProcessEffects(effectTick);
+                    CaptureParticlePoses(effectTick);
                 }
             }
             _pendingEffectSteps = 0;
@@ -3668,7 +3725,7 @@ namespace MphRead
             _fadeEnded = false;
         }
 
-        private void UpdateFade()
+        private void UpdateFade(bool updateDevice = true)
         {
             Color4 clearColor = _clearColor;
             if (_fadeType != FadeType.None)
@@ -3698,7 +3755,7 @@ namespace MphRead
                 _fadeEnded = false;
             }
             _pendingFadeSteps = 0;
-            GL.ClearColor(_clearColor);
+            if (updateDevice) GL.ClearColor(_clearColor);
         }
 
         private void QuitGame()
@@ -4158,6 +4215,7 @@ namespace MphRead
         {
             GL.Disable(EnableCap.Blend);
             GL.Enable(EnableCap.DepthTest);
+            if (Mods.SpectatorMode.IsSpectating) _cameraFov = MathHelper.DegreesToRadians(SpectatorCamera.FieldOfView);
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
             GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref _perspectiveMatrix);
         }
@@ -4274,6 +4332,21 @@ namespace MphRead
         /// no sprite asset of its own. Same fade_color flat-fill trick as
         /// <see cref="DrawCustomCrosshair"/>.
         /// </summary>
+        public void DrawHudRadialSector(int sector, Vector4 color)
+        {
+            GL.Uniform4(_shaderLocations.FadeColor, color);
+            GL.Begin(PrimitiveType.TriangleStrip);
+            for (int step = 0; step <= 6; step++)
+            {
+                Vector2 outer = Mods.Input.WeaponRadialSelection.SectorPoint(sector, step / 6f, 87, 58);
+                Vector2 inner = Mods.Input.WeaponRadialSelection.SectorPoint(sector, step / 6f, 19, 13);
+                GL.Vertex3(outer.X / 128, (4 - outer.Y) / 96, 0f);
+                GL.Vertex3(inner.X / 128, (4 - inner.Y) / 96, 0f);
+            }
+            GL.End();
+            GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero);
+        }
+
         public void DrawHudFlatBox(float left, float top, float right, float bottom, Vector4 color)
         {
             float halfW = Size.X / 2f;
@@ -5223,6 +5296,7 @@ namespace MphRead
             if (_cameraMode == CameraMode.Roam)
             {
                 float moveStep = _keyboardState.IsKeyDown(Keys.LeftShift) || _keyboardState.IsKeyDown(Keys.RightShift) ? 0.5f : 0.1f;
+                if (Mods.SpectatorMode.IsSpectating) moveStep *= SpectatorCamera.SpeedScale;
                 float rotStepDeg = _keyboardState.IsKeyDown(Keys.LeftShift) || _keyboardState.IsKeyDown(Keys.RightShift) ? 3 : 1.5f;
                 float rotStep = MathHelper.DegreesToRadians(rotStepDeg);
                 if (_keyboardState.IsKeyDown(Keys.W)) // move forward
