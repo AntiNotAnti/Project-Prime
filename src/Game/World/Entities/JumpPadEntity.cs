@@ -104,7 +104,7 @@ namespace MphRead.Entities
                     {
                         player.ActivateJumpPad(this, _beamVector, _data.ControlLockTime);
                         _scene.NoteJumpPad(player, Id);
-                        _cooldownTimer = (ushort)(_data.CooldownTime * 2); // todo: FPS stuff
+                        _cooldownTimer = (ushort)SimTicks.From30HzFrames(_data.CooldownTime);
                     }
                 }
             }

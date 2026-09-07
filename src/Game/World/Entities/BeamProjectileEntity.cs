@@ -431,7 +431,7 @@ namespace MphRead.Entities
                 bool hasHalfturret = historical ? history.HasHalfturret
                     : player.Hunter == Hunter.Weavel && player.Flags2.TestFlag(PlayerFlags2.Halfturret);
                 if ((Owner == player || hasHalfturret && Owner == player.Halfturret)
-                    && (!Flags.TestFlag(BeamFlags.SelfDamage) || Age < 1 / 30f * 4))
+                    && (!Flags.TestFlag(BeamFlags.SelfDamage) || Age < SimTicks.LegacyFrameSeconds * 4))
                 {
                     continue;
                 }
@@ -859,7 +859,7 @@ namespace MphRead.Entities
             if (!Flags.TestFlag(BeamFlags.Continuous))
             {
                 Flags |= BeamFlags.Collided;
-                Lifespan = 4 * (1 / 30f); // todo: frame time stuff
+                Lifespan = 4 * SimTicks.LegacyFrameSeconds; // todo: frame time stuff
                 Velocity = Vector3.Zero;
             }
             if (!impactSent && Owner != null)
@@ -883,7 +883,7 @@ namespace MphRead.Entities
                 {
                     if (Beam == BeamType.OmegaCannon && player == PlayerEntity.Main)
                     {
-                        _scene.SetFade(FadeType.FadeInWhite, 15 / 30f, overwrite: false);
+                        _scene.SetFade(FadeType.FadeInWhite, 15 / (float)SimTicks.LegacyHz, overwrite: false);
                     }
                 }
 
@@ -1140,7 +1140,7 @@ namespace MphRead.Entities
             // todo: FPS stuff
             float speed = GetAmount(weapon.UnchargedSpeed, weapon.MinChargeSpeed, weapon.ChargedSpeed) / 4096f / 2;
             float finalSpeed = GetAmount(weapon.UnchargedFinalSpeed, weapon.MinChargeFinalSpeed, weapon.ChargedFinalSpeed) / 4096f / 2;
-            float speedDecayTime = weapon.SpeedDecayTimes[charged ? 1 : 0] * (1 / 30f);
+            float speedDecayTime = weapon.SpeedDecayTimes[charged ? 1 : 0] * SimTicks.LegacyFrameSeconds;
             ushort speedInterpolation = weapon.SpeedInterpolations[charged ? 1 : 0];
             float gravity = GetAmount(weapon.UnchargedGravity, weapon.MinChargeGravity, weapon.ChargedGravity) / 4096f;
             Vector3 acceleration = new Vector3(0, gravity, 0) / 2;
@@ -1249,7 +1249,7 @@ namespace MphRead.Entities
             float maxDist = GetAmount(weapon.UnchargedDistance, weapon.MinChargeDistance, weapon.ChargedDistance) / 4096f;
             Affliction afflictions = weapon.Afflictions[charged ? 1 : 0];
             float cylinderRadius = GetAmount(weapon.UnchargedCylRadius, weapon.MinChargeCylRadius, weapon.ChargedCylRadius) / 4096f;
-            float lifespan = GetAmount(weapon.UnchargedLifespan, weapon.MinChargeLifespan, weapon.ChargedLifespan) * (1 / 30f);
+            float lifespan = GetAmount(weapon.UnchargedLifespan, weapon.MinChargeLifespan, weapon.ChargedLifespan) * SimTicks.LegacyFrameSeconds;
             if (weapon.Flags.TestFlag(WeaponFlags.Continuous))
             {
                 flags |= BeamFlags.Continuous;
@@ -1443,7 +1443,7 @@ namespace MphRead.Entities
                         {
                             // todo: FPS stuff
                             ushort timer = ownerPlayer.ShockCoilTimer;
-                            if (timer >= 120 * 2)
+                            if (timer >= SimTicks.From30HzFrames(120))
                             {
                                 beam.Damage += 4;
                                 beam.SplashDamage += 4;
@@ -1451,9 +1451,9 @@ namespace MphRead.Entities
                             }
                             else
                             {
-                                beam.Damage += timer / (30 * 2);
-                                beam.SplashDamage += timer / (30 * 2);
-                                beam.HeadshotDamage += timer / (30 * 2);
+                                beam.Damage += timer / SimTicks.Hz;
+                                beam.SplashDamage += timer / SimTicks.Hz;
+                                beam.HeadshotDamage += timer / SimTicks.Hz;
                             }
                         }
                     }

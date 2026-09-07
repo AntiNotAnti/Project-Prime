@@ -153,7 +153,7 @@ namespace MphRead.Entities
                         {
                             _soundSource.QueueStream(VoiceId.VOICE_OCTO_PICKUP, delay: 1, expiration: 2);
                             _soundSource.PlayFreeSfx(SfxId.FLAG_ACQUIRED);
-                            PlayerEntity.Main.ShowObjectiveMessage(202, 90 / 30f); // return to base
+                            PlayerEntity.Main.ShowObjectiveMessage(202, 90 / (float)SimTicks.LegacyHz); // return to base
                         }
                         else
                         {
@@ -232,7 +232,7 @@ namespace MphRead.Entities
                     _soundSource.PlayFreeSfx(SfxId.FLAG_RESET2);
                     // your octolith reset! / enemy octolith reset!
                     int messageId = PlayerEntity.Main.TeamIndex == _data.TeamId ? 201 : 207;
-                    PlayerEntity.Main.ShowObjectiveMessage(messageId, 60 / 30f);
+                    PlayerEntity.Main.ShowObjectiveMessage(messageId, 60 / (float)SimTicks.LegacyHz);
                 }
                 SetAtBase();
                 return false;
@@ -272,7 +272,7 @@ namespace MphRead.Entities
                 messageId = 257; // octolith reset!
                 _soundSource.PlayFreeSfx(SfxId.FLAG_RESET2);
             }
-            PlayerEntity.Main.ShowObjectiveMessage(messageId, 60 / 30f);
+            PlayerEntity.Main.ShowObjectiveMessage(messageId, 60 / (float)SimTicks.LegacyHz);
         }
 
         private void OnDropped(bool reset)
@@ -317,7 +317,7 @@ namespace MphRead.Entities
                 messageId = 229; // the octolith has been dropped!
                 _soundSource.PlayFreeSfx(SfxId.FLAG_DROPPED);
             }
-            PlayerEntity.Main.ShowObjectiveMessage(messageId, 60 / 30f);
+            PlayerEntity.Main.ShowObjectiveMessage(messageId, 60 / (float)SimTicks.LegacyHz);
             PlayerEntity.Main.StopFlagCarrySfx();
             if (!_scene.IsHeadless)
             {
@@ -348,7 +348,7 @@ namespace MphRead.Entities
             {
                 if (PlayerEntity.Main.TeamIndex == _data.TeamId)
                 {
-                    _soundSource.QueueStream(VoiceId.VOICE_OCTO_SCORE, delay: 40 / 30f);
+                    _soundSource.QueueStream(VoiceId.VOICE_OCTO_SCORE, delay: 40 / (float)SimTicks.LegacyHz);
                     _soundSource.PlayFreeSfx(SfxId.SCORE);
                 }
                 else
@@ -361,14 +361,14 @@ namespace MphRead.Entities
                 if (Bugfixes.CorrectBountySfx && _carrier.TeamIndex == PlayerEntity.Main.TeamIndex
                     || !Bugfixes.CorrectBountySfx && _carrier.IsMainPlayer)
                 {
-                    _soundSource.QueueStream(VoiceId.VOICE_BOUNTY, delay: 40 / 30f);
+                    _soundSource.QueueStream(VoiceId.VOICE_BOUNTY, delay: 40 / (float)SimTicks.LegacyHz);
                     _soundSource.PlayFreeSfx(SfxId.SCORE);
                 }
                 else
                 {
                     _soundSource.PlayFreeSfx(SfxId.SCORED_ON);
                 }
-                PlayerEntity.Main.ShowObjectiveMessage(203, 90 / 30f); // bounty received
+                PlayerEntity.Main.ShowObjectiveMessage(203, 90 / (float)SimTicks.LegacyHz); // bounty received
             }
             PlayerEntity.Main.StopFlagCarrySfx();
             if (!_scene.IsHeadless)

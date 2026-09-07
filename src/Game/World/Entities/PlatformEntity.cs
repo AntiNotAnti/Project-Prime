@@ -147,7 +147,7 @@ namespace MphRead.Entities
                 UpdateCollisionTransform(0, transform);
                 UpdateLinkedInverse(0);
             }
-            _beamInterval = (int)data.BeamInterval * 2; // todo: FPS stuff
+            _beamInterval = (int)data.BeamInterval * SimTicks.TicksPer30HzFrame;
             if (_beams == null)
             {
                 _beams = SceneSetup.CreateBeamList(64, scene); // in-game: 18
@@ -163,7 +163,7 @@ namespace MphRead.Entities
                 _beamSpawnDir = data.BeamSpawnDir.ToFloatVector();
                 _beamIntervalIndex = 15;
             }
-            _delay = data.Delay * 2; // todo: FPS stuff
+            _delay = SimTicks.From30HzFrames(data.Delay);
             _moveTimer = _delay;
             _recoilTimer = 0;
             _forwardSpeed = data.ForwardSpeed.FloatValue / 2f; // todo: FPS stuff
@@ -572,9 +572,9 @@ namespace MphRead.Entities
         {
             UpdateLinkedInverse(0);
             _prevVisiblePosition = _visiblePosition;
-            if (++_timeSincePlayerCol >= 3 * 2) // todo: FPS stuff
+            if (++_timeSincePlayerCol >= SimTicks.From30HzFrames(3))
             {
-                _timeSincePlayerCol = 3 * 2;
+                _timeSincePlayerCol = (ushort)SimTicks.From30HzFrames(3);
                 _playerCol = false;
             }
             if (!_animFlags.TestFlag(PlatAnimFlags.DisableReflect))
@@ -905,8 +905,8 @@ namespace MphRead.Entities
         {
             if (_state == PlatformState.Moving && !Flags.TestFlag(PlatformFlags.NoRecoil) && _data.ForCutscene == 0)
             {
-                _recoilTimer = 31 * 2; // todo: FPS stuff
-                _moveTimer += 60 * 2; // todo: FPS stuff
+                _recoilTimer = SimTicks.From30HzFrames(31);
+                _moveTimer += SimTicks.From30HzFrames(60);
                 _velocity.Y *= -1;
             }
         }
@@ -1463,7 +1463,7 @@ namespace MphRead.Entities
                 posList.Add(data.Positions[i].ToFloatVector());
             }
             _posList = posList;
-            _delay = data.Delay * 2;
+            _delay = SimTicks.From30HzFrames(data.Delay);
             _moveTimer = _delay;
         }
 

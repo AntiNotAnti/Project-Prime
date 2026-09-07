@@ -48,3 +48,19 @@ SpawnDirector, Enhanced/Duel policies, attack cancellation of spawn protection, 
 Focused Release test run: **30 passed, 0 failed, 0 skipped**. The build compiled Game, Client, Server, Tools and Tests. Existing `NU1903` warnings for `Tmds.DBus.Protocol` 0.21.2 remain baseline warnings. Full main Release suite against the same built artifacts: **464 passed, 0 failed, 0 skipped** (434 baseline cases plus 30 new cases), duration 1 minute 38 seconds. Scoped `git diff --check` passed.
 
 Artifacts: `/tmp/codex-re-prime-g1/timing-tests.log` and `/tmp/codex-re-prime-g1/timing-main-tests.log`. This is source and unit-test parity evidence, not live multiplayer or device proof.
+
+## Second pass: world entities and gameplay camera
+
+The next audited group names item-spawner delay/interval metadata (ushort casts retained), dropped-item lifetime 450→900 ticks, Morph Ball/Stinglarva bomb lifetime 43→86, Lockjaw lifetime 900→1800, and bomb shortening 22→44 with the original strict `>` comparison (the source comment about the original game's 22.5 remains). Jump-pad cooldown and trigger repeat/check delays retain their ushort source domains and original destination types.
+
+Platform delay metadata, player-contact timeout 3→6, recoil 31→62 and added move wait 60→120 use the named conversion. `BeamInterval` is a uint field; its existing `(int)` conversion and unchecked multiplication may encode values outside the checked helper domain. That site deliberately uses `(int)data.BeamInterval * SimTicks.TicksPer30HzFrame`, preserving the full unsigned-domain behavior. Movement-derived timers, speed factors and fixed-point math remain untouched.
+
+The dedicated force-field lock's 30-frame weapon delay is still byte 60. Door initialization's strict frame threshold remains >6. Shock Coil's escalation threshold remains 240 ticks and its below-threshold integer damage quotient remains `timer / 60`; the alternating-frame damage cadence is unchanged.
+
+Gameplay camera switch metadata now uses the checked conversion while retaining ushort casts, timer reversal subtraction, comparison order, and floating-point interpolation denominators. Landing bob still performs integer `360 * timer / 18` before angle conversion. Camera collision delay remains a byte counter bounded at 30. FOV multiplications, smoothing factors, aim speeds and shake cadence are not duration conversions and remain unchanged.
+
+### Float-second compatibility boundary
+
+Node/Octolith objective state and projectile lifespan/decay fields still store float seconds and advance by the existing scene FrameTime. Converting their storage to integer ticks would alter accumulated rounding and potentially threshold frames; that requires a separately authorized behavior change. This pass names the 30 Hz denominator (`(float)SimTicks.LegacyHz`) and adds the compile-time reciprocal `SimTicks.LegacyFrameSeconds = 1f / LegacyHz` where the original code multiplied by a reciprocal. Original multiplication-versus-division forms remain separate because they can differ by an ULP. No timer clock or wire representation changes.
+
+`WorldTimingTests` adds golden world durations, exhaustive ushort float conversion bits, camera reversal/interpolation across all hunter metadata and ushort timer values, unsigned platform interval edge cases, and complete ushort-domain Shock Coil/bomb boundary parity. Focused Release build and tests passed: **41 tests, 0 failed, 0 skipped** (30 first-pass plus 11 world/camera cases). Log: `/tmp/codex-re-prime-g1/world-timing-tests.log`. Scoped whitespace check passed.

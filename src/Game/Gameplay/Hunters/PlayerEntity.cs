@@ -587,7 +587,7 @@ namespace MphRead.Entities
             }
             _field4E8 = Vector3.Zero;
             _modelTransform = Matrix4.Identity;
-            _camSwitchTimer = (ushort)(Values.CamSwitchTime * 2); // todo: FPS stuff (use floats)
+            _camSwitchTimer = (ushort)SimTicks.From30HzFrames(Values.CamSwitchTime);
             CameraInfo.Reset();
             CameraInfo.Position = Position;
             CameraInfo.UpVector = Vector3.UnitY;
@@ -761,7 +761,7 @@ namespace MphRead.Entities
             CameraInfo.Fov = Fixed.ToFloat(Values.NormalFov) * 2;
             CameraInfo.NodeRef = NodeRef;
             SwitchCamera(CameraType.First, facing);
-            _camSwitchTimer = (ushort)(Values.CamSwitchTime * 2); // todo: FPS stuff
+            _camSwitchTimer = (ushort)SimTicks.From30HzFrames(Values.CamSwitchTime);
             _viewTiltAngleH = 0;
             _viewTiltAngleV = 0;
             UpdateCameraFirst();

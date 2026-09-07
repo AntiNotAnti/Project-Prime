@@ -34,7 +34,7 @@ namespace MphRead.Entities
             AlwaysActive = data.AlwaysActive != 0;
             Active = data.Enabled != 0;
 
-            _spawnCooldown = (ushort)(data.SpawnDelay * 2); // todo: FPS stuff
+            _spawnCooldown = (ushort)SimTicks.From30HzFrames(data.SpawnDelay);
             if (data.HasBase != 0)
             {
                 SetUpModel("items_base");
@@ -83,7 +83,7 @@ namespace MphRead.Entities
                 Item = SpawnItem(_data.ItemType, Position.AddY(0.65f), NodeRef, _scene);
                 if (Item != null)
                 {
-                    _spawnCooldown = (ushort)(_data.SpawnInterval * 2); // todo: FPS stuff
+                    _spawnCooldown = (ushort)SimTicks.From30HzFrames(_data.SpawnInterval);
                     _spawnCount++;
                     Item.Owner = this;
                     Item.ParentId = _data.ParentId;
@@ -156,7 +156,7 @@ namespace MphRead.Entities
         public static ItemInstanceEntity? SpawnItemDrop(ItemType type, Vector3 position,
             NodeRef nodeRef, uint chance, Scene scene)
         {
-            return SpawnItem(type, position, nodeRef, scene, chance, despawnTime: 450 * 2); // todo: FPS stuff
+            return SpawnItem(type, position, nodeRef, scene, chance, despawnTime: SimTicks.From30HzFrames(450));
         }
 
         public static ItemInstanceEntity? SpawnItem(ItemType type, Vector3 position,

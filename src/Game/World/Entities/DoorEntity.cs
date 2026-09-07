@@ -259,7 +259,7 @@ namespace MphRead.Entities
                 && (AnimInfo.Index[0] != 0 || AnimInfo.Flags[0].TestFlag(AnimFlags.Ended)))
             {
                 // todo: bits 8/9 and 10 are basically a counter and a bool, and we should just replace them with that
-                if (Flags.TestFlag(DoorFlags.Bit10) && _scene.FrameCount > 3 * 2) // todo: FPS stuff
+                if (Flags.TestFlag(DoorFlags.Bit10) && _scene.FrameCount > (ulong)SimTicks.From30HzFrames(3))
                 {
                     _soundSource.PlaySfx(SfxId.LOCK_ANIM, recency: Single.MaxValue, sourceOnly: true);
                 }
@@ -339,10 +339,10 @@ namespace MphRead.Entities
             if (_scene.RoomId != 55 && _scene.RoomId != 71 && _scene.RoomId != 44 && _scene.RoomId != 88
                 && _scene.RoomId != 35 && _scene.RoomId != 82 && _scene.RoomId != 64 && _scene.RoomId != 76)
             {
-                PlayerEntity.Main.SetDoorChimeTimer(2 / 30f);
+                PlayerEntity.Main.SetDoorChimeTimer(2 / (float)SimTicks.LegacyHz);
                 if (!noLockAnimSfx)
                 {
-                    PlayerEntity.Main.SetDoorUnlockTimer(2 / 30f);
+                    PlayerEntity.Main.SetDoorUnlockTimer(2 / (float)SimTicks.LegacyHz);
                 }
             }
             _lock.SetAnimation(1, AnimFlags.NoLoop);

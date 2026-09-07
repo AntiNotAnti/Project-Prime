@@ -43,17 +43,17 @@ namespace MphRead.Entities
             }
             CameraType = type;
             _field544 = CameraInfo.Position;
-            _camSwitchTimer = (ushort)(Values.CamSwitchTime * 2 - _camSwitchTimer); // todo: FPS stuff
+            _camSwitchTimer = (ushort)(SimTicks.From30HzFrames(Values.CamSwitchTime) - _camSwitchTimer);
             CameraInfo.Shake = 0;
         }
 
         private void UpdateCamera()
         {
             CameraInfo.PrevPosition = CameraInfo.Position;
-            if (_camSwitchTimer < Values.CamSwitchTime * 2) // todo: FPS stuff
+            if (_camSwitchTimer < SimTicks.From30HzFrames(Values.CamSwitchTime))
             {
                 _camSwitchTimer++;
-                if (!IsAltForm && _camSwitchTimer == Values.CamSwitchTime * 2)
+                if (!IsAltForm && _camSwitchTimer == SimTicks.From30HzFrames(Values.CamSwitchTime))
                 {
                     SetGunAnimation(GunAnimation.UpDown, AnimFlags.NoLoop);
                 }
@@ -92,12 +92,12 @@ namespace MphRead.Entities
             {
                 position.Y += Fixed.ToFloat(Values.AimYOffset) + MathF.Cos(MathHelper.DegreesToRadians(_gunViewBob)) * _walkViewBob;
             }
-            if (_timeStanding < 9 * 2) // todo: FPS stuff
+            if (_timeStanding < SimTicks.From30HzFrames(9))
             {
-                float angle = MathHelper.DegreesToRadians(360 * _timeStanding / (9 * 2)); // todo: FPS stuff
+                float angle = MathHelper.DegreesToRadians(360 * _timeStanding / SimTicks.From30HzFrames(9));
                 position.Y += MathF.Cos(angle) * _field44C - _field44C;
             }
-            float switchTime = Values.CamSwitchTime * 2; // todo: FPS stuff
+            float switchTime = SimTicks.From30HzFrames(Values.CamSwitchTime);
             if (_camSwitchTimer < switchTime)
             {
                 float pct = _camSwitchTimer / (float)switchTime;
@@ -176,7 +176,7 @@ namespace MphRead.Entities
             else
             {
                 Vector3 camVec;
-                if (_camSwitchTimer >= Values.CamSwitchTime * 2) // todo: FPS stuff
+                if (_camSwitchTimer >= SimTicks.From30HzFrames(Values.CamSwitchTime))
                 {
                     camVec = (CameraInfo.Position - CameraInfo.Target).WithY(0);
                 }
@@ -193,9 +193,9 @@ namespace MphRead.Entities
                 );
             }
             CameraInfo.Target.Y += v7;
-            if (_camSwitchTimer < Values.CamSwitchTime * 2) // todo: FPS stuff
+            if (_camSwitchTimer < SimTicks.From30HzFrames(Values.CamSwitchTime))
             {
-                float pct = _camSwitchTimer / (Values.CamSwitchTime * 2f); // todo: FPS stuff
+                float pct = _camSwitchTimer / (float)SimTicks.From30HzFrames(Values.CamSwitchTime);
                 CameraInfo.Position = _field544 + (posVec - _field544) * pct;
                 Vector3 facingVec = CameraInfo.Position + CameraInfo.Facing;
                 CameraInfo.Target = facingVec + (CameraInfo.Target - facingVec) * pct;
@@ -487,7 +487,7 @@ namespace MphRead.Entities
             if (CollisionDetection.CheckBetweenPoints(CameraInfo.Target, CameraInfo.Position,
                 TestFlags.Players, _scene, ref targResult))
             {
-                if (_field552 < 15 * 2) // todo: FPS stuff
+                if (_field552 < SimTicks.From30HzFrames(15))
                 {
                     _field552++;
                 }
@@ -505,7 +505,7 @@ namespace MphRead.Entities
 
         private void UpdateCameraThird2()
         {
-            float switchTime = Values.CamSwitchTime * 2; // todo: FPS stuff
+            float switchTime = SimTicks.From30HzFrames(Values.CamSwitchTime);
             if (_camSwitchTimer < switchTime)
             {
                 _field68C = Fixed.ToFloat(Values.Field80);
@@ -567,7 +567,7 @@ namespace MphRead.Entities
         private void UpdateCameraFree()
         {
             Debug.Assert(_scene.Room != null);
-            ushort switchTime = (ushort)(Values.CamSwitchTime * 2); // todo: FPS stuff
+            ushort switchTime = (ushort)SimTicks.From30HzFrames(Values.CamSwitchTime);
             if (_camSwitchTimer < switchTime)
             {
                 float pct = _camSwitchTimer / (float)switchTime;

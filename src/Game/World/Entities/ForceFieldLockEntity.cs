@@ -303,7 +303,7 @@ namespace MphRead.Entities
             var beam = (BeamProjectileEntity)source;
             if (_shotFrames == 0 && GetEffectiveness(beam.Beam) == Effectiveness.Zero && beam.Owner == PlayerEntity.Main)
             {
-                _shotFrames = _forceField.Data.Type == 7 ? (byte)(30 * 2) : (byte)1; // todo: FPS stuff
+                _shotFrames = _forceField.Data.Type == 7 ? (byte)SimTicks.Hz : (byte)1;
                 beam.Owner.GetPosition(out _targetPosition);
                 _models[0].SetAnimation(2, AnimFlags.NoLoop);
             }

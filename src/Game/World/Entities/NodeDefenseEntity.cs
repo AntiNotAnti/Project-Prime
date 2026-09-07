@@ -104,7 +104,7 @@ namespace MphRead.Entities
             for (int i = 0; i < _occupiedBy.Length; i++) { _occupiedBy[i] = (state.A & (1u << (16 + i))) != 0; }
             _contested = (state.Flags & 1) != 0;
             _inProgress = (state.Flags & 2) != 0;
-            _blinkTimer = (state.Flags & 4) != 0 ? 1 / 30f : 0;
+            _blinkTimer = (state.Flags & 4) != 0 ? 1 / (float)SimTicks.LegacyHz : 0;
             _progress = WorldRecord.Float(state.C);
             _curRotation = WorldRecord.Float(state.D);
             _spinSpeed = WorldRecord.Float(state.E);
@@ -228,7 +228,7 @@ namespace MphRead.Entities
                 {
                     if (_occupiedBy[PlayerEntity.Main.SlotIndex])
                     {
-                        if (!_inProgress && _progress >= 10 / 30f)
+                        if (!_inProgress && _progress >= 10 / (float)SimTicks.LegacyHz)
                         {
                             if (!_scene.IsHeadless)
                             {
@@ -240,10 +240,10 @@ namespace MphRead.Entities
                         _soundSource.SetPausedFreeSfxScripts(false);
                     }
                     _progress += _scene.FrameTime;
-                    float spinSpeed = _progress / (300 / 30f) * (15 * 30f);
+                    float spinSpeed = _progress / (300 / (float)SimTicks.LegacyHz) * (15 * 30f);
                     rotation = _spinSpeed * _scene.FrameTime + (spinSpeed - _spinSpeed) / 2 * _scene.FrameTime;
                     _spinSpeed = spinSpeed;
-                    if (_progress >= 300 / 30f)
+                    if (_progress >= 300 / (float)SimTicks.LegacyHz)
                     {
                         Complete(ref value1, ref value2);
                         occupiedByAny = false;
@@ -270,7 +270,7 @@ namespace MphRead.Entities
             }
             int nodeCount = 0;
             int team = _currentTeam;
-            float scoreThreshold = 150 / 30f;
+            float scoreThreshold = 150 / (float)SimTicks.LegacyHz;
             if (team == NeutralTeam)
             {
                 team = _occupyingTeam;
@@ -284,7 +284,7 @@ namespace MphRead.Entities
                         nodeCount++;
                         if (nodeCount > 1)
                         {
-                            scoreThreshold -= 45 / 30f;
+                            scoreThreshold -= 45 / (float)SimTicks.LegacyHz;
                         }
                     }
                 }
@@ -332,7 +332,7 @@ namespace MphRead.Entities
             {
                 if (nodeCount >= 2)
                 {
-                    _soundSource.QueueStream(VoiceId.VOICE_MULTI_NODE, delay: 1, expiration: 35 / 30f);
+                    _soundSource.QueueStream(VoiceId.VOICE_MULTI_NODE, delay: 1, expiration: 35 / (float)SimTicks.LegacyHz);
                 }
             }
             else if (value1 == 3)
@@ -352,7 +352,7 @@ namespace MphRead.Entities
             }
             else if (Fixed.ToInt(_curRotation) / 61440 != Fixed.ToInt(prevRotation) / 61440)
             {
-                _blinkTimer = 1 / 30f;
+                _blinkTimer = 1 / (float)SimTicks.LegacyHz;
             }
             else if (_blinkTimer > 0)
             {
@@ -386,13 +386,13 @@ namespace MphRead.Entities
             }
             if (_capturedPlayer == PlayerEntity.Main)
             {
-                PlayerEntity.Main.ShowObjectiveMessage(206, 90 / 30f); // complete
+                PlayerEntity.Main.ShowObjectiveMessage(206, 90 / (float)SimTicks.LegacyHz); // complete
             }
             _currentTeam = _occupyingTeam;
             _progress = 0;
             _inProgress = false;
             _occupyingTeam = NeutralTeam;
-            _scoreTimer = 150 / 30f;
+            _scoreTimer = 150 / (float)SimTicks.LegacyHz;
             if (_currentTeam == PlayerEntity.Main.TeamIndex)
             {
                 if (!_scene.IsHeadless)

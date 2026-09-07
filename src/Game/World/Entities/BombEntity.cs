@@ -41,7 +41,7 @@ namespace MphRead.Entities
             {
                 SetUpModel("KandenAlt_TailBomb");
                 Flags |= BombFlags.HasModel;
-                Countdown = 43 * 2; // todo: FPS stuff
+                Countdown = SimTicks.From30HzFrames(43);
             }
             else if (BombType == BombType.Lockjaw)
             {
@@ -49,7 +49,7 @@ namespace MphRead.Entities
                 {
                     _trailModel = Read.GetModelInstance(Recolor == 0 ? "arcWelder" : "arcWelder1");
                 }
-                Countdown = 900 * 2;
+                Countdown = SimTicks.From30HzFrames(900);
                 // bombStartSylux, bombStartSyluxR, bombStartSyluxP, bombStartSyluxW, bombStartSyluxO, or bombStartSyluxG
                 effectId = Metadata.SyluxBombEffects[Recolor];
                 if (Owner.SyluxBombCount == 1)
@@ -67,7 +67,7 @@ namespace MphRead.Entities
             }
             else if (BombType == BombType.MorphBall)
             {
-                Countdown = 43 * 2;
+                Countdown = SimTicks.From30HzFrames(43);
                 effectId = PlayerEntity.PlayerCount > 2 ? 119 : 9; // bombStartMP or bombStart
             }
             if (effectId != 0)
@@ -215,9 +215,9 @@ namespace MphRead.Entities
                         BombEntity? bomb = Owner.SyluxBombs[i];
                         Debug.Assert(bomb != null);
                         bomb._target = hitEntity;
-                        if (bomb.Countdown > 22 * 2) // the game compares against 22.5
+                        if (bomb.Countdown > SimTicks.From30HzFrames(22)) // the game compares against 22.5
                         {
-                            bomb.Countdown = 22 * 2; // todo: FPS stuff
+                            bomb.Countdown = SimTicks.From30HzFrames(22);
                         }
                     }
                 }

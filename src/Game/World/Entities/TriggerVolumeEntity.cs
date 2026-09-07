@@ -43,7 +43,7 @@ namespace MphRead.Entities
             {
                 Active = state != 0;
             }
-            _delayTimer = data.RepeatDelay * 2; // todo: FPS stuff
+            _delayTimer = SimTicks.From30HzFrames(data.RepeatDelay);
             _parentMsgParam2 = GetParam2(data.ParentMessage, data.ParentMsgParam2);
             _childMsgParam2 = GetParam2(data.ChildMessage, data.ChildMsgParam2);
         }
@@ -99,7 +99,7 @@ namespace MphRead.Entities
                 }
                 _scene.SendMessage(_data.ChildMessage, this, _child, _data.ChildMsgParam1, _childMsgParam2);
             }
-            _delayTimer = _data.RepeatDelay * 2; // todo: FPS stuff
+            _delayTimer = SimTicks.From30HzFrames(_data.RepeatDelay);
             if (_data.Subtype == TriggerType.StateBits)
             {
                 Active = false;
@@ -162,7 +162,7 @@ namespace MphRead.Entities
                 }
                 if (!colliding && _data.CheckDelay != 0)
                 {
-                    _delayTimer = _data.CheckDelay * 2; // todo: FPS stuff
+                    _delayTimer = SimTicks.From30HzFrames(_data.CheckDelay);
                 }
             }
             else if (_data.Subtype == TriggerType.Threshold)
@@ -220,7 +220,7 @@ namespace MphRead.Entities
                         }
                         if (_count == _data.TriggerThreshold)
                         {
-                            _delayTimer = _data.CheckDelay * 2; // todo: FPS stuff
+                            _delayTimer = SimTicks.From30HzFrames(_data.CheckDelay);
                         }
                     }
                 }
@@ -239,7 +239,7 @@ namespace MphRead.Entities
                         Active = false;
                         if (_data.Subtype == TriggerType.Automatic)
                         {
-                            _delayTimer = _data.RepeatDelay * 2; // todo: FPS stuff
+                            _delayTimer = SimTicks.From30HzFrames(_data.RepeatDelay);
                         }
                     }
                 }

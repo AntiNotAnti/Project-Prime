@@ -6,6 +6,8 @@ namespace MphRead
         public const int Hz = 60;
         public const int LegacyHz = 30;
         public const int TicksPer30HzFrame = Hz / LegacyHz;
+        // Retained float-second timers must keep their original multiplication/division order.
+        public const float LegacyFrameSeconds = 1f / LegacyHz;
 
         public static int FromSeconds(int seconds) => checked(seconds * Hz);
 
