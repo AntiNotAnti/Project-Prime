@@ -57,21 +57,21 @@ namespace MphRead.Tests
             try
             {
                 byte[] match = Match(5, legacy: true);
-                byte[] snapshot = Snapshot(5, uint.MaxValue, 9);
+                byte[] snapshot = HistoricalSnapshot(5, uint.MaxValue, 9);
                 var roster = new NetRosterEntry[] { new(7, 99, Hunter.Sylux, 7, "Seven") };
                 byte[] rosterBody = new byte[4 + SessionRosterPacket.MaxSize];
                 BinaryPrimitives.WriteUInt32LittleEndian(rosterBody, 5);
-                int rosterSize = SessionRosterPacket.Write(rosterBody.AsSpan(4), 1, roster);
+                int rosterSize = Protocol7DemoRoster.Write(rosterBody.AsSpan(4), 1, roster);
                 byte[] rosterRecord = Record(DemoRecordKind.Roster, rosterBody.AsSpan(0, rosterSize + 4));
                 // Protocol 5/6 authoritative recordings retain the legacy
-                // seventeen-record layout; only live protocol 7 carries the
+                // seventeen-record layout; protocol 7 and later carry the
                 // lifecycle record.
                 byte[] world = World(5, legacy: true);
                 using (var writer = new DemoWriter(path, protocol))
                 {
                     writer.WriteRecord(0, match); writer.WriteRecord(0, rosterRecord);
                     writer.WriteRecord(0, snapshot); writer.WriteRecord(0, world);
-                    writer.WriteRecord(400, Snapshot(5, 0, 12));
+                    writer.WriteRecord(400, HistoricalSnapshot(5, 0, 12));
                 }
                 using (DemoReader reader = DemoReader.Open(path)!)
                 {
@@ -157,6 +157,27 @@ namespace MphRead.Tests
         }
 
         [Fact]
+        public void ModernKillRecordsValidateMatchLengthAndBoundedBuffer()
+        {
+            var state = new ModernDemoState();
+            Assert.True(state.Receive(Match(5)));
+            byte[] body = new byte[5 + KillEvent.Size];
+            BinaryPrimitives.WriteUInt32LittleEndian(body, 5);
+            body[4] = (byte)ReliableEventType.Kill;
+            var kill = new KillEvent(1, 20, 5, 1, new CombatActor(0, 12, 1), new CombatActor(7, 99, 1),
+                0, 0, System.Collections.Immutable.ImmutableArray<CombatActor>.Empty);
+            kill.Write(body.AsSpan(5));
+            byte[] record = Record(DemoRecordKind.Event, body);
+            for (int length = 0; length < record.Length; length++) Assert.False(state.Receive(record.AsSpan(0, length)));
+            for (int i = 0; i < 256; i++) Assert.True(state.Receive(record));
+            Assert.False(state.Receive(record));
+            state.DiscardEvents();
+            Assert.True(state.Receive(record));
+            BinaryPrimitives.WriteUInt32LittleEndian(body.AsSpan(5 + 8), 6);
+            Assert.False(state.Receive(Record(DemoRecordKind.Event, body)));
+        }
+
+        [Fact]
         public void UnsupportedDemoVersionAndOversizedRecordsAreRefused()
         {
             string path = TemporaryFile();
@@ -202,7 +223,8 @@ namespace MphRead.Tests
                 byte[] body = new byte[SnapshotPacket.HeaderSize + SnapshotPlayer.Size];
                 new SnapshotPacket(20, 1, 1, 0, false, 1, 2).Write(body, new[] { source });
                 peer.Connection.Send(transport, NetMessageType.Snapshot, body);
-                peer.Connection.Send(transport, NetMessageType.World, World(1).AsSpan(1));
+                foreach (byte[] world in LiveWorld(1))
+                    peer.Connection.Send(transport, NetMessageType.World, world.AsSpan(1));
                 var hit = new CombatEvent(1, 20, 0, CombatEventKind.Damage, 0, 0,
                     new CombatActor(0, peer.Connection.Id, 1), new CombatActor(0, peer.Connection.Id, 1),
                     80, 20, Vector3.Zero, Vector3.UnitZ, 0, 0, 0);
@@ -210,12 +232,23 @@ namespace MphRead.Tests
                 BinaryPrimitives.WriteUInt32LittleEndian(body, 1);
                 CombatEventBatch.Write(body.AsSpan(4), new[] { hit });
                 Assert.True(peer.Connection.Reliable.TryEnqueue(ReliableEventType.Combat, body, out _));
-                bool receivedEvent = false;
+                var kill = new KillEvent(2, 20, 1, 1, hit.Actor, new CombatActor(1, 999, 1), 4,
+                    KillEventFlags.Headshot, System.Collections.Immutable.ImmutableArray<CombatActor>.Empty);
+                body = new byte[4 + KillEvent.Size]; BinaryPrimitives.WriteUInt32LittleEndian(body, 1);
+                kill.Write(body.AsSpan(4));
+                Assert.True(peer.Connection.Reliable.TryEnqueue(ReliableEventType.Kill, body, out _));
+                var objective = new WorldEvent(3, 20, 1, 1, WorldSubjectKind.Node, WorldSignalKind.NodeCaptured,
+                    0, 123, hit.Actor, new Vector3(1, 2, 3));
+                body = new byte[4 + WorldEvent.Size]; BinaryPrimitives.WriteUInt32LittleEndian(body, 1);
+                objective.Write(body.AsSpan(4));
+                Assert.True(peer.Connection.Reliable.TryEnqueue(ReliableEventType.WorldEvent, body, out _));
+                var receivedTypes = new HashSet<ReliableEventType>();
                 Pump(server, client, () =>
                 {
                     while (client.TryDequeueEvent(out NetApplicationEvent value))
-                    { DemoRecorder.RecordEvent(value); receivedEvent |= value.Type == ReliableEventType.Combat; }
-                    return receivedEvent && client.HasSnapshot;
+                    { DemoRecorder.RecordEvent(value); receivedTypes.Add(value.Type); }
+                    return receivedTypes.Contains(ReliableEventType.Combat) && receivedTypes.Contains(ReliableEventType.Kill)
+                        && receivedTypes.Contains(ReliableEventType.WorldEvent) && client.HasSnapshot;
                 });
                 DemoRecorder.Stop();
                 using DemoReader reader = DemoReader.Open(path)!;
@@ -223,12 +256,29 @@ namespace MphRead.Tests
                 Assert.True(DemoFile.IsAuthoritativeProtocol(reader.ProtocolVersion));
                 var state = new ModernDemoState();
                 var kinds = new HashSet<DemoRecordKind>();
+                bool sawKill = false, sawObjective = false;
                 while (reader.ReadNext() is { } record)
                 {
                     kinds.Add((DemoRecordKind)record.Data[0]);
                     Assert.True(state.Receive(record.Data));
+                    if ((DemoRecordKind)record.Data[0] == DemoRecordKind.Event && record.Data[5] == (byte)ReliableEventType.Kill)
+                    {
+                        Assert.True(KillEvent.TryRead(record.Data.AsSpan(6), out KillEvent restored));
+                        Assert.Equal(kill.Id, restored.Id); Assert.Equal(kill.Killer, restored.Killer);
+                        Assert.Equal(kill.Flags, restored.Flags); Assert.Equal(kill.Victim, restored.Victim);
+                        sawKill = true;
+                    }
+                    if ((DemoRecordKind)record.Data[0] == DemoRecordKind.Event && record.Data[5] == (byte)ReliableEventType.WorldEvent)
+                    {
+                        Assert.True(WorldEvent.TryRead(record.Data.AsSpan(6), out WorldEvent restored));
+                        Assert.Equal(objective, restored); sawObjective = true;
+                    }
                 }
-                Assert.Equal(5, kinds.Count);
+                Assert.Contains(DemoRecordKind.Match, kinds); Assert.Contains(DemoRecordKind.Roster, kinds);
+                Assert.Contains(DemoRecordKind.Snapshot, kinds); Assert.Contains(DemoRecordKind.World, kinds);
+                Assert.True(sawKill); Assert.True(sawObjective);
+                Assert.Contains(reader.Index, entry => entry.Marker == (ReplayMarker.Kill | ReplayMarker.Headshot));
+                Assert.Contains(reader.Index, entry => entry.Marker == ReplayMarker.NodeCapture);
                 Assert.Equal(source.AmmoUa, state.Players[0].AmmoUa);
                 Assert.Equal(source.Points, state.Players[0].Points);
                 Assert.Equal(source.ConnectionId, state.Players[0].ConnectionId);
@@ -250,11 +300,11 @@ namespace MphRead.Tests
         }
 
         private static string TemporaryFile() => Path.Combine(Path.GetTempPath(), $"fruity-demo-test-{Guid.NewGuid():N}.fpdemo");
-        private static byte[] Record(DemoRecordKind kind, ReadOnlySpan<byte> body)
+        internal static byte[] Record(DemoRecordKind kind, ReadOnlySpan<byte> body)
         {
             var data = new byte[1 + body.Length]; data[0] = (byte)kind; body.CopyTo(data.AsSpan(1)); return data;
         }
-        private static byte[] Match(uint match, bool legacy = false)
+        internal static byte[] Match(uint match, bool legacy = false)
         {
             if (legacy)
             {
@@ -269,7 +319,17 @@ namespace MphRead.Tests
             new MatchTransitionPacket(match, 120, GameMode.Battle, "MP1 SANCTORUS").Write(body);
             return Record(DemoRecordKind.Match, body);
         }
-        private static byte[] Snapshot(uint match, uint sequence, int points)
+        private static byte[] HistoricalSnapshot(uint match, uint sequence, int points)
+        {
+            var player = new Protocol7SnapshotPlayer { Slot = 7, Hunter = Hunter.Sylux, TeamIndex = 7, ConnectionId = 99,
+                Life = 1, Aim = Vector3.UnitZ, Facing = Vector3.UnitZ, Points = points, AmmoUa = 31,
+                AvailableWeapons = 1, Health = 100,
+                Flags = Protocol7SnapshotPlayerFlags.Active | Protocol7SnapshotPlayerFlags.Spawned };
+            var body = new byte[Protocol7SnapshotPacket.HeaderSize + Protocol7SnapshotPlayer.Size];
+            new Protocol7SnapshotPacket(120, sequence, match, 0, false, 1, 2).Write(body, new[] { player });
+            return Record(DemoRecordKind.Snapshot, body);
+        }
+        internal static byte[] Snapshot(uint match, uint sequence, int points)
         {
             var player = new SnapshotPlayer { Slot = 7, Hunter = Hunter.Sylux, TeamIndex = 7, ConnectionId = 99,
                 Life = 1, Aim = Vector3.UnitZ, Facing = Vector3.UnitZ, Points = points, AmmoUa = 31,
@@ -296,6 +356,36 @@ namespace MphRead.Tests
             var body = new byte[WorldPacket.HeaderSize + records.Length * WorldRecord.Size];
             WorldPacket.Write(body, match, 1, 120, records, 0);
             return Record(DemoRecordKind.World, body);
+        }
+
+        internal static IEnumerable<byte[]> LiveWorld(uint match)
+        {
+            var records = new WorldRecord[WorldPacket.CanonicalRecordCount];
+            records[0] = new WorldRecord(WorldRecordKind.Match, 255, 0, 0, new Vector3(600, 600, 0), 3,
+                (uint)MatchPhase.Playing, 10, uint.MaxValue, 0);
+            for (byte slot = 0; slot < 8; slot++)
+            {
+                records[1 + slot * 2] = new WorldRecord(WorldRecordKind.Score, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+                records[2 + slot * 2] = new WorldRecord(WorldRecordKind.Time, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+            }
+            records[17] = new WorldRecord(WorldRecordKind.Lifecycle, 255, 0, 0, Vector3.Zero, 0, 0, 1, 0, 0);
+            for (byte slot = 0; slot < 8; slot++)
+            {
+                int index = 18 + slot * 5;
+                records[index] = new(WorldRecordKind.CombatStats, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+                records[index + 1] = new(WorldRecordKind.ObjectiveStats, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+                records[index + 2] = new(WorldRecordKind.WeaponStats0, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+                records[index + 3] = new(WorldRecordKind.WeaponStats1, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+                records[index + 4] = new(WorldRecordKind.PlayerIdentity, slot, 0, 0, Vector3.Zero,
+                    (uint)Hunter.Samus, slot < 2 ? slot : uint.MaxValue, slot < 2 ? 1u : 0u, 0, 0)
+                { PlayerName = $"P{slot}" };
+            }
+            byte[] body = new byte[WorldPacket.MaxSize];
+            for (int offset = 0; offset < records.Length; offset += WorldPacket.RecordsPerBatch)
+            {
+                int length = WorldPacket.Write(body, match, 1, 120, records, offset);
+                yield return Record(DemoRecordKind.World, body.AsSpan(0, length));
+            }
         }
     }
 }

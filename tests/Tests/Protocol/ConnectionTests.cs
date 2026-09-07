@@ -166,15 +166,19 @@ namespace MphRead.Tests
         public void ReliableIdSpanCannotEvictAnUndeliveredOldMessage()
         {
             var sender = new ReliableChannel();
+            var receiver = new ReliableChannel();
             sender.TryEnqueue(ReliableEventType.Welcome, default, out uint oldest);
-            for (uint i = 1; i <= 32; i++)
+            for (uint i = 1; i < ReliableChannel.EventWindowCapacity; i++)
             {
                 Assert.True(sender.TryEnqueue(ReliableEventType.MatchState, default, out uint id));
+                Assert.True(receiver.Receive(id));
                 sender.MarkSent(id, i, i);
                 sender.Acknowledge(i, 0);
             }
             Assert.Equal(1, sender.PendingCount);
             Assert.False(sender.TryEnqueue(ReliableEventType.MatchState, default, out _));
+            Assert.True(receiver.Receive(oldest));
+            Assert.False(receiver.Receive(oldest));
             sender.MarkSent(oldest, 100, 100);
             sender.Acknowledge(100, 0);
             Assert.True(sender.TryEnqueue(ReliableEventType.MatchState, default, out _));

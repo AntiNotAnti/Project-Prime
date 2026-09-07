@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using MphRead.Formats;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 using Xunit;
@@ -26,7 +27,21 @@ namespace MphRead.Tests
                 records[17] = new WorldRecord(WorldRecordKind.Lifecycle, 255, 0, 0,
                     Vector3.Zero, 0, 0, 1, 0, 0);
             }
-            for (int i = 18; i < count; i++)
+            for (byte slot = 0; slot < 8; slot++)
+            {
+                int index = 18 + slot * 5;
+                if (index < count) records[index] = new(WorldRecordKind.CombatStats, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+                if (index + 1 < count) records[index + 1] = new(WorldRecordKind.ObjectiveStats, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+                if (index + 2 < count) records[index + 2] = new(WorldRecordKind.WeaponStats0, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+                if (index + 3 < count) records[index + 3] = new(WorldRecordKind.WeaponStats1, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+                if (index + 4 < count)
+                {
+                    records[index + 4] = new(WorldRecordKind.PlayerIdentity, slot, 0, 0, Vector3.Zero,
+                        (uint)Hunter.Samus, slot < 2 ? slot : uint.MaxValue, slot < 2 ? 1u : 0u, 0, 0)
+                    { PlayerName = $"P{slot}" };
+                }
+            }
+            for (int i = WorldPacket.CanonicalRecordCount; i < count; i++)
             { records[i] = new WorldRecord(WorldRecordKind.Item, (byte)(i % 22), 0, (uint)i, new Vector3(i, 2, 3), uint.MaxValue, uint.MaxValue, 0, 0, 0); }
             return records;
         }
@@ -57,15 +72,17 @@ namespace MphRead.Tests
         [Fact]
         public void LossKeepsPreviousCompleteStateAndNewRevisionSupersedesPartialAcrossWrap()
         {
-            var source = Records(30);
+            var source = Records(64);
             var client = new ClientWorldState(); client.Reset(7);
             Assert.False(client.Receive(Batch(source, 0, uint.MaxValue)));
-            Assert.True(client.Receive(Batch(source, 24, uint.MaxValue)));
+            Assert.False(client.Receive(Batch(source, 24, uint.MaxValue)));
+            Assert.True(client.Receive(Batch(source, 48, uint.MaxValue)));
             Assert.False(client.Receive(Batch(source, 0, 0)));
             Assert.Equal(uint.MaxValue, client.Revision);
             Assert.False(client.Receive(Batch(source, 24, 1)));
             Assert.False(client.Receive(Batch(source, 24, 0)));
-            Assert.True(client.Receive(Batch(source, 0, 1)));
+            Assert.False(client.Receive(Batch(source, 0, 1)));
+            Assert.True(client.Receive(Batch(source, 48, 1)));
             Assert.Equal(1u, client.Revision);
             client.Reset(8);
             Assert.False(client.Receive(Batch(source, 0, 2)));
@@ -74,7 +91,7 @@ namespace MphRead.Tests
         [Fact]
         public void MalformedBatchCannotContaminateAssembly()
         {
-            WorldRecord[] records = Records(30);
+            WorldRecord[] records = Records(64);
             byte[] data = Batch(records, 0);
             for (int size = 0; size < data.Length; size++) { Assert.False(WorldPacket.TryValidate(data.AsSpan(0, size), 7)); }
             Assert.False(WorldPacket.TryValidate(data, 8));
@@ -85,18 +102,39 @@ namespace MphRead.Tests
             bad = (byte[])data.Clone(); BinaryPrimitives.WriteUInt32LittleEndian(bad.AsSpan(WorldPacket.HeaderSize + 8), 0x7FC00000);
             var client = new ClientWorldState(); client.Reset(7);
             Assert.False(client.Receive(bad)); Assert.False(client.Receive(Batch(records, 24)));
-            Assert.True(client.Receive(data));
+            Assert.False(client.Receive(data));
+            Assert.True(client.Receive(Batch(records, 48)));
             Assert.Equal(records, client.Records.ToArray());
         }
         [Fact]
         public void DuplicateIdsAcrossBatchesAndMissingGlobalTablesAreRejected()
         {
-            var records = Records(30); records[29] = records[18] with { Slot = 3 };
+            var records = Records(70); records[69] = records[58] with { Slot = 3 };
             var client = new ClientWorldState(); client.Reset(7);
             Assert.False(client.Receive(Batch(records, 0))); Assert.False(client.Receive(Batch(records, 24)));
+            Assert.False(client.Receive(Batch(records, 48)));
             Assert.False(client.HasState);
+            client.Reset(7);
             records = Records(17); records[4] = records[3];
             Assert.False(client.Receive(Batch(records, 0, 2)));
+            Assert.False(client.HasState);
+        }
+        [Fact]
+        public void CanonicalLivePrefixDecodesOnlyWhenComplete()
+        {
+            var records = Records(WorldPacket.CanonicalRecordCount);
+            var client = new ClientWorldState(); client.Reset(7);
+            Assert.True(client.ValidatePacket(Batch(records, 0)));
+            Assert.False(client.Receive(Batch(records, 24)));
+            Assert.False(client.Receive(Batch(records, 48)));
+            Assert.True(client.Receive(Batch(records, 0)));
+            Assert.Equal(records, client.Records.ToArray());
+
+            records = Records(WorldPacket.CanonicalRecordCount - 1);
+            client.Reset(7);
+            Assert.False(client.Receive(Batch(records, 0, 2)));
+            Assert.False(client.Receive(Batch(records, 24, 2)));
+            Assert.False(client.Receive(Batch(records, 48, 2)));
             Assert.False(client.HasState);
         }
         [Fact]

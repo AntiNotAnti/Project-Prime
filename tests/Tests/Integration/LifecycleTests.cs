@@ -151,7 +151,7 @@ namespace MphRead.Tests
             {
                 Slot = peer.Slot, Hunter = peer.Hunter, ConnectionId = peer.Connection.Id,
                 Flags = SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned,
-                Aim = -Vector3.UnitZ, Facing = -Vector3.UnitZ, Health = 100, AvailableWeapons = 1
+                Life = 1, Aim = -Vector3.UnitZ, Facing = -Vector3.UnitZ, Health = 100, AvailableWeapons = 1
             };
             new SnapshotPacket(10, 1, matchId, 1, true, 1, 1).Write(payload, new[] { player });
             return payload;

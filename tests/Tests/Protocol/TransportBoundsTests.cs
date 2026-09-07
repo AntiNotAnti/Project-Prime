@@ -176,7 +176,7 @@ namespace MphRead.Tests
         }
 
         [Fact]
-        public void WorkerKeepsEightPeersAliveUsingOwnedImmutableDatagrams()
+        public void WorkerKeepsFullPlayerAndObserverCapacityAliveUsingOwnedImmutableDatagrams()
         {
             using var transport = new NetTransport(0);
             var receivers = new UdpClient[NetTransport.MaxKeepAlives];
@@ -193,7 +193,7 @@ namespace MphRead.Tests
                 }
                 transport.SetKeepAlives(entries);
                 Assert.Throws<ArgumentException>(() => transport.SetKeepAlives([entries[0], default]));
-                Assert.Throws<ArgumentOutOfRangeException>(() => transport.SetKeepAlives(new NetKeepAlive[9]));
+                Assert.Throws<ArgumentOutOfRangeException>(() => transport.SetKeepAlives(new NetKeepAlive[NetTransport.MaxKeepAlives + 1]));
                 for (int i = 0; i < entries.Length; i++)
                 {
                     entries[i].Endpoint.Port = 9;

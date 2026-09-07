@@ -13,7 +13,7 @@ namespace MphRead.Tests
         {
             Slot = slot, Hunter = Hunter.Samus, Life = 1, ConnectionId = (ulong)slot + 100,
             Aim = Vector3.UnitZ, Facing = Vector3.UnitZ, Health = 99,
-            Flags = SnapshotPlayerFlags.Burning | SnapshotPlayerFlags.Disrupted,
+            Flags = SnapshotPlayerFlags.Burning | SnapshotPlayerFlags.Disrupted | SnapshotPlayerFlags.RadarReveal | SnapshotPlayerFlags.RadarRevealPrevious,
             BurnTicks = 300, DisruptTicks = 180, Assists = 7
         };
 
@@ -29,6 +29,8 @@ namespace MphRead.Tests
             Assert.True(SnapshotPlayer.TryRead(bytes, out SnapshotPlayer parsed));
             Assert.Equal(300, parsed.BurnTicks);
             Assert.Equal(180, parsed.DisruptTicks);
+            Assert.True((parsed.Flags & SnapshotPlayerFlags.RadarReveal) != 0);
+            Assert.True((parsed.Flags & SnapshotPlayerFlags.RadarRevealPrevious) != 0);
             Assert.Equal(818, NetHeader.Size + SnapshotPacket.MaxSize);
             Assert.Equal(8, NetHeader.Version);
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 7));
@@ -103,17 +105,34 @@ namespace MphRead.Tests
             Assert.True(Protocol7DemoRules.TryRead(bytes.AsSpan(0, 68), out MatchRules legacy));
             Assert.Equal(SpawnPolicy.Classic, legacy.SpawnPolicy);
             Assert.False(legacy.CancelSpawnProtectionOnOffensiveAction);
+            Assert.Equal(20, legacy.AssistMinimumDamage);
+            Assert.Equal(300, legacy.AssistWindowTicks);
+            Assert.Equal(OvertimePolicy.Disabled, legacy.OvertimePolicy);
+            Assert.Equal(LateJoinPolicy.JoinImmediately, legacy.LateJoinPolicy);
+            Assert.False(legacy.PickupRespawnAnnouncements);
+            Assert.Equal(RulesetPreset.Classic, legacy.RulesetPreset);
+            Assert.Equal(RankingEligibility.Unranked, legacy.RankingEligibility);
+            Assert.Equal(RadarPolicy.Classic, legacy.RadarPolicy);
+            Assert.Equal(TeamBalancePolicy.BeforeStart, legacy.TeamBalancePolicy);
             Assert.False(MatchRulesWire.TryRead(bytes.AsSpan(0, 68), out _));
-            foreach (int offset in new[] { 69, 70, 71, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83 })
+            foreach ((int offset, byte value) in new[]
             {
-                bytes[offset] = 1;
+                (71, (byte)4), // RulesetPreset.Custom is the final assigned value.
+                (73, (byte)1), // High byte makes the cancel/announcement flags exceed their mask.
+                (78, (byte)2), // RankingEligibility.VerifiedServerOnly is the final assigned value.
+                (79, (byte)3), // RadarPolicy.Enabled is the final assigned value.
+                (80, (byte)2), // TeamBalancePolicy.Locked is the final assigned value.
+                (81, (byte)1), (82, (byte)1), (83, (byte)1)
+            })
+            {
+                bytes[offset] = value;
                 Assert.False(MatchRulesWire.TryRead(bytes, out _));
                 bytes[offset] = 0;
             }
             bytes[68] = 3;
             Assert.False(MatchRulesWire.TryRead(bytes, out _));
             bytes[68] = 0;
-            bytes[72] = 2;
+            bytes[72] = 4;
             Assert.False(MatchRulesWire.TryRead(bytes, out _));
         }
 

@@ -56,7 +56,8 @@ class ProjectBoundaryGuardTests(unittest.TestCase):
             "Android": ("../Shared/Shared.cs", "../Client/Client.cs"),
         }
         for name, references in GUARD.PROJECTS.items():
-            packages = ("OpenTK.Mathematics",) if name == "Game" else ()
+            packages = ("OpenTK.Mathematics",) if name == "Game" else (
+                ("Microsoft.IdentityModel.JsonWebTokens",) if name == "Server" else ())
             self.write(
                 f"src/{name}/{name}.csproj",
                 self.project(name, references, packages, links.get(name, ())),
@@ -82,8 +83,51 @@ class ProjectBoundaryGuardTests(unittest.TestCase):
 
         errors = self.inspect()
 
-        self.assertIn("Server: project references ['Client']; expected ['Game']", errors)
+        self.assertIn("Server: project references ['Client']; expected ['Game', 'Shared.Replay']", errors)
         self.assertIn("Server: unexpected platform packages: ['Avalonia']", errors)
+
+    def test_backend_allows_game_only_and_rejects_client_dependency(self):
+        self.write_baseline()
+        self.write(
+            "src/Backend/Backend.csproj",
+            self.project("Backend", ("Client",), ("Avalonia",)),
+        )
+
+        errors = self.inspect()
+
+        self.assertIn("Backend: project references ['Client']; expected ['Game']", errors)
+        self.assertIn("Backend: unexpected platform packages: ['Avalonia']", errors)
+
+    def test_shared_replay_allows_game_only_and_rejects_client_dependency(self):
+        self.write_baseline()
+        self.write(
+            "src/Shared.Replay/Shared.Replay.csproj",
+            self.project("Shared.Replay", ("Client",), ("Avalonia",)),
+        )
+
+        errors = self.inspect()
+
+        self.assertIn("Shared.Replay: project references ['Client']; expected ['Game']", errors)
+        self.assertIn("Shared.Replay: unexpected packages: ['Avalonia']", errors)
+
+    def test_backend_platform_source_is_rejected(self):
+        self.write_baseline()
+        self.write("src/Backend/Ui.cs", "using Avalonia.Controls;\nclass UiFixture { }\n")
+
+        errors = self.inspect()
+
+        self.assertIn("src/Backend/Ui.cs:1: platform dependency Avalonia", errors)
+
+    def test_backend_cannot_link_client_source(self):
+        self.write_baseline()
+        self.write(
+            "src/Backend/Backend.csproj",
+            self.project("Backend", ("Game",), links=("../Client/Client.cs",)),
+        )
+
+        errors = self.inspect()
+
+        self.assertIn("src/Backend/Backend.csproj: invalid Backend source link: ../Client/Client.cs", errors)
 
     def test_cross_tree_source_glob_is_rejected(self):
         self.write_baseline()

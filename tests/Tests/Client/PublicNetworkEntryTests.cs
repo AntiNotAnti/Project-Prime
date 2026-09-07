@@ -43,7 +43,8 @@ namespace MphRead.Tests
             owner.Start();
             try
             {
-                Assert.Equal(7, NetConfig.ProtocolVersion);
+                // Public joins advertise the current live protocol, v8.
+                Assert.Equal(8, NetConfig.ProtocolVersion);
                 Assert.True(NetProbe.Probe("127.0.0.1", transport.LocalPort).Ok);
                 Assert.True(NetLaunch.Join("127.0.0.1", transport.LocalPort, "PUBLIC", Hunter.Samus));
                 Assert.False(NetSession.Active);

@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using MphRead.Formats;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 using Xunit;
@@ -16,7 +17,9 @@ namespace MphRead.Tests
         [Fact]
         public void CompleteRulesRoundTripAcrossReliableBoundaries()
         {
-            Assert.Equal(7, NetHeader.Version);
+            // Live authoritative packets use protocol 8; older demo fixtures
+            // below intentionally keep their historical protocol versions.
+            Assert.Equal(8, NetHeader.Version);
             foreach (MatchMode mode in Enum.GetValues<MatchMode>())
             {
                 MatchRules rules = Rules(mode);
@@ -34,6 +37,24 @@ namespace MphRead.Tests
         }
 
         [Fact]
+        public void PacketWrappersWriteOnlyTheirPrefixInLargerScratchBuffers()
+        {
+            byte[] scratch = new byte[NetConfig.MaxPacketSize];
+            Array.Fill(scratch, (byte)0xA5);
+            var welcome = new JoinAcceptedPacket(123, 5, 42, 100, 60, Rules());
+            welcome.Write(scratch);
+            Assert.True(JoinAcceptedPacket.TryRead(scratch.AsSpan(0, JoinAcceptedPacket.Size), out var decoded));
+            Assert.Equal(welcome, decoded);
+            for (int i = JoinAcceptedPacket.Size; i < scratch.Length; i++) Assert.Equal(0xA5, scratch[i]);
+            Array.Fill(scratch, (byte)0xA5);
+            var transition = new MatchTransitionPacket(42, 100, Rules());
+            transition.Write(scratch);
+            Assert.True(MatchTransitionPacket.TryRead(scratch.AsSpan(0, MatchTransitionPacket.Size), out var next));
+            Assert.Equal(transition, next);
+            for (int i = MatchTransitionPacket.Size; i < scratch.Length; i++) Assert.Equal(0xA5, scratch[i]);
+        }
+
+        [Fact]
         public void AbsentAndZeroDurationsRemainDistinct()
         {
             foreach (TimeSpan? duration in new TimeSpan?[] { null, TimeSpan.Zero, TimeSpan.FromDays(1) })
@@ -44,6 +65,49 @@ namespace MphRead.Tests
                 Assert.True(MatchRulesWire.TryRead(bytes, out var decoded));
                 Assert.Equal(rules, decoded);
             }
+        }
+
+        [Fact]
+        public void AssignedExtensionFieldsRoundTripWithoutLosingPolicyMeaning()
+        {
+            MatchRules rules = new(MatchMode.Battle, "POLICY", maxPlayers: 2,
+                timeLimit: TimeSpan.FromMinutes(7), scoreGoal: 7,
+                spawnPolicy: SpawnPolicy.Duel, cancelSpawnProtectionOnOffensiveAction: true,
+                assistMinimumDamage: 31, assistWindowTicks: 401,
+                overtimePolicy: OvertimePolicy.ModeDefault,
+                lateJoinPolicy: LateJoinPolicy.SpectateUntilNextMatch,
+                pickupRespawnAnnouncements: true,
+                rulesetPreset: RulesetPreset.Duel,
+                rankingEligibility: RankingEligibility.VerifiedServerOnly,
+                radarPolicy: RadarPolicy.Disabled,
+                teamBalancePolicy: TeamBalancePolicy.Locked);
+            byte[] bytes = new byte[MatchRulesWire.Size];
+
+            MatchRulesWire.Write(bytes, rules);
+
+            Assert.Equal((byte)RulesetPreset.Duel, bytes[71]);
+            Assert.Equal((byte)RankingEligibility.VerifiedServerOnly, bytes[78]);
+            Assert.Equal((byte)RadarPolicy.Disabled, bytes[79]);
+            Assert.Equal((byte)TeamBalancePolicy.Locked, bytes[80]);
+            Assert.True(MatchRulesWire.TryRead(bytes, out MatchRules decoded));
+            Assert.Equal(rules, decoded);
+        }
+
+        [Theory]
+        [InlineData(71, 4)] // RulesetPreset.Custom is the final assigned value.
+        [InlineData(78, 2)] // RankingEligibility.VerifiedServerOnly is the final assigned value.
+        [InlineData(79, 3)] // RadarPolicy.Enabled is the final assigned value.
+        [InlineData(80, 2)] // TeamBalancePolicy.Locked is the final assigned value.
+        [InlineData(81, 1)]
+        [InlineData(82, 1)]
+        [InlineData(83, 1)]
+        public void InvalidAssignedOrReservedExtensionBytesAreRejected(int offset, byte value)
+        {
+            byte[] bytes = new byte[MatchRulesWire.Size];
+            MatchRulesWire.Write(bytes, Rules());
+            bytes[offset] = value;
+
+            Assert.False(MatchRulesWire.TryRead(bytes, out _));
         }
 
         [Theory]
@@ -167,7 +231,7 @@ namespace MphRead.Tests
             {
                 MatchRules rules = new(MatchMode.Survival, "TEST", playerRadar: false);
                 scene.Match.ApplyRules(rules);
-                var records = new WorldRecord[18];
+                var records = new WorldRecord[WorldPacket.CanonicalRecordCount];
                 records[0] = new(WorldRecordKind.Match, 255, 2, 0, new Vector3(-1, 0, 0),
                     (uint)GameMode.Survival, (uint)MatchPhase.Playing, 0, uint.MaxValue, 0);
                 for (byte slot = 0; slot < 8; slot++)
@@ -176,18 +240,38 @@ namespace MphRead.Tests
                     records[2 + slot * 2] = new(WorldRecordKind.Time, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
                 }
                 records[17] = new(WorldRecordKind.Lifecycle, 255, 0, 0, Vector3.Zero, 0, 0, 1, 0, 0);
+                for (byte slot = 0; slot < 8; slot++)
+                {
+                    int index = 18 + slot * 5;
+                    records[index] = new(WorldRecordKind.CombatStats, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+                    records[index + 1] = new(WorldRecordKind.ObjectiveStats, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+                    records[index + 2] = new(WorldRecordKind.WeaponStats0, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+                    records[index + 3] = new(WorldRecordKind.WeaponStats1, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
+                    records[index + 4] = new(WorldRecordKind.PlayerIdentity, slot, 0, 0, Vector3.Zero,
+                        (uint)Hunter.Samus, slot < 2 ? slot : uint.MaxValue, slot < 2 ? 1u : 0u, 0, 0)
+                    { PlayerName = $"P{slot}" };
+                }
                 var world = new ClientWorldState(); world.Reset(7);
                 byte[] packet = new byte[WorldPacket.MaxSize];
-                int length = WorldPacket.Write(packet, 7, 1, 0, records, 0);
-                Assert.True(world.Receive(packet.AsSpan(0, length)));
+                int lastLength = 0;
+                bool ReceiveBatch(int offset, uint revision, uint tick)
+                {
+                    lastLength = WorldPacket.Write(packet, 7, revision, tick, records, offset);
+                    Assert.True(WorldPacket.TryValidate(packet.AsSpan(0, lastLength), 7));
+                    return world.Receive(packet.AsSpan(0, lastLength));
+                }
+                Assert.False(ReceiveBatch(0, 1, 0));
+                Assert.False(ReceiveBatch(24, 1, 0));
+                Assert.True(ReceiveBatch(48, 1, 0));
                 world.Apply(scene);
                 Assert.True(scene.Match.RadarPlayers);
                 Assert.Same(rules, scene.Match.Rules);
                 Assert.False(rules.PlayerRadar);
-                Assert.False(WorldPacket.TryValidate(packet.AsSpan(0, length), 7, legacy: true));
+                Assert.False(WorldPacket.TryValidate(packet.AsSpan(0, lastLength), 7, legacy: true));
                 records[0] = records[0] with { Flags = 0 };
-                length = WorldPacket.Write(packet, 7, 2, 1, records, 0);
-                Assert.True(world.Receive(packet.AsSpan(0, length)));
+                Assert.False(ReceiveBatch(0, 2, 1));
+                Assert.False(ReceiveBatch(24, 2, 1));
+                Assert.True(ReceiveBatch(48, 2, 1));
                 world.Apply(scene);
                 Assert.False(scene.Match.RadarPlayers);
                 Assert.Same(rules, scene.Match.Rules);
