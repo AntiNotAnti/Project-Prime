@@ -9,6 +9,8 @@ namespace MphRead.NetTest
     {
         private static int Main(string[] args)
         {
+            if (args.Length > 0 && args[0].TrimStart('-') is "headlesscheck" or "server-sim" or "combatcheck" or "spectatorcheck" or "combatduel")
+                return RunContentDiagnostic(args);
             if (args.Length > 0)
             {
                 switch (args[0])
@@ -61,8 +63,49 @@ namespace MphRead.NetTest
             }
         }
 
+        private static int RunContentDiagnostic(string[] args)
+        {
+            string command = args[0].TrimStart('-');
+            string? Value(string name)
+            {
+                for (int i = 0; i < args.Length - 1; i++)
+                    if (args[i].TrimStart('-').Equals(name, StringComparison.OrdinalIgnoreCase)
+                        && (!args[i + 1].StartsWith('-') || Int32.TryParse(args[i + 1], out _))) return args[i + 1];
+                return null;
+            }
+            bool Has(string name) => Array.Exists(args, value => value.TrimStart('-').Equals(name, StringComparison.OrdinalIgnoreCase));
+            string? data = Value("data");
+            if (data == null) { Console.Error.WriteLine("This diagnostic requires --data DIRECTORY."); return 2; }
+            string version = Value("dataversion") ?? "AMHE1";
+            string room = Value(command) ?? "MP1 SANCTORUS";
+            try
+            {
+                if (Value("mapdir") is string maps) MphRead.Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.GetFullPath(maps);
+                return command switch
+                {
+                    "combatcheck" => ServerCombatCheck.Run(data, version, room),
+                    "spectatorcheck" => ServerSpectatorCheck.Run(data, version, room),
+                    "combatduel" => ServerCombatDuelCheck.Run(data, version, room,
+                        Int32.TryParse(Value("seconds"), out int duration) ? duration : 30,
+                        Enum.TryParse(Value("weapon"), true, out BeamType weapon) ? weapon : BeamType.Imperialist),
+                    _ => HeadlessCheck.Run(data, version, room,
+                        Int32.TryParse(Value("frames"), out int frames) ? frames : command == "server-sim" ? -1 : 600,
+                        Int32.TryParse(Value("players"), out int players) ? players : 8,
+                        Enum.TryParse(Value("mode"), true, out GameMode mode) ? mode : GameMode.Battle,
+                        realtime: Has("realtime") || command == "server-sim")
+                };
+            }
+            catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+        }
+
         private static void PrintUsage()
         {
+            Console.WriteLine("--headlesscheck [ROOM] --data DIRECTORY [--frames 600 --players 8 --mode Battle --realtime]");
+            Console.WriteLine("--server-sim [ROOM] --data DIRECTORY: realtime headless simulation until stopped");
+            Console.WriteLine("--combatcheck [ROOM] --data DIRECTORY: direct authoritative weapon probes");
+            Console.WriteLine("--spectatorcheck [ROOM] --data DIRECTORY: participation and objective checks");
+            Console.WriteLine("--combatduel [ROOM] --data DIRECTORY [--seconds 30 --weapon Imperialist]: real UDP combat fixture");
+            Console.WriteLine("Content diagnostics accept --dataversion AMHE1 and --mapdir DIRECTORY; legacy single-dash spellings remain accepted.");
             Console.WriteLine("nettest [HOST [PORT]]: authoritative join, ready, roster, clock, input and snapshot checks");
             Console.WriteLine("--simulation SECONDS PORT,... | --authority-check PORT,... | --baseline SECONDS PORT,...");
             Console.WriteLine("--world-check DATA MODE | --match-lifecycle DATA | --connection-server PORT");

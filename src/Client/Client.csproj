@@ -1,0 +1,128 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Source files are physically owned by Client after extraction. There is no
+    Compile Include pointing back to the old src/MphRead tree.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType Condition="$(RuntimeIdentifier.StartsWith('win'))">WinExe</OutputType>
+    <OutputType Condition="!$(RuntimeIdentifier.StartsWith('win'))">Exe</OutputType>
+    <RootNamespace>MphRead</RootNamespace>
+    <AssemblyName>FruityPrime</AssemblyName>
+    <Product>Fruity Prime</Product>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugType>embedded</DebugType>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <PublishSingleFile>true</PublishSingleFile>
+    <!-- All current UI is C#; AvaloniaResource still embeds the images. -->
+    <EnableAvaloniaXamlCompilation>false</EnableAvaloniaXamlCompilation>
+    <ApplicationIcon Condition="$(RuntimeIdentifier.StartsWith('win'))">Assets/fruity-prime.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Game/Game.csproj" />
+    <ProjectReference Include="../Audio.Ncsf/Audio.Ncsf.csproj" />
+
+    <PackageReference Include="Avalonia" Version="11.3.11" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.11" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.11" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
+    <!-- Full OpenTK is client-only: GL, GLFW/windowing and OpenAL bindings. -->
+    <PackageReference Include="OpenTK" Version="4.9.4" />
+    <!-- Client-side captures/thumbnails and image export still use STB. -->
+    <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
+    <!-- File-source package; explicit items below preserve loader names. -->
+    <PackageReference Include="Silk.NET.OpenAL.Soft.Native" Version="1.23.1"
+                      GeneratePathProperty="true" ExcludeAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/fruity-prime-logo.png" />
+    <AvaloniaResource Include="Assets/fruity-prime-mark.png" />
+    <None Update="paths.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- Silk's source names differ from OpenTK's loader names. Keep these
+       side-by-side native files: this is the layout used by prior publishes. -->
+  <PropertyGroup>
+    <MphReadAudioRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</MphReadAudioRid>
+    <MphReadAudioRid Condition="'$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">win-x64</MphReadAudioRid>
+    <MphReadAudioRid Condition="'$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('Linux'))">linux-x64</MphReadAudioRid>
+    <MphReadAudioRid Condition="'$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">osx-x64</MphReadAudioRid>
+  </PropertyGroup>
+
+  <ItemGroup Condition="$(MphReadAudioRid.StartsWith('win'))">
+    <None Include="$(PkgSilk_NET_OpenAL_Soft_Native)/runtimes/$(MphReadAudioRid)/native/soft_oal.dll"
+          Link="openal32.dll" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+  <ItemGroup Condition="$(MphReadAudioRid.StartsWith('linux'))">
+    <None Include="$(PkgSilk_NET_OpenAL_Soft_Native)/runtimes/$(MphReadAudioRid)/native/libopenal.so"
+          Link="libopenal.so.1" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+  <ItemGroup Condition="$(MphReadAudioRid.StartsWith('osx'))">
+    <None Include="$(PkgSilk_NET_OpenAL_Soft_Native)/runtimes/$(MphReadAudioRid)/native/libopenal.dylib"
+          Link="libopenal.1.dylib" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <!-- Bundles ship; map work trees and .pk3 sources are output-only. -->
+  <ItemGroup>
+    <None Include="../../maps/**/*.fpmap;../../maps/*.json;../../maps/*.bsp;../../maps/*.tex"
+          Link="maps/%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="../../maps/**/*.json;../../maps/**/*.bsp;../../maps/**/*.tex;../../maps/**/*.pk3"
+          Exclude="../../maps/*.json;../../maps/*.bsp;../../maps/*.tex"
+          Link="maps/%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <Compile Include="../Shared/ContentImport/Extract.cs" Link="Shared/ContentImport/Extract.cs" />
+    <Compile Include="../Shared/ContentPreparation/RepackModelPacking.cs" Link="Shared/ContentPreparation/RepackModelPacking.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapTextureBake.cs" Link="Shared/ContentPreparation/MapTextureBake.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapPreparation.cs" Link="Shared/ContentPreparation/MapPreparation.cs" />
+    <Compile Include="../Shared/ContentPreparation/CollisionDataEditor.cs" Link="Shared/ContentPreparation/CollisionDataEditor.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapCollisionPacker.cs" Link="Shared/ContentPreparation/MapCollisionPacker.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapPacker.cs" Link="Shared/ContentPreparation/MapPacker.cs" />
+    <Compile Include="../Shared/ContentPreparation/RepackEntityPacking.cs" Link="Shared/ContentPreparation/RepackEntityPacking.cs" />
+    <Compile Include="../Shared/ContentPreparation/EntityMapEditors.cs" Link="Shared/ContentPreparation/EntityMapEditors.cs" />
+    <Compile Include="../Shared/ContentPreparation/BuiltMap.cs" Link="Shared/ContentPreparation/BuiltMap.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapBuilder.cs" Link="Shared/ContentPreparation/MapBuilder.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapImageDecoding.cs" Link="Shared/ContentPreparation/MapImageDecoding.cs" />
+    <Compile Include="../Shared/ContentPreparation/Q3Bsp.cs" Link="Shared/ContentPreparation/Q3Bsp.cs" />
+    <Compile Include="../Shared/ContentPreparation/Q3Import.cs" Link="Shared/ContentPreparation/Q3Import.cs" />
+    <Compile Include="../Shared/ContentPreparation/RawStructs.cs" Link="Shared/ContentPreparation/RawStructs.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapNodePacker.cs" Link="Shared/ContentPreparation/MapNodePacker.cs" />
+    <Compile Include="../Shared/Transport/UdpTransport.cs" Link="Shared/Transport/UdpTransport.cs" />
+    <Compile Include="../Shared/Imaging/StbImageDecoder.cs" Link="Shared/Imaging/StbImageDecoder.cs" />
+    <Compile Include="../Shared/Hosting/BuildVersion.cs" Link="Shared/Hosting/BuildVersion.cs" />
+    <Compile Include="../Shared/Hosting/ConsoleSetup.cs" Link="Shared/Hosting/ConsoleSetup.cs" />
+    <Compile Include="../Shared/Hosting/RuntimePlatform.cs" Link="Shared/Hosting/RuntimePlatform.cs" />
+    <Compile Include="../Shared/Hosting/ServerProcessHost.cs" Link="Shared/Hosting/ServerProcessHost.cs" />
+  </ItemGroup>
+  <!-- Host is a separate executable, shipped as content rather than referenced. -->
+  <PropertyGroup>
+    <HostServerArtifactsPath Condition="'$(ArtifactsPath)' != ''">$(ArtifactsPath)/client-host-server</HostServerArtifactsPath>
+    <HostServerArtifactsPath Condition="'$(HostServerArtifactsPath)' == ''">$(MSBuildProjectDirectory)/obj/host-server</HostServerArtifactsPath>
+  </PropertyGroup>
+  <Target Name="BuildHostServer" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="../Server/Server.csproj" Targets="Restore;Publish" BuildInParallel="false"
+      RemoveProperties="OutputPath;OutDir;BaseIntermediateOutputPath;IntermediateOutputPath;RuntimeIdentifiers;NoBuild;NoRestore"
+      Properties="Configuration=$(Configuration);ArtifactsPath=$(HostServerArtifactsPath)/build;RuntimeIdentifier=;SelfContained=false;PublishSingleFile=false;PublishDir=$([System.IO.Path]::GetFullPath('$(TargetDir)server/'))" />
+  </Target>
+  <Target Name="PublishHostServer" AfterTargets="Publish" Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="../Server/Server.csproj" Targets="Restore;Publish" BuildInParallel="false"
+      RemoveProperties="OutputPath;OutDir;BaseIntermediateOutputPath;IntermediateOutputPath;RuntimeIdentifiers;NoBuild;NoRestore"
+      Properties="Configuration=$(Configuration);ArtifactsPath=$(HostServerArtifactsPath)/publish/$(RuntimeIdentifier);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishSingleFile=$(PublishSingleFile);PublishDir=$([System.IO.Path]::GetFullPath('$(PublishDir)server/'))" />
+  </Target>
+</Project>

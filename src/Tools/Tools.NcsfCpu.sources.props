@@ -1,0 +1,51 @@
+<Project>
+
+  <!--
+    Intended destination: src/Tools/Tools.NcsfCpu.sources.props
+
+    This is an explicit source-link manifest, not a project reference. Tools
+    needs the SDAT/NCSF converter and optional ReplayGain calculation, while
+    Audio.Ncsf owns the music-playing path and its SoundFlow device/stream
+    implementation. Keep this list explicit so a future NCSF player file does
+    not silently pull SoundFlow or native audio into the tools package.
+
+    The paths are relative to the eventual src/Tools project and assume the
+    current NcsfPlay files have been renamed/moved to src/Audio.Ncsf first.
+  -->
+  <ItemGroup>
+    <!-- CPU/common PSF writer and tag representation. -->
+    <Compile Include="../Audio.Ncsf/Common.cs" Link="NcsfCpu/Common.cs" />
+    <Compile Include="../Audio.Ncsf/NCSF.cs" Link="NcsfCpu/NCSF.cs" />
+    <Compile Include="../Audio.Ncsf/TagList.cs" Link="NcsfCpu/TagList.cs" />
+
+    <!-- Complete SDAT/NC CPU conversion closure used by Extract.ConvertSdat. -->
+    <Compile Include="../Audio.Ncsf/NC/FATRecord.cs" Link="NcsfCpu/NC/FATRecord.cs" />
+    <Compile Include="../Audio.Ncsf/NC/FATSection.cs" Link="NcsfCpu/NC/FATSection.cs" />
+    <Compile Include="../Audio.Ncsf/NC/INFOEntry.cs" Link="NcsfCpu/NC/INFOEntry.cs" />
+    <Compile Include="../Audio.Ncsf/NC/INFOEntryBANK.cs" Link="NcsfCpu/NC/INFOEntryBANK.cs" />
+    <Compile Include="../Audio.Ncsf/NC/INFOEntryPLAYER.cs" Link="NcsfCpu/NC/INFOEntryPLAYER.cs" />
+    <Compile Include="../Audio.Ncsf/NC/INFOEntrySEQ.cs" Link="NcsfCpu/NC/INFOEntrySEQ.cs" />
+    <Compile Include="../Audio.Ncsf/NC/INFOEntryWAVEARC.cs" Link="NcsfCpu/NC/INFOEntryWAVEARC.cs" />
+    <Compile Include="../Audio.Ncsf/NC/INFORecord.cs" Link="NcsfCpu/NC/INFORecord.cs" />
+    <Compile Include="../Audio.Ncsf/NC/INFOSection.cs" Link="NcsfCpu/NC/INFOSection.cs" />
+    <Compile Include="../Audio.Ncsf/NC/NDSStandardHeader.cs" Link="NcsfCpu/NC/NDSStandardHeader.cs" />
+    <Compile Include="../Audio.Ncsf/NC/SBNK.cs" Link="NcsfCpu/NC/SBNK.cs" />
+    <Compile Include="../Audio.Ncsf/NC/SBNKInstrument.cs" Link="NcsfCpu/NC/SBNKInstrument.cs" />
+    <Compile Include="../Audio.Ncsf/NC/SBNKInstrumentEntry.cs" Link="NcsfCpu/NC/SBNKInstrumentEntry.cs" />
+    <Compile Include="../Audio.Ncsf/NC/SDAT.cs" Link="NcsfCpu/NC/SDAT.cs" />
+    <Compile Include="../Audio.Ncsf/NC/SSEQ.cs" Link="NcsfCpu/NC/SSEQ.cs" />
+    <Compile Include="../Audio.Ncsf/NC/SWAR.cs" Link="NcsfCpu/NC/SWAR.cs" />
+    <Compile Include="../Audio.Ncsf/NC/SWAV.cs" Link="NcsfCpu/NC/SWAV.cs" />
+    <Compile Include="../Audio.Ncsf/NC/SYMBRecord.cs" Link="NcsfCpu/NC/SYMBRecord.cs" />
+    <Compile Include="../Audio.Ncsf/NC/SYMBSection.cs" Link="NcsfCpu/NC/SYMBSection.cs" />
+
+    <!-- Extract currently constructs AlbumGain; retain the complete optional
+         TrackGain closure without the playback Player/Channel sources. -->
+    <Compile Include="../Audio.Ncsf/ReplayGain/AlbumGain.cs" Link="NcsfCpu/ReplayGain/AlbumGain.cs" />
+    <Compile Include="../Audio.Ncsf/ReplayGain/FrequencyInfo.cs" Link="NcsfCpu/ReplayGain/FrequencyInfo.cs" />
+    <Compile Include="../Audio.Ncsf/ReplayGain/GainData.cs" Link="NcsfCpu/ReplayGain/GainData.cs" />
+    <Compile Include="../Audio.Ncsf/ReplayGain/ReplayGain.cs" Link="NcsfCpu/ReplayGain/ReplayGain.cs" />
+    <Compile Include="../Audio.Ncsf/ReplayGain/TrackGain.cs" Link="NcsfCpu/ReplayGain/TrackGain.cs" />
+  </ItemGroup>
+
+</Project>

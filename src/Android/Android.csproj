@@ -1,0 +1,230 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-android36.0</TargetFramework>
+    <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>MphRead</RootNamespace>
+    <AssemblyName>FruityPrime</AssemblyName>
+    <ApplicationId>fr.livetek.fruityprime</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <EnableAvaloniaXamlCompilation>false</EnableAvaloniaXamlCompilation>
+    <!-- Avalonia 11.3 uses SkiaSharp 2.88; its native page-size warning is tracked separately. -->
+    <NoWarn>$(NoWarn);XA0141</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Game/Game.csproj" />
+    <ProjectReference Include="../Audio.Ncsf/Audio.Ncsf.csproj" />
+    <PackageReference Include="Avalonia" Version="11.3.11" />
+    <PackageReference Include="Avalonia.Android" Version="11.3.11" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.11" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
+    <PackageReference Include="OpenTK" Version="4.9.4" />
+  </ItemGroup>
+  <!-- Platform entry and adapters. -->
+  <ItemGroup>
+    <Compile Include="AndroidApp.cs" />
+    <Compile Include="AndroidConsole.cs" />
+    <Compile Include="AndroidInput.cs" />
+    <Compile Include="AndroidLogShare.cs" />
+    <Compile Include="AndroidMaps.cs" />
+    <Compile Include="AndroidMatch.cs" />
+    <Compile Include="AndroidPng.cs" />
+    <Compile Include="AndroidThumbnails.cs" />
+    <Compile Include="AndroidUpdateInstaller.cs" />
+    <Compile Include="ApkInstaller.cs" />
+    <Compile Include="GameView.cs" />
+    <Compile Include="GamepadBridge.cs" />
+    <Compile Include="MainActivity.cs" />
+    <Compile Include="OffscreenGl.cs" />
+    <Compile Include="PreviewRun.cs" />
+    <Compile Include="PreviewService.cs" />
+    <Compile Include="TouchControls.cs" />
+    <Compile Include="TouchOverlayView.cs" />
+    <Compile Include="AndroidMapImageDecoder.cs" />
+    <Compile Include="AndroidScreenCapture.cs" />
+  </ItemGroup>
+  <!-- Shared Client presentation, input, networking and UI; no desktop entry or test harnesses. -->
+  <ItemGroup>
+    <Compile Include="../Client/Audio/AlEs.cs" Link="Client/Audio/AlEs.cs" />
+    <Compile Include="../Client/Audio/ClientSoundSourceExtensions.cs" Link="Client/Audio/ClientSoundSourceExtensions.cs" />
+    <Compile Include="../Client/Audio/Music.cs" Link="Client/Audio/Music.cs" />
+    <Compile Include="../Client/Audio/Sfx.cs" Link="Client/Audio/Sfx.cs" />
+    <Compile Include="../Client/Audio/SfxMixer.cs" Link="Client/Audio/SfxMixer.cs" />
+    <Compile Include="../Client/HUD/ChatBox.cs" Link="Client/HUD/ChatBox.cs" />
+    <Compile Include="../Client/HUD/ChatFont.cs" Link="Client/HUD/ChatFont.cs" />
+    <Compile Include="../Client/HUD/HudInfo.cs" Link="Client/HUD/HudInfo.cs" />
+    <Compile Include="../Client/Input/GamepadDesktop.cs" Link="Client/Input/GamepadDesktop.cs" />
+    <Compile Include="../Client/Input/GamepadInput.cs" Link="Client/Input/GamepadInput.cs" />
+    <Compile Include="../Client/Input/GamepadState.cs" Link="Client/Input/GamepadState.cs" />
+    <Compile Include="../Client/Input/PadBindings.cs" Link="Client/Input/PadBindings.cs" />
+    <Compile Include="../Client/Input/TouchSettings.cs" Link="Client/Input/TouchSettings.cs" />
+    <Compile Include="../Client/Launcher/Gui/CrosshairPreview.cs" Link="Client/Launcher/Gui/CrosshairPreview.cs" />
+    <Compile Include="../Client/Launcher/Gui/DemoPickerView.cs" Link="Client/Launcher/Gui/DemoPickerView.cs" />
+    <Compile Include="../Client/Launcher/Gui/GuiTheme.cs" Link="Client/Launcher/Gui/GuiTheme.cs" />
+    <Compile Include="../Client/Launcher/Gui/HomeView.cs" Link="Client/Launcher/Gui/HomeView.cs" />
+    <Compile Include="../Client/Launcher/Gui/KeyRow.cs" Link="Client/Launcher/Gui/KeyRow.cs" />
+    <Compile Include="../Client/Launcher/Gui/MapPickerView.cs" Link="Client/Launcher/Gui/MapPickerView.cs" />
+    <Compile Include="../Client/Launcher/Gui/MenuEntry.cs" Link="Client/Launcher/Gui/MenuEntry.cs" />
+    <Compile Include="../Client/Launcher/Gui/PadRow.cs" Link="Client/Launcher/Gui/PadRow.cs" />
+    <Compile Include="../Client/Launcher/Gui/PauseMenuView.cs" Link="Client/Launcher/Gui/PauseMenuView.cs" />
+    <Compile Include="../Client/Launcher/Gui/ProgressRow.cs" Link="Client/Launcher/Gui/ProgressRow.cs" />
+    <Compile Include="../Client/Launcher/Gui/Rows.cs" Link="Client/Launcher/Gui/Rows.cs" />
+    <Compile Include="../Client/Launcher/Gui/ServerRow.cs" Link="Client/Launcher/Gui/ServerRow.cs" />
+    <Compile Include="../Client/Launcher/Gui/SettingsView.cs" Link="Client/Launcher/Gui/SettingsView.cs" />
+    <Compile Include="../Client/Launcher/Gui/SliderRow.cs" Link="Client/Launcher/Gui/SliderRow.cs" />
+    <Compile Include="../Client/Launcher/Gui/SplashView.cs" Link="Client/Launcher/Gui/SplashView.cs" />
+    <Compile Include="../Client/Launcher/Gui/TrackedText.cs" Link="Client/Launcher/Gui/TrackedText.cs" />
+    <Compile Include="../Client/Launcher/Gui/UpdateBadge.cs" Link="Client/Launcher/Gui/UpdateBadge.cs" />
+    <Compile Include="../Client/Launcher/Portable/GameFiles.cs" Link="Client/Launcher/Portable/GameFiles.cs" />
+    <Compile Include="../Client/Launcher/Portable/LaunchPlan.cs" Link="Client/Launcher/Portable/LaunchPlan.cs" />
+    <Compile Include="../Client/Launcher/Portable/LauncherPrefs.cs" Link="Client/Launcher/Portable/LauncherPrefs.cs" />
+    <Compile Include="../Client/Launcher/Portable/SetupProgress.cs" Link="Client/Launcher/Portable/SetupProgress.cs" />
+    <Compile Include="../Client/Networking/AuthoritativePlay.cs" Link="Client/Networking/AuthoritativePlay.cs" />
+    <Compile Include="../Client/Networking/ClientPrediction.cs" Link="Client/Networking/ClientPrediction.cs" />
+    <Compile Include="../Client/Networking/ClientSceneServices.cs" Link="Client/Networking/ClientSceneServices.cs" />
+    <Compile Include="../Client/Networking/ClientWorldState.cs" Link="Client/Networking/ClientWorldState.cs" />
+    <Compile Include="../Client/Networking/DemoFile.cs" Link="Client/Networking/DemoFile.cs" />
+    <Compile Include="../Client/Networking/DemoInfo.cs" Link="Client/Networking/DemoInfo.cs" />
+    <Compile Include="../Client/Networking/DemoLibrary.cs" Link="Client/Networking/DemoLibrary.cs" />
+    <Compile Include="../Client/Networking/DemoPlayback.cs" Link="Client/Networking/DemoPlayback.cs" />
+    <Compile Include="../Client/Networking/DemoRecorder.cs" Link="Client/Networking/DemoRecorder.cs" />
+    <Compile Include="../Client/Networking/LegacyDemoState.cs" Link="Client/Networking/LegacyDemoState.cs" />
+    <Compile Include="../Client/Networking/NetClient.cs" Link="Client/Networking/NetClient.cs" />
+    <Compile Include="../Client/Networking/NetDamage.cs" Link="Client/Networking/NetDamage.cs" />
+    <Compile Include="../Client/Networking/NetDiagnostics.cs" Link="Client/Networking/NetDiagnostics.cs" />
+    <Compile Include="../Client/Networking/NetHooks.cs" Link="Client/Networking/NetHooks.cs" />
+    <Compile Include="../Client/Networking/NetHostSession.cs" Link="Client/Networking/NetHostSession.cs" />
+    <Compile Include="../Client/Networking/NetLaunch.cs" Link="Client/Networking/NetLaunch.cs" />
+    <Compile Include="../Client/Networking/NetLog.cs" Link="Client/Networking/NetLog.cs" />
+    <Compile Include="../Client/Networking/NetMasterClient.cs" Link="Client/Networking/NetMasterClient.cs" />
+    <Compile Include="../Client/Networking/NetMatchEnd.cs" Link="Client/Networking/NetMatchEnd.cs" />
+    <Compile Include="../Client/Networking/NetMatchSync.cs" Link="Client/Networking/NetMatchSync.cs" />
+    <Compile Include="../Client/Networking/NetPlayerBridge.cs" Link="Client/Networking/NetPlayerBridge.cs" />
+    <Compile Include="../Client/Networking/NetPlayerSetup.cs" Link="Client/Networking/NetPlayerSetup.cs" />
+    <Compile Include="../Client/Networking/NetRoomChange.cs" Link="Client/Networking/NetRoomChange.cs" />
+    <Compile Include="../Client/Networking/NetSession.cs" Link="Client/Networking/NetSession.cs" />
+    <Compile Include="../Client/Networking/NetSlotManager.cs" Link="Client/Networking/NetSlotManager.cs" />
+    <Compile Include="../Client/Networking/NetStatus.cs" Link="Client/Networking/NetStatus.cs" />
+    <Compile Include="../Client/Networking/NetTestScript.cs" Link="Client/Networking/NetTestScript.cs" />
+    <Compile Include="../Client/Networking/NetTransport.cs" Link="Client/Networking/NetTransport.cs" />
+    <Compile Include="../Client/Networking/SnapshotInterpolation.cs" Link="Client/Networking/SnapshotInterpolation.cs" />
+    <Compile Include="../Client/Presentation/Players/ClientPlayerBindings.cs" Link="Client/Presentation/Players/ClientPlayerBindings.cs" />
+    <Compile Include="../Client/Presentation/Players/HalfturretEntityPresentation.cs" Link="Client/Presentation/Players/HalfturretEntityPresentation.cs" />
+    <Compile Include="../Client/Presentation/Players/PlayerPresentation.cs" Link="Client/Presentation/Players/PlayerPresentation.cs" />
+    <Compile Include="../Client/Presentation/Players/PlayerPresentationIconBounds.cs" Link="Client/Presentation/Players/PlayerPresentationIconBounds.cs" />
+    <Compile Include="../Client/Presentation/Players/PlayerPresentationInput.cs" Link="Client/Presentation/Players/PlayerPresentationInput.cs" />
+    <Compile Include="../Client/Presentation/Players/PlayerPresentationNetworkDiagnostics.cs" Link="Client/Presentation/Players/PlayerPresentationNetworkDiagnostics.cs" />
+    <Compile Include="../Client/Presentation/Players/PresentationPlayerDraw.cs" Link="Client/Presentation/Players/PresentationPlayerDraw.cs" />
+    <Compile Include="../Client/Presentation/Players/PresentationPlayerEntity.cs" Link="Client/Presentation/Players/PresentationPlayerEntity.cs" />
+    <Compile Include="../Client/Presentation/Players/PresentationPlayerEntityChatHud.cs" Link="Client/Presentation/Players/PresentationPlayerEntityChatHud.cs" />
+    <Compile Include="../Client/Presentation/Players/PresentationPlayerEntityCombat.cs" Link="Client/Presentation/Players/PresentationPlayerEntityCombat.cs" />
+    <Compile Include="../Client/Presentation/Players/PresentationPlayerEntityIconBounds.cs" Link="Client/Presentation/Players/PresentationPlayerEntityIconBounds.cs" />
+    <Compile Include="../Client/Presentation/Players/PresentationPlayerEntityInterpolation.cs" Link="Client/Presentation/Players/PresentationPlayerEntityInterpolation.cs" />
+    <Compile Include="../Client/Presentation/Players/PresentationPlayerEntityNetHud.cs" Link="Client/Presentation/Players/PresentationPlayerEntityNetHud.cs" />
+    <Compile Include="../Client/Presentation/Players/PresentationPlayerEntityProHud.cs" Link="Client/Presentation/Players/PresentationPlayerEntityProHud.cs" />
+    <Compile Include="../Client/Presentation/Players/PresentationPlayerHud.cs" Link="Client/Presentation/Players/PresentationPlayerHud.cs" />
+    <Compile Include="../Client/Presentation/Players/PresentationPlayerInput.cs" Link="Client/Presentation/Players/PresentationPlayerInput.cs" />
+    <Compile Include="../Client/Presentation/Players/PlayerPresentationLifecycle.cs" Link="Client/Presentation/Players/PlayerPresentationLifecycle.cs" />
+    <Compile Include="../Client/Presentation/Players/PresentationPlayerSound.cs" Link="Client/Presentation/Players/PresentationPlayerSound.cs" />
+    <Compile Include="../Client/Rendering/Crosshair.cs" Link="Client/Rendering/Crosshair.cs" />
+    <Compile Include="../Client/Rendering/EffectPresentation.cs" Link="Client/Rendering/EffectPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/AreaVolumeEntityPresentation.cs" Link="Client/Rendering/Entities/AreaVolumeEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/BeamProjectileEntityPresentation.cs" Link="Client/Rendering/Entities/BeamProjectileEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/BombEntityPresentation.cs" Link="Client/Rendering/Entities/BombEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/DoorEntityPresentation.cs" Link="Client/Rendering/Entities/DoorEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/EntityPresentation.State.cs" Link="Client/Rendering/Entities/EntityPresentation.State.cs" />
+    <Compile Include="../Client/Rendering/Entities/EntityPresentation.cs" Link="Client/Rendering/Entities/EntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/FhAreaVolumeEntityPresentation.cs" Link="Client/Rendering/Entities/FhAreaVolumeEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/FhJumpPadEntityPresentation.cs" Link="Client/Rendering/Entities/FhJumpPadEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/FhMorphCameraEntityPresentation.cs" Link="Client/Rendering/Entities/FhMorphCameraEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/FhTriggerVolumeEntityPresentation.cs" Link="Client/Rendering/Entities/FhTriggerVolumeEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/FlagBaseEntityPresentation.cs" Link="Client/Rendering/Entities/FlagBaseEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/ForceFieldEntityPresentation.cs" Link="Client/Rendering/Entities/ForceFieldEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/ForceFieldLockEntityPresentation.cs" Link="Client/Rendering/Entities/ForceFieldLockEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/ItemInstanceEntityPresentation.cs" Link="Client/Rendering/Entities/ItemInstanceEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/ItemSpawnEntityPresentation.cs" Link="Client/Rendering/Entities/ItemSpawnEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/JumpPadEntityPresentation.cs" Link="Client/Rendering/Entities/JumpPadEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/LightSourceEntityPresentation.cs" Link="Client/Rendering/Entities/LightSourceEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/MorphCameraEntityPresentation.cs" Link="Client/Rendering/Entities/MorphCameraEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/NodeDefenseEntityPresentation.cs" Link="Client/Rendering/Entities/NodeDefenseEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/ObjectEntityPresentation.cs" Link="Client/Rendering/Entities/ObjectEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/PlatformEntityPresentation.cs" Link="Client/Rendering/Entities/PlatformEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/RoomEntityPresentation.cs" Link="Client/Rendering/Entities/RoomEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/TeleporterEntityPresentation.cs" Link="Client/Rendering/Entities/TeleporterEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/Entities/TriggerVolumeEntityPresentation.cs" Link="Client/Rendering/Entities/TriggerVolumeEntityPresentation.cs" />
+    <Compile Include="../Client/Rendering/EsBindings.cs" Link="Client/Rendering/EsBindings.cs" />
+    <Compile Include="../Client/Rendering/EsShaders.cs" Link="Client/Rendering/EsShaders.cs" />
+    <Compile Include="../Client/Rendering/FrameTiming.cs" Link="Client/Rendering/FrameTiming.cs" />
+    <Compile Include="../Client/Rendering/GlEs.cs" Link="Client/Rendering/GlEs.cs" />
+    <Compile Include="../Client/Rendering/PreviewCamera.cs" Link="Client/Rendering/PreviewCamera.cs" />
+    <Compile Include="../Client/Rendering/Renderer.cs" Link="Client/Rendering/Renderer.cs" />
+    <Compile Include="../Client/Rendering/ScenePresentation.Resources.cs" Link="Client/Rendering/ScenePresentation.Resources.cs" />
+    <Compile Include="../Client/Rendering/Selection.cs" Link="Client/Rendering/Selection.cs" />
+    <Compile Include="../Client/Rendering/Shaders.cs" Link="Client/Rendering/Shaders.cs" />
+    <Compile Include="../Client/Runtime/Branding.cs" Link="Client/Runtime/Branding.cs" />
+    <Compile Include="../Client/Runtime/ClientInputState.cs" Link="Client/Runtime/ClientInputState.cs" />
+    <Compile Include="../Client/Runtime/Credits.cs" Link="Client/Runtime/Credits.cs" />
+    <Compile Include="../Client/Runtime/DebugLog.cs" Link="Client/Runtime/DebugLog.cs" />
+    <Compile Include="../Client/Runtime/GameSettings.cs" Link="Client/Runtime/GameSettings.cs" />
+    <Compile Include="../Client/Runtime/InputSettings.cs" Link="Client/Runtime/InputSettings.cs" />
+    <Compile Include="../Client/Runtime/LogShare.cs" Link="Client/Runtime/LogShare.cs" />
+    <Compile Include="../Client/Runtime/MenuSettings.cs" Link="Client/Runtime/MenuSettings.cs" />
+    <Compile Include="../Client/Runtime/RenderOptions.cs" Link="Client/Runtime/RenderOptions.cs" />
+    <Compile Include="../Client/Runtime/ScreenCapture.cs" Link="Client/Runtime/ScreenCapture.cs" />
+    <Compile Include="../Client/Runtime/SpectatorMode.cs" Link="Client/Runtime/SpectatorMode.cs" />
+    <Compile Include="../Client/Runtime/ThumbnailGenerator.cs" Link="Client/Runtime/ThumbnailGenerator.cs" />
+    <Compile Include="../Client/Runtime/ThumbnailHost.cs" Link="Client/Runtime/ThumbnailHost.cs" />
+    <Compile Include="../Client/Runtime/ThumbnailLog.cs" Link="Client/Runtime/ThumbnailLog.cs" />
+    <Compile Include="../Client/Runtime/ThumbnailMode.cs" Link="Client/Runtime/ThumbnailMode.cs" />
+    <Compile Include="../Client/Runtime/WindowMode.cs" Link="Client/Runtime/WindowMode.cs" />
+    <Compile Include="../Client/Runtime/WorldEvents.cs" Link="Client/Runtime/WorldEvents.cs" />
+    <Compile Include="../Client/Settings/ClientSettings.cs" Link="Client/Settings/ClientSettings.cs" />
+    <Compile Include="../Client/Settings/CollisionPresentation.cs" Link="Client/Settings/CollisionPresentation.cs" />
+    <Compile Include="../Client/Settings/FeatureSettings.cs" Link="Client/Settings/FeatureSettings.cs" />
+    <Compile Include="../Client/Update/DesktopUpdate.cs" Link="Client/Update/DesktopUpdate.cs" />
+    <Compile Include="../Client/Update/SyncHttp.cs" Link="Client/Update/SyncHttp.cs" />
+    <Compile Include="../Client/Update/UpdateCheck.cs" Link="Client/Update/UpdateCheck.cs" />
+    <Compile Include="../Client/Update/UpdateDownload.cs" Link="Client/Update/UpdateDownload.cs" />
+    <Compile Include="../Client/Update/UpdateInstall.cs" Link="Client/Update/UpdateInstall.cs" />
+    <Compile Include="../Client/Update/Updater.cs" Link="Client/Update/Updater.cs" />
+  </ItemGroup>
+  <!-- Narrow import/preparation capabilities, never Tools command implementations. -->
+  <ItemGroup>
+    <Compile Include="../Shared/ContentPreparation/BuiltMap.cs" Link="Shared/ContentPreparation/BuiltMap.cs" />
+    <Compile Include="../Shared/ContentPreparation/CollisionDataEditor.cs" Link="Shared/ContentPreparation/CollisionDataEditor.cs" />
+    <Compile Include="../Shared/ContentPreparation/EntityMapEditors.cs" Link="Shared/ContentPreparation/EntityMapEditors.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapBuilder.cs" Link="Shared/ContentPreparation/MapBuilder.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapCollisionPacker.cs" Link="Shared/ContentPreparation/MapCollisionPacker.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapImageDecoding.cs" Link="Shared/ContentPreparation/MapImageDecoding.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapNodePacker.cs" Link="Shared/ContentPreparation/MapNodePacker.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapPacker.cs" Link="Shared/ContentPreparation/MapPacker.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapPreparation.cs" Link="Shared/ContentPreparation/MapPreparation.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapTextureBake.cs" Link="Shared/ContentPreparation/MapTextureBake.cs" />
+    <Compile Include="../Shared/ContentPreparation/Q3Bsp.cs" Link="Shared/ContentPreparation/Q3Bsp.cs" />
+    <Compile Include="../Shared/ContentPreparation/Q3Import.cs" Link="Shared/ContentPreparation/Q3Import.cs" />
+    <Compile Include="../Shared/ContentPreparation/RawStructs.cs" Link="Shared/ContentPreparation/RawStructs.cs" />
+    <Compile Include="../Shared/ContentPreparation/RepackEntityPacking.cs" Link="Shared/ContentPreparation/RepackEntityPacking.cs" />
+    <Compile Include="../Shared/ContentPreparation/RepackModelPacking.cs" Link="Shared/ContentPreparation/RepackModelPacking.cs" />
+    <Compile Include="../Shared/Imaging/TgaImageDecoder.cs" Link="Shared/Imaging/TgaImageDecoder.cs" />
+    <Compile Include="../Shared/ContentImport/Extract.cs" Link="Shared/ContentImport/Extract.cs" />
+    <Compile Include="../Shared/Transport/UdpTransport.cs" Link="Shared/Transport/UdpTransport.cs" />
+    <Compile Include="../Shared/Hosting/BuildVersion.cs" Link="Shared/Hosting/BuildVersion.cs" />
+    <Compile Include="../Shared/Hosting/RuntimePlatform.cs" Link="Shared/Hosting/RuntimePlatform.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <AndroidResource Include="Resources/**/*.xml;Resources/**/*.png" />
+    <TrimmerRootDescriptor Include="Properties/TrimmerRoots.xml" />
+    <AndroidAsset Include="../../maps/*.json;../../maps/*.bsp;../../maps/*.tex;../../maps/*.fpmap"
+                  Link="Assets/maps/%(Filename)%(Extension)" />
+    <AvaloniaResource Include="../Client/Assets/fruity-prime-logo.png" Link="Assets/fruity-prime-logo.png" />
+    <AvaloniaResource Include="../Client/Assets/fruity-prime-mark.png" Link="Assets/fruity-prime-mark.png" />
+    <Using Include="MphRead.Mods.Render.GlEs" Alias="GL" />
+    <Using Include="MphRead.Mods.Sound.AlEs" Alias="AL" />
+    <Using Include="MphRead.Mods.Sound.AlcEs" Alias="ALC" />
+  </ItemGroup>
+</Project>

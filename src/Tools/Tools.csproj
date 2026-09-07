@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tools owns the CLI/export/CPU projection sources after the physical move.
+    It references Game and source-links the CPU portion of the renamed NCSF
+    tree because the current ROM extractor writes .ncsflib/.minincsf files
+    through NCSFCommon.NCSF. It deliberately has no Audio.Ncsf project edge.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>MphRead</RootNamespace>
+    <AssemblyName>FruityPrimeTools</AssemblyName>
+    <!-- The linked NCSF CPU files use the same implicit-usings setting as the
+         current NcsfPlay project. -->
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugType>embedded</DebugType>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <PublishSingleFile>true</PublishSingleFile>
+  </PropertyGroup>
+
+  <!-- Reuse only the CPU NCSF/SDAT closure; do not reference Audio.Ncsf. -->
+  <Import Project="Tools.NcsfCpu.sources.props" />
+
+  <ItemGroup>
+    <ProjectReference Include="../Game/Game.csproj" />
+    <!-- These were previously transitive through Audio.Ncsf. Keep them direct
+         because Tools now source-links the CPU decoder instead of referencing
+         the music-playing assembly. -->
+    <PackageReference Include="CommunityToolkit.HighPerformance" Version="8.4.2" />
+    <PackageReference Include="System.IO.Hashing" Version="10.0.9" />
+    <!-- CPU image/map/movie exports use ReFuel.StbImage. -->
+    <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <Compile Include="../Shared/ContentImport/Extract.cs" Link="Shared/ContentImport/Extract.cs" />
+    <Compile Include="../Shared/ContentPreparation/CollisionDataEditor.cs" Link="Shared/ContentPreparation/CollisionDataEditor.cs" />
+    <Compile Include="../Shared/ContentPreparation/RepackModelPacking.cs" Link="Shared/ContentPreparation/RepackModelPacking.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapTextureBake.cs" Link="Shared/ContentPreparation/MapTextureBake.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapPreparation.cs" Link="Shared/ContentPreparation/MapPreparation.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapCollisionPacker.cs" Link="Shared/ContentPreparation/MapCollisionPacker.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapPacker.cs" Link="Shared/ContentPreparation/MapPacker.cs" />
+    <Compile Include="../Shared/ContentPreparation/RepackEntityPacking.cs" Link="Shared/ContentPreparation/RepackEntityPacking.cs" />
+    <Compile Include="../Shared/ContentPreparation/EntityMapEditors.cs" Link="Shared/ContentPreparation/EntityMapEditors.cs" />
+    <Compile Include="../Shared/ContentPreparation/BuiltMap.cs" Link="Shared/ContentPreparation/BuiltMap.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapBuilder.cs" Link="Shared/ContentPreparation/MapBuilder.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapImageDecoding.cs" Link="Shared/ContentPreparation/MapImageDecoding.cs" />
+    <Compile Include="../Shared/ContentPreparation/Q3Bsp.cs" Link="Shared/ContentPreparation/Q3Bsp.cs" />
+    <Compile Include="../Shared/ContentPreparation/Q3Import.cs" Link="Shared/ContentPreparation/Q3Import.cs" />
+    <Compile Include="../Shared/ContentPreparation/RawStructs.cs" Link="Shared/ContentPreparation/RawStructs.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapNodePacker.cs" Link="Shared/ContentPreparation/MapNodePacker.cs" />
+    <Compile Include="../Shared/Imaging/StbImageDecoder.cs" Link="Shared/Imaging/StbImageDecoder.cs" />
+    <Compile Include="../Shared/Hosting/ConsoleSetup.cs" Link="Shared/Hosting/ConsoleSetup.cs" />
+  </ItemGroup>
+</Project>

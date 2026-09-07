@@ -1,0 +1,33 @@
+using OpenTK.Mathematics;
+
+namespace MphRead.Entities
+{
+    public class LightSourceEntity : EntityBase
+    {
+        internal readonly LightSourceEntityData _data;
+        protected override Vector4? OverrideColor { get; } = new ColorRgb(0xFF, 0xDE, 0xAD).AsVector4();
+
+        public CollisionVolume Volume { get; }
+        public bool Light1Enabled { get; }
+        public Vector3 Light1Vector { get; }
+        public Vector3 Light1Color { get; }
+        public bool Light2Enabled { get; }
+        public Vector3 Light2Vector { get; }
+        public Vector3 Light2Color { get; }
+
+        public LightSourceEntity(LightSourceEntityData data, Scene scene) : base(EntityType.LightSource, scene)
+        {
+            _data = data;
+            Id = data.Header.EntityId;
+            SetTransform(data.Header.FacingVector, data.Header.UpVector, data.Header.Position);
+            Volume = CollisionVolume.Move(_data.Volume, Position);
+            Light1Enabled = _data.Light1Enabled != 0;
+            Light1Vector = _data.Light1Vector.ToFloatVector();
+            Light1Color = _data.Light1Color.AsVector3();
+            Light2Enabled = _data.Light2Enabled != 0;
+            Light2Vector = _data.Light2Vector.ToFloatVector();
+            Light2Color = _data.Light2Color.AsVector3();
+            AddPlaceholderModel();
+        }
+    }
+}

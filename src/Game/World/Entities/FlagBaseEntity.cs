@@ -1,0 +1,77 @@
+using MphRead.Formats;
+using MphRead.Mods.Network;
+using OpenTK.Mathematics;
+
+namespace MphRead.Entities
+{
+    public class FlagBaseEntity : EntityBase
+    {
+        private readonly FlagBaseEntityData _data;
+        public FlagBaseEntityData Data => _data;
+        internal readonly CollisionVolume _volume;
+        private readonly bool _capture = false;
+
+        public NodeData3? ClosestNode { get; set; } = null;
+
+        // flag base has a model in Bounty, but is invisible in Capture
+        protected override Vector4? OverrideColor { get; } = new ColorRgb(15, 207, 255).AsVector4();
+
+        public FlagBaseEntity(FlagBaseEntityData data, Scene scene) : base(EntityType.FlagBase, scene)
+        {
+            _data = data;
+            Id = data.Header.EntityId;
+            SetTransform(data.Header.FacingVector, data.Header.UpVector, data.Header.Position);
+            _volume = CollisionVolume.Move(_data.Volume, Position);
+            // note: an explicit mode check is necessary because e.g. Sic Transit has OctolithFlags/FlagBases
+            // enabled in Defender mode according to their layer masks, but they don't appear in-game
+            MatchMode mode = _scene.Match.Rules.Mode;
+            if (mode == MatchMode.Capture)
+            {
+                AddPlaceholderModel();
+            }
+            else if (mode == MatchMode.Bounty || mode == MatchMode.TeamBounty)
+            {
+                SetUpModel("flagbase_cap");
+            }
+            _capture = mode == MatchMode.Capture;
+        }
+
+        public override bool Process()
+        {
+            base.Process();
+            if (_scene.Services.IsReplica) { return true; }
+            foreach (PlayerEntity player in _scene.GetPlayerEntities())
+            {
+                if (player.OctolithFlag == null || _capture && player.TeamIndex != _data.TeamId)
+                {
+                    continue;
+                }
+                if (_volume.TestPoint(player.Position))
+                {
+                    if (_capture && !CheckOwnOctolith(player))
+                    {
+                        if (player == PlayerEntity.Main)
+                        {
+                            PlayerEntity.Main.ShowMissingOctolith(); // your octolith is missing!
+                        }
+                        continue;
+                    }
+                    player.OctolithFlag.OnCaptured();
+                }
+            }
+            return true;
+        }
+
+        private bool CheckOwnOctolith(PlayerEntity player)
+        {
+            foreach (OctolithFlagEntity octolith in _scene.GetOctolithFlagEntities())
+            {
+                if (octolith.Data.TeamId == player.TeamIndex && !octolith.AtBase)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+}

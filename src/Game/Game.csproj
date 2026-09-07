@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    SDK default compile items are deliberately local to this project after the
+    physical source move. Do not replace them with a glob back into the old
+    src/MphRead monolith.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>MphRead</RootNamespace>
+    <AssemblyName>FruityPrime.Game</AssemblyName>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugType>embedded</DebugType>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The only non-BCL dependency owned by the game/domain boundary. -->
+    <PackageReference Include="OpenTK.Mathematics" Version="4.9.4" />
+  </ItemGroup>
+
+</Project>

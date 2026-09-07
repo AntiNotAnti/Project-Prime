@@ -1,0 +1,333 @@
+using System;
+using System.Diagnostics;
+using MphRead.Formats;
+using MphRead.Formats.Culling;
+using OpenTK.Mathematics;
+
+namespace MphRead.Entities
+{
+    public class TeleporterEntity : EntityBase
+    {
+        internal readonly TeleporterEntityData _data;
+        public TeleporterEntityData Data => _data;
+        private readonly Vector3 _targetPos = Vector3.Zero;
+        private readonly Matrix4 _artifact1Transform;
+        private readonly Matrix4 _artifact2Transform;
+        private readonly Matrix4 _artifact3Transform;
+
+        private readonly bool _big = false;
+        public new bool Active { get; set; }
+        private bool _bool3 = false; // todo: names
+        private bool _bool4 = false;
+        // One entry per possible player, all set: a slot only becomes
+        // eligible once it has left the pad, so starting "already triggered"
+        // stops a player being teleported the instant it spawns on one.
+        private readonly bool[] _triggeredSlots = CreateTriggeredSlots();
+
+        private static bool[] CreateTriggeredSlots()
+        {
+            var slots = new bool[PlayerEntity.SlotCapacity];
+            Array.Fill(slots, true);
+            return slots;
+        }
+        private readonly bool _hasExternalDestination;
+        private NodeRef _targetNodeRef = NodeRef.None;
+
+        // used for invisible teleporters
+        protected override Vector4? OverrideColor { get; } = new ColorRgb(0xFF, 0xFF, 0xFF).AsVector4();
+        // used for multiplayer teleporter destination
+        private readonly Vector4 _overrideColor2 = new ColorRgb(0xAA, 0xAA, 0xAA).AsVector4();
+
+        public TeleporterEntity(TeleporterEntityData data, string nodeName, Scene scene, bool forceMultiplayer = false)
+            : base(EntityType.Teleporter, nodeName, scene)
+        {
+            _data = data;
+            Id = data.Header.EntityId;
+            SetTransform(data.Header.FacingVector, data.Header.UpVector, data.Header.Position);
+            if (data.Invisible != 0)
+            {
+                AddPlaceholderModel();
+            }
+            else
+            {
+                Recolor = 0;
+                string modelName;
+                if (data.ArtifactId >= 8)
+                {
+                    modelName = "TeleporterMP";
+                }
+                else
+                {
+                    modelName = "Teleporter";
+                    _big = true;
+                }
+                ModelInstance inst = SetUpModel(modelName);
+                inst.SetAnimation(2, AnimFlags.NoLoop | AnimFlags.Reverse);
+                inst.AnimInfo.Frame[0] = 0;
+                inst.AnimInfo.Flags[0] |= AnimFlags.Ended;
+            }
+            // A removed campaign destination must never become an intra-room pad
+            // just because its target no longer exists in the runtime catalog.
+            _hasExternalDestination = data.EntityFilename[0] != '\0';
+            Active = data.Active != 0;
+
+            // 0-7 = big teleporter using the corresponding artifact model
+            // 8, 10, 11, 255 = small teleporter (no apparent meaning to each value beyond that)
+            if (data.ArtifactId < 8)
+            {
+                string name = $"Artifact0{data.ArtifactId + 1}";
+                ModelInstance inst = SetUpModel(name);
+                inst.SetAnimation(-1);
+                inst = SetUpModel(name);
+                inst.SetAnimation(-1);
+                inst = SetUpModel(name);
+                inst.SetAnimation(-1);
+                float angleY = MathHelper.DegreesToRadians(337 * (360 / 4096f));
+                float angleZ = MathHelper.DegreesToRadians(360 * (360 / 4096f));
+                Matrix4 transform = Matrix4.CreateRotationY(angleY) * Matrix4.CreateRotationZ(angleZ);
+                transform.Row3.Xyz = new Vector3(Fixed.ToFloat(7208), Fixed.ToFloat(2375), 0);
+                _artifact1Transform = transform;
+                angleY = MathHelper.DegreesToRadians(1365 * (360 / 4096f));
+                _artifact2Transform = _artifact1Transform * Matrix4.CreateRotationY(angleY);
+                angleY = MathHelper.DegreesToRadians(2730 * (360 / 4096f));
+                _artifact3Transform = _artifact1Transform * Matrix4.CreateRotationY(angleY);
+            }
+            AddPlaceholderModel();
+            _targetPos = data.TargetPosition.ToFloatVector();
+
+            if (data.Invisible == 0)
+            {
+                if (_big) { Active = false; }
+                if (Active)
+                {
+                    _scanId = _big ? 46 : 26;
+                }
+                else
+                {
+                    _scanId = _big ? 38 : 25;
+                }
+            }
+        }
+
+        public override void Initialize()
+        {
+            base.Initialize();
+            if (_data.NodeName[0] != '\0')
+            {
+                _targetNodeRef = _scene.GetNodeRefByName(_data.NodeName.MarshalString());
+            }
+        }
+
+        public override bool Process()
+        {
+            if (_data.Invisible == 0)
+            {
+                base.Process();
+                AnimationInfo animInfo = _models[0].AnimInfo;
+                if (animInfo.Index[0] == 2
+                    && !animInfo.Flags[0].TestFlag(AnimFlags.Reverse) && animInfo.Flags[0].TestFlag(AnimFlags.Ended))
+                {
+                    _models[0].SetAnimation(0);
+                }
+                if (_bool4 && (animInfo.Index[0] != 0 || animInfo.Frame[0] == animInfo.FrameCount[0] - 1))
+                {
+                    InitiateAnimaton();
+                }
+            }
+            if (!Active || _hasExternalDestination)
+            {
+                return true;
+            }
+            _soundSource.Update(Position, rangeIndex: 23);
+            UpdateNodeRefVolume();
+            _soundSource.PlaySfx(SfxId.TELEPORTER_LOOP, loop: true);
+            bool activated = false;
+            Vector3 testPos = Position.AddY(1);
+            foreach (PlayerEntity player in _scene.GetPlayerEntities())
+            {
+                if (player.Health == 0)
+                {
+                    continue;
+                }
+                Vector3 between = player.Volume.SpherePosition - Position;
+                if (between.Y < 1.5f && between.Y > -1.5f && between.X * between.X + between.Z * between.Z < 49)
+                {
+                    activated = true;
+                    ActivateAnimaton();
+                    CollisionResult discard = default;
+                    if (CollisionDetection.CheckCylinderOverlapSphere(player.PrevPosition, player.Volume.SpherePosition,
+                        testPos, 1.75f, ref discard))
+                    {
+                        if (!_triggeredSlots[player.SlotIndex])
+                        {
+                            float radius = _big ? 1.5f : 1;
+                            if (CollisionDetection.CheckCylinderOverlapSphere(player.PrevPosition, player.Volume.SpherePosition,
+                                testPos, radius, ref discard))
+                            {
+                                player.Teleport(_targetPos.AddY(0.5f), FacingVector, _targetNodeRef);
+
+                                player.Speed = new Vector3(0, player.Speed.Y, 0);
+                                if (player.IsBot)
+                                {
+                                    player.AiData.Field118 = 148 * 2; // todo-ai: FPS stuff
+                                }
+                                _triggeredSlots[player.SlotIndex] = true;
+                                _scene.NoteTeleport(player, Id);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        _triggeredSlots[player.SlotIndex] = false;
+                    }
+                }
+                else
+                {
+                    _triggeredSlots[player.SlotIndex] = false;
+                }
+            }
+            if (!activated && _bool3)
+            {
+                _bool4 = true;
+            }
+            return true;
+        }
+
+        public void SetTriggered()
+        {
+            for (int i = 0; i < _triggeredSlots.Length; i++)
+            {
+                _triggeredSlots[i] = true;
+            }
+        }
+
+        public override void HandleMessage(MessageInfo info)
+        {
+            if (_big)
+            {
+                return;
+            }
+            if (info.Message == Message.Activate)
+            {
+                Activate();
+            }
+            else if (info.Message == Message.SetActive)
+            {
+                if ((int)info.Param1 != 0)
+                {
+                    Activate();
+                }
+                else
+                {
+                    Active = false;
+                    _scanId = 25;
+                    _bool4 = true;
+                }
+            }
+        }
+
+        private void Activate()
+        {
+            if (!Active)
+            {
+                Active = true;
+                _scanId = _big ? 46 : 26;
+                ActivateAnimaton();
+            }
+        }
+
+        // todo: names
+        private void ActivateAnimaton()
+        {
+            if (!_bool3 && _data.Invisible == 0)
+            {
+                _bool3 = true;
+                _bool4 = false;
+                _soundSource.Update(Position, rangeIndex: 23);
+                AnimationInfo animInfo = _models[0].AnimInfo;
+                if (animInfo.Index[0] == 2)
+                {
+                    if (_scene.FrameCount > 1 && animInfo.Flags[0].TestFlag(AnimFlags.Reverse)
+                        && animInfo.Frame[0] < animInfo.FrameCount[0] / 2 && _scene.FrameCount % 2 == 0) // todo: FPS stuff
+                    {
+                        _soundSource.PlaySfx(SfxId.TELEPORT_ACTIVATE);
+                    }
+                    animInfo.Flags[0] |= AnimFlags.NoLoop;
+                    animInfo.Flags[0] &= ~AnimFlags.Ended;
+                    animInfo.Flags[0] &= ~AnimFlags.Reverse;
+                }
+            }
+        }
+
+        private void InitiateAnimaton()
+        {
+            if (_bool3 && _data.Invisible == 0)
+            {
+                _bool3 = false;
+                _bool4 = false;
+                AnimationInfo animInfo = _models[0].AnimInfo;
+                if (animInfo.Index[0] == 2)
+                {
+                    //_soundSource.PlaySfx(SfxId.TELEPORT_ACTIVATE);
+                    animInfo.Flags[0] |= AnimFlags.NoLoop;
+                    animInfo.Flags[0] |= AnimFlags.Reverse;
+                    animInfo.Flags[0] &= ~AnimFlags.Ended;
+                }
+                else if (animInfo.Index[0] == 0)
+                {
+                    _models[0].SetAnimation(2, AnimFlags.NoLoop | AnimFlags.Reverse);
+                }
+            }
+            else
+            {
+                _bool4 = false;
+            }
+        }
+
+        public override void Destroy()
+        {
+            _soundSource.StopAllSfx(force: true);
+            base.Destroy();
+        }
+
+        protected internal override Matrix4 GetModelTransform(ModelInstance inst, int index)
+        {
+            Matrix4 transform = base.GetModelTransform(inst, index);
+            if (index != 0 && inst.IsPlaceholder)
+            {
+                transform.Row3.Xyz = _targetPos;
+            }
+            else if (index == 1)
+            {
+                return _artifact1Transform * _transform;
+            }
+            else if (index == 2)
+            {
+                return _artifact2Transform * _transform;
+            }
+            else if (index == 3)
+            {
+                return _artifact3Transform * _transform;
+            }
+            return transform;
+        }
+
+        protected internal override Vector4? GetOverrideColor(ModelInstance inst, int index)
+        {
+            if (index != 0 && inst.IsPlaceholder)
+            {
+                return _overrideColor2;
+            }
+            return base.GetOverrideColor(inst, index);
+        }
+
+        protected internal override int GetModelRecolor(ModelInstance inst, int index)
+        {
+            if (index != 0)
+            {
+                return 0;
+            }
+            return base.GetModelRecolor(inst, index);
+        }
+    }
+}
