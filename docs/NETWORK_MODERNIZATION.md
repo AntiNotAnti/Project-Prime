@@ -18,7 +18,10 @@ No commercial game data is included. No deployment or public-server change is
 part of the local validation recorded here.
 Optional P11 regional orchestration remains outside this core migration.
 
-## Current phase status
+## Original migration phase status
+
+This table records the migration baseline. Current protocol, view timing and
+projectile upgrades are recorded in [NETWORK_POST_UPSTREAM.md](NETWORK_POST_UPSTREAM.md).
 
 | Phase | Implementation and evidence |
 | --- | --- |

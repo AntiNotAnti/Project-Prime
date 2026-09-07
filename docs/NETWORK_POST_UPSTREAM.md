@@ -167,6 +167,30 @@ The integrated C# suite passed 202 tests. Server/nettest builds passed without
 warnings and real-content directory, connection, history and bomb smoke checks
 passed. These results precede homing support and the final mixed-combat soak.
 
+### Pass 6: server controls and reproducible comparisons
+
+`-nolagcomp` disables every historical compensation mode;
+`-noprojectilecatchup` retains historical traces. Both are immutable server
+settings forwarded into each new simulation after map rotation. Logs report the
+effective settings and bounded projectile work alongside shot/history metrics.
+Actual process smoke checks verify both command-line flags.
+
+The deterministic fixture uses identical encoded input delivery, accepted
+commands, root-shot facts and controlled target paths for both OFF and trace-only
+baselines. A dedicated match-owned root spread stream removes damage-timing
+dependence from later spread seeds while retaining the ordinary global RNG
+advance. Three focused seed tests cover unrelated random work, reset and seed
+capture at match construction. All 30 paired cases passed across five mechanics
+and 0/4/8-tick delivery delays, with deterministic jitter and 3% bundle loss.
+The real-spawn weapon matrix passed 61 checks for all 18 multiplayer variants.
+
+The separate real-UDP mixed-combat fixture uses eight peers, normal damage and
+respawns, controlled loadouts and infinite ammo. Its preliminary ON/OFF smoke
+held eight playing peers for 600 measured ticks at 100 ms RTT, 20 ms jitter and
+2% loss with no dropped ticks or queue overflows. It reports actual root-shot
+counts because combat outcomes can change the workload; these runs do not imply
+identical accepted shots or causal performance comparisons.
+
 ## Reproduction
 
 Use .NET SDK 9 and your own extracted AMHE1 data:

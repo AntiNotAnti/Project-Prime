@@ -14,6 +14,8 @@ namespace MphRead.Mods.Network
         public MapRotation? Rotation { get; init; }
         public int MaxPlayers { get; init; } = 8;
         public bool FriendlyFire { get; init; }
+        public bool LagCompEnabled { get; init; } = true;
+        public bool ProjectileCatchUpEnabled { get; init; } = true;
         public string ServerName { get; init; } = "Fruity Prime";
         public MasterReporter? Reporter { get; init; }
         public int BoundPort { get; private set; }
@@ -43,7 +45,7 @@ namespace MphRead.Mods.Network
             ServerContent.Open(_data, _version);
             using var transport = new NetTransport(_port);
             BoundPort = transport.LocalPort;
-            ServerSimulation simulation = new(_entry);
+            ServerSimulation simulation = new(_entry, LagCompEnabled, ProjectileCatchUpEnabled);
             try
             {
                 GameState.FriendlyFire = FriendlyFire;
@@ -151,7 +153,7 @@ namespace MphRead.Mods.Network
                                 // Flush the loading notification before synchronous content IO.
                                 network.Poll(tick);
                                 simulation.Dispose();
-                                simulation = new ServerSimulation(next);
+                                simulation = new ServerSimulation(next, LagCompEnabled, ProjectileCatchUpEnabled);
                                 GameState.FriendlyFire = FriendlyFire;
                                 endedAt = null;
                                 Console.WriteLine($"[server] match={match} room={next.RoomKey} tick={tick}");
@@ -170,6 +172,7 @@ namespace MphRead.Mods.Network
                         long allocated = GC.GetTotalAllocatedBytes(precise: false);
                         TimeSpan cpu = process.TotalProcessorTime;
                         Console.WriteLine(FormattableString.Invariant($"[server] inKBps={(received - previousIn) / seconds / 1000:F1} outKBps={(sent - previousOut) / seconds / 1000:F1} allocatedKBps={(allocated - previousAllocated) / seconds / 1000:F1} cpuCores={(cpu - previousCpu).TotalSeconds / seconds:F3}"));
+                        Console.WriteLine(FormattableString.Invariant($"[server] lagCompEnabled={simulation.Combat.LagCompEnabled} projectileCatchUpEnabled={simulation.Combat.ProjectileCatchUpEnabled} projectilesCaughtUp={simulation.Combat.CatchUp.ProjectilesCaughtUp} catchUpSteps={simulation.Combat.CatchUp.Steps} catchUpCollisions={simulation.Combat.CatchUp.Collisions} maxCatchUpSteps={simulation.Combat.CatchUp.MaxSteps} catchUpQueueDrops={simulation.Combat.CatchUp.QueueDrops}"));
                         lastReport = reportAt;
                         previousIn = received;
                         previousOut = sent;

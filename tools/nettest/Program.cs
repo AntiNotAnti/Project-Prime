@@ -18,6 +18,10 @@ namespace MphRead.NetTest
                     case "--history-boundary": return HistoryBoundaryCheck.Run(args);
                     case "--bomb-pool": return BombPoolCheck.Run(args);
                     case "--catch-up": return CatchUpCheck.Run(args);
+                    case "--weapon-policy": return WeaponPolicyCheck.Run(args);
+                    case "--lagcomp-script": return LagCompScriptCheck.Run(args);
+                    case "--mixed-soak-server": return MixedCombatSoak.RunServer(args);
+                    case "--mixed-soak-clients": return MixedCombatClients.Run(args);
                     case "--simulation": return SimulationCheck.Run(args);
                     case "--match-lifecycle": return MatchLifecycleCheck.Run(args);
                     case "--baseline": return ConnectionBaseline.Run(args);
@@ -58,6 +62,10 @@ namespace MphRead.NetTest
             Console.WriteLine("--history-boundary DATA [VERSION]: completed simulation history and snapshot invariants");
             Console.WriteLine("--bomb-pool DATA [VERSION]: headless bomb creation, expiry and pool reuse");
             Console.WriteLine("--catch-up DATA [VERSION]: completed-boundary projectile catch-up and collision invariants");
+            Console.WriteLine("--weapon-policy DATA [VERSION]: actual multiplayer weapon timing variants");
+            Console.WriteLine("--lagcomp-script DATA CONFIG_JSON OUTPUT_JSON: deterministic comparison fixture");
+            Console.WriteLine("--mixed-soak-server DATA PORT SECONDS REPORT_JSON MODE SEED: MODE on, trace-only or off");
+            Console.WriteLine("--mixed-soak-clients SECONDS PORT,... REPORT_JSON SERVER_COMPLETION_JSON: eight UDP clients");
             Console.WriteLine("The connection-server is a data-free test fixture; it does not simulate gameplay.");
         }
     }

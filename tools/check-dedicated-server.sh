@@ -77,6 +77,18 @@ with tempfile.TemporaryDirectory(prefix="fruity-server-check-") as temporary:
                 "-dataversion", os.environ.get("GAME_DATA_VERSION", "AMHE1"),
                 "-port", "0", "-nomaster", "-noupdate", "-servername", "CI smoke test"], "server")
             require(server.poll() is None, "authoritative server starts with supplied game content")
+            for flag, expected in (("-noprojectilecatchup", "lagCompEnabled=True projectileCatchUpEnabled=False"),
+                                   ("-nolagcomp", "lagCompEnabled=False projectileCatchUpEnabled=False")):
+                name = flag[1:]
+                controlled, _ = start(binary + ["-server", "-data", str(Path(data).resolve()),
+                    "-dataversion", os.environ.get("GAME_DATA_VERSION", "AMHE1"),
+                    "-port", "0", "-nomaster", "-noupdate", flag], name)
+                deadline = time.monotonic() + 3
+                while expected not in (root / f"{name}.log").read_text() and time.monotonic() < deadline:
+                    time.sleep(0.05)
+                require(expected in (root / f"{name}.log").read_text(), flag + " reaches authoritative combat settings")
+                controlled.terminate()
+                controlled.wait(timeout=5)
         else:
             rejected = subprocess.run(binary + ["-server", "-port", "0", "-nomaster", "-noupdate"],
                 text=True, capture_output=True, timeout=15, check=False)

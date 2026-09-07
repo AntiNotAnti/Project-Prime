@@ -208,6 +208,8 @@ namespace MphRead.Mods
                         ValueAfter(args, "dataversion") ?? "AMHE1", simulationRotation?.Current ?? entry)
                     {
                         Rotation = simulationRotation,
+                        LagCompEnabled = !HasFlag(args, "nolagcomp"),
+                        ProjectileCatchUpEnabled = !HasFlag(args, "noprojectilecatchup"),
                         MaxPlayers = Int32.TryParse(ValueAfter(args, "players"), out int capacity) ? capacity : 8,
                         FriendlyFire = HasFlag(args, "friendlyfire")
                             && (!Boolean.TryParse(ValueAfter(args, "friendlyfire"), out bool friendly) || friendly),

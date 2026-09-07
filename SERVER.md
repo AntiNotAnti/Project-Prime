@@ -128,8 +128,19 @@ processes for separate matches.
 | `-master HOST:PORT` | Opt in to directory listing. `-masterport N` can supply the port separately. |
 | `-nomaster` | Disable listing, even if `-master` is present. |
 | `-mapdir DIRECTORY` | Use an external custom-map directory. |
+| `-nolagcomp` | Disable all historical shot compensation for this server, including projectile catch-up. |
+| `-noprojectilecatchup` | Disable projectile fast-forward while retaining historical Imperialist traces. |
 | `-noupdate` | Skip the startup update check. |
 | `-parent-stdin` | Stop when the supervising parent closes stdin; used by directory-owned child servers. |
+
+Historical compensation is enabled by default and remains capped at 15 ticks
+(250 ms), using 32 stored history frames. These server-owned settings persist
+across map rotation. The diagnostic log reports the effective settings, shot
+rewind samples, historical misses, projectile catch-up steps and queue drops.
+Catch-up advances player collision against immutable history while using current
+map geometry. See [the weapon timing policies](docs/NETWORK_WEAPON_POLICIES.md)
+for variant coverage and [the comparison harness](docs/NETWORK_LAGCOMP_COMPARISON.md)
+for reproducible ON/OFF checks.
 
 ## Map rotation
 
