@@ -60,6 +60,10 @@ If you enjoy it: **[ko-fi.com/livetek](https://ko-fi.com/livetek)** ☕
 
 Everybody in a match needs the same version; the launcher checks for a new one and says so.
 
+Online matches use a 60 Hz authoritative server with local movement prediction and remote interpolation.
+The server owns combat, pickups, objectives and score. Servers need extracted game data or a compact
+baked package; see the [implementation and validation notes](docs/NETWORK_MODERNIZATION.md).
+
 Want a machine of your own that is always up? [`SERVER.md`](SERVER.md).
 
 ## Custom maps
