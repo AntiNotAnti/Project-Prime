@@ -52,7 +52,7 @@ namespace MphRead.NetTest
             {
                 "trace" => (BeamType.Imperialist, Hunter.Trace, false, "HistoricalTrace"),
                 "travel" => (BeamType.PowerBeam, Hunter.Samus, false, "ProjectileCatchUp"),
-                "homing" => (BeamType.Missile, Hunter.Samus, true, "None"),
+                "homing" => (BeamType.Missile, Hunter.Samus, true, "HomingProjectileCatchUp"),
                 "continuous" => (BeamType.ShockCoil, Hunter.Sylux, false, "None"),
                 "area" => (BeamType.Judicator, Hunter.Noxus, true, "None"),
                 _ => throw new ArgumentException("Unknown scenario.")

@@ -69,14 +69,15 @@ what the raw damage counts mean.
 | --- | --- | --- |
 | `trace` | Imperialist, Trace | Historical trace |
 | `travel` | Uncharged Power Beam, Samus | Ordinary projectile catch-up |
-| `homing` | Charged Missile, Samus | Homing exclusion |
+| `homing` | Charged Missile, Samus | Historical acquisition and steering |
 | `continuous` | Shock Coil, Sylux | Continuous-beam exclusion |
 | `area` | Charged affinity Judicator, Noxus | Angular-area exclusion |
 
 Charging also produces normal uncharged precursor shots. Their outcomes can
 change when ordinary projectile catch-up is enabled. Excluded-outcome checks
-therefore select charged root commands for the homing and area scenarios, and
-all root commands for the continuous scenario. Every precursor remains included
+therefore select charged root commands for the area scenario, and all root
+commands for the continuous scenario. Homing is eligible for historical catch-up.
+Every precursor remains included
 in the strict shot-schedule and spread-seed comparison.
 
 ## Acceptance and outputs

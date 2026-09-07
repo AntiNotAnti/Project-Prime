@@ -131,6 +131,14 @@ with tempfile.TemporaryDirectory(prefix="fruity-server-check-") as temporary:
                     if bombs.stderr:
                         print(bombs.stderr, file=sys.stderr, end="")
                     require(bombs.returncode == 0, "headless bombs spawn, expire and reuse their bounded pool")
+                    for option in ("--catch-up", "--weapon-policy", "--homing"):
+                        result = subprocess.run([dotnet, str(nettest), option,
+                            str(Path(data).resolve()), os.environ.get("GAME_DATA_VERSION", "AMHE1")],
+                            text=True, capture_output=True, timeout=45, check=False)
+                        print(result.stdout, end="")
+                        if result.stderr:
+                            print(result.stderr, file=sys.stderr, end="")
+                        require(result.returncode == 0, option + " real-content regression checks")
         require(master.poll() is None, "directory remains running after checks")
     except Exception as error:
         print("FAIL: " + str(error), file=sys.stderr)

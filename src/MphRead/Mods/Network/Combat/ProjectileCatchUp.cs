@@ -29,7 +29,7 @@ namespace MphRead.Mods.Network
         internal void Enqueue(BeamProjectileEntity beam, bool inherited)
         {
             if (!_combat.ProjectileCatchUpEnabled || !beam.CombatShot.IsValid
-                || beam.TimingMode != LagCompensationMode.ProjectileCatchUp) return;
+                || beam.TimingMode is not (LagCompensationMode.ProjectileCatchUp or LagCompensationMode.HomingProjectileCatchUp)) return;
             // A child born during later ordinary simulation is already at
             // present time; inheriting attribution must not restart catch-up.
             if (inherited && !_draining) return;

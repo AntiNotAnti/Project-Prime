@@ -18,6 +18,7 @@ namespace MphRead.NetTest
                     case "--history-boundary": return HistoryBoundaryCheck.Run(args);
                     case "--bomb-pool": return BombPoolCheck.Run(args);
                     case "--catch-up": return CatchUpCheck.Run(args);
+                    case "--homing": return HomingCheck.Run(args);
                     case "--weapon-policy": return WeaponPolicyCheck.Run(args);
                     case "--lagcomp-script": return LagCompScriptCheck.Run(args);
                     case "--mixed-soak-server": return MixedCombatSoak.RunServer(args);

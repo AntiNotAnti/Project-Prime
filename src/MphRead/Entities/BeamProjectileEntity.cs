@@ -55,6 +55,7 @@ namespace MphRead.Entities
         public EffectEntry? Effect { get; set; }
         public EffectEntry? MuzzleEffect { get; set; }
         public EntityBase? Target { get; set; }
+        private CombatActor _homingTargetIdentity;
         public EquipInfo? Equip { get; set; }
 
         public int DamageInterpolation { get; set; }
@@ -216,30 +217,40 @@ namespace MphRead.Entities
             }
             if (Flags.TestFlag(BeamFlags.Homing) && !Flags.TestFlag(BeamFlags.Continuous) && Target != null)
             {
-                Target.GetPosition(out Vector3 targetPos);
-                Vector3 acceleration = targetPos - Position;
-                if (acceleration != Vector3.Zero)
+                Vector3 targetPos;
+                if (CombatShot.IsValid && TimingMode == LagCompensationMode.HomingProjectileCatchUp
+                    && ServerCombat.Current is ServerCombat combat)
                 {
-                    acceleration = acceleration.Normalized();
+                    if (!HistoricalHomingTarget.TryGet(combat, Target, combat.CatchUp.CollisionTick ?? combat.Tick,
+                        _homingTargetIdentity, out targetPos, out _)) Target = null;
                 }
-                else
+                else Target.GetPosition(out targetPos);
+                if (Target != null)
                 {
-                    acceleration = Vector3.UnitX;
-                }
-                acceleration *= Speed;
-                if (Vector3.Dot(acceleration, Velocity) >= 0)
-                {
-                    acceleration -= Velocity;
-                    float accelMag = acceleration.Length;
-                    if (accelMag > Homing)
+                    Vector3 acceleration = targetPos - Position;
+                    if (acceleration != Vector3.Zero)
                     {
-                        acceleration *= Homing / accelMag;
+                        acceleration = acceleration.Normalized();
                     }
-                    Velocity += acceleration;
-                }
-                else
-                {
-                    Target = null;
+                    else
+                    {
+                        acceleration = Vector3.UnitX;
+                    }
+                    acceleration *= Speed;
+                    if (Vector3.Dot(acceleration, Velocity) >= 0)
+                    {
+                        acceleration -= Velocity;
+                        float accelMag = acceleration.Length;
+                        if (accelMag > Homing)
+                        {
+                            acceleration *= Homing / accelMag;
+                        }
+                        Velocity += acceleration;
+                    }
+                    else
+                    {
+                        Target = null;
+                    }
                 }
             }
             if (Flags.TestFlag(BeamFlags.Charged)
@@ -1410,6 +1421,7 @@ namespace MphRead.Entities
             Owner = null;
             Effect = null;
             Target = null;
+            _homingTargetIdentity = default;
             RicochetWeapon = null;
             Equip = null;
             _trailModel = null;
@@ -1723,6 +1735,11 @@ namespace MphRead.Entities
                 beam.CatchUpPending = false;
                 beam.Mechanics = mechanics;
                 beam.TimingMode = ServerCombat.Current?.GetMode(mechanics) ?? LagCompensationMode.None;
+                // Verified player homing variants are root actions. No retail
+                // multiplayer ricochet child homes; future child metadata needs
+                // its own acquisition-time validation before enabling catch-up.
+                if (inheritedShot.HasValue && beam.TimingMode == LagCompensationMode.HomingProjectileCatchUp)
+                    beam.TimingMode = LagCompensationMode.None;
                 beam.Owner = owner;
                 beam.CombatShot = combatShot;
                 beam._spreadSeed = spreadSeed;
@@ -1885,9 +1902,22 @@ namespace MphRead.Entities
                 }
                 foreach (EntityBase entity in scene.Entities)
                 {
-                    if (entity.Type != type || entity == beam.Owner || !entity.GetTargetable())
+                    if (entity.Type != type || entity == beam.Owner)
                     {
                         continue;
+                    }
+                    Vector3 position;
+                    CombatActor targetIdentity = default;
+                    if (beam.CombatShot.IsValid && beam.TimingMode == LagCompensationMode.HomingProjectileCatchUp
+                        && ServerCombat.Current is ServerCombat combat)
+                    {
+                        if (!HistoricalHomingTarget.TryGet(combat, entity, beam.CombatShot.ActionServerTick,
+                            default, out position, out targetIdentity)) continue;
+                    }
+                    else
+                    {
+                        if (!entity.GetTargetable()) continue;
+                        entity.GetPosition(out position);
                     }
                     bool tryTarget = false;
                     if (type == EntityType.Player)
@@ -1938,7 +1968,6 @@ namespace MphRead.Entities
                     }
                     if (tryTarget)
                     {
-                        entity.GetPosition(out Vector3 position);
                         Vector3 between = position - beam.Position;
                         float distSqr = Vector3.Dot(between, between);
                         float range = Fixed.ToFloat(weapon.HomingRange);
@@ -1981,6 +2010,7 @@ namespace MphRead.Entities
                                 {
                                     curDiv = div1;
                                     beam.Target = entity;
+                                    beam._homingTargetIdentity = targetIdentity;
                                 }
                             }
                         }

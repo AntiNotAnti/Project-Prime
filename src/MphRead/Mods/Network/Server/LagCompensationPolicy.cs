@@ -44,10 +44,17 @@ namespace MphRead.Mods.Network
         public static LagCompensationMode GetMode(in BeamMechanics mechanics)
         {
             if ((uint)mechanics.Beam > 8 || mechanics.BeamKind != mechanics.Beam
-                || mechanics.Continuous || mechanics.InstantArea || mechanics.Homing > 0
+                || mechanics.Continuous || mechanics.InstantArea
+                || !Single.IsFinite(mechanics.Homing) || mechanics.Homing < 0
                 || !Single.IsFinite(mechanics.Speed) || mechanics.Speed <= 0
                 || !Single.IsFinite(mechanics.Lifespan) || mechanics.Lifespan <= 0)
                 return LagCompensationMode.None;
+            // These three multiplayer variants have independently verified
+            // historical acquisition and steering. Continuous and area paths
+            // were excluded above; other homing metadata remains opt-out.
+            if (mechanics.Homing > 0)
+                return mechanics.Beam is BeamType.PowerBeam or BeamType.VoltDriver or BeamType.Missile
+                    ? LagCompensationMode.HomingProjectileCatchUp : LagCompensationMode.None;
             // Retail Imperialist crosses its entire 200-unit range in two
             // swept steps. Other ordinary moving beams keep normal physics.
             return mechanics.Beam == BeamType.Imperialist ? LagCompensationMode.HistoricalTrace

@@ -191,6 +191,24 @@ held eight playing peers for 600 measured ticks at 100 ms RTT, 20 ms jitter and
 counts because combat outcomes can change the workload; these runs do not imply
 identical accepted shots or causal performance comparisons.
 
+### Pass 7: historical homing acquisition and steering
+
+The resolved homing Power Beam, Volt Driver and Missile variants now acquire
+players at the validated action boundary and steer against the corresponding
+immutable player/turret point at every catch-up step. Selected connection and
+life remain bound to the target. Missing or invalid history drops the target
+without live fallback or reacquisition. Current world objects and ordinary map
+collision retain their existing behavior. Continuous/area attacks and unverified
+future homing children stay excluded.
+
+Five actual charge variants matched timely controls bit-for-bit across nine
+steps and the following normal frame. All three homing weapons hit a moving
+historical player exactly once, without moving its live body. Acquisition,
+missing/dead/spectating history, replacement identity, alternate form, turret,
+invalid source and zero-rewind cases passed. The 61-case weapon matrix and 26
+focused tests passed; six strict homing A/B pairs preserved 11 root shots each
+across 0/4/8-tick delays and both baselines. Server/nettest built without warnings.
+
 ## Reproduction
 
 Use .NET SDK 9 and your own extracted AMHE1 data:

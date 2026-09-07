@@ -102,8 +102,9 @@ namespace MphRead.NetTest
         }
 
         private static LagCompensationMode ExpectedMode(Expected expected, int beam)
-            => expected.Continuous || expected.Area || expected.Homing > 0
-                ? LagCompensationMode.None : beam == (int)BeamType.Imperialist
+            => expected.Continuous || expected.Area
+                ? LagCompensationMode.None : expected.Homing > 0
+                ? LagCompensationMode.HomingProjectileCatchUp : beam == (int)BeamType.Imperialist
                 ? LagCompensationMode.HistoricalTrace : LagCompensationMode.ProjectileCatchUp;
 
         private static void Require(bool condition, string label)

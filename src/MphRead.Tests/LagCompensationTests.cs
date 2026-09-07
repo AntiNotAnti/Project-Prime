@@ -219,7 +219,9 @@ namespace MphRead.Tests
                 Assert.Equal(expected, LagCompensationPolicy.GetMode(mechanics));
                 Assert.Equal(LagCompensationMode.None, LagCompensationPolicy.GetMode(mechanics with { Continuous = true }));
                 Assert.Equal(LagCompensationMode.None, LagCompensationPolicy.GetMode(mechanics with { InstantArea = true }));
-                Assert.Equal(LagCompensationMode.None, LagCompensationPolicy.GetMode(mechanics with { Homing = 1 }));
+                var homing = type is BeamType.PowerBeam or BeamType.VoltDriver or BeamType.Missile
+                    ? LagCompensationMode.HomingProjectileCatchUp : LagCompensationMode.None;
+                Assert.Equal(homing, LagCompensationPolicy.GetMode(mechanics with { Homing = 1 }));
             }
             Assert.Equal(15u, LagCompensationPolicy.MaxProjectileFastForwardTicks);
         }

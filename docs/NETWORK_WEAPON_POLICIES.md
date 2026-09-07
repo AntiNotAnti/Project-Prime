@@ -21,8 +21,8 @@ when given a full-charge input level.
   existing movement and collision path. Gravity, speed changes, splash damage,
   bouncing and child projectiles retain their existing mechanics.
 - **Trace:** Imperialist's fast swept projectile uses historical target colliders.
-- **Homing:** traveling homing projectile; catch-up is currently excluded until
-  both historical acquisition and historical steering are supported.
+- **Homing:** traveling projectile with historical player target acquisition
+  and steering during the same bounded catch-up interval.
 - **Continuous:** current-state continuous targeting; no projectile catch-up.
 - **Area:** immediate angular area collision; no traveling projectile is queued.
 
@@ -107,3 +107,33 @@ no network sockets and creates no renderer. Success prints
 `WEAPONPOLICY PASS cases=61 variants=18 source=actual-Spawn`. This checks weapon
 classification and spawn integration; the separate catch-up and A/B checks
 exercise historical collision and impaired-network behavior.
+
+## Historical homing
+
+Power Beam affinity from charge level 37, fully charged Volt Driver affinity,
+and fully charged Missile affinity use `HomingProjectileCatchUp`. Each was checked
+through its actual resolved metadata and projectile physics. Shock Coil remains
+continuous and charged affinity Judicator remains an immediate area attack.
+
+Acquisition ranks the target direction and range at the validated action tick.
+Each catch-up step steers toward that tick's immutable player target point:
+`Position + 0.5 Y` upright, or `Position` in alternate form. Weavel turrets use
+their recorded turret position. The selected connection and life remain bound
+to the shot's target. Missing, dead, spectating, mismatched or absent-turret
+history cannot fall back to a current player. Losing that target does not trigger
+reacquisition. Once catch-up reaches the present, steering reads current geometry.
+
+Doors, platforms and other world objects retain current geometry, matching
+the existing map-collision policy. The original acquisition rule has no separate
+line-of-sight test; catch-up retains normal projectile collision with current
+walls. No live player is moved or rewound to perform these queries.
+The enabled variants are root actions. Retail multiplayer ricochet children have
+no homing; any future homing child remains excluded until its acquisition timing
+has separate coverage.
+
+`nettest --homing /path/to/AMHE1` checks bit-exact position, velocity, age and
+lifespan against a timely control for five charge variants and a moving target.
+It also checks historical-only and current-only acquisition, invalid history,
+connection/life replacement, form/turret target points, and zero-rewind ON/OFF
+parity. Its deterministic fixture controls target motion directly and opens no
+sockets; real UDP soak and strict impaired-input A/B are separate checks.

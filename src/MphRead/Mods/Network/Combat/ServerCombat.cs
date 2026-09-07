@@ -49,7 +49,7 @@ namespace MphRead.Mods.Network
         {
             if (!LagCompEnabled) return LagCompensationMode.None;
             var mode = LagCompensationPolicy.GetMode(mechanics);
-            return mode == LagCompensationMode.ProjectileCatchUp && !ProjectileCatchUpEnabled
+            return (mode is LagCompensationMode.ProjectileCatchUp or LagCompensationMode.HomingProjectileCatchUp) && !ProjectileCatchUpEnabled
                 ? LagCompensationMode.None : mode;
         }
         public uint Tick { get; private set; }
