@@ -50,6 +50,7 @@ namespace MphRead.NetTest
             => new(tick, tick, view, InputButtons.Shoot, InputButtons.Shoot, Vector3.UnitZ, InputCommand.NoWeapon);
         private static BeamProjectileEntity Spawn(Scene scene, PlayerEntity owner, EquipInfo equip, ServerCombat combat, uint tick, uint view)
         {
+            using var services = new CombatSceneScope(scene, combat);
             using var scope = combat.Enter(tick);
             combat.SetCommand(owner.SlotIndex, Command(tick, view), 150);
             BeamProjectileEntity.Spawn(owner, equip, new Vector3(0, 500, 0), Vector3.UnitZ, BeamSpawnFlags.NoMuzzle, owner.NodeRef, scene);
@@ -73,6 +74,7 @@ namespace MphRead.NetTest
             BeamProjectileEntity expected = Spawn(scene, owner, controlEquip, control, start, start);
             for (uint tick = start + 1; tick < now; tick++)
             {
+                using var services = new CombatSceneScope(scene, control);
                 using var scope = control.Enter(tick);
                 scene.StepHeadlessFrame(advanceMatch: false);
             }
@@ -80,6 +82,7 @@ namespace MphRead.NetTest
             BeamProjectileEntity actual = Spawn(scene, owner, delayedEquip, delayed, now, start);
             Rng.SetRng2(123);
             var uncompensated = Spawn(scene, owner, uncompensatedEquip, control, now, start);
+            using (var services = new CombatSceneScope(scene, delayed))
             using (delayed.Enter(now))
             {
                 scene.StepHeadlessFrame(advanceMatch: false);
@@ -95,6 +98,7 @@ namespace MphRead.NetTest
                 Require(controlEquip.Beams[pellet].Velocity == delayedEquip.Beams[pellet].Velocity
                     && controlEquip.Beams[pellet].Position == delayedEquip.Beams[pellet].Position, "Pellet progression differs.");
             Require(delayed.CatchUp.Steps == 9 * pellets && delayed.CatchUp.MaxSteps == 9, "Incorrect catch-up step count.");
+            using (var services = new CombatSceneScope(scene, delayed))
             using (delayed.Enter(now + 1)) scene.StepHeadlessFrame(advanceMatch: false);
             Require(expected.Position == actual.Position && expected.Age == actual.Age, "Post-catch-up normal progression differs.");
             Console.WriteLine($"CATCHUP parity={type} charged={charged} pellets={pellets} stepsPerProjectile=9 position=bitExact velocity=bitExact age=bitExact PASS");
@@ -107,6 +111,7 @@ namespace MphRead.NetTest
                 var combat = new ServerCombat(projectileCatchUpEnabled: enabled);
                 var equip = Equipment(scene, BeamType.PowerBeam);
                 var beam = Spawn(scene, owner, equip, combat, 200, 200);
+                using (var services = new CombatSceneScope(scene, combat))
                 using (combat.Enter(200)) { scene.StepHeadlessFrame(false); combat.CatchUp.Drain(); }
                 Require(beam.Age == scene.FrameTime && combat.CatchUp.Steps == 0, "Zero rewind changed the ordinary one-step spawn.");
                 Clean(scene, equip);
@@ -122,6 +127,7 @@ namespace MphRead.NetTest
             Spawn(scene, owner, equip, combat, 300, 285);
             Require(beam.Generation != generation && combat.CatchUp.Pending == 2, "Fixture failed to recycle queued generation.");
             beam.Lifespan = scene.FrameTime * 2;
+            using (var services = new CombatSceneScope(scene, combat))
             using (combat.Enter(300)) { scene.StepHeadlessFrame(false); combat.CatchUp.Drain(); }
             Require(combat.CatchUp.ProjectilesCaughtUp == 1 && combat.CatchUp.Steps == 2 && combat.CatchUp.Collisions == 1,
                 "Expired/recycled beam advanced or collided twice.");
@@ -132,6 +138,7 @@ namespace MphRead.NetTest
         {
             var combat = new ServerCombat();
             var equip = Equipment(scene, BeamType.PowerBeam);
+            using (var services = new CombatSceneScope(scene, combat))
             using (combat.Enter(500))
             {
                 combat.SetCommand(owner.SlotIndex, Command(500, 1), 250);
@@ -151,6 +158,7 @@ namespace MphRead.NetTest
             var equip = Equipment(scene, BeamType.PowerBeam, 1);
             for (int i = 0; i <= ProjectileCatchUp.Capacity; i++) Spawn(scene, owner, equip, combat, 400, 385);
             Require(combat.CatchUp.Pending == ProjectileCatchUp.Capacity && combat.CatchUp.QueueDrops == 1, "Catch-up queue is not bounded.");
+            using (var services = new CombatSceneScope(scene, combat))
             using (combat.Enter(400)) { scene.StepHeadlessFrame(false); combat.CatchUp.Drain(); }
             Require(combat.CatchUp.Pending == 0 && combat.CatchUp.Steps <= ProjectileCatchUp.Capacity * 15,
                 "Catch-up drain exceeded work bound.");
@@ -161,5 +169,21 @@ namespace MphRead.NetTest
         {
             if (!condition) throw new InvalidOperationException(reason);
         }
+    }
+
+    /// <summary>Temporarily routes scene-owned combat callbacks to one fixture authority.</summary>
+    internal sealed class CombatSceneScope : IDisposable
+    {
+        private readonly Scene _scene;
+        private readonly ISceneServices _previous;
+
+        public CombatSceneScope(Scene scene, ServerCombat combat)
+        {
+            _scene = scene;
+            _previous = scene.Services;
+            scene.Services = new ServerSceneServices(combat);
+        }
+
+        public void Dispose() => _scene.Services = _previous;
     }
 }

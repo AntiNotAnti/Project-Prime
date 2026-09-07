@@ -261,7 +261,7 @@ namespace MphRead.NetTest
                     ?? (Path.GetFileNameWithoutExtension(Environment.ProcessPath) == "dotnet" ? Environment.ProcessPath! : "dotnet");
                 var start = new ProcessStartInfo(executable) { UseShellExecute = false, RedirectStandardInput = true,
                     RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = AppContext.BaseDirectory };
-                foreach (string argument in new[] { Path.Combine(AppContext.BaseDirectory, "FruityPrime.dll"), "-server", "-port", "0",
+                foreach (string argument in new[] { Path.Combine(AppContext.BaseDirectory, "FruityPrimeServer.dll"), "-server", "-port", "0",
                     "-data", Path.GetFullPath(data), "-dataversion", "AMHE1", "-rotation", rotation, "-players", "3", "-parent-stdin", "-nomaster", "-noupdate" })
                 { start.ArgumentList.Add(argument); }
                 _process = new Process { StartInfo = start, EnableRaisingEvents = true };

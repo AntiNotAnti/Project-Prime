@@ -53,6 +53,7 @@ namespace MphRead.NetTest
                     CombatActor actor = player.ServerCombatIdentity;
                     combat.History.Record(tick, player, actor.ConnectionId, actor.Life);
                 }
+            using (var services = new CombatSceneScope(scene, combat))
             using (combat.Enter(Tick))
             {
                 combat.SetCommand(0, new(1, Tick, later ? Tick - 1 : ActionTick, 0, 0, direction, (byte)BeamType.Judicator), 250);
@@ -161,6 +162,7 @@ namespace MphRead.NetTest
             BeamType weapon = splash ? BeamType.Magmaul : BeamType.PowerBeam;
             var equip = new EquipInfo(Weapons.Current[(int)weapon], shooter.EquipInfo.Beams) { InfiniteAmmo = true };
             if (splash) equip.ChargeLevel = (ushort)(equip.Weapon.FullCharge * 2);
+            using (var services = new CombatSceneScope(scene, combat))
             using (combat.Enter(Tick))
             {
                 combat.SetCommand(0, new(1, Tick, name == "replacement-current-endpoint" ? Tick - 2 : ActionTick, 0, 0, direction, (byte)weapon), 250);
