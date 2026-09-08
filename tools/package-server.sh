@@ -68,7 +68,7 @@ mv "$NODE_APPHOST" "$PACKAGE_NODE"
 cp "$ROOT/tools/server.example.json" "$STAGE/node/server.example.json"
 chmod +x "$PACKAGE_NODE" "$WORKER_APPHOST"
 
-if ! strings "$PACKAGE_NODE" | rg 'FruityPrime\.Server\.Node' >/dev/null; then
+if ! strings "$PACKAGE_NODE" | grep -F 'FruityPrime.Server.Node' >/dev/null; then
   echo "Node assembly identity is missing from the published metadata." >&2
   exit 1
 fi

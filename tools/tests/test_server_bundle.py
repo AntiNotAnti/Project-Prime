@@ -34,6 +34,8 @@ class ServerBundleContractTests(unittest.TestCase):
         self.assertIn("FruityPrimeServer.exe", script)
         self.assertIn("FruityPrimeServer", script)
         self.assertIn("FruityPrime.Server.Node", script)
+        self.assertIn("grep -F 'FruityPrime.Server.Node'", script)
+        self.assertNotIn("| rg ", script)
         self.assertIn("osx-arm64", script)
 
     def test_workflows_use_combined_bundle_and_leave_updater_migration_to_operators(self):
