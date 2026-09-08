@@ -32,8 +32,8 @@ internal static class SimulationOrderingCheck
     private sealed class Fixture : IDisposable
     {
         public Scene Scene { get; } = Scene.CreateHeadless();
-        public PlayerEntity A => PlayerEntity.Players[0];
-        public PlayerEntity B => PlayerEntity.Players[1];
+        public PlayerEntity A => Scene.Players[0];
+        public PlayerEntity B => Scene.Players[1];
         public MatchRuntime Match => Scene.Match;
         public Fixture(GameMode mode)
         {
@@ -42,7 +42,7 @@ internal static class SimulationOrderingCheck
                 Scene.LoadServerRoom(MatchBaselineCheck.SelectRoom(mode), mode, players: 2, roomPlayerCount: NetLaunch.RoomPlayerCount);
                 A.ServerActivate(100, Hunter.Samus, 0);
                 B.ServerActivate(200, Hunter.Kanden, 1);
-                PlayerEntity.PlayerCount = 2;
+                Scene.Players.ActiveCount = 2;
                 Scene.StepHeadlessFrame(advanceMatch: false);
                 Match.ApplyRules(Match.Rules.With(scoreGoal: 100, startingLives: 0, objectiveTimeGoal: TimeSpan.FromHours(1)));
                 A.Health = B.Health = 100;

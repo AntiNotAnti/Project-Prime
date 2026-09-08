@@ -122,7 +122,7 @@ namespace MphRead.NetTest
                     { throw new InvalidOperationException("World capture and assembled state differ."); }
                 }
                 // Reusing a slot cannot inherit the previous connection's objectives.
-                PlayerEntity departing = PlayerEntity.Players[7];
+                PlayerEntity departing = scene.Players[7];
                 foreach (NodeDefenseEntity node in scene.GetNodeDefenseEntities())
                 {
                     if (mode is not (GameMode.Nodes or GameMode.NodesTeams or GameMode.Defender or GameMode.DefenderTeams)) { break; }

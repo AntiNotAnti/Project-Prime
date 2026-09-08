@@ -31,10 +31,10 @@ internal static class MatchBaselineCheck
     {
         string room = SelectRoom(mode);
         scene.LoadServerRoom(room, mode, players: 2, roomPlayerCount: NetLaunch.RoomPlayerCount);
-        PlayerEntity player = PlayerEntity.Players[0], opponent = PlayerEntity.Players[1];
+        PlayerEntity player = scene.Players[0], opponent = scene.Players[1];
         player.ServerActivate(100, Hunter.Samus, 0);
         opponent.ServerActivate(200, Hunter.Kanden, 1);
-        PlayerEntity.PlayerCount = 2;
+        scene.Players.ActiveCount = 2;
         scene.StepHeadlessFrame(advanceMatch: false);
         if (mode is GameMode.Capture or GameMode.Bounty or GameMode.BountyTeams)
         {

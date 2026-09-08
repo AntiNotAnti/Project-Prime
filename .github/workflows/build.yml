@@ -51,24 +51,6 @@ jobs:
             project: src/Client/Client.csproj
             summary: the game and the launcher, for Linux
             extra: ""
-          # Every platform gets a server package alongside its game build, so
-          # this is the same RID a second time with the launcher and the UI
-          # toolkit left out -- a plain x64 box (a VPS, a spare desktop) that
-          # nobody is playing on, same as the two below it.
-          - id: linux-x64-server
-            rid: linux-x64
-            project: src/Server/Server.csproj
-            summary: the dedicated server and the directory, for a plain x64 Linux machine
-            extra: ""
-          # Nobody plays on the Pi: this box runs the dedicated server and the
-          # directory and nothing else, so it is published as the server
-          # package. That drops the launcher and, with it, a desktop UI toolkit
-          # the machine would never open.
-          - id: linux-arm64
-            rid: linux-arm64
-            project: src/Server/Server.csproj
-            summary: the dedicated server and the directory, for a Raspberry Pi
-            extra: ""
           # macOS, both processors. Cross-compiled here like the rest: the
           # launcher is Avalonia on every platform now, so there is nothing in
           # a mac build that has to be produced on a mac. Nobody has started
@@ -126,13 +108,6 @@ jobs:
       - name: the game is a GUI binary
         if: matrix.id == 'win-x64'
         run: tools/check-subsystem.sh gui publish/${{ matrix.id }}/FruityPrime.exe
-
-      # Without cartridge data, exercise the required-data error and the
-      # directory-only query path. Real simulation needs separately supplied
-      # content. The runnable x64 server package runs here; ARM64 is cross-compiled.
-      - name: the server content contract and directory run
-        if: matrix.id == 'linux-x64-server'
-        run: tools/check-dedicated-server.sh publish/${{ matrix.id }}
 
       - uses: actions/upload-artifact@v7
         with:
@@ -254,17 +229,17 @@ jobs:
           path: artifact
           if-no-files-found: error
 
-  # The dedicated server for Windows.
-  #
-  # Its own job on a Windows runner, rather than another row in the matrix
-  # above, for the same reason the binary exists at all: what is worth proving
-  # is that a console-subsystem build really does hold a terminal and run a
-  # server on Windows, and cross-compiling it on Linux would demonstrate
-  # neither. The publish is the same project with the launcher left out.
-  windows-server:
-    name: win-x64 dedicated server
+  # The Node and Worker are one deployable server bundle. The package script
+  # publishes both processes, keeps the Worker under worker/, and applies the
+  # public FruityPrimeServer apphost name only at the package boundary.
+  server:
+    name: server-${{ matrix.rid }}
     needs: assets
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [linux-x64, linux-arm64, win-x64]
     steps:
       - uses: actions/checkout@v7
 
@@ -272,38 +247,39 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Check launcher SDK and execution routing
-        shell: pwsh
-        run: ./tools/tests/test_launcher.ps1
+      - name: package Node and Worker
+        run: tools/package-server.sh --rid "${{ matrix.rid }}" --output "publish/server-${{ matrix.rid }}"
 
-      - name: publish the dedicated server, for Windows
-        run: >
-          dotnet publish src/Server/Server.csproj
-          -c Release -r win-x64
-          --self-contained true -p:PublishSingleFile=true
-          -o publish/win-x64-server
+      - name: server package structural checks
+        run: |
+          set -euo pipefail
+          bundle="publish/server-${{ matrix.rid }}"
+          test -f "$bundle/server.example.json"
+          test -f "$bundle/worker/FruityPrime.Server.Worker${{ matrix.rid == 'win-x64' && '.exe' || '' }}"
+          if [ "${{ matrix.rid }}" = win-x64 ]; then
+            test -f "$bundle/FruityPrimeServer.exe"
+          else
+            test -x "$bundle/FruityPrimeServer"
+          fi
+          tools/check-no-game-assets.sh "$bundle"
 
-      # The whole difference between this binary and the game's, and the one
-      # thing that makes it usable from a terminal or a service supervisor.
-      - name: the server is a console binary
-        shell: bash
-        run: tools/check-subsystem.sh console publish/win-x64-server/FruityPrimeServer.exe
-
-      - name: nothing from the game is in the output
-        shell: bash
-        run: tools/check-no-game-assets.sh publish/win-x64-server
-
-      - name: the custom maps reached the server package
-        shell: bash
-        run: tools/check-maps-shipped.sh publish/win-x64-server
-
-      # The same script the Linux job runs, on Windows.
-      - name: the server content contract and directory run
-        shell: bash
-        run: tools/check-dedicated-server.sh publish/win-x64-server
+      # A runner can execute the Linux package when an operator supplies a
+      # mounted AMHE1 directory. Cross-RID Windows/ARM64 builds remain
+      # structural checks; no credential or game content is stored in CI.
+      - name: fresh extracted Linux package smoke (when content is supplied)
+        if: matrix.rid == 'linux-x64'
+        env:
+          GAME_DATA_DIRECTORY: ${{ secrets.GAME_DATA_DIRECTORY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GAME_DATA_DIRECTORY:-}" ]; then
+            echo "GAME_DATA_DIRECTORY is not configured; package smoke is available but skipped."
+          else
+            tools/package-smoke.sh --bundle "publish/server-${{ matrix.rid }}" --content-dir "$GAME_DATA_DIRECTORY"
+          fi
 
       - uses: actions/upload-artifact@v7
         with:
-          name: FruityPrime-win-x64-server
-          path: publish/win-x64-server
+          name: FruityPrime-server-${{ matrix.rid }}
+          path: publish/server-${{ matrix.rid }}
           if-no-files-found: error

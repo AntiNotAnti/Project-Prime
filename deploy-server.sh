@@ -1,31 +1,32 @@
 #!/usr/bin/env bash
-# Build and upload only the ARM64 binary. Content must already exist remotely.
-# Example: MPH_SERVER_HOST=games.example.com MPH_SERVER_USER=gameuser \
+# Build and deploy one combined Node + Worker bundle. Game content stays on the
+# remote host; appsettings.json is supplied explicitly by the operator because
+# it contains the Node admission public-key path and content identity.
+#
+# Example:
+#   MPH_SERVER_HOST=games.example.com MPH_SERVER_USER=gameuser \
+#   MPH_SERVER_CONFIG=./appsettings.games.json \
 #   MPH_SERVER_DATA=/srv/fruity-content ./deploy-server.sh
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_HOST="${MPH_SERVER_HOST:-net.livetek.fr}"
 DEPLOY_USER="${MPH_SERVER_USER:-livetek}"
-DEPLOY_DIR="${MPH_SERVER_DIR:-/home/$DEPLOY_USER/mphread-server}"
+DEPLOY_DIR="${MPH_SERVER_DIR:-/home/$DEPLOY_USER/fruityprime-server}"
+DEPLOY_CONFIG="${MPH_SERVER_CONFIG:?Set MPH_SERVER_CONFIG to an operator-authored Node appsettings file}"
 DEPLOY_DATA="${MPH_SERVER_DATA:?Set MPH_SERVER_DATA to the existing absolute content directory on the remote machine}"
 DEPLOY_VERSION="${MPH_SERVER_DATA_VERSION:-AMHE1}"
-DEPLOY_MASTER="${MPH_DEPLOY_MASTER:-1}"
-DEPLOY_LISTING="${MPH_SERVER_MASTER:-}"
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STAGE="$(mktemp -d -t fruity-deploy.XXXXXXXX)"
-REMOTE_STAGE="$DEPLOY_DIR/.$(basename "$STAGE")"
+STAGE="$(mktemp -d "${TMPDIR:-/tmp}/fruity-prime-deploy.XXXXXXXX")"
+REMOTE_STAGE="${DEPLOY_DIR}.staging.$(basename "$STAGE")"
 REMOTE_STAGE_CREATED=0
 
-# Pass each remote argument through POSIX shell quoting. No configuration value
-# becomes shell source, including paths containing spaces or apostrophes.
 shell_quote() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
 ssh_run() {
-  # SC2029: remote() passes a complete POSIX-quoted command string. The caller
-  # deliberately constructs it locally; no unquoted configuration enters it.
-  # shellcheck disable=SC2029
   if [[ -n "${MPH_SERVER_PASS:-}" ]]; then
     SSHPASS="$MPH_SERVER_PASS" sshpass -e ssh "$DEPLOY_USER@$DEPLOY_HOST" "$@"
   else
+    # Callers build fully POSIX-quoted remote commands before invoking ssh_run.
+    # shellcheck disable=SC2029
     ssh "$DEPLOY_USER@$DEPLOY_HOST" "$@"
   fi
 }
@@ -42,19 +43,19 @@ with open(sys.argv[1], "xb") as target:
 ' "$2" < "$1"
 }
 cleanup() {
-  if [[ "$REMOTE_STAGE_CREATED" == 1 ]]; then remote rm -rf -- "$REMOTE_STAGE" || true; fi
-  rm -rf -- "$STAGE"
+  if [[ "$REMOTE_STAGE_CREATED" == 1 ]]; then remote rm -rf "$REMOTE_STAGE" || true; fi
+  rm -rf "$STAGE"
 }
 trap cleanup EXIT
 
-# Validate arguments and template rendering before opening an SSH connection.
-server_args=(--user "$DEPLOY_USER" --directory "$DEPLOY_DIR" --data "$DEPLOY_DATA" --version "$DEPLOY_VERSION")
-[[ -z "$DEPLOY_LISTING" ]] || server_args+=(--master "$DEPLOY_LISTING")
-python3 "$ROOT/tools/render-server-unit.py" "$ROOT/tools/systemd/mphread-server.service" \
-  "${server_args[@]}" > "$STAGE/mphread-server.service"
-[[ "$DEPLOY_MASTER" == 0 || "$DEPLOY_MASTER" == 1 ]] || { echo "MPH_DEPLOY_MASTER must be 0 or 1" >&2; exit 1; }
+[[ -f "$DEPLOY_CONFIG" ]] || { echo "MPH_SERVER_CONFIG is not a regular file" >&2; exit 1; }
+[[ -r "$DEPLOY_CONFIG" ]] || { echo "MPH_SERVER_CONFIG is not readable" >&2; exit 1; }
+[[ -s "$DEPLOY_CONFIG" ]] || { echo "MPH_SERVER_CONFIG is empty" >&2; exit 1; }
+[[ "$DEPLOY_DATA" = /* ]] || { echo "MPH_SERVER_DATA must be an absolute remote path" >&2; exit 1; }
+[[ "$DEPLOY_DIR" = /* ]] || { echo "MPH_SERVER_DIR must be an absolute remote path" >&2; exit 1; }
+python3 -m json.tool "$DEPLOY_CONFIG" >/dev/null
 
-printf 'Checking installed content on %s...\n' "$DEPLOY_HOST"
+echo "Checking installed content on $DEPLOY_HOST..."
 remote python3 -c '
 import json, pathlib, sys
 root = pathlib.Path(sys.argv[1])
@@ -62,59 +63,56 @@ manifest = root / "server-content.json"
 if not root.is_dir() or not (manifest.is_file() or (
     (root / "_bin/arm9.bin").is_file() and (root / "models").is_dir() and (root / "levels").is_dir())):
     raise SystemExit("Missing installed server content at " + str(root) + "; install it separately before deploying")
-if manifest.is_file() and (manifest.stat().st_size > 2 * 1024 * 1024 or json.loads(manifest.read_text()).get("Version") != sys.argv[2]):
-    raise SystemExit("Installed content manifest does not match " + sys.argv[2])
+if manifest.is_file():
+    if manifest.stat().st_size > 2 * 1024 * 1024:
+        raise SystemExit("Installed content manifest exceeds 2 MiB")
+    if json.loads(manifest.read_text()).get("Version") != sys.argv[2]:
+        raise SystemExit("Installed content manifest does not match " + sys.argv[2])
 ' "$DEPLOY_DATA" "$DEPLOY_VERSION"
 
-printf 'Building linux-arm64...\n'
-dotnet publish "$ROOT/src/Server/Server.csproj" -c Release -r linux-arm64 \
-  --self-contained true -p:PublishSingleFile=true -o "$STAGE/publish"
-test -f "$STAGE/publish/FruityPrimeServer"
-bash "$ROOT/tools/check-no-game-assets.sh" "$STAGE/publish"
+echo "Building linux-arm64 Node + Worker bundle..."
+tools=("$ROOT/tools/package-server.sh" --rid linux-arm64 --output "$STAGE/package")
+"${tools[@]}"
+bash "$ROOT/tools/check-no-game-assets.sh" "$STAGE/package"
+cp "$DEPLOY_CONFIG" "$STAGE/package/appsettings.json"
 
-services=(mphread-server)
-[[ "$DEPLOY_MASTER" == 0 ]] || services+=(mphread-master)
-for service in "${services[@]}"; do
-  source="$ROOT/tools/systemd/$service.service"
-  if remote test -f "/etc/systemd/system/$service.service"; then
-    remote cat "/etc/systemd/system/$service.service" > "$STAGE/$service.original"
-    source="$STAGE/$service.original"
-  fi
-  args=(--user "$DEPLOY_USER" --directory "$DEPLOY_DIR")
-  [[ "$service" != mphread-server ]] || args=("${server_args[@]}")
-  python3 "$ROOT/tools/render-server-unit.py" "$source" "${args[@]}" > "$STAGE/$service.service"
-done
+python3 - "$ROOT/tools/systemd/fruityprime-node.service" "$STAGE/package/fruityprime-node.service" "$DEPLOY_USER" "$DEPLOY_DIR" <<'PY'
+from pathlib import Path
+import sys
+source, target, user, directory = map(Path, sys.argv[1:])
+text = source.read_text()
+text = text.replace("__USER__", str(user)).replace("__DIR__", str(directory))
+target.write_text(text)
+PY
 
-# Upload exactly one binary and the rendered units; never upload a publish tree,
-# an extracted directory, paths.txt, or a content package.
-remote mkdir -p -- "$DEPLOY_DIR"
-remote mkdir -m 700 -- "$REMOTE_STAGE"
+# Stage the whole bundle beside the live directory. The current installation
+# remains untouched until package, config, and unit upload have completed.
+remote mkdir -p "$(dirname "$DEPLOY_DIR")"
+remote mkdir -m 700 "$REMOTE_STAGE"
 REMOTE_STAGE_CREATED=1
-upload_file "$STAGE/publish/FruityPrimeServer" "$REMOTE_STAGE/FruityPrimeServer"
-remote chmod +x -- "$REMOTE_STAGE/FruityPrimeServer"
-for service in "${services[@]}"; do
-  upload_file "$STAGE/$service.service" "$REMOTE_STAGE/$service.service"
-done
+tar -C "$STAGE/package" -czf - . | ssh_run "tar -xzf - -C $(shell_quote "$REMOTE_STAGE")"
+remote chmod 600 "$REMOTE_STAGE/appsettings.json"
+remote chmod +x "$REMOTE_STAGE/FruityPrimeServer" "$REMOTE_STAGE/worker/FruityPrime.Server.Worker"
+remote python3 -c '
+import json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+config = json.loads((root / "appsettings.json").read_text())
+if not (root / "FruityPrimeServer").is_file() or not (root / "worker/FruityPrime.Server.Worker").is_file():
+    raise SystemExit("staged Node + Worker apphosts are incomplete")
+if not config.get("Node", {}).get("Authentication", {}).get("Keys"):
+    raise SystemExit("operator config has no Node admission verification keys")
+' "$REMOTE_STAGE"
 
-# Keep the current processes running until upload and configuration validation
-# have succeeded. A failed stop is an error, not permission to replace a server.
-for service in "${services[@]}"; do
-  if remote test -f "/etc/systemd/system/$service.service"; then
-    remote sudo -n systemctl stop "$service"
-  fi
-done
-remote mv -- "$REMOTE_STAGE/FruityPrimeServer" "$DEPLOY_DIR/FruityPrimeServer"
-for service in "${services[@]}"; do
-  remote sudo -n install -m 644 -- "$REMOTE_STAGE/$service.service" "/etc/systemd/system/$service.service"
-done
+# Stop and replace only the new Node unit. Legacy mphread-* units are not
+# silently migrated; operators must perform that migration explicitly.
+remote sudo -n systemctl stop fruityprime-node || true
+remote sudo -n systemctl disable fruityprime-node || true
+REMOTE_BACKUP="${DEPLOY_DIR}.previous.$(basename "$STAGE")"
+remote "if test -e $(shell_quote "$DEPLOY_DIR"); then mv $(shell_quote "$DEPLOY_DIR") $(shell_quote "$REMOTE_BACKUP"); fi; mv $(shell_quote "$REMOTE_STAGE") $(shell_quote "$DEPLOY_DIR")"
+REMOTE_STAGE_CREATED=0
+remote sudo -n install -m 644 "$DEPLOY_DIR/fruityprime-node.service" /etc/systemd/system/fruityprime-node.service
 remote sudo -n systemctl daemon-reload
-for service in "${services[@]}"; do
-  remote sudo -n systemctl enable "$service"
-  remote sudo -n systemctl start "$service"
-done
-sleep 3
-for service in "${services[@]}"; do
-  remote systemctl is-active "$service"
-  remote journalctl -u "$service" -n 8 --no-pager
-done
-printf 'Deployment complete. Content stayed on the remote machine; no cartridge assets were uploaded.\n'
+remote sudo -n systemctl enable fruityprime-node
+remote sudo -n systemctl start fruityprime-node
+remote sudo -n systemctl is-active fruityprime-node
+echo "Deployment complete. Content and operator configuration stayed on the remote host; no cartridge assets were uploaded."

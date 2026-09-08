@@ -1,4 +1,4 @@
-"""Contract tests for the physical Game/Client/Server project graph guard."""
+"""Contract tests for the physical Game/Client/Node/Worker project graph guard."""
 from pathlib import Path
 import importlib.util
 import tempfile
@@ -51,13 +51,13 @@ class ProjectBoundaryGuardTests(unittest.TestCase):
     def write_baseline(self):
         links = {
             "Client": ("../Shared/Shared.cs", "../Shared/Shared.cs"),
-            "Server": ("../Shared/Shared.cs",),
+            "Server.Worker": ("../Shared/Shared.cs",),
             "Tools": ("../Shared/Shared.cs",),
             "Android": ("../Shared/Shared.cs", "../Client/Client.cs"),
         }
         for name, references in GUARD.PROJECTS.items():
             packages = ("OpenTK.Mathematics",) if name == "Game" else (
-                ("Microsoft.IdentityModel.JsonWebTokens",) if name == "Server" else ())
+                ("Microsoft.IdentityModel.JsonWebTokens",) if name == "Server.Worker" else ())
             self.write(
                 f"src/{name}/{name}.csproj",
                 self.project(name, references, packages, links.get(name, ())),
@@ -77,14 +77,17 @@ class ProjectBoundaryGuardTests(unittest.TestCase):
     def test_forbidden_project_dependency_and_package_are_reported(self):
         self.write_baseline()
         self.write(
-            "src/Server/Server.csproj",
-            self.project("Server", ("Client",), ("Avalonia",), ("../Shared/Shared.cs",)),
+            "src/Server.Worker/Server.Worker.csproj",
+            self.project("Server.Worker", ("Client",), ("Avalonia",), ("../Shared/Shared.cs",)),
         )
 
         errors = self.inspect()
 
-        self.assertIn("Server: project references ['Client']; expected ['Game', 'Shared.Replay']", errors)
-        self.assertIn("Server: unexpected platform packages: ['Avalonia']", errors)
+        self.assertIn(
+            "Server.Worker: project references ['Client']; expected ['Game', 'Server.Shared', 'Shared.Replay']",
+            errors,
+        )
+        self.assertIn("Server.Worker: unexpected platform packages: ['Avalonia']", errors)
 
     def test_backend_allows_game_only_and_rejects_client_dependency(self):
         self.write_baseline()
@@ -132,14 +135,14 @@ class ProjectBoundaryGuardTests(unittest.TestCase):
     def test_cross_tree_source_glob_is_rejected(self):
         self.write_baseline()
         self.write(
-            "src/Server/Server.csproj",
-            self.project("Server", ("Game",), links=("../Shared/*.cs",)),
+            "src/Server.Worker/Server.Worker.csproj",
+            self.project("Server.Worker", ("Game",), links=("../Shared/*.cs",)),
         )
 
         errors = self.inspect()
 
         self.assertIn(
-            "src/Server/Server.csproj: shared sources must be explicit files: ../Shared/*.cs",
+            "src/Server.Worker/Server.Worker.csproj: shared sources must be explicit files: ../Shared/*.cs",
             errors,
         )
 
@@ -163,13 +166,43 @@ class ProjectBoundaryGuardTests(unittest.TestCase):
     def test_missing_linked_source_fails_closed(self):
         self.write_baseline()
         self.write(
-            "src/Server/Server.csproj",
-            self.project("Server", ("Game",), links=("../Shared/Missing.cs",)),
+            "src/Server.Worker/Server.Worker.csproj",
+            self.project("Server.Worker", ("Game",), links=("../Shared/Missing.cs",)),
         )
 
         errors = self.inspect()
 
-        self.assertIn("src/Server/Server.csproj: missing linked source: ../Shared/Missing.cs", errors)
+        self.assertIn("src/Server.Worker/Server.Worker.csproj: missing linked source: ../Shared/Missing.cs", errors)
+
+    def test_retired_server_project_is_rejected(self):
+        self.write_baseline()
+        self.write("src/Server/Server.csproj", self.project("Server"))
+
+        errors = self.inspect()
+
+        self.assertIn("retired project remains: src/Server", errors)
+
+    def test_retired_server_project_reference_is_rejected(self):
+        self.write_baseline()
+        self.write(
+            "tests/Tests/Tests.csproj",
+            '<Project><ItemGroup><ProjectReference Include="../../src/Server/Server.csproj" /></ItemGroup></Project>',
+        )
+
+        errors = self.inspect()
+
+        self.assertIn(
+            "tests/Tests/Tests.csproj: reference to retired project: src/Server/Server.csproj",
+            errors,
+        )
+
+    def test_retired_server_symbols_are_rejected(self):
+        self.write_baseline()
+        self.write("src/Server.Worker/Legacy.cs", "class Fixture { MasterServer value; }\n")
+
+        errors = self.inspect()
+
+        self.assertIn("src/Server.Worker/Legacy.cs:1: retired server symbol MasterServer", errors)
 
 
 if __name__ == "__main__":

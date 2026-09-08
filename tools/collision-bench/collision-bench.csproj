@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AssemblyName>nettest</AssemblyName></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/Game/Game.csproj" /><ProjectReference Include="../../src/Server.Worker/Server.Worker.csproj" /></ItemGroup>
+  <ItemGroup Condition="'$(BaselineSource)' != ''"><Compile Include="$(BaselineSource)" Link="BaselineCollisionDetection.cs" /></ItemGroup>
+  <Target Name="RequireBaseline" BeforeTargets="CoreCompile" Condition="'$(BaselineSource)' == ''"><Error Text="Run prepare-and-run.sh to extract the exact historical comparison source outside the repository." /></Target>
+</Project>

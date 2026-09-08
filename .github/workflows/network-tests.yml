@@ -24,20 +24,61 @@ jobs:
           python3 tools/check-multiplayer-only.py
       - name: direct Game compile
         run: dotnet build src/Game/Game.csproj -c Release --artifacts-path artifacts/game
-      - name: protocol and UDP safety tests
-        run: dotnet test tests/Tests/Tests.csproj -c Release
+      - name: protocol and UDP safety tests (content-free)
+        run: dotnet test tests/Tests/Tests.csproj -c Release --filter "RequiresGameContent!=true"
+      - name: Server.Shared contract tests
+        run: dotnet test tests/Server.Shared.Tests/Server.Shared.Tests.csproj -c Release
+      - name: Server.Worker runtime build
+        run: dotnet build src/Server.Worker/Server.Worker.csproj -c Release
+      - name: package the Node and Worker bundle
+        run: tools/package-server.sh --rid linux-x64 --output artifacts/server-linux-x64
+      - name: server bundle structural checks
+        run: |
+          set -euo pipefail
+          test -x artifacts/server-linux-x64/FruityPrimeServer
+          test -x artifacts/server-linux-x64/worker/FruityPrime.Server.Worker
+          test -f artifacts/server-linux-x64/server.example.json
+          ! find artifacts/server-linux-x64 -maxdepth 1 -type f -name 'FruityPrime.Server.Worker*' | grep -q .
+          tools/check-no-game-assets.sh artifacts/server-linux-x64
+      - name: Server.Node runtime build
+        run: dotnet build src/Server.Node/Server.Node.csproj -c Release
+      - name: Server.Node content-free lifecycle tests
+        # The two real Worker vertical tests require extracted, untracked AMHE1
+        # content. They run in the focused real-process validation instead.
+        run: >
+          dotnet test tests/Server.Node.Tests/Server.Node.Tests.csproj -c Release
+          --filter "RequiresGameContent!=true"
+      - name: Backend tests (four PostgreSQL cases skip without PRIME_TEST_POSTGRES_FILE)
+        run: dotnet test tests/Backend.Tests/Backend.Tests.csproj -c Release
       - name: isolated imaging tests
         run: dotnet test tests/Imaging/Imaging.Tests.csproj -c Release
       - name: network and deployment tooling tests
-        run: python3 -m unittest discover -s tools/tests -v
+        run: |
+          set -euo pipefail
+          # The legacy updater builder remains an explicit operator migration
+          # tool and is intentionally outside the public bundle CI path.
+          while IFS= read -r test; do
+            case "$test" in
+              tools/tests/test_server_update_package.py) continue ;;
+            esac
+            python3 -m unittest discover -s tools/tests -p "$(basename "$test")" -v
+          done < <(find tools/tests -maxdepth 1 -type f -name 'test_*.py' | sort)
       - name: build authoritative server and authoritative conformance harness
         run: dotnet build tools/nettest/nettest.csproj -c Release -o artifacts/nettest
       - name: multiplayer content audit malformed-input checks
         run: dotnet artifacts/nettest/nettest.dll --audit-multiplayer-self-test
       - name: mixed-combat reliable backpressure checks
         run: dotnet artifacts/nettest/nettest.dll --mixed-backpressure-self-test
-      - name: data requirement, directory and connection smoke tests
-        run: bash tools/check-dedicated-server.sh artifacts/nettest
+      - name: fresh extracted server package smoke (when content is supplied)
+        env:
+          GAME_DATA_DIRECTORY: ${{ secrets.GAME_DATA_DIRECTORY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GAME_DATA_DIRECTORY:-}" ]; then
+            echo "GAME_DATA_DIRECTORY is not configured; structural package checks completed."
+          else
+            tools/package-smoke.sh --bundle artifacts/server-linux-x64 --content-dir "$GAME_DATA_DIRECTORY"
+          fi
       - name: authoritative WAN connection baseline (synthetic states, not gameplay)
         run: >
           python3 tools/run-network-baseline.py

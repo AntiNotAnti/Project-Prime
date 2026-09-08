@@ -29,12 +29,11 @@ class Rule:
     allowed_files: frozenset[str] = frozenset()
 
 
-# Negative tests deliberately name rejected enum values. Repack utilities preserve
-# original cartridge layer selectors; neither exception permits campaign launches.
+# Negative tests deliberately name rejected enum values. The shared content packer
+# preserves original cartridge layer selectors; neither exception permits campaign
+# launches.
 RAW_MODE_FILES = frozenset({
-    "src/Tools/Conversion/RepackModel.cs",
     "src/Shared/ContentPreparation/RepackModelPacking.cs",
-    "src/Tools/Conversion/RepackCollision.cs",
     "tests/Tests/Match/MatchDomainTests.cs",
     "tests/Tests/Match/RotationRulesTests.cs",
 })
@@ -46,12 +45,10 @@ VIEWER_SCAN_FILES = frozenset({
 })
 RULES = (
     Rule("campaign-save", r"\bStorySave\b"),
-    # Original memory layouts and their offline inspection helper remain readable.
-    Rule("raw-story-layout", r"\bStorySaveData\b", frozenset({
-        "src/Tools/Conversion/MemoryClasses.cs", "src/Tools/Conversion/TestLogic.cs",
-    })),
+    # Retired campaign memory layouts must not return to the multiplayer source.
+    Rule("raw-story-layout", r"\bStorySaveData\b"),
     Rule("raw-enemy-identity", r"\bEnemyInstance\b", frozenset({
-        "src/Game/Content/Formats/Enums.cs", "src/Tools/Conversion/Memory.cs",
+        "src/Game/Content/Formats/Enums.cs",
     })),
     # The codec and explicit export CLI survive; campaign movie playback does not.
     Rule("raw-movie-codec", r"\bVxDecoder\b", frozenset({

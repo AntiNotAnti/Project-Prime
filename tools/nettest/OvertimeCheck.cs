@@ -266,8 +266,8 @@ internal static class OvertimeCheck
         public GameMode Mode { get; }
         public Scene Scene { get; }
         public MatchRuntime Match => Scene.Match;
-        public PlayerEntity A => PlayerEntity.Players[0];
-        public PlayerEntity B => PlayerEntity.Players[1];
+        public PlayerEntity A => Scene.Players[0];
+        public PlayerEntity B => Scene.Players[1];
 
         public Fixture(GameMode mode)
         {
@@ -279,7 +279,7 @@ internal static class OvertimeCheck
                     roomPlayerCount: NetLaunch.RoomPlayerCount);
                 A.ServerActivate(100, Hunter.Samus, 0);
                 B.ServerActivate(200, Hunter.Kanden, 1);
-                PlayerEntity.PlayerCount = 2;
+                Scene.Players.ActiveCount = 2;
                 // Establish the real headless frame interval before the direct
                 // flow calls below; no world step is used as a test oracle.
                 Scene.StepHeadlessFrame(advanceMatch: false);

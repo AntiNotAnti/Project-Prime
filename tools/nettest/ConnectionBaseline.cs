@@ -20,8 +20,7 @@ namespace MphRead.NetTest
                 return 2;
             using var transport = new NetTransport(port);
             using var stopped = new CancellationTokenSource();
-            using var signals = new ShutdownSignals();
-            signals.OnShutdown(stopped.Cancel);
+            using var signals = new ConsoleShutdown(stopped);
             var network = new ServerNetwork(transport, "MP1 SANCTORUS", GameMode.Battle)
             {
                 ServerName = "Authoritative connection fixture",

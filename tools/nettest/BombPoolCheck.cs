@@ -23,15 +23,15 @@ namespace MphRead.NetTest
                 using var simulation = new ServerSimulation(new RotationEntry { RoomKey = "MP1 SANCTORUS", Mode = GameMode.Battle });
                 Scene scene = simulation.Scene;
                 scene.Match.Phase = MatchPhase.Playing;
-                PlayerEntity owner = PlayerEntity.Players[0];
+                PlayerEntity owner = scene.Players[0];
                 owner.ServerActivate(100, Hunter.Samus, 0);
-                PlayerEntity.PlayerCount = 1;
+                scene.Players.ActiveCount = 1;
                 var firstGeneration = new HashSet<BombEntity>();
                 uint tick = 0;
                 for (int generation = 0; generation < 2; generation++)
                 {
                     var active = new HashSet<BombEntity>();
-                    using (simulation.Combat.Enter(tick))
+                    simulation.Combat.BeginTick(tick);
                     {
                         for (int i = 0; i < 32; i++)
                         {
@@ -50,7 +50,7 @@ namespace MphRead.NetTest
                     Require(Count(scene) == 32, "Spawned bombs missing from scene.");
                     for (int frame = 0; frame < 87; frame++)
                     {
-                        using var scope = simulation.Combat.Enter(++tick);
+                        simulation.Combat.BeginTick(++tick);
                         owner.ApplyNetworkInput(new(tick, tick, tick, 0, 0, -Vector3.UnitZ, InputCommand.NoWeapon));
                         scene.StepHeadlessFrame(advanceMatch: false);
                         if (frame < 85) Require(Count(scene) == 32, "Bomb disappeared before its normal fuse expired.");

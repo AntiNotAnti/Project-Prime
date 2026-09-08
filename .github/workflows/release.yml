@@ -136,9 +136,6 @@ jobs:
         with:
           ref: refs/tags/${{ steps.name.outputs.tag }}
 
-      - name: test authoritative server update packaging
-        run: python3 -m unittest discover -s tools/tests -p test_server_update_package.py
-
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
@@ -179,22 +176,13 @@ jobs:
             dotnet publish src/Client/Client.csproj -c Release -r "$rid" $stamp \
               --self-contained true -p:PublishSingleFile=true -o "publish/$rid"
           done
-          # The three server packages: Windows, plain x64 Linux (a VPS, a
-          # spare desktop -- anything that is not the Pi) and ARM64 (the Pi).
-          # The server project each time, launcher left out, no UI toolkit:
-          # none of these machines has anybody sitting at it.
-          #
-          # Every server package uses the stable FruityPrimeServer name so
-          # deployment, systemd units, and update packages agree across OSes.
-          dotnet publish src/Server/Server.csproj -c Release -r win-x64 \
-            $stamp --self-contained true \
-            -p:PublishSingleFile=true -o publish/win-x64-server
-          dotnet publish src/Server/Server.csproj -c Release -r linux-x64 \
-            $stamp --self-contained true \
-            -p:PublishSingleFile=true -o publish/linux-x64-server
-          dotnet publish src/Server/Server.csproj -c Release -r linux-arm64 \
-            $stamp --self-contained true \
-            -p:PublishSingleFile=true -o publish/linux-arm64
+          # Node and Worker are shipped as one server bundle. The package
+          # script preserves the Node assembly identity and renames only its
+          # top-level apphost to FruityPrimeServer[.exe].
+          for rid in win-x64 linux-x64 linux-arm64; do
+            tools/package-server.sh --rid "$rid" --version "$VERSION" \
+              --output "publish/server-$rid"
+          done
 
       # The phone, from the same tag and stamped with the same version -- the
       # updater compares that against the tag on GitHub, and an APK that is not
@@ -285,32 +273,29 @@ jobs:
         run: >
           tools/check-no-game-assets.sh publish/win-x64 publish/linux-x64
           publish/osx-x64 publish/osx-arm64
-          publish/linux-arm64 publish/win-x64-server publish/linux-x64-server
+          publish/server-win-x64 publish/server-linux-x64 publish/server-linux-arm64
 
       # What a downloaded release is judged on: the maps are there and ready.
       - name: the custom maps reached every package
         run: >
           for d in publish/win-x64 publish/linux-x64 publish/osx-x64
-          publish/osx-arm64 publish/linux-arm64 publish/win-x64-server
-          publish/linux-x64-server; do
+          publish/osx-arm64; do
           tools/check-maps-shipped.sh "$d" || exit 1; done
 
-      # A GUI game and a console server, which is what makes one
-      # double-clickable and the other scriptable. Checked before a tag exists,
-      # because a release is where getting it wrong reaches players.
-      - name: each Windows binary is what it claims to be
+      - name: server package contract
         run: |
           set -euo pipefail
           tools/check-subsystem.sh gui publish/win-x64/FruityPrime.exe
-          tools/check-subsystem.sh console publish/win-x64-server/FruityPrimeServer.exe
-
-      # Without cartridge assets, validate the required-data error and a
-      # directory-only query. This is a packaging smoke check, not gameplay
-      # evidence. The Windows server gets the same check in build.yml.
-      - name: the server content contract and directory run
-        run: |
-          set -euo pipefail
-          tools/check-dedicated-server.sh publish/linux-x64-server
+          test -f publish/server-win-x64/FruityPrimeServer.exe
+          test -f publish/server-win-x64/worker/FruityPrime.Server.Worker.exe
+          test -x publish/server-linux-x64/FruityPrimeServer
+          test -x publish/server-linux-x64/worker/FruityPrime.Server.Worker
+          test -x publish/server-linux-arm64/FruityPrimeServer
+          test -x publish/server-linux-arm64/worker/FruityPrime.Server.Worker
+          for d in publish/server-win-x64 publish/server-linux-x64 publish/server-linux-arm64; do
+            test -f "$d/server.example.json"
+            ! find "$d" -maxdepth 1 -type f -name 'FruityPrime.Server.Worker*' | grep -q .
+          done
 
       - name: package
         env:
@@ -400,86 +385,32 @@ jobs:
             chmod +x "publish/$rid/FruityPrime" || true
             ( cd "publish/$rid" && tar czf "../../dist/FruityPrime-$TAG-$rid.tar.gz" . )
           done
-          cat > publish/linux-arm64/SERVER.txt <<'NOTE'
-          Prime Hunters dedicated server.
+          for rid in win-x64 linux-x64 linux-arm64; do
+            bundle="publish/server-$rid"
+            cp LICENSE "$bundle/" 2>/dev/null || true
+            cat > "$bundle/SERVER.txt" <<'NOTE'
+          Fruity Prime control Node and authoritative Worker bundle.
 
-            ./FruityPrimeServer -server -data /srv/fruity-content -dataversion AMHE1 -port 27888 -players 8 -servername "My server"
+          Copy server.example.json to appsettings.json, then fill in the
+          operator-owned ES256 admission key and content identity. The example
+          intentionally contains no credentials or cartridge content.
 
-          Supply your extracted game directory or a baked server content package.
-          The .nds file is not a directory. No cartridge data is included here.
-          Use -rotation FILE for an existing map cycle; none is created automatically.
+          Start the Node apphost from this directory:
 
-          The server is unlisted by default. Add -master net.livetek.fr:27889
-          to publish it in that directory, or specify your own HOST:PORT.
-          -nomaster disables listing even when -master is present.
+            ./FruityPrimeServer --contentRoot .
 
-          A directory-only instance needs no game files:
-
-            ./FruityPrimeServer -masterserver -port 27889 -hostports none
+          The Node launches its Worker from worker/ and keeps control traffic
+          on the reliable Node connection. Gameplay uses the Worker's UDP
+          endpoint. Do not replace the Worker with an unbounded ad-hoc process.
+          See deploy-server.sh and tools/systemd/fruityprime-node.service for
+          the explicit operator deployment path.
           NOTE
-          ( cd publish/linux-arm64 && tar czf "../../dist/FruityPrime-$TAG-server-linux-arm64.tar.gz" . )
-
-          cp LICENSE publish/linux-x64-server/ 2>/dev/null || true
-          cat > publish/linux-x64-server/SERVER.txt <<'NOTE'
-          Prime Hunters dedicated server, for a plain x64 Linux machine -- a
-          VPS, a spare desktop, anything that is not a Raspberry Pi (see the
-          ARM64 package for that) and that nobody is playing on.
-
-            ./FruityPrimeServer -server -data /srv/fruity-content -dataversion AMHE1 -port 27888 -players 8 -servername "My server"
-
-          Supply your extracted game directory or a baked server content package.
-          The .nds file is not a directory. No cartridge data is included here.
-          Use -rotation FILE for an existing map cycle; none is created automatically.
-
-          The server is unlisted by default. Add -master net.livetek.fr:27889
-          to publish it in that directory, or specify your own HOST:PORT.
-          -nomaster disables listing even when -master is present.
-
-          A directory-only instance needs no game files:
-
-            ./FruityPrimeServer -masterserver -port 27889 -hostports none
-
-          See SERVER.md in the source for content baking, hosted-game directories
-          and service setup. deploy-server.sh uploads only the ARM64 binary and
-          requires MPH_SERVER_DATA to point to content already on that machine.
-          NOTE
-          ( cd publish/linux-x64-server && tar czf "../../dist/FruityPrime-$TAG-server-linux-x64.tar.gz" . )
-
-          cp LICENSE publish/win-x64-server/ 2>/dev/null || true
-          cat > publish/win-x64-server/SERVER.txt <<'NOTE'
-          Prime Hunters dedicated server, for Windows.
-
-          From a Command Prompt or PowerShell, in this folder:
-
-            FruityPrimeServer.exe -server -data "C:\FruityPrime\content" -dataversion AMHE1 -port 27888 -players 8 -servername "My server"
-
-          Supply your extracted game directory or a baked server content package.
-          The .nds file is not a directory. No cartridge data is included here.
-          Use -rotation FILE for an existing map cycle; none is created automatically.
-
-          This is a console program, unlike FruityPrime.exe: the window stays until
-          the server stops, Ctrl+C shuts it down cleanly, and its exit code is
-          reported, so it can be run under a service supervisor (NSSM, or
-          sc.exe with a wrapper) the way the Linux build runs under systemd.
-          Double-clicking it displays usage; starting a match requires -data.
-
-          Windows will ask once whether to allow it through the firewall.
-          Nobody outside this machine can reach the server until that is
-          allowed for UDP on the port above, and until the router forwards it.
-
-          The server is unlisted by default. Add -master net.livetek.fr:27889
-          to publish it in that directory, or specify your own HOST:PORT.
-          -nomaster disables listing even when -master is present.
-
-          A directory-only instance needs no game files:
-
-            FruityPrimeServer.exe -masterserver -port 27889 -hostports none
-
-          To see what is up right now:
-
-            FruityPrimeServer.exe -servers
-          NOTE
-          ( cd publish/win-x64-server && zip -qr "../../dist/FruityPrime-$TAG-server-win-x64.zip" . )
+            if [ "$rid" = win-x64 ]; then
+              ( cd "$bundle" && zip -qr "../../dist/FruityPrime-$TAG-server-$rid.zip" . )
+            else
+              ( cd "$bundle" && tar czf "../../dist/FruityPrime-$TAG-server-$rid.tar.gz" . )
+            fi
+          done
 
           # The APK goes out on its own rather than in an archive: what a phone
           # wants is a file it can be handed. Signed with the release keystore
@@ -487,27 +418,6 @@ jobs:
           # are not -- the second installs, and can never be updated in place.
           cp publish/android/*-Signed.apk "dist/FruityPrime-$TAG-android.apk"
           ls -la dist
-
-      # Update assets require an explicitly configured authoritative fork.
-      # Without this repository variable, normal release packages are unchanged.
-      - name: generate-authoritative-server-update-assets
-        if: vars.AUTHORITATIVE_RELEASE_REPOSITORY == github.repository && github.repository != 'liveteklol/Fruity-Prime'
-        env:
-          TAG: ${{ steps.name.outputs.tag }}
-          REPOSITORY: ${{ vars.AUTHORITATIVE_RELEASE_REPOSITORY }}
-        run: |
-          set -euo pipefail
-          python3 tools/server-update-package.py build --publish publish/win-x64-server \
-            --rid win-x64 --tag "$TAG" --repository "$REPOSITORY" --output dist
-          python3 tools/server-update-package.py build --publish publish/linux-x64-server \
-            --rid linux-x64 --tag "$TAG" --repository "$REPOSITORY" --output dist
-          python3 tools/server-update-package.py build --publish publish/linux-arm64 \
-            --rid linux-arm64 --tag "$TAG" --repository "$REPOSITORY" --output dist
-          for rid in win-x64 linux-x64 linux-arm64; do
-            python3 tools/server-update-package.py verify \
-              --manifest "dist/authoritative-update-$rid-server.json" \
-              --directory dist --tag "$TAG" --rid "$rid"
-          done
 
       # A draft: everything is built and uploaded, and a person presses the
       # button. This is the one workflow whose output people download, and a

@@ -32,7 +32,7 @@ namespace MphRead.Mods.Network
         private static void Check(Scene scene, string room, GameMode mode)
         {
             scene.LoadServerRoom(room, mode, players: 2);
-            PlayerEntity player = PlayerEntity.Players[0], opponent = PlayerEntity.Players[1];
+            PlayerEntity player = scene.Players[0], opponent = scene.Players[1];
             player.ServerActivate(100, Hunter.Samus, 0);
             opponent.ServerActivate(200, Hunter.Kanden, 1);
             uint previousLife = player.ServerCombatIdentity.Life;

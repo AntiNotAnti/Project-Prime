@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading;
 using MphRead.Entities;
 using MphRead.Formats;
+using MphRead.NetTest;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
@@ -30,8 +31,7 @@ namespace MphRead.Mods.Network
                 var duration = new NetSample();
                 var scheduler = new FixedTickScheduler();
                 using var cancellation = new CancellationTokenSource();
-                using var signals = new ShutdownSignals();
-                signals.OnShutdown(cancellation.Cancel);
+                using var signals = new ConsoleShutdown(cancellation);
                 int spawned = 0;
                 int frame = 0;
                 Console.WriteLine($"[headless] loaded {room} mode={mode}, {players} bots, realtime={realtime}");
@@ -98,7 +98,7 @@ namespace MphRead.Mods.Network
                 {
                     foreach (PlayerEntity other in scene.GetPlayerEntities()) { other.Health = 0; }
                     node.Process();
-                    PlayerEntity player = PlayerEntity.Players[slot];
+                    PlayerEntity player = scene.Players[slot];
                     Vector3 old = player.Position;
                     player.Position = center - (player.Volume.SpherePosition - old);
                     player.ModRefreshNodeRef(old);

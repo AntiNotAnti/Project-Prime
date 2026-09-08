@@ -32,10 +32,10 @@ namespace MphRead.NetTest
 
         private static void RunChild(Scene scene, bool later)
         {
-            PlayerEntity shooter = PlayerEntity.Players[0], target = PlayerEntity.Players[1];
+            PlayerEntity shooter = scene.Players[0], target = scene.Players[1];
             shooter.ServerActivate(100, Hunter.Samus, 0);
             target.ServerActivate(200, Hunter.Kanden, 1);
-            PlayerEntity.PlayerCount = 2;
+            scene.Players.ActiveCount = 2;
             ExpireSpawnProtection(scene, target);
             Vector3 direction = FindRay(scene, target.Position.AddY(0.5f), wall: true, out Vector3 wall);
             Vector3 origin = wall - direction * 2;
@@ -54,7 +54,7 @@ namespace MphRead.NetTest
                     combat.History.Record(tick, player, actor.ConnectionId, actor.Life);
                 }
             using (var services = new CombatSceneScope(scene, combat))
-            using (combat.Enter(Tick))
+            combat.BeginTick(Tick);
             {
                 combat.SetCommand(0, new(1, Tick, later ? Tick - 1 : ActionTick, 0, 0, direction, (byte)BeamType.Judicator), 250);
                 BeamProjectileEntity.Spawn(shooter, equip, origin, direction,
@@ -66,7 +66,7 @@ namespace MphRead.NetTest
             if (later)
             {
                 Require(beam.Generation == 1 && combat.CatchUp.Steps == 1, "Later-child parent collided before its ordinary frame.");
-                using (combat.Enter(Tick + 1))
+                combat.BeginTick(Tick + 1);
                 {
                     scene.StepHeadlessFrame(advanceMatch: false);
                     Require(combat.CatchUp.Pending == 0, "A child born in ordinary simulation restarted historical catch-up.");
@@ -110,10 +110,10 @@ namespace MphRead.NetTest
 
         private static void Run(Scene scene, string name)
         {
-            PlayerEntity shooter = PlayerEntity.Players[0], target = PlayerEntity.Players[1];
+            PlayerEntity shooter = scene.Players[0], target = scene.Players[1];
             shooter.ServerActivate(100, Hunter.Samus, 0);
             target.ServerActivate(200, Hunter.Kanden, 1);
-            PlayerEntity.PlayerCount = 2;
+            scene.Players.ActiveCount = 2;
             // Let ordinary player processing expire spawn protection; collision must not bypass invulnerability.
             shooter.Spawn(shooter.Position, shooter.FacingVector, Vector3.UnitY, shooter.NodeRef, respawn: false);
             target.Spawn(target.Position, target.FacingVector, Vector3.UnitY, target.NodeRef, respawn: false);
@@ -163,7 +163,7 @@ namespace MphRead.NetTest
             var equip = new EquipInfo(Weapons.Current[(int)weapon], shooter.EquipInfo.Beams) { InfiniteAmmo = true };
             if (splash) equip.ChargeLevel = (ushort)(equip.Weapon.FullCharge * 2);
             using (var services = new CombatSceneScope(scene, combat))
-            using (combat.Enter(Tick))
+            combat.BeginTick(Tick);
             {
                 combat.SetCommand(0, new(1, Tick, name == "replacement-current-endpoint" ? Tick - 2 : ActionTick, 0, 0, direction, (byte)weapon), 250);
                 BeamProjectileEntity.Spawn(shooter, equip, origin, direction,

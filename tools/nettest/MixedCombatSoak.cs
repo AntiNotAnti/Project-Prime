@@ -29,8 +29,8 @@ namespace MphRead.NetTest
         {
             const string room = "MP1 SANCTORUS";
             ServerContent.Open(data, "AMHE1");
-            Rng.SetRng1(seed); Rng.SetRng2(unchecked(seed + 1));
-            using var simulation = new ServerSimulation(new RotationEntry { RoomKey = room, Mode = GameMode.Battle, PointGoal = 0 }, lagCompEnabled: mode != "off", projectileCatchUpEnabled: mode == "on");
+
+            using var simulation = new ServerSimulation(new RotationEntry { RoomKey = room, Mode = GameMode.Battle, PointGoal = 0 }, lagCompEnabled: mode != "off", projectileCatchUpEnabled: mode == "on", rng1: seed, rng2: unchecked(seed + 1));
             using var transport = new NetTransport(port);
             using var process = Process.GetCurrentProcess();
             var network = new ServerNetwork(transport, room, GameMode.Battle);
@@ -94,7 +94,7 @@ namespace MphRead.NetTest
                         {
                             if (peer?.Connection.State != NetConnectionState.Playing) continue;
                             var state = new SnapshotPacket(tick, snapshot, network.MatchId, peer.Inputs.LastProcessed,
-                                peer.Inputs.HasProcessed, Rng.Rng1, Rng.Rng2);
+                                peer.Inputs.HasProcessed, simulation.Scene.Random.Rng1, simulation.Scene.Random.Rng2);
                             int length = state.Write(packet, simulation.States);
                             peer.Connection.Send(transport, NetMessageType.Snapshot, packet[..length]);
                         }
@@ -121,7 +121,7 @@ namespace MphRead.NetTest
                                     | (value.Flags.TestFlag(CombatEventFlags.Affinity) ? 2 : 0);
                                 shots[value.Weapon, variant]++;
                                 bool found = false;
-                                foreach (BeamProjectileEntity beam in PlayerEntity.Players[value.Actor.Slot].EquipInfo.Beams)
+                                foreach (BeamProjectileEntity beam in simulation.Scene.Players[value.Actor.Slot].EquipInfo.Beams)
                                 {
                                     CombatShot shot = beam.CombatShot;
                                     if (shot.Actor != value.Actor || shot.CommandSequence != value.CommandSequence
@@ -216,7 +216,7 @@ namespace MphRead.NetTest
             return success ? 0 : 1;
         }
 
-        // Match AuthoritativeServer's bounded per-peer admission policy. A refusal
+        // Match Worker network's bounded per-peer admission policy. A refusal
         // disconnects that peer; retrying the shared batch would duplicate healthy peers' events.
         internal static int SendCombatBatch(ServerNetwork network, ReadOnlySpan<byte> payload)
         {
@@ -246,7 +246,7 @@ namespace MphRead.NetTest
                     CollisionResult floor = default;
                     if (!CollisionDetection.CheckBetweenPoints(spot.AddY(3), spot.AddY(-3), TestFlags.Players, scene, ref floor)
                         || floor.Plane.Y < 0.5f) { valid = false; break; }
-                    spot.Y = floor.Position.Y - Fixed.ToFloat(PlayerEntity.Players[i].Values.MinPickupHeight) + 0.01f;
+                    spot.Y = floor.Position.Y - Fixed.ToFloat(scene.Players[i].Values.MinPickupHeight) + 0.01f;
                     CollisionResult wall = default;
                     if (CollisionDetection.CheckBetweenPoints(spawn.Position.AddY(0.5f), spot.AddY(0.5f), TestFlags.Beams, scene, ref wall))
                     { valid = false; break; }

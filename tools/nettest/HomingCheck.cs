@@ -20,11 +20,11 @@ namespace MphRead.NetTest
                 using var simulation = new ServerSimulation(new RotationEntry { RoomKey = "MP1 SANCTORUS", Mode = GameMode.Battle });
                 Scene scene = simulation.Scene;
                 scene.Match.Phase = MatchPhase.Playing;
-                var owner = PlayerEntity.Players[0];
-                var target = PlayerEntity.Players[1];
+                var owner = scene.Players[0];
+                var target = scene.Players[1];
                 owner.ServerActivate(100, Hunter.Samus, 0);
                 target.ServerActivate(200, Hunter.Kanden, 1);
-                PlayerEntity.PlayerCount = 2;
+                scene.Players.ActiveCount = 2;
                 scene.StepHeadlessFrame(false);
                 target.Health = 100;
                 foreach (var variant in new (int Index, ushort Charge)[] { (9, 37), (9, 48), (9, 60), (10, 120), (11, 90) })
@@ -48,7 +48,7 @@ namespace MphRead.NetTest
         private static BeamProjectileEntity Spawn(Scene scene, PlayerEntity owner, EquipInfo equip, ServerCombat combat, uint tick, uint view)
         {
             using var services = new CombatSceneScope(scene, combat);
-            using var scope = combat.Enter(tick);
+            combat.BeginTick(tick);
             combat.SetCommand(owner.SlotIndex, new(1, tick, view, 0, 0, Vector3.UnitZ, InputCommand.NoWeapon), 150);
             BeamProjectileEntity.Spawn(owner, equip, Origin, Vector3.UnitZ, BeamSpawnFlags.NoMuzzle, owner.NodeRef, scene);
             return equip.Beams[0];
@@ -84,14 +84,14 @@ namespace MphRead.NetTest
                 target.Position = TargetPosition(tick);
                 if (tick < Now) Record(delayed, target, tick);
                 using var services = new CombatSceneScope(scene, control);
-                using var scope = control.Enter(tick);
+                control.BeginTick(tick);
                 Require(expected.Process(), "Control expired before parity boundary.");
             }
             var actual = Spawn(scene, owner, delayedEquip, delayed, Now, Start);
             Require(actual.Target == target && actual.CatchUpPending, "Delayed homing acquisition/catch-up was not enabled.");
             Vector3 livePosition = target.Position;
             using (var services = new CombatSceneScope(scene, delayed))
-            using (delayed.Enter(Now)) delayed.CatchUp.Drain();
+            delayed.BeginTick(Now); delayed.CatchUp.Drain();
             Require(expected.Position == actual.Position && expected.Velocity == actual.Velocity
                 && expected.Age == actual.Age && expected.Lifespan == actual.Lifespan, "Historical homing trajectory differs from timely control.");
             Require(actual.Velocity.X > 0 && target.Position == livePosition, "Homing did not steer or mutated the live target.");
@@ -99,14 +99,14 @@ namespace MphRead.NetTest
                 "Homing catch-up exceeded or omitted its bounded interval.");
             var uncompensated = Spawn(scene, owner, offEquip, control, Now, Start);
             using (var services = new CombatSceneScope(scene, control))
-            using (control.Enter(Now)) uncompensated.Process();
+            control.BeginTick(Now); uncompensated.Process();
             Require(uncompensated.Position != expected.Position && uncompensated.Age == scene.FrameTime,
                 "OFF control concealed delayed projectile travel.");
             target.Position = TargetPosition(Now + 1);
             using (var services = new CombatSceneScope(scene, control))
-            using (control.Enter(Now + 1)) expected.Process();
+            control.BeginTick(Now + 1); expected.Process();
             using (var services = new CombatSceneScope(scene, delayed))
-            using (delayed.Enter(Now + 1)) actual.Process();
+            delayed.BeginTick(Now + 1); actual.Process();
             Require(expected.Position == actual.Position && expected.Velocity == actual.Velocity && expected.Age == actual.Age,
                 "Post-catch-up steering failed to return to the current target.");
             Console.WriteLine($"HOMING parity={index} charge={charge} steps=9 position=bitExact velocity=bitExact age=bitExact PASS");
@@ -171,7 +171,7 @@ namespace MphRead.NetTest
                 if (variant == "replacement-life") target.Spawn(target.Position, Vector3.UnitZ, Vector3.UnitY, target.NodeRef, respawn: true);
                 if (variant == "replacement-connection") target.ServerActivate(identity.ConnectionId + 1, Hunter.Kanden, 1);
                 using (var services = new CombatSceneScope(scene, combat))
-                using (combat.Enter(Now)) combat.CatchUp.Drain();
+                combat.BeginTick(Now); combat.CatchUp.Drain();
                 Require(beam.Target == null && beam.Velocity.X == 0, "Invalid steering state fell back to the current target: " + variant);
                 Clean(scene, equip);
                 target.Health = 100;
@@ -198,7 +198,7 @@ namespace MphRead.NetTest
                 Vector3 currentPosition = new(20, 499.5f, 4);
                 target.Teleport(currentPosition, Vector3.UnitZ, target.NodeRef);
                 using (var services = new CombatSceneScope(scene, combat))
-                using (combat.Enter(Start + 15))
+                combat.BeginTick(Start + 15);
                 {
                     combat.SetCommand(0, new(1, Start + 15, Start, 0, 0, Vector3.UnitZ, InputCommand.NoWeapon), 250);
                     BeamProjectileEntity.Spawn(owner, equip, Origin, Vector3.UnitZ, BeamSpawnFlags.NoMuzzle, owner.NodeRef, scene);
@@ -226,9 +226,9 @@ namespace MphRead.NetTest
             var actual = Spawn(scene, owner, onEquip, on, Now, Now);
             var expected = Spawn(scene, owner, offEquip, off, Now, Now);
             using (var services = new CombatSceneScope(scene, on))
-            using (on.Enter(Now)) { actual.Process(); on.CatchUp.Drain(); }
+            on.BeginTick(Now); { actual.Process(); on.CatchUp.Drain(); }
             using (var services = new CombatSceneScope(scene, off))
-            using (off.Enter(Now)) expected.Process();
+            off.BeginTick(Now); expected.Process();
             Require(actual.Target == target && expected.Target == target && actual.Position == expected.Position
                 && actual.Velocity == expected.Velocity && actual.Age == scene.FrameTime && on.CatchUp.Steps == 0,
                 "Zero rewind altered ordinary homing acquisition, steering or step count.");
@@ -239,7 +239,7 @@ namespace MphRead.NetTest
         private static void TargetPoints(Scene scene, PlayerEntity target)
         {
             var combat = new ServerCombat();
-            using var scope = combat.Enter(Now);
+            combat.BeginTick(Now);
             var identity = target.ServerCombatIdentity;
             var state = LagCompensationState.Capture(target, identity.ConnectionId, identity.Life);
             foreach (bool alt in new[] { false, true })
@@ -264,7 +264,7 @@ namespace MphRead.NetTest
             {
                 var combat = new ServerCombat();
                 var equip = Equipment(scene);
-                using var scope = combat.Enter(Now);
+                combat.BeginTick(Now);
                 EntityBase source = inherited ? owner : new WorldSource(scene);
                 CombatShot? parent = inherited ? new CombatShot(owner.ServerCombatIdentity, 1, Now, Start, Start, 9,
                     LagCompensationMode.HomingProjectileCatchUp) : null;
@@ -300,7 +300,7 @@ namespace MphRead.NetTest
                 target.Halfturret.Position = TargetPosition(tick);
                 RecordTurret(tick);
                 using var services = new CombatSceneScope(scene, control);
-                using var scope = control.Enter(tick);
+                control.BeginTick(tick);
                 expected.Process();
             }
             // Reproduce the renderer removal contract: current N still has the
@@ -316,11 +316,11 @@ namespace MphRead.NetTest
                 "Fixture did not retain the current-frame Destroyed message.");
             target.Position = Origin - Vector3.UnitZ * 20;
             using (var services = new CombatSceneScope(scene, control))
-            using (control.Enter(Now)) expected.Process();
+            control.BeginTick(Now); expected.Process();
             var actual = Spawn(scene, owner, delayedEquip, delayed, Now, Start);
             Require(actual.Target == target.Halfturret, "Historical turret absent from current Entities was not acquired.");
             using (var services = new CombatSceneScope(scene, delayed))
-            using (delayed.Enter(Now)) delayed.CatchUp.Drain();
+            delayed.BeginTick(Now); delayed.CatchUp.Drain();
             Require(actual.Target == null && expected.Target == null && actual.Position == expected.Position
                 && actual.Velocity == expected.Velocity && actual.Age == expected.Age,
                 "Current Destroyed message prematurely ended historical turret steering.");

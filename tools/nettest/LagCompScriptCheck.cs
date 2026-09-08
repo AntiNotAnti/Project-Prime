@@ -58,19 +58,19 @@ namespace MphRead.NetTest
                 _ => throw new ArgumentException("Unknown scenario.")
             };
             ServerContent.Open(data, config.Version);
-            Rng.SetRng1(config.Seed); Rng.SetRng2(config.Seed ^ 0x98AC72u);
+
             using var simulation = new ServerSimulation(new RotationEntry { RoomKey = config.Room, Mode = GameMode.Battle },
-                lagCompEnabled: config.Enabled, projectileCatchUpEnabled: config.ProjectileCatchUpEnabled);
+                lagCompEnabled: config.Enabled, projectileCatchUpEnabled: config.ProjectileCatchUpEnabled, rng1: config.Seed, rng2: config.Seed ^ 0x98AC72u);
             simulation.Scene.Match.Phase = MatchPhase.Playing;
             ServerCombat combat = simulation.Combat;
-            PlayerEntity shooter = PlayerEntity.Players[0], target = PlayerEntity.Players[1];
+            PlayerEntity shooter = simulation.Scene.Players[0], target = simulation.Scene.Players[1];
             PlayerEntity[] players = [shooter, target];
-            using (combat.Enter(0))
+            combat.BeginTick(0);
             {
                 shooter.ServerActivate(100, hunter, 0);
                 target.ServerActivate(200, Hunter.Kanden, 1);
             }
-            PlayerEntity.PlayerCount = 2;
+            simulation.Scene.Players.ActiveCount = 2;
             shooter.ModArmWeapon(weapon);
             shooter.EquipInfo.InfiniteAmmo = true;
             (Vector3 origin, Vector3 center, Vector3 right) = FindLane(simulation.Scene, shooter, target);
@@ -95,10 +95,10 @@ namespace MphRead.NetTest
             combat.Consume(combat.Count);
             // No RNG resets after this point: any divergent accepted shot seed is
             // a failed pair, even if the aggregate hit counts appear favorable.
-            uint initialRng1 = Rng.Rng1, initialRng2 = Rng.Rng2;
+            uint initialRng1 = simulation.Scene.Random.Rng1, initialRng2 = simulation.Scene.Random.Rng2;
             for (uint tick = 0; tick < config.Ticks; tick++)
             {
-                using var scope = combat.Enter(tick);
+                combat.BeginTick(tick);
                 while (nextArrival < arrivals.Length && arrivals[nextArrival].DeliveryTick <= tick)
                 {
                     Delivery arrival = arrivals[nextArrival++];

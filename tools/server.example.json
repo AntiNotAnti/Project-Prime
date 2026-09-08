@@ -1,0 +1,27 @@
+{
+  "Node": {
+    "MaximumLobbies": 256,
+    "MaximumSessions": 1024,
+    "Maps": [],
+    "Workers": {
+      "DrainTimeout": "00:05:00",
+      "ForceAfterDrainDeadline": false,
+      "Processes": [
+        {
+          "FileName": "worker/FruityPrime.Server.Worker",
+          "Arguments": [
+            "--lanes", "2",
+            "--max-matches", "4",
+            "--max-matches-per-lane", "2"
+          ],
+          "Capacity": {
+            "MatchLimit": 4,
+            "PlayerLimit": 32,
+            "ActiveMatches": 0,
+            "ActivePlayers": 0
+          }
+        }
+      ]
+    }
+  }
+}

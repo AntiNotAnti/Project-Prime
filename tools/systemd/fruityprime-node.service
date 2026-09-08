@@ -1,0 +1,22 @@
+# Combined Fruity Prime control Node and local authoritative Worker pool.
+# Replace placeholders with deploy-server.sh or an explicit operator install.
+[Unit]
+Description=Fruity Prime server Node and Worker pool
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory="__DIR__"
+ExecStart="__DIR__/FruityPrimeServer" --contentRoot "__DIR__"
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths="__DIR__"
+
+[Install]
+WantedBy=multi-user.target

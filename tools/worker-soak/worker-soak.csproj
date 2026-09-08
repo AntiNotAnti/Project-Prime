@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>worker-soak</AssemblyName><RootNamespace>FruityPrime.WorkerSoak</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Server.Node/Server.Node.csproj" />
+    <ProjectReference Include="../../src/Server.Worker/Server.Worker.csproj" />
+    <ProjectReference Include="../../src/Client/Client.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Backend/Backend.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.11" />
+  </ItemGroup>
+</Project>

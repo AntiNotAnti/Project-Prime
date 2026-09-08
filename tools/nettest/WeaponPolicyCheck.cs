@@ -24,11 +24,11 @@ namespace MphRead.NetTest
                 ServerContent.Open(args[1], args.Length > 2 ? args[2] : "AMHE1");
                 using var simulation = new ServerSimulation(new RotationEntry { RoomKey = "MP1 SANCTORUS", Mode = GameMode.Battle });
                 simulation.Scene.Match.Phase = MatchPhase.Playing;
-                PlayerEntity owner = PlayerEntity.Players[0];
+                PlayerEntity owner = simulation.Scene.Players[0];
                 owner.ServerActivate(100, Hunter.Samus, 0);
-                PlayerEntity.PlayerCount = 1;
+                simulation.Scene.Players.ActiveCount = 1;
                 int cases = 0;
-                using var combatScope = simulation.Combat.Enter(100);
+                simulation.Combat.BeginTick(100);
                 simulation.Combat.SetCommand(0, new(1, 100, 100, 0, 0, Vector3.UnitZ, InputCommand.NoWeapon));
                 ushort[] full = [60, 120, 90, 120, 180, 120, 120, 90, 600];
                 ushort[] partial = [48, 75, 60, 75, 100, 75, 75, 60, 315];

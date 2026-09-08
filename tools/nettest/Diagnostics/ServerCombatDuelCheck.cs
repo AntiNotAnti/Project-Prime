@@ -57,8 +57,8 @@ namespace MphRead.Mods.Network
                     readyAt ??= tick;
                     if (!arrangedAt.HasValue && unchecked(tick - readyAt.Value) > 180)
                     {
-                        PlayerEntity shooter = PlayerEntity.Players[shooterClient.Accepted.Slot];
-                        PlayerEntity target = PlayerEntity.Players[targetClient.Accepted.Slot];
+                        PlayerEntity shooter = simulation.Scene.Players[shooterClient.Accepted.Slot];
+                        PlayerEntity target = simulation.Scene.Players[targetClient.Accepted.Slot];
                         Vector3 forward = default, spot = default;
                         bool found = false;
                         for (int bearing = 0; bearing < 32; bearing++)
@@ -101,8 +101,8 @@ namespace MphRead.Mods.Network
                     }
                     if (arrangedAt.HasValue && !movedToClear && unchecked(tick - arrangedAt.Value) >= 180)
                     {
-                        PlayerEntity shooter = PlayerEntity.Players[shooterClient.Accepted.Slot];
-                        PlayerEntity target = PlayerEntity.Players[targetClient.Accepted.Slot];
+                        PlayerEntity shooter = simulation.Scene.Players[shooterClient.Accepted.Slot];
+                        PlayerEntity target = simulation.Scene.Players[targetClient.Accepted.Slot];
                         shooter.Teleport(clearSpot, (target.Position - clearSpot).Normalized(),
                             simulation.Scene.GetNodeRefByPosition(clearSpot));
                         movedToClear = true;
@@ -136,7 +136,7 @@ namespace MphRead.Mods.Network
                     {
                         if (peer?.Connection.State != NetConnectionState.Playing) continue;
                         var state = new SnapshotPacket(tick, snapshot++, network.MatchId, peer.Inputs.LastProcessed,
-                            peer.Inputs.HasProcessed, Rng.Rng1, Rng.Rng2);
+                            peer.Inputs.HasProcessed, simulation.Scene.Random.Rng1, simulation.Scene.Random.Rng2);
                         int length = state.Write(packet, simulation.States);
                         peer.Connection.Send(serverTransport, NetMessageType.Snapshot, packet[..length]);
                     }

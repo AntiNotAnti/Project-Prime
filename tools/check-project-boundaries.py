@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the physical project graph and keep platform code outside Game/Server."""
+"""Check the physical project graph and keep retired server code out."""
 from __future__ import annotations
 import argparse
 import importlib.util
@@ -10,10 +10,12 @@ import xml.etree.ElementTree as ET
 
 PROJECTS = {
     'Game': set(),
-    'Client': {'Game', 'Audio.Ncsf', 'Shared.Replay'},
-    'Server': {'Game', 'Shared.Replay'},
+    'Client': {'Game', 'Audio.Ncsf', 'Server.Shared', 'Shared.Replay'},
+    'Server.Shared': {'Game'},
+    'Server.Node': {'Server.Shared'},
+    'Server.Worker': {'Game', 'Server.Shared', 'Shared.Replay'},
     'Tools': {'Game'},
-    'Android': {'Game', 'Audio.Ncsf', 'Shared.Replay'},
+    'Android': {'Game', 'Audio.Ncsf', 'Shared.Replay', 'Server.Shared'},
     'Audio.Ncsf': set(),
     'Shared.Replay': {'Game'},
     'Backend': {'Game'},
@@ -29,6 +31,11 @@ PLATFORM_PACKAGES = re.compile(
 )
 SERVER_ALLOWED_PACKAGES = {'Microsoft.IdentityModel.JsonWebTokens'}
 GAME_IO = re.compile(r'\bSystem\.Net\.Sockets\b|\b(?:NetTransport|UdpTransport|ServerProcessHost|ScenePresentation|PlayerPresentation)\b')
+RETIRED_SERVER_SYMBOLS = re.compile(
+    r'\b(?:MasterServer|MasterReporter|AuthoritativeServer|StandaloneAuthoritativeServer|'
+    r'ServerTicketAuthority|ServerUpdate(?:Runtime|Install)?|ServerVote(?:Session|Options)?|'
+    r'ServerVoting|AdminHttpServer)\b')
+RETIRED_SERVER_PROJECT = Path('src/Server/Server.csproj')
 
 
 def xml_files(project: Path) -> list[tuple[Path, ET.Element]]:
@@ -59,6 +66,18 @@ def inspect(root: Path) -> list[str]:
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
+    retired_project = (root / RETIRED_SERVER_PROJECT).resolve()
+    for project in sorted(root.rglob('*.csproj')):
+        if {'obj', 'bin'}.intersection(project.relative_to(root).parts):
+            continue
+        try:
+            tree = ET.parse(project)
+        except ET.ParseError:
+            continue
+        for item in tree.getroot().iter('ProjectReference'):
+            target = (project.parent / item.attrib.get('Include', '').replace('\\', '/')).resolve()
+            if target == retired_project:
+                errors.append(f'{project.relative_to(root)}: reference to retired project: {RETIRED_SERVER_PROJECT.as_posix()}')
     for name, expected in PROJECTS.items():
         path = root / 'src' / name / f'{name}.csproj'
         if not path.is_file():
@@ -90,7 +109,8 @@ def inspect(root: Path) -> list[str]:
                     if cross_project and not target.is_file():
                         errors.append(f'{owner.relative_to(root)}: missing linked source: {include}')
                     if cross_project:
-                        allowed = {'Client': {'Shared'}, 'Server': {'Shared'},
+                        allowed = {'Client': {'Shared'},
+                                   'Server.Worker': {'Shared'},
                                    'Tools': {'Shared', 'Audio.Ncsf'},
                                    'Android': {'Shared', 'Client'},
                                    'Backend': {'Shared'}}.get(name, set())
@@ -106,7 +126,7 @@ def inspect(root: Path) -> list[str]:
             errors.append(f'Game: package budget exceeded: {sorted(packages)}')
         if name == 'Shared.Replay' and packages:
             errors.append(f'Shared.Replay: unexpected packages: {sorted(packages)}')
-        if name == 'Server':
+        if name == 'Server.Worker':
             forbidden = sorted(packages - SERVER_ALLOWED_PACKAGES)
             if forbidden:
                 errors.append(f'{name}: unexpected platform packages: {forbidden}')
@@ -114,7 +134,7 @@ def inspect(root: Path) -> list[str]:
             forbidden = sorted(package for package in packages if PLATFORM_PACKAGES.search(package))
             if forbidden:
                 errors.append(f'{name}: unexpected platform packages: {forbidden}')
-        if name in {'Game', 'Server', 'Shared.Replay', 'Backend'}:
+        if name in {'Game', 'Server.Worker', 'Shared.Replay', 'Backend'}:
             for source in sorted(path.parent.rglob('*.cs')):
                 if {'obj', 'bin'}.intersection(source.relative_to(path.parent).parts):
                     continue
@@ -125,6 +145,19 @@ def inspect(root: Path) -> list[str]:
                     if match:
                         line = code.count('\n', 0, match.start()) + 1
                         errors.append(f'{source.relative_to(root)}:{line}: platform dependency {match.group()}')
+    retired_server = root / RETIRED_SERVER_PROJECT.parent
+    if retired_server.exists():
+        errors.append('retired project remains: src/Server')
+    for scan_root in (root / 'src', root / 'tests' / 'Tests', root / 'tools' / 'nettest'):
+        if not scan_root.is_dir():
+            continue
+        for source in sorted(scan_root.rglob('*.cs')):
+            if {'obj', 'bin'}.intersection(source.relative_to(root).parts):
+                continue
+            code = module.mask_non_code(source.read_text(encoding='utf-8-sig'))
+            for match in RETIRED_SERVER_SYMBOLS.finditer(code):
+                line = code.count('\n', 0, match.start()) + 1
+                errors.append(f'{source.relative_to(root)}:{line}: retired server symbol {match.group()}')
     for retired in ['src/MphRead/MphRead.csproj', 'src/MphRead.Android/MphRead.Android.csproj', 'src/NcsfPlay/NcsfPlay.csproj']:
         if (root / retired).exists():
             errors.append(f'retired project remains: {retired}')

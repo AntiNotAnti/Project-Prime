@@ -131,8 +131,8 @@ namespace MphRead.Mods.Network
             foreach (ServerContentScenario scenario in scenarios)
             {
                 Read.ClearCache();
-                Rng.SetRng1(Rng.Rng1StartValue);
-                Rng.SetRng2(Rng.Rng2StartValue);
+
+
                 Scene scene = Scene.CreateHeadless();
                 int spawned = 0;
                 bool objectives = false;

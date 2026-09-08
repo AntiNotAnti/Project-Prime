@@ -15,7 +15,7 @@
 # from a terminal and gets the prompt straight back with the log arriving on
 # top of whatever they type next. So it is asserted.
 #
-#   tools/check-subsystem.sh console publish/win-x64-server/FruityPrimeServer.exe
+#   tools/check-subsystem.sh console publish/server-win-x64/FruityPrimeServer.exe
 #   tools/check-subsystem.sh gui     publish/win-x64/FruityPrime.exe
 #
 # Reads the header only, so it runs on the machine that built the binary

@@ -64,7 +64,7 @@ namespace MphRead.NetTest
             {
                 Join();
                 int slot = _client.Accepted.Slot;
-                PlayerEntity player = PlayerEntity.Players[slot];
+                PlayerEntity player = _simulation.Scene.Players[slot];
                 ulong oldConnection = player.ServerCombatIdentity.ConnectionId;
                 _phase = "movement";
                 Vector3 start = player.Position;
@@ -148,14 +148,14 @@ namespace MphRead.NetTest
             private void Step(bool sendSnapshot = false)
             {
                 _simulation.Step(_network, _tick);
-                var packet = new SnapshotPacket(_tick, _tick, _network.MatchId, 0, false, Rng.Rng1, Rng.Rng2);
+                var packet = new SnapshotPacket(_tick, _tick, _network.MatchId, 0, false, _simulation.Scene.Random.Rng1, _simulation.Scene.Random.Rng2);
                 int length = packet.Write(_packet, _simulation.States);
                 Require(SnapshotPacket.TryRead(_packet.AsSpan(0, length), _decoded, out var decoded, out int count)
                     && decoded.ServerTick == _tick, "Snapshot round trip failed.");
                 for (int i = 0; i < count; i++)
                 {
                     SnapshotPlayer snapshot = _decoded[i];
-                    PlayerEntity player = PlayerEntity.Players[snapshot.Slot];
+                    PlayerEntity player = _simulation.Scene.Players[snapshot.Slot];
                     Require(_simulation.Combat.History.TryGet(snapshot.Slot, _tick, snapshot.ConnectionId,
                         snapshot.Life, out var history), $"Missing history tick={_tick} phase={_phase} life={snapshot.Life}.");
                     Require(history.Position == snapshot.Position && history.Facing == snapshot.Facing

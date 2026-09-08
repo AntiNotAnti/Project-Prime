@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Publish the control Node and its gameplay Worker as one self-contained bundle.
+# The Node apphost is renamed at the package boundary only; its assembly name
+# remains FruityPrime.Server.Node for diagnostics and compatibility.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RID=""
+OUTPUT=""
+CONFIGURATION="Release"
+VERSION=""
+
+usage() {
+  cat <<'NOTE'
+Usage: tools/package-server.sh --rid RID --output DIRECTORY [--configuration CONFIGURATION] [--version VERSION]
+
+Publishes Server.Node at the bundle root and Server.Worker beneath worker/.
+Release RIDs are linux-x64, linux-arm64, win-x64. osx-arm64 is available for
+local package-smoke validation and is intentionally not a release artifact.
+NOTE
+}
+
+while (($# > 0)); do
+  case "$1" in
+    --rid) [[ $# -ge 2 ]] || { echo "--rid requires a value" >&2; exit 2; }; RID="$2"; shift 2 ;;
+    --output) [[ $# -ge 2 ]] || { echo "--output requires a value" >&2; exit 2; }; OUTPUT="$2"; shift 2 ;;
+    --configuration) [[ $# -ge 2 ]] || { echo "--configuration requires a value" >&2; exit 2; }; CONFIGURATION="$2"; shift 2 ;;
+    --version) [[ $# -ge 2 ]] || { echo "--version requires a value" >&2; exit 2; }; VERSION="$2"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+case "$RID" in
+  linux-x64|linux-arm64|win-x64|osx-arm64) ;;
+  *) echo "Unsupported server RID: ${RID:-<missing>}" >&2; exit 2 ;;
+esac
+[[ -n "$OUTPUT" ]] || { echo "--output is required" >&2; exit 2; }
+[[ "$CONFIGURATION" =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "Invalid configuration" >&2; exit 2; }
+[[ -e "$OUTPUT" ]] && { echo "Refusing to overwrite existing package directory: $OUTPUT" >&2; exit 1; }
+
+PUBLISH_ARGS=(-c "$CONFIGURATION" -r "$RID" --self-contained true -p:PublishSingleFile=true)
+[[ -n "$VERSION" ]] && PUBLISH_ARGS+=("-p:Version=$VERSION" "-p:InformationalVersion=$VERSION")
+
+STAGE="$(mktemp -d "${TMPDIR:-/tmp}/fruity-prime-server-package.XXXXXX")"
+cleanup() { rm -rf "$STAGE"; }
+trap cleanup EXIT
+
+mkdir -p "$STAGE/worker"
+dotnet publish "$ROOT/src/Server.Node/Server.Node.csproj" "${PUBLISH_ARGS[@]}" -o "$STAGE/node"
+dotnet publish "$ROOT/src/Server.Worker/Server.Worker.csproj" "${PUBLISH_ARGS[@]}" -o "$STAGE/worker"
+
+if [[ "$RID" == win-x64 ]]; then
+  NODE_APPHOST="$STAGE/node/FruityPrime.Server.Node.exe"
+  WORKER_APPHOST="$STAGE/worker/FruityPrime.Server.Worker.exe"
+  PACKAGE_NODE="$STAGE/node/FruityPrimeServer.exe"
+else
+  NODE_APPHOST="$STAGE/node/FruityPrime.Server.Node"
+  WORKER_APPHOST="$STAGE/worker/FruityPrime.Server.Worker"
+  PACKAGE_NODE="$STAGE/node/FruityPrimeServer"
+fi
+[[ -f "$NODE_APPHOST" ]] || { echo "Node publish did not produce the expected apphost: $NODE_APPHOST" >&2; exit 1; }
+[[ -f "$WORKER_APPHOST" ]] || { echo "Worker publish did not produce the expected apphost: $WORKER_APPHOST" >&2; exit 1; }
+
+# Rename only the native apphost. Leave all managed assembly/deps identities
+# emitted by the project untouched.
+mv "$NODE_APPHOST" "$PACKAGE_NODE"
+cp "$ROOT/tools/server.example.json" "$STAGE/node/server.example.json"
+chmod +x "$PACKAGE_NODE" "$WORKER_APPHOST"
+
+if ! strings "$PACKAGE_NODE" | rg 'FruityPrime\.Server\.Node' >/dev/null; then
+  echo "Node assembly identity is missing from the published metadata." >&2
+  exit 1
+fi
+if find "$STAGE/node" -maxdepth 1 -type f -name 'FruityPrime.Server.Worker*' | grep -q .; then
+  echo "Worker publish leaked into the Node package root." >&2
+  exit 1
+fi
+bash "$ROOT/tools/check-no-game-assets.sh" "$STAGE/node" "$STAGE/worker"
+
+mkdir -p "$(dirname "$OUTPUT")"
+mv "$STAGE/node" "$OUTPUT"
+mv "$STAGE/worker" "$OUTPUT/worker"
+printf 'Packaged %s server bundle at %s\n' "$RID" "$OUTPUT"

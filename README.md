@@ -20,7 +20,7 @@ A fork of [NoneGiven/MphRead](https://github.com/NoneGiven/MphRead).
 - **240+ FPS support**
 - **Online multiplayer** (no WFC support)
 - **Up to 8 players**
-- **Dedicated servers**
+- **Dedicated Node + Worker servers**
 - **Demo recording**
 - **Custom maps**
 - **12 multiplayer modes**: Battle, Survival, Capture, Bounty, Defender, Nodes, Prime Hunter, and teams
@@ -53,17 +53,19 @@ If you enjoy it: **[ko-fi.com/livetek](https://ko-fi.com/livetek)** ☕
 
 | | |
 |---|---|
-| **Join** | **Join**, choose a listed server, or enter an address |
-| **Host** | **Host**, choose a room, match type and hunter, then ask the directory to run the match |
-| **Self-host** | Run the dedicated server, then have players use **Join** to connect |
+| **Join** | **Join**, sign in, choose a compatible public Node, then choose a listed public lobby |
+| **Host** | **Host**, choose a public Node, create a public lobby, configure the match and start it |
+| **Self-host** | Run the combined Node + Worker package, publish its HTTPS/WSS endpoint, and have players join its public lobby |
 
 Everybody in a match needs the same version; the launcher checks for a new one and says so.
 
-Online matches use a 60 Hz authoritative server with local movement prediction and remote interpolation.
-The server owns combat, pickups, objectives and score. Servers need extracted game data or a compact
-baked package; see the [implementation and validation notes](docs/NETWORK_MODERNIZATION.md).
-
-Want a machine of your own that is always up? [`SERVER.md`](SERVER.md).
+Online matches use a persistent Server Node for account-backed control, sessions, public lobbies and
+match placement. A managed Worker owns each match's 60 Hz authoritative simulation and receives
+gameplay UDP directly from clients; the Node connection remains the reliable control path. The client
+cutover exposes public lobbies only. Private or unlisted local hosting has been retired, and there is
+no direct Worker `--standalone` mode. Servers need extracted game data or a compact baked package;
+see the [implementation and validation notes](docs/NETWORK_MODERNIZATION.md) and the
+[Server Node guide](src/Server.Node/README.md).
 
 ## Custom maps
 
@@ -88,14 +90,15 @@ dotnet publish src/Client/Client.csproj -c Release \
 ```
 
 Needs [.NET 10.0](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
-`dotnet publish src/Server/Server.csproj -c Release` builds the standalone server; Android is
-`dotnet build src/Android/Android.csproj` with the `android` workload. Every command
+`tools/package-server.sh --rid linux-x64 --output publish/server-linux-x64` packages the persistent
+Server Node and its bundled Worker; use `win-x64` or `linux-arm64` for the other supported server
+targets. Android is `dotnet build src/Android/Android.csproj` with the `android` workload. Every command
 line option, and the test harness, are in [`CLAUDE.md`](CLAUDE.md).
 
 Build the desktop solution with `dotnet build Game.sln`; Android remains a separate
 workload build. The [project layout](docs/PROJECT_LAYOUT.md) describes the Game,
-Client, Server, Tools and Android boundaries. Client output includes a separate
-`server/` executable for hosting.
+Client, Server Node, Server Worker, Tools and Android boundaries. Client output no longer
+contains a local server executable; hosting is provided by the Node + Worker package.
 
 ## Credits
 

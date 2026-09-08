@@ -175,13 +175,13 @@ namespace MphRead.NetTest
                 Require(match.Phase == MatchPhase.Ending && match.Result != null, "Timed match did not capture a result.");
                 MatchResult result = match.Result!;
                 int points = match.Players[second.Slot].Points;
-                string? nickname = GameState.Nicknames[second.Slot];
+                string? nickname = _simulation.Scene.Roster.Nicknames[second.Slot];
                 second.Connection.BeginLoading(_network.MatchId);
                 second.Connection.Ready(_network.MatchId);
                 Pump();
                 Require(second.Connection.State == NetConnectionState.Ready
                     && match.Players[second.Slot].Points == points
-                    && GameState.Nicknames[second.Slot] == nickname,
+                    && _simulation.Scene.Roster.Nicknames[second.Slot] == nickname,
                     "Terminal readiness changed competitive ownership.");
                 _network.Remove(second.Slot);
                 Pump();

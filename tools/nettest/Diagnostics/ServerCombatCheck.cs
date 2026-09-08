@@ -14,11 +14,11 @@ namespace MphRead.Mods.Network
             try
             {
                 scene.LoadServerRoom(room, GameMode.Battle, players: 2);
-                PlayerEntity shooter = PlayerEntity.Players[0], target = PlayerEntity.Players[1];
+                PlayerEntity shooter = scene.Players[0], target = scene.Players[1];
                 var combat = new ServerCombat();
                 scene.Services = new ServerSceneServices(combat);
                 uint tick = 0;
-                using (combat.Enter(tick))
+                combat.BeginTick(tick);
                 {
                     shooter.ServerActivate(100, Hunter.Samus, 0);
                     target.ServerActivate(200, Hunter.Kanden, 1);
@@ -28,7 +28,7 @@ namespace MphRead.Mods.Network
                 Span<CombatEvent> events = stackalloc CombatEvent[CombatEventBatch.MaxCount];
                 for (int weapon = 0; weapon <= 8; weapon++)
                 {
-                    using (combat.Enter(++tick))
+                    combat.BeginTick(++tick);
                     {
                         target.Spawn(target.Position, target.FacingVector, Vector3.UnitY, target.NodeRef, respawn: false);
                         shooter.ModArmWeapon((BeamType)weapon);
@@ -36,7 +36,7 @@ namespace MphRead.Mods.Network
                     bool fired = false;
                     for (int frame = 0; frame < 180; frame++)
                     {
-                        using var scope = combat.Enter(++tick);
+                        combat.BeginTick(++tick);
                         var command = new InputCommand(tick, tick, tick, InputButtons.Shoot,
                             frame % 30 == 0 ? InputButtons.Shoot : 0, shooter.FacingVector, (byte)weapon);
                         combat.SetCommand(0, command);
@@ -52,7 +52,7 @@ namespace MphRead.Mods.Network
                     }
                     if (!fired) throw new ProgramException("Combat input produced no legal shot: " + (BeamType)weapon);
                     covered++;
-                    using (combat.Enter(++tick))
+                    combat.BeginTick(++tick);
                     {
                         // Use the normal weapon table and projectile owner identity. This
                         // controlled hit deliberately bypasses geometry to isolate resolution.
@@ -81,7 +81,7 @@ namespace MphRead.Mods.Network
                     }
                     Console.WriteLine($"[combatcheck] weapon={(BeamType)weapon} normal-input-shot=PASS controlled-resolver=PASS");
                 }
-                using (combat.Enter(++tick))
+                combat.BeginTick(++tick);
                 {
                     foreach (BeamType weapon in new[] { BeamType.Judicator, BeamType.Magmaul, BeamType.VoltDriver })
                     {

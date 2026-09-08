@@ -53,6 +53,7 @@ class MultiplayerGuardTests(unittest.TestCase):
     EnemyInstanceEntity enemy;
     EnemySpawnEntity spawn;
     ArtifactEntity artifact;
+    StorySaveData rawLayout;
     PlayerScan scan;
     PlayerDialog dialog;
     DialogType dialogType;
@@ -77,6 +78,7 @@ class MultiplayerGuardTests(unittest.TestCase):
             "campaign-launch",
             "global-game-mode",
             "campaign-mode-selector",
+            "raw-story-layout",
             "deleted-entity-runtime",
             "player-scan-dialog-runtime",
             "player-scan-visor",
@@ -91,19 +93,12 @@ class MultiplayerGuardTests(unittest.TestCase):
     def test_raw_exceptions_are_exact_files_and_scoped_to_one_rule(self):
         exceptions = {
             "campaign-mode-selector": [
-                ("src/Tools/Conversion/RepackModel.cs", "GameMode.SinglePlayer"),
                 ("src/Shared/ContentPreparation/RepackModelPacking.cs", "GameMode.SinglePlayer"),
-                ("src/Tools/Conversion/RepackCollision.cs", "GameMode.SinglePlayer"),
                 ("tests/Tests/Match/MatchDomainTests.cs", "GameMode.SinglePlayer"),
                 ("tests/Tests/Match/RotationRulesTests.cs", "GameMode.SinglePlayer"),
             ],
-            "raw-story-layout": [
-                ("src/Tools/Conversion/MemoryClasses.cs", "StorySaveData"),
-                ("src/Tools/Conversion/TestLogic.cs", "StorySaveData"),
-            ],
             "raw-enemy-identity": [
                 ("src/Game/Content/Formats/Enums.cs", "EnemyInstance"),
-                ("src/Tools/Conversion/Memory.cs", "EnemyInstance"),
             ],
             "raw-movie-codec": [
                 ("src/Tools/Conversion/Movie.cs", "VxDecoder"),
@@ -131,14 +126,14 @@ class MultiplayerGuardTests(unittest.TestCase):
                 self.write_source(sibling, f"class Fixture {{ object value = {token}; }}\n")
                 siblings.append((sibling.as_posix(), rule, token))
         # An exact exception for GameMode.SinglePlayer must not exempt another rule.
-        self.write_source("src/Tools/Conversion/RepackModel.cs", "class Fixture { StorySave save; }\n")
+        self.write_source("src/Shared/ContentPreparation/RepackModelPacking.cs", "class Fixture { StorySave save; }\n")
 
         rejected = self.run_guard()
         self.assertEqual(rejected.returncode, 1, rejected.stdout + rejected.stderr)
         for relative, rule, token in siblings:
             self.assertIn(f"{relative}:1: {rule}: {token}", rejected.stdout)
         self.assertIn(
-            "src/Tools/Conversion/RepackModel.cs:1: campaign-save: StorySave",
+            "src/Shared/ContentPreparation/RepackModelPacking.cs:1: campaign-save: StorySave",
             rejected.stdout,
         )
 
