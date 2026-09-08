@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using MphRead.Backend.Identity;
 using MphRead.Backend.Profiles;
 using MphRead.Backend.Tickets;
+using MphRead.Backend.Nodes;
 
 namespace MphRead.Backend;
 
@@ -66,6 +67,7 @@ public sealed class Program
         var serverOptions = builder.Configuration.GetSection("GameServers").Get<GameServerOptions>() ?? new();
         builder.Services.AddSingleton<GameTicketIssuer>();
         builder.Services.AddSingleton<GameServerRegistry>();
+        builder.Services.AddSingleton<NodeDirectory>();
         builder.Services.AddScoped<MatchIngestion>();
         builder.Services.AddScoped<CareerRebuild>();
         builder.Services.AddRateLimiter(options =>
@@ -146,6 +148,7 @@ public sealed class Program
         app.MapAccounts();
         app.MapProfiles();
         app.MapGameTickets();
+        app.MapNodes();
         app.MapMatches();
         app.MapCareerQueries();
         app.MapMatchExports();

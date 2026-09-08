@@ -17,13 +17,12 @@ Use deployment environment variables or an operator-managed secret provider. No 
 | `Tickets__KeyId` | Current signing key ID,1–32 ASCII letters/digits/underscore/hyphen |
 | `Tickets__SigningKeyPemPath` | Operator-owned P-256 private PEM file; never returned to clients/servers |
 | `Tickets__PreviousKeys__0__KeyId`, `...__PublicKeyPemPath` | Optional previous verification public keys during rotation |
-| `GameServers__Servers__0__Id` | Provisioned server UUID |
+| `GameServers__Servers__0__Id` | Provisioned Node UUID |
 | `GameServers__Servers__0__Enabled` | Must explicitly be true |
-| `GameServers__Servers__0__PublicAddress` | Operator-provisioned canonical IPv4 address reached by account clients; no hostname or wildcard |
-| `GameServers__Servers__0__PublicPort` | Matching externally reachable UDP port, 1..65535 |
 | `GameServers__Servers__0__ApiKeySha256` | SHA256 hex digest of a separately generated high-entropy server credential |
+| `GameServers__Servers__0__TrustClass` | Backend-assigned community/verified reporting class; Nodes cannot self-assert it |
 
-Use distinct per-server secrets (at least32 characters of cryptographic entropy), and deliver the plaintext only to that server. A length check is not an entropy guarantee. Changing server configuration requires restarting this initial service. Server credentials authenticate incarnation registration only; they do not grant account access, ticket signing or official rating authority.
+Use distinct per-Node secrets (at least32 characters of cryptographic entropy), and deliver the plaintext only to that Node. A length check is not an entropy guarantee. Changing server configuration requires restarting this initial service. Node credentials authenticate registration, heartbeat and report ingestion; they do not grant account access, ticket signing or official rating authority.
 
 Persist and protect the Data Protection directory and private PEM with owner-only access and deployment storage protection. Losing Identity keys invalidates existing tokens; losing the ticket private key requires deliberate key rotation. This service does not provision secrets or choose a machine-wide key location in production. Development uses framework defaults; tests explicitly use ephemeral keys and delete temporary signing files.
 
@@ -42,15 +41,26 @@ Production rejects HTTP. Terminate TLS at Kestrel or explicitly configure and au
 
 With confirmation required but SMTP absent, registration returns503 before writing anything. SMTP failure after commit leaves a real unconfirmed account; use resend after delivery recovers rather than creating another identity. Email delivery is synchronous after the database transaction, not a durable email outbox. Password reset/change and2FA management UI/endpoints are not included yet; do not offer UI for absent routes.
 
-## Game ticket integration
+## Node admission integration
 
-`PUT /v1/server/session` uses `X-Server-Id: <D-format UUID>` and `Authorization: Bearer <server secret>`, with `{serverIncarnation}`. A valid configured server registers its current startup UUID and receives `{serverId,serverIncarnation}`. This memory registry is empty after Backend restart; servers must re-register. A process must never reuse its previous startup incarnation. Only one active incarnation per configured ServerId is supported.
+Node registration and discovery are the only server admission path. `PUT
+/v1/node/registration` authenticates the persistent Node with its configured
+`X-Server-Id` and API credential, records its startup incarnation and `wss://`
+control URI, and publishes its exact protocol/build/content profile. A Node
+must heartbeat with the same incarnation; a replacement incarnation cannot
+refresh the old listing. Backend restart clears the in-memory directory, so
+Nodes republish their registration and heartbeat.
 
-`POST /v1/game-tickets` uses account bearer authentication and `{serverId,nonce}` where nonce is a canonical nonzero unsigned64 decimal **string**. It returns `{ticket,expiresAt,serverId,serverIncarnation}`. The account must have confirmed email, a current security stamp and no lockout even when private-test login is enabled. Unknown/unregistered server returns404; absent signing configuration returns503.
+`POST /v1/node-admissions` uses a confirmed account bearer token and `{nodeId}`.
+It returns a short-lived ES256 `ph-node-admission+jwt` containing the player
+identity and the exact `publicControlUri`. The Node validates and consumes the
+admission before opening its WSS control connection. The Node then signs and
+delivers the per-match UDP handoff for the Worker-owned `MatchInstance`.
 
-Tickets are compact ES256 JWTs with `kid`, `iss`, `aud`=server UUID, `sub`=PlayerId UUID, `sid`=server startup UUID, `jti`=unique ticket UUID, `nonce`=decimal string, `name`=authoritative display name, and numeric `iat`/`nbf`/`exp`. Lifetime is exactly120 seconds. Issuance enforces the current Game `JoinPacket.MaxTicketBytes` join-carrier cap. An optional signed boolean `observerTrusted:true` is emitted only for PlayerIds in the operator-configured `Tickets__TrustedObservers__0` (and subsequent indexed entries) allowlist. It is never accepted from a player request. Tickets do not contain account tokens, email, RP or trust-class claims. Server validation must enforce signature/algorithm/issuer/audience/incarnation/lifetime/name/nonce and owner-thread single-use admission; Backend issuance alone does not establish replay-safe UDP authentication.
-
-`GET /v1/game-ticket-keys` returns standard public `{keys:[{kty,crv,x,y,kid,use,alg}]}` including configured previous keys. Retain previous keys for at least the ticket lifetime plus verifier clock skew after the last ticket signed with that key, and coordinate server refresh (currently planned60s TTL/unknown-kid refresh). No automatic remote key URL is taken from a JWT header. Disabling a server/replacing its session does not revoke already-issued tickets at another running instance; the server must enforce its actual incarnation and shutdown/credential policy.
+The Backend no longer exposes direct standalone-server session registration or
+account game-ticket issuance. Its signing configuration is used for Node
+admission and result-signature consumers; it does not create a direct
+client-to-Worker or client-to-legacy-Server path.
 
 ## Explicit migrations and validation
 
@@ -69,7 +79,7 @@ Package/API basis: [ASP.NET Identity APIs](https://learn.microsoft.com/en-us/asp
 
 ## Match ledger and career queries
 
-`POST /v1/server/matches` authenticates the provisioned server credential (`Authorization: Bearer`, `X-Server-Id`). Configure `GameServers__Servers__0__TrustClass` explicitly; it defaults to Community. The Backend derives effective trust from that authenticated registration, independently of the raw report claim. It stores that effective trust with the accepted ledger row and uses the stored value during rebuild. Old startup incarnations remain accepted so a retained spool can drain after restart; active join-ticket session registration is independent.
+`POST /v1/server/matches` authenticates the provisioned Node credential (`Authorization: Bearer`, `X-Server-Id`). Configure `GameServers__Servers__0__TrustClass` explicitly; it defaults to Community. The Backend derives effective trust from that authenticated registration, independently of the raw report claim. It stores that effective trust with the accepted ledger row and uses the stored value during rebuild. Old Node startup incarnations remain accepted so a retained spool can drain after restart; active Node admission is independent.
 
 The endpoint requires `Idempotency-Key` (match UUID), `X-Content-SHA256` (uppercase SHA-256 of the exact body), and the default System.Text.Json serialized `MatchReportV1` body, bounded to512KiB. It stores the original bytes. A first acceptance returns201, the same UUID/hash returns200 with the exact persisted rating receipt, and a conflicting UUID/body returns409. Rating status is `applied` with immutable player transactions and pair evidence, or `ineligible` with an explicit reason. Schema1 remains accepted for career history and is always rating-ineligible as `LegacyReport`.
 
@@ -96,7 +106,50 @@ Career includes explicit finished-win, finished-loss, tie, forfeit, grace-expire
 Set `PRIME_TEST_POSTGRES_FILE` to a private file containing the connection string for an explicitly disposable local PostgreSQL instance. Each PostgreSQL test creates a unique schema, applies actual migrations, and drops only that schema afterward. Without this variable those tests are explicitly skipped. Tests cover concurrent registration, overlapping-player reports, same-body idempotency, conflicts, raw-body preservation, rollback, rebuild equality, trust separation, malformed facts, and actual PostgreSQL leaderboard/keyset translation. SQLite covers focused HTTP/auth boundaries; it is not a production persistence substitute.
 
 
-Ticket responses include `publicAddress` and `publicPort` from operator registration, never from UDP status or server session requests. Account clients must resolve the selected destination once, require an exact match with this authenticated HTTPS response, and send the ticket only to that pinned IPv4 literal and port. Otherwise an impostor could advertise another server UUID and steal a valid ticket for relay. Endpoint mismatch fails the join; it must not silently downgrade an account join to guest. This binding does not claim protection against an on-path UDP attacker. Private/LAN and loopback literals are permitted for explicitly configured private deployments; production uses the externally reachable NAT address/port. Omitting both endpoint fields preserves report-only registration but disables game-ticket issuance (404); partial or malformed endpoint configuration fails startup. Changing an endpoint requires operator configuration/restart. The response endpoint is HTTPS-authenticated routing metadata and does not enlarge the UDP JWT.
+The `publicControlUri` in a Node listing and admission is HTTPS-authenticated
+routing metadata. Clients must connect to that exact `wss://` URI and cannot
+substitute a Worker or UDP endpoint. The Node validates the admission, freezes
+the lobby match specification, and returns the signed Worker handoff consumed
+by the client. Loopback and LAN endpoints may still be used by isolated source
+or package tests, but they are not a supported client hosting path.
 
 
 Report duration validation follows the simulation's signed tick half-range: at most `int.MaxValue` 60Hz ticks, with corresponding UTC duration and mode-time bounds. Unlimited matches longer than one day remain admissible. Per-slot and overall participation intervals must remain within that range even when uint ticks wrap; body and participant limits are unchanged. Known biped/alt totals and the sum of beam kill buckets cannot exceed total kills; unavailable nullable historical form metrics remain accepted.
+
+### Node discovery and admission
+
+The Backend directory publishes compatible persistent Server Nodes. A Node owns
+the client control connection, sessions, public lobbies and Worker placement;
+its managed Workers own gameplay and direct UDP admission. The legacy UDP
+MasterServer and the direct standalone Server rollback/deploy path are retired.
+The Backend does not launch or stop local matches. Configure each Node ID and
+hashed API credential in the existing `GameServers` registry. The configured
+trust class determines the browser's `community` or `verified` label; Nodes
+cannot submit that label themselves.
+
+- `PUT /v1/node/registration`: `X-Server-Id` is the Node UUID and `Authorization:
+  Bearer ...` is its API credential. JSON fields: `incarnation` UUID, `name`,
+  `region`, `publicControlUri` (`wss://`), `protocolVersion`, `buildVersion`,
+  `contentHash` (64 hex characters), and `capacity`.
+- `POST /v1/node/heartbeat`: same credentials, JSON `incarnation`, `onlineUsers`,
+  `lobbyCount`, `activeMatches`. Heartbeat approximately every 30 seconds. Old
+  incarnations cannot refresh a replacement Node registration.
+- `GET /v1/nodes?protocol=1&build=...&content=...`: exact compatibility filtering;
+  only entries with heartbeat age below 90 seconds are returned.
+- `POST /v1/node-admissions`: confirmed account bearer token and JSON `nodeId`.
+  Returns `ticket`, `expiresAt`, `nodeId`, and `publicControlUri`. Tickets are
+  ES256, have type `ph-node-admission+jwt`, audience
+  `urn:prime-hunters:node:<NodeId>`, and expire after 120 seconds. The Node
+  loads the matching operator-provisioned public key set and validates/consumes
+  each `jti` once; there is no match identity or incarnation claim.
+
+Listings are in memory and republished after Backend restart. This implementation
+is for a single Backend directory process; multiple Backend replicas need shared
+expiry storage before deployment. TTL disappearance affects discovery and new
+Backend admissions only, never existing Node sessions or matches.
+
+The supported client cutover is public-lobby-only: the launcher lists compatible
+Nodes, creates `LobbyVisibility.Public` lobbies, and joins the public lobby list
+over the Node's WSS control connection before receiving a Worker UDP handoff.
+Private or unlisted local hosting has been retired. No `Worker --standalone`
+mode was added; Workers are launched and supervised by their owning Node.

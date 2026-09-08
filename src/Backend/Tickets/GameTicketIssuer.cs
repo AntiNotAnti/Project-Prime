@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -12,7 +11,6 @@ public sealed class TicketOptions
     public string? Issuer { get; set; }
     public string? KeyId { get; set; }
     public string? SigningKeyPemPath { get; set; }
-    public List<Guid> TrustedObservers { get; set; } = [];
     public List<PreviousTicketKey> PreviousKeys { get; set; } = [];
 }
 
@@ -22,15 +20,13 @@ public sealed class PreviousTicketKey
     public string PublicKeyPemPath { get; set; } = "";
 }
 
-public sealed record TicketResponse(string Ticket, DateTimeOffset ExpiresAt, Guid ServerId, Guid ServerIncarnation, string PublicAddress, int PublicPort);
+public sealed record NodeAdmissionResponse(string Ticket, DateTimeOffset ExpiresAt, Guid NodeId, string PublicControlUri);
 public sealed record PublicTicketKey(string Kty, string Crv, string X, string Y, string Kid, string Use, string Alg);
 
 public sealed class GameTicketIssuer : IDisposable
 {
     public const int LifetimeSeconds = 120;
-    public const int MaximumTicketBytes = MphRead.Mods.Network.JoinPacket.MaxTicketBytes;
     private readonly TimeProvider _clock;
-    private readonly HashSet<Guid> _trustedObservers;
     private readonly string? _issuer;
     private readonly ECDsa? _signer;
     private readonly SigningCredentials? _credentials;
@@ -41,9 +37,6 @@ public sealed class GameTicketIssuer : IDisposable
     {
         _clock = clock;
         var settings = options.Value;
-        if (settings.TrustedObservers.Any(id => id == Guid.Empty))
-            throw new InvalidOperationException("Trusted observer IDs must be nonempty player UUIDs.");
-        _trustedObservers = settings.TrustedObservers.ToHashSet();
         PublicKeys = Array.Empty<PublicTicketKey>();
         if (settings.Issuer == null && settings.KeyId == null && settings.SigningKeyPemPath == null) { return; }
         if (settings.Issuer is not { Length: >= 1 and <= 128 }
@@ -75,28 +68,22 @@ public sealed class GameTicketIssuer : IDisposable
         catch { _signer.Dispose(); throw; }
     }
 
-    public TicketResponse Issue(PlayerId playerId, string name, Guid serverId, Guid incarnation, ulong nonce, string publicAddress, int publicPort)
+    public NodeAdmissionResponse IssueNodeAdmission(PlayerId playerId, string name, Guid nodeId, string publicControlUri)
     {
-        if (_credentials == null) { throw new InvalidOperationException("Game tickets are not configured."); }
-        if (!GameServerRegistry.ValidPublicEndpoint(publicAddress, publicPort) || playerId.IsEmpty || serverId == Guid.Empty || incarnation == Guid.Empty || nonce == 0
-            || !Profiles.ProfileEndpoints.ValidDisplayName(name)) throw new ArgumentException("Invalid ticket identity.");
-        DateTimeOffset now = DateTimeOffset.FromUnixTimeSeconds(_clock.GetUtcNow().ToUnixTimeSeconds());
-        DateTimeOffset expires = now.AddSeconds(LifetimeSeconds);
-        var descriptor = new SecurityTokenDescriptor
+        if (_credentials == null) throw new InvalidOperationException("Tickets are not configured.");
+        if (playerId.IsEmpty || nodeId == Guid.Empty || !Profiles.ProfileEndpoints.ValidDisplayName(name))
+            throw new ArgumentException("Invalid Node admission identity.");
+        var now = DateTimeOffset.FromUnixTimeSeconds(_clock.GetUtcNow().ToUnixTimeSeconds());
+        var expires = now.AddSeconds(LifetimeSeconds);
+        string token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {
-            Issuer = _issuer, Audience = serverId.ToString("D"), IssuedAt = now.UtcDateTime,
-            NotBefore = now.UtcDateTime, Expires = expires.UtcDateTime, SigningCredentials = _credentials,
-            Claims = new Dictionary<string, object>
-            {
-                ["sub"] = playerId.ToString(), ["jti"] = Guid.NewGuid().ToString("D"),
-                ["sid"] = incarnation.ToString("D"), ["nonce"] = nonce.ToString(CultureInfo.InvariantCulture), ["name"] = name
-            }
-        };
-        if (_trustedObservers.Contains(playerId.Value)) descriptor.Claims["observerTrusted"] = true;
-        string token = new JsonWebTokenHandler().CreateToken(descriptor);
-        if (token.Length > MaximumTicketBytes)
-            throw new InvalidOperationException("Configured ticket exceeds the authenticated join payload limit.");
-        return new TicketResponse(token, expires, serverId, incarnation, publicAddress, publicPort);
+            Issuer = _issuer, Audience = "urn:prime-hunters:node:" + nodeId.ToString("D"),
+            TokenType = "ph-node-admission+jwt", IssuedAt = now.UtcDateTime, NotBefore = now.UtcDateTime,
+            Expires = expires.UtcDateTime, SigningCredentials = _credentials,
+            Claims = new Dictionary<string, object> { ["sub"] = playerId.ToString(),
+                ["name"] = name, ["jti"] = Guid.NewGuid().ToString("D") }
+        });
+        return new(token, expires, nodeId, publicControlUri);
     }
 
     public string SignMatchResult(Guid matchId, string payloadHash, long processingOrder, int effectiveTrustClass)
