@@ -1,8 +1,32 @@
 # G4 implementation design
 
-**Proposal only — no persistence implementation or deployment authorization.** This translates G4 of `PRIME_HUNTERS_G1_G5_IMPLEMENTATION_PLAN.md` into boundaries supported by the current source. Start implementation after the G1–G3 semantic review is stable. Exact retail RP arithmetic and the eight-player extension require their separate evidence/specification gate.
+**Historical proposal only — no persistence implementation or deployment
+authorization.** This document translates G4 of
+`PRIME_HUNTERS_G1_G5_IMPLEMENTATION_PLAN.md` using the pre-A26 source shape.
+The `src/Server` names, direct game-ticket route, direct server admission and
+guest-LAN/private-hosting language below are retained as historical design and
+behavioral evidence; they are not current implementation or deployment
+instructions. Exact retail RP arithmetic and the eight-player extension still
+require their separate evidence/specification gate.
 
-## Shape
+## Current A26 boundary
+
+The supported implementation is a persistent `src/Server.Node/` plus a bundled,
+Node-owned `src/Server.Worker/`. Backend owns account, Node directory/admission
+and report persistence. The Node owns sessions, public lobbies, frozen
+`MatchSpec` placement, Worker lifecycle and report ingestion/outbox. Each Worker
+owns its `MatchInstance`, fixed 60 Hz simulation, direct gameplay UDP, replay,
+telemetry and immutable report artifact. The client selects a Node, creates or
+joins a public lobby over WSS, then receives the signed Worker handoff. Private
+or unlisted local hosting is retired; no Worker `--standalone` mode was added.
+
+The native `osx-arm64` extracted-bundle package smoke passed the WSS, public
+lobby, Worker placement, routed-UDP admission, match-end, artifact/replay and
+drain/no-orphan checks. This is local package/process evidence only; it does
+not establish Windows, Android, deployed, WAN, rendered-client or broader live
+client proof.
+
+## Historical proposed shape (pre-A26)
 
 Add one `src/Backend/Backend.csproj` (`Microsoft.NET.Sdk.Web`, `net10.0`) with ASP.NET Core Identity, EF Core, and PostgreSQL. Backend references Game for small immutable identifiers/report contracts; Server and Client communicate with Backend through HTTPS/JSON, without project references to Backend. Game retains BCL plus OpenTK.Mathematics only. No broker, cache service, repository-framework layer, or extra contract project initially.
 
@@ -10,9 +34,9 @@ Use matching supported 10.x releases of `Microsoft.AspNetCore.Identity.EntityFra
 
 Keep Backend folders small: `Identity`, `Data/Migrations`, `Tickets`, `Matches`, `Licenses`, and `Ratings`. Server owns `Persistence` (outbox/report worker) and admission integration. Client owns account UI, secure credential storage, profile reads, and ticket requests. Android reuses portable HTTP/contracts and supplies platform credential storage.
 
-## Current seams and necessary changes
+## Historical source seams and proposed changes
 
-| Current source/API | Confirmed behavior | Proposed integration |
+| Historical source/API | Confirmed behavior | Proposed integration |
 |---|---|---|
 | Game `MatchRuntime.CaptureResult` / `MatchFlow.Process` | Authority creates one immutable `MatchResult`; replica capture is separately guarded | Keep the gameplay result immutable and database-free; wrap it in an authority-owned report |
 | Game `MatchResult.MatchId` | `uint` copied from the live match | Retain as wire/local epoch; add a separate persistent UUID, never reinterpret it as globally unique |
@@ -20,10 +44,14 @@ Keep Backend folders small: `Identity`, `Data/Migrations`, `Tickets`, `Matches`,
 | Server `ServerSimulation.Step` | Disconnect/replacement invokes `NetScoreboard.ForgetSlot`; activation reuses the slot and updates nickname | Snapshot the departing participant before clearing, including the reconnect path; never recover identity from terminal slot/name alone |
 | Server `ServerNetwork.Admit` / `ServerPeer` | Join supplies nickname, nonce, hunter, previous connection ID; no account authentication | Resolve verified admission identity before allocating a peer; retain guest admission as an explicit policy |
 | Game `JoinPacket.TryRead` | Fixed 34-byte packet, exact-size validation | Design/version a bounded authenticated join extension; do not append credentials to protocol 8 invisibly |
-| Server `AuthoritativeServer.RunSimulation` | Single writer calls `network.Poll`, `simulation.Step`, then may rotate/dispose the scene | Observe newly captured result immediately after Step and before rotation; hand off immutable references only |
-| Server `AuthoritativeServer.Run` / `Program` | `Stop` ends loop; `finally` disposes simulation and master-list `Reporter` | Own report worker for the entire server lifetime, outside individual simulations; drain durable writes before orderly shutdown |
+| Historical Server `AuthoritativeServer.RunSimulation` | Single writer calls `network.Poll`, `simulation.Step`, then may rotate/dispose the scene | Observe newly captured result immediately after Step and before rotation; hand off immutable references only |
+| Historical Server `AuthoritativeServer.Run` / `Program` | `Stop` ends loop; `finally` disposes simulation and master-list `Reporter` | Own report worker for the entire server lifetime, outside individual simulations; drain durable writes before orderly shutdown |
 
-`MasterReporter` advertises server availability; it is not a match reporter or verified-server credential. Existing `PlayerMatchResult.Stars` must not be assumed to be persistent license tier; Backend owns RP/tier calculation. `Active` does not establish human status or historical participation.
+`MasterReporter` is a historical pre-A26 availability reporter; it is not a
+match reporter or verified-server credential. Existing
+`PlayerMatchResult.Stars` must not be assumed to be persistent license tier;
+Backend owns RP/tier calculation. `Active` does not establish human status or
+historical participation.
 
 Introduce `PlayerId` as an immutable Guid wrapper under Game `Identity`, rejecting `Guid.Empty` for registered identities. Use a nullable PlayerId plus explicit `ParticipantKind` for guest/bot identities. A separate per-match `ParticipantId` distinguishes sessions without turning slots, IPs, display names, or connection IDs into account identity.
 
@@ -31,7 +59,7 @@ The Server participant ledger binds each activation to `(ParticipantId, PlayerId
 
 Allocate a persistent `MatchId` UUID once per match attempt and preserve it through retries. At the first transition to Playing, freeze server identity/incarnation, canonical map key/content hash, rules/build/protocol/schema versions and UTC start; use simulation ticks for played duration, UTC only for wall-clock history. At terminal capture, record end reason and UTC end. Countdown cancellation is not a completed official match. Track per-participant played ticks; the current `Time` field is mode-specific and includes Survival's `-1` sentinel, so it is not career play time.
 
-## Identity and admission
+## Historical identity and admission proposal
 
 Use `IdentityUser<Guid>` with one immutable PlayerId/account and one Hunter License. Keep Identity's password hashing, lockout, confirmation/reset and security-stamp mechanisms. Require unique normalized email, bounded display names, request throttling and generic login/reset failures. Public official eligibility requires confirmed email; any private-test bypass must be explicit configuration and ineligible for official RP.
 
@@ -45,7 +73,7 @@ A signed bearer ticket over the current plain UDP handshake is not a complete an
 
 Verified game servers have individually provisioned, revocable credentials and a Backend-owned registry of allowed trust classes, builds/rulesets and content. Proposed v1 reporter credential is a high-entropy API secret sent only over HTTPS, stored hashed by Backend, compared with constant-time primitives, and rotated by credential ID. It is distinct from account authentication and cannot issue player tickets. Server-submitted trust claims are checked against this registry; unauthenticated, private, practice and community reports cannot mutate official aggregates/RP. Trust in an approved operator remains a trust assumption, not proof that a malicious server faithfully simulated a match.
 
-## Immutable report and durable outbox
+## Historical immutable report and durable outbox proposal
 
 Proposed small Game contracts: `MatchReportV1`, `MatchReportParticipant`, `MatchTrustClass`, `ParticipantExitReason`. They contain immutable values only; Server maps the participant ledger plus `MatchResult` into the envelope. No `DbContext`, entity references, live arrays, credentials, endpoints or IPs cross this boundary. Add only measured fields: current beam-kill counts do not establish shots, hits, damage-by-weapon or biped kills. Leave unavailable facts absent, rather than fabricating zero observations.
 
@@ -57,7 +85,7 @@ Reserve bounded report capacity before admitting an official match. Queue satura
 
 The submission worker uses bounded exponential backoff with jitter and request deadlines. Retry network failures, 408/429 (honor Retry-After), and 5xx; quarantine validation/hash conflicts; stop authentication retries until operator credentials recover. Expose count/bytes/oldest age, last error, quarantine count and durable-pending count. Shutdown stops new official matches, captures any already-terminal result, drains local writes within a deadline, then stops HTTP work; incomplete matches are not fabricated as completed wins. Recovery tests must cover process death at each spool/HTTP acknowledgement boundary.
 
-## PostgreSQL ledger and transaction boundary
+## Historical PostgreSQL ledger and transaction boundary proposal
 
 Use one `IdentityDbContext` and one PostgreSQL database initially. Keep Identity's standard tables (map the user table to `players` if desired; do not create a duplicate account store), one-to-one `player_profiles` and `hunter_licenses`, plus `verified_servers` and credential/key metadata. Add `matches`, `match_players`, supported `match_player_weapons`, `rating_transactions`, and only the aggregate tables needed by shipped license/leaderboard endpoints (`player_stats`, `hunter_stats`, `map_stats`, `mode_stats`, `weapon_stats`). Keep practice/community dimensions physically or key-wise separate from official stats. No achievement/season tables until used.
 
@@ -71,7 +99,7 @@ Use one explicit EF transaction for this multi-step operation, with bounded retr
 
 Check EF migrations into Backend; review generated SQL and exercise upgrade on a realistic disposable database. Apply an explicit deployment migration bundle/script using a migration role; the running Backend role has no schema-change privilege and does not call `Database.Migrate` on every startup. Test backup/restore and rollback strategy before public use. [EF production migration guidance](https://learn.microsoft.com/en-us/ef/core/managing-schemas/migrations/applying)
 
-## API and policy gates
+## Historical API and policy gates
 
 | Route | Authorization and result |
 |---|---|
@@ -87,7 +115,7 @@ Return profile/license cards without fetching full match history. Represent unde
 
 Rating remains a pure Backend service over immutable inputs with a versioned table/policy. Do not ship the web table: exact-ROM research has already identified disagreement with a secondary historical source. Encode only independently verified gain/loss/indexing/draw/clamp behavior; approve the eight-player pairwise aggregation/normalization, ties, forfeits, teams, late joins and bot/guest exclusion separately. VerifiedCasual/Ranked eligibility comes from Backend policy; Tournament remains explicit. No MMR, payment system, achievement framework or full matchmaking is introduced here.
 
-## Implementation order and acceptance
+## Historical implementation order and acceptance
 
 1. Freeze identity/participant/result contracts and reconnect/disconnect semantics; test slot reuse, terminal snapshots and locally repeated wire IDs.
 2. Add Backend/Identity/PostgreSQL migrations and ownership-safe profile reads, using a real disposable PostgreSQL instance for integration tests.
@@ -95,4 +123,8 @@ Rating remains a pure Backend service over immutable inputs with a versioned tab
 4. Implement durable outbox and atomic ledger/aggregate ingestion; test repeated/concurrent duplicates, conflicting body, rollback, crash recovery, disk-full/backpressure and Backend outages while ticks continue.
 5. Implement the approved exact RP plus eight-player policy, then license/history/leaderboard UI. Exhaustively snapshot every rank pairing and test boundary rank-up/down, bots/private exclusion, deterministic ties, rename continuity and ledger rebuild.
 
-Review dependencies to preserve headless Server and Game purity. This document is source/design evidence only: no package installation, schema migration, service startup, authentication proof or production persistence test has been performed for G4.
+Review dependencies to preserve headless Worker and Game purity. This document
+is source/design evidence only: no package installation, schema migration,
+service startup, authentication proof or production persistence test has been
+performed for the historical G4 proposal. Use the current Node/Worker package
+and public-lobby path for any A26 process validation.

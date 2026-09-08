@@ -1,14 +1,25 @@
 # G4 production readiness
 
-This is the S6 production/security disposition for the current Backend and
-authoritative-server source. “Ready” below describes the implemented source
-path and its operator gates; it is not evidence that a production deployment
-has already been performed.
+This is the S6 production/security disposition for the current Backend,
+persistent Server Node and Node-owned Worker source. The Node owns sessions,
+public lobbies, Worker placement/lifecycle and report ingestion; each Worker
+owns its authoritative `MatchInstance` and direct gameplay UDP. The client
+cutover is public-lobby-only: it connects to a Node over WSS and receives a
+signed Worker handoff. Private or unlisted local hosting is retired, and no
+Worker `--standalone` mode exists. “Ready” below describes the implemented
+source path and its operator gates; it is not evidence that a production
+deployment has already been performed.
+
+The native `osx-arm64` extracted-bundle package smoke passed the WSS, public
+lobby create/configure/start, Worker placement, routed-UDP admission, match end,
+replay/report/telemetry artifact, drain and no-orphan checks. That is local
+package/process evidence only; it does not establish live Windows, Android,
+deployed, WAN, rendered-client or other live-client proof.
 
 | Surface | Status | Boundary |
 | --- | --- | --- |
 | Account system | **Ready** | Registration, confirmation, bearer login/refresh, profile ownership, and session revocation are implemented. Production requires the startup and external-service gates below. |
-| Verified Casual | **Ready** | A confirmed account can receive a server-bound ticket, a registered `VerifiedCasual` server can admit it, and authenticated immutable reports can feed career projections. `RatingStatus` remains `policyPending`; this status does not claim Ranking Points. |
+| Verified Casual | **Ready** | A confirmed account can receive a Node-bound admission ticket, a registered `VerifiedCasual` Node can admit it, and authenticated immutable Worker reports can feed career projections. `RatingStatus` remains `policyPending`; this status does not claim Ranking Points. |
 | Ranked | **Intentionally disabled under Path B** | Public Ranked remains unavailable until authenticated transport proof-of-possession is implemented. It must not be advertised or registered. |
 
 ## Production startup gate

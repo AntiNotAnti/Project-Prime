@@ -16,7 +16,7 @@ At decompressed file offset 0xC74DC / RAM 0x020CB4DC are five little-endian u16 
 
 At 0x02056930..0x02056944 the fifth threshold is loaded and decremented, yielding **850**, and 0x020569C8..0x020569D0 clamps an increased total to that maximum. Loss 0x020569F4..0x02056A08 saturates at zero. The fifth threshold 851 is an upper sentinel, not a sixth legal star tier. Visible names and glyph counts are not established by this numeric consumer alone; they are supplied by the requested plan/independent historical-reference audit.
 
-License base used by this ROM consumer is 0x020EB8A8, making points address 0x020EB8C4 and tier bitfield address 0x020EB8C0. Existing Tools/Conversion/MemoryClasses.cs LicenseInfo.RankPoints agrees on u16 offset 0x1C. Its Memory.cs license absolute addresses are for keys a76e and amhp1, not AMHE1; do not transplant 0x020EB948 from those entries into this target.
+License base used by this ROM consumer is 0x020EB8A8, making points address 0x020EB8C4 and tier bitfield address 0x020EB8C0. A historical copy of the offline inspection helper recorded `LicenseInfo.RankPoints` at u16 offset 0x1C, which agrees with this consumer. Its historical license absolute addresses are for keys a76e and amhp1, not AMHE1; do not transplant 0x020EB948 from those entries into this target.
 
 ## Confirmed point matrix
 

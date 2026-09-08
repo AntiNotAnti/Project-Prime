@@ -1,8 +1,9 @@
 # Authoritative map telemetry
 
-Enable optional local telemetry with `PRIME_TELEMETRY_DIRECTORY=/absolute/output/path`
-(or `AuthoritativeServer.TelemetryDirectory`). The dedicated server collects only
-its own resolved gameplay. It samples live positions once per second and records
+Enable optional telemetry through the Node's Worker configuration: the Node
+passes an absolute Worker `ArtifactDirectory`, and a frozen `MatchSpec` requests
+`TelemetryPolicy.Record`. Each Node-owned Worker collects only its own resolved
+match gameplay. It samples live positions once per second and records
 spawn, damage, kill/death and world transitions. Collection starts with Playing
 and stops after the terminal tick. Waiting/countdown/intermission are not route
 samples or match duration. Initial spawn facts created during countdown are retained
@@ -10,8 +11,9 @@ in eight fixed slots and timestamped at the start of Playing for spawn-safety
 intervals; their original spawn positions are preserved.
 
 A fixed array holds at most 131,072 records. Full or nonfinite input increments
-`droppedEvents`; it does not expand storage or stall simulation. At rotation or
-shutdown, one array copy transfers to a two-match background writer queue. JSON
+`droppedEvents`; it does not expand storage or stall simulation. At match end or
+Worker shutdown, the owning Worker transfers one array copy to a two-match
+background writer queue. JSON
 serialization, gzip compression and file operations run on that worker. Exports
 use a fresh `.partial` file and atomic rename to `.telemetry.json.gz`. Write
 failure retains a partial file and logs a failure. Queue overflow is explicitly

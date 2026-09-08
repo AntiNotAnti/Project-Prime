@@ -1,5 +1,16 @@
 # Post-upstream authoritative networking upgrades
 
+**Historical pre-A26 record.** The protocol, flags and standalone authoritative
+process described below preserve earlier behavioral evidence. They are not
+current launch, rollback or deployment instructions. The supported path is a
+persistent Server Node with bundled Node-owned Workers: clients use public Node
+lobbies over WSS, then receive a signed Worker UDP handoff. Private or unlisted
+local hosting is retired and no Worker `--standalone` mode exists. The native
+`osx-arm64` extracted-bundle package smoke has since passed its WSS, public
+lobby, Worker handoff, routed-UDP, match-end, artifact/replay, drain and
+no-orphan checks; this remains local package/process evidence and does not claim
+Windows, Android, deployed, WAN or rendered-client proof.
+
 This report records the protocol-6 upgrade baseline. The subsequent protocol-7
 match lifecycle and rule replication work is tracked in
 [MULTIPLAYER_REFACTOR_PROGRESS.md](MULTIPLAYER_REFACTOR_PROGRESS.md).
@@ -9,8 +20,10 @@ This work originally started from authoritative checkpoint `ab07a38`, based on
 `main` baseline through `6b1f65b`; the earlier hashes below identify the original
 validation checkpoints, not commits that must be restored or reapplied.
 The reference is upstream [PR #13](https://github.com/liveteklol/Fruity-Prime/pull/13),
-merged as `b5b6b1f`. Its relay implementation is reference material; the online
-architecture remains one dedicated, single-writer simulation with ordinary clients.
+merged as `b5b6b1f`. Its relay implementation is reference material; the
+dedicated, single-writer simulation described in this historical report has
+since been split into the persistent Node control authority and Node-owned
+Worker match instances.
 
 ## Scope and invariants
 
@@ -21,7 +34,7 @@ architecture remains one dedicated, single-writer simulation with ordinary clien
 - Shot timing is resolved once, with 32 history slots and a 15-tick rewind limit.
 - Bounded catch-up uses normal projectile physics and immutable historical player
   colliders. Current map geometry remains authoritative throughout.
-- Server updating is opt-in, stages outside live files, validates current content
+- Historical standalone-server updating was opt-in, staged outside live files, validated current content
   with the staged binary, and waits for admitted players or owned matches to leave.
 - No public deployment, upstream cherry-pick, live player repositioning, or regional
   orchestration is part of this upgrade.
@@ -44,11 +57,14 @@ local launcher output are now ignored. The staged source scan found no secrets.
 
 ### Pass 1: protocol identity
 
-Live traffic now requires authoritative family 2 and protocol 6. The central
-client connection performs read-only status discovery before sending any Join;
-GUI, text and directory-host flows use the same compatibility rule. Discovery
-parsers validate exact lengths and source endpoints. Operational flags and log
-markers use `-authoritative-server`, `[server]` and `AUTHCHECK`.
+Live traffic in this historical checkpoint required authoritative family 2 and
+protocol 6. The central client connection performed read-only status discovery
+before sending any Join; GUI, text and directory-host flows used the same
+compatibility rule. Discovery parsers validated exact lengths and source
+endpoints. The pre-A26 standalone process used `-authoritative-server`,
+`[server]` and `AUTHCHECK` as operational flags and log markers. These names
+are historical; current Node/Worker control uses the Node WSS and Worker IPC
+boundaries.
 
 An unmodified build of upstream `b5b6b1f` was run behind a counting UDP proxy.
 `NetStatus`, `NetProbe` and direct `NetClient` all identified its protocol-5 relay
@@ -225,10 +241,12 @@ historical presence until the current endpoint. The regression matches the
 timely trajectory exactly. The existing current-turret damage guard remains;
 historical aiming does not recreate a retired turret health pool.
 
-### Pass 8: staged dedicated-server updates
+### Pass 8: historical staged dedicated-server update evidence
 
-Updating is opt-in and requires an explicitly named authoritative release fork
-and stamped dedicated package. The release ZIP and each executable/library are
+This pre-A26 updater path is retired. The recorded behavior is retained as
+evidence only; current packages are the combined Node + Worker bundle and have
+no standalone Server rollback/deploy path. Updating was opt-in and required an
+explicitly named authoritative release fork and stamped dedicated package. The release ZIP and each executable/library are
 checked against bounded family/protocol/RID/version/hash metadata before running
 the staged content validator. Download deadlines cover response bodies as well
 as headers. Cancellation reaps the owned validator before cleaning its stage;
@@ -255,9 +273,10 @@ scenarios, plus 260 supported hosting scenarios in about 13 seconds. Directory
 validation requires no content. The 3,584-file data/map inventory and six focused
 hashes were unchanged. Root also reran directory, retail and Parallax validation
 with the integrated binary and observed explicit family-2/protocol-6 success.
-Native Windows helper execution and real systemd restart remain platform gates;
-local tests do not establish public update or deployment success. See SERVER.md
-for operation and the documented per-file, rather than whole-directory, atomicity.
+Native Windows helper execution and real systemd restart remained platform gates
+for this historical path; local tests did not establish public update or
+deployment success. The current package smoke is the extracted Node + Worker
+process check, not a legacy standalone updater test.
 
 Actual stamped, self-contained, single-file dedicated publishes also passed for
 Windows x64, Linux x64 and Linux ARM64, each with zero warnings. The manifest
@@ -315,22 +334,10 @@ failure; Android runtime validation requires its missing workload. Native Window
 updater execution and an actual systemd restart remain platform checks. No public
 release, deployment or push was performed.
 
-## Reproduction
+## Historical reproduction record (pre-A26)
 
-Use the SDK selected by `global.json` (.NET 10 on the current tree) and your own
-extracted AMHE1 data. The earlier validation records describe their original
-.NET 9 checkpoints; the commands below build the current checkout.
-
-```sh
-dotnet test src/MphRead.Tests/MphRead.Tests.csproj -c Release -p:MphReadServer=true
-dotnet build tools/nettest/nettest.csproj -c Release -p:MphReadServer=true -o /tmp/fruity-nettest
-python3 tools/run-network-baseline.py --nettest /tmp/fruity-nettest/nettest.dll \
-  --server /tmp/fruity-nettest/FruityPrime.dll --simulation --data /path/to/AMHE1 \
-  --seconds 20 --output /tmp/fruity-upgrade-matrix
-python3 tools/run-mixed-combat-soak.py --nettest /tmp/fruity-nettest/nettest.dll \
-  --data /path/to/AMHE1 --seconds 300 --modes on off \
-  --output /tmp/fruity-mixed-combat-soak
-```
-
-Each matrix output directory must be new. Test runners stop only their own local
-processes; no server is publicly listed by these commands.
+The original reproduction invoked the deleted standalone `src/Server` path and
+its `FruityPrime.dll` output. That command block is intentionally omitted so
+this historical report cannot be mistaken for a current launch instruction.
+Use the current project layout and package-smoke workflow for A26 process
+validation; no public server is implied by the retained historical results.

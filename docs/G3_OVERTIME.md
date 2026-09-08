@@ -1,6 +1,16 @@
 # G3.1 overtime framework
 
-Overtime is opt-in: `OvertimePolicy.Disabled` is the constructor and preset default. Dedicated servers select the mode-aware policy with `-overtime mode`; `-overtime disabled` is explicit legacy behavior. The setting survives rotation through AuthoritativeServer's rule construction. Invalid or missing option values fail parsing.
+Current ownership is split across the A26 Node/Worker boundary. The persistent
+Server Node freezes the lobby's `MatchSpec`; the assigned Server Worker owns the
+`MatchInstance`, fixed-tick rule evaluation and gameplay replication. The client
+enters this path through public Node lobbies. Private or unlisted local hosting
+is retired, and no Worker `--standalone` mode exists.
+
+Overtime is opt-in: `OvertimePolicy.Disabled` is the constructor and preset
+default. The Node's frozen rules carry the mode-aware policy into each Worker;
+the old `-overtime` parser remains a compatibility/test helper rather than a
+standalone-server launch instruction. The setting survives rotation through the
+Worker's rule construction. Invalid or missing option values fail parsing.
 
 ## State and ordering
 
@@ -28,7 +38,7 @@ Survival grants/removes no lives. A temporary lives lead during sudden death doe
 
 ## Rule additions shared with G3 late join
 
-The separate LateJoinPolicy enum has JoinImmediately, SpectateUntilNextMatch and Disabled. The MatchRules constructor defaults to JoinImmediately for compatibility with manually built rules and frozen legacy adapters. CreateDefault selects SpectateUntilNextMatch for Survival/TeamSurvival and JoinImmediately otherwise. Server admission/late-join behavior is owned by the separate late-join implementation; the enum alone does not claim that behavior is complete.
+The separate LateJoinPolicy enum has JoinImmediately, SpectateUntilNextMatch and Disabled. The MatchRules constructor defaults to JoinImmediately for compatibility with manually built rules and frozen legacy adapters. CreateDefault selects SpectateUntilNextMatch for Survival/TeamSurvival and JoinImmediately otherwise. Node lobby admission and signed Worker admission/late-join behavior are separate from the enum; the enum alone does not claim that behavior is complete.
 
 ## Replication and verification
 
