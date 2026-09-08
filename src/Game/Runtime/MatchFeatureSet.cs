@@ -34,4 +34,3 @@ public sealed record MatchCheatSet
     public bool WalkThroughWalls { get; init; } = false;
     public bool QuadrupleDamage { get; init; } = false;
 }
-
