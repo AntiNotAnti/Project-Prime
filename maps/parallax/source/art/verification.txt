@@ -1,0 +1,15 @@
+PASS: deterministic material authoring, PK3 packaging and fpmap bundle.
+PASS: BSP byte-identical to pre-art input; all ten source textures packaged; no master/scratch files.
+PASS: gameplay recipe byte-identical to pre-art baseline.
+PASS: all drawn BSP shaders have valid 64x64 FPTX v1 entries, BGR555 palettes and in-range pixels.
+PASS: bundle recipe, BSP and baked texture bytes match authoritative inputs; ZIP CRCs pass.
+PASS: material-only build rejects changed source map, recipe and shader declarations.
+PASS: 140 compiled brushes; rotational symmetry; exact item economy;
+spawn/body/item clearance and support; no spawn-to-spawn or deck-to-spawn LOS;
+two exits per spawn; continuous supported perimeter arc; bounded diagonal duel lane;
+two swept jump arcs and supported landings; paired ramps and climb approach clearance.
+Static BSP checks only. Live Hunter traversal, timing and competitive balance need playtesting.
+SHA256 parallax.pk3 8903f07d80e8ed9e192fc631efb501675dc6c805c49c78dd0320b94d17225f27 (50822 bytes)
+SHA256 parallax.tex 871c7968fe3d0d982444c680a6ad9112837173b82d1ed54f37257d2baf3f4ae2 (41869 bytes)
+SHA256 PARALLAX.fpmap 6801005e73c130b8989a9fb038edd012d55c8cba15b12e690e1ab5730f17a5ff (44678 bytes)
+NOT RUN: fresh engine mapgen, renderprobe, thumbnail or multiplayer smoke test; local runtime/assets unavailable.

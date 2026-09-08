@@ -1,4 +1,4 @@
-// Original temporary graybox materials. No cartridge or Quake art.
+// Original Alimbic visual-pass materials. No cartridge or Quake art.
 textures/parallax/floor
 {
  qer_editorimage textures/parallax/floor.tga

@@ -1,8 +1,10 @@
-# PARALLAX — Graybox v0.1
+# PARALLAX — Alimbic visual pass v0.2
 
-Original competitive 1v1 arena for Fruity Prime. This is the first playable
-graybox requested by the design brief. The next step is the [design review](REVIEW.md)
-and human duels, before v0.2 or final artwork.
+Original competitive 1v1 arena for Fruity Prime. Following the user's design-audit
+approval, this pass replaces the graybox materials with original Alimbic-inspired
+stone, bronze panels and geometric route glyphs. The BSP and gameplay recipe are
+byte-identical to the approved layout. See [visual-pass evidence](art/README.md)
+and the historical [graybox design review](REVIEW.md).
 
 ## Play
 
@@ -18,7 +20,9 @@ For development, the existing project build copies `parallax.json` and
 
 - `maps/parallax.map`: editable Quake 3 world brushes, with named sections.
 - `scripts/parallax.shader`, `scripts/shaderlist.txt`, `textures/parallax/*.tga`:
-  ten original 64×64 temporary materials. No cartridge or commercial Quake art.
+  ten original 64×64 materials. No cartridge or commercial Quake art.
+- `art/`: original stone master, deterministic material authoring, previews and
+  the guarded material-only packaging workflow.
 - `../parallax.json`: MPH spawns, items, jump pads, lighting and preview camera.
 - `../parallax.pk3`: compiled development input, rebuilt from the above Q3 source.
 
@@ -115,7 +119,10 @@ No Quake items or push triggers are imported.
 
 ## Visual key
 
-Teal reactor; neutral main floor; ochre upper routes; blue lower loop; cyan
-perimeter; green spawn shelter; uninterrupted pale climb slabs. These are functional
-graybox colors and grid patterns, not final Alimbic artwork. No decorative collision,
-patches, sky, moving platforms, hazards, teleports or doors were added.
+Weathered carved stone walls; cyan circuit reactor; quiet neutral main floor;
+bronze upper-route chevrons; blue-gray lower loop; teal perimeter lanes; green
+spawn arch glyphs; pale climb chevrons and concentric diamond pad markings.
+The ceiling uses subdued stone coffers to reduce overhead visual noise. The cyan
+is painted into the albedo: this pass adds no engine emission or dynamic lighting.
+No decorative collision, patches, sky, moving platforms, hazards, teleports or
+doors were added. The original lighting and all gameplay settings are preserved.
