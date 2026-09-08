@@ -32,7 +32,6 @@ public sealed class WorldSignalTransitionTests
     {
         using var state = new MatchBaselineTests.State();
         MatchRuntime match = state.Configure(GameMode.Battle);
-        Array.Clear(state.Players); PlayerEntity.Construct(state.Scene);
         state.Activate(0, 0); state.Activate(1, 1);
         state.Scene.InsertEntity(state.Players[0]); state.Scene.InsertEntity(state.Players[1]);
         match.ApplyRules(match.Rules.With(overtimePolicy: OvertimePolicy.ModeDefault));

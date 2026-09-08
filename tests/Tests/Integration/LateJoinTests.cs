@@ -65,6 +65,7 @@ public sealed class LateJoinTests
     [Fact]
     public void WaitingForMatchSnapshotHasNoGameplayBodyAndLocksRejoin()
     {
+        using Scene scene = new Scene();
         var waiting = new SnapshotPlayer
         {
             Slot = 2,
@@ -88,7 +89,7 @@ public sealed class LateJoinTests
         {
             // Keep this synthetic client-only check independent of whichever
             // headless scene a neighboring test left in the process globals.
-            foreach (PlayerEntity player in PlayerEntity.Players)
+            foreach (PlayerEntity player in scene.Players)
             {
                 if (player == null) continue;
                 player.LoadFlags = LoadFlags.None;
@@ -96,11 +97,11 @@ public sealed class LateJoinTests
             }
             MethodInfo apply = typeof(SpectatorMode).GetMethod("ApplyWaitingForMatch",
                 BindingFlags.Static | BindingFlags.NonPublic)!;
-            apply.Invoke(null, new object[] { true });
+            apply.Invoke(null, new object[] { scene, true });
             Assert.True(SpectatorMode.WaitingForNextMatch);
-            SpectatorMode.Rejoin();
+            SpectatorMode.Rejoin(scene);
             Assert.True(SpectatorMode.WaitingForNextMatch);
-            apply.Invoke(null, new object[] { false });
+            apply.Invoke(null, new object[] { scene, false });
             Assert.False(SpectatorMode.WaitingForNextMatch);
         }
         finally
@@ -225,7 +226,7 @@ public sealed class LateJoinTests
         Assert.Equal(5, stats.Points);
         Assert.Equal(3, stats.Kills);
         Assert.Equal(2, stats.Deaths);
-        Assert.True(PlayerEntity.Players[slot].LoadFlags.TestFlag(LoadFlags.Active));
+        Assert.True(simulation.Scene.Players[slot].LoadFlags.TestFlag(LoadFlags.Active));
     }
 
     [Fact]
@@ -385,8 +386,8 @@ public sealed class LateJoinTests
         Assert.True(returning.ReturningParticipant);
         Assert.True(returning.WaitingForNextMatch);
         Assert.Equal(NetConnectionState.Playing, returning.Connection.State);
-        Assert.False(PlayerEntity.Players[slot].LoadFlags.TestFlag(LoadFlags.Active));
-        Assert.Equal(0, PlayerEntity.PlayerCount);
+        Assert.False(simulation.Scene.Players[slot].LoadFlags.TestFlag(LoadFlags.Active));
+        Assert.Equal(0, simulation.Scene.Players.ActiveCount);
         Assert.Equal(2, stats.Points);
         Assert.Equal(rules.LegacyPointGoal + 1, stats.Deaths);
     }
@@ -413,6 +414,7 @@ public sealed class LateJoinTests
         Assert.False(server.Peers[0]!.WaitingForNextMatch);
     }
 
+    [Trait("RequiresGameContent", "true")]
     [Fact]
     public void Amhe1LoadingDuringCountdownReadyAfterPlayingBecomesWaitingSpectator()
     {
@@ -431,7 +433,7 @@ public sealed class LateJoinTests
         JoinAndReady(server, first, second);
         StepAndSend(transport, server, simulation, new[] { first, second }, 1);
         Assert.Equal(MatchPhase.Countdown, simulation.Scene.Match.Phase);
-        Assert.Equal(2, PlayerEntity.PlayerCount);
+        Assert.Equal(2, simulation.Scene.Players.ActiveCount);
 
         using var late = new NetClient(lateSocket, endpoint, "LOADING", Hunter.Spire);
         Pump(server, new[] { first, second, late }, () => late.Connection != null);
@@ -444,7 +446,7 @@ public sealed class LateJoinTests
         server.PhaseRevision = simulation.Scene.Match.PhaseRevision;
         StepAndSend(transport, server, simulation, new[] { first, second, late }, 2);
         Assert.Equal(NetConnectionState.Loading, latePeer.Connection.State);
-        Assert.Equal(2, PlayerEntity.PlayerCount);
+        Assert.Equal(2, simulation.Scene.Players.ActiveCount);
 
         Assert.True(late.Ready(late.Accepted.MatchId));
         Pump(server, new[] { first, second, late }, () =>
@@ -452,10 +454,11 @@ public sealed class LateJoinTests
         StepAndSend(transport, server, simulation, new[] { first, second, late }, 3);
         Assert.Equal(NetConnectionState.Playing, latePeer.Connection.State);
         Assert.True(latePeer.WaitingForNextMatch);
-        Assert.False(PlayerEntity.Players[latePeer.Slot].LoadFlags.TestFlag(LoadFlags.Active));
-        Assert.Equal(2, PlayerEntity.PlayerCount);
+        Assert.False(simulation.Scene.Players[latePeer.Slot].LoadFlags.TestFlag(LoadFlags.Active));
+        Assert.Equal(2, simulation.Scene.Players.ActiveCount);
     }
 
+    [Trait("RequiresGameContent", "true")]
     [Fact]
     public void Amhe1SimulationKeepsNextJoinOutOfCurrentMatchAndActivatesAfterRotation()
     {
@@ -476,12 +479,12 @@ public sealed class LateJoinTests
         using var second = new NetClient(secondSocket, endpoint, "SECOND", Hunter.Kanden);
         JoinAndReady(server, first, second);
         StepAndSend(transport, server, simulation, new[] { first, second }, 1);
-        Assert.Equal(2, PlayerEntity.PlayerCount);
+        Assert.Equal(2, simulation.Scene.Players.ActiveCount);
         simulation.Scene.Match.Phase = MatchPhase.Playing;
         server.Phase = MatchPhase.Playing;
         server.PhaseRevision = simulation.Scene.Match.PhaseRevision;
         StepAndSend(transport, server, simulation, new[] { first, second }, 2);
-        Assert.Equal(2, PlayerEntity.PlayerCount);
+        Assert.Equal(2, simulation.Scene.Players.ActiveCount);
         Assert.All(new[] { first, second }, client =>
             Assert.Equal(NetConnectionState.Playing, client.State));
 
@@ -501,8 +504,8 @@ public sealed class LateJoinTests
         Assert.Equal(latePeer.Connection.Id, waiting.ConnectionId);
         Assert.Equal(SnapshotPlayerFlags.Spectating | SnapshotPlayerFlags.WaitingForMatch, waiting.Flags);
         Assert.False((waiting.Flags & (SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned)) != 0);
-        Assert.Equal(2, PlayerEntity.PlayerCount);
-        Assert.False(PlayerEntity.Players[latePeer.Slot].LoadFlags.TestFlag(LoadFlags.Active));
+        Assert.Equal(2, simulation.Scene.Players.ActiveCount);
+        Assert.False(simulation.Scene.Players[latePeer.Slot].LoadFlags.TestFlag(LoadFlags.Active));
         Assert.Equal(0, simulation.Scene.Match.Players[latePeer.Slot].Points);
         Assert.Equal(0, simulation.Scene.Match.Players[latePeer.Slot].Kills);
 
@@ -515,8 +518,8 @@ public sealed class LateJoinTests
         StepAndSend(transport, server, simulation, new[] { first, second, late }, 4);
         StepAndSend(transport, server, simulation, new[] { first, second, late }, 5);
         Assert.True(latePeer.Inputs.HasProcessed);
-        Assert.False(PlayerEntity.Players[latePeer.Slot].LoadFlags.TestFlag(LoadFlags.Active));
-        Assert.Equal(2, PlayerEntity.PlayerCount);
+        Assert.False(simulation.Scene.Players[latePeer.Slot].LoadFlags.TestFlag(LoadFlags.Active));
+        Assert.Equal(2, simulation.Scene.Players.ActiveCount);
 
         simulation.Scene.Match.Phase = MatchPhase.Intermission;
         server.Phase = MatchPhase.Intermission;
@@ -533,14 +536,16 @@ public sealed class LateJoinTests
         }
         Pump(server, new[] { first, second, late }, () => AllReady(server));
         StepAndSend(transport, server, nextSimulation, new[] { first, second, late }, 5);
-        Assert.Equal(3, PlayerEntity.PlayerCount);
+        Assert.Equal(3, nextSimulation.Scene.Players.ActiveCount);
+        Assert.Equal(2, simulation.Scene.Players.ActiveCount);
+        Assert.False(simulation.Scene.Players[latePeer.Slot].LoadFlags.TestFlag(LoadFlags.Active));
         nextSimulation.Scene.Match.Phase = MatchPhase.Playing;
         server.Phase = MatchPhase.Playing;
         server.PhaseRevision = nextSimulation.Scene.Match.PhaseRevision;
         StepAndSend(transport, server, nextSimulation, new[] { first, second, late }, 6);
         Assert.False(latePeer.WaitingForNextMatch);
-        Assert.True(PlayerEntity.Players[latePeer.Slot].LoadFlags.TestFlag(LoadFlags.Active));
-        Assert.Equal(3, PlayerEntity.PlayerCount);
+        Assert.True(nextSimulation.Scene.Players[latePeer.Slot].LoadFlags.TestFlag(LoadFlags.Active));
+        Assert.Equal(3, nextSimulation.Scene.Players.ActiveCount);
         Assert.Contains(nextSimulation.States.ToArray(), state =>
             state.Slot == latePeer.Slot && (state.Flags & SnapshotPlayerFlags.Active) != 0);
     }
@@ -561,7 +566,7 @@ public sealed class LateJoinTests
         simulation.Step(server, tick);
         Span<byte> packet = stackalloc byte[NetConfig.MaxPacketSize];
         var snapshot = new SnapshotPacket(tick, tick, server.MatchId,
-            0, false, Rng.Rng1, Rng.Rng2);
+            0, false, simulation.Scene.Random.Rng1, simulation.Scene.Random.Rng2);
         int length = snapshot.Write(packet, simulation.States);
         Span<SnapshotPlayer> decoded = stackalloc SnapshotPlayer[8];
         Assert.True(SnapshotPacket.TryRead(packet[..length], decoded, out SnapshotPacket parsed, out int count));

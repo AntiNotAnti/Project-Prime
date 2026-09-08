@@ -204,13 +204,13 @@ public sealed class TelemetryCollectorTests
         Scene scene = Scene.CreateHeadless();
         try
         {
-            PlayerEntity target = PlayerEntity.Players[0];
+            PlayerEntity target = scene.Players[0];
             target.TeamIndex = victim.TeamIndex;
             target.Health = victim.Health;
             target.Position = victim.Position;
             target.LoadFlags = LoadFlags.Active;
             scene.InsertEntity(target);
-            PlayerEntity enemy = PlayerEntity.Players[1];
+            PlayerEntity enemy = scene.Players[1];
             enemy.TeamIndex = attacker.TeamIndex;
             enemy.Health = attacker.Health;
             enemy.Position = attacker.Position;

@@ -27,7 +27,7 @@ public sealed class CombatAttributionTests
         var beam = new BeamProjectileEntity(state.Scene);
         SetShot(beam, combat.CaptureAttribution(attacker));
         state.Players[0].Health = 0;
-        using (combat.Enter(10))
+        combat.BeginTick(10);
         {
             combat.NoteDamage(state.Players[0], beam, attacker, BeamType.PowerBeam,
                 0, null, 100, 0, 0, 0, false);
@@ -45,7 +45,7 @@ public sealed class CombatAttributionTests
         var bomb = new BombEntity(state.Scene);
         SetShot(bomb, combat.CaptureAttribution(attacker));
         state.Players[2].Health = 0;
-        using (combat.Enter(11))
+        combat.BeginTick(11);
         {
             combat.NoteDamage(state.Players[2], bomb, attacker, BeamType.None,
                 0, null, 100, 0, 0, 0, false);
@@ -83,7 +83,7 @@ public sealed class CombatAttributionTests
         typeof(PlayerEntity).GetProperty("CombatBurnSource", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(state.Players[0], shot);
         state.Players[0].Health = 0;
-        using (combat.Enter(20))
+        combat.BeginTick(20);
         {
             combat.NoteDamage(state.Players[0], null, null, BeamType.None,
                 DamageFlags.Burn, null, 50, 0, 0, 0, false);
@@ -113,7 +113,7 @@ public sealed class CombatAttributionTests
         var combat = new ServerCombat(spreadSeed: 1);
         PlayerEntity attacker = state.Players[1];
         CombatShot bipedShot;
-        using (combat.Enter(30)) bipedShot = combat.CaptureAttribution(attacker);
+        combat.BeginTick(30); bipedShot = combat.CaptureAttribution(attacker);
         Assert.False(bipedShot.SourceAltForm);
 
         // Changing the live player after emission cannot relabel this projectile.
@@ -121,7 +121,7 @@ public sealed class CombatAttributionTests
         var bipedBeam = new BeamProjectileEntity(state.Scene);
         SetShot(bipedBeam, bipedShot);
         state.Players[0].Health = 0;
-        using (combat.Enter(31))
+        combat.BeginTick(31);
         {
             combat.NoteDamage(state.Players[0], bipedBeam, attacker, BeamType.PowerBeam,
                 0, null, 100, 0, 0, 0, false);
@@ -132,13 +132,13 @@ public sealed class CombatAttributionTests
         SetForm(attacker, altForm: false);
         var turret = new HalfturretEntity(attacker, state.Scene);
         CombatShot turretShot;
-        using (combat.Enter(32)) turretShot = combat.CaptureAttribution(turret);
+        combat.BeginTick(32); turretShot = combat.CaptureAttribution(turret);
         Assert.True(turretShot.SourceAltForm);
 
         var turretBeam = new BeamProjectileEntity(state.Scene);
         SetShot(turretBeam, turretShot);
         state.Players[2].Health = 0;
-        using (combat.Enter(33))
+        combat.BeginTick(33);
         {
             combat.NoteDamage(state.Players[2], turretBeam, attacker, BeamType.PowerBeam,
                 0, null, 100, 0, 0, 0, false);
@@ -160,7 +160,7 @@ public sealed class CombatAttributionTests
 
         var combat = new ServerCombat(spreadSeed: 1);
         CombatShot shot;
-        using (combat.Enter(34)) shot = combat.CaptureAttribution(state.Players[1]);
+        combat.BeginTick(34); shot = combat.CaptureAttribution(state.Players[1]);
         Assert.True(shot.SourceAltForm);
 
         var equip = new EquipInfo(Weapons.Ricochets[0], new[] { new BeamProjectileEntity(state.Scene) })
@@ -189,7 +189,7 @@ public sealed class CombatAttributionTests
             PreparePlayer(state, 0, 0, 100, 1);
             var combat = new ServerCombat(spreadSeed: 1);
             state.Players[0].Health = 0;
-            using (combat.Enter(40))
+            combat.BeginTick(40);
             {
                 combat.NoteDamage(state.Players[0], state.Players[0], state.Players[0], BeamType.None,
                     0, null, 100, 0, 0, 0, false);
@@ -208,7 +208,7 @@ public sealed class CombatAttributionTests
             PreparePlayer(state, 1, 0, 101, 1);
             var combat = new ServerCombat(spreadSeed: 1);
             state.Players[0].Health = 0;
-            using (combat.Enter(41))
+            combat.BeginTick(41);
             {
                 combat.NoteDamage(state.Players[0], state.Players[1], state.Players[1], BeamType.None,
                     0, null, 100, 0, 0, 0, false);
@@ -229,7 +229,7 @@ public sealed class CombatAttributionTests
             var staleBeam = new BeamProjectileEntity(state.Scene);
             SetShot(staleBeam, new CombatShot(new CombatActor(1, 999, 1), 1, 1, 1, 1, 0));
             state.Players[0].Health = 0;
-            using (combat.Enter(42))
+            combat.BeginTick(42);
             {
                 combat.NoteDamage(state.Players[0], staleBeam, state.Players[1], BeamType.PowerBeam,
                     0, null, 100, 0, 0, 0, false);
@@ -257,7 +257,7 @@ public sealed class CombatAttributionTests
         SetShot(beam, new CombatShot(new CombatActor(0, 100, 1), 1, 1, 1, 1, 0));
         state.Players[0].Health = 0;
 
-        using (combat.Enter(60))
+        combat.BeginTick(60);
         {
             combat.NoteDamage(state.Players[0], beam, state.Players[0], BeamType.PowerBeam,
                 0, null, 100, 0, 0, 0, false);
@@ -301,7 +301,7 @@ public sealed class CombatAttributionTests
         var beam = new BeamProjectileEntity(state.Scene);
         SetShot(beam, combat.CaptureAttribution(state.Players[1]));
         state.Players[0].Health = 0;
-        using (combat.Enter(50))
+        combat.BeginTick(50);
         {
             combat.NoteDamage(state.Players[0], beam, state.Players[1], BeamType.PowerBeam,
                 0, null, 100, 0, 0, 0, false);

@@ -105,7 +105,7 @@ namespace MphRead.Tests
         public void JournalIsBoundedOrderedAndRetainsEventsUntilSuccessfulDelivery()
         {
             var collector = new ServerCombat();
-            using (collector.Enter(44))
+            collector.BeginTick(44);
             {
                 for (int i = 0; i < ServerCombat.Capacity; i++) Assert.True(collector.TryRecord(Hit()));
                 Assert.False(collector.TryRecord(Hit()));
@@ -127,25 +127,18 @@ namespace MphRead.Tests
                 Assert.Equal(ServerCombat.Capacity + 6, expected);
                 Assert.Throws<ArgumentOutOfRangeException>(() => collector.Consume(1));
             }
-            Assert.Null(ServerCombat.Current);
         }
 
         [Fact]
-        public void NestedSimulationScopeRestoresOwnerAfterFailure()
+        public void SimulationTicksAreOwnedIndependently()
         {
             var first = new ServerCombat(); var second = new ServerCombat();
-            using (first.Enter(10))
-            {
-                Assert.Same(first, ServerCombat.Current);
-                Assert.Throws<InvalidOperationException>((Action)(() =>
-                {
-                    using var scope = second.Enter(20);
-                    Assert.Same(second, ServerCombat.Current);
-                    throw new InvalidOperationException();
-                }));
-                Assert.Same(first, ServerCombat.Current);
-            }
-            Assert.Null(ServerCombat.Current);
+            first.BeginTick(10);
+            second.BeginTick(20);
+            Assert.Equal(10u, first.Tick);
+            Assert.Equal(20u, second.Tick);
+            second.BeginTick(21);
+            Assert.Equal(10u, first.Tick);
         }
     }
 }

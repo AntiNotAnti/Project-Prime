@@ -278,12 +278,15 @@ public sealed class MatchLedgerTests
             Assert.Empty(Directory.GetFiles(directory, "*.json"));
             var export = await client.GetFromJsonAsync<JsonElement>($"/v1/matches/{report.MatchId:D}/export");
             Assert.Equal(match.PayloadHash, Convert.ToHexString(SHA256.HashData(Convert.FromBase64String(export.GetProperty("originalReport").GetString()!))));
-            var jwks = await client.GetFromJsonAsync<JsonElement>("/v1/game-ticket-keys");
+            var jwk = factory.Services.GetRequiredService<GameTicketIssuer>().PublicKeys[0];
             var verified = await new Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler().ValidateTokenAsync(
                 export.GetProperty("signedReceipt").GetString()!, new Microsoft.IdentityModel.Tokens.TokenValidationParameters
                 {
                     ValidIssuer = "https://backend.example.test", ValidAudience = "urn:prime-hunters:match-result",
-                    IssuerSigningKey = new Microsoft.IdentityModel.Tokens.JsonWebKey(jwks.GetProperty("keys")[0].GetRawText()),
+                    IssuerSigningKey = new Microsoft.IdentityModel.Tokens.JsonWebKey
+                    {
+                        Kty = jwk.Kty, Crv = jwk.Crv, X = jwk.X, Y = jwk.Y, Kid = jwk.Kid
+                    },
                     ValidAlgorithms = [Microsoft.IdentityModel.Tokens.SecurityAlgorithms.EcdsaSha256],
                     ValidTypes = ["ph-match-result+jwt"], ValidateLifetime = false, RequireExpirationTime = false
                 });

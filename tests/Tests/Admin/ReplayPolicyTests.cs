@@ -26,6 +26,7 @@ public sealed class ReplayPolicyTests
         Assert.False(ServerReplayPolicy.Validate(duel.With(rulesetPreset: RulesetPreset.Classic), true, true, null));
     }
 
+    [Trait("RequiresGameContent", "true")]
     [Fact]
     public async Task RealContentReplayGateHoldsCountdownUntilStorageReadyAndFailsClosed()
     {

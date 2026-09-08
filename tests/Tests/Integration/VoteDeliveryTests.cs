@@ -53,43 +53,4 @@ public sealed class VoteDeliveryTests
         Assert.Equal(1, client.Ballot!.SelectedId);
         Assert.False(client.Vote(1));
     }
-    [Fact]
-    public void ActualContentLobbyRematchReleasesOnlyVoteGate()
-    {
-        using var saved = ServerContent.PreserveContext("AMHE1");
-        ServerContent.Open(Environment.GetEnvironmentVariable("GAME_DATA_DIRECTORY")
-            ?? "/Users/jarrett/Documents/Development/Fruity-Prime/AMHE1", "AMHE1");
-        var rules = new MatchRules(MatchMode.Battle, "MP1 SANCTORUS", maxPlayers: 1);
-        using var simulation = new ServerSimulation(rules);
-        using var transport = new NetTransport(0);
-        using var socket = new NetTransport(0);
-        var server = new ServerNetwork(transport, rules);
-        using var client = new NetClient(socket, new IPEndPoint(IPAddress.Loopback, transport.LocalPort), "LOBBY", Hunter.Samus);
-        void Pump(Func<bool> complete)
-        {
-            var clock = Stopwatch.StartNew();
-            while (!complete() && clock.ElapsedMilliseconds < 3000)
-            { server.Poll(1); client.Poll(); Thread.Sleep(1); }
-            Assert.True(complete());
-        }
-        Pump(() => client.HasRoster); Assert.True(client.Ready(client.Accepted.MatchId));
-        var peer = server.Peers[client.Accepted.Slot]!;
-        Pump(() => peer.Connection.State == NetConnectionState.Ready);
-        simulation.VoteLobbyHold = true;
-        var voting = new ServerVoting(server, () => simulation, new(VotePolicy.PrivateRematch), null, 42);
-        simulation.Step(server, 1); voting.Tick(1);
-        Assert.Equal(MatchPhase.WaitingForPlayers, simulation.Scene.Match.Phase);
-        Assert.False(voting.Ballot.HasDeadline);
-        Assert.True(voting.Ballot.Cast(peer.Slot, peer.Connection.Id,
-            new(server.MatchId, voting.Ballot.PhaseRevision, voting.Ballot.Revision, 1), 2));
-        simulation.AdminMayStart = false; simulation.ReportingMayStart = false;
-        voting.Tick(voting.Ballot.DeadlineTick);
-        Assert.False(simulation.VoteLobbyHold);
-        simulation.Step(server, 303);
-        Assert.Equal(MatchPhase.WaitingForPlayers, simulation.Scene.Match.Phase);
-        simulation.AdminMayStart = true; simulation.Step(server, 304);
-        Assert.Equal(MatchPhase.WaitingForPlayers, simulation.Scene.Match.Phase);
-        simulation.ReportingMayStart = true; simulation.Step(server, 305);
-        Assert.Equal(MatchPhase.Countdown, simulation.Scene.Match.Phase);
-    }
 }

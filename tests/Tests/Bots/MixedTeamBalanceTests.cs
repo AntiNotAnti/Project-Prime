@@ -10,6 +10,7 @@ namespace MphRead.Tests;
 [Collection("Match baseline globals")]
 public sealed class MixedTeamBalanceTests
 {
+    [Trait("RequiresGameContent", "true")]
     [Fact]
     public void PrestartBalancesHumansAndBotsTogetherWithoutResettingBodies()
     {
@@ -42,7 +43,7 @@ public sealed class MixedTeamBalanceTests
         simulation.Bots.AssignTeam(2, 1); simulation.Bots.AssignTeam(3, 1);
         Assert.False(network.RebalanceBeforeStart()); // Already 2:2; human-only balancing made this 1:3.
         simulation.Bots.AssignTeam(2, 0); simulation.Bots.AssignTeam(3, 0);
-        var position = PlayerEntity.Players[3].Position; int health = PlayerEntity.Players[3].Health;
+        var position = simulation.Scene.Players[3].Position; int health = simulation.Scene.Players[3].Health;
         ulong identity = simulation.Bots.Roster(3)!.Value.ConnectionId;
         Assert.True(network.RebalanceBeforeStart());
         int team0 = 0;
@@ -50,10 +51,10 @@ public sealed class MixedTeamBalanceTests
         {
             int team = network.Peers[slot]?.TeamIndex ?? simulation.Bots.Roster(slot)!.Value.Team;
             if (team == 0) team0++;
-            if (slot >= 2) Assert.Equal(team, PlayerEntity.Players[slot].TeamIndex);
+            if (slot >= 2) Assert.Equal(team, simulation.Scene.Players[slot].TeamIndex);
         }
-        Assert.Equal(2, team0); Assert.Equal(position, PlayerEntity.Players[3].Position);
-        Assert.Equal(health, PlayerEntity.Players[3].Health); Assert.Equal(identity, simulation.Bots.Roster(3)!.Value.ConnectionId);
+        Assert.Equal(2, team0); Assert.Equal(position, simulation.Scene.Players[3].Position);
+        Assert.Equal(health, simulation.Scene.Players[3].Health); Assert.Equal(identity, simulation.Bots.Roster(3)!.Value.ConnectionId);
         using var socket2 = new NetTransport(0);
         using var client2 = new NetClient(socket2, endpoint, "P2", Hunter.Samus);
         timer.Restart();
@@ -63,7 +64,7 @@ public sealed class MixedTeamBalanceTests
         // Actual teams are tied2:2, so slot4 uses deterministic team0. Counting
         // only the two team0 humans incorrectly selected team1.
         Assert.Equal(0, network.Peers[4]!.TeamIndex);
-        network.AssignAdminTeam(network.Peers[0]!, 0);
+        network.AssignAdminTeam(simulation.Scene, network.Peers[0]!, 0);
         simulation.Bots.AssignTeam(2, 0); simulation.Bots.AssignTeam(3, 0);
         Assert.False(network.RebalanceBeforeStart());
     }

@@ -25,6 +25,7 @@ namespace MphRead.Tests
             Assert.Equal(ticks, NodeDefenseEntity.ScoreIntervalTicks(nodes));
         }
 
+        [Trait("RequiresGameContent", "true")]
         [Fact]
         public void ActualNodeCapturePauseAndProgressProjectionKeepEveryLegacyFloatBit()
         {
@@ -39,9 +40,9 @@ namespace MphRead.Tests
             NodeDefenseEntity? selected = null;
             foreach (NodeDefenseEntity candidate in scene.GetNodeDefenseEntities()) { selected = candidate; break; }
             NodeDefenseEntity node = Assert.IsType<NodeDefenseEntity>(selected);
-            PlayerEntity player = PlayerEntity.Players[0];
+            PlayerEntity player = scene.Players[0];
             player.ServerActivate(100, Hunter.Samus, 0);
-            PlayerEntity opponent = PlayerEntity.Players[1];
+            PlayerEntity opponent = scene.Players[1];
             opponent.ServerActivate(200, Hunter.Kanden, 1);
             PutInside(player, node.Volume);
             MoveTo(opponent, player.Position + Vector3.UnitX * 100);
@@ -132,6 +133,7 @@ namespace MphRead.Tests
             }
         }
 
+        [Trait("RequiresGameContent", "true")]
         [Theory]
         [InlineData(BeamType.Missile)]
         [InlineData(BeamType.VoltDriver)]
@@ -145,7 +147,7 @@ namespace MphRead.Tests
             using var simulation = new ServerSimulation(new MatchRules(MatchMode.Battle, "MP1 SANCTORUS"));
             Scene scene = simulation.Scene;
             scene.Match.Phase = MatchPhase.Playing;
-            PlayerEntity owner = PlayerEntity.Players[0];
+            PlayerEntity owner = scene.Players[0];
             owner.ServerActivate(100, Hunter.Samus, 0);
             scene.StepHeadlessFrame(advanceMatch: false);
             var equip = new EquipInfo(Weapons.Current[(int)type], new[] { new BeamProjectileEntity(scene) })
@@ -195,7 +197,7 @@ namespace MphRead.Tests
         [Fact]
         public void CollidedBeamExpiresAndReusesItsTimerOnTheExactLegacyTick()
         {
-            Scene scene = Scene.CreateHeadless();
+            using Scene scene = Scene.CreateHeadless();
             var beam = new BeamProjectileEntity(scene) { Flags = BeamFlags.Collided };
             foreach (float duration in new[] { 4 * (1 / 30f), 255 * (1 / 30f), 0.12345f })
             {

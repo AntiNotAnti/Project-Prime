@@ -14,8 +14,8 @@ public sealed class MatchResultTests
         MatchRuntime match = state.Configure(GameMode.Battle);
         state.Activate(0, 0);
         state.Activate(1, 1);
-        GameState.Nicknames[0] = "Alpha";
-        GameState.Nicknames[1] = "Bravo";
+        state.Scene.Roster.Nicknames[0] = "Alpha";
+        state.Scene.Roster.Nicknames[1] = "Bravo";
         match.MatchId = 42;
         match.MatchTime = 42;
         match.ActivePlayers = 2;
@@ -51,7 +51,7 @@ public sealed class MatchResultTests
         match.TeamTime[0] = 2;
         match.ResultSlots[0] = 1;
         state.Players[0].TeamIndex = 1;
-        GameState.Nicknames[0] = "Changed";
+        state.Scene.Roster.Nicknames[0] = "Changed";
         match.ApplyRules(match.Rules.With(scoreGoal: 99));
 
         Assert.Equal(42u, result.MatchId);

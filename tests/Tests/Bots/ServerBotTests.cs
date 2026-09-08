@@ -15,6 +15,7 @@ namespace MphRead.Tests;
 [Collection("Match baseline globals")]
 public sealed class ServerBotTests
 {
+    [Trait("RequiresGameContent", "true")]
     [Fact]
     public void UdpJoinWaitsForOneLiveBotThenReadiesItsReleasedSlot()
     {
@@ -45,7 +46,7 @@ public sealed class ServerBotTests
         PumpUntil(() => network.Peers[0]!.Connection.State == NetConnectionState.Ready);
         simulation.Step(network, tick++);
         Assert.Equal(7, simulation.Bots.Count);
-        Assert.All(Enumerable.Range(1, 7), slot => Assert.True(PlayerEntity.Players[slot].Health > 0));
+        Assert.All(Enumerable.Range(1, 7), slot => Assert.True(simulation.Scene.Players[slot].Health > 0));
         simulation.Scene.Match.Phase = MatchPhase.Playing; network.Phase = MatchPhase.Playing;
         ulong[] identities = Enumerable.Range(1, 7).Select(slot => simulation.Bots.Roster(slot)!.Value.ConnectionId).ToArray();
         PumpUntil(() => joining.AwaitingBotRetirement, true);
@@ -59,7 +60,7 @@ public sealed class ServerBotTests
         Assert.Null(joining.Connection); Assert.Null(joining.Failure);
         Assert.Single(simulation.Bots.Participants.ToArray(), bot => bot?.RetirementRequested == true);
         simulation.Scene.Match.PrimeHunter = reserved;
-        PlayerEntity.Players[reserved].Health = 0;
+        simulation.Scene.Players[reserved].Health = 0;
         PumpUntil(() => joining.Connection != null, true);
         Assert.Equal(reserved, joining.Accepted.Slot);
         Assert.Equal(-1, simulation.Scene.Match.PrimeHunter);
@@ -67,8 +68,8 @@ public sealed class ServerBotTests
         Assert.True(joining.Ready(network.MatchId));
         PumpUntil(() => network.Peers[reserved]!.Connection.State == NetConnectionState.Ready, true);
         simulation.Step(network, tick++);
-        Assert.False(PlayerEntity.Players[reserved].IsBot);
-        Assert.True(PlayerEntity.Players[reserved].LoadFlags.TestFlag(LoadFlags.Active));
+        Assert.False(simulation.Scene.Players[reserved].IsBot);
+        Assert.True(simulation.Scene.Players[reserved].LoadFlags.TestFlag(LoadFlags.Active));
         foreach (int slot in Enumerable.Range(1, 7).Where(slot => slot != reserved))
         {
             Assert.Equal(identities[slot - 1], simulation.Bots.Roster(slot)!.Value.ConnectionId);
@@ -157,6 +158,7 @@ public sealed class ServerBotTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new BotFillPolicy(9).Validate(8));
         Assert.Throws<ArgumentOutOfRangeException>(() => new BotFillPolicy(4,3).Validate(8));
     }
+    [Trait("RequiresGameContent", "true")]
     [Fact]
     public void ActualAiBotsHaveNoConnectionAndRetireOnlyAtSafeBoundary()
     {
@@ -172,29 +174,29 @@ public sealed class ServerBotTests
         simulation.Bots.Update(network, 0); Assert.False(simulation.Bots.Occupied(1));
         connection.Ready(1);
         simulation.Step(network, 0);
-        Assert.Equal(4, PlayerEntity.PlayerCount); Assert.Equal(4, simulation.States.Length);
+        Assert.Equal(4, simulation.Scene.Players.ActiveCount); Assert.Equal(4, simulation.States.Length);
         for (int slot = 1; slot < 4; slot++)
         {
-            Assert.Null(network.Peers[slot]); Assert.True(PlayerEntity.Players[slot].IsBot);
+            Assert.Null(network.Peers[slot]); Assert.True(simulation.Scene.Players[slot].IsBot);
             Assert.True(simulation.Bots.Roster(slot)!.Value.IsBot);
-            Assert.NotEqual(0ul, PlayerEntity.Players[slot].ServerCombatIdentity.ConnectionId);
+            Assert.NotEqual(0ul, simulation.Scene.Players[slot].ServerCombatIdentity.ConnectionId);
         }
         simulation.Scene.Match.Phase = MatchPhase.Playing;
         Assert.False(simulation.Bots.Claim(1, network, 1)); Assert.True(simulation.Bots.Occupied(1));
         for (uint tick = 1; tick < 20; tick++) simulation.Step(network, tick);
-        Assert.True(PlayerEntity.Players[1].IsBot);
+        Assert.True(simulation.Scene.Players[1].IsBot);
         simulation.Scene.Match.PrimeHunter = 1;
-        PlayerEntity.Players[1].Health = 0;
+        simulation.Scene.Players[1].Health = 0;
         Assert.True(simulation.Bots.Claim(1, network, 20)); Assert.False(simulation.Bots.Occupied(1));
-        Assert.False(PlayerEntity.Players[1].LoadFlags.TestFlag(LoadFlags.Active));
+        Assert.False(simulation.Scene.Players[1].LoadFlags.TestFlag(LoadFlags.Active));
         Assert.Equal(-1, simulation.Scene.Match.PrimeHunter);
         var peers = (ServerPeer?[])typeof(ServerNetwork).GetField("_peers", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(network)!;
         peers[0] = null;
         var nextConnection = new NetConnection(200, new IPEndPoint(IPAddress.Loopback, 10002), 1, 0); nextConnection.Ready(1);
         peers[4] = new ServerPeer(nextConnection, new JoinPacket {Hunter=Hunter.Samus,Name="Next",Nonce=200},4,0);
         simulation.Step(network,21);
-        Assert.True(simulation.Bots.Occupied(0)); Assert.True(PlayerEntity.Players[0].IsBot);
-        Assert.True(PlayerEntity.Players[0].LoadFlags.TestFlag(LoadFlags.Active));
+        Assert.True(simulation.Bots.Occupied(0)); Assert.True(simulation.Scene.Players[0].IsBot);
+        Assert.True(simulation.Scene.Players[0].LoadFlags.TestFlag(LoadFlags.Active));
         simulation.Scene.Match.CaptureResult(21);
         var report = simulation.Reports.Complete(simulation.Scene, 21)!;
         Assert.Equal(4, report.Participants.Count(p => p.Kind == ParticipantKind.Bot));

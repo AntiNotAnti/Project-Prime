@@ -19,7 +19,7 @@ namespace MphRead.Tests
             var combat = new ServerCombat(lag, catchUp);
             Assert.Equal(lag, combat.LagCompEnabled);
             Assert.Equal(lag && catchUp, combat.ProjectileCatchUpEnabled);
-            using var scope = combat.Enter(100);
+            combat.BeginTick(100);
             combat.SetCommand(0, new(1, 1, 90, 0, 0, Vector3.UnitZ, InputCommand.NoWeapon), 150);
             CombatActor actor = new(0, 1, 1);
             var projectile = combat.CaptureShot(actor, Ordinary);
@@ -57,7 +57,7 @@ namespace MphRead.Tests
                 foreach (bool catchUp in new[] { false, true })
                 {
                     var combat = new ServerCombat(lag, catchUp);
-                    using var scope = combat.Enter(100);
+                    combat.BeginTick(100);
                     combat.SetCommand(0, new(1, 1, 90, 0, 0, Vector3.UnitZ, InputCommand.NoWeapon), 150);
                     var shot = combat.CaptureShot(new CombatActor(0, 1, 1), mechanics);
                     Assert.Equal(lag && catchUp ? LagCompensationMode.HomingProjectileCatchUp : LagCompensationMode.None, shot.Mode);

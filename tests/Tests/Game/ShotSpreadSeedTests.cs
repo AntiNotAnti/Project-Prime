@@ -3,66 +3,50 @@ using Xunit;
 
 namespace MphRead.Tests
 {
-    [CollectionDefinition("Shot spread RNG", DisableParallelization = true)]
-    public sealed class ShotSpreadSeedCollection { }
-
-    [Collection("Shot spread RNG")]
     public sealed class ShotSpreadSeedTests
     {
         [Fact]
         public void MatchSpreadDoesNotDependOnInterveningGameplayRandomness()
         {
-            uint saved = Rng.Rng2;
-            try
+            var random = new MatchRandom();
+            var enabled = new ServerCombat(spreadSeed: 123);
+            var disabled = new ServerCombat(lagCompEnabled: false, spreadSeed: 123);
+            uint previous = 123;
+            for (int shot = 0; shot < 32; shot++)
             {
-                var enabled = new ServerCombat(spreadSeed: 123);
-                var disabled = new ServerCombat(lagCompEnabled: false, spreadSeed: 123);
-                uint previous = 123;
-                for (int shot = 0; shot < 32; shot++)
-                {
-                    uint expected = disabled.NextSpreadSeed();
-                    for (int effect = 0; effect < shot; effect++) Rng.GetRandomInt2(100);
-                    uint global = Rng.Rng2;
-                    Assert.Equal(expected, enabled.NextSpreadSeed());
-                    Assert.Equal(global, Rng.Rng2);
-                    Assert.NotEqual(previous, expected);
-                    previous = expected;
-                }
+                uint expected = disabled.NextSpreadSeed();
+                for (int effect = 0; effect < shot; effect++) random.GetRandomInt2(100);
+                uint global = random.Rng2;
+                Assert.Equal(expected, enabled.NextSpreadSeed());
+                Assert.Equal(global, random.Rng2);
+                Assert.NotEqual(previous, expected);
+                previous = expected;
             }
-            finally { Rng.SetRng2(saved); }
         }
 
         [Fact]
         public void ResetRestoresInitialMatchSpreadWithoutReadingGlobalState()
         {
-            uint saved = Rng.Rng2;
-            try
-            {
-                var combat = new ServerCombat(spreadSeed: 456);
-                uint first = combat.NextSpreadSeed();
-                uint second = combat.NextSpreadSeed();
-                Rng.GetRandomInt2(100);
-                combat.Reset();
-                Assert.Equal(first, combat.NextSpreadSeed());
-                Assert.Equal(second, combat.NextSpreadSeed());
-                Assert.NotEqual(first, new ServerCombat(spreadSeed: 789).NextSpreadSeed());
-            }
-            finally { Rng.SetRng2(saved); }
+            var random = new MatchRandom();
+            var combat = new ServerCombat(spreadSeed: 456);
+            uint first = combat.NextSpreadSeed();
+            uint second = combat.NextSpreadSeed();
+            random.GetRandomInt2(100);
+            combat.Reset();
+            Assert.Equal(first, combat.NextSpreadSeed());
+            Assert.Equal(second, combat.NextSpreadSeed());
+            Assert.NotEqual(first, new ServerCombat(spreadSeed: 789).NextSpreadSeed());
         }
 
         [Fact]
-        public void DefaultSeedIsCapturedAtConstructionRatherThanFirstShot()
+        public void ExplicitMatchSeedIsCapturedAtConstructionRatherThanFirstShot()
         {
-            uint saved = Rng.Rng2;
-            try
-            {
-                Rng.SetRng2(0x12345678);
-                var combat = new ServerCombat();
-                Rng.SetRng2(999);
-                Assert.Equal(0xA4629249u, combat.NextSpreadSeed());
-                Assert.Equal(999u, Rng.Rng2);
-            }
-            finally { Rng.SetRng2(saved); }
+            var random = new MatchRandom();
+            random.SetRng2(0x12345678);
+            var combat = new ServerCombat(spreadSeed: random.Rng2);
+            random.SetRng2(999);
+            Assert.Equal(0xA4629249u, combat.NextSpreadSeed());
+            Assert.Equal(999u, random.Rng2);
         }
     }
 }

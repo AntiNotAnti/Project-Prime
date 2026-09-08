@@ -15,7 +15,8 @@
     </PackageReference>
     <ProjectReference Include="../../src/Game/Game.csproj" />
     <ProjectReference Include="../../src/Client/Client.csproj" />
-    <ProjectReference Include="../../src/Server/Server.csproj" />
+    <ProjectReference Include="../../src/Server.Node/Server.Node.csproj" />
+    <ProjectReference Include="../../src/Server.Worker/Server.Worker.csproj" />
     <ProjectReference Include="../../src/Tools/Tools.csproj" />
   </ItemGroup>
 </Project>

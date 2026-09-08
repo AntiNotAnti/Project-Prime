@@ -76,7 +76,7 @@ public sealed class OvertimePolicyTests
         MatchOvertime.Evaluate(survival.Scene, false, null);
         Assert.Equal(-1, survival.Scene.Match.MatchTime);
         survival.Scene.Match.TeamDeaths[1] = 3;
-        PlayerEntity.Players[1].Health = 0;
+        survival.Scene.Players[1].Health = 0;
         MatchOvertime.Evaluate(survival.Scene, false, null);
         Assert.Equal(0, survival.Scene.Match.MatchTime);
     }
@@ -171,7 +171,7 @@ public sealed class OvertimePolicyTests
             Scene.Match.PhaseEndTick = 123;
             for (int slot = 0; slot < 2; slot++)
             {
-                PlayerEntity player = PlayerEntity.Players[slot];
+                PlayerEntity player = Scene.Players[slot];
                 player.TeamIndex = slot;
                 player.Health = 99;
                 player.LoadFlags = LoadFlags.Active | LoadFlags.Initial;

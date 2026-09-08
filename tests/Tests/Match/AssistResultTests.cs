@@ -29,12 +29,12 @@ public sealed class AssistResultTests
         var combat = new ServerCombat(spreadSeed: 1);
         PlayerEntity victim = state.Players[0];
         victim.Health = 80;
-        using (combat.Enter(100))
+        combat.BeginTick(100);
             combat.NoteDamage(victim, state.Players[2], state.Players[2], BeamType.PowerBeam,
                 0, null, 100, 0, 0, 0, false);
         if (replacedLife) Set(state.Players[2], "_serverLife", 2u);
         victim.Health = 0;
-        using (combat.Enter(101))
+        combat.BeginTick(101);
             combat.NoteDamage(victim, state.Players[1], state.Players[1], BeamType.Imperialist,
                 DamageFlags.Headshot, null, 80, 0, 0, 0, false);
         Assert.Equal(20, match.Players[2].DamageDealt);
@@ -77,7 +77,7 @@ public sealed class AssistResultTests
             source.GetType().GetProperty("CombatShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(source,
                 new CombatShot(state.Players[1].ServerCombatIdentity, 1, 1, 1, 1, 0) { Affinity = sourceKind == KillSourceKind.Beam });
         var combat = new ServerCombat(spreadSeed: 1);
-        using (combat.Enter(100)) combat.NoteDamage(state.Players[0], source,
+        combat.BeginTick(100); combat.NoteDamage(state.Players[0], source,
             source == null ? null : state.Players[1], weapon, 0, null, remainingHealth, 0, 0, 0, false);
         Assert.True(combat.TryPeekKill(out KillEvent kill));
         Assert.Equal(sourceKind == KillSourceKind.Environment ? 0 : remainingHealth, match.Players[1].DamageDealt);
@@ -106,7 +106,7 @@ public sealed class AssistResultTests
             new BeamMechanics(BeamType.Magmaul, BeamType.Magmaul, false, false, 0, 1, 1)) with { Affinity = true };
         Assert.Equal((byte)BeamType.Magmaul, shot.SourceWeapon);
         typeof(PlayerEntity).GetProperty("CombatBurnSource", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(state.Players[0], shot);
-        using (combat.Enter(100)) combat.NoteDamage(state.Players[0], null, null, BeamType.None,
+        combat.BeginTick(100); combat.NoteDamage(state.Players[0], null, null, BeamType.None,
             DamageFlags.Burn, null, 3, 0, 0, 0, false);
         Assert.True(combat.TryPeekKill(out var kill));
         Assert.Equal(KillSourceKind.Beam, kill.SourceKind); Assert.Equal((byte)BeamType.Magmaul, kill.Weapon);

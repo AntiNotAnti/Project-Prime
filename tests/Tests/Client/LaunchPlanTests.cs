@@ -10,7 +10,6 @@ namespace MphRead.Tests
     {
         [Theory]
         [InlineData(1)]
-        [InlineData(3)]
         [InlineData(5)]
         public void SupportedPersistedKindsValidate(int persistedValue)
         {
@@ -22,11 +21,12 @@ namespace MphRead.Tests
         [Theory]
         [InlineData(0)]
         [InlineData(2)]
+        [InlineData(3)]
         [InlineData(4)]
         [InlineData(6)]
         [InlineData(-1)]
         [InlineData(99)]
-        public void LegacyAndUnknownPersistedKindsAreRejected(int persistedValue)
+        public void RetiredAndUnknownPersistedKindsAreRejected(int persistedValue)
         {
             var plan = new LaunchPlan { Kind = (LaunchKind)persistedValue };
 
@@ -35,7 +35,6 @@ namespace MphRead.Tests
 
         [Theory]
         [InlineData(1)]
-        [InlineData(3)]
         public void NonDemoLaunchRequiresAuthoritativeSessionBeforeLoading(int persistedValue)
         {
             Assert.Null(AuthoritativePlay.Current);

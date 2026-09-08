@@ -17,6 +17,33 @@ namespace MphRead.Tests
     [Collection("Demo global state")]
     public sealed class DemoPlaybackTests
     {
+        [Theory]
+        [InlineData(8, false)]
+        [InlineData(8, true)]
+        [InlineData(9, false)]
+        [InlineData(9, true)]
+        public void JoinRoutingRevisionPreservesAuthoritativeReplayFacts(byte protocol, bool indexed)
+        {
+            string path = TemporaryFile();
+            try
+            {
+                using (var writer = new DemoWriter(path, protocol, indexed))
+                {
+                    writer.WriteRecord(0, Match(5));
+                    writer.WriteRecord(0, Snapshot(5, 7, 12));
+                }
+                using var reader = DemoReader.Open(path)!;
+                Assert.Equal(indexed ? DemoFile.IndexedFormatVersion : DemoFile.FormatVersion, reader.FormatVersion);
+                Assert.Equal(protocol, reader.ProtocolVersion);
+                Assert.True(DemoFile.IsAuthoritativeProtocol(protocol));
+                var state = new ModernDemoState(); state.Reset(protocol);
+                while (reader.ReadNext() is { } record) Assert.True(state.Receive(record.Data));
+                Assert.Equal(12, state.Players[0].Points);
+                Assert.False(DemoFile.IsSupportedProtocol(10));
+            }
+            finally { File.Delete(path); }
+        }
+
         [Fact]
         public void LegacyPlaybackIgnoresConnectionControlAndRewindsOpeningSnapshot()
         {
@@ -84,7 +111,14 @@ namespace MphRead.Tests
                     Assert.True(state.World.HasState); Assert.Equal(17, state.World.Count);
                     Assert.Equal(7, state.Players[0].Slot); Assert.Equal(9, state.Players[0].Points);
                     Assert.Equal(31, state.Players[0].AmmoUa);
-                    Assert.Equal("Seven", GameState.Nicknames[7]);
+                    Assert.Equal(7, state.Roster[0].Slot);
+                    Assert.Equal("Seven", state.Roster[0].Name);
+                    using var scene = new Scene();
+                    using var unrelated = new Scene();
+                    string unrelatedName = unrelated.Roster.Nicknames[7];
+                    state.ApplyRoster(scene);
+                    Assert.Equal("Seven", scene.Roster.Nicknames[7]);
+                    Assert.Equal(unrelatedName, unrelated.Roster.Nicknames[7]);
                     record = reader.ReadNext()!.Value; Assert.Equal(400u, record.Frame);
                     Assert.True(state.Receive(record.Data)); Assert.Equal(12, state.Players[0].Points);
                     Assert.Null(reader.ReadNext());

@@ -32,9 +32,10 @@ namespace MphRead.Tests
             Assert.True((parsed.Flags & SnapshotPlayerFlags.RadarReveal) != 0);
             Assert.True((parsed.Flags & SnapshotPlayerFlags.RadarRevealPrevious) != 0);
             Assert.Equal(818, NetHeader.Size + SnapshotPacket.MaxSize);
-            Assert.Equal(8, NetHeader.Version);
+            Assert.Equal(9, NetHeader.Version);
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 7));
-            Assert.True(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 8));
+            Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 8));
+            Assert.True(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 9));
         }
 
         [Theory]

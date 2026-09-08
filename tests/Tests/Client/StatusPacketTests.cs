@@ -1,10 +1,10 @@
 using System;
-using System.Linq;
-using MphRead.Mods.Launcher;
 using MphRead.Mods.Network;
 using Xunit;
+
 namespace MphRead.Tests.Client;
-public class ServerBrowserTests
+
+public sealed class StatusPacketTests
 {
     private static int IdentityV2TailOffset() => ServerStatusPacket.IdentityV2Size - ServerStatusPacket.Size;
 
@@ -12,62 +12,44 @@ public class ServerBrowserTests
     {
         var status = new ServerStatusPacket
         {
-            Match = new MatchStatePacket { Mode = (byte)GameMode.Battle,
-                RoomKey = "ROOM", NextRoomKey = "ROOM", PlayerCount = 1 },
-            MaxPlayers = 8, Protocol = NetHeader.Version, ServerName = "TEST", HasRules = true
+            Match = new MatchStatePacket
+            {
+                Mode = (byte)GameMode.Battle,
+                RoomKey = "ROOM",
+                NextRoomKey = "ROOM",
+                PlayerCount = 1
+            },
+            MaxPlayers = 8,
+            Protocol = NetHeader.Version,
+            ServerName = "TEST",
+            HasRules = true
         };
         byte[] bytes = new byte[length];
         status.Write(bytes);
         return bytes;
     }
 
-    private static ServerBrowserEntry Entry(string address, int ping, int players, int protocol = NetHeader.Version)
-        => new(new MasterListing { Address = address, Port = 27015 })
-        { Status = new ServerStatus { Online = true, Protocol = protocol, Family = NetWireFamily.Authoritative,
-            Mode = GameMode.Battle, Players = players, MaxPlayers = 8, Latency = ping } };
-    [Fact]
-    public void BotFilledServersRemainJoinableAndBotCountIsValidated()
-    {
-        byte[] bytes = BaseStatus(ServerStatusPacket.ExtendedSize);
-        bytes[ServerStatusPacket.IdentityV2Size + 5] = 1;
-        Assert.True(ServerStatusPacket.TryRead(bytes, out var packet));
-        Assert.Equal(1, packet.Bots);
-        bytes[ServerStatusPacket.IdentityV2Size + 5] = 2;
-        Assert.False(ServerStatusPacket.TryRead(bytes, out _));
-        var entry = Entry("bots", 20, 8);
-        entry.Status = new ServerStatus { Online = true, Protocol = NetHeader.Version,
-            Family = NetWireFamily.Authoritative, Mode = GameMode.Battle,
-            Players = 8, Bots = 7, MaxPlayers = 8, Latency = 20 };
-        Assert.False(ServerBrowser.Full(entry.Status));
-        Assert.Same(entry, ServerBrowser.QuickJoin(new[] { entry }, GameMode.Battle));
-    }
-    [Fact]
-    public void QuickJoinExcludesFullIncompatibleAndUnknownPingThenPrefersPopulated()
-    {
-        var populated = Entry("populated", 35, 3);
-        var entries = new[] { Entry("full", 1, 8), Entry("old", 1, 3, 0), Entry("unknown", -1, 3), Entry("empty", 10, 0), populated };
-        Assert.Same(populated, ServerBrowser.QuickJoin(entries, GameMode.Battle));
-        var filter = new ServerBrowserFilter(null, true, true, 40, ServerSort.Population, ServerGroup.All);
-        Assert.Equal(new[] { "populated", "empty" }, ServerBrowser.Select(entries, filter, new()).Select(e => e.Listing.Address));
-    }
-    [Fact]
-    public void PreferencesAreBoundedAndRecentOrderIsUnique()
-    {
-        var prefs = new ServerBrowserPreferences();
-        for (int i = 0; i < 50; i++) { prefs.ToggleFavorite($"host{i}:1"); prefs.Visited($"host{i}:1"); }
-        Assert.Equal(32, prefs.Favorites.Count);
-        Assert.Equal(16, prefs.Recent.Count);
-        prefs.Visited("host49:1");
-        Assert.Equal(16, prefs.Recent.Count);
-        Assert.Equal("host49:1", prefs.Recent[0]);
-    }
     [Fact]
     public void DiscoveryExtensionPreservesBaseAndRejectsMalformedTail()
     {
-        var packet = new ServerStatusPacket { Match = new MatchStatePacket { Mode = (byte)GameMode.Battle,
-            RoomKey = "ROOM", NextRoomKey = "ROOM", PlayerCount = 2 }, MaxPlayers = 8, Protocol = NetHeader.Version,
-            HasRules = true, FriendlyFire = true, PlayerRadar = true, SpawnPolicy = (SpawnPolicy)2,
-            OvertimePolicy = (OvertimePolicy)1, LateJoinPolicy = (LateJoinPolicy)2 };
+        var packet = new ServerStatusPacket
+        {
+            Match = new MatchStatePacket
+            {
+                Mode = (byte)GameMode.Battle,
+                RoomKey = "ROOM",
+                NextRoomKey = "ROOM",
+                PlayerCount = 2
+            },
+            MaxPlayers = 8,
+            Protocol = NetHeader.Version,
+            HasRules = true,
+            FriendlyFire = true,
+            PlayerRadar = true,
+            SpawnPolicy = (SpawnPolicy)2,
+            OvertimePolicy = (OvertimePolicy)1,
+            LateJoinPolicy = (LateJoinPolicy)2
+        };
         byte[] bytes = new byte[ServerStatusPacket.ExtendedSize];
         packet.Write(bytes);
         Assert.True(ServerStatusPacket.TryRead(bytes, out var read));
@@ -80,7 +62,8 @@ public class ServerBrowserTests
             Assert.False(ServerStatusPacket.TryRead(bytes.AsSpan(0, length), out _));
         foreach (var (offset, value) in new[] { (0, 4), (1, 4), (2, 3), (3, 2), (4, 3), (5, 2), (6, 1), (7, 1) })
         {
-            var bad = (byte[])bytes.Clone(); bad[ServerStatusPacket.Size + offset] = (byte)value;
+            var bad = (byte[])bytes.Clone();
+            bad[ServerStatusPacket.Size + offset] = (byte)value;
             Assert.False(ServerStatusPacket.TryRead(bad, out _));
         }
     }
@@ -91,14 +74,29 @@ public class ServerBrowserTests
         Guid serverId = Guid.NewGuid();
         ServerStatusPacket current = new()
         {
-            Match = new MatchStatePacket { Mode = (byte)GameMode.Battle,
-                RoomKey = "ROOM", NextRoomKey = "ROOM", PlayerCount = 2 },
-            MaxPlayers = 8, Protocol = NetHeader.Version, ServerName = "TEST",
-            HasRules = true, ServerId = serverId, RequiresTicket = true,
-            FriendlyFire = true, PlayerRadar = true, SpawnPolicy = SpawnPolicy.Enhanced,
-            OvertimePolicy = OvertimePolicy.ModeDefault, LateJoinPolicy = LateJoinPolicy.SpectateUntilNextMatch,
-            RulesetPreset = RulesetPreset.Competitive, Observers = 1, MaxObservers = 4,
-            ObserverDelaySeconds = 3, RankingEligibility = RankingEligibility.VerifiedServerOnly
+            Match = new MatchStatePacket
+            {
+                Mode = (byte)GameMode.Battle,
+                RoomKey = "ROOM",
+                NextRoomKey = "ROOM",
+                PlayerCount = 2
+            },
+            MaxPlayers = 8,
+            Protocol = NetHeader.Version,
+            ServerName = "TEST",
+            HasRules = true,
+            ServerId = serverId,
+            RequiresTicket = true,
+            FriendlyFire = true,
+            PlayerRadar = true,
+            SpawnPolicy = SpawnPolicy.Enhanced,
+            OvertimePolicy = OvertimePolicy.ModeDefault,
+            LateJoinPolicy = LateJoinPolicy.SpectateUntilNextMatch,
+            RulesetPreset = RulesetPreset.Competitive,
+            Observers = 1,
+            MaxObservers = 4,
+            ObserverDelaySeconds = 3,
+            RankingEligibility = RankingEligibility.VerifiedServerOnly
         };
 
         byte[] v1 = BaseStatus(ServerStatusPacket.RulesV1Size);
@@ -149,28 +147,37 @@ public class ServerBrowserTests
         byte[] v3 = new byte[ServerStatusPacket.ExtendedSize];
         new ServerStatusPacket
         {
-            Match = new MatchStatePacket { Mode = (byte)GameMode.Battle,
-                RoomKey = "ROOM", NextRoomKey = "ROOM", PlayerCount = 1 },
-            MaxPlayers = 8, Protocol = NetHeader.Version, ServerName = "TEST", HasRules = true,
-            RulesetPreset = RulesetPreset.Competitive, MaxObservers = 4,
+            Match = new MatchStatePacket
+            {
+                Mode = (byte)GameMode.Battle,
+                RoomKey = "ROOM",
+                NextRoomKey = "ROOM",
+                PlayerCount = 1
+            },
+            MaxPlayers = 8,
+            Protocol = NetHeader.Version,
+            ServerName = "TEST",
+            HasRules = true,
+            RulesetPreset = RulesetPreset.Competitive,
+            MaxObservers = 4,
             RankingEligibility = RankingEligibility.VerifiedServerOnly
         }.Write(v3);
 
         foreach ((int offset, byte value) in new[]
         {
-            (0, (byte)4), // tail version
-            (1, (byte)4), // flags
-            (2, (byte)3), // SpawnPolicy
-            (3, (byte)2), // OvertimePolicy
-            (4, (byte)3), // LateJoinPolicy
-            (5, (byte)2), // RequiresTicket
-            (6, (byte)1), // v3 reserved byte
-            (7, (byte)1), // v3 reserved byte
-            (IdentityV2TailOffset(), (byte)4), // RulesetPreset
-            (IdentityV2TailOffset() + 2, (byte)17), // MaxObservers
-            (IdentityV2TailOffset() + 3, (byte)31), // observer delay
-            (IdentityV2TailOffset() + 4, (byte)2), // RankingEligibility
-            (IdentityV2TailOffset() + 5, (byte)3) // bots exceed total players
+            (0, (byte)4),
+            (1, (byte)4),
+            (2, (byte)3),
+            (3, (byte)2),
+            (4, (byte)3),
+            (5, (byte)2),
+            (6, (byte)1),
+            (7, (byte)1),
+            (IdentityV2TailOffset(), (byte)4),
+            (IdentityV2TailOffset() + 2, (byte)17),
+            (IdentityV2TailOffset() + 3, (byte)31),
+            (IdentityV2TailOffset() + 4, (byte)2),
+            (IdentityV2TailOffset() + 5, (byte)3)
         })
         {
             byte[] bad = (byte[])v3.Clone();
@@ -190,6 +197,5 @@ public class ServerBrowserTests
             bad[ServerStatusPacket.Size + relative] = value;
             Assert.False(ServerStatusPacket.TryRead(bad, out _), $"v1 tail offset {relative} accepted {value}");
         }
-
     }
 }

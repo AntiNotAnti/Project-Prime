@@ -17,14 +17,14 @@ public sealed class RichWorldResultTests
         MatchRuntime match = state.Configure(GameMode.Battle);
         state.Activate(0, 0); state.Activate(1, 1);
         match.MatchId = 4; match.Phase = MatchPhase.Ending; match.PhaseRevision = 3;
-        GameState.Nicknames[0] = "Original"; GameState.Nicknames[1] = "Second";
+        state.Scene.Roster.Nicknames[0] = "Original"; state.Scene.Roster.Nicknames[1] = "Second";
         match.ResultSlots[1] = 1;
         match.Players[0].Assists = 3; match.Players[0].DamageDealt = 123;
         match.Players[0].LongestKillStreak = 4; match.Players[0].SetBeamKills(4, 5);
         match.Players[0].OctolithStops = 2;
         match.CaptureResult(17);
         match.Players[0].Assists = 999;
-        GameState.Nicknames[0] = "Replacement";
+        state.Scene.Roster.Nicknames[0] = "Replacement";
         state.Players[0].LoadFlags = 0;
         typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Hunter))!.SetValue(state.Players[0], Hunter.Kanden);
         var capture = new WorldStateCapture();

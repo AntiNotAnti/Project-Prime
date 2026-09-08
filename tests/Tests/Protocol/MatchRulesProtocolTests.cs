@@ -17,9 +17,9 @@ namespace MphRead.Tests
         [Fact]
         public void CompleteRulesRoundTripAcrossReliableBoundaries()
         {
-            // Live authoritative packets use protocol 8; older demo fixtures
+            // Live protocol 9 adds Worker join routing; older demo fixtures
             // below intentionally keep their historical protocol versions.
-            Assert.Equal(8, NetHeader.Version);
+            Assert.Equal(9, NetHeader.Version);
             foreach (MatchMode mode in Enum.GetValues<MatchMode>())
             {
                 MatchRules rules = Rules(mode);

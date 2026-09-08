@@ -17,6 +17,7 @@ namespace MphRead.Tests.Admin;
 [Collection("Match baseline globals")]
 public sealed class TournamentIntegrationTests
 {
+    [Trait("RequiresGameContent", "true")]
     [Fact]
     public void RealSimulationRequiresReadyCheckAndCancelsPrestartWithoutFreezingPlaying()
     {
@@ -86,6 +87,16 @@ public sealed class TournamentIntegrationTests
             recording.Capture(frame with { Tick = 101, Events = Array.Empty<ObserverEvent>() }, state.Scene);
             recording.Complete(); await recording.Completion;
             Assert.Equal("complete", recording.Status.State);
+            string artifactPath = Path.Combine(directory, recording.ReplayId.ToString("D") + DemoFile.Extension);
+            var validated = ReplayArtifactValidator.Validate(artifactPath);
+            Assert.True(validated.RecordCount > 0);
+            Assert.Equal(1, validated.CheckpointCount);
+            Assert.Equal(0u, validated.FirstFrame);
+            Assert.Equal(1u, validated.LastFrame);
+            string truncatedPath = Path.Combine(directory, "truncated.fpdemo");
+            byte[] truncated = File.ReadAllBytes(artifactPath);
+            File.WriteAllBytes(truncatedPath, truncated[..^1]);
+            Assert.Throws<InvalidDataException>(() => ReplayArtifactValidator.Validate(truncatedPath));
             using var reader = DemoReader.Open(Path.Combine(directory, recording.ReplayId.ToString("D") + DemoFile.Extension));
             Assert.NotNull(reader); Assert.Equal(DemoFile.IndexedFormatVersion, reader.FormatVersion);
             var records = reader.Seek(0, out uint restored); Assert.NotNull(records); Assert.Equal((uint)0, restored);

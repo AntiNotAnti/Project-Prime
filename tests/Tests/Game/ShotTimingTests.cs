@@ -18,13 +18,13 @@ namespace MphRead.Tests
         {
             var combat = new ServerCombat();
             CombatShot shot;
-            using (combat.Enter(100))
+            combat.BeginTick(100);
             {
                 combat.SetCommand(0, Command(55, 90), 150);
                 shot = combat.CaptureShot(Actor, Mechanics(BeamType.Imperialist, false));
             }
             var expected = LagCompensationPolicy.ResolveTick(100, 90, 150);
-            using (combat.Enter(104))
+            combat.BeginTick(104);
             {
                 combat.SetCommand(0, Command(99, 104), 1);
                 for (int target = 0; target < 8; target++)
@@ -47,7 +47,7 @@ namespace MphRead.Tests
         public void AttributionAndExcludedBeamsDoNotInflateTimedShotDenominators()
         {
             var combat = new ServerCombat(projectileCatchUpEnabled: false);
-            using var scope = combat.Enter(200);
+            combat.BeginTick(200);
             combat.SetCommand(0, Command(4, 180), 250);
             for (int hit = 0; hit < 20; hit++)
             {
@@ -76,7 +76,7 @@ namespace MphRead.Tests
         public void FutureAndWrappedShotsRemainBoundedAndResetClearsAllMetrics()
         {
             var combat = new ServerCombat();
-            using (combat.Enter(3))
+            combat.BeginTick(3);
             {
                 combat.SetCommand(0, Command(1, UInt32.MaxValue - 2), 250);
                 var shot = combat.CaptureShot(Actor, Mechanics(BeamType.Imperialist, false));
@@ -103,7 +103,7 @@ namespace MphRead.Tests
         public void RootShotResolutionAndMetricsAllocateNoPerShotStorage()
         {
             var combat = new ServerCombat();
-            using var scope = combat.Enter(100);
+            combat.BeginTick(100);
             combat.SetCommand(0, Command(1, 1), 250);
             combat.CaptureShot(Actor, Mechanics(BeamType.Imperialist, false));
             long before = GC.GetAllocatedBytesForCurrentThread();

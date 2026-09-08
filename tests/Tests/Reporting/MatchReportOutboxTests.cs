@@ -2,6 +2,7 @@ using System;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,6 +32,15 @@ public sealed class MatchReportOutboxTests
     private static string DirectoryPath() { string path = Path.Combine(Path.GetTempPath(), "prime-outbox-test-" + Guid.NewGuid()); Directory.CreateDirectory(path); return path; }
     internal static async Task Until(Func<bool> predicate)
     { using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8)); while (!predicate()) await Task.Delay(10, timeout.Token); }
+    private static MatchReportOutbox NewOutbox(MatchReportOutboxOptions options, IMatchReportTransport transport,
+        Action<string, byte[]> persist)
+    {
+        var constructor = typeof(MatchReportOutbox).GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null, new[] { typeof(MatchReportOutboxOptions), typeof(IMatchReportTransport), typeof(Action<string, byte[]>) },
+            modifiers: null);
+        Assert.NotNull(constructor);
+        return (MatchReportOutbox)constructor!.Invoke(new object[] { options, transport, persist });
+    }
 
     [Fact]
     public async Task DurableWriterDoesNotWaitForHttpAndQueueAndBytesAreBounded()
@@ -141,10 +151,10 @@ public sealed class MatchReportOutboxTests
         var transport = new Transport { Send = async (_,_,_,token) => { await Task.Delay(Timeout.Infinite, token); return default; } };
         try
         {
-            await using var outbox = new MatchReportOutbox(new(path), transport, (file, bytes) =>
+            await using var outbox = NewOutbox(new(path), transport, (file, bytes) =>
             {
                 if (Interlocked.Increment(ref writes) == 1) throw new IOException("injected disk full");
-                DurableSpool.Write(file, bytes);
+                File.WriteAllBytes(file, bytes);
             });
             await Until(() => outbox.Status.Ready); Assert.True(outbox.TryEnqueue(Report(), out var receipt));
             await Until(() => outbox.Status.LastError != null);
@@ -154,6 +164,7 @@ public sealed class MatchReportOutboxTests
         }
         finally { Directory.Delete(path, true); }
     }
+
     [Fact]
     public async Task SuccessfulLaterWriteCannotClearPermanentValidationFault()
     {
@@ -161,8 +172,8 @@ public sealed class MatchReportOutboxTests
         var transport = new Transport { Send = async (_,_,_,token) => { await Task.Delay(Timeout.Infinite, token); return default; } };
         try
         {
-            await using var outbox = new MatchReportOutbox(new(path), transport, (file, bytes) =>
-            { Interlocked.Exchange(ref entered, 1); release.Wait(); DurableSpool.Write(file, bytes); });
+            await using var outbox = NewOutbox(new(path), transport, (file, bytes) =>
+            { Interlocked.Exchange(ref entered, 1); release.Wait(); File.WriteAllBytes(file, bytes); });
             await Until(() => outbox.Status.Ready); outbox.TryEnqueue(Report(), out _); await Until(() => Volatile.Read(ref entered) == 1);
             Assert.True(outbox.TryEnqueue(Report() with { SchemaVersion = 99 }, out var bad));
             Assert.True(outbox.TryEnqueue(Report(), out var good)); release.Set();
@@ -171,6 +182,7 @@ public sealed class MatchReportOutboxTests
         }
         finally { release.Set(); release.Dispose(); Directory.Delete(path, true); }
     }
+
     [Fact]
     public async Task ReservationProtectsInFlightMatchCapacityUntilCompletionTransfer()
     {

@@ -116,8 +116,8 @@ public sealed class FeedbackAudioTests
             MatchPhase phase = scene.Match.Phase;
             uint phaseRevision = scene.Match.PhaseRevision;
             int activePlayers = scene.Match.ActivePlayers;
-            int playerCount = PlayerEntity.PlayerCount;
-            int mainPlayer = PlayerEntity.MainPlayerIndex;
+            int playerCount = scene.Players.ActiveCount;
+            int mainPlayer = scene.LocalPlayerSlot;
 
             var audio = new FeedbackAudio(scene);
             var local = new CombatActor(0, 100, 1);
@@ -129,8 +129,8 @@ public sealed class FeedbackAudioTests
             Assert.Equal(phase, scene.Match.Phase);
             Assert.Equal(phaseRevision, scene.Match.PhaseRevision);
             Assert.Equal(activePlayers, scene.Match.ActivePlayers);
-            Assert.Equal(playerCount, PlayerEntity.PlayerCount);
-            Assert.Equal(mainPlayer, PlayerEntity.MainPlayerIndex);
+            Assert.Equal(playerCount, scene.Players.ActiveCount);
+            Assert.Equal(mainPlayer, scene.LocalPlayerSlot);
         });
     }
 

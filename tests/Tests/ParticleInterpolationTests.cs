@@ -9,7 +9,7 @@ public class ParticleInterpolationTests
     public void IndependentSpriteUsesCompletedEffectStepsWithoutAdvancingParticle()
     {
         var history = new ParticlePoseHistory();
-        var owner = new EffectElementEntry();
+        var owner = new EffectElementEntry(new MphRead.MatchRandom());
         var particle = new EffectParticle { Owner = owner, Position = Vector3.Zero, Lifespan = 5 };
         owner.Particles.Add(particle);
         history.Capture(new[] { owner }, 1, 0);
@@ -31,7 +31,7 @@ public class ParticleInterpolationTests
     public void OwnerAttachmentsAndMeshEffectsKeepCurrentPose(EffElemFlags flags)
     {
         var history = new ParticlePoseHistory();
-        var owner = new EffectElementEntry { Flags = flags };
+        var owner = new EffectElementEntry(new MphRead.MatchRandom()) { Flags = flags };
         var particle = new EffectParticle { Owner = owner };
         owner.Particles.Add(particle);
         history.Capture(new[] { owner }, 1, 0);

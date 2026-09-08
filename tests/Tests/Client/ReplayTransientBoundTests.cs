@@ -10,6 +10,7 @@ namespace MphRead.Tests.Client;
 [Collection("Match baseline globals")]
 public sealed class ReplayTransientBoundTests
 {
+    [Trait("RequiresGameContent", "true")]
     [Theory]
     [InlineData(false)] [InlineData(true)]
     public void ActualSingleAndLinkedLockjawBombsCannotOutliveReplayWarmup(bool linked)
@@ -21,7 +22,7 @@ public sealed class ReplayTransientBoundTests
         Scene scene = simulation.Scene;
         scene.Match.Phase = MatchPhase.Playing;
         scene.StepHeadlessFrame(advanceMatch: false);
-        PlayerEntity owner = PlayerEntity.Players[0]; owner.ServerActivate(100, Hunter.Sylux, 0);
+        PlayerEntity owner = scene.Players[0]; owner.ServerActivate(100, Hunter.Sylux, 0);
         owner.Position = new Vector3(0, 20000, 0);
         var first = Assert.IsType<BombEntity>(BombEntity.Spawn(owner, Matrix4.CreateTranslation(0, 10000, 0), scene));
         if (!first.Initialized) first.Initialize();

@@ -12,6 +12,7 @@ using Xunit;
 namespace MphRead.Tests
 {
     [Collection("Match baseline globals")]
+    [Trait("RequiresGameContent", "true")]
     public sealed class SpawnDirectorTests
     {
         [Fact]
@@ -22,7 +23,7 @@ namespace MphRead.Tests
             List<PlayerSpawnEntity> spawns = Spawns(scene);
             Assert.True(spawns.Count >= 10);
 
-            PlayerEntity requester = PlayerEntity.Players[0];
+            PlayerEntity requester = scene.Players[0];
             requester.TeamIndex = -1;
             const uint seed = 0x51A7;
             scene.SpawnDirector.Reset(seed);
@@ -44,7 +45,7 @@ namespace MphRead.Tests
         {
             using var fixture = Open(MatchMode.TeamBattle, SpawnPolicy.Enhanced);
             Scene scene = fixture.Scene;
-            PlayerEntity requester = PlayerEntity.Players[0];
+            PlayerEntity requester = scene.Players[0];
             requester.TeamIndex = 0;
             List<PlayerSpawnEntity> spawns = Spawns(scene);
             Assert.Contains(spawns, spawn => spawn.IsActive && spawn.Data.TeamIndex == 1);
@@ -75,7 +76,7 @@ namespace MphRead.Tests
             using var fixture = Open(MatchMode.Battle, SpawnPolicy.Enhanced);
             Scene scene = fixture.Scene;
             List<PlayerSpawnEntity> spawns = Spawns(scene);
-            PlayerEntity requester = PlayerEntity.Players[0];
+            PlayerEntity requester = scene.Players[0];
             requester.ServerActivate(0x5100, Hunter.Samus, -1);
             scene.SpawnDirector.Reset(31);
             foreach (PlayerSpawnEntity spawn in spawns) { spawn.Cooldown = 0; }
@@ -84,7 +85,7 @@ namespace MphRead.Tests
 
             for (int slot = 1; slot < PlayerEntity.SlotCapacity; slot++)
             {
-                PlayerEntity enemy = PlayerEntity.Players[slot];
+                PlayerEntity enemy = scene.Players[slot];
                 enemy.ServerActivate((ulong)(0x5100 + slot), (Hunter)(slot % 7), -1);
                 enemy.Position = target.Position + new Vector3((slot % 3) * 0.5f, 0, (slot % 4) * 0.5f);
                 enemy.PrevPosition = enemy.Position;
@@ -98,9 +99,9 @@ namespace MphRead.Tests
 
             for (int slot = 2; slot < PlayerEntity.SlotCapacity; slot++)
             {
-                PlayerEntity.Players[slot].ServerDeactivate();
+                scene.Players[slot].ServerDeactivate();
             }
-            PlayerEntity occlusionEnemy = PlayerEntity.Players[1];
+            PlayerEntity occlusionEnemy = scene.Players[1];
             bool foundOccluded = false;
             foreach (PlayerSpawnEntity candidate in spawns)
             {
@@ -126,7 +127,7 @@ namespace MphRead.Tests
         {
             using var fixture = Open(MatchMode.Battle, SpawnPolicy.Enhanced);
             Scene scene = fixture.Scene;
-            PlayerEntity requester = PlayerEntity.Players[0];
+            PlayerEntity requester = scene.Players[0];
             requester.TeamIndex = -1;
             List<PlayerSpawnEntity> spawns = Spawns(scene);
             PlayerSpawnEntity target = spawns[0];
@@ -171,7 +172,7 @@ namespace MphRead.Tests
         {
             using var fixture = Open(MatchMode.Battle, SpawnPolicy.Enhanced);
             Scene scene = fixture.Scene;
-            PlayerEntity requester = PlayerEntity.Players[0];
+            PlayerEntity requester = scene.Players[0];
             requester.TeamIndex = -1;
             List<PlayerSpawnEntity> spawns = Spawns(scene);
             foreach (PlayerSpawnEntity spawn in spawns) { spawn.Cooldown = 0; }
@@ -210,7 +211,7 @@ namespace MphRead.Tests
                 scene.AddEntity(extra);
                 spawns.Add(extra);
             }
-            PlayerEntity requester = PlayerEntity.Players[0];
+            PlayerEntity requester = scene.Players[0];
             requester.TeamIndex = 0;
             scene.ResetFrameCount();
             const uint seed = 0x12345678;
@@ -225,7 +226,7 @@ namespace MphRead.Tests
                     }
                     for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
                     {
-                        PlayerEntity player = PlayerEntity.Players[slot];
+                        PlayerEntity player = scene.Players[slot];
                         player.Health = scenario == 1 ? 99 : 0;
                         player.Position = spawns[slot % spawns.Count].Position;
                     }
@@ -239,12 +240,12 @@ namespace MphRead.Tests
                     if (scenario == 4)
                         foreach (PlayerSpawnEntity point in spawns) SetActive(scene, point, false);
                     PlayerSpawnEntity? expected = FrozenClassic(scene, requester);
-                    uint rng1 = Rng.Rng1, rng2 = Rng.Rng2;
+                    uint rng1 = scene.Random.Rng1, rng2 = scene.Random.Rng2;
                     scene.SpawnDirector.Reset(seed);
                     PlayerSpawnEntity? actual = scene.SpawnDirector.Select(requester);
                     Assert.Same(expected, actual);
                     Assert.Equal(seed, scene.SpawnDirector.RandomState);
-                    Assert.Equal(rng1, Rng.Rng1); Assert.Equal(rng2, Rng.Rng2);
+                    Assert.Equal(rng1, scene.Random.Rng1); Assert.Equal(rng2, scene.Random.Rng2);
                     if (actual != null) Assert.Equal((ushort)4, actual.Cooldown);
                     if (scenario == 3) Assert.Same(spawns[27], actual);
                 }
@@ -389,7 +390,7 @@ namespace MphRead.Tests
         private static PlayerEntity Activate(SimulationFixture fixture, Hunter hunter, bool cancel, bool alt)
         {
             fixture.Scene.Match.ApplyRules(fixture.Scene.Match.Rules.With(cancelSpawnProtectionOnOffensiveAction: cancel));
-            PlayerEntity player = PlayerEntity.Players[0];
+            PlayerEntity player = fixture.Scene.Players[0];
             player.ServerActivate(0xABCD, hunter, -1);
             if (alt) player.ModForceForm(true); // real form transition setup; the tested attack still uses normalized input.
             Assert.Equal(alt, player.IsAltForm);
@@ -529,7 +530,7 @@ namespace MphRead.Tests
                 bool playerOnly = false)
             {
                 uint tick = unchecked((uint)Scene.FrameCount);
-                using var scope = _simulation.Combat.Enter(tick);
+                _simulation.Combat.BeginTick(tick);
                 player.CaptureServerState();
                 player.ApplyNetworkInput(new InputCommand(tick, tick, tick, held, pressed, player.FacingVector, 255));
                 if (playerOnly) player.Process();

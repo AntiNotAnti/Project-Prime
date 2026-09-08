@@ -320,52 +320,20 @@ public sealed class MatchBaselineTests
     // No data, sound, save files or graphics initialization. Restore every touched global even on assertion failure.
     internal sealed class State : IDisposable
     {
-        private readonly List<(FieldInfo Field, object? Value)> _values = new();
-        private readonly List<(Array Original, Array Copy)> _arrays = new();
-        public PlayerEntity[] Players { get; } = PlayerEntity._players;
-        private readonly PlayerEntity[] _players;
-        private readonly int _count = PlayerEntity.PlayerCount, _main = PlayerEntity.MainPlayerIndex;
-        private readonly CameraSequence? _intro = CameraSequence.Intro;
+        public MatchPlayers Players => Scene.Players;
         private readonly bool _serverMode = Read.ServerMode;
         private Scene? _scene;
         public Scene Scene => _scene ?? throw new ObjectDisposedException(nameof(State));
-
         public State()
         {
-            _players = (PlayerEntity[])Players.Clone();
-            try
-            {
-                // Snapshot and clear the static fields before constructing a
-                // fresh scene. Its runtime arrays are scene-owned, while the
-                // remaining fields are process-wide save and transition state
-                // that must be restored after the scene is gone.
-                foreach (FieldInfo field in typeof(GameState).GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
-                {
-                    object? value = field.GetValue(null);
-                    if (value is Array array) { _arrays.Add((array, (Array)array.Clone())); Array.Clear(array); }
-                    else if (!field.IsInitOnly && !field.IsLiteral) { _values.Add((field, value)); }
-                }
-                Array.Clear(Players);
-                _scene = Scene.CreateHeadless();
-                for (int i = 0; i < Players.Length; i++)
-                {
-                    Players[i] = (PlayerEntity)RuntimeHelpers.GetUninitializedObject(typeof(PlayerEntity));
-                    Players[i].TeamIndex = i;
-                }
-                PlayerEntity.PlayerCount = 0; PlayerEntity.MainPlayerIndex = 0;
-                CameraSequence.Intro = null;
-            }
-            catch
-            {
-                Dispose();
-                throw;
-            }
+            _scene = Scene.CreateHeadless();
+            for (int slot = 0; slot < Players.Count; slot++) Players[slot].TeamIndex = slot;
         }
         public void Activate(int slot, int team)
         {
             Players[slot].TeamIndex = team;
             Players[slot].LoadFlags = LoadFlags.Initial | LoadFlags.Active;
-            PlayerEntity.PlayerCount++;
+            Scene.Players.ActiveCount++;
         }
 
         public MatchRuntime Configure(GameMode mode)
@@ -387,11 +355,6 @@ public sealed class MatchBaselineTests
             }
             finally
             {
-                foreach (var entry in _arrays) { Array.Copy(entry.Copy, entry.Original, entry.Copy.Length); }
-                foreach (var entry in _values) { entry.Field.SetValue(null, entry.Value); }
-                Array.Copy(_players, Players, Players.Length);
-                PlayerEntity.PlayerCount = _count; PlayerEntity.MainPlayerIndex = _main;
-                CameraSequence.Intro = _intro;
                 Read.ServerMode = _serverMode;
             }
         }

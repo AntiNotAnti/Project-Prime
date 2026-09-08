@@ -11,6 +11,7 @@ namespace MphRead.Tests;
 [Collection("Match baseline globals")]
 public sealed class SpireAltAttackTests
 {
+    [Trait("RequiresGameContent", "true")]
     [Fact]
     public void SpireAltAttackRocksFollowCpuMovementWithoutRendering()
     {
@@ -25,7 +26,7 @@ public sealed class SpireAltAttackTests
                 Mode = GameMode.Battle
             });
 
-            PlayerEntity player = PlayerEntity.Players[0];
+            PlayerEntity player = simulation.Scene.Players[0];
             player.ServerActivate(0x51, Hunter.Spire, team: 0);
             player.Flags2 |= PlayerFlags2.AltAttack;
             player._altModel.SetAnimation((int)SpireAltAnim.Attack, AnimFlags.NoLoop | AnimFlags.Paused);

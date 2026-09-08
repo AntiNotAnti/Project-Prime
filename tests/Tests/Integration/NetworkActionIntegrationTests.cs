@@ -18,6 +18,7 @@ namespace MphRead.Tests;
 [Collection("Match baseline globals")]
 public sealed class NetworkActionIntegrationTests
 {
+    [Trait("RequiresGameContent", "true")]
     [Fact]
     public void Amhe1UdpEdgesReachAuthoritativeSimulationOnceUnderLossAndReordering()
     {
@@ -76,11 +77,11 @@ public sealed class NetworkActionIntegrationTests
             SendAndTickAt(serverTransport, server, simulation, client, history, ref sequence,
                 ref currentTick, edge, edge);
             RecordProcessed(peer, simulation, processed);
-            spectatingObserved |= PlayerEntity.Players[peer.Slot].Flags2.TestFlag(PlayerFlags2.Spectating);
+            spectatingObserved |= simulation.Scene.Players[peer.Slot].Flags2.TestFlag(PlayerFlags2.Spectating);
             SendAndTickAt(serverTransport, server, simulation, client, history, ref sequence,
                 ref currentTick, InputButtons.None, InputButtons.None);
             RecordProcessed(peer, simulation, processed);
-            spectatingObserved |= PlayerEntity.Players[peer.Slot].Flags2.TestFlag(PlayerFlags2.Spectating);
+            spectatingObserved |= simulation.Scene.Players[peer.Slot].Flags2.TestFlag(PlayerFlags2.Spectating);
         }
 
         // Let the delayed/reordered bundles arrive and drain the exact command
@@ -90,7 +91,7 @@ public sealed class NetworkActionIntegrationTests
             SendAndTickAt(serverTransport, server, simulation, client, history, ref sequence,
                 ref currentTick, InputButtons.None, InputButtons.None);
             RecordProcessed(peer, simulation, processed);
-            spectatingObserved |= PlayerEntity.Players[peer.Slot].Flags2.TestFlag(PlayerFlags2.Spectating);
+            spectatingObserved |= simulation.Scene.Players[peer.Slot].Flags2.TestFlag(PlayerFlags2.Spectating);
         }
 
         foreach ((InputButtons edge, uint edgeSequence) in expected)
@@ -138,7 +139,7 @@ public sealed class NetworkActionIntegrationTests
         StepAndSend(serverTransport, server, simulation, client, 2);
 
         ServerPeer peer = Assert.IsType<ServerPeer>(server.Find(client.Connection!.Id));
-        PlayerEntity player = PlayerEntity.Players[peer.Slot];
+        PlayerEntity player = simulation.Scene.Players[peer.Slot];
         var history = new List<InputCommand>();
         uint sequence = 0;
         uint tick = 3;
@@ -242,7 +243,7 @@ public sealed class NetworkActionIntegrationTests
         StepAndSend(transport, server, simulation, client, 2);
 
         ServerPeer peer = Assert.IsType<ServerPeer>(server.Find(client.Connection!.Id));
-        PlayerEntity carrier = PlayerEntity.Players[peer.Slot];
+        PlayerEntity carrier = simulation.Scene.Players[peer.Slot];
         Assert.True(float.IsFinite(carrier.Position.X) && float.IsFinite(carrier.Position.Z), carrier.Position.ToString());
         // Some AMHE1 spawn records omit a horizontal facing. Give this
         // fixture the canonical forward vector before carrying an objective;
@@ -336,7 +337,7 @@ public sealed class NetworkActionIntegrationTests
     {
         Span<byte> packet = stackalloc byte[NetConfig.MaxPacketSize];
         var snapshot = new SnapshotPacket(tick, tick, server.MatchId,
-            0, false, Rng.Rng1, Rng.Rng2);
+            0, false, simulation.Scene.Random.Rng1, simulation.Scene.Random.Rng2);
         int length = snapshot.Write(packet, simulation.States);
         ServerPeer? peer = server.Find(client.Connection?.Id ?? 0);
         if (peer?.Connection.State is NetConnectionState.Playing or NetConnectionState.Ready)
