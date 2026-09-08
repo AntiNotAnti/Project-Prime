@@ -541,11 +541,11 @@ namespace MphRead.Mods.Network
             // a different scenario than the one it reported.
             if (NetSession.Active && self.SlotIndex >= 0)
             {
-                int count = PlayerEntity.Players.Count;
+                int count = self._scene.Players.Count;
                 for (int step = 1; step < count; step++)
                 {
                     int targetSlot = (self.SlotIndex + step) % count;
-                    PlayerEntity target = PlayerEntity.Players[targetSlot];
+                    PlayerEntity target = self._scene.Players[targetSlot];
                     if (target != self && target.LoadFlags.TestFlag(LoadFlags.Active)
                         && target.LoadFlags.TestFlag(LoadFlags.Spawned) && target.Health > 0)
                     {
@@ -555,9 +555,9 @@ namespace MphRead.Mods.Network
             }
             PlayerEntity? best = null;
             float bestDistance = Single.MaxValue;
-            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            for (int i = 0; i < self._scene.Players.Count; i++)
             {
-                PlayerEntity other = PlayerEntity.Players[i];
+                PlayerEntity other = self._scene.Players[i];
                 if (other == self || !other.LoadFlags.TestFlag(LoadFlags.Active)
                     || !other.LoadFlags.TestFlag(LoadFlags.Spawned) || other.Health == 0)
                 {

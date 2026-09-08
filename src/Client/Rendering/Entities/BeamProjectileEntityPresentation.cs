@@ -140,7 +140,7 @@ namespace MphRead.Entities
                 {
                     DrawTrail4(height: 0.15f, range: 0.5f, segments: 10);
                 }
-                else if (_entity.Owner == PlayerEntity.Main)
+                else if (_entity.Owner == _scene.LocalPlayer!)
                 {
                     DrawTrail4(height: 0.025f, range: 0.35f, segments: 5);
                 }

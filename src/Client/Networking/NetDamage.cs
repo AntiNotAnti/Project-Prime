@@ -418,8 +418,8 @@ namespace MphRead.Mods.Network
             {
                 return; // already down here; the respawn is what matters next
             }
-            PlayerEntity? attacker = state.AttackerSlot < PlayerEntity.Players.Count
-                ? PlayerEntity.Players[state.AttackerSlot]
+            PlayerEntity? attacker = state.AttackerSlot < scene.Players.Count
+                ? scene.Players[state.AttackerSlot]
                 : null;
             bool lethal = state.Health == 0;
             // Never let the replay decide the outcome: the authority already

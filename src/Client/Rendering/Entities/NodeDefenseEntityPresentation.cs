@@ -30,7 +30,7 @@ namespace MphRead.Entities
                     {
                         color = Metadata.TeamColors[_entity._occupyingTeam];
                     }
-                    else if (_entity._occupyingTeam == PlayerEntity.Main.TeamIndex)
+                    else if (_entity._occupyingTeam == _scene.LocalPlayer!.TeamIndex)
                     {
                         color = NodeDefenseEntity._selfColor;
                     }
@@ -53,9 +53,9 @@ namespace MphRead.Entities
             }
             else
             {
-                if (_entity._currentTeam == PlayerEntity.Main.TeamIndex)
+                if (_entity._currentTeam == _scene.LocalPlayer!.TeamIndex)
                 {
-                    if (!blinking || _entity._occupyingTeam == PlayerEntity.Main.TeamIndex)
+                    if (!blinking || _entity._occupyingTeam == _scene.LocalPlayer!.TeamIndex)
                     {
                         color = NodeDefenseEntity._selfColor;
                     }
@@ -64,7 +64,7 @@ namespace MphRead.Entities
                         color = NodeDefenseEntity._enemyColor;
                     }
                 }
-                else if (blinking && _entity._occupyingTeam == PlayerEntity.Main.TeamIndex)
+                else if (blinking && _entity._occupyingTeam == _scene.LocalPlayer!.TeamIndex)
                 {
                     color = NodeDefenseEntity._selfColor;
                 }

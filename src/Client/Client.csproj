@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Game/Game.csproj" />
+    <ProjectReference Include="../Server.Shared/Server.Shared.csproj" />
     <ProjectReference Include="../Shared.Replay/Shared.Replay.csproj" />
     <ProjectReference Include="../Audio.Ncsf/Audio.Ncsf.csproj" />
 
@@ -111,21 +112,5 @@
     <Compile Include="../Shared/Hosting/BuildVersion.cs" Link="Shared/Hosting/BuildVersion.cs" />
     <Compile Include="../Shared/Hosting/ConsoleSetup.cs" Link="Shared/Hosting/ConsoleSetup.cs" />
     <Compile Include="../Shared/Hosting/RuntimePlatform.cs" Link="Shared/Hosting/RuntimePlatform.cs" />
-    <Compile Include="../Shared/Hosting/ServerProcessHost.cs" Link="Shared/Hosting/ServerProcessHost.cs" />
   </ItemGroup>
-  <!-- Host is a separate executable, shipped as content rather than referenced. -->
-  <PropertyGroup>
-    <HostServerArtifactsPath Condition="'$(ArtifactsPath)' != ''">$(ArtifactsPath)/client-host-server</HostServerArtifactsPath>
-    <HostServerArtifactsPath Condition="'$(HostServerArtifactsPath)' == ''">$(MSBuildProjectDirectory)/obj/host-server</HostServerArtifactsPath>
-  </PropertyGroup>
-  <Target Name="BuildHostServer" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
-    <MSBuild Projects="../Server/Server.csproj" Targets="Restore;Publish" BuildInParallel="false"
-      RemoveProperties="OutputPath;OutDir;BaseIntermediateOutputPath;IntermediateOutputPath;RuntimeIdentifiers;NoBuild;NoRestore"
-      Properties="Configuration=$(Configuration);ArtifactsPath=$(HostServerArtifactsPath)/build;RuntimeIdentifier=;SelfContained=false;PublishSingleFile=false;PublishDir=$([System.IO.Path]::GetFullPath('$(TargetDir)server/'))" />
-  </Target>
-  <Target Name="PublishHostServer" AfterTargets="Publish" Condition="'$(DesignTimeBuild)' != 'true'">
-    <MSBuild Projects="../Server/Server.csproj" Targets="Restore;Publish" BuildInParallel="false"
-      RemoveProperties="OutputPath;OutDir;BaseIntermediateOutputPath;IntermediateOutputPath;RuntimeIdentifiers;NoBuild;NoRestore"
-      Properties="Configuration=$(Configuration);ArtifactsPath=$(HostServerArtifactsPath)/publish/$(RuntimeIdentifier);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishSingleFile=$(PublishSingleFile);PublishDir=$([System.IO.Path]::GetFullPath('$(PublishDir)server/'))" />
-  </Target>
 </Project>

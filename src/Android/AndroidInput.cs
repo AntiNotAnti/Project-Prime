@@ -234,11 +234,11 @@ namespace MphRead.Droid
         /// focus. Goes straight to the state rather than through
         /// <see cref="Apply"/>, which only ever records presses now.
         /// </summary>
-        public void ReleaseAll()
+        public void ReleaseAll(Scene? scene)
         {
             BeginFrame();
             CommitFrame();
-            ClientPlayerBindings? controls = PlayerEntity.Main?.GetPresentation().Bindings;
+            ClientPlayerBindings? controls = scene?.LocalPlayer?.GetPresentation().Bindings;
             if (controls == null)
             {
                 return;

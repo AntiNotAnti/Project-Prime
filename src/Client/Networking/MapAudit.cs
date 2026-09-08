@@ -280,15 +280,15 @@ namespace MphRead.Mods.Network
             // than thirty rooms to get through.
             NetTestScript.PhaseSeconds = Math.Max(1.5, seconds / NetTestScript.PhaseCount);
             // Offline, MaxPlayers is still the four a DS match could hold, so
-            // PlayerEntity.Create hands back null for every slot past the
+            // Scene.Players.Create hands back null for every slot past the
             // fourth and those players silently never exist.
-            PlayerEntity.MaxPlayers = Math.Max(PlayerEntity.MaxPlayers, players);
             ForceEveryone = true;
             // Nothing else in the program reads these; the audit is the only
             // caller that wants to know a pad fired.
             Mods.WorldEvents.Watching = true;
             Mods.WorldEvents.Reset();
-            Scene = new Scene(preserveNicknames: NetSession.Active) { Services = new ClientSceneServices(forceSpawn: true) };
+            Scene = new Scene(features: ClientMatchFeatures.Capture()) { Services = new ClientSceneServices(forceSpawn: true) };
+            Scene.Players.MaxPlayers = Math.Max(Scene.Players.MaxPlayers, players);
             _ = new ScenePresentation(Scene, Size, KeyboardState, MouseState, _ => { }, Close);
             // A different hunter per slot, cycling, so one run exercises
             // several alt forms, several affinity weapons and several
@@ -297,9 +297,9 @@ namespace MphRead.Mods.Network
             {
                 Scene.AddPlayer((Hunter)(i % 7), recolor: 0, team: -1);
             }
-            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            for (int i = 0; i < Scene.Players.Count; i++)
             {
-                PlayerEntity player = PlayerEntity.Players[i];
+                PlayerEntity player = Scene.Players[i];
                 player.IsBot = bots && i > 0;
                 player.BotLevel = bots ? 1 : 0;
                 if (i >= players)
@@ -307,8 +307,8 @@ namespace MphRead.Mods.Network
                     player.LoadFlags &= ~LoadFlags.Active;
                 }
             }
-            PlayerEntity.PlayerCount = players;
-            PlayerEntity.MainPlayerIndex = 0;
+            Scene.Players.ActiveCount = players;
+            Scene.LocalPlayerSlot = 0;
             Scene.AddRoom(room, mode, playerCount: NetConfig.RoomPlayerCount);
         }
 
@@ -388,9 +388,9 @@ namespace MphRead.Mods.Network
         /// </summary>
         private void Drive()
         {
-            for (int slot = 0; slot < _players && slot < PlayerEntity.Players.Count; slot++)
+            for (int slot = 0; slot < _players && slot < Scene.Players.Count; slot++)
             {
-                PlayerEntity player = PlayerEntity.Players[slot];
+                PlayerEntity player = Scene.Players[slot];
                 if (!player.LoadFlags.TestFlag(LoadFlags.Active))
                 {
                     continue;
@@ -450,11 +450,11 @@ namespace MphRead.Mods.Network
                 CollectProbeTargets();
                 _probeIndex = 0;
             }
-            if (_probeIndex >= _probeTargets.Count || _probeSlot >= PlayerEntity.Players.Count)
+            if (_probeIndex >= _probeTargets.Count || _probeSlot >= Scene.Players.Count)
             {
                 return false;
             }
-            PlayerEntity player = PlayerEntity.Players[_probeSlot];
+            PlayerEntity player = Scene.Players[_probeSlot];
             EntityBase target = _probeTargets[_probeIndex];
             if (!_probePlaced)
             {
@@ -569,11 +569,11 @@ namespace MphRead.Mods.Network
                 _afflictSetUpWait = 0;
                 _afflictTried[_afflictIndex] = true;
                 _afflictFrames = 0;
-                _afflictVictimHealth = PlayerEntity.Players[_afflictVictim].Health;
+                _afflictVictimHealth = Scene.Players[_afflictVictim].Health;
                 return true;
             }
-            PlayerEntity shooter = PlayerEntity.Players[_afflictShooter];
-            PlayerEntity victim = PlayerEntity.Players[_afflictVictim];
+            PlayerEntity shooter = Scene.Players[_afflictShooter];
+            PlayerEntity victim = Scene.Players[_afflictVictim];
             if (!Alive(shooter) || !Alive(victim))
             {
                 // One of them is between lives. Ask to come back and wait,
@@ -672,9 +672,9 @@ namespace MphRead.Mods.Network
         {
             int shooter = -1;
             int victim = -1;
-            for (int slot = 0; slot < _players && slot < PlayerEntity.Players.Count; slot++)
+            for (int slot = 0; slot < _players && slot < Scene.Players.Count; slot++)
             {
-                PlayerEntity player = PlayerEntity.Players[slot];
+                PlayerEntity player = Scene.Players[slot];
                 if (!Alive(player))
                 {
                     continue;
@@ -692,8 +692,8 @@ namespace MphRead.Mods.Network
             {
                 return false;
             }
-            PlayerEntity shooterPlayer = PlayerEntity.Players[shooter];
-            PlayerEntity victimPlayer = PlayerEntity.Players[victim];
+            PlayerEntity shooterPlayer = Scene.Players[shooter];
+            PlayerEntity victimPlayer = Scene.Players[victim];
             // In front of the victim rather than at an arbitrary bearing: the
             // floor it is standing on is the floor the shooter needs too.
             Vector3 facing = victimPlayer.FacingVector;
@@ -800,9 +800,9 @@ namespace MphRead.Mods.Network
         private void Observe()
         {
             _spawned = 0;
-            for (int slot = 0; slot < _players && slot < PlayerEntity.Players.Count; slot++)
+            for (int slot = 0; slot < _players && slot < Scene.Players.Count; slot++)
             {
-                PlayerEntity player = PlayerEntity.Players[slot];
+                PlayerEntity player = Scene.Players[slot];
                 if (!player.LoadFlags.TestFlag(LoadFlags.Active)
                     || !player.LoadFlags.TestFlag(LoadFlags.Spawned))
                 {
@@ -993,7 +993,7 @@ namespace MphRead.Mods.Network
             {
                 return false;
             }
-            PlayerEntity player = PlayerEntity.Main;
+            PlayerEntity player = Scene.LocalPlayer!;
             if (_spawnFrames < 0)
             {
                 // Between lives: ask to come back rather than measure a frame
@@ -1051,7 +1051,7 @@ namespace MphRead.Mods.Network
             {
                 _spawnFailures++;
             }
-            PlayerEntity main = PlayerEntity.Main;
+            PlayerEntity main = Scene.LocalPlayer!;
             Console.WriteLine($"RENDERSPAWN {_room} | spawn {_spawnIndex} "
                 + $"at {at.X:0.0},{at.Y:0.0},{at.Z:0.0} "
                 + $"| at spawn {_spawnLitAtSpawn * 100:0.0}% "
@@ -1292,9 +1292,9 @@ namespace MphRead.Mods.Network
                     if (!_everSpawned[i])
                     {
                         missing.Append(missing.Length > 0 ? ", " : "");
-                        missing.Append($"slot {i} ({PlayerEntity.Players[i].Hunter}, "
-                            + $"hp {PlayerEntity.Players[i].Health}, "
-                            + $"respawn {PlayerEntity.Players[i].RespawnTimer})");
+                        missing.Append($"slot {i} ({Scene.Players[i].Hunter}, "
+                            + $"hp {Scene.Players[i].Health}, "
+                            + $"respawn {Scene.Players[i].RespawnTimer})");
                     }
                 }
                 problems.Add($"only {spawnedEver} of {_players} players ever reached the map "
@@ -1324,7 +1324,7 @@ namespace MphRead.Mods.Network
             }
             for (int i = 0; i < _players; i++)
             {
-                PlayerEntity player = PlayerEntity.Players[i];
+                PlayerEntity player = Scene.Players[i];
                 if (_everSpawned[i] && !player.ModCanBeHurt())
                 {
                     problems.Add($"slot {i} ({player.Hunter}) cannot be hurt by any beam");

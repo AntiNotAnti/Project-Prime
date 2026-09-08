@@ -64,14 +64,14 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         /// <summary>Open the menu, or bring the one already up to the front.</summary>
-        public static bool Open()
+        public static bool Open(Scene scene)
         {
             if (_open != null)
             {
                 _open.Activate();
                 return true;
             }
-            var window = new PauseMenuWindow();
+            var window = new PauseMenuWindow(scene);
             _open = window;
             window.Show();
             window.Activate();
@@ -98,8 +98,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         public static bool IsOpen => _open != null;
 
-        private PauseMenuWindow()
+        private readonly Scene _scene;
+
+        private PauseMenuWindow(Scene scene)
         {
+            _scene = scene;
             // Not just the product name: the game window carries that, and two
             // windows with one title is what an alt-tab list cannot tell apart.
             Title = $"{Mods.Branding.Name} - paused";
@@ -127,8 +130,8 @@ namespace MphRead.Mods.Launcher.Gui
                 Close();
             };
             _view.SettingsRequested += (_, _) => OpenSettings();
-            _view.SpectateRequested += (_, _) => { SpectatorMode.Start(); Close(); };
-            _view.RejoinRequested += (_, _) => { SpectatorMode.Rejoin(); Close(); };
+            _view.SpectateRequested += (_, _) => { SpectatorMode.Start(_scene); Close(); };
+            _view.RejoinRequested += (_, _) => { SpectatorMode.Rejoin(_scene); Close(); };
             _view.RecordToggleRequested += (_, _) =>
             {
                 if (DemoRecorder.IsRecording)
@@ -252,7 +255,7 @@ namespace MphRead.Mods.Launcher.Gui
             try
             {
                 MenuSettings settings = ClientSettings.LoadSettings();
-                var window = new SettingsWindow(settings, inGame: true);
+                var window = new SettingsWindow(settings, inGame: true, scene: _scene);
                 _openSettings = window;
                 await window.ShowDialog(this);
             }

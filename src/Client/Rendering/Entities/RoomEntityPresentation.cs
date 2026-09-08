@@ -150,7 +150,7 @@ namespace MphRead.Entities
         private void DrawRoomParts(ModelInstance roomInst)
         {
             _entity._excludedNodes.Clear();
-            if (PlayerEntity.Main.MorphCamera != null)
+            if (_scene.LocalPlayer!.MorphCamera != null)
             {
                 for (int i = 0; i < _entity._morphCameraExcludeNodes.Count; i++)
                 {
@@ -462,7 +462,7 @@ namespace MphRead.Entities
 
         internal void UpdateRoomParts()
         {
-            NodeRef curNodeRef = PlayerEntity.Main.CameraInfo.NodeRef;
+            NodeRef curNodeRef = _scene.LocalPlayer!.CameraInfo.NodeRef;
             if (Presentation.CameraMode != CameraMode.Player || curNodeRef.PartIndex == -1)
             {
                 return;

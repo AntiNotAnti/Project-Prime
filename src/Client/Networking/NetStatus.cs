@@ -9,9 +9,9 @@ namespace MphRead.Mods.Network
     ///
     /// Every string here reads as an empty one until it is set. This is a
     /// struct, so <c>default</c> is a perfectly ordinary value of it -- the
-    /// server browser holds one for every row it has not probed yet -- and a
-    /// plain auto-property would hand those callers a null to call .Length on.
-    /// It did exactly that, on the first row of the first list anybody opened.
+    /// diagnostic probe holds one while an endpoint has not answered yet --
+    /// and a plain auto-property would hand those callers a null to call
+    /// .Length on.
     /// </summary>
     public readonly struct ServerStatus
     {
@@ -88,8 +88,9 @@ namespace MphRead.Mods.Network
     }
 
     /// <summary>
-    /// Asks a server what is running, for a launcher to show before anybody
-    /// commits to joining.
+    /// Read-only compatibility diagnostics for an explicitly supplied
+    /// endpoint. Public launcher admission goes through the Node browser;
+    /// this helper does not select or start a game.
     ///
     /// Status queries are always read-only; incompatible legacy servers are
     /// never joined as a fallback probe.

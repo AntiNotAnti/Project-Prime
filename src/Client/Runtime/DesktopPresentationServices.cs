@@ -16,7 +16,6 @@ namespace MphRead.Mods
    ScreenCapture.PngWriter = WritePng;
    ThumbnailHost.Current = new DesktopThumbnailHost();
    ClientInputState.ReadPauseOpen = () => PauseMenu.Open;
-   Network.NetHostSession.Host = new Network.DesktopNetHostSession();
   }
   private static void WritePng(byte[] pixels, int width, int height, string path)
   {

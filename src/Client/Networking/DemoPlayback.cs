@@ -21,8 +21,9 @@ namespace MphRead.Mods.Network
         public static uint? WorldServerTick => IsModern && _modern.World.HasState ? _modern.World.ServerTick : null;
         public static bool IsModern => IsActive && _reader != null && DemoFile.IsAuthoritativeProtocol(_reader.ProtocolVersion);
         public static bool ApplyingSnapshot => IsModern && _modern.ApplyingSnapshot;
+        internal static void ApplyRoster(Scene scene) { if (IsModern) { _modern.ApplyRoster(scene); } }
         public static void BeforeSimulation(Scene scene) { if (IsModern) { _modern.BeforeSimulation(scene); } }
-        public static void AfterSimulation() { if (IsModern) { _modern.AfterSimulation(); } }
+        public static void AfterSimulation(Scene scene) { if (IsModern) { _modern.AfterSimulation(scene); } }
         private static DemoRecord? _pending;
         /// <summary>The frame of the recording about to be replayed.</summary>
         private static uint _frame;
@@ -160,7 +161,7 @@ namespace MphRead.Mods.Network
 
         /// <summary>
         /// Open the file and wind it forward to the first match info, the
-        /// same shape as <see cref="NetLaunch.Join"/> -- true once
+        /// same shape as the live Worker handoff -- true once
         /// <c>NetSession.ServerMatch</c> knows what room to load.
         ///
         /// Blocking, and called off the UI thread for that reason, but no

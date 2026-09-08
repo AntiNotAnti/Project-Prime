@@ -25,11 +25,11 @@ namespace MphRead.Mods.Launcher
         /// <summary>
         /// The roll, held for the length of one launch.
         ///
-        /// It has to be held, because a launch asks more than once. Joining a
-        /// server announces the hunter (<c>NetLaunch.Join</c>) *before* the
-        /// launch plan carrying it is built, so two independent rolls would
-        /// put this player on the roster as one hunter and draw them as
-        /// another -- on their own screen and on everybody else's.
+        /// It has to be held, because a launch asks more than once. The Node
+        /// handoff announces the hunter before the launch plan carrying it is
+        /// built, so two independent rolls would put this player on the roster
+        /// as one hunter and draw them as another -- on their own screen and
+        /// on everybody else's.
         /// </summary>
         private static Hunter _rolled = Hunter.Random;
 
@@ -58,7 +58,6 @@ namespace MphRead.Mods.Launcher
     {
         None = 0,
         Online = 1,
-        Host = 3,
         Demo = 5
     }
 
@@ -80,9 +79,9 @@ namespace MphRead.Mods.Launcher
 
         public void Validate()
         {
-            if (Kind is not (LaunchKind.Online or LaunchKind.Host or LaunchKind.Demo))
+            if (Kind is not (LaunchKind.Online or LaunchKind.Demo))
             {
-                throw new ArgumentException("Only online, hosted and demo sessions are supported.", nameof(Kind));
+                throw new ArgumentException("Only Node-admitted online and demo sessions are supported.", nameof(Kind));
             }
         }
 

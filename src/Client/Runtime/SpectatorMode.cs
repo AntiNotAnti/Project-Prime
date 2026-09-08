@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using MphRead.Entities;
 
 namespace MphRead.Mods
@@ -10,10 +9,10 @@ namespace MphRead.Mods
     /// own (<see cref="FreeCamera"/>), and a left click moves into the
     /// players, one per click, in first person as if playing as them.
     ///
-    /// The whole thing is one pointer swap: <see cref="PlayerEntity.Main"/>
+    /// The whole thing is one pointer swap: <see cref="Scene.LocalPlayer"/>
     /// is already what the camera, the HUD and the weapon viewmodel all key
     /// off (see <c>Mods.Network.NetPlayerSetup</c>), so pointing
-    /// <see cref="PlayerEntity.MainPlayerIndex"/> at somebody else's slot
+    /// <see cref="Scene.LocalPlayerSlot"/> at somebody else's slot
     /// makes every one of those follow them for free. The one thing that
     /// pointer does not touch is whose slot real hardware input reaches --
     /// that is <c>Network.NetHooks.LocalSlot</c>, unchanged here -- so
@@ -26,12 +25,12 @@ namespace MphRead.Mods
         public static bool IsSpectating { get; private set; }
         public static bool WaitingForNextMatch { get; private set; }
 
-        internal static void ApplyWaitingForMatch(bool waiting)
+        internal static void ApplyWaitingForMatch(Scene scene, bool waiting)
         {
             bool wasWaiting = WaitingForNextMatch;
             WaitingForNextMatch = waiting;
-            if (waiting) Start(watchSomeone: true);
-            else if (wasWaiting) Rejoin();
+            if (waiting) Start(scene, watchSomeone: true);
+            else if (wasWaiting) Rejoin(scene);
         }
 
         /// <summary>
@@ -50,9 +49,9 @@ namespace MphRead.Mods
         /// The camera this mode wants, for the render loop to act on: true
         /// for the free one, false for a player's, null for nothing pending.
         ///
-        /// Both callers -- the pause menu's Spectate and Rejoin entries --
-        /// run on the game's own thread, but neither has the scene to hand,
-        /// and the camera is the scene's. So they leave the decision here and
+        /// The pause menu passes its scene into Spectate and Rejoin.
+        /// Camera changes still run between frames, so these methods leave
+        /// the decision here and
         /// <c>Scene.OnRenderFrame</c> takes it between frames, the same shape
         /// <c>PauseMenu</c> uses for the window work it cannot do
         /// from a click handler either.
@@ -66,13 +65,13 @@ namespace MphRead.Mods
         /// Skip the overview and go straight to a player, for demo playback,
         /// which has no view of its own to have just left.
         /// </param>
-        public static void Start(bool watchSomeone = false)
+        public static void Start(Scene scene, bool watchSomeone = false)
         {
             if (IsSpectating)
             {
                 return;
             }
-            int next = FindNextActiveSlot(PlayerEntity.MainPlayerIndex);
+            int next = FindNextActiveSlot(scene, scene.LocalPlayerSlot);
             if (watchSomeone && next == -1)
             {
                 // Nobody to watch yet: the demo path calls this every frame
@@ -89,13 +88,13 @@ namespace MphRead.Mods
             // reads this flag into the outgoing snapshot for everyone else.
             int localSlot = Network.NetHooks.LocalSlot;
             if (!Network.AuthoritativePlay.Active
-                && localSlot >= 0 && localSlot < PlayerEntity.Players.Count)
+                && localSlot >= 0 && localSlot < scene.Players.Count)
             {
-                PlayerEntity.Players[localSlot].ModSetSpectating(true);
+                scene.Players[localSlot].ModSetSpectating(true);
             }
             if (watchSomeone)
             {
-                Switch(next);
+                Switch(scene, next);
                 return;
             }
             // The overview first, whether or not there is anybody to watch.
@@ -112,13 +111,13 @@ namespace MphRead.Mods
         /// Left click, while spectating: into the players, and then on to the
         /// next one each click after that.
         /// </summary>
-        public static void CycleNext()
+        public static void CycleNext(Scene scene)
         {
             if (!IsSpectating)
             {
                 return;
             }
-            int next = FindNextActiveSlot(PlayerEntity.MainPlayerIndex);
+            int next = FindNextActiveSlot(scene, scene.LocalPlayerSlot);
             if (next == -1)
             {
                 // Nobody to switch to. In the overview that means the click
@@ -130,7 +129,7 @@ namespace MphRead.Mods
             {
                 _cameraRequest = false;
             }
-            Switch(next);
+            Switch(scene, next);
         }
 
         /// <summary>
@@ -142,7 +141,7 @@ namespace MphRead.Mods
         /// therefore means picking somebody, exactly as a click does, and
         /// where there is nobody to pick it means staying where you are.
         /// </summary>
-        public static void ToggleView()
+        public static void ToggleView(Scene scene)
         {
             if (!IsSpectating)
             {
@@ -150,7 +149,7 @@ namespace MphRead.Mods
             }
             if (FreeCamera)
             {
-                CycleNext();
+                CycleNext(scene);
                 return;
             }
             _cameraRequest = true;
@@ -198,20 +197,20 @@ namespace MphRead.Mods
         /// a HUD for all eight slots up front for players nobody may ever
         /// spectate.
         /// </summary>
-        internal static void SelectTarget(int slot)
+        internal static void SelectTarget(Scene scene, int slot)
         {
             _cameraRequest = false;
-            Switch(slot);
+            Switch(scene, slot);
         }
 
-        private static void Switch(int slot)
+        private static void Switch(Scene scene, int slot)
         {
-            PlayerEntity target = PlayerEntity.Players[slot];
+            PlayerEntity target = scene.Players[slot];
             if (!target.GetPresentation().HudReady)
             {
                 target.GetPresentation().SetUpHud();
             }
-            PlayerEntity.MainPlayerIndex = slot;
+            scene.LocalPlayerSlot = slot;
             // RoomEntity.UpdateRoomParts walks the portal graph outward from
             // Main.CameraInfo.NodeRef to decide which room geometry is
             // active this frame -- not from the player's own NodeRef, which
@@ -239,16 +238,16 @@ namespace MphRead.Mods
         /// left exactly where it was, and only a positive one goes back to
         /// zero.
         /// </summary>
-        public static void Rejoin()
+        public static void Rejoin(Scene scene)
         {
             if (!IsSpectating || WaitingForNextMatch || Network.AuthoritativePlay.Current?.IsObserver == true)
             {
                 return;
             }
             int localSlot = Network.NetHooks.LocalSlot;
-            if (localSlot >= 0 && localSlot < PlayerEntity.Players.Count)
+            if (localSlot >= 0 && localSlot < scene.Players.Count)
             {
-                PlayerEntity.MainPlayerIndex = localSlot;
+                scene.LocalPlayerSlot = localSlot;
             }
             IsSpectating = false;
             ShowScoreboard = false;
@@ -256,10 +255,10 @@ namespace MphRead.Mods
             // cameras was up.
             _cameraRequest = false;
             if (!Network.AuthoritativePlay.Active
-                && localSlot >= 0 && localSlot < PlayerEntity.Players.Count)
+                && localSlot >= 0 && localSlot < scene.Players.Count)
             {
-                PlayerEntity.Players[localSlot].ModSetSpectating(false);
-                PlayerMatchStats stats = PlayerEntity.Players[localSlot].MatchStats;
+                scene.Players[localSlot].ModSetSpectating(false);
+                PlayerMatchStats stats = scene.Players[localSlot].MatchStats;
                 stats.Points = Math.Min(0, stats.Points);
                 stats.Kills = 0;
                 stats.Deaths = 0;
@@ -276,10 +275,10 @@ namespace MphRead.Mods
             _cameraRequest = null;
         }
 
-        private static int FindNextActiveSlot(int fromSlot)
+        private static int FindNextActiveSlot(Scene scene, int fromSlot)
         {
             int localSlot = Network.NetHooks.LocalSlot;
-            IReadOnlyList<PlayerEntity> players = PlayerEntity.Players;
+            var players = scene.Players;
             for (int offset = 1; offset <= players.Count; offset++)
             {
                 int index = (fromSlot + offset) % players.Count;

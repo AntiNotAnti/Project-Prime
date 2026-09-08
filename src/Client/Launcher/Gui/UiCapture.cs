@@ -125,7 +125,6 @@ namespace MphRead.Mods.Launcher.Gui
             // the scroll view carries them.
             yield return ("pausemenu-small", new PauseMenuView(offerWindowMode: true),
                 new Size(560, 320));
-            yield return ("serverbrowser", ServerList(), _windowSize);
         }
 
         /// <summary>
@@ -161,51 +160,6 @@ namespace MphRead.Mods.Launcher.Gui
                 new Network.DemoRecording("sent-to-me.fpdemo", "", now.AddDays(-9), 88_400)
             };
         }
-
-        /// <summary>
-        /// The browser's table, at the width the panel gives it, with rows
-        /// standing in for servers that are not up.
-        ///
-        /// Built here rather than reached through HomeView because the card is
-        /// private to it and only fills in when a directory answers -- and the
-        /// fault this is for (a map name wrapping onto the row below, headings
-        /// running into each other) is a property of the columns and the
-        /// width, not of any real server. Both widths are drawn: the panel's,
-        /// and the 400 the rest of the cards use, so a narrow row is checked
-        /// too.
-        /// </summary>
-        private static Control ServerList()
-        {
-            var stack = new StackPanel { Spacing = 18, Margin = new Thickness(12) };
-            foreach (double width in new[] { 600.0, 400.0 })
-            {
-                var list = new StackPanel { Spacing = 2, Width = width };
-                list.Children.Add(new ServerHeader());
-                foreach ((string name, string room, GameMode mode, int players, int ping) in _sampleServers)
-                {
-                    var row = new ServerRow(name, "203.0.113.7:27888");
-                    row.SetStatus(new ServerStatus
-                    {
-                        Online = true,
-                        RoomKey = room,
-                        Mode = mode,
-                        Players = players,
-                        MaxPlayers = 8,
-                        Latency = ping
-                    });
-                    list.Children.Add(row);
-                }
-                stack.Children.Add(list);
-            }
-            return stack;
-        }
-
-        private static readonly (string, string, GameMode, int, int)[] _sampleServers =
-        {
-            ("net.livetek.fr", "MP3 PROVING GROUND", GameMode.Battle, 3, 41),
-            ("A very long server name indeed", "MP7 PROCESSOR CORE", GameMode.PrimeHunter, 8, 152),
-            ("lan", "MP2 HARVESTER", GameMode.Bounty, 1, 2)
-        };
 
         /// <summary>
         /// Render one screen.

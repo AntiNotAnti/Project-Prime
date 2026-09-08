@@ -69,7 +69,7 @@ namespace MphRead.Mods.Network
         {
             if (!DemoPlayback.IsActive) return;
             presentation.DrawHudFlatBox(8, 161, 248, 191, new Vector4(0, 0, 0, .8f));
-            var player = PlayerEntity.Main.GetPresentation();
+            var player = presentation.World.LocalPlayer!.GetPresentation();
             player.DrawText2D(13, 164, Align.Left, 0,
                 $"{(DemoPlayback.Transport.Paused ? "PLAY" : "PAUSE")}   STEP   {DemoPlayback.Transport.Rate:0.##}x   PREV   NEXT", scale: .6f);
             player.DrawText2D(128, 173, Align.Center, 0,

@@ -43,7 +43,6 @@ namespace MphRead.Mods.Launcher
 
         private static void LaunchDemo(LaunchPlan plan)
         {
-            PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
             if (!DemoPlayback.Join(plan.DemoPath))
             {
                 Console.WriteLine("[demo] could not open or read the demo file");

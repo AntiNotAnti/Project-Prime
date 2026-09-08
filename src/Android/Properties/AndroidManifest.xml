@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The server list is UDP to the directory and to each server, so the app
-     needs the network. Nothing else is asked for: this build has no files to
-     read off the device and nothing to write outside its own data directory. -->
+<!-- Public multiplayer uses the authenticated Node control connection and
+     Worker UDP handoff, so the app needs the network. Nothing else is asked
+     for: this build has no files to read off the device and nothing to write
+     outside its own data directory. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

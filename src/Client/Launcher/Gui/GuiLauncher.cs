@@ -199,12 +199,12 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 finally
                 {
-                    // Both own a worker thread and a bound socket; a crash in
-                    // the game must not leave either behind.
+                    // The Worker UDP client is the only gameplay resource this
+                    // client owns. Public hosting is Node-owned and has no
+                    // local server process to stop here.
                     NetSession.Stop();
-                    NetHostSession.Stop();
-                    // The match may have left one up -- a settings window opened
-                    // from the pause menu on the frame the match ended.
+                    // Close a settings window opened from the pause menu on the
+                    // frame the match ended.
                     PauseMenuWindow.CloseIfOpen();
                 }
                 if (PauseMenu.QuitProgram)

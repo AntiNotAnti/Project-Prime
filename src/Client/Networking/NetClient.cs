@@ -57,13 +57,14 @@ namespace MphRead.Mods.Network
         public NetConnectionState State => IsDisconnecting ? NetConnectionState.Disconnecting : Connection?.State ?? (Failure == null
             ? NetConnectionState.Connecting : NetConnectionState.Disconnecting);
 
-        public NetClient(NetTransport transport, IPEndPoint server, string name, Hunter hunter, ulong? nonce = null, string ticket = "", bool observer = false)
+        public NetClient(NetTransport transport, IPEndPoint server, string name, Hunter hunter, ulong? nonce = null, string ticket = "", bool observer = false, uint wireMatchId = 0)
         {
             _transport = transport;
             _server = server;
             if (nonce == 0 || (!string.IsNullOrEmpty(ticket) && (!nonce.HasValue || !JoinPacket.ValidTicketText(ticket))))
                 throw new ArgumentException("An authenticated join requires its ticket's nonzero nonce.");
-            _join = new JoinPacket(NetHeader.Version, nonce ?? NetConnection.NewIdentity(), hunter, name, Ticket: ticket, Observer: observer);
+            _join = new JoinPacket(NetHeader.Version, nonce ?? NetConnection.NewIdentity(), hunter, name, Ticket: ticket, Observer: observer, WireMatchId: wireMatchId);
+            _discovered = wireMatchId != 0;
             AwaitingBotRetirement = false;
             _joinStarted = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
         }
@@ -82,7 +83,7 @@ namespace MphRead.Mods.Network
             _transport.SetKeepAlive(null);
             _hasRoleFence = false;
             Connection = null;
-            _discovered = false;
+            _discovered = _join.WireMatchId != 0;
             Accepted = default;
             Clock = new NetClock();
             Failure = null;

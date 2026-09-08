@@ -18,6 +18,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Game/Game.csproj" />
+    <ProjectReference Include="../Server.Shared/Server.Shared.csproj" />
     <ProjectReference Include="../Shared.Replay/Shared.Replay.csproj" />
     <ProjectReference Include="../Audio.Ncsf/Audio.Ncsf.csproj" />
     <PackageReference Include="Avalonia" Version="11.3.11" />
@@ -69,6 +70,9 @@
     <Compile Include="../Client/Launcher/Gui/GuiTheme.cs" Link="Client/Launcher/Gui/GuiTheme.cs" />
     <Compile Include="../Client/Launcher/Gui/HomeView.cs" Link="Client/Launcher/Gui/HomeView.cs" />
     <Compile Include="../Client/Launcher/Gui/AccountView.cs" Link="Client/Launcher/Gui/AccountView.cs" />
+    <Compile Include="../Client/Accounts/AccountSession.Nodes.cs" Link="Client/Accounts/AccountSession.Nodes.cs" />
+    <Compile Include="../Client/Networking/Nodes/NodeControlClient.cs" Link="Client/Networking/Nodes/NodeControlClient.cs" />
+    <Compile Include="../Client/Launcher/Gui/NodeBrowserView.cs" Link="Client/Launcher/Gui/NodeBrowserView.cs" />
     <Compile Include="../Client/Accounts/AccountSession.cs" Link="Client/Accounts/AccountSession.cs" />
     <Compile Include="../Client/Accounts/SecureSessionStore.cs" Link="Client/Accounts/SecureSessionStore.cs" />
     <Compile Include="../Client/Accounts/CareerQueries.cs" Link="Client/Accounts/CareerQueries.cs" />
@@ -79,7 +83,6 @@
     <Compile Include="../Client/Launcher/Gui/PauseMenuView.cs" Link="Client/Launcher/Gui/PauseMenuView.cs" />
     <Compile Include="../Client/Launcher/Gui/ProgressRow.cs" Link="Client/Launcher/Gui/ProgressRow.cs" />
     <Compile Include="../Client/Launcher/Gui/Rows.cs" Link="Client/Launcher/Gui/Rows.cs" />
-    <Compile Include="../Client/Launcher/Gui/ServerRow.cs" Link="Client/Launcher/Gui/ServerRow.cs" />
     <Compile Include="../Client/Launcher/Gui/SettingsView.cs" Link="Client/Launcher/Gui/SettingsView.cs" />
     <Compile Include="../Client/Launcher/Gui/SliderRow.cs" Link="Client/Launcher/Gui/SliderRow.cs" />
     <Compile Include="../Client/Launcher/Gui/SplashView.cs" Link="Client/Launcher/Gui/SplashView.cs" />
@@ -105,10 +108,8 @@
     <Compile Include="../Client/Networking/NetDamage.cs" Link="Client/Networking/NetDamage.cs" />
     <Compile Include="../Client/Networking/NetDiagnostics.cs" Link="Client/Networking/NetDiagnostics.cs" />
     <Compile Include="../Client/Networking/NetHooks.cs" Link="Client/Networking/NetHooks.cs" />
-    <Compile Include="../Client/Networking/NetHostSession.cs" Link="Client/Networking/NetHostSession.cs" />
     <Compile Include="../Client/Networking/NetLaunch.cs" Link="Client/Networking/NetLaunch.cs" />
     <Compile Include="../Client/Networking/NetLog.cs" Link="Client/Networking/NetLog.cs" />
-    <Compile Include="../Client/Networking/NetMasterClient.cs" Link="Client/Networking/NetMasterClient.cs" />
     <Compile Include="../Client/Networking/NetMatchEnd.cs" Link="Client/Networking/NetMatchEnd.cs" />
     <Compile Include="../Client/Networking/NetMatchSync.cs" Link="Client/Networking/NetMatchSync.cs" />
     <Compile Include="../Client/Networking/NetPlayerBridge.cs" Link="Client/Networking/NetPlayerBridge.cs" />
@@ -201,6 +202,8 @@
     <Compile Include="../Client/Settings/ClientSettings.cs" Link="Client/Settings/ClientSettings.cs" />
     <Compile Include="../Client/Settings/CollisionPresentation.cs" Link="Client/Settings/CollisionPresentation.cs" />
     <Compile Include="../Client/Settings/FeatureSettings.cs" Link="Client/Settings/FeatureSettings.cs" />
+    <Compile Include="../Client/Settings/Features.cs" Link="Client/Settings/Features.cs" />
+    <Compile Include="../Client/Settings/ClientMatchFeatures.cs" Link="Client/Settings/ClientMatchFeatures.cs" />
     <Compile Include="../Client/Update/DesktopUpdate.cs" Link="Client/Update/DesktopUpdate.cs" />
     <Compile Include="../Client/Update/SyncHttp.cs" Link="Client/Update/SyncHttp.cs" />
     <Compile Include="../Client/Update/UpdateCheck.cs" Link="Client/Update/UpdateCheck.cs" />
@@ -269,9 +272,6 @@
     <Compile Include="../Client/HUD/Network/NetworkHealth.cs" Link="HUD/Network/NetworkHealth.cs" />
     <Compile Include="../Client/Networking/AuthoritativePlay.Diagnostics.cs" Link="Networking/AuthoritativePlay.Diagnostics.cs" />
     <Compile Include="../Client/Presentation/Players/PlayerPresentationNetworkHealth.cs" Link="Presentation/PlayerPresentationNetworkHealth.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="../Client/Launcher/Portable/ServerBrowser.cs" Link="Launcher/ServerBrowser.cs" />
   </ItemGroup>
   <ItemGroup>
   </ItemGroup>

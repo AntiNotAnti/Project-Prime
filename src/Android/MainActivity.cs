@@ -944,7 +944,8 @@ namespace MphRead.Droid
                 _launcherView.Visibility = ViewStates.Visible;
             }
             GoImmersive(true);
-            AndroidApp.Home?.ShowPauseMenu(ClosePauseMenu, EndMatch, () => Finish());
+            if (_gameView?.Scene is { } scene)
+                AndroidApp.Home?.ShowPauseMenu(scene, ClosePauseMenu, EndMatch, () => Finish());
         }
 
         private void ClosePauseMenu()
@@ -1016,7 +1017,6 @@ namespace MphRead.Droid
             // match is over rather than left believing it already answered.
             AndroidApp.Home?.Reset();
             NetSession.Stop();
-            NetHostSession.Stop();
             // A demo feeds NetSession from a file rather than a socket, so
             // stopping the session is not what closes it.
             DemoPlayback.Stop();

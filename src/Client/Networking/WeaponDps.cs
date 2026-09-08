@@ -82,9 +82,9 @@ namespace MphRead.Mods.Network
             _beam = beam;
             _seconds = seconds;
             _distance = distance;
-            PlayerEntity.MaxPlayers = Math.Max(PlayerEntity.MaxPlayers, 2);
             MapAudit.ForceEveryone = true;
-            Scene = new Scene(preserveNicknames: NetSession.Active) { Services = new ClientSceneServices(forceSpawn: true) };
+            Scene = new Scene(features: ClientMatchFeatures.Capture()) { Services = new ClientSceneServices(forceSpawn: true) };
+            Scene.Players.MaxPlayers = Math.Max(Scene.Players.MaxPlayers, 2);
             _ = new ScenePresentation(Scene, Size, KeyboardState, MouseState, _ => { }, Close);
             // The victim is slot 0 and the shooter is slot 1, deliberately.
             // PlayerEntity.ProcessInput refills the *main* player's controls
@@ -95,16 +95,16 @@ namespace MphRead.Mods.Network
             // an empty keyboard gives it.
             Scene.AddPlayer(Hunter.Samus, recolor: 0, team: -1);
             Scene.AddPlayer(hunter, recolor: 0, team: -1);
-            for (int i = 2; i < PlayerEntity.Players.Count; i++)
+            for (int i = 2; i < Scene.Players.Count; i++)
             {
-                PlayerEntity.Players[i].LoadFlags &= ~LoadFlags.Active;
+                Scene.Players[i].LoadFlags &= ~LoadFlags.Active;
             }
-            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            for (int i = 0; i < Scene.Players.Count; i++)
             {
-                PlayerEntity.Players[i].IsBot = false;
+                Scene.Players[i].IsBot = false;
             }
-            PlayerEntity.PlayerCount = 2;
-            PlayerEntity.MainPlayerIndex = 0;
+            Scene.Players.ActiveCount = 2;
+            Scene.LocalPlayerSlot = 0;
             Scene.AddRoom(room, GameMode.Battle, playerCount: NetConfig.RoomPlayerCount);
         }
 
@@ -147,12 +147,12 @@ namespace MphRead.Mods.Network
 
         private void Step()
         {
-            if (PlayerEntity.Players.Count < 2)
+            if (Scene.Players.Count < 2)
             {
                 return;
             }
-            PlayerEntity victim = PlayerEntity.Players[0];
-            PlayerEntity shooter = PlayerEntity.Players[1];
+            PlayerEntity victim = Scene.Players[0];
+            PlayerEntity shooter = Scene.Players[1];
             if (!Alive(shooter) || !Alive(victim))
             {
                 NetTestScript.Rest(shooter, wantBiped: true);

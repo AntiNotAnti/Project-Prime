@@ -303,9 +303,9 @@ namespace MphRead.Entities
 
         /// <summary>
         /// Whether <see cref = "SetUpHud"/> has run for this player. Only ever
-        /// true at spawn for whoever was <see cref = "PlayerEntity.Main"/> at the time --
+        /// true at spawn for whoever was <see cref="Scene.LocalPlayer"/> at the time --
         /// every other player's HUD fields are left null, which is fine
-        /// until something (spectating) points <see cref = "PlayerEntity.MainPlayerIndex"/>
+        /// until something (spectating) points <see cref="Scene.LocalPlayerSlot"/>
         /// at one of them and tries to draw a HUD nothing built.
         /// </summary>
         public bool HudReady { get; private set; }
@@ -441,7 +441,7 @@ namespace MphRead.Entities
             Presentation.Layer4Info.ShiftY = 0;
             Presentation.Layer5Info.ShiftX = 0;
             Presentation.Layer5Info.ShiftY = 0;
-            if (CameraSequence.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true)
+            if (_player._scene.CameraSequences.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true)
             {
                 return;
             }
@@ -801,7 +801,7 @@ namespace MphRead.Entities
         private ushort _hudDisruptedTimer = 0;
         public void HudOnDisrupted()
         {
-            if (CameraSequence.Current == null)
+            if (_player._scene.CameraSequences.Current == null)
             {
                 HudDisruptedState = 1;
                 _hudDisruptedTimer = _player._disruptedTimer;
@@ -1022,11 +1022,11 @@ namespace MphRead.Entities
             {
                 DrawScoreboard();
             }
-            else if (CameraSequence.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true)
+            else if (_player._scene.CameraSequences.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true)
             {
                 return;
             }
-            else if (CameraSequence.Current?.IsIntro == true)
+            else if (_player._scene.CameraSequences.Current?.IsIntro == true)
             {
                 DrawModeRules();
                 DrawQueuedHudMessages();
@@ -1121,7 +1121,7 @@ namespace MphRead.Entities
                 return;
             }
 
-            if (CameraSequence.Current?.IsIntro == true)
+            if (_player._scene.CameraSequences.Current?.IsIntro == true)
             {
                 Presentation.DrawHudFilterModel(_filterModel, alpha: 15 / 31f);
             }
@@ -1353,7 +1353,7 @@ namespace MphRead.Entities
             int curTeam = 4;
             for (int i = 0; i < _player._scene.Match.ActivePlayers; i++)
             {
-                PlayerEntity player = PlayerEntity.Players[_player._scene.Match.ResultSlots[i]];
+                PlayerEntity player = _player._scene.Players[_player._scene.Match.ResultSlots[i]];
                 if (!player.LoadFlags.TestFlag(LoadFlags.Active))
                 {
                     continue;
@@ -1450,7 +1450,7 @@ namespace MphRead.Entities
             for (int i = 0; i < _player._scene.Match.ActivePlayers; i++)
             {
                 int slot = _player._scene.Match.ResultSlots[i];
-                PlayerEntity player = PlayerEntity.Players[slot];
+                PlayerEntity player = _player._scene.Players[slot];
                 if (!player.LoadFlags.TestFlag(LoadFlags.Active))
                 {
                     continue;
@@ -1514,7 +1514,7 @@ namespace MphRead.Entities
             _starsInst.PositionX = (posX + 32) / 256f;
             _starsInst.SetIndex(stars * 2 + 1, _player._scene);
             Presentation.DrawHudObject(_starsInst, mode: 2);
-            string nickname = GameState.Nicknames[slot];
+            string nickname = _player._scene.Roster.Nicknames[slot];
             DrawText2D(posX + 32, posY - 9, Align.Center, 0, nickname, color, fontSpacing: 8);
         }
 
@@ -2203,7 +2203,7 @@ namespace MphRead.Entities
 
                 if (_player._scene.Match.PrimeHunter != -1)
                 {
-                    PlayerEntity primeHunter = PlayerEntity.Players[_player._scene.Match.PrimeHunter];
+                    PlayerEntity primeHunter = _player._scene.Players[_player._scene.Match.PrimeHunter];
                     Vector3 pos = primeHunter.Position;
                     if (!primeHunter.IsAltForm)
                     {
@@ -2259,7 +2259,7 @@ namespace MphRead.Entities
             {
                 if (_player._scene.Match.Rules.Teams)
                 {
-                    return $"{_player._scene.Match.TeamPoints[PlayerEntity.Players[slot].TeamIndex]} / {_player._scene.Match.Rules.LegacyPointGoal}";
+                    return $"{_player._scene.Match.TeamPoints[_player._scene.Players[slot].TeamIndex]} / {_player._scene.Match.Rules.LegacyPointGoal}";
                 }
 
                 return $"{_player._scene.Match.Players[slot].Points} / {_player._scene.Match.Rules.LegacyPointGoal}";
@@ -2267,7 +2267,7 @@ namespace MphRead.Entities
 
             if (mode == MatchMode.Survival || mode == MatchMode.TeamSurvival)
             {
-                int lives = Math.Max(_player._scene.Match.Rules.LegacyPointGoal - _player._scene.Match.TeamDeaths[PlayerEntity.Players[slot].TeamIndex], 0);
+                int lives = Math.Max(_player._scene.Match.Rules.LegacyPointGoal - _player._scene.Match.TeamDeaths[_player._scene.Players[slot].TeamIndex], 0);
                 return lives.ToString();
             }
 
@@ -2303,12 +2303,12 @@ namespace MphRead.Entities
 
         public void DrawHudBattle()
         {
-            DrawModeScore(212, FormatModeScore(PlayerEntity.MainPlayerIndex)); // points
+            DrawModeScore(212, FormatModeScore(_player._scene.LocalPlayerSlot)); // points
         }
 
         public void DrawHudSurvival()
         {
-            DrawModeScore(213, FormatModeScore(PlayerEntity.MainPlayerIndex)); // lives left
+            DrawModeScore(213, FormatModeScore(_player._scene.LocalPlayerSlot)); // lives left
         }
 
         public void DrawOctolithInst(int frame)
@@ -2343,24 +2343,24 @@ namespace MphRead.Entities
 
         public void DrawHudBounty()
         {
-            DrawModeScore(215, FormatModeScore(PlayerEntity.MainPlayerIndex)); // octoliths
+            DrawModeScore(215, FormatModeScore(_player._scene.LocalPlayerSlot)); // octoliths
             DrawOctolithInst(frame: 0);
         }
 
         public void DrawHudCapture()
         {
-            DrawModeScore(216, FormatModeScore(PlayerEntity.MainPlayerIndex)); // octoliths
+            DrawModeScore(216, FormatModeScore(_player._scene.LocalPlayerSlot)); // octoliths
             DrawOctolithInst(frame: _player.TeamIndex == 0 ? 4 : 3);
         }
 
         public void DrawHudDefender()
         {
-            DrawModeScore(217, FormatModeScore(PlayerEntity.MainPlayerIndex)); // ring time
+            DrawModeScore(217, FormatModeScore(_player._scene.LocalPlayerSlot)); // ring time
         }
 
         public void DrawHudNodes()
         {
-            DrawModeScore(218, FormatModeScore(PlayerEntity.MainPlayerIndex)); // points
+            DrawModeScore(218, FormatModeScore(_player._scene.LocalPlayerSlot)); // points
             DrawNodesBonuses();
             DrawNodesIcons();
             if (_nodesHudState == 1 && !IsHudMessageQueued(mask: 16))
@@ -2504,7 +2504,7 @@ namespace MphRead.Entities
                 }
             }
 
-            DrawModeScore(214, FormatModeScore(PlayerEntity.MainPlayerIndex)); // prime time
+            DrawModeScore(214, FormatModeScore(_player._scene.LocalPlayerSlot)); // prime time
         }
 
         private int _doubleDamageSpeed = 0;
@@ -2656,7 +2656,7 @@ namespace MphRead.Entities
                 return;
             }
 
-            PlayerEntity opponent = PlayerEntity.Players[_opponentIndex];
+            PlayerEntity opponent = _player._scene.Players[_opponentIndex];
             float posX = 93;
             float posY = 182;
             if (Features.TargetInfoSway)
@@ -2665,7 +2665,7 @@ namespace MphRead.Entities
                 posY += _objShiftY;
             }
 
-            string nickname = GameState.Nicknames[_opponentIndex];
+            string nickname = _player._scene.Roster.Nicknames[_opponentIndex];
             DrawText2D(posX, posY, Align.Center, 0, nickname);
             HudObjectInstance portrait = _hunterInsts[(int)opponent.Hunter];
             portrait.PositionX = (posX - 16) / 256f;

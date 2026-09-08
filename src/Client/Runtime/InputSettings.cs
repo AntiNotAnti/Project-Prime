@@ -285,13 +285,13 @@ namespace MphRead.Mods
         /// rebind made from the pause menu is by definition made in the middle
         /// of a match, where waiting for the next one is not an answer.
         /// </summary>
-        public static void ApplyToPlayers()
+        public static void ApplyToPlayers(Scene scene)
         {
             try
             {
-                for (int i = 0; i < PlayerEntity.Players.Count; i++)
+                for (int i = 0; i < scene.Players.Count; i++)
                 {
-                    Apply(PlayerEntity.Players[i].GetPresentation().Bindings);
+                    Apply(scene.Players[i].GetPresentation().Bindings);
                 }
             }
             catch (Exception)

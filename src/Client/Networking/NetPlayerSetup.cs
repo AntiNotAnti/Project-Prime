@@ -28,7 +28,7 @@ namespace MphRead.Mods.Network
         /// Mark every slot other than the local one as a remote player:
         /// present and active, but not AI-driven.
         /// </summary>
-        public static void ApplyOnce()
+        public static void ApplyOnce(Scene scene)
         {
             if (_applied || !NetSession.Active)
             {
@@ -44,18 +44,18 @@ namespace MphRead.Mods.Network
 
             int local = NetSession.LocalSlot;
             // The camera, the HUD and the intro-end check all key off
-            // PlayerEntity.Main, which is Players[MainPlayerIndex] and
+            // scene.LocalPlayer!, which is Players[MainPlayerIndex] and
             // defaults to 0. A client on slot 1 was therefore never its own
             // main player: its intro sequence never ended, so it kept the
             // spectator camera and HUD and never spawned. Point Main at the
             // slot this machine actually drives.
-            if (local >= 0 && local < PlayerEntity.MaxPlayers)
+            if (local >= 0 && local < scene.Players.MaxPlayers)
             {
-                PlayerEntity.MainPlayerIndex = local;
+                scene.LocalPlayerSlot = local;
             }
-            for (int slot = 0; slot < PlayerEntity.MaxPlayers; slot++)
+            for (int slot = 0; slot < scene.Players.MaxPlayers; slot++)
             {
-                PlayerEntity? player = PlayerEntity.Players[slot];
+                PlayerEntity? player = scene.Players[slot];
                 if (player == null)
                 {
                     continue;
@@ -70,15 +70,15 @@ namespace MphRead.Mods.Network
                 player.BotLevel = 0;
             }
             Console.WriteLine($"[net] player slots prepared -- local slot {local}, "
-                + $"{CountActive()} active, AI disabled on remote slots");
+                + $"{CountActive(scene)} active, AI disabled on remote slots");
         }
 
-        private static int CountActive()
+        private static int CountActive(Scene scene)
         {
             int count = 0;
-            for (int i = 0; i < PlayerEntity.MaxPlayers; i++)
+            for (int i = 0; i < scene.Players.MaxPlayers; i++)
             {
-                PlayerEntity? player = PlayerEntity.Players[i];
+                PlayerEntity? player = scene.Players[i];
                 if (player != null && player.LoadFlags.TestFlag(LoadFlags.Active))
                 {
                     count++;

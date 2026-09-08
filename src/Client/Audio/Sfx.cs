@@ -371,7 +371,7 @@ namespace MphRead.Sound
             }
             if (_scene.CameraMode == CameraMode.Player)
             {
-                return PlayerEntity.Main.CameraInfo.Position;
+                return _scene.World.LocalPlayer!.CameraInfo.Position;
             }
             return _scene.CameraPosition;
         }
@@ -384,7 +384,7 @@ namespace MphRead.Sound
             }
             if (_scene.CameraMode == CameraMode.Player)
             {
-                return PlayerEntity.Main.CameraInfo.TrueUp;
+                return _scene.World.LocalPlayer!.CameraInfo.TrueUp;
             }
             return _scene.ViewMatrix.Row1.Xyz.Normalized();
         }
@@ -397,7 +397,7 @@ namespace MphRead.Sound
             }
             if (_scene.CameraMode == CameraMode.Player)
             {
-                return PlayerEntity.Main.CameraInfo.Facing;
+                return _scene.World.LocalPlayer!.CameraInfo.Facing;
             }
             return _scene.ViewMatrix.Row2.Xyz.Normalized();
         }

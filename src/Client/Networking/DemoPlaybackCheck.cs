@@ -34,9 +34,9 @@ namespace MphRead.Mods.Network
             })
         {
             _seconds = seconds;
-            _scene = new Scene(preserveNicknames: NetSession.Active) { Services = new ClientSceneServices() };
+            _scene = new Scene(features: ClientMatchFeatures.Capture()) { Services = new ClientSceneServices() };
             _ = new ScenePresentation(_scene, Size, KeyboardState, MouseState, _ => { }, Close);
-            PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
+            _scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
             NetLaunch.BuildPlayers(_scene, Hunter.Samus, 0, localSlot: -1);
             var room = NetLaunch.ServerRoom() ?? throw new ProgramException("Demo has no room.");
             _scene.AddRoom(room.RoomKey, room.Mode, playerCount: NetConfig.RoomPlayerCount);
@@ -65,7 +65,7 @@ namespace MphRead.Mods.Network
                 }
                 foreach (SnapshotPlayer source in state.Players)
                 {
-                    PlayerEntity player = PlayerEntity.Players[source.Slot];
+                    PlayerEntity player = _scene.Players[source.Slot];
                     int points = source.Points, kills = source.Kills, deaths = source.Deaths;
                     if (state.World.HasState && !Sequence32.IsNewer(state.Snapshot.ServerTick, state.World.ServerTick))
                     {

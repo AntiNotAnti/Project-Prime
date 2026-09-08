@@ -81,7 +81,7 @@ namespace MphRead
 
         private CameraMode _cameraMode = CameraMode.Pivot;
         public CameraMode CameraMode => _cameraMode;
-        public bool ShowCursor => PlayerEntity.Main?.Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen) == true;
+        public bool ShowCursor => World.LocalPlayer!?.Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen) == true;
         private float _pivotAngleY = 0.0f;
         private float _pivotAngleX = 0.0f;
         private float _pivotDistance = 5.0f;
@@ -275,7 +275,7 @@ namespace MphRead
 
             if (metadata.InGameName != null) _setTitle(metadata.InGameName);
             SetRoomValues(metadata);
-            _cameraMode = PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active) ? CameraMode.Player : CameraMode.Roam;
+            _cameraMode = World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active) ? CameraMode.Player : CameraMode.Roam;
             _inputMode = _cameraMode == CameraMode.Player ? InputMode.All : InputMode.CameraOnly;
             Sound.Sfx.Load(World);
             Music.TryPlayRoomMusic(World.RoomId, 0);
@@ -283,15 +283,15 @@ namespace MphRead
 
         public void BeforeWorldUpdate()
         {
-            if (PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active))
+            if (World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active))
             {
-                PlayerEntity.Main.GetPresentation().UpdateTimedSounds();
-                PlayerEntity.Main.GetPresentation().ProcessHudMessageQueue();
+                World.LocalPlayer!.GetPresentation().UpdateTimedSounds();
+                World.LocalPlayer!.GetPresentation().ProcessHudMessageQueue();
             }
         }
         public void AfterWorldUpdate()
         {
-            if (PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active)) PlayerEntity.Main.GetPresentation().ProcessModeHud();
+            if (World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active)) World.LocalPlayer!.GetPresentation().ProcessModeHud();
         }
 
         public void SetRoomValues(RoomMetadata meta)
@@ -392,7 +392,7 @@ namespace MphRead
             {
                 _freeRenderItems.Enqueue(new RenderItem());
             }
-            foreach (PlayerEntity player in PlayerEntity.Players)
+            foreach (PlayerEntity player in World.Players)
             {
                 if (player.LoadFlags.TestFlag(LoadFlags.SlotActive))
                 {
@@ -1048,8 +1048,21 @@ namespace MphRead
             GenerateLists(model, isRoom);
         }
 
+        internal static void NormalizeModelMaterials(Model model)
+        {
+            foreach (Material material in model.Materials)
+            {
+                if (material.TextureId != -1
+                    && (material.RenderMode == RenderMode.Unknown3 || material.RenderMode == RenderMode.Unknown4))
+                {
+                    material.RenderMode = RenderMode.Normal;
+                }
+            }
+        }
+
         private void InitTextures(Model model)
         {
+            NormalizeModelMaterials(model);
             if (_texPalMap.ContainsKey(model.Id))
             {
                 return;
@@ -1060,10 +1073,6 @@ namespace MphRead
                 if (material.TextureId == -1)
                 {
                     continue;
-                }
-                if (material.RenderMode == RenderMode.Unknown3 || material.RenderMode == RenderMode.Unknown4)
-                {
-                    material.RenderMode = RenderMode.Normal;
                 }
                 for (int i = 0; i < model.Recolors.Count; i++)
                 {
@@ -1300,7 +1309,7 @@ namespace MphRead
                     ResetPoseHistory(); ResetRenderLook();
                     foreach (PlayerEntity player in World.GetPlayerEntities()) player.GetPresentation().SynchronizeReplayFeedbackAudio();
                     var local = CombatFeedback.Local;
-                    FeedbackAudio.RestoreReplayBaseline(local, local.IsValid ? (ushort)PlayerEntity.Players[local.Slot].Health : (ushort)0);
+                    FeedbackAudio.RestoreReplayBaseline(local, local.IsValid ? (ushort)World.Players[local.Slot].Health : (ushort)0);
                     Music.TryPlayRoomMusic(World.RoomId, 0);
                 }
                 return;
@@ -1345,11 +1354,11 @@ namespace MphRead
                     // the binding until something clears it, and a player who
                     // opened chat mid-stride would otherwise walk into the
                     // nearest wall for as long as they were typing.
-                    PlayerEntity.Main.Controls.ClearAll();
+                    World.LocalPlayer!.Controls.ClearAll();
                 }
                 else if (Mods.Chat.ChatBox.ConsumeJustClosed())
                 {
-                    PlayerEntity.Main.GetPresentation().ModForgetInputDeltas();
+                    World.LocalPlayer!.GetPresentation().ModForgetInputDeltas();
                 }
                 Mods.Network.DemoPlayback.PumpFrame();
                 Mods.Network.NetSession.Update(World.GlobalElapsedTime);
@@ -1362,7 +1371,7 @@ namespace MphRead
                     // a live match: there is no "your own view" to have just
                     // left, so an empty overview would be the whole of what
                     // opening a demo did.
-                    Mods.SpectatorMode.Start(watchSomeone: true);
+                    Mods.SpectatorMode.Start(World, watchSomeone: true);
                 }
                 // Spectating is asked for from the pause menu, which runs on
                 // this thread but has no scene to hand; it leaves the camera
@@ -1377,20 +1386,20 @@ namespace MphRead
                 // edges and stick aim, and Apply ors the result onto the same
                 // binds ProcessInput has just filled in. Suppressed by exactly
                 // the things that suppress a keyboard, and by spectating,
-                // where PlayerEntity.Main is somebody else's hunter.
+                // where World.LocalPlayer! is somebody else's hunter.
                 if (!Mods.Network.DemoPlayback.IsSeeking)
                 {
                     Mods.Input.GamepadDesktop.Poll();
                     Mods.Input.GamepadInput.BeginFrame();
                     bool noPlayerInput = Mods.Network.DemoPlayback.IsSeeking || _inputMode == InputMode.CameraOnly
                         || Mods.ClientInputState.PauseOpen || Mods.Chat.ChatBox.Composing;
-                    PlayerPresentation.ProcessInput(_keyboardState, _mouseState, noPlayerInput);
+                    PlayerPresentation.ProcessInput(World, _keyboardState, _mouseState, noPlayerInput);
                     if (!noPlayerInput && !Mods.SpectatorMode.IsSpectating)
                     {
-                        Mods.Input.GamepadInput.Apply(PlayerEntity.Main);
+                        Mods.Input.GamepadInput.Apply(World.LocalPlayer!);
                     }
                     World.Services.AfterInput(World);
-                    PlayerEntity.Main.GetPresentation().ApplyWeaponSelection(noPlayerInput || Mods.SpectatorMode.IsSpectating);
+                    World.LocalPlayer!.GetPresentation().ApplyWeaponSelection(noPlayerInput || Mods.SpectatorMode.IsSpectating);
                 }
                 else
                 {
@@ -1408,9 +1417,9 @@ namespace MphRead
 
                 Music.UpdateMusic();
             }
-            if (ProcessFrame && PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active))
+            if (ProcessFrame && World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active))
             {
-                PlayerEntity.Main.GetPresentation().UpdateHud();
+                World.LocalPlayer!.GetPresentation().UpdateHud();
             }
             if (ProcessFrame)
             {
@@ -1509,7 +1518,7 @@ namespace MphRead
             _perspectiveMatrix = GetPerspectiveMatrix(_cameraFov);
             GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref _perspectiveMatrix);
             // update frustum info
-            Vector3 camPos = PlayerEntity.Main.CameraInfo.Position;
+            Vector3 camPos = World.LocalPlayer!.CameraInfo.Position;
             var camRight = new Vector3(_viewMatrix.Row0.X, _viewMatrix.Row0.Y, -_viewMatrix.Row0.Z);
             var camUp = new Vector3(_viewMatrix.Row1.X, _viewMatrix.Row1.Y, -_viewMatrix.Row1.Z);
             var camFacing = new Vector3(_viewMatrix.Row2.X, _viewMatrix.Row2.Y, -_viewMatrix.Row2.Z);
@@ -2213,10 +2222,10 @@ namespace MphRead
             GL.Disable(EnableCap.StencilTest);
             GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
 
-            if (PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
+            if (World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
             {
                 SetHudLayerUniforms();
-                PlayerEntity.Main.GetPresentation().DrawHudModels();
+                World.LocalPlayer!.GetPresentation().DrawHudModels();
                 UnsetHudLayerUniforms();
             }
             else if (ScoreboardOverFreeCamera)
@@ -2224,7 +2233,7 @@ namespace MphRead
                 // Only the filter that dims the scene behind the scoreboard;
                 // PlayerHud draws nothing else on the free camera.
                 SetHudLayerUniforms();
-                PlayerEntity.Main.GetPresentation().DrawHudModels();
+                World.LocalPlayer!.GetPresentation().DrawHudModels();
                 UnsetHudLayerUniforms();
             }
 
@@ -2237,17 +2246,17 @@ namespace MphRead
             GL.Uniform1(_shaderLocations.LayerAlpha, 1f);
             GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero);
 
-            if (PlayerEntity.Main.GetPresentation().HudDisruptedState != 0 || PlayerEntity.Main.GetPresentation().HudWhiteoutState != -1)
+            if (World.LocalPlayer!.GetPresentation().HudDisruptedState != 0 || World.LocalPlayer!.GetPresentation().HudWhiteoutState != -1)
             {
                 float div = World.ElapsedTime / (1 / 30f);
                 int index = (int)div;
                 float factor = div % 1;
                 GL.UseProgram(_shiftShaderProgramId);
-                GL.Uniform1(_shaderLocations.ShiftFactor, PlayerEntity.Main.GetPresentation().HudDisruptionFactor);
+                GL.Uniform1(_shaderLocations.ShiftFactor, World.LocalPlayer!.GetPresentation().HudDisruptionFactor);
                 GL.Uniform1(_shaderLocations.ShiftIndex, index);
                 GL.Uniform1(_shaderLocations.LerpFactor, factor);
-                GL.Uniform1(_shaderLocations.WhiteoutFactor, PlayerEntity.Main.GetPresentation().HudWhiteoutFactor);
-                if (PlayerEntity.Main.GetPresentation().HudWhiteoutFactor != 0)
+                GL.Uniform1(_shaderLocations.WhiteoutFactor, World.LocalPlayer!.GetPresentation().HudWhiteoutFactor);
+                if (World.LocalPlayer!.GetPresentation().HudWhiteoutFactor != 0)
                 {
                     GL.Uniform1(_shaderLocations.WhiteoutTable, 192, PlayerPresentation.HudWhiteoutTable);
                 }
@@ -2281,12 +2290,12 @@ namespace MphRead
 
             GL.BindTexture(TextureTarget.Texture2D, 0);
 
-            if (PlayerEntity.Main.GetPresentation().HudDisruptedState != 0 || PlayerEntity.Main.GetPresentation().HudWhiteoutState != -1)
+            if (World.LocalPlayer!.GetPresentation().HudDisruptedState != 0 || World.LocalPlayer!.GetPresentation().HudWhiteoutState != -1)
             {
                 GL.UseProgram(_rttShaderProgramId);
             }
             GL.Uniform4(_shaderLocations.FadeColor, _fadeColor, _fadeColor, _fadeColor, 0);
-            if (PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
+            if (World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
             {
                 DrawHudLayer(Layer4Info); // ice layer
                 DrawHudLayer(Layer3Info); // helmet back
@@ -2301,7 +2310,7 @@ namespace MphRead
                     GL.Uniform1(_shaderLocations.ViewWidth, (float)Size.X);
                     GL.Uniform1(_shaderLocations.ViewHeight, (float)Size.Y);
                 }
-                PlayerEntity.Main.GetPresentation().DrawHudObjects();
+                World.LocalPlayer!.GetPresentation().DrawHudObjects();
                 GL.Uniform1(_shaderLocations.UseMask, 0);
                 if (Layer1Info.MaskId != -1)
                 {
@@ -2317,11 +2326,11 @@ namespace MphRead
                 // anybody's eyes. PlayerHud decides that; this only lets it
                 // be asked, since the HUD is otherwise not drawn at all while
                 // the camera is not a player's.
-                PlayerEntity.Main.GetPresentation().DrawHudObjects();
+                World.LocalPlayer!.GetPresentation().DrawHudObjects();
             }
             SpectatorCamera.Draw(this);
             Mods.Network.ReplayControls.Draw(this);
-            if (PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player && _fadeType != FadeType.None)
+            if (World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player && _fadeType != FadeType.None)
             {
                 float percent = _fadePercent;
                 if (_fadeIn)
@@ -2440,12 +2449,12 @@ namespace MphRead
             {
                 if (_cameraMode == CameraMode.Player)
                 {
-                    _viewMatrix = PlayerEntity.Main.CameraInfo.ViewMatrix;
+                    _viewMatrix = World.LocalPlayer!.CameraInfo.ViewMatrix;
                     if (Mods.Network.AuthoritativePlay.Current is { } play)
                     {
                         _viewMatrix = Matrix4.CreateTranslation(-play.VisualOffset) * _viewMatrix;
                     }
-                    float fov = PlayerEntity.Main.CameraInfo.Fov > 0 ? PlayerEntity.Main.CameraInfo.Fov : 78;
+                    float fov = World.LocalPlayer!.CameraInfo.Fov > 0 ? World.LocalPlayer!.CameraInfo.Fov : 78;
                     _cameraFov = MathHelper.DegreesToRadians(fov);
                 }
                 else
@@ -2460,7 +2469,7 @@ namespace MphRead
                 }
             }
             ApplyRenderCamera();
-            if (SpectatorCamera.TryView(out Matrix4 spectatorView)) _viewMatrix = spectatorView;
+            if (SpectatorCamera.TryView(World, out Matrix4 spectatorView)) _viewMatrix = spectatorView;
             _viewInvRotMatrix = Matrix4.Transpose(_viewMatrix.ClearTranslation());
             if (_viewInvRotMatrix.Row0.X != 0 || _viewInvRotMatrix.Row0.Z != 0)
             {
@@ -2583,7 +2592,7 @@ namespace MphRead
             }
             for (int i = 0; i < _effectElementMax; i++)
             {
-                _inactiveElements.Enqueue(new EffectElementEntry());
+                _inactiveElements.Enqueue(new EffectElementEntry(World.Random));
             }
             for (int i = 0; i < _effectParticleMax; i++)
             {
@@ -2771,11 +2780,24 @@ namespace MphRead
             _inactiveParticles.Enqueue(particle);
         }
 
+        private readonly Dictionary<int, Effect> _loadedEffects = new();
         public void LoadEffect(int effectId, bool persistent)
         {
+            if (_loadedEffects.TryGetValue(effectId, out Effect? existing))
+            {
+                if (persistent && !existing.Persistent)
+                {
+                    existing.Persistent = true;
+                    foreach (EffectElement child in existing.Elements)
+                        if (child.ChildEffectId != 0) LoadEffect((int)child.ChildEffectId, persistent: true);
+                }
+                return;
+            }
             Effect effect = Read.LoadEffect(effectId, persistent);
+            _loadedEffects.Add(effectId, effect);
             foreach (EffectElement element in effect.Elements)
             {
+                if (element.ChildEffectId != 0) LoadEffect((int)element.ChildEffectId, persistent);
                 // the model may already be loaded; meshes with a ListId will be skipped
                 Model model = Read.GetModelInstance(element.ModelName).Model;
                 InitTextures(model);
@@ -2814,7 +2836,7 @@ namespace MphRead
 
         private void SpawnEffect(int effectId, Matrix4 transform, bool child, EffectEntry? entry, EntityCollision? entCol)
         {
-            Effect? effect = Read.GetEffect(effectId);
+            Effect? effect = _loadedEffects.GetValueOrDefault(effectId);
             if (effect == null)
             {
                 Debug.Assert(effectId == 162); // skdebug - unintended Omega Cannon damage effect
@@ -2861,7 +2883,7 @@ namespace MphRead
 
         public int CountElements(int effectId)
         {
-            Effect? effect = Read.GetEffect(effectId);
+            Effect? effect = _loadedEffects.GetValueOrDefault(effectId);
             if (effect == null)
             {
                 return 0;
@@ -2896,7 +2918,7 @@ namespace MphRead
             for (int i = 0; i < _activeElements.Count; i++)
             {
                 EffectElementEntry element = _activeElements[i];
-                Effect? effect = Read.GetEffect(element.EffectId);
+                Effect? effect = _loadedEffects.GetValueOrDefault(element.EffectId);
                 if (effect == null || !effect.Persistent)
                 {
                     UnlinkEffectElement(element);
@@ -4703,9 +4725,9 @@ namespace MphRead
         /// somebody watching from the map is exactly who wants to read one,
         /// so this is the one thing that reaches past that.
         /// </summary>
-        private static bool ScoreboardOverFreeCamera => Mods.SpectatorMode.FreeCamera
+        private bool ScoreboardOverFreeCamera => Mods.SpectatorMode.FreeCamera
             && Mods.SpectatorMode.ShowScoreboard
-            && PlayerEntity.Main.LoadFlags.TestFlag(LoadFlags.Active);
+            && World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active);
 
         /// <summary>
         /// The spectator's own no-clip camera: an independent view of the map
@@ -4737,8 +4759,8 @@ namespace MphRead
             }
             // Starts where the view already was, so turning it on is a change
             // of control and not a cut to somewhere else in the room.
-            _cameraPosition = PlayerEntity.Main.CameraInfo.Position;
-            _cameraFacing = PlayerEntity.Main.CameraInfo.Facing;
+            _cameraPosition = World.LocalPlayer!.CameraInfo.Position;
+            _cameraFacing = World.LocalPlayer!.CameraInfo.Facing;
             if (_cameraFacing.LengthSquared < 0.0001f)
             {
                 _cameraFacing = -Vector3.UnitZ;
@@ -5375,7 +5397,7 @@ namespace MphRead
 
         private void UpdatePointModule()
         {
-            if (PointModuleEntity.Current == null)
+            if (World.SpecialEntities.PointModule == null)
             {
                 if (World.TryGetEntity(PointModuleEntity.StartId, out EntityBase? entity) && entity is PointModuleEntity module)
                 {
@@ -5384,8 +5406,8 @@ namespace MphRead
             }
             else
             {
-                PointModuleEntity? next = PointModuleEntity.Current.Next ?? PointModuleEntity.Current.Prev;
-                if (next != null && next != PointModuleEntity.Current)
+                PointModuleEntity? next = World.SpecialEntities.PointModule.Next ?? World.SpecialEntities.PointModule.Prev;
+                if (next != null && next != World.SpecialEntities.PointModule)
                 {
                     next.SetCurrent();
                 }
@@ -5564,7 +5586,7 @@ namespace MphRead
 
         private void OutputGetBotAi()
         {
-            PlayerEntity player = PlayerEntity.Players[_showBotAiSlot];
+            PlayerEntity player = World.Players[_showBotAiSlot];
             _sb.AppendLine();
             _sb.AppendLine($"Bot AI slot: {_showBotAiSlot} (J: Next slot, Shift+J: Previous slot)");
             if (!player.LoadFlags.TestFlag(LoadFlags.SlotActive) && !player.LoadFlags.TestFlag(LoadFlags.Active))

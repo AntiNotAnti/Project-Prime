@@ -32,7 +32,7 @@ namespace MphRead.Droid
             {
                 throw new ProgramException("The server did not say which map it is running.");
             }
-            var scene = new Scene(preserveNicknames: NetSession.Active);
+            var scene = new Scene(features: ClientMatchFeatures.Capture());
             var presentation = new ScenePresentation(scene, size, input.Keyboard, input.Mouse, _ => { }, close);
             bool teamPlay = room.Value.Mode.IsTeamMode();
             NetLaunch.BuildPlayers(scene, plan.Hunter, localRecolor: 0,
@@ -62,7 +62,6 @@ namespace MphRead.Droid
         private static Scene BuildDemo(AndroidInput input, Vector2i size,
             LaunchPlan plan, Action close)
         {
-            PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
             if (!DemoPlayback.Join(plan.DemoPath))
             {
                 throw new ProgramException(DemoPlayback.LastError
@@ -74,7 +73,7 @@ namespace MphRead.Droid
                 DemoPlayback.Stop();
                 throw new ProgramException("The demo has no match info in it.");
             }
-            var scene = new Scene(preserveNicknames: NetSession.Active);
+            var scene = new Scene(features: ClientMatchFeatures.Capture());
             var presentation = new ScenePresentation(scene, size, input.Keyboard, input.Mouse, _ => { }, close);
             NetLaunch.BuildPlayers(scene, Hunter.Samus, localRecolor: 0, teamId: -1, localSlot: -1);
             presentation.AddRoom(room.Value.RoomKey, room.Value.Mode, playerCount: NetLaunch.RoomPlayerCount);

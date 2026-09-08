@@ -148,10 +148,10 @@ namespace MphRead.Mods.Network
         {
             if (AuthoritativePlay.Current is { } play) { return play.RebuildPlayers(scene, hunter, recolor); }
             int localSlot = Math.Max(NetSession.LocalSlot, 0);
-            for (int slot = 0; slot < PlayerEntity.MaxPlayers; slot++)
+            for (int slot = 0; slot < scene.Players.MaxPlayers; slot++)
             {
                 Hunter slotHunter = slot == localSlot ? hunter : NetSession.SlotHunter[slot];
-                PlayerEntity? created = PlayerEntity.Create(slotHunter, slot == localSlot ? recolor : 0);
+                PlayerEntity? created = scene.Players.Create(slotHunter, slot == localSlot ? recolor : 0);
                 if (created == null)
                 {
                     continue;
@@ -161,7 +161,7 @@ namespace MphRead.Mods.Network
                 created.LoadFlags |= LoadFlags.Initial;
                 // Where this player was, in the room that no longer exists.
                 //
-                // PlayerEntity.Create hands back the same pooled objects
+                // scene.Players.Create hands back the same pooled objects
                 // every time, so a node reference into the old room's portal
                 // graph survives the change -- and RoomEntity.UpdateRoomParts
                 // starts its walk from Main.CameraInfo.NodeRef and indexes
@@ -187,8 +187,8 @@ namespace MphRead.Mods.Network
                     created.LoadFlags &= ~LoadFlags.Active;
                 }
             }
-            PlayerEntity.PlayerCount = 1;
-            PlayerEntity.MainPlayerIndex = localSlot;
+            scene.Players.ActiveCount = 1;
+            scene.LocalPlayerSlot = localSlot;
             // Everything keyed to the old room has to go: which slots are
             // switched on, the per-match damage tallies, and the scores,
             // which start again with the map exactly as they do on a Quake
@@ -205,7 +205,7 @@ namespace MphRead.Mods.Network
             NetDamage.ResetForRoomChange();
             ResetScores(scene);
             Console.WriteLine($"[net] player slots rebuilt for the new room, main player = slot {localSlot}");
-            return PlayerEntity.Players[localSlot];
+            return scene.Players[localSlot];
         }
 
         /// <summary>
@@ -218,7 +218,7 @@ namespace MphRead.Mods.Network
             // A spectator can load a new room while the free camera is active.
             // Player.Initialize then skips its main-camera HUD setup, but the
             // renderer still updates that slot's HUD and rejoin uses it later.
-            if (!PlayerEntity.Main.GetPresentation().HudReady) { PlayerEntity.Main.GetPresentation().SetUpHud(); }
+            if (!scene.LocalPlayer!.GetPresentation().HudReady) { scene.LocalPlayer!.GetPresentation().SetUpHud(); }
             _loadedFrame = Math.Max(NetSession.NetFrame, 1);
             // Everything the bridge remembered about where players were
             // standing was about the room that has just been left.
@@ -226,10 +226,10 @@ namespace MphRead.Mods.Network
             // A rotation is a fresh match: re-assert that nothing in the
             // cheat list is on, in case a long session had one restored.
             NetLaunch.DisableCheatsForMatch();
-            for (int slot = 0; slot < PlayerEntity.Players.Count; slot++)
+            for (int slot = 0; slot < scene.Players.Count; slot++)
             {
-                PlayerEntity player = PlayerEntity.Players[slot];
-                if (slot == PlayerEntity.MainPlayerIndex)
+                PlayerEntity player = scene.Players[slot];
+                if (slot == scene.LocalPlayerSlot)
                 {
                     continue;
                 }

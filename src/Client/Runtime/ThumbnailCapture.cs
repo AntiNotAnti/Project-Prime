@@ -14,7 +14,7 @@ namespace MphRead.Mods
     /// Renders one multiplayer room and captures its intro camera view.
     ///
     /// The picture comes from the game's own match-start sequence
-    /// (CameraSequence.Intro, looped by GameState while the match has not
+    /// (Scene.CameraSequences.Intro, looped by match flow while the match has not
     /// begun): a spectator fly-through the developers framed to show the
     /// level off. That beats any bounds-derived camera this code could
     /// compute.
@@ -35,7 +35,7 @@ namespace MphRead.Mods
         private bool _captured;
 
         // The intro sequence needs to start and the match-start fade
-        // (20/30s, set by GameState) to clear before the frame is worth
+        // (20/30s, set by match flow) to clear before the frame is worth
         // keeping.
         private const int SettleFrames = 12;
         private const int RetryFrames = 20;
@@ -88,10 +88,10 @@ namespace MphRead.Mods
             _asked = new Vector2i(width, height);
             _roomKey = roomKey;
             _settleFrames = SettleFrames;
-            Scene = new Scene(preserveNicknames: Mods.Network.NetSession.Active);
+            Scene = new Scene(features: ClientMatchFeatures.Capture());
             Presentation = new ScenePresentation(Scene, Size, KeyboardState, MouseState, _ => { }, Close);
             // A player must exist for the multiplayer intro path to run:
-            // GameState sets the sequence up against PlayerEntity.Main's
+            // The match flow sets the sequence up against the scene local player's
             // camera info, and EnsureIntroCamSeq only fires for Multiplayer.
             Scene.AddPlayer(Hunter.Samus, recolor: 0, team: -1);
             Presentation.AddRoom(roomKey, GameMode.Battle, playerCount: 1);
@@ -277,24 +277,9 @@ namespace MphRead.Mods
             try
             {
                 ThumbnailMode.Enter();
-                // The world a room is photographed in has to be the same world
-                // every time, and it is static: the player roster, the match
-                // state and the RNG all outlive a Scene. That cost nothing
-                // while a worker was one room in one process, and matters now
-                // that a worker is a share of them -- the roster kept its
-                // player, so the *second* room's own player was created as a
-                // bot with Main still pointing at the first room's, which is
-                // the fault PlayerEntity.Reset's own comment describes
-                // arriving from the network path.
-                //
-                // What this does not reach is the pickups' animation phase:
-                // they spin and pulse, and in a shared process they are caught
-                // at a different point in that cycle. Nothing appears or
-                // disappears and the geometry, camera and lighting are
-                // identical -- see the note on ThumbnailBatch.Shares.
-                GameState.Reset(preserveNicknames: Mods.Network.NetSession.Active);
-                Rng.SetRng1(Rng.Rng1StartValue);
-                Rng.SetRng2(Rng.Rng2StartValue);
+                // Each capture owns its player roster and fresh random streams.
+
+
                 using var window = new ThumbnailCapture(roomKey, width, height);
                 window.Run();
                 return window.Succeeded;

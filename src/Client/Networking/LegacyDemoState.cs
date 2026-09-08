@@ -8,7 +8,7 @@ using MphRead.Entities;
 namespace MphRead.Mods.Network
 {
     // Format 2 retains frame deltas and compression. Its protocol byte selects
-    // legacy datagrams (4) or authoritative presentation records (5, 6 and 7).
+    // legacy datagrams (4) or authoritative presentation records (5 through 9).
 
     /// <summary>Socket-free playback of server facts. Inputs and connection control are never replayed.</summary>
     internal sealed class ModernDemoState
@@ -48,6 +48,7 @@ namespace MphRead.Mods.Network
         public int PlayerCount { get; private set; }
         public bool HasSnapshot { get; private set; }
         public ReadOnlySpan<SnapshotPlayer> Players => _players.AsSpan(0, PlayerCount);
+        public ReadOnlySpan<NetRosterEntry> Roster => _roster.AsSpan(0, _rosterCount);
         public ClientWorldState World => _world;
         public bool ApplyingSnapshot { get; private set; }
         public long SnapshotsReceived { get; private set; }
@@ -152,7 +153,6 @@ namespace MphRead.Mods.Network
                     {
                         NetSession.SlotOccupied[entry.Slot] = true;
                         NetSession.SlotHunter[entry.Slot] = entry.Hunter;
-                        GameState.Nicknames[entry.Slot] = entry.Name;
                         NetSession.SlotPing[entry.Slot] = entry.PingMs;
                     }
                     return true;
@@ -236,8 +236,15 @@ namespace MphRead.Mods.Network
             _chatCount = 0;
         }
 
+        internal void ApplyRoster(Scene scene)
+        {
+            foreach (NetRosterEntry entry in Roster)
+                scene.Roster.Nicknames[entry.Slot] = entry.Name;
+        }
+
         public void BeforeSimulation(Scene scene)
         {
+            ApplyRoster(scene);
             if (Match.MatchId == 0) { return; }
             scene.Match.MatchId = Match.MatchId;
             if (_loadedMatch == 0 && !_reloadOnNextApply) { _loadedMatch = Match.MatchId; MatchesLoaded++; }
@@ -272,8 +279,8 @@ namespace MphRead.Mods.Network
                 scene.RestorePresentationClock(BinaryPrimitives.ReadUInt64LittleEndian(clock),
                     BinaryPrimitives.ReadUInt64LittleEndian(clock[8..]), BinaryPrimitives.ReadSingleLittleEndian(clock[16..]),
                     BinaryPrimitives.ReadSingleLittleEndian(clock[20..]));
-                Rng.SetRng1(BinaryPrimitives.ReadUInt32LittleEndian(clock[24..]));
-                Rng.SetRng2(BinaryPrimitives.ReadUInt32LittleEndian(clock[28..]));
+                scene.Random.SetRng1(BinaryPrimitives.ReadUInt32LittleEndian(clock[24..]));
+                scene.Random.SetRng2(BinaryPrimitives.ReadUInt32LittleEndian(clock[28..]));
                 _pendingClock = null;
             }
             if (_dirty)
@@ -295,7 +302,7 @@ namespace MphRead.Mods.Network
                 _pendingFeedback = null;
             }
             MphRead.Combat.CombatFeedback? feedback = (scene.Presentation as ScenePresentation)?.CombatFeedback;
-            int local = _recordedLocalSlot ?? PlayerEntity.MainPlayerIndex;
+            int local = _recordedLocalSlot ?? scene.LocalPlayerSlot;
             feedback?.Bind(Match.MatchId, local < 0 ? CombatActor.None : new CombatActor((byte)local, _identities[local], _lives[local]), _roster.AsSpan(0, _rosterCount), HasSnapshot ? Snapshot.ServerTick : 0, scene.Match.PhaseRevision);
             MphRead.Combat.WorldFeedback? worldFeedback = (scene.Presentation as ScenePresentation)?.WorldFeedback;
             worldFeedback?.Bind(Match.MatchId, scene.Match.PhaseRevision);
@@ -305,7 +312,7 @@ namespace MphRead.Mods.Network
                 if (feedback != null && !feedback.Process(value)) continue;
                 CombatActor subject = value.Kind is CombatEventKind.Shot or CombatEventKind.Bomb ? value.Actor : value.Target;
                 if (subject.IsValid && _identities[subject.Slot] == subject.ConnectionId && _lives[subject.Slot] == subject.Life)
-                { PlayerEntity.Players[subject.Slot].GetPresentation().PresentCombat(value); }
+                { scene.Players[subject.Slot].GetPresentation().PresentCombat(value); }
             }
             for (int i = 0; i < _killCount; i++) feedback?.Process(_kills[i]);
             for (int i = 0; i < _worldEventCount; i++) worldFeedback?.Process(_worldEvents[i], feedback?.Local ?? CombatActor.None,
@@ -313,12 +320,12 @@ namespace MphRead.Mods.Network
             _eventCount = _killCount = _worldEventCount = 0;
         }
 
-        public void AfterSimulation()
+        public void AfterSimulation(Scene scene)
         {
             if (!HasSnapshot) { return; }
             foreach (SnapshotPlayer state in Players)
             {
-                PlayerEntity player = PlayerEntity.Players[state.Slot];
+                PlayerEntity player = scene.Players[state.Slot];
                 player.Controls.ClearAll();
                 player.ApplySnapshotTransform(state);
             }
@@ -331,7 +338,7 @@ namespace MphRead.Mods.Network
             {
                 int slot = state.Slot;
                 occupied |= 1 << slot;
-                PlayerEntity player = PlayerEntity.Players[slot];
+                PlayerEntity player = scene.Players[slot];
                 if (_identities[slot] != state.ConnectionId)
                 {
                     player.ClientActivate(state);
@@ -348,8 +355,8 @@ namespace MphRead.Mods.Network
             {
                 if ((occupied & (1 << slot)) == 0 && _identities[slot] != 0)
                 {
-                    PlayerEntity.Players[slot].GetPresentation().ClearNetworkAfflictions();
-                    PlayerEntity.Players[slot].ServerDeactivate();
+                    scene.Players[slot].GetPresentation().ClearNetworkAfflictions();
+                    scene.Players[slot].ServerDeactivate();
                     NetScoreboard.ForgetSlot(scene, slot);
                     _identities[slot] = 0;
                 }
@@ -361,7 +368,7 @@ namespace MphRead.Mods.Network
                 scene.Match.Players[state.Slot].Deaths = state.Deaths;
                 scene.Match.Players[state.Slot].Assists = state.Assists;
             }
-            PlayerEntity.PlayerCount = PlayerCount;
+            scene.Players.ActiveCount = PlayerCount;
         }
     }
 }

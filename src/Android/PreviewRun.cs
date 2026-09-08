@@ -93,9 +93,9 @@ namespace MphRead.Droid
             try
             {
                 // A player has to exist for the multiplayer intro camera to run
-                // at all: GameState sets the sequence up against
-                // PlayerEntity.Main's camera info.
-                scene = new Scene(preserveNicknames: MphRead.Mods.Network.NetSession.Active);
+                // at all: The match flow sets the sequence up against
+                // the scene local player's camera info.
+                scene = new Scene(features: ClientMatchFeatures.Capture());
                 var presentation = new ScenePresentation(scene, new Vector2i(width, height),
                     input.Keyboard, input.Mouse, _ => { }, () => { });
                 scene.AddPlayer(Hunter.Samus, recolor: 0, team: -1);

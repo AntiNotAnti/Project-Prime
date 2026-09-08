@@ -98,7 +98,7 @@ namespace MphRead
             // could not hold a 1024x720 window died with a null reference
             // inside Run() with the whole room already loaded and nothing
             // near the crash to explain it.
-            Scene = new Scene(preserveNicknames: Mods.Network.NetSession.Active);
+            Scene = new Scene(features: ClientMatchFeatures.Capture());
             Presentation = new ScenePresentation(Scene, Size, KeyboardState, MouseState, (string title) =>
             {
                 Title = title;
@@ -226,6 +226,11 @@ namespace MphRead
 
         protected override void OnRenderFrame(FrameEventArgs args)
         {
+            if (Mods.Network.NodeSessions.Current?.ShouldReturnFromGameplay == true)
+            {
+                Close();
+                return;
+            }
             // The pause menu wants the pointer back.
             CursorState = (Presentation.CameraMode == CameraMode.Player || Presentation.IsFreeCam) && !Presentation.FrameAdvance
                 && !Mods.PauseMenu.Open
@@ -264,7 +269,7 @@ namespace MphRead
             if (Mods.Input.GamepadInput.TakeMenuPress()
                 && (Presentation.CameraMode == CameraMode.Player || Presentation.IsFreeCam))
             {
-                Mods.PauseMenu.HandleEscape(this);
+                Mods.PauseMenu.HandleEscape(this, Scene);
             }
             Presentation.OnDrawFrame();
             if (!Presentation.OnRenderFrame())
@@ -308,7 +313,7 @@ namespace MphRead
             {
                 if (Mods.SpectatorMode.IsSpectating)
                 {
-                    Mods.SpectatorMode.CycleNext();
+                    Mods.SpectatorMode.CycleNext(Scene);
                 }
                 else
                 {
@@ -402,7 +407,7 @@ namespace MphRead
                 {
                     // Spectating a live match: the map or a player, never the
                     // hidden body you left behind. See SpectatorMode.
-                    Mods.SpectatorMode.ToggleView();
+                    Mods.SpectatorMode.ToggleView(Scene);
                 }
                 base.OnKeyDown(e);
                 return;
@@ -415,7 +420,7 @@ namespace MphRead
             // through to that and quit the game instead of pausing it, taking
             // "Rejoin match" with it.
             if (e.Key == Keys.Escape && (Presentation.CameraMode == CameraMode.Player || Presentation.IsFreeCam)
-                && Mods.PauseMenu.HandleEscape(this))
+                && Mods.PauseMenu.HandleEscape(this, Scene))
             {
                 base.OnKeyDown(e);
                 return;

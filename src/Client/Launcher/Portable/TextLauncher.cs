@@ -10,8 +10,9 @@ using MphRead.Mods.Update;
 namespace MphRead.Mods.Launcher
 {
     /// <summary>
-    /// Terminal launcher for joining and hosting multiplayer matches, using
-    /// the same preferences, game-file setup and match startup as the GUI.
+    /// Terminal launcher for local setup and diagnostics. Public multiplayer
+    /// is selected through the GUI Node browser; the portable menu reports
+    /// that migration instead of accepting direct endpoints.
     /// </summary>
     public static class TextLauncher
     {
@@ -80,10 +81,10 @@ namespace MphRead.Mods.Launcher
                 }
                 finally
                 {
-                    // Both own a worker thread and a bound socket; a crash in
-                    // the game must not leave either behind.
+                    // The Node session owns control-plane state and NetSession
+                    // owns the Worker UDP client. Stop only the client side;
+                    // public hosting is never a local process.
                     NetSession.Stop();
-                    NetHostSession.Stop();
                 }
                 // No PauseMenu.QuitProgram check, unlike the window's loop:
                 // the pause menu is WinForms and cannot run in a build that
@@ -165,9 +166,9 @@ namespace MphRead.Mods.Launcher
                     Console.WriteLine($"  {Update.Updater.Describe(Update.Updater.Available.Value)}");
                     Console.WriteLine();
                 }
-                Console.WriteLine("  [1] Play online      join a server");
-                Console.WriteLine("  [2] Host a game      run a server and play on it");
-                Console.WriteLine("  [3] Settings         name, hunter, window, addresses");
+                Console.WriteLine("  [1] Join public game use the GUI Node browser");
+                Console.WriteLine("  [2] Host public game use the GUI Node browser");
+                Console.WriteLine("  [3] Settings         name, hunter, window");
                 Console.WriteLine("  [4] Game files       point this at your .nds dump");
                 if (Update.Updater.Available != null)
                 {
@@ -207,16 +208,10 @@ namespace MphRead.Mods.Launcher
                 switch (choice)
                 {
                     case "1":
-                        if (PlayOnline(out plan))
-                        {
-                            return true;
-                        }
+                        Console.WriteLine(NodeMigrationMessage);
                         continue;
                     case "2":
-                        if (HostGame(settings, rooms, out plan))
-                        {
-                            return true;
-                        }
+                        Console.WriteLine(NodeMigrationMessage);
                         continue;
                     default:
                         continue;
@@ -224,229 +219,8 @@ namespace MphRead.Mods.Launcher
             }
         }
 
-        /// <summary>
-        /// Join a server: pick one from the directory or type an address, then
-        /// connect here rather than in the match.
-        ///
-        /// Connecting on this screen is what the window does too, and for the
-        /// same reason: "could not join, it may be off or UDP may be blocked"
-        /// belongs where somebody is still looking, not after a room has been
-        /// loaded.
-        /// </summary>
-        private static bool PlayOnline(out LaunchPlan plan)
-        {
-            plan = default;
-            string address = LauncherPrefs.ServerAddress;
-            int port = LauncherPrefs.ServerPort;
-            Console.WriteLine();
-            Console.WriteLine($"  [b] browse the servers on {LauncherPrefs.MasterHost}");
-            Console.WriteLine($"  [enter] use {address}:{port}");
-            Console.WriteLine("  [c] cancel");
-            string answer = Ask("  Server", "").ToLowerInvariant();
-            if (answer == "c")
-            {
-                return false;
-            }
-            if (answer == "b")
-            {
-                if (!Browse(ref address, ref port))
-                {
-                    return false;
-                }
-            }
-            else if (answer.Length > 0)
-            {
-                if (!ParseEndpoint(answer, ref address, ref port))
-                {
-                    Console.WriteLine("  That is not a host or host:port.");
-                    return false;
-                }
-            }
-            ServerStatus status = NetStatus.Query(address, port, allowJoinProbe: false);
-            if (status.Online)
-            {
-                Console.WriteLine($"  {Describe(status)}");
-                if (!status.Compatible) { return false; }
-            }
-            else
-            {
-                Console.WriteLine("  That server did not answer. Compatibility could not be verified.");
-                return false;
-            }
-            string name = AskName();
-            Hunter hunter = AskHunter();
-            LauncherPrefs.ServerAddress = address;
-            LauncherPrefs.ServerPort = port;
-            LauncherPrefs.LastKind = (int)LaunchKind.Online;
-            LauncherPrefs.Save();
-            Console.WriteLine($"  Connecting to {address}:{port}...");
-            if (!NetLaunch.Join(address, port, name, hunter))
-            {
-                Console.WriteLine($"  {NetLaunch.LastJoinError}");
-                NetSession.Stop();
-                return false;
-            }
-            plan = new LaunchPlan
-            {
-                Kind = LaunchKind.Online,
-                Hunter = hunter,
-                PlayerName = name,
-                RoomKey = "",
-                Mode = GameMode.Battle,
-                Port = port
-            };
-            return true;
-        }
-
-        /// <summary>
-        /// The server browser: what the directory lists, then each server asked
-        /// directly. Both calls are the ones the window's browser makes, and
-        /// the ones `-servers` already prints -- this adds picking one.
-        /// </summary>
-        private static bool Browse(ref string address, ref int port)
-        {
-            Console.WriteLine($"  Asking {LauncherPrefs.MasterHost}:{LauncherPrefs.MasterPort}...");
-            MasterListResult result = NetMasterClient.Query(LauncherPrefs.MasterHost,
-                LauncherPrefs.MasterPort);
-            if (!result.Answered)
-            {
-                Console.WriteLine("  The directory did not answer; it may be down, "
-                    + "or UDP may not reach it.");
-                return false;
-            }
-            if (!result.Compatible) { Console.WriteLine("  Directory online — " + result.IncompatibilityReason); }
-            if (result.Servers.Count == 0)
-            {
-                if (!result.Compatible) { return false; }
-                Console.WriteLine("  The directory is up and has nobody listed.");
-                return false;
-            }
-            var listed = new List<MasterListing>(result.Servers);
-            var statuses = new ServerStatus[listed.Count];
-            Console.WriteLine();
-            for (int i = 0; i < listed.Count; i++)
-            {
-                MasterListing listing = listed[i];
-                // Directly, not through the directory: the round trip that
-                // matters is this machine's, and an answer also proves the
-                // server is reachable from here rather than only from there.
-                ServerStatus status = NetStatus.Query(listing.Address, listing.Port,
-                    allowJoinProbe: false);
-                statuses[i] = status;
-                string name = status.ServerName.Length > 0
-                    ? status.ServerName
-                    : listing.ServerName.Length > 0 ? listing.ServerName : listing.Endpoint;
-                Console.WriteLine($"  [{i + 1}] {name,-24} {listing.Endpoint,-24} "
-                    + (status.Online ? Describe(status) : "did not answer"));
-            }
-            Console.WriteLine();
-            string answer = Ask("  Which one", "1");
-            if (!Int32.TryParse(answer, NumberStyles.Integer, CultureInfo.InvariantCulture,
-                out int index) || index < 1 || index > listed.Count)
-            {
-                return false;
-            }
-            ServerStatus selected = statuses[index - 1];
-            if (!selected.Online || !selected.Compatible)
-            {
-                Console.WriteLine(selected.Online ? "  " + selected.IncompatibilityReason
-                    : "  Compatibility could not be verified.");
-                return false;
-            }
-            address = listed[index - 1].Address;
-            port = listed[index - 1].Port;
-            return true;
-        }
-
-        internal static string Describe(ServerStatus status)
-        {
-            if (!status.Compatible) { return "Online — " + status.IncompatibilityReason; }
-            string players = status.MaxPlayers > 0
-                ? $"{status.Players}/{status.MaxPlayers}"
-                : status.Players.ToString(CultureInfo.InvariantCulture);
-            string ping = status.Latency >= 0
-                ? $"{status.Latency.ToString(CultureInfo.InvariantCulture)} ms"
-                : "-- ms";
-            return $"{status.RoomKey} ({NetStatus.ModeName(status.Mode)}) {players} {ping}";
-        }
-
-        /// <summary>
-        /// Run a server and play on it. Either on this machine -- which needs
-        /// a forwarded UDP port for anybody outside to reach it -- or by asking
-        /// the directory to run it, which needs nothing forwarded anywhere and
-        /// is why it is the default.
-        /// </summary>
-        private static bool HostGame(MenuSettings settings, IReadOnlyList<string> rooms,
-            out LaunchPlan plan)
-        {
-            plan = default;
-            if (!AskRoom(settings, rooms, out string roomKey))
-            {
-                return false;
-            }
-            GameMode mode = AskMode();
-            string name = AskName();
-            Hunter hunter = AskHunter();
-            bool onMaster = AskYesNo("  Let the directory run it (no port forwarding)",
-                LauncherPrefs.HostOnMaster);
-            LauncherPrefs.HostOnMaster = onMaster;
-            LauncherPrefs.LastKind = (int)LaunchKind.Host;
-
-            if (onMaster)
-            {
-                Console.WriteLine($"  Asking {LauncherPrefs.MasterHost}:"
-                    + $"{LauncherPrefs.MasterPort} to run {roomKey}...");
-                HostedGame game = NetMasterClient.RequestGame(LauncherPrefs.MasterHost,
-                    LauncherPrefs.MasterPort, roomKey, mode, timeLimit: 7 * 60,
-                    pointGoal: 7, maxPlayers: PlayerEntity.SlotCapacity,
-                    serverName: $"{name}'s game");
-                if (!game.Started)
-                {
-                    Console.WriteLine($"  It would not: {game.Reason}");
-                    return false;
-                }
-                LauncherPrefs.Save();
-                Console.WriteLine($"  Running on {game.Host}:{game.Port}; joining it.");
-                if (!NetLaunch.Join(game.Host, game.Port, name, hunter))
-                {
-                    Console.WriteLine("  The game started but could not be joined.");
-                    NetSession.Stop();
-                    return false;
-                }
-            }
-            else
-            {
-                int port = AskInt("  Port", LauncherPrefs.HostPort, 1, 65535);
-                bool listed = AskYesNo("  List it so others can find it",
-                    LauncherPrefs.ListHostedGame);
-                LauncherPrefs.HostPort = port;
-                LauncherPrefs.ListHostedGame = listed;
-                LauncherPrefs.Save();
-                Console.WriteLine($"  Starting a server on port {port}...");
-                if (!NetHostSession.StartAndJoin(settings.FriendlyFire == "on", port, name, hunter, roomKey, mode,
-                    timeLimit: 7 * 60, pointGoal: 7,
-                    listing: listed
-                        ? (LauncherPrefs.MasterHost, LauncherPrefs.MasterPort, $"{name}'s game")
-                        : null))
-                {
-                    Console.WriteLine("  The server would not start: "
-                        + (NetHostSession.LastError ?? "the port may be in use"));
-                    return false;
-                }
-                Console.WriteLine($"  Hosting on port {port}. Friends join with:");
-                Console.WriteLine($"    {Mods.Branding.Executable} -connect <your address> -port {port}");
-            }
-            plan = new LaunchPlan
-            {
-                Kind = LaunchKind.Host,
-                Hunter = hunter,
-                PlayerName = name,
-                RoomKey = roomKey,
-                Mode = mode,
-                Port = LauncherPrefs.HostPort
-            };
-            return true;
-        }
+        internal const string NodeMigrationMessage =
+            "  Public multiplayer now uses the GUI Node browser. Start without -text to browse Nodes, create a public lobby, or join one.";
 
         /// <summary>
         /// The handful of settings this screen owns. Everything else --
@@ -463,27 +237,9 @@ namespace MphRead.Mods.Launcher
                 LauncherPrefs.WindowMode == WindowStartMode.BorderlessFullscreen)
                 ? WindowStartMode.BorderlessFullscreen
                 : WindowStartMode.Windowed;
-            string endpoint = Ask("  Default server",
-                $"{LauncherPrefs.ServerAddress}:{LauncherPrefs.ServerPort}");
-            string address = LauncherPrefs.ServerAddress;
-            int port = LauncherPrefs.ServerPort;
-            if (ParseEndpoint(endpoint, ref address, ref port))
-            {
-                LauncherPrefs.ServerAddress = address;
-                LauncherPrefs.ServerPort = port;
-            }
-            string master = Ask("  Server directory",
-                $"{LauncherPrefs.MasterHost}:{LauncherPrefs.MasterPort}");
-            string masterHost = LauncherPrefs.MasterHost;
-            int masterPort = LauncherPrefs.MasterPort;
-            if (ParseEndpoint(master, ref masterHost, ref masterPort))
-            {
-                LauncherPrefs.MasterHost = masterHost;
-                LauncherPrefs.MasterPort = masterPort;
-            }
             LauncherPrefs.Save();
             Console.WriteLine("  Saved.");
-            Console.WriteLine("  Volumes, controls and match rules are in -menu.");
+            Console.WriteLine("  Volumes, controls, match rules and public Node multiplayer are in the GUI.");
         }
 
         /// <summary>
@@ -575,68 +331,6 @@ namespace MphRead.Mods.Launcher
             }
         }
 
-        private static bool AskRoom(MenuSettings settings, IReadOnlyList<string> rooms,
-            out string roomKey)
-        {
-            roomKey = settings.RoomKey;
-            if (rooms.Count == 0)
-            {
-                Console.WriteLine("  No multiplayer rooms were found.");
-                return false;
-            }
-            // The one the window would have shown selected: last played if it
-            // is still a multiplayer room, else the first.
-            int current = 0;
-            for (int i = 0; i < rooms.Count; i++)
-            {
-                if (rooms[i] == roomKey)
-                {
-                    current = i;
-                    break;
-                }
-            }
-            Console.WriteLine();
-            for (int i = 0; i < rooms.Count; i++)
-            {
-                Console.WriteLine($"  [{i + 1,2}] {rooms[i]}");
-            }
-            Console.WriteLine();
-            string answer = Ask("  Map", (current + 1).ToString(CultureInfo.InvariantCulture));
-            if (!Int32.TryParse(answer, NumberStyles.Integer, CultureInfo.InvariantCulture,
-                out int index) || index < 1 || index > rooms.Count)
-            {
-                return false;
-            }
-            roomKey = rooms[index - 1];
-            settings.RoomKey = roomKey;
-            return true;
-        }
-
-        private static GameMode AskMode()
-        {
-            // The modes a multiplayer match can be started in. Not every
-            // GameMode value is one -- SinglePlayer and None are in the enum
-            // too -- so this is the list rather than the enum.
-            GameMode[] modes =
-            {
-                GameMode.Battle, GameMode.BattleTeams, GameMode.Survival,
-                GameMode.SurvivalTeams, GameMode.Capture, GameMode.Bounty,
-                GameMode.BountyTeams, GameMode.Defender, GameMode.DefenderTeams,
-                GameMode.Nodes, GameMode.NodesTeams, GameMode.PrimeHunter
-            };
-            Console.WriteLine();
-            for (int i = 0; i < modes.Length; i++)
-            {
-                Console.WriteLine($"  [{i + 1,2}] {NetStatus.ModeName(modes[i])}");
-            }
-            Console.WriteLine();
-            string answer = Ask("  Mode", "1");
-            return Int32.TryParse(answer, NumberStyles.Integer, CultureInfo.InvariantCulture,
-                out int index) && index >= 1 && index <= modes.Length
-                ? modes[index - 1]
-                : GameMode.Battle;
-        }
-
         private static string AskName()
         {
             string name = Ask("  Your name", LauncherPrefs.PlayerName);
@@ -678,15 +372,6 @@ namespace MphRead.Mods.Launcher
             return answer.Length > 0 ? answer[0] == 'y' : current;
         }
 
-        private static int AskInt(string prompt, int current, int min, int max)
-        {
-            string answer = Ask(prompt, current.ToString(CultureInfo.InvariantCulture));
-            return Int32.TryParse(answer, NumberStyles.Integer, CultureInfo.InvariantCulture,
-                out int value)
-                ? Math.Clamp(value, min, max)
-                : current;
-        }
-
         /// <summary>
         /// Prompt, showing the remembered answer, and take a blank line to mean
         /// "keep it". A null from ReadLine means stdin closed -- a piped or
@@ -706,30 +391,5 @@ namespace MphRead.Mods.Launcher
             return line.Length == 0 ? fallback : line;
         }
 
-        /// <summary>host, or host:port. Leaves both alone and returns false on
-        /// anything else, so a typo does not silently change the address.</summary>
-        private static bool ParseEndpoint(string text, ref string host, ref int port)
-        {
-            text = text.Trim();
-            if (text.Length == 0)
-            {
-                return false;
-            }
-            int colon = text.LastIndexOf(':');
-            if (colon <= 0)
-            {
-                host = text;
-                return true;
-            }
-            if (!Int32.TryParse(text[(colon + 1)..], NumberStyles.Integer,
-                CultureInfo.InvariantCulture, out int parsed)
-                || parsed < 1 || parsed > 65535)
-            {
-                return false;
-            }
-            host = text[..colon];
-            port = parsed;
-            return true;
-        }
     }
 }

@@ -43,15 +43,15 @@ namespace MphRead.Entities
                 };
                 _combatPresentationEquip.Weapon = Weapons.Current[value.Weapon + ((value.Flags & CombatEventFlags.Affinity) != 0 ? 9 : 0)];
                 _combatPresentationEquip.ChargeLevel = value.ChargeLevel;
-                uint rng1 = Rng.Rng1, rng2 = Rng.Rng2;
+                uint rng1 = _player._scene.Random.Rng1, rng2 = _player._scene.Random.Rng2;
                 try
                 {
                     BeamProjectileEntity.Spawn(_player, _combatPresentationEquip, value.Position, up, BeamSpawnFlags.NoMuzzle | (charged ? BeamSpawnFlags.Charged : 0), _player._scene.GetNodeRefByPosition(value.Position), _player._scene, spreadSeed: value.SpreadSeed);
                 }
                 finally
                 {
-                    Rng.SetRng1(rng1);
-                    Rng.SetRng2(rng2);
+                    _player._scene.Random.SetRng1(rng1);
+                    _player._scene.Random.SetRng2(rng2);
                 }
             }
             else if (value.Kind == CombatEventKind.Bomb)

@@ -228,7 +228,7 @@ namespace MphRead.Entities
         {
             string label = Strings.GetHudMessage(ProScoreMessageId());
             ProNumber(x, y, align, label, ProHudDim, 0.55f);
-            ProNumber(x, y + 8, align, FormatModeScore(PlayerEntity.MainPlayerIndex), ProHudInk, scale);
+            ProNumber(x, y + 8, align, FormatModeScore(_player._scene.LocalPlayerSlot), ProHudInk, scale);
         }
 
         public int ProScoreMessageId()

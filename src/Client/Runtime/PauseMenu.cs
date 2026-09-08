@@ -80,7 +80,7 @@ namespace MphRead.Mods
             WindowMoved = true;
         }
 
-        public static bool HandleEscape(NativeWindow window)
+        public static bool HandleEscape(NativeWindow window, Scene scene)
         {
             TakeWindowRect(window);
             if (!Launcher.Gui.GuiLauncher.EnsureSetup())
@@ -95,7 +95,7 @@ namespace MphRead.Mods
                 Close();
                 return true;
             }
-            OpenMenu();
+            OpenMenu(scene);
             return true;
         }
 
@@ -191,9 +191,9 @@ namespace MphRead.Mods
             _refocus = true;
         }
 
-        private static void OpenMenu()
+        private static void OpenMenu(Scene scene)
         {
-            _open = Launcher.Gui.PauseMenuWindow.Open();
+            _open = Launcher.Gui.PauseMenuWindow.Open(scene);
         }
 
         private static void Close()

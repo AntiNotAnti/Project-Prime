@@ -46,7 +46,7 @@ namespace MphRead.Mods.Network
             _shotDirectory = shotDirectory;
             _spectateAt = spectateAt;
             _rejoinAt = rejoinAt;
-            _scene = new Scene(preserveNicknames: NetSession.Active) { Services = new ClientSceneServices() };
+            _scene = new Scene(features: ClientMatchFeatures.Capture()) { Services = new ClientSceneServices() };
             _ = new ScenePresentation(_scene, Size, KeyboardState, MouseState, _ => { }, Close);
             play.BuildPlayers(_scene, hunter, 0);
             _scene.AddRoom(play.Client.Accepted.Room, play.Client.Accepted.Mode,
@@ -59,12 +59,12 @@ namespace MphRead.Mods.Network
             double elapsed = _clock.Elapsed.TotalSeconds;
             if (_spectateAt >= 0 && !_spectateRequested && elapsed >= _spectateAt)
             {
-                SpectatorMode.Start();
+                SpectatorMode.Start(_scene);
                 _spectateRequested = true;
             }
             if (_rejoinAt >= 0 && !_rejoinRequested && elapsed >= _rejoinAt)
             {
-                SpectatorMode.Rejoin();
+                SpectatorMode.Rejoin(_scene);
                 _rejoinRequested = true;
             }
             foreach (SnapshotPlayer state in _play.Client.SnapshotPlayers)

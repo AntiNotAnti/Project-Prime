@@ -105,6 +105,15 @@ namespace MphRead
 
         private static bool CheckSetup(string[] args)
         {
+            // The graphical launcher starts a child copy of this executable
+            // with the selected ROM as its only argument. The extraction code
+            // is already part of the client, so handle that request here
+            // instead of routing it to the separate tools executable.
+            if (args.Length == 1 && !args[0].StartsWith('-') && File.Exists(args[0]))
+            {
+                Extract.Setup(args[0], replaceConfiguredPaths: true);
+                return true;
+            }
             if (File.Exists("paths.txt") && !CheckVersion())
             {
                 Console.WriteLine($"Your paths.txt file is not compatible with this version of {Mods.Branding.Name} and needs to be recreated.");
@@ -113,12 +122,6 @@ namespace MphRead
                 Console.WriteLine();
                 Console.WriteLine("Press any key to exit...");
                 Console.ReadKey();
-                return true;
-            }
-            if (args.Length == 1 && !args[0].StartsWith('-') && File.Exists(args[0]))
-            {
-                Console.Error.WriteLine("Run FruityPrimeTools with the ROM path to extract game files.");
-                Environment.ExitCode = 2;
                 return true;
             }
             if (!File.Exists("paths.txt"))

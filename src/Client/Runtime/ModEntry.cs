@@ -209,69 +209,19 @@ namespace MphRead.Mods
                 Launcher.TextLauncher.Run();
                 return true;
             }
-            // The server directory: -masterserver. Same binary as the game
-            // server on purpose -- the machine that runs one usually runs the
-            // other, and a second thing to install is a second thing to forget
-            // to restart.
-
-            // The server list, printed. Same two calls the launcher's browser
-            // makes -- ask the directory, then ask each server it named -- so
-            // this is how that data path gets checked on a machine with no
-            // WinForms, which is every machine that is not Windows.
             if (HasFlag(args, "servers"))
             {
-                ListServers(ValueAfter(args, "master") ?? NetMasterConfig.DefaultHost,
-                    ValueAfter(args, "masterport"));
+                RetiredPublicNetworkCommand("-servers");
                 return true;
             }
             return false;
         }
 
-
-        private static void ListServers(string masterHost, string? portValue)
+        private static void RetiredPublicNetworkCommand(string command)
         {
-            int port = NetMasterConfig.DefaultPort;
-            if (portValue != null && Int32.TryParse(portValue, out int parsed))
-            {
-                port = parsed;
-            }
-            Console.WriteLine($"[servers] asking {masterHost}:{port}");
-            MasterListResult result = NetMasterClient.Query(masterHost, port);
-            if (!result.Answered)
-            {
-                Console.WriteLine($"[servers] no answer from {masterHost}:{port} -- "
-                    + "it may be down, or UDP may not reach it");
-                return;
-            }
-            if (result.Servers.Count == 0)
-            {
-                Console.WriteLine("[servers] the directory is up and has nobody listed");
-                return;
-            }
-            Console.WriteLine($"[servers] {result.Servers.Count} listed; asking each one");
-            foreach (MasterListing listing in result.Servers)
-            {
-                // Directly, not through the directory: the round trip that
-                // matters is this machine's, and the answer also proves the
-                // server is reachable from here rather than only from there.
-                ServerStatus status = NetStatus.Query(listing.Address, listing.Port,
-                    allowJoinProbe: false);
-                string name = status.ServerName.Length > 0
-                    ? status.ServerName
-                    : listing.ServerName.Length > 0 ? listing.ServerName : listing.Endpoint;
-                if (!status.Online)
-                {
-                    Console.WriteLine($"  {name,-24} {listing.Endpoint,-26} did not answer");
-                    continue;
-                }
-                string players = status.MaxPlayers > 0
-                    ? $"{status.Players}/{status.MaxPlayers}"
-                    : status.Players.ToString();
-                string ping = status.Latency >= 0 ? $"{status.Latency} ms" : "-- ms";
-                Console.WriteLine($"  {name,-24} {listing.Endpoint,-26} "
-                    + $"{status.RoomKey,-20} {NetStatus.ModeName(status.Mode),-14} "
-                    + $"{players,-6} {ping}");
-            }
+            Console.Error.WriteLine($"{command} is retired. Start the GUI without the portable command-line path "
+                + "and use the authenticated Node browser for public lobbies.");
+            Environment.ExitCode = 2;
         }
 
         public static bool TryHandle(string[] args)
@@ -455,53 +405,15 @@ namespace MphRead.Mods
                 return true;
             }
 
-            // Ask the directory to run a match and join it. The launcher's
-            // "Online, no setup" in one command -- and the only way to host
-            // from a machine with no launcher, which is every machine that is
-            // not Windows.
-            string? hostGame = ValueAfter(args, "hostgame");
-            if (hostGame != null)
+            if (HasFlag(args, "hostgame"))
             {
-                string masterHost = ValueAfter(args, "master") ?? NetMasterConfig.DefaultHost;
-                int masterPort = NetMasterConfig.DefaultPort;
-                string? masterPortValue = ValueAfter(args, "masterport");
-                if (masterPortValue != null && Int32.TryParse(masterPortValue, out int parsedMaster))
-                {
-                    masterPort = parsedMaster;
-                }
-                GameMode hostMode = GameMode.Battle;
-                string? hostModeValue = ValueAfter(args, "mode");
-                if (hostModeValue != null
-                    && Enum.TryParse(hostModeValue, ignoreCase: true, out GameMode parsedHostMode))
-                {
-                    hostMode = parsedHostMode;
-                }
-                string hostName = ParseName(args);
-                Console.WriteLine($"[net] asking {masterHost}:{masterPort} to run {hostGame}");
-                HostedGame game = NetMasterClient.RequestGame(masterHost, masterPort,
-                    hostGame, hostMode, timeLimit: 7 * 60, pointGoal: 7,
-                    maxPlayers: PlayerEntity.SlotCapacity, serverName: $"{hostName}'s game");
-                if (!game.Started)
-                {
-                    Console.WriteLine($"[net] it would not: {game.Reason}");
-                    Environment.ExitCode = 1;
-                    return true;
-                }
-                Console.WriteLine($"[net] running on {game.Host}:{game.Port}; joining it");
-                Network.NetConnectCommand.Run(game.Host, game.Port, hostName,
-                    ParseHunter(args), ParseRecolor(args));
+                RetiredPublicNetworkCommand("-hostgame");
                 return true;
             }
 
-            // Join a server from the command line, with no launcher dialog.
-            // The only way to start a client on a platform without WinForms,
-            // and the only practical way to start two of them side by side --
-            // which is the arrangement every bug in this feature has needed.
-            string? connect = ValueAfter(args, "connect");
-            if (connect != null)
+            if (HasFlag(args, "connect"))
             {
-                Network.NetConnectCommand.Run(connect, ParsePort(args), ParseName(args),
-                    ParseHunter(args), ParseRecolor(args));
+                RetiredPublicNetworkCommand("-connect");
                 return true;
             }
 
@@ -662,7 +574,7 @@ namespace MphRead.Mods
         /// invocation before anything draws.
         ///
         /// The settings file is the launcher's, and the paths that never open
-        /// one -- <c>-thumbnail</c>, <c>-maptest</c>, <c>-connect</c> -- had no
+        /// one -- <c>-thumbnail</c> and <c>-maptest</c> -- had no
         /// way to ask for cel shading at all. That made the one mode whose
         /// whole point is what the picture looks like the one mode no
         /// screenshot command could turn on.

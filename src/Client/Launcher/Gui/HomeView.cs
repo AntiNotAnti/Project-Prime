@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -58,14 +56,7 @@ namespace MphRead.Mods.Launcher.Gui
         private MenuEntry? _previewProgress;
         private Control _homeCard = null!;
         private Control _setupCard = null!;
-        private Control _onlineCard = null!;
-        private Control _hostCard = null!;
-        private Control _browseCard = null!;
         private Control? _current;
-        private Control? _browseReturn;
-
-        private DispatcherTimer? _statusTimer;
-        private CancellationTokenSource? _statusCancel;
         private bool _finished;
 
         /// <summary>Below this width the screen folds into one column.</summary>
@@ -79,26 +70,6 @@ namespace MphRead.Mods.Launcher.Gui
         /// with <see cref="LaunchKind.None"/> when the answer was "quit".
         /// </summary>
         public event EventHandler<LaunchPlan>? Done;
-
-        private static readonly (string Label, GameMode Mode)[] _modes =
-        {
-            ("Battle", GameMode.Battle),
-            ("Battle teams", GameMode.BattleTeams),
-            ("Survival", GameMode.Survival),
-            ("Survival teams", GameMode.SurvivalTeams),
-            ("Capture", GameMode.Capture),
-            ("Bounty", GameMode.Bounty),
-            ("Bounty teams", GameMode.BountyTeams),
-            ("Defender", GameMode.Defender),
-            ("Defender teams", GameMode.DefenderTeams),
-            ("Nodes", GameMode.Nodes),
-            ("Nodes teams", GameMode.NodesTeams),
-            ("Prime hunter", GameMode.PrimeHunter)
-        };
-
-        private static readonly string[] _hunters =
-            Enumerable.Range(0, 7).Select(i => ((Hunter)i).ToString())
-                .Append(Hunter.Random.ToString()).ToArray();
 
         public HomeView(MenuSettings settings, IReadOnlyList<string> rooms)
         {
@@ -156,14 +127,12 @@ namespace MphRead.Mods.Launcher.Gui
 
             _homeCard = BuildHomeCard();
             _setupCard = BuildSetupCard();
-            _onlineCard = BuildOnlineCard();
-            _hostCard = BuildHostCard();
-            _browseCard = BuildBrowseCard();
 
             _setupBack.IsVisible = GameFiles.Ready;
             ShowCard(GameFiles.Ready ? _homeCard : _setupCard);
             RefreshSplash();
             RefreshPreviewEntry();
+            if (NodeSessions.Current != null) Dispatcher.UIThread.Post(OpenJoin);
 
             if (LauncherPrefs.AutoUpdate)
             {
@@ -253,7 +222,7 @@ namespace MphRead.Mods.Launcher.Gui
             _layout.ColumnDefinitions = new ColumnDefinitions("*,Auto");
             _layout.RowDefinitions = new RowDefinitions("*");
             _splash.Height = Double.NaN;
-            _panel.Width = PanelWidth();
+            _panel.Width = 400;
             Grid.SetColumn(_splash, 0);
             Grid.SetRow(_splash, 0);
             Grid.SetColumn(_updateBadge, 0);
@@ -268,24 +237,6 @@ namespace MphRead.Mods.Launcher.Gui
 
         private bool _narrow;
         private bool _laidOut;
-
-        /// <summary>
-        /// How wide the column of cards is beside the picture.
-        ///
-        /// Wider for the server list, because that one is a table and the rest
-        /// are not. Five columns -- name, map, mode, players, ping -- do not
-        /// go into 400 pixels: the map column came out at 89, which is not a
-        /// room name, and the PLAYERS heading needs more than its share of
-        /// that width all by itself. The picture beside it is decoration and
-        /// the list is the thing being read, so the list gets the space while
-        /// it is up.
-        /// </summary>
-        private double PanelWidth()
-        {
-            return ReferenceEquals(_current, _browseCard) ? _browseWidth : 400;
-        }
-
-        private const double _browseWidth = 600;
 
         /// <summary>
         /// Answer a "back" gesture: the pointer's Escape and the phone's back
@@ -330,7 +281,6 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             _finished = true;
-            StopStatusPolling();
             Plan = plan;
             Done?.Invoke(this, plan);
         }
@@ -349,7 +299,6 @@ namespace MphRead.Mods.Launcher.Gui
             // behind "Random" is held for exactly one.
             Hunters.Reroll();
             LauncherPrefs.Load();
-            RefreshPrefRows();
             RefreshRooms();
             ShowCard(GameFiles.Ready ? _homeCard : _setupCard);
             RefreshSplash();
@@ -402,7 +351,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// the match: they were reached from the pause menu and that is where
         /// closing them should land.
         /// </summary>
-        public void ShowPauseMenu(Action onResume, Action onLeave, Action onQuit)
+        public void ShowPauseMenu(Scene scene, Action onResume, Action onLeave, Action onQuit)
         {
             var view = new PauseMenuView(offerWindowMode: false);
             EventHandler? closed = null;
@@ -426,13 +375,13 @@ namespace MphRead.Mods.Launcher.Gui
             view.SpectateRequested += (_, _) =>
             {
                 Close();
-                SpectatorMode.Start();
+                SpectatorMode.Start(scene);
                 onResume();
             };
             view.RejoinRequested += (_, _) =>
             {
                 Close();
-                SpectatorMode.Rejoin();
+                SpectatorMode.Rejoin(scene);
                 onResume();
             };
             view.RecordToggleRequested += (_, _) =>
@@ -451,8 +400,8 @@ namespace MphRead.Mods.Launcher.Gui
             };
             view.SettingsRequested += async (_, _) =>
             {
-                await OpenSettings();
-                ShowPauseMenu(onResume, onLeave, onQuit);
+                await OpenSettings(scene);
+                ShowPauseMenu(scene, onResume, onLeave, onQuit);
             };
             _ = ShowOverlay(view, handler => closed += handler);
             view.FocusResume();
@@ -472,7 +421,6 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void ShowCard(Control card)
         {
-            StopStatusPolling();
             _cards.Children.Clear();
             _cards.Children.Add(card);
             _current = card;
@@ -500,18 +448,11 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (!_narrow)
             {
-                _panel.Width = PanelWidth();
+                _panel.Width = 400;
             }
             // The splash is a map preview everywhere but the setup card, so it
             // has to be told which one is up.
-            if (_matchMap != null)
-            {
-                RefreshSplash();
-            }
-            if (ReferenceEquals(card, _onlineCard))
-            {
-                StartStatusPolling();
-            }
+            RefreshSplash();
             // The first thing on the card takes the keyboard, so the screen can
             // be used without touching the mouse.
             Dispatcher.UIThread.Post(() => card.GetVisualDescendants()
@@ -561,7 +502,8 @@ namespace MphRead.Mods.Launcher.Gui
             var quit = new MenuEntry("Quit");
             quit.Click += (_, _) => Finish(default);
 
-            // Host requests a server from the directory; it does not require a local process.
+            // Both public multiplayer entries use the Node lobby flow. Host
+            // opens the same view with an instruction to create a public lobby.
             card.Children.Add(_hostEntry);
             card.Children.Add(_onlineEntry);
             card.Children.Add(_demoEntry);
@@ -1055,12 +997,12 @@ namespace MphRead.Mods.Launcher.Gui
             _hostEntry.IsEnabled = ready;
             _demoEntry.IsEnabled = ready;
             // Game files moved into the settings, so there is no row here to
-            // colour any more. What the front screen can still say about a
-            // missing extract is that the two entries needing one are dead and
-            // why -- and the setup card is what it shows instead of this one
-            // until there is an extract at all.
+            // colour any more. The two entries that need an extract stay
+            // disabled until setup is complete.
             _hostEntry.Subtitle = ready ? "" : GameFiles.Describe();
             _hostEntry.SubtitleColor = ready ? GuiTheme.TextDim : GuiTheme.Warm;
+            _onlineEntry.Subtitle = ready ? "" : GameFiles.Describe();
+            _onlineEntry.SubtitleColor = ready ? GuiTheme.TextDim : GuiTheme.Warm;
         }
 
         // --------------------------------------------------------------- setup
@@ -1452,577 +1394,23 @@ namespace MphRead.Mods.Launcher.Gui
             return String.Join("\n", lines.Skip(Math.Max(0, lines.Length - 8)));
         }
 
-        // -------------------------------------------------------------- online
-
-        private ChoiceRow _onlineHunter = null!;
-        private FieldRow _onlineAddress = null!;
-        private Note _onlineStatus = null!;
-        private MenuEntry _connect = null!;
-        private ChoiceRow _onlineRole = null!;
-
-        private Control BuildOnlineCard()
-        {
-            var card = Card();
-            _onlineHunter = new ChoiceRow("Hunter", _hunters,
-                Array.IndexOf(_hunters, LauncherPrefs.LastHunter.ToString()));
-            _onlineRole = new ChoiceRow("Join as", new[] { "Player", "Spectator" }, 0);
-            _onlineAddress = new FieldRow("Server",
-                $"{LauncherPrefs.ServerAddress}:{LauncherPrefs.ServerPort}", boxWidth: 190);
-            _onlineStatus = new Note("Checking...");
-            _onlineAddress.Box.LostFocus += (_, _) => QueryStatusSoon();
-
-            _connect = new MenuEntry("Connect", titleSize: 16) { Primary = true, Height = 44, IsEnabled = false };
-            _connect.Click += async (_, _) => await Connect();
-
-            // There is no "find a server" entry any more: Join opens the list
-            // itself, so this is the page a server has already been picked on
-            // and all that is left to choose is the hunter. Back goes to the
-            // list rather than to the front screen, because somebody who
-            // picked the wrong server is trying to reach the list.
-            card.Children.Add(new Caption("Join"));
-            card.Children.Add(_onlineRole);
-            card.Children.Add(_onlineHunter);
-            card.Children.Add(_onlineAddress);
-            card.Children.Add(_onlineStatus);
-            card.Children.Add(_connect);
-            card.Children.Add(Back(OpenJoin));
-            return card;
-        }
-
-        private (string Host, int Port) OnlineEndpoint()
-        {
-            string host = LauncherPrefs.ServerAddress;
-            int port = LauncherPrefs.ServerPort;
-            ParseEndpoint(_onlineAddress.Value, ref host, ref port);
-            return (host, port);
-        }
+        // --------------------------------------------------------------- nodes
 
         /// <summary>
-        /// Poll what the server is running while somebody is reading the card.
-        ///
-        /// Discovery is read-only. Admission stays disabled until the server
-        /// reports a compatible architecture and protocol.
+        /// Host and Join deliberately share the Node browser. The Node owns
+        /// lobby membership and Worker placement; the client only performs the
+        /// authenticated Node handshake and the later UDP Worker handoff.
         /// </summary>
-        private void StartStatusPolling()
+        private async void OpenNodeBrowser(bool createLobby)
         {
-            QueryStatusSoon();
-            _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
-            _statusTimer.Tick += (_, _) => QueryStatusSoon();
-            _statusTimer.Start();
-        }
-
-        private void StopStatusPolling()
-        {
-            _statusTimer?.Stop();
-            _statusTimer = null;
-            _statusCancel?.Cancel();
-            _statusCancel = null;
-        }
-
-        private void QueryStatusSoon()
-        {
-            _connect.IsEnabled = false;
-            _statusCancel?.Cancel();
-            var cancel = new CancellationTokenSource();
-            _statusCancel = cancel;
-            (string host, int port) = OnlineEndpoint();
-            Task.Run(() =>
-            {
-                ServerStatus status = NetStatus.Query(host, port, allowJoinProbe: false);
-                if (cancel.IsCancellationRequested)
-                {
-                    return;
-                }
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (cancel.IsCancellationRequested)
-                    {
-                        return;
-                    }
-                    _connect.IsEnabled = status.Online && status.Compatible;
-                    if (status.Online)
-                    {
-                        _onlineStatus.Text = Describe(status);
-                        _onlineStatus.Foreground = status.Compatible ? GuiTheme.GoodBrush : GuiTheme.BadBrush;
-                        _splash.ShowRoom(status.RoomKey);
-                    }
-                    else
-                    {
-                        _onlineStatus.Text = "No answer -- it may be off, or UDP may be blocked.";
-                        _onlineStatus.Foreground = GuiTheme.WarmBrush;
-                    }
-                });
-            });
-        }
-
-        private static string Describe(ServerStatus status)
-        {
-            if (!status.Compatible) { return "Online — " + status.IncompatibilityReason; }
-            string players = status.MaxPlayers > 0
-                ? $"{status.Players}/{status.MaxPlayers}"
-                : status.Players.ToString(CultureInfo.InvariantCulture);
-            string ping = status.Latency >= 0
-                ? $"{status.Latency.ToString(CultureInfo.InvariantCulture)} ms"
-                : "-- ms";
-            return ServerBrowser.Details(status);
-        }
-
-        private async Task Connect()
-        {
-            if (!_connect.IsEnabled) { return; }
-            (string host, int port) = OnlineEndpoint();
-            string name = PlayerName();
-            var hunter = (Hunter)Enum.Parse(typeof(Hunter), _onlineHunter.Value);
-            StopStatusPolling();
-            _connect.IsEnabled = false;
-            _connect.Title = "Connecting";
-            _onlineStatus.Text = $"Connecting to {host}:{port}...";
-            _onlineStatus.Foreground = GuiTheme.TextDimBrush;
-
-            LauncherPrefs.PlayerName = name;
-            LauncherPrefs.LastHunter = hunter;
-            LauncherPrefs.ServerAddress = host;
-            LauncherPrefs.ServerPort = port;
-            LauncherPrefs.LastKind = (int)LaunchKind.Online;
-            LauncherPrefs.Save();
-
-            // Joining blocks for up to eight seconds while it retries; on the
-            // UI thread that is eight seconds of a window that does not redraw.
-            bool joined = await NetLaunch.JoinAsync(host, port, name, hunter, observer: _onlineRole.Index == 1);
-            _connect.IsEnabled = true;
-            _connect.Title = "Connect";
-            if (!joined)
-            {
-                NetSession.Stop();
-                _onlineStatus.Text = NetLaunch.LastJoinError;
-                _onlineStatus.Foreground = GuiTheme.BadBrush;
-                StartStatusPolling();
-                return;
-            }
-            _browserPreferences.Visited(port == NetConfig.DefaultPort ? host : $"{host}:{port}");
-            _browserPreferences.Save();
-            Finish(new LaunchPlan
-            {
-                Kind = LaunchKind.Online,
-                Hunter = hunter,
-                PlayerName = name,
-                RoomKey = "",
-                Mode = GameMode.Battle,
-                Port = port
-            });
-        }
-
-        // ---------------------------------------------------------------- host
-
-        private ChoiceRow _matchMap = null!;
-        private ChoiceRow _matchMode = null!;
-        private ChoiceRow _matchHunter = null!;
-        private FieldRow _matchPort = null!;
-        private ToggleRow _matchOnMaster = null!;
-        private ToggleRow _matchListed = null!;
-        private MenuEntry _matchStart = null!;
-        private bool _practice;
-        private int _hostCheckGeneration;
-        private Note _matchNote = null!;
-
-        /// <summary>Options for a multiplayer match hosted by the directory.</summary>
-        private StackPanel BuildBattleGroup()
-        {
-            var card = Card();
-            _matchMap = new ChoiceRow("Map", _playable,
-                Math.Max(0, _playable.IndexOf(_settings.RoomKey)));
-            _matchMap.Changed += (_, _) => RefreshSplash();
-            // Stepping through maps one at a time is the right gesture while
-            // the picture beside it changes as you step, and the wrong one when
-            // the map you want is twenty steps away.
-            var browseMaps = new MenuEntry("See every map", "", titleSize: 13)
-            {
-                Accent = GuiTheme.TextDim
-            };
-            browseMaps.Click += async (_, _) => await BrowseMaps();
-            _matchMode = new ChoiceRow("Match type", _modes.Select(m => m.Label).ToArray());
-            _matchHunter = new ChoiceRow("Hunter", _hunters,
-                Array.IndexOf(_hunters, LauncherPrefs.LastHunter.ToString()));
-            // An online match is always run by the directory, and this build
-            // never opens a port on the player's own machine.
-            //
-            // It used to offer the choice: a toggle for who runs it, a port
-            // box, and a "list it" switch. Every one of them is a question
-            // about the player's router, asked of somebody who wanted to play
-            // a game -- and answered wrongly it produces a server nobody can
-            // reach and no way of telling why from in here. Running one on
-            // your own machine is a real thing to want, and it has its own
-            // program: the dedicated server, which can be pointed at a port
-            // and left running, rather than a phone that goes in a pocket.
-            //
-            // The rows are kept and set rather than deleted because the code
-            // that starts a match reads them, and one place deciding this
-            // beats the same constant written in four.
-            _matchPort = new FieldRow("Port",
-                LauncherPrefs.HostPort.ToString(CultureInfo.InvariantCulture), boxWidth: 90);
-            _matchOnMaster = new ToggleRow("Let the directory run it", on: true);
-            _matchListed = new ToggleRow("List it so others can find it", on: true);
-            _matchNote = new Note("");
-            _matchStart = new MenuEntry("Start", titleSize: 16) { Primary = true, Height = 44 };
-            _matchStart.Click += async (_, _) => await StartMatch();
-
-            card.Children.Add(_matchMap);
-            card.Children.Add(browseMaps);
-            card.Children.Add(_matchMode);
-            card.Children.Add(_matchHunter);
-            card.Children.Add(_matchNote);
-            card.Children.Add(_matchStart);
-            if (NetHostSession.Available)
-            {
-                var practice = new MenuEntry("Practice with bots", "Private localhost match", titleSize: 13);
-                practice.Click += async (_, _) =>
-                {
-                    if (_practice) return;
-                    _practice = true; _matchOnMaster.On = false; _matchListed.On = false;
-                    _matchStart.IsEnabled = true;
-                    try { await StartMatch(); }
-                    finally { _practice = false; _matchOnMaster.On = true; _matchListed.On = true; }
-                };
-                card.Children.Add(practice);
-            }
-            return card;
-        }
-
-        private Control BuildHostCard()
-        {
-            var card = Card();
-            card.Children.Add(new Caption("Host"));
-            card.Children.Add(BuildBattleGroup());
-            card.Children.Add(Back(() => ShowCard(_homeCard)));
-            return card;
-        }
-
-        /// <summary>Open the multiplayer host options.</summary>
-        private void OpenHost()
-        {
-            RefreshMatchCard();
-            ShowCard(_hostCard);
-            RefreshSplash();
-        }
-
-        /// <summary>
-        /// Re-read the rows that show a launcher preference. The settings
-        /// window owns the same values, so anything it changed has to reach the
-        /// cards that were built before it opened.
-        /// </summary>
-        private void RefreshPrefRows()
-        {
-            _onlineAddress.Value =
-                $"{LauncherPrefs.ServerAddress}:{LauncherPrefs.ServerPort}";
-            int hunter = Array.IndexOf(_hunters, LauncherPrefs.LastHunter.ToString());
-            if (hunter >= 0)
-            {
-                _onlineHunter.Index = hunter;
-                _matchHunter.Index = hunter;
-            }
-        }
-
-        /// <summary>Every map at once, as pictures.</summary>
-        private async Task BrowseMaps()
-        {
-            if (_playable.Count == 0)
-            {
-                return;
-            }
-            // Over this screen, not in a window of its own.
-            //
-            // It used to open a dialog on the desktop and overlay only on
-            // Android. A second window to pick a map from is a window to find,
-            // move out of the way and close again, for a choice that belongs
-            // to the card it came from -- and it covered the map picture the
-            // front screen exists to show. The overlay fills the launcher
-            // until the choice is made and then it is gone.
-            var view = new MapPickerView(_playable, _matchMap.Value);
+            var view = new NodeBrowserView(_playable, createLobby);
+            view.Launch += (_, plan) => { CloseOverlay(); Finish(plan); };
             await ShowOverlay(view, handler => view.Closed += handler);
-            if (view.RoomKey == null)
-            {
-                return;
-            }
-            int index = _playable.IndexOf(view.RoomKey);
-            if (index >= 0)
-            {
-                _matchMap.Index = index;
-                RefreshSplash();
-            }
         }
 
-        /// <summary>
-        /// The name to play under, which the settings own now.
-        ///
-        /// It used to be a row on the online card and another on the match
-        /// card, which is the same answer asked for twice and two places for
-        /// it to disagree.
-        /// </summary>
-        private static string PlayerName()
-        {
-            string name = LauncherPrefs.PlayerName.Trim();
-            return name.Length > 0 ? name : "Player";
-        }
+        private void OpenHost() => OpenNodeBrowser(createLobby: true);
 
-        /// <summary>
-        /// Join: the list of servers, straight away.
-        ///
-        /// It used to be a page with an address box and a "find a server"
-        /// entry under it, which is one press between the player and the only
-        /// answer most people have. The list is the page now; the address box
-        /// is on the page a server has been chosen on, for anybody typing one
-        /// in by hand.
-        /// </summary>
-        private void OpenJoin()
-        {
-            _browseReturn = _homeCard;
-            ShowCard(_browseCard);
-            ReloadServers();
-        }
-
-        private void RefreshMatchCard()
-        {
-            int generation = ++_hostCheckGeneration;
-            _matchStart.IsEnabled = false;
-            _matchOnMaster.On = true;
-            // Only meaningful when this machine is the one running the server:
-            // a match the directory runs is on the directory's port, on the
-            // directory's machine, and neither is this screen's to choose.
-            _matchListed.On = true;
-            _matchNote.Text = "The directory runs the match, so nothing here needs a "
-                    + "forwarded port. To run one on your own machine, use the "
-                    + "dedicated server.";
-            _matchNote.IsVisible = _matchNote.Text.Length > 0;
-            _matchNote.Foreground = GuiTheme.TextDimBrush;
-            _ = CheckHostCompatibility(generation);
-        }
-
-        private async Task CheckHostCompatibility(int generation)
-        {
-            string host = LauncherPrefs.MasterHost;
-            int port = LauncherPrefs.MasterPort;
-            MasterListResult result = await Task.Run(() => NetMasterClient.Query(host, port));
-            if (generation != _hostCheckGeneration
-                || host != LauncherPrefs.MasterHost || port != LauncherPrefs.MasterPort) { return; }
-            _matchStart.IsEnabled = result.Answered && result.Compatible;
-            if (!_matchStart.IsEnabled)
-            {
-                _matchNote.Text = result.Answered ? "Directory online — " + result.IncompatibilityReason
-                    : "The directory did not answer. Return here to check again.";
-                _matchNote.Foreground = GuiTheme.BadBrush;
-                _matchNote.IsVisible = true;
-            }
-        }
-
-        private async Task StartMatch()
-        {
-            if (!_matchStart.IsEnabled) { return; }
-            ++_hostCheckGeneration;
-            if (_playable.Count == 0)
-            {
-                _matchNote.Text = "No multiplayer rooms were found.";
-                _matchNote.IsVisible = true;
-                return;
-            }
-            string roomKey = _matchMap.Value;
-            GameMode mode = _modes[_matchMode.Index].Mode;
-            var hunter = (Hunter)Enum.Parse(typeof(Hunter), _matchHunter.Value);
-            _settings.RoomKey = roomKey;
-            LauncherPrefs.LastHunter = hunter;
-            LauncherPrefs.LastKind = (int)LaunchKind.Host;
-
-            string name = PlayerName();
-            LauncherPrefs.PlayerName = name;
-            if (!_practice)
-            {
-                LauncherPrefs.HostOnMaster = _matchOnMaster.On;
-                LauncherPrefs.ListHostedGame = _matchListed.On;
-            }
-            if (Int32.TryParse(_matchPort.Value, NumberStyles.Integer,
-                CultureInfo.InvariantCulture, out int port) && port > 0 && port <= 65535)
-            {
-                LauncherPrefs.HostPort = port;
-            }
-            LauncherPrefs.Save();
-
-            _matchStart.IsEnabled = false;
-            _matchStart.Title = "Starting";
-            _matchNote.IsVisible = true;
-            bool ok;
-            string? startError = null;
-            if (_matchOnMaster.On)
-            {
-                _matchNote.Text = $"Asking {LauncherPrefs.MasterHost} to run {roomKey}...";
-                ok = await Task.Run(() =>
-                {
-                    HostedGame game = NetMasterClient.RequestGame(LauncherPrefs.MasterHost,
-                        LauncherPrefs.MasterPort, roomKey, mode, timeLimit: 7 * 60,
-                        pointGoal: 7, maxPlayers: PlayerEntity.SlotCapacity,
-                        serverName: $"{name}'s game");
-                    if (!game.Started) { startError = game.Reason; return false; }
-                    bool joined = NetLaunch.Join(game.Host, game.Port, name, hunter);
-                    if (!joined) { startError = NetLaunch.LastJoinError; }
-                    return joined;
-                });
-            }
-            else if (!NetHostSession.Available)
-            {
-                ok = false;
-                startError = "Local hosting is unavailable on this platform. Let the directory run the match.";
-            }
-            else
-            {
-                _matchNote.Text = $"Starting a server on port {LauncherPrefs.HostPort}...";
-                ok = await Task.Run(() => NetHostSession.StartAndJoin(
-                    _settings.FriendlyFire == "on", LauncherPrefs.HostPort, name, hunter, roomKey, mode,
-                    timeLimit: 7 * 60, pointGoal: 7,
-                    listing: _matchListed.On
-                        ? (LauncherPrefs.MasterHost, LauncherPrefs.MasterPort, $"{name}'s game")
-                        : null, practice: _practice));
-            }
-            _matchStart.IsEnabled = true;
-            _matchStart.Title = "Start";
-            if (!ok)
-            {
-                NetSession.Stop();
-                NetHostSession.Stop();
-                _matchNote.Text = startError ?? NetHostSession.LastError
-                    ?? "The game could not be started. The port may be in use, or the "
-                        + "directory may be down.";
-                _matchNote.Foreground = GuiTheme.BadBrush;
-                if (_matchOnMaster.On) { _ = CheckHostCompatibility(++_hostCheckGeneration); }
-                return;
-            }
-            Finish(new LaunchPlan
-            {
-                Kind = LaunchKind.Host,
-                Hunter = hunter,
-                PlayerName = name,
-                RoomKey = roomKey,
-                Mode = mode,
-                Port = LauncherPrefs.HostPort
-            });
-        }
-
-        // -------------------------------------------------------------- browse
-
-        private StackPanel _browseList = null!;
-        private Note _browseNote = null!;
-        private readonly List<ServerBrowserEntry> _browserEntries = new();
-        private readonly ServerBrowserPreferences _browserPreferences = ServerBrowserPreferences.Load();
-        private ChoiceRow _browserMode = null!, _browserSort = null!, _browserGroup = null!, _browserPing = null!;
-        private ToggleRow _browserHideFull = null!, _browserHideIncompatible = null!;
-        private int _browserGeneration;
-        private Control BuildBrowseCard()
-        {
-            var card = Card();
-            _browseList = new StackPanel { Spacing = 2 };
-            _browseNote = new Note("");
-            _browserMode = new ChoiceRow("Mode", new[] { "Any mode" }.Concat(_modes.Select(m => m.Label)).ToArray());
-            _browserSort = new ChoiceRow("Sort", new[] { "Ping", "Population" });
-            _browserGroup = new ChoiceRow("Show", new[] { "All servers", "Favorites", "Recent" });
-            _browserPing = new ChoiceRow("Maximum ping", new[] { "Any", "50 ms", "100 ms", "150 ms", "250 ms" });
-            _browserHideFull = new ToggleRow("Hide full", false);
-            _browserHideIncompatible = new ToggleRow("Hide incompatible", true);
-            var filters = new StackPanel { IsVisible = false };
-            foreach (Control control in new Control[] { _browserMode, _browserSort, _browserGroup, _browserPing, _browserHideFull, _browserHideIncompatible }) filters.Children.Add(control);
-            foreach (ChoiceRow row in new[] { _browserMode, _browserSort, _browserGroup, _browserPing }) row.Changed += (_, _) => RenderServerRows();
-            _browserHideFull.Changed += (_, _) => RenderServerRows();
-            _browserHideIncompatible.Changed += (_, _) => RenderServerRows();
-            var filterToggle = new MenuEntry("Filters and sorting", titleSize: 13);
-            filterToggle.Click += (_, _) => filters.IsVisible = !filters.IsVisible;
-            var refresh = new MenuEntry("Refresh", titleSize: 15);
-            refresh.Click += (_, _) => ReloadServers();
-            var quick = new MenuEntry("Quick join", "Best compatible open server", titleSize: 15);
-            quick.Click += async (_, _) => await QuickJoinServer();
-            card.Children.Add(new Caption("Join"));
-            card.Children.Add(_browseNote);
-            card.Children.Add(filterToggle);
-            card.Children.Add(filters);
-            card.Children.Add(new ServerHeader { Margin = new Thickness(30, 0, 0, 0) });
-            card.Children.Add(new ScrollViewer { Height = 250, Content = _browseList, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled });
-            card.Children.Add(quick);
-            card.Children.Add(refresh);
-            card.Children.Add(Back(() => ShowCard(_browseReturn ?? _homeCard)));
-            return card;
-        }
-        private GameMode? BrowserMode => _browserMode.Index == 0 ? null : _modes[_browserMode.Index - 1].Mode;
-        private ServerBrowserFilter BrowserFilter => new(BrowserMode, _browserHideFull.On, _browserHideIncompatible.On,
-            new[] { 0, 50, 100, 150, 250 }[_browserPing.Index], (ServerSort)_browserSort.Index, (ServerGroup)_browserGroup.Index);
-        private void ReloadServers()
-        {
-            int generation = ++_browserGeneration;
-            _browserEntries.Clear();
-            _browseList.Children.Clear();
-            _browseNote.Text = $"Asking {LauncherPrefs.MasterHost}...";
-            _browseNote.Foreground = GuiTheme.TextDimBrush;
-            Task.Run(() =>
-            {
-                MasterListResult result = NetMasterClient.Query(LauncherPrefs.MasterHost, LauncherPrefs.MasterPort);
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (generation != _browserGeneration) return;
-                    _browseNote.Text = !result.Answered ? "Directory did not answer. Probing saved servers."
-                        : !result.Compatible ? "Directory online — " + result.IncompatibilityReason : $"{result.Servers.Count} listed.";
-                    var listings = result.Servers.ToList();
-                    foreach (string endpoint in _browserPreferences.Favorites.Concat(_browserPreferences.Recent).Distinct())
-                    {
-                        if (listings.Any(l => l.Endpoint == endpoint)) continue;
-                        if (Uri.TryCreate("udp://" + endpoint, UriKind.Absolute, out Uri? address)
-                            && address.Host.Length > 0 && address.Port is >= -1 and <= 65535)
-                            listings.Add(new MasterListing { Address = address.Host, Port = address.Port < 0 ? NetConfig.DefaultPort : address.Port, ServerName = endpoint });
-                    }
-                    foreach (MasterListing listing in listings.Take(128)) AddServerRow(listing, generation);
-                    RenderServerRows();
-                });
-            });
-        }
-        private void AddServerRow(MasterListing listing, int generation)
-        {
-            var entry = new ServerBrowserEntry(listing) { Status = ServerStatus.Offline("Asking...") };
-            _browserEntries.Add(entry);
-            Task.Run(() =>
-            {
-                ServerStatus status = NetStatus.Query(listing.Address, listing.Port, allowJoinProbe: false);
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (generation != _browserGeneration) return;
-                    entry.Status = status;
-                    RenderServerRows();
-                });
-            });
-        }
-        private void RenderServerRows()
-        {
-            _browseList.Children.Clear();
-            foreach (ServerBrowserEntry entry in ServerBrowser.Select(_browserEntries, BrowserFilter, _browserPreferences))
-            {
-                MasterListing listing = entry.Listing;
-                string name = listing.ServerName.Length > 0 ? listing.ServerName : listing.Endpoint;
-                var row = new ServerRow(name, listing.Endpoint);
-                row.SetStatus(entry.Status);
-                row.Clicked += (_, _) => { _onlineAddress.Value = $"{listing.Address}:{listing.Port}"; ShowCard(_onlineCard); QueryStatusSoon(); };
-                var favorite = new Avalonia.Controls.Button { Content = _browserPreferences.IsFavorite(listing.Endpoint) ? "★" : "☆", Width = 30, Height = 30, Padding = new Thickness(0) };
-                ToolTip.SetTip(favorite, "Toggle favorite");
-                favorite.Click += (_, _) => { _browserPreferences.ToggleFavorite(listing.Endpoint); _browserPreferences.Save(); RenderServerRows(); };
-                var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("30,*") };
-                Grid.SetColumn(row, 1);
-                grid.Children.Add(favorite); grid.Children.Add(row);
-                _browseList.Children.Add(grid);
-            }
-        }
-        private async Task QuickJoinServer()
-        {
-            ServerBrowserEntry? candidate = ServerBrowser.QuickJoin(ServerBrowser.Select(_browserEntries, BrowserFilter, _browserPreferences), BrowserMode);
-            if (candidate == null) { _browseNote.Text = "No compatible open server matches these filters."; return; }
-            ServerStatus fresh = await Task.Run(() => NetStatus.Query(candidate.Listing.Address, candidate.Listing.Port, allowJoinProbe: false));
-            if (!fresh.Compatible || ServerBrowser.Full(fresh)) { _browseNote.Text = "Server availability changed. Refresh and try again."; return; }
-            _onlineRole.Index = 0;
-            _onlineAddress.Value = $"{candidate.Listing.Address}:{candidate.Listing.Port}";
-            ShowCard(_onlineCard);
-            _connect.IsEnabled = true;
-            await Connect();
-        }
+        private void OpenJoin() => OpenNodeBrowser(createLobby: false);
 
         // ------------------------------------------------------------ settings
 
@@ -2035,11 +1423,11 @@ namespace MphRead.Mods.Launcher.Gui
         /// of eight sections and several dozen rows, which is not a thing to
         /// page through in a 400-pixel column beside a picture.
         /// </summary>
-        private async Task OpenSettings()
+        private async Task OpenSettings(Scene? scene = null)
         {
             try
             {
-                var view = new SettingsView(_settings);
+                var view = new SettingsView(_settings, inGame: scene != null, scene: scene);
                 // Noted while the settings are up and acted on once they are
                 // down: showing a card behind a window that is still open is
                 // how you end up on a screen you cannot see.
@@ -2062,17 +1450,6 @@ namespace MphRead.Mods.Launcher.Gui
                 Console.WriteLine($"[launcher] the settings could not be opened: {ex.Message}");
                 return;
             }
-            // The settings view writes straight into the same MenuSettings
-            // and the same LauncherPrefs, so the rows here have to be re-read
-            // or they would write the old values back over what was just
-            // chosen there -- a name typed in the settings would last exactly
-            // until the online card saved its own copy on connect.
-            int index = _playable.IndexOf(_settings.RoomKey);
-            if (index >= 0 && _matchMap != null)
-            {
-                _matchMap.Index = index;
-            }
-            RefreshPrefRows();
             RefreshSplash();
         }
 
@@ -2081,7 +1458,7 @@ namespace MphRead.Mods.Launcher.Gui
         private void RefreshSplash()
         {
             RefreshGameFilesState();
-            string? room = _playable.Count > 0 && _matchMap != null ? _matchMap.Value : null;
+            string? room = _playable.Contains(_settings.RoomKey) ? _settings.RoomKey : null;
             // Nothing from the game while the game is still being unpacked.
             // The setup card is up for the whole of the first run -- the
             // extraction and then the preview rendering -- and map pictures
@@ -2111,37 +1488,6 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _playable.Add(room);
             }
-            if (_matchMap != null)
-            {
-                int index = Math.Max(0, _playable.IndexOf(_settings.RoomKey));
-                _matchMap.SetItems(_playable, index);
-            }
-        }
-
-        /// <summary>host, or host:port. Leaves both alone on anything else, so a
-        /// typo does not silently change the address.</summary>
-        private static bool ParseEndpoint(string text, ref string host, ref int port)
-        {
-            text = text.Trim();
-            if (text.Length == 0)
-            {
-                return false;
-            }
-            int colon = text.LastIndexOf(':');
-            if (colon <= 0)
-            {
-                host = text;
-                return true;
-            }
-            if (!Int32.TryParse(text[(colon + 1)..], NumberStyles.Integer,
-                CultureInfo.InvariantCulture, out int parsed)
-                || parsed < 1 || parsed > 65535)
-            {
-                return false;
-            }
-            host = text[..colon];
-            port = parsed;
-            return true;
         }
     }
 }

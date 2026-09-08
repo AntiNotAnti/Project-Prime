@@ -62,11 +62,11 @@ public sealed class SpectatorCameraController
         if (Mods.ClientInputState.PauseOpen || Mods.Chat.ChatBox.Composing) return;
         ApplyCommands(presentation, pressed);
         if (Mode == SpectatorCameraMode.AutoDirector && ++_directorTick >= 300)
-        { _directorTick = 0; Select(1); }
+        { _directorTick = 0; Select(presentation.World, 1); }
         _orbit = (_orbit + .006f) % MathF.Tau;
         if (SpectatorMode.FreeCamera) Mode = SpectatorCameraMode.Free;
         else if (Mode == SpectatorCameraMode.Free) Mode = SpectatorCameraMode.FirstPerson;
-        if (Mode == SpectatorCameraMode.FirstPerson) TargetSlot = PlayerEntity.MainPlayerIndex;
+        if (Mode == SpectatorCameraMode.FirstPerson) TargetSlot = presentation.World.LocalPlayerSlot;
     }
 
     internal void ApplyCommands(ScenePresentation presentation, int pressed)
@@ -93,23 +93,23 @@ public sealed class SpectatorCameraController
         {
             _objective = null;
             Mode = (SpectatorCameraMode)(((int)Mode + 1) % 5);
-            if (Mode != SpectatorCameraMode.Free && TargetSlot < 0) Select(1);
+            if (Mode != SpectatorCameraMode.Free && TargetSlot < 0) Select(presentation.World, 1);
             presentation.SetFreeCamera(Mode == SpectatorCameraMode.Free || TargetSlot < 0);
         }
-        if ((pressed & 2) != 0) Select(1);
-        if ((pressed & 4) != 0) Select(-1);
+        if ((pressed & 2) != 0) Select(presentation.World, 1);
+        if ((pressed & 4) != 0) Select(presentation.World, -1);
     }
 
-    private void Select(int direction)
+    private void Select(Scene scene, int direction)
     {
         _objective = null;
-        int start = TargetSlot >= 0 ? TargetSlot : PlayerEntity.MainPlayerIndex;
+        int start = TargetSlot >= 0 ? TargetSlot : scene.LocalPlayerSlot;
         for (int offset = 1; offset <= 8; offset++)
         {
             int slot = (start + direction * offset + 16) % 8;
-            if (slot >= PlayerEntity.Players.Count || !PlayerEntity.Players[slot].LoadFlags.TestFlag(LoadFlags.Active)) continue;
+            if (slot >= scene.Players.Count || !scene.Players[slot].LoadFlags.TestFlag(LoadFlags.Active)) continue;
             TargetSlot = slot;
-            SpectatorMode.SelectTarget(slot);
+            SpectatorMode.SelectTarget(scene, slot);
             return;
         }
         TargetSlot = -1;
@@ -117,9 +117,9 @@ public sealed class SpectatorCameraController
 
     internal void Draw(ScenePresentation presentation)
     {
-        if (!SpectatorMode.IsSpectating || PlayerEntity.Players.Count == 0) return;
+        if (!SpectatorMode.IsSpectating || presentation.World.Players.Count == 0) return;
         presentation.DrawHudFlatBox(5, 4, 251, 29, new Vector4(0, 0, 0, .7f));
-        var hud = PlayerEntity.Main.GetPresentation();
+        var hud = presentation.World.LocalPlayer!.GetPresentation();
         hud.DrawText2D(46, 7, Align.Center, 0, $"{Mode}", scale: .45f);
         hud.DrawText2D(128, 7, Align.Center, 0, "TARGET", scale: .45f);
         hud.DrawText2D(210, 7, Align.Center, 0, "OBJECTIVE", scale: .45f);
@@ -136,20 +136,20 @@ public sealed class SpectatorCameraController
         }
         else if (TargetSlot is >= 0 and < 8)
         {
-            PlayerEntity target = PlayerEntity.Players[TargetSlot];
+            PlayerEntity target = presentation.World.Players[TargetSlot];
             var stats = presentation.World.Match.Players[TargetSlot];
             string ammo = "";
             if (Mods.Network.AuthoritativePlay.Current is { } play)
                 foreach (var snapshot in play.Client.SnapshotPlayers)
                     if (snapshot.Slot == TargetSlot) { ammo = $" AMMO {snapshot.AmmoUa}/{snapshot.AmmoMissiles}"; break; }
             hud.DrawText2D(128, 33, Align.Center, 0,
-                $"{GameState.Nicknames[TargetSlot]}  {target.Hunter}  HP {target.Health}  {target.CurrentWeapon}{ammo}", scale: .5f);
+                $"{presentation.World.Roster.Nicknames[TargetSlot]}  {target.Hunter}  HP {target.Health}  {target.CurrentWeapon}{ammo}", scale: .5f);
             hud.DrawText2D(128, 42, Align.Center, 0,
                 $"K/D/A {stats.Kills}/{stats.Deaths}/{stats.Assists}  SCORE {stats.Points}", scale: .5f);
         }
     }
 
-    internal bool TryView(out Matrix4 view)
+    internal bool TryView(Scene scene, out Matrix4 view)
     {
         view = Matrix4.Identity;
         if (SpectatorMode.IsSpectating && _objective != null)
@@ -159,8 +159,8 @@ public sealed class SpectatorCameraController
             return true;
         }
         if (!SpectatorMode.IsSpectating || Mode is SpectatorCameraMode.Free or SpectatorCameraMode.FirstPerson
-            || TargetSlot < 0 || TargetSlot >= PlayerEntity.Players.Count) return false;
-        PlayerEntity player = PlayerEntity.Players[TargetSlot];
+            || TargetSlot < 0 || TargetSlot >= scene.Players.Count) return false;
+        PlayerEntity player = scene.Players[TargetSlot];
         if (!player.LoadFlags.TestFlag(LoadFlags.Active)) return false;
         Vector3 target = player.Position + Vector3.UnitY;
         Vector3 offset = Mode == SpectatorCameraMode.Orbit

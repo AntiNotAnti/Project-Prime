@@ -35,12 +35,12 @@ namespace MphRead
             && !Mods.ClientInputState.PauseOpen && !Mods.Chat.ChatBox.Composing && !ShowCursor
             && !FrameAdvance;
         public bool CanCaptureRenderLook => CanCaptureSimulationLook
-            && CameraSequence.Current == null && PlayerEntity.Main.Health > 0
-            && PlayerEntity.Main.CameraType == CameraType.First
-            && PlayerEntity.Main.Controls.MouseAim && !PlayerEntity.Main.IsAltForm
-            && !PlayerEntity.Main.IsMorphing && !PlayerEntity.Main.IsUnmorphing && !PlayerEntity.Main.Flags1.TestFlag(PlayerFlags1.NoAimInput);
+            && World.CameraSequences.Current == null && World.LocalPlayer!.Health > 0
+            && World.LocalPlayer!.CameraType == CameraType.First
+            && World.LocalPlayer!.Controls.MouseAim && !World.LocalPlayer!.IsAltForm
+            && !World.LocalPlayer!.IsMorphing && !World.LocalPlayer!.IsUnmorphing && !World.LocalPlayer!.Flags1.TestFlag(PlayerFlags1.NoAimInput);
         private bool InterpolationEnabled => FrameTiming.Active && !FrameAdvance
-            && !Mods.SpectatorMode.IsSpectating && !Mods.Network.DemoPlayback.IsActive && CameraSequence.Current == null;
+            && !Mods.SpectatorMode.IsSpectating && !Mods.Network.DemoPlayback.IsActive && World.CameraSequences.Current == null;
         private bool IsLocal(PlayerEntity player) => !World.Services.IsReplica || player.SlotIndex == World.Services.LocalSlot;
         private static bool Tracks(EntityBase entity) => entity is PlayerEntity or PlatformEntity or DoorEntity
             or BombEntity or BeamProjectileEntity or ItemInstanceEntity;
@@ -56,13 +56,13 @@ namespace MphRead
         {
             long corrections = Mods.Network.AuthoritativePlay.Current?.Prediction.HardCorrections ?? 0;
             int viewState = HashCode.Combine(CameraMode, Mods.SpectatorMode.IsSpectating,
-                Mods.Network.DemoPlayback.IsActive, CameraSequence.Current);
-            if (_poseRoom != World.RoomId || _poseMain != PlayerEntity.MainPlayerIndex
+                Mods.Network.DemoPlayback.IsActive, World.CameraSequences.Current);
+            if (_poseRoom != World.RoomId || _poseMain != World.LocalPlayerSlot
                 || _timingGeneration != FrameTiming.Discontinuities || corrections != _correctionGeneration || viewState != _viewState)
                 ResetPoseHistory();
             if (_poseTick == World.FrameCount && _poses.Count != 0) return;
             _poseRoom = World.RoomId;
-            _poseMain = PlayerEntity.MainPlayerIndex;
+            _poseMain = World.LocalPlayerSlot;
             _timingGeneration = FrameTiming.Discontinuities;
             _correctionGeneration = corrections;
             _viewState = viewState;
@@ -93,11 +93,11 @@ namespace MphRead
             _removedPoses.Clear();
             foreach (var pair in _poses) if (pair.Value.Seen != _poseTick) _removedPoses.Add(pair.Key);
             foreach (EntityBase removed in _removedPoses) _poses.Remove(removed);
-            int cameraState = HashCode.Combine(PlayerEntity.Main.Health == 0, PlayerEntity.Main.IsAltForm,
-                PlayerEntity.Main.IsMorphing, PlayerEntity.Main.IsUnmorphing, PlayerEntity.Main.CameraType, CameraSequence.Current);
-            if (PlayerEntity.Main.Health > 0 && !PlayerEntity.Main.IsAltForm
-                && !PlayerEntity.Main.IsMorphing && !PlayerEntity.Main.IsUnmorphing)
-                _cameraHistory.Capture(PlayerEntity.Main.CameraInfo.ViewMatrix.Inverted(), _poseTick, _poseGeneration, cameraState != _cameraState);
+            int cameraState = HashCode.Combine(World.LocalPlayer!.Health == 0, World.LocalPlayer!.IsAltForm,
+                World.LocalPlayer!.IsMorphing, World.LocalPlayer!.IsUnmorphing, World.LocalPlayer!.CameraType, World.CameraSequences.Current);
+            if (World.LocalPlayer!.Health > 0 && !World.LocalPlayer!.IsAltForm
+                && !World.LocalPlayer!.IsMorphing && !World.LocalPlayer!.IsUnmorphing)
+                _cameraHistory.Capture(World.LocalPlayer!.CameraInfo.ViewMatrix.Inverted(), _poseTick, _poseGeneration, cameraState != _cameraState);
             else _cameraHistory.Reset();
             _cameraState = cameraState;
         }
@@ -128,11 +128,11 @@ namespace MphRead
         private void ApplyRenderCamera()
         {
             if (!ControlsPlayer || Mods.SpectatorMode.IsSpectating || Mods.Network.DemoPlayback.IsActive) return;
-            Matrix4 camera = PlayerEntity.Main.CameraInfo.ViewMatrix.Inverted();
+            Matrix4 camera = World.LocalPlayer!.CameraInfo.ViewMatrix.Inverted();
             if (InterpolationEnabled && _cameraHistory.HasSamples) camera.Row3.Xyz = _cameraHistory.Resolve(FrameTiming.RenderAlpha).Row3.Xyz;
             if (RenderLook != null && CanCaptureRenderLook)
             {
-                PlayerEntity player = PlayerEntity.Main;
+                PlayerEntity player = World.LocalPlayer!;
                 float normalFov = Fixed.ToFloat(player.Values.NormalFov) * 2;
                 float zoom = player.EquipInfo.Zoomed && normalFov != 0 ? player.CameraInfo.Fov / normalFov : 1;
                 Vector2 aim = RenderLookAccumulator.AimDegrees(RenderLook.Peek(), player.Controls.MouseSensitivity,

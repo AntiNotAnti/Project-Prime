@@ -30,7 +30,7 @@ namespace MphRead.Entities
 
         private static bool _isScrollingUp = false;
         private static bool _isScrollingDown = false;
-        public static void ProcessInput(KeyboardState keyboardState, MouseState mouseState, bool noPlayerInput)
+        public static void ProcessInput(Scene scene, KeyboardState keyboardState, MouseState mouseState, bool noPlayerInput)
         {
             KeyboardState keyboardSnap = keyboardState.GetSnapshot();
             MouseState mouseSnap = mouseState.GetSnapshot();
@@ -46,9 +46,9 @@ namespace MphRead.Entities
                 Mods.SpectatorMode.NoteScoreboard(IsDown(Mods.InputSettings.Current.Pause, keyboardSnap, mouseSnap));
             }
 
-            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            for (int i = 0; i < scene.Players.Count; i++)
             {
-                PlayerEntity player = PlayerEntity.Players[i];
+                PlayerEntity player = scene.Players[i];
                 ApplyInputPreferences(player.Controls);
                 if (player.IsBot)
                 {

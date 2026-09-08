@@ -913,7 +913,7 @@ namespace MphRead.Droid
                 // there is to do, and a player whose entity is not active yet
                 // has still asked for the keyboard if they pressed CHAT.
                 HandleChat();
-                PlayerEntity main = PlayerEntity.Main;
+                PlayerEntity main = Scene!.LocalPlayer!;
                 if (main == null || !main.LoadFlags.TestFlag(LoadFlags.Active))
                 {
                     return;

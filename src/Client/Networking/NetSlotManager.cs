@@ -35,10 +35,10 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            for (int slot = 0; slot < PlayerEntity.MaxPlayers; slot++)
+            for (int slot = 0; slot < scene.Players.MaxPlayers; slot++)
             {
-                PlayerEntity? player = slot < PlayerEntity.Players.Count
-                    ? PlayerEntity.Players[slot]
+                PlayerEntity? player = slot < scene.Players.Count
+                    ? scene.Players[slot]
                     : null;
                 if (player == null)
                 {
@@ -103,12 +103,12 @@ namespace MphRead.Mods.Network
             player.IsBot = false;
             player.BotLevel = 0;
             // TeamIndex defaults to -1 and Scene.AddPlayer only assigns it in
-            // team modes, but GameState indexes TeamPoints/TeamKills by it
+            // team modes, but match state indexes TeamPoints/TeamKills by it
             // unconditionally -- EndIfPointGoalReached does TeamPoints[-1] and
             // throws the moment a Battle match is actually simulated. The
             // arrays hold four entries, so free-for-all can give each slot its
             // own index, exactly as PlayerEntity.Initialize does.
-            if (player.TeamIndex < 0 || player.TeamIndex >= PlayerEntity.MaxPlayers)
+            if (player.TeamIndex < 0 || player.TeamIndex >= scene.Players.MaxPlayers)
             {
                 player.TeamIndex = scene.Match.Rules.Teams ? slot % 2 : slot;
                 player.Team = player.TeamIndex % 2 == 0 ? Team.Orange : Team.Green;
@@ -128,11 +128,11 @@ namespace MphRead.Mods.Network
             // rebuilds the models and equipment while preserving position,
             // facing and health.
             player.Initialize();
-            PlayerEntity.PlayerCount = CountActive();
+            scene.Players.ActiveCount = CountActive(scene);
             Console.WriteLine($"[net] slot {slot} activated "
-                + $"({GameState.Nicknames[slot]}) -- {PlayerEntity.PlayerCount} player(s) in scene");
-            NetLog.Event($"slot {slot} activated ({GameState.Nicknames[slot]}), "
-                + $"{PlayerEntity.PlayerCount} player(s) in scene");
+                + $"({scene.Roster.Nicknames[slot]}) -- {scene.Players.ActiveCount} player(s) in scene");
+            NetLog.Event($"slot {slot} activated ({scene.Roster.Nicknames[slot]}), "
+                + $"{scene.Players.ActiveCount} player(s) in scene");
         }
 
         /// <summary>
@@ -140,12 +140,12 @@ namespace MphRead.Mods.Network
         /// total: several places adjust PlayerCount, and the increments
         /// compounded into a figure larger than the players present.
         /// </summary>
-        private static int CountActive()
+        private static int CountActive(Scene scene)
         {
             int count = 0;
-            for (int i = 0; i < PlayerEntity.MaxPlayers; i++)
+            for (int i = 0; i < scene.Players.MaxPlayers; i++)
             {
-                PlayerEntity? p = i < PlayerEntity.Players.Count ? PlayerEntity.Players[i] : null;
+                PlayerEntity? p = i < scene.Players.Count ? scene.Players[i] : null;
                 if (p != null && p.LoadFlags.TestFlag(LoadFlags.Active))
                 {
                     count++;
@@ -174,7 +174,7 @@ namespace MphRead.Mods.Network
             // which is recoverable only by loading the room again.
             player.LoadFlags &= ~LoadFlags.Spawned;
             player.Health = 0;
-            PlayerEntity.PlayerCount = Math.Max(CountActive(), 1);
+            scene.Players.ActiveCount = Math.Max(CountActive(scene), 1);
             Console.WriteLine($"[net] slot {slot} deactivated -- player left");
             NetLog.Event($"slot {slot} deactivated");
         }

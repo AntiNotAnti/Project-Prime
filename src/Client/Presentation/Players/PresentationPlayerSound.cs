@@ -70,7 +70,7 @@ namespace MphRead.Entities
                 // 369 - DAMAGE2
                 // 370 - DAMAGE3
                 // 371 - DAMAGE4
-                uint sfx = Rng.GetRandomInt1(3) + 369;
+                uint sfx = _player._scene.Random.GetRandomInt1(3) + 369;
                 _player._soundSource.PlaySfx((int)sfx);
                 _damageSfxTimer = 90 / (float)SimTicks.LegacyHz;
             }
@@ -219,7 +219,7 @@ namespace MphRead.Entities
                 sfxId = -1;
             }
 
-            float amountB = Rng.GetRandomInt1(0x7FFF) * 2;
+            float amountB = _player._scene.Random.GetRandomInt1(0x7FFF) * 2;
             if (sfxId != -1)
             {
                 _player._soundSource.PlaySfx(sfxId, amountA: 0xFFFF, amountB: amountB);
@@ -634,7 +634,7 @@ namespace MphRead.Entities
                 }
             }
 
-            if (musicId != MusicId.Invalid && PlayerEntity.Main.Health > 0)
+            if (musicId != MusicId.Invalid && _player._scene.LocalPlayer!.Health > 0)
             {
                 if (Sfx.TimedSfxMute > 0)
                 {
@@ -666,7 +666,7 @@ namespace MphRead.Entities
                 if (DoorChimeSfxTimer <= 1 / (float)SimTicks.LegacyHz)
                 {
                     DoorChimeSfxTimer = 0;
-                    if (Sfx.TimedSfxMute == 0 && (CameraSequence.Current == null || !CameraSequence.Current.BlockInput) && _player._soundSource.CountPlayingSfx(SfxId.DOOR_UNLOCK) == 0)
+                    if (Sfx.TimedSfxMute == 0 && (_player._scene.CameraSequences.Current == null || !_player._scene.CameraSequences.Current.BlockInput) && _player._soundSource.CountPlayingSfx(SfxId.DOOR_UNLOCK) == 0)
                     {
                         // the game doesn't check whether the cam seq blocks input
                         _player._soundSource.PlayFreeSfx(SfxId.DOOR_UNLOCK);

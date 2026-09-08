@@ -160,8 +160,6 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _affinity = null!;
         private FieldRow _playerName = null!;
         private ChoiceRow _hunterRow = null!;
-        private FieldRow _serverRow = null!;
-        private FieldRow _masterRow = null!;
         private ToggleRow _autoUpdate = null!;
         private Note _saveError = null!;
 
@@ -176,8 +174,11 @@ namespace MphRead.Mods.Launcher.Gui
         /// <summary>True when this was opened over a match rather than the launcher.</summary>
         public bool InGame => _inGame;
 
-        public SettingsView(MenuSettings settings, bool inGame = false)
+        private readonly Scene? _scene;
+
+        public SettingsView(MenuSettings settings, bool inGame = false, Scene? scene = null)
         {
+            _scene = scene;
             _settings = settings;
             _inGame = inGame;
 
@@ -738,13 +739,13 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         /// <summary>
-        /// Who you are and where you play: the launcher's own preferences,
+        /// Who you are and how the launcher behaves: the launcher's own preferences,
         /// which live in launcher.txt rather than in the game's settings.json.
         ///
         /// They were on a card of the front screen while this window was
         /// Windows-only and the other platforms had nothing else. They belong
-        /// here: the front screen asks the questions a session needs answering
-        /// now, and a default server address is not one of them.
+        /// here: the Node browser owns public multiplayer discovery and lobby
+        /// admission, so this page does not persist direct server endpoints.
         /// </summary>
         private void BuildLauncher()
         {
@@ -761,11 +762,6 @@ namespace MphRead.Mods.Launcher.Gui
             _hunterRow = Add(page, new ChoiceRow("Hunter", hunters,
                 Math.Max(0, Array.IndexOf(hunters, LauncherPrefs.LastHunter.ToString()))));
 
-            Heading(page, "Servers");
-            _serverRow = Add(page, new FieldRow("Default server",
-                $"{LauncherPrefs.ServerAddress}:{LauncherPrefs.ServerPort}", boxWidth: 220));
-            _masterRow = Add(page, new FieldRow("Server directory",
-                $"{LauncherPrefs.MasterHost}:{LauncherPrefs.MasterPort}", boxWidth: 220));
             _autoUpdate = Add(page, new ToggleRow("Check for updates on startup",
                 LauncherPrefs.AutoUpdate));
 
@@ -778,32 +774,6 @@ namespace MphRead.Mods.Launcher.Gui
                 Close();
             };
             page.Children.Add(files);
-        }
-
-        /// <summary>host, or host:port. Leaves both alone on anything else, so a
-        /// typo does not silently change the address.</summary>
-        private static bool ParseEndpoint(string text, ref string host, ref int port)
-        {
-            text = text.Trim();
-            if (text.Length == 0)
-            {
-                return false;
-            }
-            int colon = text.LastIndexOf(':');
-            if (colon <= 0)
-            {
-                host = text;
-                return true;
-            }
-            if (!Int32.TryParse(text[(colon + 1)..], NumberStyles.Integer,
-                CultureInfo.InvariantCulture, out int parsed)
-                || parsed < 1 || parsed > 65535)
-            {
-                return false;
-            }
-            host = text[..colon];
-            port = parsed;
-            return true;
         }
 
         // -------------------------------------------------------------- footer
@@ -911,7 +881,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             InputSettings.Save();
             // The players in the match already have their own copies of these.
-            InputSettings.ApplyToPlayers();
+            if (_scene != null) InputSettings.ApplyToPlayers(_scene);
             // Match rules
             _settings.PointGoal = _pointGoal.Value;
             _settings.TimeLimit = _timeLimit.Value;
@@ -926,20 +896,6 @@ namespace MphRead.Mods.Launcher.Gui
                 LauncherPrefs.PlayerName = _playerName.Value.Trim();
             }
             LauncherPrefs.LastHunter = Enum.Parse<Hunter>(_hunterRow.Value);
-            string host = LauncherPrefs.ServerAddress;
-            int port = LauncherPrefs.ServerPort;
-            if (ParseEndpoint(_serverRow.Value, ref host, ref port))
-            {
-                LauncherPrefs.ServerAddress = host;
-                LauncherPrefs.ServerPort = port;
-            }
-            string masterHost = LauncherPrefs.MasterHost;
-            int masterPort = LauncherPrefs.MasterPort;
-            if (ParseEndpoint(_masterRow.Value, ref masterHost, ref masterPort))
-            {
-                LauncherPrefs.MasterHost = masterHost;
-                LauncherPrefs.MasterPort = masterPort;
-            }
             LauncherPrefs.AutoUpdate = _autoUpdate.On;
             ClientSettings.CommitSettings(_settings);
             LauncherPrefs.Save();

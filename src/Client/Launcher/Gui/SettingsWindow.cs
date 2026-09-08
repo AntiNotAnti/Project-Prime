@@ -18,8 +18,8 @@ namespace MphRead.Mods.Launcher.Gui
         /// <summary>True when the user pressed save rather than closing.</summary>
         public bool Saved => _view.Saved;
 
-        public SettingsWindow(MenuSettings settings, bool inGame = false)
-            : this(new SettingsView(settings, inGame))
+        public SettingsWindow(MenuSettings settings, bool inGame = false, Scene? scene = null)
+            : this(new SettingsView(settings, inGame, scene))
         {
         }
 

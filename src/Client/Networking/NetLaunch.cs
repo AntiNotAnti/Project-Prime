@@ -8,65 +8,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Entities;
 using MphRead.Mods.Accounts;
+using FruityPrime.Server.Shared;
 
 namespace MphRead.Mods.Network
 {
     /// <summary>
-    /// Everything a networked session needs done between "join" and "run",
-    /// shared by the Windows launcher and the -connect command line.
-    ///
-    /// It lives here rather than in the launcher because none of it is
-    /// Windows-specific and because two copies of this sequence is exactly
-    /// how the two entry points drifted apart before: the launcher built its
-    /// player slots one way, the test harness another, and the bug only
-    /// existed in the path nobody was testing.
+    /// Shared client-side preparation for an authenticated Node handoff and
+    /// the resulting Worker session. Lobby selection and match placement are
+    /// owned by the Node; this class only consumes the Worker handoff.
     /// </summary>
     public static class NetLaunch
     {
         /// <summary>
-        /// Join the authoritative server before loading a scene. The server
-        /// assigns the slot, match identity, room, and game mode. Cancellation
-        /// releases the new session without creating or mutating game entities.
-        /// </summary>
-        public static bool Join(string address, int port, string playerName, Hunter hunter,
-            int timeoutMs = 8000, CancellationToken cancel = default, bool observer = false)
-            => JoinAsync(address, port, playerName, hunter, timeoutMs, cancel, observer).GetAwaiter().GetResult();
-
-        public static async Task<bool> JoinAsync(string address, int port, string playerName, Hunter hunter,
-            int timeoutMs = 8000, CancellationToken cancel = default, bool observer = false)
-        {
-            LastJoinError = string.Empty;
-            try
-            {
-                cancel.ThrowIfCancellationRequested();
-                IPAddress[] addresses = await Dns.GetHostAddressesAsync(address, cancel).ConfigureAwait(false);
-                IPAddress destination = Array.Find(addresses, item => item.AddressFamily == AddressFamily.InterNetwork)
-                    ?? throw new InvalidOperationException("The server has no IPv4 address.");
-                string pinnedAddress = destination.ToString();
-                ServerStatus status = await Task.Run(() => NetStatus.Query(pinnedAddress, port, allowJoinProbe: false,
-                    timeoutMs: Math.Min(1200, Math.Max(1, timeoutMs))), cancel).ConfigureAwait(false);
-                AccountSession? account = AccountSessions.Current;
-                ulong? nonce = null;
-                string ticket = "";
-                if (status.RequiresTicket && account?.IsSignedIn != true)
-                    throw new InvalidOperationException("Sign in through Hunter License before joining this server.");
-                if (status.ServerId != Guid.Empty && account?.IsSignedIn == true)
-                {
-                    playerName = (await account.GetLicenseAsync(account.Identity!.PlayerId, cancel).ConfigureAwait(false)).DisplayName;
-                    nonce = NetConnection.NewIdentity();
-                    GameTicket grant = await account.GetTicketAsync(status.ServerId, nonce.Value, cancel).ConfigureAwait(false);
-                    pinnedAddress = PinTicketDestination(grant, addresses, port);
-                    ticket = grant.Ticket;
-                }
-                return await Task.Run(() => JoinCore(pinnedAddress, port, playerName, hunter, timeoutMs, cancel, nonce, ticket, observer), cancel).ConfigureAwait(false);
-            }
-            catch (Exception error)
-            {
-                LastJoinError = error is OperationCanceledException ? "Connection cancelled." : error.Message;
-                return false;
-            }
-        }
-
         internal static string PinTicketDestination(GameTicket ticket, ReadOnlySpan<IPAddress> resolved, int port)
         {
             if (ticket.TryGetEndpoint(out IPEndPoint? registered) && registered!.Port == port)
@@ -75,15 +28,32 @@ namespace MphRead.Mods.Network
             throw new InvalidOperationException("This server address does not match the Backend's registered ticket destination. No ticket was sent.");
         }
 
+        public static Task<bool> JoinWorkerAsync(NodeMatchHandoff handoff, string playerName, CancellationToken cancel = default, int timeoutMs = 8000)
+        {
+            if (timeoutMs is < 1 or > 30000) throw new ArgumentOutOfRangeException(nameof(timeoutMs));
+            if (handoff.MatchId == Guid.Empty || handoff.WireMatchId == 0 || handoff.Nonce == 0
+                || handoff.Port == 0 || !IPAddress.TryParse(handoff.Host, out var address)
+                || address.AddressFamily != AddressFamily.InterNetwork || address.ToString() != handoff.Host
+                || address.GetAddressBytes()[0] is 0 or >= 224 || handoff.Ticket is not { Length: > 0 and <= JoinPacket.MaxRoutedTicketBytes })
+                throw new ArgumentException("Invalid Worker handoff.");
+            var existing = AuthoritativePlay.Current;
+            if (existing?.Client.Connection?.MatchId == handoff.WireMatchId
+                && existing.Client.Failure == null && existing.Client.State is NetConnectionState.Loading or NetConnectionState.Ready or NetConnectionState.Playing)
+                return Task.FromResult(true);
+            if (existing != null) NetSession.Stop();
+            return Task.Run(() => JoinCore(handoff.Host, handoff.Port, playerName, handoff.Hunter,
+                timeoutMs, cancel, handoff.Nonce, handoff.Ticket, handoff.Observer, handoff.WireMatchId), cancel);
+        }
+
         private static bool JoinCore(string address, int port, string playerName, Hunter hunter,
-            int timeoutMs, CancellationToken cancel, ulong? nonce, string ticket, bool observer)
+            int timeoutMs, CancellationToken cancel, ulong? nonce, string ticket, bool observer, uint wireMatchId = 0)
         {
             AuthoritativePlay? play = null;
             LastJoinError = String.Empty;
             try
             {
                 cancel.ThrowIfCancellationRequested();
-                play = new AuthoritativePlay(address, port, playerName, hunter, nonce, ticket, observer);
+                play = new AuthoritativePlay(address, port, playerName, hunter, nonce, ticket, observer, wireMatchId);
                 var clock = Stopwatch.StartNew();
                 bool announcedPending = false;
                 while (play.Client.State == NetConnectionState.Connecting)
@@ -118,8 +88,8 @@ namespace MphRead.Mods.Network
         }
 
         /// <summary>
-        /// Why the last <see cref="Join"/> failed, in a sentence a player can
-        /// act on. Empty before the first failure.
+        /// Why the last Worker handoff failed, in a sentence a player can act
+        /// on. Empty before the first failure.
         /// </summary>
         public static string LastJoinError { get; private set; } = "";
 
@@ -217,7 +187,10 @@ namespace MphRead.Mods.Network
                 return;
             }
             int resolvedSlot = localSlot ?? Math.Max(NetSession.LocalSlot, 0);
-            for (int slot = 0; slot < PlayerEntity.MaxPlayers; slot++)
+            NetSession.ApplyRoster(scene);
+            DemoPlayback.ApplyRoster(scene);
+            scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
+            for (int slot = 0; slot < scene.Players.MaxPlayers; slot++)
             {
                 // Only this machine's hunter is a local choice. Everyone
                 // else's comes from the server's roster, because it is their
@@ -229,10 +202,10 @@ namespace MphRead.Mods.Network
                 Hunter hunter = slot == resolvedSlot ? localHunter : NetSession.SlotHunter[slot];
                 scene.AddPlayer(hunter, slot == resolvedSlot ? localRecolor : 0, teamId);
             }
-            for (int slot = 0; slot < PlayerEntity.MaxPlayers; slot++)
+            for (int slot = 0; slot < scene.Players.MaxPlayers; slot++)
             {
-                PlayerEntity? player = slot < PlayerEntity.Players.Count
-                    ? PlayerEntity.Players[slot]
+                PlayerEntity? player = slot < scene.Players.Count
+                    ? scene.Players[slot]
                     : null;
                 if (player == null)
                 {
@@ -257,9 +230,9 @@ namespace MphRead.Mods.Network
                     player.LoadFlags &= ~LoadFlags.Active;
                 }
             }
-            PlayerEntity.PlayerCount = 1;
+            scene.Players.ActiveCount = 1;
             // Before AddRoom: the room loader initialises the camera and HUD
-            // against PlayerEntity.Main, so Main must already point at the
+            // against scene.LocalPlayer!, so Main must already point at the
             // slot this client drives. A client on slot 1 that skipped this
             // was never its own main player -- its intro sequence never
             // ended, so it kept the spectator camera and never spawned.
@@ -270,7 +243,7 @@ namespace MphRead.Mods.Network
             // SpectatorMode.Start immediately redirects once a real player
             // is available, same as it does after every subsequent cycle.
             int mainIndex = resolvedSlot >= 0 ? resolvedSlot : 0;
-            PlayerEntity.MainPlayerIndex = mainIndex;
+            scene.LocalPlayerSlot = mainIndex;
             Console.WriteLine($"[net] player slots built, main player = slot {mainIndex}");
             NetLog.Event($"player slots built, main = slot {mainIndex}");
         }

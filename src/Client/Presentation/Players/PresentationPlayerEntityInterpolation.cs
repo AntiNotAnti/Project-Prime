@@ -58,7 +58,7 @@ namespace MphRead.Entities
             if (_renderPoseBackup.Trail)
             {
                 for (int i = 0; i < PlayerEntity._mbTrailSegments; i++)
-                    _renderTrailBackup[i] = PlayerEntity._mbTrailMatrices[_player.SlotIndex, i];
+                    _renderTrailBackup[i] = _player._mbTrailMatrices[i];
             }
 
             if (_renderPoseBackup.Ice)
@@ -109,7 +109,7 @@ namespace MphRead.Entities
             if (_renderPoseBackup.Trail)
             {
                 for (int i = 0; i < PlayerEntity._mbTrailSegments; i++)
-                    PlayerEntity._mbTrailMatrices[_player.SlotIndex, i].Row3.Xyz += offset;
+                    _player._mbTrailMatrices[i].Row3.Xyz += offset;
             }
         }
 
@@ -139,7 +139,7 @@ namespace MphRead.Entities
             if (_renderPoseBackup.Trail)
             {
                 for (int i = 0; i < PlayerEntity._mbTrailSegments; i++)
-                    PlayerEntity._mbTrailMatrices[_player.SlotIndex, i] = _renderTrailBackup[i];
+                    _player._mbTrailMatrices[i] = _renderTrailBackup[i];
             }
 
             if (_renderPoseBackup.Ice)

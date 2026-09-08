@@ -45,7 +45,7 @@ namespace MphRead.Mods.Network
         public int LocalSlot => IsObserver ? -1 : Client.Accepted.Slot;
         internal Action<PlayerEntity, uint>? ScriptInput { get; set; }
 
-        public AuthoritativePlay(string host, int port, string name, Hunter hunter, ulong? joinNonce = null, string ticket = "", bool observer = false)
+        public AuthoritativePlay(string host, int port, string name, Hunter hunter, ulong? joinNonce = null, string ticket = "", bool observer = false, uint wireMatchId = 0)
         {
             if (Current != null || NetSession.Active)
             {
@@ -56,7 +56,7 @@ namespace MphRead.Mods.Network
             if (address == null) { throw new ProgramException($"{host} has no IPv4 address."); }
             var endpoint = new IPEndPoint(address, port);
             _transport = new NetTransport(0);
-            try { Client = new NetClient(_transport, endpoint, name, Launcher.Hunters.Resolve(hunter), joinNonce, ticket, observer); }
+            try { Client = new NetClient(_transport, endpoint, name, Launcher.Hunters.Resolve(hunter), joinNonce, ticket, observer, wireMatchId); }
             catch { _transport.Dispose(); throw; }
             Client.WorldPacketValidator = WorldPacket.TryValidate;
             Client.WorldPacketReceived = payload =>
@@ -81,25 +81,26 @@ namespace MphRead.Mods.Network
         public void BuildPlayers(Scene scene, Hunter hunter, int recolor)
         {
             _presentationScene = scene;
+            foreach (NetRosterEntry entry in Client.Roster) scene.Roster.Nicknames[entry.Slot] = entry.Name;
             _loadedMatch = Client.Accepted.MatchId;
             _world.Reset(_loadedMatch);
             scene.Match.MatchId = Client.Accepted.MatchId;
             scene.Match.ApplyRules(Client.Accepted.Rules);
-            PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
-            for (int slot = 0; slot < PlayerEntity.MaxPlayers; slot++)
+            scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
+            for (int slot = 0; slot < scene.Players.MaxPlayers; slot++)
             {
                 scene.AddPlayer(slot == LocalSlot ? hunter : Hunter.Samus,
                     slot == LocalSlot ? recolor : 0,
                     GetAssignedTeam(slot));
-                PlayerEntity player = PlayerEntity.Players[slot];
+                PlayerEntity player = scene.Players[slot];
                 player.IsBot = false;
                 // The local slot must initialize its camera/HUD while the
                 // room loads. Spawn selection remains disabled on clients.
                 if (slot != LocalSlot) { player.LoadFlags &= ~LoadFlags.Active; }
             }
-            PlayerEntity.MainPlayerIndex = IsObserver ? 0 : LocalSlot;
-            PlayerEntity.PlayerCount = IsObserver ? 0 : 1;
-            if (IsObserver) SpectatorMode.Start();
+            scene.LocalPlayerSlot = IsObserver ? 0 : LocalSlot;
+            scene.Players.ActiveCount = IsObserver ? 0 : 1;
+            if (IsObserver) SpectatorMode.Start(scene);
         }
 
         public void BeforeSimulation(Scene scene)
@@ -126,7 +127,7 @@ namespace MphRead.Mods.Network
                     if (scene.Presentation is ScenePresentation rolePresentation)
                         ResetRoleFeedback(rolePresentation.CombatFeedback, rolePresentation.WorldFeedback);
                     else Chat.ChatBox.Clear();
-                    foreach (PlayerEntity player in PlayerEntity.Players) player.Controls.ClearAll();
+                    foreach (PlayerEntity player in scene.Players) player.Controls.ClearAll();
                 }
                 _appliedRoleRevision = Client.RoleRevision;
                 _loadedMatch = Client.Accepted.MatchId;
@@ -169,7 +170,7 @@ namespace MphRead.Mods.Network
             if (!_hasInputViewTick)
                 _hasInputViewTick = _interpolation.TryCaptureViewTick(out _inputViewTick);
             _world.Apply(scene, Client.HasSnapshot ? Client.Snapshot.ServerTick : null);
-            foreach (NetRosterEntry entry in Client.Roster) { GameState.Nicknames[entry.Slot] = entry.Name; }
+            foreach (NetRosterEntry entry in Client.Roster) { scene.Roster.Nicknames[entry.Slot] = entry.Name; }
             if (scene.Presentation is ScenePresentation feedbackPresentation)
                 feedbackPresentation.CombatFeedback.Bind(_loadedMatch,
                     LocalSlot is >= 0 and < 8 ? new CombatActor((byte)LocalSlot, _identities[LocalSlot], _lives[LocalSlot]) : CombatActor.None,
@@ -186,17 +187,17 @@ namespace MphRead.Mods.Network
                 _hasInputViewTick = false;
             }
             if (LocalSlot >= 0 && scene.Match.Phase == MatchPhase.Playing)
-            { ScriptInput?.Invoke(PlayerEntity.Players[LocalSlot], _sequence); }
-            else if (LocalSlot >= 0) { PlayerEntity.Players[LocalSlot].Controls.ClearAll(); }
+            { ScriptInput?.Invoke(scene.Players[LocalSlot], _sequence); }
+            else if (LocalSlot >= 0) { scene.Players[LocalSlot].Controls.ClearAll(); }
             NetDiagnostics.ReportAuthoritative(Client, Prediction, _interpolation, _transport.Metrics);
         }
 
         public PlayerEntity RebuildPlayers(Scene scene, Hunter hunter, int recolor)
         {
-            PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
+            scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
             for (int slot = 0; slot < 8; slot++)
             {
-                PlayerEntity player = PlayerEntity.Create(slot == LocalSlot ? hunter : Hunter.Samus,
+                PlayerEntity player = scene.Players.Create(slot == LocalSlot ? hunter : Hunter.Samus,
                     slot == LocalSlot ? recolor : 0) ?? throw new ProgramException("Could not rebuild network player.");
                 player.LoadFlags = LoadFlags.SlotActive | LoadFlags.Initial;
                 if (slot == LocalSlot) { player.LoadFlags |= LoadFlags.Active; }
@@ -204,10 +205,10 @@ namespace MphRead.Mods.Network
                 player.IsBot = false;
                 player.TeamIndex = GetAssignedTeam(slot);
             }
-            PlayerEntity.MainPlayerIndex = IsObserver ? 0 : LocalSlot;
-            PlayerEntity.PlayerCount = IsObserver ? 0 : 1;
-            if (IsObserver) SpectatorMode.Start();
-            return PlayerEntity.Main;
+            scene.LocalPlayerSlot = IsObserver ? 0 : LocalSlot;
+            scene.Players.ActiveCount = IsObserver ? 0 : 1;
+            if (IsObserver) SpectatorMode.Start(scene);
+            return scene.LocalPlayer!;
         }
 
         private int GetAssignedTeam(int slot)
@@ -220,6 +221,7 @@ namespace MphRead.Mods.Network
 
         private void DrainEvents()
         {
+            if (_presentationScene is not Scene scene) return;
             Span<CombatEvent> events = stackalloc CombatEvent[CombatEventBatch.MaxCount];
             while (Client.TryDequeueEvent(out NetApplicationEvent message))
             {
@@ -260,7 +262,7 @@ namespace MphRead.Mods.Network
                         ? value.Actor : value.Target;
                     if (!subject.IsValid || _identities[subject.Slot] != subject.ConnectionId
                         || _lives[subject.Slot] != subject.Life) { continue; }
-                    PlayerEntity.Players[subject.Slot].GetPresentation().PresentCombat(value,
+                    scene.Players[subject.Slot].GetPresentation().PresentCombat(value,
                         predictedLocalShot: subject.Slot == LocalSlot);
                 }
             }
@@ -268,15 +270,16 @@ namespace MphRead.Mods.Network
 
         public void AfterSimulation()
         {
+            if (_presentationScene is not Scene scene) return;
             if (IsObserver)
             {
                 foreach (SnapshotPlayer state in Client.SnapshotPlayers)
-                    PlayerEntity.Players[state.Slot].ApplySnapshotTransform(state);
+                    scene.Players[state.Slot].ApplySnapshotTransform(state);
                 return;
             }
             if (_presentationScene?.Match.Phase != MatchPhase.Playing || !_hasInputViewTick
                 || Client.State is not (NetConnectionState.Ready or NetConnectionState.Playing)) { return; }
-            PlayerEntity local = PlayerEntity.Players[LocalSlot];
+            PlayerEntity local = scene.Players[LocalSlot];
             local.ModRepairVectors();
             _inputs[_sequence % InputBundle.Capacity] = local.CaptureNetworkInput(_sequence, _inputViewTick);
             Prediction.Record(_sequence, local.Position, local.IsAltForm);
@@ -292,7 +295,7 @@ namespace MphRead.Mods.Network
             // become truth. P5 supplies delayed transform presentation here.
             foreach (SnapshotPlayer state in Client.SnapshotPlayers)
             {
-                if (state.Slot != LocalSlot) { PlayerEntity.Players[state.Slot].ApplySnapshotTransform(state); }
+                if (state.Slot != LocalSlot) { scene.Players[state.Slot].ApplySnapshotTransform(state); }
             }
         }
 
@@ -306,7 +309,7 @@ namespace MphRead.Mods.Network
                 {
                     int slot = state.Slot;
                     occupied |= 1 << slot;
-                    PlayerEntity player = PlayerEntity.Players[slot];
+                    PlayerEntity player = scene.Players[slot];
                     bool newIdentity = _identities[slot] != state.ConnectionId;
                     if (newIdentity)
                     {
@@ -318,7 +321,7 @@ namespace MphRead.Mods.Network
                     bool local = slot == LocalSlot;
                     player.ApplyServerState(state, newLife, local);
                     if (local)
-                        SpectatorMode.ApplyWaitingForMatch((state.Flags & SnapshotPlayerFlags.WaitingForMatch) != 0);
+                        SpectatorMode.ApplyWaitingForMatch(scene, (state.Flags & SnapshotPlayerFlags.WaitingForMatch) != 0);
                     player.GetPresentation().ReconcileNetworkAfflictions(state, Client.Snapshot.ServerTick);
                     if (!local)
                     {
@@ -346,8 +349,8 @@ namespace MphRead.Mods.Network
                 {
                     if ((occupied & (1 << slot)) == 0 && _identities[slot] != 0)
                     {
-                        PlayerEntity.Players[slot].GetPresentation().ClearNetworkAfflictions();
-                        PlayerEntity.Players[slot].ServerDeactivate();
+                        scene.Players[slot].GetPresentation().ClearNetworkAfflictions();
+                        scene.Players[slot].ServerDeactivate();
                         NetScoreboard.ForgetSlot(scene, slot);
                         _identities[slot] = 0;
                     }
@@ -361,7 +364,7 @@ namespace MphRead.Mods.Network
                     scene.Match.Players[state.Slot].Deaths = state.Deaths;
                     scene.Match.Players[state.Slot].Assists = state.Assists;
                 }
-                PlayerEntity.PlayerCount = Client.SnapshotPlayers.Length;
+                scene.Players.ActiveCount = Client.SnapshotPlayers.Length;
             }
             finally { ApplyingSnapshot = false; }
         }
@@ -412,7 +415,7 @@ namespace MphRead.Mods.Network
             {
                 if (slot != LocalSlot && _interpolation.TrySample(slot, presentation, out SnapshotPlayer state))
                 {
-                    PlayerEntity.Players[slot].GetPresentation().BeginInterpolatedPose(state);
+                    scene.Players[slot].GetPresentation().BeginInterpolatedPose(state);
                 }
             }
             _pendingPresentation = presentation;
@@ -429,7 +432,8 @@ namespace MphRead.Mods.Network
 
         public void EndRemotePresentation()
         {
-            foreach (PlayerEntity player in PlayerEntity.Players) { player.GetPresentation().EndInterpolatedPose(); }
+            if (_presentationScene is not Scene scene) return;
+            foreach (PlayerEntity player in scene.Players) { player.GetPresentation().EndInterpolatedPose(); }
         }
 
     }

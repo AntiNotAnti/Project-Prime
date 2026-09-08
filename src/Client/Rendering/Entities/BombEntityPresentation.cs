@@ -84,9 +84,9 @@ namespace MphRead.Entities
                 float z = vec.Z * pct;
                 if (i > 0 && i < segments - 1)
                 {
-                    x += Rng.GetRandomInt1(0x800) / 4096f - 0.25f;
-                    y += Rng.GetRandomInt1(0x800) / 4096f - 0.25f;
-                    z += Rng.GetRandomInt1(0x800) / 4096f - 0.25f;
+                    x += _entity._scene.Random.GetRandomInt1(0x800) / 4096f - 0.25f;
+                    y += _entity._scene.Random.GetRandomInt1(0x800) / 4096f - 0.25f;
+                    z += _entity._scene.Random.GetRandomInt1(0x800) / 4096f - 0.25f;
                 }
 
                 uvsAndVerts[4 * i] = new Vector3(uvS, 0, 0);

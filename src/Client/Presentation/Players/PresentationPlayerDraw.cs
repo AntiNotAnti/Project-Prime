@@ -37,7 +37,7 @@ namespace MphRead.Entities
 
             int lod = 0;
             _player.Flags2 &= ~PlayerFlags2.Lod1;
-            if (!_player.IsMainPlayer && !Features.MaxPlayerDetail && (_player.Position - PlayerEntity.Main.CameraInfo.Position).LengthSquared >= 3 * 3)
+            if (!_player.IsMainPlayer && !Features.MaxPlayerDetail && (_player.Position - _player._scene.LocalPlayer!.CameraInfo.Position).LengthSquared >= 3 * 3)
             {
                 lod = 1;
                 _player.Flags2 |= PlayerFlags2.Lod1;
@@ -45,6 +45,8 @@ namespace MphRead.Entities
 
             _player._bipedModel1.SetModel(_player._bipedModelLods[lod].Model);
             _player._bipedModel2.SetModel(_player._bipedModelLods[lod].Model);
+            // LOD selection can create a private clone after initial resource loading.
+            ScenePresentation.NormalizeModelMaterials(_player._bipedModel2.Model);
             _player.Flags2 &= ~PlayerFlags2.DrawnThirdPerson;
             bool drawBiped = false;
             // todo: entity visibility check needs to do more than use active room parts
@@ -53,7 +55,7 @@ namespace MphRead.Entities
             // even though the player's view is still what's on the screen (at least that seems to be what's happening)
             if (_player.IsMainPlayer || IsVisible(_player.NodeRef) || _player.ModNodeUnresolved)
             {
-                drawBiped = !_player.IsMainPlayer || _player.CameraType != CameraType.First || CameraSequence.Current != null || _player._camSwitchTimer < _player.Values.CamSwitchTime * 2; // todo: FPS stuff
+                drawBiped = !_player.IsMainPlayer || _player.CameraType != CameraType.First || _player._scene.CameraSequences.Current != null || _player._camSwitchTimer < _player.Values.CamSwitchTime * 2; // todo: FPS stuff
                 if (_player.IsAltForm)
                 {
                     _player._modelTransform.Row3.Xyz = _player.Position;
@@ -97,8 +99,6 @@ namespace MphRead.Entities
                 else if (drawBiped)
                 {
                     // we want to animate first up to the spine with _bipedModel1's animation info, then the rest with _bipedModel2's info
-                    Node spineNode = _player._spineNodes[lod]!;
-                    spineNode.AnimIgnoreChild = true;
                     // todo: we can just figure out the angle directly from the facing vector
                     Vector3 facing = _player._facingVector;
                     float limit = Fixed.ToFloat(2896);
@@ -111,12 +111,10 @@ namespace MphRead.Entities
                     }
 
                     float angle = MathF.Atan2(sin, cos);
-                    spineNode.AfterTransform = Matrix4.CreateRotationZ(angle);
-                    Model model = _player._bipedModel1.Model;
-                    model.AnimateNodes(index: 0, false, Matrix4.Identity, Vector3.One, _player._bipedModel1.AnimInfo);
-                    spineNode.AnimIgnoreChild = false;
-                    model.AnimateNodes(spineNode.ChildIndex, false, Matrix4.Identity, Vector3.One, _player._bipedModel2.AnimInfo);
-                    spineNode.AfterTransform = null;
+                    // Compose both animation tracks on the private model actually submitted
+                    // for drawing; the leg track owns timing, not a separate rendered pose.
+                    Model model = _player._bipedModel2.Model;
+                    PlayerEntity.AnimateBipedPose(model, _player._bipedModel1.AnimInfo, _player._bipedModel2.AnimInfo, angle);
                     float scale = Metadata.HunterScales[_player.Hunter];
                     float bottom = Fixed.ToFloat(_player.Values.MinPickupHeight);
                     var lateral = new Vector3(_player._field70, 0, _player._field74);
@@ -144,7 +142,7 @@ namespace MphRead.Entities
                         }
 
                         float alpha = _player._curAlpha;
-                        if (_player.IsMainPlayer && CameraSequence.Current == null && _player._bipedModel1.AnimInfo.Index[0] == (int)PlayerAnimation.Unmorph)
+                        if (_player.IsMainPlayer && _player._scene.CameraSequences.Current == null && _player._bipedModel1.AnimInfo.Index[0] == (int)PlayerAnimation.Unmorph)
                         {
                             alpha -= alpha * _player._bipedModel1.AnimInfo.Frame[0] / _player._bipedModel1.AnimInfo.FrameCount[0];
                             alpha = Math.Clamp(alpha, 0, 1);
@@ -156,7 +154,7 @@ namespace MphRead.Entities
                         if (_player._chargeEffect != null || _player._muzzleEffect != null)
                         {
                             Vector3 muzzlePos = Metadata.MuzzleOffests[(int)_player.Hunter];
-                            muzzlePos = Matrix.Vec3MultMtx4(muzzlePos, _player._shootNodes[lod]!.Animation);
+                            muzzlePos = Matrix.Vec3MultMtx4(muzzlePos, model.GetNodeByName(_player.Hunter == Hunter.Guardian ? "Head_1" : "R_elbow")!.Animation);
                             if (_player._chargeEffect != null)
                             {
                                 _player._chargeEffect.SetDrawEnabled(true);
@@ -174,8 +172,8 @@ namespace MphRead.Entities
                         {
                             for (int i = 0; i < _player._bipedIceModel.Model.Nodes.Count; i++)
                             {
-                                _player._bipedIceModel.Model.Nodes[i].Animation = _player._bipedModel1.Model.Nodes[i].Animation;
-                                _player._bipedIceTransforms[i] = _player._bipedModel1.Model.Nodes[i].Animation;
+                                _player._bipedIceModel.Model.Nodes[i].Animation = _player._bipedModel2.Model.Nodes[i].Animation;
+                                _player._bipedIceTransforms[i] = _player._bipedModel2.Model.Nodes[i].Animation;
                             }
 
                             _player._bipedIceModel.Model.UpdateMatrixStack();
@@ -428,7 +426,7 @@ namespace MphRead.Entities
             float[] matrixStack = ArrayPool<float>.Shared.Rent(16 * PlayerEntity._mbTrailSegments);
             for (int i = 0; i < PlayerEntity._mbTrailSegments; i++)
             {
-                Matrix4 matrix = PlayerEntity._mbTrailMatrices[_player.SlotIndex, i];
+                Matrix4 matrix = _player._mbTrailMatrices[i];
                 matrixStack[i * 16] = matrix.Row0.X;
                 matrixStack[i * 16 + 1] = matrix.Row0.Y;
                 matrixStack[i * 16 + 2] = matrix.Row0.Z;
@@ -448,15 +446,15 @@ namespace MphRead.Entities
             }
 
             int count = 0;
-            int index = PlayerEntity._mbTrailIndices[_player.SlotIndex];
+            int index = _player._mbTrailIndex;
             Vector3[] uvsAndVerts = ArrayPool<Vector3>.Shared.Rent(8 * PlayerEntity._mbTrailSegments);
             for (int i = 0; i < PlayerEntity._mbTrailSegments; i++)
             {
                 // going backwards with wrap-around
                 int mtxId1 = index - 1 - i + (index - 1 - i < 0 ? PlayerEntity._mbTrailSegments : 0);
                 int mtxId2 = mtxId1 - 1 + (mtxId1 - 1 < 0 ? PlayerEntity._mbTrailSegments : 0);
-                float alpha1 = PlayerEntity._mbTrailAlphas[_player.SlotIndex, mtxId1];
-                float alpha2 = PlayerEntity._mbTrailAlphas[_player.SlotIndex, mtxId2];
+                float alpha1 = _player._mbTrailAlphas[mtxId1];
+                float alpha2 = _player._mbTrailAlphas[mtxId2];
                 if (alpha1 > 0 && alpha2 > 0)
                 {
                     float uvS1 = (31 - (int)(alpha1 * 31)) / 32f;
@@ -497,15 +495,15 @@ namespace MphRead.Entities
             float sin270 = MathF.Sin(MathHelper.DegreesToRadians(270));
             float sin180 = MathF.Sin(MathHelper.DegreesToRadians(180));
             float offset = (angle - sin270) / (sin180 - sin270);
-            for (int i = 1; i < _player._bipedModel1.Model.Nodes.Count; i++)
+            for (int i = 1; i < _player._bipedModel2.Model.Nodes.Count; i++)
             {
-                Node node = _player._bipedModel1.Model.Nodes[i];
+                Node node = _player._bipedModel2.Model.Nodes[i];
                 var nodePos = new Vector3(node.Animation.Row3);
                 nodePos.Y += offset;
                 if (node.ChildIndex != -1)
                 {
                     Debug.Assert(node.ChildIndex > 0);
-                    var childPos = new Vector3(_player._bipedModel1.Model.Nodes[node.ChildIndex].Animation.Row3);
+                    var childPos = new Vector3(_player._bipedModel2.Model.Nodes[node.ChildIndex].Animation.Row3);
                     childPos.Y += offset;
                     for (int j = 1; j < 5; j++)
                     {
@@ -518,7 +516,7 @@ namespace MphRead.Entities
                 if (node.NextIndex != -1)
                 {
                     Debug.Assert(node.NextIndex > 0);
-                    var nextPos = new Vector3(_player._bipedModel1.Model.Nodes[node.NextIndex].Animation.Row3);
+                    var nextPos = new Vector3(_player._bipedModel2.Model.Nodes[node.NextIndex].Animation.Row3);
                     nextPos.Y += offset;
                     for (int j = 1; j < 5; j++)
                     {

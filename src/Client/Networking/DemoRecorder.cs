@@ -160,8 +160,8 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt64LittleEndian(body.AsSpan(8), presentation.World.LiveFrames);
             BinaryPrimitives.WriteSingleLittleEndian(body.AsSpan(16), presentation.World.ElapsedTime);
             BinaryPrimitives.WriteSingleLittleEndian(body.AsSpan(20), presentation.World.GlobalElapsedTime);
-            BinaryPrimitives.WriteUInt32LittleEndian(body.AsSpan(24), Rng.Rng1);
-            BinaryPrimitives.WriteUInt32LittleEndian(body.AsSpan(28), Rng.Rng2);
+            BinaryPrimitives.WriteUInt32LittleEndian(body.AsSpan(24), presentation.World.Random.Rng1);
+            BinaryPrimitives.WriteUInt32LittleEndian(body.AsSpan(28), presentation.World.Random.Rng2);
             records.Add(Record(DemoRecordKind.Clock, body.AsSpan(0, 32)));
             AddFragments(records, body, DemoRecordKind.Presentation,
                 MphRead.Combat.ReplayFeedbackState.Capture(presentation.CombatFeedback, presentation.WorldFeedback));

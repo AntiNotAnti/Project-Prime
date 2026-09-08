@@ -28,6 +28,14 @@ namespace MphRead.Mods.Network
         public static readonly bool[] SlotOccupied = new bool[PlayerEntity.SlotCapacity];
         private static readonly uint[] _lastSlotIntentFrame = new uint[PlayerEntity.SlotCapacity];
         private static uint _lastSnapshotFrame;
+        private static (uint Rng1, uint Rng2)? _pendingRandom;
+        internal static void ApplyRandom(Scene scene)
+        {
+            if (_pendingRandom is not { } state) return;
+            scene.Random.SetRng1(state.Rng1);
+            scene.Random.SetRng2(state.Rng2);
+            _pendingRandom = null;
+        }
         private static int _lateSnapshotRun;
         private const uint SnapshotResetGap = 600;
         private const uint IntentResetGap = 600;
@@ -50,6 +58,7 @@ namespace MphRead.Mods.Network
 
         public static void RewindPlayback()
         {
+            _pendingRandom = null;
             NetFrame = 0;
             Metrics = new NetMetrics();
             _lastSnapshotFrame = 0;
@@ -99,6 +108,7 @@ namespace MphRead.Mods.Network
 
         public static void Stop()
         {
+            _pendingRandom = null;
             AuthoritativePlay.Current?.Dispose();
             DemoPlayback.CloseFile();
             DemoRecorder.Stop();
@@ -112,6 +122,7 @@ namespace MphRead.Mods.Network
             Array.Clear(SlotOccupied);
             Array.Clear(SlotHunter);
             Array.Clear(SlotPing);
+            _playbackRoster = null;
             ServerMatch = null;
             Active = false;
         }
@@ -162,6 +173,16 @@ namespace MphRead.Mods.Network
             IntentsReceived++;
         }
 
+        private static RosterPacket? _playbackRoster;
+
+        internal static void ApplyRoster(Scene scene)
+        {
+            if (_playbackRoster is not RosterPacket roster) return;
+            for (int i = 0; i < roster.Count; i++)
+                if ((uint)roster.Slots[i] < (uint)scene.Roster.Nicknames.Length)
+                    scene.Roster.Nicknames[roster.Slots[i]] = roster.Names[i];
+        }
+
         private static void HandleRoster(ReadOnlySpan<byte> payload)
         {
             if (!NetPacketReader.TryReadRoster(payload, out RosterPacket roster))
@@ -169,6 +190,7 @@ namespace MphRead.Mods.Network
                 Metrics.Reject();
                 return;
             }
+            _playbackRoster = roster;
             Array.Clear(SlotOccupied);
             for (int i = 0; i < roster.Count; i++)
             {
@@ -178,7 +200,6 @@ namespace MphRead.Mods.Network
                     continue;
                 }
                 SlotOccupied[slot] = true;
-                GameState.Nicknames[slot] = roster.Names[i];
                 if (Enum.IsDefined(typeof(Hunter), roster.Hunters[i]))
                 {
                     SlotHunter[slot] = (Hunter)roster.Hunters[i];
@@ -227,8 +248,7 @@ namespace MphRead.Mods.Network
             _lastSnapshotFrame = header.Frame;
             SnapshotsReceived++;
             Metrics.Snapshot(Stopwatch.GetTimestamp());
-            Rng.SetRng1(header.Rng1);
-            Rng.SetRng2(header.Rng2);
+            _pendingRandom = (header.Rng1, header.Rng2);
             int offset = SnapshotHeader.Size;
             Array.Clear(RemoteStateValid);
             for (int i = 0; i < header.PlayerCount; i++)

@@ -117,9 +117,9 @@ namespace MphRead.Mods.Network
             int active = 0;
             int created = 0;
             line.Append(" slots=[");
-            for (int i = 0; i < PlayerEntity.MaxPlayers; i++)
+            for (int i = 0; i < scene.Players.MaxPlayers; i++)
             {
-                PlayerEntity? player = PlayerEntity.Players[i];
+                PlayerEntity? player = scene.Players[i];
                 if (player == null)
                 {
                     line.Append('-');
@@ -157,9 +157,9 @@ namespace MphRead.Mods.Network
             // spotted in the slot map: an AI-driven remote slot is always a
             // bug, and it is the one that produced bots in a networked match.
             int botRemotes = 0;
-            for (int i = 0; i < PlayerEntity.MaxPlayers; i++)
+            for (int i = 0; i < scene.Players.MaxPlayers; i++)
             {
-                PlayerEntity? p = PlayerEntity.Players[i];
+                PlayerEntity? p = scene.Players[i];
                 if (p != null && i != NetSession.LocalSlot && p.IsBot
                     && p.LoadFlags.TestFlag(LoadFlags.Active))
                 {
