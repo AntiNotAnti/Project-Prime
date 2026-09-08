@@ -233,7 +233,7 @@ namespace MphRead.Entities
             {
                 _timeSinceDamage++;
             }
-            if (Owner == PlayerEntity.Main)
+            if (Owner == _scene.LocalPlayer)
             {
                 string message = Text.Strings.GetHudMessage(233); // turret energy: %d
                 Owner.QueueHudMessage(128, 150, 1 / 1000f, 0, message.Replace("%d", _health.ToString()));

@@ -47,7 +47,7 @@ namespace MphRead
             var teams = ImmutableArray.CreateBuilder<TeamMatchResult>(PlayerEntity.SlotCapacity);
             for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
             {
-                players.Add(new PlayerMatchResult(match, slot, PlayerEntity.Players[slot], GameState.Nicknames[slot],
+                players.Add(new PlayerMatchResult(match, slot, match.Scene?.Players[slot], match.Scene?.Roster.Nicknames[slot] ?? $"Player{slot + 1}",
                     identities.IsEmpty ? null : identities[slot]));
                 teams.Add(new TeamMatchResult(slot, match.TeamPoints[slot], match.TeamKills[slot],
                     match.TeamDeaths[slot], match.TeamTime[slot]));
@@ -98,14 +98,14 @@ namespace MphRead
         public float Time { get; }
         public ImmutableArray<int> BeamKills { get; }
 
-        internal PlayerMatchResult(MatchRuntime match, int slot, PlayerEntity player, string nickname, PlayerResultIdentity? identity = null)
+        internal PlayerMatchResult(MatchRuntime match, int slot, PlayerEntity? player, string nickname, PlayerResultIdentity? identity = null)
         {
             Slot = slot;
             Nickname = identity?.Nickname ?? nickname;
-            Hunter = identity?.Hunter ?? player.Hunter;
-            TeamIndex = identity?.TeamIndex ?? player.TeamIndex;
-            Active = identity?.Active ?? player.LoadFlags.TestFlag(LoadFlags.Active);
-            IsBot = identity?.IsBot ?? player.IsBot;
+            Hunter = identity?.Hunter ?? player?.Hunter ?? Hunter.Samus;
+            TeamIndex = identity?.TeamIndex ?? player?.TeamIndex ?? -1;
+            Active = identity?.Active ?? player?.LoadFlags.TestFlag(LoadFlags.Active) ?? false;
+            IsBot = identity?.IsBot ?? player?.IsBot ?? false;
             TeamStanding = match.TeamStandings[slot];
             Stars = match.Stars[slot];
             Standings = match.Standings[slot];

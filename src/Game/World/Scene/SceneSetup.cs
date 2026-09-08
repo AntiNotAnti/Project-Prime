@@ -29,7 +29,6 @@ namespace MphRead
             {
                 throw new ProgramException("Room runtime requires a supported multiplayer mode.");
             }
-            Weapons.Current = Weapons.WeaponsMP;
             // Full admitted rules must exist before objective/player constructors run.
             if (scene.Match.Rules.Mode != mode.ToMatchMode()
                 || !String.Equals(scene.Match.Rules.RoomKey, metadata.Name, StringComparison.OrdinalIgnoreCase))
@@ -46,22 +45,20 @@ namespace MphRead
                 Metadata.UseSilentSoundTables();
             }
             LoadResources(scene);
-            CamSeqEntity.ClearData();
-            CamSeqEntity.Current = null;
-            CameraSequence.Current = null;
-            CameraSequence.Intro = null;
-            if (!scene.IsHeadless && PlayerEntity.PlayerCount > 0)
+            scene.CameraSequences.Clear();
+            scene.SpecialEntities.Clear();
+            if (!scene.IsHeadless && scene.Players.ActiveCount > 0)
             {
                 int seqId = roomId - 93 + 172;
                 if (seqId >= 172 && seqId < 199)
                 {
-                    CameraSequence.Intro = CameraSequence.Load(seqId, scene);
+                    scene.CameraSequences.Intro = CameraSequence.Load(seqId, scene);
                 }
             }
             var room = new RoomEntity(scene);
             (CollisionInstance collision, IReadOnlyList<EntityBase> entities) = SetUpRoom(mode, playerCount,
                 nodeLayerMask, entityLayerId, metadata, room, scene, isRoomTransition: false);
-            AiPersonality.LoadAll(mode);
+            AiPersonality.LoadAll(scene, mode);
             room.SetNodeData(LoadNodeData(metadata.NodePath, room.RoomId, mode, entities, metadata.FirstHunt));
             return (room, metadata, collision, entities);
         }
@@ -134,7 +131,7 @@ namespace MphRead
         {
             if (playerCount == 0)
             {
-                playerCount = PlayerEntity.PlayerCount;
+                playerCount = scene.Players.ActiveCount;
             }
             if (entityLayerId < 0 || entityLayerId > 15)
             {
@@ -143,7 +140,7 @@ namespace MphRead
             }
             if (nodeLayerMask == 0)
             {
-                int nodePlayerCount = Features.MaxRoomDetail ? 2 : playerCount;
+                int nodePlayerCount = scene.Features.MaxRoomDetail ? 2 : playerCount;
                 nodeLayerMask = GetNodeLayer(mode, metadata.NodeLayer, nodePlayerCount);
             }
             CollisionInstance collision = Collision.GetCollision(metadata, nodeLayerMask);

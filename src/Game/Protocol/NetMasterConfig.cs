@@ -5,12 +5,10 @@ namespace MphRead.Mods.Network
         /// <summary>
         /// The directory a server reports to unless told otherwise.
         ///
-        /// A hostname rather than an address, on purpose and unlike the
-        /// default game server: this one is a service the project runs, and
-        /// pointing it somewhere else has to be possible without shipping a
-        /// new build to every server operator.
+        /// The project's default directory endpoint. It can still be
+        /// overridden by launcher preferences or command-line arguments.
         /// </summary>
-        public const string DefaultHost = "net.livetek.fr";
+        public const string DefaultHost = "51.161.113.128";
 
         /// <summary>
         /// Beside the game port rather than on it: a machine can then run

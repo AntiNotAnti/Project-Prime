@@ -17,23 +17,47 @@ namespace MphRead
             get => _serverMode;
             set
             {
-                if (_serverMode == value) { return; }
-                ClearCache();
-                _serverMode = value;
+                lock (ContentEnvironment.SyncRoot)
+                {
+                    if (_serverMode == value)
+                    { return; }
+                    ContentEnvironment.RequireMutableContext();
+                    ContentEnvironment.ContextChanged();
+                    _serverMode = value;
+                }
             }
         }
 
-        public static bool ApplyFixes { get; set; } = true;
+        private static bool _applyFixes = true;
+        public static bool ApplyFixes
+        {
+            get => _applyFixes;
+            set
+            {
+                lock (ContentEnvironment.SyncRoot)
+                {
+                    if (_applyFixes == value)
+                        return;
+                    ContentEnvironment.ContextChanged();
+                    _applyFixes = value;
+                }
+            }
+        }
 
         private static readonly Dictionary<string, Model> _modelCache = [];
         private static readonly Dictionary<string, Model> _fhModelCache = [];
 
         public static void ClearCache()
         {
-            _modelCache.Clear();
-            _fhModelCache.Clear();
-            _effects.Clear();
-            _particleDefs.Clear();
+            lock (ContentEnvironment.SyncRoot)
+            {
+                ContentEnvironment.RequireMutableContext();
+                _modelCache.Clear();
+                _fhModelCache.Clear();
+                _effects.Clear();
+                _particleDefs.Clear();
+
+            }
         }
 
         public static ModelInstance GetModelInstance(string name, bool firstHunt = false,
@@ -49,20 +73,25 @@ namespace MphRead
 
         public static ModelInstance? GetModelInstanceOrNull(string name, bool firstHunt, MetaDir dir, bool noCache)
         {
-            Dictionary<string, Model> cache = firstHunt ? _fhModelCache : _modelCache;
-            if (noCache || !cache.TryGetValue(name, out Model? model))
+            lock (ContentEnvironment.SyncRoot)
             {
-                model = GetModel(name, firstHunt, dir);
-                if (model == null)
+                Dictionary<string, Model> cache = firstHunt ? _fhModelCache : _modelCache;
+                string key = $"{dir}:{name}";
+                if (noCache || !cache.TryGetValue(key, out Model? model))
                 {
-                    return null;
+                    model = GetModel(name, firstHunt, dir);
+                    if (model == null)
+                    {
+                        return null;
+                    }
+                    if (!noCache)
+                    {
+                        cache.Add(key, model);
+                    }
                 }
-                if (!noCache)
-                {
-                    cache.Add(name, model);
-                }
+                return new ModelInstance(model);
+
             }
-            return new ModelInstance(model);
         }
 
         private static Model? GetModel(string name, bool firstHunt, MetaDir dir)
@@ -96,21 +125,25 @@ namespace MphRead
 
         public static ModelInstance? GetRoomModelInstanceOrNull(string name)
         {
-            (RoomMetadata? meta, _) = Metadata.GetRoomByName(name);
-            if (meta == null)
+            lock (ContentEnvironment.SyncRoot)
             {
-                return null;
-            }
-            if (!_modelCache.TryGetValue(name, out Model? model))
-            {
-                model = GetRoomModel(meta);
-                if (model == null)
+                (RoomMetadata? meta, _) = Metadata.GetRoomByName(name);
+                if (meta == null)
                 {
                     return null;
                 }
-                _modelCache.Add(name, model);
+                if (!_modelCache.TryGetValue("room:" + name, out Model? model))
+                {
+                    model = GetRoomModel(meta);
+                    if (model == null)
+                    {
+                        return null;
+                    }
+                    _modelCache.Add("room:" + name, model);
+                }
+                return new ModelInstance(model);
+
             }
-            return new ModelInstance(model);
         }
 
         private static Model GetRoomModel(RoomMetadata meta)
@@ -125,13 +158,21 @@ namespace MphRead
 
         public static void RemoveModel(string name, bool firstHunt = false)
         {
-            if (firstHunt)
+            lock (ContentEnvironment.SyncRoot)
             {
-                _fhModelCache.Remove(name);
-            }
-            else
-            {
-                _modelCache.Remove(name);
+                ContentEnvironment.RequireMutableContext();
+                if (firstHunt)
+                {
+                    foreach (MetaDir dir in Enum.GetValues<MetaDir>())
+                        _fhModelCache.Remove($"{dir}:{name}");
+                }
+                else
+                {
+                    foreach (MetaDir dir in Enum.GetValues<MetaDir>())
+                        _modelCache.Remove($"{dir}:{name}");
+                    _modelCache.Remove("room:" + name);
+                }
+
             }
         }
 
@@ -198,7 +239,8 @@ namespace MphRead
             string root = firstHunt ? Paths.FhFileSystem : Paths.FileSystem;
             string path = Paths.Combine(root, modelPath);
             ReadOnlySpan<byte> initialBytes = ReadBytes(path, firstHunt);
-            if (ServerMode) { ContentFiles.RecordModel(path); }
+            if (ServerMode)
+            { ContentFiles.RecordModel(path); }
             Header header = ReadStruct<Header>(initialBytes[0..Sizes.Header]);
             IReadOnlyList<RawNode> nodes = DoOffsets<RawNode>(initialBytes, header.NodeOffset, header.NodeCount);
             IReadOnlyList<RawMesh> meshes = DoOffsets<RawMesh>(initialBytes, header.MeshOffset, header.MeshCount);
@@ -853,47 +895,59 @@ namespace MphRead
 
         public static Effect? GetEffect(int id)
         {
-            if (_effects.TryGetValue(id, out Effect? cached))
+            lock (ContentEnvironment.SyncRoot)
             {
-                return cached;
+                if (_effects.TryGetValue(id, out Effect? cached))
+                {
+                    return cached.CreateRuntimeCopy();
+                }
+                return null;
+
             }
-            return null;
         }
 
         public static Effect LoadEffect(int id, bool persistent)
         {
-            if (id < 1 || id > Metadata.Effects.Count)
+            lock (ContentEnvironment.SyncRoot)
             {
-                throw new ProgramException("Could not get particle.");
+                if (id < 1 || id > Metadata.Effects.Count)
+                {
+                    throw new ProgramException("Could not get particle.");
+                }
+                (string name, string? archive) = Metadata.Effects[id];
+                Effect effect = LoadEffectByName(id, name, archive, persistent);
+                effect.Persistent |= persistent;
+                return effect;
+
             }
-            (string name, string? archive) = Metadata.Effects[id];
-            Effect effect = LoadEffectByName(id, name, archive, persistent);
-            effect.Persistent |= persistent;
-            return effect;
         }
 
         // only public to call from testing code
         public static Effect LoadEffectByName(int id, string name, string? archive, bool persistent)
         {
-            string path;
-            if (archive == null)
+            lock (ContentEnvironment.SyncRoot)
             {
-                path = $"effects/{name}_PS.bin";
-            }
-            else
-            {
-                path = $"_archives/{archive}/{name}_PS.bin";
-            }
-            Effect effect = LoadEffectFromPath(id, path);
-            foreach (EffectElement element in effect.Elements)
-            {
-                if (element.ChildEffectId != 0)
+                string path;
+                if (archive == null)
                 {
-                    LoadEffect((int)element.ChildEffectId, persistent);
+                    path = $"effects/{name}_PS.bin";
                 }
+                else
+                {
+                    path = $"_archives/{archive}/{name}_PS.bin";
+                }
+                Effect effect = LoadEffectFromPath(id, path).CreateRuntimeCopy();
+                foreach (EffectElement element in effect.Elements)
+                {
+                    if (element.ChildEffectId != 0)
+                    {
+                        LoadEffect((int)element.ChildEffectId, persistent);
+                    }
+                }
+                effect.Persistent |= persistent;
+                return effect;
+
             }
-            effect.Persistent |= persistent;
-            return effect;
         }
 
         private static Effect LoadEffectFromPath(int id, string path)
@@ -951,11 +1005,15 @@ namespace MphRead
 
         public static Particle GetSingleParticle(SingleType type)
         {
-            if (Metadata.SingleParticles.TryGetValue(type, out (string Model, string Particle) meta))
+            lock (ContentEnvironment.SyncRoot)
             {
-                return GetParticle(meta.Model, meta.Particle);
+                if (Metadata.SingleParticles.TryGetValue(type, out (string Model, string Particle) meta))
+                {
+                    return GetParticle(meta.Model, meta.Particle).CreateRuntimeCopy();
+                }
+                throw new ProgramException("Could not get single particle.");
+
             }
-            throw new ProgramException("Could not get single particle.");
         }
 
         private static Particle GetParticle(string modelName, string particleName)

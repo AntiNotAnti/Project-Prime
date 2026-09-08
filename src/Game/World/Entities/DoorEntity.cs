@@ -61,7 +61,7 @@ namespace MphRead.Entities
             _lock = SetUpModel(meta.LockName);
             _lockTransform = Matrix4.CreateTranslation(0, meta.LockOffset, 0);
             int state = _scene.GetInitialEntityState(Id, active: _data.Locked != 0);
-            if (state != 0 && !Cheats.UnlockAllDoors)
+            if (state != 0 && !_scene.Features.Cheats.UnlockAllDoors)
             {
                 Flags |= DoorFlags.Locked;
             }
@@ -339,10 +339,10 @@ namespace MphRead.Entities
             if (_scene.RoomId != 55 && _scene.RoomId != 71 && _scene.RoomId != 44 && _scene.RoomId != 88
                 && _scene.RoomId != 35 && _scene.RoomId != 82 && _scene.RoomId != 64 && _scene.RoomId != 76)
             {
-                PlayerEntity.Main.SetDoorChimeTimer(2 / (float)SimTicks.LegacyHz);
+                _scene.LocalPlayer?.SetDoorChimeTimer(2 / (float)SimTicks.LegacyHz);
                 if (!noLockAnimSfx)
                 {
-                    PlayerEntity.Main.SetDoorUnlockTimer(2 / (float)SimTicks.LegacyHz);
+                    _scene.LocalPlayer?.SetDoorUnlockTimer(2 / (float)SimTicks.LegacyHz);
                 }
             }
             _lock.SetAnimation(1, AnimFlags.NoLoop);

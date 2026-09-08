@@ -10,11 +10,11 @@ namespace MphRead.Formats
 {
     public static class AiPersonality
     {
-        public static void LoadAll(GameMode mode)
+        public static void LoadAll(Scene scene, GameMode mode)
         {
-            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            for (int i = 0; i < scene.Players.Count; i++)
             {
-                PlayerEntity player = PlayerEntity.Players[i];
+                PlayerEntity player = scene.Players[i];
                 player.AiData.Reset();
                 if (!player.IsBot)
                 {
@@ -26,26 +26,26 @@ namespace MphRead.Formats
 
         public static void Load(PlayerEntity player, GameMode mode)
         {
-                int aiOffset = 32896; // default, Battle, BattleTeams
-                if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
-                {
-                    aiOffset = 45696;
-                }
-                else if (mode == GameMode.Capture
-                    || mode == GameMode.Bounty || mode == GameMode.BountyTeams)
-                {
-                    aiOffset = 32968;
-                }
-                else if (mode == GameMode.Nodes || mode == GameMode.NodesTeams
-                    || mode == GameMode.Defender || mode == GameMode.DefenderTeams)
-                {
-                    aiOffset = 33012;
-                }
-                else if (mode == GameMode.PrimeHunter)
-                {
-                    aiOffset = 45220;
-                }
-                player.AiData.Personality = LoadData(aiOffset);
+            int aiOffset = 32896; // default, Battle, BattleTeams
+            if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
+            {
+                aiOffset = 45696;
+            }
+            else if (mode == GameMode.Capture
+                || mode == GameMode.Bounty || mode == GameMode.BountyTeams)
+            {
+                aiOffset = 32968;
+            }
+            else if (mode == GameMode.Nodes || mode == GameMode.NodesTeams
+                || mode == GameMode.Defender || mode == GameMode.DefenderTeams)
+            {
+                aiOffset = 33012;
+            }
+            else if (mode == GameMode.PrimeHunter)
+            {
+                aiOffset = 45220;
+            }
+            player.AiData.Personality = LoadData(aiOffset);
         }
 
         private static string _cachedVersion = "";
@@ -53,29 +53,40 @@ namespace MphRead.Formats
 
         public static void ClearCache()
         {
-            _cachedVersion = "";
-            _aiPersonalityData = null;
-            _data1Cache.Clear();
-            _data2Cache.Clear();
-            _data3Cache.Clear();
+            lock (ContentEnvironment.SyncRoot)
+            {
+                ContentEnvironment.RequireMutableContext();
+                _cachedVersion = "";
+                _aiPersonalityData = null;
+                _data1Cache.Clear();
+                _data2Cache.Clear();
+                _data3Cache.Clear();
+                _data4Cache.Clear();
+                _data5Cache.Clear();
+
+            }
         }
 
         private static AiPersonalityData1 LoadData(int offset)
         {
-            if (Paths.MphKey != _cachedVersion)
+            lock (ContentEnvironment.SyncRoot)
             {
-                _aiPersonalityData = null;
-                _data1Cache.Clear();
-                _data2Cache.Clear();
-                _cachedVersion = Paths.MphKey;
+                if (Paths.MphKey != _cachedVersion)
+                {
+                    _aiPersonalityData = null;
+                    _data1Cache.Clear();
+                    _data2Cache.Clear();
+                    _cachedVersion = Paths.MphKey;
+                }
+                if (_aiPersonalityData == null)
+                {
+                    _aiPersonalityData = ContentFiles.ReadBytes(Paths.Combine(Paths.FileSystem, @"aiPersonalityData\aiPersonalityData.bin"));
+                }
+                AiPersonalityData1 data = ParseData1(offset, count: 1)[0].CloneForPlayer();
+                data.SetLabels();
+                return data;
+
             }
-            if (_aiPersonalityData == null)
-            {
-                _aiPersonalityData = ContentFiles.ReadBytes(Paths.Combine(Paths.FileSystem, @"aiPersonalityData\aiPersonalityData.bin"));
-            }
-            AiPersonalityData1 data = ParseData1(offset, count: 1)[0];
-            data.SetLabels();
-            return data;
         }
 
         private static readonly Dictionary<int, IReadOnlyList<AiPersonalityData1>> _data1Cache = [];
@@ -191,18 +202,20 @@ namespace MphRead.Formats
         }
 
         private static readonly AiPersonalityData5 _emptyParams = new AiPersonalityData5();
-        private static readonly Dictionary<int, AiPersonalityData5> _data5Cache = [];
+        private static readonly Dictionary<(int, int), AiPersonalityData5> _data5Cache = [];
 
         private static AiPersonalityData5 ParseData5(int type, int offset)
         {
-            if (_data5Cache.TryGetValue(offset, out AiPersonalityData5? cached))
+            if (_data5Cache.TryGetValue((type, offset), out AiPersonalityData5? cached))
             {
                 return cached;
             }
             var bytes = new ReadOnlySpan<byte>(_aiPersonalityData);
             int param1 = Read.SpanReadInt(bytes, offset);
             int param2 = type == 210 ? Read.SpanReadInt(bytes, offset + 4) : 0;
-            return new AiPersonalityData5(param1, param2);
+            var result = new AiPersonalityData5(param1, param2);
+            _data5Cache.Add((type, offset), result);
+            return result;
         }
 
         // skdebug
@@ -275,7 +288,7 @@ namespace MphRead.Formats
         {
             Func24Id = field0;
             Data1 = data1;
-            Data2 = data2;
+            Data2 = Array.AsReadOnly(data2.ToArray());
             Data3a = data3a;
             Data3b = data3b;
             foreach (AiPersonalityData1 item in Data1)
@@ -283,6 +296,11 @@ namespace MphRead.Formats
                 item.Parent = this;
             }
         }
+
+        // Parent links and labels are runtime tree state; never expose cached nodes.
+        internal AiPersonalityData1 CloneForPlayer() => new AiPersonalityData1(Func24Id,
+            Array.AsReadOnly(Data1.Select(child => child.CloneForPlayer()).ToArray()),
+            Array.AsReadOnly(Data2.ToArray()), Array.AsReadOnly(Data3a.ToArray()), Array.AsReadOnly(Data3b.ToArray()));
 
         public void SetLabels()
         {
@@ -481,7 +499,7 @@ namespace MphRead.Formats
         {
             Data1SelectIndex = selIndex;
             Weight = weight;
-            Data4 = data4;
+            Data4 = Array.AsReadOnly(data4.ToArray());
             Func3Id = fund3Id;
             Parameters = param;
         }

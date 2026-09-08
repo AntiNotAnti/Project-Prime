@@ -33,10 +33,10 @@ namespace MphRead
         public void ProcessFrame()
         {
             if (_scene.Services.IsReplica) { return; }
-            if (CameraSequence.Current?.IsIntro == true)
+            if (_scene.LocalPlayer != null && _scene.CameraSequences.Current?.IsIntro == true)
             {
-                Debug.Assert(CameraSequence.Current.CamInfoRef == PlayerEntity.Main.CameraInfo);
-                CameraSequence.Current.Process();
+                Debug.Assert(_scene.CameraSequences.Current.CamInfoRef == _scene.LocalPlayer.CameraInfo);
+                _scene.CameraSequences.Current.Process();
             }
             switch (_match.Phase)
             {
@@ -62,16 +62,16 @@ namespace MphRead
                 }
             }
             // todo: update MP playtime to license info
-            if (!Features.AllowInvalidTeams)
+            if (!_scene.Features.AllowInvalidTeams)
             {
-                bool invalid = PlayerEntity.MaxPlayers < 2
+                bool invalid = _scene.Players.MaxPlayers < 2
                     && !(_match.UsesServerLifecycle && _match.Rules.MaxPlayers == 1);
                 if (!invalid && _match.Rules.Teams)
                 {
                     bool[] teams = new bool[2];
                     for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
                     {
-                        PlayerEntity player = PlayerEntity.Players[i];
+                        PlayerEntity player = _scene.Players[i];
                         if (player.LoadFlags.TestFlag(LoadFlags.Active))
                         {
                             teams[player.TeamIndex] = true;
@@ -83,7 +83,7 @@ namespace MphRead
                 {
                     _match.PendingEndReason = MatchEndReason.InvalidTeams;
                     _match.MatchTime = 0;
-                    CameraSequence.Current?.End();
+                    _scene.CameraSequences.Current?.End();
                     // todo: stop music/SFX, state bits/disconnect message?
                 }
             }
@@ -119,7 +119,7 @@ namespace MphRead
                 float comparison = 1;
                 if (time.Seconds <= 5)
                 {
-                    if (Features.HalfSecondAlarm)
+                    if (_scene.Features.HalfSecondAlarm)
                     {
                         comparison = 0.5f;
                     }
@@ -145,13 +145,13 @@ namespace MphRead
         {
             if (!_scene.IsHeadless)
             {
-                PlayerEntity.Main.HudEndDisrupted();
+                _scene.LocalPlayer?.HudEndDisrupted();
             }
             if ((_match.Rules.Mode == MatchMode.Survival || _match.Rules.Mode == MatchMode.TeamSurvival) && !_match.ForceEndGame)
             {
                 for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
                 {
-                    PlayerEntity player = PlayerEntity.Players[i];
+                    PlayerEntity player = _scene.Players[i];
                     // the game also checks if the player's time is greater than or equal to the time goal,
                     // which in survival is always zero, so the check isn't needed
                     if (player.LoadFlags.TestFlag(LoadFlags.Active)
@@ -179,7 +179,7 @@ namespace MphRead
             _matchEndTime = _scene.GlobalElapsedTime;
             _scene.Audio.StopFreeScripts();
             _scene.Audio.StopAll();
-            PlayerEntity.Main.StopLongSfx();
+            _scene.LocalPlayer?.StopLongSfx();
             if (!_scene.IsHeadless)
             {
                 _scene.Audio.PlayMusicSequence(SeqId.TIMEOUT);
@@ -188,7 +188,7 @@ namespace MphRead
 
         private void ProcessEnding()
         {
-            PlayerEntity winner = PlayerEntity.Players[_match.ResultSlots[0]];
+            PlayerEntity winner = _scene.Players[_match.ResultSlots[0]];
             if (!_scene.IsHeadless && winner.Health > 0 && winner.LoadFlags.TestFlag(LoadFlags.Active)
                 && winner.LoadFlags.TestFlag(LoadFlags.Spawned))
             {
@@ -197,7 +197,7 @@ namespace MphRead
                     _stateChanged = false;
                     winner.SetUpMatchEndCamera();
                 }
-                PlayerEntity.Main.UpdateMatchEndCamera(winner, _scene.GlobalElapsedTime - _matchEndTime);
+                _scene.LocalPlayer?.UpdateMatchEndCamera(winner, _scene.GlobalElapsedTime - _matchEndTime);
             }
             else if (!_scene.IsHeadless)
             {
@@ -237,11 +237,11 @@ namespace MphRead
 
         private void EnsureIntroCamSeq()
         {
-            if (CameraSequence.Current == null && CameraSequence.Intro != null)
+            if (_scene.LocalPlayer != null && _scene.CameraSequences.Current == null && _scene.CameraSequences.Intro != null)
             {
-                CameraSequence.Intro.SetUp(PlayerEntity.Main.CameraInfo, transitionTime: 0);
-                PlayerEntity.Main.CameraInfo.Update();
-                CameraSequence.Intro.Flags |= CamSeqFlags.Loop;
+                _scene.CameraSequences.Intro.SetUp(_scene.LocalPlayer.CameraInfo, transitionTime: 0);
+                _scene.LocalPlayer.CameraInfo.Update(_scene);
+                _scene.CameraSequences.Intro.Flags |= CamSeqFlags.Loop;
             }
         }
 
@@ -275,7 +275,7 @@ namespace MphRead
             {
                 for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
                 {
-                    PlayerEntity player = PlayerEntity.Players[i];
+                    PlayerEntity player = _scene.Players[i];
                     if (player.LoadFlags.TestFlag(LoadFlags.Active))
                     {
                         player.Team = player.TeamIndex == 0 ? Team.Orange : Team.Green;
@@ -317,11 +317,11 @@ namespace MphRead
                     break;
                 default: throw new InvalidOperationException("Unknown multiplayer mode.");
             }
-            if (CameraSequence.Intro != null)
+            if (_scene.LocalPlayer != null && _scene.CameraSequences.Intro != null)
             {
-                CameraSequence.Intro.Initialize();
-                CameraSequence.Intro.SetUp(PlayerEntity.Main.CameraInfo, transitionTime: 0);
-                CameraSequence.Intro.Flags |= CamSeqFlags.Loop;
+                _scene.CameraSequences.Intro.Initialize();
+                _scene.CameraSequences.Intro.SetUp(_scene.LocalPlayer.CameraInfo, transitionTime: 0);
+                _scene.CameraSequences.Intro.Flags |= CamSeqFlags.Loop;
                 _scene.SetFade(FadeType.FadeInBlack, 20 / 30f, overwrite: true);
             }
             _match.ForceEndGame = false;

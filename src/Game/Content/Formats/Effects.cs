@@ -72,6 +72,7 @@ namespace MphRead.Effects
     [SuppressMessage("Style", "IDE0060:Remove unused parameter")]
     public abstract class EffectFuncBase
     {
+        public abstract MatchRandom Random { get; }
         public virtual FrozenDictionary<FuncAction, FxFuncInfo> Actions { get; set; } = null!;
         public virtual FrozenDictionary<uint, FxFuncInfo> Funcs { get; set; } = null!;
 
@@ -88,44 +89,44 @@ namespace MphRead.Effects
 
         protected void FxFunc05(IReadOnlyList<int> param, TimeValues times, ref Vector3 vec)
         {
-            vec.X = Fixed.ToFloat(Rng.GetRandomInt1(4096));
-            vec.Y = Fixed.ToFloat(Rng.GetRandomInt1(4096));
-            vec.Z = Fixed.ToFloat(Rng.GetRandomInt1(4096));
+            vec.X = Fixed.ToFloat(Random.GetRandomInt1(4096));
+            vec.Y = Fixed.ToFloat(Random.GetRandomInt1(4096));
+            vec.Z = Fixed.ToFloat(Random.GetRandomInt1(4096));
         }
 
         protected void FxFunc06(IReadOnlyList<int> param, TimeValues times, ref Vector3 vec)
         {
-            vec.X = Fixed.ToFloat(Rng.GetRandomInt1(4096));
+            vec.X = Fixed.ToFloat(Random.GetRandomInt1(4096));
             vec.Y = 0;
-            vec.Z = Fixed.ToFloat(Rng.GetRandomInt1(4096));
+            vec.Z = Fixed.ToFloat(Random.GetRandomInt1(4096));
         }
 
         protected void FxFunc07(IReadOnlyList<int> param, TimeValues times, ref Vector3 vec)
         {
-            vec.X = Fixed.ToFloat(Rng.GetRandomInt1(4096));
+            vec.X = Fixed.ToFloat(Random.GetRandomInt1(4096));
             vec.Y = 1;
-            vec.Z = Fixed.ToFloat(Rng.GetRandomInt1(4096));
+            vec.Z = Fixed.ToFloat(Random.GetRandomInt1(4096));
         }
 
         protected void FxFunc08(IReadOnlyList<int> param, TimeValues times, ref Vector3 vec)
         {
-            vec.X = Fixed.ToFloat(Rng.GetRandomInt1(4096)) - 0.5f;
-            vec.Y = Fixed.ToFloat(Rng.GetRandomInt1(4096)) - 0.5f;
-            vec.Z = Fixed.ToFloat(Rng.GetRandomInt1(4096)) - 0.5f;
+            vec.X = Fixed.ToFloat(Random.GetRandomInt1(4096)) - 0.5f;
+            vec.Y = Fixed.ToFloat(Random.GetRandomInt1(4096)) - 0.5f;
+            vec.Z = Fixed.ToFloat(Random.GetRandomInt1(4096)) - 0.5f;
         }
 
         protected void FxFunc09(IReadOnlyList<int> param, TimeValues times, ref Vector3 vec)
         {
-            vec.X = Fixed.ToFloat(Rng.GetRandomInt1(4096)) - 0.5f;
+            vec.X = Fixed.ToFloat(Random.GetRandomInt1(4096)) - 0.5f;
             vec.Y = 0;
-            vec.Z = Fixed.ToFloat(Rng.GetRandomInt1(4096)) - 0.5f;
+            vec.Z = Fixed.ToFloat(Random.GetRandomInt1(4096)) - 0.5f;
         }
 
         protected void FxFunc10(IReadOnlyList<int> param, TimeValues times, ref Vector3 vec)
         {
-            vec.X = Fixed.ToFloat(Rng.GetRandomInt1(4096)) - 0.5f;
+            vec.X = Fixed.ToFloat(Random.GetRandomInt1(4096)) - 0.5f;
             vec.Y = 1;
-            vec.Z = Fixed.ToFloat(Rng.GetRandomInt1(4096)) - 0.5f;
+            vec.Z = Fixed.ToFloat(Random.GetRandomInt1(4096)) - 0.5f;
         }
 
         protected abstract void FxFunc11(IReadOnlyList<int> param, TimeValues times, ref Vector3 vec);
@@ -170,7 +171,7 @@ namespace MphRead.Effects
         {
             float value1 = InvokeFloatFunc(Funcs[(uint)param[0]], times);
             float value2 = InvokeFloatFunc(Funcs[(uint)param[1]], times);
-            float angle = MathHelper.DegreesToRadians((Rng.GetRandomInt1(0xFFFF) >> 4) * (360 / 4096f));
+            float angle = MathHelper.DegreesToRadians((Random.GetRandomInt1(0xFFFF) >> 4) * (360 / 4096f));
             vec.X = MathF.Sin(angle) * value1;
             vec.Y = value2;
             vec.Z = MathF.Cos(angle) * value1;
@@ -180,9 +181,9 @@ namespace MphRead.Effects
         {
             float value1 = InvokeFloatFunc(Funcs[(uint)param[0]], times);
             float value2 = InvokeFloatFunc(Funcs[(uint)param[1]], times);
-            vec.X = (Fixed.ToFloat(Rng.GetRandomInt1(4096)) - 0.5f) * value1;
+            vec.X = (Fixed.ToFloat(Random.GetRandomInt1(4096)) - 0.5f) * value1;
             vec.Y = 0;
-            vec.Z = (Fixed.ToFloat(Rng.GetRandomInt1(4096)) - 0.5f) * value2;
+            vec.Z = (Fixed.ToFloat(Random.GetRandomInt1(4096)) - 0.5f) * value2;
         }
 
         protected void FxFunc17(IReadOnlyList<int> param, TimeValues times, ref Vector3 vec)
@@ -315,18 +316,18 @@ namespace MphRead.Effects
 
         protected float FxFunc43(IReadOnlyList<int> param, TimeValues times)
         {
-            return Fixed.ToFloat(Rng.GetRandomInt1(4096));
+            return Fixed.ToFloat(Random.GetRandomInt1(4096));
         }
 
         protected float FxFunc44(IReadOnlyList<int> param, TimeValues times)
         {
-            return Fixed.ToFloat(Rng.GetRandomInt1(4096)) - 0.5f;
+            return Fixed.ToFloat(Random.GetRandomInt1(4096)) - 0.5f;
         }
 
         // get random angle [0-360) in fx32
         protected float FxFunc45(IReadOnlyList<int> param, TimeValues times)
         {
-            return Fixed.ToFloat(Rng.GetRandomInt1(0x168000));
+            return Fixed.ToFloat(Random.GetRandomInt1(0x168000));
         }
 
         protected float FxFunc46(IReadOnlyList<int> param, TimeValues times)
@@ -694,6 +695,8 @@ namespace MphRead.Effects
 
     public class EffectElementEntry : EffectFuncBase
     {
+        public EffectElementEntry(MatchRandom random) { Random = random; }
+        public override MatchRandom Random { get; }
         public int EffectId { get; set; }
         public string EffectName { get; set; } = "";
         public string ElementName { get; set; } = "";
@@ -853,6 +856,7 @@ namespace MphRead.Effects
     [SuppressMessage("Style", "IDE0060:Remove unused parameter")]
     public class EffectParticle : EffectFuncBase
     {
+        public override MatchRandom Random => Owner.Random;
         public float CreationTime { get; set; }
         public float ExpirationTime { get; set; }
         public float Lifespan { get; set; }

@@ -45,8 +45,6 @@ namespace MphRead.Formats
 
         private readonly Scene _scene;
 
-        public static CameraSequence? Current { get; set; }
-        public static CameraSequence? Intro { get; set; }
         public bool IsIntro => SequenceId >= 172 && SequenceId <= 198;
 
         private CameraSequence(int id, string name, Scene scene,
@@ -164,10 +162,10 @@ namespace MphRead.Formats
             {
                 TransitionTimer++;
             }
-            CamInfoRef.Update();
+            CamInfoRef.Update(_scene);
             // todo?: the game only does this when ptr_tbl_idx is 14
             CamInfoRef.NodeRef = _scene.UpdateNodeRef(CamInfoRef.NodeRef, CamInfoRef.PrevPosition, CamInfoRef.Position);
-            PlayerEntity player = PlayerEntity.Main;
+            if (_scene.LocalPlayer is not PlayerEntity player) return;
             if (Flags.TestFlag(CamSeqFlags.ForceAlt) && player.IsAltForm
                 || Flags.TestFlag(CamSeqFlags.ForceBiped) && !player.IsAltForm)
             {
@@ -214,9 +212,9 @@ namespace MphRead.Formats
                     }
                 }
             }
-            Current = this;
+            _scene.CameraSequences.Current = this;
             // the game only does the rest when ptr_tbl_idx is 14
-            PlayerEntity.Main.HudEndDisrupted();
+            _scene.LocalPlayer?.HudEndDisrupted();
         }
 
         public void Restart(ushort transitionTimer = 0, ushort transitionTime = 0)
@@ -234,7 +232,7 @@ namespace MphRead.Formats
             CalculateFrameValues();
             // the bugfix avoids "tearing" of node refs e.g. in Cortex CPU, but causes issues in Compression Chamber
             if (firstFrame.PositionEntity != null &&
-                (!Bugfixes.BetterCamSeqNodeRef || SequenceId == 98))
+                (!_scene.Features.Bugfixes.BetterCamSeqNodeRef || SequenceId == 98))
             {
                 NodeRef nodeRef = firstFrame.PositionEntity.NodeRef;
                 if (nodeRef != NodeRef.None)
@@ -253,7 +251,7 @@ namespace MphRead.Formats
             TransitionTimer = 0;
             TransitionTime = 0;
             _keyframeIndex = 0;
-            if (Current == this)
+            if (_scene.CameraSequences.Current == this)
             {
                 if (CamInfoRef != null)
                 {
@@ -273,7 +271,7 @@ namespace MphRead.Formats
                     CamInfoRef.NodeRef = InitialCamInfo.NodeRef;
                     CamInfoRef = null;
                 }
-                Current = null;
+                _scene.CameraSequences.Current = null;
             }
         }
 
@@ -530,9 +528,9 @@ namespace MphRead.Formats
             if (type == (short)EntityType.Player)
             {
                 // note: the game uses max players for the same purpose
-                if (id < PlayerEntity.PlayerCount)
+                if (id < _scene.Players.ActiveCount)
                 {
-                    return PlayerEntity.Players[id];
+                    return _scene.Players[id];
                 }
                 return null;
             }

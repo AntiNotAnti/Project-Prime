@@ -966,7 +966,7 @@ namespace MphRead.Entities
         /// </summary>
         private void ApplyGamepadAim()
         {
-            if (IsBot || SlotIndex != PlayerEntity.MainPlayerIndex
+            if (IsBot || SlotIndex != _scene.LocalPlayerSlot
                 || _scene.Services.DesiredSpectating
                 || Flags1.TestFlag(PlayerFlags1.NoAimInput))
             {

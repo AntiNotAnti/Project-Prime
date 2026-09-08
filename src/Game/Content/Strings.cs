@@ -15,59 +15,69 @@ namespace MphRead.Text
 
         public static void ClearCache()
         {
-            _cache.Clear();
+            lock (ContentEnvironment.SyncRoot)
+            {
+                ContentEnvironment.RequireMutableContext();
+                _cache.Clear();
+
+            }
         }
 
         public static IReadOnlyList<StringTableEntry> ReadStringTable(string name)
         {
-            if (_cache.TryGetValue(Scene.Language, out Dictionary<string, IReadOnlyList<StringTableEntry>>? dict))
+            lock (ContentEnvironment.SyncRoot)
             {
-                if (dict.TryGetValue(name, out IReadOnlyList<StringTableEntry>? table))
+                if (_cache.TryGetValue(Scene.Language, out Dictionary<string, IReadOnlyList<StringTableEntry>>? dict))
                 {
-                    return table;
+                    if (dict.TryGetValue(name, out IReadOnlyList<StringTableEntry>? table))
+                    {
+                        return table;
+                    }
                 }
-            }
-            else
-            {
-                dict = new Dictionary<string, IReadOnlyList<StringTableEntry>>();
-                _cache.Add(Scene.Language, dict);
-            }
-            var entries = new List<StringTableEntry>();
-            string filename = name == StringTables.ScanLog && Paths.MphKey == Ver.AMHK0 ? StringTables.ScanLogSorted : name;
-            string path = Paths.Combine(Paths.FileSystem, GetFolder(), filename);
-            var bytes = new ReadOnlySpan<byte>(ContentFiles.ReadBytes(path));
-            uint count = Read.SpanReadUint(bytes, 0);
-            // ScanLog has an 8-byte header and 8 bytes between the last entry and first string,
-            // which are related to parsing max string length and not necessary for us to use
-            int offset = name == StringTables.ScanLog ? 8 : 4;
-            foreach (RawStringTableEntry entry in Read.DoOffsets<RawStringTableEntry>(bytes, offset, count))
-            {
-                // A76E has invalid offsets on some entries
-                // todo?: are those not supposed to be parsed? (e.g. boost)
-                if (entry.Offset < bytes.Length)
+                else
                 {
-                    string value = Read.ReadStringTable(bytes, entry.Offset, entry.Length);
-                    value = value.Replace("$", "");
-                    char prefix = '\0';
-                    if (name == StringTables.GameMessages)
-                    {
-                        prefix = value[0];
-                        value = value[1..];
-                    }
-                    string value1 = value;
-                    string value2 = "";
-                    int slashCount = value.Count(c => c == '\\');
-                    if (slashCount == 1)
-                    {
-                        string[] split = value.Split('\\');
-                        value1 = split[0];
-                        value2 = split[1];
-                    }
-                    entries.Add(new StringTableEntry(entry, prefix, value1, value2));
+                    dict = new Dictionary<string, IReadOnlyList<StringTableEntry>>();
+                    _cache.Add(Scene.Language, dict);
                 }
+                var entries = new List<StringTableEntry>();
+                string filename = name == StringTables.ScanLog && Paths.MphKey == Ver.AMHK0 ? StringTables.ScanLogSorted : name;
+                string path = Paths.Combine(Paths.FileSystem, GetFolder(), filename);
+                var bytes = new ReadOnlySpan<byte>(ContentFiles.ReadBytes(path));
+                uint count = Read.SpanReadUint(bytes, 0);
+                // ScanLog has an 8-byte header and 8 bytes between the last entry and first string,
+                // which are related to parsing max string length and not necessary for us to use
+                int offset = name == StringTables.ScanLog ? 8 : 4;
+                foreach (RawStringTableEntry entry in Read.DoOffsets<RawStringTableEntry>(bytes, offset, count))
+                {
+                    // A76E has invalid offsets on some entries
+                    // todo?: are those not supposed to be parsed? (e.g. boost)
+                    if (entry.Offset < bytes.Length)
+                    {
+                        string value = Read.ReadStringTable(bytes, entry.Offset, entry.Length);
+                        value = value.Replace("$", "");
+                        char prefix = '\0';
+                        if (name == StringTables.GameMessages)
+                        {
+                            prefix = value[0];
+                            value = value[1..];
+                        }
+                        string value1 = value;
+                        string value2 = "";
+                        int slashCount = value.Count(c => c == '\\');
+                        if (slashCount == 1)
+                        {
+                            string[] split = value.Split('\\');
+                            value1 = split[0];
+                            value2 = split[1];
+                        }
+                        entries.Add(new StringTableEntry(entry, prefix, value1, value2));
+                    }
+                }
+                IReadOnlyList<StringTableEntry> result = entries.AsReadOnly();
+                dict.Add(name, result);
+                return result;
+
             }
-            dict.Add(name, entries);
-            return entries;
         }
 
         public static string GetHudMessage(int id)
@@ -77,7 +87,8 @@ namespace MphRead.Text
 
         public static string GetHudMessage(uint id)
         {
-            if (Read.ServerMode) { return String.Empty; }
+            if (Read.ServerMode)
+            { return String.Empty; }
             if (id >= 1 && id <= 11)
             {
                 return GetMessage('H', id, StringTables.HudMsgsCommon);
@@ -104,7 +115,8 @@ namespace MphRead.Text
 
         public static string GetMessage(char type, uint id, string table)
         {
-            if (Read.ServerMode) { return String.Empty; }
+            if (Read.ServerMode)
+            { return String.Empty; }
             StringTableEntry? entry = GetEntry(type, id, table);
             return entry?.Value1 ?? " ";
         }

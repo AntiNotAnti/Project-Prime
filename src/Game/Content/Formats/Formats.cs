@@ -42,6 +42,35 @@ namespace MphRead
 
         public readonly float[] Bounds = new float[6];
 
+        private Node(Node source)
+        {
+            Name = source.Name;
+            ParentIndex = source.ParentIndex;
+            ChildIndex = source.ChildIndex;
+            NextIndex = source.NextIndex;
+            Enabled = source.Enabled;
+            AnimIgnoreParent = source.AnimIgnoreParent;
+            AnimIgnoreChild = source.AnimIgnoreChild;
+            MeshCount = source.MeshCount;
+            MeshId = source.MeshId;
+            Scale = source.Scale;
+            Angle = source.Angle;
+            Position = source.Position;
+            BoundingRadius = source.BoundingRadius;
+            MinBounds = source.MinBounds;
+            MaxBounds = source.MaxBounds;
+            BillboardMode = source.BillboardMode;
+            Transform = source.Transform;
+            BeforeTransform = source.BeforeTransform;
+            AfterTransform = source.AfterTransform;
+            Animation = source.Animation;
+            RoomPartId = source.RoomPartId;
+            RoomPartActive = source.RoomPartActive;
+            Bounds = (float[])source.Bounds.Clone();
+        }
+
+        internal Node CloneRuntime() => new Node(this);
+
         public Node(RawNode raw)
         {
             Name = raw.Name.MarshalString();
@@ -112,6 +141,11 @@ namespace MphRead
 
     public class Mesh
     {
+        // Shared immutable identity for renderer display lists; visibility remains instance-owned.
+        public object GeometryIdentity { get; } = new object();
+        // Other fields are values, strings, or immutable parsed tables.
+        internal Mesh CloneRuntime() => (Mesh)MemberwiseClone();
+
         public int MaterialId { get; }
         public int DlistId { get; }
 
@@ -170,6 +204,9 @@ namespace MphRead
 
     public class Material
     {
+        // Other fields are values, strings, or immutable parsed tables.
+        internal Material CloneRuntime() => (Material)MemberwiseClone();
+
         public string Name { get; }
         public byte Lighting { get; set; }
         public byte InitLighting { get; }
@@ -258,6 +295,9 @@ namespace MphRead
 
     public class NodeAnimationGroup
     {
+        // Other fields are values, strings, or immutable parsed tables.
+        internal NodeAnimationGroup CloneRuntime() => (NodeAnimationGroup)MemberwiseClone();
+
         public int FrameCount { get; }
         public int CurrentFrame { get; set; }
         public int Count { get; }
@@ -268,7 +308,7 @@ namespace MphRead
 
         private NodeAnimationGroup()
         {
-            Translations = Rotations = Scales = Enumerable.Empty<float>().ToList();
+            Translations = Rotations = Scales = Array.Empty<float>();
             Animations = FrozenDictionary<string, NodeAnimation>.Empty;
         }
 
@@ -276,9 +316,9 @@ namespace MphRead
             IReadOnlyList<float> translations, IReadOnlyDictionary<string, NodeAnimation> animations)
         {
             FrameCount = (int)raw.FrameCount;
-            Scales = scales;
-            Rotations = rotations;
-            Translations = translations;
+            Scales = Array.AsReadOnly(scales.ToArray());
+            Rotations = Array.AsReadOnly(rotations.ToArray());
+            Translations = Array.AsReadOnly(translations.ToArray());
             Animations = animations.ToFrozenDictionary();
             Count = Animations.Count;
         }
@@ -291,6 +331,9 @@ namespace MphRead
 
     public class TexcoordAnimationGroup
     {
+        // Copy archival name arrays as well as the mutable frame cursor.
+        internal TexcoordAnimationGroup CloneRuntime() => new TexcoordAnimationGroup(this);
+
         public int FrameCount { get; }
         public int CurrentFrame { get; set; }
         public int UnusedFrame { get; }
@@ -300,9 +343,21 @@ namespace MphRead
         public IReadOnlyList<float> Translations { get; }
         public FrozenDictionary<string, TexcoordAnimation> Animations { get; }
 
+        private TexcoordAnimationGroup(TexcoordAnimationGroup source)
+        {
+            FrameCount = source.FrameCount;
+            CurrentFrame = source.CurrentFrame;
+            UnusedFrame = source.UnusedFrame;
+            Count = source.Count;
+            Scales = source.Scales;
+            Rotations = source.Rotations;
+            Translations = source.Translations;
+            Animations = source.Animations.ToFrozenDictionary(pair => pair.Key, pair => pair.Value.CloneRuntime());
+        }
+
         private TexcoordAnimationGroup()
         {
-            Translations = Rotations = Scales = Enumerable.Empty<float>().ToList();
+            Translations = Rotations = Scales = Array.Empty<float>();
             Animations = FrozenDictionary<string, TexcoordAnimation>.Empty;
         }
 
@@ -313,9 +368,9 @@ namespace MphRead
             CurrentFrame = raw.AnimationFrame;
             UnusedFrame = raw.Unused1A;
             Count = (int)raw.AnimationCount;
-            Scales = scales;
-            Rotations = rotations;
-            Translations = translations;
+            Scales = Array.AsReadOnly(scales.ToArray());
+            Rotations = Array.AsReadOnly(rotations.ToArray());
+            Translations = Array.AsReadOnly(translations.ToArray());
             Animations = animations.ToFrozenDictionary();
             Debug.Assert(Count == Animations.Count);
         }
@@ -328,6 +383,9 @@ namespace MphRead
 
     public class TextureAnimationGroup
     {
+        // Copy archival name arrays as well as the mutable frame cursor.
+        internal TextureAnimationGroup CloneRuntime() => new TextureAnimationGroup(this);
+
         public int FrameCount { get; }
         public int CurrentFrame { get; set; }
         public int UnusedFrame { get; }
@@ -338,9 +396,22 @@ namespace MphRead
         public FrozenDictionary<string, TextureAnimation> Animations { get; }
         public ushort UnusedA { get; }
 
+        private TextureAnimationGroup(TextureAnimationGroup source)
+        {
+            FrameCount = source.FrameCount;
+            CurrentFrame = source.CurrentFrame;
+            UnusedFrame = source.UnusedFrame;
+            Count = source.Count;
+            FrameIndices = source.FrameIndices;
+            TextureIds = source.TextureIds;
+            PaletteIds = source.PaletteIds;
+            Animations = source.Animations.ToFrozenDictionary(pair => pair.Key, pair => pair.Value.CloneRuntime());
+            UnusedA = source.UnusedA;
+        }
+
         private TextureAnimationGroup()
         {
-            PaletteIds = TextureIds = FrameIndices = Enumerable.Empty<ushort>().ToList();
+            PaletteIds = TextureIds = FrameIndices = Array.Empty<ushort>();
             Animations = FrozenDictionary<string, TextureAnimation>.Empty;
         }
 
@@ -351,9 +422,9 @@ namespace MphRead
             CurrentFrame = raw.AnimationFrame;
             UnusedFrame = raw.Unused1C;
             Count = raw.AnimationCount;
-            FrameIndices = frameIndices;
-            TextureIds = textureIds;
-            PaletteIds = paletteIds;
+            FrameIndices = Array.AsReadOnly(frameIndices.ToArray());
+            TextureIds = Array.AsReadOnly(textureIds.ToArray());
+            PaletteIds = Array.AsReadOnly(paletteIds.ToArray());
             Animations = animations.ToFrozenDictionary();
             Debug.Assert(Count == Animations.Count);
             UnusedA = raw.UnusedA;
@@ -367,6 +438,9 @@ namespace MphRead
 
     public class MaterialAnimationGroup
     {
+        // Copy archival name arrays as well as the mutable frame cursor.
+        internal MaterialAnimationGroup CloneRuntime() => new MaterialAnimationGroup(this);
+
         public int FrameCount { get; }
         public int CurrentFrame { get; set; }
         public int UnusedFrame { get; }
@@ -374,9 +448,19 @@ namespace MphRead
         public IReadOnlyList<float> Colors { get; }
         public FrozenDictionary<string, MaterialAnimation> Animations { get; }
 
+        private MaterialAnimationGroup(MaterialAnimationGroup source)
+        {
+            FrameCount = source.FrameCount;
+            CurrentFrame = source.CurrentFrame;
+            UnusedFrame = source.UnusedFrame;
+            Count = source.Count;
+            Colors = source.Colors;
+            Animations = source.Animations.ToFrozenDictionary(pair => pair.Key, pair => pair.Value.CloneRuntime());
+        }
+
         private MaterialAnimationGroup()
         {
-            Colors = Enumerable.Empty<float>().ToList();
+            Colors = Array.Empty<float>();
             Animations = FrozenDictionary<string, MaterialAnimation>.Empty;
         }
 
@@ -387,7 +471,7 @@ namespace MphRead
             CurrentFrame = raw.AnimationFrame;
             UnusedFrame = raw.Unused12;
             Count = (int)raw.AnimationCount;
-            Colors = colors;
+            Colors = Array.AsReadOnly(colors.ToArray());
             Animations = animations.ToFrozenDictionary();
             Debug.Assert(Count == Animations.Count);
         }
@@ -407,7 +491,7 @@ namespace MphRead
         {
             Debug.Assert(funcId > 0);
             FuncId = funcId;
-            Parameters = parameters;
+            Parameters = Array.AsReadOnly(parameters.ToArray());
         }
     }
 
@@ -425,6 +509,18 @@ namespace MphRead
         // to emulate this, we just specify if the effect should be persistent when it's loaded, making it true for those entities.
         public bool Persistent { get; set; }
 
+        public Effect CreateRuntimeCopy() => new Effect(this);
+        private Effect(Effect source)
+        {
+            Id = source.Id;
+            Name = source.Name;
+            Field0 = source.Field0;
+            Funcs = source.Funcs;
+            List2 = source.List2;
+            Elements = Array.AsReadOnly(source.Elements.Select(element => element.CreateRuntimeCopy()).ToArray());
+            Persistent = source.Persistent;
+        }
+
         public Effect(int id, RawEffect raw, IReadOnlyDictionary<uint, FxFuncInfo> funcs, IReadOnlyList<uint> list2,
             IReadOnlyList<EffectElement> elements, string name)
         {
@@ -432,8 +528,8 @@ namespace MphRead
             Name = Path.GetFileNameWithoutExtension(name).Replace("_PS", "");
             Field0 = raw.Field0;
             Funcs = funcs.ToFrozenDictionary();
-            List2 = list2;
-            Elements = elements;
+            List2 = Array.AsReadOnly(list2.ToArray());
+            Elements = Array.AsReadOnly(elements.ToArray());
         }
     }
 
@@ -453,6 +549,23 @@ namespace MphRead
         public FrozenDictionary<FuncAction, FxFuncInfo> Actions { get; }
         public FrozenDictionary<uint, FxFuncInfo> Funcs { get; }
 
+        internal EffectElement CreateRuntimeCopy() => new EffectElement(this);
+        private EffectElement(EffectElement source)
+        {
+            Name = source.Name;
+            ModelName = source.ModelName;
+            Flags = source.Flags;
+            Acceleration = source.Acceleration;
+            ChildEffectId = source.ChildEffectId;
+            Lifespan = source.Lifespan;
+            DrainTime = source.DrainTime;
+            BufferTime = source.BufferTime;
+            DrawType = source.DrawType;
+            Funcs = source.Funcs;
+            Actions = source.Actions;
+            Particles = Array.AsReadOnly(source.Particles.Select(particle => particle.CreateRuntimeCopy()).ToArray());
+        }
+
         public EffectElement(RawEffectElement raw, IReadOnlyList<Particle> particles,
             IReadOnlyDictionary<uint, FxFuncInfo> funcs, IReadOnlyDictionary<FuncAction, FxFuncInfo> actions)
         {
@@ -465,7 +578,7 @@ namespace MphRead
             DrainTime = raw.DrainTime.FloatValue;
             BufferTime = raw.BufferTime.FloatValue;
             DrawType = raw.DrawType;
-            Particles = particles;
+            Particles = Array.AsReadOnly(particles.ToArray());
             Funcs = funcs.ToFrozenDictionary();
             Actions = actions.ToFrozenDictionary();
         }
@@ -477,6 +590,13 @@ namespace MphRead
         public Model Model { get; }
         public Node Node { get; }
         public int MaterialId { get; }
+
+        internal Particle CreateRuntimeCopy()
+        {
+            Model model = Model.CreateRuntimeCopy();
+            int index = Model.Nodes.ToList().IndexOf(Node);
+            return new Particle(Name, model, model.Nodes[index], MaterialId);
+        }
 
         public Particle(string name, Model model, Node node, int materialId)
         {
@@ -1377,7 +1497,7 @@ namespace MphRead
                 throw new ProgramException($"Incorrect number of arguments for code {code}.");
             }
             Code = code;
-            Arguments = arguments.ToList();
+            Arguments = Array.AsReadOnly((uint[])arguments.Clone());
         }
 
         public InstructionCode Code { get; }
@@ -1431,8 +1551,36 @@ namespace MphRead
 
     public static class Paths
     {
-        public static string MphKey { get; set; } = Ver.AMHE0;
-        public static string FhKey { get; set; } = Ver.AMFE0;
+        private static string _mphKey = Ver.AMHE0;
+        public static string MphKey
+        {
+            get => _mphKey;
+            set
+            {
+                lock (ContentEnvironment.SyncRoot)
+                {
+                    if (_mphKey == value)
+                        return;
+                    ContentEnvironment.ContextChanged();
+                    _mphKey = value;
+                }
+            }
+        }
+        private static string _fhKey = Ver.AMFE0;
+        public static string FhKey
+        {
+            get => _fhKey;
+            set
+            {
+                lock (ContentEnvironment.SyncRoot)
+                {
+                    if (_fhKey == value)
+                        return;
+                    ContentEnvironment.ContextChanged();
+                    _fhKey = value;
+                }
+            }
+        }
 
         public static string FileSystem => _allPaths[MphKey];
         public static string FhFileSystem => _allPaths[FhKey];
@@ -1452,45 +1600,57 @@ namespace MphRead
                 {
                     UpdatePaths();
                 }
-                return _allPaths;
+                return _allPaths.ToFrozenDictionary();
             }
         }
 
         public static void SetPath(string key, string path)
         {
-            if (_allPaths.Count == 0)
+            lock (ContentEnvironment.SyncRoot)
             {
-                UpdatePaths();
+                ContentEnvironment.RequireMutableContext();
+                if (_allPaths.Count == 0)
+                {
+                    UpdatePaths();
+                }
+                ContentEnvironment.ContextChanged();
+                _allPaths[key] = path;
+
             }
-            _allPaths[key] = path;
         }
 
         public static void UpdatePaths()
         {
-            _allPaths.Clear();
-            _allPaths.Add(Ver.AMFE0, "");
-            _allPaths.Add(Ver.AMFP0, "");
-            _allPaths.Add(Ver.A76E0, "");
-            _allPaths.Add(Ver.AMHE0, "");
-            _allPaths.Add(Ver.AMHE1, "");
-            _allPaths.Add(Ver.AMHJ0, "");
-            _allPaths.Add(Ver.AMHJ1, "");
-            _allPaths.Add(Ver.AMHP0, "");
-            _allPaths.Add(Ver.AMHP1, "");
-            _allPaths.Add(Ver.AMHK0, "");
-            _allPaths.Add("Export", "");
-            if (File.Exists("paths.txt"))
+            lock (ContentEnvironment.SyncRoot)
             {
-                string[] lines = File.ReadAllLines("paths.txt");
-                foreach (string line in lines)
+                ContentEnvironment.RequireMutableContext();
+                ContentEnvironment.ContextChanged();
+                _allPaths.Clear();
+                _allPaths.Add(Ver.AMFE0, "");
+                _allPaths.Add(Ver.AMFP0, "");
+                _allPaths.Add(Ver.A76E0, "");
+                _allPaths.Add(Ver.AMHE0, "");
+                _allPaths.Add(Ver.AMHE1, "");
+                _allPaths.Add(Ver.AMHJ0, "");
+                _allPaths.Add(Ver.AMHJ1, "");
+                _allPaths.Add(Ver.AMHP0, "");
+                _allPaths.Add(Ver.AMHP1, "");
+                _allPaths.Add(Ver.AMHK0, "");
+                _allPaths.Add("Export", "");
+                if (File.Exists("paths.txt"))
                 {
-                    string[] split = line.Trim().Split('=');
-                    string key = split[0].Trim();
-                    if (split.Length == 2 && _allPaths.ContainsKey(key))
+                    string[] lines = File.ReadAllLines("paths.txt");
+                    foreach (string line in lines)
                     {
-                        _allPaths[key] = split[1].Trim();
+                        string[] split = line.Trim().Split('=');
+                        string key = split[0].Trim();
+                        if (split.Length == 2 && _allPaths.ContainsKey(key))
+                        {
+                            _allPaths[key] = split[1].Trim();
+                        }
                     }
                 }
+
             }
         }
 

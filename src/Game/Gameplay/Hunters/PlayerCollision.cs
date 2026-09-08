@@ -313,7 +313,7 @@ namespace MphRead.Entities
         {
             if ((Hunter == Hunter.Spire || Hunter == Hunter.Trace || Hunter == Hunter.Weavel) && Flags2.TestFlag(PlayerFlags2.AltAttack)
                 || Hunter == Hunter.Noxus && _altAttackTime >= SimTicks.From30HzFrames(Values.AltAttackStartup)
-                || Features.BoostOpensDoors && Hunter == Hunter.Samus && Flags1.TestFlag(PlayerFlags1.Boosting))
+                || _scene.Features.BoostOpensDoors && Hunter == Hunter.Samus && Flags1.TestFlag(PlayerFlags1.Boosting))
             {
                 if (door.Flags.TestFlag(DoorFlags.Locked) && door.Data.PaletteId == 8)
                 {
@@ -750,7 +750,7 @@ namespace MphRead.Entities
             {
                 if (result.Plane.Y < 0.1f && result.Plane.Y > -0.1f)
                 {
-                    if (Cheats.WalkThroughWalls && !IsAltForm)
+                    if (_scene.Features.Cheats.WalkThroughWalls && !IsAltForm)
                     {
                         return;
                     }

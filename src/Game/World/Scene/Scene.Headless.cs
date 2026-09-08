@@ -11,23 +11,14 @@ namespace MphRead
         private bool _headlessInitialized;
 
         /// <summary>
-        /// The existing game owns process-global player, collision and mode
-        /// state. Run exactly one scene on one owner thread per server process.
+        /// Mutable simulation state belongs to this scene. All worker scenes share
+        /// one immutable content snapshot through explicit lifetime leases.
         /// CPU models remain required for animation, collision attachments and
         /// weapon transforms; texture upload, effects, audio and HUD do not.
         /// </summary>
         public static Scene CreateHeadless()
         {
-            Read.ServerMode = true;
-            try
-            {
-                return new Scene(headless: true);
-            }
-            catch
-            {
-                Read.ServerMode = false;
-                throw;
-            }
+            return new Scene(headless: true);
         }
 
         public void LoadServerRoom(string room, GameMode mode, int players, bool bots = false,
@@ -38,11 +29,11 @@ namespace MphRead
             {
                 throw new InvalidOperationException("Invalid headless room setup.");
             }
-            PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
+            this.Players.MaxPlayers = PlayerEntity.SlotCapacity;
             for (int slot = 0; slot < players; slot++)
             {
                 AddPlayer((Hunter)(slot % 8), team: mode.IsTeamMode() ? slot % 2 : -1);
-                PlayerEntity.Players[slot].IsBot = bots;
+                this.Players[slot].IsBot = bots;
             }
             AddRoom(room, mode, playerCount: roomPlayerCount ?? Math.Max(2, players));
             InitializeWorld();
@@ -99,6 +90,7 @@ namespace MphRead
             {
                 throw new InvalidOperationException("This scene has a renderer.");
             }
+            if (_contentLease == null) return;
             try
             {
                 CloseWorld();
@@ -106,7 +98,8 @@ namespace MphRead
             finally
             {
                 _headlessInitialized = false;
-                Read.ServerMode = false;
+                _contentLease?.Dispose();
+                _contentLease = null;
             }
         }
     }

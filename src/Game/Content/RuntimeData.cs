@@ -5,11 +5,11 @@ namespace MphRead
 {
     public static class RuntimeData
     {
-        public class RomDataValues
+        public sealed class RomDataValues
         {
-            public string File { get; set; }
-            public int Offset { get; set; }
-            public int Size { get; set; }
+            public string File { get; }
+            public int Offset { get; }
+            public int Size { get; }
 
             public RomDataValues(string file, int offset, int size)
             {
@@ -21,22 +21,37 @@ namespace MphRead
 
         private class RomData
         {
-            public RomDataValues FontModel { get; set; } = null!;
-            public RomDataValues FontWidths { get; set; } = null!;
-            public RomDataValues FontOffsets { get; set; } = null!;
-            public RomDataValues FontCharData { get; set; } = null!;
-            public RomDataValues TerrianSfx { get; set; } = null!;
-            public RomDataValues BeamSfx { get; set; } = null!;
-            public RomDataValues HunterSfx { get; set; } = null!;
-            public RomDataValues EnemyDamageSfx { get; set; } = null!;
-            public RomDataValues EnemyDeathSfx { get; set; } = null!;
-            public RomDataValues PlatformSfx { get; set; } = null!;
+            public RomDataValues FontModel { get; init; } = null!;
+            public RomDataValues FontWidths { get; init; } = null!;
+            public RomDataValues FontOffsets { get; init; } = null!;
+            public RomDataValues FontCharData { get; init; } = null!;
+            public RomDataValues TerrianSfx { get; init; } = null!;
+            public RomDataValues BeamSfx { get; init; } = null!;
+            public RomDataValues HunterSfx { get; init; } = null!;
+            public RomDataValues EnemyDamageSfx { get; init; } = null!;
+            public RomDataValues EnemyDeathSfx { get; init; } = null!;
+            public RomDataValues PlatformSfx { get; init; } = null!;
         }
 
         public static RomDataValues? GetFontModel(string version)
             => _romData.TryGetValue(version, out RomData? data) ? data.FontModel : null;
 
+        private static long _loadedGeneration = -1;
+
         public static void Load()
+        {
+            lock (ContentEnvironment.SyncRoot)
+            {
+                if (_loadedGeneration == ContentEnvironment.Generation) { return; }
+                // Font/audio tables belong to the client startup context. A
+                // running worker must never see them replaced by another load.
+                ContentEnvironment.RequireMutableContext();
+                LoadCore();
+                _loadedGeneration = ContentEnvironment.Generation;
+            }
+        }
+
+        private static void LoadCore()
         {
             if (!_romData.TryGetValue(Paths.MphKey, out RomData? data))
             {

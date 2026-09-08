@@ -50,9 +50,9 @@ namespace MphRead.Entities
                 {
                     if (_capture && !CheckOwnOctolith(player))
                     {
-                        if (player == PlayerEntity.Main)
+                        if (player == _scene.LocalPlayer)
                         {
-                            PlayerEntity.Main.ShowMissingOctolith(); // your octolith is missing!
+                            _scene.LocalPlayer?.ShowMissingOctolith(); // your octolith is missing!
                         }
                         continue;
                     }

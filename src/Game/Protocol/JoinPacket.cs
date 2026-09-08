@@ -4,12 +4,13 @@ using System.Buffers.Binary;
 namespace MphRead.Mods.Network
 {
     public readonly record struct JoinPacket(byte Protocol, ulong Nonce, Hunter Hunter, string Name,
-        ulong PreviousConnectionId = 0, string Ticket = "", bool Observer = false)
+        ulong PreviousConnectionId = 0, string Ticket = "", bool Observer = false, uint WireMatchId = 0)
     {
         public const int Size = 1 + 8 + 1 + RosterPacket.MaxNameBytes + 8;
         public const int MaxTicketBytes = 963;
+        public const int MaxRoutedTicketBytes = MaxTicketBytes - 4;
         public override string ToString() => $"JoinPacket {{ Protocol = {Protocol}, Hunter = {Hunter}, HasTicket = {!string.IsNullOrEmpty(Ticket)} }}";
-        public int EncodedSize => Size + (string.IsNullOrEmpty(Ticket) && !Observer ? 0 : 3 + (Ticket?.Length ?? 0));
+        public int EncodedSize => Size + (string.IsNullOrEmpty(Ticket) && !Observer && WireMatchId == 0 ? 0 : 3 + (WireMatchId == 0 ? 0 : 4) + (Ticket?.Length ?? 0));
         public static bool ValidTicketText(string ticket)
         {
             if (ticket.Length == 0 || ticket.Length > MaxTicketBytes) return false;
@@ -22,18 +23,19 @@ namespace MphRead.Mods.Network
 
         public void Write(Span<byte> destination)
         {
-            if (destination.Length < EncodedSize || (!string.IsNullOrEmpty(Ticket) && !ValidTicketText(Ticket)))
+            if (destination.Length < EncodedSize || (WireMatchId != 0 && (Ticket?.Length ?? 0) > MaxRoutedTicketBytes) || (!string.IsNullOrEmpty(Ticket) && !ValidTicketText(Ticket)))
                 throw new ArgumentException("Invalid join credential or output buffer.");
             destination[0] = Protocol;
             BinaryPrimitives.WriteUInt64LittleEndian(destination[1..], Nonce);
             destination[9] = (byte)Hunter;
             NetText.Write(destination.Slice(10, RosterPacket.MaxNameBytes), Name);
             BinaryPrimitives.WriteUInt64LittleEndian(destination[26..], PreviousConnectionId);
-            if (!string.IsNullOrEmpty(Ticket) || Observer)
+            if (!string.IsNullOrEmpty(Ticket) || Observer || WireMatchId != 0)
             {
-                destination[Size] = Observer ? (byte)1 : (byte)0;
+                destination[Size] = (byte)((Observer ? 1 : 0) | (WireMatchId != 0 ? 2 : 0));
                 BinaryPrimitives.WriteUInt16LittleEndian(destination[(Size + 1)..], checked((ushort)(Ticket?.Length ?? 0)));
-                if (!string.IsNullOrEmpty(Ticket)) System.Text.Encoding.ASCII.GetBytes(Ticket, destination.Slice(Size + 3, Ticket.Length));
+                if (WireMatchId != 0) BinaryPrimitives.WriteUInt32LittleEndian(destination[(Size + 3)..], WireMatchId);
+                if (!string.IsNullOrEmpty(Ticket)) System.Text.Encoding.ASCII.GetBytes(Ticket, destination.Slice(Size + 3 + (WireMatchId == 0 ? 0 : 4), Ticket.Length));
             }
         }
 
@@ -53,16 +55,28 @@ namespace MphRead.Mods.Network
                 }
             }
             string ticket = "";
+            uint wireMatchId = 0;
+            bool observer = false;
             if (source.Length != Size)
             {
-                if (source[Size] > 1 || BinaryPrimitives.ReadUInt16LittleEndian(source[(Size + 1)..]) != source.Length - Size - 3) return false;
-                foreach (byte b in source[(Size + 3)..]) if (b > 127) return false;
-                ticket = System.Text.Encoding.ASCII.GetString(source[(Size + 3)..]);
-                if (ticket.Length == 0 ? source[Size] != 1 : !ValidTicketText(ticket)) return false;
+                byte flags = source[Size];
+                if ((flags & ~3) != 0) return false;
+                observer = (flags & 1) != 0;
+                bool routed = (flags & 2) != 0;
+                int ticketOffset = Size + 3 + (routed ? 4 : 0);
+                if (source.Length < ticketOffset || BinaryPrimitives.ReadUInt16LittleEndian(source[(Size + 1)..]) != source.Length - ticketOffset) return false;
+                if (routed)
+                {
+                    wireMatchId = BinaryPrimitives.ReadUInt32LittleEndian(source[(Size + 3)..]);
+                    if (wireMatchId == 0) return false;
+                }
+                foreach (byte value in source[ticketOffset..]) if (value > 127) return false;
+                ticket = System.Text.Encoding.ASCII.GetString(source[ticketOffset..]);
+                if (ticket.Length == 0 ? !observer && !routed : !ValidTicketText(ticket)) return false;
             }
             packet = new JoinPacket(source[0], BinaryPrimitives.ReadUInt64LittleEndian(source[1..]),
                 (Hunter)source[9], NetText.Read(source.Slice(10, RosterPacket.MaxNameBytes)),
-                BinaryPrimitives.ReadUInt64LittleEndian(source[26..]), ticket, source.Length != Size && source[Size] == 1);
+                BinaryPrimitives.ReadUInt64LittleEndian(source[26..]), ticket, observer, wireMatchId);
             return packet.Name.Length > 0;
         }
     }

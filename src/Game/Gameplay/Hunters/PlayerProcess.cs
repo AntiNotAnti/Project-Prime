@@ -73,7 +73,7 @@ namespace MphRead.Entities
                 if (AiData.Flags3.TestFlag(AiFlags3.Bit1))
                 {
                     // spawnEffectMP or spawnEffect
-                    int effectId = PlayerCount > 2 && !Features.MaxPlayerDetail ? 33 : 31;
+                    int effectId = _scene.Players.ActiveCount > 2 && !_scene.Features.MaxPlayerDetail ? 33 : 31;
                     _scene.SpawnEffect(effectId, Vector3.UnitX, Vector3.UnitY, Position);
                     PlayHunterSfx(HunterSfx.Spawn);
                     AiData.Flags3 &= ~AiFlags3.Bit1;
@@ -99,7 +99,7 @@ namespace MphRead.Entities
                 Debug.Assert(LoadFlags.TestFlag(LoadFlags.Active));
             }
             // display swap update happens here for main player
-            if (IsMainPlayer && CameraSequence.Current?.BlockInput == true)
+            if (IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true)
             {
                 Controls.ClearAll();
             }
@@ -178,8 +178,8 @@ namespace MphRead.Entities
                         if (IsMainPlayer) // todo: and some global is not set
                         {
                             // press FIRE to begin / press FIRE to respawn
-                            int messageId = CameraSequence.Current?.IsIntro == true ? 245 : 244;
-                            if (!Bugfixes.NoStrayRespawnText || time > 0
+                            int messageId = _scene.CameraSequences.Current?.IsIntro == true ? 245 : 244;
+                            if (!_scene.Features.Bugfixes.NoStrayRespawnText || time > 0
                                 || _scene.Match.Rules.Mode != MatchMode.Survival && _scene.Match.Rules.Mode != MatchMode.TeamSurvival)
                             {
                                 QueueHudMessage(128, 162, 1 / 1000f, 0, messageId);
@@ -260,7 +260,7 @@ namespace MphRead.Entities
                     }
                     else
                     {
-                        int revealTime = SimTicks.From30HzFrames(PlayerCount > 2 ? 600 : 300);
+                        int revealTime = SimTicks.From30HzFrames(_scene.Players.ActiveCount > 2 ? 600 : 300);
                         Vector3 moved = Position - IdlePosition;
                         if (moved.LengthSquared >= 25)
                         {
@@ -784,18 +784,18 @@ namespace MphRead.Entities
             {
                 _timeSinceInput++;
             }
-            if (_aimY < 60 && _aimY > -60 && !EquipInfo.Zoomed && _health > 0 && !Features.NoIdleSway)
+            if (_aimY < 60 && _aimY > -60 && !EquipInfo.Zoomed && _health > 0 && !_scene.Features.NoIdleSway)
             {
                 int swayStart = SimTicks.From30HzFrames(Values.SwayStartTime);
-                if (Features.DelayedIdleSway)
+                if (_scene.Features.DelayedIdleSway)
                 {
                     swayStart *= 4;
                 }
                 if (_timeSinceInput == swayStart)
                 {
                     _field40C = 0;
-                    float factor1 = (Rng.GetRandomInt2(Values.SwayLimit) - Values.SwayLimit / 2) / 4096f;
-                    float factor2 = (Rng.GetRandomInt2(Values.SwayLimit) - Values.SwayLimit / 2) / 4096f;
+                    float factor1 = (_scene.Random.GetRandomInt2(Values.SwayLimit) - Values.SwayLimit / 2) / 4096f;
+                    float factor2 = (_scene.Random.GetRandomInt2(Values.SwayLimit) - Values.SwayLimit / 2) / 4096f;
                     _field410 = _facingVector;
                     _field41C = _field410;
                     _field428 = _field410;
@@ -807,8 +807,8 @@ namespace MphRead.Entities
                     if (_field40C >= 1)
                     {
                         _field40C = 0;
-                        float factor1 = (Rng.GetRandomInt2(Values.SwayLimit) - Values.SwayLimit / 2) / 4096f;
-                        float factor2 = (Rng.GetRandomInt2(Values.SwayLimit) - Values.SwayLimit / 2) / 4096f;
+                        float factor1 = (_scene.Random.GetRandomInt2(Values.SwayLimit) - Values.SwayLimit / 2) / 4096f;
+                        float factor2 = (_scene.Random.GetRandomInt2(Values.SwayLimit) - Values.SwayLimit / 2) / 4096f;
                         _field410 = _field41C;
                         _field41C = _field428;
                         _field41C += _gunVec2 * factor1 + _upVector * factor2;
@@ -868,7 +868,7 @@ namespace MphRead.Entities
                     Flags2 |= PlayerFlags2.HideModel;
                 }
             }
-            if (!EquipInfo.Zoomed && CameraSequence.Current == null)
+            if (!EquipInfo.Zoomed && _scene.CameraSequences.Current == null)
             {
                 // note: the game does this during cam seqs, resulting in the FOV thrashing a bit, but it has no visible effect
                 // since the sin/cos values for projection are set aside in the cam info update that's already occurred above.
@@ -894,9 +894,9 @@ namespace MphRead.Entities
                 }
                 else if (IsUnmorphing)
                 {
-                    if (IsMainPlayer && CameraSequence.Current != null)
+                    if (IsMainPlayer && _scene.CameraSequences.Current != null)
                     {
-                        CameraSequence.Current.InitialCamInfo.NodeRef = NodeRef;
+                        _scene.CameraSequences.Current.InitialCamInfo.NodeRef = NodeRef;
                     }
                     else
                     {
@@ -952,7 +952,7 @@ namespace MphRead.Entities
                 // the freeze needs a real point-in-node test against the node
                 // data, not this one.
                 NodeRef = _scene.UpdateNodeRef(NodeRef, prevPos, curPos);
-                if (CameraSequence.Current == null || !IsMainPlayer)
+                if (_scene.CameraSequences.Current == null || !IsMainPlayer)
                 {
                     if (CameraType == CameraType.Free)
                     {
@@ -1046,7 +1046,7 @@ namespace MphRead.Entities
                 }
                 if (_burnEffect != null)
                 {
-                    if (CameraSequence.Current?.BlockInput == true)
+                    if (_scene.CameraSequences.Current?.BlockInput == true)
                     {
                         _scene.UnlinkEffectEntry(_burnEffect);
                         _burnEffect = null;
@@ -1105,7 +1105,7 @@ namespace MphRead.Entities
         {
             if (_scene.Services.IsReplica) { return; }
             if (_health == 0 || IgnoreItemPickups
-                || IsMainPlayer && CameraSequence.Current?.BlockInput == true)
+                || IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true)
             {
                 return;
             }
@@ -1373,7 +1373,7 @@ namespace MphRead.Entities
                     || !IsAltForm && Flags2.TestFlag(PlayerFlags2.BipedStuck)
                     || IsAltForm && MorphCamera != null))
             {
-                if (IsMainPlayer && (CameraSequence.Current == null || !CameraSequence.Current.BlockInput))
+                if (IsMainPlayer && (_scene.CameraSequences.Current == null || !_scene.CameraSequences.Current.BlockInput))
                 {
                     _soundSource.PlayFreeSfx(SfxId.BEAM_SWITCH_FAIL);
                 }
@@ -1424,7 +1424,7 @@ namespace MphRead.Entities
                 + Fixed.ToFloat(Values.FieldB4) * up;
             float cos = MathF.Cos(MathHelper.DegreesToRadians(_gunViewBob));
             _gunDrawPos.Y += Fixed.ToFloat(20) * cos;
-            if (Features.FixedWeapon)
+            if (_scene.Features.FixedWeapon)
             {
                 // Rides rigidly with the camera instead of lagging half a
                 // step behind the aim point -- Quake's static weapon, rather
@@ -1896,11 +1896,11 @@ namespace MphRead.Entities
             int count = 0;
             if (_scene.Match.Rules.Mode != MatchMode.Survival && _scene.Match.Rules.Mode != MatchMode.TeamSurvival)
             {
-                if (PlayerCount > 3)
+                if (_scene.Players.ActiveCount > 3)
                 {
                     count = SimTicks.From30HzFrames(900) - _timeSinceDead;
                 }
-                else if (PlayerCount > 2)
+                else if (_scene.Players.ActiveCount > 2)
                 {
                     count = SimTicks.From30HzFrames(600) - _timeSinceDead;
                 }

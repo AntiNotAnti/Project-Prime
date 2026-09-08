@@ -16,7 +16,7 @@ namespace MphRead
             return Matrix4.CreatePerspectiveFieldOfView(fov, aspect, 0.0625f,
                 Presentation?.ProjectionFarClip ?? 10000f);
         }
-        public Vector3 ViewPosition => Presentation?.ViewPosition ?? PlayerEntity.Main.CameraInfo.Position;
+        public Vector3 ViewPosition => Presentation?.ViewPosition ?? LocalPlayer?.CameraInfo.Position ?? Vector3.Zero;
         public bool ControlsPlayer => Presentation?.ControlsPlayer ?? false;
         public bool FrameAdvance => Presentation?.FrameAdvance ?? false;
         public bool FrameAdvanceLastFrame => Presentation?.FrameAdvanceLastFrame ?? false;

@@ -91,7 +91,7 @@ namespace MphRead.Entities
             {
                 // todo?: unload collision, etc.
                 _unloadModel = _models[0].Model;
-                if (_unloadModel == inst.Model)
+                if (_unloadModel.Id == inst.Model.Id)
                 {
                     _unloadModel = null;
                 }
@@ -236,7 +236,7 @@ namespace MphRead.Entities
 
         public void LoadRoom(bool resume)
         {
-            PlayerEntity? player = PlayerEntity.Main;
+            PlayerEntity player = _scene.LocalPlayer ?? throw new InvalidOperationException("Local room transitions require a presentation player.");
             player.StopAllSfx();
             Hunter hunter = player.Hunter;
             int recolor = player.Recolor;
@@ -245,13 +245,12 @@ namespace MphRead.Entities
                 _scene.TransitionRoomId = _scene.RoomId;
             }
             _scene.ResetFrameCount();
-            Rng.SetRng2(0);
+            _scene.Random.SetRng2(0);
             StartTransition(resume);
             _scene.ClearEffects();
             if (!resume)
             {
-                PlayerEntity.Reset();
-                PlayerEntity.Construct(_scene);
+                _scene.Players.Reset();
                 if (_scene.Services.RebuildingRoom)
                 {
                     // A networked match needs every slot rebuilt, not just
@@ -262,13 +261,14 @@ namespace MphRead.Entities
                 }
                 else
                 {
-                    player = PlayerEntity.Create(hunter, recolor);
+                    player = _scene.Players.Create(hunter, recolor)
+                        ?? throw new InvalidOperationException("No local slot available after room transition.");
                     Debug.Assert(player != null);
                     // todo: revisit flags
                     player.LoadFlags |= LoadFlags.SlotActive;
                     player.LoadFlags |= LoadFlags.Active;
                     player.LoadFlags |= LoadFlags.Initial;
-                    PlayerEntity.PlayerCount++;
+                    _scene.Players.ActiveCount++;
                 }
             }
             ProcessTransition();
@@ -313,13 +313,13 @@ namespace MphRead.Entities
             // rest of the match. Client audio resets these once at initial connect;
             // a mid-session room transition needs the same reset.
             _scene.Audio.ResetSoundMutes();
-            CamSeqEntity.Current = null;
-            CameraSequence.Current = null;
+            _scene.SpecialEntities.CameraSequence = null;
+            _scene.CameraSequences.Current = null;
             _scene.ClearMessageQueue();
             // todo?: unload more stuff
-            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            for (int i = 0; i < _scene.Players.Count; i++)
             {
-                PlayerEntity player = PlayerEntity.Players[i];
+                PlayerEntity player = _scene.Players[i];
                 player.ResetReferences();
             }
         }
@@ -330,14 +330,14 @@ namespace MphRead.Entities
             RoomMetadata? roomMeta = Metadata.GetRoomById(_scene.TransitionRoomId);
             Debug.Assert(roomMeta != null);
             int entityLayer = -1;
-            Rng.SetRng2(Rng.Rng2StartValue);
+            _scene.Random.SetRng2(Rng.Rng2StartValue);
 
             (_, IReadOnlyList<EntityBase> entities) = SceneSetup.SetUpRoom(_scene.Match.Rules.Mode.ToLegacyMode(),
                 _scene.Services.RoomPlayerCount,
                 nodeLayerMask: 0, entityLayer, roomMeta, room: this, _scene, isRoomTransition: true);
-            AiPersonality.LoadAll(_scene.Match.Rules.Mode.ToLegacyMode());
+            AiPersonality.LoadAll(_scene, _scene.Match.Rules.Mode.ToLegacyMode());
             SetNodeData(SceneSetup.LoadNodeData(roomMeta.NodePath, roomMeta.Id, _scene.Match.Rules.Mode.ToLegacyMode(), entities, roomMeta.FirstHunt));
-            PlayerEntity.PlayerAiData.InitializeGlobals();
+            PlayerEntity.PlayerAiData.InitializeGlobals(_scene);
             for (int i = 0; i < entities.Count; i++)
             {
                 EntityBase entity = entities[i];
@@ -368,9 +368,9 @@ namespace MphRead.Entities
             {
                 entity.Initialized = true;
             }
-            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            for (int i = 0; i < _scene.Players.Count; i++)
             {
-                PlayerEntity player = PlayerEntity.Players[i];
+                PlayerEntity player = _scene.Players[i];
                 if (player.IsBot)
                 {
                     player.AiData.InitializeAtLoad();

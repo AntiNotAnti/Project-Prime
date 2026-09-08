@@ -38,8 +38,13 @@ namespace MphRead.Formats.Collision
 
         public static void ClearCache()
         {
-            _cache.Clear();
-            _fhCache.Clear();
+            lock (ContentEnvironment.SyncRoot)
+            {
+                ContentEnvironment.RequireMutableContext();
+                _cache.Clear();
+                _fhCache.Clear();
+
+            }
         }
 
         public static CollisionInstance GetCollision(ModelMetadata meta, bool extra = false)
@@ -65,26 +70,30 @@ namespace MphRead.Formats.Collision
 
         private static CollisionInstance GetCollision(string path, string name, bool firstHunt, int roomLayerMask, bool isEntity)
         {
-            Dictionary<string, CollisionInfo> cache = firstHunt ? _fhCache : _cache;
-            if (roomLayerMask == -1 && cache.TryGetValue(path, out CollisionInfo? info))
+            lock (ContentEnvironment.SyncRoot)
             {
+                Dictionary<string, CollisionInfo> cache = firstHunt ? _fhCache : _cache;
+                if (roomLayerMask == -1 && cache.TryGetValue(path, out CollisionInfo? info))
+                {
+                    return new CollisionInstance(name, info, isEntity);
+                }
+                var bytes = new ReadOnlySpan<byte>(ContentFiles.ReadBytes(Paths.Combine(firstHunt ? Paths.FhFileSystem : Paths.FileSystem, path)));
+                CollisionHeader header = Read.ReadStruct<CollisionHeader>(bytes);
+                if (header.Type.MarshalString() == "wc01")
+                {
+                    info = ReadMphCollision(header, bytes, roomLayerMask);
+                }
+                else
+                {
+                    info = ReadFhCollision(bytes);
+                }
+                if (roomLayerMask == -1)
+                {
+                    cache.Add(path, info);
+                }
                 return new CollisionInstance(name, info, isEntity);
+
             }
-            var bytes = new ReadOnlySpan<byte>(ContentFiles.ReadBytes(Paths.Combine(firstHunt ? Paths.FhFileSystem : Paths.FileSystem, path)));
-            CollisionHeader header = Read.ReadStruct<CollisionHeader>(bytes);
-            if (header.Type.MarshalString() == "wc01")
-            {
-                info = ReadMphCollision(header, bytes, roomLayerMask);
-            }
-            else
-            {
-                info = ReadFhCollision(bytes);
-            }
-            if (roomLayerMask == -1)
-            {
-                cache.Add(path, info);
-            }
-            return new CollisionInstance(name, info, isEntity);
         }
 
         public static MphCollisionInfo ReadMphCollision(CollisionHeader header, ReadOnlySpan<byte> bytes, int roomLayerMask)
@@ -280,6 +289,8 @@ namespace MphRead.Formats.Collision
         public byte Unknown00 { get; }
         public byte Unknown01 { get; }
 
+        internal Portal CreateRuntimeCopy() => (Portal)MemberwiseClone();
+
         public Portal(RawCollisionPortal raw)
         {
             Debug.Assert(raw.PointCount == 4);
@@ -293,7 +304,7 @@ namespace MphRead.Formats.Collision
             points.Add(raw.Point2.ToFloatVector());
             points.Add(raw.Point3.ToFloatVector());
             points.Add(raw.Point4.ToFloatVector());
-            Points = points;
+            Points = Array.AsReadOnly(points.ToArray());
             Position = new Vector3(
                 points.Sum(p => p.X) / points.Count,
                 points.Sum(p => p.Y) / points.Count,
@@ -304,7 +315,7 @@ namespace MphRead.Formats.Collision
             planes.Add(raw.Plane2.ToFloatVector());
             planes.Add(raw.Plane3.ToFloatVector());
             planes.Add(raw.Plane4.ToFloatVector());
-            Planes = planes;
+            Planes = Array.AsReadOnly(planes.ToArray());
             Plane = raw.Plane.ToFloatVector();
             Flags = raw.Flags;
             Unknown00 = raw.UnusedDE;
@@ -327,13 +338,13 @@ namespace MphRead.Formats.Collision
                 points.Add(rawPoints[vector.Point2Index].ToFloatVector());
                 planes.Add(rawPlanes[vector.PlaneIndex].ToFloatVector());
             }
-            Points = points;
+            Points = Array.AsReadOnly(points.ToArray());
             Position = new Vector3(
                 points.Sum(p => p.X) / points.Count,
                 points.Sum(p => p.Y) / points.Count,
                 points.Sum(p => p.Z) / points.Count
             );
-            Planes = planes;
+            Planes = Array.AsReadOnly(planes.ToArray());
             Plane = raw.Plane.ToFloatVector();
             Unknown00 = raw.Field5C;
             Unknown01 = raw.Field5D;
@@ -347,8 +358,8 @@ namespace MphRead.Formats.Collision
             NodeName2 = nodeName2;
             LayerMask = 4;
             IsForceField = false;
-            Points = points;
-            Planes = planes;
+            Points = Array.AsReadOnly(points.ToArray());
+            Planes = Array.AsReadOnly(planes.ToArray());
             Plane = plane;
             Position = new Vector3(
                 points.Sum(p => p.X) / points.Count,
@@ -390,7 +401,7 @@ namespace MphRead.Formats.Collision
         public CollisionInstance(string name, CollisionInfo info, bool isEntity)
         {
             Name = name;
-            Info = info;
+            Info = info.CreateRuntimeCopy();
             IsEntity = isEntity;
         }
     }
@@ -400,13 +411,20 @@ namespace MphRead.Formats.Collision
         public bool FirstHunt { get; }
         public IReadOnlyList<Vector3> Points { get; }
         public IReadOnlyList<Vector4> Planes { get; }
-        public IReadOnlyList<Portal> Portals { get; }
+        public IReadOnlyList<Portal> Portals { get; private set; }
+
+        internal CollisionInfo CreateRuntimeCopy()
+        {
+            var copy = (CollisionInfo)MemberwiseClone();
+            copy.Portals = Array.AsReadOnly(Portals.Select(portal => portal.CreateRuntimeCopy()).ToArray());
+            return copy;
+        }
 
         public CollisionInfo(IReadOnlyList<Vector3Fx> points, IReadOnlyList<Vector4Fx> planes,
             IReadOnlyList<Portal> portals, bool firstHunt)
         {
-            Points = points.Select(v => v.ToFloatVector()).ToList();
-            Planes = planes.Select(p => p.ToFloatVector()).ToList();
+            Points = Array.AsReadOnly(points.Select(v => v.ToFloatVector()).ToArray());
+            Planes = Array.AsReadOnly(planes.Select(p => p.ToFloatVector()).ToArray());
             Portals = portals;
             FirstHunt = firstHunt;
         }
@@ -427,10 +445,10 @@ namespace MphRead.Formats.Collision
             : base(points, planes, portals, firstHunt: false)
         {
             Header = header;
-            PointIndices = ptIdxs;
-            Data = data;
-            DataIndices = dataIdxs;
-            Entries = entries;
+            PointIndices = Array.AsReadOnly(ptIdxs.ToArray());
+            Data = Array.AsReadOnly(data.ToArray());
+            DataIndices = Array.AsReadOnly(dataIdxs.ToArray());
+            Entries = Array.AsReadOnly(entries.ToArray());
             MinPosition = header.MinPosition.ToFloatVector();
         }
 
@@ -554,12 +572,12 @@ namespace MphRead.Formats.Collision
             IReadOnlyList<FhCollisionTreeNode> treeNodes) : base(points, planes, portals, firstHunt: true)
         {
             Header = header;
-            Data = data;
-            Vectors = vectors;
-            DataIndices = dataIndices;
-            Entries = entries;
-            TreeNodeIndices = treeNodeIndices;
-            TreeNodes = treeNodes;
+            Data = Array.AsReadOnly(data.ToArray());
+            Vectors = Array.AsReadOnly(vectors.ToArray());
+            DataIndices = Array.AsReadOnly(dataIndices.ToArray());
+            Entries = Array.AsReadOnly(entries.ToArray());
+            TreeNodeIndices = Array.AsReadOnly(treeNodeIndices.ToArray());
+            TreeNodes = Array.AsReadOnly(treeNodes.ToArray());
         }
     }
 }

@@ -76,7 +76,6 @@ namespace MphRead.Entities
         private readonly int _sfxRangeIndex;
         private readonly MoveSfxInfo _moveSfx;
 
-        private static BeamProjectileEntity[] _beams = null!;
 
         public PlatformEntityData Data => _data;
         public Vector3 Velocity => _velocity;
@@ -148,15 +147,12 @@ namespace MphRead.Entities
                 UpdateLinkedInverse(0);
             }
             _beamInterval = (int)data.BeamInterval * SimTicks.TicksPer30HzFrame;
-            if (_beams == null)
-            {
-                _beams = SceneSetup.CreateBeamList(64, scene); // in-game: 18
-            }
+            BeamProjectileEntity[] beams = scene.PlatformBeams; // in-game: 18
             if (data.BeamId > -1)
             {
                 _ammo = 1000;
                 Debug.Assert(data.BeamId < Weapons.PlatformWeapons.Count);
-                _equipInfo = new EquipInfo(Weapons.PlatformWeapons[data.BeamId], _beams);
+                _equipInfo = new EquipInfo(Weapons.PlatformWeapons[data.BeamId], beams);
                 _equipInfo.GetAmmo = () => _ammo;
                 _equipInfo.SetAmmo = (newAmmo) => _ammo = newAmmo;
                 _beamSpawnPos = data.BeamSpawnPos.ToFloatVector();
@@ -229,11 +225,6 @@ namespace MphRead.Entities
             {
                 _sfxRangeIndex = 33;
             }
-        }
-
-        public static void DestroyBeams()
-        {
-            _beams = null!;
         }
 
         public override void Initialize()
@@ -416,7 +407,7 @@ namespace MphRead.Entities
             {
                 if (Flags.TestFlag(PlatformFlags.DripMoat))
                 {
-                    _scene.SendMessage(Message.DripMoatPlatform, this, PlayerEntity.Main, 1, 0);
+                    _scene.SendMessage(Message.DripMoatPlatform, this, _scene.LocalPlayer, 1, 0);
                 }
                 if (_data.PositionCount >= 2)
                 {
@@ -457,7 +448,7 @@ namespace MphRead.Entities
                 _animFlags &= ~PlatAnimFlags.Active;
                 if (Flags.TestFlag(PlatformFlags.DripMoat))
                 {
-                    _scene.SendMessage(Message.DripMoatPlatform, this, PlayerEntity.Main, 0, 0);
+                    _scene.SendMessage(Message.DripMoatPlatform, this, _scene.LocalPlayer, 0, 0);
                 }
             }
         }
@@ -590,7 +581,7 @@ namespace MphRead.Entities
                         turretAiming = true;
                     }
                 }
-                if (Flags.TestFlag(PlatformFlags.SyluxShip)
+                if (_scene.LocalPlayer != null && Flags.TestFlag(PlatformFlags.SyluxShip)
                     && (isTurret || _stateFlags.TestFlag(PlatStateFlags.Awake) || _stateFlags.TestFlag(PlatStateFlags.WasAwake)))
                 {
                     Vector3 target = Vector3.Zero;
@@ -599,7 +590,7 @@ namespace MphRead.Entities
                         Debug.Assert(_parentEntCol != null);
                         if (turretAiming)
                         {
-                            PlayerEntity mainPlayer = PlayerEntity.Main;
+                            PlayerEntity mainPlayer = _scene.LocalPlayer;
                             target = new Vector3(
                                 mainPlayer.Position.X - _visiblePosition.X,
                                 mainPlayer.Position.Y + 1 - _visiblePosition.Y,
@@ -614,7 +605,7 @@ namespace MphRead.Entities
                     }
                     else
                     {
-                        PlayerEntity mainPlayer = PlayerEntity.Main;
+                        PlayerEntity mainPlayer = _scene.LocalPlayer;
                         target = new Vector3(
                             mainPlayer.Position.X - _visiblePosition.X,
                             0,
@@ -652,10 +643,10 @@ namespace MphRead.Entities
                         _movePercent += _moveIncrement;
                         _curRotation = ComputeRotationSin(_fromRotation, _toRotation, _movePercent);
                     }
-                    if (_animFlags.TestFlag(PlatAnimFlags.SeekPlayerHeight) && PlayerEntity.PlayerCount > 0)
+                    if (_scene.LocalPlayer != null && _animFlags.TestFlag(PlatAnimFlags.SeekPlayerHeight) && _scene.Players.ActiveCount > 0)
                     {
                         // also never true in-game
-                        PlayerEntity mainPlayer = PlayerEntity.Main;
+                        PlayerEntity mainPlayer = _scene.LocalPlayer;
                         float offset = (mainPlayer.Position.Y - _curPosition.Y) * Fixed.ToFloat(20);
                         _curPosition.Y += offset;
                     }

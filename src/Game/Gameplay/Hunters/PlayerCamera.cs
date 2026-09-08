@@ -58,7 +58,7 @@ namespace MphRead.Entities
                     SetGunAnimation(GunAnimation.UpDown, AnimFlags.NoLoop);
                 }
             }
-            if (IsMainPlayer && CameraSequence.Current != null)
+            if (IsMainPlayer && _scene.CameraSequences.Current != null)
             {
                 return;
             }
@@ -82,7 +82,7 @@ namespace MphRead.Entities
             {
                 UpdateCameraFirst();
             }
-            CameraInfo.Update();
+            CameraInfo.Update(_scene);
         }
 
         private void UpdateCameraFirst()
@@ -810,7 +810,7 @@ namespace MphRead.Entities
             CameraInfo.UpVector = Vector3.UnitY;
             CameraInfo.Shake = 0;
             CameraInfo.Fov = Fixed.ToFloat(Values.NormalFov) * 2;
-            CameraInfo.Update();
+            CameraInfo.Update(_scene);
             CameraInfo.NodeRef = _scene.UpdateNodeRef(winner.NodeRef, winner.Position, CameraInfo.Position);
         }
 
@@ -870,16 +870,16 @@ namespace MphRead.Entities
             Fov = 39 * 2;
         }
 
-        public void Update()
+        public void Update(Scene scene)
         {
             Vector3 toTarget = Target - Position;
             var camUp = Vector3.Cross(toTarget, Vector3.Cross(UpVector, toTarget));
             // todo: FPS stuff
             if (Shake > 0 && _shake)
             {
-                Target.X += Fixed.ToFloat(Rng.GetRandomInt2(Fixed.ToInt(Shake))) - Shake / 2;
-                Target.Y += Fixed.ToFloat(Rng.GetRandomInt2(Fixed.ToInt(Shake))) - Shake / 2;
-                Target.Z += Fixed.ToFloat(Rng.GetRandomInt2(Fixed.ToInt(Shake))) - Shake / 2;
+                Target.X += Fixed.ToFloat(scene.Random.GetRandomInt2(Fixed.ToInt(Shake))) - Shake / 2;
+                Target.Y += Fixed.ToFloat(scene.Random.GetRandomInt2(Fixed.ToInt(Shake))) - Shake / 2;
+                Target.Z += Fixed.ToFloat(scene.Random.GetRandomInt2(Fixed.ToInt(Shake))) - Shake / 2;
                 if (toTarget.X * (Target.X - Position.X) + toTarget.Z * (Target.Z - Position.Z) < 0)
                 {
                     Target.X = Position.X + toTarget.X / 2;

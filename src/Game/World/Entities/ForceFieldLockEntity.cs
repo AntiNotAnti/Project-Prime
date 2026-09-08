@@ -118,7 +118,7 @@ namespace MphRead.Entities
                 }
                 return;
             }
-            if (doubleDead && Bugfixes.NoDoubleEnemyDeath) { return; }
+            if (doubleDead && _scene.Features.Bugfixes.NoDoubleEnemyDeath) { return; }
             beam?.SpawnDamageEffect(effectiveness);
             if (dead)
             {
@@ -223,7 +223,7 @@ namespace MphRead.Entities
                     UpdateAnimFrames(_models[i]);
                 }
             }
-            if (Vector3.Dot(PlayerEntity.Main.CameraInfo.Position - _fieldPosition, _vec2) < 0)
+            if (Vector3.Dot(_scene.ViewPosition - _fieldPosition, _vec2) < 0)
             {
                 _vec2 *= -1;
                 Vector3 position = _fieldPosition + _vec2 * Fixed.ToFloat(409);
@@ -276,8 +276,8 @@ namespace MphRead.Entities
                     {
                         if (_models[0].AnimInfo.Frame[0] >= 10)
                         {
-                            float randRight = Rng.GetRandomInt2(0x666) / 4096f - 0.2f;
-                            float randUp = Rng.GetRandomInt2(0x666) / 4096f - 0.2f;
+                            float randRight = _scene.Random.GetRandomInt2(0x666) / 4096f - 0.2f;
+                            float randUp = _scene.Random.GetRandomInt2(0x666) / 4096f - 0.2f;
                             _ownSpeed = new Vector3(
                                 _forceField.FieldUpVector.X * randUp + _forceField.FieldRightVector.X * randRight,
                                 _forceField.FieldUpVector.Y * randUp + _forceField.FieldRightVector.Y * randRight,
@@ -301,7 +301,7 @@ namespace MphRead.Entities
         public void LockHit(EntityBase source)
         {
             var beam = (BeamProjectileEntity)source;
-            if (_shotFrames == 0 && GetEffectiveness(beam.Beam) == Effectiveness.Zero && beam.Owner == PlayerEntity.Main)
+            if (_shotFrames == 0 && GetEffectiveness(beam.Beam) == Effectiveness.Zero && beam.Owner != null && beam.Owner == _scene.LocalPlayer)
             {
                 _shotFrames = _forceField.Data.Type == 7 ? (byte)SimTicks.Hz : (byte)1;
                 beam.Owner.GetPosition(out _targetPosition);

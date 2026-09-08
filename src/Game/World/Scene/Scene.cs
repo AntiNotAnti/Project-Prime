@@ -16,8 +16,29 @@ namespace MphRead
         End = 3
     }
 
-    public partial class Scene
+    public partial class Scene : IDisposable
     {
+        private WorkerContentLease? _contentLease;
+        public WorkerContent? Content => _contentLease?.Content;
+        public MatchRandom Random { get; } = new MatchRandom();
+        public CameraSequenceManager CameraSequences { get; }
+        public SpecialEntityRegistry SpecialEntities { get; } = new();
+        public BotRuntimeState BotRuntimeState { get; } = new();
+        public MatchPlayers Players { get; }
+        public MatchRoster Roster { get; } = new MatchRoster();
+        private int _localPlayerSlot = -1;
+        public int LocalPlayerSlot
+        {
+            get => _localPlayerSlot;
+            set
+            {
+                if (value < -1 || value >= PlayerEntity.SlotCapacity || IsHeadless && value != -1)
+                    throw new ArgumentOutOfRangeException(nameof(value), "Headless scenes have no local player.");
+                _localPlayerSlot = value;
+            }
+        }
+        public PlayerEntity? LocalPlayer => LocalPlayerSlot >= 0 && LocalPlayerSlot < Players.Count
+            ? Players[LocalPlayerSlot] : null;
         public MatchRuntime Match { get; }
         public SpawnDirector SpawnDirector { get; }
         public event Action<PlayerEntity, int>? JumpPadActivated;
@@ -27,19 +48,30 @@ namespace MphRead
         public ISceneServices Services { get; set; } = SceneServices.Local;
         public IScenePresentation? Presentation { get; internal set; }
 
-        public Scene(bool headless = false, bool preserveNicknames = false)
+        public MatchFeatureSet Features { get; }
+
+        public Scene(bool headless = false, MatchFeatureSet? features = null)
         {
+            Features = features ?? new MatchFeatureSet();
             IsHeadless = headless;
+            CameraSequences = new CameraSequenceManager(this);
             SpawnDirector = new SpawnDirector(this);
-            Read.ClearCache();
-            Text.Strings.ClearCache();
             Match = new MatchRuntime(new MatchRules(MatchMode.Battle, "__unconfigured__"), this)
             {
                 Phase = MatchPhase.WaitingForPlayers
             };
-            GameState.Reset(preserveNicknames);
-            PlayerEntity.Construct(this);
+            Players = new MatchPlayers(this);
+            if (headless) _contentLease = ContentEnvironment.AcquireContent();
         }
+        private bool _disposed;
+        public void Dispose()
+        {
+            if (_disposed) return;
+            if (IsHeadless) CloseHeadless();
+            else CloseWorld();
+            _disposed = true;
+        }
+
         public TransitionState TransitionState { get; set; }
         public int TransitionRoomId { get; set; } = -1;
         public bool InRoomTransition => TransitionState != TransitionState.None;

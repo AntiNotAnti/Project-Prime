@@ -190,7 +190,6 @@ namespace MphRead.Entities
         protected int _spinModelIndex;
         protected int _floatModelIndex;
 
-        private static ushort _nextItemRotation = 0;
 
         public SpinningEntityBase(float spinSpeed, Vector3 spinAxis,
             EntityType type, Scene scene) : base(type, scene)
@@ -257,11 +256,9 @@ namespace MphRead.Entities
             return transform;
         }
 
-        private static float GetItemRotation()
+        private float GetItemRotation()
         {
-            float rotation = _nextItemRotation / (float)0x10000 * 360f;
-            _nextItemRotation += 0x2000;
-            return rotation;
+            return _scene.NextItemRotation();
         }
     }
 }

@@ -178,8 +178,6 @@ namespace MphRead.Entities
         internal ModelInstance _bipedIceModel = null!;
         internal ModelInstance _trailModel = null!;
         internal ModelInstance _octolithSimpleModel = null!;
-        internal readonly Node?[] _spineNodes = new Node?[2];
-        internal readonly Node?[] _shootNodes = new Node?[2];
         internal readonly Matrix4[] _bipedIceTransforms = new Matrix4[19];
 
         // todo?: could save space with a union
@@ -195,36 +193,9 @@ namespace MphRead.Entities
         public byte SyluxBombCount { get; set; } = 0;
         public BombEntity?[] SyluxBombs { get; } = new BombEntity?[3];
 
-        // todo: these settings can change
-        public static int MainPlayerIndex { get; set; } = 0;
-        public static int PlayerCount { get; set; } = 0;
-        /// <summary>
-        /// How many slots exist at all. Every per-slot array in the game is
-        /// this long, so raising it is what makes a match of more than four
-        /// possible; MaxPlayers is the limit actually in force, which a
-        /// networked session raises to whatever the server allows.
-        ///
-        /// A constant rather than a setting because the arrays are built
-        /// during static initialisation, long before anything could configure
-        /// it. Unused slots cost an entry each and are inert.
-        /// </summary>
-        /// <summary>
-        /// The most players any session can hold.
-        ///
-        /// Separate from MaxPlayers, which is how many this particular match
-        /// allows: every array indexed by slot is sized from this, so the
-        /// limit can be raised without each of them having to agree about it
-        /// separately. Four is what the DS supported; nothing in the
-        /// simulation needed that number, only the arrays did.
-        /// </summary>
         public const int SlotCapacity = 8;
-
-        public static int MaxPlayers { get; set; } = 4;
-        public static int PlayersCreated { get; set; } = 0;
-        public static PlayerEntity Main => Players[MainPlayerIndex];
-        public static readonly PlayerEntity[] _players = new PlayerEntity[SlotCapacity];
-        public static IReadOnlyList<PlayerEntity> Players => _players;
-        public bool IsMainPlayer => this == Main && _scene.ControlsPlayer;
+        public Scene Scene => _scene;
+        public bool IsMainPlayer => ReferenceEquals(this, _scene.LocalPlayer) && _scene.ControlsPlayer;
 
         private const int UA = 0;
         private const int Missiles = 1;
@@ -286,9 +257,9 @@ namespace MphRead.Entities
         public bool IsPrimeHunter => SlotIndex == _scene.Match.PrimeHunter;
 
         internal const int _mbTrailSegments = 9 * 2;
-        internal static readonly Matrix4[,] _mbTrailMatrices = new Matrix4[SlotCapacity, _mbTrailSegments];
-        internal static readonly float[,] _mbTrailAlphas = new float[SlotCapacity, _mbTrailSegments];
-        internal static readonly int[] _mbTrailIndices = new int[SlotCapacity];
+        internal readonly Matrix4[] _mbTrailMatrices = new Matrix4[_mbTrailSegments];
+        internal readonly float[] _mbTrailAlphas = new float[_mbTrailSegments];
+        internal int _mbTrailIndex;
         internal Matrix4 _modelTransform = Matrix4.Identity;
 
         // todo: visualize
@@ -454,47 +425,16 @@ namespace MphRead.Entities
         public bool IgnoreItemPickups { get; set; }
         public Vector3? ForcedSpawnPos { get; set; }
 
-        private PlayerEntity(int slotIndex, Scene scene) : base(EntityType.Player, scene)
+        internal PlayerEntity(int slotIndex, Scene scene) : base(EntityType.Player, scene)
         {
             SlotIndex = slotIndex;
             _beams = SceneSetup.CreateBeamList(16, scene); // in-game: 5
             AiData = new PlayerAiData(this);
         }
 
-        public static void Construct(Scene scene)
+        internal void PrepareSlot(Hunter hunter, int recolor)
         {
-            for (int i = 0; i < _players.Length; i++)
-            {
-                if (_players[i] == null)
-                {
-                    _players[i] = new PlayerEntity(i, scene);
-                }
-            }
-        }
-
-        public static void Reset()
-        {
-            for (int i = 0; i < _players.Length; i++)
-            {
-                _players[i] = null!;
-            }
-            PlayerCount = 0;
-            PlayersCreated = 0;
-            // Only the networked paths ever move this, and nothing moved it
-            // back: a client that joined a server on slot 1 kept pointing at
-            // slot 1 for the rest of the process, so the next offline match
-            // made Main a bot -- the player watched the AI play and their
-            // input went to its controls.
-            MainPlayerIndex = 0;
-        }
-
-        public static PlayerEntity? Create(Hunter hunter, int recolor)
-        {
-            if (PlayersCreated >= MaxPlayers)
-            {
-                return null;
-            }
-            PlayerEntity player = Players[PlayersCreated++];
+            PlayerEntity player = this;
             player.Hunter = hunter;
             player.Recolor = recolor;
             if (player.IsBot)
@@ -504,7 +444,6 @@ namespace MphRead.Entities
             player.LoadFlags |= LoadFlags.SlotActive;
             player.LoadFlags &= ~LoadFlags.Spawned;
             player.CreateHalfturret();
-            return player;
         }
 
         public void CreateHalfturret()
@@ -601,12 +540,6 @@ namespace MphRead.Entities
             OctolithFlag = null;
             ResetMorphBallTrail();
             // todo?: point module
-            string shootNodeName = Hunter == Hunter.Guardian ? "Head_1" : "R_elbow";
-            for (int i = 0; i < 2; i++)
-            {
-                _spineNodes[i] = _bipedModelLods[i].Model.GetNodeByName("Spine_1");
-                _shootNodes[i] = _bipedModelLods[i].Model.GetNodeByName(shootNodeName);
-            }
             if (Hunter == Hunter.Spire)
             {
                 _spireAltNodes[0] = _altModel.Model.GetNodeByName("L_Rock01");
@@ -750,9 +683,9 @@ namespace MphRead.Entities
             NodeRef = nodeRef;
             _gunViewBob = 0;
             _walkViewBob = 0;
-            if (IsMainPlayer && CameraSequence.Current?.IsIntro == true)
+            if (IsMainPlayer && _scene.CameraSequences.Current?.IsIntro == true)
             {
-                CameraSequence.Current.End();
+                _scene.CameraSequences.Current.End();
             }
             CameraInfo.Reset();
             CameraInfo.Position = Position;
@@ -765,7 +698,7 @@ namespace MphRead.Entities
             _viewTiltAngleH = 0;
             _viewTiltAngleV = 0;
             UpdateCameraFirst();
-            CameraInfo.Update();
+            CameraInfo.Update(_scene);
             _gunDrawPos = Fixed.ToFloat(Values.FieldB8) * facing
                 + CameraInfo.Position
                 + Fixed.ToFloat(Values.FieldB0) * _gunVec2
@@ -847,7 +780,7 @@ namespace MphRead.Entities
             if (respawn)
             {
                 // spawnEffectMP or spawnEffect
-                int effectId = PlayerCount > 2 && !Features.MaxPlayerDetail ? 33 : 31;
+                int effectId = _scene.Players.ActiveCount > 2 && !_scene.Features.MaxPlayerDetail ? 33 : 31;
                 _scene.SpawnEffect(effectId, Vector3.UnitX, Vector3.UnitY, Position);
             }
         }
@@ -916,7 +849,7 @@ namespace MphRead.Entities
             if (IsAltForm || IsMorphing || IsUnmorphing)
             {
                 ResumeOwnCamera();
-                CameraInfo.Update();
+                CameraInfo.Update(_scene);
             }
         }
 
@@ -1034,21 +967,21 @@ namespace MphRead.Entities
         {
             for (int i = 0; i < _mbTrailSegments; i++)
             {
-                _mbTrailAlphas[SlotIndex, i] = 0;
+                _mbTrailAlphas[i] = 0;
             }
-            _mbTrailIndices[SlotIndex] = 0;
+            _mbTrailIndex = 0;
         }
 
         private void UpdateMorphBallTrail()
         {
             for (int i = 0; i < _mbTrailSegments; i++)
             {
-                float alpha = _mbTrailAlphas[SlotIndex, i] - 3 / 31f / 2; // todo: FPS stuff
+                float alpha = _mbTrailAlphas[i] - 3 / 31f / 2; // todo: FPS stuff
                 if (alpha < 0)
                 {
                     alpha = 0;
                 }
-                _mbTrailAlphas[SlotIndex, i] = alpha;
+                _mbTrailAlphas[i] = alpha;
             }
             if (IsAltForm)
             {
@@ -1057,15 +990,15 @@ namespace MphRead.Entities
                 {
                     Vector3 cross = Vector3.Cross(row0, Vector3.UnitY).Normalized();
                     var cross2 = Vector3.Cross(cross, row0);
-                    int index = _mbTrailIndices[SlotIndex];
-                    _mbTrailAlphas[SlotIndex, index] = 25 / 31f;
-                    _mbTrailMatrices[SlotIndex, index] = new Matrix4(
+                    int index = _mbTrailIndex;
+                    _mbTrailAlphas[index] = 25 / 31f;
+                    _mbTrailMatrices[index] = new Matrix4(
                         row0.X, row0.Y, row0.Z, 0,
                         cross2.X, cross2.Y, cross2.Z, 0,
                         cross.X, cross.Y, cross.Z, 0,
                         Position.X, Position.Y, Position.Z, 1
                     );
-                    _mbTrailIndices[SlotIndex] = (index + 1) % _mbTrailSegments;
+                    _mbTrailIndex = (index + 1) % _mbTrailSegments;
                 }
             }
         }
@@ -1099,7 +1032,7 @@ namespace MphRead.Entities
             }
             WeaponInfo info = Weapons.Current[(int)beam];
             byte ammoType = info.AmmoType;
-            if (debug && Cheats.FreeWeaponSelect)
+            if (debug && _scene.Features.Cheats.FreeWeaponSelect)
             {
                 _availableWeapons[beam] = true;
                 _availableCharges[beam] = true;
@@ -1268,7 +1201,7 @@ namespace MphRead.Entities
                     _gunModel.AnimInfo.Flags[0] &= ~AnimFlags.Ended;
                 }
             }
-            else if (!Features.NoIdleSway && _timeSinceInput >= (ulong)Values.GunIdleTime * SimTicks.TicksPer30HzFrame)
+            else if (!_scene.Features.NoIdleSway && _timeSinceInput >= (ulong)Values.GunIdleTime * SimTicks.TicksPer30HzFrame)
             {
                 if (GunAnimation != GunAnimation.UpDown)
                 {
@@ -1395,13 +1328,13 @@ namespace MphRead.Entities
             {
                 return;
             }
-            if (IsMainPlayer && CameraSequence.Current?.BlockInput == true)
+            if (IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true)
             {
                 if (!flags.TestFlag(DamageFlags.Death))
                 {
                     return;
                 }
-                CamSeqEntity.CancelCurrent();
+                _scene.SpecialEntities.CancelCameraSequence();
             }
             if (_spawnInvulnTimer > 0 && !flags.TestFlag(DamageFlags.Death) && !flags.TestFlag(DamageFlags.IgnoreInvuln))
             {
@@ -1476,7 +1409,7 @@ namespace MphRead.Entities
                 ignoreDamage = true;
                 damage = 0;
             }
-            if (!ignoreDamage && flags.TestFlag(DamageFlags.Headshot) && attacker == Main) // todo: and not on wifi
+            if (!ignoreDamage && flags.TestFlag(DamageFlags.Headshot) && attacker != null && attacker == _scene.LocalPlayer) // todo: and not on wifi
             {
                 int messageId = 228; // HEADSHOT!
                 QueueHudMessage(128, 40, 20 / (float)SimTicks.LegacyHz, 0, messageId);
@@ -1549,9 +1482,9 @@ namespace MphRead.Entities
             // todo?: something for wifi
             if (attacker != null)
             {
-                if (attacker == Main)
+                if (attacker == _scene.LocalPlayer)
                 {
-                    Main.UpdateOpponent(SlotIndex);
+                    _scene.LocalPlayer.UpdateOpponent(SlotIndex);
                 }
                 if (attacker != this)
                 {
@@ -1682,7 +1615,7 @@ namespace MphRead.Entities
                 _boostCharge = 0;
                 _scene.Match.Players[SlotIndex].Deaths++;
                 _scene.SpawnDirector.RecordDeath(Position);
-                if (this == Main && beamType == BeamType.OmegaCannon)
+                if (this == _scene.LocalPlayer && beamType == BeamType.OmegaCannon)
                 {
                     ShowDeathFade();
                 }
@@ -1700,7 +1633,7 @@ namespace MphRead.Entities
                         else
                         {
                             // todo: update license
-                            string nickname = GameState.Nicknames[attacker.SlotIndex];
+                            string nickname = _scene.Roster.Nicknames[attacker.SlotIndex];
                             // %s's HEADSHOT KILLED YOU! / %s KILLED YOU!
                             string message = Strings.GetHudMessage(flags.TestFlag(DamageFlags.Headshot) ? 236 : 237);
                             QueueHudMessage(128, 70, 140, 90 / (float)SimTicks.LegacyHz, 2, message.Replace("%s", nickname));
@@ -1768,19 +1701,19 @@ namespace MphRead.Entities
                             _scene.Match.Players[attacker.SlotIndex].FriendlyKills++;
                             _scene.Match.Players[attacker.SlotIndex].KillStreak = 0;
                             // todo: update license info
-                            if (attacker == Main)
+                            if (attacker == _scene.LocalPlayer)
                             {
-                                string nickname = GameState.Nicknames[SlotIndex];
+                                string nickname = _scene.Roster.Nicknames[SlotIndex];
                                 string message = Strings.GetHudMessage(240); // YOU KILLED A TEAMMATE, (%s)!
                                 QueueHudMessage(128, 70, 140, 60 / (float)SimTicks.LegacyHz, 2, message.Replace("%s", nickname));
                             }
                         }
                         else
                         {
-                            if (attacker == Main)
+                            if (attacker == _scene.LocalPlayer)
                             {
                                 // todo: update license info
-                                string nickname = GameState.Nicknames[SlotIndex];
+                                string nickname = _scene.Roster.Nicknames[SlotIndex];
                                 // YOUR HEADSHOT KILLED %s! / YOU KILLED %s!
                                 string message = Strings.GetHudMessage(flags.TestFlag(DamageFlags.Headshot) ? 239 : 238);
                                 QueueHudMessage(128, 70, 140, 60 / (float)SimTicks.LegacyHz, 2, message.Replace("%s", nickname));
@@ -1817,7 +1750,7 @@ namespace MphRead.Entities
                                 }
                                 else
                                 {
-                                    string nickname = GameState.Nicknames[attacker.SlotIndex];
+                                    string nickname = _scene.Roster.Nicknames[attacker.SlotIndex];
                                     message = Strings.GetHudMessage(255); // %s KILLED 5 IN A ROW!
                                     message = message.Replace("%s", nickname);
                                 }
@@ -1833,11 +1766,11 @@ namespace MphRead.Entities
                                 {
                                     _scene.Match.PrimeHunter = attacker.SlotIndex;
                                     _scene.Match.Players[attacker.SlotIndex].PrimesKilled++;
-                                    if (Main.IsPrimeHunter)
+                                    if (_scene.LocalPlayer?.IsPrimeHunter == true)
                                     {
                                         _soundSource.QueueStream(VoiceId.VOICE_PRIME, delay: 1);
                                     }
-                                    string nickname = GameState.Nicknames[attacker.SlotIndex];
+                                    string nickname = _scene.Roster.Nicknames[attacker.SlotIndex];
                                     string message = Strings.GetHudMessage(241); // %s is the new prime hunter!
                                     QueueHudMessage(128, 70, 140, 90 / (float)SimTicks.LegacyHz, 2, message.Replace("%s", nickname));
                                 }
@@ -2104,55 +2037,79 @@ namespace MphRead.Entities
             }
         }
 
-        private static readonly string[] _altAttackNames = new string[8];
-        private static readonly string[] _hunterNames = new string[8];
-        private static readonly string[] _weaponNames = new string[9];
+        private static IReadOnlyList<string> _altAttackNames = Array.AsReadOnly(new string[8]);
+        private static IReadOnlyList<string> _hunterNames = Array.AsReadOnly(new string[8]);
+        private static IReadOnlyList<string> _weaponNames = Array.AsReadOnly(new string[9]);
+        private static (long Generation, Language Language)? _nameContext;
 
         public static void LoadWeaponNames()
         {
-            for (int i = 0; i < 9; ++i)
+            lock (ContentEnvironment.SyncRoot)
             {
-                _weaponNames[i] = Strings.GetMessage('W', i + 1, StringTables.WeaponNames);
-            }
-            for (int i = 0; i < 8; ++i)
-            {
-                _hunterNames[i] = Strings.GetMessage('H', i + 1, StringTables.WeaponNames);
-            }
-            // todo: Guardian alt form
-            for (int i = 0; i < 7; ++i)
-            {
-                _altAttackNames[i] = Strings.GetMessage('A', i + 1, StringTables.WeaponNames);
+                var context = (ContentEnvironment.Generation, Scene.Language);
+                if (_nameContext == context) { return; }
+                string[] weaponNames = new string[9];
+                string[] hunterNames = new string[8];
+                string[] altAttackNames = new string[8];
+                for (int i = 0; i < 9; ++i)
+                {
+                    weaponNames[i] = Strings.GetMessage('W', i + 1, StringTables.WeaponNames);
+                }
+                for (int i = 0; i < 8; ++i)
+                {
+                    hunterNames[i] = Strings.GetMessage('H', i + 1, StringTables.WeaponNames);
+                }
+                // todo: Guardian alt form
+                for (int i = 0; i < 7; ++i)
+                {
+                    altAttackNames[i] = Strings.GetMessage('A', i + 1, StringTables.WeaponNames);
+                }
+                _weaponNames = Array.AsReadOnly(weaponNames);
+                _hunterNames = Array.AsReadOnly(hunterNames);
+                _altAttackNames = Array.AsReadOnly(altAttackNames);
+                _nameContext = context;
             }
         }
 
-        public static readonly CollisionVolume[,] PlayerVolumes = new CollisionVolume[8, 3];
+        public static PlayerCollisionVolumes PlayerVolumes { get; } = new();
 
-        public static void GeneratePlayerVolumes()
+        // Kept as a source-compatible warmup entry point; the table is immutable.
+        public static void GeneratePlayerVolumes() => _ = PlayerVolumes;
+
+        public sealed class PlayerCollisionVolumes
         {
-            for (int i = 0; i < 8; i++)
+            private readonly CollisionVolume[,] _values = new CollisionVolume[8, 3];
+            public CollisionVolume this[int hunter, int volume] => _values[hunter, volume];
+
+            internal PlayerCollisionVolumes()
             {
-                PlayerValues values = Metadata.PlayerValues[i];
-                // placed so the bottom of the sphere coincides with the min pickup height (0.5f below y pos)
-                float radius = Fixed.ToFloat(values.BipedColRadius);
-                var center = new Vector3(0, Fixed.ToFloat(values.MinPickupHeight) + radius, 0);
-                PlayerVolumes[i, 0] = new CollisionVolume(center, radius);
-                // placed so the top of the sphere coincides with the max pickup height (1.1f above y pos)
-                center = new Vector3(0, Fixed.ToFloat(values.MaxPickupHeight) - radius, 0);
-                PlayerVolumes[i, 1] = new CollisionVolume(center, radius);
-                // placed so the bottom of the sphere coincides with the ground level in alt form
-                radius = Fixed.ToFloat(values.AltColRadius);
-                center = new Vector3(0, Fixed.ToFloat(values.AltColYPos), 0);
-                PlayerVolumes[i, 2] = new CollisionVolume(center, radius);
+                for (int i = 0; i < 8; i++)
+                {
+                    PlayerValues values = Metadata.PlayerValues[i];
+                    // placed so the bottom of the sphere coincides with the min pickup height (0.5f below y pos)
+                    float radius = Fixed.ToFloat(values.BipedColRadius);
+                    var center = new Vector3(0, Fixed.ToFloat(values.MinPickupHeight) + radius, 0);
+                    _values[i, 0] = new CollisionVolume(center, radius);
+                    // placed so the top of the sphere coincides with the max pickup height (1.1f above y pos)
+                    center = new Vector3(0, Fixed.ToFloat(values.MaxPickupHeight) - radius, 0);
+                    _values[i, 1] = new CollisionVolume(center, radius);
+                    // placed so the bottom of the sphere coincides with the ground level in alt form
+                    radius = Fixed.ToFloat(values.AltColRadius);
+                    center = new Vector3(0, Fixed.ToFloat(values.AltColYPos), 0);
+                    _values[i, 2] = new CollisionVolume(center, radius);
+                }
             }
         }
 
-        public static readonly float[] KandenAltNodeDistances = new float[4];
+        public static IReadOnlyList<float> KandenAltNodeDistances { get; private set; } = Array.AsReadOnly(new float[4]);
+        private static long _kandenContext = -1;
 
         public static void GenerateKandenAltNodeDistances()
         {
-            if (KandenAltNodeDistances[0] == 0 && KandenAltNodeDistances[1] == 0
-                && KandenAltNodeDistances[2] == 0 && KandenAltNodeDistances[3] == 0)
+            lock (ContentEnvironment.SyncRoot)
             {
+                if (_kandenContext == ContentEnvironment.Generation) { return; }
+                float[] distances = new float[4];
                 Model model = Read.GetModelInstance("KandenAlt_lod0").Model;
                 model.ComputeNodeMatrices(0);
                 IReadOnlyList<Node> nodes = model.Nodes;
@@ -2160,8 +2117,10 @@ namespace MphRead.Entities
                 {
                     Vector3 pos1 = nodes[i].Transform.Row3.Xyz;
                     Vector3 pos2 = nodes[i + 1].Transform.Row3.Xyz;
-                    KandenAltNodeDistances[i] = Vector3.Distance(pos1, pos2);
+                    distances[i] = Vector3.Distance(pos1, pos2);
                 }
+                KandenAltNodeDistances = Array.AsReadOnly(distances);
+                _kandenContext = ContentEnvironment.Generation;
             }
         }
     }

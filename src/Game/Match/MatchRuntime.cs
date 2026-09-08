@@ -29,7 +29,7 @@ namespace MphRead
                 if (_primeHunter == value) return;
                 _primeHunter = value;
                 if (_scene == null) return;
-                PlayerEntity? player = value >= 0 && value < PlayerEntity.Players.Count ? PlayerEntity.Players[value] : null;
+                PlayerEntity? player = value >= 0 && value < _scene.Players.Count ? _scene.Players[value] : null;
                 _scene.Services.PublishWorldSignal(_scene, new(WorldSignalKind.PrimeChanged, WorldSubjectKind.Match,
                     null, player, player == null ? (byte)255 : (byte)player.TeamIndex, player?.Position ?? OpenTK.Mathematics.Vector3.Zero));
             }
@@ -79,6 +79,7 @@ namespace MphRead
         internal int[,] BeamKills { get; } = new int[PlayerEntity.SlotCapacity, 9];
 
         private readonly Scene? _scene;
+        internal Scene? Scene => _scene;
         private readonly MatchLogic? _logic;
         private readonly MatchFlow? _flow;
         public MatchLogic Logic => _logic ?? throw new InvalidOperationException("Match logic requires an owning scene.");

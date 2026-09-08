@@ -6,8 +6,6 @@ namespace MphRead.Entities
         public PointModuleEntity? Next { get; private set; }
         public PointModuleEntity? Prev { get; private set; }
 
-        private static PointModuleEntity? _current;
-        public static PointModuleEntity? Current => _current;
 
         public const int StartId = 50;
 
@@ -36,7 +34,7 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
-            if (_current == null && Id == StartId)
+            if (_scene.SpecialEntities.PointModule == null && Id == StartId)
             {
                 SetCurrent();
             }
@@ -45,11 +43,11 @@ namespace MphRead.Entities
 
         public void SetCurrent()
         {
-            if (_current != this)
+            if (_scene.SpecialEntities.PointModule != this)
             {
-                UpdateChain(_current, false);
-                _current = this;
-                UpdateChain(_current, true);
+                UpdateChain(_scene.SpecialEntities.PointModule, false);
+                _scene.SpecialEntities.PointModule = this;
+                UpdateChain(_scene.SpecialEntities.PointModule, true);
             }
         }
 

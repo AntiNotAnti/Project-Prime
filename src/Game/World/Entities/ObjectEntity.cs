@@ -224,7 +224,7 @@ namespace MphRead.Entities
                     }
                     needsUpdate = false;
                 }
-                else if (_data.ModelId == 46) // SniperTarget
+                else if (_scene.LocalPlayer != null && _data.ModelId == 46) // SniperTarget
                 {
                     Debug.Assert(_meta != null);
                     if (state == 0)
@@ -326,11 +326,11 @@ namespace MphRead.Entities
         public override bool Process()
         {
             base.Process();
-            if (_data.ModelId == 46) // SniperTarget
+            if (_scene.LocalPlayer != null && _data.ModelId == 46) // SniperTarget
             {
                 if (_state != 2)
                 {
-                    Vector3 between = PlayerEntity.Main.Position - Position;
+                    Vector3 between = _scene.LocalPlayer.Position - Position;
                     if (Vector3.Dot(between, between) >= 15 * 15)
                     {
                         if (_scanMsgTarget != null)
@@ -412,8 +412,8 @@ namespace MphRead.Entities
                     if (_data.EffectFlags.TestFlag(ObjEffFlags.UseEffectVolume))
                     {
                         // todo: add an option to disable this check
-                        Vector3 cameraPosition = _scene.ControlsPlayer
-                            ? PlayerEntity.Main.CameraInfo.Position
+                        Vector3 cameraPosition = _scene.ControlsPlayer && _scene.LocalPlayer is PlayerEntity local
+                            ? local.CameraInfo.Position
                             : _scene.ViewPosition; // skdebug
                         processEffect = _effectVolume.TestPoint(cameraPosition);
                     }
@@ -483,9 +483,9 @@ namespace MphRead.Entities
                             if (_data.EffectFlags.TestFlag(ObjEffFlags.UseEffectOffset))
                             {
                                 Vector3 offset = _data.EffectPositionOffset.ToFloatVector();
-                                offset.X *= Fixed.ToFloat(2 * (Rng.GetRandomInt1(0x1000u) - 2048));
-                                offset.Y *= Fixed.ToFloat(2 * (Rng.GetRandomInt1(0x1000u) - 2048));
-                                offset.Z *= Fixed.ToFloat(2 * (Rng.GetRandomInt1(0x1000u) - 2048));
+                                offset.X *= Fixed.ToFloat(2 * (_scene.Random.GetRandomInt1(0x1000u) - 2048));
+                                offset.Y *= Fixed.ToFloat(2 * (_scene.Random.GetRandomInt1(0x1000u) - 2048));
+                                offset.Z *= Fixed.ToFloat(2 * (_scene.Random.GetRandomInt1(0x1000u) - 2048));
                                 spawnPos += Matrix.Vec3MultMtx3(offset, GetTransformMatrix(spawnFacing, spawnUp));
                             }
                             _scene.SpawnEffect(_data.EffectId, spawnFacing, spawnUp, spawnPos, entCol: entCol);
@@ -511,7 +511,7 @@ namespace MphRead.Entities
             }
             if (_data.ModelId == 0 && _models[0].AnimInfo.Index[0] == 3 && _models[0].AnimInfo.Flags[0].TestFlag(AnimFlags.Ended))
             {
-                _models[0].SetAnimation((int)Rng.GetRandomInt1(2));
+                _models[0].SetAnimation((int)_scene.Random.GetRandomInt1(2));
             }
             return true;
         }

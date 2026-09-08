@@ -24,7 +24,9 @@ namespace MphRead.Mods.Network
         // Authoritative protocol 5 was checkpointed before the live wire moved
         // to 6. These formats contain server facts, not joins or input commands;
         // both remain readable through demo-only adapters after version 7 without enabling either old wire on a socket.
-        public static bool IsAuthoritativeProtocol(byte protocol) => protocol is 5 or 6 or 7 or 8;
+        // Protocol 9 changes live JOIN routing only. Recorded snapshots, rosters,
+        // world facts and checkpoints retain the protocol-8 layout.
+        public static bool IsAuthoritativeProtocol(byte protocol) => protocol is 5 or 6 or 7 or 8 or 9;
         public static bool IsSupportedProtocol(byte protocol) => protocol == 4 || IsAuthoritativeProtocol(protocol);
         public const string Extension = ".fpdemo";
 

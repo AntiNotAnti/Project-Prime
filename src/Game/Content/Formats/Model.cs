@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using OpenTK.Mathematics;
 
 namespace MphRead
 {
     public class ModelInstance
     {
+        private readonly Dictionary<Model, Model> _runtimeModels = new();
         public Model Model { get; private set; }
         public AnimationInfo AnimInfo { get; } = new AnimationInfo();
         public bool IsPlaceholder { get; set; }
@@ -16,13 +18,20 @@ namespace MphRead
 
         public ModelInstance(Model model)
         {
-            Model = model;
+            Model = model.CreateRuntimeCopy();
+            _runtimeModels.Add(model, Model);
         }
 
-        // should only be needed by the player entity
+        // Player drawing selects a LOD every frame. Reuse this instance's private copy
+        // of each source so selecting the same LOD does not allocate or reset its pose.
         public void SetModel(Model model)
         {
-            Model = model;
+            if (!_runtimeModels.TryGetValue(model, out Model? runtime))
+            {
+                runtime = model.CreateRuntimeCopy();
+                _runtimeModels.Add(model, runtime);
+            }
+            Model = runtime;
         }
 
         // these overloads could almost share code, but the precedence for the frame count is different
@@ -247,12 +256,22 @@ namespace MphRead
         public IReadOnlyList<TextureAnimationGroup> Texture { get; }
         public AnimationOffsets Offsets { get; }
 
+        internal AnimationGroups(AnimationGroups source)
+        {
+            Node = Array.AsReadOnly(source.Node.Select(group => group.CloneRuntime()).ToArray());
+            Material = Array.AsReadOnly(source.Material.Select(group => group.CloneRuntime()).ToArray());
+            Texcoord = Array.AsReadOnly(source.Texcoord.Select(group => group.CloneRuntime()).ToArray());
+            Texture = Array.AsReadOnly(source.Texture.Select(group => group.CloneRuntime()).ToArray());
+            Any = source.Any;
+            Offsets = source.Offsets;
+        }
+
         public AnimationGroups(AnimationResults animations)
         {
-            Node = animations.NodeAnimationGroups;
-            Material = animations.MaterialAnimationGroups;
-            Texcoord = animations.TexcoordAnimationGroups;
-            Texture = animations.TextureAnimationGroups;
+            Node = Array.AsReadOnly(animations.NodeAnimationGroups.Select(group => group.CloneRuntime()).ToArray());
+            Material = Array.AsReadOnly(animations.MaterialAnimationGroups.Select(group => group.CloneRuntime()).ToArray());
+            Texcoord = Array.AsReadOnly(animations.TexcoordAnimationGroups.Select(group => group.CloneRuntime()).ToArray());
+            Texture = Array.AsReadOnly(animations.TextureAnimationGroups.Select(group => group.CloneRuntime()).ToArray());
             Any = Node.Count > 0 || Material.Count > 0 || Texcoord.Count > 0 || Texture.Count > 0;
             Offsets = new AnimationOffsets(animations);
             Debug.Assert(Offsets.Node.Count >= Node.Count);
@@ -271,10 +290,10 @@ namespace MphRead
 
         public AnimationOffsets(AnimationResults animations)
         {
-            Node = animations.NodeGroupOffsets;
-            Material = animations.MaterialGroupOffsets;
-            Texcoord = animations.TexcoordGroupOffsets;
-            Texture = animations.TextureGroupOffsets;
+            Node = Array.AsReadOnly(animations.NodeGroupOffsets.ToArray());
+            Material = Array.AsReadOnly(animations.MaterialGroupOffsets.ToArray());
+            Texcoord = Array.AsReadOnly(animations.TexcoordGroupOffsets.ToArray());
+            Texture = Array.AsReadOnly(animations.TextureGroupOffsets.ToArray());
         }
     }
 
@@ -351,7 +370,7 @@ namespace MphRead
     public class Model
     {
         private static int _nextId = 0;
-        public int Id { get; } = _nextId++;
+        public int Id { get; }
 
         public string Name { get; }
         public bool FirstHunt { get; }
@@ -382,24 +401,25 @@ namespace MphRead
             IReadOnlyList<Matrix4> textureMatrices, IReadOnlyList<Recolor> recolors, IReadOnlyList<int> nodeWeights,
             IReadOnlyList<Vector3Fx> nodePos, IReadOnlyList<Vector3Fx> nodeInitPos, IReadOnlyList<int> posCounts, IReadOnlyList<Fixed> posScales)
         {
+            Id = Interlocked.Increment(ref _nextId) - 1;
             Name = name;
             FirstHunt = firstHunt;
             Header = header;
-            Nodes = nodes.Select(n => new Node(n)).ToList();
-            RawNodes = nodes.ToList();
-            NodePos = nodePos;
-            NodeInitPos = nodeInitPos;
-            NodePosCounts = posCounts;
-            NodePosScales = posScales;
-            Meshes = meshes.Select(m => new Mesh(m)).ToList();
-            Materials = materials.Select(m => new Material(m)).ToList();
-            DisplayLists = dlists;
-            RenderInstructionLists = renderInstructions;
-            TextureMatrices = textureMatrices;
-            Recolors = recolors;
+            RawNodes = Array.AsReadOnly(nodes.Select(node => node.CloneRuntime()).ToArray());
+            Nodes = Array.AsReadOnly(RawNodes.Select(node => new Node(node)).ToArray());
+            NodePos = Array.AsReadOnly(nodePos.ToArray());
+            NodeInitPos = Array.AsReadOnly(nodeInitPos.ToArray());
+            NodePosCounts = Array.AsReadOnly(posCounts.ToArray());
+            NodePosScales = Array.AsReadOnly(posScales.ToArray());
+            Meshes = Array.AsReadOnly(meshes.Select(mesh => new Mesh(mesh)).ToArray());
+            Materials = Array.AsReadOnly(materials.Select(material => new Material(material)).ToArray());
+            DisplayLists = Array.AsReadOnly(dlists.ToArray());
+            RenderInstructionLists = Array.AsReadOnly(renderInstructions.Select(list => (IReadOnlyList<RenderInstruction>)Array.AsReadOnly(list.ToArray())).ToArray());
+            TextureMatrices = Array.AsReadOnly(textureMatrices.ToArray());
+            Recolors = Array.AsReadOnly(recolors.ToArray());
             Debug.Assert(header.NodeWeightCount == nodeWeights.Count || name == "doubleDamage_img");
             Debug.Assert(nodeWeights.Count <= 31);
-            NodeMatrixIds = nodeWeights;
+            NodeMatrixIds = Array.AsReadOnly(nodeWeights.ToArray());
             if (header.NodeWeightCount > 0)
             {
                 _matrixStackValues = new float[header.NodeWeightCount * 16];
@@ -415,6 +435,37 @@ namespace MphRead
             AnimationGroups = new AnimationGroups(animations);
             float scale = Header.ScaleBase.FloatValue * (1 << (int)Header.ScaleFactor);
             Scale = new Vector3(scale, scale, scale);
+        }
+
+        /// <summary>
+        /// Copies all runtime pose, visibility, material, animation cursor, and matrix stack state.
+        /// Parsed geometry/keyframe tables remain shared. Id identifies those renderer resources,
+        /// not this mutable instance, so copies retain the source asset Id.
+        /// </summary>
+        public Model CreateRuntimeCopy() => new Model(this);
+
+        private Model(Model source)
+        {
+            Id = source.Id;
+            Name = source.Name;
+            FirstHunt = source.FirstHunt;
+            Header = source.Header;
+            Nodes = Array.AsReadOnly(source.Nodes.Select(node => node.CloneRuntime()).ToArray());
+            Meshes = Array.AsReadOnly(source.Meshes.Select(mesh => mesh.CloneRuntime()).ToArray());
+            Materials = Array.AsReadOnly(source.Materials.Select(material => material.CloneRuntime()).ToArray());
+            _matrixStackValues = (float[])source._matrixStackValues.Clone();
+            AnimationGroups = new AnimationGroups(source.AnimationGroups);
+            DisplayLists = source.DisplayLists;
+            TextureMatrices = source.TextureMatrices;
+            RenderInstructionLists = source.RenderInstructionLists;
+            Recolors = source.Recolors;
+            NodeMatrixIds = source.NodeMatrixIds;
+            RawNodes = Array.AsReadOnly(source.RawNodes.Select(node => node.CloneRuntime()).ToArray());
+            NodePos = source.NodePos;
+            NodeInitPos = source.NodeInitPos;
+            NodePosCounts = source.NodePosCounts;
+            NodePosScales = source.NodePosScales;
+            Scale = source.Scale;
         }
 
         public void FilterNodes(int layerMask)
@@ -899,10 +950,10 @@ namespace MphRead
         {
             ThrowIfInvalidEnums(textures);
             Name = name;
-            Textures = textures;
-            Palettes = palettes;
-            TextureData = textureData;
-            PaletteData = paletteData;
+            Textures = Array.AsReadOnly(textures.ToArray());
+            Palettes = Array.AsReadOnly(palettes.ToArray());
+            TextureData = Array.AsReadOnly(textureData.Select(list => (IReadOnlyList<TextureData>)Array.AsReadOnly(list.ToArray())).ToArray());
+            PaletteData = Array.AsReadOnly(paletteData.Select(list => (IReadOnlyList<PaletteData>)Array.AsReadOnly(list.ToArray())).ToArray());
             Debug.Assert(Textures.Count == TextureData.Count);
             Debug.Assert(Palettes.Count == PaletteData.Count);
         }

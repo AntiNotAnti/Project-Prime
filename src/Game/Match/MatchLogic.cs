@@ -52,7 +52,7 @@ namespace MphRead
             }
             for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
             {
-                PlayerEntity player = PlayerEntity.Players[i];
+                PlayerEntity player = _scene.Players[i];
                 if (player.LoadFlags.TestFlag(LoadFlags.Active) && _match.TeamPoints[player.TeamIndex] >= _match.Rules.LegacyPointGoal)
                 {
                     // deal with multiple nodes points on the same frame
@@ -78,7 +78,7 @@ namespace MphRead
             bool[] teamsAlive = new bool[2];
             for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
             {
-                PlayerEntity player = PlayerEntity.Players[i];
+                PlayerEntity player = _scene.Players[i];
                 if (player.LoadFlags.TestFlag(LoadFlags.Active)
                     && (player.Health > 0 || _match.TeamDeaths[player.TeamIndex] <= _match.Rules.LegacyPointGoal))
                 {
@@ -105,7 +105,7 @@ namespace MphRead
                 _match.MatchTime = 0;
                 for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
                 {
-                    PlayerEntity player = PlayerEntity.Players[i];
+                    PlayerEntity player = _scene.Players[i];
                     if (player.LoadFlags.TestFlag(LoadFlags.Active)
                         && (player.Health > 0 || _match.TeamDeaths[player.TeamIndex] <= _match.Rules.LegacyPointGoal))
                     {
@@ -113,7 +113,7 @@ namespace MphRead
                     }
                 }
             }
-            else if (playersAlive + botsAlive == 2 && PlayerEntity.PlayerCount > 2)
+            else if (playersAlive + botsAlive == 2 && _scene.Players.ActiveCount > 2)
             {
                 _match.RadarPlayers = true;
             }
@@ -137,7 +137,7 @@ namespace MphRead
             }
             for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
             {
-                PlayerEntity player = PlayerEntity.Players[i];
+                PlayerEntity player = _scene.Players[i];
                 if (player.LoadFlags.TestFlag(LoadFlags.Active) && _match.TeamTime[player.TeamIndex] >= _match.Rules.LegacyTimeGoal)
                 {
                     _match.PendingEndReason = MatchEndReason.ObjectiveTimeGoal;
@@ -158,7 +158,7 @@ namespace MphRead
             {
                 return;
             }
-            PlayerEntity player = PlayerEntity.Players[_match.PrimeHunter];
+            PlayerEntity player = _scene.Players[_match.PrimeHunter];
             if (!player.LoadFlags.TestFlag(LoadFlags.Active))
             {
                 _match.PrimeHunter = -1;
@@ -181,11 +181,11 @@ namespace MphRead
 
         public void UpdateState()
         {
-            if (PlayerEntity.PlayerCount == 0)
+            if (_scene.Players.ActiveCount == 0)
             {
                 return;
             }
-            IReadOnlyList<PlayerEntity> players = PlayerEntity.Players;
+            IReadOnlyList<PlayerEntity> players = _scene.Players;
             int[] prevTeamPoints = new int[PlayerEntity.SlotCapacity];
             int[] prevTeamDeaths = new int[PlayerEntity.SlotCapacity];
             for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
@@ -229,8 +229,8 @@ namespace MphRead
                     if (_match.TeamPoints[team] != prevTeamPoints[team] && _match.TeamPoints[team] == _match.Rules.LegacyPointGoal - 1)
                         _scene.Services.PublishWorldSignal(_scene, new(WorldSignalKind.MatchPoint, WorldSubjectKind.Match,
                             null, null, team, OpenTK.Mathematics.Vector3.Zero));
-                int teamPoints = _match.TeamPoints[PlayerEntity.Main.TeamIndex];
-                if (teamPoints != prevTeamPoints[PlayerEntity.Main.TeamIndex] && teamPoints == _match.Rules.LegacyPointGoal - 1)
+                int teamPoints = _scene.LocalPlayer is { TeamIndex: >= 0 } local ? _match.TeamPoints[local.TeamIndex] : int.MinValue;
+                if (_scene.LocalPlayer is { TeamIndex: >= 0 } && teamPoints != prevTeamPoints[_scene.LocalPlayer.TeamIndex] && teamPoints == _match.Rules.LegacyPointGoal - 1)
                 {
                     _scene.Audio.QueueStream(VoiceId.VOICE_ONE_KILL_TO_WIN, delay: 1);
                 }
@@ -248,7 +248,7 @@ namespace MphRead
                     }
                     if (player.Health > 0 || _match.TeamDeaths[player.TeamIndex] <= _match.Rules.LegacyPointGoal)
                     {
-                        if (player.TeamIndex != PlayerEntity.Main.TeamIndex)
+                        if (player.TeamIndex != _scene.LocalPlayer?.TeamIndex)
                         {
                             opponents++;
                             lastTeam = player.TeamIndex;
@@ -259,7 +259,7 @@ namespace MphRead
                         _scene.Audio.QueueStream(VoiceId.VOICE_ELIMINATED);
                     }
                 }
-                if (PlayerEntity.Main.LoadFlags.TestAny(LoadFlags.Active) && opponents == 1 && lastTeam != -1)
+                if (_scene.LocalPlayer?.LoadFlags.TestAny(LoadFlags.Active) == true && opponents == 1 && lastTeam != -1)
                 {
                     int teamDeaths = _match.TeamDeaths[lastTeam];
                     if (teamDeaths != prevTeamDeaths[lastTeam] && teamDeaths == _match.Rules.LegacyPointGoal)

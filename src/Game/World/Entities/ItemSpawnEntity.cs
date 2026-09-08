@@ -172,7 +172,7 @@ namespace MphRead.Entities
         {
             ItemInstanceEntity? item = null;
             if (scene.Services.IsReplica) { return null; }
-            if (type != ItemType.None && (!chance.HasValue || Rng.GetRandomInt2(100) < chance.Value))
+            if (type != ItemType.None && (!chance.HasValue || scene.Random.GetRandomInt2(100) < chance.Value))
             {
                 item = new ItemInstanceEntity(new ItemInstanceEntityData(position, type, despawnTime), nodeRef, scene);
                 scene.AddEntity(item);

@@ -148,6 +148,14 @@ namespace MphRead
     // size: 140
     public readonly struct MaterialAnimation
     {
+        private MaterialAnimation(MaterialAnimation source)
+        {
+            this = source;
+            Name = source.Name == null ? System.Array.Empty<byte>() : (byte[])source.Name.Clone();
+        }
+
+        internal MaterialAnimation CloneRuntime() => new MaterialAnimation(this);
+
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
         public readonly byte[] Name;
         public readonly uint Unused40; // always 0x01
@@ -197,6 +205,14 @@ namespace MphRead
     // size: 44
     public readonly struct TextureAnimation
     {
+        private TextureAnimation(TextureAnimation source)
+        {
+            this = source;
+            Name = source.Name == null ? System.Array.Empty<byte>() : (byte[])source.Name.Clone();
+        }
+
+        internal TextureAnimation CloneRuntime() => new TextureAnimation(this);
+
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
         public readonly byte[] Name;
         public readonly ushort Count;
@@ -210,6 +226,14 @@ namespace MphRead
     // size: 60
     public readonly struct TexcoordAnimation
     {
+        private TexcoordAnimation(TexcoordAnimation source)
+        {
+            this = source;
+            Name = source.Name == null ? System.Array.Empty<byte>() : (byte[])source.Name.Clone();
+        }
+
+        internal TexcoordAnimation CloneRuntime() => new TexcoordAnimation(this);
+
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
         public readonly byte[] Name;
         public readonly byte ScaleBlendS;
@@ -355,6 +379,14 @@ namespace MphRead
     // size: 240
     public readonly struct RawNode
     {
+        private RawNode(RawNode source)
+        {
+            this = source;
+            Name = source.Name == null ? System.Array.Empty<byte>() : (byte[])source.Name.Clone();
+        }
+
+        internal RawNode CloneRuntime() => new RawNode(this);
+
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
         public readonly byte[] Name;
         public readonly short ParentId;

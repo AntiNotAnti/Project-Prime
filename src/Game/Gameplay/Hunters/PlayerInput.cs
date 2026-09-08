@@ -302,7 +302,7 @@ namespace MphRead.Entities
 
         private void UpdateAimFacing()
         {
-            if (Features.FixedCrosshair)
+            if (_scene.Features.FixedCrosshair)
             {
                 // The camera's own facing is normally eased 10%/frame toward
                 // the raw aim direction (a DS-camera holdover) -- with the
@@ -468,7 +468,7 @@ namespace MphRead.Entities
                         * (Controls.InvertMouseY ? -1 : 1);
                     float aimX = -Input.MouseDeltaX / 4f * Controls.MouseSensitivity
                         * (Controls.InvertMouseX ? -1 : 1);
-                    if (CameraSequence.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true
+                    if (_scene.CameraSequences.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true
                         || _scene.FrameAdvance || _scene.FrameAdvanceLastFrame) // skdebug
                     {
                         aimX = aimY = 0;
@@ -637,7 +637,7 @@ namespace MphRead.Entities
                     {
                         _viewTiltAngleV *= 0.9f; // sktodo: FPS stuff
                     }
-                    if (Cheats.UnlimitedJumps)
+                    if (_scene.Features.Cheats.UnlimitedJumps)
                     {
                         Flags1 &= ~PlayerFlags1.UsedJump;
                     }
@@ -776,7 +776,7 @@ namespace MphRead.Entities
                         {
                             UpdateZoom(!EquipInfo.Zoomed);
                         }
-                        if (EquipInfo.Zoomed && CameraSequence.Current == null)
+                        if (EquipInfo.Zoomed && _scene.CameraSequences.Current == null)
                         {
                             // note: the game does this during cam seqs, resulting in the FOV thrashing a bit, but it has no visible effect
                             // since the sin/cos values for projection are set aside in the cam info update that's already occurred above.
@@ -851,7 +851,7 @@ namespace MphRead.Entities
                     // the game doesn't require pressed here, but presumably the control scheme would have the pressed flag
                     // todo: use the ability flag for the morph touch button too, even though the game doesn't
                     if (!Flags2.TestFlag(PlayerFlags2.BipedStuck) && _abilities.TestFlag(AbilityFlags.AltForm)
-                        && Controls.Morph.IsPressed || IsMainPlayer && CameraSequence.Current?.ForceAlt == true)
+                        && Controls.Morph.IsPressed || IsMainPlayer && _scene.CameraSequences.Current?.ForceAlt == true)
                     {
                         if (TrySwitchForms() && IsMainPlayer && IsMorphing)
                         {
@@ -965,9 +965,9 @@ namespace MphRead.Entities
             if (_disruptedTimer > 0)
             {
                 // random values between -3 and 3
-                shotVec.X += Fixed.ToFloat((int)Rng.GetRandomInt2(24576) - 12288);
-                shotVec.Y += Fixed.ToFloat((int)Rng.GetRandomInt2(24576) - 12288);
-                shotVec.Z += Fixed.ToFloat((int)Rng.GetRandomInt2(24576) - 12288);
+                shotVec.X += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
+                shotVec.Y += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
+                shotVec.Z += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
             }
             shotVec = shotVec.Normalized();
             WeaponInfo curWeapon = EquipInfo.Weapon;
@@ -1127,7 +1127,7 @@ namespace MphRead.Entities
                             * (Controls.InvertMouseY ? -1 : 1);
                         float aimX = -Input.MouseDeltaX / 4f * Controls.MouseSensitivity
                             * (Controls.InvertMouseX ? -1 : 1);
-                        if (CameraSequence.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true
+                        if (_scene.CameraSequences.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true
                             || _scene.FrameAdvance || _scene.FrameAdvanceLastFrame) // skdebug
                         {
                             aimX = aimY = 0;
@@ -1460,7 +1460,7 @@ namespace MphRead.Entities
                             }
                             if (_boostCharge > SimTicks.From30HzFrames(Values.BoostChargeMin))
                             {
-                                if (Features.FullBoostCharge)
+                                if (_scene.Features.FullBoostCharge)
                                 {
                                     _boostCharge = (ushort)SimTicks.From30HzFrames(Values.BoostChargeMax);
                                 }
@@ -1536,7 +1536,7 @@ namespace MphRead.Entities
                 // the game doesn't require pressed here, but presumably the control scheme would have the pressed flag
                 // the game also doesn't check the ability flag here
                 if (_abilities.TestFlag(AbilityFlags.AltForm) && Controls.Morph.IsPressed
-                    || IsMainPlayer && CameraSequence.Current?.ForceBiped == true)
+                    || IsMainPlayer && _scene.CameraSequences.Current?.ForceBiped == true)
                 {
                     TrySwitchForms();
                 }

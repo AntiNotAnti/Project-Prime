@@ -122,7 +122,7 @@ namespace MphRead.Entities
 
         public void ApplyWorldState(in WorldRecord state)
         {
-            _capturedPlayer = state.Slot < 8 ? PlayerEntity.Players[state.Slot] : null;
+            _capturedPlayer = state.Slot < 8 ? _scene.Players[state.Slot] : null;
             _currentTeam = (int)(state.A & 255);
             _occupyingTeam = (int)((state.A >> 8) & 255);
             for (int i = 0; i < _occupiedBy.Length; i++) { _occupiedBy[i] = (state.A & (1u << (16 + i))) != 0; }
@@ -249,14 +249,14 @@ namespace MphRead.Entities
             {
                 if (_contested)
                 {
-                    if (_occupiedBy[PlayerEntity.Main.SlotIndex])
+                    if (_scene.LocalPlayer != null && _occupiedBy[_scene.LocalPlayer.SlotIndex])
                     {
                         _soundSource.SetPausedFreeSfxScripts(true);
                     }
                 }
                 else if (_currentTeam != _occupyingTeam)
                 {
-                    if (_occupiedBy[PlayerEntity.Main.SlotIndex])
+                    if (_scene.LocalPlayer != null && _occupiedBy[_scene.LocalPlayer.SlotIndex])
                     {
                         if (!_inProgress && _progressTicks >= SimTicks.From30HzFrames(10))
                         {
@@ -282,7 +282,7 @@ namespace MphRead.Entities
             }
             else
             {
-                if (prevOccupiedBy[PlayerEntity.Main.SlotIndex])
+                if (_scene.LocalPlayer != null && prevOccupiedBy[_scene.LocalPlayer.SlotIndex])
                 {
                     if (!_scene.IsHeadless)
                     {
@@ -387,14 +387,14 @@ namespace MphRead.Entities
 
         private void Complete(ref int dest1, ref int dest2)
         {
-            if (_currentTeam == PlayerEntity.Main.TeamIndex)
+            if (_currentTeam == _scene.LocalPlayer?.TeamIndex)
             {
                 dest1 = 4;
-                PlayerEntity.Main.ShowNodeStolen();
+                _scene.LocalPlayer?.ShowNodeStolen();
             }
             for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
             {
-                PlayerEntity player = PlayerEntity.Players[i];
+                PlayerEntity player = _scene.Players[i];
                 if (_occupiedBy[i])
                 {
                     _scene.Match.Players[i].NodesCaptured++;
@@ -409,9 +409,9 @@ namespace MphRead.Entities
                 }
                 _occupiedBy[i] = false;
             }
-            if (_capturedPlayer == PlayerEntity.Main)
+            if (_capturedPlayer == _scene.LocalPlayer)
             {
-                PlayerEntity.Main.ShowObjectiveMessage(206, 90 / (float)SimTicks.LegacyHz); // complete
+                _scene.LocalPlayer?.ShowObjectiveMessage(206, 90 / (float)SimTicks.LegacyHz); // complete
             }
             _currentTeam = _occupyingTeam;
             if (_capturedPlayer != null) _scene.Services.PublishWorldSignal(_scene, new(WorldSignalKind.NodeCaptured,
@@ -420,7 +420,7 @@ namespace MphRead.Entities
             _inProgress = false;
             _occupyingTeam = NeutralTeam;
             _scoreTicks = SimTicks.FromSeconds(5);
-            if (_currentTeam == PlayerEntity.Main.TeamIndex)
+            if (_currentTeam == _scene.LocalPlayer?.TeamIndex)
             {
                 if (!_scene.IsHeadless)
                 {

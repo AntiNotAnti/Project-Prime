@@ -36,7 +36,12 @@ namespace MphRead
             }
             set
             {
-                _language = value;
+                lock (ContentEnvironment.SyncRoot)
+                {
+                    if (_language == value) { return; }
+                    ContentEnvironment.RequireMutableContext();
+                    _language = value;
+                }
             }
         }
         public float FrameTime => _frameTime;
@@ -53,7 +58,7 @@ namespace MphRead
             _room.Meta.Light1Color.Red / 31f, _room.Meta.Light1Color.Green / 31f, _room.Meta.Light1Color.Blue / 31f);
         public Vector3 Light2Color => _room == null ? Vector3.Zero : new Vector3(
             _room.Meta.Light2Color.Red / 31f, _room.Meta.Light2Color.Green / 31f, _room.Meta.Light2Color.Blue / 31f);
-        internal bool IsModelInUse(Model model) => _entities.Any(e => e.GetModels().Any(m => m.Model == model));
+        internal bool IsModelInUse(Model model) => _entities.Any(e => e.GetModels().Any(m => m.Model.Id == model.Id));
 
         // called before load
         public void AddRoom(string name, GameMode mode = GameMode.None, int playerCount = 0,
@@ -81,20 +86,20 @@ namespace MphRead
             SceneSetup.LoadObjectResources(this);
             SceneSetup.LoadPlatformResources(this);
             Match.Flow.Setup();
-            PlayerEntity.PlayerAiData.InitializeGlobals();
+            PlayerEntity.PlayerAiData.InitializeGlobals(this);
             _killHeight = meta.KillHeight;
             Presentation?.RoomLoaded(meta);
-            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            for (int i = 0; i < this.Players.Count; i++)
             {
-                PlayerEntity player = PlayerEntity.Players[i];
+                PlayerEntity player = this.Players[i];
                 if (player.LoadFlags.TestFlag(LoadFlags.SlotActive))
                 {
                     InsertEntityByType(player);
                 }
             }
-            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            for (int i = 0; i < this.Players.Count; i++)
             {
-                PlayerEntity player = PlayerEntity.Players[i];
+                PlayerEntity player = this.Players[i];
                 if (player.IsBot)
                 {
                     player.AiData.InitializeAtLoad();
@@ -107,7 +112,7 @@ namespace MphRead
         {
             if (!_roomLoaded)
             {
-                var player = PlayerEntity.Create(hunter, recolor);
+                var player = this.Players.Create(hunter, recolor);
                 if (player != null)
                 {
                     player.ForcedSpawnPos = position;
@@ -120,8 +125,8 @@ namespace MphRead
                         Debug.Assert(team == 0 || team == 1);
                         player.TeamIndex = team;
                     }
-                    player.IsBot = PlayerEntity.PlayerCount >= 1;
-                    PlayerEntity.PlayerCount++;
+                    player.IsBot = this.Players.ActiveCount >= 1;
+                    this.Players.ActiveCount++;
                 }
             }
         }
@@ -222,13 +227,13 @@ namespace MphRead
                 }
             }
             PlayerEntity.PlayerAiData.UpdateVisibilityAndGlobals(this);
-            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            for (int i = 0; i < this.Players.Count; i++)
             {
-                PlayerEntity.Players[i].ClosestNode = null;
+                this.Players[i].ClosestNode = null;
             }
-            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            for (int i = 0; i < this.Players.Count; i++)
             {
-                PlayerEntity player = PlayerEntity.Players[i];
+                PlayerEntity player = this.Players[i];
                 if (player.IsBot && player.Health != 0)
                 {
                     player.AiData.Process();
@@ -242,7 +247,6 @@ namespace MphRead
         internal void InitializeWorld()
         {
             AllocateBombs();
-            CollisionDetection.Init();
             foreach (EntityBase entity in Entities)
             {
                 if (!entity.Initialized)
@@ -252,7 +256,7 @@ namespace MphRead
                     entity.Initialized = true;
                 }
             }
-            foreach (PlayerEntity player in PlayerEntity.Players)
+            foreach (PlayerEntity player in this.Players)
             {
                 if (player.LoadFlags.TestFlag(LoadFlags.SlotActive))
                 {
@@ -264,8 +268,10 @@ namespace MphRead
 
         internal void CloseWorld()
         {
+            CameraSequences.Clear();
+            SpecialEntities.Clear();
             foreach (EntityBase entity in Entities) entity.Destroy();
-            PlatformEntity.DestroyBeams();
+            ResetPlatformBeams();
             ResetForceFieldLockProjectiles();
             _entities.Clear();
             _entityMap.Clear();

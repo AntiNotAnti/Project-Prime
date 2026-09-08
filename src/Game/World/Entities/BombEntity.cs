@@ -68,7 +68,7 @@ namespace MphRead.Entities
             else if (BombType == BombType.MorphBall)
             {
                 Countdown = SimTicks.From30HzFrames(43);
-                effectId = PlayerEntity.PlayerCount > 2 ? 119 : 9; // bombStartMP or bombStart
+                effectId = _scene.Players.ActiveCount > 2 ? 119 : 9; // bombStartMP or bombStart
             }
             if (effectId != 0)
             {

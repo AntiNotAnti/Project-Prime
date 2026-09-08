@@ -85,7 +85,7 @@ namespace MphRead.Entities
         public float RicochetLossV { get; set; }
         public float CylinderRadius { get; set; }
 
-        private static readonly EquipInfo _ricochetEquip = new EquipInfo();
+        private readonly EquipInfo _ricochetEquip = new EquipInfo();
         internal ModelInstance? _trailModel;
 
         public BeamProjectileEntity(Scene scene) : base(EntityType.BeamProjectile, scene)
@@ -794,7 +794,7 @@ namespace MphRead.Entities
                 float amountA;
                 if (Beam == BeamType.Judicator)
                 {
-                    amountA = Rng.GetRandomInt1(0xFFFF);
+                    amountA = _scene.Random.GetRandomInt1(0xFFFF);
                 }
                 else
                 {
@@ -897,7 +897,7 @@ namespace MphRead.Entities
 
                 void OmegaCannonFlash()
                 {
-                    if (Beam == BeamType.OmegaCannon && player == PlayerEntity.Main)
+                    if (Beam == BeamType.OmegaCannon && player == _scene.LocalPlayer)
                     {
                         _scene.SetFade(FadeType.FadeInWhite, 15 / (float)SimTicks.LegacyHz, overwrite: false);
                     }
@@ -1255,7 +1255,7 @@ namespace MphRead.Entities
                     damage = 0;
                 }
             }
-            if (Cheats.QuadrupleDamage)
+            if (scene.Features.Cheats.QuadrupleDamage)
             {
                 damage *= 4;
                 hsDamage *= 4;
@@ -1310,7 +1310,7 @@ namespace MphRead.Entities
                 // Preserve the ordinary gameplay stream's advance. Root spread
                 // uses a separate match stream so impact timing cannot change
                 // future aim samples; pellets and children retain their seed.
-                Rng.GetRandomInt2(0);
+                scene.Random.GetRandomInt2(0);
                 spreadSeed = inheritedShot.HasValue ? 0u : scene.Services.Combat.NextSpreadSeed();
             }
             var spread = new BeamSpread(spreadSeed.GetValueOrDefault());
@@ -1413,7 +1413,7 @@ namespace MphRead.Entities
                     velocity = spreadSeed.HasValue
                         ? spread.Next(direction, beam.Up, beam.Right, (uint)maxSpread, beam.Speed)
                         : BeamSpread.Velocity(direction, beam.Up, beam.Right, beam.Speed,
-                            Rng.GetRandomInt2((uint)maxSpread), Rng.GetRandomInt2(0x168000));
+                            scene.Random.GetRandomInt2((uint)maxSpread), scene.Random.GetRandomInt2(0x168000));
                 }
                 beam.Velocity = velocity;
                 beam.Acceleration = acceleration;
@@ -1765,7 +1765,7 @@ namespace MphRead.Entities
         {
             if (CollisionEffect != 255)
             {
-                if (PlayerEntity.PlayerCount > 2 && CollisionEffect == 4)
+                if (_scene.Players.ActiveCount > 2 && CollisionEffect == 4)
                 {
                     // powerBeam (4 - 3 = 1)
                     noSplat = true;

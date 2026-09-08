@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MphRead.Entities;
 
 namespace MphRead
@@ -238,22 +239,22 @@ namespace MphRead
             Description = description;
             Beam = beam;
             BeamKind = beamKind;
-            DrawFuncIds = drawFuncIds;
-            Colors = colors;
+            DrawFuncIds = Array.AsReadOnly(drawFuncIds.ToArray());
+            Colors = Array.AsReadOnly(colors.ToArray());
             Priority = priority;
             Flags = flags;
             SplashDamage = splashDamage;
             MinChargeSplashDamage = minChargeSplashDamage;
             ChargedSplashDamage = chargedSplashDamage;
-            SplashDamageTypes = splashDmgTypes;
+            SplashDamageTypes = Array.AsReadOnly(splashDmgTypes.ToArray());
             ShotCooldown = shotCooldown;
             AutofireCooldown = autofireCooldown;
             AmmoType = ammoType;
-            CollisionEffects = colEffects;
-            MuzzleEffects = muzzleEffects;
-            DmgDirTypes = dmgDirTypes;
-            DamageInterpolations = dmgInterp;
-            Afflictions = afflictions;
+            CollisionEffects = Array.AsReadOnly(colEffects.ToArray());
+            MuzzleEffects = Array.AsReadOnly(muzzleEffects.ToArray());
+            DmgDirTypes = Array.AsReadOnly(dmgDirTypes.ToArray());
+            DamageInterpolations = Array.AsReadOnly(dmgInterp.ToArray());
+            Afflictions = Array.AsReadOnly(afflictions.ToArray());
             Padding21 = padding21;
             MinCharge = minCharge;
             FullCharge = fullCharge;
@@ -269,9 +270,9 @@ namespace MphRead
             UnchargedLifespan = unchargedLifespan;
             MinChargeLifespan = minChargeLifespan;
             ChargedLifespan = chargedLifespan;
-            SpeedDecayTimes = speedDecay;
+            SpeedDecayTimes = Array.AsReadOnly(speedDecay.ToArray());
             Padding42 = padding42;
-            SpeedInterpolations = speedInterp;
+            SpeedInterpolations = Array.AsReadOnly(speedInterp.ToArray());
             UnchargedDmgDirMag = unchargedDmgDirMag;
             MinChargeDmgDirMag = minChargeDmgDirMag;
             ChargedDmgDirMag = chargedDmgDirMag;
@@ -368,9 +369,9 @@ namespace MphRead
             BeamType.Magmaul,
             BeamType.Battlehammer,
             BeamType.PowerBeam
-        };
+        }.AsReadOnly();
 
-        public static IReadOnlyList<WeaponInfo> Current { get; set; } = null!;
+        public static IReadOnlyList<WeaponInfo> Current => WeaponsMP;
 
         // Exact original normal weapon definitions indexed by force-field type.
         // Lock retaliation uses these values independently of multiplayer player weapons.
@@ -1126,7 +1127,7 @@ namespace MphRead
                 smokeShotAmount: 0,
                 smokeChargeAmount: 0
             )
-        };
+        }.AsReadOnly();
 
         public static readonly IReadOnlyList<WeaponInfo> WeaponsMP = new List<WeaponInfo>()
         {
@@ -2629,7 +2630,7 @@ namespace MphRead
                 smokeShotAmount: 0,
                 smokeChargeAmount: 0
             )
-        };
+        }.AsReadOnly();
 
         public static readonly IReadOnlyList<WeaponInfo> PlatformWeapons = new List<WeaponInfo>()
         {
@@ -2968,7 +2969,7 @@ namespace MphRead
                 smokeShotAmount: 0,
                 smokeChargeAmount: 0
             )
-        };
+        }.AsReadOnly();
 
         public static readonly IReadOnlyList<WeaponInfo> Ricochets = new List<WeaponInfo>()
         {
@@ -3477,14 +3478,14 @@ namespace MphRead
                 smokeShotAmount: 0,
                 smokeChargeAmount: 0
             )
-        };
+        }.AsReadOnly();
 
         public class BotWeaponValues
         {
-            public ushort UnchargedDamage { get; set; }
-            public ushort ChargedDamage { get; set; }
-            public ushort SplashDamage { get; set; }
-            public ushort ChargedSplashDamage { get; set; }
+            public ushort UnchargedDamage { get; init; }
+            public ushort ChargedDamage { get; init; }
+            public ushort SplashDamage { get; init; }
+            public ushort ChargedSplashDamage { get; init; }
         }
 
         public static readonly IReadOnlyList<IReadOnlyList<BotWeaponValues>> BotWeapons =

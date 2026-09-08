@@ -12,7 +12,7 @@ namespace MphRead.Mods.Network
     /// inbox with a fixed packet budget. Sends use the socket directly unless
     /// the optional impairment worker holds them. Every retained queue is bounded.
     /// </summary>
-    internal sealed class UdpTransport : INetTransport
+    public sealed class UdpTransport : INetTransport
     {
         private readonly UdpClient _socket;
         private readonly Thread _worker;
