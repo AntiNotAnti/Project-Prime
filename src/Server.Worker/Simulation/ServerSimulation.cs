@@ -1,0 +1,271 @@
+using System;
+using System.Collections.Generic;
+using MphRead.Entities;
+using MphRead.Reporting;
+
+namespace MphRead.Mods.Network
+{
+    public sealed class ServerSimulation : IDisposable
+    {
+        private readonly ulong[] _activeConnections = new ulong[8];
+        private readonly SnapshotPlayer[] _states = new SnapshotPlayer[8];
+        private readonly WorldStateCapture _pristineCapture = new();
+        private readonly WorldRecord[] _pristineWorld;
+        private readonly Action _resetForCountdown;
+        private readonly uint _initialRng1;
+        private readonly uint _initialRng2;
+        private ServerNetwork? _network;
+        private int _stateCount;
+        public Scene Scene { get; }
+        public ServerCombat Combat { get; }
+        public ServerBotManager Bots { get; }
+        public MatchLifecycle Lifecycle { get; }
+        public MatchParticipantLedger? Reports { get; set; }
+        public bool ReportingMayStart { get; set; } = true;
+        public bool ReplayMayStart { get; set; } = true;
+        public bool AdminMayStart { get; set; } = true;
+        public bool VoteLobbyHold { get; set; }
+        public ReadOnlySpan<SnapshotPlayer> States => _states.AsSpan(0, _stateCount);
+        internal int CountdownResets { get; private set; }
+
+        public ServerSimulation(RotationEntry entry, bool lagCompEnabled = true, bool projectileCatchUpEnabled = true, uint rng1 = Rng.Rng1StartValue, uint rng2 = Rng.Rng2StartValue)
+            : this(entry.ToMatchRules(), lagCompEnabled, projectileCatchUpEnabled, rng1: rng1, rng2: rng2)
+        {
+        }
+
+        public ServerSimulation(MatchRules rules, bool lagCompEnabled = true, bool projectileCatchUpEnabled = true, BotFillPolicy? botFill = null, uint rng1 = Rng.Rng1StartValue, uint rng2 = Rng.Rng2StartValue)
+        {
+            MatchLifecycle.ValidateRules(rules);
+            (botFill ?? new BotFillPolicy()).Validate(rules.MaxPlayers);
+            Scene = Scene.CreateHeadless();
+            Scene.Random.SetRng1(rng1);
+            Scene.Random.SetRng2(rng2);
+            Combat = new ServerCombat(lagCompEnabled, projectileCatchUpEnabled, Scene.Random.Rng2);
+            Combat.BindScene(Scene);
+            Scene.Services = new ServerSceneServices(Combat);
+            try
+            {
+                Scene.Match.ApplyRules(rules);
+                ServerContent.RequireRoom(rules.RoomKey, rules.Mode.ToLegacyMode());
+                Scene.LoadServerRoom(rules.RoomKey, rules.Mode.ToLegacyMode(), players: 8,
+                    roomPlayerCount: ServerContent.ResolveRoomPlayerCount(NetConfig.RoomPlayerCount, 8));
+                WorldStateCapture.ValidateRoom(Scene);
+                if (!ServerContentPackage.HasObjectives(Scene, rules.Mode.ToLegacyMode()))
+                {
+                    throw new ProgramException($"{rules.RoomKey}/{rules.Mode} has no required objectives in the multiplayer entity layout.");
+                }
+                foreach (PlayerEntity player in Scene.GetPlayerEntities()) { player.ServerDeactivate(); }
+                Scene.Players.ActiveCount = 0;
+                Scene.Players.MaxPlayers = rules.MaxPlayers;
+                Scene.Match.ApplyRules(rules);
+                Scene.Match.RadarPlayers = rules.PlayerRadar;
+                Lifecycle = new MatchLifecycle(Scene.Match);
+                Bots = new ServerBotManager(this, botFill ?? new());
+                _initialRng1 = Scene.Random.Rng1;
+                _initialRng2 = Scene.Random.Rng2;
+                Scene.SpawnDirector.Reset(_initialRng2);
+                _pristineWorld = CaptureCompetitiveWorld();
+                _resetForCountdown = ResetForCountdown;
+            }
+            catch
+            {
+                Scene.CloseHeadless();
+                throw;
+            }
+        }
+
+        public void Step(ServerNetwork network, uint tick)
+        {
+            Combat.BeginTick(tick);
+            _network = network;
+            Scene.Match.MatchId = network.MatchId;
+            if (network.RebalanceBeforeStart() && Scene.Match.Phase == MatchPhase.Countdown)
+            {
+                // Restart the countdown through its owner so new teams get a
+                // pristine spawn/input epoch before any world step can run.
+                Lifecycle.AdvanceBeforeStep(tick, eligible: false, _resetForCountdown);
+            }
+            int active = 0;
+            uint teams = 0;
+            for (int slot = 0; slot < 8; slot++)
+            {
+                ServerPeer? peer = network.Peers[slot];
+                PlayerEntity player = Scene.Players[slot];
+                if (peer?.Connection.State == NetConnectionState.Ready && peer.ReturningParticipant
+                    && Scene.Match.Rules.Mode is MatchMode.Survival or MatchMode.TeamSurvival
+                    && (peer.SurvivalEliminated || Scene.Match.Deaths[slot] > Scene.Match.Rules.LegacyPointGoal))
+                    peer.WaitingForNextMatch = true;
+                if (peer?.Connection.State == NetConnectionState.Ready && !peer.ReturningParticipant
+                    && Scene.Match.Phase is MatchPhase.Playing or MatchPhase.Ending or MatchPhase.Intermission
+                    && Scene.Match.Rules.LateJoinPolicy == LateJoinPolicy.SpectateUntilNextMatch)
+                    peer.WaitingForNextMatch = true;
+                if (_activeConnections[slot] != 0 && _activeConnections[slot] != peer?.Connection.Id)
+                {
+                    Reports?.LeaveSlot(Scene, slot, tick);
+                    if (Scene.Match.Result == null)
+                    {
+                        WorldStateCapture.ReleasePlayer(Scene, player);
+                        if (!network.HasReconnectReservation(slot) && peer?.ReturningParticipant != true)
+                            NetScoreboard.ForgetSlot(Scene, slot);
+                    }
+                    player.ServerDeactivate();
+                    _activeConnections[slot] = 0;
+                }
+                if (peer?.Connection.State == NetConnectionState.Ready && peer.WaitingForNextMatch)
+                {
+                    // Session readiness delivers the world to an observer without
+                    // activating a gameplay body or touching terminal statistics.
+                    peer.Connection.StartPlaying();
+                }
+                else if (peer?.Connection.State == NetConnectionState.Ready && Scene.Match.Result == null)
+                {
+                    if (!peer.ReturningParticipant) NetScoreboard.ForgetSlot(Scene, slot);
+                    Scene.Roster.Nicknames[slot] = peer.Name;
+                    player.ServerActivate(peer.Connection.Id, peer.Hunter, peer.TeamIndex);
+                    peer.HasParticipated = true;
+                    Reports?.Activate(Scene, peer, tick);
+                    _activeConnections[slot] = peer.Connection.Id;
+                    peer.Connection.StartPlaying();
+                }
+                if (peer?.Connection.State == NetConnectionState.Playing && !peer.WaitingForNextMatch)
+                {
+                    active++;
+                    if (peer.TeamIndex < 2) { teams |= 1u << peer.TeamIndex; }
+                }
+            }
+            Bots.Update(network, tick);
+            foreach (var bot in Bots.Participants)
+                if (bot != null) { active++; if (bot.TeamIndex < 2) teams |= 1u << bot.TeamIndex; }
+            Scene.Players.ActiveCount = active;
+            bool eligible = ((ReportingMayStart && AdminMayStart && ReplayMayStart && !VoteLobbyHold) || Scene.Match.Phase == MatchPhase.Playing) && active >= (Scene.Match.Rules.MaxPlayers == 1 ? 1 : 2)
+                && (!Scene.Match.Rules.Teams || teams == 3);
+            MatchPhase previousPhase = Scene.Match.Phase;
+            Lifecycle.AdvanceBeforeStep(tick, eligible, _resetForCountdown);
+            if (Scene.Match.Phase != previousPhase) { DiscardInputs(network); }
+            PublishPhase(network);
+            if (Scene.Match.Phase == MatchPhase.Playing)
+            {
+                Reports?.BeginPlaying(Scene, network, tick);
+                foreach (var bot in Bots.Participants) if (bot != null) Reports?.ActivateBot(Scene, bot, tick);
+                for (int slot = 0; slot < 8; slot++)
+                {
+                    ServerPeer? peer = network.Peers[slot];
+                    if (peer?.Connection.State != NetConnectionState.Playing) { continue; }
+                    InputCommand input = peer.Inputs.Take(tick);
+                    if (peer.WaitingForNextMatch) continue;
+                    Combat.SetCommand(slot, input, peer.Connection.Metrics.SmoothedRttMs);
+                    Scene.Players[slot].ApplyNetworkInput(input);
+                }
+                foreach (var bot in Bots.Participants)
+                    if (bot != null) Combat.SetCommand(bot.Slot, new InputCommand(tick, tick, tick, InputButtons.None, InputButtons.None, Scene.Players[bot.Slot].ModGunVector, InputCommand.NoWeapon));
+                ulong beforeFrame = Scene.FrameCount;
+                Scene.StepHeadlessFrame();
+                if (Scene.FrameCount != beforeFrame) Reports?.RecordPlayedStep(tick);
+                if (Scene.Match.Phase == MatchPhase.Playing) { Combat.CatchUp.Drain(); }
+                else { Combat.CatchUp.Clear(); }
+            }
+            Lifecycle.ObserveCompletion(tick);
+            Reports?.Complete(Scene, tick);
+            if (Scene.Match.Rules.Mode is MatchMode.Survival or MatchMode.TeamSurvival)
+            {
+                foreach (ServerPeer? peer in network.Peers)
+                {
+                    if (peer is { HasParticipated: true } && Scene.Players[peer.Slot].Health == 0
+                        && Scene.Match.TeamDeaths[peer.TeamIndex] > Scene.Match.Rules.LegacyPointGoal)
+                        peer.SurvivalEliminated = true;
+                }
+            }
+            PublishPhase(network);
+            _stateCount = 0;
+            for (int slot = 0; slot < 8; slot++)
+            {
+                ServerPeer? peer = network.Peers[slot];
+                if (peer is { WaitingForNextMatch: true } && peer.Connection.State == NetConnectionState.Playing)
+                {
+                    _states[_stateCount++] = new SnapshotPlayer
+                    {
+                        Slot = peer.Slot, Hunter = peer.Hunter, TeamIndex = peer.TeamIndex,
+                        ConnectionId = peer.Connection.Id, Life = 1,
+                        Flags = SnapshotPlayerFlags.Spectating | SnapshotPlayerFlags.WaitingForMatch,
+                        Aim = -OpenTK.Mathematics.Vector3.UnitZ, Facing = -OpenTK.Mathematics.Vector3.UnitZ
+                    };
+                    continue;
+                }
+                if (_activeConnections[slot] == 0 && !Bots.Occupied(slot)) { continue; }
+                PlayerEntity player = Scene.Players[slot];
+                player.ModRepairVectors();
+                SnapshotPlayer state = player.CaptureServerState();
+                _states[_stateCount++] = state;
+                if (Scene.Match.Phase == MatchPhase.Playing)
+                {
+                    Combat.History.Record(tick, player, state.ConnectionId, state.Life);
+                }
+            }
+        }
+
+        private void PublishPhase(ServerNetwork network)
+        {
+            network.Phase = Scene.Match.Phase;
+            network.PhaseRevision = Scene.Match.PhaseRevision;
+        }
+
+        private void ResetForCountdown()
+        {
+            ServerNetwork network = _network ?? throw new InvalidOperationException("Countdown requires a server session.");
+            AssertPristineWorld();
+            Combat.Reset();
+            Scene.Match.ResetCompetitiveState();
+            Scene.Match.Flow.ResetProgress();
+            for (int slot = 0; slot < 8; slot++) { Scene.Players[slot].ServerDeactivate(); }
+            Scene.Random.SetRng1(_initialRng1);
+            Scene.Random.SetRng2(_initialRng2);
+            Scene.SpawnDirector.Reset(_initialRng2);
+            for (int slot = 0; slot < 8; slot++)
+            {
+                ServerPeer? peer = network.Peers[slot];
+                if (peer?.Connection.State == NetConnectionState.Playing)
+                {
+                    Scene.Players[slot].ServerActivate(peer.Connection.Id, peer.Hunter, peer.TeamIndex);
+                }
+            }
+            foreach (var bot in Bots.Participants) if (bot != null) Bots.Activate(bot);
+            DiscardInputs(network);
+            AssertPristineWorld();
+            CountdownResets++;
+        }
+
+        private void DiscardInputs(ServerNetwork network)
+        {
+            foreach (ServerPeer? peer in network.Peers)
+            {
+                if (peer != null) { peer.Inputs = new ServerInputStream(); }
+            }
+            foreach (PlayerEntity player in Scene.Players) { player.Controls.ClearAll(); }
+        }
+
+        private WorldRecord[] CaptureCompetitiveWorld()
+        {
+            _pristineCapture.Capture(Scene, Scene.Match.MatchId == 0 ? 1u : Scene.Match.MatchId, 0, 0);
+            var records = new List<WorldRecord>();
+            foreach (WorldRecord record in _pristineCapture.Records)
+            {
+                if (record.Kind is WorldRecordKind.Item or WorldRecordKind.Spawner or WorldRecordKind.Node or WorldRecordKind.Flag)
+                {
+                    records.Add(record);
+                }
+            }
+            return records.ToArray();
+        }
+
+        internal void AssertPristineWorld()
+        {
+            if (Scene.FrameCount != 0 || Scene.LiveFrames != 0
+                || !CaptureCompetitiveWorld().AsSpan().SequenceEqual(_pristineWorld))
+            {
+                throw new InvalidOperationException("The waiting world changed before the competitive reset.");
+            }
+        }
+
+        public void Dispose() => Scene.CloseHeadless();
+    }
+}

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>FruityPrime.Server.Worker</AssemblyName>
+    <RootNamespace>FruityPrime.Server.Worker</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/Transport/UdpTransport.cs" Link="Shared/Transport/UdpTransport.cs" />
+    <ProjectReference Include="../Game/Game.csproj" />
+    <ProjectReference Include="../Server.Shared/Server.Shared.csproj" />
+    <ProjectReference Include="../Shared.Replay/Shared.Replay.csproj" />
+  </ItemGroup>
+</Project>

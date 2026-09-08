@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AssemblyName>FruityPrime.Server.Node</AssemblyName></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Server.Shared/Server.Shared.csproj" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.22.0" />
+  </ItemGroup>
+</Project>
