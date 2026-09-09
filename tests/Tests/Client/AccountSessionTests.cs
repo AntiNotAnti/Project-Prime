@@ -28,9 +28,14 @@ public sealed class AccountSessionTests
     [InlineData("http://localhost:4711/")]
     [InlineData("http://127.0.0.1:4711/")]
     [InlineData("http://[::1]:4711/")]
-    [InlineData("http://51.161.113.128/")]
+    [InlineData("http://51.161.113.128:18085/")]
     public void BackendPolicyAllowsHttpsAndLoopbackHttp(string value)
         => Assert.True(AccountSession.IsAllowedBackend(new Uri(value)));
+
+    [Fact]
+    public void FreshLauncherUsesConfiguredDevelopmentBackendPort()
+        => Assert.Equal("http://51.161.113.128:18085/",
+            MphRead.Mods.Launcher.LauncherPrefs.DefaultBackendAddress);
 
     [Fact]
     public void BackendPolicyRejectsCredentialsQueriesFragmentsNonLoopbackHttpAndRelativeUris()

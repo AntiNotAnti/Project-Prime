@@ -10,6 +10,10 @@ namespace FruityPrime.Server.Node.Tests;
 
 public sealed class NodeDirectoryReporterTests
 {
+    [Fact]
+    public void DirectorySettingsUseConfiguredDevelopmentBackendPortByDefault()
+        => Assert.Equal("http://51.161.113.128:18085/", new NodeDirectorySettings().BackendUri);
+
     private static NodeDirectoryReporterOptions Options() => new(Guid.NewGuid(), new Uri("https://backend.example/"),
         new(Guid.NewGuid(), "Node", "us", "wss://node.example/v1/control", 9, "test-build", new string('a', 64), 100), "private-test-credential");
     private sealed class Handler : HttpMessageHandler

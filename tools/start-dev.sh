@@ -128,11 +128,7 @@ if [[ -z "$BACKEND_BIND" ]]; then
 fi
 BACKEND_URL=$PRIME_BACKEND_URL
 if [[ -z "$BACKEND_URL" ]]; then
-    if [[ "$START_BACKEND" == 1 ]]; then
-        BACKEND_URL=http://51.161.113.128:18085/
-    else
-        BACKEND_URL=http://51.161.113.128/
-    fi
+    BACKEND_URL=http://51.161.113.128:18085/
 fi
 NODE_PUBLIC_HOST=$PRIME_NODE_PUBLIC_HOST
 if [[ -z "$NODE_PUBLIC_HOST" ]]; then

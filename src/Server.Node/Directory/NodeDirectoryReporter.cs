@@ -12,7 +12,7 @@ namespace FruityPrime.Server.Node.Discovery;
 public sealed class NodeDirectorySettings
 {
     public bool Enabled { get; set; }
-    public string BackendUri { get; set; } = "";
+    public string BackendUri { get; set; } = "http://51.161.113.128:18085/";
     public string PublicControlUri { get; set; } = "";
     public string Name { get; set; } = "";
     public string Region { get; set; } = "";

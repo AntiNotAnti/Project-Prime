@@ -18,7 +18,7 @@ namespace MphRead.Mods.Launcher
     public static class LauncherPrefs
     {
         /// <summary>Backend origin used by fresh development clients.</summary>
-        public const string DefaultBackendAddress = "http://51.161.113.128/";
+        public const string DefaultBackendAddress = "http://51.161.113.128:18085/";
         public static string BackendAddress { get; set; } = DefaultBackendAddress;
         /// <summary>
         /// Where launcher.txt lives. Beside the executable, which is where the

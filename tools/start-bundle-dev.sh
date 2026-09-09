@@ -33,7 +33,7 @@ come from that bundle; no repository checkout or dotnet SDK is needed.
 The shared Backend must already know this Node. Set PRIME_NODE_ID,
 PRIME_NODE_PUBLIC_KEY_FILE (Backend ticket-signing public SPKI PEM), and either
 PRIME_NODE_DIRECTORY_SECRET or PRIME_NODE_DIRECTORY_SECRET_FILE. The Backend
-defaults to http://51.161.113.128/. PRIME_NODE_CERT_PFX and
+defaults to http://51.161.113.128:18085/. PRIME_NODE_CERT_PFX and
 PRIME_NODE_CERT_PASSWORD may provide a trusted WSS certificate; otherwise a
 self-signed development certificate is generated in the state directory.
 The Node defaults to HTTPS/WSS port 8443, which is Cloudflare-proxyable without
@@ -87,7 +87,7 @@ chmod 700 "$STATE_DIR" "$STATE_DIR/artifacts" "$STATE_DIR/replays"
 CONTENT_VERSION=$PRIME_CONTENT_VERSION
 if [[ -z "$CONTENT_VERSION" ]]; then CONTENT_VERSION=AMHE1; fi
 BACKEND_URL=$PRIME_BACKEND_URL
-if [[ -z "$BACKEND_URL" ]]; then BACKEND_URL=http://51.161.113.128/; fi
+if [[ -z "$BACKEND_URL" ]]; then BACKEND_URL=http://51.161.113.128:18085/; fi
 NODE_PUBLIC_HOST=$PRIME_NODE_PUBLIC_HOST
 if [[ -z "$NODE_PUBLIC_HOST" ]]; then NODE_PUBLIC_HOST=51.161.113.128; fi
 NODE_CONTROL_URI=$PRIME_NODE_PUBLIC_CONTROL_URI
