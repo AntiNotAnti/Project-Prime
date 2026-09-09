@@ -1002,8 +1002,8 @@ namespace MphRead.Mods.Launcher.Gui
             _hunterRow = Add(page, new ChoiceRow("Hunter", hunters,
                 Math.Max(0, Array.IndexOf(hunters, LauncherPrefs.LastHunter.ToString()))));
 
-            _autoUpdate = Add(page, new ToggleRow("Check for updates on startup",
-                LauncherPrefs.AutoUpdate));
+            _autoUpdate = new ToggleRow("Check for updates on startup", LauncherPrefs.AutoUpdate);
+            if (Update.Updater.Configured) Add(page, _autoUpdate);
 
             Heading(page, "Game files");
             var files = new MenuEntry("Game files", GameFiles.Describe(), titleSize: 15);
