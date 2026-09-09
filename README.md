@@ -95,10 +95,14 @@ Needs [.NET 10.0](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
 The bundle step puts every custom map's recipe, level and baked textures into
 the `.fpmap` files copied into client and server packages. `Client.csproj` also
 runs this cook and copies newly created bundles during a direct publish. The
-client builds the derived room binaries in its installed `AMHE1` directory
-before Node discovery, so use the same content version and map bundles on the
-server; `tools/package-server.sh` runs the cook for direct server packaging as
-well.
+client and the packaged Worker build missing derived room binaries in the
+operator's extracted `AMHE1` directory before Node discovery, so use the same
+content version and map bundles on both sides. The development launchers run
+the Worker preparation step before generating Node configuration; it is
+incremental and requires the extracted directory to be writable. Baked server
+content packages remain read-only and cannot be used for this preparation.
+`tools/package-server.sh` runs the map-bundle cook for direct server packaging
+as well.
 `tools/package-server.sh --rid linux-x64 --output publish/server-linux-x64` packages the Backend,
 persistent Server Node, and its bundled Worker; use `win-x64` or `linux-arm64` for the other supported
 server targets. Android is `dotnet build src/Android/Android.csproj` with the `android` workload. Every command
