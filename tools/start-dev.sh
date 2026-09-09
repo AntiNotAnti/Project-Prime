@@ -119,7 +119,7 @@ if [[ -z "$CONTENT_DIR" || ! -d "$CONTENT_DIR" ]]; then
     echo "Set PRIME_CONTENT_DIRECTORY (or --content-dir) to the AMHE1 content directory." >&2
     exit 1
 fi
-CONTENT_DIR=$(cd "$CONTENT_DIR" && pwd)
+CONTENT_DIR=$(cd "$CONTENT_DIR" && pwd -P)
 CONTENT_VERSION=$PRIME_CONTENT_VERSION
 if [[ -z "$CONTENT_VERSION" ]]; then CONTENT_VERSION=AMHE1; fi
 BACKEND_BIND=$PRIME_BACKEND_BIND
@@ -173,16 +173,86 @@ REPLAY_DIR=$STATE_DIR/replays
 
 MAP_DIR=$PACKAGE_DIR/maps
 [[ -d "$MAP_DIR" ]] || { echo "Worker map directory is missing: $MAP_DIR" >&2; exit 1; }
+
+CONTENT_IS_BAKED=0
+if [[ -f "$CONTENT_DIR/server-content.json" ]]; then
+    CONTENT_IS_BAKED=1
+fi
+
+CONTENT_LOCK_HELD=0
+release_content_lock() {
+    lock_exit_status=$?
+    if [[ "$CONTENT_LOCK_HELD" == 1 ]]; then
+        exec 9>&-
+        CONTENT_LOCK_HELD=0
+    fi
+    return "$lock_exit_status"
+}
+
+if [[ "$CONTENT_IS_BAKED" == 0 ]]; then
+    CONTENT_LOCK_ROOT=${TMPDIR:-/tmp}/project-prime-content-locks-$UID
+    if ! mkdir -p "$CONTENT_LOCK_ROOT" || ! chmod 700 "$CONTENT_LOCK_ROOT"; then
+        echo "Unable to create the private content lock directory: $CONTENT_LOCK_ROOT" >&2
+        exit 1
+    fi
+    if ! CONTENT_LOCK_KEY=$(python3 - "$CONTENT_DIR" <<'PY'
+import hashlib
+import sys
+print(hashlib.sha256(sys.argv[1].encode("utf-8")).hexdigest())
+PY
+    ); then
+        echo "Unable to derive the content lock key for $CONTENT_DIR." >&2
+        exit 1
+    fi
+    CONTENT_LOCK_FILE=$CONTENT_LOCK_ROOT/$CONTENT_LOCK_KEY.lock
+    if ! exec 9>"$CONTENT_LOCK_FILE"; then
+        echo "Unable to open the content lock file: $CONTENT_LOCK_FILE" >&2
+        exit 1
+    fi
+    if ! chmod 600 "$CONTENT_LOCK_FILE"; then
+        exec 9>&-
+        echo "Unable to secure the content lock file: $CONTENT_LOCK_FILE" >&2
+        exit 1
+    fi
+if python3 - <<'PY'
+import fcntl
+import sys
+try:
+    fcntl.flock(9, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    print("Content directory is already locked by another Project Prime launcher.", file=sys.stderr)
+    raise SystemExit(75)
+except OSError as error:
+    print(f"Unable to acquire the content lock: {error}", file=sys.stderr)
+    raise SystemExit(1)
+PY
+    then
+        CONTENT_LOCK_HELD=1
+        trap release_content_lock EXIT
+    else
+        lock_status=$?
+        exec 9>&-
+        if [[ "$lock_status" == 75 ]]; then
+            echo "Could not acquire the content lock for $CONTENT_DIR; another launcher is using it. Worker content preparation was not started." >&2
+        else
+            echo "Could not acquire the content lock for $CONTENT_DIR. Worker content preparation was not started." >&2
+        fi
+        exit 1
+    fi
+fi
+
 DESCRIPTOR_PATH=$STATE_DIR/content-description.json
 if ! DESCRIPTOR_TMP=$(mktemp "$STATE_DIR/.content-description.XXXXXX"); then
     echo "Unable to create the Worker content descriptor in $STATE_DIR." >&2
     exit 1
 fi
-if ! "$WORKER_PATH" --prepare-content true --content-dir "$CONTENT_DIR" \
-    --content-version "$CONTENT_VERSION" --map-dir "$MAP_DIR"; then
-    rm -f "$DESCRIPTOR_TMP"
-    echo "Worker content preparation failed; no Node configuration was generated." >&2
-    exit 1
+if [[ "$CONTENT_IS_BAKED" == 0 ]]; then
+    if ! "$WORKER_PATH" --prepare-content true --content-dir "$CONTENT_DIR" \
+        --content-version "$CONTENT_VERSION" --map-dir "$MAP_DIR"; then
+        rm -f "$DESCRIPTOR_TMP"
+        echo "Worker content preparation failed; no Node configuration was generated." >&2
+        exit 1
+    fi
 fi
 if ! "$WORKER_PATH" --describe-content true --content-dir "$CONTENT_DIR" \
     --content-version "$CONTENT_VERSION" --map-dir "$MAP_DIR" > "$DESCRIPTOR_TMP"; then
@@ -501,6 +571,7 @@ cleanup() {
     [[ -n "$BACKEND_PID" && "$BACKEND_PID" != 0 ]] && kill "$BACKEND_PID" 2>/dev/null || true
     wait "$NODE_PID" 2>/dev/null || true
     wait "$BACKEND_PID" 2>/dev/null || true
+    release_content_lock
     rm -f "$STATE_DIR/node.pid" "$STATE_DIR/backend.pid"
     exit "$status"
 }

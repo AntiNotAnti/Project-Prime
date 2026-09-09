@@ -98,9 +98,11 @@ runs this cook and copies newly created bundles during a direct publish. The
 client and the packaged Worker build missing derived room binaries in the
 operator's extracted `AMHE1` directory before Node discovery, so use the same
 content version and map bundles on both sides. The development launchers run
-the Worker preparation step before generating Node configuration; it is
-incremental and requires the extracted directory to be writable. Baked server
-content packages remain read-only and cannot be used for this preparation.
+the Worker preparation step before generating Node configuration for extracted
+content; it is incremental, serialized per canonical content path, and requires
+that directory to be writable. When `server-content.json` is present, the
+launchers use the baked catalog directly and skip preparation, so baked server
+content packages can remain read-only.
 `tools/package-server.sh` runs the map-bundle cook for direct server packaging
 as well.
 `tools/package-server.sh --rid linux-x64 --output publish/server-linux-x64` packages the Backend,

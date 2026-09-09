@@ -142,6 +142,58 @@ class ServerBundleContractTests(unittest.TestCase):
             self.assertLess(script.index("--prepare-content true"), script.index("--describe-content true"))
             self.assertGreaterEqual(script.count("--map-dir"), 3)
 
+    def test_launchers_skip_preparation_when_content_has_a_baked_manifest(self):
+        for name in ("start-dev.sh", "start-bundle-dev.sh"):
+            script = (ROOT / "tools" / name).read_text(encoding="utf-8")
+            manifest_check = 'if [[ -f "$CONTENT_DIR/server-content.json" ]]; then'
+            manifest_index = script.index(manifest_check)
+            self.assertIn("CONTENT_IS_BAKED=1", script[manifest_index:])
+            descriptor_index = script.index("DESCRIPTOR_PATH=", manifest_index)
+            preparation_guard = script.index(
+                'if [[ "$CONTENT_IS_BAKED" == 0 ]]; then', descriptor_index
+            )
+            preparation_index = script.index("--prepare-content true", preparation_guard)
+            describe_index = script.index("--describe-content true", preparation_index)
+            guard_end = script.rfind("\nfi", preparation_guard, describe_index)
+            self.assertLess(manifest_index, preparation_guard)
+            self.assertLess(preparation_index, guard_end)
+            self.assertLess(guard_end, describe_index)
+
+    def test_launchers_acquire_the_content_lock_before_preparation(self):
+        for name in ("start-dev.sh", "start-bundle-dev.sh"):
+            script = (ROOT / "tools" / name).read_text(encoding="utf-8")
+            open_index = script.index('exec 9>"$CONTENT_LOCK_FILE"')
+            flock_index = script.index("fcntl.flock(9, fcntl.LOCK_EX | fcntl.LOCK_NB)")
+            preparation_index = script.index("--prepare-content true")
+            self.assertLess(open_index, flock_index)
+            self.assertLess(flock_index, preparation_index)
+            self.assertIn("CONTENT_LOCK_ROOT=${TMPDIR:-/tmp}/project-prime-content-locks-$UID", script)
+            self.assertIn('python3 - "$CONTENT_DIR"', script)
+            self.assertIn("hashlib.sha256", script)
+
+    def test_launchers_release_the_content_lock_after_node_lifetime(self):
+        for name in ("start-dev.sh", "start-bundle-dev.sh"):
+            script = (ROOT / "tools" / name).read_text(encoding="utf-8")
+            cleanup_start = script.index("cleanup() {")
+            cleanup_end = script.index("\n}", cleanup_start)
+            cleanup = script[cleanup_start:cleanup_end]
+            self.assertIn("trap release_content_lock EXIT", script)
+            self.assertIn("release_content_lock", cleanup)
+            self.assertLess(cleanup.index('wait "$NODE_PID"'), cleanup.index("release_content_lock"))
+
+    def test_launchers_report_content_lock_contention_before_preparation(self):
+        for name in ("start-dev.sh", "start-bundle-dev.sh"):
+            script = (ROOT / "tools" / name).read_text(encoding="utf-8")
+            lock_start = script.index("if python3 - <<'PY'")
+            lock_end = script.index("\nDESCRIPTOR_PATH=", lock_start)
+            lock_block = script[lock_start:lock_end]
+            self.assertIn("fcntl.LOCK_NB", lock_block)
+            self.assertIn("import sys", lock_block)
+            self.assertIn("another Project Prime launcher", lock_block)
+            self.assertIn("another launcher is using it", lock_block)
+            self.assertIn("Worker content preparation was not started", lock_block)
+            self.assertNotIn("--prepare-content true", lock_block)
+
     def test_empty_map_key_generates_sorted_descriptor_maps_with_identity_and_modes(self):
         descriptor = {
             "ContentVersion": "AMHE1",
