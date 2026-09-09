@@ -89,6 +89,19 @@ class ProjectBoundaryGuardTests(unittest.TestCase):
         )
         self.assertIn("Server.Worker: unexpected platform packages: ['Avalonia']", errors)
 
+    def test_worker_map_preparation_package_is_allowed(self):
+        self.write_baseline()
+        self.write(
+            "src/Server.Worker/Server.Worker.csproj",
+            self.project(
+                "Server.Worker", GUARD.PROJECTS["Server.Worker"],
+                ("Microsoft.IdentityModel.JsonWebTokens", "ReFuel.StbImage"),
+                ("../Shared/Shared.cs",),
+            ),
+        )
+
+        self.assertEqual(self.inspect(), [])
+
     def test_backend_allows_game_only_and_rejects_client_dependency(self):
         self.write_baseline()
         self.write(

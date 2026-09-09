@@ -32,7 +32,8 @@ PLATFORM_PACKAGES = re.compile(
     r'|(?:ppy\.)?SDL(?:2|3)?(?:[-.]|$))',
     re.IGNORECASE,
 )
-SERVER_ALLOWED_PACKAGES = {'Microsoft.IdentityModel.JsonWebTokens'}
+SERVER_ALLOWED_PACKAGES = {'Microsoft.IdentityModel.JsonWebTokens', 'ReFuel.StbImage'}
+SERVER_ALLOWED_PLATFORM_PACKAGES = {'Server.Worker': {'ReFuel.StbImage'}}
 GAME_IO = re.compile(r'\bSystem\.Net\.Sockets\b|\b(?:NetTransport|UdpTransport|ServerProcessHost|ScenePresentation|PlayerPresentation)\b')
 RETIRED_SERVER_SYMBOLS = re.compile(
     r'\b(?:MasterServer|MasterReporter|AuthoritativeServer|StandaloneAuthoritativeServer|'
@@ -145,7 +146,9 @@ def inspect(root: Path) -> list[str]:
             if forbidden:
                 errors.append(f'{name}: unexpected platform packages: {forbidden}')
         if name in PLATFORM_SOURCE_PROJECTS:
-            forbidden = sorted(package for package in packages if PLATFORM_PACKAGES.search(package))
+            allowed_platform = SERVER_ALLOWED_PLATFORM_PACKAGES.get(name, set())
+            forbidden = sorted(package for package in packages
+                               if PLATFORM_PACKAGES.search(package) and package not in allowed_platform)
             if forbidden:
                 errors.append(f'{name}: unexpected platform packages: {forbidden}')
         if name in PLATFORM_SOURCE_PROJECTS:
