@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -154,6 +156,177 @@ public sealed class ServerContentValidationTests : IDisposable
             Enumerable.Range((int)GameMode.Battle, 12)
                 .Select(mode => new ServerContentScenario($"map-{index}", (GameMode)mode)));
         Assert.Throws<ProgramException>(() => ServerContentValidation.BuildMapDescriptors(tooManyPairs));
+    }
+
+    [Fact]
+    public void WorkerPreparationOptionIsParsed()
+    {
+        var flags = FruityPrime.Server.Worker.Program.ParseArguments(
+            new[] { "--prepare-content", "true", "--content-dir", _directory, "--content-version", "AMHE1" });
+
+        Assert.Equal("true", flags["--prepare-content"]);
+    }
+
+    [Fact]
+    public async Task PreparationAndDescriptionCannotRunTogether()
+    {
+        TextWriter previousError = Console.Error;
+        using var error = new StringWriter();
+        try
+        {
+            Console.SetError(error);
+            Assert.Equal(1, await FruityPrime.Server.Worker.Program.Main(new[]
+            {
+                "--prepare-content", "true", "--describe-content", "true",
+                "--content-dir", _directory, "--content-version", "AMHE1"
+            }));
+        }
+        finally { Console.SetError(previousError); }
+
+        Assert.Contains("cannot be enabled together", error.ToString());
+    }
+
+    [Fact]
+    public async Task PreparationRejectsDeveloperValidationFixtures()
+    {
+        TextWriter previousError = Console.Error;
+        using var error = new StringWriter();
+        try
+        {
+            Console.SetError(error);
+            Assert.Equal(1, await FruityPrime.Server.Worker.Program.Main(new[]
+            {
+                "--prepare-content", "true", "--validation-fixture", "none",
+                "--content-dir", _directory, "--content-version", "AMHE1"
+            }));
+        }
+        finally { Console.SetError(previousError); }
+
+        Assert.Contains("developer validation fixture", error.ToString());
+    }
+
+    [Fact]
+    public async Task PreparationRejectsBakedContentWithoutWriting()
+    {
+        CreateManifest();
+        string manifestPath = Path.Combine(_directory, ServerContentPackage.ManifestName);
+        byte[] before = File.ReadAllBytes(manifestPath);
+        TextWriter previousError = Console.Error;
+        using var error = new StringWriter();
+        try
+        {
+            Console.SetError(error);
+            Assert.Equal(1, await FruityPrime.Server.Worker.Program.Main(new[]
+            {
+                "--prepare-content", "true", "--content-dir", _directory,
+                "--content-version", "AMHE1", "--map-dir", Path.Combine(_directory, "maps")
+            }));
+        }
+        finally { Console.SetError(previousError); }
+
+        Assert.Equal(before, File.ReadAllBytes(manifestPath));
+        Assert.Contains("baked server content packages are read-only", error.ToString());
+    }
+
+    [Fact]
+    public async Task DescriptionDoesNotPrepareMissingCustomRoomFiles()
+    {
+        Directory.CreateDirectory(Path.Combine(_directory, "_bin"));
+        Directory.CreateDirectory(Path.Combine(_directory, "models"));
+        Directory.CreateDirectory(Path.Combine(_directory, "levels"));
+        File.WriteAllBytes(Path.Combine(_directory, "_bin", "arm9.bin"), new byte[] { 1 });
+        string mapDirectory = Path.Combine(_directory, "maps");
+        Directory.CreateDirectory(mapDirectory);
+        File.WriteAllText(Path.Combine(mapDirectory, "fixture.json"),
+            "{\"name\":\"fixture\",\"brushes\":[{\"min\":[0,0,0],\"max\":[1,1,1]}]}\n");
+
+        TextWriter previousError = Console.Error;
+        using var error = new StringWriter();
+        try
+        {
+            Console.SetError(error);
+            // The intentionally incomplete extracted fixture cannot pass the
+            // retail room probe, but description must still remain read-only.
+            Assert.Equal(1, await FruityPrime.Server.Worker.Program.Main(new[]
+            {
+                "--describe-content", "true", "--content-dir", _directory,
+                "--content-version", "AMHE1", "--map-dir", mapDirectory
+            }));
+        }
+        finally { Console.SetError(previousError); }
+
+        Assert.False(Directory.Exists(Path.Combine(_directory, "_archives")));
+        Assert.False(File.Exists(Path.Combine(_directory, "levels", "entities", "fixture_Ent.bin")));
+        Assert.False(File.Exists(Path.Combine(_directory, "levels", "nodeData", "fixture_Node.bin")));
+    }
+
+    [Fact]
+    public void NeedsGeneratingRequiresAllRoomOutputs()
+    {
+        string previousDirectory = CustomRooms.MapDirectory;
+        string previousContentRoot = CustomRooms.ContentRoot;
+        using var saved = ServerContent.PreserveContext("AMHE1");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(_directory, "_bin"));
+            Directory.CreateDirectory(Path.Combine(_directory, "models"));
+            Directory.CreateDirectory(Path.Combine(_directory, "levels"));
+            File.WriteAllBytes(Path.Combine(_directory, "_bin", "arm9.bin"), new byte[] { 1 });
+            ContentEnvironment.Open(_directory, "AMHE1");
+            string mapDirectory = Path.Combine(_directory, "maps");
+            Directory.CreateDirectory(mapDirectory);
+            File.WriteAllText(Path.Combine(mapDirectory, "fixture.json"),
+                "{\"name\":\"fixture\",\"brushes\":[{\"min\":[0,0,0],\"max\":[1,1,1]}]}\n");
+            CustomRooms.MapDirectory = mapDirectory;
+            CustomRooms.ContentRoot = _directory;
+            MethodInfo loader = typeof(CustomRooms).GetMethod("LoadDefinitions",
+                BindingFlags.Static | BindingFlags.NonPublic)!;
+            MapDefinition definition = Assert.Single(
+                (IReadOnlyList<MapDefinition>)loader.Invoke(null, null)!);
+
+            string archive = CustomRooms.ArchiveDirectory(definition);
+            string entities = CustomRooms.EntityDirectory();
+            string nodes = CustomRooms.NodeDirectory();
+            Directory.CreateDirectory(archive);
+            Directory.CreateDirectory(entities);
+            Directory.CreateDirectory(nodes);
+            string prefix = definition.Name.ToLowerInvariant();
+            File.WriteAllBytes(Path.Combine(archive, prefix + "_Model.bin"), new byte[] { 1 });
+            File.WriteAllBytes(Path.Combine(archive, prefix + "_Collision.bin"), new byte[] { 1 });
+            File.WriteAllBytes(Path.Combine(entities, prefix + "_Ent.bin"), new byte[] { 1 });
+            File.WriteAllBytes(Path.Combine(nodes, prefix + "_Node.bin"), new byte[] { 1 });
+            Assert.True(CustomRooms.NeedsGenerating(definition));
+
+            File.WriteAllBytes(Path.Combine(archive, prefix + "_Anim.bin"), new byte[] { 1 });
+            Assert.False(CustomRooms.NeedsGenerating(definition));
+        }
+        finally
+        {
+            CustomRooms.MapDirectory = previousDirectory;
+            CustomRooms.ContentRoot = previousContentRoot;
+        }
+    }
+
+    [Fact]
+    public void AppleDoubleMapFilesAreIgnored()
+    {
+        string previousDirectory = CustomRooms.MapDirectory;
+        string mapDirectory = Path.Combine(_directory, "maps");
+        Directory.CreateDirectory(mapDirectory);
+        const string definition = "{\"name\":\"fixture\",\"brushes\":[{\"min\":[0,0,0],\"max\":[1,1,1]}]}\n";
+        File.WriteAllText(Path.Combine(mapDirectory, "fixture.json"), definition);
+        File.WriteAllText(Path.Combine(mapDirectory, "._fixture.json"),
+            "{\"name\":\"apple double\",\"brushes\":[{\"min\":[0,0,0],\"max\":[1,1,1]}]}\n");
+        try
+        {
+            CustomRooms.MapDirectory = mapDirectory;
+            MethodInfo loader = typeof(CustomRooms).GetMethod("LoadDefinitions",
+                BindingFlags.Static | BindingFlags.NonPublic)!;
+            var definitions = (IReadOnlyList<MapDefinition>)loader.Invoke(null, null)!;
+            Assert.Single(definitions);
+            Assert.Equal("FIXTURE", definitions[0].Name);
+        }
+        finally { CustomRooms.MapDirectory = previousDirectory; }
     }
 
     [Fact]

@@ -132,12 +132,20 @@ class ServerBundleContractTests(unittest.TestCase):
         }
         for name, map_dir in expected.items():
             script = (ROOT / "tools" / name).read_text(encoding="utf-8")
-            self.assertIn(f"--content-version \"$CONTENT_VERSION\" --map-dir \"{map_dir}\"", script)
+            self.assertIn(
+                '--prepare-content true --content-dir "$CONTENT_DIR" \\\n+    --content-version "$CONTENT_VERSION" --map-dir "$MAP_DIR"',
+                script,
+            )
+            self.assertIn(
+                '--describe-content true --content-dir "$CONTENT_DIR" \\\n+    --content-version "$CONTENT_VERSION" --map-dir "$MAP_DIR"',
+                script,
+            )
             self.assertIn(f"MAP_DIR={map_dir}", script)
             self.assertIn('"--map-dir",os.environ["MAP_DIR"]', script)
             self.assertIn('chmod 600 "$DESCRIPTOR_TMP"', script)
             self.assertIn('mv -f "$DESCRIPTOR_TMP" "$DESCRIPTOR_PATH"', script)
-            self.assertGreaterEqual(script.count("--map-dir"), 2)
+            self.assertLess(script.index("--prepare-content true"), script.index("--describe-content true"))
+            self.assertGreaterEqual(script.count("--map-dir"), 3)
 
     def test_empty_map_key_generates_sorted_descriptor_maps_with_identity_and_modes(self):
         descriptor = {
