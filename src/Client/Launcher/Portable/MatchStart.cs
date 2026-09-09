@@ -35,31 +35,48 @@ namespace MphRead.Mods.Launcher
                 return;
             }
             settings.RoomKey = room.RoomKey;
-            using var renderer = new RenderWindow();
-            NetLaunch.BuildPlayers(renderer.Scene, plan.Hunter, localRecolor: 0);
-            renderer.AddRoom(room.RoomKey, room.Mode, playerCount: NetLaunch.RoomPlayerCount);
-            renderer.Run();
+            var scene = new Scene(features: ClientMatchFeatures.Capture());
+            using var sdlHost = new SdlGameHost();
+            sdlHost.RunScene(scene, presentation =>
+            {
+                // RunScene creates ScenePresentation before this callback,
+                // preserving the setup order while the SDL host owns the
+                // native window and renderer.
+                NetLaunch.BuildPlayers(scene, plan.Hunter, localRecolor: 0);
+                presentation.AddRoom(room.RoomKey, room.Mode,
+                    playerCount: NetLaunch.RoomPlayerCount);
+            });
         }
 
         private static void LaunchDemo(LaunchPlan plan)
         {
-            if (!DemoPlayback.Join(plan.DemoPath))
+            try
             {
-                Console.WriteLine("[demo] could not open or read the demo file");
-                return;
+                if (!DemoPlayback.Join(plan.DemoPath))
+                {
+                    Console.WriteLine("[demo] could not open or read the demo file");
+                    return;
+                }
+                (string RoomKey, GameMode Mode)? room = NetLaunch.ServerRoom();
+                if (room == null)
+                {
+                    Console.WriteLine("[demo] the demo has no match info");
+                    return;
+                }
+                var scene = new Scene(features: ClientMatchFeatures.Capture());
+                using var sdlHost = new SdlGameHost();
+                sdlHost.RunScene(scene, presentation =>
+                {
+                    NetLaunch.BuildPlayers(scene, Hunter.Samus, localRecolor: 0,
+                        teamId: -1, localSlot: -1);
+                    presentation.AddRoom(room.Value.RoomKey, room.Value.Mode,
+                        playerCount: NetLaunch.RoomPlayerCount);
+                });
             }
-            (string RoomKey, GameMode Mode)? room = NetLaunch.ServerRoom();
-            if (room == null)
+            finally
             {
-                Console.WriteLine("[demo] the demo has no match info");
                 DemoPlayback.Stop();
-                return;
             }
-            using var renderer = new RenderWindow();
-            NetLaunch.BuildPlayers(renderer.Scene, Hunter.Samus, localRecolor: 0, teamId: -1, localSlot: -1);
-            renderer.AddRoom(room.Value.RoomKey, room.Value.Mode, playerCount: NetLaunch.RoomPlayerCount);
-            renderer.Run();
-            DemoPlayback.Stop();
         }
 
     }

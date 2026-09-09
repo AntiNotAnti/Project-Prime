@@ -50,18 +50,24 @@ namespace MphRead.Mods.Launcher.Gui
             // panel of a stated width in the middle, never a column stretched
             // across whatever the match happens to be running at -- 1024 or
             // 3840 -- which is a menu you have to hunt across.
-            const double panelWidth = 420;
-            var stack = new StackPanel { Spacing = 4 };
-            stack.Children.Add(new Caption("Paused") { Height = 34 });
-            // Titles only. Every entry here said what it did twice -- "Quit",
-            // "Close FruityPrime" -- and the second saying is what made a
-            // seven-line menu tall enough to be cut off by the window it is
-            // drawn over.
-            _resume = Add(stack, "Resume",
-                () => Resumed?.Invoke(this, EventArgs.Empty));
+            const double panelWidth = 500;
+            var stack = new StackPanel { Spacing = 10 };
+            stack.Children.Add(BuildHeader());
+
+            _resume = Entry("Resume session",
+                () => Resumed?.Invoke(this, EventArgs.Empty), GuiTheme.Accent, primary: true);
+            _resume.Height = 48;
+            stack.Children.Add(_resume);
+
+            // Keep every secondary action in one bounded control sector. The
+            // hosts still decide what the actions mean; this view only makes
+            // the hierarchy visible instead of presenting seven equal exits.
+            var session = new StackPanel { Spacing = 2 };
+            Add(session, "Settings",
+                () => SettingsRequested?.Invoke(this, EventArgs.Empty));
             if (offerWindowMode)
             {
-                var windowEntry = new MenuEntry(WindowLabel(), titleSize: 17);
+                var windowEntry = new MenuEntry(WindowLabel(), titleSize: 16);
                 windowEntry.Click += (_, _) =>
                 {
                     FullscreenRequested?.Invoke(this, EventArgs.Empty);
@@ -70,32 +76,39 @@ namespace MphRead.Mods.Launcher.Gui
                     // milliseconds.
                     windowEntry.Title = WindowMode.IsFullscreen ? "Windowed" : "Fullscreen";
                 };
-                stack.Children.Add(windowEntry);
+                session.Children.Add(windowEntry);
             }
-            Add(stack, "Settings",
-                () => SettingsRequested?.Invoke(this, EventArgs.Empty));
             if (!DemoPlayback.IsActive)
             {
                 if (SpectatorMode.IsSpectating)
                 {
-                    Add(stack, "Rejoin match",
+                    Add(session, "Rejoin match",
                         () => RejoinRequested?.Invoke(this, EventArgs.Empty));
                 }
                 else if (SpectatorMode.CanSpectate)
                 {
-                    Add(stack, "Spectate",
+                    Add(session, "Spectate",
                         () => SpectateRequested?.Invoke(this, EventArgs.Empty));
                 }
                 if (AuthoritativePlay.Current != null)
                 {
-                    Add(stack, DemoRecorder.IsRecording ? "Stop recording" : "Record demo",
+                    MenuEntry record = Add(session,
+                        DemoRecorder.IsRecording ? "Stop recording" : "Record demo",
                         () => RecordToggleRequested?.Invoke(this, EventArgs.Empty));
+                    record.Accent = DemoRecorder.IsRecording ? GuiTheme.Warm : GuiTheme.Accent;
                 }
             }
-            Add(stack, "Leave match",
+            stack.Children.Add(BuildGroup("System & session", session));
+
+            var exit = new StackPanel { Spacing = 2 };
+            MenuEntry leave = Add(exit, "Leave match",
                 () => LeaveRequested?.Invoke(this, EventArgs.Empty));
-            Add(stack, "Quit",
+            leave.Accent = GuiTheme.Warm;
+            MenuEntry quit = Add(exit, "Quit game",
                 () => QuitRequested?.Invoke(this, EventArgs.Empty));
+            quit.Accent = GuiTheme.Bad;
+            stack.Children.Add(BuildGroup("Disengage", exit));
+            stack.Children.Add(BuildFooter());
 
             var panel = new Border
             {
@@ -106,7 +119,7 @@ namespace MphRead.Mods.Launcher.Gui
                 // menu has no shape.
                 BorderBrush = GuiTheme.EdgeBrush,
                 BorderThickness = new Thickness(1),
-                Padding = new Thickness(22, 18, 22, 18),
+                Padding = new Thickness(20, 18, 20, 18),
                 Child = stack
             };
             panel.MaxWidth = panelWidth;
@@ -195,10 +208,130 @@ namespace MphRead.Mods.Launcher.Gui
             return WindowMode.IsFullscreen ? "Windowed" : "Fullscreen";
         }
 
+        private static Border BuildHeader()
+        {
+            var content = new StackPanel { Spacing = 2 };
+            content.Children.Add(new TextBlock
+            {
+                Text = $"SYSTEM OVERLAY // {SessionStatus()}",
+                FontFamily = GuiTheme.Display,
+                FontSize = 11,
+                FontWeight = FontWeight.SemiBold,
+                Foreground = GuiTheme.AccentBrush
+            });
+            content.Children.Add(new TextBlock
+            {
+                Text = "START MENU",
+                FontFamily = GuiTheme.Display,
+                FontSize = 27,
+                FontWeight = FontWeight.SemiBold,
+                Foreground = GuiTheme.TextBrush
+            });
+            content.Children.Add(new TextBlock
+            {
+                Text = "Session controls remain available while the match is active.",
+                FontFamily = GuiTheme.Display,
+                FontSize = 11,
+                Foreground = GuiTheme.TextDimBrush
+            });
+            return new Border
+            {
+                Height = 78,
+                Background = GuiTheme.PanelLightBrush,
+                BorderBrush = GuiTheme.EdgeBrush,
+                BorderThickness = new Thickness(1, 1, 1, 0),
+                Padding = new Thickness(14, 10),
+                Child = content
+            };
+        }
+
+        private static string SessionStatus()
+        {
+            if (DemoPlayback.IsActive)
+            {
+                return "DEMO PLAYBACK";
+            }
+            if (SpectatorMode.IsSpectating)
+            {
+                return "SPECTATOR SESSION";
+            }
+            if (AuthoritativePlay.Current != null)
+            {
+                return "AUTHORITATIVE SESSION";
+            }
+            return "GAME SESSION";
+        }
+
+        private static Border BuildGroup(string title, StackPanel entries)
+        {
+            int count = entries.Children.Count;
+            entries.Children.Insert(0, new Caption(title));
+            return new Border
+            {
+                Height = 18 + 26 + count * 42 + count * entries.Spacing,
+                Background = new SolidColorBrush(GuiTheme.Shade(GuiTheme.Panel, -0.12)),
+                BorderBrush = GuiTheme.EdgeBrush,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(10, 8, 10, 10),
+                Child = entries
+            };
+        }
+
+        private static Border BuildFooter()
+        {
+            var hints = new WrapPanel
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            hints.Children.Add(Hint("[ESC]", " RESUME   "));
+            hints.Children.Add(Hint("[ENTER]", " CONFIRM   "));
+            hints.Children.Add(Hint("[TAB]", " NAVIGATE"));
+            return new Border
+            {
+                Height = 42,
+                BorderBrush = GuiTheme.EdgeBrush,
+                BorderThickness = new Thickness(0, 1, 0, 0),
+                Padding = new Thickness(8, 7, 8, 0),
+                Child = hints
+            };
+        }
+
+        private static TextBlock Hint(string key, string action)
+        {
+            var text = new TextBlock
+            {
+                FontFamily = GuiTheme.Display,
+                FontSize = 10,
+                FontWeight = FontWeight.SemiBold
+            };
+            text.Inlines!.Add(new Avalonia.Controls.Documents.Run(key)
+            {
+                Foreground = GuiTheme.AccentBrush
+            });
+            text.Inlines.Add(new Avalonia.Controls.Documents.Run(action)
+            {
+                Foreground = GuiTheme.TextDimBrush
+            });
+            return text;
+        }
+
+        private static MenuEntry Entry(string text, Action action, Color accent,
+            bool primary = false)
+        {
+            var entry = new MenuEntry(text, titleSize: primary ? 17 : 16)
+            {
+                Accent = accent,
+                Primary = primary
+            };
+            entry.Click += (_, _) => action();
+            return entry;
+        }
+
         private static MenuEntry Add(StackPanel stack, string text, Action action)
         {
-            var entry = new MenuEntry(text, titleSize: 17);
-            entry.Click += (_, _) => action();
+            MenuEntry entry = Entry(text, action, GuiTheme.Accent);
             stack.Children.Add(entry);
             return entry;
         }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -99,9 +100,33 @@ namespace MphRead.Mods.Launcher.Gui
             IReadOnlyList<string> rooms)
         {
             yield return ("home", new HomeView(settings, rooms), _windowSize);
+            var primeSizes = new (string Suffix, Size Size)[]
+            {
+                ("1920x1080", new Size(1920, 1080)),
+                ("2560x1440", new Size(2560, 1440)),
+                ("1280x720", new Size(1280, 720)),
+                ("tablet", new Size(900, 1100)),
+                ("phone", new Size(560, 800))
+            };
+            foreach (PrimeRoute route in new[] { PrimeRoute.Gateway }
+                .Concat(PrimeRouteInfo.Authenticated))
+            {
+                foreach ((string suffix, Size size) in primeSizes)
+                {
+                    // These are deterministic offline fixtures. CreateCapture
+                    // never restores an account or contacts a Backend.
+                    yield return ($"prime-{route.ToString().ToLowerInvariant()}-{suffix}",
+                        PrimeShellView.CreateCapture(settings, rooms, route), size);
+                }
+            }
+            foreach ((string suffix, Size size) in primeSizes)
+            {
+                yield return ($"prime-play-lobby-{suffix}",
+                    PrimeShellView.CreateLobbyCapture(settings, rooms), size);
+            }
             yield return ("settings", new SettingsView(settings), _windowSize);
             var credits = new SettingsView(settings);
-            credits.ShowSection("Credits");
+            credits.ShowSection("About");
             yield return ("settings-credits", credits, _windowSize);
             if (rooms.Count > 0)
             {
@@ -223,6 +248,8 @@ namespace MphRead.Mods.Launcher.Gui
             finally
             {
                 window?.Close();
+                if (view is PrimeShellView prime)
+                    prime.DisposeAsync().AsTask().GetAwaiter().GetResult();
             }
         }
 

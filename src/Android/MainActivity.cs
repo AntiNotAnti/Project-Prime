@@ -739,6 +739,7 @@ namespace MphRead.Droid
             {
                 _launcherView.Visibility = ViewStates.Visible;
             }
+            AndroidApp.Home?.Activate();
             AndroidApp.Home?.Reset();
             Window?.ClearFlags(WindowManagerFlags.KeepScreenOn);
             GoImmersive(true);
@@ -759,6 +760,7 @@ namespace MphRead.Droid
             {
                 _launcherView.Visibility = ViewStates.Gone;
             }
+            AndroidApp.Home?.Deactivate();
             if (note != null)
             {
                 Console.WriteLine($"[android] starting the match anyway: {note}");
@@ -1015,6 +1017,7 @@ namespace MphRead.Droid
             // The desktop builds a fresh front screen each time round its loop;
             // this one is the same object across a match, so it is told the
             // match is over rather than left believing it already answered.
+            AndroidApp.Home?.Activate();
             AndroidApp.Home?.Reset();
             NetSession.Stop();
             // A demo feeds NetSession from a file rather than a socket, so

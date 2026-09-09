@@ -1,0 +1,2376 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Platform.Storage;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using FruityPrime.Server.Shared;
+using MphRead.Identity;
+using MphRead.Mods;
+using MphRead.Mods.Accounts;
+using MphRead.Mods.Input;
+using MphRead.Mods.Launcher;
+using MphRead.Mods.Network;
+using AvaloniaButton = Avalonia.Controls.Button;
+using Scene = MphRead.Scene;
+
+namespace MphRead.Mods.Launcher.Gui;
+
+/// <summary>
+/// The production Project Prime shell. It owns one native Avalonia tree on
+/// desktop and Android; account, Node, career, ranking, demo, and settings
+/// services remain behind their existing boundaries.
+/// </summary>
+internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
+{
+    private readonly MenuSettings _settings;
+    private readonly List<string> _rooms;
+    private readonly bool _restoreOnActivate;
+    private readonly bool _ignoreGameFileGate;
+    private readonly PrimeShellState _shell = new();
+    private readonly GatewayController _gateway;
+    private readonly PlayController _play;
+    private readonly HunterLicenseController _license;
+    private readonly ArmoryController _armory = new();
+    private readonly RankingsController _rankings;
+    private readonly TheaterController _theater = new();
+    private readonly PreviewImageService _previewImages = new();
+    private readonly MapPreviewService _mapPreviews;
+    private readonly HunterPreviewService _hunterPreviews;
+    private readonly WeaponPreviewService _weaponPreviews;
+    private readonly DispatcherTimer _inputTimer;
+    private readonly List<(AvaloniaButton Button, PrimeRoute Route)> _navigationButtons = new();
+    private CancellationTokenSource _lifetime = new();
+    private readonly CancellationTokenSource _restoreLifetime = new();
+    private bool _restoreStarted;
+    private bool _active;
+    private bool _disposed;
+    private bool _finished;
+    private bool _theaterLoaded;
+    private bool _previewCatchupStarted;
+    private bool _playRefreshPending;
+    private PlayState? _capturePlayState;
+    private Guid? _lobbyDraftId;
+    private Guid? _lobbyConfigurePendingId;
+    private Update.UpdateInfo? _update;
+    private string _lobbyNameDraft = "";
+    private string? _mapDraft;
+    private MatchMode? _modeDraft;
+    private int? _botCountDraft;
+    private string? _timeLimitDraft;
+    private string? _pointGoalDraft;
+    private Hunter _selectedLicenseHunter = Hunter.Samus;
+    private BeamType _selectedArmoryWeapon = BeamType.PowerBeam;
+    private readonly Dictionary<Hunter, string> _hunterPreviewPaths = new();
+    private readonly HashSet<Hunter> _hunterPreviewLoads = new();
+    private readonly Dictionary<Hunter, DateTimeOffset> _hunterPreviewRetryAfter = new();
+    private readonly Dictionary<BeamType, string> _weaponPreviewPaths = new();
+    private readonly HashSet<BeamType> _weaponPreviewLoads = new();
+    private readonly Dictionary<BeamType, DateTimeOffset> _weaponPreviewRetryAfter = new();
+    private string? _modelPreviewIdentity;
+    private string? _pendingDemoDeleteId;
+    private GamepadButtons _previousPadButtons;
+    private int _previousPadDirection;
+    private DateTimeOffset _nextPadRepeat;
+
+    public LaunchPlan Plan { get; private set; }
+    public event EventHandler<LaunchPlan>? Done;
+
+    public PrimeShellView(MenuSettings settings, IReadOnlyList<string> rooms,
+        bool restoreOnActivate = true, bool ignoreGameFileGate = false)
+    {
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _rooms = rooms?.Distinct(StringComparer.Ordinal).ToList() ?? new List<string>();
+        _restoreOnActivate = restoreOnActivate;
+        _ignoreGameFileGate = ignoreGameFileGate;
+        InitializeComponent();
+        Resources["PrimeReducedMotion"] = LauncherPrefs.ReducedMotion;
+
+        _gateway = new GatewayController(_shell);
+        _play = new PlayController(_shell, _rooms);
+        _license = new HunterLicenseController(_shell);
+        _rankings = new RankingsController(_shell);
+        _mapPreviews = new MapPreviewService(_previewImages);
+        _hunterPreviews = new HunterPreviewService(_previewImages);
+        _weaponPreviews = new WeaponPreviewService(_previewImages);
+
+        _shell.Navigator.Changed += ShellNavigationChanged;
+        _shell.PropertyChanged += ShellPropertyChanged;
+        _gateway.Changed += GatewayChanged;
+        _gateway.IdentityChanged += GatewayIdentityChanged;
+        _play.Changed += PlayChanged;
+        _play.Launch += LaunchRequested;
+        _license.Changed += LicenseChanged;
+        _rankings.Changed += RankingsChanged;
+        _theater.Changed += TheaterChanged;
+        _theater.Launch += LaunchRequested;
+        SizeChanged += (_, e) => ApplyResponsiveLayout(e.NewSize.Width, e.NewSize.Height);
+
+        _inputTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+        _inputTimer.Tick += (_, _) => PollInput();
+        BuildNavigation();
+        RenderRoute(_shell.CurrentRoute);
+        RefreshChrome();
+    }
+
+    /// <summary>
+    /// Build a deterministic, offline capture fixture. It uses a clearly
+    /// synthetic preview identity only to unlock authenticated route layout;
+    /// no account, Node, or network request is made by this path.
+    /// </summary>
+    internal static PrimeShellView CreateCapture(MenuSettings settings,
+        IReadOnlyList<string> rooms, PrimeRoute route)
+    {
+        var view = new PrimeShellView(settings, rooms, restoreOnActivate: false,
+            ignoreGameFileGate: true);
+        if (PrimeRouteInfo.IsAuthenticated(route))
+        {
+            view._shell.SetIdentity(new PlayerId(Guid.Parse("11111111-1111-1111-1111-111111111111")),
+                "Capture Preview", emailEligible: true);
+        }
+        view._shell.Navigator.NavigateRoot(route);
+        return view;
+    }
+
+    /// <summary>Offline fixture for the joined-lobby layout. It supplies only
+    /// immutable view state and never creates a Node transport.</summary>
+    internal static PrimeShellView CreateLobbyCapture(MenuSettings settings,
+        IReadOnlyList<string> rooms)
+    {
+        var view = new PrimeShellView(settings, rooms, restoreOnActivate: false,
+            ignoreGameFileGate: true);
+        var playerId = new PlayerId(Guid.Parse("11111111-1111-1111-1111-111111111111"));
+        Guid sessionId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        view._shell.SetIdentity(playerId, "Capture Preview", emailEligible: true);
+        string mapKey = rooms.FirstOrDefault() ?? "UNIT1 ALINOS LANDFALL";
+        ImmutableArray<LobbyMember> members =
+        [
+            new(sessionId, playerId.Value, "Capture Preview", Hunter.Samus, 0, true, false),
+            new(Guid.Parse("33333333-3333-3333-3333-333333333333"),
+                Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), "Lastraven",
+                Hunter.Sylux, 0, true, false),
+            new(Guid.Parse("44444444-4444-4444-4444-444444444444"),
+                Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), "Vuum",
+                Hunter.Noxus, 0, true, false),
+            new(Guid.Parse("55555555-5555-5555-5555-555555555555"),
+                Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"), "Sambot-7",
+                Hunter.Kanden, 1, true, false),
+            new(Guid.Parse("66666666-6666-6666-6666-666666666666"),
+                Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"), "Ghostbot-02",
+                Hunter.Spire, 1, true, false),
+            new(Guid.Parse("77777777-7777-7777-7777-777777777777"),
+                Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"), "Kikere",
+                Hunter.Trace, 1, true, false)
+        ];
+        var lobby = new LobbySnapshot(
+            Guid.Parse("88888888-8888-8888-8888-888888888888"), "Lobby 883",
+            LobbyVisibility.Public, sessionId, LobbyPhase.Open, 9, 8, 16,
+            members, ImmutableArray<LobbyChatEntry>.Empty, mapKey, MatchMode.TeamBattle,
+            BotCount: 0, TimeLimitSeconds: 600, PointGoal: 12);
+        var session = new NodeSessionSnapshot(sessionId, playerId.Value, "Capture Preview",
+            Guid.Parse("99999999-9999-9999-9999-999999999999"), new string('A', 43));
+        var node = new NodeControlClient.ViewState(Session: session, Lobby: lobby);
+        view._capturePlayState = new PlayState(PlayPhase.Lobby, Array.Empty<NodeListing>(),
+            node, Hunter.Samus, lobby.Name, Loading: false, Revision: lobby.Revision);
+        view._play.SetCaptureMapCatalog(rooms.Count > 0 ? rooms : new[] { mapKey });
+        view._shell.SetNodeStatus(true, "SOL-77", "US-East");
+        view._shell.Navigator.NavigateRoot(PrimeRoute.Play);
+        return view;
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        Activate();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        Deactivate();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    /// <summary>Activate the shell without disposing its Node session.</summary>
+    public void Activate()
+    {
+        if (_disposed || _active) return;
+        _active = true;
+        _shell.Activate();
+        _play.SetHandoffEnabled(_shell.CurrentRoute == PrimeRoute.Play
+            && _shell.HasNetworkIdentity);
+        _previousPadButtons = GamepadInput.State.Buttons;
+        _previousPadDirection = PadDirection();
+        _nextPadRepeat = DateTimeOffset.UtcNow.AddMilliseconds(350);
+        _inputTimer.Start();
+        StartPreviewCatchup();
+        if (!_restoreOnActivate || _restoreStarted) return;
+        _restoreStarted = true;
+        if (LauncherPrefs.AutoUpdate)
+        {
+            Update.Updater.CheckInBackground(update => PostUi(() =>
+            {
+                _update = update;
+                RefreshChrome();
+            }));
+        }
+        RunCommand("Restore session", async () =>
+        {
+            if (await _gateway.RestoreAsync(_restoreLifetime.Token).ConfigureAwait(false))
+                PostUi(() => _shell.Navigator.NavigateRoot(PrimeRoute.Play));
+        });
+    }
+
+    /// <summary>
+    /// Deactivate UI polling and transient requests while retaining Node
+    /// ownership. Android uses this during a match; the next activation can
+    /// resume the same session.
+    /// </summary>
+    public void Deactivate()
+    {
+        if (!_active) return;
+        _active = false;
+        _shell.Deactivate();
+        _play.SetHandoffEnabled(false);
+        _inputTimer.Stop();
+        _lifetime.Cancel();
+        _lifetime.Dispose();
+        _lifetime = new CancellationTokenSource();
+    }
+
+    public void Reset()
+    {
+        if (_disposed) return;
+        _finished = false;
+        Plan = default;
+        Hunters.Reroll();
+        _shell.ClearNotification();
+        _theaterLoaded = false;
+        _shell.Navigator.NavigateRoot(_shell.HasNetworkIdentity ? PrimeRoute.Play : PrimeRoute.Gateway);
+        if (_active)
+            RunCommand("Refresh Nodes", () => _play.RefreshNodesAsync(_lifetime.Token));
+    }
+
+    /// <summary>Handle Escape or Android back without ending a match.</summary>
+    public bool GoBack()
+    {
+        if (OverlayRoot.IsVisible)
+        {
+            CloseOverlay();
+            return true;
+        }
+        if (_shell.Navigator.GoBack()) return true;
+        PrimeRoute root = _shell.HasNetworkIdentity ? PrimeRoute.Play : PrimeRoute.Gateway;
+        if (_shell.CurrentRoute != root)
+        {
+            _shell.Navigator.NavigateRoot(root);
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>Use the shared PauseMenuView over a running match.</summary>
+    public void ShowPauseMenu(Scene scene, Action onResume, Action onLeave, Action onQuit)
+    {
+        ArgumentNullException.ThrowIfNull(onResume);
+        ArgumentNullException.ThrowIfNull(onLeave);
+        ArgumentNullException.ThrowIfNull(onQuit);
+        var view = new PauseMenuView(offerWindowMode: false);
+        void Close() => CloseOverlay();
+        view.Resumed += (_, _) => { Close(); onResume(); };
+        view.LeaveRequested += (_, _) => { Close(); onLeave(); };
+        view.QuitRequested += (_, _) => { Close(); onQuit(); };
+        view.SpectateRequested += (_, _) =>
+        {
+            Close();
+            SpectatorMode.Start(scene);
+            onResume();
+        };
+        view.RejoinRequested += (_, _) =>
+        {
+            Close();
+            SpectatorMode.Rejoin(scene);
+            onResume();
+        };
+        view.RecordToggleRequested += (_, _) =>
+        {
+            if (DemoRecorder.IsRecording) DemoRecorder.Stop();
+            else DemoRecorder.Start();
+            Close();
+            onResume();
+        };
+        view.SettingsRequested += (_, _) =>
+        {
+            Close();
+            ShowOverlay(new SettingsView(_settings, inGame: true, scene));
+        };
+        ShowOverlay(view);
+        view.FocusResume();
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        _shell.SetLastInputDevice(PrimeInputDevice.KeyboardMouse);
+        if (e.Key == Key.Escape)
+        {
+            if (!GoBack()) Finish(default);
+            e.Handled = true;
+            return;
+        }
+        base.OnKeyDown(e);
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        _shell.SetLastInputDevice(PrimeInputDevice.Touch);
+        base.OnPointerPressed(e);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        Deactivate();
+        _restoreLifetime.Cancel();
+        _shell.Navigator.Changed -= ShellNavigationChanged;
+        _shell.PropertyChanged -= ShellPropertyChanged;
+        _gateway.Changed -= GatewayChanged;
+        _gateway.IdentityChanged -= GatewayIdentityChanged;
+        _play.Changed -= PlayChanged;
+        _play.Launch -= LaunchRequested;
+        _license.Changed -= LicenseChanged;
+        _rankings.Changed -= RankingsChanged;
+        _theater.Changed -= TheaterChanged;
+        _theater.Launch -= LaunchRequested;
+        await _gateway.DisposeAsync().ConfigureAwait(false);
+        await _play.DisposeAsync().ConfigureAwait(false);
+        _license.Dispose();
+        _rankings.Dispose();
+        _theater.Dispose();
+        _previewImages.Dispose();
+        _shell.Dispose();
+        _lifetime.Dispose();
+        _restoreLifetime.Dispose();
+    }
+
+    private void BuildNavigation()
+    {
+        NavPanel.Children.Clear();
+        _navigationButtons.Clear();
+        foreach (PrimeRoute route in PrimeRouteInfo.Navigation)
+        {
+            var button = MakeButton(PrimeRouteInfo.Label(route), () => Navigate(route),
+                quiet: true);
+            ToolTip.SetTip(button, PrimeRouteInfo.Label(route));
+            _navigationButtons.Add((button, route));
+            NavPanel.Children.Add(button);
+        }
+    }
+
+    private void Navigate(PrimeRoute route)
+    {
+        _shell.Navigator.Navigate(route);
+    }
+
+    private void RenderRoute(PrimeRoute route)
+    {
+        _play.SetHandoffEnabled(route == PrimeRoute.Play && _shell.HasNetworkIdentity);
+        if (!_ignoreGameFileGate && !GameFiles.Ready)
+        {
+            RouteTitle.Text = "Game files";
+            PageHost.Content = BuildGameFilesPage();
+            RefreshNavigation();
+            RefreshChrome();
+            return;
+        }
+        RouteTitle.Text = PrimeRouteInfo.Label(route);
+        PageHost.Content = route switch
+        {
+            PrimeRoute.Gateway => BuildGatewayPage(),
+            PrimeRoute.Play => BuildPlayPage(),
+            PrimeRoute.HunterLicense => BuildLicensePage(),
+            PrimeRoute.Armory => BuildArmoryPage(),
+            PrimeRoute.Theater => BuildTheaterPage(),
+            PrimeRoute.Rankings => BuildRankingsPage(),
+            PrimeRoute.Settings => BuildSettingsPage(),
+            _ => BuildGatewayPage()
+        };
+        RefreshNavigation();
+        RefreshChrome();
+    }
+
+    private Control BuildGatewayPage()
+    {
+        var root = new Grid { HorizontalAlignment = HorizontalAlignment.Stretch };
+        var content = Stack();
+        content.HorizontalAlignment = HorizontalAlignment.Center;
+        content.Width = 580;
+        content.MaxWidth = 580;
+        content.Margin = new Thickness(0, 16);
+
+        var mark = new PrimeDiamond
+        {
+            Width = 46,
+            Height = 46,
+            StrokeBrush = GuiTheme.AccentBrush,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        content.Children.Add(mark);
+        var heading = PrimeControlFactory.PageHeading("Project Prime",
+            "SECURE ACCOUNT GATEWAY",
+            "Continue as Guest, or sign in to restore your Prime account.");
+        CenterHeading(heading);
+        content.Children.Add(heading);
+        content.Children.Add(Text("Restore is attempted once at startup. A failed authentication never falls back to Guest access.", "prime-muted"));
+
+        var email = Input("", "Email address");
+        var password = Input("", "Password");
+        password.PasswordChar = '•';
+        var displayName = Input(LauncherPrefs.PlayerName, "Display name");
+        var confirmationPlayer = Input(_gateway.PendingConfirmationPlayerId?.ToString() ?? "",
+            "Player ID from registration");
+        var confirmation = Input("", "Confirmation code");
+        PrimeSectionPanel confirmationPanel = null!;
+
+        var signIn = Stack(
+            Text("Sign in", "prime-heading"),
+            Text("Use the account already associated with your Prime identity.", "prime-muted"),
+            Text("Email", "prime-label"), email,
+            Text("Password", "prime-label"), password);
+        signIn.Children.Add(MakeButton("Sign in", () =>
+        {
+            string address = email.Text?.Trim() ?? "";
+            string secret = password.Text ?? "";
+            password.Text = "";
+            RunCommand("Sign in", async () =>
+            {
+                if (await _gateway.SignInAsync(address, secret, _lifetime.Token).ConfigureAwait(false))
+                    PostUi(() => _shell.Navigator.NavigateRoot(PrimeRoute.Play));
+            });
+        }));
+
+        var registration = Stack(
+            Text("Create account", "prime-heading"),
+            Text("Registration is optional. The display name is sent only with this request.", "prime-muted"),
+            Text("Display name", "prime-label"), displayName);
+        registration.IsVisible = false;
+        registration.Children.Add(MakeButton("Register", () =>
+        {
+            string address = email.Text?.Trim() ?? "";
+            string secret = password.Text ?? "";
+            string name = displayName.Text?.Trim() ?? "";
+            password.Text = "";
+            RunCommand("Register", async () =>
+            {
+                AccountRegistration? result = await _gateway.RegisterAsync(address, secret, name, _lifetime.Token)
+                    .ConfigureAwait(false);
+                if (result?.ConfirmationRequired == true)
+                    PostUi(() =>
+                    {
+                        confirmationPlayer.Text = result.PlayerId.ToString();
+                        confirmationPanel.IsVisible = true;
+                    });
+            });
+        }));
+        AvaloniaButton registrationToggle = null!;
+        registrationToggle = MakeButton("Create a new account", () =>
+        {
+            registration.IsVisible = true;
+            registrationToggle.IsVisible = false;
+        }, quiet: true);
+
+        var confirmationActions = new WrapPanel { Orientation = Orientation.Horizontal };
+        confirmationActions.Children.Add(MakeButton("Confirm", () =>
+        {
+            RunCommand("Confirm email", async () =>
+            {
+                string rawPlayer = confirmationPlayer.Text?.Trim() ?? "";
+                if (!Guid.TryParse(rawPlayer, out Guid playerGuid) || playerGuid == Guid.Empty)
+                    throw new InvalidOperationException("Enter the Player ID returned during registration.");
+                await _gateway.ConfirmEmailAsync(new PlayerId(playerGuid),
+                    confirmation.Text?.Trim() ?? "", _lifetime.Token).ConfigureAwait(false);
+            });
+        }, primary: true));
+        confirmationActions.Children.Add(MakeButton("Resend", () => RunCommand("Resend confirmation",
+            () => _gateway.ResendConfirmationAsync(email.Text?.Trim() ?? "", _lifetime.Token))));
+        confirmationPanel = PrimeControlFactory.SectionPanel(Stack(
+            Text("Confirm email", "prime-heading"),
+            Text("Enter the Player ID returned by registration and the code delivered to your email.", "prime-muted"),
+            Text("Player ID", "prime-label"), confirmationPlayer,
+            Text("Confirmation code", "prime-label"), confirmation,
+            confirmationActions));
+        confirmationPanel.IsVisible = _gateway.PendingConfirmationPlayerId.HasValue;
+
+        var guestPanel = PrimeControlFactory.SectionPanel(Stack(
+            Text("Guest access", "prime-heading"),
+            Text("Enter the network with a temporary identity. Guest access is explicit and remains separate from account identity.", "prime-body"),
+            MakeButton("Continue as Guest", () => RunCommand("Guest access", async () =>
+        {
+            if (await _gateway.UseGuestAsync(_lifetime.Token).ConfigureAwait(false))
+                PostUi(() => _shell.Navigator.NavigateRoot(PrimeRoute.Play));
+        }), primary: true)));
+        guestPanel.BorderBrush = GuiTheme.WarmBrush;
+
+        var cardContent = Stack(guestPanel, signIn, registrationToggle, registration,
+            confirmationPanel);
+        var card = Card(cardContent);
+        card.HorizontalAlignment = HorizontalAlignment.Stretch;
+        var cardHost = new Border { Child = card, HorizontalAlignment = HorizontalAlignment.Stretch,
+            MaxWidth = 580 };
+        content.Children.Add(cardHost);
+        content.Children.Add(Text(_gateway.State.Message, "prime-muted"));
+        root.Children.Add(content);
+        root.SizeChanged += (_, e) =>
+        {
+            if (e.NewSize.Width > 0)
+            {
+                double width = Math.Min(580, Math.Max(0, e.NewSize.Width - 24));
+                content.Width = width;
+                cardHost.Width = width;
+            }
+        };
+        return root;
+    }
+
+    private Control BuildGameFilesPage()
+    {
+        var status = Text(GameFiles.Problem()
+            ?? "Game files are ready. You can re-select your cartridge dump if repair is needed.",
+            "prime-muted");
+        var root = Stack(
+            Text("Metroid Prime Hunters game files", "prime-heading"),
+            Text("Project Prime needs your own cartridge dump. It extracts only the local files the game needs; the ROM is not uploaded or bundled.", "prime-body"),
+            status,
+            MakeButton(GameFiles.Ready ? "Repair from .nds file" : "Choose your .nds file",
+                () => RunCommand("Set up game files", () => ChooseGameFilesAsync(status)),
+                primary: true));
+        if (GameFiles.Ready)
+            root.Children.Add(MakeButton("Back", () => RenderRoute(_shell.CurrentRoute), quiet: true));
+        return Card(root);
+    }
+
+    private async Task ChooseGameFilesAsync(TextBlock status)
+    {
+        TopLevel? top = TopLevel.GetTopLevel(this);
+        if (top == null) throw new InvalidOperationException("The file picker is unavailable.");
+        var options = new FilePickerOpenOptions
+        {
+            Title = "Your Metroid Prime Hunters cartridge dump",
+            AllowMultiple = false
+        };
+        if (!OperatingSystem.IsAndroid())
+        {
+            options.FileTypeFilter = new[]
+            {
+                new FilePickerFileType("Nintendo DS ROM") { Patterns = new[] { "*.nds" } },
+                new FilePickerFileType("Every file") { Patterns = new[] { "*" } }
+            };
+        }
+        IReadOnlyList<IStorageFile> picked = await top.StorageProvider.OpenFilePickerAsync(options);
+        if (picked.Count == 0) return;
+
+        string? path = picked[0].TryGetLocalPath();
+        string? scratch = null;
+        try
+        {
+            if (path == null)
+            {
+                Directory.CreateDirectory(GameFiles.Root);
+                scratch = Path.Combine(GameFiles.Root, "picked-prime-setup.nds");
+                status.Text = "Copying the selected file into the app's private storage…";
+                await using Stream source = await picked[0].OpenReadAsync();
+                await using var target = File.Create(scratch);
+                await source.CopyToAsync(target, _lifetime.Token).ConfigureAwait(false);
+                path = scratch;
+            }
+            bool ready = await Task.Run(() => GameFiles.RunSetup(path, line =>
+                PostUi(() => status.Text = TailStatus(status.Text, line))), _lifetime.Token)
+                .ConfigureAwait(false);
+            if (!ready) throw new InvalidOperationException(GameFiles.Problem() ?? "Game-file setup did not finish.");
+            GameFiles.ApplyPaths();
+            string[] rooms = ThumbnailGenerator.MultiplayerRooms().ToArray();
+            _rooms.Clear();
+            _rooms.AddRange(rooms);
+            _play.SetMaps(rooms);
+            if (ThumbnailHost.CanRender)
+            {
+                await ThumbnailHost.RenderMissingAsync(line =>
+                    PostUi(() => status.Text = TailStatus(status.Text, line))).ConfigureAwait(false);
+            }
+            PostUi(() =>
+            {
+                status.Text = "Game files are ready.";
+                RenderRoute(_shell.CurrentRoute);
+            });
+        }
+        finally
+        {
+            if (scratch != null)
+            {
+                try { File.Delete(scratch); }
+                catch (IOException) { }
+            }
+        }
+    }
+
+    private Control BuildPlayPage()
+    {
+        PlayState state = _capturePlayState ?? _play.State;
+        var root = Stack(PrimeControlFactory.PageHeading("Play", "NODE DIRECTORY // MATCHMAKING",
+            "Choose a compatible Node, then join or create a lobby."));
+        if (!_shell.HasNetworkIdentity)
+        {
+            root.Children.Add(PrimeControlFactory.SectionPanel(Stack(
+                Text("Sign in required", "prime-heading"),
+                Text("Choose an account or explicit Guest access in Gateway before browsing Nodes or joining a lobby.",
+                    "prime-muted"),
+                MakeButton("Open Gateway", () => Navigate(PrimeRoute.Gateway), primary: true))));
+            root.Children.Add(PrimeControlFactory.SectionPanel(Stack(
+                Text("Node directory", "prime-heading"),
+                Text("Node discovery and connection actions become available after an identity is selected.",
+                    "prime-muted"))));
+            return root;
+        }
+        if (state.Lobby is { } activeLobby)
+            return BuildActiveLobbyPage(state, activeLobby);
+        var toolbar = new WrapPanel { Orientation = Orientation.Horizontal };
+        toolbar.Children.Add(MakeButton("Refresh Nodes", () => RunCommand("Refresh Nodes",
+            () => _play.RefreshNodesAsync(_lifetime.Token)), primary: state.Node == null));
+        if (NodeSessions.Current is { Connected: false })
+            toolbar.Children.Add(MakeButton("Resume Node", () => RunCommand("Resume Node",
+                () => _play.ResumeAsync(_lifetime.Token)), quiet: true));
+        if (NodeSessions.Current != null)
+            toolbar.Children.Add(MakeButton("Disconnect", () => RunCommand("Disconnect Node",
+                _play.DisconnectAsync), quiet: true));
+        root.Children.Add(toolbar);
+
+        var directory = Stack();
+        directory.Children.Add(Text("Nodes", "prime-heading"));
+        if (state.Nodes.Count == 0)
+            directory.Children.Add(Text(state.Loading ? "Loading compatible Nodes…" : "No Node directory results yet.", "prime-muted"));
+        foreach (NodeListing node in state.Nodes)
+        {
+            NodeListing captured = node;
+            string summary = $"{node.Name}  ·  {node.Region}  ·  {node.OnlineUsers}/{node.Capacity} players  ·  {node.LobbyCount} lobbies";
+            AvaloniaButton connect = MakeButton(summary, () => RunCommand($"Connect {captured.Name}",
+                () => _play.ConnectNodeAsync(captured, _lifetime.Token)));
+            bool selected = state.Node?.Session?.NodeId == node.NodeId;
+            directory.Children.Add(PrimeControlFactory.SelectedRow(connect, selected));
+        }
+        if (state.Node?.Error is { Length: > 0 } nodeError)
+            directory.Children.Add(Text(nodeError, "prime-muted"));
+
+        if (state.Node != null)
+        {
+            directory.Children.Add(PrimeControlFactory.Divider());
+            var lobbyPanel = Stack(Text("Lobbies", "prime-heading"));
+            var createName = Input(_lobbyNameDraft, "New lobby name");
+            createName.TextChanged += (_, _) => _lobbyNameDraft = createName.Text ?? "";
+            createName.LostFocus += PlayEditorLostFocus;
+            lobbyPanel.Children.Add(createName);
+            lobbyPanel.Children.Add(MakeButton("Create lobby", () => RunCommand("Create lobby",
+                () => _play.CreateLobbyAsync(createName.Text ?? "", _lifetime.Token)), primary: state.Lobby == null));
+            if (state.Node.Lobbies is not { } lobbies || lobbies.Lobbies.IsDefaultOrEmpty)
+                lobbyPanel.Children.Add(Text("No open lobbies reported by this Node.", "prime-muted"));
+            else foreach (LobbyListEntry entry in lobbies.Lobbies)
+            {
+                LobbyListEntry captured = entry;
+                AvaloniaButton join = MakeButton(
+                    $"{entry.Name}  ·  {entry.Players}/{entry.PlayerLimit}  ·  {entry.Phase}",
+                    () => RunCommand($"Join {captured.Name}", () => _play.JoinLobbyAsync(
+                        captured.LobbyId, captured.Revision, cancellationToken: _lifetime.Token)));
+                lobbyPanel.Children.Add(PrimeControlFactory.SelectedRow(join,
+                    state.Lobby?.LobbyId == entry.LobbyId));
+            }
+            directory.Children.Add(lobbyPanel);
+        }
+
+        _lobbyDraftId = null;
+        _mapDraft = null;
+        _modeDraft = null;
+        _botCountDraft = null;
+        _timeLimitDraft = null;
+        _pointGoalDraft = null;
+        var lobby = Stack(Text("Lobby", "prime-heading"),
+            BuildPreviewStage(null, 220, "Select a lobby to see its map and members."),
+            Text("Choose a lobby from the directory to inspect its current status.", "prime-muted"));
+        root.Children.Add(ResponsiveSplit(PrimeControlFactory.SectionPanel(directory),
+            PrimeControlFactory.SectionPanel(lobby)));
+        return root;
+    }
+
+    private Control BuildActiveLobbyPage(PlayState state, LobbySnapshot lobby)
+    {
+        if (_lobbyDraftId != lobby.LobbyId)
+        {
+            _lobbyDraftId = lobby.LobbyId;
+            _mapDraft = null;
+            _modeDraft = null;
+            _botCountDraft = null;
+            _timeLimitDraft = null;
+            _pointGoalDraft = null;
+        }
+
+        Guid? sessionId = state.Node?.Session?.SessionId;
+        LobbyMember? currentMember = sessionId is { } ownSession
+            ? lobby.Members.FirstOrDefault(member => member.SessionId == ownSession)
+            : null;
+        bool owner = sessionId.HasValue && lobby.OwnerSessionId == sessionId.Value;
+        bool teamMode = lobby.Mode.IsTeamMode();
+        LobbyMember[] players = lobby.Members.Where(member => !member.Observer).ToArray();
+        LobbyMember[] observers = lobby.Members.Where(member => member.Observer).ToArray();
+        LobbyMember[] leftMembers = teamMode
+            ? players.Where(member => member.Team == 0).ToArray() : players;
+        LobbyMember[] rightMembers = teamMode
+            ? players.Where(member => member.Team == 1).ToArray() : observers;
+
+        var root = Stack(BuildLobbyDeploymentBanner(lobby, players.Length, owner));
+        Control left = BuildLobbyRoster(teamMode ? "TEAM 1" : "PLAYERS", leftMembers,
+            lobby, sessionId, GuiTheme.WarmBrush);
+        Control center = BuildLobbyCommandCenter(state, lobby, currentMember, owner, observers);
+        Control right = BuildLobbyRoster(teamMode ? "TEAM 2" : "OBSERVERS", rightMembers,
+            lobby, sessionId, GuiTheme.AccentBrush);
+        root.Children.Add(ResponsiveThreeColumn(left, center, right));
+        root.Children.Add(BuildLobbyActionStrip(state, lobby, currentMember));
+        return root;
+    }
+
+    private Control BuildLobbyDeploymentBanner(LobbySnapshot lobby, int playerCount, bool owner)
+    {
+        var identity = Stack(Text(lobby.Phase.ToString().ToUpperInvariant(), "prime-label"),
+            Text($"{lobby.Name}  ·  {playerCount}/{lobby.PlayerLimit} players", "prime-body"));
+        identity.HorizontalAlignment = HorizontalAlignment.Right;
+
+        var content = Stack();
+        bool configurePending = _lobbyConfigurePendingId == lobby.LobbyId;
+        IReadOnlyList<string> availableMaps = _play.AvailableMaps;
+        if (owner && lobby.Phase == LobbyPhase.Open
+            && _play.MapCatalogState == NodeMapCatalogState.Available)
+        {
+            var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+            TextBlock headerLabel = Text(
+                "OWNER MATCH SETTINGS  ·  APPLYING CHANGES RESETS READINESS", "prime-label");
+            header.Children.Add(headerLabel);
+            header.Children.Add(identity);
+            Grid.SetColumn(identity, 1);
+            header.SizeChanged += (_, e) =>
+            {
+                bool narrow = e.NewSize.Width > 0 && e.NewSize.Width < 720;
+                header.ColumnDefinitions = new ColumnDefinitions(narrow ? "*" : "*,Auto");
+                header.RowDefinitions = new RowDefinitions(narrow ? "Auto,Auto" : "Auto");
+                Grid.SetColumn(identity, narrow ? 0 : 1);
+                Grid.SetRow(identity, narrow ? 1 : 0);
+                identity.HorizontalAlignment = narrow
+                    ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+            };
+            content.Children.Add(header);
+
+            string selectedMap = _mapDraft != null
+                && availableMaps.Contains(_mapDraft, StringComparer.Ordinal)
+                    ? _mapDraft : availableMaps.Contains(lobby.MapKey, StringComparer.Ordinal)
+                        ? lobby.MapKey : availableMaps[0];
+            var map = new ComboBox
+            {
+                ItemsSource = availableMaps,
+                SelectedItem = selectedMap,
+                MinHeight = 40,
+                IsEnabled = !configurePending
+            };
+            var mode = new ComboBox
+            {
+                ItemsSource = Enum.GetValues<MatchMode>(),
+                SelectedItem = _modeDraft ?? lobby.Mode,
+                MinHeight = 40,
+                IsEnabled = !configurePending
+            };
+            int maximumBots = Math.Max(0, lobby.PlayerLimit - playerCount);
+            int selectedBots = Math.Clamp(_botCountDraft ?? lobby.BotCount, 0, maximumBots);
+            var bots = new ComboBox
+            {
+                ItemsSource = Enumerable.Range(0, maximumBots + 1).ToArray(),
+                SelectedItem = selectedBots,
+                MinHeight = 40,
+                IsEnabled = !configurePending
+            };
+            var time = Input(_timeLimitDraft ?? FormatLobbyTimeEditor(lobby.TimeLimitSeconds),
+                "Default or m:ss");
+            time.MinHeight = 40;
+            time.IsEnabled = !configurePending;
+            MatchMode selectedMode = mode.SelectedItem is MatchMode initialMode
+                ? initialMode : lobby.Mode;
+            var pointGoal = Input(PointGoalApplies(selectedMode)
+                    ? _pointGoalDraft ?? FormatLobbyPointGoalEditor(lobby.PointGoal) : "N/A",
+                "Default or points");
+            pointGoal.MinHeight = 40;
+            pointGoal.IsEnabled = !configurePending && PointGoalApplies(selectedMode);
+
+            map.SelectionChanged += (_, _) => _mapDraft = map.SelectedItem as string;
+            mode.SelectionChanged += (_, _) =>
+            {
+                _modeDraft = mode.SelectedItem is MatchMode value ? value : null;
+                bool applies = _modeDraft is { } draftMode && PointGoalApplies(draftMode);
+                pointGoal.Text = applies
+                    ? _pointGoalDraft ?? FormatLobbyPointGoalEditor(lobby.PointGoal) : "N/A";
+                pointGoal.IsEnabled = !configurePending && applies;
+            };
+            bots.SelectionChanged += (_, _) =>
+                _botCountDraft = bots.SelectedItem is int value ? value : null;
+            time.TextChanged += (_, _) => _timeLimitDraft = time.Text;
+            pointGoal.TextChanged += (_, _) =>
+            {
+                if (pointGoal.IsEnabled) _pointGoalDraft = pointGoal.Text;
+            };
+            map.LostFocus += PlayEditorLostFocus;
+            mode.LostFocus += PlayEditorLostFocus;
+            bots.LostFocus += PlayEditorLostFocus;
+            time.LostFocus += PlayEditorLostFocus;
+            pointGoal.LostFocus += PlayEditorLostFocus;
+            ToolTip.SetTip(map, "Choose a map hosted by this Node and installed locally.");
+            ToolTip.SetTip(bots, "Bots reserve player slots and are frozen into the match roster.");
+            ToolTip.SetTip(time, "Use Default, seconds, or m:ss. Allowed range: 1 second to 60 minutes.");
+            ToolTip.SetTip(pointGoal,
+                "Point limit is 1-65535. Battle points usually come from clean kills; Survival uses this as lives. Objective-time modes use N/A.");
+
+            var editors = new WrapPanel { Orientation = Orientation.Horizontal };
+            editors.Children.Add(LobbySetting("MAP", map, 300));
+            editors.Children.Add(LobbySetting("MODE", mode, 180));
+            editors.Children.Add(LobbySetting("BOTS", bots, 90));
+            editors.Children.Add(LobbySetting("TIME LIMIT", time, 150));
+            editors.Children.Add(LobbySetting("POINT LIMIT", pointGoal, 145));
+            AvaloniaButton? apply = null;
+            apply = MakeButton("APPLY MATCH SETTINGS", () =>
+            {
+                string mapKey = map.SelectedItem as string ?? "";
+                MatchMode matchMode = mode.SelectedItem is MatchMode selectedMode
+                    ? selectedMode : lobby.Mode;
+                int botCount = bots.SelectedItem is int selectedBotCount
+                    ? selectedBotCount : lobby.BotCount;
+                if (!TryParseLobbyTimeLimit(time.Text, out int? timeLimitSeconds))
+                    throw new InvalidOperationException(
+                        "Time limit must be Default, seconds, or m:ss between 0:01 and 60:00.");
+                int? pointLimit = null;
+                if (PointGoalApplies(matchMode)
+                    && !TryParseLobbyPointGoal(pointGoal.Text, out pointLimit))
+                    throw new InvalidOperationException(
+                        "Point limit must be Default or a whole number between 1 and 65535.");
+                _mapDraft = mapKey;
+                _modeDraft = matchMode;
+                _botCountDraft = botCount;
+                _timeLimitDraft = FormatLobbyTimeEditor(timeLimitSeconds);
+                _pointGoalDraft = FormatLobbyPointGoalEditor(pointLimit);
+                BeginLobbyConfigure(lobby.LobbyId, mapKey, matchMode, botCount,
+                    timeLimitSeconds, pointLimit, map, mode, bots, time, pointGoal, apply!);
+            }, primary: true);
+            apply.MinHeight = 40;
+            apply.MinWidth = 190;
+            apply.IsEnabled = !configurePending;
+            apply.VerticalAlignment = VerticalAlignment.Bottom;
+            editors.Children.Add(apply);
+            content.Children.Add(editors);
+            if (configurePending)
+                content.Children.Add(Text("Applying match settings…", "prime-muted"));
+        }
+        else
+        {
+            var grid = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("2*,*,Auto"),
+                ColumnSpacing = 18,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var deployment = Stack(Text("DEPLOYMENT MAP", "prime-label"),
+                Text(DisplayMapKey(lobby.MapKey), "prime-heading"));
+            var match = Stack(Text("MATCH FORMAT", "prime-label"),
+                Text(FormatMode(lobby.Mode), "prime-body"));
+            grid.Children.Add(deployment);
+            grid.Children.Add(match);
+            grid.Children.Add(identity);
+            Grid.SetColumn(match, 1);
+            Grid.SetColumn(identity, 2);
+            grid.SizeChanged += (_, e) =>
+            {
+                bool narrow = e.NewSize.Width > 0 && e.NewSize.Width < 720;
+                grid.ColumnDefinitions = new ColumnDefinitions(narrow ? "*" : "2*,*,Auto");
+                grid.RowDefinitions = new RowDefinitions(narrow ? "Auto,Auto,Auto" : "Auto");
+                grid.RowSpacing = narrow ? 8 : 0;
+                Grid.SetColumn(match, narrow ? 0 : 1);
+                Grid.SetColumn(identity, narrow ? 0 : 2);
+                Grid.SetRow(deployment, 0);
+                Grid.SetRow(match, narrow ? 1 : 0);
+                Grid.SetRow(identity, narrow ? 2 : 0);
+                identity.HorizontalAlignment = narrow
+                    ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+            };
+            content.Children.Add(grid);
+            if (owner && lobby.Phase == LobbyPhase.Open)
+                content.Children.Add(Text(_play.MapCatalogMessage, "prime-muted"));
+        }
+        Border banner = PrimeControlFactory.SectionPanel(content);
+        banner.BorderBrush = GuiTheme.AccentBrush;
+        banner.BorderThickness = new Thickness(3, 1, 1, 1);
+        return banner;
+    }
+
+    private static Control LobbySetting(string label, Control editor, double width)
+    {
+        var field = Stack(Text(label, "prime-label"), editor);
+        field.Width = width;
+        field.Margin = new Thickness(0, 0, 10, 8);
+        return field;
+    }
+
+    private static Control BuildLobbyRoster(string title, IReadOnlyList<LobbyMember> members,
+        LobbySnapshot lobby, Guid? sessionId, IBrush accent)
+    {
+        var roster = Stack();
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        TextBlock heading = Text(title, "prime-heading");
+        heading.Foreground = accent;
+        TextBlock count = Text($"{members.Count} slots occupied", "prime-label");
+        header.Children.Add(heading);
+        header.Children.Add(count);
+        Grid.SetColumn(count, 1);
+        roster.Children.Add(header);
+
+        foreach (LobbyMember member in members)
+        {
+            bool own = sessionId.HasValue && member.SessionId == sessionId.Value;
+            string role = member.Observer ? "Observer"
+                : member.SessionId == lobby.OwnerSessionId ? "Owner" : "Member";
+            var identity = Stack(Text(member.DisplayName, "prime-body"),
+                Text($"{member.Hunter}  ·  {role}{(own ? "  ·  You" : "")}", "prime-muted"));
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
+            row.Children.Add(identity);
+            var readiness = new PrimeStatusChip(member.Observer ? "Spectating"
+                : member.Ready ? "Ready" : "Choosing",
+                member.Ready ? GuiTheme.AccentBrush : GuiTheme.WarmBrush);
+            row.Children.Add(readiness);
+            Grid.SetColumn(readiness, 1);
+            Border selected = PrimeControlFactory.SelectedRow(row, own);
+            selected.BorderBrush = own ? accent : GuiTheme.EdgeBrush;
+            selected.BorderThickness = new Thickness(3, 1, 1, 1);
+            roster.Children.Add(selected);
+        }
+        if (members.Count == 0)
+            roster.Children.Add(new PrimeEmptyState("No members in this group."));
+        return PrimeControlFactory.SectionPanel(roster);
+    }
+
+    private Control BuildLobbyCommandCenter(PlayState state, LobbySnapshot lobby,
+        LobbyMember? currentMember, bool owner, IReadOnlyList<LobbyMember> observers)
+    {
+        string? mapPath = !string.IsNullOrWhiteSpace(lobby.MapKey)
+            && ThumbnailGenerator.Exists(lobby.MapKey)
+            ? ThumbnailGenerator.PathFor(lobby.MapKey) : null;
+        var center = Stack(BuildPreviewStage(mapPath, 165,
+            "No local map preview is available for this arena."));
+        center.Children.Add(Text("ACTIVE ARENA", "prime-kicker"));
+        center.Children.Add(Text(DisplayMapKey(lobby.MapKey), "prime-heading"));
+
+        var stats = new WrapPanel { Orientation = Orientation.Horizontal };
+        stats.Children.Add(PrimeControlFactory.StatTile("MODE", FormatMode(lobby.Mode)));
+        stats.Children.Add(PrimeControlFactory.StatTile("TIME LIMIT",
+            lobby.TimeLimitSeconds is { } seconds ? FormatDuration(seconds) : "Default"));
+        stats.Children.Add(PrimeControlFactory.StatTile("POINT LIMIT",
+            PointGoalApplies(lobby.Mode)
+                ? lobby.PointGoal?.ToString(CultureInfo.InvariantCulture) ?? "Default" : "N/A"));
+        stats.Children.Add(PrimeControlFactory.StatTile("BOTS",
+            lobby.BotCount.ToString(CultureInfo.InvariantCulture)));
+        stats.Children.Add(PrimeControlFactory.StatTile("SEAT POLICY",
+            FormatWords(lobby.SeatPolicy.ToString())));
+        center.Children.Add(stats);
+
+        int playerCount = lobby.Members.Count(member => !member.Observer);
+        int readyCount = lobby.Members.Count(member => !member.Observer && member.Ready);
+        LobbyStartEligibility startEligibility = LobbyStartEligibility.Evaluate(lobby);
+        var status = Stack();
+        var readiness = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 12 };
+        var phase = Stack(Text("LOBBY STATUS", "prime-label"),
+            Text(startEligibility.CanStart ? "READY TO DEPLOY" : startEligibility.Message,
+                "prime-body"));
+        TextBlock readySummary = Text(
+            $"{readyCount}/{playerCount} ready  ·  {playerCount}/{lobby.PlayerLimit} players",
+            "prime-kicker");
+        readySummary.VerticalAlignment = VerticalAlignment.Center;
+        readiness.Children.Add(phase);
+        readiness.Children.Add(readySummary);
+        Grid.SetColumn(readySummary, 1);
+        status.Children.Add(readiness);
+
+        bool configurePending = _lobbyConfigurePendingId == lobby.LobbyId;
+        NodeMapCatalogState mapCatalogState = _play.MapCatalogState;
+        if (owner && lobby.Phase == LobbyPhase.Open
+            && mapCatalogState == NodeMapCatalogState.Available)
+        {
+            var configuration = new WrapPanel { Orientation = Orientation.Horizontal };
+            AvaloniaButton start = MakeButton("START MATCH", () => RunCommand("Start match",
+                () => _play.StartMatchAsync(_lifetime.Token)), primary: true);
+            start.IsEnabled = startEligibility.CanStart && !configurePending;
+            start.MinWidth = 180;
+            configuration.Children.Add(start);
+            status.Children.Add(configuration);
+            if (configurePending)
+                status.Children.Add(Text("Waiting for the Node to confirm match settings.", "prime-muted"));
+        }
+        else if (owner && lobby.Phase == LobbyPhase.Open)
+            status.Children.Add(Text(_play.MapCatalogMessage, "prime-muted"));
+        else if (lobby.Phase == LobbyPhase.Open)
+            status.Children.Add(Text("The lobby owner controls map, mode, and deployment.", "prime-muted"));
+
+        if (lobby.Mode.IsTeamMode() && observers.Count > 0)
+            status.Children.Add(Text($"Observers · {String.Join(", ", observers.Select(member => member.DisplayName))}",
+                "prime-muted"));
+        center.Children.Add(PrimeControlFactory.SectionPanel(status));
+        return PrimeControlFactory.SectionPanel(center);
+    }
+
+    private Control BuildLobbyActionStrip(PlayState state, LobbySnapshot lobby,
+        LobbyMember? currentMember)
+    {
+        var strip = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            ColumnSpacing = 16,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var hunterChoice = new ComboBox
+        {
+            ItemsSource = Enum.GetValues<Hunter>().Where(value => value <= Hunter.Weavel).ToArray(),
+            SelectedItem = state.LobbyHunter,
+            MinWidth = 180,
+            MinHeight = 44
+        };
+        hunterChoice.SelectionChanged += (_, _) =>
+        {
+            if (hunterChoice.SelectedItem is Hunter selected && selected != state.LobbyHunter)
+                RunCommand("Select lobby hunter",
+                    () => _play.SelectLobbyHunterAsync(selected, _lifetime.Token));
+        };
+        var hunter = Stack(Text("LOBBY HUNTER", "prime-label"), hunterChoice);
+        var actions = new WrapPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        bool ready = currentMember?.Ready ?? false;
+        actions.Children.Add(MakeButton(ready ? "NOT READY" : "READY", () => RunCommand(
+            ready ? "Clear ready" : "Set ready",
+            () => _play.SetReadyAsync(!ready, _lifetime.Token)), primary: !ready));
+        if (lobby.Phase == LobbyPhase.PostMatch)
+        {
+            actions.Children.Add(MakeButton("REMATCH", () => RunCommand("Rematch",
+                () => _play.RematchAsync(_lifetime.Token)), primary: ready));
+            actions.Children.Add(MakeButton("RETURN TO LOBBY", () => RunCommand("Return to lobby",
+                () => _play.ReturnToLobbyAsync(_lifetime.Token))));
+        }
+        if (state.Handoff != null)
+            actions.Children.Add(MakeButton("REJOIN MATCH", () => RunCommand("Rejoin match",
+                () => _play.RejoinWorkerAsync(_lifetime.Token)), primary: ready));
+        actions.Children.Add(MakeButton("LEAVE LOBBY", () => RunCommand("Leave lobby",
+            () => _play.LeaveLobbyAsync(_lifetime.Token)), quiet: true));
+        strip.Children.Add(hunter);
+        strip.Children.Add(actions);
+        Grid.SetColumn(actions, 1);
+        strip.SizeChanged += (_, e) =>
+        {
+            bool narrow = e.NewSize.Width > 0 && e.NewSize.Width < 720;
+            strip.ColumnDefinitions = new ColumnDefinitions(narrow ? "*" : "*,Auto");
+            strip.RowDefinitions = new RowDefinitions(narrow ? "Auto,Auto" : "Auto");
+            Grid.SetColumn(hunter, 0);
+            Grid.SetColumn(actions, narrow ? 0 : 1);
+            Grid.SetRow(hunter, 0);
+            Grid.SetRow(actions, narrow ? 1 : 0);
+            actions.HorizontalAlignment = narrow
+                ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        };
+        return PrimeControlFactory.SectionPanel(strip);
+    }
+
+    private static string DisplayMapKey(string value)
+        => string.IsNullOrWhiteSpace(value) ? "MAP NOT CONFIGURED"
+            : value.Replace('_', ' ').ToUpperInvariant();
+
+    private static string FormatMode(MatchMode mode) => FormatWords(mode.ToString()).ToUpperInvariant();
+
+    private static string FormatWords(string value)
+        => System.Text.RegularExpressions.Regex.Replace(value, "(?<!^)([A-Z])", " $1");
+
+    private static string FormatDuration(int seconds)
+        => TimeSpan.FromSeconds(Math.Max(0, seconds)).ToString(seconds >= 3600 ? @"h\:mm\:ss" : @"m\:ss");
+
+    private static string FormatLobbyTimeEditor(int? seconds)
+        => seconds is { } value ? $"{value / 60}:{value % 60:00}" : "Default";
+
+    private static bool PointGoalApplies(MatchMode mode) => mode is not
+        (MatchMode.Defender or MatchMode.TeamDefender or MatchMode.PrimeHunter);
+
+    private static string FormatLobbyPointGoalEditor(int? pointGoal)
+        => pointGoal?.ToString(CultureInfo.InvariantCulture) ?? "Default";
+
+    internal static bool TryParseLobbyPointGoal(string? text, out int? pointGoal)
+    {
+        string value = text?.Trim() ?? "";
+        if (value.Length == 0 || value.Equals("Default", StringComparison.OrdinalIgnoreCase))
+        {
+            pointGoal = null;
+            return true;
+        }
+        if (Int32.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int parsed)
+            && parsed is >= 1 and <= ushort.MaxValue)
+        {
+            pointGoal = parsed;
+            return true;
+        }
+        pointGoal = null;
+        return false;
+    }
+
+    internal static bool TryParseLobbyTimeLimit(string? text, out int? seconds)
+    {
+        string value = text?.Trim() ?? "";
+        if (value.Length == 0 || value.Equals("Default", StringComparison.OrdinalIgnoreCase))
+        {
+            seconds = null;
+            return true;
+        }
+        if (Int32.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture,
+            out int rawSeconds))
+        {
+            seconds = rawSeconds is >= 1 and <= 3600 ? rawSeconds : null;
+            return seconds.HasValue;
+        }
+        string[] parts = value.Split(':');
+        if (parts.Length == 2
+            && Int32.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture,
+                out int minutes)
+            && Int32.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture,
+                out int remainder)
+            && minutes >= 0 && remainder is >= 0 and < 60)
+        {
+            int total = minutes * 60 + remainder;
+            seconds = total is >= 1 and <= 3600 ? total : null;
+            return seconds.HasValue;
+        }
+        seconds = null;
+        return false;
+    }
+
+    private Control BuildLicensePage()
+    {
+        var root = Stack(PrimeControlFactory.PageHeading("Hunter License",
+            "PROFILE // OFFICIAL CAREER",
+            "Your account-scoped profile, hunter roster, and official match record."));
+        if (!_shell.SignedIn)
+        {
+            root.Children.Add(PrimeControlFactory.SectionPanel(Stack(
+                Text("Sign in required", "prime-heading"),
+                Text("Hunter License is available for authenticated accounts. Guest access does not create career records.",
+                    "prime-muted"),
+                MakeButton("Open Gateway", () => Navigate(PrimeRoute.Gateway), primary: true))));
+            return root;
+        }
+        RefreshModelPreviewIdentity();
+        HunterLicensePageState state = _license.State;
+        IReadOnlyList<HunterDossier> hunters = _license.Hunters;
+        var tabs = new WrapPanel { Orientation = Orientation.Horizontal };
+        tabs.Children.Add(MakeButton("Overview", () => RunCommand("Load overview", LoadLicenseOverviewAsync), quiet: state.Section != HunterLicenseSection.Overview));
+        tabs.Children.Add(MakeButton("Hunters", () => RunCommand("Load hunters", () => _license.LoadHuntersAsync()), quiet: state.Section != HunterLicenseSection.Hunters));
+        tabs.Children.Add(MakeButton("Career", () => RunCommand("Load career", () => _license.LoadCareerAsync()), quiet: state.Section != HunterLicenseSection.Career));
+        tabs.Children.Add(MakeButton("Matches", () => RunCommand("Load matches", () => _license.LoadMatchesAsync(cancellationToken: _lifetime.Token)), quiet: state.Section != HunterLicenseSection.Matches));
+        root.Children.Add(tabs);
+        if (state.Error != null) root.Children.Add(Text(state.Error, "prime-muted"));
+
+        if (state.License == null)
+        {
+            root.Children.Add(PrimeControlFactory.SectionPanel(Stack(
+                Text(state.LoadingLicense ? "Loading Hunter License…" : "No license data is loaded.", "prime-muted"),
+                MakeButton("Load Hunter License", () => RunCommand("Load Hunter License", LoadLicenseOverviewAsync), primary: true))));
+            return root;
+        }
+        if (state.Section == HunterLicenseSection.Hunters)
+        {
+            root.Children.Add(BuildHunterRosterPage(hunters));
+        }
+        else if (state.Section == HunterLicenseSection.Matches)
+        {
+            var matches = Stack();
+            matches.Children.Add(Text("Match history", "prime-heading"));
+            if (!state.HasMatches) matches.Children.Add(Text("No matches recorded yet.", "prime-muted"));
+            foreach (MatchHistoryEntry match in state.Matches)
+                matches.Children.Add(Text(
+                    $"{match.EndedAt:yyyy-MM-dd HH:mm} · {match.RoomKey} · {match.Mode} · {match.Outcome}\n"
+                    + $"{match.Kills} K / {match.Deaths} D / {match.Assists} A · {match.Damage} damage · "
+                    + $"{match.TrustClass} · {(match.Eligible ? "eligible" : "ineligible")} · {match.RatingStatus}",
+                    "prime-body"));
+            if (_license.CanLoadMoreMatches)
+                matches.Children.Add(MakeButton("Load older matches", () => RunCommand("Load older matches",
+                    () => _license.LoadMatchesAsync(older: true, _lifetime.Token)), primary: true));
+            root.Children.Add(PrimeControlFactory.SectionPanel(matches));
+        }
+        else if (state.Section == HunterLicenseSection.Career && state.Career != null)
+        {
+            root.Children.Add(PrimeControlFactory.SectionPanel(BuildCareerCard(state.Career)));
+        }
+        else
+        {
+            if (hunters.Count > 0)
+                root.Children.Add(BuildLicenseOverview(state, hunters));
+            else
+                root.Children.Add(PrimeControlFactory.SectionPanel(
+                    new PrimeEmptyState("No Hunter roster is available for this license.")));
+            var recent = Stack(Text("Recent matches", "prime-heading"));
+            if (state.LoadingMatches)
+                recent.Children.Add(Text("Loading recent official matches…", "prime-muted"));
+            else if (!state.HasMatches)
+                recent.Children.Add(Text("No official matches recorded.", "prime-muted"));
+            else
+            {
+                foreach (MatchHistoryEntry match in state.Matches.Take(5))
+                    recent.Children.Add(Text($"{match.EndedAt:yyyy-MM-dd} · {match.RoomKey} · {match.Outcome}", "prime-muted"));
+                    recent.Children.Add(MakeButton("View all matches", () => RunCommand("Load matches",
+                        () => _license.LoadMatchesAsync(cancellationToken: _lifetime.Token))));
+            }
+            root.Children.Add(PrimeControlFactory.SectionPanel(recent));
+        }
+        return root;
+    }
+
+    private Control BuildHunterRosterPage(IReadOnlyList<HunterDossier> hunters)
+    {
+        if (hunters.Count == 0)
+            return PrimeControlFactory.SectionPanel(new PrimeEmptyState("No hunters are available in this license."));
+
+        HunterDossier selected = hunters.FirstOrDefault(dossier => dossier.Hunter == _selectedLicenseHunter)
+            ?? hunters[0];
+        StartHunterPreview(selected.Hunter);
+
+        var roster = Stack(Text("Hunters", "prime-heading"),
+            Text("Select a hunter to inspect their profile and affinity weapon.", "prime-muted"));
+        foreach (HunterDossier dossier in hunters)
+        {
+            HunterDossier captured = dossier;
+            var row = Stack(Text(dossier.Name, "prime-body"),
+                Text($"Affinity weapon · {dossier.AffinityWeapon}", "prime-muted"));
+            AddHunterBadges(row, dossier);
+            AvaloniaButton button = MakeButton("", () =>
+            {
+                _selectedLicenseHunter = captured.Hunter;
+                RenderRoute(PrimeRoute.HunterLicense);
+            }, quiet: true);
+            button.Content = row;
+            button.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+            roster.Children.Add(PrimeControlFactory.SelectedRow(button,
+                dossier.Hunter == selected.Hunter));
+        }
+
+        var preview = Stack(Text("Preview", "prime-heading"),
+            BuildHunterPreviewStage(selected.Hunter));
+        var detail = Stack(Text(selected.Name, "prime-title"),
+            Text($"Affinity weapon · {selected.AffinityWeapon}", "prime-body"));
+        AddHunterBadges(detail, selected);
+        detail.Children.Add(PrimeControlFactory.Divider());
+        detail.Children.Add(Text("Profile favorite", "prime-label"));
+        if (!selected.IsFavorite)
+            detail.Children.Add(MakeButton("Set as favorite", () => RunCommand(
+                "Update favorite Hunter", () => _license.SetFavoriteHunterAsync(
+                    selected.Hunter, _lifetime.Token)), primary: true));
+        else detail.Children.Add(new PrimeStatusChip("Favorite"));
+        detail.Children.Add(Text("The selected hunter is used only for this profile action; lobby hunter selection remains on Play.", "prime-muted"));
+
+        return ResponsiveThreeColumn(PrimeControlFactory.SectionPanel(roster),
+            PrimeControlFactory.SectionPanel(preview), PrimeControlFactory.SectionPanel(detail));
+    }
+
+    private Control BuildLicenseOverview(HunterLicensePageState state,
+        IReadOnlyList<HunterDossier> hunters)
+    {
+        HunterDossier profile = hunters.FirstOrDefault(dossier => dossier.IsFavorite)
+            ?? hunters.FirstOrDefault(dossier => dossier.Hunter == _selectedLicenseHunter)
+            ?? hunters.First();
+        StartHunterPreview(profile.Hunter);
+
+        var hero = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("210,*,260"),
+            ColumnSpacing = 16
+        };
+        var profilePreview = Stack(BuildHunterPreviewStage(profile.Hunter),
+            Text(profile.Name, "prime-heading"));
+        AddHunterBadges(profilePreview, profile);
+        hero.Children.Add(profilePreview);
+
+        var identity = Stack(Text(state.License!.DisplayName, "prime-title"),
+            Text(state.License.Title, "prime-muted"),
+            Text($"{state.License.Points} RP · Tier {state.License.Tier}", "prime-body"),
+            Text($"Joined {state.License.JoinedAt:yyyy-MM-dd}", "prime-muted"),
+            Text(state.License.NextThreshold is { } next
+                ? $"Next threshold · {next} RP" : "No next threshold reported.", "prime-muted"),
+            Text(state.License.LastOfficialDelta is { } delta
+                ? $"Last official change · {delta:+#;-#;0} RP" : "No official match delta reported.", "prime-muted"));
+        hero.Children.Add(identity);
+
+        var profileAction = Stack(Text("Profile display name", "prime-label"));
+        var displayName = Input(state.License.DisplayName, "Display name");
+        profileAction.Children.Add(displayName);
+        profileAction.Children.Add(MakeButton("Save display name", () => RunCommand("Update display name",
+            () => _license.UpdateDisplayNameAsync(displayName.Text ?? "", _lifetime.Token))));
+        hero.Children.Add(profileAction);
+        Grid.SetColumn(profilePreview, 0);
+        Grid.SetColumn(identity, 1);
+        Grid.SetColumn(profileAction, 2);
+        hero.SizeChanged += (_, e) =>
+        {
+            bool narrow = e.NewSize.Width > 0 && e.NewSize.Width < 900;
+            hero.ColumnDefinitions = new ColumnDefinitions(narrow ? "*" : "210,*,260");
+            hero.RowDefinitions = new RowDefinitions(narrow ? "Auto,Auto,Auto" : "Auto");
+            hero.ColumnSpacing = narrow ? 0 : 16;
+            hero.RowSpacing = narrow ? 12 : 0;
+            Grid.SetColumn(profilePreview, 0);
+            Grid.SetColumn(identity, narrow ? 0 : 1);
+            Grid.SetColumn(profileAction, narrow ? 0 : 2);
+            Grid.SetRow(profilePreview, 0);
+            Grid.SetRow(identity, narrow ? 1 : 0);
+            Grid.SetRow(profileAction, narrow ? 2 : 0);
+        };
+
+        var overview = Stack(Text("Overview", "prime-heading"), hero);
+        var stats = new WrapPanel { Orientation = Orientation.Horizontal };
+        CareerTotals? totals = state.Career?.Totals;
+        stats.Children.Add(PrimeControlFactory.StatTile("RANKING POINTS",
+            state.License.Points.ToString(CultureInfo.InvariantCulture), $"Tier {state.License.Tier}"));
+        stats.Children.Add(PrimeControlFactory.StatTile("MATCHES",
+            totals?.Matches.ToString(CultureInfo.InvariantCulture) ?? "—",
+            totals is null ? "Career not loaded" : $"{totals.Wins} wins"));
+        stats.Children.Add(PrimeControlFactory.StatTile("WIN RATIO",
+            FormatDecimal(totals?.WinRatio), totals is null ? null : $"{totals.Kills} kills"));
+        stats.Children.Add(PrimeControlFactory.StatTile("KILL / DEATH",
+            FormatDecimal(totals?.KillDeathRatio), totals is null ? null : $"{totals.Deaths} deaths"));
+        overview.Children.Add(stats);
+        if (state.Career != null)
+            overview.Children.Add(PrimeControlFactory.SectionPanel(BuildCareerCard(state.Career)));
+        return PrimeControlFactory.SectionPanel(overview);
+    }
+
+    private Control BuildHunterPreviewStage(Hunter hunter)
+    {
+        Control content;
+        if (_hunterPreviewPaths.TryGetValue(hunter, out string? path))
+        {
+            content = new PrimeLocalImage(path, 330) { Stretch = Stretch.Uniform };
+        }
+        else if (_hunterPreviewRetryAfter.ContainsKey(hunter))
+        {
+            content = Stack(Text("Preview unavailable.", "prime-muted"),
+                MakeButton("Retry preview", () => RetryHunterPreview(hunter)));
+        }
+        else
+        {
+            content = Text("Generating local preview…", "prime-muted");
+        }
+        if (content is TextBlock text)
+        {
+            text.HorizontalAlignment = HorizontalAlignment.Center;
+            text.VerticalAlignment = VerticalAlignment.Center;
+        }
+        var stage = PrimeControlFactory.PreviewStage(content);
+        stage.Height = 360;
+        return stage;
+    }
+
+    private static void AddHunterBadges(StackPanel target, HunterDossier dossier)
+    {
+        if (!dossier.IsFavorite && !dossier.IsMostPlayed && !dossier.IsBest) return;
+        var badges = new WrapPanel { Orientation = Orientation.Horizontal };
+        if (dossier.IsFavorite) badges.Children.Add(new PrimeStatusChip("Favorite"));
+        if (dossier.IsMostPlayed) badges.Children.Add(new PrimeStatusChip("Most played"));
+        if (dossier.IsBest) badges.Children.Add(new PrimeStatusChip("Best"));
+        target.Children.Add(badges);
+    }
+
+    private async Task LoadLicenseOverviewAsync()
+    {
+        await _license.LoadOverviewAsync(_lifetime.Token).ConfigureAwait(false);
+        if (!_lifetime.IsCancellationRequested)
+            await _license.LoadRecentMatchesAsync(_lifetime.Token).ConfigureAwait(false);
+    }
+
+    private static Control BuildCareerCard(CareerSummary career)
+    {
+        CareerTotals totals = career.Totals;
+        var card = Stack();
+        card.Children.Add(Text("Career", "prime-heading"));
+        if (totals.Matches == 0)
+        {
+            card.Children.Add(Text("No official matches yet.", "prime-muted"));
+            return card;
+        }
+        card.Children.Add(Text($"{totals.Matches} matches · {totals.Wins} wins · {totals.Kills} kills · {totals.Deaths} deaths", "prime-body"));
+        card.Children.Add(Text($"{totals.LossCount} losses · {totals.Ties} ties · {totals.Assists} assists · {totals.Damage} damage", "prime-muted"));
+        card.Children.Add(Text($"K/D {FormatDecimal(totals.KillDeathRatio)} · win ratio {FormatDecimal(totals.WinRatio)} · headshots {totals.HeadshotKills}", "prime-muted"));
+        card.Children.Add(Text($"Longest kill streak {totals.LongestKillStreak} · longest win streak {totals.LongestWinStreak}", "prime-muted"));
+        card.Children.Add(Text($"Rating {career.Rating.Points} RP · Tier {career.Rating.Tier} · {career.Rating.Title} · {career.RatingStatus}", "prime-muted"));
+        card.Children.Add(Text($"Most played: {ChoiceText(career.MostPlayedHunter)} · best hunter: {ChoiceText(career.BestHunter)}", "prime-muted"));
+        card.Children.Add(Text($"Favorite map: {ChoiceText(career.FavoriteMap)} · favorite mode: {ChoiceText(career.FavoriteMode)} · favorite weapon: {ChoiceText(career.FavoriteWeapon)}", "prime-muted"));
+        return card;
+    }
+
+    private Control BuildArmoryPage()
+    {
+        RefreshModelPreviewIdentity();
+        IReadOnlyList<PrimeWeaponDetails> weapons = _armory.Weapons;
+        if (weapons.Count == 0)
+            return Stack(PrimeControlFactory.PageHeading("Armory", "WEAPON REGISTRY",
+                "No weapon metadata is available in the installed game data."));
+        PrimeWeaponDetails selected = weapons.FirstOrDefault(weapon => weapon.Beam == _selectedArmoryWeapon)
+            ?? weapons[0];
+        _selectedArmoryWeapon = selected.Beam;
+        StartWeaponPreview(selected.Beam);
+
+        var root = Stack(PrimeControlFactory.PageHeading("Armory", "WEAPON REGISTRY",
+            "Review each weapon's combat profile, affinity, and projectile behavior."));
+        var roster = Stack(Text("Weapons", "prime-heading"));
+        foreach (PrimeWeaponDetails weapon in weapons)
+        {
+            PrimeWeaponDetails captured = weapon;
+            var row = Stack(Text(weapon.Name, "prime-body"),
+                Text($"Affinity · {weapon.AffinityHunters}", "prime-muted"));
+            var stats = Text($"{weapon.UnchargedDamage}/{weapon.ChargedDamage} damage · {weapon.AmmoCost} ammo", "prime-muted");
+            row.Children.Add(stats);
+            AvaloniaButton button = MakeButton("", () =>
+            {
+                _selectedArmoryWeapon = captured.Beam;
+                RenderRoute(PrimeRoute.Armory);
+            }, quiet: true);
+            button.Content = row;
+            button.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+            roster.Children.Add(PrimeControlFactory.SelectedRow(button,
+                weapon.Beam == selected.Beam));
+        }
+
+        var preview = Stack(Text("Preview", "prime-heading"), BuildWeaponPreviewStage(selected.Beam));
+        var detail = Stack(Text(selected.Name, "prime-title"),
+            Text(selected.Description, "prime-body"),
+            Text($"Affinity hunters · {selected.AffinityHunters}", "prime-muted"));
+        detail.Children.Add(PrimeControlFactory.Divider());
+        var statTiles = new WrapPanel { Orientation = Orientation.Horizontal };
+        statTiles.Children.Add(PrimeControlFactory.StatTile("UN CHARGED",
+            selected.UnchargedDamage.ToString(CultureInfo.InvariantCulture), "damage"));
+        statTiles.Children.Add(PrimeControlFactory.StatTile("CHARGED",
+            selected.ChargedDamage.ToString(CultureInfo.InvariantCulture), "damage"));
+        statTiles.Children.Add(PrimeControlFactory.StatTile("AMMO COST",
+            selected.AmmoCost.ToString(CultureInfo.InvariantCulture), "per shot"));
+        statTiles.Children.Add(PrimeControlFactory.StatTile("PROJECTILES",
+            selected.ChargedProjectiles.ToString(CultureInfo.InvariantCulture),
+            $"charged speed {selected.ChargedSpeed}"));
+        detail.Children.Add(statTiles);
+        root.Children.Add(ResponsiveThreeColumn(PrimeControlFactory.SectionPanel(roster),
+            PrimeControlFactory.SectionPanel(preview), PrimeControlFactory.SectionPanel(detail)));
+        return root;
+    }
+
+    private Control BuildWeaponPreviewStage(BeamType beam)
+    {
+        Control content;
+        if (_weaponPreviewPaths.TryGetValue(beam, out string? path))
+        {
+            content = new PrimeLocalImage(path, 330) { Stretch = Stretch.Uniform };
+        }
+        else if (_weaponPreviewRetryAfter.ContainsKey(beam))
+        {
+            content = Stack(Text("Preview unavailable.", "prime-muted"),
+                MakeButton("Retry preview", () => RetryWeaponPreview(beam)));
+        }
+        else
+        {
+            content = Text("Generating local preview…", "prime-muted");
+        }
+        if (content is TextBlock text)
+        {
+            text.HorizontalAlignment = HorizontalAlignment.Center;
+            text.VerticalAlignment = VerticalAlignment.Center;
+        }
+        var stage = PrimeControlFactory.PreviewStage(content);
+        stage.Height = 360;
+        return stage;
+    }
+
+    private void StartHunterPreview(Hunter hunter)
+    {
+        RefreshModelPreviewIdentity();
+        if (_hunterPreviewPaths.ContainsKey(hunter) || !_hunterPreviewLoads.Add(hunter)) return;
+        if (_hunterPreviewRetryAfter.TryGetValue(hunter, out DateTimeOffset retryAfter))
+        {
+            _hunterPreviewLoads.Remove(hunter);
+            if (retryAfter > DateTimeOffset.UtcNow) return;
+            _hunterPreviewRetryAfter.Remove(hunter);
+        }
+        _ = LoadHunterPreviewAsync(hunter, _modelPreviewIdentity);
+    }
+
+    private async Task LoadHunterPreviewAsync(Hunter hunter, string? identity)
+    {
+        string? path = null;
+        try
+        {
+            PrimePreviewImage? image = await _hunterPreviews.LoadAsync(
+                hunter, _restoreLifetime.Token).ConfigureAwait(false);
+            path = image?.Path;
+        }
+        catch (OperationCanceledException) when (_restoreLifetime.IsCancellationRequested) { }
+        catch (Exception error)
+        {
+            Console.Error.WriteLine($"[previews] hunter {hunter}: {error.Message}");
+        }
+        PostUi(() =>
+        {
+            if (!String.Equals(identity, _modelPreviewIdentity, StringComparison.Ordinal)) return;
+            _hunterPreviewLoads.Remove(hunter);
+            if (path != null)
+            {
+                _hunterPreviewPaths[hunter] = path;
+                _hunterPreviewRetryAfter.Remove(hunter);
+            }
+            else _hunterPreviewRetryAfter[hunter] = DateTimeOffset.UtcNow.AddSeconds(10);
+            if (_shell.CurrentRoute == PrimeRoute.HunterLicense)
+                RenderRoute(PrimeRoute.HunterLicense);
+        });
+    }
+
+    private void StartWeaponPreview(BeamType beam)
+    {
+        RefreshModelPreviewIdentity();
+        if (_weaponPreviewPaths.ContainsKey(beam) || !_weaponPreviewLoads.Add(beam)) return;
+        if (_weaponPreviewRetryAfter.TryGetValue(beam, out DateTimeOffset retryAfter))
+        {
+            _weaponPreviewLoads.Remove(beam);
+            if (retryAfter > DateTimeOffset.UtcNow) return;
+            _weaponPreviewRetryAfter.Remove(beam);
+        }
+        _ = LoadWeaponPreviewAsync(beam, _modelPreviewIdentity);
+    }
+
+    private async Task LoadWeaponPreviewAsync(BeamType beam, string? identity)
+    {
+        string? path = null;
+        try
+        {
+            PrimePreviewImage? image = await _weaponPreviews.LoadAsync(
+                beam, _restoreLifetime.Token).ConfigureAwait(false);
+            path = image?.Path;
+        }
+        catch (OperationCanceledException) when (_restoreLifetime.IsCancellationRequested) { }
+        catch (Exception error)
+        {
+            Console.Error.WriteLine($"[previews] weapon {beam}: {error.Message}");
+        }
+        PostUi(() =>
+        {
+            if (!String.Equals(identity, _modelPreviewIdentity, StringComparison.Ordinal)) return;
+            _weaponPreviewLoads.Remove(beam);
+            if (path != null)
+            {
+                _weaponPreviewPaths[beam] = path;
+                _weaponPreviewRetryAfter.Remove(beam);
+            }
+            else _weaponPreviewRetryAfter[beam] = DateTimeOffset.UtcNow.AddSeconds(10);
+            if (_shell.CurrentRoute == PrimeRoute.Armory)
+                RenderRoute(PrimeRoute.Armory);
+        });
+    }
+
+    private void RetryHunterPreview(Hunter hunter)
+    {
+        _hunterPreviewRetryAfter.Remove(hunter);
+        StartHunterPreview(hunter);
+        RenderRoute(PrimeRoute.HunterLicense);
+    }
+
+    private void RetryWeaponPreview(BeamType beam)
+    {
+        _weaponPreviewRetryAfter.Remove(beam);
+        StartWeaponPreview(beam);
+        RenderRoute(PrimeRoute.Armory);
+    }
+
+    private void RefreshModelPreviewIdentity()
+    {
+        string? identity;
+        try
+        {
+            (string version, string hash) = ContentEnvironment.GetContentIdentity();
+            identity = $"{version}|{hash}";
+        }
+        catch { identity = null; }
+        if (String.Equals(identity, _modelPreviewIdentity, StringComparison.Ordinal)) return;
+        _modelPreviewIdentity = identity;
+        _hunterPreviewPaths.Clear();
+        _hunterPreviewLoads.Clear();
+        _hunterPreviewRetryAfter.Clear();
+        _weaponPreviewPaths.Clear();
+        _weaponPreviewLoads.Clear();
+        _weaponPreviewRetryAfter.Clear();
+        _previewImages.Clear();
+    }
+
+    private Control BuildTheaterPage()
+    {
+        TheaterState state = _theater.State;
+        if (!_theaterLoaded)
+        {
+            _theaterLoaded = true;
+            RunCommand("Load Theater", () => _theater.LoadAsync(_lifetime.Token));
+        }
+        var root = Stack(PrimeControlFactory.PageHeading("Theater", "LOCAL REPLAYS // DEMO LIBRARY",
+            "Select a replay to inspect it, then watch or manage the local file."));
+        if (state.Error != null) root.Children.Add(Text(state.Error, "prime-muted"));
+        var paths = Stack();
+        var importPath = Input("", "Import path");
+        var exportPath = Input("", "Export destination");
+        if (_theater.Library.SupportsImport)
+            paths.Children.Add(Stack(Text("Import", "prime-label"), importPath,
+                MakeButton("Import", () => RunCommand("Import demo", () => _theater.ImportAsync(importPath.Text ?? "", _lifetime.Token)), primary: true)));
+        if (_theater.Library.SupportsExport)
+            paths.Children.Add(Stack(Text("Export selected", "prime-label"), exportPath));
+
+        var list = Stack(Text("Replays", "prime-heading"));
+        PrimeDemoEntry? selected = state.Selected ?? state.Demos.FirstOrDefault();
+        if (state.Demos.Count == 0)
+            list.Children.Add(Text(state.Loading ? "Loading local demos…" : "No local demos found.", "prime-muted"));
+        foreach (PrimeDemoEntry demo in state.Demos)
+        {
+            PrimeDemoEntry captured = demo;
+            var demoRow = Stack(Text(demo.Room.Length == 0 ? demo.FileName : demo.Room, "prime-body"),
+                Text($"{demo.FileName} · {demo.Recorded:yyyy-MM-dd HH:mm} · {demo.Size}", "prime-muted"));
+            AvaloniaButton selectButton = MakeButton("", () => _theater.Select(captured), quiet: true);
+            selectButton.Content = demoRow;
+            selectButton.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+            list.Children.Add(PrimeControlFactory.SelectedRow(selectButton, selected?.Id == demo.Id));
+        }
+        var detail = Stack(Text("Replay details", "prime-heading"));
+        if (selected == null)
+        {
+            detail.Children.Add(Text("Select a replay to see its details.", "prime-muted"));
+        }
+        else
+        {
+            PrimeDemoEntry captured = selected;
+            detail.Children.Add(Text(selected.Room.Length == 0 ? selected.FileName : selected.Room, "prime-title"));
+            detail.Children.Add(Text(selected.FileName, "prime-body"));
+            detail.Children.Add(Text($"Recorded {selected.Recorded:yyyy-MM-dd HH:mm} · {selected.Size}", "prime-muted"));
+            detail.Children.Add(MakeButton("Watch replay", () => RunCommand("Play demo",
+                () => _theater.PlayAsync(captured, _lifetime.Token)), primary: true));
+            if (_theater.Library.SupportsExport)
+                detail.Children.Add(MakeButton("Export selected", () => RunCommand("Export demo",
+                    () => _theater.ExportAsync(exportPath.Text ?? "", captured, _lifetime.Token))));
+            if (_theater.Library.SupportsRename)
+            {
+                var rename = Input("", "Rename file (must end in .fpdemo)");
+                detail.Children.Add(rename);
+                detail.Children.Add(MakeButton("Rename", () => RunCommand("Rename demo",
+                    () => _theater.RenameAsync(rename.Text ?? "", captured))));
+            }
+            if (_pendingDemoDeleteId == selected.Id)
+            {
+                detail.Children.Add(Text("Delete this local replay?", "prime-muted"));
+                detail.Children.Add(MakeButton("Confirm delete", () => RunCommand("Delete demo", async () =>
+                {
+                    await _theater.DeleteAsync(captured).ConfigureAwait(false);
+                    PostUi(() =>
+                    {
+                        _pendingDemoDeleteId = null;
+                        RenderRoute(PrimeRoute.Theater);
+                    });
+                }), primary: true));
+                detail.Children.Add(MakeButton("Cancel", () =>
+                {
+                    _pendingDemoDeleteId = null;
+                    RenderRoute(PrimeRoute.Theater);
+                }, quiet: true));
+            }
+            else
+            {
+                detail.Children.Add(MakeButton("Delete", () =>
+                {
+                    _pendingDemoDeleteId = captured.Id;
+                    RenderRoute(PrimeRoute.Theater);
+                }));
+            }
+        }
+        root.Children.Add(PrimeControlFactory.SectionPanel(paths));
+        root.Children.Add(ResponsiveSplit(PrimeControlFactory.SectionPanel(list),
+            PrimeControlFactory.SectionPanel(detail)));
+        return root;
+    }
+
+    private Control BuildRankingsPage()
+    {
+        var root = Stack(PrimeControlFactory.PageHeading("Rankings", "OFFICIAL CAREER LEADERBOARD",
+            "Filter the current leaderboard metric and inspect loaded results."));
+        if (!_shell.SignedIn)
+        {
+            root.Children.Add(PrimeControlFactory.SectionPanel(Stack(
+                Text("Sign in required", "prime-heading"),
+                Text("Official rankings are available for authenticated accounts. Guest access cannot load or highlight career rows.",
+                    "prime-muted"),
+                MakeButton("Open Gateway", () => Navigate(PrimeRoute.Gateway), primary: true))));
+            return root;
+        }
+        RankingsState state = _rankings.State;
+        var filterStrip = Stack(Text("Filters", "prime-heading"));
+        var metrics = new WrapPanel { Orientation = Orientation.Horizontal };
+        foreach (string metric in PrimeLeaderboardMetrics.All)
+        {
+            string captured = metric;
+            metrics.Children.Add(MakeButton(PrimeLeaderboardMetrics.Label(metric), () => RunCommand("Change ranking metric",
+                () => Task.Run(() => _rankings.SetMetric(captured))), quiet: metric != state.Metric));
+        }
+        filterStrip.Children.Add(metrics);
+        if (state.Metric != "rp")
+        {
+            var filters = new WrapPanel { Orientation = Orientation.Horizontal };
+            filters.Children.Add(Text("Hunter filter", "prime-label"));
+            filters.Children.Add(MakeButton("All hunters", () => RunCommand("Clear Hunter filter", () =>
+                Task.Run(() => _rankings.SetHunterFilter(null))), quiet: state.HunterFilter.HasValue));
+            foreach (Hunter hunter in Enum.GetValues<Hunter>().Where(h => h <= Hunter.Weavel))
+            {
+                Hunter captured = hunter;
+                filters.Children.Add(MakeButton(captured.ToString(), () => RunCommand("Set Hunter filter",
+                    () => Task.Run(() => _rankings.SetHunterFilter(captured))), quiet: state.HunterFilter != hunter));
+            }
+            filterStrip.Children.Add(filters);
+        }
+        else filterStrip.Children.Add(Text("Ranking Points is an all-Hunter metric.", "prime-muted"));
+        root.Children.Add(PrimeControlFactory.SectionPanel(filterStrip));
+        if (state.Error != null) root.Children.Add(Text(state.Error, "prime-muted"));
+        if (state.Rows.IsDefaultOrEmpty)
+            root.Children.Add(PrimeControlFactory.SectionPanel(Stack(Text(state.Loading ? "Loading rankings…" : "No ranking page is loaded.", "prime-muted"),
+                MakeButton("Load rankings", () => RunCommand("Load rankings", () => _rankings.LoadAsync(cancellationToken: _lifetime.Token)), primary: true))));
+        else
+        {
+            var table = Stack();
+            table.Children.Add(BuildLeaderboardRow("#", "Player", PrimeLeaderboardMetrics.Label(state.Metric),
+                "Matches", "Kills", header: true));
+            int rank = 0;
+            foreach (PrimeLeaderboardRow row in state.Rows)
+            {
+                rank++;
+                table.Children.Add(PrimeControlFactory.SelectedRow(BuildLeaderboardRow(
+                    rank.ToString(CultureInfo.InvariantCulture), row.Entry.DisplayName,
+                    row.Entry.Score.ToString(CultureInfo.InvariantCulture),
+                    row.Entry.Matches.ToString(CultureInfo.InvariantCulture),
+                    row.Entry.Kills.ToString(CultureInfo.InvariantCulture)), row.IsCurrentPlayer));
+            }
+            if (state.CanLoadMore)
+                table.Children.Add(MakeButton("Next page", () => RunCommand("Load next ranking page",
+                    () => _rankings.LoadAsync(next: true, _lifetime.Token)), primary: true));
+            PrimeLeaderboardRow? current = state.Rows.FirstOrDefault(row => row.IsCurrentPlayer);
+            if (current is { } currentPlayer)
+            {
+                var summary = Stack(Text("Current player", "prime-heading"),
+                    Text(currentPlayer.Entry.DisplayName, "prime-title"),
+                    Text($"{PrimeLeaderboardMetrics.Label(state.Metric)} · {currentPlayer.Entry.Score.ToString(CultureInfo.InvariantCulture)}", "prime-body"),
+                    Text($"{currentPlayer.Entry.Matches} matches · {currentPlayer.Entry.Kills} kills", "prime-muted"));
+                root.Children.Add(PrimeControlFactory.SectionPanel(summary));
+            }
+            root.Children.Add(new ScrollViewer
+            {
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Content = PrimeControlFactory.SectionPanel(table)
+            });
+        }
+        return root;
+    }
+
+    private static Grid BuildLeaderboardRow(string rank, string player, string score,
+        string matches, string kills, bool header = false)
+    {
+        var row = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("54,*,140,100,100"),
+            ColumnSpacing = 10,
+            Margin = new Thickness(0, 0, 0, header ? 8 : 0)
+        };
+        TextBlock[] cells =
+        {
+            Text(rank, "prime-label"), Text(player, header ? "prime-label" : "prime-body"),
+            Text(score, header ? "prime-label" : "prime-body"),
+            Text(matches, header ? "prime-label" : "prime-muted"),
+            Text(kills, header ? "prime-label" : "prime-muted")
+        };
+        for (int i = 0; i < cells.Length; i++)
+        {
+            row.Children.Add(cells[i]);
+            Grid.SetColumn(cells[i], i);
+        }
+        return row;
+    }
+
+    private Control BuildSettingsPage()
+    {
+        var existing = new SettingsView(_settings)
+        {
+            Height = Math.Max(420, Bounds.Height > 0 ? Bounds.Height - 203 : 520)
+        };
+        var backend = Input(LauncherPrefs.BackendAddress, "Backend address");
+        var backendCard = Stack(Text("Network · Advanced", "prime-heading"), backend,
+            MakeButton("Save Backend", () => RunCommand("Save Backend", async () =>
+            {
+                if (!Uri.TryCreate(backend.Text?.Trim(), UriKind.Absolute, out Uri? uri))
+                    throw new InvalidOperationException("Enter a valid Backend address.");
+                await _gateway.ConfigureBackendAsync(uri, _lifetime.Token).ConfigureAwait(false);
+                PostUi(() => _shell.Navigator.NavigateRoot(PrimeRoute.Gateway));
+            }), primary: true));
+        existing.AddNetworkAdvanced(backendCard);
+        existing.Closed += (_, _) =>
+        {
+            Resources["PrimeReducedMotion"] = LauncherPrefs.ReducedMotion;
+            GoBack();
+        };
+        existing.GameFilesRequested += (_, _) => PostUi(() =>
+        {
+            RouteTitle.Text = "Game files";
+            PageHost.Content = BuildGameFilesPage();
+        });
+        return existing;
+    }
+
+    private void ShowOverlay(Control control)
+    {
+        OverlayHost.Content = control;
+        OverlayRoot.IsVisible = true;
+        Dispatcher.UIThread.Post(() => control.Focus(), DispatcherPriority.Background);
+    }
+
+    private void CloseOverlay()
+    {
+        OverlayRoot.IsVisible = false;
+        OverlayHost.Content = null;
+    }
+
+    private void Finish(LaunchPlan plan)
+    {
+        if (_finished) return;
+        _finished = true;
+        Plan = plan;
+        Done?.Invoke(this, plan);
+    }
+
+    private void LaunchRequested(object? sender, LaunchPlan plan)
+    {
+        PrimeRoute expectedRoute = ReferenceEquals(sender, _play)
+            ? PrimeRoute.Play : PrimeRoute.Theater;
+        PostUi(() =>
+        {
+            if (!_active || _disposed || _shell.CurrentRoute != expectedRoute) return;
+            Finish(plan);
+        });
+    }
+
+    private void ShellNavigationChanged(object? sender, PrimeNavigationChangedEventArgs args)
+        => PostUi(() =>
+        {
+            if (args.Route != PrimeRoute.Play) _play.CancelPendingHandoff();
+            RenderRoute(args.Route);
+            if (args.Route == PrimeRoute.Play && _restoreOnActivate
+                && _shell.HasNetworkIdentity)
+                RunCommand("Refresh Nodes", () => _play.RefreshNodesAsync(_lifetime.Token));
+        });
+
+    private void ShellPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        => PostUi(RefreshChrome);
+
+    private void GatewayChanged(object? sender, EventArgs args)
+        => PostUi(() =>
+        {
+            StatusText.Text = _gateway.State.Message;
+            RefreshChrome();
+        });
+
+    private void GatewayIdentityChanged(object? sender, EventArgs args)
+        => PostUi(() =>
+        {
+            _play.CancelIdentityOperations();
+            RefreshNavigation();
+            if (_shell.SignedIn && _shell.CurrentRoute == PrimeRoute.Gateway)
+                _shell.Navigator.NavigateRoot(PrimeRoute.Play);
+        });
+
+    private void PlayChanged(object? sender, EventArgs args)
+        => PostUi(() =>
+        {
+            if (_shell.CurrentRoute == PrimeRoute.Play && IsPlayEditorFocused())
+            {
+                _playRefreshPending = true;
+                RefreshChrome();
+            }
+            else if (_shell.CurrentRoute == PrimeRoute.Play)
+            {
+                _playRefreshPending = false;
+                RenderRoute(PrimeRoute.Play);
+            }
+            else RefreshChrome();
+        });
+
+    private void LicenseChanged(object? sender, EventArgs args)
+        => PostUi(() => { if (_shell.CurrentRoute == PrimeRoute.HunterLicense) RenderRoute(PrimeRoute.HunterLicense); });
+
+    private void RankingsChanged(object? sender, EventArgs args)
+        => PostUi(() => { if (_shell.CurrentRoute == PrimeRoute.Rankings) RenderRoute(PrimeRoute.Rankings); });
+
+    private void TheaterChanged(object? sender, EventArgs args)
+        => PostUi(() => { if (_shell.CurrentRoute == PrimeRoute.Theater) RenderRoute(PrimeRoute.Theater); });
+
+    private void RefreshNavigation()
+    {
+        NavPanel.IsVisible = _shell.HasNetworkIdentity;
+        foreach ((AvaloniaButton button, PrimeRoute route) in _navigationButtons)
+        {
+            button.Classes.Remove("prime-primary");
+            if (_shell.CurrentRoute == route) button.Classes.Add("prime-primary");
+        }
+    }
+
+    private void RefreshChrome()
+    {
+        IdentityText.Text = _shell.HasNetworkIdentity ? _shell.DisplayName : "Sign in";
+        ConnectionText.Text = _shell.NodeConnected
+            ? $"{_shell.NodeName} {_shell.NodeRegion}".Trim()
+            : _shell.BackendConnected ? "Backend ready" : "Offline";
+        StatusText.Text = _shell.BusyOperation ?? _shell.Notification?.Message
+            ?? (_shell.CurrentRoute == PrimeRoute.Gateway ? _gateway.State.Message : "Ready");
+        InputHintText.Text = _shell.LastInputDevice switch
+        {
+            PrimeInputDevice.Gamepad => "Gamepad",
+            PrimeInputDevice.Touch => "Touch",
+            PrimeInputDevice.KeyboardMouse => "Keyboard / Mouse",
+            _ => "Keyboard / Mouse"
+        };
+        if (_shell.Notification is { } notification)
+        {
+            NotificationBar.IsVisible = true;
+            NotificationText.Text = notification.Message;
+            NotificationText.Foreground = notification.Kind switch
+            {
+                PrimeNotificationKind.Success => GuiTheme.GoodBrush,
+                PrimeNotificationKind.Warning => GuiTheme.WarmBrush,
+                PrimeNotificationKind.Error => GuiTheme.BadBrush,
+                _ => GuiTheme.TextBrush
+            };
+        }
+        else NotificationBar.IsVisible = false;
+        RefreshActionBar();
+        RefreshNavigation();
+    }
+
+    private void RefreshActionBar()
+    {
+        ActionBar.Children.Clear();
+        if (_shell.Navigator.CanGoBack)
+            ActionBar.Children.Add(MakeButton("Back", () => GoBack(), quiet: true));
+        if (_shell.HasNetworkIdentity)
+        {
+            string label = _shell.SignedIn ? "Sign out" : "Leave Guest access";
+            ActionBar.Children.Add(MakeButton(label, () => RunCommand(label, async () =>
+            {
+                if (await _gateway.SignOutAsync(_lifetime.Token).ConfigureAwait(false))
+                    PostUi(() => _shell.Navigator.NavigateRoot(PrimeRoute.Gateway));
+            }), quiet: true));
+        }
+        if (_update is { } update)
+        {
+            ActionBar.Children.Add(MakeButton($"Update available · {update.Tag}",
+                () => RunCommand("Open update page", () =>
+                {
+                    Update.Updater.OpenPage(update);
+                    return Task.CompletedTask;
+                }), primary: true));
+        }
+    }
+
+    private void ApplyResponsiveLayout(double width, double height)
+    {
+        bool narrow = width > 0 && width < 720;
+        bool compactHeader = width > 0 && width < 1100;
+        NavPanel.Orientation = Orientation.Horizontal;
+        foreach ((AvaloniaButton button, PrimeRoute route) in _navigationButtons)
+            button.Content = narrow ? MicroRouteLabel(route)
+                : compactHeader ? PrimeRouteInfo.CompactLabel(route) : PrimeRouteInfo.Label(route);
+        HeaderBorder.Padding = narrow ? new Thickness(4, 0) : new Thickness(20, 0);
+        HeaderGrid.ColumnSpacing = narrow ? 4 : 16;
+        if (narrow)
+        {
+            HeaderGrid.ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto");
+            HeaderGrid.RowDefinitions = new RowDefinitions("Auto");
+            Grid.SetColumn(BrandPanel, 0);
+            Grid.SetRow(BrandPanel, 0);
+            Grid.SetColumn(NavPanel, 1);
+            Grid.SetRow(NavPanel, 0);
+            Grid.SetColumn(AccountPanel, 2);
+            Grid.SetRow(AccountPanel, 0);
+            BrandTextPanel.IsVisible = false;
+            BrandPanel.IsVisible = true;
+            BrandPanel.HorizontalAlignment = HorizontalAlignment.Left;
+            NavPanel.HorizontalAlignment = HorizontalAlignment.Left;
+            AccountPanel.HorizontalAlignment = HorizontalAlignment.Right;
+            PageGrid.Margin = new Thickness(12);
+        }
+        else
+        {
+            HeaderGrid.RowDefinitions = new RowDefinitions("Auto");
+            HeaderGrid.ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto");
+            Grid.SetColumn(BrandPanel, 0);
+            Grid.SetRow(BrandPanel, 0);
+            Grid.SetColumn(NavPanel, 1);
+            Grid.SetRow(NavPanel, 0);
+            Grid.SetColumn(AccountPanel, 2);
+            Grid.SetRow(AccountPanel, 0);
+            BrandTextPanel.IsVisible = true;
+            BrandPanel.IsVisible = true;
+            NavPanel.HorizontalAlignment = HorizontalAlignment.Center;
+            AccountPanel.HorizontalAlignment = HorizontalAlignment.Right;
+            PageGrid.Margin = new Thickness(24, 20);
+        }
+        AccountPanel.IsVisible = !compactHeader;
+        if (_shell.CurrentRoute == PrimeRoute.Settings
+            && PageHost.Content is SettingsView settingsView)
+        {
+            // Settings owns its own fixed footer and scrolling content. Give
+            // it the shell viewport rather than letting the outer scroller
+            // measure it as an unbounded page and push Apply below the fold.
+            settingsView.Height = Math.Max(420, height - 203);
+        }
+    }
+
+    private static string MicroRouteLabel(PrimeRoute route) => route switch
+    {
+        PrimeRoute.Gateway => "GW",
+        PrimeRoute.Play => "PL",
+        PrimeRoute.HunterLicense => "HL",
+        PrimeRoute.Armory => "AR",
+        PrimeRoute.Theater => "TH",
+        PrimeRoute.Rankings => "RK",
+        PrimeRoute.Settings => "ST",
+        _ => "??"
+    };
+
+    private bool IsPlayEditorFocused()
+    {
+        object? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+        return focused is TextBox or ComboBox
+            && PageHost.GetVisualDescendants().Any(control => ReferenceEquals(control, focused));
+    }
+
+    private void PlayEditorLostFocus(object? sender, RoutedEventArgs args)
+        => Dispatcher.UIThread.Post(() =>
+        {
+            if (_playRefreshPending && _shell.CurrentRoute == PrimeRoute.Play
+                && !IsPlayEditorFocused())
+            {
+                _playRefreshPending = false;
+                RenderRoute(PrimeRoute.Play);
+            }
+        }, DispatcherPriority.Background);
+
+    private void PollInput()
+    {
+        if (!_active || _disposed) return;
+        GamepadDesktop.PollForMenu();
+        if (!GamepadInput.Active)
+        {
+            _previousPadButtons = GamepadButtons.None;
+            _previousPadDirection = 0;
+            return;
+        }
+        GamepadButtons buttons = GamepadInput.State.Buttons;
+        GamepadButtons pressed = buttons & ~_previousPadButtons;
+        int direction = PadDirection();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        bool repeat = direction != 0 && direction == _previousPadDirection && now >= _nextPadRepeat;
+        if (direction != 0 && (direction != _previousPadDirection || repeat))
+        {
+            MovePadFocus(direction);
+            _nextPadRepeat = now.AddMilliseconds(repeat ? 120 : 350);
+        }
+        if ((pressed & GamepadButtons.A) != 0)
+        {
+            object? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+            if (focused is PrimeButton action) action.Invoke();
+            else if (focused is AvaloniaButton button)
+                button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(AvaloniaButton.ClickEvent));
+            else if (focused is ComboBox combo) combo.IsDropDownOpen = true;
+        }
+        if ((pressed & GamepadButtons.B) != 0) GoBack();
+        if (GamepadInput.InUse) _shell.SetLastInputDevice(PrimeInputDevice.Gamepad);
+        _previousPadButtons = buttons;
+        _previousPadDirection = direction;
+    }
+
+    private static int PadDirection()
+    {
+        GamepadState state = GamepadInput.State;
+        if (state.Down(GamepadButtons.DpadDown) || state.Down(GamepadButtons.DpadRight)
+            || state.LeftY < -0.65f || state.LeftX > 0.65f) return 1;
+        if (state.Down(GamepadButtons.DpadUp) || state.Down(GamepadButtons.DpadLeft)
+            || state.LeftY > 0.65f || state.LeftX < -0.65f) return -1;
+        return 0;
+    }
+
+    private void MovePadFocus(int direction)
+    {
+        Control focusRoot = OverlayRoot.IsVisible ? OverlayHost : PageHost;
+        Control[] controls = focusRoot.GetVisualDescendants().OfType<Control>()
+            .Where(control => control.Focusable && control.IsEffectivelyVisible
+                && control.IsEffectivelyEnabled).ToArray();
+        if (controls.Length == 0) return;
+        object? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+        int index = Array.FindIndex(controls, control => ReferenceEquals(control, focused));
+        index = index < 0 ? (direction > 0 ? 0 : controls.Length - 1)
+            : (index + direction + controls.Length) % controls.Length;
+        controls[index].Focus(NavigationMethod.Directional);
+    }
+
+    private void RunCommand(string operation, Func<Task> work)
+        => _ = ExecuteCommandAsync(operation, work);
+
+    private void BeginLobbyConfigure(Guid lobbyId, string mapKey, MatchMode mode,
+        int botCount, int? timeLimitSeconds, int? pointGoal, params Control[] editors)
+    {
+        if (_lobbyConfigurePendingId == lobbyId) return;
+        _lobbyConfigurePendingId = lobbyId;
+        foreach (Control editor in editors) editor.IsEnabled = false;
+        RunCommand("Configure lobby", async () =>
+        {
+            try
+            {
+                await _play.ConfigureLobbyAsync(mapKey, mode, botCount, timeLimitSeconds, pointGoal,
+                    _lifetime.Token)
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                PostUi(() =>
+                {
+                    if (_lobbyConfigurePendingId != lobbyId) return;
+                    _lobbyConfigurePendingId = null;
+                    if (!_disposed && _shell.CurrentRoute == PrimeRoute.Play)
+                        RenderRoute(PrimeRoute.Play);
+                });
+            }
+        });
+    }
+
+    private void StartPreviewCatchup()
+    {
+        if (_previewCatchupStarted || !GameFiles.Ready || !ThumbnailHost.CanRender) return;
+        try
+        {
+            if (ThumbnailGenerator.MissingThumbnails().Count == 0) return;
+        }
+        catch (Exception error)
+        {
+            _shell.Notify(PrimeNotificationKind.Warning,
+                $"Map preview check failed: {error.Message}");
+            return;
+        }
+        _previewCatchupStarted = true;
+        _ = CatchUpPreviewsAsync();
+    }
+
+    private async Task CatchUpPreviewsAsync()
+    {
+        try
+        {
+            await ThumbnailHost.RenderMissingAsync(line =>
+                PostUi(() => StatusText.Text = line)).ConfigureAwait(false);
+            PostUi(() => _shell.Notify(PrimeNotificationKind.Success,
+                "Local map previews are ready."));
+        }
+        catch (Exception error)
+        {
+            PostUi(() => _shell.Notify(PrimeNotificationKind.Warning,
+                $"Map preview rendering did not finish: {error.Message}"));
+        }
+    }
+
+    private async Task ExecuteCommandAsync(string operation, Func<Task> work)
+    {
+        if (_disposed) return;
+        _shell.SetBusy(operation);
+        try { await work().ConfigureAwait(false); }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception error)
+        {
+            PostUi(() => _shell.Notify(PrimeNotificationKind.Error, error.Message));
+        }
+        finally { PostUi(() => _shell.SetBusy(null)); }
+    }
+
+    private void PostUi(Action action)
+    {
+        if (_disposed) return;
+        if (Dispatcher.UIThread.CheckAccess()) action();
+        else Dispatcher.UIThread.Post(action);
+    }
+
+    private static void CenterHeading(PrimePageHeading heading)
+    {
+        foreach (TextBlock text in heading.Children.OfType<TextBlock>())
+        {
+            text.HorizontalAlignment = HorizontalAlignment.Stretch;
+            text.TextAlignment = TextAlignment.Center;
+        }
+    }
+
+    private static Grid ResponsiveSplit(Control left, Control right)
+    {
+        var grid = new Grid
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ColumnDefinitions = new ColumnDefinitions("3*,2*"),
+            RowDefinitions = new RowDefinitions("Auto"),
+            ColumnSpacing = 16
+        };
+        grid.Children.Add(left);
+        grid.Children.Add(right);
+        Grid.SetColumn(left, 0);
+        Grid.SetColumn(right, 1);
+
+        void Apply(double width)
+        {
+            bool narrow = width > 0 && width < 960;
+            grid.ColumnDefinitions = new ColumnDefinitions(narrow ? "*" : "3*,2*");
+            grid.RowDefinitions = new RowDefinitions(narrow ? "Auto,Auto" : "Auto");
+            grid.ColumnSpacing = narrow ? 0 : 16;
+            grid.RowSpacing = narrow ? 12 : 0;
+            Grid.SetColumn(left, 0);
+            Grid.SetColumn(right, narrow ? 0 : 1);
+            Grid.SetRow(left, 0);
+            Grid.SetRow(right, narrow ? 1 : 0);
+        }
+
+        grid.SizeChanged += (_, e) => Apply(e.NewSize.Width);
+        return grid;
+    }
+
+    private static Grid ResponsiveThreeColumn(Control left, Control center, Control right)
+    {
+        var grid = new Grid
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ColumnDefinitions = new ColumnDefinitions("260,*,330"),
+            RowDefinitions = new RowDefinitions("Auto"),
+            ColumnSpacing = 16
+        };
+        var leftScroll = new ScrollViewer
+        {
+            Content = left,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
+        var leftSlot = new Border { Child = leftScroll, HorizontalAlignment = HorizontalAlignment.Stretch, Width = 260 };
+        var centerSlot = new Border { Child = center, HorizontalAlignment = HorizontalAlignment.Stretch };
+        var rightSlot = new Border { Child = right, HorizontalAlignment = HorizontalAlignment.Stretch, Width = 330 };
+        grid.Children.Add(leftSlot);
+        grid.Children.Add(centerSlot);
+        grid.Children.Add(rightSlot);
+
+        void Apply(double width)
+        {
+            bool narrow = width > 0 && width < 720;
+            bool medium = !narrow && width > 0 && width < 1100;
+            grid.ColumnDefinitions = new ColumnDefinitions(narrow ? "*"
+                : medium ? "240,*" : "260,*,330");
+            grid.RowDefinitions = new RowDefinitions(narrow ? "Auto,Auto,Auto"
+                : medium ? "Auto,Auto" : "Auto");
+            grid.ColumnSpacing = narrow ? 0 : 16;
+            grid.RowSpacing = narrow ? 12 : medium ? 12 : 0;
+            leftSlot.Width = narrow || medium ? double.NaN : 260;
+            rightSlot.Width = narrow || medium ? double.NaN : 330;
+            leftSlot.MaxHeight = narrow ? 360 : medium ? 760 : 780;
+            Grid.SetColumn(leftSlot, 0);
+            Grid.SetColumn(centerSlot, narrow ? 0 : 1);
+            Grid.SetColumn(rightSlot, narrow ? 0 : medium ? 0 : 2);
+            Grid.SetRow(leftSlot, 0);
+            Grid.SetRow(centerSlot, narrow ? 1 : 0);
+            Grid.SetRow(rightSlot, narrow ? 2 : medium ? 1 : 0);
+            Grid.SetColumnSpan(rightSlot, medium ? 2 : 1);
+        }
+
+        grid.SizeChanged += (_, e) => Apply(e.NewSize.Width);
+        return grid;
+    }
+
+    private static Control BuildPreviewStage(string? path, double height, string emptyMessage)
+    {
+        Control content;
+        if (path is { Length: > 0 })
+            content = new PrimeLocalImage(path, Math.Max(1, height - 20)) { Stretch = Stretch.Uniform };
+        else
+            content = Text(emptyMessage, "prime-muted");
+        if (content is TextBlock text)
+        {
+            text.HorizontalAlignment = HorizontalAlignment.Center;
+            text.VerticalAlignment = VerticalAlignment.Center;
+        }
+        var stage = PrimeControlFactory.PreviewStage(content);
+        stage.Height = height;
+        return stage;
+    }
+
+    private static StackPanel Stack(params Control[] controls)
+    {
+        var stack = new StackPanel { Spacing = 8 };
+        foreach (Control control in controls) stack.Children.Add(control);
+        return stack;
+    }
+
+    private static TextBlock Text(string value, string? classes = null)
+    {
+        var text = new TextBlock { Text = value, TextWrapping = TextWrapping.Wrap };
+        if (!string.IsNullOrEmpty(classes)) text.Classes.Add(classes);
+        return text;
+    }
+
+    private static TextBox Input(string value, string watermark)
+    {
+        var input = new TextBox { Text = value, Watermark = watermark };
+        input.Classes.Add("prime-input");
+        return input;
+    }
+
+    private static AvaloniaButton MakeButton(string label, Action action, bool primary = false, bool quiet = false)
+        => PrimeControlFactory.Button(label, action, primary, quiet);
+
+    private static Border Card(Control child)
+    {
+        return new PrimeCard(child);
+    }
+
+    private static string DisplayOrDash(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "—" : value;
+
+    private static string FormatDecimal(decimal? value)
+        => value?.ToString("0.00", CultureInfo.InvariantCulture) ?? "—";
+
+    private static string ChoiceText(CareerChoice? choice)
+        => choice?.Key is { Length: > 0 } key ? key : "—";
+
+    private static string TailStatus(string? existing, string line)
+    {
+        string[] lines = ((existing ?? "") + "\n" + line)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        return String.Join("\n", lines.Skip(Math.Max(0, lines.Length - 8)));
+    }
+}

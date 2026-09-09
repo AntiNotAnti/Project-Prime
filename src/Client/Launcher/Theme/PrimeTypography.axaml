@@ -1,0 +1,81 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="TextBlock.prime-brand">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="1.25" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-route-context">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.8" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeAccentBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-account">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-status-text">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.55" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeAccentBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-online-text">
+    <Setter Property="FontSize" Value="9" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.75" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeAccentBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-kicker">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="1.1" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeAccentBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-title">
+    <Setter Property="FontSize" Value="25" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.8" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-heading">
+    <Setter Property="FontSize" Value="17" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.35" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-label">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.65" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-body">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-muted">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-mono">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="LetterSpacing" Value="0.45" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-stat-value">
+    <Setter Property="FontSize" Value="22" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeAccentBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-system">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.9" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextDimBrush}" />
+  </Style>
+</Styles>

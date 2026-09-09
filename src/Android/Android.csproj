@@ -12,7 +12,7 @@
     <ApplicationVersion>1</ApplicationVersion>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
-    <EnableAvaloniaXamlCompilation>false</EnableAvaloniaXamlCompilation>
+    <EnableAvaloniaXamlCompilation>true</EnableAvaloniaXamlCompilation>
     <!-- Avalonia 11.3 uses SkiaSharp 2.88; its native page-size warning is tracked separately. -->
     <NoWarn>$(NoWarn);XA0141</NoWarn>
   </PropertyGroup>
@@ -54,12 +54,18 @@
   <ItemGroup>
     <Compile Include="../Client/Audio/AlEs.cs" Link="Client/Audio/AlEs.cs" />
     <Compile Include="../Client/Audio/ClientSoundSourceExtensions.cs" Link="Client/Audio/ClientSoundSourceExtensions.cs" />
+    <Compile Include="../Client/Audio/Announcer/AnnouncerAudioPresentation.cs" Link="Client/Audio/Announcer/AnnouncerAudioPresentation.cs" />
+    <Compile Include="../Client/Audio/Announcer/AnnouncerEvent.cs" Link="Client/Audio/Announcer/AnnouncerEvent.cs" />
+    <Compile Include="../Client/Audio/Announcer/AnnouncerPack.cs" Link="Client/Audio/Announcer/AnnouncerPack.cs" />
+    <Compile Include="../Client/Audio/Announcer/AnnouncerService.cs" Link="Client/Audio/Announcer/AnnouncerService.cs" />
     <Compile Include="../Client/Audio/Music.cs" Link="Client/Audio/Music.cs" />
+    <Compile Include="../Client/Audio/OptionalMusicPresentation.cs" Link="Client/Audio/OptionalMusicPresentation.cs" />
     <Compile Include="../Client/Audio/Sfx.cs" Link="Client/Audio/Sfx.cs" />
     <Compile Include="../Client/Audio/SfxMixer.cs" Link="Client/Audio/SfxMixer.cs" />
     <Compile Include="../Client/HUD/ChatBox.cs" Link="Client/HUD/ChatBox.cs" />
     <Compile Include="../Client/HUD/ChatFont.cs" Link="Client/HUD/ChatFont.cs" />
     <Compile Include="../Client/HUD/HudInfo.cs" Link="Client/HUD/HudInfo.cs" />
+    <Compile Include="../Client/HUD/Awards/AwardHudQueue.cs" Link="Client/HUD/Awards/AwardHudQueue.cs" />
     <Compile Include="../Client/Input/GamepadDesktop.cs" Link="Client/Input/GamepadDesktop.cs" />
     <Compile Include="../Client/Input/GamepadInput.cs" Link="Client/Input/GamepadInput.cs" />
     <Compile Include="../Client/Input/GamepadState.cs" Link="Client/Input/GamepadState.cs" />
@@ -88,11 +94,26 @@
     <Compile Include="../Client/Launcher/Gui/SplashView.cs" Link="Client/Launcher/Gui/SplashView.cs" />
     <Compile Include="../Client/Launcher/Gui/TrackedText.cs" Link="Client/Launcher/Gui/TrackedText.cs" />
     <Compile Include="../Client/Launcher/Gui/UpdateBadge.cs" Link="Client/Launcher/Gui/UpdateBadge.cs" />
+    <Compile Include="../Client/Launcher/Shell/ArmoryController.cs" Link="Launcher/Shell/ArmoryController.cs" />
+    <Compile Include="../Client/Launcher/Shell/GatewayController.cs" Link="Launcher/Shell/GatewayController.cs" />
+    <Compile Include="../Client/Launcher/Shell/HunterLicenseController.cs" Link="Launcher/Shell/HunterLicenseController.cs" />
+    <Compile Include="../Client/Launcher/Shell/PlayController.cs" Link="Launcher/Shell/PlayController.cs" />
+    <Compile Include="../Client/Launcher/Shell/PreviewImageService.cs" Link="Launcher/Shell/PreviewImageService.cs" />
+    <Compile Include="../Client/Launcher/Shell/PrimeControls.cs" Link="Launcher/Shell/PrimeControls.cs" />
+    <Compile Include="../Client/Launcher/Shell/PrimeNavigator.cs" Link="Launcher/Shell/PrimeNavigator.cs" />
+    <Compile Include="../Client/Launcher/Shell/PrimeNotification.cs" Link="Launcher/Shell/PrimeNotification.cs" />
+    <Compile Include="../Client/Launcher/Shell/PrimeRoute.cs" Link="Launcher/Shell/PrimeRoute.cs" />
+    <Compile Include="../Client/Launcher/Shell/PrimeShellState.cs" Link="Launcher/Shell/PrimeShellState.cs" />
+    <Compile Include="../Client/Launcher/Shell/PrimeShellView.axaml.cs" Link="Launcher/Shell/PrimeShellView.axaml.cs" />
+    <Compile Include="../Client/Launcher/Shell/RankingsController.cs" Link="Launcher/Shell/RankingsController.cs" />
+    <Compile Include="../Client/Launcher/Shell/TheaterController.cs" Link="Launcher/Shell/TheaterController.cs" />
     <Compile Include="../Client/Launcher/Portable/GameFiles.cs" Link="Client/Launcher/Portable/GameFiles.cs" />
     <Compile Include="../Client/Launcher/Portable/LaunchPlan.cs" Link="Client/Launcher/Portable/LaunchPlan.cs" />
     <Compile Include="../Client/Launcher/Portable/LauncherPrefs.cs" Link="Client/Launcher/Portable/LauncherPrefs.cs" />
+    <Compile Include="../Client/Launcher/Portable/OptionalContentPreferenceCodec.cs" Link="Client/Launcher/Portable/OptionalContentPreferenceCodec.cs" />
     <Compile Include="../Client/Launcher/Portable/SetupProgress.cs" Link="Client/Launcher/Portable/SetupProgress.cs" />
     <Compile Include="../Client/Networking/AuthoritativePlay.cs" Link="Client/Networking/AuthoritativePlay.cs" />
+    <Compile Include="../Client/Networking/ProjectilePresentationMeasurement.cs" Link="Client/Networking/ProjectilePresentationMeasurement.cs" />
     <Compile Include="../Client/Networking/ClientPrediction.cs" Link="Client/Networking/ClientPrediction.cs" />
     <Compile Include="../Client/Networking/ClientSceneServices.cs" Link="Client/Networking/ClientSceneServices.cs" />
     <Compile Include="../Client/Networking/ClientWorldState.cs" Link="Client/Networking/ClientWorldState.cs" />
@@ -143,6 +164,7 @@
     <Compile Include="../Client/Presentation/Players/PresentationPlayerHud.cs" Link="Client/Presentation/Players/PresentationPlayerHud.cs" />
     <Compile Include="../Client/Presentation/Players/PresentationPlayerInput.cs" Link="Client/Presentation/Players/PresentationPlayerInput.cs" />
     <Compile Include="../Client/Presentation/Players/PlayerPresentationLifecycle.cs" Link="Client/Presentation/Players/PlayerPresentationLifecycle.cs" />
+    <Compile Include="../Client/Presentation/Players/PlayerPresentationHistoricalDebug.cs" Link="Client/Presentation/Players/PlayerPresentationHistoricalDebug.cs" />
     <Compile Include="../Client/Presentation/Players/PresentationPlayerSound.cs" Link="Client/Presentation/Players/PresentationPlayerSound.cs" />
     <Compile Include="../Client/Presentation/Players/PlayerPresentationNetworkAfflictions.cs" Link="Client/Presentation/Players/PlayerPresentationNetworkAfflictions.cs" />
     <Compile Include="../Client/Rendering/Crosshair.cs" Link="Client/Rendering/Crosshair.cs" />
@@ -176,20 +198,22 @@
     <Compile Include="../Client/Rendering/EsShaders.cs" Link="Client/Rendering/EsShaders.cs" />
     <Compile Include="../Client/Rendering/FrameTiming.cs" Link="Client/Rendering/FrameTiming.cs" />
     <Compile Include="../Client/Rendering/GlEs.cs" Link="Client/Rendering/GlEs.cs" />
+    <Compile Include="../Client/Rendering/HistoricalCollisionDebugPresentation.cs" Link="Client/Rendering/HistoricalCollisionDebugPresentation.cs" />
     <Compile Include="../Client/Rendering/PreviewCamera.cs" Link="Client/Rendering/PreviewCamera.cs" />
     <Compile Include="../Client/Rendering/Renderer.cs" Link="Client/Rendering/Renderer.cs" />
     <Compile Include="../Client/Rendering/SpectatorCameraController.cs" Link="Client/Rendering/SpectatorCameraController.cs" />
     <Compile Include="../Client/Rendering/ScenePresentation.Resources.cs" Link="Client/Rendering/ScenePresentation.Resources.cs" />
     <Compile Include="../Client/Rendering/Selection.cs" Link="Client/Rendering/Selection.cs" />
-    <Compile Include="../Client/Rendering/Shaders.cs" Link="Client/Rendering/Shaders.cs" />
     <Compile Include="../Client/Runtime/Branding.cs" Link="Client/Runtime/Branding.cs" />
     <Compile Include="../Client/Runtime/ClientInputState.cs" Link="Client/Runtime/ClientInputState.cs" />
     <Compile Include="../Client/Runtime/Credits.cs" Link="Client/Runtime/Credits.cs" />
     <Compile Include="../Client/Runtime/DebugLog.cs" Link="Client/Runtime/DebugLog.cs" />
     <Compile Include="../Client/Runtime/GameSettings.cs" Link="Client/Runtime/GameSettings.cs" />
     <Compile Include="../Client/Runtime/InputSettings.cs" Link="Client/Runtime/InputSettings.cs" />
+    <Compile Include="../Client/Runtime/OptionalPresentationContent.cs" Link="Client/Runtime/OptionalPresentationContent.cs" />
     <Compile Include="../Client/Runtime/LogShare.cs" Link="Client/Runtime/LogShare.cs" />
     <Compile Include="../Client/Runtime/MenuSettings.cs" Link="Client/Runtime/MenuSettings.cs" />
+    <Compile Include="../Client/Runtime/ModelPreviewGenerator.cs" Link="Client/Runtime/ModelPreviewGenerator.cs" />
     <Compile Include="../Client/Runtime/RenderOptions.cs" Link="Client/Runtime/RenderOptions.cs" />
     <Compile Include="../Client/Runtime/ScreenCapture.cs" Link="Client/Runtime/ScreenCapture.cs" />
     <Compile Include="../Client/Runtime/SpectatorMode.cs" Link="Client/Runtime/SpectatorMode.cs" />
@@ -241,11 +265,34 @@
                   Link="Assets/maps/%(Filename)%(Extension)" />
     <AvaloniaResource Include="../Client/Assets/fruity-prime-logo.png" Link="Assets/fruity-prime-logo.png" />
     <AvaloniaResource Include="../Client/Assets/fruity-prime-mark.png" Link="Assets/fruity-prime-mark.png" />
+    <AvaloniaXaml Include="../Client/Launcher/**/*.axaml" Link="Launcher/%(RecursiveDir)%(Filename)%(Extension)" />
     <Using Include="MphRead.Mods.Render.GlEs" Alias="GL" />
     <Using Include="MphRead.Mods.Sound.AlEs" Alias="AL" />
     <Using Include="MphRead.Mods.Sound.AlcEs" Alias="ALC" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Client-owned renderer contracts and CPU geometry are linked explicitly
+         because this project disables SDK default compile items. Keep this
+         list in lockstep with new shared renderer source files. -->
+    <Compile Include="../Client/Rendering/Core/DrawSubmission.cs" Link="Client/Rendering/Core/DrawSubmission.cs" />
+    <Compile Include="../Client/Rendering/Core/RenderFrame.cs" Link="Client/Rendering/Core/RenderFrame.cs" />
+    <Compile Include="../Client/Rendering/Core/RenderPresentation.cs" Link="Client/Rendering/Core/RenderPresentation.cs" />
+    <Compile Include="../Client/Rendering/Core/RenderMaterial.cs" Link="Client/Rendering/Core/RenderMaterial.cs" />
+    <Compile Include="../Client/Rendering/Core/RenderPrimitive.cs" Link="Client/Rendering/Core/RenderPrimitive.cs" />
+    <Compile Include="../Client/Rendering/Core/RenderWorldPlan.cs" Link="Client/Rendering/Core/RenderWorldPlan.cs" />
+    <Compile Include="../Client/Rendering/Core/WindowKeyEvent.cs" Link="Client/Rendering/Core/WindowKeyEvent.cs" />
+    <Compile Include="../Client/Rendering/Core/PipelineKey.cs" Link="Client/Rendering/Core/PipelineKey.cs" />
+    <Compile Include="../Client/Rendering/Core/SamplerKey.cs" Link="Client/Rendering/Core/SamplerKey.cs" />
+    <Compile Include="../Client/Rendering/Core/CaptureContracts.cs" Link="Client/Rendering/Core/CaptureContracts.cs" />
+    <Compile Include="../Client/Rendering/Backends/RenderBackendContracts.cs" Link="Client/Rendering/Backends/RenderBackendContracts.cs" />
+    <Compile Include="../Client/Rendering/Backends/Gles/GlesBackend.cs" Link="Client/Rendering/Backends/Gles/GlesBackend.cs" />
+    <Compile Include="../Client/Rendering/Geometry/CpuMesh.cs" Link="Client/Rendering/Geometry/CpuMesh.cs" />
+    <Compile Include="../Client/Rendering/Geometry/DynamicPrimitiveCompiler.cs" Link="Client/Rendering/Geometry/DynamicPrimitiveCompiler.cs" />
+    <Compile Include="../Client/Rendering/Geometry/MeshCompiler.cs" Link="Client/Rendering/Geometry/MeshCompiler.cs" />
+    <Compile Include="../Client/Rendering/Geometry/RenderMeshPacking.cs" Link="Client/Rendering/Geometry/RenderMeshPacking.cs" />
+    <Compile Include="../Client/Rendering/Geometry/RenderGeometryBuilders.cs" Link="Client/Rendering/Geometry/RenderGeometryBuilders.cs" />
+    <Compile Include="../Client/Rendering/Geometry/RenderMeshScratch.cs" Link="Client/Rendering/Geometry/RenderMeshScratch.cs" />
+    <Compile Include="../Client/Rendering/Geometry/RenderVertex.cs" Link="Client/Rendering/Geometry/RenderVertex.cs" />
     <Compile Include="../Client/Rendering/NodePoseSampler.cs" Link="Rendering/NodePoseSampler.cs" />
     <Compile Include="../Client/Rendering/ModelPoseHistory.cs" Link="Rendering/ModelPoseHistory.cs" />
     <Compile Include="../Client/Rendering/SimulationPoseHistory.cs" Link="Presentation/SimulationPoseHistory.cs" />

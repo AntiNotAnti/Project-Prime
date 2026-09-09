@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using MphRead.Mods;
+using MphRead.Runtime.Content;
 
 namespace MphRead.Mods.Launcher
 {
@@ -16,7 +17,9 @@ namespace MphRead.Mods.Launcher
     /// </summary>
     public static class LauncherPrefs
     {
-        public static string BackendAddress { get; set; } = "";
+        /// <summary>Backend origin used by fresh development clients.</summary>
+        public const string DefaultBackendAddress = "http://51.161.113.128/";
+        public static string BackendAddress { get; set; } = DefaultBackendAddress;
         /// <summary>
         /// Where launcher.txt lives. Beside the executable, which is where the
         /// rest of a portable install keeps its files -- except where the
@@ -69,10 +72,31 @@ namespace MphRead.Mods.Launcher
         /// in the corner of the front screen, kept where it was left.
         /// </summary>
         public static bool DebugLogs { get; set; }
+        public static bool ReducedMotion { get; set; }
+
+        /// <summary>
+        /// Exact local optional-pack choices. These identities affect only
+        /// presentation and are deliberately absent from admission messages.
+        /// A null identity means the built-in presentation.
+        /// </summary>
+        public static ContentPackIdentity? AnnouncerPack { get; set; }
+        public static ContentPackIdentity? MusicPack { get; set; }
+
+        /// <summary>
+        /// Fixed local discovery root. Players install data-only packs as
+        /// direct child directories; the client never downloads into it.
+        /// </summary>
+        public static string OptionalContentDirectory
+            => System.IO.Path.Combine(Directory, "content");
 
 
         public static void Load()
         {
+            // Load is called again when the launcher resumes after a match.
+            // A removed preference must select built-ins rather than retain a
+            // stale process-global choice from the previous read.
+            AnnouncerPack = null;
+            MusicPack = null;
             if (!File.Exists(Path))
             {
                 return;
@@ -128,7 +152,10 @@ namespace MphRead.Mods.Launcher
                             WindowMode = Mods.WindowMode.Parse(value, WindowMode);
                             break;
                         case "backend_address":
-                            BackendAddress = value;
+                            if (value.Length > 0)
+                            {
+                                BackendAddress = value;
+                            }
                             break;
                         case "auto_update":
                             if (Boolean.TryParse(value, out bool autoUpdate))
@@ -142,11 +169,29 @@ namespace MphRead.Mods.Launcher
                                 DebugLogs = debugLogs;
                             }
                             break;
+                        case "reduced_motion":
+                            if (Boolean.TryParse(value, out bool reducedMotion))
+                            {
+                                ReducedMotion = reducedMotion;
+                            }
+                            break;
                         case "last_kind":
                             if (Int32.TryParse(value, NumberStyles.Integer,
                                 CultureInfo.InvariantCulture, out int kind))
                             {
                                 LastKind = kind;
+                            }
+                            break;
+                        case "announcer_pack":
+                            if (OptionalContentPreferenceCodec.TryDecode(value, out ContentPackIdentity? announcer))
+                            {
+                                AnnouncerPack = announcer;
+                            }
+                            break;
+                        case "music_pack":
+                            if (OptionalContentPreferenceCodec.TryDecode(value, out ContentPackIdentity? music))
+                            {
+                                MusicPack = music;
                             }
                             break;
                     }
@@ -175,6 +220,9 @@ namespace MphRead.Mods.Launcher
                     $"last_kind={LastKind.ToString(CultureInfo.InvariantCulture)}",
                     $"auto_update={AutoUpdate.ToString().ToLowerInvariant()}",
                     $"debug_logs={DebugLogs.ToString().ToLowerInvariant()}",
+                    $"reduced_motion={ReducedMotion.ToString().ToLowerInvariant()}",
+                    $"announcer_pack={OptionalContentPreferenceCodec.Encode(AnnouncerPack)}",
+                    $"music_pack={OptionalContentPreferenceCodec.Encode(MusicPack)}",
                     $"window_mode={(WindowMode == WindowStartMode.BorderlessFullscreen ? "borderless" : "windowed")}"
                 });
             }

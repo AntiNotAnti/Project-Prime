@@ -13,7 +13,7 @@ namespace MphRead.Droid
     /// The Avalonia application on Android.
     ///
     /// A phone has one view rather than a desktop full of windows, so this is a
-    /// single view lifetime -- and the view it shows is <see cref="HomeView"/>,
+    /// single view lifetime -- and the view it shows is <see cref="PrimeShellView"/>,
     /// the desktop front screen itself. Not a copy of it, not a phone-shaped
     /// rewrite of it: the same file, which folds to one column below a width and
     /// opens its settings and map grid as overlays where there is no second
@@ -28,7 +28,7 @@ namespace MphRead.Droid
     public class AndroidApp : Application
     {
         /// <summary>The front screen, for the activity to drive after a match.</summary>
-        internal static HomeView? Home { get; private set; }
+        internal static PrimeShellView? Home { get; private set; }
 
         public override void Initialize()
         {
@@ -46,7 +46,7 @@ namespace MphRead.Droid
             base.OnFrameworkInitializationCompleted();
         }
 
-        private static HomeView BuildHome()
+        private static PrimeShellView BuildHome()
         {
             LauncherPrefs.Load();
             // Keys, mouse feel, pad bindings and the touch layout. The
@@ -72,7 +72,7 @@ namespace MphRead.Droid
                 GameFiles.ApplyPaths();
                 rooms = ThumbnailGenerator.MultiplayerRooms();
             }
-            var home = new HomeView(settings, rooms);
+            var home = new PrimeShellView(settings, rooms);
             home.Done += (_, plan) =>
             {
                 if (plan.Kind == LaunchKind.None)

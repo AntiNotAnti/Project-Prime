@@ -1,0 +1,10 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Animation is intentionally opt-in. The shell can replace these values
+       with zero for reduced-motion users without changing its layout tree. -->
+  <Styles.Resources>
+    <x:Double x:Key="PrimeMotionFast">0.12</x:Double>
+    <x:Double x:Key="PrimeMotionNormal">0.20</x:Double>
+    <x:Boolean x:Key="PrimeReducedMotion">False</x:Boolean>
+  </Styles.Resources>
+</Styles>

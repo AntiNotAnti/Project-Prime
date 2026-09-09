@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using MphRead.Mods.Network;
@@ -35,6 +36,13 @@ namespace MphRead.Mods.Launcher.Gui
     {
         private static bool _setUp;
         private static bool _failed;
+
+        /// <summary>
+        /// Developer-only rollback for comparing the pre-Prime shell. The
+        /// production default is always PrimeShellView; this flag is set only
+        /// by the explicit <c>-ui classic</c> command-line switch.
+        /// </summary>
+        public static bool ClassicUi { get; set; }
 
         /// <summary>
         /// Show the launcher, or say why it could not be shown.
@@ -223,6 +231,10 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         private static LaunchPlan Ask(MenuSettings settings, IReadOnlyList<string> rooms)
         {
+            if (ClassicUi)
+            {
+                return AskClassic(settings, rooms);
+            }
             var window = new HomeWindow(settings, rooms);
             var frame = new DispatcherFrame();
             window.Closed += (_, _) => frame.Continue = false;
@@ -236,6 +248,31 @@ namespace MphRead.Mods.Launcher.Gui
             // launcher painted over the game that started from it.
             Pump();
             return window.Plan;
+        }
+
+        private static LaunchPlan AskClassic(MenuSettings settings, IReadOnlyList<string> rooms)
+        {
+            var view = new HomeView(settings, rooms);
+            var window = new Window
+            {
+                Title = Mods.Branding.Name + " (classic UI)",
+                Icon = GuiTheme.AppIcon.Value,
+                Width = 940,
+                Height = 560,
+                MinWidth = 780,
+                MinHeight = 480,
+                WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                Background = GuiTheme.PanelBrush,
+                RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark,
+                Content = view
+            };
+            view.Done += (_, _) => window.Close();
+            var frame = new DispatcherFrame();
+            window.Closed += (_, _) => frame.Continue = false;
+            window.Show();
+            Dispatcher.UIThread.PushFrame(frame);
+            Pump();
+            return view.Plan;
         }
 
         /// <summary>

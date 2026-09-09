@@ -47,6 +47,13 @@ internal sealed class AccountView : UserControl
         AddField(_actions, "Email", _email);
         AddField(_actions, "Password", _password);
         AddField(_actions, "Display name", _name);
+        _actions.Children.Add(Action("Use Guest access", async session =>
+        {
+            // Explicit guest selection must clear a previously restored
+            // account identity so Node admission uses the anonymous route.
+            await session.SignOutAsync(_cancel.Token);
+            _status.Text = "Backend configured. Guest play is ready from Host or Join.";
+        }));
         _actions.Children.Add(Action("Sign in", async session =>
         {
             ResetQueryState();

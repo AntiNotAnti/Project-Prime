@@ -5,6 +5,8 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Formats.Sound;
+using MphRead.Mods.Audio;
+using MphRead.Mods.Content;
 using NCSF123;
 using NCSFPlayer;
 using SoundFlow.Abstracts.Devices;
@@ -31,6 +33,7 @@ namespace MphRead
         public static void SetUserVolume(float volume)
         {
             UserVolume = Math.Clamp(volume, 0, 1);
+            _optionalPresentation?.SetVolume(Volume);
             if (MusicPlayer.State != PlaybackState.Stopped)
             {
                 MusicPlayer.Volume = Volume;
@@ -42,6 +45,7 @@ namespace MphRead
 
         private static IReadOnlyList<MusicTrack> _musicInfo = null!;
         private static IReadOnlyList<RoomMusic> _roomMusic = null!;
+        private static OptionalMusicPresentation? _optionalPresentation;
 
         private static bool _playing = false;
         private static bool _paused = false;
@@ -62,8 +66,15 @@ namespace MphRead
         private static ushort _mutedTracks = 0;
         private static ushort _fadingTracks = 0;
 
-        public static void Init()
+        public static void Init(ClientPresentationContentState? content = null)
         {
+            _optionalPresentation?.Dispose();
+            _optionalPresentation = null;
+            content ??= ClientPresentationContent.Refresh();
+            if (content.Music.Pack is { } music && content.MusicAssets is { } assets)
+            {
+                _optionalPresentation = new OptionalMusicPresentation(new OptionalMusicPack(music, assets));
+            }
             _musicInfo = SoundRead.ReadInterMusicInfo();
             _roomMusic = SoundRead.ReadAssignMusic();
             _pendingTracks = 0;
@@ -102,6 +113,10 @@ namespace MphRead
         }
 
         public static void PlayMusic(MusicId musicId, ushort? tracks = null, bool toggleOnTracks = false, bool toggleOffTracks = false)
+            => PlayMusic(musicId, tracks, toggleOnTracks, toggleOffTracks, allowOptional: true);
+
+        private static void PlayMusic(MusicId musicId, ushort? tracks, bool toggleOnTracks,
+            bool toggleOffTracks, bool allowOptional)
         {
             int index = (int)musicId;
             if (index < 0 || index >= _musicInfo.Count)
@@ -113,6 +128,7 @@ namespace MphRead
             {
                 return;
             }
+            if (allowOptional && TryPlayOptional(index, 0, musicId)) return;
             if (!tracks.HasValue)
             {
                 tracks = info.Tracks;
@@ -147,10 +163,23 @@ namespace MphRead
                 RoomMusic room = _roomMusic[i];
                 if (room.RoomId == roomId)
                 {
-                    PlayMusic((MusicId)room.TrackIds[track]);
+                    MusicId musicId = (MusicId)room.TrackIds[track];
+                    if (!TryPlayOptional(roomId, track, musicId))
+                        PlayMusic(musicId, tracks: null, toggleOnTracks: false,
+                            toggleOffTracks: false, allowOptional: false);
                     return;
                 }
             }
+        }
+
+        private static bool TryPlayOptional(int contextId, int variant, MusicId musicId)
+        {
+            if (_optionalPresentation?.TryPlay(contextId, variant, Volume) != true) return false;
+            MusicPlayer.Stop();
+            _currentMusicId = musicId;
+            _playing = false;
+            _paused = false;
+            return true;
         }
 
         public static void PlaySeq(SeqId seqId, bool notReady = true)
@@ -228,6 +257,20 @@ namespace MphRead
 
         public static void UpdateMusic()
         {
+            if (_optionalPresentation?.Active == true)
+            {
+                _optionalPresentation.Update(Volume);
+                if (_optionalPresentation.ConsumeVerificationFailure())
+                {
+                    MusicId fallback = _currentMusicId;
+                    _optionalPresentation.Stop();
+                    PlayMusic(fallback, tracks: null, toggleOnTracks: false,
+                        toggleOffTracks: false, allowOptional: false);
+                    return;
+                }
+                ProcessVolume();
+                return;
+            }
             if (!_isReady && !MusicPlayer.Loading)
             {
                 _isReady = true;
@@ -277,6 +320,11 @@ namespace MphRead
             {
                 return;
             }
+            if (_optionalPresentation?.Resume() == true)
+            {
+                _paused = false;
+                return;
+            }
             int index = (int)_currentMusicId;
             if (index < 0 || index >= _musicInfo.Count)
             {
@@ -295,13 +343,14 @@ namespace MphRead
         {
             if (!_paused)
             {
-                Stop();
+                if (_optionalPresentation?.Pause() != true) Stop();
                 _paused = true;
             }
         }
 
         public static void Stop(float fadeTime = 0)
         {
+            _optionalPresentation?.Stop();
             _playing = false;
             _musicQueued = false;
             _nextMusicSeq = SeqId.None;
@@ -329,8 +378,10 @@ namespace MphRead
 
         public static void FadeVolume(float volume, float time, bool stopAfterFade = false)
         {
+            float optionalStart = MusicVolume;
             MusicVolume = volume;
-            _volumeFadeStart = MusicPlayer.Volume;
+            _volumeFadeStart = _optionalPresentation?.Active == true
+                ? optionalStart : MusicPlayer.Volume;
             _volumeFadeTarget = volume;
             _volumeFadeTimeMs = time * 1000;
             if (_volumeFadeTimeMs <= 0)
@@ -348,20 +399,27 @@ namespace MphRead
                 float pct = _volumeFadeTimer.ElapsedMilliseconds / _volumeFadeTimeMs;
                 if (pct >= 1)
                 {
-                    MusicVolume = _volumeFadeTarget;
+                    ApplyMusicVolume(_volumeFadeTarget);
                     _volumeFadeTimer.Stop();
                     if (_stopAfterFade)
                     {
+                        _optionalPresentation?.Stop();
                         MusicPlayer.Stop();
                     }
                     _stopAfterFade = false;
                 }
                 else
                 {
-                    MusicVolume = _volumeFadeStart + (_volumeFadeTarget - _volumeFadeStart) * pct;
+                    ApplyMusicVolume(_volumeFadeStart + (_volumeFadeTarget - _volumeFadeStart) * pct);
                 }
                 MusicPlayer.Volume = Volume;
             }
+        }
+
+        private static void ApplyMusicVolume(float volume)
+        {
+            MusicVolume = volume;
+            _optionalPresentation?.SetVolume(Volume);
         }
 
         private static ushort _baseTempo = 256;

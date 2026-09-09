@@ -1,0 +1,109 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:prime="clr-namespace:MphRead.Mods.Launcher.Gui"
+             x:Class="MphRead.Mods.Launcher.Gui.PrimeShellView"
+             x:Name="ShellRoot"
+             Focusable="True"
+             FontFamily="avares://Avalonia.Fonts.Inter/Assets#Inter"
+             Background="{DynamicResource PrimeBackgroundBrush}">
+  <UserControl.Styles>
+    <StyleInclude Source="avares://FruityPrime/Launcher/Theme/PrimeTheme.axaml" />
+  </UserControl.Styles>
+
+  <!-- One native tree for desktop and Android. The dot grid is a static
+       drawing surface; it does not tick, animate, or own any page state. -->
+  <Grid RowDefinitions="64,*,48"
+        Background="{DynamicResource PrimeBackgroundBrush}">
+    <Border x:Name="HeaderBorder" Grid.Row="0" Height="64"
+            Background="{DynamicResource PrimeHeaderBrush}"
+            BorderBrush="{DynamicResource PrimeEdgeBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="20,0">
+      <Grid x:Name="HeaderGrid" ColumnDefinitions="Auto,*,Auto"
+            ColumnSpacing="16" VerticalAlignment="Center">
+        <StackPanel x:Name="BrandPanel" Grid.Column="0"
+                    Orientation="Horizontal" Spacing="10"
+                    VerticalAlignment="Center">
+          <prime:PrimeDiamond Width="30" Height="30"
+                              StrokeBrush="{DynamicResource PrimeAccentBrush}"
+                              VerticalAlignment="Center" />
+          <StackPanel x:Name="BrandTextPanel" Spacing="1" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <TextBlock Text="PROJECT PRIME" Classes="prime-brand" />
+            </StackPanel>
+            <!-- RouteTitle is updated by the shell and remains the only
+                 context/status label in this compact brand block. -->
+            <TextBlock x:Name="RouteTitle" Text="Gateway" Classes="prime-route-context"
+                       IsVisible="False" />
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel x:Name="NavPanel" Grid.Column="1"
+                    Orientation="Horizontal" HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+
+        <StackPanel x:Name="AccountPanel" Grid.Column="2"
+                    Orientation="Horizontal" Spacing="10"
+                    HorizontalAlignment="Right" VerticalAlignment="Center">
+          <Border Classes="prime-status-chip" VerticalAlignment="Center">
+            <TextBlock x:Name="ConnectionText" Text="Offline"
+                       Classes="prime-status-text" />
+          </Border>
+          <StackPanel Spacing="1" VerticalAlignment="Center">
+            <TextBlock x:Name="IdentityText" Text="Sign in" Classes="prime-account" />
+          </StackPanel>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <prime:PrimeDotGrid Grid.Row="1" IsHitTestVisible="False"
+                        DotBrush="{DynamicResource PrimeDotBrush}"
+                        DotSpacing="24" DotRadius="0.8" />
+
+    <!-- PageGrid remains the codebehind's layout anchor. MaxWidth centers a
+         readable viewport while preserving a full-width dot-grid surround. -->
+    <Grid x:Name="PageGrid" Grid.Row="1" MaxWidth="1440"
+          HorizontalAlignment="Stretch" Margin="24,18"
+          RowDefinitions="*,Auto">
+      <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto"
+                    Padding="0,0,0,2">
+        <ContentControl x:Name="PageHost" />
+      </ScrollViewer>
+      <WrapPanel x:Name="ActionBar" Grid.Row="1" Orientation="Horizontal"
+                 HorizontalAlignment="Right" Margin="0,10,0,0" />
+    </Grid>
+
+    <!-- Toasts sit above the page viewport so a transient status never
+         reflows a form or steals the primary action's position. -->
+    <Border x:Name="NotificationBar" Grid.Row="1"
+            HorizontalAlignment="Right" VerticalAlignment="Top"
+            MaxWidth="540" Margin="24,16"
+            IsVisible="False" Classes="prime-notification">
+      <TextBlock x:Name="NotificationText" Classes="prime-body"
+                 TextWrapping="Wrap" />
+    </Border>
+
+    <Border Grid.Row="2" Height="48"
+            Background="{DynamicResource PrimeFooterBrush}"
+            BorderBrush="{DynamicResource PrimeEdgeBrush}"
+            BorderThickness="0,1,0,0"
+            Padding="20,0">
+      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="16"
+            VerticalAlignment="Center">
+        <TextBlock x:Name="StatusText" Text="Ready" Classes="prime-system"
+                   VerticalAlignment="Center" TextWrapping="NoWrap" />
+        <TextBlock x:Name="InputHintText" Grid.Column="1"
+                   Text="Keyboard / Mouse" Classes="prime-system"
+                   HorizontalAlignment="Right" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+
+    <Border x:Name="OverlayRoot" Grid.RowSpan="3" IsVisible="False"
+            Background="{DynamicResource PrimeScrimBrush}"
+            Padding="24">
+      <ContentControl x:Name="OverlayHost" HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch" />
+    </Border>
+  </Grid>
+</UserControl>
