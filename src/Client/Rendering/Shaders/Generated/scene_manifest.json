@@ -1,0 +1,53 @@
+{
+  "artifacts": {
+    "fragment_dxil": {
+      "format": "DXIL",
+      "path": "scene.frag.dxil",
+      "sha256": "68e7c5e0b795de2c4869540cecd3078bf38514bc7df8be4ed118ef5c4f97fd65"
+    },
+    "fragment_msl": {
+      "format": "MSL",
+      "path": "scene.frag.msl",
+      "sha256": "16253cb6e8912d64848dfbae044c054723b252542db7d41f83792d7f39e49039"
+    },
+    "fragment_spirv": {
+      "format": "SPIRV",
+      "path": "scene.frag.spv",
+      "sha256": "f543a83769e05051bb2058b7cd3143dcb3784f0f5c8d3508fd2482b0cfc5a4be"
+    },
+    "vertex_dxil": {
+      "format": "DXIL",
+      "path": "scene.vert.dxil",
+      "sha256": "337c4fc25448d79a4c3050ef9365e51f13d07a074e92974d6813309085c0ef4f"
+    },
+    "vertex_msl": {
+      "format": "MSL",
+      "path": "scene.vert.msl",
+      "sha256": "35494b81880d366ec86db0d39c3e1490c8d22bc409a08935fb1a400253e90ab4"
+    },
+    "vertex_spirv": {
+      "format": "SPIRV",
+      "path": "scene.vert.spv",
+      "sha256": "9ec87a42a51d05209cdc3c3cc1e23c7f5f6f8ddca1edb6b361b6f7390c7ceb18"
+    }
+  },
+  "blocked_artifacts": {
+    "metallib": "Optional: the SDL_shadercross CLI emits MSL source, while this host has no Xcode xcrun metal compiler to produce a metallib."
+  },
+  "provenance": {
+    "cli": "SDL_shadercross official cli.c",
+    "cli_sha256": "57a9d32813e0a2bd7b74a478a90ef4e82b0e09eab6d8d90be097d758d5480dab",
+    "mode": "offline-build-only",
+    "msl_version": "1.2.0 (SDL_shadercross default)",
+    "native_package": "SDL3-CS.MacOS.Shadercross",
+    "native_package_commit": "c1d1cb0da632cb51799da6989f6e48c52f2a539e",
+    "native_package_repository": "https://github.com/edwardgushchin/SDL3-CS.git",
+    "native_package_sha256": "6dba8dd2bac69e333dcb7db529884070a272e93b7cba431235a57cc4ab8e4072",
+    "native_package_version": "3.0.0.11",
+    "sdl_shadercross_commit": "1ff05bec573988a98ef9e0260b4da44f512b8367",
+    "sdl_shadercross_repository": "https://github.com/libsdl-org/SDL_shadercross.git"
+  },
+  "schema": 2,
+  "source": "scene.hlsl",
+  "source_sha256": "e0a27420f4e21ef3c3a4defb0627a872551eb20fd13761edffd8a6dad5906b01"
+}

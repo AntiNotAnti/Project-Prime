@@ -27,10 +27,16 @@ namespace MphRead.Entities
             return null;
         }
 
+        protected virtual TextureIdentity? GetTextureIdentity(ModelInstance inst, Material material, int index, int recolor)
+        {
+            return Presentation.GetTextureIdentity(inst.Model, material, recolor);
+        }
+
         protected void GetDrawItems(ModelInstance inst, int i, LightInfo? lightInfo = null)
         {
             int polygonId = Presentation.GetNextPolygonId();
             bool interpolateNodes = Presentation.ResolveNodeSubmission(Entity, inst, out Matrix4[] nodePoses, out float[] nodeStack);
+            int recolor = Entity.GetModelRecolor(inst, i);
             GetItems(inst, i, 0, polygonId);
             void GetItems(ModelInstance inst, int index, int nodeIndex, int polygonId)
             {
@@ -53,7 +59,8 @@ namespace MphRead.Entities
                         Vector4? color = inst.IsPlaceholder ? Entity.GetOverrideColor(inst, index) : null;
                         SelectionType selectionType = Selection.CheckSelection(Entity, inst, node, mesh);
                         int? bindingOverride = GetBindingOverride(inst, material, mesh.MaterialId);
-                        Presentation.AddRenderItem(material, polygonId, Entity.Alpha, emission, lightInfo ?? GetLightInfo(), texcoordMatrix, interpolateNodes ? nodePoses[nodeIndex] : node.Animation, Presentation.GetMeshListId(mesh), model.NodeMatrixIds.Count, interpolateNodes ? nodeStack : model.MatrixStackValues, color, Entity.PaletteOverride, selectionType, node.BillboardMode, Entity._drawScale, bindingOverride);
+                        TextureIdentity? textureIdentity = GetTextureIdentity(inst, material, mesh.MaterialId, recolor);
+                        Presentation.AddRenderItem(material, polygonId, Entity.Alpha, emission, lightInfo ?? GetLightInfo(), texcoordMatrix, interpolateNodes ? nodePoses[nodeIndex] : node.Animation, Presentation.GetMeshListId(mesh), mesh.GeometryIdentity, model.NodeMatrixIds.Count, interpolateNodes ? nodeStack : model.MatrixStackValues, color, Entity.PaletteOverride, selectionType, node.BillboardMode, Entity._drawScale, bindingOverride, textureIdentity);
                     }
 
                     if (node.ChildIndex != -1)
@@ -276,7 +283,7 @@ namespace MphRead.Entities
             }
 
             CullingMode cullingMode = volume.TestPoint(Presentation.CameraPosition) ? CullingMode.Front : CullingMode.Back;
-            Presentation.AddRenderItem(cullingMode, Presentation.GetNextPolygonId(), new Vector4(color, alpha), (RenderItemType)(volume.Type + 1), verts);
+            Presentation.AddRenderItem(cullingMode, Presentation.GetNextPolygonId(), new Vector4(color, alpha), (RenderPrimitive)(volume.Type + 1), verts);
         }
 
         private Vector3 GetDiscVertices(float radius, int index)

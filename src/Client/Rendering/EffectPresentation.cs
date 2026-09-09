@@ -35,8 +35,11 @@ namespace MphRead
                 scaleT = material.ScaleT;
             }
             var transform = Matrix4.CreateTranslation(particle.Position);
-            scene.AddRenderItem(RenderItemType.Particle, particle.Alpha, scene.GetNextPolygonId(), particle.Color, xRepeat, yRepeat,
-                scaleS, scaleT, transform, uvsAndVerts, bindingId, BillboardMode.Sphere);
+            scene.AddRenderItem(RenderPrimitive.Particle, particle.Alpha, scene.GetNextPolygonId(), particle.Color, xRepeat, yRepeat,
+                scaleS, scaleT, transform, uvsAndVerts,
+                scene.GetTextureIdentity(particle.ParticleDefinition.Model, material, 0),
+                bindingId, BillboardMode.Sphere,
+                bloomStrength: RenderMaterial.SingleParticleBloomStrength(particle.Type));
         }
         public static void AddRenderItem(this EffectParticle particle, ScenePresentation scene)
         {
@@ -60,7 +63,8 @@ namespace MphRead
                 Debug.Assert(model.NodeMatrixIds.Count == 0);
                 scene.UpdateMaterials(model, 0); // probably not necessary unless the model has texture animation
                 scene.AddRenderItem(material, scene.GetNextPolygonId(), 1, Vector3.Zero, LightInfo.Zero, texcoordMtx,
-                    transform, scene.GetMeshListId(mesh), 0, Array.Empty<float>(), null, null, SelectionType.None, particle.BillboardMode);
+                    transform, scene.GetMeshListId(mesh), mesh.GeometryIdentity, 0, Array.Empty<float>(), null, null,
+                    SelectionType.None, particle.BillboardMode, textureIdentity: scene.GetTextureIdentity(model, material, 0));
             }
             else
             {
@@ -109,8 +113,10 @@ namespace MphRead
                 {
                     transform = scene.ResolveParticleTransform(particle);
                 }
-                scene.AddRenderItem(RenderItemType.Particle, particle.Alpha, scene.GetNextPolygonId(), particle.Color, xRepeat, yRepeat,
-                    scaleS, scaleT, transform, uvsAndVerts, bindingId, particle.BillboardMode);
+                scene.AddRenderItem(RenderPrimitive.Particle, particle.Alpha, scene.GetNextPolygonId(), particle.Color, xRepeat, yRepeat,
+                    scaleS, scaleT, transform, uvsAndVerts,
+                    scene.GetTextureIdentity(particle.Owner.Model, material, 0, particle.Owner), bindingId,
+                    particle.BillboardMode);
             }
         }
     }

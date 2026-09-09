@@ -103,7 +103,7 @@ public static void GetDrawInfo(this CollisionInfo info, IReadOnlyList<Vector3> p
                     ushort pointIndex = info.PointIndices[data.PointStartIndex + j];
                     verts[j] = points[pointIndex] + translation;
                 }
-                scene.AddRenderItem(CullingMode.Back, polygonId, color, RenderItemType.Ngon, verts, data.PointIndexCount);
+                scene.AddRenderItem(CullingMode.Back, polygonId, color, RenderPrimitive.Ngon, verts, data.PointIndexCount);
             }
         }
 
@@ -183,7 +183,7 @@ public static void GetDrawInfo(this CollisionInfo info, IReadOnlyList<Vector3> p
                     ushort pointIndex = info.PointIndices[data.PointStartIndex + j];
                     verts[j] = points[pointIndex];
                 }
-                scene.AddRenderItem(CullingMode.Back, polygonId, color, RenderItemType.Ngon, verts, data.PointIndexCount);
+                scene.AddRenderItem(CullingMode.Back, polygonId, color, RenderPrimitive.Ngon, verts, data.PointIndexCount);
             }
             Vector3[] bverts = ArrayPool<Vector3>.Shared.Rent(8);
             Vector3 point0 = info.MinPosition;
@@ -202,7 +202,7 @@ public static void GetDrawInfo(this CollisionInfo info, IReadOnlyList<Vector3> p
             bverts[7] = point0 + sideX + sideY + sideZ;
             polygonId = scene.GetNextPolygonId();
             var bcolor = new Vector4(1, 0.3f, 1, 0.5f);
-            scene.AddRenderItem(CullingMode.Front, polygonId, bcolor, RenderItemType.Box, bverts, 8);
+            scene.AddRenderItem(CullingMode.Front, polygonId, bcolor, RenderPrimitive.Box, bverts, 8);
         }
 
 
@@ -224,7 +224,7 @@ public static void GetDrawInfo(this CollisionInfo info, IReadOnlyList<Vector3> p
                     FhCollisionVector vector = info.Vectors[data.VectorStartIndex + j];
                     verts[j] = points[vector.Point2Index] + translation;
                 }
-                scene.AddRenderItem(CullingMode.Back, polygonId, color, RenderItemType.Ngon, verts, data.VectorCount);
+                scene.AddRenderItem(CullingMode.Back, polygonId, color, RenderPrimitive.Ngon, verts, data.VectorCount);
             }
         }
 
@@ -251,7 +251,7 @@ public static void GetDrawInfo(this CollisionInfo info, IReadOnlyList<Vector3> p
                     FhCollisionVector vector = info.Vectors[data.VectorStartIndex + j];
                     verts[j] = points[vector.Point2Index];
                 }
-                scene.AddRenderItem(CullingMode.Back, polygonId, color, RenderItemType.Ngon, verts, data.VectorCount);
+                scene.AddRenderItem(CullingMode.Back, polygonId, color, RenderPrimitive.Ngon, verts, data.VectorCount);
             }
             Vector3[] bverts = ArrayPool<Vector3>.Shared.Rent(8);
             Vector3 minPoint = entry.MinBounds.ToFloatVector();
@@ -269,7 +269,7 @@ public static void GetDrawInfo(this CollisionInfo info, IReadOnlyList<Vector3> p
             bverts[7] = minPoint + sideX + sideY + sideZ;
             polygonId = scene.GetNextPolygonId();
             var bcolor = new Vector4(1, 0.3f, 1, 0.5f);
-            scene.AddRenderItem(CullingMode.Front, polygonId, bcolor, RenderItemType.Box, bverts, 8);
+            scene.AddRenderItem(CullingMode.Front, polygonId, bcolor, RenderPrimitive.Box, bverts, 8);
         }
 
 }}

@@ -1,0 +1,53 @@
+{
+  "artifacts": {
+    "fragment_dxil": {
+      "format": "DXIL",
+      "path": "scene_triangle.frag.dxil",
+      "sha256": "4be87cce8e549e54da5f66a6b0b5efc80bf3198646bec9e2f6df9b3db7013f20"
+    },
+    "fragment_msl": {
+      "format": "MSL",
+      "path": "scene_triangle.frag.msl",
+      "sha256": "302eedef1db5f63c95ab237bdc9b278437e0751ae6e0dd6660e1913f7d407a6c"
+    },
+    "fragment_spirv": {
+      "format": "SPIRV",
+      "path": "scene_triangle.frag.spv",
+      "sha256": "1d9f41203a47e72db887478821986c83f722919080db990acaf3b406692d4f72"
+    },
+    "vertex_dxil": {
+      "format": "DXIL",
+      "path": "scene_triangle.vert.dxil",
+      "sha256": "5394dead33f60c4890f3ec1992c9d070c2ca5e1e941445550d552204d82ce30e"
+    },
+    "vertex_msl": {
+      "format": "MSL",
+      "path": "scene_triangle.vert.msl",
+      "sha256": "700ae887a1de24f98db05c40f2dfdd5c4e7a6faccf8c899d4286eda3229534ec"
+    },
+    "vertex_spirv": {
+      "format": "SPIRV",
+      "path": "scene_triangle.vert.spv",
+      "sha256": "5aafe216a66464fb46a3777bd52101ffef1f92487f6d86445ceadbda49605774"
+    }
+  },
+  "blocked_artifacts": {
+    "metallib": "Optional: the SDL_shadercross CLI emits MSL source, while this host has no Xcode xcrun metal compiler to produce a metallib."
+  },
+  "provenance": {
+    "cli": "SDL_shadercross official cli.c",
+    "cli_sha256": "57a9d32813e0a2bd7b74a478a90ef4e82b0e09eab6d8d90be097d758d5480dab",
+    "mode": "offline-build-only",
+    "msl_version": "1.2.0 (SDL_shadercross default)",
+    "native_package": "SDL3-CS.MacOS.Shadercross",
+    "native_package_commit": "c1d1cb0da632cb51799da6989f6e48c52f2a539e",
+    "native_package_repository": "https://github.com/edwardgushchin/SDL3-CS.git",
+    "native_package_sha256": "6dba8dd2bac69e333dcb7db529884070a272e93b7cba431235a57cc4ab8e4072",
+    "native_package_version": "3.0.0.11",
+    "sdl_shadercross_commit": "1ff05bec573988a98ef9e0260b4da44f512b8367",
+    "sdl_shadercross_repository": "https://github.com/libsdl-org/SDL_shadercross.git"
+  },
+  "schema": 2,
+  "source": "scene_triangle.hlsl",
+  "source_sha256": "bef3a4942cbafd54c0bbc470b829aea85799219ffc7013245d935340690ccc8d"
+}

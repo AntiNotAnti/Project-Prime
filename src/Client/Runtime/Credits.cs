@@ -92,7 +92,9 @@ namespace MphRead.Mods
             new Entry("hackyourlife", "mph-viewer, developed in parallel; the "
                 + "transparency rendering was derived from its source",
                 "https://github.com/hackyourlife/mph-viewer"),
-            new Entry("OpenTK", "the OpenGL bindings the renderer uses",
+            new Entry("SDL", "desktop window, input, and GPU rendering",
+                "https://github.com/libsdl-org/SDL"),
+            new Entry("OpenTK", "math, input compatibility, and OpenAL bindings",
                 "https://github.com/opentk/opentk"),
             new Entry("OpenAL Soft and SoundFlow", "audio",
                 "https://github.com/LSXPrime/SoundFlow")

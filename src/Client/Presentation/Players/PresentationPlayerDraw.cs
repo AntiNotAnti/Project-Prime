@@ -281,7 +281,9 @@ namespace MphRead.Entities
                     Vector4? color = null;
                     SelectionType selectionType = SelectionType.None;
                     int? bindingOverride = GetBindingOverride(inst, material, mesh.MaterialId);
-                    Presentation.AddRenderItem(material, polygonId, alpha, emission, GetLightInfo(), texcoordMatrix, node.Animation, Presentation.GetMeshListId(mesh), model.NodeMatrixIds.Count, model.MatrixStackValues, color, _player.PaletteOverride, selectionType, node.BillboardMode, _player._drawScale, bindingOverride);
+                    int resolvedRecolor = recolor == -1 ? _player.Recolor : recolor;
+                    TextureIdentity? textureIdentity = GetTextureIdentity(inst, material, mesh.MaterialId, resolvedRecolor);
+                    Presentation.AddRenderItem(material, polygonId, alpha, emission, GetLightInfo(), texcoordMatrix, node.Animation, Presentation.GetMeshListId(mesh), mesh.GeometryIdentity, model.NodeMatrixIds.Count, model.MatrixStackValues, color, _player.PaletteOverride, selectionType, node.BillboardMode, _player._drawScale, bindingOverride, textureIdentity);
                 }
 
                 if (node.ChildIndex != -1)
@@ -298,13 +300,29 @@ namespace MphRead.Entities
 
         protected override int? GetBindingOverride(ModelInstance inst, Material material, int index)
         {
-            if (_player._doubleDmgTimer > 0 && (_player.Hunter != Hunter.Spire || !(inst == _player._gunModel && index == 0)) && material.Lighting > 0)
+            if (UsesDoubleDamageTexture(inst, material, index))
             {
                 return _doubleDmgBindingId;
             }
 
             return base.GetBindingOverride(inst, material, index);
         }
+
+        protected override TextureIdentity? GetTextureIdentity(ModelInstance inst, Material material, int index, int recolor)
+        {
+            if (UsesDoubleDamageTexture(inst, material, index))
+            {
+                Model model = _player._doubleDmgModel.Model;
+                return Presentation.GetTextureIdentity(model, model.Materials[0], 0);
+            }
+
+            return base.GetTextureIdentity(inst, material, index, recolor);
+        }
+
+        private bool UsesDoubleDamageTexture(ModelInstance inst, Material material, int index)
+            => _player._doubleDmgTimer > 0
+                && (_player.Hunter != Hunter.Spire || !(inst == _player._gunModel && index == 0))
+                && material.Lighting > 0;
 
         protected override Vector3 GetEmission(ModelInstance inst, Material material, int index)
         {
@@ -412,7 +430,7 @@ namespace MphRead.Entities
                         uvsAndVerts[7] = new Vector3(0.75f, 0.03125f, -0.75f);
                         int polygonId = Presentation.GetNextPolygonId();
                         var color = new Vector3(0, 0, 0);
-                        Presentation.AddRenderItem(RenderItemType.Particle, alpha, polygonId, color, material.XRepeat, material.YRepeat, material.ScaleS, material.ScaleT, transform, uvsAndVerts, _trailBindingId2);
+                        Presentation.AddRenderItem(RenderPrimitive.Particle, alpha, polygonId, color, material.XRepeat, material.YRepeat, material.ScaleS, material.ScaleT, transform, uvsAndVerts, Presentation.GetTextureIdentity(_player._trailModel.Model, material, 0), _trailBindingId2);
                     }
                 }
             }
@@ -474,7 +492,7 @@ namespace MphRead.Entities
             if (count > 0)
             {
                 var color = new Vector3(1, 27 / 31f, 11 / 31f);
-                Presentation.AddRenderItem(RenderItemType.TrailStack, Presentation.GetNextPolygonId(), color, material.XRepeat, material.YRepeat, material.ScaleS, material.ScaleT, PlayerEntity._mbTrailSegments, matrixStack, uvsAndVerts, count, _trailBindingId1);
+                Presentation.AddRenderItem(RenderPrimitive.TrailStack, Presentation.GetNextPolygonId(), color, material.XRepeat, material.YRepeat, material.ScaleS, material.ScaleT, PlayerEntity._mbTrailSegments, matrixStack, uvsAndVerts, count, Presentation.GetTextureIdentity(_player._trailModel.Model, material, 0), _trailBindingId1);
             }
 
             ArrayPool<float>.Shared.Return(matrixStack);

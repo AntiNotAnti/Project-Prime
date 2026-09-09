@@ -29,6 +29,7 @@ namespace MphRead.Effects
 
     public class SingleParticle
     {
+        public SingleType Type { get; set; }
         public Particle ParticleDefinition { get; set; } = null!;
         public Vector3 Position { get; set; }
         public Vector3 Color { get; set; }

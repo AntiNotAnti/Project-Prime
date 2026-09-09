@@ -64,13 +64,27 @@ namespace MphRead.Entities
 
         protected override int? GetBindingOverride(ModelInstance inst, Material material, int index)
         {
-            if (_turret.Owner.DoubleDamage && material.Lighting > 0)
+            if (UsesDoubleDamageTexture(material))
             {
                 return _turret.Owner.GetPresentation().DoubleDmgBindingId;
             }
 
             return base.GetBindingOverride(inst, material, index);
         }
+
+        protected override TextureIdentity? GetTextureIdentity(ModelInstance inst, Material material, int index, int recolor)
+        {
+            if (UsesDoubleDamageTexture(material))
+            {
+                Model model = _turret.Owner.DoubleDamageModel.Model;
+                return Presentation.GetTextureIdentity(model, model.Materials[0], 0);
+            }
+
+            return base.GetTextureIdentity(inst, material, index, recolor);
+        }
+
+        private bool UsesDoubleDamageTexture(Material material)
+            => _turret.Owner.DoubleDamage && material.Lighting > 0;
 
         protected override Vector3 GetEmission(ModelInstance inst, Material material, int index)
         {

@@ -9,11 +9,10 @@ namespace MphRead.Mods
     /// <summary>
     /// Runs thumbnail captures several at a time.
     ///
-    /// Parallel across processes, not threads: GLFW requires its windows to
-    /// be created and pumped on the main thread, so several GL windows in
-    /// one process is not possible. Each worker is a fresh instance of this
-    /// executable invoked with a share of the rooms, which also isolates a
-    /// crash on one room from the rest of the batch.
+    /// Parallel across processes, not threads: each render host owns its
+    /// native window/event thread and GPU resources. Each worker is a fresh
+    /// instance of this executable invoked with a share of the rooms, which
+    /// also isolates a crash on one room from the rest of the batch.
     /// </summary>
     public static class ThumbnailBatch
     {
@@ -70,10 +69,10 @@ namespace MphRead.Mods
                 // one context rather than ten.
                 //
                 // So a run that lost rooms tries them again one at a time
-                // before giving up. Still as worker processes: GLFW wants its
-                // windows on the main thread and the launcher calls this from
-                // a background one, so capturing in-process here would trade
-                // one fault for another.
+                // before giving up. Still as worker processes: both renderer
+                // hosts own their native window/event thread and the launcher
+                // calls this from a background one, so capturing in-process
+                // here would trade one fault for another.
                 string note = $"[thumbnails] {failed.Count} preview(s) failed with {parallelism} "
                     + "at a time; retrying them one at a time";
                 Console.WriteLine(note);
@@ -200,13 +199,11 @@ namespace MphRead.Mods
                 RedirectStandardOutput = true,
                 RedirectStandardError = true
             };
-            for (int i = 0; i < share.Count; i++)
+            foreach (string argument in BuildWorkerArguments(share, width, height,
+                         RenderBackendSelection.Current))
             {
-                info.ArgumentList.Add("-thumbnail");
-                info.ArgumentList.Add(share[i]);
+                info.ArgumentList.Add(argument);
             }
-            info.ArgumentList.Add("-size");
-            info.ArgumentList.Add($"{width}x{height}");
             try
             {
                 Process? proc = Process.Start(info);
@@ -222,6 +219,23 @@ namespace MphRead.Mods
                 Console.WriteLine($"[thumbnails] worker failed to start: {ex.Message}");
                 return null;
             }
+        }
+
+        internal static IReadOnlyList<string> BuildWorkerArguments(IReadOnlyList<string> share,
+            int width, int height, RenderBackendKind backend)
+        {
+            var arguments = new List<string>(share.Count * 2 + 3);
+            for (int i = 0; i < share.Count; i++)
+            {
+                arguments.Add("-thumbnail");
+                arguments.Add(share[i]);
+            }
+            // Always pass the exact parent selection so a worker cannot drift
+            // from the desktop SDL runtime selected by its parent.
+            arguments.Add($"--renderer={RenderBackendSelection.ToCliValue(backend)}");
+            arguments.Add("-size");
+            arguments.Add($"{width}x{height}");
+            return arguments;
         }
 
         private static int RunSerial(IReadOnlyList<string> rooms, int width, int height,

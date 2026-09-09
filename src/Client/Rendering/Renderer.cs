@@ -16,9 +16,11 @@ using MphRead.Formats;
 using MphRead.Formats.Collision;
 using MphRead.Formats.Culling;
 using MphRead.Hud;
+using MphRead.Mods.Content;
+#if ANDROID
 using OpenTK.Graphics.OpenGL;
+#endif
 using OpenTK.Mathematics;
-using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace MphRead
@@ -141,11 +143,13 @@ namespace MphRead
         private int _textureCount = 0;
         private readonly Dictionary<int, TextureMap> _texPalMap = new Dictionary<int, TextureMap>();
 
+#if ANDROID
         private int _shaderProgramId = 0;
         private int _rttShaderProgramId = 0;
         private int _shiftShaderProgramId = 0;
         private int _celShaderProgramId = 0;
         private readonly ShaderLocations _shaderLocations = new ShaderLocations();
+#endif
 
         private Vector3 _light1Vector = Vector3.Zero;
         private Vector3 _light1Color = Vector3.Zero;
@@ -163,14 +167,35 @@ namespace MphRead
         private bool _frameAdvanceLastFrame = false;
         public bool FrameAdvance => _frameAdvanceOn;
         public bool FrameAdvanceLastFrame => _frameAdvanceLastFrame;
+        /// <summary>
+        /// True when the input edge requested the one simulation step that is
+        /// about to be rendered. Hosts consume this before drawing; the flag
+        /// is cleared only at the successful present boundary.
+        /// </summary>
+        public bool FrameAdvanceRequested => _advanceOneFrame;
         private bool _advanceOneFrame = false;
         private bool _recording = false;
+        private RenderCaptureRequest? _pendingSdlScreenshot;
+        private RenderCaptureRequest? _pendingSdlRecordingRequest;
+        // Deterministic SDL render tools queue a one-picture capture before
+        // OnDrawFrame. These requests are kept separate from the interactive
+        // screenshot/recording requests so a tool can use SceneTarget or
+        // ThumbnailTarget without changing the desktop UI capture state.
+        private readonly List<RenderCaptureRequest> _pendingSdlToolCaptures = new();
+#if ANDROID
+        // Android's direct GLES HUD methods use this flag to redirect their
+        // output into an SDL frame when the shared capture path is exercised.
+        private bool _capturingPresentationFrame;
+#endif
+        private RenderPresentationStage _capturingPresentationStage;
         private int _framesRecorded = 0;
         public bool ProcessFrame => (Mods.Network.DemoPlayback.IsActive || World.FrameCount == 0 || !_frameAdvanceOn || _advanceOneFrame) && !_exiting;
         private bool _exiting = false;
         public bool Exiting => _exiting;
 
         public Matrix4 ViewMatrix => _viewMatrix;
+        /// <summary>Complete immutable-for-the-frame submission snapshot.</summary>
+        public RenderFrame CurrentRenderFrame => _renderFrame;
         public Matrix4 ViewInvRotMatrix => _viewInvRotMatrix;
         public Matrix4 ViewInvRotYMatrix => _viewInvRotYMatrix;
         public Vector3 CameraPosition => _cameraPosition;
@@ -204,6 +229,39 @@ namespace MphRead
             || (World.Room != null && ((RoomEntityPresentation)EntityPresentation.Get(World.Room, this)).IsNodeRefAudible(nodeRef));
         public Scene World { get; }
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Scene, ScenePresentation> _presentations = new();
+        private sealed class CpuMeshCache
+        {
+            public List<CpuMeshCacheEntry> Entries { get; } = new List<CpuMeshCacheEntry>();
+        }
+
+        // MeshCompiler.CompileDisplayList is pure over this complete tuple:
+        // the model-owned instruction stream, texture dimensions, texgen, and
+        // room matrix semantics. GeometryIdentity is the stable owner key;
+        // the parsed instruction lists are immutable after Read creates them.
+        private sealed class CpuMeshCacheEntry
+        {
+            public IReadOnlyList<RenderInstruction> Instructions { get; }
+            public int TextureWidth { get; }
+            public int TextureHeight { get; }
+            public bool Texgen { get; }
+            public bool IsRoom { get; }
+            public CpuMesh Mesh { get; }
+
+            public CpuMeshCacheEntry(IReadOnlyList<RenderInstruction> instructions, int textureWidth,
+                int textureHeight, bool texgen, bool isRoom, CpuMesh mesh)
+            {
+                Instructions = instructions;
+                TextureWidth = textureWidth;
+                TextureHeight = textureHeight;
+                Texgen = texgen;
+                IsRoom = isRoom;
+                Mesh = mesh;
+            }
+        }
+
+        private readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, CpuMeshCache> _cpuMeshCache = new();
+        private readonly Dictionary<object, CpuMesh> _portableMeshes
+            = new Dictionary<object, CpuMesh>(ReferenceEqualityComparer.Instance);
         public static ScenePresentation Get(Scene scene) => _presentations.TryGetValue(scene, out var presentation)
             ? presentation : throw new InvalidOperationException("The scene has no client presentation.");
 
@@ -223,7 +281,10 @@ namespace MphRead
             _mouseState = mouseState;
             _setTitle = setTitle;
             _close = close;
-            Music.Init();
+            ClientPresentationContentState content = ClientPresentationContent.Refresh();
+            Announcer = Mods.Audio.AnnouncerService.FromOptionalPack(content.Announcer.Pack);
+            AnnouncerAssets = content.AnnouncerAssets;
+            Music.Init(content);
         }
 
         public void AddRoom(string name, GameMode mode = GameMode.None, int playerCount = 0,
@@ -323,12 +384,15 @@ namespace MphRead
             }
             _farClip = meta.FarClip;
 
+#if ANDROID
             if (_shaderProgramId != 0)
             {
                 SetShaderFog();
             }
+#endif
         }
 
+#if ANDROID
         private void SetShaderFog()
         {
             float fogMin = _fogOffset / (float)0x7FFF;
@@ -337,6 +401,7 @@ namespace MphRead
             GL.Uniform1(_shaderLocations.FogMinDistance, fogMin);
             GL.Uniform1(_shaderLocations.FogMaxDistance, fogMax);
         }
+#endif
 
         // called before load
         public EntityBase AddModel(string name, int recolor = 0, bool firstHunt = false, MetaDir dir = MetaDir.Models, Vector3? pos = null)
@@ -359,6 +424,7 @@ namespace MphRead
 
         public void OnLoad()
         {
+#if ANDROID
             // What the driver calls itself, once, at the only moment there is
             // certainly a context current. Everything about a picture being
             // wrong on somebody else's machine starts with these three lines,
@@ -376,6 +442,7 @@ namespace MphRead
             GL.Enable(EnableCap.DepthTest);
             GL.Enable(EnableCap.Texture2D);
             GL.DepthFunc(DepthFunction.Lequal);
+#endif
             // One line a scene, because the machine that has to be asked about
             // this is always somebody else's: what the render options actually
             // came out as is the first thing worth knowing when a picture is
@@ -385,13 +452,13 @@ namespace MphRead
                 + $"{Mods.RenderOptions.CelBands} bands, "
                 + $"outline {Mods.RenderOptions.CelEdge.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}, "
                 + $"fog {Mods.RenderOptions.OnOff(Mods.RenderOptions.Fog)}");
+#if ANDROID
             InitShaders();
+#endif
             AllocateEffects();
             World.InitializeWorld();
-            for (int i = 0; i < _renderItemAlloc; i++)
-            {
-                _freeRenderItems.Enqueue(new RenderItem());
-            }
+            // RenderFrame owns and reuses submission storage. No draw
+            // allocates a matrix stack on the render thread.
             foreach (PlayerEntity player in World.Players)
             {
                 if (player.LoadFlags.TestFlag(LoadFlags.SlotActive))
@@ -412,6 +479,7 @@ namespace MphRead
             }
         }
 
+#if ANDROID
         private int _frameBuffer = 0;
         private int _screenTexture = 0;
         private int _renderBuffer = 0;
@@ -425,6 +493,7 @@ namespace MphRead
         private bool _depthTextureRefused = false;
         private int _celFrameBuffer = 0;
         private int _celFrameBufferColor = 0;
+#endif
 
         /// <summary>
         /// The size the 3D scene is actually drawn at, which the resolution
@@ -439,6 +508,8 @@ namespace MphRead
 
         public void OnResize()
         {
+            _targetSize = RenderSize;
+#if ANDROID
             if (_screenTexture != 0)
             {
                 Vector2i target = RenderSize;
@@ -473,17 +544,19 @@ namespace MphRead
                     GL.BindTexture(TextureTarget.Texture2D, 0);
                 }
             }
+#endif
         }
 
+#if ANDROID
         private void InitShaders()
         {
             string fragmentLog;
             string vertexLog;
             int vertexShader = GL.CreateShader(ShaderType.VertexShader);
-            GL.ShaderSource(vertexShader, Shaders.VertexShader);
+            GL.ShaderSource(vertexShader, Mods.Render.EsShaders.VertexShader);
             GL.CompileShader(vertexShader);
             int fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
-            GL.ShaderSource(fragmentShader, Shaders.FragmentShader);
+            GL.ShaderSource(fragmentShader, Mods.Render.EsShaders.FragmentShader);
             GL.CompileShader(fragmentShader);
             GL.GetShader(vertexShader, ShaderParameter.CompileStatus, out int vertexStatus);
             GL.GetShader(fragmentShader, ShaderParameter.CompileStatus, out int fragmentStatus);
@@ -515,10 +588,10 @@ namespace MphRead
             GL.DeleteShader(vertexShader);
 
             vertexShader = GL.CreateShader(ShaderType.VertexShader);
-            GL.ShaderSource(vertexShader, Shaders.RttVertexShader);
+            GL.ShaderSource(vertexShader, Mods.Render.EsShaders.RttVertexShader);
             GL.CompileShader(vertexShader);
             fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
-            GL.ShaderSource(fragmentShader, Shaders.RttFragmentShader);
+            GL.ShaderSource(fragmentShader, Mods.Render.EsShaders.RttFragmentShader);
             GL.CompileShader(fragmentShader);
             GL.GetShader(vertexShader, ShaderParameter.CompileStatus, out vertexStatus);
             GL.GetShader(fragmentShader, ShaderParameter.CompileStatus, out fragmentStatus);
@@ -545,7 +618,7 @@ namespace MphRead
 
             // use same vertex shader
             fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
-            GL.ShaderSource(fragmentShader, Shaders.ShiftFragmentShader);
+            GL.ShaderSource(fragmentShader, Mods.Render.EsShaders.ShiftFragmentShader);
             GL.CompileShader(fragmentShader);
             GL.GetShader(fragmentShader, ShaderParameter.CompileStatus, out fragmentStatus);
             if (Debugger.IsAttached)
@@ -570,7 +643,7 @@ namespace MphRead
 
             // use same vertex shader
             fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
-            GL.ShaderSource(fragmentShader, Shaders.CelFragmentShader);
+            GL.ShaderSource(fragmentShader, Mods.Render.EsShaders.CelFragmentShader);
             GL.CompileShader(fragmentShader);
             GL.GetShader(fragmentShader, ShaderParameter.CompileStatus, out fragmentStatus);
             if (fragmentStatus == 0)
@@ -735,6 +808,7 @@ namespace MphRead
             GL.Uniform3(_shaderLocations.ToonTable, Metadata.ToonTable.Count, floats.ToArray());
             SetShaderFog();
         }
+#endif
 
         public void PrepareEntity(EntityBase entity) => EntityPresentation.Get(entity, this);
 
@@ -744,297 +818,53 @@ namespace MphRead
             PrepareEntity(entity);
             foreach (ModelInstance inst in entity.GetModels())
             {
+                // Both shipping executors consume the same portable meshes;
+                // desktop display-list construction no longer exists.
                 InitTextures(inst.Model);
-                GenerateLists(inst.Model, isRoom: entity.Type == EntityType.Room);
+                PrepareCpuMeshes(inst.Model, isRoom: entity.Type == EntityType.Room);
             }
         }
 
-        private void GenerateLists(Model model, bool isRoom)
+        private void PrepareCpuMeshes(Model model, bool isRoom)
         {
-            var tempListIds = new Dictionary<int, int>();
+            NormalizeModelMaterials(model);
             foreach (Mesh mesh in model.Meshes)
             {
-                if (GetMeshListId(mesh) != 0)
+                Material material = model.Materials[mesh.MaterialId];
+                int width = 0;
+                int height = 0;
+                if (material.TextureId >= 0 && model.Recolors.Count > 0)
                 {
-                    continue;
+                    Texture texture = model.Recolors[0].Textures[material.TextureId];
+                    width = texture.Width;
+                    height = texture.Height;
                 }
-                if (!tempListIds.TryGetValue(mesh.DlistId, out int listId))
-                {
-                    int textureWidth = 0;
-                    int textureHeight = 0;
-                    Material material = model.Materials[mesh.MaterialId];
-                    if (material.TextureId != -1)
-                    {
-                        Texture texture = model.Recolors[0].Textures[material.TextureId];
-                        textureWidth = texture.Width;
-                        textureHeight = texture.Height;
-                    }
-                    listId = GL.GenLists(1);
-                    GL.NewList(listId, ListMode.Compile);
-                    bool texgen = material.TexgenMode == TexgenMode.Normal;
-                    DoDlist(model, mesh, textureWidth, textureHeight, texgen, isRoom);
-                    GL.EndList();
-                }
-                SetMeshListId(mesh, listId);
+                CpuMesh compiled = GetCompiledMesh(model, mesh, width, height,
+                    material.TexgenMode == TexgenMode.Normal, isRoom);
+                _portableMeshes[mesh.GeometryIdentity] = compiled;
             }
         }
 
-        private void DoDlist(Model model, Mesh mesh, int textureWidth, int textureHeight, bool texgen, bool isRoom)
+        private CpuMesh GetCompiledMesh(Model model, Mesh mesh, int textureWidth, int textureHeight,
+            bool texgen, bool isRoom)
         {
-            IReadOnlyList<RenderInstruction> list = model.RenderInstructionLists[mesh.DlistId];
-            float vtxX = 0;
-            float vtxY = 0;
-            float vtxZ = 0;
-            float texX = texgen ? 0.5f : 0f;
-            float texY = texgen ? 0.5f : 0f;
-            uint matrixId = 0;
-            GL.TexCoord3(texX, texY, 0f);
-            for (int i = 0; i < list.Count; i++)
+            IReadOnlyList<RenderInstruction> instructions = model.RenderInstructionLists[mesh.DlistId];
+            CpuMeshCache cache = _cpuMeshCache.GetOrCreateValue(mesh.GeometryIdentity);
+            foreach (CpuMeshCacheEntry cached in cache.Entries)
             {
-                RenderInstruction instruction = list[i];
-                switch (instruction.Code)
+                if (ReferenceEquals(cached.Instructions, instructions)
+                    && cached.TextureWidth == textureWidth
+                    && cached.TextureHeight == textureHeight
+                    && cached.Texgen == texgen
+                    && cached.IsRoom == isRoom)
                 {
-                case InstructionCode.BEGIN_VTXS:
-                    if (instruction.Arguments[0] == 0)
-                    {
-                        GL.Begin(PrimitiveType.Triangles);
-                    }
-                    else if (instruction.Arguments[0] == 1)
-                    {
-                        GL.Begin(PrimitiveType.Quads);
-                    }
-                    else if (instruction.Arguments[0] == 2)
-                    {
-                        GL.Begin(PrimitiveType.TriangleStrip);
-                    }
-                    else if (instruction.Arguments[0] == 3)
-                    {
-                        GL.Begin(PrimitiveType.QuadStrip);
-                    }
-                    else
-                    {
-                        throw new ProgramException("Invalid geometry type");
-                    }
-                    break;
-                case InstructionCode.COLOR:
-                    {
-                        uint rgb = instruction.Arguments[0];
-                        uint r = (rgb >> 0) & 0x1F;
-                        uint g = (rgb >> 5) & 0x1F;
-                        uint b = (rgb >> 10) & 0x1F;
-                        GL.Color3(r / 31.0f, g / 31.0f, b / 31.0f);
-                    }
-                    break;
-                case InstructionCode.DIF_AMB:
-                    {
-                        uint rgb = instruction.Arguments[0];
-                        uint dr = (rgb >> 0) & 0x1F;
-                        uint dg = (rgb >> 5) & 0x1F;
-                        uint db = (rgb >> 10) & 0x1F;
-                        uint set = (rgb >> 15) & 1;
-                        uint ar = (rgb >> 16) & 0x1F;
-                        uint ag = (rgb >> 21) & 0x1F;
-                        uint ab = (rgb >> 26) & 0x1F;
-                        var diffuse = new Vector4(dr / 31.0f, dg / 31.0f, db / 31.0f, 1.0f);
-                        var ambient = new Vector4(ar / 31.0f, ag / 31.0f, ab / 31.0f, 1.0f);
-                        // shader - if (LightingOn)
-                        // MPH only calls this with zero ambient, and we need to rely on that in order to
-                        // use GL.Color to smuggle in the diffuse, since setting uniforms here doesn't work
-                        Debug.Assert(ambient.X == 0 && ambient.Y == 0 && ambient.Z == 0);
-                        GL.Color4(diffuse.X, diffuse.Y, diffuse.Z, 0.0f);
-                        if (set != 0) // shader - && _showColors
-                        {
-                            // MPH never does this in a dlist
-                            Debug.Assert(false);
-                            GL.Color3(dr / 31.0f, dg / 31.0f, db / 31.0f);
-                        }
-                    }
-                    break;
-                case InstructionCode.NORMAL:
-                    {
-                        uint xyz = instruction.Arguments[0];
-                        int x = (int)((xyz >> 0) & 0x3FF);
-                        if ((x & 0x200) > 0)
-                        {
-                            x = (int)(x | 0xFFFFFC00);
-                        }
-                        int y = (int)((xyz >> 10) & 0x3FF);
-                        if ((y & 0x200) > 0)
-                        {
-                            y = (int)(y | 0xFFFFFC00);
-                        }
-                        int z = (int)((xyz >> 20) & 0x3FF);
-                        if ((z & 0x200) > 0)
-                        {
-                            z = (int)(z | 0xFFFFFC00);
-                        }
-                        GL.Normal3(x / 512.0f, y / 512.0f, z / 512.0f);
-                    }
-                    break;
-                case InstructionCode.TEXCOORD:
-                    {
-                        Debug.Assert(textureWidth > 0 && textureHeight > 0);
-                        uint st = instruction.Arguments[0];
-                        int s = (int)((st >> 0) & 0xFFFF);
-                        if ((s & 0x8000) > 0)
-                        {
-                            s = (int)(s | 0xFFFF0000);
-                        }
-                        int t = (int)((st >> 16) & 0xFFFF);
-                        if ((t & 0x8000) > 0)
-                        {
-                            t = (int)(t | 0xFFFF0000);
-                        }
-                        texX = s / 16.0f / textureWidth;
-                        texY = t / 16.0f / textureHeight;
-                        GL.TexCoord3(texX, texY, matrixId);
-                    }
-                    break;
-                case InstructionCode.VTX_16:
-                    {
-                        uint xy = instruction.Arguments[0];
-                        int x = (int)((xy >> 0) & 0xFFFF);
-                        if ((x & 0x8000) > 0)
-                        {
-                            x = (int)(x | 0xFFFF0000);
-                        }
-                        int y = (int)((xy >> 16) & 0xFFFF);
-                        if ((y & 0x8000) > 0)
-                        {
-                            y = (int)(y | 0xFFFF0000);
-                        }
-                        int z = (int)(instruction.Arguments[1] & 0xFFFF);
-                        if ((z & 0x8000) > 0)
-                        {
-                            z = (int)(z | 0xFFFF0000);
-                        }
-                        vtxX = Fixed.ToFloat(x);
-                        vtxY = Fixed.ToFloat(y);
-                        vtxZ = Fixed.ToFloat(z);
-                        GL.Vertex3(vtxX, vtxY, vtxZ);
-                    }
-                    break;
-                case InstructionCode.VTX_10:
-                    {
-                        uint xyz = instruction.Arguments[0];
-                        int x = (int)((xyz >> 0) & 0x3FF);
-                        if ((x & 0x200) > 0)
-                        {
-                            x = (int)(x | 0xFFFFFC00);
-                        }
-                        int y = (int)((xyz >> 10) & 0x3FF);
-                        if ((y & 0x200) > 0)
-                        {
-                            y = (int)(y | 0xFFFFFC00);
-                        }
-                        int z = (int)((xyz >> 20) & 0x3FF);
-                        if ((z & 0x200) > 0)
-                        {
-                            z = (int)(z | 0xFFFFFC00);
-                        }
-                        vtxX = x / 64.0f;
-                        vtxY = y / 64.0f;
-                        vtxZ = z / 64.0f;
-                        GL.Vertex3(vtxX, vtxY, vtxZ);
-                    }
-                    break;
-                case InstructionCode.VTX_XY:
-                    {
-                        uint xy = instruction.Arguments[0];
-                        int x = (int)((xy >> 0) & 0xFFFF);
-                        if ((x & 0x8000) > 0)
-                        {
-                            x = (int)(x | 0xFFFF0000);
-                        }
-                        int y = (int)((xy >> 16) & 0xFFFF);
-                        if ((y & 0x8000) > 0)
-                        {
-                            y = (int)(y | 0xFFFF0000);
-                        }
-                        vtxX = Fixed.ToFloat(x);
-                        vtxY = Fixed.ToFloat(y);
-                        GL.Vertex3(vtxX, vtxY, vtxZ);
-                    }
-                    break;
-                case InstructionCode.VTX_XZ:
-                    {
-                        uint xz = instruction.Arguments[0];
-                        int x = (int)((xz >> 0) & 0xFFFF);
-                        if ((x & 0x8000) > 0)
-                        {
-                            x = (int)(x | 0xFFFF0000);
-                        }
-                        int z = (int)((xz >> 16) & 0xFFFF);
-                        if ((z & 0x8000) > 0)
-                        {
-                            z = (int)(z | 0xFFFF0000);
-                        }
-                        vtxX = Fixed.ToFloat(x);
-                        vtxZ = Fixed.ToFloat(z);
-                        GL.Vertex3(vtxX, vtxY, vtxZ);
-                    }
-                    break;
-                case InstructionCode.VTX_YZ:
-                    {
-                        uint yz = instruction.Arguments[0];
-                        int y = (int)((yz >> 0) & 0xFFFF);
-                        if ((y & 0x8000) > 0)
-                        {
-                            y = (int)(y | 0xFFFF0000);
-                        }
-                        int z = (int)((yz >> 16) & 0xFFFF);
-                        if ((z & 0x8000) > 0)
-                        {
-                            z = (int)(z | 0xFFFF0000);
-                        }
-                        vtxY = Fixed.ToFloat(y);
-                        vtxZ = Fixed.ToFloat(z);
-                        GL.Vertex3(vtxX, vtxY, vtxZ);
-                    }
-                    break;
-                case InstructionCode.VTX_DIFF:
-                    {
-                        uint xyz = instruction.Arguments[0];
-                        int x = (int)((xyz >> 0) & 0x3FF);
-                        if ((x & 0x200) > 0)
-                        {
-                            x = (int)(x | 0xFFFFFC00);
-                        }
-                        int y = (int)((xyz >> 10) & 0x3FF);
-                        if ((y & 0x200) > 0)
-                        {
-                            y = (int)(y | 0xFFFFFC00);
-                        }
-                        int z = (int)((xyz >> 20) & 0x3FF);
-                        if ((z & 0x200) > 0)
-                        {
-                            z = (int)(z | 0xFFFFFC00);
-                        }
-                        vtxX += Fixed.ToFloat(x);
-                        vtxY += Fixed.ToFloat(y);
-                        vtxZ += Fixed.ToFloat(z);
-                        GL.Vertex3(vtxX, vtxY, vtxZ);
-                    }
-                    break;
-                case InstructionCode.END_VTXS:
-                    GL.End();
-                    break;
-                case InstructionCode.MTX_RESTORE:
-                    // in order to allow toggling room node transforms, keep the matrix ID at 0
-                    if (!isRoom)
-                    {
-                        matrixId = instruction.Arguments[0];
-                    }
-                    GL.TexCoord3(texX, texY, matrixId);
-                    break;
-                case InstructionCode.NOP:
-                    break;
-                default:
-                    throw new ProgramException("Unknown opcode");
+                    return cached.Mesh;
                 }
             }
-            // leave the ID at 0 in case the next thing we draw doesn't use the stack
-            GL.TexCoord3(0f, 0f, 0f);
+
+            CpuMesh compiled = MeshCompiler.CompileDisplayList(instructions, textureWidth, textureHeight, texgen, isRoom);
+            cache.Entries.Add(new CpuMeshCacheEntry(instructions, textureWidth, textureHeight, texgen, isRoom, compiled));
+            return compiled;
         }
 
         public void LoadModel(string name, bool firstHunt = false)
@@ -1045,7 +875,7 @@ namespace MphRead
         public void LoadModel(Model model, bool isRoom = false)
         {
             InitTextures(model);
-            GenerateLists(model, isRoom);
+            PrepareCpuMeshes(model, isRoom);
         }
 
         internal static void NormalizeModelMaterials(Model model)
@@ -1102,8 +932,27 @@ namespace MphRead
                 var map = new TextureMap();
                 foreach ((int textureId, int paletteId, int recolorId) in combos)
                 {
+#if ANDROID
                     bool onlyOpaque = BindTexture(model, textureId, paletteId, recolorId);
                     map.Add(textureId, paletteId, recolorId, _textureCount, onlyOpaque);
+#else
+                        IReadOnlyList<ColorRgba> decoded = model.GetPixels(textureId, paletteId, recolorId);
+                        Texture texture = model.Recolors[recolorId].Textures[textureId];
+                        TextureIdentity identity = new TextureIdentity(model.Recolors[recolorId], textureId,
+                            paletteId, recolorId);
+                        RenderTexturePixels record;
+                        try
+                        {
+                            record = PrepareTexture(identity, decoded, texture.Width, texture.Height);
+                        }
+                        catch (ArgumentException ex)
+                        {
+                            throw new InvalidOperationException($"Model {model.Name} texture {textureId}, palette {paletteId}, "
+                                + $"recolor {recolorId} decoded {decoded.Count} pixels for "
+                                + $"{texture.Width}x{texture.Height} dimensions.", ex);
+                        }
+                        map.Add(textureId, paletteId, recolorId, 0, record.OnlyOpaque);
+#endif
                 }
                 _texPalMap.Add(model.Id, map);
             }
@@ -1125,19 +974,28 @@ namespace MphRead
             bool onlyOpaque = true;
             var pixels = new List<uint>();
             var average = new FlatColor();
-            foreach (ColorRgba pixel in model.GetPixels(textureId, paletteId, recolorId))
+            IReadOnlyList<ColorRgba> decoded = model.GetPixels(textureId, paletteId, recolorId);
+            foreach (ColorRgba pixel in decoded)
             {
                 pixels.Add(pixel.ToUint());
                 onlyOpaque &= pixel.Alpha == 255;
                 average.Add(pixel);
             }
             Texture texture = model.Recolors[recolorId].Textures[textureId];
+            TextureIdentity identity = new TextureIdentity(model.Recolors[recolorId], textureId,
+                paletteId, recolorId);
+            RenderTexturePixels record = PrepareTexture(identity, decoded, texture.Width, texture.Height);
+#if ANDROID
+            RegisterLegacyTextureIdentity(_textureCount, identity);
             GL.BindTexture(TextureTarget.Texture2D, _textureCount);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, texture.Width, texture.Height, 0,
                 PixelFormat.Rgba, PixelType.UnsignedByte, pixels.ToArray());
             GL.BindTexture(TextureTarget.Texture2D, 0);
             _flatColors[_textureCount] = average.Result;
             return onlyOpaque;
+#else
+            return record.OnlyOpaque;
+#endif
         }
 
         /// <summary>
@@ -1149,7 +1007,9 @@ namespace MphRead
         /// not of the frame -- and there is no other moment when this code has
         /// the pixels in hand.
         /// </summary>
+#if ANDROID
         private readonly Dictionary<int, Vector3> _flatColors = new Dictionary<int, Vector3>();
+#endif
 
         /// <summary>
         /// A texture's average colour, weighted by alpha.
@@ -1205,22 +1065,35 @@ namespace MphRead
         public int BindGetTexture(IReadOnlyList<ColorRgba> data, int width, int height)
         {
             _textureCount++;
+            TextureIdentity identity = CreateDynamicTextureIdentity(data, width, height, _textureCount);
+            RegisterLegacyTextureIdentity(_textureCount, identity);
+#if ANDROID
             GL.BindTexture(TextureTarget.Texture2D, _textureCount);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
                 PixelFormat.Rgba, PixelType.UnsignedByte, data.ToArray());
             GL.BindTexture(TextureTarget.Texture2D, 0);
             _flatColors[_textureCount] = AverageOf(data);
+#endif
             return _textureCount;
         }
 
         public void BindTexture(IReadOnlyList<ColorRgba> data, int width, int height, int bindingId)
         {
+            TextureIdentity identity;
+            if (!TryGetTextureIdentityForBinding(bindingId, out identity))
+            {
+                identity = CreateDynamicTextureIdentity(data, width, height, bindingId);
+                RegisterLegacyTextureIdentity(bindingId, identity);
+            }
+            PrepareTexture(identity, data, width, height);
+#if ANDROID
             GL.BindTexture(TextureTarget.Texture2D, bindingId);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
                 PixelFormat.Rgba, PixelType.UnsignedByte, data.ToArray());
             GL.BindTexture(TextureTarget.Texture2D, 0);
             // this binding may already have had a different picture in it
             _flatColors[bindingId] = AverageOf(data);
+#endif
         }
 
         private static Vector3 AverageOf(IReadOnlyList<ColorRgba> data)
@@ -1289,7 +1162,7 @@ namespace MphRead
         ///
         /// Everything that decides what the game *is* lives here and nowhere
         /// else: input, the network session, the world, the clock, the frame
-        /// counter. <c>RenderWindow</c> runs this on a fixed-step
+        /// counter. The platform host runs this on a fixed-step
         /// accumulator so it happens 60 times a second whatever the picture is
         /// doing -- which is what lets the drawing run at 144 without the
         /// 800-odd frame-counted timers in the entity code, the per-frame
@@ -1453,8 +1326,15 @@ namespace MphRead
         public void OnDrawFrame()
         {
             if (Mods.Network.DemoPlayback.IsSeeking) return;
+            bool sdlBackend = RenderBackendSelection.Current == RenderBackendKind.Sdl;
             Mods.Network.AuthoritativePlay.Current?.AdvancePresentation();
+            // One scene owner drains one semantic announcer cue per rendered
+            // frame. This also covers spectator and replay presentation,
+            // where there is no local-player draw call to own the queue.
+            AnnouncerAudio.PresentNext();
+#if ANDROID
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
+#endif
             // The scene's own target, which the resolution scale may have made
             // smaller than the window. Reallocated here rather than only on a
             // window resize, so moving the slider during a match is seen.
@@ -1466,22 +1346,25 @@ namespace MphRead
             }
             // Before the frame is drawn into it, since this swaps what the
             // depth is drawn into.
+#if ANDROID
             UpdateDepthAttachment(target);
             GL.Viewport(0, 0, target.X, target.Y);
             GL.UseProgram(_shaderProgramId);
+#endif
             LoadAndUnload();
             _decalItems.Clear();
             _nonDecalItems.Clear();
             _translucentItems.Clear();
-            while (_usedRenderItems.Count > 0)
+            for (int i = 0; i < _renderFrame.Count; i++)
             {
-                RenderItem item = _usedRenderItems.Dequeue();
-                if (item.Type != RenderItemType.Mesh)
+                DrawSubmission item = _renderFrame.Submissions[i];
+                if (item.Primitive != RenderPrimitive.Mesh && item.Points.Length != 0)
                 {
                     ArrayPool<Vector3>.Shared.Return(item.Points);
                 }
-                _freeRenderItems.Enqueue(item);
             }
+            _legacySubmissionResources.Clear();
+            _renderFrame.Reset();
             _nextPolygonId = 1;
             // Singles are filled in by the entity draws below and drawn at
             // the end of the same pass, so they are cleared here and not in
@@ -1497,6 +1380,37 @@ namespace MphRead
                 UpdateCameraPosition();
             }
             UpdateProjection();
+            _renderFrame.CaptureState(
+                _viewMatrix,
+                _viewInvRotMatrix,
+                _viewInvRotYMatrix,
+                _perspectiveMatrix,
+                Size,
+                target,
+                new Vector4(_clearColor.R, _clearColor.G, _clearColor.B, _clearColor.A),
+                _light1Vector,
+                _light1Color,
+                _light2Vector,
+                _light2Color,
+                _hasFog,
+                _fogColor,
+                _fogOffset,
+                _fogSlope,
+                new RenderFrameOptions(
+                    _showTextures,
+                    _showColors,
+                    _wireframe,
+                    _faceCulling,
+                    FilteringOn,
+                    LightingOn,
+                    FogOn,
+                    Mods.RenderOptions.CelShading,
+                    Mods.RenderOptions.CelBands,
+                    Mods.RenderOptions.CelEdge,
+                    _volumeEdges,
+                    ShowInvisibleEntities,
+                    false,
+                    Mods.RenderOptions.CaptureSnapshot()));
             Mods.Network.AuthoritativePlay? presentation = Mods.Network.AuthoritativePlay.Current;
             try
             {
@@ -1504,6 +1418,708 @@ namespace MphRead
                 GetDrawItems();
             }
             finally { presentation?.EndRemotePresentation(); }
+            for (int i = 0; i < _renderFrame.Submissions.Count; i++)
+            {
+                DrawSubmission submission = _renderFrame.Submissions[i];
+                if (submission.GeometryIdentity != null
+                    && _portableMeshes.TryGetValue(submission.GeometryIdentity, out CpuMesh? mesh))
+                {
+                    _renderFrame.CaptureMesh(submission.GeometryIdentity, mesh);
+                }
+                else if (submission.Primitive != RenderPrimitive.Mesh)
+                {
+                    // Dynamic geometry is part of the sealed frame too. The
+                    // backend never interprets legacy Points arrays.
+                    _renderFrame.CaptureMesh(submission,
+                        DynamicPrimitiveCompiler.Compile(submission));
+                }
+                if (submission.TextureIdentity is TextureIdentity identity
+                    && TryGetSubmissionTexture(identity, out RenderTexturePixels? texture))
+                {
+                    if (texture == null) continue;
+                    // Palette overrides are draw constants, but the sealed
+                    // material also owns the final identity. Register an
+                    // exact-key immutable record so the backend never has to
+                    // guess which palette variant a draw meant.
+                    if (texture.Identity != identity)
+                    {
+                        texture = new RenderTexturePixels(identity, texture.Width, texture.Height,
+                            texture.Rgba8, texture.Revision, texture.OnlyOpaque,
+                            texture.AlphaWeightedFlatColor);
+                    }
+                    _renderFrame.CaptureTexture(texture);
+                }
+            }
+            // Match legacy OnDrawFrame -> OnRenderFrame ordering: world draw
+            // items describe the old room first, then the fade transition may
+            // load the next room.  The presentation commands are recorded
+            // after that update, as the legacy HUD was drawn after
+            // UpdateUniforms, but the already captured world queue is kept.
+            // A fade exit suppresses this picture entirely.
+            if (sdlBackend)
+            {
+                if (ProcessFrame)
+                {
+                    UpdateFade(updateDevice: false);
+                }
+                if (_exiting)
+                {
+                    _renderFrame.Reset();
+                    _renderFrame.Seal();
+                    return;
+                }
+                _renderFrame.CaptureState(
+                    _viewMatrix,
+                    _viewInvRotMatrix,
+                    _viewInvRotYMatrix,
+                    _perspectiveMatrix,
+                    Size,
+                    target,
+                    new Vector4(_clearColor.R, _clearColor.G, _clearColor.B, _clearColor.A),
+                    _light1Vector,
+                    _light1Color,
+                    _light2Vector,
+                    _light2Color,
+                    _hasFog,
+                    _fogColor,
+                    _fogOffset,
+                    _fogSlope,
+                    new RenderFrameOptions(
+                        _showTextures,
+                        _showColors,
+                        _wireframe,
+                        _faceCulling,
+                        FilteringOn,
+                        LightingOn,
+                        FogOn,
+                        Mods.RenderOptions.CelShading,
+                        Mods.RenderOptions.CelBands,
+                        Mods.RenderOptions.CelEdge,
+                        _volumeEdges,
+                        ShowInvisibleEntities,
+                        false,
+                        Mods.RenderOptions.CaptureSnapshot()));
+                CapturePresentationFrame(target);
+                CapturePresentationResources();
+                AttachSdlCaptureRequests();
+            }
+#if ANDROID
+            _glesWorldContext.BeginFrame(_shaderLocations);
+            for (int i = 0; i < _renderFrame.Submissions.Count; i++)
+            {
+                DrawSubmission submission = _renderFrame.Submissions[i];
+                _glesWorldContext.Add(submission, GetLegacyTexture(submission), _renderFrame);
+            }
+            _glesWorldContext.Seal();
+#endif
+            _renderFrame.Seal();
+        }
+
+        /// <summary>
+        /// Attach requests while the frame is still mutable. A recording
+        /// request stays pending until a successful presentation so a
+        /// minimized or failed-submit frame retries the same output name and
+        /// request identity instead of advancing the recording counter.
+        /// </summary>
+        private void AttachSdlCaptureRequests()
+        {
+            if (_pendingSdlScreenshot != null)
+            {
+                _renderFrame.AddCaptureRequest(ForCurrentPresentationSize(_pendingSdlScreenshot));
+            }
+            if (_recording)
+            {
+                _pendingSdlRecordingRequest ??= new RenderCaptureRequest(
+                    Guid.NewGuid(),
+                    Mods.Render.FrameTiming.TotalFrames,
+                    CaptureTargetKind.FinalPresentedFrame,
+                    Size.X,
+                    Size.Y,
+                    CapturePixelFormat.Rgb8,
+                    CaptureRowOrientation.BottomUp,
+                    CaptureDeliveryKind.Recording,
+                    $"frame{_framesRecorded:0000}");
+                _renderFrame.AddCaptureRequest(ForCurrentPresentationSize(_pendingSdlRecordingRequest));
+            }
+            for (int i = 0; i < _pendingSdlToolCaptures.Count; i++)
+            {
+                _renderFrame.AddCaptureRequest(_pendingSdlToolCaptures[i]);
+            }
+        }
+
+        private RenderCaptureRequest ForCurrentPresentationSize(RenderCaptureRequest request)
+        {
+            if (request.Width == Size.X && request.Height == Size.Y) return request;
+            // A failed submit can leave a request alive across a window
+            // resize. Preserve its identity/name for retry while describing
+            // the dimensions of the next real final-composite target.
+            return new RenderCaptureRequest(request.RequestId, request.OriginatingFrame,
+                request.Target, Size.X, Size.Y, request.PixelFormat,
+                request.RowOrientation, request.Delivery, request.OutputName);
+        }
+
+        /// <summary>
+        /// Queue one backend-neutral capture for the next SDL picture. The
+        /// request is consumed only by <see cref="AfterRenderFrame"/>, which
+        /// is called after a real submission; a failed/minimized picture
+        /// therefore retries the same request without changing its identity.
+        /// </summary>
+        internal void QueueSdlCapture(RenderCaptureRequest request)
+        {
+            if (request == null) throw new ArgumentNullException(nameof(request));
+            if (RenderBackendSelection.Current != RenderBackendKind.Sdl)
+            {
+                throw new InvalidOperationException("SDL capture requests require the SDL renderer.");
+            }
+            // A failed submit leaves the prior request owned by the
+            // presentation for retry. Tool callers may issue the same logical
+            // request again on the next picture; do not attach a duplicate
+            // transfer with a new identity while the original is pending.
+            for (int i = 0; i < _pendingSdlToolCaptures.Count; i++)
+            {
+                RenderCaptureRequest pending = _pendingSdlToolCaptures[i];
+                if (pending.Target == request.Target
+                    && string.Equals(pending.OutputName, request.OutputName,
+                        StringComparison.Ordinal))
+                {
+                    return;
+                }
+            }
+            if (_pendingSdlToolCaptures.Count >= RenderFrame.DefaultMaximumCaptureRequests)
+            {
+                throw new InvalidOperationException("The SDL tool capture queue is full.");
+            }
+            _pendingSdlToolCaptures.Add(request);
+        }
+
+        private Matrix4 HudProjectionMatrix()
+            => Matrix4.CreateOrthographic(Size.X, Size.Y, 0.5f, 1.5f);
+
+        /// <summary>
+        /// Capture the presentation half of the legacy render routine without
+        /// entering OpenGL. This is intentionally called only by the SDL
+        /// frontend after world items and the gated fade update have finished.
+        /// The legacy path continues to execute the original methods in
+        /// <see cref="OnRenderFrame"/>.
+        /// </summary>
+        private void CapturePresentationFrame(Vector2i target)
+        {
+            bool playerHud = World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active)
+                && CameraMode == CameraMode.Player;
+            bool scoreboard = ScoreboardOverFreeCamera;
+            PlayerPresentation hud = World.LocalPlayer!.GetPresentation();
+
+            bool celEnabled = Mods.RenderOptions.CelShading && Mods.RenderOptions.CelEdge > 0;
+            Vector2 texelSize = target.X > 0 && target.Y > 0
+                ? new Vector2(1f / target.X, 1f / target.Y)
+                : Vector2.Zero;
+            _renderFrame.CaptureCelState(new RenderCelState(celEnabled,
+                Mods.RenderOptions.CelEdge, Mods.RenderOptions.CelBands, texelSize,
+                _nearClip, ProjectionFarClip, _depthQuantum));
+
+            bool disrupted = hud.HudDisruptedState != 0 || hud.HudWhiteoutState != -1;
+            if (!disrupted)
+            {
+                _renderFrame.CaptureDisruption(RenderDisruptionState.Disabled);
+            }
+            else
+            {
+                float div = World.ElapsedTime / (1 / 30f);
+                _renderFrame.CaptureDisruption(new RenderDisruptionState(true,
+                    hud.HudDisruptionFactor, (int)div, div % 1, hud.HudWhiteoutFactor,
+                    _presentationShiftTable,
+                    hud.HudWhiteoutFactor != 0 ? PlayerPresentation.HudWhiteoutTable : null));
+            }
+
+            _renderFrame.CaptureComposite(new RenderCompositeState(Size, target,
+                Mods.RenderOptions.ResolutionScale < 100
+                    ? RenderCompositeFilter.Linear : RenderCompositeFilter.Nearest,
+                ClearDestination: true));
+
+#if ANDROID
+            _capturingPresentationFrame = true;
+#endif
+            try
+            {
+                // This marker is diagnostic only; the model submissions live
+                // in their own list so the backend cannot accidentally run
+                // them after the cel/composite boundary.
+                _capturingPresentationStage = RenderPresentationStage.HudScene;
+                _renderFrame.AddOverlayCommand(
+                    RenderOverlayCommand.StageMarker(RenderPresentationStage.HudScene));
+                if (playerHud || scoreboard)
+                {
+                    hud.DrawHudModels();
+                }
+
+                _capturingPresentationStage = RenderPresentationStage.Cel;
+                _renderFrame.AddOverlayCommand(
+                    RenderOverlayCommand.StageMarker(RenderPresentationStage.Cel));
+                _capturingPresentationStage = RenderPresentationStage.SceneComposite;
+                _renderFrame.AddOverlayCommand(
+                    RenderOverlayCommand.StageMarker(RenderPresentationStage.SceneComposite));
+                _capturingPresentationStage = RenderPresentationStage.HudOverlay;
+                _renderFrame.AddOverlayCommand(
+                    RenderOverlayCommand.StageMarker(RenderPresentationStage.HudOverlay));
+
+                if (playerHud)
+                {
+                    // The layer order is part of the original renderer's
+                    // output, not a sorting policy for the backend.
+                    CaptureHudLayer(Layer4Info); // ice layer
+                    CaptureHudLayer(Layer3Info); // helmet back
+                    CaptureHudLayer(Layer1Info); // visor
+                    CaptureHudLayer(Layer2Info); // helmet front
+                    CaptureHudLayer(Layer5Info); // dialog overlay
+                    hud.DrawHudObjects();
+                }
+                else if (scoreboard)
+                {
+                    hud.DrawHudObjects();
+                }
+
+                _capturingPresentationStage = RenderPresentationStage.SpectatorOverlay;
+                _renderFrame.AddOverlayCommand(
+                    RenderOverlayCommand.StageMarker(RenderPresentationStage.SpectatorOverlay));
+                SpectatorCamera.Draw(this);
+                _capturingPresentationStage = RenderPresentationStage.ReplayOverlay;
+                _renderFrame.AddOverlayCommand(
+                    RenderOverlayCommand.StageMarker(RenderPresentationStage.ReplayOverlay));
+                Mods.Network.ReplayControls.Draw(this);
+
+                RenderFadeState fade = CaptureFadeState(playerHud);
+                _renderFrame.CaptureFade(fade);
+                _capturingPresentationStage = RenderPresentationStage.Fade;
+                _renderFrame.AddOverlayCommand(
+                    RenderOverlayCommand.StageMarker(RenderPresentationStage.Fade));
+                if (fade.Active && fade.Coverage > 0)
+                {
+                    _renderFrame.AddOverlayCommand(new RenderOverlayCommand(
+                        RenderOverlayKind.Fade, FullscreenOverlayVertices(),
+                        color: new Vector4(fade.Color, fade.Color, fade.Color, 1),
+                        alpha: fade.Coverage, stage: RenderPresentationStage.Fade));
+                }
+            }
+            finally
+            {
+#if ANDROID
+                _capturingPresentationFrame = false;
+#endif
+            }
+        }
+
+        private RenderFadeState CaptureFadeState(bool playerHud)
+        {
+            if (!playerHud || _fadeType == FadeType.None)
+            {
+                return RenderFadeState.None;
+            }
+            float coverage = _fadeIn ? 1 - _fadePercent : _fadePercent;
+            return new RenderFadeState(true, _fadeType, _fadeColor, _fadeIn,
+                _fadePercent, coverage);
+        }
+
+        private void CapturePresentationResources()
+        {
+            for (int i = 0; i < _renderFrame.HudSceneItems.Count; i++)
+            {
+                RenderHudSceneSubmission submission = _renderFrame.HudSceneItems[i];
+                if (submission.GeometryIdentity != null
+                    && _portableMeshes.TryGetValue(submission.GeometryIdentity, out CpuMesh? mesh))
+                {
+                    _renderFrame.CaptureMesh(submission.GeometryIdentity, mesh);
+                }
+                if (submission.TextureIdentity is TextureIdentity identity)
+                {
+                    CapturePresentationTexture(identity);
+                }
+            }
+            for (int i = 0; i < _renderFrame.OverlayCommands.Count; i++)
+            {
+                RenderOverlayCommand command = _renderFrame.OverlayCommands[i];
+                if (command.Texture is TextureIdentity texture)
+                {
+                    CapturePresentationTexture(texture);
+                }
+                if (command.MaskTexture is TextureIdentity mask)
+                {
+                    CapturePresentationTexture(mask);
+                }
+            }
+        }
+
+        private void CapturePresentationTexture(TextureIdentity identity)
+        {
+            if (!TryGetSubmissionTexture(identity, out RenderTexturePixels? texture) || texture == null)
+            {
+                return;
+            }
+            // Palette overrides are draw constants, but the frame lookup is
+            // exact-keyed. Clone the immutable pixels under the final identity
+            // when the shared resource was registered under its base key.
+            if (texture.Identity != identity)
+            {
+                texture = new RenderTexturePixels(identity, texture.Width, texture.Height,
+                    texture.Rgba8, texture.Revision, texture.OnlyOpaque,
+                    texture.AlphaWeightedFlatColor);
+            }
+            _renderFrame.CaptureTexture(texture);
+        }
+
+        private void CaptureHudTexture(int bindingId, out TextureIdentity? identity)
+        {
+            identity = null;
+            if (bindingId < 0 || !TryGetTextureIdentityForBinding(bindingId, out TextureIdentity value))
+            {
+                return;
+            }
+            if (value.Variant is DynamicTextureSource
+                && _textureResources.TryGetValue(value, out RenderTexturePixels? texture)
+                && texture != null)
+            {
+                TextureIdentity revisionIdentity = new TextureIdentity(value.Source,
+                    value.TextureId, value.PaletteId, value.RecolorId,
+                    new DynamicTextureRevision(value, texture.Revision), value.PaletteOverride);
+                _renderFrame.CaptureTexture(new RenderTexturePixels(revisionIdentity,
+                    texture.Width, texture.Height, texture.Rgba8, texture.Revision,
+                    texture.OnlyOpaque, texture.AlphaWeightedFlatColor));
+                identity = revisionIdentity;
+            }
+            else
+            {
+                identity = value;
+            }
+        }
+
+        private static RenderMaterial CreateHudMaterial(Material material, TextureIdentity? texture,
+            float alpha, Vector4? colorOverride = null)
+        {
+            return new RenderMaterial
+            {
+                Diffuse = material.CurrentDiffuse,
+                Ambient = material.CurrentAmbient,
+                Specular = material.CurrentSpecular,
+                Emission = Vector3.Zero,
+                Alpha = alpha,
+                Lighting = false,
+                Textured = texture.HasValue,
+                PolygonMode = material.PolygonMode,
+                RenderMode = alpha < 1 ? RenderMode.Translucent : material.RenderMode,
+                CullingMode = material.Culling,
+                BillboardMode = BillboardMode.None,
+                TexgenMode = material.TexgenMode,
+                WrapX = material.XRepeat,
+                WrapY = material.YRepeat,
+                Texture = texture,
+                TextureMatrix = Matrix4.Identity,
+                ColorOverride = colorOverride,
+                PaletteOverride = null,
+                Wireframe = material.Wireframe != 0,
+                NoLines = false
+            };
+        }
+
+        private void EnsurePortableModelPrepared(Model model)
+        {
+            if (!_texPalMap.ContainsKey(model.Id))
+            {
+                InitTextures(model);
+            }
+            if (model.Meshes.Any(mesh => !_portableMeshes.ContainsKey(mesh.GeometryIdentity)))
+            {
+                PrepareCpuMeshes(model, isRoom: false);
+            }
+        }
+
+        private void AddHudSceneMaterial(Material material, TextureIdentity? texture,
+            float alpha, int polygonId, Matrix4 transform, int matrixStackCount,
+            IReadOnlyList<float>? matrixStack, object? geometryIdentity, CpuMesh? inlineMesh = null,
+            Vector4? colorOverride = null, int itemCount = 0, Vector4? currentColor = null)
+        {
+            RenderMaterial renderMaterial = CreateHudMaterial(material, texture, alpha, colorOverride);
+            _renderFrame.AddHudSceneSubmission(new RenderHudSceneSubmission(renderMaterial,
+                RenderPrimitive.Mesh, polygonId, alpha, transform, matrixStackCount, matrixStack,
+                geometryIdentity, texture, LightInfo.Zero, Matrix4.Identity,
+                HudProjectionMatrix(), inlineMesh, itemCount: itemCount, currentColor: currentColor));
+        }
+
+        private void CaptureHudFilterModel(ModelInstance instance, float alpha)
+        {
+            Model model = instance.Model;
+            if (model.Materials.Count == 0)
+            {
+                return;
+            }
+            EnsurePortableModelPrepared(model);
+            UpdateMaterials(model, 0);
+            Material material = model.Materials[0];
+            TextureIdentity? texture = GetTextureIdentity(model, material, 0);
+            var vertices = new RenderVertex[]
+            {
+                new(new Vector3(Size.X, Size.Y, -1), new Vector4(1), Vector3.UnitZ,
+                    new Vector2(1, 0)),
+                new(new Vector3(-Size.X, Size.Y, -1), new Vector4(1), Vector3.UnitZ,
+                    new Vector2(0, 0)),
+                new(new Vector3(Size.X, -Size.Y, -1), new Vector4(1), Vector3.UnitZ,
+                    new Vector2(1, 1)),
+                new(new Vector3(-Size.X, -Size.Y, -1), new Vector4(1), Vector3.UnitZ,
+                    new Vector2(0, 1))
+            };
+            var mesh = new CpuMesh(vertices, new[] { 0, 1, 2, 2, 1, 3 });
+            AddHudSceneMaterial(material, texture, material.Alpha / 31f * alpha,
+                polygonId: 0, Matrix4.Identity, matrixStackCount: 0, null, null, mesh);
+        }
+
+        private void CaptureHudIconModel(Vector2 position, float angle, ModelInstance instance,
+            ColorRgb color, float alpha)
+        {
+            Model model = instance.Model;
+            if (model.Materials.Count == 0 || model.Meshes.Count == 0)
+            {
+                return;
+            }
+            EnsurePortableModelPrepared(model);
+            UpdateMaterials(model, 0);
+            Material material = model.Materials[0];
+            TextureIdentity? texture = GetTextureIdentity(model, material, 0);
+            float scale = Size.Y / 192f;
+            Vector3 position3d = new Vector3(position.X * Size.X - Size.X / 2,
+                (1 - position.Y) * Size.Y - Size.Y / 2, -1f);
+            Matrix4 transform = Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(angle))
+                * Matrix4.CreateScale(scale, scale, 1) * Matrix4.CreateTranslation(position3d);
+            var currentColor = new Vector4(color.Red / 31f, color.Green / 31f,
+                color.Blue / 31f, 1);
+            Mesh mesh = model.Meshes[0];
+            AddHudSceneMaterial(material, texture, alpha, polygonId: 0, transform,
+                matrixStackCount: 0, null, mesh.GeometryIdentity, currentColor: currentColor);
+        }
+
+        private void CaptureHudDamageModel(ModelInstance instance)
+        {
+            Model model = instance.Model;
+            if (model.Materials.Count == 0)
+            {
+                return;
+            }
+            EnsurePortableModelPrepared(model);
+            UpdateMaterials(model, 0);
+            Material material = model.Materials[0];
+            TextureIdentity? texture = GetTextureIdentity(model, material, 0);
+            float viewWidth = Size.X;
+            float viewHeight = Size.Y;
+            float xOffset = -viewWidth / 2;
+            float yOffset = -viewHeight / 2;
+            for (int i = 1; i < 9 && i < model.Nodes.Count; i++)
+            {
+                Node node = model.Nodes[i];
+                if (!node.Enabled) continue;
+                float width = node.MaxBounds.X - node.MinBounds.X;
+                float height = node.MaxBounds.Y - node.MinBounds.Y;
+                if (width == 0 || height == 0) continue;
+                float newWidth = width / 256 * viewWidth * model.Scale.X;
+                float newHeight = height / 192 * viewHeight * model.Scale.Y;
+                Matrix4 transform = Matrix4.CreateScale(newWidth / width, newHeight / height, 1);
+                transform.Row3.Xyz = new Vector3(xOffset, yOffset, -1);
+                node.Animation = transform;
+            }
+            model.UpdateMatrixStack();
+            for (int i = 1; i < 9 && i < model.Nodes.Count; i++)
+            {
+                Node node = model.Nodes[i];
+                if (!node.Enabled) continue;
+                int meshIndex = node.MeshId / 2;
+                if ((uint)meshIndex >= (uint)model.Meshes.Count) continue;
+                Mesh mesh = model.Meshes[meshIndex];
+                AddHudSceneMaterial(material, texture, 1, polygonId: 0,
+                    Matrix4.Identity, model.NodeMatrixIds.Count, model.MatrixStackValues,
+                    mesh.GeometryIdentity);
+            }
+        }
+
+        private static IReadOnlyList<RenderOverlayVertex> FullscreenOverlayVertices()
+            => new[]
+            {
+                new RenderOverlayVertex(new Vector3(1, 1, 0), new Vector2(1, 1), Vector4.One),
+                new RenderOverlayVertex(new Vector3(-1, 1, 0), new Vector2(0, 1), Vector4.One),
+                new RenderOverlayVertex(new Vector3(1, -1, 0), new Vector2(1, 0), Vector4.One),
+                new RenderOverlayVertex(new Vector3(-1, -1, 0), new Vector2(0, 0), Vector4.One)
+            };
+
+        private void CaptureHudLayer(LayerInfo info)
+        {
+            if (info.BindingId == -1)
+            {
+                return;
+            }
+            CaptureHudTexture(info.BindingId, out TextureIdentity? texture);
+            float viewWidth = Size.X;
+            float viewHeight = Size.Y;
+            float width;
+            float height;
+            if (info.ScaleX == -1 || info.ScaleY == -1)
+            {
+                float size = MathF.Max(viewWidth, viewHeight) / 2;
+                width = size / (viewWidth / 2);
+                height = size / (viewHeight / 2);
+            }
+            else
+            {
+                width = viewWidth * info.ScaleX / 2 / (viewWidth / 2);
+                height = viewHeight * info.ScaleY / 2 / (viewHeight / 2);
+            }
+            _renderFrame.AddOverlayCommand(new RenderOverlayCommand(RenderOverlayKind.HudLayer,
+                new[]
+                {
+                    new RenderOverlayVertex(new Vector3(width + info.ShiftX, height + info.ShiftY, 0), new Vector2(1, 0), Vector4.One),
+                    new RenderOverlayVertex(new Vector3(-width + info.ShiftX, height + info.ShiftY, 0), new Vector2(0, 0), Vector4.One),
+                    new RenderOverlayVertex(new Vector3(width + info.ShiftX, -height + info.ShiftY, 0), new Vector2(1, 1), Vector4.One),
+                    new RenderOverlayVertex(new Vector3(-width + info.ShiftX, -height + info.ShiftY, 0), new Vector2(0, 1), Vector4.One)
+                }, texture: texture, alpha: info.Alpha, useTexture: texture.HasValue,
+                sourceBindingId: info.BindingId, scaleX: info.ScaleX, scaleY: info.ScaleY,
+                shiftX: info.ShiftX, shiftY: info.ShiftY, stage: _capturingPresentationStage));
+        }
+
+        private void CaptureHudObject(HudObjectInstance instance, int mode, float scale)
+        {
+            if (!instance.Enabled)
+            {
+                return;
+            }
+            CaptureHudTexture(instance.BindingId, out TextureIdentity? texture);
+            float x = instance.PositionX;
+            float y = instance.PositionY;
+            float width = instance.Width;
+            float height = instance.Height;
+            if (mode == 2)
+            {
+                width = width / 256 * Size.X;
+                height = height / 192 * Size.Y;
+            }
+            else if (mode == 1)
+            {
+                float aspect = height / width;
+                height = height / 192 * Size.Y;
+                width = height / aspect;
+            }
+            else
+            {
+                float aspect = width / height;
+                width = width / 256 * Size.X;
+                height = width / aspect;
+            }
+            width *= scale;
+            height *= scale;
+            float viewLeft = -Size.X / 2;
+            float viewTop = Size.Y / 2;
+            float left = viewLeft + x * Size.X - (instance.Center ? width / 2 : 0);
+            float right = left + width;
+            float top = viewTop - y * Size.Y + (instance.Center ? height / 2 : 0);
+            float bottom = top - height;
+            left /= Size.X / 2;
+            right /= Size.X / 2;
+            top /= Size.Y / 2;
+            bottom /= Size.Y / 2;
+            if (instance.FlipHorizontal) (right, left) = (left, right);
+            if (instance.FlipVertical) (bottom, top) = (top, bottom);
+            TextureIdentity? mask = null;
+            if (instance.UseMask && Layer1Info.MaskId != -1)
+            {
+                CaptureHudTexture(Layer1Info.MaskId, out mask);
+            }
+            _renderFrame.AddOverlayCommand(new RenderOverlayCommand(RenderOverlayKind.HudObject,
+                new[]
+                {
+                    new RenderOverlayVertex(new Vector3(right, top, 0), new Vector2(1, 0), Vector4.One),
+                    new RenderOverlayVertex(new Vector3(left, top, 0), new Vector2(0, 0), Vector4.One),
+                    new RenderOverlayVertex(new Vector3(right, bottom, 0), new Vector2(1, 1), Vector4.One),
+                    new RenderOverlayVertex(new Vector3(left, bottom, 0), new Vector2(0, 1), Vector4.One)
+                }, texture: texture, maskTexture: mask, alpha: instance.Alpha,
+                useTexture: texture.HasValue, useMask: instance.UseMask && mask.HasValue,
+                sourceBindingId: instance.BindingId, mode: mode, scale: scale,
+                stage: _capturingPresentationStage));
+        }
+
+        private void CaptureHudFlatBox(float left, float top, float right, float bottom, Vector4 color)
+            => _renderFrame.AddOverlayCommand(CreateHudFlatBoxCommand(
+                Size, left, top, right, bottom, color, _capturingPresentationStage));
+
+        internal static RenderOverlayCommand CreateHudFlatBoxCommand(Vector2i size,
+            float left, float top, float right, float bottom, Vector4 color,
+            RenderPresentationStage stage)
+        {
+            float halfW = size.X / 2f;
+            float halfH = size.Y / 2f;
+            float x0 = (left / 256f * size.X - halfW) / halfW;
+            float x1 = (right / 256f * size.X - halfW) / halfW;
+            float y0 = (halfH - top / 192f * size.Y) / halfH;
+            float y1 = (halfH - bottom / 192f * size.Y) / halfH;
+            return new RenderOverlayCommand(RenderOverlayKind.FlatBox,
+                new[]
+                {
+                    new RenderOverlayVertex(new Vector3(x1, y0, 0), Vector2.Zero, color),
+                    new RenderOverlayVertex(new Vector3(x0, y0, 0), Vector2.Zero, color),
+                    new RenderOverlayVertex(new Vector3(x1, y1, 0), Vector2.Zero, color),
+                    new RenderOverlayVertex(new Vector3(x0, y1, 0), Vector2.Zero, color)
+                }, color: color, stage: stage);
+        }
+
+        private void CaptureHudRadialSector(int sector, Vector4 color)
+        {
+            var vertices = new List<RenderOverlayVertex>(14);
+            for (int step = 0; step <= 6; step++)
+            {
+                Vector2 outer = Mods.Input.WeaponRadialSelection.SectorPoint(sector, step / 6f, 87, 58);
+                Vector2 inner = Mods.Input.WeaponRadialSelection.SectorPoint(sector, step / 6f, 19, 13);
+                vertices.Add(new RenderOverlayVertex(new Vector3(outer.X / 128, (4 - outer.Y) / 96, 0), Vector2.Zero, color));
+                vertices.Add(new RenderOverlayVertex(new Vector3(inner.X / 128, (4 - inner.Y) / 96, 0), Vector2.Zero, color));
+            }
+            _renderFrame.AddOverlayCommand(new RenderOverlayCommand(RenderOverlayKind.RadialSector,
+                vertices, color: color, stage: _capturingPresentationStage));
+        }
+
+        private void CaptureCustomCrosshair(Vector3 color)
+        {
+            float halfW = Size.X / 2f;
+            float halfH = Size.Y / 2f;
+            Vector4 fill = new Vector4(color, 1);
+            IReadOnlyList<Mods.Render.CrosshairBar> bars =
+                Mods.Render.Crosshair.BarsOf(Mods.Render.Crosshair.Style, Mods.Render.Crosshair.Scale);
+            for (int i = 0; i < bars.Count; i++)
+            {
+                (float left, float right, float bottom, float top) = Mods.Render.Crosshair.EdgesOf(bars[i]);
+                _renderFrame.AddOverlayCommand(new RenderOverlayCommand(RenderOverlayKind.Crosshair,
+                    new[]
+                    {
+                        new RenderOverlayVertex(new Vector3(right / halfW, top / halfH, 0), Vector2.Zero, fill),
+                        new RenderOverlayVertex(new Vector3(left / halfW, top / halfH, 0), Vector2.Zero, fill),
+                        new RenderOverlayVertex(new Vector3(right / halfW, bottom / halfH, 0), Vector2.Zero, fill),
+                        new RenderOverlayVertex(new Vector3(left / halfW, bottom / halfH, 0), Vector2.Zero, fill)
+                    }, color: fill, stage: _capturingPresentationStage));
+            }
+            (float radius, float thickness) = Mods.Render.Crosshair.RingOf(
+                Mods.Render.Crosshair.Style, Mods.Render.Crosshair.Scale);
+            if (thickness <= 0) return;
+            const int segments = 40;
+            float inner = radius - thickness / 2;
+            float outer = radius + thickness / 2;
+            var vertices = new List<RenderOverlayVertex>((segments + 1) * 2);
+            for (int i = 0; i <= segments; i++)
+            {
+                float angle = MathHelper.TwoPi * i / segments;
+                float cos = MathF.Cos(angle);
+                float sin = MathF.Sin(angle);
+                vertices.Add(new RenderOverlayVertex(new Vector3(outer * cos / halfW, outer * sin / halfH, 0), Vector2.Zero, fill));
+                vertices.Add(new RenderOverlayVertex(new Vector3(inner * cos / halfW, inner * sin / halfH, 0), Vector2.Zero, fill));
+            }
+            _renderFrame.AddOverlayCommand(new RenderOverlayCommand(RenderOverlayKind.Crosshair,
+                vertices, color: fill, stage: _capturingPresentationStage));
+        }
+
+        private bool TryGetSubmissionTexture(TextureIdentity identity, out RenderTexturePixels? texture)
+        {
+            if (_textureResources.TryGetValue(identity, out texture)) return true;
+            TextureIdentity baseIdentity = identity.WithPaletteOverride(null);
+            return _textureResources.TryGetValue(baseIdentity, out texture);
         }
 
         public Matrix4 GetPerspectiveMatrix(float fov)
@@ -1516,7 +2132,9 @@ namespace MphRead
         {
             // todo: update this only when the viewport or camera values change
             _perspectiveMatrix = GetPerspectiveMatrix(_cameraFov);
+#if ANDROID
             GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref _perspectiveMatrix);
+#endif
             // update frustum info
             Vector3 camPos = World.LocalPlayer!.CameraInfo.Position;
             var camRight = new Vector3(_viewMatrix.Row0.X, _viewMatrix.Row0.Y, -_viewMatrix.Row0.Z);
@@ -1607,6 +2225,7 @@ namespace MphRead
         /// Reported rather than asserted: a release build has no debugger to
         /// break into, and an incomplete framebuffer is silent otherwise.
         /// </summary>
+#if ANDROID
         public FramebufferErrorCode FramebufferStatus { get; private set; }
             = FramebufferErrorCode.FramebufferComplete;
 
@@ -1681,19 +2300,35 @@ namespace MphRead
             GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, 0);
             return buffer;
         }
+#endif
 
         /// <summary>Called only after a window successfully presents this scene.</summary>
         public void OnFramePresented()
         {
             Mods.Network.AuthoritativePlay.Current?.CommitRemotePresentation(World);
+            if (RenderBackendSelection.Current == RenderBackendKind.Sdl)
+            {
+                // The request has crossed the backend submission boundary. A
+                // failed/minimized frame never reaches this callback and keeps
+                // the same request pending for the next picture.
+                _pendingSdlScreenshot = null;
+            }
         }
 
         public void AfterRenderFrame()
         {
             if (_recording)
             {
+#if ANDROID
                 ScreenCapture.Record(Size.X, Size.Y, $"frame{_framesRecorded:0000}");
+#else
+                _pendingSdlRecordingRequest = null;
+#endif
                 _framesRecorded++;
+            }
+            if (RenderBackendSelection.Current == RenderBackendKind.Sdl)
+            {
+                _pendingSdlToolCaptures.Clear();
             }
             _advanceOneFrame = false;
         }
@@ -1716,6 +2351,7 @@ namespace MphRead
         /// banding still works, and the alternative is a target that draws
         /// nothing at all.
         /// </summary>
+#if ANDROID
         private void UpdateDepthAttachment(Vector2i target)
         {
             bool want = !_depthTextureRefused && Mods.RenderOptions.CelShading
@@ -1830,9 +2466,32 @@ namespace MphRead
         /// and the second is the one the threshold has to clear.
         /// </summary>
         private float _claimedQuantum = 1f / (MathF.Pow(2, 24) - 1);
+#endif
 
         private float _depthQuantum = 1f / (MathF.Pow(2, 24) - 1);
 
+        private static readonly float[] _presentationShiftTable = CreatePresentationShiftTable();
+
+        // Dynamic HUD bindings (especially the font surface) can be rewritten
+        // several times before one frame is submitted. The source identity is
+        // stable for client ownership, so the frame uses a value variant for
+        // each revision it actually draws.
+        private readonly record struct DynamicTextureRevision(TextureIdentity Identity, long Revision);
+
+        private static float[] CreatePresentationShiftTable()
+        {
+            var shifts = new float[64];
+            for (int i = 0; i < shifts.Length; i++)
+            {
+                int value = (i & 32) != 0 ? 31 - (i & 31) : i & 31;
+                shifts[i] = -((value - 16) << 12) / 4096f / 256f;
+            }
+            return shifts;
+        }
+
+        public float FramesPerSecond { get; private set; }
+
+#if ANDROID
         /// <summary>
         /// Draw the ink line over the finished scene, inside the offscreen
         /// target.
@@ -1842,7 +2501,7 @@ namespace MphRead
         /// pass that can look at its neighbours can find. So the scene is
         /// copied to a texture of its own -- on the GPU, with no round trip
         /// through the CPU -- and read back a texel at a time by
-        /// <see cref="Shaders.CelFragmentShader"/>.
+        /// <see cref="Mods.Render.EsShaders.CelFragmentShader"/>.
         ///
         /// Inside the target rather than over the window because the helmet,
         /// the HUD and the fade are drawn after it and must not be outlined,
@@ -1946,20 +2605,7 @@ namespace MphRead
             GL.Disable(EnableCap.DepthTest);
             GL.Disable(EnableCap.Blend);
             GL.Disable(EnableCap.CullFace);
-            GL.Begin(PrimitiveType.TriangleStrip);
-            // top right
-            GL.TexCoord3(1f, 1f, 0f);
-            GL.Vertex3(1f, 1f, 0f);
-            // top left
-            GL.TexCoord3(0f, 1f, 0f);
-            GL.Vertex3(-1f, 1f, 0f);
-            // bottom right
-            GL.TexCoord3(1f, 0f, 0f);
-            GL.Vertex3(1f, -1f, 0f);
-            // bottom left
-            GL.TexCoord3(0f, 0f, 0f);
-            GL.Vertex3(-1f, -1f, 0f);
-            GL.End();
+            GL.DrawFullscreenQuad();
             GL.BindTexture(TextureTarget.Texture2D, 0);
             GL.ActiveTexture(TextureUnit.Texture1);
             GL.BindTexture(TextureTarget.Texture2D, 0);
@@ -2115,8 +2761,6 @@ namespace MphRead
         /// to catch the frames that took too long, and a fixed-step counter
         /// cannot.
         /// </summary>
-        public float FramesPerSecond { get; private set; }
-
         private readonly Stopwatch _fpsClock = Stopwatch.StartNew();
         private int _fpsFrames;
 
@@ -2145,82 +2789,7 @@ namespace MphRead
             {
                 return false;
             }
-            // pass 1: opaque
-            GL.ColorMask(true, true, true, true);
-            GL.Enable(EnableCap.AlphaTest);
-            GL.AlphaFunc(AlphaFunction.Equal, 1.0f);
-            GL.DepthFunc(DepthFunction.Less);
-            GL.DepthMask(true);
-            GL.Enable(EnableCap.StencilTest);
-            GL.StencilMask(0xFF);
-            GL.StencilOp(StencilOp.Zero, StencilOp.Zero, StencilOp.Zero);
-            GL.StencilFunc(StencilFunction.Always, 0, 0xFF);
-            for (int i = 0; i < _nonDecalItems.Count; i++)
-            {
-                RenderItem item = _nonDecalItems[i];
-                RenderItem(item);
-            }
-            GL.Disable(EnableCap.AlphaTest);
-            // pass 2: decal
-            GL.Enable(EnableCap.PolygonOffsetFill);
-            GL.PolygonOffset(-1, -1);
-            // todo?: decals shouldn't render unless they have ~equal depth to the previous polygon,
-            // which means the rendering order here needs to be the same as it is in-game
-            GL.DepthFunc(DepthFunction.Lequal);
-            GL.Enable(EnableCap.Blend);
-            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-            for (int i = 0; i < _decalItems.Count; i++)
-            {
-                RenderItem item = _decalItems[i];
-                RenderItem(item);
-            }
-            GL.PolygonOffset(0, 0);
-            GL.Disable(EnableCap.PolygonOffsetFill);
-            // pass 3: mark transparent faces in stencil
-            GL.Enable(EnableCap.AlphaTest);
-            GL.AlphaFunc(AlphaFunction.Less, 1.0f);
-            GL.ColorMask(false, false, false, false);
-            GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
-            for (int i = 0; i < _translucentItems.Count; i++)
-            {
-                RenderItem item = _translucentItems[i];
-                GL.StencilFunc(StencilFunction.Greater, item.PolygonId, 0xFF);
-                RenderItem(item);
-            }
-            // pass 4: rebuild depth buffer
-            GL.Clear(ClearBufferMask.DepthBufferBit);
-            GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
-            GL.StencilFunc(StencilFunction.Always, 0, 0xFF);
-            GL.AlphaFunc(AlphaFunction.Equal, 1.0f);
-            for (int i = 0; i < _nonDecalItems.Count; i++)
-            {
-                RenderItem item = _nonDecalItems[i];
-                RenderItem(item);
-            }
-            // pass 5: translucent (behind)
-            GL.AlphaFunc(AlphaFunction.Less, 1.0f);
-            GL.ColorMask(true, true, true, true);
-            GL.DepthMask(false);
-            GL.DepthFunc(DepthFunction.Lequal);
-            GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
-            for (int i = 0; i < _translucentItems.Count; i++)
-            {
-                RenderItem item = _translucentItems[i];
-                GL.StencilFunc(StencilFunction.Notequal, item.PolygonId, 0xFF);
-                RenderItem(item);
-            }
-            // pass 6: translucent (before)
-            GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
-            for (int i = 0; i < _translucentItems.Count; i++)
-            {
-                RenderItem item = _translucentItems[i];
-                GL.StencilFunc(StencilFunction.Equal, item.PolygonId, 0xFF);
-                RenderItem(item);
-            }
-            GL.DepthMask(true);
-            GL.Disable(EnableCap.AlphaTest);
-            GL.Disable(EnableCap.StencilTest);
-            GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
+            GlesBackend.RenderWorld(_renderFrame, _glesWorldContext);
 
             if (World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
             {
@@ -2273,20 +2842,7 @@ namespace MphRead
             GL.Enable(EnableCap.Blend);
             GL.BindTexture(TextureTarget.Texture2D, _screenTexture);
 
-            GL.Begin(PrimitiveType.TriangleStrip);
-            // top right
-            GL.TexCoord3(1f, 1f, 0f);
-            GL.Vertex3(1f, 1f, 0f);
-            // top left
-            GL.TexCoord3(0f, 1f, 0f);
-            GL.Vertex3(-1f, 1f, 0f);
-            // bottom right
-            GL.TexCoord3(1f, 0f, 0f);
-            GL.Vertex3(1f, -1f, 0f);
-            // bottom left
-            GL.TexCoord3(0f, 0f, 0f);
-            GL.Vertex3(-1f, -1f, 0f);
-            GL.End();
+            GL.DrawFullscreenQuad();
 
             GL.BindTexture(TextureTarget.Texture2D, 0);
 
@@ -2340,20 +2896,7 @@ namespace MphRead
                 if (percent > 0)
                 {
                     GL.Uniform4(_shaderLocations.FadeColor, _fadeColor, _fadeColor, _fadeColor, percent);
-                    GL.Begin(PrimitiveType.TriangleStrip);
-                    // top right
-                    GL.TexCoord3(1f, 1f, 0f);
-                    GL.Vertex3(1f, 1f, 0f);
-                    // top left
-                    GL.TexCoord3(0f, 1f, 0f);
-                    GL.Vertex3(-1f, 1f, 0f);
-                    // bottom right
-                    GL.TexCoord3(1f, 0f, 0f);
-                    GL.Vertex3(1f, -1f, 0f);
-                    // bottom left
-                    GL.TexCoord3(0f, 0f, 0f);
-                    GL.Vertex3(-1f, -1f, 0f);
-                    GL.End();
+                    GL.DrawFullscreenQuad();
                 }
             }
             GL.Enable(EnableCap.DepthTest);
@@ -2365,6 +2908,7 @@ namespace MphRead
             }
             return true;
         }
+#endif
 
         private void LoadAndUnload()
         {
@@ -2415,18 +2959,26 @@ namespace MphRead
 
         public void UnloadModel(Model model)
         {
+            ReleaseModelTextureResources(model);
             if (_texPalMap.TryGetValue(model.Id, out TextureMap? map))
             {
+#if ANDROID
                 foreach (KeyValuePair<int, (int BindingId, bool OnlyOpaque)> kvp in map)
                 {
                     GL.DeleteTexture(kvp.Value.BindingId);
                 }
+#endif
                 _texPalMap.Remove(model.Id);
             }
             foreach (Mesh mesh in model.Meshes)
             {
-                GL.DeleteLists(GetMeshListId(mesh), 1);
-                SetMeshListId(mesh, 0);
+                _portableMeshes.Remove(mesh.GeometryIdentity);
+#if ANDROID
+                // Model unload runs on the EGL/render thread while its
+                // context is current. Release only this model's static
+                // objects; Reset handles whole-context loss.
+                GL.ReleaseStaticMesh(mesh.GeometryIdentity);
+#endif
             }
             Read.RemoveModel(model.Name, model.FirstHunt);
         }
@@ -2477,7 +3029,9 @@ namespace MphRead
                 _viewInvRotYMatrix.Row2.Xyz = new Vector3(_viewInvRotMatrix.Row2.X, 0, _viewInvRotMatrix.Row2.Z).Normalized();
             }
             if (Mods.SpectatorMode.IsSpectating) _cameraFov = MathHelper.DegreesToRadians(SpectatorCamera.FieldOfView);
+#if ANDROID
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
+#endif
         }
 
         private void UpdateCameraPosition()
@@ -2631,12 +3185,22 @@ namespace MphRead
             if (_singleParticleCount < _singleParticleMax)
             {
                 SingleParticle entry = _singleParticles[_singleParticleCount++];
+                entry.Type = type;
                 entry.ParticleDefinition = Read.GetSingleParticle(type);
                 entry.Position = _submissionInterpolated ? Vector3.TransformPosition(position, _submissionDelta) : position;
                 entry.Color = color;
                 entry.Alpha = alpha;
                 entry.Scale = scale;
-                if (!_texPalMap.ContainsKey(entry.ParticleDefinition.Model.Id))
+                if (RenderBackendSelection.UsesPortableMeshPreparation(RenderBackendSelection.Current))
+                {
+                    PrepareCpuMeshes(entry.ParticleDefinition.Model, isRoom: false);
+                    if (RenderBackendSelection.Current != RenderBackendKind.Sdl
+                        && !_texPalMap.ContainsKey(entry.ParticleDefinition.Model.Id))
+                    {
+                        InitTextures(entry.ParticleDefinition.Model);
+                    }
+                }
+                else if (!_texPalMap.ContainsKey(entry.ParticleDefinition.Model.Id))
                 {
                     InitTextures(entry.ParticleDefinition.Model);
                 }
@@ -2801,7 +3365,7 @@ namespace MphRead
                 // the model may already be loaded; meshes with a ListId will be skipped
                 Model model = Read.GetModelInstance(element.ModelName).Model;
                 InitTextures(model);
-                GenerateLists(model, isRoom: false);
+                PrepareCpuMeshes(model, isRoom: false);
             }
         }
 
@@ -3256,9 +3820,8 @@ namespace MphRead
             }
         }
 
-        private const int _renderItemAlloc = 200; // todo: revisit this (could allocate based on number of meshes on load)
-        private readonly Queue<RenderItem> _freeRenderItems = new Queue<RenderItem>(_renderItemAlloc);
-        private readonly Queue<RenderItem> _usedRenderItems = new Queue<RenderItem>(_renderItemAlloc);
+        private const int _renderItemAlloc = RenderFrame.DefaultCapacity;
+        private readonly RenderFrame _renderFrame = new RenderFrame(_renderItemAlloc);
         // avoiding overhead by duplicating things in these lists
         /// <summary>
         /// Simulation steps taken since the last frame was drawn. Effects are
@@ -3317,25 +3880,40 @@ namespace MphRead
         /// </summary>
         private int _pendingFadeSteps;
 
-        private readonly List<RenderItem> _decalItems = new List<RenderItem>();
-        private readonly List<RenderItem> _nonDecalItems = new List<RenderItem>();
-        private readonly List<RenderItem> _translucentItems = new List<RenderItem>();
+        private readonly List<DrawSubmission> _decalItems = new List<DrawSubmission>();
+        private readonly List<DrawSubmission> _nonDecalItems = new List<DrawSubmission>();
+        private readonly List<DrawSubmission> _translucentItems = new List<DrawSubmission>();
 
-        private RenderItem GetRenderItem()
+        // Compatibility handles belong to the legacy backend, not to the
+        // portable submission contract. Entries live exactly as long as the
+        // frame and are looked up by submission when the GL adapter draws it.
+        private readonly Dictionary<DrawSubmission, LegacySubmissionResources> _legacySubmissionResources
+            = new Dictionary<DrawSubmission, LegacySubmissionResources>();
+#if ANDROID
+        private readonly GlesWorldContext _glesWorldContext = new GlesWorldContext();
+#endif
+
+        private readonly struct LegacySubmissionResources
         {
-            if (_freeRenderItems.Count > 0)
+            public int ListId { get; }
+            public int TextureId { get; }
+
+            public LegacySubmissionResources(int listId, int textureId)
             {
-                return _freeRenderItems.Dequeue();
+                ListId = listId;
+                TextureId = textureId;
             }
-            return new RenderItem();
         }
+
+        private DrawSubmission GetRenderItem() => _renderFrame.Acquire();
 
         private readonly float[] _scaleFactors = new float[16];
 
         // for meshes
         public void AddRenderItem(Material material, int polygonId, float alphaScale, Vector3 emission, LightInfo lightInfo, Matrix4 texcoordMatrix,
-            Matrix4 transform, int listId, int matrixStackCount, IReadOnlyList<float> matrixStack, Vector4? overrideColor, Vector4? paletteOverride,
-            SelectionType selectionType, BillboardMode billboardMode, float scaleFactor = 1, int? bindingOverride = null)
+            Matrix4 transform, int listId, object geometryIdentity, int matrixStackCount, IReadOnlyList<float> matrixStack, Vector4? overrideColor, Vector4? paletteOverride,
+            SelectionType selectionType, BillboardMode billboardMode, float scaleFactor = 1, int? bindingOverride = null,
+            TextureIdentity? textureIdentity = null)
         {
             transform.Row0.X *= scaleFactor;
             transform.Row0.Y *= scaleFactor;
@@ -3362,8 +3940,8 @@ namespace MphRead
             _scaleFactors[13] = 1;
             _scaleFactors[14] = 1;
             _scaleFactors[15] = 1;
-            RenderItem item = GetRenderItem();
-            item.Type = RenderItemType.Mesh;
+            DrawSubmission item = GetRenderItem();
+            item.Primitive = RenderPrimitive.Mesh;
             item.PolygonId = polygonId;
             item.Alpha = material.CurrentAlpha * alphaScale;
             item.PolygonMode = material.PolygonMode;
@@ -3385,7 +3963,7 @@ namespace MphRead
                 item.XRepeat = RepeatMode.Mirror;
                 item.YRepeat = RepeatMode.Mirror;
                 item.HasTexture = true;
-                item.TextureBindingId = bindingOverride.Value;
+                SetLegacyTexture(item, bindingOverride.Value);
             }
             else
             {
@@ -3393,11 +3971,13 @@ namespace MphRead
                 item.XRepeat = material.XRepeat;
                 item.YRepeat = material.YRepeat;
                 item.HasTexture = material.TextureId != -1;
-                item.TextureBindingId = GetTextureBindingId(material);
+                SetLegacyTexture(item, GetTextureBindingId(material));
             }
             item.TexcoordMatrix = texcoordMatrix;
             item.Transform = SubmissionTransform(transform);
-            item.ListId = listId;
+            item.GeometryIdentity = geometryIdentity;
+            item.TextureIdentity = item.HasTexture ? textureIdentity : null;
+            SetLegacyList(item, listId);
             Debug.Assert(matrixStack.Count == 16 * matrixStackCount);
             item.MatrixStackCount = matrixStackCount;
             for (int i = 0; i < matrixStack.Count; i++)
@@ -3420,15 +4000,19 @@ namespace MphRead
                     item.PaletteOverride = null;
                 }
             }
+            if (item.TextureIdentity is TextureIdentity identity)
+            {
+                item.TextureIdentity = identity.WithPaletteOverride(item.PaletteOverride);
+            }
             AddRenderItem(item);
         }
 
         // for volumes/planes
-        public void AddRenderItem(CullingMode cullingMode, int polygonId, Vector4 overrideColor, RenderItemType type,
+        public void AddRenderItem(CullingMode cullingMode, int polygonId, Vector4 overrideColor, RenderPrimitive type,
             Vector3[] vertices, int vertexCount = 0, bool noLines = false)
         {
-            RenderItem item = GetRenderItem();
-            item.Type = type;
+            DrawSubmission item = GetRenderItem();
+            item.Primitive = type;
             item.PolygonId = polygonId;
             item.Alpha = 1;
             item.PolygonMode = PolygonMode.Modulate;
@@ -3447,28 +4031,40 @@ namespace MphRead
             item.XRepeat = RepeatMode.Clamp;
             item.YRepeat = RepeatMode.Clamp;
             item.HasTexture = false;
-            item.TextureBindingId = 0;
             item.TexcoordMatrix = Matrix4.Identity;
             item.Transform = Matrix4.Identity;
-            item.ListId = 0;
             item.MatrixStackCount = 0;
             item.OverrideColor = overrideColor;
             item.PaletteOverride = null;
             item.Points = vertices;
             item.ScaleS = 1;
             item.ScaleT = 1;
-            Debug.Assert(type != RenderItemType.Ngon || vertexCount >= 3);
+            if (type == RenderPrimitive.Ngon)
+            {
+                item.EdgeColor = GetNgonEdgeColor(_showCollision, ColDisplayColor, ColDisplayAlpha);
+            }
+            Debug.Assert(type != RenderPrimitive.Ngon || vertexCount >= 3);
             item.ItemCount = vertexCount;
             AddRenderItem(item);
         }
 
-        // for effects/trails
-        public void AddRenderItem(RenderItemType type, float alpha, int polygonId, Vector3 color,
-            RepeatMode xRepeat, RepeatMode yRepeat, float scaleS, float scaleT, Matrix4 transform, Vector3[] uvsAndVerts,
-            int bindingId, BillboardMode billboardMode = BillboardMode.None, int trailCount = 8)
+        internal static Vector4 GetNgonEdgeColor(bool showCollision, CollisionColor displayColor,
+            float displayAlpha)
         {
-            RenderItem item = GetRenderItem();
-            item.Type = type;
+            return showCollision && displayColor == CollisionColor.None && displayAlpha == 1
+                ? new Vector4(0f, 0f, 1f, 1f)
+                : new Vector4(1f, 0f, 0f, 1f);
+        }
+
+        // for effects/trails
+        public void AddRenderItem(RenderPrimitive type, float alpha, int polygonId, Vector3 color,
+            RepeatMode xRepeat, RepeatMode yRepeat, float scaleS, float scaleT, Matrix4 transform, Vector3[] uvsAndVerts,
+            TextureIdentity? textureIdentity, int bindingId,
+            BillboardMode billboardMode = BillboardMode.None, int trailCount = 8,
+            float bloomStrength = 0)
+        {
+            DrawSubmission item = GetRenderItem();
+            item.Primitive = type;
             item.PolygonId = polygonId;
             item.Alpha = alpha;
             item.PolygonMode = PolygonMode.Modulate;
@@ -3482,15 +4078,18 @@ namespace MphRead
             item.Ambient = Vector3.Zero;
             item.Specular = Vector3.Zero;
             item.Emission = Vector3.Zero;
+            item.BloomStrength = float.IsFinite(bloomStrength)
+                ? Math.Clamp(bloomStrength, 0, 1) : 0;
+            item.BloomEligible = item.BloomStrength > 0;
             item.LightInfo = LightInfo.Zero;
             item.TexgenMode = TexgenMode.None;
             item.XRepeat = xRepeat;
             item.YRepeat = yRepeat;
             item.HasTexture = true;
-            item.TextureBindingId = bindingId;
+            item.TextureIdentity = textureIdentity;
+            SetLegacyTexture(item, bindingId);
             item.TexcoordMatrix = Matrix4.Identity;
             item.Transform = SubmissionTransform(transform);
-            item.ListId = 0;
             item.MatrixStackCount = 0;
             item.OverrideColor = null;
             item.PaletteOverride = null;
@@ -3502,11 +4101,12 @@ namespace MphRead
         }
 
         // for Morph Ball trails
-        public void AddRenderItem(RenderItemType type, int polygonId, Vector3 color, RepeatMode xRepeat, RepeatMode yRepeat, float scaleS,
-            float scaleT, int matrixStackCount, IReadOnlyList<float> matrixStack, Vector3[] uvsAndVerts, int segmentCount, int bindingId)
+        public void AddRenderItem(RenderPrimitive type, int polygonId, Vector3 color, RepeatMode xRepeat, RepeatMode yRepeat, float scaleS,
+            float scaleT, int matrixStackCount, IReadOnlyList<float> matrixStack, Vector3[] uvsAndVerts, int segmentCount,
+            TextureIdentity? textureIdentity, int bindingId)
         {
-            RenderItem item = GetRenderItem();
-            item.Type = type;
+            DrawSubmission item = GetRenderItem();
+            item.Primitive = type;
             item.PolygonId = polygonId;
             item.Alpha = 1;
             item.PolygonMode = PolygonMode.Modulate;
@@ -3520,15 +4120,17 @@ namespace MphRead
             item.Ambient = Vector3.Zero;
             item.Specular = Vector3.Zero;
             item.Emission = Vector3.Zero;
+            item.BloomStrength = 0;
+            item.BloomEligible = false;
             item.LightInfo = LightInfo.Zero;
             item.TexgenMode = TexgenMode.None;
             item.XRepeat = xRepeat;
             item.YRepeat = yRepeat;
             item.HasTexture = true;
-            item.TextureBindingId = bindingId;
+            item.TextureIdentity = textureIdentity;
+            SetLegacyTexture(item, bindingId);
             item.TexcoordMatrix = Matrix4.Identity;
             item.Transform = Matrix4.Identity;
-            item.ListId = 0;
             Debug.Assert(matrixStack.Count >= 16 * matrixStackCount);
             item.MatrixStackCount = matrixStackCount;
             for (int i = 0; i < 16 * matrixStackCount; i++)
@@ -3544,22 +4146,51 @@ namespace MphRead
             AddRenderItem(item);
         }
 
-        private void AddRenderItem(RenderItem item)
+        private void SetLegacyList(DrawSubmission item, int listId)
         {
-            if (item.RenderMode == RenderMode.Decal)
-            {
-                _decalItems.Add(item);
-            }
-            else
-            {
-                _nonDecalItems.Add(item);
-            }
-            if (item.RenderMode == RenderMode.Translucent || item.Alpha < 1)
-            {
-                _translucentItems.Add(item);
-            }
-            _usedRenderItems.Enqueue(item);
+            _legacySubmissionResources[item] = new LegacySubmissionResources(listId,
+                _legacySubmissionResources.TryGetValue(item, out LegacySubmissionResources existing)
+                    ? existing.TextureId : 0);
         }
+
+        private void SetLegacyTexture(DrawSubmission item, int textureId)
+        {
+            _legacySubmissionResources[item] = new LegacySubmissionResources(
+                _legacySubmissionResources.TryGetValue(item, out LegacySubmissionResources existing)
+                    ? existing.ListId : 0, textureId);
+        }
+
+        private int GetLegacyList(DrawSubmission item)
+            => _legacySubmissionResources.TryGetValue(item, out LegacySubmissionResources resources)
+                ? resources.ListId : 0;
+
+        private int GetLegacyTexture(DrawSubmission item)
+            => _legacySubmissionResources.TryGetValue(item, out LegacySubmissionResources resources)
+                ? resources.TextureId : 0;
+
+        private void AddRenderItem(DrawSubmission item)
+        {
+            _renderFrame.Add(item);
+        }
+
+        /// <summary>
+        /// Record a bounded render-only light while the current frame is being
+        /// prepared.  The option is checked here, at the presentation
+        /// boundary, so gameplay entities never need to know whether the
+        /// selected backend supports the enhancement.
+        /// </summary>
+        public bool TryAddVisualLight(RenderVisualLight light)
+        {
+            if (!Mods.RenderOptions.DynamicVisualLights)
+            {
+                return false;
+            }
+            return _renderFrame.AddVisualLight(light);
+        }
+
+        public bool TryAddVisualLight(Vector3 position, Vector3 color, float radius,
+            float intensity, int priority)
+            => TryAddVisualLight(new RenderVisualLight(position, color, radius, intensity, priority));
 
         private int _nextPolygonId = 1;
 
@@ -3607,6 +4238,12 @@ namespace MphRead
                     EntityPresentation.Get(entity, this).GetDisplayVolumes();
                 }
             }
+
+            // A host-authorized, server-selected QZ1 diagnostic is rendered
+            // as bounded world geometry. It never feeds the simulation or
+            // accepts a rewind/query request from this client.
+            if (Mods.Network.AuthoritativePlay.Current?.Client.HistoricalDebug is { } historicalDebug)
+                HistoricalCollisionDebugPresentation.Draw(this, historicalDebug);
 
             if (ProcessFrame && World.Match.LegacyState == MatchState.InProgress)
             {
@@ -3660,6 +4297,7 @@ namespace MphRead
             }
         }
 
+#if ANDROID
         private void UpdateUniforms()
         {
             UseRoomLights();
@@ -3692,6 +4330,7 @@ namespace MphRead
             GL.Uniform3(_shaderLocations.Light2Vector, vector);
             GL.Uniform3(_shaderLocations.Light2Color, color);
         }
+#endif
 
         private FadeType _fadeType = FadeType.None;
         public FadeType FadeType => _fadeType;
@@ -3777,7 +4416,9 @@ namespace MphRead
                 _fadeEnded = false;
             }
             _pendingFadeSteps = 0;
+#if ANDROID
             if (updateDevice) GL.ClearColor(_clearColor);
+#endif
         }
 
         private void QuitGame()
@@ -3792,7 +4433,9 @@ namespace MphRead
             if (!_exiting)
             {
                 _exiting = true;
+                DisposeAnnouncerAudio();
                 World.CloseWorld();
+                Music.Stop();
                 Sound.Sfx.ShutDown();
                 OutputStop();
                 Selection.Clear();
@@ -3833,370 +4476,34 @@ namespace MphRead
             }
         }
 
-        private void RenderItem(RenderItem item)
-        {
-            UseLight1(item.LightInfo.Light1Vector, item.LightInfo.Light1Color);
-            UseLight2(item.LightInfo.Light2Vector, item.LightInfo.Light2Color);
-
-            if (item.MatrixStackCount > 0)
-            {
-                GL.UniformMatrix4(_shaderLocations.MatrixStack, item.MatrixStackCount, transpose: false, item.MatrixStack);
-            }
-            else
-            {
-                Matrix4 transform = item.Transform;
-                GL.UniformMatrix4(_shaderLocations.MatrixStack, transpose: false, ref transform);
-            }
-            Matrix4 viewInv = Matrix4.Identity;
-            if (item.BillboardMode == BillboardMode.Sphere)
-            {
-                viewInv = _viewInvRotMatrix;
-            }
-            else if (item.BillboardMode == BillboardMode.Cylinder)
-            {
-                viewInv = _viewInvRotYMatrix;
-            }
-            GL.UniformMatrix4(_shaderLocations.ViewInvMatrix, transpose: false, ref viewInv);
-
-            DoMaterial(item);
-            // texgen actually uses the transform from the current node, not the matrix stack
-            DoTexture(item);
-            if (_faceCulling)
-            {
-                GL.Enable(EnableCap.CullFace);
-                if (item.CullingMode == CullingMode.Neither)
-                {
-                    GL.Disable(EnableCap.CullFace);
-                }
-                else if (item.CullingMode == CullingMode.Back)
-                {
-                    GL.CullFace(TriangleFace.Back);
-                }
-                else if (item.CullingMode == CullingMode.Front)
-                {
-                    GL.CullFace(TriangleFace.Front);
-                }
-            }
-            GL.PolygonMode(TriangleFace.FrontAndBack,
-                _wireframe || item.Wireframe
-                ? OpenTK.Graphics.OpenGL.PolygonMode.Line
-                : OpenTK.Graphics.OpenGL.PolygonMode.Fill);
-            if (item.Type == RenderItemType.Mesh)
-            {
-                GL.CallList(item.ListId);
-            }
-            else if (item.Type == RenderItemType.Box)
-            {
-                RenderBox(item.Points);
-            }
-            else if (item.Type == RenderItemType.Cylinder)
-            {
-                RenderCylinder(item.Points);
-            }
-            else if (item.Type == RenderItemType.Sphere)
-            {
-                RenderSphere(item.Points);
-            }
-            else if (item.Type == RenderItemType.Quad)
-            {
-                RenderQuad(item.Points);
-            }
-            else if (item.Type == RenderItemType.Ngon)
-            {
-                if (_volumeEdges != 1)
-                {
-                    RenderNgon(item.Points, item.ItemCount);
-                }
-                if (_volumeEdges != 2 && !item.NoLines)
-                {
-                    // todo: implement this for volumes as well
-                    RenderNgonLines(item.Points, item.ItemCount);
-                }
-            }
-            else if (item.Type == RenderItemType.Particle)
-            {
-                RenderParticle(item);
-            }
-            else if (item.Type == RenderItemType.TrailSingle)
-            {
-                RenderTrailSingle(item);
-            }
-            else if (item.Type == RenderItemType.TrailMulti)
-            {
-                RenderTrailMulti(item);
-            }
-            else if (item.Type == RenderItemType.TrailStack)
-            {
-                RenderTrailStack(item);
-            }
-        }
-
-        private void RenderBox(Vector3[] verts)
-        {
-            // sides
-            GL.Begin(PrimitiveType.TriangleStrip);
-            GL.Vertex3(verts[2]);
-            GL.Vertex3(verts[6]);
-            GL.Vertex3(verts[0]);
-            GL.Vertex3(verts[4]);
-            GL.Vertex3(verts[1]);
-            GL.Vertex3(verts[5]);
-            GL.Vertex3(verts[3]);
-            GL.Vertex3(verts[7]);
-            GL.Vertex3(verts[2]);
-            GL.Vertex3(verts[6]);
-            GL.End();
-            // top
-            GL.Begin(PrimitiveType.TriangleStrip);
-            GL.Vertex3(verts[5]);
-            GL.Vertex3(verts[4]);
-            GL.Vertex3(verts[7]);
-            GL.Vertex3(verts[6]);
-            GL.End();
-            // bottom
-            GL.Begin(PrimitiveType.TriangleStrip);
-            GL.Vertex3(verts[3]);
-            GL.Vertex3(verts[2]);
-            GL.Vertex3(verts[1]);
-            GL.Vertex3(verts[0]);
-            GL.End();
-        }
-
-        private void RenderCylinder(Vector3[] verts)
-        {
-            // bottom
-            GL.Begin(PrimitiveType.TriangleFan);
-            GL.Vertex3(verts[32]);
-            GL.Vertex3(verts[0]);
-            GL.Vertex3(verts[1]);
-            GL.Vertex3(verts[2]);
-            GL.Vertex3(verts[3]);
-            GL.Vertex3(verts[4]);
-            GL.Vertex3(verts[5]);
-            GL.Vertex3(verts[6]);
-            GL.Vertex3(verts[7]);
-            GL.Vertex3(verts[8]);
-            GL.Vertex3(verts[9]);
-            GL.Vertex3(verts[10]);
-            GL.Vertex3(verts[11]);
-            GL.Vertex3(verts[12]);
-            GL.Vertex3(verts[13]);
-            GL.Vertex3(verts[14]);
-            GL.Vertex3(verts[15]);
-            GL.Vertex3(verts[0]);
-            GL.End();
-            // top
-            GL.Begin(PrimitiveType.TriangleFan);
-            GL.Vertex3(verts[33]);
-            GL.Vertex3(verts[31]);
-            GL.Vertex3(verts[30]);
-            GL.Vertex3(verts[29]);
-            GL.Vertex3(verts[28]);
-            GL.Vertex3(verts[27]);
-            GL.Vertex3(verts[26]);
-            GL.Vertex3(verts[25]);
-            GL.Vertex3(verts[24]);
-            GL.Vertex3(verts[23]);
-            GL.Vertex3(verts[22]);
-            GL.Vertex3(verts[21]);
-            GL.Vertex3(verts[20]);
-            GL.Vertex3(verts[19]);
-            GL.Vertex3(verts[18]);
-            GL.Vertex3(verts[17]);
-            GL.Vertex3(verts[16]);
-            GL.Vertex3(verts[31]);
-            GL.End();
-            // sides
-            GL.Begin(PrimitiveType.TriangleStrip);
-            GL.Vertex3(verts[0]);
-            GL.Vertex3(verts[16]);
-            GL.Vertex3(verts[1]);
-            GL.Vertex3(verts[17]);
-            GL.Vertex3(verts[2]);
-            GL.Vertex3(verts[18]);
-            GL.Vertex3(verts[3]);
-            GL.Vertex3(verts[19]);
-            GL.Vertex3(verts[4]);
-            GL.Vertex3(verts[20]);
-            GL.Vertex3(verts[5]);
-            GL.Vertex3(verts[21]);
-            GL.Vertex3(verts[6]);
-            GL.Vertex3(verts[22]);
-            GL.Vertex3(verts[7]);
-            GL.Vertex3(verts[23]);
-            GL.Vertex3(verts[8]);
-            GL.Vertex3(verts[24]);
-            GL.Vertex3(verts[9]);
-            GL.Vertex3(verts[25]);
-            GL.Vertex3(verts[10]);
-            GL.Vertex3(verts[26]);
-            GL.Vertex3(verts[11]);
-            GL.Vertex3(verts[27]);
-            GL.Vertex3(verts[12]);
-            GL.Vertex3(verts[28]);
-            GL.Vertex3(verts[13]);
-            GL.Vertex3(verts[29]);
-            GL.Vertex3(verts[14]);
-            GL.Vertex3(verts[30]);
-            GL.Vertex3(verts[15]);
-            GL.Vertex3(verts[31]);
-            GL.Vertex3(verts[0]);
-            GL.Vertex3(verts[16]);
-            GL.End();
-        }
-
-        private void RenderSphere(Vector3[] verts)
-        {
-            int stackCount = DisplaySphereStacks;
-            int sectorCount = DisplaySphereSectors;
-            GL.Begin(PrimitiveType.Triangles);
-            int k1, k2;
-            for (int i = 0; i < stackCount; i++)
-            {
-                k1 = i * (sectorCount + 1);
-                k2 = k1 + sectorCount + 1;
-                for (int j = 0; j < sectorCount; j++, k1++, k2++)
-                {
-                    if (i != 0)
-                    {
-                        GL.Vertex3(verts[k1 + 1]);
-                        GL.Vertex3(verts[k2]);
-                        GL.Vertex3(verts[k1]);
-                    }
-                    if (i != (stackCount - 1))
-                    {
-                        GL.Vertex3(verts[k2 + 1]);
-                        GL.Vertex3(verts[k2]);
-                        GL.Vertex3(verts[k1 + 1]);
-                    }
-                }
-            }
-            GL.End();
-        }
-
-        private void RenderQuad(Vector3[] verts)
-        {
-            GL.Begin(PrimitiveType.TriangleStrip);
-            GL.Vertex3(verts[0]);
-            GL.Vertex3(verts[3]);
-            GL.Vertex3(verts[1]);
-            GL.Vertex3(verts[2]);
-            GL.End();
-        }
-
-        private void RenderNgon(Vector3[] verts, int count)
-        {
-            GL.Begin(PrimitiveType.TriangleFan);
-            for (int i = 0; i < count; i++)
-            {
-                GL.Vertex3(verts[i]);
-            }
-            GL.End();
-        }
-
-        private void RenderNgonLines(Vector3[] verts, int count)
-        {
-            Vector4 color = _showCollision && ColDisplayColor == CollisionColor.None && ColDisplayAlpha == 1
-                ? new Vector4(0f, 0f, 1f, 1f)
-                : new Vector4(1f, 0f, 0f, 1f);
-            GL.Uniform4(_shaderLocations.OverrideColor, color);
-            GL.Begin(PrimitiveType.LineLoop);
-            for (int i = 0; i < count; i++)
-            {
-                GL.Vertex3(verts[i]);
-            }
-            GL.End();
-        }
-
-        private void RenderParticle(RenderItem item)
-        {
-            Vector3 texcoord0 = item.Points[0];
-            Vector3 vertex0 = item.Points[1];
-            Vector3 texcoord1 = item.Points[2];
-            Vector3 vertex1 = item.Points[3];
-            Vector3 texcoord2 = item.Points[4];
-            Vector3 vertex2 = item.Points[5];
-            Vector3 texcoord3 = item.Points[6];
-            Vector3 vertex3 = item.Points[7];
-            GL.Begin(PrimitiveType.Quads);
-            GL.TexCoord3(texcoord0.X * item.ScaleS, texcoord0.Y * item.ScaleT, 0f);
-            GL.Vertex3(vertex0);
-            GL.TexCoord3(texcoord1.X * item.ScaleS, texcoord1.Y * item.ScaleT, 0f);
-            GL.Vertex3(vertex1);
-            GL.TexCoord3(texcoord2.X * item.ScaleS, texcoord2.Y * item.ScaleT, 0f);
-            GL.Vertex3(vertex2);
-            GL.TexCoord3(texcoord3.X * item.ScaleS, texcoord3.Y * item.ScaleT, 0f);
-            GL.Vertex3(vertex3);
-            GL.End();
-        }
-
-        private void RenderTrailSingle(RenderItem item)
-        {
-            Vector3 texcoord0 = item.Points[0];
-            Vector3 vertex0 = item.Points[1];
-            Vector3 texcoord1 = item.Points[2];
-            Vector3 vertex1 = item.Points[3];
-            Vector3 texcoord2 = item.Points[4];
-            Vector3 vertex2 = item.Points[5];
-            Vector3 texcoord3 = item.Points[6];
-            Vector3 vertex3 = item.Points[7];
-            GL.Begin(PrimitiveType.QuadStrip);
-            GL.TexCoord3(texcoord0);
-            GL.Vertex3(vertex0);
-            GL.TexCoord3(texcoord1);
-            GL.Vertex3(vertex1);
-            GL.TexCoord3(texcoord2);
-            GL.Vertex3(vertex2);
-            GL.TexCoord3(texcoord3);
-            GL.Vertex3(vertex3);
-            GL.End();
-        }
-
-        private void RenderTrailMulti(RenderItem item)
-        {
-            Debug.Assert(item.ItemCount >= 4 && item.ItemCount % 2 == 0);
-            GL.Begin(PrimitiveType.QuadStrip);
-            for (int i = 0; i < item.ItemCount; i += 2)
-            {
-                Vector3 texcoord = item.Points[i];
-                Vector3 vertex = item.Points[i + 1];
-                GL.TexCoord3(texcoord);
-                GL.Vertex3(vertex);
-            }
-            GL.End();
-        }
-
-        private void RenderTrailStack(RenderItem item)
-        {
-            for (int i = 0; i < item.ItemCount; i++)
-            {
-                Vector3 texcoord0 = item.Points[i * 8];
-                Vector3 vertex0 = item.Points[i * 8 + 1];
-                Vector3 texcoord1 = item.Points[i * 8 + 2];
-                Vector3 vertex1 = item.Points[i * 8 + 3];
-                Vector3 texcoord2 = item.Points[i * 8 + 4];
-                Vector3 vertex2 = item.Points[i * 8 + 5];
-                Vector3 texcoord3 = item.Points[i * 8 + 6];
-                Vector3 vertex3 = item.Points[i * 8 + 7];
-                GL.Begin(PrimitiveType.Quads);
-                GL.TexCoord3(texcoord0);
-                GL.Vertex3(vertex0);
-                GL.TexCoord3(texcoord1);
-                GL.Vertex3(vertex1);
-                GL.TexCoord3(texcoord2);
-                GL.Vertex3(vertex2);
-                GL.TexCoord3(texcoord3);
-                GL.Vertex3(vertex3);
-                GL.End();
-            }
-        }
-
         public LayerInfo Layer1Info { get; } = new LayerInfo();
         public LayerInfo Layer2Info { get; } = new LayerInfo();
         public LayerInfo Layer3Info { get; } = new LayerInfo();
         public LayerInfo Layer4Info { get; } = new LayerInfo();
         public LayerInfo Layer5Info { get; } = new LayerInfo();
 
+#if !ANDROID
+        public void DrawCustomCrosshair(Vector3 color) => CaptureCustomCrosshair(color);
+
+        public void DrawHudRadialSector(int sector, Vector4 color)
+            => CaptureHudRadialSector(sector, color);
+
+        public void DrawHudFlatBox(float left, float top, float right, float bottom, Vector4 color)
+            => CaptureHudFlatBox(left, top, right, bottom, color);
+
+        public void DrawHudObject(HudObjectInstance instance, int mode = 0, float scale = 1)
+            => CaptureHudObject(instance, mode, scale);
+
+        public void DrawIconModel(Vector2 position, float angle, ModelInstance instance,
+            ColorRgb color, float alpha)
+            => CaptureHudIconModel(position, angle, instance, color, alpha);
+
+        public void DrawHudFilterModel(ModelInstance instance, float alpha = 1)
+            => CaptureHudFilterModel(instance, alpha);
+
+        public void DrawHudDamageModel(ModelInstance instance)
+            => CaptureHudDamageModel(instance);
+#else
         private void SetHudLayerUniforms()
         {
             GL.Disable(EnableCap.DepthTest);
@@ -4244,6 +4551,11 @@ namespace MphRead
 
         private void DrawHudLayer(LayerInfo info)
         {
+            if (_capturingPresentationFrame)
+            {
+                CaptureHudLayer(info);
+                return;
+            }
             if (info.BindingId == -1)
             {
                 return;
@@ -4273,20 +4585,11 @@ namespace MphRead
                 width = viewWidth * info.ScaleX / 2 / (viewWidth / 2);
                 height = viewHeight * info.ScaleY / 2 / (viewHeight / 2);
             }
-            GL.Begin(PrimitiveType.TriangleStrip);
-            // top right
-            GL.TexCoord3(1f, 0f, 0f);
-            GL.Vertex3(width + info.ShiftX, height + info.ShiftY, 0f);
-            // top left
-            GL.TexCoord3(0f, 0f, 0f);
-            GL.Vertex3(-width + info.ShiftX, height + info.ShiftY, 0f);
-            // bottom right
-            GL.TexCoord3(1f, 1f, 0f);
-            GL.Vertex3(width + info.ShiftX, -height + info.ShiftY, 0f);
-            // bottom left
-            GL.TexCoord3(0f, 1f, 0f);
-            GL.Vertex3(-width + info.ShiftX, -height + info.ShiftY, 0f);
-            GL.End();
+            GL.DrawTexturedQuad(
+                new Vector3(width + info.ShiftX, height + info.ShiftY, 0f),
+                new Vector3(-width + info.ShiftX, height + info.ShiftY, 0f),
+                new Vector3(width + info.ShiftX, -height + info.ShiftY, 0f),
+                new Vector3(-width + info.ShiftX, -height + info.ShiftY, 0f));
             GL.BindTexture(TextureTarget.Texture2D, 0);
         }
 
@@ -4305,23 +4608,28 @@ namespace MphRead
         /// </summary>
         public void DrawCustomCrosshair(Vector3 color)
         {
+            if (_capturingPresentationFrame)
+            {
+                CaptureCustomCrosshair(color);
+                return;
+            }
             float halfW = Size.X / 2f;
             float halfH = Size.Y / 2f;
             Mods.Render.CrosshairStyle style = Mods.Render.Crosshair.Style;
             float scale = Mods.Render.Crosshair.Scale;
             GL.Uniform4(_shaderLocations.FadeColor, color.X, color.Y, color.Z, 1f);
-            IReadOnlyList<Mods.Render.CrosshairBar> bars =
-                Mods.Render.Crosshair.BarsOf(style, scale);
-            for (int i = 0; i < bars.Count; i++)
+            Span<Mods.Render.CrosshairBar> bars = stackalloc Mods.Render.CrosshairBar[8];
+            int barCount = Mods.Render.Crosshair.FillBars(style, scale, bars);
+            for (int i = 0; i < barCount; i++)
             {
                 (float left, float right, float bottom, float top) =
                     Mods.Render.Crosshair.EdgesOf(bars[i]);
-                GL.Begin(PrimitiveType.TriangleStrip);
-                GL.Vertex3(right / halfW, top / halfH, 0f);
-                GL.Vertex3(left / halfW, top / halfH, 0f);
-                GL.Vertex3(right / halfW, bottom / halfH, 0f);
-                GL.Vertex3(left / halfW, bottom / halfH, 0f);
-                GL.End();
+                GL.DrawSolidQuad(
+                    new Vector3(right / halfW, top / halfH, 0f),
+                    new Vector3(left / halfW, top / halfH, 0f),
+                    new Vector3(right / halfW, bottom / halfH, 0f),
+                    new Vector3(left / halfW, bottom / halfH, 0f),
+                    Vector4.One);
             }
             (float radius, float thickness) = Mods.Render.Crosshair.RingOf(style, scale);
             if (thickness > 0)
@@ -4331,18 +4639,7 @@ namespace MphRead
                 // the flats are under a pixel at the sizes this is drawn at,
                 // and it is four dozen vertices once a frame either way.
                 const int segments = 40;
-                float inner = radius - thickness / 2;
-                float outer = radius + thickness / 2;
-                GL.Begin(PrimitiveType.TriangleStrip);
-                for (int i = 0; i <= segments; i++)
-                {
-                    float angle = MathHelper.TwoPi * i / segments;
-                    float cos = MathF.Cos(angle);
-                    float sin = MathF.Sin(angle);
-                    GL.Vertex3(outer * cos / halfW, outer * sin / halfH, 0f);
-                    GL.Vertex3(inner * cos / halfW, inner * sin / halfH, 0f);
-                }
-                GL.End();
+                GL.DrawCrosshairRing(radius, thickness, halfW, halfH, segments);
             }
             GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero);
         }
@@ -4356,21 +4653,33 @@ namespace MphRead
         /// </summary>
         public void DrawHudRadialSector(int sector, Vector4 color)
         {
+            if (_capturingPresentationFrame)
+            {
+                CaptureHudRadialSector(sector, color);
+                return;
+            }
             GL.Uniform4(_shaderLocations.FadeColor, color);
-            GL.Begin(PrimitiveType.TriangleStrip);
+            GL.PrepareDynamicMesh(MeshPrimitiveTopology.TriangleStrip, 14);
             for (int step = 0; step <= 6; step++)
             {
                 Vector2 outer = Mods.Input.WeaponRadialSelection.SectorPoint(sector, step / 6f, 87, 58);
                 Vector2 inner = Mods.Input.WeaponRadialSelection.SectorPoint(sector, step / 6f, 19, 13);
-                GL.Vertex3(outer.X / 128, (4 - outer.Y) / 96, 0f);
-                GL.Vertex3(inner.X / 128, (4 - inner.Y) / 96, 0f);
+                GL.SetDynamicMeshVertex(step * 2,
+                    new Vector3(outer.X / 128, (4 - outer.Y) / 96, 0f));
+                GL.SetDynamicMeshVertex(step * 2 + 1,
+                    new Vector3(inner.X / 128, (4 - inner.Y) / 96, 0f));
             }
-            GL.End();
+            GL.DrawPreparedDynamicMesh();
             GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero);
         }
 
         public void DrawHudFlatBox(float left, float top, float right, float bottom, Vector4 color)
         {
+            if (_capturingPresentationFrame)
+            {
+                CaptureHudFlatBox(left, top, right, bottom, color);
+                return;
+            }
             float halfW = Size.X / 2f;
             float halfH = Size.Y / 2f;
             float x0 = (left / 256f * Size.X - halfW) / halfW;
@@ -4378,12 +4687,9 @@ namespace MphRead
             float y0 = (halfH - top / 192f * Size.Y) / halfH;
             float y1 = (halfH - bottom / 192f * Size.Y) / halfH;
             GL.Uniform4(_shaderLocations.FadeColor, color);
-            GL.Begin(PrimitiveType.TriangleStrip);
-            GL.Vertex3(x1, y0, 0f);
-            GL.Vertex3(x0, y0, 0f);
-            GL.Vertex3(x1, y1, 0f);
-            GL.Vertex3(x0, y1, 0f);
-            GL.End();
+            GL.DrawSolidQuad(
+                new Vector3(x1, y0, 0f), new Vector3(x0, y0, 0f),
+                new Vector3(x1, y1, 0f), new Vector3(x0, y1, 0f), Vector4.One);
             GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero);
         }
 
@@ -4397,6 +4703,11 @@ namespace MphRead
         /// </param>
         public void DrawHudObject(HudObjectInstance inst, int mode = 0, float scale = 1)
         {
+            if (_capturingPresentationFrame)
+            {
+                CaptureHudObject(inst, mode, scale);
+                return;
+            }
             if (!inst.Enabled)
             {
                 return;
@@ -4459,25 +4770,19 @@ namespace MphRead
             {
                 (bottomPos, topPos) = (topPos, bottomPos);
             }
-            GL.Begin(PrimitiveType.TriangleStrip);
-            // top right
-            GL.TexCoord3(1f, 0f, 0f);
-            GL.Vertex3(rightPos, topPos, 0f);
-            // top left
-            GL.TexCoord3(0f, 0f, 0f);
-            GL.Vertex3(leftPos, topPos, 0f);
-            // bottom right
-            GL.TexCoord3(1f, 1f, 0f);
-            GL.Vertex3(rightPos, bottomPos, 0f);
-            // bottom left
-            GL.TexCoord3(0f, 1f, 0f);
-            GL.Vertex3(leftPos, bottomPos, 0f);
-            GL.End();
+            GL.DrawTexturedQuad(
+                new Vector3(rightPos, topPos, 0f), new Vector3(leftPos, topPos, 0f),
+                new Vector3(rightPos, bottomPos, 0f), new Vector3(leftPos, bottomPos, 0f));
             GL.BindTexture(TextureTarget.Texture2D, 0);
         }
 
         public void DrawIconModel(Vector2 position, float angle, ModelInstance inst, ColorRgb color, float alpha)
         {
+            if (_capturingPresentationFrame)
+            {
+                CaptureHudIconModel(position, angle, inst, color, alpha);
+                return;
+            }
             float scale = Size.Y / 192f;
             var position3d = new Vector3(position.X * Size.X - Size.X / 2, (1 - position.Y) * Size.Y - (Size.Y / 2), -1f);
             Matrix4 transform = Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(angle))
@@ -4496,7 +4801,12 @@ namespace MphRead
             GL.TexParameter(TextureTarget.Texture2D,
                 TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
             GL.Color3(new Vector3(color.Red / 31f, color.Green / 31f, color.Blue / 31f));
-            GL.CallList(GetMeshListId(model.Meshes[0]));
+            Mesh iconMesh = model.Meshes[0];
+            if (!_portableMeshes.TryGetValue(iconMesh.GeometryIdentity, out CpuMesh? iconCpuMesh))
+            {
+                throw new ProgramException("Android GLES HUD icon has no prepared CpuMesh.");
+            }
+            GL.DrawStaticMesh(iconMesh.GeometryIdentity, iconCpuMesh);
             GL.BindTexture(TextureTarget.Texture2D, 0);
             Matrix4 identity = Matrix4.Identity;
             GL.UniformMatrix4(_shaderLocations.MatrixStack, transpose: false, ref identity);
@@ -4504,6 +4814,11 @@ namespace MphRead
 
         public void DrawHudFilterModel(ModelInstance inst, float alpha = 1)
         {
+            if (_capturingPresentationFrame)
+            {
+                CaptureHudFilterModel(inst, alpha);
+                return;
+            }
             Model model = inst.Model;
             UpdateMaterials(model, 0);
             Material material = model.Materials[0];
@@ -4519,20 +4834,9 @@ namespace MphRead
                 TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
             float viewWidth = Size.X;
             float viewHeight = Size.Y;
-            GL.Begin(PrimitiveType.TriangleStrip);
-            // top right
-            GL.TexCoord3(1f, 0f, 0f);
-            GL.Vertex3(viewWidth, viewHeight, -1f);
-            // top left
-            GL.TexCoord3(0f, 0f, 0f);
-            GL.Vertex3(-viewWidth, viewHeight, -1f);
-            // bottom right
-            GL.TexCoord3(1f, 1f, 0f);
-            GL.Vertex3(viewWidth, -viewHeight, -1f);
-            // bottom left
-            GL.TexCoord3(0f, 1f, 0f);
-            GL.Vertex3(-viewWidth, -viewHeight, -1f);
-            GL.End();
+            GL.DrawTexturedQuad(
+                new Vector3(viewWidth, viewHeight, -1f), new Vector3(-viewWidth, viewHeight, -1f),
+                new Vector3(viewWidth, -viewHeight, -1f), new Vector3(-viewWidth, -viewHeight, -1f));
             GL.BindTexture(TextureTarget.Texture2D, 0);
         }
 
@@ -4540,6 +4844,11 @@ namespace MphRead
 
         public void DrawHudDamageModel(ModelInstance inst)
         {
+            if (_capturingPresentationFrame)
+            {
+                CaptureHudDamageModel(inst);
+                return;
+            }
             Model model = inst.Model;
             UpdateMaterials(model, 0);
             GL.Uniform1(_shaderLocations.MaterialAlpha, 1f);
@@ -4582,119 +4891,18 @@ namespace MphRead
                 if (node.Enabled)
                 {
                     Mesh mesh = model.Meshes[node.MeshId / 2];
-                    GL.CallList(GetMeshListId(mesh));
+                    if (!_portableMeshes.TryGetValue(mesh.GeometryIdentity, out CpuMesh? cpuMesh))
+                    {
+                        throw new ProgramException("Android GLES HUD model has no prepared CpuMesh.");
+                    }
+                    GL.DrawStaticMesh(mesh.GeometryIdentity, cpuMesh);
                 }
             }
             GL.BindTexture(TextureTarget.Texture2D, 0);
             Matrix4 identity = Matrix4.Identity;
             GL.UniformMatrix4(_shaderLocations.MatrixStack, transpose: false, ref identity);
         }
-
-        private void DoMaterial(RenderItem item)
-        {
-            GL.Uniform1(_shaderLocations.UseLight, LightingOn && item.Lighting ? 1 : 0);
-            // MPH applies the material colors initially by calling DIF_AMB with bit 15 set,
-            // so the diffuse color is always set as the vertex color to start
-            // (the emission color is set to white if lighting is disabled or black if lighting is enabled; we can just ignore that)
-            // --> ...except for hunter models with teams enabled or with double damage
-            GL.Color3(item.Diffuse);
-            GL.Uniform3(_shaderLocations.Diffuse, item.Diffuse);
-            GL.Uniform3(_shaderLocations.Ambient, item.Ambient);
-            GL.Uniform3(_shaderLocations.Specular, item.Specular);
-            GL.Uniform3(_shaderLocations.Emission, item.Emission);
-            GL.Uniform1(_shaderLocations.MaterialAlpha, item.Alpha);
-            GL.Uniform1(_shaderLocations.MaterialMode, (int)item.PolygonMode);
-        }
-
-        private void DoTexture(RenderItem item)
-        {
-            if (item.HasTexture)
-            {
-                GL.BindTexture(TextureTarget.Texture2D, item.TextureBindingId);
-                int minParameter = FilteringOn ? (int)TextureMinFilter.Linear : (int)TextureMinFilter.Nearest;
-                int magParameter = FilteringOn ? (int)TextureMagFilter.Linear : (int)TextureMagFilter.Nearest;
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, minParameter);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, magParameter);
-                switch (item.XRepeat)
-                {
-                case RepeatMode.Clamp:
-                    GL.TexParameter(TextureTarget.Texture2D,
-                        TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-                    break;
-                case RepeatMode.Repeat:
-                    GL.TexParameter(TextureTarget.Texture2D,
-                        TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-                    break;
-                case RepeatMode.Mirror:
-                    GL.TexParameter(TextureTarget.Texture2D,
-                        TextureParameterName.TextureWrapS, (int)TextureWrapMode.MirroredRepeat);
-                    break;
-                }
-                switch (item.YRepeat)
-                {
-                case RepeatMode.Clamp:
-                    GL.TexParameter(TextureTarget.Texture2D,
-                        TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
-                    break;
-                case RepeatMode.Repeat:
-                    GL.TexParameter(TextureTarget.Texture2D,
-                        TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-                    break;
-                case RepeatMode.Mirror:
-                    GL.TexParameter(TextureTarget.Texture2D,
-                        TextureParameterName.TextureWrapT, (int)TextureWrapMode.MirroredRepeat);
-                    break;
-                }
-                Matrix4 texcoordMatrix = item.TexcoordMatrix;
-                GL.Uniform1(_shaderLocations.TexgenMode, (int)item.TexgenMode);
-                GL.UniformMatrix4(_shaderLocations.TextureMatrix, transpose: false, ref texcoordMatrix);
-            }
-            GL.Uniform1(_shaderLocations.UseTexture, item.HasTexture && _showTextures ? 1 : 0);
-            SetFlatColor(item.HasTexture && _showTextures ? item.TextureBindingId : -1);
-            Vector4? overrideColor = item.OverrideColor;
-            if (overrideColor != null)
-            {
-                Vector4 overrideColorValue = overrideColor.Value;
-                GL.Uniform1(_shaderLocations.UseOverride, 1);
-                GL.Uniform4(_shaderLocations.OverrideColor, ref overrideColorValue);
-            }
-            else
-            {
-                GL.Uniform1(_shaderLocations.UseOverride, 0);
-            }
-            if (item.PaletteOverride != null)
-            {
-                Vector4 overrideColorValue = item.PaletteOverride.Value;
-                GL.Uniform1(_shaderLocations.UsePaletteOverride, 1);
-                GL.Uniform4(_shaderLocations.PaletteOverrideColor, ref overrideColorValue);
-            }
-            else
-            {
-                GL.Uniform1(_shaderLocations.UsePaletteOverride, 0);
-            }
-        }
-
-        /// <summary>
-        /// Tell the fragment shader which flat colour stands in for the
-        /// texture about to be drawn, or that it should use the texture.
-        ///
-        /// Off unless cel shading is on, and off for anything whose binding
-        /// was never seen going to the card -- there is no average for it, and
-        /// a wrong flat colour is far worse than a texture.
-        /// </summary>
-        private void SetFlatColor(int bindingId)
-        {
-            if (Mods.RenderOptions.CelShading && bindingId != -1
-                && _flatColors.TryGetValue(bindingId, out Vector3 flat))
-            {
-                GL.Uniform1(_shaderLocations.UseFlat, 1);
-                GL.Uniform3(_shaderLocations.FlatColor, flat);
-            }
-            else
-            {
-                GL.Uniform1(_shaderLocations.UseFlat, 0);
-            }
-        }
+#endif
 
         public void LookAt(Vector3 target)
         {
@@ -4850,7 +5058,7 @@ namespace MphRead
         public float ColDisplayAlpha { get; private set; } = 0.5f;
         private int _colMenuSelect = 0; // 0-4
 
-        public void OnKeyDown(KeyboardKeyEventArgs e)
+        public void OnKeyDown(WindowKeyEvent e)
         {
 #if DEBUG
             if (Selection.OnKeyDown(e, World))
@@ -4863,10 +5071,19 @@ namespace MphRead
                 {
                     if (_recording)
                     {
+                        // SDL readbacks are delivered through the backend
+                        // completion channel, but stopping the shared CPU
+                        // recording consumer is still required. Stop has no
+                        // graphics API calls and is safe for both frontends.
                         ScreenCapture.StopRecording();
                     }
                     _recording = !_recording;
+                    if (_recording && RenderBackendSelection.Current == RenderBackendKind.Sdl)
+                    {
+                        ScreenCapture.StartRecording();
+                    }
                     _framesRecorded = 0;
+                    _pendingSdlRecordingRequest = null;
                 }
                 else if (AllowCameraMovement && _inputMode != InputMode.PlayerOnly)
                 {
@@ -5121,7 +5338,20 @@ namespace MphRead
             {
                 if (!_recording)
                 {
+#if ANDROID
                     ScreenCapture.Screenshot(Size.X, Size.Y);
+#else
+                    _pendingSdlScreenshot ??= new RenderCaptureRequest(
+                        Guid.NewGuid(),
+                        Mods.Render.FrameTiming.TotalFrames,
+                        CaptureTargetKind.FinalPresentedFrame,
+                        Size.X,
+                        Size.Y,
+                        CapturePixelFormat.Rgb8,
+                        CaptureRowOrientation.BottomUp,
+                        CaptureDeliveryKind.Screenshot,
+                        DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString());
+#endif
                 }
             }
             else if (e.Key == Keys.T)

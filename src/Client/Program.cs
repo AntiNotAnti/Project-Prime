@@ -21,6 +21,14 @@ namespace MphRead
             {
                 Mods.ConsoleWindow.Prepare(args);
             }
+            // Select the requested renderer before headless commands dispatch.
+            // Thumbnail/map/deterministic utilities return from TryHandleHeadless
+            // and therefore never reach the normal setup path below.
+            if (!RenderBackendSelection.ApplyArguments(args, out string? rendererError))
+            {
+                Console.Error.WriteLine(rendererError);
+                Exit();
+            }
             // Route launcher commands and report moved commands before game-file setup.
             if (Mods.ModEntry.TryHandleHeadless(args))
             {
@@ -88,18 +96,21 @@ namespace MphRead
                         Exit();
                     }
                 }
-                using var renderer = new RenderWindow();
-                foreach (string room in rooms)
-                {
-                    // No player is created: this is the existing free-camera asset viewer.
-                    renderer.AddRoom(room, GameMode.Battle, 0, nodeLayerMask, entityLayerId);
-                }
                 bool firstHunt = arguments.Any(a => a.Name == "fh");
-                foreach ((string model, int recolor) in models)
+                var scene = new Scene(features: ClientMatchFeatures.Capture());
+                using var sdlHost = new SdlGameHost();
+                sdlHost.RunScene(scene, presentation =>
                 {
-                    renderer.AddModel(model, recolor, firstHunt);
-                }
-                renderer.Run();
+                    foreach (string room in rooms)
+                    {
+                        // No player is created: this is the existing free-camera asset viewer.
+                        presentation.AddRoom(room, GameMode.Battle, 0, nodeLayerMask, entityLayerId);
+                    }
+                    foreach ((string model, int recolor) in models)
+                    {
+                        presentation.AddModel(model, recolor, firstHunt);
+                    }
+                });
             }
         }
 

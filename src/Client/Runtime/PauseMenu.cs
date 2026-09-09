@@ -1,16 +1,31 @@
 using System;
-using OpenTK.Windowing.Desktop;
+using OpenTK.Mathematics;
 
 namespace MphRead.Mods
 {
+    /// <summary>
+    /// The host surface the pause menu needs between frames. Keeping this
+    /// independent of an OpenTK window host lets SDL service the same Avalonia
+    /// menu.
+    /// </summary>
+    public interface IPauseMenuHost
+    {
+        Vector2i ClientLocation { get; }
+        Vector2i ClientSize { get; }
+        void Focus();
+        void Close();
+        void SyncTopmost(bool menuOpen);
+        void ToggleFullscreen();
+    }
+
     /// <summary>
     /// The menu Escape opens during a match: let go of the mouse, offer the
     /// way out, and put the settings within reach without leaving the game.
     ///
     /// The menu is an Avalonia window on the game's own thread, and talks to
-    /// the game through the flags below. It has to be that thread: GLFW window
-    /// calls -- closing it, changing its border -- belong to the thread that
-    /// created it, macOS accepts windows only on the main one, and Avalonia has
+    /// the game through the flags below. It has to be that thread: native
+    /// window calls -- closing it, changing its border -- belong to the thread
+    /// that created it, macOS accepts windows only on the main one, and Avalonia has
     /// a single UI thread per process in any case. So the menu asks, and
     /// <see cref="Poll"/> does the window work between frames.
     ///
@@ -35,10 +50,6 @@ namespace MphRead.Mods
         /// <summary>The player asked to close the program outright.</summary>
         public static bool QuitProgram { get; private set; }
 
-        /// <summary>
-        /// Escape, from the game window. True when the menu took it, so the
-        /// caller's own Escape handling -- which quits -- must not run.
-        /// </summary>
         /// <summary>Where the game window is, so the menu can open over it.</summary>
         public static int WindowX { get; private set; }
         public static int WindowY { get; private set; }
@@ -62,12 +73,12 @@ namespace MphRead.Mods
         /// drags the game window, and what is left behind is exactly the
         /// floating popup this stopped being.
         /// </summary>
-        private static void TakeWindowRect(NativeWindow window)
+        private static void TakeWindowRect(Vector2i location, Vector2i size)
         {
-            int x = window.ClientLocation.X;
-            int y = window.ClientLocation.Y;
-            int width = window.ClientSize.X;
-            int height = window.ClientSize.Y;
+            int x = location.X;
+            int y = location.Y;
+            int width = size.X;
+            int height = size.Y;
             if (x == WindowX && y == WindowY
                 && width == WindowWidth && height == WindowHeight)
             {
@@ -80,16 +91,12 @@ namespace MphRead.Mods
             WindowMoved = true;
         }
 
-        public static bool HandleEscape(NativeWindow window, Scene scene)
+        /// <summary>Open/close the pause menu from the active window host.</summary>
+        public static bool HandleEscape(IPauseMenuHost host, Scene scene)
         {
-            TakeWindowRect(window);
-            if (!Launcher.Gui.GuiLauncher.EnsureSetup())
-            {
-                // No toolkit on this machine -- no display, or a session that
-                // could not bind one. Escape keeps its old meaning rather than
-                // doing nothing at all.
-                return false;
-            }
+            if (host == null) throw new ArgumentNullException(nameof(host));
+            TakeWindowRect(host.ClientLocation, host.ClientSize);
+            if (!Launcher.Gui.GuiLauncher.EnsureSetup()) return false;
             if (_open)
             {
                 Close();
@@ -99,14 +106,20 @@ namespace MphRead.Mods
             return true;
         }
 
-        /// <summary>Called once a frame by the game window.</summary>
-        public static void Poll(GameWindow window)
+        /// <summary>Called once a frame by the active window host.</summary>
+        public static void Poll(IPauseMenuHost host)
+        {
+            if (host == null) throw new ArgumentNullException(nameof(host));
+            PollCore(host);
+        }
+
+        private static void PollCore(IPauseMenuHost host)
         {
             if (_open)
             {
                 // Before the toolkit's slice, so a drag that happened since
                 // the last frame is laid out in this one rather than the next.
-                TakeWindowRect(window);
+                TakeWindowRect(host.ClientLocation, host.ClientSize);
                 if (WindowMoved)
                 {
                     WindowMoved = false;
@@ -124,13 +137,13 @@ namespace MphRead.Mods
                 // Closing the menu does not reliably make the game window the
                 // foreground one again -- which window manager decides that,
                 // and on what grounds, is a per-platform matter -- and an
-                // unfocused GLFW window receives no keys and cannot grab the
+                // unfocused game window receives no keys and cannot grab the
                 // pointer. The game goes on simulating, so nothing looks
                 // crashed: the mouse still moves, the picture still draws, and
                 // nothing the player presses arrives. That reads as a freeze.
                 try
                 {
-                    window.Focus();
+                    host.Focus();
                 }
                 catch (Exception)
                 {
@@ -140,29 +153,27 @@ namespace MphRead.Mods
             // The game window floats above the shell while it is fullscreen,
             // and stands down while this menu is up. Here rather than in
             // OpenMenu/Close because both of those are called from the menu's
-            // own event handlers, and a GLFW window attribute belongs to the
-            // thread that created the window -- which is this one, between
-            // frames. Cached inside, so a frame that changes nothing is a
-            // comparison and no call.
-            WindowMode.SyncTopmost(window);
+            // own event handlers, and the native window attribute belongs to
+            // the host thread -- which is this one, between frames.
+            host.SyncTopmost(_open);
             if (_toggleFullscreen)
             {
                 _toggleFullscreen = false;
-                WindowMode.Toggle(window);
+                host.ToggleFullscreen();
             }
             if (_quit)
             {
                 _quit = false;
                 QuitProgram = true;
                 Close();
-                window.Close();
+                host.Close();
             }
             else if (_leave)
             {
                 _leave = false;
                 LeftMatch = true;
                 Close();
-                window.Close();
+                host.Close();
             }
         }
 

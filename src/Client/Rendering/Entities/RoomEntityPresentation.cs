@@ -116,7 +116,8 @@ namespace MphRead.Entities
                         }
 
                         Material material = model.Materials[mesh.MaterialId];
-                        Presentation.AddRenderItem(material, polygonId, 1, Vector3.Zero, GetLightInfo(), Matrix4.Identity, transform, Presentation.GetMeshListId(mesh), 0, _entity._emptyMatrixStack, color, null, SelectionType.None, node.BillboardMode);
+                        Presentation.AddRenderItem(material, polygonId, 1, Vector3.Zero, GetLightInfo(), Matrix4.Identity, transform, Presentation.GetMeshListId(mesh), mesh.GeometryIdentity, 0, _entity._emptyMatrixStack, color, null, SelectionType.None, node.BillboardMode,
+                            textureIdentity: Presentation.GetTextureIdentity(model, material, _entity.Recolor));
                     }
                 }
             }
@@ -328,7 +329,8 @@ namespace MphRead.Entities
 
                 Matrix4 texcoordMatrix = GetTexcoordMatrix(inst, material, mesh.MaterialId, node);
                 SelectionType selectionType = Selection.CheckSelection(_entity, inst, node, mesh);
-                Presentation.AddRenderItem(material, polygonId, alpha, emission: Vector3.Zero, GetLightInfo(), texcoordMatrix, node.Animation, Presentation.GetMeshListId(mesh), model.NodeMatrixIds.Count, model.MatrixStackValues, overrideColor: null, paletteOverride: null, selectionType, node.BillboardMode);
+                Presentation.AddRenderItem(material, polygonId, alpha, emission: Vector3.Zero, GetLightInfo(), texcoordMatrix, node.Animation, Presentation.GetMeshListId(mesh), mesh.GeometryIdentity, model.NodeMatrixIds.Count, model.MatrixStackValues, overrideColor: null, paletteOverride: null, selectionType, node.BillboardMode,
+                    textureIdentity: Presentation.GetTextureIdentity(model, material, _entity.Recolor));
             }
         }
 
@@ -377,7 +379,7 @@ namespace MphRead.Entities
 
                     float alpha = GetPortalAlpha(portal.Position, Presentation.CameraPosition);
                     Vector4 color = portal.IsForceField ? new Vector4(16 / 31f, 16 / 31f, 1f, alpha) : new Vector4(16 / 31f, 1f, 16 / 31f, alpha);
-                    Presentation.AddRenderItem(CullingMode.Neither, Presentation.GetNextPolygonId(), color, RenderItemType.Ngon, verts, count, noLines: true);
+                    Presentation.AddRenderItem(CullingMode.Neither, Presentation.GetNextPolygonId(), color, RenderPrimitive.Ngon, verts, count, noLines: true);
                 }
             }
             else if (Presentation.ShowVolumes == VolumeDisplay.KillPlane && !_entity._meta.FirstHunt)
@@ -388,7 +390,7 @@ namespace MphRead.Entities
                 verts[2] = new Vector3(-10000f, _scene.KillHeight, -10000f);
                 verts[3] = new Vector3(-10000f, _scene.KillHeight, 10000f);
                 var color = new Vector4(1f, 0f, 1f, 0.5f);
-                Presentation.AddRenderItem(CullingMode.Neither, Presentation.GetNextPolygonId(), color, RenderItemType.Quad, verts, noLines: true);
+                Presentation.AddRenderItem(CullingMode.Neither, Presentation.GetNextPolygonId(), color, RenderPrimitive.Quad, verts, noLines: true);
             }
             else if ((Presentation.ShowVolumes == VolumeDisplay.CameraLimit || Presentation.ShowVolumes == VolumeDisplay.PlayerLimit) && _entity._meta.HasLimits)
             {
@@ -408,7 +410,7 @@ namespace MphRead.Entities
                 bverts[6] = point0 + sideX + sideY;
                 bverts[7] = point0 + sideX + sideY + sideZ;
                 Vector4 color = Presentation.ShowVolumes == VolumeDisplay.CameraLimit ? new Vector4(1, 0, 0.69f, 0.5f) : new Vector4(1, 0, 0, 0.5f);
-                Presentation.AddRenderItem(CullingMode.Neither, Presentation.GetNextPolygonId(), color, RenderItemType.Box, bverts, 8);
+                Presentation.AddRenderItem(CullingMode.Neither, Presentation.GetNextPolygonId(), color, RenderPrimitive.Box, bverts, 8);
             }
         }
 

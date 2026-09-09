@@ -118,6 +118,46 @@ namespace MphRead.Mods.Render
             return bars;
         }
 
+        /// <summary>
+        /// Writes the bounded crosshair bar geometry into caller-owned storage.
+        /// Renderer hot paths use this overload so selecting a crosshair does
+        /// not allocate a list on every frame; <see cref="BarsOf"/> remains the
+        /// convenient list-shaped API for previews and capture construction.
+        /// </summary>
+        public static int FillBars(CrosshairStyle style, float scale,
+            Span<CrosshairBar> destination)
+        {
+            if (destination.Length < 8)
+            {
+                throw new ArgumentException("Crosshair storage must hold eight bars.", nameof(destination));
+            }
+            int count = 0;
+            switch (style)
+            {
+            case CrosshairStyle.Cross:
+                AddCross(destination, ref count, arm: 9f, thickness: 3f, gap: 3f, scale);
+                break;
+            case CrosshairStyle.Dot:
+                destination[count++] = Dot(4f, scale);
+                break;
+            case CrosshairStyle.CrossDot:
+                AddCross(destination, ref count, arm: 8f, thickness: 3f, gap: 5f, scale);
+                destination[count++] = Dot(3f, scale);
+                break;
+            case CrosshairStyle.Brackets:
+                AddBrackets(destination, ref count, corner: 10f, length: 6f,
+                    thickness: 2f, scale);
+                break;
+            case CrosshairStyle.Circle:
+                break;
+            default:
+                // Keep the same empty-shape fallback as BarsOf for an
+                // unrecognised enum value loaded from settings.
+                break;
+            }
+            return count;
+        }
+
         private static CrosshairBar Dot(float side, float scale)
         {
             return new CrosshairBar(0, 0, side * scale, side * scale);
@@ -133,6 +173,18 @@ namespace MphRead.Mods.Render
             bars.Add(new CrosshairBar(0, -offset, shortSide, longSide));
             bars.Add(new CrosshairBar(-offset, 0, longSide, shortSide));
             bars.Add(new CrosshairBar(offset, 0, longSide, shortSide));
+        }
+
+        private static void AddCross(Span<CrosshairBar> bars, ref int count,
+            float arm, float thickness, float gap, float scale)
+        {
+            float offset = (gap + arm / 2) * scale;
+            float longSide = arm * scale;
+            float shortSide = thickness * scale;
+            bars[count++] = new CrosshairBar(0, offset, shortSide, longSide);
+            bars[count++] = new CrosshairBar(0, -offset, shortSide, longSide);
+            bars[count++] = new CrosshairBar(-offset, 0, longSide, shortSide);
+            bars[count++] = new CrosshairBar(offset, 0, longSide, shortSide);
         }
 
         /// <summary>
@@ -156,6 +208,23 @@ namespace MphRead.Mods.Render
                 // The arm down the side, running inward, starting under it.
                 bars.Add(new CrosshairBar(sx * (c - thick / 2), sy * (c - len / 2 - thick / 2),
                     thick, len));
+            }
+        }
+
+        private static void AddBrackets(Span<CrosshairBar> bars, ref int count,
+            float corner, float length, float thickness, float scale)
+        {
+            float c = corner * scale;
+            float len = length * scale;
+            float thick = thickness * scale;
+            for (int i = 0; i < 4; i++)
+            {
+                float sx = (i & 1) == 0 ? -1 : 1;
+                float sy = (i & 2) == 0 ? 1 : -1;
+                bars[count++] = new CrosshairBar(sx * (c - len / 2 + thick / 2),
+                    sy * (c - thick / 2), len, thick);
+                bars[count++] = new CrosshairBar(sx * (c - thick / 2),
+                    sy * (c - len / 2 - thick / 2), thick, len);
             }
         }
 

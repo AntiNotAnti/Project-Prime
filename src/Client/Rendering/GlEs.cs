@@ -1,10 +1,10 @@
 #if ANDROID
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using ES = OpenTK.Graphics.ES30;
+using MphRead;
 
 namespace MphRead.Mods.Render
 {
@@ -18,22 +18,20 @@ namespace MphRead.Mods.Render
     /// stay the desktop enum types -- they are the same GL constants, and
     /// keeping them means the call sites do not change.
     ///
-    /// Four things the desktop renderer uses do not exist on ES, and this class
-    /// is where each of them is answered:
+    /// Shared rendering code compiles geometry into portable indexed meshes
+    /// before it reaches this class; GLES translates their packed attributes
+    /// to ES buffers.
     ///
-    /// - **Immediate mode.** <c>Begin</c>/<c>Vertex3</c>/<c>End</c> accumulate
-    ///   into a vertex buffer instead of a command stream. Quads, quad strips,
-    ///   triangle strips and fans are turned into indexed triangles, since ES
-    ///   draws neither quads nor anything else the DS geometry engine emitted.
-    /// - **Display lists.** <c>NewList</c>/<c>EndList</c> bake that buffer into
-    ///   a VBO, an index buffer and a VAO; <c>CallList</c> is one
-    ///   <c>glDrawElements</c>. This is what the display list was for and it is
-    ///   the same trade -- build once at load, draw cheaply forever.
+    /// - **Portable meshes.** <c>DrawStaticMesh</c> and
+    ///   <c>DrawDynamicMesh</c> pack the backend-neutral <c>CpuMesh</c> into
+    ///   the same 14-float VBO ABI and issue indexed draws directly. Static
+    ///   objects are cached by geometry identity and dynamic objects reuse a
+    ///   bounded streaming bucket. A dynamic scratch mesh reuses its bounded
+    ///   vertex/index storage for the small HUD and post-process primitives.
     /// - **The current colour.** A vertex with no colour of its own takes the
-    ///   colour current at *execution* time, which for a display list is the
-    ///   <c>GL.Color3</c> the engine issues per render item. Vertices carry a
-    ///   flag for whether they had their own; the ones that did not read the
-    ///   <c>imm_color</c> uniform. See <see cref="EsShaders"/>.
+    ///   colour current at draw time. Vertices carry a flag for whether they
+    ///   had their own; the ones that did not read the <c>imm_color</c> uniform.
+    ///   See <see cref="EsShaders"/>.
     /// - **The alpha test.** <c>glAlphaFunc</c> is fixed-function. The engine
     ///   asks for two comparisons and the fragment shader discards on them.
     ///
@@ -48,27 +46,23 @@ namespace MphRead.Mods.Render
     internal static class GlEs
     {
         // 0..2 position, 3..6 colour, 7..9 normal, 10..12 texcoord + matrix id, 13 "had its own colour"
-        private const int FloatsPerVertex = 14;
+        private const int FloatsPerVertex = RenderMeshPacking.FloatsPerVertex;
         private const int Stride = FloatsPerVertex * sizeof(float);
+        private const int MaximumDynamicVertices = RenderMeshPacking.DefaultMaximumVertices;
+        private const int MaximumDynamicIndices = RenderMeshPacking.DefaultMaximumIndices;
 
-        private sealed class Batch
+        private sealed class StaticGpuMesh
         {
-            public readonly List<float> Vertices = new List<float>(4096);
-            public readonly List<int> TriIndices = new List<int>(4096);
-            public readonly List<int> LineIndices = new List<int>();
-            public int VertexCount;
-
-            public void Clear()
+            public StaticGpuMesh(object geometryIdentity, CpuMesh mesh)
             {
-                Vertices.Clear();
-                TriIndices.Clear();
-                LineIndices.Clear();
-                VertexCount = 0;
+                GeometryIdentity = geometryIdentity;
+                Mesh = mesh;
+                Revision = mesh.Revision;
             }
-        }
 
-        private sealed class CompiledList
-        {
+            public object GeometryIdentity { get; }
+            public CpuMesh Mesh { get; }
+            public long Revision { get; }
             public int Vao;
             public int Vbo;
             public int Ibo;
@@ -78,31 +72,22 @@ namespace MphRead.Mods.Render
 
         // ---- current vertex state, the same state machine fixed-function GL keeps ----
         private static Vector4 _curColor = new Vector4(1, 1, 1, 1);
-        private static Vector3 _curNormal = new Vector3(0, 0, 1);
-        private static Vector3 _curTexCoord = Vector3.Zero;
-        private static bool _colorSet = false;
+        private static readonly Dictionary<object, StaticGpuMesh> _staticMeshes
+            = new Dictionary<object, StaticGpuMesh>(ReferenceEqualityComparer.Instance);
 
-        private static OpenTK.Graphics.OpenGL.PrimitiveType _primMode;
-        private static int _primStart;
-
-        private static readonly Batch _batch = new Batch();
-        private static bool _recording;
-        private static int _recordListId;
-
-        private static readonly Dictionary<int, CompiledList> _lists = new Dictionary<int, CompiledList>();
-        private static int _nextListId = 1;
-
-        // ---- the buffers the non-list Begin/End pairs draw through ----
+        // ---- buffers used by both direct dynamic mesh overloads ----
         private static int _dynVao;
         private static int _dynVbo;
         private static int _dynIbo;
         private static int _dynVboSize;
         private static int _dynIboSize;
+        private static float[] _directDynamicVertexData = new float[4096 * FloatsPerVertex];
+        private static int[] _directDynamicIndexData = new int[4096];
+        private static readonly RenderMeshScratch _dynamicScratch = new();
 
         // ---- state the shaders have to be told about ----
         private static bool _alphaTestEnabled;
         private static AlphaFunction _alphaFunc = AlphaFunction.Always;
-        private static int _program;
         private static int _immColorLoc = -1;
         private static int _alphaTestLoc = -1;
         private static readonly Dictionary<int, (int ImmColor, int AlphaTest)> _programLocs
@@ -115,74 +100,23 @@ namespace MphRead.Mods.Render
         /// <summary>Drop every GL object this class owns. For a lost context.</summary>
         public static void Reset()
         {
-            _lists.Clear();
+            // A replacement EGL context invalidates every native name. Do not
+            // issue deletes here: the old context may already be gone, and
+            // the owning lifecycle deliberately retires that context as a
+            // whole. The next draw uploads fresh objects.
+            _staticMeshes.Clear();
             _textures.Clear();
             _programLocs.Clear();
-            _nextListId = 1;
             _textureHighWater = 0;
             _dynVao = _dynVbo = _dynIbo = 0;
             _dynVboSize = _dynIboSize = 0;
-            _program = 0;
             _immColorLoc = -1;
             _alphaTestLoc = -1;
-            _batch.Clear();
-            _recording = false;
-        }
-
-        #region immediate mode
-
-        public static void Begin(OpenTK.Graphics.OpenGL.PrimitiveType mode)
-        {
-            if (!_recording)
-            {
-                _batch.Clear();
-                // Outside a list there is nothing to inherit from: a vertex with
-                // no colour of its own reads the uniform, which is this colour.
-                _colorSet = false;
-            }
-            _primMode = mode;
-            _primStart = _batch.VertexCount;
-        }
-
-        public static void End()
-        {
-            int count = _batch.VertexCount - _primStart;
-            EmitIndices(_primMode, _primStart, count);
-            if (!_recording)
-            {
-                FlushDynamic();
-            }
-        }
-
-        public static void Vertex3(float x, float y, float z)
-        {
-            List<float> v = _batch.Vertices;
-            v.Add(x);
-            v.Add(y);
-            v.Add(z);
-            v.Add(_curColor.X);
-            v.Add(_curColor.Y);
-            v.Add(_curColor.Z);
-            v.Add(_curColor.W);
-            v.Add(_curNormal.X);
-            v.Add(_curNormal.Y);
-            v.Add(_curNormal.Z);
-            v.Add(_curTexCoord.X);
-            v.Add(_curTexCoord.Y);
-            v.Add(_curTexCoord.Z);
-            v.Add(_colorSet ? 1f : 0f);
-            _batch.VertexCount++;
-        }
-
-        public static void Vertex3(Vector3 vector)
-        {
-            Vertex3(vector.X, vector.Y, vector.Z);
         }
 
         public static void Color3(float r, float g, float b)
         {
             _curColor = new Vector4(r, g, b, 1f);
-            _colorSet = true;
         }
 
         public static void Color3(Vector3 color)
@@ -190,217 +124,311 @@ namespace MphRead.Mods.Render
             Color3(color.X, color.Y, color.Z);
         }
 
-        public static void Color4(float r, float g, float b, float a)
-        {
-            _curColor = new Vector4(r, g, b, a);
-            _colorSet = true;
-        }
+        #region direct mesh upload/draw
 
-        public static void Normal3(float x, float y, float z)
-        {
-            _curNormal = new Vector3(x, y, z);
-        }
+        /// <summary>
+        /// Draw one model/HUD mesh directly from the portable CPU compiler.
+        /// The geometry key is stable for a parsed mesh; the reference and
+        /// revision checks make a replacement compile under that key upload a
+        /// fresh object instead of drawing stale data.
+        /// </summary>
+        public static void DrawStaticMesh(object geometryIdentity, CpuMesh mesh)
+            => DrawStaticMesh(geometryIdentity, mesh,
+                RenderMeshStreams.Triangles | RenderMeshStreams.Lines);
 
-        public static void TexCoord3(float s, float t, float matrixId)
+        public static unsafe void DrawStaticMesh(object geometryIdentity, CpuMesh mesh,
+            RenderMeshStreams streams)
         {
-            _curTexCoord = new Vector3(s, t, matrixId);
-        }
+            if (geometryIdentity == null) throw new ArgumentNullException(nameof(geometryIdentity));
+            if (mesh == null) throw new ArgumentNullException(nameof(mesh));
 
-        public static void TexCoord3(Vector3 texcoord)
-        {
-            _curTexCoord = texcoord;
-        }
-
-        private static void EmitIndices(OpenTK.Graphics.OpenGL.PrimitiveType mode, int b, int n)
-        {
-            List<int> tris = _batch.TriIndices;
-            switch (mode)
+            if (!_staticMeshes.TryGetValue(geometryIdentity, out StaticGpuMesh? cached)
+                || RenderMeshPacking.NeedsStaticUpload(cached.GeometryIdentity, cached.Mesh,
+                    cached.Revision, geometryIdentity, mesh))
             {
-            case OpenTK.Graphics.OpenGL.PrimitiveType.Triangles:
-                for (int i = 0; i + 2 < n; i += 3)
+                if (cached != null)
                 {
-                    tris.Add(b + i);
-                    tris.Add(b + i + 1);
-                    tris.Add(b + i + 2);
+                    DeleteStaticMesh(cached);
                 }
-                break;
-            case OpenTK.Graphics.OpenGL.PrimitiveType.Quads:
-                for (int i = 0; i + 3 < n; i += 4)
-                {
-                    tris.Add(b + i);
-                    tris.Add(b + i + 1);
-                    tris.Add(b + i + 2);
-                    tris.Add(b + i);
-                    tris.Add(b + i + 2);
-                    tris.Add(b + i + 3);
-                }
-                break;
-            case OpenTK.Graphics.OpenGL.PrimitiveType.TriangleStrip:
-                // every other triangle is wound the other way, which the strip
-                // primitive does for you and independent triangles do not
-                for (int i = 0; i + 2 < n; i++)
-                {
-                    if ((i & 1) == 0)
-                    {
-                        tris.Add(b + i);
-                        tris.Add(b + i + 1);
-                        tris.Add(b + i + 2);
-                    }
-                    else
-                    {
-                        tris.Add(b + i + 1);
-                        tris.Add(b + i);
-                        tris.Add(b + i + 2);
-                    }
-                }
-                break;
-            case OpenTK.Graphics.OpenGL.PrimitiveType.QuadStrip:
-                // vertices arrive in pairs: quad k is (2k, 2k+1, 2k+3, 2k+2)
-                for (int i = 0; i + 3 < n; i += 2)
-                {
-                    tris.Add(b + i);
-                    tris.Add(b + i + 1);
-                    tris.Add(b + i + 3);
-                    tris.Add(b + i);
-                    tris.Add(b + i + 3);
-                    tris.Add(b + i + 2);
-                }
-                break;
-            case OpenTK.Graphics.OpenGL.PrimitiveType.TriangleFan:
-                for (int i = 1; i + 1 < n; i++)
-                {
-                    tris.Add(b);
-                    tris.Add(b + i);
-                    tris.Add(b + i + 1);
-                }
-                break;
-            case OpenTK.Graphics.OpenGL.PrimitiveType.LineLoop:
-                {
-                    List<int> lines = _batch.LineIndices;
-                    for (int i = 0; i < n; i++)
-                    {
-                        lines.Add(b + i);
-                        lines.Add(b + (i + 1) % n);
-                    }
-                }
-                break;
-            default:
-                throw new ProgramException($"No ES translation for primitive type {mode}.");
+                cached = UploadStaticMesh(geometryIdentity, mesh);
+                _staticMeshes[geometryIdentity] = cached;
+            }
+            DrawGpuMesh(cached.Vao, cached.TriCount, cached.LineCount, streams);
+        }
+
+        /// <summary>Release one model's static objects while its EGL context is current.</summary>
+        public static void ReleaseStaticMesh(object geometryIdentity)
+        {
+            if (geometryIdentity == null) throw new ArgumentNullException(nameof(geometryIdentity));
+            if (_staticMeshes.Remove(geometryIdentity, out StaticGpuMesh? mesh))
+            {
+                DeleteStaticMesh(mesh);
             }
         }
 
-        #endregion
-
-        #region display lists
-
-        public static int GenLists(int range)
+        private static unsafe StaticGpuMesh UploadStaticMesh(object geometryIdentity, CpuMesh mesh)
         {
-            int id = _nextListId;
-            _nextListId += range;
-            return id;
-        }
-
-        public static void NewList(int list, ListMode mode)
-        {
-            _batch.Clear();
-            _recording = true;
-            _recordListId = list;
-            // A list does not inherit the colour current when it was compiled;
-            // it inherits the one current when it is called.
-            _colorSet = false;
-        }
-
-        public static unsafe void EndList()
-        {
-            _recording = false;
-            var compiled = new CompiledList
+            var compiled = new StaticGpuMesh(geometryIdentity, mesh)
             {
-                TriCount = _batch.TriIndices.Count,
-                LineCount = _batch.LineIndices.Count
+                TriCount = mesh.TriangleIndexCount,
+                LineCount = mesh.LineIndexCount
             };
             if (compiled.TriCount == 0 && compiled.LineCount == 0)
             {
-                _lists[_recordListId] = compiled;
-                _batch.Clear();
-                return;
+                return compiled;
             }
-            compiled.Vao = ES.GL.GenVertexArray();
-            compiled.Vbo = ES.GL.GenBuffer();
-            compiled.Ibo = ES.GL.GenBuffer();
-            ES.GL.BindVertexArray(compiled.Vao);
-            ES.GL.BindBuffer(ES.BufferTarget.ArrayBuffer, compiled.Vbo);
-            fixed (float* verts = CollectionsMarshal.AsSpan(_batch.Vertices))
-            {
-                ES.GL.BufferData(ES.BufferTarget.ArrayBuffer, _batch.Vertices.Count * sizeof(float),
-                    (IntPtr)verts, ES.BufferUsageHint.StaticDraw);
-            }
-            ES.GL.BindBuffer(ES.BufferTarget.ElementArrayBuffer, compiled.Ibo);
-            int[] indices = BuildIndexArray();
-            fixed (int* idx = indices)
-            {
-                ES.GL.BufferData(ES.BufferTarget.ElementArrayBuffer, indices.Length * sizeof(int),
-                    (IntPtr)idx, ES.BufferUsageHint.StaticDraw);
-            }
-            SetupAttributes();
-            ES.GL.BindVertexArray(0);
-            ES.GL.BindBuffer(ES.BufferTarget.ArrayBuffer, 0);
-            ES.GL.BindBuffer(ES.BufferTarget.ElementArrayBuffer, 0);
-            _lists[_recordListId] = compiled;
-            _batch.Clear();
-        }
 
-        public static void CallList(int list)
-        {
-            if (!_lists.TryGetValue(list, out CompiledList? compiled) || compiled.Vao == 0)
+            float[] vertexData = new float[RenderMeshPacking.RequiredVertexFloats(mesh)];
+            int[] indexData = new int[RenderMeshPacking.RequiredIndexCount(mesh)];
+            RenderMeshPacking.PackVertices(mesh, vertexData);
+            RenderMeshPacking.PackIndices(mesh, indexData);
+            try
             {
-                return;
-            }
-            ApplyDrawState();
-            ES.GL.BindVertexArray(compiled.Vao);
-            if (compiled.TriCount > 0)
-            {
-                ES.GL.DrawElements(ES.PrimitiveType.Triangles, compiled.TriCount,
-                    ES.DrawElementsType.UnsignedInt, IntPtr.Zero);
-            }
-            if (compiled.LineCount > 0)
-            {
-                ES.GL.DrawElements(ES.PrimitiveType.Lines, compiled.LineCount,
-                    ES.DrawElementsType.UnsignedInt, (IntPtr)(compiled.TriCount * sizeof(int)));
-            }
-            ES.GL.BindVertexArray(0);
-        }
-
-        public static void DeleteLists(int list, int range)
-        {
-            for (int i = 0; i < range; i++)
-            {
-                int id = list + i;
-                if (_lists.Remove(id, out CompiledList? compiled) && compiled.Vao != 0)
+                compiled.Vao = ES.GL.GenVertexArray();
+                compiled.Vbo = ES.GL.GenBuffer();
+                compiled.Ibo = ES.GL.GenBuffer();
+                ES.GL.BindVertexArray(compiled.Vao);
+                ES.GL.BindBuffer(ES.BufferTarget.ArrayBuffer, compiled.Vbo);
+                fixed (float* vertices = vertexData)
                 {
-                    ES.GL.DeleteVertexArray(compiled.Vao);
-                    ES.GL.DeleteBuffer(compiled.Vbo);
-                    ES.GL.DeleteBuffer(compiled.Ibo);
+                    ES.GL.BufferData(ES.BufferTarget.ArrayBuffer, vertexData.Length * sizeof(float),
+                        (IntPtr)vertices, ES.BufferUsageHint.StaticDraw);
+                }
+                ES.GL.BindBuffer(ES.BufferTarget.ElementArrayBuffer, compiled.Ibo);
+                fixed (int* indices = indexData)
+                {
+                    ES.GL.BufferData(ES.BufferTarget.ElementArrayBuffer, indexData.Length * sizeof(int),
+                        (IntPtr)indices, ES.BufferUsageHint.StaticDraw);
+                }
+                SetupAttributes();
+                UnbindMeshObjects();
+                return compiled;
+            }
+            catch
+            {
+                UnbindMeshObjects();
+                DeleteStaticMesh(compiled);
+                throw;
+            }
+        }
+
+        private static void DeleteStaticMesh(StaticGpuMesh mesh)
+        {
+            if (mesh.Vao != 0) ES.GL.DeleteVertexArray(mesh.Vao);
+            if (mesh.Vbo != 0) ES.GL.DeleteBuffer(mesh.Vbo);
+            if (mesh.Ibo != 0) ES.GL.DeleteBuffer(mesh.Ibo);
+            mesh.Vao = mesh.Vbo = mesh.Ibo = 0;
+        }
+
+        /// <summary>
+        /// Draw dynamic compiler output. The packed arrays and GPU buffers grow
+        /// only up to the explicit bounded limits and are reused thereafter.
+        /// </summary>
+        public static void DrawDynamicMesh(CpuMesh mesh)
+            => DrawDynamicMesh(mesh, RenderMeshStreams.Triangles | RenderMeshStreams.Lines);
+
+        public static unsafe void DrawDynamicMesh(CpuMesh mesh, RenderMeshStreams streams)
+        {
+            if (mesh == null) throw new ArgumentNullException(nameof(mesh));
+            RenderMeshPacking.ValidateDynamicCapacity(mesh, MaximumDynamicVertices,
+                MaximumDynamicIndices);
+            int vertexFloatCount = RenderMeshPacking.RequiredVertexFloats(mesh);
+            int indexCount = RenderMeshPacking.RequiredIndexCount(mesh);
+            if (indexCount == 0)
+            {
+                return;
+            }
+            EnsureDirectDynamicStorage(vertexFloatCount, indexCount);
+            RenderMeshPacking.PackVertices(mesh,
+                _directDynamicVertexData.AsSpan(0, vertexFloatCount));
+            RenderMeshPacking.PackIndices(mesh,
+                _directDynamicIndexData.AsSpan(0, indexCount));
+            DrawPackedDynamicMesh(vertexFloatCount, mesh.TriangleIndexCount,
+                mesh.LineIndexCount, streams);
+        }
+
+        /// <summary>
+        /// Draw one reusable scratch mesh. This is the allocation-free path
+        /// for short-lived HUD, composite, and diagnostic geometry; compiled
+        /// world/model meshes continue to use the CpuMesh overload above.
+        /// </summary>
+        public static unsafe void DrawDynamicMesh(RenderMeshScratch mesh)
+        {
+            if (mesh == null) throw new ArgumentNullException(nameof(mesh));
+            RenderMeshPacking.ValidateDynamicCapacity(mesh, MaximumDynamicVertices,
+                MaximumDynamicIndices);
+            int vertexFloatCount = RenderMeshPacking.RequiredVertexFloats(mesh);
+            int indexCount = RenderMeshPacking.RequiredIndexCount(mesh);
+            if (indexCount == 0)
+            {
+                return;
+            }
+            EnsureDirectDynamicStorage(vertexFloatCount, indexCount);
+            RenderMeshPacking.PackVertices(mesh,
+                _directDynamicVertexData.AsSpan(0, vertexFloatCount));
+            RenderMeshPacking.PackIndices(mesh,
+                _directDynamicIndexData.AsSpan(0, indexCount));
+            DrawPackedDynamicMesh(vertexFloatCount, mesh.TriangleIndexCount, mesh.LineIndexCount,
+                RenderMeshStreams.Triangles | RenderMeshStreams.Lines);
+        }
+
+        /// <summary>Draw the reusable scratch mesh after it was prepared.</summary>
+        public static void DrawPreparedDynamicMesh()
+            => DrawDynamicMesh(_dynamicScratch);
+
+        public static void PrepareDynamicMesh(MeshPrimitiveTopology topology, int vertexCount)
+            => _dynamicScratch.Prepare(topology, vertexCount);
+
+        public static void SetDynamicMeshVertex(int index, Vector3 position,
+            Vector2 texCoord = default, Vector4? color = null, uint matrixIndex = 0,
+            bool explicitColor = false, Vector3? normal = null)
+            => _dynamicScratch.SetVertex(index, position, texCoord, color, matrixIndex,
+                explicitColor, normal);
+
+        public static void DrawFullscreenQuad()
+        {
+            _dynamicScratch.SetFullscreenQuad();
+            DrawPreparedDynamicMesh();
+        }
+
+        public static void DrawTexturedQuad(Vector3 topRight, Vector3 topLeft,
+            Vector3 bottomRight, Vector3 bottomLeft)
+        {
+            _dynamicScratch.SetTexturedQuad(topRight, topLeft, bottomRight, bottomLeft);
+            DrawPreparedDynamicMesh();
+        }
+
+        public static void DrawSolidQuad(Vector3 topRight, Vector3 topLeft,
+            Vector3 bottomRight, Vector3 bottomLeft, Vector4 color,
+            bool explicitColor = false)
+        {
+            _dynamicScratch.SetSolidQuad(topRight, topLeft, bottomRight, bottomLeft,
+                color, explicitColor);
+            DrawPreparedDynamicMesh();
+        }
+
+        public static void DrawTriangleFan(IReadOnlyList<Vector3> positions)
+        {
+            _dynamicScratch.SetTriangleFan(positions);
+            DrawPreparedDynamicMesh();
+        }
+
+        public static void DrawTriangleFan(Vector3[] positions, int count)
+        {
+            _dynamicScratch.SetTriangleFan(positions, count);
+            DrawPreparedDynamicMesh();
+        }
+
+        public static void DrawLineLoop(IReadOnlyList<Vector3> positions)
+        {
+            _dynamicScratch.SetLineLoop(positions);
+            DrawPreparedDynamicMesh();
+        }
+
+        public static void DrawLineLoop(Vector3[] positions, int count)
+        {
+            _dynamicScratch.SetLineLoop(positions, count);
+            DrawPreparedDynamicMesh();
+        }
+
+        public static void DrawCrosshairRing(float radius, float thickness,
+            float halfWidth, float halfHeight, int segments = 40)
+        {
+            if (segments < 3) throw new ArgumentOutOfRangeException(nameof(segments));
+            float inner = radius - thickness / 2;
+            float outer = radius + thickness / 2;
+            _dynamicScratch.Prepare(MeshPrimitiveTopology.TriangleStrip, checked((segments + 1) * 2));
+            for (int i = 0; i <= segments; i++)
+            {
+                float angle = MathHelper.TwoPi * i / segments;
+                float cos = MathF.Cos(angle);
+                float sin = MathF.Sin(angle);
+                _dynamicScratch.SetVertex(i * 2,
+                    new Vector3(outer * cos / halfWidth, outer * sin / halfHeight, 0f));
+                _dynamicScratch.SetVertex(i * 2 + 1,
+                    new Vector3(inner * cos / halfWidth, inner * sin / halfHeight, 0f));
+            }
+            DrawPreparedDynamicMesh();
+        }
+
+        private static unsafe void DrawPackedDynamicMesh(int vertexFloatCount,
+            int triangleIndexCount, int lineIndexCount, RenderMeshStreams streams)
+        {
+            EnsureDynamicGpuObjects();
+
+            int vertexBytes = checked(vertexFloatCount * sizeof(float));
+            fixed (float* vertices = _directDynamicVertexData)
+            {
+                if (vertexBytes > _dynVboSize)
+                {
+                    ES.GL.BufferData(ES.BufferTarget.ArrayBuffer, vertexBytes, (IntPtr)vertices,
+                        ES.BufferUsageHint.StreamDraw);
+                    _dynVboSize = vertexBytes;
+                }
+                else
+                {
+                    ES.GL.BufferData(ES.BufferTarget.ArrayBuffer, _dynVboSize, IntPtr.Zero,
+                        ES.BufferUsageHint.StreamDraw);
+                    ES.GL.BufferSubData(ES.BufferTarget.ArrayBuffer, IntPtr.Zero, vertexBytes,
+                        (IntPtr)vertices);
                 }
             }
-        }
-
-        private static int[] BuildIndexArray()
-        {
-            var indices = new int[_batch.TriIndices.Count + _batch.LineIndices.Count];
-            _batch.TriIndices.CopyTo(indices, 0);
-            _batch.LineIndices.CopyTo(indices, _batch.TriIndices.Count);
-            return indices;
-        }
-
-        private static unsafe void FlushDynamic()
-        {
-            int triCount = _batch.TriIndices.Count;
-            int lineCount = _batch.LineIndices.Count;
-            if (triCount == 0 && lineCount == 0)
+            int indexCount = checked(triangleIndexCount + lineIndexCount);
+            int indexBytes = checked(indexCount * sizeof(int));
+            fixed (int* indices = _directDynamicIndexData)
             {
-                _batch.Clear();
-                return;
+                if (indexBytes > _dynIboSize)
+                {
+                    ES.GL.BufferData(ES.BufferTarget.ElementArrayBuffer, indexBytes, (IntPtr)indices,
+                        ES.BufferUsageHint.StreamDraw);
+                    _dynIboSize = indexBytes;
+                }
+                else
+                {
+                    ES.GL.BufferData(ES.BufferTarget.ElementArrayBuffer, _dynIboSize, IntPtr.Zero,
+                        ES.BufferUsageHint.StreamDraw);
+                    ES.GL.BufferSubData(ES.BufferTarget.ElementArrayBuffer, IntPtr.Zero, indexBytes,
+                        (IntPtr)indices);
+                }
             }
+            DrawBoundMesh(triangleIndexCount, lineIndexCount, streams);
+            UnbindMeshObjects();
+        }
+
+        private static void EnsureDirectDynamicStorage(int vertexFloatCount, int indexCount)
+        {
+            if (vertexFloatCount > _directDynamicVertexData.Length)
+            {
+                int maximum = checked(MaximumDynamicVertices * FloatsPerVertex);
+                int next = NextBoundedCapacity(_directDynamicVertexData.Length, vertexFloatCount, maximum);
+                Array.Resize(ref _directDynamicVertexData, next);
+            }
+            if (indexCount > _directDynamicIndexData.Length)
+            {
+                int next = NextBoundedCapacity(_directDynamicIndexData.Length, indexCount,
+                    MaximumDynamicIndices);
+                Array.Resize(ref _directDynamicIndexData, next);
+            }
+        }
+
+        private static int NextBoundedCapacity(int current, int required, int maximum)
+        {
+            if (required < 0 || required > maximum)
+            {
+                throw new InvalidOperationException("GLES dynamic mesh exceeds its bounded upload capacity.");
+            }
+            int doubled = current > maximum / 2 ? maximum : current * 2;
+            int next = Math.Max(required, doubled);
+            if (next > maximum) next = maximum;
+            if (next < required)
+            {
+                throw new InvalidOperationException("GLES dynamic mesh exceeds its bounded upload capacity.");
+            }
+            return next;
+        }
+
+        private static void EnsureDynamicGpuObjects()
+        {
             if (_dynVao == 0)
             {
                 _dynVao = ES.GL.GenVertexArray();
@@ -417,55 +445,41 @@ namespace MphRead.Mods.Render
                 ES.GL.BindBuffer(ES.BufferTarget.ArrayBuffer, _dynVbo);
                 ES.GL.BindBuffer(ES.BufferTarget.ElementArrayBuffer, _dynIbo);
             }
-            int vertexBytes = _batch.Vertices.Count * sizeof(float);
-            fixed (float* verts = CollectionsMarshal.AsSpan(_batch.Vertices))
-            {
-                if (vertexBytes > _dynVboSize)
-                {
-                    ES.GL.BufferData(ES.BufferTarget.ArrayBuffer, vertexBytes, (IntPtr)verts,
-                        ES.BufferUsageHint.StreamDraw);
-                    _dynVboSize = vertexBytes;
-                }
-                else
-                {
-                    // orphan first, so the driver does not stall waiting for the
-                    // frame that is still reading the old contents
-                    ES.GL.BufferData(ES.BufferTarget.ArrayBuffer, _dynVboSize, IntPtr.Zero,
-                        ES.BufferUsageHint.StreamDraw);
-                    ES.GL.BufferSubData(ES.BufferTarget.ArrayBuffer, IntPtr.Zero, vertexBytes, (IntPtr)verts);
-                }
-            }
-            int[] indices = BuildIndexArray();
-            int indexBytes = indices.Length * sizeof(int);
-            fixed (int* idx = indices)
-            {
-                if (indexBytes > _dynIboSize)
-                {
-                    ES.GL.BufferData(ES.BufferTarget.ElementArrayBuffer, indexBytes, (IntPtr)idx,
-                        ES.BufferUsageHint.StreamDraw);
-                    _dynIboSize = indexBytes;
-                }
-                else
-                {
-                    ES.GL.BufferData(ES.BufferTarget.ElementArrayBuffer, _dynIboSize, IntPtr.Zero,
-                        ES.BufferUsageHint.StreamDraw);
-                    ES.GL.BufferSubData(ES.BufferTarget.ElementArrayBuffer, IntPtr.Zero, indexBytes, (IntPtr)idx);
-                }
-            }
+        }
+
+        private static void DrawGpuMesh(int vao, int triCount, int lineCount,
+            RenderMeshStreams streams)
+        {
+            if (vao == 0) return;
+            ES.GL.BindVertexArray(vao);
+            DrawBoundMesh(triCount, lineCount, streams);
+            ES.GL.BindVertexArray(0);
+        }
+
+        private static void DrawBoundMesh(int triCount, int lineCount,
+            RenderMeshStreams streams)
+        {
             ApplyDrawState();
-            if (triCount > 0)
+            if (triCount > 0 && streams.HasFlag(RenderMeshStreams.Triangles))
             {
                 ES.GL.DrawElements(ES.PrimitiveType.Triangles, triCount,
                     ES.DrawElementsType.UnsignedInt, IntPtr.Zero);
             }
-            if (lineCount > 0)
+            if (lineCount > 0 && streams.HasFlag(RenderMeshStreams.Lines))
             {
                 ES.GL.DrawElements(ES.PrimitiveType.Lines, lineCount,
                     ES.DrawElementsType.UnsignedInt, (IntPtr)(triCount * sizeof(int)));
             }
-            ES.GL.BindVertexArray(0);
-            _batch.Clear();
         }
+
+        private static void UnbindMeshObjects()
+        {
+            ES.GL.BindVertexArray(0);
+            ES.GL.BindBuffer(ES.BufferTarget.ArrayBuffer, 0);
+            ES.GL.BindBuffer(ES.BufferTarget.ElementArrayBuffer, 0);
+        }
+
+        #endregion
 
         private static void SetupAttributes()
         {
@@ -496,8 +510,6 @@ namespace MphRead.Mods.Render
                 ES.GL.Uniform1(_alphaTestLoc, mode);
             }
         }
-
-        #endregion
 
         #region textures the engine named itself
 
@@ -552,9 +564,7 @@ namespace MphRead.Mods.Render
 
         public static void ShaderSource(int shader, string source)
         {
-            EsShaders.CheckInSync();
-            string translated = EsShaders.Translate(source) ?? source;
-            ES.GL.ShaderSource(shader, 1, new string[] { translated }, new int[] { translated.Length });
+            ES.GL.ShaderSource(shader, 1, new string[] { source }, new int[] { source.Length });
         }
 
         public static void CompileShader(int shader)
@@ -614,7 +624,6 @@ namespace MphRead.Mods.Render
         public static void UseProgram(int program)
         {
             ES.GL.UseProgram(program);
-            _program = program;
             if (!_programLocs.TryGetValue(program, out (int ImmColor, int AlphaTest) locs))
             {
                 locs = (ES.GL.GetUniformLocation(program, "imm_color"),

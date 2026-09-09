@@ -1,58 +1,67 @@
 using System;
 using System.Buffers;
-using System.Collections.Concurrent;
 using System.IO;
-using System.Threading.Tasks;
 using OpenTK.Graphics.OpenGL;
 
 namespace MphRead.Export
 {
     public static class ScreenCapture
     {
-        private static Task? _task = null;
-        private static bool _recording = false;
-        private static readonly ConcurrentQueue<(byte[], string, int, int)> _queue = new ConcurrentQueue<(byte[], string, int, int)>();
+        private static readonly CaptureRecordingConsumer _recorder =
+            new CaptureRecordingConsumer(new CaptureRecordingQueue(capacity: 8), Write);
 
         public static void Screenshot(int width, int height, string? name = null)
         {
             byte[] buffer = new byte[width * height * 3];
             GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, buffer);
-            string path = Paths.Combine(Paths.Export, "_screenshots");
-            Directory.CreateDirectory(path);
             name ??= DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString();
-            Droid.AndroidPng.Write(buffer, width, height, Paths.Combine(path, $"{name}.png"));
+            var result = new RenderCaptureResult(Guid.NewGuid(), MphRead.Mods.Render.FrameTiming.TotalFrames,
+                CaptureTargetKind.FinalPresentedFrame, width, height, CapturePixelFormat.Rgb8,
+                CaptureRowOrientation.BottomUp, buffer, name, CaptureDeliveryKind.Screenshot);
+            Write(result);
         }
 
         public static void Record(int width, int height, string name)
         {
-            _recording = true;
-            if (_task == null)
+            _recorder.StartRecording();
+            int length = checked(width * height * 3);
+            byte[] buffer = ArrayPool<byte>.Shared.Rent(length);
+            try
             {
-                _task = Task.Run(async () => await ProcessQueue());
+                GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, buffer);
+                var result = new RenderCaptureResult(Guid.NewGuid(), MphRead.Mods.Render.FrameTiming.TotalFrames,
+                    CaptureTargetKind.FinalPresentedFrame, width, height, CapturePixelFormat.Rgb8,
+                    CaptureRowOrientation.BottomUp, buffer.AsSpan(0, length), name,
+                    CaptureDeliveryKind.Recording);
+                if (!_recorder.TryEnqueue(result))
+                {
+                    Console.WriteLine($"[capture] recording queue full; dropping {name} (dropped {_recorder.DroppedCount})");
+                }
             }
-            byte[] buffer = ArrayPool<byte>.Shared.Rent(width * height * 3);
-            GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, buffer);
-            _queue.Enqueue((buffer, name, width, height));
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
 
         public static void StopRecording()
         {
-            _recording = false;
+            _recorder.StopRecording();
         }
 
-        private static async Task ProcessQueue()
+        public static void StartRecording()
         {
-            while (_recording || _queue.Count > 0)
-            {
-                while (_queue.TryDequeue(out (byte[] Buffer, string Name, int Width, int Height) result))
-                {
-                    string path = Paths.Combine(Paths.Export, "_screenshots");
-                    Directory.CreateDirectory(path);
-                    Droid.AndroidPng.Write(result.Buffer, result.Width, result.Height, Paths.Combine(path, $"{result.Name}.png"));
-                    ArrayPool<byte>.Shared.Return(result.Buffer);
-                }
-                await Task.Delay(1);
-            }
+            _recorder.StartRecording();
+        }
+
+        private static void Write(RenderCaptureResult result)
+        {
+            string directory = Paths.Combine(Paths.Export, "_screenshots");
+            Directory.CreateDirectory(directory);
+            string name = result.OutputName
+                ?? DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString();
+            Droid.AndroidPng.Write(result.CopyBytes(), result.Width, result.Height,
+                Paths.Combine(directory, $"{name}.png"));
         }
 
     }

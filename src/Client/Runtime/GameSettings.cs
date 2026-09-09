@@ -46,15 +46,15 @@ namespace MphRead.Mods
         {
             Current = settings;
             if (TryVolume(settings.FeedbackVolume, out float feedback)) Combat.FeedbackAudio.Volume = feedback;
-            Hud.Network.NetworkHealthSettings.Advanced = RenderOptions.ParseOnOff(settings.AdvancedNetwork, false);
+            global::MphRead.Hud.Network.NetworkHealthSettings.Advanced = RenderOptions.ParseOnOff(settings.AdvancedNetwork, false);
             Combat.CombatFeedbackSettings.HitMarkers = Enum.TryParse(settings.HitMarkers, true, out Combat.HitMarkerMode marker)
                 && Enum.IsDefined(marker) ? marker : Combat.HitMarkerMode.Visual;
             Combat.CombatFeedbackSettings.HeadshotCue = RenderOptions.ParseOnOff(settings.HeadshotCue, true);
             Combat.CombatFeedbackSettings.KillConfirmation = RenderOptions.ParseOnOff(settings.KillConfirmation, true);
-            Hud.Radar.RadarSettings.Style = Enum.TryParse(settings.RadarStyle, true, out Hud.Radar.RadarStyle radarStyle)
-                && Enum.IsDefined(radarStyle) ? radarStyle : Hud.Radar.RadarStyle.Classic;
-            Hud.Radar.RadarSettings.Orientation = Enum.TryParse(settings.RadarOrientation, true, out Hud.Radar.RadarOrientation radarOrientation)
-                && Enum.IsDefined(radarOrientation) ? radarOrientation : Hud.Radar.RadarOrientation.Heading;
+            global::MphRead.Hud.Radar.RadarSettings.Style = Enum.TryParse(settings.RadarStyle, true, out global::MphRead.Hud.Radar.RadarStyle radarStyle)
+                && Enum.IsDefined(radarStyle) ? radarStyle : global::MphRead.Hud.Radar.RadarStyle.Classic;
+            global::MphRead.Hud.Radar.RadarSettings.Orientation = Enum.TryParse(settings.RadarOrientation, true, out global::MphRead.Hud.Radar.RadarOrientation radarOrientation)
+                && Enum.IsDefined(radarOrientation) ? radarOrientation : global::MphRead.Hud.Radar.RadarOrientation.Heading;
             if (TryVolume(settings.SfxVolume, out float sfx))
             {
                 Sfx.Volume = sfx;
@@ -79,8 +79,9 @@ namespace MphRead.Mods
                 RenderOptions.ResolutionScale);
             RenderOptions.Lighting = RenderOptions.ParseOnOff(settings.Lighting, RenderOptions.Lighting);
             RenderOptions.Fog = RenderOptions.ParseOnOff(settings.Fog, RenderOptions.Fog);
-            RenderOptions.TextureFiltering = RenderOptions.ParseOnOff(settings.TextureFiltering,
-                RenderOptions.TextureFiltering);
+            // Quality parsing lives in RenderOptions so every frontend uses
+            // the same preset defaults and legacy settings.json mapping.
+            RenderOptions.ApplyQuality(settings);
             RenderOptions.ShowFps = RenderOptions.ParseOnOff(settings.ShowFps, RenderOptions.ShowFps);
             // How often the picture is drawn. It does not touch the
             // simulation, which runs at 60 Hz whatever this says -- see

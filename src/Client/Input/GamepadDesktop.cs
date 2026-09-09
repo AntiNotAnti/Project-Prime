@@ -130,9 +130,36 @@ namespace MphRead.Mods.Input
             }
         }
 
+        /// <summary>
+        /// Accept one frame from a non-GLFW desktop host. SDL owns its event
+        /// pump on the window thread, but the rest of the input stack must
+        /// continue to consume the same reduced <see cref="GamepadState"/>
+        /// shape. This keeps the source migration at the platform boundary
+        /// instead of forking gameplay bindings.
+        /// </summary>
+        internal static void Publish(GamepadState state)
+        {
+            GamepadInput.State = state;
+            if (state.Connected)
+            {
+                _slot = -3;
+            }
+            else if (_slot == -3)
+            {
+                _slot = -1;
+            }
+        }
+
         private static void PollUnsafe()
         {
             if (_slot == -2)
+            {
+                return;
+            }
+            // SDL publishes an already-normalized state for its active
+            // handle. Do not let the GLFW poll erase it on the next
+            // simulation step; -3 is an ownership marker, not a slot.
+            if (_slot == -3)
             {
                 return;
             }

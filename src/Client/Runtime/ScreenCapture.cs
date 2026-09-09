@@ -1,6 +1,9 @@
 using System;
 using System.IO;
+#if ANDROID
 using OpenTK.Graphics.OpenGL;
+#endif
+using MphRead.Mods.Render;
 
 namespace MphRead.Mods
 {
@@ -33,19 +36,22 @@ namespace MphRead.Mods
         /// includes the HUD. See <c>Scene.ReadWindowBuffer</c>: only valid on
         /// a visible window, and only between the draw and the buffer swap.
         /// </summary>
+#if ANDROID
         public static bool SaveWindow(Scene scene, string path)
         {
-            return Save(scene, path, ScenePresentation.Get(scene).ReadWindowBuffer);
+            return Save(scene, path, ScenePresentation.Get(scene).ReadWindowBuffer,
+                CaptureTargetKind.FinalPresentedFrame);
         }
 
         public static bool Save(Scene scene, string path)
         {
-            return Save(scene, path, ScenePresentation.Get(scene).ReadSceneTarget);
+            return Save(scene, path, ScenePresentation.Get(scene).ReadSceneTarget,
+                CaptureTargetKind.SceneTarget);
         }
 
         private delegate byte[]? ReadPixels(out int width, out int height);
 
-        private static bool Save(Scene scene, string path, ReadPixels read)
+        private static bool Save(Scene scene, string path, ReadPixels read, CaptureTargetKind target)
         {
             try
             {
@@ -54,16 +60,18 @@ namespace MphRead.Mods
                 {
                     return false;
                 }
+                var result = new RenderCaptureResult(Guid.NewGuid(), FrameTiming.TotalFrames, target,
+                    width, height, CapturePixelFormat.Rgb8, CaptureRowOrientation.BottomUp, pixels);
                 // An all-black frame is a failure that writes a file. It
                 // looks like a success in every log, the caller counts it,
                 // and the player ends up with a full set of black pictures
                 // and nothing saying why -- which is exactly how it was
                 // reported. Refusing to save it turns a silent wrong answer
                 // into a loud missing one.
-                if (LitFraction(pixels) < MinLitFraction)
+                if (LitFraction(result.Bytes.Span) < MinLitFraction)
                 {
                     string why = $"{Path.GetFileName(path)} came out black "
-                        + $"({LitFraction(pixels) * 100:0.00}% lit, {width}x{height}); not saving it. "
+                        + $"({LitFraction(result.Bytes.Span) * 100:0.00}% lit, {width}x{height}); not saving it. "
                         + $"The scene rendered nothing -- {DescribeContext()}";
                     Console.WriteLine($"[capture] {why}");
                     ThumbnailLog.Write(why);
@@ -77,7 +85,7 @@ namespace MphRead.Mods
                 Action<byte[], int, int, string>? writer = PngWriter;
                 if (writer != null)
                 {
-                    writer(pixels, width, height, path);
+                    writer(result.CopyBytes(), result.Width, result.Height, path);
                     return true;
                 }
                 throw new InvalidOperationException("This platform has not installed a PNG encoder.");
@@ -100,7 +108,7 @@ namespace MphRead.Mods
         /// </summary>
         private const double MinLitFraction = 0.01;
 
-        private static double LitFraction(byte[] pixels)
+        private static double LitFraction(ReadOnlySpan<byte> pixels)
         {
             int lit = 0;
             int total = 0;
@@ -119,12 +127,9 @@ namespace MphRead.Mods
         /// What the driver actually handed over, which is the one thing a
         /// black render never says on its own.
         ///
-        /// This engine draws in immediate mode -- GL.Begin and friends -- and
-        /// those do not exist in a core profile. A driver that answers a
-        /// request for 3.2 Compatability with a core context therefore fails
-        /// every draw call silently and renders black, with nothing in any log
-        /// to say so. It is the documented cause on Mesa and it is not unique
-        /// to Mesa.
+        /// Android uses the GLES presentation path, so a context mismatch or
+        /// rejected call can otherwise present as a black frame with little
+        /// useful diagnostic output.
         /// </summary>
         // Kept alive deliberately: the driver holds this pointer for the
         // lifetime of the context, and a delegate that is only a local goes
@@ -174,19 +179,7 @@ namespace MphRead.Mods
                 string vendor = GL.GetString(StringName.Vendor) ?? "?";
                 string renderer = GL.GetString(StringName.Renderer) ?? "?";
                 string version = GL.GetString(StringName.Version) ?? "?";
-                int flags = GL.GetInteger((GetPName)All.ContextFlags);
-                // The one that actually decides whether immediate mode
-                // exists. The profile mask can say "compatibility" while this
-                // bit has already removed every deprecated entry point.
-                string forward = (flags & (int)All.ContextFlagForwardCompatibleBit) != 0
-                    ? ", FORWARD-COMPATIBLE (deprecated entry points removed, "
-                        + "which is all of immediate mode)"
-                    : "";
-                int mask = GL.GetInteger((GetPName)All.ContextProfileMask);
-                string profile = (mask & (int)All.ContextCoreProfileBit) != 0
-                    ? "CORE (immediate mode is unavailable, which renders everything black)"
-                    : (mask & (int)All.ContextCompatibilityProfileBit) != 0 ? "compatibility" : "unreported";
-                return $"GL {version}, profile {profile}{forward}, {vendor} / {renderer}";
+                return $"OpenGL ES {version}, {vendor} / {renderer}";
             }
             catch (Exception ex)
             {
@@ -218,5 +211,6 @@ namespace MphRead.Mods
             }
             return lit / (double)(width * height);
         }
+#endif
     }
 }

@@ -16,8 +16,9 @@
     <DebugType>embedded</DebugType>
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     <PublishSingleFile>true</PublishSingleFile>
-    <!-- All current UI is C#; AvaloniaResource still embeds the images. -->
-    <EnableAvaloniaXamlCompilation>false</EnableAvaloniaXamlCompilation>
+    <!-- PrimeShell is shared native Avalonia XAML; keep compilation enabled so
+         desktop and Android consume the same generated resource tree. -->
+    <EnableAvaloniaXamlCompilation>true</EnableAvaloniaXamlCompilation>
     <ApplicationIcon Condition="$(RuntimeIdentifier.StartsWith('win'))">Assets/fruity-prime.ico</ApplicationIcon>
   </PropertyGroup>
 
@@ -33,10 +34,22 @@
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
     <!-- Retain the patched transitive dependency across the UI rollback. -->
     <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
-    <!-- Full OpenTK is client-only: GL, GLFW/windowing and OpenAL bindings. -->
-    <PackageReference Include="OpenTK" Version="4.9.4" />
+    <!-- OpenTK math remains the simulation/presentation compatibility ABI.
+         GraphicsLibraryFramework currently supplies only the existing
+         key/mouse value types and controller input bridge; SDL
+         owns every desktop window and graphics context. OpenAL is audio-only. -->
+    <PackageReference Include="OpenTK.Mathematics" Version="4.9.4" />
+    <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.9.4" />
+    <PackageReference Include="OpenTK.Audio.OpenAL" Version="4.9.4" />
     <!-- Client-side captures/thumbnails and image export still use STB. -->
     <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
+    <!-- Keep the compatible ppy binding but exclude its SDL development-snapshot
+         native binaries. Stable SDL 3.4.16 runtimes avoid intermittent black
+         first-process Metal renders while preserving this binding's API. -->
+    <PackageReference Include="ppy.SDL3-CS" Version="2026.722.0" ExcludeAssets="native" />
+    <PackageReference Include="SDL3-CS.Windows" Version="3.4.16" />
+    <PackageReference Include="SDL3-CS.Linux" Version="3.4.16" />
+    <PackageReference Include="SDL3-CS.MacOS" Version="3.4.16" />
     <!-- File-source package; explicit items below preserve loader names. -->
     <PackageReference Include="Silk.NET.OpenAL.Soft.Native" Version="1.23.1"
                       GeneratePathProperty="true" ExcludeAssets="all" />
@@ -48,6 +61,22 @@
     <None Update="paths.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="Rendering/Shaders/Generated/**/*" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/Generated/%(RecursiveDir)%(Filename)%(Extension)" />
+    <None Include="Rendering/Shaders/scene_triangle.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/scene_triangle.hlsl" />
+    <None Include="Rendering/Shaders/scene.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/scene.hlsl" />
+    <None Include="Rendering/Shaders/fullscreen.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/fullscreen.hlsl" />
+    <None Include="Rendering/Shaders/hud.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/hud.hlsl" />
+    <None Include="Rendering/Shaders/disruption.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/disruption.hlsl" />
+    <None Include="Rendering/Shaders/cel.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/cel.hlsl" />
+    <None Include="Rendering/Shaders/bloom.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/bloom.hlsl" />
   </ItemGroup>
 
   <!-- Silk's source names differ from OpenTK's loader names. Keep these
@@ -80,6 +109,7 @@
     <None Include="../../maps/**/*.fpmap;../../maps/*.json;../../maps/*.bsp;../../maps/*.tex"
           Link="maps/%(RecursiveDir)%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
     <None Include="../../maps/**/*.json;../../maps/**/*.bsp;../../maps/**/*.tex;../../maps/**/*.pk3"
           Exclude="../../maps/*.json;../../maps/*.bsp;../../maps/*.tex"
@@ -113,4 +143,22 @@
     <Compile Include="../Shared/Hosting/ConsoleSetup.cs" Link="Shared/Hosting/ConsoleSetup.cs" />
     <Compile Include="../Shared/Hosting/RuntimePlatform.cs" Link="Shared/Hosting/RuntimePlatform.cs" />
   </ItemGroup>
+
+  <!-- A direct client publish must not depend on a separately remembered
+       map-cook command. CI still runs the same command as an explicit
+       preflight; this target covers local and release-script publishes too. -->
+  <Target Name="CookCustomMapBundles" AfterTargets="Publish"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(SkipCustomMapBundleCook)' != 'true'">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)/../.."
+          Command="dotnet run --project src/Tools/Tools.csproj -c $(Configuration) -- -mapdir maps -mapbundle all" />
+    <!-- The SDK evaluates wildcard items before the target runs. Copy the
+         freshly cooked files explicitly so a clean direct publish receives
+         the same bundles as a publish after a manual cook. -->
+    <ItemGroup>
+      <_CustomMapBundle Include="$(MSBuildProjectDirectory)/../../maps/**/*.fpmap" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_CustomMapBundle)"
+          DestinationFiles="@(_CustomMapBundle->'$(PublishDir)maps/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>

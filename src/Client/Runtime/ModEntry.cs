@@ -83,6 +83,12 @@ namespace MphRead.Mods
             // on for a single run without the setting, for the case where the
             // launcher itself is what will not start.
             Launcher.LauncherPrefs.Load();
+            string? ui = ValueAfter(args, "ui");
+            if (ui != null)
+            {
+                Launcher.Gui.GuiLauncher.ClassicUi =
+                    String.Equals(ui, "classic", StringComparison.OrdinalIgnoreCase);
+            }
             if (HasFlag(args, "debuglog"))
             {
                 DebugLog.Force();
@@ -489,6 +495,22 @@ namespace MphRead.Mods
             {
                 int captured = ThumbnailCapture.CaptureRooms(share, width, height);
                 Console.WriteLine($"[thumbnails] captured {captured}/{share.Count}");
+                return true;
+            }
+
+            string? modelPreview = ValueAfter(args, "modelpreview");
+            if (modelPreview != null)
+            {
+                if (!ModelPreviewCatalog.TryWorkerKey(modelPreview, out ModelPreviewSpec? spec)
+                    || spec == null)
+                {
+                    Console.Error.WriteLine($"[previews] unknown preview key: {modelPreview}");
+                    Environment.ExitCode = 2;
+                    return true;
+                }
+                bool saved = ModelPreviewCapture.Capture(spec, width, height);
+                Environment.ExitCode = saved ? 0 : 1;
+                Console.WriteLine($"[previews] {(saved ? "saved" : "failed")} {spec.WorkerKey}");
                 return true;
             }
 

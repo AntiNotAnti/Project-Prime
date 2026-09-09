@@ -1,0 +1,57 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_CelConstants
+{
+    float4 celOptions;
+    float4 texelOptions;
+};
+
+struct main_ps_out
+{
+    float4 out_var_SV_Target0 [[color(0)]];
+};
+
+fragment main_ps_out main_ps(constant type_CelConstants& CelConstants [[buffer(0)]], texture2d<float> sceneTexture [[texture(0)]], texture2d<float> depthTexture [[texture(1)]], sampler sceneSampler [[sampler(0)]], sampler depthSampler [[sampler(1)]], float4 gl_FragCoord [[position]])
+{
+    main_ps_out out = {};
+    float4 _255;
+    do
+    {
+        float2 _72 = gl_FragCoord.xy * CelConstants.texelOptions.xy;
+        float4 _74 = sceneTexture.sample(sceneSampler, _72);
+        float4 _79 = depthTexture.sample(depthSampler, _72, level(0.0));
+        float _80 = _79.x;
+        float _248;
+        if (_80 < 0.999999523162841796875)
+        {
+            float _95 = precise::max((CelConstants.celOptions.z / (CelConstants.celOptions.z - CelConstants.celOptions.y)) - _80, 9.999999717180685365747194737196e-10) * CelConstants.texelOptions.x;
+            if (CelConstants.texelOptions.z > 0.5)
+            {
+                float _143 = fast::clamp((log2(precise::max(precise::max(abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(-2.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(2.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80)), abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, -2.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, 2.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80))) * 0.5, 1.0000000133514319600180897396058e-10)) * 0.03125) + 1.0, 0.0040000001899898052215576171875, 1.0);
+                _255 = float4(_143, _143, _143, 1.0);
+                break;
+            }
+            float _148 = (CelConstants.celOptions.w * 2.0) / _95;
+            float _194 = (CelConstants.celOptions.w * 1.33333337306976318359375) / _95;
+            float _242 = precise::max(smoothstep(precise::max(1.10000002384185791015625, _148 * 1.5), precise::max(3.5, _148 * 4.0), (precise::max(abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(-2.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(2.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80)), abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, -2.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, 2.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80))) * 0.5) / _95), smoothstep(precise::max(1.10000002384185791015625, _194 * 1.5), precise::max(3.5, _194 * 4.0), (precise::max(abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(-3.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(3.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80)), abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, -3.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, 3.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80))) * 0.3333333432674407958984375) / _95)) * CelConstants.celOptions.x;
+            _248 = _242;
+        }
+        else
+        {
+            if (CelConstants.texelOptions.z > 0.5)
+            {
+                _255 = float4(0.0, 0.0, 0.0, 1.0);
+                break;
+            }
+            _248 = 0.0;
+        }
+        _255 = float4(_74.xyz * (1.0 - _248), 1.0);
+        break;
+    } while(false);
+    out.out_var_SV_Target0 = _255;
+    return out;
+}
+

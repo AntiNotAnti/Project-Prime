@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using MphRead.Entities;
 using OpenTK.Mathematics;
-using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace MphRead
@@ -140,7 +139,7 @@ namespace MphRead
             return null;
         }
 
-        public static bool OnKeyDown(KeyboardKeyEventArgs e, Scene scene)
+        public static bool OnKeyDown(WindowKeyEvent e, Scene scene)
         {
             if (e.Key == Keys.M)
             {

@@ -146,6 +146,20 @@ namespace MphRead
             }
         }
 
+        internal static ModelInstance GetRoomModelInstance(RoomMetadata meta)
+        {
+            lock (ContentEnvironment.SyncRoot)
+            {
+                string key = "room:" + meta.Name;
+                if (!_modelCache.TryGetValue(key, out Model? model))
+                {
+                    model = GetRoomModel(meta);
+                    _modelCache.Add(key, model);
+                }
+                return new ModelInstance(model);
+            }
+        }
+
         private static Model GetRoomModel(RoomMetadata meta)
         {
             var recolors = new List<RecolorMetadata>()

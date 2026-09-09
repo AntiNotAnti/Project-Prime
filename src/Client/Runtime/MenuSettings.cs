@@ -25,7 +25,19 @@ namespace MphRead
         public string ResolutionScale { get; set; } = "100";
         public string Lighting { get; set; } = "on";
         public string Fog { get; set; } = "on";
-        public string TextureFiltering { get; set; } = "off";
+        // New quality keys are nullable so a settings file written before
+        // R12 can be distinguished from one that explicitly selected a
+        // value. GameSettings falls back to the selected preset when these
+        // keys are absent, and keeps the old filtering switch meaningful.
+        public string GraphicsPreset { get; set; } = "original";
+        public string? TextureFilteringPreset { get; set; }
+        public string? Anisotropy { get; set; }
+        public string? Msaa { get; set; }
+        public string? Bloom { get; set; }
+        public string? DynamicVisualLights { get; set; }
+        // Nullable preserves the distinction between an old key containing
+        // "off" and a newer file where the legacy key was never written.
+        public string? TextureFiltering { get; set; }
         public string AdvancedNetwork { get; set; } = "off";
         public string HitMarkers { get; set; } = "Visual";
         public string HeadshotCue { get; set; } = "on";

@@ -1,0 +1,60 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_HudConstants
+{
+    float4 hudOptions;
+    float4 viewport;
+};
+
+struct main_ps_out
+{
+    float4 out_var_SV_Target0 [[color(0)]];
+};
+
+struct main_ps_in
+{
+    float4 in_var_TEXCOORD0 [[user(locn0)]];
+    float2 in_var_TEXCOORD1 [[user(locn1)]];
+};
+
+fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_HudConstants& HudConstants [[buffer(0)]], texture2d<float> hudTexture [[texture(0)]], texture2d<float> maskTexture [[texture(1)]], sampler hudSampler [[sampler(0)]], sampler maskSampler [[sampler(1)]], float4 gl_FragCoord [[position]])
+{
+    main_ps_out out = {};
+    float4 _49;
+    if (HudConstants.hudOptions.y > 0.5)
+    {
+        _49 = hudTexture.sample(hudSampler, in.in_var_TEXCOORD1);
+    }
+    else
+    {
+        _49 = in.in_var_TEXCOORD0;
+    }
+    float4 _79;
+    if (HudConstants.hudOptions.z > 0.5)
+    {
+        float4 _78;
+        if (maskTexture.sample(maskSampler, float2(gl_FragCoord.x / HudConstants.viewport.x, 1.0 - (((HudConstants.viewport.y - gl_FragCoord.y) + ((HudConstants.viewport.x - HudConstants.viewport.y) * 0.5)) / HudConstants.viewport.x))).w > 0.0)
+        {
+            float4 _77 = _49;
+            _77.w = 0.0;
+            _78 = _77;
+        }
+        else
+        {
+            _78 = _49;
+        }
+        _79 = _78;
+    }
+    else
+    {
+        _79 = _49;
+    }
+    float4 _84 = _79;
+    _84.w = _79.w * HudConstants.hudOptions.x;
+    out.out_var_SV_Target0 = _84;
+    return out;
+}
+

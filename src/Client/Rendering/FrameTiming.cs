@@ -193,6 +193,18 @@ namespace MphRead.Mods.Render
             return steps;
         }
 
+        /// <summary>
+        /// Mark one host-driven frame-advance presentation without allowing
+        /// wall-clock debt to create additional fixed ticks. The host calls
+        /// <see cref="Reset"/> immediately before this method.
+        /// </summary>
+        public static int ManualStep()
+        {
+            Active = true;
+            StepsThisFrame = 1;
+            return 1;
+        }
+
         private static void Tally(double elapsedSeconds, int steps)
         {
             _windowSeconds += elapsedSeconds;

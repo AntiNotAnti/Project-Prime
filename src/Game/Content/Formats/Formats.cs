@@ -141,7 +141,10 @@ namespace MphRead
 
     public class Mesh
     {
-        // Shared immutable identity for renderer display lists; visibility remains instance-owned.
+        // Shared immutable identity for renderer geometry. Runtime model copies
+        // retain this key; the renderer additionally keys its CPU cache by the
+        // immutable instruction list and every compile-time texture/texgen input.
+        // Visibility remains instance-owned.
         public object GeometryIdentity { get; } = new object();
         // Other fields are values, strings, or immutable parsed tables.
         internal Mesh CloneRuntime() => (Mesh)MemberwiseClone();

@@ -24,64 +24,6 @@ namespace MphRead
         }
     }
 
-    public enum RenderItemType
-    {
-        // box/cylinder/sphere must be 1/2/3
-        Mesh = 0,
-        Box = 1,
-        Cylinder = 2,
-        Sphere = 3,
-        Quad = 4,
-        Ngon = 5,
-        Particle = 6,
-        TrailSingle = 7,
-        TrailMulti = 8,
-        TrailStack = 9
-    }
-
-    public class RenderItem
-    {
-        public RenderItemType Type { get; set; }
-        public int PolygonId { get; set; }
-        public float Alpha { get; set; }
-        public PolygonMode PolygonMode { get; set; }
-        public RenderMode RenderMode { get; set; }
-        public CullingMode CullingMode { get; set; }
-        public BillboardMode BillboardMode { get; set; }
-        public bool Wireframe { get; set; }
-        public bool Lighting { get; set; }
-        public bool NoLines { get; set; }
-        public Vector3 Diffuse { get; set; }
-        public Vector3 Ambient { get; set; }
-        public Vector3 Specular { get; set; }
-        public Vector3 Emission { get; set; }
-        public LightInfo LightInfo { get; set; }
-        public TexgenMode TexgenMode { get; set; }
-        public RepeatMode XRepeat { get; set; }
-        public RepeatMode YRepeat { get; set; }
-        public bool HasTexture { get; set; }
-        public int TextureBindingId { get; set; }
-        public Matrix4 TexcoordMatrix { get; set; }
-        public Matrix4 Transform { get; set; }
-        public int ListId { get; set; }
-        public int MatrixStackCount { get; set; }
-        public float[] MatrixStack { get; }
-        public Vector4? OverrideColor { get; set; }
-        public Vector4? PaletteOverride { get; set; }
-        public Vector3[] Points { get; set; }
-        // number of segments for morph ball trail, or total for other multi-segment trails
-        public int ItemCount { get; set; }
-        public float ScaleS { get; set; }
-        public float ScaleT { get; set; }
-
-        public RenderItem()
-        {
-            // todo: consider using ArrayPool
-            MatrixStack = new float[16 * 31];
-            Points = Array.Empty<Vector3>();
-        }
-    }
-
     // size: 4
     public readonly struct Fixed
     {

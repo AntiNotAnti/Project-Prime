@@ -1,0 +1,288 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+#pragma clang diagnostic ignored "-Wmissing-braces"
+
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+template<typename T, size_t Num>
+struct spvUnsafeArray
+{
+    T elements[Num ? Num : 1];
+    
+    thread T& operator [] (size_t pos) thread
+    {
+        return elements[pos];
+    }
+    constexpr const thread T& operator [] (size_t pos) const thread
+    {
+        return elements[pos];
+    }
+    
+    device T& operator [] (size_t pos) device
+    {
+        return elements[pos];
+    }
+    constexpr const device T& operator [] (size_t pos) const device
+    {
+        return elements[pos];
+    }
+    
+    constexpr const constant T& operator [] (size_t pos) const constant
+    {
+        return elements[pos];
+    }
+    
+    threadgroup T& operator [] (size_t pos) threadgroup
+    {
+        return elements[pos];
+    }
+    constexpr const threadgroup T& operator [] (size_t pos) const threadgroup
+    {
+        return elements[pos];
+    }
+};
+
+struct type_FrameConstants
+{
+    float4 fog;
+    float4 frameOptions;
+    float4 fogRange;
+};
+
+struct type_DrawConstants
+{
+    float4x4 transform;
+    float4x4 billboard;
+    float4x4 matrixStack[31];
+    float4x4 texcoordMatrix;
+    float4 diffuse;
+    float4 ambient;
+    float4 specular;
+    float4 emission;
+    float4 overrideColor;
+    float4 paletteOverride;
+    float4 light1Vector;
+    float4 light1Color;
+    float4 light2Vector;
+    float4 light2Color;
+    float4 drawOptions;
+    float4 materialOptions;
+    float4 renderOptions;
+    float4 flatColor;
+};
+
+constant spvUnsafeArray<uint, 32> _103 = spvUnsafeArray<uint, 32>({ 8192u, 8192u, 8224u, 8225u, 8225u, 8257u, 9281u, 9313u, 9313u, 9314u, 9346u, 9346u, 10435u, 11492u, 12549u, 13638u, 14695u, 15752u, 16841u, 17898u, 18955u, 20043u, 21100u, 22157u, 23246u, 24303u, 25360u, 26449u, 27506u, 28563u, 29652u, 30709u });
+
+struct main_ps_out
+{
+    float4 out_var_SV_Target0 [[color(0)]];
+};
+
+struct main_ps_in
+{
+    float2 in_var_TEXCOORD1 [[user(locn1)]];
+    float4 in_var_TEXCOORD2 [[user(locn2)]];
+};
+
+fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_FrameConstants& FrameConstants [[buffer(0)]], constant type_DrawConstants& DrawConstants [[buffer(1)]], texture2d<float> sceneTexture [[texture(0)]], sampler sceneSampler [[sampler(0)]], float4 gl_FragCoord [[position]])
+{
+    main_ps_out out = {};
+    float4 _402;
+    do
+    {
+        bool _116 = DrawConstants.drawOptions.x > 0.5;
+        float4 _124;
+        if (_116)
+        {
+            _124 = sceneTexture.sample(sceneSampler, in.in_var_TEXCOORD1);
+        }
+        else
+        {
+            _124 = float4(1.0);
+        }
+        float4 _147;
+        if (DrawConstants.drawOptions.z > 0.5)
+        {
+            _147 = float4(DrawConstants.paletteOverride.xyz, _124.w);
+        }
+        else
+        {
+            float4 _146;
+            if (DrawConstants.renderOptions.y > 0.5)
+            {
+                _146 = float4(DrawConstants.flatColor.x, DrawConstants.flatColor.y, DrawConstants.flatColor.z, _124.w);
+            }
+            else
+            {
+                _146 = _124;
+            }
+            _147 = _146;
+        }
+        uint _150 = uint(DrawConstants.materialOptions.y);
+        bool _151 = !_116;
+        float4 _245;
+        if (_151)
+        {
+            float4 _172;
+            if (DrawConstants.drawOptions.y > 0.5)
+            {
+                _172 = DrawConstants.overrideColor;
+            }
+            else
+            {
+                _172 = float4(in.in_var_TEXCOORD2.xyz, DrawConstants.materialOptions.x * in.in_var_TEXCOORD2.w);
+            }
+            _245 = _172;
+        }
+        else
+        {
+            float4 _244;
+            if (_150 == 1u)
+            {
+                _244 = float4(mix(in.in_var_TEXCOORD2.xyz, _147.xyz, float3(_147.w)), DrawConstants.materialOptions.x * in.in_var_TEXCOORD2.w);
+            }
+            else
+            {
+                float4 _243;
+                if (_150 == 2u)
+                {
+                    uint _202 = min(uint(fast::clamp(in.in_var_TEXCOORD2.x, 0.0, 1.0) * 31.0), 31u);
+                    _243 = float4((_147.xyz * in.in_var_TEXCOORD2.x) + float3(float(_103[_202] & 31u) * 0.0322580635547637939453125, float((_103[_202] >> 5u) & 31u) * 0.0322580635547637939453125, float((_103[_202] >> 10u) & 31u) * 0.0322580635547637939453125), (DrawConstants.materialOptions.x * _147.w) * in.in_var_TEXCOORD2.w);
+                }
+                else
+                {
+                    _243 = float4(in.in_var_TEXCOORD2.xyz * _147.xyz, (DrawConstants.materialOptions.x * _147.w) * in.in_var_TEXCOORD2.w);
+                }
+                _244 = _243;
+            }
+            _245 = _244;
+        }
+        bool _249;
+        if (_151)
+        {
+            _249 = _150 == 2u;
+        }
+        else
+        {
+            _249 = false;
+        }
+        float4 _273;
+        if (_249)
+        {
+            uint _257 = min(uint(fast::clamp(in.in_var_TEXCOORD2.x, 0.0, 1.0) * 31.0), 31u);
+            float3 _271 = float3(float(_103[_257] & 31u) * 0.0322580635547637939453125, float((_103[_257] >> 5u) & 31u) * 0.0322580635547637939453125, float((_103[_257] >> 10u) & 31u) * 0.0322580635547637939453125);
+            _273 = float4(_271.x, _271.y, _271.z, _245.w);
+        }
+        else
+        {
+            _273 = _245;
+        }
+        float4 _288;
+        if ((DrawConstants.drawOptions.y > 0.5) ? _116 : false)
+        {
+            float4 _282 = float4(DrawConstants.overrideColor.x, DrawConstants.overrideColor.y, DrawConstants.overrideColor.z, _273.w);
+            _282.w = _273.w * DrawConstants.overrideColor.w;
+            _288 = _282;
+        }
+        else
+        {
+            _288 = _273;
+        }
+        bool _291 = FrameConstants.frameOptions.x > 0.5;
+        float _317;
+        if (_291)
+        {
+            float _296 = fast::clamp(gl_FragCoord.z, 0.0, 1.0);
+            float _315;
+            if (_296 >= FrameConstants.fogRange.y)
+            {
+                _315 = 1.0;
+            }
+            else
+            {
+                float _314;
+                if (_296 > FrameConstants.fogRange.x)
+                {
+                    _314 = ((_296 - FrameConstants.fogRange.x) / precise::max(FrameConstants.fogRange.y - FrameConstants.fogRange.x, 9.9999997473787516355514526367188e-05)) * 0.96875;
+                }
+                else
+                {
+                    _314 = 0.0;
+                }
+                _315 = _314;
+            }
+            _317 = fast::clamp(_315, 0.0, 1.0);
+        }
+        else
+        {
+            _317 = 0.0;
+        }
+        if (DrawConstants.renderOptions.z > 0.0)
+        {
+            _402 = float4(((_288.xyz * fast::clamp(DrawConstants.renderOptions.z, 0.0, 1.0)) * _288.w) * (1.0 - _317), 1.0);
+            break;
+        }
+        float4 _366;
+        if (FrameConstants.frameOptions.y > 0.0)
+        {
+            float3 _364;
+            do
+            {
+                float _346 = precise::max(precise::max(_288.x, _288.y), _288.z);
+                if (_346 <= 0.0)
+                {
+                    _364 = _288.xyz;
+                    break;
+                }
+                float _351 = (_346 * FrameConstants.frameOptions.y) - 0.5;
+                float _352 = floor(_351);
+                float3 _359 = _288.xyz * ((((_352 + 0.5) + smoothstep(0.4600000083446502685546875, 0.540000021457672119140625, _351 - _352)) / FrameConstants.frameOptions.y) / _346);
+                _364 = fast::clamp(mix(float3(dot(_359, float3(0.2989999949932098388671875, 0.58700001239776611328125, 0.114000000059604644775390625))), _359, float3(1.35000002384185791015625)), float3(0.0), float3(1.0));
+                break;
+            } while(false);
+            _366 = float4(_364.x, _364.y, _364.z, _288.w);
+        }
+        else
+        {
+            _366 = _288;
+        }
+        float4 _376;
+        if (_291)
+        {
+            float3 _374 = mix(_366.xyz, FrameConstants.fog.xyz, float3(_317));
+            _376 = float4(_374.x, _374.y, _374.z, _366.w);
+        }
+        else
+        {
+            _376 = _366;
+        }
+        if (DrawConstants.renderOptions.x == 1.0)
+        {
+            bool _386 = false;
+            bool _387 = true;
+            if (_376.w != 1.0)
+            {
+                discard_fragment();
+            }
+        }
+        else
+        {
+            if (DrawConstants.renderOptions.x == 2.0)
+            {
+                bool _397 = false;
+                bool _398 = true;
+                if ((isunordered(_376.w, 1.0) || _376.w >= 1.0))
+                {
+                    discard_fragment();
+                }
+            }
+        }
+        _402 = _376;
+        break;
+    } while(false);
+    out.out_var_SV_Target0 = _402;
+    return out;
+}
+

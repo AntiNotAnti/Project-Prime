@@ -1,39 +1,19 @@
 #if ANDROID
-using System;
-using System.Security.Cryptography;
-using System.Text;
-
 namespace MphRead.Mods.Render
 {
     /// <summary>
-    /// The six shaders of <see cref="Shaders"/>, written for OpenGL ES 3.0.
-    ///
-    /// The desktop ones are GLSL 1.20 and read their vertex data out of the
-    /// fixed-function pipeline -- <c>gl_Vertex</c>, <c>gl_Color</c>,
-    /// <c>gl_Normal</c>, <c>gl_MultiTexCoord0</c> -- which is what ties the
-    /// desktop build to a compatibility profile. ES has no such profile and no
-    /// such builtins, so these declare the same four things as real attributes
-    /// at fixed locations and are otherwise the same program, expression for
-    /// expression. <see cref="GlEs"/> feeds those attributes and substitutes
-    /// these sources as the shaders are compiled; nothing in the engine knows.
-    ///
-    /// Two things here are not in the desktop originals:
+    /// Android-owned OpenGL ES 3.0 shader sources. <see cref="GlEs"/> feeds
+    /// their explicit attributes directly; the desktop renderer uses its SDL
+    /// GPU shader artifacts and has no GLSL source dependency.
     ///
     /// - <c>imm_color</c> and <c>a_color_set</c>. In fixed-function GL a vertex
     ///   with no colour of its own takes the *current* colour, which the engine
-    ///   sets per render item (<c>DoMaterial</c> calls <c>GL.Color3</c> before
-    ///   <c>CallList</c>) and a display list therefore reads at execution time,
-    ///   not at compile time. The buffers <see cref="GlEs"/> bakes carry a flag
-    ///   saying whether each vertex had its own colour; the ones that did not
-    ///   take <c>imm_color</c>, which is the current colour at draw time.
+    ///   sets per render item. The buffers <see cref="GlEs"/> bakes carry a
+    ///   flag saying whether each vertex had its own colour; vertices that did
+    ///   not take <c>imm_color</c>, the current colour at draw time.
     /// - <c>alpha_test</c>. ES has no <c>glAlphaFunc</c>. The engine uses
     ///   exactly two comparisons -- equal to 1 and less than 1 -- so the
     ///   fragment shaders discard on those instead.
-    ///
-    /// If the desktop shaders change, these do not follow on their own, and a
-    /// silent divergence would be a rendering bug with no message anywhere. So
-    /// each one is checked against the hash of the source it was written from,
-    /// and a mismatch throws with the name of the shader that moved.
     /// </summary>
     internal static class EsShaders
     {
@@ -553,82 +533,62 @@ void main()
 }
 ";
 
-        /// <summary>
-        /// The ES source for one of the desktop sources, or null if it is not
-        /// one this file knows -- in which case <see cref="GlEs"/> passes the
-        /// original through and lets the driver reject it, which is a clearer
-        /// failure than silently compiling something else.
-        /// </summary>
-        public static string? Translate(string desktopSource)
-        {
-            if (ReferenceEquals(desktopSource, Shaders.VertexShader))
-            {
-                return VertexShader;
-            }
-            if (ReferenceEquals(desktopSource, Shaders.FragmentShader))
-            {
-                return FragmentShader;
-            }
-            if (ReferenceEquals(desktopSource, Shaders.RttVertexShader))
-            {
-                return RttVertexShader;
-            }
-            if (ReferenceEquals(desktopSource, Shaders.RttFragmentShader))
-            {
-                return RttFragmentShader;
-            }
-            if (ReferenceEquals(desktopSource, Shaders.CelFragmentShader))
-            {
-                return CelFragmentShader;
-            }
-            if (ReferenceEquals(desktopSource, Shaders.ShiftFragmentShader))
-            {
-                return ShiftFragmentShader;
-            }
-            return null;
-        }
+    }
+}
 
-        private static bool _checked = false;
-
-        /// <summary>
-        /// Throw if a desktop shader has been edited since its ES counterpart
-        /// was written from it. Called once, before the first compile.
-        /// </summary>
-        public static void CheckInSync()
-        {
-            if (_checked)
-            {
-                return;
-            }
-            _checked = true;
-            Check("VertexShader", Shaders.VertexShader,
-                "4cf1422bddaa3ece44c9cfbf6dab1ede192ee8c3f4fbed362e7da5eebfdfc428");
-            Check("FragmentShader", Shaders.FragmentShader,
-                "b7d15d11622cb4ff811f36572d8d74bc30450b75e81404ff27b48dc8665d8528");
-            Check("RttVertexShader", Shaders.RttVertexShader,
-                "af070f447840bf1fc51d6bba88a339fab067a4e3a01e460351a2549ca9107f4f");
-            Check("RttFragmentShader", Shaders.RttFragmentShader,
-                "021b5992926cb3a8c714fb943b0c85e091cf3cd76d2c487950ca0fb03d27c56e");
-            Check("CelFragmentShader", Shaders.CelFragmentShader,
-                "0fcb40630809a0e5b2d78448ed8b9518686fb6a5fc3b1a69914a37fecf28f7d5");
-            Check("ShiftFragmentShader", Shaders.ShiftFragmentShader,
-                "2b2511d5506ad9a25d64005b7b9e452f56b550410f96c753a6072a743b3162fa");
-        }
-
-        private static void Check(string name, string source, string expected)
-        {
-            // Normalised the same way the hashes were taken, so a checkout with
-            // CRLF line endings is not reported as a change.
-            byte[] bytes = Encoding.UTF8.GetBytes(source.Replace("\r\n", "\n"));
-            string actual = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
-            if (actual != expected)
-            {
-                throw new ProgramException(
-                    $"Shaders.{name} has changed since the OpenGL ES version of it was written "
-                    + $"(expected {expected}, found {actual}). Update EsShaders.{name} to match, "
-                    + "then update the hash here.");
-            }
-        }
+namespace MphRead
+{
+    public sealed class ShaderLocations
+    {
+        public int UseLight { get; set; }
+        public int ShowColors { get; set; }
+        public int UseTexture { get; set; }
+        public int Light1Color { get; set; }
+        public int Light1Vector { get; set; }
+        public int Light2Color { get; set; }
+        public int Light2Vector { get; set; }
+        public int Diffuse { get; set; }
+        public int Ambient { get; set; }
+        public int Specular { get; set; }
+        public int Emission { get; set; }
+        public int UseFog { get; set; }
+        public int CelBands { get; set; }
+        public int UseFlat { get; set; }
+        public int FlatColor { get; set; }
+        public int CelOutline { get; set; }
+        public int CelTexelWidth { get; set; }
+        public int CelTexelHeight { get; set; }
+        public int CelNearPlane { get; set; }
+        public int CelFarPlane { get; set; }
+        public int CelDepthQuantum { get; set; }
+        public int CelProbe { get; set; }
+        public int FogColor { get; set; }
+        public int FogMinDistance { get; set; }
+        public int FogMaxDistance { get; set; }
+        public int UseOverride { get; set; }
+        public int OverrideColor { get; set; }
+        public int UsePaletteOverride { get; set; }
+        public int PaletteOverrideColor { get; set; }
+        public int MaterialAlpha { get; set; }
+        public int MaterialMode { get; set; }
+        public int ViewMatrix { get; set; }
+        public int ViewInvMatrix { get; set; }
+        public int ProjectionMatrix { get; set; }
+        public int TextureMatrix { get; set; }
+        public int TexgenMode { get; set; }
+        public int MatrixStack { get; set; }
+        public int ToonTable { get; set; }
+        public int FadeColor { get; set; }
+        public int LayerAlpha { get; set; }
+        public int UseMask { get; set; }
+        public int ViewWidth { get; set; }
+        public int ViewHeight { get; set; }
+        public int ShiftTable { get; set; }
+        public int ShiftIndex { get; set; }
+        public int ShiftFactor { get; set; }
+        public int LerpFactor { get; set; }
+        public int WhiteoutTable { get; set; }
+        public int WhiteoutFactor { get; set; }
     }
 }
 #endif
