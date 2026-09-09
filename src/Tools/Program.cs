@@ -21,7 +21,7 @@ namespace MphRead
                 if (args.Length > 0 && args[0] == "telemetry") return TelemetryCommand.Run(args);
                 MapGen.MapImageDecoding.Decoder = MphRead.Imaging.StbImageDecoder.Decode;
                 if (args.Length == 0 || HasFlag(args, "help"))
-                { Console.WriteLine("FruityPrimeTools: -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -mapbundle, -mapgen, -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return 0; }
+                { Console.WriteLine("FruityPrimeTools: -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -content-dir DIRECTORY, -mapbundle [NAME|all], -mapgen [NAME|all], -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return 0; }
                 string? mapDir = ValueAfter(args, "mapdir");
                 if (mapDir != null) MapGen.CustomRooms.MapDirectory = Path.GetFullPath(Path.Combine(ConsoleSetup.LaunchDirectory, mapDir));
                 if (HandleEarly(args) || CheckSetup(args) || HandleAssets(args)) return Environment.ExitCode;
@@ -81,7 +81,7 @@ namespace MphRead
             {
                 Extract.ExtractArchive(extractValue);
             }
-                else { Console.WriteLine("FruityPrimeTools: -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -mapbundle, -mapgen, -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return args.Length == 0 ? 0 : 2; }
+                else { Console.WriteLine("FruityPrimeTools: -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -content-dir DIRECTORY, -mapbundle [NAME|all], -mapgen [NAME|all], -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return args.Length == 0 ? 0 : 2; }
                 return Environment.ExitCode;
             }
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
@@ -122,10 +122,13 @@ namespace MphRead
                     {
                         continue;
                     }
-                    if (def.SourcePath == null || def.BundlePath != null || def.Import == null)
+                    if (def.SourcePath == null || def.BundlePath != null)
                     {
-                        // Already a bundle, or a map that builds from its own
-                        // description and has no level to carry.
+                        // Already a bundle, or a definition that did not come
+                        // from a file. Description-only maps are bundled too:
+                        // their recipe is the complete map and keeping it in a
+                        // top-level .fpmap lets desktop and Android ship the
+                        // same map set without recursing into source folders.
                         continue;
                     }
                     try
@@ -277,8 +280,19 @@ namespace MphRead
                 Extract.Setup(args[0]);
                 return true;
             }
-            string? data = ValueAfter(args, "data");
-            if (data != null) { ContentEnvironment.Open(data, ValueAfter(args, "dataversion") ?? "AMHE1"); return false; }
+            string? data = ValueAfter(args, "data") ?? ValueAfter(args, "content-dir");
+            if (data != null)
+            {
+                // Run() moves the process into the tool's output directory so
+                // its default paths resolve beside the executable. Explicit
+                // command-line paths retain the directory where the user ran
+                // the command, which is what `-data publish/...` means.
+                string contentPath = Path.IsPathRooted(data)
+                    ? data
+                    : Path.Combine(ConsoleSetup.LaunchDirectory, data);
+                ContentEnvironment.Open(contentPath, ValueAfter(args, "dataversion") ?? "AMHE1");
+                return false;
+            }
             if (!File.Exists("paths.txt")) throw new ProgramException("Supply -data DIRECTORY or run FruityPrimeTools with a ROM path first.");
             Paths.UpdatePaths();
             Paths.ChooseMphPath();
@@ -394,13 +408,27 @@ namespace MphRead
         private static bool HasFlag(string[] args, string name) => args.Any(a => a.TrimStart('-').Equals(name, StringComparison.OrdinalIgnoreCase));
         private static string? ValueAfter(string[] args, string name)
         {
-            for (int i=0;i<args.Length-1;i++) if (args[i].TrimStart('-').Equals(name,StringComparison.OrdinalIgnoreCase)) return args[i+1];
+            for (int i=0;i<args.Length-1;i++)
+            {
+                if (!args[i].TrimStart('-').Equals(name, StringComparison.OrdinalIgnoreCase)) continue;
+                string value = args[i + 1];
+                // A switch with no value must not consume the next switch as
+                // its value. This matters for `-mapbundle --content-dir ...`:
+                // the old parser interpreted --content-dir as a map name and
+                // silently skipped every map.
+                return value.StartsWith('-') ? null : value;
+            }
             return null;
         }
         private static List<string> ValuesAfter(string[] args, string name)
         {
             var values = new List<string>();
-            for (int i=0;i<args.Length-1;i++) if (args[i].TrimStart('-').Equals(name,StringComparison.OrdinalIgnoreCase)) values.Add(args[i+1]);
+            for (int i=0;i<args.Length-1;i++)
+            {
+                if (!args[i].TrimStart('-').Equals(name, StringComparison.OrdinalIgnoreCase)) continue;
+                string value = args[i + 1];
+                if (!value.StartsWith('-')) values.Add(value);
+            }
             return values;
         }
     }

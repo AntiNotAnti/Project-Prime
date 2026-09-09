@@ -1,9 +1,6 @@
 using System;
 using MphRead.Entities;
-using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
-using OpenTK.Windowing.Common;
-using OpenTK.Windowing.Desktop;
 
 namespace MphRead.Mods.Network
 {
@@ -24,8 +21,10 @@ namespace MphRead.Mods.Network
     /// Letting it die would spend the window on respawn timers and measure the
     /// gaps between lives rather than the weapon.
     /// </summary>
-    public sealed class WeaponDps : GameWindow
+    public sealed class WeaponDps : IRenderToolClient
     {
+        private readonly IRenderToolHost _host;
+        private readonly ScenePresentation _presentation;
         private readonly string _room;
         private readonly Hunter _hunter;
         private readonly BeamType _beam;
@@ -52,31 +51,10 @@ namespace MphRead.Mods.Network
 
         public Scene Scene { get; }
 
-        private static GameWindowSettings GameSettings() => new() { UpdateFrequency = 60 };
-
-        private static NativeWindowSettings WindowSettings() => new()
+        private WeaponDps(string room, Hunter hunter, BeamType beam, double seconds, float distance,
+            IRenderToolHost host)
         {
-            ClientSize = new Vector2i(320, 180),
-            Title = "MphRead weapon probe",
-            Profile = ContextProfile.Compatability,
-            // Explicitly, exactly as the game's own window does. Left
-            // unset, OpenTK's default gave this window a *forward-compatible*
-            // context, which removes every deprecated entry point -- and this
-            // engine draws in immediate mode, so that is all of them. The
-            // profile mask still answers "compatibility", so nothing looked
-            // wrong; the driver only admitted it in a shader warning that
-            // mentioned "OGL 3.0 forward-compatible context". Every frame came
-            // out black with GL_INVALID_OPERATION on an Intel Iris Xe, while
-            // the game rendered perfectly on the same machine, because the
-            // game sets this and these windows did not.
-            Flags = ContextFlags.Default,
-            APIVersion = new Version(3, 2),
-            StartVisible = false
-        };
-
-        private WeaponDps(string room, Hunter hunter, BeamType beam, double seconds, float distance)
-            : base(GameSettings(), WindowSettings())
-        {
+            _host = host ?? throw new ArgumentNullException(nameof(host));
             _room = room;
             _hunter = hunter;
             _beam = beam;
@@ -85,7 +63,7 @@ namespace MphRead.Mods.Network
             MapAudit.ForceEveryone = true;
             Scene = new Scene(features: ClientMatchFeatures.Capture()) { Services = new ClientSceneServices(forceSpawn: true) };
             Scene.Players.MaxPlayers = Math.Max(Scene.Players.MaxPlayers, 2);
-            _ = new ScenePresentation(Scene, Size, KeyboardState, MouseState, _ => { }, Close);
+            _presentation = host.CreatePresentation(Scene);
             // The victim is slot 0 and the shooter is slot 1, deliberately.
             // PlayerEntity.ProcessInput refills the *main* player's controls
             // from the keyboard every frame, so anything written into slot 0
@@ -108,35 +86,38 @@ namespace MphRead.Mods.Network
             Scene.AddRoom(room, GameMode.Battle, playerCount: NetConfig.RoomPlayerCount);
         }
 
-        protected override void OnLoad()
+        public void OnLoad()
         {
-            ScenePresentation.Get(Scene).Size = ClientSize;
-            ScenePresentation.Get(Scene).OnLoad();
-            base.OnLoad();
-            GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
-            ScenePresentation.Get(Scene).OnResize();
+            _presentation.Size = _host.Size;
+            _presentation.OnLoad();
+            _presentation.OnResize();
         }
 
-        protected override void OnRenderFrame(FrameEventArgs args)
+        public void OnFrame()
         {
-            ScenePresentation.Get(Scene).OnUpdateFrame();
-            if (!ScenePresentation.Get(Scene).OnRenderFrame())
+            _presentation.OnSimulationFrame();
+            RenderToolFrameResult frame = _host.Render(_presentation);
+            if (!frame.Submitted)
             {
                 return;
             }
             _frame++;
             Step();
-            SwapBuffers();
-            ScenePresentation.Get(Scene).AfterRenderFrame();
-            base.OnRenderFrame(args);
             if (_placed && _frame - _placedFrame >= _seconds * 60)
             {
-                Close();
+                _host.Close();
             }
             else if (_frame > (_seconds + 20) * 60)
             {
-                Close(); // never got set up; the report says so
+                _host.Close(); // never got set up; the report says so
             }
+        }
+
+        public void OnCapture(RenderCaptureResult capture) { }
+
+        public void OnClosing()
+        {
+            _presentation.DoCleanup();
         }
 
         private static bool Alive(PlayerEntity player)
@@ -250,12 +231,17 @@ namespace MphRead.Mods.Network
 
         public static int Run(string room, Hunter hunter, BeamType beam, double seconds, float distance)
         {
-            WeaponDps? window = null;
+            IRenderToolHost? host = null;
+            WeaponDps? probe = null;
             try
             {
-                window = new WeaponDps(room, hunter, beam, seconds, Math.Clamp(distance, 0.5f, 40f));
-                window.Run();
-                return window.Report();
+                host = RenderToolHostFactory.Create(new Vector2i(320, 180),
+                    "MphRead weapon probe", updateFrequency: 60, visible: false,
+                    presentable: false);
+                probe = new WeaponDps(room, hunter, beam, seconds,
+                    Math.Clamp(distance, 0.5f, 40f), host);
+                host.Run(probe);
+                return probe.Report();
             }
             catch (Exception ex)
             {
@@ -265,7 +251,7 @@ namespace MphRead.Mods.Network
             }
             finally
             {
-                window?.Dispose();
+                host?.Dispose();
             }
         }
     }

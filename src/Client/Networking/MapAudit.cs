@@ -2,10 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using MphRead.Entities;
-using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
-using OpenTK.Windowing.Common;
-using OpenTK.Windowing.Desktop;
 
 namespace MphRead.Mods.Network
 {
@@ -26,8 +23,10 @@ namespace MphRead.Mods.Network
     ///
     /// Usage: -maptest "MP3 PROVING GROUND" [-players 8] [-seconds 10]
     /// </summary>
-    public sealed class MapAudit : GameWindow
+    public sealed class MapAudit : IRenderToolClient
     {
+        private readonly IRenderToolHost _host;
+        private readonly ScenePresentation _presentation;
         private readonly string _room;
         private readonly int _players;
         private readonly double _seconds;
@@ -191,34 +190,6 @@ namespace MphRead.Mods.Network
         /// </summary>
         private int _drawAdvancedTheGame;
 
-        private static GameWindowSettings GameSettings() => new() { UpdateFrequency = 60 };
-
-        private static NativeWindowSettings WindowSettings() => new()
-        {
-            // Bigger for -hudshots: the HUD is authored for a 256x192 screen
-            // and scaled to the window, so at 320x180 a weapon icon is a few
-            // pixels and a capture of it says nothing.
-            ClientSize = WindowSize ?? (ShowWindow ? new Vector2i(1024, 576) : new Vector2i(320, 180)),
-            Title = "MphRead map audit",
-            Profile = ContextProfile.Compatability,
-            // Explicitly, exactly as the game's own window does. Left
-            // unset, OpenTK's default gave this window a *forward-compatible*
-            // context, which removes every deprecated entry point -- and this
-            // engine draws in immediate mode, so that is all of them. The
-            // profile mask still answers "compatibility", so nothing looked
-            // wrong; the driver only admitted it in a shader warning that
-            // mentioned "OGL 3.0 forward-compatible context". Every frame came
-            // out black with GL_INVALID_OPERATION on an Intel Iris Xe, while
-            // the game rendered perfectly on the same machine, because the
-            // game sets this and these windows did not.
-            Flags = ContextFlags.Default,
-            APIVersion = new Version(3, 2),
-            // Visible only for -hudshots, which reads the window's own buffer
-            // because that is the one the HUD is drawn into. Everything else
-            // reads the offscreen target and wants no window on screen.
-            StartVisible = ShowWindow
-        };
-
         /// <summary>Set by -hudshots before the window is built.</summary>
         public static bool ShowWindow { get; set; }
 
@@ -268,9 +239,9 @@ namespace MphRead.Mods.Network
         private readonly bool _bots;
 
         private MapAudit(string room, int players, double seconds, GameMode mode, bool bots,
-            bool renderProbe)
-            : base(GameSettings(), WindowSettings())
+            bool renderProbe, IRenderToolHost host)
         {
+            _host = host ?? throw new ArgumentNullException(nameof(host));
             _renderProbe = renderProbe;
             _bots = bots;
             _room = room;
@@ -289,7 +260,7 @@ namespace MphRead.Mods.Network
             Mods.WorldEvents.Reset();
             Scene = new Scene(features: ClientMatchFeatures.Capture()) { Services = new ClientSceneServices(forceSpawn: true) };
             Scene.Players.MaxPlayers = Math.Max(Scene.Players.MaxPlayers, players);
-            _ = new ScenePresentation(Scene, Size, KeyboardState, MouseState, _ => { }, Close);
+            _presentation = host.CreatePresentation(Scene);
             // A different hunter per slot, cycling, so one run exercises
             // several alt forms, several affinity weapons and several
             // collision volumes rather than eight copies of Samus.
@@ -312,37 +283,30 @@ namespace MphRead.Mods.Network
             Scene.AddRoom(room, mode, playerCount: NetConfig.RoomPlayerCount);
         }
 
-        protected override void OnLoad()
+        public void OnLoad()
         {
-            ScenePresentation.Get(Scene).Size = ClientSize;
-            ScenePresentation.Get(Scene).OnLoad();
-            base.OnLoad();
-            GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
-            ScenePresentation.Get(Scene).OnResize();
+            _presentation.Size = _host.Size;
+            _presentation.OnLoad();
+            _presentation.OnResize();
         }
 
-        protected override void OnRenderFrame(FrameEventArgs args)
+        public void OnFrame()
         {
             // One simulation step, then however many pictures of it were
             // asked for. _frame counts steps, not pictures, so -seconds still
             // means seconds of game and every existing probe keeps its timing.
-            ScenePresentation.Get(Scene).OnSimulationFrame();
+            _presentation.OnSimulationFrame();
             ulong frameCountBefore = Scene.FrameCount;
             int draws = Math.Max(1, DrawRate);
+            RenderToolFrameResult finalFrame = new(false, false, false, false, false);
             for (int i = 0; i < draws; i++)
             {
-                ScenePresentation.Get(Scene).OnDrawFrame();
-                if (!ScenePresentation.Get(Scene).OnRenderFrame())
+                RenderToolCapture? capture = i == draws - 1
+                    ? CaptureForCurrentPicture() : null;
+                finalFrame = _host.Render(_presentation, capture);
+                if (!finalFrame.Submitted)
                 {
                     return;
-                }
-                if (i < draws - 1)
-                {
-                    // Every picture but the last is finished and thrown away:
-                    // what is being measured is that making it changed nothing,
-                    // and the last one is the one the samplers below read.
-                    SwapBuffers();
-                    ScenePresentation.Get(Scene).AfterRenderFrame();
                 }
             }
             // The one invariant this whole feature rests on: drawing does not
@@ -355,31 +319,36 @@ namespace MphRead.Mods.Network
             _frame++;
             if (_renderProbe)
             {
-                if (!StepSpawnRender())
+                if (!StepSpawnRender(finalFrame))
                 {
-                    SwapBuffers();
-                    ScenePresentation.Get(Scene).AfterRenderFrame();
-                    base.OnRenderFrame(args);
-                    Close();
+                    _host.Close();
                     return;
                 }
-                SwapBuffers();
-                ScenePresentation.Get(Scene).AfterRenderFrame();
-                base.OnRenderFrame(args);
                 return;
             }
             Drive();
             StepScoreboard();
             Observe();
-            SampleRender();
-            SwapBuffers();
-            ScenePresentation.Get(Scene).AfterRenderFrame();
-            base.OnRenderFrame(args);
+            SampleRender(finalFrame);
             if (_frame >= _seconds * 60 && (_bots || (!StepProbe() && !StepAfflictionProbe())))
             {
-                Close();
+                _host.Close();
             }
         }
+
+        private RenderToolCapture? CaptureForCurrentPicture()
+        {
+            if (!_renderProbe && !ShouldCaptureSample(_frame + 1))
+            {
+                return null;
+            }
+            CaptureTargetKind target = ShowWindow
+                ? CaptureTargetKind.FinalPresentedFrame : CaptureTargetKind.SceneTarget;
+            return new RenderToolCapture(target);
+        }
+
+        internal static bool ShouldCaptureSample(int completedStep)
+            => completedStep % _litSampleFrames == 1;
 
         /// <summary>
         /// Every player is driven, not just one. Eight players moving, firing
@@ -981,7 +950,7 @@ namespace MphRead.Mods.Network
         /// into it is the failure being looked for, and only the second
         /// reading finds it.
         /// </summary>
-        private bool StepSpawnRender()
+        private bool StepSpawnRender(RenderToolFrameResult frame)
         {
             if (_spawnIndex < 0)
             {
@@ -1027,14 +996,15 @@ namespace MphRead.Mods.Network
             }
             if (_spawnFrames == _spawnSettleFrames)
             {
-                _spawnLitAtSpawn = Mods.ScreenCapture.NonBlackFraction(Scene);
+                double lit = CaptureLitFraction(frame);
+                _spawnLitAtSpawn = lit;
                 _spawnLitWorst = _spawnLitAtSpawn;
-                SaveSpawnShot("spawn");
+                SaveSpawnShot(frame, "spawn");
             }
             NetTestScript.WalkForward(player);
             if (_spawnFrames % 30 == 0)
             {
-                double lit = Mods.ScreenCapture.NonBlackFraction(Scene);
+                double lit = CaptureLitFraction(frame);
                 if (lit < _spawnLitWorst)
                 {
                     _spawnLitWorst = lit;
@@ -1044,7 +1014,7 @@ namespace MphRead.Mods.Network
             {
                 return true;
             }
-            SaveSpawnShot("walked");
+            SaveSpawnShot(frame, "walked");
             Vector3 at = _spawnSpots[_spawnIndex];
             bool failed = _spawnLitWorst < _renderFloor;
             if (failed)
@@ -1063,15 +1033,42 @@ namespace MphRead.Mods.Network
             return true;
         }
 
-        private void SaveSpawnShot(string what)
+        private void SaveSpawnShot(RenderToolFrameResult frame, string what)
         {
             if (_shotDirectory == null)
             {
                 return;
             }
             string name = _room.Replace(' ', '_').Replace('-', '_');
-            Mods.ScreenCapture.Save(Scene,
-                System.IO.Path.Combine(_shotDirectory, $"{name}-spawn{_spawnIndex:00}-{what}.png"));
+            string path = System.IO.Path.Combine(_shotDirectory,
+                $"{name}-spawn{_spawnIndex:00}-{what}.png");
+            RenderCaptureResult? capture = FindCapture(frame, CaptureTargetKind.SceneTarget,
+                CaptureTargetKind.FinalPresentedFrame);
+            if (capture != null)
+            {
+                RenderToolCaptureSupport.Save(capture, path);
+            }
+        }
+
+        private double CaptureLitFraction(RenderToolFrameResult frame)
+        {
+            RenderCaptureResult? capture = FindCapture(frame,
+                CaptureTargetKind.SceneTarget, CaptureTargetKind.FinalPresentedFrame);
+            return capture == null ? 0 : RenderToolCaptureSupport.NonBlackFraction(capture);
+        }
+
+        private static RenderCaptureResult? FindCapture(RenderToolFrameResult frame,
+            params CaptureTargetKind[] targets)
+        {
+            for (int i = frame.Captures.Count - 1; i >= 0; i--)
+            {
+                RenderCaptureResult capture = frame.Captures[i];
+                for (int target = 0; target < targets.Length; target++)
+                {
+                    if (capture.Target == targets[target]) return capture;
+                }
+            }
+            return null;
         }
 
         private void CollectSpawnSpots()
@@ -1104,13 +1101,13 @@ namespace MphRead.Mods.Network
         /// spawn" and "black once you walk into it" are different faults with
         /// different causes, and a single average hides both.
         /// </summary>
-        private void SampleRender()
+        private void SampleRender(RenderToolFrameResult frame)
         {
-            if (_frame % _litSampleFrames != 1)
+            if (!ShouldCaptureSample(_frame))
             {
                 return;
             }
-            double lit = Mods.ScreenCapture.NonBlackFraction(Scene);
+            double lit = CaptureLitFraction(frame);
             _litSamples++;
             _litTotal += lit;
             if (_litFirst < 0)
@@ -1130,9 +1127,9 @@ namespace MphRead.Mods.Network
                 string name = _room.Replace(' ', '_').Replace('-', '_');
                 string path = System.IO.Path.Combine(_shotDirectory,
                     $"{name}-{_shotsSaved:00}.png");
-                bool saved = ShowWindow
-                    ? Mods.ScreenCapture.SaveWindow(Scene, path)
-                    : Mods.ScreenCapture.Save(Scene, path);
+                RenderCaptureResult? capture = FindCapture(frame,
+                    CaptureTargetKind.SceneTarget, CaptureTargetKind.FinalPresentedFrame);
+                bool saved = capture != null && RenderToolCaptureSupport.Save(capture, path);
                 if (saved)
                 {
                     _shotsSaved++;
@@ -1140,10 +1137,17 @@ namespace MphRead.Mods.Network
             }
         }
 
-        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        public void OnCapture(RenderCaptureResult capture)
         {
-            ScenePresentation.Get(Scene).DoCleanup();
-            base.OnClosing(e);
+            // Render flushes an explicitly requested tool picture after a
+            // successful submit, so sampled pixels are accounted against that
+            // exact frame. This callback only receives final-drain work that
+            // was not returned by Render and must not mutate probe timing.
+        }
+
+        public void OnClosing()
+        {
+            _presentation.DoCleanup();
         }
 
         private int Report()
@@ -1360,25 +1364,30 @@ namespace MphRead.Mods.Network
             bool bots = false, string? shotDirectory = null, bool renderProbe = false,
             bool allNodes = false)
         {
-            MapAudit? window = null;
+            IRenderToolHost? host = null;
+            MapAudit? audit = null;
             try
             {
-                window = new MapAudit(room, Math.Clamp(players, 1, PlayerEntity.SlotCapacity),
-                    seconds, mode, bots, renderProbe);
+                Vector2i size = WindowSize ?? (ShowWindow
+                    ? new Vector2i(1024, 576) : new Vector2i(320, 180));
+                host = RenderToolHostFactory.Create(size, "MphRead map audit",
+                    updateFrequency: 60, visible: ShowWindow, presentable: false);
+                audit = new MapAudit(room, Math.Clamp(players, 1, PlayerEntity.SlotCapacity),
+                    seconds, mode, bots, renderProbe, host);
                 // Draw every node the model has, ignoring the portal-graph
                 // room-part culling. Answers one question and only one: is a
                 // frame with no room in it a culling decision or geometry that
                 // is not being drawn at all? It has to be set for a whole
                 // frame, update included -- the draw lists are built during
                 // the update and this is read while they are.
-                ScenePresentation.Get(window.Scene).ShowAllNodes = allNodes;
+                audit._presentation.ShowAllNodes = allNodes;
                 if (shotDirectory != null)
                 {
                     System.IO.Directory.CreateDirectory(shotDirectory);
-                    window._shotDirectory = shotDirectory;
+                    audit._shotDirectory = shotDirectory;
                 }
-                window.Run();
-                return window.Report();
+                host.Run(audit);
+                return audit.Report();
             }
             catch (Exception ex)
             {
@@ -1388,7 +1397,7 @@ namespace MphRead.Mods.Network
             }
             finally
             {
-                window?.Dispose();
+                host?.Dispose();
             }
         }
     }

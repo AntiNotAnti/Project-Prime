@@ -93,6 +93,9 @@ namespace MphRead
                 throw new FileNotFoundException("The resource is outside the immutable worker content view.", path);
             return (byte[])bytes.Clone();
         }
+
+        internal bool ContainsResource(string path)
+            => _files.ContainsKey(Path.GetFullPath(path));
     }
 
     public sealed class WorkerContentLease : IDisposable

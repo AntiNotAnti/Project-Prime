@@ -51,6 +51,12 @@ namespace MphRead
                 return _worker != null ? _worker.ReadBytes(path) : File.ReadAllBytes(path);
         }
 
+        internal static bool ResourceExists(string path)
+        {
+            lock (SyncRoot)
+                return _worker != null ? _worker.ContainsResource(path) : File.Exists(path);
+        }
+
         internal static ReadOnlySpan<ServerContentScenario> ValidatedScenarios
             => _manifest?.Scenarios ?? Array.Empty<ServerContentScenario>();
         /// <summary>Computes browser compatibility without acquiring a scene or changing read mode.</summary>

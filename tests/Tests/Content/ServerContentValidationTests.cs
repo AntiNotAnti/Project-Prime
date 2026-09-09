@@ -3,6 +3,9 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Threading.Tasks;
+using MphRead;
+using MphRead.Mods.MapGen;
 using MphRead.Mods.Network;
 using Xunit;
 
@@ -95,6 +98,115 @@ public sealed class ServerContentValidationTests : IDisposable
             new[] { new RotationEntry { RoomKey = "MP1 SANCTORUS", Mode = GameMode.Survival } }));
         Assert.Contains("does not support", error.Message);
         Assert.Equal(2, Directory.EnumerateFiles(_directory, "*", SearchOption.AllDirectories).Count());
+    }
+
+    [Fact]
+    public void MapDescriptorsAreOrdinalAndUseMatchModeValues()
+    {
+        ContentMapDescriptor[] maps = ServerContentValidation.BuildMapDescriptors(new[]
+        {
+            new ServerContentScenario("z-map", GameMode.PrimeHunter),
+            new ServerContentScenario("a-map", GameMode.Capture),
+            new ServerContentScenario("a-map", GameMode.Battle),
+            new ServerContentScenario("z-map", GameMode.Battle)
+        });
+
+        Assert.Equal(new[] { "a-map", "z-map" }, maps.Select(map => map.MapKey));
+        Assert.Equal(new[] { MatchMode.Battle, MatchMode.Capture }, maps[0].Modes);
+        Assert.Equal(new[] { MatchMode.Battle, MatchMode.PrimeHunter }, maps[1].Modes);
+        string json = JsonSerializer.Serialize(maps);
+        using JsonDocument document = JsonDocument.Parse(json);
+        Assert.Equal(JsonValueKind.Number, document.RootElement[0].GetProperty("Modes")[0].ValueKind);
+        Assert.Equal((int)MatchMode.Battle, document.RootElement[0].GetProperty("Modes")[0].GetInt32());
+        Assert.Equal((int)MatchMode.Capture, document.RootElement[0].GetProperty("Modes")[1].GetInt32());
+    }
+
+    [Theory]
+    [InlineData("duplicate")]
+    [InlineData("unknown-mode")]
+    [InlineData("non-ascii")]
+    [InlineData("too-long")]
+    public void MapDescriptorValidationRejectsInvalidPairs(string invalid)
+    {
+        ServerContentScenario[] scenarios = invalid switch
+        {
+            "duplicate" => new[]
+            {
+                new ServerContentScenario("map", GameMode.Battle),
+                new ServerContentScenario("map", GameMode.Battle)
+            },
+            "unknown-mode" => new[] { new ServerContentScenario("map", (GameMode)15) },
+            "non-ascii" => new[] { new ServerContentScenario("mäp", GameMode.Battle) },
+            _ => new[] { new ServerContentScenario(new string('m', 129), GameMode.Battle) }
+        };
+
+        Assert.Throws<ProgramException>(() => ServerContentValidation.BuildMapDescriptors(scenarios));
+    }
+
+    [Fact]
+    public void MapDescriptorValidationRejectsMapAndPairBounds()
+    {
+        var tooManyMaps = Enumerable.Range(0, 257)
+            .Select(index => new ServerContentScenario($"map-{index}", GameMode.Battle));
+        Assert.Throws<ProgramException>(() => ServerContentValidation.BuildMapDescriptors(tooManyMaps));
+
+        var tooManyPairs = Enumerable.Range(0, 65).SelectMany(index =>
+            Enumerable.Range((int)GameMode.Battle, 12)
+                .Select(mode => new ServerContentScenario($"map-{index}", (GameMode)mode)));
+        Assert.Throws<ProgramException>(() => ServerContentValidation.BuildMapDescriptors(tooManyPairs));
+    }
+
+    [Fact]
+    public void WorkerAcceptsMapDirectoryAndNormalizesItBeforeUse()
+    {
+        string previous = CustomRooms.MapDirectory;
+        try
+        {
+            var flags = FruityPrime.Server.Worker.Program.ParseArguments(new[] { "--map-dir", "worker-maps" });
+            FruityPrime.Server.Worker.Program.ApplyMapDirectory(flags);
+            Assert.Equal(Path.GetFullPath("worker-maps"), CustomRooms.MapDirectory);
+        }
+        finally
+        {
+            CustomRooms.MapDirectory = previous;
+        }
+    }
+
+    [Fact]
+    public async Task DescribeContentEmitsIdentityAndMapCatalog()
+    {
+        using var saved = ServerContent.PreserveContext("AMHE1");
+        CreateManifest();
+        string mapDirectory = Path.Combine(_directory, "maps");
+        Directory.CreateDirectory(mapDirectory);
+        TextWriter previousOut = Console.Out;
+        TextWriter previousError = Console.Error;
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        try
+        {
+            Console.SetOut(output);
+            Console.SetError(error);
+            Assert.Equal(0, await FruityPrime.Server.Worker.Program.Main(new[]
+            {
+                "--describe-content", "true", "--content-dir", _directory,
+                "--content-version", "AMHE1", "--map-dir", mapDirectory
+            }));
+        }
+        finally
+        {
+            Console.SetOut(previousOut);
+            Console.SetError(previousError);
+        }
+
+        using JsonDocument document = JsonDocument.Parse(output.ToString());
+        Assert.False(String.IsNullOrWhiteSpace(document.RootElement.GetProperty("ContentVersion").GetString()));
+        Assert.False(String.IsNullOrWhiteSpace(document.RootElement.GetProperty("ContentHash").GetString()));
+        Assert.True(document.RootElement.TryGetProperty("BuildVersion", out _));
+        Assert.True(document.RootElement.TryGetProperty("ProtocolVersion", out _));
+        JsonElement map = Assert.Single(document.RootElement.GetProperty("Maps").EnumerateArray());
+        Assert.Equal("MP1 SANCTORUS", map.GetProperty("MapKey").GetString());
+        Assert.Equal((int)MatchMode.Battle, Assert.Single(map.GetProperty("Modes").EnumerateArray()).GetInt32());
     }
 
     private ServerContentManifest CreateManifest()

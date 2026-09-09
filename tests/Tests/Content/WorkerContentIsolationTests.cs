@@ -36,9 +36,14 @@ public sealed class WorkerContentIsolationTests
             Assert.Same(content, second.Content);
             Assert.Equal("AMHE1", content.Version);
             Assert.Equal(64, content.ContentHash.Length);
+            Assert.True(ContentEnvironment.ResourceExists(file));
+            Assert.False(ContentEnvironment.ResourceExists(Path.Combine(directory, "missing.bin")));
             File.WriteAllBytes(file, new byte[] { 9 });
             byte[] read = ContentEnvironment.ReadBytes(file);
             read[0] = 8;
+            Assert.Equal(new byte[] { 1, 2, 3 }, ContentEnvironment.ReadBytes(file));
+            File.Delete(file);
+            Assert.True(ContentEnvironment.ResourceExists(file));
             Assert.Equal(new byte[] { 1, 2, 3 }, ContentEnvironment.ReadBytes(file));
             Assert.Throws<InvalidOperationException>(() => ContentEnvironment.Open(directory, "AMHE0"));
             Assert.Throws<InvalidOperationException>(() => Paths.MphKey = "AMHE0");

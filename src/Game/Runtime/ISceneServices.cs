@@ -1,5 +1,6 @@
 using MphRead.Entities;
 using MphRead.Mods.Network;
+using MphRead.Runtime.HistoricalCollision;
 using OpenTK.Mathematics;
 
 namespace MphRead
@@ -60,6 +61,18 @@ namespace MphRead
         uint NextSpreadSeed();
         LagCompensationMode GetMode(in BeamMechanics mechanics);
         bool TryGetPlayerCollider(PlayerEntity player, in CombatShot shot, out LagCompensationState state);
+        bool ShouldUseHistoricalCollision(in CombatShot shot) => false;
+        bool TryGetHistoricalBeamCollision(Vector3 start, Vector3 end, in CombatShot shot,
+            out HistoricalCollisionResult result)
+        {
+            result = default;
+            return false;
+        }
+        bool TryResolveHistoricalCollider(in HistoricalCollisionResult result, out EntityBase entity)
+        {
+            entity = null!;
+            return false;
+        }
         bool TryGetHomingTarget(EntityBase entity, uint tick, CombatActor expected, out Vector3 position, out CombatActor identity);
         void EnqueueCatchUp(BeamProjectileEntity beam, bool inherited);
         bool IsStaleActor(in CombatActor actor);

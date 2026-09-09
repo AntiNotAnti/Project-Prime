@@ -18,6 +18,9 @@
   <ItemGroup>
     <!-- The only non-BCL dependency owned by the game/domain boundary. -->
     <PackageReference Include="OpenTK.Mathematics" Version="4.9.4" />
+    <!-- Analyzer-only reference: generated codecs never add a runtime dependency. -->
+    <ProjectReference Include="../Protocol.Generator/Protocol.Generator.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

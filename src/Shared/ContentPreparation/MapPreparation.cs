@@ -20,8 +20,9 @@ namespace MphRead.Mods.MapGen
             return count;
         }
 
-        public static void GenerateMissing()
+        public static IReadOnlyList<string> GenerateMissing()
         {
+            var failures = new List<string>();
             IReadOnlyList<MapDefinition> definitions;
             try
             {
@@ -29,7 +30,7 @@ namespace MphRead.Mods.MapGen
             }
             catch
             {
-                return;
+                return failures;
             }
             foreach (MapDefinition def in definitions)
             {
@@ -45,8 +46,10 @@ namespace MphRead.Mods.MapGen
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[mapgen] {def.Name} could not be built: {ex.Message}");
+                    failures.Add($"{def.Name}: {ex.Message}");
                 }
             }
+            return failures;
         }
     }
 }

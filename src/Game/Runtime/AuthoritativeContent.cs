@@ -12,13 +12,17 @@ namespace MphRead
             return count;
         }
         public static void ValidateRoom(Scene scene)
+            => ValidateRoom(scene, allowValidationFixtureDynamics: false);
+
+        internal static void ValidateRoom(Scene scene, bool allowValidationFixtureDynamics)
         {
             int required = MinimumWorldRecords(scene);
             if (required > WorldPacket.Capacity)
                 throw new ProgramException($"Room {scene.RoomId} requires at least {required} world records; capacity is {WorldPacket.Capacity}.");
             foreach (EntityBase entity in scene.Entities)
             {
-                if (entity.Type is EntityType.Door or EntityType.ForceField or EntityType.Platform)
+                if (!allowValidationFixtureDynamics
+                    && entity.Type is EntityType.Door or EntityType.ForceField or EntityType.Platform)
                 {
                     throw new ProgramException($"Authoritative multiplayer does not support {entity.Type} entity {entity.Id} in room {scene.RoomId}. "
                         + "Retail multiplayer rooms do not contain mutable door, forcefield or platform entities.");
