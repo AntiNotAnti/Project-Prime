@@ -19,7 +19,7 @@ namespace MphRead.Mods.Launcher
         public static void Run()
         {
             LauncherPrefs.Load();
-            if (LauncherPrefs.AutoUpdate)
+            if (LauncherPrefs.AutoUpdate && Update.Updater.Configured)
             {
                 // Started in the background and then waited on briefly. This
                 // screen is printed once and then blocks on a keypress, so a
@@ -161,7 +161,7 @@ namespace MphRead.Mods.Launcher
                     }
                     continue;
                 }
-                if (Update.Updater.Available != null)
+                if (Update.Updater.Configured && Update.Updater.Available != null)
                 {
                     Console.WriteLine($"  {Update.Updater.Describe(Update.Updater.Available.Value)}");
                     Console.WriteLine();
@@ -170,7 +170,7 @@ namespace MphRead.Mods.Launcher
                 Console.WriteLine("  [2] Host public game use the GUI Node browser");
                 Console.WriteLine("  [3] Settings         name, hunter, window");
                 Console.WriteLine("  [4] Game files       point this at your .nds dump");
-                if (Update.Updater.Available != null)
+                if (Update.Updater.Configured && Update.Updater.Available != null)
                 {
                     Console.WriteLine("  [u] Update now       open the download page");
                 }
@@ -194,7 +194,7 @@ namespace MphRead.Mods.Launcher
                     problem = GameFiles.Problem();
                     return true;
                 }
-                if (choice == "u" && Update.Updater.Available != null)
+                if (choice == "u" && Update.Updater.Configured && Update.Updater.Available != null)
                 {
                     UpdateNow(Update.Updater.Available.Value);
                     continue;

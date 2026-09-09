@@ -20,15 +20,19 @@ namespace MphRead.Mods
         public const string Upstream = "MphRead";
 
         /// <summary>
-        /// The repository releases are published to and fetched from.
+        /// Historical repository identity retained for compatibility links.
         ///
         /// The project was forked as MphRead and the repository has since been
-        /// renamed to match; GitHub keeps the old slug redirecting for API
-        /// calls too, but a redirect is not a guarantee -- it lapses if
-        /// somebody else ever claims the old name, so this is the current one,
-        /// not the original one.
+        /// Update discovery uses <see cref="UpdateRepository"/> separately so
+        /// an unconfigured release feed cannot advertise unrelated releases.
         /// </summary>
         public const string Repository = "liveteklol/Fruity-Prime";
+
+        /// <summary>
+        /// Repository queried for published client updates. Empty until a
+        /// release feed and packages are intentionally configured.
+        /// </summary>
+        public const string UpdateRepository = "";
 
         /// <summary>
         /// The name of the running executable, without its extension. Read

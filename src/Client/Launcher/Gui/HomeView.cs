@@ -134,7 +134,7 @@ namespace MphRead.Mods.Launcher.Gui
             RefreshPreviewEntry();
             if (NodeSessions.Current != null) Dispatcher.UIThread.Post(OpenJoin);
 
-            if (LauncherPrefs.AutoUpdate)
+            if (LauncherPrefs.AutoUpdate && Update.Updater.Configured)
             {
                 // In the background, and never blocking the window: a launcher
                 // that will not draw until GitHub answers looks broken on a bad
@@ -441,7 +441,7 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     _updateBadge.IsVisible = false;
                 }
-                else if (!home && Update.Updater.Available != null)
+                else if (!home && Update.Updater.Configured && Update.Updater.Available != null)
                 {
                     _updateBadge.IsVisible = true;
                 }
@@ -832,7 +832,7 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             string number = VersionNumber();
-            if (Update.Updater.Available != null)
+            if (Update.Updater.Configured && Update.Updater.Available != null)
             {
                 SayVersion($"{number} : Update available ! Click here to update",
                     GuiTheme.Warm, pressable: true);

@@ -217,7 +217,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         StartPreviewCatchup();
         if (!_restoreOnActivate || _restoreStarted) return;
         _restoreStarted = true;
-        if (LauncherPrefs.AutoUpdate)
+        if (LauncherPrefs.AutoUpdate && Update.Updater.Configured)
         {
             Update.Updater.CheckInBackground(update => PostUi(() =>
             {
@@ -1988,7 +1988,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
                     PostUi(() => _shell.Navigator.NavigateRoot(PrimeRoute.Gateway));
             }), quiet: true));
         }
-        if (_update is { } update)
+        if (Update.Updater.Configured && _update is { } update)
         {
             ActionBar.Children.Add(MakeButton($"Update available · {update.Tag}",
                 () => RunCommand("Open update page", () =>

@@ -49,7 +49,9 @@ namespace MphRead.Mods.Update
     {
         /// <summary>The only host this asks, and only ever for metadata.</summary>
         private const string _api =
-            "https://api.github.com/repos/" + Mods.Branding.Repository + "/releases/latest";
+            "https://api.github.com/repos/" + Mods.Branding.UpdateRepository + "/releases/latest";
+
+        public static bool IsConfigured => !String.IsNullOrWhiteSpace(Mods.Branding.UpdateRepository);
 
         /// <summary>Never silently, and never for long.</summary>
         private static readonly TimeSpan _timeout = TimeSpan.FromSeconds(20);
@@ -68,6 +70,11 @@ namespace MphRead.Mods.Update
         public static UpdateInfo? Latest(CancellationToken cancel = default)
         {
             LastReason = null;
+            if (!IsConfigured)
+            {
+                LastReason = "the update feed is not configured";
+                return null;
+            }
             // A build nobody published cannot be improved on by one that was:
             // there is no way to tell whether it is ahead of the release or
             // behind it, and overwriting a developer's own binary with a
@@ -247,8 +254,9 @@ namespace MphRead.Mods.Update
         }
 
         /// <summary>Where the releases live, when a specific one has no page.</summary>
-        public const string ReleasesPage =
-            "https://github.com/" + Mods.Branding.Repository + "/releases";
+        public static string ReleasesPage => IsConfigured
+            ? "https://github.com/" + Mods.Branding.UpdateRepository + "/releases"
+            : "";
 
         public static bool IsServerBuild => false;
 

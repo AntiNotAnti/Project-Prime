@@ -25,6 +25,8 @@ namespace MphRead.Mods.Update
     /// </summary>
     public static class Updater
     {
+        public static bool Configured => UpdateCheck.IsConfigured;
+
         /// <summary>Set by -noupdate, for anybody who wants none of this.</summary>
         public static bool Disabled { get; set; }
 
@@ -66,8 +68,9 @@ namespace MphRead.Mods.Update
         /// </param>
         public static void CheckInBackground(Action<UpdateInfo> found, Action? done = null)
         {
-            if (Disabled)
+            if (Disabled || !Configured)
             {
+                done?.Invoke();
                 return;
             }
             Task.Run(() =>
@@ -103,7 +106,7 @@ namespace MphRead.Mods.Update
         /// </summary>
         public static void WaitForCheck(TimeSpan limit)
         {
-            if (Disabled)
+            if (Disabled || !Configured)
             {
                 return;
             }

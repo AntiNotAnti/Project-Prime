@@ -17,6 +17,16 @@ namespace MphRead.Tests;
 public sealed class PrimeShellControllerTests
 {
     [Fact]
+    public void UpdateActionIsUnavailableUntilAReleaseFeedIsConfigured()
+    {
+        Assert.False(MphRead.Mods.Update.UpdateCheck.IsConfigured);
+        Assert.False(MphRead.Mods.Update.Updater.Configured);
+        Assert.Null(MphRead.Mods.Update.Updater.Check());
+        Assert.Equal("the update feed is not configured",
+            MphRead.Mods.Update.UpdateCheck.LastReason);
+    }
+
+    [Fact]
     public void LobbyStartEligibilityRequiresAnExplicitMapConfiguration()
     {
         LobbyStartEligibility result = LobbyStartEligibility.Evaluate(LobbySnapshotFor(
