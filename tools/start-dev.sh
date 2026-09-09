@@ -182,8 +182,14 @@ if ! DESCRIPTOR_TMP=$(mktemp "$STATE_DIR/.content-description.XXXXXX"); then
     echo "Unable to create the Worker content descriptor in $STATE_DIR." >&2
     exit 1
 fi
+if ! "$WORKER_PATH" --prepare-content true --content-dir "$CONTENT_DIR" \
+    --content-version "$CONTENT_VERSION" --map-dir "$MAP_DIR"; then
+    rm -f "$DESCRIPTOR_TMP"
+    echo "Worker content preparation failed; no Node configuration was generated." >&2
+    exit 1
+fi
 if ! "$WORKER_PATH" --describe-content true --content-dir "$CONTENT_DIR" \
-    --content-version "$CONTENT_VERSION" --map-dir "$PACKAGE_DIR/maps" > "$DESCRIPTOR_TMP"; then
+    --content-version "$CONTENT_VERSION" --map-dir "$MAP_DIR" > "$DESCRIPTOR_TMP"; then
     rm -f "$DESCRIPTOR_TMP"
     echo "Worker content discovery failed; no Node configuration was generated." >&2
     exit 1
