@@ -257,7 +257,7 @@ namespace MphRead.Tests
                 byte[] body = new byte[SnapshotPacket.HeaderSize + SnapshotPlayer.Size];
                 new SnapshotPacket(20, 1, 1, 0, false, 1, 2).Write(body, new[] { source });
                 peer.Connection.Send(transport, NetMessageType.Snapshot, body);
-                foreach (byte[] world in LiveWorld(1))
+                foreach (byte[] world in LiveWorld(1, terminal: true))
                     peer.Connection.Send(transport, NetMessageType.World, world.AsSpan(1));
                 var hit = new CombatEvent(1, 20, 0, CombatEventKind.Damage, 0, 0,
                     new CombatActor(0, peer.Connection.Id, 1), new CombatActor(0, peer.Connection.Id, 1),
@@ -276,13 +276,39 @@ namespace MphRead.Tests
                 body = new byte[4 + WorldEvent.Size]; BinaryPrimitives.WriteUInt32LittleEndian(body, 1);
                 objective.Write(body.AsSpan(4));
                 Assert.True(peer.Connection.Reliable.TryEnqueue(ReliableEventType.WorldEvent, body, out _));
+                MatchEvent nodeCaptured = new(4, 20, 1, 1, MatchEventKind.NodeCaptured,
+                    hit.Actor, CombatActor.None, EntityId: 123, Team: 0);
+                MatchEvent matchEnded = new(5, 20, 1, 1, MatchEventKind.MatchEnded,
+                    CombatActor.None, CombatActor.None, Team: 0);
+                foreach (MatchEvent semantic in new[] { nodeCaptured, matchEnded })
+                {
+                    MatchSemanticEventPacket packet = MatchSemanticEventPacketConversion.FromEvent(semantic);
+                    body = new byte[4 + MatchSemanticEventPacket.Size];
+                    BinaryPrimitives.WriteUInt32LittleEndian(body, 1);
+                    packet.Write(body.AsSpan(4));
+                    Assert.True(peer.Connection.Reliable.TryEnqueue(
+                        ReliableEventType.MatchSemantic, body, out _));
+                }
                 var receivedTypes = new HashSet<ReliableEventType>();
+                var receivedSemantics = new HashSet<MatchEventKind>();
                 Pump(server, client, () =>
                 {
                     while (client.TryDequeueEvent(out NetApplicationEvent value))
-                    { DemoRecorder.RecordEvent(value); receivedTypes.Add(value.Type); }
+                    {
+                        DemoRecorder.RecordEvent(value);
+                        receivedTypes.Add(value.Type);
+                        if (value.Type == ReliableEventType.MatchSemantic
+                            && MatchSemanticEventPacket.TryRead(value.Payload.Span,
+                                out MatchSemanticEventPacket packet)
+                            && MatchSemanticEventPacketConversion.TryToEvent(packet,
+                                out MatchEvent semantic))
+                            receivedSemantics.Add(semantic.Kind);
+                    }
                     return receivedTypes.Contains(ReliableEventType.Combat) && receivedTypes.Contains(ReliableEventType.Kill)
-                        && receivedTypes.Contains(ReliableEventType.WorldEvent) && client.HasSnapshot;
+                        && receivedTypes.Contains(ReliableEventType.WorldEvent)
+                        && receivedSemantics.Contains(MatchEventKind.NodeCaptured)
+                        && receivedSemantics.Contains(MatchEventKind.MatchEnded)
+                        && client.HasSnapshot;
                 });
                 DemoRecorder.Stop();
                 using DemoReader reader = DemoReader.Open(path)!;
@@ -291,6 +317,7 @@ namespace MphRead.Tests
                 var state = new ModernDemoState();
                 var kinds = new HashSet<DemoRecordKind>();
                 bool sawKill = false, sawObjective = false;
+                var replayedSemantics = new HashSet<MatchEventKind>();
                 while (reader.ReadNext() is { } record)
                 {
                     kinds.Add((DemoRecordKind)record.Data[0]);
@@ -307,12 +334,24 @@ namespace MphRead.Tests
                         Assert.True(WorldEvent.TryRead(record.Data.AsSpan(6), out WorldEvent restored));
                         Assert.Equal(objective, restored); sawObjective = true;
                     }
+                    if ((DemoRecordKind)record.Data[0] == DemoRecordKind.Event
+                        && record.Data[5] == (byte)ReliableEventType.MatchSemantic)
+                    {
+                        Assert.True(MatchSemanticEventPacket.TryRead(record.Data.AsSpan(6),
+                            out MatchSemanticEventPacket packet));
+                        Assert.True(MatchSemanticEventPacketConversion.TryToEvent(packet,
+                            out MatchEvent semantic));
+                        replayedSemantics.Add(semantic.Kind);
+                    }
                 }
                 Assert.Contains(DemoRecordKind.Match, kinds); Assert.Contains(DemoRecordKind.Roster, kinds);
                 Assert.Contains(DemoRecordKind.Snapshot, kinds); Assert.Contains(DemoRecordKind.World, kinds);
                 Assert.True(sawKill); Assert.True(sawObjective);
+                Assert.Contains(MatchEventKind.NodeCaptured, replayedSemantics);
+                Assert.Contains(MatchEventKind.MatchEnded, replayedSemantics);
                 Assert.Contains(reader.Index, entry => entry.Marker == (ReplayMarker.Kill | ReplayMarker.Headshot));
-                Assert.Contains(reader.Index, entry => entry.Marker == ReplayMarker.NodeCapture);
+                Assert.Single(reader.Index, entry => entry.Marker == ReplayMarker.NodeCapture);
+                Assert.Single(reader.Index, entry => entry.Marker == ReplayMarker.MatchEnd);
                 Assert.Equal(source.AmmoUa, state.Players[0].AmmoUa);
                 Assert.Equal(source.Points, state.Players[0].Points);
                 Assert.Equal(source.ConnectionId, state.Players[0].ConnectionId);
@@ -392,11 +431,12 @@ namespace MphRead.Tests
             return Record(DemoRecordKind.World, body);
         }
 
-        internal static IEnumerable<byte[]> LiveWorld(uint match)
+        internal static IEnumerable<byte[]> LiveWorld(uint match, bool terminal = false)
         {
             var records = new WorldRecord[WorldPacket.CanonicalRecordCount];
             records[0] = new WorldRecord(WorldRecordKind.Match, 255, 0, 0, new Vector3(600, 600, 0), 3,
-                (uint)MatchPhase.Playing, 10, uint.MaxValue, 0);
+                (uint)(terminal ? MatchPhase.Ending : MatchPhase.Playing), 10, uint.MaxValue,
+                terminal ? 1u : 0u);
             for (byte slot = 0; slot < 8; slot++)
             {
                 records[1 + slot * 2] = new WorldRecord(WorldRecordKind.Score, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
@@ -411,7 +451,8 @@ namespace MphRead.Tests
                 records[index + 2] = new(WorldRecordKind.WeaponStats0, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
                 records[index + 3] = new(WorldRecordKind.WeaponStats1, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
                 records[index + 4] = new(WorldRecordKind.PlayerIdentity, slot, 0, 0, Vector3.Zero,
-                    (uint)Hunter.Samus, slot < 2 ? slot : uint.MaxValue, slot < 2 ? 1u : 0u, 0, 0)
+                    (uint)Hunter.Samus, slot < 2 ? slot : uint.MaxValue, slot < 2 ? 1u : 0u,
+                    terminal ? (uint)slot << 16 : 0, 0)
                 { PlayerName = $"P{slot}" };
             }
             byte[] body = new byte[WorldPacket.MaxSize];

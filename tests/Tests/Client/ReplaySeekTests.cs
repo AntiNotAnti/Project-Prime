@@ -46,7 +46,7 @@ public sealed class ReplaySeekTests
     }
 
     [Fact]
-    public void SameTickKillsProduceMultiKillMarkerWithoutLosingHeadshot()
+    public void KillMarkersNeverInferMultiKillWithoutAuthoritativeAward()
     {
         var actor = new CombatActor(6, ulong.MaxValue - 10, 123);
         var target = new CombatActor(7, ulong.MaxValue - 11, 123);
@@ -55,8 +55,18 @@ public sealed class ReplaySeekTests
         byte[] bytes = new byte[KillEvent.Size]; kill.Write(bytes);
         Assert.Equal(ReplayMarker.Kill | ReplayMarker.Headshot,
             DemoRecorder.MarkerFor(new NetApplicationEvent(1, ReliableEventType.Kill, bytes)));
-        (kill with { Id = 101, Victim = target with { Life = 124 } }).Write(bytes);
-        Assert.Equal(ReplayMarker.Kill | ReplayMarker.Headshot | ReplayMarker.MultiKill,
+
+        CombatActor respawned = target with { Life = 124 };
+        MatchEvent spawned = new(200, 101, 1, 1, MatchEventKind.PlayerSpawned,
+            respawned, CombatActor.None);
+        MatchSemanticEventPacket semantic = MatchSemanticEventPacketConversion.FromEvent(spawned);
+        byte[] semanticBytes = new byte[MatchSemanticEventPacket.Size];
+        semantic.Write(semanticBytes);
+        Assert.Equal(ReplayMarker.None, DemoRecorder.MarkerFor(new NetApplicationEvent(1,
+            ReliableEventType.MatchSemantic, semanticBytes)));
+
+        (kill with { Id = 101, Tick = 102, Victim = respawned }).Write(bytes);
+        Assert.Equal(ReplayMarker.Kill | ReplayMarker.Headshot,
             DemoRecorder.MarkerFor(new NetApplicationEvent(1, ReliableEventType.Kill, bytes)));
     }
 

@@ -1,19 +1,18 @@
 using System;
-using System.Diagnostics;
+using System.Collections.Generic;
 using MphRead.Entities;
-using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
-using OpenTK.Windowing.Common;
-using OpenTK.Windowing.Desktop;
 
 namespace MphRead.Mods.Network
 {
     /// <summary>Bounded rendered recording check through the shipping passive playback hooks.</summary>
-    public sealed class DemoPlaybackCheck : GameWindow
+    public sealed class DemoPlaybackCheck : IRenderToolClient
     {
+        private readonly IRenderToolHost _host;
+        private readonly ScenePresentation _presentation;
         private readonly Scene _scene;
         private readonly double _seconds;
-        private readonly Stopwatch _clock = new();
+        private readonly int _durationFrames;
         private readonly Vector3[] _last = new Vector3[8];
         private readonly bool[] _seen = new bool[8];
         private readonly double[] _travel = new double[8];
@@ -25,36 +24,34 @@ namespace MphRead.Mods.Network
         private long _stateMismatches;
         private long _deathsObserved;
 
-        private DemoPlaybackCheck(double seconds) : base(new GameWindowSettings { UpdateFrequency = 60 },
-            new NativeWindowSettings
-            {
-                ClientSize = new Vector2i(320, 180), Title = "Prime Hunters demo playback check",
-                Profile = ContextProfile.Compatability, Flags = ContextFlags.Default,
-                APIVersion = new Version(3, 2), StartVisible = false
-            })
+        private DemoPlaybackCheck(double seconds, IRenderToolHost host)
         {
+            _host = host ?? throw new ArgumentNullException(nameof(host));
             _seconds = seconds;
+            _durationFrames = checked((int)Math.Ceiling(seconds * 60));
             _scene = new Scene(features: ClientMatchFeatures.Capture()) { Services = new ClientSceneServices() };
-            _ = new ScenePresentation(_scene, Size, KeyboardState, MouseState, _ => { }, Close);
+            _presentation = host.CreatePresentation(_scene);
             _scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
             NetLaunch.BuildPlayers(_scene, Hunter.Samus, 0, localSlot: -1);
             var room = NetLaunch.ServerRoom() ?? throw new ProgramException("Demo has no room.");
             _scene.AddRoom(room.RoomKey, room.Mode, playerCount: NetConfig.RoomPlayerCount);
         }
 
-        protected override void OnLoad()
+        public void OnLoad()
         {
-            ScenePresentation.Get(_scene).OnLoad();
-            GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
-            ScenePresentation.Get(_scene).OnResize();
-            _clock.Start();
-            base.OnLoad();
+            _presentation.Size = _host.Size;
+            _presentation.OnLoad();
+            _presentation.OnResize();
         }
 
-        protected override void OnRenderFrame(FrameEventArgs args)
+        public void OnFrame()
         {
-            ScenePresentation.Get(_scene).OnUpdateFrame();
-            if (ScenePresentation.Get(_scene).OnRenderFrame())
+            _presentation.OnSimulationFrame();
+            RenderToolCapture? requestedCapture = (_frames + 1) % 120 == 0
+                ? new RenderToolCapture(CaptureTargetKind.SceneTarget) : null;
+            RenderToolFrameResult frame = _host.Render(_presentation, requestedCapture);
+            ConsumeCaptures(frame.Captures);
+            if (frame.Submitted)
             {
                 _frames++;
                 ModernDemoState state = DemoPlayback.Modern;
@@ -88,19 +85,30 @@ namespace MphRead.Mods.Network
                     _seen[slot] = true;
                     _last[slot] = player.Position;
                 }
-                if (_frames % 120 == 0) { _lit |= ScreenCapture.NonBlackFraction(_scene) > 0.01; }
-                SwapBuffers();
-                ScenePresentation.Get(_scene).AfterRenderFrame();
                 if (DemoPlayback.AtEnd) { _endFrames++; }
             }
-            base.OnRenderFrame(args);
-            if (_clock.Elapsed.TotalSeconds >= _seconds || _endFrames >= 60) { Close(); }
+            if (_frames >= _durationFrames || _endFrames >= 60) { _host.Close(); }
         }
 
-        protected override void OnClosing(System.ComponentModel.CancelEventArgs args)
+        private void ConsumeCaptures(IReadOnlyList<RenderCaptureResult> captures)
         {
-            ScenePresentation.Get(_scene).DoCleanup();
-            base.OnClosing(args);
+            for (int i = 0; i < captures.Count; i++)
+            {
+                OnCapture(captures[i]);
+            }
+        }
+
+        public void OnCapture(RenderCaptureResult capture)
+        {
+            if (capture.Target == CaptureTargetKind.SceneTarget)
+            {
+                _lit |= RenderToolCaptureSupport.NonBlackFraction(capture) > 0.01;
+            }
+        }
+
+        public void OnClosing()
+        {
+            _presentation.DoCleanup();
         }
 
         private int Report()
@@ -127,9 +135,12 @@ namespace MphRead.Mods.Network
             {
                 if (!DemoPlayback.IsModern)
                 { Console.Error.WriteLine("Rendered demo check requires an authoritative recording."); return 2; }
-                using var window = new DemoPlaybackCheck(seconds);
-                window.Run();
-                return window.Report();
+                using IRenderToolHost host = RenderToolHostFactory.Create(
+                    new Vector2i(320, 180), "Prime Hunters demo playback check",
+                    updateFrequency: 60, visible: false, presentable: false);
+                var check = new DemoPlaybackCheck(seconds, host);
+                host.Run(check);
+                return check.Report();
             }
             finally { DemoPlayback.Stop(); }
         }

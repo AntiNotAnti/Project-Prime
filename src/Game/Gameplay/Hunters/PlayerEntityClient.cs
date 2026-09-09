@@ -1,3 +1,4 @@
+using System;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
@@ -5,6 +6,77 @@ namespace MphRead.Entities
 {
     public partial class PlayerEntity
     {
+        // Remote snapshots do not drive Controls, so keep their locomotion
+        // intent separate from the simulation state. This is consumed by the
+        // game-thread animation pass rather than applied while snapshots are
+        // repeatedly reconciled.
+        private const float SnapshotBipedIdleSpeedSquared = 0.0001f;
+        private const float SnapshotBipedFacingLengthSquared = 0.0001f;
+        private PlayerAnimation _desiredSnapshotBipedAnimation = PlayerAnimation.None;
+
+        internal static PlayerAnimation DeriveSnapshotBipedAnimation(in SnapshotPlayer state, bool local)
+        {
+            SnapshotPlayerFlags flags = state.Flags;
+            if (local || state.Health == 0
+                || (flags & (SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned))
+                    != (SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned)
+                || (flags & (SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.Morphing
+                    | SnapshotPlayerFlags.Unmorphing | SnapshotPlayerFlags.Frozen
+                    | SnapshotPlayerFlags.Spectating | SnapshotPlayerFlags.WaitingForMatch)) != 0
+                || (flags & SnapshotPlayerFlags.Grounded) == 0
+                || !IsFiniteVector(state.Facing) || !IsFiniteVector(state.Speed))
+            {
+                return PlayerAnimation.None;
+            }
+
+            Vector3 forward = new(state.Facing.X, 0, state.Facing.Z);
+            float facingLengthSquared = forward.LengthSquared;
+            if (!float.IsFinite(facingLengthSquared)
+                || facingLengthSquared <= SnapshotBipedFacingLengthSquared)
+            {
+                return PlayerAnimation.None;
+            }
+
+            Vector3 speed = new(state.Speed.X, 0, state.Speed.Z);
+            float speedSquared = speed.LengthSquared;
+            if (!float.IsFinite(speedSquared))
+            {
+                return PlayerAnimation.None;
+            }
+            if (speedSquared <= SnapshotBipedIdleSpeedSquared)
+            {
+                return PlayerAnimation.Idle;
+            }
+
+            Vector3 right = new(-forward.Z, 0, forward.X);
+            float forwardDot = Vector3.Dot(speed, forward);
+            float rightDot = Vector3.Dot(speed, right);
+            if (!float.IsFinite(forwardDot) || !float.IsFinite(rightDot))
+            {
+                return PlayerAnimation.None;
+            }
+
+            // A tie chooses the forward/backward axis so the result is stable
+            // at diagonal crossings. The basis matches ProcessBiped movement.
+            if (MathF.Abs(forwardDot) >= MathF.Abs(rightDot))
+            {
+                return forwardDot >= 0 ? PlayerAnimation.WalkForward : PlayerAnimation.WalkBackward;
+            }
+            return rightDot >= 0 ? PlayerAnimation.WalkRight : PlayerAnimation.WalkLeft;
+        }
+
+        private static bool IsFiniteVector(Vector3 value) => float.IsFinite(value.X)
+            && float.IsFinite(value.Y) && float.IsFinite(value.Z);
+
+        internal static bool CanApplySnapshotBipedAnimation(PlayerAnimation current, AnimFlags flags)
+            => !flags.TestFlag(AnimFlags.NoLoop) || flags.TestFlag(AnimFlags.Ended)
+                || IsSnapshotBipedAnimation(current);
+
+        private static bool IsSnapshotBipedAnimation(PlayerAnimation animation)
+            => animation is PlayerAnimation.Idle or PlayerAnimation.WalkForward
+                or PlayerAnimation.WalkBackward or PlayerAnimation.WalkLeft
+                or PlayerAnimation.WalkRight;
+
         internal BeamType AffinitySlotWeapon => _weaponSlots[2];
         internal InputCommand CaptureNetworkInput(uint sequence, uint viewServerTick)
         {
@@ -93,6 +165,7 @@ namespace MphRead.Entities
 
         internal void ApplySnapshotTransform(in SnapshotPlayer state, bool local = false)
         {
+            _desiredSnapshotBipedAnimation = DeriveSnapshotBipedAnimation(state, local);
             Vector3 previous = Position;
             Position = state.Position;
             PrevPosition = state.Position;

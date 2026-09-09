@@ -10,7 +10,8 @@ namespace MphRead.Mods.Network
     public enum ReplayMarker : ushort
     {
         None = 0, Kill = 1, Headshot = 2, MultiKill = 4, FlagCapture = 8,
-        NodeCapture = 16, PrimeChange = 32, MatchPoint = 64, Overtime = 128, MatchEnd = 256
+        NodeCapture = 16, PrimeChange = 32, MatchPoint = 64, Overtime = 128, MatchEnd = 256,
+        Award = 512
     }
     public readonly record struct ReplayIndexEntry(uint Frame, long Offset, bool Keyframe, ReplayMarker Marker);
 
@@ -158,7 +159,7 @@ namespace MphRead.Mods.Network
             int compressedLength = BinaryPrimitives.ReadInt32LittleEndian(header[8..]);
             int rawLength = BinaryPrimitives.ReadInt32LittleEndian(header[12..]);
             frame = BinaryPrimitives.ReadUInt32LittleEndian(header[16..]); keyframe = header[4] == 2;
-            if (((ushort)marker & ~511) != 0 || frame > MaximumFrame
+            if (((ushort)marker & ~1023) != 0 || frame > MaximumFrame
                 || compressedLength is < 1 or > MaximumRawBytes + 4096 || rawLength is < 1 or > MaximumRawBytes
                 || (!keyframe && rawLength > NetConfig.MaxPacketSize) || _file.Length - _file.Position < compressedLength) return false;
             byte[] compressed = new byte[compressedLength];

@@ -437,6 +437,7 @@ namespace MphRead.Entities
             PlayerEntity player = this;
             player.Hunter = hunter;
             player.Recolor = recolor;
+            player._desiredSnapshotBipedAnimation = PlayerAnimation.None;
             if (player.IsBot)
             {
                 // todo: update controls

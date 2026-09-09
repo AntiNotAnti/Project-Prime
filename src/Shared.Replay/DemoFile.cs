@@ -57,9 +57,11 @@ namespace MphRead.Mods.Network
         private uint _lastFrame;
         private uint _lastFlushFrame;
         private readonly byte[] _header = new byte[7];
+        public byte ProtocolVersion { get; }
 
         public DemoWriter(string path, byte protocolVersion = NetHeader.Version, bool indexed = false)
         {
+            ProtocolVersion = protocolVersion;
             string? dir = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(dir))
             {

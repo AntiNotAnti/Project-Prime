@@ -19,7 +19,6 @@ namespace MphRead.Mods.Network
         private static bool _hasWorld;
         private static bool _hasKeyframe;
         private static uint _keyframeFrame;
-        private static bool _recordedEnd;
         private static readonly ReplayEventIndexer _markers = new();
         public static bool IsRecording => _writer != null;
         public static string? CurrentPath { get; private set; }
@@ -55,7 +54,7 @@ namespace MphRead.Mods.Network
             _frame = uint.MaxValue;
             _match = _rosterRevision = _worldRevision = 0;
             _snapshotCount = -1;
-            _hasRoster = _hasWorld = _hasKeyframe = _recordedEnd = false;
+            _hasRoster = _hasWorld = _hasKeyframe = false;
             _markers.Reset();
             RecordFrame(client);
             return IsRecording;
@@ -83,7 +82,7 @@ namespace MphRead.Mods.Network
             if (_match != client.Accepted.MatchId)
             {
                 _match = client.Accepted.MatchId;
-                _hasRoster = _hasWorld = _hasKeyframe = _recordedEnd = false;
+                _hasRoster = _hasWorld = _hasKeyframe = false;
                 _markers.Reset();
                 _snapshotCount = -1;
                 new MatchTransitionPacket(_match, client.Accepted.ServerTick, client.Accepted.Rules).Write(body[..MatchTransitionPacket.Size]);
@@ -106,10 +105,12 @@ namespace MphRead.Mods.Network
             if (_world.HasState && _world.MatchId == _match && (!_hasWorld || _worldRevision != _world.Revision))
             {
                 ReplayMarker marker = ReplayMarker.None;
-                if (!_recordedEnd)
-                    foreach (WorldRecord state in _world.Records)
-                        if (state.Kind == WorldRecordKind.Match && state.E != 0)
-                        { marker = ReplayMarker.MatchEnd; _recordedEnd = true; break; }
+                foreach (WorldRecord state in _world.Records)
+                    if (state.Kind == WorldRecordKind.Match && state.E != 0)
+                    {
+                        marker = _markers.ForTerminalWorld(_writer.ProtocolVersion, terminal: true);
+                        break;
+                    }
                 for (int offset = 0; offset < _world.Count; offset += WorldPacket.RecordsPerBatch)
                 {
                     int count = WorldPacket.Write(body, _match, _world.Revision, _world.ServerTick, _world.Records, offset);
@@ -200,7 +201,7 @@ namespace MphRead.Mods.Network
         internal static void RecordEvent(in NetApplicationEvent message)
         {
             if (_writer == null || message.MatchId != _match
-                || message.Type is not (ReliableEventType.Combat or ReliableEventType.Chat or ReliableEventType.Kill or ReliableEventType.WorldEvent)) { return; }
+                || message.Type is not (ReliableEventType.Combat or ReliableEventType.Chat or ReliableEventType.Kill or ReliableEventType.WorldEvent or ReliableEventType.MatchAward or ReliableEventType.MatchSemantic)) { return; }
             Span<byte> body = stackalloc byte[5 + message.Payload.Length];
             BinaryPrimitives.WriteUInt32LittleEndian(body, message.MatchId);
             body[4] = (byte)message.Type;
@@ -209,7 +210,8 @@ namespace MphRead.Mods.Network
             Write(DemoRecordKind.Event, body, marker);
         }
 
-        internal static ReplayMarker MarkerFor(in NetApplicationEvent message) => _markers.ForEvent(message);
+        internal static ReplayMarker MarkerFor(in NetApplicationEvent message,
+            byte protocol = NetHeader.Version) => _markers.ForEvent(message, protocol);
 
         private static void Write(DemoRecordKind kind, ReadOnlySpan<byte> payload, ReplayMarker marker = ReplayMarker.None)
         {

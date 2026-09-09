@@ -2,6 +2,9 @@ using System;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using MphRead.Entities;
+using MphRead.Mods.Audio;
+using MphRead.Mods.Hud;
+using MphRead.Replay;
 
 [assembly: InternalsVisibleTo("MphRead.Tests")]
 
@@ -21,6 +24,10 @@ namespace MphRead.Mods.Network
         private int _worldEventCount;
         private readonly KillEvent[] _kills = new KillEvent[256];
         private int _killCount, _rosterCount;
+        private readonly MatchEvent[] _semanticEvents = new MatchEvent[256];
+        private int _semanticEventCount;
+        private readonly SemanticAwardJournal _awardJournal = new();
+        private long _appliedAwardRevision;
         private bool _hasRoster;
         private readonly SessionChatPacket[] _chats = new SessionChatPacket[256];
         private int _chatCount;
@@ -58,7 +65,11 @@ namespace MphRead.Mods.Network
         public long WorldApplications { get; private set; }
         private uint _appliedWorldRevision;
         private bool _appliedWorld;
-        public void DiscardEvents() { _eventCount = _killCount = _worldEventCount = _chatCount = 0; }
+        public void DiscardEvents()
+        {
+            _eventCount = _killCount = _worldEventCount = _chatCount = _semanticEventCount = 0;
+            _awardJournal.Reset(); _appliedAwardRevision = 0;
+        }
 
         public void Reset(byte protocol = NetHeader.Version)
         {
@@ -68,7 +79,8 @@ namespace MphRead.Mods.Network
             _world.LegacyProtocol = protocol is 5 or 6;
             _world.Protocol7Demo = protocol == 7;
             Match = default; Snapshot = default; HasSnapshot = _dirty = false;
-            PlayerCount = _eventCount = _killCount = _worldEventCount = _rosterCount = _chatCount = 0; _loadedMatch = 0;
+            PlayerCount = _eventCount = _killCount = _worldEventCount = _rosterCount = _chatCount = _semanticEventCount = 0; _loadedMatch = 0;
+            _awardJournal.Reset(); _appliedAwardRevision = 0;
             Array.Clear(_identities); Array.Clear(_lives);
             _world.Reset(0);
             SnapshotsReceived = CombatEventsReceived = DamageEventsReceived = WorldApplications = 0;
@@ -116,10 +128,11 @@ namespace MphRead.Mods.Network
                     if (match.MatchId != Match.MatchId)
                     {
                         _hasRoster = false; _recordedLocalSlot = null;
-                        HasSnapshot = false; PlayerCount = _eventCount = _killCount = _worldEventCount = _rosterCount = _chatCount = 0;
+                        HasSnapshot = false; PlayerCount = _eventCount = _killCount = _worldEventCount = _rosterCount = _chatCount = _semanticEventCount = 0;
                         Array.Clear(_identities); Array.Clear(_lives);
                         _world.Reset(match.MatchId);
                         _appliedWorld = false;
+                        _awardJournal.Reset(); _appliedAwardRevision = 0;
                     }
                     Match = match;
                     NetSession.SetPlaybackMatch(match);
@@ -182,6 +195,23 @@ namespace MphRead.Mods.Network
                         if (!KillEvent.TryRead(body[5..], out KillEvent kill) || kill.MatchId != Match.MatchId
                             || _killCount == _kills.Length) return false;
                         _kills[_killCount++] = kill;
+                        return true;
+                    }
+                    if (type == ReliableEventType.MatchAward && _protocol >= 9)
+                    {
+                        if (!MatchAwardPacket.TryRead(body[5..], out MatchAwardPacket packet)
+                            || packet.MatchId != Match.MatchId
+                            || !MatchAwardPacketConversion.TryToAward(packet, out MatchAward award)) return false;
+                        _awardJournal.Record(award);
+                        return true;
+                    }
+                    if (type == ReliableEventType.MatchSemantic && _protocol >= 9)
+                    {
+                        if (!MatchSemanticEventPacket.TryRead(body[5..], out MatchSemanticEventPacket packet)
+                            || packet.MatchId != Match.MatchId
+                            || !MatchSemanticEventPacketConversion.TryToEvent(packet, out MatchEvent semantic)
+                            || _semanticEventCount == _semanticEvents.Length) return false;
+                        _semanticEvents[_semanticEventCount++] = semantic;
                         return true;
                     }
                     Span<CombatEvent> events = stackalloc CombatEvent[CombatEventBatch.MaxCount];
@@ -253,6 +283,11 @@ namespace MphRead.Mods.Network
                 _loadedMatch = Match.MatchId;
                 _reloadOnNextApply = false;
                 MatchesLoaded++;
+                if (scene.Presentation is ScenePresentation semanticPresentation)
+                {
+                    semanticPresentation.Announcer.Reset();
+                    semanticPresentation.AwardHud.Reset();
+                }
                 // Rotation owns mode/room immediately; retain the prior legacy goal
                 // until the authoritative world stream supplies the new round's rules.
                 int pointGoal = scene.Match.Rules.LegacyPointGoal;
@@ -317,7 +352,53 @@ namespace MphRead.Mods.Network
             for (int i = 0; i < _killCount; i++) feedback?.Process(_kills[i]);
             for (int i = 0; i < _worldEventCount; i++) worldFeedback?.Process(_worldEvents[i], feedback?.Local ?? CombatActor.None,
                 HasSnapshot ? Snapshot.ServerTick : 0, scene.Match.Rules.PickupRespawnAnnouncements);
-            _eventCount = _killCount = _worldEventCount = 0;
+            if (scene.Presentation is ScenePresentation awardPresentation)
+            {
+                byte localTeam = awardPresentation.CombatFeedback.Local.IsValid
+                    ? (byte)scene.Players[awardPresentation.CombatFeedback.Local.Slot].TeamIndex
+                    : (byte)255;
+                ApplyPendingSemanticEvents(awardPresentation.Announcer, localTeam);
+                ApplyPendingAwards(awardPresentation.Announcer, awardPresentation.AwardHud);
+            }
+            _eventCount = _killCount = _worldEventCount = _semanticEventCount = 0;
+        }
+
+        internal int ApplyPendingSemanticEvents(AnnouncerService announcer, byte localTeam)
+        {
+            ArgumentNullException.ThrowIfNull(announcer);
+            int count = _semanticEventCount;
+            for (int i = 0; i < _semanticEventCount; i++)
+            {
+                MatchEvent value = _semanticEvents[i];
+                if (value.Kind == MatchEventKind.MatchEnded)
+                    announcer.Consume(value, localTeam);
+                else
+                    announcer.Consume(value);
+            }
+            Array.Clear(_semanticEvents, 0, _semanticEventCount);
+            _semanticEventCount = 0;
+            return count;
+        }
+
+        /// <summary>
+        /// Delivers retained raw awards to the bounded presentation consumers.
+        /// The revision cursor continues to advance when the journal evicts old
+        /// facts, so a replay paused for more than the journal capacity still
+        /// receives its newest retained awards rather than stopping at 256.
+        /// </summary>
+        internal int ApplyPendingAwards(AnnouncerService announcer, AwardHudQueue hud)
+        {
+            ArgumentNullException.ThrowIfNull(announcer);
+            ArgumentNullException.ThrowIfNull(hud);
+            Span<MatchAward> pending = stackalloc MatchAward[SemanticAwardJournal.Capacity];
+            int count = _awardJournal.CopySince(_appliedAwardRevision, pending);
+            for (int i = 0; i < count; i++)
+            {
+                announcer.Consume(pending[i]);
+                hud.Enqueue(pending[i]);
+            }
+            _appliedAwardRevision = _awardJournal.Revision;
+            return count;
         }
 
         public void AfterSimulation(Scene scene)

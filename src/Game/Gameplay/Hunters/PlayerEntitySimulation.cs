@@ -50,6 +50,7 @@ namespace MphRead.Entities
         {
             IsBot = false;
             Controls.ClearAll();
+            _desiredSnapshotBipedAnimation = PlayerAnimation.None;
             _networkInputActive = false;
             Health = 0;
             Halfturret.Health = 0;

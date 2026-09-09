@@ -45,7 +45,7 @@ Seek work is split into batches of at most 120 simulation steps per host update.
 
 Chat ages by recording time during playback, so pause and speed changes also pause/scale its visibility. The timeline is camera independent. F6 toggles pause, F7 steps, F8 cycles speed, F9/F10 seek previous/next indexed event. The bottom HUD bar exposes the same clickable controls and scrub timeline. Android touch forwards bottom-bar taps through a single bounded pending coordinate to the simulation thread.
 
-Index markers include kill, headshot, derived multi-kill (same killer identity within 180 ticks, including same-tick eliminations), flag capture, node capture, Prime change, match point, overtime and match end. Markers contain offsets/ticks, not gameplay commands. Seeking and playback never create a live network connection.
+Index markers include kill, headshot, authoritative award-based multi-kill, flag capture, node capture, Prime change, match point, overtime and match end. Protocol 9 derives objective/lifecycle markers, including match end, from normalized `MatchSemantic` facts and multi-kill only from the server's `DoubleKill`/`TripleKill` award; the capture award carries only the general `Award` marker. Protocol 8 retains its low-level `WorldEvent` mappings and terminal-world match-end inference for compatibility. Markers contain offsets/ticks, not gameplay commands. Seeking and playback never create a live network connection.
 
 ## Verification and limits
 

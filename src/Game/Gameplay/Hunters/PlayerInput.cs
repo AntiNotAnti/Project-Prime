@@ -885,6 +885,16 @@ namespace MphRead.Entities
                     _facingVector += diff * 0.3f / 2; // todo: FPS stuff
                     _facingVector = _facingVector.Normalized();
                 }
+                // Authoritative replicas have no movement Controls on this client,
+                // but their snapshot speed still needs to select a presentation
+                // animation. Feed only the local animation decision: physics,
+                // movement flags, and control state remain untouched.
+                if (anim1 == PlayerAnimation.None
+                    && _desiredSnapshotBipedAnimation != PlayerAnimation.None
+                    && CanApplySnapshotBipedAnimation(Biped1Anim, Biped1Flags))
+                {
+                    anim1 = _desiredSnapshotBipedAnimation;
+                }
                 if (anim1 == PlayerAnimation.None)
                 {
                     if (Flags1.TestFlag(PlayerFlags1.Grounded))
