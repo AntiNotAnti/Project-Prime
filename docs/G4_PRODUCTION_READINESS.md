@@ -36,9 +36,10 @@ configuration is absent. The deployment record must contain, at minimum:
   or fragment. Production middleware rejects HTTP requests. If TLS terminates
   at a reverse proxy, the proxy must forward the external scheme and client
   address through the allowlist described below.
-- `Backend__AllowLoopbackHttp=true` is the only HTTP exception and applies only
-  in Development when both ends of the connection are loopback. Leave it false
-  in every shared or public environment.
+- `Backend__AllowLoopbackHttp=true` permits loopback HTTP in Development. The
+  temporary `Backend__AllowRemoteHttp=true` setting additionally permits plain
+  HTTP only when the request Host is `51.161.113.128`, and is ignored outside
+  Development. Leave both settings false in every shared or public environment.
 - `Accounts__RequireConfirmedEmail=true` and
   `Accounts__DataProtectionKeyPath` as an absolute, durable, operator-owned
   directory. Protect and back up this directory; losing it invalidates

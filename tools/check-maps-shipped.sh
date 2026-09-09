@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Fail if a custom map would reach a player without the level it converts.
+# Fail if a custom map would reach a player without the data it needs.
 #
-# A map in maps/ is the recipe, the level it converts and the textures baked
-# from that level -- in a folder, or cooked into one .fpmap. The recipe alone
-# registers a room that the game then declines to build -- the player sees the
-# 27 cartridge rooms and no sign that anything was meant to be there. That is
-# the right behaviour for a level nobody may publish, and a silent regression
-# for one we ship on purpose, which is why it is checked rather than assumed.
+# An imported map in maps/ is the recipe, the level it converts and the
+# textures baked from that level -- in a folder, or cooked into one .fpmap. A
+# brush-only map is complete in its recipe and deliberately has no level. A
+# missing imported level or named texture registers a room that the game then
+# declines to build, so it is checked rather than assumed.
 #
 #   tools/check-maps-shipped.sh                    # the repository
 #   tools/check-maps-shipped.sh publish/win-x64    # a build we are about to release
@@ -36,22 +35,30 @@ fi
 while IFS= read -r file; do
   found=$((found + 1))
   name=$(basename "$file")
+  recipe=$(unzip -p "$file" '*.json' 2>/dev/null)
+  # Brush-only maps (for example TEST ARENA) are complete in their recipe:
+  # their geometry and materials are generated from the JSON and they borrow
+  # textures from a shipped room. Imported maps must carry the trimmed level
+  # that the recipe names.
+  if printf '%s' "$recipe" | grep -qiE '"import"[[:space:]]*:[[:space:]]*\{'; then
   # Do not use grep -q here. With pipefail, grep can exit as soon as it sees
   # the level while unzip is still writing the listing; unzip then receives
   # SIGPIPE and the pipeline is reported as failed even though the level is
   # present. Let grep consume the complete listing and discard its output.
-  if unzip -l "$file" 2>/dev/null | grep -iE '\.bsp$' >/dev/null; then
-    echo "ok:      $name carries its level inside it"
+    if unzip -l "$file" 2>/dev/null | grep -iE '\.bsp$' >/dev/null; then
+      echo "ok:      $name carries its level inside it"
+    else
+      echo "MISSING: $name is an imported bundle with no level in it"
+      fail=1
+    fi
   else
-    echo "MISSING: $name is a bundle with no level in it"
-    fail=1
+    echo "ok:      $name carries its description-only recipe"
   fi
   # And its textures, which are the half that goes missing quietly. The pack is
   # baked from the level's own art, so it is derived and not in git -- a bundle
   # cooked where nobody had baked one carried a level and no art, and the room
   # it built had no materials at all: listed in the launcher, and a crash when
   # picked. The recipe inside names the pack; the pack has to be in there too.
-  recipe=$(unzip -p "$file" '*.json' 2>/dev/null)
   textures=$(printf '%s' "$recipe" \
     | grep -oiE '"textures"[[:space:]]*:[[:space:]]*"[^"]*"' \
     | head -n1 | sed -E 's/.*:[[:space:]]*"([^"]*)".*/\1/')

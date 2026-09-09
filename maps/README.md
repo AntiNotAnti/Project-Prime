@@ -36,8 +36,8 @@ makes a map something you can send, and what a downloader will want when a
 server starts offering its maps to the players joining it.
 
 ```
-FruityPrime -mapbundle           # cook every map beside the executable
-FruityPrime -mapbundle DUST2 -mapdir maps
+FruityPrimeTools -mapdir maps -mapbundle all       # cook every map
+FruityPrimeTools -mapdir maps -mapbundle DUST2    # cook one map
 ```
 
 The folder is what a map is *worked on* as; the bundle is what leaves. Bundles
@@ -45,6 +45,18 @@ are not committed — the workflow cooks them before it publishes — and a fold
 and a bundle of the same name are the same map, so the bundle wins and the room
 is registered once. It is also the only shape that reaches Android: an APK's
 asset list does not recurse into folders.
+
+The client and server package steps both carry the top-level `.fpmap` files. On
+the first launch, the client generates the room binaries from those bundles and
+the installed `AMHE1` files before it computes its content identity. A server
+must use the same map bundles and content version; after generation, the client
+and Worker therefore advertise the same content hash and the Node can admit the
+client. `-content-dir` is accepted as an alias for `-data`, so a publish can be
+prepared directly from a checkout:
+
+```
+FruityPrimeTools -mapdir maps -data publish/osx-arm64/files/AMHE1 -mapgen all
+```
 
 A bundle does not settle whether a level may be handed out. Cooking somebody's
 level into a smaller container leaves it their level.

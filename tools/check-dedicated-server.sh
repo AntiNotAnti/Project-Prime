@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validate a combined Node + Worker server bundle. Runtime gameplay requires
+# Validate a combined Backend + Node + Worker server bundle. Runtime gameplay requires
 # private AMHE1 content; when GAME_DATA_DIRECTORY is present, delegate to the
 # full fresh-extracted package smoke. Without it, keep the check structural and
 # data-free rather than starting the retired standalone server CLI.
@@ -11,6 +11,10 @@ PACKAGE="$(cd "$PACKAGE" && pwd)"
 
 if [[ ! -x "$PACKAGE/FruityPrimeServer" && ! -f "$PACKAGE/FruityPrimeServer.exe" ]]; then
   echo "FAIL: combined Node apphost is missing from $PACKAGE" >&2
+  exit 1
+fi
+if [[ ! -x "$PACKAGE/backend/PrimeHunters.Backend" && ! -f "$PACKAGE/backend/PrimeHunters.Backend.exe" ]]; then
+  echo "FAIL: Backend apphost is missing below $PACKAGE/backend" >&2
   exit 1
 fi
 if [[ ! -x "$PACKAGE/worker/FruityPrime.Server.Worker" && ! -f "$PACKAGE/worker/FruityPrime.Server.Worker.exe" ]]; then
@@ -26,4 +30,4 @@ bash "$ROOT/tools/check-no-game-assets.sh" "$PACKAGE"
 if [[ -n "${GAME_DATA_DIRECTORY:-}" ]]; then
   exec "$ROOT/tools/package-smoke.sh" --bundle "$PACKAGE" --content-dir "$GAME_DATA_DIRECTORY"
 fi
-echo "Combined Node + Worker package contract passed; GAME_DATA_DIRECTORY is unset, so runtime smoke was skipped."
+echo "Combined Backend + Node + Worker package contract passed; GAME_DATA_DIRECTORY is unset, so runtime smoke was skipped."

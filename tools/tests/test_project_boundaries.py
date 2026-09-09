@@ -154,6 +154,81 @@ class ProjectBoundaryGuardTests(unittest.TestCase):
 
         self.assertIn("src/Game/Window.cs:1: platform dependency Avalonia", errors)
 
+    def test_analyzer_project_reference_does_not_change_runtime_boundary(self):
+        self.write_baseline()
+        self.write(
+            "src/Game/Game.csproj",
+            self.project("Game", packages=("OpenTK.Mathematics",))[:-len("</Project>\n")] +
+            "    <ProjectReference Include=\"../Protocol.Generator/Protocol.Generator.csproj\" "
+            "OutputItemType=\"Analyzer\" ReferenceOutputAssembly=\"false\" />\n"
+            "</Project>\n",
+        )
+        self.write("src/Protocol.Generator/Protocol.Generator.csproj", self.project("Protocol.Generator"))
+
+        self.assertEqual(self.inspect(), [])
+
+    def test_game_and_server_sdl_types_are_rejected(self):
+        self.write_baseline()
+        fixtures = {
+            "Game": "using SDL;\nclass GpuFixture { }\n",
+            "Server.Shared": "class GpuFixture { SDL_GPUDevice value; }\n",
+            "Server.Node": "class GpuFixture { SDL3 value; }\n",
+            "Server.Worker": "class GpuFixture { SDL_GPUTexture value; }\n",
+            "Backend": "class GpuFixture { SDL_GPUBuffer value; }\n",
+        }
+        for project, source in fixtures.items():
+            self.write(f"src/{project}/Gpu.cs", source)
+
+        errors = self.inspect()
+
+        expected = {
+            "Game": "SDL",
+            "Server.Shared": "SDL_GPUDevice",
+            "Server.Node": "SDL3",
+            "Server.Worker": "SDL_GPUTexture",
+            "Backend": "SDL_GPUBuffer",
+        }
+        for project, symbol in expected.items():
+            with self.subTest(project=project):
+                self.assertIn(
+                    f"src/{project}/Gpu.cs:1: platform dependency {symbol}", errors
+                )
+
+    def test_game_and_server_sdl_packages_are_rejected(self):
+        self.write_baseline()
+        for project in ("Game", "Server.Shared", "Server.Node", "Server.Worker", "Backend"):
+            packages = ["ppy.SDL3-CS"]
+            if project == "Game":
+                packages.insert(0, "OpenTK.Mathematics")
+            elif project == "Server.Worker":
+                packages.insert(0, "Microsoft.IdentityModel.JsonWebTokens")
+            links = ("../Shared/Shared.cs",) if project in {"Server.Worker", "Backend"} else ()
+            self.write(
+                f"src/{project}/{project}.csproj",
+                self.project(project, GUARD.PROJECTS[project], packages, links),
+            )
+
+        errors = self.inspect()
+
+        for project in ("Game", "Server.Shared", "Server.Node", "Server.Worker", "Backend"):
+            with self.subTest(project=project):
+                self.assertIn(
+                    f"{project}: unexpected platform packages: ['ppy.SDL3-CS']", errors
+                )
+
+    def test_client_may_own_sdl_types_and_package(self):
+        self.write_baseline()
+        self.write("src/Client/Gpu.cs", "using SDL;\nclass GpuFixture { SDL_GPUDevice value; }\n")
+        self.write(
+            "src/Client/Client.csproj",
+            self.project(
+                "Client", GUARD.PROJECTS["Client"], ("ppy.SDL3-CS",),
+                ("../Shared/Shared.cs",),
+            ),
+        )
+
+        self.assertEqual(self.inspect(), [])
+
     def test_missing_required_project_fails_closed(self):
         self.write_baseline()
         (self.root / "src/Game/Game.csproj").unlink()

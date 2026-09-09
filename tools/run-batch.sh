@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Seeded rendered authoritative matches: run-batch.sh [runs=10] [seed].
-# Requires Python 3, a desktop OpenGL display and extracted GAME_DATA_DIRECTORY.
+# Requires Python 3, an SDL3 GPU-capable desktop and extracted GAME_DATA_DIRECTORY.
 # GAME_BUILD_DIRECTORY defaults to this repo's src/Client/bin/Release/net10.0;
 # DOTNET defaults to dotnet on PATH, then ~/.dotnet/dotnet. No build is performed.
 # GAME_DATA_VERSION defaults to AMHE1. Runtime files and generated paths.txt are

@@ -85,20 +85,40 @@ multiplayer match.
 ## Building
 
 ```bash
+dotnet run --project src/Tools/Tools.csproj -c Release -- \
+  -mapdir maps -mapbundle all
 dotnet publish src/Client/Client.csproj -c Release \
   -r win-x64|linux-x64|osx-x64|osx-arm64 --self-contained true -p:PublishSingleFile=true
 ```
 
 Needs [.NET 10.0](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
-`tools/package-server.sh --rid linux-x64 --output publish/server-linux-x64` packages the persistent
-Server Node and its bundled Worker; use `win-x64` or `linux-arm64` for the other supported server
-targets. Android is `dotnet build src/Android/Android.csproj` with the `android` workload. Every command
+The bundle step puts every custom map's recipe, level and baked textures into
+the `.fpmap` files copied into client and server packages. `Client.csproj` also
+runs this cook and copies newly created bundles during a direct publish. The
+client builds the derived room binaries in its installed `AMHE1` directory
+before Node discovery, so use the same content version and map bundles on the
+server; `tools/package-server.sh` runs the cook for direct server packaging as
+well.
+`tools/package-server.sh --rid linux-x64 --output publish/server-linux-x64` packages the Backend,
+persistent Server Node, and its bundled Worker; use `win-x64` or `linux-arm64` for the other supported
+server targets. Android is `dotnet build src/Android/Android.csproj` with the `android` workload. Every command
 line option, and the test harness, are in [`CLAUDE.md`](CLAUDE.md).
+
+Linux bundles include `start-dev.sh` for running the packaged Node and Worker
+against a shared development Backend, and `start-stack-dev.sh` for starting the
+bundled Backend, Node, and Workers together. The repository-root `start-dev.sh`
+does the same all-in-one development start and generates development credentials.
+These development launchers advertise the Node on HTTPS/WSS port `8443` by
+default, which is suitable for a Cloudflare-proxied hostname without requiring
+root; set `PRIME_NODE_BIND` and `PRIME_NODE_PUBLIC_CONTROL_URI` to use another
+port.
+All paths need external AMHE1 content; the shared-Backend path also needs its
+provisioned Node ID, Backend ticket public key, and directory credential.
 
 Build the desktop solution with `dotnet build Game.sln`; Android remains a separate
 workload build. The [project layout](docs/PROJECT_LAYOUT.md) describes the Game,
 Client, Server Node, Server Worker, Tools and Android boundaries. Client output no longer
-contains a local server executable; hosting is provided by the Node + Worker package.
+contains a local server executable; hosting is provided by the Backend + Node + Worker package.
 
 ## Credits
 

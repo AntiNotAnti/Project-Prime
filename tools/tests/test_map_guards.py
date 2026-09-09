@@ -32,7 +32,7 @@ class MapGuardTests(unittest.TestCase):
                 # Put the matching entry first so grep -q would terminate while
                 # unzip still has a large listing to write.
                 archive.writestr("room.bsp", b"custom level")
-            archive.writestr("room.json", b'{"textures":"room.tex"}')
+            archive.writestr("room.json", b'{"import":{"source":"room.bsp"},"textures":"room.tex"}')
             if include_texture:
                 archive.writestr("room.tex", b"custom texture")
             for index in range(padding):
@@ -60,6 +60,16 @@ class MapGuardTests(unittest.TestCase):
             result = self.run_guard(MAP_GUARD, Path(temporary))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("does not carry it", result.stdout)
+
+    def test_description_only_bundle_is_valid_without_a_level(self):
+        with tempfile.TemporaryDirectory(prefix="fruity-map-guard-") as temporary:
+            maps = Path(temporary) / "maps"
+            maps.mkdir()
+            with zipfile.ZipFile(maps / "arena.fpmap", "w", compression=zipfile.ZIP_STORED) as archive:
+                archive.writestr("arena.json", b'{"name":"TEST ARENA","brushes":[{}],"materials":[{}]}')
+            result = self.run_guard(MAP_GUARD, Path(temporary))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("description-only recipe", result.stdout)
 
     def test_asset_guard_accepts_safe_custom_level_with_spaces(self):
         with tempfile.TemporaryDirectory(prefix="fruity-asset-guard-") as temporary:

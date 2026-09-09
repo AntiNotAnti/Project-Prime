@@ -164,7 +164,7 @@ jobs:
       # the .pk3 it was cooked from is a source and is kept out of the output
       # by CopyToPublishDirectory. It is not committed, so it is cooked here.
       - name: cook the map bundles
-        run: dotnet run --project src/Tools/Tools.csproj -c Release -- -mapdir maps -mapbundle
+        run: dotnet run --project src/Tools/Tools.csproj -c Release -- -mapdir maps -mapbundle all
 
       - name: publish every target
         env:
@@ -175,10 +175,11 @@ jobs:
           for rid in win-x64 linux-x64 osx-x64 osx-arm64; do
             dotnet publish src/Client/Client.csproj -c Release -r "$rid" $stamp \
               --self-contained true -p:PublishSingleFile=true -o "publish/$rid"
+            python3 tools/check-renderer-package.py --rid "$rid" "publish/$rid"
           done
-          # Node and Worker are shipped as one server bundle. The package
-          # script preserves the Node assembly identity and renames only its
-          # top-level apphost to FruityPrimeServer[.exe].
+          # Backend, Node and Worker are shipped as one server bundle. The
+          # package script preserves managed assembly identities and renames
+          # only the Node top-level apphost to FruityPrimeServer[.exe].
           for rid in win-x64 linux-x64 linux-arm64; do
             tools/package-server.sh --rid "$rid" --version "$VERSION" \
               --output "publish/server-$rid"
@@ -286,9 +287,12 @@ jobs:
         run: |
           set -euo pipefail
           tools/check-subsystem.sh gui publish/win-x64/FruityPrime.exe
+          test -f publish/server-win-x64/backend/PrimeHunters.Backend.exe
           test -f publish/server-win-x64/FruityPrimeServer.exe
+          test -x publish/server-linux-x64/backend/PrimeHunters.Backend
           test -f publish/server-win-x64/worker/FruityPrime.Server.Worker.exe
           test -x publish/server-linux-x64/FruityPrimeServer
+          test -x publish/server-linux-arm64/backend/PrimeHunters.Backend
           test -x publish/server-linux-x64/worker/FruityPrime.Server.Worker
           test -x publish/server-linux-arm64/FruityPrimeServer
           test -x publish/server-linux-arm64/worker/FruityPrime.Server.Worker
@@ -389,19 +393,25 @@ jobs:
             bundle="publish/server-$rid"
             cp LICENSE "$bundle/" 2>/dev/null || true
             cat > "$bundle/SERVER.txt" <<'NOTE'
-          Fruity Prime control Node and authoritative Worker bundle.
+          Fruity Prime Backend, control Node, and authoritative Worker bundle.
 
           Copy server.example.json to appsettings.json, then fill in the
           operator-owned ES256 admission key and content identity. The example
           intentionally contains no credentials or cartridge content.
 
-          Start the Node apphost from this directory:
+          Start the Node apphost from this directory when using a separately
+          configured Backend:
 
             ./FruityPrimeServer --contentRoot .
 
           The Node launches its Worker from worker/ and keeps control traffic
           on the reliable Node connection. Gameplay uses the Worker's UDP
-          endpoint. Do not replace the Worker with an unbounded ad-hoc process.
+          endpoint. For an all-in-one development stack on Linux, supply your
+          external AMHE1 directory and run ./start-stack-dev.sh; it generates
+          development credentials and starts backend/PrimeHunters.Backend too.
+          Production Backend operation still requires operator database and
+          secret configuration. Do not replace the Worker with an unbounded
+          ad-hoc process.
           See deploy-server.sh and tools/systemd/fruityprime-node.service for
           the explicit operator deployment path.
           NOTE

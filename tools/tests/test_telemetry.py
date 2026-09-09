@@ -119,8 +119,14 @@ class TelemetryCliTests(unittest.TestCase):
             outputs[mode] = json.loads(prefix.with_suffix(".json").read_text())
             self.assertTrue(prefix.with_suffix(".svg").read_text().startswith("<svg"))
             csv_lines = prefix.with_suffix(".csv").read_text().splitlines()
-            self.assertEqual("tick,kind,slot,life,x,y,z,team,hunter,weapon,value,subject,other_slot", csv_lines[0])
+            self.assertEqual(
+                "tick,kind,slot,life,x,y,z,team,hunter,weapon,value,subject,other_slot,semantic_id",
+                csv_lines[0],
+            )
             self.assertEqual(len(fixture_events()) + 1, len(csv_lines))
+            csv_rows = [line.split(",") for line in csv_lines[1:]]
+            self.assertTrue(all(len(row) == 14 for row in csv_rows))
+            self.assertTrue(all(row[-1] == "0" for row in csv_rows))
             self.assertIn(f"Prime Hunters {mode}", prefix.with_suffix(".svg").read_text())
 
         danger = outputs["spawn-safety"]["spawnDanger"]

@@ -12,6 +12,7 @@ namespace MphRead.Mods.Network
         private readonly Dictionary<ItemInstanceEntity, uint> _items = new(WorldPacket.Capacity);
         private readonly HashSet<ItemInstanceEntity> _alive = new(WorldPacket.Capacity);
         private readonly ItemInstanceEntity[] _retired = new ItemInstanceEntity[WorldPacket.Capacity];
+        private readonly bool _allowValidationFixtureDynamics;
         public uint MatchId { get; private set; }
         public uint Revision { get; private set; }
         public uint ServerTick { get; private set; }
@@ -19,10 +20,21 @@ namespace MphRead.Mods.Network
         public ReadOnlySpan<WorldRecord> Records => _records.AsSpan(0, Count);
         public int BatchCount => (Count + WorldPacket.RecordsPerBatch - 1) / WorldPacket.RecordsPerBatch;
 
+        public WorldStateCapture() { }
+
+        internal WorldStateCapture(bool allowValidationFixtureDynamics)
+        {
+            _allowValidationFixtureDynamics = allowValidationFixtureDynamics;
+        }
+
         public void Capture(Scene scene, uint matchId, uint revision, uint serverTick)
         {
             if (!scene.IsHeadless || matchId == 0) { throw new InvalidOperationException("World capture requires an authoritative scene and match."); }
-            if (MatchId != matchId) { ValidateRoom(scene); _items.Clear(); }
+            if (MatchId != matchId)
+            {
+                AuthoritativeContent.ValidateRoom(scene, _allowValidationFixtureDynamics);
+                _items.Clear();
+            }
             MatchId = matchId; Revision = revision; ServerTick = serverTick; Count = 0;
             MatchRuntime match = scene.Match;
             MatchResult? result = match.Result;
@@ -121,6 +133,9 @@ namespace MphRead.Mods.Network
         }
 
         public static void ValidateRoom(Scene scene) => AuthoritativeContent.ValidateRoom(scene);
+
+        internal static void ValidateRoom(Scene scene, bool allowValidationFixtureDynamics)
+            => AuthoritativeContent.ValidateRoom(scene, allowValidationFixtureDynamics);
 
         private void Add(in WorldRecord record)
         {

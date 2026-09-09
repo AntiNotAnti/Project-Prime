@@ -24,10 +24,13 @@ PLATFORM_NAMES = re.compile(
     r'\b(?:Avalonia|SoundFlow|NCSFCommon|ReFuel|Silk\.NET\.OpenAL)\b'
     r'|\bOpenTK\.(?:Graphics|Audio|Windowing)\b'
     r'|\bMphRead\.Mods\.(?:Render|Sound)\b'
+    r'|\bSDL(?:3)?\b|\bSDL_GPU[A-Za-z0-9_]*\b'
 )
 PLATFORM_PACKAGES = re.compile(
     r'^(?:Avalonia(?:\.|$)|SoundFlow(?:\.|$)|NCSFCommon(?:\.|$)|ReFuel(?:\.|$)'
-    r'|Silk\.NET\.OpenAL(?:\.|$)|OpenTK\.(?:Graphics|Audio|Windowing)(?:\.|$))'
+    r'|Silk\.NET\.OpenAL(?:\.|$)|OpenTK\.(?:Graphics|Audio|Windowing)(?:\.|$)'
+    r'|(?:ppy\.)?SDL(?:2|3)?(?:[-.]|$))',
+    re.IGNORECASE,
 )
 SERVER_ALLOWED_PACKAGES = {'Microsoft.IdentityModel.JsonWebTokens'}
 GAME_IO = re.compile(r'\bSystem\.Net\.Sockets\b|\b(?:NetTransport|UdpTransport|ServerProcessHost|ScenePresentation|PlayerPresentation)\b')
@@ -36,6 +39,9 @@ RETIRED_SERVER_SYMBOLS = re.compile(
     r'ServerTicketAuthority|ServerUpdate(?:Runtime|Install)?|ServerVote(?:Session|Options)?|'
     r'ServerVoting|AdminHttpServer)\b')
 RETIRED_SERVER_PROJECT = Path('src/Server/Server.csproj')
+PLATFORM_SOURCE_PROJECTS = {
+    'Game', 'Server.Shared', 'Server.Node', 'Server.Worker', 'Backend', 'Shared.Replay'
+}
 
 
 def xml_files(project: Path) -> list[tuple[Path, ET.Element]]:
@@ -91,6 +97,14 @@ def inspect(root: Path) -> list[str]:
                         item.tag == 'DefineConstants' and any(x in (item.text or '') for x in ['MPHREAD_SERVER', 'MPHREAD_AVALONIA'])):
                     errors.append(f'{owner.relative_to(root)}: retired build personality {item.tag}')
                 if item.tag == 'ProjectReference':
+                    # Analyzer-only references participate in compilation but do
+                    # not change the runtime project dependency graph. Keeping
+                    # them out here preserves the Game boundary while allowing
+                    # generated protocol codecs to be built from a small,
+                    # dependency-free Roslyn project.
+                    if item.attrib.get('OutputItemType', '').lower() == 'analyzer' \
+                            or item.attrib.get('ReferenceOutputAssembly', '').lower() == 'false':
+                        continue
                     target = (owner.parent / item.attrib['Include'].replace('\\', '/')).resolve()
                     if not target.is_file():
                         errors.append(f'{owner.relative_to(root)}: missing project reference {target}')
@@ -130,11 +144,11 @@ def inspect(root: Path) -> list[str]:
             forbidden = sorted(packages - SERVER_ALLOWED_PACKAGES)
             if forbidden:
                 errors.append(f'{name}: unexpected platform packages: {forbidden}')
-        if name == 'Backend':
+        if name in PLATFORM_SOURCE_PROJECTS:
             forbidden = sorted(package for package in packages if PLATFORM_PACKAGES.search(package))
             if forbidden:
                 errors.append(f'{name}: unexpected platform packages: {forbidden}')
-        if name in {'Game', 'Server.Worker', 'Shared.Replay', 'Backend'}:
+        if name in PLATFORM_SOURCE_PROJECTS:
             for source in sorted(path.parent.rglob('*.cs')):
                 if {'obj', 'bin'}.intersection(source.relative_to(path.parent).parts):
                     continue
