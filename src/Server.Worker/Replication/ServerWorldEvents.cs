@@ -37,6 +37,8 @@ namespace MphRead.Mods.Network
                 signal.Kind, signal.Team, identity, signal.Actor?.ServerCombatIdentity ?? CombatActor.None,
                 signal.Position, signal.A, signal.B, signal.C);
             if (!value.IsValid) throw new InvalidOperationException("Invalid authoritative world signal.");
+            if (TryTranslateSemantic(signal, identity, tick, _matchId, scene.Match.PhaseRevision, out MatchEvent semantic))
+                scene.Match.SemanticEvents.Dispatch(semantic);
             if (_count == Capacity) throw new InvalidOperationException("Authoritative world event journal exhausted.");
             _events[(_head + _count++) % Capacity] = value;
         }
@@ -45,6 +47,36 @@ namespace MphRead.Mods.Network
         {
             if (_count == 0) throw new InvalidOperationException("No pending world event.");
             _head = (_head + 1) % Capacity; _count--;
+        }
+
+        private static bool TryTranslateSemantic(in WorldSignal signal, uint identity, uint tick,
+            uint matchId, uint phaseRevision, out MatchEvent value)
+        {
+            MatchEventKind? kind = signal.Kind switch
+            {
+                WorldSignalKind.FlagPickedUp => MatchEventKind.ObjectivePickedUp,
+                WorldSignalKind.FlagDropped => MatchEventKind.ObjectiveDropped,
+                WorldSignalKind.FlagCaptured => MatchEventKind.ObjectiveCaptured,
+                WorldSignalKind.NodeCaptured => MatchEventKind.NodeCaptured,
+                WorldSignalKind.PrimeChanged => MatchEventKind.PrimeChanged,
+                WorldSignalKind.OvertimeStarted => MatchEventKind.OvertimeStarted,
+                WorldSignalKind.MatchPoint => MatchEventKind.MatchPointReached,
+                _ => null
+            };
+            if (!kind.HasValue)
+            {
+                value = default;
+                return false;
+            }
+
+            CombatActor subject = signal.Actor?.ServerCombatIdentity ?? CombatActor.None;
+            uint entityId = signal.Subject == WorldSubjectKind.Match ? 0 : identity;
+            // WorldEvent.Id is a producer-local journal identity. Semantic IDs
+            // belong exclusively to the match dispatcher so combat/world/lifecycle
+            // producers cannot collide.
+            value = new(0, tick, matchId, phaseRevision, kind.Value, subject,
+                CombatActor.None, entityId, signal.Team, signal.A);
+            return value.IsValid;
         }
     }
 }

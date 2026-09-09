@@ -13,9 +13,16 @@ internal sealed class ServerReplayFeedback
     private readonly CombatFeedback _combat = new();
     private readonly WorldFeedback _world = new();
     private readonly NetRosterEntry[] _roster = new NetRosterEntry[8];
+    internal SemanticAwardJournal AwardJournal { get; } = new();
+    private uint _matchId;
 
     internal void Bind(ObserverFrame frame, uint phase)
     {
+        if (_matchId != frame.MatchId)
+        {
+            _matchId = frame.MatchId;
+            AwardJournal.Reset();
+        }
         if (!SessionRosterPacket.TryRead(frame.Roster!.AsSpan(4), _roster, out _, out int count))
             throw new ArgumentException("Invalid replay roster baseline.");
         _combat.Bind(frame.MatchId, CombatActor.None, _roster.AsSpan(0, count), frame.Tick, phase);
@@ -33,6 +40,9 @@ internal sealed class ServerReplayFeedback
             else if (item.Type == ReliableEventType.Kill && KillEvent.TryRead(payload, out var kill)) _combat.Process(kill);
             else if (item.Type == ReliableEventType.WorldEvent && WorldEvent.TryRead(payload, out var world))
                 _world.Process(world, CombatActor.None, frame.Tick, frame.Rules.PickupRespawnAnnouncements);
+            else if (item.Type == ReliableEventType.MatchAward && MatchAwardPacket.TryRead(payload, out MatchAwardPacket packet)
+                && packet.MatchId == frame.MatchId && MatchAwardPacketConversion.TryToAward(packet, out MatchAward award))
+                AwardJournal.Record(award);
         }
     }
 

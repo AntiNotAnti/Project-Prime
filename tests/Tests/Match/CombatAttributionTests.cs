@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using MphRead.Entities;
+using MphRead.Formats;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 using Xunit;
@@ -10,6 +13,55 @@ namespace MphRead.Tests;
 [Collection("Match baseline globals")]
 public sealed class CombatAttributionTests
 {
+    [Trait("RequiresGameContent", "true")]
+    [Fact]
+    public void DefenderKillPublishesDistinctAuthoritativeObjectiveDefendedFact()
+    {
+        string data = Environment.GetEnvironmentVariable("GAME_DATA_DIRECTORY")
+            ?? Path.Combine(Directory.GetCurrentDirectory(), "AMHE1");
+        using var content = ServerContent.PreserveContext("AMHE1");
+        ServerContent.Open(data, "AMHE1");
+        using var simulation = new ServerSimulation(new MatchRules(MatchMode.TeamDefender,
+            "MP1 SANCTORUS", maxPlayers: 2));
+        Scene scene = simulation.Scene;
+        scene.Match.MatchId = 1;
+        scene.Match.PhaseRevision = 2;
+        scene.Match.Phase = MatchPhase.Playing;
+        NodeDefenseEntity? selected = null;
+        foreach (NodeDefenseEntity candidate in scene.GetNodeDefenseEntities())
+        {
+            Assert.Null(selected);
+            selected = candidate;
+        }
+        NodeDefenseEntity node = Assert.IsType<NodeDefenseEntity>(selected);
+        PlayerEntity attacker = scene.Players[0];
+        PlayerEntity victim = scene.Players[1];
+        attacker.ServerActivate(100, Hunter.Samus, team: 0);
+        victim.ServerActivate(200, Hunter.Kanden, team: 1);
+        PutInside(attacker, node.Volume);
+        PutInside(victim, node.Volume);
+        var facts = new List<MatchEvent>();
+        Assert.True(scene.Match.SemanticEvents.Subscribe((in MatchEvent value) => facts.Add(value)));
+        var awards = new List<MatchAward>();
+        scene.Match.Awards.Awarded += awards.Add;
+
+        victim.Health = 0;
+        simulation.Combat.BeginTick(10);
+        simulation.Combat.NoteDamage(victim, attacker, attacker, BeamType.None,
+            DamageFlags.None, null, previousHealth: 100, frozen: 0, burn: 0,
+            disrupt: 0, afflictionChanged: false);
+
+        MatchEvent defended = Assert.Single(facts,
+            value => value.Kind == MatchEventKind.ObjectiveDefended);
+        Assert.Equal(attacker.ServerCombatIdentity, defended.Subject);
+        Assert.Equal(victim.ServerCombatIdentity, defended.Target);
+        Assert.Equal(unchecked((uint)node.Id), defended.EntityId);
+        Assert.Contains(facts, value => value.Kind == MatchEventKind.PlayerKilled
+            && (value.Flags & MatchEventFlags.DefendingObjective) != 0);
+        Assert.Contains(awards, value => value.Kind == MatchAwardKind.Defender
+            && value.SourceEventId == defended.Id);
+    }
+
     [Fact]
     public void BeamAndBombLethalsClassifyTheCapturedSourceFormAndSourceKind()
     {
@@ -361,4 +413,18 @@ public sealed class CombatAttributionTests
 
     private static void Set(PlayerEntity player, string name, object value)
         => typeof(PlayerEntity).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(player, value);
+
+    private static void PutInside(PlayerEntity player, CollisionVolume volume)
+    {
+        Vector3 center = volume.Type switch
+        {
+            VolumeType.Sphere => volume.SpherePosition,
+            VolumeType.Cylinder => volume.CylinderPosition + volume.CylinderVector * volume.CylinderDot / 2,
+            _ => volume.BoxPosition + (volume.BoxVector1 * volume.BoxDot1
+                + volume.BoxVector2 * volume.BoxDot2 + volume.BoxVector3 * volume.BoxDot3) / 2
+        };
+        Vector3 previous = player.Position;
+        player.Position = center - (player.Volume.SpherePosition - previous);
+        player.ModRefreshNodeRef(previous);
+    }
 }

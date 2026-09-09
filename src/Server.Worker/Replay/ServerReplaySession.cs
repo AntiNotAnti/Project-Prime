@@ -75,7 +75,7 @@ public sealed class ServerReplaySession
             var opening = Status;
             if (opening.State == "opening") Interlocked.CompareExchange(ref _status, new(ReplayId, "recording", null), opening);
             uint? origin = null; uint previousKeyframe = 0, previousRoster = uint.MaxValue;
-            bool endMarked = false; var indexer = new ReplayEventIndexer();
+            var indexer = new ReplayEventIndexer();
             var feedback = new ServerReplayFeedback();
             await foreach (var captured in _frames.Reader.ReadAllAsync())
             {
@@ -106,17 +106,19 @@ public sealed class ServerReplaySession
                 if (source.FreshSnapshot || frame == 0) writer.WriteRecord(frame, Record(DemoRecordKind.Snapshot, source.Snapshot!));
                 if (source.FreshWorld || frame == 0) foreach (var batch in source.World!) writer.WriteRecord(frame, Record(DemoRecordKind.World, batch));
                 if (frame == 0) foreach (var record in presentation!) writer.WriteRecord(frame, record);
-                if (!endMarked && source.World!.Any(HasMatchEnd))
+                ReplayMarker terminalWorld = indexer.ForTerminalWorld(writer.ProtocolVersion,
+                    source.World!.Any(HasMatchEnd));
+                if (terminalWorld != ReplayMarker.None)
                 {
-                    writer.WriteRecord(frame, Record(DemoRecordKind.World, source.World![0]), ReplayMarker.MatchEnd);
-                    endMarked = true;
+                    writer.WriteRecord(frame, Record(DemoRecordKind.World, source.World![0]), terminalWorld);
                 }
                 foreach (var item in source.Events)
                 {
                     byte[] bytes = new byte[item.Payload.Length + 2]; bytes[0] = (byte)DemoRecordKind.Event;
                     item.Payload.AsSpan(0, 4).CopyTo(bytes.AsSpan(1)); bytes[5] = (byte)item.Type;
                     item.Payload.AsSpan(4).CopyTo(bytes.AsSpan(6));
-                    writer.WriteRecord(frame, bytes, indexer.ForEvent(new(source.MatchId, item.Type, item.Payload.AsMemory(4))));
+                    writer.WriteRecord(frame, bytes, indexer.ForEvent(
+                        new(source.MatchId, item.Type, item.Payload.AsMemory(4)), NetHeader.Version));
                 }
                 feedback.Apply(source);
             }

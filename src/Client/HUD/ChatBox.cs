@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using MphRead.Mods.Network;
-using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace MphRead.Mods.Chat
@@ -394,7 +393,7 @@ namespace MphRead.Mods.Chat
         /// while a demo is playing back: a recording has nobody to send to,
         /// and its own chat lines are already in the file.
         /// </param>
-        public static bool HandleKeyDown(KeyboardKeyEventArgs e, bool canOpen)
+        public static bool HandleKeyDown(WindowKeyEvent e, bool canOpen)
         {
             return HandleKeyDown(e.Key, e.Control, e.Alt || e.Command, canOpen);
         }

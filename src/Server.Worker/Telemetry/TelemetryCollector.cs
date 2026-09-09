@@ -21,6 +21,14 @@ namespace MphRead.Telemetry
         private bool _started, _completed;
         private int _count, _dropped;
         public int DroppedEvents => _dropped;
+        public long AwardsRecorded { get; private set; }
+        public long AwardsDropped { get; private set; }
+        public long SemanticEventsRecorded { get; private set; }
+        public long SemanticEventsDropped { get; private set; }
+        // MatchAwardKind is a one-based wire enum. Keep the telemetry array
+        // zero-based so every plan-defined kind has one unambiguous slot.
+        private readonly long[] _awardsByKind = new long[8];
+        public ReadOnlySpan<long> AwardsByKind => _awardsByKind;
 
         public TelemetryCollector(MatchRules rules, uint matchId, uint start, int capacity = MatchTelemetry.MaxEvents)
         {
@@ -108,6 +116,60 @@ namespace MphRead.Telemetry
 
         public void World(in WorldEvent value) => Add(AtActor(value.Tick, TelemetryKind.World, value.Actor, value.Position)
             with { Team = value.Team, Value = (int)value.Kind, Subject = value.EntityId, Weapon = (byte)value.A });
+
+        /// <summary>Records the raw server semantic fact. No award is
+        /// recomputed from kill/world snapshots and the counters are bounded
+        /// to the eight plan-defined kinds.</summary>
+        public void Award(in MatchAward value)
+        {
+            int kindIndex = (int)value.Kind - (int)MatchAwardKind.FirstHunt;
+            if (!value.IsValid || (uint)kindIndex >= (uint)_awardsByKind.Length)
+            {
+                if (AwardsDropped < long.MaxValue) AwardsDropped++;
+                if (_dropped < int.MaxValue) _dropped++;
+                return;
+            }
+            byte team = value.Subject.Slot < 8 && _actors[value.Subject.Slot] == value.Subject
+                ? _players[value.Subject.Slot].TeamIndex : (byte)255;
+            int before = _count;
+            Add(new TelemetryEvent(value.Tick, TelemetryKind.Award, value.Subject.Slot, value.Subject.Life,
+                0, 0, 0, team, 255, 255, (int)value.Kind, value.SourceEventId,
+                value.Target.IsValid ? value.Target.Slot : (byte)255));
+            if (_count == before)
+            {
+                if (AwardsDropped < long.MaxValue) AwardsDropped++;
+                return;
+            }
+            if (AwardsRecorded < long.MaxValue) AwardsRecorded++;
+            if (_awardsByKind[kindIndex] < long.MaxValue) _awardsByKind[kindIndex]++;
+        }
+
+        /// <summary>Records the normalized match fact independently of the
+        /// existing low-level combat/world telemetry. Semantic IDs remain the
+        /// correlation key for awards and replay metadata.</summary>
+        public void Semantic(in MatchEvent value)
+        {
+            if (!value.IsValid || value.Id == 0)
+            {
+                if (SemanticEventsDropped < long.MaxValue) SemanticEventsDropped++;
+                if (_dropped < int.MaxValue) _dropped++;
+                return;
+            }
+            if (_completed || _count == _events.Length)
+            {
+                if (SemanticEventsDropped < long.MaxValue) SemanticEventsDropped++;
+                if (_dropped < int.MaxValue) _dropped++;
+                return;
+            }
+            _events[_count++] = new TelemetryEvent(value.Tick, TelemetryKind.MatchSemantic,
+                value.Subject.IsValid ? value.Subject.Slot : (byte)255,
+                value.Subject.IsValid ? value.Subject.Life : 0,
+                0, 0, 0, value.Team, 255, (byte)value.Flags,
+                (int)value.Kind, value.EntityId,
+                value.Target.IsValid ? value.Target.Slot : (byte)255,
+                SemanticId: value.Id);
+            if (SemanticEventsRecorded < long.MaxValue) SemanticEventsRecorded++;
+        }
 
         private TelemetryEvent AtActor(uint tick, TelemetryKind kind, CombatActor actor, Vector3 position)
         {

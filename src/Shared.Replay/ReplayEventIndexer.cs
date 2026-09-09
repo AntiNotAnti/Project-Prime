@@ -1,29 +1,28 @@
-using System;
-
 namespace MphRead.Mods.Network
 {
     /// <summary>Semantic event markers shared by optional client and mandatory server recordings.</summary>
     internal sealed class ReplayEventIndexer
     {
-        private readonly CombatActor[] _lastKillActor = new CombatActor[8];
-        private readonly uint[] _lastKillTick = new uint[8];
-        internal void Reset() { Array.Clear(_lastKillActor); Array.Clear(_lastKillTick); }
-        internal ReplayMarker ForEvent(in NetApplicationEvent message)
+        private bool _terminalWorldMarked;
+        internal void Reset() => _terminalWorldMarked = false;
+
+        internal ReplayMarker ForTerminalWorld(byte protocol, bool terminal)
+        {
+            if (protocol > 8 || !terminal || _terminalWorldMarked) return ReplayMarker.None;
+            _terminalWorldMarked = true;
+            return ReplayMarker.MatchEnd;
+        }
+
+        internal ReplayMarker ForEvent(in NetApplicationEvent message, byte protocol)
         {
             if (message.Type == ReliableEventType.Kill && KillEvent.TryRead(message.Payload.Span, out KillEvent kill))
             {
                 ReplayMarker marker = ReplayMarker.Kill;
                 if ((kill.Flags & KillEventFlags.Headshot) != 0) marker |= ReplayMarker.Headshot;
-                if (kill.Killer.IsValid && (kill.Flags & (KillEventFlags.Suicide | KillEventFlags.TeamKill)) == 0)
-                {
-                    int slot = kill.Killer.Slot;
-                    if (_lastKillActor[slot] == kill.Killer && (kill.Tick == _lastKillTick[slot] || Sequence32.IsNewer(kill.Tick, _lastKillTick[slot]))
-                        && unchecked(kill.Tick - _lastKillTick[slot]) <= 180) marker |= ReplayMarker.MultiKill;
-                    _lastKillActor[slot] = kill.Killer; _lastKillTick[slot] = kill.Tick;
-                }
                 return marker;
             }
-            if (message.Type == ReliableEventType.WorldEvent && WorldEvent.TryRead(message.Payload.Span, out WorldEvent value))
+            if (protocol <= 8 && message.Type == ReliableEventType.WorldEvent
+                && WorldEvent.TryRead(message.Payload.Span, out WorldEvent value))
                 return value.Kind switch
                 {
                     WorldSignalKind.FlagCaptured => ReplayMarker.FlagCapture,
@@ -33,6 +32,30 @@ namespace MphRead.Mods.Network
                     WorldSignalKind.OvertimeStarted => ReplayMarker.Overtime,
                     _ => ReplayMarker.None
                 };
+            if (protocol >= 9 && message.Type == ReliableEventType.MatchAward
+                && MatchAwardPacket.TryRead(message.Payload.Span, out MatchAwardPacket packet)
+                && MatchAwardPacketConversion.TryToAward(packet, out _))
+            {
+                ReplayMarker marker = ReplayMarker.Award;
+                if (packet.Kind is MatchAwardKind.DoubleKill or MatchAwardKind.TripleKill)
+                    marker |= ReplayMarker.MultiKill;
+                return marker;
+            }
+            if (protocol >= 9 && message.Type == ReliableEventType.MatchSemantic
+                && MatchSemanticEventPacket.TryRead(message.Payload.Span, out MatchSemanticEventPacket semantic)
+                && MatchSemanticEventPacketConversion.TryToEvent(semantic, out _))
+            {
+                return semantic.Kind switch
+                {
+                    MatchEventKind.ObjectiveCaptured => ReplayMarker.FlagCapture,
+                    MatchEventKind.NodeCaptured => ReplayMarker.NodeCapture,
+                    MatchEventKind.PrimeChanged => ReplayMarker.PrimeChange,
+                    MatchEventKind.MatchPointReached => ReplayMarker.MatchPoint,
+                    MatchEventKind.OvertimeStarted => ReplayMarker.Overtime,
+                    MatchEventKind.MatchEnded => ReplayMarker.MatchEnd,
+                    _ => ReplayMarker.None
+                };
+            }
             return ReplayMarker.None;
         }
 

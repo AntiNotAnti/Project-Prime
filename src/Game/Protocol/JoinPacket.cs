@@ -127,7 +127,7 @@ namespace MphRead.Mods.Network
             type = default;
             payload = default;
             if (source.Length < HeaderSize || source.Length > HeaderSize + ReliableChannel.MaxPayloadSize
-                || source[4] < (byte)ReliableEventType.Welcome || source[4] > (byte)ReliableEventType.IntermissionVote
+                || source[4] < (byte)ReliableEventType.Welcome || source[4] > (byte)ReliableEventType.MatchSemantic
                 || BinaryPrimitives.ReadUInt16LittleEndian(source[5..]) != source.Length - HeaderSize)
             {
                 return false;

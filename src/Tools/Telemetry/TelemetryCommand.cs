@@ -52,6 +52,10 @@ namespace MphRead
             int overtime = 0;
             foreach (TelemetryEvent entry in match.Events)
             {
+                // Awards are raw semantic facts retained for consumers and
+                // CSV export; they are not spatial samples for these legacy
+                // heatmap/route aggregates.
+                if (entry.Kind is TelemetryKind.Award or TelemetryKind.MatchSemantic) continue;
                 var coordinate = ((int)Math.Floor(entry.X / 4), (int)Math.Floor(entry.Z / 4));
                 if (!cells.TryGetValue(coordinate, out Cell? cell)) cells.Add(coordinate, cell = new());
                 var life = new Life(entry.Slot, entry.Life);
@@ -148,9 +152,9 @@ namespace MphRead
             File.WriteAllText(prefix + ".json", JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true }));
             using (var csv = new StreamWriter(prefix + ".csv", false, new UTF8Encoding(false)))
             {
-                csv.WriteLine("tick,kind,slot,life,x,y,z,team,hunter,weapon,value,subject,other_slot");
+                csv.WriteLine("tick,kind,slot,life,x,y,z,team,hunter,weapon,value,subject,other_slot,semantic_id");
                 foreach (TelemetryEvent e in match.Events)
-                    csv.WriteLine(FormattableString.Invariant($"{e.Tick},{e.Kind},{e.Slot},{e.Life},{e.X:R},{e.Y:R},{e.Z:R},{e.Team},{e.Hunter},{e.Weapon},{e.Value},{e.Subject},{e.OtherSlot}"));
+                    csv.WriteLine(FormattableString.Invariant($"{e.Tick},{e.Kind},{e.Slot},{e.Life},{e.X:R},{e.Y:R},{e.Z:R},{e.Team},{e.Hunter},{e.Weapon},{e.Value},{e.Subject},{e.OtherSlot},{e.SemanticId}"));
             }
             WriteSvg(prefix + ".svg", cells, args[1]);
             Console.WriteLine($"Wrote {prefix}.json, .csv, .svg; events={match.Events.Length}, dropped={match.DroppedEvents}");
@@ -182,7 +186,7 @@ namespace MphRead
             // Different journals drain in batches, so timestamps need not be globally sorted in the file.
             foreach (TelemetryEvent e in match.Events)
             {
-                if (e.Kind > TelemetryKind.World || !float.IsFinite(e.X) || !float.IsFinite(e.Y) || !float.IsFinite(e.Z)
+                if (e.Kind > TelemetryKind.MatchSemantic || !float.IsFinite(e.X) || !float.IsFinite(e.Y) || !float.IsFinite(e.Z)
                     || Math.Abs(e.X) > 100000 || Math.Abs(e.Y) > 100000 || Math.Abs(e.Z) > 100000
                     || unchecked(e.Tick - match.StartTick) > unchecked(match.EndTick - match.StartTick)
                     || e.Value < 0 || e.Value > 65535 || e.Slot is > 7 and not 255 || e.OtherSlot is > 7 and not 255

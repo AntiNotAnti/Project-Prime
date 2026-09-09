@@ -35,6 +35,9 @@ namespace MphRead
             }
         }
         public bool ForceEndGame { get; set; }
+        /// <summary>One match-owned source for semantic facts and presentation awards.</summary>
+        public MatchEventDispatcher SemanticEvents { get; } = new();
+        public AwardEngine Awards { get; } = new();
         // Survival dynamically reveals the remaining players; this is effective state,
         // while Rules.PlayerRadar retains the configured setting.
         private bool _radarPlayers;
@@ -109,6 +112,7 @@ namespace MphRead
         public MatchRuntime(MatchRules rules, Scene? scene = null)
         {
             Rules = rules ?? throw new ArgumentNullException(nameof(rules));
+            SemanticEvents.Subscribe(Awards);
             _scene = scene;
             if (scene != null)
             {
@@ -181,6 +185,7 @@ namespace MphRead
             ActivePlayers = 0;
             PrimeHunter = -1;
             ForceEndGame = false;
+            SemanticEvents.Reset();
             Period = MatchPeriod.Regulation;
             PeriodStartTick = 0;
             RadarPlayers = Rules.PlayerRadar;

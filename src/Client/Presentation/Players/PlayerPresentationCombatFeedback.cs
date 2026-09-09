@@ -1,5 +1,8 @@
 using MphRead.Combat;
 using MphRead.Hud;
+using MphRead.Mods.Audio;
+using MphRead.Mods.Content;
+using MphRead.Mods.Hud;
 using MphRead.Mods.Network;
 
 namespace MphRead
@@ -8,6 +11,17 @@ namespace MphRead
     {
         public CombatFeedback CombatFeedback { get; } = new();
         public WorldFeedback WorldFeedback { get; } = new();
+        public AnnouncerService Announcer { get; }
+        public OptionalPresentationAssetResolver? AnnouncerAssets { get; }
+        public AwardHudQueue AwardHud { get; } = new();
+        private AnnouncerAudioPresentation? _announcerAudio;
+        public AnnouncerAudioPresentation AnnouncerAudio
+            => _announcerAudio ??= new(World, Announcer, AnnouncerAssets);
+        internal void DisposeAnnouncerAudio()
+        {
+            _announcerAudio?.Dispose();
+            _announcerAudio = null;
+        }
         private FeedbackAudio? _feedbackAudio;
         public FeedbackAudio FeedbackAudio => _feedbackAudio ??= new(World);
     }
@@ -19,6 +33,8 @@ namespace MphRead.Entities
     {
         private uint _feedbackSoundSequence;
         private uint _worldFeedbackSequence;
+        private uint _awardHudRevision;
+        private MatchAward? _activeAward;
         private CombatActor _feedbackSoundIdentity = CombatActor.None;
         internal void SynchronizeReplayFeedbackAudio()
         {
@@ -47,6 +63,22 @@ namespace MphRead.Entities
                         : marker == HitMarkerKind.Headshot ? FeedbackCue.Headshot : FeedbackCue.Hit, tick);
             }
             if (localView) Presentation.FeedbackAudio.ObserveHealth(feedback.Local, (ushort)_player.Health, tick);
+            // The queue belongs to the scene's local presentation, not each
+            // remote player draw call. Only the local view consumes it, so a
+            // frame cannot dequeue one award per rendered player.
+            if (localView && _awardHudRevision != Presentation.AwardHud.Revision)
+            {
+                _awardHudRevision = Presentation.AwardHud.Revision;
+                _activeAward = null;
+            }
+            if (localView && _activeAward is null && Presentation.AwardHud.TryDequeue(out MatchAward award))
+                _activeAward = award;
+            if (localView && _activeAward is { } activeAward && CombatFeedback.Age(tick, activeAward.Tick) < 120)
+            {
+                DrawText2D(128, 42, Align.Center, 0, AwardText(activeAward.Kind),
+                    new ColorRgba(255, 224, 96, 255), scale: .75f);
+            }
+            else if (localView && _activeAward is { }) _activeAward = null;
             WorldFeedback world = Presentation.WorldFeedback;
             if (_worldFeedbackSequence != world.Sequence)
             {
@@ -95,5 +127,18 @@ namespace MphRead.Entities
                     DrawText2D(128, 76 + (i - start) * 8, Align.Center, 0, feedback.History[i].Text, maxLength: 44, scale: .65f);
             }
         }
+
+        private static string AwardText(MatchAwardKind kind) => kind switch
+        {
+            MatchAwardKind.FirstHunt => "FIRST HUNT",
+            MatchAwardKind.DoubleKill => "DOUBLE KILL",
+            MatchAwardKind.TripleKill => "TRIPLE KILL",
+            MatchAwardKind.Interceptor => "INTERCEPTOR",
+            MatchAwardKind.Defender => "DEFENDER",
+            MatchAwardKind.PrimeSlayer => "PRIME SLAYER",
+            MatchAwardKind.Capture => "CAPTURE",
+            MatchAwardKind.Assist => "ASSIST",
+            _ => ""
+        };
     }
 }

@@ -18,7 +18,9 @@ namespace MphRead.Mods.Network
         WorldEvent = 12,
         ObserverTransition = 13,
         IntermissionBallot = 14,
-        IntermissionVote = 15
+        IntermissionVote = 15,
+        MatchAward = 16,
+        MatchSemantic = 17
     }
 
     public enum ReliableAdmissionFailure
@@ -140,7 +142,7 @@ namespace MphRead.Mods.Network
                 OversizedPayloadRejections++;
                 return false;
             }
-            if (type < ReliableEventType.Welcome || type > ReliableEventType.IntermissionVote)
+            if (type < ReliableEventType.Welcome || type > ReliableEventType.MatchSemantic)
             {
                 LastAdmissionFailure = ReliableAdmissionFailure.InvalidType;
                 InvalidTypeRejections++;

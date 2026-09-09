@@ -96,6 +96,36 @@ namespace MphRead
             _match.HasPhaseDeadline = duration.HasValue;
             uint revision = unchecked(_match.PhaseRevision + 1);
             _match.PhaseRevision = revision == 0 ? 1 : revision;
+            if (_match.MatchId != 0)
+            {
+                MatchEventKind? kind = phase switch
+                {
+                    MatchPhase.Countdown => MatchEventKind.CountdownStarted,
+                    MatchPhase.Playing => MatchEventKind.MatchStarted,
+                    MatchPhase.Ending => MatchEventKind.MatchEnded,
+                    _ => null
+                };
+                if (kind.HasValue)
+                {
+                    byte winningTeam = phase == MatchPhase.Ending ? WinningTeam() : (byte)255;
+                    _match.SemanticEvents.Dispatch(new(0, tick, _match.MatchId, _match.PhaseRevision,
+                        kind.Value, MphRead.Mods.Network.CombatActor.None, MphRead.Mods.Network.CombatActor.None,
+                        Team: winningTeam));
+                }
+            }
+        }
+
+        private byte WinningTeam()
+        {
+            // Result is the authoritative, tie-broken outcome. If this
+            // transition occurs before result capture, leave the team unknown;
+            // clients must not guess Victory from MatchEnded alone.
+            if (_match.Result is not { } result || result.ResultSlots.IsDefaultOrEmpty)
+                return 255;
+            int slot = result.ResultSlots[0];
+            if ((uint)slot >= (uint)result.Players.Length) return 255;
+            int team = result.Players[slot].TeamIndex;
+            return (uint)team < 8 ? (byte)team : (byte)255;
         }
 
         public static void ValidateRules(MatchRules rules)
