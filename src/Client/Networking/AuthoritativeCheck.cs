@@ -1,21 +1,20 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using MphRead.Entities;
-using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
-using OpenTK.Windowing.Common;
-using OpenTK.Windowing.Desktop;
 
 namespace MphRead.Mods.Network
 {
     /// <summary>Rendered authoritative movement check using the shipping scene hooks.</summary>
-    public sealed class AuthoritativeCheck : GameWindow
+    public sealed class AuthoritativeCheck : IRenderToolClient
     {
+        private readonly IRenderToolHost _host;
+        private readonly ScenePresentation _presentation;
         private readonly AuthoritativePlay _play;
         private readonly Scene _scene;
         private readonly double _seconds;
-        private readonly Stopwatch _clock = new();
+        private readonly int _durationFrames;
+        private const int GraceFrames = 600;
         private readonly Vector3[] _last = new Vector3[8];
         private readonly bool[] _seen = new bool[8];
         private readonly double[] _travel = new double[8];
@@ -33,21 +32,18 @@ namespace MphRead.Mods.Network
         private int _shots;
 
         private AuthoritativeCheck(AuthoritativePlay play, Hunter hunter, double seconds,
-            string? shotDirectory, int width, int height, double spectateAt, double rejoinAt)
-            : base(new GameWindowSettings { UpdateFrequency = 60 }, new NativeWindowSettings
-            {
-                ClientSize = new Vector2i(width, height), Title = "Prime Hunters authoritative check",
-                Profile = ContextProfile.Compatability, Flags = ContextFlags.Default,
-                APIVersion = new Version(3, 2), StartVisible = false
-            })
+            string? shotDirectory, int width, int height, double spectateAt, double rejoinAt,
+            IRenderToolHost host)
         {
+            _host = host ?? throw new ArgumentNullException(nameof(host));
             _play = play;
             _seconds = seconds;
+            _durationFrames = checked((int)Math.Ceiling(seconds * 60));
             _shotDirectory = shotDirectory;
             _spectateAt = spectateAt;
             _rejoinAt = rejoinAt;
             _scene = new Scene(features: ClientMatchFeatures.Capture()) { Services = new ClientSceneServices() };
-            _ = new ScenePresentation(_scene, Size, KeyboardState, MouseState, _ => { }, Close);
+            _presentation = host.CreatePresentation(_scene);
             play.BuildPlayers(_scene, hunter, 0);
             _scene.AddRoom(play.Client.Accepted.Room, play.Client.Accepted.Mode,
                 playerCount: NetConfig.RoomPlayerCount);
@@ -56,7 +52,7 @@ namespace MphRead.Mods.Network
 
         private void Drive(PlayerEntity player, uint tick)
         {
-            double elapsed = _clock.Elapsed.TotalSeconds;
+            double elapsed = _simulationFrames / 60d;
             if (_spectateAt >= 0 && !_spectateRequested && elapsed >= _spectateAt)
             {
                 SpectatorMode.Start(_scene);
@@ -105,19 +101,28 @@ namespace MphRead.Mods.Network
             player.ApplyNetworkInput(new InputCommand(tick, tick, 0, held, pressed, aim, InputCommand.NoWeapon));
         }
 
-        protected override void OnLoad()
+        private int _simulationFrames;
+
+        public void OnLoad()
         {
-            ScenePresentation.Get(_scene).OnLoad();
-            GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
-            ScenePresentation.Get(_scene).OnResize();
-            _clock.Start();
-            base.OnLoad();
+            _presentation.Size = _host.Size;
+            _presentation.OnLoad();
+            _presentation.OnResize();
         }
 
-        protected override void OnRenderFrame(FrameEventArgs args)
+        public void OnFrame()
         {
-            ScenePresentation.Get(_scene).OnUpdateFrame();
-            if (ScenePresentation.Get(_scene).OnRenderFrame())
+            _presentation.OnSimulationFrame();
+            _simulationFrames++;
+            RenderToolCapture? requestedCapture = (_frames + 1) % 120 == 0
+                ? new RenderToolCapture(CaptureTargetKind.SceneTarget) : null;
+            RenderToolFrameResult frame = _host.Render(_presentation, requestedCapture,
+                acknowledgePresentation: true);
+            // A capture may have completed after the picture that requested it.
+            // Consume every returned result; sampling cadence only decides when
+            // a new request is queued.
+            ConsumeCapture(frame);
+            if (frame.Submitted)
             {
                 _frames++;
                 foreach (PlayerEntity player in _scene.GetPlayerEntities())
@@ -132,31 +137,50 @@ namespace MphRead.Mods.Network
                     _seen[slot] = true;
                     _last[slot] = player.Position;
                 }
-                if (_frames % 120 == 0)
-                {
-                    _lit |= ScreenCapture.NonBlackFraction(_scene) > 0.01;
-                    if (_shotDirectory != null)
-                    {
-                        ScreenCapture.Save(_scene, Path.Combine(_shotDirectory,
-                            $"slot{_play.LocalSlot}-{_shots++:000}.png"));
-                    }
-                }
-                SwapBuffers();
-                ScenePresentation.Get(_scene).OnFramePresented();
-                ScenePresentation.Get(_scene).AfterRenderFrame();
             }
-            base.OnRenderFrame(args);
             // A duration boundary may land during a legitimate map load.
             // Finish once that match has a complete state, with a bounded grace.
-            if (_clock.Elapsed.TotalSeconds >= _seconds
+            if (_simulationFrames >= _durationFrames
                 && (_play.Client.State == NetConnectionState.Playing && _play.HasWorldState
-                    || _clock.Elapsed.TotalSeconds >= _seconds + 10)) { Close(); }
+                    || _simulationFrames >= _durationFrames + GraceFrames))
+            {
+                _host.Close();
+            }
         }
 
-        protected override void OnClosing(System.ComponentModel.CancelEventArgs args)
+        private void ConsumeCapture(RenderToolFrameResult frame)
         {
-            ScenePresentation.Get(_scene).DoCleanup();
-            base.OnClosing(args);
+            for (int i = 0; i < frame.Captures.Count; i++)
+            {
+                ConsumeCapture(frame.Captures[i]);
+            }
+        }
+
+        private void ConsumeCapture(RenderCaptureResult capture)
+        {
+            if (capture.Target != CaptureTargetKind.SceneTarget)
+            {
+                return;
+            }
+            _lit |= RenderToolCaptureSupport.NonBlackFraction(capture) > 0.01;
+            if (_shotDirectory != null)
+            {
+                RenderToolCaptureSupport.Save(capture, Path.Combine(_shotDirectory,
+                    $"slot{_play.LocalSlot}-{_shots++:000}.png"));
+            }
+        }
+
+        public void OnCapture(RenderCaptureResult capture)
+        {
+            if (capture.Target == CaptureTargetKind.SceneTarget)
+            {
+                ConsumeCapture(capture);
+            }
+        }
+
+        public void OnClosing()
+        {
+            _presentation.DoCleanup();
         }
 
         private int Report()
@@ -195,10 +219,18 @@ namespace MphRead.Mods.Network
             if (recordDemo && !DemoRecorder.Start()) { throw new ProgramException("Could not start demo recording."); }
             try
             {
-                using var window = new AuthoritativeCheck(play, hunter, seconds,
-                    shotDirectory, width, height, spectateAt, rejoinAt);
-                window.Run();
-                return window.Report();
+                bool sdl = RenderBackendSelection.Current == RenderBackendKind.Sdl;
+                // This check is the one tool whose contract includes a real
+                // presentation acknowledgement. Keep an SDL window visible
+                // so a compositor/minimize race cannot turn a successful
+                // offscreen encode into a false authoritative presentation.
+                using IRenderToolHost hostAdapter = RenderToolHostFactory.Create(
+                    new Vector2i(width, height), "Prime Hunters authoritative check",
+                    updateFrequency: 60, visible: sdl, presentable: true);
+                var check = new AuthoritativeCheck(play, hunter, seconds,
+                    shotDirectory, width, height, spectateAt, rejoinAt, hostAdapter);
+                hostAdapter.Run(check);
+                return check.Report();
             }
             finally { if (recordDemo) { DemoRecorder.Stop(); } }
         }

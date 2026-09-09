@@ -13,6 +13,7 @@ using MphRead.Replay;
 using MphRead.Mods.Network;
 using BotPolicy = MphRead.Mods.Network.BotFillPolicy;
 using SharedBotPolicy = FruityPrime.Server.Shared.BotFillPolicy;
+using OpenTK.Mathematics;
 
 namespace FruityPrime.Server.Worker;
 
@@ -37,6 +38,7 @@ public sealed class WorkerRuntime : IAsyncDisposable
     private string? _keyId, _publicKey;
     private readonly Dictionary<string, long?> _keyRetirement = new(StringComparer.Ordinal);
     private int _disposed, _pendingArtifacts;
+    private bool _validationFixtureMatchAccepted;
     public event Action<WorkerEvent>? Event;
     public WorkerOptions Options => _options;
     public IReadOnlyList<LaneMetrics> LaneMetrics => _lanes.Metrics;
@@ -50,6 +52,14 @@ public sealed class WorkerRuntime : IAsyncDisposable
         { _contentLease.Dispose(); throw new ArgumentException("Worker must hold the active immutable content view."); }
         try
         {
+            if (options.ValidationFixture != DeveloperValidationFixtureId.None)
+            {
+                DeveloperValidationFixtureDescriptor descriptor
+                    = DeveloperValidationFixtures.Require(options.ValidationFixture);
+                _ = DeveloperValidationFixtures.ValidateContent(descriptor, content.Version,
+                    relative => content.ReadBytes(Path.Combine(content.Directory,
+                        relative.Replace('/', Path.DirectorySeparatorChar))));
+            }
             _configuredLimit = options.MaxMatches; _configuredPlayers = Math.Min(8192, options.MaxMatches * 32);
             _lanes = new(options);
             _artifacts = Channel.CreateBounded<(MatchRegistry.Entry, MatchCompletion?, Guid?, ServerReplaySession?, WorkerEvent?)>(new BoundedChannelOptions(options.MaxMatches * 2)
@@ -75,6 +85,9 @@ public sealed class WorkerRuntime : IAsyncDisposable
             if (command.Capacity.MatchLimit > _options.MaxMatches || command.Capacity.PlayerLimit > command.Capacity.MatchLimit * 32
                 || command.Capacity.ActiveMatches != 0 || command.Capacity.ActivePlayers != 0)
                 throw new ArgumentException("Node capacity exceeds this Worker's configured hard limit.");
+            if (_options.ValidationFixture != DeveloperValidationFixtureId.None
+                && command.Capacity != new WorkerCapacity(1, 2, 0, 0))
+                throw new ArgumentException("Developer validation fixture requires exact isolated Node capacity.");
             _node = command.NodeId; _nodeIncarnation = command.NodeIncarnation;
             _configuredLimit = command.Capacity.MatchLimit;
             _configuredPlayers = Math.Min(command.Capacity.PlayerLimit, Math.Min(8192, _configuredLimit * 32));
@@ -96,14 +109,20 @@ public sealed class WorkerRuntime : IAsyncDisposable
                     return Task.FromResult<WorkerEvent>(new MatchFailed(spec.MatchId, "Conflicting CreateMatch for an existing identity."));
                 return existing.Terminal != null ? Task.FromResult(existing.Terminal) : existing.Ready.Task;
             }
+            if (_options.ValidationFixture != DeveloperValidationFixtureId.None
+                && _validationFixtureMatchAccepted)
+                return Task.FromResult<WorkerEvent>(new MatchFailed(spec.MatchId,
+                    "Developer validation fixture Worker accepts one match identity."));
             if (_keyId == null || _publicKey == null)
                 return Task.FromResult<WorkerEvent>(new MatchFailed(spec.MatchId, "Node signing key is not configured."));
             if (_node.HasValue && (_node != spec.NodeId || _nodeIncarnation != spec.NodeIncarnation))
                 return Task.FromResult<WorkerEvent>(new MatchFailed(spec.MatchId, "Node identity or incarnation mismatch."));
             if (_status != WorkerStatus.Ready) return Task.FromResult<WorkerEvent>(new MatchFailed(spec.MatchId, "Worker is not accepting matches."));
+            bool fixtureMap = _options.ValidationFixture != DeveloperValidationFixtureId.None;
             if (spec.Content.ContentVersion != _content.Version || spec.Content.ContentHash != _content.ContentHash
                 || spec.Content.BuildVersion != _options.BuildVersion || spec.Content.ProtocolVersion != _options.ProtocolVersion
-                || !_content.SupportedRooms.Contains(spec.Content.MapKey, StringComparer.Ordinal))
+                || (fixtureMap ? !IsValidationFixtureSpec(spec)
+                    : !_content.SupportedRooms.Contains(spec.Content.MapKey, StringComparer.Ordinal)))
                 return Task.FromResult<WorkerEvent>(new MatchFailed(spec.MatchId, "Content, map, build or protocol mismatch."));
             if (spec.ReplayPolicy == ReplayPolicy.Record && string.IsNullOrWhiteSpace(_options.ReplayDirectory)
                 || spec.TelemetryPolicy == TelemetryPolicy.Record && string.IsNullOrWhiteSpace(_options.ArtifactDirectory))
@@ -125,9 +144,34 @@ public sealed class WorkerRuntime : IAsyncDisposable
             catch (InvalidOperationException error) { return Task.FromResult<WorkerEvent>(new MatchFailed(spec.MatchId, error.Message)); }
             entry = new(spec, fingerprint, new(_registry.AllocateWireId())) { Lease = lease };
             _registry.Entries.Add(spec.MatchId, entry); _registry.ByWireId.Add(entry.WireId.Value, entry);
+            if (fixtureMap) _validationFixtureMatchAccepted = true;
         }
         _ = CreateOnLaneAsync(entry);
         return entry.Ready.Task;
+    }
+
+    private bool IsValidationFixtureSpec(MatchSpec spec)
+    {
+        DeveloperValidationFixtureDescriptor descriptor
+            = DeveloperValidationFixtures.Require(_options.ValidationFixture);
+        return spec.Content.MapKey == descriptor.MapKey
+            && spec.Rules.RoomKey == descriptor.MapKey
+            && spec.Rules.Mode.ToLegacyMode() == descriptor.Mode
+            && spec.Rules.MaxPlayers == 2
+            && spec.TrustClass == MatchTrustClass.Community
+            && spec.TournamentId == null
+            && spec.RoundId == null
+            && spec.Roster.Length == 2
+            && spec.Roster[0] is { SeatId: 0, PlayerId: not null, GuestSessionId: null,
+                DisplayName: "WanProbe", Hunter: Hunter.Noxus, Team: 0,
+                Role: SeatRole.Player, RankingEligible: false }
+            && spec.Roster[1] is { SeatId: 1, PlayerId: null, GuestSessionId: null,
+                DisplayName: "Bot1", Hunter: Hunter.Samus, Team: 1,
+                Role: SeatRole.Bot, RankingEligible: false }
+            && spec.BotFillPolicy == FruityPrime.Server.Shared.BotFillPolicy.FillVacancies
+            && spec.ObserverPolicy == ObserverPolicy.Disabled
+            && spec.ReplayPolicy == ReplayPolicy.Record
+            && spec.TelemetryPolicy == TelemetryPolicy.Record;
     }
 
     private async Task CreateOnLaneAsync(MatchRegistry.Entry entry)
@@ -139,6 +183,7 @@ public sealed class WorkerRuntime : IAsyncDisposable
             {
                 try
                 {
+                    var lagCompensation = _options.ResolveLagCompensation();
                     entry.Transport = _hub.RegisterMatch(entry.WireId.Value, maxConnections: 32);
                     lock (_registry.Gate)
                         entry.Tickets = new WorkerTicketAuthority(entry.Spec, Placement(entry), _keyId!, _publicKey!);
@@ -149,7 +194,11 @@ public sealed class WorkerRuntime : IAsyncDisposable
                         RequireReplay = entry.Spec.ReplayPolicy == ReplayPolicy.Record,
                         CollectTelemetry = entry.Spec.TelemetryPolicy == TelemetryPolicy.Record,
                         ReportingServerId = entry.Spec.NodeId.Value,
-                        Tickets = entry.Tickets
+                        Tickets = entry.Tickets,
+                        LagCompEnabled = lagCompensation.LagCompEnabled,
+                        ProjectileCatchUpEnabled = lagCompensation.ProjectileCatchUpEnabled,
+                        HistoricalDynamicCollisionEnabled = lagCompensation.HistoricalDynamicCollisionEnabled,
+                        ValidationFixture = _options.ValidationFixture
                     }, entry.Transport);
                     deadline.Token.ThrowIfCancellationRequested();
                     ObjectDisposedException.ThrowIf(_disposed != 0, this);
@@ -296,6 +345,15 @@ public sealed class WorkerRuntime : IAsyncDisposable
         if (lane == null) return entry.Snapshot;
         return await lane.InvokeAsync(() => entry.Snapshot = entry.Instance?.Status ?? entry.Snapshot);
     }
+
+    /// <summary>
+    /// Returns bounded, server-selected lag-compensation facts for an
+    /// authenticated developer tool. The call is lane-affine and does not
+    /// expose a gameplay packet or permit a client to select authority state.
+    /// </summary>
+    public Task<string> NetDebugAsync(MatchId id, string command, CombatShot shot,
+        Vector3 projectileStart, Vector3 projectileEnd)
+        => InvokeMatchAsync(id, match => match.NetDebug(command, shot, projectileStart, projectileEnd));
 
     public async Task<MatchAdminResult> AdminAsync(MatchAdminCommand command)
     {

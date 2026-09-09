@@ -27,6 +27,7 @@ namespace MphRead.Mods.Network
         private long _lastPresentation = Stopwatch.GetTimestamp();
         private readonly ClientWorldState _world = new();
         private readonly SnapshotInterpolation _interpolation = new();
+        private readonly ProjectilePresentationMeasurement _projectilePresentation = new();
         private Scene? _presentationScene;
         private ulong _viewConnectionId;
         private uint _inputViewTick;
@@ -35,6 +36,8 @@ namespace MphRead.Mods.Network
         private bool _presentationPending;
         public NetClient Client { get; }
         public ClientPrediction Prediction { get; } = new();
+        /// <summary>Per-match presentation diagnostics; never gameplay authority.</summary>
+        public ProjectilePresentationMeasurement ProjectilePresentation => _projectilePresentation;
         public long CombatEvents { get; private set; }
         public long DamageEvents { get; private set; }
         public bool HasWorldState => _world.HasState;
@@ -110,12 +113,17 @@ namespace MphRead.Mods.Network
             _hasInputViewTick = _interpolation.TryCaptureViewTick(out _inputViewTick);
             Client.Poll();
             DemoRecorder.RecordFrame(Client, scene);
-            if (Client.Failure != null) { throw new ProgramException(Client.Failure); }
+            if (Client.Failure != null)
+            {
+                _projectilePresentation.Clear();
+                throw new ProgramException(Client.Failure);
+            }
             ulong connectionId = Client.Connection?.Id ?? 0;
             if (connectionId != _viewConnectionId)
             {
                 _viewConnectionId = connectionId;
                 ResetPresentation();
+                _projectilePresentation.Clear();
                 _inputCount = 0;
                 Prediction.Reset();
                 _appliedSnapshot = 0;
@@ -125,7 +133,8 @@ namespace MphRead.Mods.Network
                 if (Client.RoleRevision != _appliedRoleRevision)
                 {
                     if (scene.Presentation is ScenePresentation rolePresentation)
-                        ResetRoleFeedback(rolePresentation.CombatFeedback, rolePresentation.WorldFeedback);
+                        ResetRoleFeedback(rolePresentation.CombatFeedback, rolePresentation.WorldFeedback,
+                            rolePresentation.Announcer, rolePresentation.AwardHud);
                     else Chat.ChatBox.Clear();
                     foreach (PlayerEntity player in scene.Players) player.Controls.ClearAll();
                 }
@@ -139,6 +148,7 @@ namespace MphRead.Mods.Network
                 _appliedSnapshot = 0;
                 Prediction.Reset();
                 ResetPresentation();
+                _projectilePresentation.Clear();
                 _world.Reset(_loadedMatch);
                 // Reliable rotation configuration is authoritative before any player rebuild.
                 scene.Match.ApplyRules(Client.Accepted.Rules);
@@ -177,6 +187,8 @@ namespace MphRead.Mods.Network
                     Client.Roster, WorldServerTick, scene.Match.PhaseRevision);
             if (scene.Presentation is ScenePresentation worldPresentation)
                 worldPresentation.WorldFeedback.Bind(_loadedMatch, scene.Match.PhaseRevision);
+            _projectilePresentation.SetContext(_loadedMatch, GetLocalCombatActor());
+            _projectilePresentation.Advance();
             DrainEvents();
             if (_inputPhaseRevision != scene.Match.PhaseRevision)
             {
@@ -250,10 +262,41 @@ namespace MphRead.Mods.Network
                         killPresentation.CombatFeedback.Process(kill);
                     continue;
                 }
+                if (message.MatchId == _loadedMatch && message.Type == ReliableEventType.MatchAward
+                    && MatchAwardPacket.TryRead(message.Payload.Span, out MatchAwardPacket awardPacket)
+                    && MatchAwardPacketConversion.TryToAward(awardPacket, out MatchAward award))
+                {
+                    if (_presentationScene?.Presentation is ScenePresentation awardPresentation)
+                    {
+                        // Both consumers receive the same authoritative fact;
+                        // each owns its own bounded dedup/priority queue.
+                        awardPresentation.Announcer.Consume(award);
+                        awardPresentation.AwardHud.Enqueue(award);
+                    }
+                    continue;
+                }
+                if (message.MatchId == _loadedMatch && message.Type == ReliableEventType.MatchSemantic
+                    && MatchSemanticEventPacket.TryRead(message.Payload.Span, out MatchSemanticEventPacket semanticPacket)
+                    && MatchSemanticEventPacketConversion.TryToEvent(semanticPacket, out MatchEvent semanticEvent))
+                {
+                    if (_presentationScene?.Presentation is ScenePresentation semanticPresentation)
+                    {
+                        byte localTeam = semanticPresentation.CombatFeedback.Local.IsValid
+                            ? (byte)_presentationScene.Players[semanticPresentation.CombatFeedback.Local.Slot].TeamIndex
+                            : (byte)255;
+                        if (semanticEvent.Kind == MatchEventKind.MatchEnded)
+                            semanticPresentation.Announcer.Consume(semanticEvent, localTeam);
+                        else
+                            semanticPresentation.Announcer.Consume(semanticEvent);
+                    }
+                    continue;
+                }
                 if (message.MatchId != _loadedMatch || message.Type != ReliableEventType.Combat
                     || !CombatEventBatch.TryRead(message.Payload.Span, events, out int count)) { continue; }
                 foreach (CombatEvent value in events[..count])
                 {
+                    if (value.Kind == CombatEventKind.Shot)
+                        _projectilePresentation.RecordAuthoritativeShot(value);
                     if (_presentationScene?.Presentation is ScenePresentation feedbackPresentation
                         && !feedbackPresentation.CombatFeedback.Process(value)) continue;
                     CombatEvents++;
@@ -371,6 +414,7 @@ namespace MphRead.Mods.Network
 
         public void Dispose()
         {
+            _projectilePresentation.Clear();
             Client.Close();
             Client.Dispose();
             _transport.Dispose();
@@ -386,10 +430,13 @@ namespace MphRead.Mods.Network
 
         // A role transfer can rewind within the same match/phase. It is a new
         // presentation epoch: live cues must not survive into a delayed view.
-        internal static void ResetRoleFeedback(MphRead.Combat.CombatFeedback combat, MphRead.Combat.WorldFeedback world)
+        internal static void ResetRoleFeedback(MphRead.Combat.CombatFeedback combat, MphRead.Combat.WorldFeedback world,
+            MphRead.Mods.Audio.AnnouncerService? announcer = null, MphRead.Mods.Hud.AwardHudQueue? awardHud = null)
         {
             combat.Bind(0, CombatActor.None, ReadOnlySpan<NetRosterEntry>.Empty);
             world.Bind(0, 0);
+            announcer?.Reset();
+            awardHud?.Reset();
             Chat.ChatBox.Clear();
         }
 
@@ -434,6 +481,28 @@ namespace MphRead.Mods.Network
         {
             if (_presentationScene is not Scene scene) return;
             foreach (PlayerEntity player in scene.Players) { player.GetPresentation().EndInterpolatedPose(); }
+        }
+
+        internal void ObservePredictedProjectile(PlayerEntity shooter)
+        {
+            if (_presentationScene is not Scene scene || !ReferenceEquals(scene, shooter.Scene)
+                || shooter.SlotIndex != LocalSlot)
+                return;
+            CombatActor actor = GetLocalCombatActor();
+            if (!actor.IsValid) return;
+            _projectilePresentation.ObservePredictedShot(shooter, actor, _sequence);
+        }
+
+        internal void ObserveAuthoritativeProjectileVisual(in CombatEvent value, bool visualWillSpawn)
+            => _projectilePresentation.ObserveAuthoritativeVisual(value, visualWillSpawn);
+
+        private CombatActor GetLocalCombatActor()
+        {
+            int slot = LocalSlot;
+            return slot >= 0 && slot < _identities.Length
+                && _identities[slot] != 0 && _lives[slot] != 0
+                ? new CombatActor((byte)slot, _identities[slot], _lives[slot])
+                : CombatActor.None;
         }
 
     }

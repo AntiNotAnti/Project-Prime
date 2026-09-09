@@ -23,6 +23,12 @@ public static class WorkerMatchAdmin
                 if (match.Simulation.Scene.Match.Phase != MatchPhase.Playing) return new(false, "phase", "Only a playing match can end through this command.");
                 match.Simulation.Scene.Match.ForceEndGame = true;
                 return new(true);
+            case AdminAction.LagCompHistory:
+            case AdminAction.LagCompDynamic:
+            case AdminAction.LagCompClear:
+                if (!match.SendHistoricalDebug(command.Action, command.SeatId!.Value))
+                    return new(false, "debug", "The selected player is not connected or the diagnostic packet could not be sent.");
+                return new(true);
             case AdminAction.KickSeat:
                 var seat = match.Spec.Roster.FirstOrDefault(s => s.SeatId == command.SeatId);
                 if (seat == null) return new(false, "seat", "Unknown frozen roster seat.");

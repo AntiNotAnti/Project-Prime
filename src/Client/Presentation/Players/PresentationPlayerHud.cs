@@ -959,6 +959,9 @@ namespace MphRead.Entities
                 return;
             }
 
+            if (Mods.Network.AuthoritativePlay.Current?.Client.HistoricalDebug is { } historicalDebug)
+                DrawHistoricalCollisionDebug(historicalDebug);
+
             // Before the pause check, not after it: a frame rate you cannot
             // read while the settings window is open -- which is where the
             // switch for it is -- would be a switch with no feedback.

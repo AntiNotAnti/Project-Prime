@@ -13,6 +13,9 @@ public sealed record MatchInstanceOptions(MatchSpec Spec, uint WireMatchId)
     public uint InitialTick { get; init; }
     public bool LagCompEnabled { get; init; } = true;
     public bool ProjectileCatchUpEnabled { get; init; } = true;
+    /// <summary>QZ1 dynamic collision is disabled until WAN validation.</summary>
+    public bool HistoricalDynamicCollisionEnabled { get; init; }
+    internal DeveloperValidationFixtureId ValidationFixture { get; init; }
     public BotFillPolicy? BotFill { get; init; }
     public ObserverOptions Observers { get; init; } = new();
     public string ServerName { get; init; } = "Prime Hunters";

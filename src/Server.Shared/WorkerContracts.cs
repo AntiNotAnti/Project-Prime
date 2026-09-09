@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using MphRead;
+using MphRead.Mods.Network;
 
 namespace FruityPrime.Server.Shared;
 
@@ -54,7 +56,7 @@ public sealed record CreateMatch(MatchSpec Spec) : WorkerCommand;
 public sealed record CancelMatch(MatchId MatchId, string Reason) : WorkerCommand;
 public sealed record Drain(string Reason) : WorkerCommand;
 public sealed record Shutdown(string Reason) : WorkerCommand;
-public enum AdminAction { Pause, Resume, EndMatch, KickSeat }
+public enum AdminAction { Pause, Resume, EndMatch, KickSeat, LagCompHistory, LagCompDynamic, LagCompClear }
 public sealed record MatchAdminCommand(MatchId MatchId, AdminAction Action, byte? SeatId) : WorkerCommand;
 /// <summary>Public verification material only; private signing keys remain with Node.</summary>
 public sealed record UpdateNodeSigningKey(string KeyId, string PublicKey) : WorkerCommand;
@@ -67,6 +69,59 @@ public sealed record WorkerContentIdentity(string ContentVersion, string Content
         if (ProtocolVersion == 0) throw new ArgumentException("Protocol version is required.");
     }
 }
+
+/// <summary>
+/// Content discovery returned by the Worker before the Node is configured.
+/// This stays outside Worker IPC: the authenticated Worker hello carries only
+/// the immutable identity used by scheduling, while launchers use this
+/// descriptor to construct the Node's map/mode catalog.
+/// </summary>
+public sealed record ContentDescription(string ContentVersion, string ContentHash, string BuildVersion,
+    byte ProtocolVersion, ServerContentScenario[] Scenarios)
+{
+    public WorkerContentIdentity Identity => new(ContentVersion, ContentHash, BuildVersion, ProtocolVersion);
+
+    public ContentDescription Canonicalized()
+        => this with { Scenarios = Canonicalize(Scenarios) };
+
+    public void Validate()
+    {
+        Identity.Validate();
+        _ = Canonicalize(Scenarios);
+    }
+
+    public static ServerContentScenario[] Canonicalize(IEnumerable<ServerContentScenario> scenarios)
+    {
+        if (scenarios == null) throw new ArgumentNullException(nameof(scenarios));
+        ServerContentScenario[] entries = scenarios.ToArray();
+        if (entries.Length is < 1 or > 768)
+            throw new ArgumentException("Content description must contain 1–768 supported map/mode pairs.");
+
+        var maps = new HashSet<string>(StringComparer.Ordinal);
+        var pairs = new HashSet<ServerContentScenario>();
+        foreach (ServerContentScenario? scenario in entries)
+        {
+            if (scenario == null || !MapKeyText(scenario.Room)
+                || !IsKnownMultiplayerMode(scenario.Mode) || !pairs.Add(scenario))
+                throw new ArgumentException("Content description contains an invalid or duplicate map/mode pair.");
+            maps.Add(scenario.Room);
+        }
+        if (maps.Count > 256)
+            throw new ArgumentException("Content description supports at most 256 maps.");
+        return entries.OrderBy(scenario => scenario.Room, StringComparer.Ordinal)
+            .ThenBy(scenario => (byte)scenario.Mode).ToArray();
+    }
+
+    public static bool IsKnownMultiplayerMode(GameMode mode)
+        => mode is GameMode.Battle or GameMode.BattleTeams or GameMode.Survival or GameMode.SurvivalTeams
+            or GameMode.Capture or GameMode.Bounty or GameMode.BountyTeams or GameMode.Nodes or GameMode.NodesTeams
+            or GameMode.Defender or GameMode.DefenderTeams or GameMode.PrimeHunter;
+
+    public static bool MapKeyText(string? value)
+        => value is { Length: > 0 and <= 128 } && value.Any(c => !char.IsWhiteSpace(c))
+            && value.All(c => c is >= ' ' and <= '~');
+}
+
 public sealed record WorkerHello(WorkerId WorkerId, Guid WorkerIncarnation, NodeId NodeId, string StartupToken, string BuildVersion,
     WorkerContentIdentity? Content = null) : WorkerEvent;
 public sealed record WorkerReady(WorkerId WorkerId, Guid WorkerIncarnation, WorkerCapacity Capacity) : WorkerEvent;

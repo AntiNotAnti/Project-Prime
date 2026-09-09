@@ -1,7 +1,14 @@
 using FruityPrime.Server.Shared;
-using System.Reflection;
+using System.Net;
 
 namespace FruityPrime.Server.Worker;
+
+public enum WorkerLagCompensationMode
+{
+    Off,
+    Players,
+    Dynamic
+}
 
 public sealed record WorkerOptions
 {
@@ -18,11 +25,11 @@ public sealed record WorkerOptions
     public double PlacementCpuPercent { get; init; } = 95;
     public long MinimumMemoryHeadroomBytes { get; init; } = 64L * 1024 * 1024;
     public string AdvertisedHost { get; init; } = "127.0.0.1";
-    public static string ActualBuildVersion { get; } = typeof(WorkerOptions).Assembly
-        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-        ?? typeof(WorkerOptions).Assembly.GetName().Version!.ToString();
+    public static string ActualBuildVersion { get; } = BuildIdentity.Display;
     public string BuildVersion { get; init; } = ActualBuildVersion;
     public byte ProtocolVersion { get; init; } = MphRead.Mods.Network.NetHeader.Version;
+    public WorkerLagCompensationMode LagCompensationMode { get; init; } = WorkerLagCompensationMode.Players;
+    internal MphRead.DeveloperValidationFixtureId ValidationFixture { get; init; }
     public string? ReplayDirectory { get; init; }
     public string? ArtifactDirectory { get; init; }
     public int MaximumArtifactFiles { get; init; } = 4096;
@@ -44,7 +51,34 @@ public sealed record WorkerOptions
             || ReplayDirectory != null && !Path.IsPathFullyQualified(ReplayDirectory)
             || MinimumMemoryHeadroomBytes < 0 || string.IsNullOrWhiteSpace(AdvertisedHost)
             || AdvertisedHost.Length > 253 || AdvertisedHost.Any(char.IsWhiteSpace) || Uri.CheckHostName(AdvertisedHost) == UriHostNameType.Unknown
+            || !Enum.IsDefined(LagCompensationMode)
+            || !Enum.IsDefined(ValidationFixture)
             || string.IsNullOrWhiteSpace(BuildVersion) || BuildVersion.Length > 128 || BuildVersion != ActualBuildVersion || ProtocolVersion != MphRead.Mods.Network.NetHeader.Version)
             throw new ArgumentException("Invalid Worker configuration.");
+        if (ValidationFixture != MphRead.DeveloperValidationFixtureId.None
+            && (SimulationLanes != 1 || MaxMatches != 1 || MaxMatchesPerLane != 1
+                || !IPAddress.TryParse(AdvertisedHost, out IPAddress? host)
+                || !IPAddress.IsLoopback(host)))
+            throw new ArgumentException("Developer validation fixture requires an isolated single-match loopback Worker.");
     }
+
+    internal (bool LagCompEnabled, bool ProjectileCatchUpEnabled, bool HistoricalDynamicCollisionEnabled)
+        ResolveLagCompensation() => LagCompensationMode switch
+        {
+            WorkerLagCompensationMode.Off => (false, false, false),
+            WorkerLagCompensationMode.Players => (true, true, false),
+            WorkerLagCompensationMode.Dynamic => (true, true, true),
+            _ => throw new ArgumentOutOfRangeException(nameof(LagCompensationMode))
+        };
+
+    public static WorkerLagCompensationMode ParseLagCompensationMode(string value) => value switch
+    {
+        "off" => WorkerLagCompensationMode.Off,
+        "players" => WorkerLagCompensationMode.Players,
+        "dynamic" => WorkerLagCompensationMode.Dynamic,
+        _ => throw new ArgumentException("Lag compensation mode must be off, players, or dynamic.")
+    };
+
+    internal static MphRead.DeveloperValidationFixtureId ParseValidationFixture(string value)
+        => MphRead.DeveloperValidationFixtures.Parse(value);
 }

@@ -63,6 +63,16 @@ namespace MphRead
         // called before load
         public void AddRoom(string name, GameMode mode = GameMode.None, int playerCount = 0,
             int nodeLayerMask = 0, int entityLayerId = -1)
+            => AddRoomCore(() => SceneSetup.LoadGame(name, this, mode, playerCount,
+                nodeLayerMask, entityLayerId));
+
+        internal void AddValidationFixture(DeveloperValidationFixtureId fixtureId,
+            GameMode mode, int playerCount = 0, int nodeLayerMask = 0)
+            => AddRoomCore(() => SceneSetup.LoadValidationFixture(fixtureId, this,
+                mode, playerCount, nodeLayerMask));
+
+        private void AddRoomCore(Func<(RoomEntity Room, RoomMetadata Metadata,
+            CollisionInstance Collision, IReadOnlyList<EntityBase> Entities)> load)
         {
             if (_roomLoaded)
             {
@@ -70,7 +80,7 @@ namespace MphRead
             }
             _roomLoaded = true;
             (RoomEntity room, RoomMetadata meta, CollisionInstance collision, IReadOnlyList<EntityBase> entities)
-                = SceneSetup.LoadGame(name, this, mode, playerCount, nodeLayerMask, entityLayerId);
+                = load();
             _entities.AddFirst(room);
             Presentation?.InitEntity(room);
             _room = room;

@@ -23,6 +23,16 @@ namespace MphRead
 
         public void LoadServerRoom(string room, GameMode mode, int players, bool bots = false,
             int? roomPlayerCount = null)
+            => LoadServerRoomCore(mode, players, bots,
+                () => AddRoom(room, mode, playerCount: roomPlayerCount ?? Math.Max(2, players)));
+
+        internal void LoadServerValidationFixture(DeveloperValidationFixtureId fixtureId,
+            GameMode mode, int players, bool bots = false, int? roomPlayerCount = null)
+            => LoadServerRoomCore(mode, players, bots,
+                () => AddValidationFixture(fixtureId, mode,
+                    playerCount: roomPlayerCount ?? Math.Max(2, players)));
+
+        private void LoadServerRoomCore(GameMode mode, int players, bool bots, Action load)
         {
             if (!IsHeadless || _headlessInitialized || players < 0 || players > PlayerEntity.SlotCapacity
                 || mode < GameMode.Battle || mode > GameMode.PrimeHunter)
@@ -35,7 +45,7 @@ namespace MphRead
                 AddPlayer((Hunter)(slot % 8), team: mode.IsTeamMode() ? slot % 2 : -1);
                 this.Players[slot].IsBot = bots;
             }
-            AddRoom(room, mode, playerCount: roomPlayerCount ?? Math.Max(2, players));
+            load();
             InitializeWorld();
             _headlessInitialized = true;
         }

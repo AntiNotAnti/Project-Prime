@@ -49,6 +49,25 @@ namespace MphRead.Mods.Network
             return false;
         }
 
+        /// <summary>Read-only bounded view for server diagnostics; does not mutate query metrics.</summary>
+        public int CopyDiagnosticSnapshot(uint tick, Span<LagCompensationState> destination,
+            out bool truncated)
+        {
+            int count = 0;
+            truncated = false;
+            for (int slot = 0; slot < PlayerCapacity; slot++)
+            {
+                if (!TryGetDiagnostic(slot, tick, out LagCompensationState state)) continue;
+                if (count == destination.Length)
+                {
+                    truncated = true;
+                    continue;
+                }
+                destination[count++] = state;
+            }
+            return count;
+        }
+
         // A round/map transition invalidates every prior collider, even if a
         // connection and spawn counter happen to be reused in the next room.
         public void Clear()
@@ -56,6 +75,18 @@ namespace MphRead.Mods.Network
             Array.Clear(_entries);
             Queries = 0;
             Missing = 0;
+        }
+
+        private bool TryGetDiagnostic(int slot, uint tick, out LagCompensationState state)
+        {
+            ref readonly Entry entry = ref _entries[Index(slot, tick)];
+            if (entry.Present && entry.Tick == tick)
+            {
+                state = entry.State;
+                return true;
+            }
+            state = default;
+            return false;
         }
 
         private static int Index(int slot, uint tick) => slot * Capacity + (int)(tick & (Capacity - 1));

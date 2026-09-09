@@ -53,7 +53,14 @@ namespace MphRead.Mods.Network
         public BeamType ReplayBeam => NetDamage.ReplayBeam;
         public void NoteDamage(PlayerEntity victim, PlayerEntity? attacker, BeamType beam, DamageFlags flags, Vector3? direction)
             => NetDamage.Note(victim, attacker, beam, flags, direction);
-        public void NoteFired(PlayerEntity shooter, Vector3 shot, Vector3 aim) => NetDamage.NoteFired(shooter, shot, aim);
+        public void NoteFired(PlayerEntity shooter, Vector3 shot, Vector3 aim)
+        {
+            // NoteFired runs immediately after the local scene creates its
+            // visual beam. Measurement copies only immutable spawn facts; it
+            // never gives the client projectile gameplay authority.
+            AuthoritativePlay.Current?.ObservePredictedProjectile(shooter);
+            NetDamage.NoteFired(shooter, shot, aim);
+        }
         public void NotePlayerOverlap(EntityBase? owner, PlayerEntity target) => NetDamage.NotePlayerOverlap(owner, target);
         public void CountUnresolvedNode() => NetPlayerBridge.NodeLookupsUnresolved++;
         public void CountPlayerCheck(int slot) { if (NetLog.Enabled) NetDamage.PlayerChecks[slot]++; }

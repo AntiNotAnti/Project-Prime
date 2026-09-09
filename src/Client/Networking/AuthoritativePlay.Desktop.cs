@@ -8,11 +8,14 @@ namespace MphRead.Mods.Network
             hunter = Launcher.Hunters.Resolve(hunter);
             using var play = new AuthoritativePlay(host, port, name, hunter);
             play.Join();
-            using var window = new RenderWindow();
-            play.BuildPlayers(window.Scene, hunter, recolor);
-            window.AddRoom(play.Client.Accepted.Room, play.Client.Accepted.Mode,
-                playerCount: NetConfig.RoomPlayerCount);
-            window.Run();
+            var scene = new Scene(features: ClientMatchFeatures.Capture());
+            using var sdlHost = new SdlGameHost();
+            sdlHost.RunScene(scene, presentation =>
+            {
+                play.BuildPlayers(scene, hunter, recolor);
+                presentation.AddRoom(play.Client.Accepted.Room, play.Client.Accepted.Mode,
+                    playerCount: NetConfig.RoomPlayerCount);
+            });
         }
  }
 }

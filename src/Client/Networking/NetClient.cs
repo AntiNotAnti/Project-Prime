@@ -46,6 +46,11 @@ namespace MphRead.Mods.Network
         public ReadOnlySpan<SnapshotPlayer> SnapshotPlayers => _snapshotPlayers.AsSpan(0, _snapshotCount);
         public SnapshotPacket Snapshot { get; private set; }
         public bool HasSnapshot { get; private set; }
+        /// <summary>
+        /// Last server-selected lag-compensation diagnostic. The packet is
+        /// presentation-only; it has no client request or rewind authority.
+        /// </summary>
+        public HistoricalCollisionDebugPacket? HistoricalDebug { get; private set; }
         public long SnapshotsReceived { get; private set; }
         public long SnapshotReceivedAt { get; private set; }
         public bool IsObserver => _join.Observer;
@@ -182,13 +187,13 @@ namespace MphRead.Mods.Network
             {
                 return false;
             }
-            if (_hasRoleFence && header.Type is NetMessageType.Snapshot or NetMessageType.World
+            if (_hasRoleFence && header.Type is NetMessageType.Snapshot or NetMessageType.World or NetMessageType.Debug
                 && !Sequence32.IsNewer(header.Sequence, _roleHeaderFence)) return false;
             ReadOnlySpan<byte> body = packet.Data.AsSpan(NetHeader.Size, packet.Length - NetHeader.Size);
             if (Connection == null)
             {
-                if (header.Type == NetMessageType.JoinPending && body.Length == 8
-                    && BinaryPrimitives.ReadUInt64LittleEndian(body) == _join.Nonce)
+                if (header.Type == NetMessageType.JoinPending && JoinPendingPacket.TryRead(body, out var pending)
+                    && pending.Nonce == _join.Nonce)
                 {
                     AwaitingBotRetirement = true;
                     _lastJoinPending = now;
@@ -222,6 +227,7 @@ namespace MphRead.Mods.Network
             NetConnection connection = Connection;
             Span<SnapshotPlayer> players = stackalloc SnapshotPlayer[8];
             SnapshotPacket snapshot = default;
+            HistoricalCollisionDebugPacket? debug = null;
             int playerCount = 0;
             bool valid = header.Type switch
             {
@@ -240,6 +246,7 @@ namespace MphRead.Mods.Network
                     && BinaryPrimitives.ReadInt64LittleEndian(body) == _pingSent,
                 NetMessageType.Snapshot => SnapshotPacket.TryRead(body, players, out snapshot, out playerCount)
                     && snapshot.MatchId == connection.MatchId,
+                NetMessageType.Debug => HistoricalCollisionDebugPacket.TryRead(body, connection.MatchId, out debug),
                 _ => false
             };
             if (!valid || !connection.TryReceive(header, packet.Sender, now, out ReceiveResult result))
@@ -300,6 +307,10 @@ namespace MphRead.Mods.Network
                     }
                 }
             }
+            else if (header.Type == NetMessageType.Debug && result != ReceiveResult.Duplicate)
+            {
+                HistoricalDebug = debug!.IsClear ? null : debug;
+            }
             else if (header.Type == NetMessageType.Accepted)
             {
                 connection.Reliable.Receive(eventId);
@@ -329,6 +340,14 @@ namespace MphRead.Mods.Network
             if (type == ReliableEventType.Kill && (payload.Length < 4
                 || !KillEvent.TryRead(payload[4..], out KillEvent kill)
                 || kill.MatchId != BinaryPrimitives.ReadUInt32LittleEndian(payload))) return false;
+            if (type == ReliableEventType.MatchAward && (payload.Length < 4
+                || !MatchAwardPacket.TryRead(payload[4..], out MatchAwardPacket award)
+                || !MatchAwardPacketConversion.TryToAward(award, out _)
+                || award.MatchId != BinaryPrimitives.ReadUInt32LittleEndian(payload))) return false;
+            if (type == ReliableEventType.MatchSemantic && (payload.Length < 4
+                || !MatchSemanticEventPacket.TryRead(payload[4..], out MatchSemanticEventPacket semantic)
+                || !MatchSemanticEventPacketConversion.TryToEvent(semantic, out _)
+                || semantic.MatchId != BinaryPrimitives.ReadUInt32LittleEndian(payload))) return false;
             if (type == ReliableEventType.Roster && (payload.Length < 4
                 || !SessionRosterPacket.TryRead(payload[4..], _incomingRoster,
                     out _incomingRosterRevision, out _incomingRosterCount))) { return false; }
@@ -339,7 +358,8 @@ namespace MphRead.Mods.Network
                 ReliableEventType.MapTransition or ReliableEventType.ObserverTransition => MatchTransitionPacket.TryRead(payload, out _),
                 ReliableEventType.Disconnect => payload.IsEmpty,
                 ReliableEventType.MatchState or ReliableEventType.Combat or ReliableEventType.World
-                    or ReliableEventType.Roster or ReliableEventType.Chat or ReliableEventType.Kill or ReliableEventType.WorldEvent =>
+                    or ReliableEventType.Roster or ReliableEventType.Chat or ReliableEventType.Kill or ReliableEventType.WorldEvent
+                    or ReliableEventType.MatchAward or ReliableEventType.MatchSemantic =>
                     payload.Length >= 4 && (BinaryPrimitives.ReadUInt32LittleEndian(payload) == Connection!.MatchId
                         ? type == ReliableEventType.Roster || _eventCount < _events.Length
                         : Sequence32.IsNewer(Connection!.MatchId, BinaryPrimitives.ReadUInt32LittleEndian(payload))),
@@ -405,6 +425,7 @@ namespace MphRead.Mods.Network
             Ballot = null;
             HasSnapshot = false;
             Snapshot = default;
+            HistoricalDebug = null;
             SnapshotReceivedAt = 0;
             _snapshotCount = 0;
             Array.Clear(_snapshotPlayers);

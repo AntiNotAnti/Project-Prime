@@ -7,6 +7,7 @@ using MphRead.Formats;
 using MphRead.Formats.Collision;
 using MphRead.Formats.Culling;
 using MphRead.Mods.Network;
+using MphRead.Runtime.HistoricalCollision;
 using OpenTK.Mathematics;
 
 namespace MphRead.Entities
@@ -306,6 +307,11 @@ namespace MphRead.Entities
         {
             CollisionResult anyRes = default;
             EntityBase? colWith = null;
+            EntityBase? historicalEntity = null;
+            HistoricalColliderKind historicalKind = HistoricalColliderKind.None;
+            HistoricalCollisionResult historicalResult = default;
+            ICombatAuthority? combat = _scene.Services.Combat;
+            bool historicalCollision = combat?.ShouldUseHistoricalCollision(CombatShot) == true;
             bool noColEff = false;
             float minDist = 2f;
             if (MaxDistance > 0)
@@ -344,37 +350,60 @@ namespace MphRead.Entities
             }
             if (Flags.TestFlag(BeamFlags.SurfaceCollision))
             {
-                CollisionResult colRes = default;
-                if (CollisionDetection.CheckBetweenPoints(BackPosition, Position, TestFlags.Beams, _scene, ref colRes)
-                    && colRes.Distance < minDist)
+                if (historicalCollision && combat!.TryGetHistoricalBeamCollision(BackPosition, Position,
+                    CombatShot, out historicalResult)
+                    && historicalResult.Distance < minDist)
                 {
-                    float dot = Vector3.Dot(BackPosition, colRes.Plane.Xyz) - colRes.Plane.W;
-                    if (dot >= 0)
+                    historicalKind = historicalResult.ColliderKind;
+                    minDist = historicalResult.Distance;
+                    anyRes = new CollisionResult
                     {
-                        minDist = colRes.Distance;
-                        anyRes = colRes;
+                        Position = historicalResult.Position,
+                        Plane = historicalResult.Plane,
+                        Flags = historicalResult.Flags,
+                        Distance = historicalResult.Distance,
+                        Field0 = 0,
+                        Field14 = 0,
+                        EntityCollision = null
+                    };
+                    if (historicalKind is not HistoricalColliderKind.StaticRoom)
+                    {
+                        // Resolve only for a matching live generation. The
+                        // collision itself remains valid if the entity was
+                        // removed; its callback is then intentionally skipped.
+                        combat.TryResolveHistoricalCollider(historicalResult, out EntityBase? resolved);
+                        if (historicalKind is HistoricalColliderKind.Object or HistoricalColliderKind.Platform)
+                            historicalEntity = resolved;
+                        else
+                            colWith = resolved;
                     }
+                    noColEff = false;
                 }
-                foreach (DoorEntity door in _scene.GetDoorEntities())
+                else if (!historicalCollision)
                 {
-                    if (door.Flags.TestFlag(DoorFlags.Open))
-                    {
-                        continue;
-                    }
-                    Vector3 doorFacing = door.FacingVector;
-                    Vector3 lockPos = door.LockPosition;
-                    var plane = new Vector4(doorFacing, 0);
-                    if (Vector3.Dot(BackPosition - lockPos, doorFacing) < 0)
-                    {
-                        plane *= -1;
-                    }
-                    Vector3 wvec = plane.Xyz * (lockPos + 0.4f * plane.Xyz);
-                    plane.W = wvec.X + wvec.Y + wvec.Z;
-                    if (CollisionDetection.CheckCylinderIntersectPlane(BackPosition, Position, plane, ref colRes)
+                    CollisionResult colRes = default;
+                    if (CollisionDetection.CheckBetweenPoints(BackPosition, Position, TestFlags.Beams, _scene, ref colRes)
                         && colRes.Distance < minDist)
                     {
-                        Vector3 between = colRes.Position - lockPos;
-                        if (between.LengthSquared < door.RadiusSquared)
+                        float dot = Vector3.Dot(BackPosition, colRes.Plane.Xyz) - colRes.Plane.W;
+                        if (dot >= 0)
+                        {
+                            minDist = colRes.Distance;
+                            anyRes = colRes;
+                        }
+                    }
+                    foreach (DoorEntity door in _scene.GetDoorEntities())
+                    {
+                        if (door.Flags.TestFlag(DoorFlags.Open)) continue;
+                        Vector3 doorFacing = door.FacingVector;
+                        Vector3 lockPos = door.LockPosition;
+                        var plane = new Vector4(doorFacing, 0);
+                        if (Vector3.Dot(BackPosition - lockPos, doorFacing) < 0) plane *= -1;
+                        Vector3 wvec = plane.Xyz * (lockPos + 0.4f * plane.Xyz);
+                        plane.W = wvec.X + wvec.Y + wvec.Z;
+                        if (CollisionDetection.CheckCylinderIntersectPlane(BackPosition, Position, plane, ref colRes)
+                            && colRes.Distance < minDist
+                            && (colRes.Position - lockPos).LengthSquared < door.RadiusSquared)
                         {
                             minDist = colRes.Distance;
                             anyRes = colRes;
@@ -385,27 +414,26 @@ namespace MphRead.Entities
                             anyRes.Flags = CollisionFlags.None;
                         }
                     }
-                }
-                foreach (ForceFieldEntity forceField in _scene.GetForceFieldEntities())
-                {
-                    // todo: some of these properties are compatible with the entity moving, some aren't
-                    if (forceField.Active
-                        && CollisionDetection.CheckCylinderIntersectPlane(BackPosition, Position, forceField.Plane, ref colRes)
-                        && colRes.Distance < minDist)
+                    foreach (ForceFieldEntity forceField in _scene.GetForceFieldEntities())
                     {
-                        Vector3 between = colRes.Position - forceField.Position;
-                        float dot = Vector3.Dot(between, forceField.FieldUpVector);
-                        if (dot <= forceField.Height && dot >= -forceField.Height)
+                        if (forceField.Active
+                            && CollisionDetection.CheckCylinderIntersectPlane(BackPosition, Position, forceField.Plane, ref colRes)
+                            && colRes.Distance < minDist)
                         {
-                            dot = Vector3.Dot(between, forceField.FieldRightVector);
-                            if (dot <= forceField.Width && dot >= -forceField.Width)
+                            Vector3 between = colRes.Position - forceField.Position;
+                            float dot = Vector3.Dot(between, forceField.FieldUpVector);
+                            if (dot <= forceField.Height && dot >= -forceField.Height)
                             {
-                                minDist = colRes.Distance;
-                                anyRes = colRes;
-                                colWith = forceField;
-                                noColEff = false;
-                                anyRes.Field0 = 0;
-                                anyRes.Plane = forceField.Plane;
+                                dot = Vector3.Dot(between, forceField.FieldRightVector);
+                                if (dot <= forceField.Width && dot >= -forceField.Width)
+                                {
+                                    minDist = colRes.Distance;
+                                    anyRes = colRes;
+                                    colWith = forceField;
+                                    noColEff = false;
+                                    anyRes.Field0 = 0;
+                                    anyRes.Plane = forceField.Plane;
+                                }
                             }
                         }
                     }
@@ -432,7 +460,6 @@ namespace MphRead.Entities
             bool hitHalfturret = false;
             bool historicalHit = false;
             LagCompensationState historicalTarget = default;
-            ICombatAuthority? combat = _scene.Services.Combat;
             // todo: visualize player collision (and rename some "pickup" fields)
             foreach (PlayerEntity player in _scene.GetPlayerEntities())
             {
@@ -663,7 +690,7 @@ namespace MphRead.Entities
                         SpawnCollisionEffect(anyRes, noSplat: true);
                         OnCollision(anyRes, colWith);
                         PlayBeamHitSfx();
-                        if (Owner?.Type == EntityType.Player)
+                        if (!historicalCollision && Owner?.Type == EntityType.Player)
                         {
                             var player = (PlayerEntity)Owner;
                             if (!_scene.Services.IsReplica && (player.IsMainPlayer || !_scene.ControlsPlayer)) // skdebug
@@ -691,9 +718,47 @@ namespace MphRead.Entities
                             SpawnCollisionEffect(anyRes, noSplat: true);
                             OnCollision(anyRes, colWith);
                             PlayBeamHitSfx();
-                            if (!_scene.Services.IsReplica) forceField.Lock?.LockHit(this);
+                            if (!historicalCollision && !_scene.Services.IsReplica) forceField.Lock?.LockHit(this);
                             ricochet = false;
                         }
+                    }
+                }
+                else if (historicalEntity != null)
+                {
+                    // Historical Object/Platform shapes have no live
+                    // EntityCollision wrapper. Resolve the callback through
+                    // the registry generation, then apply only the existing
+                    // reflection/message behavior to that exact entity.
+                    bool reflected = anyRes.Flags.TestFlag(CollisionFlags.ReflectBeams);
+                    if (!_scene.Services.IsReplica)
+                        _scene.SendMessage(Message.BeamCollideWith, this, historicalEntity, anyRes, 0);
+                    historicalEntity.CheckBeamReflection(ref reflected);
+                    if ((!Flags.TestFlag(BeamFlags.Ricochet) && !reflected)
+                        || DrawFuncId == 8 || anyRes.Terrain >= Terrain.Acid)
+                    {
+                        if (!noColEff || Flags.TestFlag(BeamFlags.ForceEffect))
+                            SpawnCollisionEffect(anyRes, noSplat: true);
+                        OnCollision(anyRes, colWith: null);
+                        ricochet = false;
+                    }
+                }
+                else if (historicalCollision && historicalKind == HistoricalColliderKind.Door)
+                {
+                    // The historical door may have been removed/replaced. Its
+                    // blocker still wins, but no stale live callback is sent.
+                    SpawnCollisionEffect(anyRes, noSplat: true);
+                    OnCollision(anyRes, colWith: null);
+                    PlayBeamHitSfx();
+                    ricochet = false;
+                }
+                else if (historicalCollision && historicalKind == HistoricalColliderKind.ForceField)
+                {
+                    if (!Flags.TestFlag(BeamFlags.Ricochet))
+                    {
+                        SpawnCollisionEffect(anyRes, noSplat: true);
+                        OnCollision(anyRes, colWith: null);
+                        PlayBeamHitSfx();
+                        ricochet = false;
                     }
                 }
                 else

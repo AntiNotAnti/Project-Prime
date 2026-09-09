@@ -664,7 +664,7 @@ namespace MphRead.Mods.Network
         public bool TrySendEvent(ServerPeer peer, ReliableEventType type, ReadOnlySpan<byte> payload)
         {
             if (Find(peer.Connection.Id) != peer || peer.Connection.State != NetConnectionState.Playing
-                || type is not (ReliableEventType.MatchState or ReliableEventType.Combat or ReliableEventType.World or ReliableEventType.Kill or ReliableEventType.WorldEvent)
+                || type is not (ReliableEventType.MatchState or ReliableEventType.Combat or ReliableEventType.World or ReliableEventType.Kill or ReliableEventType.WorldEvent or ReliableEventType.MatchAward or ReliableEventType.MatchSemantic)
                 || payload.Length > ReliableChannel.MaxPayloadSize - 4) { return false; }
             Span<byte> body = stackalloc byte[ReliableChannel.MaxPayloadSize];
             BinaryPrimitives.WriteUInt32LittleEndian(body, MatchId);
@@ -675,7 +675,7 @@ namespace MphRead.Mods.Network
         /// <summary>Single-owner all-or-none admission prevents retry duplicates.</summary>
         public bool TryBroadcastEvent(ReliableEventType type, ReadOnlySpan<byte> payload)
         {
-            if (type is not (ReliableEventType.MatchState or ReliableEventType.Combat or ReliableEventType.World or ReliableEventType.Kill or ReliableEventType.WorldEvent)
+            if (type is not (ReliableEventType.MatchState or ReliableEventType.Combat or ReliableEventType.World or ReliableEventType.Kill or ReliableEventType.WorldEvent or ReliableEventType.MatchAward or ReliableEventType.MatchSemantic)
                 || payload.Length > ReliableChannel.MaxPayloadSize - 4) { return false; }
             foreach (ServerPeer? peer in _peers)
             {
@@ -698,6 +698,22 @@ namespace MphRead.Mods.Network
             {
                 peer.Connection.Send(_transport, NetMessageType.World, payload);
             }
+        }
+
+        /// <summary>
+        /// Sends a bounded server-selected diagnostic. There is intentionally
+        /// no corresponding client-to-server message type; only the
+        /// authenticated Node admin lane can reach this method.
+        /// </summary>
+        public bool TrySendDebug(ServerPeer peer, ReadOnlySpan<byte> payload)
+        {
+            if (payload.Length > NetConfig.MaxPacketSize - NetHeader.Size
+                || Find(peer.Connection.Id) != peer
+                || peer.IsObserver
+                || peer.Connection.State is not (NetConnectionState.Ready or NetConnectionState.Playing))
+                return false;
+            peer.Connection.Send(_transport, NetMessageType.Debug, payload);
+            return true;
         }
 
         private void Refuse(IPEndPoint endpoint, ulong nonce, string reason)

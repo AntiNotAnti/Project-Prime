@@ -8,6 +8,7 @@ using MphRead.Identity;
 using MphRead.Reporting;
 using MphRead.Telemetry;
 using FruityPrime.Server.Shared;
+using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
 
@@ -17,11 +18,21 @@ public sealed class MatchInstance : IDisposable
 {
     private readonly MatchInstanceOptions _options;
     private readonly INetTransport transport;
-    private readonly WorldStateCapture world = new();
+    private readonly WorldStateCapture world;
     private uint tick, snapshotSequence, worldRevision;
     private ServerReplaySession? replay;
     private MatchParticipantLedger? replayLedger;
     private readonly TelemetryCollector? telemetry;
+    private const int AwardCapacity = 256;
+    private readonly MatchAward[] _awards = new MatchAward[AwardCapacity];
+    private int _awardHead, _awardCount;
+    private const int SemanticCapacity = 256;
+    private readonly MatchEvent[] _semanticEvents = new MatchEvent[SemanticCapacity];
+    private int _semanticHead, _semanticCount;
+    public long DroppedAwards { get; private set; }
+    public long DroppedSemanticEvents { get; private set; }
+    public int AwardQueueHighWater { get; private set; }
+    public int SemanticQueueHighWater { get; private set; }
     private bool _terminal, _disposed;
     private string? _error;
     private readonly Queue<string> _diagnostics = new();
@@ -50,6 +61,42 @@ public sealed class MatchInstance : IDisposable
     public event Action<MatchCompletion>? Completed;
     public event Action<MatchFailure>? Failed;
 
+    /// <summary>
+    /// Authenticated host-side developer output. It is intentionally separate
+    /// from gameplay packets and must be invoked on this match's simulation
+    /// lane by the WorkerRuntime.
+    /// </summary>
+    public string NetDebug(string command, in CombatShot shot,
+        Vector3 projectileStart, Vector3 projectileEnd)
+        => Simulation.Combat.NetDebug(command, shot, projectileStart, projectileEnd);
+
+    /// <summary>
+    /// Sends one bounded QZ1.14 diagnostic to the explicitly selected player.
+    /// This is called only by the authenticated Node-&gt;Worker admin command;
+    /// no client packet can select a command, tick, or recipient.
+    /// </summary>
+    public bool SendHistoricalDebug(AdminAction action, byte seat)
+    {
+        if (seat >= Spec.Rules.MaxPlayers || action is not (AdminAction.LagCompHistory
+            or AdminAction.LagCompDynamic or AdminAction.LagCompClear))
+            return false;
+        ServerPeer? peer = Network.AllConnections.ToArray().FirstOrDefault(candidate => candidate?.Slot == seat);
+        if (peer == null) return false;
+        Span<byte> payload = stackalloc byte[HistoricalCollisionDebugPacket.MaxSize];
+        int length;
+        if (action == AdminAction.LagCompClear)
+        {
+            length = HistoricalCollisionDebugPacket.WriteClear(payload, WireMatchId);
+        }
+        else
+        {
+            string command = action == AdminAction.LagCompHistory
+                ? "netdebug lagcomp-history" : "netdebug lagcomp-dynamic";
+            length = Simulation.Combat.WriteHistoricalDebugPacket(WireMatchId, command, payload);
+        }
+        return Network.TrySendDebug(peer, payload[..length]);
+    }
+
     public MatchInstance(MatchInstanceOptions options, INetTransport transport)
         : this(options, transport, null) { }
 
@@ -59,6 +106,7 @@ public sealed class MatchInstance : IDisposable
         options.Spec.Validate();
         if (options.WireMatchId == 0) throw new ArgumentOutOfRangeException(nameof(options));
         _options = options;
+        world = new(options.ValidationFixture != DeveloperValidationFixtureId.None);
         this.transport = transport ?? throw new ArgumentNullException(nameof(transport));
         tick = options.InitialTick;
         if (!options.LegacyDynamicAdmission)
@@ -74,7 +122,8 @@ public sealed class MatchInstance : IDisposable
         BotFillPolicy fill = Spec.BotFillPolicy == FruityPrime.Server.Shared.BotFillPolicy.Disabled
             ? new() : options.BotFill ?? new(Spec.Roster.Count(seat => seat.Role != SeatRole.Observer));
         Simulation = new ServerSimulation(Spec.Rules, options.LagCompEnabled, options.ProjectileCatchUpEnabled,
-            fill, Spec.Rng1Seed, Spec.Rng2Seed);
+            fill, Spec.Rng1Seed, Spec.Rng2Seed, options.HistoricalDynamicCollisionEnabled,
+            options.ValidationFixture);
         try
         {
             if (options.ReportingServerId is { } server)
@@ -124,6 +173,12 @@ public sealed class MatchInstance : IDisposable
                     options.ResolveAdminSelection ?? ((_, _) => throw new ArgumentException("Select the next match through the host.")),
                     options.AdminSelectionRequested ?? (_ => { }), StartReplay);
             telemetry = Spec.TelemetryPolicy == TelemetryPolicy.Record ? new(Spec.Rules, WireMatchId, tick) : null;
+            // Awards are emitted synchronously by the match-owned semantic
+            // dispatcher. This fixed journal bridges simulation to reliable
+            // transport/replay without making either path an event source.
+            Simulation.Scene.Match.Awards.Awarded += QueueAward;
+            if (!Simulation.Scene.Match.SemanticEvents.Subscribe(QueueSemanticEvent))
+                throw new InvalidOperationException("Match semantic sink budget exhausted.");
         }
         catch { Simulation.Dispose(); throw; }
     }
@@ -282,8 +337,94 @@ public sealed class MatchInstance : IDisposable
             }
             simulation.Combat.World.Consume();
         }
+        while (TryPeekSemanticEvent(out MatchEvent semanticEvent))
+        {
+            telemetry?.Semantic(semanticEvent);
+            MatchSemanticEventPacket wire = MatchSemanticEventPacketConversion.FromEvent(semanticEvent);
+            wire.Write(packet);
+            network.CaptureObserverEvent(ReliableEventType.MatchSemantic, packet[..MatchSemanticEventPacket.Size]);
+            foreach (ServerPeer? peer in network.Peers)
+            {
+                if (peer?.Connection.State == NetConnectionState.Playing
+                    && !network.TrySendEvent(peer, ReliableEventType.MatchSemantic, packet[..MatchSemanticEventPacket.Size]))
+                {
+                    Diagnose($"[server] slot {peer.Slot} disconnected: reliable semantic-event admission refused. {ReliableDiagnostics.Describe(peer.Connection.Reliable)}");
+                    network.Remove(peer.Slot, reason: ParticipantExitReason.Backpressure);
+                }
+            }
+            ConsumeSemanticEvent();
+        }
+        while (TryPeekAward(out MatchAward award))
+        {
+            telemetry?.Award(award);
+            MatchAwardPacket wire = MatchAwardPacketConversion.FromAward(award);
+            wire.Write(packet);
+            network.CaptureObserverEvent(ReliableEventType.MatchAward, packet[..MatchAwardPacket.Size]);
+            foreach (ServerPeer? peer in network.Peers)
+            {
+                if (peer?.Connection.State == NetConnectionState.Playing
+                    && !network.TrySendEvent(peer, ReliableEventType.MatchAward, packet[..MatchAwardPacket.Size]))
+                {
+                    Diagnose($"[server] slot {peer.Slot} disconnected: reliable award admission refused. {ReliableDiagnostics.Describe(peer.Connection.Reliable)}");
+                    network.Remove(peer.Slot, reason: ParticipantExitReason.Backpressure);
+                }
+            }
+            ConsumeAward();
+        }
         network.CommitObserverTick(tick);
         telemetry?.CommitTick(tick, simulation.Scene.Match.Result != null);
+    }
+
+    private void QueueAward(MatchAward award)
+    {
+        if (_awardCount == AwardCapacity)
+        {
+            if (DroppedAwards < long.MaxValue) DroppedAwards++;
+            Diagnose("Semantic award journal full; presentation fact dropped with authoritative gameplay unchanged.");
+            return;
+        }
+        _awards[(_awardHead + _awardCount++) % AwardCapacity] = award;
+        if (_awardCount > AwardQueueHighWater) AwardQueueHighWater = _awardCount;
+    }
+
+    private void QueueSemanticEvent(in MatchEvent value)
+    {
+        if (_semanticCount == SemanticCapacity)
+        {
+            if (DroppedSemanticEvents < long.MaxValue) DroppedSemanticEvents++;
+            Diagnose("Match semantic event journal full; presentation fact dropped with authoritative gameplay unchanged.");
+            return;
+        }
+        _semanticEvents[(_semanticHead + _semanticCount++) % SemanticCapacity] = value;
+        if (_semanticCount > SemanticQueueHighWater) SemanticQueueHighWater = _semanticCount;
+    }
+
+    private bool TryPeekSemanticEvent(out MatchEvent value)
+    {
+        value = _semanticCount == 0 ? default : _semanticEvents[_semanticHead];
+        return _semanticCount != 0;
+    }
+
+    private void ConsumeSemanticEvent()
+    {
+        if (_semanticCount == 0) throw new InvalidOperationException("No pending match semantic event.");
+        _semanticEvents[_semanticHead] = default;
+        _semanticHead = (_semanticHead + 1) % SemanticCapacity;
+        _semanticCount--;
+    }
+
+    private bool TryPeekAward(out MatchAward award)
+    {
+        award = _awardCount == 0 ? default : _awards[_awardHead];
+        return _awardCount != 0;
+    }
+
+    private void ConsumeAward()
+    {
+        if (_awardCount == 0) throw new InvalidOperationException("No pending semantic award.");
+        _awards[_awardHead] = default;
+        _awardHead = (_awardHead + 1) % AwardCapacity;
+        _awardCount--;
     }
 
     private void Finish(uint finalTick, MatchStopReason? reason)

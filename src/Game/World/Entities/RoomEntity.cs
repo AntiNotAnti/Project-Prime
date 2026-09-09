@@ -80,7 +80,7 @@ namespace MphRead.Entities
             _morphCameraExcludeNodes.Clear();
             _partBoundsBuiltFor = -1;
             _nextRoomPartId = 0;
-            ModelInstance inst = Read.GetRoomModelInstance(name);
+            ModelInstance inst = Read.GetRoomModelInstance(meta);
             if (_models.Count == 0)
             {
                 _models.Add(inst);

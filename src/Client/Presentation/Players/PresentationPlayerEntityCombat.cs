@@ -19,6 +19,8 @@ namespace MphRead.Entities
             }
             if (value.Kind == CombatEventKind.Shot)
             {
+                AuthoritativePlay.Current?.ObserveAuthoritativeProjectileVisual(value,
+                    visualWillSpawn: !predictedLocalShot && value.Weapon <= 8);
                 if (predictedLocalShot || value.Weapon > 8)
                     return;
                 BeamType weapon = (BeamType)value.Weapon;

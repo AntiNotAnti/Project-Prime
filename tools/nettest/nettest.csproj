@@ -7,8 +7,13 @@
     <RootNamespace>MphRead.NetTest</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.22.0" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../../src/Game/Game.csproj" />
     <ProjectReference Include="../../src/Client/Client.csproj" />
+    <ProjectReference Include="../../src/Server.Node/Server.Node.csproj" />
     <ProjectReference Include="../../src/Server.Worker/Server.Worker.csproj" />
     <ProjectReference Include="../../src/Tools/Tools.csproj" />
   </ItemGroup>

@@ -21,6 +21,30 @@ namespace MphRead
             {
                 throw new ProgramException("No supported multiplayer room with this name is known.");
             }
+            return LoadGame(metadata, roomId, scene, mode, playerCount,
+                nodeLayerMask, entityLayerId, allEntityLayers: false,
+                validationFixture: false);
+        }
+
+        internal static (RoomEntity, RoomMetadata, CollisionInstance, IReadOnlyList<EntityBase>)
+            LoadValidationFixture(DeveloperValidationFixtureId fixtureId, Scene scene,
+            GameMode mode, int playerCount = 0, int nodeLayerMask = 0)
+        {
+            DeveloperValidationFixtureDescriptor descriptor = DeveloperValidationFixtures.Require(fixtureId);
+            if (mode != descriptor.Mode)
+                throw new ProgramException("Developer validation fixture mode mismatch.");
+            _ = DeveloperValidationFixtures.ValidateCurrentContent(fixtureId);
+            RoomMetadata metadata = descriptor.CreateRoomMetadata();
+            return LoadGame(metadata, metadata.Id, scene, mode, playerCount,
+                nodeLayerMask, entityLayerId: -1, allEntityLayers: true,
+                validationFixture: true);
+        }
+
+        private static (RoomEntity, RoomMetadata, CollisionInstance, IReadOnlyList<EntityBase>)
+            LoadGame(RoomMetadata metadata, int roomId, Scene scene, GameMode mode,
+            int playerCount, int nodeLayerMask, int entityLayerId, bool allEntityLayers,
+            bool validationFixture)
+        {
             if (mode == GameMode.None)
             {
                 mode = metadata.Name == "AD1 TRANSFER LOCK BT" ? GameMode.Bounty : GameMode.Battle;
@@ -56,8 +80,9 @@ namespace MphRead
                 }
             }
             var room = new RoomEntity(scene);
-            (CollisionInstance collision, IReadOnlyList<EntityBase> entities) = SetUpRoom(mode, playerCount,
-                nodeLayerMask, entityLayerId, metadata, room, scene, isRoomTransition: false);
+            (CollisionInstance collision, IReadOnlyList<EntityBase> entities) = SetUpRoomCore(mode, playerCount,
+                nodeLayerMask, entityLayerId, metadata, room, scene, isRoomTransition: false,
+                allEntityLayers: allEntityLayers, validationFixture: validationFixture);
             AiPersonality.LoadAll(scene, mode);
             room.SetNodeData(LoadNodeData(metadata.NodePath, room.RoomId, mode, entities, metadata.FirstHunt));
             return (room, metadata, collision, entities);
@@ -80,7 +105,8 @@ namespace MphRead
                 nodePath = @"levels\nodeData\mp14_KOTH_node.bin";
             }
             if (nodePath != null
-                && !System.IO.File.Exists(Paths.Combine(firstHunt ? Paths.FhFileSystem : Paths.FileSystem, nodePath)))
+                && !ContentEnvironment.ResourceExists(Paths.Combine(
+                    firstHunt ? Paths.FhFileSystem : Paths.FileSystem, nodePath)))
             {
                 // A room with no node data has bots that wander; a room that
                 // throws while loading it has no match at all. A custom map
@@ -127,17 +153,25 @@ namespace MphRead
 
         public static (CollisionInstance, IReadOnlyList<EntityBase>) SetUpRoom(GameMode mode,
             int playerCount, int nodeLayerMask, int entityLayerId,
-            RoomMetadata metadata, RoomEntity room, Scene scene, bool isRoomTransition)
+            RoomMetadata metadata, RoomEntity room, Scene scene, bool isRoomTransition,
+            bool allEntityLayers = false)
+            => SetUpRoomCore(mode, playerCount, nodeLayerMask, entityLayerId, metadata,
+                room, scene, isRoomTransition, allEntityLayers, validationFixture: false);
+
+        private static (CollisionInstance, IReadOnlyList<EntityBase>) SetUpRoomCore(GameMode mode,
+            int playerCount, int nodeLayerMask, int entityLayerId,
+            RoomMetadata metadata, RoomEntity room, Scene scene, bool isRoomTransition,
+            bool allEntityLayers, bool validationFixture)
         {
             if (playerCount == 0)
             {
                 playerCount = scene.Players.ActiveCount;
             }
-            if (entityLayerId < 0 || entityLayerId > 15)
+            if (!allEntityLayers && (entityLayerId < 0 || entityLayerId > 15))
             {
                 entityLayerId = Metadata.GetMultiplayerEntityLayer(mode, playerCount);
-
             }
+            else if (allEntityLayers) entityLayerId = -1;
             if (nodeLayerMask == 0)
             {
                 int nodePlayerCount = scene.Features.MaxRoomDetail ? 2 : playerCount;
@@ -149,7 +183,8 @@ namespace MphRead
                 collision.Active = false;
             }
             room.Setup(metadata.Name, metadata, collision, nodeLayerMask, metadata.Id);
-            IReadOnlyList<EntityBase> entities = LoadEntities(metadata, entityLayerId, scene);
+            IReadOnlyList<EntityBase> entities = LoadEntities(metadata, entityLayerId, scene,
+                validationFixture);
             return (collision, entities);
         }
 
@@ -182,7 +217,8 @@ namespace MphRead
             return nodeLayerMask;
         }
 
-        private static IReadOnlyList<EntityBase> LoadEntities(RoomMetadata metadata, int layerId, Scene scene)
+        private static IReadOnlyList<EntityBase> LoadEntities(RoomMetadata metadata, int layerId,
+            Scene scene, bool validationFixture)
         {
             var results = new List<EntityBase>();
             if (metadata.EntityPath == null)
@@ -193,6 +229,10 @@ namespace MphRead
             IReadOnlyList<Entity> entities = Read.GetEntities(metadata.EntityPath, layerId, metadata.FirstHunt);
             foreach (Entity entity in entities)
             {
+                if (validationFixture && !DeveloperValidationFixtures.IsAdmittedEntityType(entity.Type))
+                {
+                    continue;
+                }
                 string nodeName = entity.NodeName;
                 if (entity.Type == EntityType.Platform)
                 {

@@ -9,7 +9,7 @@ namespace MphRead.Mods.Network
     {
         private readonly ulong[] _activeConnections = new ulong[8];
         private readonly SnapshotPlayer[] _states = new SnapshotPlayer[8];
-        private readonly WorldStateCapture _pristineCapture = new();
+        private readonly WorldStateCapture _pristineCapture;
         private readonly WorldRecord[] _pristineWorld;
         private readonly Action _resetForCountdown;
         private readonly uint _initialRng1;
@@ -28,28 +28,72 @@ namespace MphRead.Mods.Network
         public ReadOnlySpan<SnapshotPlayer> States => _states.AsSpan(0, _stateCount);
         internal int CountdownResets { get; private set; }
 
-        public ServerSimulation(RotationEntry entry, bool lagCompEnabled = true, bool projectileCatchUpEnabled = true, uint rng1 = Rng.Rng1StartValue, uint rng2 = Rng.Rng2StartValue)
-            : this(entry.ToMatchRules(), lagCompEnabled, projectileCatchUpEnabled, rng1: rng1, rng2: rng2)
+        public ServerSimulation(RotationEntry entry, bool lagCompEnabled = true, bool projectileCatchUpEnabled = true, uint rng1 = Rng.Rng1StartValue, uint rng2 = Rng.Rng2StartValue, bool historicalDynamicCollisionEnabled = false)
+            : this(entry.ToMatchRules(), lagCompEnabled, projectileCatchUpEnabled, rng1: rng1, rng2: rng2,
+                historicalDynamicCollisionEnabled: historicalDynamicCollisionEnabled)
         {
         }
 
-        public ServerSimulation(MatchRules rules, bool lagCompEnabled = true, bool projectileCatchUpEnabled = true, BotFillPolicy? botFill = null, uint rng1 = Rng.Rng1StartValue, uint rng2 = Rng.Rng2StartValue)
+        public ServerSimulation(MatchRules rules, bool lagCompEnabled = true,
+            bool projectileCatchUpEnabled = true, BotFillPolicy? botFill = null,
+            uint rng1 = Rng.Rng1StartValue, uint rng2 = Rng.Rng2StartValue,
+            bool historicalDynamicCollisionEnabled = false)
+            : this(rules, lagCompEnabled, projectileCatchUpEnabled, botFill,
+                rng1, rng2, historicalDynamicCollisionEnabled,
+                DeveloperValidationFixtureId.None)
+        {
+        }
+
+        internal ServerSimulation(MatchRules rules, bool lagCompEnabled,
+            bool projectileCatchUpEnabled, BotFillPolicy? botFill,
+            uint rng1, uint rng2, bool historicalDynamicCollisionEnabled,
+            DeveloperValidationFixtureId validationFixture)
         {
             MatchLifecycle.ValidateRules(rules);
             (botFill ?? new BotFillPolicy()).Validate(rules.MaxPlayers);
+            _pristineCapture = new(validationFixture != DeveloperValidationFixtureId.None);
             Scene = Scene.CreateHeadless();
             Scene.Random.SetRng1(rng1);
             Scene.Random.SetRng2(rng2);
-            Combat = new ServerCombat(lagCompEnabled, projectileCatchUpEnabled, Scene.Random.Rng2);
+            Combat = new ServerCombat(lagCompEnabled, projectileCatchUpEnabled, Scene.Random.Rng2,
+                historicalDynamicCollisionEnabled);
             Combat.BindScene(Scene);
-            Scene.Services = new ServerSceneServices(Combat);
+                Scene.Services = new ServerSceneServices(Combat);
             try
             {
                 Scene.Match.ApplyRules(rules);
-                ServerContent.RequireRoom(rules.RoomKey, rules.Mode.ToLegacyMode());
-                Scene.LoadServerRoom(rules.RoomKey, rules.Mode.ToLegacyMode(), players: 8,
-                    roomPlayerCount: ServerContent.ResolveRoomPlayerCount(NetConfig.RoomPlayerCount, 8));
-                WorldStateCapture.ValidateRoom(Scene);
+                if (validationFixture == DeveloperValidationFixtureId.None)
+                {
+                    ServerContent.RequireRoom(rules.RoomKey, rules.Mode.ToLegacyMode());
+                    Scene.LoadServerRoom(rules.RoomKey, rules.Mode.ToLegacyMode(), players: 8,
+                        roomPlayerCount: ServerContent.ResolveRoomPlayerCount(NetConfig.RoomPlayerCount, 8));
+                }
+                else
+                {
+                    DeveloperValidationFixtureDescriptor descriptor
+                        = DeveloperValidationFixtures.Require(validationFixture);
+                    if (rules.RoomKey != descriptor.MapKey || rules.Mode.ToLegacyMode() != descriptor.Mode)
+                        throw new ProgramException("Developer validation fixture rules mismatch.");
+                    Scene.LoadServerValidationFixture(validationFixture, descriptor.Mode, players: 8,
+                        roomPlayerCount: NetConfig.RoomPlayerCount);
+                }
+                // Room entities and their collision shapes now exist. Freeze
+                // the match-owned registry before any authoritative tick.
+                Combat.InitializeHistoricalCollision(Scene);
+                if (validationFixture != DeveloperValidationFixtureId.None)
+                {
+                    DeveloperValidationFixtureRegistryEvidence expected
+                        = DeveloperValidationFixtures.Require(validationFixture).ExpectedRegistry;
+                    HistoricalCollisionRegistry registry = Combat.HistoricalCollisionRegistry;
+                    if (registry.CountKind(MphRead.Runtime.HistoricalCollision.HistoricalColliderKind.Door) != expected.Doors
+                        || registry.CountKind(MphRead.Runtime.HistoricalCollision.HistoricalColliderKind.ForceField) != expected.ForceFields
+                        || registry.CountKind(MphRead.Runtime.HistoricalCollision.HistoricalColliderKind.Object) != expected.Objects
+                        || registry.CountKind(MphRead.Runtime.HistoricalCollision.HistoricalColliderKind.Platform) != expected.Platforms
+                        || registry.Count != expected.Total)
+                        throw new ProgramException("Developer validation fixture dynamic collision registry mismatch.");
+                }
+                WorldStateCapture.ValidateRoom(Scene,
+                    allowValidationFixtureDynamics: validationFixture != DeveloperValidationFixtureId.None);
                 if (!ServerContentPackage.HasObjectives(Scene, rules.Mode.ToLegacyMode()))
                 {
                     throw new ProgramException($"{rules.RoomKey}/{rules.Mode} has no required objectives in the multiplayer entity layout.");
@@ -177,6 +221,12 @@ namespace MphRead.Mods.Network
             }
             PublishPhase(network);
             _stateCount = 0;
+            if (Scene.Match.Phase == MatchPhase.Playing)
+            {
+                // Record exactly once at the completed authoritative boundary;
+                // player samples below share this same tick.
+                Combat.DynamicCollisionHistory.Record(tick);
+            }
             for (int slot = 0; slot < 8; slot++)
             {
                 ServerPeer? peer = network.Peers[slot];

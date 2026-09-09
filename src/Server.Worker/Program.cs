@@ -3,6 +3,7 @@ using System.Net;
 using System.Threading.Channels;
 using FruityPrime.Server.Shared;
 using MphRead;
+using MphRead.Mods.MapGen;
 using MphRead.Mods.Network;
 
 namespace FruityPrime.Server.Worker;
@@ -13,15 +14,24 @@ public static class Program
     {
         try
         {
-            var flags = Parse(args);
+            var flags = ParseArguments(args);
+            ApplyMapDirectory(flags);
             string Required(string name) => flags.TryGetValue(name, out string? value) ? value : throw new ArgumentException("Missing " + name);
             int Number(string name, int fallback) => flags.TryGetValue(name, out string? value) ? int.Parse(value) : fallback;
             if (flags.TryGetValue("--describe-content", out string? describe) && bool.Parse(describe))
             {
-                ContentEnvironment.Open(Required("--content-dir"), Required("--content-version"));
+                if (flags.ContainsKey("--validation-fixture"))
+                    throw new ArgumentException("Content description cannot enable a developer validation fixture.");
+                ContentMapDescriptor[] maps = DescribeContent(Required("--content-dir"), Required("--content-version"));
                 using var view = ContentEnvironment.AcquireContent();
-                Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new WorkerContentIdentity(view.Content.Version,
-                    view.Content.ContentHash, WorkerOptions.ActualBuildVersion, NetHeader.Version)));
+                Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    ContentVersion = view.Content.Version,
+                    ContentHash = view.Content.ContentHash,
+                    BuildVersion = WorkerOptions.ActualBuildVersion,
+                    ProtocolVersion = NetHeader.Version,
+                    Maps = maps
+                }));
                 return 0;
             }
             var options = new WorkerOptions
@@ -31,6 +41,10 @@ public static class Program
                 BuildVersion = flags.GetValueOrDefault("--build-version", WorkerOptions.ActualBuildVersion),
                 SimulationLanes = Number("--lanes", 1), MaxMatches = Number("--max-matches", 1),
                 MaxMatchesPerLane = Number("--max-matches-per-lane", 1),
+                LagCompensationMode = WorkerOptions.ParseLagCompensationMode(
+                    flags.GetValueOrDefault("--lag-compensation-mode", "players")),
+                ValidationFixture = WorkerOptions.ParseValidationFixture(
+                    flags.GetValueOrDefault("--validation-fixture", "none")),
                 ReplayDirectory = flags.GetValueOrDefault("--replay-dir"), ArtifactDirectory = flags.GetValueOrDefault("--artifact-dir")
             };
             options.Validate();
@@ -42,7 +56,11 @@ public static class Program
                 throw new ArgumentException("Worker content hash does not match launch configuration.");
             int port = Number("--port", 0);
             if (port is < 0 or > ushort.MaxValue) throw new ArgumentException("Invalid Worker port.");
-            var physical = new UdpTransport(port, IPAddress.Parse(flags.GetValueOrDefault("--bind", "127.0.0.1")));
+            IPAddress bindAddress = IPAddress.Parse(flags.GetValueOrDefault("--bind", "127.0.0.1"));
+            if (options.ValidationFixture != DeveloperValidationFixtureId.None
+                && !IPAddress.IsLoopback(bindAddress))
+                throw new ArgumentException("Developer validation fixture requires a loopback bind address.");
+            var physical = new UdpTransport(port, bindAddress);
             var hub = new WorkerNetworkHub(physical, options.Incarnation, new RoutedMatchDatagramRouter(), options.MaxMatches);
             await using var runtime = new WorkerRuntime(options, content.Content, hub);
             using var startup = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -166,10 +184,33 @@ public static class Program
         return new string(buffer, 0, 64);
     }
 
-    private static Dictionary<string, string> Parse(string[] args)
+    internal static void ApplyMapDirectory(IReadOnlyDictionary<string, string> flags)
+    {
+        if (!flags.TryGetValue("--map-dir", out string? directory)) { return; }
+        if (String.IsNullOrWhiteSpace(directory)) throw new ArgumentException("Map directory is required.");
+        CustomRooms.MapDirectory = Path.GetFullPath(directory);
+    }
+
+    private static ContentMapDescriptor[] DescribeContent(string directory, string version)
+    {
+        // CustomRooms reports ignored/broken optional map files to stdout. Keep
+        // the descriptor itself as one JSON document and preserve diagnostics
+        // on stderr for callers that want to inspect them.
+        TextWriter output = Console.Out;
+        using var diagnostics = new StringWriter();
+        Console.SetOut(diagnostics);
+        try { return ServerContentValidation.DescribeMaps(directory, version); }
+        finally
+        {
+            Console.SetOut(output);
+            if (diagnostics.GetStringBuilder().Length > 0) Console.Error.Write(diagnostics.ToString());
+        }
+    }
+
+    internal static Dictionary<string, string> ParseArguments(string[] args)
     {
         string[] names = ["--describe-content", "--node-pipe", "--node-id", "--worker-id", "--worker-incarnation", "--content-dir", "--content-version", "--content-hash",
-            "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--replay-dir", "--artifact-dir"];
+            "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--lag-compensation-mode", "--validation-fixture", "--replay-dir", "--artifact-dir", "--map-dir"];
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         for (int index = 0; index < args.Length; index += 2)
             if (index + 1 == args.Length || !names.Contains(args[index], StringComparer.Ordinal) || !result.TryAdd(args[index], args[index + 1]))

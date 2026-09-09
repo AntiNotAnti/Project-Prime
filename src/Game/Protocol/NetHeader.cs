@@ -15,6 +15,8 @@ namespace MphRead.Mods.Network
         Pong = 8,
         Refused = 9,
         Ack = 10,
+        /// <summary>Bounded, server-selected developer diagnostics.</summary>
+        Debug = 11,
         World = 12,
         JoinPending = 13
     }
@@ -56,7 +58,7 @@ namespace MphRead.Mods.Network
             header = default;
             if (source.Length < Size || source.Length > NetConfig.MaxPacketSize
                 || BinaryPrimitives.ReadUInt16LittleEndian(source) != Magic
-                || source[2] < (byte)NetMessageType.Join || (source[2] > (byte)NetMessageType.Ack && source[2] != (byte)NetMessageType.World && source[2] != (byte)NetMessageType.JoinPending)
+                || source[2] < (byte)NetMessageType.Join || (source[2] > (byte)NetMessageType.Debug && source[2] != (byte)NetMessageType.World && source[2] != (byte)NetMessageType.JoinPending)
                 || (source[3] & ~3) != 0)
             {
                 return false;
