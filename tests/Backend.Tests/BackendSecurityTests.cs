@@ -93,6 +93,21 @@ public sealed class BackendSecurityTests
     }
 
     [Fact]
+    public void GuestPartitionIgnoresAuthenticationIdentityAndUsesCanonicalRemoteAddress()
+    {
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Parse("::ffff:192.0.2.10");
+        context.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString("D"))], "Bearer"));
+        string first = BackendSecurity.IpPartitionKey(context);
+
+        context.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString("D"))], "Bearer"));
+        Assert.Equal(first, BackendSecurity.IpPartitionKey(context));
+        Assert.Equal("ip:192.0.2.10", first);
+    }
+
+    [Fact]
     public void ForwardingAcceptsOnlyExplicitCanonicalProxyAddresses()
     {
         var forwarding = new ForwardedHeadersOptions();
@@ -120,6 +135,19 @@ public sealed class BackendSecurityTests
         context.Connection.RemoteIpAddress = IPAddress.Parse("192.0.2.1");
         Assert.False(BackendSecurity.IsExplicitLoopbackDevelopmentRequest(context,
             new BackendSecurityOptions { AllowLoopbackHttp = true }));
+    }
+
+    [Fact]
+    public void TemporaryRemoteDevelopmentHttpRequiresExplicitHostAndOptIn()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Host = new HostString(BackendSecurity.TemporaryDevelopmentBackendHost);
+        Assert.False(BackendSecurity.IsExplicitRemoteHttpDevelopmentRequest(context, new BackendSecurityOptions()));
+        Assert.True(BackendSecurity.IsExplicitRemoteHttpDevelopmentRequest(context,
+            new BackendSecurityOptions { AllowRemoteHttp = true }));
+        context.Request.Host = new HostString("51.161.113.127");
+        Assert.False(BackendSecurity.IsExplicitRemoteHttpDevelopmentRequest(context,
+            new BackendSecurityOptions { AllowRemoteHttp = true }));
     }
 
     [Fact]

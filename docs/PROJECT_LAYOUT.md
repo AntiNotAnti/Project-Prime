@@ -78,16 +78,19 @@ dotnet publish src/Client/Client.csproj -c Release -r linux-x64 --self-contained
 dotnet build src/Tools/Tools.csproj -c Release
 dotnet build src/Android/Android.csproj -c Release
 
-# Packages one persistent Node with its bundled Worker below worker/.
+# Packages the Backend, one persistent Node, and its bundled Worker below worker/.
 tools/package-server.sh --rid linux-arm64 --output publish/server-linux-arm64
 ```
 
 Client output contains no local server executable. The server package contains
-the persistent Node apphost `FruityPrimeServer` at its root and the managed
-Worker apphost below `worker/` (with `.exe` on Windows). The Node resolves and
-supervises Workers from `server.example.json`; it is the only supported hosting
-boundary. Package smoke is the extracted-bundle WSS → public-lobby → Worker →
-routed-UDP process check. Tools uses `FruityPrimeTools`.
+the Backend apphost below `backend/`, the persistent Node apphost
+`FruityPrimeServer` at its root, and the managed Worker apphost below `worker/`
+(with `.exe` on Windows). The Node resolves and supervises Workers from
+`server.example.json`; it is the only supported gameplay hosting boundary. The
+Backend binary is included for same-host development and remains separately
+configured with its database and operator secrets for production. Package smoke
+is the extracted-bundle WSS → public-lobby → Worker → routed-UDP process check.
+Tools uses `FruityPrimeTools`.
 
 The repository guards enforce the project graph, package budget, explicit source
 links and absence of retired campaign runtime code:

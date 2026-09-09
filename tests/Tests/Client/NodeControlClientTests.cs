@@ -14,6 +14,21 @@ namespace MphRead.Tests;
 public sealed class NodeControlClientTests
 {
     [Fact]
+    public async Task AdvertisedMapCatalogIsSnapshottedOnSetAndRead()
+    {
+        await using var client = new NodeControlClient(Guid.NewGuid());
+        string[] source = ["zeta", "alpha"];
+        client.SetAdvertisedMapKeys(source);
+
+        source[0] = "mutated-source";
+        Assert.Equal(new[] { "zeta", "alpha" }, client.AdvertisedMapKeys);
+
+        string[] returned = client.AdvertisedMapKeys!;
+        returned[1] = "mutated-return";
+        Assert.Equal(new[] { "zeta", "alpha" }, client.AdvertisedMapKeys);
+    }
+
+    [Fact]
     public async Task GreetingPinsNodeAndOrderedSnapshotsRetainSessionIdentity()
     {
         Guid nodeId = Guid.NewGuid(), sessionId = Guid.NewGuid();
@@ -26,6 +41,23 @@ public sealed class NodeControlClientTests
         Assert.Equal(sessionId, client.Session!.SessionId);
         Assert.Throws<JsonException>(() => client.ApplyEvent(NodeControlCodec.Write("lobby.list", 2, null, new LobbyListSnapshot([], null))));
         Assert.Throws<JsonException>(() => client.ApplyEvent(NodeControlCodec.Write("lobby.list", 4, null, new LobbyListSnapshot([], null))));
+    }
+    [Fact]
+    public async Task GuestSessionAndLobbyMembersRetainGuestIdentity()
+    {
+        Guid nodeId = Guid.NewGuid(), sessionId = Guid.NewGuid(), guestId = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        var session = new NodeSessionSnapshot(sessionId, null, "Guest", nodeId, new string('a', 43), guestId);
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
+        var lobby = new LobbySnapshot(Guid.NewGuid(), "Room", LobbyVisibility.Public, sessionId, LobbyPhase.Open, 1, 8, 16,
+            [new LobbyMember(sessionId, null, "Guest", Hunter.Samus, 0, false, false, guestId)], []);
+
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 2, null, lobby));
+
+        Assert.Equal(guestId, client.Session!.GuestSessionId);
+        Assert.Null(client.Session.PlayerId);
+        Assert.Equal(guestId, client.Lobby!.Members[0].GuestSessionId);
+        Assert.Null(client.Lobby.Members[0].PlayerId);
     }
     [Fact]
     public async Task MatchReturnOnlyClosesCurrentHandoffAndRematchKeepsSameSession()

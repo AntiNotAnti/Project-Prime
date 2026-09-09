@@ -37,15 +37,17 @@ internal sealed class NodeHostFixture : IAsyncDisposable
             builder.WebHost.ConfigureKestrel(server => server.Listen(IPAddress.Loopback, 0, listen => listen.UseHttps(_certificate)));
         });
     }
-    public string Ticket(Guid player, string? audience = null, string? type = null, int expiresIn = 120)
+    public string Ticket(Guid player, string? audience = null, string? type = null, int expiresIn = 120, string? kind = null)
     {
         DateTime now = DateTime.UtcNow;
+        var claims = new Dictionary<string, object> { ["sub"] = player.ToString("D"), ["jti"] = Guid.NewGuid().ToString("D"), ["name"] = "Player" };
+        if (kind != null) claims["kind"] = kind;
         return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {
             Issuer = "https://backend.example", Audience = audience ?? NodeAdmissionValidator.Audience(NodeId),
             TokenType = type ?? NodeAdmissionValidator.TokenType, IssuedAt = now, NotBefore = now,
             Expires = now.AddSeconds(expiresIn), SigningCredentials = new(new ECDsaSecurityKey(SigningKey) { KeyId = "test" }, "ES256"),
-            Claims = new Dictionary<string, object> { ["sub"] = player.ToString("D"), ["jti"] = Guid.NewGuid().ToString("D"), ["name"] = "Player" }
+            Claims = claims
         });
     }
     public async ValueTask DisposeAsync() { await App.DisposeAsync(); _certificate.Dispose(); SigningKey.Dispose(); File.Delete(_path); }

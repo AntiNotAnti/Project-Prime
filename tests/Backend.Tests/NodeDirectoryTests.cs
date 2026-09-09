@@ -45,6 +45,40 @@ public sealed class NodeDirectoryTests
     }
 
     [Fact]
+    public void MapCatalogRoundTripsAndSnapshotsRegistrationAndListings()
+    {
+        var directory = Directory(new Clock());
+        string[] keys = ["MP1 SANCTORUS", "custom-room"];
+        var registration = Registration() with { MapKeys = keys };
+
+        Assert.True(directory.Register(Node, Secret, registration));
+        keys[0] = "mutated-after-register";
+
+        NodeListing listed = Assert.Single(directory.Browse(1, "build1", registration.ContentHash));
+        Assert.Equal(new[] { "MP1 SANCTORUS", "custom-room" }, listed.MapKeys);
+        listed.MapKeys![0] = "mutated-after-browse";
+        Assert.Equal(new[] { "MP1 SANCTORUS", "custom-room" }, directory.FindOnline(Node)!.MapKeys);
+    }
+
+    [Fact]
+    public void InvalidMapCatalogEntriesAreRejected()
+    {
+        foreach (string[] keys in new[]
+        {
+            new string[257],
+            new[] { "" },
+            new[] { "map\nkey" },
+            new[] { "same", "same" },
+            new[] { "map\u007fkey" }
+        })
+        {
+            var directory = Directory(new Clock());
+            Assert.Throws<ArgumentException>(() => directory.Register(Node, Secret,
+                Registration() with { MapKeys = keys }));
+        }
+    }
+
+    [Fact]
     public void IncarnationReplacementRejectsStaleHeartbeatAndTrustComesFromOperator()
     {
         var directory = Directory(new Clock(), MatchTrustClass.VerifiedCasual);
@@ -76,6 +110,7 @@ public sealed class NodeDirectoryTests
             Assert.Equal("ph-node-admission+jwt", jwt.Typ);
             Assert.Equal("ES256", jwt.Alg); Assert.Equal("node-test", jwt.Kid);
             Assert.Equal(player.ToString(), jwt.Subject); Assert.Equal("Hunter", jwt.GetClaim("name").Value);
+            Assert.False(jwt.TryGetClaim("kind", out _));
             Assert.Equal("urn:prime-hunters:node:" + Node.ToString("D"), Assert.Single(jwt.Audiences));
             Assert.Equal(120, (jwt.ValidTo - jwt.IssuedAt).TotalSeconds);
             Assert.Equal(jwt.IssuedAt, jwt.ValidFrom);

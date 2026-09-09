@@ -1,5 +1,7 @@
 using FruityPrime.Server.Node.Identity;
+using FruityPrime.Server.Node.Admin;
 using FruityPrime.Server.Node.Lobbies;
+using FruityPrime.Server.Node.Lobbies.Queue;
 using FruityPrime.Server.Node.Sessions;
 using FruityPrime.Server.Node.Workers;
 using FruityPrime.Server.Shared;
@@ -16,12 +18,19 @@ public static class NodeApplication
         var builder = WebApplication.CreateBuilder(args);
         configure?.Invoke(builder);
         var auth = builder.Configuration.GetSection("Node:Authentication").Get<NodeAuthOptions>() ?? new();
+        var hostAdmin = NodeHostAdminAuthorization.Load(builder.Configuration);
         builder.Services.TryAddSingleton(TimeProvider.System);
         builder.Services.AddSingleton(auth);
+        builder.Services.AddSingleton(hostAdmin);
         builder.Services.AddSingleton<NodeAdmissionValidator>();
-        builder.Services.AddSingleton(new LobbyManager(builder.Configuration.GetValue("Node:MaximumLobbies", 256)));
+        builder.Services.AddSingleton(sp => new LobbyManager(
+            builder.Configuration.GetValue("Node:MaximumLobbies", 256),
+            sp.GetRequiredService<TimeProvider>(),
+            builder.Configuration.GetValue("Node:MaximumWaitlistPerLobby", LobbyWaitlist.DefaultMaximumEntries),
+            TimeSpan.FromSeconds(builder.Configuration.GetValue("Node:WaitlistOfferSeconds", 15))));
         builder.Services.AddNodeWorkerPool(builder.Configuration, auth.NodeId);
-        builder.Services.AddSingleton(new NodeContentCatalog(builder.Configuration.GetSection("Node:Maps").Get<ContentIdentity[]>() ?? []));
+        builder.Services.AddSingleton(NodeContentCatalog.FromConfiguration(
+            builder.Configuration.GetSection("Node:Maps").Get<NodeMapConfiguration[]>() ?? []));
         builder.Services.AddSingleton<NodeMatchCoordinator>();
         builder.Services.AddSingleton(sp => new NodeSessionManager(sp.GetRequiredService<LobbyManager>(), auth.NodeId,
             builder.Configuration.GetValue("Node:MaximumSessions", 1024), sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<NodeMatchCoordinator>()));
@@ -33,6 +42,9 @@ public static class NodeApplication
             options.AddPolicy("control-upgrade", context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            options.AddPolicy("host-admin", context => RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         });
         var app = builder.Build();
         // Fail at startup, rather than expose an accidentally unauthenticated service.
@@ -43,6 +55,12 @@ public static class NodeApplication
         app.MapGet("/v1/status", (NodeSessionManager sessions, LobbyManager lobbies, NodeContentCatalog content) =>
             Results.Ok(new { nodeId = auth.NodeId, protocolVersion = 1, onlineUsers = sessions.Count, lobbyCount = lobbies.Count,
                 protocolClosures = sessions.ProtocolClosures, maps = content.Maps }));
+        if (hostAdmin.Enabled)
+        {
+            app.MapPost("/v1/host/matches/{matchId:guid}/lagcomp-debug",
+                NodeHostAdminEndpoints.ConfigureHistoricalDebugAsync)
+                .RequireRateLimiting("host-admin");
+        }
         app.Map("/v1/control", async (HttpContext context, NodeAdmissionValidator admission, NodeSessionManager sessions) =>
         {
             if (!context.Request.IsHttps) { context.Response.StatusCode = 403; return; }

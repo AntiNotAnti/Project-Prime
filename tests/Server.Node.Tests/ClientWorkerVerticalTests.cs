@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.WebSockets;
 using System.Text.Json;
 using FruityPrime.Server.Node.Workers;
@@ -22,6 +23,9 @@ public sealed class ClientWorkerVerticalTests
     {
         string data = Environment.GetEnvironmentVariable("GAME_DATA_DIRECTORY") ?? throw new InvalidOperationException("GAME_DATA_DIRECTORY is required.");
         using var artifacts = new ArtifactDirectory();
+        const string hostAdminToken = "test-only-QZ1-host-administration-token-0001";
+        string hostAdminTokenFile = Path.Combine(artifacts.Path, "host-admin.token");
+        File.WriteAllText(hostAdminTokenFile, hostAdminToken + Environment.NewLine);
         var launch = new WorkerLaunchOptions
         {
             FileName = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet",
@@ -38,9 +42,21 @@ public sealed class ClientWorkerVerticalTests
         var map = new ContentIdentity("MP1 SANCTORUS", content.ContentHash, content.ContentVersion, content.BuildVersion, content.ProtocolVersion);
         await using var host = new NodeHostFixture(configure: builder => builder.Configuration.AddJsonStream(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(new
         {
-            Node = new { Maps = new[] { map }, Workers = new { Processes = new[] { launch }, DrainTimeout = "00:00:05", ForceAfterDrainDeadline = true } }
+            Node = new
+            {
+                Maps = new[] { map },
+                HostAdmin = new { TokenFile = hostAdminTokenFile },
+                Workers = new { Processes = new[] { launch }, DrainTimeout = "00:00:05", ForceAfterDrainDeadline = true }
+            }
         }))));
         await host.App.StartAsync();
+        using var adminHandler = new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = (_, certificate, _, _) =>
+                certificate?.GetCertHashString() == host.CertificateThumbprint
+        };
+        using var admin = new HttpClient(adminHandler);
+        admin.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", hostAdminToken);
         string endpoint = host.App.Urls.Single().Replace("https://", "wss://") + "/v1/control";
         NodeControlClient Control()
         {
@@ -116,6 +132,25 @@ public sealed class ClientWorkerVerticalTests
                 await Until(() => player.HasSnapshot && second.HasSnapshot && observedPhase == MatchPhase.Playing, Poll);
                 Assert.Equal(handoff.WireMatchId, player.Snapshot.MatchId);
                 Assert.Equal(session, owner.Session!.SessionId);
+                if (round == 0)
+                {
+                    Uri debugEndpoint = new(new Uri(host.App.Urls.Single()),
+                        $"/v1/host/matches/{handoff.MatchId:D}/lagcomp-debug");
+                    await PostDebug(admin, debugEndpoint, "enable", "history", 0,
+                        HttpStatusCode.Unauthorized, "wrong-test-only-host-administration-token-0001");
+                    await PostDebug(admin, debugEndpoint, "enable", "history", 0);
+                    await Until(() => player.HistoricalDebug?.Mode == HistoricalCollisionDebugMode.History, Poll);
+                    HistoricalCollisionDebugPacket historyDebug = player.HistoricalDebug!;
+                    Assert.True(historyDebug.Metrics.IsValid);
+                    Assert.True(historyDebug.CurrentTick > 0);
+
+                    await PostDebug(admin, debugEndpoint, "refresh", "dynamic", 0);
+                    await Until(() => player.HistoricalDebug?.Mode == HistoricalCollisionDebugMode.Dynamic, Poll);
+                    Assert.True(player.HistoricalDebug!.Metrics.IsValid);
+
+                    await PostDebug(admin, debugEndpoint, "clear", null, 0);
+                    await Until(() => player.HistoricalDebug == null, Poll);
+                }
                 // WSS resume rotates its proof and reissues a fresh match handoff,
                 // while the live UDP transport continues independently.
                 if (round == 0)
@@ -154,6 +189,21 @@ public sealed class ClientWorkerVerticalTests
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         while (!condition()) { tick?.Invoke(); await Task.Delay(10, deadline.Token); }
+    }
+    private static async Task PostDebug(HttpClient client, Uri endpoint, string action, string? mode,
+        byte seat, HttpStatusCode expected = HttpStatusCode.Accepted, string? bearer = null)
+    {
+        byte[] json = JsonSerializer.SerializeToUtf8Bytes(mode == null
+            ? new { action, seat } : (object)new { action, mode, seat });
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = new ByteArrayContent(json)
+        };
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        if (bearer != null)
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+        using HttpResponseMessage response = await client.SendAsync(request);
+        Assert.Equal(expected, response.StatusCode);
     }
     private sealed class ArtifactDirectory : IDisposable
     {

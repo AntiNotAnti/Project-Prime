@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FruityPrime.Server.Shared;
 using MphRead.Mods.Accounts;
+using MphRead.Mods.Launcher;
 
 namespace MphRead.Mods.Network;
 
@@ -21,6 +22,7 @@ public sealed class NodeControlClient : IAsyncDisposable
     private long _eventId;
     private Guid _nodeId;
     private Guid? _resumingSession;
+    private string[]? _advertisedMapKeys;
     internal string? Endpoint { get; private set; }
     public NodeControlClient() { }
     internal NodeControlClient(ClientWebSocket socket) { _socket.Dispose(); _socket = socket; }
@@ -42,6 +44,9 @@ public sealed class NodeControlClient : IAsyncDisposable
     public NodeMatchHandoff? Handoff => State.Handoff;
     public bool MatchEnded => State.MatchEnded;
     public string? Error => State.Error;
+    /// <summary>Snapshot of the catalog advertised by the selected Node. Null means the
+    /// directory response predates the catalog field and its hosted maps are unknown.</summary>
+    public string[]? AdvertisedMapKeys => Volatile.Read(ref _advertisedMapKeys)?.ToArray();
     private int _pendingSends;
     private int _disposed;
     private readonly TaskCompletionSource _sendsDrained = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -76,7 +81,39 @@ public sealed class NodeControlClient : IAsyncDisposable
         }
         catch { _stop.Cancel(); _socket.Abort(); throw; }
     }
-    public async Task SendAsync(string type, NodeCommand command, CancellationToken cancel = default)
+    public Task SendAsync(string type, NodeCommand command, CancellationToken cancel = default)
+        => SendAsyncCore(type, command, cancel, null);
+
+    /// <summary>
+    /// Send one control command and wait for the response carrying its request
+    /// identity. This is intentionally narrow; callers that only need
+    /// fire-and-forget control traffic should continue using <see cref="SendAsync"/>.
+    /// </summary>
+    internal async Task<NodeControlEvent> SendAndWaitAsync(string type, NodeCommand command,
+        CancellationToken cancel = default)
+    {
+        Guid requestId = Guid.NewGuid();
+        var response = new TaskCompletionSource<NodeControlEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnEvent(NodeControlEvent value)
+        {
+            if (value.RequestId == requestId) response.TrySetResult(value);
+        }
+
+        EventReceived += OnEvent;
+        try
+        {
+            await SendAsyncCore(type, command, cancel, requestId).ConfigureAwait(false);
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancel, _stop.Token);
+            deadline.CancelAfter(TimeSpan.FromSeconds(10));
+            try { return await response.Task.WaitAsync(deadline.Token).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (!cancel.IsCancellationRequested && !_stop.IsCancellationRequested)
+            { throw new TimeoutException("The Node did not acknowledge the control command."); }
+        }
+        finally { EventReceived -= OnEvent; }
+    }
+
+    private async Task SendAsyncCore(string type, NodeCommand command, CancellationToken cancel,
+        Guid? requestedId)
     {
         int pending = Interlocked.Increment(ref _pendingSends);
         try
@@ -88,7 +125,7 @@ public sealed class NodeControlClient : IAsyncDisposable
             var info = NodeJsonContext.Default.GetTypeInfo(command.GetType()) ?? throw new ArgumentException("Unknown Node command.");
             byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(new
             {
-                version = NodeControlCodec.Version, requestId = Guid.NewGuid(), type,
+                version = NodeControlCodec.Version, requestId = requestedId ?? Guid.NewGuid(), type,
                 payload = JsonSerializer.SerializeToElement(command, info)
             });
             if (bytes.Length > NodeControlCodec.MaximumFrameBytes) throw new ArgumentException("Node command is too large.");
@@ -149,7 +186,8 @@ public sealed class NodeControlClient : IAsyncDisposable
         {
             case "node.session":
                 var session = value.Payload.Deserialize(NodeJsonContext.Default.NodeSessionSnapshot)!;
-                if (session.NodeId != _nodeId || session.SessionId == Guid.Empty || session.PlayerId == Guid.Empty
+                if (session.NodeId != _nodeId || session.SessionId == Guid.Empty
+                    || !HumanIdentityValidation.TryGet(session.PlayerId, session.GuestSessionId, out _)
                     || session.DisplayName is not { Length: >= 1 and <= 16 } || session.DisplayName.Any(c => c is < ' ' or > '~')
                     || session.ResumeToken is not { Length: 43 } || !session.ResumeToken.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_')
                     || Session != null || (_resumingSession.HasValue && session.SessionId != _resumingSession.Value)) throw new JsonException("Unexpected Node identity.");
@@ -159,16 +197,27 @@ public sealed class NodeControlClient : IAsyncDisposable
                 if (lobby.LobbyId == Guid.Empty || lobby.Revision < 1 || lobby.Name is not { Length: >= 1 and <= 64 }
                     || !Enum.IsDefined(lobby.Phase) || !Enum.IsDefined(lobby.Visibility) || lobby.PlayerLimit is < 1 or > 8
                     || lobby.ObserverLimit is < 0 or > 128 || lobby.Members.Length > lobby.PlayerLimit + lobby.ObserverLimit
-                    || lobby.Chat.Length > 128 || lobby.Members.Any(m => m.SessionId == Guid.Empty || m.PlayerId == Guid.Empty
+                    || lobby.BotCount < 0 || lobby.BotCount > lobby.PlayerLimit
+                    || !Enum.IsDefined(lobby.SeatPolicy) || !Enum.IsDefined(lobby.DuelQueuePolicy)
+                    || lobby.Chat.Length > 128 || lobby.Members.Any(m => m.SessionId == Guid.Empty
+                        || !HumanIdentityValidation.TryGet(m.PlayerId, m.GuestSessionId, out _)
                         || m.DisplayName is not { Length: >= 1 and <= 16 } || m.DisplayName.Any(c => c is < ' ' or > '~')
-                        || !Enum.IsDefined(m.Hunter) || m.Team > 7) || !lobby.Members.Any(x => x.SessionId == Session!.SessionId)
+                        || !Enum.IsDefined(m.Hunter) || m.Team > 7) ||
+                    lobby.Waitlist is { } waitlist && (waitlist.Count < 0 || waitlist.Count > 1024
+                        || waitlist.Entries.IsDefault || waitlist.Entries.Length > 1024
+                        || waitlist.Entries.Any(e => e.Position < 1 || e.QueueSequence < 1 || e.DisplayName is not { Length: >= 1 and <= 16 }
+                            || e.DisplayName.Any(c => c is < ' ' or > '~') || !Enum.IsDefined(e.State))) ||
+                    (!lobby.Members.Any(x => x.SessionId == Session!.SessionId) && lobby.Waitlist?.IsSelfQueued != true)
                     || lobby.Members.Select(x => x.SessionId).Distinct().Count() != lobby.Members.Length)
                     throw new JsonException("Invalid lobby snapshot.");
                 if (Lobby?.LobbyId == lobby.LobbyId && lobby.Revision <= Lobby.Revision) break;
                 Publish(state => state with { Lobby = lobby }); break;
             case "lobby.list":
                 var list = value.Payload.Deserialize(NodeJsonContext.Default.LobbyListSnapshot) ?? throw new JsonException("Missing lobby list.");
-                if (list.Lobbies.Length > 64 || list.Lobbies.Any(x => x.LobbyId == Guid.Empty || x.Revision < 1)) throw new JsonException("Invalid lobby list.");
+                if (list.Lobbies.Length > 64 || list.Lobbies.Any(x => x.LobbyId == Guid.Empty || x.Revision < 1
+                    || x.PlayerLimit is < 1 or > 8 || x.Players < 0 || x.Players > x.PlayerLimit
+                    || x.BotCount < 0 || x.BotCount > x.PlayerLimit || x.Observers < 0 || x.ObserverLimit is < 0 or > 128
+                    || x.WaitlistCount < 0 || x.WaitlistCount > 1024)) throw new JsonException("Invalid lobby list.");
                 Publish(state => state with { Lobbies = list }); break;
             case "lobby.left":
                 var left = value.Payload.Deserialize(NodeJsonContext.Default.LobbyLeft);
@@ -188,6 +237,13 @@ public sealed class NodeControlClient : IAsyncDisposable
         if (EventReceived != null) foreach (Action<NodeControlEvent> handler in EventReceived.GetInvocationList())
             try { handler(value); } catch { Publish(state => state with { Error = "A Node event listener failed." }); }
         NotifyChanged();
+    }
+
+    internal void SetAdvertisedMapKeys(string[]? mapKeys)
+    {
+        if (!AccountSession.ValidMapKeys(mapKeys))
+            throw new ArgumentException("The Node advertised an invalid map catalog.", nameof(mapKeys));
+        Volatile.Write(ref _advertisedMapKeys, mapKeys?.ToArray());
     }
     private void NotifyChanged()
     {
@@ -212,26 +268,133 @@ public sealed class NodeControlClient : IAsyncDisposable
 
 public static class NodeSessions
 {
+    private static readonly SemaphoreSlim Transition = new(1, 1);
+    private static readonly object ActiveTransitionGate = new();
+    private static CancellationTokenSource? _activeTransition;
     private static NodeControlClient? _current;
-    public static NodeControlClient? Current { get => Volatile.Read(ref _current); private set => Volatile.Write(ref _current, value); }
-    public static async Task<NodeControlClient> ConnectAsync(AccountSession account, Guid nodeId, CancellationToken cancel = default)
+    public static NodeControlClient? Current => Volatile.Read(ref _current);
+    public static event Action<NodeControlClient?>? CurrentChanged;
+
+    public static Task<NodeControlClient> ConnectAsync(AccountSession account, Guid nodeId, CancellationToken cancel = default)
+        => ConnectAsyncCore(account, nodeId, null, cancel);
+
+    public static Task<NodeControlClient> ConnectAsync(AccountSession account, NodeListing node,
+        CancellationToken cancel = default)
     {
-        if (Current != null) await Current.DisposeAsync();
-        Current = null;
-        var next = new NodeControlClient();
-        try { await next.ConnectAsync(await account.GetNodeTicketAsync(nodeId, cancel), cancel); Current = next; return next; }
-        catch { await next.DisposeAsync(); throw; }
+        ArgumentNullException.ThrowIfNull(node);
+        string[]? mapKeys = node.MapKeys?.ToArray();
+        if (!AccountSession.ValidMapKeys(mapKeys))
+            throw new InvalidOperationException("The Node advertised an invalid map catalog.");
+        return ConnectAsyncCore(account, node.NodeId, mapKeys, cancel);
+    }
+
+    private static async Task<NodeControlClient> ConnectAsyncCore(AccountSession account, Guid nodeId,
+        string[]? mapKeys, CancellationToken cancel)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        await Transition.WaitAsync(cancel).ConfigureAwait(false);
+        using CancellationTokenSource transitionCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(cancel);
+        SetActiveTransition(transitionCancellation);
+        try
+        {
+            NodeControlClient? previous = Current;
+            ReplaceCurrent(null);
+            if (previous != null) await previous.DisposeAsync().ConfigureAwait(false);
+            var next = new NodeControlClient();
+            try
+            {
+                next.SetAdvertisedMapKeys(mapKeys);
+                CancellationToken transitionToken = transitionCancellation.Token;
+                await next.ConnectAsync(await GetAdmissionAsync(account, nodeId, transitionToken).ConfigureAwait(false),
+                        transitionToken)
+                    .ConfigureAwait(false);
+                ReplaceCurrent(next);
+                return next;
+            }
+            catch { await next.DisposeAsync().ConfigureAwait(false); throw; }
+        }
+        finally
+        {
+            ClearActiveTransition(transitionCancellation);
+            Transition.Release();
+        }
+    }
+    internal static Task<NodeAdmissionTicket> GetAdmissionAsync(AccountSession account, Guid nodeId,
+        CancellationToken cancel = default)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        return account.IsSignedIn
+            ? account.GetNodeTicketAsync(nodeId, cancel)
+            : account.GetGuestNodeTicketAsync(nodeId, LauncherPrefs.PlayerName, cancel);
     }
     public static async Task<NodeControlClient> ResumeAsync(CancellationToken cancel = default)
     {
-        var previous = Current ?? throw new InvalidOperationException("No Node session to resume.");
-        var next = new NodeControlClient();
-        try { await next.ResumeAsync(previous, cancel); Current = next; await previous.DisposeAsync(); return next; }
-        catch { await next.DisposeAsync(); throw; }
+        await Transition.WaitAsync(cancel).ConfigureAwait(false);
+        using CancellationTokenSource transitionCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(cancel);
+        SetActiveTransition(transitionCancellation);
+        try
+        {
+            var previous = Current ?? throw new InvalidOperationException("No Node session to resume.");
+            var next = new NodeControlClient();
+            try
+            {
+                next.SetAdvertisedMapKeys(previous.AdvertisedMapKeys);
+                await next.ResumeAsync(previous, transitionCancellation.Token).ConfigureAwait(false);
+                ReplaceCurrent(next);
+                await previous.DisposeAsync().ConfigureAwait(false);
+                return next;
+            }
+            catch { await next.DisposeAsync().ConfigureAwait(false); throw; }
+        }
+        finally
+        {
+            ClearActiveTransition(transitionCancellation);
+            Transition.Release();
+        }
     }
     public static async Task DisconnectAsync()
     {
-        var current = Current; Current = null;
-        if (current != null) await current.DisposeAsync();
+        CancelActiveTransition();
+        await Transition.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var current = Current;
+            ReplaceCurrent(null);
+            if (current != null) await current.DisposeAsync().ConfigureAwait(false);
+        }
+        finally { Transition.Release(); }
+    }
+
+    private static void ReplaceCurrent(NodeControlClient? value)
+    {
+        Volatile.Write(ref _current, value);
+        CurrentChanged?.Invoke(value);
+    }
+
+    private static void SetActiveTransition(CancellationTokenSource cancellation)
+    {
+        lock (ActiveTransitionGate) _activeTransition = cancellation;
+    }
+
+    private static void ClearActiveTransition(CancellationTokenSource cancellation)
+    {
+        lock (ActiveTransitionGate)
+        {
+            if (ReferenceEquals(_activeTransition, cancellation)) _activeTransition = null;
+        }
+    }
+
+    private static void CancelActiveTransition()
+    {
+        CancellationTokenSource? cancellation;
+        lock (ActiveTransitionGate) cancellation = _activeTransition;
+        try { cancellation?.Cancel(); }
+        catch (ObjectDisposedException)
+        {
+            // The operation completed between observation and cancellation.
+            // Disconnect will still serialize behind it below.
+        }
     }
 }

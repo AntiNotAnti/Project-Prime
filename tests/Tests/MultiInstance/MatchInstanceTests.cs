@@ -105,6 +105,28 @@ public sealed class MatchInstanceTests
         Assert.Throws<ArgumentException>(() => new MatchInstance(new(spec, 1) { RequireReplay = true }, new SilentTransport()));
     }
 
+    [Trait("RequiresGameContent", "true")]
+    [Fact]
+    public void MatchInstanceDrainsItsSemanticSinkIntoTelemetry()
+    {
+        using var content = OpenContent();
+        using var match = new MatchInstance(new(Spec(), 21), new SilentTransport());
+        match.Start();
+        match.Tick(); // Binds the authoritative wire match identity.
+        MatchEvent normalized = match.Simulation.Scene.Match.SemanticEvents.Dispatch(new(0, 1, 21,
+            match.Simulation.Scene.Match.PhaseRevision, MatchEventKind.OvertimeStarted,
+            CombatActor.None, CombatActor.None));
+
+        match.Tick();
+
+        Assert.True(match.SemanticQueueHighWater > 0);
+        Assert.Equal(0L, match.DroppedSemanticEvents);
+        Assert.Contains(match.Telemetry!.Complete(match.NextTick, completed: false).Events,
+            value => value.Kind == MphRead.Telemetry.TelemetryKind.MatchSemantic
+                && value.SemanticId == normalized.Id
+                && value.Value == (int)MatchEventKind.OvertimeStarted);
+    }
+
     private static MatchSpec Spec() => new(new(Guid.NewGuid()), new(Guid.NewGuid()), new(Guid.NewGuid()), Guid.NewGuid(),
         new MatchRules(MatchMode.Battle, "MP1 SANCTORUS", maxPlayers: 2, timeLimit: TimeSpan.FromSeconds(1)),
         new("MP1 SANCTORUS", "test-content", "AMHE1", "test-build", NetHeader.Version), MatchTrustClass.Community,

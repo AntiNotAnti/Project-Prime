@@ -124,8 +124,9 @@ The original bounded five-minute integration run and subsequent failed-drain
 rerun remain historical evidence; same-lobby rematch/map-change remains a
 separate gap.
 
-The package workflow publishes the Node apphost at the bundle root as
-`FruityPrimeServer` and the Worker apphost below `worker/`. The native
+The package workflow publishes the Backend apphost below `backend/`, the Node
+apphost at the bundle root as `FruityPrimeServer`, and the Worker apphost below
+`worker/`. The native
 `osx-arm64` fresh-extracted package smoke passed WSS authentication, public
 lobby create/configure/start, real Worker handoff, UDP admission, match end,
 replay/artifact writes, graceful drain and no-orphan checks; the empty-content

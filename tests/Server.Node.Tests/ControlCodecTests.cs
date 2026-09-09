@@ -11,6 +11,17 @@ public sealed class ControlCodecTests
     [Fact]
     public void KnownRequestDecodesWithRequiredFields()
     { Assert.Equal(new LobbySetReady(true, 1), NodeControlCodec.Read(Frame("lobby.ready.set", "{\"ready\":true,\"expectedRevision\":1}")).Command); }
+    [Fact]
+    public void LobbyConfigureAcceptsOlderPayloadAndPreservesPointGoalWhenPresent()
+    {
+        var older = Assert.IsType<LobbyConfigure>(NodeControlCodec.Read(Frame("lobby.configure",
+            "{\"expectedRevision\":1,\"mapKey\":\"unit\",\"mode\":\"Battle\"}")).Command);
+        Assert.Null(older.PointGoal);
+
+        var current = Assert.IsType<LobbyConfigure>(NodeControlCodec.Read(Frame("lobby.configure",
+            "{\"expectedRevision\":2,\"mapKey\":\"unit\",\"mode\":\"Battle\",\"pointGoal\":12}")).Command);
+        Assert.Equal(12, current.PointGoal);
+    }
     [Theory]
     [InlineData("{\"ready\":true,\"ready\":false}")]
     [InlineData("{\"ready\":true,\"admin\":true}")]

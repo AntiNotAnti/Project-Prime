@@ -17,6 +17,9 @@ Required configuration:
 - `Node:Authentication:Keys`: 1..8 `{KeyId, PublicKeyPemPath}` SPKI P-256 public keys.
 - `Node:Maps`: bounded `ContentIdentity` entries with map key, content hash/version,
   build version and gameplay protocol version, matching the Worker content profile.
+- `Node:MaximumWaitlistPerLobby`: bounded queue capacity (default 64, maximum
+  1024), and `Node:WaitlistOfferSeconds`: seat offer window from 10 to 20 seconds
+  (default 15).
 - `Node:Workers:Processes`: `WorkerLaunchOptions` entries. The manager owns private
   pipe/token/incarnation arguments. Set a real Worker executable, operator-owned
   content arguments, matching `Content`, absolute artifact root, and capacity.
@@ -48,18 +51,72 @@ expiry at most 120 seconds later. Replay IDs are consumed once. Verification is
 local and key material is loaded at startup; rotation currently requires a Node
 restart with the new public key set.
 
+Guest access uses the anonymous Backend endpoint `POST
+/v1/guest-node-admissions` in every environment. The request is
+`{nodeId,displayName}`; the Backend trims the name and accepts only 1–16
+printable ASCII characters. A successful response contains a short-lived ES256
+Node ticket with `kind=guest` and a fresh ephemeral UUID in `sub`. The Node maps
+that UUID to `GuestSessionId`, never to `PlayerId`. The display name is a label
+for session, lobby, chat, roster, and handoff presentation; it is not an
+account, authorization, or uniqueness claim.
+
+`POST /v1/node-admissions` remains the separate confirmed-account path. An
+account admission failure is returned to the caller; the Node and client flow
+never reinterpret it as guest access or retry the guest endpoint. Guest access
+still requires the normal configured Backend signer and an online Node, and the
+ticket is single-use at the Node.
+
+Guests use the same Node limits as accounts. They count toward
+`Node:MaximumSessions` and the lobby player/observer limits. A disconnected
+guest session retains its lobby membership and active match reservation during
+the 45-second resume grace; expiry removes the membership and can cancel a
+match whose lobby is empty. Resume tokens remain in memory only.
+
+When a match is frozen, any guest in the roster, including an observer, forces
+`MatchSpec.TrustClass=Practice`. The Worker may still emit a local
+report-ready event, but the Node validates and discards that guest artifact
+before Backend outbox ownership. Guest-containing matches therefore produce no
+Backend account/career or ranked report, even if the other roster members are
+registered.
+
 Control v1 JSON uses `{version,type,requestId,payload}`; server events use
 `{version,type,eventId,requestId,payload}`. Shared `NodeControlCodec` enforces 32 KiB,
 strict fields, duplicate rejection, source-generated DTO serialization and enum
-validation. Commands include lobby create/list/join/leave, configure, ready,
-hunter, team, chat, start, return and rematch. Mutations carry `expectedRevision`
-(except creation); stale updates fail. Full bounded snapshots carry new revisions.
+validation. Commands include lobby create/list/join/leave, queue join/leave/
+accept/decline, configure, ready, hunter, team, chat, start, return and rematch.
+Mutations carry `expectedRevision` (except creation); stale updates fail. Full
+bounded snapshots carry new revisions and include waitlist state. See
+`docs/LOBBY_WAITLIST.md` for queue ownership, reservation, and reconnect rules.
 Chat retains 16 entries; player/observer limits are 8/16. Owner start freezes ready
 seats, configured bots, and rules before placement. `lobby.configure` accepts
 optional `botCount` within the player capacity and `timeLimitSeconds` from 1..3600.
+It also accepts an optional `pointGoal` from 1..65535; omitted values use the
+selected mode default, and Survival interprets the value as its lives setting.
 Terminal Worker notification transitions the
 same lobby to PostMatch once. Return/rematch reopens it with fresh readiness;
 a subsequent start creates a new MatchId.
+
+Developer-only lag-compensation visuals are requested through the Node process,
+not the public player control socket. Set `Node:HostAdmin:TokenFile` to a file
+containing one 32..256 character printable ASCII token to map this HTTPS-only
+operator endpoint:
+
+```text
+POST /v1/host/matches/{matchId}/lagcomp-debug
+Authorization: Bearer <host-token>
+
+{"action":"enable","mode":"history","seat":0}
+{"action":"refresh","mode":"dynamic","seat":0}
+{"action":"clear","seat":0}
+```
+
+The request body is capped at 512 bytes and the route at 30 requests/minute per
+source address. With no token file configured, the route is not mapped. The
+Node resolves the active frozen human seat and routes
+`LagCompHistory`/`LagCompDynamic`/`LagCompClear` over the authenticated Worker
+pipe. The Worker sends bounded server-selected `NetMessageType.Debug` facts or
+the canonical clear packet to that player; stale matches and non-player seats
+fail closed. Clients cannot request a debug command or choose a rewind tick.
 
 Send `node.ping` every 20 seconds; `node.pong` acknowledges it. Disconnected sessions
 retain membership for 45 seconds. Reconnect with `Authorization: Resume <resumeToken>`;

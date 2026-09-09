@@ -5,23 +5,128 @@ using System.Threading.Channels;
 using FruityPrime.Server.Node.Workers;
 using FruityPrime.Server.Shared;
 using Microsoft.Extensions.Logging.Abstractions;
+using MphRead;
 
 namespace FruityPrime.Server.Node.Lobbies;
 
 public sealed record NodeMatchNotification(Guid SessionId, object Payload);
+
+/// <summary>Node configuration for one hosted map and its optional mode allow-list.</summary>
+/// <remarks>
+/// The nullable <see cref="Modes"/> property is intentional: an omitted allow-list
+/// preserves the legacy configuration meaning of every defined multiplayer mode.
+/// Values are numeric so invalid enum values fail catalog construction instead of
+/// being silently coerced by configuration binding.
+/// </remarks>
+public sealed record NodeMapConfiguration
+{
+    public string MapKey { get; init; } = "";
+    public string ContentHash { get; init; } = "";
+    public string ContentVersion { get; init; } = "";
+    public string BuildVersion { get; init; } = "";
+    public byte ProtocolVersion { get; init; }
+    public int[]? Modes { get; init; }
+
+    public NodeMapConfiguration() { }
+
+    public NodeMapConfiguration(string mapKey, string contentHash, string contentVersion,
+        string buildVersion, byte protocolVersion, int[]? modes)
+    {
+        MapKey = mapKey; ContentHash = contentHash; ContentVersion = contentVersion;
+        BuildVersion = buildVersion; ProtocolVersion = protocolVersion; Modes = modes;
+    }
+
+    public NodeMapConfiguration(ContentIdentity identity, int[]? modes = null)
+        : this(identity.MapKey, identity.ContentHash, identity.ContentVersion,
+            identity.BuildVersion, identity.ProtocolVersion, modes) { }
+
+    public ContentIdentity Identity => new(MapKey, ContentHash, ContentVersion, BuildVersion, ProtocolVersion);
+}
+
 public sealed class NodeContentCatalog
 {
-    private readonly IReadOnlyDictionary<string, ContentIdentity> _maps;
+    private const int MaximumMaps = 256;
+    private const int MaximumMapModes = 768;
+    private static readonly MatchMode[] DefinedModes = Enum.GetValues<MatchMode>();
+    private sealed record Entry(ContentIdentity Identity, MatchMode[] Modes);
+    private readonly IReadOnlyDictionary<string, Entry> _maps;
+
     public NodeContentCatalog(IEnumerable<ContentIdentity> maps)
+        : this(maps, null) { }
+
+    public static NodeContentCatalog FromConfiguration(IEnumerable<NodeMapConfiguration> maps)
     {
-        var entries = maps.ToArray();
-        if (entries.Length > 256 || entries.Any(m => string.IsNullOrWhiteSpace(m.MapKey) || m.MapKey.Length > 128
-            || string.IsNullOrWhiteSpace(m.ContentHash) || string.IsNullOrWhiteSpace(m.ContentVersion)
-            || string.IsNullOrWhiteSpace(m.BuildVersion) || m.ProtocolVersion == 0)) throw new ArgumentException("Invalid Node map catalog.");
-        _maps = entries.ToDictionary(m => m.MapKey, StringComparer.Ordinal);
+        if (maps == null) throw new ArgumentNullException(nameof(maps));
+        NodeMapConfiguration[] entries = maps.ToArray();
+        if (entries.Any(map => map == null)) throw new ArgumentException("Invalid Node map catalog entry.");
+        var configuredModes = entries.ToDictionary(map => map.MapKey, map => map.Modes, StringComparer.Ordinal);
+        return new NodeContentCatalog(entries.Select(map => map.Identity), configuredModes);
     }
-    public IReadOnlyCollection<string> Maps => _maps.Keys.ToArray();
-    public ContentIdentity Get(string mapKey) => _maps.TryGetValue(mapKey, out var map) ? map : throw new LobbyCommandException("map_unavailable", "Map is not configured on this Node.");
+
+    private NodeContentCatalog(IEnumerable<ContentIdentity> maps, IReadOnlyDictionary<string, int[]?>? configuredModes)
+    {
+        if (maps == null) throw new ArgumentNullException(nameof(maps));
+        var entries = maps.ToArray();
+        if (entries.Length > MaximumMaps) throw new ArgumentException("Node map catalog supports at most 256 maps.");
+
+        var mapKeys = new HashSet<string>(StringComparer.Ordinal);
+        var catalog = new Dictionary<string, Entry>(entries.Length, StringComparer.Ordinal);
+        int pairCount = 0;
+        foreach (ContentIdentity? identity in entries)
+        {
+            if (identity == null) throw new ArgumentException("Invalid Node map catalog entry.");
+            if (identity.MapKey is not { Length: > 0 and <= 128 }
+                || string.IsNullOrWhiteSpace(identity.MapKey) || identity.MapKey.Any(c => c is < ' ' or > '~')
+                || string.IsNullOrWhiteSpace(identity.ContentHash) || string.IsNullOrWhiteSpace(identity.ContentVersion)
+                || string.IsNullOrWhiteSpace(identity.BuildVersion) || identity.ProtocolVersion == 0)
+                throw new ArgumentException("Invalid Node map catalog entry.");
+            if (!mapKeys.Add(identity.MapKey)) throw new ArgumentException("Node map catalog contains a duplicate map.");
+
+            MatchMode[] modes = configuredModes != null && configuredModes.TryGetValue(identity.MapKey, out int[]? configured)
+                ? configured is null ? DefinedModes.ToArray() : ParseModes(configured)
+                : DefinedModes.ToArray();
+            if (modes.Length > MaximumMapModes - pairCount)
+                throw new ArgumentException("Node map catalog supports at most 768 map/mode pairs.");
+            pairCount += modes.Length;
+            catalog.Add(identity.MapKey, new(identity, modes));
+        }
+        _maps = catalog;
+    }
+    public IReadOnlyCollection<string> Maps => _maps.Keys.OrderBy(key => key, StringComparer.Ordinal).ToArray();
+    public ContentIdentity Get(string mapKey) => _maps.TryGetValue(mapKey, out var map) ? map.Identity : throw new LobbyCommandException("map_unavailable", "Map is not configured on this Node.");
+
+    public ContentIdentity Get(string mapKey, MatchMode mode)
+    {
+        Validate(mapKey, mode);
+        return _maps[mapKey].Identity;
+    }
+
+    public void Validate(string mapKey, MatchMode mode)
+    {
+        if (!_maps.TryGetValue(mapKey, out var map))
+            throw new LobbyCommandException("map_unavailable", "Map is not configured on this Node.");
+        if (!Enum.IsDefined(mode)) throw new LobbyCommandException("mode_unavailable", $"Mode {mode} is not available for map '{mapKey}'.");
+        if (!map.Modes.Contains(mode))
+            throw new LobbyCommandException("mode_unavailable", $"Mode {mode} is not available for map '{mapKey}'.");
+    }
+
+    private static MatchMode[] ParseModes(IEnumerable<int> values)
+    {
+        if (values is null) throw new ArgumentException("Node map catalog contains no allowed modes.");
+        var modes = new List<MatchMode>();
+        var seen = new HashSet<MatchMode>();
+        foreach (int value in values)
+        {
+            if (value is < byte.MinValue or > byte.MaxValue)
+                throw new ArgumentException("Node map catalog contains an invalid mode.");
+            MatchMode mode = (MatchMode)value;
+            if (!Enum.IsDefined(mode)) throw new ArgumentException("Node map catalog contains an invalid mode.");
+            if (!seen.Add(mode)) throw new ArgumentException("Node map catalog contains a duplicate mode.");
+            modes.Add(mode);
+        }
+        if (modes.Count == 0) throw new ArgumentException("Node map catalog contains no allowed modes.");
+        return modes.ToArray();
+    }
 }
 
 /// <summary>Connects frozen lobby admission to Worker placement and immutable terminal events.</summary>
@@ -59,6 +164,27 @@ public sealed class NodeMatchCoordinator : IDisposable
             return _latest.TryGetValue(sessionId, out var value) ? value : null;
         }
     }
+
+    /// <summary>
+    /// Host-only entry point for the bounded QZ1.14 diagnostic presentation.
+    /// The Node resolves the frozen human seat and constructs the authenticated
+    /// Node-to-Worker command; no public control-socket request reaches this
+    /// method. A stale match, non-player seat, or unavailable Worker fails
+    /// closed.
+    /// </summary>
+    public bool TrySendHistoricalDebug(MatchId matchId, AdminAction action, byte seat)
+    {
+        if (action is not (AdminAction.LagCompHistory or AdminAction.LagCompDynamic or AdminAction.LagCompClear)) return false;
+        Pending? pending;
+        lock (_gate)
+        {
+            if (!_matches.TryGetValue(matchId, out pending) || pending.Placement == null
+                || !pending.Spec.Roster.Any(roster => roster.SeatId == seat && roster.Role == SeatRole.Player))
+                return false;
+        }
+        return _scheduler.TrySendMatchAdmin(new MatchAdminCommand(matchId, action, seat));
+    }
+
     public void ReconcileMembership()
     {
         MatchId[] empty;
@@ -75,6 +201,9 @@ public sealed class NodeMatchCoordinator : IDisposable
     }
     public async Task<object> ExecuteAsync(LobbyIdentity identity, NodeCommand command)
     {
+        identity.Validate();
+        if (command is LobbyConfigure configure)
+            _content.Validate(configure.MapKey, configure.Mode);
         if (command is NodeMatchRejoin rejoin)
         {
             lock (_gate)
@@ -86,7 +215,8 @@ public sealed class NodeMatchCoordinator : IDisposable
                 long now = Environment.TickCount64;
                 if (_lastRejoin.TryGetValue(identity.SessionId, out long prior) && now - prior < 5000)
                     throw new LobbyCommandException("rate_limit", "Wait five seconds before retrying admission.");
-                var member = pending.Members.SingleOrDefault(m => m.SessionId == identity.SessionId && m.PlayerId == identity.PlayerId)
+                var member = pending.Members.SingleOrDefault(m => m.SessionId == identity.SessionId
+                    && m.IdentityKey == identity.IdentityKey)
                     ?? throw new LobbyCommandException("identity", "This session does not own the frozen reservation.");
                 _lastRejoin[identity.SessionId] = now;
                 return Handoff(pending, pending.Placement, member);
@@ -103,12 +233,20 @@ public sealed class NodeMatchCoordinator : IDisposable
             return response;
         }
         var before = _lobbies.ForSession(identity.SessionId) ?? throw new LobbyCommandException("not_joined", "Join a lobby first.");
+        _content.Validate(before.MapKey, before.Mode);
         var content = _content.Get(before.MapKey);
         MatchSpec spec;
         lock (_gate)
         {
+            // Re-read and validate the live lobby immediately before the
+            // state-freezing call. The expected revision still protects the
+            // cross-lock gap if a concurrent configure arrives here.
+            var current = _lobbies.ForSession(identity.SessionId)
+                ?? throw new LobbyCommandException("not_joined", "Join a lobby first.");
+            _content.Validate(current.MapKey, current.Mode);
+            content = _content.Get(current.MapKey);
             spec = _lobbies.PrepareMatch(identity.SessionId, start.ExpectedRevision, content, _workers.NodeId, _workers.NodeIncarnation);
-            _matches.Add(spec.MatchId, new(spec, before.Members.ToArray()));
+            _matches.Add(spec.MatchId, new(spec, current.Members.ToArray()));
         }
         try
         {
@@ -138,12 +276,15 @@ public sealed class NodeMatchCoordinator : IDisposable
     private NodeMatchHandoff Handoff(Pending pending, MatchPlacement placement, LobbyMember member)
     {
         var spec = pending.Spec;
-        var seat = spec.Roster.Single(s => s.PlayerId?.Value == member.PlayerId);
+        HumanIdentityKey identity = member.IdentityKey;
+        var seat = spec.Roster.Single(s => s.Role != SeatRole.Bot
+            && (identity.Kind == HumanIdentityKind.Registered ? s.PlayerId?.Value == identity.Value
+                : s.GuestSessionId == identity.Value));
         ulong nonce;
         do { nonce = BitConverter.ToUInt64(RandomNumberGenerator.GetBytes(8)); } while (nonce == 0);
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         string ticket = _issuer.Issue(new(spec.NodeId, spec.NodeIncarnation, placement.WorkerId, placement.WorkerIncarnation,
-            spec.LobbyId, spec.MatchId, placement.WireMatchId, member.SessionId, seat.PlayerId, null, seat.Role, seat.SeatId,
+            spec.LobbyId, spec.MatchId, placement.WireMatchId, member.SessionId, seat.PlayerId, seat.GuestSessionId, seat.Role, seat.SeatId,
             seat.DisplayName, nonce, now, now + 120, Guid.NewGuid()));
         return new(spec.MatchId.Value, placement.WireMatchId.Value, placement.Host, placement.Port, ticket, nonce, member.Observer, member.Hunter);
     }

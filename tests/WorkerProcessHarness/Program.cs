@@ -74,6 +74,15 @@ while (true)
             if (mode == "crash-running") return 24;
             Guid reportId = Guid.NewGuid();
             var reportNotice = new MatchReportReady(create.Spec.MatchId, reportId, worker, incarnation, new string('A', 64), 100);
+            if (mode == "guest-report")
+            {
+                string path = Path.Combine(Get("--artifact-dir"), "reports", create.Spec.MatchId.Value.ToString("N") + ".json");
+                byte[] bytes = await File.ReadAllBytesAsync(path);
+                await WorkerIpcCodec.WriteAsync(pipe, new MatchCompleted(new(create.Spec.MatchId, create.Spec.LobbyId,
+                    MphRead.MatchEndReason.TimeLimit, [], null, null, create.Spec.MatchId.Value)));
+                await WorkerIpcCodec.WriteAsync(pipe, new MatchReportReady(create.Spec.MatchId, create.Spec.MatchId.Value,
+                    worker, incarnation, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)), bytes.Length));
+            }
             if (mode == "premature-report") await WorkerIpcCodec.WriteAsync(pipe, reportNotice);
             if (mode == "interrupted-report")
             { await WorkerIpcCodec.WriteAsync(pipe, new MatchInterrupted(create.Spec.MatchId, "interrupted")); await WorkerIpcCodec.WriteAsync(pipe, reportNotice); }

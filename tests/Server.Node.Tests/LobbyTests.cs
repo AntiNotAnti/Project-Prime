@@ -13,15 +13,61 @@ public sealed class LobbyTests
     {
         var manager = new LobbyManager(); var owner = Person("Owner"); var other = Person("Other");
         var lobby = (LobbySnapshot)manager.Execute(owner, new LobbyCreate("Bots", LobbyVisibility.Public, 3, 0));
-        lobby = (LobbySnapshot)manager.Execute(owner, new LobbyConfigure(lobby.Revision, "unit", MatchMode.Battle, 2, 3));
+        lobby = (LobbySnapshot)manager.Execute(owner, new LobbyConfigure(lobby.Revision, "unit", MatchMode.Battle, 2, 3, 11));
         Assert.Throws<LobbyCommandException>(() => manager.Execute(other, new LobbyJoin(lobby.LobbyId, lobby.Revision)));
         lobby = (LobbySnapshot)manager.Execute(owner, new LobbySetReady(true, lobby.Revision));
         var spec = manager.PrepareMatch(owner.SessionId, lobby.Revision, new("unit", "hash", "1", "test", 8), new(Guid.NewGuid()), Guid.NewGuid());
         Assert.Equal(TimeSpan.FromSeconds(3), spec.Rules.TimeLimit);
+        Assert.Equal(11, spec.Rules.ScoreGoal);
         Assert.Equal(2, spec.Roster.Count(s => s.Role == SeatRole.Bot));
         Assert.All(spec.Roster.Where(s => s.Role == SeatRole.Bot), bot => { Assert.Null(bot.PlayerId); Assert.Null(bot.GuestSessionId); });
         Assert.Equal(BotFillPolicy.FillVacancies, spec.BotFillPolicy);
         Assert.Equal(3, spec.Roster.Select(s => s.SeatId).Distinct().Count());
+    }
+
+    [Fact]
+    public void ApplyingMatchSettingsPersistsEverySupportedFieldAndResetsReadiness()
+    {
+        var manager = new LobbyManager(); var owner = Person("Owner");
+        var lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Configured", LobbyVisibility.Public, 4, 0));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbySetReady(true, lobby.Revision));
+
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "MP1 SANCTORUS", MatchMode.Survival, 2, 600, 4));
+
+        Assert.Equal("MP1 SANCTORUS", lobby.MapKey);
+        Assert.Equal(MatchMode.Survival, lobby.Mode);
+        Assert.Equal(2, lobby.BotCount);
+        Assert.Equal(600, lobby.TimeLimitSeconds);
+        Assert.Equal(4, lobby.PointGoal);
+        Assert.All(lobby.Members, member => Assert.False(member.Ready));
+
+        lobby = (LobbySnapshot)manager.Execute(owner, new LobbySetReady(true, lobby.Revision));
+        var spec = manager.PrepareMatch(owner.SessionId, lobby.Revision,
+            new("MP1 SANCTORUS", "hash", "1", "test", 8), new(Guid.NewGuid()), Guid.NewGuid());
+        Assert.Equal(4, spec.Rules.StartingLives);
+        Assert.Equal(0, spec.Rules.ScoreGoal);
+        Assert.Equal(TimeSpan.FromMinutes(10), spec.Rules.TimeLimit);
+    }
+
+    [Fact]
+    public void InvalidPointLimitsFailWithoutMutatingLobby()
+    {
+        var manager = new LobbyManager(); var owner = Person("Owner");
+        var lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Configured", LobbyVisibility.Public, 4, 0));
+
+        Assert.Throws<LobbyCommandException>(() => manager.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "unit", MatchMode.Battle, PointGoal: 0)));
+        Assert.Throws<LobbyCommandException>(() => manager.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "unit", MatchMode.Battle, PointGoal: 65536)));
+
+        LobbySnapshot unchanged = manager.ForSession(owner.SessionId)!;
+        Assert.Equal(lobby.Revision, unchanged.Revision);
+        Assert.Equal("", unchanged.MapKey);
+        Assert.Null(unchanged.PointGoal);
     }
     [Fact]
     public void MembershipRevisionsAndOwnerTransferRemainAuthoritative()

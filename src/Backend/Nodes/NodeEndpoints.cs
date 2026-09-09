@@ -1,12 +1,14 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MphRead.Backend.Data;
+using MphRead.Backend.Profiles;
 using MphRead.Backend.Tickets;
 using MphRead.Identity;
 
 namespace MphRead.Backend.Nodes;
 
 public sealed record NodeAdmissionRequest(Guid NodeId);
+public sealed record GuestNodeAdmissionRequest(Guid NodeId, string? DisplayName);
 public static class NodeEndpoints
 {
     public static void MapNodes(this WebApplication app)
@@ -39,7 +41,27 @@ public static class NodeEndpoints
             if (profile == null) return Results.NotFound();
             return Results.Ok(issuer.IssueNodeAdmission(new PlayerId(user.Id), profile.DisplayName, node.NodeId, node.PublicControlUri));
         }).RequireAuthorization().RequireRateLimiting("auth");
+
+        app.MapPost("/v1/guest-node-admissions",
+            (GuestNodeAdmissionRequest request, NodeDirectory directory, GameTicketIssuer issuer) =>
+            {
+                if (request.NodeId == Guid.Empty || !TryGuestDisplayName(request.DisplayName, out string name))
+                    return Results.BadRequest();
+                if (!issuer.IsConfigured) return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+                var node = directory.FindOnline(request.NodeId);
+                if (node == null) return Results.NotFound();
+                Guid guestId = Guid.NewGuid();
+                return Results.Ok(issuer.IssueGuestNodeAdmission(guestId, name, node.NodeId,
+                    node.PublicControlUri));
+            }).RequireRateLimiting("guest-auth");
     }
+
+    private static bool TryGuestDisplayName(string? value, out string name)
+    {
+        name = value?.Trim() ?? "";
+        return !string.IsNullOrWhiteSpace(name) && ProfileEndpoints.ValidDisplayName(name);
+    }
+
     private static bool Credentials(HttpContext http, out Guid id, out string secret)
     {
         secret = "";

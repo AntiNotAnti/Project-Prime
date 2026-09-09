@@ -1,9 +1,14 @@
 # Persistent Node control
 
 The graphical launcher's online entry opens compatible Backend Nodes. Hunter
-License sign-in supplies a short-lived Node admission; the account bearer token
-is never sent to the Node. Legacy direct servers remain an explicit rollback
-entry. Node listings match the local protocol, build display and content hash.
+License sign-in supplies a short-lived account Node admission; the account bearer
+token is never sent to the Node. A configured but signed-out launcher can browse
+the anonymous directory and request a short-lived guest admission using its
+trimmed launcher name. Signed-in admission failures are surfaced directly and
+never silently retried as guest. Guest display names label guest sessions only;
+they do not represent authenticated account ownership. Node listings match the
+local protocol, build display and content hash. Legacy direct servers remain an
+explicit rollback entry.
 
 One `NodeControlClient` retains WSS while UDP gameplay opens and closes. Control
 frames and command queues are bounded, state is published as immutable snapshots,

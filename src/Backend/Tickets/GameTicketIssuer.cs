@@ -86,6 +86,25 @@ public sealed class GameTicketIssuer : IDisposable
         return new(token, expires, nodeId, publicControlUri);
     }
 
+    public NodeAdmissionResponse IssueGuestNodeAdmission(Guid guestId, string name, Guid nodeId,
+        string publicControlUri)
+    {
+        if (_credentials == null) throw new InvalidOperationException("Tickets are not configured.");
+        if (guestId == Guid.Empty || nodeId == Guid.Empty || !Profiles.ProfileEndpoints.ValidDisplayName(name))
+            throw new ArgumentException("Invalid guest Node admission identity.");
+        var now = DateTimeOffset.FromUnixTimeSeconds(_clock.GetUtcNow().ToUnixTimeSeconds());
+        var expires = now.AddSeconds(LifetimeSeconds);
+        string token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+        {
+            Issuer = _issuer, Audience = "urn:prime-hunters:node:" + nodeId.ToString("D"),
+            TokenType = "ph-node-admission+jwt", IssuedAt = now.UtcDateTime, NotBefore = now.UtcDateTime,
+            Expires = expires.UtcDateTime, SigningCredentials = _credentials,
+            Claims = new Dictionary<string, object> { ["sub"] = guestId.ToString("D"),
+                ["name"] = name, ["kind"] = "guest", ["jti"] = Guid.NewGuid().ToString("D") }
+        });
+        return new(token, expires, nodeId, publicControlUri);
+    }
+
     public string SignMatchResult(Guid matchId, string payloadHash, long processingOrder, int effectiveTrustClass)
     {
         if (_credentials == null) throw new InvalidOperationException("Result signing is not configured.");

@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text.Json;
+using FruityPrime.Server.Node.Lobbies;
 using FruityPrime.Server.Node.Discovery;
+using FruityPrime.Server.Shared;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -28,6 +30,29 @@ public sealed class NodeDirectoryReporterTests
     {
         public DateTimeOffset Now = new(2026, 9, 8, 0, 0, 0, TimeSpan.Zero);
         public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    [Fact]
+    public async Task RegistrationPublishesSortedCatalogSnapshot()
+    {
+        var catalog = new NodeContentCatalog([
+            new ContentIdentity("zeta", "hash", "1", "test-build", 9),
+            new ContentIdentity("Alpha", "hash", "1", "test-build", 9)]);
+        string[] mapKeys = catalog.Maps.ToArray();
+        var original = new NodeDirectoryRegistration(Guid.NewGuid(), "Node", "us",
+            "wss://node.example/v1/control", 9, "test-build", new string('a', 64), 100, mapKeys);
+        var options = new NodeDirectoryReporterOptions(Guid.NewGuid(), new Uri("https://backend.example/"), original,
+            "private-test-credential");
+        mapKeys[0] = "mutated-after-options";
+        using var handler = new Handler(); using var http = new HttpClient(handler);
+        using var reporter = new NodeDirectoryReporter(options,
+            () => new(options.Registration.Incarnation, 0, 0, 0),
+            NullLogger<NodeDirectoryReporter>.Instance, http, new Clock());
+
+        Assert.True(await reporter.PublishOnceAsync());
+        string[] sent = handler.Requests[0].Body.GetProperty("mapKeys").EnumerateArray()
+            .Select(value => value.GetString()!).ToArray();
+        Assert.Equal(new[] { "Alpha", "zeta" }, sent);
     }
     [Fact]
     public async Task RegistersThenHeartbeatsExactCompatibleMetadataAndBoundedPopulation()

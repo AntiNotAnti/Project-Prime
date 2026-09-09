@@ -19,33 +19,49 @@ public sealed class NodeDirectorySettings
 }
 
 public sealed record NodeDirectoryRegistration(Guid Incarnation, string Name, string Region, string PublicControlUri,
-    int ProtocolVersion, string BuildVersion, string ContentHash, int Capacity);
+    int ProtocolVersion, string BuildVersion, string ContentHash, int Capacity, string[]? MapKeys = null);
 public sealed record NodeDirectoryHeartbeat(Guid Incarnation, int OnlineUsers, int LobbyCount, int ActiveMatches);
 
 public sealed class NodeDirectoryReporterOptions
 {
+    private const string TemporaryDevelopmentBackendHost = "51.161.113.128";
     public Guid NodeId { get; }
     public Uri Backend { get; }
     public NodeDirectoryRegistration Registration { get; }
+    private readonly string[]? _mapKeys;
     internal string Credential { get; }
     public TimeSpan RequestTimeout { get; init; } = TimeSpan.FromSeconds(5);
     public TimeSpan HeartbeatInterval { get; init; } = TimeSpan.FromSeconds(20);
     public override string ToString() => $"NodeDirectoryReporterOptions {{ NodeId = {NodeId} }}";
     public NodeDirectoryReporterOptions(Guid nodeId, Uri backend, NodeDirectoryRegistration registration, string credential)
-    { NodeId = nodeId; Backend = backend; Registration = registration; Credential = credential; }
+    {
+        NodeId = nodeId; Backend = backend;
+        _mapKeys = registration.MapKeys?.OrderBy(key => key, StringComparer.Ordinal).ToArray();
+        Registration = registration with { MapKeys = _mapKeys?.ToArray() };
+        Credential = credential;
+    }
+    internal NodeDirectoryRegistration SnapshotRegistration()
+        => Registration with { MapKeys = _mapKeys?.ToArray() };
     public void Validate()
     {
         static bool Text(string? value, int max) => value is { Length: > 0 } && value.Length <= max
             && value.All(c => Char.IsAscii(c) && !Char.IsControl(c));
+        static bool MapKeyText(string? value) => value is { Length: > 0 and <= 128 }
+            && !String.IsNullOrWhiteSpace(value) && value.All(c => c is >= ' ' and <= '~');
         if (NodeId == Guid.Empty || !Backend.IsAbsoluteUri || Backend.UserInfo.Length != 0
             || Backend.Query.Length != 0 || Backend.Fragment.Length != 0
-            || Backend.Scheme != "https" && !(Backend.Scheme == "http" && Backend.IsLoopback)
+            || Backend.Scheme != "https" && !(Backend.Scheme == "http"
+                && (Backend.IsLoopback || string.Equals(Backend.Host, TemporaryDevelopmentBackendHost,
+                    StringComparison.OrdinalIgnoreCase)))
             || Registration.Incarnation == Guid.Empty || !Text(Registration.Name, 64) || !Text(Registration.Region, 32)
             || !Text(Registration.BuildVersion, 64) || Registration.ProtocolVersion is < 1 or > 65535
             || Registration.ContentHash is not { Length: 64 } || !Registration.ContentHash.All(Char.IsAsciiHexDigit)
             || Registration.Capacity is < 1 or > 10000 || Registration.PublicControlUri is not { Length: <= 256 }
             || !Uri.TryCreate(Registration.PublicControlUri, UriKind.Absolute, out Uri? control)
             || control.Scheme != "wss" || control.UserInfo.Length != 0 || control.Query.Length != 0 || control.Fragment.Length != 0
+            || Registration.MapKeys is { Length: > 256 }
+            || Registration.MapKeys is { } keys && (keys.Any(key => !MapKeyText(key))
+                || keys.Distinct(StringComparer.Ordinal).Count() != keys.Length)
             || !Text(Credential, 4096) || String.IsNullOrWhiteSpace(Credential)
             || RequestTimeout < TimeSpan.FromMilliseconds(100) || RequestTimeout > TimeSpan.FromSeconds(10)
             || HeartbeatInterval < TimeSpan.FromSeconds(5) || HeartbeatInterval > TimeSpan.FromSeconds(30))
@@ -110,7 +126,7 @@ public sealed class NodeDirectoryReporter : BackgroundService
                 throw new InvalidOperationException("Invalid Node directory population snapshot.");
             if (!_registered || _clock.GetUtcNow() >= _registerDue)
             {
-                await SendAsync(HttpMethod.Put, "v1/node/registration", _options.Registration, cancellationToken);
+                await SendAsync(HttpMethod.Put, "v1/node/registration", _options.SnapshotRegistration(), cancellationToken);
                 _registered = true; _registerDue = _clock.GetUtcNow().AddSeconds(60);
             }
             await SendAsync(HttpMethod.Post, "v1/node/heartbeat", population, cancellationToken);
@@ -180,12 +196,13 @@ public static class NodeDirectoryRegistrationExtensions
         {
             var workers = sp.GetRequiredService<WorkerManager>();
             var catalog = sp.GetRequiredService<NodeContentCatalog>();
-            var content = catalog.Maps.Select(catalog.Get).Select(value => (value.ProtocolVersion, value.BuildVersion, value.ContentHash)).Distinct().ToArray();
+            string[] mapKeys = catalog.Maps.OrderBy(key => key, StringComparer.Ordinal).ToArray();
+            var content = mapKeys.Select(catalog.Get).Select(value => (value.ProtocolVersion, value.BuildVersion, value.ContentHash)).Distinct().ToArray();
             if (content.Length != 1) throw new ArgumentException("Directory publication requires exactly one Node content/build identity.");
             var identity = content[0];
             var registration = new NodeDirectoryRegistration(workers.NodeIncarnation, settings.Name, settings.Region,
                 settings.PublicControlUri, identity.ProtocolVersion, identity.BuildVersion, identity.ContentHash,
-                configuration.GetValue("Node:MaximumSessions", 1024));
+                configuration.GetValue("Node:MaximumSessions", 1024), mapKeys);
             var options = new NodeDirectoryReporterOptions(workers.NodeId.Value, new Uri(settings.BackendUri, UriKind.Absolute), registration, credential);
             var sessions = sp.GetRequiredService<NodeSessionManager>();
             var lobbies = sp.GetRequiredService<LobbyManager>();

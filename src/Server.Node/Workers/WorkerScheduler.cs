@@ -85,7 +85,7 @@ public sealed class WorkerScheduler : IAsyncDisposable
                             && p.State.Health.TickP99Milliseconds <= _maximumTickP99
                             && (p.State.Health.Diagnostics == null || p.State.Health.Diagnostics.CpuPercent < 95)))
                     .OrderBy(p => p.State.Matches.Values.Count(IsActive)).ThenBy(p => p.Worker.Id.Value).ToArray();
-                bool reserved = spec.TrustClass is MatchTrustClass.VerifiedCasual or MatchTrustClass.Ranked or MatchTrustClass.Tournament;
+                bool reserved = RequiresBackendReport(spec);
                 if (reserved && (_reports == null || !_reports.TryReserve(spec.MatchId)))
                     throw new WorkerPlacementException("Official reporting is unavailable or at capacity.");
                 ManagedWorker? selected = null;
@@ -134,6 +134,22 @@ public sealed class WorkerScheduler : IAsyncDisposable
             if (p.Worker.TrySend(new CancelMatch(matchId, reason))) return true;
             _ = p.Worker.DisposeAsync();
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Routes a validated match-admin command over the Node-owned authenticated
+    /// Worker pipe. This is intentionally a host integration point, not a
+    /// public player/control-socket command.
+    /// </summary>
+    public bool TrySendMatchAdmin(MatchAdminCommand command)
+    {
+        WorkerIpcCodec.Encode(command);
+        lock (_gate)
+        {
+            if (!_placements.TryGetValue(command.MatchId, out var placement) || !IsActive(placement.Status))
+                return false;
+            return placement.Worker.TrySend(command);
         }
     }
 
@@ -203,7 +219,19 @@ public sealed class WorkerScheduler : IAsyncDisposable
                 WorkerMatchAssignment? assignment = null;
                 lock (_gate)
                     if (_placements.TryGetValue(report.MatchId, out var p) && p.Worker == worker) assignment = Assignment(p);
-                if (assignment != null && _reports != null)
+                if (assignment != null && ContainsGuest(assignment.Spec))
+                {
+                    // Guest matches still produce and validate a local report-ready
+                    // event, but their artifacts never acquire Backend ownership.
+                    if (assignment.Placement is not { } placement || assignment.ArtifactDirectory is not { } root
+                        || !NodeReportIngestor.TryDiscardArtifact(assignment.Spec, assignment.WorkerId,
+                            assignment.WorkerIncarnation, placement.WireMatchId.Value, root, report))
+                        _logger.LogWarning("Suppressed guest report artifact could not be validated and cleaned for {MatchId}; Backend submission remains disabled.", report.MatchId.Value);
+                    // Completion stays visible immediately; retention/drain waits only
+                    // for this local cleanup attempt, never for Backend submission.
+                    lock (_gate) if (_placements.TryGetValue(report.MatchId, out var p)) p.ReportQueued = true;
+                }
+                else if (assignment != null && _reports != null)
                 {
                     if (assignment.Placement is not { } placement || assignment.ArtifactDirectory is not { } root
                         || !_reports.TryQueue(assignment.Spec, assignment.WorkerId, assignment.WorkerIncarnation,
@@ -238,7 +266,10 @@ public sealed class WorkerScheduler : IAsyncDisposable
                     case MatchReady ready:
                         p.Status = MatchStatus.Ready; p.Deadline.Cancel(); p.Ready.TrySetResult(ready.Placement); break;
                     case MatchStarted: p.Status = MatchStatus.Running; break;
-                    case MatchCompleted: p.Status = MatchStatus.Completed; p.ReportExpected = _reports != null; interrupted = false; notify = true; break;
+                    case MatchCompleted:
+                        p.Status = MatchStatus.Completed;
+                        p.ReportExpected = ContainsGuest(p.Spec) ? p.Worker.ArtifactDirectory != null : _reports != null;
+                        interrupted = false; notify = true; break;
                     case MatchFailed: p.Status = MatchStatus.Failed; notify = true; break;
                     case MatchInterrupted: p.Status = MatchStatus.Interrupted; notify = true; break;
                 }
@@ -260,6 +291,9 @@ public sealed class WorkerScheduler : IAsyncDisposable
         MatchId[] interruptedIds;
         lock (_gate)
         {
+            // A lost Worker cannot deliver a remaining guest artifact notice.
+            foreach (var placement in _placements.Values.Where(p => p.Worker == worker && ContainsGuest(p.Spec)))
+                placement.ReportQueued = true;
             interruptedIds = _placements.Where(p => p.Value.Worker == worker && IsActive(p.Value.Status)).Select(p => p.Key).ToArray();
             foreach (MatchId id in interruptedIds)
             {
@@ -278,6 +312,10 @@ public sealed class WorkerScheduler : IAsyncDisposable
             try { handler(id, interrupted); }
             catch (Exception error) { _logger.LogError(error, "Match outcome subscriber failed for {MatchId}", id.Value); }
     }
+
+    private static bool ContainsGuest(MatchSpec spec) => spec.Roster.Any(seat => seat.GuestSessionId.HasValue);
+    private static bool RequiresBackendReport(MatchSpec spec)
+        => !ContainsGuest(spec) && (spec.TrustClass is MatchTrustClass.VerifiedCasual or MatchTrustClass.Ranked or MatchTrustClass.Tournament);
 
     public async ValueTask DisposeAsync()
     {

@@ -4,11 +4,11 @@ using MphRead.Identity;
 namespace MphRead.Backend.Nodes;
 
 public sealed record NodeRegistration(Guid Incarnation, string Name, string Region, string PublicControlUri,
-    int ProtocolVersion, string BuildVersion, string ContentHash, int Capacity);
+    int ProtocolVersion, string BuildVersion, string ContentHash, int Capacity, string[]? MapKeys = null);
 public sealed record NodeHeartbeat(Guid Incarnation, int OnlineUsers, int LobbyCount, int ActiveMatches);
 public sealed record NodeListing(Guid NodeId, string Name, string Region, string PublicControlUri,
     int ProtocolVersion, string BuildVersion, string ContentHash, int Capacity, int OnlineUsers,
-    int LobbyCount, int ActiveMatches, string TrustClass, DateTimeOffset LastHeartbeat);
+    int LobbyCount, int ActiveMatches, string TrustClass, DateTimeOffset LastHeartbeat, string[]? MapKeys = null);
 
 /// <summary>Ephemeral discovery only. Restart clears listings; Nodes republish. No live
 /// match or admission authority depends on retention of this directory.</summary>
@@ -27,7 +27,8 @@ public sealed class NodeDirectory(GameServerRegistry owners, TimeProvider clock)
         Validate(value);
         var listing = new NodeListing(nodeId, value.Name, value.Region, value.PublicControlUri,
             value.ProtocolVersion, value.BuildVersion, value.ContentHash, value.Capacity, 0, 0, 0,
-            trust is MatchTrustClass.VerifiedCasual or MatchTrustClass.Ranked or MatchTrustClass.Tournament ? "verified" : "community", clock.GetUtcNow());
+            trust is MatchTrustClass.VerifiedCasual or MatchTrustClass.Ranked or MatchTrustClass.Tournament ? "verified" : "community",
+            clock.GetUtcNow(), Snapshot(value.MapKeys));
         lock (_gate) _nodes[nodeId] = (value.Incarnation, listing);
         return true;
     }
@@ -49,19 +50,21 @@ public sealed class NodeDirectory(GameServerRegistry owners, TimeProvider clock)
 
     public NodeListing[] Browse(int protocol, string build, string content)
     {
-        lock (_gate) return _nodes.Values.Select(x => x.Listing)
+        lock (_gate) return _nodes.Values.Select(x => Snapshot(x.Listing))
             .Where(x => Online(x) && x.ProtocolVersion == protocol && x.BuildVersion == build && x.ContentHash == content)
             .OrderBy(x => x.NodeId).ToArray();
     }
 
     public NodeListing? FindOnline(Guid nodeId)
     {
-        lock (_gate) return _nodes.TryGetValue(nodeId, out var value) && Online(value.Listing) ? value.Listing : null;
+        lock (_gate) return _nodes.TryGetValue(nodeId, out var value) && Online(value.Listing) ? Snapshot(value.Listing) : null;
     }
 
     private bool Online(NodeListing value) => clock.GetUtcNow() - value.LastHeartbeat < OnlineLifetime;
     private static bool Text(string? value, int max) => value is { Length: > 0 } && value.Length <= max
         && value.All(c => char.IsAscii(c) && !char.IsControl(c));
+    private static bool MapKeyText(string? value) => value is { Length: > 0 and <= 128 }
+        && !string.IsNullOrWhiteSpace(value) && value.All(c => c is >= ' ' and <= '~');
     private static void Validate(NodeRegistration value)
     {
         if (value.Incarnation == Guid.Empty || !Text(value.Name, 64) || !Text(value.Region, 32)
@@ -69,7 +72,16 @@ public sealed class NodeDirectory(GameServerRegistry owners, TimeProvider clock)
             || value.ContentHash is not { Length: 64 } || !value.ContentHash.All(char.IsAsciiHexDigit)
             || value.Capacity is < 1 or > 10000 || value.PublicControlUri is not { Length: <= 256 }
             || !Uri.TryCreate(value.PublicControlUri, UriKind.Absolute, out var uri)
-            || uri.Scheme != "wss" || uri.UserInfo.Length != 0 || uri.Query.Length != 0 || uri.Fragment.Length != 0)
+            || uri.Scheme != "wss" || uri.UserInfo.Length != 0 || uri.Query.Length != 0 || uri.Fragment.Length != 0
+            || value.MapKeys is { Length: > 256 }
+            || value.MapKeys is { } keys && (keys.Any(key => !MapKeyText(key))
+                || keys.Distinct(StringComparer.Ordinal).Count() != keys.Length))
             throw new ArgumentException("Invalid Node registration.");
     }
+
+    private static NodeListing Snapshot(NodeListing listing)
+        => listing with { MapKeys = Snapshot(listing.MapKeys) };
+
+    private static string[]? Snapshot(string[]? mapKeys)
+        => mapKeys?.ToArray();
 }

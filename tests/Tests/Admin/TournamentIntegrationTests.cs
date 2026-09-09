@@ -81,7 +81,16 @@ public sealed class TournamentIntegrationTests
             state.Scene.Match.PhaseRevision = 1;
             var kill = new KillEvent(1, 100, 1, 1, new(0, 10, 1), new(1, 20, 1), 0, KillEventFlags.Headshot, []);
             byte[] killPayload = new byte[4 + KillEvent.Size]; BinaryPrimitives.WriteUInt32LittleEndian(killPayload, 1); kill.Write(killPayload.AsSpan(4));
-            var frame = new ObserverFrame(100, 1, state.Scene.Match.Rules, snapshot, new[] { world }, roster, 1, true, true, new[] { new ObserverEvent(ReliableEventType.Kill, killPayload) });
+            MatchEvent ended = new(1, 100, 1, 1, MatchEventKind.MatchEnded,
+                CombatActor.None, CombatActor.None, Team: 0);
+            MatchSemanticEventPacket endedPacket = MatchSemanticEventPacketConversion.FromEvent(ended);
+            byte[] endedPayload = new byte[4 + MatchSemanticEventPacket.Size];
+            BinaryPrimitives.WriteUInt32LittleEndian(endedPayload, 1);
+            endedPacket.Write(endedPayload.AsSpan(4));
+            var frame = new ObserverFrame(100, 1, state.Scene.Match.Rules, snapshot,
+                new[] { world }, roster, 1, true, true,
+                new[] { new ObserverEvent(ReliableEventType.Kill, killPayload),
+                    new ObserverEvent(ReliableEventType.MatchSemantic, endedPayload) });
             var recording = new ServerReplaySession(directory);
             recording.Capture(frame, state.Scene);
             recording.Capture(frame with { Tick = 101, Events = Array.Empty<ObserverEvent>() }, state.Scene);
@@ -103,7 +112,7 @@ public sealed class TournamentIntegrationTests
             Assert.Contains(records, r => r.Data.Length == 2 && r.Data[0] == (byte)DemoRecordKind.Perspective && r.Data[1] == 255);
             var clock = Assert.Single(records, r => r.Data[0] == (byte)DemoRecordKind.Clock);
             Assert.Equal(state.Scene.FrameCount, BinaryPrimitives.ReadUInt64LittleEndian(clock.Data.AsSpan(1)));
-            Assert.Contains(reader.Index, e => e.Marker == ReplayMarker.MatchEnd);
+            Assert.Single(reader.Index, e => e.Marker == ReplayMarker.MatchEnd);
             Assert.Contains(reader.Index, e => (e.Marker & (ReplayMarker.Kill | ReplayMarker.Headshot)) == (ReplayMarker.Kill | ReplayMarker.Headshot));
             var observerFeedback = new ServerReplayFeedback();
             observerFeedback.Bind(frame, 1); observerFeedback.Apply(frame);

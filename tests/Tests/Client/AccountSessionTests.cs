@@ -28,6 +28,7 @@ public sealed class AccountSessionTests
     [InlineData("http://localhost:4711/")]
     [InlineData("http://127.0.0.1:4711/")]
     [InlineData("http://[::1]:4711/")]
+    [InlineData("http://51.161.113.128/")]
     public void BackendPolicyAllowsHttpsAndLoopbackHttp(string value)
         => Assert.True(AccountSession.IsAllowedBackend(new Uri(value)));
 
@@ -36,6 +37,7 @@ public sealed class AccountSessionTests
     {
         Assert.False(AccountSession.IsAllowedBackend(null));
         Assert.False(AccountSession.IsAllowedBackend(new Uri("http://accounts.example.test/")));
+        Assert.False(AccountSession.IsAllowedBackend(new Uri("http://51.161.113.127/")));
         Assert.False(AccountSession.IsAllowedBackend(new Uri("ftp://accounts.example.test/")));
         Assert.False(AccountSession.IsAllowedBackend(new Uri("https://user:password@accounts.example.test/")));
         Assert.False(AccountSession.IsAllowedBackend(new Uri("https://accounts.example.test/?redirect=http://localhost/")));

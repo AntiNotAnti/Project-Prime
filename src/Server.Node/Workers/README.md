@@ -18,8 +18,13 @@ no `--standalone` Worker option exists.
 - Startup, heartbeat and shutdown deadlines and bounded command/event capacities.
 
 Use the Worker `--describe-content true --content-dir <absolute-path>
---content-version AMHE1` command to obtain the expected immutable content profile.
-No game Scene is created in Node.
+--content-version AMHE1 --map-dir <absolute-map-bundle-path>` command to obtain
+the expected immutable content descriptor. It contains the identity fields and
+an ordinal-sortable `Maps` array whose entries are `{MapKey, Modes}` with
+numeric `MatchMode` values from 0 through 11. The development launchers keep
+this descriptor in their mode-600 state directory and populate `Node:Maps`
+from every discovered map unless `PRIME_MAP_KEY` names one exact map. No game
+Scene is created in Node, and AMHE1 remains operator-supplied content.
 
 The manager creates a CurrentUserOnly duplex pipe with a random name. A separate
 32-byte single-use startup token crosses redirected stdin only. Identity and token

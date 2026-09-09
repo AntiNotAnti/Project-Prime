@@ -88,7 +88,8 @@ public sealed partial class LobbyManager
                     throw Error("round_identity", "Select a new round identity for an active tournament.");
                 ValidateMap(select.MapKey, select.Mode);
                 Reopen(lobby, identity);
-                Execute(identity, new LobbyConfigure(lobby.Revision, select.MapKey, select.Mode, lobby.BotCount, lobby.TimeLimitSeconds));
+                Execute(identity, new LobbyConfigure(lobby.Revision, select.MapKey, select.Mode,
+                    lobby.BotCount, lobby.TimeLimitSeconds, lobby.PointGoal));
                 state.Round = select.RoundId; state.ConfigurationRevision++; state.Paused = true;
                 state.Options = []; state.Votes.Clear(); state.Deadline = null; break;
             case LobbyTournamentAssignTeam assign:
@@ -139,7 +140,8 @@ public sealed partial class LobbyManager
                     : tied[(int)RngAlgorithm.Next(ref state.Random, (uint)tied.Length)];
                 Reopen(lobby, identity);
                 if (selected.Choice != LobbyVoteChoice.ReturnToLobby)
-                    Execute(identity, new LobbyConfigure(lobby.Revision, selected.MapKey, selected.Mode, lobby.BotCount, lobby.TimeLimitSeconds));
+                    Execute(identity, new LobbyConfigure(lobby.Revision, selected.MapKey, selected.Mode,
+                        lobby.BotCount, lobby.TimeLimitSeconds, lobby.PointGoal));
                 state.Options = []; state.Votes.Clear(); state.Deadline = null; state.ConfigurationRevision++; break;
         }
         Publish(lobby);
@@ -160,7 +162,7 @@ public sealed partial class LobbyManager
     private static NodeRoundSnapshot RoundSnapshot(Lobby lobby, RoundState state, Guid session)
     {
         PruneVotes(lobby, state);
-        return new(lobby.Snapshot(), state.Tournament, state.Round, state.Paused, state.Ended, state.ConfigurationRevision,
+        return new(lobby.Snapshot(IdentityForSession(lobby, session)), state.Tournament, state.Round, state.Paused, state.Ended, state.ConfigurationRevision,
             state.BallotRevision, state.Deadline, state.Options.Select(o => o with { Votes = state.Votes.Values.Count(v => v == o.Id) }).ToImmutableArray(), state.Votes.GetValueOrDefault(session));
     }
 }

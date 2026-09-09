@@ -135,6 +135,12 @@ public sealed class WorkerIpcTests
         Assert.Throws<ArgumentException>(() => WorkerIpcCodec.Encode(new MatchReady(placement with { WorkerIncarnation = Guid.Empty })));
         Assert.Throws<ArgumentException>(() => WorkerIpcCodec.Encode(new MatchReady(placement with { WireMatchId = default })));
         Assert.Throws<ArgumentException>(() => WorkerIpcCodec.Encode(new MatchAdminCommand(Match, AdminAction.KickSeat, 32)));
+        Assert.Equal(typeof(MatchAdminCommand), WorkerIpcCodec.Decode(WorkerIpcCodec.Encode(
+            new MatchAdminCommand(Match, AdminAction.LagCompHistory, 0))).GetType());
+        Assert.Equal(typeof(MatchAdminCommand), WorkerIpcCodec.Decode(WorkerIpcCodec.Encode(
+            new MatchAdminCommand(Match, AdminAction.LagCompClear, 0))).GetType());
+        Assert.Throws<ArgumentException>(() => WorkerIpcCodec.Encode(
+            new MatchAdminCommand(Match, AdminAction.LagCompDynamic, null)));
         Assert.Throws<ArgumentException>(() => WorkerIpcCodec.Encode(new MatchAdminCommand(default, AdminAction.Pause, null)));
         var summary = new NodeMatchSummary(Match, new(1), new(Guid.NewGuid()), Worker, Guid.NewGuid(), MatchStatus.Running, "test", 2, 0);
         summary.Validate();

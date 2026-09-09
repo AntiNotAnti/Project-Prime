@@ -14,12 +14,15 @@ public sealed class BackendSecurityOptions
 {
     public string? PublicUrl { get; set; }
     public bool AllowLoopbackHttp { get; set; }
+    /// <summary>Temporary Development-only HTTP access for the Project Prime test Backend.</summary>
+    public bool AllowRemoteHttp { get; set; }
     public int MaxConcurrentRequests { get; set; } = 128;
     public List<string> TrustedProxies { get; set; } = [];
 }
 
 public static class BackendSecurity
 {
+    public const string TemporaryDevelopmentBackendHost = "51.161.113.128";
     private static readonly HashSet<string> DevelopmentCredentialHashes = new(StringComparer.OrdinalIgnoreCase)
     {
         Hash("change-me"),
@@ -43,6 +46,9 @@ public static class BackendSecurity
             : $"ip:{CanonicalAddress(http.Connection.RemoteIpAddress)}";
         return $"{http.Request.Method}:{route}|{caller}";
     }
+
+    public static string IpPartitionKey(HttpContext http)
+        => $"ip:{CanonicalAddress(http.Connection.RemoteIpAddress)}";
 
     public static void ConfigureForwarding(ForwardedHeadersOptions forwarding, BackendSecurityOptions settings)
     {
@@ -74,6 +80,11 @@ public static class BackendSecurity
         => settings.AllowLoopbackHttp
             && http.Connection.LocalIpAddress is { } local && IPAddress.IsLoopback(local)
             && http.Connection.RemoteIpAddress is { } remote && IPAddress.IsLoopback(remote);
+
+    public static bool IsExplicitRemoteHttpDevelopmentRequest(HttpContext http, BackendSecurityOptions settings)
+        => settings.AllowRemoteHttp
+            && string.Equals(http.Request.Host.Host, TemporaryDevelopmentBackendHost,
+                StringComparison.OrdinalIgnoreCase);
 
     public static void ValidateProductionListeners(IConfiguration configuration, BackendSecurityOptions security)
     {

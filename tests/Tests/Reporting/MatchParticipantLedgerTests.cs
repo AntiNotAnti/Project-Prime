@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Reflection;
 using MphRead.Identity;
@@ -17,6 +18,57 @@ public sealed class MatchParticipantLedgerTests
     }
     private static void SetPeer(ServerNetwork network, ServerPeer peer)
         => ((ServerPeer?[])typeof(ServerNetwork).GetField("_peers", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(network)!)[peer.Slot] = peer;
+
+    [Fact]
+    [Trait("Regression", "QZ0")]
+    public void ParticipationChangeOnObjectiveBoundaryKeepsCaptureWithOriginalIdentity()
+    {
+        // Prime invariant: a slot handoff on the capture tick closes one
+        // participant span and opens another; the replacement inherits no
+        // objective score or participation time from the prior occupant.
+        var fixture = new MatchBoundaryFixture();
+        using var state = new MatchBaselineTests.State();
+        MatchRuntime match = state.Configure(GameMode.Capture);
+        match.MatchId = fixture.MatchA;
+        state.Activate(0, 0);
+        using var transport = (INetTransport)Activator.CreateInstance(typeof(ServerNetwork).Assembly
+            .GetType("MphRead.Mods.Network.UdpTransport")!, new object[] { 0 })!;
+        var network = new ServerNetwork(transport, match.Rules);
+        var original = Peer(0, fixture.ActorA.ConnectionId, "Original");
+        SetPeer(network, original);
+        var ledger = new MatchParticipantLedger(
+            Guid.Parse("10000000-0000-0000-0000-000000000001"),
+            Guid.Parse("10000000-0000-0000-0000-000000000002"), "qz0",
+            () => DateTimeOffset.UnixEpoch,
+            Guid.Parse("10000000-0000-0000-0000-000000000003"));
+        ledger.BeginPlaying(state.Scene, network, fixture.BoundaryTick - 1);
+        ledger.RecordPlayedStep(fixture.BoundaryTick - 1);
+        match.Players[0].Points = 1;
+        match.Players[0].OctolithScores = 1;
+
+        ledger.Leave(state.Scene, original, ParticipantExitReason.Replaced, fixture.BoundaryTick);
+        NetScoreboard.ForgetSlot(state.Scene, 0);
+        var replacement = Peer(0, 0xB100, "Replacement");
+        SetPeer(network, replacement);
+        ledger.Activate(state.Scene, replacement, fixture.BoundaryTick);
+        ledger.RecordPlayedStep(fixture.BoundaryTick);
+        match.CaptureResult(1);
+        MatchReportV1 report = Assert.IsType<MatchReportV1>(
+            ledger.Complete(state.Scene, fixture.BoundaryTick + 1));
+
+        Assert.Equal(2, report.Participants.Length);
+        MatchReportParticipant first = report.Participants.Single(p => p.DisplayName == "Original");
+        MatchReportParticipant second = report.Participants.Single(p => p.DisplayName == "Replacement");
+        Assert.Equal(1, first.Metrics.Points);
+        Assert.Equal(1, first.Metrics.OctolithScores);
+        Assert.Equal(0, second.Metrics.Points);
+        Assert.Equal(0, second.Metrics.OctolithScores);
+        Assert.Equal(fixture.BoundaryTick, first.Spans.Single().LeftTick);
+        Assert.Equal(fixture.BoundaryTick, second.Spans.Single().JoinedTick);
+        Assert.Equal(1u, first.PlayedTicks);
+        Assert.Equal(1u, second.PlayedTicks);
+    }
+
     [Fact]
     public void DisconnectThenSlotReuseKeepsOriginalFactsAndFreezesTerminalReport()
     {

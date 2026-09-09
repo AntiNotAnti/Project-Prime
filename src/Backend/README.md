@@ -21,6 +21,7 @@ Use deployment environment variables or an operator-managed secret provider. No 
 | `GameServers__Servers__0__Enabled` | Must explicitly be true |
 | `GameServers__Servers__0__ApiKeySha256` | SHA256 hex digest of a separately generated high-entropy server credential |
 | `GameServers__Servers__0__TrustClass` | Backend-assigned community/verified reporting class; Nodes cannot self-assert it |
+| `Backend__AllowRemoteHttp` | Temporary Development-only plain HTTP for `51.161.113.128`; keep false elsewhere |
 
 Use distinct per-Node secrets (at least32 characters of cryptographic entropy), and deliver the plaintext only to that Node. A length check is not an entropy guarantee. Changing server configuration requires restarting this initial service. Node credentials authenticate registration, heartbeat and report ingestion; they do not grant account access, ticket signing or official rating authority.
 
@@ -38,6 +39,8 @@ Production rejects HTTP. Terminate TLS at Kestrel or explicitly configure and au
 - `GET /v1/me` requires account authentication and returns `{playerId,emailConfirmed,emailEligibleForOfficialPlay}`. Email eligibility alone is not server/match/rating authorization.
 - `PATCH /v1/me/profile` `{displayName?,favoriteHunter?}` updates only the authenticated owner. Favorite Hunter is numeric0–6. Unknown properties, including supplied ownership/RP fields, are rejected.
 - `GET /v1/players/{id}/license` returns `{playerId,displayName,favoriteHunter,joinedAt,points,tier,title,nextThreshold,lastOfficialDelta,policy}`. No account email/password metadata is exposed.
+- `POST /v1/guest-node-admissions` is anonymous and accepts `{nodeId,displayName}`. The route is mapped in Development, Testing, and production; guest access is not environment-gated. The Node must still be online and ticket signing must be configured (`503` when the issuer is unavailable, `404` when the requested Node is not online). `displayName` is trimmed and must contain 1–16 printable ASCII characters.
+- A successful guest admission returns the same short-lived Node admission envelope as an account admission. Its ES256 ticket has `typ=ph-node-admission+jwt`, `kind=guest`, a fresh ephemeral UUID in `sub`, the supplied name in `name`, and a unique replay ID in `jti`; it expires after 120 seconds. The request creates no account, profile, license, or `PlayerId`. The name is a display label only and is not an identity, authorization, or uniqueness claim.
 
 With confirmation required but SMTP absent, registration returns503 before writing anything. SMTP failure after commit leaves a real unconfirmed account; use resend after delivery recovers rather than creating another identity. Email delivery is synchronous after the database transaction, not a durable email outbox. Password reset/change and2FA management UI/endpoints are not included yet; do not offer UI for absent routes.
 
@@ -57,10 +60,25 @@ identity and the exact `publicControlUri`. The Node validates and consumes the
 admission before opening its WSS control connection. The Node then signs and
 delivers the per-match UDP handoff for the Worker-owned `MatchInstance`.
 
+Guest admission is a separate anonymous path: `POST
+/v1/guest-node-admissions` accepts `{nodeId,displayName}` and issues a fresh
+ephemeral guest UUID with `kind=guest`. The account path remains account-only;
+an account admission failure never falls back to the guest endpoint, and a
+guest ticket never becomes an account admission. Both paths still require the
+same configured ticket signer and an online Node.
+
 The Backend no longer exposes direct standalone-server session registration or
 account game-ticket issuance. Its signing configuration is used for Node
 admission and result-signature consumers; it does not create a direct
 client-to-Worker or client-to-legacy-Server path.
+
+The Node keeps guest identities separate from registered accounts. Any guest in
+the frozen roster, including a guest observer, makes the `MatchSpec` trust class
+`Practice`. The Node validates the Worker report-ready artifact locally and
+discards it instead of handing it to the Backend outbox, so the match produces
+no Backend account/career or ranked report. A guest-containing match therefore
+cannot contribute account statistics or rating even when other roster members
+are registered.
 
 ## Explicit migrations and validation
 

@@ -63,6 +63,45 @@ public sealed class NodeReportIngestor : IAsyncDisposable
         if (_queue.Writer.TryWrite(new(spec, workerId, workerIncarnation, wireMatchId, artifactDirectory, ready))) return true;
         Interlocked.Decrement(ref _pending); return false;
     }
+
+    /// <summary>Validate and remove a report produced for a guest match without
+    /// transferring it to the Backend outbox. This keeps local completion handling
+    /// intact while bounding worker artifact retention.</summary>
+    public bool TryDiscard(MatchSpec spec, WorkerId workerId, Guid workerIncarnation, uint wireMatchId,
+        string artifactDirectory, MatchReportReady ready)
+        => TryDiscardArtifact(spec, workerId, workerIncarnation, wireMatchId, artifactDirectory, ready);
+
+    public static bool TryDiscardArtifact(MatchSpec spec, WorkerId workerId, Guid workerIncarnation, uint wireMatchId,
+        string artifactDirectory, MatchReportReady ready)
+    {
+        try
+        {
+            spec.Validate(); ready.Validate();
+            if (ready.MatchId != spec.MatchId || ready.ReportId != spec.MatchId.Value
+                || ready.WorkerId != workerId || ready.WorkerIncarnation != workerIncarnation
+                || !Path.IsPathFullyQualified(artifactDirectory)) return false;
+            string root = Path.GetFullPath(artifactDirectory);
+            string reports = Path.Combine(root, "reports");
+            string path = Path.Combine(reports, ready.ReportId.ToString("N") + ".json");
+            if (!Directory.Exists(root) || !Directory.Exists(reports)) return false;
+            RejectLink(root); RejectLink(reports);
+            if (!File.Exists(path)) return false;
+            RejectLink(path);
+            var info = new FileInfo(path);
+            if (info.Length != ready.PayloadBytes || info.Length > MatchReportReady.MaximumPayloadBytes) return false;
+            byte[] bytes = File.ReadAllBytes(path);
+            if (bytes.Length != info.Length || !string.Equals(Convert.ToHexString(SHA256.HashData(bytes)), ready.PayloadHash, StringComparison.OrdinalIgnoreCase))
+                return false;
+            MatchReportV1 report = JsonSerializer.Deserialize<MatchReportV1>(bytes)
+                ?? throw new InvalidDataException("Missing report body.");
+            MatchReportBinding.Validate(spec, wireMatchId, report);
+            File.Delete(path);
+            return true;
+        }
+        catch (Exception error) when (error is ArgumentException or InvalidDataException or IOException
+            or UnauthorizedAccessException or JsonException or NotSupportedException)
+        { return false; }
+    }
     public async Task WaitForDurabilityAsync(CancellationToken cancellationToken)
     {
         while (true)

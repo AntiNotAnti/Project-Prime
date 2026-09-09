@@ -76,6 +76,9 @@ public sealed class Program
             options.AddPolicy("auth", http => RateLimitPartition.GetFixedWindowLimiter(
                 BackendSecurity.EndpointPartitionKey(http), _ => new FixedWindowRateLimiterOptions
                 { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            options.AddPolicy("guest-auth", http => RateLimitPartition.GetFixedWindowLimiter(
+                BackendSecurity.IpPartitionKey(http), _ => new FixedWindowRateLimiterOptions
+                { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.AddPolicy("api", http => RateLimitPartition.GetFixedWindowLimiter(
                 BackendSecurity.EndpointPartitionKey(http), _ => new FixedWindowRateLimiterOptions
                 { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
@@ -91,9 +94,10 @@ public sealed class Program
         // Validate configured operator identities/keys before accepting requests.
         _ = app.Services.GetRequiredService<GameServerRegistry>();
         var ticketIssuer = app.Services.GetRequiredService<GameTicketIssuer>();
-        var confirmationEmail = app.Services.GetRequiredService<IConfirmationEmail>();
         if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
         {
+            await using var validationScope = app.Services.CreateAsyncScope();
+            var confirmationEmail = validationScope.ServiceProvider.GetRequiredService<IConfirmationEmail>();
             BackendSecurity.ValidateProduction(securityOptions, accountOptions, ticketOptions,
                 serverOptions, confirmationEmail.IsConfigured, ticketIssuer.IsConfigured);
         }
@@ -119,7 +123,8 @@ public sealed class Program
         {
             if (!http.Request.IsHttps && !app.Environment.IsEnvironment("Testing")
                 && !(app.Environment.IsDevelopment()
-                    && BackendSecurity.IsExplicitLoopbackDevelopmentRequest(http, securityOptions)))
+                    && (BackendSecurity.IsExplicitLoopbackDevelopmentRequest(http, securityOptions)
+                        || BackendSecurity.IsExplicitRemoteHttpDevelopmentRequest(http, securityOptions))))
             { http.Response.StatusCode = StatusCodes.Status400BadRequest; return; }
             // Reject known oversized bodies before binding; Kestrel also bounds chunked bodies.
             long limit = http.Request.Path == "/v1/server/matches" ? ReportValidation.MaximumBytes : 16 * 1024;

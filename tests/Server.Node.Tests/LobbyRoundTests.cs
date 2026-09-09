@@ -12,7 +12,10 @@ public sealed class LobbyRoundTests
     public void IntermissionVotesUseFrozenOptionsIdentityAndExistingNextMatchLifecycle()
     {
         var h = new Harness();
+        h.Manager.Execute(h.Owner, new LobbyConfigure(h.Revision, h.Snapshot.MapKey,
+            h.Snapshot.Mode, PointGoal: 13));
         MatchSpec first = h.Start(); h.Manager.MatchEnded(first.MatchId, false);
+        Assert.Equal(13, first.Rules.ScoreGoal);
         var ballot = h.Round(new LobbyVoteOpen(h.Revision, ImmutableArray.Create(new LobbyMapChoice("MP4 HIGHGROUND", MatchMode.Battle))));
         uint frozen = ballot.BallotRevision;
         var voted = h.Round(new LobbyVoteCast(h.Revision, frozen, 2));
@@ -26,6 +29,7 @@ public sealed class LobbyRoundTests
         MatchSpec second = h.Start();
         Assert.NotEqual(first.MatchId, second.MatchId);
         Assert.Equal("MP4 HIGHGROUND", second.Rules.RoomKey);
+        Assert.Equal(13, second.Rules.ScoreGoal);
         Assert.Equal(LobbyPhase.StartingMatch, h.Snapshot.Phase);
     }
 

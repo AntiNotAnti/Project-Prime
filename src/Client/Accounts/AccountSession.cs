@@ -66,7 +66,7 @@ public sealed partial class AccountSession : IDisposable
     public AccountSession(Uri backend, HttpMessageHandler? handler = null, TimeProvider? time = null,
         ISecureSessionStore? sessionStore = null)
     {
-        if (!IsAllowedBackend(backend)) throw new ArgumentException("Use an HTTPS backend URL, or HTTP on loopback for local testing.", nameof(backend));
+        if (!IsAllowedBackend(backend)) throw new ArgumentException("Use an HTTPS backend URL, HTTP on loopback for local testing, or the temporary Project Prime development Backend.", nameof(backend));
         Backend = new Uri(backend.AbsoluteUri.TrimEnd('/') + "/");
         _http = new HttpClient(handler ?? new HttpClientHandler { AllowAutoRedirect = false });
         _http.BaseAddress = Backend;
@@ -77,7 +77,8 @@ public sealed partial class AccountSession : IDisposable
 
     public static bool IsAllowedBackend(Uri? uri) => uri is { IsAbsoluteUri: true }
         && uri.UserInfo.Length == 0 && uri.Query.Length == 0 && uri.Fragment.Length == 0
-        && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback);
+        && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp
+            && (uri.IsLoopback || string.Equals(uri.Host, "51.161.113.128", StringComparison.OrdinalIgnoreCase)));
 
     public Task<AccountRegistration> RegisterAsync(string email, string password, string displayName, CancellationToken cancel = default)
         => SendAsync<AccountRegistration>(HttpMethod.Post, "v1/auth/register", new { email, password, displayName }, null, cancel);
@@ -363,7 +364,7 @@ public static class AccountSessions
         try
         {
             if (!AccountSession.IsAllowedBackend(backend))
-                throw new ArgumentException("Use an HTTPS backend URL, or HTTP on loopback for local testing.", nameof(backend));
+                throw new ArgumentException("Use an HTTPS backend URL, HTTP on loopback for local testing, or the temporary Project Prime development Backend.", nameof(backend));
             Uri normalized = new(backend.AbsoluteUri.TrimEnd('/') + "/");
             if (Current?.Backend == normalized)
             {

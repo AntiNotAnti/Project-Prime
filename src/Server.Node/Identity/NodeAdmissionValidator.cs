@@ -7,7 +7,19 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace FruityPrime.Server.Node.Identity;
 
-public sealed record NodeIdentity(Guid PlayerId, string DisplayName);
+public sealed record NodeIdentity(Guid? PlayerId, Guid? GuestSessionId, string DisplayName)
+{
+    // Preserve the account-ticket construction shape used by existing callers.
+    public NodeIdentity(Guid playerId, string displayName) : this(playerId, null, displayName) { }
+    public HumanIdentityKey IdentityKey => HumanIdentityValidation.Require(PlayerId, GuestSessionId);
+    public bool IsGuest => GuestSessionId.HasValue;
+    public void Validate()
+    {
+        IdentityKey.ToString();
+        if (DisplayName is not { Length: >= 1 and <= 16 } || string.IsNullOrWhiteSpace(DisplayName)
+            || DisplayName.Any(ch => ch < 32 || ch > 126)) throw new ArgumentException("Invalid display name.");
+    }
+}
 public sealed class NodeAuthOptions
 {
     public Guid NodeId { get; set; }
@@ -74,9 +86,19 @@ public sealed class NodeAdmissionValidator : IDisposable
             NodeControlCodec.RejectDuplicates(header.RootElement); NodeControlCodec.RejectDuplicates(payload.RootElement);
             if (header.RootElement.EnumerateObject().Any(p => p.Name is "crit" or "jku" or "jwk" or "x5u")) return null;
             var c = payload.RootElement;
+            // Identity is represented only by sub + the optional kind tag. Do not
+            // accept a second identity field that could disagree with either one.
+            if (c.EnumerateObject().Any(p => p.Name is "playerId" or "guestId" or "guestSessionId" or "identity")) return null;
             long now = _clock.GetUtcNow().ToUnixTimeSeconds();
             if (c.GetProperty("iss").GetString() != _options.Issuer || c.GetProperty("aud").GetString() != Audience(_options.NodeId)
-                || !GuidClaim(c, "sub", out var player) || !GuidClaim(c, "jti", out var id)) return null;
+                || !GuidClaim(c, "sub", out var subject) || !GuidClaim(c, "jti", out var id)) return null;
+            string kind = "registered";
+            if (c.TryGetProperty("kind", out JsonElement kindClaim))
+            {
+                if (kindClaim.ValueKind != JsonValueKind.String) return null;
+                kind = kindClaim.GetString() ?? "";
+                if (kind is not ("registered" or "guest")) return null;
+            }
             string? name = c.GetProperty("name").GetString();
             long issued = c.GetProperty("iat").GetInt64(), start = c.GetProperty("nbf").GetInt64(), expires = c.GetProperty("exp").GetInt64();
             if (name is not { Length: >= 1 and <= 16 } || string.IsNullOrWhiteSpace(name) || name.Any(ch => ch < 32 || ch > 126)
@@ -93,7 +115,11 @@ public sealed class NodeAdmissionValidator : IDisposable
             foreach (var old in _used.Where(p => p.Value <= now).Select(p => p.Key).ToArray()) _used.Remove(old);
             if (_used.ContainsKey(id) || _used.Count >= 8192) return null;
             _used.Add(id, expires);
-            return new(player, name);
+            var identity = kind == "guest"
+                ? new NodeIdentity(null, subject, name)
+                : new NodeIdentity(subject, null, name);
+            identity.Validate();
+            return identity;
         }
         catch (Exception ex) when (ex is ArgumentException or SecurityTokenException or JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
         { return null; }

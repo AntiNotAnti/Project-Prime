@@ -94,7 +94,7 @@ internal sealed class SoakLobbyDriver : IDisposable
         var players = lease.PlayerIds.Select((id, index) => new LobbyIdentity(Guid.NewGuid(), id, "SoakHuman" + index.ToString("D2"))).ToArray();
         var observers = lease.ObserverIds.Select((id, index) => new LobbyIdentity(Guid.NewGuid(), id, "SoakObserver" + index.ToString("D2"))).ToArray();
         var identities = players.Concat(observers).ToArray();
-        if (!_activePlayers.TryClaim(lease, identities.Select(identity => identity.PlayerId)))
+        if (!_activePlayers.TryClaim(lease, identities.Select(identity => identity.PlayerId!.Value)))
         {
             _releaseIdentities?.Invoke(lease);
             throw new InvalidOperationException("Soak identity pool returned an empty or already active participant.");
@@ -255,7 +255,7 @@ internal sealed class SoakLobbyDriver : IDisposable
 
     private void Release(SoakIdentityLease lease, IEnumerable<LobbyIdentity> players, IEnumerable<LobbyIdentity> observers)
     {
-        var identities = players.Concat(observers).Select(identity => identity.PlayerId).ToArray();
+        var identities = players.Concat(observers).Select(identity => identity.PlayerId!.Value).ToArray();
         // A stale rollback is allowed to become a no-op. In particular, do not
         // invoke the Backend release callback after these IDs belong to a newer
         // lease, because that callback would otherwise release the newer lease.

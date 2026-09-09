@@ -142,7 +142,12 @@ public static class WorkerIpcCodec
                 if (m.Code != null) ContractGuard.Text(m.Code, 128);
                 if (m.Message != null) ContractGuard.Text(m.Message, 1024);
                 break;
-            case MatchAdminCommand m: ContractGuard.Id(m.MatchId.Value); ContractGuard.Defined(m.Action); if (m.SeatId >= 32 || (m.Action == AdminAction.KickSeat) != m.SeatId.HasValue) throw new ArgumentException("Invalid admin target."); break;
+            case MatchAdminCommand m:
+                ContractGuard.Id(m.MatchId.Value); ContractGuard.Defined(m.Action);
+                bool needsSeat = m.Action is AdminAction.KickSeat or AdminAction.LagCompHistory
+                    or AdminAction.LagCompDynamic or AdminAction.LagCompClear;
+                if (m.SeatId >= 32 || needsSeat != m.SeatId.HasValue) throw new ArgumentException("Invalid admin target.");
+                break;
             case UpdateNodeSigningKey m: ContractGuard.Text(m.KeyId, 128); ContractGuard.Text(m.PublicKey, 8192); break;
             case MatchStarted m: ContractGuard.Id(m.MatchId.Value); break;
             case MatchCompleted m: if (m.Summary is null) throw new ArgumentException("Missing completion summary."); m.Summary.Validate(); break;

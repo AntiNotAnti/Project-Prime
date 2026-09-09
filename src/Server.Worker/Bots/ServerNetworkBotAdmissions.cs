@@ -1,5 +1,4 @@
 using System;
-using System.Buffers.Binary;
 using System.Net;
 
 namespace MphRead.Mods.Network;
@@ -74,9 +73,9 @@ public sealed partial class ServerNetwork
     }
     private void SendJoinPending(IPEndPoint endpoint, ulong nonce)
     {
-        Span<byte> packet = stackalloc byte[NetHeader.Size + 8];
+        Span<byte> packet = stackalloc byte[NetHeader.Size + JoinPendingPacket.Size];
         new NetHeader(NetMessageType.JoinPending, NetHeaderFlags.Unsequenced, 0, 0, 0, 0).Write(packet);
-        BinaryPrimitives.WriteUInt64LittleEndian(packet[NetHeader.Size..], nonce);
+        new JoinPendingPacket(nonce).Write(packet[NetHeader.Size..]);
         _transport.SendDatagram(endpoint, packet);
     }
 }
