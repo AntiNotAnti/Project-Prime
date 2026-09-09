@@ -12,13 +12,27 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        bool prepareContent = false;
         try
         {
             var flags = ParseArguments(args);
             ApplyMapDirectory(flags);
             string Required(string name) => flags.TryGetValue(name, out string? value) ? value : throw new ArgumentException("Missing " + name);
             int Number(string name, int fallback) => flags.TryGetValue(name, out string? value) ? int.Parse(value) : fallback;
-            if (flags.TryGetValue("--describe-content", out string? describe) && bool.Parse(describe))
+            bool describeContent = flags.TryGetValue("--describe-content", out string? describe)
+                && bool.Parse(describe);
+            prepareContent = flags.TryGetValue("--prepare-content", out string? prepare)
+                && bool.Parse(prepare);
+            if (describeContent && prepareContent)
+                throw new ArgumentException("--prepare-content and --describe-content cannot be enabled together.");
+            if (prepareContent)
+            {
+                if (flags.ContainsKey("--validation-fixture"))
+                    throw new ArgumentException("Content preparation cannot enable a developer validation fixture.");
+                PrepareContent(Required("--content-dir"), Required("--content-version"));
+                return 0;
+            }
+            if (describeContent)
             {
                 if (flags.ContainsKey("--validation-fixture"))
                     throw new ArgumentException("Content description cannot enable a developer validation fixture.");
@@ -81,7 +95,9 @@ public static class Program
         catch (Exception error)
         {
             // Never print launch arguments, token, or a received IPC payload.
-            Console.Error.WriteLine("Worker stopped: " + error.GetType().Name);
+            Console.Error.WriteLine(prepareContent
+                ? "Worker content preparation failed: " + error.Message
+                : "Worker stopped: " + error.GetType().Name);
             return 1;
         }
     }
@@ -191,6 +207,38 @@ public static class Program
         CustomRooms.MapDirectory = Path.GetFullPath(directory);
     }
 
+    internal static int PrepareContent(string directory, string version)
+    {
+        string contentDirectory = Path.GetFullPath(directory);
+        if (File.Exists(Path.Combine(contentDirectory, ServerContentPackage.ManifestName)))
+        {
+            throw new ProgramException("Content preparation requires an extracted game directory; "
+                + "baked server content packages are read-only.");
+        }
+
+        // Set the image decoder at the Worker boundary. Imported maps may
+        // carry a texture archive rather than a pre-baked texture pack, and
+        // preparation must not depend on a client process being present.
+        MapImageDecoding.Decoder = global::MphRead.Imaging.StbImageDecoder.Decode;
+        ContentEnvironment.Open(contentDirectory, version);
+        CustomRooms.ContentRoot = contentDirectory;
+
+        int generated = MapPreparation.GenerateAll(force: false, verbose: true);
+        foreach (MapDefinition definition in CustomRooms.Definitions)
+        {
+            if (CustomRooms.NeedsGenerating(definition))
+            {
+                throw new ProgramException($"Custom map {definition.Name} is still missing generated room files.");
+            }
+            string? reason = CustomRooms.WhyUnplayable(definition.Name);
+            if (reason != null)
+            {
+                throw new ProgramException(reason);
+            }
+        }
+        return generated;
+    }
+
     private static ContentMapDescriptor[] DescribeContent(string directory, string version)
     {
         // CustomRooms reports ignored/broken optional map files to stdout. Keep
@@ -209,7 +257,7 @@ public static class Program
 
     internal static Dictionary<string, string> ParseArguments(string[] args)
     {
-        string[] names = ["--describe-content", "--node-pipe", "--node-id", "--worker-id", "--worker-incarnation", "--content-dir", "--content-version", "--content-hash",
+        string[] names = ["--describe-content", "--prepare-content", "--node-pipe", "--node-id", "--worker-id", "--worker-incarnation", "--content-dir", "--content-version", "--content-hash",
             "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--lag-compensation-mode", "--validation-fixture", "--replay-dir", "--artifact-dir", "--map-dir"];
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         for (int index = 0; index < args.Length; index += 2)

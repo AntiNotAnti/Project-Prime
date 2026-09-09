@@ -66,13 +66,18 @@ namespace MphRead.Mods.MapGen
                 return Enumerable.Empty<string>();
             }
             var bundles = Directory.EnumerateFiles(MapDirectory, $"*{MapBundle.Extension}",
-                SearchOption.AllDirectories).ToList();
+                SearchOption.AllDirectories)
+                .Where(path => !IsAppleDouble(path)).ToList();
             var names = new HashSet<string>(bundles.Select(
                 p => Path.GetFileNameWithoutExtension(p)), StringComparer.OrdinalIgnoreCase);
             return bundles.Concat(Directory
                 .EnumerateFiles(MapDirectory, "*.json", SearchOption.AllDirectories)
+                .Where(path => !IsAppleDouble(path))
                 .Where(p => !names.Contains(Path.GetFileNameWithoutExtension(p))));
         }
+
+        private static bool IsAppleDouble(string path)
+            => Path.GetFileName(path).StartsWith("._", StringComparison.Ordinal);
 
         private static IReadOnlyList<MapDefinition> LoadDefinitions()
         {
@@ -237,10 +242,15 @@ namespace MphRead.Mods.MapGen
         public static bool NeedsGenerating(MapDefinition def)
         {
             string prefix = def.Name.ToLowerInvariant();
-            string model = Path.Combine(ArchiveDirectory(def), $"{prefix}_Model.bin");
-            if (!File.Exists(model)
-                || !File.Exists(Path.Combine(EntityDirectory(), $"{prefix}_Ent.bin"))
-                || !File.Exists(Path.Combine(NodeDirectory(), $"{prefix}_Node.bin")))
+            string[] outputs =
+            {
+                Path.Combine(ArchiveDirectory(def), $"{prefix}_Model.bin"),
+                Path.Combine(ArchiveDirectory(def), $"{prefix}_Anim.bin"),
+                Path.Combine(ArchiveDirectory(def), $"{prefix}_Collision.bin"),
+                Path.Combine(EntityDirectory(), $"{prefix}_Ent.bin"),
+                Path.Combine(NodeDirectory(), $"{prefix}_Node.bin")
+            };
+            if (outputs.Any(path => !File.Exists(path)))
             {
                 // every file a room is made of, not just the first: a build
                 // from before one of them existed leaves the others in place
@@ -252,7 +262,7 @@ namespace MphRead.Mods.MapGen
             // whose file is not named after its room quietly failed.
             string? source = def.SourcePath;
             return source != null && File.Exists(source)
-                && File.GetLastWriteTimeUtc(source) > File.GetLastWriteTimeUtc(model);
+                && outputs.Any(path => File.GetLastWriteTimeUtc(source) > File.GetLastWriteTimeUtc(path));
         }
     }
 }

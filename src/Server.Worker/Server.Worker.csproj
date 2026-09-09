@@ -9,6 +9,29 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <!--
+      The Worker is also the server content preparation boundary. Keep the
+      CPU-only map preparation closure source-linked here so a Linux server
+      can cook missing custom rooms without starting a client or Tools.
+    -->
+    <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
+
+    <Compile Include="../Shared/ContentPreparation/CollisionDataEditor.cs" Link="Shared/ContentPreparation/CollisionDataEditor.cs" />
+    <Compile Include="../Shared/ContentPreparation/RepackModelPacking.cs" Link="Shared/ContentPreparation/RepackModelPacking.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapTextureBake.cs" Link="Shared/ContentPreparation/MapTextureBake.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapPreparation.cs" Link="Shared/ContentPreparation/MapPreparation.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapCollisionPacker.cs" Link="Shared/ContentPreparation/MapCollisionPacker.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapPacker.cs" Link="Shared/ContentPreparation/MapPacker.cs" />
+    <Compile Include="../Shared/ContentPreparation/RepackEntityPacking.cs" Link="Shared/ContentPreparation/RepackEntityPacking.cs" />
+    <Compile Include="../Shared/ContentPreparation/EntityMapEditors.cs" Link="Shared/ContentPreparation/EntityMapEditors.cs" />
+    <Compile Include="../Shared/ContentPreparation/BuiltMap.cs" Link="Shared/ContentPreparation/BuiltMap.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapBuilder.cs" Link="Shared/ContentPreparation/MapBuilder.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapImageDecoding.cs" Link="Shared/ContentPreparation/MapImageDecoding.cs" />
+    <Compile Include="../Shared/ContentPreparation/Q3Bsp.cs" Link="Shared/ContentPreparation/Q3Bsp.cs" />
+    <Compile Include="../Shared/ContentPreparation/Q3Import.cs" Link="Shared/ContentPreparation/Q3Import.cs" />
+    <Compile Include="../Shared/ContentPreparation/RawStructs.cs" Link="Shared/ContentPreparation/RawStructs.cs" />
+    <Compile Include="../Shared/ContentPreparation/MapNodePacker.cs" Link="Shared/ContentPreparation/MapNodePacker.cs" />
+    <Compile Include="../Shared/Imaging/StbImageDecoder.cs" Link="Shared/Imaging/StbImageDecoder.cs" />
     <Compile Include="../Shared/Transport/UdpTransport.cs" Link="Shared/Transport/UdpTransport.cs" />
     <ProjectReference Include="../Game/Game.csproj" />
     <ProjectReference Include="../Server.Shared/Server.Shared.csproj" />
