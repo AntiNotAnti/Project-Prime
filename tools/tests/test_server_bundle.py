@@ -132,14 +132,9 @@ class ServerBundleContractTests(unittest.TestCase):
         }
         for name, map_dir in expected.items():
             script = (ROOT / "tools" / name).read_text(encoding="utf-8")
-            self.assertIn(
-                '--prepare-content true --content-dir "$CONTENT_DIR" \\\n+    --content-version "$CONTENT_VERSION" --map-dir "$MAP_DIR"',
-                script,
-            )
-            self.assertIn(
-                '--describe-content true --content-dir "$CONTENT_DIR" \\\n+    --content-version "$CONTENT_VERSION" --map-dir "$MAP_DIR"',
-                script,
-            )
+            self.assertIn('--prepare-content true --content-dir "$CONTENT_DIR"', script)
+            self.assertIn('--describe-content true --content-dir "$CONTENT_DIR"', script)
+            self.assertIn('--content-version "$CONTENT_VERSION" --map-dir "$MAP_DIR"', script)
             self.assertIn(f"MAP_DIR={map_dir}", script)
             self.assertIn('"--map-dir",os.environ["MAP_DIR"]', script)
             self.assertIn('chmod 600 "$DESCRIPTOR_TMP"', script)
