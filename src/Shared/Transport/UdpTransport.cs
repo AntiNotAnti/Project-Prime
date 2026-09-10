@@ -351,8 +351,21 @@ namespace MphRead.Mods.Network
             }
         }
 
+        public int Drain(Span<ReceivedPacket> destination)
+        {
+            if (_lagWorker != null) PromoteHeldArrivals();
+            int count = 0;
+            int limit = Math.Min(destination.Length, MaxPacketsPerDrain);
+            lock (_heldLock)
+            {
+                while (count < limit && _inbox.TryDequeue(out ReceivedPacket packet))
+                    destination[count++] = packet;
+            }
+            return count;
+        }
+
         // All queue mutations share one short lock. This keeps capacities exact
-        // across the receiver, delayed-arrival promotion and demo playback.
+        // across the receiver, delayed-arrival promotion and replay playback.
         private void Enqueue(ReceivedPacket packet)
         {
             lock (_heldLock)
@@ -397,7 +410,7 @@ namespace MphRead.Mods.Network
         private static readonly IPEndPoint _playbackSender = new(IPAddress.Loopback, 0);
 
         /// <summary>
-        /// Feeds a packet read back from a demo file into the same queue a
+        /// Feeds a packet read back from a replay file into the same queue a
         /// real receive would have used, so <see cref="Drain"/> and
         /// everything downstream of it (<c>NetSession.Handle</c> and every
         /// packet-type handler) runs completely unchanged during playback --
