@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Render
 {
@@ -73,6 +74,16 @@ namespace MphRead.Mods.Render
         }
 
         public static float Scale => ScaleOf(Size);
+
+        internal static Vector2 ToNdc(Vector2 normalizedTopLeft)
+            => new Vector2(normalizedTopLeft.X * 2 - 1, 1 - normalizedTopLeft.Y * 2);
+
+        internal static Vector3 OffsetNdc(Vector2 normalizedTopLeft, float pixelX, float pixelY,
+            float halfWidth, float halfHeight)
+        {
+            Vector2 center = ToNdc(normalizedTopLeft);
+            return new Vector3(center.X + pixelX / halfWidth, center.Y + pixelY / halfHeight, 0);
+        }
 
         public static readonly string[] SizeNames = { "Small", "Medium", "Big" };
 

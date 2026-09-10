@@ -1,0 +1,337 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+#pragma clang diagnostic ignored "-Wmissing-braces"
+
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+template<typename T, size_t Num>
+struct spvUnsafeArray
+{
+    T elements[Num ? Num : 1];
+
+    thread T& operator [] (size_t pos) thread
+    {
+        return elements[pos];
+    }
+    constexpr const thread T& operator [] (size_t pos) const thread
+    {
+        return elements[pos];
+    }
+
+    device T& operator [] (size_t pos) device
+    {
+        return elements[pos];
+    }
+    constexpr const device T& operator [] (size_t pos) const device
+    {
+        return elements[pos];
+    }
+
+    constexpr const constant T& operator [] (size_t pos) const constant
+    {
+        return elements[pos];
+    }
+
+    threadgroup T& operator [] (size_t pos) threadgroup
+    {
+        return elements[pos];
+    }
+    constexpr const threadgroup T& operator [] (size_t pos) const threadgroup
+    {
+        return elements[pos];
+    }
+};
+
+struct type_SsaoConstants
+{
+    float4x4 inverseProjection;
+    float4x4 projection;
+    float4x4 view;
+    float4 ssaoOptions;
+    float4 texelOptions;
+};
+
+constant spvUnsafeArray<float3, 8> _105 = spvUnsafeArray<float3, 8>({ float3(-0.00838357023894786834716796875, 0.006195980124175548553466796875, 0.0327031314373016357421875), float3(0.07861696183681488037109375, 0.02191250026226043701171875, 0.0366658605635166168212890625), float3(-0.074206531047821044921875, 0.088521100580692291259765625, 0.120682500302791595458984375), float3(-0.1477510035037994384765625, -0.15629659593105316162109375, 0.1534735858440399169921875), float3(-0.0457760803401470184326171875, 0.0461356006562709808349609375, 0.18834935128688812255859375), float3(-0.02546186931431293487548828125, 0.067053951323032379150390625, 0.009606969542801380157470703125), float3(0.51128661632537841796875, -0.312412202358245849609375, 0.122130192816257476806640625), float3(0.3631753027439117431640625, -0.28364694118499755859375, 0.678958594799041748046875) });
+
+struct main_ps_out
+{
+    float4 out_var_SV_Target0 [[color(0)]];
+};
+
+struct main_ps_in
+{
+    float2 in_var_TEXCOORD0 [[user(locn0)]];
+};
+
+fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_SsaoConstants& SsaoConstants [[buffer(0)]], texture2d<float> surfaceTexture [[texture(0)]], texture2d<float> occlusionTexture [[texture(1)]], sampler surfaceSampler [[sampler(0)]], sampler occlusionSampler [[sampler(1)]], float4 gl_FragCoord [[position]])
+{
+    main_ps_out out = {};
+    float _490;
+    if (SsaoConstants.ssaoOptions.x < 0.5)
+    {
+        float _489;
+        do
+        {
+            float4 _261 = surfaceTexture.sample(surfaceSampler, in.in_var_TEXCOORD0, level(0.0));
+            float _262 = _261.z;
+            if (_262 <= 0.0)
+            {
+                _489 = 1.0;
+                break;
+            }
+            float4 _277 = float4((in.in_var_TEXCOORD0.x * 2.0) - 1.0, 1.0 - (in.in_var_TEXCOORD0.y * 2.0), 1.0, 1.0) * SsaoConstants.inverseProjection;
+            float3 _281 = _277.xyz / float3(_277.w);
+            float3 _287 = (_281 / float3(precise::max(-_281.z, 9.9999997473787516355514526367188e-05))) * _262;
+            float2 _299 = (_261.xy * 2.0) - float2(1.0);
+            float _300 = _299.x;
+            float _303 = _299.y;
+            float _305 = (1.0 - abs(_300)) - abs(_303);
+            float3 _306 = float3(_300, _303, _305);
+            float _308 = fast::clamp(-_305, 0.0, 1.0);
+            float _314;
+            if (_300 >= 0.0)
+            {
+                _314 = -_308;
+            }
+            else
+            {
+                _314 = _308;
+            }
+            float _320;
+            if (_303 >= 0.0)
+            {
+                _320 = -_308;
+            }
+            else
+            {
+                _320 = _308;
+            }
+            float2 _323 = _306.xy + float2(_314, _320);
+            float3 _326 = fast::normalize(float3(_323.x, _323.y, _306.z)) * float3x3(SsaoConstants.view[0].xyz, SsaoConstants.view[1].xyz, SsaoConstants.view[2].xyz);
+            float _327 = dot(_326, _326);
+            float3 _334;
+            if (_327 > 9.9999999392252902907785028219223e-09)
+            {
+                _334 = _326 * rsqrt(_327);
+            }
+            else
+            {
+                _334 = float3(0.0, 1.0, 0.0);
+            }
+            float _339 = fract(sin(dot(gl_FragCoord.xy, float2(12.98980045318603515625, 78.233001708984375))) * 43758.546875) * 6.283185482025146484375;
+            float3 _342 = float3(cos(_339), sin(_339), 0.0);
+            float3 _345 = _342 - (_334 * dot(_342, _334));
+            float3 _351 = cross(select(float3(0.0, 1.0, 0.0), float3(1.0, 0.0, 0.0), bool3(abs(_334.x) < 0.75)), _334);
+            float _352 = dot(_351, _351);
+            bool _353 = _352 > 9.9999999392252902907785028219223e-09;
+            float3 _359;
+            if (_353)
+            {
+                _359 = _351 * rsqrt(_352);
+            }
+            else
+            {
+                _359 = float3(0.0, 0.0, 1.0);
+            }
+            float _360 = dot(_345, _345);
+            float3 _367;
+            if (_360 > 9.9999999392252902907785028219223e-09)
+            {
+                _367 = _345 * rsqrt(_360);
+            }
+            else
+            {
+                _367 = _359;
+            }
+            float3 _368 = cross(_334, _367);
+            float3 _374;
+            if (_353)
+            {
+                _374 = _351 * rsqrt(_352);
+            }
+            else
+            {
+                _374 = float3(0.0, 0.0, 1.0);
+            }
+            float _375 = dot(_368, _368);
+            float3 _382;
+            if (_375 > 9.9999999392252902907785028219223e-09)
+            {
+                _382 = _368 * rsqrt(_375);
+            }
+            else
+            {
+                _382 = _374;
+            }
+            float _384;
+            _384 = 0.0;
+            float _385;
+            for (int _387 = 0; _387 < 8; _384 = _385, _387++)
+            {
+                float3 _406 = _287 + ((((_367 * _105[_387].x) + (_382 * _105[_387].y)) + (_334 * _105[_387].z)) * SsaoConstants.ssaoOptions.y);
+                float _407 = _406.z;
+                if (_407 >= (-9.9999997473787516355514526367188e-05))
+                {
+                    _385 = _384;
+                    continue;
+                }
+                float4 _416 = float4(_406.xy, _407, 1.0) * SsaoConstants.projection;
+                float2 _421 = _416.xy / float2(precise::max(_416.w, 9.9999997473787516355514526367188e-05));
+                float _424 = (_421.x * 0.5) + 0.5;
+                float _427 = 0.5 - (_421.y * 0.5);
+                float2 _428 = float2(_424, _427);
+                bool _436;
+                if (!any(_428 <= float2(0.0)))
+                {
+                    _436 = any(_428 >= float2(1.0));
+                }
+                else
+                {
+                    _436 = true;
+                }
+                if (_436)
+                {
+                    _385 = _384;
+                    continue;
+                }
+                float4 _442 = surfaceTexture.sample(surfaceSampler, _428, level(0.0));
+                float _443 = _442.z;
+                if (_443 <= 0.0)
+                {
+                    _385 = _384;
+                    continue;
+                }
+                float4 _452 = float4((_424 * 2.0) - 1.0, 1.0 - (_427 * 2.0), 1.0, 1.0) * SsaoConstants.inverseProjection;
+                float3 _456 = _452.xyz / float3(_452.w);
+                float3 _463 = ((_456 / float3(precise::max(-_456.z, 9.9999997473787516355514526367188e-05))) * _443) - _287;
+                float _464 = length(_463);
+                float _465 = dot(_463, _334);
+                _385 = _384 + (((float(_443 < ((-_407) - SsaoConstants.ssaoOptions.z)) * step(SsaoConstants.ssaoOptions.z, _465)) * (1.0 - smoothstep(SsaoConstants.ssaoOptions.y * 0.100000001490116119384765625, SsaoConstants.ssaoOptions.y, _464))) * fast::clamp(_465 / precise::max(_464, 9.9999997473787516355514526367188e-05), 0.0, 1.0));
+            }
+            _489 = fast::clamp(1.0 - (_384 * (SsaoConstants.ssaoOptions.w * 0.125)), 0.0, 1.0);
+            break;
+        } while(false);
+        _490 = _489;
+    }
+    else
+    {
+        float _254;
+        do
+        {
+            float4 _125 = surfaceTexture.sample(surfaceSampler, in.in_var_TEXCOORD0, level(0.0));
+            float _126 = _125.z;
+            if (_126 <= 0.0)
+            {
+                _254 = 1.0;
+                break;
+            }
+            float2 _132 = (_125.xy * 2.0) - float2(1.0);
+            float _133 = _132.x;
+            float _136 = _132.y;
+            float _138 = (1.0 - abs(_133)) - abs(_136);
+            float3 _139 = float3(_133, _136, _138);
+            float _141 = fast::clamp(-_138, 0.0, 1.0);
+            float _147;
+            if (_133 >= 0.0)
+            {
+                _147 = -_141;
+            }
+            else
+            {
+                _147 = _141;
+            }
+            float _153;
+            if (_136 >= 0.0)
+            {
+                _153 = -_141;
+            }
+            else
+            {
+                _153 = _141;
+            }
+            float2 _156 = _139.xy + float2(_147, _153);
+            float3 _158 = fast::normalize(float3(_156.x, _156.y, _139.z));
+            float2 _168;
+            if (SsaoConstants.ssaoOptions.x < 1.5)
+            {
+                _168 = float2(SsaoConstants.texelOptions.z, 0.0);
+            }
+            else
+            {
+                _168 = float2(0.0, SsaoConstants.texelOptions.w);
+            }
+            float _170;
+            float _173;
+            _170 = 0.0;
+            _173 = 0.0;
+            float _171;
+            float _174;
+            for (int _175 = -2; _175 <= 2; _170 = _171, _173 = _174, _175++)
+            {
+                float2 _182 = in.in_var_TEXCOORD0 + (_168 * float(_175));
+                float4 _186 = surfaceTexture.sample(surfaceSampler, _182, level(0.0));
+                float _187 = _186.z;
+                if (_187 <= 0.0)
+                {
+                    _171 = _170;
+                    _174 = _173;
+                    continue;
+                }
+                float _198;
+                if (_175 == 0)
+                {
+                    _198 = 0.4000000059604644775390625;
+                }
+                else
+                {
+                    _198 = (abs(_175) == 1) ? 0.23999999463558197021484375 : 0.0599999986588954925537109375;
+                }
+                float2 _208 = (_186.xy * 2.0) - float2(1.0);
+                float _209 = _208.x;
+                float _212 = _208.y;
+                float _214 = (1.0 - abs(_209)) - abs(_212);
+                float3 _215 = float3(_209, _212, _214);
+                float _217 = fast::clamp(-_214, 0.0, 1.0);
+                float _223;
+                if (_209 >= 0.0)
+                {
+                    _223 = -_217;
+                }
+                else
+                {
+                    _223 = _217;
+                }
+                float _229;
+                if (_212 >= 0.0)
+                {
+                    _229 = -_217;
+                }
+                else
+                {
+                    _229 = _217;
+                }
+                float2 _232 = _215.xy + float2(_223, _229);
+                float _239 = (_198 * exp((-abs(_187 - _126)) / precise::max(_126 * 0.0199999995529651641845703125, 9.9999997473787516355514526367188e-05))) * powr(fast::clamp(dot(_158, fast::normalize(float3(_232.x, _232.y, _215.z))), 0.0, 1.0), 8.0);
+                _171 = _170 + (occlusionTexture.sample(occlusionSampler, _182, level(0.0)).x * _239);
+                _174 = _173 + _239;
+            }
+            float _253;
+            if (_173 > 0.0)
+            {
+                _253 = _170 / _173;
+            }
+            else
+            {
+                _253 = 1.0;
+            }
+            _254 = _253;
+            break;
+        } while(false);
+        _490 = _254;
+    }
+    out.out_var_SV_Target0 = float4(_490, _490, _490, 1.0);
+    return out;
+}
+

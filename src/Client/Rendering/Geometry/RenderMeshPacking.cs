@@ -6,11 +6,12 @@ namespace MphRead
     /// Packs a portable <see cref="CpuMesh"/> into the Android GLES vertex
     /// ABI. The layout is deliberately kept independent of any graphics API:
     /// position (3), color (4), normal (3), texcoord plus matrix index (3),
-    /// and explicit-color flag (1), for fourteen floats per vertex.
+    /// explicit-color flag (1), and tangent/handedness (4), for eighteen
+    /// floats per vertex.
     /// </summary>
     public static class RenderMeshPacking
     {
-        public const int FloatsPerVertex = 14;
+        public const int FloatsPerVertex = 18;
         public const int DefaultMaximumVertices = 1 << 20;
         public const int DefaultMaximumIndices = 1 << 22;
 
@@ -179,6 +180,10 @@ namespace MphRead
             destination[offset + 11] = vertex.TexCoord.Y;
             destination[offset + 12] = vertex.MatrixIndex;
             destination[offset + 13] = vertex.HasExplicitColor ? 1f : 0f;
+            destination[offset + 14] = vertex.Tangent.X;
+            destination[offset + 15] = vertex.Tangent.Y;
+            destination[offset + 16] = vertex.Tangent.Z;
+            destination[offset + 17] = vertex.Tangent.W;
         }
     }
 }

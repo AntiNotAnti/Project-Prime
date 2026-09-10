@@ -1,0 +1,273 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_DrawConstants
+{
+    float4x4 transform;
+    float4x4 billboard;
+    float4x4 matrixStack[31];
+    float4x4 texcoordMatrix;
+    float4 diffuse;
+    float4 ambient;
+    float4 specular;
+    float4 emission;
+    float4 overrideColor;
+    float4 paletteOverride;
+    float4 light1Vector;
+    float4 light1Color;
+    float4 light2Vector;
+    float4 light2Color;
+    float4 drawOptions;
+    float4 materialOptions;
+    float4 renderOptions;
+    float4 flatColor;
+    float4 enhancedEmission;
+    float4 enhancedOptions;
+    float4 reflectionOptions;
+    float4 softParticleOptions;
+};
+
+struct main_ps_out
+{
+    float4 out_var_SV_Target0 [[color(0)]];
+};
+
+struct main_ps_in
+{
+    float3 in_var_TEXCOORD1 [[user(locn1)]];
+    float2 in_var_TEXCOORD2 [[user(locn2)]];
+    float4 in_var_TEXCOORD6 [[user(locn6)]];
+    float in_var_TEXCOORD7 [[user(locn7)]];
+};
+
+fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_DrawConstants& DrawConstants [[buffer(0)]], texture2d<float> albedoTexture [[texture(0)]], texture2d<float> normalTexture [[texture(1)]], sampler albedoSampler [[sampler(0)]], sampler normalSampler [[sampler(1)]])
+{
+    main_ps_out out = {};
+    bool _71 = DrawConstants.drawOptions.x > 0.5;
+    float _80;
+    if (_71)
+    {
+        _80 = albedoTexture.sample(albedoSampler, in.in_var_TEXCOORD2).w;
+    }
+    else
+    {
+        _80 = 1.0;
+    }
+    bool _87;
+    if (_71)
+    {
+        _87 = uint(DrawConstants.materialOptions.y) == 1u;
+    }
+    else
+    {
+        _87 = true;
+    }
+    float _96;
+    if (_87)
+    {
+        _96 = DrawConstants.materialOptions.x;
+    }
+    else
+    {
+        _96 = DrawConstants.materialOptions.x * _80;
+    }
+    bool _103;
+    if (!_71)
+    {
+        _103 = DrawConstants.drawOptions.y > 0.5;
+    }
+    else
+    {
+        _103 = false;
+    }
+    float _108;
+    if (_103)
+    {
+        _108 = DrawConstants.overrideColor.w;
+    }
+    else
+    {
+        _108 = _96;
+    }
+    bool _114;
+    if (_71)
+    {
+        _114 = DrawConstants.drawOptions.y > 0.5;
+    }
+    else
+    {
+        _114 = false;
+    }
+    float _120;
+    if (_114)
+    {
+        _120 = _108 * DrawConstants.overrideColor.w;
+    }
+    else
+    {
+        _120 = _108;
+    }
+    bool _123 = false;
+    bool _124 = true;
+    if (_120 != 1.0)
+    {
+        discard_fragment();
+    }
+    float _128 = dot(in.in_var_TEXCOORD1, in.in_var_TEXCOORD1);
+    float3 _135;
+    if (_128 > 9.9999999392252902907785028219223e-09)
+    {
+        _135 = in.in_var_TEXCOORD1 * rsqrt(_128);
+    }
+    else
+    {
+        _135 = float3(0.0, 1.0, 0.0);
+    }
+    float3 _270;
+    if (DrawConstants.renderOptions.w > 0.5)
+    {
+        float3 _144 = in.in_var_TEXCOORD6.xyz - (_135 * dot(_135, in.in_var_TEXCOORD6.xyz));
+        float _146 = abs(_135.x);
+        float _148 = abs(_135.y);
+        bool _155;
+        if (_146 <= _148)
+        {
+            _155 = _146 <= abs(_135.z);
+        }
+        else
+        {
+            _155 = false;
+        }
+        float3 _164;
+        if (_155)
+        {
+            _164 = float3(1.0, 0.0, 0.0);
+        }
+        else
+        {
+            _164 = select(float3(0.0, 0.0, 1.0), float3(0.0, 1.0, 0.0), bool3(_148 <= abs(_135.z)));
+        }
+        float3 _165 = cross(_164, _135);
+        float _166 = dot(_165, _165);
+        float3 _173;
+        if (_166 > 9.9999999392252902907785028219223e-09)
+        {
+            _173 = _165 * rsqrt(_166);
+        }
+        else
+        {
+            _173 = float3(1.0, 0.0, 0.0);
+        }
+        float _174 = dot(_144, _144);
+        float3 _181;
+        if (_174 > 9.9999999392252902907785028219223e-09)
+        {
+            _181 = _144 * rsqrt(_174);
+        }
+        else
+        {
+            _181 = _173;
+        }
+        float3 _186 = cross(_135, _181);
+        float3 _187 = _186 * ((in.in_var_TEXCOORD6.w < 0.0) ? (-1.0) : 1.0);
+        float _188 = dot(_187, _187);
+        float3 _195;
+        if (_188 > 9.9999999392252902907785028219223e-09)
+        {
+            _195 = _187 * rsqrt(_188);
+        }
+        else
+        {
+            _195 = _186;
+        }
+        float _206 = (DrawConstants.texcoordMatrix[0u].x * DrawConstants.texcoordMatrix[1u].y) - (DrawConstants.texcoordMatrix[0u].y * DrawConstants.texcoordMatrix[1u].x);
+        float3 _237;
+        float3 _238;
+        if (abs(_206) > 9.9999999392252902907785028219223e-09)
+        {
+            float _211 = 1.0 / _206;
+            float3 _215 = ((_181 * DrawConstants.texcoordMatrix[1u].y) - (_195 * DrawConstants.texcoordMatrix[1u].x)) * _211;
+            float _216 = dot(_215, _215);
+            float3 _223;
+            if (_216 > 9.9999999392252902907785028219223e-09)
+            {
+                _223 = _215 * rsqrt(_216);
+            }
+            else
+            {
+                _223 = _181;
+            }
+            float3 _228 = ((_181 * (-DrawConstants.texcoordMatrix[0u].y)) + (_195 * DrawConstants.texcoordMatrix[0u].x)) * _211;
+            float _229 = dot(_228, _228);
+            float3 _236;
+            if (_229 > 9.9999999392252902907785028219223e-09)
+            {
+                _236 = _228 * rsqrt(_229);
+            }
+            else
+            {
+                _236 = _195;
+            }
+            _237 = _236;
+            _238 = _223;
+        }
+        else
+        {
+            _237 = _195;
+            _238 = _181;
+        }
+        float4 _242 = normalTexture.sample(normalSampler, in.in_var_TEXCOORD2);
+        float3 _245 = (_242.xyz * 2.0) - float3(1.0);
+        float _246 = dot(_245, _245);
+        float3 _253;
+        if (_246 > 9.9999999392252902907785028219223e-09)
+        {
+            _253 = _245 * rsqrt(_246);
+        }
+        else
+        {
+            _253 = float3(0.0, 0.0, 1.0);
+        }
+        float3 _261 = ((_238 * _253.x) + (_237 * _253.y)) + (_135 * _253.z);
+        float _262 = dot(_261, _261);
+        float3 _269;
+        if (_262 > 9.9999999392252902907785028219223e-09)
+        {
+            _269 = _261 * rsqrt(_262);
+        }
+        else
+        {
+            _269 = _135;
+        }
+        _270 = _269;
+    }
+    else
+    {
+        _270 = _135;
+    }
+    float _271 = dot(_270, _270);
+    float3 _278;
+    if (_271 > 9.9999999392252902907785028219223e-09)
+    {
+        _278 = _270 * rsqrt(_271);
+    }
+    else
+    {
+        _278 = float3(0.0, 1.0, 0.0);
+    }
+    float3 _288 = _278 / float3((abs(_278.x) + abs(_278.y)) + abs(_278.z));
+    float2 _305;
+    if (_288.z < 0.0)
+    {
+        _305 = (float2(1.0) - abs(_288.yx)) * float2((_288.x >= 0.0) ? 1.0 : (-1.0), (_288.y >= 0.0) ? 1.0 : (-1.0));
+    }
+    else
+    {
+        _305 = _288.xy;
+    }
+    out.out_var_SV_Target0 = float4((_305 * 0.5) + float2(0.5), precise::max(in.in_var_TEXCOORD7, 0.0), fast::clamp(DrawConstants.specular.w, 0.0, 1.0));
+    return out;
+}
+

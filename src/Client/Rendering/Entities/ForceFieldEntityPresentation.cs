@@ -21,5 +21,20 @@ namespace MphRead.Entities
                 base.GetDrawInfo();
             }
         }
+
+        protected override EnhancedForceFieldDrawState? GetEnhancedForceFieldDrawState(
+            ModelInstance inst, int modelIndex, int nodeIndex, int meshIndex)
+        {
+            ulong baseKey = _entity.Id >= 0
+                ? VisualLightSourceKey.ForAuthored(
+                    VisualLightSourceKind.ForceField, _entity.Id)
+                : Presentation.GetVisualLightSourceKey(
+                    VisualLightSourceKind.ForceField, _entity);
+            ulong key = EnhancedPresentationSourceKey.ForSubresource(baseKey,
+                nodeIndex, meshIndex);
+            return new EnhancedForceFieldDrawState(key,
+                EnhancedForceFieldProfiles.Default,
+                Presentation.CapturedPresentationTime);
+        }
     }
 }

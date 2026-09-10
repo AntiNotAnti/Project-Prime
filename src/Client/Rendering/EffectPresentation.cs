@@ -39,7 +39,9 @@ namespace MphRead
                 scaleS, scaleT, transform, uvsAndVerts,
                 scene.GetTextureIdentity(particle.ParticleDefinition.Model, material, 0),
                 bindingId, BillboardMode.Sphere,
-                bloomStrength: RenderMaterial.SingleParticleBloomStrength(particle.Type));
+                bloomStrength: RenderMaterial.SingleParticleBloomStrength(particle.Type),
+                textureAssetKey: ScenePresentation.GetModelTextureAssetKey(
+                    particle.ParticleDefinition.Model, material, 0));
         }
         public static void AddRenderItem(this EffectParticle particle, ScenePresentation scene)
         {
@@ -64,7 +66,8 @@ namespace MphRead
                 scene.UpdateMaterials(model, 0); // probably not necessary unless the model has texture animation
                 scene.AddRenderItem(material, scene.GetNextPolygonId(), 1, Vector3.Zero, LightInfo.Zero, texcoordMtx,
                     transform, scene.GetMeshListId(mesh), mesh.GeometryIdentity, 0, Array.Empty<float>(), null, null,
-                    SelectionType.None, particle.BillboardMode, textureIdentity: scene.GetTextureIdentity(model, material, 0));
+                    SelectionType.None, particle.BillboardMode, textureIdentity: scene.GetTextureIdentity(model, material, 0),
+                    textureAssetKey: ScenePresentation.GetEffectTextureAssetKey(particle.Owner.EffectName, material));
             }
             else
             {
@@ -116,7 +119,9 @@ namespace MphRead
                 scene.AddRenderItem(RenderPrimitive.Particle, particle.Alpha, scene.GetNextPolygonId(), particle.Color, xRepeat, yRepeat,
                     scaleS, scaleT, transform, uvsAndVerts,
                     scene.GetTextureIdentity(particle.Owner.Model, material, 0, particle.Owner), bindingId,
-                    particle.BillboardMode);
+                    particle.BillboardMode,
+                    softParticleProfile: scene.GetSoftParticleProfile(particle.Owner),
+                    textureAssetKey: ScenePresentation.GetEffectTextureAssetKey(particle.Owner.EffectName, material));
             }
         }
     }

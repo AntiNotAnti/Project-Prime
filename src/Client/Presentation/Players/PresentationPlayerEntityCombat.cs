@@ -21,9 +21,23 @@ namespace MphRead.Entities
             {
                 AuthoritativePlay.Current?.ObserveAuthoritativeProjectileVisual(value,
                     visualWillSpawn: !predictedLocalShot && value.Weapon <= 8);
-                if (predictedLocalShot || value.Weapon > 8)
+                if (value.Weapon > 8)
                     return;
                 BeamType weapon = (BeamType)value.Weapon;
+                if (WeaponVisualLightProfiles.TryGet(weapon,
+                    out VisualLightProfile muzzleLight))
+                {
+                    ulong lightKey = Presentation.GetTransientVisualLightSourceKey(
+                        TransientVisualLightSourceKind.MuzzleFlash, value.Id);
+                    Presentation.TrySpawnTransientVisualLight(lightKey,
+                        value.Position, muzzleLight);
+                }
+                // The predicted local path already produced its muzzle effect
+                // and projectile. Its authoritative acknowledgement still owns
+                // this event-idempotent render light, then stops before replaying
+                // either of those existing visuals.
+                if (predictedLocalShot)
+                    return;
                 bool charged = (value.Flags & CombatEventFlags.Charged) != 0;
                 PlayBeamShotSfx(weapon, charged, weapon == BeamType.ShockCoil, homing: false, amountA: 0);
                 Vector3 up = value.Direction.LengthSquared > 0.0001f ? value.Direction.Normalized() : Vector3.UnitZ;
@@ -60,12 +74,14 @@ namespace MphRead.Entities
             {
                 if (predictedLocalShot)
                     return;
-                if (_player.Hunter == Hunter.Sylux && _player.SyluxBombCount >= 3)
+                if (_player.Hunter == Hunter.Sylux)
                 {
-                    for (int i = 0; i < _player.SyluxBombCount; i++)
-                        if (_player.SyluxBombs[i] != null)
-                            _player.SyluxBombs[i]!.Countdown = 0;
-                    return;
+                    BombEntity[] registered = _player.GetRegisteredLockjawBombs();
+                    if (registered.Length >= _player.SyluxBombs.Length)
+                    {
+                        foreach (BombEntity existing in registered) existing.Countdown = 0;
+                        return;
+                    }
                 }
 
                 Vector3 facing = value.Direction.LengthSquared > 0.0001f ? value.Direction.Normalized() : Vector3.UnitZ;
@@ -75,8 +91,12 @@ namespace MphRead.Entities
                     return;
                 if (_player.Hunter == Hunter.Sylux)
                 {
-                    _player.SyluxBombs[_player.SyluxBombCount] = bomb;
-                    bomb.BombIndex = _player.SyluxBombCount++;
+                    if (!_player.TryRegisterLockjawBomb(bomb))
+                    {
+                        bomb.Destroy();
+                        _player._scene.RemoveEntity(bomb);
+                        return;
+                    }
                 }
 
                 bomb.NodeRef = _player._scene.GetNodeRefByPosition(value.Position);
@@ -92,6 +112,7 @@ namespace MphRead.Entities
                 if (value.Health == 0 || !_player.IsMainPlayer || _player.IsAltForm)
                     return;
                 Vector3 direction = value.Direction;
+                ObserveVisorDamage(value);
                 // Direction is an authoritative fact. Do not consult a reused attacker slot for a fallback.
                 int indicator = MphRead.Combat.CombatFeedback.DamageSector(direction, _player._gunVec1, _player._gunVec2);
                 if (indicator >= 0) _damageIndicatorTimers[indicator] = (ushort)SimTicks.From30HzFrames(63);

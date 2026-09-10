@@ -1,9 +1,11 @@
+using System;
 using MphRead.Combat;
 using MphRead.Hud;
 using MphRead.Mods.Audio;
 using MphRead.Mods.Content;
 using MphRead.Mods.Hud;
 using MphRead.Mods.Network;
+using MphRead.Mods.Input;
 
 namespace MphRead
 {
@@ -24,6 +26,45 @@ namespace MphRead
         }
         private FeedbackAudio? _feedbackAudio;
         public FeedbackAudio FeedbackAudio => _feedbackAudio ??= new(World);
+
+        /// <summary>Consume discrete world notices once from the scene HUD owner.</summary>
+        internal void ConsumeWorldFeedbackAudio()
+        {
+            while (WorldFeedback.TryDequeueNotice(out WorldFeedbackNotice notice))
+            {
+                WorldEvent value = notice.Event;
+                if (value.Kind == WorldSignalKind.PickupConsumed)
+                {
+                    // WorldFeedback only queues local pickups, but retain the
+                    // identity fence here so a role/session change before the
+                    // next draw cannot produce a stale local confirmation.
+                    if (value.Actor == CombatFeedback.Local)
+                    {
+                        FeedbackAudio.PlayPickupAcquired((ItemType)value.A, notice.ReceiptTick);
+                        if ((ItemType)value.A is ItemType.DoubleDamage or ItemType.Cloak
+                            or ItemType.Deathalt or ItemType.OmegaCannon)
+                            GamepadHaptics.Play(HapticEvent.MajorPickup, value.Id);
+                    }
+                    continue;
+                }
+
+                FeedbackCue? cue = value.Kind switch
+                {
+                    WorldSignalKind.FlagPickedUp => FeedbackCue.ObjectiveTaken,
+                    WorldSignalKind.FlagDropped or WorldSignalKind.FlagReset => FeedbackCue.ObjectiveDropped,
+                    WorldSignalKind.FlagCaptured or WorldSignalKind.NodeCaptured => FeedbackCue.ObjectiveScored,
+                    WorldSignalKind.PrimeChanged => FeedbackCue.PrimeChanged,
+                    WorldSignalKind.PickupRespawned => FeedbackCue.PickupRespawned,
+                    WorldSignalKind.OvertimeStarted => FeedbackCue.Overtime,
+                    WorldSignalKind.MatchPoint => FeedbackCue.MatchPoint,
+                    WorldSignalKind.NodeContested or WorldSignalKind.DefenderStateChanged => FeedbackCue.ObjectiveTaken,
+                    _ => null
+                };
+                if (cue.HasValue)
+                    FeedbackAudio.Play(cue.Value, notice.ReceiptTick,
+                        value.Kind == WorldSignalKind.PickupRespawned ? value.Position : null);
+            }
+        }
     }
 }
 
@@ -32,15 +73,14 @@ namespace MphRead.Entities
     public partial class PlayerPresentation
     {
         private uint _feedbackSoundSequence;
-        private uint _worldFeedbackSequence;
         private uint _awardHudRevision;
         private MatchAward? _activeAward;
         private CombatActor _feedbackSoundIdentity = CombatActor.None;
         internal void SynchronizeReplayFeedbackAudio()
         {
+            ResetVisorPresentation();
             _feedbackSoundIdentity = Presentation.CombatFeedback.Local;
-            _feedbackSoundSequence = Presentation.CombatFeedback.State.MarkerSequence;
-            _worldFeedbackSequence = Presentation.WorldFeedback.Sequence;
+            _feedbackSoundSequence = Presentation.CombatFeedback.State.MarkerAudioSequence;
         }
 
         private void ModDrawCombatFeedback()
@@ -55,17 +95,17 @@ namespace MphRead.Entities
                 _feedbackSoundIdentity = feedback.Local;
                 _feedbackSoundSequence = 0;
             }
-            if (_feedbackSoundSequence != feedback.State.MarkerSequence)
+            if (_feedbackSoundSequence != feedback.State.MarkerAudioSequence)
             {
-                _feedbackSoundSequence = feedback.State.MarkerSequence;
+                _feedbackSoundSequence = feedback.State.MarkerAudioSequence;
                 if (localView && marker != HitMarkerKind.None && CombatFeedbackSettings.HitMarkers == HitMarkerMode.VisualAndAudio)
                     Presentation.FeedbackAudio.Play(marker == HitMarkerKind.Kill ? FeedbackCue.Kill
                         : marker == HitMarkerKind.Headshot ? FeedbackCue.Headshot : FeedbackCue.Hit, tick);
             }
             if (localView) Presentation.FeedbackAudio.ObserveHealth(feedback.Local, (ushort)_player.Health, tick);
-            // The queue belongs to the scene's local presentation, not each
-            // remote player draw call. Only the local view consumes it, so a
-            // frame cannot dequeue one award per rendered player.
+            // DrawHudObjects is called only for the scene's active HUD owner,
+            // so this drains the scene queue exactly once per presentation.
+            Presentation.ConsumeWorldFeedbackAudio();
             if (localView && _awardHudRevision != Presentation.AwardHud.Revision)
             {
                 _awardHudRevision = Presentation.AwardHud.Revision;
@@ -80,35 +120,27 @@ namespace MphRead.Entities
             }
             else if (localView && _activeAward is { }) _activeAward = null;
             WorldFeedback world = Presentation.WorldFeedback;
-            if (_worldFeedbackSequence != world.Sequence)
-            {
-                _worldFeedbackSequence = world.Sequence;
-                if (world.Message.Length > 0 && CombatFeedback.Age(tick, world.Tick) < 120)
-                {
-                    FeedbackCue? cue = world.LastKind switch
-                    {
-                        WorldSignalKind.FlagPickedUp => FeedbackCue.ObjectiveTaken,
-                        WorldSignalKind.FlagDropped or WorldSignalKind.FlagReset => FeedbackCue.ObjectiveDropped,
-                        WorldSignalKind.FlagCaptured or WorldSignalKind.NodeCaptured => FeedbackCue.ObjectiveScored,
-                        WorldSignalKind.PrimeChanged => FeedbackCue.PrimeChanged,
-                        WorldSignalKind.PickupRespawned => FeedbackCue.Pickup,
-                        WorldSignalKind.OvertimeStarted => FeedbackCue.Overtime,
-                        WorldSignalKind.MatchPoint => FeedbackCue.MatchPoint,
-                        WorldSignalKind.NodeContested or WorldSignalKind.DefenderStateChanged => FeedbackCue.ObjectiveTaken,
-                        _ => null
-                    };
-                    if (cue.HasValue) Presentation.FeedbackAudio.Play(cue.Value, tick,
-                        world.LastKind == WorldSignalKind.PickupRespawned ? world.LastPosition : null);
-                }
-            }
             if (world.Message.Length > 0 && CombatFeedback.Age(tick, world.Tick) < 120)
                 DrawText2D(128, 32, Align.Center, 0, world.Message, scale: .7f);
             if (localView && _player.Health > 0 && marker != HitMarkerKind.None)
             {
-                string text = marker == HitMarkerKind.Kill ? "[X]" : marker == HitMarkerKind.Headshot ? "[+]" : "][";
+                uint age = CombatFeedback.Age(tick, feedback.State.MarkerTick);
+                uint duration = CombatFeedback.MarkerDuration(marker);
+                float fade = duration == 0 ? 0 : Math.Clamp((duration - age) / (float)duration, 0, 1);
+                float punch = marker == HitMarkerKind.Predicted
+                    ? .85f + .15f * Math.Min(age / 2f, 1f)
+                    : 1f + .1f * Math.Max(0, 1f - age / 2f);
+                float hudScale = Features.CustomCrosshair ? Mods.Render.Crosshair.Scale : 1f;
+                float scale = .75f * hudScale * punch;
+                int markerX = Math.Clamp((int)MathF.Round(CurrentReticlePosition.X * 256), 0, 255);
+                int markerY = Math.Clamp((int)MathF.Round(CurrentReticlePosition.Y * 192), 0, 191);
+                string text = marker == HitMarkerKind.Kill ? "[X]" : marker == HitMarkerKind.Headshot ? "[+]"
+                    : marker == HitMarkerKind.Predicted ? "x" : "][";
                 ColorRgba color = marker == HitMarkerKind.Kill ? new ColorRgba(255, 64, 64, 255)
-                    : marker == HitMarkerKind.Headshot ? new ColorRgba(255, 255, 64, 255) : new ColorRgba(255, 255, 255, 255);
-                DrawText2D(128, 90, Align.Center, 0, text, color, scale: .75f);
+                    : marker == HitMarkerKind.Headshot ? new ColorRgba(255, 255, 64, 255)
+                    : marker == HitMarkerKind.Predicted ? new ColorRgba(210, 210, 210, (byte)(150 * fade))
+                    : new ColorRgba(255, 255, 255, (byte)(255 * fade));
+                DrawText2D(markerX, markerY, Align.Center, 0, text, color, scale: scale);
             }
             int row = 0;
             for (int i = 0; i < feedback.FeedCount; i++)

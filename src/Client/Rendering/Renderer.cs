@@ -148,7 +148,12 @@ namespace MphRead
         private int _rttShaderProgramId = 0;
         private int _shiftShaderProgramId = 0;
         private int _celShaderProgramId = 0;
-        private readonly ShaderLocations _shaderLocations = new ShaderLocations();
+        private readonly ShaderLocations _legacyShaderLocations = new ShaderLocations();
+        private ShaderLocations _shaderLocations = null!;
+        private readonly GlesEnhancedRuntime _glesEnhanced = new();
+        private GlesEnhancedPlan _glesEnhancedPlan;
+        private bool _glesEnhancedActive;
+        private bool _glesEnhancedTextureRetirementPending;
 #endif
 
         private Vector3 _light1Vector = Vector3.Zero;
@@ -277,6 +282,9 @@ namespace MphRead
             world.PlayerTeleported += (_, _) => ResetPoseHistory();
             world.Services = new Mods.Network.ClientSceneServices();
             Size = size;
+#if ANDROID
+            _shaderLocations = _legacyShaderLocations;
+#endif
             _keyboardState = keyboardState;
             _mouseState = mouseState;
             _setTitle = setTitle;
@@ -299,6 +307,8 @@ namespace MphRead
                 ?? Mods.Network.DemoPlayback.InitialRules;
             World.Match.ApplyRules(admitted ?? MatchRules.CreateDefault(mode.ToMatchMode(), metadata.Name));
             if (admitted == null) Mods.GameSettings.ApplyMatchRules(World);
+            _visualLightIdentities.ResetScope();
+            ResetTransientVisualLights();
             World.AddRoom(name, mode, playerCount, nodeLayerMask, entityLayerId);
             if (admitted != null)
             {
@@ -316,6 +326,12 @@ namespace MphRead
 
         public void RoomLoaded(RoomMetadata metadata)
         {
+            ResetTransientVisualLights();
+#if ANDROID
+            // RoomLoaded may run while the prior sealed frame still owns its
+            // bindings. Retire at the next producer boundary, before uploads.
+            _glesEnhancedTextureRetirementPending = true;
+#endif
                 if ((Paths.IsMphJapan || Paths.IsMphKorea))
                 {
                     (int count, byte[] charData) = Read.ReadKanjiFont(singlePlayer: false);
@@ -336,6 +352,8 @@ namespace MphRead
 
             if (metadata.InGameName != null) _setTitle(metadata.InGameName);
             SetRoomValues(metadata);
+            ConfigureEnvironmentalParticles(metadata);
+            ConfigureImpactDecals(metadata);
             _cameraMode = World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active) ? CameraMode.Player : CameraMode.Roam;
             _inputMode = _cameraMode == CameraMode.Player ? InputMode.All : InputMode.CameraOnly;
             Sound.Sfx.Load(World);
@@ -761,6 +779,8 @@ namespace MphRead
             _shaderLocations.UseMask = GL.GetUniformLocation(_rttShaderProgramId, "use_mask");
             _shaderLocations.ViewWidth = GL.GetUniformLocation(_rttShaderProgramId, "view_width");
             _shaderLocations.ViewHeight = GL.GetUniformLocation(_rttShaderProgramId, "view_height");
+            _shaderLocations.UseHudVertexColor = GL.GetUniformLocation(_rttShaderProgramId, "use_hud_vertex_color");
+            _shaderLocations.UseHudTexture = GL.GetUniformLocation(_rttShaderProgramId, "use_hud_texture");
             int texLocation = GL.GetUniformLocation(_rttShaderProgramId, "tex");
             int maskLocation = GL.GetUniformLocation(_rttShaderProgramId, "mask");
             GL.UseProgram(_rttShaderProgramId);
@@ -1183,6 +1203,7 @@ namespace MphRead
                     foreach (PlayerEntity player in World.GetPlayerEntities()) player.GetPresentation().SynchronizeReplayFeedbackAudio();
                     var local = CombatFeedback.Local;
                     FeedbackAudio.RestoreReplayBaseline(local, local.IsValid ? (ushort)World.Players[local.Slot].Health : (ushort)0);
+                    WorldFeedback.ClearPendingNotices();
                     Music.TryPlayRoomMusic(World.RoomId, 0);
                 }
                 return;
@@ -1198,8 +1219,17 @@ namespace MphRead
 
         private void BeginReplaySeek()
         {
+            // Seeking fast-forwards simulation state without presenting the
+            // intermediate frames.  Fence render histories immediately so the
+            // first post-seek picture cannot blend across the skipped range.
+            ResetPoseHistory();
+            _visualLightIdentities.ResetScope();
+            ResetTransientVisualLights();
+            ResetEnvironmentalParticlePresentation();
+            ResetImpactDecalPresentation();
             Sound.Sfx.Instance.StopAllSound(force: true);
             Music.Stop();
+            WorldFeedback.ClearPendingNotices();
         }
 
         private void OnSimulationStep()
@@ -1262,10 +1292,11 @@ namespace MphRead
                 // where World.LocalPlayer! is somebody else's hunter.
                 if (!Mods.Network.DemoPlayback.IsSeeking)
                 {
-                    Mods.Input.GamepadDesktop.Poll();
-                    Mods.Input.GamepadInput.BeginFrame();
                     bool noPlayerInput = Mods.Network.DemoPlayback.IsSeeking || _inputMode == InputMode.CameraOnly
                         || Mods.ClientInputState.PauseOpen || Mods.Chat.ChatBox.Composing;
+                    bool allowLocalLook = CanCaptureSimulationLook && !noPlayerInput;
+                    Mods.Input.GamepadInput.BeginFrame(allowLocalLook);
+                    World.Services.BeginLocalLookFrame(allowLocalLook);
                     PlayerPresentation.ProcessInput(World, _keyboardState, _mouseState, noPlayerInput);
                     if (!noPlayerInput && !Mods.SpectatorMode.IsSpectating)
                     {
@@ -1273,11 +1304,14 @@ namespace MphRead
                     }
                     World.Services.AfterInput(World);
                     World.LocalPlayer!.GetPresentation().ApplyWeaponSelection(noPlayerInput || Mods.SpectatorMode.IsSpectating);
+                    RenderLook?.MarkSimulationStep();
                 }
                 else
                 {
+                    World.Services.BeginLocalLookFrame(allowAimAssist: false);
                     foreach (PlayerEntity player in World.GetPlayerEntities()) player.Controls.ClearAll();
                     World.Services.AfterInput(World);
+                    RenderLook?.MarkSimulationStep();
                 }
             }
             if (!Mods.Network.DemoPlayback.IsSeeking) OnKeyHeld();
@@ -1326,15 +1360,39 @@ namespace MphRead
         public void OnDrawFrame()
         {
             if (Mods.Network.DemoPlayback.IsSeeking) return;
+            ulong capturedPresentationTick = World.FrameCount;
+            float capturedRenderFraction = Mods.Render.FrameTiming.RenderAlpha;
+            if (!float.IsFinite(capturedRenderFraction)) capturedRenderFraction = 0;
+            capturedRenderFraction = Math.Clamp(capturedRenderFraction, 0, 1);
+            EnvironmentalParticlePresentationClock.FrameTime presentationFrameTime
+                = EnvironmentalParticlePresentationClock.Capture(
+                    capturedPresentationTick, capturedRenderFraction);
+            uint capturedCombatPresentationTick
+                = Mods.Network.AuthoritativePlay.Current?.WorldServerTick
+                    ?? Mods.Network.DemoPlayback.WorldServerTick
+                    ?? unchecked((uint)capturedPresentationTick);
+            TimeSpan transientLightPresentationTime
+                = presentationFrameTime.SchedulingTime;
+            CapturedPresentationTime = presentationFrameTime.SamplingTime;
+            // Native polling/sampling is render-rate. Fixed-step input owns
+            // hysteresis, boost timing and button edges; these calls only
+            // refresh the latest raw state/velocity for prediction.
+            Mods.Input.GamepadDesktop.Poll();
+            if (CanCaptureSimulationLook)
+            {
+                Mods.Input.GamepadInput.SampleNativeFrame();
+            }
+            else
+            {
+                Mods.Input.GamepadInput.ResetLook();
+            }
             bool sdlBackend = RenderBackendSelection.Current == RenderBackendKind.Sdl;
+            Mods.RenderQualitySnapshot frameQuality = Mods.RenderOptions.CaptureSnapshot();
             Mods.Network.AuthoritativePlay.Current?.AdvancePresentation();
             // One scene owner drains one semantic announcer cue per rendered
             // frame. This also covers spectator and replay presentation,
             // where there is no local-player draw call to own the queue.
             AnnouncerAudio.PresentNext();
-#if ANDROID
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
-#endif
             // The scene's own target, which the resolution scale may have made
             // smaller than the window. Reallocated here rather than only on a
             // window resize, so moving the slider during a match is seen.
@@ -1347,11 +1405,32 @@ namespace MphRead
             // Before the frame is drawn into it, since this swaps what the
             // depth is drawn into.
 #if ANDROID
-            UpdateDepthAttachment(target);
-            GL.Viewport(0, 0, target.X, target.Y);
-            GL.UseProgram(_shaderProgramId);
+            _glesEnhancedPlan = _glesEnhanced.Prepare(frameQuality.GraphicsPreset,
+                target, Size);
+            if (_glesEnhancedTextureRetirementPending)
+            {
+                _glesEnhanced.RetireRoomTextures();
+                _glesEnhancedTextureRetirementPending = false;
+            }
+            _glesEnhancedActive = _glesEnhancedPlan.UsesEnhancedLightingAndMaterials;
+            _shaderLocations = _glesEnhancedActive
+                ? _glesEnhanced.SceneLocations : _legacyShaderLocations;
+            if (_glesEnhancedActive)
+            {
+                _glesEnhanced.BeginScene(target);
+            }
+            else
+            {
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
+                UpdateDepthAttachment(target);
+                GL.Viewport(0, 0, target.X, target.Y);
+                GL.UseProgram(_shaderProgramId);
+            }
 #endif
             LoadAndUnload();
+            _radarMapPresentation.InvalidateIfChanged(this, World.Room);
+            if (Hud.Radar.RadarSettings.Style == Hud.Radar.RadarStyle.Enhanced)
+                _radarMapPresentation.Ensure(this, World.Room);
             _decalItems.Clear();
             _nonDecalItems.Clear();
             _translucentItems.Clear();
@@ -1380,11 +1459,30 @@ namespace MphRead
                 UpdateCameraPosition();
             }
             UpdateProjection();
+            PrepareEnvironmentalParticles(frameQuality, capturedPresentationTick,
+                capturedRenderFraction);
+            PrepareImpactDecals(frameQuality, capturedPresentationTick);
+            (EnhancedEnvironment frameEnvironment,
+                EnhancedColorGradeSelection frameColorGrade)
+                = ResolveEnhancedEnvironmentSnapshot(frameQuality,
+                    sdlBackend
+#if ANDROID
+                    || _glesEnhancedActive
+#endif
+                    );
+            RenderReflectionProbe? frameReflectionProbe
+                = ResolveEnhancedReflectionProbeSnapshot(frameQuality, sdlBackend,
+                    frameEnvironment);
+            RenderColorGradeState frameColorGradeState
+                = RenderColorGradeState.FromSelection(frameColorGrade);
+            RenderSkyState? frameSky = ResolveEnhancedSkySnapshot(frameQuality,
+                sdlBackend, CapturedPresentationTime);
             _renderFrame.CaptureState(
                 _viewMatrix,
                 _viewInvRotMatrix,
                 _viewInvRotYMatrix,
                 _perspectiveMatrix,
+                _cameraPosition,
                 Size,
                 target,
                 new Vector4(_clearColor.R, _clearColor.G, _clearColor.B, _clearColor.A),
@@ -1410,14 +1508,65 @@ namespace MphRead
                     _volumeEdges,
                     ShowInvisibleEntities,
                     false,
-                    Mods.RenderOptions.CaptureSnapshot()));
+                    frameQuality),
+                frameEnvironment.Exposure);
+            _renderFrame.CaptureColorGrade(frameColorGradeState);
+            if (frameSky is not null)
+            {
+                _renderFrame.CaptureSky(frameSky);
+            }
+            bool enhancedFrame = (sdlBackend
+#if ANDROID
+                || _glesEnhancedActive
+#endif
+                )
+                && frameQuality.GraphicsPreset == Mods.GraphicsPreset.Enhanced;
+            _renderFrame.CaptureEnhancedFog(RenderEnhancedFogState.FromEnvironment(
+                frameEnvironment, enhancedFrame && FogOn));
+            // Directional shadows remain SDL-only; Android consumes the
+            // environment exposure/LUT but does not allocate a shadow map.
+            ShadowQualitySettings shadowQuality = sdlBackend
+                && frameQuality.GraphicsPreset == Mods.GraphicsPreset.Enhanced
+                && LightingOn
+                ? ShadowQualityPolicy.Default
+                : ShadowQualityPolicy.Resolve(ShadowQuality.Off);
+            if (PrimaryShadowLightPolicy.TrySelect(_light1Vector, _light1Color,
+                    _light2Vector, _light2Color,
+                    frameEnvironment.PrimaryShadowLightIndex,
+                    out PrimaryShadowLight primaryShadow)
+                && StableShadowProjectionPolicy.TryCreate(_cameraPosition,
+                    primaryShadow.Direction, shadowQuality,
+                    StableShadowProjectionPolicy.DefaultHalfExtent,
+                    StableShadowProjectionPolicy.DefaultDepthRange,
+                    out StableShadowProjection shadowProjection))
+            {
+                _renderFrame.CaptureDirectionalShadow(
+                    new RenderDirectionalShadowState(primaryShadow.SourceIndex,
+                        primaryShadow.Direction, shadowProjection.ViewProjection,
+                        shadowQuality.MapSize, shadowQuality.PcfRadius));
+            }
+            if (frameColorGradeState.Enabled)
+            {
+                // The immutable bytes are captured before Seal; the backend
+                // never consults the optional pack or mutable room state.
+                _renderFrame.CaptureTexture(frameColorGrade.Lut.Pixels);
+            }
+            if (frameReflectionProbe != null)
+            {
+                // Six decoded immutable faces are selected with the same
+                // pre-draw room snapshot as environment/exposure/LUT state.
+                _renderFrame.CaptureReflectionProbe(frameReflectionProbe);
+            }
             Mods.Network.AuthoritativePlay? presentation = Mods.Network.AuthoritativePlay.Current;
             try
             {
                 presentation?.BeginRemotePresentation(World);
                 GetDrawItems();
+                SubmitImpactDecals();
             }
             finally { presentation?.EndRemotePresentation(); }
+            SubmitTransientVisualLights(capturedPresentationTick,
+                transientLightPresentationTime);
             for (int i = 0; i < _renderFrame.Submissions.Count; i++)
             {
                 DrawSubmission submission = _renderFrame.Submissions[i];
@@ -1449,13 +1598,28 @@ namespace MphRead
                     }
                     _renderFrame.CaptureTexture(texture);
                 }
+                if (submission.Material.Enhanced?.Normal is TextureIdentity normalTexture)
+                {
+                    CapturePresentationTexture(normalTexture);
+                }
+                if (submission.Material.Enhanced?.Albedo is TextureIdentity albedoTexture
+                    && albedoTexture != submission.TextureIdentity)
+                {
+                    CapturePresentationTexture(albedoTexture);
+                }
+                if (submission.Material.Enhanced?.Emissive is TextureIdentity emissiveTexture)
+                {
+                    CapturePresentationTexture(emissiveTexture);
+                }
             }
             // Match legacy OnDrawFrame -> OnRenderFrame ordering: world draw
             // items describe the old room first, then the fade transition may
             // load the next room.  The presentation commands are recorded
             // after that update, as the legacy HUD was drawn after
             // UpdateUniforms, but the already captured world queue is kept.
-            // A fade exit suppresses this picture entirely.
+            // A fade exit suppresses this picture entirely. The environment,
+            // exposure, quality and LUT deliberately remain the coherent
+            // pre-draw old-room snapshot even if UpdateFade loads a new room.
             if (sdlBackend)
             {
                 if (ProcessFrame)
@@ -1468,43 +1632,17 @@ namespace MphRead
                     _renderFrame.Seal();
                     return;
                 }
-                _renderFrame.CaptureState(
-                    _viewMatrix,
-                    _viewInvRotMatrix,
-                    _viewInvRotYMatrix,
-                    _perspectiveMatrix,
-                    Size,
-                    target,
-                    new Vector4(_clearColor.R, _clearColor.G, _clearColor.B, _clearColor.A),
-                    _light1Vector,
-                    _light1Color,
-                    _light2Vector,
-                    _light2Color,
-                    _hasFog,
-                    _fogColor,
-                    _fogOffset,
-                    _fogSlope,
-                    new RenderFrameOptions(
-                        _showTextures,
-                        _showColors,
-                        _wireframe,
-                        _faceCulling,
-                        FilteringOn,
-                        LightingOn,
-                        FogOn,
-                        Mods.RenderOptions.CelShading,
-                        Mods.RenderOptions.CelBands,
-                        Mods.RenderOptions.CelEdge,
-                        _volumeEdges,
-                        ShowInvisibleEntities,
-                        false,
-                        Mods.RenderOptions.CaptureSnapshot()));
-                CapturePresentationFrame(target);
+                // Do not recapture world state here. UpdateFade may have loaded
+                // another room, while this frame's submissions still belong
+                // to the room captured before GetDrawItems.
+                CapturePresentationFrame(target, capturedCombatPresentationTick,
+                    capturedRenderFraction);
                 CapturePresentationResources();
                 AttachSdlCaptureRequests();
             }
 #if ANDROID
-            _glesWorldContext.BeginFrame(_shaderLocations);
+            _glesWorldContext.BeginFrame(_shaderLocations,
+                _glesEnhancedActive ? _glesEnhanced : null);
             for (int i = 0; i < _renderFrame.Submissions.Count; i++)
             {
                 DrawSubmission submission = _renderFrame.Submissions[i];
@@ -1602,12 +1740,24 @@ namespace MphRead
         /// The legacy path continues to execute the original methods in
         /// <see cref="OnRenderFrame"/>.
         /// </summary>
-        private void CapturePresentationFrame(Vector2i target)
+        private void CapturePresentationFrame(Vector2i target,
+            uint presentationTick, float renderFraction)
         {
             bool playerHud = World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active)
                 && CameraMode == CameraMode.Player;
             bool scoreboard = ScoreboardOverFreeCamera;
             PlayerPresentation hud = World.LocalPlayer!.GetPresentation();
+
+            bool enhancedVisor = EnhancedVisorPolicy.IsEligible(
+                _renderFrame.Options.Quality.GraphicsPreset, playerHud,
+                Mods.SpectatorMode.IsSpectating, World.LocalPlayer.Health > 0,
+                World.LocalPlayer.IsAltForm, World.LocalPlayer.IsMorphing,
+                World.LocalPlayer.CameraType == CameraType.First,
+                World.CameraSequences.Current != null);
+            _renderFrame.CaptureVisor(enhancedVisor
+                ? hud.CaptureVisorState(presentationTick, renderFraction,
+                    CapturedPresentationTime)
+                : RenderVisorState.Disabled);
 
             bool celEnabled = Mods.RenderOptions.CelShading && Mods.RenderOptions.CelEdge > 0;
             Vector2 texelSize = target.X > 0 && target.Y > 0
@@ -2063,6 +2213,60 @@ namespace MphRead
                 }, color: color, stage: stage);
         }
 
+        private void CaptureHudTexture(TextureIdentity texture, float left, float top, float right,
+            float bottom, Vector4 color, Vector4 uvRect, float rotation, float alpha)
+            => _renderFrame.AddOverlayCommand(CreateHudTextureCommand(Size, texture, left, top, right,
+                bottom, color, uvRect, rotation, alpha, _capturingPresentationStage));
+
+        internal static RenderOverlayCommand CreateHudTextureCommand(Vector2i size, TextureIdentity texture,
+            float left, float top, float right, float bottom, Vector4 color, Vector4 uvRect,
+            float rotation, float alpha, RenderPresentationStage stage)
+        {
+            if (size.X <= 0 || size.Y <= 0) throw new ArgumentOutOfRangeException(nameof(size));
+            if (!float.IsFinite(rotation)) rotation = 0;
+            float halfW = size.X / 2f, halfH = size.Y / 2f;
+            float x0 = (left / 256f * size.X - halfW) / halfW;
+            float x1 = (right / 256f * size.X - halfW) / halfW;
+            float y0 = (halfH - top / 192f * size.Y) / halfH;
+            float y1 = (halfH - bottom / 192f * size.Y) / halfH;
+            Vector2 center = new((uvRect.X + uvRect.Z) / 2, (uvRect.Y + uvRect.W) / 2);
+            float cosine = MathF.Cos(rotation), sine = MathF.Sin(rotation);
+            Vector2 Rotate(Vector2 uv)
+            {
+                Vector2 delta = uv - center;
+                return center + new Vector2(delta.X * cosine - delta.Y * sine,
+                    delta.X * sine + delta.Y * cosine);
+            }
+            return new RenderOverlayCommand(RenderOverlayKind.HudTexture, new[]
+            {
+                new RenderOverlayVertex(new Vector3(x1, y0, 0), Rotate(new Vector2(uvRect.Z, uvRect.Y)), color),
+                new RenderOverlayVertex(new Vector3(x0, y0, 0), Rotate(new Vector2(uvRect.X, uvRect.Y)), color),
+                new RenderOverlayVertex(new Vector3(x1, y1, 0), Rotate(new Vector2(uvRect.Z, uvRect.W)), color),
+                new RenderOverlayVertex(new Vector3(x0, y1, 0), Rotate(new Vector2(uvRect.X, uvRect.W)), color)
+            }, texture: texture, alpha: alpha, useTexture: true, color: color, stage: stage);
+        }
+
+        private void CaptureHudGeometry(IReadOnlyList<HudGeometryVertex> geometry)
+            => _renderFrame.AddOverlayCommand(CreateHudGeometryCommand(Size, geometry, _capturingPresentationStage));
+
+        internal static RenderOverlayCommand CreateHudGeometryCommand(Vector2i size,
+            IReadOnlyList<HudGeometryVertex> geometry, RenderPresentationStage stage)
+        {
+            if (geometry == null) throw new ArgumentNullException(nameof(geometry));
+            if (geometry.Count < 3 || geometry.Count > 2048)
+                throw new ArgumentOutOfRangeException(nameof(geometry));
+            float halfW = size.X / 2f, halfH = size.Y / 2f;
+            var vertices = new RenderOverlayVertex[geometry.Count];
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                HudGeometryVertex vertex = geometry[i];
+                float x = (vertex.Position.X / 256f * size.X - halfW) / halfW;
+                float y = (halfH - vertex.Position.Y / 192f * size.Y) / halfH;
+                vertices[i] = new RenderOverlayVertex(new Vector3(x, y, 0), Vector2.Zero, vertex.Color);
+            }
+            return new RenderOverlayCommand(RenderOverlayKind.HudGeometry, vertices, stage: stage);
+        }
+
         private void CaptureHudRadialSector(int sector, Vector4 color)
         {
             var vertices = new List<RenderOverlayVertex>(14);
@@ -2077,7 +2281,7 @@ namespace MphRead
                 vertices, color: color, stage: _capturingPresentationStage));
         }
 
-        private void CaptureCustomCrosshair(Vector3 color)
+        private void CaptureCustomCrosshair(Vector3 color, Vector2 position)
         {
             float halfW = Size.X / 2f;
             float halfH = Size.Y / 2f;
@@ -2090,10 +2294,10 @@ namespace MphRead
                 _renderFrame.AddOverlayCommand(new RenderOverlayCommand(RenderOverlayKind.Crosshair,
                     new[]
                     {
-                        new RenderOverlayVertex(new Vector3(right / halfW, top / halfH, 0), Vector2.Zero, fill),
-                        new RenderOverlayVertex(new Vector3(left / halfW, top / halfH, 0), Vector2.Zero, fill),
-                        new RenderOverlayVertex(new Vector3(right / halfW, bottom / halfH, 0), Vector2.Zero, fill),
-                        new RenderOverlayVertex(new Vector3(left / halfW, bottom / halfH, 0), Vector2.Zero, fill)
+                        new RenderOverlayVertex(Mods.Render.Crosshair.OffsetNdc(position, right, top, halfW, halfH), Vector2.Zero, fill),
+                        new RenderOverlayVertex(Mods.Render.Crosshair.OffsetNdc(position, left, top, halfW, halfH), Vector2.Zero, fill),
+                        new RenderOverlayVertex(Mods.Render.Crosshair.OffsetNdc(position, right, bottom, halfW, halfH), Vector2.Zero, fill),
+                        new RenderOverlayVertex(Mods.Render.Crosshair.OffsetNdc(position, left, bottom, halfW, halfH), Vector2.Zero, fill)
                     }, color: fill, stage: _capturingPresentationStage));
             }
             (float radius, float thickness) = Mods.Render.Crosshair.RingOf(
@@ -2108,8 +2312,8 @@ namespace MphRead
                 float angle = MathHelper.TwoPi * i / segments;
                 float cos = MathF.Cos(angle);
                 float sin = MathF.Sin(angle);
-                vertices.Add(new RenderOverlayVertex(new Vector3(outer * cos / halfW, outer * sin / halfH, 0), Vector2.Zero, fill));
-                vertices.Add(new RenderOverlayVertex(new Vector3(inner * cos / halfW, inner * sin / halfH, 0), Vector2.Zero, fill));
+                vertices.Add(new RenderOverlayVertex(Mods.Render.Crosshair.OffsetNdc(position, outer * cos, outer * sin, halfW, halfH), Vector2.Zero, fill));
+                vertices.Add(new RenderOverlayVertex(Mods.Render.Crosshair.OffsetNdc(position, inner * cos, inner * sin, halfW, halfH), Vector2.Zero, fill));
             }
             _renderFrame.AddOverlayCommand(new RenderOverlayCommand(RenderOverlayKind.Crosshair,
                 vertices, color: fill, stage: _capturingPresentationStage));
@@ -2285,15 +2489,20 @@ namespace MphRead
 
         public byte[]? ReadSceneTarget(out int width, out int height)
         {
-            Vector2i target = _targetSize;
+            Vector2i target = _glesEnhancedActive
+                ? _glesEnhanced.SceneCaptureSize : _targetSize;
             width = target.X;
             height = target.Y;
-            if (_frameBuffer == 0)
+            int framebuffer = _glesEnhancedActive
+                ? _glesEnhanced.SceneCaptureFramebuffer : _frameBuffer;
+            if (framebuffer == 0)
             {
                 return null;
             }
             byte[] buffer = new byte[width * height * 3];
-            GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _frameBuffer);
+            // Enhanced capture is always the post-tone-map/post-HUD RGBA8
+            // display-linear target. It never reinterprets the FP scene.
+            GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, framebuffer);
             GL.ReadBuffer(ReadBufferMode.ColorAttachment0);
             GL.PixelStore(PixelStoreParameter.PackAlignment, 1);
             GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, buffer);
@@ -2791,6 +3000,15 @@ namespace MphRead
             }
             GlesBackend.RenderWorld(_renderFrame, _glesWorldContext);
 
+            if (_glesEnhancedActive)
+            {
+                // Resolve HDR/LDR scene lighting into an SDR display-linear
+                // target before any authored HUD content is composed.
+                _glesEnhanced.ResolveScene(_renderFrame);
+                _glesEnhanced.BindComposition();
+                GL.UseProgram(_glesEnhanced.SceneProgram);
+            }
+
             if (World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
             {
                 SetHudLayerUniforms();
@@ -2806,12 +3024,26 @@ namespace MphRead
                 UnsetHudLayerUniforms();
             }
 
+            if (_glesEnhancedActive)
+            {
+                // Scene-target captures include weapon/HUD-scene models, but
+                // intentionally exclude disruption, visor overlays and fade.
+                _glesEnhanced.CaptureScene();
+                _glesEnhanced.BindComposition();
+            }
+
             // After the weapon, so it is drawn around too, and before the
             // target is put on screen, so the helmet and the HUD are not.
-            DrawCelOutline();
+            if (!_glesEnhancedActive)
+            {
+                DrawCelOutline();
+            }
 
             GL.Disable(EnableCap.CullFace);
-            GL.UseProgram(_rttShaderProgramId);
+            _shaderLocations = _glesEnhancedActive
+                ? _glesEnhanced.CompositionLocations : _legacyShaderLocations;
+            GL.UseProgram(_glesEnhancedActive
+                ? _glesEnhanced.CompositionProgram : _rttShaderProgramId);
             GL.Uniform1(_shaderLocations.LayerAlpha, 1f);
             GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero);
 
@@ -2820,35 +3052,56 @@ namespace MphRead
                 float div = World.ElapsedTime / (1 / 30f);
                 int index = (int)div;
                 float factor = div % 1;
-                GL.UseProgram(_shiftShaderProgramId);
-                GL.Uniform1(_shaderLocations.ShiftFactor, World.LocalPlayer!.GetPresentation().HudDisruptionFactor);
-                GL.Uniform1(_shaderLocations.ShiftIndex, index);
-                GL.Uniform1(_shaderLocations.LerpFactor, factor);
-                GL.Uniform1(_shaderLocations.WhiteoutFactor, World.LocalPlayer!.GetPresentation().HudWhiteoutFactor);
-                if (World.LocalPlayer!.GetPresentation().HudWhiteoutFactor != 0)
+                if (_glesEnhancedActive)
                 {
-                    GL.Uniform1(_shaderLocations.WhiteoutTable, 192, PlayerPresentation.HudWhiteoutTable);
+                    _glesEnhanced.ApplyDisruption(_shiftShaderProgramId,
+                        _legacyShaderLocations,
+                        World.LocalPlayer!.GetPresentation().HudDisruptionFactor,
+                        index, factor,
+                        World.LocalPlayer!.GetPresentation().HudWhiteoutFactor,
+                        PlayerPresentation.HudWhiteoutTable);
+                    _glesEnhanced.BindComposition();
+                }
+                else
+                {
+                    GL.UseProgram(_shiftShaderProgramId);
+                    GL.Uniform1(_shaderLocations.ShiftFactor, World.LocalPlayer!.GetPresentation().HudDisruptionFactor);
+                    GL.Uniform1(_shaderLocations.ShiftIndex, index);
+                    GL.Uniform1(_shaderLocations.LerpFactor, factor);
+                    GL.Uniform1(_shaderLocations.WhiteoutFactor, World.LocalPlayer!.GetPresentation().HudWhiteoutFactor);
+                    if (World.LocalPlayer!.GetPresentation().HudWhiteoutFactor != 0)
+                    {
+                        GL.Uniform1(_shaderLocations.WhiteoutTable, 192, PlayerPresentation.HudWhiteoutTable);
+                    }
                 }
             }
 
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            if (!_glesEnhancedActive)
+            {
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            }
             // Back to the window: everything from here down -- the quad, the
             // helmet, the HUD and the fade -- is drawn at full size through
             // the RTT program, not the one the scene was drawn with, so cel
             // shading is already behind us and there is nothing to turn off.
             GL.Viewport(0, 0, Size.X, Size.Y);
-            GL.Clear(ClearBufferMask.ColorBufferBit);
+            if (!_glesEnhancedActive)
+            {
+                GL.Clear(ClearBufferMask.ColorBufferBit);
+            }
             GL.Disable(EnableCap.DepthTest);
             GL.Enable(EnableCap.Blend);
-            GL.BindTexture(TextureTarget.Texture2D, _screenTexture);
-
-            GL.DrawFullscreenQuad();
-
-            GL.BindTexture(TextureTarget.Texture2D, 0);
+            if (!_glesEnhancedActive)
+            {
+                GL.BindTexture(TextureTarget.Texture2D, _screenTexture);
+                GL.DrawFullscreenQuad();
+                GL.BindTexture(TextureTarget.Texture2D, 0);
+            }
 
             if (World.LocalPlayer!.GetPresentation().HudDisruptedState != 0 || World.LocalPlayer!.GetPresentation().HudWhiteoutState != -1)
             {
-                GL.UseProgram(_rttShaderProgramId);
+                GL.UseProgram(_glesEnhancedActive
+                    ? _glesEnhanced.CompositionProgram : _rttShaderProgramId);
             }
             GL.Uniform4(_shaderLocations.FadeColor, _fadeColor, _fadeColor, _fadeColor, 0);
             if (World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
@@ -2905,6 +3158,13 @@ namespace MphRead
             {
                 GL.Enable(EnableCap.CullFace);
                 GL.CullFace(TriangleFace.Back);
+            }
+            if (_glesEnhancedActive)
+            {
+                // The composition target is guaranteed RGBA8 and is also the
+                // only Enhanced scene-capture source. This final pass performs
+                // the sole linear-to-sRGB transfer.
+                _glesEnhanced.Present(_faceCulling);
             }
             return true;
         }
@@ -3254,7 +3514,8 @@ namespace MphRead
             UnlinkEffectEntry(entry);
         }
 
-        private EffectElementEntry? InitEffectElement(Effect effect, EffectElement element, EntityCollision? entCol, bool child)
+        private EffectElementEntry? InitEffectElement(Effect effect, EffectElement element,
+            int elementIndex, EntityCollision? entCol, bool child)
         {
             if (_inactiveElements.Count == 0)
             {
@@ -3264,6 +3525,7 @@ namespace MphRead
             entry.EffectId = effect.Id;
             entry.EffectName = effect.Name;
             entry.ElementName = element.Name;
+            SetSoftParticleProfile(entry, effect.Id, elementIndex);
             entry.BufferTime = element.BufferTime;
             // todo: FPS stuff
             entry.CreationTime = World.ElapsedTime + (child ? (1 / 60f) : 0);
@@ -3312,6 +3574,7 @@ namespace MphRead
             element.ElementName = "";
             element.ParticleDefinitions.Clear();
             GetEffectTextureBindings(element).Clear();
+            ClearSoftParticleProfile(element);
             Debug.Assert(element.Particles.Count == 0);
             _inactiveElements.Enqueue(element);
         }
@@ -3409,7 +3672,7 @@ namespace MphRead
             for (int i = 0; i < effect.Elements.Count; i++)
             {
                 EffectElement elementDef = effect.Elements[i];
-                EffectElementEntry? element = InitEffectElement(effect, elementDef, entCol, child);
+                EffectElementEntry? element = InitEffectElement(effect, elementDef, i, entCol, child);
                 if (element == null)
                 {
                     return;
@@ -3822,6 +4085,7 @@ namespace MphRead
 
         private const int _renderItemAlloc = RenderFrame.DefaultCapacity;
         private readonly RenderFrame _renderFrame = new RenderFrame(_renderItemAlloc);
+        private readonly VisualLightIdentityAllocator _visualLightIdentities = new();
         // avoiding overhead by duplicating things in these lists
         /// <summary>
         /// Simulation steps taken since the last frame was drawn. Effects are
@@ -3913,7 +4177,8 @@ namespace MphRead
         public void AddRenderItem(Material material, int polygonId, float alphaScale, Vector3 emission, LightInfo lightInfo, Matrix4 texcoordMatrix,
             Matrix4 transform, int listId, object geometryIdentity, int matrixStackCount, IReadOnlyList<float> matrixStack, Vector4? overrideColor, Vector4? paletteOverride,
             SelectionType selectionType, BillboardMode billboardMode, float scaleFactor = 1, int? bindingOverride = null,
-            TextureIdentity? textureIdentity = null)
+            TextureIdentity? textureIdentity = null, TextureAssetKey? textureAssetKey = null,
+            EnhancedForceFieldDrawState? enhancedForceField = null)
         {
             transform.Row0.X *= scaleFactor;
             transform.Row0.Y *= scaleFactor;
@@ -3977,6 +4242,9 @@ namespace MphRead
             item.Transform = SubmissionTransform(transform);
             item.GeometryIdentity = geometryIdentity;
             item.TextureIdentity = item.HasTexture ? textureIdentity : null;
+            item.TextureAssetKey = item.HasTexture && !bindingOverride.HasValue
+                ? textureAssetKey : null;
+            item.EnhancedForceField = enhancedForceField;
             SetLegacyList(item, listId);
             Debug.Assert(matrixStack.Count == 16 * matrixStackCount);
             item.MatrixStackCount = matrixStackCount;
@@ -4009,7 +4277,8 @@ namespace MphRead
 
         // for volumes/planes
         public void AddRenderItem(CullingMode cullingMode, int polygonId, Vector4 overrideColor, RenderPrimitive type,
-            Vector3[] vertices, int vertexCount = 0, bool noLines = false)
+            Vector3[] vertices, int vertexCount = 0, bool noLines = false,
+            float bloomStrength = 0)
         {
             DrawSubmission item = GetRenderItem();
             item.Primitive = type;
@@ -4026,6 +4295,9 @@ namespace MphRead
             item.Ambient = Vector3.Zero;
             item.Specular = Vector3.Zero;
             item.Emission = Vector3.Zero;
+            item.BloomStrength = float.IsFinite(bloomStrength)
+                ? Math.Clamp(bloomStrength, 0, 1) : 0;
+            item.BloomEligible = item.BloomStrength > 0;
             item.LightInfo = LightInfo.Zero;
             item.TexgenMode = TexgenMode.None;
             item.XRepeat = RepeatMode.Clamp;
@@ -4061,7 +4333,8 @@ namespace MphRead
             RepeatMode xRepeat, RepeatMode yRepeat, float scaleS, float scaleT, Matrix4 transform, Vector3[] uvsAndVerts,
             TextureIdentity? textureIdentity, int bindingId,
             BillboardMode billboardMode = BillboardMode.None, int trailCount = 8,
-            float bloomStrength = 0)
+            float bloomStrength = 0, SoftParticleProfile? softParticleProfile = null,
+            EnhancedBeamDrawState? enhancedBeam = null, TextureAssetKey? textureAssetKey = null)
         {
             DrawSubmission item = GetRenderItem();
             item.Primitive = type;
@@ -4081,6 +4354,9 @@ namespace MphRead
             item.BloomStrength = float.IsFinite(bloomStrength)
                 ? Math.Clamp(bloomStrength, 0, 1) : 0;
             item.BloomEligible = item.BloomStrength > 0;
+            item.SoftParticleProfile = softParticleProfile;
+            item.EnhancedBeam = enhancedBeam;
+            item.TextureAssetKey = textureAssetKey;
             item.LightInfo = LightInfo.Zero;
             item.TexgenMode = TexgenMode.None;
             item.XRepeat = xRepeat;
@@ -4170,6 +4446,7 @@ namespace MphRead
 
         private void AddRenderItem(DrawSubmission item)
         {
+            ResolveEnhancedMaterial(item);
             _renderFrame.Add(item);
         }
 
@@ -4191,6 +4468,17 @@ namespace MphRead
         public bool TryAddVisualLight(Vector3 position, Vector3 color, float radius,
             float intensity, int priority)
             => TryAddVisualLight(new RenderVisualLight(position, color, radius, intensity, priority));
+
+        public bool TryAddVisualLight(ulong stableSourceKey, Vector3 position,
+            VisualLightProfile profile)
+            => _renderFrame.AddVisualLightCandidate(
+                new VisualLightCandidate(stableSourceKey, position, profile));
+
+        internal ulong GetVisualLightSourceKey(VisualLightSourceKind kind,
+            object source, uint generation = 0)
+            => _visualLightIdentities.GetSourceKey(kind, source, generation);
+
+        internal TimeSpan CapturedPresentationTime { get; private set; }
 
         private int _nextPolygonId = 1;
 
@@ -4295,6 +4583,7 @@ namespace MphRead
                     single.AddRenderItem(this);
                 }
             }
+            SubmitEnvironmentalParticles();
         }
 
 #if ANDROID
@@ -4461,6 +4750,8 @@ namespace MphRead
             else if (afterFade == AfterFade.LoadRoom)
             {
                 Debug.Assert(World.Room != null);
+                _visualLightIdentities.ResetScope();
+                ResetTransientVisualLights();
                 World.Room.LoadRoom(resume: false);
                 FadeType fadeType = _fadeType == FadeType.FadeOutWhite ? FadeType.FadeInWhite : FadeType.FadeInBlack;
                 SetFade(fadeType, 10 / 30f, overwrite: true);
@@ -4483,13 +4774,20 @@ namespace MphRead
         public LayerInfo Layer5Info { get; } = new LayerInfo();
 
 #if !ANDROID
-        public void DrawCustomCrosshair(Vector3 color) => CaptureCustomCrosshair(color);
+        public void DrawCustomCrosshair(Vector3 color, Vector2 position) => CaptureCustomCrosshair(color, position);
 
         public void DrawHudRadialSector(int sector, Vector4 color)
             => CaptureHudRadialSector(sector, color);
 
         public void DrawHudFlatBox(float left, float top, float right, float bottom, Vector4 color)
             => CaptureHudFlatBox(left, top, right, bottom, color);
+
+        public void DrawHudTexture(TextureIdentity texture, float left, float top, float right,
+            float bottom, Vector4 color, Vector4 uvRect, float rotation = 0, float alpha = 1)
+            => CaptureHudTexture(texture, left, top, right, bottom, color, uvRect, rotation, alpha);
+
+        public void DrawHudGeometry(IReadOnlyList<HudGeometryVertex> geometry)
+            => CaptureHudGeometry(geometry);
 
         public void DrawHudObject(HudObjectInstance instance, int mode = 0, float scale = 1)
             => CaptureHudObject(instance, mode, scale);
@@ -4516,7 +4814,12 @@ namespace MphRead
             GL.Uniform3(_shaderLocations.Diffuse, Vector3.One);
             GL.Uniform3(_shaderLocations.Ambient, Vector3.One);
             GL.Uniform3(_shaderLocations.Specular, Vector3.One);
-            GL.Uniform3(_shaderLocations.Emission, Vector3.One);
+            GL.Uniform3(_shaderLocations.Emission,
+                _glesEnhancedActive ? Vector3.Zero : Vector3.One);
+            if (_glesEnhancedActive)
+            {
+                _glesEnhanced.PrepareHudScene();
+            }
             GL.Uniform1(_shaderLocations.MaterialMode, (int)PolygonMode.Modulate);
             GL.Uniform1(_shaderLocations.TexgenMode, (int)TexgenMode.None);
             GL.UniformMatrix4(_shaderLocations.TextureMatrix, transpose: false, ref identity);
@@ -4594,7 +4897,7 @@ namespace MphRead
         }
 
         /// <summary>
-        /// The player's crosshair at the centre of the screen, drawn with none
+        /// The player's crosshair at the canonical projected aim position, drawn with none
         /// of the game's sprite assets -- the Quake-Live-style alternative to
         /// the reticle. Reuses the RTT shader's fade_color path (normally the
         /// full-screen fade) as a flat-fill: with its alpha above zero the
@@ -4606,15 +4909,16 @@ namespace MphRead
         /// <see cref="Mods.Render.Crosshair"/> -- the same table the settings
         /// screen draws its preview from.
         /// </summary>
-        public void DrawCustomCrosshair(Vector3 color)
+        public void DrawCustomCrosshair(Vector3 color, Vector2 position)
         {
             if (_capturingPresentationFrame)
             {
-                CaptureCustomCrosshair(color);
+                CaptureCustomCrosshair(color, position);
                 return;
             }
             float halfW = Size.X / 2f;
             float halfH = Size.Y / 2f;
+            Vector2 center = Mods.Render.Crosshair.ToNdc(position);
             Mods.Render.CrosshairStyle style = Mods.Render.Crosshair.Style;
             float scale = Mods.Render.Crosshair.Scale;
             GL.Uniform4(_shaderLocations.FadeColor, color.X, color.Y, color.Z, 1f);
@@ -4625,10 +4929,10 @@ namespace MphRead
                 (float left, float right, float bottom, float top) =
                     Mods.Render.Crosshair.EdgesOf(bars[i]);
                 GL.DrawSolidQuad(
-                    new Vector3(right / halfW, top / halfH, 0f),
-                    new Vector3(left / halfW, top / halfH, 0f),
-                    new Vector3(right / halfW, bottom / halfH, 0f),
-                    new Vector3(left / halfW, bottom / halfH, 0f),
+                    new Vector3(center.X + right / halfW, center.Y + top / halfH, 0f),
+                    new Vector3(center.X + left / halfW, center.Y + top / halfH, 0f),
+                    new Vector3(center.X + right / halfW, center.Y + bottom / halfH, 0f),
+                    new Vector3(center.X + left / halfW, center.Y + bottom / halfH, 0f),
                     Vector4.One);
             }
             (float radius, float thickness) = Mods.Render.Crosshair.RingOf(style, scale);
@@ -4639,7 +4943,7 @@ namespace MphRead
                 // the flats are under a pixel at the sizes this is drawn at,
                 // and it is four dozen vertices once a frame either way.
                 const int segments = 40;
-                GL.DrawCrosshairRing(radius, thickness, halfW, halfH, segments);
+                GL.DrawCrosshairRing(radius, thickness, halfW, halfH, center, segments);
             }
             GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero);
         }
@@ -4690,6 +4994,68 @@ namespace MphRead
             GL.DrawSolidQuad(
                 new Vector3(x1, y0, 0f), new Vector3(x0, y0, 0f),
                 new Vector3(x1, y1, 0f), new Vector3(x0, y1, 0f), Vector4.One);
+            GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero);
+        }
+
+        public void DrawHudTexture(TextureIdentity texture, float left, float top, float right,
+            float bottom, Vector4 color, Vector4 uvRect, float rotation = 0, float alpha = 1)
+        {
+            if (_capturingPresentationFrame)
+            {
+                CaptureHudTexture(texture, left, top, right, bottom, color, uvRect, rotation, alpha);
+                return;
+            }
+            if (!_dynamicTextureBindings.TryGetValue(texture, out int binding)) return;
+            RenderOverlayCommand command = CreateHudTextureCommand(Size, texture, left, top, right,
+                bottom, color, uvRect, rotation, alpha, RenderPresentationStage.HudOverlay);
+            GL.Uniform1(_shaderLocations.LayerAlpha, alpha);
+            GL.Uniform1(_shaderLocations.UseHudVertexColor, 1);
+            GL.Uniform1(_shaderLocations.UseHudTexture, 1);
+            GL.BindTexture(TextureTarget.Texture2D, binding);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
+                (int)TextureMinFilter.Nearest);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
+                (int)TextureMagFilter.Nearest);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS,
+                (int)TextureWrapMode.ClampToEdge);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT,
+                (int)TextureWrapMode.ClampToEdge);
+            GL.PrepareDynamicMesh(MeshPrimitiveTopology.TriangleStrip, command.Vertices.Count);
+            for (int i = 0; i < command.Vertices.Count; i++)
+            {
+                RenderOverlayVertex vertex = command.Vertices[i];
+                GL.SetDynamicMeshVertex(i, vertex.Position, vertex.TexCoord, vertex.Color,
+                    explicitColor: true);
+            }
+            GL.DrawPreparedDynamicMesh();
+            GL.BindTexture(TextureTarget.Texture2D, 0);
+            GL.Uniform1(_shaderLocations.UseHudVertexColor, 0);
+            GL.Uniform1(_shaderLocations.UseHudTexture, 0);
+            GL.Uniform1(_shaderLocations.LayerAlpha, 1f);
+        }
+
+        public void DrawHudGeometry(IReadOnlyList<HudGeometryVertex> geometry)
+        {
+            if (_capturingPresentationFrame)
+            {
+                CaptureHudGeometry(geometry);
+                return;
+            }
+            RenderOverlayCommand command = CreateHudGeometryCommand(Size, geometry,
+                RenderPresentationStage.HudOverlay);
+            GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero);
+            GL.Uniform1(_shaderLocations.UseHudVertexColor, 1);
+            GL.Uniform1(_shaderLocations.UseHudTexture, 0);
+            GL.Uniform1(_shaderLocations.LayerAlpha, 1f);
+            GL.PrepareDynamicMesh(MeshPrimitiveTopology.TriangleStrip, command.Vertices.Count);
+            for (int i = 0; i < command.Vertices.Count; i++)
+            {
+                RenderOverlayVertex vertex = command.Vertices[i];
+                GL.SetDynamicMeshVertex(i, vertex.Position, Vector2.Zero, vertex.Color,
+                    explicitColor: true);
+            }
+            GL.DrawPreparedDynamicMesh();
+            GL.Uniform1(_shaderLocations.UseHudVertexColor, 0);
             GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero);
         }
 

@@ -87,6 +87,15 @@ namespace MphRead.Mods.Render
 
         private static double _accumulator;
         public static float RenderAlpha => Active ? (float)Math.Clamp(_accumulator / StepSeconds, 0, 1) : 1;
+        /// <summary>
+        /// The wall-clock interval after the last fixed step that has not yet
+        /// been represented by simulation. Render-side stateful input uses
+        /// this remainder rather than measuring time from a second clock; the
+        /// latter can include time spent outside the frame loop and over-predict
+        /// a controller between ticks.
+        /// </summary>
+        public static double SimulationRemainderSeconds
+            => Active ? Math.Clamp(_accumulator, 0, StepSeconds) : 0;
         public static long Discontinuities { get; private set; }
 
         /// <summary>Steps run for the frame <see cref="Advance"/> last answered.</summary>

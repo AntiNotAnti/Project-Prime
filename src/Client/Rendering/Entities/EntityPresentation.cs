@@ -32,6 +32,10 @@ namespace MphRead.Entities
             return Presentation.GetTextureIdentity(inst.Model, material, recolor);
         }
 
+        protected virtual EnhancedForceFieldDrawState? GetEnhancedForceFieldDrawState(
+            ModelInstance inst, int modelIndex, int nodeIndex, int meshIndex)
+            => null;
+
         protected void GetDrawItems(ModelInstance inst, int i, LightInfo? lightInfo = null)
         {
             int polygonId = Presentation.GetNextPolygonId();
@@ -60,7 +64,11 @@ namespace MphRead.Entities
                         SelectionType selectionType = Selection.CheckSelection(Entity, inst, node, mesh);
                         int? bindingOverride = GetBindingOverride(inst, material, mesh.MaterialId);
                         TextureIdentity? textureIdentity = GetTextureIdentity(inst, material, mesh.MaterialId, recolor);
-                        Presentation.AddRenderItem(material, polygonId, Entity.Alpha, emission, lightInfo ?? GetLightInfo(), texcoordMatrix, interpolateNodes ? nodePoses[nodeIndex] : node.Animation, Presentation.GetMeshListId(mesh), mesh.GeometryIdentity, model.NodeMatrixIds.Count, interpolateNodes ? nodeStack : model.MatrixStackValues, color, Entity.PaletteOverride, selectionType, node.BillboardMode, Entity._drawScale, bindingOverride, textureIdentity);
+                        TextureAssetKey? textureAssetKey
+                            = ScenePresentation.GetModelTextureAssetKey(model, material, recolor);
+                        Presentation.AddRenderItem(material, polygonId, Entity.Alpha, emission, lightInfo ?? GetLightInfo(), texcoordMatrix, interpolateNodes ? nodePoses[nodeIndex] : node.Animation, Presentation.GetMeshListId(mesh), mesh.GeometryIdentity, model.NodeMatrixIds.Count, interpolateNodes ? nodeStack : model.MatrixStackValues, color, Entity.PaletteOverride, selectionType, node.BillboardMode, Entity._drawScale, bindingOverride, textureIdentity, textureAssetKey,
+                            GetEnhancedForceFieldDrawState(inst, index, nodeIndex,
+                                start + k));
                     }
 
                     if (node.ChildIndex != -1)

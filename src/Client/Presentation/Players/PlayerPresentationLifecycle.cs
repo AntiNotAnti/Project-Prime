@@ -105,6 +105,9 @@ namespace MphRead.Entities
         public void StartBoostPresentation()
         {
             _boostInst.SetAnimation(start: 0, target: 10, frames: 11, afterAnim: 0);
+            if (_player.IsMainPlayer)
+                Mods.Input.GamepadHaptics.Play(Mods.Input.HapticEvent.MorphBoost,
+                    unchecked((uint)_player.ModScene.FrameCount));
         }
 
         public void PlayScrollPresentation()

@@ -87,21 +87,46 @@ namespace MphRead.Entities
         /// </summary>
         private void AddVisualLight()
         {
-            Vector3 color = _entity.Color;
             Vector3 position = _entity.Position;
             if (!_entity.ShouldDraw || !_entity.Active || _entity.Hidden
-                || !IsFinite(position) || !IsFinite(color)
-                || color.LengthSquared <= 0.0001f)
+                || !IsFinite(position))
             {
                 return;
             }
+            ulong sourceKey = Presentation.GetVisualLightSourceKey(
+                VisualLightSourceKind.BeamProjectile, _entity, _entity.Generation);
 
-            Presentation.TryAddVisualLight(position, color,
-                radius: 1.25f, intensity: 0.35f, priority: 20);
+            if (WeaponVisualLightProfiles.TryGet(_entity.Beam,
+                out VisualLightProfile profile))
+            {
+                Presentation.TryAddVisualLight(sourceKey, position, profile);
+                return;
+            }
+
+            // Unsupported/custom beams keep the R12 color-derived fallback
+            // until they receive an authored visual profile.
+            Vector3 color = _entity.Color;
+            if (IsFinite(color) && color.LengthSquared > 0.0001f)
+            {
+                Presentation.TryAddVisualLight(sourceKey, position,
+                    new VisualLightProfile(color, radius: 1.25f, intensity: 0.35f,
+                        priority: 20, lifetime: 0.12f, falloff: 2));
+            }
         }
 
         private static bool IsFinite(Vector3 value)
             => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
+
+        private EnhancedBeamDrawState? GetEnhancedBeamDrawState()
+        {
+            if (!WeaponBeamVisualProfiles.TryGet(_entity.Beam,
+                out BeamVisualProfile profile)) return null;
+            ulong sourceKey = Presentation.GetVisualLightSourceKey(
+                VisualLightSourceKind.BeamProjectile, _entity,
+                _entity.Generation);
+            return new EnhancedBeamDrawState(profile,
+                Presentation.CapturedPresentationTime, sourceKey);
+        }
 
         // Power Beam
         private void Draw00()
@@ -207,7 +232,8 @@ namespace MphRead.Entities
             uvsAndVerts[7] = new Vector3(0, height, 0);
             Material material = _entity._trailModel.Model.Materials[0];
             float alpha = Math.Clamp(_entity.Lifespan * 30 * 8, 0, 31) / 31;
-            Presentation.AddRenderItem(RenderPrimitive.TrailSingle, alpha, Presentation.GetNextPolygonId(), _entity.Color, material.XRepeat, material.YRepeat, material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(_entity.BackPosition), uvsAndVerts, GetTrailIdentity(material, 0), GetTrailBinding(material, 0), bloomStrength: RenderMaterial.TrailBloomStrength);
+            Presentation.AddRenderItem(RenderPrimitive.TrailSingle, alpha, Presentation.GetNextPolygonId(), _entity.Color, material.XRepeat, material.YRepeat, material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(_entity.BackPosition), uvsAndVerts, GetTrailIdentity(material, 0), GetTrailBinding(material, 0), bloomStrength: RenderMaterial.TrailBloomStrength,
+                enhancedBeam: GetEnhancedBeamDrawState());
         }
 
         private void DrawTrail2(float height, int segments)
@@ -244,7 +270,8 @@ namespace MphRead.Entities
 
             Material material = _entity._trailModel.Model.Materials[0];
             float alpha = Math.Clamp(_entity.Lifespan * 30 * 8, 0, 31) / 31;
-            Presentation.AddRenderItem(RenderPrimitive.TrailMulti, alpha, Presentation.GetNextPolygonId(), _entity.Color, material.XRepeat, material.YRepeat, material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(_entity.PastPositions[0]), uvsAndVerts, GetTrailIdentity(material, 0), GetTrailBinding(material, 0), trailCount: count, bloomStrength: RenderMaterial.TrailBloomStrength);
+            Presentation.AddRenderItem(RenderPrimitive.TrailMulti, alpha, Presentation.GetNextPolygonId(), _entity.Color, material.XRepeat, material.YRepeat, material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(_entity.PastPositions[0]), uvsAndVerts, GetTrailIdentity(material, 0), GetTrailBinding(material, 0), trailCount: count, bloomStrength: RenderMaterial.TrailBloomStrength,
+                enhancedBeam: GetEnhancedBeamDrawState());
         }
 
         private void DrawTrail3(float height)
@@ -264,7 +291,8 @@ namespace MphRead.Entities
             uvsAndVerts[7] = new Vector3(_entity.PastPositions[8].X - _entity.PastPositions[0].X, _entity.PastPositions[8].Y - _entity.PastPositions[0].Y + height, _entity.PastPositions[8].Z - _entity.PastPositions[0].Z);
             Material material = _entity._trailModel.Model.Materials[0];
             float alpha = Math.Clamp(_entity.Lifespan * 30 * 8, 0, 31) / 31;
-            Presentation.AddRenderItem(RenderPrimitive.TrailSingle, alpha, Presentation.GetNextPolygonId(), _entity.Color, material.XRepeat, material.YRepeat, material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(_entity.PastPositions[0]), uvsAndVerts, GetTrailIdentity(material, 0), GetTrailBinding(material, 0), bloomStrength: RenderMaterial.TrailBloomStrength);
+            Presentation.AddRenderItem(RenderPrimitive.TrailSingle, alpha, Presentation.GetNextPolygonId(), _entity.Color, material.XRepeat, material.YRepeat, material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(_entity.PastPositions[0]), uvsAndVerts, GetTrailIdentity(material, 0), GetTrailBinding(material, 0), bloomStrength: RenderMaterial.TrailBloomStrength,
+                enhancedBeam: GetEnhancedBeamDrawState());
         }
 
         private void DrawTrail4(float height, float range, int segments)
@@ -312,7 +340,8 @@ namespace MphRead.Entities
             }
 
             Material material = _entity._trailModel.Model.Materials[0];
-            Presentation.AddRenderItem(RenderPrimitive.TrailMulti, alpha: 1, Presentation.GetNextPolygonId(), _entity.Color, material.XRepeat, material.YRepeat, material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(_entity.PastPositions[8]), uvsAndVerts, GetTrailIdentity(material, 0), GetTrailBinding(material, 0), trailCount: count, bloomStrength: RenderMaterial.TrailBloomStrength);
+            Presentation.AddRenderItem(RenderPrimitive.TrailMulti, alpha: 1, Presentation.GetNextPolygonId(), _entity.Color, material.XRepeat, material.YRepeat, material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(_entity.PastPositions[8]), uvsAndVerts, GetTrailIdentity(material, 0), GetTrailBinding(material, 0), trailCount: count, bloomStrength: RenderMaterial.TrailBloomStrength,
+                enhancedBeam: GetEnhancedBeamDrawState());
         }
     }
 }

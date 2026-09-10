@@ -68,8 +68,12 @@ namespace MphRead
             IReadOnlyDictionary<TextureIdentity, RenderTexturePixels> textures,
             RenderMaterial material, out Vector3 color)
         {
+            TextureIdentity? requested = options.Quality.GraphicsPreset
+                == GraphicsPreset.Enhanced
+                    ? material.Enhanced?.Albedo ?? material.Texture
+                    : material.Texture;
             if (options.CelShading && options.ShowTextures && material.Textured
-                && material.Texture is TextureIdentity identity
+                && requested is TextureIdentity identity
                 && textures.TryGetValue(identity, out RenderTexturePixels? pixels))
             {
                 color = pixels.AlphaWeightedFlatColor;
@@ -83,15 +87,39 @@ namespace MphRead
     [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct SdlGpuSceneVertexFrameConstants
     {
-        internal const int VisualLightFloatCount = RenderFrame.MaximumVisualLights * 4;
         internal static int AbiByteSize => sizeof(SdlGpuSceneVertexFrameConstants);
 
         public Matrix4 View;
         public Matrix4 Projection;
         public Vector4 Options;
+
+        public static SdlGpuSceneVertexFrameConstants Create(Matrix4 view,
+            Matrix4 projection, Vector4 options)
+            => new()
+            {
+                View = SdlGpuMatrixAbi.Upload(view),
+                Projection = SdlGpuMatrixAbi.Upload(projection),
+                Options = options
+            };
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct SdlGpuSceneFragmentFrameConstants
+    {
+        internal const int VisualLightFloatCount = RenderFrame.MaximumVisualLights * 4;
+        internal static int AbiByteSize => sizeof(SdlGpuSceneFragmentFrameConstants);
+
+        public Vector4 FogColor;
+        public Vector4 Options;
+        public Vector4 FogRange;
+        public Vector4 CameraWorldPosition;
         public fixed float VisualLightPositionRadius[VisualLightFloatCount];
         public fixed float VisualLightColorIntensity[VisualLightFloatCount];
         public Vector4 VisualLightOptions;
+        public Matrix4 ShadowViewProjection;
+        public Vector4 ShadowOptions;
+        public Vector4 EnhancedFogColorDensity;
+        public Vector4 EnhancedFogHeightFalloff;
 
         internal int VisualLightCount => (int)VisualLightOptions.X;
 
@@ -119,14 +147,18 @@ namespace MphRead
             }
         }
 
-        public static SdlGpuSceneVertexFrameConstants Create(Matrix4 view,
-            Matrix4 projection, Vector4 options,
-            IReadOnlyList<RenderVisualLight>? visualLights, bool enabled)
+        public static SdlGpuSceneFragmentFrameConstants Create(Vector4 fogColor,
+            Vector4 options, Vector4 fogRange, Vector3 cameraWorldPosition,
+            IReadOnlyList<RenderVisualLight>? visualLights, bool enabled,
+            bool displayAssetsToLinear = false, Vector2 viewport = default,
+            RenderDirectionalShadowState shadow = default,
+            RenderEnhancedFogState enhancedFog = default)
         {
-            SdlGpuSceneVertexFrameConstants result = default;
-            result.View = SdlGpuMatrixAbi.Upload(view);
-            result.Projection = SdlGpuMatrixAbi.Upload(projection);
+            SdlGpuSceneFragmentFrameConstants result = default;
+            result.FogColor = fogColor;
             result.Options = options;
+            result.FogRange = fogRange;
+            result.CameraWorldPosition = new Vector4(cameraWorldPosition, 1);
             int count = enabled && visualLights != null
                 ? Math.Min(visualLights.Count, RenderFrame.MaximumVisualLights) : 0;
             float* positions = result.VisualLightPositionRadius;
@@ -144,8 +176,144 @@ namespace MphRead
                 colors[offset + 2] = light.Color.Z;
                 colors[offset + 3] = light.Intensity;
             }
-            result.VisualLightOptions = new Vector4(count, 0, 0, 0);
+            result.VisualLightOptions = new Vector4(count,
+                displayAssetsToLinear ? 1 : 0,
+                Math.Max(1, viewport.X), Math.Max(1, viewport.Y));
+            if (shadow.Enabled)
+            {
+                result.ShadowViewProjection = SdlGpuMatrixAbi.Upload(
+                    shadow.ViewProjection);
+                result.ShadowOptions = new Vector4(1, shadow.SourceIndex,
+                    1f / shadow.MapSize, 0.0015f);
+            }
+            else result.ShadowViewProjection = SdlGpuMatrixAbi.Upload(Matrix4.Identity);
+            result.EnhancedFogColorDensity = new Vector4(enhancedFog.Color,
+                enhancedFog.Enabled ? enhancedFog.Density : 0);
+            result.EnhancedFogHeightFalloff = new Vector4(enhancedFog.Height,
+                enhancedFog.Falloff, enhancedFog.Enabled ? 1 : 0, 0);
             return result;
+        }
+    }
+
+    internal static class SdlGpuEnhancedLightingPolicy
+    {
+        internal const float DefaultSmoothness = 0.25f;
+
+        public static bool UsesPerPixelLighting(GraphicsPreset preset)
+            => preset == GraphicsPreset.Enhanced;
+
+        public static float SmoothnessExponent(float smoothness)
+        {
+            float clamped = Math.Clamp(float.IsFinite(smoothness) ? smoothness : 0, 0, 1);
+            return 4 + 124 * clamped * clamped;
+        }
+
+        public static float NormalizedBlinnPhong(float normalDotHalf, float smoothness)
+        {
+            float exponent = SmoothnessExponent(smoothness);
+            float cosine = Math.Clamp(float.IsFinite(normalDotHalf) ? normalDotHalf : 0, 0, 1);
+            return MathF.Pow(cosine, exponent) * (exponent + 8) / (8 * MathF.PI);
+        }
+    }
+
+    internal static class SdlGpuNormalMappingPolicy
+    {
+        private const float Epsilon = 0.00000001f;
+
+        public static bool IsEnabled(GraphicsPreset preset, bool frameLighting,
+            bool showTextures, RenderMaterial material, RenderTopology topology)
+            => preset == GraphicsPreset.Enhanced
+                && frameLighting
+                && showTextures
+                && topology == RenderTopology.Triangles
+                && material.Lighting
+                && material.Textured
+                && material.TexgenMode is TexgenMode.None or TexgenMode.Texcoord
+                && material.Enhanced?.Normal is TextureIdentity;
+
+        internal static (Vector3 Tangent, Vector3 Bitangent) TransformUvBasis(
+            Vector3 tangent, Vector3 bitangent, float a, float b, float c,
+            float d)
+        {
+            float determinant = a * d - b * c;
+            if (!float.IsFinite(determinant) || MathF.Abs(determinant) <= Epsilon)
+                return (tangent, bitangent);
+            float reciprocalDeterminant = 1f / determinant;
+            return (SafeNormalize((d * tangent - c * bitangent)
+                    * reciprocalDeterminant, tangent),
+                SafeNormalize((-b * tangent + a * bitangent)
+                    * reciprocalDeterminant, bitangent));
+        }
+
+        private static Vector3 SafeNormalize(Vector3 value, Vector3 fallback)
+        {
+            float lengthSquared = value.LengthSquared;
+            return float.IsFinite(lengthSquared) && lengthSquared > Epsilon
+                ? value / MathF.Sqrt(lengthSquared) : fallback;
+        }
+    }
+
+    internal static class SdlGpuSceneVertexAbi
+    {
+        public const int ByteSize = 72;
+        public const int TangentOffset = 56;
+        public const int AttributeCount = 7;
+    }
+
+    internal static class SdlGpuSceneSamplerAbi
+    {
+        public const int Albedo = 0;
+        public const int Normal = 1;
+        public const int Emissive = 2;
+        public const int Reflection = 3;
+        public const int AmbientOcclusion = 4;
+        public const int Shadow = 5;
+        public const int SurfaceData = 6;
+        public const int Count = 7;
+    }
+
+    internal readonly record struct SdlGpuReflectionResourceConfiguration(
+        ReflectionProbeKey Key,
+        int Dimension,
+        int MipLevelCount,
+        ulong ContentFingerprint)
+    {
+        public static SdlGpuReflectionResourceConfiguration From(
+            RenderReflectionProbe probe)
+        {
+            ArgumentNullException.ThrowIfNull(probe);
+            return new(probe.Key, probe.Dimension, probe.MipLevelCount,
+                probe.ContentFingerprint);
+        }
+    }
+
+    internal readonly record struct SdlGpuDirectionalShadowConfiguration(
+        int MapSize, SDL_GPUTextureFormat DepthFormat);
+
+    internal readonly record struct SdlGpuShadowPipelineKey(
+        RenderCullMode CullMode, bool FaceCulling);
+
+    /// <summary>Suppresses repeated work for one failed immutable cube generation.</summary>
+    internal sealed class SdlGpuReflectionFailurePolicy
+    {
+        private SdlGpuReflectionResourceConfiguration? _failed;
+
+        public SdlGpuReflectionResourceConfiguration? Failed => _failed;
+
+        public bool ShouldAttempt(SdlGpuReflectionResourceConfiguration configuration)
+            => !_failed.HasValue || _failed.Value != configuration;
+
+        public bool RecordFailure(SdlGpuReflectionResourceConfiguration configuration)
+        {
+            bool changed = !_failed.HasValue || _failed.Value != configuration;
+            _failed = configuration;
+            return changed;
+        }
+
+        public void RecordSuccess(SdlGpuReflectionResourceConfiguration configuration)
+        {
+            _ = configuration;
+            _failed = null;
         }
     }
 
@@ -176,27 +344,71 @@ namespace MphRead
         private readonly List<GpuMesh>[] _dynamicSlots;
         private readonly int[] _dynamicSlotUsed;
         private readonly List<GpuTexture>[] _retiredTextureSlots;
+        private readonly List<GpuCubeTexture>[] _retiredCubeTextureSlots;
         private readonly List<GpuMesh>[] _retiredMeshSlots;
         private readonly List<IUploadResource>[] _uploadSlots;
         private SDL_GPUShader* _vertexShader;
         private SDL_GPUShader* _fragmentShader;
+        private SDL_GPUShader* _surfaceFragmentShader;
+        private SDL_GPUShader* _shadowVertexShader;
+        private SDL_GPUShader* _shadowFragmentShader;
+        private SDL_GPUShader* _distortionVertexShader;
+        private SDL_GPUShader* _distortionFragmentShader;
         private SDL_GPUTexture* _sceneColor;
         private SDL_GPUTexture* _sceneMultisampleColor;
         private SDL_GPUTexture* _sceneDepth;
         private SDL_GPUTexture* _bloomColor;
         private SDL_GPUTexture* _bloomMultisampleColor;
+        private SDL_GPUTexture* _surfaceColor;
+        private SDL_GPUTexture* _surfaceDepth;
+        private SDL_GPUTexture* _shadowDepth;
+        private SDL_GPUTexture* _distortionColor;
+        private SDL_GPUTexture* _distortionMultisampleColor;
         private GpuTexture? _whiteTexture;
+        private GpuTexture? _flatNormalTexture;
+        private GpuTexture? _blackEmissiveTexture;
+        private GpuCubeTexture? _blackReflectionTexture;
+        private GpuCubeTexture? _reflectionTexture;
+        private readonly SdlGpuReflectionFailurePolicy _reflectionFailure = new();
         private SdlGpuPostResources? _postResources;
+        private readonly SdlGpuSsaoResources _ssaoResources;
+        private readonly SdlGpuSkyResources _skyResources;
+        private readonly SdlGpuConfigurationFailureCache<
+            SdlGpuEnhancedSurfaceConfiguration> _surfaceFailure = new();
+        private SdlGpuEnhancedSurfacePlan? _surfacePlan;
+        private SdlGpuEnhancedSurfaceConfiguration? _reportedSurfaceFailure;
+        private SDL_GPUTexture* _ambientOcclusionForFrame;
+        private SDL_GPUTexture* _distortionForFrame;
+        private readonly EnhancedDistortionFailureCache _distortionFailure = new();
+        private EnhancedDistortionTargetConfiguration? _distortionConfiguration;
+        private EnhancedDistortionTargetConfiguration? _reportedDistortionFailure;
+        private bool _surfaceAvailableForFrame;
+        private bool _shadowAvailableForFrame;
+        private int _shadowMapSize;
+        private readonly Dictionary<SdlGpuShadowPipelineKey, nint> _shadowPipelines = new();
+        private readonly Dictionary<(CullingMode Culling, bool FaceCulling,
+            SDL_GPUTextureFormat Format, int Samples), nint> _distortionPipelines = new();
+        private readonly SdlGpuConfigurationFailureCache<
+            SdlGpuDirectionalShadowConfiguration> _shadowFailure = new();
+        private SdlGpuDirectionalShadowConfiguration? _reportedShadowFailure;
         private uint _targetWidth;
         private uint _targetHeight;
         private int _targetSampleCount = 1;
         private uint _bloomTargetWidth;
         private uint _bloomTargetHeight;
         private int _bloomTargetSampleCount = 1;
-        private readonly bool _colorSupports2;
-        private readonly bool _colorSupports4;
+        private SDL_GPUTextureFormat _bloomTargetFormat;
+        private readonly bool _ldrColorSupports2;
+        private readonly bool _ldrColorSupports4;
+        private readonly bool _hdrColorTargetAndSamplerSupported;
+        private readonly bool _hdrColorSupports2;
+        private readonly bool _hdrColorSupports4;
         private readonly bool _depthSupports2;
         private readonly bool _depthSupports4;
+        private SDL_GPUTextureFormat _sceneColorFormat;
+        private bool _sceneUsesHdr;
+        private SdlGpuHdrConfiguration? _failedHdrConfiguration;
+        private bool _loggedHdrAllocationFallback;
         private readonly HashSet<SdlGpuSampleNegotiation> _reportedSampleNegotiations = new();
         private bool _disposed;
         private long _frameSerial;
@@ -207,12 +419,16 @@ namespace MphRead
             _dynamicSlots = new List<GpuMesh>[device.FrameResources.SlotCount];
             _dynamicSlotUsed = new int[device.FrameResources.SlotCount];
             _retiredTextureSlots = new List<GpuTexture>[device.FrameResources.SlotCount];
+            _retiredCubeTextureSlots = new List<GpuCubeTexture>[device.FrameResources.SlotCount];
             _retiredMeshSlots = new List<GpuMesh>[device.FrameResources.SlotCount];
             _uploadSlots = new List<IUploadResource>[device.FrameResources.SlotCount];
+            _ssaoResources = new SdlGpuSsaoResources(device);
+            _skyResources = new SdlGpuSkyResources(device);
             for (int i = 0; i < _dynamicSlots.Length; i++)
             {
                 _dynamicSlots[i] = new List<GpuMesh>();
                 _retiredTextureSlots[i] = new List<GpuTexture>();
+                _retiredCubeTextureSlots[i] = new List<GpuCubeTexture>();
                 _retiredMeshSlots[i] = new List<GpuMesh>();
                 _uploadSlots[i] = new List<IUploadResource>();
             }
@@ -250,10 +466,22 @@ namespace MphRead
             {
                 throw new PlatformNotSupportedException("SDL GPU device supports neither D24S8 nor D32S8 scene targets.");
             }
-            _colorSupports2 = SDL3.SDL_GPUTextureSupportsSampleCount(device.Handle,
+            _ldrColorSupports2 = SDL3.SDL_GPUTextureSupportsSampleCount(device.Handle,
                 device.SwapchainFormat, SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_2);
-            _colorSupports4 = SDL3.SDL_GPUTextureSupportsSampleCount(device.Handle,
+            _ldrColorSupports4 = SDL3.SDL_GPUTextureSupportsSampleCount(device.Handle,
                 device.SwapchainFormat, SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_4);
+            SDL_GPUTextureUsageFlags hdrUsage
+                = SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET
+                    | SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_SAMPLER;
+            _hdrColorTargetAndSamplerSupported = SDL3.SDL_GPUTextureSupportsFormat(
+                device.Handle, SdlGpuHdrPolicy.HdrFormat,
+                SDL_GPUTextureType.SDL_GPU_TEXTURETYPE_2D, hdrUsage);
+            _hdrColorSupports2 = _hdrColorTargetAndSamplerSupported
+                && SDL3.SDL_GPUTextureSupportsSampleCount(device.Handle,
+                    SdlGpuHdrPolicy.HdrFormat, SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_2);
+            _hdrColorSupports4 = _hdrColorTargetAndSamplerSupported
+                && SDL3.SDL_GPUTextureSupportsSampleCount(device.Handle,
+                    SdlGpuHdrPolicy.HdrFormat, SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_4);
             _depthSupports2 = SDL3.SDL_GPUTextureSupportsSampleCount(device.Handle,
                 _depthFormat, SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_2);
             _depthSupports4 = SDL3.SDL_GPUTextureSupportsSampleCount(device.Handle,
@@ -265,11 +493,23 @@ namespace MphRead
             try
             {
                 _fragmentShader = CreateShader(device.Handle, format, fragment, "main_ps",
-                    SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT, samplers: 1, uniforms: 2);
+                    SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT,
+                    samplers: SdlGpuSceneSamplerAbi.Count, uniforms: 2);
                 var whiteIdentity = new TextureIdentity(this, variant: "white-fallback");
                 _whiteTexture = GpuTexture.Create(_device, new RenderTexturePixels(
                     whiteIdentity, 1, 1, new byte[] { 255, 255, 255, 255 }, onlyOpaque: true),
                     mipmapped: false);
+                var flatNormalIdentity = new TextureIdentity(this, variant: "flat-normal-fallback");
+                _flatNormalTexture = GpuTexture.Create(_device, new RenderTexturePixels(
+                    flatNormalIdentity, 1, 1, new byte[] { 128, 128, 255, 255 }, onlyOpaque: true),
+                    mipmapped: false);
+                var blackEmissiveIdentity = new TextureIdentity(this,
+                    variant: "black-emissive-fallback");
+                _blackEmissiveTexture = GpuTexture.Create(_device,
+                    new RenderTexturePixels(blackEmissiveIdentity, 1, 1,
+                        new byte[] { 0, 0, 0, 255 }, onlyOpaque: true),
+                    mipmapped: false);
+                _blackReflectionTexture = GpuCubeTexture.CreateFallback(_device);
                 _postResources = SdlGpuPostResources.Create(device);
             }
             catch
@@ -283,16 +523,21 @@ namespace MphRead
             => new(device ?? throw new ArgumentNullException(nameof(device)));
 
         /// <summary>
-        /// The scene color target is exposed only to the SDL backend's
-        /// readback translator. It is the exact target after the six scene
-        /// passes and before the post/composite chain; no native handle crosses
-        /// the backend-neutral frame contracts.
+        /// The capture-safe scene target is exposed only to the SDL backend's
+        /// readback translator. Legacy modes expose their byte scene target;
+        /// Enhanced exposes the explicit SDR branch after tone mapping and HUD
+        /// scene composition. A float target is never returned for readback.
         /// </summary>
-        public SDL_GPUTexture* SceneColor => _sceneColor;
+        public SDL_GPUTexture* CaptureSceneColor
+            => _postResources != null && _postResources.CaptureSceneColor != null
+                ? _postResources.CaptureSceneColor
+                : _sceneUsesHdr ? null : _sceneColor;
         private SDL_GPUTexture* SceneRenderColor
             => _sceneMultisampleColor != null ? _sceneMultisampleColor : _sceneColor;
         public uint SceneTargetWidth => _targetWidth;
         public uint SceneTargetHeight => _targetHeight;
+        internal SDL_GPUTexture* SurfaceDataTexture
+            => _surfaceAvailableForFrame ? _surfaceColor : null;
 
         public void Encode(SDL_GPUCommandBuffer* commandBuffer, SDL_GPUTexture* finalComposite,
             RenderFrame frame, uint finalWidth, uint finalHeight)
@@ -305,17 +550,77 @@ namespace MphRead
 
             uint width = checked((uint)Math.Max(1, frame.SceneTargetSize.X));
             uint height = checked((uint)Math.Max(1, frame.SceneTargetSize.Y));
-            bool celDepthSampling = frame.CelState.Enabled && frame.CelState.Outline > 0
-                && _depthSampleable;
-            SdlGpuSampleNegotiation sampleNegotiation = SdlGpuMsaaPolicy.Resolve(
+            bool enhancedOutput = frame.Options.Quality.GraphicsPreset
+                == GraphicsPreset.Enhanced;
+            bool surfacePrepared = enhancedOutput
+                && TryPrepareEnhancedSurface(width, height);
+            bool celDepthSampling = SdlGpuSurfaceCelPolicy.RequiresLegacyDepthSampling(
+                frame.Options.Quality.GraphicsPreset, frame.CelState.Enabled,
+                frame.CelState.Outline, surfacePrepared, _depthSampleable);
+            SdlGpuHdrConfiguration hdrConfiguration = new(
+                frame.Options.Quality.GraphicsPreset, width, height,
+                finalWidth, finalHeight, frame.Options.Quality.MsaaSampleCount,
+                celDepthSampling, frame.Options.Quality.Bloom);
+            if (_failedHdrConfiguration.HasValue
+                && _failedHdrConfiguration.Value != hdrConfiguration)
+            {
+                _failedHdrConfiguration = null;
+            }
+            bool attemptHdr = SdlGpuHdrFailurePolicy.ShouldAttemptHdr(
+                _failedHdrConfiguration, hdrConfiguration);
+            SdlGpuSceneColorPlan colorPlan = SdlGpuHdrPolicy.Resolve(
+                frame.Options.Quality.GraphicsPreset, _device.SwapchainFormat,
+                _hdrColorTargetAndSamplerSupported && attemptHdr);
+            if (frame.Options.Quality.GraphicsPreset == GraphicsPreset.Enhanced
+                && _hdrColorTargetAndSamplerSupported && !attemptHdr)
+            {
+                colorPlan = new SdlGpuSceneColorPlan(_device.SwapchainFormat,
+                    UsesHdr: false, SdlGpuHdrFallbackReason.CachedAllocationFailure);
+            }
+            SdlGpuSampleNegotiation ldrSampleNegotiation = SdlGpuMsaaPolicy.Resolve(
                 frame.Options.Quality.MsaaSampleCount, celDepthSampling,
-                _colorSupports2, _colorSupports4, _depthSupports2, _depthSupports4);
+                _ldrColorSupports2, _ldrColorSupports4, _depthSupports2, _depthSupports4);
+            SdlGpuSampleNegotiation requestedSampleNegotiation = colorPlan.UsesHdr
+                ? SdlGpuMsaaPolicy.Resolve(frame.Options.Quality.MsaaSampleCount,
+                    celDepthSampling, _hdrColorSupports2, _hdrColorSupports4,
+                    _depthSupports2, _depthSupports4)
+                : ldrSampleNegotiation;
+            SdlGpuSampleNegotiation sampleNegotiation = EnsureTargets(width, height,
+                colorPlan, requestedSampleNegotiation, ldrSampleNegotiation,
+                hdrConfiguration);
             ReportSampleNegotiation(sampleNegotiation);
-            SdlGpuSceneTargetPlan targetPlan = SdlGpuSceneTargetPlan.From(sampleNegotiation);
-            EnsureTargets(width, height, targetPlan);
             SdlGpuBloomPlan bloomPlan = SdlGpuBloomPlan.Create(frame, width, height,
-                targetPlan.RenderColorSamples);
-            if (bloomPlan.Enabled) EnsureBloomTargets(width, height, bloomPlan);
+                _targetSampleCount);
+            try
+            {
+                PrepareAuxiliaryTargets(width, height, finalWidth, finalHeight,
+                    enhancedOutput, bloomPlan);
+            }
+            catch (Exception ex) when (_sceneUsesHdr)
+            {
+                SdlGpuSceneColorPlan ldrPlan = new(_device.SwapchainFormat,
+                    UsesHdr: false, SdlGpuHdrFallbackReason.UnsupportedRenderTarget);
+                sampleNegotiation = EnsureTargets(width, height, ldrPlan,
+                    ldrSampleNegotiation, ldrSampleNegotiation,
+                    hdrConfiguration);
+                ReportSampleNegotiation(sampleNegotiation);
+                bloomPlan = SdlGpuBloomPlan.Create(frame, width, height,
+                    _targetSampleCount);
+                try
+                {
+                    PrepareAuxiliaryTargets(width, height, finalWidth,
+                        finalHeight, enhancedOutput, bloomPlan);
+                }
+                catch (Exception ldrException)
+                {
+                    throw new InvalidOperationException(
+                        $"SDL HDR auxiliary-target allocation failed ({ex.Message}); "
+                        + $"LDR fallback also failed ({ldrException.Message}).",
+                        ldrException);
+                }
+                _failedHdrConfiguration = hdrConfiguration;
+                ReportHdrAllocationFallback(ex.Message, sampleNegotiation);
+            }
             ResetDynamicSlot();
             _frameSerial++;
 
@@ -332,6 +637,8 @@ namespace MphRead
                 }
                 meshes.Add(draw, mesh!);
                 ResolveTexture(frame, draw, commandBuffer);
+                ResolveNormalTexture(frame, draw, commandBuffer);
+                ResolveEmissiveTexture(frame, draw, commandBuffer);
             }
             foreach (RenderHudSceneSubmission hud in frame.HudSceneItems)
             {
@@ -347,29 +654,82 @@ namespace MphRead
                 if (overlay.UseTexture) ResolveTexture(frame, true, overlay.Texture, -1, commandBuffer);
                 if (overlay.UseMask) ResolveTexture(frame, true, overlay.MaskTexture, -1, commandBuffer);
             }
+            if (frame.ColorGrade.Enabled)
+            {
+                ResolveTexture(frame, textured: true, frame.ColorGrade.LutTexture,
+                    polygonId: -1, commandBuffer, mipmapped: false);
+            }
+            ResolveReflectionTexture(frame, commandBuffer);
             RetireUnusedStaticMeshes();
             RetireUnusedTextures();
             if (_whiteTexture!.EnsureUploaded(commandBuffer)) TrackUpload(_whiteTexture);
+            if (_flatNormalTexture!.EnsureUploaded(commandBuffer)) TrackUpload(_flatNormalTexture);
+            if (_blackEmissiveTexture!.EnsureUploaded(commandBuffer))
+                TrackUpload(_blackEmissiveTexture);
+            if (_blackReflectionTexture!.EnsureUploaded(commandBuffer))
+                TrackUpload(_blackReflectionTexture);
+
+            _distortionForFrame = TryPrepareEnhancedDistortion(frame, width,
+                height) ? _distortionColor : null;
+
+            bool ssaoPrepared = surfacePrepared && _surfacePlan.HasValue
+                && _ssaoResources.TryPrepare(commandBuffer, _surfacePlan.Value);
 
             SdlGpuSceneVertexFrameConstants vertexFrame = SdlGpuSceneVertexFrameConstants.Create(
                 frame.ViewMatrix, frame.ProjectionMatrix,
                 new Vector4(frame.Options.Lighting ? 1 : 0,
                     frame.Options.ShowColors ? 1 : 0,
-                    frame.Options.ShowTextures ? 1 : 0, 0),
-                frame.VisualLights, frame.Options.Quality.DynamicVisualLights);
+                    frame.Options.ShowTextures ? 1 : 0,
+                    SdlGpuEnhancedLightingPolicy.UsesPerPixelLighting(
+                        frame.Options.Quality.GraphicsPreset) ? 1 : 0));
+            _shadowAvailableForFrame = TryPrepareDirectionalShadow(frame);
+            if (_shadowAvailableForFrame)
+            {
+                EncodeDirectionalShadow(commandBuffer, frame, meshes);
+            }
             float fogMin = frame.FogOffset / (float)0x7FFF;
             float fogMax = (frame.FogOffset + 32 * (0x400 >> frame.FogSlope)) / (float)0x7FFF;
-            FrameFragmentConstants fragmentFrame = new()
+            SdlGpuSceneFragmentFrameConstants fragmentFrame
+                = SdlGpuSceneFragmentFrameConstants.Create(
+                    frame.FogColor,
+                    new Vector4(enhancedOutput
+                            ? frame.EnhancedFog.Enabled ? 1 : 0
+                            : frame.HasFog && frame.Options.Fog ? 1 : 0,
+                        SdlGpuCelSurface.BandCount(frame.Options),
+                        SdlGpuEnhancedLightingPolicy.UsesPerPixelLighting(
+                            frame.Options.Quality.GraphicsPreset) ? 1 : 0,
+                        frame.Options.Lighting ? 1 : 0),
+                    new Vector4(fogMin, fogMax, 0, 0), frame.CameraWorldPosition,
+                    frame.VisualLights, frame.Options.Quality.DynamicVisualLights,
+                    viewport: new Vector2(width, height),
+                    shadow: _shadowAvailableForFrame
+                        ? frame.DirectionalShadow : default,
+                    enhancedFog: frame.EnhancedFog);
+
+            _surfaceAvailableForFrame = surfacePrepared
+                && TryEncodeEnhancedSurface(commandBuffer, frame, meshes,
+                    vertexFrame);
+            _ambientOcclusionForFrame = _whiteTexture!.Handle;
+            if (_surfaceAvailableForFrame && ssaoPrepared
+                && _ssaoResources.TryEncode(commandBuffer, _surfaceColor,
+                    LinearClampSamplerHandle, frame.ViewMatrix,
+                    frame.ProjectionMatrix))
             {
-                FogColor = frame.FogColor,
-                Options = new Vector4(frame.HasFog && frame.Options.Fog ? 1 : 0,
-                    SdlGpuCelSurface.BandCount(frame.Options), 0, 0),
-                FogRange = new Vector4(fogMin, fogMax, 0, 0)
-            };
+                _ambientOcclusionForFrame = _ssaoResources.OcclusionTexture;
+            }
 
             int encoded = 0;
+            bool skyEncoded = _skyResources.TryEncode(commandBuffer, frame,
+                SceneRenderColor, _sceneColorFormat, _targetSampleCount,
+                SceneClearColor(frame), SkySamplerHandle,
+                identity => PrepareUnmippedSkyTexture(frame, identity),
+                identity => EncodeUnmippedSkyTextureUpload(frame, identity,
+                    commandBuffer),
+                identity => ResolveUnmippedTextureHandle(frame, identity,
+                    "enhanced sky"));
             EncodePass(commandBuffer, frame, meshes, frame.OpaqueItems, RenderPassKind.Opaque,
-                clearColor: true, clearDepth: true, clearStencil: true, resolveColor: false,
+                clearColor: SdlGpuSkyPolicy.OpaqueClearsColor(skyEncoded),
+                clearDepth: true, clearStencil: true, resolveColor: false,
                 ref encoded, vertexFrame, fragmentFrame);
             EncodePass(commandBuffer, frame, meshes, frame.DecalItems, RenderPassKind.Decal,
                 false, false, false, false, ref encoded, vertexFrame, fragmentFrame);
@@ -380,27 +740,827 @@ namespace MphRead
             EncodePass(commandBuffer, frame, meshes, frame.TransparentItems, RenderPassKind.TransparentBehind,
                 false, false, false, false, ref encoded, vertexFrame, fragmentFrame);
             EncodePass(commandBuffer, frame, meshes, frame.TransparentItems, RenderPassKind.TransparentFront,
-                false, false, false, resolveColor: frame.HudSceneItems.Count == 0,
+                false, false, false, resolveColor: enhancedOutput || frame.HudSceneItems.Count == 0,
                 ref encoded, vertexFrame, fragmentFrame);
+            if (_distortionForFrame != null)
+            {
+                EncodeEnhancedDistortion(commandBuffer, frame, meshes,
+                    vertexFrame);
+            }
             if (bloomPlan.Enabled)
                 EncodeBloom(commandBuffer, frame, meshes, bloomPlan, vertexFrame, fragmentFrame);
-            EncodeHudScene(commandBuffer, frame, hudMeshes);
-            _postResources!.Encode(commandBuffer, frame, _sceneColor, _sceneDepth,
+            if (!enhancedOutput)
+            {
+                EncodeHudScene(commandBuffer, frame, hudMeshes, SceneRenderColor,
+                    _sceneDepth, _targetWidth, _targetHeight, _sceneColorFormat,
+                    _targetSampleCount, _sceneColor, displayAssetsToLinear: false);
+            }
+            _postResources!.EncodeScene(commandBuffer, frame, _sceneColor, _sceneDepth,
                 bloomPlan.Enabled ? _bloomColor : null, bloomPlan,
-                finalComposite, finalWidth, finalHeight, this);
+                finalComposite, finalWidth, finalHeight, _sceneColorFormat,
+                enhancedOutput, this, _distortionForFrame);
+            if (enhancedOutput)
+            {
+                SDL_GPUTexture* displayLinear = _postResources.DisplayLinearColor;
+                if (displayLinear == null)
+                    throw new InvalidOperationException("SDL display-linear composite is unavailable.");
+                // SceneTarget deliberately follows the existing overlay-free
+                // capture contract. Branch before the viewer-local visor pass;
+                // FinalPresentedFrame is downstream and therefore includes it.
+                SDL_GPUTexture* captureLinear = _postResources.EncodeSceneCaptureBase(
+                    commandBuffer, frame, _sceneColor, this);
+                displayLinear = _postResources.EncodeVisor(commandBuffer, frame,
+                    displayLinear, finalWidth, finalHeight, _sceneColorFormat, this);
+                EncodeHudScene(commandBuffer, frame, hudMeshes, displayLinear,
+                    depth: null, finalWidth, finalHeight, _sceneColorFormat,
+                    sampleCount: 1, resolveTo: null,
+                    displayAssetsToLinear: true);
+                if (captureLinear != null)
+                {
+                    EncodeHudScene(commandBuffer, frame, hudMeshes, captureLinear,
+                        depth: null, _targetWidth, _targetHeight,
+                        _sceneColorFormat, sampleCount: 1, resolveTo: null,
+                        displayAssetsToLinear: true);
+                    _postResources.EncodeSceneCaptureTransfer(commandBuffer,
+                        frame, captureLinear, this);
+                }
+                _postResources.EncodeOverlays(commandBuffer, frame, displayLinear,
+                    finalWidth, finalHeight, _sceneColorFormat,
+                    displayLinearComposition: true, this);
+                _postResources.EncodeFinalTransfer(commandBuffer, frame,
+                    displayLinear, finalComposite, finalWidth, finalHeight, this);
+            }
+            else
+            {
+                _postResources.EncodeOverlays(commandBuffer, frame, finalComposite,
+                    finalWidth, finalHeight, _device.SwapchainFormat,
+                    displayLinearComposition: false, this);
+            }
+        }
+
+        private void PrepareAuxiliaryTargets(uint width, uint height,
+            uint finalWidth, uint finalHeight, bool enhancedOutput,
+            SdlGpuBloomPlan bloomPlan)
+        {
+            if (bloomPlan.Enabled) EnsureBloomTargets(width, height, bloomPlan);
+            _postResources!.PrepareSceneTargets(width, height, finalWidth,
+                finalHeight, _sceneColorFormat, bloomPlan, enhancedOutput);
+        }
+
+        private bool TryPrepareEnhancedDistortion(RenderFrame frame,
+            uint width, uint height)
+        {
+            if (frame.Options.Quality.GraphicsPreset != GraphicsPreset.Enhanced
+                || !frame.DistortionSubmissions.HasSources)
+            {
+                return false;
+            }
+
+            EnhancedDistortionCapabilities capabilities = new(
+                DistortionCapabilities(
+                    SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_R16G16_FLOAT),
+                DistortionCapabilities(
+                    SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT));
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                EnhancedDistortionTargetPlan plan
+                    = EnhancedDistortionTargetPlan.Create(width, height,
+                        _targetSampleCount, requested: true,
+                        frame.DistortionSubmissions.Count, capabilities,
+                        _distortionFailure);
+                if (!plan.Enabled) return false;
+                EnhancedDistortionTargetConfiguration configuration
+                    = plan.Configuration!.Value;
+                try
+                {
+                    EnsureDistortionShaders();
+                    EnsureDistortionTargets(configuration);
+                    foreach (EnhancedDistortionSubmission source
+                        in frame.DistortionSubmissions.Items)
+                    {
+                        _ = GetDistortionPipeline(source.CullingMode,
+                            frame.Options.FaceCulling, configuration);
+                    }
+                    if (!_postResources!.TryPrepareDistortionWarp(
+                        _sceneColorFormat)) return false;
+                    _distortionFailure.RecordSuccess(configuration);
+                    _reportedDistortionFailure = null;
+                    return true;
+                }
+                catch (Exception error) when (error is InvalidOperationException
+                    or IOException or PlatformNotSupportedException)
+                {
+                    _distortionFailure.RecordFailure(configuration);
+                    if (_reportedDistortionFailure != configuration)
+                    {
+                        _reportedDistortionFailure = configuration;
+                        Console.Error.WriteLine(
+                            $"[render] Enhanced distortion target {configuration.Format} disabled for this resource configuration: {error.Message}");
+                    }
+                }
+            }
+            return false;
+        }
+
+        private EnhancedDistortionFormatCapabilities DistortionCapabilities(
+            SDL_GPUTextureFormat format)
+        {
+            SDL_GPUTextureUsageFlags usage
+                = SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET
+                    | SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_SAMPLER;
+            bool supported = SDL3.SDL_GPUTextureSupportsFormat(_device.Handle,
+                format, SDL_GPUTextureType.SDL_GPU_TEXTURETYPE_2D, usage);
+            EnhancedDistortionSampleCounts samples = supported
+                ? EnhancedDistortionSampleCounts.One
+                : EnhancedDistortionSampleCounts.None;
+            if (supported && SDL3.SDL_GPUTextureSupportsSampleCount(
+                _device.Handle, format,
+                SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_2))
+                samples |= EnhancedDistortionSampleCounts.Two;
+            if (supported && SDL3.SDL_GPUTextureSupportsSampleCount(
+                _device.Handle, format,
+                SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_4))
+                samples |= EnhancedDistortionSampleCounts.Four;
+            return new EnhancedDistortionFormatCapabilities(supported,
+                supported, samples);
+        }
+
+        private void EnsureDistortionShaders()
+        {
+            if (_distortionVertexShader != null
+                && _distortionFragmentShader != null) return;
+            ShaderArtifactManifest.ValidateDistortionFresh();
+            (SDL_GPUShaderFormat format, string suffix) = SelectShaderFormat();
+            string directory = ShaderArtifactManifest.Directory;
+            SDL_GPUShader* vertex = CreateShader(_device.Handle, format,
+                Path.Combine(directory, $"distortion.vert.{suffix}"),
+                "main_vs", SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_VERTEX,
+                samplers: 0, uniforms: 2);
+            try
+            {
+                SDL_GPUShader* fragment = CreateShader(_device.Handle, format,
+                    Path.Combine(directory, $"distortion.frag.{suffix}"),
+                    "main_ps", SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT,
+                    samplers: 0, uniforms: 1);
+                _distortionVertexShader = vertex;
+                _distortionFragmentShader = fragment;
+            }
+            catch
+            {
+                SDL3.SDL_ReleaseGPUShader(_device.Handle, vertex);
+                throw;
+            }
+        }
+
+        private void EnsureDistortionTargets(
+            EnhancedDistortionTargetConfiguration configuration)
+        {
+            if (_distortionConfiguration == configuration
+                && _distortionColor != null
+                && (!configuration.RequiresResolve
+                    || _distortionMultisampleColor != null)) return;
+            SDL_GPUTextureFormat format = configuration.Format switch
+            {
+                EnhancedDistortionTargetFormat.Rg16Float
+                    => SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_R16G16_FLOAT,
+                EnhancedDistortionTargetFormat.Rgba16Float
+                    => SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT,
+                _ => throw new ArgumentOutOfRangeException(nameof(configuration))
+            };
+            SDL_GPUTexture* resolved = null;
+            SDL_GPUTexture* multisample = null;
+            try
+            {
+                resolved = CreateTarget(format,
+                    SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET
+                        | SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_SAMPLER,
+                    configuration.Width, configuration.Height, 1);
+                if (configuration.RequiresResolve)
+                {
+                    multisample = CreateTarget(format,
+                        SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
+                        configuration.Width, configuration.Height,
+                        configuration.RenderSampleCount);
+                }
+            }
+            catch
+            {
+                if (multisample != null)
+                    SDL3.SDL_ReleaseGPUTexture(_device.Handle, multisample);
+                if (resolved != null)
+                    SDL3.SDL_ReleaseGPUTexture(_device.Handle, resolved);
+                throw;
+            }
+            if (!SDL3.SDL_WaitForGPUIdle(_device.Handle))
+            {
+                if (multisample != null)
+                    SDL3.SDL_ReleaseGPUTexture(_device.Handle, multisample);
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, resolved);
+                throw new InvalidOperationException(
+                    $"SDL distortion target resize wait failed: {SDL3.SDL_GetError()}");
+            }
+            if (_distortionMultisampleColor != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle,
+                    _distortionMultisampleColor);
+            if (_distortionColor != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, _distortionColor);
+            _distortionColor = resolved;
+            _distortionMultisampleColor = multisample;
+            _distortionConfiguration = configuration;
+        }
+
+        private SDL_GPUGraphicsPipeline* GetDistortionPipeline(
+            CullingMode culling, bool faceCulling,
+            EnhancedDistortionTargetConfiguration configuration)
+        {
+            SDL_GPUTextureFormat format = configuration.Format switch
+            {
+                EnhancedDistortionTargetFormat.Rg16Float
+                    => SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_R16G16_FLOAT,
+                EnhancedDistortionTargetFormat.Rgba16Float
+                    => SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT,
+                _ => throw new ArgumentOutOfRangeException(nameof(configuration))
+            };
+            var key = (culling, faceCulling, format,
+                configuration.RenderSampleCount);
+            if (_distortionPipelines.TryGetValue(key, out nint cached))
+                return (SDL_GPUGraphicsPipeline*)cached;
+
+            SDL_GPUVertexBufferDescription vertexDescription = new()
+            {
+                slot = 0, pitch = (uint)sizeof(GpuVertex),
+                input_rate = SDL_GPUVertexInputRate.SDL_GPU_VERTEXINPUTRATE_VERTEX
+            };
+            SDL_GPUVertexAttribute* attributes
+                = stackalloc SDL_GPUVertexAttribute[SdlGpuSceneVertexAbi.AttributeCount];
+            attributes[0] = Attribute(0, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, 0);
+            attributes[1] = Attribute(1, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4, 12);
+            attributes[2] = Attribute(2, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, 28);
+            attributes[3] = Attribute(3, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, 40);
+            attributes[4] = Attribute(4, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT, 48);
+            attributes[5] = Attribute(5, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT, 52);
+            attributes[6] = Attribute(6, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
+                SdlGpuSceneVertexAbi.TangentOffset);
+            SDL_GPUVertexInputState vertexInput = new()
+            {
+                vertex_buffer_descriptions = &vertexDescription,
+                num_vertex_buffers = 1,
+                vertex_attributes = attributes,
+                num_vertex_attributes = SdlGpuSceneVertexAbi.AttributeCount
+            };
+            SDL_GPUColorTargetDescription color = new()
+            {
+                format = format,
+                blend_state = new SDL_GPUColorTargetBlendState
+                {
+                    src_color_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_ONE,
+                    dst_color_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_ONE,
+                    color_blend_op = SDL_GPUBlendOp.SDL_GPU_BLENDOP_ADD,
+                    src_alpha_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_ONE,
+                    dst_alpha_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_ONE,
+                    alpha_blend_op = SDL_GPUBlendOp.SDL_GPU_BLENDOP_ADD,
+                    color_write_mask = SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_R
+                        | SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_G,
+                    enable_blend = true,
+                    enable_color_write_mask = true
+                }
+            };
+            SDL_GPUGraphicsPipelineCreateInfo info = new()
+            {
+                vertex_shader = _distortionVertexShader,
+                fragment_shader = _distortionFragmentShader,
+                vertex_input_state = vertexInput,
+                primitive_type = SDL_GPUPrimitiveType.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+                rasterizer_state = new SDL_GPURasterizerState
+                {
+                    fill_mode = SDL_GPUFillMode.SDL_GPU_FILLMODE_FILL,
+                    cull_mode = !faceCulling ? SDL_GPUCullMode.SDL_GPU_CULLMODE_NONE
+                        : culling switch
+                        {
+                            CullingMode.Front => SDL_GPUCullMode.SDL_GPU_CULLMODE_FRONT,
+                            CullingMode.Back => SDL_GPUCullMode.SDL_GPU_CULLMODE_BACK,
+                            _ => SDL_GPUCullMode.SDL_GPU_CULLMODE_NONE
+                        },
+                    front_face = SDL_GPUFrontFace.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
+                    enable_depth_clip = true
+                },
+                multisample_state = new SDL_GPUMultisampleState
+                {
+                    sample_count = SampleCount(configuration.RenderSampleCount)
+                },
+                depth_stencil_state = new SDL_GPUDepthStencilState
+                {
+                    compare_op = SDL_GPUCompareOp.SDL_GPU_COMPAREOP_LESS_OR_EQUAL,
+                    enable_depth_test = true,
+                    enable_depth_write = false,
+                    enable_stencil_test = false
+                },
+                target_info = new SDL_GPUGraphicsPipelineTargetInfo
+                {
+                    color_target_descriptions = &color,
+                    num_color_targets = 1,
+                    depth_stencil_format = _depthFormat,
+                    has_depth_stencil_target = true
+                }
+            };
+            SDL_GPUGraphicsPipeline* pipeline
+                = SDL3.SDL_CreateGPUGraphicsPipeline(_device.Handle, &info);
+            if (pipeline == null)
+                throw new InvalidOperationException(
+                    $"SDL distortion pipeline creation failed: {SDL3.SDL_GetError()}");
+            _distortionPipelines.Add(key, (nint)pipeline);
+            return pipeline;
+        }
+
+        private void EncodeEnhancedDistortion(SDL_GPUCommandBuffer* commandBuffer,
+            RenderFrame frame, IReadOnlyDictionary<DrawSubmission, GpuMesh> meshes,
+            SdlGpuSceneVertexFrameConstants vertexFrame)
+        {
+            if (!_distortionConfiguration.HasValue || _distortionColor == null)
+                throw new InvalidOperationException(
+                    "Enhanced distortion resources were not prepared.");
+            EnhancedDistortionTargetConfiguration configuration
+                = _distortionConfiguration.Value;
+            SDL_GPUColorTargetInfo color = new()
+            {
+                texture = configuration.RequiresResolve
+                    ? _distortionMultisampleColor : _distortionColor,
+                clear_color = new SDL_FColor(),
+                load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR,
+                store_op = configuration.RequiresResolve
+                    ? SDL_GPUStoreOp.SDL_GPU_STOREOP_RESOLVE
+                    : SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE,
+                resolve_texture = configuration.RequiresResolve
+                    ? _distortionColor : null,
+                cycle = false
+            };
+            SDL_GPUDepthStencilTargetInfo depth = new()
+            {
+                texture = _sceneDepth,
+                load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_LOAD,
+                store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE,
+                stencil_load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_LOAD,
+                stencil_store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE,
+                cycle = false
+            };
+            SDL_GPURenderPass* pass = SDL3.SDL_BeginGPURenderPass(
+                commandBuffer, &color, 1, &depth);
+            if (pass == null)
+                throw new InvalidOperationException(
+                    $"SDL distortion vector pass failed: {SDL3.SDL_GetError()}");
+            try
+            {
+                SDL_GPUViewport viewport = new()
+                {
+                    w = configuration.Width, h = configuration.Height,
+                    min_depth = 0, max_depth = 1
+                };
+                SDL3.SDL_SetGPUViewport(pass, &viewport);
+                PushVertex(commandBuffer, 0, vertexFrame);
+                int encoded = 0;
+                foreach (EnhancedDistortionSubmission source
+                    in frame.DistortionSubmissions.Items)
+                {
+                    DrawSubmission? draw = source.SourceDraw;
+                    if (draw == null || !meshes.TryGetValue(draw,
+                        out GpuMesh? mesh) || mesh.TriangleIndexCount == 0) continue;
+                    if (++encoded > EnhancedDistortionSubmission.MaximumCount)
+                        throw new InvalidOperationException(
+                            "Enhanced distortion draw bound exceeded.");
+                    SDL3.SDL_BindGPUGraphicsPipeline(pass,
+                        GetDistortionPipeline(source.CullingMode,
+                            frame.Options.FaceCulling, configuration));
+                    SDL_GPUBufferBinding vertex = new()
+                    {
+                        buffer = mesh.VertexBuffer
+                    };
+                    SDL_GPUBufferBinding index = new()
+                    {
+                        buffer = mesh.TriangleIndexBuffer
+                    };
+                    SDL3.SDL_BindGPUVertexBuffers(pass, 0, &vertex, 1);
+                    SDL3.SDL_BindGPUIndexBuffer(pass, &index,
+                        SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
+                    DistortionVertexConstants vertexConstants
+                        = BuildDistortionVertexConstants(frame, draw);
+                    PushVertex(commandBuffer, 1, vertexConstants);
+                    PushFragment(commandBuffer, 0,
+                        new DistortionFragmentConstants
+                        {
+                            Options = new Vector4(source.Strength,
+                                source.Falloff,
+                                source.PresentationPhase, 0)
+                        });
+                    SDL3.SDL_DrawGPUIndexedPrimitives(pass,
+                        checked((uint)mesh.TriangleIndexCount), 1, 0, 0, 0);
+                }
+            }
+            finally
+            {
+                SDL3.SDL_EndGPURenderPass(pass);
+            }
+        }
+
+        private static DistortionVertexConstants BuildDistortionVertexConstants(
+            RenderFrame frame, DrawSubmission draw)
+        {
+            DistortionVertexConstants constants = default;
+            constants.Transform = SdlGpuMatrixAbi.Upload(draw.Transform);
+            constants.Billboard = draw.Material.BillboardMode switch
+            {
+                BillboardMode.Sphere => SdlGpuMatrixAbi.Upload(
+                    frame.ViewInverseRotation),
+                BillboardMode.Cylinder => SdlGpuMatrixAbi.Upload(
+                    frame.ViewInverseRotationY),
+                _ => SdlGpuMatrixAbi.Upload(Matrix4.Identity)
+            };
+            constants.TextureMatrix = SdlGpuMatrixAbi.Upload(
+                draw.Material.TextureMatrix);
+            constants.Options = new Vector4(
+                SdlGpuDistortionTransformPolicy.UsesMatrixStack(
+                    draw.MatrixStackCount) ? 1 : 0,
+                0, 0, 0);
+            float* destination = constants.MatrixStack;
+            draw.MatrixStack.AsSpan().CopyTo(new Span<float>(destination,
+                RenderFrame.MatrixStackFloats));
+            return constants;
+        }
+
+        private bool TryPrepareDirectionalShadow(RenderFrame frame)
+        {
+            RenderDirectionalShadowState shadow = frame.DirectionalShadow;
+            if (frame.Options.Quality.GraphicsPreset != GraphicsPreset.Enhanced
+                || !shadow.Enabled || !_depthSampleable) return false;
+            SdlGpuDirectionalShadowConfiguration configuration = new(
+                shadow.MapSize, _depthFormat);
+            if (!_shadowFailure.ShouldAttempt(configuration)) return false;
+            try
+            {
+                EnsureShadowShaders();
+                if (_shadowDepth == null || _shadowMapSize != shadow.MapSize)
+                {
+                    SDL_GPUTexture* replacement = CreateTarget(_depthFormat,
+                        SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET
+                            | SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_SAMPLER,
+                        checked((uint)shadow.MapSize), checked((uint)shadow.MapSize),
+                        sampleCount: 1);
+                    if (!SDL3.SDL_WaitForGPUIdle(_device.Handle))
+                    {
+                        SDL3.SDL_ReleaseGPUTexture(_device.Handle, replacement);
+                        throw new InvalidOperationException(
+                            $"SDL shadow target resize wait failed: {SDL3.SDL_GetError()}");
+                    }
+                    if (_shadowDepth != null)
+                        SDL3.SDL_ReleaseGPUTexture(_device.Handle, _shadowDepth);
+                    _shadowDepth = replacement;
+                    _shadowMapSize = shadow.MapSize;
+                }
+                foreach (DrawSubmission draw in frame.OpaqueItems)
+                {
+                    if (draw.Material.Alpha != 1) continue;
+                    _ = GetShadowPipeline(ShadowPipelineKey(frame, draw));
+                }
+                _shadowFailure.RecordSuccess();
+                _reportedShadowFailure = null;
+                return true;
+            }
+            catch (Exception error) when (error is InvalidOperationException
+                or IOException or PlatformNotSupportedException)
+            {
+                _shadowFailure.RecordFailure(configuration);
+                if (_reportedShadowFailure != configuration)
+                {
+                    _reportedShadowFailure = configuration;
+                    Console.Error.WriteLine(
+                        $"[render] directional shadows disabled for this resource configuration: {error.Message}");
+                }
+                return false;
+            }
+        }
+
+        private void EnsureShadowShaders()
+        {
+            if (_shadowVertexShader != null && _shadowFragmentShader != null) return;
+            ShaderArtifactManifest.ValidateShadowFresh();
+            (SDL_GPUShaderFormat format, string suffix) = SelectShaderFormat();
+            string directory = ShaderArtifactManifest.Directory;
+            SDL_GPUShader* vertex = CreateShader(_device.Handle, format,
+                Path.Combine(directory, $"shadow.vert.{suffix}"), "main_vs",
+                SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_VERTEX,
+                samplers: 0, uniforms: 2);
+            try
+            {
+                SDL_GPUShader* fragment = CreateShader(_device.Handle, format,
+                    Path.Combine(directory, $"shadow.frag.{suffix}"), "main_ps",
+                    SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT,
+                    samplers: 1, uniforms: 1);
+                _shadowVertexShader = vertex;
+                _shadowFragmentShader = fragment;
+            }
+            catch
+            {
+                SDL3.SDL_ReleaseGPUShader(_device.Handle, vertex);
+                throw;
+            }
+        }
+
+        private static SdlGpuShadowPipelineKey ShadowPipelineKey(
+            RenderFrame frame, DrawSubmission draw)
+            => new(draw.Material.CullingMode switch
+            {
+                CullingMode.Front => RenderCullMode.Front,
+                CullingMode.Back => RenderCullMode.Back,
+                _ => RenderCullMode.None
+            }, frame.Options.FaceCulling);
+
+        private void EncodeDirectionalShadow(SDL_GPUCommandBuffer* commandBuffer,
+            RenderFrame frame, IReadOnlyDictionary<DrawSubmission, GpuMesh> meshes)
+        {
+            SDL_GPUDepthStencilTargetInfo depth = new()
+            {
+                texture = _shadowDepth,
+                clear_depth = 1,
+                clear_stencil = 0,
+                load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR,
+                store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE,
+                stencil_load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR,
+                stencil_store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE,
+                cycle = false
+            };
+            SDL_GPURenderPass* pass = SDL3.SDL_BeginGPURenderPass(
+                commandBuffer, null, 0, &depth);
+            if (pass == null)
+                throw new InvalidOperationException(
+                    $"SDL directional shadow pass failed: {SDL3.SDL_GetError()}");
+            try
+            {
+                SDL_GPUViewport viewport = new()
+                {
+                    w = frame.DirectionalShadow.MapSize,
+                    h = frame.DirectionalShadow.MapSize,
+                    min_depth = 0,
+                    max_depth = 1
+                };
+                SDL3.SDL_SetGPUViewport(pass, &viewport);
+                ShadowFrameConstants shadowFrame = new()
+                {
+                    ViewProjection = SdlGpuMatrixAbi.Upload(
+                        frame.DirectionalShadow.ViewProjection),
+                    View = SdlGpuMatrixAbi.Upload(frame.ViewMatrix),
+                    Options = new Vector4(frame.Options.Lighting ? 1 : 0, 0, 0, 0)
+                };
+                PushVertex(commandBuffer, 0, shadowFrame);
+                int encoded = 0;
+                foreach (DrawSubmission draw in frame.OpaqueItems)
+                {
+                    if (draw.Material.Alpha != 1
+                        || !meshes.TryGetValue(draw, out GpuMesh? mesh)
+                        || mesh.TriangleIndexCount == 0) continue;
+                    if (++encoded > RenderFrame.DefaultMaximumCapacity)
+                        throw new InvalidOperationException(
+                            "Directional shadow caster bound exceeded.");
+                    SDL3.SDL_BindGPUGraphicsPipeline(pass,
+                        GetShadowPipeline(ShadowPipelineKey(frame, draw)));
+                    SDL_GPUBufferBinding vertex = new() { buffer = mesh.VertexBuffer };
+                    SDL_GPUBufferBinding index = new() { buffer = mesh.TriangleIndexBuffer };
+                    SDL3.SDL_BindGPUVertexBuffers(pass, 0, &vertex, 1);
+                    SDL3.SDL_BindGPUIndexBuffer(pass, &index,
+                        SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
+                    GpuTexture albedo = ResolveBoundTexture(frame, draw);
+                    SDL_GPUSampler* sampler = GetSampler(SamplerKey.From(
+                        draw.Material, frame.Options.Quality));
+                    SDL_GPUTextureSamplerBinding binding = new()
+                    {
+                        texture = albedo.Handle,
+                        sampler = sampler
+                    };
+                    SDL3.SDL_BindGPUFragmentSamplers(pass, 0, &binding, 1);
+                    DrawConstants constants = BuildDrawConstants(frame, draw,
+                        RenderPassKind.Opaque, RenderTopology.Triangles);
+                    PushVertex(commandBuffer, 1, constants);
+                    PushFragment(commandBuffer, 0, constants);
+                    SDL3.SDL_DrawGPUIndexedPrimitives(pass,
+                        checked((uint)mesh.TriangleIndexCount), 1, 0, 0, 0);
+                }
+            }
+            finally
+            {
+                SDL3.SDL_EndGPURenderPass(pass);
+            }
+        }
+
+        private bool TryPrepareEnhancedSurface(uint width, uint height)
+        {
+            SdlGpuEnhancedSurfaceConfiguration configuration = new(width, height);
+            if (!_surfaceFailure.ShouldAttempt(configuration)) return false;
+            SdlGpuEnhancedSurfacePlan plan;
+            try
+            {
+                plan = SdlGpuEnhancedSurfacePlan.Create(width, height);
+            }
+            catch (ArgumentOutOfRangeException error)
+            {
+                RecordSurfaceFailure(configuration, error.Message);
+                return false;
+            }
+            if (_surfacePlan?.Configuration == configuration
+                && _surfaceColor != null && _surfaceDepth != null
+                && _surfaceFragmentShader != null) return true;
+
+            try
+            {
+                EnsureSurfaceShader();
+                SDL_GPUTexture* replacementColor = null;
+                SDL_GPUTexture* replacementDepth = null;
+                try
+                {
+                    replacementColor = CreateTarget(SdlGpuHdrPolicy.HdrFormat,
+                        SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET
+                            | SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_SAMPLER,
+                        width, height, sampleCount: 1);
+                    replacementDepth = CreateTarget(_depthFormat,
+                        SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
+                        width, height, sampleCount: 1);
+                }
+                catch
+                {
+                    if (replacementDepth != null)
+                        SDL3.SDL_ReleaseGPUTexture(_device.Handle, replacementDepth);
+                    if (replacementColor != null)
+                        SDL3.SDL_ReleaseGPUTexture(_device.Handle, replacementColor);
+                    throw;
+                }
+                if (!SDL3.SDL_WaitForGPUIdle(_device.Handle))
+                {
+                    SDL3.SDL_ReleaseGPUTexture(_device.Handle, replacementDepth);
+                    SDL3.SDL_ReleaseGPUTexture(_device.Handle, replacementColor);
+                    throw new InvalidOperationException(
+                        $"SDL surface target resize wait failed: {SDL3.SDL_GetError()}");
+                }
+                if (_surfaceDepth != null)
+                    SDL3.SDL_ReleaseGPUTexture(_device.Handle, _surfaceDepth);
+                if (_surfaceColor != null)
+                    SDL3.SDL_ReleaseGPUTexture(_device.Handle, _surfaceColor);
+                _surfaceColor = replacementColor;
+                _surfaceDepth = replacementDepth;
+                _surfacePlan = plan;
+                _surfaceFailure.RecordSuccess();
+                _reportedSurfaceFailure = null;
+                return true;
+            }
+            catch (Exception error) when (error is InvalidOperationException
+                or IOException or PlatformNotSupportedException)
+            {
+                RecordSurfaceFailure(configuration, error.Message);
+                return false;
+            }
+        }
+
+        private void EnsureSurfaceShader()
+        {
+            if (_surfaceFragmentShader != null) return;
+            ShaderArtifactManifest.ValidateSurfaceFresh();
+            (SDL_GPUShaderFormat format, string suffix) = SelectShaderFormat();
+            string path = Path.Combine(ShaderArtifactManifest.Directory,
+                $"surface.frag.{suffix}");
+            _surfaceFragmentShader = CreateShader(_device.Handle, format, path,
+                "main_ps", SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT,
+                samplers: 2, uniforms: 1);
+        }
+
+        private bool TryEncodeEnhancedSurface(SDL_GPUCommandBuffer* commandBuffer,
+            RenderFrame frame, IReadOnlyDictionary<DrawSubmission, GpuMesh> meshes,
+            SdlGpuSceneVertexFrameConstants vertexFrame)
+        {
+            if (!_surfacePlan.HasValue || _surfaceColor == null
+                || _surfaceDepth == null) return false;
+            SdlGpuEnhancedSurfaceConfiguration configuration
+                = _surfacePlan.Value.Configuration;
+            if (!_surfaceFailure.ShouldAttempt(configuration)) return false;
+            try
+            {
+                SDL_GPUColorTargetInfo color = new()
+                {
+                    texture = _surfaceColor,
+                    clear_color = new SDL_FColor
+                    {
+                        r = 0.5f, g = 0.5f, b = 0, a = 0
+                    },
+                    load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR,
+                    store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE,
+                    cycle = false
+                };
+                SDL_GPUDepthStencilTargetInfo depth = new()
+                {
+                    texture = _surfaceDepth, clear_depth = 1,
+                    clear_stencil = 0,
+                    load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR,
+                    store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE,
+                    stencil_load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR,
+                    stencil_store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE,
+                    cycle = false
+                };
+                SDL_GPURenderPass* pass = SDL3.SDL_BeginGPURenderPass(
+                    commandBuffer, &color, 1, &depth);
+                if (pass == null)
+                    throw new InvalidOperationException(
+                        $"SDL enhanced surface pass failed: {SDL3.SDL_GetError()}");
+                try
+                {
+                    SDL_GPUViewport viewport = new()
+                    {
+                        w = configuration.Width, h = configuration.Height,
+                        min_depth = 0, max_depth = 1
+                    };
+                    SDL3.SDL_SetGPUViewport(pass, &viewport);
+                    PushVertex(commandBuffer, 0, vertexFrame);
+                    int encoded = 0;
+                    foreach (DrawSubmission draw in frame.OpaqueItems)
+                    {
+                        if (++encoded > RenderFrame.DefaultMaximumCapacity)
+                            throw new InvalidOperationException(
+                                "Enhanced surface draw bound exceeded.");
+                        if (!meshes.TryGetValue(draw, out GpuMesh? mesh)) continue;
+                        DrawSurface(commandBuffer, pass, frame, draw, mesh);
+                    }
+                }
+                finally
+                {
+                    SDL3.SDL_EndGPURenderPass(pass);
+                }
+                return true;
+            }
+            catch (InvalidOperationException error)
+            {
+                RecordSurfaceFailure(configuration, error.Message);
+                return false;
+            }
+        }
+
+        private void DrawSurface(SDL_GPUCommandBuffer* commandBuffer,
+            SDL_GPURenderPass* pass, RenderFrame frame, DrawSubmission draw,
+            GpuMesh mesh)
+        {
+            if (mesh.TriangleIndexCount == 0
+                || (draw.Primitive == RenderPrimitive.Ngon
+                    && frame.Options.VolumeEdges == 1)) return;
+            PipelineKey baseKey = PipelineKey.From(draw.Material, draw.Primitive,
+                RenderPassKind.Opaque, sampleCount: 1,
+                targetFormat: SdlGpuHdrPolicy.HdrFormat.ToString());
+            ScenePipelineKey key = new(baseKey,
+                frame.Options.Wireframe || draw.Material.Wireframe,
+                frame.Options.FaceCulling, SdlGpuHdrPolicy.HdrFormat,
+                SurfaceData: true);
+            SDL3.SDL_BindGPUGraphicsPipeline(pass, GetPipeline(key));
+            SDL3.SDL_SetGPUStencilReference(pass,
+                checked((byte)Math.Clamp(draw.PolygonId, 0, 255)));
+
+            SDL_GPUBufferBinding vertex = new() { buffer = mesh.VertexBuffer };
+            SDL_GPUBufferBinding index = new()
+            {
+                buffer = mesh.TriangleIndexBuffer
+            };
+            SDL3.SDL_BindGPUVertexBuffers(pass, 0, &vertex, 1);
+            SDL3.SDL_BindGPUIndexBuffer(pass, &index,
+                SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
+            GpuTexture albedo = ResolveBoundTexture(frame, draw);
+            GpuTexture normal = ResolveBoundNormalTexture(frame, draw);
+            SDL_GPUSampler* sampler = GetSampler(SamplerKey.From(draw.Material,
+                frame.Options.Quality));
+            SDL_GPUTextureSamplerBinding* bindings
+                = stackalloc SDL_GPUTextureSamplerBinding[2];
+            bindings[0] = new() { texture = albedo.Handle, sampler = sampler };
+            bindings[1] = new() { texture = normal.Handle, sampler = sampler };
+            SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
+
+            DrawConstants constants = BuildDrawConstants(frame, draw,
+                RenderPassKind.Opaque, RenderTopology.Triangles);
+            PushVertex(commandBuffer, 1, constants);
+            PushFragment(commandBuffer, 0, constants);
+            SDL3.SDL_DrawGPUIndexedPrimitives(pass,
+                checked((uint)mesh.TriangleIndexCount), 1, 0, 0, 0);
+        }
+
+        private void RecordSurfaceFailure(
+            SdlGpuEnhancedSurfaceConfiguration configuration, string reason)
+        {
+            _surfaceFailure.RecordFailure(configuration);
+            if (_reportedSurfaceFailure == configuration) return;
+            _reportedSurfaceFailure = configuration;
+            Console.Error.WriteLine(
+                $"[render] Enhanced surface data disabled for this resource configuration: {reason}");
         }
 
         private void EncodePass(SDL_GPUCommandBuffer* commandBuffer, RenderFrame frame,
             Dictionary<DrawSubmission, GpuMesh> meshes, IReadOnlyList<DrawSubmission> draws,
             RenderPassKind passKind, bool clearColor, bool clearDepth, bool clearStencil,
             bool resolveColor, ref int encoded, SdlGpuSceneVertexFrameConstants vertexFrame,
-            FrameFragmentConstants fragmentFrame)
+            SdlGpuSceneFragmentFrameConstants fragmentFrame)
         {
             SDL_GPUColorTargetInfo colorTarget = new()
             {
                 texture = SceneRenderColor,
-                clear_color = new SDL_FColor { r = frame.ClearColor.X, g = frame.ClearColor.Y,
-                    b = frame.ClearColor.Z, a = frame.ClearColor.W },
+                clear_color = SceneClearColor(frame),
                 load_op = clearColor ? SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR : SDL_GPULoadOp.SDL_GPU_LOADOP_LOAD,
                 store_op = resolveColor && _targetSampleCount > 1
                     ? SDL_GPUStoreOp.SDL_GPU_STOREOP_RESOLVE
@@ -445,51 +1605,71 @@ namespace MphRead
             }
         }
 
+        private SDL_FColor SceneClearColor(RenderFrame frame)
+        {
+            Vector3 rgb = frame.Options.Quality.GraphicsPreset == GraphicsPreset.Enhanced
+                ? EnhancedColorMath.SrgbToLinear(frame.ClearColor.Xyz)
+                : frame.ClearColor.Xyz;
+            return new SDL_FColor
+            {
+                r = rgb.X,
+                g = rgb.Y,
+                b = rgb.Z,
+                a = frame.ClearColor.W
+            };
+        }
+
         private void EncodeHudScene(SDL_GPUCommandBuffer* commandBuffer, RenderFrame frame,
-            IReadOnlyDictionary<RenderHudSceneSubmission, GpuMesh> meshes)
+            IReadOnlyDictionary<RenderHudSceneSubmission, GpuMesh> meshes,
+            SDL_GPUTexture* target, SDL_GPUTexture* depth, uint width, uint height,
+            SDL_GPUTextureFormat targetFormat, int sampleCount,
+            SDL_GPUTexture* resolveTo, bool displayAssetsToLinear)
         {
             if (frame.HudSceneItems.Count == 0) return;
             SDL_GPUColorTargetInfo colorTarget = new()
             {
-                texture = SceneRenderColor,
+                texture = target,
                 load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_LOAD,
-                store_op = _targetSampleCount > 1
+                store_op = sampleCount > 1
                     ? SDL_GPUStoreOp.SDL_GPU_STOREOP_RESOLVE
                     : SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE,
-                resolve_texture = _targetSampleCount > 1 ? _sceneColor : null,
+                resolve_texture = sampleCount > 1 ? resolveTo : null,
                 cycle = false
             };
             SDL_GPUDepthStencilTargetInfo depthTarget = new()
             {
-                texture = _sceneDepth,
+                texture = depth,
                 load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_LOAD,
                 store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE,
                 stencil_load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_LOAD,
                 stencil_store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_STORE,
                 cycle = false
             };
-            SDL_GPURenderPass* pass = SDL3.SDL_BeginGPURenderPass(commandBuffer, &colorTarget, 1, &depthTarget);
+            SDL_GPURenderPass* pass = SDL3.SDL_BeginGPURenderPass(commandBuffer,
+                &colorTarget, 1, depth != null ? &depthTarget : null);
             if (pass == null) throw new InvalidOperationException($"SDL HUD scene pass failed: {SDL3.SDL_GetError()}");
             try
             {
-                SDL_GPUViewport viewport = new() { w = _targetWidth, h = _targetHeight, min_depth = 0, max_depth = 1 };
+                SDL_GPUViewport viewport = new() { w = width, h = height, min_depth = 0, max_depth = 1 };
                 SDL3.SDL_SetGPUViewport(pass, &viewport);
-                FrameFragmentConstants fragmentFrame = new()
-                {
-                    FogColor = Vector4.Zero,
-                    Options = Vector4.Zero,
-                    FogRange = Vector4.Zero
-                };
+                SdlGpuSceneFragmentFrameConstants fragmentFrame
+                    = SdlGpuSceneFragmentFrameConstants.Create(
+                        Vector4.Zero, Vector4.Zero, Vector4.Zero, Vector3.Zero,
+                        visualLights: null, enabled: false,
+                        displayAssetsToLinear: displayAssetsToLinear);
                 PushFragment(commandBuffer, 0, fragmentFrame);
+                SDL_GPUTextureSamplerBinding* bindings
+                    = stackalloc SDL_GPUTextureSamplerBinding[SdlGpuSceneSamplerAbi.Count];
                 foreach (RenderHudSceneSubmission hud in frame.HudSceneItems)
                 {
                     if (!meshes.TryGetValue(hud, out GpuMesh? mesh) || mesh.TriangleIndexCount == 0) continue;
                     RenderMaterial material = hud.Material;
                     PipelineKey baseKey = CreateHudPipelineKey(material,
-                        _device.SwapchainFormat.ToString(), _targetSampleCount);
+                        targetFormat.ToString(), sampleCount);
                     SDL3.SDL_BindGPUGraphicsPipeline(pass,
                         GetPipeline(new ScenePipelineKey(baseKey,
-                            frame.Options.Wireframe || material.Wireframe, frame.Options.FaceCulling)));
+                            frame.Options.Wireframe || material.Wireframe,
+                            frame.Options.FaceCulling, targetFormat)));
 
                     SDL_GPUBufferBinding vertex = new() { buffer = mesh.VertexBuffer };
                     SDL_GPUBufferBinding index = new() { buffer = mesh.TriangleIndexBuffer };
@@ -501,16 +1681,31 @@ namespace MphRead
                         : _whiteTexture!.Handle;
                     SDL_GPUSampler* sampler = GetSampler(new SamplerKey(
                         RenderFilterMode.Nearest, RepeatMode.Clamp, RepeatMode.Clamp));
-                    SDL_GPUTextureSamplerBinding binding = new() { texture = texture, sampler = sampler };
-                    SDL3.SDL_BindGPUFragmentSamplers(pass, 0, &binding, 1);
+                    bindings[SdlGpuSceneSamplerAbi.Albedo] = new() { texture = texture, sampler = sampler };
+                    bindings[SdlGpuSceneSamplerAbi.Normal] = new() { texture = _flatNormalTexture!.Handle, sampler = sampler };
+                    bindings[SdlGpuSceneSamplerAbi.Emissive] = new() { texture = _blackEmissiveTexture!.Handle, sampler = sampler };
+                    bindings[SdlGpuSceneSamplerAbi.Reflection] = new() { texture = _blackReflectionTexture!.Handle, sampler = sampler };
+                    bindings[SdlGpuSceneSamplerAbi.AmbientOcclusion] = new()
+                    {
+                        texture = _whiteTexture!.Handle, sampler = sampler
+                    };
+                    bindings[SdlGpuSceneSamplerAbi.Shadow] = new()
+                    {
+                        texture = _whiteTexture!.Handle, sampler = sampler
+                    };
+                    bindings[SdlGpuSceneSamplerAbi.SurfaceData] = new()
+                    {
+                        texture = _blackEmissiveTexture!.Handle, sampler = sampler
+                    };
+                    SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings,
+                        SdlGpuSceneSamplerAbi.Count);
 
                     SdlGpuSceneVertexFrameConstants vertexFrame
                         = SdlGpuSceneVertexFrameConstants.Create(
                             hud.ViewMatrix, hud.ProjectionMatrix,
                             new Vector4(frame.Options.Lighting ? 1 : 0,
                                 frame.Options.ShowColors ? 1 : 0,
-                                frame.Options.ShowTextures ? 1 : 0, 0),
-                            visualLights: null, enabled: false);
+                                frame.Options.ShowTextures ? 1 : 0, 0));
                     PushVertex(commandBuffer, 0, vertexFrame);
                     DrawConstants constants = BuildHudDrawConstants(frame, hud);
                     PushVertex(commandBuffer, 1, constants);
@@ -527,7 +1722,7 @@ namespace MphRead
         private void EncodeBloom(SDL_GPUCommandBuffer* commandBuffer, RenderFrame frame,
             IReadOnlyDictionary<DrawSubmission, GpuMesh> meshes, SdlGpuBloomPlan plan,
             SdlGpuSceneVertexFrameConstants vertexFrame,
-            FrameFragmentConstants fragmentFrame)
+            SdlGpuSceneFragmentFrameConstants fragmentFrame)
         {
             if (!plan.Enabled || _bloomColor == null)
                 throw new InvalidOperationException("SDL bloom pass requires allocated targets.");
@@ -569,7 +1764,8 @@ namespace MphRead
                 int emitted = 0;
                 foreach (DrawSubmission draw in frame.Submissions)
                 {
-                    if (!SdlGpuBloomPlan.IsEligible(draw.Material)) continue;
+                    if (!SdlGpuBloomPlan.IsEligible(draw.Material,
+                        frame.Options.Quality.GraphicsPreset)) continue;
                     if (++emitted > RenderFrame.DefaultMaximumCapacity)
                         throw new InvalidOperationException("Bloom draw count exceeds the bounded frame contract.");
                     if (!meshes.TryGetValue(draw, out GpuMesh? mesh))
@@ -599,10 +1795,10 @@ namespace MphRead
                 RenderStencilMode.Disabled, RenderTopology.Triangles,
                 _targetSampleCount, RenderAlphaTestMode.Disabled,
                 RenderColorWriteMask.All, decalDepthBias: false,
-                _device.SwapchainFormat.ToString());
+                _sceneColorFormat.ToString());
             SDL3.SDL_BindGPUGraphicsPipeline(pass, GetPipeline(new ScenePipelineKey(
                 baseKey, Wireframe: false, FaceCulling: frame.Options.FaceCulling,
-                BloomEmission: true)));
+                _sceneColorFormat, BloomEmission: true)));
 
             SDL_GPUBufferBinding vertex = new() { buffer = mesh.VertexBuffer };
             SDL_GPUBufferBinding index = new() { buffer = mesh.TriangleIndexBuffer };
@@ -610,16 +1806,46 @@ namespace MphRead
             SDL3.SDL_BindGPUIndexBuffer(pass, &index,
                 SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
             GpuTexture texture = ResolveBoundTexture(frame, draw);
+            GpuTexture normalTexture = ResolveBoundNormalTexture(frame, draw);
+            GpuTexture emissiveTexture = ResolveBoundEmissiveTexture(frame, draw);
             SDL_GPUSampler* sampler = GetSampler(SamplerKey.From(draw.Material,
                 frame.Options.Quality));
-            SDL_GPUTextureSamplerBinding binding = new()
+            SDL_GPUTextureSamplerBinding* bindings
+                = stackalloc SDL_GPUTextureSamplerBinding[SdlGpuSceneSamplerAbi.Count];
+            bindings[SdlGpuSceneSamplerAbi.Albedo] = new() { texture = texture.Handle, sampler = sampler };
+            bindings[SdlGpuSceneSamplerAbi.Normal] = new() { texture = normalTexture.Handle, sampler = sampler };
+            bindings[SdlGpuSceneSamplerAbi.Emissive] = new() { texture = emissiveTexture.Handle, sampler = sampler };
+            bindings[SdlGpuSceneSamplerAbi.Reflection] = new()
             {
-                texture = texture.Handle, sampler = sampler
+                texture = ResolveBoundReflectionTexture(frame).Handle,
+                sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
+                    RepeatMode.Clamp, RepeatMode.Clamp))
             };
-            SDL3.SDL_BindGPUFragmentSamplers(pass, 0, &binding, 1);
+            bindings[SdlGpuSceneSamplerAbi.AmbientOcclusion] = new()
+            {
+                texture = _whiteTexture!.Handle,
+                sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
+                    RepeatMode.Clamp, RepeatMode.Clamp))
+            };
+            bindings[SdlGpuSceneSamplerAbi.Shadow] = new()
+            {
+                texture = _shadowAvailableForFrame ? _shadowDepth : _whiteTexture!.Handle,
+                sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
+                    RepeatMode.Clamp, RepeatMode.Clamp))
+            };
+            bindings[SdlGpuSceneSamplerAbi.SurfaceData] = new()
+            {
+                texture = _surfaceAvailableForFrame ? _surfaceColor
+                    : _blackEmissiveTexture!.Handle,
+                sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
+                    RepeatMode.Clamp, RepeatMode.Clamp))
+            };
+            SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings,
+                SdlGpuSceneSamplerAbi.Count);
 
             DrawConstants constants = BuildDrawConstants(frame, draw, draw.Pass,
-                RenderTopology.Triangles, SdlGpuBloomPlan.Strength(draw.Material));
+                RenderTopology.Triangles, SdlGpuBloomPlan.Strength(draw.Material,
+                    frame.Options.Quality.GraphicsPreset));
             PushVertex(commandBuffer, 1, constants);
             PushFragment(commandBuffer, 1, constants);
             SDL3.SDL_DrawGPUIndexedPrimitives(pass,
@@ -648,7 +1874,8 @@ namespace MphRead
             constants.TextureMatrix = SdlGpuMatrixAbi.Upload(material.TextureMatrix);
             constants.Diffuse = hud.CurrentColor;
             constants.Ambient = new Vector4(material.Ambient, 1);
-            constants.Specular = new Vector4(material.Specular, 1);
+            constants.Specular = new Vector4(material.Specular,
+                SdlGpuEnhancedLightingPolicy.DefaultSmoothness);
             constants.Emission = new Vector4(material.Emission, 1);
             constants.OverrideColor = material.ColorOverride ?? Vector4.One;
             constants.PaletteOverride = material.PaletteOverride ?? Vector4.One;
@@ -663,6 +1890,9 @@ namespace MphRead
                 (float)material.TexgenMode, material.Lighting ? 1 : 0);
             constants.RenderOptions = Vector4.Zero;
             constants.FlatColor = Vector4.One;
+            constants.EnhancedEmission = Vector4.Zero;
+            constants.EnhancedOptions = Vector4.Zero;
+            constants.ReflectionOptions = Vector4.Zero;
             float* destination = constants.MatrixStack;
             SdlGpuMatrixAbi.CopyStack(hud.MatrixStack, hud.MatrixStackCount,
                 new Span<float>(destination, RenderFrame.MatrixStackFloats));
@@ -680,8 +1910,9 @@ namespace MphRead
             bool wireframe = topology == RenderTopology.Triangles && (frame.Options.Wireframe || draw.Material.Wireframe);
             PipelineKey baseKey = PipelineKey.From(draw.Material, draw.Primitive, passKind,
                 _targetSampleCount,
-                _device.SwapchainFormat.ToString()).WithTopology(topology);
-            ScenePipelineKey key = new(baseKey, wireframe, frame.Options.FaceCulling);
+                _sceneColorFormat.ToString()).WithTopology(topology);
+            ScenePipelineKey key = new(baseKey, wireframe,
+                frame.Options.FaceCulling, _sceneColorFormat);
             SDL_GPUGraphicsPipeline* pipeline = GetPipeline(key);
             SDL3.SDL_BindGPUGraphicsPipeline(pass, pipeline);
             SDL3.SDL_SetGPUStencilReference(pass, checked((byte)Math.Clamp(draw.PolygonId, 0, 255)));
@@ -696,10 +1927,44 @@ namespace MphRead
             SDL3.SDL_BindGPUIndexBuffer(pass, &index, SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
             GpuTexture texture = ResolveBoundTexture(frame, draw);
+            GpuTexture normalTexture = ResolveBoundNormalTexture(frame, draw);
+            GpuTexture emissiveTexture = ResolveBoundEmissiveTexture(frame, draw);
             SDL_GPUSampler* sampler = GetSampler(SamplerKey.From(draw.Material,
                 frame.Options.Quality));
-            SDL_GPUTextureSamplerBinding textureBinding = new() { texture = texture.Handle, sampler = sampler };
-            SDL3.SDL_BindGPUFragmentSamplers(pass, 0, &textureBinding, 1);
+            SDL_GPUTextureSamplerBinding* textureBindings
+                = stackalloc SDL_GPUTextureSamplerBinding[SdlGpuSceneSamplerAbi.Count];
+            textureBindings[SdlGpuSceneSamplerAbi.Albedo] = new() { texture = texture.Handle, sampler = sampler };
+            textureBindings[SdlGpuSceneSamplerAbi.Normal] = new() { texture = normalTexture.Handle, sampler = sampler };
+            textureBindings[SdlGpuSceneSamplerAbi.Emissive] = new() { texture = emissiveTexture.Handle, sampler = sampler };
+            textureBindings[SdlGpuSceneSamplerAbi.Reflection] = new()
+            {
+                texture = ResolveBoundReflectionTexture(frame).Handle,
+                sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
+                    RepeatMode.Clamp, RepeatMode.Clamp))
+            };
+            textureBindings[SdlGpuSceneSamplerAbi.AmbientOcclusion] = new()
+            {
+                texture = SdlGpuAmbientOcclusionPolicy.UsesForPass(passKind)
+                    && _ambientOcclusionForFrame != null
+                    ? _ambientOcclusionForFrame : _whiteTexture!.Handle,
+                sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
+                    RepeatMode.Clamp, RepeatMode.Clamp))
+            };
+            textureBindings[SdlGpuSceneSamplerAbi.Shadow] = new()
+            {
+                texture = _shadowAvailableForFrame ? _shadowDepth : _whiteTexture!.Handle,
+                sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
+                    RepeatMode.Clamp, RepeatMode.Clamp))
+            };
+            textureBindings[SdlGpuSceneSamplerAbi.SurfaceData] = new()
+            {
+                texture = _surfaceAvailableForFrame ? _surfaceColor
+                    : _blackEmissiveTexture!.Handle,
+                sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
+                    RepeatMode.Clamp, RepeatMode.Clamp))
+            };
+            SDL3.SDL_BindGPUFragmentSamplers(pass, 0, textureBindings,
+                SdlGpuSceneSamplerAbi.Count);
 
             DrawConstants constants = BuildDrawConstants(frame, draw, passKind, topology);
             PushVertex(commandBuffer, 1, constants);
@@ -721,8 +1986,67 @@ namespace MphRead
             constants.TextureMatrix = SdlGpuMatrixAbi.Upload(draw.Material.TextureMatrix);
             constants.Diffuse = new Vector4(draw.Material.Diffuse, 1);
             constants.Ambient = new Vector4(draw.Material.Ambient, 1);
-            constants.Specular = new Vector4(draw.Material.Specular, 1);
+            EnhancedMaterial? enhanced = frame.Options.Quality.GraphicsPreset
+                == GraphicsPreset.Enhanced ? draw.Material.Enhanced : null;
+            constants.Specular = new Vector4(draw.Material.Specular,
+                enhanced?.Smoothness
+                    ?? SdlGpuEnhancedLightingPolicy.DefaultSmoothness);
             constants.Emission = new Vector4(draw.Material.Emission, 1);
+            constants.EnhancedEmission = enhanced.HasValue
+                ? new Vector4(enhanced.Value.EmissionTint,
+                    enhanced.Value.EmissionStrength)
+                : Vector4.Zero;
+            constants.EnhancedOptions = new Vector4(
+                enhanced?.Emissive is TextureIdentity ? 1 : 0,
+                draw.Material.EnhancedBeam.HasValue ? 1 : 0,
+                draw.Material.EnhancedForceField.HasValue ? 1 : 0,
+                _surfaceAvailableForFrame ? 1 : 0);
+            if (frame.Options.Quality.GraphicsPreset == GraphicsPreset.Enhanced
+                && draw.Material.EnhancedBeam is EnhancedBeamDrawState beam)
+            {
+                BeamVisualProfile beamProfile = beam.Profile;
+                constants.BeamCore = new Vector4(beamProfile.CoreColor,
+                    beamProfile.CoreWidth);
+                constants.BeamGlow = new Vector4(beamProfile.GlowColor,
+                    beamProfile.GlowWidth);
+                constants.BeamOptions = new Vector4(beamProfile.NoiseStrength,
+                    beamProfile.NoiseScale, beam.Sample.NoisePhase,
+                    beam.Sample.Pulse);
+            }
+            if (frame.Options.Quality.GraphicsPreset == GraphicsPreset.Enhanced
+                && draw.Material.EnhancedForceField
+                    is EnhancedForceFieldDrawState forceField)
+            {
+                ForceFieldVisualProfile fieldProfile = forceField.Profile;
+                constants.ForceFieldEmission = new Vector4(
+                    fieldProfile.EmissionColor, fieldProfile.EmissionStrength);
+                constants.ForceFieldOptions = new Vector4(fieldProfile.NoiseScale,
+                    fieldProfile.NoiseStrength, forceField.Sample.NoisePhase,
+                    fieldProfile.FresnelPower);
+                constants.ForceFieldFlow = new Vector4(
+                    forceField.Sample.UvOffset.X,
+                    forceField.Sample.UvOffset.Y,
+                    fieldProfile.FresnelStrength, fieldProfile.IntersectionStrength);
+            }
+            ReflectionSamplingPolicy reflection = enhanced.HasValue
+                && IsReflectionAvailable(frame)
+                ? ReflectionSamplingPolicy.FromMaterial(enhanced.Value,
+                    frame.ReflectionProbe!.MipLevelCount)
+                : default;
+            constants.ReflectionOptions = reflection.Enabled
+                ? new Vector4(1, reflection.Strength, reflection.Smoothness,
+                    reflection.MipLevel)
+                : Vector4.Zero;
+            constants.SoftParticleOptions = frame.Options.Quality.GraphicsPreset
+                    == GraphicsPreset.Enhanced
+                && _surfaceAvailableForFrame
+                && draw.Primitive == RenderPrimitive.Particle
+                && passKind is RenderPassKind.TransparentStencil
+                    or RenderPassKind.TransparentBehind
+                    or RenderPassKind.TransparentFront
+                && draw.SoftParticleProfile is SoftParticleProfile profile
+                ? new Vector4(1, profile.FadeDistance, 0, 0)
+                : Vector4.Zero;
             constants.OverrideColor = draw.Material.ColorOverride ?? Vector4.One;
             constants.PaletteOverride = draw.Material.PaletteOverride ?? Vector4.One;
             constants.Light1Vector = new Vector4(draw.LightInfo.Light1Vector, 0);
@@ -745,7 +2069,10 @@ namespace MphRead
                 RenderPassKind.Opaque or RenderPassKind.DepthRebuild => 1,
                 RenderPassKind.TransparentStencil or RenderPassKind.TransparentBehind or RenderPassKind.TransparentFront => 2,
                 _ => 0
-            }, 0, bloomStrength, 0);
+            }, 0, bloomStrength,
+                SdlGpuNormalMappingPolicy.IsEnabled(
+                    frame.Options.Quality.GraphicsPreset, frame.Options.Lighting,
+                    frame.Options.ShowTextures, draw.Material, topology) ? 1 : 0);
             if (SdlGpuCelSurface.TryGetFlatColor(frame.Options, frame.TextureResources,
                 draw.Material, out Vector3 flatColor))
             {
@@ -809,21 +2136,105 @@ namespace MphRead
         }
 
         private void ResolveTexture(RenderFrame frame, DrawSubmission draw, SDL_GPUCommandBuffer* commandBuffer)
-            => ResolveTexture(frame, draw.Material.Textured, draw.Material.Texture, draw.PolygonId, commandBuffer);
+            => ResolveTexture(frame, draw.Material.Textured,
+                ResolveAlbedoIdentity(frame, draw.Material), draw.PolygonId,
+                commandBuffer);
+
+        private void ResolveNormalTexture(RenderFrame frame, DrawSubmission draw,
+            SDL_GPUCommandBuffer* commandBuffer)
+        {
+            if (frame.Options.Quality.GraphicsPreset == GraphicsPreset.Enhanced
+                && draw.Material.Enhanced?.Normal is TextureIdentity normal)
+            {
+                ResolveTexture(frame, textured: true, normal, draw.PolygonId,
+                    commandBuffer);
+            }
+        }
+
+        private void ResolveEmissiveTexture(RenderFrame frame, DrawSubmission draw,
+            SDL_GPUCommandBuffer* commandBuffer)
+        {
+            if (frame.Options.Quality.GraphicsPreset == GraphicsPreset.Enhanced
+                && draw.Material.Enhanced?.Emissive is TextureIdentity emissive)
+            {
+                ResolveTexture(frame, textured: true, emissive, draw.PolygonId,
+                    commandBuffer);
+            }
+        }
+
+        private void ResolveReflectionTexture(RenderFrame frame,
+            SDL_GPUCommandBuffer* commandBuffer)
+        {
+            if (frame.Options.Quality.GraphicsPreset != GraphicsPreset.Enhanced
+                || frame.ReflectionProbe is not RenderReflectionProbe probe)
+            {
+                return;
+            }
+            SdlGpuReflectionResourceConfiguration configuration
+                = SdlGpuReflectionResourceConfiguration.From(probe);
+            if (!_reflectionFailure.ShouldAttempt(configuration)) return;
+
+            GpuCubeTexture? previous = _reflectionTexture;
+            GpuCubeTexture candidate = previous!;
+            bool replacement = previous == null || !previous.Matches(probe);
+            try
+            {
+                if (replacement)
+                    candidate = GpuCubeTexture.Create(_device, probe);
+                if (candidate.EnsureUploaded(commandBuffer)) TrackUpload(candidate);
+            }
+            catch (ReflectionProbeResourceUnavailableException error)
+            {
+                if (replacement) candidate?.Dispose();
+                if (_reflectionFailure.RecordFailure(configuration))
+                {
+                    Console.WriteLine($"[render] reflection probe '{probe.Key}' "
+                        + $"is unavailable; using black fallback ({error.Message}).");
+                }
+                return;
+            }
+            catch
+            {
+                // A copy-pass/command-buffer failure is not probe-local and
+                // must retain the backend's existing fatal-submit behavior.
+                if (replacement) candidate?.Dispose();
+                throw;
+            }
+
+            if (replacement)
+            {
+                if (previous != null)
+                {
+                    // Only one room cube is retained. The previous handle is
+                    // released after this frame slot's fence completes.
+                    _retiredCubeTextureSlots[_device.FrameResources.CurrentSlotIndex]
+                        .Add(previous);
+                }
+                _reflectionTexture = candidate;
+            }
+            _reflectionFailure.RecordSuccess(configuration);
+        }
+
+        private static TextureIdentity? ResolveAlbedoIdentity(RenderFrame frame,
+            RenderMaterial material)
+            => frame.Options.Quality.GraphicsPreset == GraphicsPreset.Enhanced
+                && material.Enhanced?.Albedo is TextureIdentity enhanced
+                    ? enhanced : material.Texture;
 
         private void ResolveTexture(RenderFrame frame, bool textured, TextureIdentity? requested,
-            int polygonId, SDL_GPUCommandBuffer* commandBuffer)
+            int polygonId, SDL_GPUCommandBuffer* commandBuffer, bool? mipmapped = null)
         {
             if (!textured) return;
             if (requested is not TextureIdentity identity)
                 throw new InvalidOperationException($"Textured scene submission polygon {polygonId} has no texture identity.");
             if (!frame.TextureResources.TryGetValue(identity, out RenderTexturePixels? pixels))
                 throw new InvalidOperationException($"Sealed scene frame is missing texture pixels for {identity}.");
+            bool generateMipmaps = mipmapped ?? frame.Options.Quality.UsesMipmaps;
             if (!_textures.TryGetValue(identity, out GpuTexture? texture)
-                || !texture.Matches(pixels, frame.Options.Quality.UsesMipmaps))
+                || !texture.Matches(pixels, generateMipmaps))
             {
                 GpuTexture replacement = GpuTexture.Create(_device, pixels,
-                    frame.Options.Quality.UsesMipmaps);
+                    generateMipmaps);
                 if (texture != null)
                 {
                     // Keep the replaced generation alive through the fence
@@ -838,9 +2249,50 @@ namespace MphRead
             _textureLastUsed[identity] = _frameSerial;
         }
 
+        private void PrepareUnmippedSkyTexture(RenderFrame frame,
+            TextureIdentity identity)
+        {
+            if (!frame.TextureResources.TryGetValue(identity,
+                    out RenderTexturePixels? pixels))
+            {
+                throw new InvalidOperationException(
+                    $"Sealed scene frame is missing enhanced sky pixels for {identity}.");
+            }
+            if (!_textures.TryGetValue(identity, out GpuTexture? texture)
+                || !texture.Matches(pixels, mipmapped: false))
+            {
+                GpuTexture replacement = GpuTexture.Create(_device, pixels,
+                    mipmapped: false);
+                if (texture != null)
+                {
+                    _retiredTextureSlots[_device.FrameResources.CurrentSlotIndex]
+                        .Add(texture);
+                }
+                texture = replacement;
+                _textures[identity] = texture;
+            }
+            texture.PrepareUploadStorage();
+            _textureLastUsed[identity] = _frameSerial;
+        }
+
+        private void EncodeUnmippedSkyTextureUpload(RenderFrame frame,
+            TextureIdentity identity, SDL_GPUCommandBuffer* commandBuffer)
+        {
+            if (!frame.TextureResources.TryGetValue(identity,
+                    out RenderTexturePixels? pixels)
+                || !_textures.TryGetValue(identity, out GpuTexture? texture)
+                || !texture.Matches(pixels, mipmapped: false))
+            {
+                throw new InvalidOperationException(
+                    $"Enhanced sky texture preparation was not retained for {identity}.");
+            }
+            if (texture.EncodePreparedUpload(commandBuffer)) TrackUpload(texture);
+        }
+
         private GpuTexture ResolveBoundTexture(RenderFrame frame, DrawSubmission draw)
         {
-            if (draw.Material.Textured && draw.Material.Texture is TextureIdentity identity
+            TextureIdentity? requested = ResolveAlbedoIdentity(frame, draw.Material);
+            if (draw.Material.Textured && requested is TextureIdentity identity
                 && frame.TextureResources.TryGetValue(identity, out RenderTexturePixels? pixels)
                 && _textures.TryGetValue(identity, out GpuTexture? texture)
                 && texture.Matches(pixels, frame.Options.Quality.UsesMipmaps))
@@ -851,6 +2303,64 @@ namespace MphRead
                 throw new InvalidOperationException($"Scene texture upload was not resolved for polygon {draw.PolygonId}.");
             return _whiteTexture!;
         }
+
+        private GpuTexture ResolveBoundNormalTexture(RenderFrame frame,
+            DrawSubmission draw)
+        {
+            if (frame.Options.Quality.GraphicsPreset != GraphicsPreset.Enhanced
+                || draw.Material.Enhanced?.Normal is not TextureIdentity identity)
+            {
+                return _flatNormalTexture!;
+            }
+            if (frame.TextureResources.TryGetValue(identity,
+                    out RenderTexturePixels? pixels)
+                && _textures.TryGetValue(identity, out GpuTexture? texture)
+                && texture.Matches(pixels, frame.Options.Quality.UsesMipmaps))
+            {
+                return texture;
+            }
+            throw new InvalidOperationException(
+                $"Scene normal texture upload was not resolved for polygon {draw.PolygonId}.");
+        }
+
+        private GpuTexture ResolveBoundEmissiveTexture(RenderFrame frame,
+            DrawSubmission draw)
+        {
+            if (frame.Options.Quality.GraphicsPreset != GraphicsPreset.Enhanced
+                || draw.Material.Enhanced?.Emissive is not TextureIdentity identity)
+            {
+                return _blackEmissiveTexture!;
+            }
+            if (frame.TextureResources.TryGetValue(identity,
+                    out RenderTexturePixels? pixels)
+                && _textures.TryGetValue(identity, out GpuTexture? texture)
+                && texture.Matches(pixels, frame.Options.Quality.UsesMipmaps))
+            {
+                return texture;
+            }
+            throw new InvalidOperationException(
+                $"Scene emissive texture upload was not resolved for polygon {draw.PolygonId}.");
+        }
+
+        private GpuCubeTexture ResolveBoundReflectionTexture(RenderFrame frame)
+        {
+            if (frame.Options.Quality.GraphicsPreset == GraphicsPreset.Enhanced
+                && frame.ReflectionProbe is RenderReflectionProbe probe)
+            {
+                if (IsReflectionAvailable(frame))
+                    return _reflectionTexture!;
+            }
+            return _blackReflectionTexture!;
+        }
+
+        private bool IsReflectionAvailable(RenderFrame frame)
+            => frame.Options.Quality.GraphicsPreset == GraphicsPreset.Enhanced
+                && frame.ReflectionProbe is RenderReflectionProbe probe
+                && _reflectionFailure.ShouldAttempt(
+                    SdlGpuReflectionResourceConfiguration.From(probe))
+                && _reflectionTexture != null
+                && _reflectionTexture.IsUploaded
+                && _reflectionTexture.Matches(probe);
 
         internal nint ResolveTextureHandle(RenderFrame frame, TextureIdentity? requested, string label)
         {
@@ -864,11 +2374,27 @@ namespace MphRead
             return (nint)texture.Handle;
         }
 
+        internal nint ResolveUnmippedTextureHandle(RenderFrame frame,
+            TextureIdentity? requested, string label)
+        {
+            if (requested is not TextureIdentity identity)
+                throw new InvalidOperationException($"Textured {label} has no texture identity.");
+            if (!frame.TextureResources.TryGetValue(identity, out RenderTexturePixels? pixels))
+                throw new InvalidOperationException($"Sealed scene frame is missing texture pixels for {label} ({identity}).");
+            if (!_textures.TryGetValue(identity, out GpuTexture? texture)
+                || !texture.Matches(pixels, mipmapped: false))
+                throw new InvalidOperationException($"Unmipped texture upload was not resolved for {label} ({identity}).");
+            return (nint)texture.Handle;
+        }
+
         internal nint WhiteTextureHandle => (nint)_whiteTexture!.Handle;
-        internal bool DepthSampleable => _depthSampleable;
+        internal bool DepthSampleable => _depthSampleable
+            && _targetSampleCount == 1;
         internal nint NearestClampSamplerHandle => (nint)GetSampler(new SamplerKey(
             RenderFilterMode.Nearest, RepeatMode.Clamp, RepeatMode.Clamp));
         internal nint LinearClampSamplerHandle => (nint)GetSampler(new SamplerKey(
+            RenderFilterMode.Linear, RepeatMode.Clamp, RepeatMode.Clamp));
+        internal nint SkySamplerHandle => (nint)GetSampler(new SamplerKey(
             RenderFilterMode.Linear, RepeatMode.Clamp, RepeatMode.Clamp));
 
         private void ResetDynamicSlot()
@@ -880,6 +2406,9 @@ namespace MphRead
             _dynamicSlotUsed[slotIndex] = 0;
             foreach (GpuTexture texture in _retiredTextureSlots[_device.FrameResources.CurrentSlotIndex]) texture.Dispose();
             _retiredTextureSlots[_device.FrameResources.CurrentSlotIndex].Clear();
+            foreach (GpuCubeTexture texture in _retiredCubeTextureSlots[slotIndex])
+                texture.Dispose();
+            _retiredCubeTextureSlots[slotIndex].Clear();
             foreach (GpuMesh mesh in _retiredMeshSlots[slotIndex]) mesh.Dispose();
             _retiredMeshSlots[slotIndex].Clear();
         }
@@ -934,6 +2463,7 @@ namespace MphRead
             for (int i = 0; i < _dynamicSlotUsed[slotIndex]; i++)
                 _dynamicSlots[slotIndex][i].InvalidateUpload();
             _postResources?.InvalidatePendingUploads();
+            _ssaoResources.InvalidatePendingUploads();
         }
 
         private SDL_GPUSampler* GetSampler(SamplerKey key)
@@ -1012,14 +2542,86 @@ namespace MphRead
 
         private SDL_GPUGraphicsPipeline* GetPipeline(ScenePipelineKey key)
         {
-            if (key.Key.SampleCount != _targetSampleCount)
-            {
-                throw new InvalidOperationException(
-                    $"SDL scene pipeline sample count {key.Key.SampleCount} does not match target {_targetSampleCount}.");
-            }
             if (_pipelines.TryGetValue(key, out nint cached)) return (SDL_GPUGraphicsPipeline*)cached;
             SDL_GPUGraphicsPipeline* pipeline = CreatePipeline(key);
             _pipelines.Add(key, (nint)pipeline);
+            return pipeline;
+        }
+
+        private SDL_GPUGraphicsPipeline* GetShadowPipeline(
+            SdlGpuShadowPipelineKey key)
+        {
+            if (_shadowPipelines.TryGetValue(key, out nint cached))
+                return (SDL_GPUGraphicsPipeline*)cached;
+            SDL_GPUVertexBufferDescription vertexDescription = new()
+            {
+                slot = 0, pitch = (uint)sizeof(GpuVertex),
+                input_rate = SDL_GPUVertexInputRate.SDL_GPU_VERTEXINPUTRATE_VERTEX
+            };
+            SDL_GPUVertexAttribute* attributes
+                = stackalloc SDL_GPUVertexAttribute[SdlGpuSceneVertexAbi.AttributeCount];
+            attributes[0] = Attribute(0, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, 0);
+            attributes[1] = Attribute(1, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4, 12);
+            attributes[2] = Attribute(2, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, 28);
+            attributes[3] = Attribute(3, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, 40);
+            attributes[4] = Attribute(4, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT, 48);
+            attributes[5] = Attribute(5, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT, 52);
+            attributes[6] = Attribute(6, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
+                SdlGpuSceneVertexAbi.TangentOffset);
+            SDL_GPUVertexInputState vertexInput = new()
+            {
+                vertex_buffer_descriptions = &vertexDescription,
+                num_vertex_buffers = 1,
+                vertex_attributes = attributes,
+                num_vertex_attributes = SdlGpuSceneVertexAbi.AttributeCount
+            };
+            SDL_GPUGraphicsPipelineCreateInfo info = new()
+            {
+                vertex_shader = _shadowVertexShader,
+                fragment_shader = _shadowFragmentShader,
+                vertex_input_state = vertexInput,
+                primitive_type = SDL_GPUPrimitiveType.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+                rasterizer_state = new SDL_GPURasterizerState
+                {
+                    fill_mode = SDL_GPUFillMode.SDL_GPU_FILLMODE_FILL,
+                    cull_mode = !key.FaceCulling ? SDL_GPUCullMode.SDL_GPU_CULLMODE_NONE
+                        : key.CullMode switch
+                        {
+                            RenderCullMode.Front => SDL_GPUCullMode.SDL_GPU_CULLMODE_FRONT,
+                            RenderCullMode.Back => SDL_GPUCullMode.SDL_GPU_CULLMODE_BACK,
+                            _ => SDL_GPUCullMode.SDL_GPU_CULLMODE_NONE
+                        },
+                    front_face = SDL_GPUFrontFace.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
+                    depth_bias_constant_factor = 1.25f,
+                    depth_bias_slope_factor = 1.75f,
+                    enable_depth_bias = true,
+                    enable_depth_clip = true
+                },
+                multisample_state = new SDL_GPUMultisampleState
+                {
+                    sample_count = SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_1
+                },
+                depth_stencil_state = new SDL_GPUDepthStencilState
+                {
+                    compare_op = SDL_GPUCompareOp.SDL_GPU_COMPAREOP_LESS,
+                    enable_depth_test = true,
+                    enable_depth_write = true,
+                    enable_stencil_test = false
+                },
+                target_info = new SDL_GPUGraphicsPipelineTargetInfo
+                {
+                    color_target_descriptions = null,
+                    num_color_targets = 0,
+                    depth_stencil_format = _depthFormat,
+                    has_depth_stencil_target = true
+                }
+            };
+            SDL_GPUGraphicsPipeline* pipeline = SDL3.SDL_CreateGPUGraphicsPipeline(
+                _device.Handle, &info);
+            if (pipeline == null)
+                throw new InvalidOperationException(
+                    $"SDL shadow pipeline creation failed: {SDL3.SDL_GetError()}");
+            _shadowPipelines.Add(key, (nint)pipeline);
             return pipeline;
         }
 
@@ -1031,17 +2633,21 @@ namespace MphRead
                 slot = 0, pitch = (uint)sizeof(GpuVertex),
                 input_rate = SDL_GPUVertexInputRate.SDL_GPU_VERTEXINPUTRATE_VERTEX
             };
-            SDL_GPUVertexAttribute* attributes = stackalloc SDL_GPUVertexAttribute[6];
+            SDL_GPUVertexAttribute* attributes
+                = stackalloc SDL_GPUVertexAttribute[SdlGpuSceneVertexAbi.AttributeCount];
             attributes[0] = Attribute(0, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, 0);
             attributes[1] = Attribute(1, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4, 12);
             attributes[2] = Attribute(2, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, 28);
             attributes[3] = Attribute(3, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, 40);
             attributes[4] = Attribute(4, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT, 48);
             attributes[5] = Attribute(5, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT, 52);
+            attributes[6] = Attribute(6, SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
+                SdlGpuSceneVertexAbi.TangentOffset);
             SDL_GPUVertexInputState vertexInput = new()
             {
                 vertex_buffer_descriptions = &vertexDescription, num_vertex_buffers = 1,
-                vertex_attributes = attributes, num_vertex_attributes = 6
+                vertex_attributes = attributes,
+                num_vertex_attributes = SdlGpuSceneVertexAbi.AttributeCount
             };
             bool blend = sceneKey.BloomEmission || key.BlendMode == RenderBlendMode.Alpha;
             bool additive = sceneKey.BloomEmission;
@@ -1049,7 +2655,7 @@ namespace MphRead
                 or RenderStencilMode.Preserve ? RenderColorWriteMask.None : key.ColorWriteMask;
             SDL_GPUColorTargetDescription colorTarget = new()
             {
-                format = _device.SwapchainFormat,
+                format = sceneKey.ColorFormat,
                 blend_state = new SDL_GPUColorTargetBlendState
                 {
                     src_color_blendfactor = additive ? SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_ONE
@@ -1072,10 +2678,13 @@ namespace MphRead
                 }
             };
             SDL_GPUDepthStencilState depthStencil = CreateDepthStencil(key);
+            bool hasDepthStencil = key.DepthMode != RenderDepthMode.Disabled
+                || key.StencilMode != RenderStencilMode.Disabled;
             SDL_GPUGraphicsPipelineCreateInfo info = new()
             {
                 vertex_shader = _vertexShader,
-                fragment_shader = _fragmentShader,
+                fragment_shader = sceneKey.SurfaceData
+                    ? _surfaceFragmentShader : _fragmentShader,
                 vertex_input_state = vertexInput,
                 primitive_type = key.Topology == RenderTopology.Lines
                     ? SDL_GPUPrimitiveType.SDL_GPU_PRIMITIVETYPE_LINELIST
@@ -1103,7 +2712,9 @@ namespace MphRead
                 target_info = new SDL_GPUGraphicsPipelineTargetInfo
                 {
                     color_target_descriptions = &colorTarget, num_color_targets = 1,
-                    depth_stencil_format = _depthFormat, has_depth_stencil_target = true
+                    depth_stencil_format = hasDepthStencil ? _depthFormat
+                        : SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_INVALID,
+                    has_depth_stencil_target = hasDepthStencil
                 }
             };
             SDL_GPUGraphicsPipeline* pipeline = SDL3.SDL_CreateGPUGraphicsPipeline(_device.Handle, &info);
@@ -1145,37 +2756,45 @@ namespace MphRead
             };
         }
 
-        private void EnsureTargets(uint width, uint height, SdlGpuSceneTargetPlan plan)
+        private SdlGpuSampleNegotiation EnsureTargets(uint width, uint height,
+            SdlGpuSceneColorPlan colorPlan, SdlGpuSampleNegotiation requestedNegotiation,
+            SdlGpuSampleNegotiation ldrNegotiation,
+            SdlGpuHdrConfiguration hdrConfiguration)
         {
+            SDL_GPUTextureFormat format = colorPlan.Format;
+            SdlGpuSampleNegotiation negotiation = requestedNegotiation;
+            SdlGpuSceneTargetPlan plan = SdlGpuSceneTargetPlan.From(negotiation);
             if (_sceneColor != null && width == _targetWidth && height == _targetHeight
-                && plan.RenderColorSamples == _targetSampleCount) return;
-            SDL_GPUTexture* color = null;
-            SDL_GPUTexture* multisampleColor = null;
-            SDL_GPUTexture* depth = null;
-            try
+                && plan.RenderColorSamples == _targetSampleCount
+                && format == _sceneColorFormat)
             {
-                color = CreateTarget(_device.SwapchainFormat,
-                    SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_SAMPLER,
-                    width, height, plan.ResolveColorSamples);
-                if (plan.UsesResolve)
-                {
-                    multisampleColor = CreateTarget(_device.SwapchainFormat,
-                        SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
-                        width, height, plan.RenderColorSamples);
-                }
-                depth = CreateTarget(_depthFormat,
-                    SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET
-                        | (_depthSampleable && plan.DepthSamples == 1
-                            ? SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_SAMPLER : 0),
-                    width, height, plan.DepthSamples);
+                _sceneUsesHdr = colorPlan.UsesHdr;
+                return negotiation;
             }
-            catch
+
+            if (!TryAllocateSceneTargets(format, width, height, plan,
+                out SDL_GPUTexture* color, out SDL_GPUTexture* multisampleColor,
+                out SDL_GPUTexture* depth, out string allocationError))
             {
-                if (depth != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, depth);
-                if (multisampleColor != null)
-                    SDL3.SDL_ReleaseGPUTexture(_device.Handle, multisampleColor);
-                if (color != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, color);
-                throw;
+                if (!colorPlan.UsesHdr)
+                {
+                    throw new InvalidOperationException(allocationError);
+                }
+
+                _failedHdrConfiguration = hdrConfiguration;
+
+                format = _device.SwapchainFormat;
+                negotiation = ldrNegotiation;
+                plan = SdlGpuSceneTargetPlan.From(negotiation);
+                if (!TryAllocateSceneTargets(format, width, height, plan,
+                    out color, out multisampleColor, out depth,
+                    out string ldrAllocationError))
+                {
+                    throw new InvalidOperationException(
+                        $"SDL HDR scene target allocation failed ({allocationError}); "
+                        + $"LDR fallback also failed ({ldrAllocationError}).");
+                }
+                ReportHdrAllocationFallback(allocationError, negotiation);
             }
             if (!SDL3.SDL_WaitForGPUIdle(_device.Handle))
             {
@@ -1195,6 +2814,61 @@ namespace MphRead
             _targetWidth = width;
             _targetHeight = height;
             _targetSampleCount = plan.RenderColorSamples;
+            _sceneColorFormat = format;
+            _sceneUsesHdr = format == SdlGpuHdrPolicy.HdrFormat;
+            return negotiation;
+        }
+
+        private void ReportHdrAllocationFallback(string error,
+            SdlGpuSampleNegotiation negotiation)
+        {
+            if (_loggedHdrAllocationFallback) return;
+            _loggedHdrAllocationFallback = true;
+            Console.Error.WriteLine("[render] SDL GPU HDR allocation failed; "
+                + $"using {_device.SwapchainFormat} LDR with "
+                + $"{negotiation.Effective}x MSAA. {error}");
+        }
+
+        private bool TryAllocateSceneTargets(SDL_GPUTextureFormat format,
+            uint width, uint height, SdlGpuSceneTargetPlan plan,
+            out SDL_GPUTexture* color, out SDL_GPUTexture* multisampleColor,
+            out SDL_GPUTexture* depth, out string error)
+        {
+            color = null;
+            multisampleColor = null;
+            depth = null;
+            try
+            {
+                color = CreateTarget(format,
+                    SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET
+                        | SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_SAMPLER,
+                    width, height, plan.ResolveColorSamples);
+                if (plan.UsesResolve)
+                {
+                    multisampleColor = CreateTarget(format,
+                        SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
+                        width, height, plan.RenderColorSamples);
+                }
+                depth = CreateTarget(_depthFormat,
+                    SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET
+                        | (_depthSampleable && plan.DepthSamples == 1
+                            ? SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_SAMPLER : 0),
+                    width, height, plan.DepthSamples);
+                error = string.Empty;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (depth != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, depth);
+                if (multisampleColor != null)
+                    SDL3.SDL_ReleaseGPUTexture(_device.Handle, multisampleColor);
+                if (color != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, color);
+                color = null;
+                multisampleColor = null;
+                depth = null;
+                error = ex.Message;
+                return false;
+            }
         }
 
         private void EnsureBloomTargets(uint width, uint height, SdlGpuBloomPlan plan)
@@ -1202,18 +2876,19 @@ namespace MphRead
             if (!plan.Enabled) return;
             if (_bloomColor != null && width == _bloomTargetWidth
                 && height == _bloomTargetHeight
-                && plan.RenderSamples == _bloomTargetSampleCount) return;
+                && plan.RenderSamples == _bloomTargetSampleCount
+                && _bloomTargetFormat == _sceneColorFormat) return;
             SDL_GPUTexture* color = null;
             SDL_GPUTexture* multisampleColor = null;
             try
             {
-                color = CreateTarget(_device.SwapchainFormat,
+                color = CreateTarget(_sceneColorFormat,
                     SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET
                         | SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_SAMPLER,
                     width, height, plan.ResolveSamples);
                 if (plan.UsesResolve)
                 {
-                    multisampleColor = CreateTarget(_device.SwapchainFormat,
+                    multisampleColor = CreateTarget(_sceneColorFormat,
                         SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
                         width, height, plan.RenderSamples);
                 }
@@ -1242,6 +2917,7 @@ namespace MphRead
             _bloomTargetWidth = width;
             _bloomTargetHeight = height;
             _bloomTargetSampleCount = plan.RenderSamples;
+            _bloomTargetFormat = _sceneColorFormat;
         }
 
         private SDL_GPUTexture* CreateTarget(SDL_GPUTextureFormat format,
@@ -1340,6 +3016,18 @@ namespace MphRead
             throw new PlatformNotSupportedException($"SDL GPU shader formats {SdlGpuDevice.DescribeShaderFormats(device.ShaderFormats)} have no scene artifact.");
         }
 
+        private (SDL_GPUShaderFormat Format, string Suffix) SelectShaderFormat()
+        {
+            if ((_device.ShaderFormats & SDL_GPUShaderFormat.SDL_GPU_SHADERFORMAT_DXIL) != 0)
+                return (SDL_GPUShaderFormat.SDL_GPU_SHADERFORMAT_DXIL, "dxil");
+            if ((_device.ShaderFormats & SDL_GPUShaderFormat.SDL_GPU_SHADERFORMAT_MSL) != 0)
+                return (SDL_GPUShaderFormat.SDL_GPU_SHADERFORMAT_MSL, "msl");
+            if ((_device.ShaderFormats & SDL_GPUShaderFormat.SDL_GPU_SHADERFORMAT_SPIRV) != 0)
+                return (SDL_GPUShaderFormat.SDL_GPU_SHADERFORMAT_SPIRV, "spv");
+            throw new PlatformNotSupportedException(
+                "No generated surface shader format is supported.");
+        }
+
         public void Dispose()
         {
             if (_disposed) return;
@@ -1347,14 +3035,45 @@ namespace MphRead
             SDL3.SDL_WaitForGPUIdle(_device.Handle);
             foreach (List<GpuMesh> slot in _dynamicSlots) foreach (GpuMesh mesh in slot) mesh.Dispose();
             foreach (List<GpuTexture> slot in _retiredTextureSlots) foreach (GpuTexture texture in slot) texture.Dispose();
+            foreach (List<GpuCubeTexture> slot in _retiredCubeTextureSlots)
+                foreach (GpuCubeTexture texture in slot) texture.Dispose();
             foreach (List<GpuMesh> slot in _retiredMeshSlots) foreach (GpuMesh mesh in slot) mesh.Dispose();
             foreach (GpuMesh mesh in _staticMeshes.Values) mesh.Dispose();
             foreach (GpuTexture texture in _textures.Values) texture.Dispose();
             _postResources?.Dispose();
+            _ssaoResources.Dispose();
+            _skyResources.Dispose();
             _whiteTexture?.Dispose();
+            _flatNormalTexture?.Dispose();
+            _blackEmissiveTexture?.Dispose();
+            _blackReflectionTexture?.Dispose();
+            _reflectionTexture?.Dispose();
             foreach (nint sampler in _samplers.Values) SDL3.SDL_ReleaseGPUSampler(_device.Handle, (SDL_GPUSampler*)sampler);
             foreach (nint pipeline in _pipelines.Values) SDL3.SDL_ReleaseGPUGraphicsPipeline(_device.Handle, (SDL_GPUGraphicsPipeline*)pipeline);
+            foreach (nint pipeline in _shadowPipelines.Values)
+                SDL3.SDL_ReleaseGPUGraphicsPipeline(_device.Handle,
+                    (SDL_GPUGraphicsPipeline*)pipeline);
+            foreach (nint pipeline in _distortionPipelines.Values)
+                SDL3.SDL_ReleaseGPUGraphicsPipeline(_device.Handle,
+                    (SDL_GPUGraphicsPipeline*)pipeline);
+            if (_distortionMultisampleColor != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle,
+                    _distortionMultisampleColor);
+            if (_distortionColor != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, _distortionColor);
+            if (_distortionFragmentShader != null)
+                SDL3.SDL_ReleaseGPUShader(_device.Handle,
+                    _distortionFragmentShader);
+            if (_distortionVertexShader != null)
+                SDL3.SDL_ReleaseGPUShader(_device.Handle,
+                    _distortionVertexShader);
             if (_sceneDepth != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, _sceneDepth);
+            if (_surfaceDepth != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, _surfaceDepth);
+            if (_surfaceColor != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, _surfaceColor);
+            if (_shadowDepth != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, _shadowDepth);
             if (_bloomMultisampleColor != null)
                 SDL3.SDL_ReleaseGPUTexture(_device.Handle, _bloomMultisampleColor);
             if (_bloomColor != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, _bloomColor);
@@ -1362,20 +3081,24 @@ namespace MphRead
                 SDL3.SDL_ReleaseGPUTexture(_device.Handle, _sceneMultisampleColor);
             if (_sceneColor != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, _sceneColor);
             if (_fragmentShader != null) SDL3.SDL_ReleaseGPUShader(_device.Handle, _fragmentShader);
+            if (_surfaceFragmentShader != null)
+                SDL3.SDL_ReleaseGPUShader(_device.Handle, _surfaceFragmentShader);
+            if (_shadowFragmentShader != null)
+                SDL3.SDL_ReleaseGPUShader(_device.Handle, _shadowFragmentShader);
+            if (_shadowVertexShader != null)
+                SDL3.SDL_ReleaseGPUShader(_device.Handle, _shadowVertexShader);
             if (_vertexShader != null) SDL3.SDL_ReleaseGPUShader(_device.Handle, _vertexShader);
         }
 
         private readonly record struct ScenePipelineKey(PipelineKey Key, bool Wireframe,
-            bool FaceCulling, bool BloomEmission = false);
+            bool FaceCulling, SDL_GPUTextureFormat ColorFormat,
+            bool BloomEmission = false, bool SurfaceData = false);
 
         private interface IUploadResource
         {
             void ReleaseUploadStorage();
             void InvalidateUpload();
         }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct FrameFragmentConstants { public Vector4 FogColor; public Vector4 Options; public Vector4 FogRange; }
 
         [StructLayout(LayoutKind.Sequential)]
         private unsafe struct DrawConstants
@@ -1387,6 +3110,34 @@ namespace MphRead
             public Vector4 Diffuse, Ambient, Specular, Emission, OverrideColor, PaletteOverride;
             public Vector4 Light1Vector, Light1Color, Light2Vector, Light2Color;
             public Vector4 DrawOptions, MaterialOptions, RenderOptions, FlatColor;
+            public Vector4 EnhancedEmission, EnhancedOptions, ReflectionOptions;
+            public Vector4 SoftParticleOptions;
+            public Vector4 BeamCore, BeamGlow, BeamOptions;
+            public Vector4 ForceFieldEmission, ForceFieldOptions, ForceFieldFlow;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private unsafe struct DistortionVertexConstants
+        {
+            public Matrix4 Transform;
+            public Matrix4 Billboard;
+            public fixed float MatrixStack[RenderFrame.MatrixStackFloats];
+            public Matrix4 TextureMatrix;
+            public Vector4 Options;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DistortionFragmentConstants
+        {
+            public Vector4 Options;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct ShadowFrameConstants
+        {
+            public Matrix4 ViewProjection;
+            public Matrix4 View;
+            public Vector4 Options;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 4)]
@@ -1394,6 +3145,7 @@ namespace MphRead
         {
             public float Px, Py, Pz, Cr, Cg, Cb, Ca, Nx, Ny, Nz, U, V;
             public uint MatrixIndex, Flags;
+            public float Tx, Ty, Tz, Tw;
             public GpuVertex(RenderVertex vertex)
             {
                 Px = vertex.Position.X; Py = vertex.Position.Y; Pz = vertex.Position.Z;
@@ -1401,6 +3153,8 @@ namespace MphRead
                 Nx = vertex.Normal.X; Ny = vertex.Normal.Y; Nz = vertex.Normal.Z;
                 U = vertex.TexCoord.X; V = vertex.TexCoord.Y;
                 MatrixIndex = vertex.MatrixIndex; Flags = (uint)vertex.Flags;
+                Tx = vertex.Tangent.X; Ty = vertex.Tangent.Y;
+                Tz = vertex.Tangent.Z; Tw = vertex.Tangent.W;
             }
         }
 
@@ -1528,12 +3282,200 @@ namespace MphRead
             }
         }
 
+        private sealed class ReflectionProbeResourceUnavailableException
+            : InvalidOperationException
+        {
+            public ReflectionProbeResourceUnavailableException(string message)
+                : base(message) { }
+        }
+
+        private sealed class GpuCubeTexture : IDisposable, IUploadResource
+        {
+            private const int FaceCount = 6;
+            private readonly SdlGpuDevice _device;
+            private readonly ReflectionProbeKey _key;
+            private readonly int _dimension;
+            private readonly ulong _contentFingerprint;
+            private readonly IReadOnlyList<ReadOnlyMemory<byte>> _faces;
+            private readonly uint _mipLevelCount;
+            private SDL_GPUTransferBuffer* _transfer;
+            private bool _uploaded;
+
+            public SDL_GPUTexture* Handle { get; private set; }
+
+            private GpuCubeTexture(SdlGpuDevice device, ReflectionProbeKey key,
+                int dimension, IReadOnlyList<ReadOnlyMemory<byte>> faces,
+                bool mipmapped)
+            {
+                _device = device;
+                _key = key;
+                _dimension = dimension;
+                _faces = faces;
+                _contentFingerprint = key.IsValid
+                    ? ComputeFingerprint(faces) : 0;
+                _mipLevelCount = SdlGpuTextureQuality.MipLevelCount(
+                    dimension, dimension, mipmapped);
+                if (faces.Count != FaceCount)
+                    throw new ArgumentException("A cube texture requires six faces.", nameof(faces));
+                int faceBytes = checked(dimension * dimension * 4);
+                for (int face = 0; face < faces.Count; face++)
+                {
+                    if (faces[face].Length != faceBytes)
+                        throw new ArgumentException("Cube texture faces must be equal RGBA8 images.", nameof(faces));
+                }
+                try
+                {
+                    SDL_GPUTextureCreateInfo textureInfo = new()
+                    {
+                        type = SDL_GPUTextureType.SDL_GPU_TEXTURETYPE_CUBE,
+                        format = SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
+                        usage = SdlGpuTextureQuality.SceneTextureUsage(mipmapped),
+                        width = checked((uint)dimension),
+                        height = checked((uint)dimension),
+                        layer_count_or_depth = FaceCount,
+                        num_levels = _mipLevelCount,
+                        sample_count = SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_1
+                    };
+                    Handle = SDL3.SDL_CreateGPUTexture(device.Handle, &textureInfo);
+                    SDL_GPUTransferBufferCreateInfo transferInfo = new()
+                    {
+                        usage = SDL_GPUTransferBufferUsage.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+                        size = checked((uint)(faceBytes * FaceCount))
+                    };
+                    _transfer = SDL3.SDL_CreateGPUTransferBuffer(device.Handle,
+                        &transferInfo);
+                    if (Handle == null || _transfer == null)
+                        throw new ReflectionProbeResourceUnavailableException(
+                            $"SDL reflection cube allocation failed: {SDL3.SDL_GetError()}");
+                }
+                catch
+                {
+                    Dispose();
+                    throw;
+                }
+            }
+
+            public static GpuCubeTexture Create(SdlGpuDevice device,
+                RenderReflectionProbe probe)
+                => new(device, probe.Key, probe.Dimension, probe.Faces,
+                    mipmapped: true);
+
+            public static GpuCubeTexture CreateFallback(SdlGpuDevice device)
+            {
+                ReadOnlyMemory<byte> black = new byte[] { 0, 0, 0, 255 };
+                return new GpuCubeTexture(device, default, 1,
+                    new[] { black, black, black, black, black, black },
+                    mipmapped: false);
+            }
+
+            public bool Matches(RenderReflectionProbe probe)
+                => _key == probe.Key && _dimension == probe.Dimension
+                    && _mipLevelCount == probe.MipLevelCount
+                    && _contentFingerprint == probe.ContentFingerprint;
+
+            public bool IsUploaded => _uploaded;
+
+            public bool EnsureUploaded(SDL_GPUCommandBuffer* commandBuffer)
+            {
+                if (_uploaded) return false;
+                int faceBytes = checked(_dimension * _dimension * 4);
+                if (_transfer == null)
+                {
+                    SDL_GPUTransferBufferCreateInfo info = new()
+                    {
+                        usage = SDL_GPUTransferBufferUsage.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+                        size = checked((uint)(faceBytes * FaceCount))
+                    };
+                    _transfer = SDL3.SDL_CreateGPUTransferBuffer(_device.Handle, &info);
+                    if (_transfer == null)
+                        throw new ReflectionProbeResourceUnavailableException(
+                            $"SDL reflection cube upload allocation failed: {SDL3.SDL_GetError()}");
+                }
+                IntPtr memory = SDL3.SDL_MapGPUTransferBuffer(_device.Handle,
+                    _transfer, false);
+                if (memory == IntPtr.Zero)
+                    throw new ReflectionProbeResourceUnavailableException(
+                        $"SDL reflection cube map failed: {SDL3.SDL_GetError()}");
+                try
+                {
+                    for (int face = 0; face < FaceCount; face++)
+                        SdlGpuMappedMemoryCopy.Copy(_faces[face], memory + face * faceBytes);
+                }
+                finally
+                {
+                    SDL3.SDL_UnmapGPUTransferBuffer(_device.Handle, _transfer);
+                }
+                SDL_GPUCopyPass* copy = SDL3.SDL_BeginGPUCopyPass(commandBuffer);
+                if (copy == null)
+                    throw new InvalidOperationException(
+                        $"SDL reflection cube copy pass failed: {SDL3.SDL_GetError()}");
+                for (int face = 0; face < FaceCount; face++)
+                {
+                    SDL_GPUTextureTransferInfo source = new()
+                    {
+                        transfer_buffer = _transfer,
+                        offset = checked((uint)(face * faceBytes)),
+                        pixels_per_row = checked((uint)_dimension),
+                        rows_per_layer = checked((uint)_dimension)
+                    };
+                    SDL_GPUTextureRegion target = new()
+                    {
+                        texture = Handle,
+                        mip_level = 0,
+                        layer = checked((uint)face),
+                        x = 0, y = 0, z = 0,
+                        w = checked((uint)_dimension),
+                        h = checked((uint)_dimension), d = 1
+                    };
+                    SDL3.SDL_UploadToGPUTexture(copy, &source, &target, false);
+                }
+                SDL3.SDL_EndGPUCopyPass(copy);
+                if (_mipLevelCount > 1)
+                    SDL3.SDL_GenerateMipmapsForGPUTexture(commandBuffer, Handle);
+                _uploaded = true;
+                return true;
+            }
+
+            public void ReleaseUploadStorage()
+            {
+                if (_transfer != null)
+                    SDL3.SDL_ReleaseGPUTransferBuffer(_device.Handle, _transfer);
+                _transfer = null;
+            }
+
+            public void InvalidateUpload() => _uploaded = false;
+
+            public void Dispose()
+            {
+                ReleaseUploadStorage();
+                if (Handle != null)
+                    SDL3.SDL_ReleaseGPUTexture(_device.Handle, Handle);
+                Handle = null;
+            }
+
+            private static ulong ComputeFingerprint(
+                IReadOnlyList<ReadOnlyMemory<byte>> faces)
+            {
+                ulong hash = 14695981039346656037UL;
+                foreach (ReadOnlyMemory<byte> face in faces)
+                {
+                    foreach (byte value in face.Span)
+                    {
+                        hash ^= value;
+                        hash *= 1099511628211UL;
+                    }
+                }
+                return hash;
+            }
+        }
+
         private sealed class GpuTexture : IDisposable, IUploadResource
         {
             private readonly SdlGpuDevice _device;
             private readonly RenderTexturePixels _pixels;
             private readonly uint _mipLevelCount;
             private SDL_GPUTransferBuffer* _transfer;
+            private bool _uploadPrepared;
             private bool _uploaded;
             public SDL_GPUTexture* Handle { get; private set; }
             public bool Matches(RenderTexturePixels pixels, bool mipmapped)
@@ -1583,6 +3525,13 @@ namespace MphRead
             public bool EnsureUploaded(SDL_GPUCommandBuffer* commandBuffer)
             {
                 if (_uploaded) return false;
+                PrepareUploadStorage();
+                return EncodePreparedUpload(commandBuffer);
+            }
+
+            public void PrepareUploadStorage()
+            {
+                if (_uploaded || _uploadPrepared) return;
                 if (_transfer == null)
                 {
                     SDL_GPUTransferBufferCreateInfo info = new()
@@ -1600,6 +3549,17 @@ namespace MphRead
                     SdlGpuMappedMemoryCopy.Copy(_pixels.Rgba8, memory);
                 }
                 finally { SDL3.SDL_UnmapGPUTransferBuffer(_device.Handle, _transfer); }
+                _uploadPrepared = true;
+            }
+
+            public bool EncodePreparedUpload(SDL_GPUCommandBuffer* commandBuffer)
+            {
+                if (_uploaded) return false;
+                if (!_uploadPrepared || _transfer == null)
+                {
+                    throw new InvalidOperationException(
+                        "SDL scene texture upload was not prepared.");
+                }
                 SDL_GPUCopyPass* copy = SDL3.SDL_BeginGPUCopyPass(commandBuffer);
                 if (copy == null) throw new InvalidOperationException($"SDL scene texture copy pass failed: {SDL3.SDL_GetError()}");
                 SDL_GPUTextureTransferInfo sourceInfo = new()
@@ -1629,6 +3589,7 @@ namespace MphRead
             {
                 if (_transfer != null) SDL3.SDL_ReleaseGPUTransferBuffer(_device.Handle, _transfer);
                 _transfer = null;
+                _uploadPrepared = false;
             }
 
             public void InvalidateUpload() => _uploaded = false;

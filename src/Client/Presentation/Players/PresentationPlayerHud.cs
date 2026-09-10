@@ -685,6 +685,7 @@ namespace MphRead.Entities
         private ushort _smallReticleTimer = 0;
         private bool _sniperReticle = false;
         private bool _hudZoom = false;
+        public Vector2 CurrentReticlePosition { get; private set; } = new Vector2(0.5f, 0.5f);
         public void HudOnFiredShot()
         {
             if (Features.FixedCrosshair)
@@ -722,25 +723,21 @@ namespace MphRead.Entities
                 }
             }
 
-            if (Features.FixedCrosshair)
-            {
-                // Screen-dead-centre, not reprojected from _aimPosition: aim
-                // and camera facing are smoothed at different rates (see
-                // UpdateAimVecs), so the reprojected point visibly drifts
-                // off-centre on its own even with the fire animation off.
-                // Quake's crosshair doesn't do that.
-                _targetCircleInst.PositionX = 0.5f;
-                _targetCircleInst.PositionY = 0.5f;
-            }
-            else
-            {
-                Matrix.ProjectPosition(_player._aimPosition, Presentation.ViewMatrix, Presentation.PerspectiveMatrix, out Vector2 pos);
-                _targetCircleInst.PositionX = MathF.Round(pos.X, 5);
-                _targetCircleInst.PositionY = MathF.Round(pos.Y, 5);
-            }
+            float w = Matrix.ProjectPosition(_player._aimPosition, Presentation.ViewMatrix,
+                Presentation.PerspectiveMatrix, out Vector2 projected);
+            CurrentReticlePosition = NormalizeReticlePosition(w, projected);
+            _targetCircleInst.PositionX = CurrentReticlePosition.X;
+            _targetCircleInst.PositionY = CurrentReticlePosition.Y;
 
             _targetCircleInst.Enabled = true;
             _targetCircleInst.ProcessAnimation(_player._scene);
+        }
+
+        internal static Vector2 NormalizeReticlePosition(float w, Vector2 projected)
+        {
+            if (!float.IsFinite(w) || w <= 0 || !float.IsFinite(projected.X) || !float.IsFinite(projected.Y))
+                return new Vector2(0.5f, 0.5f);
+            return new Vector2(MathF.Round(projected.X, 5), MathF.Round(projected.Y, 5));
         }
 
         public Vector3 GetCrosshairColor()
@@ -959,6 +956,14 @@ namespace MphRead.Entities
                 return;
             }
 
+            // The minimap is a full-resolution overlay and is deliberately
+            // submitted first so chat, scoreboards and match UI remain above it.
+            if (Hud.Radar.RadarSettings.Style == Hud.Radar.RadarStyle.Enhanced
+                && _player._health > 0 && !Mods.SpectatorMode.FreeCamera)
+            {
+                DrawEnhancedRadar();
+            }
+
             if (Mods.Network.AuthoritativePlay.Current?.Client.HistoricalDebug is { } historicalDebug)
                 DrawHistoricalCollisionDebug(historicalDebug);
 
@@ -1073,7 +1078,7 @@ namespace MphRead.Entities
 
                         if (Features.CustomCrosshair)
                         {
-                            Presentation.DrawCustomCrosshair(GetCrosshairColor());
+                            Presentation.DrawCustomCrosshair(GetCrosshairColor(), CurrentReticlePosition);
                         }
                         else
                         {
@@ -1171,7 +1176,10 @@ namespace MphRead.Entities
             _locatorInfo.Add(new LocatorInfo(position, inst, color, alpha));
             // This sink receives only contacts admitted by the existing mode
             // policy below. Enhanced drawing never searches additional entities.
-            var type = inst == _playerLocator ? Hud.Radar.RadarContactType.Enemy : Hud.Radar.RadarContactType.Objective;
+            var type = inst == _playerLocator && team >= 0 && team == _player.TeamIndex
+                ? Hud.Radar.RadarContactType.Teammate
+                : inst == _playerLocator ? Hud.Radar.RadarContactType.Enemy
+                : Hud.Radar.RadarContactType.Objective;
             var objective = inst == _playerLocator ? Hud.Radar.RadarObjective.None
                 : inst == _octolithLocator ? Hud.Radar.RadarObjective.Flag
                 : _player._scene.Match.Rules.Mode is MatchMode.Nodes or MatchMode.TeamNodes ? Hud.Radar.RadarObjective.Node
@@ -1186,7 +1194,6 @@ namespace MphRead.Entities
         {
             if (Hud.Radar.RadarSettings.Style == Hud.Radar.RadarStyle.Enhanced)
             {
-                DrawEnhancedRadar();
                 return;
             }
             for (int i = 0; i < _locatorInfo.Count; i++)

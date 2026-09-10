@@ -109,6 +109,10 @@ namespace MphRead
         public RepeatMode WrapX { get; set; }
         public RepeatMode WrapY { get; set; }
         public TextureIdentity? Texture { get; set; }
+        public TextureAssetKey? TextureAssetKey { get; set; }
+        public EnhancedMaterial? Enhanced { get; set; }
+        internal EnhancedBeamDrawState? EnhancedBeam { get; set; }
+        internal EnhancedForceFieldDrawState? EnhancedForceField { get; set; }
         public Matrix4 TextureMatrix { get; set; }
         public Vector4? ColorOverride { get; set; }
         public Vector4? PaletteOverride { get; set; }
@@ -134,6 +138,10 @@ namespace MphRead
                 && WrapX == other.WrapX
                 && WrapY == other.WrapY
                 && Nullable.Equals(Texture, other.Texture)
+                && Nullable.Equals(TextureAssetKey, other.TextureAssetKey)
+                && Nullable.Equals(Enhanced, other.Enhanced)
+                && Nullable.Equals(EnhancedBeam, other.EnhancedBeam)
+                && Nullable.Equals(EnhancedForceField, other.EnhancedForceField)
                 && TextureMatrix == other.TextureMatrix
                 && Nullable.Equals(ColorOverride, other.ColorOverride)
                 && Nullable.Equals(PaletteOverride, other.PaletteOverride)
@@ -150,6 +158,8 @@ namespace MphRead
             hash.Add(Alpha); hash.Add(Lighting); hash.Add(Textured); hash.Add(PolygonMode);
             hash.Add(RenderMode); hash.Add(CullingMode); hash.Add(BillboardMode); hash.Add(TexgenMode);
             hash.Add(WrapX); hash.Add(WrapY); hash.Add(Texture); hash.Add(TextureMatrix);
+            hash.Add(TextureAssetKey); hash.Add(Enhanced);
+            hash.Add(EnhancedBeam); hash.Add(EnhancedForceField);
             hash.Add(ColorOverride); hash.Add(PaletteOverride); hash.Add(Wireframe); hash.Add(NoLines);
             return hash.ToHashCode();
         }
@@ -193,6 +203,10 @@ namespace MphRead
                 WrapX = submission.XRepeat,
                 WrapY = submission.YRepeat,
                 Texture = submission.HasTexture ? submission.TextureIdentity : null,
+                TextureAssetKey = submission.TextureAssetKey,
+                Enhanced = submission.EnhancedMaterial,
+                EnhancedBeam = submission.EnhancedBeam,
+                EnhancedForceField = submission.EnhancedForceField,
                 TextureMatrix = submission.TexcoordMatrix,
                 ColorOverride = submission.OverrideColor,
                 PaletteOverride = submission.PaletteOverride,

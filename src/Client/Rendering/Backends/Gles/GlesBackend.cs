@@ -8,7 +8,8 @@ namespace MphRead
 {
     internal readonly record struct GlesDrawResources(
         int TextureBinding,
-        Vector3? FlatColor);
+        Vector3? FlatColor,
+        GlesEnhancedDrawResources? Enhanced = null);
 
     /// <summary>
     /// Borrowed device state plus the frame-local native bindings resolved by
@@ -22,13 +23,17 @@ namespace MphRead
         private bool _sealed;
 
         public ShaderLocations ShaderLocations { get; private set; } = null!;
+        public GlesEnhancedRuntime? EnhancedRuntime { get; private set; }
 
-        public void BeginFrame(ShaderLocations shaderLocations)
+        public void BeginFrame(ShaderLocations shaderLocations,
+            GlesEnhancedRuntime? enhancedRuntime = null)
         {
             ShaderLocations = shaderLocations
                 ?? throw new ArgumentNullException(nameof(shaderLocations));
             _draws.Clear();
             _sealed = false;
+            EnhancedRuntime = enhancedRuntime;
+            EnhancedRuntime?.BeginResourceFrame();
         }
 
         public void Add(DrawSubmission submission, int textureBinding, RenderFrame frame)
@@ -52,7 +57,9 @@ namespace MphRead
                 }
                 flatColor = pixels.AlphaWeightedFlatColor;
             }
-            _draws.Add(submission, new GlesDrawResources(textureBinding, flatColor));
+            GlesEnhancedDrawResources? enhanced = EnhancedRuntime?.ResolveResources(
+                submission, frame, textureBinding);
+            _draws.Add(submission, new GlesDrawResources(textureBinding, flatColor, enhanced));
         }
 
         public void Seal() => _sealed = true;
@@ -82,6 +89,7 @@ namespace MphRead
             if (!frame.IsSealed) throw new InvalidOperationException("The GLES world frame is not sealed.");
 
             ShaderLocations locations = context.ShaderLocations;
+            context.EnhancedRuntime?.ApplyFrame(frame);
 
             // pass 1: opaque
             GL.ColorMask(true, true, true, true);
@@ -189,6 +197,12 @@ namespace MphRead
 
             ApplyMaterial(frame.Options, locations, material);
             ApplyTexture(frame.Options, locations, material, resources);
+            if (context.EnhancedRuntime is GlesEnhancedRuntime enhancedRuntime
+                && resources.Enhanced is GlesEnhancedDrawResources enhanced)
+            {
+                ApplyEnhancedMaterial(enhancedRuntime, enhanced, material,
+                    frame.Options);
+            }
             ApplyRasterState(frame.Options, material);
 
             CpuMesh mesh = RenderWorldPlan.ResolveMesh(frame, submission);
@@ -216,6 +230,34 @@ namespace MphRead
                     GL.DrawDynamicMesh(mesh, RenderMeshStreams.Lines);
                 }
             }
+        }
+
+        private static void ApplyEnhancedMaterial(GlesEnhancedRuntime runtime,
+            GlesEnhancedDrawResources enhanced, RenderMaterial material,
+            RenderFrameOptions options)
+        {
+            GL.Uniform1(runtime.SmoothnessLocation, enhanced.Smoothness);
+            GL.Uniform4(runtime.EnhancedEmissionLocation,
+                enhanced.EmissionTint.X, enhanced.EmissionTint.Y,
+                enhanced.EmissionTint.Z, enhanced.EmissionStrength);
+            GL.Uniform1(runtime.UseNormalMapLocation,
+                material.Textured && enhanced.UseNormalMap ? 1 : 0);
+            GL.Uniform1(runtime.UseEmissiveMapLocation,
+                material.Textured && enhanced.UseEmissiveMap ? 1 : 0);
+
+            GL.ActiveTexture(TextureUnit.Texture0);
+            GL.BindTexture(TextureTarget.Texture2D, enhanced.AlbedoTexture);
+            GlesEnhancedRuntime.ConfigureMaterialSampler(options.Filtering,
+                material.WrapX, material.WrapY);
+            GL.ActiveTexture(TextureUnit.Texture1);
+            GL.BindTexture(TextureTarget.Texture2D, enhanced.NormalTexture);
+            GlesEnhancedRuntime.ConfigureMaterialSampler(options.Filtering,
+                material.WrapX, material.WrapY);
+            GL.ActiveTexture(TextureUnit.Texture2);
+            GL.BindTexture(TextureTarget.Texture2D, enhanced.EmissiveTexture);
+            GlesEnhancedRuntime.ConfigureMaterialSampler(options.Filtering,
+                material.WrapX, material.WrapY);
+            GL.ActiveTexture(TextureUnit.Texture0);
         }
 
         private static void ApplyMaterial(RenderFrameOptions options, ShaderLocations locations,

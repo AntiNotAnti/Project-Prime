@@ -6,10 +6,10 @@ namespace MphRead
 {
     /// <summary>
     /// The presentation stages which are not part of the six world passes.
-    /// Keeping these boundaries explicit is important: HUD models are inside
-    /// the scene target and therefore precede cel shading, while the HUD
-    /// quads and the fade are drawn after the scene has been composited to the
-    /// drawable.
+    /// Keeping these boundaries explicit is important. Original/Performance
+    /// keep HUD models inside the scene target before cel shading; Enhanced
+    /// composites them after scene tone mapping. HUD quads and the fade remain
+    /// after the scene composite in every mode.
     /// </summary>
     public enum RenderPresentationStage : byte
     {
@@ -30,8 +30,12 @@ namespace MphRead
         FlatBox,
         Crosshair,
         RadialSector,
+        HudTexture,
+        HudGeometry,
         Fade
     }
+
+    public readonly record struct HudGeometryVertex(Vector2 Position, Vector4 Color);
 
     public enum RenderCompositeFilter : byte
     {

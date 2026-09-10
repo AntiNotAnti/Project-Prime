@@ -1,37 +1,183 @@
 using System;
-using MphRead.Formats;
-using MphRead.Hud;
+using System.Collections.Generic;
 using MphRead.Hud.Radar;
-using MphRead.Text;
+using OpenTK.Mathematics;
 
 namespace MphRead.Entities;
 
 public partial class PlayerPresentation
 {
     private readonly RadarFrame _radarFrame = new();
+    private readonly List<HudGeometryVertex> _radarGeometry = new(1024);
 
     private void DrawEnhancedRadar()
     {
-        const float centerX = 29, centerY = 48, radius = 21;
-        DrawText2D(centerX, centerY - radius - 8, Align.Center, 0,
-            RadarSettings.Orientation == RadarOrientation.North ? "N" : "RADAR", scale: .6f);
-        DrawText2D(centerX, centerY, Align.Center, 0, "+", scale: .6f);
-        DrawText2D(centerX - radius, centerY, Align.Center, 0, "[", scale: .6f);
-        DrawText2D(centerX + radius, centerY, Align.Center, 0, "]", scale: .6f);
+        float aspectFix = HudAspectFix;
+        RadarLayout layout = RadarLayoutCalculator.Calculate(RadarSettings.Anchor, RadarSettings.Scale,
+            RadarSettings.OffsetX, RadarSettings.OffsetY, aspectFix);
+        Presentation.DrawHudFlatBox(layout.Left, layout.Top,
+            layout.Left + layout.Width, layout.Top + layout.Height, RadarPalette.Background);
+
+        RadarMapPresentation map = Presentation.RadarMapPresentation;
+        if (map.Geometry is RadarMapGeometry geometry)
+            DrawRadarMap(layout, geometry, map.FloorTextures);
+
+        _radarGeometry.Clear();
+        DrawRadarFrame(layout, aspectFix);
+        DrawRadarPlayer(layout, aspectFix);
+        DrawRadarContacts(layout, aspectFix);
+        if (_radarGeometry.Count >= 3) Presentation.DrawHudGeometry(_radarGeometry);
+    }
+
+    private void DrawRadarMap(RadarLayout layout, RadarMapGeometry geometry,
+        IReadOnlyList<TextureIdentity> textures)
+    {
+        if (textures.Count == 0) return;
+        Vector2 center = geometry.WorldToMap(_radarFrame.Origin);
+        Vector2 worldSize = geometry.WorldSize;
+        float du = worldSize.X > .0001f ? RadarSettings.Range / worldSize.X : .5f;
+        float dv = worldSize.Y > .0001f ? RadarSettings.Range / worldSize.Y : .5f;
+        Vector4 uv = new(center.X - du, center.Y - dv, center.X + du, center.Y + dv);
+        float rotation = RadarSettings.Orientation == RadarOrientation.Heading
+            ? RadarWidget.HeadingAngle(_radarFrame.Facing) : 0;
+        int current = geometry.FindCurrentFloor(_radarFrame.Origin.Y);
+        for (int offset = -1; offset <= 1; offset += 2)
+        {
+            int adjacent = current + offset;
+            if ((uint)adjacent < (uint)textures.Count)
+                Presentation.DrawHudTexture(textures[adjacent], layout.Left, layout.Top,
+                    layout.Left + layout.Width, layout.Top + layout.Height,
+                    Vector4.One, uv, rotation, .24f);
+        }
+        if ((uint)current < (uint)textures.Count)
+            Presentation.DrawHudTexture(textures[current], layout.Left, layout.Top,
+                layout.Left + layout.Width, layout.Top + layout.Height,
+                Vector4.One, uv, rotation, .9f);
+    }
+
+    private void DrawRadarFrame(RadarLayout layout, float aspectFix)
+    {
+        float thicknessX = aspectFix, thicknessY = 1;
+        AddQuad(layout.Left, layout.Top, layout.Left + layout.Width, layout.Top + thicknessY, RadarPalette.Border);
+        AddQuad(layout.Left, layout.Top + layout.Height - thicknessY,
+            layout.Left + layout.Width, layout.Top + layout.Height, RadarPalette.Border);
+        AddQuad(layout.Left, layout.Top, layout.Left + thicknessX, layout.Top + layout.Height, RadarPalette.Border);
+        AddQuad(layout.Left + layout.Width - thicknessX, layout.Top,
+            layout.Left + layout.Width, layout.Top + layout.Height, RadarPalette.Border);
+        const int segments = 28;
+        float inner = layout.Radius - .65f, outer = layout.Radius + .15f;
+        for (int i = 0; i < segments; i++)
+        {
+            float a0 = MathHelper.TwoPi * i / segments;
+            float a1 = MathHelper.TwoPi * (i + 1) / segments;
+            AddQuadPoints(
+                Point(layout, MathF.Cos(a0) * outer, MathF.Sin(a0) * outer, aspectFix),
+                Point(layout, MathF.Cos(a0) * inner, MathF.Sin(a0) * inner, aspectFix),
+                Point(layout, MathF.Cos(a1) * outer, MathF.Sin(a1) * outer, aspectFix),
+                Point(layout, MathF.Cos(a1) * inner, MathF.Sin(a1) * inner, aspectFix),
+                RadarPalette.Ring);
+        }
+        if (RadarSettings.Orientation == RadarOrientation.North)
+            AddTriangle(Point(layout, 0, -layout.Radius + 1, aspectFix),
+                Point(layout, -2, -layout.Radius + 5, aspectFix),
+                Point(layout, 2, -layout.Radius + 5, aspectFix), RadarPalette.Border);
+    }
+
+    private void DrawRadarPlayer(RadarLayout layout, float aspectFix)
+    {
+        float angle = RadarSettings.Orientation == RadarOrientation.Heading
+            ? 0 : RadarWidget.HeadingAngle(_radarFrame.Facing);
+        Vector2 Rotate(float x, float y)
+        {
+            float cosine = MathF.Cos(angle), sine = MathF.Sin(angle);
+            return Point(layout, x * cosine - y * sine, x * sine + y * cosine, aspectFix);
+        }
+        AddTriangle(Rotate(0, -4), Rotate(-2.8f, 3), Rotate(2.8f, 3), RadarPalette.Player);
+    }
+
+    private void DrawRadarContacts(RadarLayout layout, float aspectFix)
+    {
         foreach (RadarContact contact in _radarFrame.Contacts)
         {
-            RadarPoint point = RadarWidget.Project(contact, _radarFrame.Origin, _radarFrame.Facing, RadarSettings.Orientation);
-            float x = centerX + point.RelativePosition.X * radius;
-            float y = centerY + point.RelativePosition.Y * radius;
-            byte alpha = (byte)(255 * contact.Visibility * (contact.AgeTicks > 0 ? .5f : 1));
-            ColorRgba color = contact.Type == RadarContactType.Enemy ? new(255, 90, 90, alpha)
-                : contact.Type == RadarContactType.Teammate ? new(100, 200, 255, alpha)
-                : new(255, 220, 90, alpha);
-            DrawText2D(x, y, Align.Center, 0, RadarWidget.Symbol(contact), color, scale: .65f);
-            if (point.Elevation != RadarElevation.Same)
-                DrawText2D(x + 4, y - 3, Align.Center, 0, point.Elevation == RadarElevation.Above ? "^" : "v", color, scale: .5f);
+            RadarPoint point = RadarWidget.Project(contact, _radarFrame.Origin,
+                _radarFrame.Facing, RadarSettings.Orientation);
+            Vector2 center = Point(layout, point.RelativePosition.X * layout.Radius,
+                point.RelativePosition.Y * layout.Radius, aspectFix);
+            float alpha = Math.Clamp(contact.Visibility, 0, 1) * (contact.AgeTicks > 0 ? .5f : 1);
+            Vector4 baseColor = ContactColor(contact);
+            Vector4 color = new(baseColor.X, baseColor.Y, baseColor.Z, baseColor.W * alpha);
             if (point.Clamped)
-                DrawText2D(x, y + 4, Align.Center, 0, ".", color, scale: .5f);
+            {
+                Vector2 direction = point.RelativePosition.LengthSquared > .0001f
+                    ? point.RelativePosition.Normalized() : -Vector2.UnitY;
+                Vector2 tangent = new(-direction.Y, direction.X);
+                Vector2 tip = center + Scaled(direction * 2, aspectFix);
+                Vector2 back = center - Scaled(direction * 3, aspectFix);
+                AddTriangle(tip, back + Scaled(tangent * 2.2f, aspectFix),
+                    back - Scaled(tangent * 2.2f, aspectFix), color);
+            }
+            else if (contact.Type == RadarContactType.Teammate || contact.Objective is RadarObjective.Node or RadarObjective.Defender)
+                AddDiamond(center, 2.4f, aspectFix, color);
+            else if (contact.Type == RadarContactType.PrimeHunter)
+                AddDiamond(center, 3.2f, aspectFix, color);
+            else
+                AddDiamond(center, 1.8f, aspectFix, color);
+            if (point.Elevation == RadarElevation.Above)
+                AddQuad(center.X + 2.8f * aspectFix, center.Y - 3,
+                    center.X + 3.8f * aspectFix, center.Y, color);
+            else if (point.Elevation == RadarElevation.Below)
+                AddQuad(center.X + 2.8f * aspectFix, center.Y,
+                    center.X + 3.8f * aspectFix, center.Y + 3, color);
         }
+    }
+
+    private static Vector4 ContactColor(in RadarContact contact) => contact.Type switch
+    {
+        RadarContactType.Enemy => RadarPalette.Enemy,
+        RadarContactType.Teammate => RadarPalette.Teammate,
+        RadarContactType.PrimeHunter => RadarPalette.PrimeHunter,
+        _ => RadarPalette.Objective
+    };
+
+    private static Vector2 Point(RadarLayout layout, float x, float y, float aspectFix)
+        => new(layout.CenterX + x * aspectFix, layout.CenterY + y);
+    private static Vector2 Scaled(Vector2 value, float aspectFix) => new(value.X * aspectFix, value.Y);
+
+    private void AddDiamond(Vector2 center, float radius, float aspectFix, Vector4 color)
+    {
+        Vector2 top = center + new Vector2(0, -radius);
+        Vector2 right = center + new Vector2(radius * aspectFix, 0);
+        Vector2 bottom = center + new Vector2(0, radius);
+        Vector2 left = center + new Vector2(-radius * aspectFix, 0);
+        AddTriangle(top, left, right, color);
+        AddTriangle(bottom, right, left, color);
+    }
+
+    private void AddQuad(float left, float top, float right, float bottom, Vector4 color)
+        => AddQuadPoints(new Vector2(right, top), new Vector2(left, top),
+            new Vector2(right, bottom), new Vector2(left, bottom), color);
+
+    private void AddQuadPoints(Vector2 topRight, Vector2 topLeft, Vector2 bottomRight,
+        Vector2 bottomLeft, Vector4 color)
+    {
+        AddTriangle(topRight, topLeft, bottomRight, color);
+        AddTriangle(bottomRight, topLeft, bottomLeft, color);
+    }
+
+    private void AddTriangle(Vector2 a, Vector2 b, Vector2 c, Vector4 color)
+    {
+        if (_radarGeometry.Count == 0)
+        {
+            _radarGeometry.Add(new(a, color));
+            _radarGeometry.Add(new(b, color));
+            _radarGeometry.Add(new(c, color));
+            return;
+        }
+        if (_radarGeometry.Count + 5 > 2048) return;
+        _radarGeometry.Add(_radarGeometry[^1]);
+        _radarGeometry.Add(new(a, color));
+        _radarGeometry.Add(new(a, color));
+        _radarGeometry.Add(new(b, color));
+        _radarGeometry.Add(new(c, color));
     }
 }

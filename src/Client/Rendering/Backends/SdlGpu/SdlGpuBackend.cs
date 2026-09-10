@@ -51,6 +51,7 @@ namespace MphRead
         private SDL_GPUPresentMode _presentMode = SDL_GPUPresentMode.SDL_GPU_PRESENTMODE_VSYNC;
         private string _presentModeLabel = "vsync";
         private bool _loggedImmediateFallback;
+        private bool _loggedFirstSubmit;
 
         public SdlGpuBackend(SDL_Window* window, Vector2i logicalSize, Vector2i framebufferSize)
         {
@@ -266,7 +267,8 @@ namespace MphRead
                             continue;
                         }
                         if (!_readback.TrySchedule(source, sourceWidth, sourceHeight,
-                            _device.SwapchainFormat, request, out string readbackError))
+                            SdlGpuCaptureColorPolicy.ReadbackFormat(_device.SwapchainFormat),
+                            request, out string readbackError))
                         {
                             _captureFailures.Add(new CaptureScheduleFailure(request, readbackError));
                         }
@@ -371,6 +373,14 @@ namespace MphRead
             }
             _captureFailures.Clear();
             frame.Submitted = true;
+            if (!_loggedFirstSubmit)
+            {
+                _loggedFirstSubmit = true;
+                Mods.DebugLog.Line("gpu", $"first frame submitted; backend={Info.Name} driver={Info.Driver} "
+                    + $"swapchain={Surface.SwapchainFormat} present={Surface.PresentMode} "
+                    + $"logical={Surface.LogicalSize.X}x{Surface.LogicalSize.Y} "
+                    + $"framebuffer={Surface.FramebufferSize.X}x{Surface.FramebufferSize.Y}");
+            }
             return true;
         }
 
@@ -401,12 +411,13 @@ namespace MphRead
                     break;
                 case CaptureTargetKind.SceneTarget:
                 case CaptureTargetKind.ThumbnailTarget:
-                    // Scene and thumbnail requests intentionally read the
-                    // scene target before the final-composite post chain.
+                    // Scene and thumbnail requests intentionally omit 2D
+                    // overlays. Enhanced uses the capture-safe SDR branch
+                    // after scene tone mapping and HUD-scene composition.
                     // Thumbnail remains an alias until a tool-specific
                     // thumbnail target is introduced; the source point is
                     // still deterministic.
-                    texture = _sceneResources?.SceneColor;
+                    texture = _sceneResources?.CaptureSceneColor;
                     width = _sceneResources?.SceneTargetWidth ?? 0;
                     height = _sceneResources?.SceneTargetHeight ?? 0;
                     break;

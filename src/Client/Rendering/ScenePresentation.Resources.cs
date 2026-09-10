@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.CompilerServices;
 using MphRead.Effects;
 using MphRead.Formats;
+using MphRead.Mods;
+using MphRead.Mods.Launcher;
 using OpenTK.Mathematics;
 namespace MphRead
 {
@@ -16,8 +19,26 @@ namespace MphRead
         }
 
         private readonly Dictionary<TextureIdentity, RenderTexturePixels> _textureResources = new();
+        private readonly EnhancedTextureResolver _enhancedTextureResolver
+            = LoadDefaultEnhancedTextureResolver();
+        private readonly EnhancedEnvironmentOverrides _enhancedEnvironmentOverrides
+            = LoadDefaultEnhancedEnvironmentOverrides();
+        private readonly EnhancedColorGradeResolver _enhancedColorGradeResolver
+            = LoadDefaultEnhancedColorGradeResolver();
+        private readonly ReflectionProbeResolver _reflectionProbeResolver
+            = LoadDefaultReflectionProbeResolver();
+        private readonly SoftParticleProfileCatalog _softParticleProfiles
+            = LoadDefaultSoftParticleProfiles();
+        private readonly EnhancedSkyResolver _enhancedSkyResolver
+            = LoadDefaultEnhancedSkyResolver();
+        private ReflectionCubemapAsset? _cachedReflectionCubemap;
+        private RenderReflectionProbe? _cachedRenderReflectionProbe;
+        private readonly HashSet<ReflectionProbeKey> _reportedGeneratedProbeGaps = new();
         private readonly Dictionary<int, TextureIdentity> _bindingTextureIdentities = new();
         private readonly Dictionary<int, DynamicTextureSource> _dynamicTextureSources = new();
+#if ANDROID
+        private readonly Dictionary<TextureIdentity, int> _dynamicTextureBindings = new();
+#endif
         private long _textureRevision;
 
         private sealed class Binding
@@ -28,10 +49,32 @@ namespace MphRead
         private readonly ConditionalWeakTable<object, Binding> _meshBindings = new();
         private readonly ConditionalWeakTable<Material, Binding> _materialBindings = new();
         private readonly ConditionalWeakTable<EffectElementEntry, List<int>> _effectBindings = new();
+        private sealed class SoftParticleBinding
+        {
+            public SoftParticleProfile? Profile;
+        }
+        private readonly ConditionalWeakTable<EffectElementEntry, SoftParticleBinding>
+            _softParticleBindings = new();
         public int GetMeshListId(Mesh mesh) => _meshBindings.GetOrCreateValue(mesh.GeometryIdentity).Id;
         public void SetMeshListId(Mesh mesh, int id) => _meshBindings.GetOrCreateValue(mesh.GeometryIdentity).Id = id;
         public int GetTextureBindingId(Material material) => _materialBindings.GetOrCreateValue(material).Id;
         public void SetTextureBindingId(Material material, int id) => _materialBindings.GetOrCreateValue(material).Id = id;
+        internal SoftParticleProfile? GetSoftParticleProfile(EffectElementEntry element)
+            => _softParticleBindings.TryGetValue(element, out SoftParticleBinding? binding)
+                ? binding.Profile : null;
+
+        internal void SetSoftParticleProfile(EffectElementEntry element,
+            int effectId, int elementIndex)
+        {
+            SoftParticleBinding binding = _softParticleBindings.GetOrCreateValue(element);
+            binding.Profile = SoftParticlePresentationKey.Create(effectId, elementIndex)
+                is SoftParticlePresentationKey key
+                && _softParticleProfiles.TryResolve(key, out SoftParticleProfile profile)
+                    ? profile : null;
+        }
+
+        internal void ClearSoftParticleProfile(EffectElementEntry element)
+            => _softParticleBindings.GetOrCreateValue(element).Profile = null;
         public TextureIdentity? GetTextureIdentity(Model model, Material material, int recolorId, object? variant = null,
             OpenTK.Mathematics.Vector4? paletteOverride = null)
         {
@@ -66,6 +109,265 @@ namespace MphRead
                 }
             }
             return identity;
+        }
+
+        public static TextureAssetKey? GetModelTextureAssetKey(Model model,
+            Material material, int recolorId)
+        {
+            ArgumentNullException.ThrowIfNull(model);
+            ArgumentNullException.ThrowIfNull(material);
+            if (material.CurrentTextureId < 0 || material.CurrentPaletteId < 0
+                || recolorId < 0)
+            {
+                return null;
+            }
+            return TextureAssetKey.TryParse(
+                $"model/{model.Name}/texture/{material.CurrentTextureId}/palette/"
+                + $"{material.CurrentPaletteId}/recolor/{recolorId}", out TextureAssetKey key)
+                    ? key : null;
+        }
+
+        public static TextureAssetKey? GetEffectTextureAssetKey(string effectName,
+            Material material)
+        {
+            ArgumentNullException.ThrowIfNull(material);
+            return TextureAssetKey.TryParse(
+                $"effect/{effectName}/texture/{material.CurrentTextureId}", out TextureAssetKey key)
+                    ? key : null;
+        }
+
+        public static TextureAssetKey? GetRoomTextureAssetKey(RoomMetadata room,
+            Material material)
+        {
+            ArgumentNullException.ThrowIfNull(room);
+            ArgumentNullException.ThrowIfNull(material);
+            if (material.CurrentTextureId < 0 || material.CurrentPaletteId < 0)
+                return null;
+            // Archive is the stable content name (for example mp1). The room's
+            // display/metadata Name contains spaces and is not a canonical key.
+            return TextureAssetKey.TryParse(
+                $"room/{room.Archive}/texture/{material.CurrentTextureId}/palette/"
+                + material.CurrentPaletteId, out TextureAssetKey key) ? key : null;
+        }
+
+        internal void ResolveEnhancedMaterial(DrawSubmission submission)
+        {
+            if (RenderOptions.GraphicsPreset != GraphicsPreset.Enhanced
+                || submission.TextureAssetKey is not TextureAssetKey key
+                || !key.IsValid)
+            {
+                return;
+            }
+            submission.FreezeMaterial();
+            EnhancedMaterial material = _enhancedTextureResolver.Resolve(key,
+                submission.Material);
+            submission.EnhancedMaterial = material;
+            RegisterEnhancedTexture(material.Albedo);
+            RegisterEnhancedTexture(material.Normal);
+            RegisterEnhancedTexture(material.Emissive);
+        }
+
+        private void RegisterEnhancedTexture(TextureIdentity? requested)
+        {
+            if (requested is not TextureIdentity identity
+                || identity.Source is not EnhancedTextureAsset asset
+                || _textureResources.ContainsKey(identity))
+            {
+                return;
+            }
+            (bool onlyOpaque, Vector3 flat) = AnalyzeRgba(asset.Rgba8.Span);
+            _textureResources.Add(identity, new RenderTexturePixels(identity,
+                asset.Width, asset.Height, asset.Rgba8, revision: 1,
+                onlyOpaque: onlyOpaque, alphaWeightedFlatColor: flat));
+        }
+
+        private static (bool OnlyOpaque, Vector3 FlatColor) AnalyzeRgba(
+            ReadOnlySpan<byte> rgba)
+        {
+            if (rgba.Length == 0) return (true, Vector3.One);
+            double red = 0;
+            double green = 0;
+            double blue = 0;
+            double alphaWeight = 0;
+            bool onlyOpaque = true;
+            for (int i = 0; i < rgba.Length; i += 4)
+            {
+                double alpha = rgba[i + 3] / 255d;
+                onlyOpaque &= rgba[i + 3] == 255;
+                red += rgba[i] * alpha;
+                green += rgba[i + 1] * alpha;
+                blue += rgba[i + 2] * alpha;
+                alphaWeight += alpha;
+            }
+            Vector3 flat = alphaWeight > 0
+                ? new Vector3((float)(red / alphaWeight / 255d),
+                    (float)(green / alphaWeight / 255d),
+                    (float)(blue / alphaWeight / 255d))
+                : Vector3.One;
+            return (onlyOpaque, flat);
+        }
+
+        private static EnhancedTextureResolver LoadDefaultEnhancedTextureResolver()
+        {
+            string root = Path.Combine(LauncherPrefs.Directory,
+                "enhancements", "default");
+            if (!Directory.Exists(root)) return EnhancedTextureResolver.Empty;
+            EnhancementPackLoadResult loaded = EnhancementPackLoader.Load(root);
+            if (loaded.HasIssues)
+            {
+                Console.WriteLine($"[render] enhancement pack loaded with "
+                    + $"{loaded.Issues.Count} ignored issue(s).");
+            }
+            return loaded.Resolver;
+        }
+
+        internal (EnhancedEnvironment Environment, EnhancedColorGradeSelection ColorGrade)
+            ResolveEnhancedEnvironmentSnapshot(RenderQualitySnapshot quality,
+                bool enhancedEnvironmentBackend)
+        {
+            if (!enhancedEnvironmentBackend || quality.GraphicsPreset != GraphicsPreset.Enhanced
+                || World.Room == null)
+            {
+                return (EnhancedEnvironment.Neutral,
+                    _enhancedColorGradeResolver.Resolve((EnhancedEnvironmentAssetKey?)null));
+            }
+
+            EnhancedEnvironment environment
+                = _enhancedEnvironmentOverrides.Resolve(World.Room.Meta);
+            return (environment, _enhancedColorGradeResolver.Resolve(environment));
+        }
+
+        internal RenderReflectionProbe? ResolveEnhancedReflectionProbeSnapshot(
+            RenderQualitySnapshot quality, bool sdlBackend,
+            EnhancedEnvironment environment)
+        {
+            if (!sdlBackend || quality.GraphicsPreset != GraphicsPreset.Enhanced
+                || World.Room == null)
+            {
+                return null;
+            }
+
+            string room = World.Room.Meta.Archive;
+            ReflectionProbeSelection declared = _reflectionProbeResolver.Resolve(room,
+                environment.ReflectionProbeKey);
+            if (declared.Kind == ReflectionProbeSourceKind.GeneratedStatic
+                && _reportedGeneratedProbeGaps.Add(declared.Key))
+            {
+                Console.WriteLine($"[render] generated-static reflection probe "
+                    + $"'{declared.Key}' has no offline cube source; using authored fallback.");
+            }
+            ReflectionProbeSelection selected
+                = _reflectionProbeResolver.ResolveUploadable(room,
+                    environment.ReflectionProbeKey);
+            if (selected.Cubemap is not ReflectionCubemapAsset cubemap)
+                return null;
+            if (!ReferenceEquals(_cachedReflectionCubemap, cubemap))
+            {
+                _cachedReflectionCubemap = cubemap;
+                _cachedRenderReflectionProbe = new RenderReflectionProbe(cubemap);
+            }
+            return _cachedRenderReflectionProbe;
+        }
+
+        internal RenderSkyState? ResolveEnhancedSkySnapshot(RenderQualitySnapshot quality,
+            bool sdlBackend, TimeSpan presentationTime)
+        {
+            if (!sdlBackend || quality.GraphicsPreset != GraphicsPreset.Enhanced
+                || World.Room == null
+                || !EnhancedSkyRuntimePolicy.TryCreateRoomDefaultKey(
+                    World.Room.Meta.Archive, out EnhancedSkyAssetKey key)
+                || !_enhancedSkyResolver.TryGetReplacement(key,
+                    out EnhancedSkyReplacement? replacement))
+            {
+                return null;
+            }
+            return RenderSkyState.FromReplacement(replacement, presentationTime);
+        }
+
+        private static EnhancedSkyResolver LoadDefaultEnhancedSkyResolver()
+        {
+            string root = Path.Combine(LauncherPrefs.Directory,
+                "enhancements", "default");
+            if (!File.Exists(Path.Combine(root, EnhancedSkyPackLoader.ManifestFileName)))
+                return EnhancedSkyResolver.Empty;
+            EnhancedSkyPackLoadResult loaded = EnhancedSkyPackLoader.Load(root);
+            if (loaded.HasIssues)
+            {
+                Console.WriteLine($"[render] enhanced skies loaded with "
+                    + $"{loaded.Issues.Count} ignored issue(s).");
+            }
+            return loaded.Resolver;
+        }
+
+        private static EnhancedEnvironmentOverrides LoadDefaultEnhancedEnvironmentOverrides()
+        {
+            string root = Path.Combine(LauncherPrefs.Directory,
+                "enhancements", "default");
+            if (!File.Exists(Path.Combine(root,
+                EnhancedEnvironmentOverrideLoader.ManifestFileName)))
+            {
+                return EnhancedEnvironmentOverrides.Empty;
+            }
+            EnhancedEnvironmentLoadResult loaded
+                = EnhancedEnvironmentOverrideLoader.Load(root);
+            if (loaded.Issues.Count != 0)
+            {
+                Console.WriteLine($"[render] enhanced environments loaded with "
+                    + $"{loaded.Issues.Count} ignored issue(s).");
+            }
+            return loaded.Overrides;
+        }
+
+        private static EnhancedColorGradeResolver LoadDefaultEnhancedColorGradeResolver()
+        {
+            string root = Path.Combine(LauncherPrefs.Directory,
+                "enhancements", "default");
+            if (!File.Exists(Path.Combine(root,
+                EnhancedColorGradePackLoader.ManifestFileName)))
+            {
+                return EnhancedColorGradeResolver.Empty;
+            }
+            EnhancedColorGradePackLoadResult loaded
+                = EnhancedColorGradePackLoader.Load(root);
+            if (loaded.HasIssues)
+            {
+                Console.WriteLine($"[render] enhanced color grades loaded with "
+                    + $"{loaded.Issues.Count} ignored issue(s).");
+            }
+            return loaded.Resolver;
+        }
+
+        private static ReflectionProbeResolver LoadDefaultReflectionProbeResolver()
+        {
+            string root = Path.Combine(LauncherPrefs.Directory,
+                "enhancements", "default");
+            if (!File.Exists(Path.Combine(root,
+                ReflectionProbePackLoader.ManifestFileName)))
+            {
+                return ReflectionProbeResolver.Empty;
+            }
+            ReflectionProbePackLoadResult loaded = ReflectionProbePackLoader.Load(root);
+            if (loaded.Issues.Count != 0)
+            {
+                Console.WriteLine($"[render] reflection probes loaded with "
+                    + $"{loaded.Issues.Count} ignored issue(s).");
+            }
+            return loaded.Resolver;
+        }
+
+        private static SoftParticleProfileCatalog LoadDefaultSoftParticleProfiles()
+        {
+            string root = Path.Combine(LauncherPrefs.Directory,
+                "enhancements", "default");
+            if (!File.Exists(Path.Combine(root, SoftParticleProfileLoader.ManifestFileName)))
+                return SoftParticleProfileCatalog.Empty;
+            SoftParticleProfileLoadResult loaded = SoftParticleProfileLoader.Load(root);
+            if (loaded.Issues.Count != 0)
+            {
+                Console.WriteLine($"[render] soft-particle profiles loaded with "
+                    + $"{loaded.Issues.Count} ignored issue(s).");
+            }
+            return loaded.Catalog;
         }
         internal List<int> GetEffectTextureBindings(EffectElementEntry element) => _effectBindings.GetOrCreateValue(element);
 
@@ -148,7 +450,37 @@ namespace MphRead
             }
             TextureIdentity identity = new TextureIdentity(source, variant: source);
             PrepareTexture(identity, pixels, width, height);
+#if ANDROID
+            var upload = new ColorRgba[pixels.Count];
+            for (int i = 0; i < upload.Length; i++) upload[i] = pixels[i];
+            int binding = GL.GenTexture();
+            GL.BindTexture(TextureTarget.Texture2D, binding);
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
+                width, height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, upload);
+            GL.BindTexture(TextureTarget.Texture2D, 0);
+            _dynamicTextureBindings.Add(identity, binding);
+#endif
             return identity;
+        }
+
+        public bool ReleaseDynamicTexture(TextureIdentity identity)
+        {
+            bool removed = _textureResources.Remove(identity);
+            var identityBindings = new List<int>();
+            foreach (KeyValuePair<int, TextureIdentity> pair in _bindingTextureIdentities)
+                if (pair.Value == identity) identityBindings.Add(pair.Key);
+            foreach (int binding in identityBindings) _bindingTextureIdentities.Remove(binding);
+            if (identity.Source is DynamicTextureSource source)
+            {
+                var bindings = new List<int>();
+                foreach (KeyValuePair<int, DynamicTextureSource> pair in _dynamicTextureSources)
+                    if (ReferenceEquals(pair.Value, source)) bindings.Add(pair.Key);
+                foreach (int binding in bindings) _dynamicTextureSources.Remove(binding);
+            }
+#if ANDROID
+            if (_dynamicTextureBindings.Remove(identity, out int texture)) GL.DeleteTexture(texture);
+#endif
+            return removed;
         }
 
         public IReadOnlyDictionary<TextureIdentity, RenderTexturePixels> TextureResources => _textureResources;

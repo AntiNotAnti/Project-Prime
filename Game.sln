@@ -45,6 +45,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Server.Node.Tests", "tests\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorkerProcessHarness", "tests\WorkerProcessHarness\WorkerProcessHarness.csproj", "{55CA725A-69E0-43BE-87F2-B6925E5C44DA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnhancedMaterials.Tool", "src\EnhancedMaterials.Tool\EnhancedMaterials.Tool.csproj", "{F7407952-1703-4A75-A37D-BDB024849C55}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -271,6 +273,18 @@ Global
 		{55CA725A-69E0-43BE-87F2-B6925E5C44DA}.Release|x64.Build.0 = Release|Any CPU
 		{55CA725A-69E0-43BE-87F2-B6925E5C44DA}.Release|x86.ActiveCfg = Release|Any CPU
 		{55CA725A-69E0-43BE-87F2-B6925E5C44DA}.Release|x86.Build.0 = Release|Any CPU
+		{F7407952-1703-4A75-A37D-BDB024849C55}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F7407952-1703-4A75-A37D-BDB024849C55}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F7407952-1703-4A75-A37D-BDB024849C55}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F7407952-1703-4A75-A37D-BDB024849C55}.Debug|x64.Build.0 = Debug|Any CPU
+		{F7407952-1703-4A75-A37D-BDB024849C55}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F7407952-1703-4A75-A37D-BDB024849C55}.Debug|x86.Build.0 = Debug|Any CPU
+		{F7407952-1703-4A75-A37D-BDB024849C55}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F7407952-1703-4A75-A37D-BDB024849C55}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F7407952-1703-4A75-A37D-BDB024849C55}.Release|x64.ActiveCfg = Release|Any CPU
+		{F7407952-1703-4A75-A37D-BDB024849C55}.Release|x64.Build.0 = Release|Any CPU
+		{F7407952-1703-4A75-A37D-BDB024849C55}.Release|x86.ActiveCfg = Release|Any CPU
+		{F7407952-1703-4A75-A37D-BDB024849C55}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -294,5 +308,6 @@ Global
 		{F7F28607-820C-4B80-A6C9-28DD95AA6037} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{D3D435DD-CAA4-4158-86ED-403DBCBC4CCC} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{55CA725A-69E0-43BE-87F2-B6925E5C44DA} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{F7407952-1703-4A75-A37D-BDB024849C55} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

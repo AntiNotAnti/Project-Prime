@@ -67,6 +67,8 @@
           CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/scene_triangle.hlsl" />
     <None Include="Rendering/Shaders/scene.hlsl" CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/scene.hlsl" />
+    <None Include="Rendering/Shaders/shadow.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/shadow.hlsl" />
     <None Include="Rendering/Shaders/fullscreen.hlsl" CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/fullscreen.hlsl" />
     <None Include="Rendering/Shaders/hud.hlsl" CopyToOutputDirectory="PreserveNewest"
@@ -77,6 +79,22 @@
           CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/cel.hlsl" />
     <None Include="Rendering/Shaders/bloom.hlsl" CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/bloom.hlsl" />
+    <None Include="Rendering/Shaders/tone_map.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/tone_map.hlsl" />
+    <None Include="Rendering/Shaders/color_grade.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/color_grade.hlsl" />
+    <None Include="Rendering/Shaders/surface.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/surface.hlsl" />
+    <None Include="Rendering/Shaders/ssao.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/ssao.hlsl" />
+    <None Include="Rendering/Shaders/distortion.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/distortion.hlsl" />
+    <None Include="Rendering/Shaders/distortion_warp.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/distortion_warp.hlsl" />
+    <None Include="Rendering/Shaders/visor.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/visor.hlsl" />
+    <None Include="Rendering/Shaders/sky.hlsl" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/sky.hlsl" />
   </ItemGroup>
 
   <!-- Silk's source names differ from OpenTK's loader names. Keep these

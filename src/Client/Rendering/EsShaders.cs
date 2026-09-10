@@ -269,14 +269,17 @@ void main()
 precision highp float;
 
 layout(location = 0) in vec4 a_position;
+layout(location = 1) in vec4 a_color;
 layout(location = 3) in vec3 a_texcoord;
 
 out vec2 texcoord;
+out vec4 hud_color;
 
 void main()
 {
     gl_Position = vec4(a_position.xy, 0.0, 1.0);
     texcoord = a_texcoord.xy;
+    hud_color = a_color;
 }
 ";
 
@@ -290,14 +293,21 @@ uniform float view_height;
 uniform vec4 fade_color;
 uniform sampler2D tex;
 uniform sampler2D mask;
+uniform bool use_hud_vertex_color;
+uniform bool use_hud_texture;
 
 in vec2 texcoord;
+in vec4 hud_color;
 
 out vec4 frag_color;
 
 void main()
 {
-    if (fade_color.a > 0.0) {
+    if (use_hud_vertex_color) {
+        frag_color = use_hud_texture ? texture(tex, texcoord) * hud_color : hud_color;
+        frag_color.a *= alpha;
+    }
+    else if (fade_color.a > 0.0) {
         frag_color = fade_color;
     }
     else {
@@ -583,6 +593,8 @@ namespace MphRead
         public int UseMask { get; set; }
         public int ViewWidth { get; set; }
         public int ViewHeight { get; set; }
+        public int UseHudVertexColor { get; set; }
+        public int UseHudTexture { get; set; }
         public int ShiftTable { get; set; }
         public int ShiftIndex { get; set; }
         public int ShiftFactor { get; set; }

@@ -18,6 +18,17 @@ namespace MphRead.Entities
         {
             if (IsVisible(Entity.NodeRef))
             {
+                if (_entity.Active && !_entity.Hidden && _entity.Data.Invisible == 0)
+                {
+                    ulong sourceKey = _entity.Id >= 0
+                        ? VisualLightSourceKey.ForAuthored(
+                            VisualLightSourceKind.Teleporter, _entity.Id)
+                        : Presentation.GetVisualLightSourceKey(
+                            VisualLightSourceKind.Teleporter, _entity);
+                    float height = _entity.Data.ArtifactId < 8 ? 1 : 1.5f;
+                    Presentation.TryAddVisualLight(sourceKey,
+                        _entity.Position.AddY(height), AmbientVisualLightProfiles.Teleporter);
+                }
                 base.GetDrawInfo();
             }
         }

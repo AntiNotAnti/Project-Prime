@@ -1,0 +1,118 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_DrawConstants
+{
+    float4x4 transform;
+    float4x4 billboard;
+    float4x4 matrixStack[31];
+    float4x4 texcoordMatrix;
+    float4 diffuse;
+    float4 ambient;
+    float4 specular;
+    float4 emission;
+    float4 overrideColor;
+    float4 paletteOverride;
+    float4 light1Vector;
+    float4 light1Color;
+    float4 light2Vector;
+    float4 light2Color;
+    float4 drawOptions;
+    float4 materialOptions;
+    float4 renderOptions;
+    float4 flatColor;
+    float4 enhancedEmission;
+    float4 enhancedOptions;
+    float4 reflectionOptions;
+    float4 softParticleOptions;
+};
+
+struct main_ps_out
+{
+    float gl_FragDepth [[depth(any)]];
+};
+
+struct main_ps_in
+{
+    float2 in_var_TEXCOORD0 [[user(locn0)]];
+};
+
+fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_DrawConstants& DrawConstants [[buffer(0)]], texture2d<float> albedoTexture [[texture(0)]], sampler albedoSampler [[sampler(0)]], float4 gl_FragCoord [[position]])
+{
+    main_ps_out out = {};
+    bool _49 = DrawConstants.drawOptions.x > 0.5;
+    float _58;
+    if (_49)
+    {
+        _58 = albedoTexture.sample(albedoSampler, in.in_var_TEXCOORD0).w;
+    }
+    else
+    {
+        _58 = 1.0;
+    }
+    bool _65;
+    if (_49)
+    {
+        _65 = uint(DrawConstants.materialOptions.y) == 1u;
+    }
+    else
+    {
+        _65 = true;
+    }
+    float _74;
+    if (_65)
+    {
+        _74 = DrawConstants.materialOptions.x;
+    }
+    else
+    {
+        _74 = DrawConstants.materialOptions.x * _58;
+    }
+    bool _81;
+    if (!_49)
+    {
+        _81 = DrawConstants.drawOptions.y > 0.5;
+    }
+    else
+    {
+        _81 = false;
+    }
+    float _86;
+    if (_81)
+    {
+        _86 = DrawConstants.overrideColor.w;
+    }
+    else
+    {
+        _86 = _74;
+    }
+    bool _92;
+    if (_49)
+    {
+        _92 = DrawConstants.drawOptions.y > 0.5;
+    }
+    else
+    {
+        _92 = false;
+    }
+    float _98;
+    if (_92)
+    {
+        _98 = _86 * DrawConstants.overrideColor.w;
+    }
+    else
+    {
+        _98 = _86;
+    }
+    bool _101 = false;
+    bool _102 = true;
+    if (_98 != 1.0)
+    {
+        discard_fragment();
+    }
+    out.gl_FragDepth = gl_FragCoord.z;
+    return out;
+}
+

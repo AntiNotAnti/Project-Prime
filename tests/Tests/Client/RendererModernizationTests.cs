@@ -14,6 +14,49 @@ using Xunit;
 
 public sealed class RendererModernizationTests
 {
+    [Fact]
+    public void HudTextureCommandFreezesCropRotationAlphaStageAndIdentity()
+    {
+        var identity = new TextureIdentity(new object(), variant: new object());
+        var uv = new OpenTK.Mathematics.Vector4(.2f, .3f, .6f, .9f);
+        RenderOverlayCommand command = ScenePresentation.CreateHudTextureCommand(
+            new OpenTK.Mathematics.Vector2i(1920, 1080), identity,
+            10, 20, 50, 60, new OpenTK.Mathematics.Vector4(.5f, .6f, .7f, .8f),
+            uv, MathF.PI / 2, .4f, RenderPresentationStage.ReplayOverlay);
+
+        Assert.Equal(RenderOverlayKind.HudTexture, command.Kind);
+        Assert.Equal(identity, command.Texture);
+        Assert.True(command.UseTexture);
+        Assert.Equal(.4f, command.Alpha);
+        Assert.Equal(RenderPresentationStage.ReplayOverlay, command.Stage);
+        Assert.Equal(4, command.Vertices.Count);
+        Assert.InRange(command.Vertices[0].TexCoord.X, .6999f, .7001f);
+        Assert.InRange(command.Vertices[0].TexCoord.Y, .7999f, .8001f);
+    }
+
+    [Fact]
+    public void HudGeometryCommandIsBoundedCopiedAndUsesCurrentStage()
+    {
+        var source = new List<HudGeometryVertex>
+        {
+            new(new OpenTK.Mathematics.Vector2(0, 0), OpenTK.Mathematics.Vector4.UnitX),
+            new(new OpenTK.Mathematics.Vector2(10, 0), OpenTK.Mathematics.Vector4.UnitY),
+            new(new OpenTK.Mathematics.Vector2(0, 10), OpenTK.Mathematics.Vector4.UnitZ)
+        };
+        RenderOverlayCommand command = ScenePresentation.CreateHudGeometryCommand(
+            new OpenTK.Mathematics.Vector2i(256, 192), source,
+            RenderPresentationStage.HudOverlay);
+        source[0] = new HudGeometryVertex(new OpenTK.Mathematics.Vector2(99), OpenTK.Mathematics.Vector4.One);
+
+        Assert.Equal(RenderOverlayKind.HudGeometry, command.Kind);
+        Assert.Equal(RenderPresentationStage.HudOverlay, command.Stage);
+        Assert.Equal(new OpenTK.Mathematics.Vector3(-1, 1, 0), command.Vertices[0].Position);
+        Assert.Equal(OpenTK.Mathematics.Vector4.UnitX, command.Vertices[0].Color);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ScenePresentation.CreateHudGeometryCommand(
+            new OpenTK.Mathematics.Vector2i(256, 192), Array.Empty<HudGeometryVertex>(),
+            RenderPresentationStage.HudOverlay));
+    }
+
     private static RenderVertex[] Vertices(int count)
         => Enumerable.Range(0, count)
             .Select(i => new RenderVertex(new OpenTK.Mathematics.Vector3(i, 0, 0),
@@ -288,13 +331,14 @@ public sealed class RendererModernizationTests
     }
 
     [Fact]
-    public void RenderMeshPackingPreservesTheFourteenFloatGlesAbiAndIndexStreams()
+    public void RenderMeshPackingPreservesTheEighteenFloatGlesAbiAndIndexStreams()
     {
         RenderVertex explicitVertex = new(
             new OpenTK.Mathematics.Vector3(1, 2, 3),
             new OpenTK.Mathematics.Vector4(.1f, .2f, .3f, .4f),
             new OpenTK.Mathematics.Vector3(4, 5, 6),
-            new OpenTK.Mathematics.Vector2(.7f, .8f), matrixIndex: 7,
+            new OpenTK.Mathematics.Vector2(.7f, .8f),
+            new OpenTK.Mathematics.Vector4(9, 10, 11, -1), matrixIndex: 7,
             flags: RenderVertexFlags.ExplicitColor);
         RenderVertex inheritedVertex = new(
             new OpenTK.Mathematics.Vector3(-1, -2, -3), OpenTK.Mathematics.Vector4.One,
@@ -305,11 +349,13 @@ public sealed class RendererModernizationTests
         float[] vertices = new float[RenderMeshPacking.RequiredVertexFloats(mesh)];
         int[] indices = new int[RenderMeshPacking.RequiredIndexCount(mesh)];
 
-        Assert.Equal(28, RenderMeshPacking.PackVertices(mesh, vertices));
+        Assert.Equal(36, RenderMeshPacking.PackVertices(mesh, vertices));
         Assert.Equal(new[]
         {
             1f, 2f, 3f, .1f, .2f, .3f, .4f, 4f, 5f, 6f, .7f, .8f, 7f, 1f,
-            -1f, -2f, -3f, 1f, 1f, 1f, 1f, 0f, 0f, 1f, 0f, 0f, 2f, 0f
+            9f, 10f, 11f, -1f,
+            -1f, -2f, -3f, 1f, 1f, 1f, 1f, 0f, 0f, 1f, 0f, 0f, 2f, 0f,
+            1f, 0f, 0f, 1f
         }, vertices);
         Assert.Equal(5, RenderMeshPacking.PackIndices(mesh, indices));
         Assert.Equal(new[] { 0, 1, 0, 1, 0 }, indices);
@@ -1493,6 +1539,35 @@ public sealed class RendererModernizationTests
         Assert.Contains("visualLightColorIntensity[8]", sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("min((uint)visualLightOptions.x, 8u)", sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("attenuation *= attenuation", sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("float3 worldPosition : TEXCOORD0", sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("float3 worldNormal : TEXCOORD1", sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("float4 cameraWorldPosition", sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("EvaluateRoomLighting", sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("EvaluatePointLight", sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("EvaluateSpecular", sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("float4 tangent : TEXCOORD6", sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("Texture2D normalTexture", sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("ResolveNormalMap", sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("Texture2D emissiveTexture", sceneSourceText,
+            StringComparison.Ordinal);
+        Assert.Contains("materialEmission = hasMappedEmission", sceneSourceText,
+            StringComparison.Ordinal);
+        Assert.Contains("result.rgb += materialEmission", sceneSourceText,
+            StringComparison.Ordinal);
+        Assert.Contains("TextureCube reflectionTexture : register(t3, space2)",
+            sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("float3 reflectionVector = reflect(-viewDirection, normal)",
+            sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("SampleLevel(\n        reflectionSampler, reflectionVector",
+            sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("result.rgb += EvaluateReflection(input.worldPosition, normal)",
+            sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("float reciprocalDeterminant = 1.0f / determinant",
+            sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("* reciprocalDeterminant, tangent",
+            sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("* reciprocalDeterminant, bitangent",
+            sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("renderOptions.z > 0.0f", sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("(1.0f - fogDensity)", sceneSourceText, StringComparison.Ordinal);
         foreach (string artifact in new[]
@@ -1510,7 +1585,10 @@ public sealed class RendererModernizationTests
             ("hud", new[] { "LegacyMaskTexcoord", "hudOptions", "hudTexture" }),
             ("disruption", new[] { "ShiftValue", "WhiteoutValue", "disruptionOptions" }),
             ("cel", new[] { "KinkAbs", "EdgeAt", "depthTexture" }),
-            ("bloom", new[] { "BlurSample", "bloomOptions", "sourceTexture" })
+            ("bloom", new[] { "BlurSample", "bloomOptions", "sourceTexture" }),
+            ("tone_map", new[] { "ToneMapAces", "LinearToSRGB", "toneMapOptions" }),
+            ("color_grade", new[] { "LutUv", "LutTextureSize", "colorGradeOptions", "lutTexture" }),
+            ("visor", new[] { "VisorConstants", "EdgeMask", "visorDamage", "sourceTexture" })
         })
         {
             string familySource = Path.Combine(outputRoot, $"{stem}.hlsl");
@@ -1624,7 +1702,7 @@ public sealed class RendererModernizationTests
         OpenTK.Mathematics.Matrix4 cylinder
             = OpenTK.Mathematics.Matrix4.CreateRotationY(.5f);
         frame.CaptureState(OpenTK.Mathematics.Matrix4.Identity, sphere, cylinder,
-            OpenTK.Mathematics.Matrix4.Identity, default, default, default,
+            OpenTK.Mathematics.Matrix4.Identity, default, default, default, default,
             default, default, default, default, false, default, 0, 0, default);
         frame.Seal();
 

@@ -143,6 +143,15 @@ def main() -> int:
         "disruption": ("ShiftValue", "WhiteoutValue", "disruptionOptions"),
         "cel": ("KinkAbs", "EdgeAt", "depthTexture"),
         "bloom": ("BlurSample", "bloomOptions", "sourceTexture"),
+        "tone_map": ("ToneMapAces", "LinearToSRGB", "toneMapOptions"),
+        "color_grade": ("LutUv", "LutTextureSize", "colorGradeOptions", "lutTexture"),
+        "surface": ("EncodeOctNormal", "ResolveAlpha", "viewDepth", "normalTexture"),
+        "ssao": ("RawOcclusion", "Bilateral", "CoordinateRotation", "surfaceTexture"),
+        "shadow": ("shadowViewProjection", "SV_Depth", "albedoTexture"),
+        "distortion": ("distortionOptions", "matrixStack", "SV_Target0"),
+        "distortion_warp": ("distortionTexture", "warpedUv", "sourceTexture"),
+        "visor": ("VisorConstants", "EdgeMask", "visorDamage", "sourceTexture"),
+        "sky": ("SkyConstants", "WorldDirection", "SampleCubeFaces", "skyTexture0"),
     }.items():
         if check_family(family, tokens) != 0:
             return 1

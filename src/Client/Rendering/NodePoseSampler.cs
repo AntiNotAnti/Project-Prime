@@ -46,6 +46,79 @@ namespace MphRead.Mods.Render
                 }
             }
         }
+
+        /// <summary>
+        /// Samples the two animation tracks used by a player biped without
+        /// touching the runtime model.  The legs track owns the root through
+        /// the spine; the torso track owns the spine's children.  This is the
+        /// read-only equivalent of <c>PlayerEntity.AnimateBipedPose</c>.
+        ///
+        /// Biped animation is authored with <c>useNodeTransform:false</c>.
+        /// Consequently these matrices are deliberately root-relative: the
+        /// caller supplies the current world root when resolving the pose.
+        /// </summary>
+        public static void SampleBiped(Model model, AnimationInfo legs, AnimationInfo torso,
+            int spineIndex, float pitch, Matrix4[] poses)
+        {
+            if (poses.Length != model.Nodes.Count)
+                throw new ArgumentException("Biped pose buffer size does not match model.");
+            if (poses.Length == 0) return;
+
+            // AnimateNodes leaves skipped subtrees alone.  A biped history
+            // cannot retain a prior world-rooted value in such a subtree, so
+            // use the neutral root-relative value as the deterministic base.
+            for (int i = 0; i < poses.Length; i++) poses[i] = Matrix4.Identity;
+            if ((uint)spineIndex >= (uint)model.Nodes.Count)
+            {
+                return;
+            }
+
+            Matrix4 spinePitch = Matrix4.CreateRotationZ(pitch);
+            AnimateBipedSegment(model, 0, legs, spineIndex, spinePitch, legsSegment: true, poses);
+            Node spine = model.Nodes[spineIndex];
+            if (spine.ChildIndex != -1)
+                AnimateBipedSegment(model, spine.ChildIndex, torso, spineIndex, spinePitch,
+                    legsSegment: false, poses);
+        }
+
+        private static void AnimateBipedSegment(Model model, int index, AnimationInfo info,
+            int spineIndex, Matrix4 spinePitch, bool legsSegment, Matrix4[] poses)
+        {
+            for (int i = index; i != -1; i = model.Nodes[i].NextIndex)
+            {
+                Node node = model.Nodes[i];
+                Matrix4 value = Matrix4.Identity;
+                NodeAnimationGroup? group = info.Node.Group;
+                if (group != null && group.Animations.TryGetValue(node.Name, out NodeAnimation animation))
+                {
+                    value = AnimateNode(model, group, animation, model.Scale, info.NodeFrame);
+                    if (node.ParentIndex != -1 && !node.AnimIgnoreParent)
+                        value *= poses[node.ParentIndex];
+                }
+
+                bool isSpine = legsSegment && i == spineIndex;
+                poses[i] = value;
+                // PlayerEntity.AnimateBipedPose temporarily installs this as
+                // the spine's AfterTransform and blocks its children during
+                // the legs pass.  Apply it after the value is formed so the
+                // order remains identical without mutating Node state.
+                if (isSpine)
+                    poses[i] = spinePitch * poses[i];
+
+                if (node.ChildIndex != -1 && !node.AnimIgnoreChild && !isSpine)
+                    AnimateBipedSegment(model, node.ChildIndex, info, spineIndex,
+                        spinePitch, legsSegment, poses);
+
+                if (!isSpine)
+                {
+                    if (node.AfterTransform.HasValue)
+                        poses[i] = node.AfterTransform.Value * poses[i];
+                    else if (node.BeforeTransform.HasValue)
+                        poses[i] = poses[i] * node.BeforeTransform.Value;
+                }
+            }
+        }
+
         private static Matrix4 ComputeNodeTransforms(Vector3 scale, Vector3 angle, Vector3 position)
         {
             float sinAx = MathF.Sin(angle.X);

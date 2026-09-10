@@ -4,28 +4,28 @@
       "entrypoint": "main_ps",
       "format": "DXIL",
       "path": "bloom.frag.dxil",
-      "sha256": "c24e6c178911eae59cabbd416be2787d2c0cd30304e2e7213f8e2daf4d0d84d9",
+      "sha256": "3904c69125b7bea3da91a18f74579a8ab0ee43a2a70b1a460a433abc09ae3719",
       "stage": "fragment"
     },
     "fragment_msl": {
       "entrypoint": "main_ps",
       "format": "MSL",
       "path": "bloom.frag.msl",
-      "sha256": "a5f60a948d43d4fa49774dc366135d3c2374b3f65009624d6900ccc450f54f43",
+      "sha256": "e12bf1dfeaa031fcc33cfce1ce9e52fde88c5e0170ef991cfa39e6ef422adc8e",
       "stage": "fragment"
     },
     "fragment_spirv": {
       "entrypoint": "main_ps",
       "format": "SPIRV",
       "path": "bloom.frag.spv",
-      "sha256": "13cd816887203c0a0a87fb59f625cbc832ab88a5977c50454627ab707cb0e719",
+      "sha256": "51741da99204c20d43eea852e564064416d078d64be5fa43ad1934ab0e53fd17",
       "stage": "fragment"
     },
     "vertex_dxil": {
       "entrypoint": "main_vs",
       "format": "DXIL",
       "path": "bloom.vert.dxil",
-      "sha256": "498870baeda1316bc641dd6736832120b1ab417099cddac3941ec7f5382aeabd",
+      "sha256": "4c68c6e039609f46904c274268437e7e377bfc9dcf8afbc6b996e62755d7681a",
       "stage": "vertex"
     },
     "vertex_msl": {
@@ -48,7 +48,7 @@
   },
   "provenance": {
     "cli": "SDL_shadercross official cli.c",
-    "cli_sha256": "57a9d32813e0a2bd7b74a478a90ef4e82b0e09eab6d8d90be097d758d5480dab",
+    "cli_sha256": "63e88f91d017b9031e0130098a2ee5b50843809d8583fe0d631b9b7112553d12",
     "mode": "offline-build-only",
     "msl_version": "1.2.0 (SDL_shadercross default)",
     "native_package": "SDL3-CS.MacOS.Shadercross",
@@ -61,5 +61,5 @@
   },
   "schema": 2,
   "source": "bloom.hlsl",
-  "source_sha256": "b7edc44c43db7a8fec0b4c2a5e99508c392e95ab742df5539829e770c988fab2"
+  "source_sha256": "d0d445d2334f15fce702373b96e9a166bdf5a3199a282790f949cc7581a9712c"
 }

@@ -75,14 +75,16 @@ namespace MphRead
 
         public void SetVertex(int index, Vector3 position, Vector2 texCoord = default,
             Vector4? color = null, uint matrixIndex = 0,
-            bool explicitColor = false, Vector3? normal = null)
+            bool explicitColor = false, Vector3? normal = null,
+            Vector4? tangent = null)
         {
             if ((uint)index >= (uint)_vertexCount)
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
             _vertices[index] = new RenderVertex(position, color ?? Vector4.One,
-                normal ?? Vector3.UnitZ, texCoord, matrixIndex,
+                normal ?? Vector3.UnitZ, texCoord, tangent ?? new Vector4(1, 0, 0, 1),
+                matrixIndex,
                 explicitColor ? RenderVertexFlags.ExplicitColor : RenderVertexFlags.None);
         }
 

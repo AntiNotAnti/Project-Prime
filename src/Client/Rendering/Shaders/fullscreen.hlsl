@@ -33,7 +33,7 @@ cbuffer FullscreenConstants : register(b0, space3)
     float4 operation;       // x: 0 composite, 1 fade, 2 overlay
     float4 fadeColor;       // RGB and legacy fade coverage in A
     float4 viewport;        // width, height, source width, source height
-    float4 overlayOptions;  // x alpha, y use mask, z/w reserved
+    float4 overlayOptions;  // x alpha, y use mask, z convert authored RGB to display-linear
 };
 
 Texture2D sourceTexture : register(t0, space2);
@@ -46,6 +46,19 @@ struct VertexOutput
     float4 position : SV_Position;
     float2 texcoord : TEXCOORD0;
 };
+
+float SRGBToLinearComponent(float value)
+{
+    value = saturate(value);
+    return value <= 0.04045f ? value / 12.92f
+        : pow((value + 0.055f) / 1.055f, 2.4f);
+}
+
+float3 SRGBToLinear(float3 value)
+{
+    return float3(SRGBToLinearComponent(value.r),
+        SRGBToLinearComponent(value.g), SRGBToLinearComponent(value.b));
+}
 
 float2 LegacyMaskTexcoord(float2 pixelPosition)
 {
@@ -62,7 +75,9 @@ float4 main_ps(VertexOutput input) : SV_Target0
     {
         // Legacy fade_color is an outright colour source.  The blend state
         // applies the coverage carried in its alpha channel.
-        return fadeColor;
+        float4 output = fadeColor;
+        if (overlayOptions.z > 0.5f) output.rgb = SRGBToLinear(output.rgb);
+        return output;
     }
 
     float4 output = sourceTexture.Sample(sourceSampler, input.texcoord);

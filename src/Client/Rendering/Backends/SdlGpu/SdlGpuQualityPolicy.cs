@@ -187,6 +187,156 @@ namespace MphRead
         }
     }
 
+    internal enum SdlGpuHdrFallbackReason : byte
+    {
+        None,
+        PresetDoesNotRequestHdr,
+        UnsupportedRenderTarget,
+        CachedAllocationFailure
+    }
+
+    internal readonly record struct SdlGpuSceneColorPlan(
+        SDL_GPUTextureFormat Format,
+        bool UsesHdr,
+        SdlGpuHdrFallbackReason FallbackReason);
+
+    /// <summary>
+    /// Selects a distinct internal scene format. The final composite remains
+    /// the device's single-sample byte-format SDR target in every mode.
+    /// </summary>
+    internal static class SdlGpuHdrPolicy
+    {
+        public const SDL_GPUTextureFormat HdrFormat
+            = SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
+
+        public static SdlGpuSceneColorPlan Resolve(GraphicsPreset preset,
+            SDL_GPUTextureFormat ldrFormat, bool hdrColorTargetAndSamplerSupported)
+        {
+            if (preset != GraphicsPreset.Enhanced)
+            {
+                return new SdlGpuSceneColorPlan(ldrFormat, UsesHdr: false,
+                    SdlGpuHdrFallbackReason.PresetDoesNotRequestHdr);
+            }
+            if (!hdrColorTargetAndSamplerSupported)
+            {
+                return new SdlGpuSceneColorPlan(ldrFormat, UsesHdr: false,
+                    SdlGpuHdrFallbackReason.UnsupportedRenderTarget);
+            }
+            return new SdlGpuSceneColorPlan(HdrFormat, UsesHdr: true,
+                SdlGpuHdrFallbackReason.None);
+        }
+    }
+
+    internal readonly record struct SdlGpuHdrConfiguration(
+        GraphicsPreset Preset,
+        uint SceneWidth,
+        uint SceneHeight,
+        uint CompositeWidth,
+        uint CompositeHeight,
+        int RequestedSamples,
+        bool CelDepthSampling,
+        bool BloomRequested);
+
+    /// <summary>
+    /// An allocation failure is sticky only for the exact resource
+    /// configuration. SdlGpuSceneResources is device-owned, so its lifetime is
+    /// also the device-generation boundary. Any size, quality, or feature
+    /// change invalidates the cached failure and permits one new HDR attempt.
+    /// </summary>
+    internal static class SdlGpuHdrFailurePolicy
+    {
+        public static bool ShouldAttemptHdr(SdlGpuHdrConfiguration? failed,
+            SdlGpuHdrConfiguration current)
+            => failed == null || failed.Value != current;
+    }
+
+    internal readonly record struct SdlGpuOutputTransferPolicy(
+        bool ToneMap,
+        bool ShaderConvertsLinearToSrgb,
+        bool DisplayAssetsConvertSrgbToLinear)
+    {
+        public static SdlGpuOutputTransferPolicy Resolve(GraphicsPreset preset,
+            bool swapchainIsSrgb)
+        {
+            bool enhanced = preset == GraphicsPreset.Enhanced;
+            return new SdlGpuOutputTransferPolicy(
+                ToneMap: enhanced,
+                ShaderConvertsLinearToSrgb: enhanced && !swapchainIsSrgb,
+                DisplayAssetsConvertSrgbToLinear: enhanced);
+        }
+    }
+
+    internal enum SdlGpuColorPipelineStep : byte
+    {
+        SceneEffects,
+        ToneMap,
+        ColorGrade,
+        SceneCapture,
+        Visor,
+        HudScene,
+        Overlays,
+        OutputTransfer,
+        FinalCapture
+    }
+
+    internal static class SdlGpuColorPipelinePlan
+    {
+        private static readonly SdlGpuColorPipelineStep[] _enhancedSteps =
+        {
+            SdlGpuColorPipelineStep.SceneEffects,
+            SdlGpuColorPipelineStep.ToneMap,
+            SdlGpuColorPipelineStep.ColorGrade,
+            // SceneTarget branches here and intentionally excludes the
+            // viewer-local visor just like the later 2D overlay layers.
+            SdlGpuColorPipelineStep.SceneCapture,
+            SdlGpuColorPipelineStep.Visor,
+            SdlGpuColorPipelineStep.HudScene,
+            SdlGpuColorPipelineStep.Overlays,
+            SdlGpuColorPipelineStep.OutputTransfer,
+            SdlGpuColorPipelineStep.FinalCapture
+        };
+
+        public static IReadOnlyList<SdlGpuColorPipelineStep> EnhancedSteps
+            => _enhancedSteps;
+    }
+
+    /// <summary>
+    /// Readback textures always use the final SDR byte format. Enhanced scene
+    /// captures therefore require the same explicit tone-map/transfer pass as
+    /// presentation; the float scene target is never interpreted as bytes.
+    /// </summary>
+    internal static class SdlGpuCaptureColorPolicy
+    {
+        public static bool RequiresSdrSceneConversion(GraphicsPreset preset,
+            CaptureTargetKind target)
+            => preset == GraphicsPreset.Enhanced
+                && target is CaptureTargetKind.SceneTarget
+                    or CaptureTargetKind.ThumbnailTarget;
+
+        public static SDL_GPUTextureFormat ReadbackFormat(
+            SDL_GPUTextureFormat swapchainFormat)
+            => swapchainFormat;
+    }
+
+    /// <summary>CPU reference for the Enhanced display-linear blend contract.</summary>
+    internal static class SdlGpuDisplayCompositionMath
+    {
+        public static Vector3 BlendAuthoredSrgb(Vector3 destinationLinear,
+            Vector3 authoredSrgb, float alpha)
+        {
+            if (!float.IsFinite(alpha) || alpha < 0 || alpha > 1)
+                throw new ArgumentOutOfRangeException(nameof(alpha));
+            Vector3 sourceLinear = EnhancedColorMath.SrgbToLinear(authoredSrgb);
+            return destinationLinear * (1 - alpha) + sourceLinear * alpha;
+        }
+
+        public static Vector3 ShaderOutput(Vector3 displayLinear,
+            bool swapchainIsSrgb)
+            => swapchainIsSrgb
+                ? displayLinear
+                : EnhancedColorMath.LinearToSrgb(displayLinear);
+    }
+
     internal readonly record struct SdlGpuBloomPlan(
         bool Enabled,
         uint BlurWidth,
@@ -211,7 +361,9 @@ namespace MphRead
             uint sceneHeight, int effectiveSamples)
         {
             if (frame == null) throw new ArgumentNullException(nameof(frame));
-            bool enabled = frame.Options.Quality.Bloom && HasEligibleSubmission(frame.Submissions);
+            bool enabled = frame.Options.Quality.Bloom
+                && HasEligibleSubmission(frame.Submissions,
+                    frame.Options.Quality.GraphicsPreset);
             return new SdlGpuBloomPlan(enabled,
                 enabled ? QuarterDimension(sceneWidth) : 0,
                 enabled ? QuarterDimension(sceneHeight) : 0,
@@ -223,16 +375,35 @@ namespace MphRead
             => material.BloomEligible && float.IsFinite(material.BloomStrength)
                 && material.BloomStrength > 0;
 
+        public static bool IsEligible(RenderMaterial material,
+            GraphicsPreset preset)
+        {
+            if (preset == GraphicsPreset.Enhanced
+                && material.Enhanced?.Emissive is TextureIdentity)
+            {
+                return SdlGpuEmissionPolicy.HasMappedEmission(material);
+            }
+            return IsEligible(material);
+        }
+
         public static float Strength(RenderMaterial material)
             => IsEligible(material) ? Math.Clamp(material.BloomStrength, 0, 1) : 0;
+
+        public static float Strength(RenderMaterial material,
+            GraphicsPreset preset)
+            => preset == GraphicsPreset.Enhanced
+                && material.Enhanced?.Emissive is TextureIdentity
+                    ? SdlGpuEmissionPolicy.HasMappedEmission(material) ? 1 : 0
+                    : Strength(material);
 
         public static Vector3 ApplyFogVisibility(Vector3 emission, float fogDensity)
             => emission * (1f - Math.Clamp(fogDensity, 0, 1));
 
-        public static bool HasEligibleSubmission(IReadOnlyList<DrawSubmission> submissions)
+        public static bool HasEligibleSubmission(IReadOnlyList<DrawSubmission> submissions,
+            GraphicsPreset preset)
         {
             for (int i = 0; i < submissions.Count; i++)
-                if (IsEligible(submissions[i].Material)) return true;
+                if (IsEligible(submissions[i].Material, preset)) return true;
             return false;
         }
 
@@ -241,6 +412,22 @@ namespace MphRead
 
         private static int NormalizeSamples(int samples)
             => samples >= 4 ? 4 : samples >= 2 ? 2 : 1;
+    }
+
+    internal static class SdlGpuEmissionPolicy
+    {
+        public static bool HasMappedEmission(RenderMaterial material)
+            => material.Enhanced is EnhancedMaterial enhanced
+                && enhanced.Emissive is TextureIdentity
+                && float.IsFinite(enhanced.EmissionStrength)
+                && enhanced.EmissionStrength > 0;
+
+        public static Vector3 Map(Vector3 emissiveSrgb, Vector3 tint,
+            float strength)
+        {
+            if (!float.IsFinite(strength) || strength <= 0) return Vector3.Zero;
+            return EnhancedColorMath.SrgbToLinear(emissiveSrgb) * tint * strength;
+        }
     }
 
     internal enum SdlGpuBloomStep : byte

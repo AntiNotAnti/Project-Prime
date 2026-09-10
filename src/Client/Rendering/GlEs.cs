@@ -45,7 +45,8 @@ namespace MphRead.Mods.Render
     /// </summary>
     internal static class GlEs
     {
-        // 0..2 position, 3..6 colour, 7..9 normal, 10..12 texcoord + matrix id, 13 "had its own colour"
+        // 0..2 position, 3..6 colour, 7..9 normal, 10..12 texcoord + matrix id,
+        // 13 "had its own colour", 14..17 tangent + handedness
         private const int FloatsPerVertex = RenderMeshPacking.FloatsPerVertex;
         private const int Stride = FloatsPerVertex * sizeof(float);
         private const int MaximumDynamicVertices = RenderMeshPacking.DefaultMaximumVertices;
@@ -96,6 +97,11 @@ namespace MphRead.Mods.Render
         // ---- the engine's own texture names, mapped to real ones ----
         private static readonly Dictionary<int, int> _textures = new Dictionary<int, int>();
         private static int _textureHighWater;
+        // Generation zero is reserved as "uninitialized" by the policy
+        // contract; the first current context is generation one.
+        private static ulong _contextGeneration = 1;
+
+        public static ulong ContextGeneration => _contextGeneration;
 
         /// <summary>Drop every GL object this class owns. For a lost context.</summary>
         public static void Reset()
@@ -112,6 +118,75 @@ namespace MphRead.Mods.Render
             _dynVboSize = _dynIboSize = 0;
             _immColorLoc = -1;
             _alphaTestLoc = -1;
+            _contextGeneration++;
+            if (_contextGeneration == 0) _contextGeneration = 1;
+        }
+
+        public static GlesEnhancedCapabilities QueryEnhancedCapabilities()
+        {
+            int major = ES.GL.GetInteger(ES.GetPName.MajorVersion);
+            int minor = ES.GL.GetInteger(ES.GetPName.MinorVersion);
+            int textureUnits = ES.GL.GetInteger(ES.GetPName.MaxTextureImageUnits);
+            int uniformVectors = ES.GL.GetInteger(ES.GetPName.MaxFragmentUniformVectors);
+            bool colorBufferFloat = HasExtension("GL_EXT_color_buffer_half_float")
+                || HasExtension("GL_EXT_color_buffer_float");
+            bool probe = colorBufferFloat && ProbeRgba16fColorTarget();
+            return new GlesEnhancedCapabilities(major, minor, textureUnits,
+                uniformVectors, colorBufferFloat, probe);
+        }
+
+        private static bool HasExtension(string requested)
+        {
+            int count = ES.GL.GetInteger(ES.GetPName.NumExtensions);
+            for (int i = 0; i < count; i++)
+            {
+                if (String.Equals(ES.GL.GetString(ES.StringNameIndexed.Extensions, i),
+                    requested, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool ProbeRgba16fColorTarget()
+        {
+            int priorFramebuffer = ES.GL.GetInteger(ES.GetPName.FramebufferBinding);
+            int priorTexture = ES.GL.GetInteger(ES.GetPName.TextureBinding2D);
+            int texture = 0;
+            int framebuffer = 0;
+            try
+            {
+                while (ES.GL.GetError() != ES.ErrorCode.NoError) { }
+                texture = ES.GL.GenTexture();
+                ES.GL.BindTexture(ES.TextureTarget.Texture2D, texture);
+                ES.GL.TexImage2D(ES.TextureTarget2d.Texture2D, 0,
+                    ES.TextureComponentCount.Rgba16f, 1, 1, 0,
+                    ES.PixelFormat.Rgba, ES.PixelType.HalfFloat, IntPtr.Zero);
+                ES.GL.TexParameter(ES.TextureTarget.Texture2D,
+                    ES.TextureParameterName.TextureMinFilter, (int)ES.TextureMinFilter.Nearest);
+                ES.GL.TexParameter(ES.TextureTarget.Texture2D,
+                    ES.TextureParameterName.TextureMagFilter, (int)ES.TextureMagFilter.Nearest);
+                framebuffer = ES.GL.GenFramebuffer();
+                ES.GL.BindFramebuffer(ES.FramebufferTarget.Framebuffer, framebuffer);
+                ES.GL.FramebufferTexture2D(ES.FramebufferTarget.Framebuffer,
+                    ES.FramebufferAttachment.ColorAttachment0, ES.TextureTarget2d.Texture2D,
+                    texture, 0);
+                return ES.GL.CheckFramebufferStatus(ES.FramebufferTarget.Framebuffer)
+                    == ES.FramebufferErrorCode.FramebufferComplete
+                    && ES.GL.GetError() == ES.ErrorCode.NoError;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+            finally
+            {
+                ES.GL.BindFramebuffer(ES.FramebufferTarget.Framebuffer, priorFramebuffer);
+                ES.GL.BindTexture(ES.TextureTarget.Texture2D, priorTexture);
+                if (framebuffer != 0) ES.GL.DeleteFramebuffer(framebuffer);
+                if (texture != 0) ES.GL.DeleteTexture(texture);
+            }
         }
 
         public static void Color3(float r, float g, float b)
@@ -332,7 +407,7 @@ namespace MphRead.Mods.Render
         }
 
         public static void DrawCrosshairRing(float radius, float thickness,
-            float halfWidth, float halfHeight, int segments = 40)
+            float halfWidth, float halfHeight, Vector2 center, int segments = 40)
         {
             if (segments < 3) throw new ArgumentOutOfRangeException(nameof(segments));
             float inner = radius - thickness / 2;
@@ -344,9 +419,9 @@ namespace MphRead.Mods.Render
                 float cos = MathF.Cos(angle);
                 float sin = MathF.Sin(angle);
                 _dynamicScratch.SetVertex(i * 2,
-                    new Vector3(outer * cos / halfWidth, outer * sin / halfHeight, 0f));
+                    new Vector3(center.X + outer * cos / halfWidth, center.Y + outer * sin / halfHeight, 0f));
                 _dynamicScratch.SetVertex(i * 2 + 1,
-                    new Vector3(inner * cos / halfWidth, inner * sin / halfHeight, 0f));
+                    new Vector3(center.X + inner * cos / halfWidth, center.Y + inner * sin / halfHeight, 0f));
             }
             DrawPreparedDynamicMesh();
         }
@@ -483,7 +558,7 @@ namespace MphRead.Mods.Render
 
         private static void SetupAttributes()
         {
-            for (int i = 0; i <= 4; i++)
+            for (int i = 0; i <= 5; i++)
             {
                 ES.GL.EnableVertexAttribArray(i);
             }
@@ -492,6 +567,7 @@ namespace MphRead.Mods.Render
             ES.GL.VertexAttribPointer(2, 3, ES.VertexAttribPointerType.Float, false, Stride, 7 * sizeof(float));
             ES.GL.VertexAttribPointer(3, 3, ES.VertexAttribPointerType.Float, false, Stride, 10 * sizeof(float));
             ES.GL.VertexAttribPointer(4, 1, ES.VertexAttribPointerType.Float, false, Stride, 13 * sizeof(float));
+            ES.GL.VertexAttribPointer(5, 4, ES.VertexAttribPointerType.Float, false, Stride, 14 * sizeof(float));
         }
 
         private static void ApplyDrawState()
@@ -600,6 +676,11 @@ namespace MphRead.Mods.Render
             return ES.GL.CreateProgram();
         }
 
+        public static void DeleteProgram(int program)
+        {
+            if (program != 0) ES.GL.DeleteProgram(program);
+        }
+
         public static void AttachShader(int program, int shader)
         {
             ES.GL.AttachShader(program, shader);
@@ -619,6 +700,17 @@ namespace MphRead.Mods.Render
                 throw new ProgramException(
                     $"Failed to link program {program}: {ES.GL.GetProgramInfoLog(program)}");
             }
+        }
+
+        public static void GetProgram(int program, GetProgramParameterName pname,
+            out int value)
+        {
+            ES.GL.GetProgram(program, (ES.GetProgramParameterName)(int)pname, out value);
+        }
+
+        public static string GetProgramInfoLog(int program)
+        {
+            return ES.GL.GetProgramInfoLog(program);
         }
 
         public static void UseProgram(int program)
@@ -856,6 +948,11 @@ namespace MphRead.Mods.Render
             return ES.GL.GenFramebuffer();
         }
 
+        public static void DeleteFramebuffer(int framebuffer)
+        {
+            if (framebuffer != 0) ES.GL.DeleteFramebuffer(framebuffer);
+        }
+
         public static void BindFramebuffer(FramebufferTarget target, int framebuffer)
         {
             ES.GL.BindFramebuffer((ES.FramebufferTarget)(int)target, framebuffer);
@@ -872,6 +969,11 @@ namespace MphRead.Mods.Render
         public static int GenRenderbuffer()
         {
             return ES.GL.GenRenderbuffer();
+        }
+
+        public static void DeleteRenderbuffer(int renderbuffer)
+        {
+            if (renderbuffer != 0) ES.GL.DeleteRenderbuffer(renderbuffer);
         }
 
         public static void BindRenderbuffer(RenderbufferTarget target, int renderbuffer)
@@ -945,6 +1047,11 @@ namespace MphRead.Mods.Render
         public static void Uniform4(int location, Vector4 vector)
         {
             ES.GL.Uniform4(location, vector);
+        }
+
+        public static void Uniform4(int location, int count, float[] value)
+        {
+            ES.GL.Uniform4(location, count, value);
         }
 
         public static void Uniform4(int location, ref Vector4 vector)

@@ -39,16 +39,22 @@ namespace MphRead.Entities
         public override void GetDrawInfo()
         {
             AddVisualLight();
-            if (_entity.BombType == BombType.Lockjaw)
+            if (_entity.BombType == BombType.Lockjaw
+                && _entity.Owner.IsRegisteredLockjawBomb(_entity))
             {
+                BombEntity[] registered = _entity.Owner.GetRegisteredLockjawBombs();
                 if (_entity.BombIndex == 1)
                 {
-                    DrawLockjawTrail(Entity.Position, _entity.Owner.SyluxBombs[0]!.Position, Fixed.ToFloat(614), 10);
+                    if (registered.Length > 1)
+                        DrawLockjawTrail(Entity.Position, registered[0].Position, Fixed.ToFloat(614), 10);
                 }
                 else if (_entity.BombIndex == 2)
                 {
-                    DrawLockjawTrail(Entity.Position, _entity.Owner.SyluxBombs[1]!.Position, Fixed.ToFloat(614), 10);
-                    DrawLockjawTrail(Entity.Position, _entity.Owner.SyluxBombs[0]!.Position, Fixed.ToFloat(614), 10);
+                    if (registered.Length > 2)
+                    {
+                        DrawLockjawTrail(Entity.Position, registered[1].Position, Fixed.ToFloat(614), 10);
+                        DrawLockjawTrail(Entity.Position, registered[0].Position, Fixed.ToFloat(614), 10);
+                    }
                 }
             }
 
@@ -69,14 +75,11 @@ namespace MphRead.Entities
                 return;
             }
 
-            Vector3 color = _entity.BombType switch
-            {
-                BombType.Stinglarva => new Vector3(1f, 0.25f, 0.05f),
-                BombType.Lockjaw => new Vector3(0.15f, 0.7f, 1f),
-                _ => new Vector3(0.3f, 0.5f, 1f)
-            };
-            Presentation.TryAddVisualLight(_entity.Position, color,
-                radius: 1.5f, intensity: 0.4f, priority: 24);
+            ulong sourceKey = Presentation.GetVisualLightSourceKey(
+                VisualLightSourceKind.Bomb, _entity,
+                _entity.CombatShot.CommandSequence);
+            Presentation.TryAddVisualLight(sourceKey, _entity.Position,
+                AmbientVisualLightProfiles.Bomb(_entity.BombType));
         }
 
         private void DrawLockjawTrail(Vector3 point1, Vector3 point2, float height, int segments)

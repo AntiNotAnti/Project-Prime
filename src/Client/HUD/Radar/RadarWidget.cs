@@ -11,9 +11,7 @@ public static class RadarWidget
     {
         if (!float.IsFinite(range) || range <= 0) throw new ArgumentOutOfRangeException(nameof(range));
         Vector3 delta = contact.Position - origin;
-        Vector2 forward = orientation == RadarOrientation.North ? -Vector2.UnitY : new(facing.X, facing.Z);
-        if (!float.IsFinite(forward.LengthSquared) || forward.LengthSquared < 0.000001f) forward = -Vector2.UnitY;
-        else forward.Normalize();
+        Vector2 forward = orientation == RadarOrientation.North ? -Vector2.UnitY : SanitizeHeading(facing);
         Vector2 right = new(-forward.Y, forward.X);
         Vector2 horizontal = new(delta.X, delta.Z);
         Vector2 relative = new(Vector2.Dot(horizontal, right) / range, -Vector2.Dot(horizontal, forward) / range);
@@ -22,6 +20,20 @@ public static class RadarWidget
         RadarElevation elevation = delta.Y > RadarSettings.ElevationThreshold ? RadarElevation.Above
             : delta.Y < -RadarSettings.ElevationThreshold ? RadarElevation.Below : RadarElevation.Same;
         return new(contact, relative, elevation, clamped);
+    }
+
+    public static Vector2 SanitizeHeading(Vector3 facing)
+    {
+        var forward = new Vector2(facing.X, facing.Z);
+        if (!float.IsFinite(forward.LengthSquared) || forward.LengthSquared < .000001f)
+            return -Vector2.UnitY;
+        return forward.Normalized();
+    }
+
+    public static float HeadingAngle(Vector3 facing)
+    {
+        Vector2 forward = SanitizeHeading(facing);
+        return MathF.Atan2(forward.X, -forward.Y);
     }
 
     public static string Symbol(in RadarContact contact) => contact.Type switch

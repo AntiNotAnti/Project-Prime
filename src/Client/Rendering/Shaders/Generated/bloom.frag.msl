@@ -19,23 +19,38 @@ struct main_ps_in
     float2 in_var_TEXCOORD0 [[user(locn0)]];
 };
 
-fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_BloomConstants& BloomConstants [[buffer(0)]], texture2d<float> sourceTexture [[texture(0)]], sampler sourceSampler [[sampler(0)]])
+fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_BloomConstants& BloomConstants [[buffer(0)]], texture2d<float> sourceTexture [[texture(0)]], texture2d<float> secondaryTexture [[texture(1)]], sampler sourceSampler [[sampler(0)]], sampler secondarySampler [[sampler(1)]])
 {
     main_ps_out out = {};
-    float4 _107;
+    float4 _205;
     do
     {
-        if (dot(BloomConstants.bloomOptions.xy, BloomConstants.bloomOptions.xy) < 0.5)
+        if (BloomConstants.bloomOptions.w > 2.5)
         {
-            _107 = float4(sourceTexture.sample(sourceSampler, in.in_var_TEXCOORD0).xyz * BloomConstants.bloomOptions.z, 0.0);
+            _205 = float4((sourceTexture.sample(sourceSampler, in.in_var_TEXCOORD0).xyz * BloomConstants.bloomOptions.x) + (secondaryTexture.sample(secondarySampler, in.in_var_TEXCOORD0).xyz * BloomConstants.bloomOptions.y), 1.0);
             break;
         }
-        float2 _63 = BloomConstants.bloomOptions.xy * BloomConstants.texelSize.xy;
-        float2 _88 = _63 * 2.0;
-        _107 = float4(((((sourceTexture.sample(sourceSampler, in.in_var_TEXCOORD0).xyz * 0.375) + (sourceTexture.sample(sourceSampler, (in.in_var_TEXCOORD0 + _63)).xyz * 0.25)) + (sourceTexture.sample(sourceSampler, (in.in_var_TEXCOORD0 - _63)).xyz * 0.25)) + (sourceTexture.sample(sourceSampler, (in.in_var_TEXCOORD0 + _88)).xyz * 0.0625)) + (sourceTexture.sample(sourceSampler, (in.in_var_TEXCOORD0 - _88)).xyz * 0.0625), 0.0);
+        if (BloomConstants.bloomOptions.w > 1.5)
+        {
+            _205 = float4((sourceTexture.sample(sourceSampler, in.in_var_TEXCOORD0).xyz * BloomConstants.bloomOptions.x) + (secondaryTexture.sample(secondarySampler, in.in_var_TEXCOORD0).xyz * BloomConstants.bloomOptions.y), 0.0);
+            break;
+        }
+        if (BloomConstants.bloomOptions.w > 0.5)
+        {
+            float2 _115 = BloomConstants.texelSize.xy * ((float2(abs(dfdx(in.in_var_TEXCOORD0.x)), abs(dfdy(in.in_var_TEXCOORD0.y))) / BloomConstants.texelSize.xy) * 0.25);
+            float _118 = _115.x;
+            float _119 = -_118;
+            float _120 = _115.y;
+            float _121 = -_120;
+            _205 = float4((((sourceTexture.sample(sourceSampler, (in.in_var_TEXCOORD0 + float2(_119, _121))).xyz + sourceTexture.sample(sourceSampler, (in.in_var_TEXCOORD0 + float2(_118, _121))).xyz) + sourceTexture.sample(sourceSampler, (in.in_var_TEXCOORD0 + float2(_119, _120))).xyz) + sourceTexture.sample(sourceSampler, (in.in_var_TEXCOORD0 + _115)).xyz) * 0.25, 0.0);
+            break;
+        }
+        float2 _161 = BloomConstants.bloomOptions.xy * BloomConstants.texelSize.xy;
+        float2 _186 = _161 * 2.0;
+        _205 = float4(((((sourceTexture.sample(sourceSampler, in.in_var_TEXCOORD0).xyz * 0.375) + (sourceTexture.sample(sourceSampler, (in.in_var_TEXCOORD0 + _161)).xyz * 0.25)) + (sourceTexture.sample(sourceSampler, (in.in_var_TEXCOORD0 - _161)).xyz * 0.25)) + (sourceTexture.sample(sourceSampler, (in.in_var_TEXCOORD0 + _186)).xyz * 0.0625)) + (sourceTexture.sample(sourceSampler, (in.in_var_TEXCOORD0 - _186)).xyz * 0.0625), 0.0);
         break;
     } while(false);
-    out.out_var_SV_Target0 = _107;
+    out.out_var_SV_Target0 = _205;
     return out;
 }
 

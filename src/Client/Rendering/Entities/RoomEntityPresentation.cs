@@ -117,7 +117,8 @@ namespace MphRead.Entities
 
                         Material material = model.Materials[mesh.MaterialId];
                         Presentation.AddRenderItem(material, polygonId, 1, Vector3.Zero, GetLightInfo(), Matrix4.Identity, transform, Presentation.GetMeshListId(mesh), mesh.GeometryIdentity, 0, _entity._emptyMatrixStack, color, null, SelectionType.None, node.BillboardMode,
-                            textureIdentity: Presentation.GetTextureIdentity(model, material, _entity.Recolor));
+                            textureIdentity: Presentation.GetTextureIdentity(model, material, _entity.Recolor),
+                            textureAssetKey: ScenePresentation.GetRoomTextureAssetKey(_entity.Meta, material));
                     }
                 }
             }
@@ -226,12 +227,12 @@ namespace MphRead.Entities
                     if (pnode.ChildIndex != -1)
                     {
                         Node node = _entity.Nodes[pnode.ChildIndex];
-                        GetItems(roomInst, node, forceField.Portal);
+                        GetItems(roomInst, node, forceField.Portal, i);
                         int nextIndex = node.NextIndex;
                         while (nextIndex != -1)
                         {
                             node = _entity.Nodes[nextIndex];
-                            GetItems(roomInst, node, forceField.Portal);
+                            GetItems(roomInst, node, forceField.Portal, i);
                             nextIndex = node.NextIndex;
                         }
                     }
@@ -284,12 +285,12 @@ namespace MphRead.Entities
                     if (pnode.ChildIndex != -1)
                     {
                         Node node = _entity.Nodes[pnode.ChildIndex];
-                        GetItems(inst, node, forceField.Portal);
+                        GetItems(inst, node, forceField.Portal, i);
                         int nextIndex = node.NextIndex;
                         while (nextIndex != -1)
                         {
                             node = _entity.Nodes[nextIndex];
-                            GetItems(inst, node, forceField.Portal);
+                            GetItems(inst, node, forceField.Portal, i);
                             nextIndex = node.NextIndex;
                         }
                     }
@@ -297,7 +298,8 @@ namespace MphRead.Entities
             }
         }
 
-        private void GetItems(ModelInstance inst, Node node, Portal? portal = null)
+        private void GetItems(ModelInstance inst, Node node, Portal? portal = null,
+            int forceFieldIndex = -1)
         {
             if (!node.Enabled)
             {
@@ -329,8 +331,22 @@ namespace MphRead.Entities
 
                 Matrix4 texcoordMatrix = GetTexcoordMatrix(inst, material, mesh.MaterialId, node);
                 SelectionType selectionType = Selection.CheckSelection(_entity, inst, node, mesh);
+                EnhancedForceFieldDrawState? enhancedForceField = null;
+                if (portal?.IsForceField == true)
+                {
+                    Debug.Assert(forceFieldIndex >= 0);
+                    ulong portalKey = Presentation.GetVisualLightSourceKey(
+                        VisualLightSourceKind.ForceField, portal);
+                    ulong drawKey = EnhancedPresentationSourceKey.ForSubresource(
+                        portalKey, forceFieldIndex, start + k);
+                    enhancedForceField = new EnhancedForceFieldDrawState(drawKey,
+                        EnhancedForceFieldProfiles.Default,
+                        Presentation.CapturedPresentationTime);
+                }
                 Presentation.AddRenderItem(material, polygonId, alpha, emission: Vector3.Zero, GetLightInfo(), texcoordMatrix, node.Animation, Presentation.GetMeshListId(mesh), mesh.GeometryIdentity, model.NodeMatrixIds.Count, model.MatrixStackValues, overrideColor: null, paletteOverride: null, selectionType, node.BillboardMode,
-                    textureIdentity: Presentation.GetTextureIdentity(model, material, _entity.Recolor));
+                    textureIdentity: Presentation.GetTextureIdentity(model, material, _entity.Recolor),
+                    textureAssetKey: ScenePresentation.GetRoomTextureAssetKey(_entity.Meta, material),
+                    enhancedForceField: enhancedForceField);
             }
         }
 

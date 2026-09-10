@@ -54,9 +54,13 @@ namespace MphRead.Entities
                 if (_player._availableWeapons[(BeamType)i] && (i == 0 || ammo == -1 || ammo >= info.AmmoCost)) available |= 1 << i;
             }
             if (!GamepadInput.Active) WeaponRadial.Reset();
-            bool wheel = GamepadInput.Active && GamepadInput.State.Down(PadBindings.Get(PadAction.WeaponWheel));
-            byte radial = WeaponRadial.Update(wheel, GamepadInput.State.Down(GamepadButtons.B),
-                GamepadInput.State.RightX, GamepadInput.State.RightY, Mods.InputSettings.GamepadDeadZone, available);
+            GamepadButtons effectiveButtons = GamepadInput.EffectiveButtons;
+            bool wheel = GamepadInput.Active
+                && (effectiveButtons & PadBindings.Get(PadAction.WeaponWheel)) != 0;
+            byte radial = WeaponRadial.Update(wheel,
+                (effectiveButtons & GamepadButtons.B) != 0,
+                GamepadInput.State.RightX, GamepadInput.State.RightY,
+                Mods.InputSettings.GamepadLookDeadZone, available);
             if (radial <= 8) _weaponIntent.Request(radial, available);
             if (Bindings.WeaponMenu.IsReleased) _weaponIntent.Request((byte)_player.WeaponSelection, available);
             if (Bindings.NextWeapon.IsPressed || Bindings.PrevWeapon.IsPressed)

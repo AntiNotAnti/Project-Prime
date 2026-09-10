@@ -34,6 +34,8 @@ namespace MphRead.Entities
         {
             KeyboardState keyboardSnap = keyboardState.GetSnapshot();
             MouseState mouseSnap = mouseState.GetSnapshot();
+            Mods.Input.StylusState desktopStylus
+                = Mods.Input.DesktopStylusInput.ConsumeState();
             if (Mods.SpectatorMode.IsSpectating)
             {
                 // The one control somebody watching keeps, because a
@@ -78,14 +80,21 @@ namespace MphRead.Entities
                 var rawLook = player.GetPresentation().Presentation.RenderLook;
                 if (rawLook != null)
                 {
-                    var movement = rawLook.Consume();
-                    player.Input.MouseDeltaX = movement.X;
-                    player.Input.MouseDeltaY = movement.Y;
+                    // Look is extracted once through ISceneServices as a
+                    // LocalLookFrame. Drain the compatibility accumulator so
+                    // old callers cannot replay it, but do not apply it a
+                    // second time through MouseDeltaX/Y.
+                    rawLook.ConsumeForSimulation();
+                    player.Input.MouseDeltaX = 0;
+                    player.Input.MouseDeltaY = 0;
                 }
                 else
                 {
-                    player.Input.MouseDeltaX = (mouseSnap.X - prevMouseSnap?.X) ?? 0;
-                    player.Input.MouseDeltaY = (mouseSnap.Y - prevMouseSnap?.Y) ?? 0;
+                    // Platform adapters submit relative look to the neutral
+                    // coordinator. Absolute pointer motion remains available
+                    // for menus/radials but is never a second gameplay path.
+                    player.Input.MouseDeltaX = 0;
+                    player.Input.MouseDeltaY = 0;
                 }
                 _isScrollingUp = false;
                 _isScrollingDown = false;
@@ -167,9 +176,37 @@ namespace MphRead.Entities
                     player.Input.ClickX = -1;
                     player.Input.ClickY = -1;
                 }
+                if (!noPlayerInput) ApplyDesktopStylus(player, desktopStylus);
             // todo?: besides the code duplication, input processing like this should work even if
             // there's no player or the player is not active (will need to revisit this for menus)
             }
+        }
+
+        private static void ApplyDesktopStylus(PlayerEntity player,
+            in Mods.Input.StylusState state)
+        {
+            Mods.Input.StylusBindings bindings = Mods.InputSettings.CurrentStylusBindings;
+            bool fire = bindings.IsDown(state, Mods.Input.StylusAction.Fire)
+                || state.PressureFireActive;
+            bool firePressed = bindings.IsPressed(state, Mods.Input.StylusAction.Fire);
+            bool zoom = bindings.IsDown(state, Mods.Input.StylusAction.Zoom);
+            bool zoomPressed = bindings.IsPressed(state, Mods.Input.StylusAction.Zoom);
+            ApplyStylusButton(player.GetPresentation().Bindings.Shoot, fire, firePressed);
+            ApplyStylusButton(player.GetPresentation().Bindings.AltAttack, fire, firePressed);
+            ApplyStylusButton(player.GetPresentation().Bindings.Zoom, zoom, zoomPressed);
+            if (state.DoubleTapJump)
+                ApplyStylusButton(player.GetPresentation().Bindings.Jump, true, true);
+            if (state.FlickBoost && player.IsAltForm)
+                ApplyStylusButton(player.GetPresentation().Bindings.Boost, true, true);
+            if (fire || zoom || state.DoubleTapJump
+                || state.FlickBoost && player.IsAltForm)
+                player.ModNoteInput();
+        }
+
+        private static void ApplyStylusButton(Keybind bind, bool down, bool pressed)
+        {
+            bind.IsDown |= down;
+            bind.IsPressed |= pressed;
         }
     }
 }

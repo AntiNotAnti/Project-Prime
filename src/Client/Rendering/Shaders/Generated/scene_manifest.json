@@ -3,32 +3,32 @@
     "fragment_dxil": {
       "format": "DXIL",
       "path": "scene.frag.dxil",
-      "sha256": "68e7c5e0b795de2c4869540cecd3078bf38514bc7df8be4ed118ef5c4f97fd65"
+      "sha256": "3f18d3a5b7380af8c088797693e83170810ca399d54bd1c16f2316f87691e59c"
     },
     "fragment_msl": {
       "format": "MSL",
       "path": "scene.frag.msl",
-      "sha256": "16253cb6e8912d64848dfbae044c054723b252542db7d41f83792d7f39e49039"
+      "sha256": "692137277001389577c9ee4f51644c8dceb378e5d73a2a5e7bdf4c5175c63410"
     },
     "fragment_spirv": {
       "format": "SPIRV",
       "path": "scene.frag.spv",
-      "sha256": "f543a83769e05051bb2058b7cd3143dcb3784f0f5c8d3508fd2482b0cfc5a4be"
+      "sha256": "9ccb945251c0b3408084d7f95cdb81ac03658ef50674430c12182168012502b9"
     },
     "vertex_dxil": {
       "format": "DXIL",
       "path": "scene.vert.dxil",
-      "sha256": "337c4fc25448d79a4c3050ef9365e51f13d07a074e92974d6813309085c0ef4f"
+      "sha256": "d6523d6f618b700ad0e0058eb720b71daa6d3b1d8eec8ca85843f75b721c6aae"
     },
     "vertex_msl": {
       "format": "MSL",
       "path": "scene.vert.msl",
-      "sha256": "35494b81880d366ec86db0d39c3e1490c8d22bc409a08935fb1a400253e90ab4"
+      "sha256": "8aeaf5d3c9d2c07bf2719228239630bce07368b067235fac334d2c8c69eff226"
     },
     "vertex_spirv": {
       "format": "SPIRV",
       "path": "scene.vert.spv",
-      "sha256": "9ec87a42a51d05209cdc3c3cc1e23c7f5f6f8ddca1edb6b361b6f7390c7ceb18"
+      "sha256": "2ab283e48c1f2a942b3b3d983e5b3a5e7a28ac6216fee13e347b039c907bf9d8"
     }
   },
   "blocked_artifacts": {
@@ -36,7 +36,7 @@
   },
   "provenance": {
     "cli": "SDL_shadercross official cli.c",
-    "cli_sha256": "57a9d32813e0a2bd7b74a478a90ef4e82b0e09eab6d8d90be097d758d5480dab",
+    "cli_sha256": "63e88f91d017b9031e0130098a2ee5b50843809d8583fe0d631b9b7112553d12",
     "mode": "offline-build-only",
     "msl_version": "1.2.0 (SDL_shadercross default)",
     "native_package": "SDL3-CS.MacOS.Shadercross",
@@ -49,5 +49,5 @@
   },
   "schema": 2,
   "source": "scene.hlsl",
-  "source_sha256": "e0a27420f4e21ef3c3a4defb0627a872551eb20fd13761edffd8a6dad5906b01"
+  "source_sha256": "144936c558abefb8529b993065fd51d7e9320ea53649a892c46ad9baefb0fbd7"
 }

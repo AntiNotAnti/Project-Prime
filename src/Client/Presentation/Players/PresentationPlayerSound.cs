@@ -3,6 +3,8 @@ using System.Diagnostics;
 using MphRead.Formats;
 using MphRead.Sound;
 using MphRead.Hud;
+using MphRead.Mods.Input;
+using MphRead.Mods.Network;
 
 namespace MphRead.Entities
 {
@@ -10,6 +12,10 @@ namespace MphRead.Entities
     {
         public void PlayHunterSfx(HunterSfx sfx)
         {
+            if (_player.IsMainPlayer && sfx is HunterSfx.Damage or HunterSfx.Death)
+                GamepadHaptics.Play(sfx == HunterSfx.Death
+                    ? HapticEvent.Death : HapticEvent.TakingDamage,
+                    unchecked((uint)_player.ModScene.FrameCount));
             int id = Metadata.HunterSfx[(int)_player.Hunter, (int)sfx];
             if (id == -1)
             {
@@ -87,6 +93,11 @@ namespace MphRead.Entities
 
         public void PlayBeamShotSfx(BeamType beam, bool charged, bool continuous, bool homing, float amountA)
         {
+            if (_player.IsMainPlayer)
+                GamepadHaptics.Play(beam == BeamType.Missile
+                    ? HapticEvent.Missile : charged
+                        ? HapticEvent.ChargedShotRelease : HapticEvent.WeaponFire,
+                    unchecked((uint)_player.ModScene.FrameCount));
             StopBeamChargeSfx(beam);
             if (continuous)
             {
@@ -721,6 +732,16 @@ namespace MphRead.Entities
         {
             if (Sfx.TimedSfxMute == 0)
                 _player._soundSource.PlayFreeSfx(id);
+        }
+
+        public void PresentMajorPickup(ItemType itemType)
+        {
+            // Network matches use the authoritative WorldEvent identity. The
+            // local path has no event id, so its simulation frame is the
+            // presentation identity and never crosses a protocol boundary.
+            if (_player.IsMainPlayer && !AuthoritativePlay.Active)
+                GamepadHaptics.Play(HapticEvent.MajorPickup,
+                    unchecked((uint)_player.ModScene.FrameCount));
         }
     }
 }

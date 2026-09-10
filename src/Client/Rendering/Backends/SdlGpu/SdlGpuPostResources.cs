@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using OpenTK.Mathematics;
 using SDL;
+using MphRead.Mods;
 
 namespace MphRead
 {
@@ -78,13 +79,35 @@ namespace MphRead
         private bool _quadUploaded;
         private SDL_GPUTexture* _intermediateA;
         private SDL_GPUTexture* _intermediateB;
-        private SDL_GPUTexture* _bloomA;
-        private SDL_GPUTexture* _bloomB;
+        private SDL_GPUTexture* _distortedBloom;
+        private SDL_GPUTexture* _bloomQuarterA;
+        private SDL_GPUTexture* _bloomQuarterB;
+        private SDL_GPUTexture* _bloomEighthA;
+        private SDL_GPUTexture* _bloomEighthB;
+        private SDL_GPUTexture* _bloomSixteenthA;
+        private SDL_GPUTexture* _bloomSixteenthB;
+        private SDL_GPUTexture* _displayLinearA;
+        private SDL_GPUTexture* _displayLinearB;
+        private SDL_GPUTexture* _displayLinearForFrame;
+        private SDL_GPUTexture* _captureSceneSdr;
+        private SDL_GPUTexture* _captureSceneForFrame;
         private uint _sceneWidth;
         private uint _sceneHeight;
-        private uint _bloomWidth;
-        private uint _bloomHeight;
+        private uint _captureWidth;
+        private uint _captureHeight;
+        private uint _displayWidth;
+        private uint _displayHeight;
+        private SDL_GPUTextureFormat _sceneFormat;
+        private SDL_GPUTextureFormat _displayFormat;
+        private BloomPyramidPlan? _bloomPyramid;
+        private readonly BloomPyramidFailureCache _bloomFailureCache = new();
+        private BloomPyramidConfiguration? _reportedBloomFailure;
+        private bool _bloomEnabledForFrame;
         private bool _reportedUnsampleableDepth;
+        private SDL_GPUTextureFormat? _failedDistortionWarpFormat;
+        private SDL_GPUTextureFormat? _reportedDistortionWarpFailure;
+        private SDL_GPUTextureFormat? _failedVisorFormat;
+        private SDL_GPUTextureFormat? _reportedVisorFailure;
         private bool _disposed;
 
         private SdlGpuPostResources(SdlGpuDevice device)
@@ -95,7 +118,11 @@ namespace MphRead
             {
                 ShaderArtifactManifest.ValidatePostFresh();
                 for (int i = 0; i < _overlaySlots.Length; i++) _overlaySlots[i] = new OverlaySlot(device);
-                foreach (PostShader shader in Enum.GetValues<PostShader>()) _shaders.Add(shader, CreateShaders(shader));
+                foreach (PostShader shader in Enum.GetValues<PostShader>())
+                {
+                    if (shader is not PostShader.DistortionWarp and not PostShader.Visor)
+                        _shaders.Add(shader, CreateShaders(shader));
+                }
                 CreateQuad();
             }
             catch
@@ -107,21 +134,114 @@ namespace MphRead
 
         public static SdlGpuPostResources Create(SdlGpuDevice device) => new(device);
 
-        public void Encode(SDL_GPUCommandBuffer* commandBuffer, RenderFrame frame,
+        public SDL_GPUTexture* CaptureSceneColor => _captureSceneForFrame;
+        public SDL_GPUTexture* DisplayLinearColor => _displayLinearForFrame;
+
+        public bool TryPrepareDistortionWarp(SDL_GPUTextureFormat targetFormat)
+        {
+            if (_failedDistortionWarpFormat == targetFormat) return false;
+            try
+            {
+                ShaderArtifactManifest.ValidateDistortionWarpFresh();
+                if (!_shaders.ContainsKey(PostShader.DistortionWarp))
+                {
+                    _shaders.Add(PostShader.DistortionWarp,
+                        CreateShaders(PostShader.DistortionWarp));
+                }
+                _ = Pipeline(new PostPipelineKey(PostShader.DistortionWarp,
+                    Blend: false,
+                    SDL_GPUPrimitiveType.SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP,
+                    targetFormat));
+                _failedDistortionWarpFormat = null;
+                _reportedDistortionWarpFailure = null;
+                return true;
+            }
+            catch (Exception error) when (error is InvalidOperationException
+                or IOException or PlatformNotSupportedException)
+            {
+                _failedDistortionWarpFormat = targetFormat;
+                if (_reportedDistortionWarpFailure != targetFormat)
+                {
+                    _reportedDistortionWarpFailure = targetFormat;
+                    Console.Error.WriteLine(
+                        $"[render] Enhanced distortion warp disabled for {targetFormat}: {error.Message}");
+                }
+                return false;
+            }
+        }
+
+        public bool TryPrepareVisor(SDL_GPUTextureFormat targetFormat)
+        {
+            if (_failedVisorFormat == targetFormat) return false;
+            PostPipelineKey key = new(PostShader.Visor, Blend: false,
+                SDL_GPUPrimitiveType.SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP,
+                targetFormat);
+            if (_pipelines.ContainsKey(key)) return true;
+            try
+            {
+                if (!_shaders.ContainsKey(PostShader.Visor))
+                {
+                    ShaderArtifactManifest.ValidateVisorFresh();
+                    _shaders.Add(PostShader.Visor, CreateShaders(PostShader.Visor));
+                }
+                _ = Pipeline(key);
+                _failedVisorFormat = null;
+                _reportedVisorFailure = null;
+                return true;
+            }
+            catch (Exception error) when (error is InvalidOperationException
+                or IOException or UnauthorizedAccessException
+                or System.Text.Json.JsonException or PlatformNotSupportedException)
+            {
+                _failedVisorFormat = targetFormat;
+                if (_reportedVisorFailure != targetFormat)
+                {
+                    _reportedVisorFailure = targetFormat;
+                    Console.Error.WriteLine(
+                        $"[render] Enhanced visor disabled for {targetFormat}: {error.Message}");
+                }
+                return false;
+            }
+        }
+
+        public void PrepareSceneTargets(uint width, uint height,
+            uint compositeWidth, uint compositeHeight,
+            SDL_GPUTextureFormat sceneFormat, SdlGpuBloomPlan bloomPlan,
+            bool enhancedOutput)
+        {
+            EnsureIntermediates(width, height, sceneFormat);
+            _bloomEnabledForFrame = bloomPlan.Enabled
+                && TryEnsureBloomPyramid(width, height, sceneFormat);
+            if (enhancedOutput)
+                EnsureDisplayLinear(compositeWidth, compositeHeight, sceneFormat);
+        }
+
+        public void EncodeScene(SDL_GPUCommandBuffer* commandBuffer, RenderFrame frame,
             SDL_GPUTexture* sceneColor, SDL_GPUTexture* sceneDepth, SDL_GPUTexture* bloomColor,
             SdlGpuBloomPlan bloomPlan, SDL_GPUTexture* finalComposite,
-            uint finalWidth, uint finalHeight, SdlGpuSceneResources sceneResources)
+            uint finalWidth, uint finalHeight, SDL_GPUTextureFormat sceneFormat,
+            bool enhancedOutput, SdlGpuSceneResources sceneResources,
+            SDL_GPUTexture* distortionTexture)
         {
             SdlGpuPresentationOrder.Validate(frame.OverlayCommands);
             EnsureQuadUploaded(commandBuffer);
-            EnsureIntermediates(checked((uint)Math.Max(1, frame.SceneTargetSize.X)),
-                checked((uint)Math.Max(1, frame.SceneTargetSize.Y)));
+            PrepareSceneTargets(checked((uint)Math.Max(1, frame.SceneTargetSize.X)),
+                checked((uint)Math.Max(1, frame.SceneTargetSize.Y)), finalWidth,
+                finalHeight, sceneFormat, bloomPlan, enhancedOutput);
+
+            _captureSceneForFrame = enhancedOutput ? null : sceneColor;
 
             SDL_GPUTexture* current = sceneColor;
-            if (frame.CelState.Enabled && frame.CelState.Outline > 0 && sceneResources.DepthSampleable)
+            SDL_GPUTexture* effectiveBloom = bloomColor;
+            SDL_GPUTexture* surfaceData = sceneResources.SurfaceDataTexture;
+            SDL_GPUTexture* celGeometry = surfaceData != null
+                ? surfaceData : sceneResources.DepthSampleable ? sceneDepth : null;
+            if (frame.CelState.Enabled && frame.CelState.Outline > 0
+                && celGeometry != null)
             {
                 SDL_GPUTexture* target = NextIntermediate(current);
-                EncodeCel(commandBuffer, frame, current, sceneDepth, target, sceneResources);
+                EncodeCel(commandBuffer, frame, current, celGeometry, target,
+                    sceneResources, surfaceData != null);
                 current = target;
             }
             else if (frame.CelState.Enabled && frame.CelState.Outline > 0 && !_reportedUnsampleableDepth)
@@ -129,33 +249,42 @@ namespace MphRead
                 _reportedUnsampleableDepth = true;
                 Console.Error.WriteLine("[render] cel outline disabled: SDL GPU depth-stencil targets are not sampleable on this device.");
             }
-            if (bloomColor != null)
+            // Cel evaluates against the unwarped surface/depth buffers. Warp
+            // the completed cel scene and its selective emission together so
+            // later bloom follows the same displaced geometry.
+            if (enhancedOutput && distortionTexture != null)
+            {
+                SDL_GPUTexture* target = NextIntermediate(current);
+                EncodeFullscreen(commandBuffer, current,
+                    (nint)distortionTexture, target, _sceneWidth, _sceneHeight,
+                    PostShader.DistortionWarp, sceneFormat,
+                    operation: EnhancedDistortionSubmission.MaximumStrength,
+                    alpha: 1, color: Vector4.One, blend: false,
+                    RenderCompositeFilter.Linear, clear: true, sceneResources);
+                current = target;
+                if (bloomColor != null && _bloomEnabledForFrame)
+                {
+                    EncodeFullscreen(commandBuffer, bloomColor,
+                        (nint)distortionTexture, _distortedBloom,
+                        _sceneWidth, _sceneHeight,
+                        PostShader.DistortionWarp, sceneFormat,
+                        operation: EnhancedDistortionSubmission.MaximumStrength,
+                        alpha: 1, color: Vector4.One, blend: false,
+                        RenderCompositeFilter.Linear, clear: true,
+                        sceneResources);
+                    effectiveBloom = _distortedBloom;
+                }
+            }
+            if (effectiveBloom != null && _bloomEnabledForFrame)
             {
                 if (!bloomPlan.Enabled)
                     throw new InvalidOperationException("SDL bloom texture has no enabled bloom plan.");
-                EnsureBloomIntermediates(bloomPlan.BlurWidth, bloomPlan.BlurHeight);
-                EncodeBloomBlur(commandBuffer, bloomColor, _bloomA,
-                    bloomPlan.BlurWidth, bloomPlan.BlurHeight,
-                    _sceneWidth, _sceneHeight, horizontal: true, sceneResources);
-                EncodeBloomBlur(commandBuffer, _bloomA, _bloomB,
-                    bloomPlan.BlurWidth, bloomPlan.BlurHeight,
-                    bloomPlan.BlurWidth, bloomPlan.BlurHeight,
-                    horizontal: false, sceneResources);
-
-                // Bloom belongs to the scene-effects chain so disruption and
-                // whiteout affect the composited result. Copy the current
-                // scene into the other full-size intermediate, then add the
-                // blurred emission without sampling and rendering one texture.
                 SDL_GPUTexture* target = NextIntermediate(current);
-                EncodeFullscreen(commandBuffer, current, sceneResources.WhiteTextureHandle,
-                    target, _sceneWidth, _sceneHeight, PostShader.Fullscreen,
-                    operation: 0, alpha: 1, color: Vector4.One,
-                    blend: false, RenderCompositeFilter.Nearest, clear: true, sceneResources);
-                EncodeBloomComposite(commandBuffer, _bloomB, target,
-                    _sceneWidth, _sceneHeight, sceneResources);
+                EncodeBloomPyramid(commandBuffer, effectiveBloom, current, target,
+                    sceneResources);
                 current = target;
             }
-            else if (bloomPlan.Enabled)
+            else if (effectiveBloom == null && _bloomEnabledForFrame)
             {
                 throw new InvalidOperationException("SDL enabled bloom plan has no resolved emission texture.");
             }
@@ -167,62 +296,287 @@ namespace MphRead
                 current = target;
             }
 
-            EncodeFullscreen(commandBuffer, current, sceneResources.WhiteTextureHandle,
-                finalComposite, finalWidth, finalHeight, PostShader.Fullscreen,
-                operation: 0, alpha: 1, color: Vector4.One,
-                blend: false, frame.Composite.Filter, clear: frame.Composite.ClearDestination,
-                sceneResources);
-            EncodeOverlays(commandBuffer, frame, finalComposite, finalWidth, finalHeight, sceneResources);
+            if (enhancedOutput)
+            {
+                EncodeColorTransform(commandBuffer, current, _displayLinearA,
+                    finalWidth, finalHeight, frame.Exposure,
+                    toneMap: true, shaderConvertsLinearToSrgb: false,
+                    frame.Composite.Filter, sceneFormat, sceneResources,
+                    clear: true);
+                if (frame.ColorGrade.Enabled)
+                {
+                    EncodeColorGrade(commandBuffer, frame, _displayLinearA,
+                        _displayLinearB, finalWidth, finalHeight, sceneFormat,
+                        sceneResources);
+                    _displayLinearForFrame = _displayLinearB;
+                }
+                else
+                {
+                    _displayLinearForFrame = _displayLinearA;
+                }
+            }
+            else
+            {
+                _displayLinearForFrame = null;
+                EncodeFullscreen(commandBuffer, current, sceneResources.WhiteTextureHandle,
+                    finalComposite, finalWidth, finalHeight, PostShader.Fullscreen,
+                    _device.SwapchainFormat, operation: 0, alpha: 1,
+                    color: Vector4.One, blend: false, frame.Composite.Filter,
+                    clear: frame.Composite.ClearDestination, sceneResources,
+                    displayAssetsToLinear: false);
+            }
+        }
+
+        public bool RequiresSceneCapture(GraphicsPreset preset,
+            IReadOnlyList<RenderCaptureRequest> requests)
+        {
+            for (int i = 0; i < requests.Count; i++)
+            {
+                if (SdlGpuCaptureColorPolicy.RequiresSdrSceneConversion(
+                    preset, requests[i].Target)) return true;
+            }
+            return false;
+        }
+
+        public SDL_GPUTexture* EncodeSceneCaptureBase(
+            SDL_GPUCommandBuffer* commandBuffer, RenderFrame frame,
+            SDL_GPUTexture* sceneColor,
+            SdlGpuSceneResources resources)
+        {
+            if (!RequiresSceneCapture(frame.Options.Quality.GraphicsPreset,
+                frame.CaptureRequests)) return null;
+            // Preserve SceneTarget semantics: branch from the resolved scene
+            // after the six world passes, not from the later post-effects
+            // chain. Reuse a full-size intermediate after the main scene has
+            // already been tone-mapped to its separate composition target.
+            SDL_GPUTexture* captureLinear = NextIntermediate(sceneColor);
+            EncodeColorTransform(commandBuffer, sceneColor, captureLinear,
+                _sceneWidth, _sceneHeight, frame.Exposure, toneMap: true,
+                shaderConvertsLinearToSrgb: false, frame.Composite.Filter,
+                _sceneFormat, resources, clear: true);
+            if (frame.ColorGrade.Enabled)
+            {
+                SDL_GPUTexture* gradedCapture = NextIntermediate(captureLinear);
+                EncodeColorGrade(commandBuffer, frame, captureLinear,
+                    gradedCapture, _sceneWidth, _sceneHeight, _sceneFormat,
+                    resources);
+                captureLinear = gradedCapture;
+            }
+            return captureLinear;
+        }
+
+        /// <summary>
+        /// Apply the viewer-local visor to the main display-linear branch. The
+        /// overlay-free SceneTarget branch is intentionally captured before this.
+        /// </summary>
+        public SDL_GPUTexture* EncodeVisor(SDL_GPUCommandBuffer* commandBuffer,
+            RenderFrame frame, SDL_GPUTexture* source, uint width, uint height,
+            SDL_GPUTextureFormat targetFormat, SdlGpuSceneResources resources)
+        {
+            if (!frame.Visor.Enabled || !TryPrepareVisor(targetFormat)) return source;
+            SDL_GPUTexture* target = NextDisplayLinear(source);
+            RenderVisorState state = frame.Visor;
+            VisorConstants constants = new()
+            {
+                Combat = new Vector4(state.Combat.CenterClearRadius,
+                    state.Combat.EdgeVignette,
+                    state.Combat.ChromaticSeparation,
+                    state.Combat.Distortion),
+                Damage = new Vector4(state.Damage.Direction.X,
+                    state.Damage.Direction.Y, state.Damage.EdgeOpacity,
+                    state.Damage.Distortion),
+                DamageColor = new Vector4(state.Damage.ColorImpulse,
+                    state.Damage.ScanlineInterference),
+                LowHealth = new Vector4(state.LowHealth.EdgeOpacity,
+                    state.LowHealth.Interference,
+                    state.LowHealth.CenterClearRadius,
+                    state.Combat.HelmetReflection),
+                Phases = new Vector4(state.DistortionPhase,
+                    state.InterferencePhase, state.Damage.CenterClearRadius, 0)
+            };
+            BeginFullscreenPass(commandBuffer, target, width, height,
+                PostShader.Visor, targetFormat, blend: false, additive: false,
+                clear: true, source,
+                (SDL_GPUTexture*)resources.WhiteTextureHandle,
+                resources.LinearClampSamplerHandle,
+                resources.LinearClampSamplerHandle,
+                &constants, (uint)sizeof(VisorConstants));
+            _displayLinearForFrame = target;
+            return target;
+        }
+
+        public void EncodeSceneCaptureTransfer(SDL_GPUCommandBuffer* commandBuffer,
+            RenderFrame frame, SDL_GPUTexture* captureLinear,
+            SdlGpuSceneResources resources)
+        {
+            EnsureCaptureScene(_sceneWidth, _sceneHeight);
+            SdlGpuOutputTransferPolicy transfer = SdlGpuOutputTransferPolicy.Resolve(
+                GraphicsPreset.Enhanced, _device.SwapchainIsSrgb);
+            EncodeColorTransform(commandBuffer, captureLinear, _captureSceneSdr,
+                _sceneWidth, _sceneHeight, exposure: 1, toneMap: false,
+                transfer.ShaderConvertsLinearToSrgb, frame.Composite.Filter,
+                _device.SwapchainFormat, resources, clear: true);
+            _captureSceneForFrame = _captureSceneSdr;
+        }
+
+        public void EncodeFinalTransfer(SDL_GPUCommandBuffer* commandBuffer,
+            RenderFrame frame, SDL_GPUTexture* displayLinear,
+            SDL_GPUTexture* finalComposite, uint width, uint height,
+            SdlGpuSceneResources resources)
+        {
+            SdlGpuOutputTransferPolicy transfer = SdlGpuOutputTransferPolicy.Resolve(
+                GraphicsPreset.Enhanced, _device.SwapchainIsSrgb);
+            EncodeColorTransform(commandBuffer, displayLinear, finalComposite,
+                width, height, exposure: 1, toneMap: false,
+                transfer.ShaderConvertsLinearToSrgb, RenderCompositeFilter.Nearest,
+                _device.SwapchainFormat, resources, clear: true);
         }
 
         private SDL_GPUTexture* NextIntermediate(SDL_GPUTexture* current)
             => current == _intermediateA ? _intermediateB : _intermediateA;
 
-        private void EncodeBloomBlur(SDL_GPUCommandBuffer* commandBuffer,
-            SDL_GPUTexture* source, SDL_GPUTexture* target, uint targetWidth,
-            uint targetHeight, uint sourceWidth, uint sourceHeight, bool horizontal,
-            SdlGpuSceneResources resources)
+        private SDL_GPUTexture* NextDisplayLinear(SDL_GPUTexture* current)
         {
-            BloomConstants constants = new()
-            {
-                Options = new Vector4(horizontal ? 1 : 0, horizontal ? 0 : 1, 0, 0),
-                TexelSize = new Vector4(1f / sourceWidth, 1f / sourceHeight, 0, 0)
-            };
-            BeginFullscreenPass(commandBuffer, target, targetWidth, targetHeight,
-                PostShader.Bloom, blend: false, additive: false, clear: true,
-                source, (SDL_GPUTexture*)resources.WhiteTextureHandle,
-                resources.LinearClampSamplerHandle, resources.NearestClampSamplerHandle,
-                &constants, (uint)sizeof(BloomConstants));
+            if (current == _displayLinearA) return _displayLinearB;
+            if (current == _displayLinearB) return _displayLinearA;
+            throw new InvalidOperationException(
+                "SDL visor source is not a display-linear ping-pong target.");
         }
 
-        private void EncodeBloomComposite(SDL_GPUCommandBuffer* commandBuffer,
+        private void EncodeColorTransform(SDL_GPUCommandBuffer* commandBuffer,
             SDL_GPUTexture* source, SDL_GPUTexture* target, uint width, uint height,
+            float exposure, bool toneMap, bool shaderConvertsLinearToSrgb,
+            RenderCompositeFilter filter, SDL_GPUTextureFormat targetFormat,
+            SdlGpuSceneResources resources, bool clear)
+        {
+            ToneMapConstants constants = new()
+            {
+                Options = new Vector4(exposure,
+                    shaderConvertsLinearToSrgb ? 1 : 0,
+                    toneMap ? 1 : 0, 0)
+            };
+            nint sampler = filter == RenderCompositeFilter.Linear
+                ? resources.LinearClampSamplerHandle : resources.NearestClampSamplerHandle;
+            BeginFullscreenPass(commandBuffer, target, width, height,
+                PostShader.ToneMap, targetFormat,
+                blend: false, additive: false, clear, source,
+                (SDL_GPUTexture*)resources.WhiteTextureHandle, sampler, sampler,
+                &constants, (uint)sizeof(ToneMapConstants));
+        }
+
+        private void EncodeColorGrade(SDL_GPUCommandBuffer* commandBuffer,
+            RenderFrame frame, SDL_GPUTexture* source, SDL_GPUTexture* target,
+            uint width, uint height, SDL_GPUTextureFormat targetFormat,
             SdlGpuSceneResources resources)
         {
-            BloomConstants constants = new()
+            ColorGradeConstants constants = new()
             {
-                Options = new Vector4(0, 0, BloomCompositeStrength, 0),
-                TexelSize = Vector4.Zero
+                Options = new Vector4(frame.ColorGrade.Strength, 0, 0, 0)
             };
+            SDL_GPUTexture* lut = (SDL_GPUTexture*)resources.ResolveUnmippedTextureHandle(
+                frame, frame.ColorGrade.LutTexture, "color-grade LUT");
             BeginFullscreenPass(commandBuffer, target, width, height,
-                PostShader.Bloom, blend: true, additive: true, clear: false,
-                source, (SDL_GPUTexture*)resources.WhiteTextureHandle,
-                resources.LinearClampSamplerHandle, resources.NearestClampSamplerHandle,
-                &constants, (uint)sizeof(BloomConstants));
+                PostShader.ColorGrade, targetFormat,
+                blend: false, additive: false, clear: true, source, lut,
+                resources.LinearClampSamplerHandle,
+                resources.LinearClampSamplerHandle,
+                &constants, (uint)sizeof(ColorGradeConstants));
         }
+
+        private void EncodeBloomPyramid(SDL_GPUCommandBuffer* commandBuffer,
+            SDL_GPUTexture* emissionSource, SDL_GPUTexture* sceneInput,
+            SDL_GPUTexture* sceneOutput, SdlGpuSceneResources resources)
+        {
+            BloomPyramidPlan plan = _bloomPyramid
+                ?? throw new InvalidOperationException("SDL bloom pyramid resources are unavailable.");
+            foreach (BloomPyramidPassDescriptor pass in plan.Passes)
+            {
+                SDL_GPUTexture* inputA = BloomResource(pass.InputA,
+                    emissionSource, sceneInput, sceneOutput);
+                SDL_GPUTexture* inputB = pass.InputB is { } second
+                    ? BloomResource(second, emissionSource, sceneInput, sceneOutput)
+                    : (SDL_GPUTexture*)resources.WhiteTextureHandle;
+                SDL_GPUTexture* output = BloomResource(pass.Output,
+                    emissionSource, sceneInput, sceneOutput);
+                if (inputA == output || inputB == output)
+                    throw new InvalidOperationException("SDL bloom pass cannot sample its render target.");
+
+                (uint inputWidth, uint inputHeight) = BloomResourceSize(pass.InputA, plan);
+                BloomConstants constants = BloomConstantsFor(pass, inputWidth, inputHeight);
+                BeginFullscreenPass(commandBuffer, output, pass.OutputWidth, pass.OutputHeight,
+                    PostShader.Bloom, _sceneFormat,
+                    blend: false, additive: false, clear: true,
+                    inputA, inputB,
+                    resources.LinearClampSamplerHandle, resources.LinearClampSamplerHandle,
+                    &constants, (uint)sizeof(BloomConstants));
+            }
+        }
+
+        private static BloomConstants BloomConstantsFor(BloomPyramidPassDescriptor pass,
+            uint inputWidth, uint inputHeight)
+        {
+            Vector4 options = pass.Kind switch
+            {
+                BloomPyramidPassKind.Downsample => new Vector4(0, 0, 0, 1),
+                BloomPyramidPassKind.BlurHorizontal => new Vector4(1, 0, 0, 0),
+                BloomPyramidPassKind.BlurVertical => new Vector4(0, 1, 0, 0),
+                BloomPyramidPassKind.UpsampleCombine => new Vector4(
+                    pass.InputAWeight, pass.InputBWeight, 0, 2),
+                BloomPyramidPassKind.SceneComposite => new Vector4(
+                    pass.InputAWeight, BloomCompositeStrength * pass.InputBWeight, 0, 3),
+                _ => throw new ArgumentOutOfRangeException(nameof(pass))
+            };
+            return new BloomConstants
+            {
+                Options = options,
+                TexelSize = new Vector4(1f / inputWidth, 1f / inputHeight, 0, 0)
+            };
+        }
+
+        private SDL_GPUTexture* BloomResource(BloomPyramidResource resource,
+            SDL_GPUTexture* emissionSource, SDL_GPUTexture* sceneInput,
+            SDL_GPUTexture* sceneOutput) => resource switch
+        {
+            BloomPyramidResource.EmissionSource => emissionSource,
+            BloomPyramidResource.QuarterA => _bloomQuarterA,
+            BloomPyramidResource.QuarterB => _bloomQuarterB,
+            BloomPyramidResource.EighthA => _bloomEighthA,
+            BloomPyramidResource.EighthB => _bloomEighthB,
+            BloomPyramidResource.SixteenthA => _bloomSixteenthA,
+            BloomPyramidResource.SixteenthB => _bloomSixteenthB,
+            BloomPyramidResource.SceneInput => sceneInput,
+            BloomPyramidResource.SceneOutput => sceneOutput,
+            _ => throw new ArgumentOutOfRangeException(nameof(resource))
+        };
+
+        private static (uint Width, uint Height) BloomResourceSize(
+            BloomPyramidResource resource, BloomPyramidPlan plan) => resource switch
+        {
+            BloomPyramidResource.EmissionSource or BloomPyramidResource.SceneInput
+                or BloomPyramidResource.SceneOutput
+                => (plan.Configuration.SceneWidth, plan.Configuration.SceneHeight),
+            BloomPyramidResource.QuarterA or BloomPyramidResource.QuarterB
+                => (plan.Levels[0].Width, plan.Levels[0].Height),
+            BloomPyramidResource.EighthA or BloomPyramidResource.EighthB
+                => (plan.Levels[1].Width, plan.Levels[1].Height),
+            BloomPyramidResource.SixteenthA or BloomPyramidResource.SixteenthB
+                => (plan.Levels[2].Width, plan.Levels[2].Height),
+            _ => throw new ArgumentOutOfRangeException(nameof(resource))
+        };
 
         private void EncodeCel(SDL_GPUCommandBuffer* commandBuffer, RenderFrame frame,
             SDL_GPUTexture* source, SDL_GPUTexture* depth, SDL_GPUTexture* target,
-            SdlGpuSceneResources resources)
+            SdlGpuSceneResources resources, bool usesSurfaceData)
         {
             CelConstants constants = new()
             {
                 CelOptions = new Vector4(frame.CelState.Outline, frame.CelState.NearPlane,
                     frame.CelState.FarPlane, frame.CelState.DepthQuantum),
-                TexelOptions = new Vector4(frame.CelState.TexelSize.X, frame.CelState.TexelSize.Y, 0, 0)
+                TexelOptions = new Vector4(frame.CelState.TexelSize.X,
+                    frame.CelState.TexelSize.Y, usesSurfaceData ? 1 : 0, 0)
             };
             BeginFullscreenPass(commandBuffer, target, _sceneWidth, _sceneHeight, PostShader.Cel,
-                blend: false, additive: false, clear: true, source, depth,
+                _sceneFormat, blend: false, additive: false, clear: true, source, depth,
                 resources.NearestClampSamplerHandle, resources.NearestClampSamplerHandle,
                 &constants, (uint)sizeof(CelConstants));
         }
@@ -238,15 +592,18 @@ namespace MphRead
             for (int i = 0; i < 64; i++) shift[i] = frame.Disruption.ShiftTable[i];
             for (int i = 0; i < 192; i++) whiteout[i] = frame.Disruption.WhiteoutTable[i];
             BeginFullscreenPass(commandBuffer, target, _sceneWidth, _sceneHeight, PostShader.Disruption,
-                blend: false, additive: false, clear: true, source,
+                _sceneFormat, blend: false, additive: false, clear: true, source,
                 (SDL_GPUTexture*)resources.WhiteTextureHandle,
                 resources.LinearClampSamplerHandle, resources.NearestClampSamplerHandle,
                 &constants, (uint)sizeof(DisruptionConstants));
         }
 
-        private void EncodeOverlays(SDL_GPUCommandBuffer* commandBuffer, RenderFrame frame,
-            SDL_GPUTexture* target, uint width, uint height, SdlGpuSceneResources resources)
+        public void EncodeOverlays(SDL_GPUCommandBuffer* commandBuffer, RenderFrame frame,
+            SDL_GPUTexture* target, uint width, uint height,
+            SDL_GPUTextureFormat targetFormat, bool displayLinearComposition,
+            SdlGpuSceneResources resources)
         {
+            bool displayAssetsToLinear = displayLinearComposition;
             OverlaySlot slot = _overlaySlots[_device.FrameResources.CurrentSlotIndex];
             slot.Prepare(frame.OverlayCommands, commandBuffer);
             SDL_GPUColorTargetInfo targetInfo = new()
@@ -275,13 +632,16 @@ namespace MphRead
                         pass = null;
                         EncodeFullscreen(commandBuffer, (SDL_GPUTexture*)resources.WhiteTextureHandle,
                             resources.WhiteTextureHandle, target, width, height, PostShader.Fullscreen,
-                            operation: 1, alpha: command.Alpha, color: command.Color,
-                            blend: true, RenderCompositeFilter.Nearest, clear: false, resources);
+                            targetFormat, operation: 1, alpha: command.Alpha,
+                            color: command.Color, blend: true,
+                            RenderCompositeFilter.Nearest, clear: false, resources,
+                            displayAssetsToLinear);
                         continue;
                     }
 
                     SDL_GPUGraphicsPipeline* pipeline = Pipeline(new PostPipelineKey(PostShader.Hud, true,
-                        SDL_GPUPrimitiveType.SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP));
+                        SDL_GPUPrimitiveType.SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP,
+                        targetFormat));
                     SDL3.SDL_BindGPUGraphicsPipeline(pass, pipeline);
                     SDL_GPUBufferBinding vertex = new() { buffer = slot.Buffer, offset = 0 };
                     SDL3.SDL_BindGPUVertexBuffers(pass, 0, &vertex, 1);
@@ -299,7 +659,9 @@ namespace MphRead
                     SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
                     HudConstants constants = new()
                     {
-                        Options = new Vector4(command.Alpha, command.UseTexture ? 1 : 0, command.UseMask ? 1 : 0, 0),
+                        Options = new Vector4(command.Alpha, command.UseTexture ? 1 : 0,
+                            command.UseMask ? 1 : 0,
+                            displayAssetsToLinear ? 1 : 0),
                         Viewport = new Vector4(width, height, 0, 0)
                     };
                     SDL3.SDL_PushGPUFragmentUniformData(commandBuffer, 0, (IntPtr)(&constants), (uint)sizeof(HudConstants));
@@ -315,26 +677,29 @@ namespace MphRead
 
         private void EncodeFullscreen(SDL_GPUCommandBuffer* commandBuffer, SDL_GPUTexture* source,
             nint maskHandle, SDL_GPUTexture* target, uint width, uint height, PostShader shader,
-            float operation, float alpha, Vector4 color, bool blend, RenderCompositeFilter filter, bool clear,
-            SdlGpuSceneResources resources)
+            SDL_GPUTextureFormat targetFormat, float operation, float alpha, Vector4 color,
+            bool blend, RenderCompositeFilter filter, bool clear,
+            SdlGpuSceneResources resources, bool displayAssetsToLinear = false)
         {
             FullscreenConstants constants = new()
             {
                 Operation = new Vector4(operation, 0, 0, 0),
                 FadeColor = new Vector4(color.X, color.Y, color.Z, alpha),
                 Viewport = new Vector4(width, height, _sceneWidth, _sceneHeight),
-                OverlayOptions = new Vector4(alpha, 0, 0, 0)
+                OverlayOptions = new Vector4(alpha, 0,
+                    displayAssetsToLinear ? 1 : 0, 0)
             };
             nint sampler = filter == RenderCompositeFilter.Linear
                 ? resources.LinearClampSamplerHandle : resources.NearestClampSamplerHandle;
-            BeginFullscreenPass(commandBuffer, target, width, height, shader,
+            BeginFullscreenPass(commandBuffer, target, width, height, shader, targetFormat,
                 blend, additive: false, clear, source, (SDL_GPUTexture*)maskHandle,
                 sampler, sampler,
                 &constants, (uint)sizeof(FullscreenConstants));
         }
 
         private void BeginFullscreenPass(SDL_GPUCommandBuffer* commandBuffer, SDL_GPUTexture* target,
-            uint width, uint height, PostShader shader, bool blend, bool additive, bool clear,
+            uint width, uint height, PostShader shader, SDL_GPUTextureFormat targetFormat,
+            bool blend, bool additive, bool clear,
             SDL_GPUTexture* source, SDL_GPUTexture* mask, nint samplerOne, nint samplerTwo,
             void* constants, uint constantsSize)
         {
@@ -353,10 +718,13 @@ namespace MphRead
                 SDL_GPUViewport viewport = new() { w = width, h = height, min_depth = 0, max_depth = 1 };
                 SDL3.SDL_SetGPUViewport(pass, &viewport);
                 SDL3.SDL_BindGPUGraphicsPipeline(pass, Pipeline(new PostPipelineKey(shader, blend,
-                    SDL_GPUPrimitiveType.SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP, additive)));
+                    SDL_GPUPrimitiveType.SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP,
+                    targetFormat, additive)));
                 SDL_GPUBufferBinding vertex = new() { buffer = _quadBuffer, offset = 0 };
                 SDL3.SDL_BindGPUVertexBuffers(pass, 0, &vertex, 1);
-                int count = shader is PostShader.Fullscreen or PostShader.Cel ? 2 : 1;
+                int count = shader is PostShader.Fullscreen or PostShader.Cel
+                    or PostShader.Bloom or PostShader.ColorGrade
+                    or PostShader.DistortionWarp ? 2 : 1;
                 SDL_GPUTextureSamplerBinding* bindings = stackalloc SDL_GPUTextureSamplerBinding[2];
                 bindings[0] = new SDL_GPUTextureSamplerBinding { texture = source, sampler = (SDL_GPUSampler*)samplerOne };
                 bindings[1] = new SDL_GPUTextureSamplerBinding { texture = mask, sampler = (SDL_GPUSampler*)samplerTwo };
@@ -395,7 +763,7 @@ namespace MphRead
             };
             SDL_GPUColorTargetDescription color = new()
             {
-                format = _device.SwapchainFormat,
+                format = key.TargetFormat,
                 blend_state = new SDL_GPUColorTargetBlendState
                 {
                     src_color_blendfactor = key.Additive
@@ -444,12 +812,19 @@ namespace MphRead
 
         private ShaderPair CreateShaders(PostShader shader)
         {
-            string stem = shader.ToString().ToLowerInvariant();
+            string stem = shader switch
+            {
+                PostShader.ToneMap => "tone_map",
+                PostShader.ColorGrade => "color_grade",
+                PostShader.DistortionWarp => "distortion_warp",
+                _ => shader.ToString().ToLowerInvariant()
+            };
             (SDL_GPUShaderFormat format, string suffix) = SelectFormat();
             string directory = ShaderArtifactManifest.Directory;
             uint samplers = shader switch
             {
-                PostShader.Disruption or PostShader.Bloom => 1,
+                PostShader.Bloom or PostShader.ColorGrade => 2,
+                PostShader.Disruption or PostShader.ToneMap or PostShader.Visor => 1,
                 _ => 2
             };
             SDL_GPUShader* vertex = CreateShader(format, Path.Combine(directory, $"{stem}.vert.{suffix}"),
@@ -527,18 +902,24 @@ namespace MphRead
             _quadUploaded = true;
         }
 
-        private void EnsureIntermediates(uint width, uint height)
+        private void EnsureIntermediates(uint width, uint height,
+            SDL_GPUTextureFormat format)
         {
-            if (_intermediateA != null && width == _sceneWidth && height == _sceneHeight) return;
+            if (_intermediateA != null && width == _sceneWidth && height == _sceneHeight
+                && format == _sceneFormat) return;
             SDL_GPUTexture* first = null;
             SDL_GPUTexture* second = null;
+            SDL_GPUTexture* distortedBloom = null;
             try
             {
-                first = CreateIntermediate(width, height);
-                second = CreateIntermediate(width, height);
+                first = CreateIntermediate(width, height, format);
+                second = CreateIntermediate(width, height, format);
+                distortedBloom = CreateIntermediate(width, height, format);
             }
             catch
             {
+                if (distortedBloom != null)
+                    SDL3.SDL_ReleaseGPUTexture(_device.Handle, distortedBloom);
                 if (second != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, second);
                 if (first != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, first);
                 throw;
@@ -547,18 +928,27 @@ namespace MphRead
             {
                 SDL3.SDL_ReleaseGPUTexture(_device.Handle, second);
                 SDL3.SDL_ReleaseGPUTexture(_device.Handle, first);
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, distortedBloom);
                 throw new InvalidOperationException($"SDL post target resize wait failed: {SDL3.SDL_GetError()}");
             }
             if (_intermediateA != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, _intermediateA);
             if (_intermediateB != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, _intermediateB);
-            _intermediateA = first; _intermediateB = second; _sceneWidth = width; _sceneHeight = height;
+            if (_distortedBloom != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, _distortedBloom);
+            _intermediateA = first;
+            _intermediateB = second;
+            _distortedBloom = distortedBloom;
+            _sceneWidth = width;
+            _sceneHeight = height;
+            _sceneFormat = format;
         }
 
-        private SDL_GPUTexture* CreateIntermediate(uint width, uint height)
+        private SDL_GPUTexture* CreateIntermediate(uint width, uint height,
+            SDL_GPUTextureFormat format)
         {
             SDL_GPUTextureCreateInfo info = new()
             {
-                type = SDL_GPUTextureType.SDL_GPU_TEXTURETYPE_2D, format = _device.SwapchainFormat,
+                type = SDL_GPUTextureType.SDL_GPU_TEXTURETYPE_2D, format = format,
                 usage = SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_SAMPLER,
                 width = width, height = height, layer_count_or_depth = 1, num_levels = 1,
                 sample_count = SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_1
@@ -568,35 +958,180 @@ namespace MphRead
             return result;
         }
 
-        private void EnsureBloomIntermediates(uint width, uint height)
+        private bool TryEnsureBloomPyramid(uint width, uint height,
+            SDL_GPUTextureFormat format)
         {
-            if (_bloomA != null && width == _bloomWidth && height == _bloomHeight) return;
-            SDL_GPUTexture* first = null;
-            SDL_GPUTexture* second = null;
+            BloomPyramidStorageFormat storageFormat = format
+                == SdlGpuHdrPolicy.HdrFormat
+                    ? BloomPyramidStorageFormat.Rgba16Float
+                    : BloomPyramidStorageFormat.Rgba8Unorm;
+            BloomPyramidConfiguration configuration = new(width, height,
+                storageFormat, BloomPyramidWeights.Default);
+            if (_bloomPyramid?.Configuration == configuration
+                && HasBloomPyramidResources()) return true;
+            if (!_bloomFailureCache.ShouldAttempt(configuration,
+                qualityRequested: true, frameHasEligibleEmission: true)) return false;
+
+            BloomPyramidPlan plan;
             try
             {
-                first = CreateIntermediate(width, height);
-                second = CreateIntermediate(width, height);
+                plan = BloomPyramidPlan.Create(width, height, storageFormat);
+            }
+            catch (ArgumentOutOfRangeException error)
+            {
+                RecordBloomFailure(configuration, error.Message);
+                return false;
+            }
+
+            SDL_GPUTexture* quarterA = null;
+            SDL_GPUTexture* quarterB = null;
+            SDL_GPUTexture* eighthA = null;
+            SDL_GPUTexture* eighthB = null;
+            SDL_GPUTexture* sixteenthA = null;
+            SDL_GPUTexture* sixteenthB = null;
+            try
+            {
+                quarterA = CreateIntermediate(plan.Levels[0].Width, plan.Levels[0].Height, format);
+                quarterB = CreateIntermediate(plan.Levels[0].Width, plan.Levels[0].Height, format);
+                eighthA = CreateIntermediate(plan.Levels[1].Width, plan.Levels[1].Height, format);
+                eighthB = CreateIntermediate(plan.Levels[1].Width, plan.Levels[1].Height, format);
+                sixteenthA = CreateIntermediate(plan.Levels[2].Width, plan.Levels[2].Height, format);
+                sixteenthB = CreateIntermediate(plan.Levels[2].Width, plan.Levels[2].Height, format);
+            }
+            catch (InvalidOperationException error)
+            {
+                ReleaseBloomTextures(quarterA, quarterB, eighthA, eighthB,
+                    sixteenthA, sixteenthB);
+                RecordBloomFailure(configuration, error.Message);
+                return false;
             }
             catch
             {
-                if (second != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, second);
-                if (first != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, first);
+                ReleaseBloomTextures(quarterA, quarterB, eighthA, eighthB,
+                    sixteenthA, sixteenthB);
+                throw;
+            }
+
+            if (!SDL3.SDL_WaitForGPUIdle(_device.Handle))
+            {
+                ReleaseBloomTextures(quarterA, quarterB, eighthA, eighthB,
+                    sixteenthA, sixteenthB);
+                RecordBloomFailure(configuration,
+                    $"GPU idle wait failed: {SDL3.SDL_GetError()}");
+                return false;
+            }
+
+            ReleaseBloomPyramid();
+            _bloomQuarterA = quarterA;
+            _bloomQuarterB = quarterB;
+            _bloomEighthA = eighthA;
+            _bloomEighthB = eighthB;
+            _bloomSixteenthA = sixteenthA;
+            _bloomSixteenthB = sixteenthB;
+            _bloomPyramid = plan;
+            _bloomFailureCache.RecordSuccess();
+            _reportedBloomFailure = null;
+            return true;
+        }
+
+        private bool HasBloomPyramidResources()
+            => _bloomQuarterA != null && _bloomQuarterB != null
+                && _bloomEighthA != null && _bloomEighthB != null
+                && _bloomSixteenthA != null && _bloomSixteenthB != null;
+
+        private void RecordBloomFailure(BloomPyramidConfiguration configuration,
+            string reason)
+        {
+            _bloomFailureCache.RecordFailure(configuration);
+            if (_reportedBloomFailure == configuration) return;
+            _reportedBloomFailure = configuration;
+            Console.Error.WriteLine(
+                $"[render] HDR bloom disabled for this resource configuration: {reason}");
+        }
+
+        private void ReleaseBloomPyramid()
+        {
+            ReleaseBloomTextures(_bloomQuarterA, _bloomQuarterB,
+                _bloomEighthA, _bloomEighthB, _bloomSixteenthA, _bloomSixteenthB);
+            _bloomQuarterA = null;
+            _bloomQuarterB = null;
+            _bloomEighthA = null;
+            _bloomEighthB = null;
+            _bloomSixteenthA = null;
+            _bloomSixteenthB = null;
+            _bloomPyramid = null;
+        }
+
+        private void ReleaseBloomTextures(SDL_GPUTexture* quarterA,
+            SDL_GPUTexture* quarterB, SDL_GPUTexture* eighthA,
+            SDL_GPUTexture* eighthB, SDL_GPUTexture* sixteenthA,
+            SDL_GPUTexture* sixteenthB)
+        {
+            if (sixteenthB != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, sixteenthB);
+            if (sixteenthA != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, sixteenthA);
+            if (eighthB != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, eighthB);
+            if (eighthA != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, eighthA);
+            if (quarterB != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, quarterB);
+            if (quarterA != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, quarterA);
+        }
+
+        private void EnsureCaptureScene(uint width, uint height)
+        {
+            if (_captureSceneSdr != null && width == _captureWidth
+                && height == _captureHeight) return;
+            SDL_GPUTexture* replacement = CreateIntermediate(width, height,
+                _device.SwapchainFormat);
+            if (!SDL3.SDL_WaitForGPUIdle(_device.Handle))
+            {
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, replacement);
+                throw new InvalidOperationException(
+                    $"SDL SDR scene-capture target resize wait failed: {SDL3.SDL_GetError()}");
+            }
+            if (_captureSceneSdr != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, _captureSceneSdr);
+            _captureSceneSdr = replacement;
+            _captureWidth = width;
+            _captureHeight = height;
+        }
+
+        private void EnsureDisplayLinear(uint width, uint height,
+            SDL_GPUTextureFormat format)
+        {
+            if (_displayLinearA != null && _displayLinearB != null
+                && width == _displayWidth
+                && height == _displayHeight && format == _displayFormat) return;
+            SDL_GPUTexture* replacementA = null;
+            SDL_GPUTexture* replacementB = null;
+            try
+            {
+                replacementA = CreateIntermediate(width, height, format);
+                replacementB = CreateIntermediate(width, height, format);
+            }
+            catch
+            {
+                if (replacementB != null)
+                    SDL3.SDL_ReleaseGPUTexture(_device.Handle, replacementB);
+                if (replacementA != null)
+                    SDL3.SDL_ReleaseGPUTexture(_device.Handle, replacementA);
                 throw;
             }
             if (!SDL3.SDL_WaitForGPUIdle(_device.Handle))
             {
-                SDL3.SDL_ReleaseGPUTexture(_device.Handle, second);
-                SDL3.SDL_ReleaseGPUTexture(_device.Handle, first);
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, replacementB);
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, replacementA);
                 throw new InvalidOperationException(
-                    $"SDL bloom blur target resize wait failed: {SDL3.SDL_GetError()}");
+                    $"SDL display-linear target resize wait failed: {SDL3.SDL_GetError()}");
             }
-            if (_bloomB != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, _bloomB);
-            if (_bloomA != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, _bloomA);
-            _bloomA = first;
-            _bloomB = second;
-            _bloomWidth = width;
-            _bloomHeight = height;
+            if (_displayLinearB != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, _displayLinearB);
+            if (_displayLinearA != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, _displayLinearA);
+            _displayLinearA = replacementA;
+            _displayLinearB = replacementB;
+            _displayLinearForFrame = replacementA;
+            _displayWidth = width;
+            _displayHeight = height;
+            _displayFormat = format;
         }
 
         private static SDL_GPUVertexAttribute Attr(uint location, SDL_GPUVertexElementFormat format, uint offset)
@@ -612,21 +1147,46 @@ namespace MphRead
             foreach (OverlaySlot? slot in _overlaySlots) slot?.Dispose();
             foreach (nint pipeline in _pipelines.Values) SDL3.SDL_ReleaseGPUGraphicsPipeline(_device.Handle, (SDL_GPUGraphicsPipeline*)pipeline);
             foreach (ShaderPair shaders in _shaders.Values) shaders.Dispose(_device.Handle);
-            if (_bloomB != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, _bloomB);
-            if (_bloomA != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, _bloomA);
+            if (_displayLinearB != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, _displayLinearB);
+            if (_displayLinearA != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, _displayLinearA);
+            if (_captureSceneSdr != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, _captureSceneSdr);
+            ReleaseBloomPyramid();
             if (_intermediateB != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, _intermediateB);
             if (_intermediateA != null) SDL3.SDL_ReleaseGPUTexture(_device.Handle, _intermediateA);
+            if (_distortedBloom != null)
+                SDL3.SDL_ReleaseGPUTexture(_device.Handle, _distortedBloom);
             if (_quadTransfer != null) SDL3.SDL_ReleaseGPUTransferBuffer(_device.Handle, _quadTransfer);
             if (_quadBuffer != null) SDL3.SDL_ReleaseGPUBuffer(_device.Handle, _quadBuffer);
         }
 
-        private enum PostShader : byte { Fullscreen, Hud, Disruption, Cel, Bloom }
+        private enum PostShader : byte
+        {
+            Fullscreen,
+            Hud,
+            Disruption,
+            Cel,
+            Bloom,
+            ToneMap,
+            ColorGrade,
+            DistortionWarp,
+            Visor
+        }
         private readonly record struct PostPipelineKey(PostShader Shader, bool Blend,
-            SDL_GPUPrimitiveType Primitive, bool Additive = false);
+            SDL_GPUPrimitiveType Primitive, SDL_GPUTextureFormat TargetFormat,
+            bool Additive = false);
         private struct FullscreenConstants { public Vector4 Operation, FadeColor, Viewport, OverlayOptions; }
         private struct HudConstants { public Vector4 Options, Viewport; }
         private struct CelConstants { public Vector4 CelOptions, TexelOptions; }
         private struct BloomConstants { public Vector4 Options, TexelSize; }
+        private struct ToneMapConstants { public Vector4 Options; }
+        private struct ColorGradeConstants { public Vector4 Options; }
+        private struct VisorConstants
+        {
+            public Vector4 Combat, Damage, DamageColor, LowHealth, Phases;
+        }
         [StructLayout(LayoutKind.Sequential)]
         private unsafe struct DisruptionConstants { public Vector4 Options; public fixed float ShiftTable[64]; public fixed float WhiteoutTable[192]; }
         [StructLayout(LayoutKind.Sequential, Pack = 4)]

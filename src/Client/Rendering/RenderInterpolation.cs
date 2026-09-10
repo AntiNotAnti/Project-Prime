@@ -14,7 +14,9 @@ namespace MphRead
             public readonly SimulationPoseHistory History = new();
             public ulong Seen;
             public int State;
+            public bool HasState;
             public readonly Dictionary<ModelInstance, ModelPoseHistory> Models = new();
+            public PlayerBipedPoseHistory? Biped;
         }
         private readonly Dictionary<EntityBase, PoseTrack> _poses = new();
         private readonly List<EntityBase> _removedPoses = new();
@@ -30,17 +32,73 @@ namespace MphRead
         private bool _submissionInterpolated;
         public RenderLookAccumulator? RenderLook { get; private set; }
         public void EnableDesktopLook() => RenderLook = new();
-        public void ResetRenderLook() => RenderLook?.Reset();
+        public void ResetRenderLook()
+        {
+            RenderLook?.Reset();
+            Mods.Input.DesktopStylusInput.Cancel();
+            Mods.Input.GamepadHaptics.Stop();
+            // Camera ownership and prediction share the same lifecycle as the
+            // mouse accumulator. A pause, focus loss, room transition or
+            // spectator handoff must not carry controller velocity over the
+            // boundary into the next local view.
+            Mods.Input.GamepadInput.ResetLook();
+        }
+
+        /// <summary>
+        /// Submit a mouse event to the shared ownership gate while retaining
+        /// the raw event in the legacy render accumulator. The latter remains
+        /// the gameplay source so PlayerInput keeps its established units and
+        /// zoom/FOV scaling; the coordinator only owns source metadata and
+        /// same-frame precedence.
+        /// </summary>
+        public void SubmitMouseLook(Vector2 rawDelta)
+            => SubmitRelativeLook(LookDeviceKind.Mouse, rawDelta);
+
+        /// <summary>Submit an Android touch aim delta to the same ownership gate.</summary>
+        public void SubmitTouchLook(Vector2 rawDelta)
+            => SubmitRelativeLook(LookDeviceKind.Touch, rawDelta);
+
+        private void SubmitRelativeLook(LookDeviceKind device, Vector2 rawDelta)
+        {
+            if (!CanCaptureSimulationLook || !float.IsFinite(rawDelta.X)
+                || !float.IsFinite(rawDelta.Y) || rawDelta.LengthSquared <= 0)
+            {
+                return;
+            }
+            PlayerEntity? player = World.LocalPlayer;
+            if (player == null)
+            {
+                return;
+            }
+            // Keep this event in the same unzoomed angular units as the
+            // legacy RenderLook buffer. The fixed gameplay path applies the
+            // current FOV ratio in UpdateAimX/Y, and the render path applies
+            // it once while composing its preview.
+            Vector2 degrees = RenderLookAccumulator.AimDegrees(rawDelta,
+                player.Controls.MouseSensitivity,
+                player.Controls.InvertMouseX,
+                player.Controls.InvertMouseY);
+            Mods.Input.GamepadInput.LookCoordinator.Submit(
+                new LocalLookFrame(device, degrees, rawDelta,
+                    rawDelta.Length));
+        }
         public bool CanCaptureSimulationLook => ControlsPlayer && !Mods.SpectatorMode.IsSpectating
-            && !Mods.ClientInputState.PauseOpen && !Mods.Chat.ChatBox.Composing && !ShowCursor
+            && Mods.ClientInputState.WindowFocused && !Mods.ClientInputState.PauseOpen
+            && !Mods.Chat.ChatBox.Composing && !ShowCursor
             && !FrameAdvance;
         public bool CanCaptureRenderLook => CanCaptureSimulationLook
-            && World.CameraSequences.Current == null && World.LocalPlayer!.Health > 0
+            && World.LocalPlayer!.Health > 0
             && World.LocalPlayer!.CameraType == CameraType.First
-            && World.LocalPlayer!.Controls.MouseAim && !World.LocalPlayer!.IsAltForm
+            && !World.LocalPlayer!.IsAltForm
             && !World.LocalPlayer!.IsMorphing && !World.LocalPlayer!.IsUnmorphing && !World.LocalPlayer!.Flags1.TestFlag(PlayerFlags1.NoAimInput);
         private bool InterpolationEnabled => FrameTiming.Active && !FrameAdvance
             && !Mods.SpectatorMode.IsSpectating && !Mods.Network.DemoPlayback.IsActive && World.CameraSequences.Current == null;
+        // Biped smoothing is skeletal presentation only.  It deliberately has
+        // its own eligibility gate: observers and replay still benefit from
+        // local pose interpolation, while their world/camera paths must not be
+        // switched onto the generic entity interpolation delta.
+        private bool SkeletalInterpolationEnabled => FrameTiming.Active && !FrameAdvance
+            && !Mods.Network.DemoPlayback.IsSeeking;
         private bool IsLocal(PlayerEntity player) => !World.Services.IsReplica || player.SlotIndex == World.Services.LocalSlot;
         private static bool Tracks(EntityBase entity) => entity is PlayerEntity or PlatformEntity or DoorEntity
             or BombEntity or BeamProjectileEntity or ItemInstanceEntity;
@@ -69,14 +127,28 @@ namespace MphRead
             _poseTick = World.FrameCount;
             foreach (EntityBase entity in World.Entities)
             {
-                if (!Tracks(entity) || entity is PlayerEntity remote && !IsLocal(remote)
+                if (!Tracks(entity)
                     || entity is BeamProjectileEntity projectile && (projectile.Lifespan <= 0
                         || projectile.Flags.TestFlag(BeamFlags.Continuous) || projectile.Flags.TestFlag(BeamFlags.Collided))) continue;
                 if (!_poses.TryGetValue(entity, out PoseTrack? track)) _poses.Add(entity, track = new());
                 int state = entity is PlayerEntity player ? HashCode.Combine(player.Health == 0,
-                    player.IsAltForm, player.LoadFlags, player.CameraType, player.IsMorphing, player.IsUnmorphing)
+                    player.IsAltForm, player.LoadFlags, player.CameraType, player.IsMorphing,
+                    player.IsUnmorphing, player.Hunter, player.PresentationPoseEpoch)
                     : entity is BeamProjectileEntity beam ? HashCode.Combine(beam.Generation, beam.Lifespan > 0, beam.Flags.TestFlag(BeamFlags.Collided)) : 0;
-                track.History.Capture(entity.Transform, _poseTick, _poseGeneration, track.State != state);
+                bool discontinuity = !track.HasState || track.State != state;
+                // Remote world movement is owned by SnapshotInterpolation and
+                // BeginRemotePresentation.  Keep only their skeletal history;
+                // capturing a generic world history here would make it too
+                // easy for a later draw path to interpolate the root twice.
+                if (entity is not PlayerEntity remote || IsLocal(remote))
+                    track.History.Capture(entity.Transform, _poseTick, _poseGeneration, discontinuity);
+                if (entity is PlayerEntity biped && biped._bipedModel1 != null && biped._bipedModel2 != null)
+                {
+                    track.Biped ??= new PlayerBipedPoseHistory(biped._bipedModel2.Model);
+                    track.Biped.SetModel(biped._bipedModel2.Model);
+                    track.Biped.Capture(biped._bipedModel1.AnimInfo, biped._bipedModel2.AnimInfo,
+                        PlayerEntity.GetBipedPitch(biped._facingVector), _poseTick, _poseGeneration, discontinuity);
+                }
                 if (entity is DoorEntity or PlatformEntity)
                 {
                     for (int i = 0; i < entity._models.Count; i++)
@@ -88,6 +160,7 @@ namespace MphRead
                     }
                 }
                 track.State = state;
+                track.HasState = true;
                 track.Seen = _poseTick;
             }
             _removedPoses.Clear();
@@ -105,6 +178,7 @@ namespace MphRead
         {
             _submissionDelta = Matrix4.Identity;
             _submissionInterpolated = false;
+            if (entity is PlayerEntity remote && !IsLocal(remote)) return;
             if (!InterpolationEnabled || !_poses.TryGetValue(entity, out PoseTrack? track)
                 || entity is PlayerEntity transitional && (transitional.Health == 0 || transitional.IsAltForm
                     || transitional.IsMorphing || transitional.IsUnmorphing)) return;
@@ -123,6 +197,27 @@ namespace MphRead
             _submissionInterpolated = false;
             return true;
         }
+
+        internal bool ResolvePlayerBipedSubmission(PlayerEntity player, ModelInstance inst,
+            in Matrix4 worldRoot, out Matrix4[] nodes, out float[] stack)
+        {
+            nodes = Array.Empty<Matrix4>();
+            stack = Array.Empty<float>();
+            if (!SkeletalInterpolationEnabled || !_poses.TryGetValue(player, out PoseTrack? track)
+                || track.Biped is not { HasSamples: true } history
+                || !ReferenceEquals(history.Model, inst.Model)) return false;
+            // A local player's generic entity path may already have selected a
+            // render delta. Fold that delta into the single skeletal root before
+            // handing matrices to the draw stack; AddRenderItem must not apply
+            // it again to either the node transform or the skinning stack.
+            Matrix4 resolvedRoot = _submissionInterpolated
+                ? worldRoot * _submissionDelta : worldRoot;
+            history.Resolve(FrameTiming.RenderAlpha, resolvedRoot, out nodes, out stack);
+            _submissionDelta = Matrix4.Identity;
+            _submissionInterpolated = false;
+            return true;
+        }
+
         private void EndEntitySubmission() { _submissionDelta = Matrix4.Identity; _submissionInterpolated = false; }
         private Matrix4 SubmissionTransform(Matrix4 transform) => _submissionInterpolated ? transform * _submissionDelta : transform;
         private void ApplyRenderCamera()
@@ -130,16 +225,86 @@ namespace MphRead
             if (!ControlsPlayer || Mods.SpectatorMode.IsSpectating || Mods.Network.DemoPlayback.IsActive) return;
             Matrix4 camera = World.LocalPlayer!.CameraInfo.ViewMatrix.Inverted();
             if (InterpolationEnabled && _cameraHistory.HasSamples) camera.Row3.Xyz = _cameraHistory.Resolve(FrameTiming.RenderAlpha).Row3.Xyz;
-            if (RenderLook != null && CanCaptureRenderLook)
+            if (CanCaptureRenderLook)
             {
                 PlayerEntity player = World.LocalPlayer!;
                 float normalFov = Fixed.ToFloat(player.Values.NormalFov) * 2;
                 float zoom = player.EquipInfo.Zoomed && normalFov != 0 ? player.CameraInfo.Fov / normalFov : 1;
-                Vector2 aim = RenderLookAccumulator.AimDegrees(RenderLook.Peek(), player.Controls.MouseSensitivity,
-                    player.Controls.InvertMouseX ^ player.Controls.InvertAimX,
-                    player.Controls.InvertMouseY ^ player.Controls.InvertAimY, zoom);
-                if (player.Controls.KeyboardAim && (player.Controls.AimLeft.IsDown || player.Controls.AimRight.IsDown
-                    || player.Controls.AimUp.IsDown || player.Controls.AimDown.IsDown)) aim = Vector2.Zero;
+                // Controller look is stateful rather than an event stream. It
+                // is predicted from the latest processed velocity only for
+                // the render interval not represented by fixed simulation;
+                // no synthetic mouse event is inserted or consumed here.
+                LocalLookFrame predicted = Mods.Input.GamepadInput.LookCoordinator
+                    .PeekForRender(null, FrameTiming.Active);
+                bool cameraBlocksInput = World.CameraSequences.Current?.Flags
+                    .TestFlag(CamSeqFlags.BlockInput) == true;
+                bool keyboardAimActive = player.Controls.KeyboardAim
+                    && (player.Controls.AimLeft.IsDown || player.Controls.AimRight.IsDown
+                        || player.Controls.AimUp.IsDown || player.Controls.AimDown.IsDown);
+                Vector2 aim = Vector2.Zero;
+                if (RenderLook != null)
+                {
+                    // The desktop accumulator is the legacy mouse source and
+                    // is already converted with mouse sensitivity/FOV. It is
+                    // still subject to the original mouse gates.
+                    if (player.Controls.MouseAim && !keyboardAimActive
+                        && !cameraBlocksInput)
+                    {
+                        aim = RenderLookAccumulator.AimDegrees(
+                            RenderLook.PeekForRender(null, simulationActive: false),
+                            player.Controls.MouseSensitivity,
+                            player.Controls.InvertMouseX ^ player.Controls.InvertAimX,
+                            player.Controls.InvertMouseY ^ player.Controls.InvertAimY, zoom);
+                    }
+                    // Touch/stylus events do not use the desktop raw
+                    // accumulator, so they remain visible in a mixed desktop
+                    // frame without replaying a mouse event.
+                    Vector2 precision = predicted.TouchDeltaDegrees
+                        + predicted.StylusDeltaDegrees;
+                    if (!cameraBlocksInput && precision != Vector2.Zero)
+                    {
+                        aim += RenderLookAccumulator.ApplySimulationAimTransforms(
+                            precision, player.Controls.InvertAimX,
+                            player.Controls.InvertAimY, zoom);
+                    }
+                }
+                else
+                {
+                    Vector2 precision = predicted.PrecisionDeltaDegrees;
+                    if (player.Controls.MouseAim == false || keyboardAimActive)
+                    {
+                        precision -= predicted.MouseDeltaDegrees;
+                    }
+                    if (!cameraBlocksInput && precision != Vector2.Zero)
+                    {
+                        // Coordinator precision is already in source units;
+                        // this is the one render-side application of the
+                        // simulation's InvertAim/FOV transforms for Android.
+                        aim = RenderLookAccumulator.ApplySimulationAimTransforms(
+                            precision, player.Controls.InvertAimX,
+                            player.Controls.InvertAimY, zoom);
+                    }
+                }
+                Vector2 controllerAim = predicted.ControllerDeltaDegrees;
+                if (cameraBlocksInput)
+                {
+                    controllerAim = Vector2.Zero;
+                }
+                else if (controllerAim != Vector2.Zero)
+                {
+                    // Match UpdateAimX/Y's inversion/FOV exactly once, then
+                    // apply the controller-only zoom preference to the player
+                    // stick contribution. Precision assistance is never in
+                    // this value and cannot be amplified by it.
+                    controllerAim = RenderLookAccumulator.ApplySimulationAimTransforms(
+                        controllerAim, player.Controls.InvertAimX,
+                        player.Controls.InvertAimY, zoom);
+                    if (player.EquipInfo.Zoomed)
+                    {
+                        controllerAim *= Mods.InputSettings.GamepadZoomMultiplier;
+                    }
+                }
+                aim += controllerAim;
                 float pitch = MathHelper.RadiansToDegrees(MathF.Asin(Math.Clamp(player._gunVec1.Y, -1, 1)));
                 camera = RenderLookAccumulator.ApplyCameraLook(camera, aim, pitch);
             }

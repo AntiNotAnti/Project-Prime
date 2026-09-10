@@ -5,6 +5,119 @@ using MphRead.Mods;
 
 namespace MphRead
 {
+    /// <summary>Immutable Enhanced fog parameters captured before scene submission.</summary>
+    public readonly record struct RenderEnhancedFogState
+    {
+        public RenderEnhancedFogState(bool enabled, Vector3 color, float density,
+            float height, float falloff)
+        {
+            if (!ShadowMath.IsFinite(color) || !float.IsFinite(density)
+                || density < 0 || !float.IsFinite(height) || !float.IsFinite(falloff)
+                || falloff < 0)
+                throw new ArgumentOutOfRangeException(nameof(density));
+            Enabled = enabled && density > 0;
+            Color = color;
+            Density = density;
+            Height = height;
+            Falloff = falloff;
+        }
+
+        public bool Enabled { get; }
+        public Vector3 Color { get; }
+        public float Density { get; }
+        public float Height { get; }
+        public float Falloff { get; }
+        public static RenderEnhancedFogState Disabled => default;
+        public static RenderEnhancedFogState FromEnvironment(
+            EnhancedEnvironment environment, bool enabled)
+            => new(enabled, environment.FogColor, environment.FogDensity,
+                environment.FogHeight, environment.FogFalloff);
+    }
+
+    /// <summary>One immutable directional shadow selected and projected pre-draw.</summary>
+    public readonly record struct RenderDirectionalShadowState
+    {
+        public RenderDirectionalShadowState(int sourceIndex, Vector3 direction,
+            Matrix4 viewProjection, int mapSize, int pcfRadius)
+        {
+            if (sourceIndex is not (0 or 1))
+                throw new ArgumentOutOfRangeException(nameof(sourceIndex));
+            if (!ShadowMath.TryNormalize(direction, out Vector3 normalized))
+                throw new ArgumentException("Shadow direction is invalid.", nameof(direction));
+            for (int row = 0; row < 4; row++)
+            for (int column = 0; column < 4; column++)
+                if (!float.IsFinite(viewProjection[row, column]))
+                    throw new ArgumentException("Shadow projection is invalid.",
+                        nameof(viewProjection));
+            ShadowQualitySettings settings = new(true, mapSize, pcfRadius);
+            SourceIndex = sourceIndex;
+            Direction = normalized;
+            ViewProjection = viewProjection;
+            MapSize = settings.MapSize;
+            PcfRadius = settings.PcfRadius;
+            Enabled = true;
+        }
+
+        public bool Enabled { get; }
+        public int SourceIndex { get; }
+        public Vector3 Direction { get; }
+        public Matrix4 ViewProjection { get; }
+        public int MapSize { get; }
+        public int PcfRadius { get; }
+        public static RenderDirectionalShadowState Disabled => default;
+    }
+
+    /// <summary>
+    /// One immutable, backend-neutral cubemap captured with a scene frame.
+    /// Face order matches SDL's cube-layer order: +X, -X, +Y, -Y, +Z, -Z.
+    /// </summary>
+    public sealed class RenderReflectionProbe
+    {
+        private readonly ReadOnlyMemory<byte>[] _faces;
+
+        public RenderReflectionProbe(ReflectionCubemapAsset cubemap)
+        {
+            ArgumentNullException.ThrowIfNull(cubemap);
+            Key = cubemap.Key;
+            Dimension = cubemap.Dimension;
+            _faces = new ReadOnlyMemory<byte>[6];
+            foreach (ReflectionCubemapFace face in Enum.GetValues<ReflectionCubemapFace>())
+            {
+                if (!cubemap.Faces.TryGetValue(face, out ReflectionProbeFaceAsset? asset)
+                    || asset.Dimension != Dimension)
+                {
+                    throw new ArgumentException("Reflection probe must contain six equal faces.",
+                        nameof(cubemap));
+                }
+                _faces[(int)face] = asset.Rgba8;
+            }
+            ContentFingerprint = ComputeFingerprint(_faces);
+        }
+
+        public ReflectionProbeKey Key { get; }
+        public int Dimension { get; }
+        public int MipLevelCount => 1 + (int)MathF.Floor(MathF.Log2(Dimension));
+        public ulong ContentFingerprint { get; }
+        public IReadOnlyList<ReadOnlyMemory<byte>> Faces => _faces;
+
+        private static ulong ComputeFingerprint(
+            IReadOnlyList<ReadOnlyMemory<byte>> faces)
+        {
+            // Stable FNV-1a is sufficient for the local upload-generation
+            // identity and avoids retaining another copy of the cube.
+            ulong hash = 14695981039346656037UL;
+            foreach (ReadOnlyMemory<byte> face in faces)
+            {
+                foreach (byte value in face.Span)
+                {
+                    hash ^= value;
+                    hash *= 1099511628211UL;
+                }
+            }
+            return hash;
+        }
+    }
+
     /// <summary>
     /// A render-only point light captured from an already visible presentation
     /// object.  It is deliberately a value record: the backend never receives
@@ -70,12 +183,17 @@ namespace MphRead
         private readonly List<RenderCaptureRequest> _captureRequests;
         private readonly List<RenderVisualLight> _visualLights;
         private readonly IReadOnlyList<RenderVisualLight> _visualLightsView;
+        private readonly EnhancedDistortionSubmissionBuffer _distortionSubmissions
+            = new();
+        private readonly VisualLightCandidate[] _visualLightCandidates
+            = new VisualLightCandidate[MaximumVisualLights];
         private readonly Dictionary<TextureIdentity, RenderTexturePixels> _textures = new();
         private readonly Dictionary<object, CpuMesh> _meshes
             = new(ReferenceEqualityComparer.Instance);
         private readonly int _maximumCapacity;
         private readonly int _maximumCaptureRequests;
         private int _count;
+        private int _visualLightCandidateCount;
         private bool _sealed;
 
         public RenderFrame(int capacity = DefaultCapacity, int maximumCapacity = DefaultMaximumCapacity,
@@ -111,21 +229,22 @@ namespace MphRead
         public IReadOnlyList<DrawSubmission> DecalItems => _decals;
         public IReadOnlyList<DrawSubmission> TransparentItems => _transparent;
         /// <summary>
-        /// HUD model draws which stay in the scene target. They are deliberately
-        /// separate from the world pass lists so the cel pass can remain between
-        /// these draws and the full-resolution HUD overlays.
+        /// HUD model draws kept separate from the six world passes. Legacy
+        /// presets draw them into the scene before cel; Enhanced draws them
+        /// after tone mapping so scene HDR cannot alter authored HUD values.
         /// </summary>
         public IReadOnlyList<RenderHudSceneSubmission> HudSceneItems => _hudSceneItems;
         public IReadOnlyList<RenderOverlayCommand> OverlayCommands => _overlayCommands;
         public IReadOnlyList<RenderCaptureRequest> CaptureRequests => _captureRequests;
         /// <summary>
-        /// The bounded, ordered visual-light set.  When full, a candidate
-        /// replaces the first lowest-priority light only when its priority is
-        /// strictly higher; equal-priority candidates retain arrival order.
+        /// The bounded visual-light set in deterministic rank order. Legacy
+        /// and profiled admission share the same fixed candidate buffer.
         /// </summary>
         public IReadOnlyList<RenderVisualLight> VisualLights => _visualLightsView;
         public IReadOnlyDictionary<TextureIdentity, RenderTexturePixels> TextureResources => _textures;
         public IReadOnlyDictionary<object, CpuMesh> MeshResources => _meshes;
+        internal EnhancedDistortionSubmissionBatch DistortionSubmissions
+            { get; private set; } = EnhancedDistortionSubmissionBatch.Empty;
 
         // The values below are copied by ScenePresentation while it is still
         // the sole producer of the frame. Backends only read this snapshot;
@@ -134,6 +253,12 @@ namespace MphRead
         public Matrix4 ViewInverseRotation { get; private set; } = Matrix4.Identity;
         public Matrix4 ViewInverseRotationY { get; private set; } = Matrix4.Identity;
         public Matrix4 ProjectionMatrix { get; private set; } = Matrix4.Identity;
+        /// <summary>
+        /// World-space position of the render-interpolated camera which produced
+        /// <see cref="ViewMatrix"/>. Backends consume this explicit snapshot for
+        /// view-dependent shading instead of reconstructing it from the matrix.
+        /// </summary>
+        public Vector3 CameraWorldPosition { get; private set; }
         public Vector2i DrawableSize { get; private set; }
         public Vector2i SceneTargetSize { get; private set; }
         public Vector4 ClearColor { get; private set; } = Vector4.UnitW;
@@ -145,6 +270,22 @@ namespace MphRead
         public Vector4 FogColor { get; private set; }
         public int FogOffset { get; private set; }
         public int FogSlope { get; private set; }
+        /// <summary>
+        /// Fixed, presentation-only exposure captured with the environment.
+        /// VE2 deliberately has no automatic exposure so visibility cannot
+        /// vary with frame history or presentation rate.
+        /// </summary>
+        public float Exposure { get; private set; } = EnhancedColorMath.DefaultExposure;
+        public RenderColorGradeState ColorGrade { get; private set; }
+            = RenderColorGradeState.Disabled;
+        public RenderReflectionProbe? ReflectionProbe { get; private set; }
+        public RenderEnhancedFogState EnhancedFog { get; private set; }
+            = RenderEnhancedFogState.Disabled;
+        public RenderDirectionalShadowState DirectionalShadow { get; private set; }
+            = RenderDirectionalShadowState.Disabled;
+        public RenderVisorState Visor { get; private set; }
+            = RenderVisorState.Disabled;
+        public RenderSkyState? Sky { get; private set; }
         public RenderFrameOptions Options { get; private set; }
         public RenderCelState CelState { get; private set; } = RenderCelState.Disabled;
         public RenderDisruptionState Disruption { get; private set; } = RenderDisruptionState.Disabled;
@@ -179,7 +320,29 @@ namespace MphRead
             // Material is derived exactly once at the submission boundary.
             // Backends must use this value rather than reconstructing it from
             // the legacy fields (which may be mutated by compatibility code).
+            if (Options.Quality.GraphicsPreset == GraphicsPreset.Enhanced
+                && submission.EnhancedForceField.HasValue
+                && !submission.BloomEligible)
+            {
+                submission.BloomStrength = RenderMaterial.ParticleBloomStrength;
+                submission.BloomEligible = true;
+            }
             submission.FreezeMaterial();
+            if (Options.Quality.GraphicsPreset == GraphicsPreset.Enhanced
+                && submission.Material.EnhancedForceField
+                    is EnhancedForceFieldDrawState forceField
+                && submission.GeometryIdentity != null
+                && submission.Material.Alpha > 0
+                && forceField.Profile.DistortionStrength > 0)
+            {
+                _distortionSubmissions.TryAdd(
+                    EnhancedDistortionSubmission.FromDraw(
+                    forceField.StableSourceKey, submission,
+                    forceField.Profile.DistortionStrength
+                        * Math.Clamp(submission.Material.Alpha, 0, 1),
+                    forceField.Profile.FresnelPower,
+                    forceField.Sample.NoisePhase));
+            }
             switch (submission.Pass)
             {
                 case RenderPassKind.Decal:
@@ -195,15 +358,20 @@ namespace MphRead
         }
 
         public void CaptureState(Matrix4 view, Matrix4 inverseRotation, Matrix4 inverseRotationY,
-            Matrix4 projection, Vector2i drawableSize, Vector2i sceneTargetSize, Vector4 clearColor,
+            Matrix4 projection, Vector3 cameraWorldPosition, Vector2i drawableSize,
+            Vector2i sceneTargetSize, Vector4 clearColor,
             Vector3 light1Vector, Vector3 light1Color, Vector3 light2Vector, Vector3 light2Color,
-            bool hasFog, Vector4 fogColor, int fogOffset, int fogSlope, RenderFrameOptions options)
+            bool hasFog, Vector4 fogColor, int fogOffset, int fogSlope, RenderFrameOptions options,
+            float exposure = EnhancedColorMath.DefaultExposure)
         {
             if (_sealed) throw new InvalidOperationException("The render frame is already sealed.");
+            if (!float.IsFinite(exposure) || exposure <= 0)
+                throw new ArgumentOutOfRangeException(nameof(exposure));
             ViewMatrix = view;
             ViewInverseRotation = inverseRotation;
             ViewInverseRotationY = inverseRotationY;
             ProjectionMatrix = projection;
+            CameraWorldPosition = cameraWorldPosition;
             DrawableSize = drawableSize;
             SceneTargetSize = sceneTargetSize;
             ClearColor = clearColor;
@@ -215,6 +383,7 @@ namespace MphRead
             FogColor = fogColor;
             FogOffset = fogOffset;
             FogSlope = fogSlope;
+            Exposure = exposure;
             Options = options;
         }
 
@@ -223,6 +392,54 @@ namespace MphRead
             if (texture == null) throw new ArgumentNullException(nameof(texture));
             if (_sealed) throw new InvalidOperationException("The render frame is already sealed.");
             _textures[texture.Identity] = texture;
+        }
+
+        public void CaptureColorGrade(RenderColorGradeState state)
+        {
+            if (_sealed) throw new InvalidOperationException("The render frame is already sealed.");
+            ColorGrade = state;
+        }
+
+        public void CaptureReflectionProbe(RenderReflectionProbe probe)
+        {
+            ArgumentNullException.ThrowIfNull(probe);
+            if (_sealed) throw new InvalidOperationException("The render frame is already sealed.");
+            ReflectionProbe = probe;
+        }
+
+        public void CaptureEnhancedFog(RenderEnhancedFogState state)
+        {
+            if (_sealed) throw new InvalidOperationException("The render frame is already sealed.");
+            EnhancedFog = state;
+        }
+
+        public void CaptureDirectionalShadow(RenderDirectionalShadowState state)
+        {
+            if (_sealed) throw new InvalidOperationException("The render frame is already sealed.");
+            DirectionalShadow = state;
+        }
+
+        public void CaptureVisor(RenderVisorState state)
+        {
+            if (_sealed) throw new InvalidOperationException("The render frame is already sealed.");
+            Visor = state;
+        }
+
+        public void CaptureSky(RenderSkyState sky)
+        {
+            ArgumentNullException.ThrowIfNull(sky);
+            if (_sealed) throw new InvalidOperationException("The render frame is already sealed.");
+            foreach (TextureIdentity identity in sky.TextureIdentities)
+            {
+                if (identity.Source is not EnhancedSkyTextureAsset asset)
+                {
+                    throw new ArgumentException(
+                        "Sky state contains a texture outside its validated pack.",
+                        nameof(sky));
+                }
+                CaptureTexture(asset.Pixels);
+            }
+            Sky = sky;
         }
 
         public void AddHudSceneSubmission(RenderHudSceneSubmission submission)
@@ -252,35 +469,45 @@ namespace MphRead
         }
 
         /// <summary>
-        /// Admit one render-only light without allowing content spikes to
-        /// grow the frame.  The first lowest-priority slot wins replacement,
-        /// which makes ties stable and independent of dictionary ordering.
+        /// Compatibility admission for continuously submitted legacy lights.
+        /// Exact duplicate values collapse, while distinct values remain
+        /// separate even if their compact compatibility keys collide.
         /// </summary>
         public bool AddVisualLight(RenderVisualLight light)
+            => AddVisualLightCandidateCore(VisualLightCandidate.FromLegacy(light));
+
+        /// <summary>
+        /// Rank one presentation-only light into the fixed eight-slot Enhanced
+        /// set. Selection uses the captured interpolated camera and stable
+        /// source key; no entity or mutable gameplay owner enters the frame.
+        /// </summary>
+        public bool AddVisualLightCandidate(VisualLightCandidate candidate)
         {
             if (_sealed) throw new InvalidOperationException("The render frame is already sealed.");
-            if (_visualLights.Count < MaximumVisualLights)
-            {
-                _visualLights.Add(light);
-                return true;
-            }
-
-            int replacement = 0;
-            int lowestPriority = _visualLights[0].Priority;
-            for (int i = 1; i < _visualLights.Count; i++)
-            {
-                int priority = _visualLights[i].Priority;
-                if (priority < lowestPriority)
-                {
-                    lowestPriority = priority;
-                    replacement = i;
-                }
-            }
-            if (light.Priority <= lowestPriority)
+            RenderQualitySnapshot quality = Options.Quality;
+            if (quality.GraphicsPreset != GraphicsPreset.Enhanced
+                || !quality.DynamicVisualLights)
             {
                 return false;
             }
-            _visualLights[replacement] = light;
+            return AddVisualLightCandidateCore(candidate);
+        }
+
+        private bool AddVisualLightCandidateCore(VisualLightCandidate candidate)
+        {
+            if (_sealed) throw new InvalidOperationException("The render frame is already sealed.");
+            if (!VisualLightSelection.TryInsert(candidate, CameraWorldPosition,
+                _visualLightCandidates, ref _visualLightCandidateCount))
+            {
+                return false;
+            }
+
+            _visualLights.Clear();
+            for (int i = 0; i < _visualLightCandidateCount; i++)
+            {
+                VisualLightCandidate selected = _visualLightCandidates[i];
+                _visualLights.Add(selected.RenderLight);
+            }
             return true;
         }
 
@@ -317,7 +544,11 @@ namespace MphRead
             _meshes[identity] = mesh;
         }
 
-        public void Seal() => _sealed = true;
+        public void Seal()
+        {
+            DistortionSubmissions = _distortionSubmissions.Seal();
+            _sealed = true;
+        }
 
         public void Reset()
         {
@@ -333,6 +564,9 @@ namespace MphRead
             _overlayCommands.Clear();
             _captureRequests.Clear();
             _visualLights.Clear();
+            _visualLightCandidateCount = 0;
+            _distortionSubmissions.Clear();
+            DistortionSubmissions = EnhancedDistortionSubmissionBatch.Empty;
             _textures.Clear();
             _meshes.Clear();
             _count = 0;
@@ -341,6 +575,7 @@ namespace MphRead
             ViewInverseRotation = Matrix4.Identity;
             ViewInverseRotationY = Matrix4.Identity;
             ProjectionMatrix = Matrix4.Identity;
+            CameraWorldPosition = Vector3.Zero;
             DrawableSize = default;
             SceneTargetSize = default;
             ClearColor = Vector4.UnitW;
@@ -352,6 +587,13 @@ namespace MphRead
             FogColor = Vector4.Zero;
             FogOffset = 0;
             FogSlope = 0;
+            Exposure = EnhancedColorMath.DefaultExposure;
+            ColorGrade = RenderColorGradeState.Disabled;
+            ReflectionProbe = null;
+            EnhancedFog = RenderEnhancedFogState.Disabled;
+            DirectionalShadow = RenderDirectionalShadowState.Disabled;
+            Visor = RenderVisorState.Disabled;
+            Sky = null;
             Options = default;
             CelState = RenderCelState.Disabled;
             Disruption = RenderDisruptionState.Disabled;

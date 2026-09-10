@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Diagnostics;
 using MphRead.Formats;
 using OpenTK.Mathematics;
@@ -99,22 +100,9 @@ namespace MphRead.Entities
                 else if (drawBiped)
                 {
                     // we want to animate first up to the spine with _bipedModel1's animation info, then the rest with _bipedModel2's info
-                    // todo: we can just figure out the angle directly from the facing vector
                     Vector3 facing = _player._facingVector;
-                    float limit = Fixed.ToFloat(2896);
-                    float cos = MathF.Sqrt(1 - facing.Y * facing.Y);
-                    float sin = facing.Y;
-                    if (MathF.Abs(facing.Y) > limit)
-                    {
-                        cos = limit;
-                        sin = facing.Y <= 0 ? -limit : limit;
-                    }
-
-                    float angle = MathF.Atan2(sin, cos);
-                    // Compose both animation tracks on the private model actually submitted
-                    // for drawing; the leg track owns timing, not a separate rendered pose.
+                    float angle = PlayerEntity.GetBipedPitch(facing);
                     Model model = _player._bipedModel2.Model;
-                    PlayerEntity.AnimateBipedPose(model, _player._bipedModel1.AnimInfo, _player._bipedModel2.AnimInfo, angle);
                     float scale = Metadata.HunterScales[_player.Hunter];
                     float bottom = Fixed.ToFloat(_player.Values.MinPickupHeight);
                     var lateral = new Vector3(_player._field70, 0, _player._field74);
@@ -127,13 +115,22 @@ namespace MphRead.Entities
                     transform.Row0.Xyz *= scale;
                     transform.Row1.Xyz *= scale;
                     transform.Row2.Xyz *= scale;
-                    for (int i = 0; i < model.Nodes.Count; i++)
+                    bool interpolated = Presentation.ResolvePlayerBipedSubmission(_player, _player._bipedModel2,
+                        transform, out Matrix4[] renderedNodes, out float[] renderedStack);
+                    if (!interpolated)
                     {
-                        Node node = model.Nodes[i];
-                        node.Animation *= transform; // todo?: could do this in the shader
+                        // Fallback is the original authored draw path.  A
+                        // history may not exist yet (first sample or a LOD
+                        // switch), and rendering must remain independent of it.
+                        PlayerEntity.AnimateBipedPose(model, _player._bipedModel1.AnimInfo,
+                            _player._bipedModel2.AnimInfo, angle);
+                        for (int i = 0; i < model.Nodes.Count; i++)
+                        {
+                            Node node = model.Nodes[i];
+                            node.Animation *= transform; // todo?: could do this in the shader
+                        }
+                        model.UpdateMatrixStack();
                     }
-
-                    model.UpdateMatrixStack();
                     if (_player._health > 0)
                     {
                         if (_player._timeSinceDamage < _player.Values.DamageFlashTime * 2) // todo: FPS stuff
@@ -149,12 +146,17 @@ namespace MphRead.Entities
                         }
 
                         UpdateMaterials(_player._bipedModel2, _player.Recolor);
-                        GetDrawItems(_player._bipedModel2, _player._bipedModel2.Model.Nodes[0], alpha);
+                        GetDrawItems(_player._bipedModel2, _player._bipedModel2.Model.Nodes[0], alpha,
+                            nodePoses: interpolated ? renderedNodes : null,
+                            nodeStack: interpolated ? renderedStack : null);
                         _player.PaletteOverride = null;
                         if (_player._chargeEffect != null || _player._muzzleEffect != null)
                         {
                             Vector3 muzzlePos = Metadata.MuzzleOffests[(int)_player.Hunter];
-                            muzzlePos = Matrix.Vec3MultMtx4(muzzlePos, model.GetNodeByName(_player.Hunter == Hunter.Guardian ? "Head_1" : "R_elbow")!.Animation);
+                            int muzzleNode = model.GetNodeIndexByName(_player.Hunter == Hunter.Guardian ? "Head_1" : "R_elbow");
+                            Matrix4 muzzleTransform = interpolated ? renderedNodes[muzzleNode]
+                                : model.Nodes[muzzleNode].Animation;
+                            muzzlePos = Matrix.Vec3MultMtx4(muzzlePos, muzzleTransform);
                             if (_player._chargeEffect != null)
                             {
                                 _player._chargeEffect.SetDrawEnabled(true);
@@ -172,8 +174,10 @@ namespace MphRead.Entities
                         {
                             for (int i = 0; i < _player._bipedIceModel.Model.Nodes.Count; i++)
                             {
-                                _player._bipedIceModel.Model.Nodes[i].Animation = _player._bipedModel2.Model.Nodes[i].Animation;
-                                _player._bipedIceTransforms[i] = _player._bipedModel2.Model.Nodes[i].Animation;
+                                Matrix4 pose = interpolated && i < renderedNodes.Length
+                                    ? renderedNodes[i] : _player._bipedModel2.Model.Nodes[i].Animation;
+                                _player._bipedIceModel.Model.Nodes[i].Animation = pose;
+                                _player._bipedIceTransforms[i] = pose;
                             }
 
                             _player._bipedIceModel.Model.UpdateMatrixStack();
@@ -185,7 +189,7 @@ namespace MphRead.Entities
                     _player._modelTransform = transform;
                     if (_player._health == 0)
                     {
-                        DrawDeathParticles();
+                        DrawDeathParticles(interpolated ? renderedNodes : null);
                     }
 
                     _player.Flags2 |= PlayerFlags2.DrawnThirdPerson;
@@ -251,7 +255,8 @@ namespace MphRead.Entities
             GetDrawItems(_player._altModel, _player._altModel.Model.Nodes[0], _player._curAlpha);
         }
 
-        public void GetDrawItems(ModelInstance inst, Node node, float alpha, int polygonId = -1, int recolor = -1)
+        public void GetDrawItems(ModelInstance inst, Node node, float alpha, int polygonId = -1,
+            int recolor = -1, Matrix4[]? nodePoses = null, float[]? nodeStack = null)
         {
             if (alpha <= 0)
             {
@@ -264,6 +269,23 @@ namespace MphRead.Entities
             }
 
             Model model = inst.Model;
+            int nodeIndex = 0;
+            while (nodeIndex < model.Nodes.Count && !ReferenceEquals(model.Nodes[nodeIndex], node))
+            {
+                nodeIndex++;
+            }
+            if (nodeIndex == model.Nodes.Count)
+            {
+                return;
+            }
+            GetDrawItems(inst, nodeIndex, alpha, polygonId, recolor, nodePoses, nodeStack);
+        }
+
+        private void GetDrawItems(ModelInstance inst, int nodeIndex, float alpha,
+            int polygonId, int recolor, Matrix4[]? nodePoses, float[]? nodeStack)
+        {
+            Model model = inst.Model;
+            Node node = model.Nodes[nodeIndex];
             if (node.Enabled)
             {
                 int start = node.MeshId / 2;
@@ -283,18 +305,21 @@ namespace MphRead.Entities
                     int? bindingOverride = GetBindingOverride(inst, material, mesh.MaterialId);
                     int resolvedRecolor = recolor == -1 ? _player.Recolor : recolor;
                     TextureIdentity? textureIdentity = GetTextureIdentity(inst, material, mesh.MaterialId, resolvedRecolor);
-                    Presentation.AddRenderItem(material, polygonId, alpha, emission, GetLightInfo(), texcoordMatrix, node.Animation, Presentation.GetMeshListId(mesh), mesh.GeometryIdentity, model.NodeMatrixIds.Count, model.MatrixStackValues, color, _player.PaletteOverride, selectionType, node.BillboardMode, _player._drawScale, bindingOverride, textureIdentity);
+                    Matrix4 nodeAnimation = nodePoses == null ? node.Animation : nodePoses[nodeIndex];
+                    IReadOnlyList<float> stack = nodeStack == null ? model.MatrixStackValues : nodeStack;
+                    Presentation.AddRenderItem(material, polygonId, alpha, emission, GetLightInfo(), texcoordMatrix, nodeAnimation, Presentation.GetMeshListId(mesh), mesh.GeometryIdentity, model.NodeMatrixIds.Count, stack, color, _player.PaletteOverride, selectionType, node.BillboardMode, _player._drawScale, bindingOverride, textureIdentity,
+                        textureAssetKey: ScenePresentation.GetModelTextureAssetKey(model, material, resolvedRecolor));
                 }
 
                 if (node.ChildIndex != -1)
                 {
-                    GetDrawItems(inst, model.Nodes[node.ChildIndex], alpha, polygonId, recolor);
+                    GetDrawItems(inst, node.ChildIndex, alpha, polygonId, recolor, nodePoses, nodeStack);
                 }
             }
 
             if (node.NextIndex != -1)
             {
-                GetDrawItems(inst, model.Nodes[node.NextIndex], alpha, polygonId, recolor);
+                GetDrawItems(inst, node.NextIndex, alpha, polygonId, recolor, nodePoses, nodeStack);
             }
         }
 
@@ -498,7 +523,7 @@ namespace MphRead.Entities
             ArrayPool<float>.Shared.Return(matrixStack);
         }
 
-        public void DrawDeathParticles()
+        public void DrawDeathParticles(Matrix4[]? nodePoses = null)
         {
             // get current percentage through the first 1/3 of the respawn cooldown
             float timePct = 1 - ((_player._respawnTimer - (2 / 3f * PlayerEntity.RespawnTime)) / (1 / 3f * PlayerEntity.RespawnTime));
@@ -516,12 +541,15 @@ namespace MphRead.Entities
             for (int i = 1; i < _player._bipedModel2.Model.Nodes.Count; i++)
             {
                 Node node = _player._bipedModel2.Model.Nodes[i];
-                var nodePos = new Vector3(node.Animation.Row3);
+                Matrix4 nodeAnimation = nodePoses == null ? node.Animation : nodePoses[i];
+                var nodePos = new Vector3(nodeAnimation.Row3);
                 nodePos.Y += offset;
                 if (node.ChildIndex != -1)
                 {
                     Debug.Assert(node.ChildIndex > 0);
-                    var childPos = new Vector3(_player._bipedModel2.Model.Nodes[node.ChildIndex].Animation.Row3);
+                    Matrix4 childAnimation = nodePoses == null ? _player._bipedModel2.Model.Nodes[node.ChildIndex].Animation
+                        : nodePoses[node.ChildIndex];
+                    var childPos = new Vector3(childAnimation.Row3);
                     childPos.Y += offset;
                     for (int j = 1; j < 5; j++)
                     {
@@ -534,7 +562,9 @@ namespace MphRead.Entities
                 if (node.NextIndex != -1)
                 {
                     Debug.Assert(node.NextIndex > 0);
-                    var nextPos = new Vector3(_player._bipedModel2.Model.Nodes[node.NextIndex].Animation.Row3);
+                    Matrix4 nextAnimation = nodePoses == null ? _player._bipedModel2.Model.Nodes[node.NextIndex].Animation
+                        : nodePoses[node.NextIndex];
+                    var nextPos = new Vector3(nextAnimation.Row3);
                     nextPos.Y += offset;
                     for (int j = 1; j < 5; j++)
                     {

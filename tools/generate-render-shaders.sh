@@ -14,6 +14,15 @@ hud_source_file="$repo_root/src/Client/Rendering/Shaders/hud.hlsl"
 disruption_source_file="$repo_root/src/Client/Rendering/Shaders/disruption.hlsl"
 cel_source_file="$repo_root/src/Client/Rendering/Shaders/cel.hlsl"
 bloom_source_file="$repo_root/src/Client/Rendering/Shaders/bloom.hlsl"
+tone_map_source_file="$repo_root/src/Client/Rendering/Shaders/tone_map.hlsl"
+color_grade_source_file="$repo_root/src/Client/Rendering/Shaders/color_grade.hlsl"
+visor_source_file="$repo_root/src/Client/Rendering/Shaders/visor.hlsl"
+sky_source_file="$repo_root/src/Client/Rendering/Shaders/sky.hlsl"
+surface_source_file="$repo_root/src/Client/Rendering/Shaders/surface.hlsl"
+ssao_source_file="$repo_root/src/Client/Rendering/Shaders/ssao.hlsl"
+shadow_source_file="$repo_root/src/Client/Rendering/Shaders/shadow.hlsl"
+distortion_vector_source_file="$repo_root/src/Client/Rendering/Shaders/distortion.hlsl"
+distortion_warp_source_file="$repo_root/src/Client/Rendering/Shaders/distortion_warp.hlsl"
 output_dir="$repo_root/src/Client/Rendering/Shaders/Generated"
 shadercross_bin="${SHADERCROSS:-$(command -v shadercross || true)}"
 
@@ -41,7 +50,10 @@ if [[ ! -f "$source_file" ]]; then
   exit 2
 fi
 for required_source in "$scene_source_file" "$fullscreen_source_file" "$hud_source_file" \
-  "$disruption_source_file" "$cel_source_file" "$bloom_source_file"; do
+  "$disruption_source_file" "$cel_source_file" "$bloom_source_file" "$tone_map_source_file" \
+  "$color_grade_source_file" "$surface_source_file" "$ssao_source_file" \
+  "$shadow_source_file" "$distortion_vector_source_file" \
+  "$distortion_warp_source_file" "$visor_source_file" "$sky_source_file"; do
   if [[ ! -f "$required_source" ]]; then
     echo "Renderer shader source is missing: $required_source" >&2
     exit 2
@@ -64,7 +76,7 @@ rm -f "$output_dir/scene_triangle.vert.spv" \
   "$output_dir/manifest.json" \
   "$output_dir/scene_manifest.json"
 
-for shader_stem in fullscreen hud disruption cel bloom; do
+for shader_stem in fullscreen hud disruption cel bloom tone_map color_grade surface ssao shadow distortion distortion_warp visor sky; do
   rm -f "$output_dir/$shader_stem.vert.spv" \
     "$output_dir/$shader_stem.frag.spv" \
     "$output_dir/$shader_stem.vert.msl" \
@@ -89,6 +101,12 @@ generate() {
     "$shadercross_bin" "$source" \
       --source HLSL --dest "$destination" --stage "$stage" \
       --entrypoint "$entrypoint" --output "$output"
+  fi
+  if [[ "$destination" == "MSL" ]]; then
+    # SDL_shadercross may emit whitespace-only indentation on otherwise empty
+    # lines. Normalize it before hashing so regenerated artifacts remain clean
+    # under git diff --check without changing shader semantics.
+    perl -pi -e 's/[ \t]+$//' "$output"
   fi
 }
 
@@ -121,6 +139,15 @@ generate_family "$hud_source_file" hud
 generate_family "$disruption_source_file" disruption
 generate_family "$cel_source_file" cel
 generate_family "$bloom_source_file" bloom
+generate_family "$tone_map_source_file" tone_map
+generate_family "$color_grade_source_file" color_grade
+generate_family "$surface_source_file" surface
+generate_family "$ssao_source_file" ssao
+generate_family "$shadow_source_file" shadow
+generate_family "$distortion_vector_source_file" distortion
+generate_family "$distortion_warp_source_file" distortion_warp
+generate_family "$visor_source_file" visor
+generate_family "$sky_source_file" sky
 
 source_sha256="$(shasum -a 256 "$source_file" | awk '{print $1}')"
 vert_spv_sha256="$(shasum -a 256 "$output_dir/scene_triangle.vert.spv" | awk '{print $1}')"
@@ -337,6 +364,15 @@ write_manifest "$hud_source_file" hud
 write_manifest "$disruption_source_file" disruption
 write_manifest "$cel_source_file" cel
 write_manifest "$bloom_source_file" bloom
+write_manifest "$tone_map_source_file" tone_map
+write_manifest "$color_grade_source_file" color_grade
+write_manifest "$surface_source_file" surface
+write_manifest "$ssao_source_file" ssao
+write_manifest "$shadow_source_file" shadow
+write_manifest "$distortion_vector_source_file" distortion
+write_manifest "$distortion_warp_source_file" distortion_warp
+write_manifest "$visor_source_file" visor
+write_manifest "$sky_source_file" sky
 
 echo "Generated SDL_shadercross SPIR-V, MSL, and DXIL artifacts in $output_dir"
 echo "metallib remains optional: xcrun metal is unavailable on this host."

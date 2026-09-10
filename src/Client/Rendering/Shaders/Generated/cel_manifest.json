@@ -4,28 +4,28 @@
       "entrypoint": "main_ps",
       "format": "DXIL",
       "path": "cel.frag.dxil",
-      "sha256": "7468fcb45c967b9a266059afdfaa9acfbc6edaa82f7d60e96318dea1b40072ae",
+      "sha256": "d741167b5c040183d2bed2c36d157520af407851dc1d04fa647903ce956f8cb9",
       "stage": "fragment"
     },
     "fragment_msl": {
       "entrypoint": "main_ps",
       "format": "MSL",
       "path": "cel.frag.msl",
-      "sha256": "d7a54f18a252b3479f6c879a2bf81eafb83e29d99665a5c67f61165147fa162d",
+      "sha256": "e6f508045057f3df7fb02b582db8cd0e794a4452dea35ebc00b91269f6255fb0",
       "stage": "fragment"
     },
     "fragment_spirv": {
       "entrypoint": "main_ps",
       "format": "SPIRV",
       "path": "cel.frag.spv",
-      "sha256": "3f1af7ef4a9efb8d19c95ce02b5725ea4a761d9def011ac62afa9e0cd13a4a3a",
+      "sha256": "9d6d451d9d936457c7f55077bb24634d5343c20eb6839654ab51f84e23a66bfe",
       "stage": "fragment"
     },
     "vertex_dxil": {
       "entrypoint": "main_vs",
       "format": "DXIL",
       "path": "cel.vert.dxil",
-      "sha256": "498870baeda1316bc641dd6736832120b1ab417099cddac3941ec7f5382aeabd",
+      "sha256": "4c68c6e039609f46904c274268437e7e377bfc9dcf8afbc6b996e62755d7681a",
       "stage": "vertex"
     },
     "vertex_msl": {
@@ -48,7 +48,7 @@
   },
   "provenance": {
     "cli": "SDL_shadercross official cli.c",
-    "cli_sha256": "57a9d32813e0a2bd7b74a478a90ef4e82b0e09eab6d8d90be097d758d5480dab",
+    "cli_sha256": "63e88f91d017b9031e0130098a2ee5b50843809d8583fe0d631b9b7112553d12",
     "mode": "offline-build-only",
     "msl_version": "1.2.0 (SDL_shadercross default)",
     "native_package": "SDL3-CS.MacOS.Shadercross",
@@ -61,5 +61,5 @@
   },
   "schema": 2,
   "source": "cel.hlsl",
-  "source_sha256": "4ed15d5db41d22d1dc3015dfd7d1a351eba9b19e1c8f893f571320d66b54f70f"
+  "source_sha256": "8c1ca43741f853c536188667877787eeaeff35bd46b694dd23211d6fb365eb6a"
 }

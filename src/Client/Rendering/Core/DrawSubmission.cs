@@ -40,6 +40,14 @@ namespace MphRead
         public RepeatMode YRepeat { get; set; }
         public bool HasTexture { get; set; }
         public TextureIdentity? TextureIdentity { get; set; }
+        /// <summary>Stable authoring identity, when the presentation source can prove one.</summary>
+        public TextureAssetKey? TextureAssetKey { get; set; }
+        /// <summary>Optional pack material resolved before the frame is sealed.</summary>
+        public EnhancedMaterial? EnhancedMaterial { get; internal set; }
+        /// <summary>Explicit authored depth-fade opt-in for this particle draw.</summary>
+        public SoftParticleProfile? SoftParticleProfile { get; internal set; }
+        internal EnhancedBeamDrawState? EnhancedBeam { get; set; }
+        internal EnhancedForceFieldDrawState? EnhancedForceField { get; set; }
         public Matrix4 TexcoordMatrix { get; set; }
         public Matrix4 Transform { get; set; }
         public object? GeometryIdentity { get; set; }
@@ -100,6 +108,11 @@ namespace MphRead
             YRepeat = RepeatMode.Clamp;
             HasTexture = false;
             TextureIdentity = null;
+            TextureAssetKey = null;
+            EnhancedMaterial = null;
+            SoftParticleProfile = null;
+            EnhancedBeam = null;
+            EnhancedForceField = null;
             TexcoordMatrix = Matrix4.Identity;
             Transform = Matrix4.Identity;
             GeometryIdentity = null;

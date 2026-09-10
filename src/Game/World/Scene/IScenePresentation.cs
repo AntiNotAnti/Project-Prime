@@ -43,6 +43,7 @@ namespace MphRead
         void DetachEffectEntry(EffectEntry entry, bool setExpired);
         void ClearEffects();
         void ClearNonPersistentEffects();
+        void ObserveStaticBeamImpact(in StaticBeamImpactPresentation impact) { }
         void AddSingleParticle(SingleType type, Vector3 position, Vector3 color, float alpha, float scale);
         BeamEffectEntity? InitBeamEffect(BeamEffectEntityData data);
         void UnlinkBeamEffect(BeamEffectEntity entry);

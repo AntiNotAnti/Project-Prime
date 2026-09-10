@@ -23,11 +23,24 @@ namespace MphRead
         public Vector2 TexCoord { get; }
         public uint MatrixIndex { get; }
         public RenderVertexFlags Flags { get; }
+        /// <summary>
+        /// Object-space tangent. XYZ is the tangent direction and W is the
+        /// bitangent handedness (+1 or -1).
+        /// </summary>
+        public Vector4 Tangent { get; }
 
         public bool HasExplicitColor => (Flags & RenderVertexFlags.ExplicitColor) != 0;
 
         public RenderVertex(Vector3 position, Vector4 color, Vector3 normal, Vector2 texCoord,
             uint matrixIndex = 0, RenderVertexFlags flags = RenderVertexFlags.None)
+            : this(position, color, normal, texCoord, new Vector4(1, 0, 0, 1),
+                matrixIndex, flags)
+        {
+        }
+
+        public RenderVertex(Vector3 position, Vector4 color, Vector3 normal, Vector2 texCoord,
+            Vector4 tangent, uint matrixIndex = 0,
+            RenderVertexFlags flags = RenderVertexFlags.None)
         {
             Position = position;
             Color = color;
@@ -35,13 +48,26 @@ namespace MphRead
             TexCoord = texCoord;
             MatrixIndex = matrixIndex;
             Flags = flags;
+            Tangent = tangent;
         }
 
         public bool Equals(RenderVertex other)
             => Position == other.Position && Color == other.Color && Normal == other.Normal
-                && TexCoord == other.TexCoord && MatrixIndex == other.MatrixIndex && Flags == other.Flags;
+                && TexCoord == other.TexCoord && MatrixIndex == other.MatrixIndex
+                && Flags == other.Flags && Tangent == other.Tangent;
         public override bool Equals(object? obj) => obj is RenderVertex other && Equals(other);
-        public override int GetHashCode() => System.HashCode.Combine(Position, Color, Normal, TexCoord, MatrixIndex, Flags);
+        public override int GetHashCode()
+        {
+            System.HashCode hash = new();
+            hash.Add(Position);
+            hash.Add(Color);
+            hash.Add(Normal);
+            hash.Add(TexCoord);
+            hash.Add(MatrixIndex);
+            hash.Add(Flags);
+            hash.Add(Tangent);
+            return hash.ToHashCode();
+        }
         public static bool operator ==(RenderVertex left, RenderVertex right) => left.Equals(right);
         public static bool operator !=(RenderVertex left, RenderVertex right) => !left.Equals(right);
     }

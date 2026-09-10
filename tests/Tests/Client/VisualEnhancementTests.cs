@@ -8,7 +8,7 @@ using Xunit;
 public sealed class VisualEnhancementTests
 {
     [Fact]
-    public void VisualLightsUseStableBoundedPriorityAdmission()
+    public void VisualLightsUseStableBoundedDeterministicAdmission()
     {
         var frame = new RenderFrame(capacity: 1, maximumCapacity: 1);
         for (int i = 0; i < RenderFrame.MaximumVisualLights; i++)
@@ -16,15 +16,15 @@ public sealed class VisualEnhancementTests
             Assert.True(frame.AddVisualLight(Light(i, i)));
         }
 
-        // Equal priority does not evict the earlier light. This keeps
-        // content-order ties stable when the bound is reached.
+        // Equal priority loses on deterministic camera relevance rather than
+        // content arrival order when the bound is reached.
         Assert.False(frame.AddVisualLight(Light(99, 0)));
         Assert.Equal(RenderFrame.MaximumVisualLights, frame.VisualLights.Count);
-        Assert.Equal(0, frame.VisualLights[0].Position.X);
+        Assert.Equal(7, frame.VisualLights[0].Position.X);
 
         Assert.True(frame.AddVisualLight(Light(100, 100)));
         Assert.Equal(100, frame.VisualLights[0].Position.X);
-        Assert.Equal(1, frame.VisualLights[1].Position.X);
+        Assert.Equal(7, frame.VisualLights[1].Position.X);
         Assert.Equal(RenderFrame.MaximumVisualLights,
             frame.VisualLights.Count);
 
@@ -153,9 +153,10 @@ public sealed class VisualEnhancementTests
     {
         Assert.Equal(RenderFrame.MaximumVisualLights,
             SdlGpuVisualLightPolicy.MaximumLights);
-        Assert.Equal(416, SdlGpuSceneVertexFrameConstants.AbiByteSize);
+        Assert.Equal(144, SdlGpuSceneVertexFrameConstants.AbiByteSize);
+        Assert.Equal(448, SdlGpuSceneFragmentFrameConstants.AbiByteSize);
         Assert.Equal(RenderFrame.MaximumVisualLights * 4,
-            SdlGpuSceneVertexFrameConstants.VisualLightFloatCount);
+            SdlGpuSceneFragmentFrameConstants.VisualLightFloatCount);
 
         var lights = new List<RenderVisualLight>
         {
@@ -164,22 +165,36 @@ public sealed class VisualEnhancementTests
             new(new OpenTK.Mathematics.Vector3(5, 6, 7),
                 OpenTK.Mathematics.Vector3.One, 8, .2f, 1)
         };
-        SdlGpuSceneVertexFrameConstants enabled = SdlGpuSceneVertexFrameConstants.Create(
-            OpenTK.Mathematics.Matrix4.Identity, OpenTK.Mathematics.Matrix4.Identity,
-            OpenTK.Mathematics.Vector4.Zero, lights, enabled: true);
-        SdlGpuSceneVertexFrameConstants disabled = SdlGpuSceneVertexFrameConstants.Create(
-            OpenTK.Mathematics.Matrix4.Identity, OpenTK.Mathematics.Matrix4.Identity,
-            OpenTK.Mathematics.Vector4.Zero, lights, enabled: false);
+        SdlGpuSceneFragmentFrameConstants enabled = SdlGpuSceneFragmentFrameConstants.Create(
+            OpenTK.Mathematics.Vector4.Zero, OpenTK.Mathematics.Vector4.Zero,
+            OpenTK.Mathematics.Vector4.Zero, new OpenTK.Mathematics.Vector3(9, 8, 7),
+            lights, enabled: true);
+        SdlGpuSceneFragmentFrameConstants disabled = SdlGpuSceneFragmentFrameConstants.Create(
+            OpenTK.Mathematics.Vector4.Zero, OpenTK.Mathematics.Vector4.Zero,
+            OpenTK.Mathematics.Vector4.Zero, OpenTK.Mathematics.Vector3.Zero,
+            lights, enabled: false);
 
         Assert.Equal(2, enabled.VisualLightCount);
         Assert.Equal(new OpenTK.Mathematics.Vector4(1, 2, 3, 4),
             enabled.GetPositionRadius(0));
         Assert.Equal(new OpenTK.Mathematics.Vector4(.25f, .5f, .75f, .6f),
             enabled.GetColorIntensity(0));
+        Assert.Equal(new OpenTK.Mathematics.Vector4(9, 8, 7, 1),
+            enabled.CameraWorldPosition);
         Assert.Equal(0, disabled.VisualLightCount);
         Assert.Equal(1f, SdlGpuVisualLightPolicy.DistanceAttenuation(0, 10));
         Assert.Equal(.25f, SdlGpuVisualLightPolicy.DistanceAttenuation(5, 10));
         Assert.Equal(0f, SdlGpuVisualLightPolicy.DistanceAttenuation(10, 10));
+        Assert.True(SdlGpuEnhancedLightingPolicy.UsesPerPixelLighting(GraphicsPreset.Enhanced));
+        Assert.False(SdlGpuEnhancedLightingPolicy.UsesPerPixelLighting(GraphicsPreset.Original));
+        Assert.False(SdlGpuEnhancedLightingPolicy.UsesPerPixelLighting(GraphicsPreset.Performance));
+        Assert.Equal(11.75f,
+            SdlGpuEnhancedLightingPolicy.SmoothnessExponent(
+                SdlGpuEnhancedLightingPolicy.DefaultSmoothness));
+        Assert.True(SdlGpuEnhancedLightingPolicy.NormalizedBlinnPhong(1, .25f) > 0);
+        Assert.Equal(0f, SdlGpuEnhancedLightingPolicy.NormalizedBlinnPhong(-1, .25f));
+        Assert.True(float.IsFinite(
+            SdlGpuEnhancedLightingPolicy.NormalizedBlinnPhong(float.NaN, float.NaN)));
     }
 
     [Fact]
@@ -199,6 +214,40 @@ public sealed class VisualEnhancementTests
         Assert.Equal(.2f, SdlGpuBloomPlan.Strength(eligible));
         Assert.Equal(OpenTK.Mathematics.Vector3.Zero,
             SdlGpuBloomPlan.ApplyFogVisibility(OpenTK.Mathematics.Vector3.One, 1));
+
+        TextureIdentity emissive = new(new object());
+        RenderMaterial mapped = brightButIneligible;
+        mapped.Enhanced = new EnhancedMaterial(null, null, emissive, 0, .25f,
+            0, new OpenTK.Mathematics.Vector3(1, .5f, .25f), 2);
+        Assert.True(SdlGpuBloomPlan.IsEligible(mapped, GraphicsPreset.Enhanced));
+        Assert.False(SdlGpuBloomPlan.IsEligible(mapped, GraphicsPreset.Original));
+        Assert.Equal(1, SdlGpuBloomPlan.Strength(mapped, GraphicsPreset.Enhanced));
+        OpenTK.Mathematics.Vector3 mappedColor = SdlGpuEmissionPolicy.Map(
+            new OpenTK.Mathematics.Vector3(.5f, .25f, 1),
+            mapped.Enhanced.Value.EmissionTint,
+            mapped.Enhanced.Value.EmissionStrength);
+        OpenTK.Mathematics.Vector3 expectedMapped
+            = EnhancedColorMath.SrgbToLinear(
+                new OpenTK.Mathematics.Vector3(.5f, .25f, 1))
+                * new OpenTK.Mathematics.Vector3(1, .5f, .25f) * 2;
+        Assert.Equal(expectedMapped, mappedColor);
+
+        mapped.BloomEligible = true;
+        mapped.BloomStrength = .2f;
+        mapped.Enhanced = mapped.Enhanced.Value with { EmissionStrength = 0 };
+        Assert.False(SdlGpuBloomPlan.IsEligible(mapped, GraphicsPreset.Enhanced));
+        Assert.True(SdlGpuBloomPlan.IsEligible(mapped, GraphicsPreset.Original));
+        Assert.Equal(OpenTK.Mathematics.Vector3.Zero,
+            SdlGpuEmissionPolicy.Map(OpenTK.Mathematics.Vector3.One,
+                OpenTK.Mathematics.Vector3.One, float.NaN));
+        Assert.Equal(0, SdlGpuSceneSamplerAbi.Albedo);
+        Assert.Equal(1, SdlGpuSceneSamplerAbi.Normal);
+        Assert.Equal(2, SdlGpuSceneSamplerAbi.Emissive);
+        Assert.Equal(3, SdlGpuSceneSamplerAbi.Reflection);
+        Assert.Equal(4, SdlGpuSceneSamplerAbi.AmbientOcclusion);
+        Assert.Equal(5, SdlGpuSceneSamplerAbi.Shadow);
+        Assert.Equal(6, SdlGpuSceneSamplerAbi.SurfaceData);
+        Assert.Equal(7, SdlGpuSceneSamplerAbi.Count);
 
         RenderQualitySnapshot enhanced = new(GraphicsPreset.Enhanced,
             TextureFilteringPreset.Enhanced, AnisotropyLevel.X4, MsaaLevel.X4,
@@ -245,6 +294,7 @@ public sealed class VisualEnhancementTests
         frame.CaptureState(OpenTK.Mathematics.Matrix4.Identity,
             OpenTK.Mathematics.Matrix4.Identity, OpenTK.Mathematics.Matrix4.Identity,
             OpenTK.Mathematics.Matrix4.Identity,
+            new OpenTK.Mathematics.Vector3(3, 4, 5),
             new OpenTK.Mathematics.Vector2i(1920, 1080),
             new OpenTK.Mathematics.Vector2i(1920, 1080),
             OpenTK.Mathematics.Vector4.UnitW,
@@ -252,6 +302,7 @@ public sealed class VisualEnhancementTests
             OpenTK.Mathematics.Vector3.Zero, OpenTK.Mathematics.Vector3.Zero,
             hasFog: false, OpenTK.Mathematics.Vector4.Zero, 0, 0,
             default(RenderFrameOptions) with { Quality = quality });
+        Assert.Equal(new OpenTK.Mathematics.Vector3(3, 4, 5), frame.CameraWorldPosition);
         return frame;
     }
 

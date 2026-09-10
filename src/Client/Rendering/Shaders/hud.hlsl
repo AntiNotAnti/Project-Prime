@@ -28,7 +28,7 @@ VertexOutput main_vs(VertexInput input)
 #else
 cbuffer HudConstants : register(b0, space3)
 {
-    float4 hudOptions; // x alpha, y use texture, z use mask, w reserved
+    float4 hudOptions; // x alpha, y texture, z mask, w convert authored RGB to display-linear
     float4 viewport;   // drawable width, drawable height, reserved, reserved
 };
 
@@ -43,6 +43,19 @@ struct VertexOutput
     float4 color : TEXCOORD0;
     float2 texcoord : TEXCOORD1;
 };
+
+float SRGBToLinearComponent(float value)
+{
+    value = saturate(value);
+    return value <= 0.04045f ? value / 12.92f
+        : pow((value + 0.055f) / 1.055f, 2.4f);
+}
+
+float3 SRGBToLinear(float3 value)
+{
+    return float3(SRGBToLinearComponent(value.r),
+        SRGBToLinearComponent(value.g), SRGBToLinearComponent(value.b));
+}
 
 float2 LegacyMaskTexcoord(float2 pixelPosition)
 {
@@ -71,6 +84,12 @@ float4 main_ps(VertexOutput input) : SV_Target0
         }
     }
     output.a *= hudOptions.x;
+    if (hudOptions.w > 0.5f)
+    {
+        // HUD assets are authored/display-referred. Enhanced converts them
+        // before blending in the display-linear composition target.
+        output.rgb = SRGBToLinear(output.rgb);
+    }
     return output;
 }
 #endif

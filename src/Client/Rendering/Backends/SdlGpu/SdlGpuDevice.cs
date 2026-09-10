@@ -32,6 +32,12 @@ namespace MphRead
         public SDL_GPUDevice* Handle { get; }
         public SDL_Window* Window { get; }
         public SDL_GPUTextureFormat SwapchainFormat { get; }
+        /// <summary>
+        /// True only when SDL reports a swapchain format whose render-target
+        /// writes perform the linear-to-sRGB transfer. Enhanced output uses
+        /// this explicit policy instead of assuming platform gamma behavior.
+        /// </summary>
+        public bool SwapchainIsSrgb => IsSrgbFormat(SwapchainFormat);
         public string Driver { get; }
         public SDL_GPUShaderFormat ShaderFormats { get; }
         public bool SupportsImmediatePresent { get; }
@@ -119,6 +125,10 @@ namespace MphRead
                 if ((formats & flag) != 0) values.Add(name);
             }
         }
+
+        internal static bool IsSrgbFormat(SDL_GPUTextureFormat format)
+            => format is SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB
+                or SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB;
 
         public void Dispose()
         {

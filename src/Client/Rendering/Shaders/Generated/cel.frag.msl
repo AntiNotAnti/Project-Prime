@@ -1,13 +1,56 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+#pragma clang diagnostic ignored "-Wmissing-braces"
+
 #include <metal_stdlib>
 #include <simd/simd.h>
 
 using namespace metal;
+
+template<typename T, size_t Num>
+struct spvUnsafeArray
+{
+    T elements[Num ? Num : 1];
+
+    thread T& operator [] (size_t pos) thread
+    {
+        return elements[pos];
+    }
+    constexpr const thread T& operator [] (size_t pos) const thread
+    {
+        return elements[pos];
+    }
+
+    device T& operator [] (size_t pos) device
+    {
+        return elements[pos];
+    }
+    constexpr const device T& operator [] (size_t pos) const device
+    {
+        return elements[pos];
+    }
+
+    constexpr const constant T& operator [] (size_t pos) const constant
+    {
+        return elements[pos];
+    }
+
+    threadgroup T& operator [] (size_t pos) threadgroup
+    {
+        return elements[pos];
+    }
+    constexpr const threadgroup T& operator [] (size_t pos) const threadgroup
+    {
+        return elements[pos];
+    }
+};
 
 struct type_CelConstants
 {
     float4 celOptions;
     float4 texelOptions;
 };
+
+constant spvUnsafeArray<float2, 4> _75 = spvUnsafeArray<float2, 4>({ float2(-1.0, 0.0), float2(1.0, 0.0), float2(0.0, -1.0), float2(0.0, 1.0) });
 
 struct main_ps_out
 {
@@ -17,41 +60,211 @@ struct main_ps_out
 fragment main_ps_out main_ps(constant type_CelConstants& CelConstants [[buffer(0)]], texture2d<float> sceneTexture [[texture(0)]], texture2d<float> depthTexture [[texture(1)]], sampler sceneSampler [[sampler(0)]], sampler depthSampler [[sampler(1)]], float4 gl_FragCoord [[position]])
 {
     main_ps_out out = {};
-    float4 _255;
+    float4 _444;
     do
     {
-        float2 _72 = gl_FragCoord.xy * CelConstants.texelOptions.xy;
-        float4 _74 = sceneTexture.sample(sceneSampler, _72);
-        float4 _79 = depthTexture.sample(depthSampler, _72, level(0.0));
-        float _80 = _79.x;
-        float _248;
-        if (_80 < 0.999999523162841796875)
+        float2 _88 = gl_FragCoord.xy * CelConstants.texelOptions.xy;
+        float4 _90 = sceneTexture.sample(sceneSampler, _88);
+        float3 _91 = _90.xyz;
+        if (CelConstants.texelOptions.z > 0.5)
         {
-            float _95 = precise::max((CelConstants.celOptions.z / (CelConstants.celOptions.z - CelConstants.celOptions.y)) - _80, 9.999999717180685365747194737196e-10) * CelConstants.texelOptions.x;
-            if (CelConstants.texelOptions.z > 0.5)
+            spvUnsafeArray<float2, 4> directions;
+            bool _201;
+            float _202;
+            do
             {
-                float _143 = fast::clamp((log2(precise::max(precise::max(abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(-2.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(2.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80)), abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, -2.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, 2.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80))) * 0.5, 1.0000000133514319600180897396058e-10)) * 0.03125) + 1.0, 0.0040000001899898052215576171875, 1.0);
-                _255 = float4(_143, _143, _143, 1.0);
+                float4 _102 = depthTexture.sample(depthSampler, _88, level(0.0));
+                float _103 = _102.z;
+                if (_103 <= 0.0)
+                {
+                    _201 = false;
+                    _202 = 0.0;
+                    break;
+                }
+                float2 _109 = (_102.xy * 2.0) - float2(1.0);
+                float _110 = _109.x;
+                float _113 = _109.y;
+                float _115 = (1.0 - abs(_110)) - abs(_113);
+                float3 _116 = float3(_110, _113, _115);
+                float _118 = fast::clamp(-_115, 0.0, 1.0);
+                float _124;
+                if (_110 >= 0.0)
+                {
+                    _124 = -_118;
+                }
+                else
+                {
+                    _124 = _118;
+                }
+                float _130;
+                if (_113 >= 0.0)
+                {
+                    _130 = -_118;
+                }
+                else
+                {
+                    _130 = _118;
+                }
+                float2 _133 = _116.xy + float2(_124, _130);
+                float3 _135 = fast::normalize(float3(_133.x, _133.y, _116.z));
+                directions = _75;
+                float _137;
+                float _140;
+                _137 = 0.0;
+                _140 = 0.0;
+                float _138;
+                float _141;
+                for (int _142 = 0; _142 < 4; _137 = _138, _140 = _141, _142++)
+                {
+                    float4 _155 = depthTexture.sample(depthSampler, ((gl_FragCoord.xy + (directions[_142] * 1.0)) * CelConstants.texelOptions.xy), level(0.0));
+                    float _156 = _155.z;
+                    if (_156 <= 0.0)
+                    {
+                        _138 = _137;
+                        _141 = 1.0;
+                        continue;
+                    }
+                    float2 _167 = (_155.xy * 2.0) - float2(1.0);
+                    float _168 = _167.x;
+                    float _171 = _167.y;
+                    float _173 = (1.0 - abs(_168)) - abs(_171);
+                    float3 _174 = float3(_168, _171, _173);
+                    float _176 = fast::clamp(-_173, 0.0, 1.0);
+                    float _182;
+                    if (_168 >= 0.0)
+                    {
+                        _182 = -_176;
+                    }
+                    else
+                    {
+                        _182 = _176;
+                    }
+                    float _188;
+                    if (_171 >= 0.0)
+                    {
+                        _188 = -_176;
+                    }
+                    else
+                    {
+                        _188 = _176;
+                    }
+                    float2 _191 = _174.xy + float2(_182, _188);
+                    _138 = precise::max(_137, 1.0 - fast::clamp(dot(_135, fast::normalize(float3(_191.x, _191.y, _174.z))), 0.0, 1.0));
+                    _141 = precise::max(_140, abs(_156 - _103) / precise::max(_103, 9.9999997473787516355514526367188e-05));
+                }
+                _201 = true;
+                _202 = precise::max(smoothstep(0.006000000052154064178466796875, 0.02500000037252902984619140625, _140), smoothstep(0.07999999821186065673828125, 0.300000011920928955078125, _137));
                 break;
-            }
-            float _148 = (CelConstants.celOptions.w * 2.0) / _95;
-            float _194 = (CelConstants.celOptions.w * 1.33333337306976318359375) / _95;
-            float _242 = precise::max(smoothstep(precise::max(1.10000002384185791015625, _148 * 1.5), precise::max(3.5, _148 * 4.0), (precise::max(abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(-2.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(2.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80)), abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, -2.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, 2.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80))) * 0.5) / _95), smoothstep(precise::max(1.10000002384185791015625, _194 * 1.5), precise::max(3.5, _194 * 4.0), (precise::max(abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(-3.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(3.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80)), abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, -3.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, 3.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _80))) * 0.3333333432674407958984375) / _95)) * CelConstants.celOptions.x;
-            _248 = _242;
+            } while(false);
+            float _309;
+            do
+            {
+                float4 _208 = depthTexture.sample(depthSampler, _88, level(0.0));
+                float _209 = _208.z;
+                if (_209 <= 0.0)
+                {
+                    _309 = 0.0;
+                    break;
+                }
+                float2 _215 = (_208.xy * 2.0) - float2(1.0);
+                float _216 = _215.x;
+                float _219 = _215.y;
+                float _221 = (1.0 - abs(_216)) - abs(_219);
+                float3 _222 = float3(_216, _219, _221);
+                float _224 = fast::clamp(-_221, 0.0, 1.0);
+                float _230;
+                if (_216 >= 0.0)
+                {
+                    _230 = -_224;
+                }
+                else
+                {
+                    _230 = _224;
+                }
+                float _236;
+                if (_219 >= 0.0)
+                {
+                    _236 = -_224;
+                }
+                else
+                {
+                    _236 = _224;
+                }
+                float2 _239 = _222.xy + float2(_230, _236);
+                float3 _241 = fast::normalize(float3(_239.x, _239.y, _222.z));
+                if (!_201)
+                {
+                    directions = _75;
+                }
+                float _245;
+                float _248;
+                _245 = 0.0;
+                _248 = 0.0;
+                float _246;
+                float _249;
+                for (int _250 = 0; _250 < 4; _245 = _246, _248 = _249, _250++)
+                {
+                    float4 _263 = depthTexture.sample(depthSampler, ((gl_FragCoord.xy + (directions[_250] * 2.0)) * CelConstants.texelOptions.xy), level(0.0));
+                    float _264 = _263.z;
+                    if (_264 <= 0.0)
+                    {
+                        _246 = _245;
+                        _249 = 1.0;
+                        continue;
+                    }
+                    float2 _275 = (_263.xy * 2.0) - float2(1.0);
+                    float _276 = _275.x;
+                    float _279 = _275.y;
+                    float _281 = (1.0 - abs(_276)) - abs(_279);
+                    float3 _282 = float3(_276, _279, _281);
+                    float _284 = fast::clamp(-_281, 0.0, 1.0);
+                    float _290;
+                    if (_276 >= 0.0)
+                    {
+                        _290 = -_284;
+                    }
+                    else
+                    {
+                        _290 = _284;
+                    }
+                    float _296;
+                    if (_279 >= 0.0)
+                    {
+                        _296 = -_284;
+                    }
+                    else
+                    {
+                        _296 = _284;
+                    }
+                    float2 _299 = _282.xy + float2(_290, _296);
+                    _246 = precise::max(_245, 1.0 - fast::clamp(dot(_241, fast::normalize(float3(_299.x, _299.y, _282.z))), 0.0, 1.0));
+                    _249 = precise::max(_248, abs(_264 - _209) / precise::max(_209, 9.9999997473787516355514526367188e-05));
+                }
+                _309 = precise::max(smoothstep(0.006000000052154064178466796875, 0.02500000037252902984619140625, _248), smoothstep(0.07999999821186065673828125, 0.300000011920928955078125, _245));
+                break;
+            } while(false);
+            _444 = float4(_91 * (1.0 - (precise::max(_202, _309) * CelConstants.celOptions.x)), 1.0);
+            break;
+        }
+        float4 _323 = depthTexture.sample(depthSampler, _88, level(0.0));
+        float _324 = _323.x;
+        float _437;
+        if (_324 < 0.999999523162841796875)
+        {
+            float _338 = precise::max((CelConstants.celOptions.z / (CelConstants.celOptions.z - CelConstants.celOptions.y)) - _324, 9.999999717180685365747194737196e-10) * CelConstants.texelOptions.x;
+            float _342 = (CelConstants.celOptions.w * 2.0) / _338;
+            float _388 = (CelConstants.celOptions.w * 1.33333337306976318359375) / _338;
+            float _436 = precise::max(smoothstep(precise::max(1.10000002384185791015625, _342 * 1.5), precise::max(3.5, _342 * 4.0), (precise::max(abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(-2.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _324) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(2.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _324)), abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, -2.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _324) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, 2.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _324))) * 0.5) / _338), smoothstep(precise::max(1.10000002384185791015625, _388 * 1.5), precise::max(3.5, _388 * 4.0), (precise::max(abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(-3.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _324) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(3.0, 0.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _324)), abs((depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, -3.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _324) + (depthTexture.sample(depthSampler, ((gl_FragCoord.xy + float2(0.0, 3.0)) * CelConstants.texelOptions.xy), level(0.0)).x - _324))) * 0.3333333432674407958984375) / _338)) * CelConstants.celOptions.x;
+            _437 = _436;
         }
         else
         {
-            if (CelConstants.texelOptions.z > 0.5)
-            {
-                _255 = float4(0.0, 0.0, 0.0, 1.0);
-                break;
-            }
-            _248 = 0.0;
+            _437 = 0.0;
         }
-        _255 = float4(_74.xyz * (1.0 - _248), 1.0);
+        _444 = float4(_91 * (1.0 - _437), 1.0);
         break;
     } while(false);
-    out.out_var_SV_Target0 = _255;
+    out.out_var_SV_Target0 = _444;
     return out;
 }
 

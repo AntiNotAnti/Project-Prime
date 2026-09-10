@@ -373,6 +373,44 @@ namespace MphRead
             ValidateFresh("disruption.hlsl", "disruption_manifest.json");
             ValidateFresh("cel.hlsl", "cel_manifest.json");
             ValidateFresh("bloom.hlsl", "bloom_manifest.json");
+            ValidateFresh("tone_map.hlsl", "tone_map_manifest.json");
+            ValidateFresh("color_grade.hlsl", "color_grade_manifest.json");
+        }
+
+        public static void ValidateSurfaceFresh()
+        {
+            ValidateFresh("surface.hlsl", "surface_manifest.json");
+        }
+
+        public static void ValidateSsaoFresh()
+        {
+            ValidateFresh("ssao.hlsl", "ssao_manifest.json");
+        }
+
+        public static void ValidateShadowFresh()
+        {
+            ValidateFresh("shadow.hlsl", "shadow_manifest.json");
+        }
+
+        public static void ValidateDistortionFresh()
+        {
+            ValidateFresh("distortion.hlsl", "distortion_manifest.json");
+        }
+
+        public static void ValidateDistortionWarpFresh()
+        {
+            ValidateFresh("distortion_warp.hlsl",
+                "distortion_warp_manifest.json");
+        }
+
+        public static void ValidateVisorFresh()
+        {
+            ValidateFresh("visor.hlsl", "visor_manifest.json");
+        }
+
+        public static void ValidateSkyFresh()
+        {
+            ValidateFresh("sky.hlsl", "sky_manifest.json");
         }
 
         private static void ValidateFresh(string sourceName, string manifestName)

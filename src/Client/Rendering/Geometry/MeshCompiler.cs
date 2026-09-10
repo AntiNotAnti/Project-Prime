@@ -38,7 +38,9 @@ namespace MphRead
             var triangles = new List<int>(TriangleCapacity(topology, count));
             var lines = new List<int>(topology == MeshPrimitiveTopology.LineLoop ? count * 2 : 0);
             AppendIndices(triangles, lines, topology, 0, count);
-            return new CpuMesh(vertices, triangles.ToArray(), lines.ToArray());
+            int[] triangleIndices = triangles.ToArray();
+            vertices = MeshTangentGenerator.Generate(vertices, triangleIndices);
+            return new CpuMesh(vertices, triangleIndices, lines.ToArray());
         }
 
         public static CpuMesh Compile(RenderVertex[] source, MeshPrimitiveTopology topology,
@@ -199,7 +201,10 @@ namespace MphRead
                 }
             }
             if (inPrimitive) throw new ProgramException("Display list ended inside a primitive.");
-            return new CpuMesh(vertices.ToArray(), triangles.ToArray(), lines.ToArray());
+            int[] triangleIndices = triangles.ToArray();
+            RenderVertex[] compiledVertices = MeshTangentGenerator.Generate(
+                vertices.ToArray(), triangleIndices);
+            return new CpuMesh(compiledVertices, triangleIndices, lines.ToArray());
         }
 
         private static Vector4 DecodeColor(uint packed, float alpha)
