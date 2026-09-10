@@ -36,7 +36,7 @@ public static class PrimeRoutePresentation
         new[] { PrimeRoute.Play, PrimeRoute.Hunter, PrimeRoute.Rankings };
 
     public static IReadOnlyList<string> MoreItems { get; } =
-        new[] { "Theater", "Settings", "Account", "Connection", "About" };
+        new[] { "Theatre", "Settings", "Account", "Connection", "About" };
 
     public static PrimeShellBreakpoint Breakpoint(double width)
     {
@@ -51,7 +51,7 @@ public static class PrimeRoutePresentation
         {
             (PrimeRoute.Rankings, PrimeShellBreakpoint.Compact or PrimeShellBreakpoint.Mobile)
                 => "Ranks",
-            (PrimeRoute.Theater, PrimeShellBreakpoint.Compact) => "Replays",
+            (PrimeRoute.Theatre, PrimeShellBreakpoint.Compact) => "Replays",
             _ => PrimeRouteInfo.Label(route)
         };
 
@@ -68,6 +68,24 @@ public static class PrimeRoutePresentation
             GatewayPhase.Failed => "Could not complete that request. Check your details and try again.",
             _ => String.IsNullOrWhiteSpace(detail) ? "Choose how you want to play." : detail.Trim()
         };
+
+    public static string GatewayDetails(string? detail)
+    {
+        string value = String.Join(' ', (detail ?? "").Split(
+            ['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)).Trim();
+        if (value.Length == 0)
+            return "No additional details were provided.";
+        string[] sensitiveOrTechnical =
+        {
+            "exception", "password", "token", "authorization", "http://", "https://"
+        };
+        foreach (string marker in sensitiveOrTechnical)
+        {
+            if (value.Contains(marker, StringComparison.OrdinalIgnoreCase))
+                return "Technical details were omitted. See diagnostic logs.";
+        }
+        return value.Length <= 240 ? value : value[..240] + "…";
+    }
 }
 
 /// <summary>
@@ -118,13 +136,13 @@ public sealed record PrimeMatchHistoryPresentation(string Outcome, string Missio
 public sealed record PrimeReplayPresentation(string Title, string FileName,
     string RecordedLine, string Size)
 {
-    public static PrimeReplayPresentation From(PrimeDemoEntry demo)
+    public static PrimeReplayPresentation From(PrimeReplayEntry replay)
     {
-        ArgumentNullException.ThrowIfNull(demo);
+        ArgumentNullException.ThrowIfNull(replay);
         return new PrimeReplayPresentation(
-            String.IsNullOrWhiteSpace(demo.Room) ? demo.FileName : demo.Room,
-            demo.FileName,
-            demo.Recorded.ToString("MMM d, yyyy · HH:mm", CultureInfo.InvariantCulture),
-            demo.Size);
+            String.IsNullOrWhiteSpace(replay.Room) ? replay.FileName : replay.Room,
+            replay.FileName,
+            replay.Recorded.ToString("MMM d, yyyy · HH:mm", CultureInfo.InvariantCulture),
+            replay.Size);
     }
 }

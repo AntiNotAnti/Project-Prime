@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead;
 
 namespace MphRead.Mods.Launcher.Gui;

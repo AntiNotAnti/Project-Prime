@@ -1,5 +1,5 @@
-using FruityPrime.Server.Shared;
-using FruityPrime.Server.Worker;
+using ProjectPrime.Server.Shared;
+using ProjectPrime.Server.Worker;
 using MphRead.Mods.Update;
 using Xunit;
 

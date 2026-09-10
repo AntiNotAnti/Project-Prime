@@ -109,7 +109,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// The menus carry no descriptions any more -- an entry called "Join"
         /// did not need a line explaining that it joins -- but a few of them
         /// still say something the player has to see: that the game files are
-        /// missing, that a demo would not open. Those arrive after the entry
+        /// missing, that a replay would not open. Those arrive after the entry
         /// is built, and an entry built at the bare height would have drawn
         /// them off its own bottom edge.
         /// </summary>

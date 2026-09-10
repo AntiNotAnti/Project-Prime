@@ -23,19 +23,19 @@ namespace MphRead.Mods.Launcher.Gui
     internal sealed class SplashView : Control
     {
         /// <summary>
-        /// The wordmark, loaded once from what the csproj embeds as an
+        /// The canonical launch artwork, loaded once from what the csproj embeds as an
         /// Avalonia resource. Static and lazy so that opening the launcher
         /// twice in one process -- the loop in <c>GuiLauncher</c> -- decodes
         /// it once, and a missing asset (it cannot happen in a build this
         /// project makes, but nothing stops a stripped-down one) falls back to
         /// no picture rather than a crash on the first screen.
         /// </summary>
-        private static readonly Lazy<Bitmap?> _brand = new(() =>
+        private static readonly Lazy<Bitmap?> _launchArt = new(() =>
         {
             try
             {
                 using Stream stream = AssetLoader.Open(
-                    new Uri("avares://FruityPrime/Assets/fruity-prime-logo.png"));
+                    new Uri("avares://ProjectPrime/Assets/project-prime-title-screen.png"));
                 return new Bitmap(stream);
             }
             catch (Exception)
@@ -146,44 +146,6 @@ namespace MphRead.Mods.Launcher.Gui
                 }
             }, new Rect(0, body.Height - 90 - _bottomInset, body.Width, 90 + _bottomInset));
 
-            // The corner wordmark only over a map picture.
-            //
-            // With no game files there is no picture, so DrawTitleCard has
-            // already put the same mark across the middle of the panel -- and
-            // drawing it again in the corner gave a fresh install two logos,
-            // one under the other, which reads as a layout accident rather
-            // than as branding. (Seen with `-uishot`; it had never been
-            // looked at, because nothing could look at it.)
-            if (_image != null)
-            {
-                DrawBrand(context, body, _bottomInset);
-            }
-        }
-
-        /// <summary>
-        /// The wordmark over the picture, where the map's name used to be.
-        ///
-        /// The name and the word Ready under it said nothing a person needed:
-        /// which map is about to load is what the card beside this already
-        /// says, and Ready was true of every state the screen was ever in. The
-        /// logo is cut with its own transparency, so the picture behind it
-        /// shows through and the wash above keeps it legible over a bright one.
-        /// </summary>
-        private static void DrawBrand(DrawingContext context, Rect body, double bottomInset)
-        {
-            Bitmap? brand = _brand.Value;
-            if (brand == null || body.Width < 80)
-            {
-                return;
-            }
-            // Never wider than the panel it sits in, never blown up past its
-            // own resolution, and never so wide that it becomes the picture
-            // rather than a mark on it.
-            double width = Math.Min(Math.Min(body.Width - 48, 320), brand.Size.Width);
-            double height = width * brand.Size.Height / brand.Size.Width;
-            context.DrawImage(brand,
-                new Rect(0, 0, brand.Size.Width, brand.Size.Height),
-                new Rect(24, body.Height - 26 - height - bottomInset, width, height));
         }
 
         /// <summary>Fill the panel, cropping the overflow, rather than letterboxing.</summary>
@@ -200,32 +162,16 @@ namespace MphRead.Mods.Launcher.Gui
 
         /// <summary>
         /// What a fresh install sees, before there is a map to show: the
-        /// picture the game-files card is answered by, which is the whole
-        /// reason the wordmark has to appear here rather than only in the
-        /// corner of a screen with a room already loaded.
+        /// same canonical launch artwork used by the one-time title layer.
         /// </summary>
         private static void DrawTitleCard(DrawingContext context, Rect body)
         {
-            // Plain black: Render already filled the panel with GuiTheme.Ink
-            // before calling here, and the logo's own background was cut
-            // transparent to exactly that colour story, so nothing further is
-            // painted underneath it. A gradient or a grid behind a piece of
-            // real artwork reads as a placeholder competing with the thing it
-            // is a placeholder for.
-            double cx = body.Width / 2;
-            double cy = body.Height / 2 - 20;
-            Bitmap? brand = _brand.Value;
-            if (brand != null)
+            // Render already filled the panel with GuiTheme.Ink, which also
+            // provides a deterministic fallback behind a failed resource.
+            Bitmap? launchArt = _launchArt.Value;
+            if (launchArt != null)
             {
-                // Fit within a band of the panel's width, never upscaled past
-                // its own resolution -- a wordmark blown up past its source
-                // pixels looks soft in a way a stray dropped frame does not.
-                double maxWidth = Math.Min(body.Width * 0.72, brand.Size.Width);
-                double scale = maxWidth / brand.Size.Width;
-                double w = brand.Size.Width * scale;
-                double h = brand.Size.Height * scale;
-                var dest = new Rect(cx - w / 2, cy - h / 2, w, h);
-                context.DrawImage(brand, new Rect(brand.Size), dest);
+                DrawCover(context, launchArt, body);
                 return;
             }
             // Only reachable if the embedded asset failed to decode -- the
@@ -233,7 +179,8 @@ namespace MphRead.Mods.Launcher.Gui
             var title = new FormattedText(Mods.Branding.Name.ToUpperInvariant(),
                 CultureInfo.InvariantCulture,
                 FlowDirection.LeftToRight, GuiTheme.Face(true), 30, GuiTheme.TextBrush);
-            context.DrawText(title, new Point(cx - title.Width / 2, cy));
+            context.DrawText(title, new Point((body.Width - title.Width) / 2,
+                (body.Height - title.Height) / 2));
         }
     }
 }

@@ -7,7 +7,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Threading;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.MapGen;
 using MphRead.Mods.Network;

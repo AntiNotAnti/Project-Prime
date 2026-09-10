@@ -78,7 +78,7 @@ namespace MphRead.Mods.Launcher.Gui
                 };
                 session.Children.Add(windowEntry);
             }
-            if (!DemoPlayback.IsActive)
+            if (!ReplayPlayback.IsActive)
             {
                 if (SpectatorMode.IsSpectating)
                 {
@@ -93,9 +93,9 @@ namespace MphRead.Mods.Launcher.Gui
                 if (AuthoritativePlay.Current != null)
                 {
                     MenuEntry record = Add(session,
-                        DemoRecorder.IsRecording ? "Stop recording" : "Record demo",
+                        ReplayRecorder.IsRecording ? "Stop recording" : "Record replay",
                         () => RecordToggleRequested?.Invoke(this, EventArgs.Empty));
-                    record.Accent = DemoRecorder.IsRecording ? GuiTheme.Warm : GuiTheme.Accent;
+                    record.Accent = ReplayRecorder.IsRecording ? GuiTheme.Warm : GuiTheme.Accent;
                 }
             }
             stack.Children.Add(BuildGroup("System & session", session));
@@ -247,9 +247,9 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static string SessionStatus()
         {
-            if (DemoPlayback.IsActive)
+            if (ReplayPlayback.IsActive)
             {
-                return "DEMO PLAYBACK";
+                return "REPLAY PLAYBACK";
             }
             if (SpectatorMode.IsSpectating)
             {

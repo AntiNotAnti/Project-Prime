@@ -5,7 +5,7 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Identity;
 using MphRead.Mods;
 using MphRead.Mods.Accounts;
@@ -155,13 +155,13 @@ public sealed class PrimeShellControllerTests
     {
         Assert.True(ModelPreviewCatalog.TryHunter(Hunter.Samus, out ModelPreviewSpec? spec));
         var managed = ModelPreviewGenerator.CreateWorkerStartInfo(
-            spec!, "/usr/local/share/dotnet/dotnet", "/tmp/FruityPrime.dll");
-        Assert.Equal("/tmp/FruityPrime.dll", managed.ArgumentList[0]);
+            spec!, "/usr/local/share/dotnet/dotnet", "/tmp/ProjectPrime.dll");
+        Assert.Equal("/tmp/ProjectPrime.dll", managed.ArgumentList[0]);
         Assert.Equal("-modelpreview", managed.ArgumentList[1]);
         Assert.Equal("hunter:samus", managed.ArgumentList[2]);
 
         var appHost = ModelPreviewGenerator.CreateWorkerStartInfo(
-            spec!, "/tmp/FruityPrime", "/tmp/FruityPrime.dll");
+            spec!, "/tmp/ProjectPrime", "/tmp/ProjectPrime.dll");
         Assert.Equal("-modelpreview", appHost.ArgumentList[0]);
     }
 
@@ -171,7 +171,7 @@ public sealed class PrimeShellControllerTests
         var navigator = new PrimeNavigator(maximumHistory: 2);
         navigator.Navigate(PrimeRoute.Play);
         navigator.Navigate(PrimeRoute.Armory);
-        navigator.Navigate(PrimeRoute.Theater);
+        navigator.Navigate(PrimeRoute.Theatre);
 
         Assert.Equal(2, navigator.HistoryCount);
         Assert.Equal(PrimeRoute.Play, navigator.History[0]);
@@ -362,6 +362,30 @@ public sealed class PrimeShellControllerTests
     }
 
     [Fact]
+    public async Task AuthenticatedIdentityDoesNotOverwriteLocalGuestDisplayName()
+    {
+        string previous = MphRead.Mods.Launcher.LauncherPrefs.PlayerName;
+        try
+        {
+            MphRead.Mods.Launcher.LauncherPrefs.PlayerName = "Local Guest";
+            var account = new GatewayAccountFake();
+            using var shell = new PrimeShellState();
+            await using var gateway = new GatewayController(shell,
+                _ => Task.FromResult<IPrimeGatewayAccount>(account));
+
+            Assert.True(await gateway.SignInAsync("pilot@example.test", "secret"));
+
+            Assert.True(shell.SignedIn);
+            Assert.Equal("Pilot", shell.DisplayName);
+            Assert.Equal("Local Guest", MphRead.Mods.Launcher.LauncherPrefs.PlayerName);
+        }
+        finally
+        {
+            MphRead.Mods.Launcher.LauncherPrefs.PlayerName = previous;
+        }
+    }
+
+    [Fact]
     public async Task RankingsDropsAResponseFromAnOlderQuery()
     {
         PlayerId player = new(Guid.NewGuid());
@@ -379,19 +403,19 @@ public sealed class PrimeShellControllerTests
     }
 
     [Fact]
-    public async Task TheaterUsesTheProvidedLocalLibraryForLoadDeleteAndImport()
+    public async Task TheatreUsesTheProvidedLocalLibraryForLoadDeleteAndImport()
     {
-        var library = new DemoLibraryFake();
-        using var theater = new TheaterController(library);
+        var library = new ReplayLibraryFake();
+        using var theatre = new TheatreController(library);
 
-        await theater.LoadAsync();
-        Assert.Single(theater.State.Demos);
-        Assert.True(await theater.DeleteAsync(theater.State.Demos[0]));
-        Assert.Empty(theater.State.Demos);
+        await theatre.LoadAsync();
+        Assert.Single(theatre.State.Replays);
+        Assert.True(await theatre.DeleteAsync(theatre.State.Replays[0]));
+        Assert.Empty(theatre.State.Replays);
 
-        Assert.True(await theater.ImportAsync("incoming.fpdemo"));
-        Assert.Single(theater.State.Demos);
-        Assert.Equal("imported.fpdemo", theater.State.Demos[0].FileName);
+        Assert.True(await theatre.ImportAsync("incoming.fpreplay"));
+        Assert.Single(theatre.State.Replays);
+        Assert.Equal("imported.fpreplay", theatre.State.Replays[0].FileName);
     }
 
     private sealed class RankingQueryFake : IPrimeRankingQueries
@@ -535,11 +559,11 @@ public sealed class PrimeShellControllerTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
-    private sealed class DemoLibraryFake : IPrimeDemoLibrary
+    private sealed class ReplayLibraryFake : IPrimeReplayLibrary
     {
-        private readonly List<PrimeDemoEntry> _demos =
+        private readonly List<PrimeReplayEntry> _replays =
         [
-            new("one", "/virtual/one.fpdemo", "one.fpdemo", "Alinos Gateway",
+            new("one", "/virtual/one.fpreplay", "one.fpreplay", "Alinos Gateway",
                 new DateTime(2026, 1, 1), 1024)
         ];
 
@@ -547,16 +571,16 @@ public sealed class PrimeShellControllerTests
         public bool SupportsImport => true;
         public bool SupportsExport => true;
         public bool SupportsRename => true;
-        public IReadOnlyList<PrimeDemoEntry> List() => _demos.ToArray();
-        public bool Delete(PrimeDemoEntry demo) => _demos.RemoveAll(item => item.Id == demo.Id) == 1;
-        public bool Rename(PrimeDemoEntry demo, string fileName) => false;
-        public bool Export(PrimeDemoEntry demo, string destinationPath) => false;
+        public IReadOnlyList<PrimeReplayEntry> List() => _replays.ToArray();
+        public bool Delete(PrimeReplayEntry replay) => _replays.RemoveAll(item => item.Id == replay.Id) == 1;
+        public bool Rename(PrimeReplayEntry replay, string fileName) => false;
+        public bool Export(PrimeReplayEntry replay, string destinationPath) => false;
 
-        public bool Import(string sourcePath, out PrimeDemoEntry? imported)
+        public bool Import(string sourcePath, out PrimeReplayEntry? imported)
         {
-            imported = new PrimeDemoEntry("imported", "/virtual/imported.fpdemo",
-                "imported.fpdemo", "", new DateTime(2026, 1, 2), 2048);
-            _demos.Add(imported);
+            imported = new PrimeReplayEntry("imported", "/virtual/imported.fpreplay",
+                "imported.fpreplay", "", new DateTime(2026, 1, 2), 2048);
+            _replays.Add(imported);
             return true;
         }
     }

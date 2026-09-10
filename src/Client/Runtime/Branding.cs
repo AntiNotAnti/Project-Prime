@@ -3,28 +3,25 @@ namespace MphRead.Mods
     /// <summary>
     /// What this program is called, in one place.
     ///
-    /// The official product name is Prime Hunters. Existing binary names,
-    /// package identities and repository URLs remain compatible with installs
-    /// released before the rename. The root namespace remains MphRead.
+    /// The product identity is Project Prime. The root namespace remains MphRead
+    /// because it is the upstream/core namespace.
     /// </summary>
     public static class Branding
     {
         public static System.Version EngineVersion { get; } = new System.Version(0, 35, 1, 0);
         /// <summary>The product, as a person would write it.</summary>
-        public const string Name = "Prime Hunters";
+        public const string Name = "Project Prime";
 
-        /// <summary>The existing binary/archive identifier, preserved for update compatibility.</summary>
-        public const string FileName = "FruityPrime";
+        /// <summary>The desktop binary/archive identifier.</summary>
+        public const string FileName = "ProjectPrime";
 
         /// <summary>What upstream is, and what this is a fork of.</summary>
         public const string Upstream = "MphRead";
 
         /// <summary>
-        /// Historical repository identity retained for compatibility links.
-        /// Update discovery uses <see cref="UpdateRepository"/> separately so
-        /// an unconfigured release feed cannot advertise unrelated releases.
+        /// Source repository for Project Prime.
         /// </summary>
-        public const string Repository = "liveteklol/Fruity-Prime";
+        public const string Repository = "AntiNotAnti/Project-Prime";
 
         /// <summary>
         /// Public binary-only repository queried for signed client updates.
@@ -52,7 +49,7 @@ namespace MphRead.Mods
         }
 
         /// <summary>
-        /// "Prime Hunters v1.2.0", or "Prime Hunters (a local build)" when this
+        /// "Project Prime v1.2.0", or "Project Prime (a local build)" when this
         /// was not made by the release workflow -- which is worth saying out
         /// loud, because it is also the case where the updater stands down.
         /// </summary>

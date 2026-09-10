@@ -11,10 +11,12 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Mods.Accounts;
 using MphRead.Mods;
 using MphRead.Mods.Network;
+using MphRead.Mods.Launcher;
+using MphRead.Mods.Launcher.Theme;
 using AvaloniaButton = Avalonia.Controls.Button;
 
 namespace MphRead.Mods.Launcher.Gui;
@@ -41,7 +43,10 @@ internal sealed record PlayPresentationContext(
     Action<ComboBox, DeferredControllerSelection<Hunter>> TrackHunter,
     Action EditorLostFocus,
     Action<PrimeNotificationKind, string> Notify,
-    bool ExpandAdvancedNetwork = false);
+    bool ExpandAdvancedNetwork = false,
+    Action? OpenNetworkSettings = null,
+    bool SeatOffersHandledExternally = false,
+    Action<LobbyChatPanel?>? TrackChatPanel = null);
 
 /// <summary>Native Avalonia presentation for the Play route.</summary>
 internal static class PlayPresentation
@@ -51,6 +56,7 @@ internal static class PlayPresentation
     public static Control Build(PlayPresentationContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
+        context.TrackChatPanel?.Invoke(null);
         if (!context.Shell.HasNetworkIdentity)
             return BuildSignedOut(context);
 
@@ -68,6 +74,7 @@ internal static class PlayPresentation
         // A lobby disappearing is an authoritative boundary, so do not carry
         // a confirmation into a later lobby that happens to reuse the route.
         context.Ui.ObserveLobby(Guid.Empty);
+        context.Ui.ResetChatPresentation();
         return context.Ui.Subsection switch
         {
             PlaySubsection.Browser => BuildBrowser(context),
@@ -78,6 +85,7 @@ internal static class PlayPresentation
 
     private static Control BuildSignedOut(PlayPresentationContext context)
     {
+        context.Ui.ResetChatPresentation();
         var root = Page("Play", "ONLINE MULTIPLAYER",
             "Choose an identity before entering the match directory.");
         root.Children.Add(Section(Stack(
@@ -123,7 +131,7 @@ internal static class PlayPresentation
         {
             root.Children.Add(Section(Stack(
                 Text("Finding a match…", "prime-heading"),
-                Text("Quick Play is checking the current open lobbies. Your Node connection stays available while this runs.",
+                Text("Quick Play is checking the current open lobbies. Your match connection stays available while this runs.",
                     "prime-muted"),
                 Button("Cancel", () => context.Controller.CancelEntry(), quiet: true))));
         }
@@ -140,7 +148,7 @@ internal static class PlayPresentation
             ImmutableArray<LobbyListEntry> entries = lobbies.Lobbies;
             var preview = Stack(
                 Text("Matches ready to join", "prime-heading"),
-                Text("These cards use the latest server directory snapshot. Open Browse Matches for filters and all actions.",
+                Text("These cards use the latest match directory. Open Browse Matches for filters and all actions.",
                     "prime-muted"));
             foreach (LobbyListEntry entry in entries.Take(3))
                 preview.Children.Add(CreateMatchCard(context, entry));
@@ -154,7 +162,7 @@ internal static class PlayPresentation
         else if (state.Phase is PlayPhase.Nodes or PlayPhase.Connected && !state.Loading)
         {
             root.Children.Add(Section(new PrimeEmptyState(
-                "No match directory loaded yet. Choose Browse Matches to ask the connected Node for open games.")));
+                "No match directory loaded yet. Choose Browse Matches to look for open games.")));
         }
 
         root.Children.Add(new Expander
@@ -171,17 +179,16 @@ internal static class PlayPresentation
         PlayState state = context.State;
         var network = Stack(
             Text("Connection", "prime-heading"),
-            Text(state.Node?.Session is { } session
-                ? $"Connected · session {session.SessionId.ToString()[..8]}"
+            Text(state.Node?.Session is not null
+                ? "Connected"
                 : "Disconnected", "prime-muted"));
 
-        var region = Editor(context.Controller.PreferredRegion, "Preferred region (optional)");
-        region.TextChanged += (_, _) => context.Controller.PreferredRegion = region.Text?.Trim() ?? "";
-        TrackEditor(context, region);
-        network.Children.Add(Text("Automatic server selection", "prime-label"));
-        network.Children.Add(region);
-        network.Children.Add(Text("Region is used only when selecting a Node. Lobby cards do not claim a region unless the authoritative lobby DTO provides one.",
+        network.Children.Add(Text("Server search region", "prime-label"));
+        network.Children.Add(Text(PreferredRegionLabel(context.Controller.PreferredRegion), "prime-body"));
+        network.Children.Add(Text("Change this choice in Settings. Match cards only show details supplied by the match directory.",
             "prime-muted"));
+        if (context.OpenNetworkSettings is { } openNetworkSettings)
+            network.Children.Add(Button("Change in Settings", openNetworkSettings, quiet: true));
         network.Children.Add(Button("Refresh servers", () => context.RunCommand("Refresh servers",
             () => context.Controller.ForceRefreshNodesAsync(context.CancellationToken)), quiet: true));
         if (NodeSessions.Current is not null)
@@ -214,7 +221,7 @@ internal static class PlayPresentation
     {
         PlayState state = context.State;
         var root = Page("Browse Matches", "MATCH DIRECTORY",
-            "Choose a player seat, spectate an open lobby, or join its authoritative waitlist when it is full.");
+            "Choose a player seat, spectate an open lobby, or join the player queue when it is full.");
         root.Children.Add(Button("Back to Play", () =>
         {
             context.Ui.Subsection = PlaySubsection.Home;
@@ -233,9 +240,19 @@ internal static class PlayPresentation
                 source, context.Ui.Filters, context.Ui.Sort);
             if (entries.IsDefaultOrEmpty)
             {
-                cardsHost.Children.Add(new PrimeEmptyState(snapshot is null
-                    ? "Choose Refresh matches to load the current server directory."
-                    : "No matches match these filters. Clear a filter or refresh the directory."));
+                var empty = new PrimeEmptyState(snapshot is null
+                    ? "Choose Refresh matches to load the current match directory."
+                    : "No matches match these filters. Clear a filter or refresh the directory.");
+                if (context.Ui.Filters != new MatchBrowserFilters())
+                    empty.Children.Add(Button("Clear filters", () =>
+                    {
+                        context.Ui.ClearFilters();
+                        RebuildCards();
+                    }, quiet: true));
+                empty.Children.Add(Button("Refresh matches", () => context.RunCommand(
+                    "Refresh matches", () => context.Controller.BrowseLobbiesAsync(
+                        context.CancellationToken)), primary: true));
+                cardsHost.Children.Add(empty);
                 return;
             }
             foreach (LobbyListEntry entry in entries)
@@ -254,7 +271,7 @@ internal static class PlayPresentation
         root.Children.Add(Section(Stack(
             Text(state.Loading ? "Loading the match directory…" :
                 snapshot is null ? "The directory has not been loaded." :
-                $"Showing {source.Length} authoritative match entries.", "prime-muted"),
+                $"Showing {source.Length} matches.", "prime-muted"),
             footer)));
         return root;
     }
@@ -343,7 +360,7 @@ internal static class PlayPresentation
         checks.Children.Add(spectate);
         checks.Children.Add(hideFull);
         content.Children.Add(checks);
-        content.Children.Add(Text("The directory provides mode, map, capacity, observer seats, bots, rules, phase, and waitlist counts. Ping, trust, latency, and lobby region are not inferred here.",
+        content.Children.Add(Text("Match cards show details supplied by the match directory. Connection quality is not estimated.",
             "prime-muted"));
         return Section(content);
     }
@@ -352,7 +369,7 @@ internal static class PlayPresentation
     {
         HostMatchDraft draft = context.Ui.HostDraft;
         var root = Page("Host Match", "NEW MULTIPLAYER LOBBY",
-            "Set the lobby capacity first, then choose the mission and rules the server will validate.");
+            "Set the lobby capacity first, then choose the mission and rules for your match.");
         root.Children.Add(Button("Back to Play", () =>
         {
             context.Ui.Subsection = PlaySubsection.Home;
@@ -420,7 +437,7 @@ internal static class PlayPresentation
         fields.Children.Add(Field("Player seats", players, 180));
         fields.Children.Add(Field("Observer seats", observers, 180));
         fields.Children.Add(Field("Seat policy", seatPolicy, 280));
-        fields.Children.Add(Text("Player seats include bots. Observer seats remain separate, and a full player roster can expose a server-owned waitlist.",
+        fields.Children.Add(Text("Player seats include bots. Observer seats remain separate, and a full player roster can offer a place in the player queue.",
             "prime-muted"));
         fields.Children.Add(Button("Next: mission and rules", () =>
         {
@@ -439,14 +456,12 @@ internal static class PlayPresentation
         HostMatchDraft draft)
     {
         var root = Page("Edit Match", "OWNER MATCH SETTINGS",
-            "Changes are sent to the Node as one structured request. The authoritative snapshot decides the resulting mission and readiness state.");
+            "Update the mission and rules for this match. Changes take effect when the lobby confirms them.");
         root.Children.Add(Button("Back to lobby", () =>
         {
             context.Ui.ClearEdit();
             context.Refresh();
         }, quiet: true));
-        root.Children.Add(StatusCard("Changing map, mode, bots, or rules resets player readiness on the server.",
-            GuiTheme.WarmBrush));
         root.Children.Add(BuildMatchConfiguration(context, draft, "Apply match settings",
             cancel: () =>
             {
@@ -460,13 +475,12 @@ internal static class PlayPresentation
                     return;
                 }
                 context.RunCommand("Apply match settings", () => context.ConfigureMatch(draft));
-            }));
-        root.Children.Add(Text($"Current authoritative revision · {lobby.Revision}", "prime-muted"));
+            }, cancelLabel: "Cancel"));
         return root;
     }
 
     private static Control BuildMatchConfiguration(PlayPresentationContext context, HostMatchDraft draft,
-        string submitLabel, Action cancel, Action submit)
+        string submitLabel, Action cancel, Action submit, string cancelLabel = "Back")
     {
         string[] maps = context.Controller.AvailableMaps.ToArray();
         if (draft.MapKey.Length == 0 && maps.Length > 0) draft.MapKey = maps[0];
@@ -510,7 +524,7 @@ internal static class PlayPresentation
         fields.Children.Add(rulesHost);
         var actions = new WrapPanel { Orientation = Orientation.Horizontal };
         actions.Children.Add(Button(submitLabel, submit, primary: true));
-        actions.Children.Add(Button("Back", cancel, quiet: true));
+        actions.Children.Add(Button(cancelLabel, cancel, quiet: true));
         fields.Children.Add(actions);
         return Section(fields);
     }
@@ -520,7 +534,7 @@ internal static class PlayPresentation
         LobbyRuleApplicability applicability = LobbyRuleApplicability.For(draft.Mode);
         var content = new StackPanel { Spacing = 8 };
         content.Children.Add(Text("MATCH RULES", "prime-heading"));
-        content.Children.Add(Text("Only controls applicable to the selected mode are shown. Default means the server's mode default.",
+        content.Children.Add(Text("Only controls applicable to the selected mode are shown. Default uses the match mode default.",
             "prime-muted"));
 
         TextBox time = Editor(draft.TimeLimitText, "Default or m:ss");
@@ -603,6 +617,7 @@ internal static class PlayPresentation
     private static Control BuildLobby(PlayPresentationContext context, LobbySnapshot lobby)
     {
         context.Ui.ObserveLobby(lobby.LobbyId);
+        context.Ui.ObserveChat(lobby.LobbyId, lobby.Chat);
         PlayState state = context.State;
         Guid? sessionId = state.Node?.Session?.SessionId;
         LobbyMember? current = sessionId is { } id
@@ -618,9 +633,9 @@ internal static class PlayPresentation
 
         if (state.Node?.Session is null || NodeSessions.Current is { Connected: false })
         {
-            root.Children.Add(StatusCard("Connection interrupted. Restore the Node session to continue this lobby.",
+            root.Children.Add(StatusCard("Connection interrupted. Reconnect to keep your place in this lobby.",
                 GuiTheme.WarmBrush));
-            root.Children.Add(Button("Restore connection", () => context.RunCommand("Restore connection",
+            root.Children.Add(Button("Reconnect", () => context.RunCommand("Reconnect",
                 () => context.Controller.ResumeAsync(context.CancellationToken)), primary: true));
         }
 
@@ -646,7 +661,14 @@ internal static class PlayPresentation
         lower.Children.Add(BuildLobbyActions(context, lobby, current, owner, state));
         var chat = new LobbyChatPanel(lobby.Chat, context.Ui.ChatDraft,
             context.Ui.SetChatDraft,
-            text => SendChat(context, text));
+            text => SendChat(context, text),
+            context.Ui.SetChatEditing,
+            context.Ui.ChatScrollOffset,
+            context.Ui.ChatScrollPositionKnown,
+            context.Ui.SetChatScrollOffset,
+            context.Ui.ChatUnreadCount,
+            context.Ui.MarkChatRead);
+        context.TrackChatPanel?.Invoke(chat);
         TrackEditor(context, chat.DraftEditor);
         lower.Children.Add(chat);
         root.Children.Add(lower);
@@ -675,7 +697,7 @@ internal static class PlayPresentation
             content.Children.Add(Text(current.Observer ? "You are observing this lobby."
                 : current.Ready ? "You are Ready." : "You are choosing a hunter.", "prime-muted"));
         else if (waitlist.IsSelfQueued)
-            content.Children.Add(Text("You are waiting for a player seat; you are not yet a lobby member.",
+            content.Children.Add(Text("You are waiting for a player seat.",
                 "prime-muted"));
         return Section(content);
     }
@@ -798,7 +820,7 @@ internal static class PlayPresentation
             teamActions.Children.Add(Button("Request Team 2", () => context.RunCommand("Request Team 2",
                 () => context.Controller.RequestTeamAsync(1, context.CancellationToken)),
                 primary: current.Team == 1));
-            content.Children.Add(Text($"Authoritative team · Team {current.Team + 1}. A request can be rejected or applied after the current revision.",
+            content.Children.Add(Text($"Current team · Team {current.Team + 1}. Your request takes effect when the lobby confirms it.",
                 "prime-muted"));
             content.Children.Add(teamActions);
         }
@@ -812,13 +834,25 @@ internal static class PlayPresentation
         if (waitlist.SelfOffer is { } offer)
         {
             Guid offerId = offer.OfferId;
-            content.Children.Add(new SeatOfferCard(offer,
-                () => RunOfferAction(context, "Accept seat", offerId, () =>
-                    context.Controller.AcceptWaitlistAsync(
-                        lobby.LobbyId, lobby.Revision, offerId, context.CancellationToken)),
-                () => RunOfferAction(context, "Decline seat", offerId, () =>
-                    context.Controller.DeclineWaitlistAsync(
-                        lobby.LobbyId, lobby.Revision, offerId, context.CancellationToken))));
+            if (!context.SeatOffersHandledExternally)
+            {
+                content.Children.Add(new SeatOfferCard(offer,
+                    () => RunOfferAction(context, "Accept seat", offerId, () =>
+                        context.Controller.AcceptWaitlistAsync(
+                            lobby.LobbyId, lobby.Revision, offerId, context.CancellationToken)),
+                    () => RunOfferAction(context, "Decline seat", offerId, () =>
+                        context.Controller.DeclineWaitlistAsync(
+                            lobby.LobbyId, lobby.Revision, offerId, context.CancellationToken))));
+            }
+            else
+            {
+                content.Children.Add(Text(
+                    "A player seat is ready for you. Respond in the seat offer prompt.",
+                    "prime-body"));
+                content.Children.Add(Text(
+                    "Your place in the player queue is held while you choose.",
+                    "prime-muted"));
+            }
             return Section(content);
         }
 
@@ -827,7 +861,7 @@ internal static class PlayPresentation
             LobbyQueueEntrySummary? self = waitlist.SelfQueueSequence is { } sequence
                 ? waitlist.Entries.FirstOrDefault(entry => entry.QueueSequence == sequence)
                 : null;
-            string position = self is { } entry ? $"Position {entry.Position}" : "Position pending server update";
+            string position = self is { } entry ? $"Position {entry.Position}" : "Position updating";
             string role = current?.Observer == true ? "Spectating · " : "";
             content.Children.Add(Text($"{role}Waiting for a player seat · {position}", "prime-body"));
             content.Children.Add(Text($"Queue state · {FormatQueueState(waitlist.SelfState)} · {waitlist.Count} total waiting",
@@ -842,7 +876,7 @@ internal static class PlayPresentation
         int open = Math.Max(0, lobby.PlayerLimit - players - lobby.BotCount);
         if (current is { Observer: true } && lobby.Phase == LobbyPhase.Open && open == 0)
         {
-            content.Children.Add(Text("You are observing. The player roster is full; request the server-owned waitlist if you want a player seat.",
+            content.Children.Add(Text("You are observing. The player roster is full; join the player queue if you want a player seat.",
                 "prime-muted"));
             content.Children.Add(Button("Join player waitlist", () => context.RunCommand("Join waitlist",
                 () => context.Controller.JoinWaitlistAsync(lobby.LobbyId, lobby.Revision,
@@ -850,7 +884,7 @@ internal static class PlayPresentation
         }
         else
         {
-            content.Children.Add(Text("No queue action is available for your current authoritative seat.", "prime-muted"));
+            content.Children.Add(Text("No queue action is available for your current seat.", "prime-muted"));
         }
         return Section(content);
     }
@@ -909,9 +943,8 @@ internal static class PlayPresentation
         }
         if (owner && lobby.Phase == LobbyPhase.Open)
         {
-            content.Children.Add(Text(eligibility.CanStart
-                ? "All start conditions are satisfied."
-                : eligibility.Message, eligibility.CanStart ? "prime-muted" : "prime-body"));
+            content.Children.Add(Text(PlayerFacingEligibilityMessage(eligibility),
+                eligibility.CanStart ? "prime-muted" : "prime-body"));
             AvaloniaButton start = Button("Start Match", () => context.RunCommand("Start match",
                 () => context.Controller.StartMatchAsync(context.CancellationToken)), primary: true);
             start.IsEnabled = eligibility.CanStart;
@@ -919,7 +952,7 @@ internal static class PlayPresentation
         }
         if (state.Handoff is not null)
         {
-            content.Children.Add(Text("The Node has authorized a gameplay connection. Rejoin is available if the Worker link was interrupted.",
+            content.Children.Add(Text("Match connection is ready. Rejoin if the game link was interrupted.",
                 "prime-muted"));
             content.Children.Add(Button("Rejoin match", () => context.RunCommand("Rejoin match",
                 () => context.Controller.RejoinWorkerAsync(context.CancellationToken)), primary: true));
@@ -973,19 +1006,53 @@ internal static class PlayPresentation
     internal static bool RequiresLeaveConfirmation(LobbyPhase phase, bool hasHandoff)
         => phase != LobbyPhase.Open || hasHandoff;
 
+    internal static string PlayerFacingEligibilityMessage(LobbyStartEligibility eligibility)
+    {
+        if (eligibility.CanStart) return "All start conditions are satisfied.";
+
+        string message = eligibility.Message;
+        if (message.Contains("Choose a map", StringComparison.OrdinalIgnoreCase))
+            return "Choose a map before starting.";
+        if (message.Contains("Add a player", StringComparison.OrdinalIgnoreCase))
+            return "Add a player before starting.";
+        if (message.Contains("both teams", StringComparison.OrdinalIgnoreCase))
+            return "Team mode needs players on both teams.";
+        if (message.Contains("All players must be Ready", StringComparison.OrdinalIgnoreCase))
+            return "Waiting for every player to ready.";
+        if (message.Contains("no longer open", StringComparison.OrdinalIgnoreCase))
+            return "This match is already preparing.";
+        return "Waiting for the match requirements.";
+    }
+
     private static void SendChat(PlayPresentationContext context, string text)
     {
         string bounded = Utf8TextLimit.Truncate(text, 256);
         if (string.IsNullOrWhiteSpace(bounded)) return;
-        context.RunCommand("Send message", async () =>
+        context.RunCommand("Send message", () => ExecuteChatSendAsync(
+            context.Ui, bounded,
+            () => context.Controller.SendLobbyChatAsync(
+                bounded, context.CancellationToken),
+            context.PostUi, context.Refresh));
+    }
+
+    /// <summary>
+    /// A successful send acknowledges only the draft that was submitted. If
+    /// typing continued while the request was in flight, its newer generation
+    /// remains visible after the authoritative view is rebuilt.
+    /// </summary>
+    internal static async Task ExecuteChatSendAsync(PlayPresentationState ui,
+        string submittedText, Func<Task> action, Action<Action> postUi, Action refresh)
+    {
+        ArgumentNullException.ThrowIfNull(ui);
+        ArgumentNullException.ThrowIfNull(action);
+        ArgumentNullException.ThrowIfNull(postUi);
+        ArgumentNullException.ThrowIfNull(refresh);
+        ChatDraftSubmission submission = ui.CaptureChatDraftSubmission(submittedText);
+        await action().ConfigureAwait(false);
+        postUi(() =>
         {
-            await context.Controller.SendLobbyChatAsync(bounded, context.CancellationToken)
-                .ConfigureAwait(false);
-            context.PostUi(() =>
-            {
-                context.Ui.ClearChatDraft();
-                context.Refresh();
-            });
+            ui.TryAcknowledgeChatSubmission(submission);
+            refresh();
         });
     }
 
@@ -1081,6 +1148,7 @@ internal static class PlayPresentation
         AvaloniaButton button = PrimeControlFactory.Button(label, action, primary, quiet);
         button.MinHeight = 44;
         button.Margin = new Thickness(0, 0, 8, 8);
+        PrimeAccessibility.SetName(button, label);
         return button;
     }
 
@@ -1123,6 +1191,9 @@ internal static class PlayPresentation
     private static string DisplayMap(string map)
         => string.IsNullOrWhiteSpace(map) ? "MAP NOT CONFIGURED"
             : map.Replace('_', ' ').ToUpperInvariant();
+
+    internal static string PreferredRegionLabel(string? value)
+        => LauncherPrefs.PreferredRegionLabel(value);
 
     private static string FormatWords(string value)
         => System.Text.RegularExpressions.Regex.Replace(value, "(?<!^)([A-Z])", " $1");

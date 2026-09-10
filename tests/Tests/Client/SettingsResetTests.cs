@@ -47,6 +47,74 @@ public sealed class SettingsResetTests
     }
 
     [Fact]
+    public void ThresholdLabelsUseNormalizedPercentages()
+    {
+        Assert.Equal("0%", SettingsView.ThresholdLabel(0));
+        Assert.Equal("25%", SettingsView.ThresholdLabel(25));
+        Assert.Equal("100%", SettingsView.ThresholdLabel(100));
+        Assert.Equal("0%", SettingsView.ThresholdLabel(-1));
+        Assert.Equal("100%", SettingsView.ThresholdLabel(101));
+    }
+
+    [Fact]
+    public void PreferredRegionLabelsKeepCanonicalIdsSeparateFromPresentation()
+    {
+        string previous = LauncherPrefs.PreferredRegion;
+        try
+        {
+            LauncherPrefs.ObservePreferredRegions(new[] { "edge-3" });
+            LauncherPrefs.PreferredRegion = "edge-3";
+
+            PreferredRegionOption option = Assert.Single(LauncherPrefs.PreferredRegionOptions,
+                candidate => candidate.Id == "edge-3");
+            Assert.Equal("Unknown (edge-3)", option.Label);
+            Assert.Equal("Europe", LauncherPrefs.PreferredRegionLabel("europe"));
+            Assert.Equal("Automatic", LauncherPrefs.PreferredRegionLabel("auto"));
+        }
+        finally
+        {
+            LauncherPrefs.ObservePreferredRegions(Array.Empty<string>());
+            LauncherPrefs.PreferredRegion = previous;
+        }
+    }
+
+    [Fact]
+    public void ControllerResetScopesLeaveOtherScopesUntouched()
+    {
+        InputSettings.Reset();
+        try
+        {
+            InputSettings.GamepadHorizontalSensitivity = 2;
+            InputSettings.GamepadOuterDeadZone = .4f;
+            InputSettings.GamepadGyroEnabled = true;
+            InputSettings.GamepadHapticsEnabled = false;
+            PadBindings.Set(PadAction.Jump, GamepadButtons.B);
+
+            InputSettings.ResetControllerGeneral();
+
+            Assert.Equal(1, InputSettings.GamepadHorizontalSensitivity);
+            Assert.Equal(.4f, InputSettings.GamepadOuterDeadZone);
+            Assert.True(InputSettings.GamepadGyroEnabled);
+            Assert.True(InputSettings.GamepadHapticsEnabled);
+            Assert.Equal(GamepadButtons.B, PadBindings.Get(PadAction.Jump));
+
+            InputSettings.ResetControllerAdvancedTuning();
+            Assert.Equal(.02f, InputSettings.GamepadOuterDeadZone);
+            Assert.Equal(.15f, InputSettings.GamepadMoveDeadZone);
+            Assert.True(InputSettings.GamepadGyroEnabled);
+
+            InputSettings.ResetControllerGyro();
+            Assert.False(InputSettings.GamepadGyroEnabled);
+            Assert.Equal(1, InputSettings.GamepadGyroSensitivity);
+            Assert.Equal(GamepadButtons.B, PadBindings.Get(PadAction.Jump));
+        }
+        finally
+        {
+            InputSettings.Reset();
+        }
+    }
+
+    [Fact]
     public void AimResetPreservesBindingsAndUnrelatedInputPreferences()
     {
         InputSettings.Reset();
@@ -173,7 +241,7 @@ public sealed class SettingsResetTests
     {
         string previousDirectory = LauncherPrefs.Directory;
         string directory = Path.Combine(Path.GetTempPath(),
-            "fruity-prime-settings-" + Guid.NewGuid().ToString("N"));
+            "project-prime-settings-" + Guid.NewGuid().ToString("N"));
         string path = Path.Combine(directory, "launcher.txt");
         System.IO.Directory.CreateDirectory(directory);
         try

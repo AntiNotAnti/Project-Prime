@@ -5,7 +5,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
+using MphRead.Mods.Launcher.Theme;
 
 namespace MphRead.Mods.Launcher.Gui;
 
@@ -22,6 +23,10 @@ internal sealed class PrimeMatchCard : Border
         Classes.Add("prime-card");
         Padding = new Thickness(16);
         Margin = new Thickness(0, 0, 0, 10);
+        string displayName = string.IsNullOrWhiteSpace(entry.Name) ? "Unnamed match" : entry.Name;
+        PrimeAccessibility.SetName(this, $"Match: {displayName}");
+        PrimeAccessibility.SetDescription(this,
+            $"{FormatMode(entry.Mode)} match on {FormatMap(entry.MapKey)}.");
 
         int openPlayers = MatchBrowserFiltering.OpenPlayerSlots(entry);
         var body = new StackPanel { Spacing = 8 };
@@ -34,7 +39,7 @@ internal sealed class PrimeMatchCard : Border
         var title = new StackPanel { Spacing = 2 };
         title.Children.Add(new TextBlock
         {
-            Text = string.IsNullOrWhiteSpace(entry.Name) ? "Unnamed match" : entry.Name,
+            Text = displayName,
             Classes = { "prime-heading" },
             TextWrapping = TextWrapping.Wrap
         });
@@ -67,6 +72,12 @@ internal sealed class PrimeMatchCard : Border
         modeLine.Children.Add(new PrimeStatusChip(FormatPhase(entry.Phase),
             entry.Phase == LobbyPhase.Open ? GuiTheme.GoodBrush : GuiTheme.WarmBrush));
         body.Children.Add(modeLine);
+        body.Children.Add(new TextBlock
+        {
+            Text = $"Seat options · {SeatPolicyLabel(entry.SeatPolicy)}",
+            Classes = { "prime-muted" },
+            TextWrapping = TextWrapping.Wrap
+        });
 
         var rules = new WrapPanel { Orientation = Orientation.Horizontal };
         rules.Children.Add(Metric("TIME", entry.TimeLimitSeconds is { } seconds
@@ -91,7 +102,13 @@ internal sealed class PrimeMatchCard : Border
         AddAction(actions, "Join waitlist", waitlist);
         AddAction(actions, "Spectate", spectate);
         if (actions.Children.Count == 0)
-            actions.Children.Add(new TextBlock { Text = "No seats are available for this match.", Classes = { "prime-muted" } });
+            actions.Children.Add(new TextBlock
+            {
+                Text = entry.Phase == LobbyPhase.Open
+                    ? "This match is full."
+                    : "This match is not accepting new players.",
+                Classes = { "prime-muted" }
+            });
         body.Children.Add(actions);
 
         Child = body;
@@ -103,6 +120,13 @@ internal sealed class PrimeMatchCard : Border
         var button = PrimeControlFactory.Button(label, action, primary: primary);
         button.MinHeight = 44;
         button.MinWidth = label == "Join waitlist" ? 130 : 92;
+        PrimeAccessibility.SetName(button, label switch
+        {
+            "Join" => "Join match",
+            "Join waitlist" => "Join match player queue",
+            "Spectate" => "Spectate match",
+            _ => label
+        });
         panel.Children.Add(button);
     }
 
@@ -113,6 +137,14 @@ internal sealed class PrimeMatchCard : Border
         => string.IsNullOrWhiteSpace(key) ? "Arena not configured" : FormatWords(key.Replace('_', ' '));
 
     private static string FormatMode(MatchMode mode) => FormatWords(mode.ToString());
+
+    internal static string SeatPolicyLabel(LobbySeatPolicy policy) => policy switch
+    {
+        LobbySeatPolicy.ImmediateSeat => "Immediate seat",
+        LobbySeatPolicy.NextMatchSeat => "Next match seat",
+        LobbySeatPolicy.ObserverUntilNextMatch => "Observer until next match",
+        _ => "Seat options"
+    };
 
     private static string FormatPhase(LobbyPhase phase) => phase switch
     {

@@ -48,7 +48,7 @@ public static class UpdatePathPolicy
 {
     private static readonly string[] PlayerDirectoryNames =
         ["files", "content", "settings", "saves", "screenshots", "_screenshots",
-            "logs", "replays", "_demos"];
+            "logs", "replays", "_replays"];
 
     public static bool IsNeverManaged(string? path)
     {

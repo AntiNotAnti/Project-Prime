@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Immutable;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Mods.Launcher.Gui;
 using Xunit;
 

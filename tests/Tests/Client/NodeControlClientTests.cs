@@ -6,7 +6,8 @@ using System.Reflection;
 using System.Threading;
 using System.Text.Json;
 using System.Threading.Tasks;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
+using MphRead.Identity;
 using MphRead.Mods.Network;
 using Xunit;
 
@@ -15,6 +16,33 @@ namespace MphRead.Tests;
 [Collection("Match baseline globals")]
 public sealed class NodeControlClientTests
 {
+    private static MatchCompletionSummary Completion(Guid matchId, Guid? reportId = null)
+        => new(new(matchId), new(Guid.NewGuid()), MatchEndReason.ScoreGoal,
+            [new(Guid.NewGuid(), new PlayerId(Guid.NewGuid()), ParticipantKind.RegisteredHuman,
+                "Hunter", ParticipantOutcome.Finished, 0, 0, 7, 3, 1)],
+            Guid.NewGuid(), null, reportId ?? Guid.NewGuid());
+
+    [Fact]
+    public async Task ImmutableNodeCompletionIsRelevantValidatedAndIdempotent()
+    {
+        Guid nodeId = Guid.NewGuid(), matchId = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null,
+            new NodeSessionSnapshot(Guid.NewGuid(), Guid.NewGuid(), "Hunter", nodeId, new string('a', 43))));
+        var handoff = new NodeMatchHandoff(matchId, 1, "127.0.0.1", 5000, "ticket", 1, false, Hunter.Samus);
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 2, null, handoff));
+        client.MarkGameplayJoined(matchId);
+        MatchCompletionSummary summary = Completion(matchId);
+
+        client.ApplyEvent(NodeControlCodec.Write("match.completion", 3, null, new NodeMatchCompletion(summary)));
+        client.ApplyEvent(NodeControlCodec.Write("match.completion", 4, null, new NodeMatchCompletion(summary)));
+
+        Assert.Equal(summary.ReportId, client.CompletionSummaryFor(matchId)!.ReportId);
+        Assert.False(client.CompletionFor(matchId)!.Interrupted);
+        Assert.True(client.ShouldReturnFromGameplay);
+        Assert.Throws<JsonException>(() => client.ApplyEvent(NodeControlCodec.Write("match.completion", 5, null,
+            new NodeMatchCompletion(Completion(matchId)))));
+    }
     [Theory]
     [InlineData(false, AuthoritativePlay.TerminalState.Completed)]
     [InlineData(true, AuthoritativePlay.TerminalState.Failed)]

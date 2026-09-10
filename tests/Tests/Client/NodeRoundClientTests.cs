@@ -2,7 +2,7 @@ using System;
 using System.Collections.Immutable;
 using System.Text.Json;
 using System.Threading.Tasks;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Mods.Network;
 using MphRead.Mods.Launcher.Gui;
 using Xunit;

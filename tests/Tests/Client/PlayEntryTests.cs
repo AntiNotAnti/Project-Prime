@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
@@ -35,6 +38,43 @@ public sealed class PlayEntryTests
         Assert.Equal(east, PlayController.SelectAutomaticNode([west, full, east], "East"));
         Assert.Equal(east, PlayController.SelectAutomaticNode([east, west, full], "East"));
         Assert.Null(PlayController.SelectAutomaticNode([full], "East"));
+    }
+
+    [Fact]
+    public void AutomaticSelectionUsesMeasuredLatencyWithinPreferredRegion()
+    {
+        NodeListing slow = Node(1, "East", 1);
+        NodeListing fast = Node(2, "East", 7);
+        NodeListing otherRegion = Node(3, "West", 1);
+        var latency = new Dictionary<Guid, TimeSpan>
+        {
+            [slow.NodeId] = TimeSpan.FromMilliseconds(80),
+            [fast.NodeId] = TimeSpan.FromMilliseconds(20),
+            [otherRegion.NodeId] = TimeSpan.FromMilliseconds(1)
+        };
+
+        Assert.Equal(fast, PlayController.SelectAutomaticNode([slow, fast], "East", latency));
+        Assert.Equal(slow, PlayController.SelectAutomaticNode([slow, otherRegion], "East", latency));
+    }
+
+    [Fact]
+    public async Task LatencyProbeIsBoundedAndUsesThePublicHealthEndpoint()
+    {
+        var handler = new ProbeHandler();
+        using var http = new HttpMessageInvoker(handler);
+        NodeListing[] nodes = Enumerable.Range(1, 12).Select(id => Node(id, "East", 1)).ToArray();
+
+        IReadOnlyDictionary<Guid, TimeSpan> result = await NodeLatencyProbe.ProbeAsync(
+            nodes, "East", CancellationToken.None, http);
+
+        Assert.Equal(NodeLatencyProbe.MaximumCandidates, result.Count);
+        Assert.Equal(NodeLatencyProbe.MaximumCandidates, handler.Requests.Count);
+        Assert.All(handler.Requests, uri =>
+        {
+            Assert.Equal("https", uri.Scheme);
+            Assert.Equal("/health", uri.AbsolutePath);
+            Assert.Equal("", uri.Query);
+        });
     }
 
     [Theory]
@@ -345,4 +385,16 @@ public sealed class PlayEntryTests
     private static NodeListing Node(int id, string region, int players)
         => new(new Guid(id, 0, 0, new byte[8]), "Server", region, "wss://localhost", 1,
             "build", "content", 8, players, 1, 0, "community", DateTimeOffset.UnixEpoch);
+
+    private sealed class ProbeHandler : HttpMessageHandler
+    {
+        public List<Uri> Requests { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            lock (Requests) Requests.Add(request.RequestUri!);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+        }
+    }
 }

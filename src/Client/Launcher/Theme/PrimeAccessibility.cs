@@ -21,6 +21,14 @@ public enum PrimeStatusKind
 /// </summary>
 public static class PrimeAccessibility
 {
+    private static readonly string[] _statusClasses =
+    {
+        "prime-status-info",
+        "prime-status-success",
+        "prime-status-warning",
+        "prime-status-error"
+    };
+
     public static void SetName(StyledElement element, string name)
     {
         ArgumentNullException.ThrowIfNull(element);
@@ -50,7 +58,20 @@ public static class PrimeAccessibility
             kind == PrimeStatusKind.Error
                 ? AutomationLiveSetting.Assertive
                 : AutomationLiveSetting.Polite);
+        foreach (string statusClass in _statusClasses)
+            element.Classes.Remove(statusClass);
+        element.Classes.Add(StatusClass(kind));
     }
+
+    private static string StatusClass(PrimeStatusKind kind)
+        => kind switch
+        {
+            PrimeStatusKind.Info => "prime-status-info",
+            PrimeStatusKind.Success => "prime-status-success",
+            PrimeStatusKind.Warning => "prime-status-warning",
+            PrimeStatusKind.Error => "prime-status-error",
+            _ => throw new ArgumentOutOfRangeException(nameof(kind))
+        };
 
     private static string Validate(string value, string parameterName)
     {

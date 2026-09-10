@@ -35,14 +35,14 @@ namespace MphRead.Mods
             string[] serverCommands = ["server", "dedicated", "authoritative-server", "masterserver", "server-apply-update", "authoritative-server-validate"];
             if (serverCommands.Any(command => HasFlag(args, command)))
             {
-                Console.Error.WriteLine("Run this command with FruityPrimeServer; dedicated servers use their own executable.");
+                Console.Error.WriteLine("Run this command with ProjectPrimeServer; dedicated servers use their own executable.");
                 Environment.ExitCode = 2;
                 return true;
             }
             string[] toolCommands = ["servercontent", "mapbundle", "mapgen", "q3maps", "q3convert", "q3shaders", "mapmaterials", "mechanics", "setup", "extract", "x", "export", "e"];
             if (toolCommands.Any(command => HasFlag(args, command)))
             {
-                Console.Error.WriteLine("Run this command with FruityPrimeTools; asset operations use their own executable.");
+                Console.Error.WriteLine("Run this command with ProjectPrimeTools; asset operations use their own executable.");
                 Environment.ExitCode = 2;
                 return true;
             }
@@ -503,26 +503,26 @@ namespace MphRead.Mods
                 }
                 Environment.ExitCode = Network.NetCheckClient.Run(check, ParsePort(args),
                     ParseName(args), ParseHunter(args), seconds, shots, width, height,
-                    recordDemo: HasFlag(args, "recorddemo"),
+                    recordReplay: HasFlag(args, "recordreplay"),
                     spectateAt: spectateAt, rejoinAt: rejoinAt);
                 return true;
             }
 
-            string? demoCheck = ValueAfter(args, "democheck");
-            if (demoCheck != null)
+            string? replayCheck = ValueAfter(args, "replaycheck");
+            if (replayCheck != null)
             {
                 double seconds = Double.TryParse(ValueAfter(args, "seconds"),
                     System.Globalization.CultureInfo.InvariantCulture, out double duration) ? duration : 60;
-                Environment.ExitCode = DemoPlaybackCheck.Run(demoCheck, seconds);
+                Environment.ExitCode = ReplayPlaybackCheck.Run(replayCheck, seconds);
                 return true;
             }
 
             // What a recorded match actually contains. Reads the file and
             // nothing else -- no room, no window, no game files.
-            string? demoInfo = ValueAfter(args, "demoinfo");
-            if (demoInfo != null)
+            string? replayInfo = ValueAfter(args, "replayinfo");
+            if (replayInfo != null)
             {
-                Environment.ExitCode = Network.DemoInfo.Print(demoInfo,
+                Environment.ExitCode = Network.ReplayInfo.Print(replayInfo,
                     replay: HasFlag(args, "replay"));
                 return true;
             }

@@ -13,7 +13,9 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
+using MphRead.Mods.Input;
+using MphRead.Mods.Launcher.Theme;
 using AvaloniaButton = Avalonia.Controls.Button;
 
 namespace MphRead.Mods.Launcher.Gui;
@@ -25,14 +27,24 @@ namespace MphRead.Mods.Launcher.Gui;
 /// </summary>
 public sealed class PostMatchView : UserControl, IDisposable
 {
+    internal const double CompactResultsBreakpoint = 900;
+    private const double DefaultResultsHeight = 1080;
+    private const double CompactScoreMaxHeight = 260;
+    private const double CompactBallotMaxHeight = 240;
+    private const double WideScoreMaxHeight = 440;
+    private const double WideBallotMaxHeight = 440;
     private readonly StackPanel _scoreboard = new() { Spacing = 6 };
     private readonly StackPanel _ballot = new() { Spacing = 8 };
+    private readonly Grid _zones;
+    private readonly Grid _scoreZone;
+    private readonly Grid _voteZone;
     private readonly ScrollViewer _scoreScroll;
     private readonly ScrollViewer _ballotScroll;
     private readonly TextBlock _status = new();
     private readonly TextBlock _leading = new();
     private readonly TextBlock _hints;
     private readonly AvaloniaButton _leaveButton;
+    private readonly AvaloniaButton _cancelLeaveButton;
     private readonly List<AvaloniaButton> _cards = new();
     private readonly List<Bitmap> _bitmaps = new();
     private readonly List<Task> _previewLoads = new();
@@ -40,6 +52,7 @@ public sealed class PostMatchView : UserControl, IDisposable
     private readonly MapPreviewService _mapPreviews;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly PostMatchResultsModel _results;
+    private readonly EventHandler<SizeChangedEventArgs> _sizeChangedHandler;
     private NodeRoundSnapshot? _round;
     private NodeRoundSnapshot? _projectedRound;
     private long _projectionCountdown = long.MinValue;
@@ -51,10 +64,20 @@ public sealed class PostMatchView : UserControl, IDisposable
     private int _renderGeneration;
     private string _optionSignature = "";
     private PostMatchBallotModel _ballotModel = PostMatchBallotModel.Loading;
+    private bool _compactLayout;
+    private bool _layoutInitialized;
+    private bool _scoreboardUsesMobileCards;
+    private PrimeInputDevice _lastInputDevice = PrimeInputDevice.KeyboardMouse;
+    private ControllerFamily _lastControllerFamily = ControllerFamily.Generic;
 
     public PostMatchSelection Selection { get; } = new();
     public PostMatchResultsModel Results => _results;
     public PostMatchBallotModel Ballot => _ballotModel;
+    internal bool IsCompactLayout => _compactLayout;
+    internal bool ScoreboardUsesMobileCards => _scoreboardUsesMobileCards;
+    internal PrimeInputDevice LastInputDevice => _lastInputDevice;
+    internal string InputHint => _hints.Text ?? "";
+    internal bool InputHintVisible => _hints.IsVisible;
     public event Action<byte>? VoteRequested;
     public event Action? LeaveRequested;
 
@@ -67,45 +90,45 @@ public sealed class PostMatchView : UserControl, IDisposable
         Background = GuiTheme.InkBrush;
         FontFamily = GuiTheme.Display;
 
-        var zones = new Grid
+        _zones = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("1.15*,0.85*"),
             ColumnSpacing = 16,
             Margin = new Thickness(20)
         };
 
-        var scoreZone = new Grid
+        _scoreZone = new Grid
         {
             RowDefinitions = new RowDefinitions("Auto,*"),
             Margin = new Thickness(0, 0, 8, 0),
             ClipToBounds = true
         };
-        scoreZone.Children.Add(BuildResultsHeader());
+        _scoreZone.Children.Add(BuildResultsHeader());
         _scoreScroll = new ScrollViewer
         {
             Name = "ResultsScoreScroll",
             Content = _scoreboard,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            MaxHeight = 440,
+            MaxHeight = WideScoreMaxHeight,
             Padding = new Thickness(0, 10, 6, 0)
         };
         Grid.SetRow(_scoreScroll, 1);
-        scoreZone.Children.Add(_scoreScroll);
-        zones.Children.Add(scoreZone);
+        _scoreZone.Children.Add(_scoreScroll);
+        _zones.Children.Add(_scoreZone);
 
-        var voteZone = new Grid
+        _voteZone = new Grid
         {
-            RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto,Auto"),
+            RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto,Auto,Auto"),
             ClipToBounds = true
         };
-        Grid.SetColumn(voteZone, 1);
-        zones.Children.Add(voteZone);
+        Grid.SetColumn(_voteZone, 1);
+        _zones.Children.Add(_voteZone);
 
         var voteHeader = new StackPanel { Spacing = 3 };
         voteHeader.Children.Add(Text("NEXT ROUND", 20, FontWeight.SemiBold, GuiTheme.AccentBrush));
         voteHeader.Children.Add(Text("Choose what happens after the results", 12, FontWeight.Normal, GuiTheme.TextDimBrush));
-        voteZone.Children.Add(voteHeader);
+        _voteZone.Children.Add(voteHeader);
 
         var status = new StackPanel { Spacing = 3, Margin = new Thickness(0, 10, 0, 0) };
         _status.TextWrapping = TextWrapping.Wrap;
@@ -118,7 +141,7 @@ public sealed class PostMatchView : UserControl, IDisposable
         _leading.Foreground = GuiTheme.TextDimBrush;
         status.Children.Add(_leading);
         Grid.SetRow(status, 1);
-        voteZone.Children.Add(status);
+        _voteZone.Children.Add(status);
 
         _ballotScroll = new ScrollViewer
         {
@@ -126,29 +149,39 @@ public sealed class PostMatchView : UserControl, IDisposable
             Content = _ballot,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            MaxHeight = 440,
+            MaxHeight = WideBallotMaxHeight,
             Margin = new Thickness(0, 8, 0, 0),
             Padding = new Thickness(0, 0, 6, 0)
         };
         Grid.SetRow(_ballotScroll, 2);
-        voteZone.Children.Add(_ballotScroll);
+        _voteZone.Children.Add(_ballotScroll);
 
-        _hints = Text("Arrows / WASD: select · Enter / 1–8: vote · Escape: ask to leave lobby",
-            10, FontWeight.Normal, GuiTheme.TextDimBrush);
+        _hints = Text("", 10, FontWeight.Normal, GuiTheme.TextDimBrush);
         _hints.TextWrapping = TextWrapping.Wrap;
         _hints.Margin = new Thickness(0, 8, 0, 8);
         Grid.SetRow(_hints, 3);
-        voteZone.Children.Add(_hints);
+        _voteZone.Children.Add(_hints);
 
         _leaveButton = BuildActionButton("Leave Lobby", RequestLeave);
         _leaveButton.Name = "ResultsLeaveLobby";
         _leaveButton.MinHeight = 48;
         Grid.SetRow(_leaveButton, 4);
-        voteZone.Children.Add(_leaveButton);
+        _voteZone.Children.Add(_leaveButton);
+
+        _cancelLeaveButton = BuildActionButton("Cancel", CancelLeaveConfirmation);
+        _cancelLeaveButton.Name = "ResultsCancelLeave";
+        _cancelLeaveButton.MinHeight = 48;
+        _cancelLeaveButton.BorderBrush = GuiTheme.EdgeBrush;
+        ToolTip.SetTip(_cancelLeaveButton, "Stay in the results screen.");
+        Grid.SetRow(_cancelLeaveButton, 5);
+        _voteZone.Children.Add(_cancelLeaveButton);
+
+        _sizeChangedHandler = (_, _) => ApplyResponsiveLayout();
+        SizeChanged += _sizeChangedHandler;
         UpdateLeaveConfirmation();
 
-        Content = zones;
-        BuildScoreboard();
+        Content = _zones;
+        ApplyResponsiveLayout();
         Update(null);
     }
 
@@ -182,8 +215,9 @@ public sealed class PostMatchView : UserControl, IDisposable
         return header;
     }
 
-    private void BuildScoreboard()
+    private void BuildScoreboard(bool compact = false)
     {
+        _scoreboardUsesMobileCards = compact;
         _scoreboard.Children.Clear();
         if (!_results.HasAuthoritativeResult)
         {
@@ -196,9 +230,110 @@ public sealed class PostMatchView : UserControl, IDisposable
             return;
         }
 
-        _scoreboard.Children.Add(BuildScoreHeader());
+        _scoreboard.Children.Add(compact ? BuildMobileScoreHeader() : BuildScoreHeader());
         foreach (PostMatchScoreRow row in _results.Scoreboard)
-            _scoreboard.Children.Add(BuildScoreRow(row));
+            _scoreboard.Children.Add(compact ? BuildMobileScoreRow(row) : BuildScoreRow(row));
+    }
+
+    private void ApplyResponsiveLayout()
+    {
+        double width = Bounds.Width > 0 ? Bounds.Width : Width;
+        bool compact = double.IsFinite(width) && width > 0
+            && width < CompactResultsBreakpoint;
+        if (!_layoutInitialized || compact != _compactLayout)
+        {
+            _layoutInitialized = true;
+            _compactLayout = compact;
+            _zones.ColumnDefinitions = compact
+                ? new ColumnDefinitions("*")
+                : new ColumnDefinitions("1.15*,0.85*");
+            _zones.RowDefinitions = compact
+                ? new RowDefinitions("Auto,Auto")
+                : new RowDefinitions("Auto");
+            Grid.SetColumn(_scoreZone, 0);
+            Grid.SetColumn(_voteZone, compact ? 0 : 1);
+            Grid.SetRow(_scoreZone, 0);
+            Grid.SetRow(_voteZone, compact ? 1 : 0);
+            _scoreZone.Margin = compact
+                ? new Thickness()
+                : new Thickness(0, 0, 8, 0);
+            BuildScoreboard(compact);
+        }
+        ApplyScrollBounds();
+    }
+
+    private void ApplyScrollBounds()
+    {
+        double height = Bounds.Height > 0 ? Bounds.Height : Height;
+        if (!double.IsFinite(height) || height <= 0) height = DefaultResultsHeight;
+
+        if (_compactLayout)
+        {
+            // The stacked layout shares one viewport. Keeping each region
+            // bounded leaves the ballot actions reachable on a short phone
+            // screen while retaining independent vertical scrolling.
+            _scoreScroll.MaxHeight = Math.Min(CompactScoreMaxHeight,
+                Math.Max(160, height * .32));
+            _ballotScroll.MaxHeight = Math.Min(CompactBallotMaxHeight,
+                Math.Max(160, height * .28));
+        }
+        else
+        {
+            // Reserve the fixed header/status/action bands before allowing a
+            // scroll region to consume the measured desktop viewport.
+            _scoreScroll.MaxHeight = Math.Min(WideScoreMaxHeight,
+                Math.Max(180, height - 120));
+            _ballotScroll.MaxHeight = Math.Min(WideBallotMaxHeight,
+                Math.Max(180, height - 230));
+        }
+    }
+
+    private static Control BuildMobileScoreHeader()
+    {
+        var header = new Border
+        {
+            Child = Text("PLAYER  ·  SCORE  ·  K / D / A  ·  DAMAGE", 10,
+                FontWeight.SemiBold, GuiTheme.TextDimBrush),
+            BorderBrush = GuiTheme.EdgeBrush,
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Padding = new Thickness(8, 4),
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        if (header.Child is TextBlock text) text.TextWrapping = TextWrapping.Wrap;
+        return header;
+    }
+
+    private static Control BuildMobileScoreRow(PostMatchScoreRow row)
+    {
+        string name = $"{row.Rank}. {row.Name}";
+        if (row.IsLocal) name += "  ·  YOU";
+        if (row.IsBot) name += "  ·  BOT";
+        string hunter = row.Hunter?.ToString() ?? "Hunter unavailable";
+        if (row.TeamIndex >= 0) hunter += $"  ·  Team {row.TeamIndex + 1}";
+
+        var details = new StackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Stretch };
+        details.Children.Add(WrappedText(name, 13, FontWeight.SemiBold,
+            row.IsLocal ? GuiTheme.AccentBrush : GuiTheme.TextBrush));
+        details.Children.Add(WrappedText(hunter, 10, FontWeight.Normal, GuiTheme.TextDimBrush));
+        details.Children.Add(WrappedText($"Score {row.Score.ToString(CultureInfo.InvariantCulture)}  ·  "
+            + (row.HasDetailedStats ? $"K / D / A {row.Kills} / {row.Deaths} / {row.Assists}" : $"K / D {row.Kills} / {row.Deaths}"),
+            11, FontWeight.SemiBold, row.IsLocal ? GuiTheme.AccentBrush : GuiTheme.TextBrush));
+        if (row.HasDetailedStats)
+            details.Children.Add(WrappedText($"Damage {row.Damage.ToString(CultureInfo.InvariantCulture)}  ·  "
+                + $"HS {row.HeadshotKills}  ·  Longest streak {row.LongestKillStreak}",
+                10, FontWeight.Normal, GuiTheme.TextDimBrush));
+        details.Children.Add(WrappedText(row.ObjectiveSummary, 10, FontWeight.Normal,
+            GuiTheme.TextDimBrush));
+
+        return new Border
+        {
+            Child = details,
+            Background = row.IsLocal ? GuiTheme.PanelLightBrush : GuiTheme.PanelBrush,
+            BorderBrush = row.IsLocal ? GuiTheme.AccentBrush : GuiTheme.EdgeBrush,
+            BorderThickness = new Thickness(row.IsLocal ? 2 : 1),
+            Padding = new Thickness(8, 7),
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
     }
 
     private static Control BuildScoreHeader()
@@ -225,20 +360,21 @@ public sealed class PostMatchView : UserControl, IDisposable
         if (row.IsBot) name += "  ·  BOT";
         details.Children.Add(Text(name, 13, FontWeight.SemiBold,
             row.IsLocal ? GuiTheme.AccentBrush : GuiTheme.TextBrush));
-        string hunter = row.Hunter.ToString();
+        string hunter = row.Hunter?.ToString() ?? "Hunter unavailable";
         if (row.TeamIndex >= 0) hunter += $"  ·  Team {row.TeamIndex + 1}";
         details.Children.Add(Text(hunter, 10, FontWeight.Normal, GuiTheme.TextDimBrush));
-        details.Children.Add(Text($"HS {row.HeadshotKills}  ·  Longest streak {row.LongestKillStreak}",
-            10, FontWeight.Normal, GuiTheme.TextDimBrush));
+        if (row.HasDetailedStats)
+            details.Children.Add(Text($"HS {row.HeadshotKills}  ·  Longest streak {row.LongestKillStreak}",
+                10, FontWeight.Normal, GuiTheme.TextDimBrush));
         details.Children.Add(Text(row.ObjectiveSummary, 10, FontWeight.Normal, GuiTheme.TextDimBrush));
 
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto"), ColumnSpacing = 8 };
         grid.Children.Add(details);
         AddGridText(grid, row.Score.ToString(CultureInfo.InvariantCulture), 1, 13,
             FontWeight.SemiBold, row.IsLocal ? GuiTheme.AccentBrush : GuiTheme.TextBrush);
-        AddGridText(grid, $"{row.Kills} / {row.Deaths} / {row.Assists}", 2, 11,
+        AddGridText(grid, row.HasDetailedStats ? $"{row.Kills} / {row.Deaths} / {row.Assists}" : $"{row.Kills} / {row.Deaths} / —", 2, 11,
             FontWeight.Normal, GuiTheme.TextBrush);
-        AddGridText(grid, row.Damage.ToString(CultureInfo.InvariantCulture), 3, 11,
+        AddGridText(grid, row.HasDetailedStats ? row.Damage.ToString(CultureInfo.InvariantCulture) : "—", 3, 11,
             FontWeight.Normal, GuiTheme.TextBrush);
         return new Border
         {
@@ -293,7 +429,11 @@ public sealed class PostMatchView : UserControl, IDisposable
 
     private AvaloniaButton BuildBallotCard(PostMatchBallotOption option, int index)
     {
-        var text = new StackPanel { Spacing = 5 };
+        var text = new StackPanel
+        {
+            Spacing = 5,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
         text.Children.Add(new TextBlock
         {
             Text = CardHeading(option, index, _ballotModel.OwnVote,
@@ -302,9 +442,19 @@ public sealed class PostMatchView : UserControl, IDisposable
             FontSize = 13,
             FontWeight = FontWeight.SemiBold,
             Foreground = GuiTheme.TextBrush,
-            TextWrapping = TextWrapping.Wrap
+            TextWrapping = TextWrapping.Wrap,
+            HorizontalAlignment = HorizontalAlignment.Stretch
         });
-        text.Children.Add(Text(option.Description, 11, FontWeight.Normal, GuiTheme.TextDimBrush));
+        text.Children.Add(new TextBlock
+        {
+            Text = option.Description,
+            FontFamily = GuiTheme.Display,
+            FontSize = 11,
+            FontWeight = FontWeight.Normal,
+            Foreground = GuiTheme.TextDimBrush,
+            TextWrapping = TextWrapping.Wrap,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        });
         var preview = new ContentControl
         {
             Name = $"ResultsPreview{index + 1}",
@@ -312,13 +462,15 @@ public sealed class PostMatchView : UserControl, IDisposable
             Background = GuiTheme.InkBrush,
             BorderBrush = GuiTheme.EdgeBrush,
             BorderThickness = new Thickness(1),
-            Content = Text("Preview unavailable", 10, FontWeight.Normal, GuiTheme.TextDimBrush)
+            Content = Text("Preview unavailable", 10, FontWeight.Normal, GuiTheme.TextDimBrush),
+            HorizontalAlignment = HorizontalAlignment.Stretch
         };
         text.Children.Add(preview);
         var card = new AvaloniaButton
         {
             Name = $"ResultsOption{index + 1}",
             Content = text,
+            MinWidth = 48,
             MinHeight = 126,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
@@ -393,6 +545,18 @@ public sealed class PostMatchView : UserControl, IDisposable
 
     public bool LeaveConfirmationPending => _leaveConfirmationPending;
 
+    internal void SetInputDevice(PrimeInputDevice device)
+    {
+        if (_disposed) return;
+        ControllerFamily family = device == PrimeInputDevice.Gamepad
+            ? GamepadInput.State.Family : ControllerFamily.Generic;
+        if (_lastInputDevice == device
+            && (device != PrimeInputDevice.Gamepad || _lastControllerFamily == family)) return;
+        _lastInputDevice = device;
+        _lastControllerFamily = family;
+        UpdateInputHints();
+    }
+
     public void RequestLeave()
     {
         if (_disposed) return;
@@ -453,7 +617,8 @@ public sealed class PostMatchView : UserControl, IDisposable
         {
             AvaloniaButton card = _cards[i];
             PostMatchBallotOption option = _displayOptions[i];
-            card.IsEnabled = Selection.CanChoose && _ballotModel.CanVote;
+            card.IsEnabled = !_leaveConfirmationPending
+                && Selection.CanChoose && _ballotModel.CanVote;
             bool selected = i == Selection.SelectedIndex;
             card.BorderThickness = new Thickness(selected ? 2 : 1);
             card.BorderBrush = selected ? GuiTheme.AccentBrush
@@ -469,6 +634,7 @@ public sealed class PostMatchView : UserControl, IDisposable
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        SetInputDevice(PrimeInputDevice.KeyboardMouse);
         base.OnKeyDown(e);
         if (_leaveConfirmationPending)
         {
@@ -503,6 +669,12 @@ public sealed class PostMatchView : UserControl, IDisposable
         e.Handled = true;
     }
 
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        SetInputDevice(PrimeInputDevice.Touch);
+        base.OnPointerPressed(e);
+    }
+
     private void UpdateLeaveConfirmation()
     {
         if (_leaveConfirmationPending)
@@ -511,7 +683,7 @@ public sealed class PostMatchView : UserControl, IDisposable
             _leaveButton.BorderBrush = GuiTheme.BadBrush;
             ToolTip.SetTip(_leaveButton,
                 "Confirm leaving the lobby; Return to lobby remains a shared vote.");
-            _hints.Text = "Confirm leaving lobby? Enter / A: confirm · Escape / B: stay in results";
+            _cancelLeaveButton.IsVisible = true;
         }
         else
         {
@@ -519,9 +691,37 @@ public sealed class PostMatchView : UserControl, IDisposable
             _leaveButton.BorderBrush = GuiTheme.AccentBrush;
             ToolTip.SetTip(_leaveButton,
                 "Leave the lobby directly after confirmation; Return to lobby is a shared vote.");
-            _hints.Text = "Arrows / WASD: select · Enter / 1–8: vote · Escape: ask to leave lobby";
+            _cancelLeaveButton.IsVisible = false;
         }
+        UpdateInputHints();
         RefreshCards();
+    }
+
+    private void UpdateInputHints()
+    {
+        if (_lastInputDevice == PrimeInputDevice.Touch)
+        {
+            _hints.Text = "";
+            _hints.IsVisible = false;
+            return;
+        }
+
+        _hints.IsVisible = true;
+        if (_leaveConfirmationPending)
+        {
+            _hints.Text = _lastInputDevice == PrimeInputDevice.Gamepad
+                ? $"{PrimeControllerGlyphs.Prompt("Confirm", GamepadButtons.A,
+                    GamepadInput.State.Family)}    {PrimeControllerGlyphs.Prompt(
+                        "Cancel", GamepadButtons.B, GamepadInput.State.Family)}"
+                : "Confirm leaving lobby: Enter Confirm    Escape Cancel";
+            return;
+        }
+
+        _hints.Text = _lastInputDevice == PrimeInputDevice.Gamepad
+            ? $"D-pad Up / Down: select    {PrimeControllerGlyphs.Prompt("Vote",
+                GamepadButtons.A, GamepadInput.State.Family)}    {PrimeControllerGlyphs.Prompt(
+                    "Leave", GamepadButtons.B, GamepadInput.State.Family)}"
+            : "Arrows / WASD: select · Enter / 1–8: vote · Escape: ask to leave lobby";
     }
 
     private async Task LoadPreviewAsync(AvaloniaButton card, string mapKey, int generation)
@@ -614,6 +814,15 @@ public sealed class PostMatchView : UserControl, IDisposable
             Foreground = foreground
         };
 
+    private static TextBlock WrappedText(string text, double size, FontWeight weight,
+        IBrush foreground)
+    {
+        TextBlock value = Text(text, size, weight, foreground);
+        value.TextWrapping = TextWrapping.Wrap;
+        value.HorizontalAlignment = HorizontalAlignment.Stretch;
+        return value;
+    }
+
     private static void AddGridText(Grid grid, string text, int column, double size,
         FontWeight weight, IBrush foreground)
     {
@@ -628,6 +837,7 @@ public sealed class PostMatchView : UserControl, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        SizeChanged -= _sizeChangedHandler;
         _lifetime.Cancel();
         _lifetime.Dispose();
         _images.Dispose();

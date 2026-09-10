@@ -203,24 +203,24 @@ public sealed class UpdateContractTests
         {
             string staged = Path.Combine(root, "staged");
             Directory.CreateDirectory(staged);
-            File.WriteAllText(Path.Combine(root, "FruityPrime"), "v1");
+            File.WriteAllText(Path.Combine(root, "ProjectPrime"), "v1");
             File.WriteAllText(Path.Combine(root, "old.dll"), "old");
             File.WriteAllText(Path.Combine(root, "modified.dll"), "old-modified");
             File.WriteAllText(Path.Combine(root, "paths.txt"), "player paths");
             File.WriteAllText(Path.Combine(root, "my-map.fpmap"), "player");
-            WriteReleaseFiles(root, "1.0.0", ("FruityPrime", "v1"), ("old.dll", "old"),
+            WriteReleaseFiles(root, "1.0.0", ("ProjectPrime", "v1"), ("old.dll", "old"),
                 ("modified.dll", "old-modified"));
             File.WriteAllText(Path.Combine(root, "modified.dll"), "player modified");
             Directory.CreateDirectory(Path.Combine(root, ".update", "backup"));
             File.WriteAllText(Path.Combine(root, ".update", "backup", "stale.bin"), "stale");
-            File.WriteAllText(Path.Combine(staged, "FruityPrime"), "v2");
+            File.WriteAllText(Path.Combine(staged, "ProjectPrime"), "v2");
             File.WriteAllText(Path.Combine(staged, "new.dll"), "new");
-            WriteReleaseFiles(staged, "1.1.0", ("FruityPrime", "v2"), ("new.dll", "new"));
+            WriteReleaseFiles(staged, "1.1.0", ("ProjectPrime", "v2"), ("new.dll", "new"));
 
             UpdateTransactionResult result = new DesktopUpdateTransaction(root, staged)
                 .Apply("1.0.0", "1.1.0");
             Assert.True(result.Success, result.Error);
-            Assert.Equal("v2", File.ReadAllText(Path.Combine(root, "FruityPrime")));
+            Assert.Equal("v2", File.ReadAllText(Path.Combine(root, "ProjectPrime")));
             Assert.Equal("new", File.ReadAllText(Path.Combine(root, "new.dll")));
             Assert.False(File.Exists(Path.Combine(root, "old.dll")));
             Assert.Equal("player modified", File.ReadAllText(Path.Combine(root, "modified.dll")));
@@ -246,13 +246,13 @@ public sealed class UpdateContractTests
         {
             string staged = Path.Combine(root, "staged");
             Directory.CreateDirectory(staged);
-            File.WriteAllText(Path.Combine(root, "FruityPrime"),
+            File.WriteAllText(Path.Combine(root, "ProjectPrime"),
                 "#!/bin/sh\nprintf '1.0.0'\n");
             File.WriteAllText(Path.Combine(root, "paths.txt"), "player cartridge paths");
-            WriteReleaseFiles(root, "1.0.0", ("FruityPrime", "#!/bin/sh\nprintf '1.0.0'\n"));
-            File.WriteAllText(Path.Combine(staged, "FruityPrime"),
+            WriteReleaseFiles(root, "1.0.0", ("ProjectPrime", "#!/bin/sh\nprintf '1.0.0'\n"));
+            File.WriteAllText(Path.Combine(staged, "ProjectPrime"),
                 "#!/bin/sh\nprintf '1.1.0'\n");
-            WriteReleaseFiles(staged, "1.1.0", ("FruityPrime", "#!/bin/sh\nprintf '1.1.0'\n"));
+            WriteReleaseFiles(staged, "1.1.0", ("ProjectPrime", "#!/bin/sh\nprintf '1.1.0'\n"));
 
             UpdateTransactionResult result = new DesktopUpdateTransaction(root, staged)
                 .Apply("1.0.0", "1.1.0");
@@ -263,7 +263,7 @@ public sealed class UpdateContractTests
                 RedirectStandardOutput = true,
                 UseShellExecute = false
             };
-            start.ArgumentList.Add(Path.Combine(root, "FruityPrime"));
+            start.ArgumentList.Add(Path.Combine(root, "ProjectPrime"));
             using Process process = Process.Start(start)!;
             string reportedVersion = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
@@ -283,17 +283,17 @@ public sealed class UpdateContractTests
         {
             string staged = Path.Combine(root, "staged");
             Directory.CreateDirectory(staged);
-            File.WriteAllText(Path.Combine(root, "FruityPrime"), "v1");
-            WriteReleaseFiles(root, "1.0.0", ("FruityPrime", "v1"));
-            File.WriteAllText(Path.Combine(staged, "FruityPrime"), "v2");
+            File.WriteAllText(Path.Combine(root, "ProjectPrime"), "v1");
+            WriteReleaseFiles(root, "1.0.0", ("ProjectPrime", "v1"));
+            File.WriteAllText(Path.Combine(staged, "ProjectPrime"), "v2");
             File.WriteAllText(Path.Combine(staged, "new.dll"), "new");
-            WriteReleaseFiles(staged, "1.1.0", ("FruityPrime", "v2"), ("new.dll", "new"));
+            WriteReleaseFiles(staged, "1.1.0", ("ProjectPrime", "v2"), ("new.dll", "new"));
             UpdateTransactionResult failed = new DesktopUpdateTransaction(root, staged,
                 failureInjector: (_, destination) => destination.EndsWith("new.dll", StringComparison.Ordinal)
                     ? new IOException("injected") : null).Apply("1.0.0", "1.1.0");
             Assert.False(failed.Success);
             Assert.Equal(UpdateTransactionState.RolledBack, failed.State);
-            Assert.Equal("v1", File.ReadAllText(Path.Combine(root, "FruityPrime")));
+            Assert.Equal("v1", File.ReadAllText(Path.Combine(root, "ProjectPrime")));
             Assert.False(File.Exists(Path.Combine(root, "new.dll")));
             Assert.Equal("1.0.0", ReleaseFilesJson.Parse(
                 File.ReadAllBytes(Path.Combine(root, "release-files.json"))).Version);
@@ -303,7 +303,7 @@ public sealed class UpdateContractTests
             UpdateTransactionResult timedOut = new DesktopUpdateTransaction(root, staged,
                 waitForProcess: (_, _) => false).Apply("1.0.0", "1.1.0", oldPid: 7);
             Assert.False(timedOut.Success);
-            Assert.Equal("v1", File.ReadAllText(Path.Combine(root, "FruityPrime")));
+            Assert.Equal("v1", File.ReadAllText(Path.Combine(root, "ProjectPrime")));
             Assert.True(File.Exists(Path.Combine(root, ".update", "backup", "must-remain")));
         }
         finally { Directory.Delete(root, recursive: true); }
@@ -321,15 +321,15 @@ public sealed class UpdateContractTests
             string oldBinary = "old";
             string newBinary = "new";
             string oldDependency = "old dependency";
-            File.WriteAllText(Path.Combine(root, "FruityPrime"), newBinary);
+            File.WriteAllText(Path.Combine(root, "ProjectPrime"), newBinary);
             File.WriteAllText(Path.Combine(root, "old.dll"), oldDependency);
-            File.WriteAllText(Path.Combine(backup, "FruityPrime"), oldBinary);
+            File.WriteAllText(Path.Combine(backup, "ProjectPrime"), oldBinary);
             File.WriteAllText(Path.Combine(backup, "old.dll"), oldDependency);
             var journal = new UpdateTransactionJournal(1, "1.0.0", "1.1.0",
                 UpdateTransactionState.Applying, Path.Combine(update, "staged"),
                 [
-                    new UpdateTransactionFile("FruityPrime", true,
-                        "backup/FruityPrime", Hash(oldBinary), Hash(newBinary)),
+                    new UpdateTransactionFile("ProjectPrime", true,
+                        "backup/ProjectPrime", Hash(oldBinary), Hash(newBinary)),
                     new UpdateTransactionFile("old.dll", true,
                         "backup/old.dll", Hash(oldDependency), null)
                 ]);
@@ -339,7 +339,7 @@ public sealed class UpdateContractTests
             UpdateTransactionResult recovered = DesktopUpdateTransaction.Recover(root);
             Assert.True(recovered.Success, recovered.Error);
             Assert.Equal(UpdateTransactionState.RolledBack, recovered.State);
-            Assert.Equal(oldBinary, File.ReadAllText(Path.Combine(root, "FruityPrime")));
+            Assert.Equal(oldBinary, File.ReadAllText(Path.Combine(root, "ProjectPrime")));
             Assert.Equal(oldDependency, File.ReadAllText(Path.Combine(root, "old.dll")));
             Assert.False(File.Exists(Path.Combine(update, "transaction.json")));
         }
@@ -356,16 +356,16 @@ public sealed class UpdateContractTests
             string update = Path.Combine(root, ".update");
             Directory.CreateDirectory(staged);
             Directory.CreateDirectory(update);
-            File.WriteAllText(Path.Combine(root, "FruityPrime"), "v1");
-            WriteReleaseFiles(root, "1.0.0", ("FruityPrime", "v1"));
-            File.WriteAllText(Path.Combine(staged, "FruityPrime"), "v2");
-            WriteReleaseFiles(staged, "1.1.0", ("FruityPrime", "v2"));
+            File.WriteAllText(Path.Combine(root, "ProjectPrime"), "v1");
+            WriteReleaseFiles(root, "1.0.0", ("ProjectPrime", "v1"));
+            File.WriteAllText(Path.Combine(staged, "ProjectPrime"), "v2");
+            WriteReleaseFiles(staged, "1.1.0", ("ProjectPrime", "v2"));
             using FileStream held = new(Path.Combine(update, "update.lock"),
                 FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
             UpdateTransactionResult result = new DesktopUpdateTransaction(root, staged)
                 .Apply("1.0.0", "1.1.0");
             Assert.False(result.Success);
-            Assert.Equal("v1", File.ReadAllText(Path.Combine(root, "FruityPrime")));
+            Assert.Equal("v1", File.ReadAllText(Path.Combine(root, "ProjectPrime")));
         }
         finally { Directory.Delete(root, recursive: true); }
     }
@@ -405,7 +405,7 @@ public sealed class UpdateContractTests
 
     private static UpdateManifest Manifest(string version = "1.0.0") => new(
         1, "stable", version, new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
-        [new UpdatePackage("win-x64", "FruityPrime-v" + version + "-win-x64.zip", 3,
+        [new UpdatePackage("win-x64", "ProjectPrime-v" + version + "-win-x64.zip", 3,
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]);
 
     private static void WriteReleaseFiles(string root, string version,

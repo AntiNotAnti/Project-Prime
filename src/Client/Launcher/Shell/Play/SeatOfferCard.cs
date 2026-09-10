@@ -3,7 +3,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Threading;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
+using MphRead.Mods.Launcher.Theme;
 using AvaloniaButton = Avalonia.Controls.Button;
 
 namespace MphRead.Mods.Launcher.Gui;
@@ -21,6 +22,8 @@ internal sealed class SeatOfferCard : Border
     private readonly AvaloniaButton _decline;
     private readonly DispatcherTimer _timer;
     private bool _actionTaken;
+    private bool _expired;
+    private int _lastCountdownSeconds = -1;
 
     public SeatOfferCard(LobbyQueueOffer offer, Action accept, Action decline)
     {
@@ -33,10 +36,18 @@ internal sealed class SeatOfferCard : Border
         Classes.Add("prime-card");
         BorderBrush = GuiTheme.WarmBrush;
         BorderThickness = new Thickness(3, 1, 1, 1);
+        PrimeAccessibility.SetName(this, "Player seat offer");
+        PrimeAccessibility.SetDescription(this,
+            "A player seat is available. Accept or decline it before it expires.");
 
         _countdown = new TextBlock { Classes = { "prime-title" } };
+        PrimeAccessibility.SetName(_countdown, "Seat offer countdown");
         _accept = OfferButton("Accept seat", () => RunOnce(accept), primary: true);
-        _decline = OfferButton("Decline", () => RunOnce(decline));
+        _decline = OfferButton("Decline seat", () => RunOnce(decline));
+        PrimeAccessibility.SetName(_accept, "Accept player seat");
+        PrimeAccessibility.SetDescription(_accept, "Accept this one-time player seat offer.");
+        PrimeAccessibility.SetName(_decline, "Decline player seat offer");
+        PrimeAccessibility.SetDescription(_decline, "Decline this one-time player seat offer.");
 
         var actions = new WrapPanel { Orientation = Orientation.Horizontal };
         actions.Children.Add(_accept);
@@ -47,11 +58,9 @@ internal sealed class SeatOfferCard : Border
             Children =
             {
                 new TextBlock { Text = "PLAYER SLOT AVAILABLE", Classes = { "prime-kicker" } },
-                new TextBlock { Text = "A server seat is reserved for you. Choose once before the offer expires.",
+                new TextBlock { Text = "A player seat is ready for you. Choose once before the offer expires.",
                     Classes = { "prime-body" }, TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-                new TextBlock { Text = $"Offer identity · {offer.OfferId}", Classes = { "prime-muted" } },
                 _countdown,
-                new TextBlock { Text = $"Seat policy · {FormatPolicy(offer.Policy)}", Classes = { "prime-muted" } },
                 actions
             }
         };
@@ -90,7 +99,12 @@ internal sealed class SeatOfferCard : Border
         TimeSpan remaining = _expiresAt - DateTimeOffset.UtcNow;
         if (remaining <= TimeSpan.Zero)
         {
-            _countdown.Text = "Offer expired";
+            if (!_expired)
+            {
+                _expired = true;
+                _countdown.Text = FormatCountdown(0);
+                PrimeAccessibility.SetStatus(_countdown, "Seat offer expired", PrimeStatusKind.Warning);
+            }
             _accept.IsEnabled = false;
             _decline.IsEnabled = false;
             _timer.Stop();
@@ -98,14 +112,14 @@ internal sealed class SeatOfferCard : Border
         }
 
         int seconds = Math.Max(1, (int)Math.Ceiling(remaining.TotalSeconds));
-        _countdown.Text = $"Accept within {seconds / 60}:{seconds % 60:00}";
+        if (seconds == _lastCountdownSeconds) return;
+        _lastCountdownSeconds = seconds;
+        _countdown.Text = FormatCountdown(seconds);
+        PrimeAccessibility.SetStatus(_countdown, _countdown.Text);
     }
 
-    private static string FormatPolicy(LobbySeatPolicy policy) => policy switch
-    {
-        LobbySeatPolicy.ImmediateSeat => "Immediate seat",
-        LobbySeatPolicy.NextMatchSeat => "Next match seat",
-        LobbySeatPolicy.ObserverUntilNextMatch => "Observer until next match",
-        _ => policy.ToString()
-    };
+    internal static string FormatCountdown(int seconds)
+        => seconds <= 0
+            ? "Offer expired"
+            : $"Offer expires in {seconds / 60}:{seconds % 60:00}";
 }

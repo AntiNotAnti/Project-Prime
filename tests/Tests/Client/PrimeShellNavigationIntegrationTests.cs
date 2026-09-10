@@ -11,7 +11,8 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
+using MphRead.Mods.Accounts;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
@@ -86,6 +87,31 @@ public sealed class PrimeShellNavigationIntegrationTests
             StringComparison.Ordinal);
         Assert.True(start >= 0 && startEnd > start);
         Assert.Contains("!OverlayRoot.IsVisible", source[start..startEnd],
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProductionShellOwnsSeatOfferModalAndNetworkSettingsRouting()
+    {
+        string source = Read("src/Client/Launcher/Shell/PrimeShellView.axaml.cs");
+        Assert.Contains("SeatOffersHandledExternally: true", source,
+            StringComparison.Ordinal);
+        Assert.Contains("new SeatOfferCard", source, StringComparison.Ordinal);
+        Assert.Contains("new PrimeSeatOfferKey(lobby.LobbyId, offer.OfferId)", source,
+            StringComparison.Ordinal);
+        Assert.Contains("offer.ExpiresAt <= DateTimeOffset.UtcNow", source,
+            StringComparison.Ordinal);
+        Assert.Contains("KeyboardNavigationMode.Cycle", source,
+            StringComparison.Ordinal);
+        Assert.Contains("_playPresentation.TryExitChatEditing()", source,
+            StringComparison.Ordinal);
+        Assert.Contains("_activeLobbyChatPanel?.TryExitEditing()", source,
+            StringComparison.Ordinal);
+        Assert.Contains("TrackChatPanel: panel => _activeLobbyChatPanel = panel", source,
+            StringComparison.Ordinal);
+        Assert.Contains("OpenNetworkSettings: OpenNetworkSettings", source,
+            StringComparison.Ordinal);
+        Assert.Contains("_settingsFocusCategory = \"Network\"", source,
             StringComparison.Ordinal);
     }
 
@@ -303,6 +329,128 @@ public sealed class PrimeShellNavigationIntegrationTests
             Assert.True(shell.GoBack());
             Assert.Equal(before, KeyboardNavigation.GetTabNavigation(
                 (InputElement)overlay));
+        }
+        finally
+        {
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AuthoritativeSeatOfferRendersOnceInTheFocusTrappedShellOverlay()
+    {
+        Guid nodeId = Guid.NewGuid();
+        Guid lobbyId = Guid.NewGuid();
+        Guid offerId = Guid.NewGuid();
+        var session = new NodeSessionSnapshot(Guid.NewGuid(), Guid.NewGuid(),
+            "Queue Pilot", nodeId, new string('a', 43));
+        var offer = new LobbyQueueOffer(offerId, DateTimeOffset.UtcNow.AddMinutes(1),
+            LobbySeatPolicy.ImmediateSeat);
+        var waitlist = new LobbyWaitlistSnapshot(1,
+            [new LobbyQueueEntrySummary(1, "Queue Pilot",
+                LobbyQueueEntryState.SeatOffered, 10)],
+            IsSelfQueued: true, SelfState: LobbyQueueEntryState.SeatOffered,
+            SelfQueueSequence: 10, SelfOffer: offer);
+        var lobby = new LobbySnapshot(lobbyId, "Offer Room",
+            LobbyVisibility.Public, Guid.NewGuid(), LobbyPhase.Open, 7, 1, 4,
+            ImmutableArray<LobbyMember>.Empty,
+            ImmutableArray<LobbyChatEntry>.Empty, Waitlist: waitlist);
+        var play = new PlayState(PlayPhase.Lobby, Array.Empty<NodeListing>(),
+            new MphRead.Mods.Network.NodeControlClient.ViewState(
+                Session: session, Lobby: lobby),
+            Hunter.Samus, "", Loading: false, Revision: lobby.Revision);
+        var capture = new PrimeShellCaptureState(Play: play,
+            Identity: PrimeShellCaptureIdentity.SignedIn);
+        var shell = PrimeShellView.CreateLobbyCapture(new MenuSettings(),
+            new[] { "MP3 PROVING GROUND" }, capture);
+        var window = new Window
+        {
+            Width = 1024,
+            Height = 720,
+            Content = shell
+        };
+
+        try
+        {
+            window.Show();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            for (int i = 0; i < 4; i++)
+                Dispatcher.UIThread.RunJobs();
+            window.Measure(new Size(1024, 720));
+            window.Arrange(new Rect(0, 0, 1024, 720));
+
+            Control overlay = Find(shell, "OverlayRoot");
+            Control page = Find(shell, "PageHost");
+            Assert.True(overlay.IsVisible);
+            Assert.Equal(KeyboardNavigationMode.Cycle,
+                KeyboardNavigation.GetTabNavigation((InputElement)overlay));
+            Assert.Single(overlay.GetVisualDescendants().OfType<SeatOfferCard>());
+            Assert.Empty(page.GetVisualDescendants().OfType<SeatOfferCard>());
+            Assert.Single(shell.GetVisualDescendants().OfType<SeatOfferCard>());
+        }
+        finally
+        {
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
+    public void BackExitsTheLiveChatEditorWithoutDiscardingItsDraftOrNavigating()
+    {
+        Guid nodeId = Guid.NewGuid();
+        var session = new NodeSessionSnapshot(Guid.NewGuid(), Guid.NewGuid(),
+            "Chat Pilot", nodeId, new string('a', 43));
+        var lobby = new LobbySnapshot(Guid.NewGuid(), "Chat Room",
+            LobbyVisibility.Public, session.SessionId, LobbyPhase.Open, 3, 4, 4,
+            ImmutableArray<LobbyMember>.Empty,
+            [new LobbyChatEntry(1, Guid.NewGuid(), "Other Pilot", "Ready?")]);
+        var play = new PlayState(PlayPhase.Lobby, Array.Empty<NodeListing>(),
+            new MphRead.Mods.Network.NodeControlClient.ViewState(
+                Session: session, Lobby: lobby),
+            Hunter.Samus, "", Loading: false, Revision: lobby.Revision);
+        var capture = new PrimeShellCaptureState(Play: play,
+            Identity: PrimeShellCaptureIdentity.SignedIn);
+        var shell = PrimeShellView.CreateLobbyCapture(new MenuSettings(),
+            new[] { "MP3 PROVING GROUND" }, capture);
+        var window = new Window
+        {
+            Width = 1024,
+            Height = 720,
+            Content = shell
+        };
+
+        try
+        {
+            window.Show();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            for (int i = 0; i < 4; i++)
+                Dispatcher.UIThread.RunJobs();
+            window.Measure(new Size(1024, 720));
+            window.Arrange(new Rect(0, 0, 1024, 720));
+
+            LobbyChatPanel panel = shell.GetVisualDescendants()
+                .OfType<LobbyChatPanel>().Single();
+            TextBox editor = panel.DraftEditor;
+            Assert.True(editor.Focus());
+            editor.Text = "Keep this unsent draft";
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(editor.IsFocused);
+
+            Assert.True(shell.GoBack());
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(editor.IsFocused);
+            Assert.Equal("Keep this unsent draft", editor.Text);
+            Assert.IsNotType<TextBox>(window.FocusManager?.GetFocusedElement());
+            Assert.Single(shell.GetVisualDescendants().OfType<LobbyChatPanel>());
+            FieldInfo stateField = typeof(PrimeShellView).GetField(
+                "_playPresentation", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("Play presentation state was not found.");
+            var state = Assert.IsType<PlayPresentationState>(stateField.GetValue(shell));
+            Assert.Equal("Keep this unsent draft", state.ChatDraft);
+            Assert.False(state.ChatEditing);
         }
         finally
         {

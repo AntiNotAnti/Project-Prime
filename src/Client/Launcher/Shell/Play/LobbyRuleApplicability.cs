@@ -1,5 +1,5 @@
 using System;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Launcher.Gui;
 

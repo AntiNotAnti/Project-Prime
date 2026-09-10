@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Avalonia;
 using MphRead.Mods.Launcher.Gui;
+using MphRead.Mods.Launcher.Theme;
 using Xunit;
 
 namespace MphRead.Tests.Client;
@@ -12,7 +13,7 @@ public sealed class PrimeRoutePresentationTests
     public void PrimaryNavigationContainsExactlyFourPlayerDestinations()
     {
         Assert.Equal(
-            [PrimeRoute.Play, PrimeRoute.Hunter, PrimeRoute.Rankings, PrimeRoute.Theater],
+            [PrimeRoute.Play, PrimeRoute.Hunter, PrimeRoute.Rankings, PrimeRoute.Theatre],
             PrimeRouteInfo.Navigation);
         Assert.DoesNotContain(PrimeRoute.Settings, PrimeRouteInfo.Navigation);
         Assert.DoesNotContain(PrimeRoute.Armory, PrimeRouteInfo.Navigation);
@@ -47,7 +48,7 @@ public sealed class PrimeRoutePresentationTests
 
     [Fact]
     public void MobileMoreMenuContainsEveryNonPrimaryDestination()
-        => Assert.Equal(["Theater", "Settings", "Account", "Connection", "About"],
+        => Assert.Equal(["Theatre", "Settings", "Account", "Connection", "About"],
             PrimeRoutePresentation.MoreItems);
 
     [Fact]
@@ -73,7 +74,7 @@ public sealed class PrimeRoutePresentationTests
 
         Assert.Equal(HunterSection.Arsenal, state.HunterSection);
         Assert.Equal(new Vector(0, 284), state.ScrollFor(PrimeRoute.HunterLicense));
-        Assert.Equal(default, state.ScrollFor(PrimeRoute.Theater));
+        Assert.Equal(default, state.ScrollFor(PrimeRoute.Theatre));
     }
 
     [Fact]
@@ -88,15 +89,44 @@ public sealed class PrimeRoutePresentationTests
     }
 
     [Fact]
-    public void ReplayCardUsesAuthoritativeDemoMetadataOnly()
+    public void GatewayDetailsOmitTechnicalOrCredentialBearingMessages()
     {
-        var demo = new PrimeDemoEntry("id", "/tmp/a.fpdemo", "a.fpdemo",
+        Assert.Equal("Technical details were omitted. See diagnostic logs.",
+            PrimeRoutePresentation.GatewayDetails(
+                "HttpRequestException: failed with token abc"));
+        Assert.Equal("Email or credentials were not accepted.",
+            PrimeRoutePresentation.GatewayDetails(
+                "Email or credentials were not accepted."));
+    }
+
+    [Fact]
+    public void MobileSafeAreaLeavesOneBottomNavigationSeamAndResetsOnDesktop()
+    {
+        Thickness mobileHeader = PrimeLayoutMetrics.ResolveHeaderPadding(
+            mobile: true, default);
+        Thickness desktopHeader = PrimeLayoutMetrics.ResolveHeaderPadding(
+            mobile: false, new Thickness(99));
+        Thickness footer = PrimeLayoutMetrics.ResolveMobileFooterPadding(default);
+        Thickness content = PrimeLayoutMetrics.ResolveMobileContentMargin(default);
+
+        Assert.Equal(PrimeLayoutMetrics.SafeAreaMinimumTopDip, mobileHeader.Top);
+        Assert.Equal(0, desktopHeader.Top);
+        Assert.Equal(PrimeLayoutMetrics.SafeAreaMinimumBottomDip, footer.Bottom);
+        Assert.Equal(PrimeLayoutMetrics.MobileContentVerticalMarginDip, content.Bottom);
+        Assert.True(PrimeLayoutMetrics.MobileNavigationHeightDip
+            >= PrimeLayoutMetrics.MinimumTouchTargetDip + footer.Top + footer.Bottom);
+    }
+
+    [Fact]
+    public void ReplayCardUsesAuthoritativeReplayMetadataOnly()
+    {
+        var replay = new PrimeReplayEntry("id", "/tmp/a.fpreplay", "a.fpreplay",
             "Alinos Perch", new DateTime(2026, 9, 9, 18, 42, 0), 2048);
 
-        PrimeReplayPresentation card = PrimeReplayPresentation.From(demo);
+        PrimeReplayPresentation card = PrimeReplayPresentation.From(replay);
 
         Assert.Equal("Alinos Perch", card.Title);
-        Assert.Equal("a.fpdemo", card.FileName);
+        Assert.Equal("a.fpreplay", card.FileName);
         Assert.Equal("2 KB", card.Size);
         Assert.Contains("Sep 9, 2026", card.RecordedLine, StringComparison.Ordinal);
     }

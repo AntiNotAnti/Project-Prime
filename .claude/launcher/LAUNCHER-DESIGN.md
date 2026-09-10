@@ -44,9 +44,9 @@ One source image, chroma-keyed and cropped into four files under
 
 | File | What | Used by |
 |---|---|---|
-| `fruity-prime-logo.png` | the wordmark, cherry and text together | the game-files card, the Android screen and the README |
-| `fruity-prime-mark.png` | the cherry alone | the window icon |
-| `fruity-prime.ico`, `fruity-prime-server.ico` | ICO frames for Windows | `ApplicationIcon` |
+| `project-prime-logo.png` | the wordmark, cherry and text together | the game-files card, the Android screen and the README |
+| `project-prime-mark.png` | the cherry alone | the window icon |
+| `project-prime.ico`, `project-prime-server.ico` | ICO frames for Windows | `ApplicationIcon` |
 
 Notes on ICOs: 256×256 is the ICO format's ceiling; the source crop carries
 detail up to ~460 px so 256 is a downsample.
@@ -79,7 +79,7 @@ Menu entries
   not need a line saying it joins, and in the pause menu the second saying is
   what made a seven-line menu tall enough to be cut off. The only subtitles
   left are the ones reporting something the player could not otherwise know --
-  missing game files on "Host", a demo that would not open, the map-preview
+  missing game files on "Host", a replay that would not open, the map-preview
   progress -- and those are set when they happen, so `MenuEntry` takes its
   height from the subtitle (42 bare, 54 with one) in `OnPropertyChanged`
   rather than deciding it once in the constructor.
@@ -88,7 +88,7 @@ Pause menu
 
 - `Escape` in a match opens it on every platform now (`Mods/PauseMenu.cs` +
   `Gui/PauseMenuWindow.cs`): Resume, Fullscreen/Windowed, Settings, Spectate or
-  Rejoin, Record demo, Leave match, Quit.
+  Rejoin, Record replay, Leave match, Quit.
 - **It scales itself down rather than being cut off.** The panel's natural
   height is worked out from the entries put in it (each states its own
   `Height`), and `PauseMenuView.FitToHost` puts a `ScaleTransform` on a
@@ -125,7 +125,7 @@ Pause menu
   the scene's, and the menu runs on the game's thread but has no scene to hand,
   so `Start`/`Rejoin` leave a `bool?` in `SpectatorMode` that
   `Scene.OnRenderFrame` acts on -- the same shape as this menu's own window
-  work. Demo playback is the exception: it calls `Start(watchSomeone: true)`
+  work. Replay playback is the exception: it calls `Start(watchSomeone: true)`
   and goes straight to a player, having no view of its own to have just left.
 - It talks to the game through volatile flags. GLFW window calls -- closing it,
   changing its border -- belong to the thread that created the window, so the

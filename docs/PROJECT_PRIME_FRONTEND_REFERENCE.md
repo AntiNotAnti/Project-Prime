@@ -14,7 +14,7 @@ The authenticated shell exposes exactly these root routes:
 PLAY
 HUNTER LICENSE
 ARMORY
-THEATER
+THEATRE
 RANKINGS
 SETTINGS
 ```
@@ -29,7 +29,7 @@ the sections `OVERVIEW`, `HUNTERS`, `CAREER`, and `MATCHES`.
 | Play | Node directory, Node session, lobbies, lobby configuration, handoff | Internal Play state first, then prior root |
 | Hunter License | Identity, career, roster, favorite, match history | Section first, then prior root |
 | Armory | Canonical local weapon reference | Prior root |
-| Theater | Local `DemoLibrary` and `DemoPlayback` actions | Prior root |
+| Theatre | Local `ReplayLibrary` and `ReplayPlayback` actions | Prior root |
 | Rankings | Official leaderboard metrics and pages | Prior root |
 | Settings | Existing settings persistence grouped by category | Prior root |
 
@@ -108,7 +108,7 @@ presence, or progression.
 | Career/history | `GetCareerAsync`, `GetHistoryAsync` | “No official matches recorded” |
 | Rankings | `GetLeaderboardAsync` | “No eligible players on this board” |
 | Weapons | `Weapons.Current`, `Metadata.WeaponNames` | Canonical data only |
-| Replays | `DemoLibrary`, `DemoPlayback` | “No local replays found” |
+| Replays | `ReplayLibrary`, `ReplayPlayback` | “No local replays found” |
 | Maps | Existing map catalog/thumbnail pipeline | Explicit no-preview state |
 | Settings | `ClientSettings` and existing `SettingsView` | Validation/error text |
 
@@ -122,7 +122,7 @@ artifacts and are not runtime assets:
 * [Hunters](../output/playwright/project-prime-prototype/hunters.png)
 * [License](../output/playwright/project-prime-prototype/license.png)
 * [Armory](../output/playwright/project-prime-prototype/armory.png)
-* [Theater](../output/playwright/project-prime-prototype/theater.png)
+* [Theatre](../output/playwright/project-prime-prototype/theatre.png)
 * [Rankings](../output/playwright/project-prime-prototype/rankings.png)
 * [Settings](../output/playwright/project-prime-prototype/settings.png)
 
@@ -139,7 +139,7 @@ artifacts and are not runtime assets:
 | Hunter skins, levels, currency, progression | Remove | No canonical client systems |
 | Map preview art | Replace with existing local thumbnails | `ThumbnailGenerator`/`ThumbnailHost` |
 | Weapon stats | Replace with `Weapons.Current` metadata | Canonical local game data |
-| Replay cards/results | Replace with `DemoLibrary` metadata | Local recordings only |
+| Replay cards/results | Replace with `ReplayLibrary` metadata | Local recordings only |
 | Featured/spectate/social surfaces | Defer/remove | No authoritative service support |
 | “Connected” status | Show only when `NodeControlClient.Connected` | Live session state |
 

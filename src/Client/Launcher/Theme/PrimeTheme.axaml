@@ -1,7 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <StyleInclude Source="avares://FruityPrime/Launcher/Theme/PrimeColors.axaml" />
-  <StyleInclude Source="avares://FruityPrime/Launcher/Theme/PrimeTypography.axaml" />
-  <StyleInclude Source="avares://FruityPrime/Launcher/Theme/PrimeControls.axaml" />
-  <StyleInclude Source="avares://FruityPrime/Launcher/Theme/PrimeAnimations.axaml" />
+  <StyleInclude Source="avares://ProjectPrime/Launcher/Theme/PrimeColors.axaml" />
+  <StyleInclude Source="avares://ProjectPrime/Launcher/Theme/PrimeTypography.axaml" />
+  <StyleInclude Source="avares://ProjectPrime/Launcher/Theme/PrimeControls.axaml" />
+  <StyleInclude Source="avares://ProjectPrime/Launcher/Theme/PrimeAnimations.axaml" />
 </Styles>

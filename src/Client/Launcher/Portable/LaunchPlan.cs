@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Launcher
 {
@@ -58,7 +60,7 @@ namespace MphRead.Mods.Launcher
     {
         None = 0,
         Online = 1,
-        Demo = 5
+        Replay = 5
     }
 
     /// <summary>
@@ -79,9 +81,9 @@ namespace MphRead.Mods.Launcher
 
         public void Validate()
         {
-            if (Kind is not (LaunchKind.Online or LaunchKind.Demo))
+            if (Kind is not (LaunchKind.Online or LaunchKind.Replay))
             {
-                throw new ArgumentException("Only Node-admitted online and demo sessions are supported.", nameof(Kind));
+                throw new ArgumentException("Only Node-admitted online and replay sessions are supported.", nameof(Kind));
             }
         }
 
@@ -106,7 +108,9 @@ namespace MphRead.Mods.Launcher
         public int Port { get; init; }
         public string PlayerName { get; init; }
 
-        /// <summary>Demo only: the recorded file to play back.</summary>
-        public string DemoPath { get; init; }
+        /// <summary>Replay only: the recorded file to play back.</summary>
+        public string ReplayPath { get; init; }
+        /// <summary>Replay only: one clip or an ordered highlight reel.</summary>
+        public IReadOnlyList<ReplayHighlight>? ReplayHighlights { get; init; }
     }
 }

@@ -1,6 +1,8 @@
 using System;
 using MphRead.Entities;
 using MphRead.Mods.Network;
+using ProjectPrime.Server.Shared;
+using MphRead.Identity;
 
 namespace MphRead.Mods.Launcher
 {
@@ -33,7 +35,7 @@ namespace MphRead.Mods.Launcher
                 if (presentationResult?.Failure is { } failure)
                     return new MatchRunResult(MatchExitReason.Disconnected, matchId, failure, results);
                 return new MatchRunResult(MatchRunResult.Classify(didStart, PauseMenu.QuitProgram || host?.CloseRequested == true || presentationResult?.QuitApplication == true, PauseMenu.LeftMatch,
-                    play?.State == AuthoritativePlay.TerminalState.Completed || plan.Kind == LaunchKind.Demo,
+                    play?.State == AuthoritativePlay.TerminalState.Completed || plan.Kind == LaunchKind.Replay,
                     play?.Interrupted == true, play?.Client.Failure != null, false), matchId,
                     play?.Interrupted == true ? "The server interrupted the match. Return to your lobby and try again." : null, results);
             }
@@ -49,7 +51,7 @@ namespace MphRead.Mods.Launcher
         private static void RunCore(MenuSettings settings, LaunchPlan plan, SdlGameHost host, Action started, Action<MatchResultsSnapshot?, Func<bool>> capture)
         {
             plan.Validate();
-            if (plan.Kind != LaunchKind.Demo && AuthoritativePlay.Current == null)
+            if (plan.Kind != LaunchKind.Replay && AuthoritativePlay.Current == null)
             {
                 throw new InvalidOperationException("Join an authoritative server before starting a match.");
             }
@@ -68,9 +70,9 @@ namespace MphRead.Mods.Launcher
             {
                 GameFiles.ApplyPaths();
                 MapGen.MapPreparation.GenerateMissing();
-                if (plan.Kind == LaunchKind.Demo)
+                if (plan.Kind == LaunchKind.Replay)
                 {
-                    LaunchDemo(plan, host, started, capture);
+                    LaunchReplay(plan, host, started, capture);
                     return;
                 }
                 var room = NetLaunch.ServerRoom()
@@ -91,7 +93,7 @@ namespace MphRead.Mods.Launcher
                     NetLaunch.BuildPlayers(scene, plan.Hunter, localRecolor: 0);
                     presentation.AddRoom(room.RoomKey, room.Mode,
                         playerCount: NetLaunch.RoomPlayerCount);
-                }, () => capture(scene.Match.Result is { } result ? new(room.RoomKey, room.Mode, result) : null, sdlHost.PumpResultsEvents), started,
+                }, () => capture(CaptureResults(room.RoomKey, room.Mode, scene.Match.Result, AuthoritativePlay.Current), sdlHost.PumpResultsEvents), started,
                     () => AuthoritativePlay.Current?.PumpSceneCompletion(scene, sdlHost) == true);
             }
             finally
@@ -101,18 +103,30 @@ namespace MphRead.Mods.Launcher
             }
         }
 
-        private static void LaunchDemo(LaunchPlan plan, SdlGameHost host, Action started, Action<MatchResultsSnapshot?, Func<bool>> capture)
+        private static MatchResultsSnapshot? CaptureResults(string mapKey, GameMode mode,
+            MatchResult? replicated, AuthoritativePlay? play)
+        {
+            if (replicated != null) return new(mapKey, mode, replicated);
+            if (play?.CompletionSummary is not { } completion) return null;
+            NodeSessionSnapshot? session = NodeSessions.Current?.Session;
+            PlayerId? playerId = session?.PlayerId is Guid id ? new PlayerId(id) : null;
+            return new(mapKey, mode, null, completion, playerId, session?.GuestSessionId);
+        }
+
+        private static void LaunchReplay(LaunchPlan plan, SdlGameHost host, Action started, Action<MatchResultsSnapshot?, Func<bool>> capture)
         {
             try
             {
-                if (!DemoPlayback.Join(plan.DemoPath))
+                if (!ReplayPlayback.Join(plan.ReplayPath))
                 {
-                    throw new InvalidOperationException("Could not open or read the demo file.");
+                    throw new InvalidOperationException("Could not open or read the replay file.");
                 }
+                if (plan.ReplayHighlights is { Count: > 0 } highlights)
+                    ReplayPlayback.ConfigureHighlights(highlights);
                 (string RoomKey, GameMode Mode)? room = NetLaunch.ServerRoom();
                 if (room == null)
                 {
-                    throw new InvalidOperationException("The demo has no match info.");
+                    throw new InvalidOperationException("The replay has no match info.");
                 }
                 var scene = new Scene(features: ClientMatchFeatures.Capture());
                 var sdlHost = host;
@@ -126,7 +140,7 @@ namespace MphRead.Mods.Launcher
             }
             finally
             {
-                DemoPlayback.Stop();
+                ReplayPlayback.Stop();
             }
         }
 

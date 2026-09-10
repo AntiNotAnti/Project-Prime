@@ -34,6 +34,15 @@ namespace MphRead.Mods
         /// </summary>
         public static MenuSettings? Current { get; private set; }
 
+        /// <summary>The local preference can only reduce the server's policy.</summary>
+        public static bool KillcamEnabled { get; private set; } = true;
+
+        public static KillcamPolicy ResolveKillcamPolicy(KillcamPolicy serverPolicy)
+        {
+            if (!Enum.IsDefined(serverPolicy)) throw new ArgumentOutOfRangeException(nameof(serverPolicy));
+            return KillcamEnabled ? serverPolicy : KillcamPolicy.Disabled;
+        }
+
         /// <summary>
         /// Apply everything that can be applied the moment it changes: the
         /// two volumes and the text language.
@@ -54,6 +63,7 @@ namespace MphRead.Mods
                 ? timing : Combat.HitMarkerTiming.Confirmed;
             Combat.CombatFeedbackSettings.HeadshotCue = RenderOptions.ParseOnOff(settings.HeadshotCue, true);
             Combat.CombatFeedbackSettings.KillConfirmation = RenderOptions.ParseOnOff(settings.KillConfirmation, true);
+            KillcamEnabled = RenderOptions.ParseOnOff(settings.Killcam, true);
             global::MphRead.Hud.Radar.RadarSettings.Style = Enum.TryParse(settings.RadarStyle, true, out global::MphRead.Hud.Radar.RadarStyle radarStyle)
                 && Enum.IsDefined(radarStyle) ? radarStyle : global::MphRead.Hud.Radar.RadarStyle.Enhanced;
             global::MphRead.Hud.Radar.RadarSettings.Orientation = Enum.TryParse(settings.RadarOrientation, true, out global::MphRead.Hud.Radar.RadarOrientation radarOrientation)

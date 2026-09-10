@@ -194,6 +194,7 @@ namespace MphRead.Mods.Launcher.Gui
                     else
                     {
                         persistentWindow ??= new HomeWindow(settings, rooms);
+                        coordinator = persistentWindow.SessionCoordinator;
                         plan = Ask(persistentWindow, lastResult);
                     }
                     if (plan.Kind == LaunchKind.None)

@@ -1,9 +1,15 @@
 using System;
+using System.Collections.Immutable;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using FruityPrime.Server.Shared;
+using Avalonia.Layout;
+using Avalonia.VisualTree;
+using ProjectPrime.Server.Shared;
+using MphRead.Mods.Input;
 using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Network;
 using MphRead.Tests.Client;
@@ -57,7 +63,10 @@ public sealed class PostMatchReviewTests
         Assert.Equal(ScrollBarVisibility.Auto, scoreScroll.VerticalScrollBarVisibility);
         Assert.Equal(ScrollBarVisibility.Auto, ballotScroll.VerticalScrollBarVisibility);
         Assert.DoesNotContain(vote.Children.OfType<ScrollViewer>(), scroll => scroll.Content is Grid);
-        Assert.Equal(5, vote.RowDefinitions.Count); // Heading, countdown, ballot scroll, hints, Leave.
+        Assert.Equal(6, vote.RowDefinitions.Count); // Heading, countdown, ballot scroll, hints, Confirm, Cancel.
+        var cancel = Assert.IsType<Avalonia.Controls.Button>(vote.Children[5]);
+        Assert.Equal("ResultsCancelLeave", cancel.Name);
+        Assert.False(cancel.IsVisible);
     }
 
     [Fact]
@@ -79,6 +88,7 @@ public sealed class PostMatchReviewTests
         var zones = Assert.IsType<Grid>(view.Content);
         var vote = Assert.IsType<Grid>(zones.Children[1]);
         var leave = Assert.IsType<Avalonia.Controls.Button>(vote.Children[4]);
+        var cancel = Assert.IsType<Avalonia.Controls.Button>(vote.Children[5]);
         Assert.Equal("Leave Lobby", leave.Content);
         Assert.Equal("ResultsLeaveLobby", leave.Name);
         string? leaveTip = ToolTip.GetTip(leave)?.ToString();
@@ -90,12 +100,20 @@ public sealed class PostMatchReviewTests
         Assert.False(raised);
         Assert.True(view.LeaveConfirmationPending);
         Assert.Equal("Confirm Leave Lobby", leave.Content);
+        Assert.True(cancel.IsVisible);
+        Assert.Equal("Cancel", cancel.Content);
+
+        cancel.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(
+            Avalonia.Controls.Button.ClickEvent));
+
+        Assert.False(raised);
+        Assert.False(view.LeaveConfirmationPending);
 
         leave.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(
             Avalonia.Controls.Button.ClickEvent));
-
+        leave.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(
+            Avalonia.Controls.Button.ClickEvent));
         Assert.True(raised);
-        Assert.False(view.LeaveConfirmationPending);
     }
 
     [AvaloniaFact]
@@ -115,5 +133,171 @@ public sealed class PostMatchReviewTests
         view.SubmitSelection(); // Controller A confirms.
         Assert.False(view.LeaveConfirmationPending);
         Assert.Equal(1, raised);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(899, true)]
+    [InlineData(900, false)]
+    public void ResultsUseMeasuredWidthBreakpoint(double width, bool compact)
+    {
+        using var view = new PostMatchView(null);
+        Arrange(view, width, compact ? 800 : 560);
+
+        var zones = Assert.IsType<Grid>(view.Content);
+        Assert.Equal(compact, view.IsCompactLayout);
+        Assert.Equal(compact, view.ScoreboardUsesMobileCards);
+        Assert.Equal(compact ? 1 : 2, zones.ColumnDefinitions.Count);
+        Assert.Equal(compact ? 2 : 1, zones.RowDefinitions.Count);
+        var score = Assert.IsType<Grid>(zones.Children[0]);
+        var vote = Assert.IsType<Grid>(zones.Children[1]);
+        Assert.Equal(compact ? 0 : 1, Grid.GetColumn(vote));
+        Assert.Equal(compact ? 1 : 0, Grid.GetRow(vote));
+        Assert.Equal(ScrollBarVisibility.Disabled,
+            Assert.Single(score.Children.OfType<ScrollViewer>()).HorizontalScrollBarVisibility);
+        Assert.Equal(ScrollBarVisibility.Disabled,
+            Assert.Single(vote.Children.OfType<ScrollViewer>()).HorizontalScrollBarVisibility);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(940, 560)]
+    [InlineData(560, 800)]
+    public void ResultsActionTargetsRemainFullWidthAndInsideViewport(double width, double height)
+    {
+        using var view = new PostMatchView(null);
+        view.RequestLeave();
+        var window = new Window { Width = width, Height = height, Content = view };
+        try
+        {
+            window.Show();
+            Arrange(window, width, height);
+
+            var zones = Assert.IsType<Grid>(view.Content);
+            var vote = Assert.IsType<Grid>(zones.Children[1]);
+            Avalonia.Controls.Button[] actions =
+            [
+                Assert.IsType<Avalonia.Controls.Button>(vote.Children[4]),
+                Assert.IsType<Avalonia.Controls.Button>(vote.Children[5])
+            ];
+            foreach (Avalonia.Controls.Button action in actions)
+            {
+                Assert.True(action.IsEffectivelyVisible);
+                Assert.True(action.MinHeight >= 48);
+                Point? origin = action.TranslatePoint(new Point(), view);
+                Assert.True(origin.HasValue);
+                Rect bounds = new(origin!.Value, action.Bounds.Size);
+                Assert.True(bounds.Left >= -1 && bounds.Right <= width + 1,
+                    $"{action.Name} overflows the horizontal viewport: {bounds}");
+                Assert.True(bounds.Top >= -1 && bounds.Bottom <= height + 1,
+                    $"{action.Name} is clipped by the vertical viewport: {bounds}");
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void MobileBallotCardsUseTheMeasuredColumnAndTouchTarget()
+    {
+        var options = ImmutableArray.Create(
+            new LobbyVoteEntry(1, LobbyVoteChoice.Rematch, "same-map", MatchMode.Battle, 2),
+            new LobbyVoteEntry(2, LobbyVoteChoice.NextMap, "next-map", MatchMode.Battle, 1));
+        var round = new NodeRoundSnapshot(null!, null, null, false, false, 4, 9,
+            DateTimeOffset.UtcNow.AddMinutes(1), options, OwnVote: 0);
+        using var view = new PostMatchView(null);
+        view.Update(round);
+        var window = new Window { Width = 560, Height = 800, Content = view };
+        try
+        {
+            window.Show();
+            Arrange(window, 560, 800);
+            var zones = Assert.IsType<Grid>(view.Content);
+            var vote = Assert.IsType<Grid>(zones.Children[1]);
+            ScrollViewer ballotScroll = Assert.Single(vote.Children.OfType<ScrollViewer>());
+            Avalonia.Controls.Button[] cards = view.GetVisualDescendants()
+                .OfType<Avalonia.Controls.Button>()
+                .Where(button => button.Name?.StartsWith("ResultsOption",
+                    StringComparison.Ordinal) == true)
+                .ToArray();
+            Assert.Equal(2, cards.Length);
+            Assert.True(view.IsCompactLayout);
+            Assert.True(view.ScoreboardUsesMobileCards);
+            Assert.All(cards, card =>
+            {
+                Assert.Equal(HorizontalAlignment.Stretch, card.HorizontalAlignment);
+                Assert.True(card.MinHeight >= 48);
+                Assert.True(card.Bounds.Width > 0);
+                Assert.True(card.Bounds.Width <= ballotScroll.Bounds.Width + 1,
+                    $"{card.Name} exceeds its ballot column: {card.Bounds.Width}"
+                    + $" > {ballotScroll.Bounds.Width}");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ResizingAfterVotePreservesAuthoritativeBallotAndSelection()
+    {
+        var options = ImmutableArray.Create(
+            new LobbyVoteEntry(1, LobbyVoteChoice.Rematch, "same-map", MatchMode.Battle, 2),
+            new LobbyVoteEntry(2, LobbyVoteChoice.NextMap, "next-map", MatchMode.Battle, 1));
+        var round = new NodeRoundSnapshot(null!, null, null, false, false, 4, 9,
+            DateTimeOffset.UtcNow.AddMinutes(1), options, OwnVote: 2);
+        using var view = new PostMatchView(null);
+        view.Update(round);
+        uint revision = view.Selection.BallotRevision;
+        int selectedIndex = view.Selection.SelectedIndex;
+        byte ownVote = view.Ballot.OwnVote;
+        byte[] optionIds = view.Ballot.Options.Select(option => option.Id).ToArray();
+
+        Arrange(view, 560, 800);
+        Arrange(view, 940, 560);
+        view.Update(round);
+
+        Assert.Equal(revision, view.Selection.BallotRevision);
+        Assert.Equal(selectedIndex, view.Selection.SelectedIndex);
+        Assert.Equal(ownVote, view.Ballot.OwnVote);
+        Assert.Equal(optionIds, view.Ballot.Options.Select(option => option.Id));
+        Assert.Equal(1, view.Ballot.Options[1].Votes);
+        Assert.False(view.Ballot.CanVote);
+    }
+
+    [AvaloniaFact]
+    public void HintsFollowInputFamilyAndTouchHidesNoisyPrompts()
+    {
+        using var view = new PostMatchView(null);
+        GamepadState before = GamepadInput.State;
+        try
+        {
+            GamepadInput.State = new GamepadState
+            {
+                Connected = true,
+                Name = "DualSense",
+                Family = ControllerFamily.PlayStation
+            };
+            view.SetInputDevice(PrimeInputDevice.Gamepad);
+            view.RequestLeave();
+            Assert.Contains("Cross", view.InputHint, StringComparison.Ordinal);
+            Assert.Contains("Circle", view.InputHint, StringComparison.Ordinal);
+
+            view.SetInputDevice(PrimeInputDevice.Touch);
+            Assert.False(view.InputHintVisible);
+            Assert.Equal("", view.InputHint);
+        }
+        finally
+        {
+            GamepadInput.State = before;
+        }
+    }
+
+    private static void Arrange(Control view, double width, double height)
+    {
+        view.Measure(new Size(width, height));
+        view.Arrange(new Rect(0, 0, width, height));
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
     }
 }

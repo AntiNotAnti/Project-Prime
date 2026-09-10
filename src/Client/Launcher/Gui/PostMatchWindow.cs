@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Mods.Input;
 using MphRead.Mods.Network;
 
@@ -216,6 +216,8 @@ internal sealed class PostMatchWindow : Window
             _view.MoveSelection(direction);
             _repeatAt = now.AddMilliseconds(direction != _previousDirection ? 350 : 120);
         }
+        if (direction != 0 || pressed != GamepadButtons.None)
+            _view.SetInputDevice(PrimeInputDevice.Gamepad);
         if ((pressed & GamepadButtons.A) != 0) _view.SubmitSelection();
         else if ((pressed & GamepadButtons.B) != 0)
         {

@@ -361,8 +361,9 @@ public sealed class GatewayController : IAsyncDisposable
         HunterLicense license = await account.GetLicenseAsync(identity.PlayerId, cancellationToken)
             .ConfigureAwait(false);
         License = license;
-        LauncherPrefs.PlayerName = license.DisplayName;
-        LauncherPrefs.Save();
+        // Account display name is an authenticated identity, not the local
+        // guest preference. Keep LauncherPrefs.PlayerName untouched so a
+        // signed-out/guest session can retain its own device-local name.
         _shell.SetIdentity(identity.PlayerId, license.DisplayName, identity.EmailEligibleForOfficialPlay);
         SetState(new GatewayState(GatewayPhase.SignedIn, "Identity restored.", true, false,
             identity.EmailConfirmed, identity.EmailEligibleForOfficialPlay, identity.PlayerId,

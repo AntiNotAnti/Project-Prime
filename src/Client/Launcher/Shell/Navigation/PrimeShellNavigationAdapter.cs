@@ -6,7 +6,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Mods.Launcher.Theme;
 using AvaloniaButton = Avalonia.Controls.Button;
 
@@ -183,17 +183,13 @@ internal sealed class PrimeShellNavigationAdapter
     {
         ArgumentNullException.ThrowIfNull(header);
         ArgumentNullException.ThrowIfNull(mobileFooter);
-        if (!mobile)
-            return;
-
-        Thickness safe = PrimeLayoutMetrics.ResolveSafeArea(default);
-        header.Padding = new Thickness(
-            Math.Max(header.Padding.Left, safe.Left), safe.Top,
-            Math.Max(header.Padding.Right, safe.Right), header.Padding.Bottom);
-        mobileFooter.Padding = new Thickness(
-            Math.Max(mobileFooter.Padding.Left, safe.Left),
-            mobileFooter.Padding.Top,
-            Math.Max(mobileFooter.Padding.Right, safe.Right), safe.Bottom);
+        // No platform inset is inferred here. Android can pass measured
+        // insets through a future adapter; zero means the documented
+        // conservative fallback. Desktop explicitly resets mobile padding.
+        header.Padding = PrimeLayoutMetrics.ResolveHeaderPadding(mobile, default);
+        mobileFooter.Padding = mobile
+            ? PrimeLayoutMetrics.ResolveMobileFooterPadding(default)
+            : new Thickness(8, 4);
     }
 
     /// <summary>Every shell chrome action gets the shared 44-DIP hit target.</summary>

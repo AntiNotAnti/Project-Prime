@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.MapGen;
@@ -150,16 +150,21 @@ public sealed class PlayController : IAsyncDisposable
     private int _handoffEnabled;
     private Task<bool>? _handoffTask;
     private int _disposed;
+    private readonly ClientOnlineRuntime _online;
+    private readonly bool _ownsOnline;
 
     public PlayController(PrimeShellState shell, IReadOnlyList<string>? maps = null,
-        Func<CancellationToken, Task<AccountSession?>>? accountResolver = null, TimeProvider? timeProvider = null)
+        Func<CancellationToken, Task<AccountSession?>>? accountResolver = null, TimeProvider? timeProvider = null,
+        ClientOnlineRuntime? onlineRuntime = null)
     {
         _time = timeProvider ?? TimeProvider.System;
         _shell = shell ?? throw new ArgumentNullException(nameof(shell));
         _maps = maps?.Distinct(StringComparer.Ordinal).ToArray() ?? Array.Empty<string>();
         _accountResolver = accountResolver ?? ResolveAccountAsync;
+        _online = onlineRuntime ?? new ClientOnlineRuntime();
+        _ownsOnline = onlineRuntime == null;
         NodeSessions.CurrentChanged += NodeSessionChanged;
-        if (NodeSessions.Current is { } current)
+        if (_online.Node is { } current)
             Observe(current);
     }
 
@@ -234,7 +239,7 @@ public sealed class PlayController : IAsyncDisposable
                 .Distinct(StringComparer.Ordinal)
                 .ToArray());
             _directoryFetchedAt = _time.GetUtcNow();
-            Publish(new PlayState(NodeSessions.Current is { Connected: true } ? PlayPhase.Connected : PlayPhase.Nodes, nodes, State.Node, State.LobbyHunter,
+            Publish(new PlayState(_online.Node is { Connected: true } ? PlayPhase.Connected : PlayPhase.Nodes, nodes, State.Node, State.LobbyHunter,
                 nodes.Length == 0 ? "No compatible servers are online." : "Choose a server in Advanced Network.", false,
                 State.Revision + 1));
         }
@@ -254,7 +259,8 @@ public sealed class PlayController : IAsyncDisposable
     internal static bool IsDirectoryFresh(DateTimeOffset? fetchedAt, DateTimeOffset now)
         => fetchedAt is { } fetched && now >= fetched && now - fetched < TimeSpan.FromSeconds(25);
 
-    internal static NodeListing? SelectAutomaticNode(IEnumerable<NodeListing> nodes, string? region)
+    internal static NodeListing? SelectAutomaticNode(IEnumerable<NodeListing> nodes, string? region,
+        IReadOnlyDictionary<Guid, TimeSpan>? measuredLatency = null)
     {
         ArgumentNullException.ThrowIfNull(nodes);
         bool hasPreferredRegion = !string.IsNullOrWhiteSpace(region)
@@ -263,6 +269,9 @@ public sealed class PlayController : IAsyncDisposable
             .OrderByDescending(node => hasPreferredRegion
                 && !StringComparer.OrdinalIgnoreCase.Equals(node.Region, "Automatic")
                 && StringComparer.Ordinal.Equals(node.Region, region))
+            .ThenByDescending(node => measuredLatency?.ContainsKey(node.NodeId) == true)
+            .ThenBy(node => measuredLatency != null && measuredLatency.TryGetValue(node.NodeId, out TimeSpan latency)
+                ? latency : TimeSpan.MaxValue)
             .ThenByDescending(node => node.LobbyCount > 0)
             .ThenBy(node => node.OnlineUsers)
             .ThenBy(node => node.NodeId).FirstOrDefault();
@@ -274,8 +283,8 @@ public sealed class PlayController : IAsyncDisposable
     public async Task<bool> EnsureNodeAsync(CancellationToken cancellationToken = default)
     {
         if (!_shell.HasNetworkIdentity) throw new InvalidOperationException("Choose an account or Guest access first.");
-        if (NodeSessions.Current is { Connected: true }) return true;
-        NodeControlClient? previous = NodeSessions.Current;
+        if (_online.Node is { Connected: true }) return true;
+        NodeControlClient? previous = _online.Node;
         if (previous != null && !ReferenceEquals(previous, _resumeAttempted))
         {
             _resumeAttempted = previous;
@@ -284,7 +293,9 @@ public sealed class PlayController : IAsyncDisposable
         await RefreshNodesAsync(cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (!IsDirectoryFresh(_directoryFetchedAt, _time.GetUtcNow())) return false;
-        NodeListing? selected = SelectAutomaticNode(State.Nodes, PreferredRegion);
+        IReadOnlyDictionary<Guid, TimeSpan> latency = await NodeLatencyProbe.ProbeAsync(
+            State.Nodes, PreferredRegion, cancellationToken).ConfigureAwait(false);
+        NodeListing? selected = SelectAutomaticNode(State.Nodes, PreferredRegion, latency);
         if (selected == null)
         {
             Publish(State with { Loading = false, Message = "No compatible servers are available. Refresh servers in Advanced Network." });
@@ -315,11 +326,28 @@ public sealed class PlayController : IAsyncDisposable
             if (!await EnsureNodeAsync(token).ConfigureAwait(false)) return;
             NodeControlClient node = RequireConnected();
             if (node.Lobby != null) return;
-            bool joined = await JoinQuickPlayWithRetryAsync(
-                (offset, cancel) => ReadLobbyPageAsync(node, offset, cancel),
-                (lobby, cancel) => node.SendAndWaitAsync("lobby.join",
-                    new LobbyJoin(lobby.LobbyId, lobby.Revision, false), cancel), token).ConfigureAwait(false);
-            if (joined) return;
+            NodeControlEvent response = await node.SendAndWaitAsync("quickplay.join", new QuickPlayJoin(), token)
+                .ConfigureAwait(false);
+            if (response.Type != "error")
+            {
+                RequireResponse(response, "lobby.snapshot");
+                return;
+            }
+            string? code = response.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)?.Code;
+            if (code == "unsupported")
+            {
+                // Operational rollback for older/disabled Nodes. This branch is
+                // intentionally transitional and can be removed with the flag.
+                bool joined = await JoinQuickPlayWithRetryAsync(
+                    (offset, cancel) => ReadLobbyPageAsync(node, offset, cancel),
+                    (lobby, cancel) => node.SendAndWaitAsync("lobby.join",
+                        new LobbyJoin(lobby.LobbyId, lobby.Revision, false), cancel), token).ConfigureAwait(false);
+                if (joined) return;
+            }
+            else if (code != "no_match")
+            {
+                RequireResponse(response, "lobby.snapshot");
+            }
             await BrowseConnectedAsync(node, token).ConfigureAwait(false);
             Publish(State with { Message = "No open player slots found. Browse lobbies or host a new lobby." });
         }, cancellationToken);
@@ -590,8 +618,8 @@ public sealed class PlayController : IAsyncDisposable
             ThrowIfDisposed();
             Interlocked.Increment(ref _generation);
             _handoff.Cancel();
-            NetSession.Stop();
-            NodeControlClient session = await NodeSessions.ResumeAsync(cancellationToken)
+            if (_online.Match == null) NetSession.Stop();
+            NodeControlClient session = await _online.ResumeAsync(cancellationToken)
                 .ConfigureAwait(false);
             Observe(session);
             _shell.SetNodeStatus(true, _connectedNodeName, _connectedNodeRegion);
@@ -1029,6 +1057,7 @@ public sealed class PlayController : IAsyncDisposable
         _configureOperation.Release();
         _configureOperation.Dispose();
         _lifetime.Dispose();
+        if (_ownsOnline) await _online.DisposeAsync().ConfigureAwait(false);
     }
 
     private async Task SendLobbyCommandAsync(Func<LobbySnapshot, NodeSessionSnapshot?, NodeCommand> command,
@@ -1151,6 +1180,7 @@ public sealed class PlayController : IAsyncDisposable
                 return false;
             }
             AuthoritativePlay.Current?.BindNodeMatch(handoff.MatchId);
+            if (AuthoritativePlay.Current is { } play) _online.AdoptMatch(play, handoff.MatchId);
             node.MarkGameplayJoined(handoff.MatchId);
             LobbySnapshot? lobby = node.Lobby;
             LaunchPlan plan = new()
@@ -1230,7 +1260,7 @@ public sealed class PlayController : IAsyncDisposable
     }
 
     private NodeControlClient RequireConnected()
-        => NodeSessions.Current is { Connected: true } node
+        => _online.Node is { Connected: true } node
             ? node : throw new InvalidOperationException("Connect to a Node first.");
 
     private void Publish(PlayState state)

@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using MphRead;
 using MphRead.Mods;
+using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Launcher.Settings;
@@ -46,6 +48,44 @@ public sealed class SettingsRegistryTests
             .ToArray();
 
         Assert.Empty(missing);
+    }
+
+    [Fact]
+    public void KillcamPreferenceDefaultsOnPersistsAndCanOnlyReduceServerPolicy()
+    {
+        var defaults = new MenuSettings();
+        SettingDescriptor descriptor = SettingRegistry.Get("hud.killcam");
+
+        Assert.Equal("on", defaults.Killcam);
+        Assert.Equal("Killcam", descriptor.PersistenceKey);
+        Assert.Equal(SettingControlKind.Toggle, descriptor.Kind);
+
+        string json = JsonSerializer.Serialize(new MenuSettings { Killcam = "off" });
+        MenuSettings restored = JsonSerializer.Deserialize<MenuSettings>(json)!;
+        Assert.Equal("off", restored.Killcam);
+        Assert.Equal("on", JsonSerializer.Deserialize<MenuSettings>("{}")!.Killcam);
+
+        MenuSettings restore = GameSettings.Current ?? defaults;
+        try
+        {
+            GameSettings.Apply(new MenuSettings { Killcam = "on" });
+            Assert.Equal(KillcamPolicy.Immediate,
+                GameSettings.ResolveKillcamPolicy(KillcamPolicy.Immediate));
+            Assert.Equal(KillcamPolicy.PostRound,
+                GameSettings.ResolveKillcamPolicy(KillcamPolicy.PostRound));
+            Assert.Equal(KillcamPolicy.Disabled,
+                GameSettings.ResolveKillcamPolicy(KillcamPolicy.Disabled));
+
+            GameSettings.Apply(new MenuSettings { Killcam = "off" });
+            Assert.Equal(KillcamPolicy.Disabled,
+                GameSettings.ResolveKillcamPolicy(KillcamPolicy.Immediate));
+            Assert.Equal(KillcamPolicy.Disabled,
+                GameSettings.ResolveKillcamPolicy(KillcamPolicy.PostRound));
+        }
+        finally
+        {
+            GameSettings.Apply(restore);
+        }
     }
 
     [Fact]
@@ -94,25 +134,42 @@ public sealed class SettingsRegistryTests
     }
 
     [Fact]
-    public void AimAssistIsInternalAlwaysOnAndNotPlayerConfigurable()
+    public void AimAssistPersistsInternallyButHasNoPlayerConfigurableDescriptor()
     {
-        Assert.True(InputSettings.GamepadAimAssistEnabled);
-        Assert.Equal(1f, InputSettings.GamepadAimAssistStrength);
-        Assert.DoesNotContain(SettingRegistry.Descriptors, descriptor =>
-            descriptor.Id.Contains("aim-assist", StringComparison.OrdinalIgnoreCase)
-            || descriptor.Label.Contains("aim assist", StringComparison.OrdinalIgnoreCase));
-
-        InputSettings.LoadLines(new[]
+        InputSettings.Reset();
+        try
         {
-            "gamepad_aim_assist=false",
-            "gamepad_aim_assist_enabled=false",
-            "gamepad_aim_assist_strength=0"
-        });
+            Assert.DoesNotContain(SettingRegistry.Descriptors, descriptor =>
+                descriptor.Id.Contains("aim-assist", StringComparison.OrdinalIgnoreCase)
+                || descriptor.Label.Contains("aim assist", StringComparison.OrdinalIgnoreCase));
+
+            InputSettings.LoadLines(new[]
+            {
+                "gamepad_aim_assist_enabled=false",
+                "gamepad_aim_assist_strength=0.35"
+            });
+
+            Assert.False(InputSettings.GamepadAimAssistEnabled);
+            Assert.Equal(.35f, InputSettings.GamepadAimAssistStrength);
+
+            InputSettings.ApplyPreset(ControllerPreset.Competitive);
+            InputSettings.GamepadResponseCurve = GamepadResponseCurvePreset.Precision;
+            InputSettings.GamepadTurnAcceleration = GamepadTurnAccelerationPreset.Fast;
+            Assert.False(InputSettings.GamepadAimAssistEnabled);
+            Assert.Equal(.35f, InputSettings.GamepadAimAssistStrength);
+
+            Assert.Contains("gamepad_aim_assist_enabled=false",
+                InputSettings.GetSaveLines());
+            Assert.Contains("gamepad_aim_assist_strength=0.35",
+                InputSettings.GetSaveLines());
+        }
+        finally
+        {
+            InputSettings.Reset();
+        }
 
         Assert.True(InputSettings.GamepadAimAssistEnabled);
         Assert.Equal(1f, InputSettings.GamepadAimAssistStrength);
-        Assert.DoesNotContain(InputSettings.GetSaveLines(), line =>
-            line.StartsWith("gamepad_aim_assist", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -194,7 +251,7 @@ public sealed class SettingsRegistryTests
             Assert.Equal("europe", LauncherPrefs.PreferredRegion);
             Assert.Contains("preferred_region=europe", LauncherPrefs.GetSaveLines());
 
-            temporaryDirectory = System.IO.Directory.CreateTempSubdirectory("fruity-prime-settings-").FullName;
+            temporaryDirectory = System.IO.Directory.CreateTempSubdirectory("project-prime-settings-").FullName;
             LauncherPrefs.Directory = temporaryDirectory;
             LauncherPrefs.Save();
             LauncherPrefs.PreferredRegion = "Automatic";

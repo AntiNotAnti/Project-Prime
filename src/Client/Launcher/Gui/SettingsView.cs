@@ -14,6 +14,7 @@ using Avalonia.Threading;
 using MphRead.Entities;
 using MphRead.Mods;
 using MphRead.Mods.Content;
+using MphRead.Mods.Input;
 using MphRead.Mods.Render;
 using MphRead.Mods.Launcher.Settings;
 using MphRead.Mods.Update;
@@ -22,6 +23,54 @@ using FrameTiming = MphRead.Mods.Render.FrameTiming;
 
 namespace MphRead.Mods.Launcher.Gui
 {
+    internal enum SettingsIdentityKind
+    {
+        SignedOut,
+        Guest,
+        Authenticated
+    }
+
+    /// <summary>
+    /// Immutable identity presentation for one Settings view lifetime. The
+    /// view receives a snapshot so account, guest and signed-out names cannot
+    /// be confused with the local launcher preference or a live Node identity.
+    /// </summary>
+    internal sealed record SettingsIdentityContext(
+        SettingsIdentityKind Kind, string DisplayName, Action? HunterProfileRequested)
+    {
+        public bool IsAuthenticated => Kind == SettingsIdentityKind.Authenticated;
+        public bool IsGuest => Kind == SettingsIdentityKind.Guest;
+        public bool CanOpenHunterProfile => IsAuthenticated;
+
+        public static SettingsIdentityContext SignedOut { get; }
+            = new(SettingsIdentityKind.SignedOut, "Guest", null);
+
+        public static SettingsIdentityContext Guest(string displayName)
+            => new(SettingsIdentityKind.Guest, Normalize(displayName, "Guest"), null);
+
+        public static SettingsIdentityContext Authenticated(string displayName,
+            Action? hunterProfileRequested = null)
+            => new(SettingsIdentityKind.Authenticated,
+                Normalize(displayName, "Account"), hunterProfileRequested);
+
+        public static SettingsIdentityContext From(PrimeShellState shell,
+            Action? hunterProfileRequested = null)
+        {
+            ArgumentNullException.ThrowIfNull(shell);
+            if (shell.SignedIn)
+            {
+                return Authenticated(shell.DisplayName, hunterProfileRequested);
+            }
+            return shell.GuestSelected ? Guest(shell.DisplayName) : SignedOut;
+        }
+
+        private static string Normalize(string value, string fallback)
+        {
+            string normalized = value?.Trim() ?? "";
+            return normalized.Length == 0 ? fallback : normalized;
+        }
+    }
+
     /// <summary>
     /// Settings, in the same language as the front screen: a rail of sections,
     /// one page at a time beside it, everything painted here.
@@ -37,13 +86,16 @@ namespace MphRead.Mods.Launcher.Gui
     /// top and the footer drops to the bottom. The sections, the rows and every
     /// value they read and write are the same objects either way.
     /// </summary>
-    internal sealed class SettingsView : UserControl
+    internal sealed class SettingsView : UserControl, IDisposable
     {
         private readonly MenuSettings _settings;
         private readonly bool _inGame;
         private readonly bool _captureTouchControls;
         private readonly bool? _captureGyroSupported;
         private readonly bool? _captureAdvancedControllerExpanded;
+        private readonly SettingsIdentityContext _identity;
+        private bool _observingControllerCapabilities;
+        private bool _disposed;
         private readonly StackPanel _rail = new() { Spacing = 2 };
 
         /// <summary>
@@ -101,7 +153,7 @@ namespace MphRead.Mods.Launcher.Gui
         private ChoiceRow _hitMarkerRow = null!, _radarStyleRow = null!, _radarOrientationRow = null!;
         private ChoiceRow _radarPositionRow = null!;
         private SliderRow _radarScaleRow = null!, _radarOffsetXRow = null!, _radarOffsetYRow = null!;
-        private ToggleRow _headshotCueRow = null!, _killConfirmationRow = null!;
+        private ToggleRow _headshotCueRow = null!, _killConfirmationRow = null!, _killcamRow = null!;
 
         /// <summary>
         /// The stops the FPS limit slides over, and the cap each one means.
@@ -176,6 +228,8 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _invertY = null!;
         private ToggleRow _invertX = null!;
         private ToggleRow _scrollAllWeapons = null!;
+        private ToggleRow _morphBallMouseFlickBoost = null!, _morphBallStickFlickBoost = null!;
+        private ToggleRow? _morphBallSwipeBoost;
         private KeyRow _chatKeyRow = null!;
         private ChoiceRow _gamepadPresetRow = null!;
         private SliderRow _gamepadHorizontalSensitivity = null!;
@@ -193,11 +247,14 @@ namespace MphRead.Mods.Launcher.Gui
         private SliderRow _gamepadOuterBoostStart = null!, _gamepadOuterYawBoost = null!,
             _gamepadOuterPitchBoost = null!, _gamepadBoostDelay = null!, _gamepadBoostRamp = null!;
         private ToggleRow _gamepadInvertY = null!;
-        private ToggleRow _gamepadGyro = null!, _gamepadGyroInvertX = null!;
+        private ChoiceRow _gamepadGyro = null!, _gamepadGyroActivation = null!;
+        private ChoiceRow _gamepadResponseCurve = null!, _gamepadTurnAcceleration = null!;
+        private ToggleRow _gamepadGyroInvertX = null!;
         private ToggleRow _gamepadGyroInvertY = null!, _gamepadHaptics = null!;
         private ToggleRow _inputBalanceTelemetry = null!;
+        private Note? _gyroCapabilityNote;
         private Expander? _advancedControllerExpander;
-        private SliderRow _gamepadGyroSensitivity = null!;
+        private SliderRow _gamepadGyroSensitivity = null!, _gamepadHapticsStrength = null!;
         private ToggleRow? _stylusAiming, _stylusInvertY, _stylusClassicGestures,
             _stylusDoubleTapJump, _stylusFlickBoost, _stylusPressureToFire;
         private SliderRow? _stylusSensitivity, _stylusPressureThreshold;
@@ -206,6 +263,9 @@ namespace MphRead.Mods.Launcher.Gui
         private ChoiceRow _hunterRow = null!;
         private ChoiceRow _autoUpdate = null!;
         private ChoiceRow _preferredRegion = null!;
+        private IReadOnlyList<PreferredRegionOption> _preferredRegionOptions
+            = Array.Empty<PreferredRegionOption>();
+        private MenuEntry? _hunterProfileAction;
         private ToggleRow _debugLogging = null!;
         private MenuEntry _shareLogs = null!;
         private Note _updateStatus = null!;
@@ -215,6 +275,11 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly HashSet<string> _renderedRowIds = new(StringComparer.Ordinal);
         private bool _refreshingControllerRows;
         private bool _synchronizingControllerPairs;
+        // SliderRow stores an integer presentation value, while controller
+        // preferences are persisted as floats. Keep the raw preference when
+        // a row was only populated from that preference; only a real user
+        // edit opts into the lossy presentation-to-preference conversion.
+        private readonly HashSet<SliderRow> _editedControllerSliders = new();
         private bool _refreshingGraphicsRows;
         private bool _observingUpdates;
 
@@ -238,11 +303,16 @@ namespace MphRead.Mods.Launcher.Gui
         internal bool? RenderedTouchButtonsVisible => _touchButtonsRow?.On;
         internal bool RenderedGyroControlsEnabled
             => _gamepadGyro.IsEnabled && _gamepadGyroSensitivity.IsEnabled
+                && _gamepadGyroActivation.IsEnabled
                 && _gamepadGyroInvertX.IsEnabled && _gamepadGyroInvertY.IsEnabled;
+        internal string? RenderedGyroCapabilityNote => _gyroCapabilityNote?.Text;
         internal bool? RenderedAdvancedControllerExpanded
             => _advancedControllerExpander?.IsExpanded;
         internal bool? CaptureAdvancedControllerExpanded
             => _captureAdvancedControllerExpanded;
+        internal SettingsIdentityContext IdentityContext => _identity;
+        internal bool HasHunterProfileAction => _hunterProfileAction != null;
+        internal bool IsObservingControllerCapabilities => _observingControllerCapabilities;
 
         private const double _railWidth = 244;
 
@@ -257,15 +327,18 @@ namespace MphRead.Mods.Launcher.Gui
 
         private readonly Scene? _scene;
 
-        public SettingsView(MenuSettings settings, bool inGame = false, Scene? scene = null)
+        public SettingsView(MenuSettings settings, bool inGame = false, Scene? scene = null,
+            SettingsIdentityContext? identity = null)
             : this(settings, inGame, scene, captureTouchControls: false,
-                captureGyroSupported: null, captureAdvancedControllerExpanded: null)
+                captureGyroSupported: null, captureAdvancedControllerExpanded: null,
+                identity: identity)
         {
         }
 
         internal SettingsView(MenuSettings settings, bool inGame, Scene? scene,
             bool captureTouchControls, bool? captureGyroSupported,
-            bool? captureAdvancedControllerExpanded)
+            bool? captureAdvancedControllerExpanded,
+            SettingsIdentityContext? identity = null)
         {
             _scene = scene;
             _settings = settings;
@@ -273,6 +346,7 @@ namespace MphRead.Mods.Launcher.Gui
             _captureTouchControls = captureTouchControls;
             _captureGyroSupported = captureGyroSupported;
             _captureAdvancedControllerExpanded = captureAdvancedControllerExpanded;
+            _identity = identity ?? SettingsIdentityContext.SignedOut;
 
             Background = GuiTheme.InkBrush;
             Focusable = true;
@@ -423,23 +497,117 @@ namespace MphRead.Mods.Launcher.Gui
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
+            if (_disposed)
+            {
+                return;
+            }
             if (!_observingUpdates)
             {
                 _observingUpdates = true;
                 Update.Updater.Coordinator.StatusChanged += UpdateStatusChanged;
             }
+            SubscribeControllerCapabilities();
+            ApplyControllerCapabilities(ControllerCapabilities.Current);
             Dispatcher.UIThread.Post(() => _sections[0].Button.Focus(),
                 DispatcherPriority.Background);
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
+            UnsubscribeControllerCapabilities();
             if (_observingUpdates)
             {
                 Update.Updater.Coordinator.StatusChanged -= UpdateStatusChanged;
                 _observingUpdates = false;
             }
             base.OnDetachedFromVisualTree(e);
+        }
+
+        private void SubscribeControllerCapabilities()
+        {
+            if (_observingControllerCapabilities || _disposed)
+            {
+                return;
+            }
+            _observingControllerCapabilities = true;
+            ControllerCapabilities.Changed += ControllerCapabilitiesChanged;
+        }
+
+        private void UnsubscribeControllerCapabilities()
+        {
+            if (!_observingControllerCapabilities)
+            {
+                return;
+            }
+            ControllerCapabilities.Changed -= ControllerCapabilitiesChanged;
+            _observingControllerCapabilities = false;
+        }
+
+        private void ControllerCapabilitiesChanged(object? sender,
+            ControllerCapabilityChangedEventArgs _)
+        {
+            // SDL/Android publishers may run on their input thread. Never
+            // mutate Avalonia controls from that callback, and discard a
+            // queued update after this view has been replaced or disposed.
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!_disposed && _observingControllerCapabilities)
+                {
+                    // The store raises outside its lock. A callback already
+                    // queued here may be older than a replacement owner by
+                    // the time Avalonia runs it, so the store's current
+                    // immutable snapshot is the only safe value to apply.
+                    ApplyControllerCapabilities(ControllerCapabilities.Current);
+                }
+            });
+        }
+
+        private void ApplyControllerCapabilities(ControllerCapabilitySnapshot snapshot)
+        {
+            if (_gamepadGyro == null || _gamepadGyroSensitivity == null
+                || _gamepadGyroActivation == null || _gamepadGyroInvertX == null
+                || _gamepadGyroInvertY == null)
+            {
+                return;
+            }
+            bool enabled = _captureGyroSupported ??
+                (snapshot.IsAvailable && snapshot.HasGyroscope == true);
+            _gamepadGyro.IsEnabled = enabled;
+            _gamepadGyroActivation.IsEnabled = enabled;
+            _gamepadGyroSensitivity.IsEnabled = enabled;
+            _gamepadGyroInvertX.IsEnabled = enabled;
+            _gamepadGyroInvertY.IsEnabled = enabled;
+            if (_gyroCapabilityNote == null)
+            {
+                return;
+            }
+            _gyroCapabilityNote.Text = _captureGyroSupported.HasValue
+                ? (_captureGyroSupported.Value
+                    ? "Gyro controls are enabled for this capture capability state."
+                    : "Gyro aiming is disabled for this capture capability state.")
+                : snapshot.IsAvailable && snapshot.HasGyroscope == true
+                    ? "Gyro controls are enabled for the connected controller."
+                    : snapshot.IsAvailable && snapshot.HasGyroscope == false
+                        ? "The connected controller does not report a gyroscope."
+                        : snapshot.IsAvailable
+                            ? "Gyro support is unknown for this controller; the saved preference is preserved."
+                            : "Connect a controller with a reported gyroscope to enable these controls; the saved preference is preserved.";
+        }
+
+        /// <summary>Release external observers when this view's lifetime ends.</summary>
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+            _disposed = true;
+            UnsubscribeControllerCapabilities();
+            if (_observingUpdates)
+            {
+                Update.Updater.Coordinator.StatusChanged -= UpdateStatusChanged;
+                _observingUpdates = false;
+            }
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
@@ -472,7 +640,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             var title = new TextBlock
             {
-                Text = "PARAMETER SECTORS",
+                Text = "SETTINGS",
                 FontFamily = GuiTheme.Display,
                 FontSize = 11,
                 FontWeight = FontWeight.SemiBold,
@@ -480,7 +648,8 @@ namespace MphRead.Mods.Launcher.Gui
             };
             var context = new TextBlock
             {
-                Text = _inGame ? "ACTIVE MATCH CONFIG" : "LOCAL PROFILE CONFIG",
+                Text = _identity.IsAuthenticated ? "ACCOUNT SETTINGS"
+                    : _identity.IsGuest ? "GUEST SETTINGS" : "SIGNED-OUT SETTINGS",
                 FontFamily = GuiTheme.Display,
                 FontSize = 9,
                 Foreground = GuiTheme.AccentBrush,
@@ -564,7 +733,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static string SectionSubtitle(string name) => name switch
         {
-            "Gameplay" => "PROFILE",
+            "Player" => "IDENTITY / HUNTER",
             "Controls" => "MOUSE / PAD / KEYS",
             "Graphics" => "DISPLAY / QUALITY / HUD",
             "Audio" => "MIX / PACKS / LANGUAGE",
@@ -577,8 +746,8 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static string SectionTitle(string name) => name switch
         {
-            "Gameplay" => "GAMEPLAY & PILOT PROFILE",
-            "Controls" => "CONTROL INPUT MATRIX",
+            "Player" => "PLAYER PROFILE",
+            "Controls" => "CONTROLS",
             "Graphics" => "DISPLAY & GRAPHICS",
             "Audio" => "AUDIO & PRESENTATION",
             "System" => "SYSTEM & SUPPORT",
@@ -590,7 +759,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static string SectionDescription(string name) => name switch
         {
-            "Gameplay" => "Configure your local pilot identity and preferred hunter. Online match rules belong to the lobby host.",
+            "Player" => "Configure your account or guest display name and preferred hunter. Online match rules belong to the lobby host.",
             "Controls" => "Tune mouse, gamepad, touch and direct action bindings.",
             "Graphics" => "Set the display path, render budget, visual quality and combat HUD.",
             "Audio" => "Balance the mix and select installed presentation content.",
@@ -611,6 +780,13 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal void ShowSection(string name)
         {
+            // Retain the former navigation token while presenting the page
+            // under its clearer Player identity. Persisted setting IDs and
+            // launcher keys remain unchanged.
+            if (String.Equals(name, "Gameplay", StringComparison.OrdinalIgnoreCase))
+            {
+                name = "Player";
+            }
             foreach ((MenuEntry button, Control page) in _sections)
             {
                 if (String.Equals(button.Title, name, StringComparison.OrdinalIgnoreCase))
@@ -760,8 +936,9 @@ namespace MphRead.Mods.Launcher.Gui
 
             Heading(page, "Performance");
             _resolutionScale = Add(page, new SliderRow("Render scale",
-                RenderOptions.ResolutionScale,
-                v => $"{Math.Max(RenderOptions.MinScale, v)}%"), SettingRowIds.RenderScale);
+                Math.Max(RenderOptions.MinScale, RenderOptions.ResolutionScale),
+                v => $"{Math.Max(RenderOptions.MinScale, v)}%",
+                min: RenderOptions.MinScale), SettingRowIds.RenderScale);
             // Under the render scale because they are the same question asked
             // from both ends -- how much picture, and how often -- and because
             // the two of them are what somebody who is not getting a smooth
@@ -822,6 +999,7 @@ namespace MphRead.Mods.Launcher.Gui
                 new[] { "Confirmed", "Instant" }, (int)Combat.CombatFeedbackSettings.Timing), SettingRowIds.HitMarkerTiming);
             _headshotCueRow = Add(page, new ToggleRow("Headshot cue", Combat.CombatFeedbackSettings.HeadshotCue), SettingRowIds.HeadshotCue);
             _killConfirmationRow = Add(page, new ToggleRow("Kill confirmation", Combat.CombatFeedbackSettings.KillConfirmation), SettingRowIds.KillConfirmation);
+            _killcamRow = Add(page, new ToggleRow("Killcam", GameSettings.KillcamEnabled), SettingRowIds.Killcam);
             _radarStyleRow = Add(page, new ChoiceRow("Radar style", new[] { "Classic", "Enhanced" }, (int)global::MphRead.Hud.Radar.RadarSettings.Style), SettingRowIds.RadarStyle);
             _radarOrientationRow = Add(page, new ChoiceRow("Radar orientation", new[] { "Heading", "North" }, (int)global::MphRead.Hud.Radar.RadarSettings.Orientation), SettingRowIds.RadarOrientation);
             _radarPositionRow = Add(page, new ChoiceRow("Radar position",
@@ -989,6 +1167,26 @@ namespace MphRead.Mods.Launcher.Gui
             }
         }
 
+        private void MarkControllerSliderEdited(SliderRow row)
+        {
+            if (!_refreshingControllerRows)
+            {
+                _editedControllerSliders.Add(row);
+            }
+            MarkControllerCustom();
+        }
+
+        private bool ControllerSliderWasEdited(SliderRow row)
+            => _editedControllerSliders.Contains(row);
+
+        private void ClearEditedControllerSliders(params SliderRow[] rows)
+        {
+            foreach (SliderRow row in rows)
+            {
+                _editedControllerSliders.Remove(row);
+            }
+        }
+
         private void RefreshControllerPresetRow()
         {
             bool wasRefreshing = _refreshingControllerRows;
@@ -1012,12 +1210,17 @@ namespace MphRead.Mods.Launcher.Gui
                 RefreshControllerAimRowsCore();
                 RefreshControllerAdvancedRowsCore();
                 _gamepadHaptics.On = InputSettings.GamepadHapticsEnabled;
+                _gamepadHapticsStrength.Value = (int)Math.Round(
+                    InputSettings.GamepadHapticsStrength * 100);
                 _inputBalanceTelemetry.On = InputSettings.InputBalanceTelemetryEnabled;
             }
             finally
             {
                 _refreshingControllerRows = false;
             }
+            // Every controller slider was repopulated from authoritative
+            // state, so no old UI edit marker may survive this full reset.
+            _editedControllerSliders.Clear();
         }
 
         private void RefreshControllerAimRows()
@@ -1031,6 +1234,53 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _refreshingControllerRows = false;
             }
+            ClearEditedControllerSliders(
+                _gamepadHorizontalSensitivity, _gamepadVerticalSensitivity,
+                _gamepadGyroSensitivity, _gamepadDeadZone, _gamepadLookDeadZone,
+                _gamepadMoveActivate, _gamepadMoveRelease, _gamepadLook,
+                _gamepadYawRate, _gamepadPitchRate, _gamepadZoomMultiplier);
+        }
+
+        private void RefreshControllerGeneralRows()
+        {
+            _refreshingControllerRows = true;
+            try
+            {
+                _gamepadHorizontalSensitivity.Value = LookToSlider(
+                    InputSettings.GamepadHorizontalSensitivity);
+                _gamepadVerticalSensitivity.Value = LookToSlider(
+                    InputSettings.GamepadVerticalSensitivity);
+                _gamepadInvertY.On = InputSettings.GamepadInvertY;
+                _gamepadZoomMultiplier.Value = LookToSlider(InputSettings.GamepadZoomMultiplier);
+                _gamepadHaptics.On = InputSettings.GamepadHapticsEnabled;
+                _gamepadHapticsStrength.Value = (int)Math.Round(
+                    InputSettings.GamepadHapticsStrength * 100);
+            }
+            finally
+            {
+                _refreshingControllerRows = false;
+            }
+            ClearEditedControllerSliders(_gamepadHorizontalSensitivity,
+                _gamepadVerticalSensitivity, _gamepadZoomMultiplier,
+                _gamepadHapticsStrength);
+        }
+
+        private void RefreshControllerGyroRows()
+        {
+            _refreshingControllerRows = true;
+            try
+            {
+                _gamepadGyro.Index = (int)InputSettings.GamepadGyroMode;
+                _gamepadGyroActivation.Index = (int)InputSettings.GamepadGyroActivation;
+                _gamepadGyroSensitivity.Value = LookToSlider(InputSettings.GamepadGyroSensitivity);
+                _gamepadGyroInvertX.On = InputSettings.GamepadGyroInvertX;
+                _gamepadGyroInvertY.On = InputSettings.GamepadGyroInvertY;
+            }
+            finally
+            {
+                _refreshingControllerRows = false;
+            }
+            ClearEditedControllerSliders(_gamepadGyroSensitivity);
         }
 
         private void RefreshControllerAimRowsCore()
@@ -1038,7 +1288,8 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepadHorizontalSensitivity.Value = LookToSlider(InputSettings.GamepadHorizontalSensitivity);
             _gamepadVerticalSensitivity.Value = LookToSlider(InputSettings.GamepadVerticalSensitivity);
             _gamepadInvertY.On = InputSettings.GamepadInvertY;
-            _gamepadGyro.On = InputSettings.GamepadGyroEnabled;
+            _gamepadGyro.Index = (int)InputSettings.GamepadGyroMode;
+            _gamepadGyroActivation.Index = (int)InputSettings.GamepadGyroActivation;
             _gamepadGyroSensitivity.Value = LookToSlider(InputSettings.GamepadGyroSensitivity);
             _gamepadGyroInvertX.On = InputSettings.GamepadGyroInvertX;
             _gamepadGyroInvertY.On = InputSettings.GamepadGyroInvertY;
@@ -1047,6 +1298,7 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepadMoveActivate.Value = ThresholdToSlider(InputSettings.GamepadMoveActivateThreshold);
             _gamepadMoveRelease.Value = ThresholdToSlider(InputSettings.GamepadMoveReleaseThreshold);
             _gamepadLook.Value = ExponentToSlider(InputSettings.GamepadLookExponent);
+            _gamepadResponseCurve.Index = (int)InputSettings.GamepadResponseCurve;
             _gamepadYawRate.Value = (int)Math.Round(InputSettings.GamepadYawRate);
             _gamepadPitchRate.Value = (int)Math.Round(InputSettings.GamepadPitchRate);
             _gamepadZoomMultiplier.Value = LookToSlider(InputSettings.GamepadZoomMultiplier);
@@ -1063,12 +1315,26 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _refreshingControllerRows = false;
             }
+            ClearEditedControllerSliders(
+                _gamepadDeadZone, _gamepadLookDeadZone, _gamepadOuterDeadZone,
+                _gamepadMoveActivate, _gamepadMoveRelease, _gamepadLook,
+                _gamepadYawRate, _gamepadPitchRate, _gamepadOuterBoostStart,
+                _gamepadOuterYawBoost, _gamepadOuterPitchBoost, _gamepadBoostDelay,
+                _gamepadBoostRamp, _gamepadTriggerPress, _gamepadTriggerRelease);
         }
 
         private void RefreshControllerAdvancedRowsCore()
         {
+            _gamepadDeadZone.Value = DeadZoneToSlider(InputSettings.GamepadMoveDeadZone, .9f);
+            _gamepadLookDeadZone.Value = DeadZoneToSlider(InputSettings.GamepadLookDeadZone, .9f);
+            _gamepadMoveActivate.Value = ThresholdToSlider(InputSettings.GamepadMoveActivateThreshold);
+            _gamepadMoveRelease.Value = ThresholdToSlider(InputSettings.GamepadMoveReleaseThreshold);
+            _gamepadLook.Value = ExponentToSlider(InputSettings.GamepadLookExponent);
+            _gamepadYawRate.Value = (int)Math.Round(InputSettings.GamepadYawRate);
+            _gamepadPitchRate.Value = (int)Math.Round(InputSettings.GamepadPitchRate);
             _gamepadOuterDeadZone.Value = DeadZoneToSlider(InputSettings.GamepadOuterDeadZone, .5f);
             _gamepadOuterBoost.On = InputSettings.GamepadOuterBoostEnabled;
+            _gamepadTurnAcceleration.Index = (int)InputSettings.GamepadTurnAcceleration;
             _gamepadOuterBoostStart.Value = ThresholdToSlider(InputSettings.GamepadOuterBoostStart);
             _gamepadOuterYawBoost.Value = (int)Math.Round(InputSettings.GamepadOuterYawBoost);
             _gamepadOuterPitchBoost.Value = (int)Math.Round(InputSettings.GamepadOuterPitchBoost);
@@ -1085,6 +1351,12 @@ namespace MphRead.Mods.Launcher.Gui
             _invertY.On = InputSettings.InvertMouseY;
             _invertX.On = InputSettings.InvertMouseX;
             _scrollAllWeapons.On = InputSettings.ScrollAllWeapons;
+            _morphBallMouseFlickBoost.On = InputSettings.MorphBallMouseFlickBoost;
+            _morphBallStickFlickBoost.On = InputSettings.MorphBallStickFlickBoost;
+            if (_morphBallSwipeBoost != null)
+            {
+                _morphBallSwipeBoost.On = InputSettings.MorphBallSwipeBoost;
+            }
             RefreshControllerRows();
             if (_touchButtonsRow != null)
             {
@@ -1209,6 +1481,9 @@ namespace MphRead.Mods.Launcher.Gui
             _invertX = Add(page, new ToggleRow("Invert horizontal aim", InputSettings.InvertMouseX), SettingRowIds.MouseInvertX);
             _scrollAllWeapons = Add(page, new ToggleRow("Wheel cycles every weapon",
                 InputSettings.ScrollAllWeapons), SettingRowIds.ScrollAllWeapons);
+            _morphBallMouseFlickBoost = Add(page, new ToggleRow(
+                "Morph Ball mouse flick boost", InputSettings.MorphBallMouseFlickBoost),
+                SettingRowIds.MorphBallMouseFlickBoost);
 
             _chatKeyRow = Add(page, new KeyRow("Chat key",
                 () => new MphRead.Entities.Keybind(InputSettings.ChatKey),
@@ -1221,6 +1496,12 @@ namespace MphRead.Mods.Launcher.Gui
                 }), SettingRowIds.ChatKey);
 
             BuildTouchControls(page);
+            if (OperatingSystem.IsAndroid())
+            {
+                _morphBallSwipeBoost = Add(page, new ToggleRow(
+                    "Morph Ball swipe boost", InputSettings.MorphBallSwipeBoost),
+                    SettingRowIds.MorphBallSwipeBoost);
+            }
             BuildStylusControls(page);
 
             // Its own section rather than more rows under "Mouse": a pad has
@@ -1235,6 +1516,9 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepadPresetRow = Add(page, new ChoiceRow("Preset",
                 Enum.GetNames<Mods.Input.ControllerPreset>(),
                 (int)InputSettings.ControllerPreset), SettingRowIds.ControllerPreset);
+            _morphBallStickFlickBoost = Add(page, new ToggleRow(
+                "Morph Ball stick flick boost", InputSettings.MorphBallStickFlickBoost),
+                SettingRowIds.MorphBallStickFlickBoost);
             _gamepadHorizontalSensitivity = Add(page, new SliderRow("Horizontal sensitivity",
                 LookToSlider(InputSettings.GamepadHorizontalSensitivity),
                 v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"), SettingRowIds.ControllerHorizontalSensitivity);
@@ -1243,6 +1527,9 @@ namespace MphRead.Mods.Launcher.Gui
                 v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"), SettingRowIds.ControllerVerticalSensitivity);
             _gamepadInvertY = Add(page, new ToggleRow("Invert vertical aim (stick)",
                 InputSettings.GamepadInvertY), SettingRowIds.ControllerInvertY);
+            _gamepadZoomMultiplier = Add(page, new SliderRow("Zoom multiplier",
+                LookToSlider(InputSettings.GamepadZoomMultiplier),
+                v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"), SettingRowIds.ControllerZoom);
             var resetAim = new MenuEntry("Reset aim settings",
                 "Restore controller aim defaults without changing bindings", titleSize: 13)
             {
@@ -1257,6 +1544,20 @@ namespace MphRead.Mods.Launcher.Gui
             };
             Add(page, resetAim, SettingRowIds.ControllerHorizontalSensitivity + ".reset");
 
+            var resetGeneral = new MenuEntry("Reset controller general",
+                "Restore sensitivity, invert, zoom and haptics without changing bindings or tuning", titleSize: 13)
+            {
+                Height = 42,
+                Accent = GuiTheme.Warm,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            resetGeneral.Click += (_, _) =>
+            {
+                InputSettings.ResetControllerGeneral();
+                RefreshControllerGeneralRows();
+            };
+            Add(page, resetGeneral, SettingRowIds.ControllerHorizontalSensitivity + ".reset-general");
+
             StackPanel sectionPage = page;
             var advancedPage = new StackPanel { Spacing = 10 };
             _advancedControllerExpander = new Expander
@@ -1264,16 +1565,21 @@ namespace MphRead.Mods.Launcher.Gui
                 Header = "Gamepad advanced",
                 Content = advancedPage,
                 // The capture seam controls only the initial presentation of
-                // this real production section.  Live settings remain
-                // expanded by default, preserving the existing discoverable
-                // controller surface while allowing deterministic collapsed
-                // and expanded captures.
-                IsExpanded = _captureAdvancedControllerExpanded ?? true
+                // this real production section. Live settings start collapsed
+                // to keep the common controller path readable; once opened,
+                // the expander retains that choice for this view lifetime.
+                IsExpanded = _captureAdvancedControllerExpanded ?? false
             };
             ActiveSector(sectionPage).Children.Add(_advancedControllerExpander);
             page = advancedPage;
-            _gamepadGyro = Add(page, new ToggleRow("Gyro aiming (SDL controllers)",
-                InputSettings.GamepadGyroEnabled), SettingRowIds.ControllerGyro);
+            Heading(page, "Gyro");
+            _gamepadGyro = Add(page, new ChoiceRow("Gyro aiming",
+                new[] { "Off", "Always", "Zoom Only", "Hold Button" },
+                (int)InputSettings.GamepadGyroMode), SettingRowIds.ControllerGyro);
+            _gamepadGyroActivation = Add(page, new ChoiceRow("Gyro hold button",
+                new[] { "Left Trigger", "Left Bumper", "Right Thumb" },
+                (int)InputSettings.GamepadGyroActivation),
+                SettingRowIds.ControllerGyroActivation);
             _gamepadGyroSensitivity = Add(page, new SliderRow("Gyro sensitivity",
                 LookToSlider(InputSettings.GamepadGyroSensitivity),
                 v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"), SettingRowIds.ControllerGyroSensitivity);
@@ -1281,23 +1587,44 @@ namespace MphRead.Mods.Launcher.Gui
                 InputSettings.GamepadGyroInvertX), SettingRowIds.ControllerGyroInvertX);
             _gamepadGyroInvertY = Add(page, new ToggleRow("Invert gyro vertical aim",
                 InputSettings.GamepadGyroInvertY), SettingRowIds.ControllerGyroInvertY);
-            bool gyroSupported = _captureGyroSupported ?? !OperatingSystem.IsAndroid();
-            if (!gyroSupported)
+            _gyroCapabilityNote = Explain(page, "Checking controller gyro capability…", GuiTheme.Warm);
+            var recalibrateGyro = new MenuEntry("Recalibrate gyro",
+                "Keep the controller still while a fresh bias is measured", titleSize: 13)
             {
-                _gamepadGyro.IsEnabled = false;
-                _gamepadGyroSensitivity.IsEnabled = false;
-                _gamepadGyroInvertX.IsEnabled = false;
-                _gamepadGyroInvertY.IsEnabled = false;
-                Explain(page, _captureGyroSupported.HasValue
-                    ? "Gyro aiming is disabled for this capture capability state."
-                    : "Gyro aiming is unavailable on this build; SDL sensor input is desktop-only.", GuiTheme.Warm);
-            }
+                Height = 42,
+                Accent = GuiTheme.Warm,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            recalibrateGyro.Click += (_, _) =>
+            {
+                Mods.Input.GamepadGyro.Recalibrate();
+                _gyroCapabilityNote.Text = "Calibrating gyro… keep the controller still.";
+            };
+            Add(page, recalibrateGyro, SettingRowIds.ControllerGyro + ".recalibrate");
+            var resetGyro = new MenuEntry("Reset gyro",
+                "Disable gyro and restore sensor sensitivity and inversion", titleSize: 13)
+            {
+                Height = 42,
+                Accent = GuiTheme.Warm,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            resetGyro.Click += (_, _) =>
+            {
+                InputSettings.ResetControllerGyro();
+                RefreshControllerGyroRows();
+            };
+            Add(page, resetGyro, SettingRowIds.ControllerGyro + ".reset");
+            Heading(page, "Feedback and diagnostics");
             _gamepadHaptics = Add(page, new ToggleRow("Rumble and haptics",
                 InputSettings.GamepadHapticsEnabled), SettingRowIds.ControllerHaptics);
+            _gamepadHapticsStrength = Add(page, new SliderRow("Vibration strength",
+                (int)Math.Round(InputSettings.GamepadHapticsStrength * 100),
+                v => $"{v}%"), SettingRowIds.ControllerHapticsStrength);
             _inputBalanceTelemetry = Add(page, new ToggleRow(
                 "Local input-balance diagnostics",
                 InputSettings.InputBalanceTelemetryEnabled), SettingRowIds.ControllerTelemetry);
             Explain(page, "Diagnostics stay on this device and contain no account or session identity.");
+            Heading(page, "Stick response");
             _gamepadDeadZone = Add(page, new SliderRow("Move dead zone",
                 DeadZoneToSlider(InputSettings.GamepadMoveDeadZone, .9f),
                 v => $"{SliderToDeadZone(v, .9f).ToString("0.00", CultureInfo.InvariantCulture)}"), SettingRowIds.ControllerMoveDeadZone);
@@ -1307,12 +1634,18 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepadOuterDeadZone = Add(page, new SliderRow("Outer dead zone",
                 DeadZoneToSlider(InputSettings.GamepadOuterDeadZone, .5f),
                 v => $"{SliderToDeadZone(v, .5f).ToString("0.00", CultureInfo.InvariantCulture)}"), SettingRowIds.ControllerOuterDeadZone);
+            Heading(page, "Movement thresholds");
             _gamepadMoveActivate = Add(page, new SliderRow("Move activation threshold",
                 ThresholdToSlider(InputSettings.GamepadMoveActivateThreshold),
-                v => $"{SliderToThreshold(v):0}%"), SettingRowIds.ControllerMoveActivate);
+                ThresholdLabel), SettingRowIds.ControllerMoveActivate);
             _gamepadMoveRelease = Add(page, new SliderRow("Move release threshold",
                 ThresholdToSlider(InputSettings.GamepadMoveReleaseThreshold),
-                v => $"{SliderToThreshold(v):0}%"), SettingRowIds.ControllerMoveRelease);
+                ThresholdLabel), SettingRowIds.ControllerMoveRelease);
+            Heading(page, "Look response");
+            _gamepadResponseCurve = Add(page, new ChoiceRow("Response curve",
+                Enum.GetNames<Mods.Input.GamepadResponseCurvePreset>(),
+                (int)InputSettings.GamepadResponseCurve),
+                SettingRowIds.ControllerResponseCurve);
             _gamepadLook = Add(page, new SliderRow("Response exponent",
                 ExponentToSlider(InputSettings.GamepadLookExponent),
                 v => $"{SliderToExponent(v).ToString("0.00", CultureInfo.InvariantCulture)}"), SettingRowIds.ControllerExponent);
@@ -1322,11 +1655,16 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepadPitchRate = Add(page, new SliderRow("Pitch rate",
                 (int)Math.Round(InputSettings.GamepadPitchRate),
                 v => $"{v}°/s", min: 0, max: 2000, keyStep: 25), SettingRowIds.ControllerPitchRate);
+            Heading(page, "Outer ring");
+            _gamepadTurnAcceleration = Add(page, new ChoiceRow("Turn acceleration",
+                Enum.GetNames<Mods.Input.GamepadTurnAccelerationPreset>(),
+                (int)InputSettings.GamepadTurnAcceleration),
+                SettingRowIds.ControllerTurnAcceleration);
             _gamepadOuterBoost = Add(page, new ToggleRow("Outer-ring boost",
                 InputSettings.GamepadOuterBoostEnabled), SettingRowIds.ControllerOuterBoost);
             _gamepadOuterBoostStart = Add(page, new SliderRow("Outer boost threshold",
                 ThresholdToSlider(InputSettings.GamepadOuterBoostStart),
-                v => $"{SliderToThreshold(v):0}%"), SettingRowIds.ControllerOuterBoostStart);
+                ThresholdLabel), SettingRowIds.ControllerOuterBoostStart);
             _gamepadOuterYawBoost = Add(page, new SliderRow("Outer yaw boost",
                 (int)Math.Round(InputSettings.GamepadOuterYawBoost),
                 v => $"{v}°/s", min: 0, max: 2000, keyStep: 25), SettingRowIds.ControllerOuterYawBoost);
@@ -1339,15 +1677,13 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepadBoostRamp = Add(page, new SliderRow("Outer boost ramp",
                 BoostSecondsToSlider(InputSettings.GamepadBoostRampSeconds, .001f),
                 v => $"{BoostSliderToSeconds(v, .001f):0.000}s", min: 1, max: 10_000, keyStep: 10), SettingRowIds.ControllerBoostRamp);
+            Heading(page, "Triggers");
             _gamepadTriggerPress = Add(page, new SliderRow("Trigger press",
                 ThresholdToSlider(InputSettings.GamepadTriggerPressThreshold),
-                v => $"{SliderToThreshold(v):0}%"), SettingRowIds.ControllerTriggerPress);
+                ThresholdLabel), SettingRowIds.ControllerTriggerPress);
             _gamepadTriggerRelease = Add(page, new SliderRow("Trigger release",
                 ThresholdToSlider(InputSettings.GamepadTriggerReleaseThreshold),
-                v => $"{SliderToThreshold(v):0}%"), SettingRowIds.ControllerTriggerRelease);
-            _gamepadZoomMultiplier = Add(page, new SliderRow("Zoom multiplier",
-                LookToSlider(InputSettings.GamepadZoomMultiplier),
-                v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"), SettingRowIds.ControllerZoom);
+                ThresholdLabel), SettingRowIds.ControllerTriggerRelease);
             _gamepadOuterBoost.Changed += (_, _) =>
             {
                 ShowOuterBoostRows();
@@ -1363,9 +1699,37 @@ namespace MphRead.Mods.Launcher.Gui
                 SyncControllerThresholdPair(_gamepadTriggerPress, _gamepadTriggerRelease);
             _gamepadTriggerRelease.ValueChanged += (_, _) =>
                 SyncControllerThresholdPair(_gamepadTriggerPress, _gamepadTriggerRelease);
+            _gamepadResponseCurve.Changed += (_, _) =>
+            {
+                if (_refreshingControllerRows) return;
+                var preset = (Mods.Input.GamepadResponseCurvePreset)
+                    _gamepadResponseCurve.Index;
+                if (preset == Mods.Input.GamepadResponseCurvePreset.Custom) return;
+                InputSettings.GamepadResponseCurve = preset;
+                _gamepadLook.Value = ExponentToSlider(InputSettings.GamepadLookExponent);
+            };
+            _gamepadTurnAcceleration.Changed += (_, _) =>
+            {
+                if (_refreshingControllerRows) return;
+                InputSettings.GamepadTurnAcceleration =
+                    (Mods.Input.GamepadTurnAccelerationPreset)
+                    _gamepadTurnAcceleration.Index;
+                _gamepadOuterBoost.On = InputSettings.GamepadOuterBoostEnabled;
+                _gamepadOuterBoostStart.Value = ThresholdToSlider(
+                    InputSettings.GamepadOuterBoostStart);
+                _gamepadOuterYawBoost.Value = (int)Math.Round(
+                    InputSettings.GamepadOuterYawBoost);
+                _gamepadOuterPitchBoost.Value = (int)Math.Round(
+                    InputSettings.GamepadOuterPitchBoost);
+                _gamepadBoostDelay.Value = BoostSecondsToSlider(
+                    InputSettings.GamepadBoostDelaySeconds);
+                _gamepadBoostRamp.Value = BoostSecondsToSlider(
+                    InputSettings.GamepadBoostRampSeconds, .001f);
+                ShowOuterBoostRows();
+            };
 
             var resetAdvanced = new MenuEntry("Reset advanced tuning",
-                "Restore outer-ring and trigger response defaults", titleSize: 13)
+                "Restore stick, movement, look, outer-ring and trigger response defaults", titleSize: 13)
             {
                 Height = 42,
                 Accent = GuiTheme.Warm,
@@ -1384,13 +1748,20 @@ namespace MphRead.Mods.Launcher.Gui
                 _gamepadMoveRelease, _gamepadLook, _gamepadYawRate, _gamepadPitchRate,
                 _gamepadOuterBoostStart, _gamepadOuterYawBoost, _gamepadOuterPitchBoost,
                 _gamepadBoostDelay, _gamepadBoostRamp, _gamepadTriggerPress,
-                _gamepadTriggerRelease, _gamepadZoomMultiplier })
+                _gamepadTriggerRelease, _gamepadZoomMultiplier,
+                _gamepadHapticsStrength })
             {
-                row.ValueChanged += (_, _) => MarkControllerCustom();
+                row.ValueChanged += (_, _) => MarkControllerSliderEdited(row);
             }
-            foreach (ToggleRow row in new[] { _gamepadInvertY, _gamepadGyro,
+            foreach (ToggleRow row in new[] { _gamepadInvertY,
                 _gamepadGyroInvertX, _gamepadGyroInvertY, _gamepadHaptics,
                 _inputBalanceTelemetry })
+            {
+                row.Changed += (_, _) => MarkControllerCustom();
+            }
+            foreach (ChoiceRow row in new[] { _gamepadGyro,
+                _gamepadGyroActivation, _gamepadResponseCurve,
+                _gamepadTurnAcceleration })
             {
                 row.Changed += (_, _) => MarkControllerCustom();
             }
@@ -1406,7 +1777,17 @@ namespace MphRead.Mods.Launcher.Gui
             }
             _gamepadPresetRow.Changed += (_, _) =>
             {
-                InputSettings.ApplyPreset((Mods.Input.ControllerPreset)_gamepadPresetRow.Index);
+                Mods.Input.ControllerPreset preset =
+                    (Mods.Input.ControllerPreset)_gamepadPresetRow.Index;
+                InputSettings.ApplyPreset(preset);
+
+                // A named preset is an explicit authoritative refresh boundary.
+                // Slider edits mark the row Custom, so that transition must not
+                // discard the still-pending response edits or their dirty markers.
+                if (!_refreshingControllerRows && preset != Mods.Input.ControllerPreset.Custom)
+                {
+                    RefreshControllerRows();
+                }
                 foreach (PadRow row in padRows) row.InvalidateVisual();
             };
 
@@ -1453,6 +1834,30 @@ namespace MphRead.Mods.Launcher.Gui
                 _chatKeyRow.InvalidateVisual();
             };
             Add(page, reset, SettingRowIds.ChatKey + ".reset");
+
+            var resetAll = new MenuEntry("Reset all input settings",
+                "Restore mouse, controller, touch, stylus and bindings", titleSize: 13)
+            {
+                Height = 42,
+                Accent = GuiTheme.Warm,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            resetAll.Click += (_, _) =>
+            {
+                InputSettings.Reset();
+                RefreshControlRows();
+                foreach (PadRow row in padRows)
+                {
+                    row.InvalidateVisual();
+                }
+                foreach (KeyRow row in rows)
+                {
+                    row.InvalidateVisual();
+                }
+                _chatKeyRow.InvalidateVisual();
+            };
+            Add(page, resetAll, SettingRowIds.ChatKey + ".reset-all-input");
+            ApplyControllerCapabilities(ControllerCapabilities.Current);
         }
 
         private ToggleRow? _touchButtonsRow;
@@ -1506,6 +1911,8 @@ namespace MphRead.Mods.Launcher.Gui
             _stylusSensitivity = Add(page, new SliderRow("Sensitivity",
                 LookToSlider(InputSettings.StylusSensitivity),
                 v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"), SettingRowIds.StylusSensitivity);
+            Add(page, new StylusTurnPreview(
+                () => SliderToLook(_stylusSensitivity.Value)));
             _stylusInvertY = Add(page, new ToggleRow("Invert vertical aim",
                 InputSettings.StylusInvertY), SettingRowIds.StylusInvertY);
             string[] actions = Enum.GetNames<Mods.Input.StylusAction>();
@@ -1564,6 +1971,10 @@ namespace MphRead.Mods.Launcher.Gui
         {
             return Math.Clamp((int)Math.Round(threshold * 100), 0, 100);
         }
+
+        /// <summary>Render threshold slider values as their actual percentage.</summary>
+        internal static string ThresholdLabel(int value)
+            => $"{Math.Clamp(value, 0, 100)}%";
 
         private static float SliderToThreshold(int value)
         {
@@ -1632,15 +2043,42 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void BuildMatch()
         {
-            StackPanel page = AddSection("Gameplay");
-            Heading(page, "Pilot profile");
+            StackPanel page = AddSection("Player");
+            Heading(page, _identity.IsAuthenticated ? "Account identity" : "Guest profile");
             BuildProfile(page);
         }
 
         private void BuildProfile(StackPanel page)
         {
-            _playerName = Add(page, new FieldRow("Your name", LauncherPrefs.PlayerName,
+            bool authenticated = _identity.IsAuthenticated;
+            _playerName = Add(page, new FieldRow(
+                authenticated ? "Account display name" : "Guest display name",
+                authenticated || _identity.IsGuest
+                    ? _identity.DisplayName : LauncherPrefs.PlayerName,
                 boxWidth: 200), SettingRowIds.PlayerName);
+            if (authenticated)
+            {
+                _playerName.Box.IsReadOnly = true;
+                _playerName.Box.IsEnabled = false;
+                _hunterProfileAction = new MenuEntry("Hunter Profile",
+                    "Manage the account display name and favorite Hunter", titleSize: 13)
+                {
+                    Height = 42,
+                    Accent = GuiTheme.Accent,
+                    IsEnabled = _identity.HunterProfileRequested != null,
+                    Margin = new Thickness(0, 4, 0, 0)
+                };
+                _hunterProfileAction.Click += (_, _) =>
+                    _identity.HunterProfileRequested?.Invoke();
+                Add(page, _hunterProfileAction, SettingRowIds.PlayerName + ".profile");
+                Explain(page, _identity.HunterProfileRequested != null
+                    ? "Your account display name is authoritative. Open Hunter Profile to change it."
+                    : "Your account display name is authoritative and is managed from the Hunter Profile page.");
+            }
+            else
+            {
+                Explain(page, "This guest display name is local to this device and is never used as an account identity.");
+            }
             string[] hunters = Enumerable.Range(0, 7)
                 .Select(i => ((Hunter)i).ToString())
                 .Append(Hunter.Random.ToString()).ToArray();
@@ -1814,11 +2252,22 @@ namespace MphRead.Mods.Launcher.Gui
         {
             StackPanel page = _networkPage = AddSection("Network");
             Heading(page, "Region");
-            string[] regions = LauncherPrefs.PreferredRegionChoices.ToArray();
-            _preferredRegion = Add(page, new ChoiceRow("Preferred region", regions,
-                Math.Max(0, Array.IndexOf(regions, LauncherPrefs.PreferredRegion))),
+            _preferredRegionOptions = LauncherPrefs.PreferredRegionOptions.ToArray();
+            string[] regionLabels = _preferredRegionOptions.Select(option => option.Label).ToArray();
+            int selectedRegion = -1;
+            for (int i = 0; i < _preferredRegionOptions.Count; i++)
+            {
+                if (String.Equals(_preferredRegionOptions[i].Id,
+                    LauncherPrefs.PreferredRegion, StringComparison.Ordinal))
+                {
+                    selectedRegion = i;
+                    break;
+                }
+            }
+            _preferredRegion = Add(page, new ChoiceRow("Preferred region", regionLabels,
+                Math.Max(0, selectedRegion)),
                 SettingRowIds.PreferredRegion);
-            Explain(page, "Automatic chooses the best available Node. Other choices are exact region IDs observed from discovery.");
+            Explain(page, "Automatic chooses the best available Node. Friendly labels are presentation only; the saved value remains the exact region ID observed from discovery.");
             Heading(page, "Diagnostics");
             _advancedNetworkRow = Add(page, new ToggleRow("Network diagnostics",
                 global::MphRead.Hud.Network.NetworkHealthSettings.Advanced), SettingRowIds.NetworkDiagnostics);
@@ -1922,6 +2371,9 @@ namespace MphRead.Mods.Launcher.Gui
             }
         }
 
+        /// <summary>Test seam for exercising the same save path as the footer.</summary>
+        internal void CommitForTests() => Commit();
+
         private void Commit()
         {
             // Display
@@ -1964,6 +2416,7 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.HitMarkerTiming = ((Combat.HitMarkerTiming)_hitMarkerTimingRow.Index).ToString();
             _settings.HeadshotCue = RenderOptions.OnOff(_headshotCueRow.On);
             _settings.KillConfirmation = RenderOptions.OnOff(_killConfirmationRow.On);
+            _settings.Killcam = RenderOptions.OnOff(_killcamRow.On);
             _settings.RadarStyle = ((global::MphRead.Hud.Radar.RadarStyle)_radarStyleRow.Index).ToString();
             _settings.RadarOrientation = ((global::MphRead.Hud.Radar.RadarOrientation)_radarOrientationRow.Index).ToString();
             _settings.RadarPosition = ((global::MphRead.Hud.Radar.RadarAnchor)_radarPositionRow.Index).ToString();
@@ -1997,35 +2450,25 @@ namespace MphRead.Mods.Launcher.Gui
             InputSettings.InvertMouseY = _invertY.On;
             InputSettings.InvertMouseX = _invertX.On;
             InputSettings.ScrollAllWeapons = _scrollAllWeapons.On;
+            InputSettings.MorphBallMouseFlickBoost = _morphBallMouseFlickBoost.On;
+            InputSettings.MorphBallStickFlickBoost = _morphBallStickFlickBoost.On;
+            if (_morphBallSwipeBoost != null)
+            {
+                InputSettings.MorphBallSwipeBoost = _morphBallSwipeBoost.On;
+            }
             InputSettings.ControllerPreset = (Mods.Input.ControllerPreset)_gamepadPresetRow.Index;
-            InputSettings.GamepadHorizontalSensitivity = SliderToLook(_gamepadHorizontalSensitivity.Value);
-            InputSettings.GamepadVerticalSensitivity = SliderToLook(_gamepadVerticalSensitivity.Value);
             InputSettings.GamepadInvertY = _gamepadInvertY.On;
-            InputSettings.GamepadGyroEnabled = _gamepadGyro.On;
-            InputSettings.GamepadGyroSensitivity = SliderToLook(_gamepadGyroSensitivity.Value);
+            InputSettings.GamepadGyroMode = (Mods.Input.GamepadGyroMode)_gamepadGyro.Index;
+            InputSettings.GamepadGyroActivation =
+                (Mods.Input.GamepadGyroActivation)_gamepadGyroActivation.Index;
             InputSettings.GamepadGyroInvertX = _gamepadGyroInvertX.On;
             InputSettings.GamepadGyroInvertY = _gamepadGyroInvertY.On;
             InputSettings.GamepadHapticsEnabled = _gamepadHaptics.On;
             InputSettings.InputBalanceTelemetryEnabled = _inputBalanceTelemetry.On;
-            if (!InputSettings.GamepadGyroEnabled) Mods.Input.GamepadGyro.Reset();
+            if (!InputSettings.GamepadGyroEnabled) Mods.Input.GamepadGyro.SuppressOutput();
             if (!InputSettings.GamepadHapticsEnabled) Mods.Input.GamepadHaptics.Stop();
-            InputSettings.GamepadMoveDeadZone = SliderToDeadZone(_gamepadDeadZone.Value, .9f);
-            InputSettings.GamepadLookDeadZone = SliderToDeadZone(_gamepadLookDeadZone.Value, .9f);
-            InputSettings.GamepadOuterDeadZone = SliderToDeadZone(_gamepadOuterDeadZone.Value, .5f);
-            InputSettings.GamepadMoveActivateThreshold = SliderToThreshold(_gamepadMoveActivate.Value);
-            InputSettings.GamepadMoveReleaseThreshold = SliderToThreshold(_gamepadMoveRelease.Value);
-            InputSettings.GamepadLookExponent = SliderToExponent(_gamepadLook.Value);
-            InputSettings.GamepadYawRate = _gamepadYawRate.Value;
-            InputSettings.GamepadPitchRate = _gamepadPitchRate.Value;
             InputSettings.GamepadOuterBoostEnabled = _gamepadOuterBoost.On;
-            InputSettings.GamepadOuterBoostStart = SliderToThreshold(_gamepadOuterBoostStart.Value);
-            InputSettings.GamepadOuterYawBoost = _gamepadOuterYawBoost.Value;
-            InputSettings.GamepadOuterPitchBoost = _gamepadOuterPitchBoost.Value;
-            InputSettings.GamepadBoostDelaySeconds = BoostSliderToSeconds(_gamepadBoostDelay.Value);
-            InputSettings.GamepadBoostRampSeconds = BoostSliderToSeconds(_gamepadBoostRamp.Value, .001f);
-            InputSettings.GamepadTriggerPressThreshold = SliderToThreshold(_gamepadTriggerPress.Value);
-            InputSettings.GamepadTriggerReleaseThreshold = SliderToThreshold(_gamepadTriggerRelease.Value);
-            InputSettings.GamepadZoomMultiplier = SliderToLook(_gamepadZoomMultiplier.Value);
+            CommitControllerSliders();
             if (_touchButtonsRow != null)
             {
                 Mods.Input.TouchSettings.ButtonsVisible = _touchButtonsRow.On;
@@ -2051,13 +2494,18 @@ namespace MphRead.Mods.Launcher.Gui
             // The players in the match already have their own copies of these.
             if (_scene != null) InputSettings.ApplyToPlayers(_scene);
             // Launcher preferences
-            if (_playerName.Value.Trim().Length > 0)
+            if (!_identity.IsAuthenticated && _playerName.Value.Trim().Length > 0)
             {
                 LauncherPrefs.PlayerName = _playerName.Value.Trim();
             }
             LauncherPrefs.LastHunter = Enum.Parse<Hunter>(_hunterRow.Value);
             LauncherPrefs.UpdatePolicy = (UpdatePolicy)_autoUpdate.Index;
-            LauncherPrefs.PreferredRegion = _preferredRegion.Value;
+            if (_preferredRegionOptions.Count > 0)
+            {
+                int index = Math.Clamp(_preferredRegion.Index, 0,
+                    _preferredRegionOptions.Count - 1);
+                LauncherPrefs.PreferredRegion = _preferredRegionOptions[index].Id;
+            }
             LauncherPrefs.DebugLogs = _debugLogging.On;
             LauncherPrefs.ReducedMotion = _reducedMotion.On;
             ApplyDebugLogging();
@@ -2072,6 +2520,116 @@ namespace MphRead.Mods.Launcher.Gui
             Mods.GameSettings.Apply(_settings);
             Saved = true;
             Close();
+        }
+
+        /// <summary>
+        /// Commit only controller sliders that the player changed. Their
+        /// integer UI values cannot represent every persisted float, so an
+        /// untouched row must not round a loaded value during an unrelated
+        /// settings save (including a disabled gyro row).
+        /// </summary>
+        private void CommitControllerSliders()
+        {
+            if (ControllerSliderWasEdited(_gamepadHorizontalSensitivity))
+            {
+                InputSettings.GamepadHorizontalSensitivity
+                    = SliderToLook(_gamepadHorizontalSensitivity.Value);
+            }
+            if (ControllerSliderWasEdited(_gamepadVerticalSensitivity))
+            {
+                InputSettings.GamepadVerticalSensitivity
+                    = SliderToLook(_gamepadVerticalSensitivity.Value);
+            }
+            if (ControllerSliderWasEdited(_gamepadGyroSensitivity))
+            {
+                InputSettings.GamepadGyroSensitivity
+                    = SliderToLook(_gamepadGyroSensitivity.Value);
+            }
+            if (ControllerSliderWasEdited(_gamepadHapticsStrength))
+            {
+                InputSettings.GamepadHapticsStrength
+                    = _gamepadHapticsStrength.Value / 100f;
+                if (InputSettings.GamepadHapticsStrength <= 0)
+                    Mods.Input.GamepadHaptics.Stop();
+            }
+            if (ControllerSliderWasEdited(_gamepadDeadZone))
+            {
+                InputSettings.GamepadMoveDeadZone
+                    = SliderToDeadZone(_gamepadDeadZone.Value, .9f);
+            }
+            if (ControllerSliderWasEdited(_gamepadLookDeadZone))
+            {
+                InputSettings.GamepadLookDeadZone
+                    = SliderToDeadZone(_gamepadLookDeadZone.Value, .9f);
+            }
+            if (ControllerSliderWasEdited(_gamepadOuterDeadZone))
+            {
+                InputSettings.GamepadOuterDeadZone
+                    = SliderToDeadZone(_gamepadOuterDeadZone.Value, .5f);
+            }
+            if (ControllerSliderWasEdited(_gamepadMoveActivate))
+            {
+                InputSettings.GamepadMoveActivateThreshold
+                    = SliderToThreshold(_gamepadMoveActivate.Value);
+            }
+            if (ControllerSliderWasEdited(_gamepadMoveRelease))
+            {
+                InputSettings.GamepadMoveReleaseThreshold
+                    = SliderToThreshold(_gamepadMoveRelease.Value);
+            }
+            if (ControllerSliderWasEdited(_gamepadLook))
+            {
+                InputSettings.GamepadLookExponent
+                    = SliderToExponent(_gamepadLook.Value);
+                InputSettings.GamepadResponseCurve
+                    = Mods.Input.GamepadResponseCurvePreset.Custom;
+            }
+            if (ControllerSliderWasEdited(_gamepadYawRate))
+            {
+                InputSettings.GamepadYawRate = _gamepadYawRate.Value;
+            }
+            if (ControllerSliderWasEdited(_gamepadPitchRate))
+            {
+                InputSettings.GamepadPitchRate = _gamepadPitchRate.Value;
+            }
+            if (ControllerSliderWasEdited(_gamepadOuterBoostStart))
+            {
+                InputSettings.GamepadOuterBoostStart
+                    = SliderToThreshold(_gamepadOuterBoostStart.Value);
+            }
+            if (ControllerSliderWasEdited(_gamepadOuterYawBoost))
+            {
+                InputSettings.GamepadOuterYawBoost = _gamepadOuterYawBoost.Value;
+            }
+            if (ControllerSliderWasEdited(_gamepadOuterPitchBoost))
+            {
+                InputSettings.GamepadOuterPitchBoost = _gamepadOuterPitchBoost.Value;
+            }
+            if (ControllerSliderWasEdited(_gamepadBoostDelay))
+            {
+                InputSettings.GamepadBoostDelaySeconds
+                    = BoostSliderToSeconds(_gamepadBoostDelay.Value);
+            }
+            if (ControllerSliderWasEdited(_gamepadBoostRamp))
+            {
+                InputSettings.GamepadBoostRampSeconds
+                    = BoostSliderToSeconds(_gamepadBoostRamp.Value, .001f);
+            }
+            if (ControllerSliderWasEdited(_gamepadTriggerPress))
+            {
+                InputSettings.GamepadTriggerPressThreshold
+                    = SliderToThreshold(_gamepadTriggerPress.Value);
+            }
+            if (ControllerSliderWasEdited(_gamepadTriggerRelease))
+            {
+                InputSettings.GamepadTriggerReleaseThreshold
+                    = SliderToThreshold(_gamepadTriggerRelease.Value);
+            }
+            if (ControllerSliderWasEdited(_gamepadZoomMultiplier))
+            {
+                InputSettings.GamepadZoomMultiplier
+                    = SliderToLook(_gamepadZoomMultiplier.Value);
+            }
         }
     }
 }

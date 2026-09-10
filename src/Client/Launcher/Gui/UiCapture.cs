@@ -8,10 +8,11 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Entities;
 using MphRead.Identity;
 using MphRead.Mods.Accounts;
+using MphRead.Mods.Input;
 using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Launcher.Gui
@@ -91,6 +92,21 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         private static readonly UiCaptureFixtureDefinition[] _fixtures =
         {
+            new("title-loading", (settings, rooms) => PrimeShellView.CreateTitleCapture(
+                settings, rooms, new(PrimeTitleScreenPhase.Loading))),
+            new("title-ready-keyboard", (settings, rooms) => PrimeShellView.CreateTitleCapture(
+                settings, rooms, new(PrimeTitleScreenPhase.Ready,
+                    PrimeInputDevice.KeyboardMouse))),
+            new("title-ready-controller", (settings, rooms) => PrimeShellView.CreateTitleCapture(
+                settings, rooms, new(PrimeTitleScreenPhase.Ready,
+                    PrimeInputDevice.Gamepad, ControllerFamily.Xbox))),
+            new("title-ready-touch", (settings, rooms) => PrimeShellView.CreateTitleCapture(
+                settings, rooms, new(PrimeTitleScreenPhase.Ready,
+                    PrimeInputDevice.Touch))),
+            new("title-reduced-motion", (settings, rooms) => PrimeShellView.CreateTitleCapture(
+                settings, rooms, new(PrimeTitleScreenPhase.Ready,
+                    PrimeInputDevice.KeyboardMouse, ReducedMotion: true))),
+
             new("gateway-default", CreateGateway),
             new("gateway-login", CreateGatewayLogin),
             new("gateway-register", CreateGatewayRegister),
@@ -197,7 +213,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             // The normal Program setup path populates the path table after it
             // checks paths.txt. uishot intentionally runs before that check,
-            // so initialize the same in-memory table here before the demo
+            // so initialize the same in-memory table here before the replay
             // picker asks for Paths.Export. This reads no game files and keeps
             // a fresh checkout a valid capture host.
             Paths.UpdatePaths();
@@ -205,7 +221,7 @@ namespace MphRead.Mods.Launcher.Gui
             // The front screen's Share button only exists where something can
             // receive a file, which today is Android alone -- so without a
             // stand-in the one corner this tool was made to check could never
-            // be photographed as a phone draws it. Same reason as SampleDemos
+            // be photographed as a phone draws it. Same reason as SampleReplays
             // below, and it is still only offered when real logs exist.
             Mods.LogShare.Current ??= new CaptureLogShare();
             int written = 0;
@@ -265,10 +281,10 @@ namespace MphRead.Mods.Launcher.Gui
             // something gets, and the line a machine that has not gets --
             // which is the one carrying the folder's path and the only place
             // that path is ever written down.
-            yield return ("demopicker", new DemoPickerView(SampleDemos(),
-                Network.DemoLibrary.Directory), _windowSize);
-            yield return ("demopicker-empty", new DemoPickerView(
-                Array.Empty<Network.DemoRecording>(), Network.DemoLibrary.Directory),
+            yield return ("replaypicker", new ReplayPickerView(SampleReplays(),
+                Network.ReplayLibrary.Directory), _windowSize);
+            yield return ("replaypicker-empty", new ReplayPickerView(
+                Array.Empty<Network.ReplayRecording>(), Network.ReplayLibrary.Directory),
                 _windowSize);
             yield return ("pausemenu", new PauseMenuView(offerWindowMode: true), _windowSize);
             // Deliberately shorter than the menu's own content, and shorter
@@ -285,7 +301,7 @@ namespace MphRead.Mods.Launcher.Gui
             // and the lobby are represented by the truthful named fixtures
             // below, so they are not emitted a second time under opaque route
             // aliases.
-            foreach (PrimeRoute route in new[] { PrimeRoute.Theater, PrimeRoute.Rankings })
+            foreach (PrimeRoute route in new[] { PrimeRoute.Theatre, PrimeRoute.Rankings })
             {
                 foreach (UiCaptureSize captureSize in _requiredSizes)
                 {
@@ -330,16 +346,16 @@ namespace MphRead.Mods.Launcher.Gui
         /// Recordings that are not there, so the list can be seen on a machine
         /// that has never recorded one.
         /// </summary>
-        private static IReadOnlyList<Network.DemoRecording> SampleDemos()
+        private static IReadOnlyList<Network.ReplayRecording> SampleReplays()
         {
             var now = new DateTime(2026, 9, 4, 18, 22, 7);
             return new[]
             {
-                new Network.DemoRecording("MP3 PROVING GROUND_2026-09-04_18-22-07.fpdemo",
+                new Network.ReplayRecording("MP3 PROVING GROUND_2026-09-04_18-22-07.fpreplay",
                     "MP3 PROVING GROUND", now, 1_512_320),
-                new Network.DemoRecording("COMBAT HALL_2026-09-02_21-04-55.fpdemo",
+                new Network.ReplayRecording("COMBAT HALL_2026-09-02_21-04-55.fpreplay",
                     "COMBAT HALL", now.AddDays(-2), 402_112),
-                new Network.DemoRecording("sent-to-me.fpdemo", "", now.AddDays(-9), 88_400)
+                new Network.ReplayRecording("sent-to-me.fpreplay", "", now.AddDays(-9), 88_400)
             };
         }
 
@@ -771,7 +787,7 @@ namespace MphRead.Mods.Launcher.Gui
                 SelfState: state, SelfQueueSequence: 101,
                 SelfOffer: offerId is { } id
                     ? new LobbyQueueOffer(id,
-                        new DateTimeOffset(2040, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                        DateTimeOffset.UtcNow.AddSeconds(12),
                         LobbySeatPolicy.ImmediateSeat)
                     : null);
         }
@@ -796,7 +812,8 @@ namespace MphRead.Mods.Launcher.Gui
                 Guid.Parse("d1000000-0000-4000-8000-000000000001"),
                 Guid.Parse("d1000000-0000-4000-8000-000000000002"),
                 Paused: false, TournamentEnded: false, ConfigurationRevision: 1,
-                BallotRevision: 2, VoteDeadline: DateTimeOffset.MaxValue,
+                BallotRevision: 2,
+                VoteDeadline: DateTimeOffset.UtcNow.AddSeconds(25),
                 Options: ImmutableArray.Create(
                     new LobbyVoteEntry(1, LobbyVoteChoice.Rematch, lobby.MapKey,
                         lobby.Mode, 3),
@@ -909,7 +926,8 @@ namespace MphRead.Mods.Launcher.Gui
                 Guid.Parse("50560000-0000-4000-8000-000000000001"),
                 Guid.Parse("50560000-0000-4000-8000-000000000002"),
                 Paused: false, TournamentEnded: false, ConfigurationRevision: 1,
-                BallotRevision: 7, VoteDeadline: DateTimeOffset.MaxValue,
+                BallotRevision: 7,
+                VoteDeadline: DateTimeOffset.UtcNow.AddSeconds(25),
                 Options: BallotOptions(), OwnVote: ownVote, ResolvedOption: resolvedOption);
             // Keep the offline fixture on the same contract path as a Node
             // event. This catches a missing lobby or ballot field at fixture

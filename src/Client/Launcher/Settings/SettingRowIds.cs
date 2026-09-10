@@ -32,6 +32,7 @@ public static class SettingRowIds
     public const string HitMarkerTiming = "hud.hit-marker-timing";
     public const string HeadshotCue = "hud.headshot-cue";
     public const string KillConfirmation = "hud.kill-confirmation";
+    public const string Killcam = "hud.killcam";
     public const string RadarStyle = "hud.radar.style";
     public const string RadarOrientation = "hud.radar.orientation";
     public const string RadarAnchor = "hud.radar.anchor";
@@ -50,18 +51,24 @@ public static class SettingRowIds
     public const string MouseInvertY = "controls.mouse-invert-y";
     public const string MouseInvertX = "controls.mouse-invert-x";
     public const string ScrollAllWeapons = "controls.scroll-all-weapons";
+    public const string MorphBallMouseFlickBoost = "controls.morph-ball.mouse-flick-boost";
+    public const string MorphBallStickFlickBoost = "controls.morph-ball.stick-flick-boost";
+    public const string MorphBallSwipeBoost = "controls.morph-ball.swipe-boost";
     public const string ChatKey = "controls.chat-key";
     public const string ControllerPreset = "controls.controller.preset";
     public const string ControllerHorizontalSensitivity = "controls.controller.horizontal-sensitivity";
     public const string ControllerVerticalSensitivity = "controls.controller.vertical-sensitivity";
     public const string ControllerInvertY = "controls.controller.invert-y";
     public const string ControllerHaptics = "controls.controller.haptics";
+    public const string ControllerHapticsStrength = "controls.controller.haptics-strength";
     public const string ControllerMoveDeadZone = "controls.controller.move-dead-zone";
     public const string ControllerLookDeadZone = "controls.controller.look-dead-zone";
     public const string ControllerOuterDeadZone = "controls.controller.outer-dead-zone";
     public const string ControllerMoveActivate = "controls.controller.move-activate";
     public const string ControllerMoveRelease = "controls.controller.move-release";
     public const string ControllerExponent = "controls.controller.response-exponent";
+    public const string ControllerResponseCurve = "controls.controller.response-curve";
+    public const string ControllerTurnAcceleration = "controls.controller.turn-acceleration";
     public const string ControllerYawRate = "controls.controller.yaw-rate";
     public const string ControllerPitchRate = "controls.controller.pitch-rate";
     public const string ControllerOuterBoost = "controls.controller.outer-boost";
@@ -74,6 +81,7 @@ public static class SettingRowIds
     public const string ControllerTriggerRelease = "controls.controller.trigger-release";
     public const string ControllerZoom = "controls.controller.zoom";
     public const string ControllerGyro = "controls.controller.gyro";
+    public const string ControllerGyroActivation = "controls.controller.gyro-activation";
     public const string ControllerGyroSensitivity = "controls.controller.gyro-sensitivity";
     public const string ControllerGyroInvertX = "controls.controller.gyro-invert-x";
     public const string ControllerGyroInvertY = "controls.controller.gyro-invert-y";
@@ -112,18 +120,20 @@ public static class SettingRowIds
         Anisotropy, Msaa, Bloom, DynamicLighting, Lighting, Fog, FpsCounter,
         CelShading, ProHud, ProHudWeapon, ReticleOpacity, CrosshairSize,
         CrosshairStyle, HitMarkers, HitMarkerTiming, HeadshotCue,
-        KillConfirmation, RadarStyle, RadarOrientation, RadarAnchor, RadarScale,
+        KillConfirmation, Killcam, RadarStyle, RadarOrientation, RadarAnchor, RadarScale,
         RadarOffsetX, RadarOffsetY, FeedbackVolume, SfxVolume, MusicVolume,
         AnnouncerPack, MusicPack, Language, MouseSensitivity, MouseInvertY,
-        MouseInvertX, ScrollAllWeapons, ChatKey, ControllerPreset,
+        MouseInvertX, ScrollAllWeapons, MorphBallMouseFlickBoost,
+        MorphBallStickFlickBoost, MorphBallSwipeBoost, ChatKey, ControllerPreset,
         ControllerHorizontalSensitivity, ControllerVerticalSensitivity,
-        ControllerInvertY, ControllerHaptics, ControllerMoveDeadZone,
+        ControllerInvertY, ControllerHaptics, ControllerHapticsStrength, ControllerMoveDeadZone,
         ControllerLookDeadZone, ControllerOuterDeadZone, ControllerMoveActivate,
-        ControllerMoveRelease, ControllerExponent, ControllerYawRate,
+        ControllerMoveRelease, ControllerResponseCurve, ControllerExponent,
+        ControllerTurnAcceleration, ControllerYawRate,
         ControllerPitchRate, ControllerOuterBoost, ControllerOuterBoostStart,
         ControllerOuterYawBoost, ControllerOuterPitchBoost, ControllerBoostDelay,
         ControllerBoostRamp, ControllerTriggerPress, ControllerTriggerRelease,
-        ControllerZoom, ControllerGyro, ControllerGyroSensitivity,
+        ControllerZoom, ControllerGyro, ControllerGyroActivation, ControllerGyroSensitivity,
         ControllerGyroInvertX, ControllerGyroInvertY, ControllerTelemetry,
         TouchButtons, StylusAiming, StylusSensitivity, StylusInvertY,
         StylusPrimary, StylusSecondary, StylusClassicGestures,

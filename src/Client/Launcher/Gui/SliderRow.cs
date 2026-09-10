@@ -26,6 +26,7 @@ namespace MphRead.Mods.Launcher.Gui
     {
         private readonly string _label;
         private readonly double _labelWidth;
+        private readonly double _measuredLabelWidth;
         private readonly Func<int, string> _format;
         private readonly int _min;
         private readonly int _max;
@@ -41,6 +42,8 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _label = label;
             _labelWidth = labelWidth;
+            _measuredLabelWidth = TrackedText.Measure(
+                label.ToUpperInvariant(), LabelFontSize, LabelTracking);
             _min = min;
             _max = Math.Max(min + 1, max);
             _keyStep = Math.Max(1, keyStep);
@@ -77,10 +80,31 @@ namespace MphRead.Mods.Launcher.Gui
         /// Widened for every row rather than for that one, because the tracks
         /// ending in a column is what makes the page read as a column.
         /// </summary>
+        private const double LabelInset = 4;
+        private const double LabelTrackGap = 12;
+        private const double LabelFontSize = 11;
+        private const double LabelTracking = 1;
+        private const double MinimumTrackWidth = 72;
         private const double ValueGutter = 112;
 
-        private Rect Track => new(_labelWidth, Bounds.Height / 2 - 2,
-            Math.Max(40, Bounds.Width - _labelWidth - ValueGutter), 4);
+        private double TrackStart
+        {
+            get
+            {
+                double preferred = Math.Max(_labelWidth,
+                    LabelInset + _measuredLabelWidth + LabelTrackGap);
+                double latest = Math.Max(LabelInset,
+                    Bounds.Width - ValueGutter - MinimumTrackWidth);
+                return Math.Min(preferred, latest);
+            }
+        }
+
+        private Rect Track => new(TrackStart, Bounds.Height / 2 - 2,
+            Math.Max(0, Bounds.Width - TrackStart - ValueGutter), 4);
+
+        internal Rect RenderedTrack => Track;
+        internal double PreferredLabelRight => LabelInset + _measuredLabelWidth;
+        internal const double RenderedLabelTrackGap = LabelTrackGap;
 
         private void SetFromPointer(double x)
         {
@@ -93,7 +117,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             Focus();
             Point p = e.GetPosition(this);
-            if (p.X >= _labelWidth && IsEnabled)
+            if (p.X >= Track.X && IsEnabled)
             {
                 _dragging = true;
                 // Captured so a drag that leaves the row keeps moving the
@@ -108,7 +132,7 @@ namespace MphRead.Mods.Launcher.Gui
         protected override void OnPointerMoved(PointerEventArgs e)
         {
             Point p = e.GetPosition(this);
-            bool hot = p.X >= _labelWidth;
+            bool hot = p.X >= Track.X;
             if (hot != _hot)
             {
                 _hot = hot;
@@ -181,11 +205,17 @@ namespace MphRead.Mods.Launcher.Gui
             context.FillRectangle(Brushes.Transparent,
                 new Rect(0, 0, Bounds.Width, Bounds.Height));
             var dim = new SolidColorBrush(Color.FromRgb(70, 76, 90));
-            TrackedText.Draw(context, _label.ToUpperInvariant(), 11,
-                IsEnabled ? GuiTheme.TextDimBrush : dim,
-                4, (Bounds.Height - TrackedText.LineHeight(11)) / 2, tracking: 1);
-
             Rect track = Track;
+            using (context.PushClip(new Rect(0, 0,
+                Math.Max(0, track.X - LabelTrackGap), Bounds.Height)))
+            {
+                TrackedText.Draw(context, _label.ToUpperInvariant(), LabelFontSize,
+                    IsEnabled ? GuiTheme.TextDimBrush : dim,
+                    LabelInset,
+                    (Bounds.Height - TrackedText.LineHeight(LabelFontSize)) / 2,
+                    tracking: LabelTracking);
+            }
+
             context.FillRectangle(GuiTheme.PanelLightBrush, track);
             double filled = track.Width * ((_value - _min) / (double)(_max - _min));
             IBrush accent = IsEnabled

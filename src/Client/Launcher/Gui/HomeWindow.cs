@@ -25,6 +25,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         /// <summary>What the screen decided. Kind None means it was closed.</summary>
         public LaunchPlan Plan => IsClosed ? default : _view.Plan;
+        internal ClientSessionCoordinator SessionCoordinator => _view.Online.Flow;
         public bool IsClosed { get; private set; }
         public event EventHandler? LaunchRequested;
         public void Resume(MatchRunResult? result)

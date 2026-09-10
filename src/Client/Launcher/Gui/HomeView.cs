@@ -419,13 +419,13 @@ namespace MphRead.Mods.Launcher.Gui
             view.Resumed += (_, _) => { Close(); onResume(); };
             view.LeaveRequested += (_, _) => { Close(); onLeave(); };
             view.QuitRequested += (_, _) => { Close(); onQuit(); };
-            // Spectating and demo recording, which this screen offers and
+            // Spectating and replay recording, which this screen offers and
             // nothing was listening for.
             //
             // PauseMenuView builds the same entries on every platform -- it is
             // the desktop's pause menu, shown as an overlay here because a
             // phone has no second window to put it in -- so "Spectate",
-            // "Rejoin match" and "Record demo" were all drawn, all pressable,
+            // "Rejoin match" and "Record replay" were all drawn, all pressable,
             // and all did nothing but close the menu, because only Resume,
             // Leave, Quit and Settings were wired up. Same handlers as
             // PauseMenuWindow's.
@@ -443,14 +443,14 @@ namespace MphRead.Mods.Launcher.Gui
             };
             view.RecordToggleRequested += (_, _) =>
             {
-                if (DemoRecorder.IsRecording)
+                if (ReplayRecorder.IsRecording)
                 {
-                    Console.WriteLine($"[demo] recording saved to {DemoRecorder.CurrentPath}");
-                    DemoRecorder.Stop();
+                    Console.WriteLine($"[replay] recording saved to {ReplayRecorder.CurrentPath}");
+                    ReplayRecorder.Stop();
                 }
                 else
                 {
-                    DemoRecorder.Start();
+                    ReplayRecorder.Start();
                 }
                 Close();
                 onResume();
@@ -531,7 +531,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly UpdateBadge _updateBadge = new();
         private MenuEntry _onlineEntry = null!;
         private MenuEntry _hostEntry = null!;
-        private MenuEntry _demoEntry = null!;
+        private MenuEntry _replayEntry = null!;
 
         private Control BuildHomeCard()
         {
@@ -540,14 +540,14 @@ namespace MphRead.Mods.Launcher.Gui
             // saying it joins; what the line was worth was the space it took
             // and the reading it asked for. The only subtitles left anywhere
             // are the ones that report something the player could not
-            // otherwise know -- missing game files, a demo that would not
+            // otherwise know -- missing game files, a replay that would not
             // open -- and those are set when they happen.
             _hostEntry = new MenuEntry("Host");
             _hostEntry.Click += (_, _) => OpenHost();
             _onlineEntry = new MenuEntry("Join");
             _onlineEntry.Click += (_, _) => OpenJoin();
-            _demoEntry = new MenuEntry("Demos");
-            _demoEntry.Click += async (_, _) => await ChooseDemo();
+            _replayEntry = new MenuEntry("Replays");
+            _replayEntry.Click += async (_, _) => await ChooseReplay();
             var settings = new MenuEntry("Settings");
             settings.Click += async (_, _) => await OpenSettings();
             var account = new MenuEntry("Hunter License");
@@ -563,7 +563,7 @@ namespace MphRead.Mods.Launcher.Gui
             // opens the same view with an instruction to create a public lobby.
             card.Children.Add(_hostEntry);
             card.Children.Add(_onlineEntry);
-            card.Children.Add(_demoEntry);
+            card.Children.Add(_replayEntry);
             card.Children.Add(account);
             card.Children.Add(settings);
             card.Children.Add(quit);
@@ -1021,7 +1021,7 @@ namespace MphRead.Mods.Launcher.Gui
             bool ready = GameFiles.Ready;
             _onlineEntry.IsEnabled = ready;
             _hostEntry.IsEnabled = ready;
-            _demoEntry.IsEnabled = ready;
+            _replayEntry.IsEnabled = ready;
             // Game files moved into the settings, so there is no row here to
             // colour any more. The two entries that need an extract stay
             // disabled until setup is complete.
@@ -1213,7 +1213,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         /// <summary>
-        /// Pick a recorded demo and hand it to <c>MatchStart</c> as a
+        /// Pick a recorded replay and hand it to <c>MatchStart</c> as a
         /// launch plan.
         ///
         /// This machine's own recordings first, listed from the folder they
@@ -1222,33 +1222,33 @@ namespace MphRead.Mods.Launcher.Gui
         ///
         /// The order used to be the other way round -- the picker was the
         /// whole of it -- and on Android that could not reach the recordings
-        /// at all. <see cref="DemoRecorder"/> writes into the app's own
+        /// at all. <see cref="ReplayRecorder"/> writes into the app's own
         /// directory, and since Android 11 <c>Android/data</c> is excluded
         /// from the Storage Access Framework: the picker cannot be pointed at
         /// it and it cannot be navigated to, however absolute the path handed
         /// over is. Nothing about that stops *this* app reading the folder --
         /// it owns it, and needs no permission for it.
         /// </summary>
-        private async Task ChooseDemo()
+        private async Task ChooseReplay()
         {
-            var view = new DemoPickerView(DemoLibrary.List(), DemoLibrary.Directory);
+            var view = new ReplayPickerView(ReplayLibrary.List(), ReplayLibrary.Directory);
             await ShowOverlay(view, handler => view.Closed += handler);
             if (view.Path != null)
             {
-                await PlayDemo(view.Path);
+                await PlayReplay(view.Path);
                 return;
             }
             if (view.ImportRequested)
             {
-                await ImportDemo();
+                await ImportReplay();
             }
         }
 
         /// <summary>
-        /// The system file picker, for a demo that came from somewhere else on
+        /// The system file picker, for a replay that came from somewhere else on
         /// the device.
         /// </summary>
-        private async Task ImportDemo()
+        private async Task ImportReplay()
         {
             TopLevel? top = TopLevel.GetTopLevel(this);
             if (top == null)
@@ -1257,19 +1257,19 @@ namespace MphRead.Mods.Launcher.Gui
             }
             var options = new FilePickerOpenOptions
             {
-                Title = "Demos",
+                Title = "Replays",
                 AllowMultiple = false
             };
             if (!OperatingSystem.IsAndroid())
             {
                 // Patterns are what Windows, Linux and the browser filter on.
-                // Android filters by MIME type, and a demo file has none --
+                // Android filters by MIME type, and a replay file has none --
                 // the same trap the cartridge picker is written around, and
-                // the first of the two reasons this screen could open a demo
+                // the first of the two reasons this screen could open a replay
                 // everywhere except on the platform it was drawn for.
                 options.FileTypeFilter = new[]
                 {
-                    new FilePickerFileType($"{Branding.Name} demo") { Patterns = new[] { $"*{DemoFile.Extension}" } },
+                    new FilePickerFileType($"{Branding.Name} replay") { Patterns = new[] { $"*{ReplayFile.Extension}" } },
                     new FilePickerFileType("Every file") { Patterns = new[] { "*" } }
                 };
             }
@@ -1281,12 +1281,12 @@ namespace MphRead.Mods.Launcher.Gui
                 // can resolve. Worth setting on the desktop, where the picker
                 // will honour it; on Android it is ignored, since the folder
                 // is one the Storage Access Framework does not show. That is
-                // what DemoPickerView is for.
-                string demoDir = DemoLibrary.Directory;
-                if (Directory.Exists(demoDir))
+                // what ReplayPickerView is for.
+                string replayDir = ReplayLibrary.Directory;
+                if (Directory.Exists(replayDir))
                 {
                     options.SuggestedStartLocation =
-                        await top.StorageProvider.TryGetFolderFromPathAsync(demoDir);
+                        await top.StorageProvider.TryGetFolderFromPathAsync(replayDir);
                 }
             }
             catch (IOException)
@@ -1303,14 +1303,14 @@ namespace MphRead.Mods.Launcher.Gui
             if (path == null)
             {
                 // The second reason. Android hands back a content:// document
-                // with no file behind it, and the demo reader takes a path --
+                // with no file behind it, and the replay reader takes a path --
                 // so the document is copied into the app's own directory and
                 // played from there. Kept afterwards rather than deleted: the
                 // reader holds the file open for the whole session, and the
-                // next demo overwrites it.
+                // next replay overwrites it.
                 try
                 {
-                    string scratch = Path.Combine(GameFiles.Root, $"picked{DemoFile.Extension}");
+                    string scratch = Path.Combine(GameFiles.Root, $"picked{ReplayFile.Extension}");
                     await using (Stream source = await picked[0].OpenReadAsync())
                     await using (var target = File.Create(scratch))
                     {
@@ -1320,39 +1320,39 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 catch (Exception ex)
                 {
-                    _demoEntry.Subtitle = $"That file could not be read: {ex.Message}";
-                    _demoEntry.SubtitleColor = GuiTheme.Warm;
+                    _replayEntry.Subtitle = $"That file could not be read: {ex.Message}";
+                    _replayEntry.SubtitleColor = GuiTheme.Warm;
                     return;
                 }
             }
-            await PlayDemo(path);
+            await PlayReplay(path);
         }
 
-        /// <summary>Load a demo file and, if it reads, start playing it.</summary>
-        private async Task PlayDemo(string path)
+        /// <summary>Load a replay file and, if it reads, start playing it.</summary>
+        private async Task PlayReplay(string path)
         {
             // Joined here, not inside MatchStart: a failure has to land back
             // on a screen that is still open to show it on. Console.WriteLine
-            // is where DemoPlayback.Join otherwise says why -- invisible on
+            // is where ReplayPlayback.Join otherwise says why -- invisible on
             // the Windows build, which has no console for anything the
             // launcher starts (only a typed command gets one). Silently
             // returning to the menu with the real reason nowhere the player
             // could see it is the bug this replaces.
-            _demoEntry.IsEnabled = false;
-            _demoEntry.Title = "Loading...";
-            bool joined = await Task.Run(() => DemoPlayback.Join(path));
+            _replayEntry.IsEnabled = false;
+            _replayEntry.Title = "Loading...";
+            bool joined = await Task.Run(() => ReplayPlayback.Join(path));
             if (!joined)
             {
-                _demoEntry.IsEnabled = true;
-                _demoEntry.Title = "Demos";
-                _demoEntry.Subtitle = DemoPlayback.LastError ?? "That file could not be read as a demo.";
-                _demoEntry.SubtitleColor = GuiTheme.Warm;
+                _replayEntry.IsEnabled = true;
+                _replayEntry.Title = "Replays";
+                _replayEntry.Subtitle = ReplayPlayback.LastError ?? "That file could not be read as a replay.";
+                _replayEntry.SubtitleColor = GuiTheme.Warm;
                 return;
             }
             Finish(new LaunchPlan
             {
-                Kind = LaunchKind.Demo,
-                DemoPath = path,
+                Kind = LaunchKind.Replay,
+                ReplayPath = path,
                 Hunter = Hunter.Samus,
                 PlayerName = "",
                 RoomKey = ""

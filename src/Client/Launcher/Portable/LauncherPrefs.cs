@@ -2,12 +2,20 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using MphRead.Mods;
 using MphRead.Mods.Update;
 using MphRead.Runtime.Content;
 
 namespace MphRead.Mods.Launcher
 {
+    /// <summary>
+    /// A persisted region ID paired with the friendly label shown in Settings.
+    /// The ID remains the authoritative value used by Node selection; labels
+    /// are presentation only and unknown IDs retain a visible fallback.
+    /// </summary>
+    public sealed record PreferredRegionOption(string Id, string Label);
+
     /// <summary>
     /// Launcher-only preferences, kept in their own file beside the
     /// executable.
@@ -19,6 +27,8 @@ namespace MphRead.Mods.Launcher
     /// </summary>
     public static class LauncherPrefs
     {
+        public const string AutomaticPreferredRegionId = "Automatic";
+
         /// <summary>Backend origin used by fresh development clients.</summary>
         public const string DefaultBackendAddress = "http://51.161.113.128:18085/";
         public static string BackendAddress { get; set; } = DefaultBackendAddress;
@@ -54,8 +64,8 @@ namespace MphRead.Mods.Launcher
         /// The process-known region IDs available to the launcher when it
         /// chooses a Node. Directory refreshes add the exact IDs advertised by
         /// the Node; the persisted nonautomatic ID remains available even when
-        /// it is not currently observed. The launcher never invents display
-        /// labels for regions it has not seen.
+        /// it is not currently observed. The persisted value remains the exact
+        /// ID; Settings derives a presentation label without replacing it.
         /// </summary>
         public static IReadOnlyList<string> PreferredRegionChoices
         {
@@ -63,20 +73,65 @@ namespace MphRead.Mods.Launcher
             {
                 lock (_preferredRegionGate)
                 {
-                    var choices = new List<string>(_observedPreferredRegions.Count + 1)
-                    {
-                        "Automatic"
-                    };
-                    var regionChoices = new SortedSet<string>(_observedPreferredRegions,
-                        StringComparer.Ordinal);
-                    if (_preferredRegion != "Automatic" && IsValidPreferredRegion(_preferredRegion))
-                    {
-                        regionChoices.Add(_preferredRegion);
-                    }
-                    choices.AddRange(regionChoices);
-                    return choices.AsReadOnly();
+                    return BuildPreferredRegionIdsUnsafe().AsReadOnly();
                 }
             }
+        }
+
+        /// <summary>
+        /// Region choices for a player-facing selector. IDs are kept separate
+        /// from labels so a friendly name can never become the value sent to
+        /// Node selection. Unknown IDs are still selectable and are displayed
+        /// as <c>Unknown (id)</c> rather than being silently discarded.
+        /// </summary>
+        public static IReadOnlyList<PreferredRegionOption> PreferredRegionOptions
+        {
+            get
+            {
+                lock (_preferredRegionGate)
+                {
+                    return BuildPreferredRegionIdsUnsafe()
+                        .Select(id => new PreferredRegionOption(id, PreferredRegionLabel(id)))
+                        .ToArray();
+                }
+            }
+        }
+
+        private static readonly IReadOnlyDictionary<string, string> _preferredRegionLabels
+            = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["us"] = "United States",
+                ["us-east"] = "US East",
+                ["us-east-1"] = "US East",
+                ["us-central"] = "US Central",
+                ["us-central-1"] = "US Central",
+                ["us-west"] = "US West",
+                ["us-west-1"] = "US West",
+                ["europe"] = "Europe",
+                ["eu-west"] = "Europe",
+                ["eu-west-1"] = "Europe",
+                ["asia"] = "Asia Pacific",
+                ["asia-pacific"] = "Asia Pacific",
+                ["apac"] = "Asia Pacific",
+                ["ap-southeast-1"] = "Asia Pacific",
+                ["japan"] = "Japan",
+                ["jp"] = "Japan"
+            };
+
+        public static string PreferredRegionLabel(string? id)
+        {
+            if (String.IsNullOrWhiteSpace(id))
+            {
+                return AutomaticPreferredRegionId;
+            }
+            string value = id.Trim();
+            if (value.Equals(AutomaticPreferredRegionId, StringComparison.OrdinalIgnoreCase)
+                || value.Equals("Auto", StringComparison.OrdinalIgnoreCase))
+            {
+                return AutomaticPreferredRegionId;
+            }
+            return _preferredRegionLabels.TryGetValue(value, out string? label)
+                ? label : $"Unknown ({value})";
         }
 
         private const int MaxPreferredRegionLength = 32;
@@ -85,6 +140,23 @@ namespace MphRead.Mods.Launcher
         private static readonly SortedSet<string> _observedPreferredRegions
             = new(StringComparer.Ordinal);
         private static string _preferredRegion = "Automatic";
+
+        private static List<string> BuildPreferredRegionIdsUnsafe()
+        {
+            var choices = new List<string>(_observedPreferredRegions.Count + 1)
+            {
+                AutomaticPreferredRegionId
+            };
+            var regionChoices = new SortedSet<string>(_observedPreferredRegions,
+                StringComparer.Ordinal);
+            if (_preferredRegion != AutomaticPreferredRegionId
+                && IsValidPreferredRegion(_preferredRegion))
+            {
+                regionChoices.Add(_preferredRegion);
+            }
+            choices.AddRange(regionChoices);
+            return choices;
+        }
 
         public static string PreferredRegion
         {
@@ -192,7 +264,7 @@ namespace MphRead.Mods.Launcher
             AnnouncerPack = null;
             MusicPack = null;
             UpdatePolicy = UpdatePolicy.Automatic;
-            PreferredRegion = "Automatic";
+            PreferredRegion = AutomaticPreferredRegionId;
             DebugLogs = false;
             ReducedMotion = false;
             if (!File.Exists(Path))
@@ -366,19 +438,19 @@ namespace MphRead.Mods.Launcher
         {
             if (String.IsNullOrWhiteSpace(value))
             {
-                return "Automatic";
+                return AutomaticPreferredRegionId;
             }
             string trimmed = value.Trim();
             if (trimmed.Equals("Auto", StringComparison.OrdinalIgnoreCase)
                 || trimmed.Equals("Automatic", StringComparison.OrdinalIgnoreCase))
             {
-                return "Automatic";
+                return AutomaticPreferredRegionId;
             }
             if (IsValidPreferredRegion(value))
             {
                 return value;
             }
-            return "Automatic";
+            return AutomaticPreferredRegionId;
         }
 
         private static bool IsValidPreferredRegion(string? value)

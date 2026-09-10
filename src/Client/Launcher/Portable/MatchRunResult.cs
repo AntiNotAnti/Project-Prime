@@ -1,4 +1,6 @@
 using System;
+using MphRead.Identity;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Launcher;
 
@@ -8,7 +10,9 @@ public enum MatchExitReason
 }
 
 /// <summary>Presentation data copied from the immutable replicated authority result.</summary>
-public sealed record MatchResultsSnapshot(string MapKey, GameMode Mode, MatchResult Result);
+public sealed record MatchResultsSnapshot(string MapKey, GameMode Mode, MatchResult? Result,
+    MatchCompletionSummary? Completion = null, PlayerId? LocalPlayerId = null,
+    Guid? LocalGuestSessionId = null);
 
 public sealed record MatchResultsPresentationResult(bool QuitApplication = false, string? Failure = null);
 

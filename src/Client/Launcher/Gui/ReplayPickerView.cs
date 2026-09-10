@@ -15,15 +15,15 @@ namespace MphRead.Mods.Launcher.Gui
     /// The recordings this machine made, to pick one from.
     ///
     /// Its own list rather than the system file picker, for the reason
-    /// <see cref="DemoLibrary"/> gives: on Android the folder they are written
+    /// <see cref="ReplayLibrary"/> gives: on Android the folder they are written
     /// to cannot be reached through that picker at all. The picker is still
-    /// here, as the last entry, for the demo that came from somewhere else.
+    /// here, as the last entry, for the replay that came from somewhere else.
     ///
     /// A view rather than a window, for <see cref="MapPickerView"/>'s reason:
     /// the desktop and Android both show it over the front screen, and neither
     /// should have a copy of the list.
     /// </summary>
-    internal sealed class DemoPickerView : UserControl
+    internal sealed class ReplayPickerView : UserControl
     {
         /// <summary>The recording that was chosen, or null when it was not.</summary>
         public string? Path { get; private set; }
@@ -36,19 +36,19 @@ namespace MphRead.Mods.Launcher.Gui
 
         private MenuEntry? _first;
 
-        public DemoPickerView(IReadOnlyList<DemoRecording> demos, string directory)
+        public ReplayPickerView(IReadOnlyList<ReplayRecording> replays, string directory)
         {
             Background = GuiTheme.InkBrush;
             Focusable = true;
 
             var list = new StackPanel { Spacing = 2 };
-            foreach (DemoRecording demo in demos)
+            foreach (ReplayRecording replay in replays)
             {
                 var entry = new MenuEntry(
-                    demo.Room.Length > 0 ? demo.Room : demo.FileName,
-                    DemoLibrary.Describe(demo),
+                    replay.Room.Length > 0 ? replay.Room : replay.FileName,
+                    ReplayLibrary.Describe(replay),
                     titleSize: 15);
-                string path = demo.Path;
+                string path = replay.Path;
                 entry.Click += (_, _) =>
                 {
                     Path = path;
@@ -57,7 +57,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _first ??= entry;
                 list.Children.Add(entry);
             }
-            if (demos.Count == 0)
+            if (replays.Count == 0)
             {
                 // The folder, spelled out. It is the app's own directory and
                 // no file manager on a modern Android can open it, so a player
@@ -75,7 +75,7 @@ namespace MphRead.Mods.Launcher.Gui
                 });
             }
             var import = new MenuEntry("Open a file...",
-                "A demo from somewhere else on this device", titleSize: 13)
+                "A replay from somewhere else on this device", titleSize: 13)
             {
                 Accent = GuiTheme.TextDim,
                 Margin = new Thickness(0, 10, 0, 0)
@@ -101,7 +101,7 @@ namespace MphRead.Mods.Launcher.Gui
             back.Click += (_, _) => Closed?.Invoke(this, EventArgs.Empty);
             var title = new TextBlock
             {
-                Text = "Demos",
+                Text = "Replays",
                 FontFamily = GuiTheme.Display,
                 FontSize = 18,
                 Foreground = GuiTheme.TextBrush,

@@ -7,12 +7,13 @@
              FontFamily="avares://Avalonia.Fonts.Inter/Assets#Inter"
              Background="{DynamicResource PrimeBackgroundBrush}">
   <UserControl.Styles>
-    <StyleInclude Source="avares://FruityPrime/Launcher/Theme/PrimeTheme.axaml" />
+    <StyleInclude Source="avares://ProjectPrime/Launcher/Theme/PrimeTheme.axaml" />
   </UserControl.Styles>
 
+  <Grid>
   <!-- One native tree for desktop and Android. The dot grid is a static
        drawing surface; it does not tick, animate, or own any page state. -->
-  <Grid RowDefinitions="64,*,48"
+  <Grid x:Name="ShellGrid" RowDefinitions="64,*,48"
         Background="{DynamicResource PrimeBackgroundBrush}">
     <Border x:Name="HeaderBorder" Grid.Row="0" Height="64"
             Background="{DynamicResource PrimeHeaderBrush}"
@@ -102,7 +103,7 @@
       </Grid>
     </Border>
 
-    <Border x:Name="MobileNavigationBorder" Grid.Row="2" Height="64"
+    <Border x:Name="MobileNavigationBorder" Grid.Row="2" Height="72"
             IsVisible="False"
             Background="{DynamicResource PrimeFooterBrush}"
             BorderBrush="{DynamicResource PrimeEdgeBrush}"
@@ -118,5 +119,12 @@
       <ContentControl x:Name="OverlayHost" HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch" />
     </Border>
+  </Grid>
+  <!-- The shell owns this one-time startup layer. Keeping it outside
+       ShellGrid prevents route and modal content from receiving input while
+       startup restoration is still resolving. -->
+  <ContentControl x:Name="TitleHost" IsVisible="False"
+                  HorizontalContentAlignment="Stretch"
+                  VerticalContentAlignment="Stretch" />
   </Grid>
 </UserControl>

@@ -69,6 +69,10 @@ public static class PrimeSafeArea
 /// <summary>Single facade for later Android shell layout code.</summary>
 public static class PrimeLayoutMetrics
 {
+    public const double DesktopHeaderHorizontalPaddingDip = 20;
+    public const double MobileFooterTopPaddingDip = 4;
+    public const double MobileNavigationHeightDip = 72;
+    public const double MobileContentVerticalMarginDip = 12;
     public const double MinimumTouchTargetDip = PrimeTouchTargets.MinimumDip;
     public const double PreferredPrimaryActionMinimumDip =
         PrimeTouchTargets.PreferredPrimaryMinimumDip;
@@ -81,4 +85,26 @@ public static class PrimeLayoutMetrics
 
     public static Thickness ResolveSafeArea(Thickness systemInsets)
         => PrimeSafeArea.Resolve(systemInsets);
+
+    public static Thickness ResolveHeaderPadding(bool mobile, Thickness systemInsets)
+    {
+        if (!mobile)
+            return new Thickness(DesktopHeaderHorizontalPaddingDip, 0);
+        Thickness safe = ResolveSafeArea(systemInsets);
+        return new Thickness(safe.Left, safe.Top, safe.Right, 0);
+    }
+
+    public static Thickness ResolveMobileFooterPadding(Thickness systemInsets)
+    {
+        Thickness safe = ResolveSafeArea(systemInsets);
+        return new Thickness(safe.Left, MobileFooterTopPaddingDip,
+            safe.Right, safe.Bottom);
+    }
+
+    public static Thickness ResolveMobileContentMargin(Thickness systemInsets)
+    {
+        Thickness safe = ResolveSafeArea(systemInsets);
+        return new Thickness(safe.Left, MobileContentVerticalMarginDip,
+            safe.Right, MobileContentVerticalMarginDip);
+    }
 }

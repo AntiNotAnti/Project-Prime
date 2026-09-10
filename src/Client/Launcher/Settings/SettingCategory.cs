@@ -3,7 +3,9 @@ namespace MphRead.Mods.Launcher.Settings;
 /// <summary>Player-facing settings pages.</summary>
 public enum SettingCategory
 {
-    Gameplay,
+    Player,
+    /// <summary>Compatibility spelling for metadata consumers.</summary>
+    Gameplay = Player,
     Graphics,
     Audio,
     Controls,

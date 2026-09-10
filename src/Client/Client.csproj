@@ -9,8 +9,8 @@
     <OutputType Condition="$(RuntimeIdentifier.StartsWith('win'))">WinExe</OutputType>
     <OutputType Condition="!$(RuntimeIdentifier.StartsWith('win'))">Exe</OutputType>
     <RootNamespace>MphRead</RootNamespace>
-    <AssemblyName>FruityPrime</AssemblyName>
-    <Product>Prime Hunters</Product>
+    <AssemblyName>ProjectPrime</AssemblyName>
+    <Product>Project Prime</Product>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DebugType>embedded</DebugType>
@@ -19,8 +19,10 @@
     <!-- PrimeShell is shared native Avalonia XAML; keep compilation enabled so
          desktop and Android consume the same generated resource tree. -->
     <EnableAvaloniaXamlCompilation>true</EnableAvaloniaXamlCompilation>
-    <ApplicationIcon Condition="$(RuntimeIdentifier.StartsWith('win'))">Assets/fruity-prime.ico</ApplicationIcon>
+    <ApplicationIcon Condition="$(RuntimeIdentifier.StartsWith('win'))">Assets/project-prime.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <Import Project="Client.SharedInput.props" />
 
   <ItemGroup>
     <ProjectReference Include="../Game/Game.csproj" />
@@ -56,8 +58,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <AvaloniaResource Include="Assets/fruity-prime-logo.png" />
-    <AvaloniaResource Include="Assets/fruity-prime-mark.png" />
+    <AvaloniaResource Include="Assets/project-prime-title-screen.png" />
+    <AvaloniaResource Include="Assets/project-prime-mark.png" />
     <None Update="paths.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

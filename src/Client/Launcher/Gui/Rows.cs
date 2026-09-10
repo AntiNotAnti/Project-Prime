@@ -9,6 +9,95 @@ using Avalonia.Media;
 
 namespace MphRead.Mods.Launcher.Gui
 {
+    /// <summary>
+    /// Optional pen-only swipe diagnostic. It measures logical UI distance
+    /// using the same quarter-degree sensitivity scale as direct stylus aim;
+    /// it does not claim gameplay input or persist calibration state.
+    /// </summary>
+    internal sealed class StylusTurnPreview : Control
+    {
+        private readonly Func<float> _sensitivity;
+        private IPointer? _pointer;
+        private Point _origin;
+        private Point _current;
+        private float? _degrees;
+
+        public StylusTurnPreview(Func<float> sensitivity)
+        {
+            _sensitivity = sensitivity;
+            Height = 54;
+        }
+
+        internal static float MeasureDegrees(Vector delta, float sensitivity)
+        {
+            sensitivity = float.IsFinite(sensitivity)
+                ? Math.Clamp(sensitivity, .01f, 10f) : 1f;
+            double length = Math.Sqrt(delta.X * delta.X + delta.Y * delta.Y);
+            return double.IsFinite(length)
+                ? (float)(length * sensitivity / 4f) : 0;
+        }
+
+        protected override void OnPointerPressed(PointerPressedEventArgs e)
+        {
+            if (e.Pointer.Type != PointerType.Pen)
+            {
+                base.OnPointerPressed(e);
+                return;
+            }
+            _pointer = e.Pointer;
+            _origin = _current = e.GetPosition(this);
+            _degrees = null;
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            InvalidateVisual();
+        }
+
+        protected override void OnPointerMoved(PointerEventArgs e)
+        {
+            if (ReferenceEquals(_pointer, e.Pointer))
+            {
+                _current = e.GetPosition(this);
+                _degrees = MeasureDegrees(_current - _origin, _sensitivity());
+                e.Handled = true;
+                InvalidateVisual();
+            }
+            base.OnPointerMoved(e);
+        }
+
+        protected override void OnPointerReleased(PointerReleasedEventArgs e)
+        {
+            if (ReferenceEquals(_pointer, e.Pointer))
+            {
+                _current = e.GetPosition(this);
+                _degrees = MeasureDegrees(_current - _origin, _sensitivity());
+                e.Pointer.Capture(null);
+                _pointer = null;
+                e.Handled = true;
+                InvalidateVisual();
+            }
+            base.OnPointerReleased(e);
+        }
+
+        public override void Render(DrawingContext context)
+        {
+            context.DrawRectangle(GuiTheme.PanelBrush,
+                new Pen(GuiTheme.EdgeBrush, 1), new Rect(Bounds.Size));
+            var title = new FormattedText("STYLUS TURN PREVIEW",
+                CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                GuiTheme.Face(bold: true), 11, GuiTheme.TextDimBrush);
+            context.DrawText(title, new Point(10, 7));
+            string value = _pointer != null
+                ? $"Stylus turn: {_degrees.GetValueOrDefault():0.#}°"
+                : _degrees.HasValue
+                    ? $"Stylus turn: {_degrees.Value:0.#}° — drag again to remeasure"
+                    : "Drag the pen across this row to measure logical turn";
+            var result = new FormattedText(value, CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight, GuiTheme.Face(bold: false), 13,
+                _degrees.HasValue ? GuiTheme.TextBrush : GuiTheme.TextDimBrush);
+            context.DrawText(result, new Point(10, 27));
+        }
+    }
+
     /// <summary>A small upper-case heading over a group of rows.</summary>
     internal sealed class Caption : Control
     {

@@ -13,7 +13,7 @@ public enum PrimeRoute
     Gateway,
     Play,
     Hunter,
-    Theater,
+    Theatre,
     Rankings,
     Settings,
     // Kept as internal migration routes for persisted capture/test values.
@@ -30,7 +30,7 @@ public static class PrimeRouteInfo
             PrimeRoute.Play,
             PrimeRoute.Hunter,
             PrimeRoute.Rankings,
-            PrimeRoute.Theater
+            PrimeRoute.Theatre
         };
 
     private static readonly IReadOnlyList<PrimeRoute> AuthenticatedRoutes =
@@ -47,7 +47,7 @@ public static class PrimeRouteInfo
         PrimeRoute.Hunter => "Hunter",
         PrimeRoute.HunterLicense => "Hunter",
         PrimeRoute.Armory => "Hunter",
-        PrimeRoute.Theater => "Theater",
+        PrimeRoute.Theatre => "Theatre",
         PrimeRoute.Rankings => "Rankings",
         PrimeRoute.Settings => "Settings",
         _ => route.ToString()
@@ -58,7 +58,7 @@ public static class PrimeRouteInfo
         PrimeRoute.Hunter => "Hunter",
         PrimeRoute.HunterLicense => "Hunter",
         PrimeRoute.Armory => "Hunter",
-        PrimeRoute.Theater => "Replays",
+        PrimeRoute.Theatre => "Replays",
         PrimeRoute.Rankings => "Ranks",
         PrimeRoute.Settings => "Setup",
         _ => Label(route)
@@ -66,7 +66,7 @@ public static class PrimeRouteInfo
 
     public static bool IsAuthenticated(PrimeRoute route)
         => route is PrimeRoute.Play or PrimeRoute.Hunter or PrimeRoute.HunterLicense
-            or PrimeRoute.Armory or PrimeRoute.Theater or PrimeRoute.Rankings
+            or PrimeRoute.Armory or PrimeRoute.Theatre or PrimeRoute.Rankings
             or PrimeRoute.Settings;
 
     public static bool TryParse(string? value, out PrimeRoute route)

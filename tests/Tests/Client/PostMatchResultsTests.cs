@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Immutable;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
+using MphRead.Identity;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
 using Xunit;
@@ -22,6 +23,34 @@ public sealed class PostMatchResultsTests
         Assert.Equal("RESULTS UNAVAILABLE", model.OutcomeLabel);
         Assert.Empty(model.Scoreboard);
         Assert.False(model.HasLocalPlayer);
+    }
+
+    [Fact]
+    public void NodeCompletionFallbackPresentsOnlyImmutableAvailableCounters()
+    {
+        PlayerId local = new(Guid.NewGuid());
+        var completion = new MatchCompletionSummary(new(Guid.NewGuid()), new(Guid.NewGuid()),
+            MatchEndReason.ScoreGoal,
+            [
+                new(Guid.NewGuid(), local, ParticipantKind.RegisteredHuman, "Local",
+                    ParticipantOutcome.Finished, 0, 0, 9, 4, 1, Slot: 2,
+                    Hunter: Hunter.Kanden, TeamIndex: 0),
+                new(Guid.NewGuid(), new PlayerId(Guid.NewGuid()), ParticipantKind.RegisteredHuman, "Other",
+                    ParticipantOutcome.Finished, 1, 1, 5, 2, 4, Slot: 5,
+                    Hunter: Hunter.Trace, TeamIndex: 1)
+            ], Guid.NewGuid(), null, Guid.NewGuid());
+        var snapshot = new MatchResultsSnapshot("fallback-map", GameMode.Battle, null,
+            completion, local);
+
+        PostMatchResultsModel model = PostMatchResultsBuilder.Build(snapshot);
+
+        Assert.True(model.HasAuthoritativeResult);
+        Assert.Equal(PostMatchOutcome.Victory, model.Outcome);
+        Assert.Equal("Score goal", model.EndReasonLabel);
+        Assert.Equal(2, model.Scoreboard.Length);
+        PostMatchScoreRow row = Assert.Single(model.Scoreboard, row => row.IsLocal);
+        Assert.Equal((9, 4, 1), (row.Score, row.Kills, row.Deaths));
+        Assert.False(row.HasDetailedStats);
     }
 
     [Fact]

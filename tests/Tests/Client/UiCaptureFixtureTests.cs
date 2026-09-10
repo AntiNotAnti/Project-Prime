@@ -1,17 +1,25 @@
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using AvaloniaButton = Avalonia.Controls.Button;
 using MphRead;
+using MphRead.Mods;
+using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Launcher.Settings;
@@ -42,6 +50,8 @@ public sealed class UiCaptureFixtureTests
 {
     private static readonly string[] RequiredFixtureNames =
     {
+        "title-loading", "title-ready-keyboard", "title-ready-controller",
+        "title-ready-touch", "title-reduced-motion",
         "gateway-default", "gateway-login", "gateway-register", "gateway-confirm",
         "gateway-error", "gateway-guest",
         "play-home", "play-finding", "play-empty", "play-browser", "play-browser-full",
@@ -88,7 +98,7 @@ public sealed class UiCaptureFixtureTests
             UiCapture.PlannedButUnavailableFixtures.ToArray());
         Assert.Empty(RequiredFixtureNames.Intersect(UnavailableFixtureNames,
             StringComparer.OrdinalIgnoreCase));
-        Assert.Equal(54, RequiredFixtureNames.Length + UnavailableFixtureNames.Length);
+        Assert.Equal(59, RequiredFixtureNames.Length + UnavailableFixtureNames.Length);
         Assert.Equal(RequiredFixtureNames.Length * sizes.Length,
             UiCapture.FixtureDefinitions.Count * sizes.Length);
         Assert.Equal(UiCapture.FixtureDefinitions.Count,
@@ -118,6 +128,159 @@ public sealed class UiCaptureFixtureTests
                 window.Close();
                 DisposeView(view);
             }
+        }
+    }
+
+    [AvaloniaFact]
+    public void CaptureRoutesAndSeatOfferOverlayAreOpaqueWithPlausibleCountdowns()
+    {
+        Control control = UiCapture.BuildFixture("lobby-seat-offer",
+            new MenuSettings(), new[] { "MP3 PROVING GROUND" });
+        PrimeShellView view = Assert.IsType<PrimeShellView>(control);
+        var window = new Window { Width = 940, Height = 560, Content = view };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.Measure(new Size(940, 560));
+            window.Arrange(new Rect(0, 0, 940, 560));
+
+            ContentControl pageHost = view.GetVisualDescendants()
+                .OfType<ContentControl>().Single(candidate => candidate.Name == "PageHost");
+            Control page = Assert.IsAssignableFrom<Control>(pageHost.Content);
+            SeatOfferCard offer = Assert.Single(view.GetVisualDescendants()
+                .OfType<SeatOfferCard>());
+            Assert.Equal(1, page.Opacity);
+            Assert.Equal(1, offer.Opacity);
+
+            string countdown = Assert.Single(offer.GetVisualDescendants()
+                .OfType<TextBlock>().Select(text => text.Text),
+                text => text?.StartsWith("Offer expires in ",
+                    StringComparison.Ordinal) == true)!;
+            string[] time = countdown[(countdown.LastIndexOf(' ') + 1)..].Split(':');
+            Assert.Equal(2, time.Length);
+            int seconds = int.Parse(time[0], CultureInfo.InvariantCulture) * 60
+                + int.Parse(time[1], CultureInfo.InvariantCulture);
+            Assert.InRange(seconds, 1, 12);
+        }
+        finally
+        {
+            window.Close();
+            DisposeView(view);
+        }
+
+        Control results = UiCapture.BuildFixture("results-ballot",
+            new MenuSettings(), Array.Empty<string>());
+        var resultsWindow = new Window
+        {
+            Width = 940,
+            Height = 560,
+            Content = results
+        };
+        try
+        {
+            resultsWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+            string voteCountdown = Assert.Single(results.GetVisualDescendants()
+                .OfType<TextBlock>().Select(text => text.Text),
+                text => text?.Contains("Voting closes in ",
+                    StringComparison.Ordinal) == true)!;
+            string digits = new(voteCountdown.Where(Char.IsDigit).ToArray());
+            Assert.InRange(int.Parse(digits, CultureInfo.InvariantCulture), 1, 25);
+        }
+        finally
+        {
+            resultsWindow.Close();
+            DisposeView(results);
+        }
+
+        string source = ReadRepositoryFile("src/Client/Launcher/Gui/UiCapture.cs");
+        Assert.DoesNotContain("DateTimeOffset.MaxValue", source,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("new DateTimeOffset(2040", source,
+            StringComparison.Ordinal);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(940, 560)]
+    [InlineData(560, 800)]
+    public void SeatOfferCaptureUsesCenteredBoundedAutoHeightGeometry(
+        int width, int height)
+    {
+        Control control = UiCapture.BuildFixture("lobby-seat-offer",
+            new MenuSettings(), new[] { "MP3 PROVING GROUND" });
+        PrimeShellView view = Assert.IsType<PrimeShellView>(control);
+        var window = new Window { Width = width, Height = height, Content = view };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.Measure(new Size(width, height));
+            window.Arrange(new Rect(0, 0, width, height));
+
+            ContentControl overlay = view.GetVisualDescendants()
+                .OfType<ContentControl>()
+                .Single(candidate => candidate.Name == "OverlayHost");
+            SeatOfferCard offer = Assert.Single(view.GetVisualDescendants()
+                .OfType<SeatOfferCard>());
+            Point origin = offer.TranslatePoint(default, overlay)
+                ?? throw new Xunit.Sdk.XunitException(
+                    "Seat offer could not be translated to its overlay.");
+
+            Assert.Equal(HorizontalAlignment.Center, offer.HorizontalAlignment);
+            Assert.Equal(VerticalAlignment.Center, offer.VerticalAlignment);
+            Assert.True(Double.IsNaN(offer.Height));
+            Assert.InRange(offer.Bounds.Width, 1, Math.Min(520, width - 48));
+            Assert.InRange(offer.Bounds.Height, 1, height - 49);
+            Assert.InRange(Math.Abs(origin.X + offer.Bounds.Width / 2
+                - overlay.Bounds.Width / 2), 0, 1);
+            Assert.InRange(Math.Abs(origin.Y + offer.Bounds.Height / 2
+                - overlay.Bounds.Height / 2), 0, 8);
+        }
+        finally
+        {
+            window.Close();
+            DisposeView(view);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(940, 560)]
+    [InlineData(560, 800)]
+    public void SettingsSlidersKeepLabelsTrackAndValueGutterSeparated(
+        int width, int height)
+    {
+        Control control = UiCapture.BuildFixture("settings-controls",
+            new MenuSettings(), Array.Empty<string>());
+        SettingsView view = Assert.IsType<SettingsView>(control);
+        var window = new Window { Width = width, Height = height, Content = view };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.Measure(new Size(width, height));
+            window.Arrange(new Rect(0, 0, width, height));
+
+            SliderRow[] sliders = view.GetVisualDescendants().OfType<SliderRow>()
+                .Where(slider => slider.IsEffectivelyVisible)
+                .ToArray();
+            Assert.NotEmpty(sliders);
+            Assert.All(sliders, slider =>
+            {
+                Rect track = slider.RenderedTrack;
+                Assert.True(slider.PreferredLabelRight
+                    + SliderRow.RenderedLabelTrackGap <= track.X + 0.5,
+                    $"Slider label reaches {slider.PreferredLabelRight:0.##} but track starts at {track.X:0.##}.");
+                Assert.True(track.Width >= 72,
+                    $"Slider track is only {track.Width:0.##} DIPs wide.");
+                Assert.True(track.Right <= slider.Bounds.Width - 112 + 0.5,
+                    "Slider track entered the value gutter.");
+            });
+        }
+        finally
+        {
+            window.Close();
+            DisposeView(view);
         }
     }
 
@@ -161,7 +324,7 @@ public sealed class UiCaptureFixtureTests
     }
 
     [AvaloniaFact]
-    public void ProductionSettingsUseAnExpandedAdvancedControllerExpanderByDefault()
+    public void ProductionSettingsUseACollapsedAdvancedControllerExpanderByDefault()
     {
         var view = new SettingsView(new MenuSettings());
         var window = new Window { Width = 940, Height = 560, Content = view };
@@ -170,12 +333,348 @@ public sealed class UiCaptureFixtureTests
             window.Show();
             view.ShowSection("Controls");
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-            Assert.Equal(true, view.RenderedAdvancedControllerExpanded);
+            Assert.Equal(false, view.RenderedAdvancedControllerExpanded);
         }
         finally
         {
             window.Close();
             DisposeView(view);
+        }
+    }
+
+    [AvaloniaFact]
+    public void SettingsGyroCapabilityUpdatesAreMarshalledAndPreferencesArePreserved()
+    {
+        bool previousPreference = MphRead.Mods.InputSettings.GamepadGyroEnabled;
+        ControllerCapabilityOwner owner = ControllerCapabilities.TryAcquire(
+            ControllerBackend.Sdl, replaceCurrent: true)!;
+        var view = new SettingsView(new MenuSettings());
+        var window = new Window { Width = 940, Height = 560, Content = view };
+        try
+        {
+            MphRead.Mods.InputSettings.GamepadGyroEnabled = true;
+            window.Show();
+            view.ShowSection("Controls");
+
+            Assert.True(view.IsObservingControllerCapabilities);
+            Assert.True(owner.Publish(ControllerCapabilitySnapshot.Connected(
+                ControllerBackend.Sdl, "gamepad:unknown", "Unknown pad",
+                hasGyroscope: null)));
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(view.RenderedGyroControlsEnabled);
+            Assert.Contains("saved preference is preserved", view.RenderedGyroCapabilityNote,
+                StringComparison.OrdinalIgnoreCase);
+            Assert.True(MphRead.Mods.InputSettings.GamepadGyroEnabled);
+
+            Assert.True(owner.Publish(ControllerCapabilitySnapshot.Connected(
+                ControllerBackend.Sdl, "gamepad:gyro", "Gyro pad",
+                hasGyroscope: true)));
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(view.RenderedGyroControlsEnabled);
+
+            Assert.True(owner.Publish(ControllerCapabilitySnapshot.Connected(
+                ControllerBackend.Sdl, "gamepad:no-gyro", "Basic pad",
+                hasGyroscope: false)));
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(view.RenderedGyroControlsEnabled);
+            Assert.True(MphRead.Mods.InputSettings.GamepadGyroEnabled);
+        }
+        finally
+        {
+            window.Close();
+            Assert.False(view.IsObservingControllerCapabilities);
+            view.Dispose();
+            Assert.False(view.IsObservingControllerCapabilities);
+            Assert.True(owner.Publish(ControllerCapabilitySnapshot.Connected(
+                ControllerBackend.Sdl, "gamepad:late", "Late pad", hasGyroscope: true)));
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(view.RenderedGyroControlsEnabled);
+            owner.Dispose();
+            MphRead.Mods.InputSettings.GamepadGyroEnabled = previousPreference;
+        }
+    }
+
+    [AvaloniaFact]
+    public void SettingsIgnoresDelayedCapabilityEventAfterOwnerReplacement()
+    {
+        bool previousGyroPreference = MphRead.Mods.InputSettings.GamepadGyroEnabled;
+        ControllerCapabilityOwner firstOwner = ControllerCapabilities.TryAcquire(
+            ControllerBackend.Sdl, replaceCurrent: true)!;
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        int callbackCount = 0;
+        EventHandler<ControllerCapabilityChangedEventArgs> blocker = (_, _) =>
+        {
+            if (Interlocked.Increment(ref callbackCount) == 1)
+            {
+                entered.Set();
+                if (!release.Wait(TimeSpan.FromSeconds(5)))
+                {
+                    throw new TimeoutException("Capability event blocker timed out.");
+                }
+            }
+        };
+        ControllerCapabilities.Changed += blocker;
+        ControllerCapabilityOwner? replacement = null;
+        Task<bool>? delayedPublish = null;
+        var view = new SettingsView(new MenuSettings());
+        var window = new Window { Width = 940, Height = 560, Content = view };
+        try
+        {
+            MphRead.Mods.InputSettings.GamepadGyroEnabled = true;
+            window.Show();
+            view.ShowSection("Controls");
+
+            delayedPublish = Task.Run(() => firstOwner.Publish(
+                ControllerCapabilitySnapshot.Connected(
+                    ControllerBackend.Sdl, "gamepad:old", "Old gyro pad",
+                    hasGyroscope: true)));
+            Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+
+            replacement = ControllerCapabilities.TryAcquire(
+                ControllerBackend.Glfw, replaceCurrent: true)!;
+            Assert.True(replacement.Publish(ControllerCapabilitySnapshot.Connected(
+                ControllerBackend.Glfw, "gamepad:new", "New basic pad",
+                hasGyroscope: false)));
+
+            // Release the old publisher only after the replacement has
+            // committed. Its queued UI callback is now deliberately stale.
+            release.Set();
+            Assert.True(delayedPublish.Wait(TimeSpan.FromSeconds(5)));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(ControllerBackend.Glfw, ControllerCapabilities.Current.Backend);
+            Assert.False(ControllerCapabilities.Current.HasGyroscope);
+            Assert.False(view.RenderedGyroControlsEnabled);
+        }
+        finally
+        {
+            release.Set();
+            if (delayedPublish != null)
+            {
+                delayedPublish.Wait(TimeSpan.FromSeconds(5));
+            }
+            window.Close();
+            view.Dispose();
+            ControllerCapabilities.Changed -= blocker;
+            replacement?.Dispose();
+            firstOwner.Dispose();
+            MphRead.Mods.InputSettings.GamepadGyroEnabled = previousGyroPreference;
+        }
+    }
+
+    [AvaloniaFact]
+    public void SettingsNoOpSavePreservesRawControllerTuningAndDisabledGyroPreference()
+    {
+        ControllerTuningSnapshot previous = CaptureControllerTuning();
+        ControllerCapabilityOwner owner = ControllerCapabilities.TryAcquire(
+            ControllerBackend.Sdl, replaceCurrent: true)!;
+        Window? window = null;
+        SettingsView? view = null;
+        try
+        {
+            SetDefaultControllerTuningWithEnabledGyro();
+            ControllerTuningSnapshot expected = CaptureControllerTuning();
+            view = new SettingsView(new MenuSettings());
+            window = new Window { Width = 940, Height = 560, Content = view };
+            window.Show();
+            view.CommitForTests();
+
+            Assert.Equal(expected, CaptureControllerTuning());
+        }
+        finally
+        {
+            window?.Close();
+            view?.Dispose();
+            owner.Dispose();
+            RestoreControllerTuning(previous);
+        }
+    }
+
+    [AvaloniaFact]
+    public void SettingsUnrelatedSavePreservesRawControllerTuningAndDisabledGyroPreference()
+    {
+        ControllerTuningSnapshot previous = CaptureControllerTuning();
+        ControllerCapabilityOwner owner = ControllerCapabilities.TryAcquire(
+            ControllerBackend.Sdl, replaceCurrent: true)!;
+        Window? window = null;
+        SettingsView? view = null;
+        try
+        {
+            SetNonGridControllerTuning();
+            ControllerTuningSnapshot expected = CaptureControllerTuning();
+            view = new SettingsView(new MenuSettings());
+            window = new Window { Width = 940, Height = 560, Content = view };
+            window.Show();
+            view.ShowSection("Controls");
+
+            SliderRow mouseSensitivity = typeof(SettingsView)
+                .GetField("_sensitivity", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(view) as SliderRow
+                ?? throw new Xunit.Sdk.XunitException("Mouse slider was not built.");
+            float previousMouseSensitivity = MphRead.Mods.InputSettings.MouseSensitivity;
+            mouseSensitivity.Value = Math.Min(mouseSensitivity.Value + 1, 100);
+            Assert.NotEqual(previousMouseSensitivity,
+                0.1f + mouseSensitivity.Value / 100f * 2.9f);
+
+            view.CommitForTests();
+
+            Assert.Equal(expected, CaptureControllerTuning());
+            Assert.NotEqual(previousMouseSensitivity,
+                MphRead.Mods.InputSettings.MouseSensitivity);
+        }
+        finally
+        {
+            window?.Close();
+            view?.Dispose();
+            owner.Dispose();
+            RestoreControllerTuning(previous);
+        }
+    }
+
+    [AvaloniaFact]
+    public void SettingsControllerGeneralResetClearsOnlyRefreshedSliderMarkers()
+    {
+        ControllerTuningSnapshot previous = CaptureControllerTuning();
+        ControllerPreset previousPreset = InputSettings.ControllerPreset;
+        ControllerCapabilityOwner owner = ControllerCapabilities.TryAcquire(
+            ControllerBackend.Sdl, replaceCurrent: true)!;
+        Window? window = null;
+        SettingsView? view = null;
+        try
+        {
+            SetDefaultControllerTuningWithEnabledGyro();
+            InputSettings.ControllerPreset = ControllerPreset.Classic;
+            view = new SettingsView(new MenuSettings());
+            window = new Window { Width = 940, Height = 560, Content = view };
+            window.Show();
+            view.ShowSection("Controls");
+
+            SliderRow horizontal = GetPrivateField<SliderRow>(view,
+                "_gamepadHorizontalSensitivity");
+            SliderRow exponent = GetPrivateField<SliderRow>(view, "_gamepadLook");
+            horizontal.Value = NextSliderValue(horizontal);
+            exponent.Value = NextSliderValue(exponent);
+            int editedExponent = exponent.Value;
+
+            InputSettings.ResetControllerGeneral();
+            InvokePrivate(view, "RefreshControllerGeneralRows");
+            view.CommitForTests();
+
+            // General reset repopulates horizontal sensitivity, so its marker
+            // must be gone. The response exponent was not refreshed and must
+            // retain its deliberate edit (quantized exactly once on commit).
+            Assert.Equal(1f, InputSettings.GamepadHorizontalSensitivity);
+            float expectedExponent = .05f + editedExponent / 100f * 7.95f;
+            Assert.Equal(expectedExponent, InputSettings.GamepadLookExponent);
+            Assert.NotEqual(1.60f, InputSettings.GamepadLookExponent);
+        }
+        finally
+        {
+            window?.Close();
+            view?.Dispose();
+            owner.Dispose();
+            RestoreControllerTuning(previous);
+            InputSettings.ControllerPreset = previousPreset;
+        }
+    }
+
+    [AvaloniaFact]
+    public void SettingsControllerPresetRefreshClearsControllerSliderMarkers()
+    {
+        ControllerTuningSnapshot previous = CaptureControllerTuning();
+        ControllerPreset previousPreset = InputSettings.ControllerPreset;
+        Dictionary<PadAction, GamepadButtons> previousBindings = PadBindings.Actions
+            .ToDictionary(action => action, PadBindings.Get);
+        ControllerCapabilityOwner owner = ControllerCapabilities.TryAcquire(
+            ControllerBackend.Sdl, replaceCurrent: true)!;
+        Window? window = null;
+        SettingsView? view = null;
+        try
+        {
+            SetDefaultControllerTuningWithEnabledGyro();
+            InputSettings.ControllerPreset = ControllerPreset.Classic;
+            view = new SettingsView(new MenuSettings());
+            window = new Window { Width = 940, Height = 560, Content = view };
+            window.Show();
+            view.ShowSection("Controls");
+
+            SliderRow horizontal = GetPrivateField<SliderRow>(view,
+                "_gamepadHorizontalSensitivity");
+            SliderRow exponent = GetPrivateField<SliderRow>(view, "_gamepadLook");
+            horizontal.Value = NextSliderValue(horizontal);
+            exponent.Value = NextSliderValue(exponent);
+
+            ChoiceRow preset = GetPrivateField<ChoiceRow>(view, "_gamepadPresetRow");
+            Assert.Equal((int)ControllerPreset.Custom, preset.Index);
+            preset.Index = (int)ControllerPreset.Classic;
+            view.CommitForTests();
+
+            // Selecting a named preset is a full authoritative controller
+            // refresh. Both edited rows therefore commit the restored defaults,
+            // rather than quantizing their stale UI values a second time.
+            Assert.Equal(1f, InputSettings.GamepadHorizontalSensitivity);
+            Assert.Equal(1.60f, InputSettings.GamepadLookExponent);
+        }
+        finally
+        {
+            window?.Close();
+            view?.Dispose();
+            owner.Dispose();
+            foreach ((PadAction action, GamepadButtons buttons) in previousBindings)
+            {
+                PadBindings.Set(action, buttons);
+            }
+            RestoreControllerTuning(previous);
+            InputSettings.ControllerPreset = previousPreset;
+        }
+    }
+
+    [AvaloniaFact]
+    public void SettingsIdentityContextSeparatesAccountAndGuestPresentation()
+    {
+        var account = SettingsIdentityContext.Authenticated("Account Pilot");
+        var accountView = new SettingsView(new MenuSettings(), identity: account);
+        var accountWindow = new Window { Width = 940, Height = 560, Content = accountView };
+        try
+        {
+            accountWindow.Show();
+            Assert.True(accountView.IdentityContext.IsAuthenticated);
+            Assert.Equal("Account Pilot", accountView.IdentityContext.DisplayName);
+            Assert.True(accountView.HasHunterProfileAction);
+            TextBox accountName = Assert.Single(accountView.GetVisualDescendants()
+                .OfType<TextBox>());
+            Assert.Equal("Account Pilot", accountName.Text);
+            Assert.True(accountName.IsReadOnly);
+            Assert.False(accountName.IsEnabled);
+        }
+        finally
+        {
+            accountWindow.Close();
+            accountView.Dispose();
+        }
+
+        var guest = SettingsIdentityContext.Guest("Local Guest");
+        var guestView = new SettingsView(new MenuSettings(), identity: guest);
+        var guestWindow = new Window { Width = 940, Height = 560, Content = guestView };
+        try
+        {
+            guestWindow.Show();
+            Assert.False(guestView.IdentityContext.IsAuthenticated);
+            Assert.True(guestView.IdentityContext.IsGuest);
+            Assert.False(guestView.HasHunterProfileAction);
+            TextBox guestName = Assert.Single(guestView.GetVisualDescendants()
+                .OfType<TextBox>());
+            Assert.Equal("Local Guest", guestName.Text);
+            Assert.False(guestName.IsReadOnly);
+        }
+        finally
+        {
+            guestWindow.Close();
+            guestView.Dispose();
         }
     }
 
@@ -520,6 +1019,166 @@ public sealed class UiCaptureFixtureTests
             disposable.Dispose();
         }
     }
+
+    private readonly record struct ControllerTuningSnapshot(
+        float MoveDeadZone,
+        float LookDeadZone,
+        float OuterDeadZone,
+        float MoveActivateThreshold,
+        float MoveReleaseThreshold,
+        float LookExponent,
+        float YawRate,
+        float PitchRate,
+        float OuterBoostStart,
+        float OuterYawBoost,
+        float OuterPitchBoost,
+        float BoostDelaySeconds,
+        float BoostRampSeconds,
+        float TriggerPressThreshold,
+        float TriggerReleaseThreshold,
+        float HorizontalSensitivity,
+        float VerticalSensitivity,
+        float ZoomMultiplier,
+        bool OuterBoostEnabled,
+        bool GyroEnabled,
+        float GyroSensitivity,
+        bool GyroInvertX,
+        bool GyroInvertY);
+
+    private static ControllerTuningSnapshot CaptureControllerTuning()
+        => new(
+            MphRead.Mods.InputSettings.GamepadMoveDeadZone,
+            MphRead.Mods.InputSettings.GamepadLookDeadZone,
+            MphRead.Mods.InputSettings.GamepadOuterDeadZone,
+            MphRead.Mods.InputSettings.GamepadMoveActivateThreshold,
+            MphRead.Mods.InputSettings.GamepadMoveReleaseThreshold,
+            MphRead.Mods.InputSettings.GamepadLookExponent,
+            MphRead.Mods.InputSettings.GamepadYawRate,
+            MphRead.Mods.InputSettings.GamepadPitchRate,
+            MphRead.Mods.InputSettings.GamepadOuterBoostStart,
+            MphRead.Mods.InputSettings.GamepadOuterYawBoost,
+            MphRead.Mods.InputSettings.GamepadOuterPitchBoost,
+            MphRead.Mods.InputSettings.GamepadBoostDelaySeconds,
+            MphRead.Mods.InputSettings.GamepadBoostRampSeconds,
+            MphRead.Mods.InputSettings.GamepadTriggerPressThreshold,
+            MphRead.Mods.InputSettings.GamepadTriggerReleaseThreshold,
+            MphRead.Mods.InputSettings.GamepadHorizontalSensitivity,
+            MphRead.Mods.InputSettings.GamepadVerticalSensitivity,
+            MphRead.Mods.InputSettings.GamepadZoomMultiplier,
+            MphRead.Mods.InputSettings.GamepadOuterBoostEnabled,
+            MphRead.Mods.InputSettings.GamepadGyroEnabled,
+            MphRead.Mods.InputSettings.GamepadGyroSensitivity,
+            MphRead.Mods.InputSettings.GamepadGyroInvertX,
+            MphRead.Mods.InputSettings.GamepadGyroInvertY);
+
+    private static void SetNonGridControllerTuning()
+    {
+        MphRead.Mods.InputSettings.GamepadMoveDeadZone = .333f;
+        MphRead.Mods.InputSettings.GamepadLookDeadZone = .444f;
+        MphRead.Mods.InputSettings.GamepadOuterDeadZone = .277f;
+        MphRead.Mods.InputSettings.GamepadMoveActivateThreshold = .777f;
+        MphRead.Mods.InputSettings.GamepadMoveReleaseThreshold = .555f;
+        MphRead.Mods.InputSettings.GamepadLookExponent = 2.345f;
+        MphRead.Mods.InputSettings.GamepadYawRate = 333.5f;
+        MphRead.Mods.InputSettings.GamepadPitchRate = 444.5f;
+        MphRead.Mods.InputSettings.GamepadOuterBoostStart = .876f;
+        MphRead.Mods.InputSettings.GamepadOuterYawBoost = 777.5f;
+        MphRead.Mods.InputSettings.GamepadOuterPitchBoost = 666.5f;
+        MphRead.Mods.InputSettings.GamepadBoostDelaySeconds = .1234f;
+        MphRead.Mods.InputSettings.GamepadBoostRampSeconds = .2345f;
+        MphRead.Mods.InputSettings.GamepadTriggerPressThreshold = .876f;
+        MphRead.Mods.InputSettings.GamepadTriggerReleaseThreshold = .543f;
+        MphRead.Mods.InputSettings.GamepadHorizontalSensitivity = 1.234f;
+        MphRead.Mods.InputSettings.GamepadVerticalSensitivity = 2.345f;
+        MphRead.Mods.InputSettings.GamepadZoomMultiplier = 3.456f;
+        MphRead.Mods.InputSettings.GamepadOuterBoostEnabled = true;
+        MphRead.Mods.InputSettings.GamepadGyroEnabled = true;
+        MphRead.Mods.InputSettings.GamepadGyroSensitivity = 4.567f;
+        MphRead.Mods.InputSettings.GamepadGyroInvertX = true;
+        MphRead.Mods.InputSettings.GamepadGyroInvertY = false;
+    }
+
+    private static void SetDefaultControllerTuningWithEnabledGyro()
+    {
+        MphRead.Mods.InputSettings.GamepadMoveDeadZone = .15f;
+        MphRead.Mods.InputSettings.GamepadLookDeadZone = .10f;
+        MphRead.Mods.InputSettings.GamepadOuterDeadZone = .02f;
+        MphRead.Mods.InputSettings.GamepadMoveActivateThreshold = .25f;
+        MphRead.Mods.InputSettings.GamepadMoveReleaseThreshold = .18f;
+        MphRead.Mods.InputSettings.GamepadLookExponent = 1.60f;
+        MphRead.Mods.InputSettings.GamepadYawRate = 300;
+        MphRead.Mods.InputSettings.GamepadPitchRate = 240;
+        MphRead.Mods.InputSettings.GamepadOuterBoostStart = .95f;
+        MphRead.Mods.InputSettings.GamepadOuterYawBoost = 150;
+        MphRead.Mods.InputSettings.GamepadOuterPitchBoost = 80;
+        MphRead.Mods.InputSettings.GamepadBoostDelaySeconds = .18f;
+        MphRead.Mods.InputSettings.GamepadBoostRampSeconds = .12f;
+        MphRead.Mods.InputSettings.GamepadTriggerPressThreshold = .20f;
+        MphRead.Mods.InputSettings.GamepadTriggerReleaseThreshold = .12f;
+        MphRead.Mods.InputSettings.GamepadHorizontalSensitivity = 1f;
+        MphRead.Mods.InputSettings.GamepadVerticalSensitivity = 1f;
+        MphRead.Mods.InputSettings.GamepadZoomMultiplier = 1f;
+        MphRead.Mods.InputSettings.GamepadOuterBoostEnabled = true;
+        MphRead.Mods.InputSettings.GamepadGyroEnabled = true;
+        MphRead.Mods.InputSettings.GamepadGyroSensitivity = 1f;
+        MphRead.Mods.InputSettings.GamepadGyroInvertX = false;
+        MphRead.Mods.InputSettings.GamepadGyroInvertY = false;
+    }
+
+    private static void RestoreControllerTuning(ControllerTuningSnapshot snapshot)
+    {
+        MphRead.Mods.InputSettings.GamepadMoveDeadZone = snapshot.MoveDeadZone;
+        MphRead.Mods.InputSettings.GamepadLookDeadZone = snapshot.LookDeadZone;
+        MphRead.Mods.InputSettings.GamepadOuterDeadZone = snapshot.OuterDeadZone;
+        MphRead.Mods.InputSettings.GamepadMoveActivateThreshold
+            = snapshot.MoveActivateThreshold;
+        MphRead.Mods.InputSettings.GamepadMoveReleaseThreshold
+            = snapshot.MoveReleaseThreshold;
+        MphRead.Mods.InputSettings.GamepadLookExponent = snapshot.LookExponent;
+        MphRead.Mods.InputSettings.GamepadYawRate = snapshot.YawRate;
+        MphRead.Mods.InputSettings.GamepadPitchRate = snapshot.PitchRate;
+        MphRead.Mods.InputSettings.GamepadOuterBoostStart = snapshot.OuterBoostStart;
+        MphRead.Mods.InputSettings.GamepadOuterYawBoost = snapshot.OuterYawBoost;
+        MphRead.Mods.InputSettings.GamepadOuterPitchBoost = snapshot.OuterPitchBoost;
+        MphRead.Mods.InputSettings.GamepadBoostDelaySeconds = snapshot.BoostDelaySeconds;
+        MphRead.Mods.InputSettings.GamepadBoostRampSeconds = snapshot.BoostRampSeconds;
+        MphRead.Mods.InputSettings.GamepadTriggerPressThreshold
+            = snapshot.TriggerPressThreshold;
+        MphRead.Mods.InputSettings.GamepadTriggerReleaseThreshold
+            = snapshot.TriggerReleaseThreshold;
+        MphRead.Mods.InputSettings.GamepadHorizontalSensitivity
+            = snapshot.HorizontalSensitivity;
+        MphRead.Mods.InputSettings.GamepadVerticalSensitivity
+            = snapshot.VerticalSensitivity;
+        MphRead.Mods.InputSettings.GamepadZoomMultiplier = snapshot.ZoomMultiplier;
+        MphRead.Mods.InputSettings.GamepadOuterBoostEnabled = snapshot.OuterBoostEnabled;
+        MphRead.Mods.InputSettings.GamepadGyroEnabled = snapshot.GyroEnabled;
+        MphRead.Mods.InputSettings.GamepadGyroSensitivity = snapshot.GyroSensitivity;
+        MphRead.Mods.InputSettings.GamepadGyroInvertX = snapshot.GyroInvertX;
+        MphRead.Mods.InputSettings.GamepadGyroInvertY = snapshot.GyroInvertY;
+    }
+
+    private static T GetPrivateField<T>(SettingsView view, string name)
+        where T : class
+        => typeof(SettingsView).GetField(name,
+            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(view) as T
+            ?? throw new Xunit.Sdk.XunitException(
+                $"SettingsView field '{name}' was not available.");
+
+    private static void InvokePrivate(SettingsView view, string name)
+    {
+        MethodInfo? method = typeof(SettingsView).GetMethod(name,
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        if (method == null)
+        {
+            throw new Xunit.Sdk.XunitException(
+                $"SettingsView method '{name}' was not available.");
+        }
+        method.Invoke(view, null);
+    }
+
+    private static int NextSliderValue(SliderRow row)
+        => row.Value == 100 ? row.Value - 1 : row.Value + 1;
 
     private static SettingsView ExtractSettingsView(Control control)
         => control as SettingsView

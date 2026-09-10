@@ -5,7 +5,7 @@ using Xunit;
 
 namespace MphRead.Tests
 {
-    [Collection("Demo global state")]
+    [Collection("Replay global state")]
     public sealed class LaunchPlanTests
     {
         [Theory]
@@ -35,7 +35,7 @@ namespace MphRead.Tests
 
         [Theory]
         [InlineData(1)]
-        public void NonDemoLaunchRequiresAuthoritativeSessionBeforeLoading(int persistedValue)
+        public void NonReplayLaunchRequiresAuthoritativeSessionBeforeLoading(int persistedValue)
         {
             Assert.Null(AuthoritativePlay.Current);
             var plan = new LaunchPlan { Kind = (LaunchKind)persistedValue };

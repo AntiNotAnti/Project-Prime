@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Launcher.Gui;
 
@@ -15,15 +15,27 @@ namespace MphRead.Mods.Launcher.Gui;
 /// </summary>
 internal sealed class PlayPresentationState
 {
+    internal const int ChatHistoryLimit = 32;
+
     public PlaySubsection Subsection { get; set; } = PlaySubsection.Home;
     public int HostStep { get; set; } = 1;
     public MatchBrowserFilters Filters { get; private set; } = new();
     public MatchBrowserSort Sort { get; private set; } = MatchBrowserSort.Recommended;
     public string ChatDraft { get; private set; } = "";
+    public int ChatUnreadCount { get; private set; }
+    public double ChatScrollOffset { get; private set; }
+    public bool ChatScrollPositionKnown { get; private set; }
+    public bool ChatEditing { get; private set; }
     public HostMatchDraft HostDraft { get; } = new();
     public HostMatchDraft? EditDraft { get; private set; }
     public bool EditMatchOpen { get; set; }
     public Guid? LeaveConfirmationLobbyId { get; private set; }
+
+    // Only the cursor needed to count new entries is retained. Chat messages
+    // themselves always come from the current authoritative snapshot.
+    private Guid? _chatLobbyId;
+    private long _chatLastSequence;
+    private long _chatDraftRevision;
 
     // These are operation guards, not an offer cache.  They prevent a rebuilt
     // card or a double click from sending the same non-idempotent command
@@ -38,9 +50,119 @@ internal sealed class PlayPresentationState
 
     public void SetSort(MatchBrowserSort sort) => Sort = sort;
 
-    public void SetChatDraft(string? value) => ChatDraft = Utf8TextLimit.Truncate(value, 256);
+    public void ClearFilters() => Filters = new MatchBrowserFilters();
 
-    public void ClearChatDraft() => ChatDraft = "";
+    public void SetChatDraft(string? value)
+    {
+        string bounded = Utf8TextLimit.Truncate(value, 256);
+        if (StringComparer.Ordinal.Equals(ChatDraft, bounded)) return;
+        ChatDraft = bounded;
+        AdvanceChatDraftRevision();
+    }
+
+    public void ClearChatDraft()
+    {
+        if (ChatDraft.Length == 0) return;
+        ChatDraft = "";
+        AdvanceChatDraftRevision();
+    }
+
+    /// <summary>
+    /// Capture the submitted text and its generation before an asynchronous
+    /// send. A later acknowledgement must not clear newer typing.
+    /// </summary>
+    public ChatDraftSubmission CaptureChatDraftSubmission(string? submittedText)
+        => new(_chatDraftRevision, Utf8TextLimit.Truncate(submittedText, 256));
+
+    public bool TryAcknowledgeChatSubmission(ChatDraftSubmission submission)
+    {
+        if (String.IsNullOrEmpty(submission.Text)
+            || submission.Revision != _chatDraftRevision
+            || !StringComparer.Ordinal.Equals(submission.Text, ChatDraft))
+            return false;
+        ClearChatDraft();
+        return true;
+    }
+
+    private void AdvanceChatDraftRevision()
+        => _chatDraftRevision = _chatDraftRevision == long.MaxValue
+            ? 1 : _chatDraftRevision + 1;
+
+    public void SetChatEditing(bool editing)
+    {
+        ChatEditing = editing;
+        if (editing) ChatUnreadCount = 0;
+    }
+
+    /// <summary>
+    /// Leave the chat editor without changing its draft. The shell can call
+    /// this before handling B/Escape as route navigation, giving text editing
+    /// the first chance to consume the input.
+    /// </summary>
+    public bool TryExitChatEditing()
+    {
+        if (!ChatEditing) return false;
+        ChatEditing = false;
+        return true;
+    }
+
+    /// <summary>
+    /// Observe bounded chat history without retaining or replaying messages.
+    /// A new lobby establishes a new sequence baseline; only later entries in
+    /// the same lobby contribute to the unread indicator.
+    /// </summary>
+    public void ObserveChat(Guid lobbyId, IReadOnlyList<LobbyChatEntry> history)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        if (lobbyId == Guid.Empty)
+        {
+            ResetChatPresentation();
+            return;
+        }
+
+        long latest = 0;
+        foreach (LobbyChatEntry entry in history)
+            latest = Math.Max(latest, entry.Sequence);
+
+        if (_chatLobbyId != lobbyId)
+        {
+            _chatLobbyId = lobbyId;
+            _chatLastSequence = latest;
+            ChatUnreadCount = 0;
+            return;
+        }
+
+        int newEntries = 0;
+        foreach (LobbyChatEntry entry in history)
+        {
+            if (entry.Sequence > _chatLastSequence) newEntries++;
+        }
+        if (ChatEditing)
+            ChatUnreadCount = 0;
+        else
+            ChatUnreadCount = Math.Min(ChatHistoryLimit,
+                ChatUnreadCount + Math.Min(ChatHistoryLimit, newEntries));
+        _chatLastSequence = Math.Max(_chatLastSequence, latest);
+    }
+
+    public void MarkChatRead() => ChatUnreadCount = 0;
+
+    public void SetChatScrollOffset(double offset)
+    {
+        ChatScrollOffset = double.IsFinite(offset) ? Math.Clamp(offset, 0, 100_000) : 0;
+        ChatScrollPositionKnown = true;
+    }
+
+    /// <summary>Clear transient chat viewport state while preserving the draft.</summary>
+    public void ResetChatPresentation()
+    {
+        _chatLobbyId = null;
+        _chatLastSequence = 0;
+        ChatUnreadCount = 0;
+        ChatScrollOffset = 0;
+        ChatScrollPositionKnown = false;
+        ChatEditing = false;
+    }
 
     public void BeginEdit(LobbySnapshot lobby)
     {
@@ -131,6 +253,8 @@ internal sealed class PlayPresentationState
         }
     }
 }
+
+internal readonly record struct ChatDraftSubmission(long Revision, string Text);
 
 internal enum PlaySubsection
 {

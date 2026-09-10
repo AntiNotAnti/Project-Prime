@@ -6,19 +6,19 @@ namespace MphRead.Mods
     /// <summary>
     /// Who this is built on.
     ///
-    /// Prime Hunters is a fork of NoneGiven's MphRead, which is itself built on
+    /// Project Prime is based on NoneGiven's MphRead, which is itself built on
     /// the work of several other projects; the list below is the one in
     /// upstream's README, kept here so that it is in the program a player runs
     /// and not only in a file on GitHub. The multiplayer, the launcher and the
-    /// dedicated server are what this fork adds. Everything that makes the game
-    /// run at all is upstream's or its sources'.
+    /// dedicated server are the project's additions. Everything that makes the
+    /// game run at all is upstream's or its sources'.
     /// </summary>
     public static class Credits
     {
         public readonly record struct Entry(string Who, string What, string Where);
 
-        /// <summary>Who made this fork, as distinct from what it is a fork of.</summary>
-        public const string Author = "Livetek";
+        /// <summary>The product identity, kept separate from upstream attributions.</summary>
+        public const string Author = "Project Prime";
 
         /// <summary>What this fork adds, in one line.</summary>
         public const string ForkWork = "this fork: multiplayer and the dedicated server, "
@@ -31,10 +31,10 @@ namespace MphRead.Mods
         /// which refuses anything else and reports when there is no browser to
         /// open rather than appearing to do nothing.
         /// </summary>
-        public const string SupportUrl = "https://ko-fi.com/livetek";
+        public const string SupportUrl = "https://ko-fi.com/tterraj";
 
         public static string Summary =>
-            $"{Branding.Name} is {Author}'s fork of {Branding.Upstream} by NoneGiven.";
+            $"{Branding.Name} is a multiplayer-focused rebuild of Metroid Prime Hunters.";
 
         /// <summary>
         /// The attribution as a corner of a screen can carry it: the fork, and
@@ -72,6 +72,8 @@ namespace MphRead.Mods
             new Entry("NoneGiven", "MphRead: the model viewer, scene renderer, "
                 + "format parsers and gameplay recreation this is built on",
                 "https://github.com/NoneGiven/MphRead"),
+            new Entry("LiveTek", "creator of the project this work grew from", ""),
+            new Entry("FruityPrime", "the predecessor project and multiplayer foundation", ""),
             new Entry("dsgraph", "the original MPH model viewer, on which all "
                 + "other projects are built", ""),
             new Entry("Chemical", "documentation of the model format",

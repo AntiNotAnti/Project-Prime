@@ -1,6 +1,6 @@
 using System;
 using System.Globalization;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Launcher.Gui;
 
@@ -29,6 +29,7 @@ internal sealed class HostMatchDraft
     public bool? AffinityWeapons { get; set; }
     public bool? PlayerRadar { get; set; }
     public bool? OctolithReset { get; set; }
+    public KillcamPolicy? KillcamPolicy { get; set; }
 
     public static HostMatchDraft FromLobby(LobbySnapshot lobby)
     {
@@ -52,7 +53,8 @@ internal sealed class HostMatchDraft
             FriendlyFire = rules.FriendlyFire,
             AffinityWeapons = rules.AffinityWeapons,
             PlayerRadar = rules.PlayerRadar,
-            OctolithReset = rules.OctolithReset
+            OctolithReset = rules.OctolithReset,
+            KillcamPolicy = rules.KillcamPolicy
         };
     }
 
@@ -101,7 +103,7 @@ internal sealed class HostMatchDraft
         try
         {
             rules = new LobbyRulesOptions(time, score, lives, objective, DamageLevel,
-                FriendlyFire, AffinityWeapons, PlayerRadar, OctolithReset).ForMode(Mode);
+                FriendlyFire, AffinityWeapons, PlayerRadar, OctolithReset, KillcamPolicy).ForMode(Mode);
             error = "";
             return true;
         }

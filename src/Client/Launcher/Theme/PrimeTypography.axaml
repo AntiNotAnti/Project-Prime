@@ -7,27 +7,27 @@
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-route-context">
-    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontSize" Value="12" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="LetterSpacing" Value="0.8" />
+    <Setter Property="LetterSpacing" Value="0.35" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeAccentBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-account">
-    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontSize" Value="13" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-status-text">
-    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="LetterSpacing" Value="0.55" />
+    <Setter Property="LetterSpacing" Value="0.35" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeAccentBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-online-text">
-    <Setter Property="FontSize" Value="9" />
+    <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="LetterSpacing" Value="0.75" />
-    <Setter Property="Foreground" Value="{DynamicResource PrimeAccentBrush}" />
+    <Setter Property="LetterSpacing" Value="0.45" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeSuccessBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-kicker">
     <Setter Property="FontSize" Value="11" />
@@ -36,13 +36,13 @@
     <Setter Property="Foreground" Value="{DynamicResource PrimeAccentBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-title">
-    <Setter Property="FontSize" Value="25" />
+    <Setter Property="FontSize" Value="26" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="LetterSpacing" Value="0.8" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-heading">
-    <Setter Property="FontSize" Value="17" />
+    <Setter Property="FontSize" Value="19" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="LetterSpacing" Value="0.35" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
@@ -70,17 +70,17 @@
   <Style Selector="TextBlock.prime-stat-value">
     <Setter Property="FontSize" Value="22" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="{DynamicResource PrimeAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-system">
-    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="LetterSpacing" Value="0.9" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextDimBrush}" />
   </Style>
 
-  <!-- Explicit P5 scale for new views. The existing classes above are kept so
-       older shell pages do not shift merely because the shared theme grew. -->
+  <!-- Explicit semantic scale for new views. The existing classes above stay
+       available so routes can migrate without renaming their style contract. -->
   <Style Selector="TextBlock.prime-hero">
     <Setter Property="FontSize" Value="30" />
     <Setter Property="FontWeight" Value="SemiBold" />

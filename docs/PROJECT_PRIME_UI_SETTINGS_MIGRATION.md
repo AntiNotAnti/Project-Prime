@@ -350,8 +350,9 @@ Preferred-region choices are not a hard-coded list. The launcher always offers
 `Automatic`, adds valid region IDs observed from the current bounded directory
 refresh, and retains a valid persisted ID even when that ID is not currently
 advertised. Invalid, empty, control-containing, or overlong IDs are ignored;
-the observed set is capped at 128. The client does not invent labels for an
-unseen region.
+the observed set is capped at 128. Settings keeps each canonical ID separate
+from its friendly presentation label: known IDs use stable labels and an
+unrecognized ID is shown as `Unknown (id)` without changing the persisted ID.
 
 ## Account/backend state is not local settings state
 
@@ -359,9 +360,11 @@ Authenticated profile values are owned by the Backend and PostgreSQL:
 `PlayerProfile.DisplayName` and `PlayerProfile.FavoriteHunter` are updated by
 `ProfileEndpoints` and read through the account license. The authenticated
 display name is the identity used for Node admission. `LauncherPrefs.PlayerName`
-is a local guest/display-name preference and is synchronized from the license
-after a signed-in identity is restored; it is not a second authenticated
-identity authority.
+is a local guest/display-name preference and is never overwritten when a
+signed-in identity is restored; it is not a second authenticated identity
+authority. `SettingsView` receives an immutable identity presentation snapshot
+so authenticated Settings shows the account name and Hunter Profile action,
+while guest/signed-out Settings shows only the scoped local guest name.
 
 Guest admission is explicit. A failed sign-in or restore does not silently
 select guest mode. A guest display name is not an account identity, an
@@ -488,6 +491,9 @@ The focused source/tests associated with this contract are:
 
 * `tests/Tests/Client/SettingsRegistryTests.cs` and
   `tests/Tests/Client/SettingsResetTests.cs`
+* `tests/Tests/Client/ControllerCapabilityTests.cs` and the capability/identity
+  cases in `tests/Tests/Client/UiCaptureFixtureTests.cs` and
+  `tests/Tests/Client/PrimeShellControllerTests.cs`
 * `tests/Server.Shared.Tests/LobbyRulesContractTests.cs` and
   `tests/Server.Node.Tests/LobbyRulesTests.cs`
 * `tests/Server.Node.Tests/ControlCodecTests.cs`

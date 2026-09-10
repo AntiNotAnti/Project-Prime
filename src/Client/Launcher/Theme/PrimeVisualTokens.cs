@@ -24,6 +24,7 @@ public static class PrimeVisualTokens
 {
     public const string BackgroundBrush = "PrimeBackgroundBrush";
     public const string PrimarySurfaceBrush = "PrimePrimarySurfaceBrush";
+    public const string RaisedSurfaceBrush = "PrimeSurfaceRaisedBrush";
     public const string SecondarySurfaceBrush = "PrimeSecondarySurfaceBrush";
     public const string InteractiveSurfaceBrush = "PrimeInteractiveSurfaceBrush";
     public const string SelectedSurfaceBrush = "PrimeSelectedSurfaceBrush";
@@ -50,6 +51,7 @@ public static class PrimeVisualTokens
         {
             BackgroundBrush,
             PrimarySurfaceBrush,
+            RaisedSurfaceBrush,
             SecondarySurfaceBrush,
             InteractiveSurfaceBrush,
             SelectedSurfaceBrush,

@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Mods.Launcher.Gui;
+using MphRead.Mods.Launcher;
 using Xunit;
 
 namespace MphRead.Tests;
@@ -61,12 +62,14 @@ public sealed class PlayPresentationStateTests
             Mode = MatchMode.Survival,
             TimeLimitText = "10:00",
             StartingLivesText = "4",
-            ScoreGoalText = "not applicable"
+            ScoreGoalText = "not applicable",
+            KillcamPolicy = KillcamPolicy.Disabled
         };
         Assert.True(draft.TryBuildRules(out LobbyRulesOptions rules, out string error), error);
         Assert.Equal(600, rules.TimeLimitSeconds);
         Assert.Equal(4, rules.StartingLives);
         Assert.Null(rules.ScoreGoal);
+        Assert.Equal(KillcamPolicy.Disabled, rules.KillcamPolicy);
 
         draft.Mode = MatchMode.Defender;
         draft.ObjectiveTimeGoalText = "120";
@@ -94,6 +97,114 @@ public sealed class PlayPresentationStateTests
         ui.ObserveOffer(second);
         Assert.True(ui.TryBeginOfferAction(second));
         Assert.False(ui.TryBeginOfferAction(Guid.Empty));
+    }
+
+    [Fact]
+    public void ClearFiltersRemovesOnlyTheBoundedBrowserFilters()
+    {
+        var ui = new PlayPresentationState();
+        ui.SetFilters(new MatchBrowserFilters(Mode: MatchMode.TeamBattle,
+            MapKey: "MP1 SANCTORUS", OpenPlayerSlotsOnly: true,
+            SpectatableOnly: true, HideFull: true));
+        ui.SetSort(MatchBrowserSort.Name);
+
+        ui.ClearFilters();
+
+        Assert.Equal(new MatchBrowserFilters(), ui.Filters);
+        Assert.Equal(MatchBrowserSort.Name, ui.Sort);
+    }
+
+    [Fact]
+    public void ChatPresentationPreservesDraftAndBoundsUnreadAndScrollState()
+    {
+        var ui = new PlayPresentationState();
+        Guid lobbyId = Guid.NewGuid();
+        LobbyChatEntry[] initial = { Chat(1) };
+        LobbyChatEntry[] history = Enumerable.Range(1, 50).Select(sequence => Chat(sequence)).ToArray();
+
+        ui.SetChatDraft("typed draft");
+        ui.ObserveChat(lobbyId, initial);
+        ui.ObserveChat(lobbyId, history);
+        Assert.Equal(PlayPresentationState.ChatHistoryLimit, ui.ChatUnreadCount);
+        ui.ObserveChat(lobbyId, history);
+        Assert.Equal(PlayPresentationState.ChatHistoryLimit, ui.ChatUnreadCount);
+
+        ui.SetChatScrollOffset(double.NaN);
+        Assert.Equal(0, ui.ChatScrollOffset);
+        ui.SetChatScrollOffset(1_000_000);
+        Assert.Equal(100_000, ui.ChatScrollOffset);
+        Assert.True(ui.ChatScrollPositionKnown);
+
+        ui.SetChatEditing(true);
+        Assert.Equal(0, ui.ChatUnreadCount);
+        Assert.True(ui.TryExitChatEditing());
+        Assert.False(ui.TryExitChatEditing());
+        Assert.Equal("typed draft", ui.ChatDraft);
+
+        ui.ResetChatPresentation();
+        Assert.Equal("typed draft", ui.ChatDraft);
+        Assert.Equal(0, ui.ChatUnreadCount);
+    }
+
+    [Fact]
+    public void PlayerFacingReadinessReasonOmitsInternalResetTerminology()
+    {
+        string message = PlayPresentation.PlayerFacingEligibilityMessage(
+            new LobbyStartEligibility(false,
+                "All players must be Ready. Changing settings resets readiness."));
+
+        Assert.Equal("Waiting for every player to ready.", message);
+        Assert.DoesNotContain("reset", message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("revision", message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void NetworkAndSeatOfferLabelsStayPlayerFacing()
+    {
+        Assert.Equal("Automatic", PlayPresentation.PreferredRegionLabel("  "));
+        Assert.Equal("Europe", PlayPresentation.PreferredRegionLabel(" eu-west "));
+        Assert.Equal("Unknown (eu-central)", PlayPresentation.PreferredRegionLabel(" eu-central "));
+        Assert.Equal("Offer expires in 0:12", SeatOfferCard.FormatCountdown(12));
+        Assert.Equal("Offer expires in 1:00", SeatOfferCard.FormatCountdown(60));
+        Assert.Equal("Offer expired", SeatOfferCard.FormatCountdown(0));
+        Assert.Equal("Immediate seat", PrimeMatchCard.SeatPolicyLabel(LobbySeatPolicy.ImmediateSeat));
+    }
+
+    [Fact]
+    public async Task DelayedChatSuccessAcknowledgesOnlyTheSubmittedDraftGeneration()
+    {
+        var ui = new PlayPresentationState();
+        var posted = new List<Action>();
+        int refreshes = 0;
+        ui.SetChatDraft("first message");
+        var send = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Task operation = PlayPresentation.ExecuteChatSendAsync(ui, "first message",
+            () => send.Task, posted.Add, () => refreshes++);
+        ui.SetChatDraft("newer typing");
+        send.SetResult();
+        await operation;
+
+        Assert.Single(posted);
+        Assert.Equal("newer typing", ui.ChatDraft);
+        posted[0]();
+        Assert.Equal("newer typing", ui.ChatDraft);
+        Assert.Equal(1, refreshes);
+
+        ui.SetChatDraft("stable message");
+        posted.Clear();
+        refreshes = 0;
+        var secondSend = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task secondOperation = PlayPresentation.ExecuteChatSendAsync(ui, "stable message",
+            () => secondSend.Task, posted.Add, () => refreshes++);
+        // A normal authoritative rebuild preserves the bounded draft and its
+        // generation while the request is still in flight.
+        ui.ResetChatPresentation();
+        secondSend.SetResult();
+        await secondOperation;
+        posted[0]();
+        Assert.Equal("", ui.ChatDraft);
+        Assert.Equal(1, refreshes);
     }
 
     [Fact]
@@ -215,4 +326,7 @@ public sealed class PlayPresentationStateTests
         int playerLimit, int observers, int observerLimit)
         => new(Guid.NewGuid(), name, LobbyPhase.Open, players, playerLimit, observers, 1,
             ObserverLimit: observerLimit, MapKey: "MP1 SANCTORUS", Mode: mode);
+
+    private static LobbyChatEntry Chat(long sequence)
+        => new(sequence, Guid.NewGuid(), "Pilot", $"Message {sequence}");
 }

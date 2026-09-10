@@ -8,13 +8,13 @@ Basics
 on the left, the things you can do on the right. Everything that is not a
 per-session choice lives in the settings window, which is one of the entries and
 is also what the pause menu opens mid-match. The front screen starts multiplayer
-sessions and recorded demos; it has no Adventure/save-slot or offline/bot entry.
+sessions and recorded replays; it has no Adventure/save-slot or offline/bot entry.
 
 | Entry | What it does |
 |---|---|
 | Host | choose a multiplayer room, match type and hunter; the GUI asks the directory to run the match. **See every map** opens the picture grid |
 | Join | browse listed servers or enter `host` or `host:port`, with a live line saying what the server is running |
-| Demos | choose or import a `.fpdemo` recording and replay it |
+| Replays | choose or import a `.fpreplay` recording and replay it |
 | Settings | display, audio, controls, match rules, profile, credits, and game files |
 | Game files | where the .nds goes. Shown first, before the other launcher entries become available, when there is nothing set up yet |
 | Quit | close the launcher |

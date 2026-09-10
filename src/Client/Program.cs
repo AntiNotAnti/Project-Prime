@@ -138,7 +138,7 @@ namespace MphRead
             if (!File.Exists("paths.txt"))
             {
                 Console.WriteLine("Could not find the paths.txt file.");
-                Console.WriteLine($"Perform first-time setup by passing a ROM path to FruityPrimeTools.");
+                Console.WriteLine($"Perform first-time setup by passing a ROM path to ProjectPrimeTools.");
                 Console.WriteLine();
                 Console.WriteLine("Press any key to exit...");
                 Console.ReadKey();
@@ -276,7 +276,7 @@ namespace MphRead
             Console.WriteLine("At most one room may be specified. Any number of models may be specified.");
             Console.WriteLine("To load First Hunt models, include -fh in the argument list.");
             Console.WriteLine("Available room inspection options: -node, -entity");
-            Console.WriteLine("Asset extraction/export commands are available in FruityPrimeTools.");
+            Console.WriteLine("Asset extraction/export commands are available in ProjectPrimeTools.");
             Environment.Exit(1);
         }
 

@@ -134,14 +134,14 @@ namespace MphRead.Mods.Launcher.Gui
             _view.RejoinRequested += (_, _) => { SpectatorMode.Rejoin(_scene); Close(); };
             _view.RecordToggleRequested += (_, _) =>
             {
-                if (DemoRecorder.IsRecording)
+                if (ReplayRecorder.IsRecording)
                 {
-                    Console.WriteLine($"[demo] recording saved to {DemoRecorder.CurrentPath}");
-                    DemoRecorder.Stop();
+                    Console.WriteLine($"[replay] recording saved to {ReplayRecorder.CurrentPath}");
+                    ReplayRecorder.Stop();
                 }
                 else
                 {
-                    DemoRecorder.Start();
+                    ReplayRecorder.Start();
                 }
                 Close();
             };

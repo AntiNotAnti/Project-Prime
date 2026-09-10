@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Mods.Launcher;
 
 namespace MphRead.Mods.Launcher.Gui;
@@ -22,7 +22,7 @@ public sealed record PostMatchScoreRow(
     int Rank,
     int Slot,
     string Name,
-    Hunter Hunter,
+    Hunter? Hunter,
     int TeamIndex,
     int Score,
     int Kills,
@@ -35,7 +35,8 @@ public sealed record PostMatchScoreRow(
     bool IsLocal,
     bool IsBot,
     int Standing,
-    int TeamStanding);
+    int TeamStanding,
+    bool HasDetailedStats = true);
 
 /// <summary>
 /// Presentation projection of an immutable match result. It deliberately has
@@ -258,7 +259,8 @@ public static class PostMatchResultsBuilder
         if (snapshot == null)
             return new PostMatchResultsModel();
 
-        MatchResult result = snapshot.Result;
+        if (snapshot.Result is not { } result)
+            return BuildCompletion(snapshot);
         var rows = ImmutableArray.CreateBuilder<PostMatchScoreRow>();
         var seen = new HashSet<int>();
         ImmutableArray<int> slots = result.ResultSlots.IsDefault
@@ -299,6 +301,65 @@ public static class PostMatchResultsBuilder
             LocalSlot = resolvedLocalSlot,
             HasAuthoritativeResult = true
         };
+    }
+
+    private static PostMatchResultsModel BuildCompletion(MatchResultsSnapshot snapshot)
+    {
+        if (snapshot.Completion is not { } completion)
+            return new PostMatchResultsModel();
+
+        MatchMode mode = snapshot.Mode.ToMatchMode();
+        var rows = ImmutableArray.CreateBuilder<PostMatchScoreRow>();
+        foreach (PlayerOutcomeSummary player in completion.Players
+            .OrderBy(player => player.Standing)
+            .ThenBy(player => player.TeamStanding)
+            .ThenBy(player => player.ParticipantId)
+            .Take(8))
+        {
+            bool local = player.PlayerId is { } playerId && playerId == snapshot.LocalPlayerId
+                || player.GuestSessionId is { } guestId && guestId == snapshot.LocalGuestSessionId;
+            rows.Add(new PostMatchScoreRow(
+                player.Standing is >= 0 and < 8 ? player.Standing + 1 : rows.Count + 1,
+                player.Slot ?? -1, player.DisplayName, player.Hunter, player.TeamIndex ?? -1,
+                player.Points, player.Kills, player.Deaths, 0, 0, 0, 0,
+                "Recovered from the Node's immutable Worker result", local,
+                player.Kind == MphRead.Identity.ParticipantKind.Bot,
+                player.Standing, player.TeamStanding, HasDetailedStats: false));
+        }
+
+        ImmutableArray<PostMatchScoreRow> scoreboard = rows.ToImmutable();
+        PostMatchOutcome outcome = ResolveCompletionOutcome(scoreboard, mode);
+        return new PostMatchResultsModel
+        {
+            MapKey = snapshot.MapKey,
+            Mode = mode,
+            ModeLabel = PostMatchBallotModel.ModeLabel(mode),
+            Outcome = outcome,
+            OutcomeLabel = OutcomeLabel(outcome, hasResult: true),
+            EndReasonLabel = EndReasonLabel(completion.EndReason),
+            Scoreboard = scoreboard,
+            ActivePlayers = completion.Players.Count(player => player.Outcome == MphRead.Identity.ParticipantOutcome.Finished),
+            LocalSlot = scoreboard.FirstOrDefault(player => player.IsLocal)?.Slot is >= 0 and <= 7 ?
+                scoreboard.First(player => player.IsLocal).Slot : null,
+            HasAuthoritativeResult = true
+        };
+    }
+
+    private static PostMatchOutcome ResolveCompletionOutcome(
+        ImmutableArray<PostMatchScoreRow> rows, MatchMode mode)
+    {
+        PostMatchScoreRow? local = rows.FirstOrDefault(row => row.IsLocal);
+        if (local == null || rows.IsEmpty) return PostMatchOutcome.Unknown;
+        int best = mode.IsTeamMode()
+            ? rows.Min(row => row.Standing)
+            : rows.Min(row => row.Standing);
+        int localStanding = local.Standing;
+        if (localStanding < 0 || best < 0) return PostMatchOutcome.Unknown;
+        if (localStanding > best) return PostMatchOutcome.Defeat;
+        int tied = mode.IsTeamMode()
+            ? rows.Where(row => row.Standing == best).Select(row => row.TeamIndex).Distinct().Count()
+            : rows.Count(row => row.Standing == best);
+        return tied > 1 ? PostMatchOutcome.Draw : PostMatchOutcome.Victory;
     }
 
     public static string OutcomeLabel(PostMatchOutcome outcome, bool hasResult)
