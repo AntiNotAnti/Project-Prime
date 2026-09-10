@@ -78,4 +78,27 @@
     <Setter Property="LetterSpacing" Value="0.9" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextDimBrush}" />
   </Style>
+
+  <!-- Explicit P5 scale for new views. The existing classes above are kept so
+       older shell pages do not shift merely because the shared theme grew. -->
+  <Style Selector="TextBlock.prime-hero">
+    <Setter Property="FontSize" Value="30" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-section-heading">
+    <Setter Property="FontSize" Value="19" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-button-label">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-telemetry">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="LetterSpacing" Value="0.45" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextDimBrush}" />
+  </Style>
 </Styles>

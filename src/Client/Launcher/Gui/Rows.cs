@@ -67,6 +67,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         public event EventHandler? Changed;
 
+        static ChoiceRow()
+        {
+            AffectsRender<ChoiceRow>(IsEnabledProperty);
+        }
+
         public int Index
         {
             get => _index;
@@ -187,6 +192,10 @@ namespace MphRead.Mods.Launcher.Gui
 
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
             Focus();
             Point p = e.GetPosition(this);
             // Anywhere that is not the back arrow steps forward, so the row can
@@ -204,6 +213,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
+            if (!IsEnabled)
+            {
+                base.OnKeyDown(e);
+                return;
+            }
             if (e.Key == Key.Left)
             {
                 Step(-1);
@@ -221,7 +235,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void Step(int direction)
         {
-            if (_options.Count == 0)
+            if (!IsEnabled || _options.Count == 0)
             {
                 return;
             }
@@ -245,14 +259,17 @@ namespace MphRead.Mods.Launcher.Gui
                 context.FillRectangle(GuiTheme.PanelLightBrush,
                     new Rect(0, 0, Bounds.Width, Bounds.Height), 4);
             }
+            IBrush text = IsEnabled ? GuiTheme.TextDimBrush
+                : new SolidColorBrush(Color.FromRgb(70, 76, 90));
             var label = new FormattedText(_label, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, GuiTheme.Face(false), 13, GuiTheme.TextDimBrush);
+                FlowDirection.LeftToRight, GuiTheme.Face(false), 13, text);
             context.DrawText(label, new Point(4, (Bounds.Height - label.Height) / 2));
 
             // The value lives in the fixed column between the arrows, and is
             // trimmed to it rather than pushing them apart.
             var value = new FormattedText(Value, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, GuiTheme.Face(true), 13, GuiTheme.TextBrush);
+                FlowDirection.LeftToRight, GuiTheme.Face(true), 13,
+                IsEnabled ? GuiTheme.TextBrush : text);
             Rect left = LeftArrow;
             double room = RightArrow.X - left.Right - 8;
             if (value.Width > room)
@@ -264,8 +281,8 @@ namespace MphRead.Mods.Launcher.Gui
             context.DrawText(value, new Point(centre - value.Width / 2,
                 (Bounds.Height - value.Height) / 2));
 
-            Arrow(context, left, pointsLeft: true, _leftHot);
-            Arrow(context, RightArrow, pointsLeft: false, _rightHot);
+            Arrow(context, left, pointsLeft: true, IsEnabled && _leftHot);
+            Arrow(context, RightArrow, pointsLeft: false, IsEnabled && _rightHot);
             if (_preview != null)
             {
                 const double inset = 3;
@@ -310,6 +327,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         public event EventHandler? Changed;
 
+        static ToggleRow()
+        {
+            AffectsRender<ToggleRow>(IsEnabledProperty);
+        }
+
         public bool On
         {
             get => _on;
@@ -335,6 +357,10 @@ namespace MphRead.Mods.Launcher.Gui
 
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
             Focus();
             On = !On;
             base.OnPointerPressed(e);
@@ -342,6 +368,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
+            if (!IsEnabled)
+            {
+                base.OnKeyDown(e);
+                return;
+            }
             if (e.Key == Key.Enter || e.Key == Key.Space
                 || e.Key == Key.Left || e.Key == Key.Right)
             {
@@ -352,8 +383,14 @@ namespace MphRead.Mods.Launcher.Gui
             base.OnKeyDown(e);
         }
 
-        void IControllerNavigable.ControllerActivate() => On = !On;
-        void IControllerNavigable.ControllerAdjust(int direction) => On = !On;
+        void IControllerNavigable.ControllerActivate()
+        {
+            if (IsEnabled) On = !On;
+        }
+        void IControllerNavigable.ControllerAdjust(int direction)
+        {
+            if (IsEnabled) On = !On;
+        }
 
         public override void Render(DrawingContext context)
         {
@@ -365,18 +402,22 @@ namespace MphRead.Mods.Launcher.Gui
                 context.FillRectangle(GuiTheme.PanelLightBrush,
                     new Rect(0, 0, Bounds.Width, Bounds.Height), 4);
             }
+            IBrush text = IsEnabled ? GuiTheme.TextDimBrush
+                : new SolidColorBrush(Color.FromRgb(70, 76, 90));
             var label = new FormattedText(_label, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, GuiTheme.Face(false), 13, GuiTheme.TextDimBrush);
+                FlowDirection.LeftToRight, GuiTheme.Face(false), 13, text);
             context.DrawText(label, new Point(4, (Bounds.Height - label.Height) / 2));
 
             const double w = 40;
             const double h = 20;
             var track = new Rect(Bounds.Width - w - 4, (Bounds.Height - h) / 2, w, h);
             context.DrawRectangle(
-                new SolidColorBrush(_on ? GuiTheme.Accent : GuiTheme.Edge), null,
+                new SolidColorBrush(!IsEnabled ? Color.FromRgb(70, 76, 90)
+                    : _on ? GuiTheme.Accent : GuiTheme.Edge), null,
                 new RoundedRect(track, h / 2));
             double knob = _on ? track.Right - h / 2 : track.X + h / 2;
-            context.DrawEllipse(new SolidColorBrush(_on ? GuiTheme.Ink : GuiTheme.TextDim),
+            context.DrawEllipse(new SolidColorBrush(!IsEnabled ? Color.FromRgb(120, 126, 140)
+                : _on ? GuiTheme.Ink : GuiTheme.TextDim),
                 null, new Point(knob, track.Y + h / 2), h / 2 - 3, h / 2 - 3);
         }
     }

@@ -24,7 +24,9 @@ namespace MphRead.Mods.Launcher.Gui
     /// </summary>
     internal sealed class KeyRow : Control
     {
-        private readonly PropertyInfo _property;
+        private readonly string _label;
+        private readonly Func<Keybind> _binding;
+        private readonly Action<ButtonType, GlfwKeys, GlfwMouse> _rebind;
         private readonly double _labelWidth;
         private bool _listening;
         private bool _hot;
@@ -33,7 +35,27 @@ namespace MphRead.Mods.Launcher.Gui
 
         public KeyRow(PropertyInfo property, double labelWidth = 160)
         {
-            _property = property;
+            _label = InputSettings.ActionName(property);
+            _binding = () => InputSettings.Bind(property);
+            _rebind = (type, key, button) => InputSettings.Rebind(property, type, key, button);
+            _labelWidth = labelWidth;
+            Height = 32;
+            Focusable = true;
+            Cursor = new Cursor(StandardCursorType.Hand);
+        }
+
+        /// <summary>
+        /// Build a key row backed by a setting that is not a
+        /// <see cref="ClientPlayerBindings"/> property. Chat is handled by
+        /// the shell before player input, so it intentionally uses this path
+        /// and never becomes a fake gameplay binding.
+        /// </summary>
+        public KeyRow(string label, Func<Keybind> binding,
+            Action<ButtonType, GlfwKeys, GlfwMouse> rebind, double labelWidth = 160)
+        {
+            _label = label;
+            _binding = binding;
+            _rebind = rebind;
             _labelWidth = labelWidth;
             Height = 32;
             Focusable = true;
@@ -70,7 +92,7 @@ namespace MphRead.Mods.Launcher.Gui
             };
             if (button != null)
             {
-                InputSettings.Rebind(_property, ButtonType.Mouse, GlfwKeys.Unknown, button.Value);
+                _rebind(ButtonType.Mouse, GlfwKeys.Unknown, button.Value);
                 Done();
             }
             e.Handled = true;
@@ -81,7 +103,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (_listening && e.Delta.Y != 0)
             {
-                InputSettings.Rebind(_property,
+                _rebind(
                     e.Delta.Y > 0 ? ButtonType.ScrollUp : ButtonType.ScrollDown,
                     GlfwKeys.Unknown, GlfwMouse.Left);
                 Done();
@@ -127,14 +149,14 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (e.Key == Key.Back || e.Key == Key.Delete)
             {
-                InputSettings.Rebind(_property, ButtonType.Key, GlfwKeys.Unknown, GlfwMouse.Left);
+                _rebind(ButtonType.Key, GlfwKeys.Unknown, GlfwMouse.Left);
                 Done();
                 return;
             }
             GlfwKeys? key = Translate(e.Key);
             if (key != null)
             {
-                InputSettings.Rebind(_property, ButtonType.Key, key.Value, GlfwMouse.Left);
+                _rebind(ButtonType.Key, key.Value, GlfwMouse.Left);
                 Done();
             }
         }
@@ -223,7 +245,7 @@ namespace MphRead.Mods.Launcher.Gui
             // See MenuEntry.Render: hit testing follows the drawing.
             context.FillRectangle(Brushes.Transparent,
                 new Rect(0, 0, Bounds.Width, Bounds.Height));
-            FormattedText label = TrackedText.Make(InputSettings.ActionName(_property), 12,
+            FormattedText label = TrackedText.Make(_label, 12,
                 bold: true, GuiTheme.TextBrush);
             context.DrawText(label, new Point(4, (Bounds.Height - label.Height) / 2));
 
@@ -235,7 +257,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             string text = _listening
                 ? "press a key, a mouse button or the wheel"
-                : InputSettings.Describe(InputSettings.Bind(_property));
+                : InputSettings.Describe(_binding());
             FormattedText value = TrackedText.Make(text, 12, bold: true,
                 new SolidColorBrush(_listening ? GuiTheme.Warm : GuiTheme.Text));
             // Never wider than the box: a binding nobody has heard of should

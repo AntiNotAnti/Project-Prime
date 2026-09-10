@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using MphRead.Mods;
@@ -48,6 +49,93 @@ namespace MphRead.Mods.Launcher
         /// to Automatic; the legacy auto_update key is migrated once below.
         /// </summary>
         public static UpdatePolicy UpdatePolicy { get; set; } = UpdatePolicy.Automatic;
+
+        /// <summary>
+        /// The process-known region IDs available to the launcher when it
+        /// chooses a Node. Directory refreshes add the exact IDs advertised by
+        /// the Node; the persisted nonautomatic ID remains available even when
+        /// it is not currently observed. The launcher never invents display
+        /// labels for regions it has not seen.
+        /// </summary>
+        public static IReadOnlyList<string> PreferredRegionChoices
+        {
+            get
+            {
+                lock (_preferredRegionGate)
+                {
+                    var choices = new List<string>(_observedPreferredRegions.Count + 1)
+                    {
+                        "Automatic"
+                    };
+                    var regionChoices = new SortedSet<string>(_observedPreferredRegions,
+                        StringComparer.Ordinal);
+                    if (_preferredRegion != "Automatic" && IsValidPreferredRegion(_preferredRegion))
+                    {
+                        regionChoices.Add(_preferredRegion);
+                    }
+                    choices.AddRange(regionChoices);
+                    return choices.AsReadOnly();
+                }
+            }
+        }
+
+        private const int MaxPreferredRegionLength = 32;
+        internal const int MaxObservedPreferredRegions = 128;
+        private static readonly object _preferredRegionGate = new();
+        private static readonly SortedSet<string> _observedPreferredRegions
+            = new(StringComparer.Ordinal);
+        private static string _preferredRegion = "Automatic";
+
+        public static string PreferredRegion
+        {
+            get
+            {
+                lock (_preferredRegionGate)
+                {
+                    return _preferredRegion;
+                }
+            }
+            set
+            {
+                string normalized = NormalizePreferredRegion(value);
+                lock (_preferredRegionGate)
+                {
+                    _preferredRegion = normalized;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Add exact region IDs advertised by the current directory refresh.
+        /// Invalid, empty, control-containing, and overlong values are ignored
+        /// so a malformed Node response cannot grow the settings list without
+        /// bound. "Automatic" is the local no-match sentinel, not a Node ID.
+        /// </summary>
+        public static void ObservePreferredRegions(IEnumerable<string> regions)
+        {
+            ArgumentNullException.ThrowIfNull(regions);
+            lock (_preferredRegionGate)
+            {
+                // Each directory refresh is authoritative. Keep only the
+                // valid IDs from this result, retaining the lexicographically
+                // first bounded subset so enumeration order cannot affect the
+                // menu presented to the player.
+                var observed = new SortedSet<string>(StringComparer.Ordinal);
+                foreach (string region in regions)
+                {
+                    if (IsValidPreferredRegion(region))
+                    {
+                        observed.Add(region);
+                        if (observed.Count > MaxObservedPreferredRegions)
+                        {
+                            observed.Remove(observed.Max!);
+                        }
+                    }
+                }
+                _observedPreferredRegions.Clear();
+                _observedPreferredRegions.UnionWith(observed);
+            }
+        }
 
         /// <summary>
         /// Compatibility shim for older launcher surfaces. New code should use
@@ -104,6 +192,9 @@ namespace MphRead.Mods.Launcher
             AnnouncerPack = null;
             MusicPack = null;
             UpdatePolicy = UpdatePolicy.Automatic;
+            PreferredRegion = "Automatic";
+            DebugLogs = false;
+            ReducedMotion = false;
             if (!File.Exists(Path))
             {
                 return;
@@ -181,6 +272,9 @@ namespace MphRead.Mods.Launcher
                                 policyRead = true;
                             }
                             break;
+                        case "preferred_region":
+                            PreferredRegion = value;
+                            break;
                         case "debug_logs":
                             if (Boolean.TryParse(value, out bool debugLogs))
                             {
@@ -232,28 +326,82 @@ namespace MphRead.Mods.Launcher
         {
             try
             {
-                File.WriteAllLines(Path, new[]
-                {
-                    $"# {Branding.Name} launcher preferences.",
-                    $"backend_address={BackendAddress}",
-                    $"last_role={LastRole.ToString(CultureInfo.InvariantCulture)}",
-                    $"player_name={PlayerName}",
-                    $"hunter={LastHunter}",
-                    $"bots={Bots.ToString(CultureInfo.InvariantCulture)}",
-                    $"bot_level={BotLevel.ToString(CultureInfo.InvariantCulture)}",
-                    $"last_kind={LastKind.ToString(CultureInfo.InvariantCulture)}",
-                    $"update_policy={UpdatePolicy}",
-                    $"debug_logs={DebugLogs.ToString().ToLowerInvariant()}",
-                    $"reduced_motion={ReducedMotion.ToString().ToLowerInvariant()}",
-                    $"announcer_pack={OptionalContentPreferenceCodec.Encode(AnnouncerPack)}",
-                    $"music_pack={OptionalContentPreferenceCodec.Encode(MusicPack)}",
-                    $"window_mode={(WindowMode == WindowStartMode.BorderlessFullscreen ? "borderless" : "windowed")}"
-                });
+                File.WriteAllLines(Path, GetSaveLines());
             }
             catch (Exception)
             {
                 // Same rationale as Load: never block launching over this.
             }
+        }
+
+        /// <summary>
+        /// Serialize launcher preferences without touching the filesystem.
+        /// Keeping this seam beside <see cref="Save"/> makes migration and
+        /// finite-choice persistence testable without changing the user's
+        /// actual launcher file.
+        /// </summary>
+        public static IReadOnlyList<string> GetSaveLines()
+        {
+            return new[]
+            {
+                $"# {Branding.Name} launcher preferences.",
+                $"backend_address={BackendAddress}",
+                $"last_role={LastRole.ToString(CultureInfo.InvariantCulture)}",
+                $"player_name={PlayerName}",
+                $"hunter={LastHunter}",
+                $"bots={Bots.ToString(CultureInfo.InvariantCulture)}",
+                $"bot_level={BotLevel.ToString(CultureInfo.InvariantCulture)}",
+                $"last_kind={LastKind.ToString(CultureInfo.InvariantCulture)}",
+                $"update_policy={UpdatePolicy}",
+                $"preferred_region={PreferredRegion}",
+                $"debug_logs={DebugLogs.ToString().ToLowerInvariant()}",
+                $"reduced_motion={ReducedMotion.ToString().ToLowerInvariant()}",
+                $"announcer_pack={OptionalContentPreferenceCodec.Encode(AnnouncerPack)}",
+                $"music_pack={OptionalContentPreferenceCodec.Encode(MusicPack)}",
+                $"window_mode={(WindowMode == WindowStartMode.BorderlessFullscreen ? "borderless" : "windowed")}"
+            };
+        }
+
+        private static string NormalizePreferredRegion(string? value)
+        {
+            if (String.IsNullOrWhiteSpace(value))
+            {
+                return "Automatic";
+            }
+            string trimmed = value.Trim();
+            if (trimmed.Equals("Auto", StringComparison.OrdinalIgnoreCase)
+                || trimmed.Equals("Automatic", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Automatic";
+            }
+            if (IsValidPreferredRegion(value))
+            {
+                return value;
+            }
+            return "Automatic";
+        }
+
+        private static bool IsValidPreferredRegion(string? value)
+        {
+            if (String.IsNullOrWhiteSpace(value) || value.Length > MaxPreferredRegionLength)
+            {
+                return false;
+            }
+            string trimmed = value.Trim();
+            if (trimmed.Length != value.Length
+                || trimmed.Equals("Automatic", StringComparison.OrdinalIgnoreCase)
+                || trimmed.Equals("Auto", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+            foreach (char character in value)
+            {
+                if (Char.IsControl(character))
+                {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 }

@@ -5,23 +5,39 @@
        intentionally close to the captured Prime prototype: near-black
        surfaces, thin blue-grey edges, and a single cyan action color. -->
   <Styles.Resources>
+    <!-- Hierarchy: background, primary/secondary surfaces, interactive
+         controls, selection, and modal layers. Existing resource names stay
+         available so current shell views keep their appearance while new
+         views can choose a deliberate layer. -->
     <SolidColorBrush x:Key="PrimeBackgroundBrush" Color="#0A0F17" />
     <SolidColorBrush x:Key="PrimeHeaderBrush" Color="#080D15" />
     <SolidColorBrush x:Key="PrimeFooterBrush" Color="#0C121B" />
     <SolidColorBrush x:Key="PrimeSurfaceBrush" Color="#171C24" />
+    <SolidColorBrush x:Key="PrimePrimarySurfaceBrush" Color="#171C24" />
     <SolidColorBrush x:Key="PrimeSurfaceRaisedBrush" Color="#1B212B" />
     <SolidColorBrush x:Key="PrimeSurfaceMutedBrush" Color="#0D131C" />
+    <SolidColorBrush x:Key="PrimeSecondarySurfaceBrush" Color="#0D131C" />
     <SolidColorBrush x:Key="PrimeControlBrush" Color="#0A1018" />
+    <SolidColorBrush x:Key="PrimeInteractiveSurfaceBrush" Color="#0A1018" />
     <SolidColorBrush x:Key="PrimeSelectedBrush" Color="#112B35" />
+    <SolidColorBrush x:Key="PrimeSelectedSurfaceBrush" Color="#112B35" />
     <SolidColorBrush x:Key="PrimeNavSelectedBrush" Color="#101F2A" />
+    <SolidColorBrush x:Key="PrimeModalSurfaceBrush" Color="#1B212B" />
+    <SolidColorBrush x:Key="PrimePanelBrush" Color="#171C24" />
+    <SolidColorBrush x:Key="PrimePanelRaisedBrush" Color="#1B212B" />
+
+    <!-- Content and edges. -->
     <SolidColorBrush x:Key="PrimeTextBrush" Color="#D8E6EC" />
     <SolidColorBrush x:Key="PrimeTextMutedBrush" Color="#82929A" />
     <SolidColorBrush x:Key="PrimeTextDimBrush" Color="#5E7079" />
     <SolidColorBrush x:Key="PrimeAccentBrush" Color="#00E5FF" />
     <SolidColorBrush x:Key="PrimeAccentStrongBrush" Color="#00DAF3" />
-    <SolidColorBrush x:Key="PrimeSuccessBrush" Color="#00E5FF" />
+    <SolidColorBrush x:Key="PrimeOnAccentBrush" Color="#06131B" />
     <SolidColorBrush x:Key="PrimeWarningBrush" Color="#FFAD73" />
     <SolidColorBrush x:Key="PrimeErrorBrush" Color="#FF5B62" />
+    <SolidColorBrush x:Key="PrimeDestructiveBrush" Color="#FF5B62" />
+    <SolidColorBrush x:Key="PrimeInfoBrush" Color="#00E5FF" />
+    <SolidColorBrush x:Key="PrimeSuccessBrush" Color="#63D48A" />
     <SolidColorBrush x:Key="PrimeEdgeBrush" Color="#293640" />
     <SolidColorBrush x:Key="PrimeEdgeStrongBrush" Color="#00AFC4" />
     <SolidColorBrush x:Key="PrimeDividerBrush" Color="#24303A" />
@@ -29,7 +45,6 @@
     <SolidColorBrush x:Key="PrimeFocusBrush" Color="#C3F5FF" />
     <SolidColorBrush x:Key="PrimeWarmBrush" Color="#FFA77A" />
     <SolidColorBrush x:Key="PrimeOrangeBrush" Color="#FE7600" />
-    <SolidColorBrush x:Key="PrimeOnAccentBrush" Color="#06131B" />
     <SolidColorBrush x:Key="PrimeScrimBrush" Color="#D9080D15" />
     <x:Double x:Key="PrimeCornerRadius">6</x:Double>
   </Styles.Resources>

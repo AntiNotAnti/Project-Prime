@@ -160,4 +160,41 @@
     <Setter Property="CornerRadius" Value="5" />
     <Setter Property="Padding" Value="12,9" />
   </Style>
+
+  <!-- P5 hierarchy primitives. Existing card/section selectors above remain
+       unchanged for compatibility; future routes can opt into one explicit
+       layer instead of making every panel the same dark rectangle. -->
+  <Style Selector=":is(Border).prime-panel">
+    <Setter Property="Background" Value="{DynamicResource PrimePanelBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="16" />
+  </Style>
+  <Style Selector=":is(Border).prime-panel-secondary">
+    <Setter Property="Background" Value="{DynamicResource PrimeSecondarySurfaceBrush}" />
+  </Style>
+  <Style Selector=":is(Border).prime-panel-interactive">
+    <Setter Property="Background" Value="{DynamicResource PrimeInteractiveSurfaceBrush}" />
+  </Style>
+  <Style Selector=":is(Border).prime-panel-selected">
+    <Setter Property="Background" Value="{DynamicResource PrimeSelectedSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeAccentBrush}" />
+  </Style>
+  <Style Selector=":is(Border).prime-panel-modal">
+    <Setter Property="Background" Value="{DynamicResource PrimeModalSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeStrongBrush}" />
+  </Style>
+  <Style Selector=":is(Border).prime-status-info">
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeInfoBrush}" />
+  </Style>
+  <Style Selector=":is(Border).prime-status-success">
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeSuccessBrush}" />
+  </Style>
+  <Style Selector=":is(Border).prime-status-warning">
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeWarningBrush}" />
+  </Style>
+  <Style Selector=":is(Border).prime-status-error">
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeErrorBrush}" />
+  </Style>
 </Styles>

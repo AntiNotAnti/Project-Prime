@@ -291,16 +291,12 @@ namespace MphRead.Mods
 
         private static float _gamepadZoomMultiplier = 1;
 
-        // P0 only exposes and persists these placeholders. Behaviour belongs
-        // to the later aim-assist pass.
-        public static bool GamepadAimAssistEnabled { get; set; } = true;
-        public static float GamepadAimAssistStrength
-        {
-            get => _gamepadAimAssistStrength;
-            set => _gamepadAimAssistStrength = Clamp(value, 1, 0, 1);
-        }
-
-        private static float _gamepadAimAssistStrength = 1;
+        // Aim assist is an internal controller behavior for now. It is not a
+        // player preference and intentionally has no mutable or persisted
+        // surface. Keep these values centralized for the gameplay adapter and
+        // focused policy tests.
+        internal const bool GamepadAimAssistEnabled = true;
+        internal const float GamepadAimAssistStrength = 1f;
 
         /// <summary>SDL gamepad gyro is opt-in; unsupported hosts leave it inert.</summary>
         public static bool GamepadGyroEnabled { get; set; }
@@ -779,8 +775,10 @@ namespace MphRead.Mods
                     if (parsed) GamepadZoomMultiplier = number; return true;
                 case "gamepad_aim_assist":
                 case "gamepad_aim_assist_enabled":
-                    if (boolean) GamepadAimAssistEnabled = flag; return true;
-                case "gamepad_aim_assist_strength": if (parsed) GamepadAimAssistStrength = number; return true;
+                case "gamepad_aim_assist_strength":
+                    // Retired player preferences. Accept old files without
+                    // allowing them to alter the internal always-on policy.
+                    return true;
                 case "gamepad_gyro":
                 case "gamepad_gyro_enabled": if (boolean) GamepadGyroEnabled = flag; return true;
                 case "gamepad_gyro_sensitivity": if (parsed) GamepadGyroSensitivity = number; return true;
@@ -932,8 +930,6 @@ namespace MphRead.Mods
                     "gamepad_horizontal_sensitivity=" + GamepadHorizontalSensitivity.ToString("0.###", CultureInfo.InvariantCulture),
                     "gamepad_vertical_sensitivity=" + GamepadVerticalSensitivity.ToString("0.###", CultureInfo.InvariantCulture),
                     "gamepad_zoom_multiplier=" + GamepadZoomMultiplier.ToString("0.###", CultureInfo.InvariantCulture),
-                    $"gamepad_aim_assist={GamepadAimAssistEnabled.ToString().ToLowerInvariant()}",
-                    "gamepad_aim_assist_strength=" + GamepadAimAssistStrength.ToString("0.###", CultureInfo.InvariantCulture),
                     $"gamepad_gyro_enabled={GamepadGyroEnabled.ToString().ToLowerInvariant()}",
                     "gamepad_gyro_sensitivity=" + GamepadGyroSensitivity.ToString("0.###", CultureInfo.InvariantCulture),
                     $"gamepad_gyro_invert_x={GamepadGyroInvertX.ToString().ToLowerInvariant()}",
@@ -985,45 +981,13 @@ namespace MphRead.Mods
             InvertMouseY = false;
             InvertMouseX = false;
             ScrollAllWeapons = true;
-            ChatKey = Keys.T;
-            _applyingPreset = true;
-            try
-            {
-                Input.PadBindings.Reset();
-            }
-            finally
-            {
-                _applyingPreset = false;
-            }
             Input.TouchSettings.Reset();
-            GamepadMoveDeadZone = 0.15f;
-            GamepadLookDeadZone = 0.10f;
-            GamepadOuterDeadZone = 0.02f;
-            GamepadMoveActivateThreshold = 0.25f;
-            GamepadMoveReleaseThreshold = 0.18f;
-            GamepadLookExponent = 1.60f;
-            GamepadYawRate = 300;
-            GamepadPitchRate = 240;
-            GamepadOuterBoostStart = 0.95f;
-            GamepadOuterYawBoost = 150;
-            GamepadOuterPitchBoost = 80;
-            GamepadBoostDelaySeconds = 0.18f;
-            GamepadBoostRampSeconds = 0.12f;
-            GamepadOuterBoostEnabled = true;
-            GamepadTriggerPressThreshold = 0.20f;
-            GamepadTriggerReleaseThreshold = 0.12f;
-            GamepadHorizontalSensitivity = 1f;
-            GamepadVerticalSensitivity = 1f;
-            GamepadZoomMultiplier = 1f;
-            GamepadAimAssistEnabled = true;
-            GamepadAimAssistStrength = 1f;
-            GamepadGyroEnabled = false;
-            GamepadGyroSensitivity = 1f;
-            GamepadGyroInvertX = false;
-            GamepadGyroInvertY = false;
+            ResetBindings();
+            ResetControllerAimSettings();
+            ResetControllerAdvancedTuning();
             GamepadHapticsEnabled = true;
             InputBalanceTelemetryEnabled = false;
-            GamepadInvertY = false;
+            _controllerPreset = Input.ControllerPreset.Classic;
             StylusAimingEnabled = true;
             StylusSensitivity = 1;
             StylusInvertY = false;
@@ -1034,7 +998,138 @@ namespace MphRead.Mods
             StylusFlickBoost = true;
             StylusPressureToFire = false;
             StylusPressureThreshold = 0.35f;
+        }
+
+        /// <summary>
+        /// Restore keyboard, chat and controller bindings only. Mouse feel,
+        /// touch layout, stylus preferences and controller tuning remain
+        /// untouched so this can be offered as a focused bindings reset.
+        /// </summary>
+        public static void ResetBindings()
+        {
+            _creating = true;
+            try
+            {
+                _current = ClientPlayerBindings.GetDefault();
+            }
+            finally
+            {
+                _creating = false;
+            }
+            ChatKey = Keys.T;
+            ResetControllerBindings();
+        }
+
+        /// <summary>Restore only the pad bindings, preserving all input tuning.</summary>
+        public static void ResetControllerBindings()
+        {
+            _applyingPreset = true;
+            try
+            {
+                Input.PadBindings.Reset();
+            }
+            finally
+            {
+                _applyingPreset = false;
+            }
+            // A custom curve remains custom after a binding-only reset. If the
+            // curve is still at its shipped values, the default bindings are
+            // once again the Classic preset.
+            if (ControllerTuningIsDefault())
+            {
+                _controllerPreset = Input.ControllerPreset.Classic;
+            }
+            else
+            {
+                _controllerPreset = Input.ControllerPreset.Custom;
+            }
+        }
+
+        /// <summary>
+        /// Restore the core controller aim controls without touching bindings,
+        /// advanced response tuning, mouse, touch or stylus preferences.
+        /// </summary>
+        public static void ResetControllerAimSettings()
+        {
+            GamepadHorizontalSensitivity = 1f;
+            GamepadVerticalSensitivity = 1f;
+            GamepadInvertY = false;
+            GamepadMoveDeadZone = 0.15f;
+            GamepadLookDeadZone = 0.10f;
+            GamepadMoveActivateThreshold = 0.25f;
+            GamepadMoveReleaseThreshold = 0.18f;
+            GamepadLookExponent = 1.60f;
+            GamepadYawRate = 300;
+            GamepadPitchRate = 240;
+            GamepadZoomMultiplier = 1f;
+            GamepadGyroEnabled = false;
+            GamepadGyroSensitivity = 1f;
+            GamepadGyroInvertX = false;
+            GamepadGyroInvertY = false;
+            GamepadGyro.Reset();
+        }
+
+        /// <summary>
+        /// Restore only the outer-ring and trigger response controls. Aim
+        /// preferences, bindings, mouse, touch and stylus settings remain.
+        /// </summary>
+        public static void ResetControllerAdvancedTuning()
+        {
+            GamepadOuterDeadZone = 0.02f;
+            GamepadOuterBoostEnabled = true;
+            GamepadOuterBoostStart = 0.95f;
+            GamepadOuterYawBoost = 150;
+            GamepadOuterPitchBoost = 80;
+            GamepadBoostDelaySeconds = 0.18f;
+            GamepadBoostRampSeconds = 0.12f;
+            GamepadTriggerPressThreshold = 0.20f;
+            GamepadTriggerReleaseThreshold = 0.12f;
+        }
+
+        /// <summary>
+        /// Restore only the controller bindings and response curve. Mouse,
+        /// keyboard, touch and stylus preferences remain untouched so the
+        /// settings screen can offer a focused controller reset alongside its
+        /// broader reset action.
+        /// </summary>
+        public static void ResetController()
+        {
+            ResetControllerBindings();
+            ResetControllerAimSettings();
+            ResetControllerAdvancedTuning();
+            GamepadHapticsEnabled = true;
+            InputBalanceTelemetryEnabled = false;
             _controllerPreset = Input.ControllerPreset.Classic;
+        }
+
+        private static bool ControllerTuningIsDefault()
+        {
+            return GamepadMoveDeadZone == .15f
+                && GamepadLookDeadZone == .10f
+                && GamepadOuterDeadZone == .02f
+                && GamepadMoveActivateThreshold == .25f
+                && GamepadMoveReleaseThreshold == .18f
+                && GamepadLookExponent == 1.60f
+                && GamepadYawRate == 300
+                && GamepadPitchRate == 240
+                && GamepadOuterBoostStart == .95f
+                && GamepadOuterYawBoost == 150
+                && GamepadOuterPitchBoost == 80
+                && GamepadBoostDelaySeconds == .18f
+                && GamepadBoostRampSeconds == .12f
+                && GamepadOuterBoostEnabled
+                && GamepadTriggerPressThreshold == .20f
+                && GamepadTriggerReleaseThreshold == .12f
+                && GamepadHorizontalSensitivity == 1
+                && GamepadVerticalSensitivity == 1
+                && GamepadZoomMultiplier == 1
+                && !GamepadGyroEnabled
+                && GamepadGyroSensitivity == 1
+                && !GamepadGyroInvertX
+                && !GamepadGyroInvertY
+                && GamepadHapticsEnabled
+                && !InputBalanceTelemetryEnabled
+                && !GamepadInvertY;
         }
     }
 }
