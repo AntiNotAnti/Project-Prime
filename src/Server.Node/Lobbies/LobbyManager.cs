@@ -57,6 +57,21 @@ public sealed partial class LobbyManager
     private readonly object _gate = new();
     private readonly Dictionary<Guid, Lobby> _lobbies = [];
     private readonly Dictionary<Guid, Guid> _membership = [];
+    private readonly Dictionary<Guid, DateTimeOffset> _sessionResumeDeadlines = [];
+    public void SetSessionResumeDeadline(Guid sessionId, DateTimeOffset? deadline)
+    {
+        lock (_gate)
+        {
+            if (deadline is { } expires) _sessionResumeDeadlines[sessionId] = expires;
+            else _sessionResumeDeadlines.Remove(sessionId);
+        }
+    }
+    private void PruneExpiredSessionMembership()
+    {
+        var now = RoundClock.GetUtcNow();
+        foreach (var session in _sessionResumeDeadlines.Where(pair => pair.Value <= now).Select(pair => pair.Key).ToArray())
+            LeaveCore(session);
+    }
     private readonly Dictionary<Guid, Guid> _queueSessions = [];
     private readonly Dictionary<HumanIdentityKey, Guid> _queueIdentities = [];
     private readonly int _maximumLobbies;
@@ -72,7 +87,7 @@ public sealed partial class LobbyManager
                 if (_notifications.TryRemove(pair)) yield return pair.Value;
     }
     public LobbyManager(int maximumLobbies = 256, TimeProvider? clock = null,
-        int maximumWaitlistPerLobby = LobbyWaitlist.DefaultMaximumEntries, TimeSpan? offerWindow = null)
+        int maximumWaitlistPerLobby = LobbyWaitlist.DefaultMaximumEntries, TimeSpan? offerWindow = null, int postMatchVoteSeconds = 15)
     {
         if (maximumLobbies is < 1 or > 4096) throw new ArgumentOutOfRangeException(nameof(maximumLobbies));
         if (maximumWaitlistPerLobby is < 1 or > LobbyWaitlist.MaximumEntriesLimit)
@@ -80,9 +95,12 @@ public sealed partial class LobbyManager
         TimeSpan window = offerWindow ?? TimeSpan.FromSeconds(15);
         if (window < TimeSpan.FromSeconds(10) || window > TimeSpan.FromSeconds(20))
             throw new ArgumentOutOfRangeException(nameof(offerWindow), "Seat offer window must be between 10 and 20 seconds.");
+        if (postMatchVoteSeconds is < 5 or > 30) throw new ArgumentOutOfRangeException(nameof(postMatchVoteSeconds));
+        PostMatchVoteSeconds = postMatchVoteSeconds;
         _maximumLobbies = maximumLobbies; _maximumWaitlistPerLobby = maximumWaitlistPerLobby;
         RoundClock = clock ?? TimeProvider.System; OfferWindow = window;
     }
+    public int PostMatchVoteSeconds { get; }
     public int MaximumWaitlistPerLobby => _maximumWaitlistPerLobby;
     public int MaxWaitlistPerLobby => _maximumWaitlistPerLobby;
     public TimeSpan OfferWindow { get; }
@@ -243,8 +261,14 @@ public sealed partial class LobbyManager
             if (lobby.Owner != ownerSession) throw Error("owner", "Only the owner may start a match.");
             if (lobby.Phase != LobbyPhase.Open || lobby.MapKey != content.MapKey) throw Error("phase", "Lobby is not configured for this content.");
             ValidateRoundStart(lobby.Id);
+            return PrepareMatchCore(lobby, content, nodeId, incarnation, requireReady: true);
+        }
+    }
+    private MatchSpec PrepareMatchCore(Lobby lobby, ContentIdentity content, NodeId nodeId, Guid incarnation, bool requireReady)
+    {
+            if (requireReady) Round(lobby.Id).Resolved = null;
             var players = lobby.Members.Values.Where(m => !m.Observer).ToArray();
-            if (players.Length == 0 || players.Any(m => !m.Ready)) throw Error("not_ready", "All players must be ready.");
+            if (players.Length == 0 || requireReady && players.Any(m => !m.Ready)) throw Error("not_ready", "All players must be ready.");
             var seats = ImmutableArray.CreateBuilder<RosterSeat>();
             foreach (var member in players)
             {
@@ -277,7 +301,6 @@ public sealed partial class LobbyManager
             spec.Validate();
             lobby.MatchId = spec.MatchId.Value; lobby.Phase = LobbyPhase.StartingMatch; Publish(lobby);
             return spec;
-        }
     }
     public bool MatchReady(MatchPlacement placement)
     {
@@ -294,7 +317,7 @@ public sealed partial class LobbyManager
         {
             var lobby = _lobbies.Values.SingleOrDefault(l => l.MatchId == matchId.Value);
             if (lobby == null || lobby.Phase is not (LobbyPhase.StartingMatch or LobbyPhase.InMatch)) return false;
-            lobby.Phase = LobbyPhase.PostMatch; OnRoundEnded(lobby.Id); ExpireOffersAndAdvance(lobby); Publish(lobby); return true;
+            lobby.Phase = LobbyPhase.PostMatch; OnRoundEnded(lobby, interrupted); ExpireOffersAndAdvance(lobby); Publish(lobby); return true;
         }
     }
     public LobbySnapshot ReturnToLobby(Guid ownerSession, long expectedRevision)
@@ -304,8 +327,8 @@ public sealed partial class LobbyManager
             var lobby = RequireLobby(ownerSession); Revision(lobby, expectedRevision);
             if (lobby.Owner != ownerSession) throw Error("owner", "Only the owner may reopen the lobby.");
             if (lobby.Phase != LobbyPhase.PostMatch) throw Error("phase", "Match has not ended.");
-            lobby.Phase = LobbyPhase.Open; lobby.MatchId = null;
-            foreach (var item in lobby.Members.ToArray()) lobby.Members[item.Key] = item.Value with { Ready = false };
+            if (!Round(lobby.Id).Options.IsEmpty) throw Error("vote_pending", "The Node ballot controls continuation.");
+            ReopenCore(lobby);
             ExpireOffersAndAdvance(lobby);
             return Publish(lobby);
         }
@@ -575,6 +598,7 @@ public sealed partial class LobbyManager
     }
     private void LeaveCore(Guid sessionId)
     {
+        _sessionResumeDeadlines.Remove(sessionId);
         Lobby? queuedLobby = null;
         bool hadQueue = _queueSessions.TryGetValue(sessionId, out Guid queueLobbyId)
             && _lobbies.TryGetValue(queueLobbyId, out queuedLobby);
@@ -608,6 +632,7 @@ public sealed partial class LobbyManager
             OnLobbyRemoved(lobbyId); _lobbies.Remove(lobbyId); _notifications.TryRemove(lobbyId, out _); return;
         }
         if (lobby.Owner == sessionId) lobby.Owner = lobby.Members.Keys.First();
+        ResolveBallot(lobby, Round(lobby.Id));
         ExpireOffersAndAdvance(lobby);
         Publish(lobby);
     }

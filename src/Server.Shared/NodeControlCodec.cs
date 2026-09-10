@@ -67,6 +67,25 @@ public static class NodeControlCodec
     {
         switch (payload)
         {
+            case NodeRoundSnapshot round:
+                ValidateEventPayload(round.Lobby);
+                if (round.ConfigurationRevision < 0 || round.Options.IsDefault || round.Options.Length > 8 || round.Options.Any(o => o == null)
+                    || round.TournamentId == Guid.Empty || round.RoundId == Guid.Empty
+                    || round.Options.Select(o => o?.Id).Distinct().Count() != round.Options.Length
+                    || round.OwnVote != 0 && !round.Options.Any(o => o.Id == round.OwnVote)
+                    || !round.Options.IsEmpty && (round.BallotRevision == 0 || round.VoteDeadline == null
+                        || round.Lobby.Phase != LobbyPhase.PostMatch)
+                    || round.Options.IsEmpty && round.VoteDeadline != null)
+                    throw new ArgumentException("Invalid round snapshot.");
+                foreach (var option in round.Options) ValidateVoteEntry(option);
+                if (round.ResolvedOption is { } resolved)
+                {
+                    ValidateVoteEntry(resolved);
+                    if (!round.Options.IsEmpty && !round.Options.Any(o => o.Id == resolved.Id
+                        && o.Choice == resolved.Choice && o.MapKey == resolved.MapKey && o.Mode == resolved.Mode))
+                        throw new ArgumentException("Invalid resolved option.");
+                }
+                break;
             case NodeSessionSnapshot session: session.Validate(); break;
             case LobbySnapshot lobby:
                 ContractGuard.Id(lobby.LobbyId); ContractGuard.Id(lobby.OwnerSessionId);
@@ -100,6 +119,12 @@ public static class NodeControlCodec
                     throw new ArgumentException("Invalid lobby list.");
                 break;
         }
+    }
+    private static void ValidateVoteEntry(LobbyVoteEntry option)
+    {
+        if (option == null || option.Id is < 1 or > 8 || option.Votes is < 0 or > 8)
+            throw new ArgumentException("Invalid vote option.");
+        ContractGuard.Defined(option.Choice); ContractGuard.Defined(option.Mode); ContractGuard.Text(option.MapKey, 128);
     }
     public static void RejectDuplicates(JsonElement value)
     {

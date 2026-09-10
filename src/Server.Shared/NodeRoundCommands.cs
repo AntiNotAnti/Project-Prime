@@ -18,4 +18,4 @@ public sealed record LobbyVoteResolve(long ExpectedRevision, uint BallotRevision
 public sealed record LobbyVoteEntry(byte Id, LobbyVoteChoice Choice, string MapKey, MatchMode Mode, int Votes);
 public sealed record NodeRoundSnapshot(LobbySnapshot Lobby, Guid? TournamentId, Guid? RoundId, bool Paused,
     bool TournamentEnded, long ConfigurationRevision, uint BallotRevision, DateTimeOffset? VoteDeadline,
-    ImmutableArray<LobbyVoteEntry> Options, byte OwnVote);
+    ImmutableArray<LobbyVoteEntry> Options, byte OwnVote, LobbyVoteEntry? ResolvedOption = null);

@@ -53,7 +53,10 @@ public sealed class NodeSessionManager
         await foreach (var snapshot in _lobbies.ReadNotifications(cancellationToken))
             foreach (Guid sessionId in _lobbies.Recipients(snapshot.LobbyId))
                 if (_sessions.TryGetValue(sessionId, out var session))
+                {
                     Send(session, "lobby.snapshot", null, _lobbies.ForSession(sessionId) ?? snapshot);
+                    if (_lobbies.RoundForSession(sessionId) is { } round) Send(session, "lobby.round", null, round);
+                }
     }
     public async Task BroadcastMatchesAsync(CancellationToken cancellationToken)
     {
@@ -61,6 +64,7 @@ public sealed class NodeSessionManager
         await foreach (var message in _matches.ReadNotifications(cancellationToken))
             if (_sessions.TryGetValue(message.SessionId, out var session)) SendMatch(session, message.Payload);
     }
+    public Task ContinueRoundsAsync(CancellationToken ct) => _matches?.RunContinuationsAsync(ct) ?? Task.CompletedTask;
     public bool CanResume(string token)
     {
         if (token.Length != 43) return false;
@@ -108,6 +112,7 @@ public sealed class NodeSessionManager
             token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
             session.ResumeHash = Hash(token); _resume[session.ResumeHash] = session.Id;
             lock (session) session.Connection = connection;
+            _lobbies.SetSessionResumeDeadline(session.Id, null);
         }
         Task sender = SendLoop(connection);
         try
@@ -115,6 +120,7 @@ public sealed class NodeSessionManager
             Send(session, "node.session", null, new NodeSessionSnapshot(session.Id, session.Identity.PlayerId, session.Identity.DisplayName,
                 _nodeId, token, session.Identity.GuestSessionId));
             if (_lobbies.ForSession(session.Id) is { } restored) Send(session, "lobby.snapshot", null, restored);
+            if (_lobbies.RoundForSession(session.Id) is { } restoredRound) Send(session, "lobby.round", null, restoredRound);
             if (_matches?.ForSession(session.Id) is { } matchState) SendMatch(session, matchState);
             byte[] buffer = new byte[NodeControlCodec.MaximumFrameBytes];
             long window = _clock.GetTimestamp(); int requests = 0;
@@ -170,6 +176,7 @@ public sealed class NodeSessionManager
             {
                 lock (session) session.Connection = null;
                 session.ResumeUntil = _clock.GetUtcNow() + DisconnectGrace;
+                _lobbies.SetSessionResumeDeadline(session.Id, session.ResumeUntil);
             }
             socket.Abort(); connection.Stop.Dispose();
         }
@@ -179,6 +186,9 @@ public sealed class NodeSessionManager
     {
         switch (message)
         {
+            case NodeMatchDeliveryOverflow:
+                lock (session) session.Connection?.Stop.Cancel();
+                break;
             case NodeMatchHandoff handoff: Send(session, "match.handoff", null, handoff); break;
             case NodeMatchEnded ended: Send(session, "match.ended", null, ended); break;
         }
@@ -207,7 +217,7 @@ public sealed class NodeSessionManager
 public sealed class NodeSessionReaper(NodeSessionManager sessions) : BackgroundService
 {
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
-        => Task.WhenAll(Reap(stoppingToken), sessions.BroadcastAsync(stoppingToken), sessions.BroadcastMatchesAsync(stoppingToken));
+        => Task.WhenAll(Reap(stoppingToken), sessions.BroadcastAsync(stoppingToken), sessions.BroadcastMatchesAsync(stoppingToken), sessions.ContinueRoundsAsync(stoppingToken));
     private async Task Reap(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));

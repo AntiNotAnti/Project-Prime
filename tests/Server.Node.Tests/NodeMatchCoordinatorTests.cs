@@ -9,6 +9,71 @@ namespace FruityPrime.Server.Node.Tests;
 
 public sealed class NodeMatchCoordinatorTests
 {
+    [Theory]
+    [InlineData(1, false)] [InlineData(2, false)] [InlineData(4, false)] [InlineData(1, true)]
+    public async Task AutomaticContinuationUsesFreshMatchTicketAndNonce(byte option, bool failPlacement)
+    {
+        var workers = new WorkerManager(new(Guid.NewGuid()), Guid.NewGuid());
+        await using var scheduler = new WorkerScheduler(workers);
+        using var issuer = new WorkerAdmissionIssuer("test");
+        await scheduler.StartWorkerAsync(WorkerManagerTests.Launch("controlled-completion") with { Content = new("1", "hash", "test", 8) });
+        var lobbies = new LobbyManager();
+        var owner = new LobbyIdentity(Guid.NewGuid(), Guid.NewGuid(), "Owner");
+        using var coordinator = new NodeMatchCoordinator(lobbies, scheduler, workers, issuer,
+            new NodeContentCatalog(new[] { "unit", "unit2", "unit3" }.Select(key => new ContentIdentity(key, "hash", "1", "test", 8))));
+        using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        Task continuation = coordinator.RunContinuationsAsync(stop.Token);
+        try
+        {
+            var lobby = (LobbySnapshot)lobbies.Execute(owner, new LobbyCreate("Arena", LobbyVisibility.Public));
+            lobby = (LobbySnapshot)lobbies.Execute(owner, new LobbyConfigure(lobby.Revision, "unit", MatchMode.Battle));
+            lobby = (LobbySnapshot)lobbies.Execute(owner, new LobbySetReady(true, lobby.Revision));
+            await coordinator.ExecuteAsync(owner, new LobbyStart(lobby.Revision));
+            var first = Assert.IsType<NodeMatchHandoff>(coordinator.ForSession(owner.SessionId));
+            var ended = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            scheduler.Ended += (_, _) => ended.TrySetResult();
+            Assert.True(scheduler.TrySendMatchAdmin(new(new(first.MatchId), AdminAction.EndMatch, null)));
+            await ended.Task.WaitAsync(stop.Token);
+            var round = lobbies.RoundForSession(owner.SessionId)!;
+            Assert.NotEmpty(round.Options);
+            if (failPlacement) scheduler.Drain("continuation failure test");
+            await coordinator.ExecuteAsync(owner, new LobbyVoteCast(round.Lobby.Revision, round.BallotRevision, option));
+            if (failPlacement)
+            {
+                await foreach (var notification in coordinator.ReadNotifications(stop.Token))
+                {
+                    if (notification.Payload is NodeMatchEnded { Interrupted: true }) break;
+                }
+                Assert.Equal(LobbyPhase.Open, lobbies.ForSession(owner.SessionId)!.Phase);
+                Assert.Null(lobbies.ForSession(owner.SessionId)!.CurrentMatchId);
+                Assert.Empty(lobbies.RoundForSession(owner.SessionId)!.Options);
+                return;
+            }
+            // Deliberately do not consume notifications until the next match
+            // is already placed, so terminal and handoff are pending together.
+            await foreach (var snapshot in lobbies.ReadNotifications(stop.Token))
+                if (snapshot.Phase == LobbyPhase.InMatch && snapshot.CurrentMatchId != first.MatchId) break;
+            NodeMatchHandoff? next = null;
+            var delivered = new List<object>();
+            await foreach (var notification in coordinator.ReadNotifications(stop.Token))
+            {
+                delivered.Add(notification.Payload);
+                if (notification.Payload is NodeMatchHandoff handoff && handoff.MatchId != first.MatchId)
+                { next = handoff; break; }
+            }
+            Assert.NotNull(next);
+            int terminalIndex = delivered.FindIndex(payload => payload is NodeMatchEnded endedMatch && endedMatch.MatchId == first.MatchId);
+            int handoffIndex = delivered.FindIndex(payload => payload is NodeMatchHandoff nextMatch && nextMatch.MatchId == next.MatchId);
+            Assert.True(terminalIndex >= 0 && terminalIndex < handoffIndex);
+            Assert.NotEqual(first.Ticket, next.Ticket); Assert.NotEqual(first.Nonce, next.Nonce);
+            Assert.Equal(lobby.LobbyId, lobbies.ForSession(owner.SessionId)!.LobbyId);
+            Assert.False(lobbies.ForSession(owner.SessionId)!.Members[0].Ready);
+            Assert.True(scheduler.TryGetAssignment(new(next.MatchId), out var assignment));
+            Assert.Equal(option == 1 ? "unit" : option == 2 ? "unit2" : "unit3", assignment!.Spec.Content.MapKey);
+        }
+        finally { stop.Cancel(); await continuation; }
+    }
+
     [Fact]
     public async Task AllowedModeCanConfigureLobby()
     {
@@ -205,7 +270,8 @@ public sealed class NodeMatchCoordinatorTests
         Assert.True(lobbies.MatchEnded(new(handoff.MatchId), false));
         Assert.False(lobbies.MatchEnded(new(handoff.MatchId), true));
         var ended = lobbies.ForSession(owner.SessionId)!;
-        var reopened = lobbies.ReturnToLobby(owner.SessionId, ended.Revision);
+        var ballot = lobbies.RoundForSession(owner.SessionId)!;
+        var reopened = ((NodeRoundSnapshot)lobbies.Execute(owner, new LobbyVoteCast(ended.Revision, ballot.BallotRevision, 3))).Lobby;
         Assert.Equal(LobbyPhase.Open, reopened.Phase);
         Assert.False(reopened.Members[0].Ready);
         Assert.Null(reopened.CurrentMatchId);
@@ -220,7 +286,7 @@ public sealed class NodeMatchCoordinatorTests
         Assert.Null(coordinator.ForSession(owner.SessionId));
     }
     [Fact]
-    public async Task NoCapacityReturnsFrozenLobbyToPostMatchWithoutLosingMembership()
+    public async Task NoCapacityReturnsFrozenLobbyToOpenWithoutLosingMembership()
     {
         var manager = new WorkerManager(new(Guid.NewGuid()), Guid.NewGuid());
         await using var scheduler = new WorkerScheduler(manager);
@@ -231,7 +297,7 @@ public sealed class NodeMatchCoordinatorTests
         lobby = (LobbySnapshot)lobbies.Execute(owner, new LobbyConfigure(lobby.Revision, "unit", MatchMode.Battle));
         lobby = (LobbySnapshot)lobbies.Execute(owner, new LobbySetReady(true, lobby.Revision));
         await Assert.ThrowsAsync<LobbyCommandException>(() => coordinator.ExecuteAsync(owner, new LobbyStart(lobby.Revision)));
-        Assert.Equal(LobbyPhase.PostMatch, lobbies.ForSession(owner.SessionId)!.Phase);
+        Assert.Equal(LobbyPhase.Open, lobbies.ForSession(owner.SessionId)!.Phase);
         Assert.Single(lobbies.ForSession(owner.SessionId)!.Members);
         Assert.True(Assert.IsType<NodeMatchEnded>(coordinator.ForSession(owner.SessionId)).Interrupted);
     }

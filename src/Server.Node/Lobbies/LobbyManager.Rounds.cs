@@ -12,7 +12,9 @@ public sealed partial class LobbyManager
         public Guid? Tournament, Round, CompletedRound;
         public bool Paused, Ended;
         public long ConfigurationRevision;
-        public uint BallotRevision, Random;
+        public uint BallotRevision;
+        public LobbyVoteEntry? Resolved;
+        public HashSet<Guid> Electorate = [];
         public DateTimeOffset? Deadline;
         public ImmutableArray<LobbyVoteEntry> Options = [];
         public Dictionary<Guid, byte> Votes = [];
@@ -25,12 +27,93 @@ public sealed partial class LobbyManager
         return round;
     }
     private void OnLobbyRemoved(Guid id) => _rounds.Remove(id);
-    private void OnRoundEnded(Guid id)
+    private void OnRoundEnded(Lobby lobby, bool interrupted)
     {
-        var state = Round(id);
-        state.Options = []; state.Votes.Clear(); state.Deadline = null;
-        // A tournament operator explicitly selects and identifies every next round.
-        if (state.Tournament != null) { state.Paused = true; state.CompletedRound = state.Round; }
+        var state = Round(lobby.Id);
+        InvalidateReady(lobby);
+        state.Options = []; state.Votes.Clear(); state.Deadline = null; state.Resolved = null; state.Electorate.Clear();
+        if (state.Tournament != null)
+        {
+            state.Paused = true; state.CompletedRound = state.Round;
+            if (interrupted) ReopenCore(lobby);
+            return;
+        }
+        if (interrupted) { ReopenCore(lobby); return; }
+        var maps = ContentCatalog?.RoundMaps(lobby.MapKey, lobby.Mode)
+            ?? [new LobbyMapChoice(lobby.MapKey, lobby.Mode)];
+        var next = maps[0];
+        var options = ImmutableArray.CreateBuilder<LobbyVoteEntry>();
+        options.Add(new(1, LobbyVoteChoice.Rematch, lobby.MapKey, lobby.Mode, 0));
+        options.Add(new(2, LobbyVoteChoice.NextMap, next.MapKey, next.Mode, 0));
+        options.Add(new(3, LobbyVoteChoice.ReturnToLobby, lobby.MapKey, lobby.Mode, 0));
+        foreach (var map in maps.Where(m => m.MapKey != lobby.MapKey && m.MapKey != next.MapKey).Take(5))
+            options.Add(new((byte)(options.Count + 1), LobbyVoteChoice.Map, map.MapKey, map.Mode, 0));
+        state.Options = options.ToImmutable();
+        state.BallotRevision++; if (state.BallotRevision == 0) state.BallotRevision = 1;
+        state.Electorate = lobby.Members.Values.Where(m => !m.Observer).Select(m => m.SessionId).ToHashSet();
+        state.Deadline = RoundClock.GetUtcNow().AddSeconds(PostMatchVoteSeconds);
+    }
+    public NodeContentCatalog? ContentCatalog { get; set; }
+    public NodeRoundSnapshot? RoundForSession(Guid session)
+    {
+        lock (_gate) return _membership.TryGetValue(session, out var id)
+            ? RoundSnapshot(_lobbies[id], Round(id), session) : null;
+    }
+    private void ResolveBallot(Lobby lobby, RoundState state)
+    {
+        PruneVotes(lobby, state);
+        if (state.Options.IsEmpty || state.Resolved != null ||
+            (RoundClock.GetUtcNow() < state.Deadline && state.Votes.Count < state.Electorate.Count)) return;
+        int maximum = state.Options.Max(o => state.Votes.Values.Count(v => v == o.Id));
+        state.Resolved = maximum == 0 ? state.Options[1]
+            : state.Options.First(o => state.Votes.Values.Count(v => v == o.Id) == maximum);
+        state.Resolved = state.Resolved with { Votes = maximum };
+        state.ConfigurationRevision++;
+        if (state.Resolved.Choice == LobbyVoteChoice.ReturnToLobby) ReopenCore(lobby);
+        Publish(lobby);
+    }
+    private void ReopenCore(Lobby lobby)
+    {
+        lobby.Phase = LobbyPhase.Open; lobby.MatchId = null; InvalidateReady(lobby);
+        var state = Round(lobby.Id);
+        state.Options = []; state.Votes.Clear(); state.Deadline = null; state.Electorate.Clear();
+    }
+    public IReadOnlyList<(MatchSpec Spec, LobbyMember[] Members)> PrepareContinuations(NodeId node, Guid incarnation, int maximum = 64)
+        => PrepareContinuations(node, incarnation, maximum, out _);
+    public IReadOnlyList<(MatchSpec Spec, LobbyMember[] Members)> PrepareContinuations(NodeId node, Guid incarnation,
+        int maximum, out IReadOnlyList<(Guid MatchId, LobbyMember[] Members)> failures)
+    {
+        lock (_gate)
+        {
+            PruneExpiredSessionMembership();
+            var failed = new List<(Guid, LobbyMember[])>();
+            failures = failed;
+            var result = new List<(MatchSpec, LobbyMember[])>();
+            foreach (var lobby in _lobbies.Values.ToArray())
+            {
+                var state = Round(lobby.Id);
+                if (lobby.Phase != LobbyPhase.PostMatch || state.Tournament != null) continue;
+                ResolveBallot(lobby, state);
+                if (result.Count >= maximum) continue;
+                if (lobby.Phase != LobbyPhase.PostMatch || state.Resolved is not { } selected) continue;
+                try
+                {
+                    if (_admissionClosed) throw Error("draining", "Node is draining.");
+                    var content = ContentCatalog?.Get(selected.MapKey, selected.Mode)
+                        ?? throw Error("map_unavailable", "No hosted content catalog.");
+                    lobby.MapKey = selected.MapKey; lobby.Mode = selected.Mode;
+                    var spec = PrepareMatchCore(lobby, content, node, incarnation, requireReady: false);
+                    state.Options = []; state.Votes.Clear(); state.Deadline = null; state.Electorate.Clear();
+                    result.Add((spec, lobby.Members.Values.ToArray()));
+                }
+                catch (Exception ex) when (ex is LobbyCommandException or ArgumentException)
+                {
+                    if (lobby.MatchId is { } match) failed.Add((match, lobby.Members.Values.ToArray()));
+                    ReopenCore(lobby); Publish(lobby);
+                }
+            }
+            return result;
+        }
     }
     private void ValidateRoundStart(Guid id)
     {
@@ -57,6 +140,7 @@ public sealed partial class LobbyManager
         };
         if (command is not (LobbyRoundStatus or LobbyTournamentIdentity or LobbyTournamentControl
             or LobbyTournamentSelectNext or LobbyTournamentAssignTeam or LobbyTournamentSetObserver or LobbyVoteOpen or LobbyVoteCast or LobbyVoteResolve)) return false;
+        if (command is LobbyVoteOpen or LobbyVoteResolve) throw Error("unsupported", "The Node owns ballot creation and resolution.");
         var lobby = RequireLobby(identity.SessionId); Revision(lobby, expected);
         var state = Round(lobby.Id);
         if (command is not (LobbyRoundStatus or LobbyVoteCast) && lobby.Owner != identity.SessionId)
@@ -66,6 +150,7 @@ public sealed partial class LobbyManager
             case LobbyRoundStatus: response = RoundSnapshot(lobby, state, identity.SessionId); return true;
             case LobbyTournamentIdentity set:
                 RequireConfigurable(lobby);
+                if (!state.Options.IsEmpty) throw Error("vote_pending", "The active ballot must finish before tournament configuration.");
                 if (set.TournamentId == Guid.Empty || set.RoundId == Guid.Empty) throw Error("invalid", "Tournament and round identities are required.");
                 if (state.Tournament != set.TournamentId) state.CompletedRound = null;
                 state.Tournament = set.TournamentId; state.Round = set.RoundId; state.Ended = false; state.Paused = true;
@@ -107,42 +192,15 @@ public sealed partial class LobbyManager
                     >= (spectator.Observer ? lobby.Rules.ObserverLimit : lobby.Rules.PlayerLimit - lobby.BotCount)) throw Error("capacity", "Target role capacity reached.");
                 lobby.Members[spectator.SessionId] = target with { Observer = spectator.Observer, Ready = false };
                 state.ConfigurationRevision++; InvalidateReady(lobby); break;
-            case LobbyVoteOpen open:
-                if (lobby.Phase != LobbyPhase.PostMatch || state.Tournament != null) throw Error("phase", "Intermission votes require a completed non-tournament match.");
-                if (!state.Options.IsEmpty) throw Error("vote_pending", "The existing option set is frozen until resolution.");
-                if (open.Maps.IsDefault || open.Maps.Length > 5) throw Error("invalid", "Supply at most five admitted map candidates.");
-                foreach (var map in open.Maps) { if (map == null) throw Error("invalid", "Map candidate is required."); ValidateMap(map.MapKey, map.Mode); }
-                if (open.Maps.Distinct().Count() != open.Maps.Length) throw Error("invalid", "Map candidates must be unique.");
-                var next = open.Maps.FirstOrDefault() ?? new(lobby.MapKey, lobby.Mode);
-                var options = ImmutableArray.CreateBuilder<LobbyVoteEntry>();
-                options.Add(new(1, LobbyVoteChoice.Rematch, lobby.MapKey, lobby.Mode, 0));
-                options.Add(new(2, LobbyVoteChoice.NextMap, next.MapKey, next.Mode, 0));
-                options.Add(new(3, LobbyVoteChoice.ReturnToLobby, lobby.MapKey, lobby.Mode, 0));
-                foreach (var map in open.Maps) options.Add(new((byte)(options.Count + 1), LobbyVoteChoice.Map, map.MapKey, map.Mode, 0));
-                state.Options = options.ToImmutable(); state.BallotRevision++; if (state.BallotRevision == 0) state.BallotRevision = 1;
-                state.Votes.Clear(); state.Deadline = RoundClock.GetUtcNow().AddSeconds(5); break;
             case LobbyVoteCast cast:
                 RequireBallot(lobby, state, cast.BallotRevision);
-                if (lobby.Members[identity.SessionId].Observer) throw Error("role", "Observers cannot vote.");
+                if (!state.Electorate.Contains(identity.SessionId)) throw Error("role", "Observers cannot vote.");
                 if (RoundClock.GetUtcNow() >= state.Deadline) throw Error("deadline", "The vote deadline has passed.");
                 if (cast.OptionId == 0 || cast.OptionId > state.Options.Length) throw Error("invalid", "Unknown vote option.");
                 if (state.Votes.TryGetValue(identity.SessionId, out byte prior))
                 { if (prior != cast.OptionId) throw Error("already_voted", "A confirmed vote cannot be changed."); response = RoundSnapshot(lobby, state, identity.SessionId); return true; }
-                state.Votes[identity.SessionId] = cast.OptionId; break;
-            case LobbyVoteResolve resolve:
-                RequireBallot(lobby, state, resolve.BallotRevision);
-                PruneVotes(lobby, state);
-                if (RoundClock.GetUtcNow() < state.Deadline && state.Votes.Count < lobby.Members.Values.Count(m => !m.Observer))
-                    throw Error("deadline", "Wait for all eligible votes or the deadline.");
-                int maximum = state.Options.Max(option => state.Votes.Values.Count(v => v == option.Id));
-                var tied = state.Options.Where(option => state.Votes.Values.Count(v => v == option.Id) == maximum).ToArray();
-                var selected = maximum == 0 ? state.Options[1] : tied.Length == 1 ? tied[0]
-                    : tied[(int)RngAlgorithm.Next(ref state.Random, (uint)tied.Length)];
-                Reopen(lobby, identity);
-                if (selected.Choice != LobbyVoteChoice.ReturnToLobby)
-                    Execute(identity, new LobbyConfigure(lobby.Revision, selected.MapKey, selected.Mode,
-                        lobby.BotCount, lobby.TimeLimitSeconds, lobby.PointGoal));
-                state.Options = []; state.Votes.Clear(); state.Deadline = null; state.ConfigurationRevision++; break;
+                state.Votes[identity.SessionId] = cast.OptionId; ResolveBallot(lobby, state); break;
+
         }
         Publish(lobby);
         response = RoundSnapshot(lobby, state, identity.SessionId); return true;
@@ -156,13 +214,14 @@ public sealed partial class LobbyManager
     private static void InvalidateReady(Lobby lobby)
     { foreach (var member in lobby.Members.ToArray()) lobby.Members[member.Key] = member.Value with { Ready = false }; }
     private static void RequireBallot(Lobby lobby, RoundState state, uint revision)
-    { if (lobby.Phase != LobbyPhase.PostMatch || state.Options.IsEmpty || revision != state.BallotRevision) throw Error("stale_ballot", "The intermission ballot is absent or changed."); }
+    { if (lobby.Phase != LobbyPhase.PostMatch || state.Options.IsEmpty || state.Resolved != null || revision != state.BallotRevision) throw Error("stale_ballot", "The intermission ballot is absent or changed."); }
     private static void PruneVotes(Lobby lobby, RoundState state)
-    { foreach (Guid id in state.Votes.Keys.ToArray()) if (!lobby.Members.TryGetValue(id, out var member) || member.Observer) state.Votes.Remove(id); }
+    { state.Electorate.RemoveWhere(id => !lobby.Members.TryGetValue(id, out var member) || member.Observer);
+        foreach (Guid id in state.Votes.Keys.ToArray()) if (!state.Electorate.Contains(id)) state.Votes.Remove(id); }
     private static NodeRoundSnapshot RoundSnapshot(Lobby lobby, RoundState state, Guid session)
     {
         PruneVotes(lobby, state);
         return new(lobby.Snapshot(IdentityForSession(lobby, session)), state.Tournament, state.Round, state.Paused, state.Ended, state.ConfigurationRevision,
-            state.BallotRevision, state.Deadline, state.Options.Select(o => o with { Votes = state.Votes.Values.Count(v => v == o.Id) }).ToImmutableArray(), state.Votes.GetValueOrDefault(session));
+            state.BallotRevision, state.Deadline, state.Options.Select(o => o with { Votes = state.Votes.Values.Count(v => v == o.Id) }).ToImmutableArray(), state.Votes.GetValueOrDefault(session), state.Resolved);
     }
 }

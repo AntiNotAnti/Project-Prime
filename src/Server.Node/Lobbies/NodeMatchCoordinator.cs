@@ -10,6 +10,7 @@ using MphRead;
 namespace FruityPrime.Server.Node.Lobbies;
 
 public sealed record NodeMatchNotification(Guid SessionId, object Payload);
+public sealed record NodeMatchDeliveryOverflow;
 
 /// <summary>Node configuration for one hosted map and its optional mode allow-list.</summary>
 /// <remarks>
@@ -50,6 +51,7 @@ public sealed class NodeContentCatalog
     private static readonly MatchMode[] DefinedModes = Enum.GetValues<MatchMode>();
     private sealed record Entry(ContentIdentity Identity, MatchMode[] Modes);
     private readonly IReadOnlyDictionary<string, Entry> _maps;
+    private readonly string[] _order;
 
     public NodeContentCatalog(IEnumerable<ContentIdentity> maps)
         : this(maps, null) { }
@@ -91,8 +93,9 @@ public sealed class NodeContentCatalog
             catalog.Add(identity.MapKey, new(identity, modes));
         }
         _maps = catalog;
+        _order = entries.Select(e => e.MapKey).ToArray();
     }
-    public IReadOnlyCollection<string> Maps => _maps.Keys.OrderBy(key => key, StringComparer.Ordinal).ToArray();
+    public IReadOnlyCollection<string> Maps => _order.OrderBy(key => key, StringComparer.Ordinal).ToArray();
     public ContentIdentity Get(string mapKey) => _maps.TryGetValue(mapKey, out var map) ? map.Identity : throw new LobbyCommandException("map_unavailable", "Map is not configured on this Node.");
 
     public ContentIdentity Get(string mapKey, MatchMode mode)
@@ -108,6 +111,16 @@ public sealed class NodeContentCatalog
         if (!Enum.IsDefined(mode)) throw new LobbyCommandException("mode_unavailable", $"Mode {mode} is not available for map '{mapKey}'.");
         if (!map.Modes.Contains(mode))
             throw new LobbyCommandException("mode_unavailable", $"Mode {mode} is not available for map '{mapKey}'.");
+    }
+
+    public IReadOnlyList<LobbyMapChoice> RoundMaps(string current, MatchMode mode)
+    {
+        Validate(current, mode);
+        var maps = _order.Where(key => _maps[key].Modes.Contains(mode)).ToArray();
+        int index = Array.IndexOf(maps, current);
+        // Rotate in configured order; a one-map pool intentionally rematches.
+        return Enumerable.Range(1, maps.Length).Select(offset =>
+            new LobbyMapChoice(maps[(index + offset) % maps.Length], mode)).ToArray();
     }
 
     private static MatchMode[] ParseModes(IEnumerable<int> values)
@@ -144,13 +157,15 @@ public sealed class NodeMatchCoordinator : IDisposable
     private readonly Dictionary<MatchId, Pending> _matches = [];
     private readonly Dictionary<Guid, long> _lastRejoin = [];
     private readonly ConcurrentDictionary<Guid, object> _latest = [];
-    private readonly ConcurrentDictionary<Guid, object> _notifications = [];
+    private readonly Dictionary<Guid, Queue<object>> _notifications = [];
+    private const int MaximumPendingEventsPerSession = 32;
     private readonly Channel<bool> _signal = Channel.CreateBounded<bool>(1);
     public NodeMatchCoordinator(LobbyManager lobbies, WorkerScheduler scheduler, WorkerManager workers,
         WorkerAdmissionIssuer issuer, NodeContentCatalog content, ILogger<NodeMatchCoordinator>? logger = null)
     {
         _lobbies = lobbies; _scheduler = scheduler; _workers = workers; _issuer = issuer; _content = content;
         _logger = logger ?? NullLogger<NodeMatchCoordinator>.Instance;
+        _lobbies.ContentCatalog = content;
         _scheduler.Ended += Ended;
     }
     public object? ForSession(Guid sessionId)
@@ -192,13 +207,21 @@ public sealed class NodeMatchCoordinator : IDisposable
         foreach (var id in empty) _scheduler.CancelMatch(id, "Lobby has no remaining sessions.");
     }
     public void ForgetSession(Guid sessionId)
-    { lock (_gate) { _lastRejoin.Remove(sessionId); _latest.TryRemove(sessionId, out _); _notifications.TryRemove(sessionId, out _); } }
+    { lock (_gate) { _lastRejoin.Remove(sessionId); _latest.TryRemove(sessionId, out _); _notifications.Remove(sessionId); } }
     public async IAsyncEnumerable<NodeMatchNotification> ReadNotifications([EnumeratorCancellation] CancellationToken ct)
     {
         await foreach (var _ in _signal.Reader.ReadAllAsync(ct))
-            foreach (var pair in _notifications.ToArray())
-                if (_notifications.TryRemove(pair)) yield return new(pair.Key, pair.Value);
+        {
+            NodeMatchNotification[] batch;
+            lock (_gate)
+            {
+                batch = _notifications.SelectMany(pair => pair.Value.Select(payload => new NodeMatchNotification(pair.Key, payload))).ToArray();
+                _notifications.Clear();
+            }
+            foreach (var notification in batch) yield return notification;
+        }
     }
+
     public async Task<object> ExecuteAsync(LobbyIdentity identity, NodeCommand command)
     {
         identity.Validate();
@@ -248,10 +271,50 @@ public sealed class NodeMatchCoordinator : IDisposable
             spec = _lobbies.PrepareMatch(identity.SessionId, start.ExpectedRevision, content, _workers.NodeId, _workers.NodeIncarnation);
             _matches.Add(spec.MatchId, new(spec, current.Members.ToArray()));
         }
+        await PlaceAsync(spec);
+        return _lobbies.ForSession(identity.SessionId) ?? before;
+    }
+    public async Task RunContinuationsAsync(CancellationToken ct)
+    {
+        // One owned loop and at most one in-flight placement per lobby. The
+        // Worker event reader only changes state; it never awaits placement.
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
+        var active = new List<Task>();
+        try
+        {
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                foreach (var done in active.Where(task => task.IsCompleted).ToArray())
+                { await done; active.Remove(done); }
+                List<MatchSpec> prepared = [];
+                lock (_gate)
+                {
+                    var continuations = _lobbies.PrepareContinuations(_workers.NodeId, _workers.NodeIncarnation, 64 - active.Count, out var failures);
+                    foreach (var failure in failures)
+                        foreach (var member in failure.Members) Notify(member.SessionId, new NodeMatchEnded(failure.MatchId, true));
+                    foreach (var (spec, members) in continuations)
+                    {
+                        _matches.Add(spec.MatchId, new(spec, members));
+                        prepared.Add(spec);
+                    }
+                }
+                foreach (var spec in prepared) active.Add(ContinueAsync(spec, ct));
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        finally { await Task.WhenAll(active); }
+    }
+    private async Task ContinueAsync(MatchSpec spec, CancellationToken ct)
+    {
+        try { await PlaceAsync(spec, ct); }
+        catch (LobbyCommandException) { /* PlaceAsync publishes recoverable interruption. */ }
+    }
+    private async Task PlaceAsync(MatchSpec spec, CancellationToken ct = default)
+    {
         try
         {
             // Placement lifetime belongs to Node, not a socket that can reconnect.
-            MatchPlacement placement = await _scheduler.PlaceAsync(spec);
+            MatchPlacement placement = await _scheduler.PlaceAsync(spec, ct);
             lock (_gate)
             {
                 if (!_matches.TryGetValue(spec.MatchId, out var pending) || !_lobbies.MatchReady(placement))
@@ -263,7 +326,7 @@ public sealed class NodeMatchCoordinator : IDisposable
                         Notify(member.SessionId, Handoff(pending, placement, member));
                 }
             }
-            return _lobbies.ForSession(identity.SessionId) ?? before;
+            return;
         }
         catch (Exception ex) when (ex is WorkerPlacementException or TimeoutException or OperationCanceledException or LobbyCommandException or ArgumentException)
         {
@@ -300,6 +363,16 @@ public sealed class NodeMatchCoordinator : IDisposable
         }
     }
     private void Notify(Guid sessionId, object message)
-    { _latest[sessionId] = message; _notifications[sessionId] = message; _signal.Writer.TryWrite(true); }
+    {
+        _latest[sessionId] = message;
+        if (!_notifications.TryGetValue(sessionId, out var queue)) _notifications.Add(sessionId, queue = new());
+        if (queue.TryPeek(out var first) && first is NodeMatchDeliveryOverflow) return;
+        // Never silently replace an ended event with the following handoff.
+        // An exhausted consumer explicitly loses its connection and must resume.
+        if (queue.Count == MaximumPendingEventsPerSession)
+        { queue.Clear(); queue.Enqueue(new NodeMatchDeliveryOverflow()); }
+        else queue.Enqueue(message);
+        _signal.Writer.TryWrite(true);
+    }
     public void Dispose() => _scheduler.Ended -= Ended;
 }

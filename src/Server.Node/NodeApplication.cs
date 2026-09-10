@@ -27,7 +27,8 @@ public static class NodeApplication
             builder.Configuration.GetValue("Node:MaximumLobbies", 256),
             sp.GetRequiredService<TimeProvider>(),
             builder.Configuration.GetValue("Node:MaximumWaitlistPerLobby", LobbyWaitlist.DefaultMaximumEntries),
-            TimeSpan.FromSeconds(builder.Configuration.GetValue("Node:WaitlistOfferSeconds", 15))));
+            TimeSpan.FromSeconds(builder.Configuration.GetValue("Node:WaitlistOfferSeconds", 15)),
+            builder.Configuration.GetValue("Node:PostMatchVoteSeconds", 15)));
         builder.Services.AddNodeWorkerPool(builder.Configuration, auth.NodeId);
         builder.Services.AddSingleton(NodeContentCatalog.FromConfiguration(
             builder.Configuration.GetSection("Node:Maps").Get<NodeMapConfiguration[]>() ?? []));
@@ -49,6 +50,7 @@ public static class NodeApplication
         var app = builder.Build();
         // Fail at startup, rather than expose an accidentally unauthenticated service.
         _ = app.Services.GetRequiredService<NodeAdmissionValidator>();
+        _ = app.Services.GetRequiredService<LobbyManager>();
         app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(20), KeepAliveTimeout = TimeSpan.FromSeconds(20) });
         app.UseRateLimiter();
         app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));

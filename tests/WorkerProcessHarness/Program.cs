@@ -3,6 +3,7 @@ using FruityPrime.Server.Shared;
 
 string Get(string key) => args[Array.IndexOf(args, key) + 1];
 string mode = Get("--mode");
+var activeMatches = new Dictionary<MatchId, MatchSpec>();
 if (mode == "environment" && Environment.GetEnvironmentVariable("PRIME_NODE_DIRECTORY_SECRET") != null) return 29;
 if (mode == "exit") return 17;
 if (mode == "hang") { await Task.Delay(60000); return 0; }
@@ -63,9 +64,15 @@ while (true)
             await WorkerIpcCodec.WriteAsync(pipe, new WorkerDraining(worker, incarnation));
             if (mode == "drain-exit") return 0;
             break;
+        case MatchAdminCommand admin when mode == "controlled-completion" && admin.Action == AdminAction.EndMatch:
+            if (activeMatches.Remove(admin.MatchId, out var completed))
+                await WorkerIpcCodec.WriteAsync(pipe, new MatchCompleted(new(completed.MatchId,
+                    completed.LobbyId, MphRead.MatchEndReason.TimeLimit, [], null, null, Guid.NewGuid())));
+            break;
         case CancelMatch cancel:
             await WorkerIpcCodec.WriteAsync(pipe, new MatchInterrupted(cancel.MatchId, "cancelled")); break;
         case CreateMatch create:
+            if (mode == "controlled-completion") activeMatches.Add(create.Spec.MatchId, create.Spec);
             if (mode == "crash-match") return 23;
             if (mode == "create-hang") break;
             await WorkerIpcCodec.WriteAsync(pipe, new MatchReady(new(create.Spec.MatchId, new(nextWire++), worker, mode == "stale-match" ? Guid.NewGuid() : incarnation,
