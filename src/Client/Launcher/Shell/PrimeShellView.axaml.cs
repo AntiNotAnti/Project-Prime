@@ -67,6 +67,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private readonly PrimeTitleScreenLifecycle _titleLifecycle;
     private readonly PrimeTitleInputState _titleInput = new();
     private readonly PrimeTitleScreenCaptureState? _titleCaptureState;
+    private Task? _titleDismissalTask;
     private PrimeShellNavigationAdapter _navigationAdapter = null!;
     private PrimeMotionLease? _routeMotion;
     private PrimeMotionLease? _overlayMotion;
@@ -148,6 +149,14 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         _online = onlineRuntime ?? new ClientOnlineRuntime();
         _ownsOnline = onlineRuntime == null;
         InitializeComponent();
+        AddHandler(KeyDownEvent, PreviewTitleKeyDown,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(KeyUpEvent, PreviewTitleKeyUp,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerPressedEvent, PreviewTitlePointerPressed,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, PreviewTitlePointerReleased,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
         _navigationAdapter = new PrimeShellNavigationAdapter(this);
         Resources["PrimeReducedMotion"] = LauncherPrefs.ReducedMotion;
 
@@ -330,6 +339,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     internal bool SeatOfferOverlayVisible => IsSeatOfferOverlayOpen();
     internal bool ShellInputEnabled => ShellGrid.IsEnabled
         && ShellGrid.IsHitTestVisible;
+    internal Task TitleDismissalTask => _titleDismissalTask ?? Task.CompletedTask;
 
     private void InitializeTitleScreen(bool showTitleScreen,
         PrimeTitleScreenCaptureState? captureState)
@@ -395,6 +405,32 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         return consume;
     }
 
+    private void PreviewTitleKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (!IsTitleBlocking && !_titleInput.IsKeyHeld(e.Key)) return;
+        e.Handled = HandleTitleKeyDown(e.Key);
+    }
+
+    private void PreviewTitleKeyUp(object? sender, KeyEventArgs e)
+    {
+        if (!IsTitleBlocking && !_titleInput.IsKeyHeld(e.Key)) return;
+        e.Handled = HandleTitleKeyUp(e.Key);
+    }
+
+    private void PreviewTitlePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!IsTitleBlocking && !_titleInput.PointerHeld) return;
+        HandleTitlePointerPressed(e.Pointer.Type);
+        e.Handled = true;
+    }
+
+    private void PreviewTitlePointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!IsTitleBlocking && !_titleInput.PointerHeld) return;
+        HandleTitlePointerReleased();
+        e.Handled = true;
+    }
+
     internal void MarkTitleReady()
     {
         if (_disposed || !_titleLifecycle.MarkReady()) return;
@@ -434,7 +470,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             return;
         }
         title.SetPhase(PrimeTitleScreenPhase.Dismissing);
-        _ = DismissTitleAsync(title);
+        _titleDismissalTask = DismissTitleAsync(title);
     }
 
     private async Task DismissTitleAsync(PrimeTitleScreenView title)
@@ -443,7 +479,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         {
             await title.FadeOutAsync(_titleLifetime.Token).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (_titleLifetime.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
             return;
         }
@@ -554,7 +590,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
                 }
             });
         }
-        else if (_titleCaptureState is null)
+        else if (!_restoreOnActivate && _titleCaptureState is null)
             MarkTitleReady();
         // Android returns here after a match and after the install-source
         // settings screen. Retrying on every activation lets a staged APK be
@@ -696,11 +732,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
-        if (HandleTitleKeyDown(e.Key))
-        {
-            e.Handled = true;
-            return;
-        }
+        if (e.Handled) return;
         _shell.SetLastInputDevice(PrimeInputDevice.KeyboardMouse);
         if (e.Key == Key.Escape)
         {
@@ -713,21 +745,13 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
 
     protected override void OnKeyUp(KeyEventArgs e)
     {
-        if (HandleTitleKeyUp(e.Key))
-        {
-            e.Handled = true;
-            return;
-        }
+        if (e.Handled) return;
         base.OnKeyUp(e);
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
-        if (HandleTitlePointerPressed(e.Pointer.Type))
-        {
-            e.Handled = true;
-            return;
-        }
+        if (e.Handled) return;
         _shell.SetLastInputDevice(e.Pointer.Type == PointerType.Mouse
             ? PrimeInputDevice.KeyboardMouse
             : PrimeInputDevice.Touch);
@@ -736,11 +760,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
-        if (HandleTitlePointerReleased())
-        {
-            e.Handled = true;
-            return;
-        }
+        if (e.Handled) return;
         base.OnPointerReleased(e);
     }
 
