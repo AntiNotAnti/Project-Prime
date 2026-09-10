@@ -287,8 +287,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         _shell.ClearNotification();
         _theaterLoaded = false;
         _shell.Navigator.NavigateRoot(_shell.HasNetworkIdentity ? PrimeRoute.Play : PrimeRoute.Gateway);
-        if (_active && NodeSessions.Current == null)
-            RunCommand("Refresh Nodes", () => _play.RefreshNodesAsync(_lifetime.Token));
+
     }
 
     /// <summary>Handle Escape or Android back without ending a match.</summary>
@@ -661,8 +660,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private Control BuildPlayPage()
     {
         PlayState state = _capturePlayState ?? _play.State;
-        var root = Stack(PrimeControlFactory.PageHeading("Play", "NODE DIRECTORY // MATCHMAKING",
-            "Choose a compatible Node, then join or create a lobby."));
+        var root = Stack(PrimeControlFactory.PageHeading("Play", "ONLINE MULTIPLAYER",
+            "Find a match, browse lobbies, or host a game."));
         if (!_shell.HasNetworkIdentity)
         {
             root.Children.Add(PrimeControlFactory.SectionPanel(Stack(
@@ -676,21 +675,52 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
                     "prime-muted"))));
             return root;
         }
+        if (state.Lobby is { } retainedLobby && NodeSessions.Current is { Connected: false })
+            return PrimeControlFactory.SectionPanel(Stack(
+                Text("Connection interrupted", "prime-heading"),
+                Text($"{retainedLobby.Name} · {retainedLobby.Phase}. Restore your connection to continue. "
+                    + "If the session has expired, disconnect to find another game.", "prime-muted"),
+                MakeButton("Restore connection", () => RunCommand("Restore connection",
+                    () => _play.ResumeAsync(_lifetime.Token)), primary: true),
+                MakeButton("Disconnect", () => RunCommand("Disconnect", _play.DisconnectAsync), quiet: true)));
+        if (state.Lobby is { Phase: LobbyPhase.StartingMatch })
+            return Stack(Text("Preparing match…", "prime-heading"), Text("Your server is preparing the game. You will join automatically.", "prime-muted"));
         if (state.Lobby is { } activeLobby)
             return BuildActiveLobbyPage(state, activeLobby);
-        var toolbar = new WrapPanel { Orientation = Orientation.Horizontal };
-        toolbar.Children.Add(MakeButton("Refresh Nodes", () => RunCommand("Refresh Nodes",
-            () => _play.RefreshNodesAsync(_lifetime.Token)), primary: state.Node == null));
-        if (NodeSessions.Current is { Connected: false })
-            toolbar.Children.Add(MakeButton("Resume Node", () => RunCommand("Resume Node",
-                () => _play.ResumeAsync(_lifetime.Token)), quiet: true));
+        var primary = new WrapPanel { Orientation = Orientation.Horizontal };
+        primary.Children.Add(MakeButton("Quick Play", () => RunCommand("Quick Play",
+            () => _play.QuickPlayAsync(_lifetime.Token)), primary: true));
+        primary.Children.Add(MakeButton("Browse Lobbies", () => RunCommand("Browse lobbies",
+            () => _play.BrowseLobbiesAsync(_lifetime.Token))));
+        primary.Children.Add(MakeButton("Host Lobby", () => RunCommand("Host lobby",
+            () => _play.HostLobbyAsync(string.IsNullOrWhiteSpace(_lobbyNameDraft) ? "New lobby" : _lobbyNameDraft,
+                _lifetime.Token))));
+        primary.IsEnabled = !state.Loading;
+        root.Children.Add(primary);
+        root.Children.Add(Text(state.Message, "prime-muted"));
+        var directory = Stack(Text("Lobbies", "prime-heading"));
+        if (state.Lobbies is not { } lobbies || lobbies.Lobbies.IsDefaultOrEmpty)
+            directory.Children.Add(Text("No lobbies to show. Choose Browse Lobbies or host a new lobby.", "prime-muted"));
+        else foreach (LobbyListEntry entry in lobbies.Lobbies)
+        {
+            LobbyListEntry captured = entry;
+            AvaloniaButton join = MakeButton($"{entry.Name}  ·  {entry.Players}/{entry.PlayerLimit}  ·  {entry.Phase}",
+                () => RunCommand($"Join {captured.Name}", () => _play.JoinLobbyAsync(
+                    captured.LobbyId, captured.Revision, cancellationToken: _lifetime.Token)));
+            join.IsEnabled = PlayController.IsQuickPlayEligible(entry);
+            directory.Children.Add(join);
+        }
+        var network = Stack(Text("Connection", "prime-heading"),
+            Text(state.Node?.Session is { } session ? $"Connected · {session.NodeId}" : "Disconnected", "prime-muted"));
+        var region = Input(_play.PreferredRegion, "Preferred region (optional)");
+        region.TextChanged += (_, _) => _play.PreferredRegion = region.Text?.Trim() ?? "";
+        network.Children.Add(Text("Region", "prime-label"));
+        network.Children.Add(region);
+        network.Children.Add(MakeButton("Refresh servers", () => RunCommand("Refresh servers",
+            () => _play.ForceRefreshNodesAsync(_lifetime.Token)), quiet: true));
         if (NodeSessions.Current != null)
-            toolbar.Children.Add(MakeButton("Disconnect", () => RunCommand("Disconnect Node",
+            network.Children.Add(MakeButton("Disconnect", () => RunCommand("Disconnect",
                 _play.DisconnectAsync), quiet: true));
-        root.Children.Add(toolbar);
-
-        var directory = Stack();
-        directory.Children.Add(Text("Nodes", "prime-heading"));
         if (state.Nodes.Count == 0)
         {
             Update.UpdateStatus updateStatus = Update.Updater.Coordinator.Status;
@@ -715,39 +745,11 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         foreach (NodeListing node in state.Nodes)
         {
             NodeListing captured = node;
-            string summary = $"{node.Name}  ·  {node.Region}  ·  {node.OnlineUsers}/{node.Capacity} players  ·  {node.LobbyCount} lobbies";
-            AvaloniaButton connect = MakeButton(summary, () => RunCommand($"Connect {captured.Name}",
-                () => _play.ConnectNodeAsync(captured, _lifetime.Token)));
-            bool selected = state.Node?.Session?.NodeId == node.NodeId;
-            directory.Children.Add(PrimeControlFactory.SelectedRow(connect, selected));
+            network.Children.Add(MakeButton($"{node.Name} · {node.Region} · {node.OnlineUsers}/{node.Capacity} players",
+                () => RunCommand("Connect server", () => _play.ConnectNodeAsync(captured, _lifetime.Token))));
         }
-        if (state.Node?.Error is { Length: > 0 } nodeError)
-            directory.Children.Add(Text(nodeError, "prime-muted"));
-
-        if (state.Node != null)
-        {
-            directory.Children.Add(PrimeControlFactory.Divider());
-            var lobbyPanel = Stack(Text("Lobbies", "prime-heading"));
-            var createName = Input(_lobbyNameDraft, "New lobby name");
-            createName.TextChanged += (_, _) => _lobbyNameDraft = createName.Text ?? "";
-            createName.LostFocus += PlayEditorLostFocus;
-            lobbyPanel.Children.Add(createName);
-            lobbyPanel.Children.Add(MakeButton("Create lobby", () => RunCommand("Create lobby",
-                () => _play.CreateLobbyAsync(createName.Text ?? "", _lifetime.Token)), primary: state.Lobby == null));
-            if (state.Node.Lobbies is not { } lobbies || lobbies.Lobbies.IsDefaultOrEmpty)
-                lobbyPanel.Children.Add(Text("No open lobbies reported by this Node.", "prime-muted"));
-            else foreach (LobbyListEntry entry in lobbies.Lobbies)
-            {
-                LobbyListEntry captured = entry;
-                AvaloniaButton join = MakeButton(
-                    $"{entry.Name}  ·  {entry.Players}/{entry.PlayerLimit}  ·  {entry.Phase}",
-                    () => RunCommand($"Join {captured.Name}", () => _play.JoinLobbyAsync(
-                        captured.LobbyId, captured.Revision, cancellationToken: _lifetime.Token)));
-                lobbyPanel.Children.Add(PrimeControlFactory.SelectedRow(join,
-                    state.Lobby?.LobbyId == entry.LobbyId));
-            }
-            directory.Children.Add(lobbyPanel);
-        }
+        if (state.Node?.Error is { Length: > 0 } error) network.Children.Add(Text(error, "prime-muted"));
+        root.Children.Add(new Expander { Header = "Advanced Network", Content = network });
 
         _lobbyDraftId = null;
         _mapDraft = null;
@@ -1094,6 +1096,25 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private Control BuildLobbyActionStrip(PlayState state, LobbySnapshot lobby,
         LobbyMember? currentMember)
     {
+        if (lobby.Phase != LobbyPhase.Open)
+        {
+            var recovery = Stack(Text(lobby.Phase == LobbyPhase.PostMatch
+                ? "Match finished. The server is choosing the next round. You can leave the lobby here."
+                : state.Message, "prime-muted"));
+            if (lobby.Phase == LobbyPhase.InMatch && state.Handoff != null)
+            {
+                recovery.Children.Add(MakeButton("Rejoin match", () => RunCommand("Rejoin match",
+                    () => _play.RejoinWorkerAsync(_lifetime.Token)), primary: true));
+                recovery.Children.Add(MakeButton("Retry connection", () => RunCommand("Retry connection",
+                    () => _play.RetryHandoffAsync(_lifetime.Token))));
+            }
+            if (lobby.Phase == LobbyPhase.PostMatch && lobby.OwnerSessionId == state.Node?.Session?.SessionId)
+                recovery.Children.Add(MakeButton("Return to lobby", () => RunCommand("Return to lobby",
+                    () => _play.ReturnToLobbyAsync(_lifetime.Token))));
+            recovery.Children.Add(MakeButton("Leave lobby", () => RunCommand("Leave lobby",
+                () => _play.LeaveLobbyAsync(_lifetime.Token)), quiet: true));
+            return PrimeControlFactory.SectionPanel(recovery);
+        }
         var strip = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,Auto"),
@@ -1106,7 +1127,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             SelectedItem = state.LobbyHunter,
             Tag = ControllerComboSelector.Hunter,
             MinWidth = 180,
-            MinHeight = 44
+            MinHeight = 44,
+            IsEnabled = currentMember is { Observer: false } && lobby.Phase == LobbyPhase.Open
         };
         var hunterSelection = new DeferredControllerSelection<Hunter>(
             state.LobbyHunter, selected => RunCommand("Select lobby hunter",
@@ -1129,9 +1151,10 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             HorizontalAlignment = HorizontalAlignment.Right
         };
         bool ready = currentMember?.Ready ?? false;
-        actions.Children.Add(MakeButton(ready ? "NOT READY" : "READY", () => RunCommand(
-            ready ? "Clear ready" : "Set ready",
-            () => _play.SetReadyAsync(!ready, _lifetime.Token)), primary: !ready));
+        if (currentMember is { Observer: false } && lobby.Phase == LobbyPhase.Open)
+            actions.Children.Add(MakeButton(ready ? "NOT READY" : "READY", () => RunCommand(
+                ready ? "Clear ready" : "Set ready",
+                () => _play.SetReadyAsync(!ready, _lifetime.Token)), primary: !ready));
         if (state.Handoff != null)
             actions.Children.Add(MakeButton("REJOIN MATCH", () => RunCommand("Rejoin match",
                 () => _play.RejoinWorkerAsync(_lifetime.Token)), primary: ready));
@@ -1942,8 +1965,9 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             if (args.Route != PrimeRoute.Play) _play.CancelPendingHandoff();
             RenderRoute(args.Route);
             if (args.Route == PrimeRoute.Play && _restoreOnActivate
-                && _shell.HasNetworkIdentity)
-                RunCommand("Refresh Nodes", () => _play.RefreshNodesAsync(_lifetime.Token));
+                && _shell.HasNetworkIdentity && _play.State.Lobbies == null
+                && _play.State.Lobby == null)
+                RunCommand("Browse lobbies", () => _play.BrowseLobbiesAsync(_lifetime.Token));
         });
 
     private void ShellPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)

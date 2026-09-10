@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,10 +38,11 @@ public sealed record PlayState(PlayPhase Phase, IReadOnlyList<NodeListing> Nodes
     bool Loading, long Revision)
 {
     public static PlayState Initial => new(PlayPhase.Nodes, Array.Empty<NodeListing>(),
-        null, Hunter.Samus, "Choose a compatible Node.", false, 0);
+        null, Hunter.Samus, "Choose Quick Play, Browse Lobbies, or Host Lobby.", false, 0);
 
     public LobbySnapshot? Lobby => Node?.Lobby;
-    public LobbyListSnapshot? Lobbies => Node?.Lobbies;
+    public LobbyListSnapshot? BrowsedLobbies { get; init; }
+    public LobbyListSnapshot? Lobbies => BrowsedLobbies ?? Node?.Lobbies;
     public NodeMatchHandoff? Handoff => Node?.Handoff;
     public NodeRoundSnapshot? Round => Node?.Round;
 }
@@ -123,6 +125,12 @@ public sealed class PlayController : IAsyncDisposable
 {
     private readonly record struct MapCatalogSnapshot(NodeMapCatalogState State, string[] Available);
     private readonly PrimeShellState _shell;
+    private readonly TimeProvider _time;
+    private DateTimeOffset? _directoryFetchedAt;
+    private NodeControlClient? _resumeAttempted;
+    private CancellationTokenSource? _activeEntry;
+    private readonly SemaphoreSlim _entryOperation = new(1, 1);
+    public string PreferredRegion { get; set; } = "";
     private string[] _maps;
     private readonly Func<CancellationToken, Task<AccountSession?>> _accountResolver;
     private readonly SemaphoreSlim _operation = new(1, 1);
@@ -144,8 +152,9 @@ public sealed class PlayController : IAsyncDisposable
     private int _disposed;
 
     public PlayController(PrimeShellState shell, IReadOnlyList<string>? maps = null,
-        Func<CancellationToken, Task<AccountSession?>>? accountResolver = null)
+        Func<CancellationToken, Task<AccountSession?>>? accountResolver = null, TimeProvider? timeProvider = null)
     {
+        _time = timeProvider ?? TimeProvider.System;
         _shell = shell ?? throw new ArgumentNullException(nameof(shell));
         _maps = maps?.Distinct(StringComparer.Ordinal).ToArray() ?? Array.Empty<string>();
         _accountResolver = accountResolver ?? ResolveAccountAsync;
@@ -187,23 +196,21 @@ public sealed class PlayController : IAsyncDisposable
         else NodeChanged();
     }
 
-    public async Task RefreshNodesAsync(CancellationToken cancellationToken = default)
+    public Task RefreshNodesAsync(CancellationToken cancellationToken = default)
+        => RefreshDirectoryAsync(false, cancellationToken);
+
+    public Task ForceRefreshNodesAsync(CancellationToken cancellationToken = default)
+        => RefreshDirectoryAsync(true, cancellationToken);
+
+    private async Task RefreshDirectoryAsync(bool force, CancellationToken cancellationToken)
     {
         await _operation.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
-            if (NodeSessions.Current is { Connected: true } connected)
-            {
-                Observe(connected);
-                await connected.SendAsync("lobby.list", new LobbyList(), cancellationToken)
-                    .ConfigureAwait(false);
-                Publish(State with { Phase = PlayPhase.Connected, Loading = false,
-                    Message = "Connected to Node." });
-                return;
-            }
+            if (!force && IsDirectoryFresh(_directoryFetchedAt, _time.GetUtcNow())) return;
             Publish(State with { Phase = PlayPhase.LoadingNodes, Loading = true,
-                Message = "Finding compatible Nodes…" });
+                Message = "Finding compatible servers…" });
             AccountSession account = await RequireAccountAsync(cancellationToken).ConfigureAwait(false);
             (IReadOnlyList<string> failures, (string Version, string ContentHash) identity) prepared =
                 await Task.Run(() =>
@@ -215,17 +222,198 @@ public sealed class PlayController : IAsyncDisposable
                 throw new InvalidOperationException("Custom map preparation failed: " + prepared.failures[0]);
             NodeListing[] nodes = await account.GetNodesAsync(NetHeader.Version, BuildVersion.Display,
                 prepared.identity.ContentHash, cancellationToken).ConfigureAwait(false);
-            Publish(new PlayState(PlayPhase.Nodes, nodes, null, State.LobbyHunter,
-                nodes.Length == 0 ? "No compatible Nodes are online." : "Choose a Node.", false,
+            _directoryFetchedAt = _time.GetUtcNow();
+            Publish(new PlayState(NodeSessions.Current is { Connected: true } ? PlayPhase.Connected : PlayPhase.Nodes, nodes, State.Node, State.LobbyHunter,
+                nodes.Length == 0 ? "No compatible servers are online." : "Choose a server in Advanced Network.", false,
                 State.Revision + 1));
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            Publish(State with { Loading = false, Message = "Server refresh cancelled. Try again." });
+            throw;
+        }
         catch (Exception error)
         {
             Publish(State with { Phase = PlayPhase.Error, Loading = false, Message = error.Message });
             _shell.Notify(PrimeNotificationKind.Error, error.Message);
         }
         finally { _operation.Release(); }
+    }
+
+    internal static bool IsDirectoryFresh(DateTimeOffset? fetchedAt, DateTimeOffset now)
+        => fetchedAt is { } fetched && now >= fetched && now - fetched < TimeSpan.FromSeconds(25);
+
+    internal static NodeListing? SelectAutomaticNode(IEnumerable<NodeListing> nodes, string region)
+        => nodes.Where(node => node.Capacity > node.OnlineUsers)
+            .OrderByDescending(node => !string.IsNullOrEmpty(region) && StringComparer.OrdinalIgnoreCase.Equals(node.Region, region))
+            .ThenByDescending(node => node.LobbyCount > 0)
+            .ThenBy(node => node.OnlineUsers)
+            .ThenBy(node => node.NodeId).FirstOrDefault();
+
+    internal static bool IsQuickPlayEligible(LobbyListEntry lobby)
+        => lobby.Phase == LobbyPhase.Open && lobby.Players + lobby.BotCount < lobby.PlayerLimit;
+
+    public async Task<bool> EnsureNodeAsync(CancellationToken cancellationToken = default)
+    {
+        if (!_shell.HasNetworkIdentity) throw new InvalidOperationException("Choose an account or Guest access first.");
+        if (NodeSessions.Current is { Connected: true }) return true;
+        NodeControlClient? previous = NodeSessions.Current;
+        if (previous != null && !ReferenceEquals(previous, _resumeAttempted))
+        {
+            _resumeAttempted = previous;
+            if (await ResumeAsync(cancellationToken).ConfigureAwait(false)) return true;
+        }
+        await RefreshNodesAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsDirectoryFresh(_directoryFetchedAt, _time.GetUtcNow())) return false;
+        NodeListing? selected = SelectAutomaticNode(State.Nodes, PreferredRegion);
+        if (selected == null)
+        {
+            Publish(State with { Loading = false, Message = "No compatible servers are available. Refresh servers in Advanced Network." });
+            return false;
+        }
+        return await ConnectNodeAsync(selected, cancellationToken).ConfigureAwait(false);
+    }
+
+    public Task BrowseLobbiesAsync(CancellationToken cancellationToken = default)
+        => RunEntryAsync(async token =>
+        {
+            if (!await EnsureNodeAsync(token).ConfigureAwait(false)) return;
+            await BrowseConnectedAsync(RequireConnected(), token).ConfigureAwait(false);
+        }, cancellationToken);
+
+    private async Task BrowseConnectedAsync(NodeControlClient node, CancellationToken token)
+    {
+        LobbyListSnapshot list = await LoadBrowseLobbiesAsync(
+            (offset, cancel) => ReadLobbyPageAsync(node, offset, cancel), token).ConfigureAwait(false);
+        Publish(State with { BrowsedLobbies = list, Message = list.NextOffset != null
+            ? "Showing the first 1024 lobbies. Refresh to update available games."
+            : list.Lobbies.IsEmpty ? "No lobbies available. Host a new lobby." : "Choose a lobby to join." });
+    }
+
+    public Task QuickPlayAsync(CancellationToken cancellationToken = default)
+        => RunEntryAsync(async token =>
+        {
+            if (!await EnsureNodeAsync(token).ConfigureAwait(false)) return;
+            NodeControlClient node = RequireConnected();
+            if (node.Lobby != null) return;
+            bool joined = await JoinQuickPlayWithRetryAsync(
+                (offset, cancel) => ReadLobbyPageAsync(node, offset, cancel),
+                (lobby, cancel) => node.SendAndWaitAsync("lobby.join",
+                    new LobbyJoin(lobby.LobbyId, lobby.Revision, false), cancel), token).ConfigureAwait(false);
+            if (joined) return;
+            await BrowseConnectedAsync(node, token).ConfigureAwait(false);
+            Publish(State with { Message = "No open player slots found. Browse lobbies or host a new lobby." });
+        }, cancellationToken);
+
+    public Task HostLobbyAsync(string name, CancellationToken cancellationToken = default)
+    {
+        string validName = ValidateLobbyName(name);
+        return RunEntryAsync(async token =>
+        {
+            if (!await EnsureNodeAsync(token).ConfigureAwait(false)) return;
+            NodeControlClient node = RequireConnected();
+            if (node.Lobby != null) return;
+            RequireResponse(await node.SendAndWaitAsync("lobby.create", new LobbyCreate(validName,
+                LobbyVisibility.Public), token).ConfigureAwait(false), "lobby.snapshot");
+        }, cancellationToken);
+    }
+
+    internal async Task RunEntryAsync(Func<CancellationToken, Task> action,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        using CancellationTokenSource entry = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+        entry.CancelAfter(TimeSpan.FromSeconds(25));
+        if (!await _entryOperation.WaitAsync(0, cancellationToken).ConfigureAwait(false)) return;
+        lock (_stateLock) _activeEntry = entry;
+        Publish(State with { Loading = true, Message = "Finding a game…" });
+        try { await action(entry.Token).ConfigureAwait(false); }
+        catch (OperationCanceledException)
+        {
+            Publish(State with { Loading = false, Message = cancellationToken.IsCancellationRequested
+                || _lifetime.IsCancellationRequested ? "Connection cancelled. Try again when ready."
+                : "Connection timed out or was cancelled. Try again." });
+        }
+        catch (TimeoutException)
+        {
+            Publish(State with { Loading = false, Message = "The server did not respond in time. Try again." });
+        }
+        finally
+        {
+            lock (_stateLock) _activeEntry = null;
+            Publish(State with { Loading = false });
+            _entryOperation.Release();
+        }
+    }
+
+    internal static async Task<LobbyListSnapshot> LoadBrowseLobbiesAsync(
+        Func<int, CancellationToken, Task<LobbyListSnapshot>> readPage, CancellationToken token)
+    {
+        var entries = ImmutableArray.CreateBuilder<LobbyListEntry>();
+        var seen = new HashSet<Guid>();
+        int offset = 0;
+        for (int page = 0; page < 64; page++)
+        {
+            token.ThrowIfCancellationRequested();
+            LobbyListSnapshot list = await readPage(offset, token).ConfigureAwait(false);
+            foreach (LobbyListEntry lobby in list.Lobbies)
+                if (seen.Add(lobby.LobbyId)) entries.Add(lobby);
+            if (list.NextOffset is not { } next || next <= offset)
+                return new(entries.ToImmutable(), null);
+            offset = next;
+        }
+        return new(entries.ToImmutable(), offset);
+    }
+
+    internal static async Task<bool> JoinQuickPlayWithRetryAsync(
+        Func<int, CancellationToken, Task<LobbyListSnapshot>> readPage,
+        Func<LobbyListEntry, CancellationToken, Task<NodeControlEvent>> join, CancellationToken token)
+    {
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            LobbyListEntry? lobby = await FindQuickPlayLobbyAsync(readPage, token).ConfigureAwait(false);
+            if (lobby == null) return false;
+            NodeControlEvent response = await join(lobby, token).ConfigureAwait(false);
+            if (response.Type == "error" && response.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)?.Code
+                is "stale_revision" or "capacity" or "full" or "phase" or "not_found") continue;
+            RequireResponse(response, "lobby.snapshot");
+            return true;
+        }
+        return false;
+    }
+
+    internal static async Task<LobbyListEntry?> FindQuickPlayLobbyAsync(
+        Func<int, CancellationToken, Task<LobbyListSnapshot>> readPage, CancellationToken cancellationToken)
+    {
+        int offset = 0;
+        for (int page = 0; page < 64; page++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            LobbyListSnapshot list = await readPage(offset, cancellationToken).ConfigureAwait(false);
+            LobbyListEntry? lobby = list.Lobbies.FirstOrDefault(IsQuickPlayEligible);
+            if (lobby != null) return lobby;
+            if (list.NextOffset is not { } next || next <= offset) return null;
+            offset = next;
+        }
+        return null;
+    }
+
+    private static async Task<LobbyListSnapshot> ReadLobbyPageAsync(NodeControlClient node, int offset,
+        CancellationToken cancellationToken)
+    {
+        NodeControlEvent response = await node.SendAndWaitAsync("lobby.list", new LobbyList(offset, 16),
+            cancellationToken).ConfigureAwait(false);
+        RequireResponse(response, "lobby.list");
+        return response.Payload.Deserialize(NodeJsonContext.Default.LobbyListSnapshot)
+            ?? throw new InvalidOperationException("The server returned an invalid lobby list.");
+    }
+
+    private static void RequireResponse(NodeControlEvent response, string expected)
+    {
+        if (response.Type == "error") throw new InvalidOperationException(
+            response.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)?.Message ?? "The server rejected the request.");
+        if (response.Type != expected) throw new InvalidOperationException("The server returned an unexpected response.");
     }
 
     public async Task<bool> ConnectNodeAsync(NodeListing node,
@@ -248,12 +436,11 @@ public sealed class PlayController : IAsyncDisposable
                 Message = $"Connecting to {node.Name}…" });
             NodeControlClient connected = await NodeSessions.ConnectAsync(account, node,
                 cancellationToken).ConfigureAwait(false);
+            Publish(State with { BrowsedLobbies = null });
             Observe(connected);
             _connectedNodeName = node.Name;
             _connectedNodeRegion = node.Region;
             _shell.SetNodeStatus(true, node.Name, node.Region);
-            await connected.SendAsync("lobby.list", new LobbyList(), cancellationToken)
-                .ConfigureAwait(false);
             Publish(State with { Phase = PlayPhase.Connected, Loading = false,
                 Message = $"Connected to {node.Name}." });
             return true;
@@ -281,10 +468,8 @@ public sealed class PlayController : IAsyncDisposable
                 .ConfigureAwait(false);
             Observe(session);
             _shell.SetNodeStatus(true, _connectedNodeName, _connectedNodeRegion);
-            await session.SendAsync("lobby.list", new LobbyList(), cancellationToken)
-                .ConfigureAwait(false);
             Publish(State with { Phase = PlayPhase.Connected, Loading = false,
-                Message = "Node session resumed." });
+                Message = "Connection restored." });
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
@@ -299,6 +484,7 @@ public sealed class PlayController : IAsyncDisposable
     public async Task DisconnectAsync()
     {
         ThrowIfDisposed();
+        _directoryFetchedAt = null;
         _generation++;
         _handoff.Cancel();
         ClearSelectedNodeCatalog();
@@ -307,7 +493,7 @@ public sealed class PlayController : IAsyncDisposable
         await NodeSessions.DisconnectAsync().ConfigureAwait(false);
         Observe(null);
         _shell.SetNodeStatus(false);
-        Publish(State with { Phase = PlayPhase.Nodes, Node = null, Loading = false,
+        Publish(State with { Phase = PlayPhase.Nodes, Node = null, BrowsedLobbies = null, Loading = false,
             Message = "Node disconnected." });
     }
 
@@ -503,6 +689,9 @@ public sealed class PlayController : IAsyncDisposable
     /// </summary>
     public void CancelIdentityOperations()
     {
+        lock (_stateLock) _activeEntry?.Cancel();
+        _directoryFetchedAt = null;
+        _resumeAttempted = null;
         Interlocked.Increment(ref _generation);
         _handoff.Cancel();
         NetSession.Stop();
@@ -532,6 +721,9 @@ public sealed class PlayController : IAsyncDisposable
             try { await handoffTask.ConfigureAwait(false); }
             catch (OperationCanceledException) { }
         }
+        await _entryOperation.WaitAsync().ConfigureAwait(false);
+        _entryOperation.Release();
+        _entryOperation.Dispose();
         await _operation.WaitAsync().ConfigureAwait(false);
         _operation.Release();
         _operation.Dispose();
@@ -586,7 +778,7 @@ public sealed class PlayController : IAsyncDisposable
         {
             ClearSelectedNodeCatalog();
             _shell.SetNodeStatus(false);
-            Publish(State with { Phase = PlayPhase.Nodes, Node = null, Loading = false,
+            Publish(State with { Phase = PlayPhase.Nodes, Node = null, BrowsedLobbies = null, Loading = false,
                 Message = "Node disconnected." });
         }
     }
@@ -601,7 +793,7 @@ public sealed class PlayController : IAsyncDisposable
         {
             PlayPhase.Handoff => "Match authorized. Connecting gameplay transport…",
             PlayPhase.Lobby => state.Lobby!.Name,
-            PlayPhase.Connected => "Connected to Node.",
+            PlayPhase.Connected => "Connected to server.",
             _ => "Node disconnected. Reconnect to continue."
         });
         _shell.SetNodeStatus(node.Connected, _connectedNodeName, _connectedNodeRegion);
