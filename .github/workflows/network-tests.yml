@@ -26,6 +26,10 @@ jobs:
         run: dotnet build src/Game/Game.csproj -c Release --artifacts-path artifacts/game
       - name: protocol and UDP safety tests (content-free)
         run: dotnet test tests/Tests/Tests.csproj -c Release --filter "RequiresGameContent!=true"
+      - name: fidelity fixture and manifest smoke tests
+        run: >
+          dotnet test tests/Tests/Tests.csproj -c Release --no-build
+          --filter "Category=FidelitySmoke&RequiresGameContent!=true"
       - name: Server.Shared contract tests
         run: dotnet test tests/Server.Shared.Tests/Server.Shared.Tests.csproj -c Release
       - name: Server.Worker runtime build
@@ -80,6 +84,17 @@ jobs:
             echo "GAME_DATA_DIRECTORY is not configured; structural package checks completed."
           else
             tools/package-smoke.sh --bundle artifacts/server-linux-x64 --content-dir "$GAME_DATA_DIRECTORY"
+          fi
+      - name: authoritative fidelity smoke (when content is supplied)
+        env:
+          GAME_DATA_DIRECTORY: ${{ secrets.GAME_DATA_DIRECTORY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GAME_DATA_DIRECTORY:-}" ]; then
+            echo "GAME_DATA_DIRECTORY is not configured; content-backed fidelity smoke was not run."
+          else
+            dotnet test tests/Tests/Tests.csproj -c Release --no-build \
+              --filter "Category=FidelitySmoke&RequiresGameContent=true"
           fi
       - name: authoritative WAN connection baseline (synthetic states, not gameplay)
         run: >
