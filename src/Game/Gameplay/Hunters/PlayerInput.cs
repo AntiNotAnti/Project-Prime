@@ -1,5 +1,6 @@
 using System;
 using MphRead.Formats;
+using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
 namespace MphRead.Entities
@@ -16,6 +17,10 @@ namespace MphRead.Entities
 
         private void ProcessInput()
         {
+            // Every request belongs to exactly one simulation tick. Take and
+            // overwrite before any health/form/frozen early behavior so an
+            // illegal request is ignored now rather than deferred until legal.
+            BoostIntent boostIntent = Input.TakeBoostIntent(Controls.Boost.IsDown);
             if (_health > 0)
             {
                 if (Flags1.TestFlag(PlayerFlags1.FreeLook))
@@ -83,7 +88,7 @@ namespace MphRead.Entities
             }
             if (IsAltForm || IsMorphing)
             {
-                ProcessAlt();
+                ProcessAlt(boostIntent);
             }
             else
             {
@@ -1050,7 +1055,7 @@ namespace MphRead.Entities
 
 
 
-        private void ProcessAlt()
+        private void ProcessAlt(in BoostIntent boostIntent)
         {
             Vector3 speedDelta = Vector3.Zero;
             int animId = -1;
@@ -1420,40 +1425,25 @@ namespace MphRead.Entities
                     }
                     if (_abilities.TestFlag(AbilityFlags.Boost))
                     {
-                        // A touch platform's swipe gesture is a flick, not a
-                        // hold-and-release: it forces a full charge straight
-                        // into the release branch below instead of building
-                        // one up over several frames.
-                        bool swipeBoost = SwipeBoostRequested;
-                        SwipeBoostRequested = false;
-                        // Where the flick pointed, turned into a world
-                        // direction against the basis the ball already rolls
-                        // with: up the screen is forward and left is left,
-                        // exactly as RollUp and RolltLeft are read above. A
-                        // boost that always went wherever the ball was already
-                        // heading made the direction of the flick worth
-                        // nothing -- and aiming a boost is the whole of what
-                        // the gesture is for.
-                        float boostDirX = _field70;
-                        float boostDirZ = _field74;
-                        bool boostAimed = false;
-                        if (swipeBoost && (SwipeBoostX != 0 || SwipeBoostY != 0))
+                        if (boostIntent.IsFlick)
                         {
-                            float forward = -SwipeBoostY;
-                            float left = -SwipeBoostX;
-                            float dirX = _altRollFbX * forward + _altRollLrX * left;
-                            float dirZ = _altRollFbZ * forward + _altRollLrZ * left;
-                            float dirMag = MathF.Sqrt(dirX * dirX + dirZ * dirZ);
-                            if (dirMag > 1 / 4096f)
+                            // Full-charge flick is a compatibility fallback
+                            // matching Project Prime's former touch behavior;
+                            // it is not asserted as AMHE1 binary fidelity.
+                            if (CanActivateDirectionalBoost()
+                                && TryResolveBoostDirection(boostIntent,
+                                    _altRollFbX, _altRollFbZ,
+                                    _altRollLrX, _altRollLrZ,
+                                    out Vector3 direction))
                             {
-                                boostDirX = dirX / dirMag;
-                                boostDirZ = dirZ / dirMag;
-                                boostAimed = true;
+                                _boostCharge = (ushort)SimTicks.From30HzFrames(
+                                    Values.BoostChargeMax);
+                                ActivateBoost(ref speedDelta, direction.X,
+                                    direction.Z, aimed: true);
+                                _boostCharge = 0;
                             }
                         }
-                        SwipeBoostX = 0;
-                        SwipeBoostY = 0;
-                        if (Controls.Boost.IsDown && !swipeBoost)
+                        else if (Controls.Boost.IsDown)
                         {
                             // the game plays the boost charge SFX here, but that SFX is empty
                             if (_boostCharge < SimTicks.From30HzFrames(Values.BoostChargeMax))
@@ -1463,60 +1453,10 @@ namespace MphRead.Entities
                         }
                         else
                         {
-                            if (swipeBoost)
-                            {
-                                _boostCharge = (ushort)SimTicks.From30HzFrames(Values.BoostChargeMax);
-                            }
                             if (_boostCharge > SimTicks.From30HzFrames(Values.BoostChargeMin))
                             {
-                                if (_scene.Features.FullBoostCharge)
-                                {
-                                    _boostCharge = (ushort)SimTicks.From30HzFrames(Values.BoostChargeMax);
-                                }
-                                if (_boostCharge > 0)
-                                {
-                                    int sfx = Metadata.HunterSfx[(int)Hunter, (int)HunterSfx.Boost];
-                                    _soundSource.PlaySfx(sfx);
-                                }
-                                float boostHCap = Fixed.ToFloat(Values.BoostSpeedCap) * _boostCharge
-                                    / (SimTicks.From30HzFrames(Values.BoostChargeMax));
-                                if (_hSpeedCap < boostHCap)
-                                {
-                                    _hSpeedCap = boostHCap;
-                                }
-                                float factor = Fixed.ToFloat(Values.BoostSpeedMin)
-                                    + _boostCharge * (Fixed.ToFloat(Values.BoostSpeedMax) - Fixed.ToFloat(Values.BoostSpeedMin))
-                                    / (SimTicks.From30HzFrames(Values.BoostChargeMax));
-                                speedDelta = speedDelta.AddX(boostDirX * factor).AddZ(boostDirZ * factor);
-                                _altAttackCooldown = (ushort)SimTicks.From30HzFrames(Values.AltAttackCooldown);
-                                Flags1 |= PlayerFlags1.Boosting;
-                                NoteOffensiveAction();
-                                _boostDamage = (ushort)(Values.AltAttackDamage * _boostCharge / (SimTicks.From30HzFrames(Values.BoostChargeMax)));
-                                if (IsMainPlayer)
-                                {
-                                    StartBoostPresentation();
-                                }
-                                if (_boostEffect != null)
-                                {
-                                    _scene.UnlinkEffectEntry(_boostEffect);
-                                    _boostEffect = null;
-                                }
-                                // The dash trail goes with the boost. Aimed
-                                // sideways it would otherwise streak along the
-                                // way the ball was pointing while the ball
-                                // left in another direction entirely. The
-                                // vectors are built the way _gunVec2 is built
-                                // from the facing, so an unaimed boost spawns
-                                // exactly what it always did.
-                                Vector3 boostVec1 = boostAimed
-                                    ? new Vector3(boostDirZ, 0, -boostDirX) : _gunVec2;
-                                Vector3 boostVec2 = boostAimed
-                                    ? new Vector3(boostDirX, 0, boostDirZ) : _facingVector;
-                                _boostEffect = _scene.SpawnEffectGetEntry(136, boostVec1, boostVec2, Position); // samusDash
-                                if (_boostEffect != null)
-                                {
-                                    _boostEffect.SetElementExtension(true);
-                                }
+                                ActivateBoost(ref speedDelta, _field70, _field74,
+                                    aimed: false);
                             }
                             _boostCharge = 0;
                         }
@@ -1567,6 +1507,96 @@ namespace MphRead.Entities
             }
             ProcessMovement();
             UpdateCamera();
+        }
+
+        private bool CanActivateDirectionalBoost()
+            => CanActivateDirectionalBoost(_health > 0, _frozenTimer > 0,
+                Hunter, IsAltForm, IsMorphing, IsUnmorphing,
+                _abilities.TestFlag(AbilityFlags.Boost), _altAttackCooldown);
+
+        internal static bool CanActivateDirectionalBoost(bool alive, bool frozen,
+            Hunter hunter, bool isAltForm, bool isMorphing, bool isUnmorphing,
+            bool hasBoostAbility, ushort cooldown)
+            => alive && !frozen && hunter == Hunter.Samus && isAltForm
+                && !isMorphing && !isUnmorphing && hasBoostAbility && cooldown == 0;
+
+        /// <summary>
+        /// Resolve right-positive/down-positive screen input against the
+        /// established horizontal Morph Ball roll basis. Camera pitch is not
+        /// part of this contract.
+        /// </summary>
+        internal static bool TryResolveBoostDirection(in BoostIntent intent,
+            float forwardX, float forwardZ, float leftX, float leftZ,
+            out Vector3 direction)
+        {
+            direction = Vector3.Zero;
+            if (!intent.IsFlick
+                || !float.IsFinite(forwardX) || !float.IsFinite(forwardZ)
+                || !float.IsFinite(leftX) || !float.IsFinite(leftZ))
+            {
+                return false;
+            }
+            const float epsilon = 1 / 4096f;
+            float determinant = forwardX * leftZ - forwardZ * leftX;
+            if (MathF.Abs(determinant) <= epsilon) return false;
+            Vector2 screen = intent.Direction;
+            float forward = -screen.Y;
+            float left = -screen.X;
+            float x = forwardX * forward + leftX * left;
+            float z = forwardZ * forward + leftZ * left;
+            float magnitude = MathF.Sqrt(x * x + z * z);
+            if (!(magnitude > epsilon) || !float.IsFinite(magnitude)) return false;
+            direction = new Vector3(x / magnitude, 0, z / magnitude);
+            return true;
+        }
+
+        private void ActivateBoost(ref Vector3 speedDelta, float boostDirX,
+            float boostDirZ, bool aimed)
+        {
+            if (_scene.Features.FullBoostCharge)
+            {
+                _boostCharge = (ushort)SimTicks.From30HzFrames(Values.BoostChargeMax);
+            }
+            if (_boostCharge > 0)
+            {
+                int sfx = Metadata.HunterSfx[(int)Hunter, (int)HunterSfx.Boost];
+                _soundSource.PlaySfx(sfx);
+            }
+            float boostHCap = Fixed.ToFloat(Values.BoostSpeedCap) * _boostCharge
+                / SimTicks.From30HzFrames(Values.BoostChargeMax);
+            if (_hSpeedCap < boostHCap)
+            {
+                _hSpeedCap = boostHCap;
+            }
+            float factor = Fixed.ToFloat(Values.BoostSpeedMin)
+                + _boostCharge * (Fixed.ToFloat(Values.BoostSpeedMax)
+                    - Fixed.ToFloat(Values.BoostSpeedMin))
+                / SimTicks.From30HzFrames(Values.BoostChargeMax);
+            speedDelta = speedDelta.AddX(boostDirX * factor).AddZ(boostDirZ * factor);
+            _altAttackCooldown = (ushort)SimTicks.From30HzFrames(Values.AltAttackCooldown);
+            Flags1 |= PlayerFlags1.Boosting;
+            NoteOffensiveAction();
+            _boostDamage = (ushort)(Values.AltAttackDamage * _boostCharge
+                / SimTicks.From30HzFrames(Values.BoostChargeMax));
+            if (IsMainPlayer)
+            {
+                StartBoostPresentation();
+            }
+            if (_boostEffect != null)
+            {
+                _scene.UnlinkEffectEntry(_boostEffect);
+                _boostEffect = null;
+            }
+            Vector3 boostVec1 = aimed
+                ? new Vector3(boostDirZ, 0, -boostDirX) : _gunVec2;
+            Vector3 boostVec2 = aimed
+                ? new Vector3(boostDirX, 0, boostDirZ) : _facingVector;
+            _boostEffect = _scene.SpawnEffectGetEntry(136, boostVec1, boostVec2,
+                Position); // samusDash
+            if (_boostEffect != null)
+            {
+                _boostEffect.SetElementExtension(true);
+            }
         }
 
         private void NoteOffensiveAction()
@@ -2015,11 +2045,51 @@ namespace MphRead.Entities
         internal PlayerInput Input { get; } = new PlayerInput();
         internal sealed class PlayerInput
         {
+            private BoostIntent _pendingBoostIntent;
+
             public float MouseDeltaX { get; set; }
             public float MouseDeltaY { get; set; }
             public float ClickX { get; set; } = -1;
             public float ClickY { get; set; } = -1;
             public bool HasInput { get; set; }
+            public BoostIntent ConsumedBoostIntent { get; private set; }
+
+            /// <summary>
+            /// Queue one semantic request for the next simulation tick. The
+            /// first valid flick wins; a flick supersedes a queued charge, and
+            /// no later producer can replace it in the same tick.
+            /// </summary>
+            public bool QueueBoostIntent(in BoostIntent intent)
+            {
+                if (intent.Activation == BoostActivation.None
+                    || !BoostIntent.TryDecode(intent.Activation, intent.X, intent.Y,
+                        out BoostIntent valid))
+                {
+                    return false;
+                }
+                if (_pendingBoostIntent.IsFlick) return false;
+                if (valid.IsFlick || _pendingBoostIntent.Activation == BoostActivation.None)
+                {
+                    _pendingBoostIntent = valid;
+                    return true;
+                }
+                return false;
+            }
+
+            public BoostIntent TakeBoostIntent(bool boostHeld)
+            {
+                BoostIntent pending = _pendingBoostIntent;
+                _pendingBoostIntent = BoostIntent.None;
+                ConsumedBoostIntent = pending.IsFlick
+                    ? pending : boostHeld ? BoostIntent.Charge : BoostIntent.None;
+                return ConsumedBoostIntent;
+            }
+
+            public void ClearBoostIntents()
+            {
+                _pendingBoostIntent = BoostIntent.None;
+                ConsumedBoostIntent = BoostIntent.None;
+            }
         }
     }
 

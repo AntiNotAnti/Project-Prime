@@ -31,17 +31,18 @@ namespace MphRead.Droid
     /// <see cref="LaunchPlan"/> across a process boundary for no gain.
     /// </summary>
     [Activity(
-        Label = "Prime Hunters",
+        Label = "Project Prime",
         // Must be an AppCompat descendant: Avalonia's activity is an AndroidX
         // AppCompatActivity and throws out of onCreate under anything else.
         // See Resources/values/styles.xml.
-        Theme = "@style/FruityPrime",
+        Theme = "@style/ProjectPrime",
         MainLauncher = true,
         LaunchMode = LaunchMode.SingleTop,
         ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize
             | ConfigChanges.UiMode | ConfigChanges.Density | ConfigChanges.KeyboardHidden)]
     public class MainActivity : AvaloniaMainActivity<AndroidApp>,
-        Android.Hardware.Display.DisplayManager.IDisplayListener
+        Android.Hardware.Display.DisplayManager.IDisplayListener,
+        Android.Hardware.Input.InputManager.IInputDeviceListener
     {
         internal static MainActivity? Instance { get; private set; }
 
@@ -181,6 +182,8 @@ namespace MphRead.Droid
         {
             Instance = this;
             base.OnCreate(savedInstanceState);
+            _tearingDown = false;
+            GamepadBridge.Activate();
             // The desktop builds missing map binaries from ModEntry.TryHandle;
             // this head has no Main for that to live in. Off the UI thread:
             // it reads the extracted game files and writes three binaries per
@@ -323,6 +326,10 @@ namespace MphRead.Droid
         private int _lastRotation = -1;
 
         private Android.Hardware.Display.DisplayManager? _displays;
+        private Android.Hardware.Input.InputManager? _inputDevices;
+        private bool _inputDeviceListenerRegistered;
+        private volatile bool _inputDeviceCallbacksActive;
+        private volatile bool _tearingDown;
 
         private int CurrentRotation()
         {
@@ -414,9 +421,11 @@ namespace MphRead.Droid
         protected override void OnPause()
         {
             _overlay?.CancelInput();
+            UnregisterInputDeviceListener();
             ClientInputState.WindowFocused = false;
             GamepadInput.Reset();
             GamepadInput.State = default;
+            GamepadBridge.Deactivate();
             if (_displays != null)
             {
                 _displays.UnregisterDisplayListener(this);
@@ -429,6 +438,8 @@ namespace MphRead.Droid
         protected override void OnResume()
         {
             base.OnResume();
+            GamepadBridge.Activate();
+            RegisterInputDeviceListener();
             // Immersive whether or not a match is running.
             //
             // It used to be turned on for a match and off again for the front
@@ -499,6 +510,90 @@ namespace MphRead.Droid
             return base.DispatchGenericMotionEvent(e);
         }
 
+        private void RegisterInputDeviceListener()
+        {
+            if (_tearingDown || _inputDeviceListenerRegistered) return;
+            if (GetSystemService(InputService)
+                is not Android.Hardware.Input.InputManager manager)
+            {
+                return;
+            }
+            try
+            {
+                _inputDevices = manager;
+                _inputDeviceCallbacksActive = true;
+                // null keeps delivery on Android's current looper, which is
+                // the Activity/UI thread and the same thread that dispatches
+                // key and motion events into GamepadBridge.
+                manager.RegisterInputDeviceListener(this, null);
+                _inputDeviceListenerRegistered = true;
+            }
+            catch (Exception ex)
+            {
+                _inputDeviceCallbacksActive = false;
+                _inputDevices = null;
+                Console.WriteLine($"[android] input-device listener unavailable: {ex.Message}");
+            }
+        }
+
+        private void UnregisterInputDeviceListener()
+        {
+            // Disable the callback gate before unregistering. Android may have
+            // already queued a callback on this looper, and that callback must
+            // not revive a torn-down bridge.
+            _inputDeviceCallbacksActive = false;
+            bool registered = _inputDeviceListenerRegistered;
+            _inputDeviceListenerRegistered = false;
+            Android.Hardware.Input.InputManager? manager = _inputDevices;
+            _inputDevices = null;
+            if (!registered || manager == null) return;
+            try
+            {
+                manager.UnregisterInputDeviceListener(this);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[android] input-device listener unregister failed: {ex.Message}");
+            }
+        }
+
+        public void OnInputDeviceAdded(int deviceId)
+        {
+            if (!_inputDeviceCallbacksActive || _tearingDown) return;
+            Android.Hardware.Input.InputManager? manager = _inputDevices;
+            if (manager == null) return;
+            try
+            {
+                GamepadBridge.OnInputDeviceAdded(manager.GetInputDevice(deviceId));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[android] input-device add callback failed: {ex.Message}");
+            }
+        }
+
+        public void OnInputDeviceChanged(int deviceId)
+        {
+            if (!_inputDeviceCallbacksActive || _tearingDown) return;
+            Android.Hardware.Input.InputManager? manager = _inputDevices;
+            if (manager == null) return;
+            try
+            {
+                GamepadBridge.OnInputDeviceChanged(
+                    manager.GetInputDevice(deviceId), deviceId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[android] input-device change callback failed: {ex.Message}");
+            }
+        }
+
+        public void OnInputDeviceRemoved(int deviceId)
+        {
+            if (!_inputDeviceCallbacksActive || _tearingDown) return;
+            GamepadBridge.OnInputDeviceRemoved(deviceId);
+        }
+
         /// <summary>
         /// Ask for immersive again whenever the window becomes ours.
         ///
@@ -516,6 +611,7 @@ namespace MphRead.Droid
             {
                 GamepadInput.Reset();
                 GamepadInput.State = default;
+                GamepadBridge.Disconnect();
             }
             if (hasFocus)
             {
@@ -525,6 +621,9 @@ namespace MphRead.Droid
 
         protected override void OnDestroy()
         {
+            _tearingDown = true;
+            UnregisterInputDeviceListener();
+            GamepadBridge.Shutdown();
             if (Instance == this)
             {
                 Instance = null;
@@ -1052,9 +1151,9 @@ namespace MphRead.Droid
             AndroidApp.Home?.Activate();
             AndroidApp.Home?.Reset();
             NetSession.Stop();
-            // A demo feeds NetSession from a file rather than a socket, so
+            // A replay feeds NetSession from a file rather than a socket, so
             // stopping the session is not what closes it.
-            DemoPlayback.Stop();
+            ReplayPlayback.Stop();
             Window?.ClearFlags(WindowManagerFlags.KeepScreenOn);
             GoImmersive(true);
             RequestedOrientation = _orientationBefore;

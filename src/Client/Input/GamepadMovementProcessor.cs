@@ -42,29 +42,39 @@ namespace MphRead.Mods.Input
         public const float DefaultInnerDeadzone = 0.15f;
         public const float DefaultActivateThreshold = 0.25f;
         public const float DefaultReleaseThreshold = 0.18f;
+        public const float DefaultDirectionHysteresisDegrees = 6;
+
+        private const float SectorDegrees = 45;
+        private const float HalfSectorDegrees = SectorDegrees / 2;
 
         private bool _active;
+        private int _sector;
 
         public GamepadMovementProcessor()
             : this(DefaultInnerDeadzone, DefaultActivateThreshold,
-                DefaultReleaseThreshold)
+                DefaultReleaseThreshold, DefaultDirectionHysteresisDegrees)
         {
         }
 
         public GamepadMovementProcessor(float innerDeadzone = DefaultInnerDeadzone,
             float activateThreshold = DefaultActivateThreshold,
-            float releaseThreshold = DefaultReleaseThreshold)
+            float releaseThreshold = DefaultReleaseThreshold,
+            float directionHysteresisDegrees = DefaultDirectionHysteresisDegrees)
         {
             InnerDeadzone = Sanitize(innerDeadzone, DefaultInnerDeadzone);
             ActivateThreshold = Sanitize(activateThreshold, DefaultActivateThreshold);
             ReleaseThreshold = Math.Clamp(Sanitize(releaseThreshold, DefaultReleaseThreshold),
                 0, ActivateThreshold);
+            DirectionHysteresisDegrees = SanitizeDirectionHysteresis(
+                directionHysteresisDegrees);
             _active = false;
+            _sector = -1;
         }
 
         public float InnerDeadzone { get; private set; }
         public float ActivateThreshold { get; private set; }
         public float ReleaseThreshold { get; private set; }
+        public float DirectionHysteresisDegrees { get; private set; }
         public readonly bool Active => _active;
         private GamepadMovementSample _processed;
         public readonly GamepadMovementSample Processed => _processed;
@@ -73,15 +83,15 @@ namespace MphRead.Mods.Input
         {
             if (!float.IsFinite(raw.X) || !float.IsFinite(raw.Y))
             {
-                _active = false;
-                return _processed = default;
+                Reset();
+                return default;
             }
 
             float rawMagnitude = raw.Length;
             if (!float.IsFinite(rawMagnitude))
             {
-                _active = false;
-                return _processed = default;
+                Reset();
+                return default;
             }
             if (!_active)
             {
@@ -97,6 +107,7 @@ namespace MphRead.Mods.Input
 
             if (!_active)
             {
+                _sector = -1;
                 return _processed = new GamepadMovementSample(GamepadMovementDirection.None,
                     Vector2.Zero, MathF.Min(rawMagnitude, 1), false);
             }
@@ -110,7 +121,9 @@ namespace MphRead.Mods.Input
                 return _processed = new GamepadMovementSample(GamepadMovementDirection.None,
                     Vector2.Zero, MathF.Min(rawMagnitude, 1), true);
             }
-            GamepadMovementDirection direction = Quantize(processed.Direction);
+            _sector = QuantizeSector(processed.Direction, _sector,
+                DirectionHysteresisDegrees);
+            GamepadMovementDirection direction = FromSector(_sector);
             return _processed = new GamepadMovementSample(direction, ToVector(direction),
                 MathF.Min(rawMagnitude, 1), true);
         }
@@ -118,17 +131,21 @@ namespace MphRead.Mods.Input
         public void Reset()
         {
             _active = false;
+            _sector = -1;
             _processed = default;
         }
 
         /// <summary>Refresh settings without discarding hysteresis state.</summary>
         public void Configure(float innerDeadzone, float activateThreshold,
-            float releaseThreshold)
+            float releaseThreshold,
+            float directionHysteresisDegrees = DefaultDirectionHysteresisDegrees)
         {
             InnerDeadzone = Sanitize(innerDeadzone, DefaultInnerDeadzone);
             ActivateThreshold = Sanitize(activateThreshold, DefaultActivateThreshold);
             ReleaseThreshold = Math.Clamp(Sanitize(releaseThreshold, DefaultReleaseThreshold),
                 0, ActivateThreshold);
+            DirectionHysteresisDegrees = SanitizeDirectionHysteresis(
+                directionHysteresisDegrees);
         }
 
         /// <summary>Quantize a unit direction to the nearest 45-degree sector.</summary>
@@ -139,9 +156,34 @@ namespace MphRead.Mods.Input
             {
                 return GamepadMovementDirection.None;
             }
+            return FromSector(NearestSector(direction));
+        }
+
+        private static int QuantizeSector(Vector2 direction, int previousSector,
+            float hysteresisDegrees)
+        {
+            int nearest = NearestSector(direction);
+            if ((uint)previousSector >= 8 || nearest == previousSector)
+            {
+                return nearest;
+            }
+
+            float angleDegrees = MathF.Atan2(direction.Y, direction.X) * 180 / MathF.PI;
+            float previousCenter = previousSector * SectorDegrees;
+            float delta = WrapDegrees(angleDegrees - previousCenter);
+            return MathF.Abs(delta) <= HalfSectorDegrees + hysteresisDegrees
+                ? previousSector : nearest;
+        }
+
+        private static int NearestSector(Vector2 direction)
+        {
             float angle = MathF.Atan2(direction.Y, direction.X);
             int sector = (int)MathF.Floor((angle + MathF.PI / 8) / (MathF.PI / 4));
-            sector = ((sector % 8) + 8) % 8;
+            return ((sector % 8) + 8) % 8;
+        }
+
+        private static GamepadMovementDirection FromSector(int sector)
+        {
             return sector switch
             {
                 0 => GamepadMovementDirection.Right,
@@ -155,6 +197,20 @@ namespace MphRead.Mods.Input
             };
         }
 
+        private static float WrapDegrees(float degrees)
+        {
+            degrees %= 360;
+            if (degrees > 180)
+            {
+                degrees -= 360;
+            }
+            else if (degrees < -180)
+            {
+                degrees += 360;
+            }
+            return degrees;
+        }
+
         private static Vector2 ToVector(GamepadMovementDirection direction)
         {
             float x = (direction & GamepadMovementDirection.Right) != 0 ? 1
@@ -166,5 +222,9 @@ namespace MphRead.Mods.Input
 
         private static float Sanitize(float value, float fallback)
             => !float.IsFinite(value) ? fallback : Math.Clamp(value, 0, 1);
+
+        private static float SanitizeDirectionHysteresis(float value)
+            => !float.IsFinite(value) ? DefaultDirectionHysteresisDegrees
+                : Math.Clamp(value, 0, HalfSectorDegrees);
     }
 }

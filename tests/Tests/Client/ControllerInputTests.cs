@@ -2,6 +2,7 @@ using System;
 using MphRead;
 using MphRead.Mods;
 using MphRead.Mods.Input;
+using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Render;
 using MphRead.Droid;
 using MphRead.Entities;
@@ -155,6 +156,160 @@ public sealed class ControllerInputTests
     }
 
     [Fact]
+    public void StylusFlickAndAimDeltaAreBothPreserved()
+    {
+        var coordinator = new LookInputCoordinator(() => 1);
+        var stylus = new StylusInput(coordinator);
+        stylus.Configure(true, 1, false, false, .35f, 1);
+        stylus.ConfigureGestures(classic: true, doubleTap: false, flick: true,
+            flickContext: true, density: 1);
+
+        Assert.True(stylus.PointerDown(Pen(20, 0, 0, 1000)));
+        Assert.True(stylus.PointerMove(Pen(20, 60, 0, 1080)));
+
+        Assert.Equal(new Vector2(-15, 0),
+            coordinator.ConsumeForSimulation(1f / 60f, 1).DeltaDegrees);
+        StylusState state = stylus.ConsumeState();
+        Assert.True(state.FlickBoost);
+        Assert.True(state.FlickX > 0);
+    }
+
+    [Fact]
+    public void StationaryStylusButtonUpdateDoesNotMoveAnchorOrSubmitLook()
+    {
+        var coordinator = new LookInputCoordinator(() => 2);
+        var stylus = new StylusInput(coordinator);
+        stylus.Configure(true, 1, false, false, .35f, 1);
+
+        Assert.True(stylus.PointerDown(Pen(21, 100, 100, 1)));
+        Assert.Equal(Vector2.Zero,
+            coordinator.ConsumeForSimulation(1f / 60f, 2).DeltaDegrees);
+        Assert.True(stylus.UpdateButtonState(Pen(21, 150, 100, 2,
+            buttons: StylusButtons.Primary)));
+        Assert.Equal(Vector2.Zero,
+            coordinator.ConsumeForSimulation(1f / 60f, 2).DeltaDegrees);
+        StylusState pressed = stylus.ConsumeState();
+        Assert.True(pressed.Contact);
+        Assert.Equal(StylusButtons.Primary, pressed.PressedButtons);
+
+        Assert.True(stylus.PointerMove(Pen(21, 108, 100, 3,
+            buttons: StylusButtons.Primary)));
+        Assert.Equal(new Vector2(-2, 0),
+            coordinator.ConsumeForSimulation(1f / 60f, 2).DeltaDegrees);
+
+        Assert.True(stylus.UpdateButtonState(Pen(21, 108, 100, 4)));
+        StylusState released = stylus.ConsumeState();
+        Assert.Equal(StylusButtons.Primary, released.ReleasedButtons);
+    }
+
+    [Fact]
+    public void StylusProximityIsNotContactAndRecontactStartsFreshAnchor()
+    {
+        var coordinator = new LookInputCoordinator(() => 3);
+        var stylus = new StylusInput(coordinator);
+
+        Assert.True(stylus.PointerProximityMove(Pen(22, 50, 50, 1)));
+        Assert.True(stylus.InProximity);
+        Assert.False(stylus.Active);
+        Assert.Equal(LookDeviceKind.None, coordinator.ActiveLookDevice);
+        Assert.True(stylus.UpdateButtonState(Pen(22, 50, 50, 2,
+            buttons: StylusButtons.Primary)));
+        StylusState hover = stylus.ConsumeState();
+        Assert.False(hover.Contact);
+        Assert.True(hover.InProximity);
+        Assert.False(StylusBindings.Default.IsDown(hover, StylusAction.Fire));
+
+        Assert.True(stylus.PointerProximityExit(Pen(22, 50, 50, 3)));
+        Assert.False(stylus.InProximity);
+        Assert.True(stylus.PointerDown(Pen(22, 500, 400, 4)));
+        Assert.Equal(Vector2.Zero,
+            coordinator.ConsumeForSimulation(1f / 60f, 3).DeltaDegrees);
+        Assert.True(stylus.PointerMove(Pen(22, 504, 400, 5)));
+        Assert.Equal(new Vector2(-1, 0),
+            coordinator.ConsumeForSimulation(1f / 60f, 3).DeltaDegrees);
+    }
+
+    [Fact]
+    public void StylusProximityLossCancelsContactButLiftKeepsQueuedMovement()
+    {
+        var cancelledCoordinator = new LookInputCoordinator(() => 4);
+        var cancelled = new StylusInput(cancelledCoordinator);
+        Assert.True(cancelled.PointerDown(Pen(23, 0, 0, 1)));
+        Assert.True(cancelled.PointerMove(Pen(23, 12, 0, 2)));
+        Assert.True(cancelled.PointerProximityExit(Pen(23, 12, 0, 3)));
+        Assert.Equal(Vector2.Zero,
+            cancelledCoordinator.ConsumeForSimulation(1f / 60f, 4).DeltaDegrees);
+
+        var liftedCoordinator = new LookInputCoordinator(() => 5);
+        var lifted = new StylusInput(liftedCoordinator);
+        Assert.True(lifted.PointerDown(Pen(24, 0, 0, 1)));
+        Assert.True(lifted.PointerMove(Pen(24, 12, 0, 2)));
+        Assert.True(lifted.PointerUp(Pen(24, 12, 0, 3)));
+        Assert.True(lifted.InProximity);
+        Assert.Equal(new Vector2(-3, 0),
+            liftedCoordinator.ConsumeForSimulation(1f / 60f, 5).DeltaDegrees);
+
+        var discardedCoordinator = new LookInputCoordinator(() => 6);
+        var discarded = new StylusInput(discardedCoordinator);
+        Assert.True(discarded.PointerDown(Pen(28, 0, 0, 1)));
+        Assert.True(discarded.PointerMove(Pen(28, 12, 0, 2)));
+        Assert.True(discarded.PointerUp(Pen(28, 12, 0, 3)));
+        discarded.Cancel();
+        Assert.Equal(Vector2.Zero,
+            discardedCoordinator.ConsumeForSimulation(1f / 60f, 6).DeltaDegrees);
+    }
+
+    [Fact]
+    public void HistoricalStylusSamplesRemainInSubmissionOrder()
+    {
+        var coordinator = new LookInputCoordinator(() => 6);
+        var stylus = new StylusInput(coordinator);
+        Assert.True(stylus.PointerDown(Pen(25, 10, 10, 10)));
+        Assert.True(stylus.PointerMove(Pen(25, 14, 10, 11)));
+        Assert.True(stylus.PointerMove(Pen(25, 19, 10, 12)));
+        Assert.True(stylus.PointerMove(Pen(25, 25, 10, 13)));
+        Assert.Equal(new Vector2(-3.75f, 0),
+            coordinator.ConsumeForSimulation(1f / 60f, 6).DeltaDegrees);
+    }
+
+    [Fact]
+    public void DirectAndIndirectPenCoordinateNormalizationUsesOnlyKnownScales()
+    {
+        PointerSample direct = Pen(26, 0, 0, 1) with
+        {
+            CoordinateKind = PointerCoordinateKind.Direct,
+            LogicalDisplayScale = 2
+        };
+        Assert.Equal(new Vector2(2, 1), StylusInput.NormalizeRelativeDelta(
+            new Vector2(4, 2), direct, density: 1));
+
+        PointerSample indirect = Pen(27, 0, 0, 1) with
+        {
+            CoordinateKind = PointerCoordinateKind.Indirect,
+            MappedExtentX = 100,
+            MappedExtentY = 50
+        };
+        Assert.Equal(new Vector2(.04f, .04f), StylusInput.NormalizeRelativeDelta(
+            new Vector2(4, 2), indirect, density: 1));
+
+        PointerSample unknownExtent = indirect with { MappedExtentX = 0,
+            MappedExtentY = 0 };
+        Assert.Equal(new Vector2(4, 2), StylusInput.NormalizeRelativeDelta(
+            new Vector2(4, 2), unknownExtent, density: 1));
+    }
+
+    [Fact]
+    public void StylusTurnPreviewReportsLogicalDegreesAtCurrentSensitivity()
+    {
+        Assert.Equal(25, StylusTurnPreview.MeasureDegrees(
+            new Avalonia.Vector(60, 80), sensitivity: 1));
+        Assert.Equal(50, StylusTurnPreview.MeasureDegrees(
+            new Avalonia.Vector(60, 80), sensitivity: 2));
+        Assert.Equal(25, StylusTurnPreview.MeasureDegrees(
+            new Avalonia.Vector(60, 80), sensitivity: float.NaN));
+    }
+
+    [Fact]
     public void PointerRouterKeepsFingerMovementAndButtonsWhileStylusAims()
     {
         var touch = new TouchControls();
@@ -171,10 +326,17 @@ public sealed class ControllerInputTests
 
         Assert.True(stylus.Active);
         Assert.True((touch.Direction & TouchControls.Dir.Right) != 0);
+        router.PointerButton(Pen(2, 704, 250, 4,
+            buttons: StylusButtons.Primary));
+        Assert.Equal(StylusButtons.Primary,
+            stylus.ConsumeState().PressedButtons);
+        router.PointerButton(Pen(2, 704, 250, 5));
+        Assert.Equal(StylusButtons.Primary,
+            stylus.ConsumeState().ReleasedButtons);
         router.PointerDown(new PointerSample(3, PointerToolKind.Finger,
-            650, 250, 1, StylusButtons.None, 4));
+            650, 250, 1, StylusButtons.None, 6));
         router.PointerMove(new PointerSample(3, PointerToolKind.Finger,
-            750, 250, 1, StylusButtons.None, 5));
+            750, 250, 1, StylusButtons.None, 7));
         Assert.Equal((0f, 0f), touch.TakeAimDelta());
     }
 

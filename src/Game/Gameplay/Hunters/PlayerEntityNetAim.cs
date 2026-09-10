@@ -307,6 +307,10 @@ namespace MphRead.Entities
         /// </summary>
         internal void ModSetSpectating(bool value)
         {
+            if (Flags2.TestFlag(PlayerFlags2.Spectating) != value)
+            {
+                Input.ClearBoostIntents();
+            }
             if (value)
             {
                 Flags2 |= PlayerFlags2.Spectating;
@@ -473,6 +477,21 @@ namespace MphRead.Entities
 
         /// <summary>Where a shot aimed at this player should be pointed.</summary>
         internal Vector3 ModAimTarget => Position + PlayerVolumes[(int)Hunter, 0].SpherePosition;
+
+        /// <summary>
+        /// Current active gameplay collision/hurt center for local assist and
+        /// diagnostics. Unlike ModAimTarget, this follows the volume already
+        /// moved for the current simulation step, including morph transitions.
+        /// The fallback only covers uninitialized headless test slots.
+        /// </summary>
+        internal Vector3 ModAssistAimTarget
+            => _volume.SphereRadius > 0
+                ? _volume.SpherePosition
+                : Position + PlayerVolumes[(int)Hunter,
+                    IsAltForm ? 2 : 0].SpherePosition;
+
+        internal PlayerEntity? ModAimAssistRetainedTarget
+            => _aimAssist.RetainedTarget;
 
         /// <summary>
         /// Change which hunter this slot is playing. Initialize() rebuilds the

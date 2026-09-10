@@ -49,15 +49,51 @@ namespace MphRead.Droid
             else _touch.PointerMove(sample.Id, sample.X, sample.Y, sample.Timestamp);
         }
 
+        /// <summary>
+        /// Deliver a stationary pen button/axis sample. It is deliberately a
+        /// separate path from PointerMove so a barrel-button event cannot
+        /// create a look delta or reset the contact anchor.
+        /// </summary>
+        public void PointerButton(in PointerSample sample)
+        {
+            if (sample.Tool is not (PointerToolKind.Stylus
+                or PointerToolKind.Eraser)) return;
+            if (!_routes.TryGetValue(sample.Id, out Route route))
+            {
+                // Hover button events can arrive without a preceding hover
+                // callback. Track them as stylus state only; StylusBindings
+                // requires contact before exposing a gameplay action.
+                _routes[sample.Id] = Route.Stylus;
+                route = Route.Stylus;
+            }
+            if (route == Route.Stylus) _stylus.UpdateButtonState(sample);
+        }
+
+        /// <summary>Track pen hover without granting look ownership.</summary>
+        public void PointerProximityMove(in PointerSample sample)
+        {
+            if (sample.Tool is not (PointerToolKind.Stylus
+                or PointerToolKind.Eraser)) return;
+            _routes[sample.Id] = Route.Stylus;
+            _stylus.PointerProximityMove(sample);
+        }
+
         public void PointerUp(in PointerSample sample)
         {
-            if (!_routes.Remove(sample.Id, out Route route)) return;
+            if (!_routes.TryGetValue(sample.Id, out Route route)) return;
             if (route == Route.Stylus)
             {
                 _stylus.PointerUp(sample);
                 _touch.AimSuppressed = _stylus.Active;
+                // Keep the route while the pen remains in proximity so
+                // hover/button events after a normal lift still update state.
+                if (!_stylus.InProximity) _routes.Remove(sample.Id);
             }
-            else _touch.PointerUp(sample.Id, sample.Timestamp);
+            else
+            {
+                _routes.Remove(sample.Id);
+                _touch.PointerUp(sample.Id, sample.Timestamp);
+            }
         }
 
         public void PointerProximityExit(in PointerSample sample)
@@ -65,7 +101,9 @@ namespace MphRead.Droid
             if (_routes.TryGetValue(sample.Id, out Route route)
                 && route == Route.Stylus)
             {
-                PointerUp(sample);
+                _stylus.PointerProximityExit(sample);
+                _routes.Remove(sample.Id);
+                _touch.AimSuppressed = _stylus.Active;
             }
         }
 

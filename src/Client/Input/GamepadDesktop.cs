@@ -24,6 +24,7 @@ namespace MphRead.Mods.Input
     {
         private static int _slot = -1;
         private static int _rescanCountdown;
+        private static ControllerCapabilityOwner? _capabilityOwner;
 
         /// <summary>
         /// Frames between hunts for a pad when none is connected. Once a
@@ -92,15 +93,22 @@ namespace MphRead.Mods.Input
             {
                 if (!_initialised)
                 {
-                    GLFW.Init();
+                    if (!GLFW.Init())
+                    {
+                        _slot = -2;
+                        PublishBackendUnavailable();
+                        return;
+                    }
                     _initialised = true;
                 }
+                EnsureCapabilityOwner();
                 GLFW.PollEvents();
             }
             catch (Exception ex) when (ex is DllNotFoundException
                 || ex is EntryPointNotFoundException || ex is BadImageFormatException)
             {
                 _slot = -2;
+                PublishBackendUnavailable();
                 return;
             }
             Poll();
@@ -127,6 +135,7 @@ namespace MphRead.Mods.Input
                 // and there is nobody holding a pad.
                 GamepadInput.State = default;
                 _slot = -2;
+                PublishBackendUnavailable();
             }
         }
 
@@ -152,8 +161,19 @@ namespace MphRead.Mods.Input
 
         private static void PollUnsafe()
         {
+            ControllerCapabilitySnapshot capabilities = ControllerCapabilities.Current;
+            if (capabilities.Backend == ControllerBackend.Sdl
+                && capabilities.IsBackendAvailable)
+            {
+                // SDL owns the authoritative event pump whenever its window
+                // host is alive, including the interval with no active pad.
+                // A GLFW fallback poll must not overwrite that host's neutral
+                // state or claim the capability snapshot.
+                return;
+            }
             if (_slot == -2)
             {
+                PublishBackendUnavailable();
                 return;
             }
             // SDL publishes an already-normalized state for its active
@@ -169,6 +189,7 @@ namespace MphRead.Mods.Input
             }
             _slot = -1;
             GamepadInput.State = default;
+            PublishDisconnected();
             if (_rescanCountdown-- > 0)
             {
                 return;
@@ -183,6 +204,7 @@ namespace MphRead.Mods.Input
                     return;
                 }
             }
+            PublishDisconnected();
         }
 
         private static unsafe bool TryRead(int slot)
@@ -226,7 +248,38 @@ namespace MphRead.Mods.Input
             Add(ref buttons, raw.Buttons, ButtonDpadLeft, GamepadButtons.DpadLeft);
             state.Buttons = buttons;
             GamepadInput.State = state;
+            EnsureCapabilityOwner()?.Publish(ControllerCapabilitySnapshot.Connected(
+                ControllerBackend.Glfw,
+                $"slot:{slot}",
+                state.Name,
+                state.Family,
+                hasGyroscope: null,
+                hasRumble: null,
+                hasAnalogTriggers: null));
             return true;
+        }
+
+        private static ControllerCapabilityOwner? EnsureCapabilityOwner()
+        {
+            if (_capabilityOwner?.IsCurrent == true)
+            {
+                return _capabilityOwner;
+            }
+            _capabilityOwner = ControllerCapabilities.TryAcquire(
+                ControllerBackend.Glfw, replaceCurrent: false);
+            return _capabilityOwner;
+        }
+
+        private static void PublishDisconnected()
+        {
+            EnsureCapabilityOwner()?.Publish(
+                ControllerCapabilitySnapshot.Disconnected(ControllerBackend.Glfw));
+        }
+
+        private static void PublishBackendUnavailable()
+        {
+            EnsureCapabilityOwner()?.Publish(
+                ControllerCapabilitySnapshot.Unavailable(ControllerBackend.Glfw));
         }
 
         private static unsafe void Add(ref GamepadButtons into,

@@ -1,3 +1,4 @@
+using System;
 using Android.Views;
 using MphRead.Mods.Input;
 
@@ -20,8 +21,12 @@ namespace MphRead.Droid
     /// </summary>
     internal static class GamepadBridge
     {
+        private static ControllerCapabilityOwner? _capabilityOwner;
+        private static readonly ControllerDeviceLifecycle _devices = new();
+        private static readonly ControllerDeviceMetadataCache _metadata = new();
+
         /// <summary>Sources that mean "this came from a pad and not a keyboard".</summary>
-        private static bool IsGamepad(InputSourceType source)
+        internal static bool IsGamepad(InputSourceType source)
         {
             return (source & InputSourceType.Gamepad) == InputSourceType.Gamepad
                 || (source & InputSourceType.Joystick) == InputSourceType.Joystick
@@ -40,6 +45,10 @@ namespace MphRead.Droid
             }
             GamepadButtons button = Map(keyCode);
             if (button == GamepadButtons.None)
+            {
+                return false;
+            }
+            if (!BeginDevice(e.DeviceId))
             {
                 return false;
             }
@@ -75,6 +84,10 @@ namespace MphRead.Droid
         {
             if (e == null || !IsGamepad(e.Source)
                 || e.Action != MotionEventActions.Move)
+            {
+                return false;
+            }
+            if (!BeginDevice(e.DeviceId))
             {
                 return false;
             }
@@ -124,6 +137,164 @@ namespace MphRead.Droid
             state.Buttons = buttons;
             GamepadInput.State = state;
             return true;
+        }
+
+        /// <summary>
+        /// Start accepting callbacks for one Activity lifetime. Input events
+        /// received before this call or after <see cref="Shutdown"/> are
+        /// ignored, including callbacks queued by Android before unregister.
+        /// </summary>
+        internal static void Activate() => _devices.Activate();
+
+        /// <summary>
+        /// End an Activity input epoch while retaining the backend owner for a
+        /// possible resume. The active state is cleared before publishing the
+        /// transition so no held input can latch through a pause.
+        /// </summary>
+        internal static void Deactivate()
+        {
+            _devices.Deactivate();
+            _metadata.Clear();
+            GamepadInput.State = default;
+            _capabilityOwner?.Publish(
+                ControllerCapabilitySnapshot.Disconnected(ControllerBackend.Android));
+        }
+
+        /// <summary>
+        /// End the final Activity epoch and release the Android capability
+        /// owner. Unlike <see cref="Deactivate"/>, this makes queued callbacks
+        /// harmless until a new Activity explicitly calls <see cref="Activate"/>.
+        /// </summary>
+        internal static void Shutdown()
+        {
+            _devices.Deactivate();
+            _metadata.Clear();
+            GamepadInput.State = default;
+            _capabilityOwner?.Dispose();
+            _capabilityOwner = null;
+        }
+
+        /// <summary>Called by the Activity's input-device listener.</summary>
+        internal static void OnInputDeviceAdded(InputDevice? device)
+        {
+            if (device == null || !IsGamepad(device.Sources)) return;
+            ControllerDeviceTransition transition = _devices.ObserveAdded(device.Id);
+            if (transition.Kind is not (ControllerDeviceTransitionKind.Connected
+                or ControllerDeviceTransitionKind.Changed)) return;
+            if (transition.Kind == ControllerDeviceTransitionKind.Connected)
+            {
+                _metadata.Clear();
+                GamepadInput.State = default;
+            }
+            PublishCapabilities(device.Id, device);
+        }
+
+        /// <summary>Refresh the active device's capabilities after Android changes it.</summary>
+        internal static void OnInputDeviceChanged(InputDevice? device, int deviceId)
+        {
+            if (device == null || !IsGamepad(device.Sources))
+            {
+                OnInputDeviceRemoved(deviceId);
+                return;
+            }
+            ControllerDeviceTransition transition = _devices.ObserveChanged(deviceId);
+            if (transition.Kind == ControllerDeviceTransitionKind.Changed)
+            {
+                PublishCapabilities(deviceId, device);
+            }
+        }
+
+        /// <summary>Clear the active device immediately when Android reports removal.</summary>
+        internal static void OnInputDeviceRemoved(int deviceId)
+        {
+            ControllerDeviceTransition transition = _devices.ObserveRemoved(deviceId);
+            if (transition.Kind != ControllerDeviceTransitionKind.Disconnected) return;
+            _metadata.Clear();
+            GamepadInput.State = default;
+            _capabilityOwner?.Publish(
+                ControllerCapabilitySnapshot.Disconnected(ControllerBackend.Android));
+        }
+
+        /// <summary>
+        /// Mark the Android input source unavailable without changing any
+        /// persisted preference. Activity pause/focus callbacks use this for
+        /// the interval in which Android may stop delivering device events.
+        /// The owner remains alive so a later event can publish the same
+        /// backend without creating a competing publisher.
+        /// </summary>
+        internal static void Disconnect()
+        {
+            _devices.Disconnect();
+            _metadata.Clear();
+            GamepadInput.State = default;
+            _capabilityOwner?.Publish(
+                ControllerCapabilitySnapshot.Disconnected(ControllerBackend.Android));
+        }
+
+        private static bool BeginDevice(int deviceId)
+        {
+            ControllerDeviceTransition transition = _devices.ObserveInput(deviceId);
+            if (transition.Kind == ControllerDeviceTransitionKind.Ignored)
+            {
+                return false;
+            }
+            if (transition.Kind is ControllerDeviceTransitionKind.Connected
+                or ControllerDeviceTransitionKind.Replaced)
+            {
+                // Do not carry button edges or axes from a removed pad into a
+                // replacement. The capability transition below is what tells
+                // observers that the physical source changed.
+                _metadata.Clear();
+                GamepadInput.State = default;
+            }
+            PublishCapabilities(deviceId, device: null);
+            return true;
+        }
+
+        private static void PublishCapabilities(int deviceId, InputDevice? device)
+        {
+            if (_capabilityOwner?.IsCurrent != true)
+            {
+                _capabilityOwner = ControllerCapabilities.TryAcquire(
+                    ControllerBackend.Android, replaceCurrent: true);
+            }
+            ControllerDeviceMetadata metadata;
+            if (device is not null)
+            {
+                metadata = _metadata.Remember(
+                    deviceId, device.Name, TryHasAnalogTriggers(device));
+            }
+            else if (!_metadata.TryGet(deviceId, out metadata))
+            {
+                metadata = new ControllerDeviceMetadata(deviceId, null, null);
+            }
+            _capabilityOwner?.Publish(ControllerCapabilitySnapshot.Connected(
+                ControllerBackend.Android,
+                $"device:{deviceId}",
+                metadata.DeviceName ?? "Android gamepad",
+                ControllerFamily.Generic,
+                hasGyroscope: null,
+                hasRumble: null,
+                hasAnalogTriggers: metadata.HasAnalogTriggers));
+        }
+
+        private static bool? TryHasAnalogTriggers(InputDevice? device)
+        {
+            if (device == null) return null;
+            try
+            {
+                bool left = device.GetMotionRange(Axis.Ltrigger) != null
+                    || device.GetMotionRange(Axis.Brake) != null;
+                bool right = device.GetMotionRange(Axis.Rtrigger) != null
+                    || device.GetMotionRange(Axis.Gas) != null;
+                return left && right;
+            }
+            catch (Exception)
+            {
+                // The device may disappear between the listener callback and
+                // its property query; unknown is safer than guessing.
+                return null;
+            }
         }
 
         /// <summary>A hat is -1, 0 or 1; half is well clear of either edge.</summary>

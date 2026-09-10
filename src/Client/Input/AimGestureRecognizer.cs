@@ -1,27 +1,22 @@
 using System;
+using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Input
 {
     /// <summary>
     /// Source-local DS-style aim gestures. Each pointer source owns a distinct
-    /// instance so touch and stylus timing/cooldowns cannot contaminate one another.
+    /// instance so touch and stylus timing cannot contaminate one another. The
+    /// pointer flick itself is shared with the Morph Ball input detector and
+    /// emits at most one direction per contact.
     /// </summary>
     public sealed class AimGestureRecognizer
     {
-        private const int Capacity = 12;
-        internal const float FlickDistanceDp = 50f;
-        internal const long FlickWindowMs = 120;
-        internal const long FlickCooldownMs = 350;
         internal const long TapMaxMs = 250;
         internal const long DoubleTapGapMs = 300;
         internal const float TapSlopDp = 16f;
         internal const float DoubleTapSpreadDp = 70f;
 
-        private readonly float[] _x = new float[Capacity];
-        private readonly float[] _y = new float[Capacity];
-        private readonly long[] _time = new long[Capacity];
-        private int _count;
-        private int _newest = -1;
+        private readonly MorphBallPointerFlickDetector _flickDetector = new();
         private bool _down;
         private long _downTime;
         private float _downX;
@@ -30,7 +25,6 @@ namespace MphRead.Mods.Input
         private long _lastTapTime;
         private float _lastTapX;
         private float _lastTapY;
-        private long _lastFlickTime;
         private bool _doubleTapPending;
         private bool _flickPending;
         private float _flickX;
@@ -50,11 +44,11 @@ namespace MphRead.Mods.Input
             _downX = x;
             _downY = y;
             _tapMoved = false;
-            ResetSamples();
-            Add(x, y, timestamp);
+            _flickDetector.Density = ValidDensity();
+            _flickDetector.Begin(x, y, timestamp);
         }
 
-        /// <returns>True when this movement completed a flick and should not become look.</returns>
+        /// <returns>True when this movement completed a flick.</returns>
         public bool PointerMove(float x, float y, long timestamp)
         {
             if (!Enabled || !_down) return false;
@@ -64,17 +58,14 @@ namespace MphRead.Mods.Input
             float dy = y - _downY;
             float slop = TapSlopDp * density;
             if (dx * dx + dy * dy > slop * slop) _tapMoved = true;
-            Add(x, y, timestamp);
-            if (!FlickEnabled || timestamp - _lastFlickTime < FlickCooldownMs)
+            if (!FlickEnabled)
                 return false;
-            (float distance, float fx, float fy) = Displacement(timestamp);
-            if (distance <= FlickDistanceDp * density) return false;
+            _flickDetector.Density = density;
+            if (!_flickDetector.Move(x, y, timestamp, out Vector2 direction))
+                return false;
             _flickPending = true;
-            _flickX = fx / distance;
-            _flickY = fy / distance;
-            _lastFlickTime = timestamp;
-            ResetSamples();
-            Add(x, y, timestamp);
+            _flickX = direction.X;
+            _flickY = direction.Y;
             return true;
         }
 
@@ -103,7 +94,7 @@ namespace MphRead.Mods.Input
                     _lastTapY = _downY;
                 }
             }
-            ResetSamples();
+            _flickDetector.End();
         }
 
         public bool TakeDoubleTap()
@@ -125,52 +116,11 @@ namespace MphRead.Mods.Input
             _down = false;
             _doubleTapPending = false;
             _flickPending = false;
-            ResetSamples();
+            _flickDetector.Reset();
             if (clearHistory)
             {
                 _lastTapTime = 0;
-                _lastFlickTime = 0;
             }
-        }
-
-        private void Add(float x, float y, long timestamp)
-        {
-            _newest = (_newest + 1) % Capacity;
-            _x[_newest] = x;
-            _y[_newest] = y;
-            _time[_newest] = timestamp;
-            if (_count < Capacity) _count++;
-        }
-
-        private (float Distance, float X, float Y) Displacement(long timestamp)
-        {
-            if (_count < 2) return default;
-            float newestX = _x[_newest];
-            float newestY = _y[_newest];
-            float best = 0;
-            float bestX = 0;
-            float bestY = 0;
-            for (int i = 1; i < _count; i++)
-            {
-                int index = (_newest - i + Capacity) % Capacity;
-                if (i > 1 && timestamp - _time[index] > FlickWindowMs) break;
-                float dx = newestX - _x[index];
-                float dy = newestY - _y[index];
-                float square = dx * dx + dy * dy;
-                if (square > best)
-                {
-                    best = square;
-                    bestX = dx;
-                    bestY = dy;
-                }
-            }
-            return (MathF.Sqrt(best), bestX, bestY);
-        }
-
-        private void ResetSamples()
-        {
-            _count = 0;
-            _newest = -1;
         }
 
         private float ValidDensity()

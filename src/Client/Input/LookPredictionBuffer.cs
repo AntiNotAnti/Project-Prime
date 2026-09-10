@@ -11,7 +11,8 @@ namespace MphRead.Mods.Input
             Vector2 precisionDeltaDegrees = default,
             Vector2 mouseDeltaDegrees = default,
             Vector2 touchDeltaDegrees = default,
-            Vector2 stylusDeltaDegrees = default)
+            Vector2 stylusDeltaDegrees = default,
+            Vector2 rawMouseDelta = default)
         {
             DeltaDegrees = deltaDegrees;
             Contributors = contributors;
@@ -19,6 +20,7 @@ namespace MphRead.Mods.Input
             MouseDeltaDegrees = mouseDeltaDegrees;
             TouchDeltaDegrees = touchDeltaDegrees;
             StylusDeltaDegrees = stylusDeltaDegrees;
+            RawMouseDelta = rawMouseDelta;
         }
 
         public Vector2 DeltaDegrees { get; }
@@ -28,6 +30,7 @@ namespace MphRead.Mods.Input
         public Vector2 MouseDeltaDegrees { get; }
         public Vector2 TouchDeltaDegrees { get; }
         public Vector2 StylusDeltaDegrees { get; }
+        public Vector2 RawMouseDelta { get; }
         public bool HasPrecisionContributor
             => (Contributors & (LookDeviceKind.Mouse | LookDeviceKind.Touch
                 | LookDeviceKind.Stylus)) != 0;
@@ -49,6 +52,7 @@ namespace MphRead.Mods.Input
         private readonly object _gate = new();
         private Vector2 _pending;
         private readonly Vector2[] _pendingByDevice = new Vector2[5];
+        private readonly Vector2[] _rawByDevice = new Vector2[5];
         private readonly bool[] _hasEventByDevice = new bool[5];
         private readonly LookDeviceKind[] _pendingContributorsByDevice = new LookDeviceKind[5];
         private Vector2 _angularVelocity;
@@ -83,7 +87,9 @@ namespace MphRead.Mods.Input
 
         public void Add(Vector2 deltaDegrees, LookDeviceKind device,
             double? seconds = null)
-            => AddContribution(deltaDegrees, device, device, seconds);
+            => AddContribution(deltaDegrees, device, device,
+                device == LookDeviceKind.Mouse ? deltaDegrees : Vector2.Zero,
+                seconds);
 
         /// <summary>
         /// Add a relative event while retaining its owning source separately
@@ -91,7 +97,7 @@ namespace MphRead.Mods.Input
         /// remove only stylus motion from a mixed frame.
         /// </summary>
         private void AddContribution(Vector2 deltaDegrees, LookDeviceKind device,
-            LookDeviceKind contributors, double? seconds)
+            LookDeviceKind contributors, Vector2 rawDelta, double? seconds)
         {
             if (!float.IsFinite(deltaDegrees.X) || !float.IsFinite(deltaDegrees.Y)
                 || !IsSingleDevice(device))
@@ -109,6 +115,15 @@ namespace MphRead.Mods.Input
                 _pendingByDevice[index].Y = Math.Clamp(
                     _pendingByDevice[index].Y + deltaDegrees.Y,
                     -MaxPendingDegrees, MaxPendingDegrees);
+                if (device == LookDeviceKind.Mouse)
+                {
+                    _rawByDevice[index].X = Math.Clamp(
+                        _rawByDevice[index].X + rawDelta.X,
+                        -MaxPendingDegrees, MaxPendingDegrees);
+                    _rawByDevice[index].Y = Math.Clamp(
+                        _rawByDevice[index].Y + rawDelta.Y,
+                        -MaxPendingDegrees, MaxPendingDegrees);
+                }
                 _pending = SumPending();
                 _lastEvent = now;
                 _hasEvent = true;
@@ -127,6 +142,10 @@ namespace MphRead.Mods.Input
             }
             AddContribution(frame.DeltaDegrees, frame.Device,
                 frame.Contributors == LookDeviceKind.None ? frame.Device : frame.Contributors,
+                frame.Device == LookDeviceKind.Mouse
+                    ? frame.RawMouseDelta == Vector2.Zero
+                        ? frame.RawDirection : frame.RawMouseDelta
+                    : Vector2.Zero,
                 seconds);
         }
 
@@ -145,6 +164,7 @@ namespace MphRead.Mods.Input
                     if ((device & source) == 0) continue;
                     int index = DeviceIndex(source);
                     _pendingByDevice[index] = Vector2.Zero;
+                    _rawByDevice[index] = Vector2.Zero;
                     _hasEventByDevice[index] = false;
                     _pendingContributorsByDevice[index] = LookDeviceKind.None;
                     removed = true;
@@ -234,6 +254,17 @@ namespace MphRead.Mods.Input
             }
         }
 
+        /// <summary>Read pending raw mouse pixels without consuming them.</summary>
+        public Vector2 PeekRawMouseForRender(double? seconds = null)
+        {
+            lock (_gate)
+            {
+                double now = seconds ?? Now;
+                Expire(now);
+                return _rawByDevice[DeviceIndex(LookDeviceKind.Mouse)];
+            }
+        }
+
         /// <summary>
         /// Read only the stateful portion of the prediction. Relative events
         /// have a legacy gameplay/render consumer on desktop, so this view
@@ -279,12 +310,14 @@ namespace MphRead.Mods.Input
                 Vector2 mouse = _pendingByDevice[DeviceIndex(LookDeviceKind.Mouse)];
                 Vector2 touch = _pendingByDevice[DeviceIndex(LookDeviceKind.Touch)];
                 Vector2 stylus = _pendingByDevice[DeviceIndex(LookDeviceKind.Stylus)];
+                Vector2 rawMouse = _rawByDevice[DeviceIndex(LookDeviceKind.Mouse)];
                 LookPredictionFrame frame = new(_pending, _pendingContributors,
-                    mouse + touch + stylus, mouse, touch, stylus);
+                    mouse + touch + stylus, mouse, touch, stylus, rawMouse);
                 _pending = Vector2.Zero;
                 _pendingContributors = LookDeviceKind.None;
                 _hasEvent = false;
                 Array.Clear(_pendingByDevice);
+                Array.Clear(_rawByDevice);
                 Array.Clear(_hasEventByDevice);
                 Array.Clear(_pendingContributorsByDevice);
                 _simulationTime = now;
@@ -315,6 +348,7 @@ namespace MphRead.Mods.Input
                 _pendingContributors = LookDeviceKind.None;
                 _hasEvent = false;
                 Array.Clear(_pendingByDevice);
+                Array.Clear(_rawByDevice);
                 Array.Clear(_hasEventByDevice);
                 Array.Clear(_pendingContributorsByDevice);
                 _simulationTime = now;
@@ -361,6 +395,7 @@ namespace MphRead.Mods.Input
             {
                 _pending = Vector2.Zero;
                 Array.Clear(_pendingByDevice);
+                Array.Clear(_rawByDevice);
                 Array.Clear(_hasEventByDevice);
                 _angularVelocity = Vector2.Zero;
                 _pendingContributors = LookDeviceKind.None;
@@ -383,6 +418,7 @@ namespace MphRead.Mods.Input
                 _pendingContributors = LookDeviceKind.None;
                 _hasEvent = false;
                 Array.Clear(_pendingByDevice);
+                Array.Clear(_rawByDevice);
                 Array.Clear(_hasEventByDevice);
                 Array.Clear(_pendingContributorsByDevice);
             }

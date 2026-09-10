@@ -34,10 +34,37 @@ namespace MphRead.Mods.Network
     /// The server validates this timing hint; no client-owned gameplay state.
     /// </summary>
     public readonly record struct InputCommand(uint Sequence, uint ClientTick, uint ViewServerTick,
-        InputButtons Buttons, InputButtons Pressed, Vector3 Aim, byte DesiredWeapon)
+        InputButtons Buttons, InputButtons Pressed, Vector3 Aim, byte DesiredWeapon,
+        BoostActivation BoostActivation, sbyte BoostDirectionX, sbyte BoostDirectionY)
     {
-        public const int Size = 33;
+        public const int Size = 36;
         public const byte NoWeapon = Byte.MaxValue;
+
+        /// <summary>
+        /// Source-compatible constructor for existing callers. The held Boost
+        /// bit remains charge authority; an edge alone is not a held charge.
+        /// </summary>
+        public InputCommand(uint sequence, uint clientTick, uint viewServerTick,
+            InputButtons buttons, InputButtons pressed, Vector3 aim, byte desiredWeapon)
+            : this(sequence, clientTick, viewServerTick, buttons, pressed, aim,
+                desiredWeapon,
+                (buttons & InputButtons.Boost) != 0
+                    ? BoostActivation.Charge : BoostActivation.None,
+                0, 0)
+        {
+        }
+
+        public InputCommand(uint sequence, uint clientTick, uint viewServerTick,
+            InputButtons buttons, InputButtons pressed, Vector3 aim, byte desiredWeapon,
+            in BoostIntent boostIntent)
+            : this(sequence, clientTick, viewServerTick, buttons, pressed, aim,
+                desiredWeapon, boostIntent.Activation, boostIntent.X, boostIntent.Y)
+        {
+        }
+
+        public BoostIntent BoostRequest
+            => BoostIntent.TryDecode(BoostActivation, BoostDirectionX,
+                BoostDirectionY, out BoostIntent intent) ? intent : default;
 
         public void Write(Span<byte> destination)
         {
@@ -50,6 +77,9 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteSingleLittleEndian(destination[24..], Aim.Y);
             BinaryPrimitives.WriteSingleLittleEndian(destination[28..], Aim.Z);
             destination[32] = DesiredWeapon;
+            destination[33] = (byte)BoostActivation;
+            destination[34] = unchecked((byte)BoostDirectionX);
+            destination[35] = unchecked((byte)BoostDirectionY);
         }
 
         public static bool TryRead(ReadOnlySpan<byte> source, out InputCommand command)
@@ -64,22 +94,47 @@ namespace MphRead.Mods.Network
             var aim = new Vector3(BinaryPrimitives.ReadSingleLittleEndian(source[20..]),
                 BinaryPrimitives.ReadSingleLittleEndian(source[24..]),
                 BinaryPrimitives.ReadSingleLittleEndian(source[28..]));
+            var boostActivation = (BoostActivation)source[33];
+            sbyte boostX = unchecked((sbyte)source[34]);
+            sbyte boostY = unchecked((sbyte)source[35]);
+            bool boostHeld = (buttons & InputButtons.Boost) != 0;
             // Bound before normalization. A zero, infinite or enormous ray
             // must never introduce NaNs into shared collision state.
             if (((buttons | pressed) & ~InputButtons.All) != 0
                 || !Single.IsFinite(aim.X) || !Single.IsFinite(aim.Y) || !Single.IsFinite(aim.Z)
-                || aim.LengthSquared < 0.5f || aim.LengthSquared > 1.5f)
+                || aim.LengthSquared < 0.5f || aim.LengthSquared > 1.5f
+                || !BoostIntent.TryDecode(boostActivation, boostX, boostY,
+                    out BoostIntent boostIntent)
+                || boostIntent.Activation == BoostActivation.Charge && !boostHeld
+                || boostIntent.Activation == BoostActivation.None && boostHeld)
             {
                 return false;
             }
             command = new InputCommand(BinaryPrimitives.ReadUInt32LittleEndian(source),
                 BinaryPrimitives.ReadUInt32LittleEndian(source[4..]),
-                BinaryPrimitives.ReadUInt32LittleEndian(source[8..]), buttons, pressed, aim, source[32]);
+                BinaryPrimitives.ReadUInt32LittleEndian(source[8..]), buttons, pressed,
+                aim, source[32], boostIntent);
             return true;
         }
 
-        public InputCommand WithoutEdges() => this with { Pressed = InputButtons.None, DesiredWeapon = NoWeapon };
-        public InputCommand Neutral() => WithoutEdges() with { Buttons = Buttons & InputButtons.Spectate };
+        public InputCommand WithoutEdges()
+        {
+            bool boostHeld = (Buttons & InputButtons.Boost) != 0;
+            return this with
+            {
+                Pressed = InputButtons.None,
+                DesiredWeapon = NoWeapon,
+                BoostActivation = boostHeld ? BoostActivation.Charge : BoostActivation.None,
+                BoostDirectionX = 0,
+                BoostDirectionY = 0
+            };
+        }
+
+        public InputCommand Neutral() => WithoutEdges() with
+        {
+            Buttons = Buttons & InputButtons.Spectate,
+            BoostActivation = BoostActivation.None
+        };
     }
 
     public static class InputBundle
@@ -121,15 +176,18 @@ namespace MphRead.Mods.Network
                 return false;
             }
             int length = source[4];
+            Span<InputCommand> decoded = stackalloc InputCommand[Capacity];
             for (int i = 0; i < length; i++)
             {
-                if (!InputCommand.TryRead(source.Slice(HeaderSize + i * InputCommand.Size, InputCommand.Size), out commands[i])
-                    || (i > 0 && (commands[i].Sequence != unchecked(commands[i - 1].Sequence + 1)
-                        || commands[i].ClientTick != unchecked(commands[i - 1].ClientTick + 1))))
+                if (!InputCommand.TryRead(source.Slice(HeaderSize + i * InputCommand.Size,
+                        InputCommand.Size), out decoded[i])
+                    || (i > 0 && (decoded[i].Sequence != unchecked(decoded[i - 1].Sequence + 1)
+                        || decoded[i].ClientTick != unchecked(decoded[i - 1].ClientTick + 1))))
                 {
                     return false;
                 }
             }
+            decoded[..length].CopyTo(commands);
             matchId = BinaryPrimitives.ReadUInt32LittleEndian(source);
             phaseRevision = BinaryPrimitives.ReadUInt32LittleEndian(source[5..]);
             count = length;

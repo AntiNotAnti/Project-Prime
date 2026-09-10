@@ -30,6 +30,7 @@ namespace MphRead.Entities
             LoadFlags = LoadFlags.SlotActive | LoadFlags.Active | LoadFlags.Initial
                 | LoadFlags.Connected | LoadFlags.WasConnected;
             Controls.ClearAll();
+            Input.ClearBoostIntents();
             _availableWeapons.ClearAll();
             _availableCharges.ClearAll();
             ReloadInit = false;
@@ -54,6 +55,7 @@ namespace MphRead.Entities
             AdvancePresentationPoseEpoch();
             IsBot = false;
             Controls.ClearAll();
+            Input.ClearBoostIntents();
             ResetRemoteLocomotion();
             _networkInputActive = false;
             Health = 0;
@@ -72,7 +74,11 @@ namespace MphRead.Entities
             }
             _networkInputActive = true;
             _networkAim = command.Aim;
-            Input.HasInput = command.Buttons != InputButtons.None || command.Pressed != InputButtons.None;
+            BoostIntent boostIntent = command.BoostRequest;
+            Input.QueueBoostIntent(boostIntent);
+            Input.HasInput = command.Buttons != InputButtons.None
+                || command.Pressed != InputButtons.None
+                || boostIntent.Activation != BoostActivation.None;
             PlayerControls c = Controls;
             SetNetworkBind(c.MoveLeft, InputButtons.Left, command);
             SetNetworkBind(c.MoveRight, InputButtons.Right, command);

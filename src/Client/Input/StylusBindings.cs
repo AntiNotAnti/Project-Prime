@@ -16,13 +16,13 @@ namespace MphRead.Mods.Input
         public bool IsDown(in StylusState state, StylusAction action)
         {
             StylusButtons active = state.Buttons | state.PressedButtons;
-            return action != StylusAction.None
+            return state.Contact && action != StylusAction.None
                 && (Primary == action && active.HasFlag(StylusButtons.Primary)
                     || Secondary == action && active.HasFlag(StylusButtons.Secondary));
         }
 
         public bool IsPressed(in StylusState state, StylusAction action)
-            => action != StylusAction.None
+            => state.Contact && action != StylusAction.None
                 && (Primary == action
                     && (state.PressedButtons & StylusButtons.Primary) != 0
                     || Secondary == action

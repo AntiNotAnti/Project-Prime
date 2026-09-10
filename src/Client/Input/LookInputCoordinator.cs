@@ -125,8 +125,7 @@ namespace MphRead.Mods.Input
                     StartPrecision(frame.Device, now);
                 }
                 _contributors |= contributors;
-                _prediction.Add(new LocalLookFrame(frame.Device, frame.DeltaDegrees,
-                    frame.RawDirection, frame.Magnitude).WithContributors(contributors), now);
+                _prediction.Add(frame.WithContributors(contributors), now);
                 return true;
             }
         }
@@ -199,6 +198,7 @@ namespace MphRead.Mods.Input
                     = _prediction.PeekPrecisionForRender(now);
                 Vector2 precision = mouse + touch + stylus;
                 Vector2 controller = _prediction.PeekStatefulForRender(now, active);
+                Vector2 rawMouse = _prediction.PeekRawMouseForRender(now);
                 Vector2 delta = precision + controller;
                 LookDeviceKind contributors = _contributors
                     | _prediction.PendingContributors;
@@ -206,7 +206,7 @@ namespace MphRead.Mods.Input
                 float magnitude = controller != Vector2.Zero
                     ? _statefulMagnitude : precision.Length;
                 return new LocalLookFrame(_tracker.ActiveLookDevice, delta,
-                    raw, magnitude, controller, mouse, touch, stylus)
+                    raw, magnitude, controller, mouse, touch, stylus, rawMouse)
                     .WithContributors(contributors);
             }
         }
@@ -234,7 +234,8 @@ namespace MphRead.Mods.Input
                 return new LocalLookFrame(_tracker.ActiveLookDevice,
                     consumed.DeltaDegrees, Vector2.Zero, consumed.DeltaDegrees.Length,
                     Vector2.Zero, consumed.MouseDeltaDegrees,
-                    consumed.TouchDeltaDegrees, consumed.StylusDeltaDegrees)
+                    consumed.TouchDeltaDegrees, consumed.StylusDeltaDegrees,
+                    consumed.RawMouseDelta)
                     .WithContributors(contributors);
             }
         }
@@ -274,7 +275,8 @@ namespace MphRead.Mods.Input
                     ? _statefulMagnitude : consumed.PrecisionDeltaDegrees.Length;
                 return new LocalLookFrame(_tracker.ActiveLookDevice, delta,
                     raw, magnitude, controller, consumed.MouseDeltaDegrees,
-                    consumed.TouchDeltaDegrees, consumed.StylusDeltaDegrees)
+                    consumed.TouchDeltaDegrees, consumed.StylusDeltaDegrees,
+                    consumed.RawMouseDelta)
                     .WithContributors(returned | contributors);
             }
         }

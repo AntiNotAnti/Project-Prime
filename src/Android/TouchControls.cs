@@ -220,27 +220,26 @@ namespace MphRead.Droid
         {
             DoubleTapEnabled = false
         };
-        private bool _swipeBoostEnabled;
+        private bool _morphBallBoostEnabled;
 
         /// <summary>
-        /// Whether a flick means anything right now -- it is the morph ball's
-        /// boost, so only in the ball. Off, the flick is left alone to be the
-        /// aim it looks like.
+        /// Whether a touch flick means anything right now. It is the morph
+        /// ball's boost and is disabled outside the stable ball form.
         /// </summary>
-        public bool SwipeBoostEnabled
+        public bool MorphBallBoostEnabled
         {
             get
             {
                 lock (_lock)
                 {
-                    return _swipeBoostEnabled;
+                    return _morphBallBoostEnabled;
                 }
             }
             set
             {
                 lock (_lock)
                 {
-                    _swipeBoostEnabled = value;
+                    _morphBallBoostEnabled = value;
                 }
             }
         }
@@ -608,7 +607,7 @@ namespace MphRead.Droid
         /// right and Y downwards. Cleared by the call, so a frame that reads
         /// it twice does not boost twice.
         /// </summary>
-        public (bool Fired, float X, float Y) TakeSwipeBoost()
+        public (bool Fired, float X, float Y) TakeMorphBallBoost()
         {
             lock (_lock)
             {
@@ -765,7 +764,7 @@ namespace MphRead.Droid
         private void ConfigureGesture(AimGestureRecognizer recognizer)
         {
             recognizer.Enabled = true;
-            recognizer.FlickEnabled = _swipeBoostEnabled;
+            recognizer.FlickEnabled = _morphBallBoostEnabled;
             recognizer.Density = Density;
         }
 

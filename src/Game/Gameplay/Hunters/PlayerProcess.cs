@@ -34,6 +34,7 @@ namespace MphRead.Entities
             }
             if (!LoadFlags.TestFlag(LoadFlags.Active))
             {
+                Input.ClearBoostIntents();
                 // Returning false here makes Scene.UpdateScene destroy the
                 // entity and drop it from the entity list, and AddPlayer is
                 // inert once the room has loaded -- so a slot vacated (or
@@ -102,6 +103,7 @@ namespace MphRead.Entities
             if (IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true)
             {
                 Controls.ClearAll();
+                Input.ClearBoostIntents();
             }
             PrevPosition = Position;
             PrevSpeed = Speed;

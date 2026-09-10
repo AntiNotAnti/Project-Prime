@@ -22,6 +22,7 @@ namespace MphRead.Entities
             }
             Controls.ClearAll();
             Input.HasInput = false;
+            Input.ClearBoostIntents();
             Speed = PrevSpeed = Vector3.Zero;
             EquipInfo.ChargeLevel = 0;
             EquipInfo.Zoomed = false;

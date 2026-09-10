@@ -15,7 +15,11 @@ public sealed class ControllerP2InputTests
     [Fact]
     public void GyroMapsSdlRadiansAndExpiresStaleSamples()
     {
-        var processor = new GyroLookProcessor();
+        var processor = new GyroLookProcessor(noiseFloorDegreesPerSecond: 0);
+        for (int i = 0; i <= 30; i++)
+            Assert.Equal(Vector2.Zero, processor.SubmitRadiansPerSecond(
+                Vector3.Zero, i / 60d, enabled: true, sensitivity: 1,
+                invertX: false, invertY: false));
         Vector2 value = processor.SubmitRadiansPerSecond(
             new Vector3(MathF.PI / 2, -MathF.PI, 7), 10,
             enabled: true, sensitivity: 1, invertX: false, invertY: false);
@@ -119,6 +123,63 @@ public sealed class ControllerP2InputTests
             GamepadHaptics.Detach(sink);
             GamepadHaptics.Stop(clearIdentities: true);
             InputSettings.GamepadHapticsEnabled = prior;
+        }
+    }
+
+    [Fact]
+    public void HapticStrengthScalesOnlyAmplitudeAndClampsInvalidValues()
+    {
+        HapticPattern source = GamepadHaptics.Pattern(HapticEvent.Missile);
+        HapticPattern half = GamepadHaptics.Scale(source, .5f);
+
+        Assert.Equal((ushort)13000, half.LowFrequency);
+        Assert.Equal((ushort)11000, half.HighFrequency);
+        Assert.Equal(source.DurationMilliseconds, half.DurationMilliseconds);
+        Assert.Equal(source.Priority, half.Priority);
+        Assert.Equal((ushort)0, GamepadHaptics.Scale(source, -1).LowFrequency);
+        Assert.Equal(source, GamepadHaptics.Scale(source, float.NaN));
+    }
+
+    [Fact]
+    public void GyroModesGateZoomAndConfiguredHoldButtons()
+    {
+        InputSettings.Reset();
+        try
+        {
+            GamepadInput.State = new GamepadState { Connected = true };
+
+            InputSettings.GamepadGyroMode = GamepadGyroMode.Off;
+            GamepadInput.BeginFrame(zoomed: true);
+            Assert.False(GamepadInput.GyroAllowed(zoomed: true));
+
+            InputSettings.GamepadGyroMode = GamepadGyroMode.Always;
+            GamepadInput.BeginFrame();
+            Assert.True(GamepadInput.GyroAllowed(zoomed: false));
+
+            InputSettings.GamepadGyroMode = GamepadGyroMode.ZoomOnly;
+            GamepadInput.BeginFrame(zoomed: false);
+            Assert.False(GamepadInput.GyroAllowed(zoomed: false));
+            GamepadInput.BeginFrame(zoomed: true);
+            Assert.True(GamepadInput.GyroAllowed(zoomed: true));
+
+            InputSettings.GamepadGyroMode = GamepadGyroMode.HoldButton;
+            InputSettings.GamepadGyroActivation = GamepadGyroActivation.LeftBumper;
+            GamepadInput.State = new GamepadState
+            {
+                Connected = true,
+                Buttons = GamepadButtons.LeftBumper
+            };
+            GamepadInput.BeginFrame();
+            Assert.True(GamepadInput.GyroAllowed(zoomed: false));
+
+            InputSettings.GamepadGyroActivation = GamepadGyroActivation.RightThumb;
+            Assert.False(GamepadInput.GyroAllowed(zoomed: false));
+        }
+        finally
+        {
+            GamepadInput.State = default;
+            GamepadInput.ResetControllerState();
+            InputSettings.Reset();
         }
     }
 
@@ -297,16 +358,22 @@ public sealed class ControllerP2InputTests
         Assert.False(InputSettings.InputBalanceTelemetryEnabled);
 
         InputSettings.LoadLines([
-            "gamepad_gyro_enabled=true",
+            "gamepad_gyro_mode=ZoomOnly",
+            "gamepad_gyro_activation=RightThumb",
             "gamepad_gyro_sensitivity=1.75",
             "gamepad_gyro_invert_x=true",
             "gamepad_haptics_enabled=false",
+            "gamepad_haptics_strength=0.4",
             "input_balance_telemetry=true"]);
 
         Assert.True(InputSettings.GamepadGyroEnabled);
+        Assert.Equal(GamepadGyroMode.ZoomOnly, InputSettings.GamepadGyroMode);
+        Assert.Equal(GamepadGyroActivation.RightThumb,
+            InputSettings.GamepadGyroActivation);
         Assert.Equal(1.75f, InputSettings.GamepadGyroSensitivity);
         Assert.True(InputSettings.GamepadGyroInvertX);
         Assert.False(InputSettings.GamepadHapticsEnabled);
+        Assert.Equal(.4f, InputSettings.GamepadHapticsStrength);
         Assert.True(InputSettings.InputBalanceTelemetryEnabled);
         Assert.Contains("input_schema=4", InputSettings.GetSaveLines());
         InputSettings.Reset();

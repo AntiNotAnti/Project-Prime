@@ -46,7 +46,8 @@ namespace MphRead.Mods.Input
 
         public static bool Play(HapticEvent value, uint identity = 0)
         {
-            if (!InputSettings.GamepadHapticsEnabled) return false;
+            if (!InputSettings.GamepadHapticsEnabled
+                || InputSettings.GamepadHapticsStrength <= 0) return false;
             ulong key = identity == 0 ? 0 : ((ulong)(byte)value << 32) | identity;
             lock (Gate)
             {
@@ -94,13 +95,15 @@ namespace MphRead.Mods.Input
             HapticPattern result = default;
             bool apply = false;
             bool stop;
+            float strength;
             lock (Gate)
             {
                 sink = _sink;
                 if (sink == null) return false;
+                strength = InputSettings.GamepadHapticsStrength;
                 stop = _stopPending;
                 _stopPending = false;
-                if (!InputSettings.GamepadHapticsEnabled)
+                if (!InputSettings.GamepadHapticsEnabled || strength <= 0)
                 {
                     stop |= _count > 0 || _activeUntil > 0;
                     ClearLocked(clearIdentities: false);
@@ -146,7 +149,7 @@ namespace MphRead.Mods.Input
             // Native callbacks are deliberately outside Gate and only Pump is
             // called by the SDL host/event thread.
             if (stop) sink.Stop();
-            if (apply) sink.Apply(result);
+            if (apply) sink.Apply(Scale(result, strength));
             return stop || apply;
         }
 
@@ -173,6 +176,18 @@ namespace MphRead.Mods.Input
             HapticEvent.Death => new(52000, 28000, 400, 5),
             _ => default
         };
+
+        internal static HapticPattern Scale(in HapticPattern pattern, float strength)
+        {
+            strength = float.IsFinite(strength) ? Math.Clamp(strength, 0, 1) : 1;
+            return pattern with
+            {
+                LowFrequency = (ushort)Math.Clamp(
+                    MathF.Round(pattern.LowFrequency * strength), 0, ushort.MaxValue),
+                HighFrequency = (ushort)Math.Clamp(
+                    MathF.Round(pattern.HighFrequency * strength), 0, ushort.MaxValue)
+            };
+        }
 
         private static void ClearLocked(bool clearIdentities)
         {

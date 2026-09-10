@@ -72,8 +72,9 @@ namespace MphRead.Entities
             Capture(Controls.RollRight, InputButtons.RollRight, ref held, ref pressed);
             Capture(Controls.RollUp, InputButtons.RollForward, ref held, ref pressed);
             Capture(Controls.RollDown, InputButtons.RollBack, ref held, ref pressed);
+            BoostIntent boostIntent = Input.ConsumedBoostIntent;
             return new InputCommand(sequence, sequence, viewServerTick, held, pressed, _gunVec1,
-                (byte)CurrentWeapon);
+                (byte)CurrentWeapon, boostIntent);
         }
 
         private static void Capture(PlayerActionState bind, InputButtons button, ref InputButtons held,
@@ -111,6 +112,8 @@ namespace MphRead.Entities
             bool deactivated = LoadFlags.TestFlag(LoadFlags.Active)
                 && ((flags & SnapshotPlayerFlags.Active) == 0 || !spawned);
             bool died = Health > 0 && state.Health == 0;
+            if (newLife || !spawned || died || formChanged || spectatorChanged)
+                Input.ClearBoostIntents();
             if (newLife || deactivated || died || formChanged || spectatorChanged)
                 AdvancePresentationPoseEpoch();
             if (newLife || !spawned || state.Health == 0 || formChanged || spectatorChanged)

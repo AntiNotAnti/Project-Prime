@@ -1,4 +1,7 @@
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using MphRead.Mods.Input;
+using MphRead.Mods.Network;
+using OpenTK.Mathematics;
 
 namespace MphRead.Entities
 {
@@ -30,12 +33,19 @@ namespace MphRead.Entities
 
         private static bool _isScrollingUp = false;
         private static bool _isScrollingDown = false;
+        private static MorphBallMouseFlickDetector _mouseBoost = new();
+        private static MorphBallStickFlickDetector _stickBoost;
         public static void ProcessInput(Scene scene, KeyboardState keyboardState, MouseState mouseState, bool noPlayerInput)
         {
             KeyboardState keyboardSnap = keyboardState.GetSnapshot();
             MouseState mouseSnap = mouseState.GetSnapshot();
             Mods.Input.StylusState desktopStylus
                 = Mods.Input.DesktopStylusInput.ConsumeState();
+            if (noPlayerInput || Mods.SpectatorMode.IsSpectating
+                || scene.LocalPlayer == null)
+            {
+                ResetMorphBallBoostDetectors();
+            }
             if (Mods.SpectatorMode.IsSpectating)
             {
                 // The one control somebody watching keeps, because a
@@ -64,11 +74,15 @@ namespace MphRead.Entities
 
                 if (Mods.Network.NetHooks.TryApplyRemoteInput(player, i))
                 {
+                    if (i == Mods.Network.NetHooks.LocalSlot)
+                        ResetMorphBallBoostDetectors();
                     continue;
                 }
 
                 if (noPlayerInput || i != Mods.Network.NetHooks.LocalSlot || Mods.SpectatorMode.IsSpectating) // todo: multiple input?
                 {
+                    if (i == Mods.Network.NetHooks.LocalSlot)
+                        ResetMorphBallBoostDetectors();
                     continue;
                 }
 
@@ -96,6 +110,8 @@ namespace MphRead.Entities
                     player.Input.MouseDeltaX = 0;
                     player.Input.MouseDeltaY = 0;
                 }
+                ProcessMorphBallBoostInput(player, scene.Services.LocalLookFrame,
+                    desktopStylus, scene.GlobalElapsedTime);
                 _isScrollingUp = false;
                 _isScrollingDown = false;
                 // todo?: deal with overflow or whatever
@@ -182,6 +198,70 @@ namespace MphRead.Entities
             }
         }
 
+        private static void ProcessMorphBallBoostInput(PlayerEntity player,
+            in LocalLookFrame lookFrame, in Mods.Input.StylusState stylus,
+            double timestamp)
+        {
+            bool eligible = MorphBallBoostEligibility.IsEligible(player);
+            if (!eligible)
+            {
+                ResetMorphBallBoostDetectors();
+                return;
+            }
+
+            bool queued = false;
+            if (Mods.InputSettings.MorphBallMouseFlickBoost)
+            {
+                _mouseBoost.Observe(lookFrame.RawMouseDelta, timestamp);
+                if (_mouseBoost.TakeDirection(out Vector2 mouseDirection))
+                    queued = QueueMorphBallBoost(player, mouseDirection);
+            }
+            else
+            {
+                _mouseBoost.Reset();
+            }
+
+            if (Mods.InputSettings.MorphBallStickFlickBoost)
+            {
+                bool hasStickSample = (lookFrame.Contributors
+                    & LookDeviceKind.GamepadStick) != 0;
+                Vector2 rightStick = hasStickSample
+                    ? lookFrame.RawDirection : Vector2.Zero;
+                _stickBoost.ObserveFixedTick(rightStick, timestamp);
+                if (!queued && _stickBoost.TakeDirection(out Vector2 stickDirection))
+                    queued = QueueMorphBallBoost(player, stickDirection);
+                else
+                    _stickBoost.TakeDirection(out _);
+            }
+            else
+            {
+                _stickBoost.Reset();
+            }
+
+            if (!queued && Mods.InputSettings.StylusFlickBoost
+                && stylus.FlickBoost)
+            {
+                queued = QueueMorphBallBoost(player,
+                    new Vector2(stylus.FlickX, stylus.FlickY));
+            }
+            if (queued) player.ModNoteInput();
+        }
+
+        private static bool QueueMorphBallBoost(PlayerEntity player,
+            Vector2 screenDirection)
+        {
+            return MorphBallFlickDirection.TryNormalize(screenDirection,
+                out Vector2 normalized)
+                && BoostIntent.TryCreateFlick(normalized, out BoostIntent intent)
+                && player.Input.QueueBoostIntent(intent);
+        }
+
+        private static void ResetMorphBallBoostDetectors()
+        {
+            _mouseBoost.Reset();
+            _stickBoost.Reset();
+        }
+
         private static void ApplyDesktopStylus(PlayerEntity player,
             in Mods.Input.StylusState state)
         {
@@ -196,10 +276,9 @@ namespace MphRead.Entities
             ApplyStylusButton(player.GetPresentation().Bindings.Zoom, zoom, zoomPressed);
             if (state.DoubleTapJump)
                 ApplyStylusButton(player.GetPresentation().Bindings.Jump, true, true);
-            if (state.FlickBoost && player.IsAltForm)
-                ApplyStylusButton(player.GetPresentation().Bindings.Boost, true, true);
             if (fire || zoom || state.DoubleTapJump
-                || state.FlickBoost && player.IsAltForm)
+                || state.FlickBoost && Mods.InputSettings.StylusFlickBoost
+                    && MorphBallBoostEligibility.IsEligible(player))
                 player.ModNoteInput();
         }
 

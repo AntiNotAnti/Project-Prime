@@ -64,6 +64,15 @@ namespace MphRead.Mods
         public static bool ScrollAllWeapons { get; set; } = true;
 
         /// <summary>
+        /// Direction-only Morph Ball boost gesture switches. They are kept
+        /// independent so desktop, controller and touch users can choose the
+        /// source they trust without changing the shared thresholds.
+        /// </summary>
+        public static bool MorphBallMouseFlickBoost { get; set; } = true;
+        public static bool MorphBallStickFlickBoost { get; set; } = true;
+        public static bool MorphBallSwipeBoost { get; set; } = true;
+
+        /// <summary>
         /// The key that opens the chat prompt. T, which is where every
         /// shooter since Quake has put it.
         ///
@@ -95,7 +104,10 @@ namespace MphRead.Mods
             }
         }
 
-        /// <summary>Multiplier on the right stick's turn rate. 1.0 is 210 degrees a second.</summary>
+        /// <summary>
+        /// Legacy shared sensitivity alias. Modern callers use independent
+        /// horizontal/vertical multipliers over the configured yaw/pitch rates.
+        /// </summary>
         public static float GamepadLookSensitivity
         {
             get => GamepadHorizontalSensitivity;
@@ -291,15 +303,87 @@ namespace MphRead.Mods
 
         private static float _gamepadZoomMultiplier = 1;
 
-        // Aim assist is an internal controller behavior for now. It is not a
-        // player preference and intentionally has no mutable or persisted
-        // surface. Keep these values centralized for the gameplay adapter and
-        // focused policy tests.
-        internal const bool GamepadAimAssistEnabled = true;
-        internal const float GamepadAimAssistStrength = 1f;
+        // Aim assist remains deliberately absent from every player-facing
+        // settings surface. These persisted values are an internal tuning and
+        // accessibility seam for controlled tests/builds only.
+        internal static bool GamepadAimAssistEnabled { get; set; } = true;
+        internal static float GamepadAimAssistStrength
+        {
+            get => _gamepadAimAssistStrength;
+            set => _gamepadAimAssistStrength = Clamp(value, 1, 0, 1);
+        }
+        private static float _gamepadAimAssistStrength = 1;
+
+        public static Input.GamepadResponseCurvePreset GamepadResponseCurve
+        {
+            get => _gamepadResponseCurve;
+            set
+            {
+                _gamepadResponseCurve = Enum.IsDefined(value)
+                    ? value : Input.GamepadResponseCurvePreset.Balanced;
+                if (_gamepadResponseCurve != Input.GamepadResponseCurvePreset.Custom)
+                {
+                    _gamepadLookExponent = Input.GamepadLookProfiles.ResponseExponent(
+                        _gamepadResponseCurve, _gamepadLookExponent);
+                }
+            }
+        }
+        private static Input.GamepadResponseCurvePreset _gamepadResponseCurve
+            = Input.GamepadResponseCurvePreset.Balanced;
+
+        public static Input.GamepadTurnAccelerationPreset GamepadTurnAcceleration
+        {
+            get => _gamepadTurnAcceleration;
+            set
+            {
+                _gamepadTurnAcceleration = Enum.IsDefined(value)
+                    ? value : Input.GamepadTurnAccelerationPreset.Standard;
+                Input.GamepadTurnAccelerationProfile profile
+                    = Input.GamepadLookProfiles.TurnAcceleration(_gamepadTurnAcceleration);
+                GamepadOuterBoostEnabled = profile.Enabled;
+                GamepadOuterBoostStart = profile.OuterBoostStart;
+                GamepadOuterYawBoost = profile.OuterYawBoost;
+                GamepadOuterPitchBoost = profile.OuterPitchBoost;
+                GamepadBoostDelaySeconds = profile.BoostDelaySeconds;
+                GamepadBoostRampSeconds = profile.BoostRampSeconds;
+            }
+        }
+        private static Input.GamepadTurnAccelerationPreset _gamepadTurnAcceleration
+            = Input.GamepadTurnAccelerationPreset.Standard;
 
         /// <summary>SDL gamepad gyro is opt-in; unsupported hosts leave it inert.</summary>
-        public static bool GamepadGyroEnabled { get; set; }
+        public static Input.GamepadGyroMode GamepadGyroMode
+        {
+            get => _gamepadGyroMode;
+            set
+            {
+                Input.GamepadGyroMode next = Enum.IsDefined(value)
+                    ? value : Input.GamepadGyroMode.Off;
+                bool wasEnabled = _gamepadGyroMode != Input.GamepadGyroMode.Off;
+                _gamepadGyroMode = next;
+                if (!wasEnabled && next != Input.GamepadGyroMode.Off)
+                    Input.GamepadGyro.Recalibrate();
+                else if (next == Input.GamepadGyroMode.Off)
+                    Input.GamepadGyro.SuppressOutput();
+            }
+        }
+        private static Input.GamepadGyroMode _gamepadGyroMode = Input.GamepadGyroMode.Off;
+        public static bool GamepadGyroEnabled
+        {
+            get => GamepadGyroMode != Input.GamepadGyroMode.Off;
+            set => GamepadGyroMode = value
+                ? GamepadGyroMode == Input.GamepadGyroMode.Off
+                    ? Input.GamepadGyroMode.Always : GamepadGyroMode
+                : Input.GamepadGyroMode.Off;
+        }
+        public static Input.GamepadGyroActivation GamepadGyroActivation
+        {
+            get => _gamepadGyroActivation;
+            set => _gamepadGyroActivation = Enum.IsDefined(value)
+                ? value : Input.GamepadGyroActivation.LeftTrigger;
+        }
+        private static Input.GamepadGyroActivation _gamepadGyroActivation
+            = Input.GamepadGyroActivation.LeftTrigger;
         public static float GamepadGyroSensitivity
         {
             get => _gamepadGyroSensitivity;
@@ -309,6 +393,12 @@ namespace MphRead.Mods
         public static bool GamepadGyroInvertX { get; set; }
         public static bool GamepadGyroInvertY { get; set; }
         public static bool GamepadHapticsEnabled { get; set; } = true;
+        public static float GamepadHapticsStrength
+        {
+            get => _gamepadHapticsStrength;
+            set => _gamepadHapticsStrength = Clamp(value, 1, 0, 1);
+        }
+        private static float _gamepadHapticsStrength = 1;
         public static bool InputBalanceTelemetryEnabled { get; set; }
 
         public static bool StylusAimingEnabled { get; set; } = true;
@@ -739,7 +829,19 @@ namespace MphRead.Mods
                     if (parsed) GamepadMoveReleaseThreshold = number; return true;
                 case "gamepad_look_exponent":
                 case "gamepad_response_exponent":
-                    if (parsed) GamepadLookExponent = number; return true;
+                    if (parsed)
+                    {
+                        GamepadLookExponent = number;
+                        _gamepadResponseCurve = Input.GamepadResponseCurvePreset.Custom;
+                    }
+                    return true;
+                case "gamepad_response_curve":
+                    if (Enum.TryParse(value, true,
+                        out Input.GamepadResponseCurvePreset responseCurve))
+                    {
+                        GamepadResponseCurve = responseCurve;
+                    }
+                    return true;
                 case "gamepad_yaw_rate":
                 case "gamepad_yaw":
                     if (parsed) GamepadYawRate = number; return true;
@@ -754,6 +856,13 @@ namespace MphRead.Mods
                 case "gamepad_boost_ramp":
                 case "gamepad_outer_boost_ramp": if (parsed) GamepadBoostRampSeconds = number; return true;
                 case "gamepad_outer_boost_enabled": if (boolean) GamepadOuterBoostEnabled = flag; return true;
+                case "gamepad_turn_acceleration":
+                    if (Enum.TryParse(value, true,
+                        out Input.GamepadTurnAccelerationPreset acceleration))
+                    {
+                        GamepadTurnAcceleration = acceleration;
+                    }
+                    return true;
                 case "gamepad_trigger_press":
                 case "gamepad_trigger_press_threshold":
                     if (parsed) GamepadTriggerPressThreshold = number; return true;
@@ -775,17 +884,30 @@ namespace MphRead.Mods
                     if (parsed) GamepadZoomMultiplier = number; return true;
                 case "gamepad_aim_assist":
                 case "gamepad_aim_assist_enabled":
+                    if (boolean) GamepadAimAssistEnabled = flag;
+                    return true;
                 case "gamepad_aim_assist_strength":
-                    // Retired player preferences. Accept old files without
-                    // allowing them to alter the internal always-on policy.
+                    if (parsed) GamepadAimAssistStrength = number;
                     return true;
                 case "gamepad_gyro":
                 case "gamepad_gyro_enabled": if (boolean) GamepadGyroEnabled = flag; return true;
+                case "gamepad_gyro_mode":
+                    if (Enum.TryParse(value, true, out Input.GamepadGyroMode gyroMode))
+                        GamepadGyroMode = gyroMode;
+                    return true;
+                case "gamepad_gyro_activation":
+                    if (Enum.TryParse(value, true,
+                        out Input.GamepadGyroActivation gyroActivation))
+                    {
+                        GamepadGyroActivation = gyroActivation;
+                    }
+                    return true;
                 case "gamepad_gyro_sensitivity": if (parsed) GamepadGyroSensitivity = number; return true;
                 case "gamepad_gyro_invert_x": if (boolean) GamepadGyroInvertX = flag; return true;
                 case "gamepad_gyro_invert_y": if (boolean) GamepadGyroInvertY = flag; return true;
                 case "gamepad_haptics":
                 case "gamepad_haptics_enabled": if (boolean) GamepadHapticsEnabled = flag; return true;
+                case "gamepad_haptics_strength": if (parsed) GamepadHapticsStrength = number; return true;
                 case "input_balance_telemetry": if (boolean) InputBalanceTelemetryEnabled = flag; return true;
                 case "stylus_aiming": if (boolean) StylusAimingEnabled = flag; return true;
                 case "stylus_sensitivity": if (parsed) StylusSensitivity = number; return true;
@@ -799,6 +921,9 @@ namespace MphRead.Mods
                 case "stylus_classic_gestures": if (boolean) StylusClassicGestures = flag; return true;
                 case "stylus_double_tap_jump": if (boolean) StylusDoubleTapJump = flag; return true;
                 case "stylus_flick_boost": if (boolean) StylusFlickBoost = flag; return true;
+                case "morph_ball_mouse_flick_boost": if (boolean) MorphBallMouseFlickBoost = flag; return true;
+                case "morph_ball_stick_flick_boost": if (boolean) MorphBallStickFlickBoost = flag; return true;
+                case "morph_ball_swipe_boost": if (boolean) MorphBallSwipeBoost = flag; return true;
                 case "stylus_pressure_to_fire": if (boolean) StylusPressureToFire = flag; return true;
                 case "stylus_pressure_threshold": if (parsed) StylusPressureThreshold = number; return true;
                 default: return false;
@@ -909,6 +1034,9 @@ namespace MphRead.Mods
                     $"invert_y={InvertMouseY.ToString().ToLowerInvariant()}",
                     $"invert_x={InvertMouseX.ToString().ToLowerInvariant()}",
                     $"scroll_all_weapons={ScrollAllWeapons.ToString().ToLowerInvariant()}",
+                    $"morph_ball_mouse_flick_boost={MorphBallMouseFlickBoost.ToString().ToLowerInvariant()}",
+                    $"morph_ball_stick_flick_boost={MorphBallStickFlickBoost.ToString().ToLowerInvariant()}",
+                    $"morph_ball_swipe_boost={MorphBallSwipeBoost.ToString().ToLowerInvariant()}",
                     $"chat_key={(ChatKey == Keys.Unknown ? "none" : ChatKey.ToString())}",
                     $"controller_preset={ControllerPreset}",
                     "gamepad_move_deadzone=" + GamepadMoveDeadZone.ToString("0.###", CultureInfo.InvariantCulture),
@@ -917,8 +1045,10 @@ namespace MphRead.Mods
                     "gamepad_move_activate=" + GamepadMoveActivateThreshold.ToString("0.###", CultureInfo.InvariantCulture),
                     "gamepad_move_release=" + GamepadMoveReleaseThreshold.ToString("0.###", CultureInfo.InvariantCulture),
                     "gamepad_look_exponent=" + GamepadLookExponent.ToString("0.###", CultureInfo.InvariantCulture),
+                    $"gamepad_response_curve={GamepadResponseCurve}",
                     "gamepad_yaw_rate=" + GamepadYawRate.ToString("0.###", CultureInfo.InvariantCulture),
                     "gamepad_pitch_rate=" + GamepadPitchRate.ToString("0.###", CultureInfo.InvariantCulture),
+                    $"gamepad_turn_acceleration={GamepadTurnAcceleration}",
                     "gamepad_outer_boost_start=" + GamepadOuterBoostStart.ToString("0.###", CultureInfo.InvariantCulture),
                     "gamepad_outer_yaw_boost=" + GamepadOuterYawBoost.ToString("0.###", CultureInfo.InvariantCulture),
                     "gamepad_outer_pitch_boost=" + GamepadOuterPitchBoost.ToString("0.###", CultureInfo.InvariantCulture),
@@ -930,11 +1060,16 @@ namespace MphRead.Mods
                     "gamepad_horizontal_sensitivity=" + GamepadHorizontalSensitivity.ToString("0.###", CultureInfo.InvariantCulture),
                     "gamepad_vertical_sensitivity=" + GamepadVerticalSensitivity.ToString("0.###", CultureInfo.InvariantCulture),
                     "gamepad_zoom_multiplier=" + GamepadZoomMultiplier.ToString("0.###", CultureInfo.InvariantCulture),
+                    $"gamepad_aim_assist_enabled={GamepadAimAssistEnabled.ToString().ToLowerInvariant()}",
+                    "gamepad_aim_assist_strength=" + GamepadAimAssistStrength.ToString("0.###", CultureInfo.InvariantCulture),
                     $"gamepad_gyro_enabled={GamepadGyroEnabled.ToString().ToLowerInvariant()}",
+                    $"gamepad_gyro_mode={GamepadGyroMode}",
+                    $"gamepad_gyro_activation={GamepadGyroActivation}",
                     "gamepad_gyro_sensitivity=" + GamepadGyroSensitivity.ToString("0.###", CultureInfo.InvariantCulture),
                     $"gamepad_gyro_invert_x={GamepadGyroInvertX.ToString().ToLowerInvariant()}",
                     $"gamepad_gyro_invert_y={GamepadGyroInvertY.ToString().ToLowerInvariant()}",
                     $"gamepad_haptics_enabled={GamepadHapticsEnabled.ToString().ToLowerInvariant()}",
+                    "gamepad_haptics_strength=" + GamepadHapticsStrength.ToString("0.###", CultureInfo.InvariantCulture),
                     $"input_balance_telemetry={InputBalanceTelemetryEnabled.ToString().ToLowerInvariant()}",
                     $"stylus_aiming={StylusAimingEnabled.ToString().ToLowerInvariant()}",
                     "stylus_sensitivity=" + StylusSensitivity.ToString("0.###", CultureInfo.InvariantCulture),
@@ -981,11 +1116,18 @@ namespace MphRead.Mods
             InvertMouseY = false;
             InvertMouseX = false;
             ScrollAllWeapons = true;
+            MorphBallMouseFlickBoost = true;
+            MorphBallStickFlickBoost = true;
+            MorphBallSwipeBoost = true;
             Input.TouchSettings.Reset();
             ResetBindings();
-            ResetControllerAimSettings();
+            ResetControllerGeneral();
             ResetControllerAdvancedTuning();
+            ResetControllerGyro();
             GamepadHapticsEnabled = true;
+            GamepadHapticsStrength = 1;
+            GamepadAimAssistEnabled = true;
+            GamepadAimAssistStrength = 1;
             InputBalanceTelemetryEnabled = false;
             _controllerPreset = Input.ControllerPreset.Classic;
             StylusAimingEnabled = true;
@@ -1059,6 +1201,7 @@ namespace MphRead.Mods
             GamepadMoveActivateThreshold = 0.25f;
             GamepadMoveReleaseThreshold = 0.18f;
             GamepadLookExponent = 1.60f;
+            _gamepadResponseCurve = Input.GamepadResponseCurvePreset.Balanced;
             GamepadYawRate = 300;
             GamepadPitchRate = 240;
             GamepadZoomMultiplier = 1f;
@@ -1066,24 +1209,63 @@ namespace MphRead.Mods
             GamepadGyroSensitivity = 1f;
             GamepadGyroInvertX = false;
             GamepadGyroInvertY = false;
-            GamepadGyro.Reset();
+            GamepadGyro.ResetDevice();
         }
 
         /// <summary>
-        /// Restore only the outer-ring and trigger response controls. Aim
-        /// preferences, bindings, mouse, touch and stylus settings remain.
+        /// Restore the controller's general feel without changing bindings,
+        /// response-curve tuning or gyro preferences. This is the scope shown
+        /// by the controller's General reset action in Settings.
+        /// </summary>
+        public static void ResetControllerGeneral()
+        {
+            GamepadHorizontalSensitivity = 1f;
+            GamepadVerticalSensitivity = 1f;
+            GamepadInvertY = false;
+            GamepadZoomMultiplier = 1f;
+            GamepadHapticsEnabled = true;
+            GamepadHapticsStrength = 1f;
+        }
+
+        /// <summary>
+        /// Restore controller response-curve and threshold controls. General
+        /// feel, bindings, gyro, mouse, touch and stylus settings remain.
         /// </summary>
         public static void ResetControllerAdvancedTuning()
         {
+            GamepadMoveDeadZone = 0.15f;
+            GamepadLookDeadZone = 0.10f;
             GamepadOuterDeadZone = 0.02f;
+            GamepadMoveActivateThreshold = 0.25f;
+            GamepadMoveReleaseThreshold = 0.18f;
+            GamepadLookExponent = 1.60f;
+            _gamepadResponseCurve = Input.GamepadResponseCurvePreset.Balanced;
+            GamepadYawRate = 300;
+            GamepadPitchRate = 240;
             GamepadOuterBoostEnabled = true;
             GamepadOuterBoostStart = 0.95f;
             GamepadOuterYawBoost = 150;
             GamepadOuterPitchBoost = 80;
             GamepadBoostDelaySeconds = 0.18f;
             GamepadBoostRampSeconds = 0.12f;
+            _gamepadTurnAcceleration = Input.GamepadTurnAccelerationPreset.Standard;
             GamepadTriggerPressThreshold = 0.20f;
             GamepadTriggerReleaseThreshold = 0.12f;
+        }
+
+        /// <summary>
+        /// Restore only the gyro controls and reset the live sensor integrator.
+        /// This remains a preference reset; capability detection belongs to the
+        /// input platform boundary, not to this settings model.
+        /// </summary>
+        public static void ResetControllerGyro()
+        {
+            GamepadGyroMode = Input.GamepadGyroMode.Off;
+            GamepadGyroActivation = Input.GamepadGyroActivation.LeftTrigger;
+            GamepadGyroSensitivity = 1f;
+            GamepadGyroInvertX = false;
+            GamepadGyroInvertY = false;
+            GamepadGyro.ResetDevice();
         }
 
         /// <summary>
@@ -1095,9 +1277,9 @@ namespace MphRead.Mods
         public static void ResetController()
         {
             ResetControllerBindings();
-            ResetControllerAimSettings();
+            ResetControllerGeneral();
             ResetControllerAdvancedTuning();
-            GamepadHapticsEnabled = true;
+            ResetControllerGyro();
             InputBalanceTelemetryEnabled = false;
             _controllerPreset = Input.ControllerPreset.Classic;
         }
@@ -1110,6 +1292,7 @@ namespace MphRead.Mods
                 && GamepadMoveActivateThreshold == .25f
                 && GamepadMoveReleaseThreshold == .18f
                 && GamepadLookExponent == 1.60f
+                && GamepadResponseCurve == Input.GamepadResponseCurvePreset.Balanced
                 && GamepadYawRate == 300
                 && GamepadPitchRate == 240
                 && GamepadOuterBoostStart == .95f
@@ -1118,6 +1301,7 @@ namespace MphRead.Mods
                 && GamepadBoostDelaySeconds == .18f
                 && GamepadBoostRampSeconds == .12f
                 && GamepadOuterBoostEnabled
+                && GamepadTurnAcceleration == Input.GamepadTurnAccelerationPreset.Standard
                 && GamepadTriggerPressThreshold == .20f
                 && GamepadTriggerReleaseThreshold == .12f
                 && GamepadHorizontalSensitivity == 1
@@ -1128,6 +1312,7 @@ namespace MphRead.Mods
                 && !GamepadGyroInvertX
                 && !GamepadGyroInvertY
                 && GamepadHapticsEnabled
+                && GamepadHapticsStrength == 1
                 && !InputBalanceTelemetryEnabled
                 && !GamepadInvertY;
         }

@@ -10,6 +10,7 @@ using Android.Views.InputMethods;
 using MphRead.Entities;
 using MphRead.Mods.Render;
 using MphRead.Mods.Input;
+using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 using Keys = OpenTK.Windowing.GraphicsLibraryFramework.Keys;
 
@@ -370,7 +371,7 @@ namespace MphRead.Droid
                 _onEnd = onEnd;
                 _onLoaded = onLoaded;
                 _onError = onError;
-                _thread = new Thread(Run) { Name = "FruityPrime GL", IsBackground = true };
+                _thread = new Thread(Run) { Name = "ProjectPrime GL", IsBackground = true };
                 _thread.Start();
             }
 
@@ -1010,10 +1011,10 @@ namespace MphRead.Droid
                     // lurch on the frame the free camera comes back.
                     _controls.TakeAimDelta();
                 }
-                _controls.TakeSwipeBoost();
+                _controls.TakeMorphBallBoost();
                 _controls.TakeDoubleTapJump();
                 // Spectator input never boosts the watched player.
-                _controls.SwipeBoostEnabled = false;
+                _controls.MorphBallBoostEnabled = false;
             }
 
             /// <summary>
@@ -1055,6 +1056,8 @@ namespace MphRead.Droid
 
             private void CollectInput(PlayerEntity main)
             {
+                _controls.MorphBallBoostEnabled = main.IsAltForm
+                    && Mods.InputSettings.MorphBallSwipeBoost;
                 _stylus.Configure(Mods.InputSettings.StylusAimingEnabled,
                     Mods.InputSettings.StylusSensitivity,
                     Mods.InputSettings.StylusInvertY,
@@ -1082,7 +1085,8 @@ namespace MphRead.Droid
                     if (next && !_resultNextHeld) Mods.Network.IntermissionVoteControls.Move(1);
                     if (previous && !_resultPrevHeld) Mods.Network.IntermissionVoteControls.Move(-1);
                     _resultToggleHeld = vote; _resultNextHeld = next; _resultPrevHeld = previous;
-                    _controls.TakeDoubleTapJump(); _controls.TakeSwipeBoost(); _controls.TakeAimDelta();
+                    _controls.TakeDoubleTapJump(); _controls.TakeMorphBallBoost(); _controls.TakeAimDelta();
+                    _controls.MorphBallBoostEnabled = false;
                     bool votingMenu = _controls.IsHeld(TouchAction.Pause);
                     if (votingMenu && !_menuWasHeld) _onPauseMenu();
                     _menuWasHeld = votingMenu;
@@ -1099,7 +1103,8 @@ namespace MphRead.Droid
                 _resultNextHeld = nextResult; _resultPrevHeld = previousResult;
                 if (browsing)
                 {
-                    _controls.TakeDoubleTapJump(); _controls.TakeSwipeBoost(); _controls.TakeAimDelta();
+                    _controls.TakeDoubleTapJump(); _controls.TakeMorphBallBoost(); _controls.TakeAimDelta();
+                    _controls.MorphBallBoostEnabled = false;
                     bool resultMenu = _controls.IsHeld(TouchAction.Pause);
                     if (resultMenu && !_menuWasHeld) _onPauseMenu();
                     _menuWasHeld = resultMenu;
@@ -1163,24 +1168,28 @@ namespace MphRead.Droid
                 // One button on the DS, and the same key here by default:
                 // jumping on foot is boosting in the ball.
                 _input.Apply(controls.Boost, jump);
-                // A quick flick on the aim side also boosts, the way a stylus
-                // flick did on the DS -- see PlayerInput's boost handling for
-                // how this one-shot is consumed. Only the ball boosts, and
-                // telling the controls that is what keeps a fast turn on foot
-                // from being read as a flick.
-                _controls.SwipeBoostEnabled = main.IsAltForm;
-                (bool Fired, float X, float Y) swipe = _controls.TakeSwipeBoost();
-                if (stylus.FlickBoost)
-                    swipe = (true, stylus.FlickX, stylus.FlickY);
-                if (swipe.Fired && main.IsAltForm)
+                // Touch and stylus gestures both become the same semantic
+                // direction-only intent. Gameplay remains the sole owner of
+                // charge, ability and collision validation.
+                (bool Fired, float X, float Y) swipe = _controls.TakeMorphBallBoost();
+                bool queuedBoost = false;
+                if (swipe.Fired
+                    && MorphBallBoostEligibility.IsEligible(main,
+                        Mods.InputSettings.MorphBallSwipeBoost)
+                    && BoostIntent.TryCreateFlick(new Vector2(swipe.X, swipe.Y),
+                        out BoostIntent touchIntent))
                 {
-                    main.SwipeBoostRequested = true;
-                    // Which way the thumb went, for the boost to follow. The
-                    // engine turns it into a world direction; here it is still
-                    // just the screen's.
-                    main.SwipeBoostX = swipe.X;
-                    main.SwipeBoostY = swipe.Y;
+                    queuedBoost = main.Input.QueueBoostIntent(touchIntent);
                 }
+                if (!queuedBoost && stylus.FlickBoost
+                    && Mods.InputSettings.StylusFlickBoost
+                    && MorphBallBoostEligibility.IsEligible(main)
+                    && BoostIntent.TryCreateFlick(new Vector2(stylus.FlickX,
+                        stylus.FlickY), out BoostIntent stylusIntent))
+                {
+                    queuedBoost = main.Input.QueueBoostIntent(stylusIntent);
+                }
+                if (queuedBoost) main.ModNoteInput();
                 _input.Apply(controls.Morph, _controls.IsHeld(TouchAction.Morph));
                 _input.Apply(controls.Zoom, _controls.IsHeld(TouchAction.Zoom)
                     || stylusBindings.IsDown(stylus, StylusAction.Zoom));

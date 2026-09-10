@@ -26,7 +26,9 @@ namespace MphRead
                 touchDeltaDegrees: device == LookDeviceKind.Touch
                     ? deltaDegrees : Vector2.Zero,
                 stylusDeltaDegrees: device == LookDeviceKind.Stylus
-                    ? deltaDegrees : Vector2.Zero)
+                    ? deltaDegrees : Vector2.Zero,
+                rawMouseDelta: device == LookDeviceKind.Mouse
+                    ? rawDirection : Vector2.Zero)
         {
         }
 
@@ -39,14 +41,15 @@ namespace MphRead
                 precisionDeltaDegrees: precisionDeltaDegrees,
                 mouseDeltaDegrees: Vector2.Zero,
                 touchDeltaDegrees: Vector2.Zero,
-                stylusDeltaDegrees: Vector2.Zero)
+                stylusDeltaDegrees: Vector2.Zero,
+                rawMouseDelta: Vector2.Zero)
         {
         }
 
         internal LocalLookFrame(LookDeviceKind device, Vector2 deltaDegrees,
             Vector2 rawDirection, float magnitude, Vector2 controllerDeltaDegrees,
             Vector2 mouseDeltaDegrees, Vector2 touchDeltaDegrees,
-            Vector2 stylusDeltaDegrees)
+            Vector2 stylusDeltaDegrees, Vector2 rawMouseDelta = default)
             : this(device, deltaDegrees, rawDirection, magnitude, device,
                 aimAssistEnabled: false, aimAssistStrength: 0,
                 controllerDeltaDegrees: controllerDeltaDegrees,
@@ -54,7 +57,8 @@ namespace MphRead
                     + stylusDeltaDegrees,
                 mouseDeltaDegrees: mouseDeltaDegrees,
                 touchDeltaDegrees: touchDeltaDegrees,
-                stylusDeltaDegrees: stylusDeltaDegrees)
+                stylusDeltaDegrees: stylusDeltaDegrees,
+                rawMouseDelta: rawMouseDelta)
         {
         }
 
@@ -63,7 +67,7 @@ namespace MphRead
             bool aimAssistEnabled, float aimAssistStrength,
             Vector2 controllerDeltaDegrees, Vector2 precisionDeltaDegrees,
             Vector2 mouseDeltaDegrees, Vector2 touchDeltaDegrees,
-            Vector2 stylusDeltaDegrees)
+            Vector2 stylusDeltaDegrees, Vector2 rawMouseDelta)
         {
             Device = device;
             DeltaDegrees = deltaDegrees;
@@ -78,6 +82,7 @@ namespace MphRead
             MouseDeltaDegrees = mouseDeltaDegrees;
             TouchDeltaDegrees = touchDeltaDegrees;
             StylusDeltaDegrees = stylusDeltaDegrees;
+            RawMouseDelta = rawMouseDelta;
         }
 
         public LookDeviceKind Device { get; }
@@ -92,6 +97,8 @@ namespace MphRead
         public Vector2 MouseDeltaDegrees { get; }
         public Vector2 TouchDeltaDegrees { get; }
         public Vector2 StylusDeltaDegrees { get; }
+        /// <summary>Untransformed relative mouse pixels for gesture detection.</summary>
+        public Vector2 RawMouseDelta { get; }
         public bool AimAssistEnabled { get; }
         public float AimAssistStrength { get; }
 
@@ -115,31 +122,35 @@ namespace MphRead
                 && float.IsFinite(TouchDeltaDegrees.X)
                 && float.IsFinite(TouchDeltaDegrees.Y)
                 && float.IsFinite(StylusDeltaDegrees.X)
-                && float.IsFinite(StylusDeltaDegrees.Y);
+                && float.IsFinite(StylusDeltaDegrees.Y)
+                && float.IsFinite(RawMouseDelta.X)
+                && float.IsFinite(RawMouseDelta.Y);
 
         public LocalLookFrame WithContributors(LookDeviceKind contributors)
             => new(Device, DeltaDegrees, RawDirection, Magnitude, contributors,
                 AimAssistEnabled, AimAssistStrength, ControllerDeltaDegrees,
                 PrecisionDeltaDegrees, MouseDeltaDegrees, TouchDeltaDegrees,
-                StylusDeltaDegrees);
+                StylusDeltaDegrees, RawMouseDelta);
 
         public LocalLookFrame WithAimAssist(bool enabled, float strength)
             => new(Device, DeltaDegrees, RawDirection, Magnitude, Contributors,
                 enabled, strength, ControllerDeltaDegrees, PrecisionDeltaDegrees,
-                MouseDeltaDegrees, TouchDeltaDegrees, StylusDeltaDegrees);
+                MouseDeltaDegrees, TouchDeltaDegrees, StylusDeltaDegrees,
+                RawMouseDelta);
 
         public LocalLookFrame WithDelta(Vector2 deltaDegrees)
             => new(Device, deltaDegrees, RawDirection, Magnitude, Contributors,
                 AimAssistEnabled, AimAssistStrength, ControllerDeltaDegrees,
                 PrecisionDeltaDegrees, MouseDeltaDegrees, TouchDeltaDegrees,
-                StylusDeltaDegrees);
+                StylusDeltaDegrees, RawMouseDelta);
 
         public LocalLookFrame WithComponents(Vector2 controllerDeltaDegrees,
             Vector2 precisionDeltaDegrees)
             => new(Device, controllerDeltaDegrees + precisionDeltaDegrees,
                 RawDirection, Magnitude, Contributors, AimAssistEnabled,
                 AimAssistStrength, controllerDeltaDegrees, precisionDeltaDegrees,
-                MouseDeltaDegrees, TouchDeltaDegrees, StylusDeltaDegrees);
+                MouseDeltaDegrees, TouchDeltaDegrees, StylusDeltaDegrees,
+                RawMouseDelta);
 
         public static LocalLookFrame Empty => default;
     }

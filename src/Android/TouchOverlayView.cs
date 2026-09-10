@@ -158,6 +158,15 @@ namespace MphRead.Droid
             case MotionEventActions.PointerUp:
                 _router.PointerUp(Sample(e, e.ActionIndex));
                 break;
+            case MotionEventActions.ButtonPress:
+            case MotionEventActions.ButtonRelease:
+                {
+                    PointerSample sample = Sample(e, e.ActionIndex);
+                    if (sample.Tool is not (PointerToolKind.Stylus
+                        or PointerToolKind.Eraser)) return base.OnTouchEvent(e);
+                    _router.PointerButton(sample);
+                }
+                break;
             case MotionEventActions.Cancel:
                 _router.Cancel();
                 break;
@@ -171,13 +180,37 @@ namespace MphRead.Droid
         public override bool OnHoverEvent(MotionEvent? e)
         {
             if (e == null) return false;
+            if (e.ActionMasked is MotionEventActions.HoverEnter
+                or MotionEventActions.HoverMove)
+            {
+                for (int i = 0; i < e.PointerCount; i++)
+                    _router.PointerProximityMove(Sample(e, i));
+                Invalidate();
+                return true;
+            }
             if (e.ActionMasked == MotionEventActions.HoverExit)
             {
                 for (int i = 0; i < e.PointerCount; i++)
                     _router.PointerProximityExit(Sample(e, i));
+                Invalidate();
                 return true;
             }
             return base.OnHoverEvent(e);
+        }
+
+        public override bool OnGenericMotionEvent(MotionEvent? e)
+        {
+            if (e != null && (e.ActionMasked == MotionEventActions.ButtonPress
+                || e.ActionMasked == MotionEventActions.ButtonRelease))
+            {
+                PointerSample sample = Sample(e, e.ActionIndex);
+                if (sample.Tool is not (PointerToolKind.Stylus
+                    or PointerToolKind.Eraser)) return base.OnGenericMotionEvent(e);
+                _router.PointerButton(sample);
+                Invalidate();
+                return true;
+            }
+            return base.OnGenericMotionEvent(e);
         }
 
         private static PointerSample Sample(MotionEvent e, int index,
@@ -196,10 +229,12 @@ namespace MphRead.Droid
                 MotionEventToolType.Mouse => PointerToolKind.Mouse,
                 _ => PointerToolKind.Unknown
             };
-            int nativeButtons = (int)e.ButtonState;
+            MotionEventButtonState nativeButtons = e.ButtonState;
             StylusButtons buttons = StylusButtons.None;
-            if ((nativeButtons & 32) != 0) buttons |= StylusButtons.Primary;
-            if ((nativeButtons & 64) != 0) buttons |= StylusButtons.Secondary;
+            if ((nativeButtons & MotionEventButtonState.StylusPrimary) != 0)
+                buttons |= StylusButtons.Primary;
+            if ((nativeButtons & MotionEventButtonState.StylusSecondary) != 0)
+                buttons |= StylusButtons.Secondary;
             return new PointerSample(e.GetPointerId(index), tool, x, y,
                 pressure, buttons, time);
         }

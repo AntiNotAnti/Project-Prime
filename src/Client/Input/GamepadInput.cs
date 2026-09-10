@@ -1,3 +1,4 @@
+using System;
 using MphRead.Entities;
 using MphRead.Mods.Render;
 using OpenTK.Mathematics;
@@ -30,6 +31,24 @@ namespace MphRead.Mods.Input
     {
         /// <summary>The pad as of this frame.</summary>
         public static GamepadState State;
+
+        /// <summary>
+        /// The last capability snapshot published by the active platform
+        /// owner. Unlike <see cref="State"/>, this changes only on backend or
+        /// device transitions and is safe for settings observers to retain.
+        /// </summary>
+        public static ControllerCapabilitySnapshot Capabilities
+            => ControllerCapabilities.Current;
+
+        /// <summary>
+        /// Raised when the active backend or device capability snapshot
+        /// changes. Platform publishers stay outside the frame loop.
+        /// </summary>
+        public static event EventHandler<ControllerCapabilityChangedEventArgs>? CapabilitiesChanged
+        {
+            add => ControllerCapabilities.Changed += value;
+            remove => ControllerCapabilities.Changed -= value;
+        }
 
         /// <summary>
         /// Physical buttons remain on <see cref="GamepadState.Buttons"/>.
@@ -66,6 +85,7 @@ namespace MphRead.Mods.Input
         private static GamepadLookProcessor _look = new();
         private static long _timingGeneration = long.MinValue;
         private static bool _lookConfigured;
+        private static bool _gyroAllowedForSimulation;
 
         /// <summary>The fixed-step movement result used by <see cref="Apply"/>.</summary>
         public static GamepadMovementSample Movement => _movement.Processed;
@@ -130,16 +150,11 @@ namespace MphRead.Mods.Input
         public static float AimDeltaY { get; private set; }
 
         /// <summary>
-        /// Degrees of turn per frame at full stick deflection, before the
-        /// player's sensitivity multiplier. 3.5 is 210 degrees a second, which
-        /// is where console shooters have sat since they settled the question.
-        /// </summary>
-        /// <summary>
         /// Called once per fixed simulation step. Native polling only updates
         /// <see cref="State"/> and <see cref="SampleNativeFrame"/>; timing,
         /// hysteresis, button edges and stateful look prediction advance here.
         /// </summary>
-        public static void BeginFrame(bool allowLook = true)
+        public static void BeginFrame(bool allowLook = true, bool zoomed = false)
         {
             if (!Active)
             {
@@ -169,9 +184,11 @@ namespace MphRead.Mods.Input
             bool weaponRadial = (_effective & PadBindings.Get(PadAction.WeaponWheel)) != 0;
             if (!allowLook || weaponRadial)
             {
+                _gyroAllowedForSimulation = false;
                 _look.Reset();
                 AimAngularVelocity = Vector2.Zero;
                 AimDeltaX = AimDeltaY = 0;
+                GamepadGyro.SuppressOutput();
                 LookCoordinator.SetStatefulVelocity(Vector2.Zero);
             }
             else
@@ -187,7 +204,10 @@ namespace MphRead.Mods.Input
                 }
                 GamepadLookSample look = _look.Advance(new Vector2(State.RightX,
                     State.RightY), (float)FrameTiming.StepSeconds);
-                Vector2 gyro = GamepadGyro.Sample(NowSeconds());
+                _gyroAllowedForSimulation = GyroAllowed(zoomed);
+                if (!_gyroAllowedForSimulation) GamepadGyro.SuppressOutput();
+                Vector2 gyro = _gyroAllowedForSimulation
+                    ? GamepadGyro.Sample(NowSeconds()) : Vector2.Zero;
                 AimAngularVelocity = look.AngularVelocity + gyro;
                 AimDeltaX = AimAngularVelocity.X * (float)FrameTiming.StepSeconds;
                 AimDeltaY = AimAngularVelocity.Y * (float)FrameTiming.StepSeconds;
@@ -245,7 +265,8 @@ namespace MphRead.Mods.Input
             GamepadLookSample sample = _look.Evaluate(new Vector2(State.RightX,
                 State.RightY));
             AimAngularVelocity = sample.AngularVelocity
-                + GamepadGyro.Sample(NowSeconds());
+                + (_gyroAllowedForSimulation
+                    ? GamepadGyro.Sample(NowSeconds()) : Vector2.Zero);
             LookCoordinator.SetStatefulVelocity(AimAngularVelocity);
         }
 
@@ -286,7 +307,8 @@ namespace MphRead.Mods.Input
             _released = GamepadButtons.None;
             AimDeltaX = AimDeltaY = 0;
             AimAngularVelocity = Vector2.Zero;
-            GamepadGyro.Reset();
+            _gyroAllowedForSimulation = false;
+            GamepadGyro.ResetDevice();
             LookCoordinator.ResetControllerState();
             _timingGeneration = FrameTiming.Discontinuities;
         }
@@ -417,6 +439,23 @@ namespace MphRead.Mods.Input
 
         private static bool Down(GamepadButtons buttons)
             => (_effective & buttons) != 0;
+
+        internal static bool GyroAllowed(bool zoomed)
+        {
+            return InputSettings.GamepadGyroMode switch
+            {
+                GamepadGyroMode.Always => true,
+                GamepadGyroMode.ZoomOnly => zoomed,
+                GamepadGyroMode.HoldButton => Down(
+                    InputSettings.GamepadGyroActivation switch
+                    {
+                        GamepadGyroActivation.LeftBumper => GamepadButtons.LeftBumper,
+                        GamepadGyroActivation.RightThumb => GamepadButtons.RightThumb,
+                        _ => GamepadButtons.LeftTrigger
+                    }),
+                _ => false
+            };
+        }
 
         private static double NowSeconds()
             => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
