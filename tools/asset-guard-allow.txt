@@ -23,15 +23,6 @@ src/Client/Assets/project-prime-server.ico
 src/Client/Assets/project-prime-tools.ico
 src/Client/Assets/project-prime-map-editor.ico
 
-# Keep the previous tracked names allowlisted until the branding rename is
-# staged. These entries do not restore or embed the deleted files.
-src/Client/Assets/fruity-prime-intro.png
-src/Client/Assets/fruity-prime-logo.png
-src/Client/Assets/fruity-prime-mark.png
-src/Client/Assets/fruity-prime-mark-server.png
-src/Client/Assets/fruity-prime.ico
-src/Client/Assets/fruity-prime-server.ico
-
 # Original Project Prime presentation source artwork retained at the repository
 # root by the asset update. These are not cartridge captures or game data.
 Banner.png
