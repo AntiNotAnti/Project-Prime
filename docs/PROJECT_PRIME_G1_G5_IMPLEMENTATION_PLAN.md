@@ -1,8 +1,8 @@
-# Prime Hunters - G1-G5 Gameplay and Online Systems Implementation Plan
+# Project Prime - G1-G5 Gameplay and Online Systems Implementation Plan
 
 ## Document purpose
 
-This is the implementation plan for the next five major Prime Hunters gameplay and online systems epics, based on a fresh audit of the latest uploaded codebase.
+This is the implementation plan for the next five major Project Prime gameplay and online systems epics, based on a fresh audit of the latest uploaded codebase.
 
 The plan is intentionally source-grounded. It distinguishes between systems that already exist and should be extended, systems that are incomplete, and systems that do not exist yet.
 
@@ -45,7 +45,7 @@ The latest source already has:
 - Android no longer compiling the complete desktop source tree through a wildcard
 - dedicated-server publishing boundaries
 - multiplayer-only source guards
-- Prime Hunters user-facing branding
+- Project Prime user-facing branding
 
 Do not redo that work during G1-G5.
 
@@ -113,13 +113,13 @@ Up to eight contiguous input commands are sent redundantly in each `InputBundle`
 - never repeats rising edges during a held fallback
 - bounds buffering and skips unrecoverable old gaps
 
-The historical protocol-4 `IntentPacket` path is demo-only.
+The historical protocol-4 `IntentPacket` path is replay-only.
 
 Do not redesign live input around the old protocol-4 press-history limitation.
 
 ## 1.6 Existing HUD foundations
 
-Prime Hunters already has:
+Project Prime already has:
 
 - original HUD
 - Pro HUD
@@ -140,7 +140,7 @@ There is no complete modern:
 - 2D tactical radar/minimap
 - network-quality HUD
 
-## 1.7 Existing spectator and demo foundations
+## 1.7 Existing spectator and replay foundations
 
 Spectating already supports:
 
@@ -152,9 +152,9 @@ Spectating already supports:
 
 A dedicated `UpdateCameraSpectator()` path is still unfinished.
 
-Demo playback already supports authoritative modern recordings, but:
+Replay playback already supports authoritative modern recordings, but:
 
-- demo file format is version 2
+- replay file format is version 2
 - records are sequential
 - no indexed seeking
 - no proper timeline
@@ -215,7 +215,7 @@ High-refresh rendering must not change:
 - movement
 - spawn choice
 - server input
-- demo simulation
+- replay simulation
 - match results
 
 Render interpolation must use temporary presentation state and restore authoritative simulation state after drawing.
@@ -282,9 +282,9 @@ The implementation agent must:
 
 ## 2.8 Internal naming
 
-Prime Hunters is now the product name.
+Project Prime is now the product name.
 
-The current code still contains legacy namespace/assembly identifiers such as `MphRead` and `FruityPrime`.
+The current code still contains legacy namespace/assembly identifiers such as `MphRead` and `ProjectPrime`.
 
 Do not mix a repository-wide namespace/assembly rename into G1-G5. Perform that as a separate housekeeping migration so gameplay diffs remain reviewable.
 
@@ -304,7 +304,7 @@ Use the following policy:
 
 1. Design all G1-G3 wire changes before declaring protocol 8 stable.
 2. While protocol 8 is unreleased, amend protocol 8 rather than bumping repeatedly.
-3. Preserve protocol 7 demo playback through demo-only adapters.
+3. Preserve protocol 7 replay playback through replay-only adapters.
 4. Do not accept old gameplay protocols on live sockets.
 5. Every wire struct must:
    - validate exact lengths
@@ -312,7 +312,7 @@ Use the following policy:
    - reject non-finite vectors
    - reject invalid identities
    - remain allocation-bounded
-6. Modern demo recording should record authoritative presentation facts, not client claims.
+6. Modern replay recording should record authoritative presentation facts, not client claims.
 
 Likely protocol-8 additions:
 
@@ -354,7 +354,7 @@ Some preparation may overlap, but do not implement G4 persistence while G1-G3 ar
 
 ## Goal
 
-Make Prime Hunters feel smoother and more trustworthy without changing the fundamental Hunter/weapon balance.
+Make Project Prime feel smoother and more trustworthy without changing the fundamental Hunter/weapon balance.
 
 G1 is primarily about:
 
@@ -379,7 +379,7 @@ Before changing gameplay:
 - prediction correction statistics
 - input starvation/skipped-command statistics
 - real match lifecycle validation
-- demo playback validation
+- replay playback validation
 - Android managed build
 - dedicated server publish
 - Windows/macOS launcher smoke where available
@@ -416,7 +416,7 @@ dotnet build tools/nettest/nettest.csproj -c Release
 dotnet build src/Android/Android.csproj -c Release
 ```
 
-Run the existing network baseline, lifecycle, world, combat, demo, lag-compensation, and mixed-combat harnesses using real multiplayer data.
+Run the existing network baseline, lifecycle, world, combat, replay, lag-compensation, and mixed-combat harnesses using real multiplayer data.
 
 ### Acceptance
 
@@ -501,7 +501,7 @@ public const int RespawnTicks = 3 * SimulationHz;
 - no tuning in this pass
 - no float-second timers inside authoritative simulation
 - wire values remain tick counts
-- demos remain tick-based
+- replays remain tick-based
 - tests must compare old and new values
 
 ### Acceptance
@@ -683,7 +683,7 @@ InputCommand aim
 - 60 Hz authoritative aim sequence matches equivalent accumulated input
 - no double aim
 - no divergence caused by display refresh rate
-- demo/network behavior remains deterministic at simulation boundaries
+- replay/network behavior remains deterministic at simulation boundaries
 
 ---
 
@@ -774,7 +774,7 @@ Implement `CombatEventKind.Affliction`:
 - event received twice does not duplicate SFX
 - event omitted/lost but snapshot restores state
 - no client-generated burn damage
-- demo protocol 7 remains readable
+- replay protocol 7 remains readable
 
 ### Acceptance
 
@@ -788,7 +788,7 @@ Burning/disrupted/frozen presentation agrees with server state after every snaps
 
 Do not rewrite live input around `IntentPacket.PressHistory`.
 
-That code is protocol-4 passive demo compatibility.
+That code is protocol-4 passive replay compatibility.
 
 Current live protocol uses per-tick `InputCommand.Pressed`.
 
@@ -832,9 +832,9 @@ exactly once
 
 or be explicitly declared unrecoverable after the bounded input-history window.
 
-### Legacy protocol-4 demos
+### Legacy protocol-4 replays
 
-Only fix `NetPlayerBridge.MissedPresses()` if exact reproduction of multiple same-button edges in old protocol-4 demos is a product requirement.
+Only fix `NetPlayerBridge.MissedPresses()` if exact reproduction of multiple same-button edges in old protocol-4 replays is a product requirement.
 
 Do not let legacy replay compatibility complicate live authority.
 
@@ -1293,7 +1293,7 @@ Synthetic angle tests cover all sectors and boundary angles.
 
 ### Current state
 
-Prime Hunters has player/objective locator infrastructure and a server-owned radar rule, but not a complete modern tactical radar.
+Project Prime has player/objective locator infrastructure and a server-owned radar rule, but not a complete modern tactical radar.
 
 ### Architecture
 
@@ -1985,7 +1985,7 @@ G3 is complete when:
 
 ## Goal
 
-Turn each Prime Hunters player into a persistent identity with a Hunter License, official career statistics, Ranking Points, star rank, match history, and leaderboards.
+Turn each Project Prime player into a persistent identity with a Hunter License, official career statistics, Ranking Points, star rank, match history, and leaderboards.
 
 This is the first epic that introduces a central service/database.
 
@@ -2380,7 +2380,7 @@ The original Hunter License also rewarded multiplayer-win milestones, which can 
 200 wins    Gold emblem
 ```
 
-Adventure-derived license symbols must not return, since Prime Hunters is multiplayer-only.
+Adventure-derived license symbols must not return, since Project Prime is multiplayer-only.
 
 Replace those only with multiplayer accomplishments if desired.
 
@@ -2424,7 +2424,7 @@ Do not approximate the original table in production code.
 
 The original game was designed around smaller player counts.
 
-Prime Hunters supports eight.
+Project Prime supports eight.
 
 Write and approve an explicit extension specification before implementation.
 
@@ -2592,7 +2592,7 @@ G4 is complete when:
 
 ## Goal
 
-Build the systems that turn Prime Hunters from a good online match into a durable competitive/community game:
+Build the systems that turn Project Prime from a good online match into a durable competitive/community game:
 
 - high-quality spectating
 - modern replay
@@ -2713,7 +2713,7 @@ Trusted tournament observers may bypass delay.
 
 ### Current foundation
 
-Current `.fpdemo` format 2:
+Current `.fpreplay` format 2:
 
 - compressed sequential records
 - authoritative protocols supported
@@ -2721,7 +2721,7 @@ Current `.fpdemo` format 2:
 
 ### New format
 
-Introduce demo format version 3.
+Introduce replay format version 3.
 
 Keep format 2 readable.
 
@@ -2790,7 +2790,7 @@ Use Spectator 2.0 cameras during replay.
 ### Compatibility
 
 - format 2 remains playable
-- protocols 4/5/6/7 demo-only adapters remain isolated
+- protocols 4/5/6/7 replay-only adapters remain isolated
 - modern format records current authoritative facts
 
 ---
@@ -3148,7 +3148,7 @@ Tournament match gets:
 ```text
 external tournament ID
 round ID
-Prime Hunters MatchId
+Project Prime MatchId
 ```
 
 ### Result export
@@ -3318,9 +3318,9 @@ Contains:
 - reliable world events
 - G3 match-policy fields
 
-Modern demo writer should record protocol-8 authoritative facts.
+Modern replay writer should record protocol-8 authoritative facts.
 
-Demo reader keeps protocol 7 compatibility.
+Replay reader keeps protocol 7 compatibility.
 
 ## Protocol 9
 
@@ -3536,7 +3536,7 @@ For every pass:
 
 # 11. Definition of done for the G1-G5 program
 
-The G1-G5 roadmap is complete when Prime Hunters has:
+The G1-G5 roadmap is complete when Project Prime has:
 
 ## Feel
 
@@ -3591,4 +3591,4 @@ The G1-G5 roadmap is complete when Prime Hunters has:
 - tournament controls
 - telemetry-driven balance process
 
-At that point Prime Hunters is no longer simply a multiplayer-capable recreation. It has a coherent modern online FPS platform built around the original Hunters gameplay identity.
+At that point Project Prime is no longer simply a multiplayer-capable recreation. It has a coherent modern online FPS platform built around the original Hunters gameplay identity.

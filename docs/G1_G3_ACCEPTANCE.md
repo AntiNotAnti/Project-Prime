@@ -1,6 +1,6 @@
 # G1–G3 acceptance audit
 
-Audit of the supplied `PRIME_HUNTERS_G1_G5_IMPLEMENTATION_PLAN.md` against the shared working tree on 2026-09-07. This is a source/evidence audit, not a new full-suite or device run. G1–G3 must not be marked fully accepted yet. The table distinguishes implemented paths, bounded exclusions, and validation that needs a real renderer/device. Current audio routes are included below; audible and assembled-run acceptance remain separate gates.
+Audit of the supplied `PROJECT_PRIME_G1_G5_IMPLEMENTATION_PLAN.md` against the shared working tree on 2026-09-07. This is a source/evidence audit, not a new full-suite or device run. G1–G3 must not be marked fully accepted yet. The table distinguishes implemented paths, bounded exclusions, and validation that needs a real renderer/device. Current audio routes are included below; audible and assembled-run acceptance remain separate gates.
 
 ## Actionable code and contract gaps
 
@@ -56,7 +56,7 @@ Legend: **Implemented** means concrete code exists, not that all acceptance test
 
 - Frozen long mixed runs exposed reliable queue overflow and scheduling drops. Overflow was absent on an unchanged repeat; concurrent builds confound timing attribution. Diagnostics were improved, but do not overwrite baseline observations or claim a soak pass without rerunning under a controlled workload.
 - Frozen lifecycle/catch-up/homing harness failures were stale fixture assumptions. Fixture-only repairs in34d3549 retained assertions and passed; they are not unexplained gameplay regressions.
-- Native macOS render probe failed before gameplay with `NSGL: The compatibility profile is not available on macOS`. No real high-refresh frame trace, rendered demo or mouse-to-photon proof exists. Windows/Linux capable GL or a supported native renderer is needed for those gates.
+- Native macOS render probe failed before gameplay with `NSGL: The compatibility profile is not available on macOS`. No real high-refresh frame trace, rendered replay or mouse-to-photon proof exists. Windows/Linux capable GL or a supported native renderer is needed for those gates.
 - Android managed/APK builds establish compilation and packaging only. Actual touch/controller, eight-player HUD/feed/radar/results layout, audible cue balance and high-refresh visual checks require devices.
 - Tmds.DBus.Protocol0.21.2 NU1903 remains a known dependency warning. Track separately from gameplay acceptance.
 

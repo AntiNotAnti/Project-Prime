@@ -6,7 +6,7 @@ something is deliberately wrong — a player disconnects, a line goes away, a
 ninth player arrives at an eight-slot server, everybody spectates at once,
 the Pi is asked to relay twenty matches.
 
-Everything here runs **against the Pi** (`net.livetek.fr`), never a loopback
+Everything here runs **against the Pi** (`rebooty.xyz`), never a loopback
 server. A loopback server has none of the reordering, none of the jitter and
 none of the Pi's processor; a result from one must not be reported as a
 result about the real thing.
@@ -60,7 +60,7 @@ one-sided run as a whole one.
 | `run-netlag.sh` | one match, a **different** line per client (`-netlag`, inside each process): the report that says "a couple of players had 100-200 ms and stuttered" is a mixture, not a uniform delay, and which of them the server made the authority is most of the answer |
 | `run-loss.sh` | 5 / 15 / 30 % packet loss, shaped on both legs, no added latency |
 | `run-spectate.sh` | one spectator among players, then every player spectating at once |
-| `run-demos.sh` | every client recording the same match, then replaying every file |
+| `run-replays.sh` | every client recording the same match, then replaying every file |
 | `run-rotation.sh` | a match boundary crossed with real clients: multi-map and single-map |
 | `run-fullhouse.sh` | eight real clients, nothing artificial — the baseline the rest is read against |
 | `run-pi-limit.sh` | how many matches the Pi will relay: a ramp of hosted games with synthetic players |
@@ -93,7 +93,7 @@ And what held up, measured rather than assumed:
 | 5 / 15 / 30 % packet loss | no divergence at any level, scoreboards agree exactly; what degrades is hit registration |
 | Connection lost for 1, 3, 8 and 40 s | under 30 s the server never notices; at 40 s it times the peer out, promotes, and re-admits it to the same slot within a second of the line returning |
 | Every player spectating at once | match, clock and rotation carry on; 0 mismatches; nobody can be hit, which is the point |
-| Every client recording a demo | 13 KiB/s each, `dropped=0`, all six files replay, 3.5x compression |
+| Every client recording a replay | 13 KiB/s each, `dropped=0`, all six files replay, 3.5x compression |
 | Match end and rotation | announced once, to the announced map; a one-map rotation reloads correctly (five consecutive matches) |
 | 313 malformed / truncated / oversized datagrams | server still answering, joinable and playing; zero exceptions in its journal all session |
 | A browser polling at 233 queries/s | the player's ping went 12 ms -> 16 ms |

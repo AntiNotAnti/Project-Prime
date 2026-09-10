@@ -2,7 +2,7 @@
 
 Protocol 9 additions may opt into the bounded Roslyn generator in
 `src/Protocol.Generator`. The generator is an analyzer-only dependency of
-`FruityPrime.Game`; no Roslyn assembly is loaded by the game at runtime.
+`ProjectPrime.Game`; no Roslyn assembly is loaded by the game at runtime.
 
 ```csharp
 [NetPacket(NetMessageType.JoinPending, protocol: 9)]

@@ -1,6 +1,6 @@
 # Protocol 8 proposal (read-only G1–G3 audit)
 
-Status: UNRELEASED, EVOLVING. Implemented: live protocol8, player96 durable statuses/assists and radar flags, rules84 spawn/overtime/late-join/assist policies, Kill137/type11, WorldEvent64/type12, and a58-record rich world prefix. G4 signed tickets and G5 observer roles are implemented as described in the updates below. Live accepts version8; historical versions remain confined to frozen demo adapters. Do not increment repeatedly while this revision remains unreleased. Runtime/GUI/WAN evidence is separate from codec and focused-test evidence.
+Status: UNRELEASED, EVOLVING. Implemented: live protocol8, player96 durable statuses/assists and radar flags, rules84 spawn/overtime/late-join/assist policies, Kill137/type11, WorldEvent64/type12, and a58-record rich world prefix. G4 signed tickets and G5 observer roles are implemented as described in the updates below. Live accepts version8; historical versions remain confined to frozen replay adapters. Do not increment repeatedly while this revision remains unreleased. Runtime/GUI/WAN evidence is separate from codec and focused-test evidence.
 
 ## Confirmed wire baseline
 
@@ -16,7 +16,7 @@ All integers little endian; vectors are three finite IEEE float32 values. Existi
 | JoinPacket.cs | Join34: version0/nonce u64@1/hunter9/name16@10/prior connection u64@26; accepted86 = fixed18 + rules68 |
 | MatchTransitionPacket.cs | 76 = match u32@0/tick u32@4 + rules68 |
 | RosterChatPackets.cs | header5 + up to8 entries29; entry slot0/connection u64@1/hunter9/team10/name16@11/ping u16@27 |
-| InputCommand.cs | command33; bundle header9 (count plus match and phase revision), eight commands273; keep live per-tick input semantics |
+| InputCommand.cs | protocol8 baseline command33; live protocol11 command36 appends boost activation/signed X/signed Y, bundle header9 and eight commands297; keep live per-tick input semantics |
 | WorldPacket.cs | header20 + up to24 records40 =980 payload,1004 datagram; capacity256. Record kind0/slot1/flags u16@2/id u32@4/position8/A20/B24/C28/D32/E36 |
 
 Current canonical world prefix is Match + eight Score/Time pairs + Lifecycle (18 records). Score A–E are already points,kills,deaths,teamPoints,teamKills; Time A–E already teamDeaths,playerTime,teamTime,nodes,octolithScores. Do not overwrite a supposedly unused score field. Match.E and Lifecycle.D/E are currently zero and can acquire deliberate v8 meanings.
@@ -29,7 +29,7 @@ Current team assignment is confirmed slot parity at ServerNetwork admission and 
 
 Keep bytes0–87, append BurnTicks u16@88, DisruptTicks u16@90, Assists nonnegative i32@92. RadarReveal/Previous flags are2048/4096; WaitingForMatch is8192. Eight-player packet becomes794 bytes,818 with NetHeader: safely below1024. Keep current status flag IDs. Writer emits consistent flag/timer pairs; decoder rejects contradictory v8 status pairs, invalid identities/enum/masks/nonfinite vectors before exposing output. Timer setters must only reconcile presentation, never run damage.
 
-A snapshot's server tick anchors remaining durations; late reliable Affliction events must not rewind a newer snapshot's status. Client feedback deduplicates event IDs, while durable snapshot state recovers dropped cues. Do not manufacture missing historical burn duration for old demos.
+A snapshot's server tick anchors remaining durations; late reliable Affliction events must not rewind a newer snapshot's status. Client feedback deduplicates event IDs, while durable snapshot state recovers dropped cues. Do not manufacture missing historical burn duration for old replays.
 
 ### Combat facts and assists
 
@@ -63,7 +63,7 @@ Preserve rules0–67 and append:
 | 78 | reconnectGraceTicks u16 (0 disables pre-G4 session grace) |
 | 80 | reserved u32=0, no semantics accepted until explicitly implemented |
 
-Accepted becomes102; transition92. Policies must round-trip immutable MatchRules and default to Classic-compatible values in demo adapters. Concrete overtime enum values/assist thresholds need gameplay-owner agreement; this proposal does not silently pick balance numbers. Saturation is forbidden: reject values outside representable policy ranges before constructing rules.
+Accepted becomes102; transition92. Policies must round-trip immutable MatchRules and default to Classic-compatible values in replay adapters. Concrete overtime enum values/assist thresholds need gameplay-owner agreement; this proposal does not silently pick balance numbers. Saturation is forbidden: reject values outside representable policy ranges before constructing rules.
 
 ### Match period and world recovery
 
@@ -71,7 +71,7 @@ Keep MatchPhase.Playing for overtime. Lifecycle.D carries MatchPeriod (Regulatio
 
 The canonical prefix is58 records: original18, then five records per slot. CombatStats9 carries assists/actualDamageDealt/headshots/longestStreak/killsAsPrime. ObjectiveStats10 carries scores/drops/stops/nodesCaptured/nodesLost. WeaponStats0(11) carries beam kills0–4; WeaponStats1(12) carries beam kills5–8 and Prime eliminations. Each statistic is a nonnegative32-bit integer. PlayerIdentity13 has a dedicated codec: bytes4–19 hold canonicalASCII16 nickname (not a vector); A=Hunter, B=team orUInt32.MaxValue, C=active, D=standing/teamStanding/resultSlot packed into three bytes, E=0. Identity records expose typed PlayerName and do not reinterpret names as floating point.
 
-All58 records and active result-slot permutation are validated before mutation. Terminal capture reads the server's immutable MatchResult even after live player slots change. The client freezes its result once from a complete terminal baseline and authoritative identity metadata. Other unused legacy efficiency/count fields are not advertised as replicated statistics. Capacity stays256; content validation budgets58 plus two records per static item spawner and one per flag/node. Dynamic-drop overflow remains explicit. Frozen protocol7 world18 and protocol5/6 world17 paths remain demo-only.
+All58 records and active result-slot permutation are validated before mutation. Terminal capture reads the server's immutable MatchResult even after live player slots change. The client freezes its result once from a complete terminal baseline and authoritative identity metadata. Other unused legacy efficiency/count fields are not advertised as replicated statistics. Capacity stays256; content validation budgets58 plus two records per static item spawner and one per flag/node. Dynamic-drop overflow remains explicit. Frozen protocol7 world18 and protocol5/6 world17 paths remain replay-only.
 
 ### Semantic world-event immediacy
 
@@ -89,11 +89,11 @@ Kinds: PickupConsumed/Respawned, FlagPickedUp/Dropped/Reset/Captured, NodeCaptur
 
 Game publishes semantic callbacks through ISceneServices/ICombatAuthority-owned Game values; Server translates callbacks to wire records. All event admission is bounded and explicit under ReliableChannel backpressure; do not silently lose a terminal kill/capture. Batch4 world events=257 if count-prefixed; kill events can use one per reliable payload initially (137), avoiding needless variable framing.
 
-## Demo boundary (must precede live version flip)
+## Replay boundary (must precede live version flip)
 
-Demo file format2 already records protocol byte; no file-container bump is necessary for these changes. DemoFile.IsAuthoritativeProtocol currently enumerates5/6/7: extend to8. LegacyDemoState currently sends every snapshot through live SnapshotPacket.TryRead, every roster through live SessionRosterPacket, and protocol>=7 transitions through live MatchTransitionPacket: all three are migration hazards.
+Replay file format2 already records protocol byte; no file-container bump is necessary for these changes. ReplayFile.IsAuthoritativeProtocol currently enumerates5/6/7: extend to8. LegacyReplayState currently sends every snapshot through live SnapshotPacket.TryRead, every roster through live SessionRosterPacket, and protocol>=7 transitions through live MatchTransitionPacket: all three are migration hazards.
 
-Create an explicit client-only Protocol7DemoCodec with frozen player88/rules68/transition76/accepted86/roster29 and world18-prefix layouts. Versions5/6 already have legacy49-byte transitions and17-prefix world paths; retain those separately. For protocol7 snapshot adaptation use burn/disrupt unknown/zero duration without claiming precision; recorded Affliction events still provide immediate cues. Classic rule defaults, assists0, MatchPeriod.Regulation. Do not weaken v8 live validators to accept old sizes or version7 headers. Audit DemoPlayback/LegacyDemoState/NetSession/ClientWorldState and DemoInfo/recording paths so every version-dependent decoder is explicitly selected by recorded protocol. New Kill/WorldEvent demo records must be recorded after server validation and replayed through the same deduplicating feedback paths.
+Create an explicit client-only Protocol7ReplayCodec with frozen player88/rules68/transition76/accepted86/roster29 and world18-prefix layouts. Versions5/6 already have legacy49-byte transitions and17-prefix world paths; retain those separately. For protocol7 snapshot adaptation use burn/disrupt unknown/zero duration without claiming precision; recorded Affliction events still provide immediate cues. Classic rule defaults, assists0, MatchPeriod.Regulation. Do not weaken v8 live validators to accept old sizes or version7 headers. Audit ReplayPlayback/LegacyReplayState/NetSession/ClientWorldState and ReplayInfo/recording paths so every version-dependent decoder is explicitly selected by recorded protocol. New Kill/WorldEvent replay records must be recorded after server validation and replayed through the same deduplicating feedback paths.
 
 ## G4/G5 capacity without prematurely shipping fake identity
 
@@ -103,15 +103,15 @@ Superseded early G4/G5 design sketch (see implemented updates below): append a v
 
 ## Ownership and tests
 
-Game codecs/contracts: SnapshotPacket, MatchRulesWire, JoinPacket, MatchTransitionPacket, RosterChatPackets if G4/G5 lands, WorldPacket, ReliableChannel enum; new KillEvent and WorldEvent. Game match/result and services gain data/policy only. Server: ServerNetwork admission/event queues, ServerCombat ledger/events, ServerSimulation state capture/reset, WorldStateCapture, TeamAllocator/latejoin. Client: NetClient reliable dispatch, ClientWorldState atomic recovery, AuthoritativePlay feedback pipeline, LegacyDemoState/Protocol7DemoCodec, DemoFile/recording.
+Game codecs/contracts: SnapshotPacket, MatchRulesWire, JoinPacket, MatchTransitionPacket, RosterChatPackets if G4/G5 lands, WorldPacket, ReliableChannel enum; new KillEvent and WorldEvent. Game match/result and services gain data/policy only. Server: ServerNetwork admission/event queues, ServerCombat ledger/events, ServerSimulation state capture/reset, WorldStateCapture, TeamAllocator/latejoin. Client: NetClient reliable dispatch, ClientWorldState atomic recovery, AuthoritativePlay feedback pipeline, LegacyReplayState/Protocol7ReplayCodec, ReplayFile/recording.
 
-Required focused tests: byte-offset golden vectors for old7/new8; exact/truncated/extra lengths; every invalid enum/mask/NaN/Infinity/identity; no partially mutated batch; max8 snapshot818 datagram; max reliable payload<=512; old7 live rejection with demo acceptance; omitted/duplicate/reordered affliction vs newer snapshot; expiry and join-midstatus without client damage; maximum-assist uniqueness/reconnect/life replacement; Kill vs Death dedup; WorldEvent replay/reset epoch and queue-full policy; overtime remains Playing/input uninterrupted;26-prefix multi-batch world assembly and capacity boundaries; old4/5/6/7 demo fixtures unchanged; two-client authoritative8 loopback and existing WAN suite separately. Do not infer GUI readability or authenticated-backend correctness from codec tests.
+Required focused tests: byte-offset golden vectors for old7/new8; exact/truncated/extra lengths; every invalid enum/mask/NaN/Infinity/identity; no partially mutated batch; max8 snapshot818 datagram; max reliable payload<=512; old7 live rejection with replay acceptance; omitted/duplicate/reordered affliction vs newer snapshot; expiry and join-midstatus without client damage; maximum-assist uniqueness/reconnect/life replacement; Kill vs Death dedup; WorldEvent replay/reset epoch and queue-full policy; overtime remains Playing/input uninterrupted;26-prefix multi-batch world assembly and capacity boundaries; old4/5/6/7 replay fixtures unchanged; two-client authoritative8 loopback and existing WAN suite separately. Do not infer GUI readability or authenticated-backend correctness from codec tests.
 
 Rules flags u16@72 now use bit0 for cancellation of spawn protection on offensive action and bit1 for PickupRespawnAnnouncements (default false); all other bits are rejected. World semantic kinds11/12 are OvertimeStarted and MatchPoint, emitted at authoritative transitions.
 
 ## G4 optional account admission extension (unreleased8)
 
-Guest Join remains34 bytes. The G5 extension appends role flags@34, ticket length u16LE@35 and compact ASCII JWT@37, maximum963 bytes. The largest Join including24-byte header is exactly1024, preserving the existing datagram ceiling. Extension lengths are exact, characters restricted to base64url segments separated by two dots; there is no credential-bearing fragmentation. Historical demo payloads remain frozen; live roster and observer role changes are specified below.
+Guest Join remains34 bytes. The G5 extension appends role flags@34, ticket length u16LE@35 and compact ASCII JWT@37, maximum963 bytes. The largest Join including24-byte header is exactly1024, preserving the existing datagram ceiling. Extension lengths are exact, characters restricted to base64url segments separated by two dots; there is no credential-bearing fragmentation. Historical replay payloads remain frozen; live roster and observer role changes are specified below.
 
 Discovery retains its base and rules-v1 reader. The optional rules-v2 tail keeps the original8-byte rules prefix, sets extension version2, uses prefix byte5 bit0 for RequiresTicket, and appends16 Guid.ToByteArray-order ServerId bytes. EmptyServerId means no advertised account service. Discovery is informational: signed ticket validation still binds the configured server ID and incarnation. Client NetClient accepts an optional explicit nonce/ticket pair; authenticated reconnect requires a fresh pair.
 

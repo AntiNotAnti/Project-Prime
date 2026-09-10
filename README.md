@@ -1,6 +1,6 @@
-# Prime Hunters
+# Project Prime
 
-<img src="src/Client/Assets/fruity-prime-intro.png" alt="Prime Hunters" width="100%">
+<img src="src/Client/Assets/project-prime-title-screen.png" alt="Project Prime" width="100%">
 
 **Metroid Prime Hunters on PC and Android.** Online matches for up to 8 players, widescreen, 60 FPS,
 and a launcher that does the setting up for you.
@@ -10,7 +10,7 @@ A fork of [NoneGiven/MphRead](https://github.com/NoneGiven/MphRead).
 > You bring your own Metroid Prime Hunters cartridge dump. No Nintendo game data ships here or is
 > downloaded.
 
-**[Download](https://github.com/liveteklol/Fruity-Prime/releases)** · [Support the project ☕](https://ko-fi.com/livetek)
+**[Download](https://github.com/AntiNotAnti/Project-Prime-Releases/releases)** · [Support the project ☕](https://ko-fi.com/tterraj)
 
 ## Features
 
@@ -21,7 +21,7 @@ A fork of [NoneGiven/MphRead](https://github.com/NoneGiven/MphRead).
 - **Online multiplayer** (no WFC support)
 - **Up to 8 players**
 - **Dedicated Node + Worker servers**
-- **Demo recording**
+- **Replay recording**
 - **Custom maps**
 - **12 multiplayer modes**: Battle, Survival, Capture, Bounty, Defender, Nodes, Prime Hunter, and teams
 - **Keyboard & mouse**
@@ -31,17 +31,17 @@ A fork of [NoneGiven/MphRead](https://github.com/NoneGiven/MphRead).
 
 ## Support
 
-If you enjoy it: **[ko-fi.com/livetek](https://ko-fi.com/livetek)** ☕
+If you enjoy it: **[ko-fi.com/tterraj](https://ko-fi.com/tterraj)** ☕
 
-<img width="500" height="300" alt="Prime Hunters" src="https://github.com/user-attachments/assets/ec6a2871-2b67-4de0-8b1a-ac6740c8d388" />
+<img width="500" height="300" alt="Project Prime" src="https://github.com/user-attachments/assets/ec6a2871-2b67-4de0-8b1a-ac6740c8d388" />
 
 ## Getting started
 
-1. **[Download](https://github.com/liveteklol/Fruity-Prime/releases)** the package for your system
+1. **[Download](https://github.com/AntiNotAnti/Project-Prime-Releases/releases)** the package for your system
    and unzip it.
 2. Run it:
-   - **Windows** — double-click `FruityPrime.exe`
-   - **Linux** — `./FruityPrime -launcher`
+   - **Windows** — double-click `ProjectPrime.exe`
+   - **Linux** — `./ProjectPrime -launcher`
    - **macOS** — `xattr -dr com.apple.quarantine .` once, then the same as Linux
 3. Click **Game files** and pick your `.nds`. It unpacks itself, once, with a progress bar.
 4. Play.
@@ -168,7 +168,7 @@ contains a local server executable; hosting is provided by the Backend + Node + 
 
 ## Credits
 
-Prime Hunters (formerly Fruity Prime) is Livetek's fork of [MphRead](https://github.com/NoneGiven/MphRead) by **NoneGiven** —
+Project Prime is a multiplayer-focused rebuild based on [MphRead](https://github.com/NoneGiven/MphRead) by **NoneGiven** —
 the model viewer, the renderer, the format parsers and the recreation of the game itself are theirs.
 That work is in turn built on **dsgraph**, [Chemical](https://gitlab.com/ch-mcl/metroid-prime-hunters-file-document),
 [McKay42](https://github.com/McKay42), [Barubary](https://github.com/Barubary/dsdecmp),
@@ -177,8 +177,10 @@ That work is in turn built on **dsgraph**, [Chemical](https://gitlab.com/ch-mcl/
 [CyberBotX](https://github.com/CyberBotX/NCSF) and
 [hackyourlife](https://github.com/hackyourlife/mph-viewer), with
 [OpenTK](https://github.com/opentk/opentk), [OpenAL Soft](https://github.com/kcat/openal-soft) and
-[SoundFlow](https://github.com/LSXPrime/SoundFlow) underneath. `FruityPrime -credits` prints the
+[SoundFlow](https://github.com/LSXPrime/SoundFlow) underneath. `ProjectPrime -credits` prints the
 list with what each one is for, and the Settings screen shows it too.
+
+LiveTek created the project this work grew from; FruityPrime is the predecessor project and multiplayer foundation.
 
 Metroid Prime Hunters is Nintendo's. No game data is included with this program: it comes from your
 own cartridge dump.

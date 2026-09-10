@@ -24,7 +24,7 @@ external acceptance gates and directed the AMHE1 audit to proceed. Waived gates 
 | Baseline commit | `600bb003e3419edbfedec6c553f73d9e07dea3e1` | Clean `HEAD` before F0 work |
 | SDK | .NET SDK `10.0.400` | `global.json` / local SDK |
 | Gameplay protocol | `9` | `src/Game/Protocol/NetHeader.cs` |
-| Replay formats | stream `2`, indexed `3` | `src/Shared.Replay/DemoFile.cs` |
+| Replay formats | stream `2`, indexed `3` | `src/Shared.Replay/ReplayFile.cs` |
 | Match report schema | `2` | `src/Backend/Rating/RatingPolicy.cs` |
 | Worker IPC / Node control | `1` / `1` | Server.Shared codecs |
 | Simulation | fixed 60 Hz; Worker authoritative; one writer per `MatchInstance` | Project architecture |

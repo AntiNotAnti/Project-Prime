@@ -16,7 +16,7 @@ Admin-selected rules override the vote winner. Automatic transition remains subj
 
 ## Live protocol 8 extension
 
-Reliable event 13 remains ObserverTransition. Event 14 is server-to-client IntermissionBallot; event 15 is client-to-server IntermissionVote. Frozen historical demo codecs retain their historical event bounds.
+Reliable event 13 remains ObserverTransition. Event 14 is server-to-client IntermissionBallot; event 15 is client-to-server IntermissionVote. Frozen historical replay codecs retain their historical event bounds.
 
 Ballot: 28-byte header followed by 1–8 fixed 36-byte options (maximum 316 bytes).
 

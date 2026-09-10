@@ -108,7 +108,7 @@ The matrix provenance record identifies the measurement host and input trees:
 | Memory | `25,769,803,776` bytes (24 GiB) |
 | .NET SDK | `10.0.400` |
 | Content tree | `AMHE1`, 3,550 files, manifest SHA-256 `3313abb40ce64fa40fd169d737b252e5b712a73332acf156180b68b7f7ab23f4` |
-| Worker assembly | `src/Server.Worker/bin/Release/net10.0/FruityPrime.Server.Worker.dll` |
+| Worker assembly | `src/Server.Worker/bin/Release/net10.0/ProjectPrime.Server.Worker.dll` |
 | Worker assembly SHA-256 | `0aaa4205e6090ab9057937e5999e65e980f959cf6c74f4ca78d60c8f70101c79` |
 | Worker runtime | 209 files, manifest SHA-256 `639dd740fd5f7623e296c44779a228420b5effe80eb1f37a0cc52b9e2ca7a00e` |
 | Soak assembly | `tools/worker-soak/bin/Release/net10.0/worker-soak.dll` |

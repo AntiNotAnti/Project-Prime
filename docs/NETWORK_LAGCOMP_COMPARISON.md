@@ -16,13 +16,13 @@ From the repository root with .NET 10 and Python 3 available:
 
 ```sh
 dotnet build tools/nettest/nettest.csproj -c Release -p:MphReadServer=true \
-  --artifacts-path /tmp/fruity-comparison-build
+  --artifacts-path /tmp/project-prime-comparison-build
 python3 -m unittest discover -s tools/tests -p test_lagcomp_comparison.py
 python3 tools/run-lagcomp-comparison.py \
   --dotnet dotnet \
-  --harness /tmp/fruity-comparison-build/bin/nettest/release/nettest.dll \
+  --harness /tmp/project-prime-comparison-build/bin/nettest/release/nettest.dll \
   --data "$GAME_DATA_DIRECTORY" --version AMHE1 \
-  --output /tmp/fruity-comparison-results
+  --output /tmp/project-prime-comparison-results
 ```
 
 Use a new output directory for each invocation. The default matrix covers five

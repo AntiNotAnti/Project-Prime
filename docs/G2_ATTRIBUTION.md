@@ -10,6 +10,6 @@ On death, environment, suicide, and team kills award no assists. Remaining contr
 
 The kill journal is bounded at 1024. Exhaustion fails explicitly instead of silently dropping terminal attribution. A peer whose reliable queue cannot admit a kill is disconnected under the existing combat backpressure policy. The client never awards assists from the event itself; snapshots recover statistics.
 
-Snapshot flags 2048/4096 now carry authoritative Survival RadarReveal/RadarRevealPrevious. Replicas apply these facts and do not recompute hiding timers. Frozen protocol 7 demo flags remain limited to 2047.
+Snapshot flags 2048/4096 now carry authoritative Survival RadarReveal/RadarRevealPrevious. Replicas apply these facts and do not recompute hiding timers. Frozen protocol 7 replay flags remain limited to 2047.
 
 Verification: focused pure tests cover exact healing/window boundaries, old-hit refresh prevention, slot/life replacement, team/self/killer exclusion, wraparound, bounded overflow, wire malformed actors/reserved bytes, rules round trips, and immutable result/reset semantics. Runtime and GUI evidence must be reported separately.

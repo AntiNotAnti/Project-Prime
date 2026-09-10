@@ -36,7 +36,7 @@ multiplayer-only lifecycle and protocol changes are tracked in
 | P6 combat | Server engine owns legal shots, projectiles, damage, death, ammo and score. Bounded reliable events preserve immutable connection/life ownership and drive client presentation. Real UDP duels verified wall occlusion, damage and death under impairment. |
 | P7 rewind | Bounded Imperialist hitscan history uses source-backed player colliders and current world collision. Server-measured RTT caps rewind; traveling projectiles remain on the live server timeline. |
 | P8 world | Atomic, bounded multipart world updates cover pickups, spawners, objectives, score and match state. All 12 modes passed headless replication checks. Unsupported mutable collision and missing objectives fail explicitly. |
-| P9 cutover | Public joins/hosting use the authoritative path; live relay and player-authority admission are removed. Historical demo decoding is passive and has no socket. Public hosting/join/stop, rendered rotation/rejoin and recorded demo replay passed. |
+| P9 cutover | Public joins/hosting use the authoritative path; live relay and player-authority admission are removed. Historical replay decoding is passive and has no socket. Public hosting/join/stop, rendered rotation/rejoin and recorded replay playback passed. |
 | P10 hardening | Bounded queues, process-isolated hosting, data validation and measured diagnostics are implemented. All 16 gameplay WAN cases and a five-minute eight-client run passed; final 60-second LAN/extreme checks also passed after roster diagnostics changed. |
 
 ## Reproduction
@@ -45,12 +45,12 @@ Build and test with a .NET 10 SDK:
 
 ```sh
 dotnet test src/MphRead.Tests/MphRead.Tests.csproj -c Release -p:MphReadServer=true
-dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadServer=true -o /tmp/fruity-server
-dotnet build tools/nettest/nettest.csproj -c Release -p:MphReadServer=true -o /tmp/fruity-nettest
-tools/check-dedicated-server.sh /tmp/fruity-server
+dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadServer=true -o /tmp/project-prime-server
+dotnet build tools/nettest/nettest.csproj -c Release -p:MphReadServer=true -o /tmp/project-prime-nettest
+tools/check-dedicated-server.sh /tmp/project-prime-server
 python3 tools/run-network-baseline.py --dotnet dotnet \
-  --server /tmp/fruity-server/FruityPrime.dll \
-  --nettest /tmp/fruity-nettest/nettest.dll --output /tmp/fruity-baseline
+  --server /tmp/project-prime-server/ProjectPrime.dll \
+  --nettest /tmp/project-prime-nettest/nettest.dll --output /tmp/project-prime-baseline
 ```
 
 `run-network-baseline.py` requires a new output directory. It owns and cleans up
@@ -65,11 +65,11 @@ to the executing assembly. The headless path instead takes an explicit directory
 and version without modifying `paths.txt`:
 
 ```sh
-dotnet /tmp/fruity-server/FruityPrime.dll -headlesscheck "MP1 SANCTORUS" \
+dotnet /tmp/project-prime-server/ProjectPrime.dll -headlesscheck "MP1 SANCTORUS" \
   -data /path/to/files/AMHE1 -dataversion AMHE1 -players 8 -frames 36000
 
 # Continuous simulation, stopped with Ctrl+C or SIGTERM; no network admission yet.
-dotnet /tmp/fruity-server/FruityPrime.dll -server-sim "MP1 SANCTORUS" \
+dotnet /tmp/project-prime-server/ProjectPrime.dll -server-sim "MP1 SANCTORUS" \
   -data /path/to/files/AMHE1 -dataversion AMHE1 -players 8
 ```
 
@@ -79,9 +79,9 @@ and 7. `-server-sim ... -frames 3600` performs a bounded one-minute scheduler ru
 The normal game server accepts authoritative input commands:
 
 ```sh
-dotnet /tmp/fruity-server/FruityPrime.dll -server "MP1 SANCTORUS" \
+dotnet /tmp/project-prime-server/ProjectPrime.dll -server "MP1 SANCTORUS" \
   -port 27015 -data /path/to/files/AMHE1 -dataversion AMHE1
-dotnet /tmp/fruity-nettest/nettest.dll --simulation 20 27015,27015
+dotnet /tmp/project-prime-nettest/nettest.dll --simulation 20 27015,27015
 ```
 
 The simulation fixture drives real players on the headless server, exercises
@@ -172,7 +172,7 @@ changed connection identity. Stale input and disconnect replay did not affect th
 replacement player. Server queue drops and dropped simulation ticks were zero.
 
 The final public-path rendered check passed with eight clients, four rotations,
-spectating and server-controlled rejoin under latency/loss. Two recorded demos
+spectating and server-controlled rejoin under latency/loss. Two recorded replays
 replayed 2,487/2,524 rendered frames through 3/4 matches, applied 213/210 world
 updates and 174/162 combat events, and finished with zero player-state mismatches.
 The final offline Sanctorus check used eight players and 22 seconds plus its
@@ -191,7 +191,7 @@ three-projectile Judicator spawn reproduced bit-exact velocities after wire
 encoding/decoding, despite a different starting pool slot and 45 unrelated RNG
 calls during recycling. Fresh WAN
 clients passed with 196/187 combat events and 30 damage events each. A newly
-recorded demo replayed 2,693 frames across three matches, applied 212 world updates
+recorded replay playback covered 2,693 frames across three matches and applied 212 world updates
 and 196 combat events, and finished with zero state mismatches. The impaired
 Judicator collision duel passed again, and the offline report remained identical.
 
@@ -241,28 +241,28 @@ rotation workloads.
 
 ```sh
 # Compact package: output must be a fresh directory.
-dotnet FruityPrime.dll -servercontent /srv/fruity/content-amhe1 \
+dotnet ProjectPrime.dll -servercontent /srv/project-prime/content-amhe1 \
   -data /path/to/files/AMHE1 -dataversion AMHE1 -allrooms
 
 # A game server is unlisted unless an explicit -master address is supplied.
-dotnet FruityPrime.dll -server -data /srv/fruity/content-amhe1 \
+dotnet ProjectPrime.dll -server -data /srv/project-prime/content-amhe1 \
   -rotation /path/to/maprotation.txt -players 8 -nomaster -noupdate
 
 # Complete gameplay matrix, with a fresh output directory.
 python3 tools/run-network-baseline.py --dotnet dotnet \
-  --server /path/to/FruityPrime.dll --nettest /path/to/nettest.dll \
-  --simulation --data /srv/fruity/content-amhe1 --seconds 20 \
-  --output /tmp/fruity-gameplay-matrix
+  --server /path/to/ProjectPrime.dll --nettest /path/to/nettest.dll \
+  --simulation --data /srv/project-prime/content-amhe1 --seconds 20 \
+  --output /tmp/project-prime-gameplay-matrix
 
 # Real collision/rewind duel; use Judicator, Magmaul or VoltDriver for affinities.
-dotnet FruityPrime.dll -combatduel "MP1 SANCTORUS" \
+dotnet ProjectPrime.dll -combatduel "MP1 SANCTORUS" \
   -data /path/to/files/AMHE1 -weapon Imperialist -seconds 30 \
   -netlag 50:10 -netloss 2 -noupdate
 
 dotnet nettest.dll --match-lifecycle /path/to/files/AMHE1
-dotnet FruityPrime.dll -netcheck localhost -seconds 45 \
-  -spectate 12 -rejoin 18 -recorddemo -noupdate
-dotnet FruityPrime.dll -democheck /path/to/match.fpdemo -seconds 60 -noupdate
+dotnet ProjectPrime.dll -netcheck localhost -seconds 45 \
+  -spectate 12 -rejoin 18 -recordreplay -noupdate
+dotnet ProjectPrime.dll -replaycheck /path/to/match.fpreplay -seconds 60 -noupdate
 ```
 
 The final xUnit suite passed all 152 tests, including custom-map argument

@@ -38,7 +38,7 @@ second registers the focused interpolation, overtime, and observer checks.
     docs/STABILIZATION_WORKTREE_INVENTORY.md
 
 The root ignore file explicitly covers every nested `bin/` and `obj/` directory
-and the generated `/FruityPrime` root. No tracked build artifacts were found.
+and the generated `/ProjectPrime` root. No tracked build artifacts were found.
 
 ## Preserved outside this checkpoint
 

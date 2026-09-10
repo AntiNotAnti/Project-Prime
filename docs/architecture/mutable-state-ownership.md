@@ -7,7 +7,7 @@ two scenes or two matches are isolated.
 Audit scope:
 
 - the `MI1` through `MI10` and `A2` through `A5` sections of
-  `/Users/jarrett/Downloads/PRIME_HUNTERS_MULTI_INSTANCE_SERVER_ARCHITECTURE_MASTER_PLAN.md`;
+  `/Users/jarrett/Downloads/PROJECT_PRIME_MULTI_INSTANCE_SERVER_ARCHITECTURE_MASTER_PLAN.md`;
 - player and roster state, RNG, camera and special entities, bot AI, collision
   query workspaces, content caches, and gameplay feature state;
 - the current source and the dirty worktree snapshot available during this

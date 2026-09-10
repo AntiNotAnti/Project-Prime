@@ -13,7 +13,7 @@ param(
     [ValidateRange(2, 8)]
     [int]$Players = 8,
 
-    [string]$ServerName = 'Prime Hunters',
+    [string]$ServerName = 'Project Prime',
 
     [string]$Master = '',
 
@@ -64,25 +64,25 @@ function Get-PublishedCandidates([string]$kind) {
     if ($kind -eq 'game') {
         if ($IsWindowsHost) {
             return @(
-                (Join-Path $Root 'FruityPrime.exe'),
-                (Join-Path (Join-Path (Join-Path $Root 'publish') 'win-x64') 'FruityPrime.exe')
+                (Join-Path $Root 'ProjectPrime.exe'),
+                (Join-Path (Join-Path (Join-Path $Root 'publish') 'win-x64') 'ProjectPrime.exe')
             )
         }
         return @(
-            (Join-Path $Root 'FruityPrime'),
-            (Join-Path (Join-Path (Join-Path $Root 'publish') 'linux-x64') 'FruityPrime')
+            (Join-Path $Root 'ProjectPrime'),
+            (Join-Path (Join-Path (Join-Path $Root 'publish') 'linux-x64') 'ProjectPrime')
         )
     }
 
     if ($IsWindowsHost) {
         return @(
-            (Join-Path $Root 'FruityPrimeServer.exe'),
-            (Join-Path (Join-Path (Join-Path $Root 'publish') 'win-x64-server') 'FruityPrimeServer.exe')
+            (Join-Path $Root 'ProjectPrimeServer.exe'),
+            (Join-Path (Join-Path (Join-Path $Root 'publish') 'win-x64-server') 'ProjectPrimeServer.exe')
         )
     }
     return @(
-        (Join-Path $Root 'FruityPrimeServer'),
-        (Join-Path (Join-Path (Join-Path $Root 'publish') 'linux-x64-server') 'FruityPrimeServer')
+        (Join-Path $Root 'ProjectPrimeServer'),
+        (Join-Path (Join-Path (Join-Path $Root 'publish') 'linux-x64-server') 'ProjectPrimeServer')
     )
 }
 
@@ -96,10 +96,10 @@ function New-DevelopmentSpec([string]$kind) {
         throw "Could not find the project at $project."
     }
 
-    $output = Join-Path $Root (Join-Path '.fruity-launcher' $kind)
+    $output = Join-Path $Root (Join-Path '.project-prime-launcher' $kind)
     New-Item -ItemType Directory -Force -Path $output | Out-Null
     $runtimeIdentifier = if ($IsWindowsHost) { 'win-x64' } else { $null }
-    $assemblyFileName = if ($kind -eq 'game') { 'FruityPrime.dll' } else { 'FruityPrimeServer.dll' }
+    $assemblyFileName = if ($kind -eq 'game') { 'ProjectPrime.dll' } else { 'ProjectPrimeServer.dll' }
 
     Write-Host "No published $kind binary found; building it into $output..." -ForegroundColor Yellow
     Push-Location $Root
@@ -112,14 +112,14 @@ function New-DevelopmentSpec([string]$kind) {
         }
         & $dotnet @buildArguments | Out-Host
         if ($LASTEXITCODE -ne 0) {
-            throw "The $kind build failed with exit code $LASTEXITCODE. Install/repair the .NET 10 SDK required by global.json, or place a published Prime Hunters binary beside this launcher."
+            throw "The $kind build failed with exit code $LASTEXITCODE. Install/repair the .NET 10 SDK required by global.json, or place a published Project Prime binary beside this launcher."
         }
     }
     finally {
         Pop-Location
     }
 
-    $binaryName = if ($kind -eq 'game') { 'FruityPrime.exe' } else { 'FruityPrimeServer.exe' }
+    $binaryName = if ($kind -eq 'game') { 'ProjectPrime.exe' } else { 'ProjectPrimeServer.exe' }
     $assembly = Join-Path $output $assemblyFileName
     $nativeBinary = Join-Path $output $binaryName
     if ($IsWindowsHost -and (Test-Path -LiteralPath $nativeBinary -PathType Leaf)) {
@@ -158,15 +158,15 @@ function Get-LaunchSpec([string]$kind) {
     # console server build; only use the GUI binary when dotnet is unavailable.
     if ($kind -ne 'game' -and $IsWindowsHost) {
         $guiCandidates = @(
-            (Join-Path $Root 'FruityPrime.exe'),
-            (Join-Path (Join-Path (Join-Path $Root 'publish') 'win-x64') 'FruityPrime.exe')
+            (Join-Path $Root 'ProjectPrime.exe'),
+            (Join-Path (Join-Path (Join-Path $Root 'publish') 'win-x64') 'ProjectPrime.exe')
         )
         foreach ($candidate in $guiCandidates) {
             if (Test-Path -LiteralPath $candidate -PathType Leaf) {
                 if ($null -ne (Get-DotnetPath)) {
                     return New-DevelopmentSpec $kind
                 }
-                Write-Warning "Using GUI FruityPrime.exe for $kind because no console server binary or dotnet was found."
+                Write-Warning "Using GUI ProjectPrime.exe for $kind because no console server binary or dotnet was found."
                 return [pscustomobject]@{
                     FilePath = $candidate
                     Prefix = @()
@@ -218,7 +218,7 @@ function Ensure-GamePaths([string]$baseDirectory) {
     Write-Host "Configured game files: AMHE1 -> $expected" -ForegroundColor Green
 }
 
-function Invoke-Fruity([pscustomobject]$spec, [string[]]$arguments) {
+function Invoke-ProjectPrime([pscustomobject]$spec, [string[]]$arguments) {
     $allArguments = @()
     if ($spec.Prefix.Count -gt 0) {
         $allArguments += $spec.Prefix
@@ -246,7 +246,7 @@ function Start-Game {
     if ($NoUpdate) {
         $arguments += '-noupdate'
     }
-    return Invoke-Fruity $spec $arguments
+    return Invoke-ProjectPrime $spec $arguments
 }
 
 function Start-Server {
@@ -269,7 +269,7 @@ function Start-Server {
     if ($NoUpdate) {
         $arguments += '-noupdate'
     }
-    return Invoke-Fruity $spec $arguments
+    return Invoke-ProjectPrime $spec $arguments
 }
 
 function Start-Directory {
@@ -289,12 +289,12 @@ function Start-Directory {
     if ($NoUpdate) {
         $arguments += '-noupdate'
     }
-    return Invoke-Fruity $spec $arguments
+    return Invoke-ProjectPrime $spec $arguments
 }
 
 if ($Mode -eq 'menu') {
     Write-Host ''
-    Write-Host 'Prime Hunters launcher' -ForegroundColor Green
+    Write-Host 'Project Prime launcher' -ForegroundColor Green
     Write-Host '  1. Start game'
     Write-Host '  2. Start dedicated server'
     Write-Host '  3. Start server directory'

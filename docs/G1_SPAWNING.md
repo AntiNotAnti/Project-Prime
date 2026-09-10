@@ -43,7 +43,7 @@ The option defaults to false even when Enhanced or Duel is selected. The private
 
 ## Protocol and validation
 
-The protocol owner is extending live MatchRules encoding and testing replica round trips; frozen protocol-7 demo rules retain Classic/false defaults. Completion requires those checks, the CLI tests, and real-content spawn behavior tests. Validation results are appended after they finish; this document does not claim live multiplayer balance or device evidence.
+The protocol owner is extending live MatchRules encoding and testing replica round trips; frozen protocol-7 replay rules retain Classic/false defaults. Completion requires those checks, the CLI tests, and real-content spawn behavior tests. Validation results are appended after they finish; this document does not claim live multiplayer balance or device evidence.
 
 
 ### Real-content protection and Classic characterization

@@ -1,16 +1,16 @@
-# Prime Hunters
+# Project Prime
 # G1-G5 Stabilization -> G6 Lobby + UI/UX Overhaul
 ## Full Implementation Plan
 
-**Target codebase:** latest uploaded Prime Hunters snapshot (`Fruity-Prime(2).zip`)  
+**Target codebase:** latest uploaded Project Prime snapshot (`Project-Prime(2).zip`)
 **Current runtime:** .NET 10 / protocol 8 unreleased  
-**Purpose:** finish and harden the already-implemented G1-G5 program, freeze a trustworthy multiplayer baseline, then build a persistent server-owned lobby and a complete cross-platform UI/UX shell around Prime Hunters.
+**Purpose:** finish and harden the already-implemented G1-G5 program, freeze a trustworthy multiplayer baseline, then build a persistent server-owned lobby and a complete cross-platform UI/UX shell around Project Prime.
 
 ---
 
 # 0. Executive direction
 
-Prime Hunters has reached a different stage from the earlier refactor.
+Project Prime has reached a different stage from the earlier refactor.
 
 The major multiplayer architecture already exists:
 
@@ -168,7 +168,7 @@ GUI launcher folder total              ~7,300 LOC
 - match hosting
 - map selection
 - mode selection
-- demos/replays
+- replays/replays
 - settings
 - launch handoff
 - assorted status/error presentation
@@ -339,7 +339,7 @@ It does not need feature parity with every decorative UI element, but core join/
 
 ## 2.8 No AMHE1 fidelity fixes during this program
 
-If a G1-G5 or G6 test exposes a clear Prime Hunters regression, fix it.
+If a G1-G5 or G6 test exposes a clear Project Prime regression, fix it.
 
 Do not start broad:
 
@@ -821,7 +821,7 @@ The existing `G4_RANKING_SPEC.md` has recovered the actual AMHE Rev 1 data:
 
 The static values are verified against AMHE Rev 1.
 
-The remaining choice is how Prime Hunters extends that four-player-era behavior to up to eight players.
+The remaining choice is how Project Prime extends that four-player-era behavior to up to eight players.
 
 ### Recommended policy
 
@@ -1336,7 +1336,7 @@ docs/G6_UI_DESIGN_SYSTEM.md
 
 ## Visual principles
 
-Prime Hunters UI should be:
+Project Prime UI should be:
 
 - high contrast
 - readable during motion
@@ -2134,7 +2134,7 @@ Replace the feature-heavy HomeView root with a focused Home screen.
 Suggested content:
 
 ```text
-PRIME HUNTERS
+PROJECT PRIME
 
 PLAY
 
@@ -2293,7 +2293,7 @@ This is the center of G6.
 
 ```text
 +-----------------------------------------------------------+
-| PRIME HUNTERS                    MAP / MODE / RULESET      |
+| PROJECT PRIME                    MAP / MODE / RULESET      |
 +------------------------------+----------------------------+
 | PLAYERS                      | MATCH                      |
 |                              |                            |
@@ -2567,7 +2567,7 @@ according to lobby policy.
 
 # G6.18 - Replay library overhaul
 
-Replace the current demo picker with a real replay screen.
+Replace the current replay picker with a real replay screen.
 
 Use existing Replay 2.0 / format 3.
 
@@ -3117,7 +3117,7 @@ UI/Screens/ServerBrowser
 
 Keep portable filtering logic in `Launcher/Portable/ServerBrowser.cs`.
 
-## `Client/Launcher/Gui/DemoPickerView.cs`
+## `Client/Launcher/Gui/ReplayPickerView.cs`
 
 Migrate to:
 
@@ -3283,11 +3283,11 @@ Lobby state does not use fake MatchIds.
 
 Match transition creates/announces the actual MatchId.
 
-## Demo/replay
+## Replay/replay
 
 Lobby events do not need to be part of gameplay replay unless product requirements explicitly ask to replay pre-match lobby behavior.
 
-Do not bloat `.fpdemo` with lobby chat/account information.
+Do not bloat `.fpreplay` with lobby chat/account information.
 
 ---
 
@@ -3573,7 +3573,7 @@ Do not add during stabilization/G6 unless separately approved:
 - Redis by default
 - message broker by default
 - web frontend
-- namespace-wide `MphRead` -> `PrimeHunters` rename
+- namespace-wide `MphRead` -> `ProjectPrime` rename
 - Avalonia major-version upgrade
 - rendering engine rewrite
 
@@ -3692,7 +3692,7 @@ Only after this point begin:
 AMHE1 Gameplay Fidelity Audit
 ```
 
-against the stable Prime Hunters gameplay/runtime.
+against the stable Project Prime gameplay/runtime.
 
 ---
 

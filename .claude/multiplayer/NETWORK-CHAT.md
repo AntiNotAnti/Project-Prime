@@ -70,7 +70,7 @@ anybody else's screen.
 A client can put any name it likes in those fields, and a line that appears to
 come from somebody else is the entire attack; the endpoint a datagram arrived
 from is the only thing here that cannot be typed into a text box. The client
-fills them in anyway, so that a demo recorded against a server that predates
+fills them in anyway, so that a replay recorded against a server that predates
 chat still replays with a name attached.
 
 **Rate limited at the relay**, which is the only place it can be: a flood from

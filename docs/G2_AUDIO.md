@@ -2,7 +2,7 @@
 
 The client consumes accepted combat and reliable world events. Feedback never
 changes health, weapon behavior, visibility, score, or match state. Live sessions
-and modern demos share the event path.
+and modern replays share the event path.
 
 Hit, headshot, kill, critical health, objective pickup/drop/capture, Prime change,
 overtime and match point use distinct existing sound identifiers. Confirmation
@@ -25,7 +25,7 @@ replay seek or baseline restore; they are not part of the replay serialized form
 
 Modern critical-health feedback triggers below 25 health, rearms at 35, and resets
 with the full connection/life identity. This replaces the old repeating local
-alarm for authoritative sessions and modern demos, reducing constant tones.
+alarm for authoritative sessions and modern replays, reducing constant tones.
 Historical playback retains its existing sound behavior. Silent damage does not
 produce a hit/headshot confirmation; separately accepted kill confirmation still
 follows the user's marker setting.

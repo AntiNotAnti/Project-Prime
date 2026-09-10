@@ -1,6 +1,6 @@
 # G4 ranking specification — draft awaiting approval
 
-Status: **proposal only; the eight-player policy has not been approved and must not be implemented yet.** This document follows G4.1–G4.15 of [the implementation plan](PRIME_HUNTERS_G1_G5_IMPLEMENTATION_PLAN.md). The evidence section records static observations from the exact user-owned ROM. Later sections propose new behavior and explicitly identify departures. No ROM assets are included.
+Status: **proposal only; the eight-player policy has not been approved and must not be implemented yet.** This document follows G4.1–G4.15 of [the implementation plan](PROJECT_PRIME_G1_G5_IMPLEMENTATION_PLAN.md). The evidence section records static observations from the exact user-owned ROM. Later sections propose new behavior and explicitly identify departures. No ROM assets are included.
 
 Read-only investigation scratch: `/tmp/codex-re-prime-g4/rp/audit.py` and `audit.txt`. The standalone reproduction below makes the numeric evidence recoverable without depending on those temporary files.
 

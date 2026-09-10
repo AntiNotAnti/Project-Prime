@@ -1,8 +1,9 @@
 # Project layout
 
-The official product name is **Prime Hunters**. Existing `FruityPrime` binary
-names, Android package IDs, asset filenames and repository URLs remain stable
-for installation and update compatibility. The C# namespace remains `MphRead`.
+The official product identity is **Project Prime**. `ProjectPrime` binary names,
+Android package IDs, asset filenames and repository URLs are the clean-break
+identity for new builds. The C# namespace remains `MphRead` as the upstream/core
+namespace.
 
 The simulation is a platform-neutral .NET 10 library. Client and the online
 hosting path are separate executables: the persistent Server Node owns control,
@@ -13,7 +14,7 @@ gameplay traffic uses the selected Worker.
 | Project | Responsibility | Project references |
 |---|---|---|
 | `src/Game` | World, Hunter simulation, movement, combat, match rules, content readers, protocol | None; only OpenTK.Mathematics package |
-| `src/Client` | Desktop launcher, rendering, HUD, input, client networking, demos, sound devices | Game, Audio.Ncsf |
+| `src/Client` | Desktop launcher, rendering, HUD, input, client networking, replays, sound devices | Game, Audio.Ncsf |
 | `src/Backend` | Account, Node directory/admission, report ingestion and career projections | Game |
 | `src/Server.Shared` | Versioned Node/Worker process, placement, admission and report contracts | Game, Shared.Replay |
 | `src/Server.Node` | Persistent control authority: sessions, public lobbies, Worker placement/lifecycle, directory and report outbox | Server.Shared |
@@ -84,13 +85,13 @@ tools/package-server.sh --rid linux-arm64 --output publish/server-linux-arm64
 
 Client output contains no local server executable. The server package contains
 the Backend apphost below `backend/`, the persistent Node apphost
-`FruityPrimeServer` at its root, and the managed Worker apphost below `worker/`
+`ProjectPrimeServer` at its root, and the managed Worker apphost below `worker/`
 (with `.exe` on Windows). The Node resolves and supervises Workers from
 `server.example.json`; it is the only supported gameplay hosting boundary. The
 Backend binary is included for same-host development and remains separately
 configured with its database and operator secrets for production. Package smoke
 is the extracted-bundle WSS → public-lobby → Worker → routed-UDP process check.
-Tools uses `FruityPrimeTools`.
+Tools uses `ProjectPrimeTools`.
 
 The repository guards enforce the project graph, package budget, explicit source
 links and absence of retired campaign runtime code:

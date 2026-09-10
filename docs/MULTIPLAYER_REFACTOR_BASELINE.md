@@ -199,17 +199,17 @@ new output paths for each run.
 
 ```sh
 dotnet test src/MphRead.Tests/MphRead.Tests.csproj -c Release -p:MphReadServer=true
-dotnet build tools/nettest/nettest.csproj -c Release -p:MphReadServer=true -o /tmp/fruity-refactor-nettest
-dotnet /tmp/fruity-refactor-nettest/nettest.dll --audit-multiplayer-self-test
-dotnet /tmp/fruity-refactor-nettest/nettest.dll --audit-multiplayer /path/to/AMHE1 /tmp/multiplayer-audit.json - maps
-dotnet /tmp/fruity-refactor-nettest/nettest.dll --match-baseline /path/to/AMHE1
-dotnet /tmp/fruity-refactor-nettest/nettest.dll --match-lifecycle /path/to/AMHE1
-python3 tools/run-network-baseline.py --nettest /tmp/fruity-refactor-nettest/nettest.dll \
-  --server /tmp/fruity-refactor-nettest/FruityPrime.dll --simulation --data /path/to/AMHE1 \
-  --seconds 20 --output /tmp/fruity-refactor-wan
-python3 tools/run-mixed-combat-soak.py --nettest /tmp/fruity-refactor-nettest/nettest.dll \
+dotnet build tools/nettest/nettest.csproj -c Release -p:MphReadServer=true -o /tmp/project-prime-refactor-nettest
+dotnet /tmp/project-prime-refactor-nettest/nettest.dll --audit-multiplayer-self-test
+dotnet /tmp/project-prime-refactor-nettest/nettest.dll --audit-multiplayer /path/to/AMHE1 /tmp/multiplayer-audit.json - maps
+dotnet /tmp/project-prime-refactor-nettest/nettest.dll --match-baseline /path/to/AMHE1
+dotnet /tmp/project-prime-refactor-nettest/nettest.dll --match-lifecycle /path/to/AMHE1
+python3 tools/run-network-baseline.py --nettest /tmp/project-prime-refactor-nettest/nettest.dll \
+  --server /tmp/project-prime-refactor-nettest/ProjectPrime.dll --simulation --data /path/to/AMHE1 \
+  --seconds 20 --output /tmp/project-prime-refactor-wan
+python3 tools/run-mixed-combat-soak.py --nettest /tmp/project-prime-refactor-nettest/nettest.dll \
   --data /path/to/AMHE1 --seconds 60 --modes on --rtt 0 --jitter 0 --loss 0 \
-  --output /tmp/fruity-refactor-cost
+  --output /tmp/project-prime-refactor-cost
 ```
 
 The audit's incomplete exit is expected without FH data and for the catalog's

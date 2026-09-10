@@ -158,7 +158,7 @@ Full detail, including the eight faults it found, in
 | Latency 100 / 200 / 300 / 500 ms (kernel `netem`) | scoreboards identical at every level; snaps 0/0/18/190 |
 | Loss 5 / 15 / 30 %, both legs | no divergence; hit registration is what degrades |
 | Every player spectating | replicates properly now; nobody can be hit; match and rotation carry on |
-| Six clients recording demos | 13 KiB/s each, every file replays |
+| Six clients recording replays | 13 KiB/s each, every file replays |
 | Ninth player at a full server | `Refused` reason 1 in 11 ms (server deployed 2026-09-01); a protocol-3 Hello gets reason 2 |
 | Pi 3B ceiling | 20 concurrent hosted matches / 160 players; past that new players cannot join while those inside keep 98.7 % delivery |
 | Server journal across 3.5 h of hostile testing | zero exceptions or errors |

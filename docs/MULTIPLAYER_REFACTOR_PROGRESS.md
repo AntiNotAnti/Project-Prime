@@ -11,10 +11,10 @@ are recorded in [the baseline report](MULTIPLAYER_REFACTOR_BASELINE.md).
 
 Removed Adventure/save-slot and offline actions from the graphical and text
 launchers, the legacy playable console menu, and desktop/Android match startup.
-Persisted launch-kind numbers remain stable: Online=1, Host=3, Demo=5; removed
+Persisted launch-kind numbers remain stable: Online=1, Host=3, Replay=5; removed
 values and unknown values fail validation. Online/host startup requires the
 authoritative client session and uses its admitted room and mode, without a
-local-player fallback. Demo spectator playback is preserved.
+local-player fallback. Replay spectator playback is preserved.
 
 Practice is not retained as a separate launcher mode. Existing hosting still
 starts or requests an authoritative server and joins through the network path.
@@ -99,7 +99,7 @@ carry every immutable rule before room/player initialization. World updates carr
 explicit phase deadlines, phase revision and effective radar state. Input bundles
 carry the current Playing revision, rejecting delayed pre-countdown commands.
 The server assigns teams; live clients freeze local gameplay during pre-match
-phases and show the shared countdown. Protocol-5/6 demos use isolated legacy
+phases and show the shared countdown. Protocol-5/6 replays use isolated legacy
 layouts; protocol-4 passive playback remains supported.
 
 Rotation keeps the existing four fields and adds optional objective seconds as
@@ -150,7 +150,7 @@ encounter music, projectile effects and item attraction. Runtime mode consumers
 now use scene-owned rules. Full admitted rules are installed before entity
 construction. Settings, nicknames and reset remain in `GameState`.
 
-Room transition state belongs to the scene. Synchronous live/demo rotation
+Room transition state belongs to the scene. Synchronous live/replay rotation
 rebuild remains; asynchronous campaign door/connector loading is removed.
 Multiplayer intro/spectator cameras and the offline Vx export codec remain.
 Retired input controls keep legacy wire bit positions reserved, and Android
@@ -264,7 +264,7 @@ has not been repeated for this pass. The previously recorded SkiaSharp native
 
 The root `Game.sln` and small `Directory.Build.props` replace the old monolithic
 solution and build personalities. CI and deployment tooling publish Client and
-Server directly; dedicated server executables use `FruityPrimeServer` on every
+Server directly; dedicated server executables use `ProjectPrimeServer` on every
 platform. Documentation and launch/update/systemd scripts use the new paths.
 Architecture and campaign guards run in CI, enforcing the project graph, Game's
 package budget and explicit cross-project source lists. All 47 Python tests and

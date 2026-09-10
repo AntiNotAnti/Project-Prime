@@ -1,4 +1,4 @@
-# Prime Hunters multiplayer regression catalog
+# Project Prime multiplayer regression catalog
 
 This catalog is the QZ0-A deliverable from the Q-Zandronum-inspired
 enhancement plan. It translates historical multiplayer failure themes into

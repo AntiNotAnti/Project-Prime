@@ -6,13 +6,13 @@ Status: completed with failures and explicit measurement gaps. Commands, exit co
 
 Ordered workload: lifecycle, match phases/scoring, history/bomb/catch-up/homing/weapon/lock checks; twelve world modes; combat/spectator checks; 30-second Imperialist duel; full deterministic lag-compensation ON/OFF/trace-only matrix; full 16-case WAN matrices at 20 and 60 seconds/case; 300-second mixed-combat ON and OFF runs. The timed network matrices and mixed-combat runs execute sequentially to avoid contaminating each other's host load.
 
-Evidence limits: these socket and simulation harnesses do not render. They expose snapshot counts, movement/input acknowledgements, rejected-packet counts and authoritative tick metrics; mixed clients also report final smoothed RTT. The mixed-combat workload exposes tick p50/p95/p99/max, CPU and allocation metrics. The current dedicated-server log does not expose the existing ServerInputStream StarvedTicks/SkippedCommands counters. Render timing, rendered interpolation and prediction correction measurements require a separate rendered-client run. Demo unit coverage and actual rendered demo playback are tracked separately; no live demo claim yet.
+Evidence limits: these socket and simulation harnesses do not render. They expose snapshot counts, movement/input acknowledgements, rejected-packet counts and authoritative tick metrics; mixed clients also report final smoothed RTT. The mixed-combat workload exposes tick p50/p95/p99/max, CPU and allocation metrics. The current dedicated-server log does not expose the existing ServerInputStream StarvedTicks/SkippedCommands counters. Render timing, rendered interpolation and prediction correction measurements require a separate rendered-client run. Replay unit coverage and actual rendered replay playback are tracked separately; no live replay claim yet.
 
 ## Reproduced baseline failures
 
 Each failed twice with the same error on the unchanged baseline binaries; original and `-repeat.log` evidence and `failure-repeats.json` are retained.
 
-- `--match-lifecycle`: `Server did not bind. Run this command with FruityPrimeServer; dedicated servers use their own executable.` Source `tools/nettest/MatchLifecycleCheck.cs:264` launches the retired Client `-server` route.
+- `--match-lifecycle`: `Server did not bind. Run this command with ProjectPrimeServer; dedicated servers use their own executable.` Source `tools/nettest/MatchLifecycleCheck.cs:264` launches the retired Client `-server` route.
 - `--catch-up`: `Pending beam received an extra scene step.` Source assertion `CatchUpCheck.cs:86`.
 - `--homing`: `Delayed homing acquisition/catch-up was not enabled.` Source assertion `HomingCheck.cs:89`.
 
@@ -82,9 +82,9 @@ Simulation client rows retain snapshot counts, movement distance, input acknowle
 
 Conclusion: one observed reliable overflow remains intermittent, while scheduling overrun failures recur across processes/runs. No long mixed-combat soak is a passing acceptance result. Do not weaken queue bounds or silently drop terminal events. The next diagnostic should record the exact admission refusal reason, oldest pending event ID/age, pending count, retransmission attempts, ACK progression and reliable event rate in a separate instrumented run; existing logs cannot establish which admission guard failed.
 
-## Demo and presentation limits
+## Replay and presentation limits
 
-No actual recorded-demo playback pass was produced. The planned hidden `-netcheck -recorddemo` / `-democheck` helper was deferred before creating clients to keep network measurements isolated and because the independent platform probe demonstrates the required native context is unavailable: `NSGL: The compatibility profile is not available on macOS`. See `/tmp/codex-re-prime-g1/maptest-render-probe.log` and `baseline-platform.md`. Unit/demo-reader coverage belongs to the independent `baseline-tests.md` result (434 tests pass); it is not a rendered demo playback claim.
+No actual recorded-replay playback pass was produced. The planned hidden `-netcheck -recordreplay` / `-replaycheck` helper was deferred before creating clients to keep network measurements isolated and because the independent platform probe demonstrates the required native context is unavailable: `NSGL: The compatibility profile is not available on macOS`. See `/tmp/codex-re-prime-g1/maptest-render-probe.log` and `baseline-platform.md`. Unit/replay-reader coverage belongs to the independent `baseline-tests.md` result (434 tests pass); it is not a rendered replay playback claim.
 
 No measured physical 60/120/144/240-Hz render timing, rendered prediction corrections or interpolation statistics is available here. The existing mixed client does exercise SnapshotInterpolation's delayed timeline, but does not serialize its metrics. Input starvation/skipped-command counts exist in ServerInputStream but are not emitted. Future instrumentation is required; zero must not be substituted for missing measurements.
 

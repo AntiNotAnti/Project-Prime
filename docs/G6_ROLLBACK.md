@@ -33,7 +33,7 @@ are retained across the rollback.
   (native error -6661). No visual or end-to-end playability claim is made.
 - No endurance/observer soak or physical Android/high-refresh acceptance was run.
 
-Rebuilt local desktop entry point: `src/Client/bin/Release/net10.0/FruityPrime.dll`;
+Rebuilt local desktop entry point: `src/Client/bin/Release/net10.0/ProjectPrime.dll`;
 its matching hosted server is in the adjacent `server/` directory. Existing
 installed or downloaded G6 packages are not updated by this source rollback.
 Unrelated map changes and the pre-existing LICENSE deletion are excluded.

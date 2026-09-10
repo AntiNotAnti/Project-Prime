@@ -7,12 +7,12 @@ directly. The server-content command creates a separate package for headless
 simulation without copying the whole cartridge or changing `paths.txt`.
 
 ```sh
-dotnet FruityPrime.dll -servercontent /srv/fruity/content-amhe1 \
+dotnet ProjectPrime.dll -servercontent /srv/project-prime/content-amhe1 \
   -data /path/to/extracted/AMHE1 -dataversion AMHE1 \
   -room 'MP1 SANCTORUS' -room 'MP3 PROVING GROUND' -room 'MP4 HIGHGROUND'
 
-dotnet FruityPrime.dll -headlesscheck 'MP1 SANCTORUS' \
-  -data /srv/fruity/content-amhe1 -dataversion AMHE1 \
+dotnet ProjectPrime.dll -headlesscheck 'MP1 SANCTORUS' \
+  -data /srv/project-prime/content-amhe1 -dataversion AMHE1 \
   -mode Battle -players 8 -frames 3600
 ```
 

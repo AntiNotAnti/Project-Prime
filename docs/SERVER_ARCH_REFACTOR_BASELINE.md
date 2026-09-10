@@ -3,11 +3,11 @@
 Captured 2026-09-08 from the local checkout at:
 
 ```text
-/Users/jarrett/Documents/Development/Fruity-Prime
+/Users/jarrett/Documents/Development/Project-Prime
 ```
 
 The architecture scope and gate order are taken from
-`/Users/jarrett/Downloads/PRIME_HUNTERS_MULTI_INSTANCE_SERVER_ARCHITECTURE_MASTER_PLAN.md`,
+`/Users/jarrett/Downloads/PROJECT_PRIME_MULTI_INSTANCE_SERVER_ARCHITECTURE_MASTER_PLAN.md`,
 section 44. This document records local source, test, build, and packaged-artifact
 evidence. It does not turn source or static test evidence into live-client,
 rendered-GUI, WAN, deployed-database, load/soak, or release proof.
@@ -54,7 +54,7 @@ recorded.
 
 ### Dirty-worktree boundary
 
-`/tmp/codex-re/fruity-architecture-baseline/preexisting-files.json` is the
+`/tmp/codex-re/project-prime-architecture-baseline/preexisting-files.json` is the
 initial A0 inventory. It contains 43 dirty tracked paths: 21 entries with an
 initial SHA-256 and 22 entries represented as `null` because the path was
 already deleted. The inventory includes the pre-existing Parallax, LICENSE,
@@ -105,7 +105,7 @@ protocol 8 as unreleased/evolving, so this is protocol/source evidence only.
 ## Baseline tests and focused checks
 
 All results below are from the saved artifacts in
-`/tmp/codex-re/fruity-architecture-baseline/`.
+`/tmp/codex-re/project-prime-architecture-baseline/`.
 
 | Scope | Result | Evidence |
 |---|---:|---|
@@ -118,12 +118,12 @@ All results below are from the saved artifacts in
 | Reliable backpressure/freshness self-test | **PASS** | `backpressure-self-test.log`: mixed freshness health gate and bounded refusal of the saturated peer while healthy batches remain admitted in order. SHA-256 `839d63d472863e28f78b398074811668c771a6e2e1062f031078dd298cdc2f30`. |
 | Synthetic authoritative server smoke | **PASS** | `server-smoke.log`: exact discovery/status checks, protocol 8 advertisement, two healthy localhost clients for 10 seconds, 30 snapshots/s, 595 processed inputs per client, no queue drops or rejects. It explicitly says no rendered gameplay is running. SHA-256 `1b92e52172f25b818ff6f4d4fbf775cf7c9115f9404fa8be233f8ee21657bea3`. |
 | Post-baseline A2 Release suite | **976 passed, 0 failed** | `/tmp/a2-final-full.log`; four new player/roster ownership tests are included. This does not replace the pre-change A0 baseline of 972/972. |
-| Prior A3/A4/A5 Release suite | **1009 passed, 0 failed** | `/tmp/codex-re/fruity-a5-full.log`; retained as the earlier integrated source checkpoint. |
+| Prior A3/A4/A5 Release suite | **1009 passed, 0 failed** | `/tmp/codex-re/project-prime-a5-full.log`; retained as the earlier integrated source checkpoint. |
 | Focused A5 isolation checks | **8 passed, 0 failed; accepted** | Current focused A5 check set; retained as a separate gate signal from the 1009-test suite. |
-| Current main Release suite with extracted content | **1049 passed, 0 failed** | `/tmp/codex-re/fruity-pre-soak-main.log`; `GAME_DATA_DIRECTORY` points to extracted `AMHE1`. |
+| Current main Release suite with extracted content | **1049 passed, 0 failed** | `/tmp/codex-re/project-prime-pre-soak-main.log`; `GAME_DATA_DIRECTORY` points to extracted `AMHE1`. |
 | Content-free main CI suite | **1000 passed, 0 failed** | `dotnet test tests/Tests/Tests.csproj -c Release --filter "RequiresGameContent!=true"`; only explicitly marked content-required tests are excluded. |
 | Current `Server.Shared` focused suite | **43 passed, 0 failed** | `tests/Server.Shared.Tests/Server.Shared.Tests.csproj`; current contract evidence. |
-| Current Node suite with extracted content | **75 passed, 0 failed** | `/tmp/codex-re/fruity-pre-soak-node.log`; includes real Worker process and vertical lifecycle tests. |
+| Current Node suite with extracted content | **75 passed, 0 failed** | `/tmp/codex-re/project-prime-pre-soak-node.log`; includes real Worker process and vertical lifecycle tests. |
 | Content-free Node CI suite | **70 passed, 0 failed** | `dotnet test tests/Server.Node.Tests/Server.Node.Tests.csproj -c Release --filter "RequiresGameContent!=true"`; real Worker/content tests are explicitly marked. |
 | Worker density checks | **Passed at 2/4/8/16 matches** | Focused Worker density checks; this is not a production capacity result. |
 | Worker two-process/four-match run | **21 passed, 0 skipped** | `/tmp/real-worker-tests.log`; includes deterministic RNG evidence. |
@@ -133,7 +133,7 @@ All results below are from the saved artifacts in
 | Short drain diagnostic | **Pass; separate from five-minute acceptance** | `/tmp/codex-re/worker-soak-drain-check/summary.json`; 10-second workload plus 36.137-second drain, 8 completed/persisted matches, 16 validated artifacts, zero failures/interruption/reconnects/payload-hash mismatches, empty outbox, and zero active matches. |
 | Fresh A9–A22 five-minute gate | **Accepted; command exit 0** | `/tmp/codex-re/worker-soak-a9-a22-20260908/summary.json` and `metrics-00.jsonl`; exact result is recorded below. |
 | Current backend suite | **202 total: 198 passed, 4 skipped, 0 failed** | Four PostgreSQL cases explicitly skip when `PRIME_TEST_POSTGRES_FILE` is absent. |
-| Worker apphost publish | **Succeeded** | `dotnet publish src/Server.Worker/Server.Worker.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true`; produced the Node-managed Worker apphost in `/tmp/codex-re/fruity-worker-publish-check-20260908`. The apphost is not a user-facing standalone hosting mode. |
+| Worker apphost publish | **Succeeded** | `dotnet publish src/Server.Worker/Server.Worker.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true`; produced the Node-managed Worker apphost in `/tmp/codex-re/project-prime-worker-publish-check-20260908`. The apphost is not a user-facing standalone hosting mode. |
 
 ### Fresh A9–A22 five-minute gate (accepted)
 
@@ -222,7 +222,7 @@ GAME_DATA_DIRECTORY=/absolute/path/to/AMHE1 \
   dotnet test tests/Server.Node.Tests/Server.Node.Tests.csproj -c Release --filter "RequiresGameContent=true"
 ```
 
-The package workflow publishes `Server.Node` as the root `FruityPrimeServer`
+The package workflow publishes `Server.Node` as the root `ProjectPrimeServer`
 apphost and `Server.Worker` below `worker/` in one bundle. The native
 `osx-arm64` fresh-extracted package smoke passed WSS authentication, public
 lobby create/configure/start, real Worker handoff, UDP admission, match end,
@@ -239,12 +239,12 @@ reachable; those warnings are retained as evidence and are not silently
 reclassified. SHA-256 of the log is
 `5e770e256cbeffe93c29e95939cb0f1b0de64e498d71cde82f09b575de35604f`.
 
-Selected staged outputs from `/tmp/codex-re/fruity-architecture-baseline/nettest/`:
+Selected staged outputs from `/tmp/codex-re/project-prime-architecture-baseline/nettest/`:
 
 | Output | SHA-256 |
 |---|---|
-| `FruityPrime.Game.dll` | `557e2225b2476c9f490a7be4e355083d178f563a55ec31616c56a851316bc6f8` |
-| `FruityPrimeServer.dll` | `86b58d2687b583b23369c59331a707490e940355413e8ec9993bbb981f84709f` |
+| `ProjectPrime.Game.dll` | `557e2225b2476c9f490a7be4e355083d178f563a55ec31616c56a851316bc6f8` |
+| `ProjectPrimeServer.dll` | `86b58d2687b583b23369c59331a707490e940355413e8ec9993bbb981f84709f` |
 | `nettest.dll` | `e9a401a190a1d47762f384e2cd3eaed8f6d6c1b00662792c607feb13c8bd4282` |
 
 These are local build artifacts used by the saved checks; their hashes do not

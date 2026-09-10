@@ -22,7 +22,7 @@ a map is loading. The log is the only thing that can be read afterwards.
 | `Mods/Launcher/Gui/HomeView.cs` | `BuildDebugSwitch`, the corner row |
 | `Mods/Launcher/Portable/LauncherPrefs.cs` | `debug_logs` in `launcher.txt` |
 | `Mods/ModEntry.cs` | `DebugLog.Attach()`, before anything else runs |
-| `logs/FruityPrime-<yyyyMMdd-HHmmss>.log` | the file, beside the executable |
+| `logs/ProjectPrime-<yyyyMMdd-HHmmss>.log` | the file, beside the executable |
 
 On Android the file goes to the app's data directory, because
 `LauncherPrefs.Directory` is pointed there by the head before anything reads --
@@ -54,7 +54,7 @@ Three things worth knowing before touching it:
   has thrown `FileUriExposedException` since Android 7. The provider is
   declared in `Properties/AndroidManifest.xml` with authority
   `${applicationId}.logs` -- the placeholder *is* substituted, verified in the
-  built APK as `fr.livetek.fruityprime.logs`, which is what
+  built APK as `com.antinotanti.projectprime.logs`, which is what
   `PackageName + ".logs"` produces at runtime. `@xml/file_paths` exposes one
   directory, the cache folder the zip is built in, and not the logs directory
   itself.
@@ -92,7 +92,7 @@ which is the only way to read the tail of one that is about to crash.
 
 ## Turning it on without the launcher
 
-`FruityPrime -debuglog` forces it for one run, for the case where the launcher
+`ProjectPrime -debuglog` forces it for one run, for the case where the launcher
 is what will not start. `DebugLog.Attach()` is called from
 `ModEntry.TryHandleHeadless`, which runs for **every** invocation -- the game,
 the server, the harness -- so a command line path that never opens a launcher

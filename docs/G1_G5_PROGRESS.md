@@ -1,14 +1,14 @@
-# Prime Hunters G1–G5 implementation progress
+# Project Prime G1–G5 implementation progress
 
 Current status: the G6 UI/lobby rollout was reverted following reported launcher
 and game-entry regressions. The historical evidence below is not acceptance of
 that rollout. Backend security and ranking storage remain implemented; restored
 servers produce rating-ineligible legacy reports. See [G6 rollback](G6_ROLLBACK.md).
 
-The [supplied implementation plan](PRIME_HUNTERS_G1_G5_IMPLEMENTATION_PLAN.md)
+The [supplied implementation plan](PROJECT_PRIME_G1_G5_IMPLEMENTATION_PLAN.md)
 is the scope. Classic balance, 60 Hz authority, existing package/namespace
 identities and unrelated working-tree changes are preserved. Protocol 8 remains
-unreleased; the historical demo adapters remain isolated from live admission.
+unreleased; the historical replay adapters remain isolated from live admission.
 
 | Epic | Implementation | Validation |
 |---|---|---|

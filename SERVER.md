@@ -1,4 +1,4 @@
-# Running a Prime Hunters server
+# Running a Project Prime server
 
 ## Quick development start
 
@@ -36,7 +36,7 @@ The original launcher and automatic match countdown are restored. Backend
 security and stored ratings are retained, but these servers emit schema 1 match
 reports, which are not eligible for new rating awards. See [rollback details](docs/G6_ROLLBACK.md).
 
-Prime Hunters online matches use authoritative wire family 2, protocol 8. The
+Project Prime online matches use authoritative wire family 2, protocol 8. The
 server owns one headless simulation: movement, combat, pickups, objectives,
 score and match transitions. Clients send input and receive authoritative
 snapshots, world updates and reliable gameplay events; the local player is a
@@ -68,7 +68,7 @@ dotnet publish src/Server/Server.csproj -c Release -r linux-x64 \
 ```
 
 Use `linux-arm64` for a Raspberry Pi and `win-x64` for Windows. The server
-executable is `FruityPrimeServer` on Unix and `FruityPrimeServer.exe` on Windows.
+executable is `ProjectPrimeServer` on Unix and `ProjectPrimeServer.exe` on Windows.
 The server is a separate project and references only Game; it has no launcher,
 rendering or audio dependencies.
 
@@ -79,26 +79,26 @@ dotnet run --project src/Server/Server.csproj -c Release \
   -- -server -data /path/to/files/AMHE1
 ```
 
-For a local Windows one-click launcher, run `Start-FruityPrime.cmd` from the
+For a local Windows one-click launcher, run `Start-ProjectPrime.cmd` from the
 repository root. It offers **Game**, **Dedicated server** and **Server
 directory** in a menu, and accepts the same choices without a menu:
 
 ```powershell
-.\Start-FruityPrime.cmd game
-.\Start-FruityPrime.cmd server
-.\Start-FruityPrime.cmd directory
+.\Start-ProjectPrime.cmd game
+.\Start-ProjectPrime.cmd server
+.\Start-ProjectPrime.cmd directory
 ```
 
 The script assumes `AMHE1` is beside it, passes that directory to the server,
 and creates the game's `paths.txt` automatically when needed. It uses a
 published executable when one is present; otherwise it builds a local copy
-under `.fruity-launcher/`. The server starts unlisted on UDP 27888, while the
+under `.project-prime-launcher/`. The server starts unlisted on UDP 27888, while the
 directory starts discovery-only on UDP 27889. Enable hosted matches with, for
-example, `powershell -File .\Start-FruityPrime.ps1 directory -HostPorts
+example, `powershell -File .\Start-ProjectPrime.ps1 directory -HostPorts
 27900-27919 -PublicAddress games.example.com`.
 
 Client builds and publishes include their standalone server in `server/`. The
-Host action starts that child executable. `FRUITY_SERVER_PATH` can select a
+Host action starts that child executable. `PROJECT_PRIME_SERVER_PATH` can select a
 specific server apphost or DLL; it does not change the network protocol. A
 standalone server download can also run independently.
 
@@ -117,7 +117,7 @@ supported extracted revisions `AMHE0`, `AMHE1`, `AMHP0`, `AMHP1`, `AMHJ0`,
 `AMHJ1` and `AMHK0`:
 
 ```bash
-./FruityPrimeServer -server -data /srv/fruity-content -dataversion AMHE1
+./ProjectPrimeServer -server -data /srv/project-prime-content -dataversion AMHE1
 ```
 
 Content baking belongs to Tools. Build it with `dotnet build src/Tools/Tools.csproj -c Release`,
@@ -125,7 +125,7 @@ or use `dotnet run --project src/Tools --` before the same arguments. For a smal
 headless package, bake the dependencies into a new directory:
 
 ```bash
-./FruityPrimeTools -servercontent /srv/fruity-content-amhe1 \
+./ProjectPrimeTools -servercontent /srv/project-prime-content-amhe1 \
   -data /path/to/files/AMHE1 -dataversion AMHE1 -allrooms
 ```
 
@@ -146,13 +146,13 @@ The room argument is optional; without a rotation file the default is
 
 ```bash
 # Linux: extracted directory or baked package
-./FruityPrimeServer -server "MP1 SANCTORUS" \
-  -data /srv/fruity-content -dataversion AMHE1 \
+./ProjectPrimeServer -server "MP1 SANCTORUS" \
+  -data /srv/project-prime-content -dataversion AMHE1 \
   -port 27888 -players 8 -servername "My server"
 
 # Windows: use the console server binary
-FruityPrimeServer.exe -server "MP1 SANCTORUS" \
-  -data "C:\\FruityPrime\\content" -dataversion AMHE1 \
+ProjectPrimeServer.exe -server "MP1 SANCTORUS" \
+  -data "C:\\ProjectPrime\\content" -dataversion AMHE1 \
   -port 27888 -players 8 -servername "My server"
 ```
 
@@ -231,9 +231,9 @@ further downloads until an operator reviews them.
 To check content manually, run the candidate dedicated binary:
 
 ```sh
-./FruityPrimeServer -authoritative-server-validate -data /srv/fruity-content \
-  -dataversion AMHE1 -rotation /srv/fruity/rotation.txt -mapdir /srv/fruity/maps
-./FruityPrimeServer -authoritative-server-validate -masterserver
+./ProjectPrimeServer -authoritative-server-validate -data /srv/project-prime-content \
+  -dataversion AMHE1 -rotation /srv/project-prime/rotation.txt -mapdir /srv/project-prime/maps
+./ProjectPrimeServer -authoritative-server-validate -masterserver
 ```
 
 Success requires exit code 0 and the `authoritative-server-validation` JSON
@@ -280,9 +280,9 @@ The server does not open firewall or router ports for you.
 Listing is opt-in:
 
 ```bash
-./FruityPrimeServer -server -data /srv/fruity-content \
-  -master net.livetek.fr:27889 -servername "My server"
-./FruityPrime -servers
+./ProjectPrimeServer -server -data /srv/project-prime-content \
+  -master rebooty.xyz:27889 -servername "My server"
+./ProjectPrime -servers
 ```
 
 The directory receives a heartbeat approximately every 15 seconds and removes
@@ -296,15 +296,15 @@ its address is known; listing does not change reachability.
 A directory-only process serves discovery without loading content:
 
 ```bash
-./FruityPrimeServer -masterserver -port 27889 -hostports none
+./ProjectPrimeServer -masterserver -port 27889 -hostports none
 ```
 
 To let the directory start authoritative matches for players who cannot open a
 port, configure content and a UDP port range for child servers:
 
 ```bash
-./FruityPrimeServer -masterserver -port 27889 \
-  -data /srv/fruity-content -dataversion AMHE1 \
+./ProjectPrimeServer -masterserver -port 27889 \
+  -data /srv/project-prime-content -dataversion AMHE1 \
   -hostports 27900-27919 -public games.example.com
 ```
 
@@ -322,7 +322,7 @@ shutdown. The master sees discovery traffic only, not gameplay.
 The command-line host flow is:
 
 ```bash
-./FruityPrime -hostgame "MP1 SANCTORUS" -mode Battle \
+./ProjectPrime -hostgame "MP1 SANCTORUS" -mode Battle \
   -master games.example.com:27889
 ```
 
@@ -332,60 +332,76 @@ The graphical launcher uses the same path for **Host → Where: Online**.
 
 ## Services and deployment
 
-Templates are in `tools/systemd/`. The match unit requires `-data`; the
-directory-only unit uses `-hostports none` unless you explicitly add content
-and a host range. Fill in the placeholders with
-`tools/render-server-unit.py`, then install the rendered unit. systemd stop
-requests and Ctrl+C both shut down the simulation cleanly.
+Templates are in `tools/systemd/`. The deployed
+`projectprime-stack.service` owns the Backend, persistent Server Node and
+Node-managed Workers through `start-stack-dev.sh`. The standalone match and
+directory templates remain available for manually managed processes. Fill in
+placeholders with `tools/render-server-unit.py`, then install the rendered
+unit; systemd stop requests and Ctrl+C both shut down the simulation cleanly.
 
-`deploy-server.sh` transactionally deploys the combined Node + Worker bundle.
-Given no bundle it builds a fresh `linux-arm64` package for compatibility. A
+`deploy-server.sh` transactionally deploys the complete Backend + Node +
+managed Workers stack. Its defaults are a `linux-x64` bundle rooted at
+`/srv/project-prime`, with operator content in
+`/srv/project-prime/AMHE1` and persistent generated state in
+`/srv/project-prime/state`. Without `--bundle` it builds a fresh package. A
 complete build can be deployed without recompiling:
 
 ```bash
 ./build-all.sh --skip-android --output publish/deploy
-./deploy-server.sh --host games.example.com --user gameuser \
-  --deploy-dir /home/gameuser/project-prime \
-  --config /absolute/local/path/appsettings.production.json \
-  --data /srv/project-prime-content/AMHE1 \
-  --bundle publish/deploy/servers/linux-arm64 --rid linux-arm64 --preflight-only
-./deploy-server.sh --host games.example.com --user gameuser \
-  --deploy-dir /home/gameuser/project-prime \
-  --config /absolute/local/path/appsettings.production.json \
-  --data /srv/project-prime-content/AMHE1 \
-  --bundle publish/deploy/servers/linux-arm64 --rid linux-arm64
+./deploy-server.sh --host 51.161.113.128 --user ubuntu \
+  --deploy-dir /srv/project-prime \
+  --data /srv/project-prime/AMHE1 \
+  --bundle publish/deploy/servers/linux-x64 --rid linux-x64 --preflight-only
+./deploy-server.sh --host 51.161.113.128 --user ubuntu \
+  --deploy-dir /srv/project-prime \
+  --data /srv/project-prime/AMHE1 \
+  --bundle publish/deploy/servers/linux-x64 --rid linux-x64
 ```
+
+The default target is `ubuntu@51.161.113.128` with root `/srv/project-prime`.
+The production Node
+advertises `rebooty.xyz`. Its public host and control URI are persisted in
+`state/dev.env`, and the deployer validates that state against the advertised
+endpoint while SSH deployment targets `ubuntu@51.161.113.128`.
 
 The existing `MPH_SERVER_HOST`, `MPH_SERVER_USER`, `MPH_SERVER_DIR`,
 `MPH_SERVER_CONFIG`, `MPH_SERVER_DATA`, `MPH_SERVER_DATA_VERSION`, and
 `MPH_SERVER_PASS` environment names remain supported. Copy
 `.env.deploy.example` to ignored `.env.deploy` for local settings. Explicit CLI
 options win. `PRIME_DEPLOY_BUNDLE` selects a compiled bundle;
-`MPH_SERVER_BUNDLE` remains a compatibility alias. `--preflight-only` performs local bundle/config and read-only
-remote architecture, content, key, privilege, path, and disk checks without an
-upload or service stop.
+`MPH_SERVER_BUNDLE` remains an alias. `MPH_SERVER_CONFIG` and `--config`
+are accepted but ignored: production configuration is generated and persisted
+in `<deploy-dir>/state/dev.env`, and is neither read nor uploaded from the
+operator machine. `--preflight-only` performs local bundle/RID/content checks
+and read-only remote architecture, protected-path, ownership, state, public
+endpoint, process-layout and disk validations without an upload or service stop.
 
-In the operator Node config, each packaged Worker uses
+In the generated stack configuration, each packaged Worker uses
 `<deploy-dir>/current` as its `WorkingDirectory` and
-`<deploy-dir>/current/maps` as its `--map-dir`. Its `--content-dir` must equal
-`MPH_SERVER_DATA`. The deployer checks these paths before connecting or stopping
-the service, preventing a successful binary update from retaining stale legacy
-map paths. Content, authentication keys, artifacts, and replays must remain
-outside `current` and `releases` so retention can never remove operator state.
+`<deploy-dir>/current/maps` as its `--map-dir`; its `--content-dir` must
+equal `MPH_SERVER_DATA`. The deployer validates these paths before upload or
+downtime. The protected `app`, `state` and `AMHE1` roots remain outside
+release retention: `app` is the direct-bundle handoff/rollback root, `state`
+holds generated configuration and credentials, and `AMHE1` is operator
+content.
 
-Releases live under `<deploy-dir>/releases`, with an atomic `current` symlink.
-Uploaded hashes are verified before `fruityprime-node` is stopped. A failed
-activation restores the prior pointer, unit, configuration, enabled state, and
-active state while retaining the failed release and journal evidence. The first
-deployment can migrate a legacy direct bundle into a bounded release; failure
-moves it back. Only `fruityprime-node` is managed. The included `backend/`
-payload remains inert: deployment never installs or starts Backend, touches a
-database, uploads AMHE1, or archives operator configuration.
+Releases are staged under `<deploy-dir>/releases/<release-id>.staging`, hash
+verified, and then moved to `<deploy-dir>/releases/<release-id>`. The atomic
+`<deploy-dir>/current` symlink selects the active release. The uploaded
+release and rendered unit are verified before either a verified pre-rename
+supervisor or `projectprime-stack` is stopped. A narrow pre-rename handoff
+accepts only one identity- and ancestry-verified supervisor; ambiguous or
+parallel processes fail closed.
 
-If the SSH session is interrupted after activation begins, the remote deployment
-lock is deliberately retained. Verify no activation or rollback process remains
-before manually removing `<deploy-dir>/.deploy.lock`; the next deployment will
-otherwise fail closed rather than overlap an uncertain update.
+Activation switches `current`, installs and enables `projectprime-stack`,
+and starts the complete Backend + Node + Worker tree. It is health-gated on
+both Backend and Node endpoints and verifies that the managed process tree
+contains all three component types. A failed full-stack activation restores
+the prior pointer and unit, reactivates the prior stack state, and retains
+release and journal evidence when recovery is uncertain. The deployment lock is
+`<deploy-dir>/releases/.deploy-lock`; an interrupted activation deliberately
+retains it until the operator verifies that no activation or rollback remains,
+so the next deployment fails closed rather than overlapping an uncertain update.
 
 ## Compatibility and verification
 
@@ -393,7 +409,7 @@ Live clients, match servers and directories use authoritative wire family 2,
 protocol 8, and should be updated together. Both family and protocol must match.
 Discovery identifies upstream protocol-5 relays as online but incompatible;
 the client sends no authoritative join to them. There is one live networking
-implementation. Protocol-4 relay and protocol-5/6/7 authoritative demo files remain
+implementation. Protocol-4 relay and protocol-5/6/7 authoritative replay files remain
 readable through passive playback without opening a gameplay socket.
 
 Protocol 8 carries authoritative afflictions, assists, kill attribution, reliable

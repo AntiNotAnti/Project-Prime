@@ -125,7 +125,7 @@ rerun remain historical evidence; same-lobby rematch/map-change remains a
 separate gap.
 
 The package workflow publishes the Backend apphost below `backend/`, the Node
-apphost at the bundle root as `FruityPrimeServer`, and the Worker apphost below
+apphost at the bundle root as `ProjectPrimeServer`, and the Worker apphost below
 `worker/`. The native
 `osx-arm64` fresh-extracted package smoke passed WSS authentication, public
 lobby create/configure/start, real Worker handoff, UDP admission, match end,

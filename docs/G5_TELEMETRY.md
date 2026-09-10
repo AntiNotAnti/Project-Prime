@@ -33,10 +33,10 @@ average enemy distance considers active living opponents only. Missing distance
 Use the Tools executable:
 
 ```sh
-FruityPrimeTools telemetry heatmap INPUT.telemetry.json.gz OUTPUT_PREFIX
-FruityPrimeTools telemetry spawn-safety INPUT.telemetry.json.gz OUTPUT_PREFIX
-FruityPrimeTools telemetry routes INPUT.telemetry.json.gz OUTPUT_PREFIX
-FruityPrimeTools telemetry weapon-control INPUT.telemetry.json.gz OUTPUT_PREFIX
+ProjectPrimeTools telemetry heatmap INPUT.telemetry.json.gz OUTPUT_PREFIX
+ProjectPrimeTools telemetry spawn-safety INPUT.telemetry.json.gz OUTPUT_PREFIX
+ProjectPrimeTools telemetry routes INPUT.telemetry.json.gz OUTPUT_PREFIX
+ProjectPrimeTools telemetry weapon-control INPUT.telemetry.json.gz OUTPUT_PREFIX
 ```
 
 Each command writes an SVG, JSON summary and event CSV. SVGs use four-unit X/Z

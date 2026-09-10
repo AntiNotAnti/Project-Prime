@@ -6,7 +6,7 @@ This implementation adds client presentation for accepted server facts. It does 
 
 Live: `AuthoritativePlay.BeforeSimulation` binds the scene's feedback object to accepted match, full local `Slot + ConnectionId + Life`, authoritative roster and server presentation tick. `DrainEvents` sends valid Combat events through feedback **before** filtering the entity subject. Dedicated Kill records enter the same scene object. Existing entity-specific effects then run once for the current subject identity.
 
-Modern replay: `ModernDemoState` validates and buffers Kill records only for protocol 8; its bounded 256-record buffer joins the existing bounded Combat buffer at presentation. Snapshot/roster binding is the same. Protocol 5/6/7 playback does not invent structured kill records absent from those recordings. The kill buffer clears on discard, reset and match changes.
+Modern replay: `ModernReplayState` validates and buffers Kill records only for protocol 8; its bounded 256-record buffer joins the existing bounded Combat buffer at presentation. Snapshot/roster binding is the same. Protocol 5/6/7 playback does not invent structured kill records absent from those recordings. The kill buffer clears on discard, reset and match changes.
 
 Combat and Kill use separate 512-ID modular dedup windows because the server shares event IDs across separately admitted reliable queues. Reordered IDs inside a family window are accepted once. A burst of Combat records cannot age an earlier Kill record out of its window. A match change resets both windows.
 
@@ -34,7 +34,7 @@ The old four-sector code is replaced by horizontal eight-sector quantization aga
 
 Focused run: 35 tests passed, covering feedback positive/silent/zero rules, headshot/kill settings, duplicate and reordered IDs, connection/life reuse, bounded feed/history, delayed receipt expiry, independent reliable families, all eight sectors and both sides of every boundary, modern Kill buffer validation, live accepted-fact recording, and oversized packet-wrapper scratch buffers.
 
-The packet-buffer regression found during integration was an oversized demo scratch span passed through MatchTransitionPacket.Write into the newly exact-size MatchRulesWire writer. Recorder now passes its exact prefix; MatchTransitionPacket and JoinAcceptedPacket also bound their child slice, preserving their existing prefix-write contract. Tests assert their output prefix round-trips and the scratch suffix is untouched.
+The packet-buffer regression found during integration was an oversized replay scratch span passed through MatchTransitionPacket.Write into the newly exact-size MatchRulesWire writer. Recorder now passes its exact prefix; MatchTransitionPacket and JoinAcceptedPacket also bound their child slice, preserving their existing prefix-write contract. Tests assert their output prefix round-trips and the scratch suffix is untouched.
 
 Command: `.NET 10 dotnet test tests/Tests/Tests.csproj -c Release --artifacts-path /private/tmp/codex-re-prime-g1/render-tests --filter 'FullyQualifiedName~CombatFeedbackTests|FullyQualifiedName~ModernKillRecords|FullyQualifiedName~LiveAcceptedFacts|FullyQualifiedName~PacketWrappersWriteOnly'`.
 

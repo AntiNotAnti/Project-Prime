@@ -19,7 +19,7 @@ This work originally started from authoritative checkpoint `ab07a38`, based on
 `830e15e`. The repository history was subsequently reorganized into the current
 `main` baseline through `6b1f65b`; the earlier hashes below identify the original
 validation checkpoints, not commits that must be restored or reapplied.
-The reference is upstream [PR #13](https://github.com/liveteklol/Fruity-Prime/pull/13),
+The historical upstream PR #13 is recorded without a live repository URL.
 merged as `b5b6b1f`. Its relay implementation is reference material; the
 dedicated, single-writer simulation described in this historical report has
 since been split into the persistent Node control authority and Node-owned
@@ -28,7 +28,7 @@ Worker match instances.
 ## Scope and invariants
 
 - One live authoritative wire family; protocol 6 replaces the unreleased live
-  authoritative protocol 5. Legacy discovery and demo decoding are read-only.
+  authoritative protocol 5. Legacy discovery and replay decoding are read-only.
 - History and snapshots share the post-simulation state boundary.
 - Input identifies the last presented world timeline, subject to server validation.
 - Shot timing is resolved once, with 32 history slots and a 15-tick rewind limit.
@@ -75,7 +75,7 @@ Its status datagram was 130 bytes; the new authoritative status is 131 bytes.
 The full C# suite passed 172 tests. A final focused run passed 28 discovery and
 server-process tests, including spoofed replies and bounded query bursts. The
 desktop and server/nettest builds passed without warnings. All 10 Python tooling
-tests passed. Passive protocol-4 and authoritative protocol-5/6 demo tests passed;
+tests passed. Passive protocol-4 and authoritative protocol-5/6 replay tests passed;
 relay protocol-5 recordings are rejected rather than misinterpreted.
 The real AMHE1 server smoke check also passed: directory identity, status, hostname
 join, lifecycle, input and snapshots, with two clients receiving 30 snapshots/sec
@@ -97,7 +97,7 @@ data-enabled dedicated-server smoke script runs the invariant fixture as a
 separate process, keeping the engine's global scene state isolated.
 
 ```sh
-dotnet /tmp/fruity-nettest/nettest.dll --history-boundary /path/to/AMHE1 AMHE1
+dotnet /tmp/project-prime-nettest/nettest.dll --history-boundary /path/to/AMHE1 AMHE1
 ```
 
 ### Pass 3: last presented view time
@@ -337,7 +337,7 @@ release, deployment or push was performed.
 ## Historical reproduction record (pre-A26)
 
 The original reproduction invoked the deleted standalone `src/Server` path and
-its `FruityPrime.dll` output. That command block is intentionally omitted so
+its `ProjectPrime.dll` output. That command block is intentionally omitted so
 this historical report cannot be mistaken for a current launch instruction.
 Use the current project layout and package-smoke workflow for A26 process
 validation; no public server is implied by the retained historical results.

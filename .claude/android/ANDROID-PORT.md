@@ -394,7 +394,7 @@ The package's own directory is read-only, and the extracted game files are
 hundreds of megabytes the player has to copy onto the device themselves. So both
 `LauncherPrefs.Directory` and `GameFiles.Root` (added for this) point at
 `GetExternalFilesDir(null)` -- the directory reachable over USB under
-`Android/data/fr.livetek.fruityprime/files` without the app asking for a storage
+`Android/data/com.antinotanti.projectprime/files` without the app asking for a storage
 permission -- and that is made the working directory, because upstream's `Paths`
 reads `paths.txt` relative to it.
 
@@ -462,7 +462,7 @@ the working directory, which `CustomizeAppBuilder` sets to whatever
 `ChooseRoot` picked. Both candidate roots can end up holding a `paths.txt`
 from earlier runs, and the one that wins is then the only one the game reads.
 An emulator here chose the **internal** directory
-(`/data/user/0/fr.livetek.fruityprime/files`) while a hand-written
+(`/data/user/0/com.antinotanti.projectprime/files`) while a hand-written
 `settings.json` sat unread in the external one, and three rounds of "the ES
 renderer draws cel shading fine" were measured with cel shading off.
 
@@ -493,7 +493,7 @@ extracted game files, where a player can also drop one of their own over USB.
 The room binaries are still built on the device, from that player's own
 textures; `AndroidMaps.EnsureBuilt` is what runs the builder before a match.
 
-## Demos
+## Replays
 
 Watching a recorded match works here too, and needed three things the desktop
 never had to think about:
@@ -501,49 +501,49 @@ never had to think about:
 - **The system file picker cannot reach this app's own recordings at all.**
   Since Android 11 `Android/data` and `Android/obb` are excluded from the
   Storage Access Framework: the picker cannot be pointed at the folder
-  `DemoRecorder` writes to, and a player cannot navigate to it either. None of
+  `ReplayRecorder` writes to, and a player cannot navigate to it either. None of
   that stops *this* app reading the folder -- it owns it and needs no
-  permission for it, which is the whole of the confusion. So the Demos entry
-  lists the folder itself (`DemoLibrary` and `DemoPickerView`) and the system
-  picker is one entry inside that list, for a demo that came from somewhere
+  permission for it, which is the whole of the confusion. So the Replays entry
+  lists the folder itself (`ReplayLibrary` and `ReplayPickerView`) and the system
+  picker is one entry inside that list, for a replay that came from somewhere
   else. `SuggestedStartLocation` is still set for the desktop, where it is
   honoured; on Android it is ignored, and it used to be handed a *relative*
   path, which no storage provider anywhere could resolve.
 - **The file picker cannot filter by pattern.** Android filters by MIME type
-  and a `.fpdemo` has none, so `FileTypeFilter` is skipped here exactly as it
+  and a `.fpreplay` has none, so `FileTypeFilter` is skipped here exactly as it
   is for the `.nds` picker -- setting one produces a picker in which every file
   is refused.
 - **There is no path behind what it hands back.** A `content://` document has
-  no local path, and `DemoPlayback.Join` takes one, so `HomeView.ChooseDemo`
+  no local path, and `ReplayPlayback.Join` takes one, so `HomeView.ChooseReplay`
   copies the document into `GameFiles.Root` and plays it from there. Kept
   rather than deleted afterwards, unlike the cartridge copy: the reader holds
-  the file for the whole session, and the next demo overwrites it.
+  the file for the whole session, and the next replay overwrites it.
 
 ### Where a recording lands
 
-`DemoRecorder.Start` writes to `Paths.Combine(Paths.Export, "_demos", name)`,
+`ReplayRecorder.Start` writes to `Paths.Combine(Paths.Export, "_replays", name)`,
 and `Export` is **empty** in every `paths.txt` a desktop extraction produces.
 An empty first element makes that a *relative* path, resolved against the
 working directory -- which `CustomizeAppBuilder` set to whatever `ChooseRoot`
 picked. So on a phone a recording is:
 
 ```
-<root>/_demos/<room>_<yyyy-MM-dd_HH-mm-ss>.fpdemo
+<root>/_replays/<room>_<yyyy-MM-dd_HH-mm-ss>.fpreplay
 ```
 
 with `<root>` normally the external files directory, reachable over USB at
-`Android/data/fr.livetek.fruityprime/files/_demos/`. The
+`Android/data/com.antinotanti.projectprime/files/_replays/`. The
 `[android] N bundled map files -> <path>` line names the root that was
 actually chosen; on a device that fell back to internal storage the folder is
 under `/data/user/0/...` and only `adb` can reach it.
 
 That path is worth having: no file manager on a modern Android can open the
 folder, so copying a recording off the device means USB/MTP or `adb`. It is
-written on screen in exactly one place -- the Demos list, when there is
+written on screen in exactly one place -- the Replays list, when there is
 nothing in it yet. The "saved to..." line at the end of a recording is still a
 `Console.WriteLine`, which is logcat here and invisible to a player.
 
-`DemoLibrary.List` reads the room and the moment back out of the file *name*
+`ReplayLibrary.List` reads the room and the moment back out of the file *name*
 rather than opening anything: the name already carries both, and reading a
 header out of every file to learn what the name says would turn a directory
 listing into a disk full of seeks. The timestamp is a fixed nineteen
@@ -551,11 +551,11 @@ characters at the end, which is what makes it safe to split -- a room name can
 contain underscores of its own, since `SanitizeFileName` puts one in for every
 character a file name cannot hold.
 
-`AndroidMatch.BuildDemo` is the rest -- the half of `MatchStart.LaunchDemo`
+`AndroidMatch.BuildReplay` is the rest -- the half of `MatchStart.LaunchReplay`
 that is not a window: join, read the room out of the recording's own
 MatchState, build the players with `localSlot: -1`, load the room.
-`MainActivity.EndMatch` calls `DemoPlayback.Stop`, which `NetSession.Stop`
-does not do for it: a demo feeds the session from a file rather than a socket.
+`MainActivity.EndMatch` calls `ReplayPlayback.Stop`, which `NetSession.Stop`
+does not do for it: a replay feeds the session from a file rather than a socket.
 
 ## Building
 
@@ -573,13 +573,13 @@ The SDK needs `platforms;android-36` and `build-tools;36.0.0` to match the
 them. `EnableAvaloniaXamlCompilation=false` is deliberate and explained in the
 csproj.
 
-The APK lands in `bin/Debug/net10.0-android36.0/fr.livetek.fruityprime-Signed.apk`
+The APK lands in `bin/Debug/net10.0-android36.0/com.antinotanti.projectprime-Signed.apk`
 (~20 MB; a Release publish is ~45 MB, being every ABI with the trimmer run).
 `adb install -r` it.
 
 Nobody has to do any of that to get one, though: `build.yml` has an `android`
-job on every push, and its **FruityPrime-android** artifact holds the release
-APK and an INSTALL.txt. `release.yml` puts `FruityPrime-<tag>-android.apk` in a
+job on every push, and its **ProjectPrime-android** artifact holds the release
+APK and an INSTALL.txt. `release.yml` puts `ProjectPrime-<tag>-android.apk` in a
 tagged release. Both are signed with the SDK's debug key -- enough to install,
 not enough for a store.
 
@@ -664,8 +664,8 @@ grant unless the user is in the `kvm` group:
 
 ```bash
 sdkmanager --sdk_root=$HOME/android-sdk "emulator" "system-images;android-30;default;x86_64"
-avdmanager create avd -n fruity -k "system-images;android-30;default;x86_64" -d pixel_4
-$ANDROID_HOME/emulator/emulator -avd fruity -no-window -no-audio -no-boot-anim \
+avdmanager create avd -n project-prime -k "system-images;android-30;default;x86_64" -d pixel_4
+$ANDROID_HOME/emulator/emulator -avd project-prime -no-window -no-audio -no-boot-anim \
   -gpu swiftshader_indirect -accel off -memory 4096 -cores 4
 ```
 
@@ -690,7 +690,7 @@ Four things that cost time here and are not obvious:
   rather than that anything is wrong. `sys.boot_completed` is never set on
   this image; `init.svc.bootanim` going `stopped` is the signal, and the
   package service is up a while after that. `adb install -r`, `adb shell am start -n
-fr.livetek.fruityprime/crc64e2a07749a868b9fd.MainActivity`, and `adb shell
+com.antinotanti.projectprime/crc64e2a07749a868b9fd.MainActivity`, and `adb shell
 screencap` are enough to see the front screen. With KVM it would be seconds
 rather than minutes.
 

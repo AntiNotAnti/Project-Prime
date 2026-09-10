@@ -1,6 +1,6 @@
-# Prime Hunters — tools, design, and the mechanics catalogue
+# Project Prime — tools, design, and the mechanics catalogue
 
-**The project is Prime Hunters. The root C# namespace remains `MphRead`.**
+**The project is Project Prime. The root C# namespace remains `MphRead`.**
 The multiplayer refactor uses separate Game, Client, Server, Android, Audio.Ncsf
 and Tools projects. See [the project layout](docs/PROJECT_LAYOUT.md) for the
 current dependency boundaries and build commands. Upstream merges require
@@ -8,10 +8,10 @@ review against this physical split.
 
 | Build | Binary |
 |---|---|
-| Windows game | `FruityPrime.exe` |
-| Windows server | `FruityPrimeServer.exe` |
-| Linux/macOS game | `FruityPrime` |
-| Linux/macOS server | `FruityPrimeServer` |
+| Windows game | `ProjectPrime.exe` |
+| Windows server | `ProjectPrimeServer.exe` |
+| Linux/macOS game | `ProjectPrime` |
+| Linux/macOS server | `ProjectPrimeServer` |
 
 This file exists so a fresh session can pick the work up without rediscovering
 the environment or the failure modes. Everything below has been used; nothing
@@ -31,8 +31,8 @@ area is the one being touched.
 | `src/Tools/` | content baking, conversion and export CLI |
 | `tests/Tests/`, `tools/nettest/` | unit tests and network integration fixtures |
 | `~/mph-net-test/` | the test rig: a copy of the build in `bin/`, extracted game files, `run-check.sh`, `compare-reports.py` |
-| `C:\Users\livetek\Desktop\MPH\MphRead-develop\` | the Windows deliverable |
-| `net.livetek.fr:27888` | the dedicated server on the user's Pi (systemd unit `mphread-server`) |
+| `ubuntu@51.161.113.128` | the Project Prime Ubuntu x64 deployment target |
+| `rebooty.xyz` | the public Project Prime Node hostname |
 
 ## Environment recipe (WSL)
 
@@ -95,7 +95,7 @@ export ALSOFT_DRIVERS=null PULSE_SERVER=   # else ALSA retries stall frames
 | `MphRead -debuglog` | write the file the launcher's corner switch writes, for one run. `.claude/DEBUG-LOGS.md` |
 | `~/mph-net-test/probe-chat.py [HOST] [PORT]` | what the server does with chat, asked the way no real client can: a spoofed sender, and a flood. `.claude/multiplayer/NETWORK-CHAT.md` |
 | `~/mph-net-test/run-remote.sh HOST PORT SECONDS hunter...` | the same check against a server that is not on this machine -- which is the one that matters, since eight clients on one box measure the box |
-| `~/mph-net-test/run-demo.sh SEC [authority\|client]` | record a demo from a scripted client and print what landed in the file. The authority is the case that matters: it is whichever client joined first, so it is normally whoever set the match up, and the server sends it no snapshots at all |
+| `~/mph-net-test/run-replay.sh SEC [authority\|client]` | record a replay from a scripted client and print what landed in the file. The authority is the case that matters: it is whichever client joined first, so it is normally whoever set the match up, and the server sends it no snapshots at all |
 | `~/mph-net-test/run-rejoin.sh SEC LEAVE REJOIN [host] [port]` | the rejoin scenario, with a control: A hosts and leaves, the authority moves, then one client takes the vacated slot and another takes a fresh one. Prints what each took. `.claude/multiplayer/NETWORK-DIAGNOSTICS.md` |
 | `~/mph-net-test/hard/run-all.sh` / `run-all2.sh` | the hard-case batch against the Pi: a ninth player, a line that goes away, 100-300 ms, packet loss, everybody spectating, everybody recording, a match boundary, an authority leaving, and a ramp to twenty-odd matches at once. `.claude/testing/TEST-HARD-CASES.md` |
 | `~/mph-net-test/run-lag.sh MS SECONDS hunter...` | the same check against a loopback server behind `udp-lag.py`, which holds every datagram for `MS` before passing it on. A latency bug reproduced at a number you chose, rather than at whatever the internet is doing -- and the Pi answers in 7-17 ms, so it is the *worse* instrument for one |
@@ -114,16 +114,16 @@ export ALSOFT_DRIVERS=null PULSE_SERVER=   # else ALSA retries stall frames
 | `MphRead -frametimingcheck` | the fixed-step accumulator on its own, against frame times chosen rather than measured: does the game still run at 60.000 Hz when the screen runs at 144, at 165, at a jitter, or at 40. Needs no game files and no display |
 | `MphRead -maptest "ROOM" -drawrate N` | draw each simulation step N times, which is what a 144 Hz screen does to a 60 Hz game. Asserts that drawing did not advance the world. How the decoupled loop is checked from a box with no monitor |
 | `MphRead -uishot DIR` | pictures of the launcher's own screens -- home, settings, the map picker, the pause menu -- rendered without anyone looking at a display. The one part of the program that could not otherwise be checked from a headless box |
-| `MphRead -demoinfo FILE [-replay]` | what a recorded match contains -- records, frames, a packet-type histogram, and how well it compressed. `-replay` then runs the file through the real player with no room or window and reports how the packets landed per frame, which is the measurement "the replay stutters" is about. Needs no game files. `.claude/multiplayer/NETWORK-DEMOS.md` |
-| `MphRead -netcheck ... -recorddemo` | the harness client, recording a demo as it plays |
+| `ProjectPrime -replayinfo FILE [-replay]` | what a recorded match contains -- records, frames, a packet-type histogram, and how well it compressed. `-replay` then runs the file through the real player with no room or window and reports how the packets landed per frame, which is the measurement "the replay stutters" is about. Needs no game files. `.claude/multiplayer/NETWORK-REPLAYS.md` |
+| `MphRead -netcheck ... -recordreplay` | the harness client, recording a replay as it plays |
 | `MphRead -mechanics` | print the catalogue in `MECHANICS.md`, generated from the game's own tables |
 | `MphRead` (no arguments, Windows or macOS) | the front screen. The Windows build is a GUI binary, so double-clicking it opens the launcher with no terminal behind it |
 | `MphRead -menu` | the console menu, for people who typed something |
 | `MphRead -launcher [-console]` | the front screen explicitly; `-console` also gives it a terminal. The same Avalonia screen on Windows, Linux and macOS, or the text one when there is no display. A bare `MphRead` on Linux still opens upstream's `-menu` prompts, unchanged |
-| `FruityPrime -launcher -text` | the text front screen on a machine that has a display. What an SSH session gets anyway |
-| `FruityPrime -update` | check GitHub for a newer release and open its page. Installs nothing; the one command that answers "am I on the latest build" |
-| `FruityPrime -noupdate` | do none of that, on any command that would have |
-| `FruityPrime -credits` | who this is built on and who forked it, from `Mods/Credits.cs` -- which also holds the ko-fi address the settings' Credits page offers |
+| `ProjectPrime -launcher -text` | the text front screen on a machine that has a display. What an SSH session gets anyway |
+| `ProjectPrime -update` | check GitHub for a newer release and open its page. Installs nothing; the one command that answers "am I on the latest build" |
+| `ProjectPrime -noupdate` | do none of that, on any command that would have |
+| `ProjectPrime -credits` | who this is built on and who forked it, from `Mods/Credits.cs` -- which also holds the ko-fi address the settings' Credits page offers |
 | `MphRead -fullscreen` / `-windowed` / `-nohelmet` | display choices for the paths that never open a launcher |
 
 ## The launcher
@@ -138,10 +138,10 @@ things you can do on the right.
 |---|---|
 | Host | the story from a save slot, or a match: map, mode, hunter, and a `Where` row -- **Local** is an offline match with 0-7 bots and their skill, **Online** asks the directory to run it. The listen-host path (`NetHostSession`, the dedicated server in this process over the loopback) still exists and is still what `LaunchKind.Host` can do, but the card no longer offers it: the port, "let the directory run it" and "list it" rows are built and forced rather than shown, because every one of them is a question about the player's router. Running a server yourself is the dedicated server's job |
 | Join | name, hunter, `host` or `host:port`, and a live line saying what that server is running. **Find a server** opens the browser |
-| Demos | pick a `.fpdemo` and replay it -- on Android too, where the picker cannot filter by pattern and hands back a `content://` document that has to be copied in first |
+| Replays | pick a `.fpreplay` and replay it -- on Android too, where the picker cannot filter by pattern and hands back a `content://` document that has to be copied in first |
 | Settings | display, audio, controls, match rules, and profile (name, hunter, server addresses, updates, game files, credits). Also reachable from the pause menu during a match. **Pro mode HUD** is the whole HUD question in one switch -- no helmet, plain fixed crosshair, weapon list at 170%, fixed weapon, and its own energy, ammo and score readouts in place of the game's; off is the game as the DS drew it. Two rows appear under it while it is on and nowhere else, because they are questions only it can answer: **Crosshair size** (Small / Medium / Big) and **Crosshair type** (Cross, Dot, Cross + dot, Circle, Brackets), the type row carrying a live picture of the answer at the chosen size. The six settings pro mode answers for have no rows at all, and the rows that remain have no explanations under them. Cheats, bugfixes, the leftover feature flags and the HUD-readout opacity likewise have **no UI** and no longer load from `settings.json` -- they sit at their code defaults |
 | Game files | where the .nds goes. Shown first, and everything else greyed out, when there is nothing set up yet |
-| Debugging logs | one line in the bottom right corner, under the version, on the front card only. Off; switched on it writes `logs/FruityPrime-<when>.log` beside the executable (the app's data directory on Android) with everything the program prints plus the machine, the driver, every model read and the stack of anything that kills it. What "it crashes when the map loads" is answered with. **Share logs** sits to its left, only when logs exist, and zips them into the phone's share sheet -- the app's own directory being one no file manager will browse. `.claude/DEBUG-LOGS.md` |
+| Debugging logs | one line in the bottom right corner, under the version, on the front card only. Off; switched on it writes `logs/ProjectPrime-<when>.log` beside the executable (the app's data directory on Android) with everything the program prints plus the machine, the driver, every model read and the stack of anything that kills it. What "it crashes when the map loads" is answered with. **Share logs** sits to its left, only when logs exist, and zips them into the phone's share sheet -- the app's own directory being one no file manager will browse. `.claude/DEBUG-LOGS.md` |
 
 Gotchas worth keeping in view without opening another file:
 
@@ -198,7 +198,7 @@ exception swallowed. It follows `LauncherPrefs.Directory` now, and
 **The front screen runs; the match has never been loaded.** An emulator (API
 30, x86_64, software CPU and GL) shows the screen and the game-files card; what
 that box cannot do is load a room, having no extracted game files, so the
-renderer, the touch controls and demo playback (which the head can now do --
+renderer, the touch controls and replay playback (which the head can now do --
 see the port notes) are still unmeasured on a device. Two traps that killed the
 app before any of this project's code ran — an activity theme that was not an
 AppCompat descendant, and a Debug APK that carries no managed code unless
@@ -227,7 +227,7 @@ no upstream call site changed. Aim is the exception, since a stick is analogue
 -- it goes in at `ApplyModAim`, in the same units and at the same point in the
 frame as the mouse's.
 
-`FruityPrime -gamepad` prints what a pad is doing with no match in the way,
+`ProjectPrime -gamepad` prints what a pad is doing with no match in the way,
 and distinguishes "not connected" from "connected but unmapped". Layout, feel
 (radial dead zone, squared look curve, 3.5 degrees a frame at full stick), the
 four settings, and how to test one with a virtual pad on `uinput`:
@@ -244,8 +244,8 @@ rate; `Scene.OnUpdateFrame` is now `OnSimulationFrame` plus `OnDrawFrame`, and
 The simulation cannot be moved off 60 and that is not a limitation to design
 around, it is the reason the split exists: every timer in the engine is counted
 in frames -- `grep -rc "todo: FPS stuff"` finds **806** -- and an intent is sent
-per frame, a demo is a count of frames, and `NetConfig.ProtocolVersion` would
-have to move. Nothing about the wire, the demo format or the DS behaviour
+per frame, a replay is a count of frames, and `NetConfig.ProtocolVersion` would
+have to move. Nothing about the wire, the replay format or the DS behaviour
 changes here, because nothing about the simulation does.
 
 - **`Scene.OnUpdateFrame()` is kept and still does one step and one picture.**
@@ -404,10 +404,10 @@ split, why only the Windows server is renamed, and the CI runner layout: `.claud
 ## Deployment
 
 ```bash
-# server and directory (rebuilds ARM64, installs both units, restarts them)
-MPH_SERVER_HOST=net.livetek.fr MPH_SERVER_USER=livetek \
-  MPH_SERVER_PASS="$(read -rsp 'pi password: ' p; echo "$p")" ./deploy-server.sh
-# MPH_DEPLOY_MASTER=0 to leave the directory alone
+# Production Node + managed Workers on the Ubuntu x64 VPS. The ignored
+# .env.deploy holds ubuntu@51.161.113.128 and the rebooty.xyz public identity.
+./deploy-server.sh --preflight-only
+./deploy-server.sh
 ```
 
 The exe is often locked by a running game: write `MphRead.new.exe`, then `mv`.
@@ -510,9 +510,9 @@ rather than trusting the sender's, and rate limits at the relay. Packet
 numbers 24 and 25 are left free for a voice channel.
 `.claude/multiplayer/NETWORK-CHAT.md`.
 
-Recording and watching a match back -- the file format, the two things a demo
+Recording and watching a match back -- the file format, the two things a replay
 has to synthesize because they were never received, and why the player counts
-frames rather than milliseconds: `.claude/multiplayer/NETWORK-DEMOS.md`.
+frames rather than milliseconds: `.claude/multiplayer/NETWORK-REPLAYS.md`.
 
 Full postmortem, measurements, before/after tables, and the traps that cost
 the most time: `.claude/multiplayer/NETWORK-DIAGNOSTICS.md`. The

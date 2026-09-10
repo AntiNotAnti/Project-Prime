@@ -101,8 +101,8 @@ This is not a smoothing question, it is what a remote player *is*: a puppet is
 pinned to the position its owner reported (`NetPlayerBridge.RestoreReportedPosition`
 runs after the engine's own movement step), so whatever the local simulation
 does between intents is thrown away. At 2, everybody but yourself moved in 30 Hz
-steps on a 60 Hz screen, and a recorded demo -- where every player is a puppet,
-including the recorder's own -- stepped from end to end. That is what "the demo
+steps on a 60 Hz screen, and a recorded replay -- where every player is a puppet,
+including the recorder's own -- stepped from end to end. That is what "the replay
 looks like 30 fps" was. Measured in the file: a two-player recording carried
 **53.8 SlotIntent/s before and 104.7 after** (~27/s per player, then ~52/s),
 and grew from 3.0 to 4.2 KiB/s on disk.
@@ -163,7 +163,7 @@ Three instruments, in order of how much they are worth:
 
 ```bash
 # Inside the client. Per-process, no sudo, no extra hop, works against the Pi.
-FruityPrime -netcheck net.livetek.fr -port 27888 ... -netlag 200:20 -netloss 2
+ProjectPrime -netcheck rebooty.xyz -port 27888 ... -netlag 200:20 -netloss 2
 ./hard/run-netlag.sh 150 0 0 150 150 300   # one match, five different lines
 
 # In the kernel, on this box's interface. Everything this machine sends.
@@ -307,7 +307,7 @@ and that changes what a hit *is*, so it is not something to do quietly.
 
 ## Traps
 
-- `run-check.sh` copied `MphRead.dll`, which the rename to `FruityPrime` deleted,
+- `run-check.sh` copied `MphRead.dll`, which the rename to `ProjectPrime` deleted,
   with `2>/dev/null`. Every run silently tested a stale binary. Fixed in both
   runners.
 - The Pi was running **protocol 4** while the notes claimed protocol 3. A

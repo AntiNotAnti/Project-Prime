@@ -1,6 +1,6 @@
 # Balance evidence tool
 
-`FruityPrimeTools balance REPORT_DIRECTORY OUTPUT_PREFIX [TELEMETRY_DIRECTORY] [MIN_MATCHES=30]` reads raw MatchReportV1 JSON bodies and optionally compressed match telemetry. It writes JSON aggregates and a Markdown readout. It does not contact Backend or change game settings. Raw report schema validation does not authenticate a reporter; use exports from the validated Backend ledger for trusted analysis, and preserve that provenance separately.
+`ProjectPrimeTools balance REPORT_DIRECTORY OUTPUT_PREFIX [TELEMETRY_DIRECTORY] [MIN_MATCHES=30]` reads raw MatchReportV1 JSON bodies and optionally compressed match telemetry. It writes JSON aggregates and a Markdown readout. It does not contact Backend or change game settings. Raw report schema validation does not authenticate a reporter; use exports from the validated Backend ledger for trusted analysis, and preserve that provenance separately.
 
 Inputs are bounded to 1024 files of each kind, 1 MiB per raw report and 128 MiB total report bytes. Telemetry uses the existing 64 MiB decoded and 131072-event bounds. Duplicate report UUIDs with different exact body hashes fail; identical duplicates count once. Missing or malformed reports fail visibly. Bot-inclusive and Practice matches are excluded. No real or invented sample matches are included.
 
