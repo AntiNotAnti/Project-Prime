@@ -11,8 +11,85 @@ using Xunit;
 
 namespace MphRead.Tests;
 
+[Collection("Match baseline globals")]
 public sealed class NodeControlClientTests
 {
+    [Theory]
+    [InlineData(false, AuthoritativePlay.TerminalState.Completed)]
+    [InlineData(true, AuthoritativePlay.TerminalState.Failed)]
+    public async Task MatchingNodeCompletionStopsWorkerWithoutDisconnectingControl(bool interrupted,
+        AuthoritativePlay.TerminalState expected)
+    {
+        var field = typeof(NodeSessions).GetField("_current", BindingFlags.Static | BindingFlags.NonPublic)!;
+        var previous = field.GetValue(null);
+        Guid nodeId = Guid.NewGuid(), matchId = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null,
+            new NodeSessionSnapshot(Guid.NewGuid(), Guid.NewGuid(), "Hunter", nodeId, new string('a', 43))));
+        client.MarkGameplayJoined(matchId);
+        try
+        {
+            field.SetValue(null, client);
+            using var worker = new AuthoritativePlay("127.0.0.1", 5000, "Hunter", Hunter.Samus);
+            Assert.False(worker.ObserveCompletion());
+            client.ApplyEvent(NodeControlCodec.Write("match.ended", 2, null, new NodeMatchEnded(Guid.NewGuid(), false)));
+            Assert.False(worker.ObserveCompletion());
+            client.ApplyEvent(NodeControlCodec.Write("match.ended", 3, null, new NodeMatchEnded(matchId, interrupted)));
+            Assert.True(worker.ObserveCompletion());
+            Assert.Equal(expected, worker.State);
+            Assert.Equal(interrupted, worker.Interrupted);
+            Assert.Same(client, NodeSessions.Current);
+        }
+        finally { field.SetValue(null, previous); }
+    }
+
+    [Fact]
+    public async Task InterruptedCompletionAfterNewHandoffStillMatchesJoinedWorker()
+    {
+        Guid nodeId = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        var session = new NodeSessionSnapshot(Guid.NewGuid(), Guid.NewGuid(), "Hunter", nodeId, new string('a', 43));
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
+        var first = new NodeMatchHandoff(Guid.NewGuid(), 1, "127.0.0.1", 5000, "ticket", 1, false, Hunter.Samus);
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 2, null, first));
+        client.MarkGameplayJoined(first.MatchId);
+        var next = first with { MatchId = Guid.NewGuid(), WireMatchId = 2 };
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 3, null, next));
+        client.ApplyEvent(NodeControlCodec.Write("match.ended", 4, null, new NodeMatchEnded(first.MatchId, true)));
+        Assert.True(client.CompletionFor(first.MatchId)!.Interrupted);
+        Assert.False(client.MatchEnded);
+        Assert.Equal(next, client.Handoff); // PlayController can still join this handoff.
+        Assert.Null(client.CompletionFor(next.MatchId));
+        client.ApplyEvent(NodeControlCodec.Write("match.ended", 5, null, new NodeMatchEnded(next.MatchId, false)));
+        Assert.True(client.CompletionFor(first.MatchId)!.Interrupted);
+        Assert.Equal(session, client.Session);
+    }
+
+    [Fact]
+    public async Task WorkerCleanupDoesNotReplaceNodeOrLobby()
+    {
+        var field = typeof(NodeSessions).GetField("_current", BindingFlags.Static | BindingFlags.NonPublic)!;
+        var previous = field.GetValue(null);
+        Guid nodeId = Guid.NewGuid(), sessionId = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        var session = new NodeSessionSnapshot(sessionId, Guid.NewGuid(), "Hunter", nodeId, new string('a', 43));
+        var lobby = new LobbySnapshot(Guid.NewGuid(), "Room", LobbyVisibility.Public, sessionId,
+            LobbyPhase.Open, 1, 8, 16, [new LobbyMember(sessionId, session.PlayerId, "Hunter", Hunter.Samus, 0, false, false)], []);
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 2, null, lobby));
+        try
+        {
+            field.SetValue(null, client);
+            var worker = new AuthoritativePlay("127.0.0.1", 5000, "Hunter", Hunter.Samus);
+            NetSession.Stop();
+            Assert.Null(AuthoritativePlay.Current);
+            Assert.Same(client, NodeSessions.Current);
+            Assert.Equal(session, client.Session);
+            Assert.Equal(lobby.LobbyId, client.Lobby!.LobbyId);
+        }
+        finally { field.SetValue(null, previous); }
+    }
+
     [Fact]
     public async Task AdvertisedMapCatalogIsSnapshottedOnSetAndRead()
     {

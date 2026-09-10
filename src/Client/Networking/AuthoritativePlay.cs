@@ -13,6 +13,38 @@ namespace MphRead.Mods.Network
     /// <summary>Game-thread bridge for the authoritative client.</summary>
     public sealed partial class AuthoritativePlay : IDisposable
     {
+        public enum TerminalState { Active, Completed, Failed, Disposed }
+        public TerminalState State { get; private set; }
+        public Guid? NodeMatchId { get; private set; }
+        public bool Interrupted { get; private set; }
+        public bool ObserveCompletion()
+        {
+            NodeMatchId ??= NodeSessions.Current?.State.JoinedMatchId;
+            if (State == TerminalState.Active && NodeMatchId is Guid id
+                && NodeSessions.Current?.CompletionFor(id) is { } ended)
+            {
+                Interrupted = ended.Interrupted;
+                State = ended.Interrupted ? TerminalState.Failed : TerminalState.Completed;
+            }
+            return State != TerminalState.Active;
+        }
+
+        private readonly CompletionResultDrain _completionDrain = new();
+
+        /// <summary>Once Node completion stops input, drain queued terminal replication for at most
+        /// 250 ms. Missing UDP results remain unavailable; never synthesize an authority result.</summary>
+        public bool DrainCompletion(Scene scene)
+        {
+            if (!ObserveCompletion()) return false;
+            return _completionDrain.Advance(Stopwatch.GetElapsedTime(0).TotalSeconds,
+                () =>
+                {
+                    Client.Poll();
+                    DemoRecorder.RecordFrame(Client, scene);
+                    _world.Apply(scene, Client.HasSnapshot ? Client.Snapshot.ServerTick : null);
+                }, () => scene.Match.Result != null);
+        }
+
         public static AuthoritativePlay? Current { get; private set; }
         public static bool Active => Current != null || DemoPlayback.IsModern;
         public static bool ApplyingSnapshot { get; private set; }
@@ -121,6 +153,7 @@ namespace MphRead.Mods.Network
         public void BeforeSimulation(Scene scene)
         {
             _localVelocityApplied = false;
+            if (ObserveCompletion()) return;
             // Input was sampled before this hook. New packets below must not
             // change which previously presented picture that input refers to.
             _hasInputViewTick = _interpolation.TryCaptureViewTick(out _inputViewTick);
@@ -128,6 +161,8 @@ namespace MphRead.Mods.Network
             DemoRecorder.RecordFrame(Client, scene);
             if (Client.Failure != null)
             {
+                if (ObserveCompletion()) return;
+                State = TerminalState.Failed;
                 _projectilePresentation.Clear();
                 _hitPrediction.Clear();
                 _selfImpulse.Clear();
@@ -387,6 +422,7 @@ namespace MphRead.Mods.Network
 
         public void AfterSimulation()
         {
+            if (State != TerminalState.Active) return;
             if (_presentationScene is not Scene scene) return;
             if (IsObserver)
             {
@@ -494,6 +530,7 @@ namespace MphRead.Mods.Network
 
         public void Dispose()
         {
+            State = TerminalState.Disposed;
             if (_presentationScene?.Presentation is ScenePresentation sessionPresentation)
                 sessionPresentation.WorldFeedback.ClearPendingNotices();
             _projectilePresentation.Clear();
@@ -508,6 +545,7 @@ namespace MphRead.Mods.Network
 
         public void AdvancePresentation()
         {
+            if (State != TerminalState.Active) return;
             long now = Stopwatch.GetTimestamp();
             Prediction.AdvanceVisual(Stopwatch.GetElapsedTime(_lastPresentation, now).TotalSeconds);
             _lastPresentation = now;
@@ -732,5 +770,24 @@ namespace MphRead.Mods.Network
                 && !scene.Players[slot].Flags2.TestFlag(PlayerFlags2.Spectating);
         }
 
+    }
+}
+
+namespace MphRead.Mods.Network
+{
+    /// <summary>Bounded, nonblocking terminal replica drain; clock is supplied for deterministic tests.</summary>
+    internal sealed class CompletionResultDrain
+    {
+        internal const double TimeoutSeconds = 0.25;
+        private double? _started;
+        private bool _finished;
+        public bool Advance(double now, Action pollAndApply, Func<bool> hasResult)
+        {
+            if (_finished) return true;
+            _started ??= now;
+            // Always service the queued Worker data before choosing the missing-result fallback.
+            pollAndApply();
+            return _finished = hasResult() || now - _started.Value >= TimeoutSeconds;
+        }
     }
 }

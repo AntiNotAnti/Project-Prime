@@ -158,96 +158,93 @@ namespace MphRead.Mods.Launcher.Gui
             }
             IReadOnlyList<string> rooms = Array.Empty<string>();
 
-            while (true)
+            HomeWindow? persistentWindow = null;
+            var coordinator = new ClientSessionCoordinator();
+            MatchRunResult? lastResult = null;
+            try
             {
-                PauseMenu.Reset();
-                // Read again rather than reusing the object from the last time
-                // round: the pause menu's settings window loads and commits its
-                // own copy, so after a match this one is stale and would write
-                // the old values back over it.
-                MenuSettings settings = ClientSettings.LoadSettings();
-                // LoadSettings only fills in Features; the rest of the file
-                // reaches the engine through Mods.GameSettings.
-                Mods.GameSettings.Apply(settings);
-                LauncherPrefs.Load();
-                Mods.WindowMode.Startup = LauncherPrefs.WindowMode;
-                if (rooms.Count == 0 && GameFiles.Ready)
+                while (true)
                 {
-                    // Needs the game files: the room list is read out of them.
-                    rooms = ThumbnailGenerator.MultiplayerRooms();
-                }
+                    PauseMenu.Reset();
+                    // Read again rather than reusing the object from the last time
+                    // round: the pause menu's settings window loads and commits its
+                    // own copy, so after a match this one is stale and would write
+                    // the old values back over it.
+                    MenuSettings settings = ClientSettings.LoadSettings();
+                    // LoadSettings only fills in Features; the rest of the file
+                    // reaches the engine through Mods.GameSettings.
+                    Mods.GameSettings.Apply(settings);
+                    LauncherPrefs.Load();
+                    Mods.WindowMode.Startup = LauncherPrefs.WindowMode;
+                    if (rooms.Count == 0 && GameFiles.Ready)
+                    {
+                        // Needs the game files: the room list is read out of them.
+                        rooms = ThumbnailGenerator.MultiplayerRooms();
+                    }
 
-                // Before the screen that offers "Random" as a hunter: the
-                // roll is held for one launch so the joined server and the
-                // loaded player agree, and this is where a launch begins.
-                Hunters.Reroll();
-                LaunchPlan plan = Ask(settings, rooms);
-                if (plan.Kind == LaunchKind.None)
-                {
-                    return;
-                }
-                try
-                {
-                    MatchStart.Launch(settings, plan);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine();
-                    Console.WriteLine($"The game could not start: {ex.Message}");
-                    Console.WriteLine(ex.StackTrace);
-                    // The Windows build is a GUI binary with no console behind
-                    // it, so the two lines above reach nobody: from the
-                    // player's side the game simply disappears while a map is
-                    // loading. This is the one place that can still be read
-                    // afterwards -- and the whole reason the switch in the
-                    // corner of the front screen exists.
-                    Mods.DebugLog.Line("crash", "the match could not start");
-                    Mods.DebugLog.Exception("crash", ex);
-                    return;
-                }
-                finally
-                {
-                    // The Worker UDP client is the only gameplay resource this
-                    // client owns. Public hosting is Node-owned and has no
-                    // local server process to stop here.
-                    NetSession.Stop();
-                    // Close a settings window opened from the pause menu on the
-                    // frame the match ended.
-                    PauseMenuWindow.CloseIfOpen();
-                }
-                if (PauseMenu.QuitProgram)
-                {
-                    return;
+                    // Before the screen that offers "Random" as a hunter: the
+                    // roll is held for one launch so the joined server and the
+                    // loaded player agree, and this is where a launch begins.
+                    Hunters.Reroll();
+                    LaunchPlan plan;
+                    if (ClassicUi) plan = AskClassic(settings, rooms);
+                    else
+                    {
+                        persistentWindow ??= new HomeWindow(settings, rooms);
+                        plan = Ask(persistentWindow, lastResult);
+                    }
+                    if (plan.Kind == LaunchKind.None)
+                    {
+                        return;
+                    }
+                    if (coordinator.Phase == ClientSessionPhase.ReturningToLobby)
+                        coordinator.ShowHome(NodeSessions.Current != null, NodeSessions.Current?.Lobby != null);
+                    try
+                    {
+                        coordinator.BeginLaunch();
+                        lastResult = MatchStart.Run(settings, plan, coordinator.NotifyMatchStarted);
+                        coordinator.NotifyMatchEnded(lastResult);
+                    }
+                    finally
+                    {
+                        // The Worker UDP client is the only gameplay resource this
+                        // client owns. Public hosting is Node-owned and has no
+                        // local server process to stop here.
+                        NetSession.Stop();
+                        // Close a settings window opened from the pause menu on the
+                        // frame the match ended.
+                        PauseMenuWindow.CloseIfOpen();
+                    }
+                    if (lastResult?.Reason == MatchExitReason.QuitApplication)
+                    {
+                        return;
+                    }
                 }
             }
+            finally { coordinator.Quit(); if (persistentWindow is { IsClosed: false }) persistentWindow.Close(); }
         }
 
         /// <summary>
         /// Show the front screen and wait for an answer.
         ///
         /// A nested dispatcher loop rather than an application lifetime: the
-        /// loop ends when the window closes, the thread carries on into the
-        /// match, and the next visit is another loop on the same toolkit.
+        /// loop ends on launch or application close. Match return reactivates
+        /// the same window and shell on the same toolkit.
         /// </summary>
-        private static LaunchPlan Ask(MenuSettings settings, IReadOnlyList<string> rooms)
+        private static LaunchPlan Ask(HomeWindow window, MatchRunResult? result)
         {
-            if (ClassicUi)
-            {
-                return AskClassic(settings, rooms);
-            }
-            var window = new HomeWindow(settings, rooms);
             var frame = new DispatcherFrame();
-            window.Closed += (_, _) => frame.Continue = false;
-            window.Show();
-            Dispatcher.UIThread.PushFrame(frame);
-            // The loop ends on the Closed event, which is raised before the
-            // toolkit has finished taking the window down -- and the thread is
-            // about to spend the next twenty minutes inside a match, where
-            // nothing pumps it. On X11 the destroy request would sit unflushed
-            // in the connection's output buffer for all of that, leaving a
-            // launcher painted over the game that started from it.
-            Pump();
-            return window.Plan;
+            void Done(object? sender, EventArgs args) => frame.Continue = false;
+            window.Closed += Done;
+            window.LaunchRequested += Done;
+            try
+            {
+                window.Resume(result);
+                Dispatcher.UIThread.PushFrame(frame);
+                Pump();
+                return window.Plan;
+            }
+            finally { window.Closed -= Done; window.LaunchRequested -= Done; }
         }
 
         private static LaunchPlan AskClassic(MenuSettings settings, IReadOnlyList<string> rooms)

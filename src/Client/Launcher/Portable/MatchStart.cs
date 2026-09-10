@@ -7,7 +7,37 @@ namespace MphRead.Mods.Launcher
     /// <summary>Loads a server-admitted match or a recorded spectator session.</summary>
     public static class MatchStart
     {
-        public static void Launch(MenuSettings settings, LaunchPlan plan)
+        public static MatchRunResult Run(MenuSettings settings, LaunchPlan plan, Action? started = null,
+            Action<MatchResultsSnapshot?>? presentResults = null)
+        {
+            bool didStart = false;
+            MatchResultsSnapshot? results = null;
+            var play = AuthoritativePlay.Current;
+            Guid? matchId = NodeSessions.Current?.State.JoinedMatchId;
+            try
+            {
+                RunCore(settings, plan, () => { didStart = true; started?.Invoke(); }, value =>
+                {
+                    results = value;
+                    // P1 can present over the still-live SDL scene here, before shell return.
+                    // A missing terminal UDP result is explicitly represented by null.
+                    if (play?.State == AuthoritativePlay.TerminalState.Completed)
+                        presentResults?.Invoke(value);
+                });
+                return new MatchRunResult(MatchRunResult.Classify(didStart, PauseMenu.QuitProgram, PauseMenu.LeftMatch,
+                    play?.State == AuthoritativePlay.TerminalState.Completed || plan.Kind == LaunchKind.Demo,
+                    play?.Interrupted == true, play?.Client.Failure != null, false), matchId,
+                    play?.Interrupted == true ? "The server interrupted the match. Return to your lobby and try again." : null, results);
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Exception("match", ex);
+                return new MatchRunResult(MatchRunResult.Classify(didStart, PauseMenu.QuitProgram, PauseMenu.LeftMatch,
+                    false, play?.Interrupted == true, play?.Client.Failure != null, true), matchId, ex.Message, results);
+            }
+        }
+
+        private static void RunCore(MenuSettings settings, LaunchPlan plan, Action started, Action<MatchResultsSnapshot?> capture)
         {
             plan.Validate();
             if (plan.Kind != LaunchKind.Demo && AuthoritativePlay.Current == null)
@@ -16,8 +46,7 @@ namespace MphRead.Mods.Launcher
             }
             if (!GameFiles.Ready)
             {
-                Console.WriteLine("[launcher] no game files; nothing to load");
-                return;
+                throw new InvalidOperationException("Install game files before starting a match.");
             }
             IDisposable? playLease = MphRead.Mods.Update.UpdateCoordinator.Shared.AcquirePlayLease();
             if (playLease == null)
@@ -32,17 +61,15 @@ namespace MphRead.Mods.Launcher
                 MapGen.MapPreparation.GenerateMissing();
                 if (plan.Kind == LaunchKind.Demo)
                 {
-                    LaunchDemo(plan);
+                    LaunchDemo(plan, started, capture);
                     return;
                 }
                 var room = NetLaunch.ServerRoom()
-                    ?? throw new InvalidOperationException(
-                        "The server has not provided a match room.");
+                    ?? throw new InvalidOperationException("The server has not provided a match room.");
                 string? unplayable = MapGen.CustomRooms.WhyUnplayable(room.RoomKey);
                 if (unplayable != null)
                 {
-                    Console.WriteLine($"[launcher] {unplayable}");
-                    return;
+                    throw new InvalidOperationException(unplayable);
                 }
                 settings.RoomKey = room.RoomKey;
                 var scene = new Scene(features: ClientMatchFeatures.Capture());
@@ -55,7 +82,7 @@ namespace MphRead.Mods.Launcher
                     NetLaunch.BuildPlayers(scene, plan.Hunter, localRecolor: 0);
                     presentation.AddRoom(room.RoomKey, room.Mode,
                         playerCount: NetLaunch.RoomPlayerCount);
-                });
+                }, () => capture(scene.Match.Result is { } result ? new(room.RoomKey, room.Mode, result) : null), started);
             }
             finally
             {
@@ -64,20 +91,18 @@ namespace MphRead.Mods.Launcher
             }
         }
 
-        private static void LaunchDemo(LaunchPlan plan)
+        private static void LaunchDemo(LaunchPlan plan, Action started, Action<MatchResultsSnapshot?> capture)
         {
             try
             {
                 if (!DemoPlayback.Join(plan.DemoPath))
                 {
-                    Console.WriteLine("[demo] could not open or read the demo file");
-                    return;
+                    throw new InvalidOperationException("Could not open or read the demo file.");
                 }
                 (string RoomKey, GameMode Mode)? room = NetLaunch.ServerRoom();
                 if (room == null)
                 {
-                    Console.WriteLine("[demo] the demo has no match info");
-                    return;
+                    throw new InvalidOperationException("The demo has no match info.");
                 }
                 var scene = new Scene(features: ClientMatchFeatures.Capture());
                 using var sdlHost = new SdlGameHost();
@@ -87,7 +112,7 @@ namespace MphRead.Mods.Launcher
                         teamId: -1, localSlot: -1);
                     presentation.AddRoom(room.Value.RoomKey, room.Value.Mode,
                         playerCount: NetLaunch.RoomPlayerCount);
-                });
+                }, () => capture(scene.Match.Result is { } result ? new(room.Value.RoomKey, room.Value.Mode, result) : null), started);
             }
             finally
             {

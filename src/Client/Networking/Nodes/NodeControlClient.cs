@@ -28,7 +28,7 @@ public sealed class NodeControlClient : IAsyncDisposable
     internal NodeControlClient(ClientWebSocket socket) { _socket.Dispose(); _socket = socket; }
     internal NodeControlClient(Guid expectedNodeId) { _nodeId = expectedNodeId; }
     public sealed record ViewState(NodeSessionSnapshot? Session = null, LobbySnapshot? Lobby = null,
-        LobbyListSnapshot? Lobbies = null, NodeMatchHandoff? Handoff = null, bool MatchEnded = false, string? Error = null, Guid? JoinedMatchId = null, Guid? LastEndedMatchId = null);
+        LobbyListSnapshot? Lobbies = null, NodeMatchHandoff? Handoff = null, bool MatchEnded = false, string? Error = null, Guid? JoinedMatchId = null, Guid? LastEndedMatchId = null, bool LastMatchInterrupted = false, NodeMatchEnded? JoinedCompletion = null);
     private ViewState _state = new();
     public ViewState State => Volatile.Read(ref _state);
     private void Publish(Func<ViewState, ViewState> update)
@@ -36,8 +36,13 @@ public sealed class NodeControlClient : IAsyncDisposable
         ViewState before, after;
         do { before = State; after = update(before); } while (!ReferenceEquals(Interlocked.CompareExchange(ref _state, after, before), before));
     }
-    public void MarkGameplayJoined(Guid matchId) => Publish(state => state with { JoinedMatchId = matchId });
-    public bool ShouldReturnFromGameplay { get { var state = State; return state.JoinedMatchId.HasValue && state.JoinedMatchId == state.LastEndedMatchId; } }
+    public void MarkGameplayJoined(Guid matchId) => Publish(state => state with { JoinedMatchId = matchId, JoinedCompletion = state.LastEndedMatchId == matchId ? new NodeMatchEnded(matchId, state.LastMatchInterrupted) : null });
+    public NodeMatchEnded? CompletionFor(Guid matchId)
+    {
+        var state = State;
+        return state.JoinedCompletion?.MatchId == matchId ? state.JoinedCompletion : state.LastEndedMatchId == matchId ? new NodeMatchEnded(matchId, state.LastMatchInterrupted) : null;
+    }
+    public bool ShouldReturnFromGameplay { get { var state = State; return state.JoinedMatchId.HasValue && CompletionFor(state.JoinedMatchId.Value) != null; } }
     public NodeSessionSnapshot? Session => State.Session;
     public LobbySnapshot? Lobby => State.Lobby;
     public LobbyListSnapshot? Lobbies => State.Lobbies;
@@ -230,7 +235,7 @@ public sealed class NodeControlClient : IAsyncDisposable
                 Publish(state => state with { Handoff = handoff, MatchEnded = false }); break;
             case "match.ended":
                 var ended = value.Payload.Deserialize(NodeJsonContext.Default.NodeMatchEnded);
-                if (ended != null && Handoff != null && ended.MatchId == Handoff.MatchId) Publish(state => state with { MatchEnded = true, LastEndedMatchId = ended.MatchId });
+                if (ended != null && (ended.MatchId == State.JoinedMatchId || ended.MatchId == Handoff?.MatchId)) Publish(state => state with { MatchEnded = ended.MatchId == state.Handoff?.MatchId || state.MatchEnded, LastEndedMatchId = ended.MatchId, LastMatchInterrupted = ended.Interrupted, JoinedCompletion = ended.MatchId == state.JoinedMatchId ? ended : state.JoinedCompletion });
                 break;
             case "error": Publish(state => state with { Error = value.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)?.Message is { Length: <= 512 } error ? error : "Node rejected the command." }); break;
         }

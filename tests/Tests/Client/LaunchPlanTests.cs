@@ -40,8 +40,8 @@ namespace MphRead.Tests
             Assert.Null(AuthoritativePlay.Current);
             var plan = new LaunchPlan { Kind = (LaunchKind)persistedValue };
 
-            Assert.Throws<InvalidOperationException>(() =>
-                MatchStart.Launch(new MenuSettings(), plan));
+            Assert.Equal(MatchExitReason.FailedToStart,
+                MatchStart.Run(new MenuSettings(), plan).Reason);
         }
     }
 }

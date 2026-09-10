@@ -295,6 +295,17 @@ namespace MphRead
                     WaitUntil(clock, decision.DeadlineSeconds);
                 }
                 ProcessEvents();
+                if (_presentation != null && Mods.Network.AuthoritativePlay.Current is { } play
+                    && play.ObserveCompletion())
+                {
+                    if (_cursorCaptured) SetCursorCaptured(false);
+                    if (play.DrainCompletion(_presentation.World)) break;
+                    // Keep the final presentation and stop input/simulation while reliable control
+                    // and the independently delivered terminal Worker replica converge.
+                    Mods.Launcher.Gui.GuiLauncher.Pump();
+                    System.Threading.Thread.Sleep(1);
+                    continue;
+                }
                 double now = clock.Elapsed.TotalSeconds;
                 double elapsed = Math.Clamp(now - previous, 0, 0.25);
                 previous = now;
@@ -343,7 +354,7 @@ namespace MphRead
         /// frame; the SDL client submits the resulting sealed snapshot to the
         /// GPU backend.
         /// </summary>
-        public void RunScene(Scene scene, Action<ScenePresentation> configure)
+        public void RunScene(Scene scene, Action<ScenePresentation> configure, Action? beforeCleanup = null, Action? started = null)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (scene == null) throw new ArgumentNullException(nameof(scene));
@@ -355,6 +366,7 @@ namespace MphRead
                 _presentation.EnableDesktopLook();
                 configure(_presentation);
                 _presentation.OnLoad();
+                started?.Invoke();
                 if (Mods.WindowMode.Startup == Mods.WindowStartMode.BorderlessFullscreen)
                 {
                     ApplyWindowMode(Mods.WindowStartMode.BorderlessFullscreen);
@@ -367,7 +379,8 @@ namespace MphRead
             }
             finally
             {
-                _presentation.DoCleanup();
+                try { beforeCleanup?.Invoke(); }
+                finally { _presentation.DoCleanup(); }
                 _presentation = null;
             }
         }

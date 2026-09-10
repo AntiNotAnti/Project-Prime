@@ -36,7 +36,7 @@ namespace MphRead.Mods.Launcher.Gui;
 /// </summary>
 internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
 {
-    private readonly MenuSettings _settings;
+    private MenuSettings _settings;
     private readonly List<string> _rooms;
     private readonly bool _restoreOnActivate;
     private readonly bool _ignoreGameFileGate;
@@ -262,16 +262,25 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         _lifetime = new CancellationTokenSource();
     }
 
+    public void ShowMatchOutcome(MatchRunResult result)
+    {
+        if (result.Reason is MatchExitReason.Completed or MatchExitReason.LeftMatch) return;
+        _shell.Notify(PrimeNotificationKind.Error,
+            (result.Reason == MatchExitReason.FailedToStart ? "Match could not start. " : "Match connection lost. ")
+            + result.Message + " Return to your lobby and try again.");
+    }
+
     public void Reset()
     {
         if (_disposed) return;
+        _settings = ClientSettings.LoadSettings();
         _finished = false;
         Plan = default;
         Hunters.Reroll();
         _shell.ClearNotification();
         _theaterLoaded = false;
         _shell.Navigator.NavigateRoot(_shell.HasNetworkIdentity ? PrimeRoute.Play : PrimeRoute.Gateway);
-        if (_active)
+        if (_active && NodeSessions.Current == null)
             RunCommand("Refresh Nodes", () => _play.RefreshNodesAsync(_lifetime.Token));
     }
 

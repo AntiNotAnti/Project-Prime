@@ -71,7 +71,9 @@ namespace MphRead.Mods.Launcher
                 }
                 try
                 {
-                    MatchStart.Launch(settings, plan);
+                    var result = MatchStart.Run(settings, plan);
+                    if (result.Message != null) Console.WriteLine(result.Message);
+                    if (result.Reason == MatchExitReason.QuitApplication) return;
                 }
                 catch (Exception ex)
                 {

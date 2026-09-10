@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
 
@@ -19,12 +20,29 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly PrimeShellView _view;
 
         /// <summary>What the screen decided. Kind None means it was closed.</summary>
-        public LaunchPlan Plan => _view.Plan;
+        public LaunchPlan Plan => IsClosed ? default : _view.Plan;
+        public bool IsClosed { get; private set; }
+        public event EventHandler? LaunchRequested;
+        public void Resume(MatchRunResult? result)
+        {
+            _view.Reset();
+            if (result != null) _view.ShowMatchOutcome(result);
+            Show();
+            _view.Activate();
+            Activate();
+        }
 
         public HomeWindow(MenuSettings settings, IReadOnlyList<string> rooms)
         {
             _view = new PrimeShellView(settings, rooms);
-            _view.Done += (_, _) => Close();
+            _view.Done += (_, plan) =>
+            {
+                if (plan.Kind == LaunchKind.None) { Close(); return; }
+                _view.Deactivate();
+                Hide();
+                LaunchRequested?.Invoke(this, EventArgs.Empty);
+            };
+            Closed += (_, _) => IsClosed = true;
             Closed += (_, _) => _ = _view.DisposeAsync().AsTask();
 
             Title = Mods.Branding.Name;
