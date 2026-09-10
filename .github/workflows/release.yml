@@ -201,9 +201,6 @@ jobs:
       # to carry a *different* certificate and none of them could replace
       # another. See .claude/build-deploy/BUILD-WORKFLOW.md.
       #
-      # Absent secrets fall back to the debug key rather than failing the
-      # release: a fork with no keystore still gets an installable APK, it
-      # simply cannot be updated in place.
       - name: unlock the android keystore
         id: keystore
         env:
@@ -211,9 +208,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${KEYSTORE:-}" ]; then
-            echo "have=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::no ANDROID_KEYSTORE secret; the APK gets a throwaway debug key and cannot update an existing install"
-            exit 0
+            echo "::error::ANDROID_KEYSTORE is required for an official updater release"
+            exit 1
           fi
           # Outside the workspace, so no later step can archive it by accident.
           printf '%s' "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/android.jks"
@@ -231,18 +227,16 @@ jobs:
           proj=src/Android/Android.csproj
           sdk=( -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME" )
           signing=()
-          if [ "$HAVE_KEYSTORE" = "true" ]; then
-            # env: rather than the passwords themselves. .NET for Android
-            # reads that prefix as "the variable named this", which keeps
-            # both out of the process table and out of the MSBuild log.
-            signing=(
-              -p:AndroidKeyStore=true
-              -p:AndroidSigningKeyStore="$RUNNER_TEMP/android.jks"
-              -p:AndroidSigningStorePass=env:KEYSTORE_PASSWORD
-              -p:AndroidSigningKeyAlias="$KEY_ALIAS"
-              -p:AndroidSigningKeyPass=env:KEY_PASSWORD
-            )
-          fi
+          # env: rather than the passwords themselves. .NET for Android reads
+          # that prefix as "the variable named this", keeping both passwords
+          # out of the process table and MSBuild log.
+          signing=(
+            -p:AndroidKeyStore=true
+            -p:AndroidSigningKeyStore="$RUNNER_TEMP/android.jks"
+            -p:AndroidSigningStorePass=env:KEYSTORE_PASSWORD
+            -p:AndroidSigningKeyAlias="$KEY_ALIAS"
+            -p:AndroidSigningKeyPass=env:KEY_PASSWORD
+          )
           dotnet build "$proj" -t:InstallAndroidDependencies "${sdk[@]}" \
             -p:AcceptAndroidSDKLicenses=True
           dotnet publish "$proj" -c Release -p:AndroidPackageFormat=apk "${sdk[@]}" \
@@ -269,6 +263,30 @@ jobs:
             "$JAVA_HOME/bin/keytool" -printcert -jarfile "$apk" \
               | grep -E "SHA256:|Owner:" || true
           fi
+
+      - name: unlock the update signing key
+        env:
+          UPDATE_SIGNING_PRIVATE_KEY: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${UPDATE_SIGNING_PRIVATE_KEY:-}" ]; then
+            echo "::error::UPDATE_SIGNING_PRIVATE_KEY is required for an official updater release"
+            exit 1
+          fi
+          # The secret is base64-encoded PEM. Keep it only in the runner temp
+          # directory; never echo or add it to a package/artifact.
+          printf '%s' "$UPDATE_SIGNING_PRIVATE_KEY" | base64 -d > "$RUNNER_TEMP/update-signing-key.pem"
+          chmod 600 "$RUNNER_TEMP/update-signing-key.pem"
+          openssl pkey -in "$RUNNER_TEMP/update-signing-key.pem" \
+            -pubout -out "$RUNNER_TEMP/update-signing-public.pem" >/dev/null 2>&1
+          openssl ec -in "$RUNNER_TEMP/update-signing-key.pem" \
+            -pubout -outform DER -out "$RUNNER_TEMP/update-signing-public.der" >/dev/null 2>&1
+          openssl ec -in "$RUNNER_TEMP/update-signing-key.pem" -check -noout >/dev/null 2>&1
+          test "$(wc -c < "$RUNNER_TEMP/update-signing-public.der")" -gt 0
+          # This must match the public SPKI pinned by released clients. A
+          # rotated key needs an explicit overlapping-client migration.
+          test "$(openssl base64 -A -in "$RUNNER_TEMP/update-signing-public.der")" = \
+            "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgW9SnMfmlcXJvYxszMiguqy3gkKjy9ge7srMXe1oCpr/Tq8Ii03k4AxnMMM0FedFjMkhcKeG5p1omkng2NbX9g=="
 
       - name: nothing from the game is in the output
         run: >
@@ -304,9 +322,11 @@ jobs:
       - name: package
         env:
           TAG: ${{ steps.name.outputs.tag }}
+          VERSION: ${{ steps.name.outputs.version }}
         run: |
           set -euo pipefail
           mkdir -p dist
+          published_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           cp LICENSE publish/win-x64/ 2>/dev/null || true
           cat > publish/win-x64/README.txt <<'NOTE'
           Prime Hunters -- Metroid Prime Hunters, on a PC, with multiplayer.
@@ -326,6 +346,8 @@ jobs:
           download. Authoritative matches require your extracted game files or
           a baked server content package. See SERVER.md in the source.
           NOTE
+          python3 tools/update-release.py --version "$VERSION" \
+            --output "$RUNNER_TEMP/update-contract" --desktop-dir publish/win-x64
           ( cd publish/win-x64 && zip -qr "../../dist/FruityPrime-$TAG-win-x64.zip" . )
 
           cp LICENSE publish/linux-x64/ 2>/dev/null || true
@@ -359,6 +381,8 @@ jobs:
 
           F11 or Alt+Enter switches to fullscreen, Escape opens the pause menu.
           NOTE
+          python3 tools/update-release.py --version "$VERSION" \
+            --output "$RUNNER_TEMP/update-contract" --desktop-dir publish/linux-x64
           ( cd publish/linux-x64 && tar czf "../../dist/FruityPrime-$TAG-linux-x64.tar.gz" . )
 
           # The two macOS packages. Same note, and the same launcher: the
@@ -386,6 +410,8 @@ jobs:
 
           F11 or Alt+Enter switches to fullscreen, Escape opens the pause menu.
           NOTE
+            python3 tools/update-release.py --version "$VERSION" \
+              --output "$RUNNER_TEMP/update-contract" --desktop-dir "publish/$rid"
             chmod +x "publish/$rid/FruityPrime" || true
             ( cd "publish/$rid" && tar czf "../../dist/FruityPrime-$TAG-$rid.tar.gz" . )
           done
@@ -424,66 +450,57 @@ jobs:
 
           # The APK goes out on its own rather than in an archive: what a phone
           # wants is a file it can be handed. Signed with the release keystore
-          # when the secrets are set, and with a throwaway debug key when they
-          # are not -- the second installs, and can never be updated in place.
+          # The keystore step above is mandatory: an official Android package
+          # must remain replaceable by the signed updater.
           cp publish/android/*-Signed.apk "dist/FruityPrime-$TAG-android.apk"
+          python3 tools/update-release.py --version "$VERSION" --dist dist \
+            --published-utc "$published_utc" \
+            --output dist --signing-key "$RUNNER_TEMP/update-signing-key.pem" \
+            --public-key "$RUNNER_TEMP/update-signing-public.pem"
           ls -la dist
 
-      # A draft: everything is built and uploaded, and a person presses the
-      # button. This is the one workflow whose output people download, and a
-      # tag can be pushed by accident; a draft is the step where somebody reads
-      # the notes and looks at the file list before any of it is public.
-      #
-      # Not flagged a prerelease, though the notes say beta. GitHub's
-      # releases/latest -- which is exactly what the in-app update check asks
-      # for (Mods/Update/UpdateCheck.cs) -- skips prereleases, so flagging one
-      # would quietly turn the updater off for every player.
-      #
-      # Rerunning the same tag updates the draft rather than failing: the
-      # create/upload arms are chosen by whether the release is already there,
-      # instead of running create and treating any error at all as "it exists".
-      - name: release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.name.outputs.tag }}
+      - name: updater contract tests
         run: |
           set -euo pipefail
-          cat > notes.md <<'NOTE'
-          **Beta.** It plays, it is not finished -- expect rough edges, and please say what you
-          hit in [Issues](https://github.com/liveteklol/Fruity-Prime/issues).
+          python3 -m unittest tools.tests.test_update_release -v
+          dotnet test tests/Tests/Tests.csproj -c Release \
+            --filter FullyQualifiedName~MphRead.Tests.Client.Update.UpdateContractTests
 
-          You bring your own Metroid Prime Hunters cartridge dump. No game data is included here
-          and none is downloaded.
-
-          - **Windows** -- the `win-x64` zip, run `FruityPrime.exe`
-          - **Linux / macOS** -- the `.tar.gz`, run `./FruityPrime -launcher`
-          - **Android** -- the `.apk`
-          - **Running a server** -- the `server-` packages plus your own extracted or baked game content; directory-only mode needs no game files
-
-          Setup and everything else is in the [README](https://github.com/liveteklol/Fruity-Prime#readme).
-          NOTE
-
-          # What actually changed, from GitHub's own generator: every commit
-          # and merged PR since the previous release tag, which it works out
-          # itself from the tag name. Without this the notes are the same
-          # words every time and say nothing about the build being downloaded.
-          #
-          # Appended rather than substituted, and never fatal: a rate limit or
-          # a tag with no predecessor leaves the standing block, which is the
-          # part that has to be there. The changelog is the part that is nice
-          # to have.
-          CHANGES=$(gh api -X POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
-            -f tag_name="$TAG" --jq .body 2>/dev/null || true)
-          if [ -n "$CHANGES" ]; then
-            printf '\n---\n\n%s\n' "$CHANGES" >> notes.md
-          else
-            echo "::warning::No changelog could be generated for $TAG; the notes are the standing block alone."
+      # The player feed is intentionally a separate public, distribution-only
+      # repository. Its tag is created on that repository's own main history;
+      # no private source SHA, PR URL, or credential enters the player feed.
+      - name: publish public player feed draft
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_PRIME_RELEASE_TOKEN }}
+          TAG: ${{ steps.name.outputs.tag }}
+          VERSION: ${{ steps.name.outputs.version }}
+          PUBLIC_REPOSITORY: AntiNotAnti/Project-Prime-Releases
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::PROJECT_PRIME_RELEASE_TOKEN is required to publish the public player feed"
+            exit 1
           fi
-
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/* --clobber
-            gh release edit "$TAG" --title "Prime Hunters $TAG" --notes-file notes.md
+          assets=(
+            "dist/FruityPrime-$TAG-win-x64.zip"
+            "dist/FruityPrime-$TAG-linux-x64.tar.gz"
+            "dist/FruityPrime-$TAG-osx-x64.tar.gz"
+            "dist/FruityPrime-$TAG-osx-arm64.tar.gz"
+            "dist/FruityPrime-$TAG-android.apk"
+            "dist/update-manifest.json"
+            "dist/update-manifest.sig"
+          )
+          for asset in "${assets[@]}"; do test -s "$asset"; done
+          public_notes=$'Prime Hunters '"$TAG"$'\n\nSigned player packages for Project Prime. Bring your own Metroid Prime Hunters cartridge dump; no game data is included.'
+          draft_state="$RUNNER_TEMP/public-release-draft"
+          if gh release view "$TAG" --repo "$PUBLIC_REPOSITORY" --json isDraft --jq .isDraft >"$draft_state" 2>/dev/null; then
+            if [ "$(< "$draft_state")" != "true" ]; then
+              echo "::error::public release $TAG is already published; refusing to clobber it"
+              exit 1
+            fi
+            gh release upload "$TAG" "${assets[@]}" --repo "$PUBLIC_REPOSITORY" --clobber
+            gh release edit "$TAG" --repo "$PUBLIC_REPOSITORY" --title "Prime Hunters $TAG" --notes "$public_notes"
           else
-            gh release create "$TAG" dist/* --draft --verify-tag \
-              --title "Prime Hunters $TAG" --notes-file notes.md
+            gh release create "$TAG" "${assets[@]}" --repo "$PUBLIC_REPOSITORY" \
+              --draft --target main --title "Prime Hunters $TAG" --notes "$public_notes"
           fi

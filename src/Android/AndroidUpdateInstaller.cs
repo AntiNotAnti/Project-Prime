@@ -1,4 +1,8 @@
 using System;
+using System.IO;
+using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
 using Android.App;
 using MphRead.Mods.Update;
 
@@ -42,21 +46,53 @@ namespace MphRead.Droid
 
         public bool Prepare(UpdateInfo update, Action<float>? progress, out string error)
         {
+            UpdatePrepareResult result = PrepareAsync(update,
+                new Progress<UpdateProgress>(value => progress?.Invoke(
+                    value.TotalBytes > 0 ? (float)value.Fraction : -1f)))
+                .GetAwaiter().GetResult();
+            error = result.Error ?? "";
+            return result.Success;
+        }
+
+        public async Task<UpdatePrepareResult> PrepareAsync(UpdateInfo update,
+            IProgress<UpdateProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
             _staged = ApkInstaller.StagingPath(_activity);
-            if (!UpdateDownload.Fetch(update.AssetUrl, _staged, update.AssetSize, progress))
+            if (update.Package is not UpdatePackage package || update.PackageUri == null)
+                return new UpdatePrepareResult(false, "the signed Android package is unavailable");
+            // Returning from the system permission/settings screen must not
+            // download the same verified APK again. Re-hash the staged bytes
+            // before trusting the cache, then repeat the signer check below.
+            if (!IsVerifiedPackage(package))
             {
-                error = UpdateDownload.LastError ?? "the download failed";
-                return false;
+                DownloadResult downloaded = await UpdateDownload.DownloadAsync(package,
+                    update.PackageUri, _staged, progress, cancellationToken).ConfigureAwait(false);
+                if (!downloaded.Success)
+                    return new UpdatePrepareResult(false, downloaded.Error ?? "the download failed");
             }
-            // Before the dialog rather than after it, because Android's own
-            // refusal for this is the bare words "App not installed".
             if (!ApkInstaller.SameSigner(_activity, _staged, out string? mismatch))
+                return new UpdatePrepareResult(false,
+                    mismatch ?? "that package cannot be installed over this one");
+            return new UpdatePrepareResult(true, null);
+        }
+
+        private bool IsVerifiedPackage(UpdatePackage package)
+        {
+            try
             {
-                error = mismatch ?? "that package cannot be installed over this one";
+                if (!File.Exists(_staged)) return false;
+                FileInfo info = new(_staged);
+                if (info.Length != package.Size) return false;
+                using FileStream stream = File.OpenRead(_staged);
+                string actual = Convert.ToHexString(SHA256.HashData(stream));
+                bool matches = actual.Equals(package.Sha256, StringComparison.OrdinalIgnoreCase);
+                return matches;
+            }
+            catch (Exception)
+            {
                 return false;
             }
-            error = "";
-            return true;
         }
 
         public bool Install(out string error) =>

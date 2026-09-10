@@ -1,339 +1,439 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Formats.Tar;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
-namespace MphRead.Mods.Update
+namespace MphRead.Mods.Update;
+
+/// <summary>
+/// Desktop staging and the compatibility <c>-applyupdate</c> entry point.
+/// Preparation happens beside the installation; mutation is delegated to the
+/// journaled <see cref="DesktopUpdateTransaction"/> in the staged process.
+/// </summary>
+public static class DesktopUpdate
 {
-    /// <summary>
-    /// Replace this installation with the release's own package, without
-    /// anybody opening a browser.
-    ///
-    /// The awkward part is that a program cannot overwrite the file it is
-    /// running from -- Windows refuses outright, and on Unix it works in a way
-    /// that is worse than refusing. So the swap is done by a **second copy of
-    /// the new build**: the archive is unpacked beside the installation, the
-    /// unpacked binary is started with <c>-applyupdate</c>, this process
-    /// exits, and that copy waits for it to be gone, copies itself and
-    /// everything beside it over the installation, and starts it again.
-    ///
-    /// Running the *new* binary as the one doing the copying, rather than the
-    /// old one, is what makes it a single mechanism: the old build never has
-    /// to know how a future release wants to be laid out, and the file doing
-    /// the work is never one of the files being replaced.
-    ///
-    /// Nothing is deleted from the installation. The copy is a copy over the
-    /// top, which is exactly what the instructions on the release page have
-    /// always said to do by hand -- so a player's <c>paths.txt</c>, their
-    /// <c>controls.txt</c>, their saves and their extracted game files are
-    /// where they were.
-    /// </summary>
-    public static class DesktopUpdate
+    public const string ApplyFlag = "applyupdate";
+    private const string PackageDirectoryName = "package";
+    private const string StagedDirectoryName = "staged";
+
+    private static string Staging => Path.Combine(AppContext.BaseDirectory, ".update");
+    private static string StagedBuild => Path.Combine(Staging, StagedDirectoryName);
+    private static string PackageDirectory => Path.Combine(Staging, PackageDirectoryName);
+
+    public static string? LastError { get; private set; }
+
+    public static bool Supported
     {
-        /// <summary>The argument that turns a launch into the copying half.</summary>
-        public const string ApplyFlag = "applyupdate";
-
-        /// <summary>Where the download and the unpacked build wait.</summary>
-        private static string Staging => Path.Combine(AppContext.BaseDirectory, ".update");
-
-        private static string StagedBuild => Path.Combine(Staging, "staged");
-
-        /// <summary>Why the last attempt produced nothing.</summary>
-        public static string? LastError { get; private set; }
-
-        /// <summary>
-        /// Whether this installation can be replaced in place: a published
-        /// build, in a directory this user may write to.
-        ///
-        /// A read-only directory is the ordinary case for a system-wide
-        /// install, and the answer there is the release page, not a failure
-        /// half way through a copy.
-        /// </summary>
-        public static bool Supported
+        get
         {
-            get
-            {
-                if (OperatingSystem.IsAndroid() || !BuildVersion.IsRelease)
-                {
-                    return false;
-                }
-                try
-                {
-                    string probe = Path.Combine(AppContext.BaseDirectory, ".update-probe");
-                    File.WriteAllBytes(probe, Array.Empty<byte>());
-                    File.Delete(probe);
-                    return true;
-                }
-                catch (Exception)
-                {
-                    return false;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Fetch and unpack, and report whether the swap can now be started.
-        ///
-        /// Everything that can fail happens here, while the program is still
-        /// running and can say so on screen. By the time <see cref="Launch"/>
-        /// is called there is a complete, unpacked build on disk and the only
-        /// work left is copying it.
-        /// </summary>
-        public static bool Stage(UpdateInfo update, Action<float>? progress = null,
-            CancellationToken cancel = default)
-        {
-            LastError = null;
-            if (update.AssetUrl.Length == 0)
-            {
-                LastError = "this release has no package for this platform";
-                return false;
-            }
+            if (OperatingSystem.IsAndroid() || !BuildVersion.IsRelease) return false;
             try
             {
-                Clean();
-                Directory.CreateDirectory(Staging);
-                bool zip = update.AssetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
-                string archive = Path.Combine(Staging, zip ? "package.zip" : "package.tar.gz");
-                if (!UpdateDownload.Fetch(update.AssetUrl, archive, update.AssetSize,
-                    progress, cancel))
+                string probe = Path.Combine(AppContext.BaseDirectory,
+                    ".update-probe-" + Guid.NewGuid().ToString("N"));
+                try
                 {
-                    LastError = UpdateDownload.LastError ?? "the download failed";
+                    using FileStream stream = new(probe, FileMode.CreateNew,
+                        FileAccess.Write, FileShare.None, 1, FileOptions.WriteThrough);
+                    stream.Flush(flushToDisk: true);
+                    return true;
+                }
+                finally
+                {
+                    try { if (File.Exists(probe)) File.Delete(probe); }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+            }
+            catch (Exception) { return false; }
+        }
+    }
+
+    public static async Task<bool> StageAsync(UpdateInfo update,
+        IProgress<UpdateProgress>? progress = null, CancellationToken cancellationToken = default)
+    {
+        LastError = null;
+        if (update.Package == null || update.PackageUri == null)
+        {
+            LastError = "this release has no signed package for this platform";
+            return false;
+        }
+        if (!Supported && !update.AllowLocalTestInstall)
+        {
+            LastError = "local or read-only builds are not replaced automatically";
+            return false;
+        }
+
+        string target = Path.GetFullPath(AppContext.BaseDirectory);
+        string updateDirectory = Path.Combine(target, ".update");
+        UpdateInstallationLock? updateLock = UpdateInstallationLock.TryAcquire(updateDirectory);
+        if (updateLock == null)
+        {
+            LastError = "another update is already running";
+            return false;
+        }
+        using (updateLock)
+        {
+            try
+            {
+                // Recovery and staging share one lock acquisition. This keeps
+                // a second process from observing a cleaned journal and then
+                // racing the first process while it replaces package files.
+                UpdateTransactionResult recovery = DesktopUpdateTransaction.RecoverLocked(target);
+                if (!recovery.Success && recovery.State == UpdateTransactionState.RecoveryRequired)
+                {
+                    LastError = recovery.Error ?? "installation recovery is required";
+                    return false;
+                }
+                TryDeleteTree(PackageDirectory);
+                TryDeleteTree(StagedBuild);
+                Directory.CreateDirectory(PackageDirectory);
+                string archive = Path.Combine(PackageDirectory,
+                    update.Package.FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+                        ? "package.zip" : "package.tar.gz");
+                DownloadResult downloaded = await UpdateDownload.DownloadAsync(update.Package,
+                    update.PackageUri, archive, progress, cancellationToken).ConfigureAwait(false);
+                if (!downloaded.Success)
+                {
+                    LastError = downloaded.Error ?? "the package download failed";
                     return false;
                 }
                 Directory.CreateDirectory(StagedBuild);
-                if (zip)
-                {
-                    ZipFile.ExtractToDirectory(archive, StagedBuild, overwriteFiles: true);
-                }
-                else
-                {
-                    using FileStream compressed = File.OpenRead(archive);
-                    using var plain = new GZipStream(compressed, CompressionMode.Decompress);
-                    // The tar reader is what carries the executable bit across;
-                    // a zip has none to carry, which is why Windows ships one.
-                    TarFile.ExtractToDirectory(plain, StagedBuild, overwriteFiles: true);
-                }
-                File.Delete(archive);
+                ExtractSafe(archive, StagedBuild,
+                    update.Package.FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
+                TryDeleteFile(archive);
+
                 string binary = Path.Combine(StagedBuild, BinaryName());
-                if (!File.Exists(binary))
+                if (!File.Exists(binary) || UpdateFileSystem.IsLinkOrReparse(binary))
                 {
-                    LastError = $"the package does not contain {BinaryName()}";
+                    LastError = $"the package does not contain a safe {BinaryName()}";
+                    return false;
+                }
+                ReleaseFilesManifest manifest = ReadAndValidateStaged(update, StagedBuild);
+                if (!manifest.Files.Any(file => String.Equals(file.Path, BinaryName(),
+                    StringComparison.OrdinalIgnoreCase)))
+                {
+                    LastError = $"release-files.json does not manage {BinaryName()}";
                     return false;
                 }
                 MakeExecutable(binary);
                 return true;
             }
-            catch (Exception ex)
+            catch (OperationCanceledException)
             {
-                LastError = ex.Message;
-                Console.WriteLine($"[update] could not stage the update: {ex}");
+                LastError = "cancelled";
                 return false;
-            }
-        }
-
-        /// <summary>
-        /// Start the unpacked build in its copying mode and return.
-        ///
-        /// The caller's next act must be to exit: the copy waits for this
-        /// process to be gone before it touches anything, and a launcher that
-        /// stayed open would leave it waiting until its own deadline.
-        /// </summary>
-        public static bool Launch()
-        {
-            try
-            {
-                string binary = Path.Combine(StagedBuild, BinaryName());
-                var start = new ProcessStartInfo(binary)
-                {
-                    WorkingDirectory = StagedBuild,
-                    UseShellExecute = false
-                };
-                start.ArgumentList.Add("-" + ApplyFlag);
-                start.ArgumentList.Add(AppContext.BaseDirectory);
-                start.ArgumentList.Add(Environment.ProcessId.ToString());
-                return Process.Start(start) != null;
             }
             catch (Exception ex)
             {
                 LastError = ex.Message;
-                Console.WriteLine($"[update] could not start the update: {ex}");
+                Console.WriteLine($"[update] could not stage the update: {ex.Message}");
                 return false;
             }
         }
+    }
 
-        /// <summary>
-        /// The copying half, in the new build: wait for the old one to go,
-        /// copy over it, start it again.
-        ///
-        /// Console output rather than a window on purpose. This runs for about
-        /// a second between one launcher closing and the next opening, and a
-        /// window in the middle of that would be a flash nobody can read; what
-        /// it is for is the log somebody reads when the game did not come
-        /// back.
-        /// </summary>
-        public static int Apply(string target, int waitFor)
+    /// <summary>Legacy synchronous staging facade.</summary>
+    public static bool Stage(UpdateInfo update, Action<float>? progress = null,
+        CancellationToken cancel = default)
+    {
+        return StageAsync(update,
+            new Progress<UpdateProgress>(p => progress?.Invoke((float)p.Fraction)), cancel)
+            .GetAwaiter().GetResult();
+    }
+
+    public static bool Launch()
+    {
+        try
         {
-            Console.WriteLine($"[update] applying to {target}");
-            WaitForExit(waitFor);
-            string source = AppContext.BaseDirectory;
-            try
+            string binary = Path.Combine(StagedBuild, BinaryName());
+            if (!File.Exists(binary) || UpdateFileSystem.IsLinkOrReparse(binary))
+                throw new FileNotFoundException("the staged executable is missing", binary);
+            var start = new ProcessStartInfo(binary)
             {
-                Copy(source, target);
-            }
-            catch (Exception ex)
+                WorkingDirectory = StagedBuild,
+                UseShellExecute = false
+            };
+            start.ArgumentList.Add("-" + ApplyFlag);
+            start.ArgumentList.Add(AppContext.BaseDirectory);
+            start.ArgumentList.Add(Environment.ProcessId.ToString());
+            start.ArgumentList.Add(BuildVersion.Current?.ToString(3) ?? "0.0.0");
+            return Process.Start(start) != null;
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            Console.WriteLine($"[update] could not start the update: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>Apply the staged package from the new process.</summary>
+    public static int Apply(string target, int waitFor, string? fromVersion = null)
+    {
+        target = Path.GetFullPath(target);
+        string source = Path.GetFullPath(AppContext.BaseDirectory);
+        try
+        {
+            string from = fromVersion ?? "0.0.0";
+            if (!UpdateManifestValidator.IsExactVersion(from))
+                throw new InvalidDataException("the old launcher version is invalid");
+            string to = ReadStagedVersion(source)
+                ?? throw new InvalidDataException("staged release version is missing");
+            UpdateTransactionResult result = new DesktopUpdateTransaction(target, source)
+                .Apply(from, to, waitFor);
+            if (!result.Success)
             {
-                // Half a copy is the one outcome worth being loud about: the
-                // installation may be a mix of two builds, and the staged one
-                // is still on disk to finish by hand.
-                Console.WriteLine($"[update] the copy failed: {ex.Message}");
-                Console.WriteLine($"[update] the new build is in {source} -- "
-                    + $"copy it over {target} by hand");
+                Console.WriteLine($"[update] apply failed ({result.State}): {result.Error}");
                 return 1;
             }
-            try
+            string binary = Path.Combine(target, BinaryName());
+            MakeExecutable(binary);
+            Process.Start(new ProcessStartInfo(binary)
             {
-                string binary = Path.Combine(target, BinaryName());
-                MakeExecutable(binary);
-                Process.Start(new ProcessStartInfo(binary)
-                {
-                    WorkingDirectory = target,
-                    UseShellExecute = false
-                });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[update] updated, but could not restart: {ex.Message}");
-                return 1;
-            }
-            Console.WriteLine("[update] done");
+                WorkingDirectory = target,
+                UseShellExecute = false
+            });
+            Console.WriteLine("[update] update committed");
             return 0;
         }
-
-        /// <summary>
-        /// Wait for the old process to be gone, and give up rather than hang.
-        ///
-        /// Thirty seconds is far longer than a launcher takes to close and
-        /// short enough that a process which is never going to exit -- one
-        /// stuck on a dialog, one already replaced by something else with the
-        /// same id -- does not leave this waiting for ever with nothing on
-        /// screen.
-        /// </summary>
-        private static void WaitForExit(int pid)
+        catch (Exception ex)
         {
-            try
-            {
-                using Process old = Process.GetProcessById(pid);
-                if (!old.WaitForExit(30_000))
-                {
-                    Console.WriteLine($"[update] process {pid} is still running; carrying on");
-                }
-            }
-            catch (ArgumentException)
-            {
-                // Already gone, which is the normal case: it exits the moment
-                // it has started this one.
-            }
-            // Windows keeps a file handle a moment past exit, and virus
-            // scanners keep it longer. The copy retries anyway; this is the
-            // cheap part of not needing to.
-            Thread.Sleep(400);
+            Console.WriteLine($"[update] update failed: {ex.Message}");
+            return 1;
         }
+    }
 
-        private static void Copy(string source, string target)
-        {
-            foreach (string path in Directory.EnumerateFiles(source, "*",
-                SearchOption.AllDirectories))
-            {
-                string relative = Path.GetRelativePath(source, path);
-                string destination = Path.Combine(target, relative);
-                string? directory = Path.GetDirectoryName(destination);
-                if (!String.IsNullOrEmpty(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
-                CopyWithRetries(path, destination);
-            }
-        }
+    /// <summary>Run journal recovery before ordinary launcher startup.</summary>
+    public static UpdateTransactionResult Recover()
+    {
+        if (OperatingSystem.IsAndroid())
+            return new(true, UpdateTransactionState.Committed, null);
+        return DesktopUpdateTransaction.Recover(Path.GetFullPath(AppContext.BaseDirectory));
+    }
 
-        /// <summary>
-        /// A file that is still held is a file that will be free in a moment,
-        /// not a failed update. The binary itself is the one this happens to.
-        /// </summary>
-        private static void CopyWithRetries(string from, string to)
-        {
-            for (int attempt = 0; ; attempt++)
-            {
-                try
-                {
-                    File.Copy(from, to, overwrite: true);
-                    return;
-                }
-                catch (IOException) when (attempt < 20)
-                {
-                    Thread.Sleep(250);
-                }
-                catch (UnauthorizedAccessException) when (attempt < 20)
-                {
-                    Thread.Sleep(250);
-                }
-            }
-        }
+    /// <summary>
+    /// Compatibility name retained for callers that used to delete all stage
+    /// data. It now performs recovery and only cleans committed/rolled-back
+    /// transaction artifacts; it never removes the persistent lock file.
+    /// </summary>
+    public static void Clean()
+    {
+        _ = Recover();
+    }
 
-        /// <summary>
-        /// Remove what a previous update left behind.
-        ///
-        /// Called at startup, because the copying process cannot delete the
-        /// directory it is running from: by the time anybody could, the
-        /// program doing it is the one that was just installed.
-        /// </summary>
-        public static void Clean()
+    internal static string BinaryName()
+    {
+        string name = UpdateCheck.IsServerBuild ? Branding.FileName + "Server" : Branding.FileName;
+        return OperatingSystem.IsWindows() ? name + ".exe" : name;
+    }
+
+    private static ReleaseFilesManifest ReadAndValidateStaged(UpdateInfo update, string staged)
+    {
+        string metadata = UpdateFileSystem.FullPathUnder(staged,
+            DesktopUpdateTransaction.ReleaseFilesName);
+        if (!File.Exists(metadata) || UpdateFileSystem.IsLinkOrReparse(metadata))
+            throw new InvalidDataException("desktop package is missing release-files.json");
+        ReleaseFilesManifest manifest = ReleaseFilesJson.Parse(File.ReadAllBytes(metadata));
+        if (!String.Equals(manifest.Version, update.VersionString,
+            StringComparison.Ordinal))
+            throw new InvalidDataException("release-files version does not match update manifest");
+        var listed = manifest.Files.Select(file => file.Path).ToHashSet(
+            StringComparer.OrdinalIgnoreCase);
+        long extractedBytes = 0;
+        var directories = new Stack<string>();
+        directories.Push(staged);
+        while (directories.Count > 0)
         {
-            try
+            string directory = directories.Pop();
+            if (UpdateFileSystem.IsLinkOrReparse(directory))
+                throw new InvalidDataException("desktop package contains a linked directory");
+            foreach (string entry in Directory.EnumerateFileSystemEntries(directory))
             {
-                if (Directory.Exists(Staging))
+                if (UpdateFileSystem.IsLinkOrReparse(entry))
+                    throw new InvalidDataException("desktop package contains a link or reparse point");
+                if (Directory.Exists(entry))
                 {
-                    Directory.Delete(Staging, recursive: true);
+                    directories.Push(entry);
+                    continue;
                 }
-            }
-            catch (Exception)
-            {
-                // Litter, not a failure. The next stage overwrites it.
+                if (!File.Exists(entry))
+                    throw new InvalidDataException("desktop package contains an unknown filesystem entry");
+                FileInfo info = new(entry);
+                if (info.Length > ReleaseFilesManifestValidator.MaxFileBytes
+                    || (extractedBytes += info.Length)
+                        > ReleaseFilesManifestValidator.MaxExtractedBytes)
+                    throw new InvalidDataException("desktop package extracted size is too large");
+                string relative = Path.GetRelativePath(staged, entry).Replace(
+                    Path.DirectorySeparatorChar, '/');
+                if (!String.Equals(relative, DesktopUpdateTransaction.ReleaseFilesName,
+                        StringComparison.OrdinalIgnoreCase)
+                    && !listed.Contains(relative)
+                    && !UpdatePathPolicy.IsNeverManaged(relative))
+                    throw new InvalidDataException(
+                        $"desktop package contains unlisted file '{relative}'");
             }
         }
-
-        /// <summary>
-        /// The executable inside the package, which is not necessarily the one
-        /// running: a server build's file has a name of its own, and this must
-        /// name the file the *release* contains for this package.
-        /// </summary>
-        private static string BinaryName()
+        foreach (ReleaseFile file in manifest.Files)
         {
-            string name = UpdateCheck.IsServerBuild
-                ? Branding.FileName + "Server"
-                : Branding.FileName;
-            return OperatingSystem.IsWindows() ? name + ".exe" : name;
+            string path = UpdateFileSystem.FullPathUnder(staged, file.Path);
+            if (!File.Exists(path) || UpdateFileSystem.IsLinkOrReparse(path))
+                throw new InvalidDataException($"desktop package is missing '{file.Path}'");
+        }
+        return manifest;
+    }
+
+    private static string? ReadStagedVersion(string source)
+    {
+        try
+        {
+            string path = UpdateFileSystem.FullPathUnder(source,
+                DesktopUpdateTransaction.ReleaseFilesName);
+            return ReleaseFilesJson.Parse(File.ReadAllBytes(path)).Version;
+        }
+        catch (Exception) { return null; }
+    }
+
+    private static void ExtractSafe(string archive, string destination, bool zip)
+    {
+        if (zip)
+        {
+            using ZipArchive input = ZipFile.OpenRead(archive);
+            long extractedBytes = 0;
+            int entryCount = 0;
+            foreach (ZipArchiveEntry entry in input.Entries)
+            {
+                if (++entryCount > ReleaseFilesManifestValidator.MaxFiles + 1024)
+                    throw new InvalidDataException("archive contains too many entries");
+                string relative = NormalizeArchivePath(entry.FullName);
+                // Unix mode 0120000 marks symbolic links in a ZIP external
+                // attribute. Reject them before directory handling or opening
+                // the entry stream.
+                int mode = (entry.ExternalAttributes >> 16) & 0xF000;
+                if (mode == 0xA000)
+                    throw new InvalidDataException("archive contains a symbolic link");
+                if (relative.Length == 0 || relative.EndsWith('/'))
+                {
+                    if (relative.Length > 0)
+                        UpdateFileSystem.EnsureDirectoryChainSafe(destination,
+                            UpdateFileSystem.FullPathUnder(destination,
+                                relative.TrimEnd('/')));
+                    continue;
+                }
+                if (!ReleaseFilesManifestValidator.IsSafeRelativePath(relative))
+                    throw new InvalidDataException($"archive contains unsafe path '{relative}'");
+                string output = UpdateFileSystem.FullPathUnder(destination, relative);
+                string? parent = Path.GetDirectoryName(output);
+                if (!String.IsNullOrEmpty(parent))
+                    UpdateFileSystem.EnsureDirectoryChainSafe(destination, parent);
+                using Stream inputStream = entry.Open();
+                using FileStream outputStream = new(output, FileMode.CreateNew,
+                    FileAccess.Write, FileShare.None, 64 * 1024,
+                    FileOptions.WriteThrough);
+                CopyBounded(inputStream, outputStream, ref extractedBytes);
+                outputStream.Flush(flushToDisk: true);
+            }
+            return;
         }
 
-        private static void MakeExecutable(string path)
+        using FileStream compressed = File.OpenRead(archive);
+        using var plain = new GZipStream(compressed, CompressionMode.Decompress);
+        using var reader = new TarReader(plain);
+        long tarExtractedBytes = 0;
+        int tarEntryCount = 0;
+        TarEntry? tarEntry;
+        while ((tarEntry = reader.GetNextEntry()) != null)
         {
-            if (OperatingSystem.IsWindows())
+            if (++tarEntryCount > ReleaseFilesManifestValidator.MaxFiles + 1024)
+                throw new InvalidDataException("archive contains too many entries");
+            string relative = NormalizeArchivePath(tarEntry.Name);
+            if (tarEntry.EntryType == TarEntryType.Directory)
             {
-                return;
+                relative = relative.TrimEnd('/');
+                if (relative.Length == 0) continue;
+                if (!ReleaseFilesManifestValidator.IsSafeRelativePath(relative))
+                    throw new InvalidDataException($"archive contains unsafe path '{relative}'");
+                UpdateFileSystem.EnsureDirectoryChainSafe(destination,
+                    UpdateFileSystem.FullPathUnder(destination, relative));
+                continue;
             }
-            try
-            {
-                // A zip carries no mode bits and a tar does; setting it either
-                // way costs one syscall and removes the difference.
-                File.SetUnixFileMode(path, File.GetUnixFileMode(path)
-                    | UnixFileMode.UserExecute | UnixFileMode.GroupExecute
-                    | UnixFileMode.OtherExecute);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[update] could not make {path} executable: {ex.Message}");
-            }
+            if (!ReleaseFilesManifestValidator.IsSafeRelativePath(relative))
+                throw new InvalidDataException($"archive contains unsafe path '{relative}'");
+            if (tarEntry.EntryType != TarEntryType.RegularFile)
+                throw new InvalidDataException("archive contains a non-regular file");
+            string output = UpdateFileSystem.FullPathUnder(destination, relative);
+            string? parent = Path.GetDirectoryName(output);
+            if (!String.IsNullOrEmpty(parent))
+                UpdateFileSystem.EnsureDirectoryChainSafe(destination, parent);
+            using Stream inputStream = tarEntry.DataStream
+                ?? throw new InvalidDataException("tar entry has no data stream");
+            using FileStream outputStream = new(output, FileMode.CreateNew,
+                FileAccess.Write, FileShare.None, 64 * 1024, FileOptions.WriteThrough);
+            CopyBounded(inputStream, outputStream, ref tarExtractedBytes);
+            outputStream.Flush(flushToDisk: true);
         }
+    }
+
+    private static void CopyBounded(Stream input, Stream output, ref long extractedBytes)
+    {
+        byte[] buffer = new byte[64 * 1024];
+        long total = 0;
+        while (true)
+        {
+            int read = input.Read(buffer, 0, buffer.Length);
+            if (read == 0) return;
+            total += read;
+            extractedBytes += read;
+            if (total > ReleaseFilesManifestValidator.MaxFileBytes
+                || extractedBytes > ReleaseFilesManifestValidator.MaxExtractedBytes)
+                throw new InvalidDataException("archive entry is too large");
+            output.Write(buffer, 0, read);
+        }
+    }
+
+    private static string NormalizeArchivePath(string path)
+    {
+        string normalized = path.Replace('\\', '/');
+        while (normalized.StartsWith("./", StringComparison.Ordinal))
+            normalized = normalized[2..];
+        return normalized;
+    }
+
+    private static void MakeExecutable(string path)
+    {
+        if (OperatingSystem.IsWindows()) return;
+        try
+        {
+            File.SetUnixFileMode(path, File.GetUnixFileMode(path)
+                | UnixFileMode.UserExecute | UnixFileMode.GroupExecute
+                | UnixFileMode.OtherExecute);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[update] could not make executable: {ex.Message}");
+        }
+    }
+
+    private static void TryDeleteTree(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path) && !UpdateFileSystem.IsLinkOrReparse(path))
+                Directory.Delete(path, recursive: true);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 }

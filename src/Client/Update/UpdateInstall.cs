@@ -1,126 +1,109 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace MphRead.Mods.Update
+namespace MphRead.Mods.Update;
+
+public sealed record UpdatePrepareResult(bool Success, string? Error);
+public sealed record UpdateInstallResult(bool Started, bool ExitAfterInstall, string? Error);
+
+/// <summary>
+/// Platform installation seam. The legacy synchronous methods remain as a
+/// compatibility facade; orchestration uses the cancellation-aware async API.
+/// </summary>
+public interface IUpdateInstaller
 {
-    /// <summary>
-    /// A platform that can take its own update, for the front screen to drive.
-    ///
-    /// Two implementations and they have almost nothing in common: a phone
-    /// hands a downloaded package to the system installer and is then killed
-    /// and replaced by it, and a desktop unpacks an archive over itself with
-    /// the help of a second process. What they *do* share is the shape of the
-    /// conversation with the player, which is the only thing the front screen
-    /// wants: ask whether it is allowed, fetch while saying how far along it
-    /// is, and then a step that cannot be taken back.
-    ///
-    /// The split between <see cref="Prepare"/> and <see cref="Install"/> is
-    /// that last part. Everything that can fail belongs in Prepare, while the
-    /// program is still running and can put the reason on screen; by the time
-    /// Install is called there is a complete package on disk and the only
-    /// thing left is the swap.
-    ///
-    /// Left null -- which is every platform that has neither -- the front
-    /// screen opens the release page exactly as it always did.
-    /// </summary>
-    public interface IUpdateInstaller
+    bool Allowed { get; }
+    bool RequestPermission();
+    bool Prepare(UpdateInfo update, Action<float>? progress, out string error);
+    bool Install(out string error);
+    bool ExitAfterInstall { get; }
+    Action<bool, string>? Finished { get; set; }
+
+    Task<UpdatePrepareResult> PrepareAsync(UpdateInfo update,
+        IProgress<UpdateProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
-        /// <summary>
-        /// Whether the platform will let this happen at all yet. False is not
-        /// a failure: on a phone it means the player has to allow this app as
-        /// an install source, once.
-        /// </summary>
-        bool Allowed { get; }
-
-        /// <summary>
-        /// Send the player to wherever that is granted. Nothing can wait for
-        /// the answer, so the caller leaves its button pressable.
-        /// </summary>
-        bool RequestPermission();
-
-        /// <summary>
-        /// Fetch the release's package and get as far as the point of no
-        /// return without crossing it. Reports 0 to 1, or -1 while the size is
-        /// unknown. Runs off the UI thread.
-        /// </summary>
-        bool Prepare(UpdateInfo update, Action<float>? progress, out string error);
-
-        /// <summary>
-        /// Cross it. Returns whether the swap was *started*: on a phone what
-        /// the player then chooses arrives at <see cref="Finished"/>, and on a
-        /// desktop the work happens in another process after this one exits.
-        /// </summary>
-        bool Install(out string error);
-
-        /// <summary>
-        /// Whether the caller must now close the program.
-        ///
-        /// True on a desktop, where the copying process is waiting for this
-        /// one to be gone before it touches anything. False on a phone, where
-        /// the system kills the app itself as it replaces it -- and where
-        /// quitting early would take the screen away before the player has
-        /// answered the install dialog.
-        /// </summary>
-        bool ExitAfterInstall { get; }
-
-        /// <summary>Told how it went, on the UI thread. Only ever on failure.</summary>
-        Action<bool, string>? Finished { get; set; }
+        return Task.Run(() =>
+        {
+            bool ok = Prepare(update,
+                fraction => progress?.Report(new UpdateProgress(
+                    fraction < 0 ? 0 : Math.Max(0, (long)(fraction * 1000)),
+                    fraction < 0 ? 0 : 1000)), out string error);
+            return new UpdatePrepareResult(ok, ok ? null : error);
+        }, cancellationToken);
     }
 
-    /// <summary>The installer this build has, or null. Set by the platform head.</summary>
-    public static class UpdateInstall
+    Task<UpdateInstallResult> InstallAsync(CancellationToken cancellationToken = default)
     {
-        public static IUpdateInstaller? Current { get; set; }
+        cancellationToken.ThrowIfCancellationRequested();
+        bool started = Install(out string error);
+        return Task.FromResult(new UpdateInstallResult(started, ExitAfterInstall,
+            started ? null : error));
+    }
+}
 
-        /// <summary>
-        /// Whether the front screen should offer to fetch and install rather
-        /// than to open a page: a platform that can, and a release that
-        /// actually published a file for it.
-        /// </summary>
-        public static bool CanInstall(UpdateInfo update) =>
-            Current != null && update.AssetUrl.Length > 0;
-
-        /// <summary>
-        /// Install the desktop one if this build can use it.
-        ///
-        /// Called once at startup rather than set from a platform head,
-        /// because there is no desktop head: the same assembly is the Windows,
-        /// Linux and macOS program, and the only question is whether this copy
-        /// sits somewhere it may write to. The Android head overwrites this
-        /// with its own.
-        /// </summary>
-        public static void UseDesktopIfPossible()
+/// <summary>The single platform installer registration point.</summary>
+public static class UpdateInstall
+{
+    private static IUpdateInstaller? _current;
+    public static IUpdateInstaller? Current
+    {
+        get => _current;
+        set
         {
-            if (Current == null && DesktopUpdate.Supported)
-            {
-                Current = new DesktopUpdateInstaller();
-            }
+            _current = value;
+            if (UpdateCoordinator.IsCreated)
+                UpdateCoordinator.Shared.Installer = value;
         }
     }
 
-    /// <summary>The desktop's half. See <see cref="DesktopUpdate"/>.</summary>
-    internal sealed class DesktopUpdateInstaller : IUpdateInstaller
+    public static bool CanInstall(UpdateInfo update) =>
+        Current != null && (update.PackageUri != null || update.AssetUrl.Length > 0);
+
+    public static void UseDesktopIfPossible()
     {
-        /// <summary>Nothing to ask for: it is this user's own directory.</summary>
-        public bool Allowed => true;
+        if (Current == null && DesktopUpdate.Supported)
+            Current = new DesktopUpdateInstaller();
+    }
+}
 
-        public bool RequestPermission() => true;
+internal sealed class DesktopUpdateInstaller : IUpdateInstaller
+{
+    public bool Allowed => true;
+    public bool RequestPermission() => true;
+    public bool ExitAfterInstall => true;
+    public Action<bool, string>? Finished { get; set; }
 
-        public bool ExitAfterInstall => true;
+    public bool Prepare(UpdateInfo update, Action<float>? progress, out string error)
+    {
+        bool ok = DesktopUpdate.Stage(update, progress);
+        error = ok ? "" : DesktopUpdate.LastError ?? "the package could not be staged";
+        return ok;
+    }
 
-        public Action<bool, string>? Finished { get; set; }
+    public async Task<UpdatePrepareResult> PrepareAsync(UpdateInfo update,
+        IProgress<UpdateProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        bool ok = await DesktopUpdate.StageAsync(update, progress, cancellationToken)
+            .ConfigureAwait(false);
+        return new UpdatePrepareResult(ok,
+            ok ? null : DesktopUpdate.LastError ?? "the package could not be staged");
+    }
 
-        public bool Prepare(UpdateInfo update, Action<float>? progress, out string error)
-        {
-            bool ok = DesktopUpdate.Stage(update, progress);
-            error = ok ? "" : DesktopUpdate.LastError ?? "the download failed";
-            return ok;
-        }
+    public bool Install(out string error)
+    {
+        bool ok = DesktopUpdate.Launch();
+        error = ok ? "" : DesktopUpdate.LastError ?? "the update could not be started";
+        return ok;
+    }
 
-        public bool Install(out string error)
-        {
-            bool ok = DesktopUpdate.Launch();
-            error = ok ? "" : DesktopUpdate.LastError ?? "the update could not be started";
-            return ok;
-        }
+    public Task<UpdateInstallResult> InstallAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        bool ok = Install(out string error);
+        return Task.FromResult(new UpdateInstallResult(ok, ExitAfterInstall,
+            ok ? null : error));
     }
 }

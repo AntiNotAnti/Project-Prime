@@ -1,156 +1,190 @@
 using System;
 using System.IO;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Threading;
+using System.Threading.Tasks;
 
-namespace MphRead.Mods.Update
+namespace MphRead.Mods.Update;
+
+public sealed record UpdateProgress(long BytesReceived, long TotalBytes)
 {
-    /// <summary>
-    /// Fetch a release asset to a file, reporting how far along it is.
-    ///
-    /// Only ever the address GitHub itself answered with -- see
-    /// <see cref="UpdateInfo.AssetUrl"/>, which is copied out of the release
-    /// rather than built from the tag -- and only ever over https. Both are
-    /// checked again here, because this is the one place in the program that
-    /// writes a file somebody else chose the contents of.
-    /// </summary>
-    public static class UpdateDownload
+    public double Fraction => TotalBytes > 0
+        ? Math.Min(1d, BytesReceived / (double)TotalBytes) : -1d;
+}
+
+public sealed record DownloadResult(
+    bool Success,
+    string Destination,
+    long BytesReceived,
+    string? Error)
+{
+    public bool Cancelled => String.Equals(Error, "cancelled", StringComparison.Ordinal);
+}
+
+/// <summary>
+/// Bounded, hash-verifying streaming download for signed release packages.
+/// </summary>
+public static class UpdateDownload
+{
+    public const long MaxPackageBytes = UpdateManifestValidator.MaxPackageBytes;
+
+    /// <summary>Compatibility diagnostic for old launcher callers.</summary>
+    public static string? LastError { get; private set; }
+
+    public static Task<DownloadResult> DownloadAsync(UpdatePackage package, Uri source,
+        string destination, IProgress<UpdateProgress>? progress = null,
+        CancellationToken cancellationToken = default, HttpMessageHandler? handler = null)
     {
-        /// <summary>GitHub's asset downloads redirect to this.</summary>
-        private const string _assetHost = "objects.githubusercontent.com";
+        return DownloadCoreAsync(package, source, destination, progress,
+            cancellationToken, handler);
+    }
 
-        private const string _releaseHost = "github.com";
-
-        /// <summary>
-        /// Long enough for a 45 MB APK on a bad connection, and bounded so a
-        /// stalled socket does not leave a screen saying "downloading" for the
-        /// rest of the session.
-        /// </summary>
-        private static readonly TimeSpan _timeout = TimeSpan.FromMinutes(10);
-
-        /// <summary>Why the last attempt produced nothing.</summary>
-        public static string? LastError { get; private set; }
-
-        /// <summary>
-        /// Fetch <paramref name="url"/> to <paramref name="path"/>, and return
-        /// whether the file is now there and complete.
-        ///
-        /// Written to a neighbouring ".part" and renamed only once the whole
-        /// body has arrived, so a download interrupted half way can never be
-        /// mistaken for a package: the installer is handed a path that either
-        /// does not exist or is whole.
-        /// </summary>
-        /// <param name="progress">0 to 1, or -1 while the length is unknown.</param>
-        public static bool Fetch(string url, string path, long expectedBytes = 0,
-            Action<float>? progress = null, CancellationToken cancel = default)
+    public static Task<DownloadResult> DownloadAsync(UpdatePackage package, string source,
+        string destination, IProgress<UpdateProgress>? progress = null,
+        CancellationToken cancellationToken = default, HttpMessageHandler? handler = null)
+    {
+        if (!Uri.TryCreate(source, UriKind.Absolute, out Uri? uri))
         {
+            return Task.FromResult(new DownloadResult(false, destination, 0,
+                "the download address is invalid"));
+        }
+        return DownloadAsync(package, uri, destination, progress, cancellationToken, handler);
+    }
+
+    /// <summary>
+    /// Legacy facade retained for existing Android/launcher code. New paths
+    /// use the asynchronous manifest overload.
+    /// </summary>
+    public static bool Fetch(string url, string path, long expectedBytes = 0,
+        Action<float>? progress = null, CancellationToken cancel = default)
+    {
+        LastError = null;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? source))
+        {
+            LastError = "the download address is invalid";
+            return false;
+        }
+        var package = new UpdatePackage(RuntimePlatform.Rid(),
+            Path.GetFileName(source.AbsolutePath), expectedBytes > 0 ? expectedBytes : MaxPackageBytes,
+            new string('0', 64));
+        try
+        {
+            DownloadResult result = DownloadCoreAsync(package, source, path,
+                new Progress<UpdateProgress>(value => progress?.Invoke(
+                    value.TotalBytes > 0 ? (float)value.Fraction : -1f)),
+                cancel, handler: null, verifyHash: false).GetAwaiter().GetResult();
+            LastError = result.Error;
+            return result.Success;
+        }
+        catch (OperationCanceledException)
+        {
+            LastError = "cancelled";
+            return false;
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    private static async Task<DownloadResult> DownloadCoreAsync(UpdatePackage package,
+        Uri source, string destination, IProgress<UpdateProgress>? progress,
+        CancellationToken cancellationToken, HttpMessageHandler? handler,
+        bool verifyHash = true)
+    {
+        string partial = destination + ".part";
+        long received = 0;
+        try
+        {
+            UpdateManifestValidator.Validate(new UpdateManifest(1, "stable", "1.0.0",
+                new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), [package]));
+            if (!UpdateTransport.IsAllowedUri(source))
+                return Failure(destination, "the download address is not an allowed HTTPS host");
+            if (package.Size <= 0 || package.Size > MaxPackageBytes)
+                return Failure(destination, "package size is outside the allowed bounds");
+            bool expectedLength = verifyHash || package.Size != MaxPackageBytes;
+            string? parent = Path.GetDirectoryName(destination);
+            if (!String.IsNullOrEmpty(parent)) Directory.CreateDirectory(parent);
+            TryDeletePartial(partial);
+
+            using HttpClient client = UpdateTransport.CreateClient(handler, out _);
+            using HttpResponseMessage response = await UpdateTransport.SendFollowingRedirectsAsync(
+                client, source, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                return Failure(destination, $"update host returned {(int)response.StatusCode}");
+            long? contentLength = response.Content.Headers.ContentLength;
+            if (contentLength is <= 0 or > MaxPackageBytes)
+                return Failure(destination, "download length is outside the allowed bounds");
+            if (expectedLength && contentLength.HasValue && contentLength.Value != package.Size)
+                return Failure(destination, "download length does not match the signed package");
+
+            await using Stream input = await response.Content.ReadAsStreamAsync(cancellationToken)
+                .ConfigureAwait(false);
+            await using var output = new FileStream(partial, FileMode.CreateNew,
+                FileAccess.Write, FileShare.None, 64 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            byte[] buffer = new byte[64 * 1024];
+            while (true)
+            {
+                int read = await input.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+                if (read == 0) break;
+                cancellationToken.ThrowIfCancellationRequested();
+                received += read;
+                if (received > MaxPackageBytes || (expectedLength && received > package.Size))
+                    return Failure(destination, "download exceeded the signed package size", received);
+                await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken)
+                    .ConfigureAwait(false);
+                hash.AppendData(buffer, 0, read);
+                progress?.Report(new UpdateProgress(received,
+                    expectedLength ? package.Size : contentLength ?? 0));
+            }
+            if (expectedLength && received != package.Size)
+                return Failure(destination, "the download ended before the signed length", received);
+            if (verifyHash)
+            {
+                byte[] actual = hash.GetHashAndReset();
+                if (!CryptographicOperations.FixedTimeEquals(actual,
+                    Convert.FromHexString(package.Sha256)))
+                    return Failure(destination, "download SHA-256 does not match the signed package", received);
+            }
+            await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+            output.Flush(flushToDisk: true);
+            File.Move(partial, destination, overwrite: true);
+            progress?.Report(new UpdateProgress(received,
+                expectedLength ? package.Size : contentLength ?? received));
             LastError = null;
-            if (!IsAllowed(url))
-            {
-                LastError = "that download address is not GitHub's";
-                return false;
-            }
-            string partial = path + ".part";
-            try
-            {
-                string? directory = Path.GetDirectoryName(path);
-                if (!String.IsNullOrEmpty(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
-                using var client = new HttpClient { Timeout = _timeout };
-                client.DefaultRequestHeaders.Add("User-Agent",
-                    $"{Mods.Branding.FileName}/{BuildVersion.Display}");
-                // SyncHttp rather than client.Send: the synchronous one does
-                // not exist on Android's handler, which is the one platform
-                // that fetches the package itself. See SyncHttp.
-                using HttpResponseMessage response = SyncHttp.Send(client,
-                    new HttpRequestMessage(HttpMethod.Get, url),
-                    HttpCompletionOption.ResponseHeadersRead, cancel);
-                if (!response.IsSuccessStatusCode)
-                {
-                    LastError = $"GitHub answered {(int)response.StatusCode}";
-                    return false;
-                }
-                long total = response.Content.Headers.ContentLength ?? expectedBytes;
-                // ReadAsStreamAsync for the same reason as the send above:
-                // the synchronous reads on HttpContent are the ones a handler
-                // may not have implemented.
-                using (Stream source = response.Content
-                    .ReadAsStreamAsync(cancel).GetAwaiter().GetResult())
-                using (var target = new FileStream(partial, FileMode.Create,
-                    FileAccess.Write, FileShare.None))
-                {
-                    byte[] buffer = new byte[64 * 1024];
-                    long done = 0;
-                    int read;
-                    while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
-                    {
-                        cancel.ThrowIfCancellationRequested();
-                        target.Write(buffer, 0, read);
-                        done += read;
-                        progress?.Invoke(total > 0 ? Math.Min(1f, (float)(done / (double)total)) : -1f);
-                    }
-                    if (total > 0 && done != total)
-                    {
-                        LastError = "the download ended early";
-                        return false;
-                    }
-                }
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                }
-                File.Move(partial, path);
-                progress?.Invoke(1f);
-                return true;
-            }
-            catch (OperationCanceledException)
-            {
-                LastError = "cancelled";
-                return false;
-            }
-            catch (Exception ex)
-            {
-                LastError = ex.Message;
-                return false;
-            }
-            finally
-            {
-                try
-                {
-                    if (File.Exists(partial))
-                    {
-                        File.Delete(partial);
-                    }
-                }
-                catch (IOException)
-                {
-                    // A leftover .part is litter, not a failure.
-                }
-            }
+            return new DownloadResult(true, destination, received, null);
         }
-
-        /// <summary>
-        /// https, and one of GitHub's own hosts.
-        ///
-        /// The address always comes from a release GitHub just answered with,
-        /// so this cannot normally fail -- which is exactly why it is worth
-        /// having: the one thing that would make it fail is a response that
-        /// did not come from where it claimed to.
-        /// </summary>
-        private static bool IsAllowed(string url)
+        catch (OperationCanceledException)
         {
-            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? parsed)
-                || parsed.Scheme != Uri.UriSchemeHttps)
-            {
-                return false;
-            }
-            string host = parsed.Host;
-            return host.Equals(_releaseHost, StringComparison.OrdinalIgnoreCase)
-                || host.Equals(_assetHost, StringComparison.OrdinalIgnoreCase)
-                || host.EndsWith("." + _releaseHost, StringComparison.OrdinalIgnoreCase)
-                || host.EndsWith(".githubusercontent.com", StringComparison.OrdinalIgnoreCase);
+            return Failure(destination, "cancelled", received);
         }
+        catch (Exception ex)
+        {
+            return Failure(destination, ex.Message, received);
+        }
+        finally
+        {
+            TryDeletePartial(partial);
+        }
+    }
+
+    private static DownloadResult Failure(string destination, string message, long received = 0)
+    {
+        LastError = message;
+        return new DownloadResult(false, destination, received, message);
+    }
+
+    private static void TryDeletePartial(string partial)
+    {
+        try
+        {
+            if (File.Exists(partial)) File.Delete(partial);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 }
