@@ -12,6 +12,7 @@ using MphRead.Mods.Render;
 using SDL;
 using Xunit;
 
+[Collection("Match baseline globals")]
 public sealed class RendererModernizationTests
 {
     [Fact]
