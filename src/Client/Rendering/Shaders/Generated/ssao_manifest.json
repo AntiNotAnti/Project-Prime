@@ -11,7 +11,7 @@
       "entrypoint": "main_ps",
       "format": "MSL",
       "path": "ssao.frag.msl",
-      "sha256": "07390cbde9fc75d464543abb71fe370619b9c12564af54bef2dd01e54f0e61a2",
+      "sha256": "77744c6461824ad10e62e96d1e40a22377f1e3d2452ea6a04969dd176fa1071c",
       "stage": "fragment"
     },
     "fragment_spirv": {
@@ -32,7 +32,7 @@
       "entrypoint": "main_vs",
       "format": "MSL",
       "path": "ssao.vert.msl",
-      "sha256": "5e3ae1bc49d3dcf504737096dee92aced384c60c5a2199c234baf70673586f7b",
+      "sha256": "1c2c4d12136c69bf69423893dfb2058301f3ceb969aed072c5cc57d29b574710",
       "stage": "vertex"
     },
     "vertex_spirv": {

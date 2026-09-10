@@ -196,4 +196,3 @@ fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_SkyConsta
     out.out_var_SV_Target0 = _314;
     return out;
 }
-

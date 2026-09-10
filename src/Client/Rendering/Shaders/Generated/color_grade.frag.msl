@@ -30,4 +30,3 @@ fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_ColorGrad
     out.out_var_SV_Target0 = float4(mix(_45, mix(lutTexture.sample(lutSampler, (float2(((_48 * 16.0) + _56) + 0.5, _60) * float2(0.00390625, 0.0625))).xyz, lutTexture.sample(lutSampler, (float2(((precise::min(_48 + 1.0, 15.0) * 16.0) + _56) + 0.5, _60) * float2(0.00390625, 0.0625))).xyz, float3(fract(_47))), float3(fast::clamp(ColorGradeConstants.colorGradeOptions.x, 0.0, 1.0))), _43.w);
     return out;
 }
-

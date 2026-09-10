@@ -104,9 +104,9 @@ generate() {
   fi
   if [[ "$destination" == "MSL" ]]; then
     # SDL_shadercross may emit whitespace-only indentation on otherwise empty
-    # lines. Normalize it before hashing so regenerated artifacts remain clean
-    # under git diff --check without changing shader semantics.
-    perl -pi -e 's/[ \t]+$//' "$output"
+    # lines and extra blank lines at EOF. Normalize to one terminating newline
+    # before hashing so artifacts pass git diff --check without semantic changes.
+    perl -0777 -pi -e 's/[ \t]+$//mg; s/\n*\z/\n/' "$output"
   fi
 }
 

@@ -49,4 +49,3 @@ fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_Fullscree
     out.out_var_SV_Target0 = sourceTexture.sample(sourceSampler, fast::clamp(in.in_var_TEXCOORD0 + _53, float2(0.0), float2(1.0)));
     return out;
 }
-

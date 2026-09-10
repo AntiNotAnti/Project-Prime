@@ -11,7 +11,7 @@
       "entrypoint": "main_ps",
       "format": "MSL",
       "path": "hud.frag.msl",
-      "sha256": "adc3c2f6c26675283f8ef170b31133f3a81514ba2d11239ba7339f3df852f379",
+      "sha256": "8573aaa00822b67cf3f00a1caaa8ed67dae6e2901c34d4935a985799f9919748",
       "stage": "fragment"
     },
     "fragment_spirv": {
@@ -32,7 +32,7 @@
       "entrypoint": "main_vs",
       "format": "MSL",
       "path": "hud.vert.msl",
-      "sha256": "5c1edd59756c4261fa20b5a7b061628ff8796fb9b75269f68b53c729bce1f1f3",
+      "sha256": "21300327b0450ec47d25f5a36ad8916e0d0948cda91e11f30ec9242f1181dbb2",
       "stage": "vertex"
     },
     "vertex_spirv": {

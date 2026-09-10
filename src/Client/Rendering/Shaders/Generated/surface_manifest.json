@@ -11,7 +11,7 @@
       "entrypoint": "main_ps",
       "format": "MSL",
       "path": "surface.frag.msl",
-      "sha256": "987e62814fc1e0606896cccae9414e7f0e84b624e309feae086919c173ea2e46",
+      "sha256": "cee6451aea03367594570b66a797e66e4200b9d63b05042a8e48708ecc3a0d15",
       "stage": "fragment"
     },
     "fragment_spirv": {
@@ -32,7 +32,7 @@
       "entrypoint": "main_vs",
       "format": "MSL",
       "path": "surface.vert.msl",
-      "sha256": "f2e398a635308ad3c310dffa97ddaf98a4a8ab3b320d276042ad2428ae5fce31",
+      "sha256": "040f12c5dd0d7bd95adcd973fb3885f0badc69381b767ffafe1a8ba40c487343",
       "stage": "vertex"
     },
     "vertex_spirv": {

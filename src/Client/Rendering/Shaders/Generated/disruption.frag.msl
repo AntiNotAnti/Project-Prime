@@ -92,4 +92,3 @@ fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_Disruptio
     out.out_var_SV_Target0 = _138;
     return out;
 }
-

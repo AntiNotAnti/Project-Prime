@@ -129,4 +129,3 @@ fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_Fullscree
     out.out_var_SV_Target0 = _150;
     return out;
 }
-

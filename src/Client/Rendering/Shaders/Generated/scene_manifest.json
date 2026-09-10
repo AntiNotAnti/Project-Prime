@@ -8,7 +8,7 @@
     "fragment_msl": {
       "format": "MSL",
       "path": "scene.frag.msl",
-      "sha256": "692137277001389577c9ee4f51644c8dceb378e5d73a2a5e7bdf4c5175c63410"
+      "sha256": "6c43cf360f0b994f8b3a0db2c67d75806849ef25843130ff3068e30d2bd54b8c"
     },
     "fragment_spirv": {
       "format": "SPIRV",
@@ -23,7 +23,7 @@
     "vertex_msl": {
       "format": "MSL",
       "path": "scene.vert.msl",
-      "sha256": "8aeaf5d3c9d2c07bf2719228239630bce07368b067235fac334d2c8c69eff226"
+      "sha256": "ca410ad49a48887f69778681255cfb22ffd946633b570cf0d7a10a0a20cb200b"
     },
     "vertex_spirv": {
       "format": "SPIRV",

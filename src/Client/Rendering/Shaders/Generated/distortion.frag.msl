@@ -27,4 +27,3 @@ fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_Distortio
     out.out_var_SV_Target0 = fast::clamp((float2(sin(_39 + cos(_40 * 0.699999988079071044921875)), cos(_40 - sin(_39 * 0.800000011920928955078125))) * DistortionConstants.distortionOptions.x) * (0.3499999940395355224609375 + (0.64999997615814208984375 * powr(fast::clamp(length((in.in_var_TEXCOORD0 * 2.0) - float2(1.0)), 0.0, 1.0), precise::max(DistortionConstants.distortionOptions.y, 1.0)))), float2(-DistortionConstants.distortionOptions.x), float2(DistortionConstants.distortionOptions.x));
     return out;
 }
-

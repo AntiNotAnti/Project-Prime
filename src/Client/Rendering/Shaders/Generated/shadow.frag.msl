@@ -115,4 +115,3 @@ fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_DrawConst
     out.gl_FragDepth = gl_FragCoord.z;
     return out;
 }
-

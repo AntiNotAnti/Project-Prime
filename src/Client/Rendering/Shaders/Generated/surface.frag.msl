@@ -270,4 +270,3 @@ fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_DrawConst
     out.out_var_SV_Target0 = float4((_305 * 0.5) + float2(0.5), precise::max(in.in_var_TEXCOORD7, 0.0), fast::clamp(DrawConstants.specular.w, 0.0, 1.0));
     return out;
 }
-

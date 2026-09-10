@@ -22,4 +22,3 @@ vertex main_vs_out main_vs(main_vs_in in [[stage_in]])
     out.out_var_TEXCOORD0 = in.in_var_TEXCOORD1;
     return out;
 }
-

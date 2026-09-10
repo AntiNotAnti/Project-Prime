@@ -50,4 +50,3 @@ vertex main_vs_out main_vs(main_vs_in in [[stage_in]], constant type_FrameConsta
     out.out_var_TEXCOORD0 = (float4(in.in_var_TEXCOORD3, 0.0, 1.0) * DrawConstants.texcoordMatrix).xy;
     return out;
 }
-

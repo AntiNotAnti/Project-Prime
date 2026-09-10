@@ -25,4 +25,3 @@ vertex main_vs_out main_vs(uint gl_VertexIndex [[vertex_id]])
     out.out_var_TEXCOORD0 = float2((_35.x * 0.5) + 0.5, 0.5 - (_35.y * 0.5));
     return out;
 }
-

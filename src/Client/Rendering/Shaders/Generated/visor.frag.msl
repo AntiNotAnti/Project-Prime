@@ -77,4 +77,3 @@ fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_VisorCons
     out.out_var_SV_Target0 = float4(precise::max(_230, float3(0.0)), _146.w);
     return out;
 }
-

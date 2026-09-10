@@ -74,4 +74,3 @@ fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_ToneMapCo
     out.out_var_SV_Target0 = float4(_116, fast::clamp(_52.w, 0.0, 1.0));
     return out;
 }
-

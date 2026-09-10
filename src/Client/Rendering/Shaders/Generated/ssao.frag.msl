@@ -334,4 +334,3 @@ fragment main_ps_out main_ps(main_ps_in in [[stage_in]], constant type_SsaoConst
     out.out_var_SV_Target0 = float4(_490, _490, _490, 1.0);
     return out;
 }
-

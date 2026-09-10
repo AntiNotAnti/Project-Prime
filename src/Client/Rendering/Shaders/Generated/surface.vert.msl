@@ -166,4 +166,3 @@ vertex main_vs_out main_vs(main_vs_in in [[stage_in]], constant type_FrameConsta
     out.out_var_TEXCOORD7 = precise::max(-_97.z, 0.0);
     return out;
 }
-

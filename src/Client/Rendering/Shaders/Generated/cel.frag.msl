@@ -267,4 +267,3 @@ fragment main_ps_out main_ps(constant type_CelConstants& CelConstants [[buffer(0
     out.out_var_SV_Target0 = _444;
     return out;
 }
-
