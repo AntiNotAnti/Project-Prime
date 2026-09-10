@@ -159,6 +159,9 @@ namespace MphRead.Mods.Launcher.Gui
             IReadOnlyList<string> rooms = Array.Empty<string>();
 
             HomeWindow? persistentWindow = null;
+            // Native window, GPU device and device caches belong to this GUI session.
+            // MatchStart consumes only the per-round scene on a supplied host.
+            SdlGameHost? persistentHost = null;
             var coordinator = new ClientSessionCoordinator();
             MatchRunResult? lastResult = null;
             try
@@ -202,9 +205,16 @@ namespace MphRead.Mods.Launcher.Gui
                     try
                     {
                         coordinator.BeginLaunch();
+                        if (!ClassicUi) persistentHost ??= new SdlGameHost(showWindow: false);
                         lastResult = MatchStart.Run(settings, plan, coordinator.NotifyMatchStarted,
                             persistentWindow == null ? null : (results, pump) =>
-                                persistentWindow.PresentResults(results, pump));
+                                persistentWindow.PresentResults(results, pump), persistentHost);
+                        coordinator.NotifyMatchEnded(lastResult);
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLog.Exception("match", ex);
+                        lastResult = new MatchRunResult(MatchExitReason.FailedToStart, Message: ex.Message);
                         coordinator.NotifyMatchEnded(lastResult);
                     }
                     finally
@@ -223,7 +233,7 @@ namespace MphRead.Mods.Launcher.Gui
                     }
                 }
             }
-            finally { coordinator.Quit(); if (persistentWindow is { IsClosed: false }) persistentWindow.Close(); }
+            finally { persistentHost?.Dispose(); coordinator.Quit(); if (persistentWindow is { IsClosed: false }) persistentWindow.Close(); }
         }
 
         /// <summary>

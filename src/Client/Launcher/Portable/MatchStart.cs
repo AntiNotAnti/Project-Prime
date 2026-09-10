@@ -8,8 +8,9 @@ namespace MphRead.Mods.Launcher
     public static class MatchStart
     {
         public static MatchRunResult Run(MenuSettings settings, LaunchPlan plan, Action? started = null,
-            Func<MatchResultsSnapshot?, Func<bool>, MatchResultsPresentationResult>? presentResults = null)
+            Func<MatchResultsSnapshot?, Func<bool>, MatchResultsPresentationResult>? presentResults = null, SdlGameHost? host = null)
         {
+            SdlGameHost? ownedHost = null;
             bool didStart = false;
             MatchResultsSnapshot? results = null;
             MatchResultsPresentationResult? presentationResult = null;
@@ -17,7 +18,9 @@ namespace MphRead.Mods.Launcher
             Guid? matchId = play?.NodeMatchId ?? NodeSessions.Current?.State.JoinedMatchId;
             try
             {
-                RunCore(settings, plan, () => { didStart = true; started?.Invoke(); }, (value, pump) =>
+                host ??= ownedHost = new SdlGameHost(showWindow: false);
+                if (host.CloseRequested) return new MatchRunResult(MatchExitReason.QuitApplication, matchId);
+                RunCore(settings, plan, host, () => { didStart = true; started?.Invoke(); }, (value, pump) =>
                 {
                     results = value;
                     // Present over the still-live SDL scene before shell return.
@@ -29,7 +32,7 @@ namespace MphRead.Mods.Launcher
                     return new MatchRunResult(MatchExitReason.QuitApplication, matchId, Results: results);
                 if (presentationResult?.Failure is { } failure)
                     return new MatchRunResult(MatchExitReason.Disconnected, matchId, failure, results);
-                return new MatchRunResult(MatchRunResult.Classify(didStart, PauseMenu.QuitProgram || presentationResult?.QuitApplication == true, PauseMenu.LeftMatch,
+                return new MatchRunResult(MatchRunResult.Classify(didStart, PauseMenu.QuitProgram || host?.CloseRequested == true || presentationResult?.QuitApplication == true, PauseMenu.LeftMatch,
                     play?.State == AuthoritativePlay.TerminalState.Completed || plan.Kind == LaunchKind.Demo,
                     play?.Interrupted == true, play?.Client.Failure != null, false), matchId,
                     play?.Interrupted == true ? "The server interrupted the match. Return to your lobby and try again." : null, results);
@@ -37,12 +40,13 @@ namespace MphRead.Mods.Launcher
             catch (Exception ex)
             {
                 DebugLog.Exception("match", ex);
-                return new MatchRunResult(MatchRunResult.Classify(didStart, PauseMenu.QuitProgram || presentationResult?.QuitApplication == true, PauseMenu.LeftMatch,
+                return new MatchRunResult(MatchRunResult.Classify(didStart, PauseMenu.QuitProgram || host?.CloseRequested == true || presentationResult?.QuitApplication == true, PauseMenu.LeftMatch,
                     false, play?.Interrupted == true, play?.Client.Failure != null, true), matchId, ex.Message, results);
             }
+            finally { ownedHost?.Dispose(); }
         }
 
-        private static void RunCore(MenuSettings settings, LaunchPlan plan, Action started, Action<MatchResultsSnapshot?, Func<bool>> capture)
+        private static void RunCore(MenuSettings settings, LaunchPlan plan, SdlGameHost host, Action started, Action<MatchResultsSnapshot?, Func<bool>> capture)
         {
             plan.Validate();
             if (plan.Kind != LaunchKind.Demo && AuthoritativePlay.Current == null)
@@ -66,7 +70,7 @@ namespace MphRead.Mods.Launcher
                 MapGen.MapPreparation.GenerateMissing();
                 if (plan.Kind == LaunchKind.Demo)
                 {
-                    LaunchDemo(plan, started, capture);
+                    LaunchDemo(plan, host, started, capture);
                     return;
                 }
                 var room = NetLaunch.ServerRoom()
@@ -78,7 +82,7 @@ namespace MphRead.Mods.Launcher
                 }
                 settings.RoomKey = room.RoomKey;
                 var scene = new Scene(features: ClientMatchFeatures.Capture());
-                using var sdlHost = new SdlGameHost();
+                var sdlHost = host;
                 sdlHost.RunScene(scene, presentation =>
                 {
                     // RunScene creates ScenePresentation before this callback,
@@ -87,7 +91,8 @@ namespace MphRead.Mods.Launcher
                     NetLaunch.BuildPlayers(scene, plan.Hunter, localRecolor: 0);
                     presentation.AddRoom(room.RoomKey, room.Mode,
                         playerCount: NetLaunch.RoomPlayerCount);
-                }, () => capture(scene.Match.Result is { } result ? new(room.RoomKey, room.Mode, result) : null, sdlHost.PumpResultsEvents), started);
+                }, () => capture(scene.Match.Result is { } result ? new(room.RoomKey, room.Mode, result) : null, sdlHost.PumpResultsEvents), started,
+                    () => AuthoritativePlay.Current?.PumpSceneCompletion(scene, sdlHost) == true);
             }
             finally
             {
@@ -96,7 +101,7 @@ namespace MphRead.Mods.Launcher
             }
         }
 
-        private static void LaunchDemo(LaunchPlan plan, Action started, Action<MatchResultsSnapshot?, Func<bool>> capture)
+        private static void LaunchDemo(LaunchPlan plan, SdlGameHost host, Action started, Action<MatchResultsSnapshot?, Func<bool>> capture)
         {
             try
             {
@@ -110,7 +115,7 @@ namespace MphRead.Mods.Launcher
                     throw new InvalidOperationException("The demo has no match info.");
                 }
                 var scene = new Scene(features: ClientMatchFeatures.Capture());
-                using var sdlHost = new SdlGameHost();
+                var sdlHost = host;
                 sdlHost.RunScene(scene, presentation =>
                 {
                     NetLaunch.BuildPlayers(scene, Hunter.Samus, localRecolor: 0,

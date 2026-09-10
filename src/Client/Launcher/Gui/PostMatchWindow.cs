@@ -87,7 +87,7 @@ internal sealed class PostMatchWindow : Window
         _timer.Start();
         Dispatcher.UIThread.PushFrame(_frame);
         _frame = null;
-        _pump = null; // The old SDL host will now be disposed; never call it again.
+        _pump = null; // The completed scene will now be cleaned; stop its Results event pump.
         if (Transition != PostMatchTransition.Continue && !_closed) Close();
         return Transition;
     }

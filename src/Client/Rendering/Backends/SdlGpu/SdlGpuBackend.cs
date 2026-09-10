@@ -136,6 +136,11 @@ namespace MphRead
                 return false;
             }
 
+            // Own the command buffer before swapchain acquisition and resize work.
+            // If checked dimensions or resource recreation throws, EndScene must
+            // still be able to retire it before this persistent device is reused.
+            _commandBuffer = commandBuffer;
+            _swapchainAcquireSucceeded = false;
             SDL_GPUTexture* swapchainTexture = null;
             uint width = 0;
             uint height = 0;
@@ -144,6 +149,7 @@ namespace MphRead
             if (!acquired)
             {
                 SDL3.SDL_CancelGPUCommandBuffer(commandBuffer);
+                _commandBuffer = null;
                 return false;
             }
             _swapchainAcquireSucceeded = true;
@@ -156,7 +162,10 @@ namespace MphRead
                 SubmitEmpty(commandBuffer);
                 return false;
             }
-            if (width != (uint)_framebufferSize.X || height != (uint)_framebufferSize.Y)
+            // Resource dimensions remain unchanged when allocation fails. Compare
+            // those as well so the next scene retries after a failed resize.
+            if (width != (uint)_framebufferSize.X || height != (uint)_framebufferSize.Y
+                || width != (uint)_finalCompositeWidth || height != (uint)_finalCompositeHeight)
             {
                 _framebufferSize = new Vector2i(checked((int)width), checked((int)height));
                 RecreateFinalComposite();
@@ -181,6 +190,7 @@ namespace MphRead
         private void SubmitEmpty(SDL_GPUCommandBuffer* commandBuffer)
         {
             SDL_GPUFence* fence = SDL3.SDL_SubmitGPUCommandBufferAndAcquireFence(commandBuffer);
+            if (_commandBuffer == commandBuffer) _commandBuffer = null;
             _swapchainAcquireSucceeded = false;
             if (fence != null)
             {
@@ -519,6 +529,46 @@ namespace MphRead
             _finalComposite = replacement;
             _finalCompositeWidth = _framebufferSize.X;
             _finalCompositeHeight = _framebufferSize.Y;
+        }
+
+        /// <summary>Retires interrupted frame work before the next scene uses this device.</summary>
+        internal void EndScene()
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_commandBuffer != null)
+            {
+                if (_swapchainAcquireSucceeded)
+                {
+                    // Acquired swapchains must be submitted, even if scene rendering threw.
+                    SDL_GPUFence* fence = SDL3.SDL_SubmitGPUCommandBufferAndAcquireFence(_commandBuffer);
+                    _commandBuffer = null;
+                    if (fence != null)
+                    {
+                        SdlGpuFenceLease lease = _device.FrameResources.CommitFence(fence);
+                        try { _readback.CommitSubmission(lease); }
+                        finally { lease.Release(); }
+                    }
+                    else
+                    {
+                        _sceneResources?.InvalidatePendingUploads();
+                        _readback.DiscardUnsubmitted();
+                    }
+                }
+                else
+                {
+                    SDL3.SDL_CancelGPUCommandBuffer(_commandBuffer);
+                    _commandBuffer = null;
+                    _sceneResources?.InvalidatePendingUploads();
+                    _readback.DiscardUnsubmitted();
+                }
+            }
+            _currentFrame = null;
+            _swapchainTexture = null;
+            _swapchainAcquireSucceeded = false;
+            foreach (CaptureScheduleFailure failure in _captureFailures)
+                _readback.ReportFailure(new RenderCaptureFailure(failure.Request, failure.Error));
+            _captureFailures.Clear();
+            FlushCaptures();
         }
 
         public void Dispose()

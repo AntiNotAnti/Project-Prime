@@ -107,7 +107,7 @@ namespace MphRead
         private SDL_Window* _window;
         private readonly SDL_WindowID _windowId;
         private readonly GameWindowFrameLoop _frameLoop = new();
-        private readonly SdlFramePacer _framePacer = new();
+        private SdlFramePacer _framePacer = new();
         private readonly HashSet<int> _keys = new();
         private readonly HashSet<int> _mouseButtons = new();
         private readonly List<WindowKeyEvent> _keyEvents = new();
@@ -128,7 +128,9 @@ namespace MphRead
         private Vector2i _logicalSize;
         private Vector2i _framebufferSize;
         private bool _focused = true;
-        private bool _closeRequested;
+        private readonly SceneHostLifetime _lifetime = new();
+        private Func<bool>? _suspendFrame;
+        private readonly SceneWindowModePreference _windowModePreference = new();
         private bool _disposed;
         private bool _sdlInitialized;
         private bool _fullscreen;
@@ -282,7 +284,7 @@ namespace MphRead
 
             Stopwatch clock = Stopwatch.StartNew();
             double previous = clock.Elapsed.TotalSeconds;
-            while (!_closeRequested)
+            while (!_lifetime.CloseRequested && !_lifetime.SceneStopRequested)
             {
                 int frameRateCap = Mods.Render.FrameTiming.FrameRateCap;
                 _backend!.ApplyPresentPolicy(frameRateCap);
@@ -295,17 +297,8 @@ namespace MphRead
                     WaitUntil(clock, decision.DeadlineSeconds);
                 }
                 ProcessEvents();
-                if (_presentation != null && Mods.Network.AuthoritativePlay.Current is { } play
-                    && play.ObserveCompletion())
-                {
-                    if (_cursorCaptured) SetCursorCaptured(false);
-                    if (play.DrainCompletion(_presentation.World)) break;
-                    // Keep the final presentation and stop input/simulation while reliable control
-                    // and the independently delivered terminal Worker replica converge.
-                    Mods.Launcher.Gui.GuiLauncher.Pump();
-                    System.Threading.Thread.Sleep(1);
-                    continue;
-                }
+                if (_lifetime.CloseRequested) break;
+                if (_suspendFrame?.Invoke() == true) continue;
                 double now = clock.Elapsed.TotalSeconds;
                 double elapsed = Math.Clamp(now - previous, 0, 0.25);
                 previous = now;
@@ -324,7 +317,7 @@ namespace MphRead
         {
             ProcessEvents();
             Mods.PauseMenu.TakeWindowRect(ClientLocation, ClientSize);
-            return !_closeRequested;
+            return !_lifetime.CloseRequested;
         }
 
         private bool IsWindowMinimized()
@@ -354,7 +347,7 @@ namespace MphRead
             WindowInputSnapshot snapshot = BuildSnapshot();
             _compatibilityInput.Apply(snapshot);
             DispatchCompatibilityInput(snapshot);
-            return !_closeRequested;
+            return !_lifetime.CloseRequested;
         }
 
         /// <summary>
@@ -363,38 +356,65 @@ namespace MphRead
         /// frame; the SDL client submits the resulting sealed snapshot to the
         /// GPU backend.
         /// </summary>
-        public void RunScene(Scene scene, Action<ScenePresentation> configure, Action? beforeCleanup = null, Action? started = null)
+        public void RunScene(Scene scene, Action<ScenePresentation> configure, Action? beforeCleanup = null,
+            Action? started = null, Func<bool>? suspendFrame = null)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (scene == null) throw new ArgumentNullException(nameof(scene));
-            if (configure == null) throw new ArgumentNullException(nameof(configure));
-            _presentation = new ScenePresentation(scene, _logicalSize, _compatibilityInput.Keyboard,
-                _compatibilityInput.Mouse, SetTitle, Close);
-            try
+            ArgumentNullException.ThrowIfNull(scene);
+            ArgumentNullException.ThrowIfNull(configure);
+            _lifetime.Run(scene, () =>
             {
+                ProcessEvents();
+                if (_lifetime.CloseRequested) return;
+                ClearInputAfterFocusLoss();
+                _keyEvents.Clear();
+                _mouseButtonEvents.Clear();
+                _text.Clear();
+                _wheel = Vector2.Zero;
+                _compatibilityInput.Apply(BuildSnapshot());
+                GamepadDesktop.Publish(default);
+                Mods.Render.FrameTiming.Reset();
+                _framePacer = new SdlFramePacer();
+                _suspendFrame = suspendFrame;
+                _presentation = new ScenePresentation(scene, _logicalSize, _compatibilityInput.Keyboard,
+                    _compatibilityInput.Mouse, SetTitle, StopScene);
                 _presentation.EnableDesktopLook();
                 configure(_presentation);
                 _presentation.OnLoad();
+                _windowModePreference.ApplyIfChanged(Mods.WindowMode.Startup, ApplyWindowMode);
+                SDL3.SDL_ShowWindow(_window);
+                Focus();
                 started?.Invoke();
-                if (Mods.WindowMode.Startup == Mods.WindowStartMode.BorderlessFullscreen)
-                {
-                    ApplyWindowMode(Mods.WindowStartMode.BorderlessFullscreen);
-                }
-                else
-                {
-                    Mods.WindowMode.SetFullscreenState(false);
-                }
                 Run(new SdlSceneFrameClient(this, _presentation));
-            }
-            finally
+            }, () => beforeCleanup?.Invoke(), () =>
             {
-                try { beforeCleanup?.Invoke(); }
-                finally { _presentation.DoCleanup(); }
-                _presentation = null;
-            }
+                try
+                {
+                    _backend!.EndScene();
+                    DrainCaptureResults();
+                }
+                finally
+                {
+                    try
+                    {
+                        if (_presentation != null) _presentation.DoCleanup();
+                        else scene.CloseWorld();
+                    }
+                    finally
+                    {
+                        _presentation = null;
+                        _suspendFrame = null;
+                        ClearInputAfterFocusLoss();
+                        SDL3.SDL_HideWindow(_window);
+                    }
+                }
+            });
         }
 
-        public void Close() => _closeRequested = true;
+        public bool CloseRequested => _lifetime.CloseRequested;
+        public void StopScene() => _lifetime.StopScene();
+        void Mods.IPauseMenuHost.Close() => StopScene();
+        public void Close() => _lifetime.Close();
 
         public void SetTitle(string title)
         {
@@ -445,10 +465,10 @@ namespace MphRead
                 switch ((SDL_EventType)evt.type)
                 {
                     case SDL_EventType.SDL_EVENT_QUIT:
-                        _closeRequested = true;
+                        _lifetime.Close();
                         break;
                     case SDL_EventType.SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-                        if (IsOurWindow(evt.window.windowID)) _closeRequested = true;
+                        if (IsOurWindow(evt.window.windowID)) _lifetime.Close();
                         break;
                     case SDL_EventType.SDL_EVENT_WINDOW_FOCUS_GAINED:
                         if (IsOurWindow(evt.window.windowID)) _focused = true;
@@ -619,8 +639,7 @@ namespace MphRead
                 }
                 if (key.Key == Keys.Escape)
                 {
-                    _presentation.DoCleanup();
-                    Close();
+                    StopScene();
                     continue;
                 }
                 _presentation.OnKeyDown(key);
@@ -1157,6 +1176,7 @@ namespace MphRead
         public void Dispose()
         {
             if (_disposed) return;
+            _lifetime.Dispose();
             _disposed = true;
             _stylus.Cancel();
             _capturedPenId = null;
