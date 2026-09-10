@@ -127,7 +127,7 @@ class TelemetryCliTests(unittest.TestCase):
             csv_rows = [line.split(",") for line in csv_lines[1:]]
             self.assertTrue(all(len(row) == 14 for row in csv_rows))
             self.assertTrue(all(row[-1] == "0" for row in csv_rows))
-            self.assertIn(f"Prime Hunters {mode}", prefix.with_suffix(".svg").read_text())
+            self.assertIn(f"Project Prime {mode}", prefix.with_suffix(".svg").read_text())
 
         danger = outputs["spawn-safety"]["spawnDanger"]
         self.assertEqual(3, sum(point["count"] for point in danger))

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>worker-soak</AssemblyName><RootNamespace>FruityPrime.WorkerSoak</RootNamespace>
+    <AssemblyName>worker-soak</AssemblyName><RootNamespace>ProjectPrime.WorkerSoak</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>

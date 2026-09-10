@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <AssemblyName>FruityPrime.Protocol.Generator.Tests</AssemblyName>
+    <AssemblyName>ProjectPrime.Protocol.Generator.Tests</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../Tests/Protocol/GeneratedProtocolTests.cs" Link="GeneratedProtocolTests.cs" />

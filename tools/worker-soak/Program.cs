@@ -3,17 +3,17 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Channels;
-using FruityPrime.Server.Node.Workers;
-using FruityPrime.Server.Node.Reporting;
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Workers;
+using ProjectPrime.Server.Node.Reporting;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Identity;
 using MphRead.Mods.Network;
 using MphRead.Reporting;
 using MphRead.Replay;
 
-namespace FruityPrime.WorkerSoak;
+namespace ProjectPrime.WorkerSoak;
 
 internal static class Program
 {
@@ -535,12 +535,12 @@ internal static class Program
         {
             if (active.Summary is not { } result) throw new InvalidDataException("Report became durable without a completion summary.");
             foreach (string path in new[] {
-                result.ReplayId.HasValue ? Path.Combine(active.Host.Directory, "replays", result.ReplayId.Value + ".fpdemo") : null,
+                result.ReplayId.HasValue ? Path.Combine(active.Host.Directory, "replays", result.ReplayId.Value + ".fpreplay") : null,
                 result.TelemetryId.HasValue ? Path.Combine(active.Host.Directory, result.TelemetryId.Value + ".telemetry.json") : null }.OfType<string>())
             {
                 if (!File.Exists(path)) throw new FileNotFoundException("Completed artifact is missing.", path);
                 object validation;
-                if (path.EndsWith(".fpdemo", StringComparison.Ordinal)) validation = ReplayArtifactValidator.Validate(path);
+                if (path.EndsWith(".fpreplay", StringComparison.Ordinal)) validation = ReplayArtifactValidator.Validate(path);
                 else
                 {
                     using var telemetry = JsonDocument.Parse(File.ReadAllBytes(path));

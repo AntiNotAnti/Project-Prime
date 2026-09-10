@@ -8,7 +8,7 @@
       "ForceAfterDrainDeadline": false,
       "Processes": [
         {
-          "FileName": "worker/FruityPrime.Server.Worker",
+          "FileName": "worker/ProjectPrime.Server.Worker",
           "Arguments": [
             "--lanes", "2",
             "--max-matches", "4",

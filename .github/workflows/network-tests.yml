@@ -39,12 +39,12 @@ jobs:
       - name: server bundle structural checks
         run: |
           set -euo pipefail
-          test -x artifacts/server-linux-x64/backend/PrimeHunters.Backend
-          test -x artifacts/server-linux-x64/FruityPrimeServer
+          test -x artifacts/server-linux-x64/backend/ProjectPrime.Backend
+          test -x artifacts/server-linux-x64/ProjectPrimeServer
           test -x artifacts/server-linux-x64/start-stack-dev.sh
-          test -x artifacts/server-linux-x64/worker/FruityPrime.Server.Worker
+          test -x artifacts/server-linux-x64/worker/ProjectPrime.Server.Worker
           test -f artifacts/server-linux-x64/server.example.json
-          ! find artifacts/server-linux-x64 -maxdepth 1 -type f -name 'FruityPrime.Server.Worker*' | grep -q .
+          ! find artifacts/server-linux-x64 -maxdepth 1 -type f -name 'ProjectPrime.Server.Worker*' | grep -q .
           tools/check-no-game-assets.sh artifacts/server-linux-x64
       - name: Server.Node runtime build
         run: dotnet build src/Server.Node/Server.Node.csproj -c Release

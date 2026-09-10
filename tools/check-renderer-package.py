@@ -10,12 +10,12 @@ import sys
 
 
 RUNTIME_FILES = {
-    "win-x64": ("FruityPrime.exe", "SDL3.dll", "dxil"),
-    "win-arm64": ("FruityPrime.exe", "SDL3.dll", "dxil"),
-    "linux-x64": ("FruityPrime", "libSDL3.so", "spirv"),
-    "linux-arm64": ("FruityPrime", "libSDL3.so", "spirv"),
-    "osx-x64": ("FruityPrime", "libSDL3.dylib", "msl"),
-    "osx-arm64": ("FruityPrime", "libSDL3.dylib", "msl"),
+    "win-x64": ("ProjectPrime.exe", "SDL3.dll", "dxil"),
+    "win-arm64": ("ProjectPrime.exe", "SDL3.dll", "dxil"),
+    "linux-x64": ("ProjectPrime", "libSDL3.so", "spirv"),
+    "linux-arm64": ("ProjectPrime", "libSDL3.so", "spirv"),
+    "osx-x64": ("ProjectPrime", "libSDL3.dylib", "msl"),
+    "osx-arm64": ("ProjectPrime", "libSDL3.dylib", "msl"),
 }
 MANIFESTS = {
     "manifest.json",

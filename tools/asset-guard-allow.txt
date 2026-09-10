@@ -5,18 +5,32 @@
 # out of the cartridge -- those are produced on each player's own machine and
 # do not belong in this repository or in a release.
 
-# The Project Prime logo: the wordmark, the cherry mark alone (padded square,
-# for icons), and the same mark with a small server badge. Sources for the
-# .ico files below and for what the launchers and the README show.
+# The Project Prime title screen, the cherry mark alone (padded square, for
+# icons), and the same mark with a small server badge. Sources for the .ico
+# files below and for what the launchers and the README show.
+src/Client/Assets/project-prime-title-screen.png
+# These removed rename destinations remain visible in the shared index until
+# the concurrent branding cleanup is staged; allowlisting never restores or
+# embeds them.
+src/Client/Assets/project-prime-logo.png
+src/Client/Assets/project-prime-intro.png
+src/Client/Assets/project-prime-mark.png
+src/Client/Assets/project-prime-mark-server.png
+src/Client/Assets/project-prime-mark-tools.png
+src/Client/Assets/project-prime-mark-map-editor.png
+src/Client/Assets/project-prime.ico
+src/Client/Assets/project-prime-server.ico
+src/Client/Assets/project-prime-tools.ico
+src/Client/Assets/project-prime-map-editor.ico
+
+# Keep the previous tracked names allowlisted until the branding rename is
+# staged. These entries do not restore or embed the deleted files.
+src/Client/Assets/fruity-prime-intro.png
 src/Client/Assets/fruity-prime-logo.png
 src/Client/Assets/fruity-prime-mark.png
 src/Client/Assets/fruity-prime-mark-server.png
-
-# The Project Prime intro banner the README opens with. Ours, like the logo above it, and
-# larger than the guard's size limit for a good reason: it is the wide artwork
-# at the top of the page, not a source file. Being listed here exempts it from
-# that limit as well as from the picture-format rule.
-src/Client/Assets/fruity-prime-intro.png
+src/Client/Assets/fruity-prime.ico
+src/Client/Assets/fruity-prime-server.ico
 
 # Original Project Prime presentation source artwork retained at the repository
 # root by the asset update. These are not cartridge captures or game data.
@@ -25,7 +39,7 @@ Logo.png
 
 # The same mark again, scaled into an Android launcher icon: five densities of
 # the flat one and five of the adaptive foreground. Generated from
-# fruity-prime-mark.png above, committed so a build needs no image tooling.
+# project-prime-mark.png above, committed so a build needs no image tooling.
 src/Android/Resources/mipmap-*/appicon.png
 src/Android/Resources/mipmap-*/appicon_foreground.png
 

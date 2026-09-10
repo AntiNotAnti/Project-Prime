@@ -203,7 +203,7 @@ namespace MphRead
             int Value(Cell c) => mode == "routes" ? c.Samples : mode == "spawn-safety" ? c.Deaths : c.Kills;
             int maximum = Math.Max(1, cells.Values.Select(Value).DefaultIfEmpty(0).Max());
             using var svg = new StreamWriter(path, false, new UTF8Encoding(false));
-            svg.WriteLine(FormattableString.Invariant($"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"{minX * 4} {minZ * 4} {(maxX - minX + 1) * 4} {(maxZ - minZ + 1) * 4}\"><title>Prime Hunters {mode}; map X/Z, four-unit cells</title>"));
+            svg.WriteLine(FormattableString.Invariant($"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"{minX * 4} {minZ * 4} {(maxX - minX + 1) * 4} {(maxZ - minZ + 1) * 4}\"><title>Project Prime {mode}; map X/Z, four-unit cells</title>"));
             foreach (var (point, cell) in cells.OrderBy(p => p.Key.X).ThenBy(p => p.Key.Z))
             {
                 int value = Value(cell);

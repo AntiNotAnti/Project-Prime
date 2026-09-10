@@ -40,7 +40,7 @@ class MapGuardTests(unittest.TestCase):
         return bundle
 
     def test_large_bundle_listing_with_level_and_texture_passes(self):
-        with tempfile.TemporaryDirectory(prefix="fruity-map-guard-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="project-prime-map-guard-") as temporary:
             self.write_bundle(Path(temporary))
             result = self.run_guard(MAP_GUARD, Path(temporary))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -48,21 +48,21 @@ class MapGuardTests(unittest.TestCase):
             self.assertIn("carries its textures", result.stdout)
 
     def test_bundle_without_level_remains_rejected(self):
-        with tempfile.TemporaryDirectory(prefix="fruity-map-guard-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="project-prime-map-guard-") as temporary:
             self.write_bundle(Path(temporary), include_bsp=False)
             result = self.run_guard(MAP_GUARD, Path(temporary))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("no level in it", result.stdout)
 
     def test_bundle_without_named_texture_remains_rejected(self):
-        with tempfile.TemporaryDirectory(prefix="fruity-map-guard-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="project-prime-map-guard-") as temporary:
             self.write_bundle(Path(temporary), include_texture=False)
             result = self.run_guard(MAP_GUARD, Path(temporary))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("does not carry it", result.stdout)
 
     def test_description_only_bundle_is_valid_without_a_level(self):
-        with tempfile.TemporaryDirectory(prefix="fruity-map-guard-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="project-prime-map-guard-") as temporary:
             maps = Path(temporary) / "maps"
             maps.mkdir()
             with zipfile.ZipFile(maps / "arena.fpmap", "w", compression=zipfile.ZIP_STORED) as archive:
@@ -72,7 +72,7 @@ class MapGuardTests(unittest.TestCase):
             self.assertIn("description-only recipe", result.stdout)
 
     def test_asset_guard_accepts_safe_custom_level_with_spaces(self):
-        with tempfile.TemporaryDirectory(prefix="fruity-asset-guard-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="project-prime-asset-guard-") as temporary:
             root = Path(temporary) / "maps with spaces"
             root.mkdir()
             (root / "custom.bsp").write_bytes(b"level")
@@ -81,7 +81,7 @@ class MapGuardTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_asset_guard_rejects_unlisted_cartridge_like_image(self):
-        with tempfile.TemporaryDirectory(prefix="fruity-asset-guard-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="project-prime-asset-guard-") as temporary:
             root = Path(temporary) / "maps with spaces"
             root.mkdir()
             (root / "unlisted.png").write_bytes(b"not an allowlisted project asset")

@@ -6,7 +6,7 @@ set -Eeo pipefail
 
 BUNDLE_DIR=$PRIME_SERVER_BUNDLE
 if [[ -z "$BUNDLE_DIR" ]]; then
-    if [[ -f "$PWD/FruityPrimeServer" ]]; then BUNDLE_DIR=$PWD; else BUNDLE_DIR=$(cd "$(dirname "$0")" && pwd); fi
+    if [[ -f "$PWD/ProjectPrimeServer" ]]; then BUNDLE_DIR=$PWD; else BUNDLE_DIR=$(cd "$(dirname "$0")" && pwd); fi
 fi
 BUNDLE_DIR=$(cd "$BUNDLE_DIR" && pwd)
 ENV_FILE=$PRIME_DEV_ENV_FILE
@@ -76,8 +76,8 @@ need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing command: $1" >&2; ex
 need python3
 need curl
 need openssl
-NODE_PATH=$BUNDLE_DIR/FruityPrimeServer
-WORKER_PATH=$BUNDLE_DIR/worker/FruityPrime.Server.Worker
+NODE_PATH=$BUNDLE_DIR/ProjectPrimeServer
+WORKER_PATH=$BUNDLE_DIR/worker/ProjectPrime.Server.Worker
 [[ -f "$NODE_PATH" ]] || { echo "Missing $NODE_PATH" >&2; exit 1; }
 [[ -f "$WORKER_PATH" ]] || { echo "Missing $WORKER_PATH" >&2; exit 1; }
 chmod +x "$NODE_PATH" "$WORKER_PATH"
@@ -403,7 +403,7 @@ cfg={"Node":{
                       "Keys":[{"KeyId":os.environ["KEY_ID"],"PublicKeyPemPath":os.environ["PUBLIC_KEY"]}]},
     "Maps":[{"MapKey":entry["MapKey"],**content,"Modes":entry["Modes"]} for entry in maps],
     "Workers":{"DrainTimeout":"00:00:30","ForceAfterDrainDeadline":False,"Processes":[{
-        "FileName":"worker/FruityPrime.Server.Worker","Content":content,
+        "FileName":"worker/ProjectPrime.Server.Worker","Content":content,
         "ArtifactDirectory":os.environ["ARTIFACT_DIR"],"WorkingDirectory":os.environ["BUNDLE_DIR"],
         "Arguments":["--content-dir",os.environ["CONTENT_DIR"],"--content-version",os.environ["CONTENT_VERSION"],
                      "--map-dir",os.environ["MAP_DIR"],

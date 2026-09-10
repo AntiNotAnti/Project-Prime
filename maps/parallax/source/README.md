@@ -1,6 +1,6 @@
 # PARALLAX — Alimbic visual pass v0.2
 
-Original competitive 1v1 arena for Fruity Prime. Following the user's design-audit
+Original competitive 1v1 arena for Project Prime. Following the user's design-audit
 approval, this pass replaces the graybox materials with original Alimbic-inspired
 stone, bronze panels and geometric route glyphs. The BSP and gameplay recipe are
 byte-identical to the approved layout. See [visual-pass evidence](art/README.md)
@@ -32,7 +32,7 @@ Do not edit them as source. Textures use the repository's MIT license.
 ## Build and test
 
 Requirements: Python 3, [q3map2 from NetRadiant](https://github.com/xonotic/netradiant),
-and a working Fruity Prime build with extracted game files. This map was compiled
+and a working Project Prime build with extracted game files. This map was compiled
 with q3map2 `2.5.17n-git-b4b295d`; only its BSP/meta stage is needed. Quake lighting
 and VIS are not consumed by this importer. No game pack or Quake installation is needed.
 
@@ -42,14 +42,14 @@ From the repository root:
 python3 maps/parallax/source/build.py --q3map2 /path/to/q3map2
 python3 maps/parallax/source/validate.py
 
-FruityPrime -mapgen PARALLAX -mapdir maps/parallax -noupdate
-FruityPrime -maptest PARALLAX -mapdir maps/parallax -players 2 -seconds 60 -noupdate
-FruityPrime -maptest PARALLAX -mapdir maps/parallax -players 2 -renderprobe -shots /tmp/parallax-spawns -noupdate
-FruityPrime -thumbnail PARALLAX -mapdir maps/parallax -noupdate
-FruityPrime -mapbundle PARALLAX -mapdir maps/parallax -out /absolute/output/PARALLAX.fpmap -noupdate
+ProjectPrime -mapgen PARALLAX -mapdir maps/parallax -noupdate
+ProjectPrime -maptest PARALLAX -mapdir maps/parallax -players 2 -seconds 60 -noupdate
+ProjectPrime -maptest PARALLAX -mapdir maps/parallax -players 2 -renderprobe -shots /tmp/parallax-spawns -noupdate
+ProjectPrime -thumbnail PARALLAX -mapdir maps/parallax -noupdate
+ProjectPrime -mapbundle PARALLAX -mapdir maps/parallax -out /absolute/output/PARALLAX.fpmap -noupdate
 ```
 
-Replace `FruityPrime` with the executable's full path, or `dotnet /path/FruityPrime.dll`.
+Replace `ProjectPrime` with the executable's full path, or `dotnet /path/ProjectPrime.dll`.
 `-mapdir maps/parallax` intentionally selects the development folder: a bundle at
 the top of `maps/` would otherwise take precedence over the edited recipe.
 

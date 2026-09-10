@@ -9,7 +9,7 @@ namespace MphRead.Mods.Update
         public static string Rid()
         {
             // Android first, and not as an "os-arch" pair: the APK is one file
-            // for every ABI (release.yml publishes FruityPrime-<tag>-android.apk
+            // for every ABI (release.yml publishes ProjectPrime-<tag>-android.apk
             // and nothing per-architecture), so matching on the architecture
             // here would find nothing on every phone.
             if (OperatingSystem.IsAndroid())

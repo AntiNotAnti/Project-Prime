@@ -19,7 +19,7 @@ class UpdateReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary) / "win"
             directory.mkdir()
-            (directory / "FruityPrime.exe").write_bytes(b"binary")
+            (directory / "ProjectPrime.exe").write_bytes(b"binary")
             (directory / "paths.txt").write_bytes(b"player-owned template")
             (directory / "saves").mkdir()
             (directory / "saves" / "slot.dat").write_bytes(b"player-owned save")
@@ -37,7 +37,7 @@ class UpdateReleaseTests(unittest.TestCase):
             self.assertEqual(1, manifest["schemaVersion"])
             self.assertEqual(
                 hashlib.sha256(b"binary").hexdigest(),
-                next(item["sha256"] for item in manifest["files"] if item["path"] == "FruityPrime.exe"),
+                next(item["sha256"] for item in manifest["files"] if item["path"] == "ProjectPrime.exe"),
             )
             managed_paths = {item["path"].casefold() for item in manifest["files"]}
             self.assertNotIn("paths.txt", managed_paths)
@@ -53,7 +53,7 @@ class UpdateReleaseTests(unittest.TestCase):
                 "win-x64": ".zip", "linux-x64": ".tar.gz", "osx-x64": ".tar.gz",
                 "osx-arm64": ".tar.gz", "android": ".apk",
             }.items():
-                package = directory / f"FruityPrime-v1.2.3-{rid}{suffix}"
+                package = directory / f"ProjectPrime-v1.2.3-{rid}{suffix}"
                 if rid == "android":
                     package.write_bytes(rid.encode())
                     continue
@@ -80,7 +80,7 @@ class UpdateReleaseTests(unittest.TestCase):
             # The contract must inspect archive contents, not merely hash an
             # arbitrary byte blob. A modified release-files hash is rejected
             # before a manifest can be signed.
-            package = directory / "FruityPrime-v1.2.3-win-x64.zip"
+            package = directory / "ProjectPrime-v1.2.3-win-x64.zip"
             damaged = Path(temporary) / "damaged.zip"
             with zipfile.ZipFile(package) as source, zipfile.ZipFile(
                 damaged, "w", zipfile.ZIP_DEFLATED
@@ -102,7 +102,7 @@ class UpdateReleaseTests(unittest.TestCase):
             self.assertIn("hash mismatch", damaged_result.stderr)
 
             self._write_desktop_archive(package, "win-x64")
-            (directory / "FruityPrime-v1.2.3-android.apk").unlink()
+            (directory / "ProjectPrime-v1.2.3-android.apk").unlink()
             failed = subprocess.run(
                 ["python3", str(TOOL), "--version", "1.2.3", "--dist", str(directory),
                  "--output", str(output), "--signing-key", str(key), "--public-key", str(public)],
@@ -113,7 +113,7 @@ class UpdateReleaseTests(unittest.TestCase):
 
     @staticmethod
     def _write_desktop_archive(package: Path, rid: str) -> None:
-        executable = "FruityPrime.exe" if rid == "win-x64" else "FruityPrime"
+        executable = "ProjectPrime.exe" if rid == "win-x64" else "ProjectPrime"
         binary = b"binary-" + rid.encode()
         metadata = {
             "schemaVersion": 1,

@@ -83,7 +83,7 @@ class DevStackControlTests(unittest.TestCase):
         self.assertFalse(missing_state.exists())
 
     def test_stale_scoped_process_is_stopped_but_unrelated_process_survives(self):
-        fixture = self.fake_root / "FruityPrimeServer"
+        fixture = self.fake_root / "ProjectPrimeServer"
         fixture.write_text(
             "#!/usr/bin/env python3\nimport time\nwhile True: time.sleep(1)\n",
             encoding="utf-8",
@@ -119,7 +119,7 @@ class DevStackControlTests(unittest.TestCase):
                 sys.executable,
                 "-c",
                 "import time; time.sleep(60)",
-                str(self.fake_root / "FruityPrimeServer"),
+                str(self.fake_root / "ProjectPrimeServer"),
                 str(self.state),
             ],
             text=True,

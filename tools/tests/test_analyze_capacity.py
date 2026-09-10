@@ -21,7 +21,7 @@ def _jsonl(path: Path, records):
 
 class CapacityAnalyzerTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="fruity-capacity-")
+        self.temporary = tempfile.TemporaryDirectory(prefix="project-prime-capacity-")
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self._build_fixture()
@@ -125,7 +125,7 @@ class CapacityAnalyzerTests(unittest.TestCase):
             replay = {
                 "kind": "artifact",
                 "MatchId": {"Value": match_id},
-                "name": match_id + ".fpdemo",
+                "name": match_id + ".fpreplay",
                 "Length": 50,
                 "hash": "f" * 64,
                 "validation": {"RecordCount": 2, "CheckpointCount": 1, "FirstFrame": 0, "LastFrame": 1},

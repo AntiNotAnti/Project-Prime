@@ -179,11 +179,11 @@ RELEASE_JSON="$(gh release view "$EXPECTED_TAG" --repo "$PUBLIC_REPOSITORY" \
 
 VERSION="${EXPECTED_TAG#v}"
 EXPECTED_ASSETS=(
-  "FruityPrime-$EXPECTED_TAG-win-x64.zip"
-  "FruityPrime-$EXPECTED_TAG-linux-x64.tar.gz"
-  "FruityPrime-$EXPECTED_TAG-osx-x64.tar.gz"
-  "FruityPrime-$EXPECTED_TAG-osx-arm64.tar.gz"
-  "FruityPrime-$EXPECTED_TAG-android.apk"
+  "ProjectPrime-$EXPECTED_TAG-win-x64.zip"
+  "ProjectPrime-$EXPECTED_TAG-linux-x64.tar.gz"
+  "ProjectPrime-$EXPECTED_TAG-osx-x64.tar.gz"
+  "ProjectPrime-$EXPECTED_TAG-osx-arm64.tar.gz"
+  "ProjectPrime-$EXPECTED_TAG-android.apk"
   "update-manifest.json"
   "update-manifest.sig"
 )

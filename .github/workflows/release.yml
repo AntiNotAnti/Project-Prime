@@ -130,7 +130,7 @@ jobs:
           # the tag on GitHub, so a build that is not stamped here is one that
           # can never know it is out of date.
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
-          echo "### Prime Hunters $TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Project Prime $TAG" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/checkout@v7
         with:
@@ -179,7 +179,7 @@ jobs:
           done
           # Backend, Node and Worker are shipped as one server bundle. The
           # package script preserves managed assembly identities and renames
-          # only the Node top-level apphost to FruityPrimeServer[.exe].
+          # only the Node top-level apphost to ProjectPrimeServer[.exe].
           for rid in win-x64 linux-x64 linux-arm64; do
             tools/package-server.sh --rid "$rid" --version "$VERSION" \
               --output "publish/server-$rid"
@@ -304,19 +304,19 @@ jobs:
       - name: server package contract
         run: |
           set -euo pipefail
-          tools/check-subsystem.sh gui publish/win-x64/FruityPrime.exe
-          test -f publish/server-win-x64/backend/PrimeHunters.Backend.exe
-          test -f publish/server-win-x64/FruityPrimeServer.exe
-          test -x publish/server-linux-x64/backend/PrimeHunters.Backend
-          test -f publish/server-win-x64/worker/FruityPrime.Server.Worker.exe
-          test -x publish/server-linux-x64/FruityPrimeServer
-          test -x publish/server-linux-arm64/backend/PrimeHunters.Backend
-          test -x publish/server-linux-x64/worker/FruityPrime.Server.Worker
-          test -x publish/server-linux-arm64/FruityPrimeServer
-          test -x publish/server-linux-arm64/worker/FruityPrime.Server.Worker
+          tools/check-subsystem.sh gui publish/win-x64/ProjectPrime.exe
+          test -f publish/server-win-x64/backend/ProjectPrime.Backend.exe
+          test -f publish/server-win-x64/ProjectPrimeServer.exe
+          test -x publish/server-linux-x64/backend/ProjectPrime.Backend
+          test -f publish/server-win-x64/worker/ProjectPrime.Server.Worker.exe
+          test -x publish/server-linux-x64/ProjectPrimeServer
+          test -x publish/server-linux-arm64/backend/ProjectPrime.Backend
+          test -x publish/server-linux-x64/worker/ProjectPrime.Server.Worker
+          test -x publish/server-linux-arm64/ProjectPrimeServer
+          test -x publish/server-linux-arm64/worker/ProjectPrime.Server.Worker
           for d in publish/server-win-x64 publish/server-linux-x64 publish/server-linux-arm64; do
             test -f "$d/server.example.json"
-            ! find "$d" -maxdepth 1 -type f -name 'FruityPrime.Server.Worker*' | grep -q .
+            ! find "$d" -maxdepth 1 -type f -name 'ProjectPrime.Server.Worker*' | grep -q .
           done
 
       - name: package
@@ -329,9 +329,9 @@ jobs:
           published_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           cp LICENSE publish/win-x64/ 2>/dev/null || true
           cat > publish/win-x64/README.txt <<'NOTE'
-          Prime Hunters -- Metroid Prime Hunters, on a PC, with multiplayer.
+          Project Prime -- Metroid Prime Hunters, on a PC, with multiplayer.
 
-          Double-click FruityPrime.exe. The first thing it asks for is your own
+          Double-click ProjectPrime.exe. The first thing it asks for is your own
           Metroid Prime Hunters cartridge dump (.nds); it unpacks what it needs
           next to this program and leaves the file alone. No game data is
           included in this download, and none is downloaded.
@@ -348,17 +348,17 @@ jobs:
           NOTE
           python3 tools/update-release.py --version "$VERSION" \
             --output "$RUNNER_TEMP/update-contract" --desktop-dir publish/win-x64
-          ( cd publish/win-x64 && zip -qr "../../dist/FruityPrime-$TAG-win-x64.zip" . )
+          ( cd publish/win-x64 && zip -qr "../../dist/ProjectPrime-$TAG-win-x64.zip" . )
 
           cp LICENSE publish/linux-x64/ 2>/dev/null || true
           cat > publish/linux-x64/README.txt <<'NOTE'
-          Prime Hunters -- Metroid Prime Hunters, on a PC, with multiplayer.
+          Project Prime -- Metroid Prime Hunters, on a PC, with multiplayer.
 
           Set up with your own Metroid Prime Hunters cartridge dump (.nds).
           It is unpacked next to this program and the file is left alone. No
           game data is included in this download, and none is downloaded.
 
-            ./FruityPrime -launcher
+            ./ProjectPrime -launcher
 
           opens the front screen: play online, play offline against bots, host
           a game, settings, and the game-files setup.
@@ -369,11 +369,11 @@ jobs:
 
           Everything it does also has a command of its own:
 
-            ./FruityPrime <path to rom.nds>     set up the game files
-            ./FruityPrime -servers              list the servers that are up
-            ./FruityPrime -connect HOST         join one
-            ./FruityPrime -hostgame "ROOM"      have a server run a match for you
-            ./FruityPrime -menu                 volumes, controls, match rules
+            ./ProjectPrime <path to rom.nds>     set up the game files
+            ./ProjectPrime -servers              list the servers that are up
+            ./ProjectPrime -connect HOST         join one
+            ./ProjectPrime -hostgame "ROOM"      have a server run a match for you
+            ./ProjectPrime -menu                 volumes, controls, match rules
 
           An authoritative dedicated server is distributed separately. Its
           server packages omit the launcher and provide the simulation for
@@ -383,7 +383,7 @@ jobs:
           NOTE
           python3 tools/update-release.py --version "$VERSION" \
             --output "$RUNNER_TEMP/update-contract" --desktop-dir publish/linux-x64
-          ( cd publish/linux-x64 && tar czf "../../dist/FruityPrime-$TAG-linux-x64.tar.gz" . )
+          ( cd publish/linux-x64 && tar czf "../../dist/ProjectPrime-$TAG-linux-x64.tar.gz" . )
 
           # The two macOS packages. Same note, and the same launcher: the
           # front screen is Avalonia on every desktop now, so nothing about a
@@ -392,13 +392,13 @@ jobs:
           for rid in osx-x64 osx-arm64; do
             cp LICENSE "publish/$rid/" 2>/dev/null || true
             cat > "publish/$rid/README.txt" <<'NOTE'
-          Prime Hunters -- Metroid Prime Hunters, on a Mac, with multiplayer.
+          Project Prime -- Metroid Prime Hunters, on a Mac, with multiplayer.
 
           Set up with your own Metroid Prime Hunters cartridge dump (.nds).
           It is unpacked next to this program and the file is left alone. No
           game data is included in this download, and none is downloaded.
 
-            ./FruityPrime
+            ./ProjectPrime
 
           opens the front screen: adventure, play online, play offline against
           bots, host a game, settings, and the game-files setup.
@@ -412,14 +412,14 @@ jobs:
           NOTE
             python3 tools/update-release.py --version "$VERSION" \
               --output "$RUNNER_TEMP/update-contract" --desktop-dir "publish/$rid"
-            chmod +x "publish/$rid/FruityPrime" || true
-            ( cd "publish/$rid" && tar czf "../../dist/FruityPrime-$TAG-$rid.tar.gz" . )
+            chmod +x "publish/$rid/ProjectPrime" || true
+            ( cd "publish/$rid" && tar czf "../../dist/ProjectPrime-$TAG-$rid.tar.gz" . )
           done
           for rid in win-x64 linux-x64 linux-arm64; do
             bundle="publish/server-$rid"
             cp LICENSE "$bundle/" 2>/dev/null || true
             cat > "$bundle/SERVER.txt" <<'NOTE'
-          Fruity Prime Backend, control Node, and authoritative Worker bundle.
+          Project Prime Backend, control Node, and authoritative Worker bundle.
 
           Copy server.example.json to appsettings.json, then fill in the
           operator-owned ES256 admission key and content identity. The example
@@ -428,23 +428,23 @@ jobs:
           Start the Node apphost from this directory when using a separately
           configured Backend:
 
-            ./FruityPrimeServer --contentRoot .
+            ./ProjectPrimeServer --contentRoot .
 
           The Node launches its Worker from worker/ and keeps control traffic
           on the reliable Node connection. Gameplay uses the Worker's UDP
           endpoint. For an all-in-one development stack on Linux, supply your
           external AMHE1 directory and run ./start-stack-dev.sh; it generates
-          development credentials and starts backend/PrimeHunters.Backend too.
+          development credentials and starts backend/ProjectPrime.Backend too.
           Production Backend operation still requires operator database and
           secret configuration. Do not replace the Worker with an unbounded
           ad-hoc process.
-          See deploy-server.sh and tools/systemd/fruityprime-node.service for
+          See deploy-server.sh and tools/systemd/projectprime-node.service for
           the explicit operator deployment path.
           NOTE
             if [ "$rid" = win-x64 ]; then
-              ( cd "$bundle" && zip -qr "../../dist/FruityPrime-$TAG-server-$rid.zip" . )
+              ( cd "$bundle" && zip -qr "../../dist/ProjectPrime-$TAG-server-$rid.zip" . )
             else
-              ( cd "$bundle" && tar czf "../../dist/FruityPrime-$TAG-server-$rid.tar.gz" . )
+              ( cd "$bundle" && tar czf "../../dist/ProjectPrime-$TAG-server-$rid.tar.gz" . )
             fi
           done
 
@@ -452,7 +452,7 @@ jobs:
           # wants is a file it can be handed. Signed with the release keystore
           # The keystore step above is mandatory: an official Android package
           # must remain replaceable by the signed updater.
-          cp publish/android/*-Signed.apk "dist/FruityPrime-$TAG-android.apk"
+          cp publish/android/*-Signed.apk "dist/ProjectPrime-$TAG-android.apk"
           python3 tools/update-release.py --version "$VERSION" --dist dist \
             --published-utc "$published_utc" \
             --output dist --signing-key "$RUNNER_TEMP/update-signing-key.pem" \
@@ -482,16 +482,16 @@ jobs:
             exit 1
           fi
           assets=(
-            "dist/FruityPrime-$TAG-win-x64.zip"
-            "dist/FruityPrime-$TAG-linux-x64.tar.gz"
-            "dist/FruityPrime-$TAG-osx-x64.tar.gz"
-            "dist/FruityPrime-$TAG-osx-arm64.tar.gz"
-            "dist/FruityPrime-$TAG-android.apk"
+            "dist/ProjectPrime-$TAG-win-x64.zip"
+            "dist/ProjectPrime-$TAG-linux-x64.tar.gz"
+            "dist/ProjectPrime-$TAG-osx-x64.tar.gz"
+            "dist/ProjectPrime-$TAG-osx-arm64.tar.gz"
+            "dist/ProjectPrime-$TAG-android.apk"
             "dist/update-manifest.json"
             "dist/update-manifest.sig"
           )
           for asset in "${assets[@]}"; do test -s "$asset"; done
-          public_notes=$'Prime Hunters '"$TAG"$'\n\nSigned player packages for Project Prime. Bring your own Metroid Prime Hunters cartridge dump; no game data is included.'
+          public_notes=$'Project Prime '"$TAG"$'\n\nSigned player packages for Project Prime. Bring your own Metroid Prime Hunters cartridge dump; no game data is included.'
           draft_state="$RUNNER_TEMP/public-release-draft"
           if gh release view "$TAG" --repo "$PUBLIC_REPOSITORY" --json isDraft --jq .isDraft >"$draft_state" 2>/dev/null; then
             if [ "$(< "$draft_state")" != "true" ]; then
@@ -499,8 +499,8 @@ jobs:
               exit 1
             fi
             gh release upload "$TAG" "${assets[@]}" --repo "$PUBLIC_REPOSITORY" --clobber
-            gh release edit "$TAG" --repo "$PUBLIC_REPOSITORY" --title "Prime Hunters $TAG" --notes "$public_notes"
+            gh release edit "$TAG" --repo "$PUBLIC_REPOSITORY" --title "Project Prime $TAG" --notes "$public_notes"
           else
             gh release create "$TAG" "${assets[@]}" --repo "$PUBLIC_REPOSITORY" \
-              --draft --target main --title "Prime Hunters $TAG" --notes "$public_notes"
+              --draft --target main --title "Project Prime $TAG" --notes "$public_notes"
           fi

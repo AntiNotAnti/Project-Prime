@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Collections.Immutable;
 using System.Net;
 using System.Text.Json;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Entities;
 using MphRead.Formats;
@@ -77,7 +77,7 @@ static MatchInstance Create(int index)
     var roster = Enumerable.Range(0, 8).Select(i => new RosterSeat((byte)i, null, null, $"BOT {i}", (Hunter)(i % 7), (byte)(i % 2), SeatRole.Bot, false)).ToImmutableArray();
     var spec = new MatchSpec(new(Guid.NewGuid()), new(Guid.NewGuid()), new(Guid.NewGuid()), Guid.NewGuid(),
         new MatchRules(MatchMode.Battle, "MP1 SANCTORUS"), new("MP1 SANCTORUS", "benchmark", "AMHE1", "benchmark", NetHeader.Version),
-        MatchTrustClass.Community, null, null, roster, FruityPrime.Server.Shared.BotFillPolicy.Disabled,
+        MatchTrustClass.Community, null, null, roster, ProjectPrime.Server.Shared.BotFillPolicy.Disabled,
         ObserverPolicy.Disabled, ReplayPolicy.Disabled, TelemetryPolicy.Disabled, 12345, 67890);
     var match = new MatchInstance(new(spec, (uint)index + 1), new SilentTransport()); match.Start(); return match;
 }

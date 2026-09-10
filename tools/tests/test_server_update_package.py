@@ -16,7 +16,7 @@ spec.loader.exec_module(package)
 
 class ServerUpdatePackageTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="fruity-update-artifacts-")
+        self.temporary = tempfile.TemporaryDirectory(prefix="project-prime-update-artifacts-")
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.publish = self.root / "publish"
@@ -55,7 +55,7 @@ class ServerUpdatePackageTests(unittest.TestCase):
                 manifest = self.build(rid)
                 data = package.verify(manifest, self.output, rid, "v2.1.0")
                 self.assertEqual(2, data["Family"])
-                self.assertEqual(9, data["Protocol"])
+                self.assertEqual(package.PROTOCOL, data["Protocol"])
                 self.assertEqual("v2.1.0", data["Version"])
                 self.assertEqual(rid, data["Rid"])
                 self.assertEqual(package.RIDS[rid], data["Executable"])
@@ -122,9 +122,9 @@ class ServerUpdatePackageTests(unittest.TestCase):
         self.binary("linux-x64")
         with self.assertRaisesRegex(ValueError, "architecture"):
             self.build("linux-arm64")
-        (self.publish / "FruityPrimeServer").unlink()
+        (self.publish / "ProjectPrimeServer").unlink()
         self.binary("win-x64")
-        binary = self.publish / "FruityPrimeServer.exe"
+        binary = self.publish / "ProjectPrimeServer.exe"
         data = bytearray(binary.read_bytes())
         struct.pack_into("<H", data, 156, 2)
         binary.write_bytes(data)
@@ -134,7 +134,7 @@ class ServerUpdatePackageTests(unittest.TestCase):
     def test_links_duplicate_case_and_unsafe_paths_rejected(self):
         self.binary("linux-x64")
         link = self.publish / "alias.dll"
-        link.symlink_to(self.publish / "FruityPrimeServer")
+        link.symlink_to(self.publish / "ProjectPrimeServer")
         with self.assertRaisesRegex(ValueError, "link"):
             self.build()
         link.unlink()
@@ -184,7 +184,7 @@ class ServerUpdatePackageTests(unittest.TestCase):
     def test_relay_repository_unstamped_version_and_overwrite_refused(self):
         self.binary("linux-x64")
         with self.assertRaisesRegex(ValueError, "authoritative fork"):
-            package.build(self.publish, self.output, "linux-x64", "v2.1.0", "liveteklol/Fruity-Prime")
+            package.build(self.publish, self.output, "linux-x64", "v2.1.0", "AntiNotAnti/Project-Prime")
         for tag in ["2.1.0", "v1.0.0", "v2.1.0-rc1", "v2.1.0/other"]:
             with self.subTest(tag=tag), self.assertRaises(ValueError):
                 package.build(self.publish, self.output, "linux-x64", tag, "owned/authoritative")

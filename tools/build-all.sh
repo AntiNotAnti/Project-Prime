@@ -126,6 +126,7 @@ cd "$ROOT"
 echo "Validating repository boundaries and generated sources..."
 bash tools/check-no-game-assets.sh
 python3 tools/check-project-boundaries.py
+python3 tools/check-project-identity.py
 python3 tools/check-render-shaders.py
 python3 tools/check-multiplayer-only.py
 git diff --check
@@ -145,7 +146,7 @@ for rid in win-x64 linux-x64 osx-x64 osx-arm64; do
     python3 tools/check-renderer-package.py --rid "$rid" "$destination"
     bash tools/check-maps-shipped.sh "$destination"
     bash tools/check-no-game-assets.sh "$destination"
-    if [[ "$rid" == win-x64 ]]; then bash tools/check-subsystem.sh gui "$destination/FruityPrime.exe"; fi
+    if [[ "$rid" == win-x64 ]]; then bash tools/check-subsystem.sh gui "$destination/ProjectPrime.exe"; fi
 done
 
 for rid in win-x64 linux-x64 linux-arm64 osx-arm64; do
@@ -156,7 +157,7 @@ for rid in win-x64 linux-x64 linux-arm64 osx-arm64; do
     tools/package-server.sh --rid "$rid" --version "$VERSION" --skip-map-cook --output "$destination"
     bash tools/check-maps-shipped.sh "$destination"
     bash tools/check-no-game-assets.sh "$destination"
-    if [[ "$rid" == win-x64 ]]; then bash tools/check-subsystem.sh console "$destination/FruityPrimeServer.exe"; fi
+    if [[ "$rid" == win-x64 ]]; then bash tools/check-subsystem.sh console "$destination/ProjectPrimeServer.exe"; fi
 done
 
 if [[ "$SKIP_ANDROID" -eq 0 ]]; then

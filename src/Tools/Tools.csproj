@@ -10,7 +10,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <RootNamespace>MphRead</RootNamespace>
-    <AssemblyName>FruityPrimeTools</AssemblyName>
+    <AssemblyName>ProjectPrimeTools</AssemblyName>
     <!-- The linked NCSF CPU files use the same implicit-usings setting as the
          current NcsfPlay project. -->
     <ImplicitUsings>enable</ImplicitUsings>

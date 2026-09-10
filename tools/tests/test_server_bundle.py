@@ -72,7 +72,7 @@ class ServerBundleContractTests(unittest.TestCase):
         worker = node["Workers"]["Processes"]
         self.assertEqual(1, len(worker))
         launch = worker[0]
-        self.assertEqual("worker/FruityPrime.Server.Worker", launch["FileName"])
+        self.assertEqual("worker/ProjectPrime.Server.Worker", launch["FileName"])
         self.assertEqual(
             ["--lanes", "2", "--max-matches", "4", "--max-matches-per-lane", "2"],
             launch["Arguments"],
@@ -86,15 +86,15 @@ class ServerBundleContractTests(unittest.TestCase):
         script = (ROOT / "tools/package-server.sh").read_text(encoding="utf-8")
         self.assertIn("src/Backend/Backend.csproj", script)
         self.assertIn('"$STAGE/backend"', script)
-        self.assertIn('BACKEND_APPHOST="$STAGE/backend/PrimeHunters.Backend.exe"', script)
-        self.assertIn('BACKEND_APPHOST="$STAGE/backend/PrimeHunters.Backend"', script)
+        self.assertIn('BACKEND_APPHOST="$STAGE/backend/ProjectPrime.Backend.exe"', script)
+        self.assertIn('BACKEND_APPHOST="$STAGE/backend/ProjectPrime.Backend"', script)
         self.assertIn("src/Server.Node/Server.Node.csproj", script)
         self.assertIn("src/Server.Worker/Server.Worker.csproj", script)
         self.assertIn('"$STAGE/worker"', script)
-        self.assertIn("FruityPrimeServer.exe", script)
-        self.assertIn("FruityPrimeServer", script)
-        self.assertIn("FruityPrime.Server.Node", script)
-        self.assertIn("grep -F 'FruityPrime.Server.Node'", script)
+        self.assertIn("ProjectPrimeServer.exe", script)
+        self.assertIn("ProjectPrimeServer", script)
+        self.assertIn("ProjectPrime.Server.Node", script)
+        self.assertIn("grep -F 'ProjectPrime.Server.Node'", script)
         self.assertIn("start-bundle-dev.sh", script)
         self.assertIn("start-stack-dev.sh", script)
         self.assertIn("--skip-map-cook", script)
@@ -104,9 +104,9 @@ class ServerBundleContractTests(unittest.TestCase):
 
     def test_local_launcher_discovers_backend_from_combined_package(self):
         script = (ROOT / "tools/start-dev.sh").read_text(encoding="utf-8")
-        self.assertIn('PACKAGE_DIR/backend/PrimeHunters.Backend', script)
-        self.assertIn('PACKAGE_DIR/backend/PrimeHunters.Backend.exe', script)
-        self.assertIn('SCRIPT_DIR/FruityPrimeServer', script)
+        self.assertIn('PACKAGE_DIR/backend/ProjectPrime.Backend', script)
+        self.assertIn('PACKAGE_DIR/backend/ProjectPrime.Backend.exe', script)
+        self.assertIn('SCRIPT_DIR/ProjectPrimeServer', script)
 
     def test_local_backend_readiness_rechecks_its_child_after_health_success(self):
         script = (ROOT / "tools/start-dev.sh").read_text(encoding="utf-8")
@@ -311,9 +311,9 @@ class ServerBundleContractTests(unittest.TestCase):
 
     def test_windows_binary_names_are_packaging_names(self):
         script = (ROOT / "tools/package-server.sh").read_text(encoding="utf-8")
-        self.assertIn('NODE_APPHOST="$STAGE/node/FruityPrime.Server.Node.exe"', script)
-        self.assertIn('PACKAGE_NODE="$STAGE/node/FruityPrimeServer.exe"', script)
-        self.assertIn('WORKER_APPHOST="$STAGE/worker/FruityPrime.Server.Worker.exe"', script)
+        self.assertIn('NODE_APPHOST="$STAGE/node/ProjectPrime.Server.Node.exe"', script)
+        self.assertIn('PACKAGE_NODE="$STAGE/node/ProjectPrimeServer.exe"', script)
+        self.assertIn('WORKER_APPHOST="$STAGE/worker/ProjectPrime.Server.Worker.exe"', script)
 
     def test_package_smoke_is_fresh_extracted_and_exercises_both_planes(self):
         wrapper = (ROOT / "tools/package-smoke.sh").read_text(encoding="utf-8")
@@ -327,20 +327,21 @@ class ServerBundleContractTests(unittest.TestCase):
         ):
             self.assertIn(marker, smoke)
 
-    def test_deployment_uses_combined_release_bundle_and_never_starts_backend(self):
+    def test_deployment_uses_combined_release_bundle_and_starts_complete_stack(self):
         script = (ROOT / "deploy-server.sh").read_text(encoding="utf-8")
         self.assertIn("MPH_SERVER_CONFIG", script)
         self.assertIn("tools/package-server.sh", script)
-        self.assertIn("fruityprime-node.service", script)
+        self.assertIn("projectprime-stack.service", script)
         self.assertIn("MPH_SERVER_BUNDLE", script)
         self.assertIn("MPH_SERVER_RID", script)
         self.assertIn("--preflight-only", script)
-        self.assertIn(".deploy.lock", script)
+        self.assertIn(".deploy-lock", script)
         self.assertIn(".deploy-manifest.sha256", script)
         self.assertIn("mv -Tf", script)
-        self.assertIn("deploy-failure-journal.txt", script)
-        self.assertNotIn("systemctl start PrimeHunters.Backend", script)
-        self.assertNotIn("systemctl start fruityprime-backend", script)
+        self.assertIn("journal.txt", script)
+        self.assertIn("start-stack-dev.sh", script)
+        self.assertNotIn("systemctl start ProjectPrime.Backend", script)
+        self.assertNotIn("systemctl start projectprime-backend", script)
         self.assertNotIn("src/Server/Server.csproj", script)
 
 

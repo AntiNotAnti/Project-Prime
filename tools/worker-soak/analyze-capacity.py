@@ -561,7 +561,7 @@ def _artifact_observation(artifacts: list[dict[str, Any]], workload_seconds: int
         digest = _hash(_get(event, "hash", "Hash"), "artifact.hash")
         match_id = _guid_text(_get(event, "matchId", "MatchId", "active.MatchId"), "artifact.matchId")
         validation = _object(_get(event, "validation", "Validation"), "artifact.validation")
-        if name.lower().endswith(".fpdemo"):
+        if name.lower().endswith(".fpreplay"):
             kind = "replay"
             records = _int(_get(validation, "recordCount", "RecordCount"), "artifact.validation.recordCount", minimum=1)
             checkpoints = _int(_get(validation, "checkpointCount", "CheckpointCount"), "artifact.validation.checkpointCount", minimum=1)
@@ -641,7 +641,7 @@ def _reconcile_files(run_dir: Path, summary: dict[str, Any], backend_reports: li
         for path in worker_dir.rglob("*"):
             if not path.is_file():
                 continue
-            if path.name.endswith(".fpdemo") or path.name.endswith(".telemetry.json") or "/reports/" in path.as_posix():
+            if path.name.endswith(".fpreplay") or path.name.endswith(".telemetry.json") or "/reports/" in path.as_posix():
                 leftover.append(str(path.relative_to(run_dir)))
     if leftover:
         raise AnalysisError(f"{run_dir.name}: acknowledged artifact files remain: {', '.join(sorted(leftover))}")

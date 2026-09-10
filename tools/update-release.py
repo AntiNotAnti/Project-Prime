@@ -22,7 +22,7 @@ from pathlib import Path
 RIDS = ("win-x64", "linux-x64", "osx-x64", "osx-arm64", "android")
 PLAYER_DIRECTORY_NAMES = {
     "files", "content", "settings", "saves", "screenshots", "_screenshots",
-    "logs", "replays", "_demos",
+    "logs", "replays", "_replays",
 }
 MAX_FILES = 100_000
 MAX_PATH = 1024
@@ -188,7 +188,7 @@ def hash_stream(stream: io.BufferedIOBase) -> str:
 
 
 def verify_desktop_archive(package: Path, version: str, rid: str) -> None:
-    executable = "FruityPrime.exe" if rid == "win-x64" else "FruityPrime"
+    executable = "ProjectPrime.exe" if rid == "win-x64" else "ProjectPrime"
     entries: dict[str, tuple[str, object, int]] = {}
     archive_paths: dict[str, bool] = {}
     total = 0
@@ -295,7 +295,7 @@ def package_metadata(dist: Path, version: str, output: Path, published_utc: str)
     packages = []
     for rid in RIDS:
         suffix = ".apk" if rid == "android" else (".zip" if rid == "win-x64" else ".tar.gz")
-        candidates = sorted(dist.glob(f"FruityPrime-v{version}-{rid}{suffix}"))
+        candidates = sorted(dist.glob(f"ProjectPrime-v{version}-{rid}{suffix}"))
         if len(candidates) != 1:
             fail(f"expected exactly one {rid} package, found {len(candidates)}")
         package = candidates[0]

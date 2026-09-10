@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Publish the Backend, control Node, and gameplay Worker as one self-contained
 # server bundle. The Node apphost is renamed at the package boundary only; its
-# assembly name remains FruityPrime.Server.Node for diagnostics and compatibility.
+# managed assembly name remains ProjectPrime.Server.Node for diagnostics.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -56,7 +56,7 @@ fi
 PUBLISH_ARGS=(-c "$CONFIGURATION" -r "$RID" --self-contained true -p:PublishSingleFile=true)
 [[ -n "$VERSION" ]] && PUBLISH_ARGS+=("-p:Version=$VERSION" "-p:InformationalVersion=$VERSION")
 
-STAGE="$(mktemp -d "${TMPDIR:-/tmp}/fruity-prime-server-package.XXXXXX")"
+STAGE="$(mktemp -d "${TMPDIR:-/tmp}/project-prime-server-package.XXXXXX")"
 cleanup() { rm -rf "$STAGE"; }
 trap cleanup EXIT
 
@@ -66,15 +66,15 @@ dotnet publish "$ROOT/src/Server.Node/Server.Node.csproj" "${PUBLISH_ARGS[@]}" -
 dotnet publish "$ROOT/src/Server.Worker/Server.Worker.csproj" "${PUBLISH_ARGS[@]}" -o "$STAGE/worker"
 
 if [[ "$RID" == win-x64 ]]; then
-  BACKEND_APPHOST="$STAGE/backend/PrimeHunters.Backend.exe"
-  NODE_APPHOST="$STAGE/node/FruityPrime.Server.Node.exe"
-  WORKER_APPHOST="$STAGE/worker/FruityPrime.Server.Worker.exe"
-  PACKAGE_NODE="$STAGE/node/FruityPrimeServer.exe"
+  BACKEND_APPHOST="$STAGE/backend/ProjectPrime.Backend.exe"
+  NODE_APPHOST="$STAGE/node/ProjectPrime.Server.Node.exe"
+  WORKER_APPHOST="$STAGE/worker/ProjectPrime.Server.Worker.exe"
+  PACKAGE_NODE="$STAGE/node/ProjectPrimeServer.exe"
 else
-  BACKEND_APPHOST="$STAGE/backend/PrimeHunters.Backend"
-  NODE_APPHOST="$STAGE/node/FruityPrime.Server.Node"
-  WORKER_APPHOST="$STAGE/worker/FruityPrime.Server.Worker"
-  PACKAGE_NODE="$STAGE/node/FruityPrimeServer"
+  BACKEND_APPHOST="$STAGE/backend/ProjectPrime.Backend"
+  NODE_APPHOST="$STAGE/node/ProjectPrime.Server.Node"
+  WORKER_APPHOST="$STAGE/worker/ProjectPrime.Server.Worker"
+  PACKAGE_NODE="$STAGE/node/ProjectPrimeServer"
 fi
 [[ -f "$BACKEND_APPHOST" ]] || { echo "Backend publish did not produce the expected apphost: $BACKEND_APPHOST" >&2; exit 1; }
 [[ -f "$NODE_APPHOST" ]] || { echo "Node publish did not produce the expected apphost: $NODE_APPHOST" >&2; exit 1; }
@@ -92,11 +92,11 @@ if [[ "$RID" == linux-x64 || "$RID" == linux-arm64 ]]; then
   chmod +x "$STAGE/node/start-stack-dev.sh"
 fi
 
-if ! strings "$PACKAGE_NODE" | grep -F 'FruityPrime.Server.Node' >/dev/null; then
+if ! strings "$PACKAGE_NODE" | grep -F 'ProjectPrime.Server.Node' >/dev/null; then
   echo "Node assembly identity is missing from the published metadata." >&2
   exit 1
 fi
-if find "$STAGE/node" -maxdepth 1 -type f -name 'FruityPrime.Server.Worker*' | grep -q .; then
+if find "$STAGE/node" -maxdepth 1 -type f -name 'ProjectPrime.Server.Worker*' | grep -q .; then
   echo "Worker publish leaked into the Node package root." >&2
   exit 1
 fi

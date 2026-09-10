@@ -18,7 +18,7 @@ SPEC.loader.exec_module(GUARD)
 
 class MultiplayerGuardTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="fruity-multiplayer-guard-")
+        self.temporary = tempfile.TemporaryDirectory(prefix="project-prime-multiplayer-guard-")
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
 

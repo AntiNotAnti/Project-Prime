@@ -2,12 +2,12 @@ using System;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
-using FruityPrime.Protocol.Generator;
+using ProjectPrime.Protocol.Generator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
 
-namespace FruityPrime.Protocol.Generator.Tests;
+namespace ProjectPrime.Protocol.Generator.Tests;
 
 public sealed class GeneratorDiagnosticsTests
 {

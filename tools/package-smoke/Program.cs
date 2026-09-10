@@ -8,11 +8,11 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Mods.Network;
 
-namespace FruityPrime.PackageSmoke;
+namespace ProjectPrime.PackageSmoke;
 
 /// <summary>
 /// Exercises the public server bundle from a clean extracted directory. This
@@ -52,7 +52,7 @@ public static class Program
         if (!Directory.Exists(sourceBundle)) throw new ArgumentException("Bundle directory does not exist.");
         if (!Directory.Exists(contentRoot)) throw new ArgumentException("Content directory does not exist.");
 
-        string tempRoot = Path.Combine(Path.GetTempPath(), "fruity-prime-package-smoke-" + Guid.NewGuid().ToString("N"));
+        string tempRoot = Path.Combine(Path.GetTempPath(), "project-prime-package-smoke-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempRoot);
         Process? node = null;
         bool passed = false;
@@ -64,8 +64,8 @@ public static class Program
             string unrelatedCwd = Path.Combine(tempRoot, "unrelated-cwd");
             Directory.CreateDirectory(unrelatedCwd);
 
-            string nodePath = ResolveBundleFile(extracted, "FruityPrimeServer", OperatingSystem.IsWindows());
-            string workerPath = ResolveBundleFile(Path.Combine(extracted, "worker"), "FruityPrime.Server.Worker", OperatingSystem.IsWindows());
+            string nodePath = ResolveBundleFile(extracted, "ProjectPrimeServer", OperatingSystem.IsWindows());
+            string workerPath = ResolveBundleFile(Path.Combine(extracted, "worker"), "ProjectPrime.Server.Worker", OperatingSystem.IsWindows());
             string example = Path.Combine(extracted, "server.example.json");
             if (!File.Exists(example)) throw new InvalidDataException("Extracted bundle is missing server.example.json.");
             if (File.Exists(Path.Combine(extracted, Path.GetFileName(workerPath))))
@@ -156,7 +156,7 @@ public static class Program
         string certificatePath, string certificatePassword, string https, string workerPath,
         WorkerContentIdentity content, string contentRoot, string replayRoot, string artifactRoot)
     {
-        string workerFileName = OperatingSystem.IsWindows() ? "worker/FruityPrime.Server.Worker.exe" : "worker/FruityPrime.Server.Worker";
+        string workerFileName = OperatingSystem.IsWindows() ? "worker/ProjectPrime.Server.Worker.exe" : "worker/ProjectPrime.Server.Worker";
         // Keep the executable package-relative to prove the Node resolver. The
         // absolute workerPath is used only to assert the extracted file exists.
         if (!File.Exists(workerPath)) throw new FileNotFoundException("Worker executable is missing from the extracted bundle.", workerPath);
@@ -431,11 +431,11 @@ public static class Program
     private static string CreateAdmissionToken(ECDsa key, Guid nodeId)
     {
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        string header = Base64Url(JsonSerializer.SerializeToUtf8Bytes(new { alg = "ES256", typ = "ph-node-admission+jwt", kid = "smoke" }, Json));
+        string header = Base64Url(JsonSerializer.SerializeToUtf8Bytes(new { alg = "ES256", typ = "pp-node-admission+jwt", kid = "smoke" }, Json));
         string payload = Base64Url(JsonSerializer.SerializeToUtf8Bytes(new
         {
             iss = "https://package-smoke.example",
-            aud = "urn:prime-hunters:node:" + nodeId.ToString("D"),
+            aud = "urn:project-prime:node:" + nodeId.ToString("D"),
             sub = Guid.NewGuid().ToString("D"), jti = Guid.NewGuid().ToString("D"), name = "Smoke",
             iat = now, nbf = now, exp = now + 120
         }, Json));
@@ -485,7 +485,7 @@ public static class Program
     private static HashSet<int> WorkerProcessIds()
     {
         var ids = new HashSet<int>();
-        try { foreach (Process process in Process.GetProcessesByName("FruityPrime.Server.Worker")) { ids.Add(process.Id); process.Dispose(); } }
+        try { foreach (Process process in Process.GetProcessesByName("ProjectPrime.Server.Worker")) { ids.Add(process.Id); process.Dispose(); } }
         catch { }
         return ids;
     }

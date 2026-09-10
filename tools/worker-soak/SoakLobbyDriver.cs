@@ -1,10 +1,10 @@
 using System.Collections.Concurrent;
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Node.Workers;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Node.Workers;
+using ProjectPrime.Server.Shared;
 using MphRead;
 
-namespace FruityPrime.WorkerSoak;
+namespace ProjectPrime.WorkerSoak;
 
 /// <summary>Tracks active lobby identities by lease instance rather than by value.
 /// A late rollback must not remove IDs that have already been re-rented to another

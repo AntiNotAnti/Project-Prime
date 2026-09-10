@@ -113,11 +113,11 @@ jobs:
       # else in this workflow would notice it changing.
       - name: the game is a GUI binary
         if: matrix.id == 'win-x64'
-        run: tools/check-subsystem.sh gui publish/${{ matrix.id }}/FruityPrime.exe
+        run: tools/check-subsystem.sh gui publish/${{ matrix.id }}/ProjectPrime.exe
 
       - uses: actions/upload-artifact@v7
         with:
-          name: FruityPrime-${{ matrix.id }}
+          name: ProjectPrime-${{ matrix.id }}
           path: publish/${{ matrix.id }}
           if-no-files-found: error
 
@@ -204,11 +204,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact
-          cp publish/android/*-Signed.apk artifact/FruityPrime-release.apk
+          cp publish/android/*-Signed.apk artifact/ProjectPrime-release.apk
           cat > artifact/INSTALL.txt <<'NOTE'
-          Prime Hunters for Android.
+          Project Prime for Android.
 
-            adb install -r FruityPrime-release.apk
+            adb install -r ProjectPrime-release.apk
 
           It is signed with the SDK's debug key, which is enough to install and
           not enough for a store.
@@ -216,7 +216,7 @@ jobs:
           The game's own files are yours and are not in here. Extract them on a
           desktop, then copy paths.txt and the extracted folders into
 
-            Android/data/fr.livetek.fruityprime/files
+            Android/data/com.antinotanti.projectprime/files
 
           which shows up over USB with no storage permission asked for. The
           front screen says so while they are missing, and has a
@@ -231,13 +231,13 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: FruityPrime-android
+          name: ProjectPrime-android
           path: artifact
           if-no-files-found: error
 
   # The Backend, Node, and Worker are one deployable server bundle. The package
   # script keeps Backend under backend/ and Worker under worker/, and applies the
-  # public FruityPrimeServer apphost name only at the package boundary.
+  # public ProjectPrimeServer apphost name only at the package boundary.
   server:
     name: server-${{ matrix.rid }}
     needs: assets
@@ -260,14 +260,14 @@ jobs:
         run: |
           set -euo pipefail
           bundle="publish/server-${{ matrix.rid }}"
-          test -f "$bundle/backend/PrimeHunters.Backend${{ matrix.rid == 'win-x64' && '.exe' || '' }}"
+          test -f "$bundle/backend/ProjectPrime.Backend${{ matrix.rid == 'win-x64' && '.exe' || '' }}"
           test -f "$bundle/server.example.json"
           if [ "${{ matrix.rid }}" != win-x64 ]; then test -x "$bundle/start-stack-dev.sh"; fi
-          test -f "$bundle/worker/FruityPrime.Server.Worker${{ matrix.rid == 'win-x64' && '.exe' || '' }}"
+          test -f "$bundle/worker/ProjectPrime.Server.Worker${{ matrix.rid == 'win-x64' && '.exe' || '' }}"
           if [ "${{ matrix.rid }}" = win-x64 ]; then
-            test -f "$bundle/FruityPrimeServer.exe"
+            test -f "$bundle/ProjectPrimeServer.exe"
           else
-            test -x "$bundle/FruityPrimeServer"
+            test -x "$bundle/ProjectPrimeServer"
           fi
           tools/check-no-game-assets.sh "$bundle"
 
@@ -288,6 +288,6 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: FruityPrime-server-${{ matrix.rid }}
+          name: ProjectPrime-server-${{ matrix.rid }}
           path: publish/server-${{ matrix.rid }}
           if-no-files-found: error

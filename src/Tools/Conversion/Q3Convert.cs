@@ -150,7 +150,7 @@ namespace MphRead.Mods.MapGen
             Console.WriteLine("  no weapons or powerups were placed: where those go decides how the map"
                 + " plays. Add them under \"items\", from:");
             Console.WriteLine($"  {String.Join(", ", MapBuilder.MultiplayerItems)}");
-            Console.WriteLine($"  then: FruityPrime -mapgen \"{room}\"");
+            Console.WriteLine($"  then: ProjectPrime -mapgen \"{room}\"");
             return 0;
         }
 

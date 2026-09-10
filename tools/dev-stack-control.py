@@ -171,14 +171,14 @@ def scoped_orphans(root: Path, state: Path, metadata: dict[str, object] | None) 
         scope_roots.add(canonical(str(metadata["package_dir"])))
     expected_script = canonical(root / "tools/start-dev.sh")
     executable_names = {
-        "PrimeHunters.Backend",
-        "PrimeHunters.Backend.exe",
-        "FruityPrimeServer",
-        "FruityPrimeServer.exe",
-        "FruityPrime.Server.Node",
-        "FruityPrime.Server.Node.exe",
-        "FruityPrime.Server.Worker",
-        "FruityPrime.Server.Worker.exe",
+        "ProjectPrime.Backend",
+        "ProjectPrime.Backend.exe",
+        "ProjectPrimeServer",
+        "ProjectPrimeServer.exe",
+        "ProjectPrime.Server.Node",
+        "ProjectPrime.Server.Node.exe",
+        "ProjectPrime.Server.Worker",
+        "ProjectPrime.Server.Worker.exe",
     }
     backend_project = canonical(root / "src/Backend/Backend.csproj")
     selected_pids: set[int] = set()

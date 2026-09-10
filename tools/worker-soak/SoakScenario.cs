@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace FruityPrime.WorkerSoak;
+namespace ProjectPrime.WorkerSoak;
 
 /// <summary>Fixed, bounded scenario inputs shared by the soak and capacity tools.</summary>
 public sealed record SoakRosterOptions(int Players, int Bots, int Observers)

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Assert what a Windows binary's PE header says it is.
 #
-# Fruity Prime ships two Windows executables and the difference between them is one
+# Project Prime ships two Windows executables and the difference between them is one
 # 16-bit field in the PE header:
 #
-#   FruityPrime.exe    GUI     double-clicking it opens the launcher and no
+#   ProjectPrime.exe    GUI     double-clicking it opens the launcher and no
 #                              terminal appears behind it
-#   FruityPrimeServer.exe console it holds a terminal, a shell waits for it, and
+#   ProjectPrimeServer.exe console it holds a terminal, a shell waits for it, and
 #                              its exit code reaches %ERRORLEVEL%
 #
 # Neither is observable from a compile, and they come from separate Client and
@@ -15,8 +15,8 @@
 # from a terminal and gets the prompt straight back with the log arriving on
 # top of whatever they type next. So it is asserted.
 #
-#   tools/check-subsystem.sh console publish/server-win-x64/FruityPrimeServer.exe
-#   tools/check-subsystem.sh gui     publish/win-x64/FruityPrime.exe
+#   tools/check-subsystem.sh console publish/server-win-x64/ProjectPrimeServer.exe
+#   tools/check-subsystem.sh gui     publish/win-x64/ProjectPrime.exe
 #
 # Reads the header only, so it runs on the machine that built the binary
 # whether or not that machine is Windows.

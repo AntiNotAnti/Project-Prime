@@ -36,8 +36,8 @@ makes a map something you can send, and what a downloader will want when a
 server starts offering its maps to the players joining it.
 
 ```
-FruityPrimeTools -mapdir maps -mapbundle all       # cook every map
-FruityPrimeTools -mapdir maps -mapbundle DUST2    # cook one map
+ProjectPrimeTools -mapdir maps -mapbundle all       # cook every map
+ProjectPrimeTools -mapdir maps -mapbundle DUST2    # cook one map
 ```
 
 The folder is what a map is *worked on* as; the bundle is what leaves. Bundles
@@ -55,7 +55,7 @@ client. `-content-dir` is accepted as an alias for `-data`, so a publish can be
 prepared directly from a checkout:
 
 ```
-FruityPrimeTools -mapdir maps -data publish/osx-arm64/files/AMHE1 -mapgen all
+ProjectPrimeTools -mapdir maps -data publish/osx-arm64/files/AMHE1 -mapgen all
 ```
 
 A bundle does not settle whether a level may be handed out. Cooking somebody's
@@ -67,6 +67,6 @@ guard refuses by name. Everything else is a judgement for whoever commits it:
 publish a level you have the right to publish.
 
 The format, the Quake 3 importer and the traps are in
-`../.claude/mapgen/MAP-PIPELINE.md`. `FruityPrime -mapgen` builds every map in
-this folder; `FruityPrime -mapmaterials "MP3 PROVING GROUND"` prints the
+`../.claude/mapgen/MAP-PIPELINE.md`. `ProjectPrime -mapgen` builds every map in
+this folder; `ProjectPrime -mapmaterials "MP3 PROVING GROUND"` prints the
 textures a shipped room can lend.

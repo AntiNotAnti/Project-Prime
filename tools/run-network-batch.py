@@ -74,7 +74,7 @@ def main():
         raise ValueError("unsupported GAME_DATA_VERSION")
     build = Path(os.environ.get("GAME_BUILD_DIRECTORY",
                  TOOLS.parent / "src/Client/bin/Release/net10.0")).expanduser().resolve()
-    for name in ("FruityPrime.dll", "FruityPrime.deps.json", "FruityPrime.runtimeconfig.json"):
+    for name in ("ProjectPrime.dll", "ProjectPrime.deps.json", "ProjectPrime.runtimeconfig.json"):
         if not (build / name).is_file():
             raise ValueError(f"missing runtime file: {build / name}; set GAME_BUILD_DIRECTORY")
     dotnet = os.environ.get("DOTNET") or shutil.which("dotnet") or str(Path.home() / ".dotnet/dotnet")
@@ -104,7 +104,7 @@ def main():
     env.setdefault("MESA_GL_VERSION_OVERRIDE", "4.5COMPAT")
     env.setdefault("ALSOFT_DRIVERS", "null")
     env["LD_LIBRARY_PATH"] = str(runtime) + os.pathsep + env.get("LD_LIBRARY_PATH", "")
-    game = [dotnet, str(runtime / "FruityPrime.dll")]
+    game = [dotnet, str(runtime / "ProjectPrime.dll")]
     failures = 0
     with (output / "summary.txt").open("w") as summary:
         def say(message):

@@ -4,7 +4,7 @@ using System.Net.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
@@ -23,7 +23,7 @@ using MphRead.Backend.Tickets;
 using MphRead.Identity;
 using MphRead.Reporting;
 
-namespace FruityPrime.WorkerSoak;
+namespace ProjectPrime.WorkerSoak;
 
 public sealed record SoakBackendPlayer(Guid PlayerId, string DisplayName);
 public sealed record SoakIdentityLease(IReadOnlyList<Guid> PlayerIds, IReadOnlyList<Guid> ObserverIds,

@@ -15,9 +15,9 @@ import uuid
 
 MACHINES = {"linux-x64": 62, "linux-arm64": 183}
 REQUIRED = (
-    "FruityPrimeServer",
-    "worker/FruityPrime.Server.Worker",
-    "backend/PrimeHunters.Backend",
+    "ProjectPrimeServer",
+    "worker/ProjectPrime.Server.Worker",
+    "backend/ProjectPrime.Backend",
 )
 
 
@@ -133,7 +133,7 @@ def validate_config(config_path: Path, deploy_dir: str, data_dir: str) -> list[s
     for index, worker in enumerate(workers):
         if not isinstance(worker, dict):
             raise ValueError(f"worker {index} is not an object")
-        if worker.get("FileName") != "worker/FruityPrime.Server.Worker":
+        if worker.get("FileName") != "worker/ProjectPrime.Server.Worker":
             raise ValueError(f"worker {index} does not launch the packaged Project Prime Worker")
         for field in ("WorkingDirectory", "ArtifactDirectory"):
             if worker.get(field) is not None:
@@ -172,22 +172,32 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle", required=True, type=Path)
     parser.add_argument("--rid", required=True, choices=sorted(MACHINES))
-    parser.add_argument("--config", required=True, type=Path)
-    parser.add_argument("--deploy-dir", required=True)
-    parser.add_argument("--data-dir", required=True)
+    parser.add_argument("--config", type=Path)
+    parser.add_argument("--deploy-dir")
+    parser.add_argument("--data-dir")
     parser.add_argument("--key-path-output", type=Path)
     args = parser.parse_args()
     try:
         bundle = Path(os.path.abspath(args.bundle.expanduser()))
-        config = Path(os.path.abspath(args.config.expanduser()))
         validate_bundle(bundle, args.rid)
-        key_paths = validate_config(config, args.deploy_dir, args.data_dir)
+        if args.config is None:
+            if args.deploy_dir is not None or args.data_dir is not None:
+                raise ValueError("--config, --deploy-dir, and --data-dir must be supplied together")
+            key_paths = []
+        else:
+            if args.deploy_dir is None or args.data_dir is None:
+                raise ValueError("--config, --deploy-dir, and --data-dir must be supplied together")
+            config = Path(os.path.abspath(args.config.expanduser()))
+            key_paths = validate_config(config, args.deploy_dir, args.data_dir)
     except ValueError as error:
         print(f"deployment validation: {error}", file=sys.stderr)
         return 1
     if args.key_path_output:
         args.key_path_output.write_text("".join(path + "\n" for path in key_paths), encoding="utf-8")
-    print(f"deployment validation: {args.rid} bundle and operator config are valid")
+    if args.config is None:
+        print(f"deployment validation: {args.rid} bundle is valid")
+    else:
+        print(f"deployment validation: {args.rid} bundle and operator config are valid")
     return 0
 
 

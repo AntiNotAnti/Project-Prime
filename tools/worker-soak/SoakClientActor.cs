@@ -1,11 +1,11 @@
 using System.Net;
 using System.Globalization;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
-namespace FruityPrime.WorkerSoak;
+namespace ProjectPrime.WorkerSoak;
 
 public sealed record SoakClientFailure(byte SeatId, string Role, string Phase, string State, string Reason);
 

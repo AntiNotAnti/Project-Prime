@@ -20,7 +20,7 @@ done
 [[ -n "$BUNDLE" && -d "$BUNDLE" ]] || { echo "--bundle directory is required" >&2; exit 2; }
 [[ -n "$CONTENT" && -d "$CONTENT" ]] || { echo "--content-dir directory is required" >&2; exit 2; }
 
-TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/fruity-prime-package-smoke.XXXXXX")"
+TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/project-prime-package-smoke.XXXXXX")"
 ARCHIVE="$TMP_ROOT/server.tar.gz"
 EXTRACTED="$TMP_ROOT/extracted"
 # Invoked indirectly by the EXIT trap below; ShellCheck cannot follow that call.

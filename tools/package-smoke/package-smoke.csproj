@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>fruity-prime-package-smoke</AssemblyName>
+    <AssemblyName>project-prime-package-smoke</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Game/Game.csproj" />

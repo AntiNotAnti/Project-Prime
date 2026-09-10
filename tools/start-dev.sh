@@ -7,7 +7,7 @@ set -Eeo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
-if [[ -f "$SCRIPT_DIR/FruityPrimeServer" ]]; then
+if [[ -f "$SCRIPT_DIR/ProjectPrimeServer" ]]; then
     # This launcher can be copied into a combined package as start-stack-dev.sh.
     ROOT=$SCRIPT_DIR
 fi
@@ -54,7 +54,7 @@ PACKAGE_EXPLICIT=0
 if [[ -n "$PRIME_SERVER_PACKAGE" ]]; then PACKAGE_EXPLICIT=1; fi
 PACKAGE_DIR=$PRIME_SERVER_PACKAGE
 if [[ -z "$PACKAGE_DIR" ]]; then
-    if [[ -f "$ROOT/FruityPrimeServer" ]]; then
+    if [[ -f "$ROOT/ProjectPrimeServer" ]]; then
         PACKAGE_DIR=$ROOT
     fi
 fi
@@ -105,8 +105,8 @@ need curl
 mkdir -p "$STATE_DIR/artifacts" "$STATE_DIR/replays" "$STATE_DIR/data-protection"
 chmod 700 "$STATE_DIR" "$STATE_DIR/data-protection"
 
-if [[ ! -f "$PACKAGE_DIR/FruityPrimeServer" ]]; then
-    if [[ "$PACKAGE_EXPLICIT" == 1 || -f "$ROOT/FruityPrimeServer" ]]; then
+if [[ ! -f "$PACKAGE_DIR/ProjectPrimeServer" ]]; then
+    if [[ "$PACKAGE_EXPLICIT" == 1 || -f "$ROOT/ProjectPrimeServer" ]]; then
         echo "The explicitly selected server package is invalid: $PACKAGE_DIR" >&2
         exit 1
     fi
@@ -203,7 +203,7 @@ then
     exit 1
 fi
 
-if [[ ! -f "$PACKAGE_DIR/FruityPrimeServer" ]]; then
+if [[ ! -f "$PACKAGE_DIR/ProjectPrimeServer" ]]; then
     if [[ ! -x "$ROOT/tools/package-server.sh" ]]; then
         echo "Missing server bundle and package helper: $PACKAGE_DIR" >&2
         exit 1
@@ -212,17 +212,17 @@ if [[ ! -f "$PACKAGE_DIR/FruityPrimeServer" ]]; then
     "$ROOT/tools/package-server.sh" --rid "$HOST_SERVER_RID" --output "$PACKAGE_DIR" 8>&-
 fi
 PACKAGE_DIR=$(cd "$PACKAGE_DIR" && pwd)
-NODE_PATH=$PACKAGE_DIR/FruityPrimeServer
-WORKER_PATH=$PACKAGE_DIR/worker/FruityPrime.Server.Worker
+NODE_PATH=$PACKAGE_DIR/ProjectPrimeServer
+WORKER_PATH=$PACKAGE_DIR/worker/ProjectPrime.Server.Worker
 [[ -f "$NODE_PATH" ]] || { echo "Missing Node executable: $NODE_PATH" >&2; exit 1; }
 [[ -f "$WORKER_PATH" ]] || { echo "Missing Worker executable: $WORKER_PATH" >&2; exit 1; }
 chmod +x "$NODE_PATH" "$WORKER_PATH"
 BACKEND_EXECUTABLE=$PRIME_BACKEND_EXECUTABLE
 if [[ -z "$BACKEND_EXECUTABLE" ]]; then
-    if [[ -x "$PACKAGE_DIR/backend/PrimeHunters.Backend" ]]; then
-        BACKEND_EXECUTABLE=$PACKAGE_DIR/backend/PrimeHunters.Backend
-    elif [[ -f "$PACKAGE_DIR/backend/PrimeHunters.Backend.exe" ]]; then
-        BACKEND_EXECUTABLE=$PACKAGE_DIR/backend/PrimeHunters.Backend.exe
+    if [[ -x "$PACKAGE_DIR/backend/ProjectPrime.Backend" ]]; then
+        BACKEND_EXECUTABLE=$PACKAGE_DIR/backend/ProjectPrime.Backend
+    elif [[ -f "$PACKAGE_DIR/backend/ProjectPrime.Backend.exe" ]]; then
+        BACKEND_EXECUTABLE=$PACKAGE_DIR/backend/ProjectPrime.Backend.exe
     fi
 fi
 
@@ -599,7 +599,7 @@ cfg={"Node":{
                       "Keys":[{"KeyId":os.environ["KEY_ID"],"PublicKeyPemPath":os.environ["PUBLIC_KEY"]}]},
     "Maps":[{"MapKey":entry["MapKey"],**content,"Modes":entry["Modes"]} for entry in maps],
     "Workers":{"DrainTimeout":"00:00:30","ForceAfterDrainDeadline":False,"Processes":[{
-        "FileName":"worker/FruityPrime.Server.Worker","Content":content,
+        "FileName":"worker/ProjectPrime.Server.Worker","Content":content,
         "ArtifactDirectory":os.environ["ARTIFACT_DIR"],"WorkingDirectory":os.environ["PACKAGE_DIR"],
         "Arguments":["--content-dir",os.environ["CONTENT_DIR"],"--content-version",os.environ["CONTENT_VERSION"],
                      "--map-dir",os.environ["MAP_DIR"],
@@ -650,7 +650,7 @@ if [[ "$START_BACKEND" == 1 ]]; then
     fi
     SECRET_HASH=$(printf '%s' "$NODE_SECRET" | python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest().upper())')
     BACKEND_LOG=$STATE_DIR/backend.log
-    if [[ -z "$BACKEND_EXECUTABLE" && ! -x "$ROOT/src/Backend/bin/Release/net10.0/PrimeHunters.Backend" ]]; then need dotnet; fi
+    if [[ -z "$BACKEND_EXECUTABLE" && ! -x "$ROOT/src/Backend/bin/Release/net10.0/ProjectPrime.Backend" ]]; then need dotnet; fi
     echo "Starting Backend on $BACKEND_BIND (logs: $BACKEND_LOG)"
     # shellcheck disable=SC2030
     (
@@ -666,8 +666,8 @@ if [[ "$START_BACKEND" == 1 ]]; then
         export ConnectionStrings__Backend
         if [[ -n "$BACKEND_EXECUTABLE" ]]; then
             "$BACKEND_EXECUTABLE"
-        elif [[ -x "$ROOT/src/Backend/bin/Release/net10.0/PrimeHunters.Backend" ]]; then
-            "$ROOT/src/Backend/bin/Release/net10.0/PrimeHunters.Backend"
+        elif [[ -x "$ROOT/src/Backend/bin/Release/net10.0/ProjectPrime.Backend" ]]; then
+            "$ROOT/src/Backend/bin/Release/net10.0/ProjectPrime.Backend"
         else
             dotnet run --project "$ROOT/src/Backend/Backend.csproj" --no-launch-profile
         fi

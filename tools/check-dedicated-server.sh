@@ -9,20 +9,20 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE="${1:-publish/server-linux-x64}"
 PACKAGE="$(cd "$PACKAGE" && pwd)"
 
-if [[ ! -x "$PACKAGE/FruityPrimeServer" && ! -f "$PACKAGE/FruityPrimeServer.exe" ]]; then
+if [[ ! -x "$PACKAGE/ProjectPrimeServer" && ! -f "$PACKAGE/ProjectPrimeServer.exe" ]]; then
   echo "FAIL: combined Node apphost is missing from $PACKAGE" >&2
   exit 1
 fi
-if [[ ! -x "$PACKAGE/backend/PrimeHunters.Backend" && ! -f "$PACKAGE/backend/PrimeHunters.Backend.exe" ]]; then
+if [[ ! -x "$PACKAGE/backend/ProjectPrime.Backend" && ! -f "$PACKAGE/backend/ProjectPrime.Backend.exe" ]]; then
   echo "FAIL: Backend apphost is missing below $PACKAGE/backend" >&2
   exit 1
 fi
-if [[ ! -x "$PACKAGE/worker/FruityPrime.Server.Worker" && ! -f "$PACKAGE/worker/FruityPrime.Server.Worker.exe" ]]; then
+if [[ ! -x "$PACKAGE/worker/ProjectPrime.Server.Worker" && ! -f "$PACKAGE/worker/ProjectPrime.Server.Worker.exe" ]]; then
   echo "FAIL: Worker apphost is missing below $PACKAGE/worker" >&2
   exit 1
 fi
 [[ -f "$PACKAGE/server.example.json" ]] || { echo "FAIL: example server config is missing" >&2; exit 1; }
-! find "$PACKAGE" -maxdepth 1 -type f -name 'FruityPrime.Server.Worker*' | grep -q . || {
+! find "$PACKAGE" -maxdepth 1 -type f -name 'ProjectPrime.Server.Worker*' | grep -q . || {
   echo "FAIL: Worker leaked into the Node bundle root" >&2; exit 1;
 }
 bash "$ROOT/tools/check-no-game-assets.sh" "$PACKAGE"

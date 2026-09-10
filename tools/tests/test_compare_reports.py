@@ -20,7 +20,7 @@ SPECTATOR requested=False observed=False rejoined=False
 
 class ReportTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="fruity-reports-")
+        self.temporary = tempfile.TemporaryDirectory(prefix="project-prime-reports-")
         self.addCleanup(self.temporary.cleanup)
         self.path = Path(self.temporary.name) / "client.log"
         self.path.write_text(SAMPLE)

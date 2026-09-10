@@ -22,7 +22,7 @@ namespace MphRead
                 if (args.Length > 0 && args[0] == "fidelity") return FidelityCommand.Run(args[1..]);
                 MapGen.MapImageDecoding.Decoder = MphRead.Imaging.StbImageDecoder.Decode;
                 if (args.Length == 0 || HasFlag(args, "help"))
-                { Console.WriteLine("FruityPrimeTools: fidelity <command>, -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -content-dir DIRECTORY, -mapbundle [NAME|all], -mapgen [NAME|all], -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return 0; }
+                { Console.WriteLine("ProjectPrimeTools: fidelity <command>, -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -content-dir DIRECTORY, -mapbundle [NAME|all], -mapgen [NAME|all], -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return 0; }
                 string? mapDir = ValueAfter(args, "mapdir");
                 if (mapDir != null) MapGen.CustomRooms.MapDirectory = Path.GetFullPath(Path.Combine(ConsoleSetup.LaunchDirectory, mapDir));
                 if (HandleEarly(args) || CheckSetup(args) || HandleAssets(args)) return Environment.ExitCode;
@@ -82,7 +82,7 @@ namespace MphRead
             {
                 Extract.ExtractArchive(extractValue);
             }
-                else { Console.WriteLine("FruityPrimeTools: -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -content-dir DIRECTORY, -mapbundle [NAME|all], -mapgen [NAME|all], -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return args.Length == 0 ? 0 : 2; }
+                else { Console.WriteLine("ProjectPrimeTools: -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -content-dir DIRECTORY, -mapbundle [NAME|all], -mapgen [NAME|all], -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return args.Length == 0 ? 0 : 2; }
                 return Environment.ExitCode;
             }
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
@@ -294,7 +294,7 @@ namespace MphRead
                 ContentEnvironment.Open(contentPath, ValueAfter(args, "dataversion") ?? "AMHE1");
                 return false;
             }
-            if (!File.Exists("paths.txt")) throw new ProgramException("Supply -data DIRECTORY or run FruityPrimeTools with a ROM path first.");
+            if (!File.Exists("paths.txt")) throw new ProgramException("Supply -data DIRECTORY or run ProjectPrimeTools with a ROM path first.");
             Paths.UpdatePaths();
             Paths.ChooseMphPath();
             Paths.ChooseFhPath();

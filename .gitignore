@@ -2,8 +2,8 @@ src/MphRead/paths.txt
 
 # Local cartridge extraction, launcher outputs and Finder metadata.
 /AMHE1/
-/.fruity-launcher/
-/FruityPrime
+/.project-prime-launcher/
+/ProjectPrime
 /output/
 .DS_Store
 

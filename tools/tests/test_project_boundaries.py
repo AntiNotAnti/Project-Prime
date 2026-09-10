@@ -18,7 +18,7 @@ SPEC.loader.exec_module(GUARD)
 
 class ProjectBoundaryGuardTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="fruity-project-boundaries-")
+        self.temporary = tempfile.TemporaryDirectory(prefix="project-prime-project-boundaries-")
         self.addCleanup(self.temporary.cleanup)
         # The macOS temporary-directory alias can resolve from /var to
         # /private/var. The guard compares resolved linked paths to its root.

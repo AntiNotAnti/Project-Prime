@@ -61,7 +61,7 @@ def main():
         shutil.copyfile(packed, output)
     # The baked texture indices belong to this BSP, and must be regenerated.
     (source.parent / 'parallax.tex').unlink(missing_ok=True)
-    print(f'Built {output} ({output.stat().st_size:,} bytes). Run FruityPrime -mapgen PARALLAX.')
+    print(f'Built {output} ({output.stat().st_size:,} bytes). Run ProjectPrime -mapgen PARALLAX.')
 
 
 if __name__ == '__main__':
