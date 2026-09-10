@@ -136,11 +136,17 @@ namespace MphRead
         /// <summary>Rides rigidly with the camera instead of lagging behind aim, and stops the mouse-driven HUD shift too -- Quake's static weapon.</summary>
         public static bool FixedWeapon
         {
-            get => ProHud || _fixedWeapon;
+            get => ResolveFixedWeapon(ProHud, ProHudFixedWeapon, _fixedWeapon);
             set => _fixedWeapon = value;
         }
 
         private static bool _fixedWeapon = false;
+        public static bool ProHudFixedWeapon { get; set; } = true;
+
+        internal static bool ResolveFixedWeapon(bool proHud, bool proHudFixedWeapon, bool fixedWeapon)
+            => proHud ? proHudFixedWeapon : fixedWeapon;
+
+        internal static bool ShowProHudWeaponSetting(bool proHud) => proHud;
     }
 
     public static class Cheats

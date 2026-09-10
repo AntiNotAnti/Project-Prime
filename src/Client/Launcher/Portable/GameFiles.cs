@@ -118,87 +118,102 @@ namespace MphRead.Mods.Launcher
         /// </summary>
         public static bool RunSetup(string romPath, Action<string> report)
         {
-            if (InProcessSetup)
+            IDisposable? updateLease = Update.UpdateCoordinator.Shared.AcquireCriticalOperationLease();
+            if (updateLease == null)
             {
-                return RunSetupHere(romPath, report);
-            }
-            string? exe = Environment.ProcessPath;
-            if (exe == null)
-            {
-                report("Could not find the MphRead executable.");
+                report("An update is restarting; wait for it to finish before setting up game files.");
                 return false;
             }
-            var info = new ProcessStartInfo(exe)
-            {
-                WorkingDirectory = Root,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-            // One argument, no switches: that is the form upstream's setup
-            // recognises, and it is what dragging a ROM onto the exe produces.
-            info.ArgumentList.Add(romPath);
+            Update.UpdateCoordinator.Shared.SetSafeToRestart(false);
             try
             {
-                using Process? child = Process.Start(info);
-                if (child == null)
+                if (InProcessSetup)
                 {
-                    report("Could not start the extraction.");
+                    return RunSetupHere(romPath, report);
+                }
+                string? exe = Environment.ProcessPath;
+                if (exe == null)
+                {
+                    report("Could not find the MphRead executable.");
                     return false;
                 }
-                var output = new StringBuilder();
-                child.OutputDataReceived += (_, e) =>
+                var info = new ProcessStartInfo(exe)
                 {
-                    if (e.Data != null)
-                    {
-                        output.AppendLine(e.Data);
-                        report(e.Data);
-                    }
+                    WorkingDirectory = Root,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardInput = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
                 };
-                child.ErrorDataReceived += (_, e) =>
-                {
-                    if (e.Data != null)
-                    {
-                        output.AppendLine(e.Data);
-                        report(e.Data);
-                    }
-                };
-                child.BeginOutputReadLine();
-                child.BeginErrorReadLine();
-                // Two answers cover both questions setup can ask: "a path is
-                // already set, update it?" and "press any key to exit" after
-                // a failure. Sending them up front means neither can hang.
+                // One argument, no switches: that is the form upstream's setup
+                // recognises, and it is what dragging a ROM onto the exe produces.
+                info.ArgumentList.Add(romPath);
                 try
                 {
-                    child.StandardInput.WriteLine("y");
-                    child.StandardInput.WriteLine();
-                    child.StandardInput.Flush();
+                    using Process? child = Process.Start(info);
+                    if (child == null)
+                    {
+                        report("Could not start the extraction.");
+                        return false;
+                    }
+                    var output = new StringBuilder();
+                    child.OutputDataReceived += (_, e) =>
+                    {
+                        if (e.Data != null)
+                        {
+                            output.AppendLine(e.Data);
+                            report(e.Data);
+                        }
+                    };
+                    child.ErrorDataReceived += (_, e) =>
+                    {
+                        if (e.Data != null)
+                        {
+                            output.AppendLine(e.Data);
+                            report(e.Data);
+                        }
+                    };
+                    child.BeginOutputReadLine();
+                    child.BeginErrorReadLine();
+                    // Two answers cover both questions setup can ask: "a path is
+                    // already set, update it?" and "press any key to exit" after
+                    // a failure. Sending them up front means neither can hang.
+                    try
+                    {
+                        child.StandardInput.WriteLine("y");
+                        child.StandardInput.WriteLine();
+                        child.StandardInput.Flush();
+                    }
+                    catch (IOException)
+                    {
+                        // The child may have exited before reading; not an error.
+                    }
+                    if (!child.WaitForExit(10 * 60 * 1000))
+                    {
+                        child.Kill(entireProcessTree: true);
+                        report("The extraction took too long and was stopped.");
+                        return false;
+                    }
                 }
-                catch (IOException)
+                catch (Exception ex)
                 {
-                    // The child may have exited before reading; not an error.
-                }
-                if (!child.WaitForExit(10 * 60 * 1000))
-                {
-                    child.Kill(entireProcessTree: true);
-                    report("The extraction took too long and was stopped.");
+                    report($"The extraction failed: {ex.Message}");
                     return false;
                 }
+                string? problem = Problem();
+                if (problem != null)
+                {
+                    report(problem);
+                    return false;
+                }
+                return true;
             }
-            catch (Exception ex)
+            finally
             {
-                report($"The extraction failed: {ex.Message}");
-                return false;
+                updateLease.Dispose();
+                Update.UpdateCoordinator.Shared.SetSafeToRestart(true);
             }
-            string? problem = Problem();
-            if (problem != null)
-            {
-                report(problem);
-                return false;
-            }
-            return true;
         }
 
         /// <summary>

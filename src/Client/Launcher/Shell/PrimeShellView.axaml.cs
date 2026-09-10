@@ -23,6 +23,7 @@ using MphRead.Mods.Accounts;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Network;
+using MphRead.Mods.Update;
 using AvaloniaButton = Avalonia.Controls.Button;
 using Scene = MphRead.Scene;
 
@@ -65,6 +66,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private Guid? _lobbyDraftId;
     private Guid? _lobbyConfigurePendingId;
     private Update.UpdateInfo? _update;
+    private Update.UpdateStatus _updateStatus = Update.UpdateCoordinator.Shared.Status;
     private string _lobbyNameDraft = "";
     private string? _mapDraft;
     private MatchMode? _modeDraft;
@@ -84,6 +86,10 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private GamepadButtons _previousPadButtons;
     private int _previousPadDirection;
     private DateTimeOffset _nextPadRepeat;
+    private ComboBox? _padCombo;
+    private int _padComboOriginalIndex;
+    private ComboBox? _hunterPadCombo;
+    private DeferredControllerSelection<Hunter>? _hunterPadSelection;
 
     public LaunchPlan Plan { get; private set; }
     public event EventHandler<LaunchPlan>? Done;
@@ -116,6 +122,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         _rankings.Changed += RankingsChanged;
         _theater.Changed += TheaterChanged;
         _theater.Launch += LaunchRequested;
+        Update.UpdateCoordinator.Shared.StatusChanged += UpdateStatusChanged;
         SizeChanged += (_, e) => ApplyResponsiveLayout(e.NewSize.Width, e.NewSize.Height);
 
         _inputTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
@@ -210,26 +217,32 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         _shell.Activate();
         _play.SetHandoffEnabled(_shell.CurrentRoute == PrimeRoute.Play
             && _shell.HasNetworkIdentity);
-        _previousPadButtons = GamepadInput.State.Buttons;
-        _previousPadDirection = PadDirection();
+        _previousPadButtons = GamepadInput.EffectiveButtons;
+        _previousPadDirection = PadDirection(GamepadInput.EffectiveButtons);
         _nextPadRepeat = DateTimeOffset.UtcNow.AddMilliseconds(350);
         _inputTimer.Start();
         StartPreviewCatchup();
-        if (!_restoreOnActivate || _restoreStarted) return;
-        _restoreStarted = true;
-        if (LauncherPrefs.AutoUpdate && Update.Updater.Configured)
+        if (_restoreOnActivate && !_restoreStarted)
         {
-            Update.Updater.CheckInBackground(update => PostUi(() =>
+            _restoreStarted = true;
+            if (LauncherPrefs.UpdatePolicy != UpdatePolicy.Off && Update.Updater.Configured)
             {
-                _update = update;
-                RefreshChrome();
-            }));
+                Update.Updater.CheckInBackground(update => PostUi(() =>
+                {
+                    _update = update;
+                    RefreshChrome();
+                }), () => PostUi(() => _ = TryInstallStaged()));
+            }
+            RunCommand("Restore session", async () =>
+            {
+                if (await _gateway.RestoreAsync(_restoreLifetime.Token).ConfigureAwait(false))
+                    PostUi(() => _shell.Navigator.NavigateRoot(PrimeRoute.Play));
+            });
         }
-        RunCommand("Restore session", async () =>
-        {
-            if (await _gateway.RestoreAsync(_restoreLifetime.Token).ConfigureAwait(false))
-                PostUi(() => _shell.Navigator.NavigateRoot(PrimeRoute.Play));
-        });
+        // Android returns here after a match and after the install-source
+        // settings screen. Retrying on every activation lets a staged APK be
+        // submitted without requiring a second background check.
+        if (_restoreOnActivate) _ = TryInstallStaged();
     }
 
     /// <summary>
@@ -353,6 +366,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         _rankings.Changed -= RankingsChanged;
         _theater.Changed -= TheaterChanged;
         _theater.Launch -= LaunchRequested;
+        Update.UpdateCoordinator.Shared.StatusChanged -= UpdateStatusChanged;
         await _gateway.DisposeAsync().ConfigureAwait(false);
         await _play.DisposeAsync().ConfigureAwait(false);
         _license.Dispose();
@@ -385,6 +399,10 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
 
     private void RenderRoute(PrimeRoute route)
     {
+        _padCombo = null;
+        _padComboOriginalIndex = -1;
+        _hunterPadCombo = null;
+        _hunterPadSelection = null;
         _play.SetHandoffEnabled(route == PrimeRoute.Play && _shell.HasNetworkIdentity);
         if (!_ignoreGameFileGate && !GameFiles.Ready)
         {
@@ -658,7 +676,26 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         var directory = Stack();
         directory.Children.Add(Text("Nodes", "prime-heading"));
         if (state.Nodes.Count == 0)
-            directory.Children.Add(Text(state.Loading ? "Loading compatible Nodes…" : "No Node directory results yet.", "prime-muted"));
+        {
+            Update.UpdateStatus updateStatus = Update.Updater.Coordinator.Status;
+            bool signedUpdateAvailable = !state.Loading
+                && updateStatus.AvailableVersion != null
+                && updateStatus.State is UpdateState.Available or UpdateState.Staged
+                    or UpdateState.WaitingForSafePoint;
+            if (signedUpdateAvailable)
+            {
+                directory.Children.Add(Text(
+                    $"Update available v{updateStatus.AvailableVersion}. Update and retry Node discovery.",
+                    "prime-muted"));
+                directory.Children.Add(MakeButton("Update and retry", () =>
+                    RunCommand("Update and retry", UpdateAndRetryNodes), primary: true));
+            }
+            else
+            {
+                directory.Children.Add(Text(state.Loading
+                    ? "Loading compatible Nodes…" : "No Node directory results yet.", "prime-muted"));
+            }
+        }
         foreach (NodeListing node in state.Nodes)
         {
             NodeListing captured = node;
@@ -784,6 +821,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             {
                 ItemsSource = availableMaps,
                 SelectedItem = selectedMap,
+                Tag = ControllerComboSelector.Map,
                 MinHeight = 40,
                 IsEnabled = !configurePending
             };
@@ -791,6 +829,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             {
                 ItemsSource = Enum.GetValues<MatchMode>(),
                 SelectedItem = _modeDraft ?? lobby.Mode,
+                Tag = ControllerComboSelector.Mode,
                 MinHeight = 40,
                 IsEnabled = !configurePending
             };
@@ -800,6 +839,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             {
                 ItemsSource = Enumerable.Range(0, maximumBots + 1).ToArray(),
                 SelectedItem = selectedBots,
+                Tag = ControllerComboSelector.Bots,
                 MinHeight = 40,
                 IsEnabled = !configurePending
             };
@@ -1048,14 +1088,23 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         {
             ItemsSource = Enum.GetValues<Hunter>().Where(value => value <= Hunter.Weavel).ToArray(),
             SelectedItem = state.LobbyHunter,
+            Tag = ControllerComboSelector.Hunter,
             MinWidth = 180,
             MinHeight = 44
         };
+        var hunterSelection = new DeferredControllerSelection<Hunter>(
+            state.LobbyHunter, selected => RunCommand("Select lobby hunter",
+                () => _play.SelectLobbyHunterAsync(selected, _lifetime.Token)));
+        _hunterPadCombo = hunterChoice;
+        _hunterPadSelection = hunterSelection;
         hunterChoice.SelectionChanged += (_, _) =>
         {
-            if (hunterChoice.SelectedItem is Hunter selected && selected != state.LobbyHunter)
-                RunCommand("Select lobby hunter",
-                    () => _play.SelectLobbyHunterAsync(selected, _lifetime.Token));
+            if (hunterChoice.SelectedItem is Hunter selected)
+            {
+                if (hunterSelection.Active) hunterSelection.Preview(selected);
+                else if (selected != state.LobbyHunter)
+                    hunterSelection.CommitImmediate(selected);
+            }
         };
         var hunter = Stack(Text("LOBBY HUNTER", "prime-label"), hunterChoice);
         var actions = new WrapPanel
@@ -1949,6 +1998,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             ? $"{_shell.NodeName} {_shell.NodeRegion}".Trim()
             : _shell.BackendConnected ? "Backend ready" : "Offline";
         StatusText.Text = _shell.BusyOperation ?? _shell.Notification?.Message
+            ?? DescribeUpdateStatus()
             ?? (_shell.CurrentRoute == PrimeRoute.Gateway ? _gateway.State.Message : "Ready");
         InputHintText.Text = _shell.LastInputDevice switch
         {
@@ -1991,12 +2041,105 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         if (Update.Updater.Configured && _update is { } update)
         {
             ActionBar.Children.Add(MakeButton($"Update available · {update.Tag}",
-                () => RunCommand("Open update page", () =>
-                {
-                    Update.Updater.OpenPage(update);
-                    return Task.CompletedTask;
-                }), primary: true));
+                () => RunCommand("Install update", () => DownloadAndInstall(update)),
+                primary: true));
         }
+    }
+
+    private async Task TryInstallStaged()
+    {
+        if (_disposed || !_active
+            || LauncherPrefs.UpdatePolicy != UpdatePolicy.Automatic
+            || Update.Updater.Coordinator.Status.State is not
+                (UpdateState.Staged or UpdateState.WaitingForSafePoint))
+            return;
+        Update.IUpdateInstaller? installer = Update.UpdateInstall.Current;
+        if (installer == null)
+            return;
+        if (!installer.Allowed)
+        {
+            installer.RequestPermission();
+            return;
+        }
+        bool started = await Update.Updater.InstallStagedAsync().ConfigureAwait(true);
+        if (started && installer.ExitAfterInstall)
+            Finish(default);
+    }
+
+    private async Task DownloadAndInstall(Update.UpdateInfo update)
+    {
+        if (_disposed || !_active) return;
+        Update.UpdateCoordinator coordinator = Update.Updater.Coordinator;
+        coordinator.SetSafeToRestart(true);
+        bool started = await Update.Updater.DownloadAndInstallAsync()
+            .ConfigureAwait(true);
+        if (!started)
+        {
+            _shell.Notify(PrimeNotificationKind.Warning,
+                coordinator.Status.Message ?? "the update could not be staged");
+            RefreshChrome();
+            return;
+        }
+        Update.IUpdateInstaller? installer = Update.UpdateInstall.Current;
+        if (installer?.ExitAfterInstall == true) Finish(default);
+        else RefreshChrome();
+    }
+
+    private async Task UpdateAndRetryNodes()
+    {
+        bool started = await Update.Updater.DownloadAndInstallAsync()
+            .ConfigureAwait(true);
+        if (!started)
+        {
+            _shell.Notify(PrimeNotificationKind.Warning,
+                Update.Updater.Coordinator.Status.Message ?? "the update could not be staged");
+            RefreshChrome();
+            return;
+        }
+        Update.IUpdateInstaller? installer = Update.UpdateInstall.Current;
+        if (installer?.ExitAfterInstall == true)
+        {
+            Finish(default);
+            return;
+        }
+        _shell.Notify(PrimeNotificationKind.Success,
+            "Update submitted. Return here after Android finishes installing, then retry Node discovery.");
+        RefreshChrome();
+    }
+
+    private string? DescribeUpdateStatus()
+    {
+        Update.UpdateStatus status = _updateStatus;
+        return status.State switch
+        {
+            UpdateState.Downloading or UpdateState.Verifying when status.TotalBytes > 0
+                => $"Updating {status.BytesReceived / (1024 * 1024)} / "
+                    + $"{status.TotalBytes / (1024 * 1024)} MB",
+            UpdateState.Downloading or UpdateState.Verifying => "Downloading update",
+            UpdateState.Available when status.AvailableVersion != null
+                => $"Update available v{status.AvailableVersion}",
+            UpdateState.Staged => "Update staged; ready to restart",
+            UpdateState.WaitingForSafePoint => "Update staged; waiting for a safe point",
+            UpdateState.Installing or UpdateState.Restarting => status.Message,
+            UpdateState.Failed => status.Message,
+            _ => null
+        };
+    }
+
+    private void UpdateStatusChanged(object? sender, Update.UpdateStatus status)
+    {
+        PostUi(() =>
+        {
+            _updateStatus = status;
+            RefreshChrome();
+            if ((status.State is UpdateState.Available or UpdateState.Staged
+                    or UpdateState.WaitingForSafePoint)
+                && _shell.CurrentRoute == PrimeRoute.Play)
+                RenderRoute(PrimeRoute.Play);
+            if (status.State == UpdateState.Staged
+                && LauncherPrefs.UpdatePolicy == UpdatePolicy.Automatic)
+                _ = TryInstallStaged();
+        });
     }
 
     private void ApplyResponsiveLayout(double width, double height)
@@ -2067,6 +2210,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
 
     private bool IsPlayEditorFocused()
     {
+        if (_padCombo?.IsDropDownOpen == true) return true;
         object? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
         return focused is TextBox or ComboBox
             && PageHost.GetVisualDescendants().Any(control => ReferenceEquals(control, focused));
@@ -2093,51 +2237,112 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             _previousPadDirection = 0;
             return;
         }
-        GamepadButtons buttons = GamepadInput.State.Buttons;
+        GamepadButtons buttons = GamepadInput.EffectiveButtons;
         GamepadButtons pressed = buttons & ~_previousPadButtons;
-        int direction = PadDirection();
+        int direction = PadDirection(buttons);
+        object? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+        ComboBox? activeCombo = _padCombo?.IsDropDownOpen == true
+            ? _padCombo : focused as ComboBox;
         DateTimeOffset now = DateTimeOffset.UtcNow;
         bool repeat = direction != 0 && direction == _previousPadDirection && now >= _nextPadRepeat;
         if (direction != 0 && (direction != _previousPadDirection || repeat))
         {
-            MovePadFocus(direction);
+            if (activeCombo is { IsDropDownOpen: true } openCombo
+                && Math.Abs(direction) == 1)
+            {
+                ApplyComboPad(openCombo, direction > 0
+                    ? ControllerComboCommand.Next : ControllerComboCommand.Previous);
+            }
+            else MovePadFocus(direction);
             _nextPadRepeat = now.AddMilliseconds(repeat ? 120 : 350);
         }
         if ((pressed & GamepadButtons.A) != 0)
         {
-            object? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
             if (focused is PrimeButton action) action.Invoke();
             else if (focused is AvaloniaButton button)
                 button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(AvaloniaButton.ClickEvent));
-            else if (focused is ComboBox combo) combo.IsDropDownOpen = true;
+            else if (activeCombo is ComboBox combo)
+                ApplyComboPad(combo, ControllerComboCommand.Accept);
+            else if (focused is IControllerNavigable controller)
+                controller.ControllerActivate();
         }
-        if ((pressed & GamepadButtons.B) != 0) GoBack();
+        if ((pressed & GamepadButtons.B) != 0)
+        {
+            if (activeCombo is { IsDropDownOpen: true } combo)
+                ApplyComboPad(combo, ControllerComboCommand.Cancel);
+            else GoBack();
+        }
         if (GamepadInput.InUse) _shell.SetLastInputDevice(PrimeInputDevice.Gamepad);
         _previousPadButtons = buttons;
         _previousPadDirection = direction;
     }
 
-    private static int PadDirection()
+    private void ApplyComboPad(ComboBox combo, ControllerComboCommand command)
+    {
+        bool tracked = ReferenceEquals(_padCombo, combo);
+        int original = tracked ? _padComboOriginalIndex : combo.SelectedIndex;
+        var state = new ControllerComboState(
+            combo.Tag is ControllerComboSelector selector
+                ? selector : ControllerComboSelector.Generic,
+            combo.SelectedIndex, original, combo.IsDropDownOpen);
+        ControllerComboState next = ControllerComboNavigation.Transition(
+            state, combo.Items.Count, command);
+        bool hunter = ReferenceEquals(combo, _hunterPadCombo)
+            && _hunterPadSelection != null;
+        if (hunter && command == ControllerComboCommand.Accept && !state.IsOpen
+            && combo.SelectedItem is Hunter openingHunter)
+            _hunterPadSelection!.Begin(openingHunter);
+        combo.SelectedIndex = next.SelectedIndex;
+        combo.IsDropDownOpen = next.IsOpen;
+        if (hunter && state.IsOpen)
+        {
+            if (command == ControllerComboCommand.Cancel)
+            {
+                Hunter restored = _hunterPadSelection!.Cancel();
+                combo.SelectedItem = restored;
+            }
+            else if (command == ControllerComboCommand.Accept)
+                _hunterPadSelection!.Accept();
+        }
+        if (next.IsOpen)
+        {
+            _padCombo = combo;
+            _padComboOriginalIndex = next.OriginalIndex;
+        }
+        else
+        {
+            _padCombo = null;
+            _padComboOriginalIndex = -1;
+        }
+    }
+
+    internal static int PadDirection(GamepadButtons buttons)
     {
         GamepadState state = GamepadInput.State;
-        if (state.Down(GamepadButtons.DpadDown) || state.Down(GamepadButtons.DpadRight)
-            || state.LeftY < -0.65f || state.LeftX > 0.65f) return 1;
-        if (state.Down(GamepadButtons.DpadUp) || state.Down(GamepadButtons.DpadLeft)
-            || state.LeftY > 0.65f || state.LeftX < -0.65f) return -1;
+        if ((buttons & GamepadButtons.DpadRight) != 0 || state.LeftX > 0.65f) return 2;
+        if ((buttons & GamepadButtons.DpadLeft) != 0 || state.LeftX < -0.65f) return -2;
+        if ((buttons & GamepadButtons.DpadDown) != 0 || state.LeftY < -0.65f) return 1;
+        if ((buttons & GamepadButtons.DpadUp) != 0 || state.LeftY > 0.65f) return -1;
         return 0;
     }
 
     private void MovePadFocus(int direction)
     {
+        object? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+        if (Math.Abs(direction) == 2 && focused is IControllerNavigable adjustable)
+        {
+            adjustable.ControllerAdjust(Math.Sign(direction));
+            return;
+        }
         Control focusRoot = OverlayRoot.IsVisible ? OverlayHost : PageHost;
         Control[] controls = focusRoot.GetVisualDescendants().OfType<Control>()
             .Where(control => control.Focusable && control.IsEffectivelyVisible
                 && control.IsEffectivelyEnabled).ToArray();
         if (controls.Length == 0) return;
-        object? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
         int index = Array.FindIndex(controls, control => ReferenceEquals(control, focused));
-        index = index < 0 ? (direction > 0 ? 0 : controls.Length - 1)
-            : (index + direction + controls.Length) % controls.Length;
+        int step = Math.Sign(direction);
+        index = index < 0 ? (step > 0 ? 0 : controls.Length - 1)
+            : (index + step + controls.Length) % controls.Length;
         controls[index].Focus(NavigationMethod.Directional);
     }
 

@@ -94,7 +94,12 @@ namespace MphRead.Mods
                 DebugLog.Force();
             }
             DebugLog.Attach();
+            // -noupdate is an absolute per-process override. In particular,
+            // an explicit -update must not turn it back on below.
             Update.Updater.Disabled = HasFlag(args, "noupdate");
+            Network.PredictedHitFeedback.DefaultEnabled = !HasFlag(args, "nohitprediction");
+            Network.PredictedSelfImpulse.DefaultEnabled = HasFlag(args, "selfimpulseprediction")
+                && !HasFlag(args, "noselfimpulseprediction");
             ApplyRenderOverrides(args);
 
             // The copying half of a desktop update, which is this build
@@ -109,13 +114,19 @@ namespace MphRead.Mods
                 // is a directory, and a directory is exactly the kind of
                 // argument that can begin with a dash.
                 Environment.ExitCode = Update.DesktopUpdate.Apply(args[applyAt + 1],
-                    Int32.TryParse(args[applyAt + 2], out int parsed) ? parsed : -1);
+                    Int32.TryParse(args[applyAt + 2], out int parsed) ? parsed : -1,
+                    applyAt + 3 < args.Length ? args[applyAt + 3] : "0.0.0");
                 return true;
             }
-            // Whatever the last update left behind. Here rather than in the
-            // copying process, which cannot delete the directory it is running
-            // from, and cheap when there is nothing there.
-            Update.DesktopUpdate.Clean();
+            // Recover an interrupted transaction before launcher/game startup.
+            // Recovery is serialized by the persistent update lock and never
+            // removes the lock object itself.
+            Update.UpdateTransactionResult recovery = Update.DesktopUpdate.Recover();
+            if (!recovery.Success && recovery.State == Update.UpdateTransactionState.RecoveryRequired)
+            {
+                Console.Error.WriteLine($"[update] {recovery.Error ?? "installation recovery is required"}");
+                return true;
+            }
             // And the desktop's own installer, unless a platform head has
             // already put its own in place.
             Update.UpdateInstall.UseDesktopIfPossible();
@@ -163,13 +174,17 @@ namespace MphRead.Mods
 
 
 
-            // The explicit check, so there is always one command that answers
-            // "am I on the latest build". Nothing is downloaded here either:
-            // it prints the release page and opens it if there is a desktop to
-            // open it on.
+            // The explicit update command uses the same signed coordinator
+            // path as launcher buttons. It remains disabled by -noupdate and
+            // never hands an installable artifact to an unverified browser
+            // download flow.
             if (HasFlag(args, "update"))
             {
-                Update.Updater.Disabled = false;
+                if (Update.Updater.Disabled)
+                {
+                    Console.WriteLine("[update] disabled by -noupdate");
+                    return true;
+                }
                 Update.UpdateInfo? update = Update.Updater.Check();
                 if (update == null)
                 {
@@ -177,8 +192,12 @@ namespace MphRead.Mods
                     return true;
                 }
                 Console.WriteLine($"[update] {Update.Updater.Describe(update.Value)}");
-                Console.WriteLine($"[update] {update.Value.PageUrl}");
-                Update.Updater.OpenPage(update.Value);
+                bool started = Update.Updater.DownloadAndInstallAsync()
+                    .GetAwaiter().GetResult();
+                Console.WriteLine(started
+                    ? "[update] verified package staged; installer started"
+                    : "[update] " + (Update.Updater.Coordinator.Status.Message
+                        ?? "the update could not be staged"));
                 return true;
             }
             // Before the game-file check, not after: a fresh install has no
@@ -313,31 +332,53 @@ namespace MphRead.Mods
             {
                 Hunter dpsHunter = Hunter.Sylux;
                 string? dpsHunterValue = ValueAfter(args, "hunter");
-                if (dpsHunterValue != null && Enum.TryParse(dpsHunterValue, ignoreCase: true, out Hunter parsedDpsHunter))
+                if (dpsHunterValue != null)
                 {
+                    if (!Enum.TryParse(dpsHunterValue, ignoreCase: true, out Hunter parsedDpsHunter)
+                        || !Enum.IsDefined(parsedDpsHunter))
+                    {
+                        Console.Error.WriteLine($"Invalid -hunter value '{dpsHunterValue}'.");
+                        Environment.ExitCode = 2;
+                        return true;
+                    }
                     dpsHunter = parsedDpsHunter;
                 }
-                BeamType dpsBeam = BeamType.ShockCoil;
+                Network.WeaponDpsSelection selection = new(Network.WeaponDpsMeasurementKind.ShockCoil,
+                    BeamType.ShockCoil, null, null);
                 string? dpsBeamValue = ValueAfter(args, "weapon");
-                if (dpsBeamValue != null && Enum.TryParse(dpsBeamValue, ignoreCase: true, out BeamType parsedDpsBeam))
+                if (dpsBeamValue != null && !Network.WeaponDpsSelection.TryParse(dpsBeamValue, out selection))
                 {
-                    dpsBeam = parsedDpsBeam;
+                    Console.Error.WriteLine($"Invalid -weapon value '{dpsBeamValue}'. Expected a player beam, Lockjaw, MorphBallBomb, or Stinglarva.");
+                    Environment.ExitCode = 2;
+                    return true;
                 }
                 double dpsSeconds = 10;
                 string? dpsSecondsValue = ValueAfter(args, "seconds");
-                if (dpsSecondsValue != null && Double.TryParse(dpsSecondsValue,
-                    System.Globalization.CultureInfo.InvariantCulture, out double parsedDpsSeconds))
+                if (dpsSecondsValue != null)
                 {
+                    if (!Double.TryParse(dpsSecondsValue, System.Globalization.CultureInfo.InvariantCulture,
+                        out double parsedDpsSeconds) || !Double.IsFinite(parsedDpsSeconds) || parsedDpsSeconds <= 0)
+                    {
+                        Console.Error.WriteLine($"Invalid -seconds value '{dpsSecondsValue}'.");
+                        Environment.ExitCode = 2;
+                        return true;
+                    }
                     dpsSeconds = parsedDpsSeconds;
                 }
                 float dpsDistance = 2.2f;
                 string? dpsDistanceValue = ValueAfter(args, "distance");
-                if (dpsDistanceValue != null && Single.TryParse(dpsDistanceValue,
-                    System.Globalization.CultureInfo.InvariantCulture, out float parsedDpsDistance))
+                if (dpsDistanceValue != null)
                 {
+                    if (!Single.TryParse(dpsDistanceValue, System.Globalization.CultureInfo.InvariantCulture,
+                        out float parsedDpsDistance) || !Single.IsFinite(parsedDpsDistance))
+                    {
+                        Console.Error.WriteLine($"Invalid -distance value '{dpsDistanceValue}'.");
+                        Environment.ExitCode = 2;
+                        return true;
+                    }
                     dpsDistance = parsedDpsDistance;
                 }
-                Environment.ExitCode = Network.WeaponDps.Run(dpsTest, dpsHunter, dpsBeam, dpsSeconds, dpsDistance);
+                Environment.ExitCode = Network.WeaponDps.Run(dpsTest, dpsHunter, selection, dpsSeconds, dpsDistance);
                 return true;
             }
             // Pictures of the launcher's own screens, rendered without a

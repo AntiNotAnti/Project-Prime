@@ -25,7 +25,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// running), and neither should be happening for the sake of a settings
     /// screen nobody is currently rebinding on.
     /// </summary>
-    internal sealed class PadRow : Control
+    internal sealed class PadRow : Control, IControllerNavigable
     {
         private readonly PadAction _action;
         private readonly double _labelWidth;
@@ -90,7 +90,7 @@ namespace MphRead.Mods.Launcher.Gui
                 // better with nothing on it than with something that fires by
                 // itself, and GamepadInput reads None as "never held".
                 PadBindings.Set(_action, GamepadButtons.None);
-                Done();
+                Done(changed: true);
             }
         }
 
@@ -98,13 +98,20 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _listening = true;
             GamepadDesktop.PollForMenu();
-            _baseline = GamepadInput.State.Buttons;
+            _baseline = GamepadInput.EffectiveButtons;
             _watch?.Stop();
             _watch = new DispatcherTimer(TimeSpan.FromMilliseconds(30),
                 DispatcherPriority.Input, (_, _) => Check());
             _watch.Start();
             InvalidateVisual();
         }
+
+        void IControllerNavigable.ControllerActivate()
+        {
+            if (!_listening) Listen();
+        }
+
+        void IControllerNavigable.ControllerAdjust(int direction) { }
 
         private void Check()
         {
@@ -116,11 +123,12 @@ namespace MphRead.Mods.Launcher.Gui
             // desktop's pad is polled, and with no game window running there
             // is nothing else pumping GLFW. Both cases are inside this call.
             GamepadDesktop.PollForMenu();
-            GamepadButtons pressed = GamepadInput.State.Buttons & ~_baseline;
+            GamepadButtons current = GamepadInput.EffectiveButtons;
+            GamepadButtons pressed = current & ~_baseline;
             // Whatever is no longer held stops shielding: a player who was
             // holding a button when the row opened can still choose it by
             // letting go and pressing it again.
-            _baseline &= GamepadInput.State.Buttons;
+            _baseline &= current;
             if (pressed == GamepadButtons.None)
             {
                 return;
@@ -134,19 +142,19 @@ namespace MphRead.Mods.Launcher.Gui
                 if (button != GamepadButtons.None && (pressed & button) == button)
                 {
                     PadBindings.Set(_action, button);
-                    Done();
+                    Done(changed: true);
                     return;
                 }
             }
         }
 
-        private void Done()
+        private void Done(bool changed = false)
         {
             _listening = false;
             _watch?.Stop();
             _watch = null;
             InvalidateVisual();
-            Rebound?.Invoke(this, EventArgs.Empty);
+            if (changed) Rebound?.Invoke(this, EventArgs.Empty);
         }
 
         protected override void OnPointerEntered(PointerEventArgs e)

@@ -17,7 +17,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// WinForms one is: what is wanted is a marker bar and tracked capitals,
     /// and expressing that as a control template is more code than drawing it.
     /// </summary>
-    internal sealed class MenuEntry : Control
+    internal sealed class MenuEntry : Control, IControllerNavigable
     {
         public static readonly StyledProperty<string> TitleProperty =
             AvaloniaProperty.Register<MenuEntry, string>(nameof(Title), "");
@@ -256,6 +256,13 @@ namespace MphRead.Mods.Launcher.Gui
             }
             base.OnKeyDown(e);
         }
+
+        void IControllerNavigable.ControllerActivate()
+        {
+            if (IsEnabled) Click?.Invoke(this, EventArgs.Empty);
+        }
+
+        void IControllerNavigable.ControllerAdjust(int direction) { }
 
         public override void Render(DrawingContext context)
         {

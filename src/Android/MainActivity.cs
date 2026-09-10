@@ -11,6 +11,7 @@ using Android.Widget;
 using Avalonia;
 using Avalonia.Android;
 using MphRead.Mods;
+using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Network;
 
@@ -52,7 +53,9 @@ namespace MphRead.Droid
         private volatile bool _renderingPreviews;
         private volatile bool _renderingHere;
         private readonly TouchControls _controls = new TouchControls();
+        private readonly MphRead.Mods.Input.StylusInput _stylus = new();
         private ScreenOrientation _orientationBefore = ScreenOrientation.Unspecified;
+        private IDisposable? _playLease;
 
         internal bool InMatch => _gameView != null;
 
@@ -384,6 +387,7 @@ namespace MphRead.Droid
             // release, and a stranded pointer id is a control that answers
             // nothing for the rest of the match.
             _controls.ReleaseEverything();
+            _stylus.Cancel();
             // A layout pass on the window, which is what finalises the
             // rotation for input. The overlay is asked separately because its
             // size has not changed, so it would not otherwise re-read it.
@@ -409,6 +413,10 @@ namespace MphRead.Droid
 
         protected override void OnPause()
         {
+            _overlay?.CancelInput();
+            ClientInputState.WindowFocused = false;
+            GamepadInput.Reset();
+            GamepadInput.State = default;
             if (_displays != null)
             {
                 _displays.UnregisterDisplayListener(this);
@@ -503,6 +511,12 @@ namespace MphRead.Droid
         public override void OnWindowFocusChanged(bool hasFocus)
         {
             base.OnWindowFocusChanged(hasFocus);
+            ClientInputState.WindowFocused = hasFocus;
+            if (!hasFocus)
+            {
+                GamepadInput.Reset();
+                GamepadInput.State = default;
+            }
             if (hasFocus)
             {
                 GoImmersive(true);
@@ -526,6 +540,7 @@ namespace MphRead.Droid
             // to shut itself down on its own thread, which is what
             // Scene.DoCleanup does at the end of the loop.
             _gameView?.Stop();
+            ReleasePlayLease();
             base.OnDestroy();
         }
 
@@ -591,8 +606,18 @@ namespace MphRead.Droid
                 AndroidApp.Home?.Reset();
                 return;
             }
+            IDisposable? playLease = MphRead.Mods.Update.UpdateCoordinator.Shared.AcquirePlayLease();
+            if (playLease == null)
+            {
+                Toast.MakeText(this, "An update is restarting; try again in a moment.",
+                    ToastLength.Long)?.Show();
+                return;
+            }
+            _playLease = playLease;
+            MphRead.Mods.Update.UpdateCoordinator.Shared.SetSafeToRestart(false);
             var input = new AndroidInput();
             _controls.ReleaseEverything();
+            _stylus.Cancel();
             // The controls object outlives a match -- it is a field here, not
             // the view's -- so a match left while spectating would hand the
             // next one a screen of NEXT and VIEW buttons.
@@ -733,8 +758,10 @@ namespace MphRead.Droid
             }
             Console.WriteLine($"[android] the match was not started: {reason}");
             _pending = null;
+            ReleasePlayLease();
             HideNotice();
             _controls.ReleaseEverything();
+            _stylus.Cancel();
             if (_launcherView != null)
             {
                 _launcherView.Visibility = ViewStates.Visible;
@@ -808,9 +835,10 @@ namespace MphRead.Droid
         {
             if (_content == null)
             {
+                ReleasePlayLease();
                 return;
             }
-            _gameView = new GameView(this, _controls, input,
+            _gameView = new GameView(this, _controls, _stylus, input,
                 (i, size) => AndroidMatch.Build(i, size, plan, () => RunOnUiThread(EndMatch)),
                 () => RunOnUiThread(EndMatch),
                 () => RunOnUiThread(MatchLoaded),
@@ -823,7 +851,7 @@ namespace MphRead.Droid
             // window, so the touch controls and the loading notice -- ordinary
             // views -- still draw over the game.
             _gameView.SetZOrderMediaOverlay(true);
-            _overlay = new TouchOverlayView(this, _controls);
+            _overlay = new TouchOverlayView(this, _controls, _stylus);
             _content.AddView(_gameView);
             _content.AddView(_overlay);
             // The notice has been up since StartMatch. The GameView draws
@@ -922,6 +950,7 @@ namespace MphRead.Droid
             }
             _pauseMenuOpen = true;
             _controls.ReleaseEverything();
+            _stylus.Cancel();
             if (_overlay != null)
             {
                 _overlay.Visibility = ViewStates.Gone;
@@ -970,6 +999,7 @@ namespace MphRead.Droid
                 _overlay.Visibility = ViewStates.Visible;
             }
             _controls.ReleaseEverything();
+            _stylus.Cancel();
             // Settings are reachable from the pause menu, and one of the pages
             // there decides which of these buttons is on the glass.
             _controls.ReloadSettings();
@@ -979,6 +1009,7 @@ namespace MphRead.Droid
         /// <summary>Back to the front screen.</summary>
         internal void EndMatch()
         {
+            ReleasePlayLease();
             if (_content == null)
             {
                 return;
@@ -1009,6 +1040,7 @@ namespace MphRead.Droid
                 _gameView = null;
             }
             _controls.ReleaseEverything();
+            _stylus.Cancel();
             _controls.SetSpectator(spectating: false, freeCamera: false);
             if (_launcherView != null)
             {
@@ -1026,6 +1058,13 @@ namespace MphRead.Droid
             Window?.ClearFlags(WindowManagerFlags.KeepScreenOn);
             GoImmersive(true);
             RequestedOrientation = _orientationBefore;
+        }
+
+        private void ReleasePlayLease()
+        {
+            _playLease?.Dispose();
+            _playLease = null;
+            MphRead.Mods.Update.UpdateCoordinator.Shared.SetSafeToRestart(true);
         }
 
         private void GoImmersive(bool immersive)

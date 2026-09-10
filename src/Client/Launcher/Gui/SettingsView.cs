@@ -14,6 +14,7 @@ using MphRead.Entities;
 using MphRead.Mods;
 using MphRead.Mods.Content;
 using MphRead.Mods.Render;
+using MphRead.Mods.Update;
 using MphRead.Runtime.Content;
 using FrameTiming = MphRead.Mods.Render.FrameTiming;
 
@@ -92,6 +93,7 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _advancedNetworkRow = null!;
         private StackPanel _networkPage = null!;
         private ChoiceRow _hitMarkerRow = null!, _radarStyleRow = null!, _radarOrientationRow = null!;
+        private ChoiceRow _radarPositionRow = null!, _radarSizeRow = null!;
         private ToggleRow _headshotCueRow = null!, _killConfirmationRow = null!;
 
         /// <summary>
@@ -149,6 +151,8 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private SliderRow _fpsLimitRow = null!;
         private ToggleRow _proHud = null!;
+        private ChoiceRow _proHudWeaponRow = null!;
+        private ChoiceRow _hitMarkerTimingRow = null!;
         private ChoiceRow _crosshairSizeRow = null!;
         private ChoiceRow _crosshairStyleRow = null!;
         private SliderRow _sfxVolume = null!;
@@ -164,9 +168,28 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _invertY = null!;
         private ToggleRow _invertX = null!;
         private ToggleRow _scrollAllWeapons = null!;
+        private ChoiceRow _gamepadPresetRow = null!;
+        private SliderRow _gamepadHorizontalSensitivity = null!;
+        private SliderRow _gamepadVerticalSensitivity = null!;
+        private ToggleRow _gamepadAimAssist = null!;
+        private SliderRow _gamepadAimAssistStrength = null!;
         private SliderRow _gamepadLook = null!;
         private SliderRow _gamepadDeadZone = null!;
+        private SliderRow _gamepadLookDeadZone = null!;
+        private SliderRow _gamepadOuterDeadZone = null!;
+        private ToggleRow _gamepadOuterBoost = null!;
+        private SliderRow _gamepadTriggerPress = null!;
+        private SliderRow _gamepadTriggerRelease = null!;
+        private SliderRow _gamepadZoomMultiplier = null!;
         private ToggleRow _gamepadInvertY = null!;
+        private ToggleRow _gamepadGyro = null!, _gamepadGyroInvertX = null!;
+        private ToggleRow _gamepadGyroInvertY = null!, _gamepadHaptics = null!;
+        private ToggleRow _inputBalanceTelemetry = null!;
+        private SliderRow _gamepadGyroSensitivity = null!;
+        private ToggleRow? _stylusAiming, _stylusInvertY, _stylusClassicGestures,
+            _stylusDoubleTapJump, _stylusFlickBoost, _stylusPressureToFire;
+        private SliderRow? _stylusSensitivity, _stylusPressureThreshold;
+        private ChoiceRow? _stylusPrimary, _stylusSecondary;
         private FieldRow _pointGoal = null!;
         private FieldRow _timeLimit = null!;
         private ChoiceRow _damageRow = null!;
@@ -176,7 +199,7 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _affinity = null!;
         private FieldRow _playerName = null!;
         private ChoiceRow _hunterRow = null!;
-        private ToggleRow _autoUpdate = null!;
+        private ChoiceRow _autoUpdate = null!;
         private ToggleRow _reducedMotion = null!;
         private Note _saveError = null!;
 
@@ -701,11 +724,21 @@ namespace MphRead.Mods.Launcher.Gui
             // about here.
             Heading(page, "HUD");
             _proHud = Add(page, new ToggleRow("Pro mode HUD", Features.ProHud));
+            _proHudWeaponRow = Add(page, new ChoiceRow("Weapon", new[] { "Static", "Dynamic" },
+                Features.ProHudFixedWeapon ? 0 : 1));
             _hitMarkerRow = Add(page, new ChoiceRow("Hit markers", new[] { "Off", "Visual", "Visual + audio" }, (int)Combat.CombatFeedbackSettings.HitMarkers));
+            _hitMarkerTimingRow = Add(page, new ChoiceRow("Hit marker timing",
+                new[] { "Confirmed", "Instant" }, (int)Combat.CombatFeedbackSettings.Timing));
             _headshotCueRow = Add(page, new ToggleRow("Headshot cue", Combat.CombatFeedbackSettings.HeadshotCue));
             _killConfirmationRow = Add(page, new ToggleRow("Kill confirmation", Combat.CombatFeedbackSettings.KillConfirmation));
-            _radarStyleRow = Add(page, new ChoiceRow("Radar", new[] { "Classic", "Enhanced" }, (int)global::MphRead.Hud.Radar.RadarSettings.Style));
+            _radarStyleRow = Add(page, new ChoiceRow("Radar", new[] { "Classic", "Minimap" }, (int)global::MphRead.Hud.Radar.RadarSettings.Style));
             _radarOrientationRow = Add(page, new ChoiceRow("Radar orientation", new[] { "Heading", "North" }, (int)global::MphRead.Hud.Radar.RadarSettings.Orientation));
+            _radarPositionRow = Add(page, new ChoiceRow("Radar position",
+                new[] { "Top Right", "Top Left", "Bottom Right", "Bottom Left" },
+                Math.Clamp((int)global::MphRead.Hud.Radar.RadarSettings.Anchor, 0, 3)));
+            int radarSize = global::MphRead.Hud.Radar.RadarSettings.Scale < .9f ? 0
+                : global::MphRead.Hud.Radar.RadarSettings.Scale > 1.1f ? 2 : 1;
+            _radarSizeRow = Add(page, new ChoiceRow("Radar size", new[] { "Small", "Medium", "Large" }, radarSize));
             // The crosshair questions belong to Pro mode and nothing else --
             // the DS HUD draws its own reticle sprite and has no use for
             // them -- so they are only asked while it is on. Shown rather than
@@ -720,8 +753,8 @@ namespace MphRead.Mods.Launcher.Gui
             // The preview lives on the type row and answers both rows, so the
             // size row has to ask for it to be repainted.
             _crosshairSizeRow.Changed += (_, _) => _crosshairStyleRow.InvalidateVisual();
-            _proHud.Changed += (_, _) => ShowCrosshairRows();
-            ShowCrosshairRows();
+            _proHud.Changed += (_, _) => ShowProHudRows();
+            ShowProHudRows();
         }
 
         private void ApplyGraphicsPresetToRows()
@@ -734,10 +767,12 @@ namespace MphRead.Mods.Launcher.Gui
             _dynamicVisualLightsRow.On = RenderOptions.DynamicVisualLightsFor(preset);
         }
 
-        private void ShowCrosshairRows()
+        private void ShowProHudRows()
         {
-            _crosshairSizeRow.IsVisible = _proHud.On;
-            _crosshairStyleRow.IsVisible = _proHud.On;
+            bool visible = Features.ShowProHudWeaponSetting(_proHud.On);
+            _proHudWeaponRow.IsVisible = visible;
+            _crosshairSizeRow.IsVisible = visible;
+            _crosshairStyleRow.IsVisible = visible;
         }
 
         // --------------------------------------------------------------- audio
@@ -816,31 +851,87 @@ namespace MphRead.Mods.Launcher.Gui
                 InputSettings.ScrollAllWeapons));
 
             BuildTouchControls(page);
+            BuildStylusControls(page);
 
             // Its own section rather than more rows under "Mouse": a pad has
-            // its own sensitivity, and somebody who inverts one of the two
-            // very often does not invert the other.
+            // its own feel, and somebody who inverts one of the two very often
+            // does not invert the other.
             Heading(page, "Gamepad");
             // No "use a connected gamepad" toggle. A pad that is not being
             // held changes nothing on its own -- see GamepadInput.Active --
             // and on a phone the touch controls now step aside for a pad by
             // themselves and come back at the first touch, so the one thing
             // the toggle was ever asked to do is done without asking.
-            _gamepadLook = Add(page, new SliderRow("Look sensitivity",
-                LookToSlider(InputSettings.GamepadLookSensitivity),
+            _gamepadPresetRow = Add(page, new ChoiceRow("Preset",
+                Enum.GetNames<Mods.Input.ControllerPreset>(),
+                (int)InputSettings.ControllerPreset));
+            _gamepadHorizontalSensitivity = Add(page, new SliderRow("Horizontal sensitivity",
+                LookToSlider(InputSettings.GamepadHorizontalSensitivity),
                 v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"));
-            _gamepadDeadZone = Add(page, new SliderRow("Stick dead zone",
-                DeadZoneToSlider(InputSettings.GamepadDeadZone),
-                v => $"{SliderToDeadZone(v).ToString("0.00", CultureInfo.InvariantCulture)}"));
+            _gamepadVerticalSensitivity = Add(page, new SliderRow("Vertical sensitivity",
+                LookToSlider(InputSettings.GamepadVerticalSensitivity),
+                v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"));
             _gamepadInvertY = Add(page, new ToggleRow("Invert vertical aim (stick)",
                 InputSettings.GamepadInvertY));
+            _gamepadAimAssist = Add(page, new ToggleRow("Aim assist",
+                InputSettings.GamepadAimAssistEnabled));
+            _gamepadAimAssistStrength = Add(page, new SliderRow("Aim assist strength",
+                (int)Math.Round(InputSettings.GamepadAimAssistStrength * 100),
+                v => $"{v}%"));
+
+            Heading(page, "Gamepad advanced");
+            _gamepadGyro = Add(page, new ToggleRow("Gyro aiming (SDL controllers)",
+                InputSettings.GamepadGyroEnabled));
+            _gamepadGyroSensitivity = Add(page, new SliderRow("Gyro sensitivity",
+                LookToSlider(InputSettings.GamepadGyroSensitivity),
+                v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"));
+            _gamepadGyroInvertX = Add(page, new ToggleRow("Invert gyro horizontal aim",
+                InputSettings.GamepadGyroInvertX));
+            _gamepadGyroInvertY = Add(page, new ToggleRow("Invert gyro vertical aim",
+                InputSettings.GamepadGyroInvertY));
+            _gamepadHaptics = Add(page, new ToggleRow("Rumble and haptics",
+                InputSettings.GamepadHapticsEnabled));
+            _inputBalanceTelemetry = Add(page, new ToggleRow(
+                "Local input-balance diagnostics",
+                InputSettings.InputBalanceTelemetryEnabled));
+            Explain(page, "Diagnostics stay on this device and contain no account or session identity.");
+            _gamepadDeadZone = Add(page, new SliderRow("Move dead zone",
+                DeadZoneToSlider(InputSettings.GamepadMoveDeadZone),
+                v => $"{SliderToDeadZone(v).ToString("0.00", CultureInfo.InvariantCulture)}"));
+            _gamepadLookDeadZone = Add(page, new SliderRow("Look dead zone",
+                DeadZoneToSlider(InputSettings.GamepadLookDeadZone),
+                v => $"{SliderToDeadZone(v).ToString("0.00", CultureInfo.InvariantCulture)}"));
+            _gamepadOuterDeadZone = Add(page, new SliderRow("Outer dead zone",
+                DeadZoneToSlider(InputSettings.GamepadOuterDeadZone),
+                v => $"{SliderToDeadZone(v).ToString("0.00", CultureInfo.InvariantCulture)}"));
+            _gamepadLook = Add(page, new SliderRow("Response exponent",
+                ExponentToSlider(InputSettings.GamepadLookExponent),
+                v => $"{SliderToExponent(v).ToString("0.00", CultureInfo.InvariantCulture)}"));
+            _gamepadOuterBoost = Add(page, new ToggleRow("Outer-ring boost",
+                InputSettings.GamepadOuterBoostEnabled));
+            _gamepadTriggerPress = Add(page, new SliderRow("Trigger press",
+                ThresholdToSlider(InputSettings.GamepadTriggerPressThreshold),
+                v => $"{SliderToThreshold(v).ToString("0.00", CultureInfo.InvariantCulture)}"));
+            _gamepadTriggerRelease = Add(page, new SliderRow("Trigger release",
+                ThresholdToSlider(InputSettings.GamepadTriggerReleaseThreshold),
+                v => $"{SliderToThreshold(v).ToString("0.00", CultureInfo.InvariantCulture)}"));
+            _gamepadZoomMultiplier = Add(page, new SliderRow("Zoom multiplier",
+                LookToSlider(InputSettings.GamepadZoomMultiplier),
+                v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"));
 
             Heading(page, "Gamepad buttons");
             var padRows = new List<PadRow>();
             foreach (Mods.Input.PadAction action in Mods.Input.PadBindings.Actions)
             {
-                padRows.Add(Add(page, new PadRow(action)));
+                PadRow row = Add(page, new PadRow(action));
+                row.Rebound += (_, _) => _gamepadPresetRow.Index = (int)Mods.Input.ControllerPreset.Custom;
+                padRows.Add(row);
             }
+            _gamepadPresetRow.Changed += (_, _) =>
+            {
+                InputSettings.ApplyPreset((Mods.Input.ControllerPreset)_gamepadPresetRow.Index);
+                foreach (PadRow row in padRows) row.InvalidateVisual();
+            };
 
             Heading(page, "Keys");
             var rows = new List<KeyRow>();
@@ -861,9 +952,26 @@ namespace MphRead.Mods.Launcher.Gui
                 _invertY.On = InputSettings.InvertMouseY;
                 _invertX.On = InputSettings.InvertMouseX;
                 _scrollAllWeapons.On = InputSettings.ScrollAllWeapons;
-                _gamepadLook.Value = LookToSlider(InputSettings.GamepadLookSensitivity);
-                _gamepadDeadZone.Value = DeadZoneToSlider(InputSettings.GamepadDeadZone);
+                _gamepadPresetRow.Index = (int)InputSettings.ControllerPreset;
+                _gamepadHorizontalSensitivity.Value = LookToSlider(InputSettings.GamepadHorizontalSensitivity);
+                _gamepadVerticalSensitivity.Value = LookToSlider(InputSettings.GamepadVerticalSensitivity);
                 _gamepadInvertY.On = InputSettings.GamepadInvertY;
+                _gamepadAimAssist.On = InputSettings.GamepadAimAssistEnabled;
+                _gamepadAimAssistStrength.Value = (int)Math.Round(InputSettings.GamepadAimAssistStrength * 100);
+                _gamepadGyro.On = InputSettings.GamepadGyroEnabled;
+                _gamepadGyroSensitivity.Value = LookToSlider(InputSettings.GamepadGyroSensitivity);
+                _gamepadGyroInvertX.On = InputSettings.GamepadGyroInvertX;
+                _gamepadGyroInvertY.On = InputSettings.GamepadGyroInvertY;
+                _gamepadHaptics.On = InputSettings.GamepadHapticsEnabled;
+                _inputBalanceTelemetry.On = InputSettings.InputBalanceTelemetryEnabled;
+                _gamepadDeadZone.Value = DeadZoneToSlider(InputSettings.GamepadMoveDeadZone);
+                _gamepadLookDeadZone.Value = DeadZoneToSlider(InputSettings.GamepadLookDeadZone);
+                _gamepadOuterDeadZone.Value = DeadZoneToSlider(InputSettings.GamepadOuterDeadZone);
+                _gamepadLook.Value = ExponentToSlider(InputSettings.GamepadLookExponent);
+                _gamepadOuterBoost.On = InputSettings.GamepadOuterBoostEnabled;
+                _gamepadTriggerPress.Value = ThresholdToSlider(InputSettings.GamepadTriggerPressThreshold);
+                _gamepadTriggerRelease.Value = ThresholdToSlider(InputSettings.GamepadTriggerReleaseThreshold);
+                _gamepadZoomMultiplier.Value = LookToSlider(InputSettings.GamepadZoomMultiplier);
                 // InputSettings.Reset puts the pad's buttons back too, so
                 // these only have to be redrawn.
                 foreach (PadRow row in padRows)
@@ -878,6 +986,20 @@ namespace MphRead.Mods.Launcher.Gui
                 foreach ((Mods.Input.TouchControl control, ToggleRow row) in _touchRows)
                 {
                     row.On = Mods.Input.TouchSettings.IsEnabled(control);
+                }
+                if (_stylusAiming != null)
+                {
+                    _stylusAiming.On = InputSettings.StylusAimingEnabled;
+                    _stylusSensitivity!.Value = LookToSlider(InputSettings.StylusSensitivity);
+                    _stylusInvertY!.On = InputSettings.StylusInvertY;
+                    _stylusPrimary!.Index = (int)InputSettings.StylusPrimaryAction;
+                    _stylusSecondary!.Index = (int)InputSettings.StylusSecondaryAction;
+                    _stylusClassicGestures!.On = InputSettings.StylusClassicGestures;
+                    _stylusDoubleTapJump!.On = InputSettings.StylusDoubleTapJump;
+                    _stylusFlickBoost!.On = InputSettings.StylusFlickBoost;
+                    _stylusPressureToFire!.On = InputSettings.StylusPressureToFire;
+                    _stylusPressureThreshold!.Value = (int)Math.Round(
+                        InputSettings.StylusPressureThreshold * 100);
                 }
             };
             Add(page, reset);
@@ -924,6 +1046,36 @@ namespace MphRead.Mods.Launcher.Gui
             ShowTouchRows();
         }
 
+        private void BuildStylusControls(StackPanel page)
+        {
+            if (!OperatingSystem.IsAndroid()) return;
+            Heading(page, "Stylus");
+            _stylusAiming = Add(page, new ToggleRow("Stylus aiming",
+                InputSettings.StylusAimingEnabled));
+            _stylusSensitivity = Add(page, new SliderRow("Sensitivity",
+                LookToSlider(InputSettings.StylusSensitivity),
+                v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"));
+            _stylusInvertY = Add(page, new ToggleRow("Invert vertical aim",
+                InputSettings.StylusInvertY));
+            string[] actions = Enum.GetNames<Mods.Input.StylusAction>();
+            _stylusPrimary = Add(page, new ChoiceRow("Primary button", actions,
+                (int)InputSettings.StylusPrimaryAction));
+            _stylusSecondary = Add(page, new ChoiceRow("Secondary button", actions,
+                (int)InputSettings.StylusSecondaryAction));
+            _stylusClassicGestures = Add(page, new ToggleRow("Classic gestures",
+                InputSettings.StylusClassicGestures));
+            _stylusDoubleTapJump = Add(page, new ToggleRow("Double tap to jump",
+                InputSettings.StylusDoubleTapJump));
+            _stylusFlickBoost = Add(page, new ToggleRow("Flick to boost",
+                InputSettings.StylusFlickBoost));
+            Heading(page, "Stylus advanced");
+            _stylusPressureToFire = Add(page, new ToggleRow("Pressure to fire",
+                InputSettings.StylusPressureToFire));
+            _stylusPressureThreshold = Add(page, new SliderRow("Pressure threshold",
+                (int)Math.Round(InputSettings.StylusPressureThreshold * 100),
+                v => $"{v}%"));
+        }
+
         private static int SensitivityToSlider(float sensitivity)
         {
             return Math.Clamp((int)Math.Round((sensitivity - 0.1f) / 2.9f * 100), 0, 100);
@@ -944,6 +1096,26 @@ namespace MphRead.Mods.Launcher.Gui
         private static float SliderToLook(int value)
         {
             return 0.25f + value / 100f * 2.75f;
+        }
+
+        private static int ExponentToSlider(float exponent)
+        {
+            return Math.Clamp((int)Math.Round((exponent - 0.5f) / 2.5f * 100), 0, 100);
+        }
+
+        private static float SliderToExponent(int value)
+        {
+            return 0.5f + value / 100f * 2.5f;
+        }
+
+        private static int ThresholdToSlider(float threshold)
+        {
+            return Math.Clamp((int)Math.Round(threshold * 100), 0, 100);
+        }
+
+        private static float SliderToThreshold(int value)
+        {
+            return Math.Clamp(value, 0, 100) / 100f;
         }
 
         // Up to half the stick's travel. Past that a pad is broken rather than
@@ -1002,8 +1174,13 @@ namespace MphRead.Mods.Launcher.Gui
             _hunterRow = Add(page, new ChoiceRow("Hunter", hunters,
                 Math.Max(0, Array.IndexOf(hunters, LauncherPrefs.LastHunter.ToString()))));
 
-            _autoUpdate = new ToggleRow("Check for updates on startup", LauncherPrefs.AutoUpdate);
+            _autoUpdate = new ChoiceRow("Updates", new[] { "Automatic", "Notify only", "Off" },
+                (int)LauncherPrefs.UpdatePolicy);
             if (Update.Updater.Configured) Add(page, _autoUpdate);
+            if (Update.Updater.Configured)
+            {
+                Explain(page, "Automatic downloads and stages signed updates. Notify only keeps installation manual. Off skips automatic checks.");
+            }
 
             Heading(page, "Game files");
             var files = new MenuEntry("Game files", GameFiles.Describe(), titleSize: 15);
@@ -1155,10 +1332,14 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.ShowFps = RenderOptions.OnOff(_fpsRow.On);
             _settings.AdvancedNetwork = RenderOptions.OnOff(_advancedNetworkRow.On);
             _settings.HitMarkers = ((Combat.HitMarkerMode)_hitMarkerRow.Index).ToString();
+            _settings.HitMarkerTiming = ((Combat.HitMarkerTiming)_hitMarkerTimingRow.Index).ToString();
             _settings.HeadshotCue = RenderOptions.OnOff(_headshotCueRow.On);
             _settings.KillConfirmation = RenderOptions.OnOff(_killConfirmationRow.On);
             _settings.RadarStyle = ((global::MphRead.Hud.Radar.RadarStyle)_radarStyleRow.Index).ToString();
             _settings.RadarOrientation = ((global::MphRead.Hud.Radar.RadarOrientation)_radarOrientationRow.Index).ToString();
+            _settings.RadarPosition = ((global::MphRead.Hud.Radar.RadarAnchor)_radarPositionRow.Index).ToString();
+            _settings.RadarScale = (_radarSizeRow.Index switch { 0 => .8f, 2 => 1.2f, _ => 1f })
+                .ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
             int cap = _fpsLimitStops[Math.Clamp(_fpsLimitRow.Value, 0,
                 _fpsLimitStops.Length - 1)].Cap;
             FrameTiming.FrameRateCap = cap;
@@ -1167,6 +1348,7 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.CelBands = "8";
             _settings.CelEdge = "50";
             Features.ProHud = _proHud.On;
+            Features.ProHudFixedWeapon = _proHudWeaponRow.Index == 0;
             Crosshair.Size = (CrosshairSize)_crosshairSizeRow.Index;
             Crosshair.Style = (CrosshairStyle)_crosshairStyleRow.Index;
             // Audio
@@ -1183,9 +1365,28 @@ namespace MphRead.Mods.Launcher.Gui
             InputSettings.InvertMouseY = _invertY.On;
             InputSettings.InvertMouseX = _invertX.On;
             InputSettings.ScrollAllWeapons = _scrollAllWeapons.On;
-            InputSettings.GamepadLookSensitivity = SliderToLook(_gamepadLook.Value);
-            InputSettings.GamepadDeadZone = SliderToDeadZone(_gamepadDeadZone.Value);
+            InputSettings.ControllerPreset = (Mods.Input.ControllerPreset)_gamepadPresetRow.Index;
+            InputSettings.GamepadHorizontalSensitivity = SliderToLook(_gamepadHorizontalSensitivity.Value);
+            InputSettings.GamepadVerticalSensitivity = SliderToLook(_gamepadVerticalSensitivity.Value);
             InputSettings.GamepadInvertY = _gamepadInvertY.On;
+            InputSettings.GamepadAimAssistEnabled = _gamepadAimAssist.On;
+            InputSettings.GamepadAimAssistStrength = _gamepadAimAssistStrength.Value / 100f;
+            InputSettings.GamepadGyroEnabled = _gamepadGyro.On;
+            InputSettings.GamepadGyroSensitivity = SliderToLook(_gamepadGyroSensitivity.Value);
+            InputSettings.GamepadGyroInvertX = _gamepadGyroInvertX.On;
+            InputSettings.GamepadGyroInvertY = _gamepadGyroInvertY.On;
+            InputSettings.GamepadHapticsEnabled = _gamepadHaptics.On;
+            InputSettings.InputBalanceTelemetryEnabled = _inputBalanceTelemetry.On;
+            if (!InputSettings.GamepadGyroEnabled) Mods.Input.GamepadGyro.Reset();
+            if (!InputSettings.GamepadHapticsEnabled) Mods.Input.GamepadHaptics.Stop();
+            InputSettings.GamepadMoveDeadZone = SliderToDeadZone(_gamepadDeadZone.Value);
+            InputSettings.GamepadLookDeadZone = SliderToDeadZone(_gamepadLookDeadZone.Value);
+            InputSettings.GamepadOuterDeadZone = SliderToDeadZone(_gamepadOuterDeadZone.Value);
+            InputSettings.GamepadLookExponent = SliderToExponent(_gamepadLook.Value);
+            InputSettings.GamepadOuterBoostEnabled = _gamepadOuterBoost.On;
+            InputSettings.GamepadTriggerPressThreshold = SliderToThreshold(_gamepadTriggerPress.Value);
+            InputSettings.GamepadTriggerReleaseThreshold = SliderToThreshold(_gamepadTriggerRelease.Value);
+            InputSettings.GamepadZoomMultiplier = SliderToLook(_gamepadZoomMultiplier.Value);
             if (_touchButtonsRow != null)
             {
                 Mods.Input.TouchSettings.ButtonsVisible = _touchButtonsRow.On;
@@ -1193,6 +1394,19 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     Mods.Input.TouchSettings.SetEnabled(control, row.On);
                 }
+            }
+            if (_stylusAiming != null)
+            {
+                InputSettings.StylusAimingEnabled = _stylusAiming.On;
+                InputSettings.StylusSensitivity = SliderToLook(_stylusSensitivity!.Value);
+                InputSettings.StylusInvertY = _stylusInvertY!.On;
+                InputSettings.StylusPrimaryAction = (Mods.Input.StylusAction)_stylusPrimary!.Index;
+                InputSettings.StylusSecondaryAction = (Mods.Input.StylusAction)_stylusSecondary!.Index;
+                InputSettings.StylusClassicGestures = _stylusClassicGestures!.On;
+                InputSettings.StylusDoubleTapJump = _stylusDoubleTapJump!.On;
+                InputSettings.StylusFlickBoost = _stylusFlickBoost!.On;
+                InputSettings.StylusPressureToFire = _stylusPressureToFire!.On;
+                InputSettings.StylusPressureThreshold = _stylusPressureThreshold!.Value / 100f;
             }
             InputSettings.Save();
             // The players in the match already have their own copies of these.
@@ -1211,7 +1425,7 @@ namespace MphRead.Mods.Launcher.Gui
                 LauncherPrefs.PlayerName = _playerName.Value.Trim();
             }
             LauncherPrefs.LastHunter = Enum.Parse<Hunter>(_hunterRow.Value);
-            LauncherPrefs.AutoUpdate = _autoUpdate.On;
+            LauncherPrefs.UpdatePolicy = (UpdatePolicy)_autoUpdate.Index;
             LauncherPrefs.ReducedMotion = _reducedMotion.On;
             ClientSettings.CommitSettings(_settings);
             LauncherPrefs.Save();

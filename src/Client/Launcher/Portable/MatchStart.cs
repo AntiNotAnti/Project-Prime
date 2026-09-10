@@ -19,33 +19,49 @@ namespace MphRead.Mods.Launcher
                 Console.WriteLine("[launcher] no game files; nothing to load");
                 return;
             }
-            GameFiles.ApplyPaths();
-            MapGen.MapPreparation.GenerateMissing();
-            if (plan.Kind == LaunchKind.Demo)
+            IDisposable? playLease = MphRead.Mods.Update.UpdateCoordinator.Shared.AcquirePlayLease();
+            if (playLease == null)
             {
-                LaunchDemo(plan);
-                return;
+                throw new InvalidOperationException(
+                    "An update is restarting; try again after it finishes.");
             }
-            var room = NetLaunch.ServerRoom()
-                ?? throw new InvalidOperationException("The server has not provided a match room.");
-            string? unplayable = MapGen.CustomRooms.WhyUnplayable(room.RoomKey);
-            if (unplayable != null)
+            MphRead.Mods.Update.UpdateCoordinator.Shared.SetSafeToRestart(false);
+            try
             {
-                Console.WriteLine($"[launcher] {unplayable}");
-                return;
+                GameFiles.ApplyPaths();
+                MapGen.MapPreparation.GenerateMissing();
+                if (plan.Kind == LaunchKind.Demo)
+                {
+                    LaunchDemo(plan);
+                    return;
+                }
+                var room = NetLaunch.ServerRoom()
+                    ?? throw new InvalidOperationException(
+                        "The server has not provided a match room.");
+                string? unplayable = MapGen.CustomRooms.WhyUnplayable(room.RoomKey);
+                if (unplayable != null)
+                {
+                    Console.WriteLine($"[launcher] {unplayable}");
+                    return;
+                }
+                settings.RoomKey = room.RoomKey;
+                var scene = new Scene(features: ClientMatchFeatures.Capture());
+                using var sdlHost = new SdlGameHost();
+                sdlHost.RunScene(scene, presentation =>
+                {
+                    // RunScene creates ScenePresentation before this callback,
+                    // preserving the setup order while the SDL host owns the
+                    // native window and renderer.
+                    NetLaunch.BuildPlayers(scene, plan.Hunter, localRecolor: 0);
+                    presentation.AddRoom(room.RoomKey, room.Mode,
+                        playerCount: NetLaunch.RoomPlayerCount);
+                });
             }
-            settings.RoomKey = room.RoomKey;
-            var scene = new Scene(features: ClientMatchFeatures.Capture());
-            using var sdlHost = new SdlGameHost();
-            sdlHost.RunScene(scene, presentation =>
+            finally
             {
-                // RunScene creates ScenePresentation before this callback,
-                // preserving the setup order while the SDL host owns the
-                // native window and renderer.
-                NetLaunch.BuildPlayers(scene, plan.Hunter, localRecolor: 0);
-                presentation.AddRoom(room.RoomKey, room.Mode,
-                    playerCount: NetLaunch.RoomPlayerCount);
-            });
+                playLease.Dispose();
+                MphRead.Mods.Update.UpdateCoordinator.Shared.SetSafeToRestart(true);
+            }
         }
 
         private static void LaunchDemo(LaunchPlan plan)

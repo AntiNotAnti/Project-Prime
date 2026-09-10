@@ -17,13 +17,15 @@ namespace MphRead.Tests;
 public sealed class PrimeShellControllerTests
 {
     [Fact]
-    public void UpdateActionIsUnavailableUntilAReleaseFeedIsConfigured()
+    public void UpdateActionUsesThePublicDistributionFeed()
     {
-        Assert.False(MphRead.Mods.Update.UpdateCheck.IsConfigured);
-        Assert.False(MphRead.Mods.Update.Updater.Configured);
-        Assert.Null(MphRead.Mods.Update.Updater.Check());
-        Assert.Equal("the update feed is not configured",
-            MphRead.Mods.Update.UpdateCheck.LastReason);
+        Assert.True(MphRead.Mods.Update.UpdateCheck.IsConfigured);
+        Assert.True(MphRead.Mods.Update.Updater.Configured);
+        Assert.Equal("AntiNotAnti/Project-Prime-Releases",
+            MphRead.Mods.Branding.UpdateRepository);
+        Assert.Contains("AntiNotAnti/Project-Prime-Releases/releases",
+            MphRead.Mods.Update.UpdateCheck.ReleasesPage,
+            StringComparison.Ordinal);
     }
 
     [Fact]

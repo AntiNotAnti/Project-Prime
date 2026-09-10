@@ -58,6 +58,7 @@ namespace MphRead.Mods.Launcher.Gui
         private Control _setupCard = null!;
         private Control? _current;
         private bool _finished;
+        private bool _observingUpdates;
 
         /// <summary>Below this width the screen folds into one column.</summary>
         private const double _narrowWidth = 720;
@@ -134,14 +135,18 @@ namespace MphRead.Mods.Launcher.Gui
             RefreshPreviewEntry();
             if (NodeSessions.Current != null) Dispatcher.UIThread.Post(OpenJoin);
 
-            if (LauncherPrefs.AutoUpdate && Update.Updater.Configured)
+            if (LauncherPrefs.UpdatePolicy != UpdatePolicy.Off && Update.Updater.Configured)
             {
                 // In the background, and never blocking the window: a launcher
                 // that will not draw until GitHub answers looks broken on a bad
                 // connection.
                 Update.Updater.CheckInBackground(
                     update => Dispatcher.UIThread.Post(() => ShowUpdate(update)),
-                    () => Dispatcher.UIThread.Post(RefreshVersionLine));
+                    () => Dispatcher.UIThread.Post(() =>
+                    {
+                        RefreshVersionLine();
+                        _ = TryInstallStaged();
+                    }));
             }
             _ = CatchUpPreviews();
         }
@@ -273,6 +278,57 @@ namespace MphRead.Mods.Launcher.Gui
             base.OnKeyDown(e);
         }
 
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+            if (_observingUpdates) return;
+            _observingUpdates = true;
+            Update.Updater.Coordinator.StatusChanged += UpdateStatusChanged;
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            if (_observingUpdates)
+            {
+                Update.Updater.Coordinator.StatusChanged -= UpdateStatusChanged;
+                _observingUpdates = false;
+            }
+            base.OnDetachedFromVisualTree(e);
+        }
+
+        private void UpdateStatusChanged(object? sender, UpdateStatus status)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!_observingUpdates) return;
+                string number = VersionNumber();
+                switch (status.State)
+                {
+                    case UpdateState.Downloading when status.TotalBytes > 0:
+                        int percent = (int)Math.Min(100,
+                            status.BytesReceived * 100 / status.TotalBytes);
+                        SayVersion($"{number} : downloading update... {percent}%",
+                            GuiTheme.Warm);
+                        break;
+                    case UpdateState.Verifying:
+                        SayVersion($"{number} : verifying update...", GuiTheme.Warm);
+                        break;
+                    case UpdateState.Staged:
+                    case UpdateState.WaitingForSafePoint:
+                        SayVersion($"{number} : update ready; waiting for a safe point",
+                            GuiTheme.Warm, pressable: true);
+                        if (status.State == UpdateState.Staged
+                            && LauncherPrefs.UpdatePolicy == UpdatePolicy.Automatic)
+                            _ = TryInstallStaged();
+                        break;
+                    case UpdateState.Failed:
+                        SayVersion($"{number} : {status.Message ?? "update failed"}",
+                            GuiTheme.Warm, pressable: true);
+                        break;
+                }
+            });
+        }
+
         /// <summary>Hand the answer back, once.</summary>
         private void Finish(LaunchPlan plan)
         {
@@ -303,6 +359,7 @@ namespace MphRead.Mods.Launcher.Gui
             ShowCard(GameFiles.Ready ? _homeCard : _setupCard);
             RefreshSplash();
             RefreshPreviewEntry();
+            _ = TryInstallStaged();
         }
 
         // ------------------------------------------------------------ overlays
@@ -828,7 +885,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (_updating)
             {
-                // Mid-download; FetchAndInstall owns the line until it is done.
+                // Mid-download; the coordinator owns the operation until it is done.
                 return;
             }
             string number = VersionNumber();
@@ -868,120 +925,89 @@ namespace MphRead.Mods.Launcher.Gui
         /// <summary>
         /// Take the update.
         ///
-        /// On the desktop that still means opening the release page: a release
-        /// is an archive somebody unpacks over their own copy, and a program
-        /// that rewrote its own files while running would have to solve
-        /// restarting itself on three operating systems to save one unzip.
-        ///
-        /// Where the platform can install for itself -- a phone, today -- it
-        /// fetches the file and hands it to the system installer instead. See
-        /// <see cref="Update.UpdateInstall"/> for why the seam is there and
-        /// not simply an "if Android".
+        /// A package already verified and staged by Automatic is applied
+        /// directly. NotifyOnly uses the same coordinator download/install
+        /// path when the player explicitly presses this entry; it never falls
+        /// back to a browser for an installable artifact.
         /// </summary>
         private void UpdateNow()
         {
             UpdateInfo? found = Update.Updater.Available;
             if (found == null)
             {
+                if (Update.Updater.Coordinator.Status.State is
+                    UpdateState.Staged or UpdateState.WaitingForSafePoint)
+                    _ = DownloadAndInstall(null);
                 return;
             }
             UpdateInfo update = found.Value;
-            if (Update.UpdateInstall.CanInstall(update))
+            if (Update.Updater.Coordinator.Status.State is
+                UpdateState.Staged or UpdateState.WaitingForSafePoint)
             {
-                _ = FetchAndInstall(update, Update.UpdateInstall.Current!);
+                _ = TryInstallStaged(explicitRequest: true);
                 return;
             }
-            if (!Update.Updater.OpenPage(update))
-            {
-                // No browser to open, or it refused. Putting the address on the
-                // badge beats a button that appears to do nothing.
-                _updateBadge.Say(update.PageUrl);
-            }
+            _ = DownloadAndInstall(update);
         }
 
-        /// <summary>
-        /// Fetch the release's package and take the step that cannot be taken
-        /// back.
-        ///
-        /// Every stage reports on the button, because every stage can take
-        /// seconds and a button that greys out and says nothing is a button
-        /// that looks broken. The permission stage in particular *has* to
-        /// leave the entry pressable: on a phone, allowing this app as an
-        /// install source is a Settings screen, nothing here can wait for it,
-        /// and the player comes back and presses again.
-        /// </summary>
-        private async Task FetchAndInstall(UpdateInfo update, Update.IUpdateInstaller installer)
+        private async Task TryInstallStaged(bool explicitRequest = false)
+        {
+            if (_updating || (!explicitRequest
+                && LauncherPrefs.UpdatePolicy != UpdatePolicy.Automatic))
+                return;
+            if (Update.Updater.Coordinator.Status.State is not
+                (UpdateState.Staged or UpdateState.WaitingForSafePoint))
+                return;
+            IUpdateInstaller? installer = Update.UpdateInstall.Current;
+            if (installer == null)
+                return;
+            if (!installer.Allowed)
+            {
+                installer.RequestPermission();
+                SayVersion($"{VersionNumber()} : allow installs from this app, then press again",
+                    GuiTheme.Warm, pressable: true);
+                return;
+            }
+            _updating = true;
+            bool started = await Update.Updater.InstallStagedAsync().ConfigureAwait(true);
+            if (!started)
+            {
+                _updating = false;
+                RefreshVersionLine();
+                return;
+            }
+            if (installer.ExitAfterInstall)
+                Finish(default);
+            else
+                _updating = false;
+        }
+
+        private async Task DownloadAndInstall(UpdateInfo? update)
         {
             if (_updating)
             {
                 return;
             }
             string number = VersionNumber();
-            if (!installer.Allowed)
-            {
-                SayVersion($"{number} : allow installs from this app, then press again",
-                    GuiTheme.Warm, pressable: true);
-                installer.RequestPermission();
-                return;
-            }
             _updating = true;
-            installer.Finished = (ok, message) => Dispatcher.UIThread.Post(() =>
-            {
-                // Only ever seen when something went wrong: an install the
-                // player accepts replaces this program, and it does not
-                // survive that on either platform.
-                _updating = false;
-                SayVersion(ok ? number : $"{number} : {message}",
-                    ok ? GuiTheme.TextDim : GuiTheme.Warm, pressable: !ok);
-            });
-            string label = update.AssetName.Length > 0 ? update.AssetName : update.Tag;
+            string label = update is UpdateInfo selected
+                ? (selected.AssetName.Length > 0 ? selected.AssetName : selected.Tag)
+                : "the verified package";
             SayVersion($"{number} : downloading {label}...", GuiTheme.Warm);
-            var reported = new object();
-            int shown = -1;
-            void Progress(float fraction)
+            bool started = await Update.Updater.DownloadAndInstallAsync().ConfigureAwait(true);
+            _updating = false;
+            if (!started)
             {
-                // Whole percents only, and only when one changes: this is
-                // called for every 64 KB and each post crosses to the UI
-                // thread.
-                int percent = fraction < 0 ? -1 : (int)(fraction * 100);
-                lock (reported)
-                {
-                    if (percent == shown)
-                    {
-                        return;
-                    }
-                    shown = percent;
-                }
-                Dispatcher.UIThread.Post(() => SayVersion(percent < 0
-                    ? $"{number} : downloading {label}..."
-                    : $"{number} : downloading {label}... {percent}%", GuiTheme.Warm));
-            }
-            string error = "";
-            bool ready = await Task.Run(() => installer.Prepare(update, Progress, out error));
-            if (!ready)
-            {
-                _updating = false;
-                SayVersion($"{number} : {(error.Length > 0 ? error : "the download failed")}",
-                    GuiTheme.Warm, pressable: true);
+                string message = Update.Updater.Coordinator.Status.Message
+                    ?? "the update could not be staged";
+                SayVersion($"{number} : {message}", GuiTheme.Warm, pressable: true);
                 return;
             }
-            SayVersion(installer.ExitAfterInstall
+            Update.IUpdateInstaller? installer = Update.UpdateInstall.Current;
+            SayVersion(installer?.ExitAfterInstall == true
                 ? $"{number} : restarting to finish..."
                 : $"{number} : waiting for the system installer...", GuiTheme.Warm);
-            if (!installer.Install(out error))
-            {
-                _updating = false;
-                SayVersion($"{number} : {(error.Length > 0 ? error : "the install could not be started")}",
-                    GuiTheme.Warm, pressable: true);
-                return;
-            }
-            if (installer.ExitAfterInstall)
-            {
-                // The copying process is already running and waiting for this
-                // one to be gone before it touches a single file. Staying open
-                // would leave it waiting until its own deadline.
-                Finish(default);
-            }
+            if (installer?.ExitAfterInstall == true) Finish(default);
         }
 
         private bool _updating;

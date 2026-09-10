@@ -57,7 +57,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// the reason the original exists. Keeping the same shape here is not
     /// obligation but consistency: the two screens are one product.
     /// </summary>
-    internal sealed class ChoiceRow : Control
+    internal sealed class ChoiceRow : Control, IControllerNavigable
     {
         private readonly string _label;
         private IReadOnlyList<string> _options;
@@ -232,6 +232,9 @@ namespace MphRead.Mods.Launcher.Gui
             Changed?.Invoke(this, EventArgs.Empty);
         }
 
+        void IControllerNavigable.ControllerActivate() => Step(1);
+        void IControllerNavigable.ControllerAdjust(int direction) => Step(direction);
+
         public override void Render(DrawingContext context)
         {
             // See MenuEntry.Render: hit testing follows the drawing.
@@ -300,7 +303,7 @@ namespace MphRead.Mods.Launcher.Gui
     }
 
     /// <summary>One setting that is on or off.</summary>
-    internal sealed class ToggleRow : Control
+    internal sealed class ToggleRow : Control, IControllerNavigable
     {
         private readonly string _label;
         private bool _on;
@@ -348,6 +351,9 @@ namespace MphRead.Mods.Launcher.Gui
             }
             base.OnKeyDown(e);
         }
+
+        void IControllerNavigable.ControllerActivate() => On = !On;
+        void IControllerNavigable.ControllerAdjust(int direction) => On = !On;
 
         public override void Render(DrawingContext context)
         {

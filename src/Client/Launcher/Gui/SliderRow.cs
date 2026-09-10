@@ -22,7 +22,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// limit slides over an index into its own table of stops, so that a drag
     /// lands on 144 and never on 143.
     /// </summary>
-    internal sealed class SliderRow : Control
+    internal sealed class SliderRow : Control, IControllerNavigable
     {
         private readonly string _label;
         private readonly double _labelWidth;
@@ -155,6 +155,12 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             base.OnKeyDown(e);
+        }
+
+        void IControllerNavigable.ControllerActivate() { }
+        void IControllerNavigable.ControllerAdjust(int direction)
+        {
+            if (IsEnabled) Value += Math.Sign(direction) * _keyStep;
         }
 
         protected override void OnGotFocus(GotFocusEventArgs e)

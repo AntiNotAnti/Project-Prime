@@ -26,6 +26,7 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.11" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
     <PackageReference Include="OpenTK" Version="4.9.4" />
+    <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
   </ItemGroup>
   <!-- Platform entry and adapters. -->
   <ItemGroup>
@@ -45,6 +46,7 @@
     <Compile Include="OffscreenGl.cs" />
     <Compile Include="PreviewRun.cs" />
     <Compile Include="PreviewService.cs" />
+    <Compile Include="PointerInputRouter.cs" />
     <Compile Include="TouchControls.cs" />
     <Compile Include="TouchOverlayView.cs" />
     <Compile Include="AndroidMapImageDecoder.cs" />
@@ -69,8 +71,21 @@
     <Compile Include="../Client/Input/GamepadDesktop.cs" Link="Client/Input/GamepadDesktop.cs" />
     <Compile Include="../Client/Input/GamepadInput.cs" Link="Client/Input/GamepadInput.cs" />
     <Compile Include="../Client/Input/GamepadState.cs" Link="Client/Input/GamepadState.cs" />
+    <Compile Include="../Client/Input/AimGestureRecognizer.cs" Link="Client/Input/AimGestureRecognizer.cs" />
+    <Compile Include="../Client/Input/ControllerPreset.cs" Link="Client/Input/ControllerPreset.cs" />
+    <Compile Include="../Client/Input/GamepadLookProcessor.cs" Link="Client/Input/GamepadLookProcessor.cs" />
+    <Compile Include="../Client/Input/GamepadMovementProcessor.cs" Link="Client/Input/GamepadMovementProcessor.cs" />
+    <Compile Include="../Client/Input/LookDeviceTracker.cs" Link="Client/Input/LookDeviceTracker.cs" />
+    <Compile Include="../Client/Input/LookInputCoordinator.cs" Link="Client/Input/LookInputCoordinator.cs" />
+    <Compile Include="../Client/Input/LookPredictionBuffer.cs" Link="Client/Input/LookPredictionBuffer.cs" />
     <Compile Include="../Client/Input/PadBindings.cs" Link="Client/Input/PadBindings.cs" />
+    <Compile Include="../Client/Input/PointerSample.cs" Link="Client/Input/PointerSample.cs" />
+    <Compile Include="../Client/Input/StickProcessor.cs" Link="Client/Input/StickProcessor.cs" />
+    <Compile Include="../Client/Input/StylusBindings.cs" Link="Client/Input/StylusBindings.cs" />
+    <Compile Include="../Client/Input/StylusInput.cs" Link="Client/Input/StylusInput.cs" />
+    <Compile Include="../Client/Input/StylusState.cs" Link="Client/Input/StylusState.cs" />
     <Compile Include="../Client/Input/TouchSettings.cs" Link="Client/Input/TouchSettings.cs" />
+    <Compile Include="../Client/Input/TriggerProcessor.cs" Link="Client/Input/TriggerProcessor.cs" />
     <Compile Include="../Client/Launcher/Gui/CrosshairPreview.cs" Link="Client/Launcher/Gui/CrosshairPreview.cs" />
     <Compile Include="../Client/Launcher/Gui/DemoPickerView.cs" Link="Client/Launcher/Gui/DemoPickerView.cs" />
     <Compile Include="../Client/Launcher/Gui/GuiTheme.cs" Link="Client/Launcher/Gui/GuiTheme.cs" />
@@ -203,6 +218,7 @@
     <Compile Include="../Client/Rendering/Renderer.cs" Link="Client/Rendering/Renderer.cs" />
     <Compile Include="../Client/Rendering/SpectatorCameraController.cs" Link="Client/Rendering/SpectatorCameraController.cs" />
     <Compile Include="../Client/Rendering/ScenePresentation.Resources.cs" Link="Client/Rendering/ScenePresentation.Resources.cs" />
+    <Compile Include="../Client/Rendering/ScenePresentation.Radar.cs" Link="Client/Rendering/ScenePresentation.Radar.cs" />
     <Compile Include="../Client/Rendering/Selection.cs" Link="Client/Rendering/Selection.cs" />
     <Compile Include="../Client/Runtime/Branding.cs" Link="Client/Runtime/Branding.cs" />
     <Compile Include="../Client/Runtime/ClientInputState.cs" Link="Client/Runtime/ClientInputState.cs" />
@@ -229,10 +245,17 @@
     <Compile Include="../Client/Settings/Features.cs" Link="Client/Settings/Features.cs" />
     <Compile Include="../Client/Settings/ClientMatchFeatures.cs" Link="Client/Settings/ClientMatchFeatures.cs" />
     <Compile Include="../Client/Update/DesktopUpdate.cs" Link="Client/Update/DesktopUpdate.cs" />
+    <Compile Include="../Client/Update/UpdateCoordinator.cs" Link="Client/Update/UpdateCoordinator.cs" />
     <Compile Include="../Client/Update/SyncHttp.cs" Link="Client/Update/SyncHttp.cs" />
     <Compile Include="../Client/Update/UpdateCheck.cs" Link="Client/Update/UpdateCheck.cs" />
     <Compile Include="../Client/Update/UpdateDownload.cs" Link="Client/Update/UpdateDownload.cs" />
     <Compile Include="../Client/Update/UpdateInstall.cs" Link="Client/Update/UpdateInstall.cs" />
+    <Compile Include="../Client/Update/UpdateManifest.cs" Link="Client/Update/UpdateManifest.cs" />
+    <Compile Include="../Client/Update/UpdateManifestClient.cs" Link="Client/Update/UpdateManifestClient.cs" />
+    <Compile Include="../Client/Update/UpdatePolicy.cs" Link="Client/Update/UpdatePolicy.cs" />
+    <Compile Include="../Client/Update/UpdateTransaction.cs" Link="Client/Update/UpdateTransaction.cs" />
+    <Compile Include="../Client/Update/UpdateTransport.cs" Link="Client/Update/UpdateTransport.cs" />
+    <Compile Include="../Client/Update/UpdateTrust.cs" Link="Client/Update/UpdateTrust.cs" />
     <Compile Include="../Client/Update/Updater.cs" Link="Client/Update/Updater.cs" />
   </ItemGroup>
   <!-- Narrow import/preparation capabilities, never Tools command implementations. -->
@@ -296,17 +319,27 @@
     <Compile Include="../Client/Rendering/NodePoseSampler.cs" Link="Rendering/NodePoseSampler.cs" />
     <Compile Include="../Client/Rendering/ModelPoseHistory.cs" Link="Rendering/ModelPoseHistory.cs" />
     <Compile Include="../Client/Rendering/SimulationPoseHistory.cs" Link="Presentation/SimulationPoseHistory.cs" />
+    <Compile Include="../Client/Rendering/PlayerBipedPoseHistory.cs" Link="Rendering/PlayerBipedPoseHistory.cs" />
     <Compile Include="../Client/Rendering/RenderInterpolation.cs" Link="Presentation/RenderInterpolation.cs" />
     <Compile Include="../Client/Input/RenderLookAccumulator.cs" Link="Presentation/RenderLookAccumulator.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Client/Combat/FeedbackAudio.cs" Link="Combat/FeedbackAudio.cs" />
     <Compile Include="../Client/Combat/NetworkAfflictionState.cs" Link="Combat/NetworkAfflictionState.cs" />
+    <Compile Include="../Client/Combat/PredictedHitFeedback.cs" Link="Combat/PredictedHitFeedback.cs" />
+    <Compile Include="../Client/Combat/PredictedSelfImpulse.cs" Link="Combat/PredictedSelfImpulse.cs" />
     <Compile Include="../Client/Presentation/Players/PlayerPresentationCombatFeedback.cs" Link="Presentation/PlayerPresentationCombatFeedback.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Client/HUD/Radar/RadarContact.cs" Link="HUD/Radar/RadarContact.cs" />
     <Compile Include="../Client/HUD/Radar/RadarFrame.cs" Link="HUD/Radar/RadarFrame.cs" />
+    <Compile Include="../Client/HUD/Radar/RadarLayout.cs" Link="HUD/Radar/RadarLayout.cs" />
+    <Compile Include="../Client/HUD/Radar/RadarMap.cs" Link="HUD/Radar/RadarMap.cs" />
+    <Compile Include="../Client/HUD/Radar/RadarMapBuilder.cs" Link="HUD/Radar/RadarMapBuilder.cs" />
+    <Compile Include="../Client/HUD/Radar/RadarMapGeometry.cs" Link="HUD/Radar/RadarMapGeometry.cs" />
+    <Compile Include="../Client/HUD/Radar/RadarMapPresentation.cs" Link="HUD/Radar/RadarMapPresentation.cs" />
+    <Compile Include="../Client/HUD/Radar/RadarMapRasterizer.cs" Link="HUD/Radar/RadarMapRasterizer.cs" />
+    <Compile Include="../Client/HUD/Radar/RadarPalette.cs" Link="HUD/Radar/RadarPalette.cs" />
     <Compile Include="../Client/HUD/Radar/RadarSettings.cs" Link="HUD/Radar/RadarSettings.cs" />
     <Compile Include="../Client/HUD/Radar/RadarWidget.cs" Link="HUD/Radar/RadarWidget.cs" />
     <Compile Include="../Client/Presentation/Players/PlayerPresentationRadar.cs" Link="Presentation/PlayerPresentationRadar.cs" />
@@ -321,6 +354,53 @@
     <Compile Include="../Client/Presentation/Players/PlayerPresentationNetworkHealth.cs" Link="Presentation/PlayerPresentationNetworkHealth.cs" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Android Enhanced rendering: explicit links because default compile items are disabled. -->
+    <Compile Include="../Client/Rendering/Backends/Gles/GlesEnhancedPolicy.cs" Link="Client/Rendering/Backends/Gles/GlesEnhancedPolicy.cs" />
+    <Compile Include="../Client/Rendering/Backends/Gles/GlesEnhancedShaderContract.cs" Link="Client/Rendering/Backends/Gles/GlesEnhancedShaderContract.cs" />
+    <Compile Include="../Client/Rendering/Backends/Gles/GlesEnhancedShaders.cs" Link="Client/Rendering/Backends/Gles/GlesEnhancedShaders.cs" />
+    <Compile Include="../Client/Rendering/Backends/Gles/GlesEnhancedRuntime.cs" Link="Client/Rendering/Backends/Gles/GlesEnhancedRuntime.cs" />
+    <Compile Include="../Client/Rendering/Core/DecodedRgbImage.cs" Link="Client/Rendering/Core/DecodedRgbImage.cs" />
+    <Compile Include="../Client/Rendering/Core/DirectionalShadowPolicy.cs" Link="Client/Rendering/Core/DirectionalShadowPolicy.cs" />
+    <Compile Include="../Client/Rendering/Core/RenderSkyState.cs" Link="Client/Rendering/Core/RenderSkyState.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/BloomPyramidPolicy.cs" Link="Client/Rendering/Enhanced/BloomPyramidPolicy.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/EnhancedColorGradePack.cs" Link="Client/Rendering/Enhanced/EnhancedColorGradePack.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/EnhancedColorMath.cs" Link="Client/Rendering/Enhanced/EnhancedColorMath.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/EnhancedDistortionPolicy.cs" Link="Client/Rendering/Enhanced/EnhancedDistortionPolicy.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/EnhancedDrawPresentation.cs" Link="Client/Rendering/Enhanced/EnhancedDrawPresentation.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/EnhancedEnvironment.cs" Link="Client/Rendering/Enhanced/EnhancedEnvironment.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/EnhancedEnvironmentOverrides.cs" Link="Client/Rendering/Enhanced/EnhancedEnvironmentOverrides.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/EnhancedFogMath.cs" Link="Client/Rendering/Enhanced/EnhancedFogMath.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/EnhancedPostProcessingMath.cs" Link="Client/Rendering/Enhanced/EnhancedPostProcessingMath.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/EnhancedSsaoKernel.cs" Link="Client/Rendering/Enhanced/EnhancedSsaoKernel.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/EnhancedSurfaceMath.cs" Link="Client/Rendering/Enhanced/EnhancedSurfaceMath.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/EnvironmentalParticleManifest.cs" Link="Client/Rendering/Enhanced/EnvironmentalParticleManifest.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/EnvironmentalParticlePresentation.cs" Link="Client/Rendering/Enhanced/EnvironmentalParticlePresentation.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/EnvironmentalParticleRuntime.cs" Link="Client/Rendering/Enhanced/EnvironmentalParticleRuntime.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/ForceFieldVisualProfile.cs" Link="Client/Rendering/Enhanced/ForceFieldVisualProfile.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/ImpactDecalPool.cs" Link="Client/Rendering/Enhanced/ImpactDecalPool.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/ImpactDecalProfiles.cs" Link="Client/Rendering/Enhanced/ImpactDecalProfiles.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/PresentationTimeMath.cs" Link="Client/Rendering/Enhanced/PresentationTimeMath.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/RenderVisorState.cs" Link="Client/Rendering/Enhanced/RenderVisorState.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/SoftParticlePresentation.cs" Link="Client/Rendering/Enhanced/SoftParticlePresentation.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/VisorPresentationProfiles.cs" Link="Client/Rendering/Enhanced/VisorPresentationProfiles.cs" />
+    <Compile Include="../Client/Rendering/Enhanced/WeaponBeamVisualProfiles.cs" Link="Client/Rendering/Enhanced/WeaponBeamVisualProfiles.cs" />
+    <Compile Include="../Client/Rendering/Environment/EnhancedSkyPack.cs" Link="Client/Rendering/Environment/EnhancedSkyPack.cs" />
+    <Compile Include="../Client/Rendering/Lighting/AmbientVisualLightProfiles.cs" Link="Client/Rendering/Lighting/AmbientVisualLightProfiles.cs" />
+    <Compile Include="../Client/Rendering/Lighting/TransientVisualLightPool.cs" Link="Client/Rendering/Lighting/TransientVisualLightPool.cs" />
+    <Compile Include="../Client/Rendering/Lighting/TransientVisualLightPresentationState.cs" Link="Client/Rendering/Lighting/TransientVisualLightPresentationState.cs" />
+    <Compile Include="../Client/Rendering/Lighting/VisualLightIdentityAllocator.cs" Link="Client/Rendering/Lighting/VisualLightIdentityAllocator.cs" />
+    <Compile Include="../Client/Rendering/Lighting/VisualLightProfile.cs" Link="Client/Rendering/Lighting/VisualLightProfile.cs" />
+    <Compile Include="../Client/Rendering/Lighting/VisualLightSelection.cs" Link="Client/Rendering/Lighting/VisualLightSelection.cs" />
+    <Compile Include="../Client/Rendering/Lighting/VisualLightSourceKey.cs" Link="Client/Rendering/Lighting/VisualLightSourceKey.cs" />
+    <Compile Include="../Client/Rendering/Lighting/WeaponVisualLightProfiles.cs" Link="Client/Rendering/Lighting/WeaponVisualLightProfiles.cs" />
+    <Compile Include="../Client/Rendering/Materials/EnhancedMaterial.cs" Link="Client/Rendering/Materials/EnhancedMaterial.cs" />
+    <Compile Include="../Client/Rendering/Materials/EnhancedTexturePack.cs" Link="Client/Rendering/Materials/EnhancedTexturePack.cs" />
+    <Compile Include="../Client/Rendering/Materials/ReflectionProbes.cs" Link="Client/Rendering/Materials/ReflectionProbes.cs" />
+    <Compile Include="../Client/Rendering/Models/PresentationModelPack.cs" Link="Client/Rendering/Models/PresentationModelPack.cs" />
+    <Compile Include="../Client/Rendering/ScenePresentation.EnvironmentalParticles.cs" Link="Client/Rendering/ScenePresentation.EnvironmentalParticles.cs" />
+    <Compile Include="../Client/Rendering/ScenePresentation.ImpactDecals.cs" Link="Client/Rendering/ScenePresentation.ImpactDecals.cs" />
+    <Compile Include="../Client/Rendering/ScenePresentation.TransientVisualLights.cs" Link="Client/Rendering/ScenePresentation.TransientVisualLights.cs" />
+    <Compile Include="../Shared/Imaging/StbImageDecoder.cs" Link="Shared/Imaging/StbImageDecoder.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Client/HUD/PostMatchPresentation.cs" Link="HUD/PostMatchPresentation.cs" />

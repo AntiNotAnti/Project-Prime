@@ -21,18 +21,16 @@ namespace MphRead.Mods
 
         /// <summary>
         /// Historical repository identity retained for compatibility links.
-        ///
-        /// The project was forked as MphRead and the repository has since been
         /// Update discovery uses <see cref="UpdateRepository"/> separately so
         /// an unconfigured release feed cannot advertise unrelated releases.
         /// </summary>
         public const string Repository = "liveteklol/Fruity-Prime";
 
         /// <summary>
-        /// Repository queried for published client updates. Empty until a
-        /// release feed and packages are intentionally configured.
+        /// Public binary-only repository queried for signed client updates.
+        /// No source credentials are embedded in the player.
         /// </summary>
-        public const string UpdateRepository = "";
+        public const string UpdateRepository = "AntiNotAnti/Project-Prime-Releases";
 
         /// <summary>
         /// The name of the running executable, without its extension. Read

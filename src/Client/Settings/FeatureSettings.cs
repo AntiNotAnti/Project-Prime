@@ -62,6 +62,10 @@ public static class FeaturesSettings
             {
                 Features.ProHud = boolean;
             }
+            if (values.TryGetValue(nameof(Features.ProHudFixedWeapon), out value) && Boolean.TryParse(value, out boolean))
+            {
+                Features.ProHudFixedWeapon = boolean;
+            }
             // Pro mode's crosshair: which shape, and how big. Both persist,
             // because a crosshair is a thing a player picks once and then does
             // not want to think about again.
@@ -78,9 +82,10 @@ public static class FeaturesSettings
         }
 
         /// <summary>
-        /// What the launcher can still be asked about, which is one switch.
+        /// What the launcher can still be asked about: the Pro HUD switch,
+        /// its independent weapon-motion preference, and crosshair choices.
         ///
-        /// Everything else here was reachable either through the generic
+        /// Everything else was reachable either through the generic
         /// reflection-built "Features" page or through a Display-page row of
         /// its own, and both are gone: the HUD is <see cref="Features.ProHud"/>'s
         /// decision and the rest sit at their code defaults. What is left out
@@ -94,6 +99,7 @@ public static class FeaturesSettings
             [
                 new(nameof(Features.ReticleOpacity), Features.ReticleOpacity.ToString(CultureInfo.InvariantCulture)),
                 new(nameof(Features.ProHud), Features.ProHud.ToString().ToLower()),
+                new(nameof(Features.ProHudFixedWeapon), Features.ProHudFixedWeapon.ToString().ToLower()),
                 new("CrosshairStyle", Mods.Render.Crosshair.Style.ToString()),
                 new("CrosshairSize", Mods.Render.Crosshair.Size.ToString())
             ]);

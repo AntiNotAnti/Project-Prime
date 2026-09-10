@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using MphRead.Mods;
+using MphRead.Mods.Update;
 using MphRead.Runtime.Content;
 
 namespace MphRead.Mods.Launcher
@@ -43,16 +44,21 @@ namespace MphRead.Mods.Launcher
         public static int LastKind { get; set; }
 
         /// <summary>
-        /// Whether the front screen looks for a new release.
-        ///
-        /// Looks only. Finding one puts "Update now" on the screen, and that
-        /// opens the release page in a browser; the download and the unpacking
-        /// are the player's. On by default because a server refuses a client on
-        /// a different protocol version outright, so an out-of-date copy is not
-        /// a slightly worse copy, it is one that cannot join anything -- and
-        /// nobody should have to work that out from a failed connection.
+        /// How startup update work is handled. Missing preference files default
+        /// to Automatic; the legacy auto_update key is migrated once below.
         /// </summary>
-        public static bool AutoUpdate { get; set; } = true;
+        public static UpdatePolicy UpdatePolicy { get; set; } = UpdatePolicy.Automatic;
+
+        /// <summary>
+        /// Compatibility shim for older launcher surfaces. New code should use
+        /// <see cref="UpdatePolicy"/> so NotifyOnly is not mistaken for Off.
+        /// </summary>
+        [Obsolete("Use UpdatePolicy")]
+        public static bool AutoUpdate
+        {
+            get => UpdatePolicy != UpdatePolicy.Off;
+            set => UpdatePolicy = value ? UpdatePolicy.NotifyOnly : UpdatePolicy.Off;
+        }
 
         /// <summary>
         /// How the game window opens. Kept here rather than in MenuSettings
@@ -97,10 +103,14 @@ namespace MphRead.Mods.Launcher
             // stale process-global choice from the previous read.
             AnnouncerPack = null;
             MusicPack = null;
+            UpdatePolicy = UpdatePolicy.Automatic;
             if (!File.Exists(Path))
             {
                 return;
             }
+            bool policyRead = false;
+            bool legacyRead = false;
+            bool legacyValue = false;
             try
             {
                 foreach (string raw in File.ReadAllLines(Path))
@@ -158,9 +168,17 @@ namespace MphRead.Mods.Launcher
                             }
                             break;
                         case "auto_update":
-                            if (Boolean.TryParse(value, out bool autoUpdate))
+                            if (!policyRead && Boolean.TryParse(value, out bool autoUpdate))
                             {
-                                AutoUpdate = autoUpdate;
+                                legacyRead = true;
+                                legacyValue = autoUpdate;
+                            }
+                            break;
+                        case "update_policy":
+                            if (UpdatePolicyCodec.TryParse(value, out UpdatePolicy parsedPolicy))
+                            {
+                                UpdatePolicy = parsedPolicy;
+                                policyRead = true;
                             }
                             break;
                         case "debug_logs":
@@ -202,6 +220,12 @@ namespace MphRead.Mods.Launcher
                 // Preferences are a convenience; a unreadable file must not
                 // stop the launcher from opening.
             }
+            if (!policyRead && legacyRead)
+            {
+                UpdatePolicy = legacyValue ? UpdatePolicy.NotifyOnly : UpdatePolicy.Off;
+                // One-time migration: Save no longer writes the legacy key.
+                Save();
+            }
         }
 
         public static void Save()
@@ -218,7 +242,7 @@ namespace MphRead.Mods.Launcher
                     $"bots={Bots.ToString(CultureInfo.InvariantCulture)}",
                     $"bot_level={BotLevel.ToString(CultureInfo.InvariantCulture)}",
                     $"last_kind={LastKind.ToString(CultureInfo.InvariantCulture)}",
-                    $"auto_update={AutoUpdate.ToString().ToLowerInvariant()}",
+                    $"update_policy={UpdatePolicy}",
                     $"debug_logs={DebugLogs.ToString().ToLowerInvariant()}",
                     $"reduced_motion={ReducedMotion.ToString().ToLowerInvariant()}",
                     $"announcer_pack={OptionalContentPreferenceCodec.Encode(AnnouncerPack)}",

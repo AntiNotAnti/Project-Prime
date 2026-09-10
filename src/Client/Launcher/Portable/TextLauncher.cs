@@ -19,13 +19,13 @@ namespace MphRead.Mods.Launcher
         public static void Run()
         {
             LauncherPrefs.Load();
-            if (LauncherPrefs.AutoUpdate && Update.Updater.Configured)
+            if (LauncherPrefs.UpdatePolicy != UpdatePolicy.Off && Update.Updater.Configured)
             {
                 // Started in the background and then waited on briefly. This
                 // screen is printed once and then blocks on a keypress, so a
                 // check that lands afterwards has no line to appear on until
                 // the menu is drawn again.
-                Update.Updater.CheckInBackground(_ => { });
+                Update.Updater.CheckInBackground(_ => { }, TryInstallAutomaticUpdate);
                 Update.Updater.WaitForCheck(TimeSpan.FromSeconds(2));
             }
             if (GameFiles.Ready)
@@ -46,6 +46,7 @@ namespace MphRead.Mods.Launcher
             // time round because a match can commit its own copy of both.
             while (true)
             {
+                TryInstallAutomaticUpdate();
                 MenuSettings settings = ClientSettings.LoadSettings();
                 Mods.GameSettings.Apply(settings);
                 LauncherPrefs.Load();
@@ -93,24 +94,39 @@ namespace MphRead.Mods.Launcher
             }
         }
 
+        private static void TryInstallAutomaticUpdate()
+        {
+            if (LauncherPrefs.UpdatePolicy != UpdatePolicy.Automatic
+                || Update.Updater.Coordinator.Status.State is not
+                    (UpdateState.Staged or UpdateState.WaitingForSafePoint))
+                return;
+            bool started = Update.Updater.InstallStagedAsync()
+                .GetAwaiter().GetResult();
+            if (started && Update.UpdateInstall.Current?.ExitAfterInstall == true)
+            {
+                // The staged updater is waiting for this process ID before it
+                // mutates the installation. A terminal launcher has no window
+                // close event to use as its safe exit boundary.
+                Environment.Exit(0);
+            }
+        }
+
         /// <summary>
-        /// "Update now": open the release page and say what to fetch.
-        ///
-        /// The program does not install it. On a machine with no desktop --
-        /// which is most of the ones that get this screen -- there is no
-        /// browser to open either, so the address is printed and that is the
-        /// whole of it.
+        /// "Update now": use the same coordinator path as the graphical
+        /// launcher. This keeps NotifyOnly explicit while avoiding a second
+        /// unverified browser/download flow.
         /// </summary>
         private static void UpdateNow(UpdateInfo update)
         {
             Console.WriteLine();
             Console.WriteLine($"  {Update.Updater.Describe(update)}");
-            Console.WriteLine($"  {update.PageUrl}");
-            if (Update.Updater.OpenPage(update))
-            {
-                Console.WriteLine("  Opened in your browser.");
-            }
-            Console.WriteLine("  Download it there and unpack it over this one.");
+            bool started = Update.Updater.DownloadAndInstallAsync()
+                .GetAwaiter().GetResult();
+            Console.WriteLine(started
+                ? "  The verified update was staged and the installer was started."
+                : "  Update did not start: "
+                    + (Update.Updater.Coordinator.Status.Message
+                        ?? "the package could not be staged."));
             Console.WriteLine();
         }
 
@@ -172,7 +188,7 @@ namespace MphRead.Mods.Launcher
                 Console.WriteLine("  [4] Game files       point this at your .nds dump");
                 if (Update.Updater.Configured && Update.Updater.Available != null)
                 {
-                    Console.WriteLine("  [u] Update now       open the download page");
+                    Console.WriteLine("  [u] Update now       download and install the verified update");
                 }
                 Console.WriteLine("  [q] Quit");
                 Console.WriteLine();
