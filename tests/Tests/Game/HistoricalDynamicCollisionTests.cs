@@ -13,6 +13,7 @@ using Xunit;
 
 namespace MphRead.Tests;
 
+[Collection("Match baseline globals")]
 public sealed class HistoricalDynamicCollisionTests
 {
     [Fact]
