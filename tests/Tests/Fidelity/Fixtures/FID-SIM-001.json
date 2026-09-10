@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "id": "FID-SIM-001",
+  "title": "Bounded authoritative idle and movement harness",
+  "domain": "Simulation",
+  "severity": "P1",
+  "status": "BlockedByEvidence",
+  "referenceRevision": "AMHE1",
+  "referenceContentDigest": "f64b99e2f976b30e5a667156bd7878f8a43c741bb1a5e02be1c6f40adc513226",
+  "evidenceLevel": "E2",
+  "environment": {
+    "authority": "ServerSimulation",
+    "tickRate": "60 Hz",
+    "renderer": "none"
+  },
+  "preconditions": [
+    "Validate the AMHE1 reference manifest.",
+    "Load MP1 SANCTORUS in Classic Battle with one participant."
+  ],
+  "scenario": {
+    "map": "MP1 SANCTORUS",
+    "mode": "Battle",
+    "ruleset": "Classic",
+    "playerCount": 1,
+    "seed": 12345,
+    "maxTicks": 700,
+    "actions": [
+      {
+        "id": "forward-001",
+        "tick": 400,
+        "participantId": "player-0",
+        "type": "hold-forward",
+        "values": {
+          "durationTicks": 300
+        }
+      }
+    ]
+  },
+  "expectedObservations": [
+    {
+      "id": "phase-001",
+      "tick": 699,
+      "entityId": "match",
+      "field": "phase",
+      "numericValue": null,
+      "exactValue": "Playing"
+    }
+  ],
+  "tolerances": [
+    {
+      "field": "player.position",
+      "absolute": 0.000001,
+      "unit": "world units",
+      "reason": "Per-component binary floating-point observation tolerance."
+    }
+  ],
+  "intentionalDeviation": false,
+  "affectedRulesets": [
+    "Classic"
+  ],
+  "affectedRoles": [
+    "Practice",
+    "Hosted",
+    "Dedicated"
+  ],
+  "regressionTests": [
+    "FidelityScenarioTests.IdleSpawnAndMovementTraceIsRepeatableAndSupportsDeclaredComparisonModes"
+  ],
+  "evidenceLinks": [
+    "docs/fidelity/cases/FID-SIM-001.md"
+  ],
+  "decision": "Harness proof accepted. AMHE1 frame-to-tick mapping is terminally retained as BlockedByEvidence under the user's 2026-09-09 waiver; this case does not authorize gameplay changes."
+}
