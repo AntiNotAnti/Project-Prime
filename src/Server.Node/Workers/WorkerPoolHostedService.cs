@@ -1,9 +1,9 @@
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Node.Reporting;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Node.Reporting;
+using ProjectPrime.Server.Shared;
 using MphRead.Reporting;
 
-namespace FruityPrime.Server.Node.Workers;
+namespace ProjectPrime.Server.Node.Workers;
 
 public sealed class WorkerPoolOptions
 {

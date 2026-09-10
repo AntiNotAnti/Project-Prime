@@ -16,7 +16,7 @@ namespace MphRead.Tests;
 [Collection("Transport impairment")]
 public sealed class ServerContentValidationTests : IDisposable
 {
-    private readonly string _directory = Path.Combine(Path.GetTempPath(), "fruity-staged-content-test-" + Guid.NewGuid().ToString("N"));
+    private readonly string _directory = Path.Combine(Path.GetTempPath(), "project-prime-staged-content-test-" + Guid.NewGuid().ToString("N"));
 
     public ServerContentValidationTests() => Directory.CreateDirectory(_directory);
 
@@ -161,7 +161,7 @@ public sealed class ServerContentValidationTests : IDisposable
     [Fact]
     public void WorkerPreparationOptionIsParsed()
     {
-        var flags = FruityPrime.Server.Worker.Program.ParseArguments(
+        var flags = ProjectPrime.Server.Worker.Program.ParseArguments(
             new[] { "--prepare-content", "true", "--content-dir", _directory, "--content-version", "AMHE1" });
 
         Assert.Equal("true", flags["--prepare-content"]);
@@ -175,7 +175,7 @@ public sealed class ServerContentValidationTests : IDisposable
         try
         {
             Console.SetError(error);
-            Assert.Equal(1, await FruityPrime.Server.Worker.Program.Main(new[]
+            Assert.Equal(1, await ProjectPrime.Server.Worker.Program.Main(new[]
             {
                 "--prepare-content", "true", "--describe-content", "true",
                 "--content-dir", _directory, "--content-version", "AMHE1"
@@ -194,7 +194,7 @@ public sealed class ServerContentValidationTests : IDisposable
         try
         {
             Console.SetError(error);
-            Assert.Equal(1, await FruityPrime.Server.Worker.Program.Main(new[]
+            Assert.Equal(1, await ProjectPrime.Server.Worker.Program.Main(new[]
             {
                 "--prepare-content", "true", "--validation-fixture", "none",
                 "--content-dir", _directory, "--content-version", "AMHE1"
@@ -216,7 +216,7 @@ public sealed class ServerContentValidationTests : IDisposable
         try
         {
             Console.SetError(error);
-            Assert.Equal(1, await FruityPrime.Server.Worker.Program.Main(new[]
+            Assert.Equal(1, await ProjectPrime.Server.Worker.Program.Main(new[]
             {
                 "--prepare-content", "true", "--content-dir", _directory,
                 "--content-version", "AMHE1", "--map-dir", Path.Combine(_directory, "maps")
@@ -247,7 +247,7 @@ public sealed class ServerContentValidationTests : IDisposable
             Console.SetError(error);
             // The intentionally incomplete extracted fixture cannot pass the
             // retail room probe, but description must still remain read-only.
-            Assert.Equal(1, await FruityPrime.Server.Worker.Program.Main(new[]
+            Assert.Equal(1, await ProjectPrime.Server.Worker.Program.Main(new[]
             {
                 "--describe-content", "true", "--content-dir", _directory,
                 "--content-version", "AMHE1", "--map-dir", mapDirectory
@@ -335,8 +335,8 @@ public sealed class ServerContentValidationTests : IDisposable
         string previous = CustomRooms.MapDirectory;
         try
         {
-            var flags = FruityPrime.Server.Worker.Program.ParseArguments(new[] { "--map-dir", "worker-maps" });
-            FruityPrime.Server.Worker.Program.ApplyMapDirectory(flags);
+            var flags = ProjectPrime.Server.Worker.Program.ParseArguments(new[] { "--map-dir", "worker-maps" });
+            ProjectPrime.Server.Worker.Program.ApplyMapDirectory(flags);
             Assert.Equal(Path.GetFullPath("worker-maps"), CustomRooms.MapDirectory);
         }
         finally
@@ -360,7 +360,7 @@ public sealed class ServerContentValidationTests : IDisposable
         {
             Console.SetOut(output);
             Console.SetError(error);
-            Assert.Equal(0, await FruityPrime.Server.Worker.Program.Main(new[]
+            Assert.Equal(0, await ProjectPrime.Server.Worker.Program.Main(new[]
             {
                 "--describe-content", "true", "--content-dir", _directory,
                 "--content-version", "AMHE1", "--map-dir", mapDirectory

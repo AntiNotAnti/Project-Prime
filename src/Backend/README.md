@@ -4,7 +4,7 @@ This net10.0 service references Game only. It provides registered identity, prof
 
 ## Configuration
 
-Use deployment environment variables or an operator-managed secret provider. No credentials or signing keys belong in appsettings, source control, command-line arguments, logs or demos.
+Use deployment environment variables or an operator-managed secret provider. No credentials or signing keys belong in appsettings, source control, command-line arguments, logs or replays.
 
 | Environment variable | Meaning |
 |---|---|
@@ -40,7 +40,7 @@ Production rejects HTTP. Terminate TLS at Kestrel or explicitly configure and au
 - `PATCH /v1/me/profile` `{displayName?,favoriteHunter?}` updates only the authenticated owner. Favorite Hunter is numeric0–6. Unknown properties, including supplied ownership/RP fields, are rejected.
 - `GET /v1/players/{id}/license` returns `{playerId,displayName,favoriteHunter,joinedAt,points,tier,title,nextThreshold,lastOfficialDelta,policy}`. No account email/password metadata is exposed.
 - `POST /v1/guest-node-admissions` is anonymous and accepts `{nodeId,displayName}`. The route is mapped in Development, Testing, and production; guest access is not environment-gated. The Node must still be online and ticket signing must be configured (`503` when the issuer is unavailable, `404` when the requested Node is not online). `displayName` is trimmed and must contain 1–16 printable ASCII characters.
-- A successful guest admission returns the same short-lived Node admission envelope as an account admission. Its ES256 ticket has `typ=ph-node-admission+jwt`, `kind=guest`, a fresh ephemeral UUID in `sub`, the supplied name in `name`, and a unique replay ID in `jti`; it expires after 120 seconds. The request creates no account, profile, license, or `PlayerId`. The name is a display label only and is not an identity, authorization, or uniqueness claim.
+- A successful guest admission returns the same short-lived Node admission envelope as an account admission. Its ES256 ticket has `typ=pp-node-admission+jwt`, `kind=guest`, a fresh ephemeral UUID in `sub`, the supplied name in `name`, and a unique replay ID in `jti`; it expires after 120 seconds. The request creates no account, profile, license, or `PlayerId`. The name is a display label only and is not an identity, authorization, or uniqueness claim.
 
 With confirmation required but SMTP absent, registration returns503 before writing anything. SMTP failure after commit leaves a real unconfirmed account; use resend after delivery recovers rather than creating another identity. Email delivery is synchronous after the database transaction, not a durable email outbox. Password reset/change and2FA management UI/endpoints are not included yet; do not offer UI for absent routes.
 
@@ -55,7 +55,7 @@ refresh the old listing. Backend restart clears the in-memory directory, so
 Nodes republish their registration and heartbeat.
 
 `POST /v1/node-admissions` uses a confirmed account bearer token and `{nodeId}`.
-It returns a short-lived ES256 `ph-node-admission+jwt` containing the player
+It returns a short-lived ES256 `pp-node-admission+jwt` containing the player
 identity and the exact `publicControlUri`. The Node validates and consumes the
 admission before opening its WSS control connection. The Node then signs and
 delivers the per-match UDP handoff for the Worker-owned `MatchInstance`.
@@ -156,8 +156,8 @@ cannot submit that label themselves.
   only entries with heartbeat age below 90 seconds are returned.
 - `POST /v1/node-admissions`: confirmed account bearer token and JSON `nodeId`.
   Returns `ticket`, `expiresAt`, `nodeId`, and `publicControlUri`. Tickets are
-  ES256, have type `ph-node-admission+jwt`, audience
-  `urn:prime-hunters:node:<NodeId>`, and expire after 120 seconds. The Node
+  ES256, have type `pp-node-admission+jwt`, audience
+  `urn:project-prime:node:<NodeId>`, and expire after 120 seconds. The Node
   loads the matching operator-provisioned public key set and validates/consumes
   each `jti` once; there is no match identity or incarnation claim.
 

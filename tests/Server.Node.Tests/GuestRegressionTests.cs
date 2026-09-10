@@ -1,11 +1,11 @@
 using System.Collections.Immutable;
 using System.Net.WebSockets;
 using System.Text.Json;
-using FruityPrime.Server.Node.Reporting;
-using FruityPrime.Server.Node.Sessions;
-using FruityPrime.Server.Node.Workers;
-using FruityPrime.Server.Shared;
-using FruityPrime.Server.Worker.Reporting;
+using ProjectPrime.Server.Node.Reporting;
+using ProjectPrime.Server.Node.Sessions;
+using ProjectPrime.Server.Node.Workers;
+using ProjectPrime.Server.Shared;
+using ProjectPrime.Server.Worker.Reporting;
 using MphRead;
 using MphRead.Identity;
 using MphRead.Mods.Network;
@@ -14,7 +14,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class GuestRegressionTests
 {
@@ -53,17 +53,17 @@ public sealed class GuestRegressionTests
     [Fact]
     public void GuestObserverInFrozenRosterForcesPracticeAndSurvivesLaterMembershipChanges()
     {
-        var lobbies = new FruityPrime.Server.Node.Lobbies.LobbyManager();
-        var owner = new FruityPrime.Server.Node.Lobbies.LobbyIdentity(Guid.NewGuid(), Guid.NewGuid(), "Owner");
+        var lobbies = new ProjectPrime.Server.Node.Lobbies.LobbyManager();
+        var owner = new ProjectPrime.Server.Node.Lobbies.LobbyIdentity(Guid.NewGuid(), Guid.NewGuid(), "Owner");
         Guid guestId = Guid.NewGuid();
-        var observer = new FruityPrime.Server.Node.Lobbies.LobbyIdentity(Guid.NewGuid(), null, guestId, "GuestObserver");
-        var snapshot = (FruityPrime.Server.Shared.LobbySnapshot)lobbies.Execute(owner,
+        var observer = new ProjectPrime.Server.Node.Lobbies.LobbyIdentity(Guid.NewGuid(), null, guestId, "GuestObserver");
+        var snapshot = (ProjectPrime.Server.Shared.LobbySnapshot)lobbies.Execute(owner,
             new LobbyCreate("Guest observer", LobbyVisibility.Public, 1, 1));
-        snapshot = (FruityPrime.Server.Shared.LobbySnapshot)lobbies.Execute(observer,
+        snapshot = (ProjectPrime.Server.Shared.LobbySnapshot)lobbies.Execute(observer,
             new LobbyJoin(snapshot.LobbyId, snapshot.Revision, Observer: true));
-        snapshot = (FruityPrime.Server.Shared.LobbySnapshot)lobbies.Execute(owner,
+        snapshot = (ProjectPrime.Server.Shared.LobbySnapshot)lobbies.Execute(owner,
             new LobbyConfigure(snapshot.Revision, "unit", MatchMode.Battle));
-        snapshot = (FruityPrime.Server.Shared.LobbySnapshot)lobbies.Execute(owner,
+        snapshot = (ProjectPrime.Server.Shared.LobbySnapshot)lobbies.Execute(owner,
             new LobbySetReady(true, snapshot.Revision));
 
         MatchSpec spec = lobbies.PrepareMatch(owner.SessionId, snapshot.Revision,

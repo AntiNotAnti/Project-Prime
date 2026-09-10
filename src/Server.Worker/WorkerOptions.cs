@@ -1,7 +1,8 @@
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using System.Net;
+using MphRead.Mods.Network;
 
-namespace FruityPrime.Server.Worker;
+namespace ProjectPrime.Server.Worker;
 
 public enum WorkerLagCompensationMode
 {
@@ -28,6 +29,11 @@ public sealed record WorkerOptions
     public static string ActualBuildVersion { get; } = BuildIdentity.Display;
     public string BuildVersion { get; init; } = ActualBuildVersion;
     public byte ProtocolVersion { get; init; } = MphRead.Mods.Network.NetHeader.Version;
+    public int SnapshotRateHz { get; init; } = SnapshotCadence.DefaultRateHz;
+    public bool AdaptiveTimingEnabled { get; init; }
+    public bool AdaptiveInputPlayoutEnabled { get; init; }
+    public bool TransportQueueV2Enabled { get; init; }
+    public bool ReliableAdaptiveRtoEnabled { get; init; }
     public WorkerLagCompensationMode LagCompensationMode { get; init; } = WorkerLagCompensationMode.Players;
     internal MphRead.DeveloperValidationFixtureId ValidationFixture { get; init; }
     public string? ReplayDirectory { get; init; }
@@ -51,6 +57,8 @@ public sealed record WorkerOptions
             || ReplayDirectory != null && !Path.IsPathFullyQualified(ReplayDirectory)
             || MinimumMemoryHeadroomBytes < 0 || string.IsNullOrWhiteSpace(AdvertisedHost)
             || AdvertisedHost.Length > 253 || AdvertisedHost.Any(char.IsWhiteSpace) || Uri.CheckHostName(AdvertisedHost) == UriHostNameType.Unknown
+            || !SnapshotCadence.IsSupported(SnapshotRateHz)
+            || AdaptiveInputPlayoutEnabled && !AdaptiveTimingEnabled
             || !Enum.IsDefined(LagCompensationMode)
             || !Enum.IsDefined(ValidationFixture)
             || string.IsNullOrWhiteSpace(BuildVersion) || BuildVersion.Length > 128 || BuildVersion != ActualBuildVersion || ProtocolVersion != MphRead.Mods.Network.NetHeader.Version)

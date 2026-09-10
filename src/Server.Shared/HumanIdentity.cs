@@ -1,4 +1,4 @@
-namespace FruityPrime.Server.Shared;
+namespace ProjectPrime.Server.Shared;
 
 /// <summary>Wire-safe tag for a human identity. The tag is part of the key so a
 /// guest UUID can never alias a registered account UUID.</summary>

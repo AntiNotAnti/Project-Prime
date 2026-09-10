@@ -94,10 +94,10 @@ public sealed class GuestAdmissionTests
         Assert.Equal("wss://node.example/control", first.PublicControlUri);
         Assert.Equal("Guest One", firstJwt.GetClaim("name").Value);
         Assert.Equal("guest", firstJwt.GetClaim("kind").Value);
-        Assert.Equal("ph-node-admission+jwt", firstJwt.Typ);
+        Assert.Equal("pp-node-admission+jwt", firstJwt.Typ);
         Assert.Equal("ES256", firstJwt.Alg);
         Assert.Equal(Issuer, firstJwt.Issuer);
-        Assert.Equal("urn:prime-hunters:node:" + NodeId.ToString("D"),
+        Assert.Equal("urn:project-prime:node:" + NodeId.ToString("D"),
             Assert.Single(firstJwt.Audiences));
         Assert.Equal(120, (firstJwt.ValidTo - firstJwt.IssuedAt).TotalSeconds);
         Assert.Equal(firstJwt.IssuedAt, firstJwt.ValidFrom);

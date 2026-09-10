@@ -11,7 +11,7 @@ using Xunit;
 namespace MphRead.Tests;
 public sealed class BalanceReportTests
 {
-    private static void Run(params string[] args) => Assembly.Load("FruityPrimeTools").GetType("MphRead.BalanceCommand")!
+    private static void Run(params string[] args) => Assembly.Load("ProjectPrimeTools").GetType("MphRead.BalanceCommand")!
         .GetMethod("Run", BindingFlags.Static|BindingFlags.Public)!.Invoke(null,new object[]{args});
     [Fact]
     public void AggregateUsesMeasuredDamageAndSeparatesChangedHunterAndInsufficientSamples()

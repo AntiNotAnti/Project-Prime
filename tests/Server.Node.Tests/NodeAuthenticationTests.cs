@@ -1,8 +1,8 @@
-using FruityPrime.Server.Node.Identity;
+using ProjectPrime.Server.Node.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class NodeAuthenticationTests
 {

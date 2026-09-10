@@ -282,13 +282,13 @@ public sealed class MatchLedgerTests
             var verified = await new Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler().ValidateTokenAsync(
                 export.GetProperty("signedReceipt").GetString()!, new Microsoft.IdentityModel.Tokens.TokenValidationParameters
                 {
-                    ValidIssuer = "https://backend.example.test", ValidAudience = "urn:prime-hunters:match-result",
+                    ValidIssuer = "https://backend.example.test", ValidAudience = "urn:project-prime:match-result",
                     IssuerSigningKey = new Microsoft.IdentityModel.Tokens.JsonWebKey
                     {
                         Kty = jwk.Kty, Crv = jwk.Crv, X = jwk.X, Y = jwk.Y, Kid = jwk.Kid
                     },
                     ValidAlgorithms = [Microsoft.IdentityModel.Tokens.SecurityAlgorithms.EcdsaSha256],
-                    ValidTypes = ["ph-match-result+jwt"], ValidateLifetime = false, RequireExpirationTime = false
+                    ValidTypes = ["pp-match-result+jwt"], ValidateLifetime = false, RequireExpirationTime = false
                 });
             Assert.True(verified.IsValid, verified.Exception?.Message);
         }

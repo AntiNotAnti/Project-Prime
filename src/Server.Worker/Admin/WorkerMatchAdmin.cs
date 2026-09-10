@@ -1,5 +1,5 @@
 using System.Linq;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Identity;
 using MphRead.Mods.Network;
 

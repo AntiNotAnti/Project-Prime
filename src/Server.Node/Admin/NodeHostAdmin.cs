@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Shared;
 
-namespace FruityPrime.Server.Node.Admin;
+namespace ProjectPrime.Server.Node.Admin;
 
 /// <summary>
 /// Optional local-operator credential for host-only HTTPS administration.

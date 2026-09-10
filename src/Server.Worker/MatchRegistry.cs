@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Mods.Network;
-using FruityPrime.Server.Worker.Simulation;
+using ProjectPrime.Server.Worker.Simulation;
 
-namespace FruityPrime.Server.Worker;
+namespace ProjectPrime.Server.Worker;
 
 /// <summary>Control-plane records only. Match mutation never runs under this registry lock.</summary>
 internal sealed class MatchRegistry

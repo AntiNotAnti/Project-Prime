@@ -86,7 +86,7 @@ public sealed class RichWorldResultTests
         records[17] = new(WorldRecordKind.Lifecycle, 255, 0, 0, default, 0, 0, 1, 0, 0);
         byte[] bytes = new byte[WorldPacket.MaxSize];
         int length = WorldPacket.Write(bytes, 1, 1, 100, records, 0);
-        var historical = new ClientWorldState { Protocol7Demo = true }; historical.Reset(1);
+        var historical = new ClientWorldState { Protocol7Replay = true }; historical.Reset(1);
         Assert.True(historical.Receive(bytes.AsSpan(0, length)));
         Assert.Equal(18, historical.Count);
         var live = new ClientWorldState(); live.Reset(1);

@@ -77,8 +77,8 @@ public sealed class GameTicketIssuer : IDisposable
         var expires = now.AddSeconds(LifetimeSeconds);
         string token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {
-            Issuer = _issuer, Audience = "urn:prime-hunters:node:" + nodeId.ToString("D"),
-            TokenType = "ph-node-admission+jwt", IssuedAt = now.UtcDateTime, NotBefore = now.UtcDateTime,
+            Issuer = _issuer, Audience = "urn:project-prime:node:" + nodeId.ToString("D"),
+            TokenType = "pp-node-admission+jwt", IssuedAt = now.UtcDateTime, NotBefore = now.UtcDateTime,
             Expires = expires.UtcDateTime, SigningCredentials = _credentials,
             Claims = new Dictionary<string, object> { ["sub"] = playerId.ToString(),
                 ["name"] = name, ["jti"] = Guid.NewGuid().ToString("D") }
@@ -96,8 +96,8 @@ public sealed class GameTicketIssuer : IDisposable
         var expires = now.AddSeconds(LifetimeSeconds);
         string token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {
-            Issuer = _issuer, Audience = "urn:prime-hunters:node:" + nodeId.ToString("D"),
-            TokenType = "ph-node-admission+jwt", IssuedAt = now.UtcDateTime, NotBefore = now.UtcDateTime,
+            Issuer = _issuer, Audience = "urn:project-prime:node:" + nodeId.ToString("D"),
+            TokenType = "pp-node-admission+jwt", IssuedAt = now.UtcDateTime, NotBefore = now.UtcDateTime,
             Expires = expires.UtcDateTime, SigningCredentials = _credentials,
             Claims = new Dictionary<string, object> { ["sub"] = guestId.ToString("D"),
                 ["name"] = name, ["kind"] = "guest", ["jti"] = Guid.NewGuid().ToString("D") }
@@ -114,7 +114,7 @@ public sealed class GameTicketIssuer : IDisposable
         // and type are disjoint from short-lived game admission tickets; no default expiry.
         return new JsonWebTokenHandler { SetDefaultTimesOnTokenCreation = false }.CreateToken(new SecurityTokenDescriptor
         {
-            Issuer = _issuer, Audience = "urn:prime-hunters:match-result", TokenType = "ph-match-result+jwt",
+            Issuer = _issuer, Audience = "urn:project-prime:match-result", TokenType = "pp-match-result+jwt",
             IssuedAt = _clock.GetUtcNow().UtcDateTime, SigningCredentials = _credentials,
             Claims = new Dictionary<string, object>
             {

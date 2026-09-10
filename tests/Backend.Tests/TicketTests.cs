@@ -76,8 +76,8 @@ public sealed class TicketTests
         var key = new JsonWebKey { Kty = jwk.Kty, Crv = jwk.Crv, X = jwk.X, Y = jwk.Y, Kid = jwk.Kid };
         var parameters = new TokenValidationParameters
         {
-            ValidIssuer = Issuer, ValidAudience = "urn:prime-hunters:match-result", IssuerSigningKey = key,
-            ValidAlgorithms = [SecurityAlgorithms.EcdsaSha256], ValidTypes = ["ph-match-result+jwt"],
+            ValidIssuer = Issuer, ValidAudience = "urn:project-prime:match-result", IssuerSigningKey = key,
+            ValidAlgorithms = [SecurityAlgorithms.EcdsaSha256], ValidTypes = ["pp-match-result+jwt"],
             ValidateLifetime = false, RequireExpirationTime = false
         };
         var result = await new JsonWebTokenHandler().ValidateTokenAsync(token, parameters);
@@ -118,7 +118,7 @@ internal sealed class TestHostEnvironment(string environmentName) : IHostEnviron
     public static readonly TestHostEnvironment Testing = new("Testing");
     public static readonly TestHostEnvironment Production = new(Environments.Production);
     public string EnvironmentName { get; set; } = environmentName;
-    public string ApplicationName { get; set; } = "PrimeHunters.Backend.Tests";
+    public string ApplicationName { get; set; } = "ProjectPrime.Backend.Tests";
     public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
     public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
 }

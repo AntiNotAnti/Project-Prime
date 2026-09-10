@@ -1,9 +1,9 @@
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class LobbyRulesTests
 {
@@ -16,7 +16,8 @@ public sealed class LobbyRulesTests
         var owner = Person("Owner");
         var lobby = (LobbySnapshot)manager.Execute(owner, new LobbyCreate("Rules", LobbyVisibility.Public));
         var rules = new LobbyRulesOptions(TimeLimitSeconds: 600, ScoreGoal: 11, DamageLevel: 2,
-            FriendlyFire: true, AffinityWeapons: true, PlayerRadar: true);
+            FriendlyFire: true, AffinityWeapons: true, PlayerRadar: true,
+            KillcamPolicy: KillcamPolicy.PostRound);
 
         lobby = (LobbySnapshot)manager.Execute(owner,
             new LobbyConfigure(lobby.Revision, "unit", MatchMode.Battle, Rules: rules));
@@ -34,6 +35,7 @@ public sealed class LobbyRulesTests
         Assert.True(spec.Rules.FriendlyFire);
         Assert.True(spec.Rules.AffinityWeapons);
         Assert.True(spec.Rules.PlayerRadar);
+        Assert.Equal(KillcamPolicy.PostRound, spec.Rules.KillcamPolicy);
     }
 
     [Fact]

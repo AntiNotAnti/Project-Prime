@@ -1,8 +1,13 @@
 using System.IO.Pipes;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 
 string Get(string key) => args[Array.IndexOf(args, key) + 1];
 string mode = Get("--mode");
+if (mode == "snapshot-rate" && Get("--snapshot-rate-hz") != "60") return 30;
+if (mode == "adaptive-timing"
+    && (Get("--adaptive-timing") != "True" || Get("--adaptive-input-playout") != "True")) return 31;
+if (mode == "network-flags"
+    && (Get("--transport-queue-v2") != "True" || Get("--reliable-adaptive-rto") != "True")) return 32;
 var activeMatches = new Dictionary<MatchId, MatchSpec>();
 if (mode == "environment" && Environment.GetEnvironmentVariable("PRIME_NODE_DIRECTORY_SECRET") != null) return 29;
 if (mode == "exit") return 17;

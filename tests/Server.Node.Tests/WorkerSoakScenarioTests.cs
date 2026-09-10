@@ -1,7 +1,7 @@
-using FruityPrime.WorkerSoak;
+using ProjectPrime.WorkerSoak;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class WorkerSoakScenarioTests
 {

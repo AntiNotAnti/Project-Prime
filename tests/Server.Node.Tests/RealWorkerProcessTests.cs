@@ -1,12 +1,12 @@
 using System.Collections.Immutable;
-using FruityPrime.Server.Node.Workers;
-using FruityPrime.Server.Shared;
-using FruityPrime.Server.Worker;
+using ProjectPrime.Server.Node.Workers;
+using ProjectPrime.Server.Shared;
+using ProjectPrime.Server.Worker;
 using MphRead;
 using MphRead.Identity;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class RealWorkerProcessTests
 {
@@ -38,7 +38,7 @@ public sealed class RealWorkerProcessTests
             MatchTrustClass.Private, null, null,
             ImmutableArray.Create(new RosterSeat(0, null, null, "BotA", Hunter.Spire, 0, SeatRole.Bot, false),
                 new RosterSeat(1, null, null, "BotB", Hunter.Samus, 1, SeatRole.Bot, false)),
-            FruityPrime.Server.Shared.BotFillPolicy.Disabled, ObserverPolicy.Disabled, ReplayPolicy.Disabled, TelemetryPolicy.Disabled, 1, 2);
+            ProjectPrime.Server.Shared.BotFillPolicy.Disabled, ObserverPolicy.Disabled, ReplayPolicy.Disabled, TelemetryPolicy.Disabled, 1, 2);
         MatchSpec firstSpec = Spec(), secondSpec = Spec(), thirdSpec = Spec(), fourthSpec = Spec();
         MatchPlacement first = await scheduler.PlaceAsync(firstSpec);
         MatchPlacement second = await scheduler.PlaceAsync(secondSpec);
@@ -93,7 +93,7 @@ public sealed class RealWorkerProcessTests
             MatchTrustClass.Private, null, null,
             ImmutableArray.Create(new RosterSeat(0, null, null, "BotA", Hunter.Spire, 0, SeatRole.Bot, false),
                 new RosterSeat(1, null, null, "BotB", Hunter.Samus, 1, SeatRole.Bot, false)),
-            FruityPrime.Server.Shared.BotFillPolicy.Disabled, ObserverPolicy.Disabled, ReplayPolicy.Disabled, TelemetryPolicy.Disabled, 1, 2);
+            ProjectPrime.Server.Shared.BotFillPolicy.Disabled, ObserverPolicy.Disabled, ReplayPolicy.Disabled, TelemetryPolicy.Disabled, 1, 2);
         var ended = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         int count = 0;
         scheduler.Ended += (id, interrupted) => { Assert.Equal(spec.MatchId, id); Interlocked.Increment(ref count); ended.TrySetResult(interrupted); };

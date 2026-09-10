@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("MphRead.Tests")]
-[assembly: InternalsVisibleTo("FruityPrime.Server.Worker.Tests")]
-[assembly: InternalsVisibleTo("FruityPrimeServer")]
+[assembly: InternalsVisibleTo("ProjectPrime.Server.Worker.Tests")]
+[assembly: InternalsVisibleTo("ProjectPrimeServer")]
 [assembly: InternalsVisibleTo("nettest")]

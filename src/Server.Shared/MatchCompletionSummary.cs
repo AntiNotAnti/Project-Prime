@@ -2,12 +2,13 @@ using System.Collections.Immutable;
 using MphRead;
 using MphRead.Identity;
 
-namespace FruityPrime.Server.Shared;
+namespace ProjectPrime.Server.Shared;
 
 /// <summary>Bounded presentation outcome, not a replacement for the authoritative report.
 /// Points remain signed because game scoring may deduct points.</summary>
 public sealed record PlayerOutcomeSummary(Guid ParticipantId, PlayerId? PlayerId, ParticipantKind Kind,
-    string DisplayName, ParticipantOutcome Outcome, int Standing, int TeamStanding, int Points, int Kills, int Deaths)
+    string DisplayName, ParticipantOutcome Outcome, int Standing, int TeamStanding, int Points, int Kills, int Deaths,
+    Guid? GuestSessionId = null, byte? Slot = null, Hunter? Hunter = null, int? TeamIndex = null)
 {
     public void Validate()
     {
@@ -15,6 +16,10 @@ public sealed record PlayerOutcomeSummary(Guid ParticipantId, PlayerId? PlayerId
         ContractGuard.Text(DisplayName, 64);
         if (Kind == ParticipantKind.RegisteredHuman ? !PlayerId.HasValue || PlayerId.Value.IsEmpty : PlayerId.HasValue)
             throw new ArgumentException("Outcome identity does not match participant kind.");
+        if (GuestSessionId == Guid.Empty || Kind != ParticipantKind.Guest && GuestSessionId.HasValue
+            || Slot is > 7 || Hunter is { } hunter && !Enum.IsDefined(hunter)
+            || TeamIndex is < 0 or > 7)
+            throw new ArgumentException("Invalid completion presentation identity.");
         if (Standing is < 0 or > 8 || TeamStanding is < 0 or > 8 || Kills < 0 || Deaths < 0)
             throw new ArgumentException("Invalid outcome counters.");
     }

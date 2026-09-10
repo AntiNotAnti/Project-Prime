@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Net;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Identity;
 using MphRead.Admin;
 using MphRead.Mods.Network;
@@ -133,7 +133,7 @@ public sealed class MatchInstanceTests
         null, null, ImmutableArray.Create(
             new RosterSeat(0, null, null, "Frozen Spire", Hunter.Spire, 1, SeatRole.Bot, false),
             new RosterSeat(1, null, null, "Frozen Samus", Hunter.Samus, 0, SeatRole.Bot, false)),
-        FruityPrime.Server.Shared.BotFillPolicy.Disabled, ObserverPolicy.Disabled, ReplayPolicy.Disabled,
+        ProjectPrime.Server.Shared.BotFillPolicy.Disabled, ObserverPolicy.Disabled, ReplayPolicy.Disabled,
         TelemetryPolicy.Record, 123, 456);
 
     private static IDisposable OpenContent()

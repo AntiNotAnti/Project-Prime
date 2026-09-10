@@ -1,6 +1,6 @@
 using MphRead.Identity;
 
-namespace FruityPrime.Server.Shared;
+namespace ProjectPrime.Server.Shared;
 
 /// <summary>Frozen placement/report identity checks shared by artifact producer and Node ingestion.</summary>
 public static class MatchReportBinding

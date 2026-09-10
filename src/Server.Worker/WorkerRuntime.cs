@@ -3,19 +3,19 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Channels;
-using FruityPrime.Server.Shared;
-using FruityPrime.Server.Worker.Simulation;
-using FruityPrime.Server.Worker.Reporting;
+using ProjectPrime.Server.Shared;
+using ProjectPrime.Server.Worker.Simulation;
+using ProjectPrime.Server.Worker.Reporting;
 using MphRead;
 using MphRead.Identity;
 using MphRead.Admin;
 using MphRead.Replay;
 using MphRead.Mods.Network;
 using BotPolicy = MphRead.Mods.Network.BotFillPolicy;
-using SharedBotPolicy = FruityPrime.Server.Shared.BotFillPolicy;
+using SharedBotPolicy = ProjectPrime.Server.Shared.BotFillPolicy;
 using OpenTK.Mathematics;
 
-namespace FruityPrime.Server.Worker;
+namespace ProjectPrime.Server.Worker;
 
 /// <summary>Worker control owner. Worlds are created, stepped and disposed exclusively on their assigned lane.</summary>
 public sealed class WorkerRuntime : IAsyncDisposable
@@ -168,7 +168,7 @@ public sealed class WorkerRuntime : IAsyncDisposable
             && spec.Roster[1] is { SeatId: 1, PlayerId: null, GuestSessionId: null,
                 DisplayName: "Bot1", Hunter: Hunter.Samus, Team: 1,
                 Role: SeatRole.Bot, RankingEligible: false }
-            && spec.BotFillPolicy == FruityPrime.Server.Shared.BotFillPolicy.FillVacancies
+            && spec.BotFillPolicy == ProjectPrime.Server.Shared.BotFillPolicy.FillVacancies
             && spec.ObserverPolicy == ObserverPolicy.Disabled
             && spec.ReplayPolicy == ReplayPolicy.Record
             && spec.TelemetryPolicy == TelemetryPolicy.Record;
@@ -184,7 +184,8 @@ public sealed class WorkerRuntime : IAsyncDisposable
                 try
                 {
                     var lagCompensation = _options.ResolveLagCompensation();
-                    entry.Transport = _hub.RegisterMatch(entry.WireId.Value, maxConnections: 32);
+                    entry.Transport = _hub.RegisterMatch(entry.WireId.Value, maxConnections: 32,
+                        queueV2Enabled: _options.TransportQueueV2Enabled);
                     lock (_registry.Gate)
                         entry.Tickets = new WorkerTicketAuthority(entry.Spec, Placement(entry), _keyId!, _publicKey!);
                     entry.Instance = new MatchInstance(new(entry.Spec, entry.WireId.Value)
@@ -198,6 +199,10 @@ public sealed class WorkerRuntime : IAsyncDisposable
                         LagCompEnabled = lagCompensation.LagCompEnabled,
                         ProjectileCatchUpEnabled = lagCompensation.ProjectileCatchUpEnabled,
                         HistoricalDynamicCollisionEnabled = lagCompensation.HistoricalDynamicCollisionEnabled,
+                        SnapshotRateHz = _options.SnapshotRateHz,
+                        AdaptiveTimingEnabled = _options.AdaptiveTimingEnabled,
+                        AdaptiveInputPlayoutEnabled = _options.AdaptiveInputPlayoutEnabled,
+                        ReliableAdaptiveRtoEnabled = _options.ReliableAdaptiveRtoEnabled,
                         ValidationFixture = _options.ValidationFixture
                     }, entry.Transport);
                     deadline.Token.ThrowIfCancellationRequested();
@@ -287,8 +292,16 @@ public sealed class WorkerRuntime : IAsyncDisposable
                         await File.WriteAllTextAsync(Path.Combine(directory, reportId + ".telemetry.json"), JsonSerializer.Serialize(telemetry));
                 }
                 var outcomes = item.Completion.Report?.Participants.Take(MatchCompletionSummary.MaxOutcomes).Select(p =>
-                    new PlayerOutcomeSummary(p.ParticipantId, p.PlayerId, p.Kind, p.DisplayName, p.Outcome,
-                        p.Metrics.Standing, p.Metrics.TeamStanding, p.Metrics.Points, p.Metrics.Kills, p.Metrics.Deaths)).ToImmutableArray()
+                {
+                    MatchParticipationSpan? span = p.Spans.IsDefaultOrEmpty ? null : p.Spans[^1];
+                    RosterSeat? seat = span is { } finalSpan
+                        ? item.Entry.Spec.Roster.FirstOrDefault(candidate => candidate.SeatId == finalSpan.Slot)
+                        : null;
+                    return new PlayerOutcomeSummary(p.ParticipantId, p.PlayerId, p.Kind, p.DisplayName, p.Outcome,
+                        p.Metrics.Standing, p.Metrics.TeamStanding, p.Metrics.Points, p.Metrics.Kills, p.Metrics.Deaths,
+                        p.Kind == ParticipantKind.Guest ? seat?.GuestSessionId : null,
+                        span?.Slot, span?.Hunter, span?.TeamIndex);
+                }).ToImmutableArray()
                     ?? ImmutableArray<PlayerOutcomeSummary>.Empty;
                 var summary = new MatchCompletionSummary(item.Entry.Spec.MatchId, item.Entry.Spec.LobbyId,
                     item.Completion.Result?.EndReason ?? MatchEndReason.Forced, outcomes, item.ReplayId, telemetryId, reportId);
@@ -389,17 +402,33 @@ public sealed class WorkerRuntime : IAsyncDisposable
         lock (_registry.Gate)
         {
             _health.Sample();
+            IReadOnlyList<LaneMetrics> lanes = _lanes.Metrics;
+            BoundedPercentileSnapshot networkLoop = _hub.PumpDurationPercentiles;
+            ImmutableArray<WorkerLaneHealth> laneHealth = lanes.Select(lane => new WorkerLaneHealth(lane.LaneId, lane.Matches, lane.Ticks,
+                lane.CatchUpTicks, lane.DroppedTicks, lane.P50Milliseconds, lane.P95Milliseconds, lane.P99Milliseconds,
+                lane.MaxMilliseconds, lane.P999Milliseconds, lane.DeadlineMisses, lane.CommandQueueHighWater)).ToImmutableArray();
+            ImmutableArray<WorkerMatchHealth> matchHealth = _registry.ByWireId.Values
+                .OrderBy(entry => entry.Spec.MatchId.Value).Take(WorkerDiagnostics.MaximumMatchSamples).Select(entry =>
+                {
+                    MatchPerformanceSnapshot? performance = entry.Instance?.Performance;
+                    BoundedPercentileSnapshot tick = performance?.TickDurationMilliseconds ?? default;
+                    return new WorkerMatchHealth(entry.Spec.MatchId, entry.WireId,
+                        entry.Snapshot?.Tick ?? 0, entry.Snapshot?.Phase.ToString() ?? "Starting",
+                        entry.Snapshot?.State.ToString() ?? "Created", performance?.TickCount ?? 0, performance?.DeadlineMisses ?? 0,
+                        tick.P50, tick.P95, tick.P99, tick.P999, tick.Max,
+                        performance?.AllocatedBytesPerTick ?? 0, performance?.AllocatedBytesPerSecond ?? 0,
+                        performance?.ProcessGen0Collections ?? 0, performance?.ProcessGen1Collections ?? 0,
+                        performance?.ProcessGen2Collections ?? 0);
+                }).ToImmutableArray();
             return new(_options.WorkerId, _options.Incarnation, CapacityLocked(),
-                new(_status, _health.UptimeMilliseconds, _lanes.Metrics.Max(lane => lane.P99Milliseconds), _health.WorkingSetBytes,
-                    new(_lanes.Metrics.Select(lane => new WorkerLaneHealth(lane.LaneId, lane.Matches, lane.Ticks,
-                        lane.CatchUpTicks, lane.DroppedTicks, lane.P50Milliseconds, lane.P95Milliseconds, lane.P99Milliseconds,
-                        lane.MaxMilliseconds)).ToImmutableArray(), _health.CpuPercent, GC.GetTotalMemory(false),
+                new(_status, _health.UptimeMilliseconds, lanes.Max(lane => lane.P99Milliseconds), _health.WorkingSetBytes,
+                    new(laneHealth, _health.CpuPercent, GC.GetTotalMemory(false),
                         GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2), _hub.Metrics.PacketsReceived,
                         _hub.Metrics.PacketsSent, _hub.Metrics.BytesReceived, _hub.Metrics.BytesSent,
                         _hub.Metrics.QueueDrops, _hub.Metrics.PacketsRejected,
-                        _registry.ByWireId.Values.OrderBy(entry => entry.Spec.MatchId.Value).Take(128).Select(entry => new WorkerMatchHealth(entry.Spec.MatchId, entry.WireId,
-                            entry.Snapshot?.Tick ?? 0, entry.Snapshot?.Phase.ToString() ?? "Starting",
-                            entry.Snapshot?.State.ToString() ?? "Created")).ToImmutableArray(), _registry.ByWireId.Count, _registry.ByWireId.Count > 128)));
+                        matchHealth, _registry.ByWireId.Count, _registry.ByWireId.Count > WorkerDiagnostics.MaximumMatchSamples,
+                        _health.AllocationBytesPerSecond, networkLoop.P99, networkLoop.P999,
+                        _hub.Metrics.QueueHighWater, networkLoop.TotalCount)));
         }
     }
     private WorkerCapacity CapacityLocked() => new(_configuredLimit, _configuredPlayers, _registry.ByWireId.Count,

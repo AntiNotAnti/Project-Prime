@@ -2,12 +2,12 @@ using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Threading.Channels;
-using FruityPrime.Server.Node.Workers;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Workers;
+using ProjectPrime.Server.Shared;
 using Microsoft.Extensions.Logging.Abstractions;
 using MphRead;
 
-namespace FruityPrime.Server.Node.Lobbies;
+namespace ProjectPrime.Server.Node.Lobbies;
 
 public sealed record NodeMatchNotification(Guid SessionId, object Payload);
 public sealed record NodeMatchDeliveryOverflow;
@@ -157,6 +157,7 @@ public sealed class NodeMatchCoordinator : IDisposable
     private readonly Dictionary<MatchId, Pending> _matches = [];
     private readonly Dictionary<Guid, long> _lastRejoin = [];
     private readonly ConcurrentDictionary<Guid, object> _latest = [];
+    private readonly ConcurrentDictionary<Guid, NodeMatchCompletion> _completions = [];
     private readonly Dictionary<Guid, Queue<object>> _notifications = [];
     private const int MaximumPendingEventsPerSession = 32;
     private readonly Channel<bool> _signal = Channel.CreateBounded<bool>(1);
@@ -166,6 +167,7 @@ public sealed class NodeMatchCoordinator : IDisposable
         _lobbies = lobbies; _scheduler = scheduler; _workers = workers; _issuer = issuer; _content = content;
         _logger = logger ?? NullLogger<NodeMatchCoordinator>.Instance;
         _lobbies.ContentCatalog = content;
+        _scheduler.Completed += Completed;
         _scheduler.Ended += Ended;
     }
     public object? ForSession(Guid sessionId)
@@ -177,6 +179,24 @@ public sealed class NodeMatchCoordinator : IDisposable
             if (pending?.Placement is { } placement)
                 return Handoff(pending, placement, pending.Members.Single(m => m.SessionId == sessionId));
             return _latest.TryGetValue(sessionId, out var value) ? value : null;
+        }
+    }
+
+    public IReadOnlyList<object> ForSessionEvents(Guid sessionId)
+    {
+        lock (_gate)
+        {
+            var lobbyId = _lobbies.ForSession(sessionId)?.LobbyId;
+            var pending = _matches.Values.SingleOrDefault(p => p.Spec.LobbyId.Value == lobbyId
+                && p.Members.Any(m => m.SessionId == sessionId));
+            if (pending?.Placement is { } placement)
+                return [Handoff(pending, placement, pending.Members.Single(m => m.SessionId == sessionId))];
+
+            var result = new List<object>(2);
+            if (_completions.TryGetValue(sessionId, out var completion)) result.Add(completion);
+            if (_latest.TryGetValue(sessionId, out var latest)
+                && (result.Count == 0 || !ReferenceEquals(result[0], latest))) result.Add(latest);
+            return result;
         }
     }
 
@@ -207,7 +227,7 @@ public sealed class NodeMatchCoordinator : IDisposable
         foreach (var id in empty) _scheduler.CancelMatch(id, "Lobby has no remaining sessions.");
     }
     public void ForgetSession(Guid sessionId)
-    { lock (_gate) { _lastRejoin.Remove(sessionId); _latest.TryRemove(sessionId, out _); _notifications.Remove(sessionId); } }
+    { lock (_gate) { _lastRejoin.Remove(sessionId); _latest.TryRemove(sessionId, out _); _completions.TryRemove(sessionId, out _); _notifications.Remove(sessionId); } }
     public async IAsyncEnumerable<NodeMatchNotification> ReadNotifications([EnumeratorCancellation] CancellationToken ct)
     {
         await foreach (var _ in _signal.Reader.ReadAllAsync(ct))
@@ -362,6 +382,23 @@ public sealed class NodeMatchCoordinator : IDisposable
                     Notify(member.SessionId, new NodeMatchEnded(matchId.Value, interrupted));
         }
     }
+
+    private void Completed(MatchCompletionSummary summary)
+    {
+        summary.Validate();
+        lock (_gate)
+        {
+            if (!_matches.TryGetValue(summary.MatchId, out var pending)
+                || pending.Spec.LobbyId != summary.LobbyId) return;
+            var completion = new NodeMatchCompletion(summary);
+            foreach (var member in pending.Members)
+            {
+                if (_lobbies.ForSession(member.SessionId)?.LobbyId != pending.Spec.LobbyId.Value) continue;
+                _completions[member.SessionId] = completion;
+                Notify(member.SessionId, completion);
+            }
+        }
+    }
     private void Notify(Guid sessionId, object message)
     {
         _latest[sessionId] = message;
@@ -374,5 +411,9 @@ public sealed class NodeMatchCoordinator : IDisposable
         else queue.Enqueue(message);
         _signal.Writer.TryWrite(true);
     }
-    public void Dispose() => _scheduler.Ended -= Ended;
+    public void Dispose()
+    {
+        _scheduler.Completed -= Completed;
+        _scheduler.Ended -= Ended;
+    }
 }

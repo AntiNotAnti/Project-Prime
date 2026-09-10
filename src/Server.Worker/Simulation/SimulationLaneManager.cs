@@ -1,7 +1,14 @@
-namespace FruityPrime.Server.Worker.Simulation;
+using MphRead.Mods.Network;
+
+namespace ProjectPrime.Server.Worker.Simulation;
 
 public sealed class SimulationLaneManager : IDisposable
 {
+    // A percentile from only the first handful of ticks is dominated by
+    // startup/JIT work and is not a stable admission signal. Keep capacity
+    // authoritative during the first second, then apply the configured tail
+    // latency fence once the lane has a representative sample window.
+    internal const long PlacementWarmupTicks = FixedTickScheduler.Rate;
     private readonly object _gate = new();
     private readonly SimulationLane[] _lanes;
     private readonly int[] _reservations;
@@ -27,9 +34,13 @@ public sealed class SimulationLaneManager : IDisposable
             ObjectDisposedException.ThrowIf(_disposed, this);
             int selected = -1;
             for (int i = 0; i < _lanes.Length; i++)
+            {
+                LaneMetrics metrics = _lanes[i].Metrics;
                 if (_reservations[i] < _options.MaxMatchesPerLane
-                    && _lanes[i].Metrics.P99Milliseconds < _options.PlacementP99Milliseconds
+                    && (metrics.Ticks < PlacementWarmupTicks
+                        || metrics.P99Milliseconds < _options.PlacementP99Milliseconds)
                     && (selected == -1 || _reservations[i] < _reservations[selected])) selected = i;
+            }
             if (selected == -1 || _reservations.Sum() >= _options.MaxMatches)
                 throw new InvalidOperationException("Worker simulation lanes are at capacity or above the placement latency limit.");
             _reservations[selected]++;

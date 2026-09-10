@@ -3,7 +3,7 @@ using MphRead;
 using MphRead.Identity;
 using MphRead.Mods.Network;
 
-namespace FruityPrime.Server.Shared;
+namespace ProjectPrime.Server.Shared;
 
 public readonly record struct WorkerId(Guid Value);
 public readonly record struct NodeId(Guid Value);

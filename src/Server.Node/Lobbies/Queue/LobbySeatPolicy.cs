@@ -1,7 +1,7 @@
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead;
 
-namespace FruityPrime.Server.Node.Lobbies.Queue;
+namespace ProjectPrime.Server.Node.Lobbies.Queue;
 
 /// <summary>Centralized queue policy resolution. In-match ImmediateSeat is
 /// deliberately downgraded to a next-boundary policy because MatchSpec is

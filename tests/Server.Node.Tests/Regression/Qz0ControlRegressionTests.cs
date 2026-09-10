@@ -1,14 +1,14 @@
 using System;
 using System.Buffers.Binary;
 using System.Text;
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Node.Workers;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Node.Workers;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Mods.Network;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 /// <summary>
 /// QZ0 translations for Node/control-plane flooding and malformed input. All

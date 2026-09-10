@@ -8,7 +8,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>MphRead</RootNamespace>
-    <AssemblyName>FruityPrime.Game</AssemblyName>
+    <AssemblyName>ProjectPrime.Game</AssemblyName>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DebugType>embedded</DebugType>

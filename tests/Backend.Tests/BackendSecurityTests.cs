@@ -192,7 +192,7 @@ public sealed class BackendSecurityTests
     public void ProductionValidationRequiresSecureOriginsDurableKeysProvidersAndCredentials()
     {
         var security = new BackendSecurityOptions { PublicUrl = "https://backend.example.test" };
-        var accounts = new AccountOptions { RequireConfirmedEmail = true, DataProtectionKeyPath = "/var/lib/prime-hunters/keys" };
+        var accounts = new AccountOptions { RequireConfirmedEmail = true, DataProtectionKeyPath = "/var/lib/project-prime/keys" };
         var tickets = new TicketOptions { Issuer = "https://backend.example.test", KeyId = "current", SigningKeyPemPath = "/run/secrets/ticket.pem" };
         var servers = new GameServerOptions { Servers = [new GameServerRegistration
         {
@@ -208,7 +208,7 @@ public sealed class BackendSecurityTests
         accounts.DataProtectionKeyPath = "relative/keys";
         Assert.Throws<InvalidOperationException>(() => BackendSecurity.ValidateProduction(
             security, accounts, tickets, servers, true, true));
-        accounts.DataProtectionKeyPath = "/var/lib/prime-hunters/keys";
+        accounts.DataProtectionKeyPath = "/var/lib/project-prime/keys";
         Assert.Throws<InvalidOperationException>(() => BackendSecurity.ValidateProduction(
             security, accounts, tickets, servers, false, true));
         Assert.Throws<InvalidOperationException>(() => BackendSecurity.ValidateProduction(

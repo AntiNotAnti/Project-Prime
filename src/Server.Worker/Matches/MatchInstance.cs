@@ -1,24 +1,42 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Admin;
 using MphRead.Replay;
 using MphRead.Identity;
 using MphRead.Reporting;
 using MphRead.Telemetry;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
 
 /// <summary>One single-writer world. Tick performs one step and only bounded queue IO;
 /// transport, scheduling, durable delivery and subsequent matches belong to the host.</summary>
+/// <remarks>
+/// The GC fields are process-wide collection deltas observed while this match
+/// was alive. They are not causal or match-attributed allocation evidence.
+/// </remarks>
+public sealed record MatchPerformanceSnapshot(
+    long TickCount,
+    long DeadlineMisses,
+    BoundedPercentileSnapshot TickDurationMilliseconds,
+    long AllocatedBytes,
+    double AllocatedBytesPerTick,
+    double AllocatedBytesPerSecond,
+    long ProcessGen0Collections,
+    long ProcessGen1Collections,
+    long ProcessGen2Collections);
+
 public sealed class MatchInstance : IDisposable
 {
     private readonly MatchInstanceOptions _options;
     private readonly INetTransport transport;
     private readonly WorldStateCapture world;
+    private readonly SnapshotCadence _snapshotCadence;
     private uint tick, snapshotSequence, worldRevision;
     private ServerReplaySession? replay;
     private MatchParticipantLedger? replayLedger;
@@ -35,6 +53,16 @@ public sealed class MatchInstance : IDisposable
     public int SemanticQueueHighWater { get; private set; }
     private bool _terminal, _disposed;
     private string? _error;
+    private readonly BoundedPercentileSampler _tickDurations = new();
+    private readonly long _performanceStarted = Stopwatch.GetTimestamp();
+    private readonly int _gen0AtStart = GC.CollectionCount(0);
+    private readonly int _gen1AtStart = GC.CollectionCount(1);
+    private readonly int _gen2AtStart = GC.CollectionCount(2);
+    private int _performanceSequence;
+    private long _performanceTicks;
+    private long _deadlineMisses;
+    private long _allocatedBytes;
+    private MatchPerformanceSnapshot _publishedPerformance = new(0, 0, default, 0, 0, 0, 0, 0, 0);
     private readonly Queue<string> _diagnostics = new();
     public int DroppedDiagnostics { get; private set; }
     public bool TryDequeueDiagnostic(out string? message) => _diagnostics.TryDequeue(out message);
@@ -56,6 +84,22 @@ public sealed class MatchInstance : IDisposable
     public Task ReplayCompletion => replay?.Completion ?? Task.CompletedTask;
     public MatchCompletion? Completion { get; private set; }
     public uint NextTick => tick;
+    /// <summary>
+    /// Immutable observational metrics for this match. Percentile reads are
+    /// bounded and do not participate in simulation decisions.
+    /// </summary>
+    public MatchPerformanceSnapshot Performance
+    {
+        get
+        {
+            if (TryReadPerformance(out MatchPerformanceSnapshot snapshot))
+            {
+                Volatile.Write(ref _publishedPerformance, snapshot);
+                return snapshot;
+            }
+            return Volatile.Read(ref _publishedPerformance);
+        }
+    }
     public MatchInstanceStatus Status => new(MatchId, WireMatchId, State, tick,
         Simulation.Scene.Match.Phase, Network.Count + Simulation.Bots.Count, _error);
     public event Action<MatchCompletion>? Completed;
@@ -106,6 +150,7 @@ public sealed class MatchInstance : IDisposable
         options.Spec.Validate();
         if (options.WireMatchId == 0) throw new ArgumentOutOfRangeException(nameof(options));
         _options = options;
+        _snapshotCadence = new SnapshotCadence(options.SnapshotRateHz);
         world = new(options.ValidationFixture != DeveloperValidationFixtureId.None);
         this.transport = transport ?? throw new ArgumentNullException(nameof(transport));
         tick = options.InitialTick;
@@ -114,12 +159,12 @@ public sealed class MatchInstance : IDisposable
             if (options.EnableAdmin) throw new ArgumentException("Tournament authority belongs to Node; use the match admin bridge for Worker commands.");
             if (options.RequireReplay && Spec.ReplayPolicy != ReplayPolicy.Record
                 || options.CollectTelemetry && Spec.TelemetryPolicy != TelemetryPolicy.Record
-                || options.BotFill?.MinimumParticipants > 0 && Spec.BotFillPolicy == FruityPrime.Server.Shared.BotFillPolicy.Disabled)
+                || options.BotFill?.MinimumParticipants > 0 && Spec.BotFillPolicy == ProjectPrime.Server.Shared.BotFillPolicy.Disabled)
                 throw new ArgumentException("Runtime integration options conflict with the frozen match policies.");
             if (Spec.ReplayPolicy == ReplayPolicy.Record && String.IsNullOrWhiteSpace(options.ReplayDirectory))
                 throw new ArgumentException("Recorded matches require a replay destination.");
         }
-        BotFillPolicy fill = Spec.BotFillPolicy == FruityPrime.Server.Shared.BotFillPolicy.Disabled
+        BotFillPolicy fill = Spec.BotFillPolicy == ProjectPrime.Server.Shared.BotFillPolicy.Disabled
             ? new() : options.BotFill ?? new(Spec.Roster.Count(seat => seat.Role != SeatRole.Observer));
         Simulation = new ServerSimulation(Spec.Rules, options.LagCompEnabled, options.ProjectileCatchUpEnabled,
             fill, Spec.Rng1Seed, Spec.Rng2Seed, options.HistoricalDynamicCollisionEnabled,
@@ -133,6 +178,8 @@ public sealed class MatchInstance : IDisposable
             }
             Network = transferredNetwork ?? new ServerNetwork(transport, Spec.Rules, WireMatchId,
                 Spec.ObserverPolicy == ObserverPolicy.Disabled ? new ObserverOptions(0) : options.Observers);
+            Network.ConfigureTiming(options.AdaptiveTimingEnabled, options.AdaptiveInputPlayoutEnabled,
+                options.ReliableAdaptiveRtoEnabled);
             Network.AdmissionClosed = !options.LegacyDynamicAdmission && options.Tickets == null;
             Network.RequireRoutedJoins = !options.LegacyDynamicAdmission;
             Network.AdmissionIdentityPolicy = options.LegacyDynamicAdmission ? null : AdmitFrozenSeat;
@@ -217,6 +264,8 @@ public sealed class MatchInstance : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (State == MatchInstanceState.Created) throw new InvalidOperationException("Start the match before ticking.");
         if (State != MatchInstanceState.Running) return;
+        long started = Stopwatch.GetTimestamp();
+        long allocatedAtStart = GC.GetAllocatedBytesForCurrentThread();
         try
         {
             Step();
@@ -231,6 +280,54 @@ public sealed class MatchInstance : IDisposable
             Failed?.Invoke(new(MatchId, WireMatchId, tick, error));
             throw;
         }
+        finally
+        {
+            long elapsedTicks = Stopwatch.GetTimestamp() - started;
+            long allocatedAtEnd = GC.GetAllocatedBytesForCurrentThread();
+            RecordPerformance(elapsedTicks, allocatedAtEnd >= allocatedAtStart ? allocatedAtEnd - allocatedAtStart : 0);
+        }
+    }
+
+    private void RecordPerformance(long elapsedTicks, long allocatedBytes)
+    {
+        int sequence = Interlocked.Increment(ref _performanceSequence);
+        double elapsedMilliseconds = elapsedTicks * (1000.0 / Stopwatch.Frequency);
+        _tickDurations.Record(elapsedMilliseconds);
+        _performanceTicks++;
+        _allocatedBytes += allocatedBytes;
+        if (elapsedMilliseconds > 1000.0 / 60.0) _deadlineMisses++;
+        Volatile.Write(ref _performanceSequence, unchecked(sequence + 1));
+    }
+
+    private bool TryReadPerformance(out MatchPerformanceSnapshot snapshot)
+    {
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            int sequence = Volatile.Read(ref _performanceSequence);
+            if ((sequence & 1) != 0) continue;
+            long count = Volatile.Read(ref _performanceTicks);
+            long deadlineMisses = Volatile.Read(ref _deadlineMisses);
+            long allocated = Volatile.Read(ref _allocatedBytes);
+            if (!_tickDurations.TrySnapshot(out BoundedPercentileSnapshot durations)) continue;
+            Thread.MemoryBarrier();
+            int completed = Volatile.Read(ref _performanceSequence);
+            if (sequence != completed || (completed & 1) != 0) continue;
+            double elapsedSeconds = Stopwatch.GetElapsedTime(_performanceStarted).TotalSeconds;
+            // Process-wide GC context is sampled by the off-lane reader so
+            // the authoritative writer only records preallocated scalars.
+            long gen0Collections = Math.Max(0L, (long)GC.CollectionCount(0) - _gen0AtStart);
+            long gen1Collections = Math.Max(0L, (long)GC.CollectionCount(1) - _gen1AtStart);
+            long gen2Collections = Math.Max(0L, (long)GC.CollectionCount(2) - _gen2AtStart);
+            snapshot = new MatchPerformanceSnapshot(count, deadlineMisses, durations, allocated,
+                count == 0 ? 0 : allocated / (double)count,
+                elapsedSeconds <= 0 ? 0 : allocated / elapsedSeconds,
+                // These counters are process-wide observations, retained only
+                // as lifetime context and never interpreted as match-caused GC.
+                gen0Collections, gen1Collections, gen2Collections);
+            return true;
+        }
+        snapshot = null!;
+        return false;
     }
 
     private void Step()
@@ -252,7 +349,7 @@ public sealed class MatchInstance : IDisposable
         }
         simulation.Step(network, tick);
         telemetry?.Sample(tick, simulation.States, simulation.Scene.Match.Phase == MatchPhase.Playing, simulation.Scene);
-        if (tick % 2 == 0)
+        if (_snapshotCadence.IsDue(tick))
         {
             foreach (ServerPeer? peer in network.Peers)
             {

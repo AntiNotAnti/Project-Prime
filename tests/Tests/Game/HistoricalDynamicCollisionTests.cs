@@ -148,10 +148,13 @@ public sealed class HistoricalDynamicCollisionTests
         for (int i = 0; i < 100; i++)
             Assert.True(engine.TryQueryCurrent(query, out _));
         long before = GC.GetAllocatedBytesForCurrentThread();
+        bool allQueriesHit = true;
         for (int i = 0; i < 10_000; i++)
-            Assert.True(engine.TryQueryCurrent(query, out _));
+            allQueriesHit &= engine.TryQueryCurrent(query, out _);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.True(allQueriesHit);
+        Assert.Equal(0, allocated);
     }
 
     [Fact]
@@ -232,8 +235,14 @@ public sealed class HistoricalDynamicCollisionTests
         for (int i = 0; i < 100; i++) Assert.True(engine.TryQuery(hitQuery, 30, out _));
         long traversals = engine.TransformableShapeQueries;
         long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 1_000; i++) Assert.True(engine.TryQuery(hitQuery, 30, out _));
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        bool allQueriesHit = true;
+        for (int i = 0; i < 1_000; i++)
+        {
+            allQueriesHit &= engine.TryQuery(hitQuery, 30, out _);
+        }
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.True(allQueriesHit);
+        Assert.Equal(0, allocated);
         Assert.Equal(traversals + 1_000, engine.TransformableShapeQueries);
     }
 

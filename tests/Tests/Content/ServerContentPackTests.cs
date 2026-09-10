@@ -9,7 +9,7 @@ namespace MphRead.Tests
 {
     public sealed class ServerContentPackTests : IDisposable
     {
-        private readonly string _directory = Path.Combine(Path.GetTempPath(), "fruity-content-test-" + Guid.NewGuid().ToString("N"));
+        private readonly string _directory = Path.Combine(Path.GetTempPath(), "project-prime-content-test-" + Guid.NewGuid().ToString("N"));
 
         public ServerContentPackTests() => Directory.CreateDirectory(_directory);
 

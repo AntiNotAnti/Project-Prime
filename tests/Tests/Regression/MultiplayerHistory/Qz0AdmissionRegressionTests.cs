@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Immutable;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Identity;
 using MphRead.Mods.Network;
 using Xunit;
-using SharedBotFillPolicy = FruityPrime.Server.Shared.BotFillPolicy;
+using SharedBotFillPolicy = ProjectPrime.Server.Shared.BotFillPolicy;
 
 namespace MphRead.Tests;
 

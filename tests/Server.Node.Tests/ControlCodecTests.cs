@@ -1,10 +1,10 @@
 using System.Text;
 using System.Text.Json;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class ControlCodecTests
 {
@@ -13,6 +13,14 @@ public sealed class ControlCodecTests
     [Fact]
     public void KnownRequestDecodesWithRequiredFields()
     { Assert.Equal(new LobbySetReady(true, 1), NodeControlCodec.Read(Frame("lobby.ready.set", "{\"ready\":true,\"expectedRevision\":1}")).Command); }
+    [Fact]
+    public void QuickPlayRequestIsStrictAndSupportsBoundedPreferences()
+    {
+        Assert.Equal(new QuickPlayJoin(MatchMode.Survival, false), NodeControlCodec.Read(Frame("quickplay.join",
+            "{\"mode\":\"Survival\",\"allowBots\":false}")).Command);
+        Assert.Throws<JsonException>(() => NodeControlCodec.Read(Frame("quickplay.join", "{\"observer\":true}")));
+        Assert.Throws<JsonException>(() => NodeControlCodec.Read(Frame("quickplay.join", "{\"mode\":\"FutureMode\"}")));
+    }
     [Fact]
     public void LobbyConfigureAcceptsOlderPayloadAndPreservesPointGoalWhenPresent()
     {
@@ -28,14 +36,30 @@ public sealed class ControlCodecTests
     public void LobbyConfigureReadsStructuredRulesWhileMissingRulesRemainsCompatible()
     {
         NodeControlRequest currentRequest = NodeControlCodec.Read(Frame("lobby.configure",
-            "{\"expectedRevision\":2,\"mapKey\":\"unit\",\"mode\":\"Battle\",\"rules\":{\"timeLimitSeconds\":600,\"scoreGoal\":12,\"damageLevel\":2}}"));
+            "{\"expectedRevision\":2,\"mapKey\":\"unit\",\"mode\":\"Battle\",\"rules\":{\"timeLimitSeconds\":600,\"scoreGoal\":12,\"damageLevel\":2,\"killcamPolicy\":\"PostRound\"}}"));
         var current = Assert.IsType<LobbyConfigure>(currentRequest.Command);
-        Assert.Equal(new LobbyRulesOptions(TimeLimitSeconds: 600, ScoreGoal: 12, DamageLevel: 2), current.Rules);
+        Assert.Equal(new LobbyRulesOptions(TimeLimitSeconds: 600, ScoreGoal: 12, DamageLevel: 2,
+            KillcamPolicy: KillcamPolicy.PostRound), current.Rules);
 
         NodeControlRequest olderRequest = NodeControlCodec.Read(Frame("lobby.configure",
             "{\"expectedRevision\":3,\"mapKey\":\"unit\",\"mode\":\"Battle\"}"));
         var older = Assert.IsType<LobbyConfigure>(olderRequest.Command);
         Assert.Null(older.Rules);
+    }
+
+    [Fact]
+    public void LobbyConfigureWritesKillcamPolicyOnlyWhenHostSelectedIt()
+    {
+        byte[] unspecified = NodeControlCodec.Write("lobby.configure", 1, null,
+            new LobbyConfigure(1, "unit", MatchMode.Battle,
+                new LobbyRulesOptions(TimeLimitSeconds: 600, ScoreGoal: 7)));
+        byte[] selected = NodeControlCodec.Write("lobby.configure", 2, null,
+            new LobbyConfigure(1, "unit", MatchMode.Battle,
+                new LobbyRulesOptions(TimeLimitSeconds: 600, ScoreGoal: 7,
+                    KillcamPolicy: KillcamPolicy.Disabled)));
+
+        Assert.DoesNotContain("killcamPolicy", Encoding.UTF8.GetString(unspecified));
+        Assert.Contains("\"killcamPolicy\":\"Disabled\"", Encoding.UTF8.GetString(selected));
     }
     [Fact]
     public void LegacyConfigureWriteOmitsAbsentRulesForOlderNodes()

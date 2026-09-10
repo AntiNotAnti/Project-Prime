@@ -1,6 +1,7 @@
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
+using MphRead.Mods.Network;
 
-namespace FruityPrime.Server.Node.Workers;
+namespace ProjectPrime.Server.Node.Workers;
 
 public sealed record WorkerLaunchOptions
 {
@@ -10,6 +11,11 @@ public sealed record WorkerLaunchOptions
     public IReadOnlyList<string> Arguments { get; init; } = Array.Empty<string>();
     public string? WorkingDirectory { get; init; }
     public WorkerCapacity Capacity { get; init; } = new(8, 64, 0, 0);
+    public int SnapshotRateHz { get; init; } = SnapshotCadence.DefaultRateHz;
+    public bool AdaptiveTimingEnabled { get; init; }
+    public bool AdaptiveInputPlayoutEnabled { get; init; }
+    public bool TransportQueueV2Enabled { get; init; }
+    public bool ReliableAdaptiveRtoEnabled { get; init; }
     public TimeSpan StartupTimeout { get; init; } = TimeSpan.FromSeconds(15);
     public TimeSpan HeartbeatTimeout { get; init; } = TimeSpan.FromSeconds(10);
     public TimeSpan ShutdownTimeout { get; init; } = TimeSpan.FromSeconds(10);
@@ -71,6 +77,9 @@ public sealed record WorkerLaunchOptions
         if (ArtifactDirectory is { } artifacts && !Path.IsPathFullyQualified(artifacts))
             throw new ArgumentException("Worker artifact root must be absolute.");
         if (Capacity.ActiveMatches != 0 || Capacity.ActivePlayers != 0) throw new ArgumentException("New workers must start empty.");
+        if (!SnapshotCadence.IsSupported(SnapshotRateHz)) throw new ArgumentException("Snapshot rate must be 30 or 60 Hz.");
+        if (AdaptiveInputPlayoutEnabled && !AdaptiveTimingEnabled)
+            throw new ArgumentException("Adaptive input playout requires adaptive timing.");
         int? lanes = NumberArgument("--lanes");
         int? maxMatches = NumberArgument("--max-matches");
         int? maxMatchesPerLane = NumberArgument("--max-matches-per-lane");
@@ -91,6 +100,12 @@ public sealed record WorkerLaunchOptions
         if (Arguments.Any(a => a is null || a.StartsWith("--node-", StringComparison.Ordinal)
             || a.StartsWith("--worker-", StringComparison.Ordinal) || a.StartsWith("--artifact-dir", StringComparison.Ordinal)))
             throw new ArgumentException("Worker identity arguments are owned by the manager.");
+        if (Arguments.Contains("--snapshot-rate-hz", StringComparer.Ordinal)
+            || Arguments.Contains("--adaptive-timing", StringComparer.Ordinal)
+            || Arguments.Contains("--adaptive-input-playout", StringComparer.Ordinal)
+            || Arguments.Contains("--transport-queue-v2", StringComparer.Ordinal)
+            || Arguments.Contains("--reliable-adaptive-rto", StringComparer.Ordinal))
+            throw new ArgumentException("Node-owned networking options must use WorkerLaunchOptions properties.");
     }
 }
 

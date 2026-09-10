@@ -90,7 +90,7 @@ namespace MphRead.Tests
         {
             string previousDirectory = CustomRooms.MapDirectory;
             string temporaryDirectory = Path.Combine(Path.GetTempPath(),
-                "fruity-prime-room-loader-" + Guid.NewGuid().ToString("N"));
+                "project-prime-room-loader-" + Guid.NewGuid().ToString("N"));
             string reportDirectory = Path.Combine(temporaryDirectory, "reports", "nested");
             Directory.CreateDirectory(reportDirectory);
 

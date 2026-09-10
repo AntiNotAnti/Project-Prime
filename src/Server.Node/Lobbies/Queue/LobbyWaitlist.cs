@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 
-namespace FruityPrime.Server.Node.Lobbies.Queue;
+namespace ProjectPrime.Server.Node.Lobbies.Queue;
 
 /// <summary>Bounded FIFO state for one lobby. The owning LobbyManager performs
 /// all synchronization and lifecycle transitions; this class has no thread or

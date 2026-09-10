@@ -1,8 +1,9 @@
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 using MphRead;
 using MphRead.Mods.Network;
 
-namespace FruityPrime.Server.Shared;
+namespace ProjectPrime.Server.Shared;
 
 public enum WorkerStatus { Starting, Ready, Draining, Faulted, Stopped }
 public enum MatchStatus { Starting, Ready, Running, Completed, Failed, Interrupted }
@@ -148,20 +149,41 @@ public sealed record WorkerDraining(WorkerId WorkerId, Guid WorkerIncarnation) :
 public sealed record WorkerFault(WorkerId WorkerId, Guid WorkerIncarnation, string Reason) : WorkerEvent;
 
 public sealed record WorkerLaneHealth(int LaneId, int Matches, long Ticks, long CatchUpTicks, long DroppedTicks,
-    double P50Milliseconds, double P95Milliseconds, double P99Milliseconds, double MaxMilliseconds);
+    double P50Milliseconds, double P95Milliseconds, double P99Milliseconds, double MaxMilliseconds,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double P999Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long DeadlineMisses = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long CommandQueueHighWater = 0);
 public sealed record WorkerDiagnostics(ImmutableArray<WorkerLaneHealth> Lanes, double CpuPercent, long ManagedHeapBytes,
     int Gen0Collections, int Gen1Collections, int Gen2Collections, long PacketsReceived, long PacketsSent,
-    long BytesReceived, long BytesSent, long QueueDrops, long PacketsRejected, ImmutableArray<WorkerMatchHealth> Matches = default, int TotalMatches = 0, bool MatchesTruncated = false)
+    long BytesReceived, long BytesSent, long QueueDrops, long PacketsRejected, ImmutableArray<WorkerMatchHealth> Matches = default, int TotalMatches = 0, bool MatchesTruncated = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double AllocationBytesPerSecond = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double NetworkLoopP99Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double NetworkLoopP999Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long NetworkQueueHighWater = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long NetworkLoopSampleCount = 0)
 {
+    // The IPC frame is 64 KiB and diagnostics serialize as JSON. This cap is
+    // derived from the maximum-shape heartbeat (64 lanes plus 32 fully
+    // populated match entries), including the worst-case JSON escaping of the
+    // 32-character Phase/State fields. Keep headroom below the frame ceiling
+    // so non-default telemetry cannot make a valid heartbeat unencodable.
+    public const int MaximumMatchSamples = 32;
+    private const int LegacyMaximumMatchSamples = 128;
+
     public void Validate()
     {
         if (Lanes.IsDefault || Lanes.Length is < 1 or > 64 || !double.IsFinite(CpuPercent) || CpuPercent is < 0 or > 100
             || ManagedHeapBytes < 0 || Gen0Collections < 0 || Gen1Collections < 0 || Gen2Collections < 0
-            || PacketsReceived < 0 || PacketsSent < 0 || BytesReceived < 0 || BytesSent < 0 || QueueDrops < 0 || PacketsRejected < 0)
+            || PacketsReceived < 0 || PacketsSent < 0 || BytesReceived < 0 || BytesSent < 0 || QueueDrops < 0 || PacketsRejected < 0
+            || !double.IsFinite(AllocationBytesPerSecond) || AllocationBytesPerSecond < 0
+            || !double.IsFinite(NetworkLoopP99Milliseconds) || NetworkLoopP99Milliseconds < 0
+            || !double.IsFinite(NetworkLoopP999Milliseconds) || NetworkLoopP999Milliseconds < 0
+            || NetworkLoopQueueBoundsInvalid())
             throw new ArgumentException("Invalid worker diagnostics.");
         if (!Matches.IsDefault)
         {
-            if (Matches.Length > 128 || TotalMatches < Matches.Length || TotalMatches > 1024
+            if (Matches.Length > LegacyMaximumMatchSamples || TotalMatches < Matches.Length || TotalMatches > 1024
+                || Matches.Length > MaximumMatchSamples && Matches.Any(match => match is null || !IsLegacyMatch(match))
                 || MatchesTruncated != (TotalMatches > Matches.Length)) throw new ArgumentException("Invalid match diagnostic sample.");
             var matchIds = new HashSet<MatchId>();
             foreach (var match in Matches)
@@ -169,19 +191,62 @@ public sealed record WorkerDiagnostics(ImmutableArray<WorkerLaneHealth> Lanes, d
                 if (match is null || !matchIds.Add(match.MatchId) || match.WireMatchId.Value == 0)
                     throw new ArgumentException("Invalid match diagnostics.");
                 ContractGuard.Id(match.MatchId.Value); ContractGuard.Text(match.Phase, 32); ContractGuard.Text(match.State, 32);
+                if (match.TickSamples < 0 || match.DeadlineMisses < 0 || match.ProcessGen0Collections < 0
+                    || match.ProcessGen1Collections < 0 || match.ProcessGen2Collections < 0
+                    || !double.IsFinite(match.TickP50Milliseconds) || !double.IsFinite(match.TickP95Milliseconds)
+                    || !double.IsFinite(match.TickP99Milliseconds) || !double.IsFinite(match.TickP999Milliseconds)
+                    || !double.IsFinite(match.TickMaxMilliseconds) || !double.IsFinite(match.AllocatedBytesPerTick)
+                    || !double.IsFinite(match.AllocatedBytesPerSecond)
+                    || match.TickP50Milliseconds < 0 || match.TickP95Milliseconds < 0
+                    || match.TickP99Milliseconds < 0 || match.TickP999Milliseconds < 0 || match.TickMaxMilliseconds < 0
+                    || match.AllocatedBytesPerTick < 0 || match.AllocatedBytesPerSecond < 0
+                    || match.TickP95Milliseconds < match.TickP50Milliseconds
+                    || match.TickP99Milliseconds < match.TickP95Milliseconds
+                    || match.TickMaxMilliseconds < match.TickP99Milliseconds
+                    || match.TickP999Milliseconds > 0 && (match.TickP999Milliseconds < match.TickP99Milliseconds
+                        || match.TickMaxMilliseconds < match.TickP999Milliseconds))
+                    throw new ArgumentException("Invalid match performance diagnostics.");
             }
         }
         var ids = new HashSet<int>();
         foreach (var lane in Lanes)
             if (lane is null || lane.LaneId < 0 || !ids.Add(lane.LaneId) || lane.Matches is < 0 or > 1024
                 || lane.Ticks < 0 || lane.CatchUpTicks < 0 || lane.DroppedTicks < 0
+                || lane.DeadlineMisses < 0 || lane.CommandQueueHighWater < 0
                 || !double.IsFinite(lane.P50Milliseconds) || !double.IsFinite(lane.P95Milliseconds)
-                || !double.IsFinite(lane.P99Milliseconds) || !double.IsFinite(lane.MaxMilliseconds)
+                || !double.IsFinite(lane.P99Milliseconds) || !double.IsFinite(lane.P999Milliseconds)
+                || !double.IsFinite(lane.MaxMilliseconds)
                 || lane.P50Milliseconds < 0 || lane.P95Milliseconds < lane.P50Milliseconds
-                || lane.P99Milliseconds < lane.P95Milliseconds || lane.MaxMilliseconds < lane.P99Milliseconds)
+                || lane.P99Milliseconds < lane.P95Milliseconds || lane.MaxMilliseconds < lane.P99Milliseconds
+                || lane.P999Milliseconds > 0 && (lane.P999Milliseconds < lane.P99Milliseconds
+                    || lane.MaxMilliseconds < lane.P999Milliseconds))
                 throw new ArgumentException("Invalid lane diagnostics.");
     }
+
+    private bool NetworkLoopQueueBoundsInvalid()
+        => NetworkQueueHighWater < 0 || NetworkLoopSampleCount < 0
+            || NetworkLoopSampleCount > 0 && NetworkLoopP999Milliseconds < NetworkLoopP99Milliseconds;
+
+    private static bool IsLegacyMatch(WorkerMatchHealth match)
+        => match.TickSamples == 0 && match.DeadlineMisses == 0
+            && match.TickP50Milliseconds == 0 && match.TickP95Milliseconds == 0
+            && match.TickP99Milliseconds == 0 && match.TickP999Milliseconds == 0
+            && match.TickMaxMilliseconds == 0 && match.AllocatedBytesPerTick == 0
+            && match.AllocatedBytesPerSecond == 0 && match.ProcessGen0Collections == 0
+            && match.ProcessGen1Collections == 0 && match.ProcessGen2Collections == 0;
 }
 public sealed record MatchAdminResult(MatchId MatchId, AdminAction Action, bool Applied, string? Code, string? Message) : WorkerEvent;
 
-public sealed record WorkerMatchHealth(MatchId MatchId, WireMatchId WireMatchId, uint Tick, string Phase, string State);
+public sealed record WorkerMatchHealth(MatchId MatchId, WireMatchId WireMatchId, uint Tick, string Phase, string State,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long TickSamples = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long DeadlineMisses = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double TickP50Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double TickP95Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double TickP99Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double TickP999Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double TickMaxMilliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double AllocatedBytesPerTick = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double AllocatedBytesPerSecond = 0,
+    [property: JsonPropertyName("gen0Collections"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ProcessGen0Collections = 0,
+    [property: JsonPropertyName("gen1Collections"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ProcessGen1Collections = 0,
+    [property: JsonPropertyName("gen2Collections"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ProcessGen2Collections = 0);

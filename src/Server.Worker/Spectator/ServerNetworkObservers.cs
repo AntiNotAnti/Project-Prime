@@ -52,13 +52,15 @@ public sealed partial class ServerNetwork
         var baseline = _observerTimeline.Baseline(Tick, delay);
         if (baseline == null) { Refuse(endpoint, join.Nonce, "Observer history is warming up. Try again later."); return true; }
         ulong id = AllocateConnectionIdentity();
-        var connection = new NetConnection(id, endpoint, baseline.Value.MatchId, _now);
+        var connection = new NetConnection(id, endpoint, baseline.Value.MatchId, _now,
+            ReliableAdaptiveRtoEnabled);
         var peer = new ServerPeer(connection, join, byte.MaxValue, _now)
         {
             ConnectionIndex = (byte)(8 + free), TeamIndex = byte.MaxValue,
             PlayerId = identity?.PlayerId, GuestSessionId = identity?.GuestSessionId, ReservedSeat = identity?.ReservedSeat, TicketId = identity?.TicketId ?? Guid.Empty,
             TrustedObserver = identity?.TrustedObserver == true,
-            ObserverDelayTicks = delay, ObserverCursor = baseline, ObserverNeedsBaseline = true
+            ObserverDelayTicks = delay, ObserverCursor = baseline, ObserverNeedsBaseline = true,
+            Timing = new ServerNetworkTimingController(AdaptiveTimingEnabled)
         };
         var accepted = new JoinAcceptedPacket(join.Nonce, byte.MaxValue, baseline.Value.MatchId, baseline.Value.Tick, 60, baseline.Value.Rules);
         Span<byte> payload = stackalloc byte[JoinAcceptedPacket.Size]; accepted.Write(payload);
@@ -96,7 +98,8 @@ public sealed partial class ServerNetwork
         uint delay = peer.TrustedObserver ? 0 : (uint)ObserverConfiguration.DelaySeconds * 60;
         var baseline = _observerTimeline.Baseline(Tick, delay);
         if (baseline == null) { reason = "Observer history is not ready."; return false; }
-        if (!peer.Connection.Reliable.CanEnqueue) { reason = "Reliable control channel is full."; return false; }
+        if (!peer.Connection.Reliable.CanEnqueueType(ReliableEventType.ObserverTransition))
+        { reason = "Reliable control channel is full."; return false; }
         Span<byte> payload = stackalloc byte[MatchTransitionPacket.Size];
         new MatchTransitionPacket(baseline.Value.MatchId, baseline.Value.Tick, baseline.Value.Rules).Write(payload);
         // All preconditions are checked before detaching competitive ownership.
@@ -110,7 +113,8 @@ public sealed partial class ServerNetwork
             ConnectionIndex = (byte)(8 + free), TeamIndex = byte.MaxValue, PlayerId = peer.PlayerId,
             GuestSessionId = peer.GuestSessionId, ReservedSeat = peer.ReservedSeat,
             TicketId = peer.TicketId, TrustedObserver = peer.TrustedObserver,
-            ObserverDelayTicks = delay, ObserverCursor = baseline, ObserverNeedsBaseline = true
+            ObserverDelayTicks = delay, ObserverCursor = baseline, ObserverNeedsBaseline = true,
+            Timing = peer.Timing
         };
         ParticipantLeaving?.Invoke(peer, MphRead.Identity.ParticipantExitReason.Replaced, Tick);
         _peers[peer.Slot] = null; _connections[peer.ConnectionIndex] = null; _reconnectPeers[peer.Slot] = null;

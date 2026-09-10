@@ -1,8 +1,8 @@
-using FruityPrime.Server.Node.Workers;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Workers;
+using ProjectPrime.Server.Shared;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class WorkerSchedulerTests
 {

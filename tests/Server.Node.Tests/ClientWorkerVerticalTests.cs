@@ -2,10 +2,10 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.WebSockets;
 using System.Text.Json;
-using FruityPrime.Server.Node.Workers;
-using FruityPrime.Server.Node.Sessions;
-using FruityPrime.Server.Shared;
-using FruityPrime.Server.Worker;
+using ProjectPrime.Server.Node.Workers;
+using ProjectPrime.Server.Node.Sessions;
+using ProjectPrime.Server.Shared;
+using ProjectPrime.Server.Worker;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MphRead;
@@ -13,7 +13,7 @@ using MphRead.Mods.Accounts;
 using MphRead.Mods.Network;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class ClientWorkerVerticalTests
 {

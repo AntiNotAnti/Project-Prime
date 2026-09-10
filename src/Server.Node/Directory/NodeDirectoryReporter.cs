@@ -2,12 +2,12 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Node.Sessions;
-using FruityPrime.Server.Node.Workers;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Node.Sessions;
+using ProjectPrime.Server.Node.Workers;
+using ProjectPrime.Server.Shared;
 
-namespace FruityPrime.Server.Node.Discovery;
+namespace ProjectPrime.Server.Node.Discovery;
 
 public sealed class NodeDirectorySettings
 {

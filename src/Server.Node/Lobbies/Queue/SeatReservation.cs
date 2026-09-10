@@ -1,6 +1,6 @@
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 
-namespace FruityPrime.Server.Node.Lobbies.Queue;
+namespace ProjectPrime.Server.Node.Lobbies.Queue;
 
 /// <summary>A server-owned, single-use reservation for one human player seat.</summary>
 public sealed record SeatReservation(Guid OfferId, Guid SessionId, HumanIdentityKey Identity,

@@ -4,10 +4,10 @@ using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using FruityPrime.Server.Node.Identity;
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Node.Sessions;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Identity;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Node.Sessions;
+using ProjectPrime.Server.Shared;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -15,7 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 using MphRead;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class NodeA24SecurityTests
 {

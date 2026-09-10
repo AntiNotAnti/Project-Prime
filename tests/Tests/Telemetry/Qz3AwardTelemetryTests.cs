@@ -96,7 +96,7 @@ public sealed class Qz3AwardTelemetryTests
             using (var gzip = new GZipStream(file, CompressionLevel.Fastest))
                 JsonSerializer.Serialize(gzip, telemetry);
 
-            Assembly tools = Assembly.Load("FruityPrimeTools");
+            Assembly tools = Assembly.Load("ProjectPrimeTools");
             Type command = tools.GetType("MphRead.TelemetryCommand")!;
             MethodInfo read = command.GetMethod("Read", BindingFlags.Static | BindingFlags.NonPublic)!;
             var restored = Assert.IsType<MatchTelemetry>(read.Invoke(null, new object[] { input }));

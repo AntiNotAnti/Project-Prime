@@ -10,7 +10,7 @@ namespace MphRead.Tests;
 
 public sealed class ContentManifestTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "fruity-content-manifest-test-" + Guid.NewGuid().ToString("N"));
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "project-prime-content-manifest-test-" + Guid.NewGuid().ToString("N"));
 
     public ContentManifestTests() => Directory.CreateDirectory(_root);
 

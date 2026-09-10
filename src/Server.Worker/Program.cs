@@ -1,12 +1,12 @@
 using System.IO.Pipes;
 using System.Net;
 using System.Threading.Channels;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Mods.MapGen;
 using MphRead.Mods.Network;
 
-namespace FruityPrime.Server.Worker;
+namespace ProjectPrime.Server.Worker;
 
 public static class Program
 {
@@ -19,6 +19,7 @@ public static class Program
             ApplyMapDirectory(flags);
             string Required(string name) => flags.TryGetValue(name, out string? value) ? value : throw new ArgumentException("Missing " + name);
             int Number(string name, int fallback) => flags.TryGetValue(name, out string? value) ? int.Parse(value) : fallback;
+            bool Boolean(string name, bool fallback) => flags.TryGetValue(name, out string? value) ? bool.Parse(value) : fallback;
             bool describeContent = flags.TryGetValue("--describe-content", out string? describe)
                 && bool.Parse(describe);
             prepareContent = flags.TryGetValue("--prepare-content", out string? prepare)
@@ -55,6 +56,11 @@ public static class Program
                 BuildVersion = flags.GetValueOrDefault("--build-version", WorkerOptions.ActualBuildVersion),
                 SimulationLanes = Number("--lanes", 1), MaxMatches = Number("--max-matches", 1),
                 MaxMatchesPerLane = Number("--max-matches-per-lane", 1),
+                SnapshotRateHz = Number("--snapshot-rate-hz", SnapshotCadence.DefaultRateHz),
+                AdaptiveTimingEnabled = Boolean("--adaptive-timing", false),
+                AdaptiveInputPlayoutEnabled = Boolean("--adaptive-input-playout", false),
+                TransportQueueV2Enabled = Boolean("--transport-queue-v2", false),
+                ReliableAdaptiveRtoEnabled = Boolean("--reliable-adaptive-rto", false),
                 LagCompensationMode = WorkerOptions.ParseLagCompensationMode(
                     flags.GetValueOrDefault("--lag-compensation-mode", "players")),
                 ValidationFixture = WorkerOptions.ParseValidationFixture(
@@ -258,7 +264,7 @@ public static class Program
     internal static Dictionary<string, string> ParseArguments(string[] args)
     {
         string[] names = ["--describe-content", "--prepare-content", "--node-pipe", "--node-id", "--worker-id", "--worker-incarnation", "--content-dir", "--content-version", "--content-hash",
-            "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--lag-compensation-mode", "--validation-fixture", "--replay-dir", "--artifact-dir", "--map-dir"];
+            "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--snapshot-rate-hz", "--adaptive-timing", "--adaptive-input-playout", "--transport-queue-v2", "--reliable-adaptive-rto", "--lag-compensation-mode", "--validation-fixture", "--replay-dir", "--artifact-dir", "--map-dir"];
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         for (int index = 0; index < args.Length; index += 2)
             if (index + 1 == args.Length || !names.Contains(args[index], StringComparer.Ordinal) || !result.TryAdd(args[index], args[index + 1]))

@@ -1,6 +1,6 @@
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 
-namespace FruityPrime.Server.Node.Lobbies.Queue;
+namespace ProjectPrime.Server.Node.Lobbies.Queue;
 
 /// <summary>
 /// Server-owned queue priority. The public surface currently has one normal

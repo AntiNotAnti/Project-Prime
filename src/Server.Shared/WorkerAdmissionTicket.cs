@@ -4,7 +4,7 @@ using System.Text.Json;
 using MphRead.Identity;
 using MphRead.Mods.Network;
 
-namespace FruityPrime.Server.Shared;
+namespace ProjectPrime.Server.Shared;
 
 /// <summary>Node-approved identity and reservation. Guest identities never become PlayerId values.</summary>
 public sealed record WorkerAdmissionClaims(NodeId NodeId, Guid NodeIncarnation, WorkerId WorkerId,

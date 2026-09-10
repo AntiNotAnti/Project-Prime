@@ -1,11 +1,11 @@
 using System.Collections.Immutable;
-using FruityPrime.Server.Node.Workers;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Workers;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Identity;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class WorkerManagerTests
 {
@@ -69,6 +69,41 @@ public sealed class WorkerManagerTests
         ManagedWorker worker = await manager.StartAsync(Launch("secret-canary"));
         Assert.Equal(WorkerStatus.Ready, worker.Snapshot().Status);
         await worker.ShutdownAsync("secret canary completed");
+    }
+
+    [Fact]
+    public async Task NodeLaunchPassesConfiguredSnapshotRateToWorkerProcess()
+    {
+        await using var manager = Manager();
+        ManagedWorker worker = await manager.StartAsync(Launch("snapshot-rate") with { SnapshotRateHz = 60 });
+        Assert.Equal(WorkerStatus.Ready, worker.Snapshot().Status);
+        await worker.ShutdownAsync("snapshot cadence completed");
+    }
+
+    [Fact]
+    public async Task NodeLaunchPassesAdaptiveTimingFlagsToWorkerProcess()
+    {
+        await using var manager = Manager();
+        ManagedWorker worker = await manager.StartAsync(Launch("adaptive-timing") with
+        {
+            AdaptiveTimingEnabled = true,
+            AdaptiveInputPlayoutEnabled = true
+        });
+        Assert.Equal(WorkerStatus.Ready, worker.Snapshot().Status);
+        await worker.ShutdownAsync("adaptive timing flags completed");
+    }
+
+    [Fact]
+    public async Task NodeLaunchPassesTransportAndReliableRollbackFlags()
+    {
+        await using var manager = Manager();
+        ManagedWorker worker = await manager.StartAsync(Launch("network-flags") with
+        {
+            TransportQueueV2Enabled = true,
+            ReliableAdaptiveRtoEnabled = true
+        });
+        Assert.Equal(WorkerStatus.Ready, worker.Snapshot().Status);
+        await worker.ShutdownAsync("network flags completed");
     }
 
     [Fact]

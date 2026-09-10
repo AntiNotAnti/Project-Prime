@@ -1,11 +1,11 @@
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Node.Workers;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Node.Workers;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Mods.Network;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class NodeMatchCoordinatorTests
 {
@@ -63,7 +63,10 @@ public sealed class NodeMatchCoordinatorTests
             }
             Assert.NotNull(next);
             int terminalIndex = delivered.FindIndex(payload => payload is NodeMatchEnded endedMatch && endedMatch.MatchId == first.MatchId);
+            int completionIndex = delivered.FindIndex(payload => payload is NodeMatchCompletion completed
+                && completed.Summary.MatchId.Value == first.MatchId);
             int handoffIndex = delivered.FindIndex(payload => payload is NodeMatchHandoff nextMatch && nextMatch.MatchId == next.MatchId);
+            Assert.True(completionIndex >= 0 && completionIndex < terminalIndex);
             Assert.True(terminalIndex >= 0 && terminalIndex < handoffIndex);
             Assert.NotEqual(first.Ticket, next.Ticket); Assert.NotEqual(first.Nonce, next.Nonce);
             Assert.Equal(lobby.LobbyId, lobbies.ForSession(owner.SessionId)!.LobbyId);

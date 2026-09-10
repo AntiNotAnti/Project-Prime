@@ -6,7 +6,7 @@ using MphRead.Mods.Chat;
 using OpenTK.Mathematics;
 using Xunit;
 namespace MphRead.Tests;
-[Collection("Demo global state")]
+[Collection("Replay global state")]
 public sealed class ObserverPresentationTests
 {
     [Fact]

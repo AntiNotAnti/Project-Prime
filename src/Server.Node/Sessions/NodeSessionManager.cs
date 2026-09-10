@@ -4,11 +4,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
-using FruityPrime.Server.Node.Identity;
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Identity;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Shared;
 
-namespace FruityPrime.Server.Node.Sessions;
+namespace ProjectPrime.Server.Node.Sessions;
 
 public sealed class NodeSessionManager
 {
@@ -39,7 +39,7 @@ public sealed class NodeSessionManager
     private readonly int _maximumSessions;
     private readonly TimeProvider _clock;
     private readonly NodeMatchCoordinator? _matches;
-    public static TimeSpan DisconnectGrace => TimeSpan.FromSeconds(45);
+    public static TimeSpan DisconnectGrace => ReconnectPolicy.SessionGrace;
     private long _protocolClosures;
     public long ProtocolClosures => Interlocked.Read(ref _protocolClosures);
     public int Count => _sessions.Values.Count(s => s.Connection != null);
@@ -121,7 +121,8 @@ public sealed class NodeSessionManager
                 _nodeId, token, session.Identity.GuestSessionId));
             if (_lobbies.ForSession(session.Id) is { } restored) Send(session, "lobby.snapshot", null, restored);
             if (_lobbies.RoundForSession(session.Id) is { } restoredRound) Send(session, "lobby.round", null, restoredRound);
-            if (_matches?.ForSession(session.Id) is { } matchState) SendMatch(session, matchState);
+            if (_matches != null)
+                foreach (object matchState in _matches.ForSessionEvents(session.Id)) SendMatch(session, matchState);
             byte[] buffer = new byte[NodeControlCodec.MaximumFrameBytes];
             long window = _clock.GetTimestamp(); int requests = 0;
             while (!connection.Stop.IsCancellationRequested)
@@ -190,6 +191,7 @@ public sealed class NodeSessionManager
                 lock (session) session.Connection?.Stop.Cancel();
                 break;
             case NodeMatchHandoff handoff: Send(session, "match.handoff", null, handoff); break;
+            case NodeMatchCompletion completion: Send(session, "match.completion", null, completion); break;
             case NodeMatchEnded ended: Send(session, "match.ended", null, ended); break;
         }
     }

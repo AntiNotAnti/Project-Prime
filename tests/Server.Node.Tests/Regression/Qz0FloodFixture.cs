@@ -1,7 +1,7 @@
-using FruityPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Node.Lobbies;
 using MphRead.Mods.Network;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 /// <summary>Seeded identities, clocks, and bounded bursts for control-plane flood regressions.</summary>
 internal sealed class FloodFixture

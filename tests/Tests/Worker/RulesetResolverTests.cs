@@ -79,6 +79,22 @@ public sealed class RulesetResolverTests
         Assert.Equal(RadarPolicy.Disabled, resolved.RadarPolicy);
         Assert.False(resolved.PlayerRadar);
         Assert.Equal(TeamBalancePolicy.BeforeStart, resolved.TeamBalancePolicy);
+        Assert.Equal(KillcamPolicy.Immediate, resolved.KillcamPolicy);
+    }
+
+    [Fact]
+    public void CompetitiveRankedTeamModesDelayKillcamUntilPostRound()
+    {
+        MatchRules rules = RulesetResolver.Resolve(new RotationEntry
+        {
+            RoomKey = "MP1 SANCTORUS",
+            Mode = GameMode.BattleTeams,
+            TimeLimit = 420,
+            PointGoal = 7
+        }, RulesetPreset.Competitive, maxPlayers: 8);
+
+        Assert.Equal(RankingEligibility.VerifiedServerOnly, rules.RankingEligibility);
+        Assert.Equal(KillcamPolicy.PostRound, rules.KillcamPolicy);
     }
 
     [Fact]
@@ -119,7 +135,8 @@ public sealed class RulesetResolverTests
             rulesetPreset: RulesetPreset.Competitive,
             rankingEligibility: RankingEligibility.VerifiedServerOnly,
             radarPolicy: RadarPolicy.Disabled,
-            teamBalancePolicy: TeamBalancePolicy.Locked);
+            teamBalancePolicy: TeamBalancePolicy.Locked,
+            killcamPolicy: KillcamPolicy.PostRound);
 
         MatchRules changed = original.With(scoreGoal: 9, roomKey: "CHANGED");
 
@@ -138,6 +155,7 @@ public sealed class RulesetResolverTests
         Assert.Equal(original.RankingEligibility, changed.RankingEligibility);
         Assert.Equal(original.RadarPolicy, changed.RadarPolicy);
         Assert.Equal(original.TeamBalancePolicy, changed.TeamBalancePolicy);
+        Assert.Equal(original.KillcamPolicy, changed.KillcamPolicy);
     }
 
     [Fact]

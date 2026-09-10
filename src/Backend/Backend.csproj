@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>MphRead.Backend</RootNamespace>
-    <AssemblyName>PrimeHunters.Backend</AssemblyName>
+    <AssemblyName>ProjectPrime.Backend</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Game/Game.csproj" />

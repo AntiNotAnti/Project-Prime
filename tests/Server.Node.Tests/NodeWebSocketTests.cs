@@ -1,12 +1,12 @@
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using FruityPrime.Server.Node.Sessions;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Sessions;
+using ProjectPrime.Server.Shared;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class NodeWebSocketTests
 {

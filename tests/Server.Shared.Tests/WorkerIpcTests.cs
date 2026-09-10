@@ -1,12 +1,12 @@
 using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.Text;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Identity;
 using Xunit;
 
-namespace FruityPrime.Server.Shared.Tests;
+namespace ProjectPrime.Server.Shared.Tests;
 
 public sealed class WorkerIpcTests
 {

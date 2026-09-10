@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using System.Text.Json.Serialization;
 using MphRead;
 
-namespace FruityPrime.Server.Shared;
+namespace ProjectPrime.Server.Shared;
 
 public enum LobbyPhase { Open, StartingMatch, InMatch, PostMatch, Closing }
 public enum LobbyVisibility { Public, Unlisted }
@@ -30,7 +30,9 @@ public sealed record LobbyRulesOptions(
     bool? FriendlyFire = null,
     bool? AffinityWeapons = null,
     bool? PlayerRadar = null,
-    bool? OctolithReset = null)
+    bool? OctolithReset = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    KillcamPolicy? KillcamPolicy = null)
 {
     public static LobbyRulesOptions Empty { get; } = new();
 
@@ -79,6 +81,8 @@ public sealed record LobbyRulesOptions(
         ValidateRange(lives, 1, ushort.MaxValue, "Starting lives");
         ValidateRange(ObjectiveTimeGoalSeconds, 1, 3600, "Objective time goal");
         ValidateRange(DamageLevel, 0, 2, "Damage level");
+        if (KillcamPolicy.HasValue && !Enum.IsDefined(KillcamPolicy.Value))
+            throw new ArgumentException("Unknown killcam policy.", nameof(KillcamPolicy));
 
         return this with
         {
@@ -104,7 +108,8 @@ public sealed record LobbyRulesOptions(
             friendlyFire: normalized.FriendlyFire ?? defaults.FriendlyFire,
             affinityWeapons: normalized.AffinityWeapons ?? defaults.AffinityWeapons,
             playerRadar: normalized.PlayerRadar ?? defaults.PlayerRadar,
-            octolithReset: normalized.OctolithReset ?? defaults.OctolithReset);
+            octolithReset: normalized.OctolithReset ?? defaults.OctolithReset,
+            killcamPolicy: normalized.KillcamPolicy ?? defaults.KillcamPolicy);
     }
 
     /// <summary>
@@ -206,6 +211,12 @@ public abstract record NodeCommand;
 public sealed record LobbyCreate(string Name, LobbyVisibility Visibility, int PlayerLimit = 8, int ObserverLimit = 16,
     LobbySeatPolicy SeatPolicy = LobbySeatPolicy.ImmediateSeat, DuelQueuePolicy DuelQueuePolicy = DuelQueuePolicy.Fifo) : NodeCommand;
 public sealed record LobbyList(int Offset = 0, int Limit = 16) : NodeCommand;
+/// <summary>
+/// Requests an immediate player seat chosen atomically by the Node. Optional
+/// preferences narrow the candidate set; they never weaken lobby admission or
+/// waitlist policy.
+/// </summary>
+public sealed record QuickPlayJoin(MatchMode? Mode = null, bool? AllowBots = null) : NodeCommand;
 public sealed record LobbyJoin(Guid LobbyId, long ExpectedRevision, bool Observer = false) : NodeCommand;
 [method: JsonConstructor]
 public sealed record LobbyQueueJoin(Guid LobbyId, long ExpectedRevision,
@@ -262,5 +273,7 @@ public sealed record LobbyReturn(long ExpectedRevision) : NodeCommand;
 public sealed record NodeMatchHandoff(Guid MatchId, uint WireMatchId, string Host, ushort Port, string Ticket, ulong Nonce, bool Observer, Hunter Hunter)
 { public override string ToString() => $"NodeMatchHandoff {{ MatchId = {MatchId}, WireMatchId = {WireMatchId}, Observer = {Observer} }}"; }
 public sealed record NodeMatchEnded(Guid MatchId, bool Interrupted);
+/// <summary>Authenticated immutable Worker result relayed by Node without recalculation.</summary>
+public sealed record NodeMatchCompletion(MatchCompletionSummary Summary);
 public sealed record NodeMatchRejoin(Guid MatchId) : NodeCommand;
 public sealed record NodeControlRequest(Guid RequestId, NodeCommand Command);

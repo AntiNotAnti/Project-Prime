@@ -107,19 +107,19 @@ public sealed class NodeDirectoryTests
             var player = new PlayerId(Guid.NewGuid());
             var response = issuer.IssueNodeAdmission(player, "Hunter", Node, "wss://node.example/control");
             var jwt = new JsonWebToken(response.Ticket);
-            Assert.Equal("ph-node-admission+jwt", jwt.Typ);
+            Assert.Equal("pp-node-admission+jwt", jwt.Typ);
             Assert.Equal("ES256", jwt.Alg); Assert.Equal("node-test", jwt.Kid);
             Assert.Equal(player.ToString(), jwt.Subject); Assert.Equal("Hunter", jwt.GetClaim("name").Value);
             Assert.False(jwt.TryGetClaim("kind", out _));
-            Assert.Equal("urn:prime-hunters:node:" + Node.ToString("D"), Assert.Single(jwt.Audiences));
+            Assert.Equal("urn:project-prime:node:" + Node.ToString("D"), Assert.Single(jwt.Audiences));
             Assert.Equal(120, (jwt.ValidTo - jwt.IssuedAt).TotalSeconds);
             Assert.Equal(jwt.IssuedAt, jwt.ValidFrom);
             Assert.False(jwt.TryGetClaim("sid", out _)); Assert.False(jwt.TryGetClaim("nonce", out _));
             Assert.True(Guid.TryParseExact(jwt.Id, "D", out _));
             var validation = await new JsonWebTokenHandler().ValidateTokenAsync(response.Ticket, new TokenValidationParameters
             {
-                ValidIssuer = "https://backend.example", ValidAudience = "urn:prime-hunters:node:" + Node.ToString("D"),
-                IssuerSigningKey = new ECDsaSecurityKey(key), ValidAlgorithms = ["ES256"], ValidTypes = ["ph-node-admission+jwt"],
+                ValidIssuer = "https://backend.example", ValidAudience = "urn:project-prime:node:" + Node.ToString("D"),
+                IssuerSigningKey = new ECDsaSecurityKey(key), ValidAlgorithms = ["ES256"], ValidTypes = ["pp-node-admission+jwt"],
                 ValidateLifetime = false
             });
             Assert.True(validation.IsValid, validation.Exception?.Message);

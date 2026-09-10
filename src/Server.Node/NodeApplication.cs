@@ -1,15 +1,15 @@
-using FruityPrime.Server.Node.Identity;
-using FruityPrime.Server.Node.Admin;
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Node.Lobbies.Queue;
-using FruityPrime.Server.Node.Sessions;
-using FruityPrime.Server.Node.Workers;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Identity;
+using ProjectPrime.Server.Node.Admin;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Node.Lobbies.Queue;
+using ProjectPrime.Server.Node.Sessions;
+using ProjectPrime.Server.Node.Workers;
+using ProjectPrime.Server.Shared;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using FruityPrime.Server.Node.Discovery;
+using ProjectPrime.Server.Node.Discovery;
 using System.Threading.RateLimiting;
 
-namespace FruityPrime.Server.Node;
+namespace ProjectPrime.Server.Node;
 
 public static class NodeApplication
 {
@@ -28,7 +28,9 @@ public static class NodeApplication
             sp.GetRequiredService<TimeProvider>(),
             builder.Configuration.GetValue("Node:MaximumWaitlistPerLobby", LobbyWaitlist.DefaultMaximumEntries),
             TimeSpan.FromSeconds(builder.Configuration.GetValue("Node:WaitlistOfferSeconds", 15)),
-            builder.Configuration.GetValue("Node:PostMatchVoteSeconds", 15)));
+            builder.Configuration.GetValue("Node:PostMatchVoteSeconds", 15),
+            builder.Configuration.GetValue("Node:QuickPlayV2Enabled", true),
+            sp.GetRequiredService<ILogger<LobbyManager>>()));
         builder.Services.AddNodeWorkerPool(builder.Configuration, auth.NodeId);
         builder.Services.AddSingleton(NodeContentCatalog.FromConfiguration(
             builder.Configuration.GetSection("Node:Maps").Get<NodeMapConfiguration[]>() ?? []));
@@ -43,6 +45,9 @@ public static class NodeApplication
             options.AddPolicy("control-upgrade", context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            options.AddPolicy("latency-probe", context => RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.AddPolicy("host-admin", context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
@@ -53,7 +58,8 @@ public static class NodeApplication
         _ = app.Services.GetRequiredService<LobbyManager>();
         app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(20), KeepAliveTimeout = TimeSpan.FromSeconds(20) });
         app.UseRateLimiter();
-        app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+        app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
+            .RequireRateLimiting("latency-probe");
         app.MapGet("/v1/status", (NodeSessionManager sessions, LobbyManager lobbies, NodeContentCatalog content) =>
             Results.Ok(new { nodeId = auth.NodeId, protocolVersion = 1, onlineUsers = sessions.Count, lobbyCount = lobbies.Count,
                 protocolClosures = sessions.ProtocolClosures, maps = content.Maps }));

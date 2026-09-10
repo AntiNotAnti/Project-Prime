@@ -1,12 +1,12 @@
 using System.Net;
 using System.Text.Json;
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Node.Discovery;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Node.Discovery;
+using ProjectPrime.Server.Shared;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class NodeDirectoryReporterTests
 {

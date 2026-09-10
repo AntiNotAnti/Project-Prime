@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 
-namespace FruityPrime.Server.Shared;
+namespace ProjectPrime.Server.Shared;
 
 /// <summary>V1: little-endian uint32 body length (excludes prefix), byte type,
 /// then JSON {version,payload}. Caller serializes writes and authenticates the local pipe.

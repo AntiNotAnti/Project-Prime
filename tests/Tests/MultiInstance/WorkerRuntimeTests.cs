@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using FruityPrime.Server.Shared;
-using FruityPrime.Server.Worker;
-using FruityPrime.Server.Worker.Simulation;
+using ProjectPrime.Server.Shared;
+using ProjectPrime.Server.Worker;
+using ProjectPrime.Server.Worker.Simulation;
 using MphRead.Identity;
 using MphRead.Mods.Network;
 using Xunit;
@@ -18,6 +19,66 @@ namespace MphRead.Tests;
 [Collection("Match baseline globals")]
 public sealed class WorkerRuntimeTests
 {
+    [Theory]
+    [InlineData(30, 2, false)]
+    [InlineData(60, 1, true)]
+    public void SnapshotCadenceUsesOnlySupportedServerRates(int rateHz, int intervalTicks, bool dueAtNextTick)
+    {
+        var cadence = new SnapshotCadence(rateHz);
+        Assert.Equal(rateHz, cadence.RateHz);
+        Assert.Equal(intervalTicks, cadence.IntervalTicks);
+        Assert.True(cadence.IsDue(0));
+        Assert.True(cadence.IsDue((uint)intervalTicks));
+        Assert.Equal(dueAtNextTick, cadence.IsDue((uint)(intervalTicks + 1)));
+    }
+
+    [Fact]
+    public void SnapshotCadenceValidationIsExplicitAndDefaultRemainsThirtyHertz()
+    {
+        Assert.Equal(SnapshotCadence.DefaultRateHz, new WorkerOptions().SnapshotRateHz);
+        Assert.True(SnapshotCadence.IsSupported(30));
+        Assert.True(SnapshotCadence.IsSupported(60));
+        Assert.False(SnapshotCadence.IsSupported(15));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotCadence(15));
+        Assert.Throws<ArgumentException>(() => new WorkerOptions { SnapshotRateHz = 15 }.Validate());
+        Assert.Equal("60", ProjectPrime.Server.Worker.Program.ParseArguments(
+            ["--snapshot-rate-hz", "60"])["--snapshot-rate-hz"]);
+    }
+
+    [Fact]
+    public void AdaptiveTimingFlagsAreOffByDefaultAndInputPlayoutRequiresAuthority()
+    {
+        var defaults = new WorkerOptions();
+        Assert.False(defaults.AdaptiveTimingEnabled);
+        Assert.False(defaults.AdaptiveInputPlayoutEnabled);
+        Assert.Throws<ArgumentException>(() => new WorkerOptions
+        {
+            AdaptiveInputPlayoutEnabled = true
+        }.Validate());
+        var enabled = new WorkerOptions
+        {
+            AdaptiveTimingEnabled = true,
+            AdaptiveInputPlayoutEnabled = true
+        };
+        enabled.Validate();
+        Dictionary<string, string> parsed = ProjectPrime.Server.Worker.Program.ParseArguments(
+            ["--adaptive-timing", "true", "--adaptive-input-playout", "true"]);
+        Assert.Equal("true", parsed["--adaptive-timing"]);
+        Assert.Equal("true", parsed["--adaptive-input-playout"]);
+    }
+
+    [Fact]
+    public void TransportAndReliableFlagsAreOffByDefaultAndParseStrictly()
+    {
+        var defaults = new WorkerOptions();
+        Assert.False(defaults.TransportQueueV2Enabled);
+        Assert.False(defaults.ReliableAdaptiveRtoEnabled);
+        Dictionary<string, string> parsed = ProjectPrime.Server.Worker.Program.ParseArguments(
+            ["--transport-queue-v2", "true", "--reliable-adaptive-rto", "true"]);
+        Assert.Equal("true", parsed["--transport-queue-v2"]);
+        Assert.Equal("true", parsed["--reliable-adaptive-rto"]);
+    }
+
     [Theory]
     [InlineData(WorkerLagCompensationMode.Off, false, false, false)]
     [InlineData(WorkerLagCompensationMode.Players, true, true, false)]
@@ -58,9 +119,9 @@ public sealed class WorkerRuntimeTests
         Assert.Equal(DeveloperValidationFixtureId.Unit1Rm1Dynamic,
             WorkerOptions.ParseValidationFixture("unit1-rm1-dynamic"));
         Assert.Throws<ArgumentException>(() => WorkerOptions.ParseValidationFixture("Unit1Rm1Dynamic"));
-        Assert.Throws<ArgumentException>(() => FruityPrime.Server.Worker.Program.ParseArguments(
+        Assert.Throws<ArgumentException>(() => ProjectPrime.Server.Worker.Program.ParseArguments(
             ["--validation-fixture", "unit1-rm1-dynamic", "--validation-fixture", "none"]));
-        Assert.Throws<ArgumentException>(() => FruityPrime.Server.Worker.Program.ParseArguments(
+        Assert.Throws<ArgumentException>(() => ProjectPrime.Server.Worker.Program.ParseArguments(
             ["--fixture-path", "/tmp/arbitrary"]));
 
         new WorkerOptions
@@ -172,7 +233,7 @@ public sealed class WorkerRuntimeTests
             spec with { MatchId = new(Guid.NewGuid()), TournamentId = Guid.NewGuid(), RoundId = Guid.NewGuid() },
             spec with { MatchId = new(Guid.NewGuid()), Roster = spec.Roster.SetItem(1,
                 spec.Roster[1] with { Hunter = Hunter.Spire }) },
-            spec with { MatchId = new(Guid.NewGuid()), BotFillPolicy = FruityPrime.Server.Shared.BotFillPolicy.Disabled },
+            spec with { MatchId = new(Guid.NewGuid()), BotFillPolicy = ProjectPrime.Server.Shared.BotFillPolicy.Disabled },
             spec with { MatchId = new(Guid.NewGuid()), ObserverPolicy = ObserverPolicy.Allowed },
             spec with { MatchId = new(Guid.NewGuid()), ReplayPolicy = ReplayPolicy.Disabled },
             spec with { MatchId = new(Guid.NewGuid()), TelemetryPolicy = TelemetryPolicy.Disabled }
@@ -296,6 +357,43 @@ public sealed class WorkerRuntimeTests
         await Assert.ThrowsAsync<ObjectDisposedException>(() => lane.InvokeAsync(() => 1));
     }
 
+    [Fact]
+    public async Task CommandBurstCannotConsumeTheSimulationDeadlineIndefinitely()
+    {
+        using var lane = new SimulationLane(0, 128);
+        Task<int>[] commands = Enumerable.Range(0, 60).Select(value => lane.InvokeAsync(() =>
+        {
+            long started = Stopwatch.GetTimestamp();
+            while (Stopwatch.GetElapsedTime(started).TotalMilliseconds < 2)
+                Thread.SpinWait(32);
+            return value;
+        })).ToArray();
+
+        await Task.Delay(60);
+
+        Assert.True(lane.Metrics.Ticks > 0);
+        Assert.Contains(commands, command => !command.IsCompleted);
+        Assert.Equal(64, SimulationLane.MaximumCommandsPerPass);
+        await Task.WhenAll(commands).WaitAsync(TimeSpan.FromSeconds(3));
+    }
+
+    [Fact]
+    public void LanePlacementIgnoresUnrepresentativeStartupTailLatency()
+    {
+        var options = new WorkerOptions
+        {
+            MaxMatches = 2,
+            SimulationLanes = 1,
+            MaxMatchesPerLane = 2,
+            PlacementP99Milliseconds = Double.Epsilon
+        };
+        using var lanes = new SimulationLaneManager(options);
+        using SimulationLaneManager.Lease first = lanes.Reserve();
+        using SimulationLaneManager.Lease second = lanes.Reserve();
+        Assert.Same(first.Lane, second.Lane);
+        Assert.True(first.Lane.Metrics.Ticks < SimulationLaneManager.PlacementWarmupTicks);
+    }
+
     [Trait("RequiresGameContent", "true")]
     [Fact]
     public async Task FaultyTerminalCallbackDoesNotKillTheOtherWorldOrLane()
@@ -325,9 +423,9 @@ public sealed class WorkerRuntimeTests
     public async Task StartupTokenReadIsBoundedAndRequiresOneToken()
     {
         string token = new('a', 64);
-        Assert.Equal(token, await FruityPrime.Server.Worker.Program.ReadStartupTokenAsync(new StringReader(token + "\n"), CancellationToken.None));
-        await Assert.ThrowsAsync<InvalidDataException>(() => FruityPrime.Server.Worker.Program.ReadStartupTokenAsync(new StringReader(new string('a', 10000)), CancellationToken.None));
-        await Assert.ThrowsAsync<InvalidDataException>(() => FruityPrime.Server.Worker.Program.ReadStartupTokenAsync(new StringReader(token + "\nextra"), CancellationToken.None));
+        Assert.Equal(token, await ProjectPrime.Server.Worker.Program.ReadStartupTokenAsync(new StringReader(token + "\n"), CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidDataException>(() => ProjectPrime.Server.Worker.Program.ReadStartupTokenAsync(new StringReader(new string('a', 10000)), CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidDataException>(() => ProjectPrime.Server.Worker.Program.ReadStartupTokenAsync(new StringReader(token + "\nextra"), CancellationToken.None));
     }
 
     private static MatchSpec Spec(WorkerContent content, WorkerOptions options, int index) => new(new(Guid.NewGuid()), new(Guid.NewGuid()),
@@ -335,7 +433,7 @@ public sealed class WorkerRuntimeTests
         new(index % 2 == 0 ? "MP1 SANCTORUS" : "MP2 HARVESTER", content.ContentHash, content.Version, options.BuildVersion, NetHeader.Version), MatchTrustClass.Community,
         null, null, ImmutableArray.Create(new RosterSeat(0, null, null, "Spire", Hunter.Spire, 0, SeatRole.Bot, false),
             new RosterSeat(1, null, null, "Samus", Hunter.Samus, 1, SeatRole.Bot, false)),
-        FruityPrime.Server.Shared.BotFillPolicy.Disabled, ObserverPolicy.Disabled, ReplayPolicy.Disabled, TelemetryPolicy.Disabled,
+        ProjectPrime.Server.Shared.BotFillPolicy.Disabled, ObserverPolicy.Disabled, ReplayPolicy.Disabled, TelemetryPolicy.Disabled,
         (uint)(index + 123), (uint)(index + 456));
 
     private static MatchSpec ValidationFixtureSpec(WorkerContent content,
@@ -354,7 +452,7 @@ public sealed class WorkerRuntimeTests
                     SeatRole.Player, false),
                 new RosterSeat(1, null, null, "Bot1", Hunter.Samus, 1,
                     SeatRole.Bot, false)),
-            FruityPrime.Server.Shared.BotFillPolicy.FillVacancies,
+            ProjectPrime.Server.Shared.BotFillPolicy.FillVacancies,
             ObserverPolicy.Disabled, ReplayPolicy.Record, TelemetryPolicy.Record,
             (uint)(index + 900), (uint)(index + 1200));
     }

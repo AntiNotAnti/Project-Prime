@@ -7,7 +7,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace FruityPrime.Protocol.Generator;
+namespace ProjectPrime.Protocol.Generator;
 
 /// <summary>Generates bounded, allocation-free-on-write protocol 9 codecs.</summary>
 [Generator(LanguageNames.CSharp)]

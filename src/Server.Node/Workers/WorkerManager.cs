@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 
-namespace FruityPrime.Server.Node.Workers;
+namespace ProjectPrime.Server.Node.Workers;
 
 /// <summary>Owns authenticated child processes. A failed worker is never silently restarted:
 /// its match identities remain interrupted, and a replacement receives a new incarnation.</summary>

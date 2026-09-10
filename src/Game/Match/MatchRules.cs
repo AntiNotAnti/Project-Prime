@@ -31,6 +31,7 @@ namespace MphRead
         public RankingEligibility RankingEligibility { get; }
         public RadarPolicy RadarPolicy { get; }
         public TeamBalancePolicy TeamBalancePolicy { get; }
+        public KillcamPolicy KillcamPolicy { get; }
         public bool Teams => Mode.IsTeamMode();
         public bool IsOctolithMode => Mode is MatchMode.Capture or MatchMode.Bounty or MatchMode.TeamBounty;
         public bool IsSurvival => Mode is MatchMode.Survival or MatchMode.TeamSurvival;
@@ -46,7 +47,8 @@ namespace MphRead
             int assistMinimumDamage = 20, int assistWindowTicks = 300,
             OvertimePolicy overtimePolicy = OvertimePolicy.Disabled, LateJoinPolicy lateJoinPolicy = LateJoinPolicy.JoinImmediately, bool pickupRespawnAnnouncements = false,
             RulesetPreset rulesetPreset = RulesetPreset.Classic, RankingEligibility rankingEligibility = RankingEligibility.Unranked,
-            RadarPolicy radarPolicy = RadarPolicy.Classic, TeamBalancePolicy teamBalancePolicy = TeamBalancePolicy.BeforeStart)
+            RadarPolicy radarPolicy = RadarPolicy.Classic, TeamBalancePolicy teamBalancePolicy = TeamBalancePolicy.BeforeStart,
+            KillcamPolicy killcamPolicy = KillcamPolicy.Immediate)
         {
             _ = mode.ToLegacyMode();
             if (String.IsNullOrWhiteSpace(roomKey)) { throw new ArgumentException("A room key is required.", nameof(roomKey)); }
@@ -67,10 +69,12 @@ namespace MphRead
             if (!Enum.IsDefined(rankingEligibility)) throw new ArgumentOutOfRangeException(nameof(rankingEligibility));
             if (!Enum.IsDefined(radarPolicy)) throw new ArgumentOutOfRangeException(nameof(radarPolicy));
             if (!Enum.IsDefined(teamBalancePolicy)) throw new ArgumentOutOfRangeException(nameof(teamBalancePolicy));
+            if (!Enum.IsDefined(killcamPolicy)) throw new ArgumentOutOfRangeException(nameof(killcamPolicy));
             if (rulesetPreset == RulesetPreset.Duel && (mode != MatchMode.Battle || maxPlayers != 2))
                 throw new ArgumentException("Duel requires Battle mode and two active players.");
             RulesetPreset = rulesetPreset; RankingEligibility = rankingEligibility;
             RadarPolicy = radarPolicy; TeamBalancePolicy = teamBalancePolicy;
+            KillcamPolicy = killcamPolicy;
             OvertimePolicy = overtimePolicy;
             LateJoinPolicy = lateJoinPolicy;
             PickupRespawnAnnouncements = pickupRespawnAnnouncements;
@@ -119,7 +123,8 @@ namespace MphRead
             int? assistMinimumDamage = null, int? assistWindowTicks = null,
             OvertimePolicy? overtimePolicy = null, LateJoinPolicy? lateJoinPolicy = null, bool? pickupRespawnAnnouncements = null,
             RulesetPreset? rulesetPreset = null, RankingEligibility? rankingEligibility = null,
-            RadarPolicy? radarPolicy = null, TeamBalancePolicy? teamBalancePolicy = null)
+            RadarPolicy? radarPolicy = null, TeamBalancePolicy? teamBalancePolicy = null,
+            KillcamPolicy? killcamPolicy = null)
         {
             return new MatchRules(mode ?? Mode, roomKey ?? RoomKey, maxPlayers ?? MaxPlayers,
                 clearTimeLimit ? null : timeLimit ?? TimeLimit, scoreGoal ?? ScoreGoal,
@@ -130,7 +135,8 @@ namespace MphRead
                 assistMinimumDamage ?? AssistMinimumDamage, assistWindowTicks ?? AssistWindowTicks,
                 overtimePolicy ?? OvertimePolicy, lateJoinPolicy ?? LateJoinPolicy, pickupRespawnAnnouncements ?? PickupRespawnAnnouncements,
                 rulesetPreset ?? RulesetPreset, rankingEligibility ?? RankingEligibility,
-                radarPolicy ?? RadarPolicy, teamBalancePolicy ?? TeamBalancePolicy);
+                radarPolicy ?? RadarPolicy, teamBalancePolicy ?? TeamBalancePolicy,
+                killcamPolicy ?? KillcamPolicy);
         }
 
         public static MatchRules CreateDefault(MatchMode mode, string roomKey, int maxPlayers = PlayerEntity.SlotCapacity)

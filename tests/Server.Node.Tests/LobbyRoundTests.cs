@@ -1,10 +1,10 @@
 using System.Collections.Immutable;
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class LobbyRoundTests
 {

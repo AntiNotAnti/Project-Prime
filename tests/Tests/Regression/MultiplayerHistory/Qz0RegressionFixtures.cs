@@ -142,7 +142,7 @@ internal sealed class MatchBoundaryFixture
             MatchRules.CreateDefault(MatchMode.Battle, "qz0-boundary"));
         byte[] body = new byte[MatchTransitionPacket.Size];
         packet.Write(body);
-        return Record(DemoRecordKind.Match, body);
+        return Record(ReplayRecordKind.Match, body);
     }
 
     internal byte[] WorldEventRecord(uint matchId, uint phaseRevision, WorldSignalKind kind)
@@ -154,12 +154,12 @@ internal sealed class MatchBoundaryFixture
         BinaryPrimitives.WriteUInt32LittleEndian(body, matchId);
         body[4] = (byte)ReliableEventType.WorldEvent;
         value.Write(body.AsSpan(5));
-        return Record(DemoRecordKind.Event, body);
+        return Record(ReplayRecordKind.Event, body);
     }
 
     private uint NextEntityId() => checked((uint)_random.Next(1, Int32.MaxValue));
 
-    private static byte[] Record(DemoRecordKind kind, ReadOnlySpan<byte> body)
+    private static byte[] Record(ReplayRecordKind kind, ReadOnlySpan<byte> body)
     {
         byte[] record = new byte[body.Length + 1];
         record[0] = (byte)kind;

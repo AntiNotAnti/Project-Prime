@@ -1,11 +1,11 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using FruityPrime.Server.Node.Identity;
+using ProjectPrime.Server.Node.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class NodeSecurityTests
 {
@@ -35,7 +35,7 @@ public sealed class NodeSecurityTests
         };
         string payload = JsonSerializer.Serialize(claims);
         payload = payload[..^1] + ",\"sub\":\"" + Guid.NewGuid().ToString("D") + "\"}";
-        string input = Encode(Encoding.UTF8.GetBytes("{\"alg\":\"ES256\",\"typ\":\"ph-node-admission+jwt\",\"kid\":\"test\"}")) + "." + Encode(Encoding.UTF8.GetBytes(payload));
+        string input = Encode(Encoding.UTF8.GetBytes("{\"alg\":\"ES256\",\"typ\":\"pp-node-admission+jwt\",\"kid\":\"test\"}")) + "." + Encode(Encoding.UTF8.GetBytes(payload));
         string token = input + "." + Encode(host.SigningKey.SignData(Encoding.ASCII.GetBytes(input), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
         Assert.Null(await validator.ValidateAsync(token));
     }

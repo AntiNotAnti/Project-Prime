@@ -1,3 +1,3 @@
-using FruityPrime.Server.Node;
+using ProjectPrime.Server.Node;
 
 await NodeApplication.Build(args).RunAsync();

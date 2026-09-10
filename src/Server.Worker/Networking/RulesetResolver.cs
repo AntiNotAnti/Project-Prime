@@ -27,7 +27,9 @@ namespace MphRead.Mods.Network
                 cancelSpawnProtectionOnOffensiveAction: true, overtimePolicy: OvertimePolicy.ModeDefault,
                 lateJoinPolicy: LateJoinPolicy.SpectateUntilNextMatch,
                 rankingEligibility: RankingEligibility.VerifiedServerOnly,
-                radarPolicy: RadarPolicy.Disabled, teamBalancePolicy: TeamBalancePolicy.BeforeStart);
+                radarPolicy: RadarPolicy.Disabled, teamBalancePolicy: TeamBalancePolicy.BeforeStart,
+                killcamPolicy: preset == RulesetPreset.Competitive && rules.Mode.IsTeamMode()
+                    ? KillcamPolicy.PostRound : rules.KillcamPolicy);
         }
     }
 }

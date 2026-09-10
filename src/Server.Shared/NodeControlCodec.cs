@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using MphRead;
 
-namespace FruityPrime.Server.Shared;
+namespace ProjectPrime.Server.Shared;
 
 public static class NodeControlCodec
 {
@@ -46,6 +46,7 @@ public static class NodeControlCodec
             "match.rejoin" => Decode(p, NodeJsonContext.Default.NodeMatchRejoin),
             "lobby.create" => Decode(p, NodeJsonContext.Default.LobbyCreate),
             "lobby.list" => Decode(p, NodeJsonContext.Default.LobbyList),
+            "quickplay.join" => Decode(p, NodeJsonContext.Default.QuickPlayJoin),
             "lobby.join" => Decode(p, NodeJsonContext.Default.LobbyJoin),
             "lobby.queue.join" => Decode(p, NodeJsonContext.Default.LobbyQueueJoin),
             "lobby.queue.leave" => Decode(p, NodeJsonContext.Default.LobbyQueueLeave),
@@ -200,6 +201,7 @@ public sealed record NodeControlEvent(int Version, string Type, long EventId, Gu
 [JsonSerializable(typeof(LobbyCreate))]
 [JsonSerializable(typeof(LobbyRulesOptions))]
 [JsonSerializable(typeof(LobbyList))]
+[JsonSerializable(typeof(QuickPlayJoin))]
 [JsonSerializable(typeof(LobbyJoin))]
 [JsonSerializable(typeof(LobbyQueueJoin))]
 [JsonSerializable(typeof(LobbyQueueLeave))]
@@ -216,6 +218,7 @@ public sealed record NodeControlEvent(int Version, string Type, long EventId, Gu
 [JsonSerializable(typeof(LobbyReturn))]
 [JsonSerializable(typeof(NodeMatchHandoff))]
 [JsonSerializable(typeof(NodeMatchEnded))]
+[JsonSerializable(typeof(NodeMatchCompletion))]
 [JsonSerializable(typeof(NodeMatchRejoin))]
 [JsonSerializable(typeof(LobbySnapshot))]
 [JsonSerializable(typeof(LobbyListSnapshot))]

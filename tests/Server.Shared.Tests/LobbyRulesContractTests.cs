@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using Xunit;
 
-namespace FruityPrime.Server.Shared.Tests;
+namespace ProjectPrime.Server.Shared.Tests;
 
 public sealed class LobbyRulesContractTests
 {
@@ -37,7 +37,7 @@ public sealed class LobbyRulesContractTests
         LobbyRulesOptions prior = new(TimeLimitSeconds: 600, ScoreGoal: 11,
             StartingLives: 4, ObjectiveTimeGoalSeconds: 120, DamageLevel: 2,
             FriendlyFire: true, AffinityWeapons: true, PlayerRadar: true,
-            OctolithReset: true);
+            OctolithReset: true, KillcamPolicy: KillcamPolicy.PostRound);
 
         LobbyRulesOptions projected = prior.ForMode(MatchMode.Survival);
         Assert.Equal(600, projected.TimeLimitSeconds);
@@ -45,11 +45,27 @@ public sealed class LobbyRulesContractTests
         Assert.True(projected.FriendlyFire);
         Assert.True(projected.AffinityWeapons);
         Assert.True(projected.PlayerRadar);
+        Assert.Equal(KillcamPolicy.PostRound, projected.KillcamPolicy);
         Assert.Equal(4, projected.StartingLives);
         Assert.Null(projected.ScoreGoal);
         Assert.Null(projected.ObjectiveTimeGoalSeconds);
         Assert.Null(projected.OctolithReset);
         Assert.Equal(4, projected.ToMatchRules(MatchMode.Survival, "unit").StartingLives);
+        Assert.Equal(KillcamPolicy.PostRound,
+            projected.ToMatchRules(MatchMode.Survival, "unit").KillcamPolicy);
+    }
+
+    [Fact]
+    public void KillcamPolicyDefaultsAndExplicitHostSelectionAreValidated()
+    {
+        MatchRules defaults = LobbyRulesOptions.Empty.ToMatchRules(MatchMode.Battle, "unit");
+        MatchRules disabled = new LobbyRulesOptions(KillcamPolicy: KillcamPolicy.Disabled)
+            .ToMatchRules(MatchMode.Battle, "unit");
+
+        Assert.Equal(KillcamPolicy.Immediate, defaults.KillcamPolicy);
+        Assert.Equal(KillcamPolicy.Disabled, disabled.KillcamPolicy);
+        Assert.Throws<ArgumentException>(() =>
+            new LobbyRulesOptions(KillcamPolicy: (KillcamPolicy)3).Normalize(MatchMode.Battle));
     }
 
     [Fact]

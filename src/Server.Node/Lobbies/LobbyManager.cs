@@ -5,11 +5,12 @@ using System.Threading.Channels;
 using System.Security.Cryptography;
 using MphRead.Identity;
 using System.Text;
-using FruityPrime.Server.Shared;
-using FruityPrime.Server.Node.Lobbies.Queue;
+using ProjectPrime.Server.Shared;
+using ProjectPrime.Server.Node.Lobbies.Queue;
 using MphRead;
+using Microsoft.Extensions.Logging;
 
-namespace FruityPrime.Server.Node.Lobbies;
+namespace ProjectPrime.Server.Node.Lobbies;
 
 public sealed record LobbyIdentity(Guid SessionId, Guid? PlayerId, string DisplayName, Guid? GuestSessionId = null)
 {
@@ -77,6 +78,8 @@ public sealed partial class LobbyManager
     private readonly Dictionary<HumanIdentityKey, Guid> _queueIdentities = [];
     private readonly int _maximumLobbies;
     private readonly int _maximumWaitlistPerLobby;
+    private readonly bool _quickPlayV2Enabled;
+    private readonly ILogger<LobbyManager>? _logger;
     private bool _admissionClosed;
     public void CloseAdmission() { lock (_gate) _admissionClosed = true; }
     private readonly ConcurrentDictionary<Guid, LobbySnapshot> _notifications = [];
@@ -88,7 +91,8 @@ public sealed partial class LobbyManager
                 if (_notifications.TryRemove(pair)) yield return pair.Value;
     }
     public LobbyManager(int maximumLobbies = 256, TimeProvider? clock = null,
-        int maximumWaitlistPerLobby = LobbyWaitlist.DefaultMaximumEntries, TimeSpan? offerWindow = null, int postMatchVoteSeconds = 15)
+        int maximumWaitlistPerLobby = LobbyWaitlist.DefaultMaximumEntries, TimeSpan? offerWindow = null,
+        int postMatchVoteSeconds = 15, bool quickPlayV2Enabled = true, ILogger<LobbyManager>? logger = null)
     {
         if (maximumLobbies is < 1 or > 4096) throw new ArgumentOutOfRangeException(nameof(maximumLobbies));
         if (maximumWaitlistPerLobby is < 1 or > LobbyWaitlist.MaximumEntriesLimit)
@@ -99,6 +103,7 @@ public sealed partial class LobbyManager
         if (postMatchVoteSeconds is < 5 or > 30) throw new ArgumentOutOfRangeException(nameof(postMatchVoteSeconds));
         PostMatchVoteSeconds = postMatchVoteSeconds;
         _maximumLobbies = maximumLobbies; _maximumWaitlistPerLobby = maximumWaitlistPerLobby;
+        _quickPlayV2Enabled = quickPlayV2Enabled; _logger = logger;
         RoundClock = clock ?? TimeProvider.System; OfferWindow = window;
     }
     public int PostMatchVoteSeconds { get; }
@@ -176,6 +181,13 @@ public sealed partial class LobbyManager
                     created.Waitlist = new LobbyWaitlist(_maximumWaitlistPerLobby);
                     _lobbies.Add(created.Id, created);
                     return Join(created, identity, false);
+                case QuickPlayJoin quickPlay:
+                    if (!_quickPlayV2Enabled) throw Error("unsupported", "Node Quick Play is disabled.");
+                    if (_admissionClosed) throw Error("draining", "Node is draining.");
+                    RequireUnjoined(identity.SessionId);
+                    if (quickPlay.Mode is { } preferredMode && !Enum.IsDefined(preferredMode))
+                        throw Error("invalid", "Invalid Quick Play mode preference.");
+                    return QuickPlay(identity, quickPlay);
                 case LobbyJoin join:
                     if (_admissionClosed) throw Error("draining", "Node is draining.");
                     RequireUnjoined(identity.SessionId);
@@ -598,6 +610,41 @@ public sealed partial class LobbyManager
         lobby.Members.Add(identity.SessionId, new(identity.SessionId, identity.PlayerId, identity.DisplayName, Hunter.Samus, 0, false, observer, identity.GuestSessionId));
         _membership.Add(identity.SessionId, lobby.Id);
         return Publish(lobby);
+    }
+
+    private LobbySnapshot QuickPlay(LobbyIdentity identity, QuickPlayJoin command)
+    {
+        // Quick Play is join-now only. Any active queue entry or seat offer
+        // owns the next available seat, so such a lobby is never eligible.
+        Lobby[] candidates = _lobbies.Values
+            .Where(lobby => lobby.Rules.Visibility == LobbyVisibility.Public
+                && lobby.Phase == LobbyPhase.Open
+                && lobby.Waitlist.Count == 0
+                && PlayerSeatsAvailable(lobby) > 0
+                && (command.Mode is null || lobby.Mode == command.Mode)
+                && (command.AllowBots is not false || lobby.BotCount == 0))
+            .OrderByDescending(lobby => lobby.Members.Values.Count(member => !member.Observer))
+            .ThenBy(lobby => lobby.BotCount)
+            .ThenBy(lobby => lobby.Waitlist.Count)
+            .ThenByDescending(lobby => lobby.Members.Values.Count(member => !member.Observer && member.Ready))
+            .ThenBy(lobby => lobby.Id)
+            .ToArray();
+
+        if (candidates.Length == 0)
+        {
+            _logger?.LogInformation("Quick Play found no immediate seat among {CandidateCount} candidates", 0);
+            throw Error("no_match", "No public lobby has an immediate player seat.");
+        }
+
+        Lobby selected = candidates[0];
+        _logger?.LogInformation(
+            "Quick Play considered {CandidateCount} lobbies and selected {LobbyId}: humans={Humans}, bots={Bots}, waitlist={Waitlist}, ready={Ready}",
+            candidates.Length, selected.Id,
+            selected.Members.Values.Count(member => !member.Observer), selected.BotCount,
+            selected.Waitlist.Count, selected.Members.Values.Count(member => !member.Observer && member.Ready));
+        LobbySnapshot joined = Join(selected, identity, observer: false);
+        _logger?.LogInformation("Quick Play joined lobby {LobbyId} at revision {Revision}", selected.Id, joined.Revision);
+        return joined;
     }
 
     private static RosterSeat ToRosterSeat(byte seatId, LobbyMember member, SeatRole role)

@@ -149,5 +149,5 @@ public sealed class RotationRulesTests
     }
 
     private static string TempPath() => Path.Combine(Path.GetTempPath(),
-        "fruity-rotation-rules-" + Guid.NewGuid().ToString("N") + ".txt");
+        "project-prime-rotation-rules-" + Guid.NewGuid().ToString("N") + ".txt");
 }

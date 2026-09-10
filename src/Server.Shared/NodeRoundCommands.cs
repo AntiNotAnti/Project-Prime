@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using MphRead;
 
-namespace FruityPrime.Server.Shared;
+namespace ProjectPrime.Server.Shared;
 
 public enum TournamentControl { PauseBetweenRounds, Resume, EndTournament, ForceActiveResult }
 public enum LobbyVoteChoice { Rematch, NextMap, ReturnToLobby, Map }

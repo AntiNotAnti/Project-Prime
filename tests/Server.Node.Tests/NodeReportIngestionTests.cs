@@ -1,8 +1,8 @@
 using System.Collections.Immutable;
 using System.Net;
-using FruityPrime.Server.Node.Reporting;
-using FruityPrime.Server.Shared;
-using FruityPrime.Server.Worker.Reporting;
+using ProjectPrime.Server.Node.Reporting;
+using ProjectPrime.Server.Shared;
+using ProjectPrime.Server.Worker.Reporting;
 using MphRead;
 using MphRead.Entities;
 using MphRead.Identity;
@@ -10,7 +10,7 @@ using MphRead.Mods.Network;
 using MphRead.Reporting;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class NodeReportIngestionTests
 {
@@ -205,7 +205,7 @@ public sealed class NodeReportIngestionTests
         var spec = new MatchSpec(new(Guid.NewGuid()), new(Guid.NewGuid()), new(Guid.NewGuid()), Guid.NewGuid(), rules,
             new(rules.RoomKey, "content-hash", "AMHE1", "test-build", NetHeader.Version), MatchTrustClass.Community, null, null,
             ImmutableArray.Create(new RosterSeat(0, null, null, "Bot", Hunter.Samus, 0, SeatRole.Bot, false)),
-            FruityPrime.Server.Shared.BotFillPolicy.Disabled, ObserverPolicy.Disabled, ReplayPolicy.Disabled, TelemetryPolicy.Disabled, 1, 2);
+            ProjectPrime.Server.Shared.BotFillPolicy.Disabled, ObserverPolicy.Disabled, ReplayPolicy.Disabled, TelemetryPolicy.Disabled, 1, 2);
         var scene = new Scene(headless: true); scene.Match.ApplyRules(rules); scene.Match.MatchId = 1;
         scene.Players.ActiveCount = 1; scene.Players[0].Health = 100; scene.Players[0].LoadFlags = LoadFlags.Active;
         var network = new ServerNetwork(new SilentTransport(), rules);

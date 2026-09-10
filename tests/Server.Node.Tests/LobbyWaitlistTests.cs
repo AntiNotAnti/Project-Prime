@@ -1,16 +1,16 @@
 using System.Net.WebSockets;
 using System.Text;
-using FruityPrime.Server.Node.Lobbies.Queue;
-using FruityPrime.Server.Node.Sessions;
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Lobbies.Queue;
+using ProjectPrime.Server.Node.Sessions;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Network;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class LobbyWaitlistTests
 {

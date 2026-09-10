@@ -37,7 +37,7 @@ public sealed class Program
             if (string.IsNullOrWhiteSpace(accountOptions.DataProtectionKeyPath))
                 throw new InvalidOperationException("Accounts__DataProtectionKeyPath must be configured outside Development/Testing.");
         }
-        var protection = builder.Services.AddDataProtection().SetApplicationName("PrimeHunters.Backend");
+        var protection = builder.Services.AddDataProtection().SetApplicationName("ProjectPrime.Backend");
         if (!string.IsNullOrWhiteSpace(accountOptions.DataProtectionKeyPath))
         {
             protection.PersistKeysToFileSystem(new DirectoryInfo(accountOptions.DataProtectionKeyPath));

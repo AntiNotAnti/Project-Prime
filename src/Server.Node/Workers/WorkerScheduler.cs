@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using Microsoft.Extensions.Logging.Abstractions;
-using FruityPrime.Server.Node.Reporting;
+using ProjectPrime.Server.Node.Reporting;
 using MphRead.Identity;
 
-namespace FruityPrime.Server.Node.Workers;
+namespace ProjectPrime.Server.Node.Workers;
 
 public sealed record WorkerMatchAssignment(MatchSpec Spec, WorkerId WorkerId, Guid WorkerIncarnation,
     MatchPlacement? Placement, string? ArtifactDirectory);
@@ -37,6 +37,7 @@ public sealed class WorkerScheduler : IAsyncDisposable
     private readonly NodeReportIngestor? _reports;
     private string? _reportFailure;
     public event Action<MatchId, bool>? Ended;
+    public event Action<MatchCompletionSummary>? Completed;
     public event Action<ManagedWorker, WorkerEvent>? Observed;
     public event Action<WorkerMatchAssignment, MatchReportReady>? ReportReady;
 
@@ -285,7 +286,11 @@ public sealed class WorkerScheduler : IAsyncDisposable
                     p.Ready.TrySetException(new WorkerPlacementException(reason.Replace('\r', ' ').Replace('\n', ' ')));
                 }
             }
-            if (notify) NotifyEnded(id, interrupted);
+            if (notify)
+            {
+                if (message is MatchCompleted completed) NotifyCompleted(completed.Summary);
+                NotifyEnded(id, interrupted);
+            }
         }
         await worker.Completion;
         MatchId[] interruptedIds;
@@ -311,6 +316,14 @@ public sealed class WorkerScheduler : IAsyncDisposable
         foreach (Action<MatchId, bool> handler in handlers.GetInvocationList())
             try { handler(id, interrupted); }
             catch (Exception error) { _logger.LogError(error, "Match outcome subscriber failed for {MatchId}", id.Value); }
+    }
+
+    private void NotifyCompleted(MatchCompletionSummary summary)
+    {
+        if (Completed is not { } handlers) return;
+        foreach (Action<MatchCompletionSummary> handler in handlers.GetInvocationList())
+            try { handler(summary); }
+            catch (Exception error) { _logger.LogError(error, "Match completion subscriber failed for {MatchId}", summary.MatchId.Value); }
     }
 
     private static bool ContainsGuest(MatchSpec spec) => spec.Roster.Any(seat => seat.GuestSessionId.HasValue);

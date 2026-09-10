@@ -194,7 +194,7 @@ public sealed class Qz0IdentityBoundaryRegressionTests
         // Prime invariant: replay rotation clears queued Match A facts and the
         // decoder rejects any late Match A event after Match B is current.
         var fixture = new MatchBoundaryFixture();
-        var state = new ModernDemoState();
+        var state = new ModernReplayState();
         state.Reset(NetHeader.Version);
         Assert.True(state.Receive(fixture.MatchRecord(fixture.MatchA, UInt32.MaxValue - 2)));
         Assert.True(state.Receive(fixture.WorldEventRecord(fixture.MatchA,

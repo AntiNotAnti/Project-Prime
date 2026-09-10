@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace FruityPrime.Server.Shared;
+namespace ProjectPrime.Server.Shared;
 
 /// <summary>
 /// The build identity used when a client and a Server Node negotiate

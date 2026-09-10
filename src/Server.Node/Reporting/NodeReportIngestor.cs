@@ -1,11 +1,11 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Channels;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Identity;
 using MphRead.Reporting;
 
-namespace FruityPrime.Server.Node.Reporting;
+namespace ProjectPrime.Server.Node.Reporting;
 
 /// <summary>Node-owned bounded artifact ingestion. HTTP and durable retry ownership remain in MatchReportOutbox.</summary>
 public sealed class NodeReportIngestor : IAsyncDisposable

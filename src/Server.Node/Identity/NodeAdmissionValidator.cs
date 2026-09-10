@@ -1,11 +1,11 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
-namespace FruityPrime.Server.Node.Identity;
+namespace ProjectPrime.Server.Node.Identity;
 
 public sealed record NodeIdentity(Guid? PlayerId, Guid? GuestSessionId, string DisplayName)
 {
@@ -35,8 +35,8 @@ public sealed class NodeVerificationKey
 /// <summary>Backend ES256 Node admissions only. Gameplay and opaque account tokens are different credentials.</summary>
 public sealed class NodeAdmissionValidator : IDisposable
 {
-    public const string TokenType = "ph-node-admission+jwt";
-    public static string Audience(Guid nodeId) => "urn:prime-hunters:node:" + nodeId.ToString("D");
+    public const string TokenType = "pp-node-admission+jwt";
+    public static string Audience(Guid nodeId) => "urn:project-prime:node:" + nodeId.ToString("D");
     private readonly NodeAuthOptions _options;
     private readonly TimeProvider _clock;
     private readonly Dictionary<string, ECDsaSecurityKey> _keys = [];

@@ -1,12 +1,12 @@
-using FruityPrime.Server.Node.Identity;
-using FruityPrime.Server.Node.Lobbies;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Node.Identity;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Shared;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using MphRead;
 using MphRead.Identity;
 
-namespace FruityPrime.Server.Node.Tests;
+namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class GuestIdentityTests
 {

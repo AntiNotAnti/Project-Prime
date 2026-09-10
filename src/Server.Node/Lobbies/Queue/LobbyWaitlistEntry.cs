@@ -1,6 +1,6 @@
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 
-namespace FruityPrime.Server.Node.Lobbies.Queue;
+namespace ProjectPrime.Server.Node.Lobbies.Queue;
 
 /// <summary>Descriptive compatibility name for callers that prefer the full
 /// waitlist entry type. It carries the same state as <see cref="Entry"/>.</summary>

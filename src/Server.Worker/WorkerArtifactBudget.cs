@@ -1,4 +1,4 @@
-namespace FruityPrime.Server.Worker;
+namespace ProjectPrime.Server.Worker;
 
 /// <summary>Admission fence over worker-owned artifacts. Existing recordings are never silently deleted.</summary>
 internal static class WorkerArtifactBudget

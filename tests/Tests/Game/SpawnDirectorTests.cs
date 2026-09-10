@@ -352,6 +352,100 @@ namespace MphRead.Tests
         }
 
         [Fact]
+        public void SamusFlickUsesFullChargeCooldownAndIgnoresVelocityBoostingFlag()
+        {
+            using var fixture = Open(MatchMode.Battle, SpawnPolicy.Classic);
+            PlayerEntity player = Activate(fixture, Hunter.Samus, true, alt: true);
+            Assert.True(BoostIntent.TryCreateFlick(new Vector2(0, -1),
+                out BoostIntent flick));
+            // Build a partial held charge, then prove a simultaneous flick
+            // takes precedence and uses the compatibility full charge.
+            fixture.Input(player, InputButtons.Boost);
+            fixture.Input(player, InputButtons.Boost);
+            fixture.Input(player, InputButtons.Boost, boostIntent: flick);
+            InputCommand captured = player.CaptureNetworkInput(99, 77);
+
+            ushort cooldown = (ushort)SimTicks.From30HzFrames(
+                player.Values.AltAttackCooldown);
+            Assert.Equal(flick, captured.BoostRequest);
+            Assert.Equal(cooldown, player._altAttackCooldown);
+            Assert.Equal(player.Values.AltAttackDamage, BoostDamage(player));
+
+            fixture.Input(player, InputButtons.None, boostIntent: flick);
+            Assert.Equal(cooldown - 1, player._altAttackCooldown);
+
+            // Boosting is velocity-lived and deliberately not a flick gate.
+            player._altAttackCooldown = 0;
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags1))!
+                .SetValue(player, player.Flags1 | PlayerFlags1.Boosting);
+            fixture.Input(player, InputButtons.None, boostIntent: flick);
+            Assert.Equal(cooldown, player._altAttackCooldown);
+        }
+
+        [Fact]
+        public void IllegalFlickIsConsumedInsteadOfDeferredAcrossBipedAndThaw()
+        {
+            Assert.True(BoostIntent.TryCreateFlick(Vector2.UnitX, out BoostIntent flick));
+            using (var bipedFixture = Open(MatchMode.Battle, SpawnPolicy.Classic))
+            {
+                PlayerEntity player = Activate(bipedFixture, Hunter.Samus, true, alt: false);
+                bipedFixture.Input(player, InputButtons.None, boostIntent: flick);
+                Assert.Equal(flick, player.Input.ConsumedBoostIntent);
+                Assert.Equal(0, player._altAttackCooldown);
+                bipedFixture.Input(player, InputButtons.None);
+                Assert.Equal(BoostIntent.None, player.Input.ConsumedBoostIntent);
+                Assert.Equal(0, player._altAttackCooldown);
+            }
+
+            using (var frozenFixture = Open(MatchMode.Battle, SpawnPolicy.Classic))
+            {
+                PlayerEntity player = Activate(frozenFixture, Hunter.Samus, true, alt: true);
+                SetPrivateUShort(player, "_frozenTimer", 2);
+                frozenFixture.Input(player, InputButtons.None, boostIntent: flick);
+                Assert.Equal(flick, player.Input.ConsumedBoostIntent);
+                Assert.Equal(0, player._altAttackCooldown);
+                frozenFixture.Input(player, InputButtons.None);
+                Assert.Equal(BoostIntent.None, player.Input.ConsumedBoostIntent);
+                Assert.Equal(0, player._altAttackCooldown);
+            }
+        }
+
+        [Fact]
+        public void ChargedBoostMinimumBoundaryAndMaximumCapRemainUnchanged()
+        {
+            using (var exactFixture = Open(MatchMode.Battle, SpawnPolicy.Classic))
+            {
+                PlayerEntity player = Activate(exactFixture, Hunter.Samus, true, alt: true);
+                int minimum = SimTicks.From30HzFrames(player.Values.BoostChargeMin);
+                for (int tick = 0; tick < minimum; tick++)
+                    exactFixture.Input(player, InputButtons.Boost);
+                Assert.Equal(minimum, BoostCharge(player));
+                exactFixture.Input(player, InputButtons.None);
+                Assert.Equal(0, BoostCharge(player));
+                Assert.Equal(0, player._altAttackCooldown);
+            }
+
+            using (var aboveFixture = Open(MatchMode.Battle, SpawnPolicy.Classic))
+            {
+                PlayerEntity player = Activate(aboveFixture, Hunter.Samus, true, alt: true);
+                int minimum = SimTicks.From30HzFrames(player.Values.BoostChargeMin);
+                for (int tick = 0; tick <= minimum; tick++)
+                    aboveFixture.Input(player, InputButtons.Boost);
+                aboveFixture.Input(player, InputButtons.None);
+                Assert.True(player._altAttackCooldown > 0);
+            }
+
+            using (var cappedFixture = Open(MatchMode.Battle, SpawnPolicy.Classic))
+            {
+                PlayerEntity player = Activate(cappedFixture, Hunter.Samus, true, alt: true);
+                int maximum = SimTicks.From30HzFrames(player.Values.BoostChargeMax);
+                for (int tick = 0; tick < maximum + 5; tick++)
+                    cappedFixture.Input(player, InputButtons.Boost);
+                Assert.Equal(maximum, BoostCharge(player));
+            }
+        }
+
+        [Fact]
         public void SyluxSuccessfulBombDropClearsProtection()
         {
             using var fixture = Open(MatchMode.Battle, SpawnPolicy.Classic);
@@ -401,6 +495,21 @@ namespace MphRead.Tests
             player.TakeDamage(1, DamageFlags.NoSfx | DamageFlags.NoDmgInvuln, null, null);
             Assert.Equal(expected ? health : health - 1, player.Health);
         }
+
+        private static ushort BoostCharge(PlayerEntity player)
+            => (ushort)typeof(PlayerEntity).GetField("_boostCharge",
+                System.Reflection.BindingFlags.Instance
+                    | System.Reflection.BindingFlags.NonPublic)!.GetValue(player)!;
+
+        private static ushort BoostDamage(PlayerEntity player)
+            => (ushort)typeof(PlayerEntity).GetField("_boostDamage",
+                System.Reflection.BindingFlags.Instance
+                    | System.Reflection.BindingFlags.NonPublic)!.GetValue(player)!;
+
+        private static void SetPrivateUShort(PlayerEntity player, string field, ushort value)
+            => typeof(PlayerEntity).GetField(field,
+                System.Reflection.BindingFlags.Instance
+                    | System.Reflection.BindingFlags.NonPublic)!.SetValue(player, value);
 
         private static List<BombEntity> Bombs(Scene scene)
         {
@@ -524,13 +633,19 @@ namespace MphRead.Tests
                 }
             }
 
-            public void Input(PlayerEntity player, InputButtons held, InputButtons pressed = InputButtons.None,
-                bool playerOnly = false)
+            public void Input(PlayerEntity player, InputButtons held,
+                InputButtons pressed = InputButtons.None, bool playerOnly = false,
+                BoostIntent boostIntent = default)
             {
                 uint tick = unchecked((uint)Scene.FrameCount);
                 _simulation.Combat.BeginTick(tick);
                 player.CaptureServerState();
-                player.ApplyNetworkInput(new InputCommand(tick, tick, tick, held, pressed, player.FacingVector, 255));
+                InputCommand command = boostIntent.Activation == BoostActivation.None
+                    ? new InputCommand(tick, tick, tick, held, pressed,
+                        player.FacingVector, 255)
+                    : new InputCommand(tick, tick, tick, held, pressed,
+                        player.FacingVector, 255, boostIntent);
+                player.ApplyNetworkInput(command);
                 if (playerOnly) player.Process();
                 else Scene.StepHeadlessFrame(advanceMatch: false);
             }

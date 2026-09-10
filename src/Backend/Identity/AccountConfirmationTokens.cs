@@ -19,7 +19,7 @@ public sealed class AccountConfirmationTokens
         int minutes = options.Value.ConfirmationTokenLifetimeMinutes;
         if (minutes is < 5 or > 24 * 60)
             throw new InvalidOperationException("Confirmation token lifetime must be between 5 minutes and 24 hours.");
-        _protector = protection.CreateProtector("PrimeHunters.AccountConfirmation.v1");
+        _protector = protection.CreateProtector("ProjectPrime.AccountConfirmation.v1");
         _clock = clock;
         _lifetime = TimeSpan.FromMinutes(minutes);
     }

@@ -5,13 +5,13 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Threading;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Identity;
 using MphRead.Mods.Network;
-using SharedBotFillPolicy = FruityPrime.Server.Shared.BotFillPolicy;
+using SharedBotFillPolicy = ProjectPrime.Server.Shared.BotFillPolicy;
 using Xunit;
-using BotFillPolicy = FruityPrime.Server.Shared.BotFillPolicy;
+using BotFillPolicy = ProjectPrime.Server.Shared.BotFillPolicy;
 
 namespace MphRead.Tests;
 

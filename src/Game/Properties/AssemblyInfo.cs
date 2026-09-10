@@ -1,8 +1,8 @@
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("FruityPrime")]
-[assembly: InternalsVisibleTo("FruityPrimeServer")]
-[assembly: InternalsVisibleTo("FruityPrime.Server.Worker")]
-[assembly: InternalsVisibleTo("FruityPrimeTools")]
+[assembly: InternalsVisibleTo("ProjectPrime")]
+[assembly: InternalsVisibleTo("ProjectPrimeServer")]
+[assembly: InternalsVisibleTo("ProjectPrime.Server.Worker")]
+[assembly: InternalsVisibleTo("ProjectPrimeTools")]
 [assembly: InternalsVisibleTo("MphRead.Tests")]
 [assembly: InternalsVisibleTo("nettest")]

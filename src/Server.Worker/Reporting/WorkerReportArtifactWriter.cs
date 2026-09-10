@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Identity;
 
-namespace FruityPrime.Server.Worker.Reporting;
+namespace ProjectPrime.Server.Worker.Reporting;
 
 /// <summary>Runs after immutable completion capture, outside simulation. No Backend transport or credentials.</summary>
 public static class WorkerReportArtifactWriter

@@ -1,5 +1,5 @@
 using System;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Admin;
 using MphRead.Identity;
 
@@ -11,6 +11,10 @@ public sealed record MatchInstanceOptions(MatchSpec Spec, uint WireMatchId)
     internal bool LegacyDynamicAdmission { get; init; }
     internal Func<bool>? LegacyReplayMayOpen { get; init; }
     public uint InitialTick { get; init; }
+    public int SnapshotRateHz { get; init; } = SnapshotCadence.DefaultRateHz;
+    public bool AdaptiveTimingEnabled { get; init; }
+    public bool AdaptiveInputPlayoutEnabled { get; init; }
+    public bool ReliableAdaptiveRtoEnabled { get; init; }
     public bool LagCompEnabled { get; init; } = true;
     public bool ProjectileCatchUpEnabled { get; init; } = true;
     /// <summary>QZ1 dynamic collision is disabled until WAN validation.</summary>
@@ -18,7 +22,7 @@ public sealed record MatchInstanceOptions(MatchSpec Spec, uint WireMatchId)
     internal DeveloperValidationFixtureId ValidationFixture { get; init; }
     public BotFillPolicy? BotFill { get; init; }
     public ObserverOptions Observers { get; init; } = new();
-    public string ServerName { get; init; } = "Prime Hunters";
+    public string ServerName { get; init; } = "Project Prime";
     public IServerTicketAuthority? Tickets { get; init; }
     public string? ReplayDirectory { get; init; }
     public bool RequireReplay { get; init; }

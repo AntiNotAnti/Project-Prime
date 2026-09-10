@@ -371,7 +371,7 @@ public sealed class MatchAwardsTests
             Killer, Victim, 3, 0);
         MatchAwardPacket packet = MatchAwardPacketConversion.FromAward(award);
         byte[] bytes = new byte[MatchAwardPacket.Size]; packet.Write(bytes);
-        ReplayMarker marker = DemoRecorder.MarkerFor(new NetApplicationEvent(1,
+        ReplayMarker marker = ReplayRecorder.MarkerFor(new NetApplicationEvent(1,
             ReliableEventType.MatchAward, bytes));
         Assert.Equal(ReplayMarker.Award | ReplayMarker.MultiKill, marker);
     }
@@ -385,7 +385,7 @@ public sealed class MatchAwardsTests
         byte[] bytes = new byte[MatchAwardPacket.Size];
         packet.Write(bytes);
 
-        ReplayMarker marker = DemoRecorder.MarkerFor(new NetApplicationEvent(1,
+        ReplayMarker marker = ReplayRecorder.MarkerFor(new NetApplicationEvent(1,
             ReliableEventType.MatchAward, bytes), protocol: 9);
 
         Assert.Equal(ReplayMarker.Award, marker);
@@ -405,14 +405,14 @@ public sealed class MatchAwardsTests
         world.Write(worldBytes);
         var lowLevel = new NetApplicationEvent(1, ReliableEventType.WorldEvent, worldBytes);
 
-        Assert.Equal(ReplayMarker.None, DemoRecorder.MarkerFor(lowLevel, protocol: 9));
-        Assert.Equal(expected, DemoRecorder.MarkerFor(lowLevel, protocol: 8));
+        Assert.Equal(ReplayMarker.None, ReplayRecorder.MarkerFor(lowLevel, protocol: 9));
+        Assert.Equal(expected, ReplayRecorder.MarkerFor(lowLevel, protocol: 8));
 
         MatchEvent semantic = SemanticMarkerEvent(semanticKind);
         MatchSemanticEventPacket packet = MatchSemanticEventPacketConversion.FromEvent(semantic);
         byte[] semanticBytes = new byte[MatchSemanticEventPacket.Size];
         packet.Write(semanticBytes);
-        Assert.Equal(expected, DemoRecorder.MarkerFor(new NetApplicationEvent(1,
+        Assert.Equal(expected, ReplayRecorder.MarkerFor(new NetApplicationEvent(1,
             ReliableEventType.MatchSemantic, semanticBytes), protocol: 9));
     }
 
@@ -438,7 +438,7 @@ public sealed class MatchAwardsTests
         byte[] bytes = new byte[MatchSemanticEventPacket.Size];
         packet.Write(bytes);
 
-        ReplayMarker marker = DemoRecorder.MarkerFor(new NetApplicationEvent(1,
+        ReplayMarker marker = ReplayRecorder.MarkerFor(new NetApplicationEvent(1,
             ReliableEventType.MatchSemantic, bytes));
 
         Assert.Equal(ReplayMarker.Overtime, marker);

@@ -2,9 +2,9 @@ using System.Diagnostics;
 using System.IO.Pipes;
 using System.Security.Cryptography;
 using System.Threading.Channels;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 
-namespace FruityPrime.Server.Node.Workers;
+namespace ProjectPrime.Server.Node.Workers;
 
 public sealed class ManagedWorker : IAsyncDisposable
 {
@@ -147,6 +147,16 @@ public sealed class ManagedWorker : IAsyncDisposable
                 if (Environment.GetEnvironmentVariable(name) is { } value) start.Environment[name] = value;
             if (_options.WorkingDirectory is { } directory) start.WorkingDirectory = directory;
             foreach (string argument in _options.Arguments) start.ArgumentList.Add(argument);
+            start.ArgumentList.Add("--snapshot-rate-hz");
+            start.ArgumentList.Add(_options.SnapshotRateHz.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add("--adaptive-timing");
+            start.ArgumentList.Add(_options.AdaptiveTimingEnabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add("--adaptive-input-playout");
+            start.ArgumentList.Add(_options.AdaptiveInputPlayoutEnabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add("--transport-queue-v2");
+            start.ArgumentList.Add(_options.TransportQueueV2Enabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add("--reliable-adaptive-rto");
+            start.ArgumentList.Add(_options.ReliableAdaptiveRtoEnabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (_options.ArtifactDirectory is { } artifacts) { start.ArgumentList.Add("--artifact-dir"); start.ArgumentList.Add(artifacts); }
             foreach (string argument in new[] { "--node-pipe", _pipeName, "--node-id", _nodeId.Value.ToString("D"),
                 "--worker-id", Id.Value.ToString("D"), "--worker-incarnation", Incarnation.ToString("D") }) start.ArgumentList.Add(argument);

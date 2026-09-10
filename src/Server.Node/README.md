@@ -38,15 +38,15 @@ client flow; a client does not connect directly to a Worker or launch one on its
 own.
 
 The release package is one Node + Worker bundle: the renamed Node apphost
-`FruityPrimeServer` is at the bundle root, `FruityPrime.Server.Worker` is below
+`ProjectPrimeServer` is at the bundle root, `ProjectPrime.Server.Worker` is below
 `worker/`, and `server.example.json` is the configuration template. The Node
 resolves and supervises the Worker from its configuration. There is no
 `Worker --standalone` mode and no legacy standalone Server rollback path.
 
 Connect `wss://host/v1/control` with `Authorization: Bearer <NodeAdmissionTicket>`.
 Backend account bearer credentials and gameplay tickets are not Node admissions.
-Admissions use ES256, `typ=ph-node-admission+jwt`, exact issuer, audience
-`urn:prime-hunters:node:<NodeId>`, UUID `sub/jti`, display `name`, and `iat=nbf` with
+Admissions use ES256, `typ=pp-node-admission+jwt`, exact issuer, audience
+`urn:project-prime:node:<NodeId>`, UUID `sub/jti`, display `name`, and `iat=nbf` with
 expiry at most 120 seconds later. Replay IDs are consumed once. Verification is
 local and key material is loaded at startup; rotation currently requires a Node
 restart with the new public key set.

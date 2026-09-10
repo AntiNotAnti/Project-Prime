@@ -20,6 +20,18 @@ namespace MphRead.Tests
         }
 
         [Fact]
+        public void RemainingTimeUsesTheAbsoluteNextDeadline()
+        {
+            var scheduler = new FixedTickScheduler(1000, 60000);
+
+            Assert.Equal(1000, scheduler.RemainingTicks(1000));
+            Assert.Equal(1, scheduler.RemainingTicks(1999));
+            Assert.Equal(0, scheduler.RemainingTicks(2000));
+            Assert.Equal(1, scheduler.TakeDue(2000));
+            Assert.Equal(1000, scheduler.RemainingTicks(2000));
+        }
+
+        [Fact]
         public void StallResynchronizesAfterBoundedCatchUp()
         {
             var scheduler = new FixedTickScheduler(0, 60000);
