@@ -2,6 +2,7 @@ using System;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -264,6 +265,97 @@ public sealed class PrimeTitleScreenTests
     }
 
     [AvaloniaFact]
+    public void PendingRestoreDoesNotBecomeReadyWhenTheShellReactivates()
+    {
+        var restore = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        PrimeShellView shell = new(new MenuSettings(), Array.Empty<string>(),
+            restoreOnActivate: true, ignoreGameFileGate: true, captureMode: true,
+            titleCaptureState: new(PrimeTitleScreenPhase.Loading,
+                ReducedMotion: true),
+            restoreSession: token => restore.Task.WaitAsync(token));
+        var window = new Window { Width = 940, Height = 560, Content = shell };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(PrimeTitleScreenPhase.Loading, shell.TitlePhase);
+
+            window.Content = null;
+            Dispatcher.UIThread.RunJobs();
+            window.Content = shell;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(PrimeTitleScreenPhase.Loading, shell.TitlePhase);
+
+            restore.SetResult(false);
+            Assert.True(SpinWait.SpinUntil(() =>
+            {
+                Dispatcher.UIThread.RunJobs();
+                return shell.TitlePhase == PrimeTitleScreenPhase.Ready;
+            }, TimeSpan.FromSeconds(2)));
+            Assert.Equal(PrimeRoute.Gateway, shell.CurrentRoute);
+        }
+        finally
+        {
+            restore.TrySetResult(false);
+            window.Content = null;
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
+    public void HeldContinueRepeatsAreQuarantinedBeforeTheFocusedChild()
+    {
+        PrimeShellView shell = PrimeShellView.CreateTitleCapture(new MenuSettings(),
+            Array.Empty<string>(), new(PrimeTitleScreenPhase.Ready,
+                ReducedMotion: true));
+        var window = new Window { Width = 940, Height = 560, Content = shell };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            shell.HandleTitleKeyDown(Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(PrimeTitleScreenPhase.Hidden, shell.TitlePhase);
+
+            Avalonia.Controls.Button target = shell.GetVisualDescendants()
+                .OfType<Avalonia.Controls.Button>().First();
+            target.Focus();
+            int received = 0;
+            target.KeyDown += (_, _) => received++;
+
+            var repeated = new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Key = Key.Enter
+            };
+            target.RaiseEvent(repeated);
+            Assert.True(repeated.Handled);
+            Assert.Equal(0, received);
+
+            target.RaiseEvent(new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyUpEvent,
+                Key = Key.Enter
+            });
+            var fresh = new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Key = Key.Space
+            };
+            target.RaiseEvent(fresh);
+            Assert.False(fresh.Handled);
+            Assert.Equal(1, received);
+        }
+        finally
+        {
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
     public void ShellUsesPhysicalGamepadEdgesAndClassifiesPointerPrompts()
     {
         PrimeShellView shell = PrimeShellView.CreateTitleCapture(new MenuSettings(),
@@ -323,6 +415,35 @@ public sealed class PrimeTitleScreenTests
 
         Assert.Equal(PrimeTitleScreenPhase.Hidden, shell.TitlePhase);
         Assert.True(shell.ShellInputEnabled);
+    }
+
+    [AvaloniaFact]
+    public void DetachDuringFadeCompletesWithoutFaultingOrLeavingInputLocked()
+    {
+        PrimeShellView shell = PrimeShellView.CreateTitleCapture(new MenuSettings(),
+            Array.Empty<string>(), new(PrimeTitleScreenPhase.Ready));
+        var window = new Window { Width = 940, Height = 560, Content = shell };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            shell.HandleTitleKeyDown(Key.Enter);
+            Assert.Equal(PrimeTitleScreenPhase.Dismissing, shell.TitlePhase);
+            Task dismissal = shell.TitleDismissalTask;
+
+            window.Content = null;
+            Dispatcher.UIThread.RunJobs();
+            dismissal.GetAwaiter().GetResult();
+
+            Assert.Equal(PrimeTitleScreenPhase.Hidden, shell.TitlePhase);
+            Assert.True(shell.ShellInputEnabled);
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
     }
 
     [AvaloniaFact]
