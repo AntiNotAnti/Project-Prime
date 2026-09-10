@@ -17,6 +17,12 @@ namespace MphRead.Mods.Network
         public TerminalState State { get; private set; }
         public Guid? NodeMatchId { get; private set; }
         public bool Interrupted { get; private set; }
+        internal void BindNodeMatch(Guid matchId)
+        {
+            if (matchId == Guid.Empty || NodeMatchId is { } existing && existing != matchId)
+                throw new InvalidOperationException("Gameplay already belongs to a different Node match.");
+            NodeMatchId = matchId;
+        }
         public bool ObserveCompletion()
         {
             NodeMatchId ??= NodeSessions.Current?.State.JoinedMatchId;

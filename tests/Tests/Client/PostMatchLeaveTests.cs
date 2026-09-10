@@ -1,0 +1,55 @@
+using System;
+using System.Collections.Generic;
+using System.Text.Json;
+using System.Threading.Tasks;
+using FruityPrime.Server.Shared;
+using MphRead.Mods.Launcher.Gui;
+using Xunit;
+
+namespace MphRead.Tests;
+
+public sealed class PostMatchLeaveTests
+{
+    private static LobbySnapshot Lobby() => new(Guid.NewGuid(), "Room", LobbyVisibility.Public,
+        Guid.NewGuid(), LobbyPhase.PostMatch, 1, 8, 16, [], []);
+    private static NodeControlEvent Error(string code) => new(NodeControlCodec.Version, "error", 1, null,
+        JsonSerializer.SerializeToElement(new NodeControlError(code, code), NodeJsonContext.Default.NodeControlError));
+    private static NodeControlEvent Left(Guid lobby) => new(NodeControlCodec.Version, "lobby.left", 2, null,
+        JsonSerializer.SerializeToElement(new LobbyLeft(lobby), NodeJsonContext.Default.LobbyLeft));
+
+    [Fact]
+    public async Task StaleLeaveRetriesWithLatestRevisionAndWaitsForAcknowledgement()
+    {
+        var lobby = Lobby();
+        var revisions = new List<long>();
+        var ack = new TaskCompletionSource<NodeControlEvent>();
+        Task leave = PlayController.LeaveLobbyWithRetryAsync(() => lobby, (request, _) =>
+        {
+            revisions.Add(request.ExpectedRevision);
+            if (revisions.Count == 1) { lobby = lobby with { Revision = 2 }; return Task.FromResult(Error("stale_revision")); }
+            return ack.Task;
+        });
+        Assert.False(leave.IsCompleted);
+        Assert.Equal(new long[] { 1, 2 }, revisions);
+        ack.SetResult(Left(lobby.LobbyId));
+        await leave;
+    }
+
+    [Fact]
+    public async Task RepeatedStaleReplyIsTerminalAfterExactlyOneRetry()
+    {
+        var lobby = Lobby();
+        int requests = 0;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => PlayController.LeaveLobbyWithRetryAsync(() => lobby,
+            (_, _) => { requests++; lobby = lobby with { Revision = lobby.Revision + 1 }; return Task.FromResult(Error("stale_revision")); }));
+        Assert.Equal(2, requests);
+    }
+
+    [Fact]
+    public async Task WrongLobbyAcknowledgementCannotCompleteLeave()
+    {
+        var lobby = Lobby();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => PlayController.LeaveLobbyWithRetryAsync(() => lobby,
+            (_, _) => Task.FromResult(Left(Guid.NewGuid()))));
+    }
+}

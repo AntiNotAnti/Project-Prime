@@ -318,6 +318,15 @@ namespace MphRead
             }
         }
 
+        // Results owns a nested Avalonia dispatcher on this same thread. Keep SDL
+        // window/gamepad events responsive without advancing the completed Scene.
+        internal bool PumpResultsEvents()
+        {
+            ProcessEvents();
+            Mods.PauseMenu.TakeWindowRect(ClientLocation, ClientSize);
+            return !_closeRequested;
+        }
+
         private bool IsWindowMinimized()
             => (SDL3.SDL_GetWindowFlags(_window) & SDL_WindowFlags.SDL_WINDOW_MINIMIZED) != 0
                 || _framebufferSize.X <= 0 || _framebufferSize.Y <= 0;

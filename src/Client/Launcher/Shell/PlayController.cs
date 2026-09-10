@@ -42,6 +42,7 @@ public sealed record PlayState(PlayPhase Phase, IReadOnlyList<NodeListing> Nodes
     public LobbySnapshot? Lobby => Node?.Lobby;
     public LobbyListSnapshot? Lobbies => Node?.Lobbies;
     public NodeMatchHandoff? Handoff => Node?.Handoff;
+    public NodeRoundSnapshot? Round => Node?.Round;
 }
 
 public readonly record struct PlayHandoffKey(Guid NodeId, Guid MatchId, ulong Nonce,
@@ -183,6 +184,7 @@ public sealed class PlayController : IAsyncDisposable
     {
         Volatile.Write(ref _handoffEnabled, enabled ? 1 : 0);
         if (!enabled) CancelPendingHandoff();
+        else NodeChanged();
     }
 
     public async Task RefreshNodesAsync(CancellationToken cancellationToken = default)
@@ -320,7 +322,42 @@ public sealed class PlayController : IAsyncDisposable
         => SendAsync("lobby.join", new LobbyJoin(lobbyId, ValidateRevision(revision), observer), cancellationToken);
 
     public Task LeaveLobbyAsync(CancellationToken cancellationToken = default)
-        => SendLobbyCommandAsync((lobby, _) => new LobbyLeave(lobby.Revision), "lobby.leave", cancellationToken);
+    {
+        CancelPendingHandoff();
+        NodeControlClient node = RequireConnected();
+        return LeaveLobbyWithRetryAsync(() => node.Lobby,
+            (command, token) => node.SendAndWaitAsync("lobby.leave", command, token), cancellationToken);
+    }
+
+    internal static async Task LeaveLobbyWithRetryAsync(Func<LobbySnapshot?> currentLobby,
+        Func<LobbyLeave, CancellationToken, Task<NodeControlEvent>> send,
+        CancellationToken cancellationToken = default)
+    {
+        LobbySnapshot lobby = currentLobby() ?? throw new InvalidOperationException("Join a lobby first.");
+        Guid lobbyId = lobby.LobbyId;
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            NodeControlEvent response = await send(new LobbyLeave(lobby.Revision), cancellationToken)
+                .ConfigureAwait(false);
+            if (response.Type == "lobby.left")
+            {
+                if (response.Payload.Deserialize(NodeJsonContext.Default.LobbyLeft)?.LobbyId != lobbyId)
+                    throw new InvalidOperationException("The Node confirmed leaving a different lobby.");
+                return;
+            }
+            if (response.Type != "error")
+                throw new InvalidOperationException("The Node did not confirm leaving the lobby.");
+            NodeControlError error = response.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)
+                ?? new NodeControlError("rejected", "The Node rejected leaving the lobby.");
+            if (error.Code != "stale_revision" || attempt != 0)
+                throw new InvalidOperationException(error.Message);
+            LobbySnapshot? latest = currentLobby();
+            if (latest == null) return; // Membership was removed while the rejected request was in flight.
+            if (latest.LobbyId != lobbyId)
+                throw new InvalidOperationException("Lobby membership changed before leaving was confirmed.");
+            lobby = latest;
+        }
+    }
 
     public Task SetReadyAsync(bool ready, CancellationToken cancellationToken = default)
         => SendLobbyCommandAsync((lobby, _) => new LobbySetReady(ready, lobby.Revision),
@@ -415,6 +452,22 @@ public sealed class PlayController : IAsyncDisposable
                 throw new InvalidOperationException("Only the lobby owner can start a match.");
             return new LobbyStart(lobby.Revision);
         }, "lobby.start", cancellationToken);
+
+    public async Task CastPostMatchVoteAsync(byte optionId, CancellationToken cancellationToken = default)
+    {
+        NodeControlClient node = RequireConnected();
+        NodeRoundSnapshot round = node.Round ?? throw new InvalidOperationException("No Node ballot is available.");
+        if (round.OwnVote != 0 || round.ResolvedOption != null || round.VoteDeadline <= DateTimeOffset.UtcNow
+            || !round.Options.Any(option => option.Id == optionId))
+            throw new InvalidOperationException("This vote is no longer available.");
+        NodeControlEvent response = await node.SendAndWaitAsync("lobby.vote.cast",
+            new LobbyVoteCast(node.Lobby!.Revision, round.BallotRevision, optionId), cancellationToken)
+            .ConfigureAwait(false);
+        if (response.Type == "error")
+            throw new InvalidOperationException(response.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)?.Message
+                ?? "The Node rejected the vote.");
+        if (response.Type != "lobby.round") throw new InvalidOperationException("The Node did not confirm the vote.");
+    }
 
     public Task RematchAsync(CancellationToken cancellationToken = default)
         => SendLobbyCommandAsync((lobby, _) => new LobbyRematch(lobby.Revision), "lobby.rematch", cancellationToken);
@@ -518,8 +571,8 @@ public sealed class PlayController : IAsyncDisposable
         NodeControlClient? node = _observed;
         if (node == null || Volatile.Read(ref _disposed) != 0) return;
         PublishFromNode(node);
-        if (node.State.MatchEnded)
-            _handoff.Cancel();
+        if (node.State.MatchEnded) _handoff.Cancel();
+        if (node.State.Lobby == null) CancelPendingHandoff();
         if (Volatile.Read(ref _handoffEnabled) != 0
             && node.State.Handoff is { } handoff && !node.State.MatchEnded)
             _ = StartTrackedHandoffAsync(node, handoff, _lifetime.Token);
@@ -581,6 +634,7 @@ public sealed class PlayController : IAsyncDisposable
                 _handoff.Cancel(key);
                 return false;
             }
+            AuthoritativePlay.Current?.BindNodeMatch(handoff.MatchId);
             node.MarkGameplayJoined(handoff.MatchId);
             LobbySnapshot? lobby = node.Lobby;
             LaunchPlan plan = new()

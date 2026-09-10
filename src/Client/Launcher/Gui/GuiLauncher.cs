@@ -202,7 +202,9 @@ namespace MphRead.Mods.Launcher.Gui
                     try
                     {
                         coordinator.BeginLaunch();
-                        lastResult = MatchStart.Run(settings, plan, coordinator.NotifyMatchStarted);
+                        lastResult = MatchStart.Run(settings, plan, coordinator.NotifyMatchStarted,
+                            persistentWindow == null ? null : (results, pump) =>
+                                persistentWindow.PresentResults(results, pump));
                         coordinator.NotifyMatchEnded(lastResult);
                     }
                     finally

@@ -19,7 +19,7 @@ public sealed class ClientWorkerVerticalTests
 {
     [Trait("RequiresGameContent", "true")]
     [Fact]
-    public async Task TlsNodeLobbyHandsOffRealUdpThenReturnsAndRematchesOnSameSession()
+    public async Task TlsNodeAutomaticallyContinuesRealUdpMatchesAndReturnsOnSameSession()
     {
         string data = Environment.GetEnvironmentVariable("GAME_DATA_DIRECTORY") ?? throw new InvalidOperationException("GAME_DATA_DIRECTORY is required.");
         using var artifacts = new ArtifactDirectory();
@@ -44,7 +44,8 @@ public sealed class ClientWorkerVerticalTests
         {
             Node = new
             {
-                Maps = new[] { map },
+                Maps = new[] { map, map with { MapKey = "MP4 HIGHGROUND" }, map with { MapKey = "MP2 HARVESTER" } },
+                PostMatchVoteSeconds = 30,
                 HostAdmin = new { TokenFile = hostAdminTokenFile },
                 Workers = new { Processes = new[] { launch }, DrainTimeout = "00:00:05", ForceAfterDrainDeadline = true }
             }
@@ -79,17 +80,23 @@ public sealed class ClientWorkerVerticalTests
         await Until(() => owner.Lobby!.Revision > revision && guest.Lobby!.Revision == owner.Lobby.Revision);
         Guid lobbyId = owner.Lobby!.LobbyId;
         Guid priorMatch = Guid.Empty;
+        NodeMatchHandoff? priorHandoff = null;
+        string expectedMap = map.MapKey;
+        var observedMatches = new HashSet<MatchId>();
         try
         {
-            for (int round = 0; round < 2; round++)
+            for (int round = 0; round < 4; round++)
             {
-                revision = owner.Lobby!.Revision;
-                await owner.SendAsync("lobby.ready.set", new LobbySetReady(true, revision));
-                await Until(() => guest.Lobby!.Revision > revision);
-                revision = guest.Lobby!.Revision;
-                await guest.SendAsync("lobby.ready.set", new LobbySetReady(true, revision));
-                await Until(() => owner.Lobby!.Revision > revision);
-                await owner.SendAsync("lobby.start", new LobbyStart(owner.Lobby!.Revision));
+                if (round == 0)
+                {
+                    revision = owner.Lobby!.Revision;
+                    await owner.SendAsync("lobby.ready.set", new LobbySetReady(true, revision));
+                    await Until(() => guest.Lobby!.Revision > revision);
+                    revision = guest.Lobby!.Revision;
+                    await guest.SendAsync("lobby.ready.set", new LobbySetReady(true, revision));
+                    await Until(() => owner.Lobby!.Revision > revision);
+                    await owner.SendAsync("lobby.start", new LobbyStart(owner.Lobby!.Revision));
+                }
                 await Until(() =>
                 {
                     if (owner.Error != null || guest.Error != null) throw new InvalidOperationException($"Node handoff failed: {owner.Error}; {guest.Error}; workers=" + string.Join(";", host.App.Services.GetRequiredService<WorkerManager>().Snapshot().Select(x => $"{x.Status}/{x.FailureReason}/{x.Capacity}/{x.Matches.Count}")));
@@ -97,6 +104,15 @@ public sealed class ClientWorkerVerticalTests
                 });
                 var handoff = owner.Handoff!; var guestHandoff = guest.Handoff!;
                 Assert.NotEqual(priorMatch, handoff.MatchId);
+                Assert.True(observedMatches.Add(new(handoff.MatchId)));
+                Assert.Equal(expectedMap, owner.Lobby!.MapKey);
+                Assert.True(host.App.Services.GetRequiredService<WorkerScheduler>().TryGetAssignment(new(handoff.MatchId), out var assignment));
+                Assert.Equal(expectedMap, assignment!.Spec.Content.MapKey);
+                if (priorHandoff != null)
+                {
+                    Assert.NotEqual(priorHandoff.Ticket, handoff.Ticket);
+                    Assert.NotEqual(priorHandoff.Nonce, handoff.Nonce);
+                }
                 if (round == 0)
                 {
                     using var silent = new NetTransport(0);
@@ -175,10 +191,59 @@ public sealed class ClientWorkerVerticalTests
                 NetSession.Stop();
                 Assert.True(owner.Connected); Assert.Equal(session, owner.Session!.SessionId); Assert.Equal(lobbyId, owner.Lobby!.LobbyId);
                 priorMatch = handoff.MatchId;
-                if (round == 0)
+                priorHandoff = handoff;
+                await Until(() => owner.Round is { Options.IsEmpty: false } && guest.Round?.BallotRevision == owner.Round.BallotRevision);
+                LobbyVoteChoice choice = round switch
                 {
-                    await owner.SendAsync("lobby.rematch", new LobbyRematch(owner.Lobby.Revision));
+                    0 => LobbyVoteChoice.Rematch,
+                    1 => LobbyVoteChoice.NextMap,
+                    2 => LobbyVoteChoice.Map,
+                    _ => LobbyVoteChoice.ReturnToLobby
+                };
+                var ballot = owner.Round!;
+                var selected = ballot.Options.First(option => option.Choice == choice
+                    && (choice != LobbyVoteChoice.Map || option.MapKey == "MP1 SANCTORUS"));
+                Assert.Equal(round == 1 ? "MP4 HIGHGROUND" : "MP1 SANCTORUS", selected.MapKey);
+                expectedMap = selected.MapKey;
+                await owner.SendAsync("lobby.vote.cast", new LobbyVoteCast(owner.Lobby!.Revision, ballot.BallotRevision, selected.Id));
+                await Until(() => guest.Round?.Options.First(option => option.Id == selected.Id).Votes == 1);
+                NodeControlClient? disconnectedOwner = null;
+                if (round == 1)
+                {
+                    // The original host has already voted. Losing its control
+                    // socket must not prevent the remaining member resolving.
+                    disconnectedOwner = owner;
+                    string proof = owner.Session!.ResumeToken;
+                    await owner.DisposeAsync();
+                    await Until(() => host.App.Services.GetRequiredService<NodeSessionManager>().CanResume(proof));
+                }
+                await guest.SendAsync("lobby.vote.cast", new LobbyVoteCast(guest.Lobby!.Revision, ballot.BallotRevision, selected.Id));
+                if (disconnectedOwner != null)
+                {
+                    await Until(() => guest.Handoff is { } next && next.MatchId != priorMatch);
+                    owner = Control();
+                    await owner.ResumeAsync(disconnectedOwner, CancellationToken.None);
+                    await Until(() => owner.Handoff?.MatchId == guest.Handoff!.MatchId);
+                    Assert.Equal(session, owner.Session!.SessionId);
+                    Assert.Equal(lobbyId, owner.Lobby!.LobbyId);
+                }
+                if (choice == LobbyVoteChoice.ReturnToLobby)
+                {
                     await Until(() => owner.Lobby!.Phase == LobbyPhase.Open && guest.Lobby!.Phase == LobbyPhase.Open);
+                    Assert.Null(owner.Lobby.CurrentMatchId);
+                    Assert.Null(owner.Handoff);
+                    // Completed placements are retained for reporting/idempotence;
+                    // ReturnToLobby must not allocate another or leave one active.
+                    var retainedMatches = host.App.Services.GetRequiredService<WorkerManager>().Snapshot()
+                        .SelectMany(worker => worker.Matches).ToArray();
+                    Assert.Equal(4, observedMatches.Count);
+                    Assert.All(retainedMatches, match =>
+                    {
+                        Assert.Contains(match.Key, observedMatches);
+                        Assert.Equal(MatchStatus.Completed, match.Value);
+                    });
+                    Assert.Equal(session, owner.Session!.SessionId);
+                    Assert.Equal(lobbyId, owner.Lobby.LobbyId);
                 }
             }
         }

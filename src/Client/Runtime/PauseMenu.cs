@@ -73,7 +73,7 @@ namespace MphRead.Mods
         /// drags the game window, and what is left behind is exactly the
         /// floating popup this stopped being.
         /// </summary>
-        private static void TakeWindowRect(Vector2i location, Vector2i size)
+        internal static void TakeWindowRect(Vector2i location, Vector2i size)
         {
             int x = location.X;
             int y = location.Y;

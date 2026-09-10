@@ -262,6 +262,13 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         _lifetime = new CancellationTokenSource();
     }
 
+    internal PlayController Play => _play;
+    internal void SetMenuInputEnabled(bool enabled)
+    {
+        if (enabled && _active) _inputTimer.Start();
+        else _inputTimer.Stop();
+    }
+
     public void ShowMatchOutcome(MatchRunResult result)
     {
         if (result.Reason is MatchExitReason.Completed or MatchExitReason.LeftMatch) return;
@@ -1125,13 +1132,6 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         actions.Children.Add(MakeButton(ready ? "NOT READY" : "READY", () => RunCommand(
             ready ? "Clear ready" : "Set ready",
             () => _play.SetReadyAsync(!ready, _lifetime.Token)), primary: !ready));
-        if (lobby.Phase == LobbyPhase.PostMatch)
-        {
-            actions.Children.Add(MakeButton("REMATCH", () => RunCommand("Rematch",
-                () => _play.RematchAsync(_lifetime.Token)), primary: ready));
-            actions.Children.Add(MakeButton("RETURN TO LOBBY", () => RunCommand("Return to lobby",
-                () => _play.ReturnToLobbyAsync(_lifetime.Token))));
-        }
         if (state.Handoff != null)
             actions.Children.Add(MakeButton("REJOIN MATCH", () => RunCommand("Rejoin match",
                 () => _play.RejoinWorkerAsync(_lifetime.Token)), primary: ready));

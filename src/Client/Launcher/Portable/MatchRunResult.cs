@@ -10,6 +10,8 @@ public enum MatchExitReason
 /// <summary>Presentation data copied from the immutable replicated authority result.</summary>
 public sealed record MatchResultsSnapshot(string MapKey, GameMode Mode, MatchResult Result);
 
+public sealed record MatchResultsPresentationResult(bool QuitApplication = false, string? Failure = null);
+
 public sealed record MatchRunResult(MatchExitReason Reason, Guid? MatchId = null,
     string? Message = null, MatchResultsSnapshot? Results = null)
 {

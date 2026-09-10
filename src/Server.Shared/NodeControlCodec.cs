@@ -63,11 +63,12 @@ public static class NodeControlCodec
         if (bytes.Length > MaximumFrameBytes) throw new InvalidOperationException("Control event exceeds frame limit.");
         return bytes;
     }
-    private static void ValidateEventPayload<T>(T payload)
+    public static void ValidateEventPayload<T>(T payload)
     {
         switch (payload)
         {
             case NodeRoundSnapshot round:
+                if (round.Lobby == null) throw new ArgumentException("Missing round lobby.");
                 ValidateEventPayload(round.Lobby);
                 if (round.ConfigurationRevision < 0 || round.Options.IsDefault || round.Options.Length > 8 || round.Options.Any(o => o == null)
                     || round.TournamentId == Guid.Empty || round.RoundId == Guid.Empty

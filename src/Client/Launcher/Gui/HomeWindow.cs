@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
+using Avalonia.Threading;
+using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -18,6 +20,8 @@ namespace MphRead.Mods.Launcher.Gui
     internal sealed class HomeWindow : Window
     {
         private readonly PrimeShellView _view;
+        private PostMatchWindow? _results;
+        private bool _waitingForContinuation;
 
         /// <summary>What the screen decided. Kind None means it was closed.</summary>
         public LaunchPlan Plan => IsClosed ? default : _view.Plan;
@@ -27,9 +31,29 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _view.Reset();
             if (result != null) _view.ShowMatchOutcome(result);
-            Show();
+            _waitingForContinuation = result?.Reason == MatchExitReason.Completed
+                && NodeSessions.Current?.State is { Handoff: { } handoff, MatchEnded: false }
+                && handoff.MatchId != result.MatchId;
+            if (!_waitingForContinuation) { CloseResults(); Show(); }
             _view.Activate();
-            Activate();
+            _view.SetMenuInputEnabled(!_waitingForContinuation);
+            if (!_waitingForContinuation) Activate();
+        }
+
+        internal MatchResultsPresentationResult PresentResults(MatchResultsSnapshot? results, Func<bool> pump)
+        {
+            Guid? completed = AuthoritativePlay.Current?.NodeMatchId ?? NodeSessions.Current?.State.JoinedMatchId;
+            if (!completed.HasValue) return new();
+            PauseMenuWindow.CloseIfOpen();
+            _results = new PostMatchWindow(_view.Play, completed.Value, results);
+            _results.Wait(pump);
+            return new(_results.Transition == PostMatchTransition.Quit, _results.Failure);
+        }
+
+        private void CloseResults()
+        {
+            _results?.Close();
+            _results = null;
         }
 
         public HomeWindow(MenuSettings settings, IReadOnlyList<string> rooms)
@@ -38,11 +62,24 @@ namespace MphRead.Mods.Launcher.Gui
             _view.Done += (_, plan) =>
             {
                 if (plan.Kind == LaunchKind.None) { Close(); return; }
+                _waitingForContinuation = false;
+                CloseResults();
                 _view.Deactivate();
                 Hide();
                 LaunchRequested?.Invoke(this, EventArgs.Empty);
             };
-            Closed += (_, _) => IsClosed = true;
+            _view.Play.Changed += (_, _) => Dispatcher.UIThread.Post(() =>
+            {
+                if (!_waitingForContinuation || IsClosed) return;
+                if (_view.Play.State.Phase != PlayPhase.Handoff && !_view.Play.State.Loading)
+                {
+                    _waitingForContinuation = false;
+                    CloseResults();
+                    _view.SetMenuInputEnabled(true);
+                    Show(); Activate();
+                }
+            });
+            Closed += (_, _) => { IsClosed = true; CloseResults(); };
             Closed += (_, _) => _ = _view.DisposeAsync().AsTask();
 
             Title = Mods.Branding.Name;

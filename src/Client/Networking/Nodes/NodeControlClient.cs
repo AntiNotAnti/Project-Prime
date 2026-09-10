@@ -28,7 +28,7 @@ public sealed class NodeControlClient : IAsyncDisposable
     internal NodeControlClient(ClientWebSocket socket) { _socket.Dispose(); _socket = socket; }
     internal NodeControlClient(Guid expectedNodeId) { _nodeId = expectedNodeId; }
     public sealed record ViewState(NodeSessionSnapshot? Session = null, LobbySnapshot? Lobby = null,
-        LobbyListSnapshot? Lobbies = null, NodeMatchHandoff? Handoff = null, bool MatchEnded = false, string? Error = null, Guid? JoinedMatchId = null, Guid? LastEndedMatchId = null, bool LastMatchInterrupted = false, NodeMatchEnded? JoinedCompletion = null);
+        LobbyListSnapshot? Lobbies = null, NodeMatchHandoff? Handoff = null, bool MatchEnded = false, string? Error = null, Guid? JoinedMatchId = null, Guid? LastEndedMatchId = null, bool LastMatchInterrupted = false, NodeMatchEnded? JoinedCompletion = null, NodeRoundSnapshot? Round = null, Guid? LastLobbyMatchId = null);
     private ViewState _state = new();
     public ViewState State => Volatile.Read(ref _state);
     private void Publish(Func<ViewState, ViewState> update)
@@ -45,6 +45,7 @@ public sealed class NodeControlClient : IAsyncDisposable
     public bool ShouldReturnFromGameplay { get { var state = State; return state.JoinedMatchId.HasValue && CompletionFor(state.JoinedMatchId.Value) != null; } }
     public NodeSessionSnapshot? Session => State.Session;
     public LobbySnapshot? Lobby => State.Lobby;
+    public NodeRoundSnapshot? Round => State.Round;
     public LobbyListSnapshot? Lobbies => State.Lobbies;
     public NodeMatchHandoff? Handoff => State.Handoff;
     public bool MatchEnded => State.MatchEnded;
@@ -216,7 +217,19 @@ public sealed class NodeControlClient : IAsyncDisposable
                     || lobby.Members.Select(x => x.SessionId).Distinct().Count() != lobby.Members.Length)
                     throw new JsonException("Invalid lobby snapshot.");
                 if (Lobby?.LobbyId == lobby.LobbyId && lobby.Revision <= Lobby.Revision) break;
-                Publish(state => state with { Lobby = lobby }); break;
+                Publish(state => ClearOpenMatch(state.Lobby?.LobbyId == lobby.LobbyId
+                    ? state with { Lobby = lobby, LastLobbyMatchId = lobby.CurrentMatchId ?? state.LastLobbyMatchId }
+                    : state with { Lobby = lobby, Round = null, Handoff = null, MatchEnded = false, LastLobbyMatchId = lobby.CurrentMatchId })); break;
+            case "lobby.round":
+                var round = value.Payload.Deserialize(NodeJsonContext.Default.NodeRoundSnapshot)
+                    ?? throw new JsonException("Missing round snapshot.");
+                try { NodeControlCodec.ValidateEventPayload(round); }
+                catch (ArgumentException ex) { throw new JsonException("Invalid round snapshot.", ex); }
+                if (round.Lobby.LobbyId != Lobby?.LobbyId
+                    || !round.Lobby.Members.Any(m => m.SessionId == Session!.SessionId)
+                        && round.Lobby.Waitlist?.IsSelfQueued != true) break;
+                Publish(state => AcceptRound(state, round));
+                break;
             case "lobby.list":
                 var list = value.Payload.Deserialize(NodeJsonContext.Default.LobbyListSnapshot) ?? throw new JsonException("Missing lobby list.");
                 if (list.Lobbies.Length > 64 || list.Lobbies.Any(x => x.LobbyId == Guid.Empty || x.Revision < 1
@@ -226,7 +239,7 @@ public sealed class NodeControlClient : IAsyncDisposable
                 Publish(state => state with { Lobbies = list }); break;
             case "lobby.left":
                 var left = value.Payload.Deserialize(NodeJsonContext.Default.LobbyLeft);
-                if (left?.LobbyId == Lobby?.LobbyId) Publish(state => state with { Lobby = null });
+                if (left?.LobbyId == Lobby?.LobbyId) Publish(state => state with { Lobby = null, Round = null, Handoff = null, MatchEnded = false, LastLobbyMatchId = null, Error = null });
                 break;
             case "match.handoff":
                 var handoff = value.Payload.Deserialize(NodeJsonContext.Default.NodeMatchHandoff) ?? throw new JsonException("Missing match handoff.");
@@ -235,7 +248,7 @@ public sealed class NodeControlClient : IAsyncDisposable
                 Publish(state => state with { Handoff = handoff, MatchEnded = false }); break;
             case "match.ended":
                 var ended = value.Payload.Deserialize(NodeJsonContext.Default.NodeMatchEnded);
-                if (ended != null && (ended.MatchId == State.JoinedMatchId || ended.MatchId == Handoff?.MatchId)) Publish(state => state with { MatchEnded = ended.MatchId == state.Handoff?.MatchId || state.MatchEnded, LastEndedMatchId = ended.MatchId, LastMatchInterrupted = ended.Interrupted, JoinedCompletion = ended.MatchId == state.JoinedMatchId ? ended : state.JoinedCompletion });
+                if (ended != null && (ended.MatchId == State.JoinedMatchId || ended.MatchId == Handoff?.MatchId || ended.MatchId == State.LastLobbyMatchId)) Publish(state => state with { MatchEnded = ended.MatchId == state.Handoff?.MatchId || state.Handoff == null && ended.MatchId == state.LastLobbyMatchId || state.MatchEnded, LastEndedMatchId = ended.MatchId, LastMatchInterrupted = ended.Interrupted, JoinedCompletion = ended.MatchId == state.JoinedMatchId ? ended : state.JoinedCompletion });
                 break;
             case "error": Publish(state => state with { Error = value.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)?.Message is { Length: <= 512 } error ? error : "Node rejected the command." }); break;
         }
@@ -243,6 +256,47 @@ public sealed class NodeControlClient : IAsyncDisposable
             try { handler(value); } catch { Publish(state => state with { Error = "A Node event listener failed." }); }
         NotifyChanged();
     }
+
+    internal static ViewState AcceptRound(ViewState state, NodeRoundSnapshot incoming)
+    {
+        if (state.Lobby?.LobbyId != incoming.Lobby.LobbyId
+            || incoming.Lobby.Revision < state.Lobby.Revision) return state;
+        if (state.Round is { } prior)
+        {
+            if (incoming.ConfigurationRevision < prior.ConfigurationRevision
+                || incoming.BallotRevision < prior.BallotRevision) return state;
+            if (incoming.BallotRevision == prior.BallotRevision
+                && incoming.ConfigurationRevision == prior.ConfigurationRevision)
+            {
+                if (!prior.Options.IsEmpty && !incoming.Options.IsEmpty
+                    && !prior.Options.Select(o => (o.Id, o.Choice, o.MapKey, o.Mode))
+                        .SequenceEqual(incoming.Options.Select(o => (o.Id, o.Choice, o.MapKey, o.Mode))))
+                    throw new JsonException("Ballot options changed without a revision.");
+                // Duplicate command replies may trail the authoritative push. A resolved
+                // ballot and a confirmed local vote never become open/unconfirmed again.
+                if (prior.ResolvedOption != null && incoming.ResolvedOption == null) return state;
+                if (prior.OwnVote != 0 && incoming.OwnVote == 0
+                    && incoming.ResolvedOption == null) return state;
+            }
+        }
+        if (incoming.Lobby.Revision == state.Lobby.Revision)
+        {
+            // A round can arrive after its coalesced lobby snapshot. Never let the
+            // supplemental response rewrite a different configuration at that revision.
+            if (incoming.Lobby.MapKey != state.Lobby.MapKey || incoming.Lobby.Mode != state.Lobby.Mode
+                || incoming.Lobby.Phase != state.Lobby.Phase
+                || incoming.Lobby.CurrentMatchId != state.Lobby.CurrentMatchId)
+                throw new JsonException("Conflicting lobby and round revisions.");
+            incoming = incoming with { Lobby = state.Lobby };
+        }
+        return ClearOpenMatch(state with { Lobby = incoming.Lobby, Round = incoming, Error = null,
+            LastLobbyMatchId = incoming.Lobby.CurrentMatchId ?? state.LastLobbyMatchId });
+    }
+
+    private static ViewState ClearOpenMatch(ViewState state)
+        => state.Lobby is { Phase: LobbyPhase.Open, CurrentMatchId: null }
+            ? state with { Handoff = null, MatchEnded = false, JoinedMatchId = null }
+            : state;
 
     internal void SetAdvertisedMapKeys(string[]? mapKeys)
     {
