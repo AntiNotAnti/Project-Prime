@@ -29,10 +29,11 @@ namespace MphRead.Mods.Network
         public NetConnectionState State { get; private set; } = NetConnectionState.Loading;
         public uint MatchId { get; private set; }
         public double LastReceived { get; private set; }
-        public ReliableChannel Reliable { get; } = new();
+        public ReliableChannel Reliable { get; }
         public NetMetrics Metrics { get; } = new();
 
-        public NetConnection(ulong id, IPEndPoint endpoint, uint matchId, double now)
+        public NetConnection(ulong id, IPEndPoint endpoint, uint matchId, double now,
+            bool adaptiveReliableRto = true)
         {
             if (id == 0)
             {
@@ -42,6 +43,7 @@ namespace MphRead.Mods.Network
             Endpoint = endpoint;
             MatchId = matchId;
             LastReceived = now;
+            Reliable = new ReliableChannel(adaptiveRetryEnabled: adaptiveReliableRto);
         }
 
         public static ulong NewIdentity()
@@ -151,6 +153,7 @@ namespace MphRead.Mods.Network
 
         public void FlushReliable(INetDatagramSink transport, double now)
         {
+            Reliable.ConfigureRetry(Metrics.SmoothedRttMs, Metrics.JitterMs);
             Span<byte> datagram = stackalloc byte[NetConfig.MaxPacketSize];
             for (int budget = 0; budget < 8
                 && Reliable.TryGetDue(now, out uint id, out ReliableEventType type, out ReadOnlyMemory<byte> payload);

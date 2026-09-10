@@ -3,11 +3,11 @@ using MphRead.Entities;
 
 namespace MphRead.Mods.Network
 {
-    /// <summary>Game-thread entry points for authoritative play and passive demo presentation.</summary>
+    /// <summary>Game-thread entry points for authoritative play and passive replay presentation.</summary>
     public static class NetHooks
     {
         public static int LocalSlot => AuthoritativePlay.Current?.LocalSlot
-            ?? (DemoPlayback.IsActive ? -1 : 0);
+            ?? (ReplayPlayback.IsActive ? -1 : 0);
 
         public static bool KeepSlotAlive(PlayerEntity player) => NetSession.Active || AuthoritativePlay.Active;
 
@@ -19,7 +19,7 @@ namespace MphRead.Mods.Network
                 return true;
             }
             if (!NetSession.Active) { return false; }
-            // Legacy demos may contain recorded controls for animation.
+            // Legacy replays may contain recorded controls for animation.
             // They have no socket and cannot submit gameplay state.
             if (player.LoadFlags.TestFlag(LoadFlags.Active) && NetSession.RemoteIntentValid[slot])
             {
@@ -38,9 +38,9 @@ namespace MphRead.Mods.Network
                 play.BeforeSimulation(scene);
                 return;
             }
-            if (DemoPlayback.IsModern)
+            if (ReplayPlayback.IsModern)
             {
-                DemoPlayback.BeforeSimulation(scene);
+                ReplayPlayback.BeforeSimulation(scene);
                 return;
             }
             if (!NetSession.Active) { return; }
@@ -62,9 +62,9 @@ namespace MphRead.Mods.Network
                 play.AfterSimulation();
                 return;
             }
-            if (DemoPlayback.IsModern)
+            if (ReplayPlayback.IsModern)
             {
-                DemoPlayback.AfterSimulation(scene);
+                ReplayPlayback.AfterSimulation(scene);
                 return;
             }
             if (!NetSession.Active) { return; }

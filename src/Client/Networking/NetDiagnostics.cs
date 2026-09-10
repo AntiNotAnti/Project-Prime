@@ -66,6 +66,8 @@ namespace MphRead.Mods.Network
             NetMetrics clock = client.Clock.Metrics;
             NetMetrics? connection = client.Connection?.Metrics;
             NetSample error = prediction.Error;
+            string packetIntervalPercentiles = connection is null ? "n/a" : Percentiles(connection.PacketReceiveIntervalMs);
+            string snapshotIntervalPercentiles = connection is null ? "n/a" : Percentiles(connection.SnapshotIntervalMs);
             double? estimatedAge = client.HasSnapshot && client.Clock.Synchronized
                 ? NetDiagnosticWindow.EstimatedSnapshotAgeMs(client.Clock.EstimateServerTick(now), client.Snapshot.ServerTick)
                 : null;
@@ -78,6 +80,9 @@ namespace MphRead.Mods.Network
                 + $"{Sample(clock.Rtt.Count > 0 ? clock.SmoothedRttMs : null)}/"
                 + $"{Sample(clock.Rtt.Count > 0 ? clock.Rtt.Min : null)} ms"
                 + $" RTT-jitter={Sample(clock.Rtt.Count > 1 ? clock.JitterMs : null)} ms"
+                + $" RTT-p50/p95/p99/p99.9/max={Percentiles(clock.Rtt)} ms"
+                + $" packet-interval-p50/p95/p99/p99.9/max={packetIntervalPercentiles} ms"
+                + $" snapshot-interval-p50/p95/p99/p99.9/max={snapshotIntervalPercentiles} ms"
                 + $" snapshots={Sample(rates.SnapshotHz)} Hz age-est={Sample(estimatedAge)} ms"
                 + $" received-gap={Sample(receivedGap)} ms server-silence={Sample(connection?.SilenceMs(now))} ms"
                 + $" missing-or-stale={Sample(rates.MissingOrStalePercent)}%"
@@ -88,6 +93,7 @@ namespace MphRead.Mods.Network
                 + $" corrections={prediction.Corrections} hard={prediction.HardCorrections} history-misses={prediction.HistoryMisses}"
                 + $" interpolation-samples={interpolation.InterpolatedSamples} underrun={interpolation.UnderrunSamples}"
                 + $" extrapolated={interpolation.ExtrapolatedSamples} held={interpolation.HeldSamples}"
+                + $" delay-ticks={interpolation.DelayTicks:0.###}"
                 + $" max-extrapolation={Sample(interpolation.MaximumExtrapolationTicks * (1000.0 / 60))} ms");
             Console.WriteLine($"[net-traffic] packets in/out={traffic.PacketsReceived}/{traffic.PacketsSent}"
                 + $" bytes in/out={counters.BytesReceived}/{counters.BytesSent}"
@@ -118,6 +124,14 @@ namespace MphRead.Mods.Network
 
         private static string Sample(double? value)
             => value?.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) ?? "n/a";
+
+        private static string Percentiles(NetSample sample)
+        {
+            if (sample.Count == 0) return "n/a";
+            BoundedPercentileSnapshot percentiles = sample.Percentiles;
+            return $"{percentiles.P50:0.0}/{percentiles.P95:0.0}/{percentiles.P99:0.0}/"
+                + $"{percentiles.P999:0.0}/{percentiles.Max:0.0}";
+        }
 
         public static void Report(Scene scene, double time)
         {

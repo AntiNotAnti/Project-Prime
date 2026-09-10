@@ -3,8 +3,22 @@ using Xunit;
 namespace MphRead.Tests.Client;
 public class NetworkHealthTests
 {
+    [Fact]
+    public void DisplayHysteresisDegradesQuicklyAndRecoversSlowly()
+    {
+        var smoother = new NetworkHealthSmoother();
+        Assert.Equal(NetworkHealthState.Good, smoother.Current);
+        Assert.Equal(NetworkHealthState.Good, smoother.Observe(NetworkHealthState.Unstable));
+        Assert.Equal(NetworkHealthState.Good, smoother.Observe(NetworkHealthState.Unstable));
+        Assert.Equal(NetworkHealthState.Unstable, smoother.Observe(NetworkHealthState.Unstable));
+        for (int i = 0; i < 7; i++)
+            Assert.Equal(NetworkHealthState.Unstable, smoother.Observe(NetworkHealthState.Excellent));
+        Assert.Equal(NetworkHealthState.Excellent, smoother.Observe(NetworkHealthState.Excellent));
+        Assert.Equal(NetworkHealthState.Reconnecting, smoother.Observe(NetworkHealthState.Reconnecting));
+    }
+
     [Theory]
-    [InlineData(20, 2, 10, 10, 0, NetworkHealthState.Good)]
+    [InlineData(20, 2, 10, 10, 0, NetworkHealthState.Excellent)]
     [InlineData(150, 2, 10, 10, 0, NetworkHealthState.HighLatency)]
     [InlineData(20, 30, 10, 10, 0, NetworkHealthState.Unstable)]
     [InlineData(20, 2, 10, 250, 0, NetworkHealthState.Unstable)]

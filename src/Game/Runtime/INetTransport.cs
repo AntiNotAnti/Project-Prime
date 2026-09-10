@@ -16,6 +16,16 @@ namespace MphRead.Mods.Network
         void SetKeepAlives(ReadOnlySpan<NetKeepAlive> entries);
         void AnswerPingsImmediately();
         IEnumerable<ReceivedPacket> Drain();
+        int Drain(Span<ReceivedPacket> destination)
+        {
+            int count = 0;
+            foreach (ReceivedPacket packet in Drain())
+            {
+                if (count == destination.Length) break;
+                destination[count++] = packet;
+            }
+            return count;
+        }
         void EnqueueForPlayback(byte[] data, int length);
         void Send(IPEndPoint target, PacketType type, ReadOnlySpan<byte> payload, long extraHoldTicks = 0);
         void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram, long extraHoldTicks);

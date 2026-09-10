@@ -7,6 +7,7 @@ using MphRead.Entities;
 using MphRead.Formats.Culling;
 using OpenTK.Mathematics;
 using MphRead.Mods.Input;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Network
 {
@@ -17,6 +18,8 @@ namespace MphRead.Mods.Network
         public TerminalState State { get; private set; }
         public Guid? NodeMatchId { get; private set; }
         public bool Interrupted { get; private set; }
+        public MatchCompletionSummary? CompletionSummary { get; private set; }
+        internal event Action<KillEvent>? LocalPlayerKilled;
         internal void BindNodeMatch(Guid matchId)
         {
             if (matchId == Guid.Empty || NodeMatchId is { } existing && existing != matchId)
@@ -29,6 +32,7 @@ namespace MphRead.Mods.Network
             if (State == TerminalState.Active && NodeMatchId is Guid id
                 && NodeSessions.Current?.CompletionFor(id) is { } ended)
             {
+                CompletionSummary = NodeSessions.Current.CompletionSummaryFor(id);
                 Interrupted = ended.Interrupted;
                 State = ended.Interrupted ? TerminalState.Failed : TerminalState.Completed;
             }
@@ -46,13 +50,18 @@ namespace MphRead.Mods.Network
                 () =>
                 {
                     Client.Poll();
-                    DemoRecorder.RecordFrame(Client, scene);
+                    ReplayRecorder.RecordFrame(Client, scene);
                     _world.Apply(scene, Client.HasSnapshot ? Client.Snapshot.ServerTick : null);
                 }, () => scene.Match.Result != null);
         }
 
-        public static AuthoritativePlay? Current { get; private set; }
-        public static bool Active => Current != null || DemoPlayback.IsModern;
+        private static AuthoritativePlay? _current;
+        public static AuthoritativePlay? Current
+        {
+            get => ClientOnlineRuntime.Current?.Match?.Play ?? Volatile.Read(ref _current);
+            private set => Volatile.Write(ref _current, value);
+        }
+        public static bool Active => Current != null || ReplayPlayback.IsModern;
         public static bool ApplyingSnapshot { get; private set; }
         private readonly NetTransport _transport;
         private readonly InputCommand[] _inputs = new InputCommand[InputBundle.Capacity];
@@ -77,6 +86,7 @@ namespace MphRead.Mods.Network
         private bool _presentationPending;
         private bool _localVelocityApplied;
         private uint _localVelocityAppliedTick;
+        private uint _timingRevision;
         public NetClient Client { get; }
         public ClientPrediction Prediction { get; } = new();
         /// <summary>Per-match presentation diagnostics; never gameplay authority.</summary>
@@ -99,6 +109,7 @@ namespace MphRead.Mods.Network
             {
                 throw new InvalidOperationException("A network session is already active.");
             }
+            ReplayRecorder.ResetTimelineForSession();
             IPAddress? address = Array.Find(Dns.GetHostAddresses(host),
                 candidate => candidate.AddressFamily == AddressFamily.InterNetwork);
             if (address == null) { throw new ProgramException($"{host} has no IPv4 address."); }
@@ -110,7 +121,7 @@ namespace MphRead.Mods.Network
             Client.WorldPacketReceived = payload =>
             {
                 _world.Receive(payload);
-                DemoRecorder.RecordWorld(payload);
+                ReplayRecorder.RecordWorld(payload);
             };
             Current = this;
         }
@@ -124,6 +135,29 @@ namespace MphRead.Mods.Network
                 Thread.Sleep(10);
             }
             NetLaunch.DisableCheatsForMatch();
+        }
+
+        internal void Rejoin(NodeMatchHandoff handoff, CancellationToken cancellationToken,
+            int timeoutMilliseconds = 8000)
+        {
+            if (handoff.MatchId != NodeMatchId || handoff.WireMatchId != Client.Accepted.MatchId
+                || handoff.Nonce == 0 || handoff.Ticket is not { Length: > 0 and <= JoinPacket.MaxRoutedTicketBytes })
+                throw new InvalidOperationException("The rejoin handoff does not match this gameplay session.");
+            Client.Reconnect(handoff.Nonce, handoff.Ticket);
+            _inputCount = 0;
+            Prediction.Reset();
+            ResetPresentation();
+            _world.Reset(handoff.WireMatchId);
+            var timeout = Stopwatch.StartNew();
+            while (Client.State == NetConnectionState.Connecting)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (timeout.ElapsedMilliseconds >= timeoutMilliseconds)
+                    throw new TimeoutException("The Worker did not accept the rejoin before the deadline.");
+                Client.Poll();
+                if (Client.Failure != null) throw new InvalidOperationException(Client.Failure);
+                if (Client.State == NetConnectionState.Connecting) Thread.Sleep(10);
+            }
         }
 
         public void BuildPlayers(Scene scene, Hunter hunter, int recolor)
@@ -164,7 +198,8 @@ namespace MphRead.Mods.Network
             // change which previously presented picture that input refers to.
             _hasInputViewTick = _interpolation.TryCaptureViewTick(out _inputViewTick);
             Client.Poll();
-            DemoRecorder.RecordFrame(Client, scene);
+            UpdateNetworkTiming(Stopwatch.GetTimestamp());
+            ReplayRecorder.RecordFrame(Client, scene);
             if (Client.Failure != null)
             {
                 if (ObserveCompletion()) return;
@@ -318,7 +353,7 @@ namespace MphRead.Mods.Network
             Span<CombatEvent> events = stackalloc CombatEvent[CombatEventBatch.MaxCount];
             while (Client.TryDequeueEvent(out NetApplicationEvent message))
             {
-                DemoRecorder.RecordEvent(message);
+                ReplayRecorder.RecordEvent(message);
                 if (message.MatchId == _loadedMatch && message.Type == ReliableEventType.Chat
                     && SessionChatPacket.TryRead(message.Payload.Span, out SessionChatPacket chat))
                 {
@@ -332,8 +367,11 @@ namespace MphRead.Mods.Network
                     && WorldEvent.TryRead(message.Payload.Span, out WorldEvent worldEvent))
                 {
                     if (_presentationScene?.Presentation is ScenePresentation worldPresentation)
+                    {
+                        worldPresentation.BroadcastObservations.Record(worldEvent);
                         worldPresentation.WorldFeedback.Process(worldEvent, worldPresentation.CombatFeedback.Local, WorldServerTick,
                             _presentationScene.Match.Rules.PickupRespawnAnnouncements);
+                    }
                     continue;
                 }
                 if (message.MatchId == _loadedMatch && message.Type == ReliableEventType.Kill
@@ -345,13 +383,19 @@ namespace MphRead.Mods.Network
                         if (accepted && LocalSlot >= 0 && LocalSlot < scene.Players.Count)
                         {
                             PlayerEntity localPlayer = scene.Players[LocalSlot];
-                            LookDeviceKind device = GamepadInput.LookCoordinator.ActiveLookDevice;
+                            // Use the device consumed by the fixed-step input
+                            // boundary. Render prediction may have changed
+                            // ownership since this authoritative event arrived.
+                            LookDeviceKind device = InputBalanceTelemetry.FixedStepLookDevice;
                             if (kill.Killer == GetLocalCombatActor() && kill.Weapon <= 10)
                                 InputBalanceTelemetry.RecordKill(device,
                                     (int)localPlayer.Hunter, kill.Weapon);
                             if (kill.Victim == GetLocalCombatActor())
+                            {
                                 InputBalanceTelemetry.RecordDeath(device,
                                     (int)localPlayer.Hunter, (int)localPlayer.CurrentWeapon);
+                                LocalPlayerKilled?.Invoke(kill);
+                            }
                         }
                     }
                     continue;
@@ -362,6 +406,7 @@ namespace MphRead.Mods.Network
                 {
                     if (_presentationScene?.Presentation is ScenePresentation awardPresentation)
                     {
+                        awardPresentation.BroadcastObservations.Record(award);
                         // Both consumers receive the same authoritative fact;
                         // each owns its own bounded dedup/priority queue.
                         awardPresentation.Announcer.Consume(award);
@@ -375,6 +420,7 @@ namespace MphRead.Mods.Network
                 {
                     if (_presentationScene?.Presentation is ScenePresentation semanticPresentation)
                     {
+                        semanticPresentation.BroadcastObservations.Record(semanticEvent);
                         byte localTeam = semanticPresentation.CombatFeedback.Local.IsValid
                             ? (byte)_presentationScene.Players[semanticPresentation.CombatFeedback.Local.Slot].TeamIndex
                             : (byte)255;
@@ -398,6 +444,8 @@ namespace MphRead.Mods.Network
                     if (_presentationScene?.Presentation is ScenePresentation feedbackPresentation
                         && !feedbackPresentation.CombatFeedback.Process(value,
                             allowLocalHitMarker: currentTarget)) continue;
+                    if (_presentationScene?.Presentation is ScenePresentation observedCombat)
+                        observedCombat.BroadcastObservations.Record(value);
                     CombatEvents++;
                     if (value.Kind == CombatEventKind.Damage
                         && value.Actor == GetLocalCombatActor()
@@ -546,7 +594,9 @@ namespace MphRead.Mods.Network
             Client.Close();
             Client.Dispose();
             _transport.Dispose();
+            ClientOnlineRuntime.Current?.ReleaseMatch(this);
             if (Current == this) { Current = null; }
+            ReplayRecorder.ResetTimelineForSession();
         }
 
         public void AdvancePresentation()
@@ -573,6 +623,7 @@ namespace MphRead.Mods.Network
         private void ResetPresentation()
         {
             _interpolation.Reset();
+            _timingRevision = 0;
             _presentationPending = false;
             _hasInputViewTick = false;
             if (_presentationScene is Scene scene)
@@ -580,6 +631,19 @@ namespace MphRead.Mods.Network
                 foreach (PlayerEntity player in scene.Players)
                     player.ResetRemoteLocomotion();
             }
+        }
+
+        private void UpdateNetworkTiming(long now)
+        {
+            NetworkTimingProfile profile = Client.TimingProfile;
+            if (profile.IsValid && profile.Revision != _timingRevision)
+            {
+                _interpolation.SetTargetDelay(profile.PresentationDelayTicks, now);
+                _timingRevision = profile.Revision;
+            }
+            if (_timingRevision != 0 && _interpolation.AdvanceDelay(now))
+                Client.AcknowledgeTimingProfile(_timingRevision);
+            Client.ReportTiming(_interpolation, now);
         }
 
         private bool TryPrepareRemotePresentation(long now,
@@ -764,6 +828,16 @@ namespace MphRead.Mods.Network
                 && _identities[slot] != 0 && _lives[slot] != 0
                 ? new CombatActor((byte)slot, _identities[slot], _lives[slot])
                 : CombatActor.None;
+        }
+
+        internal bool KillcamLiveContextChanged(in KillEvent kill, bool includeNewLife = true)
+        {
+            if (State != TerminalState.Active || Client.Failure != null
+                || Client.Accepted.MatchId != kill.MatchId || _loadedMatch != kill.MatchId
+                || LocalSlot != kill.Victim.Slot)
+                return true;
+            CombatActor local = GetLocalCombatActor();
+            return !local.IsValid || includeNewLife && local != kill.Victim;
         }
 
         private bool IsPredictionEpochActive(Scene scene)

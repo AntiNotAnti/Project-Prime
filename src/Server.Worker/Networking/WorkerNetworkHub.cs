@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 
 namespace MphRead.Mods.Network;
@@ -15,10 +16,13 @@ public sealed class WorkerNetworkHub : IDisposable
     private readonly object _gate = new();
     private readonly object _ioGate = new();
     private long _routingBudgetExhaustions;
+    private readonly BoundedPercentileSampler _pumpDurations = new();
     public const int MaxRoutingAttemptsPerPump = 256;
     public long RoutingBudgetExhaustions => Interlocked.Read(ref _routingBudgetExhaustions);
     private readonly Dictionary<uint, MatchDatagramTransport> _matches = new();
     private readonly Dictionary<ulong, MatchDatagramTransport> _connections = new();
+    private MatchDatagramTransport[] _activeMatches = Array.Empty<MatchDatagramTransport>();
+    private readonly ReceivedPacket[] _receiveBuffer = new ReceivedPacket[MaxRoutingAttemptsPerPump];
     private ulong _nextConnection = NetConnection.NewIdentity();
     private bool _disposed;
     private int _pumping;
@@ -26,6 +30,10 @@ public sealed class WorkerNetworkHub : IDisposable
     public int LocalPort => _physical.LocalPort;
     public NetTrafficMetrics Metrics { get; } = new();
     public int MatchLimit { get; }
+    public BoundedPercentileSnapshot PumpDurationPercentiles
+    {
+        get { lock (_ioGate) return _pumpDurations.Snapshot(); }
+    }
 
     public WorkerNetworkHub(INetTransport physical, Guid incarnation, IWorkerDatagramRouter router, int matchLimit = 64)
     {
@@ -37,7 +45,8 @@ public sealed class WorkerNetworkHub : IDisposable
         _physical.AnswerPingsImmediately();
     }
 
-    public MatchDatagramTransport RegisterMatch(uint wireMatchId, int queueCapacity = 2048, int drainBudget = 256, int maxConnections = 32)
+    public MatchDatagramTransport RegisterMatch(uint wireMatchId, int queueCapacity = 2048,
+        int drainBudget = 256, int maxConnections = 32, bool queueV2Enabled = true)
     {
         lock (_gate)
         {
@@ -46,8 +55,10 @@ public sealed class WorkerNetworkHub : IDisposable
             if (_router.LegacySingleMatchId is uint legacy && (legacy != wireMatchId || _matches.Count != 0))
                 throw new InvalidOperationException("Legacy join framing supports exactly one explicitly pinned match.");
             if (_matches.Count >= MatchLimit || _matches.ContainsKey(wireMatchId)) throw new InvalidOperationException("Match route is duplicate or worker capacity is full.");
-            var transport = new MatchDatagramTransport(this, wireMatchId, queueCapacity, drainBudget, maxConnections);
+            var transport = new MatchDatagramTransport(this, wireMatchId, queueCapacity,
+                drainBudget, maxConnections, queueV2Enabled);
             _matches.Add(wireMatchId, transport);
+            PublishActiveMatches();
             return transport;
         }
     }
@@ -84,7 +95,15 @@ public sealed class WorkerNetworkHub : IDisposable
             var remove = new List<ulong>();
             foreach (var entry in _connections) if (entry.Value == match) remove.Add(entry.Key);
             foreach (ulong id in remove) _connections.Remove(id);
+            PublishActiveMatches();
         }
+    }
+
+    private void PublishActiveMatches()
+    {
+        var active = new MatchDatagramTransport[_matches.Count];
+        _matches.Values.CopyTo(active, 0);
+        Volatile.Write(ref _activeMatches, active);
     }
 
     public void Pump()
@@ -95,32 +114,40 @@ public sealed class WorkerNetworkHub : IDisposable
             lock (_ioGate)
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
-                // The physical transport already bounds its drain; enforce a worker budget as well.
-                int received = 0;
-                foreach (ReceivedPacket packet in _physical.Drain())
+                long started = Stopwatch.GetTimestamp();
+                try
                 {
-                    if (++received > MaxRoutingAttemptsPerPump)
-                    { Metrics.DropQueued(); Interlocked.Increment(ref _routingBudgetExhaustions); break; }
-                    Metrics.Received(packet.Length);
-                    if (packet.Length <= 0 || packet.Length > packet.Data.Length || packet.Length > NetConfig.MaxPacketSize
-                        || !_router.TryRoute(packet.Data.AsSpan(0, packet.Length), out var route))
-                    { Metrics.Reject(); continue; }
-                    lock (_gate)
+                    // The physical transport already bounds its drain; enforce a worker budget as well.
+                    int received = _physical.Drain(_receiveBuffer);
+                    for (int packetIndex = 0; packetIndex < received; packetIndex++)
                     {
-                        MatchDatagramTransport? match;
-                        bool found = route.IsJoin
-                            ? route.ConnectionId == 0 && _matches.TryGetValue(route.WireMatchId, out match)
-                            : route.ConnectionId != 0 && _connections.TryGetValue(route.ConnectionId, out match);
-                        if (!found) { Metrics.Reject(); continue; }
-                        match = route.IsJoin ? _matches[route.WireMatchId] : _connections[route.ConnectionId];
-                        if (route.WireMatchId != 0 && route.WireMatchId != match.WireMatchId)
+                        ReceivedPacket packet = _receiveBuffer[packetIndex];
+                        Metrics.Received(packet.Length);
+                        if (packet.Length <= 0 || packet.Length > packet.Data.Length || packet.Length > NetConfig.MaxPacketSize
+                            || !_router.TryRoute(packet.Data.AsSpan(0, packet.Length), out var route))
                         { Metrics.Reject(); continue; }
-                        if (!match.Enqueue(packet)) Metrics.DropQueued();
+                        lock (_gate)
+                        {
+                            MatchDatagramTransport? match;
+                            bool found = route.IsJoin
+                                ? route.ConnectionId == 0 && _matches.TryGetValue(route.WireMatchId, out match)
+                                : route.ConnectionId != 0 && _connections.TryGetValue(route.ConnectionId, out match);
+                            if (!found) { Metrics.Reject(); continue; }
+                            match = route.IsJoin ? _matches[route.WireMatchId] : _connections[route.ConnectionId];
+                            if (route.WireMatchId != 0 && route.WireMatchId != match.WireMatchId)
+                            { Metrics.Reject(); continue; }
+                            if (!match.Enqueue(packet)) Metrics.DropQueued();
+                        }
                     }
+                    if (received == _receiveBuffer.Length && _physical.QueuedPackets > 0)
+                        Interlocked.Increment(ref _routingBudgetExhaustions);
+                    foreach (MatchDatagramTransport match in Volatile.Read(ref _activeMatches))
+                        match.Flush(_physical, Metrics);
                 }
-                MatchDatagramTransport[] matches;
-                lock (_gate) { matches = new MatchDatagramTransport[_matches.Count]; _matches.Values.CopyTo(matches, 0); }
-                foreach (var match in matches) match.Flush(_physical, Metrics);
+                finally
+                {
+                    _pumpDurations.Record(Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+                }
             }
         }
         finally { Volatile.Write(ref _pumping, 0); }
@@ -135,6 +162,7 @@ public sealed class WorkerNetworkHub : IDisposable
             _disposed = true;
             foreach (var match in _matches.Values) match.CloseFromHub();
             _matches.Clear(); _connections.Clear();
+            Volatile.Write(ref _activeMatches, Array.Empty<MatchDatagramTransport>());
             _physical.Dispose();
         }
     }

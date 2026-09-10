@@ -195,9 +195,11 @@ namespace MphRead.Mods.Network
                 {
                     ServerPeer? peer = network.Peers[slot];
                     if (peer?.Connection.State != NetConnectionState.Playing) { continue; }
-                    InputCommand input = peer.Inputs.Take(tick);
+                    InputCommand input = peer.Inputs.Take(tick,
+                        out byte rewindPresentationDelayTicks);
                     if (peer.WaitingForNextMatch) continue;
-                    Combat.SetCommand(slot, input, peer.Connection.Metrics.SmoothedRttMs);
+                    Combat.SetCommand(slot, input, peer.Connection.Metrics.SmoothedRttMs,
+                        rewindPresentationDelayTicks);
                     Scene.Players[slot].ApplyNetworkInput(input);
                 }
                 foreach (var bot in Bots.Participants)

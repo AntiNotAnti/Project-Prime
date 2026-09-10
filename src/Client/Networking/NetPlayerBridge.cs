@@ -4,7 +4,7 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
 {
-    /// <summary>Presentation adapter for passive protocol-4 demo records.</summary>
+    /// <summary>Presentation adapter for passive protocol-4 replay records.</summary>
     public static class NetPlayerBridge
     {
         private const int FormGraceFrames = 90;

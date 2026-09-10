@@ -116,6 +116,7 @@ public sealed class NetworkActionIntegrationTests
         Assert.True(spectatingObserved);
     }
 
+    [Trait("RequiresGameContent", "true")]
     [Fact]
     public void RepeatedUdpDesiredWeaponWaitsThroughGunTransitionAndTracksPreviousWeapon()
     {
@@ -223,6 +224,7 @@ public sealed class NetworkActionIntegrationTests
         Assert.Equal(BeamType.PowerBeam, player.PreviousWeapon);
     }
 
+    [Trait("RequiresGameContent", "true")]
     [Fact]
     public void DisconnectingFlagPublishesTheCurrentSimulationTick()
     {

@@ -45,11 +45,150 @@ public sealed class WorkerNetworkHubTests
         byte[] update = Packet(NetMessageType.Snapshot, id);
         match.SendDatagram(Endpoint, update); match.SendDatagram(Endpoint, update);
         byte[] control = Packet(NetMessageType.Ack, id); match.SendDatagram(Endpoint, control); control[2] = 255;
-        Assert.Equal(2, match.HeldOutgoingPackets); Assert.Equal(1, match.PacketsDropped);
+        Assert.Equal(2, match.HeldOutgoingPackets); Assert.Equal(0, match.PacketsDropped);
+        Assert.Equal(2, match.UpdateEnqueues); Assert.Equal(0, match.UpdateDrops);
+        Assert.Equal(1, match.SnapshotsSuperseded);
+        Assert.Equal(1, match.ControlEnqueues); Assert.Equal(0, match.ControlDrops);
+        Assert.Equal(2, match.OutboundQueueHighWater);
         hub.Pump();
         Assert.Equal(NetMessageType.Ack, ReadHeader(physical.Sent[0]).Type);
         Assert.Equal(NetMessageType.Snapshot, ReadHeader(physical.Sent[1]).Type);
         Assert.Equal(2, match.Metrics.PacketsSent);
+        Assert.Equal(1, match.PacketsSent(MatchTrafficClass.CriticalReliable));
+        Assert.Equal(1, match.PacketsSent(MatchTrafficClass.Snapshot));
+        Assert.Equal(1, match.FlushCount);
+        Assert.Equal(1, match.FlushDurationPercentiles.Count);
+        Assert.Equal(2, hub.Metrics.QueueHighWater);
+        Assert.Equal(1, hub.PumpDurationPercentiles.Count);
+    }
+
+    [Fact]
+    public void SnapshotQueueKeepsOnlyTheNewestUnsentStatePerConnection()
+    {
+        var physical = new MemoryTransport();
+        using var hub = new WorkerNetworkHub(physical, Guid.NewGuid(), new TestRouter());
+        using var match = hub.RegisterMatch(1, 4, 4);
+        ulong id = match.AllocateConnectionId();
+
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Snapshot, id, sequence: 10));
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Snapshot, id, sequence: 11));
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Snapshot, id, sequence: 12));
+
+        Assert.Equal(1, match.HeldOutgoingPackets);
+        Assert.Equal(2, match.SnapshotsSuperseded);
+        hub.Pump();
+        NetHeader sent = ReadHeader(Assert.Single(physical.Sent));
+        Assert.Equal(12u, sent.Sequence);
+        Assert.Equal(0, match.HeldOutgoingPackets);
+    }
+
+    [Fact]
+    public void WeightedSchedulingGivesSnapshotAndWorldTrafficBoundedOpportunities()
+    {
+        var physical = new MemoryTransport();
+        using var hub = new WorkerNetworkHub(physical, Guid.NewGuid(), new TestRouter());
+        using var match = hub.RegisterMatch(1, 32, 8);
+        ulong id = match.AllocateConnectionId();
+        for (uint sequence = 1; sequence <= 20; sequence++)
+            match.SendDatagram(Endpoint, Packet(NetMessageType.Ack, id, sequence));
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Snapshot, id, sequence: 100));
+        match.SendDatagram(Endpoint, Packet(NetMessageType.World, id, sequence: 200));
+
+        hub.Pump();
+
+        Assert.Equal(8, physical.Sent.Count);
+        Assert.Contains(physical.Sent, bytes => ReadHeader(bytes).Type == NetMessageType.Snapshot);
+        Assert.Contains(physical.Sent, bytes => ReadHeader(bytes).Type == NetMessageType.World);
+        Assert.True(match.HeldOutgoingPackets > 0);
+        Assert.Equal(1, match.PacketsSent(MatchTrafficClass.Snapshot));
+        Assert.Equal(1, match.PacketsSent(MatchTrafficClass.World));
+    }
+
+    [Fact]
+    public void WorldBatchesRemainFifoAndAreNeverSnapshotCoalesced()
+    {
+        var physical = new MemoryTransport();
+        using var hub = new WorkerNetworkHub(physical, Guid.NewGuid(), new TestRouter());
+        using var match = hub.RegisterMatch(1, 8, 8);
+        ulong id = match.AllocateConnectionId();
+        match.SendDatagram(Endpoint, Packet(NetMessageType.World, id, sequence: 30));
+        match.SendDatagram(Endpoint, Packet(NetMessageType.World, id, sequence: 31));
+        match.SendDatagram(Endpoint, Packet(NetMessageType.World, id, sequence: 32));
+
+        Assert.Equal(3, match.HeldOutgoingPackets);
+        hub.Pump();
+        Assert.Equal(new uint[] { 30, 31, 32 },
+            physical.Sent.Select(bytes => ReadHeader(bytes).Sequence));
+    }
+
+    [Fact]
+    public void ReplacingAQueuedSnapshotAllocatesNoManagedMemoryAfterWarmup()
+    {
+        var physical = new MemoryTransport();
+        using var hub = new WorkerNetworkHub(physical, Guid.NewGuid(), new TestRouter());
+        using var match = hub.RegisterMatch(1, 4, 4);
+        ulong id = match.AllocateConnectionId();
+        byte[] snapshot = Packet(NetMessageType.Snapshot, id);
+        match.SendDatagram(Endpoint, snapshot);
+        for (int i = 0; i < 100; i++) match.SendDatagram(Endpoint, snapshot);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 10_000; i++) match.SendDatagram(Endpoint, snapshot);
+
+        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(1, match.HeldOutgoingPackets);
+    }
+
+    [Fact]
+    public void QueueV2RollbackDisablesSnapshotSuperseding()
+    {
+        var physical = new MemoryTransport();
+        using var hub = new WorkerNetworkHub(physical, Guid.NewGuid(), new TestRouter());
+        using var match = hub.RegisterMatch(1, 4, 4, queueV2Enabled: false);
+        ulong id = match.AllocateConnectionId();
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Snapshot, id, 10));
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Snapshot, id, 11));
+
+        Assert.Equal(2, match.HeldOutgoingPackets);
+        Assert.Equal(0, match.SnapshotsSuperseded);
+        hub.Pump();
+        Assert.Equal(new uint[] { 10, 11 }, physical.Sent.Select(ReadHeader).Select(header => header.Sequence));
+    }
+
+    [Fact]
+    public void HubPumpAndEmptyMatchFlushAllocateNoManagedMemoryAfterWarmup()
+    {
+        var physical = new MemoryTransport();
+        using var hub = new WorkerNetworkHub(physical, Guid.NewGuid(), new TestRouter());
+        using var match = hub.RegisterMatch(1, 4, 4);
+        for (int i = 0; i < 100; i++) hub.Pump();
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 10_000; i++) hub.Pump();
+
+        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+    }
+
+    [Fact]
+    public async Task PhysicalSendRunsOutsideTheMatchQueueLock()
+    {
+        var physical = new MemoryTransport();
+        using var hub = new WorkerNetworkHub(physical, Guid.NewGuid(), new TestRouter());
+        using var match = hub.RegisterMatch(1, 4, 4);
+        ulong id = match.AllocateConnectionId();
+        int reentered = 0;
+        physical.Sending = () =>
+        {
+            if (Interlocked.Exchange(ref reentered, 1) == 0)
+                match.SendDatagram(Endpoint, Packet(NetMessageType.Debug, id, 2));
+        };
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Ack, id));
+
+        Task pump = Task.Run(hub.Pump);
+
+        await pump.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Equal(2, physical.Sent.Count);
+        Assert.Equal(0, match.HeldOutgoingPackets);
     }
 
     [Fact]
@@ -131,8 +270,8 @@ public sealed class WorkerNetworkHubTests
         Assert.Throws<InvalidOperationException>(() => match.AllocateConnectionId());
     }
 
-    private static byte[] Packet(NetMessageType type, ulong id)
-    { byte[] result = new byte[NetHeader.Size]; new NetHeader(type, NetHeaderFlags.None, id, 1, 0, 0).Write(result); return result; }
+    private static byte[] Packet(NetMessageType type, ulong id, uint sequence = 1)
+    { byte[] result = new byte[NetHeader.Size]; new NetHeader(type, NetHeaderFlags.None, id, sequence, 0, 0).Write(result); return result; }
     private static NetHeader ReadHeader(byte[] bytes) { Assert.True(NetHeader.TryRead(bytes, out var header)); return header; }
     private sealed class TestRouter : IWorkerDatagramRouter
     {
@@ -142,10 +281,19 @@ public sealed class WorkerNetworkHubTests
     private sealed class MemoryTransport : INetTransport
     {
         public ConcurrentQueue<ReceivedPacket> Incoming = new(); public List<byte[]> Sent = new(); public bool Disposed;
+        public Action? Sending;
         public int LocalPort => 50001; public long PacketsDropped => 0; public int QueuedPackets => Incoming.Count;
         public int HeldIncomingPackets => 0; public int HeldOutgoingPackets => 0; public NetTrafficMetrics Metrics { get; } = new();
         public IEnumerable<ReceivedPacket> Drain() { while (Incoming.TryDequeue(out var item)) yield return item; }
-        public void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> bytes) => Sent.Add(bytes.ToArray());
+        public int Drain(Span<ReceivedPacket> destination)
+        {
+            int count = 0;
+            while (count < destination.Length && Incoming.TryDequeue(out ReceivedPacket item))
+                destination[count++] = item;
+            return count;
+        }
+        public void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> bytes)
+        { Sending?.Invoke(); Sent.Add(bytes.ToArray()); }
         public void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> bytes, long extraHoldTicks) => SendDatagram(target, bytes);
         public void Send(IPEndPoint target, PacketType type, ReadOnlySpan<byte> bytes, long extraHoldTicks = 0) => throw new NotSupportedException();
         public void SetKeepAlive(IPEndPoint? target, ReadOnlySpan<byte> bytes = default) { }

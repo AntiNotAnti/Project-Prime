@@ -13,11 +13,17 @@ namespace MphRead.Mods.Network
         public readonly long ReceivedAt;
 
         public ReceivedPacket(IPEndPoint sender, byte[] data, int length)
+            : this(sender, data, length, Stopwatch.GetTimestamp()) { }
+
+        // Test and in-process transport fixtures can provide the captured
+        // arrival timestamp without sleeping or changing the public socket
+        // construction path.
+        internal ReceivedPacket(IPEndPoint sender, byte[] data, int length, long receivedAt)
         {
             Sender = sender;
             Data = data;
             Length = length;
-            ReceivedAt = Stopwatch.GetTimestamp();
+            ReceivedAt = receivedAt;
         }
 
         public PacketType Type => Length > 0 ? (PacketType)Data[0] : default;

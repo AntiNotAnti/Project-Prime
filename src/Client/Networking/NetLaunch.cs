@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Entities;
 using MphRead.Mods.Accounts;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Network
 {
@@ -20,6 +20,8 @@ namespace MphRead.Mods.Network
     public static class NetLaunch
     {
         /// <summary>
+        /// Pin an accepted ticket to one of the addresses resolved for its host.
+        /// </summary>
         internal static string PinTicketDestination(GameTicket ticket, ReadOnlySpan<IPAddress> resolved, int port)
         {
             if (ticket.TryGetEndpoint(out IPEndPoint? registered) && registered!.Port == port)
@@ -168,7 +170,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         /// <param name="localSlot">
         /// Which slot is "this machine's own player" -- defaults to
-        /// <see cref="NetSession.LocalSlot"/> for a real connection. Demo
+        /// <see cref="NetSession.LocalSlot"/> for a real connection. Replay
         /// playback passes -1 explicitly: there is no local player during
         /// playback, and without this every slot-0 hunter, recolour and
         /// occupancy check below silently clamped to slot 0 (from
@@ -188,7 +190,7 @@ namespace MphRead.Mods.Network
             }
             int resolvedSlot = localSlot ?? Math.Max(NetSession.LocalSlot, 0);
             NetSession.ApplyRoster(scene);
-            DemoPlayback.ApplyRoster(scene);
+            ReplayPlayback.ApplyRoster(scene);
             scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
             for (int slot = 0; slot < scene.Players.MaxPlayers; slot++)
             {
@@ -237,7 +239,7 @@ namespace MphRead.Mods.Network
             // was never its own main player -- its intro sequence never
             // ended, so it kept the spectator camera and never spawned.
             //
-            // resolvedSlot itself may be -1 (demo playback, no local player
+            // resolvedSlot itself may be -1 (replay playback, no local player
             // at all) -- Main still has to be a real array index, so this
             // falls back to slot 0 as a harmless placeholder that
             // SpectatorMode.Start immediately redirects once a real player

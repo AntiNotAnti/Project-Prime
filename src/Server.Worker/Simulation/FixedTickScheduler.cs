@@ -57,6 +57,9 @@ namespace MphRead.Mods.Network
             return steps;
         }
 
+        internal long RemainingTicks(long now)
+            => now >= _next ? 0 : (long)Math.Ceiling(_next - now);
+
         public void Wait()
         {
             double remainingMs = (_next - Stopwatch.GetTimestamp()) * 1000 / _frequency;

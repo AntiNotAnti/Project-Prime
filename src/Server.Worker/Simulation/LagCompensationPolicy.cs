@@ -15,18 +15,26 @@ namespace MphRead.Mods.Network
         public const uint MaxProjectileFastForwardTicks = 15;
 
         public static LagCompensationTime ResolveTick(uint currentTick, uint viewServerTick, double measuredRttMs)
+            => ResolveTick(currentTick, viewServerTick, measuredRttMs,
+                (byte)InterpolationDelayTicks);
+
+        public static LagCompensationTime ResolveTick(uint currentTick, uint viewServerTick,
+            double measuredRttMs, byte authorizedPresentationDelayTicks)
         {
+            if (authorizedPresentationDelayTicks is < NetworkTimingProfile.MinimumPresentationDelayTicks
+                or > NetworkTimingProfile.MaximumPresentationDelayTicks)
+                throw new ArgumentOutOfRangeException(nameof(authorizedPresentationDelayTicks));
             // The view timestamp already includes presentation delay and any
             // bounded extrapolation/hold. Delay affects only the server-owned
             // plausibility budget; it must not be subtracted a second time.
-            uint allowance = InterpolationDelayTicks;
+            uint allowance = authorizedPresentationDelayTicks;
             if (Double.IsFinite(measuredRttMs) && measuredRttMs > 0)
             {
                 // Clamp before conversion: even a stalled or maliciously delayed
                 // pong must not overflow an integer or expand the history window.
                 double oneWayTicks = Math.Min(MaxRewindTicks, Math.Ceiling(measuredRttMs * 0.03));
                 allowance = Math.Min(MaxRewindTicks,
-                    (uint)oneWayTicks + InterpolationDelayTicks + SchedulingAllowanceTicks);
+                    (uint)oneWayTicks + authorizedPresentationDelayTicks + SchedulingAllowanceTicks);
             }
             uint requested = unchecked(currentTick - viewServerTick);
             // Future and exactly half-range timestamps are not historical time.

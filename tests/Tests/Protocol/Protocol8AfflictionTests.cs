@@ -32,10 +32,12 @@ namespace MphRead.Tests
             Assert.True((parsed.Flags & SnapshotPlayerFlags.RadarReveal) != 0);
             Assert.True((parsed.Flags & SnapshotPlayerFlags.RadarRevealPrevious) != 0);
             Assert.Equal(818, NetHeader.Size + SnapshotPacket.MaxSize);
-            Assert.Equal(9, NetHeader.Version);
+            Assert.Equal(11, NetHeader.Version);
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 7));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 8));
-            Assert.True(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 9));
+            Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 9));
+            Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 10));
+            Assert.True(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 11));
         }
 
         [Theory]
@@ -67,7 +69,7 @@ namespace MphRead.Tests
         }
 
         [Fact]
-        public void FrozenVersion7SnapshotRemainsDemoOnly()
+        public void FrozenVersion7SnapshotRemainsReplayOnly()
         {
             byte[] old = new byte[26 + 88];
             BinaryPrimitives.WriteUInt32LittleEndian(old, 100);
@@ -81,7 +83,7 @@ namespace MphRead.Tests
             BinaryPrimitives.WriteSingleLittleEndian(player[68..], 1); // facing.z
             var output = new SnapshotPlayer[8];
             Assert.False(SnapshotPacket.TryRead(old, output, out _, out _));
-            Assert.True(Protocol7DemoCodec.TryReadSnapshot(old, output, out SnapshotPacket packet, out int count));
+            Assert.True(Protocol7ReplayCodec.TryReadSnapshot(old, output, out SnapshotPacket packet, out int count));
             Assert.Equal(100u, packet.ServerTick);
             Assert.Equal(1, count);
             Assert.Equal(SnapshotPlayerFlags.Burning, output[0].Flags);
@@ -103,7 +105,7 @@ namespace MphRead.Tests
             Assert.True(MatchRulesWire.TryRead(bytes, out MatchRules parsed));
             Assert.Equal(SpawnPolicy.Duel, parsed.SpawnPolicy);
             Assert.True(parsed.CancelSpawnProtectionOnOffensiveAction);
-            Assert.True(Protocol7DemoRules.TryRead(bytes.AsSpan(0, 68), out MatchRules legacy));
+            Assert.True(Protocol7ReplayRules.TryRead(bytes.AsSpan(0, 68), out MatchRules legacy));
             Assert.Equal(SpawnPolicy.Classic, legacy.SpawnPolicy);
             Assert.False(legacy.CancelSpawnProtectionOnOffensiveAction);
             Assert.Equal(20, legacy.AssistMinimumDamage);
@@ -115,6 +117,7 @@ namespace MphRead.Tests
             Assert.Equal(RankingEligibility.Unranked, legacy.RankingEligibility);
             Assert.Equal(RadarPolicy.Classic, legacy.RadarPolicy);
             Assert.Equal(TeamBalancePolicy.BeforeStart, legacy.TeamBalancePolicy);
+            Assert.Equal(KillcamPolicy.Disabled, legacy.KillcamPolicy);
             Assert.False(MatchRulesWire.TryRead(bytes.AsSpan(0, 68), out _));
             foreach ((int offset, byte value) in new[]
             {
@@ -123,7 +126,7 @@ namespace MphRead.Tests
                 (78, (byte)2), // RankingEligibility.VerifiedServerOnly is the final assigned value.
                 (79, (byte)3), // RadarPolicy.Enabled is the final assigned value.
                 (80, (byte)2), // TeamBalancePolicy.Locked is the final assigned value.
-                (81, (byte)1), (82, (byte)1), (83, (byte)1)
+                (81, (byte)3), (82, (byte)1), (83, (byte)1)
             })
             {
                 bytes[offset] = value;

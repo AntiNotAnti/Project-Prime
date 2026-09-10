@@ -4,7 +4,133 @@ using System.Threading;
 
 namespace MphRead.Mods.Network
 {
-    /// <summary>Bounded, allocation-free running statistics. Single writer.</summary>
+    /// <summary>
+    /// A fixed-size rolling sample window. Recording is allocation-free after
+    /// construction; percentile sorting happens only when a snapshot is read.
+    /// The window is deliberately bounded so diagnostics cannot grow with the
+    /// lifetime of a worker or connection.
+    /// </summary>
+    public sealed class BoundedPercentileSampler
+    {
+        public const int DefaultCapacity = 256;
+        private readonly double[] _values;
+        private readonly double[] _sorted;
+        private int _next;
+        private int _count;
+        private long _totalCount;
+        private long _evictions;
+        private int _sequence;
+        private readonly object _snapshotGate = new();
+
+        public BoundedPercentileSampler(int capacity = DefaultCapacity)
+        {
+            if (capacity is < 1 or > 4096) throw new ArgumentOutOfRangeException(nameof(capacity));
+            _values = new double[capacity];
+            _sorted = new double[capacity];
+        }
+
+        /// <summary>Number of valid values currently retained in the window.</summary>
+        public int Count => Volatile.Read(ref _count);
+
+        /// <summary>Total valid values recorded, including values evicted from the window.</summary>
+        public long TotalCount => Volatile.Read(ref _totalCount);
+
+        /// <summary>Number of valid values replaced after the window became full.</summary>
+        public long Evictions => Volatile.Read(ref _evictions);
+
+        public int Capacity => _values.Length;
+
+        public void Record(double value)
+        {
+            if (!Double.IsFinite(value) || value < 0) return;
+            int sequence = Interlocked.Increment(ref _sequence);
+            if (_count == _values.Length) _evictions++;
+            _values[_next] = value;
+            _next++;
+            if (_next == _values.Length) _next = 0;
+            if (_count < _values.Length) _count++;
+            _totalCount++;
+            Volatile.Write(ref _sequence, unchecked(sequence + 1));
+        }
+
+        public void Clear()
+        {
+            int sequence = Interlocked.Increment(ref _sequence);
+            Array.Clear(_values);
+            _next = 0;
+            _count = 0;
+            _totalCount = 0;
+            _evictions = 0;
+            Volatile.Write(ref _sequence, unchecked(sequence + 1));
+        }
+
+        /// <summary>
+        /// Reads a stable bounded snapshot while the owner records on another
+        /// thread. The writer never takes <see cref="_snapshotGate"/>; the
+        /// reader-only gate only serializes readers sharing this sampler's
+        /// scratch array. A failed bounded retry leaves the caller's previous
+        /// snapshot eligible for fallback.
+        /// </summary>
+        public bool TrySnapshot(out BoundedPercentileSnapshot snapshot, int maxAttempts = 3)
+        {
+            if (maxAttempts < 1) throw new ArgumentOutOfRangeException(nameof(maxAttempts));
+            lock (_snapshotGate)
+            {
+                for (int attempt = 0; attempt < maxAttempts; attempt++)
+                {
+                    int sequence = Volatile.Read(ref _sequence);
+                    if ((sequence & 1) != 0) continue;
+                    int count = _count;
+                    long totalCount = _totalCount;
+                    long evictions = _evictions;
+                    Array.Copy(_values, _sorted, count);
+                    Thread.MemoryBarrier();
+                    int completed = Volatile.Read(ref _sequence);
+                    if (sequence != completed || (completed & 1) != 0) continue;
+                    if (count == 0)
+                    {
+                        snapshot = default;
+                        return true;
+                    }
+                    Array.Sort(_sorted, 0, count);
+                    snapshot = new BoundedPercentileSnapshot(count, totalCount, evictions,
+                        _sorted[Rank(count, 0.50)], _sorted[Rank(count, 0.95)],
+                        _sorted[Rank(count, 0.99)], _sorted[Rank(count, 0.999)], _sorted[count - 1]);
+                    return true;
+                }
+            }
+            snapshot = default;
+            return false;
+        }
+
+        public BoundedPercentileSnapshot Snapshot()
+        {
+            if (_count == 0) return default;
+            Array.Copy(_values, _sorted, _count);
+            Array.Sort(_sorted, 0, _count);
+            return new BoundedPercentileSnapshot(_count, _totalCount, _evictions,
+                _sorted[Rank(_count, 0.50)], _sorted[Rank(_count, 0.95)],
+                _sorted[Rank(_count, 0.99)], _sorted[Rank(_count, 0.999)], _sorted[_count - 1]);
+        }
+
+        private static int Rank(int count, double percentile)
+        {
+            // Nearest-rank keeps the result deterministic and avoids an
+            // interpolation allocation or floating-point tie ambiguity.
+            int index = (int)Math.Ceiling(count * percentile) - 1;
+            return Math.Clamp(index, 0, count - 1);
+        }
+    }
+
+    public readonly record struct BoundedPercentileSnapshot(int Count, long TotalCount,
+        long Evictions, double P50, double P95, double P99, double P999, double Max);
+
+    /// <summary>
+    /// Single-writer running statistics with a lazily initialized bounded
+    /// percentile window. Recording is allocation-free after the first valid
+    /// sample (callers that require a warmed path can record one sample during
+    /// setup).
+    /// </summary>
     public struct NetSample
     {
         public long Count { get; private set; }
@@ -12,6 +138,13 @@ namespace MphRead.Mods.Network
         public double Mean { get; private set; }
         public double Min { get; private set; }
         public double Max { get; private set; }
+        private BoundedPercentileSampler? _percentiles;
+
+        public long PercentileCount => _percentiles?.Count ?? 0;
+        public long PercentileEvictions => _percentiles?.Evictions ?? 0;
+        public BoundedPercentileSnapshot Percentiles
+            => _percentiles is { } sampler && sampler.TrySnapshot(out BoundedPercentileSnapshot snapshot)
+                ? snapshot : default;
 
         public void Record(double value)
         {
@@ -24,6 +157,7 @@ namespace MphRead.Mods.Network
             Mean += (value - Mean) / Count;
             Min = Count == 1 ? value : Math.Min(Min, value);
             Max = Math.Max(Max, value);
+            (_percentiles ??= new BoundedPercentileSampler()).Record(value);
         }
     }
 
@@ -42,6 +176,8 @@ namespace MphRead.Mods.Network
         private long _queueDrops;
         private long _simulatedDrops;
         private long _sendErrors;
+        private long _queueHighWater;
+        private long _flushes;
 
         public long PacketsSent => Interlocked.Read(ref _sent);
         public long PacketsReceived => Interlocked.Read(ref _received);
@@ -51,6 +187,8 @@ namespace MphRead.Mods.Network
         public long QueueDrops => Interlocked.Read(ref _queueDrops);
         public long SimulatedDrops => Interlocked.Read(ref _simulatedDrops);
         public long SendErrors => Interlocked.Read(ref _sendErrors);
+        public long QueueHighWater => Interlocked.Read(ref _queueHighWater);
+        public long Flushes => Interlocked.Read(ref _flushes);
 
         public void Sent(int bytes)
         {
@@ -69,6 +207,21 @@ namespace MphRead.Mods.Network
         public void DropSimulated() => Interlocked.Increment(ref _simulatedDrops);
         public void SendFailed() => Interlocked.Increment(ref _sendErrors);
 
+        /// <summary>Publishes an observed queue depth without changing queue policy.</summary>
+        public void ObserveQueueDepth(int depth)
+        {
+            if (depth < 0) return;
+            long observed = depth;
+            while (true)
+            {
+                long current = Interlocked.Read(ref _queueHighWater);
+                if (observed <= current || Interlocked.CompareExchange(ref _queueHighWater, observed, current) == current)
+                    return;
+            }
+        }
+
+        public void Flushed() => Interlocked.Increment(ref _flushes);
+
         public string Describe()
         {
             return $"packets in/out {PacketsReceived}/{PacketsSent}"
@@ -86,8 +239,10 @@ namespace MphRead.Mods.Network
     public sealed class NetMetrics
     {
         public NetSample Rtt;
+        public NetSample PacketReceiveIntervalMs;
         public NetSample QueueAgeMs;
         public NetSample SnapshotIntervalMs;
+        public double SnapshotIntervalJitterMs { get; private set; }
         public NetSample InputIntervalMs;
         public NetSample WorkDurationMs;
         public double SmoothedRttMs { get; private set; }
@@ -100,6 +255,7 @@ namespace MphRead.Mods.Network
         public long DuplicateSnapshots { get; private set; }
         public long ReorderedSnapshots { get; private set; }
         private long _lastReceived;
+        private long _lastPacketReceived;
         private long _lastSnapshot;
         private long _lastInput;
         private long _workStarted;
@@ -109,7 +265,13 @@ namespace MphRead.Mods.Network
         {
             PacketsReceived++;
             BytesReceived += packet.Length;
-            _lastReceived = now;
+            long receivedAt = packet.ReceivedAt > 0 ? packet.ReceivedAt : now;
+            if (_lastPacketReceived > 0 && receivedAt >= _lastPacketReceived)
+            {
+                PacketReceiveIntervalMs.Record(Milliseconds(receivedAt - _lastPacketReceived));
+            }
+            if (receivedAt > _lastPacketReceived) _lastPacketReceived = receivedAt;
+            if (now > _lastReceived) _lastReceived = now;
             if (packet.ReceivedAt > 0 && now >= packet.ReceivedAt)
             {
                 QueueAgeMs.Record(Milliseconds(now - packet.ReceivedAt));
@@ -147,7 +309,11 @@ namespace MphRead.Mods.Network
         {
             if (_lastSnapshot > 0 && now >= _lastSnapshot)
             {
-                SnapshotIntervalMs.Record(Milliseconds(now - _lastSnapshot));
+                double interval = Milliseconds(now - _lastSnapshot);
+                if (SnapshotIntervalMs.Count > 0)
+                    SnapshotIntervalJitterMs += (Math.Abs(interval - SnapshotIntervalMs.Last)
+                        - SnapshotIntervalJitterMs) / 16;
+                SnapshotIntervalMs.Record(interval);
             }
             _lastSnapshot = now;
         }

@@ -209,14 +209,14 @@ namespace MphRead.Mods.Network
 
         public static int Run(string host, int port, string name, Hunter hunter, double seconds,
             string? shotDirectory = null, int width = 320, int height = 180,
-            bool recordDemo = false, double spectateAt = -1, double rejoinAt = -1)
+            bool recordReplay = false, double spectateAt = -1, double rejoinAt = -1)
         {
             if (!Double.IsFinite(seconds) || seconds < 10 || seconds > 300) { return 2; }
             hunter = Launcher.Hunters.Resolve(hunter);
             using var play = new AuthoritativePlay(host, port, name, hunter);
             play.Join();
             if (shotDirectory != null) { Directory.CreateDirectory(shotDirectory); }
-            if (recordDemo && !DemoRecorder.Start()) { throw new ProgramException("Could not start demo recording."); }
+            if (recordReplay && !ReplayRecorder.Start()) { throw new ProgramException("Could not start replay recording."); }
             try
             {
                 bool sdl = RenderBackendSelection.Current == RenderBackendKind.Sdl;
@@ -225,14 +225,14 @@ namespace MphRead.Mods.Network
                 // so a compositor/minimize race cannot turn a successful
                 // offscreen encode into a false authoritative presentation.
                 using IRenderToolHost hostAdapter = RenderToolHostFactory.Create(
-                    new Vector2i(width, height), "Prime Hunters authoritative check",
+                    new Vector2i(width, height), "Project Prime authoritative check",
                     updateFrequency: 60, visible: sdl, presentable: true);
                 var check = new AuthoritativeCheck(play, hunter, seconds,
                     shotDirectory, width, height, spectateAt, rejoinAt, hostAdapter);
                 hostAdapter.Run(check);
                 return check.Report();
             }
-            finally { if (recordDemo) { DemoRecorder.Stop(); } }
+            finally { if (recordReplay) { ReplayRecorder.Stop(); } }
         }
     }
 }

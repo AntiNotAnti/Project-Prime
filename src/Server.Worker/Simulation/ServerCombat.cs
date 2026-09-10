@@ -69,6 +69,7 @@ namespace MphRead.Mods.Network
         private readonly CombatEvent[] _events = new CombatEvent[Capacity];
         private readonly InputCommand[] _commands = new InputCommand[8];
         private readonly double[] _rtt = new double[8];
+        private readonly byte[] _rewindPresentationDelay = new byte[8];
         private int _head, _count;
         private uint _nextId;
         private readonly uint _initialSpreadSeed;
@@ -134,10 +135,15 @@ namespace MphRead.Mods.Network
         public NetSample RequestedRewindTicks;
         public NetSample ValidatedRewindTicks;
         public void BeginTick(uint tick) { Tick = tick; }
-        public void SetCommand(int slot, in InputCommand command, double rttMs = 0)
+        public void SetCommand(int slot, in InputCommand command, double rttMs = 0,
+            byte rewindPresentationDelayTicks = NetworkTimingProfile.CompatibilityPresentationDelayTicks)
         {
             if ((uint)slot >= 8) throw new ArgumentOutOfRangeException(nameof(slot));
+            if (rewindPresentationDelayTicks is < NetworkTimingProfile.MinimumPresentationDelayTicks
+                or > NetworkTimingProfile.MaximumPresentationDelayTicks)
+                throw new ArgumentOutOfRangeException(nameof(rewindPresentationDelayTicks));
             _commands[slot] = command; _rtt[slot] = rttMs;
+            _rewindPresentationDelay[slot] = rewindPresentationDelayTicks;
         }
         public InputCommand GetCommand(int slot) => _commands[slot];
         public int CopyPending(Span<CombatEvent> destination)
@@ -159,7 +165,7 @@ namespace MphRead.Mods.Network
             Array.Clear(_kills);
             _head = _count = 0; _nextId = 0; Dropped = 0;
             _spreadSeed = _initialSpreadSeed;
-            Array.Clear(_commands); Array.Clear(_rtt); History.Clear(); CatchUp.Clear();
+            Array.Clear(_commands); Array.Clear(_rtt); Array.Clear(_rewindPresentationDelay); History.Clear(); CatchUp.Clear();
             DynamicCollisionHistory.Clear();
             _lastDiagnosticShot = default;
             _lastDiagnosticStart = _lastDiagnosticEnd = Vector3.Zero;
@@ -460,7 +466,11 @@ namespace MphRead.Mods.Network
             LagCompensationMode mode = GetMode(mechanics);
             if (mode == LagCompensationMode.None) return shot;
             ShotsEligible++;
-            LagCompensationTime time = LagCompensationPolicy.ResolveTick(Tick, shot.ViewServerTick, _rtt[actor.Slot]);
+            byte presentationDelay = _rewindPresentationDelay[actor.Slot] == 0
+                ? NetworkTimingProfile.Compatibility.PresentationDelayTicks
+                : _rewindPresentationDelay[actor.Slot];
+            LagCompensationTime time = LagCompensationPolicy.ResolveTick(Tick,
+                shot.ViewServerTick, _rtt[actor.Slot], presentationDelay);
             uint requested = unchecked(Tick - shot.ViewServerTick);
             RequestedRewindTicks.Record(requested < 0x80000000u ? requested : 0);
             ValidatedRewindTicks.Record(time.RewindTicks);

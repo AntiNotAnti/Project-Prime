@@ -8,6 +8,7 @@ using MphRead.Entities;
 using MphRead.Mods;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
+using ProjectPrime.Server.Shared;
 using Xunit;
 
 namespace MphRead.Tests;
@@ -177,6 +178,7 @@ public sealed class LateJoinTests
         Assert.Equal(1, server.Count);
     }
 
+    [Trait("RequiresGameContent", "true")]
     [Fact]
     public void DisconnectReconnectRestoresParticipatingSlotTeamAndStats()
     {
@@ -289,7 +291,7 @@ public sealed class LateJoinTests
 
         client.Reconnect();
         Pump(server, new[] { client }, () => client.Connection != null || client.Failure != null,
-            initialTick: 1800);
+            initialTick: ReconnectPolicy.WorkerReservationTicks + 1);
         Assert.Null(client.Connection);
         Assert.Contains("disabled", client.Failure!, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, server.Count);
@@ -350,6 +352,7 @@ public sealed class LateJoinTests
         Assert.Equal(0, server.Count);
     }
 
+    [Trait("RequiresGameContent", "true")]
     [Fact]
     public void EliminatedSurvivalParticipantReconnectsAsWaitingSpectator()
     {

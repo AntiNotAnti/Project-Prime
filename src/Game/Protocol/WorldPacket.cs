@@ -6,7 +6,7 @@ namespace MphRead.Mods.Network
 {
     public enum WorldRecordKind : byte { Spawner = 1, Item, Node, Flag, Match, Score, Time, Lifecycle, CombatStats, ObjectiveStats, WeaponStats0, WeaponStats1, PlayerIdentity }
 
-    // Version-7 adds explicit lifecycle facts; versions 5/6 are decoded only for demos. Scalar
+    // Version-7 adds explicit lifecycle facts; versions 5/6 are decoded only for replays. Scalar
     // fields have kind-specific meanings; float bits are transported exactly.
     public record struct WorldRecord(WorldRecordKind Kind, byte Slot, ushort Flags,
         uint Id, Vector3 Position, uint A, uint B, uint C, uint D, uint E)

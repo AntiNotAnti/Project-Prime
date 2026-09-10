@@ -43,6 +43,10 @@ namespace MphRead.Mods.Network
         public bool IsDisconnecting => _disconnectDeadline != 0;
         private readonly SnapshotPlayer[] _snapshotPlayers = new SnapshotPlayer[8];
         private int _snapshotCount;
+        private double _nextTimingTelemetry;
+        private long _reportedUnderruns;
+        private long _reportedExtrapolated;
+        private uint _timingAcknowledgedRevision;
         public ReadOnlySpan<SnapshotPlayer> SnapshotPlayers => _snapshotPlayers.AsSpan(0, _snapshotCount);
         public SnapshotPacket Snapshot { get; private set; }
         public bool HasSnapshot { get; private set; }
@@ -53,6 +57,9 @@ namespace MphRead.Mods.Network
         public HistoricalCollisionDebugPacket? HistoricalDebug { get; private set; }
         public long SnapshotsReceived { get; private set; }
         public long SnapshotReceivedAt { get; private set; }
+        public NetworkTimingProfile TimingProfile { get; private set; }
+            = NetworkTimingProfile.Compatibility;
+        public bool HasTimingProfile => TimingProfile.Revision != 0;
         public bool IsObserver => _join.Observer;
         public NetConnection? Connection { get; private set; }
         public JoinAcceptedPacket Accepted { get; private set; }
@@ -253,7 +260,9 @@ namespace MphRead.Mods.Network
             {
                 return false;
             }
-            connection.Metrics.Receive(packet, timestamp);
+            long processedAt = Stopwatch.GetTimestamp();
+            connection.Metrics.Receive(packet, processedAt);
+            long packetAt = packet.ReceivedAt > 0 ? packet.ReceivedAt : processedAt;
             if (header.Type == NetMessageType.Event)
             {
                 connection.Send(_transport, NetMessageType.Ack);
@@ -295,7 +304,7 @@ namespace MphRead.Mods.Network
                     _snapshotCount = playerCount;
                     HasSnapshot = true;
                     SnapshotsReceived++;
-                    connection.Metrics.Snapshot(timestamp);
+                    connection.Metrics.Snapshot(packetAt);
                     if (IsObserver) connection.StartPlaying();
                     foreach (SnapshotPlayer player in players[..playerCount])
                     {
@@ -318,6 +327,8 @@ namespace MphRead.Mods.Network
             }
             else if (header.Type == NetMessageType.Pong && result != ReceiveResult.Duplicate)
             {
+                connection.Metrics.RecordRtt((timestamp - _pingSent)
+                    * (1000.0 / Stopwatch.Frequency));
                 Clock.Observe(_pingSent, timestamp, BinaryPrimitives.ReadUInt32LittleEndian(body[8..]));
                 _pingSent = 0;
             }
@@ -353,6 +364,8 @@ namespace MphRead.Mods.Network
                     out _incomingRosterRevision, out _incomingRosterCount))) { return false; }
             if (type == ReliableEventType.Chat && (payload.Length < 4
                 || !SessionChatPacket.TryRead(payload[4..], out _))) { return false; }
+            if (type == ReliableEventType.TimingProfile)
+                return NetworkTimingProfilePacket.TryRead(payload, out _);
             return type switch
             {
                 ReliableEventType.MapTransition or ReliableEventType.ObserverTransition => MatchTransitionPacket.TryRead(payload, out _),
@@ -374,6 +387,14 @@ namespace MphRead.Mods.Network
                 if (!IsDisconnecting && IntermissionBallot.TryRead(payload, out var ballot) && ballot!.MatchId == Connection!.MatchId
                     && (Ballot == null || Sequence32.IsNewer(ballot.Revision, Ballot.Revision)
                         || ballot.Revision == Ballot.Revision && Sequence32.IsNewer(ballot.UpdateRevision, Ballot.UpdateRevision))) Ballot = ballot;
+                return;
+            }
+            if (type == ReliableEventType.TimingProfile)
+            {
+                NetworkTimingProfilePacket.TryRead(payload, out NetworkTimingProfile profile);
+                if (TimingProfile.Revision == 0
+                    || Sequence32.IsNewer(profile.Revision, TimingProfile.Revision))
+                    TimingProfile = profile;
                 return;
             }
             NetConnection connection = Connection!;
@@ -436,6 +457,10 @@ namespace MphRead.Mods.Network
             RosterRevision = 0;
             HasRoster = false;
             _eventHead = _eventCount = 0;
+            TimingProfile = NetworkTimingProfile.Compatibility;
+            _timingAcknowledgedRevision = 0;
+            _nextTimingTelemetry = 0;
+            _reportedUnderruns = _reportedExtrapolated = 0;
         }
 
         public bool TryDequeueEvent(out NetApplicationEvent item)
@@ -526,6 +551,48 @@ namespace MphRead.Mods.Network
             Span<byte> payload = stackalloc byte[InputBundle.MaxSize];
             int length = InputBundle.Write(payload, Connection.MatchId, commands, phaseRevision);
             Connection.Send(_transport, NetMessageType.Input, payload[..length]);
+            return true;
+        }
+
+        public bool AcknowledgeTimingProfile(uint revision)
+        {
+            NetConnection? connection = Connection;
+            if (revision == 0 || revision != TimingProfile.Revision
+                || revision == _timingAcknowledgedRevision || connection == null
+                || IsDisconnecting) return false;
+            Span<byte> payload = stackalloc byte[NetworkTimingProfileAppliedPacket.Size];
+            NetworkTimingProfileAppliedPacket.Write(payload, revision);
+            if (!connection.Reliable.TryEnqueue(ReliableEventType.TimingProfileApplied,
+                payload, out _)) return false;
+            _timingAcknowledgedRevision = revision;
+            return true;
+        }
+
+        public bool ReportTiming(SnapshotInterpolation interpolation, long timestamp)
+        {
+            ArgumentNullException.ThrowIfNull(interpolation);
+            NetConnection? connection = Connection;
+            double now = timestamp / (double)Stopwatch.Frequency;
+            if (!HasTimingProfile || connection == null || IsDisconnecting
+                || connection.State is not (NetConnectionState.Ready or NetConnectionState.Playing)
+                || now < _nextTimingTelemetry || connection.Metrics.SnapshotIntervalMs.Count == 0)
+                return false;
+            long underruns = Math.Max(0, interpolation.UnderrunSamples - _reportedUnderruns);
+            long extrapolated = Math.Max(0, interpolation.ExtrapolatedSamples - _reportedExtrapolated);
+            _reportedUnderruns = interpolation.UnderrunSamples;
+            _reportedExtrapolated = interpolation.ExtrapolatedSamples;
+            var telemetry = new NetworkTimingTelemetry(TimingProfile.Revision,
+                (byte)Math.Clamp((int)Math.Round(interpolation.DelayTicks),
+                    NetworkTimingProfile.MinimumPresentationDelayTicks,
+                    NetworkTimingProfile.MaximumPresentationDelayTicks),
+                (ushort)Math.Min(UInt16.MaxValue, underruns),
+                (ushort)Math.Min(UInt16.MaxValue, extrapolated),
+                (ushort)Math.Clamp((int)Math.Round(connection.Metrics.SnapshotIntervalMs.Mean * 10), 50, 10_000),
+                (ushort)Math.Clamp((int)Math.Round(connection.Metrics.SnapshotIntervalJitterMs * 10), 0, 10_000));
+            Span<byte> payload = stackalloc byte[NetworkTimingTelemetry.Size];
+            telemetry.Write(payload);
+            connection.Send(_transport, NetMessageType.TimingTelemetry, payload);
+            _nextTimingTelemetry = now + 1;
             return true;
         }
 

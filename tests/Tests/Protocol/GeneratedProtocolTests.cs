@@ -164,12 +164,12 @@ public sealed class GeneratedProtocolTests
         new Vector3(1.5f, -2.25f, 3.75f), new ushort[] { 7, 9 }, "Prime ✓");
 
     [Fact]
-    public void ProductionGeneratedPacketsAreProtocol9Messages()
+    public void ProductionGeneratedPacketsRetainTheirIntroductionProtocol()
     {
-        Assert.Equal(9, NetHeader.Version);
-        Assert.Equal(NetHeader.Version, JoinPendingPacket.Protocol);
-        Assert.Equal(NetHeader.Version, MatchAwardPacket.Protocol);
-        Assert.Equal(NetHeader.Version, MatchSemanticEventPacket.Protocol);
+        Assert.Equal(11, NetHeader.Version);
+        Assert.Equal(9, JoinPendingPacket.Protocol);
+        Assert.Equal(9, MatchAwardPacket.Protocol);
+        Assert.Equal(9, MatchSemanticEventPacket.Protocol);
         Assert.Equal(NetMessageType.JoinPending, JoinPendingPacket.MessageType);
         Assert.Equal(NetMessageType.Event, MatchAwardPacket.MessageType);
         Assert.Equal(NetMessageType.Event, MatchSemanticEventPacket.MessageType);

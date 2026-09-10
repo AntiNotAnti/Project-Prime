@@ -5,8 +5,8 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using FruityPrime.Server.Shared;
-using FruityPrime.Server.Worker;
+using ProjectPrime.Server.Shared;
+using ProjectPrime.Server.Worker;
 using MphRead.Identity;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
@@ -35,7 +35,7 @@ public sealed class WorkerAdversarialUdpTests
             new MatchRules(MatchMode.Battle, "MP1 SANCTORUS", maxPlayers: 1),
             new("MP1 SANCTORUS", content.Content.ContentHash, content.Content.Version, options.BuildVersion, NetHeader.Version),
             MatchTrustClass.Private, null, null, ImmutableArray.Create(new RosterSeat(0, null, Guid.NewGuid(), name, Hunter.Samus, 0, SeatRole.Player, false)),
-            FruityPrime.Server.Shared.BotFillPolicy.Disabled, ObserverPolicy.Disabled, ReplayPolicy.Disabled, TelemetryPolicy.Disabled, 1, 2);
+            ProjectPrime.Server.Shared.BotFillPolicy.Disabled, ObserverPolicy.Disabled, ReplayPolicy.Disabled, TelemetryPolicy.Disabled, 1, 2);
         MatchSpec first = Spec("GuestA"), second = Spec("GuestB");
         var placeA = Assert.IsType<MatchReady>(await runtime.CreateAsync(first)).Placement;
         var placeB = Assert.IsType<MatchReady>(await runtime.CreateAsync(second)).Placement;

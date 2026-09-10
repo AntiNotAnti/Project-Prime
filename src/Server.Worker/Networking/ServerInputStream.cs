@@ -13,12 +13,16 @@ namespace MphRead.Mods.Network
         private const int Capacity = 16;
         private const uint HoldTicks = 6;
         private readonly InputCommand[] _commands = new InputCommand[Capacity];
+        private readonly byte[] _rewindPresentationDelays = new byte[Capacity];
         private readonly bool[] _present = new bool[Capacity];
         private bool _started;
         private uint _next;
         private uint _lastArrival;
         private int _startup;
         private int _gap;
+        private byte _playoutTicks = NetworkTimingProfile.Compatibility.InputPlayoutTicks;
+        private byte _lastRewindPresentationDelay = NetworkTimingProfile.Compatibility.PresentationDelayTicks;
+        private int _bufferedCommands;
         private InputCommand _last = new(0, 0, 0, InputButtons.None, InputButtons.None,
             -Vector3.UnitZ, InputCommand.NoWeapon);
 
@@ -28,9 +32,28 @@ namespace MphRead.Mods.Network
         public long LateCommands { get; private set; }
         public long SkippedCommands { get; private set; }
         public long StarvedTicks { get; private set; }
+        public int BufferedCommands => _bufferedCommands;
+        public int MaximumBufferedCommands { get; private set; }
+        /// <summary>Startup/gap tolerance; this is not a continuously forced queue depth.</summary>
+        public byte InputPlayoutTicks => _playoutTicks;
+
+        public void ConfigurePlayout(byte ticks)
+        {
+            if (ticks is < NetworkTimingProfile.MinimumInputPlayoutTicks
+                or > NetworkTimingProfile.MaximumInputPlayoutTicks)
+                throw new ArgumentOutOfRangeException(nameof(ticks));
+            _playoutTicks = ticks;
+        }
 
         public void Receive(ReadOnlySpan<InputCommand> commands, uint serverTick)
+            => Receive(commands, serverTick, NetworkTimingProfile.Compatibility.PresentationDelayTicks);
+
+        public void Receive(ReadOnlySpan<InputCommand> commands, uint serverTick,
+            byte rewindPresentationDelayTicks)
         {
+            if (rewindPresentationDelayTicks is < NetworkTimingProfile.MinimumPresentationDelayTicks
+                or > NetworkTimingProfile.MaximumPresentationDelayTicks)
+                throw new ArgumentOutOfRangeException(nameof(rewindPresentationDelayTicks));
             if (commands.IsEmpty)
             {
                 return;
@@ -40,7 +63,7 @@ namespace MphRead.Mods.Network
             {
                 _started = true;
                 _next = commands[0].Sequence;
-                _startup = 2;
+                _startup = _playoutTicks;
             }
             if (newest != _next && !Sequence32.IsNewer(newest, _next))
             {
@@ -61,6 +84,7 @@ namespace MphRead.Mods.Network
                         && _commands[i].Sequence != next)
                     {
                         _present[i] = false;
+                        _bufferedCommands--;
                     }
                 }
             }
@@ -78,8 +102,15 @@ namespace MphRead.Mods.Network
                     Duplicates++;
                     continue;
                 }
+                bool occupied = _present[index];
                 _commands[index] = command;
+                _rewindPresentationDelays[index] = rewindPresentationDelayTicks;
                 _present[index] = true;
+                if (!occupied)
+                {
+                    _bufferedCommands++;
+                    MaximumBufferedCommands = Math.Max(MaximumBufferedCommands, _bufferedCommands);
+                }
                 receivedNew = true;
             }
             if (receivedNew)
@@ -89,9 +120,13 @@ namespace MphRead.Mods.Network
         }
 
         public InputCommand Take(uint serverTick)
+            => Take(serverTick, out _);
+
+        public InputCommand Take(uint serverTick, out byte rewindPresentationDelayTicks)
         {
             if (!_started || _startup-- > 0)
             {
+                rewindPresentationDelayTicks = _lastRewindPresentationDelay;
                 return _last.Neutral();
             }
             _startup = 0;
@@ -99,7 +134,7 @@ namespace MphRead.Mods.Network
             if (!_present[index] || _commands[index].Sequence != _next)
             {
                 _gap = Math.Min(_gap + 1, 3);
-                if (_gap > 2)
+                if (_gap > _playoutTicks)
                 {
                     for (uint offset = 1; offset < Capacity; offset++)
                     {
@@ -119,13 +154,18 @@ namespace MphRead.Mods.Network
                     if (unchecked(serverTick - _lastArrival) > HoldTicks)
                     {
                         StarvedTicks++;
+                        rewindPresentationDelayTicks = _lastRewindPresentationDelay;
                         return _last.Neutral();
                     }
+                    rewindPresentationDelayTicks = _lastRewindPresentationDelay;
                     return _last.WithoutEdges();
                 }
             }
             _present[index] = false;
+            _bufferedCommands--;
             _last = _commands[index];
+            _lastRewindPresentationDelay = _rewindPresentationDelays[index];
+            rewindPresentationDelayTicks = _lastRewindPresentationDelay;
             LastProcessed = _next++;
             HasProcessed = true;
             _gap = 0;

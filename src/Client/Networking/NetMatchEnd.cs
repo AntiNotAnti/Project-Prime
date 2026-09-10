@@ -1,6 +1,6 @@
 namespace MphRead.Mods.Network
 {
-    /// <summary>Server-owned round progression, with passive legacy-demo playback.</summary>
+    /// <summary>Server-owned round progression, with passive legacy-replay playback.</summary>
     public static class NetMatchEnd
     {
         public static bool MayEndOnScore => !AuthoritativePlay.Active && !NetSession.Active;

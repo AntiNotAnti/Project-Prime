@@ -24,8 +24,8 @@ namespace MphRead.Mods.Network
         private bool _dirty;
         public uint MatchId { get; private set; }
         internal bool LegacyProtocol { get; set; }
-        internal bool Protocol7Demo { get; set; }
-        private bool HistoricalProtocol => LegacyProtocol || Protocol7Demo;
+        internal bool Protocol7Replay { get; set; }
+        private bool HistoricalProtocol => LegacyProtocol || Protocol7Replay;
         private readonly PlayerResultIdentity[] _resultIdentities = new PlayerResultIdentity[8];
         public bool ValidatePacket(ReadOnlySpan<byte> body) => HistoricalProtocol
             ? Protocol7WorldPacket.TryValidate(body, MatchId, LegacyProtocol)

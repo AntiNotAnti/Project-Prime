@@ -7,7 +7,7 @@ using OpenTK.Mathematics;
 namespace MphRead.Mods.Network
 {
     /// <summary>
-    /// Record tags for passive protocol-4 demos and the shared directory API.
+    /// Record tags for passive protocol-4 replays and the shared directory API.
     /// Live gameplay uses the checked authoritative NetHeader/NetMessageType codecs.
     /// Old gameplay tags are retained only to describe existing recordings;
     /// ServerNetwork never accepts them as live gameplay messages.
@@ -17,16 +17,16 @@ namespace MphRead.Mods.Network
         Hello = 1,           // legacy recording tag
         Welcome = 2,         // legacy recording tag
         Intent = 3,          // legacy recording tag
-        Snapshot = 4,        // passive legacy demo state
+        Snapshot = 4,        // passive legacy replay state
         Bye = 5,             // directory unregister; legacy recording tag
         Ping = 6,            // legacy recording tag
         Pong = 7,            // legacy recording tag
-        MatchState = 8,      // passive legacy demo metadata
-        MapChange = 9,       // passive legacy demo transition
-        Roster = 10,         // passive legacy demo roster
+        MatchState = 8,      // passive legacy replay metadata
+        MapChange = 9,       // passive legacy replay transition
+        Roster = 10,         // passive legacy replay roster
         Identify = 11,       // legacy recording tag
         // 12 was player authority. It is deliberately unsupported.
-        SlotIntent = 13,     // passive legacy demo presentation input
+        SlotIntent = 13,     // passive legacy replay presentation input
         StatusQuery = 14,    // read-only server discovery
         StatusReply = 15,
         MatchEnd = 16,       // legacy recording tag
@@ -36,7 +36,7 @@ namespace MphRead.Mods.Network
         HostRequest = 20,
         HostReply = 21,
         Refused = 22,        // legacy recording tag
-        Chat = 23            // passive legacy demo chat
+        Chat = 23            // passive legacy replay chat
     }
 
     /// <summary>
@@ -651,7 +651,7 @@ namespace MphRead.Mods.Network
         Morph = 1u << 7,
         Boost = 1u << 8,
         AltAttack = 1u << 9,
-        // Protocol-4 demo bit 10 was the scan visor. Reserved and ignored.
+        // Protocol-4 replay bit 10 was the scan visor. Reserved and ignored.
         ReservedScanVisor = 1u << 10,
         NextWeapon = 1u << 11,
         PrevWeapon = 1u << 12,
@@ -850,7 +850,7 @@ namespace MphRead.Mods.Network
     /// The slot and the name are written by the *server*, not trusted from
     /// the sender: a client can put anything in these fields, and a line
     /// attributed to somebody else is the whole of what a chat exploit is.
-    /// The client fills them in anyway, so a demo recorded against a server
+    /// The client fills them in anyway, so a replay recorded against a server
     /// that predates chat still replays with a name attached.
     ///
     /// Fixed size, like every other packet here. 114 bytes for something sent
@@ -952,7 +952,7 @@ namespace MphRead.Mods.Network
 
     /// <summary>
     /// Historical protocol-4 presentation input, decoded only from passive
-    /// demo records. Position, health and ammo claims never enter live simulation.
+    /// replay records. Position, health and ammo claims never enter live simulation.
     /// </summary>
     public struct IntentPacket
     {

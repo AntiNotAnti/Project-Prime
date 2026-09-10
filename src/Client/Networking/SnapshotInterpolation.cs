@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
@@ -54,9 +55,13 @@ namespace MphRead.Mods.Network
         private uint _generation;
         private bool _hasPresented;
         private double _presentedTick;
+        private readonly double _defaultDelayTicks;
+        private long _delayUpdatedAt;
 
         public int Count { get; private set; }
-        public double DelayTicks { get; }
+        public double DelayTicks { get; private set; }
+        public double TargetDelayTicks { get; private set; }
+        public bool DelayTransitionComplete => Math.Abs(DelayTicks - TargetDelayTicks) < 0.0001;
         public double MaxExtrapolationTicks { get; }
         public long LatestReceivedAt => Count == 0 ? 0 : _receivedAt[_newest];
         public long InterpolatedSamples { get; private set; }
@@ -74,7 +79,7 @@ namespace MphRead.Mods.Network
             if (!Double.IsFinite(maxExtrapolationTicks) || maxExtrapolationTicks < 0
                 || maxExtrapolationTicks > DefaultExtrapolationTicks)
                 throw new ArgumentOutOfRangeException(nameof(maxExtrapolationTicks));
-            DelayTicks = delayTicks;
+            _defaultDelayTicks = DelayTicks = TargetDelayTicks = delayTicks;
             MaxExtrapolationTicks = maxExtrapolationTicks;
         }
 
@@ -87,7 +92,37 @@ namespace MphRead.Mods.Network
             _generation++;
             _hasPresented = false;
             _presentedTick = 0;
+            DelayTicks = TargetDelayTicks = _defaultDelayTicks;
+            _delayUpdatedAt = 0;
             Array.Clear(_slotEpochs);
+        }
+
+        /// <summary>
+        /// Starts a monotonic-time presentation-delay transition. The current
+        /// picture is never snapped backward and delay changes by at most one
+        /// authoritative tick per elapsed second.
+        /// </summary>
+        public void SetTargetDelay(double delayTicks, long now)
+        {
+            if (!Double.IsFinite(delayTicks)
+                || delayTicks < NetworkTimingProfile.MinimumPresentationDelayTicks
+                || delayTicks > NetworkTimingProfile.MaximumPresentationDelayTicks
+                || now < 0) throw new ArgumentOutOfRangeException(nameof(delayTicks));
+            TargetDelayTicks = delayTicks;
+            _delayUpdatedAt = now;
+        }
+
+        public bool AdvanceDelay(long now)
+        {
+            if (now < 0) throw new ArgumentOutOfRangeException(nameof(now));
+            if (DelayTransitionComplete) { _delayUpdatedAt = now; return true; }
+            if (_delayUpdatedAt == 0) { _delayUpdatedAt = now; return false; }
+            if (now < _delayUpdatedAt) return false;
+            double elapsed = Math.Min(0.25, (now - _delayUpdatedAt) / (double)Stopwatch.Frequency);
+            _delayUpdatedAt = now;
+            double delta = TargetDelayTicks - DelayTicks;
+            DelayTicks += Math.Clamp(delta, -elapsed, elapsed);
+            return DelayTransitionComplete;
         }
 
         /// <summary>Returns false for stale/duplicate snapshots or invalid slot identities.</summary>
@@ -138,12 +173,14 @@ namespace MphRead.Mods.Network
         {
             presentation = default;
             if (Count == 0 || !Double.IsFinite(estimatedServerTick)) return false;
+            AdvanceDelay(Stopwatch.GetTimestamp());
             // Clock and history may have started on opposite sides of uint wrap.
             // Select the equivalent clock epoch nearest our newest snapshot.
             double clockDelta = (estimatedServerTick - _ticks[_newest]) % SequenceSpace;
             if (clockDelta >= SequenceSpace / 2) clockDelta -= SequenceSpace;
             else if (clockDelta < -SequenceSpace / 2) clockDelta += SequenceSpace;
             double target = _ticks[_newest] + clockDelta - DelayTicks;
+            if (_hasPresented) target = Math.Max(target, _presentedTick);
             SnapshotPresentationMode mode;
             double oldest = _ticks[(_newest - Count + 1 + Capacity) % Capacity];
             if (Count == 1)

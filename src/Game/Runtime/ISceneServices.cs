@@ -52,6 +52,15 @@ namespace MphRead
         void ObserveAimAssist(PlayerEntity player, bool acquiredTarget,
             float acquisitionMilliseconds, float angularErrorDegrees,
             float rotationalDegrees, float frictionMultiplier) { }
+        /// <summary>
+        /// Fixed-step look values captured before render prediction can change
+        /// source ownership. Client hosts use this only for local diagnostics;
+        /// headless/authoritative hosts intentionally keep the default no-op.
+        /// </summary>
+        void ObserveAimAssistFrame(PlayerEntity player, LookDeviceKind device,
+            Vector2 preAssistDelta, Vector2 postAssistDelta,
+            float preAssistAngularErrorDegrees,
+            float postAssistAngularErrorDegrees) { }
         void NotePlayerOverlap(EntityBase? owner, PlayerEntity target) { }
         void CountUnresolvedNode() { }
         void CountPlayerCheck(int slot) { }

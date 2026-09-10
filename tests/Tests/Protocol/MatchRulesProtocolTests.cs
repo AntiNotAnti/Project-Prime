@@ -17,9 +17,9 @@ namespace MphRead.Tests
         [Fact]
         public void CompleteRulesRoundTripAcrossReliableBoundaries()
         {
-            // Live protocol 9 adds Worker join routing; older demo fixtures
+            // Live protocol 11 adds deterministic Morph Ball boost input; older replay fixtures
             // below intentionally keep their historical protocol versions.
-            Assert.Equal(9, NetHeader.Version);
+            Assert.Equal(11, NetHeader.Version);
             foreach (MatchMode mode in Enum.GetValues<MatchMode>())
             {
                 MatchRules rules = Rules(mode);
@@ -80,7 +80,8 @@ namespace MphRead.Tests
                 rulesetPreset: RulesetPreset.Duel,
                 rankingEligibility: RankingEligibility.VerifiedServerOnly,
                 radarPolicy: RadarPolicy.Disabled,
-                teamBalancePolicy: TeamBalancePolicy.Locked);
+                teamBalancePolicy: TeamBalancePolicy.Locked,
+                killcamPolicy: KillcamPolicy.PostRound);
             byte[] bytes = new byte[MatchRulesWire.Size];
 
             MatchRulesWire.Write(bytes, rules);
@@ -89,6 +90,7 @@ namespace MphRead.Tests
             Assert.Equal((byte)RankingEligibility.VerifiedServerOnly, bytes[78]);
             Assert.Equal((byte)RadarPolicy.Disabled, bytes[79]);
             Assert.Equal((byte)TeamBalancePolicy.Locked, bytes[80]);
+            Assert.Equal((byte)KillcamPolicy.PostRound, bytes[81]);
             Assert.True(MatchRulesWire.TryRead(bytes, out MatchRules decoded));
             Assert.Equal(rules, decoded);
         }
@@ -98,7 +100,7 @@ namespace MphRead.Tests
         [InlineData(78, 2)] // RankingEligibility.VerifiedServerOnly is the final assigned value.
         [InlineData(79, 3)] // RadarPolicy.Enabled is the final assigned value.
         [InlineData(80, 2)] // TeamBalancePolicy.Locked is the final assigned value.
-        [InlineData(81, 1)]
+        [InlineData(81, 3)] // KillcamPolicy.PostRound is the final assigned value.
         [InlineData(82, 1)]
         [InlineData(83, 1)]
         public void InvalidAssignedOrReservedExtensionBytesAreRejected(int offset, byte value)
@@ -108,6 +110,30 @@ namespace MphRead.Tests
             bytes[offset] = value;
 
             Assert.False(MatchRulesWire.TryRead(bytes, out _));
+        }
+
+        [Fact]
+        public void LegacyZeroKillcamByteDecodesAsDisabled()
+        {
+            byte[] bytes = new byte[MatchRulesWire.Size];
+            MatchRulesWire.Write(bytes, Rules());
+            Assert.Equal((byte)KillcamPolicy.Immediate, bytes[81]);
+
+            bytes[81] = 0;
+
+            Assert.True(MatchRulesWire.TryRead(bytes, out MatchRules decoded));
+            Assert.Equal(KillcamPolicy.Disabled, decoded.KillcamPolicy);
+            Assert.Equal(0, bytes[82]);
+            Assert.Equal(0, bytes[83]);
+        }
+
+        [Fact]
+        public void KillcamPolicyDefaultsAndConstructorValidationAreExplicit()
+        {
+            Assert.Equal(KillcamPolicy.Immediate,
+                MatchRules.CreateDefault(MatchMode.Battle, "DEFAULT").KillcamPolicy);
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new MatchRules(MatchMode.Battle, "INVALID", killcamPolicy: (KillcamPolicy)3));
         }
 
         [Theory]
@@ -174,16 +200,16 @@ namespace MphRead.Tests
         [Theory]
         [InlineData((byte)5)]
         [InlineData((byte)6)]
-        public void OldAuthoritativeDemosUseTheirOwnMatchAndWorldLayouts(byte protocol)
+        public void OldAuthoritativeReplaysUseTheirOwnMatchAndWorldLayouts(byte protocol)
         {
-            var demo = new ModernDemoState(); demo.Reset(protocol);
+            var replay = new ModernReplayState(); replay.Reset(protocol);
             byte[] match = new byte[1 + 9 + MatchStatePacket.MaxNameBytes];
-            match[0] = (byte)DemoRecordKind.Match;
+            match[0] = (byte)ReplayRecordKind.Match;
             BinaryPrimitives.WriteUInt32LittleEndian(match.AsSpan(1), 7);
             match[9] = (byte)GameMode.Battle;
             System.Text.Encoding.ASCII.GetBytes("TEST").CopyTo(match, 10);
-            Assert.True(demo.Receive(match));
-            Assert.Null(demo.InitialRules);
+            Assert.True(replay.Receive(match));
+            Assert.Null(replay.InitialRules);
             Assert.False(MatchTransitionPacket.TryRead(match.AsSpan(1), out _));
             var records = new WorldRecord[17];
             records[0] = new(WorldRecordKind.Match, 255, 0, 0, new Vector3(-1, 0, 0), 3, 2, 0, uint.MaxValue, 0);
@@ -192,11 +218,11 @@ namespace MphRead.Tests
                 records[1 + slot * 2] = new(WorldRecordKind.Score, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
                 records[2 + slot * 2] = new(WorldRecordKind.Time, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
             }
-            byte[] world = new byte[1 + WorldPacket.MaxSize]; world[0] = (byte)DemoRecordKind.World;
+            byte[] world = new byte[1 + WorldPacket.MaxSize]; world[0] = (byte)ReplayRecordKind.World;
             int length = WorldPacket.Write(world.AsSpan(1), 7, 1, 0, records, 0);
-            Assert.True(demo.Receive(world.AsSpan(0, length + 1)));
-            Assert.True(demo.World.HasState);
-            Assert.Equal(MatchPhase.Intermission, demo.World.Phase);
+            Assert.True(replay.Receive(world.AsSpan(0, length + 1)));
+            Assert.True(replay.World.HasState);
+            Assert.Equal(MatchPhase.Intermission, replay.World.Phase);
             var live = new ClientWorldState(); live.Reset(7);
             Assert.False(live.Receive(world.AsSpan(1, length)));
             Assert.False(live.HasState);

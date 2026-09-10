@@ -14,7 +14,7 @@ namespace MphRead.Mods.Network
             => NetRoomChange.RebuildPlayers(scene, hunter, recolor);
         public void AfterRoomRebuild(Scene scene) => NetRoomChange.AfterRebuild(scene);
         public int LocalSlot => NetHooks.LocalSlot;
-        public uint WorldServerTick => AuthoritativePlay.Current?.WorldServerTick ?? DemoPlayback.WorldServerTick ?? 0;
+        public uint WorldServerTick => AuthoritativePlay.Current?.WorldServerTick ?? ReplayPlayback.WorldServerTick ?? 0;
         public bool MayEndOnScore => NetMatchEnd.MayEndOnScore;
         public bool ShouldLeaveAfterMatch => NetMatchEnd.ShouldLeaveAfterMatch;
         public bool KeepSlotAlive(PlayerEntity player) => NetHooks.KeepSlotAlive(player);
@@ -37,6 +37,13 @@ namespace MphRead.Mods.Network
         {
             LocalLookFrame consumed = Input.GamepadInput.LookCoordinator
                 .ConsumeForSimulation((float)Render.FrameTiming.StepSeconds);
+            // Latch the owner selected by the fixed-step consume before the
+            // render prediction path can observe a later pointer/controller
+            // handoff. AimAssistFrame updates the other two values below.
+            if (InputSettings.InputBalanceTelemetryEnabled)
+            {
+                Input.InputBalanceTelemetry.BeginFixedStepLook(consumed.Device);
+            }
             _localLookFrame = allowAimAssist
                 ? consumed.WithAimAssist(InputSettings.GamepadAimAssistEnabled,
                     InputSettings.GamepadAimAssistStrength)
@@ -83,22 +90,63 @@ namespace MphRead.Mods.Network
             if (shooter.SlotIndex == LocalSlot && shot.LengthSquared > .000001f
                 && aim.LengthSquared > .000001f)
             {
-                float dot = Math.Clamp(Vector3.Dot(shot.Normalized(), aim.Normalized()), -1, 1);
-                float error = MathF.Acos(dot) * 180 / MathF.PI;
-                Input.InputBalanceTelemetry.RecordShot(
-                    Input.GamepadInput.LookCoordinator.ActiveLookDevice,
-                    (int)shooter.Hunter, (int)shooter.CurrentWeapon,
-                    shooter.EquipInfo.Zoomed, error, commandSequence);
+                if (InputSettings.InputBalanceTelemetryEnabled)
+                {
+                    // Scan only while opt-in diagnostics are enabled. The
+                    // view ray is the unperturbed gun/camera ray; the helper
+                    // compares it with the current active collision centers,
+                    // not projectile or hitbox targets.
+                    AimAssistTargetObservation targets
+                        = PlayerAimAssist.MeasureFiringTargets(shooter, aim);
+                    if (Input.InputBalanceTelemetry.TryGetFixedStepLook(
+                        out Input.FixedStepLookObservation fixedStepLook))
+                    {
+                        Input.InputBalanceTelemetry.RecordShot(
+                            fixedStepLook.Device, (int)shooter.Hunter,
+                            (int)shooter.CurrentWeapon, shooter.EquipInfo.Zoomed,
+                            targets, commandSequence, fixedStepLook);
+                    }
+                    else
+                    {
+                        Input.InputBalanceTelemetry.RecordShot(
+                            Input.InputBalanceTelemetry.FixedStepLookDevice,
+                            (int)shooter.Hunter, (int)shooter.CurrentWeapon,
+                            shooter.EquipInfo.Zoomed, targets, commandSequence);
+                    }
+                }
             }
         }
         public void ObserveAimAssist(PlayerEntity player, bool acquiredTarget,
             float acquisitionMilliseconds, float angularErrorDegrees,
             float rotationalDegrees, float frictionMultiplier)
         {
-            Input.InputBalanceTelemetry.RecordAssist(LookDeviceKind.GamepadStick,
+            if (!InputSettings.InputBalanceTelemetryEnabled) return;
+            LookDeviceKind device = Input.InputBalanceTelemetry.FixedStepLookDevice;
+            if (device != LookDeviceKind.GamepadStick)
+            {
+                // The assist path itself is stick-only. This fallback keeps
+                // legacy hosts that do not expose a fixed-step latch working
+                // without consulting render ownership.
+                device = LookDeviceKind.GamepadStick;
+            }
+            Input.InputBalanceTelemetry.RecordAssist(device,
                 (int)player.Hunter, (int)player.CurrentWeapon,
                 acquisitionMilliseconds, rotationalDegrees, frictionMultiplier,
                 acquiredTarget);
+        }
+        public void ObserveAimAssistFrame(PlayerEntity player, LookDeviceKind device,
+            Vector2 preAssistDelta, Vector2 postAssistDelta,
+            float preAssistAngularErrorDegrees,
+            float postAssistAngularErrorDegrees)
+        {
+            if (InputSettings.InputBalanceTelemetryEnabled
+                && player.SlotIndex == LocalSlot)
+            {
+                Input.InputBalanceTelemetry.RecordFixedStepLook(device,
+                    preAssistDelta, postAssistDelta,
+                    preAssistAngularErrorDegrees,
+                    postAssistAngularErrorDegrees);
+            }
         }
         public void NotePlayerOverlap(EntityBase? owner, PlayerEntity target) => NetDamage.NotePlayerOverlap(owner, target);
         public void CountUnresolvedNode() => NetPlayerBridge.NodeLookupsUnresolved++;

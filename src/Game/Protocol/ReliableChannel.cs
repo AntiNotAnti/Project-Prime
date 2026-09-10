@@ -20,13 +20,16 @@ namespace MphRead.Mods.Network
         IntermissionBallot = 14,
         IntermissionVote = 15,
         MatchAward = 16,
-        MatchSemantic = 17
+        MatchSemantic = 17,
+        TimingProfile = 18,
+        TimingProfileApplied = 19
     }
 
     public enum ReliableAdmissionFailure
     {
         None,
         Capacity,
+        ReservedCapacity,
         IdSpan,
         OversizedPayload,
         InvalidType
@@ -40,10 +43,14 @@ namespace MphRead.Mods.Network
     public sealed class ReliableChannel
     {
         public const int Capacity = 32;
+        public const int CriticalReserve = 8;
+        public const int OrdinaryCapacity = Capacity - CriticalReserve;
         public const int EventWindowCapacity = ReliableEventWindow.Capacity;
         public const int MaxPayloadSize = 512;
         private const int AttemptCapacity = 256;
-        private const double RetrySeconds = 0.15;
+        public const double InitialRetrySeconds = 0.15;
+        public const double MinimumRetrySeconds = 0.05;
+        public const double MaximumRetrySeconds = 0.5;
 
         private struct Pending
         {
@@ -68,6 +75,8 @@ namespace MphRead.Mods.Network
         private uint _nextId;
         private int _nextAttempt;
         private int _nextDue;
+        private double _retrySeconds = InitialRetrySeconds;
+        private readonly bool _adaptiveRetryEnabled;
 
         public int PendingCount { get; private set; }
         public long Retransmissions { get; private set; }
@@ -77,6 +86,10 @@ namespace MphRead.Mods.Network
         public long IdSpanRejections { get; private set; }
         public long OversizedPayloadRejections { get; private set; }
         public long InvalidTypeRejections { get; private set; }
+        public long OrdinaryAdmissionRejections { get; private set; }
+        public long CriticalReserveUses { get; private set; }
+        public long CriticalAdmissionRejections { get; private set; }
+        public double RetrySeconds => _retrySeconds;
 
         // Distance from the next event ID to the oldest pending event, across uint wrap.
         // Compute only when diagnostics are sampled; admission keeps its existing scan.
@@ -108,22 +121,25 @@ namespace MphRead.Mods.Network
                 value.SentAttempts == 0 ? 0 : Math.Max(0, now - value.FirstSent)) : null;
         }
 
-        public ReliableChannel(uint firstEventId = 0)
+        public ReliableChannel(uint firstEventId = 0, bool adaptiveRetryEnabled = true)
         {
             _nextId = firstEventId;
+            _adaptiveRetryEnabled = adaptiveRetryEnabled;
         }
 
-        public bool CanEnqueue
+        public bool CanEnqueue => CanEnqueueType(ReliableEventType.Combat);
+
+        public bool CanEnqueueType(ReliableEventType type)
         {
-            get
+            if (type < ReliableEventType.Welcome || type > ReliableEventType.TimingProfileApplied)
+                return false;
+            if (PendingCount >= (IsCritical(type) ? Capacity : OrdinaryCapacity)) return false;
+            foreach (Pending pending in _pending)
             {
-                if (PendingCount == Capacity) { return false; }
-                foreach (Pending pending in _pending)
-                {
-                    if (pending.Payload != null && unchecked(_nextId - pending.Id) >= EventWindowCapacity) { return false; }
-                }
-                return true;
+                if (pending.Payload != null && unchecked(_nextId - pending.Id) >= EventWindowCapacity)
+                    return false;
             }
+            return true;
         }
 
         public bool TryEnqueue(ReliableEventType type, ReadOnlySpan<byte> payload, out uint eventId)
@@ -134,6 +150,8 @@ namespace MphRead.Mods.Network
             {
                 LastAdmissionFailure = ReliableAdmissionFailure.Capacity;
                 CapacityRejections++;
+                if (IsCritical(type)) CriticalAdmissionRejections++;
+                else OrdinaryAdmissionRejections++;
                 return false;
             }
             if (payload.Length > MaxPayloadSize)
@@ -142,7 +160,15 @@ namespace MphRead.Mods.Network
                 OversizedPayloadRejections++;
                 return false;
             }
-            if (type < ReliableEventType.Welcome || type > ReliableEventType.MatchSemantic)
+            bool critical = IsCritical(type);
+            if (!critical && PendingCount >= OrdinaryCapacity)
+            {
+                LastAdmissionFailure = ReliableAdmissionFailure.ReservedCapacity;
+                CapacityRejections++;
+                OrdinaryAdmissionRejections++;
+                return false;
+            }
+            if (type < ReliableEventType.Welcome || type > ReliableEventType.TimingProfileApplied)
             {
                 LastAdmissionFailure = ReliableAdmissionFailure.InvalidType;
                 InvalidTypeRejections++;
@@ -168,6 +194,7 @@ namespace MphRead.Mods.Network
             eventId = _nextId++;
             _pending[free] = new Pending { Id = eventId, Type = type, Payload = payload.ToArray() };
             PendingCount++;
+            if (critical && PendingCount > OrdinaryCapacity) CriticalReserveUses++;
             PendingHighWater = Math.Max(PendingHighWater, PendingCount);
             LastAdmissionFailure = ReliableAdmissionFailure.None;
             return true;
@@ -185,6 +212,21 @@ namespace MphRead.Mods.Network
                     PendingCount--;
                 }
             }
+        }
+
+        public int CancelPending(ReliableEventType type)
+        {
+            int removed = 0;
+            for (int i = 0; i < Capacity; i++)
+            {
+                if (_pending[i].Payload != null && _pending[i].Type == type)
+                {
+                    _pending[i] = default;
+                    PendingCount--;
+                    removed++;
+                }
+            }
+            return removed;
         }
 
         /// <summary>
@@ -228,7 +270,8 @@ namespace MphRead.Mods.Network
                 }
                 if (pending.SentAttempts == 0) pending.FirstSent = now;
                 if (pending.SentAttempts < uint.MaxValue) pending.SentAttempts++;
-                pending.Due = now + RetrySeconds;
+                int backoff = 1 << (int)Math.Min(3, pending.SentAttempts - 1);
+                pending.Due = now + Math.Min(MaximumRetrySeconds, _retrySeconds * backoff);
                 _attempts[_nextAttempt] = new Attempt
                 {
                     Valid = true,
@@ -239,6 +282,29 @@ namespace MphRead.Mods.Network
                 return;
             }
         }
+
+        /// <summary>
+        /// Updates the connection RTO only from validated round-trip samples.
+        /// Invalid or absent samples retain the safe 150 ms initial value.
+        /// </summary>
+        public bool ConfigureRetry(double smoothedRttMs, double jitterMs)
+        {
+            if (!_adaptiveRetryEnabled) return false;
+            if (!Double.IsFinite(smoothedRttMs) || smoothedRttMs <= 0
+                || !Double.IsFinite(jitterMs) || jitterMs < 0) return false;
+            double milliseconds = smoothedRttMs + Math.Max(10, jitterMs * 4);
+            _retrySeconds = Math.Clamp(milliseconds / 1000,
+                MinimumRetrySeconds, MaximumRetrySeconds);
+            return true;
+        }
+
+        public static bool IsCritical(ReliableEventType type)
+            => type is ReliableEventType.Welcome or ReliableEventType.ClientReady
+                or ReliableEventType.MapTransition or ReliableEventType.Disconnect
+                or ReliableEventType.MatchState or ReliableEventType.Kill
+                or ReliableEventType.WorldEvent or ReliableEventType.ObserverTransition
+                or ReliableEventType.IntermissionBallot or ReliableEventType.TimingProfile
+                or ReliableEventType.TimingProfileApplied;
 
         public void Acknowledge(uint ack, uint ackBits)
         {

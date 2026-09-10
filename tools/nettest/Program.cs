@@ -44,6 +44,8 @@ namespace MphRead.NetTest
                     case "--match-baseline": return MatchBaselineCheck.Run(args);
                     case "--baseline": return ConnectionBaseline.Run(args);
                     case "--connection-server": return ConnectionBaseline.RunServer(args);
+                    case "--performance-baseline": return PerformanceBaselineCheck.Run(args);
+                    case "--snapshot-cadence": return SnapshotCadenceCheck.Run(args);
                     case "--help": PrintUsage(); return 0;
                 }
             }
@@ -120,6 +122,8 @@ namespace MphRead.NetTest
             Console.WriteLine("--world-check DATA MODE | --connection-server PORT");
             Console.WriteLine("--simulation-order DATA: real-content simultaneous-event ordering and lifecycle boundaries");
             Console.WriteLine("--match-baseline DATA: current multiplayer scoring and objective behavior");
+            Console.WriteLine("--performance-baseline OUTPUT_JSON [AMHE1_DIRECTORY | --data AMHE1_DIRECTORY]: deterministic timing/allocation baseline; content-backed mode measures room-dependent targets");
+            Console.WriteLine("--snapshot-cadence: deterministic 30/60 Hz snapshot packet counts/bytes for 2/4/8 players; synthetic codec accounting only");
             Console.WriteLine("--match-phases DATA: authoritative waiting, countdown reset, phase timing and input epochs");
             Console.WriteLine("--overtime-check DATA [VERSION]: real-content regulation expiry and mode-specific overtime");
             Console.WriteLine("--audit-multiplayer DATA OUTPUT_JSON [FH_DATA|-] [MAP_DIRECTORY|-]: read-only multiplayer entity inventory");

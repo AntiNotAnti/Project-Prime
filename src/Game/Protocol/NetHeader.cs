@@ -18,7 +18,9 @@ namespace MphRead.Mods.Network
         /// <summary>Bounded, server-selected developer diagnostics.</summary>
         Debug = 11,
         World = 12,
-        JoinPending = 13
+        JoinPending = 13,
+        /// <summary>Bounded client presentation observations; never authority.</summary>
+        TimingTelemetry = 14
     }
 
     [Flags]
@@ -39,8 +41,8 @@ namespace MphRead.Mods.Network
     {
         public const ushort Magic = 0x5046;
         public const int Size = 24;
-        // Protocol 9 adds explicit initial-join match routing for multi-match workers.
-        public const byte Version = 9;
+        // Protocol 11 adds deterministic Morph Ball boost intent to input commands.
+        public const byte Version = 11;
 
         public void Write(Span<byte> destination)
         {
@@ -58,7 +60,7 @@ namespace MphRead.Mods.Network
             header = default;
             if (source.Length < Size || source.Length > NetConfig.MaxPacketSize
                 || BinaryPrimitives.ReadUInt16LittleEndian(source) != Magic
-                || source[2] < (byte)NetMessageType.Join || (source[2] > (byte)NetMessageType.Debug && source[2] != (byte)NetMessageType.World && source[2] != (byte)NetMessageType.JoinPending)
+                || source[2] < (byte)NetMessageType.Join || source[2] > (byte)NetMessageType.TimingTelemetry
                 || (source[3] & ~3) != 0)
             {
                 return false;

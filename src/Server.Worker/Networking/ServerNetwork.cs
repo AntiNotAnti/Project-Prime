@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
 using MphRead.Identity;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Network
 {
@@ -31,6 +32,8 @@ namespace MphRead.Mods.Network
         public string Name { get; }
         public Hunter Hunter { get; }
         public ServerInputStream Inputs { get; internal set; } = new();
+        internal ServerNetworkTimingController Timing { get; set; } = new(false);
+        internal double NextTimingTelemetry;
         internal NetRateLimit Packets;
         internal long PingSent;
         internal double NextPing;
@@ -63,7 +66,7 @@ namespace MphRead.Mods.Network
         private readonly ServerPeer?[] _peers = new ServerPeer?[RosterPacket.MaxSlots];
         private readonly ServerPeer?[] _reconnectPeers = new ServerPeer?[RosterPacket.MaxSlots];
         private readonly uint[] _reconnectTicks = new uint[RosterPacket.MaxSlots];
-        internal const uint ReconnectGraceTicks = 30 * 60;
+        internal static readonly uint ReconnectGraceTicks = ReconnectPolicy.WorkerReservationTicks;
 
         internal bool HasReconnectReservation(int slot)
         {
@@ -79,6 +82,7 @@ namespace MphRead.Mods.Network
         private uint _rosterRevision;
         private readonly NetRosterEntry[] _rosterEntries = new NetRosterEntry[8];
         private readonly byte[] _rosterPayload = new byte[4 + SessionRosterPacket.MaxSize];
+        private readonly ReceivedPacket[] _receiveBuffer = new ReceivedPacket[256];
         private int _rosterLength;
         private double _nextRosterPingRefresh;
         private readonly ushort[] _rosterPings = new ushort[8];
@@ -89,7 +93,7 @@ namespace MphRead.Mods.Network
         public MatchRules Rules { get; private set; }
         public MatchPhase Phase { get; set; } = MatchPhase.WaitingForPlayers;
         public uint PhaseRevision { get; set; }
-        public string ServerName { get; set; } = "Prime Hunters";
+        public string ServerName { get; set; } = "Project Prime";
         public Func<MatchStatePacket>? StatusProvider { get; set; }
         public IServerTicketAuthority? TicketAuthority { get; set; }
         public Guid ServerId => TicketAuthority?.ServerId ?? Guid.Empty;
@@ -97,6 +101,26 @@ namespace MphRead.Mods.Network
         public ReadOnlySpan<ServerPeer?> Peers => _peers;
         public int Count { get; private set; }
         public long Rejected { get; private set; }
+        internal bool AdaptiveTimingEnabled { get; private set; }
+        internal bool AdaptiveInputPlayoutEnabled { get; private set; }
+        internal bool ReliableAdaptiveRtoEnabled { get; private set; }
+
+        internal void ConfigureTiming(bool adaptiveTiming, bool adaptiveInputPlayout,
+            bool reliableAdaptiveRto = false)
+        {
+            if (adaptiveInputPlayout && !adaptiveTiming) throw new ArgumentException("Adaptive input playout requires adaptive timing.");
+            if (Count != 0)
+            {
+                if (AdaptiveTimingEnabled != adaptiveTiming
+                    || AdaptiveInputPlayoutEnabled != adaptiveInputPlayout
+                    || ReliableAdaptiveRtoEnabled != reliableAdaptiveRto)
+                    throw new InvalidOperationException("Timing policy cannot change while connections are admitted.");
+                return;
+            }
+            AdaptiveTimingEnabled = adaptiveTiming;
+            AdaptiveInputPlayoutEnabled = adaptiveInputPlayout;
+            ReliableAdaptiveRtoEnabled = reliableAdaptiveRto;
+        }
 
         public ServerNetwork(INetTransport transport, string room, GameMode mode,
             uint matchId = 1, int capacity = RosterPacket.MaxSlots)
@@ -142,8 +166,10 @@ namespace MphRead.Mods.Network
                 }
             }
             _now = now;
-            foreach (ReceivedPacket packet in _transport.Drain())
+            int received = _transport.Drain(_receiveBuffer);
+            for (int packetIndex = 0; packetIndex < received; packetIndex++)
             {
+                ReceivedPacket packet = _receiveBuffer[packetIndex];
                 if (!Handle(packet, timestamp))
                 {
                     Rejected++;
@@ -169,6 +195,7 @@ namespace MphRead.Mods.Network
                     Remove(slot, reason: ParticipantExitReason.Timeout);
                     continue;
                 }
+                UpdateTiming(peer);
                 connection.FlushReliable(_transport, _now);
                 if (_now >= peer.NextPing)
                 {
@@ -230,6 +257,7 @@ namespace MphRead.Mods.Network
             ReliableEventType eventType = default;
             ReadOnlySpan<byte> eventBody = default;
             Span<InputCommand> commands = stackalloc InputCommand[InputBundle.Capacity];
+            NetworkTimingTelemetry timingTelemetry = default;
             int commandCount = 0;
             bool valid = header.Type switch
             {
@@ -240,13 +268,18 @@ namespace MphRead.Mods.Network
                 NetMessageType.Input => !peer.IsObserver && InputBundle.TryRead(body, commands, out uint inputMatch, out uint inputPhase, out commandCount)
                     && inputMatch == MatchId && peer.Connection.State == NetConnectionState.Playing
                     && Phase == MatchPhase.Playing && inputPhase == PhaseRevision,
+                NetMessageType.TimingTelemetry => AdaptiveTimingEnabled
+                    && _now >= peer.NextTimingTelemetry
+                    && NetworkTimingTelemetry.TryRead(body, out timingTelemetry),
                 NetMessageType.Event => ReliableEventPacket.TryRead(body, out eventId, out eventType, out eventBody)
                     && (eventType == ReliableEventType.ClientReady && eventBody.Length == 4
                         || eventType == ReliableEventType.Disconnect && eventBody.IsEmpty
                         || !peer.IsObserver && !peer.IsBot && eventType == ReliableEventType.IntermissionVote
                             && IntermissionVoteRequest.TryRead(eventBody, out _)
                         || !peer.IsObserver && eventType == ReliableEventType.ChatRequest && eventBody.Length == 4 + SessionChatRequest.Size
-                            && SessionChatRequest.TryRead(eventBody[4..], out _)),
+                            && SessionChatRequest.TryRead(eventBody[4..], out _)
+                        || eventType == ReliableEventType.TimingProfileApplied
+                            && AdaptiveTimingEnabled && NetworkTimingProfileAppliedPacket.TryRead(eventBody, out _)),
                 _ => false
             };
             NetConnection connection = peer.Connection;
@@ -256,11 +289,19 @@ namespace MphRead.Mods.Network
                 return false;
             }
             if (!previousEndpoint.Equals(connection.Endpoint)) { PublishKeepAlives(); }
-            connection.Metrics.Receive(packet, timestamp);
+            long processedAt = Stopwatch.GetTimestamp();
+            connection.Metrics.Receive(packet, processedAt);
+            long packetAt = packet.ReceivedAt > 0 ? packet.ReceivedAt : processedAt;
             if (header.Type == NetMessageType.Input && result != ReceiveResult.Duplicate)
             {
-                peer.Inputs.Receive(commands[..commandCount], Tick);
-                connection.Metrics.Input(timestamp);
+                peer.Inputs.Receive(commands[..commandCount], Tick,
+                    peer.Timing.RewindPresentationDelayTicks);
+                connection.Metrics.Input(packetAt);
+            }
+            else if (header.Type == NetMessageType.TimingTelemetry && result != ReceiveResult.Duplicate)
+            {
+                if (peer.Timing.ObserveTelemetry(timingTelemetry, _now))
+                    peer.NextTimingTelemetry = _now + 0.5;
             }
             else if (header.Type == NetMessageType.Event)
             {
@@ -278,6 +319,12 @@ namespace MphRead.Mods.Network
                     else if (eventType == ReliableEventType.IntermissionVote)
                     {
                         if (IntermissionVoteRequest.TryRead(eventBody, out var vote)) IntermissionVoteReceived?.Invoke(peer, vote);
+                    }
+                    else if (eventType == ReliableEventType.TimingProfileApplied)
+                    {
+                        NetworkTimingProfileAppliedPacket.TryRead(eventBody, out uint revision);
+                        if (peer.Timing.TryAcknowledge(revision) && AdaptiveInputPlayoutEnabled)
+                            peer.Inputs.ConfigurePlayout(peer.Timing.Active.InputPlayoutTicks);
                     }
                     else if (BinaryPrimitives.ReadUInt32LittleEndian(eventBody) == MatchId)
                     {
@@ -448,7 +495,8 @@ namespace MphRead.Mods.Network
                 if (free < 0) { Refuse(endpoint, join.Nonce, "Player slots are not available yet."); return true; }
             }
             ulong id = AllocateConnectionIdentity();
-            var connection = new NetConnection(id, endpoint, MatchId, _now);
+            var connection = new NetConnection(id, endpoint, MatchId, _now,
+                ReliableAdaptiveRtoEnabled);
             var accepted = new JoinAcceptedPacket(join.Nonce, (byte)free, MatchId, Tick, 60, Rules);
             Span<byte> payload = stackalloc byte[JoinAcceptedPacket.Size];
             accepted.Write(payload);
@@ -469,6 +517,9 @@ namespace MphRead.Mods.Network
                 WaitingForNextMatch = inProgress && !returningParticipant
                     && Rules.LateJoinPolicy == LateJoinPolicy.SpectateUntilNextMatch
             };
+            _peers[free]!.Timing = new ServerNetworkTimingController(AdaptiveTimingEnabled);
+            if (AdaptiveInputPlayoutEnabled)
+                _peers[free]!.Inputs.ConfigurePlayout(_peers[free]!.Timing.Active.InputPlayoutTicks);
             _connections[free] = _peers[free];
             _reconnectPeers[free] = null;
             Count++;
@@ -591,7 +642,7 @@ namespace MphRead.Mods.Network
             // owner thread makes this check and publication indivisible.
             foreach (ServerPeer? peer in _peers)
             {
-                if (peer != null && !peer.Connection.Reliable.CanEnqueue)
+                if (peer != null && !peer.Connection.Reliable.CanEnqueueType(ReliableEventType.Chat))
                 {
                     speaker.ChatDropped++;
                     return;
@@ -651,6 +702,9 @@ namespace MphRead.Mods.Network
                 peer.HasParticipated = false;
                 peer.SurvivalEliminated = false;
                 peer.Inputs = new ServerInputStream();
+                peer.Timing = new ServerNetworkTimingController(AdaptiveTimingEnabled);
+                if (AdaptiveInputPlayoutEnabled)
+                    peer.Inputs.ConfigurePlayout(peer.Timing.Active.InputPlayoutTicks);
                 peer.HasRoster = false;
                 peer.Connection.BeginLoading(matchId);
                 peer.Connection.Reliable.CancelPendingExceptWelcome();
@@ -679,7 +733,8 @@ namespace MphRead.Mods.Network
                 || payload.Length > ReliableChannel.MaxPayloadSize - 4) { return false; }
             foreach (ServerPeer? peer in _peers)
             {
-                if (peer?.Connection.State == NetConnectionState.Playing && !peer.Connection.Reliable.CanEnqueue)
+                if (peer?.Connection.State == NetConnectionState.Playing
+                    && !peer.Connection.Reliable.CanEnqueueType(type))
                 {
                     return false;
                 }
@@ -689,6 +744,19 @@ namespace MphRead.Mods.Network
                 if (peer?.Connection.State == NetConnectionState.Playing) { TrySendEvent(peer, type, payload); }
             }
             return true;
+        }
+
+        private void UpdateTiming(ServerPeer peer)
+        {
+            if (!AdaptiveTimingEnabled || !peer.Timing.TrySelectOffer(_now,
+                peer.Connection.Metrics.SmoothedRttMs, peer.Inputs.StarvedTicks,
+                out NetworkTimingProfile profile, out bool replaceTimedOut)) return;
+            if (replaceTimedOut)
+                peer.Connection.Reliable.CancelPending(ReliableEventType.TimingProfile);
+            Span<byte> payload = stackalloc byte[NetworkTimingProfilePacket.Size];
+            NetworkTimingProfilePacket.Write(payload, profile);
+            if (peer.Connection.Reliable.TryEnqueue(ReliableEventType.TimingProfile,
+                payload, out _)) peer.Timing.MarkOffered(profile, _now);
         }
 
         public void SendWorld(ServerPeer peer, ReadOnlySpan<byte> payload)

@@ -110,8 +110,8 @@ namespace MphRead.Mods.Network
         {
             _pendingRandom = null;
             AuthoritativePlay.Current?.Dispose();
-            DemoPlayback.CloseFile();
-            DemoRecorder.Stop();
+            ReplayPlayback.CloseFile();
+            ReplayRecorder.Stop();
             NetPlayerSetup.Reset();
             SpectatorMode.Reset();
             NetMatchSync.Reset();

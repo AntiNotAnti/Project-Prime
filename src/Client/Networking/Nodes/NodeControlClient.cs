@@ -4,7 +4,7 @@ using System.Net.WebSockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using FruityPrime.Server.Shared;
+using ProjectPrime.Server.Shared;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Launcher;
 
@@ -28,7 +28,8 @@ public sealed class NodeControlClient : IAsyncDisposable
     internal NodeControlClient(ClientWebSocket socket) { _socket.Dispose(); _socket = socket; }
     internal NodeControlClient(Guid expectedNodeId) { _nodeId = expectedNodeId; }
     public sealed record ViewState(NodeSessionSnapshot? Session = null, LobbySnapshot? Lobby = null,
-        LobbyListSnapshot? Lobbies = null, NodeMatchHandoff? Handoff = null, bool MatchEnded = false, string? Error = null, Guid? JoinedMatchId = null, Guid? LastEndedMatchId = null, bool LastMatchInterrupted = false, NodeMatchEnded? JoinedCompletion = null, NodeRoundSnapshot? Round = null, Guid? LastLobbyMatchId = null);
+        LobbyListSnapshot? Lobbies = null, NodeMatchHandoff? Handoff = null, bool MatchEnded = false, string? Error = null, Guid? JoinedMatchId = null, Guid? LastEndedMatchId = null, bool LastMatchInterrupted = false, NodeMatchEnded? JoinedCompletion = null, NodeRoundSnapshot? Round = null, Guid? LastLobbyMatchId = null,
+        MatchCompletionSummary? LastCompletionSummary = null, MatchCompletionSummary? JoinedCompletionSummary = null);
     private ViewState _state = new();
     public ViewState State => Volatile.Read(ref _state);
     private void Publish(Func<ViewState, ViewState> update)
@@ -36,11 +37,23 @@ public sealed class NodeControlClient : IAsyncDisposable
         ViewState before, after;
         do { before = State; after = update(before); } while (!ReferenceEquals(Interlocked.CompareExchange(ref _state, after, before), before));
     }
-    public void MarkGameplayJoined(Guid matchId) => Publish(state => state with { JoinedMatchId = matchId, JoinedCompletion = state.LastEndedMatchId == matchId ? new NodeMatchEnded(matchId, state.LastMatchInterrupted) : null });
+    public void MarkGameplayJoined(Guid matchId) => Publish(state => state with
+    {
+        JoinedMatchId = matchId,
+        JoinedCompletion = state.LastEndedMatchId == matchId ? new NodeMatchEnded(matchId, state.LastMatchInterrupted) : null,
+        JoinedCompletionSummary = state.LastCompletionSummary?.MatchId.Value == matchId
+            ? state.LastCompletionSummary : null
+    });
     public NodeMatchEnded? CompletionFor(Guid matchId)
     {
         var state = State;
         return state.JoinedCompletion?.MatchId == matchId ? state.JoinedCompletion : state.LastEndedMatchId == matchId ? new NodeMatchEnded(matchId, state.LastMatchInterrupted) : null;
+    }
+    public MatchCompletionSummary? CompletionSummaryFor(Guid matchId)
+    {
+        var state = State;
+        return state.JoinedCompletionSummary?.MatchId.Value == matchId ? state.JoinedCompletionSummary
+            : state.LastCompletionSummary?.MatchId.Value == matchId ? state.LastCompletionSummary : null;
     }
     public bool ShouldReturnFromGameplay { get { var state = State; return state.JoinedMatchId.HasValue && CompletionFor(state.JoinedMatchId.Value) != null; } }
     public NodeSessionSnapshot? Session => State.Session;
@@ -254,6 +267,32 @@ public sealed class NodeControlClient : IAsyncDisposable
                 var ended = value.Payload.Deserialize(NodeJsonContext.Default.NodeMatchEnded);
                 if (ended != null && (ended.MatchId == State.JoinedMatchId || ended.MatchId == Handoff?.MatchId || ended.MatchId == State.LastLobbyMatchId)) Publish(state => state with { MatchEnded = ended.MatchId == state.Handoff?.MatchId || state.Handoff == null && ended.MatchId == state.LastLobbyMatchId || state.MatchEnded, LastEndedMatchId = ended.MatchId, LastMatchInterrupted = ended.Interrupted, JoinedCompletion = ended.MatchId == state.JoinedMatchId ? ended : state.JoinedCompletion });
                 break;
+            case "match.completion":
+                var completion = value.Payload.Deserialize(NodeJsonContext.Default.NodeMatchCompletion)
+                    ?? throw new JsonException("Missing match completion.");
+                try { completion.Summary.Validate(); }
+                catch (ArgumentException ex) { throw new JsonException("Invalid match completion.", ex); }
+                Guid completionMatch = completion.Summary.MatchId.Value;
+                if (completionMatch != State.JoinedMatchId && completionMatch != Handoff?.MatchId
+                    && completionMatch != State.LastLobbyMatchId) break;
+                if (State.LastCompletionSummary is { } prior && prior.MatchId == completion.Summary.MatchId)
+                {
+                    if (prior.ReportId != completion.Summary.ReportId)
+                        throw new JsonException("Conflicting immutable match completion.");
+                    break; // Same completion identity is idempotent across UDP/Node retries.
+                }
+                Publish(state => state with
+                {
+                    MatchEnded = true,
+                    LastEndedMatchId = completionMatch,
+                    LastMatchInterrupted = false,
+                    JoinedCompletion = completionMatch == state.JoinedMatchId
+                        ? new NodeMatchEnded(completionMatch, false) : state.JoinedCompletion,
+                    LastCompletionSummary = completion.Summary,
+                    JoinedCompletionSummary = completionMatch == state.JoinedMatchId
+                        ? completion.Summary : state.JoinedCompletionSummary
+                });
+                break;
             case "error": Publish(state => state with { Error = value.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)?.Message is { Length: <= 512 } error ? error : "Node rejected the command." }); break;
         }
         if (EventReceived != null) foreach (Action<NodeControlEvent> handler in EventReceived.GetInvocationList())
@@ -335,7 +374,8 @@ public static class NodeSessions
     private static readonly object ActiveTransitionGate = new();
     private static CancellationTokenSource? _activeTransition;
     private static NodeControlClient? _current;
-    public static NodeControlClient? Current => Volatile.Read(ref _current);
+    public static NodeControlClient? Current
+        => ClientOnlineRuntime.Current?.Node ?? Volatile.Read(ref _current);
     public static event Action<NodeControlClient?>? CurrentChanged;
 
     public static Task<NodeControlClient> ConnectAsync(AccountSession account, Guid nodeId, CancellationToken cancel = default)
