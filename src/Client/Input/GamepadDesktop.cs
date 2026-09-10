@@ -208,6 +208,7 @@ namespace MphRead.Mods.Input
                 LeftTrigger = (raw.Axes[AxisLeftTrigger] + 1) / 2,
                 RightTrigger = (raw.Axes[AxisRightTrigger] + 1) / 2
             };
+            state.Family = ControllerGlyphs.InferFromName(state.Name);
             GamepadButtons buttons = GamepadButtons.None;
             Add(ref buttons, raw.Buttons, ButtonA, GamepadButtons.A);
             Add(ref buttons, raw.Buttons, ButtonB, GamepadButtons.B);
@@ -223,26 +224,10 @@ namespace MphRead.Mods.Input
             Add(ref buttons, raw.Buttons, ButtonDpadRight, GamepadButtons.DpadRight);
             Add(ref buttons, raw.Buttons, ButtonDpadDown, GamepadButtons.DpadDown);
             Add(ref buttons, raw.Buttons, ButtonDpadLeft, GamepadButtons.DpadLeft);
-            if (state.LeftTrigger > TriggerPress)
-            {
-                buttons |= GamepadButtons.LeftTrigger;
-            }
-            if (state.RightTrigger > TriggerPress)
-            {
-                buttons |= GamepadButtons.RightTrigger;
-            }
             state.Buttons = buttons;
             GamepadInput.State = state;
             return true;
         }
-
-        /// <summary>
-        /// Matches <c>GamepadInput</c>'s own threshold: the Android head sets
-        /// the same two flags from its own trigger axes, so the number has to
-        /// be the same on both or the same pull fires on one platform and not
-        /// the other.
-        /// </summary>
-        private const float TriggerPress = 0.65f;
 
         private static unsafe void Add(ref GamepadButtons into,
             byte* buttons, int index, GamepadButtons flag)

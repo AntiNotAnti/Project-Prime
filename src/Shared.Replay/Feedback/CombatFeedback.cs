@@ -103,23 +103,63 @@ namespace MphRead.Combat
             0 => "Power Beam", 1 => "Volt Driver", 2 => "Missile", 3 => "Battlehammer", 4 => "Imperialist",
             5 => "Judicator", 6 => "Magmaul", 7 => "Shock Coil", 8 => "Omega Cannon", 9 => "Platform beam", 10 => "Environmental beam", _ => "Unknown"
         };
-        private void Marker(HitMarkerKind kind, uint tick)
+        private static int MarkerPriority(HitMarkerKind kind) => kind switch
+        {
+            HitMarkerKind.Kill => 4,
+            HitMarkerKind.Headshot => 3,
+            HitMarkerKind.Hit => 2,
+            HitMarkerKind.Predicted => 1,
+            _ => 0
+        };
+
+        public static uint MarkerDuration(HitMarkerKind kind) => kind switch
+        {
+            HitMarkerKind.Kill => 18,
+            HitMarkerKind.Headshot => 16,
+            HitMarkerKind.Hit => 12,
+            HitMarkerKind.Predicted => 6,
+            _ => 0
+        };
+
+        private void Marker(HitMarkerKind kind, uint tick, bool authoritative = true)
         {
             tick = ReceiptTick(tick);
             if (kind == HitMarkerKind.Kill && !CombatFeedbackSettings.KillConfirmation) return;
             if (kind == HitMarkerKind.Headshot && !CombatFeedbackSettings.HeadshotCue) kind = HitMarkerKind.Hit;
-            if (State.Marker == HitMarkerKind.Kill && Age(tick, State.MarkerTick) < 18 && kind != HitMarkerKind.Kill) return;
+            // A stronger authoritative cue promotes a speculative or weaker
+            // cue and refreshes the one marker lifetime.  A weaker event in an
+            // active marker window cannot erase the stronger cue.
+            if (State.Marker != HitMarkerKind.None
+                && Age(tick, State.MarkerTick) < MarkerDuration(State.Marker)
+                && MarkerPriority(kind) < MarkerPriority(State.Marker)) return;
             State.Marker = kind;
             State.MarkerTick = tick;
             State.MarkerSequence++;
+            if (authoritative && kind != HitMarkerKind.Predicted)
+                State.MarkerAudioSequence++;
+        }
+
+        /// <summary>
+        /// Adds the local-only marker used by instant hit feedback.  The
+        /// caller has already performed source/identity eligibility checks;
+        /// this method intentionally does not touch health, history, score,
+        /// or replay state.
+        /// </summary>
+        public void PresentPredictedHit(CombatActor attacker, CombatActor target, uint tick)
+        {
+            if (_match == 0 || CombatFeedbackSettings.Timing != HitMarkerTiming.Instant
+                || attacker != Local || !attacker.IsValid || !target.IsValid || target == Local)
+                return;
+            Marker(HitMarkerKind.Predicted, tick, authoritative: false);
         }
         private uint ReceiptTick(uint tick) => Sequence32.IsNewer(_presentationTick, tick) ? _presentationTick : tick;
-        public bool Process(in CombatEvent value)
+        public bool Process(in CombatEvent value, bool allowLocalHitMarker = true)
         {
             if (_match == 0 || !value.IsValid || !_combatEvents.Accept(value.Id)) return false;
             if (value.Kind != CombatEventKind.Damage || value.Amount == 0) return true;
             // Silent events are still legitimate history, but produce no confirmation cue.
-            if (value.Actor == Local && Local.IsValid && value.Target != Local && (value.Flags & CombatEventFlags.Silent) == 0)
+            if (allowLocalHitMarker && value.Actor == Local && Local.IsValid && value.Target != Local
+                && (value.Flags & CombatEventFlags.Silent) == 0)
                 Marker((value.Flags & CombatEventFlags.Headshot) != 0 ? HitMarkerKind.Headshot : HitMarkerKind.Hit, value.Tick);
             if (value.Target != Local) Recaps.ApplyLate(value, Name(value.Actor), WeaponName(value.Weapon));
             if (value.Target == Local && Local.IsValid)
@@ -165,7 +205,7 @@ namespace MphRead.Combat
         }
         public static uint Age(uint now, uint then) => Sequence32.IsNewer(then, now) ? 0 : unchecked(now - then);
         public HitMarkerKind VisibleMarker(uint tick) => CombatFeedbackSettings.HitMarkers == HitMarkerMode.Off
-            || Age(tick, State.MarkerTick) >= (State.Marker == HitMarkerKind.Kill ? 18u : 12u) ? HitMarkerKind.None : State.Marker;
+            || Age(tick, State.MarkerTick) >= MarkerDuration(State.Marker) ? HitMarkerKind.None : State.Marker;
         public static int DamageSector(Vector3 direction, Vector3 forward, Vector3 right)
         {
             Vector3 horizontalForward = new(forward.X, 0, forward.Z);

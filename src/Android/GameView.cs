@@ -9,6 +9,7 @@ using Android.Views;
 using Android.Views.InputMethods;
 using MphRead.Entities;
 using MphRead.Mods.Render;
+using MphRead.Mods.Input;
 using OpenTK.Mathematics;
 using Keys = OpenTK.Windowing.GraphicsLibraryFramework.Keys;
 
@@ -55,12 +56,13 @@ namespace MphRead.Droid
     {
         private readonly RenderLoop _loop;
 
-        public GameView(Context context, TouchControls controls, AndroidInput input,
+        public GameView(Context context, TouchControls controls, StylusInput stylus,
+            AndroidInput input,
             Func<AndroidInput, Vector2i, Scene> build, Action onEnd, Action onLoaded,
             Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard)
             : base(context)
         {
-            _loop = new RenderLoop(controls, input, build, onEnd, onLoaded, onError,
+            _loop = new RenderLoop(controls, stylus, input, build, onEnd, onLoaded, onError,
                 onPauseMenu, onSoftKeyboard);
             Holder?.AddCallback(this);
             // So this view can receive key events at all: from a keyboard
@@ -310,6 +312,7 @@ namespace MphRead.Droid
             private const int SurfaceReleaseMs = 2000;
 
             private readonly TouchControls _controls;
+            private readonly StylusInput _stylus;
             private readonly AndroidInput _input;
             private readonly Func<AndroidInput, Vector2i, Scene> _build;
             private readonly Action _onEnd;
@@ -353,13 +356,15 @@ namespace MphRead.Droid
 
             public Scene? Scene { get; private set; }
 
-            public RenderLoop(TouchControls controls, AndroidInput input,
+            public RenderLoop(TouchControls controls, StylusInput stylus,
+                AndroidInput input,
                 Func<AndroidInput, Vector2i, Scene> build, Action onEnd, Action onLoaded,
                 Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard)
             {
                 _onPauseMenu = onPauseMenu;
                 _onSoftKeyboard = onSoftKeyboard;
                 _controls = controls;
+                _stylus = stylus;
                 _input = input;
                 _build = build;
                 _onEnd = onEnd;
@@ -1050,6 +1055,18 @@ namespace MphRead.Droid
 
             private void CollectInput(PlayerEntity main)
             {
+                _stylus.Configure(Mods.InputSettings.StylusAimingEnabled,
+                    Mods.InputSettings.StylusSensitivity,
+                    Mods.InputSettings.StylusInvertY,
+                    Mods.InputSettings.StylusPressureToFire,
+                    Mods.InputSettings.StylusPressureThreshold,
+                    _controls.Density);
+                _stylus.ConfigureGestures(Mods.InputSettings.StylusClassicGestures,
+                    Mods.InputSettings.StylusDoubleTapJump,
+                    Mods.InputSettings.StylusFlickBoost, main.IsAltForm,
+                    _controls.Density);
+                StylusState stylus = _stylus.ConsumeState();
+                StylusBindings stylusBindings = Mods.InputSettings.CurrentStylusBindings;
                 PlayerPresentation presentation = main.GetPresentation();
                 bool results = presentation.ResultsAvailable;
                 bool replay = presentation.ReplayRecapsAvailable;
@@ -1122,7 +1139,8 @@ namespace MphRead.Droid
                 // wheel uses taps for selection rather than jumping.
                 bool doubleTap = _controls.TakeDoubleTapJump();
                 bool jump = _controls.IsHeld(TouchAction.Jump)
-                    || (doubleTap && !_controls.IsHeld(TouchAction.WeaponMenu));
+                    || ((doubleTap || stylus.DoubleTapJump)
+                        && !_controls.IsHeld(TouchAction.WeaponMenu));
                 // FIRE is the only attack button, and it is both attacks.
                 //
                 // There used to be an ALT button beside it, which is what the
@@ -1135,7 +1153,9 @@ namespace MphRead.Droid
                 // the player is actually in will read. Both while morphing, so
                 // a thumb already down on FIRE as the ball closes is not
                 // dropped on the frame the form changes.
-                bool fire = _controls.IsHeld(TouchAction.Shoot);
+                bool stylusFire = stylusBindings.IsDown(stylus, StylusAction.Fire)
+                    || stylus.PressureFireActive;
+                bool fire = _controls.IsHeld(TouchAction.Shoot) || stylusFire;
                 bool altForm = main.IsAltForm || _controls.IsHeld(TouchAction.Morph);
                 _input.Apply(controls.Shoot, fire && !main.IsAltForm);
                 _input.Apply(controls.AltAttack, fire && altForm);
@@ -1150,6 +1170,8 @@ namespace MphRead.Droid
                 // from being read as a flick.
                 _controls.SwipeBoostEnabled = main.IsAltForm;
                 (bool Fired, float X, float Y) swipe = _controls.TakeSwipeBoost();
+                if (stylus.FlickBoost)
+                    swipe = (true, stylus.FlickX, stylus.FlickY);
                 if (swipe.Fired && main.IsAltForm)
                 {
                     main.SwipeBoostRequested = true;
@@ -1160,7 +1182,8 @@ namespace MphRead.Droid
                     main.SwipeBoostY = swipe.Y;
                 }
                 _input.Apply(controls.Morph, _controls.IsHeld(TouchAction.Morph));
-                _input.Apply(controls.Zoom, _controls.IsHeld(TouchAction.Zoom));
+                _input.Apply(controls.Zoom, _controls.IsHeld(TouchAction.Zoom)
+                    || stylusBindings.IsDown(stylus, StylusAction.Zoom));
                 // MSSL swaps to the Missile and back to the Power Beam, since
                 // neither is on the wheel and a thumb has no number row. The
                 // press decides which of the two binds to hold for the frame;
@@ -1218,7 +1241,9 @@ namespace MphRead.Droid
                 else
                 {
                     (float X, float Y) delta = _controls.TakeAimDelta();
-                    _input.MovePointer(delta.X * AimScale, delta.Y * AimScale);
+                    Vector2 scaled = new(delta.X * AimScale, delta.Y * AimScale);
+                    _input.MovePointer(scaled.X, scaled.Y);
+                    ScenePresentation.Get(Scene!).SubmitTouchLook(scaled);
                 }
             }
         }

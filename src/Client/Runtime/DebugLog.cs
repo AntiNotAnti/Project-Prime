@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.Launcher;
@@ -45,19 +48,25 @@ namespace MphRead.Mods
         }
 
         private static StreamWriter? _writer;
+        private static FileStream? _nativeStream;
         private static readonly object _lock = new();
         private static bool _hooked;
+        private static bool _processHooksInstalled;
+        private static int _processHookInstallCount;
         private static bool _forced;
         private static TextWriter? _consoleWas;
+        private static int _savedStderrFd = -1;
+        private static IntPtr _savedWindowsStderr = IntPtr.Zero;
 
         /// <summary>Whether lines are going anywhere.</summary>
         public static bool Active => _writer != null;
 
         /// <summary>Where the file ended up, for the launcher to show.</summary>
         public static string? Path { get; private set; }
+        public static string? NativePath { get; private set; }
 
         /// <summary>How many logs are kept before the oldest is deleted.</summary>
-        private const int KeepFiles = 8;
+        private const int KeepSessions = 8;
 
         /// <summary>
         /// Turn it on for this run whatever the setting says. The
@@ -73,35 +82,36 @@ namespace MphRead.Mods
         /// </summary>
         public static void Attach()
         {
-            if (_writer != null || (!_forced && !LauncherPrefs.DebugLogs))
+            lock (_lock)
             {
-                return;
+                if (_writer != null || (!_forced && !LauncherPrefs.DebugLogs)) return;
+                try
+                {
+                    string directory = System.IO.Path.Combine(LauncherPrefs.Directory, "logs");
+                    System.IO.Directory.CreateDirectory(directory);
+                    Prune(directory);
+                    (Path, NativePath) = CreateSessionPaths(directory,
+                        Branding.Name.Replace(" ", ""), DateTime.Now);
+                    // Shared, so the file can be read while the game is still
+                    // running -- which is the only way to read the tail of one
+                    // that is about to crash.
+                    var stream = new FileStream(Path, FileMode.Create, FileAccess.Write,
+                        FileShare.ReadWrite);
+                    _writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
+                    AttachNativeStderr(NativePath);
+                }
+                catch (Exception ex)
+                {
+                    // A log that cannot be opened must not be the reason a session
+                    // does not start.
+                    _writer = null;
+                    DetachNativeStderr();
+                    Console.WriteLine($"[debug] could not open a log: {ex.Message}");
+                    return;
+                }
+                Hook();
+                WriteHeader();
             }
-            try
-            {
-                string directory = System.IO.Path.Combine(LauncherPrefs.Directory, "logs");
-                System.IO.Directory.CreateDirectory(directory);
-                Prune(directory);
-                string name = $"{Branding.Name.Replace(" ", "")}-"
-                    + $"{DateTime.Now:yyyyMMdd-HHmmss}.log";
-                Path = System.IO.Path.Combine(directory, name);
-                // Shared, so the file can be read while the game is still
-                // running -- which is the only way to read the tail of one
-                // that is about to crash.
-                var stream = new FileStream(Path, FileMode.Create, FileAccess.Write,
-                    FileShare.ReadWrite);
-                _writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
-            }
-            catch (Exception ex)
-            {
-                // A log that cannot be opened must not be the reason a session
-                // does not start.
-                _writer = null;
-                Console.WriteLine($"[debug] could not open a log: {ex.Message}");
-                return;
-            }
-            Hook();
-            WriteHeader();
         }
 
         /// <summary>
@@ -118,6 +128,7 @@ namespace MphRead.Mods
                     _consoleWas = null;
                 }
                 _writer?.Flush();
+                DetachNativeStderr();
                 _writer?.Dispose();
                 _writer = null;
                 _hooked = false;
@@ -128,11 +139,17 @@ namespace MphRead.Mods
         {
             try
             {
-                var files = new List<FileInfo>(new DirectoryInfo(directory).GetFiles("*.log"));
-                files.Sort((a, b) => b.LastWriteTimeUtc.CompareTo(a.LastWriteTimeUtc));
-                for (int i = KeepFiles - 1; i < files.Count; i++)
+                FileInfo[] files = new DirectoryInfo(directory).GetFiles("*.log");
+                var sessions = files.GroupBy(file => SessionKey(file.Name), StringComparer.OrdinalIgnoreCase)
+                    .Select(group => new
+                    {
+                        Files = group.ToArray(),
+                        Latest = group.Max(file => file.LastWriteTimeUtc)
+                    })
+                    .OrderByDescending(group => group.Latest).ToList();
+                for (int i = KeepSessions - 1; i < sessions.Count; i++)
                 {
-                    files[i].Delete();
+                    foreach (FileInfo file in sessions[i].Files) file.Delete();
                 }
             }
             catch (Exception)
@@ -153,29 +170,42 @@ namespace MphRead.Mods
             // written to the file as well, in the order it was printed.
             _consoleWas = Console.Out;
             Console.SetOut(new TeeWriter(_consoleWas));
-            AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            EnsureProcessEventHooks();
+        }
+
+        internal static void EnsureProcessEventHooks()
+        {
+            lock (_lock)
             {
-                Line("crash", "the process is going down with an exception "
-                    + $"(terminating={e.IsTerminating})");
-                Exception("crash", e.ExceptionObject as Exception);
-                lock (_lock)
-                {
-                    _writer?.Flush();
-                }
-            };
-            TaskScheduler.UnobservedTaskException += (_, e) =>
-            {
-                Exception("task", e.Exception);
-                e.SetObserved();
-            };
-            AppDomain.CurrentDomain.ProcessExit += (_, _) =>
-            {
-                Line("exit", "process exiting");
-                lock (_lock)
-                {
-                    _writer?.Flush();
-                }
-            };
+                if (_processHooksInstalled) return;
+                AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+                TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+                AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
+                _processHooksInstalled = true;
+                _processHookInstallCount++;
+            }
+        }
+
+        internal static int ProcessEventHookInstallCount => _processHookInstallCount;
+
+        private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            Line("crash", "the process is going down with an exception "
+                + $"(terminating={e.IsTerminating})");
+            Exception("crash", e.ExceptionObject as Exception);
+            lock (_lock) _writer?.Flush();
+        }
+
+        private static void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+        {
+            Exception("task", e.Exception);
+            e.SetObserved();
+        }
+
+        private static void OnProcessExit(object? sender, EventArgs e)
+        {
+            Line("exit", "process exiting");
+            lock (_lock) _writer?.Flush();
         }
 
         private static void WriteHeader()
@@ -191,6 +221,7 @@ namespace MphRead.Mods
             Line("paths", $"base={AppContext.BaseDirectory}");
             Line("paths", $"prefs={LauncherPrefs.Directory}");
             Line("paths", $"log={Path}");
+            Line("paths", $"native log={NativePath}");
             try
             {
                 Line("paths", $"game files ready={GameFiles.Ready}");
@@ -199,7 +230,14 @@ namespace MphRead.Mods
             {
                 Line("paths", $"game files could not be checked: {ex.Message}");
             }
-            Line("args", String.Join(' ', Environment.GetCommandLineArgs()));
+            if (OperatingSystem.IsLinux())
+            {
+                Line("linux", $"XDG_SESSION_TYPE={Environment.GetEnvironmentVariable("XDG_SESSION_TYPE") ?? "<unset>"}");
+                Line("linux", $"XDG_CURRENT_DESKTOP={Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "<unset>"}");
+                Line("linux", $"DISPLAY={Environment.GetEnvironmentVariable("DISPLAY") ?? "<unset>"}");
+                Line("linux", $"WAYLAND_DISPLAY={Environment.GetEnvironmentVariable("WAYLAND_DISPLAY") ?? "<unset>"}");
+            }
+            Line("args", SanitizeArguments(Environment.GetCommandLineArgs()));
             Line("render", $"cel={RenderOptions.OnOff(RenderOptions.CelShading)} "
                 + $"fog={RenderOptions.OnOff(RenderOptions.Fog)} "
                 + $"window={LauncherPrefs.WindowMode}");
@@ -214,6 +252,205 @@ namespace MphRead.Mods
             return System.Runtime.InteropServices.RuntimeInformation.OSArchitecture
                 + "/" + System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture;
         }
+
+        internal static (string Managed, string Native) CreateSessionPaths(string directory,
+            string prefix, DateTime timestamp, Func<string, bool>? exists = null)
+        {
+            exists ??= File.Exists;
+            string stem = $"{prefix}-{timestamp:yyyyMMdd-HHmmss}";
+            for (int suffix = 0; ; suffix++)
+            {
+                string candidate = suffix == 0 ? stem : $"{stem}-{suffix + 1}";
+                string managed = System.IO.Path.Combine(directory, candidate + ".log");
+                string native = System.IO.Path.Combine(directory, candidate + "-native.log");
+                if (!exists(managed) && !exists(native)) return (managed, native);
+            }
+        }
+
+        internal static string SessionKey(string fileName)
+        {
+            const string native = "-native.log";
+            if (fileName.EndsWith(native, StringComparison.OrdinalIgnoreCase))
+                return fileName[..^native.Length];
+            return fileName.EndsWith(".log", StringComparison.OrdinalIgnoreCase)
+                ? fileName[..^4] : fileName;
+        }
+
+        private static readonly Regex SensitiveAssignment = new(
+            @"(?i)(token|password|passwd|pwd|secret|signature|authorization|bearer|connectionstring|db_url)=([^;\s&]+)",
+            RegexOptions.CultureInvariant);
+        private static readonly Regex UrlUserInfo = new(@"(?<=://)[^/@\s]+@",
+            RegexOptions.CultureInvariant);
+
+        internal static string SanitizeArguments(IEnumerable<string> arguments)
+        {
+            string[] values = arguments.ToArray();
+            bool redactNext = false;
+            for (int i = 0; i < values.Length; i++)
+            {
+                string value = values[i] ?? "";
+                if (redactNext)
+                {
+                    values[i] = "<redacted>";
+                    redactNext = false;
+                    continue;
+                }
+                value = UrlUserInfo.Replace(value, "<redacted>@");
+                int equals = value.IndexOf('=');
+                string option = equals >= 0 ? value[..equals] : value;
+                if (IsSensitiveOption(option))
+                {
+                    if (equals >= 0) values[i] = value[..(equals + 1)] + "<redacted>";
+                    else redactNext = true;
+                    continue;
+                }
+                values[i] = SensitiveAssignment.Replace(value, match => match.Groups[1].Value + "=<redacted>");
+            }
+            return String.Join(' ', values);
+        }
+
+        private static bool IsSensitiveOption(string option)
+        {
+            string name = option.TrimStart('-').Replace("_", "", StringComparison.Ordinal)
+                .Replace("-", "", StringComparison.Ordinal);
+            return name.Contains("token", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("password", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("pwd", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("secret", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("signature", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("authorization", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("connectionstring", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("dburl", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void AttachNativeStderr(string nativePath)
+        {
+            try
+            {
+                _nativeStream = new FileStream(nativePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                if (OperatingSystem.IsAndroid()) return;
+                Console.Error.Flush();
+                if (OperatingSystem.IsWindows()) AttachWindowsStderr();
+                else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()) AttachUnixStderr();
+            }
+            catch (Exception ex)
+            {
+                DetachNativeStderr();
+                Line("native", $"native stderr capture unavailable: {ex.Message}");
+            }
+        }
+
+        private static void AttachUnixStderr()
+        {
+            int target = checked((int)_nativeStream!.SafeFileHandle.DangerousGetHandle());
+            int saved = dup(2);
+            if (saved < 0) throw new IOException($"dup(stderr) failed ({Marshal.GetLastPInvokeError()})");
+            if (dup2(target, 2) < 0)
+            {
+                close(saved);
+                throw new IOException($"dup2(stderr) failed ({Marshal.GetLastPInvokeError()})");
+            }
+            _savedStderrFd = saved;
+        }
+
+        private static void AttachWindowsStderr()
+        {
+            IntPtr process = GetCurrentProcess();
+            IntPtr current = GetStdHandle(StandardErrorHandle);
+            if (current == IntPtr.Zero || current == new IntPtr(-1))
+                throw new IOException($"could not read STDERR handle ({Marshal.GetLastPInvokeError()})");
+            int savedFd = _dup(2);
+            if (savedFd < 0)
+            {
+                throw new IOException("could not duplicate CRT stderr");
+            }
+            if (!DuplicateHandle(process, _nativeStream!.SafeFileHandle.DangerousGetHandle(), process,
+                out IntPtr nativeCrtHandle, 0, false, DuplicateSameAccess))
+            {
+                _close(savedFd);
+                throw new IOException($"could not duplicate native log handle ({Marshal.GetLastPInvokeError()})");
+            }
+            int nativeFd = _open_osfhandle(nativeCrtHandle, 0x0001 | 0x0008);
+            if (nativeFd < 0)
+            {
+                CloseHandle(nativeCrtHandle);
+                _close(savedFd);
+                throw new IOException("could not open native log CRT handle");
+            }
+            if (!SetStdHandle(StandardErrorHandle, _nativeStream.SafeFileHandle.DangerousGetHandle())
+                || _dup2(nativeFd, 2) != 0)
+            {
+                _close(nativeFd);
+                _dup2(savedFd, 2);
+                _close(savedFd);
+                SetStdHandle(StandardErrorHandle, current);
+                throw new IOException($"could not redirect Windows stderr ({Marshal.GetLastPInvokeError()})");
+            }
+            _close(nativeFd);
+            _savedWindowsStderr = current;
+            _savedStderrFd = savedFd;
+        }
+
+        private static void DetachNativeStderr()
+        {
+            try
+            {
+                Console.Error.Flush();
+                if (_savedStderrFd >= 0)
+                {
+                    if (OperatingSystem.IsWindows())
+                    {
+                        _dup2(_savedStderrFd, 2);
+                        _close(_savedStderrFd);
+                    }
+                    else
+                    {
+                        dup2(_savedStderrFd, 2);
+                        close(_savedStderrFd);
+                    }
+                    _savedStderrFd = -1;
+                }
+                if (_savedWindowsStderr != IntPtr.Zero)
+                {
+                    SetStdHandle(StandardErrorHandle, _savedWindowsStderr);
+                    _savedWindowsStderr = IntPtr.Zero;
+                }
+            }
+            catch
+            {
+                // Diagnostics must remain fail-open even while restoring stderr.
+            }
+            try
+            {
+                _nativeStream?.Flush();
+                _nativeStream?.Dispose();
+            }
+            catch
+            {
+                // The diagnostic stream is never allowed to block shutdown.
+            }
+            finally
+            {
+                _nativeStream = null;
+            }
+        }
+
+        private const int StandardErrorHandle = -12;
+        private const uint DuplicateSameAccess = 0x2;
+        [DllImport("libc", SetLastError = true)] private static extern int dup(int oldfd);
+        [DllImport("libc", SetLastError = true)] private static extern int dup2(int oldfd, int newfd);
+        [DllImport("libc", SetLastError = true)] private static extern int close(int fd);
+        [DllImport("kernel32.dll")] private static extern IntPtr GetCurrentProcess();
+        [DllImport("kernel32.dll", SetLastError = true)] private static extern IntPtr GetStdHandle(int nStdHandle);
+        [DllImport("kernel32.dll", SetLastError = true)] private static extern bool SetStdHandle(int nStdHandle, IntPtr handle);
+        [DllImport("kernel32.dll", SetLastError = true)] private static extern bool CloseHandle(IntPtr handle);
+        [DllImport("kernel32.dll", SetLastError = true)] private static extern bool DuplicateHandle(IntPtr sourceProcess,
+            IntPtr sourceHandle, IntPtr targetProcess, out IntPtr targetHandle, uint desiredAccess,
+            [MarshalAs(UnmanagedType.Bool)] bool inheritHandle, uint options);
+        [DllImport("msvcrt.dll")] private static extern int _dup(int fd);
+        [DllImport("msvcrt.dll")] private static extern int _dup2(int source, int target);
+        [DllImport("msvcrt.dll")] private static extern int _close(int fd);
+        [DllImport("msvcrt.dll")] private static extern int _open_osfhandle(IntPtr osfhandle, int flags);
 
         /// <summary>One line, with a category in front of it. Cheap when off.</summary>
         public static void Line(string category, string message)

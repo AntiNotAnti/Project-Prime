@@ -10,63 +10,33 @@ namespace MphRead.Entities
         // intent separate from the simulation state. This is consumed by the
         // game-thread animation pass rather than applied while snapshots are
         // repeatedly reconciled.
-        private const float SnapshotBipedIdleSpeedSquared = 0.0001f;
-        private const float SnapshotBipedFacingLengthSquared = 0.0001f;
-        private PlayerAnimation _desiredSnapshotBipedAnimation = PlayerAnimation.None;
+        private PlayerAnimation _desiredRemoteBipedAnimation = PlayerAnimation.None;
+        private RemoteLocomotionHysteresis _remoteLocomotion;
 
         internal static PlayerAnimation DeriveSnapshotBipedAnimation(in SnapshotPlayer state, bool local)
+            => local ? PlayerAnimation.None
+                : RemoteLocomotionHysteresis.Classify(state, state.Speed);
+
+        /// <summary>
+        /// Stateless classification retained for focused tests and replay
+        /// tooling. Live remote presentation uses the stateful resolver below
+        /// with the velocity of the delayed presentation sample.
+        /// </summary>
+        internal static PlayerAnimation DeriveRemoteBipedAnimation(
+            in SnapshotPlayer state, Vector3 visualSpeed)
+            => RemoteLocomotionHysteresis.Classify(state, visualSpeed);
+
+        internal void SetRemoteLocomotionIntent(in SnapshotPlayer state,
+            Vector3 visualSpeed)
         {
-            SnapshotPlayerFlags flags = state.Flags;
-            if (local || state.Health == 0
-                || (flags & (SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned))
-                    != (SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned)
-                || (flags & (SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.Morphing
-                    | SnapshotPlayerFlags.Unmorphing | SnapshotPlayerFlags.Frozen
-                    | SnapshotPlayerFlags.Spectating | SnapshotPlayerFlags.WaitingForMatch)) != 0
-                || (flags & SnapshotPlayerFlags.Grounded) == 0
-                || !IsFiniteVector(state.Facing) || !IsFiniteVector(state.Speed))
-            {
-                return PlayerAnimation.None;
-            }
-
-            Vector3 forward = new(state.Facing.X, 0, state.Facing.Z);
-            float facingLengthSquared = forward.LengthSquared;
-            if (!float.IsFinite(facingLengthSquared)
-                || facingLengthSquared <= SnapshotBipedFacingLengthSquared)
-            {
-                return PlayerAnimation.None;
-            }
-
-            Vector3 speed = new(state.Speed.X, 0, state.Speed.Z);
-            float speedSquared = speed.LengthSquared;
-            if (!float.IsFinite(speedSquared))
-            {
-                return PlayerAnimation.None;
-            }
-            if (speedSquared <= SnapshotBipedIdleSpeedSquared)
-            {
-                return PlayerAnimation.Idle;
-            }
-
-            Vector3 right = new(-forward.Z, 0, forward.X);
-            float forwardDot = Vector3.Dot(speed, forward);
-            float rightDot = Vector3.Dot(speed, right);
-            if (!float.IsFinite(forwardDot) || !float.IsFinite(rightDot))
-            {
-                return PlayerAnimation.None;
-            }
-
-            // A tie chooses the forward/backward axis so the result is stable
-            // at diagonal crossings. The basis matches ProcessBiped movement.
-            if (MathF.Abs(forwardDot) >= MathF.Abs(rightDot))
-            {
-                return forwardDot >= 0 ? PlayerAnimation.WalkForward : PlayerAnimation.WalkBackward;
-            }
-            return rightDot >= 0 ? PlayerAnimation.WalkRight : PlayerAnimation.WalkLeft;
+            _desiredRemoteBipedAnimation = _remoteLocomotion.Resolve(state, visualSpeed);
         }
 
-        private static bool IsFiniteVector(Vector3 value) => float.IsFinite(value.X)
-            && float.IsFinite(value.Y) && float.IsFinite(value.Z);
+        internal void ResetRemoteLocomotion()
+        {
+            _remoteLocomotion.Reset();
+            _desiredRemoteBipedAnimation = PlayerAnimation.None;
+        }
 
         internal static bool CanApplySnapshotBipedAnimation(PlayerAnimation current, AnimFlags flags)
             => !flags.TestFlag(AnimFlags.NoLoop) || flags.TestFlag(AnimFlags.Ended)
@@ -132,6 +102,19 @@ namespace MphRead.Entities
         internal void ApplyServerState(in SnapshotPlayer state, bool newLife, bool predicted = false)
         {
             bool spawned = (state.Flags & SnapshotPlayerFlags.Spawned) != 0;
+            SnapshotPlayerFlags flags = state.Flags;
+            bool formChanged = IsAltForm != ((flags & SnapshotPlayerFlags.AltForm) != 0)
+                || IsMorphing != ((flags & SnapshotPlayerFlags.Morphing) != 0)
+                || IsUnmorphing != ((flags & SnapshotPlayerFlags.Unmorphing) != 0);
+            bool spectatorChanged = Flags2.TestFlag(PlayerFlags2.Spectating)
+                != ((flags & SnapshotPlayerFlags.Spectating) != 0);
+            bool deactivated = LoadFlags.TestFlag(LoadFlags.Active)
+                && ((flags & SnapshotPlayerFlags.Active) == 0 || !spawned);
+            bool died = Health > 0 && state.Health == 0;
+            if (newLife || deactivated || died || formChanged || spectatorChanged)
+                AdvancePresentationPoseEpoch();
+            if (newLife || !spawned || state.Health == 0 || formChanged || spectatorChanged)
+                ResetRemoteLocomotion();
             if (spawned && (newLife || !ModIsInPlay))
             {
                 ModNetSpawn(state.Position, state.Facing);
@@ -165,7 +148,6 @@ namespace MphRead.Entities
 
         internal void ApplySnapshotTransform(in SnapshotPlayer state, bool local = false)
         {
-            _desiredSnapshotBipedAnimation = DeriveSnapshotBipedAnimation(state, local);
             Vector3 previous = Position;
             Position = state.Position;
             PrevPosition = state.Position;
@@ -188,5 +170,137 @@ namespace MphRead.Entities
             PrevPosition += position - previous;
             ModRefreshNodeRef(previous);
         }
+    }
+
+    /// <summary>
+    /// Presentation-only locomotion state. The resolver deliberately keeps
+    /// movement thresholds and direction history off the authoritative player
+    /// state so packet jitter cannot affect controls or physics.
+    /// </summary>
+    internal struct RemoteLocomotionHysteresis
+    {
+        internal const float MoveStartSpeed = 0.02f;
+        internal const float MoveStopSpeed = 0.01f;
+        internal const float DirectionSwitchRatio = 1.10f;
+
+        private const float MoveStartSpeedSquared = MoveStartSpeed * MoveStartSpeed;
+        private const float MoveStopSpeedSquared = MoveStopSpeed * MoveStopSpeed;
+        private const float FacingLengthSquared = 0.0001f;
+
+        private bool _moving;
+        private PlayerAnimation _direction;
+
+        internal PlayerAnimation Resolve(in SnapshotPlayer state, Vector3 visualSpeed)
+        {
+            if (!TryGetBasisAndSpeed(state, visualSpeed, out Vector3 forward,
+                out Vector3 speed, out float speedSquared))
+            {
+                Reset();
+                return PlayerAnimation.None;
+            }
+
+            if (!_moving)
+            {
+                if (speedSquared <= MoveStartSpeedSquared)
+                {
+                    _direction = PlayerAnimation.Idle;
+                    return PlayerAnimation.Idle;
+                }
+                _moving = true;
+            }
+            else if (speedSquared < MoveStopSpeedSquared)
+            {
+                Reset();
+                return PlayerAnimation.Idle;
+            }
+
+            _direction = SelectDirection(forward, speed, _direction);
+            return _direction;
+        }
+
+        internal void Reset()
+        {
+            _moving = false;
+            _direction = PlayerAnimation.Idle;
+        }
+
+        internal static PlayerAnimation Classify(in SnapshotPlayer state,
+            Vector3 visualSpeed)
+        {
+            if (!TryGetBasisAndSpeed(state, visualSpeed, out Vector3 forward,
+                out Vector3 speed, out float speedSquared))
+                return PlayerAnimation.None;
+            if (speedSquared <= MoveStartSpeedSquared)
+                return PlayerAnimation.Idle;
+            return SelectDirection(forward, speed, PlayerAnimation.Idle);
+        }
+
+        private static bool TryGetBasisAndSpeed(in SnapshotPlayer state,
+            Vector3 visualSpeed, out Vector3 forward, out Vector3 speed,
+            out float speedSquared)
+        {
+            forward = speed = Vector3.Zero;
+            speedSquared = 0;
+            SnapshotPlayerFlags flags = state.Flags;
+            if (state.Health == 0
+                || (flags & (SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned))
+                    != (SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned)
+                || (flags & (SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.Morphing
+                    | SnapshotPlayerFlags.Unmorphing | SnapshotPlayerFlags.Frozen
+                    | SnapshotPlayerFlags.Spectating | SnapshotPlayerFlags.WaitingForMatch)) != 0
+                || (flags & SnapshotPlayerFlags.Grounded) == 0
+                || !Finite(state.Facing) || !Finite(visualSpeed))
+                return false;
+
+            forward = new Vector3(state.Facing.X, 0, state.Facing.Z);
+            float facingLengthSquared = forward.LengthSquared;
+            if (!Single.IsFinite(facingLengthSquared)
+                || facingLengthSquared <= FacingLengthSquared)
+                return false;
+
+            speed = new Vector3(visualSpeed.X, 0, visualSpeed.Z);
+            speedSquared = speed.LengthSquared;
+            return Single.IsFinite(speedSquared);
+        }
+
+        private static PlayerAnimation SelectDirection(Vector3 forward,
+            Vector3 speed, PlayerAnimation current)
+        {
+            Vector3 right = new(-forward.Z, 0, forward.X);
+            float forwardDot = Vector3.Dot(speed, forward);
+            float rightDot = Vector3.Dot(speed, right);
+            if (!Single.IsFinite(forwardDot) || !Single.IsFinite(rightDot))
+                return PlayerAnimation.None;
+
+            float absForward = MathF.Abs(forwardDot);
+            float absRight = MathF.Abs(rightDot);
+            bool forwardAxis = current switch
+            {
+                PlayerAnimation.WalkForward or PlayerAnimation.WalkBackward
+                    => absRight <= absForward * DirectionSwitchRatio,
+                PlayerAnimation.WalkLeft or PlayerAnimation.WalkRight
+                    => absForward > absRight * DirectionSwitchRatio,
+                _ => absForward >= absRight
+            };
+
+            if (forwardAxis)
+            {
+                if (forwardDot > 0) return PlayerAnimation.WalkForward;
+                if (forwardDot < 0) return PlayerAnimation.WalkBackward;
+                return IsForwardDirection(current) ? current : PlayerAnimation.WalkForward;
+            }
+            if (rightDot > 0) return PlayerAnimation.WalkRight;
+            if (rightDot < 0) return PlayerAnimation.WalkLeft;
+            return IsStrafeDirection(current) ? current : PlayerAnimation.WalkRight;
+        }
+
+        private static bool IsForwardDirection(PlayerAnimation animation)
+            => animation is PlayerAnimation.WalkForward or PlayerAnimation.WalkBackward;
+
+        private static bool IsStrafeDirection(PlayerAnimation animation)
+            => animation is PlayerAnimation.WalkLeft or PlayerAnimation.WalkRight;
+
+        private static bool Finite(Vector3 value)
+            => Single.IsFinite(value.X) && Single.IsFinite(value.Y) && Single.IsFinite(value.Z);
     }
 }

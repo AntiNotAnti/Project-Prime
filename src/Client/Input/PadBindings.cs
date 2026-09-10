@@ -60,6 +60,9 @@ namespace MphRead.Mods.Input
     /// </summary>
     public static class PadBindings
     {
+        /// <summary>Raised when a user changes an individual pad binding.</summary>
+        public static event System.Action? Changed;
+
         private static readonly GamepadButtons[] _defaults =
         {
             /* Shoot      */ GamepadButtons.RightTrigger,
@@ -97,6 +100,13 @@ namespace MphRead.Mods.Input
         public static void Set(PadAction action, GamepadButtons buttons)
         {
             _current[(int)action] = buttons;
+            Changed?.Invoke();
+        }
+
+        /// <summary>Apply a preset without classifying its writes as Custom.</summary>
+        internal static void SetFromPreset(PadAction action, GamepadButtons buttons)
+        {
+            _current[(int)action] = buttons;
         }
 
         public static GamepadButtons Default(PadAction action)
@@ -108,6 +118,7 @@ namespace MphRead.Mods.Input
         public static void Reset()
         {
             Array.Copy(_defaults, _current, _defaults.Length);
+            Changed?.Invoke();
         }
 
         /// <summary>The name of the setting a row is editing.</summary>
@@ -143,7 +154,8 @@ namespace MphRead.Mods.Input
             {
                 if (button != GamepadButtons.None && (buttons & button) == button)
                 {
-                    names.Add(ButtonName(button));
+                    names.Add(ControllerGlyphs.Label(button,
+                        GamepadInput.State.Family));
                 }
             }
             return String.Join(" or ", names);

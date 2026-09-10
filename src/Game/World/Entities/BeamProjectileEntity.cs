@@ -313,6 +313,7 @@ namespace MphRead.Entities
             ICombatAuthority? combat = _scene.Services.Combat;
             bool historicalCollision = combat?.ShouldUseHistoricalCollision(CombatShot) == true;
             bool noColEff = false;
+            bool staticRoomCollision = false;
             float minDist = 2f;
             if (MaxDistance > 0)
             {
@@ -366,6 +367,8 @@ namespace MphRead.Entities
                         Field14 = 0,
                         EntityCollision = null
                     };
+                    staticRoomCollision = historicalKind
+                        == HistoricalColliderKind.StaticRoom;
                     if (historicalKind is not HistoricalColliderKind.StaticRoom)
                     {
                         // Resolve only for a matching live generation. The
@@ -390,6 +393,7 @@ namespace MphRead.Entities
                         {
                             minDist = colRes.Distance;
                             anyRes = colRes;
+                            staticRoomCollision = colRes.EntityCollision == null;
                         }
                     }
                     foreach (DoorEntity door in _scene.GetDoorEntities())
@@ -408,6 +412,7 @@ namespace MphRead.Entities
                             minDist = colRes.Distance;
                             anyRes = colRes;
                             colWith = door;
+                            staticRoomCollision = false;
                             noColEff = false;
                             anyRes.Field0 = 0;
                             anyRes.Plane = plane;
@@ -430,6 +435,7 @@ namespace MphRead.Entities
                                     minDist = colRes.Distance;
                                     anyRes = colRes;
                                     colWith = forceField;
+                                    staticRoomCollision = false;
                                     noColEff = false;
                                     anyRes.Field0 = 0;
                                     anyRes.Plane = forceField.Plane;
@@ -452,6 +458,7 @@ namespace MphRead.Entities
                             minDist = res.Distance;
                             anyRes = res;
                             colWith = fieldLock;
+                            staticRoomCollision = false;
                             noColEff = false;
                         }
                     }
@@ -533,6 +540,7 @@ namespace MphRead.Entities
                     minDist = playerRes.Distance;
                     anyRes = playerRes;
                     colWith = player;
+                    staticRoomCollision = false;
                     noColEff = false;
                     hitHalfturret = false;
                     historicalHit = historical;
@@ -555,6 +563,7 @@ namespace MphRead.Entities
                         minDist = turretRes.Distance;
                         anyRes = turretRes;
                         colWith = player.Halfturret;
+                        staticRoomCollision = false;
                         noColEff = false;
                         hitHalfturret = true;
                         historicalHit = historical;
@@ -791,6 +800,18 @@ namespace MphRead.Entities
                         {
                             _soundSource.PlaySfx(SfxId.GENERIC_HIT, noUpdate: true);
                         }
+                        if (staticRoomCollision
+                            && StaticBeamImpactPresentation.TryCreate(
+                                GetImpactPresentationSourceIdentity(), Generation,
+                                _scene.FrameCount, Beam, anyRes.Position,
+                                anyRes.Plane.Xyz, anyRes.Terrain, NodeRef,
+                                _scene.RoomId,
+                                out StaticBeamImpactPresentation impact))
+                        {
+                            StaticBeamImpactPresentationNotification.TryObserve(
+                                _scene.Presentation, impact,
+                                _scene.Services.NoteEvent);
+                        }
                         OnCollision(anyRes, colWith: null);
                         ricochet = false;
                     }
@@ -843,6 +864,36 @@ namespace MphRead.Entities
                 PastPositions[0] = Position;
             }
             PlayRicochetSfx();
+        }
+
+        private ulong GetImpactPresentationSourceIdentity()
+        {
+            // Stable FNV-1a over copied source facts. Combat attribution is
+            // preferred when available; offline scenes fall back to the
+            // stable owner type/id used by the current room.
+            ulong hash = 14695981039346656037UL;
+            void Add(ulong value)
+            {
+                hash ^= value;
+                hash *= 1099511628211UL;
+            }
+            if (CombatShot.IsValid)
+            {
+                Add(CombatShot.Actor.ConnectionId);
+                Add(CombatShot.Actor.Life);
+                Add(CombatShot.Actor.Slot);
+                Add(CombatShot.CommandSequence);
+            }
+            else
+            {
+                Add(Owner is null ? UInt16.MaxValue : (ushort)Owner.Type);
+                Add(unchecked((uint)(Owner?.Id ?? -1)));
+                if (Owner is PlayerEntity player) Add(unchecked((uint)player.SlotIndex));
+                else if (Owner is HalfturretEntity turret)
+                    Add(unchecked((uint)turret.Owner.SlotIndex));
+            }
+            Add((byte)Beam);
+            return hash == 0 ? 1 : hash;
         }
 
         private void PlayRicochetSfx()
@@ -1363,7 +1414,8 @@ namespace MphRead.Entities
             }
             var mechanics = new BeamMechanics(weapon.Beam, weapon.BeamKind, flags.TestFlag(BeamFlags.Continuous),
                 instantAoe, homing, speed, lifespan);
-            CombatShot combatShot = inheritedShot ?? scene.Services.Combat?.CaptureShot(owner, mechanics) ?? default;
+            CombatShot combatShot = inheritedShot ?? scene.Services.Combat?.CaptureShot(owner, mechanics)
+                ?? scene.Services.CapturePresentationAttribution(owner);
             if (!inheritedShot.HasValue)
                 combatShot = combatShot with
                 {
@@ -1731,7 +1783,7 @@ namespace MphRead.Entities
             }
         }
 
-        // todo: visualize (also shadow freeze bug)
+        // todo: visualize
         private void CheckIceWaveCollision(float angle)
         {
             float angleCos = MathF.Cos(MathHelper.DegreesToRadians(angle));
@@ -1751,30 +1803,40 @@ namespace MphRead.Entities
 
         private void CheckIceWaveCollision(PlayerEntity player, Vector3 position, float angleCos, bool halfturret)
         {
-            // bug: the beam's up vector is factored out in order to do a lateral distance check (where "lateral" is relative to
-            // the beam's orientation), but that same stripped vector is used for the angle check below. the result is that instead
-            // of checking in a 60 degree cone, a 60 degree wedge of a cylinder with infinite height is checked (again, where
-            // "height" is rleative to the beam) -- this results in the shadow freeze glitch
-            // fix: use the normalized between vector with all its components in the dot product check
-            Vector3 between = position - Position;
-            float dot = Vector3.Dot(between, Up);
-            between += Up * -dot;
-            float mag = between.Length;
-            if (mag < MaxDistance)
+            if (IsInsideIceWaveCone(Position, Direction, position, MaxDistance, angleCos))
             {
-                between /= mag;
-                if (Vector3.Dot(between, Direction) > angleCos)
+                Vector3 dir = GetDamageDirection(Position, player.Position);
+                DamageFlags flags = DamageFlags.NoDmgInvuln;
+                if (halfturret)
                 {
-                    Vector3 dir = GetDamageDirection(Position, player.Position);
-                    DamageFlags flags = DamageFlags.NoDmgInvuln;
-                    if (halfturret)
-                    {
-                        flags |= DamageFlags.Halfturret;
-                    }
-                    player.TakeDamage((int)Damage, flags, dir, this);
+                    flags |= DamageFlags.Halfturret;
                 }
+                player.TakeDamage((int)Damage, flags, dir, this);
             }
         }
+
+        internal static bool IsInsideIceWaveCone(Vector3 origin, Vector3 direction, Vector3 position,
+            float maxDistance, float angleCosine)
+        {
+            const float epsilon = 0.000001f;
+            if (!Finite(origin) || !Finite(direction) || !Finite(position)
+                || !float.IsFinite(maxDistance) || maxDistance <= epsilon
+                || !float.IsFinite(angleCosine) || angleCosine < -1 || angleCosine > 1)
+            {
+                return false;
+            }
+            float directionLength = direction.Length;
+            if (!float.IsFinite(directionLength) || directionLength <= epsilon) return false;
+            Vector3 between = position - origin;
+            float distance = between.Length;
+            if (!float.IsFinite(distance) || distance <= epsilon || distance >= maxDistance) return false;
+            Vector3 toward = between / distance;
+            Vector3 normalizedDirection = direction / directionLength;
+            return Vector3.Dot(toward, normalizedDirection) > angleCosine;
+        }
+
+        private static bool Finite(Vector3 value)
+            => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
 
         private Vector3 GetDamageDirection(Vector3 beamPos, Vector3 targetPos)
         {

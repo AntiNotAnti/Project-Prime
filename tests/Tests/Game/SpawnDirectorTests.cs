@@ -373,9 +373,7 @@ namespace MphRead.Tests
             {
                 Matrix4 transform = Matrix4.CreateTranslation(player.Position + new Vector3(index * 0.25f, 0, 0));
                 BombEntity bomb = Assert.IsType<BombEntity>(BombEntity.Spawn(player, transform, fixture.Scene));
-                bomb.BombIndex = index;
-                player.SyluxBombs[index] = bomb;
-                player.SyluxBombCount++;
+                Assert.True(player.TryRegisterLockjawBomb(bomb));
                 bombs.Add(bomb);
             }
             AssertProtected(player, true);

@@ -302,16 +302,6 @@ namespace MphRead.Entities
 
         private void UpdateAimFacing()
         {
-            if (_scene.Features.FixedCrosshair)
-            {
-                // The camera's own facing is normally eased 10%/frame toward
-                // the raw aim direction (a DS-camera holdover) -- with the
-                // crosshair pinned to screen-centre there's nothing crisp
-                // left to mask that lag, so it reads as sluggish mouse-look
-                // instead. 1:1 here removes it.
-                _facingVector = _gunVec1;
-                return;
-            }
             float dot = Vector3.Dot(_gunVec1, _facingVector);
             if (dot < Fixed.ToFloat(3956))
             {
@@ -885,15 +875,15 @@ namespace MphRead.Entities
                     _facingVector += diff * 0.3f / 2; // todo: FPS stuff
                     _facingVector = _facingVector.Normalized();
                 }
-                // Authoritative replicas have no movement Controls on this client,
-                // but their snapshot speed still needs to select a presentation
-                // animation. Feed only the local animation decision: physics,
-                // movement flags, and control state remain untouched.
+                // Authoritative replicas have no movement Controls on this client;
+                // their delayed presentation sample supplies only the local
+                // animation decision. Physics, movement flags, and control state
+                // remain untouched.
                 if (anim1 == PlayerAnimation.None
-                    && _desiredSnapshotBipedAnimation != PlayerAnimation.None
+                    && _desiredRemoteBipedAnimation != PlayerAnimation.None
                     && CanApplySnapshotBipedAnimation(Biped1Anim, Biped1Flags))
                 {
-                    anim1 = _desiredSnapshotBipedAnimation;
+                    anim1 = _desiredRemoteBipedAnimation;
                 }
                 if (anim1 == PlayerAnimation.None)
                 {
@@ -1131,6 +1121,15 @@ namespace MphRead.Entities
                     // walk and shoot in alt form but not look, and a puppet in
                     // alt form faced wherever its last snapshot left it.
                     ApplyModAim();
+                    // ApplyModAim has already updated the gun and camera. Feed
+                    // that exact applied delta into Trace/Weavel's established
+                    // turn-animation decision without rotating the camera a
+                    // second time.
+                    Vector2 appliedLocalLook = ModTakeAppliedLocalLook();
+                    if (appliedLocalLook != Vector2.Zero)
+                    {
+                        UpdateAnimation(appliedLocalLook.X, appliedLocalLook.Y);
+                    }
                     if (Controls.MouseAim && !Flags1.TestFlag(PlayerFlags1.NoAimInput) && !IsBot)
                     {
                         float aimY = -Input.MouseDeltaY / 4f * Controls.MouseSensitivity
@@ -1587,13 +1586,15 @@ namespace MphRead.Entities
             }
             else
             {
-                if (Hunter == Hunter.Sylux && SyluxBombCount >= 3)
+                if (Hunter == Hunter.Sylux)
                 {
-                    NoteOffensiveAction();
-                    SyluxBombs[2]!.Countdown = 0;
-                    SyluxBombs[1]!.Countdown = 0;
-                    SyluxBombs[0]!.Countdown = 0;
-                    return;
+                    BombEntity[] registered = GetRegisteredLockjawBombs();
+                    if (registered.Length >= SyluxBombs.Length)
+                    {
+                        NoteOffensiveAction();
+                        foreach (BombEntity existing in registered) existing.Countdown = 0;
+                        return;
+                    }
                 }
                 transform = GetTransformMatrix(Vector3.UnitZ, Vector3.UnitY, Position.AddY(Fixed.ToFloat(-1000)));
             }
@@ -1603,8 +1604,12 @@ namespace MphRead.Entities
                 NoteOffensiveAction();
                 if (Hunter == Hunter.Sylux)
                 {
-                    SyluxBombs[SyluxBombCount] = bomb;
-                    bomb.BombIndex = SyluxBombCount++;
+                    if (!TryRegisterLockjawBomb(bomb))
+                    {
+                        bomb.Destroy();
+                        _scene.RemoveEntity(bomb);
+                        return;
+                    }
                     // todo?: wifi stuff
                 }
                 bomb.NodeRef = NodeRef;

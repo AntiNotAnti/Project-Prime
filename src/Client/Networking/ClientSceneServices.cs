@@ -1,3 +1,4 @@
+using System;
 using MphRead.Entities;
 using OpenTK.Mathematics;
 
@@ -30,7 +31,18 @@ namespace MphRead.Mods.Network
             return false;
         }
         public bool DesiredSpectating => SpectatorMode.IsSpectating;
-        public Vector2 ControllerAimDelta => new(Input.GamepadInput.AimDeltaX, Input.GamepadInput.AimDeltaY);
+        private LocalLookFrame _localLookFrame;
+        public LocalLookFrame LocalLookFrame => _localLookFrame;
+        public void BeginLocalLookFrame(bool allowAimAssist)
+        {
+            LocalLookFrame consumed = Input.GamepadInput.LookCoordinator
+                .ConsumeForSimulation((float)Render.FrameTiming.StepSeconds);
+            _localLookFrame = allowAimAssist
+                ? consumed.WithAimAssist(InputSettings.GamepadAimAssistEnabled,
+                    InputSettings.GamepadAimAssistStrength)
+                : LocalLookFrame.Empty;
+        }
+        public float ControllerZoomMultiplier => InputSettings.GamepadZoomMultiplier;
         public bool TryGetScriptedAimDelta(int slot, out Vector2 delta)
         {
             if (NetSession.Active && slot == NetHooks.LocalSlot && NetTestScript.Enabled)
@@ -49,6 +61,13 @@ namespace MphRead.Mods.Network
         public bool ForceSpawn(PlayerEntity player) => forceSpawn;
         public void AfterInput(Scene scene) => NetHooks.AfterInput(scene);
         public void AfterSimulation(Scene scene) => NetHooks.AfterSimulation(scene);
+        public CombatShot CapturePresentationAttribution(EntityBase owner)
+            => AuthoritativePlay.Current?.CapturePresentationAttribution(owner) ?? default;
+        public void ObserveDamageAttempt(PlayerEntity victim, uint damage, DamageFlags flags,
+            Vector3? direction, EntityBase? source)
+            => AuthoritativePlay.Current?.ObserveDamageAttempt(victim, flags, direction, source);
+        public bool PredictBombJump(PlayerEntity player, BombEntity bomb, float ySpeed)
+            => AuthoritativePlay.Current?.PredictBombJump(player, bomb, ySpeed) == true;
         public bool SuppressDamage(PlayerEntity victim) => NetDamage.Suppress(victim);
         public BeamType ReplayBeam => NetDamage.ReplayBeam;
         public void NoteDamage(PlayerEntity victim, PlayerEntity? attacker, BeamType beam, DamageFlags flags, Vector3? direction)
@@ -58,8 +77,28 @@ namespace MphRead.Mods.Network
             // NoteFired runs immediately after the local scene creates its
             // visual beam. Measurement copies only immutable spawn facts; it
             // never gives the client projectile gameplay authority.
-            AuthoritativePlay.Current?.ObservePredictedProjectile(shooter);
+            uint? commandSequence = AuthoritativePlay.Current?
+                .ObservePredictedProjectile(shooter);
             NetDamage.NoteFired(shooter, shot, aim);
+            if (shooter.SlotIndex == LocalSlot && shot.LengthSquared > .000001f
+                && aim.LengthSquared > .000001f)
+            {
+                float dot = Math.Clamp(Vector3.Dot(shot.Normalized(), aim.Normalized()), -1, 1);
+                float error = MathF.Acos(dot) * 180 / MathF.PI;
+                Input.InputBalanceTelemetry.RecordShot(
+                    Input.GamepadInput.LookCoordinator.ActiveLookDevice,
+                    (int)shooter.Hunter, (int)shooter.CurrentWeapon,
+                    shooter.EquipInfo.Zoomed, error, commandSequence);
+            }
+        }
+        public void ObserveAimAssist(PlayerEntity player, bool acquiredTarget,
+            float acquisitionMilliseconds, float angularErrorDegrees,
+            float rotationalDegrees, float frictionMultiplier)
+        {
+            Input.InputBalanceTelemetry.RecordAssist(LookDeviceKind.GamepadStick,
+                (int)player.Hunter, (int)player.CurrentWeapon,
+                acquisitionMilliseconds, rotationalDegrees, frictionMultiplier,
+                acquiredTarget);
         }
         public void NotePlayerOverlap(EntityBase? owner, PlayerEntity target) => NetDamage.NotePlayerOverlap(owner, target);
         public void CountUnresolvedNode() => NetPlayerBridge.NodeLookupsUnresolved++;

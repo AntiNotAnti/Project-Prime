@@ -334,6 +334,7 @@ namespace MphRead.Entities
             }
             else if (Hunter == Hunter.Sylux)
             {
+                ValidateLockjawBombState();
                 if (_bombCooldown > 0)
                 {
                     _bombAmmo = 0;
@@ -1196,6 +1197,7 @@ namespace MphRead.Entities
                 case ItemType.AffinityWeapon:
                     pickedUp = true;
                     PickUpWeapon(item.ItemType);
+                    if (IsMainPlayer) PresentMajorPickup(item.ItemType);
                     break;
                 case ItemType.DoubleDamage:
                     pickedUp = true;
@@ -1203,6 +1205,7 @@ namespace MphRead.Entities
                     _doubleDmgTimer = (ushort)SimTicks.From30HzFrames(900);
                     if (IsMainPlayer)
                     {
+                        PresentMajorPickup(item.ItemType);
                         _soundSource.PlayFreeSfx(SfxId.DOUBLE_DAMAGE_POWER_UP);
                         UpdateDoubleDamageSfx(index: 0, play: true);
                         UpdateDoubleDamageSpeed(1);
@@ -1215,6 +1218,7 @@ namespace MphRead.Entities
                     Flags2 |= PlayerFlags2.Cloaking;
                     if (IsMainPlayer)
                     {
+                        PresentMajorPickup(item.ItemType);
                         _soundSource.PlayFreeSfx(SfxId.CLOAK_POWER_UP);
                         UpdateCloakSfx(index: 0, play: true);
                     }
@@ -1229,6 +1233,7 @@ namespace MphRead.Entities
                     }
                     if (IsMainPlayer)
                     {
+                        PresentMajorPickup(item.ItemType);
                         _soundSource.PlayFreeSfx(SfxId.DOUBLE_DAMAGE_POWER_UP);
                     }
                     break;
@@ -1726,6 +1731,7 @@ namespace MphRead.Entities
 
         private void UpdateForm(bool altForm)
         {
+            if (altForm != IsAltForm) AdvancePresentationPoseEpoch();
             if (altForm)
             {
                 Flags1 |= PlayerFlags1.AltForm;
@@ -1987,6 +1993,7 @@ namespace MphRead.Entities
 
         public override void Destroy()
         {
+            ResetLockjawBombState();
             _soundSource.StopAllSfx();
             if (_furlEffect != null)
             {

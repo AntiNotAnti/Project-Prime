@@ -2,6 +2,7 @@ using System;
 using Android.Content;
 using Android.Graphics;
 using Android.Views;
+using MphRead.Mods.Input;
 
 namespace MphRead.Droid
 {
@@ -24,6 +25,7 @@ namespace MphRead.Droid
     internal sealed class TouchOverlayView : View
     {
         private readonly TouchControls _controls;
+        private readonly PointerInputRouter _router;
         private readonly Paint _fill = new Paint(PaintFlags.AntiAlias);
         private readonly Paint _stroke = new Paint(PaintFlags.AntiAlias);
         private readonly Paint _text = new Paint(PaintFlags.AntiAlias);
@@ -34,9 +36,11 @@ namespace MphRead.Droid
         private static readonly Color _accentFill = Color.Argb(90, 41, 197, 255);
         private static readonly Color _label = Color.Argb(190, 138, 147, 166);
 
-        public TouchOverlayView(Context context, TouchControls controls) : base(context)
+        public TouchOverlayView(Context context, TouchControls controls,
+            StylusInput stylus) : base(context)
         {
             _controls = controls;
+            _router = new PointerInputRouter(controls, stylus);
             // FIRE becoming SCAN is decided by the game thread, not by a
             // touch, so it has to ask for the repaint. PostInvalidate is the
             // one that may be called from off the UI thread.
@@ -73,6 +77,8 @@ namespace MphRead.Droid
             RequestLayout();
             Invalidate();
         }
+
+        public void CancelInput() => _router.Cancel();
 
         protected override void OnDraw(Canvas canvas)
         {
@@ -130,27 +136,72 @@ namespace MphRead.Droid
             case MotionEventActions.PointerDown:
                 {
                     int index = e.ActionIndex;
-                    _controls.PointerDown(e.GetPointerId(index), e.GetX(index), e.GetY(index));
+                    _router.PointerDown(Sample(e, index));
                 }
                 break;
             case MotionEventActions.Move:
+                // Android batches high-report-rate samples. Preserve their
+                // chronological order first, then pointer order within time.
+                for (int history = 0; history < e.HistorySize; history++)
+                {
+                    for (int i = 0; i < e.PointerCount; i++)
+                    {
+                        _router.PointerMove(Sample(e, i, history));
+                    }
+                }
                 for (int i = 0; i < e.PointerCount; i++)
                 {
-                    _controls.PointerMove(e.GetPointerId(i), e.GetX(i), e.GetY(i));
+                    _router.PointerMove(Sample(e, i));
                 }
                 break;
             case MotionEventActions.Up:
             case MotionEventActions.PointerUp:
-                _controls.PointerUp(e.GetPointerId(e.ActionIndex));
+                _router.PointerUp(Sample(e, e.ActionIndex));
                 break;
             case MotionEventActions.Cancel:
-                _controls.ReleaseEverything();
+                _router.Cancel();
                 break;
             default:
                 return false;
             }
             Invalidate();
             return true;
+        }
+
+        public override bool OnHoverEvent(MotionEvent? e)
+        {
+            if (e == null) return false;
+            if (e.ActionMasked == MotionEventActions.HoverExit)
+            {
+                for (int i = 0; i < e.PointerCount; i++)
+                    _router.PointerProximityExit(Sample(e, i));
+                return true;
+            }
+            return base.OnHoverEvent(e);
+        }
+
+        private static PointerSample Sample(MotionEvent e, int index,
+            int history = -1)
+        {
+            float x = history >= 0 ? e.GetHistoricalX(index, history) : e.GetX(index);
+            float y = history >= 0 ? e.GetHistoricalY(index, history) : e.GetY(index);
+            float pressure = history >= 0
+                ? e.GetHistoricalPressure(index, history) : e.GetPressure(index);
+            long time = history >= 0 ? e.GetHistoricalEventTime(history) : e.EventTime;
+            PointerToolKind tool = e.GetToolType(index) switch
+            {
+                MotionEventToolType.Finger => PointerToolKind.Finger,
+                MotionEventToolType.Stylus => PointerToolKind.Stylus,
+                MotionEventToolType.Eraser => PointerToolKind.Eraser,
+                MotionEventToolType.Mouse => PointerToolKind.Mouse,
+                _ => PointerToolKind.Unknown
+            };
+            int nativeButtons = (int)e.ButtonState;
+            StylusButtons buttons = StylusButtons.None;
+            if ((nativeButtons & 32) != 0) buttons |= StylusButtons.Primary;
+            if ((nativeButtons & 64) != 0) buttons |= StylusButtons.Secondary;
+            return new PointerSample(e.GetPointerId(index), tool, x, y,
+                pressure, buttons, time);
         }
     }
 }

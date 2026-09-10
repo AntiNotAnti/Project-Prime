@@ -42,6 +42,98 @@ namespace MphRead.Tests
         }
 
         [Fact]
+        public void InterpolatedPresentationReportsVelocityOfTheRenderedTrajectory()
+        {
+            var history = new SnapshotInterpolation();
+            Add(history, 100, Player(0));
+            Add(history, 110, Player(10));
+
+            Assert.True(history.TryPreparePresentation(111, out SnapshotPresentation frame));
+            Assert.True(history.TrySamplePresentation(0, frame,
+                out SnapshotPlayerPresentation sample));
+            Assert.Equal(5, sample.State.Position.X);
+            Assert.Equal(2, sample.VisualSpeed.X, 5);
+            // The state still carries newest authoritative gameplay velocity.
+            Assert.Equal(2, sample.State.Speed.X);
+        }
+
+        [Fact]
+        public void InterpolatedNewestEndpointUsesItsPreviousContinuousSegment()
+        {
+            var history = new SnapshotInterpolation();
+            Add(history, 100, Player(0));
+            Add(history, 110, Player(10));
+
+            // Default delay six ticks: estimated 116 presents exactly tick 110.
+            Assert.True(history.TryPreparePresentation(116, out SnapshotPresentation frame));
+            Assert.Equal(SnapshotPresentationMode.Interpolated, frame.Mode);
+            Assert.True(history.TrySamplePresentation(0, frame,
+                out SnapshotPlayerPresentation sample));
+            Assert.Equal(10, sample.State.Position.X);
+            Assert.Equal(2, sample.VisualSpeed.X, 5);
+        }
+
+        [Fact]
+        public void ExactEndpointDoesNotDeriveVelocityAcrossSlotEpochs()
+        {
+            var history = new SnapshotInterpolation();
+            Add(history, 100, Player(0));
+            SnapshotPlayer replacement = Player(10);
+            replacement.Life++;
+            Add(history, 110, replacement);
+
+            Assert.True(history.TryPreparePresentation(116, out SnapshotPresentation frame));
+            Assert.Equal(SnapshotPresentationMode.Interpolated, frame.Mode);
+            Assert.True(history.TrySamplePresentation(0, frame,
+                out SnapshotPlayerPresentation sample));
+            Assert.Equal(replacement.Position, sample.State.Position);
+            Assert.Equal(Vector3.Zero, sample.VisualSpeed);
+        }
+
+        [Fact]
+        public void StartupAndHeldPresentationSamplesHaveNoVisualVelocity()
+        {
+            var history = new SnapshotInterpolation();
+            Add(history, 100, Player(10));
+            Assert.True(history.TryPreparePresentation(1000, out SnapshotPresentation startup));
+            Assert.Equal(SnapshotPresentationMode.Startup, startup.Mode);
+            Assert.True(history.TrySamplePresentation(0, startup,
+                out SnapshotPlayerPresentation startupSample));
+            Assert.Equal(Vector3.Zero, startupSample.VisualSpeed);
+
+            Add(history, 110, Player(20));
+            Assert.True(history.TryPreparePresentation(100, out SnapshotPresentation held));
+            Assert.Equal(SnapshotPresentationMode.HistoryHold, held.Mode);
+            Assert.True(history.TrySamplePresentation(0, held,
+                out SnapshotPlayerPresentation heldSample));
+            Assert.Equal(Vector3.Zero, heldSample.VisualSpeed);
+        }
+
+        [Fact]
+        public void ExtrapolationUsesNewestVelocityUntilTheBoundThenStops()
+        {
+            var history = new SnapshotInterpolation();
+            SnapshotPlayer first = Player(0);
+            first.Speed = new Vector3(4, 0, 0);
+            SnapshotPlayer latest = Player(10);
+            latest.Speed = new Vector3(3, 0, 0);
+            Add(history, 100, first);
+            Add(history, 110, latest);
+
+            Assert.True(history.TryPreparePresentation(118, out SnapshotPresentation moving));
+            Assert.Equal(SnapshotPresentationMode.Extrapolated, moving.Mode);
+            Assert.True(history.TrySamplePresentation(0, moving,
+                out SnapshotPlayerPresentation movingSample));
+            Assert.Equal(3, movingSample.VisualSpeed.X);
+
+            Assert.True(history.TryPreparePresentation(120, out SnapshotPresentation held));
+            Assert.Equal(SnapshotPresentationMode.ExtrapolationHold, held.Mode);
+            Assert.True(history.TrySamplePresentation(0, held,
+                out SnapshotPlayerPresentation heldSample));
+            Assert.Equal(Vector3.Zero, heldSample.VisualSpeed);
+        }
+
+        [Fact]
         public void ExtrapolationUsesEngineVelocityUnitsAndHoldsAtTheBound()
         {
             var history = new SnapshotInterpolation();
@@ -333,6 +425,7 @@ namespace MphRead.Tests
             {
                 value.TryPreparePresentation(111, out SnapshotPresentation frame);
                 value.TrySample(0, frame, out _);
+                value.TrySamplePresentation(0, frame, out SnapshotPlayerPresentation sample);
                 value.MarkPresented(frame);
                 value.TryCaptureViewTick(out _);
             }

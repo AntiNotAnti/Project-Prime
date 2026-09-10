@@ -27,17 +27,31 @@ namespace MphRead
         bool IsRemoteControlled(int slot) => false;
         bool TryGetRemoteAim(int slot, out Vector3 aim) { aim = default; return false; }
         bool DesiredSpectating => false;
-        Vector2 ControllerAimDelta => Vector2.Zero;
+        /// <summary>
+        /// Immutable local input captured once at the host's fixed-step boundary.
+        /// Property reads never consume platform input. Headless, remote and
+        /// scripted hosts remain neutral by default.
+        /// </summary>
+        LocalLookFrame LocalLookFrame => LocalLookFrame.Empty;
+        void BeginLocalLookFrame(bool allowAimAssist) { }
+        float ControllerZoomMultiplier => 1;
         bool TryGetScriptedAimDelta(int slot, out Vector2 delta) { delta = default; return false; }
         void NoteCollisionRange(int slot, Vector3 previous, Vector3 current) { }
         void NoteEvent(string message) { }
         bool ForceSpawn(PlayerEntity player) => false;
         void AfterInput(Scene scene) { }
         void AfterSimulation(Scene scene) { }
+        CombatShot CapturePresentationAttribution(EntityBase owner) => default;
+        void ObserveDamageAttempt(PlayerEntity victim, uint damage, DamageFlags flags,
+            Vector3? direction, EntityBase? source) { }
+        bool PredictBombJump(PlayerEntity player, BombEntity bomb, float ySpeed) => false;
         bool SuppressDamage(PlayerEntity victim) => false;
         BeamType ReplayBeam => BeamType.None;
         void NoteDamage(PlayerEntity victim, PlayerEntity? attacker, BeamType beam, DamageFlags flags, Vector3? direction) { }
         void NoteFired(PlayerEntity shooter, Vector3 shot, Vector3 aim) { }
+        void ObserveAimAssist(PlayerEntity player, bool acquiredTarget,
+            float acquisitionMilliseconds, float angularErrorDegrees,
+            float rotationalDegrees, float frictionMultiplier) { }
         void NotePlayerOverlap(EntityBase? owner, PlayerEntity target) { }
         void CountUnresolvedNode() { }
         void CountPlayerCheck(int slot) { }

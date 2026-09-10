@@ -96,17 +96,8 @@ namespace MphRead.Droid
             state.LeftTrigger = Pick(e, Axis.Ltrigger, Axis.Brake);
             state.RightTrigger = Pick(e, Axis.Rtrigger, Axis.Gas);
             GamepadButtons buttons = state.Buttons
-                & ~(GamepadButtons.LeftTrigger | GamepadButtons.RightTrigger
-                    | GamepadButtons.DpadUp | GamepadButtons.DpadDown
+                & ~(GamepadButtons.DpadUp | GamepadButtons.DpadDown
                     | GamepadButtons.DpadLeft | GamepadButtons.DpadRight);
-            if (state.LeftTrigger > TriggerPress)
-            {
-                buttons |= GamepadButtons.LeftTrigger;
-            }
-            if (state.RightTrigger > TriggerPress)
-            {
-                buttons |= GamepadButtons.RightTrigger;
-            }
             // The d-pad arrives as a hat on most pads and as key events on the
             // rest, so both paths set the same four flags. Clearing them above
             // is what makes the hat authoritative once one has been seen --
@@ -134,9 +125,6 @@ namespace MphRead.Droid
             GamepadInput.State = state;
             return true;
         }
-
-        /// <summary>The same threshold the desktop reader uses. See GamepadDesktop.</summary>
-        private const float TriggerPress = 0.65f;
 
         /// <summary>A hat is -1, 0 or 1; half is well clear of either edge.</summary>
         private const float HatPress = 0.5f;

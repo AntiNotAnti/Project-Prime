@@ -17,6 +17,14 @@ namespace MphRead.Mods.Network
         uint Generation, SnapshotPresentationMode Mode);
 
     /// <summary>
+    /// A snapshot state sampled at the delayed presentation time. <see cref="State"/>
+    /// retains the newest authoritative gameplay fields while <see cref="VisualSpeed"/>
+    /// describes only the trajectory represented by the presented pose.
+    /// </summary>
+    public readonly record struct SnapshotPlayerPresentation(
+        SnapshotPlayer State, Vector3 VisualSpeed);
+
+    /// <summary>
     /// Single-writer presentation history. Add validated snapshots on receipt, then
     /// sample remote transforms using NetClock's continuous server tick estimate.
     /// Gameplay fields always come from the newest snapshot. No per-frame allocation.
@@ -188,13 +196,34 @@ namespace MphRead.Mods.Network
                 && TrySample(slot, presentation, out state);
         }
 
+        public bool TrySamplePresentation(int slot, double estimatedServerTick,
+            out SnapshotPlayerPresentation presentation)
+        {
+            presentation = default;
+            return TryPreparePresentation(estimatedServerTick, out SnapshotPresentation frame)
+                && TrySamplePresentation(slot, frame, out presentation);
+        }
+
         public bool TrySample(int slot, in SnapshotPresentation presentation, out SnapshotPlayer state)
         {
             state = default;
+            if (!TrySamplePresentation(slot, presentation, out SnapshotPlayerPresentation sampled)) return false;
+            state = sampled.State;
+            return true;
+        }
+
+        public bool TrySamplePresentation(int slot, in SnapshotPresentation presentation,
+            out SnapshotPlayerPresentation sampled)
+        {
+            sampled = default;
             if ((uint)slot >= Slots || !MatchesHistory(presentation)
                 || (_masks[_newest] & (1 << slot)) == 0) return false;
-            state = _players[_newest * Slots + slot];
-            if (state.Health == 0 || (state.Flags & SnapshotPlayerFlags.Spawned) == 0) return true;
+            SnapshotPlayer state = _players[_newest * Slots + slot];
+            if (state.Health == 0 || (state.Flags & SnapshotPlayerFlags.Spawned) == 0)
+            {
+                sampled = new SnapshotPlayerPresentation(state, Vector3.Zero);
+                return true;
+            }
 
             double target = presentation.Tick;
             if (presentation.Mode is SnapshotPresentationMode.Extrapolated or SnapshotPresentationMode.ExtrapolationHold)
@@ -207,6 +236,9 @@ namespace MphRead.Mods.Network
                 if (presentation.Mode == SnapshotPresentationMode.Extrapolated) ExtrapolatedSamples++;
                 else HeldSamples++;
                 MaximumExtrapolationTicks = Math.Max(MaximumExtrapolationTicks, extrapolation);
+                sampled = new SnapshotPlayerPresentation(state,
+                    presentation.Mode == SnapshotPresentationMode.Extrapolated
+                        && FiniteVector(state.Speed) ? state.Speed : Vector3.Zero);
                 return true;
             }
 
@@ -227,6 +259,15 @@ namespace MphRead.Mods.Network
                     state.Facing = Direction(before.Facing, after.Facing, amount);
                     if (presentation.Mode == SnapshotPresentationMode.Interpolated) InterpolatedSamples++;
                     else HeldSamples++;
+                    Vector3 visualSpeed = Vector3.Zero;
+                    if (presentation.Mode == SnapshotPresentationMode.Interpolated)
+                    {
+                        visualSpeed = span > 0
+                            ? TrajectorySpeed(before, after, span)
+                            : PreviousTrajectorySpeed(slot, epoch, later);
+                    }
+                    sampled = new SnapshotPlayerPresentation(state,
+                        visualSpeed);
                     return true;
                 }
                 later = index;
@@ -238,6 +279,7 @@ namespace MphRead.Mods.Network
             state.Aim = first.Aim;
             state.Facing = first.Facing;
             HeldSamples++;
+            sampled = new SnapshotPlayerPresentation(state, Vector3.Zero);
             return true;
         }
 
@@ -257,5 +299,34 @@ namespace MphRead.Mods.Network
             // Opposite directions have a zero midpoint; do not emit NaNs.
             return value.LengthSquared > 0.000001f ? value.Normalized() : after.Normalized();
         }
+
+        private static Vector3 TrajectorySpeed(in SnapshotPlayer before,
+            in SnapshotPlayer after, double tickSpan)
+        {
+            if (!Double.IsFinite(tickSpan) || tickSpan <= 0)
+                return Vector3.Zero;
+            Vector3 delta = after.Position - before.Position;
+            if (!FiniteVector(delta)) return Vector3.Zero;
+            float scale = (float)(2.0 / tickSpan);
+            Vector3 speed = delta * scale;
+            return FiniteVector(speed) ? speed : Vector3.Zero;
+        }
+
+        private Vector3 PreviousTrajectorySpeed(int slot, uint epoch, int endpoint)
+        {
+            // At the newest exact endpoint there is no later sample to form
+            // the normal before/after pair. Use the adjacent continuous
+            // segment instead, but never cross a slot epoch boundary.
+            if (Count <= 1) return Vector3.Zero;
+            int previous = (endpoint - 1 + Capacity) % Capacity;
+            if ((_masks[previous] & (1 << slot)) == 0
+                || _epochs[previous * Slots + slot] != epoch)
+                return Vector3.Zero;
+            return TrajectorySpeed(_players[previous * Slots + slot],
+                _players[endpoint * Slots + slot], _ticks[endpoint] - _ticks[previous]);
+        }
+
+        private static bool FiniteVector(Vector3 value)
+            => Single.IsFinite(value.X) && Single.IsFinite(value.Y) && Single.IsFinite(value.Z);
     }
 }

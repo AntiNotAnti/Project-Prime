@@ -20,6 +20,7 @@ namespace MphRead.Entities
             if (_serverConnectionId != connectionId) { _serverLife = 0; }
             _serverConnectionId = connectionId;
             _serverWasAlive = false;
+            if (Hunter != hunter) { AdvancePresentationPoseEpoch(); }
             Hunter = hunter;
             TeamIndex = team;
             Team = _scene.Match.Rules.Teams ? team == 0 ? Team.Orange : Team.Green : Team.None;
@@ -48,9 +49,12 @@ namespace MphRead.Entities
 
         internal void ServerDeactivate()
         {
+            _aimAssist.Reset();
+            ResetLockjawBombState();
+            AdvancePresentationPoseEpoch();
             IsBot = false;
             Controls.ClearAll();
-            _desiredSnapshotBipedAnimation = PlayerAnimation.None;
+            ResetRemoteLocomotion();
             _networkInputActive = false;
             Health = 0;
             Halfturret.Health = 0;

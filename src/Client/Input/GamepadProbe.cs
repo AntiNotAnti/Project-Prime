@@ -66,7 +66,7 @@ namespace MphRead.Mods.Input
                     last = line;
                     Console.WriteLine($"  {clock.Elapsed.TotalSeconds,5:0.0}s {line}");
                     everMoved |= state.Connected
-                        && (state.Buttons != GamepadButtons.None
+                        && (GamepadInput.EffectiveButtons != GamepadButtons.None
                             || MathF.Abs(state.LeftX) > 0.5f || MathF.Abs(state.LeftY) > 0.5f
                             || MathF.Abs(state.RightX) > 0.5f || MathF.Abs(state.RightY) > 0.5f);
                 }
@@ -134,10 +134,11 @@ namespace MphRead.Mods.Input
             text.Append($" R({state.RightX,5:0.00},{state.RightY,5:0.00})");
             text.Append($" LT{state.LeftTrigger:0.00} RT{state.RightTrigger:0.00}");
             text.Append($"  aim({GamepadInput.AimDeltaX,6:0.00},{GamepadInput.AimDeltaY,6:0.00})");
-            if (state.Buttons != GamepadButtons.None)
+            GamepadButtons buttons = GamepadInput.EffectiveButtons;
+            if (buttons != GamepadButtons.None)
             {
-                text.Append($"  {state.Buttons}");
-                text.Append($"  -> {Actions(state.Buttons)}");
+                text.Append($"  {buttons}");
+                text.Append($"  -> {Actions(buttons)}");
             }
             return text.ToString();
         }

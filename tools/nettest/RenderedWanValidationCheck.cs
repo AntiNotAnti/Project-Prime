@@ -26,6 +26,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using MphRead.Entities;
+using MphRead.Combat;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
@@ -272,7 +273,16 @@ internal static partial class RenderedWanValidationCheck
                     actualJitterMsPerDirection = NetLag.JitterMs,
                     actualLossPercentPerDirection = NetLag.LossPercent,
                     packetsSent = sent,
-                    packetsDropped = dropped
+                    packetsDropped = dropped,
+                    representativeMatrix = new[]
+                    {
+                        new { rttMs = 50, lossPercent = 0d, jitter = "low" },
+                        new { rttMs = 100, lossPercent = 1d, jitter = "low" },
+                        new { rttMs = 150, lossPercent = 2d, jitter = "moderate" },
+                        new { rttMs = 200, lossPercent = 3d, jitter = "moderate" },
+                        new { rttMs = 250, lossPercent = 3d, jitter = "high" },
+                        new { rttMs = 300, lossPercent = 5d, jitter = "high" }
+                    }
                 },
                 renderer = new
                 {
@@ -308,6 +318,10 @@ internal static partial class RenderedWanValidationCheck
                     predictionAfterReconnect = result.PredictionAfterReconnect,
                     projectilePresentationBeforeReconnect = result.ProjectileBeforeReconnect,
                     projectilePresentationAfterReconnect = result.ProjectileAfterReconnect,
+                    hitPredictionBeforeReconnect = result.HitPredictionBeforeReconnect,
+                    hitPredictionAfterReconnect = result.HitPredictionAfterReconnect,
+                    selfImpulseBeforeReconnect = result.SelfImpulseBeforeReconnect,
+                    selfImpulseAfterReconnect = result.SelfImpulseAfterReconnect,
                     measuredRttMs = result.MeasuredRttMs,
                     measuredJitterMs = result.MeasuredJitterMs
                 },
@@ -349,6 +363,19 @@ internal static partial class RenderedWanValidationCheck
                         ? "A historical/current geometry outcome difference was measured, but QZ1 and rendered-WAN acceptance remain false pending genuine WAN and human visual review."
                         : "No historical/current geometry outcome difference was measured; QZ1 and rendered-WAN acceptance remain false.",
                     "Projectile presentation counters are measurement-only and do not by themselves satisfy QZ5."
+                },
+                humanReview = new
+                {
+                    completed = false,
+                    questions = new[]
+                    {
+                        "Does shooting feel immediate?",
+                        "Does a predicted marker promote cleanly without a duplicate?",
+                        "Are false markers distracting?",
+                        "Does Shock Coil feedback avoid flicker?",
+                        "Do self jumps feel immediate without pullback?",
+                        "Do deaths remain trustworthy?"
+                    }
                 }
             };
             WriteJson(Path.Combine(options.OutputDirectory, "report.json"), report);
@@ -695,6 +722,8 @@ internal static partial class RenderedWanValidationCheck
         private HistoricalCollisionDebugMetrics _debugMetrics;
         private PredictionEvidence? _predictionBeforeReconnect;
         private ProjectilePresentationMeasurementSnapshot? _projectileBeforeReconnect;
+        private HitPredictionMetrics? _hitPredictionBeforeReconnect;
+        private SelfImpulseMetrics? _selfImpulseBeforeReconnect;
 
         public RenderedClient(IRenderToolHost host, AuthoritativePlay play, Hunter hunter,
             Options options, string captureDirectory, Func<Task<NodeMatchHandoff>> requestRejoin)
@@ -705,6 +734,9 @@ internal static partial class RenderedWanValidationCheck
             _captureDirectory = captureDirectory;
             _requestRejoin = requestRejoin;
             _scene = new Scene(features: ClientMatchFeatures.Capture()) { Services = new ClientSceneServices() };
+            CombatFeedbackSettings.Timing = HitMarkerTiming.Instant;
+            play.HitPrediction.Enabled = true;
+            play.SelfImpulse.Enabled = true;
             _presentation = host.CreatePresentation(_scene);
             play.BuildPlayers(_scene, hunter, 0);
             if (options.ValidationFixture == DeveloperValidationFixtureId.None)
@@ -774,6 +806,8 @@ internal static partial class RenderedWanValidationCheck
                 _slotBeforeReconnect = _play.LocalSlot;
                 _predictionBeforeReconnect = PredictionEvidence.Capture(_play.Prediction);
                 _projectileBeforeReconnect = _play.ProjectilePresentation.Metrics;
+                _hitPredictionBeforeReconnect = _play.HitPrediction.Metrics;
+                _selfImpulseBeforeReconnect = _play.SelfImpulse.Metrics;
                 _play.Client.Close();
                 _rejoinTask = _requestRejoin();
             }
@@ -911,6 +945,8 @@ internal static partial class RenderedWanValidationCheck
                 _play.DamageEvents, _play.Client.Rejected, localTravel, movingRemotes,
                 _predictionBeforeReconnect, PredictionEvidence.Capture(_play.Prediction),
                 _projectileBeforeReconnect, _play.ProjectilePresentation.Metrics,
+                _hitPredictionBeforeReconnect, _play.HitPrediction.Metrics,
+                _selfImpulseBeforeReconnect, _play.SelfImpulse.Metrics,
                 metrics.SmoothedRttMs, metrics.JitterMs,
                 _debugPackets, _historyDebugPackets, _dynamicDebugPackets,
                 _historicalPlayerMaximum, _dynamicColliderMaximum,
@@ -940,6 +976,10 @@ internal static partial class RenderedWanValidationCheck
         PredictionEvidence? PredictionBeforeReconnect, PredictionEvidence PredictionAfterReconnect,
         ProjectilePresentationMeasurementSnapshot? ProjectileBeforeReconnect,
         ProjectilePresentationMeasurementSnapshot ProjectileAfterReconnect,
+        HitPredictionMetrics? HitPredictionBeforeReconnect,
+        HitPredictionMetrics HitPredictionAfterReconnect,
+        SelfImpulseMetrics? SelfImpulseBeforeReconnect,
+        SelfImpulseMetrics SelfImpulseAfterReconnect,
         double MeasuredRttMs, double MeasuredJitterMs,
         int DebugPackets, int HistoryDebugPackets, int DynamicDebugPackets,
         int HistoricalPlayerMaximum, int DynamicColliderMaximum,

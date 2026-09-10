@@ -40,10 +40,15 @@ namespace MphRead
         public string? TextureFiltering { get; set; }
         public string AdvancedNetwork { get; set; } = "off";
         public string HitMarkers { get; set; } = "Visual";
+        public string HitMarkerTiming { get; set; } = "Confirmed";
         public string HeadshotCue { get; set; } = "on";
         public string KillConfirmation { get; set; } = "on";
-        public string RadarStyle { get; set; } = "classic";
+        public string RadarStyle { get; set; } = "Enhanced";
         public string RadarOrientation { get; set; } = "heading";
+        public string RadarPosition { get; set; } = "TopRight";
+        public string RadarScale { get; set; } = "1.0";
+        public string RadarOffsetX { get; set; } = "0";
+        public string RadarOffsetY { get; set; } = "0";
         public string ShowFps { get; set; } = "off";
         public string FrameRateCap { get; set; } = "display";
         public string CelShading { get; set; } = "off";

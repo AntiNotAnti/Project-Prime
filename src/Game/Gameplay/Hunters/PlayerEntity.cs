@@ -192,6 +192,136 @@ namespace MphRead.Entities
         public IReadOnlyList<Vector3> KandenSegPos => _kandenSegPos;
         public byte SyluxBombCount { get; set; } = 0;
         public BombEntity?[] SyluxBombs { get; } = new BombEntity?[3];
+        private uint _lockjawBombGeneration;
+
+        internal void ResetLockjawBombState()
+        {
+            for (int i = 0; i < SyluxBombs.Length; i++)
+            {
+                BombEntity? bomb = SyluxBombs[i];
+                if (bomb != null && ReferenceEquals(bomb.Owner, this))
+                {
+                    bomb.BombIndex = -1;
+                }
+                SyluxBombs[i] = null;
+            }
+            SyluxBombCount = 0;
+            _lockjawBombGeneration = unchecked(_lockjawBombGeneration + 1);
+        }
+
+        internal bool TryRegisterLockjawBomb(BombEntity bomb)
+        {
+            ArgumentNullException.ThrowIfNull(bomb);
+            ValidateLockjawBombState();
+            if (SyluxBombCount >= SyluxBombs.Length
+                || bomb.BombType != BombType.Lockjaw
+                || !ReferenceEquals(bomb.Owner, this)
+                || !ReferenceEquals(bomb.Scene, _scene)
+                || !bomb.IsLive)
+            {
+                return false;
+            }
+            for (int i = 0; i < SyluxBombCount; i++)
+            {
+                if (ReferenceEquals(SyluxBombs[i], bomb))
+                {
+                    return false;
+                }
+            }
+            int index = SyluxBombCount;
+            SyluxBombs[index] = bomb;
+            bomb.BombIndex = index;
+            bomb.LockjawRegistryGeneration = _lockjawBombGeneration;
+            SyluxBombCount = checked((byte)(index + 1));
+            return true;
+        }
+
+        internal void UnregisterLockjawBomb(BombEntity bomb)
+        {
+            ArgumentNullException.ThrowIfNull(bomb);
+            ValidateLockjawBombState();
+            int index = bomb.BombIndex;
+            if (index < 0 || index >= SyluxBombCount
+                || !ReferenceEquals(SyluxBombs[index], bomb)
+                || bomb.LockjawRegistryGeneration != _lockjawBombGeneration)
+            {
+                return;
+            }
+            int count = SyluxBombCount;
+            for (int i = index; i < count - 1; i++)
+            {
+                BombEntity moved = SyluxBombs[i + 1]!;
+                SyluxBombs[i] = moved;
+                moved.BombIndex = i;
+            }
+            SyluxBombs[count - 1] = null;
+            SyluxBombCount = checked((byte)(count - 1));
+            bomb.BombIndex = -1;
+        }
+
+        internal bool ValidateLockjawBombState()
+        {
+            int originalCount = SyluxBombCount;
+            bool valid = originalCount <= SyluxBombs.Length;
+            int count = 0;
+            for (int read = 0; read < SyluxBombs.Length; read++)
+            {
+                BombEntity? bomb = SyluxBombs[read];
+                if (bomb == null)
+                {
+                    if (read < originalCount) valid = false;
+                    continue;
+                }
+                bool duplicate = false;
+                for (int i = 0; i < count; i++)
+                {
+                    if (ReferenceEquals(SyluxBombs[i], bomb))
+                    {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                bool accepted = !duplicate
+                    && bomb.BombType == BombType.Lockjaw
+                    && ReferenceEquals(bomb.Owner, this)
+                    && ReferenceEquals(bomb.Scene, _scene)
+                    && bomb.IsLive
+                    && bomb.LockjawRegistryGeneration == _lockjawBombGeneration;
+                if (!accepted)
+                {
+                    valid = false;
+                    if (!duplicate && ReferenceEquals(bomb.Owner, this)) bomb.BombIndex = -1;
+                    continue;
+                }
+                if (read != count || bomb.BombIndex != count) valid = false;
+                SyluxBombs[count] = bomb;
+                bomb.BombIndex = count;
+                count++;
+            }
+            for (int i = count; i < SyluxBombs.Length; i++)
+            {
+                SyluxBombs[i] = null;
+            }
+            if (originalCount != count) valid = false;
+            SyluxBombCount = checked((byte)count);
+            return valid;
+        }
+
+        internal bool IsRegisteredLockjawBomb(BombEntity bomb)
+        {
+            int index = bomb.BombIndex;
+            return index >= 0 && index < SyluxBombCount && index < SyluxBombs.Length
+                && ReferenceEquals(SyluxBombs[index], bomb)
+                && bomb.LockjawRegistryGeneration == _lockjawBombGeneration;
+        }
+
+        internal BombEntity[] GetRegisteredLockjawBombs()
+        {
+            ValidateLockjawBombState();
+            var result = new BombEntity[SyluxBombCount];
+            for (int i = 0; i < result.Length; i++) result[i] = SyluxBombs[i]!;
+            return result;
+        }
 
         public const int SlotCapacity = 8;
         public Scene Scene => _scene;
@@ -261,6 +391,14 @@ namespace MphRead.Entities
         internal readonly float[] _mbTrailAlphas = new float[_mbTrailSegments];
         internal int _mbTrailIndex;
         internal Matrix4 _modelTransform = Matrix4.Identity;
+
+        // Render-only generation used to fence skeletal pose history across
+        // slot/life/form transitions.  It is deliberately independent of the
+        // per-tick locomotion animation updates.
+        private uint _presentationPoseEpoch;
+        internal uint PresentationPoseEpoch => _presentationPoseEpoch;
+        internal void AdvancePresentationPoseEpoch()
+            => _presentationPoseEpoch = unchecked(_presentationPoseEpoch + 1);
 
         // todo: visualize
         internal CollisionVolume _volumeUnxf; // todo: names
@@ -350,8 +488,8 @@ namespace MphRead.Entities
         private PlayerAnimation Biped2Anim => (PlayerAnimation)_bipedModel2.AnimInfo.Index[0];
         private int Biped1Frame => _bipedModel1.AnimInfo.Frame[0];
         private int Biped2Frame => _bipedModel2.AnimInfo.Frame[0];
-        private int Biped1FrameCount => _bipedModel1.AnimInfo.Frame[0];
-        private int Biped2FrameCount => _bipedModel2.AnimInfo.Frame[0];
+        private int Biped1FrameCount => _bipedModel1.AnimInfo.FrameCount[0];
+        private int Biped2FrameCount => _bipedModel2.AnimInfo.FrameCount[0];
         private AnimFlags Biped1Flags
         {
             get => _bipedModel1.AnimInfo.Flags[0];
@@ -435,9 +573,12 @@ namespace MphRead.Entities
         internal void PrepareSlot(Hunter hunter, int recolor)
         {
             PlayerEntity player = this;
+            player._aimAssist.Reset();
+            player.ResetLockjawBombState();
+            if (player.Hunter != hunter) player.AdvancePresentationPoseEpoch();
             player.Hunter = hunter;
             player.Recolor = recolor;
-            player._desiredSnapshotBipedAnimation = PlayerAnimation.None;
+            player.ResetRemoteLocomotion();
             if (player.IsBot)
             {
                 // todo: update controls
@@ -462,6 +603,7 @@ namespace MphRead.Entities
 
         public override void Initialize()
         {
+            ResetLockjawBombState();
             Vector3 prevPos = _position;
             Vector3 prevUp = _upVector;
             Vector3 prevFacing = _facingVector;
@@ -579,6 +721,9 @@ namespace MphRead.Entities
 
         public void Spawn(Vector3 pos, Vector3 facing, Vector3 up, NodeRef nodeRef, bool respawn)
         {
+            _aimAssist.Reset();
+            ResetLockjawBombState();
+            AdvancePresentationPoseEpoch();
             LoadFlags |= LoadFlags.Spawned;
             if (IsMainPlayer)
             {
@@ -606,9 +751,6 @@ namespace MphRead.Entities
             else if (Hunter == Hunter.Sylux)
             {
                 _abilities |= AbilityFlags.Bombs;
-                SyluxBombs[0] = null;
-                SyluxBombs[1] = null;
-                SyluxBombs[2] = null;
             }
             else if (Hunter == Hunter.Noxus)
             {
@@ -845,6 +987,9 @@ namespace MphRead.Entities
 
         public void Teleport(Vector3 position, Vector3 facing, NodeRef nodeRef)
         {
+            // Teleport is an explicit presentation discontinuity even when
+            // the destination happens to be close to the old position.
+            AdvancePresentationPoseEpoch();
             _soundSource.PlaySfx(SfxId.TELEPORT_OUT, noUpdate: true);
             Reposition(position, facing, nodeRef);
             if (IsAltForm || IsMorphing || IsUnmorphing)
@@ -934,9 +1079,9 @@ namespace MphRead.Entities
                 {
                     hit = true;
                     float ySpeed = Fixed.ToFloat(Values.BombJumpSpeed);
-                    if (Speed.Y < ySpeed)
+                    if (!_scene.Services.IsReplica || _scene.Services.PredictBombJump(this, bomb, ySpeed))
                     {
-                        Speed = Speed.WithY(ySpeed);
+                        if (Speed.Y < ySpeed) Speed = Speed.WithY(ySpeed);
                     }
                 }
             }
@@ -1320,6 +1465,7 @@ namespace MphRead.Entities
 
         public void TakeDamage(uint damage, DamageFlags flags, Vector3? direction, EntityBase? source)
         {
+            _scene.Services.ObserveDamageAttempt(this, damage, flags, direction, source);
             if (_scene.Services.SuppressDamage(this) || (_scene.Services.Combat?.IsStaleSource(source) == true)
                 || flags.TestFlag(DamageFlags.Burn) && (_scene.Services.Combat?.IsStaleActor(CombatBurnSource.Actor) == true))
             {
@@ -1915,23 +2061,8 @@ namespace MphRead.Entities
                     if (!IsAltForm)
                     {
                         if (!flags.TestFlag(DamageFlags.Halfturret))
-                        {
-                            // todo: FPS stuff?
-                            Vector3 speed = Speed + direction.Value.WithY(0);
-                            if (direction.Value.Y <= 0)
-                            {
-                                speed.Y += direction.Value.Y;
-                            }
-                            else if (speed.Y < 0.25f)
-                            {
-                                speed.Y += direction.Value.Y;
-                                if (speed.Y > 0.25f)
-                                {
-                                    speed.Y = 0.25f;
-                                }
-                            }
-                            Speed = speed;
-                        }
+                            Speed = DamageImpulse.Apply(Speed, direction.Value,
+                                altForm: false, halfturret: false);
                         if (direction.Value != Vector3.Zero)
                         {
                             hitDirection = direction.Value;
@@ -1943,7 +2074,8 @@ namespace MphRead.Entities
                     }
                     else if (!flags.TestFlag(DamageFlags.Halfturret))
                     {
-                        Speed += (direction.Value * 0.4f).WithY(0); // todo: FPS stuff?
+                        Speed = DamageImpulse.Apply(Speed, direction.Value,
+                            altForm: true, halfturret: false);
                     }
                 }
                 else if (attacker != null)

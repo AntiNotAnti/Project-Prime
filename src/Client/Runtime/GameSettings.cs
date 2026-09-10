@@ -49,12 +49,23 @@ namespace MphRead.Mods
             global::MphRead.Hud.Network.NetworkHealthSettings.Advanced = RenderOptions.ParseOnOff(settings.AdvancedNetwork, false);
             Combat.CombatFeedbackSettings.HitMarkers = Enum.TryParse(settings.HitMarkers, true, out Combat.HitMarkerMode marker)
                 && Enum.IsDefined(marker) ? marker : Combat.HitMarkerMode.Visual;
+            Combat.CombatFeedbackSettings.Timing = Enum.TryParse(settings.HitMarkerTiming, true,
+                out Combat.HitMarkerTiming timing) && Enum.IsDefined(timing)
+                ? timing : Combat.HitMarkerTiming.Confirmed;
             Combat.CombatFeedbackSettings.HeadshotCue = RenderOptions.ParseOnOff(settings.HeadshotCue, true);
             Combat.CombatFeedbackSettings.KillConfirmation = RenderOptions.ParseOnOff(settings.KillConfirmation, true);
             global::MphRead.Hud.Radar.RadarSettings.Style = Enum.TryParse(settings.RadarStyle, true, out global::MphRead.Hud.Radar.RadarStyle radarStyle)
-                && Enum.IsDefined(radarStyle) ? radarStyle : global::MphRead.Hud.Radar.RadarStyle.Classic;
+                && Enum.IsDefined(radarStyle) ? radarStyle : global::MphRead.Hud.Radar.RadarStyle.Enhanced;
             global::MphRead.Hud.Radar.RadarSettings.Orientation = Enum.TryParse(settings.RadarOrientation, true, out global::MphRead.Hud.Radar.RadarOrientation radarOrientation)
                 && Enum.IsDefined(radarOrientation) ? radarOrientation : global::MphRead.Hud.Radar.RadarOrientation.Heading;
+            global::MphRead.Hud.Radar.RadarSettings.Anchor = Enum.TryParse(settings.RadarPosition, true,
+                out global::MphRead.Hud.Radar.RadarAnchor radarAnchor) && Enum.IsDefined(radarAnchor)
+                ? radarAnchor : global::MphRead.Hud.Radar.RadarAnchor.TopRight;
+            global::MphRead.Hud.Radar.RadarSettings.Scale = ParseRadarNumber(settings.RadarScale, 1,
+                global::MphRead.Hud.Radar.RadarSettings.MinimumScale,
+                global::MphRead.Hud.Radar.RadarSettings.MaximumScale);
+            global::MphRead.Hud.Radar.RadarSettings.OffsetX = ParseRadarNumber(settings.RadarOffsetX, 0, -256, 256);
+            global::MphRead.Hud.Radar.RadarSettings.OffsetY = ParseRadarNumber(settings.RadarOffsetY, 0, -192, 192);
             if (TryVolume(settings.SfxVolume, out float sfx))
             {
                 Sfx.Volume = sfx;
@@ -96,6 +107,10 @@ namespace MphRead.Mods
             RenderOptions.CelBands = 8;
             RenderOptions.CelEdge = 0.5f;
         }
+
+        private static float ParseRadarNumber(string? value, float fallback, float minimum, float maximum)
+            => float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed)
+                && float.IsFinite(parsed) ? Math.Clamp(parsed, minimum, maximum) : fallback;
 
         /// <summary>
         /// Apply the match rules, after <see cref="MatchFlow.Setup"/> has

@@ -11,6 +11,7 @@ namespace MphRead.Entities
         void StopFlagCarrySfx();
         void StopAllSfx();
         void PlayPickupSound(SfxId id);
+        void PresentMajorPickup(ItemType itemType);
         void SetDoorChimeTimer(float value);
         void SetDoorUnlockTimer(float value);
         void SetForceFieldSoundTimer(float value);
@@ -73,6 +74,8 @@ namespace MphRead.Entities
         public void StopFlagCarrySfx() => Presentation?.StopFlagCarrySfx();
         public void StopAllSfx() => Presentation?.StopAllSfx();
         public void PlayPickupSound(SfxId id) => Presentation?.PlayPickupSound(id);
+        private void PresentMajorPickup(ItemType itemType)
+            => Presentation?.PresentMajorPickup(itemType);
         public void SetDoorChimeTimer(float value) => Presentation?.SetDoorChimeTimer(value);
         public void SetDoorUnlockTimer(float value) => Presentation?.SetDoorUnlockTimer(value);
         public void SetForceFieldSoundTimer(float value) => Presentation?.SetForceFieldSoundTimer(value);

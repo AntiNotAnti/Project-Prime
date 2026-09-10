@@ -1,5 +1,7 @@
-using System;
 using MphRead.Entities;
+using MphRead.Mods.Render;
+using OpenTK.Mathematics;
+using System.Diagnostics;
 
 namespace MphRead.Mods.Input
 {
@@ -29,10 +31,50 @@ namespace MphRead.Mods.Input
         /// <summary>The pad as of this frame.</summary>
         public static GamepadState State;
 
+        /// <summary>
+        /// Physical buttons remain on <see cref="GamepadState.Buttons"/>.
+        /// Trigger axes are synthesized here, once, after fixed-step
+        /// hysteresis. Menus may read the side-effect-free preview below.
+        /// </summary>
+        public static GamepadButtons EffectiveButtons
+        {
+            get
+            {
+                TriggerProcessor preview = _triggers;
+                preview.Configure(InputSettings.GamepadTriggerPressThreshold,
+                    InputSettings.GamepadTriggerReleaseThreshold);
+                TriggerSample trigger = preview.Preview(State.LeftTrigger,
+                    State.RightTrigger);
+                return State.Buttons | trigger.Buttons;
+            }
+        }
+
+        public static GamepadButtons PressedButtons => _pressed;
+        public static GamepadButtons ReleasedButtons => _released;
+
         private static GamepadButtons _previous;
 
         /// <summary>Buttons that went down this frame, for the one-shot actions.</summary>
         private static GamepadButtons _pressed;
+        private static GamepadButtons _released;
+        private static GamepadButtons _effective;
+        private static GamepadMovementProcessor _movement = new(
+            GamepadMovementProcessor.DefaultInnerDeadzone,
+            GamepadMovementProcessor.DefaultActivateThreshold,
+            GamepadMovementProcessor.DefaultReleaseThreshold);
+        private static TriggerProcessor _triggers = new();
+        private static GamepadLookProcessor _look = new();
+        private static long _timingGeneration = long.MinValue;
+        private static bool _lookConfigured;
+
+        /// <summary>The fixed-step movement result used by <see cref="Apply"/>.</summary>
+        public static GamepadMovementSample Movement => _movement.Processed;
+
+        /// <summary>Latest side-effect-free render-rate velocity in degrees/sec.</summary>
+        public static Vector2 AimAngularVelocity { get; private set; }
+
+        /// <summary>Local look ownership and render prediction boundary.</summary>
+        public static LookInputCoordinator LookCoordinator { get; } = LookInputCoordinator.Shared;
 
         /// <summary>
         /// True while a pad is connected.
@@ -65,15 +107,17 @@ namespace MphRead.Mods.Input
                 {
                     return false;
                 }
-                if (State.Buttons != GamepadButtons.None)
+                if (EffectiveButtons != GamepadButtons.None)
                 {
                     return true;
                 }
-                (float leftX, float leftY) = ApplyDeadZone(State.LeftX, State.LeftY);
-                (float rightX, float rightY) = ApplyDeadZone(State.RightX, State.RightY);
-                return leftX != 0 || leftY != 0 || rightX != 0 || rightY != 0
-                    || State.LeftTrigger > TriggerThreshold
-                    || State.RightTrigger > TriggerThreshold;
+                return State.LeftX * State.LeftX + State.LeftY * State.LeftY
+                        >= InputSettings.GamepadMoveReleaseThreshold
+                            * InputSettings.GamepadMoveReleaseThreshold
+                    || State.RightX * State.RightX + State.RightY * State.RightY
+                        > InputSettings.GamepadLookDeadZone * InputSettings.GamepadLookDeadZone
+                    || State.LeftTrigger >= InputSettings.GamepadTriggerPressThreshold
+                    || State.RightTrigger >= InputSettings.GamepadTriggerPressThreshold;
             }
         }
 
@@ -90,76 +134,161 @@ namespace MphRead.Mods.Input
         /// player's sensitivity multiplier. 3.5 is 210 degrees a second, which
         /// is where console shooters have sat since they settled the question.
         /// </summary>
-        private const float TurnRate = 3.5f;
-
         /// <summary>
-        /// How hard a trigger has to be pulled to count as a press. Two
-        /// thirds rather than a hair off zero: a trigger resting under a
-        /// finger is not a request to fire, and every pad's resting value
-        /// drifts.
+        /// Called once per fixed simulation step. Native polling only updates
+        /// <see cref="State"/> and <see cref="SampleNativeFrame"/>; timing,
+        /// hysteresis, button edges and stateful look prediction advance here.
         /// </summary>
-        private const float TriggerThreshold = 0.65f;
-
-        /// <summary>
-        /// How far a stick has to go before it counts as movement. The walk
-        /// keys are on or off, so this is where a stick becomes a direction.
-        /// Larger than the aim dead zone below it, because a thumb resting on
-        /// the stick should not walk you off a ledge.
-        /// </summary>
-        private const float WalkThreshold = 0.5f;
-
-        /// <summary>
-        /// Called once a frame, before the pad is read for anything. Works out
-        /// the rising edges and this frame's aim.
-        /// </summary>
-        public static void BeginFrame()
+        public static void BeginFrame(bool allowLook = true)
         {
             if (!Active)
             {
-                _pressed = GamepadButtons.None;
-                _previous = GamepadButtons.None;
-                AimDeltaX = 0;
-                AimDeltaY = 0;
+                ResetControllerState();
                 return;
             }
-            _pressed = State.Buttons & ~_previous;
-            _previous = State.Buttons;
-            (float x, float y) = ApplyDeadZone(State.RightX, State.RightY);
-            if (State.Down(PadBindings.Get(PadAction.WeaponWheel))) x = y = 0;
-            // Squared response, keeping the sign: the useful half of a stick's
-            // travel is the first half, where a shooter wants to make small
-            // corrections. Linear, the same stick has to do both the flick and
-            // the nudge and is bad at the nudge.
-            float sensitivity = InputSettings.GamepadLookSensitivity;
-            AimDeltaX = -x * MathF.Abs(x) * TurnRate * sensitivity;
-            AimDeltaY = y * MathF.Abs(y) * TurnRate * sensitivity
-                * (InputSettings.GamepadInvertY ? -1 : 1);
+
+            if (_timingGeneration != FrameTiming.Discontinuities)
+            {
+                Reset();
+            }
+
+            _triggers.Configure(InputSettings.GamepadTriggerPressThreshold,
+                InputSettings.GamepadTriggerReleaseThreshold);
+            TriggerSample trigger = _triggers.Process(State.LeftTrigger,
+                State.RightTrigger);
+            _effective = State.Buttons | trigger.Buttons;
+            _pressed = _effective & ~_previous;
+            _released = _previous & ~_effective;
+            _previous = _effective;
+            _movement.Configure(InputSettings.GamepadMoveDeadZone,
+                InputSettings.GamepadMoveActivateThreshold,
+                InputSettings.GamepadMoveReleaseThreshold);
+            _movement.Process(
+                new Vector2(State.LeftX, State.LeftY));
+
+            bool weaponRadial = (_effective & PadBindings.Get(PadAction.WeaponWheel)) != 0;
+            if (!allowLook || weaponRadial)
+            {
+                _look.Reset();
+                AimAngularVelocity = Vector2.Zero;
+                AimDeltaX = AimDeltaY = 0;
+                LookCoordinator.SetStatefulVelocity(Vector2.Zero);
+            }
+            else
+            {
+                ConfigureLookProcessor();
+                LookDeviceKind activeOwner = LookCoordinator.ActiveLookDevice;
+                if (LookDeviceTracker.IsPrecisionDevice(activeOwner))
+                {
+                    // A precision-device handoff must reacquire sustained
+                    // outer-ring boost instead of inheriting old controller
+                    // timing across ownership boundaries.
+                    _look.Reset();
+                }
+                GamepadLookSample look = _look.Advance(new Vector2(State.RightX,
+                    State.RightY), (float)FrameTiming.StepSeconds);
+                Vector2 gyro = GamepadGyro.Sample(NowSeconds());
+                AimAngularVelocity = look.AngularVelocity + gyro;
+                AimDeltaX = AimAngularVelocity.X * (float)FrameTiming.StepSeconds;
+                AimDeltaY = AimAngularVelocity.Y * (float)FrameTiming.StepSeconds;
+                Vector2 rawLook = new(State.RightX, State.RightY);
+                LookDeviceKind owner = gyro != Vector2.Zero
+                    ? LookDeviceKind.GamepadGyro : LookDeviceKind.GamepadStick;
+                LookDeviceKind contributors = (look.AngularVelocity != Vector2.Zero
+                    ? LookDeviceKind.GamepadStick : LookDeviceKind.None)
+                    | (gyro != Vector2.Zero ? LookDeviceKind.GamepadGyro : LookDeviceKind.None);
+                Vector2 raw = owner == LookDeviceKind.GamepadGyro
+                    ? gyro.Normalized() : rawLook;
+                float magnitude = owner == LookDeviceKind.GamepadGyro
+                    ? gyro.Length : look.Magnitude;
+                LocalLookFrame frame = new LocalLookFrame(owner,
+                    new Vector2(AimDeltaX, AimDeltaY), raw, magnitude)
+                    .WithContributors(contributors);
+                // Keep render prediction current even when a precision source
+                // owns this frame or the stick has returned to drift. This is
+                // state publication only; ownership still changes through the
+                // fixed-step coordinator submission below.
+                LookCoordinator.SetStatefulVelocity(AimAngularVelocity);
+                LookCoordinator.SubmitStateful(frame, AimAngularVelocity,
+                    InputSettings.GamepadLookDeadZone);
+            }
+            // The scene host performs the one fixed-step extraction after all
+            // platform contributors for this tick have been submitted.
         }
 
         /// <summary>
-        /// A radial dead zone, applied to the pair rather than to each axis.
-        ///
-        /// Per-axis is the common mistake and it is visible: the neutral area
-        /// comes out a square, so a stick pushed diagonally starts to move
-        /// before one pushed straight, and slow circles turn into slow
-        /// octagons. Rescaled past the edge, so the first movement past the
-        /// dead zone is the smallest movement rather than a jump to the dead
-        /// zone's own size.
+        /// Evaluate raw controller state at native/render cadence without
+        /// advancing boost timers or button/movement hysteresis.
         /// </summary>
-        private static (float X, float Y) ApplyDeadZone(float x, float y)
+        public static void SampleNativeFrame()
         {
-            float dead = InputSettings.GamepadDeadZone;
-            float length = MathF.Sqrt(x * x + y * y);
-            if (length <= dead)
+            if (!Active)
             {
-                return (0, 0);
+                ResetControllerState();
+                return;
             }
-            if (length == 0)
+            if (_timingGeneration != FrameTiming.Discontinuities)
             {
-                return (0, 0);
+                Reset();
             }
-            float scaled = MathF.Min((length - dead) / (1 - dead), 1);
-            return (x / length * scaled, y / length * scaled);
+            if ((EffectiveButtons & PadBindings.Get(PadAction.WeaponWheel)) != 0)
+            {
+                // The radial owns the right stick for selection. Clear the
+                // render-side velocity too, otherwise a stale preview could
+                // turn the camera between fixed steps while the wheel is open.
+                _look.Reset();
+                AimAngularVelocity = Vector2.Zero;
+                LookCoordinator.SetStatefulVelocity(Vector2.Zero);
+                return;
+            }
+            ConfigureLookProcessor();
+            GamepadLookSample sample = _look.Evaluate(new Vector2(State.RightX,
+                State.RightY));
+            AimAngularVelocity = sample.AngularVelocity
+                + GamepadGyro.Sample(NowSeconds());
+            LookCoordinator.SetStatefulVelocity(AimAngularVelocity);
+        }
+
+        public static void Reset()
+        {
+            ResetProcessors();
+            _previous = GamepadButtons.None;
+            _effective = GamepadButtons.None;
+            _pressed = GamepadButtons.None;
+            _released = GamepadButtons.None;
+            AimDeltaX = AimDeltaY = 0;
+            AimAngularVelocity = Vector2.Zero;
+            GamepadGyro.Reset();
+            LookCoordinator.Reset();
+            _timingGeneration = FrameTiming.Discontinuities;
+        }
+
+        public static void ResetLook()
+        {
+            _look.Reset();
+            AimDeltaX = AimDeltaY = 0;
+            AimAngularVelocity = Vector2.Zero;
+            GamepadGyro.Reset();
+            LookCoordinator.Reset();
+        }
+
+        /// <summary>
+        /// Reset only controller-owned state. The shared look coordinator may
+        /// still contain a mouse/touch/stylus event that must survive a
+        /// controller disconnect and be consumed by the fixed simulation.
+        /// </summary>
+        public static void ResetControllerState()
+        {
+            ResetProcessors();
+            _previous = GamepadButtons.None;
+            _effective = GamepadButtons.None;
+            _pressed = GamepadButtons.None;
+            _released = GamepadButtons.None;
+            AimDeltaX = AimDeltaY = 0;
+            AimAngularVelocity = Vector2.Zero;
+            GamepadGyro.Reset();
+            LookCoordinator.ResetControllerState();
+            _timingGeneration = FrameTiming.Discontinuities;
         }
 
         /// <summary>
@@ -202,19 +331,18 @@ namespace MphRead.Mods.Input
                 return;
             }
             ClientPlayerBindings controls = player.GetPresentation().Bindings;
-            (float moveX, float moveY) = ApplyDeadZone(State.LeftX, State.LeftY);
             // Both sets, as the touch controls do: walking reads Move and the
             // morph ball reads Roll, and a player who has bound them to
             // different keys expects the stick to drive whichever form they
             // are in.
-            Hold(controls.MoveUp, moveY > WalkThreshold);
-            Hold(controls.RollUp, moveY > WalkThreshold);
-            Hold(controls.MoveDown, moveY < -WalkThreshold);
-            Hold(controls.RollDown, moveY < -WalkThreshold);
-            Hold(controls.MoveLeft, moveX < -WalkThreshold);
-            Hold(controls.RolltLeft, moveX < -WalkThreshold);
-            Hold(controls.MoveRight, moveX > WalkThreshold);
-            Hold(controls.RollRight, moveX > WalkThreshold);
+            Hold(controls.MoveUp, (_movement.Processed.Direction & GamepadMovementDirection.Up) != 0);
+            Hold(controls.RollUp, (_movement.Processed.Direction & GamepadMovementDirection.Up) != 0);
+            Hold(controls.MoveDown, (_movement.Processed.Direction & GamepadMovementDirection.Down) != 0);
+            Hold(controls.RollDown, (_movement.Processed.Direction & GamepadMovementDirection.Down) != 0);
+            Hold(controls.MoveLeft, (_movement.Processed.Direction & GamepadMovementDirection.Left) != 0);
+            Hold(controls.RolltLeft, (_movement.Processed.Direction & GamepadMovementDirection.Left) != 0);
+            Hold(controls.MoveRight, (_movement.Processed.Direction & GamepadMovementDirection.Right) != 0);
+            Hold(controls.RollRight, (_movement.Processed.Direction & GamepadMovementDirection.Right) != 0);
 
             // Which button each of these is on is the player's business now:
             // see PadBindings, which starts as the table that used to be
@@ -231,7 +359,7 @@ namespace MphRead.Mods.Input
             GamepadButtons jump = PadBindings.Get(PadAction.Jump);
             Hold(controls.Jump, jump);
             Hold(controls.Boost, jump);
-            if (!State.Down(PadBindings.Get(PadAction.WeaponWheel)) && !player.GetPresentation().WeaponRadial.Open)
+            if (!Down(PadBindings.Get(PadAction.WeaponWheel)) && !player.GetPresentation().WeaponRadial.Open)
                 Hold(controls.Morph, PadBindings.Get(PadAction.Morph));
             Hold(controls.QuickSwap, PadBindings.Get(PadAction.QuickSwap));
             // The client radial owns right-stick selection; it never moves the mouse cursor.
@@ -257,7 +385,7 @@ namespace MphRead.Mods.Input
         {
             // An unbound action is None, and None & anything is None, so this
             // needs no case of its own: it simply never holds anything down.
-            Hold(bind, (State.Buttons & buttons) != 0, (_pressed & buttons) != 0);
+            Hold(bind, (_effective & buttons) != 0, (_pressed & buttons) != 0);
         }
 
         private static void Hold(Keybind bind, bool down)
@@ -285,6 +413,50 @@ namespace MphRead.Mods.Input
             {
                 bind.IsPressed = true;
             }
+        }
+
+        private static bool Down(GamepadButtons buttons)
+            => (_effective & buttons) != 0;
+
+        private static double NowSeconds()
+            => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
+
+        private static void ResetProcessors()
+        {
+            _movement.Reset();
+            _triggers.Reset();
+            _look.Reset();
+            _lookConfigured = false;
+        }
+
+        private static GamepadLookProcessor CreateLookProcessor()
+            => new(InputSettings.GamepadLookDeadZone, InputSettings.GamepadOuterDeadZone,
+                InputSettings.GamepadLookExponent, InputSettings.GamepadYawRate,
+                InputSettings.GamepadPitchRate, InputSettings.GamepadOuterBoostStart,
+                InputSettings.GamepadOuterYawBoost, InputSettings.GamepadOuterPitchBoost,
+                InputSettings.GamepadBoostDelaySeconds, InputSettings.GamepadBoostRampSeconds,
+                InputSettings.GamepadOuterBoostEnabled,
+                InputSettings.GamepadHorizontalSensitivity,
+                InputSettings.GamepadVerticalSensitivity,
+                InputSettings.GamepadInvertY, InputSettings.GamepadZoomMultiplier);
+
+        private static void ConfigureLookProcessor()
+        {
+            if (!_lookConfigured)
+            {
+                _look = CreateLookProcessor();
+                _lookConfigured = true;
+                return;
+            }
+            _look.Configure(InputSettings.GamepadLookDeadZone,
+                InputSettings.GamepadOuterDeadZone, InputSettings.GamepadLookExponent,
+                InputSettings.GamepadYawRate, InputSettings.GamepadPitchRate,
+                InputSettings.GamepadOuterBoostStart, InputSettings.GamepadOuterYawBoost,
+                InputSettings.GamepadOuterPitchBoost, InputSettings.GamepadBoostDelaySeconds,
+                InputSettings.GamepadBoostRampSeconds, InputSettings.GamepadOuterBoostEnabled,
+                InputSettings.GamepadHorizontalSensitivity,
+                InputSettings.GamepadVerticalSensitivity, InputSettings.GamepadInvertY,
+                InputSettings.GamepadZoomMultiplier);
         }
     }
 }

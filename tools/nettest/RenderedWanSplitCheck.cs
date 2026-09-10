@@ -35,7 +35,8 @@ namespace MphRead.NetTest;
 
 internal static partial class RenderedWanValidationCheck
 {
-    private const string SplitSchema = "project-prime.rendered-wan-split.v1";
+    // v2 adds bounded hit-feedback and self-impulse diagnostics to client reports.
+    private const string SplitSchema = "project-prime.rendered-wan-split.v2";
     private const string SplitIssuer = "https://rendered-wan-operator.invalid";
     private static readonly JsonSerializerOptions SplitJson = new()
     {
@@ -326,7 +327,9 @@ internal static partial class RenderedWanValidationCheck
             result.ReconnectSameMatch, result.ReconnectSameSeat, result.ConnectionIdentityRotated,
             result.SubmittedFrames, result.AcknowledgedFrames, result.Snapshots,
             result.CombatEvents, result.DebugPackets, result.HistoryDebugPackets,
-            result.DynamicDebugPackets, captureReport, passed, null,
+            result.DynamicDebugPackets, result.HitPredictionBeforeReconnect,
+            result.HitPredictionAfterReconnect, result.SelfImpulseBeforeReconnect,
+            result.SelfImpulseAfterReconnect, captureReport, passed, null,
             RenderedWanProof: false, Qz1Accepted: false, Qz5Accepted: false,
             RequiresHumanVisualReview: true);
         WriteSplitJson(Path.Combine(options.OutputDirectory, "client-report.json"), report);
@@ -422,7 +425,8 @@ internal static partial class RenderedWanValidationCheck
                 MatchStatus.Completed.ToString(), 8, 8, 8, 0, 0, null, true, null, false, false, false, true);
             var client = new SplitClientReport(SplitSchema, "client", binding, start.AddSeconds(1), end.AddSeconds(-1),
                 NetConnectionState.Playing.ToString(), true, true, true, true, true, 600, 600, 300,
-                1, 3, 1, 1, [capture], true, null, false, false, false, true);
+                1, 3, 1, 1, null, default, null, default,
+                [capture], true, null, false, false, false, true);
             SplitMergeManifest merged = Merge(descriptor, server, client, captures, hash, hash);
             if (!merged.Passed || merged.RenderedWanProof || merged.Qz1Accepted || merged.Qz5Accepted
                 || !merged.RequiresHumanVisualReview || merged.EvidenceClass != "same-host-split-smoke-non-wan")
@@ -844,7 +848,10 @@ internal static partial class RenderedWanValidationCheck
         DateTimeOffset StartedUtc, DateTimeOffset EndedUtc, string FinalState,
         bool RuntimePassed, bool ReconnectCompleted, bool ReconnectSameMatch, bool ReconnectSameSeat,
         bool ConnectionIdentityRotated, int SubmittedFrames, int AcknowledgedFrames, long Snapshots,
-        long CombatEvents, int DebugPackets, int HistoryDebugPackets, int DynamicDebugPackets, SplitCapture[] Captures,
+        long CombatEvents, int DebugPackets, int HistoryDebugPackets, int DynamicDebugPackets,
+        HitPredictionMetrics? HitPredictionBeforeReconnect, HitPredictionMetrics HitPredictionAfterReconnect,
+        SelfImpulseMetrics? SelfImpulseBeforeReconnect, SelfImpulseMetrics SelfImpulseAfterReconnect,
+        SplitCapture[] Captures,
         bool Passed, string? FailureReason, bool RenderedWanProof, bool Qz1Accepted,
         bool Qz5Accepted, bool RequiresHumanVisualReview);
 

@@ -67,6 +67,9 @@ namespace MphRead.Mods.Input
         /// <summary>What the pad is called, for the settings screen to show.</summary>
         public string Name;
 
+        /// <summary>Presentation family; normalized bindings never depend on it.</summary>
+        public ControllerFamily Family;
+
         public readonly bool Down(GamepadButtons button) => (Buttons & button) != 0;
     }
 }

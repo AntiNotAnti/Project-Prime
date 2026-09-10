@@ -125,7 +125,13 @@ namespace MphRead.Combat
                 ReplayFeedbackState.Actor(writer, _feed[i].Victim); ReplayFeedbackState.Text(writer, _feed[i].Text);
             }
             ReplayFeedbackState.Actor(writer, Local);
-            writer.Write((byte)State.Marker); writer.Write(State.MarkerTick); writer.Write(State.MarkerSequence);
+            // Predicted markers are a local presentation artifact.  Mapping
+            // one to None keeps the v1 checkpoint byte layout and ensures a
+            // demo never replays speculative feedback as if it were a server
+            // fact.
+            HitMarkerKind replayMarker = State.Marker == HitMarkerKind.Predicted
+                ? HitMarkerKind.None : State.Marker;
+            writer.Write((byte)replayMarker); writer.Write(State.MarkerTick); writer.Write(State.MarkerSequence);
             writer.Write(State.Dead); writer.Write(State.FinalDamage);
             ReplayFeedbackState.Text(writer, State.RecapHeading); ReplayFeedbackState.Text(writer, State.RecapFinal);
             History.WriteReplay(writer); Recaps.WriteReplay(writer);
@@ -149,6 +155,7 @@ namespace MphRead.Combat
             State.Marker = (HitMarkerKind)reader.ReadByte();
             if (State.Marker > HitMarkerKind.Kill) throw new InvalidDataException("Replay marker invalid.");
             State.MarkerTick = reader.ReadUInt32(); State.MarkerSequence = reader.ReadUInt32();
+            State.MarkerAudioSequence = State.MarkerSequence;
             State.Dead = reader.ReadBoolean(); State.FinalDamage = reader.ReadUInt16();
             State.RecapHeading = ReplayFeedbackState.Text(reader); State.RecapFinal = ReplayFeedbackState.Text(reader);
             History.ReadReplay(reader); Recaps.ReadReplay(reader);
@@ -175,6 +182,11 @@ namespace MphRead.Combat
                 LastEvent = value;
             }
             Message = ReplayFeedbackState.Text(reader); Tick = reader.ReadUInt32(); Sequence = reader.ReadUInt32();
+            // Notices are transient presentation work, not replay state. A
+            // restored checkpoint must never inherit queued sounds from the
+            // state that was seeking or being replaced.
+            ClearPendingNotices();
+            DroppedNotices = 0;
         }
     }
 }

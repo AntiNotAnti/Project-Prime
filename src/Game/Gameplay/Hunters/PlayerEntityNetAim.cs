@@ -1,4 +1,5 @@
 using System;
+using MphRead.Formats;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
@@ -19,6 +20,8 @@ namespace MphRead.Entities
     /// </summary>
     public partial class PlayerEntity
     {
+        private Vector2 _lastAppliedLocalLook;
+        private bool _hasAppliedLocalLook;
         private const int NetworkHistoryLength = 120;
         private readonly Vector3[] _networkPositionHistory = new Vector3[NetworkHistoryLength];
         private readonly uint[] _networkPositionFrames = new uint[NetworkHistoryLength];
@@ -478,6 +481,8 @@ namespace MphRead.Entities
         /// </summary>
         internal void ModSetHunter(Hunter hunter)
         {
+            ResetLockjawBombState();
+            if (Hunter != hunter) AdvancePresentationPoseEpoch();
             Hunter = hunter;
         }
 
@@ -936,7 +941,7 @@ namespace MphRead.Entities
                 ModSetAim(_networkAim);
                 return;
             }
-            ApplyGamepadAim();
+            ApplyLocalLook();
             if (_scene.Services.TryGetScriptedAimDelta(SlotIndex, out Vector2 scriptedAim))
             {
                 UpdateAimY(scriptedAim.Y);
@@ -964,26 +969,132 @@ namespace MphRead.Entities
         /// people, and a pad that turned all of them would be a very strange
         /// bug to read about.
         /// </summary>
-        private void ApplyGamepadAim()
+        private void ApplyLocalLook()
         {
+            _lastAppliedLocalLook = Vector2.Zero;
+            _hasAppliedLocalLook = false;
             if (IsBot || SlotIndex != _scene.LocalPlayerSlot
                 || _scene.Services.DesiredSpectating
-                || Flags1.TestFlag(PlayerFlags1.NoAimInput))
+                || Flags1.TestFlag(PlayerFlags1.NoAimInput)
+                || _scene.FrameAdvance || _scene.FrameAdvanceLastFrame
+                )
             {
                 return;
             }
-            Vector2 delta = _scene.Services.ControllerAimDelta;
-            float x = delta.X;
-            float y = delta.Y;
-            if (x == 0 && y == 0)
+            LocalLookFrame frame = _scene.Services.LocalLookFrame;
+            if (!frame.IsFinite || frame.DeltaDegrees == Vector2.Zero
+                && !frame.HasControllerContributor && !frame.HasPrecisionContributor)
+            {
+                return;
+            }
+
+            // The coordinator retains each component of a mixed frame. Apply
+            // the legacy gates to the source they came from instead of
+            // letting a mouse setting suppress a controller or stylus sample.
+            Vector2 controller = frame.ControllerDeltaDegrees;
+            Vector2 mouse = frame.MouseDeltaDegrees;
+            Vector2 touch = frame.TouchDeltaDegrees;
+            Vector2 stylus = frame.StylusDeltaDegrees;
+            if (mouse == Vector2.Zero && touch == Vector2.Zero
+                && stylus == Vector2.Zero
+                && frame.PrecisionDeltaDegrees != Vector2.Zero)
+            {
+                // Preserve compatibility with frames produced by older hosts
+                // before source-specific precision components were exposed.
+                switch (frame.Device)
+                {
+                    case LookDeviceKind.Mouse:
+                        mouse = frame.PrecisionDeltaDegrees;
+                        break;
+                    case LookDeviceKind.Touch:
+                        touch = frame.PrecisionDeltaDegrees;
+                        break;
+                    case LookDeviceKind.Stylus:
+                        stylus = frame.PrecisionDeltaDegrees;
+                        break;
+                    default:
+                        // An aggregate-only precision frame has no safer
+                        // source identity; treat it as mouse so the legacy
+                        // MouseAim/keyboard gates still apply.
+                        mouse = frame.PrecisionDeltaDegrees;
+                        break;
+                }
+            }
+            if (controller == Vector2.Zero
+                && mouse == Vector2.Zero && touch == Vector2.Zero
+                && stylus == Vector2.Zero)
+            {
+                // Preserve compatibility for neutral frames constructed by
+                // older hosts/tests which carry only the aggregate delta.
+                if (frame.HasControllerContributor && !frame.HasPrecisionContributor)
+                {
+                    controller = frame.DeltaDegrees;
+                }
+                else
+                {
+                    mouse = frame.DeltaDegrees;
+                }
+            }
+
+            bool cameraBlocksInput = _scene.CameraSequences.Current?.Flags
+                .TestFlag(CamSeqFlags.BlockInput) == true;
+            bool keyboardAimActive = Controls.KeyboardAim
+                && (Controls.AimLeft.IsDown || Controls.AimRight.IsDown
+                    || Controls.AimUp.IsDown || Controls.AimDown.IsDown);
+            if (!Controls.MouseAim || keyboardAimActive || cameraBlocksInput)
+            {
+                mouse = Vector2.Zero;
+            }
+            if (cameraBlocksInput)
+            {
+                touch = Vector2.Zero;
+                stylus = Vector2.Zero;
+                controller = Vector2.Zero;
+            }
+            Vector2 precision = mouse + touch + stylus;
+            if (controller == Vector2.Zero && precision == Vector2.Zero)
+            {
+                return;
+            }
+
+            // Scale only the controller component for zoom; the precision
+            // components keep the established mouse/touch/stylus feel. Aim
+            // assistance is added after this scale, so its deg/sec cap cannot
+            // be amplified by the controller zoom multiplier.
+            if (EquipInfo.Zoomed && controller != Vector2.Zero)
+            {
+                controller *= Math.Clamp(_scene.Services.ControllerZoomMultiplier,
+                    0.01f, 10f);
+            }
+            frame = frame.WithComponents(controller, precision);
+            Vector2 delta = _aimAssist.Process(this, frame,
+                1f / 60f);
+            if (delta == Vector2.Zero)
             {
                 return;
             }
             ModNoteInput();
-            UpdateHudShiftY(y);
-            UpdateHudShiftX(x);
-            UpdateAimY(y);
-            UpdateAimX(x);
+            UpdateHudShiftY(delta.Y);
+            UpdateHudShiftX(delta.X);
+            UpdateAimY(delta.Y);
+            UpdateAimX(delta.X);
+            _lastAppliedLocalLook = delta;
+            _hasAppliedLocalLook = true;
+        }
+
+        /// <summary>
+        /// Return the exact local look delta already applied to the gun this
+        /// simulation step. Animation callers consume this value only; they do
+        /// not call the camera/aim update a second time.
+        /// </summary>
+        internal Vector2 ModTakeAppliedLocalLook()
+        {
+            if (!_hasAppliedLocalLook)
+            {
+                return Vector2.Zero;
+            }
+            _hasAppliedLocalLook = false;
+            return _lastAppliedLocalLook;
         }
 
         /// <summary>

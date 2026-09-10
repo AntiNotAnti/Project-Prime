@@ -6,15 +6,22 @@ and modern demos share the event path.
 
 Hit, headshot, kill, critical health, objective pickup/drop/capture, Prime change,
 overtime and match point use distinct existing sound identifiers. Confirmation
-and match announcements are non-positional. Major pickup respawns use the event's
-fixed world position and distance attenuation. Only Double Damage, Cloak,
-Deathalt and Omega Cannon qualify, and only when the authority's
-`PickupRespawnAnnouncements` rule is enabled; its default is false.
+and acquisition sounds are non-positional. Major pickup respawns use the event's
+fixed world position and distance attenuation. A local health, ammo, power-up,
+key, or weapon acquisition uses the corresponding original acquisition sound;
+duplicate-weapon versus new-weapon conversion remains a cosmetic authority
+limitation. Only Double Damage, Cloak, Deathalt and Omega Cannon respawns qualify,
+and only when the authority's `PickupRespawnAnnouncements` rule is enabled; its
+default is false.
 
 Feedback volume is independent and defaults to 0.7. Global sound mute still
-applies. Hit/headshot cues have a four-tick minimum spacing; other cue kinds have
-a thirty-tick minimum. Reliable-event deduplication and presentation sequence
-tracking prevent repeated draw frames from replaying a notification.
+applies. Hit/headshot cues have a four-tick minimum spacing; other generic cue
+kinds have a thirty-tick minimum. Acquisition sounds deliberately have no shared
+throttle, so rapid health/ammo/weapon pickups are all audible. Reliable-event
+deduplication feeds a fixed-capacity 32-notice drop-oldest queue; the scene HUD
+drains it once in authority order rather than relying on latest-event state.
+Pending notices are transient and are cleared on match/phase/session changes and
+replay seek or baseline restore; they are not part of the replay serialized format.
 
 Modern critical-health feedback triggers below 25 health, rearms at 35, and resets
 with the full connection/life identity. This replaces the old repeating local

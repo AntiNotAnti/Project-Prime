@@ -49,6 +49,16 @@ public sealed class SnapshotLocomotionTests
     }
 
     [Fact]
+    public void RemoteLocomotionUsesPresentedVelocityInsteadOfNewestStateSpeed()
+    {
+        SnapshotPlayer state = Player(Vector3.Zero);
+        state.Speed = -Vector3.UnitZ;
+
+        Assert.Equal(PlayerAnimation.WalkForward,
+            PlayerEntity.DeriveRemoteBipedAnimation(state, Vector3.UnitZ));
+    }
+
+    [Fact]
     public void GroundedSnapshotStopsBelowHorizontalSpeedThreshold()
     {
         SnapshotPlayer stopped = Player(Vector3.Zero);
@@ -61,6 +71,76 @@ public sealed class SnapshotLocomotionTests
             PlayerEntity.DeriveSnapshotBipedAnimation(vertical, local: false));
         Assert.Equal(PlayerAnimation.Idle,
             PlayerEntity.DeriveSnapshotBipedAnimation(belowThreshold, local: false));
+    }
+
+    [Fact]
+    public void StatefulLocomotionUsesSeparateStartAndStopThresholds()
+    {
+        var resolver = new RemoteLocomotionHysteresis();
+        SnapshotPlayer state = Player(Vector3.Zero);
+
+        Assert.Equal(PlayerAnimation.Idle,
+            resolver.Resolve(state, new Vector3(0, 0, 0.015f)));
+        Assert.Equal(PlayerAnimation.WalkForward,
+            resolver.Resolve(state, new Vector3(0, 0, 0.03f)));
+        Assert.Equal(PlayerAnimation.WalkForward,
+            resolver.Resolve(state, new Vector3(0, 0, 0.015f)));
+        Assert.Equal(PlayerAnimation.Idle,
+            resolver.Resolve(state, new Vector3(0, 0, 0.005f)));
+        Assert.Equal(PlayerAnimation.Idle,
+            resolver.Resolve(state, new Vector3(0, 0, 0.015f)));
+    }
+
+    [Fact]
+    public void StatefulLocomotionUsesAnAxisSwitchMargin()
+    {
+        var resolver = new RemoteLocomotionHysteresis();
+        SnapshotPlayer state = Player(Vector3.Zero);
+
+        Assert.Equal(PlayerAnimation.WalkForward,
+            resolver.Resolve(state, new Vector3(-1.0f, 0, 1.0f)));
+        Assert.Equal(PlayerAnimation.WalkForward,
+            resolver.Resolve(state, new Vector3(-1.05f, 0, 1.0f)));
+        Assert.Equal(PlayerAnimation.WalkRight,
+            resolver.Resolve(state, new Vector3(-1.2f, 0, 1.0f)));
+        Assert.Equal(PlayerAnimation.WalkRight,
+            resolver.Resolve(state, new Vector3(-1.0f, 0, 0.95f)));
+        Assert.Equal(PlayerAnimation.WalkForward,
+            resolver.Resolve(state, new Vector3(-1.0f, 0, 1.2f)));
+    }
+
+    [Fact]
+    public void StatefulLocomotionReversalsAreImmediate()
+    {
+        var resolver = new RemoteLocomotionHysteresis();
+        SnapshotPlayer state = Player(Vector3.Zero);
+
+        Assert.Equal(PlayerAnimation.WalkForward,
+            resolver.Resolve(state, Vector3.UnitZ));
+        Assert.Equal(PlayerAnimation.WalkBackward,
+            resolver.Resolve(state, -Vector3.UnitZ));
+        Assert.Equal(PlayerAnimation.WalkLeft,
+            resolver.Resolve(state, Vector3.UnitX));
+        Assert.Equal(PlayerAnimation.WalkRight,
+            resolver.Resolve(state, -Vector3.UnitX));
+    }
+
+    [Fact]
+    public void InvalidLocomotionStateResetsDirectionHistory()
+    {
+        var resolver = new RemoteLocomotionHysteresis();
+        SnapshotPlayer state = Player(Vector3.Zero);
+
+        Assert.Equal(PlayerAnimation.WalkForward,
+            resolver.Resolve(state, Vector3.UnitZ));
+        SnapshotPlayer morphing = state;
+        morphing.Flags |= SnapshotPlayerFlags.Morphing;
+        Assert.Equal(PlayerAnimation.None,
+            resolver.Resolve(morphing, Vector3.UnitZ));
+        Assert.Equal(PlayerAnimation.Idle,
+            resolver.Resolve(state, new Vector3(0, 0, 0.015f)));
+        Assert.Equal(PlayerAnimation.WalkBackward,
+            resolver.Resolve(state, -Vector3.UnitZ));
     }
 
     public static TheoryData<SnapshotPlayer> ExcludedStates

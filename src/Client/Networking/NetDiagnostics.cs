@@ -51,7 +51,8 @@ namespace MphRead.Mods.Network
         /// distinct observations; none is relabelled as measured WAN packet loss.
         /// </summary>
         public static void ReportAuthoritative(NetClient client, ClientPrediction prediction,
-            SnapshotInterpolation interpolation, NetTrafficMetrics traffic)
+            SnapshotInterpolation interpolation, NetTrafficMetrics traffic,
+            PredictedHitFeedback hitPrediction, PredictedSelfImpulse selfImpulsePrediction)
         {
             if (!Enabled) return;
             long now = Stopwatch.GetTimestamp();
@@ -60,6 +61,8 @@ namespace MphRead.Mods.Network
                 traffic.BytesReceived, traffic.BytesSent);
             if (!_authoritativeWindow.TrySample(now, counters, out NetDiagnosticRates rates)) return;
 
+            HitPredictionMetrics hit = hitPrediction.Metrics;
+            SelfImpulseMetrics selfImpulse = selfImpulsePrediction.Metrics;
             NetMetrics clock = client.Clock.Metrics;
             NetMetrics? connection = client.Connection?.Metrics;
             NetSample error = prediction.Error;
@@ -93,6 +96,24 @@ namespace MphRead.Mods.Network
                 + $"{Sample(connection?.QueueAgeMs.Count > 0 ? connection.QueueAgeMs.Max : null)} ms"
                 + $" rejected transport/protocol={traffic.PacketsRejected}/{client.Rejected}"
                 + $" queue-drops={traffic.QueueDrops} simulated-drops={traffic.SimulatedDrops} send-errors={traffic.SendErrors}");
+            Console.WriteLine($"[net-hit] discrete predicted/confirmed/denied/authority-only="
+                + $"{hit.Predicted}/{hit.Confirmed}/{hit.Denied}/{hit.AuthoritativeUnpredicted}"
+                + $" pending={hit.Pending} duplicate-prevented={hit.DuplicatePrevented}"
+                + $" headshot/kill-promotions={hit.HeadshotPromotions}/{hit.KillPromotions}"
+                + $" confirmation/denial={Sample(hit.ConfirmationRate * 100)}/{Sample(hit.DenialRate * 100)}%"
+                + $" shot-to-predicted/confirmed/lead={Sample(hit.MeanShotToPredictionFrames)}"
+                + $"/{Sample(hit.MeanShotToConfirmationFrames)}/{Sample(hit.MeanPredictionLeadFrames)} frames"
+                + $" continuous predicted/confirmed/denied/authority-only/pending="
+                + $"{hit.ContinuousPredicted}/{hit.ContinuousConfirmed}/{hit.ContinuousDenied}"
+                + $"/{hit.ContinuousAuthoritativeUnpredicted}/{hit.ContinuousPending}");
+            Console.WriteLine($"[net-self-impulse] predicted/confirmed/expired/authority-applied="
+                + $"{selfImpulse.Predicted}/{selfImpulse.Confirmed}/{selfImpulse.Expired}"
+                + $"/{selfImpulse.AuthoritativeApplied} bomb-jumps={selfImpulse.BombJumpsPredicted}"
+                + $" duplicate-prevented={selfImpulse.DuplicatePrevented} pending={selfImpulse.Pending}"
+                + $" impulse avg/max={Sample(selfImpulse.MeanImpulseMagnitude)}"
+                + $"/{Sample(selfImpulse.ImpulseMagnitudeMax)} corrections avg/max="
+                + $"{Sample(selfImpulse.MeanCorrectionDistance)}/{Sample(selfImpulse.CorrectionDistanceMax)}"
+                + $" hard={selfImpulse.HardCorrections}");
         }
 
         private static string Sample(double? value)

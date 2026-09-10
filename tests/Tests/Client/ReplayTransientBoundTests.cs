@@ -26,13 +26,13 @@ public sealed class ReplayTransientBoundTests
         owner.Position = new Vector3(0, 20000, 0);
         var first = Assert.IsType<BombEntity>(BombEntity.Spawn(owner, Matrix4.CreateTranslation(0, 10000, 0), scene));
         if (!first.Initialized) first.Initialize();
-        owner.SyluxBombs[0] = first; first.BombIndex = 0; owner.SyluxBombCount = 1;
+        Assert.True(owner.TryRegisterLockjawBomb(first));
         BombEntity? second = null;
         if (linked)
         {
             second = Assert.IsType<BombEntity>(BombEntity.Spawn(owner, Matrix4.CreateTranslation(1, 10000, 0), scene));
             if (!second.Initialized) second.Initialize();
-            owner.SyluxBombs[1] = second; second.BombIndex = 1; owner.SyluxBombCount = 2;
+            Assert.True(owner.TryRegisterLockjawBomb(second));
         }
         Assert.Equal(1800, first.Countdown);
         if (second != null) Assert.Equal(1800, second.Countdown);

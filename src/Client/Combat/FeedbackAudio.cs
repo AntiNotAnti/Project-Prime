@@ -5,7 +5,7 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Combat;
 
-public enum FeedbackCue { Hit, Headshot, Kill, CriticalHealth, Pickup, ObjectiveTaken, ObjectiveDropped, ObjectiveScored, PrimeChanged, Overtime, MatchPoint }
+public enum FeedbackCue { Hit, Headshot, Kill, CriticalHealth, PickupRespawned, ObjectiveTaken, ObjectiveDropped, ObjectiveScored, PrimeChanged, Overtime, MatchPoint }
 
 /// <summary>Bounded presentation cues with a separate gain and no gameplay callbacks.</summary>
 public sealed class FeedbackAudio
@@ -30,7 +30,7 @@ public sealed class FeedbackAudio
         FeedbackCue.Headshot => SfxId.MENU_CURSOR,
         FeedbackCue.Kill => SfxId.MENU_CONFIRM,
         FeedbackCue.CriticalHealth => SfxId.ENERGY_ALARM,
-        FeedbackCue.Pickup => SfxId.ITEM_SPAWN1,
+        FeedbackCue.PickupRespawned => SfxId.ITEM_SPAWN1,
         FeedbackCue.ObjectiveTaken => SfxId.POWER_UP1,
         FeedbackCue.ObjectiveDropped => SfxId.MENU_CANCEL,
         FeedbackCue.ObjectiveScored => SfxId.CAPTURE_RING_5,
@@ -39,6 +39,53 @@ public sealed class FeedbackAudio
         FeedbackCue.MatchPoint => SfxId.WEAPON_ALARM,
         _ => throw new ArgumentOutOfRangeException(nameof(cue))
     };
+
+    public static bool TryGetPickupSound(ItemType itemType, out SfxId sound)
+    {
+        switch (itemType)
+        {
+            case ItemType.HealthSmall:
+                sound = SfxId.POWER_UP1;
+                return true;
+            case ItemType.HealthMedium:
+            case ItemType.HealthBig:
+                sound = SfxId.POWER_UP2;
+                return true;
+            case ItemType.UASmall:
+            case ItemType.MissileSmall:
+                sound = SfxId.AMMO_POWER_UP1;
+                return true;
+            case ItemType.UABig:
+            case ItemType.MissileBig:
+                sound = SfxId.AMMO_POWER_UP2;
+                return true;
+            case ItemType.DoubleDamage:
+            case ItemType.Deathalt:
+                sound = SfxId.DOUBLE_DAMAGE_POWER_UP;
+                return true;
+            case ItemType.Cloak:
+                sound = SfxId.CLOAK_POWER_UP;
+                return true;
+            case ItemType.ArtifactKey:
+                sound = SfxId.KEY_PICKUP;
+                return true;
+            case ItemType.VoltDriver:
+            case ItemType.Battlehammer:
+            case ItemType.Imperialist:
+            case ItemType.Judicator:
+            case ItemType.Magmaul:
+            case ItemType.ShockCoil:
+            case ItemType.OmegaCannon:
+            case ItemType.AffinityWeapon:
+                // The authority does not distinguish a new weapon from a
+                // duplicate weapon converted to ammo in this event.
+                sound = SfxId.WEAPON_POWER_UP;
+                return true;
+            default:
+                sound = default;
+                return false;
+        }
+    }
 
     public bool Play(FeedbackCue cue, uint tick, Vector3? position = null)
     {
@@ -54,6 +101,18 @@ public sealed class FeedbackAudio
         source.Volume = gain;
         if (position.HasValue) source.Position = position.Value;
         source.PlaySfx(sound, noUpdate: position.HasValue);
+        return true;
+    }
+
+    /// <summary>Play the local confirmation for an authoritative pickup without a shared cue throttle.</summary>
+    public bool PlayPickupAcquired(ItemType itemType, uint tick)
+    {
+        _ = tick;
+        if (!TryGetPickupSound(itemType, out SfxId sound)) return false;
+        float gain = float.IsFinite(Volume) ? Math.Clamp(Volume, 0, 1) : 0;
+        if (gain == 0 || Sfx.TimedSfxMute > 0) return false;
+        _ui.Volume = gain;
+        _ui.PlaySfx(sound);
         return true;
     }
 

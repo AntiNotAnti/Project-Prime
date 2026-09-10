@@ -280,6 +280,12 @@ namespace MphRead.Mods.Network
             if (_loadedMatch == 0 && !_reloadOnNextApply) { _loadedMatch = Match.MatchId; MatchesLoaded++; }
             else if (_loadedMatch != Match.MatchId || _reloadOnNextApply)
             {
+                // A seek/baseline restore can reuse the same match id while
+                // replacing the scene's player instances. Drop any pending
+                // remote locomotion state before the restored snapshot is
+                // simulated, so the old life cannot leak into the replay.
+                foreach (PlayerEntity player in scene.GetPlayerEntities())
+                    player.ResetRemoteLocomotion();
                 _loadedMatch = Match.MatchId;
                 _reloadOnNextApply = false;
                 MatchesLoaded++;
@@ -408,6 +414,10 @@ namespace MphRead.Mods.Network
             {
                 PlayerEntity player = scene.Players[state.Slot];
                 player.Controls.ClearAll();
+                // Keep replay locomotion explicit on every application path;
+                // playback has no live interpolation clock and the render
+                // path may apply a frame without a newly decoded snapshot.
+                player.SetRemoteLocomotionIntent(state, state.Speed);
                 player.ApplySnapshotTransform(state);
             }
         }
@@ -428,6 +438,11 @@ namespace MphRead.Mods.Network
                 }
                 player.ApplyServerState(state, _lives[slot] != state.Life);
                 player.GetPresentation().ReconcileNetworkAfflictions(state, Snapshot.ServerTick, legacy: _protocol < 8);
+                // Replays do not use live snapshot interpolation. Feed the
+                // recorded engine velocity explicitly so removing animation
+                // selection from ApplySnapshotTransform does not change their
+                // deterministic locomotion.
+                player.SetRemoteLocomotionIntent(state, state.Speed);
                 player.ApplySnapshotTransform(state);
                 player.Controls.ClearAll();
                 _lives[slot] = state.Life;

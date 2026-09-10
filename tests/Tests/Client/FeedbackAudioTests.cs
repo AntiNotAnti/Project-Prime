@@ -21,7 +21,7 @@ public sealed class FeedbackAudioTests
             var audio = new FeedbackAudio(scene);
             FeedbackCue[] cues =
             {
-                FeedbackCue.Hit, FeedbackCue.Kill, FeedbackCue.Pickup,
+                FeedbackCue.Hit, FeedbackCue.Kill, FeedbackCue.PickupRespawned,
                 FeedbackCue.ObjectiveScored, FeedbackCue.Overtime, FeedbackCue.MatchPoint
             };
 
@@ -121,7 +121,7 @@ public sealed class FeedbackAudioTests
 
             var audio = new FeedbackAudio(scene);
             var local = new CombatActor(0, 100, 1);
-            Assert.True(audio.Play(FeedbackCue.Pickup, 100, new Vector3(1, 2, 3)));
+            Assert.True(audio.Play(FeedbackCue.PickupRespawned, 100, new Vector3(1, 2, 3)));
             audio.ObserveHealth(local, 24, 200);
 
             Assert.Equal(2, requests.Count);
@@ -131,6 +131,74 @@ public sealed class FeedbackAudioTests
             Assert.Equal(activePlayers, scene.Match.ActivePlayers);
             Assert.Equal(playerCount, scene.Players.ActiveCount);
             Assert.Equal(mainPlayer, scene.LocalPlayerSlot);
+        });
+    }
+
+    [Theory]
+    [InlineData(ItemType.HealthSmall, SfxId.POWER_UP1)]
+    [InlineData(ItemType.HealthMedium, SfxId.POWER_UP2)]
+    [InlineData(ItemType.HealthBig, SfxId.POWER_UP2)]
+    [InlineData(ItemType.UASmall, SfxId.AMMO_POWER_UP1)]
+    [InlineData(ItemType.MissileSmall, SfxId.AMMO_POWER_UP1)]
+    [InlineData(ItemType.UABig, SfxId.AMMO_POWER_UP2)]
+    [InlineData(ItemType.MissileBig, SfxId.AMMO_POWER_UP2)]
+    [InlineData(ItemType.DoubleDamage, SfxId.DOUBLE_DAMAGE_POWER_UP)]
+    [InlineData(ItemType.Cloak, SfxId.CLOAK_POWER_UP)]
+    [InlineData(ItemType.Deathalt, SfxId.DOUBLE_DAMAGE_POWER_UP)]
+    [InlineData(ItemType.ArtifactKey, SfxId.KEY_PICKUP)]
+    [InlineData(ItemType.VoltDriver, SfxId.WEAPON_POWER_UP)]
+    [InlineData(ItemType.Battlehammer, SfxId.WEAPON_POWER_UP)]
+    [InlineData(ItemType.Imperialist, SfxId.WEAPON_POWER_UP)]
+    [InlineData(ItemType.Judicator, SfxId.WEAPON_POWER_UP)]
+    [InlineData(ItemType.Magmaul, SfxId.WEAPON_POWER_UP)]
+    [InlineData(ItemType.ShockCoil, SfxId.WEAPON_POWER_UP)]
+    [InlineData(ItemType.OmegaCannon, SfxId.WEAPON_POWER_UP)]
+    [InlineData(ItemType.AffinityWeapon, SfxId.WEAPON_POWER_UP)]
+    public void PickupMapperMatchesAuthoritativeItemSemantics(ItemType itemType, SfxId expected)
+    {
+        Assert.True(FeedbackAudio.TryGetPickupSound(itemType, out SfxId actual));
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void UnsupportedPickupHasNoAcquisitionSound()
+    {
+        Assert.False(FeedbackAudio.TryGetPickupSound(ItemType.EnergyTank, out _));
+        Assert.False(FeedbackAudio.TryGetPickupSound(ItemType.UAExpansion, out _));
+        Assert.False(FeedbackAudio.TryGetPickupSound(ItemType.MissileExpansion, out _));
+    }
+
+    [Fact]
+    public void RapidAcquisitionsRemainIndependentAndNonPositional()
+    {
+        WithHeadlessScene((scene, requests) =>
+        {
+            var audio = new FeedbackAudio(scene);
+
+            Assert.True(audio.PlayPickupAcquired(ItemType.HealthSmall, 100));
+            Assert.True(audio.PlayPickupAcquired(ItemType.UASmall, 101));
+            Assert.True(audio.PlayPickupAcquired(ItemType.VoltDriver, 102));
+
+            Assert.Equal(new[] { SfxId.POWER_UP1, SfxId.AMMO_POWER_UP1, SfxId.WEAPON_POWER_UP },
+                requests.Select(request => (SfxId)request.Id));
+            Assert.All(requests, request =>
+            {
+                Assert.Equal(AudioRequestKind.Play, request.Kind);
+                Assert.False(request.NoUpdate);
+            });
+        });
+    }
+
+    [Fact]
+    public void RespawnCueRemainsPositional()
+    {
+        WithHeadlessScene((scene, requests) =>
+        {
+            var audio = new FeedbackAudio(scene);
+            Assert.True(audio.Play(FeedbackCue.PickupRespawned, 100, new Vector3(1, 2, 3)));
+            AudioRequest request = Assert.Single(requests);
+            Assert.True(request.NoUpdate);
+            Assert.NotNull(request.Source);
         });
     }
 

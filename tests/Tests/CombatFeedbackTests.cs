@@ -11,10 +11,12 @@ namespace MphRead.Tests;
 public class CombatFeedbackTests : IDisposable
 {
     private readonly HitMarkerMode _markers = CombatFeedbackSettings.HitMarkers;
+    private readonly HitMarkerTiming _timing = CombatFeedbackSettings.Timing;
     private readonly bool _headshot = CombatFeedbackSettings.HeadshotCue, _kill = CombatFeedbackSettings.KillConfirmation;
     public void Dispose()
     {
         CombatFeedbackSettings.HitMarkers = _markers;
+        CombatFeedbackSettings.Timing = _timing;
         CombatFeedbackSettings.HeadshotCue = _headshot;
         CombatFeedbackSettings.KillConfirmation = _kill;
     }
@@ -23,10 +25,46 @@ public class CombatFeedbackTests : IDisposable
     private static CombatFeedback New()
     {
         CombatFeedbackSettings.HitMarkers = HitMarkerMode.Visual;
+        CombatFeedbackSettings.Timing = HitMarkerTiming.Confirmed;
         CombatFeedbackSettings.HeadshotCue = CombatFeedbackSettings.KillConfirmation = true;
         var feedback = new CombatFeedback();
         feedback.Bind(1, Local, Roster);
         return feedback;
+    }
+
+    [Fact]
+    public void PredictedMarkerPromotesWithoutSpeculativeAudio()
+    {
+        var f = New();
+        CombatFeedbackSettings.Timing = HitMarkerTiming.Instant;
+        f.PresentPredictedHit(Local, Enemy, 100);
+        Assert.Equal(HitMarkerKind.Predicted, f.VisibleMarker(100));
+        Assert.Equal(1u, f.State.MarkerSequence);
+        Assert.Equal(0u, f.State.MarkerAudioSequence);
+        Assert.Equal(HitMarkerKind.None, f.VisibleMarker(106));
+
+        f.PresentPredictedHit(Local, Enemy, 110);
+        Assert.True(f.Process(Damage(1, Local, Enemy)));
+        Assert.Equal(HitMarkerKind.Hit, f.VisibleMarker(110));
+        Assert.Equal(3u, f.State.MarkerSequence);
+        Assert.Equal(1u, f.State.MarkerAudioSequence);
+    }
+
+    [Fact]
+    public void MarkerPriorityAndDurationsPreserveStrongAuthoritativeCue()
+    {
+        var f = New();
+        Assert.True(f.Process(Damage(1, Local, Enemy, flags: CombatEventFlags.Headshot)));
+        Assert.Equal(HitMarkerKind.Headshot, f.VisibleMarker(115));
+        uint sequence = f.State.MarkerSequence;
+        Assert.True(f.Process(Damage(2, Local, Enemy)));
+        Assert.Equal(sequence, f.State.MarkerSequence);
+        Assert.True(f.Process(Kill(3, Local, Enemy)));
+        Assert.Equal(HitMarkerKind.Kill, f.VisibleMarker(117));
+        sequence = f.State.MarkerSequence;
+        Assert.True(f.Process(Damage(4, Local, Enemy)));
+        Assert.Equal(sequence, f.State.MarkerSequence);
+        Assert.Equal(HitMarkerKind.None, f.VisibleMarker(118));
     }
     private static CombatEvent Damage(uint id, CombatActor source, CombatActor target, ushort amount = 10, ushort health = 90,
         CombatEventFlags flags = 0) => new(id, 100, 1, CombatEventKind.Damage, 0, flags, source, target, health, amount,
@@ -44,7 +82,7 @@ public class CombatFeedbackTests : IDisposable
         Assert.Equal(HitMarkerKind.None, f.VisibleMarker(100));
         f.Process(Damage(3, Local, Enemy, flags: CombatEventFlags.Headshot));
         Assert.Equal(HitMarkerKind.Headshot, f.VisibleMarker(100));
-        Assert.Equal(HitMarkerKind.None, f.VisibleMarker(112));
+        Assert.Equal(HitMarkerKind.None, f.VisibleMarker(116));
     }
 
     [Fact]

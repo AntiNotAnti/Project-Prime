@@ -62,4 +62,28 @@ public sealed class ReplayStateTests
         Assert.False(ReplayFeedbackState.Restore(trailing, restored, restoredWorld));
         Assert.Equal(checkpoint, ReplayFeedbackState.Capture(restored, restoredWorld));
     }
+
+    [Fact]
+    public void ReplayCheckpointDoesNotSerializePendingWorldNotices()
+    {
+        var combat = new CombatFeedback();
+        var world = new WorldFeedback();
+        var local = new CombatActor(0, 100, 1);
+        world.Bind(1, 1);
+        WorldEvent capture = new(1, 10, 1, 1, WorldSubjectKind.Flag,
+            WorldSignalKind.FlagCaptured, 0, 9, local, Vector3.Zero);
+        Assert.True(world.Process(capture, local, 20));
+        byte[] checkpoint = ReplayFeedbackState.Capture(combat, world);
+
+        Assert.True(world.TryDequeueNotice(out _));
+        Assert.Equal(checkpoint, ReplayFeedbackState.Capture(combat, world));
+
+        var restoredCombat = new CombatFeedback();
+        var restoredWorld = new WorldFeedback();
+        restoredWorld.Bind(1, 1);
+        Assert.True(restoredWorld.Process(capture, local, 30));
+        Assert.True(ReplayFeedbackState.Restore(checkpoint, restoredCombat, restoredWorld));
+        Assert.False(restoredWorld.TryDequeueNotice(out _));
+        Assert.Equal(checkpoint, ReplayFeedbackState.Capture(restoredCombat, restoredWorld));
+    }
 }

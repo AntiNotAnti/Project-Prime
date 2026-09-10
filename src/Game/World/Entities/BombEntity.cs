@@ -15,7 +15,11 @@ namespace MphRead.Entities
         public BombFlags Flags { get; private set; }
         public PlayerEntity Owner { get; private set; } = null!;
         public BombType BombType { get; private set; }
-        public int BombIndex { get; set; }
+        public int BombIndex { get; set; } = -1;
+        internal uint LockjawRegistryGeneration { get; set; }
+        internal Scene Scene => _scene;
+        internal bool IsLive => !_destroyed && !Flags.TestFlag(BombFlags.Exploded);
+        private bool _destroyed;
 
         private EntityBase? _target = null;
         private Vector3 _speed = Vector3.Zero;
@@ -52,10 +56,11 @@ namespace MphRead.Entities
                 Countdown = SimTicks.From30HzFrames(900);
                 // bombStartSylux, bombStartSyluxR, bombStartSyluxP, bombStartSyluxW, bombStartSyluxO, or bombStartSyluxG
                 effectId = Metadata.SyluxBombEffects[Recolor];
-                if (Owner.SyluxBombCount == 1)
+                BombEntity[] registered = Owner.GetRegisteredLockjawBombs();
+                if (registered.Length == 1)
                 {
                     CollisionResult colRes = default;
-                    BombEntity firstBomb = Owner.SyluxBombs[0]!;
+                    BombEntity firstBomb = registered[0];
                     Vector3 between = firstBomb.Position - Position;
                     if (between.LengthSquared >= 100 || CollisionDetection.CheckBetweenPoints(firstBomb.Position, Position,
                         TestFlags.Players, _scene, ref colRes))
@@ -85,6 +90,8 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            bool registeredLockjaw = BombType == BombType.Lockjaw
+                && Owner.IsRegisteredLockjawBomb(this);
             EntityBase? hitEntity = null;
             _soundSource.Update(Position, rangeIndex: 5);
             UpdateNodeRefVolume();
@@ -118,7 +125,7 @@ namespace MphRead.Entities
                     {
                         continue;
                     }
-                    if (BombType == BombType.Lockjaw)
+                    if (registeredLockjaw)
                     {
                         LockjawCheckTargeting(player, ref hitEntity);
                     }
@@ -178,15 +185,17 @@ namespace MphRead.Entities
                         }
                     }
                 }
-                if (BombType == BombType.Lockjaw && BombIndex == 0 && Owner.SyluxBombCount == 3
+                if (registeredLockjaw && BombIndex == 0
                     && _target == null && hitEntity == null)
                 {
-                    for (int i = 0; i < 3; i++)
+                    BombEntity[] registered = Owner.GetRegisteredLockjawBombs();
+                    if (registered.Length == Owner.SyluxBombs.Length)
                     {
-                        BombEntity? bomb = Owner.SyluxBombs[i];
-                        Debug.Assert(bomb != null);
-                        bomb.Countdown = 1;
-                        bomb._target = Owner;
+                        foreach (BombEntity bomb in registered)
+                        {
+                            bomb.Countdown = 1;
+                            bomb._target = Owner;
+                        }
                     }
                 }
             }
@@ -208,12 +217,10 @@ namespace MphRead.Entities
                     Flags |= BombFlags.Exploding;
                     Countdown = 0;
                 }
-                if (hitEntity != null)
+                if (registeredLockjaw && hitEntity != null)
                 {
-                    for (int i = 0; i < Owner.SyluxBombCount; i++)
+                    foreach (BombEntity bomb in Owner.GetRegisteredLockjawBombs())
                     {
-                        BombEntity? bomb = Owner.SyluxBombs[i];
-                        Debug.Assert(bomb != null);
                         bomb._target = hitEntity;
                         if (bomb.Countdown > SimTicks.From30HzFrames(22)) // the game compares against 22.5
                         {
@@ -269,6 +276,8 @@ namespace MphRead.Entities
         // todo: visualize
         private void LockjawCheckTargeting(PlayerEntity player, ref EntityBase? hitEntity)
         {
+            if (!Owner.IsRegisteredLockjawBomb(this)) return;
+            BombEntity[] registered = Owner.GetRegisteredLockjawBombs();
             Vector3 targetPos;
             if (player.IsAltForm)
             {
@@ -284,8 +293,8 @@ namespace MphRead.Entities
             bool lineHitHalfturret = false;
             if (BombIndex == 1)
             {
-                BombEntity? bombZero = Owner.SyluxBombs[0];
-                Debug.Assert(bombZero != null);
+                if (registered.Length <= 1) return;
+                BombEntity bombZero = registered[0];
                 if (player.IsAltForm && CollisionDetection.CheckCylinderOverlapSphere(Position, bombZero.Position,
                         targetPos, player.Volume.SphereRadius, ref discard))
                 {
@@ -307,10 +316,9 @@ namespace MphRead.Entities
             }
             else if (BombIndex == 2)
             {
-                BombEntity? bombZero = Owner.SyluxBombs[0];
-                BombEntity? bombOne = Owner.SyluxBombs[1];
-                Debug.Assert(bombZero != null);
-                Debug.Assert(bombOne != null);
+                if (registered.Length <= 2) return;
+                BombEntity bombZero = registered[0];
+                BombEntity bombOne = registered[1];
                 if (player.IsAltForm && CollisionDetection.CheckCylinderOverlapSphere(Position, bombZero.Position,
                         targetPos, player.Volume.SphereRadius, ref discard))
                 {
@@ -352,17 +360,15 @@ namespace MphRead.Entities
                     }
                 }
             }
-            else if (Owner.SyluxBombCount == 3)
+            else if (registered.Length == Owner.SyluxBombs.Length)
             {
                 Debug.Assert(BombIndex == 0);
                 if (LockjawCheckSnare(player.Position))
                 {
                     // player in snare
                     hitEntity = player;
-                    for (int i = 0; i < Owner.SyluxBombCount; i++)
+                    foreach (BombEntity bomb in registered)
                     {
-                        BombEntity? bomb = Owner.SyluxBombs[i];
-                        Debug.Assert(bomb != null);
                         bomb.Damage = 60;
                         bomb.EnemyDamage = 60;
                     }
@@ -371,10 +377,8 @@ namespace MphRead.Entities
                 {
                     // halfturret in snare
                     hitEntity = player.Halfturret;
-                    for (int i = 0; i < Owner.SyluxBombCount; i++)
+                    foreach (BombEntity bomb in registered)
                     {
-                        BombEntity? bomb = Owner.SyluxBombs[i];
-                        Debug.Assert(bomb != null);
                         bomb.Damage = 60;
                         bomb.EnemyDamage = 60;
                     }
@@ -397,12 +401,14 @@ namespace MphRead.Entities
 
         private bool LockjawCheckSnare(Vector3 position)
         {
-            BombEntity? bombZero = Owner.SyluxBombs[0];
-            BombEntity? bombOne = Owner.SyluxBombs[1];
-            BombEntity? bombTwo = Owner.SyluxBombs[2];
-            Debug.Assert(bombZero != null);
-            Debug.Assert(bombOne != null);
-            Debug.Assert(bombTwo != null);
+            BombEntity[] registered = Owner.GetRegisteredLockjawBombs();
+            if (!Owner.IsRegisteredLockjawBomb(this) || registered.Length != Owner.SyluxBombs.Length)
+            {
+                return false;
+            }
+            BombEntity bombZero = registered[0];
+            BombEntity bombOne = registered[1];
+            BombEntity bombTwo = registered[2];
             Vector3 zeroToOne = bombOne.Position - bombZero.Position;
             Vector3 oneToTwo = bombTwo.Position - bombOne.Position;
             Vector3 cross1 = Vector3.Cross(oneToTwo, zeroToOne).Normalized();
@@ -487,17 +493,12 @@ namespace MphRead.Entities
 
         public override void Destroy()
         {
+            if (_destroyed) return;
+            _destroyed = true;
             _soundSource.StopAllSfx();
             if (BombType == BombType.Lockjaw)
             {
-                for (int i = BombIndex; i < Owner.SyluxBombCount - 1; i++)
-                {
-                    BombEntity? bomb = Owner.SyluxBombs[i + 1];
-                    Debug.Assert(bomb != null);
-                    Owner.SyluxBombs[i] = bomb;
-                    bomb.BombIndex = i;
-                }
-                Owner.SyluxBombCount--;
+                Owner.UnregisterLockjawBomb(this);
             }
             _models.Clear();
             _trailModel = null;
@@ -537,8 +538,12 @@ namespace MphRead.Entities
                 return null;
             }
             bomb.Owner = owner;
-            bomb.CombatShot = scene.Services.Combat?.CaptureAttribution(owner) ?? default;
+            bomb.CombatShot = scene.Services.Combat?.CaptureAttribution(owner)
+                ?? scene.Services.CapturePresentationAttribution(owner);
             bomb.BombType = type;
+            bomb.BombIndex = -1;
+            bomb.LockjawRegistryGeneration = 0;
+            bomb._destroyed = false;
             bomb.Transform = transform;
             bomb.Recolor = owner.Recolor;
             bomb.Flags = BombFlags.None;
