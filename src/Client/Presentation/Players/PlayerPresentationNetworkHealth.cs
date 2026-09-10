@@ -9,6 +9,7 @@ namespace MphRead.Entities
     {
         private long _nextNetworkHealth;
         private NetworkHealthState _networkHealth;
+        private readonly NetworkHealthSmoother _networkHealthSmoother = new();
         private string _networkSummary = "", _networkSamples = "", _networkPrediction = "";
         private void DrawNetworkHealth()
         {
@@ -17,18 +18,29 @@ namespace MphRead.Entities
             if (now >= _nextNetworkHealth)
             {
                 _nextNetworkHealth = now + Stopwatch.Frequency / 4;
-                if (play.ReadNetworkHealth() is not { } health) return;
-                _networkHealth = health.State;
-                string rtt = health.HasRtt ? $"{health.Rtt:0}ms" : "--";
-                string jitter = health.HasRtt ? $"{health.Jitter:0}ms" : "--";
-                string interval = health.HasSnapshotInterval ? $"{health.SnapshotInterval:0}ms" : "--";
-                _networkSummary = $"RTT {rtt}  jitter {jitter}  snap {interval}";
-                _networkSamples = $"hold {health.HoldPercent:0.0}%  extrap {health.ExtrapolationPercent:0.0}%  queue {health.QueueAge:0}ms";
-                _networkPrediction = $"err {health.PredictionError:0.00}  hard {health.HardCorrections}  packets {health.Packets} dup/reorder {health.Duplicates}/{health.Reordered}";
+                if (play.Client.State == NetConnectionState.Connecting)
+                {
+                    _networkHealth = _networkHealthSmoother.Observe(NetworkHealthState.Reconnecting);
+                }
+                else if (play.ReadNetworkHealth() is { } health)
+                {
+                    _networkHealth = _networkHealthSmoother.Observe(health.State);
+                    string rtt = health.HasRtt ? $"{health.Rtt:0}ms" : "--";
+                    string jitter = health.HasRtt ? $"{health.Jitter:0}ms" : "--";
+                    string interval = health.HasSnapshotInterval ? $"{health.SnapshotInterval:0}ms" : "--";
+                    _networkSummary = $"RTT {rtt}  jitter {jitter}  snap {interval}";
+                    _networkSamples = $"hold {health.HoldPercent:0.0}%  extrap {health.ExtrapolationPercent:0.0}%  queue {health.QueueAge:0}ms";
+                    _networkPrediction = $"err {health.PredictionError:0.00}  hard {health.HardCorrections}  packets {health.Packets} dup/reorder {health.Duplicates}/{health.Reordered}";
+                }
             }
-            if (_networkHealth != NetworkHealthState.Good)
+            if (_networkHealth is NetworkHealthState.Unstable or NetworkHealthState.Poor or NetworkHealthState.Reconnecting)
             {
-                string text = _networkHealth switch { NetworkHealthState.Interrupted => "CONNECTION INTERRUPTED", NetworkHealthState.HighLatency => "HIGH LATENCY", _ => "UNSTABLE CONNECTION" };
+                string text = _networkHealth switch
+                {
+                    NetworkHealthState.Reconnecting => "RECONNECTING…",
+                    NetworkHealthState.Poor => "POOR CONNECTION",
+                    _ => "UNSTABLE CONNECTION"
+                };
                 DrawText2D(128, 12, Align.Center, 0, text, new ColorRgba(255, 190, 64, 255), scale: .65f);
             }
             if (NetworkHealthSettings.Advanced)

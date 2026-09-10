@@ -7,6 +7,9 @@ using MphRead.Formats;
 using MphRead.Mods;
 using MphRead.Mods.Launcher;
 using OpenTK.Mathematics;
+#if ANDROID
+using OpenTK.Graphics.OpenGL;
+#endif
 namespace MphRead
 {
     public partial class ScenePresentation

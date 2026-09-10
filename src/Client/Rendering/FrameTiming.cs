@@ -11,12 +11,12 @@ namespace MphRead.Mods.Render
     /// <c>// todo: FPS stuff</c> markers are. The simulation therefore cannot
     /// be asked to run at any other rate without rewriting all of them, and
     /// rewriting them would move the wire format too, since an intent is sent
-    /// per frame and a demo is a count of frames.
+    /// per frame and a replay is a count of frames.
     ///
     /// So the simulation is not asked. It stays pinned at exactly 60 Hz here
     /// and the *drawing* is what runs at the display's rate. A machine
     /// holding 144 fps runs the same 60 simulation steps a second it always
-    /// did, sends the same packets on the same frames, and records a demo
+    /// did, sends the same packets on the same frames, and records a replay
     /// another build can play back. RenderAlpha exposes the fractional remainder to the client renderer,
     /// which may blend copied submission transforms between completed steps
     /// without changing the simulation state.

@@ -47,7 +47,7 @@ namespace MphRead.Entities
                     : play.Client.Snapshot.ServerTick + Stopwatch.GetElapsedTime(play.Client.SnapshotReceivedAt).TotalSeconds * 60;
                 return unchecked((uint)(long)Math.Floor(tick));
             }
-            return DemoPlayback.SnapshotServerTick ?? NetworkAfflictions.Tick;
+            return ReplayPlayback.SnapshotServerTick ?? NetworkAfflictions.Tick;
         }
 
         private void PresentNetworkAffliction(in CombatEvent value)

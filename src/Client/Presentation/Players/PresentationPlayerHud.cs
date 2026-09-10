@@ -993,7 +993,7 @@ namespace MphRead.Entities
             }
             else if (_player._scene.Match.Phase == MatchPhase.Countdown)
             {
-                uint tick = Mods.Network.AuthoritativePlay.Current?.WorldServerTick ?? Mods.Network.DemoPlayback.WorldServerTick ?? _player._scene.Match.PhaseStartTick;
+                uint tick = Mods.Network.AuthoritativePlay.Current?.WorldServerTick ?? Mods.Network.ReplayPlayback.WorldServerTick ?? _player._scene.Match.PhaseStartTick;
                 int remaining = Math.Max(0, unchecked((int)(_player._scene.Match.PhaseEndTick - tick)));
                 int seconds = remaining / 60 + (remaining % 60 == 0 ? 0 : 1);
                 DrawText2D(128, 40, Align.Center, 0, $"STARTING IN {seconds}", new ColorRgba(0x3FEF), fontSpacing: 8);

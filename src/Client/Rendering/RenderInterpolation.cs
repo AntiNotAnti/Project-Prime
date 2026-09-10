@@ -92,13 +92,13 @@ namespace MphRead
             && !World.LocalPlayer!.IsAltForm
             && !World.LocalPlayer!.IsMorphing && !World.LocalPlayer!.IsUnmorphing && !World.LocalPlayer!.Flags1.TestFlag(PlayerFlags1.NoAimInput);
         private bool InterpolationEnabled => FrameTiming.Active && !FrameAdvance
-            && !Mods.SpectatorMode.IsSpectating && !Mods.Network.DemoPlayback.IsActive && World.CameraSequences.Current == null;
+            && !Mods.SpectatorMode.IsSpectating && !Mods.Network.ReplayPlayback.IsActive && World.CameraSequences.Current == null;
         // Biped smoothing is skeletal presentation only.  It deliberately has
         // its own eligibility gate: observers and replay still benefit from
         // local pose interpolation, while their world/camera paths must not be
         // switched onto the generic entity interpolation delta.
         private bool SkeletalInterpolationEnabled => FrameTiming.Active && !FrameAdvance
-            && !Mods.Network.DemoPlayback.IsSeeking;
+            && !Mods.Network.ReplayPlayback.IsSeeking;
         private bool IsLocal(PlayerEntity player) => !World.Services.IsReplica || player.SlotIndex == World.Services.LocalSlot;
         private static bool Tracks(EntityBase entity) => entity is PlayerEntity or PlatformEntity or DoorEntity
             or BombEntity or BeamProjectileEntity or ItemInstanceEntity;
@@ -114,7 +114,7 @@ namespace MphRead
         {
             long corrections = Mods.Network.AuthoritativePlay.Current?.Prediction.HardCorrections ?? 0;
             int viewState = HashCode.Combine(CameraMode, Mods.SpectatorMode.IsSpectating,
-                Mods.Network.DemoPlayback.IsActive, World.CameraSequences.Current);
+                Mods.Network.ReplayPlayback.IsActive, World.CameraSequences.Current);
             if (_poseRoom != World.RoomId || _poseMain != World.LocalPlayerSlot
                 || _timingGeneration != FrameTiming.Discontinuities || corrections != _correctionGeneration || viewState != _viewState)
                 ResetPoseHistory();
@@ -222,7 +222,7 @@ namespace MphRead
         private Matrix4 SubmissionTransform(Matrix4 transform) => _submissionInterpolated ? transform * _submissionDelta : transform;
         private void ApplyRenderCamera()
         {
-            if (!ControlsPlayer || Mods.SpectatorMode.IsSpectating || Mods.Network.DemoPlayback.IsActive) return;
+            if (!ControlsPlayer || Mods.SpectatorMode.IsSpectating || Mods.Network.ReplayPlayback.IsActive) return;
             Matrix4 camera = World.LocalPlayer!.CameraInfo.ViewMatrix.Inverted();
             if (InterpolationEnabled && _cameraHistory.HasSamples) camera.Row3.Xyz = _cameraHistory.Resolve(FrameTiming.RenderAlpha).Row3.Xyz;
             if (CanCaptureRenderLook)

@@ -62,7 +62,7 @@ namespace MphRead.Mods
         public static bool CanSpectate => true;
 
         /// <param name="watchSomeone">
-        /// Skip the overview and go straight to a player, for demo playback,
+        /// Skip the overview and go straight to a player, for replay playback,
         /// which has no view of its own to have just left.
         /// </param>
         public static void Start(Scene scene, bool watchSomeone = false)
@@ -74,7 +74,7 @@ namespace MphRead.Mods
             int next = FindNextActiveSlot(scene, scene.LocalPlayerSlot);
             if (watchSomeone && next == -1)
             {
-                // Nobody to watch yet: the demo path calls this every frame
+                // Nobody to watch yet: the replay path calls this every frame
                 // until there is somebody, so this is "not yet", not "no".
                 return;
             }
@@ -290,7 +290,7 @@ namespace MphRead.Mods
                 // Spawned and alive, not just Active: Active alone can be
                 // true for a slot that exists but has not actually been
                 // placed in the map yet (see BuildPlayers/NetSlotManager),
-                // which during demo playback showed up as a body with no
+                // which during replay playback showed up as a body with no
                 // model and no textures for a frame or more -- Main pointed
                 // at a player camera code did not yet consider ready to draw.
                 if (candidate.LoadFlags.TestFlag(LoadFlags.Active)

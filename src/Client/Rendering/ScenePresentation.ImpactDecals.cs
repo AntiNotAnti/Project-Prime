@@ -254,7 +254,7 @@ namespace MphRead
         public void ObserveStaticBeamImpact(
             in StaticBeamImpactPresentation impact)
         {
-            if (Mods.Network.DemoPlayback.IsSeeking) return;
+            if (Mods.Network.ReplayPlayback.IsSeeking) return;
             _impactDecalPresentation.TryObserve(impact,
                 Mods.RenderOptions.GraphicsPreset, CombatFeedback.Local);
         }

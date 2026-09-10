@@ -194,7 +194,7 @@ namespace MphRead
 #endif
         private RenderPresentationStage _capturingPresentationStage;
         private int _framesRecorded = 0;
-        public bool ProcessFrame => (Mods.Network.DemoPlayback.IsActive || World.FrameCount == 0 || !_frameAdvanceOn || _advanceOneFrame) && !_exiting;
+        public bool ProcessFrame => (PlaybackActive || World.FrameCount == 0 || !_frameAdvanceOn || _advanceOneFrame) && !_exiting;
         private bool _exiting = false;
         public bool Exiting => _exiting;
 
@@ -227,9 +227,21 @@ namespace MphRead
         private readonly MouseState _mouseState;
         private readonly Action<string> _setTitle;
         private readonly Action _close;
+        private readonly Mods.Network.ReplayPlaybackSession? _replaySession;
+        private readonly bool _isolatedPresentation;
+        private bool _audioActive;
+        private bool _gameplayInputSuppressed;
+        internal Action<ScenePresentation>? AdditionalOverlay { get; set; }
+
+        private bool PlaybackActive => _replaySession?.IsActive
+            ?? Mods.Network.ReplayPlayback.IsActive;
+        private bool PlaybackSeeking => _replaySession?.IsSeeking
+            ?? Mods.Network.ReplayPlayback.IsSeeking;
+        private bool PlaybackAtEnd => _replaySession?.AtEnd
+            ?? Mods.Network.ReplayPlayback.AtEnd;
 
         public bool IsEntityVisible(NodeRef nodeRef) => nodeRef == NodeRef.None || CameraMode != CameraMode.Player
-            || ShowInvisibleEntities || Mods.Network.DemoPlayback.IsActive || IsNodeRefVisible(nodeRef);
+            || ShowInvisibleEntities || PlaybackActive || IsNodeRefVisible(nodeRef);
         public bool IsEntityAudible(NodeRef nodeRef) => nodeRef == NodeRef.None || CameraMode != CameraMode.Player
             || (World.Room != null && ((RoomEntityPresentation)EntityPresentation.Get(World.Room, this)).IsNodeRefAudible(nodeRef));
         public Scene World { get; }
@@ -271,16 +283,23 @@ namespace MphRead
             ? presentation : throw new InvalidOperationException("The scene has no client presentation.");
 
         public ScenePresentation(Scene world, Vector2i size, KeyboardState keyboardState, MouseState mouseState,
-            Action<string> setTitle, Action close)
+            Action<string> setTitle, Action close, ISceneServices? sceneServices = null,
+            Mods.Network.ReplayPlaybackSession? replaySession = null)
         {
             if (world.IsHeadless) throw new ArgumentException("A server scene cannot own client presentation.", nameof(world));
             World = world;
+            _replaySession = replaySession;
+            _isolatedPresentation = replaySession?.IsPassive == true;
+            _audioActive = !_isolatedPresentation;
             _presentations.Add(world, this);
             world.Presentation = this;
-            world.JumpPadActivated += Mods.WorldEvents.NoteJumpPad;
-            world.PlayerTeleported += Mods.WorldEvents.NoteTeleport;
+            if (!_isolatedPresentation)
+            {
+                world.JumpPadActivated += Mods.WorldEvents.NoteJumpPad;
+                world.PlayerTeleported += Mods.WorldEvents.NoteTeleport;
+            }
             world.PlayerTeleported += (_, _) => ResetPoseHistory();
-            world.Services = new Mods.Network.ClientSceneServices();
+            world.Services = sceneServices ?? new Mods.Network.ClientSceneServices();
             Size = size;
 #if ANDROID
             _shaderLocations = _legacyShaderLocations;
@@ -292,7 +311,7 @@ namespace MphRead
             ClientPresentationContentState content = ClientPresentationContent.Refresh();
             Announcer = Mods.Audio.AnnouncerService.FromOptionalPack(content.Announcer.Pack);
             AnnouncerAssets = content.AnnouncerAssets;
-            Music.Init(content);
+            if (!_isolatedPresentation) Music.Init(content);
         }
 
         public void AddRoom(string name, GameMode mode = GameMode.None, int playerCount = 0,
@@ -303,8 +322,9 @@ namespace MphRead
                 throw new ProgramException("No supported multiplayer room with this name is known.");
             if (mode == GameMode.None)
                 mode = metadata.Name == "AD1 TRANSFER LOCK BT" ? GameMode.Bounty : GameMode.Battle;
-            MatchRules? admitted = Mods.Network.AuthoritativePlay.Current?.Client.Accepted.Rules
-                ?? Mods.Network.DemoPlayback.InitialRules;
+            MatchRules? admitted = _replaySession?.InitialRules
+                ?? Mods.Network.AuthoritativePlay.Current?.Client.Accepted.Rules
+                ?? Mods.Network.ReplayPlayback.InitialRules;
             World.Match.ApplyRules(admitted ?? MatchRules.CreateDefault(mode.ToMatchMode(), metadata.Name));
             if (admitted == null) Mods.GameSettings.ApplyMatchRules(World);
             _visualLightIdentities.ResetScope();
@@ -356,8 +376,14 @@ namespace MphRead
             ConfigureImpactDecals(metadata);
             _cameraMode = World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active) ? CameraMode.Player : CameraMode.Roam;
             _inputMode = _cameraMode == CameraMode.Player ? InputMode.All : InputMode.CameraOnly;
-            Sound.Sfx.Load(World);
-            Music.TryPlayRoomMusic(World.RoomId, 0);
+            // A secondary replay scene shares the live process audio device.
+            // It must not replace the live scene's global SFX subscription or
+            // music owner while it is warming up off screen.
+            if (!_isolatedPresentation)
+            {
+                Sound.Sfx.Load(World);
+                Music.TryPlayRoomMusic(World.RoomId, 0);
+            }
         }
 
         public void BeforeWorldUpdate()
@@ -486,7 +512,7 @@ namespace MphRead
                 }
             }
             CaptureSimulationPoses();
-            OutputStart();
+            if (!_isolatedPresentation) OutputStart();
             GC.Collect(generation: 2, GCCollectionMode.Forced, blocking: true, compacting: true);
             // Android's runtime throws PlatformNotSupported for this, which took
             // every match on that head down before a room had finished loading.
@@ -1186,33 +1212,42 @@ namespace MphRead
         /// accumulator so it happens 60 times a second whatever the picture is
         /// doing -- which is what lets the drawing run at 144 without the
         /// 800-odd frame-counted timers in the entity code, the per-frame
-        /// intent stream or the demo format noticing anything.
+        /// intent stream or the replay format noticing anything.
         /// </summary>
         public SpectatorCameraController SpectatorCamera { get; } = new();
 
         public void OnSimulationFrame()
         {
-            SpectatorCamera.Poll(this, _keyboardState);
-            Mods.Network.ReplayControls.Poll(_keyboardState, _mouseState, Size);
-            Mods.Network.IntermissionVoteControls.Poll(_keyboardState, _mouseState, Size);
-            if (Mods.Network.DemoPlayback.ProcessSeek(OnSimulationStep, BeginReplaySeek))
+            if (_replaySession != null) _replaySession.AdvanceHighlightRange();
+            else Mods.Network.ReplayPlayback.AdvanceHighlightRange();
+            if (!_isolatedPresentation)
             {
-                if (!Mods.Network.DemoPlayback.IsSeeking)
+                SpectatorCamera.Poll(this, _keyboardState);
+                Mods.Network.ReplayControls.Poll(_keyboardState, _mouseState, Size);
+                Mods.Network.IntermissionVoteControls.Poll(_keyboardState, _mouseState, Size);
+            }
+            bool processedSeek = _replaySession != null
+                ? _replaySession.ProcessSeek(OnSimulationStep, BeginReplaySeek)
+                : Mods.Network.ReplayPlayback.ProcessSeek(OnSimulationStep, BeginReplaySeek);
+            if (processedSeek)
+            {
+                if (!PlaybackSeeking)
                 {
                     ResetPoseHistory(); ResetRenderLook();
                     foreach (PlayerEntity player in World.GetPlayerEntities()) player.GetPresentation().SynchronizeReplayFeedbackAudio();
                     var local = CombatFeedback.Local;
                     FeedbackAudio.RestoreReplayBaseline(local, local.IsValid ? (ushort)World.Players[local.Slot].Health : (ushort)0);
                     WorldFeedback.ClearPendingNotices();
-                    Music.TryPlayRoomMusic(World.RoomId, 0);
+                    if (!_isolatedPresentation) Music.TryPlayRoomMusic(World.RoomId, 0);
                 }
                 return;
             }
-            int steps = Mods.Network.DemoPlayback.TakeSimulationSteps();
-            if (steps == 0 && Mods.SpectatorMode.IsSpectating) OnKeyHeld();
+            int steps = _replaySession?.TakeSimulationSteps()
+                ?? Mods.Network.ReplayPlayback.TakeSimulationSteps();
+            if (steps == 0 && !_isolatedPresentation && Mods.SpectatorMode.IsSpectating) OnKeyHeld();
             for (int step = 0; step < steps; step++)
             {
-                if (Mods.Network.DemoPlayback.AtEnd) break;
+                if (PlaybackAtEnd) break;
                 OnSimulationStep();
             }
         }
@@ -1227,8 +1262,11 @@ namespace MphRead
             ResetTransientVisualLights();
             ResetEnvironmentalParticlePresentation();
             ResetImpactDecalPresentation();
-            Sound.Sfx.Instance.StopAllSound(force: true);
-            Music.Stop();
+            if (!_isolatedPresentation)
+            {
+                Sound.Sfx.Instance.StopAllSound(force: true);
+                Music.Stop();
+            }
             WorldFeedback.ClearPendingNotices();
         }
 
@@ -1263,9 +1301,14 @@ namespace MphRead
                 {
                     World.LocalPlayer!.GetPresentation().ModForgetInputDeltas();
                 }
-                Mods.Network.DemoPlayback.PumpFrame();
-                Mods.Network.NetSession.Update(World.GlobalElapsedTime);
-                if (Mods.Network.DemoPlayback.IsActive && !Mods.SpectatorMode.IsSpectating)
+                if (_replaySession != null) _replaySession.PumpFrame();
+                else
+                {
+                    Mods.Network.ReplayPlayback.PumpFrame();
+                    Mods.Network.NetSession.Update(World.GlobalElapsedTime);
+                }
+                if (!_isolatedPresentation && Mods.Network.ReplayPlayback.IsActive
+                    && !Mods.SpectatorMode.IsSpectating)
                 {
                     // No local player to spawn as during playback -- watch
                     // as soon as anyone recorded becomes available, rather
@@ -1273,7 +1316,7 @@ namespace MphRead
                     // out of somebody's eyes straight away, unlike spectating
                     // a live match: there is no "your own view" to have just
                     // left, so an empty overview would be the whole of what
-                    // opening a demo did.
+                    // opening a replay did.
                     Mods.SpectatorMode.Start(World, watchSomeone: true);
                 }
                 // Spectating is asked for from the pause menu, which runs on
@@ -1290,12 +1333,14 @@ namespace MphRead
                 // binds ProcessInput has just filled in. Suppressed by exactly
                 // the things that suppress a keyboard, and by spectating,
                 // where World.LocalPlayer! is somebody else's hunter.
-                if (!Mods.Network.DemoPlayback.IsSeeking)
+                if (!PlaybackSeeking)
                 {
-                    bool noPlayerInput = Mods.Network.DemoPlayback.IsSeeking || _inputMode == InputMode.CameraOnly
+                    bool noPlayerInput = _isolatedPresentation || _gameplayInputSuppressed
+                        || PlaybackSeeking || _inputMode == InputMode.CameraOnly
                         || Mods.ClientInputState.PauseOpen || Mods.Chat.ChatBox.Composing;
                     bool allowLocalLook = CanCaptureSimulationLook && !noPlayerInput;
-                    Mods.Input.GamepadInput.BeginFrame(allowLocalLook);
+                    Mods.Input.GamepadInput.BeginFrame(allowLocalLook,
+                        World.LocalPlayer?.EquipInfo.Zoomed == true);
                     World.Services.BeginLocalLookFrame(allowLocalLook);
                     PlayerPresentation.ProcessInput(World, _keyboardState, _mouseState, noPlayerInput);
                     if (!noPlayerInput && !Mods.SpectatorMode.IsSpectating)
@@ -1314,15 +1359,17 @@ namespace MphRead
                     RenderLook?.MarkSimulationStep();
                 }
             }
-            if (!Mods.Network.DemoPlayback.IsSeeking) OnKeyHeld();
+            if (!PlaybackSeeking && !_isolatedPresentation) OnKeyHeld();
             bool waitingForServer = Mods.Network.AuthoritativePlay.Active
                 && World.Match.Phase is MatchPhase.WaitingForPlayers or MatchPhase.Countdown;
             if (ProcessFrame && World.Room != null)
             {
                 World.ProcessWorldStep(waitingForServer);
-                Sound.Sfx.Update(World.FrameTime);
-
-                Music.UpdateMusic();
+                if (_audioActive)
+                {
+                    Sound.Sfx.Update(World.FrameTime);
+                    Music.UpdateMusic();
+                }
             }
             if (ProcessFrame && World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active))
             {
@@ -1337,7 +1384,7 @@ namespace MphRead
             // Effects are advanced inside GetDrawItems, where their ordering
             // against the entity draw pass is what it has always been. This is
             // how many times it owes when the next frame gets there.
-            if (Mods.Network.DemoPlayback.IsSeeking && World.Match.LegacyState == MatchState.InProgress)
+            if (PlaybackSeeking && World.Match.LegacyState == MatchState.InProgress)
             {
                 ProcessEffects(_effectFrame);
                 _pendingEffectSteps = 0;
@@ -1346,7 +1393,7 @@ namespace MphRead
                 Mods.Render.FrameTiming.MaxCatchUpSteps);
             _pendingFadeSteps = Math.Min(_pendingFadeSteps + 1,
                 Mods.Render.FrameTiming.MaxCatchUpSteps);
-            if (Mods.Network.DemoPlayback.IsSeeking) UpdateFade(updateDevice: false);
+            if (PlaybackSeeking) UpdateFade(updateDevice: false);
         }
 
         /// <summary>
@@ -1359,7 +1406,7 @@ namespace MphRead
         /// </summary>
         public void OnDrawFrame()
         {
-            if (Mods.Network.DemoPlayback.IsSeeking) return;
+            if (PlaybackSeeking) return;
             ulong capturedPresentationTick = World.FrameCount;
             float capturedRenderFraction = Mods.Render.FrameTiming.RenderAlpha;
             if (!float.IsFinite(capturedRenderFraction)) capturedRenderFraction = 0;
@@ -1368,8 +1415,9 @@ namespace MphRead
                 = EnvironmentalParticlePresentationClock.Capture(
                     capturedPresentationTick, capturedRenderFraction);
             uint capturedCombatPresentationTick
-                = Mods.Network.AuthoritativePlay.Current?.WorldServerTick
-                    ?? Mods.Network.DemoPlayback.WorldServerTick
+                = _replaySession?.WorldServerTick
+                    ?? Mods.Network.AuthoritativePlay.Current?.WorldServerTick
+                    ?? Mods.Network.ReplayPlayback.WorldServerTick
                     ?? unchecked((uint)capturedPresentationTick);
             TimeSpan transientLightPresentationTime
                 = presentationFrameTime.SchedulingTime;
@@ -1392,7 +1440,7 @@ namespace MphRead
             // One scene owner drains one semantic announcer cue per rendered
             // frame. This also covers spectator and replay presentation,
             // where there is no local-player draw call to own the queue.
-            AnnouncerAudio.PresentNext();
+            if (_audioActive) AnnouncerAudio.PresentNext();
             // The scene's own target, which the resolution scale may have made
             // smaller than the window. Reallocated here rather than only on a
             // window resize, so moving the slider during a match is seen.
@@ -1832,10 +1880,11 @@ namespace MphRead
                 _renderFrame.AddOverlayCommand(
                     RenderOverlayCommand.StageMarker(RenderPresentationStage.SpectatorOverlay));
                 SpectatorCamera.Draw(this);
+                AdditionalOverlay?.Invoke(this);
                 _capturingPresentationStage = RenderPresentationStage.ReplayOverlay;
                 _renderFrame.AddOverlayCommand(
                     RenderOverlayCommand.StageMarker(RenderPresentationStage.ReplayOverlay));
-                Mods.Network.ReplayControls.Draw(this);
+                if (!_isolatedPresentation) Mods.Network.ReplayControls.Draw(this);
 
                 RenderFadeState fade = CaptureFadeState(playerHud);
                 _renderFrame.CaptureFade(fade);
@@ -3138,7 +3187,8 @@ namespace MphRead
                 World.LocalPlayer!.GetPresentation().DrawHudObjects();
             }
             SpectatorCamera.Draw(this);
-            Mods.Network.ReplayControls.Draw(this);
+            AdditionalOverlay?.Invoke(this);
+            if (!_isolatedPresentation) Mods.Network.ReplayControls.Draw(this);
             if (World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player && _fadeType != FadeType.None)
             {
                 float percent = _fadePercent;
@@ -4717,18 +4767,31 @@ namespace MphRead
             _close.Invoke();
         }
 
-        public void DoCleanup()
+        public void DoCleanup(bool preserveSharedAudio = false)
         {
             if (!_exiting)
             {
                 _exiting = true;
                 DisposeAnnouncerAudio();
                 World.CloseWorld();
-                Music.Stop();
-                Sound.Sfx.ShutDown();
-                OutputStop();
-                Selection.Clear();
+                if (!preserveSharedAudio)
+                {
+                    Music.Stop();
+                    Sound.Sfx.ShutDown();
+                    Selection.Clear();
+                }
+                if (!_isolatedPresentation) OutputStop();
             }
+        }
+
+        internal void SetPresentationAudio(bool active)
+        {
+            _audioActive = active;
+        }
+
+        internal void SetGameplayInputSuppressed(bool suppressed)
+        {
+            _gameplayInputSuppressed = suppressed;
         }
 
         private void EndFade()
@@ -5319,7 +5382,7 @@ namespace MphRead
         /// </summary>
         public void SetFreeCamera(bool on)
         {
-            if (on == _freeCam)
+            if (on == _freeCam && (on || _cameraMode == CameraMode.Player))
             {
                 return;
             }
@@ -5328,7 +5391,10 @@ namespace MphRead
                 _cameraMode = CameraMode.Player;
                 _inputMode = InputMode.All;
                 _freeCam = false;
-                Mods.SpectatorMode.NoteFreeCamera(false);
+                if (!_isolatedPresentation)
+                {
+                    Mods.SpectatorMode.NoteFreeCamera(false);
+                }
                 return;
             }
             // Starts where the view already was, so turning it on is a change
@@ -5345,7 +5411,10 @@ namespace MphRead
             _cameraMode = CameraMode.Roam;
             _inputMode = InputMode.CameraOnly;
             _freeCam = true;
-            Mods.SpectatorMode.NoteFreeCamera(true);
+            if (!_isolatedPresentation)
+            {
+                Mods.SpectatorMode.NoteFreeCamera(true);
+            }
         }
 
         public void ToggleFreeCamera()
@@ -5370,7 +5439,7 @@ namespace MphRead
                 //
                 // The /1.5 below is the model viewer's own feel and stays that
                 // for the viewer's Pivot and Roam cameras -- those are a tool,
-                // not a game. But the demo/spectator free camera is reached
+                // not a game. But the replay/spectator free camera is reached
                 // from a match, with the same mouse, and it ignored mouse
                 // sensitivity and both invert axes outright: turning it on
                 // changed how fast the view turned and which way up it went,

@@ -15,7 +15,7 @@ namespace MphRead.Entities
         private int ResultPageCount => 3 + Presentation.CombatFeedback.Recaps.Count;
         private bool ApplyRecapNavigation()
         {
-            if (!DemoPlayback.IsModern) { _replayRecaps = false; return false; }
+            if (!ReplayPlayback.IsModern) { _replayRecaps = false; return false; }
             if (Bindings.RecapHistory.IsPressed) _replayRecaps = !_replayRecaps;
             int count = Presentation.CombatFeedback.Recaps.Count;
             if (!_replayRecaps || count == 0) return false;
@@ -24,9 +24,9 @@ namespace MphRead.Entities
             else if (Bindings.PrevWeapon.IsPressed) _recapPage = (_recapPage + count - 1) % count;
             return true;
         }
-        public bool RecapViewOpen => _replayRecaps && DemoPlayback.IsModern;
+        public bool RecapViewOpen => _replayRecaps && ReplayPlayback.IsModern;
         public bool ResultsAvailable => HasPostMatchResult || IntermissionVoteControls.Available;
-        public bool ReplayRecapsAvailable => DemoPlayback.IsModern;
+        public bool ReplayRecapsAvailable => ReplayPlayback.IsModern;
         public void NavigateResults(int direction, bool toggleRecaps = false)
         {
             if (HasPostMatchResult)
@@ -34,7 +34,7 @@ namespace MphRead.Entities
                 _resultPage = (_resultPage + direction + ResultPageCount) % ResultPageCount;
                 _nextResultPage = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 6;
             }
-            else if (DemoPlayback.IsModern)
+            else if (ReplayPlayback.IsModern)
             {
                 if (toggleRecaps) _replayRecaps = !_replayRecaps;
                 int count = Presentation.CombatFeedback.Recaps.Count;
@@ -68,7 +68,7 @@ namespace MphRead.Entities
             if (IntermissionVoteControls.Draw(this)) return true;
             if (!HasPostMatchResult)
             {
-                if (_replayRecaps && DemoPlayback.IsModern)
+                if (_replayRecaps && ReplayPlayback.IsModern)
                 {
                     if (Presentation.CombatFeedback.Recaps.Count > 0) DrawRetainedRecap(_recapPage, "Recap toggle: close / cycle: lives");
                     else DrawText2D(128, 92, Align.Center, 0, "No received life recaps yet", scale: .7f);

@@ -86,7 +86,7 @@ namespace MphRead.Entities
         private void ModDrawCombatFeedback()
         {
             CombatFeedback feedback = Presentation.CombatFeedback;
-            uint tick = AuthoritativePlay.Current?.WorldServerTick ?? DemoPlayback.WorldServerTick ?? 0;
+            uint tick = AuthoritativePlay.Current?.WorldServerTick ?? ReplayPlayback.WorldServerTick ?? 0;
             HitMarkerKind marker = feedback.VisibleMarker(tick);
             bool identityView = feedback.Local.IsValid && feedback.Local.Slot == _player.SlotIndex;
             bool localView = identityView && !Mods.SpectatorMode.IsSpectating;
@@ -149,7 +149,7 @@ namespace MphRead.Entities
                 if (CombatFeedback.Age(tick, entry.Tick) >= CombatFeedback.FeedTicks) continue;
                 DrawText2D(252, 22 + row++ * 8, Align.Right, 0, entry.Text, maxLength: 44, scale: .65f);
             }
-            if (identityView && (!Mods.SpectatorMode.IsSpectating || DemoPlayback.IsModern)
+            if (identityView && (!Mods.SpectatorMode.IsSpectating || ReplayPlayback.IsModern)
                 && feedback.State.Dead && _player.Health == 0)
             {
                 DrawText2D(128, 54, Align.Center, 0, feedback.State.RecapHeading, maxLength: 36, scale: .8f);

@@ -493,8 +493,8 @@ namespace MphRead.Entities
             // part describes a view from somewhere else in the map and the
             // room comes out black with the gun and a few pickups floating in
             // it. That is not hypothetical: a spectated player and every
-            // player in a demo replay is a puppet whose node ref was looked
-            // up from its position rather than walked, and a demo of a match
+            // player in a replay is a puppet whose node ref was looked
+            // up from its position rather than walked, and a replay of a match
             // on MP1 SANCTORUS played back as an unlit void.
             //
             // Returning here leaves _partVisInfoHead null, which GetDrawInfo

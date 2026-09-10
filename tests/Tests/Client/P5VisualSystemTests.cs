@@ -100,6 +100,8 @@ public sealed class P5VisualSystemTests
             PrimeVisualTokens.HierarchyBrushResourceKeys);
         Assert.Contains(PrimeVisualTokens.PrimarySurfaceBrush,
             PrimeVisualTokens.HierarchyBrushResourceKeys);
+        Assert.Contains(PrimeVisualTokens.RaisedSurfaceBrush,
+            PrimeVisualTokens.HierarchyBrushResourceKeys);
         Assert.Contains(PrimeVisualTokens.SecondarySurfaceBrush,
             PrimeVisualTokens.HierarchyBrushResourceKeys);
         Assert.Contains(PrimeVisualTokens.InteractiveSurfaceBrush,
@@ -136,11 +138,15 @@ public sealed class P5VisualSystemTests
             AutomationProperties.GetItemStatus(status));
         Assert.Equal(AutomationLiveSetting.Polite,
             AutomationProperties.GetLiveSetting(status));
+        Assert.Contains("prime-status-success", status.Classes);
+        Assert.DoesNotContain("prime-status-info", status.Classes);
 
         PrimeAccessibility.SetStatus(status, "Connection failed",
             PrimeStatusKind.Error);
         Assert.Equal(AutomationLiveSetting.Assertive,
             AutomationProperties.GetLiveSetting(status));
+        Assert.Contains("prime-status-error", status.Classes);
+        Assert.DoesNotContain("prime-status-success", status.Classes);
     }
 
     [Fact]
