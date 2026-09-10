@@ -200,6 +200,8 @@ public sealed class NodeControlClient : IAsyncDisposable
                 Publish(state => state with { Session = session }); _greeting.TrySetResult(); break;
             case "lobby.snapshot":
                 var lobby = value.Payload.Deserialize(NodeJsonContext.Default.LobbySnapshot) ?? throw new JsonException("Missing lobby.");
+                try { NodeControlCodec.ValidateEventPayload(lobby); }
+                catch (ArgumentException ex) { throw new JsonException("Invalid lobby snapshot.", ex); }
                 if (lobby.LobbyId == Guid.Empty || lobby.Revision < 1 || lobby.Name is not { Length: >= 1 and <= 64 }
                     || !Enum.IsDefined(lobby.Phase) || !Enum.IsDefined(lobby.Visibility) || lobby.PlayerLimit is < 1 or > 8
                     || lobby.ObserverLimit is < 0 or > 128 || lobby.Members.Length > lobby.PlayerLimit + lobby.ObserverLimit
@@ -232,7 +234,9 @@ public sealed class NodeControlClient : IAsyncDisposable
                 break;
             case "lobby.list":
                 var list = value.Payload.Deserialize(NodeJsonContext.Default.LobbyListSnapshot) ?? throw new JsonException("Missing lobby list.");
-                if (list.Lobbies.Length > 64 || list.Lobbies.Any(x => x.LobbyId == Guid.Empty || x.Revision < 1
+                try { NodeControlCodec.ValidateEventPayload(list); }
+                catch (ArgumentException ex) { throw new JsonException("Invalid lobby list.", ex); }
+                if (list.Lobbies.Length > NodeControlCodec.MaximumLobbyListEntries || list.Lobbies.Any(x => x.LobbyId == Guid.Empty || x.Revision < 1
                     || x.PlayerLimit is < 1 or > 8 || x.Players < 0 || x.Players > x.PlayerLimit
                     || x.BotCount < 0 || x.BotCount > x.PlayerLimit || x.Observers < 0 || x.ObserverLimit is < 0 or > 128
                     || x.WaitlistCount < 0 || x.WaitlistCount > 1024)) throw new JsonException("Invalid lobby list.");

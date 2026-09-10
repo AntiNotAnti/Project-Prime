@@ -1,22 +1,34 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using MphRead;
 
 namespace FruityPrime.Server.Shared;
 
 public static class NodeControlCodec
 {
-    public const int Version = 1;
+    public const int Version = 2;
+    public const string UnsupportedVersionMessage = "Unsupported control envelope version.";
     public const int MaximumFrameBytes = 32 * 1024;
+    public const int MaximumLobbyListEntries = 16;
+    // LobbyConfigure.Rules is intentionally additive within envelope v2:
+    // older Nodes use UnmappedMemberHandling.Disallow, so an advanced command
+    // fails closed instead of silently dropping host rules. Missing optional
+    // fields remain readable for legacy-shaped v2 payloads.
     public static NodeControlRequest Read(ReadOnlyMemory<byte> bytes)
     {
         if (bytes.Length is < 2 or > MaximumFrameBytes) throw new JsonException("Invalid frame length.");
         using var doc = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 12 });
         RejectDuplicates(doc.RootElement);
         var e = doc.RootElement;
-        if (e.ValueKind != JsonValueKind.Object || e.EnumerateObject().Count() != 4
-            || e.GetProperty("version").GetInt32() != Version
-            || !Guid.TryParseExact(e.GetProperty("requestId").GetString(), "D", out Guid requestId) || requestId == Guid.Empty)
+        if (e.ValueKind != JsonValueKind.Object || e.EnumerateObject().Count() != 4)
+            throw new JsonException("Invalid control envelope.");
+        if (!e.TryGetProperty("version", out JsonElement version)
+            || version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out int envelopeVersion))
+            throw new JsonException("Invalid control envelope.");
+        if (envelopeVersion != Version)
+            throw new JsonException($"{UnsupportedVersionMessage} Received {envelopeVersion}; expected {Version}.");
+        if (!Guid.TryParseExact(e.GetProperty("requestId").GetString(), "D", out Guid requestId) || requestId == Guid.Empty)
             throw new JsonException("Invalid control envelope.");
         var p = e.GetProperty("payload");
         NodeCommand command = e.GetProperty("type").GetString() switch
@@ -67,6 +79,14 @@ public static class NodeControlCodec
     {
         switch (payload)
         {
+            case LobbyConfigure configure:
+                if (configure.ExpectedRevision < 0 || configure.MapKey is not { Length: > 0 and <= 128 }
+                    || configure.MapKey.Any(c => c is < ' ' or > '~') || !Enum.IsDefined(configure.Mode)
+                    || configure.BotCount is < 0 or > 8)
+                    throw new ArgumentException("Invalid lobby configuration.");
+                try { _ = configure.NormalizeRules(); }
+                catch (ArgumentException ex) { throw new ArgumentException("Invalid lobby rules.", ex); }
+                break;
             case NodeRoundSnapshot round:
                 if (round.Lobby == null) throw new ArgumentException("Missing round lobby.");
                 ValidateEventPayload(round.Lobby);
@@ -94,8 +114,21 @@ public static class NodeControlCodec
                 if (lobby.Revision < 0 || lobby.PlayerLimit is < 1 or > 8 || lobby.ObserverLimit is < 0 or > 16
                     || lobby.BotCount < 0 || lobby.BotCount > lobby.PlayerLimit
                     || lobby.TimeLimitSeconds is < 1 or > 3600 || lobby.PointGoal is < 1 or > ushort.MaxValue
+                    || lobby.MapKey is null || lobby.MapKey.Length > 128 || lobby.MapKey.Any(c => c is < ' ' or > '~') || !Enum.IsDefined(lobby.Mode)
                     || !Enum.IsDefined(lobby.SeatPolicy) || !Enum.IsDefined(lobby.DuelQueuePolicy)
                     || lobby.Members.IsDefault || lobby.Chat.IsDefault) throw new ArgumentException("Invalid lobby snapshot.");
+                try
+                {
+                    LobbyRulesOptions normalized = (lobby.Rules ?? LobbyRulesOptions.Empty)
+                        .Normalize(lobby.Mode, lobby.TimeLimitSeconds, lobby.PointGoal);
+                    // A current snapshot carries both the canonical object and
+                    // legacy projections for older clients. If the object is
+                    // present, those projections must agree with it; an absent
+                    // object is the permitted old-payload form.
+                    if (lobby.Rules is not null && normalized != lobby.Rules)
+                        throw new ArgumentException("Lobby rule projections conflict with canonical rules.");
+                }
+                catch (ArgumentException ex) { throw new ArgumentException("Invalid lobby rules.", ex); }
                 foreach (LobbyMember member in lobby.Members)
                 {
                     if (member is null) throw new ArgumentException("Null lobby member.");
@@ -113,10 +146,15 @@ public static class NodeControlCodec
                 }
                 break;
             case LobbyListSnapshot list:
-                if (list.Lobbies.IsDefault || list.Lobbies.Length > 64 || list.Lobbies.Any(l => l is null
+                if (list.Lobbies.IsDefault || list.Lobbies.Length > MaximumLobbyListEntries || list.Lobbies.Any(l => l is null
                     || l.LobbyId == Guid.Empty || l.Revision < 1 || l.Players < 0 || l.Players > l.PlayerLimit
                     || l.PlayerLimit is < 1 or > 8 || l.Observers < 0 || l.ObserverLimit is < 0 or > 128
-                    || l.BotCount < 0 || l.BotCount > l.PlayerLimit || l.WaitlistCount < 0 || l.WaitlistCount > 1024))
+                    || l.BotCount < 0 || l.BotCount > l.PlayerLimit || l.WaitlistCount < 0 || l.WaitlistCount > 1024
+                    || l.Name is not { Length: > 0 and <= 64 } || l.Name.Any(char.IsControl)
+                    || l.MapKey is null || l.MapKey.Length > 128 || l.MapKey.Any(c => c is < ' ' or > '~') || !Enum.IsDefined(l.Phase)
+                    || !Enum.IsDefined(l.Mode) || l.TimeLimitSeconds is < 1 or > 3600
+                    || l.PointGoal is < 1 or > ushort.MaxValue || l.ObjectiveTimeGoalSeconds is < 1 or > 3600
+                    || !Enum.IsDefined(l.SeatPolicy) || InvalidListRuleMetadata(l)))
                     throw new ArgumentException("Invalid lobby list.");
                 break;
         }
@@ -126,6 +164,11 @@ public static class NodeControlCodec
         if (option == null || option.Id is < 1 or > 8 || option.Votes is < 0 or > 8)
             throw new ArgumentException("Invalid vote option.");
         ContractGuard.Defined(option.Choice); ContractGuard.Defined(option.Mode); ContractGuard.Text(option.MapKey, 128);
+    }
+    private static bool InvalidListRuleMetadata(LobbyListEntry entry)
+    {
+        bool objective = entry.Mode is MatchMode.Defender or MatchMode.TeamDefender or MatchMode.PrimeHunter;
+        return objective ? entry.PointGoal is not null : entry.ObjectiveTimeGoalSeconds is not null;
     }
     public static void RejectDuplicates(JsonElement value)
     {
@@ -155,6 +198,7 @@ public sealed record NodeControlEvent(int Version, string Type, long EventId, Gu
 [JsonSerializable(typeof(LobbyVoteResolve))]
 [JsonSerializable(typeof(NodeRoundSnapshot))]
 [JsonSerializable(typeof(LobbyCreate))]
+[JsonSerializable(typeof(LobbyRulesOptions))]
 [JsonSerializable(typeof(LobbyList))]
 [JsonSerializable(typeof(LobbyJoin))]
 [JsonSerializable(typeof(LobbyQueueJoin))]

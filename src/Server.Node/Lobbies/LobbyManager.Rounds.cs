@@ -101,7 +101,14 @@ public sealed partial class LobbyManager
                     if (_admissionClosed) throw Error("draining", "Node is draining.");
                     var content = ContentCatalog?.Get(selected.MapKey, selected.Mode)
                         ?? throw Error("map_unavailable", "No hosted content catalog.");
+                    // A rotation may select a different mode in a future
+                    // catalog. Preserve common host options, but project
+                    // mode-specific values before changing the lobby so an
+                    // old Survival/Battle rule cannot invalidate continuation.
+                    var nextRules = lobby.HostRules.ForMode(selected.Mode);
+                    _ = nextRules.ToMatchRules(selected.Mode, selected.MapKey, lobby.Rules.PlayerLimit);
                     lobby.MapKey = selected.MapKey; lobby.Mode = selected.Mode;
+                    lobby.HostRules = nextRules;
                     var spec = PrepareMatchCore(lobby, content, node, incarnation, requireReady: false);
                     state.Options = []; state.Votes.Clear(); state.Deadline = null; state.Electorate.Clear();
                     result.Add((spec, lobby.Members.Values.ToArray()));
@@ -172,9 +179,20 @@ public sealed partial class LobbyManager
                 if (state.Tournament == null || state.Ended || select.RoundId == Guid.Empty || select.RoundId == state.Round)
                     throw Error("round_identity", "Select a new round identity for an active tournament.");
                 ValidateMap(select.MapKey, select.Mode);
+                LobbyRulesOptions nextRules;
+                try
+                {
+                    // Validate the existing canonical rules against the next
+                    // mode before reopening the lobby. A failed mode change
+                    // must not partially mutate round or lobby state.
+                    nextRules = lobby.HostRules.ForMode(select.Mode);
+                    _ = nextRules.ToMatchRules(select.Mode, select.MapKey, lobby.Rules.PlayerLimit);
+                }
+                catch (ArgumentException ex)
+                { throw Error("invalid", ex.Message); }
                 Reopen(lobby, identity);
                 Execute(identity, new LobbyConfigure(lobby.Revision, select.MapKey, select.Mode,
-                    lobby.BotCount, lobby.TimeLimitSeconds, lobby.PointGoal));
+                    lobby.BotCount, nextRules));
                 state.Round = select.RoundId; state.ConfigurationRevision++; state.Paused = true;
                 state.Options = []; state.Votes.Clear(); state.Deadline = null; break;
             case LobbyTournamentAssignTeam assign:

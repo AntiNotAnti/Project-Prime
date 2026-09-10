@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using FruityPrime.Server.Node.Lobbies;
 using FruityPrime.Server.Node.Sessions;
+using FruityPrime.Server.Shared;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -27,7 +28,7 @@ public sealed class NodeResumeTests
         var greeting = welcome.RootElement.GetProperty("payload");
         string token = greeting.GetProperty("resumeToken").GetString()!;
         Guid sessionId = greeting.GetProperty("sessionId").GetGuid();
-        byte[] create = JsonSerializer.SerializeToUtf8Bytes(new { version = 1, type = "lobby.create", requestId = Guid.NewGuid(), payload = new { name = "Resume", visibility = "Public" } });
+        byte[] create = JsonSerializer.SerializeToUtf8Bytes(new { version = NodeControlCodec.Version, type = "lobby.create", requestId = Guid.NewGuid(), payload = new { name = "Resume", visibility = "Public" } });
         await first.SendAsync(create, WebSocketMessageType.Text, true, timeout.Token);
         using var lobby = await Read(first, timeout.Token);
         Guid lobbyId = lobby.RootElement.GetProperty("payload").GetProperty("lobbyId").GetGuid();

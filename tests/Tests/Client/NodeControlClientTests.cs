@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.Text;
 using System.Linq;
 using System.Reflection;
@@ -196,4 +197,64 @@ public sealed class NodeControlClientTests
         Assert.Throws<JsonException>(() => clean.ApplyEvent(NodeControlCodec.Write("lobby.list", 1, null, new LobbyListSnapshot([], null))));
         Assert.Throws<JsonException>(() => clean.ApplyEvent(Encoding.UTF8.GetBytes("{\"version\":1,\"version\":1}")));
     }
+
+    [Fact]
+    public async Task HostileV2SnapshotWithConflictingRuleProjectionIsRejected()
+    {
+        Guid nodeId = Guid.NewGuid(), sessionId = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        var session = new NodeSessionSnapshot(sessionId, Guid.NewGuid(), "Hunter", nodeId, new string('a', 43));
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
+        var valid = new LobbySnapshot(Guid.NewGuid(), "Room", LobbyVisibility.Public, sessionId,
+            LobbyPhase.Open, 1, 8, 16,
+            [new LobbyMember(sessionId, session.PlayerId, "Hunter", Hunter.Samus, 0, false, false)], [],
+            "unit", MatchMode.Battle, TimeLimitSeconds: 600, PointGoal: 11,
+            Rules: new LobbyRulesOptions(TimeLimitSeconds: 600, ScoreGoal: 11));
+        JsonElement payload = JsonSerializer.SerializeToElement(valid with { TimeLimitSeconds = 601 },
+            NodeJsonContext.Default.LobbySnapshot);
+
+        var error = Assert.Throws<JsonException>(() => client.ApplyEvent(RawEvent("lobby.snapshot", 2, payload)));
+        Assert.Equal("Invalid lobby snapshot.", error.Message);
+        Assert.Null(client.Lobby);
+    }
+
+    [Fact]
+    public async Task HostileV2ListWithModeSpecificMetadataIsRejected()
+    {
+        Guid nodeId = Guid.NewGuid(), sessionId = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        var session = new NodeSessionSnapshot(sessionId, Guid.NewGuid(), "Hunter", nodeId, new string('a', 43));
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
+        var invalid = new LobbyListSnapshot([
+            new LobbyListEntry(Guid.NewGuid(), "Room", LobbyPhase.Open, 0, 8, 0, 1,
+                MapKey: "unit", Mode: MatchMode.Defender, PointGoal: 1)
+        ], null);
+        JsonElement payload = JsonSerializer.SerializeToElement(invalid, NodeJsonContext.Default.LobbyListSnapshot);
+
+        var error = Assert.Throws<JsonException>(() => client.ApplyEvent(RawEvent("lobby.list", 2, payload)));
+        Assert.Equal("Invalid lobby list.", error.Message);
+        Assert.Null(client.Lobbies);
+    }
+
+    [Fact]
+    public async Task HostileV2ListOverMaximumEntriesIsRejected()
+    {
+        Guid nodeId = Guid.NewGuid(), sessionId = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        var session = new NodeSessionSnapshot(sessionId, Guid.NewGuid(), "Hunter", nodeId, new string('a', 43));
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
+        var rows = Enumerable.Range(0, NodeControlCodec.MaximumLobbyListEntries + 1)
+            .Select(_ => new LobbyListEntry(Guid.NewGuid(), "Room", LobbyPhase.Open, 0, 8, 0, 1))
+            .ToImmutableArray();
+        JsonElement payload = JsonSerializer.SerializeToElement(new LobbyListSnapshot(rows, null),
+            NodeJsonContext.Default.LobbyListSnapshot);
+
+        var error = Assert.Throws<JsonException>(() => client.ApplyEvent(RawEvent("lobby.list", 2, payload)));
+        Assert.Equal("Invalid lobby list.", error.Message);
+        Assert.Null(client.Lobbies);
+    }
+
+    private static byte[] RawEvent(string type, long eventId, JsonElement payload)
+        => JsonSerializer.SerializeToUtf8Bytes(new NodeControlEvent(NodeControlCodec.Version, type,
+            eventId, null, payload), NodeJsonContext.Default.NodeControlEvent);
 }

@@ -115,7 +115,7 @@ public sealed class Qz0ControlRegressionTests
         // Prime invariant: ambiguous JSON is rejected before any Node command
         // reaches lobby state or a worker handoff.
         byte[] frame = Encoding.UTF8.GetBytes(
-            "{\"version\":1,\"version\":1,\"type\":\"node.ping\",\"requestId\":\"11111111-1111-1111-1111-111111111111\",\"payload\":{}}");
+            $"{{\"version\":{NodeControlCodec.Version},\"version\":{NodeControlCodec.Version},\"type\":\"node.ping\",\"requestId\":\"11111111-1111-1111-1111-111111111111\",\"payload\":{{}}}}");
         Assert.Throws<System.Text.Json.JsonException>(() => NodeControlCodec.Read(frame));
     }
 
@@ -210,5 +210,5 @@ public sealed class Qz0ControlRegressionTests
     }
 
     private static byte[] Frame(string type, string payload)
-        => Encoding.UTF8.GetBytes($$"""{"version":1,"type":"{{type}}","requestId":"{{RequestId:D}}","payload":{{payload}}}""");
+        => Encoding.UTF8.GetBytes($$"""{"version":{{NodeControlCodec.Version}},"type":"{{type}}","requestId":"{{RequestId:D}}","payload":{{payload}}}""");
 }

@@ -44,15 +44,16 @@ public sealed partial class LobbyManager
         public string MapKey = "";
         public MatchMode Mode = MatchMode.Battle;
         public int BotCount;
-        public int? TimeLimitSeconds;
-        public int? PointGoal;
+        // Host rules have one owner. Legacy snapshot fields are projections
+        // generated from this value and are never stored independently.
+        public LobbyRulesOptions HostRules = LobbyRulesOptions.Empty;
         public Guid? MatchId;
         public Dictionary<Guid, LobbyMember> Members = [];
         public Queue<LobbyChatEntry> Chat = [];
         public LobbyWaitlist Waitlist = null!;
         public LobbySnapshot Snapshot(HumanIdentityKey? self = null) => new(Id, Rules.Name, Rules.Visibility, Owner, Phase, Revision,
-            Rules.PlayerLimit, Rules.ObserverLimit, Members.Values.ToImmutableArray(), Chat.ToImmutableArray(), MapKey, Mode, MatchId, BotCount, TimeLimitSeconds,
-            Rules.SeatPolicy, Rules.DuelQueuePolicy, Waitlist.Snapshot(self), PointGoal);
+            Rules.PlayerLimit, Rules.ObserverLimit, Members.Values.ToImmutableArray(), Chat.ToImmutableArray(), MapKey, Mode, MatchId, BotCount,
+            HostRules.TimeLimitSeconds, Rules.SeatPolicy, Rules.DuelQueuePolicy, Waitlist.Snapshot(self), HostRules.LegacyPointGoal(Mode), HostRules);
     }
     private readonly object _gate = new();
     private readonly Dictionary<Guid, Lobby> _lobbies = [];
@@ -151,12 +152,16 @@ public sealed partial class LobbyManager
             switch (command)
             {
                 case LobbyList list:
-                    if (list.Offset < 0 || list.Limit is < 1 or > 16) throw Error("invalid", "Invalid page bounds.");
+                    if (list.Offset < 0 || list.Limit is < 1 or > NodeControlCodec.MaximumLobbyListEntries)
+                        throw Error("invalid", "Invalid page bounds.");
                     var rows = _lobbies.Values.Where(l => l.Rules.Visibility == LobbyVisibility.Public)
                         .OrderBy(l => l.Id).Skip(list.Offset).Take(list.Limit + 1).ToArray();
                     return new LobbyListSnapshot(rows.Take(list.Limit).Select(l => new LobbyListEntry(l.Id, l.Rules.Name,
                         l.Phase, l.Members.Values.Count(m => !m.Observer), l.Rules.PlayerLimit,
-                        l.Members.Values.Count(m => m.Observer), l.Revision, l.Waitlist.Count, l.Rules.ObserverLimit, l.BotCount)).ToImmutableArray(), rows.Length > list.Limit ? list.Offset + list.Limit : null);
+                        l.Members.Values.Count(m => m.Observer), l.Revision, l.Waitlist.Count, l.Rules.ObserverLimit, l.BotCount,
+                        l.MapKey, l.Mode, l.HostRules.TimeLimitSeconds, l.HostRules.LegacyPointGoal(l.Mode),
+                        l.HostRules.ObjectiveTimeGoalSeconds, l.Rules.SeatPolicy)).ToImmutableArray(),
+                        rows.Length > list.Limit ? list.Offset + list.Limit : null);
                 case LobbyCreate create:
                     if (_admissionClosed) throw Error("draining", "Node is draining.");
                     RequireUnjoined(identity.SessionId);
@@ -210,15 +215,22 @@ public sealed partial class LobbyManager
                         case LobbyConfigure configure:
                             if (lobby.Owner != identity.SessionId) throw Error("owner", "Only the owner may configure the lobby.");
                             if (!Text(configure.MapKey, 128) || !Enum.IsDefined(configure.Mode)) throw Error("invalid", "Invalid map or mode.");
-                            if (configure.BotCount < 0 || configure.BotCount + lobby.Members.Values.Count(m => !m.Observer) > lobby.Rules.PlayerLimit
-                                || configure.TimeLimitSeconds is < 1 or > 3600
-                                || configure.PointGoal is < 1 or > ushort.MaxValue)
-                                throw Error("invalid", "Invalid bot count, time limit, or point limit.");
-                            _ = MatchRules.CreateDefault(configure.Mode, configure.MapKey);
+                            if (configure.BotCount < 0 || configure.BotCount + lobby.Members.Values.Count(m => !m.Observer) > lobby.Rules.PlayerLimit)
+                                throw Error("invalid", "Invalid bot count or player capacity.");
+                            LobbyRulesOptions normalized;
+                            try
+                            {
+                                // Normalize before any waitlist, map, readiness,
+                                // or revision state is changed. This is the one
+                                // compatibility merge point for old clients.
+                                normalized = configure.NormalizeRules();
+                                _ = normalized.ToMatchRules(configure.Mode, configure.MapKey, lobby.Rules.PlayerLimit);
+                            }
+                            catch (ArgumentException ex)
+                            { throw Error("invalid", ex.Message); }
                             lobby.Waitlist.DeferOffers();
                             lobby.MapKey = configure.MapKey; lobby.Mode = configure.Mode;
-                            lobby.BotCount = configure.BotCount; lobby.TimeLimitSeconds = configure.TimeLimitSeconds;
-                            lobby.PointGoal = configure.PointGoal;
+                            lobby.BotCount = configure.BotCount; lobby.HostRules = normalized;
                             foreach (var item in lobby.Members.ToArray()) lobby.Members[item.Key] = item.Value with { Ready = false };
                             AdvanceWaitlist(lobby);
                             break;
@@ -285,10 +297,10 @@ public sealed partial class LobbyManager
             int observerSeat = 8;
             foreach (var member in lobby.Members.Values.Where(m => m.Observer))
                 seats.Add(ToRosterSeat((byte)observerSeat++, member, SeatRole.Observer));
-            var rules = MatchRules.CreateDefault(lobby.Mode, lobby.MapKey).With(maxPlayers: lobby.Rules.PlayerLimit);
-            if (lobby.PointGoal is { } pointGoal)
-                rules = rules.IsSurvival ? rules.With(startingLives: pointGoal) : rules.With(scoreGoal: pointGoal);
-            if (lobby.TimeLimitSeconds is { } seconds) rules = rules.With(timeLimit: TimeSpan.FromSeconds(seconds));
+            // HostRules is immutable and was normalized at configuration time;
+            // every start/rematch/continuation derives the exact same Game
+            // rules from this canonical value.
+            var rules = lobby.HostRules.ToMatchRules(lobby.Mode, lobby.MapKey, lobby.Rules.PlayerLimit);
             var spec = new MatchSpec(new(Guid.NewGuid()), new(lobby.Id), nodeId, incarnation,
                 rules, content,
                 lobby.Members.Values.Any(m => m.GuestSessionId.HasValue)

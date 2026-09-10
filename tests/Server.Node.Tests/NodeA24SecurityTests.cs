@@ -143,7 +143,7 @@ public sealed class NodeA24SecurityTests
             Guid requestId = Guid.NewGuid();
             byte[] frame = JsonSerializer.SerializeToUtf8Bytes(new
             {
-                version = 1,
+                version = NodeControlCodec.Version,
                 type = "node.ping",
                 requestId,
                 payload = new { }
@@ -236,7 +236,7 @@ public sealed class NodeA24SecurityTests
     private static async Task<JsonDocument> SendCommandAsync(ClientWebSocket socket, string type, object payload, CancellationToken cancellationToken)
     {
         Guid requestId = Guid.NewGuid();
-        byte[] frame = JsonSerializer.SerializeToUtf8Bytes(new { version = 1, type, requestId, payload });
+        byte[] frame = JsonSerializer.SerializeToUtf8Bytes(new { version = NodeControlCodec.Version, type, requestId, payload });
         await socket.SendAsync(frame, WebSocketMessageType.Text, true, cancellationToken);
         return await ReadForRequestAsync(socket, requestId, cancellationToken);
     }
@@ -258,7 +258,7 @@ public sealed class NodeA24SecurityTests
                 await socket.SendAsync(Encoding.UTF8.GetBytes("{"), WebSocketMessageType.Text, true, cancellationToken);
                 break;
             case "duplicate":
-                string duplicate = $"{{\"version\":1,\"version\":1,\"type\":\"node.ping\",\"requestId\":\"{Guid.NewGuid():D}\",\"payload\":{{}}}}";
+                string duplicate = $"{{\"version\":{NodeControlCodec.Version},\"version\":{NodeControlCodec.Version},\"type\":\"node.ping\",\"requestId\":\"{Guid.NewGuid():D}\",\"payload\":{{}}}}";
                 await socket.SendAsync(Encoding.UTF8.GetBytes(duplicate), WebSocketMessageType.Text, true, cancellationToken);
                 break;
             case "oversize":

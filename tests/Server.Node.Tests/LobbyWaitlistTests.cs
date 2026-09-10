@@ -430,7 +430,7 @@ public sealed class LobbyWaitlistTests
         => new(host.Ticket(Guid.NewGuid()), DateTimeOffset.UtcNow.AddMinutes(2), host.NodeId, endpoint);
 
     private static byte[] ControlFrame(string type, string payload)
-        => Encoding.UTF8.GetBytes($$"""{"version":1,"type":"{{type}}","requestId":"{{Guid.NewGuid():D}}","payload":{{payload}}}""");
+        => Encoding.UTF8.GetBytes($$"""{"version":{{NodeControlCodec.Version}},"type":"{{type}}","requestId":"{{Guid.NewGuid():D}}","payload":{{payload}}}""");
 
     private static async Task UntilAsync(Func<bool> condition, CancellationToken cancellationToken)
     {

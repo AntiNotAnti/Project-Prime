@@ -14,6 +14,140 @@ public enum LobbySeatPolicy { ImmediateSeat, NextMatchSeat, ObserverUntilNextMat
 public enum DuelQueuePolicy { Fifo, WinnerStays, LoserStays, Manual }
 public enum LobbyQueueRequestedRole { Player, Observer }
 public enum LobbyQueueEntryState { Queued, SeatOffered, Promoted, Expired, Cancelled }
+
+/// <summary>
+/// User-facing host rules. Null means use the authoritative mode default; it
+/// does not mean an arbitrary or client-selected value. The Node normalizes
+/// legacy LobbyConfigure fields into this one representation before mutating a
+/// lobby, and the same representation is used to build every MatchSpec.
+/// </summary>
+public sealed record LobbyRulesOptions(
+    int? TimeLimitSeconds = null,
+    int? ScoreGoal = null,
+    int? StartingLives = null,
+    int? ObjectiveTimeGoalSeconds = null,
+    int? DamageLevel = null,
+    bool? FriendlyFire = null,
+    bool? AffinityWeapons = null,
+    bool? PlayerRadar = null,
+    bool? OctolithReset = null)
+{
+    public static LobbyRulesOptions Empty { get; } = new();
+
+    /// <summary>
+    /// Combines the structured fields with the two pre-rules-extension fields
+    /// carried by older clients. This is deliberately the only merge point:
+    /// callers must use the returned value as the lobby's canonical rules.
+    /// </summary>
+    public LobbyRulesOptions Normalize(MatchMode mode, int? legacyTimeLimitSeconds = null,
+        int? legacyPointGoal = null)
+    {
+        if (!Enum.IsDefined(mode)) throw new ArgumentException("Unknown match mode.", nameof(mode));
+
+        int? time = Merge(TimeLimitSeconds, legacyTimeLimitSeconds, "time limit");
+        bool survival = mode is MatchMode.Survival or MatchMode.TeamSurvival;
+        bool objective = mode is MatchMode.Defender or MatchMode.TeamDefender or MatchMode.PrimeHunter;
+        int? score = ScoreGoal;
+        int? lives = StartingLives;
+
+        if (survival)
+        {
+            if (score.HasValue) throw new ArgumentException("Score goal is not applicable to Survival modes.");
+            lives = Merge(lives, legacyPointGoal, "starting lives");
+        }
+        else if (objective)
+        {
+            if (score.HasValue || lives.HasValue || legacyPointGoal.HasValue)
+                throw new ArgumentException("Score goal and starting lives are not applicable to objective-time modes.");
+            score = null;
+            lives = null;
+        }
+        else
+        {
+            if (lives.HasValue) throw new ArgumentException("Starting lives are only applicable to Survival modes.");
+            score = Merge(score, legacyPointGoal, "score goal");
+            lives = null;
+        }
+
+        if (!objective && ObjectiveTimeGoalSeconds.HasValue)
+            throw new ArgumentException("Objective time goal is only applicable to objective-time modes.");
+        if (mode is not (MatchMode.Capture or MatchMode.Bounty or MatchMode.TeamBounty) && OctolithReset.HasValue)
+            throw new ArgumentException("Octolith reset is only applicable to octolith modes.");
+
+        ValidateRange(time, 1, 3600, "Time limit");
+        ValidateRange(score, 1, ushort.MaxValue, "Score goal");
+        ValidateRange(lives, 1, ushort.MaxValue, "Starting lives");
+        ValidateRange(ObjectiveTimeGoalSeconds, 1, 3600, "Objective time goal");
+        ValidateRange(DamageLevel, 0, 2, "Damage level");
+
+        return this with
+        {
+            TimeLimitSeconds = time,
+            ScoreGoal = score,
+            StartingLives = lives,
+            ObjectiveTimeGoalSeconds = objective ? ObjectiveTimeGoalSeconds : null
+        };
+    }
+
+    /// <summary>Builds the immutable Game rules from already-normalized values.</summary>
+    public MphRead.MatchRules ToMatchRules(MatchMode mode, string mapKey, int maxPlayers = 8)
+    {
+        LobbyRulesOptions normalized = Normalize(mode);
+        MphRead.MatchRules defaults = MphRead.MatchRules.CreateDefault(mode, mapKey, maxPlayers);
+        return defaults.With(
+            timeLimit: normalized.TimeLimitSeconds is { } time ? TimeSpan.FromSeconds(time) : defaults.TimeLimit,
+            scoreGoal: normalized.ScoreGoal ?? defaults.ScoreGoal,
+            startingLives: normalized.StartingLives ?? defaults.StartingLives,
+            objectiveTimeGoal: normalized.ObjectiveTimeGoalSeconds is { } objective
+                ? TimeSpan.FromSeconds(objective) : defaults.ObjectiveTimeGoal,
+            damageLevel: normalized.DamageLevel ?? defaults.DamageLevel,
+            friendlyFire: normalized.FriendlyFire ?? defaults.FriendlyFire,
+            affinityWeapons: normalized.AffinityWeapons ?? defaults.AffinityWeapons,
+            playerRadar: normalized.PlayerRadar ?? defaults.PlayerRadar,
+            octolithReset: normalized.OctolithReset ?? defaults.OctolithReset);
+    }
+
+    /// <summary>
+    /// Projects a frozen lobby rule set onto an explicitly selected next mode.
+    /// Mode-specific values that cannot apply are dropped so the target mode's
+    /// defaults are used; common host options remain unchanged. This is only
+    /// for authoritative round transitions. A client configure still rejects
+    /// inapplicable fields rather than silently rewriting them.
+    /// </summary>
+    public LobbyRulesOptions ForMode(MatchMode mode)
+    {
+        bool survival = mode is MatchMode.Survival or MatchMode.TeamSurvival;
+        bool objective = mode is MatchMode.Defender or MatchMode.TeamDefender or MatchMode.PrimeHunter;
+        bool octolith = mode is MatchMode.Capture or MatchMode.Bounty or MatchMode.TeamBounty;
+        return (this with
+        {
+            ScoreGoal = survival || objective ? null : ScoreGoal,
+            StartingLives = survival ? StartingLives : null,
+            ObjectiveTimeGoalSeconds = objective ? ObjectiveTimeGoalSeconds : null,
+            OctolithReset = octolith ? OctolithReset : null
+        }).Normalize(mode);
+    }
+
+    /// <summary>Legacy list/snapshot projection. Survival displays lives in the
+    /// old point-goal field; objective-time modes have no point goal.</summary>
+    public int? LegacyPointGoal(MatchMode mode)
+        => mode is MatchMode.Survival or MatchMode.TeamSurvival ? StartingLives
+            : mode is MatchMode.Defender or MatchMode.TeamDefender or MatchMode.PrimeHunter ? null : ScoreGoal;
+
+    private static int? Merge(int? structured, int? legacy, string label)
+    {
+        if (structured.HasValue && legacy.HasValue && structured != legacy)
+            throw new ArgumentException($"Conflicting {label} values.");
+        return structured ?? legacy;
+    }
+
+    private static void ValidateRange(int? value, int minimum, int maximum, string label)
+    {
+        if (value is { } actual && (actual < minimum || actual > maximum))
+            throw new ArgumentOutOfRangeException(label, $"{label} must be between {minimum} and {maximum}.");
+    }
+}
+
 public sealed record LobbyMember(Guid SessionId, Guid? PlayerId, string DisplayName, Hunter Hunter, byte Team, bool Ready, bool Observer,
     Guid? GuestSessionId = null)
 {
@@ -41,9 +175,12 @@ public sealed record LobbySnapshot(Guid LobbyId, string Name, LobbyVisibility Vi
     ImmutableArray<LobbyMember> Members, ImmutableArray<LobbyChatEntry> Chat,
     string MapKey = "", MatchMode Mode = MatchMode.Battle, Guid? CurrentMatchId = null, int BotCount = 0, int? TimeLimitSeconds = null,
     LobbySeatPolicy SeatPolicy = LobbySeatPolicy.ImmediateSeat, DuelQueuePolicy DuelQueuePolicy = DuelQueuePolicy.Fifo,
-    LobbyWaitlistSnapshot? Waitlist = null, int? PointGoal = null);
+    LobbyWaitlistSnapshot? Waitlist = null, int? PointGoal = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LobbyRulesOptions? Rules = null);
 public sealed record LobbyListEntry(Guid LobbyId, string Name, LobbyPhase Phase, int Players, int PlayerLimit, int Observers, long Revision,
-    int WaitlistCount = 0, int ObserverLimit = 16, int BotCount = 0);
+    int WaitlistCount = 0, int ObserverLimit = 16, int BotCount = 0, string MapKey = "", MatchMode Mode = MatchMode.Battle,
+    int? TimeLimitSeconds = null, int? PointGoal = null, int? ObjectiveTimeGoalSeconds = null,
+    LobbySeatPolicy SeatPolicy = LobbySeatPolicy.ImmediateSeat);
 public sealed record LobbyListSnapshot(ImmutableArray<LobbyListEntry> Lobbies, int? NextOffset);
 public sealed record NodeSessionSnapshot(Guid SessionId, Guid? PlayerId, string DisplayName, Guid NodeId, string ResumeToken,
     Guid? GuestSessionId = null)
@@ -103,8 +240,22 @@ public sealed record LobbySetReady(bool Ready, long ExpectedRevision) : NodeComm
 public sealed record LobbySelectHunter(Hunter Hunter, long ExpectedRevision) : NodeCommand;
 public sealed record LobbyRequestTeam(byte Team, long ExpectedRevision) : NodeCommand;
 public sealed record LobbyChat(string Text, long ExpectedRevision) : NodeCommand;
+[method: JsonConstructor]
 public sealed record LobbyConfigure(long ExpectedRevision, string MapKey, MatchMode Mode, int BotCount = 0,
-    int? TimeLimitSeconds = null, int? PointGoal = null) : NodeCommand;
+    int? TimeLimitSeconds = null, int? PointGoal = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LobbyRulesOptions? Rules = null) : NodeCommand
+{
+    public LobbyConfigure(long expectedRevision, string mapKey, MatchMode mode,
+        LobbyRulesOptions? rules)
+        : this(expectedRevision, mapKey, mode, 0, null, null, rules) { }
+
+    public LobbyConfigure(long expectedRevision, string mapKey, MatchMode mode, int botCount,
+        LobbyRulesOptions? rules)
+        : this(expectedRevision, mapKey, mode, botCount, null, null, rules) { }
+
+    public LobbyRulesOptions NormalizeRules()
+        => (Rules ?? LobbyRulesOptions.Empty).Normalize(Mode, TimeLimitSeconds, PointGoal);
+}
 public sealed record LobbyStart(long ExpectedRevision) : NodeCommand;
 public sealed record LobbyRematch(long ExpectedRevision) : NodeCommand;
 public sealed record LobbyReturn(long ExpectedRevision) : NodeCommand;

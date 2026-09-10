@@ -2,6 +2,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using FruityPrime.Server.Node.Sessions;
+using FruityPrime.Server.Shared;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -22,7 +23,7 @@ public sealed class NodeWebSocketTests
         await socket.ConnectAsync(uri, timeout.Token);
         using var welcome = await Read(socket, timeout.Token);
         Assert.Equal("node.session", welcome.RootElement.GetProperty("type").GetString());
-        string frame = JsonSerializer.Serialize(new { version = 1, type = "lobby.create", requestId = Guid.NewGuid(), payload = new { name = "Arena", visibility = "Public" } });
+        string frame = JsonSerializer.Serialize(new { version = NodeControlCodec.Version, type = "lobby.create", requestId = Guid.NewGuid(), payload = new { name = "Arena", visibility = "Public" } });
         await socket.SendAsync(Encoding.UTF8.GetBytes(frame), WebSocketMessageType.Text, true, timeout.Token);
         using var snapshot = await Read(socket, timeout.Token);
         Assert.Equal("lobby.snapshot", snapshot.RootElement.GetProperty("type").GetString());
