@@ -83,6 +83,17 @@ namespace MphRead.Mods
             // on for a single run without the setting, for the case where the
             // launcher itself is what will not start.
             Launcher.LauncherPrefs.Load();
+            // Pictures of the launcher's own screens are intentionally handled
+            // after the input and launcher preferences are initialized but
+            // before Program.CheckSetup. A fresh checkout has no paths.txt,
+            // and these deterministic Avalonia captures do not need game
+            // files, a live Node, or the normal setup gate.
+            string? uiShot = ValueAfter(args, "uishot");
+            if (uiShot != null)
+            {
+                Environment.ExitCode = RunUiCapture(uiShot);
+                return true;
+            }
             string? ui = ValueAfter(args, "ui");
             if (ui != null)
             {
@@ -381,16 +392,6 @@ namespace MphRead.Mods
                 Environment.ExitCode = Network.WeaponDps.Run(dpsTest, dpsHunter, selection, dpsSeconds, dpsDistance);
                 return true;
             }
-            // Pictures of the launcher's own screens, rendered without a
-            // window. The one part of this program that could not be looked at
-            // from a headless box.
-            string? uiShot = ValueAfter(args, "uishot");
-            if (uiShot != null)
-            {
-                Environment.ExitCode = RunUiCapture(uiShot);
-                return true;
-            }
-
             if (HasFlag(args, "frametimingcheck"))
             {
                 Environment.ExitCode = Render.FrameTimingCheck.Run();

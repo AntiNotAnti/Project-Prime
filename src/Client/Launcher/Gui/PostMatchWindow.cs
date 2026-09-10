@@ -42,6 +42,8 @@ internal sealed class PostMatchWindow : Window
     private bool _closed;
     private string? _message;
     private bool _leaveRequested;
+    private Task? _voteTask;
+    private Task? _leaveTask;
     public PostMatchTransition Transition { get; private set; }
     public string? Failure { get; private set; }
 
@@ -49,7 +51,7 @@ internal sealed class PostMatchWindow : Window
     {
         _play = play;
         _completedMatch = completedMatch;
-        _view = new PostMatchView(results);
+        _view = new PostMatchView(results, AuthoritativePlay.Current?.LocalSlot ?? -1);
         Content = _view;
         Title = Branding.Name + " — Results";
         Icon = GuiTheme.AppIcon.Value;
@@ -95,6 +97,7 @@ internal sealed class PostMatchWindow : Window
     private void Tick()
     {
         if (_closed) return;
+        ObserveCommands();
         if (_pump != null)
         {
             if (!_pump()) { Transition = PostMatchFlow.Evaluate(_play.State.Node, _completedMatch, gameWindowOpen: false); Close(); return; }
@@ -126,23 +129,69 @@ internal sealed class PostMatchWindow : Window
         }
     }
 
-    private async void Vote(byte option)
+    private void Vote(byte option)
     {
-        if (_closed || !_commands.TryBeginVote(out CancellationToken token)) return;
-        try { _message = null; await _play.CastPostMatchVoteAsync(option, token); }
+        if (_closed || _voteTask != null || !_commands.TryBeginVote(out CancellationToken token)) return;
+        _message = null;
+        _voteTask = RunVoteAsync(option, token);
+    }
+
+    private void Leave()
+    {
+        if (_closed || _leaveRequested || _leaveTask != null
+            || !_commands.TryBeginLeave(out CancellationToken token)) return;
+        _leaveRequested = true;
+        _message = null;
+        _leaveTask = RunLeaveAsync(token);
+    }
+
+    private async Task RunVoteAsync(byte option, CancellationToken token)
+    {
+        try { await _play.CastPostMatchVoteAsync(option, token); }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
-        catch (Exception ex) { ShowCommandError(ex); }
+        catch (Exception ex) { PostToUi(() => ShowCommandError(ex)); }
         finally { _commands.CompleteVote(); }
     }
 
-    private async void Leave()
+    private async Task RunLeaveAsync(CancellationToken token)
     {
-        if (_closed || !_commands.TryBeginLeave(out CancellationToken token)) return;
-        _leaveRequested = true;
-        try { _message = null; await _play.LeaveLobbyAsync(token); }
-        catch (OperationCanceledException) when (token.IsCancellationRequested) { _leaveRequested = false; }
-        catch (Exception ex) { _leaveRequested = false; ShowCommandError(ex); }
+        try { await _play.LeaveLobbyAsync(token); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            PostToUi(() => _leaveRequested = false);
+        }
+        catch (Exception ex)
+        {
+            PostToUi(() =>
+            {
+                _leaveRequested = false;
+                ShowCommandError(ex);
+            });
+        }
         finally { _commands.CompleteLeave(); }
+    }
+
+    private void ObserveCommands()
+    {
+        if (_voteTask is { IsCompleted: true })
+        {
+            _voteTask.GetAwaiter().GetResult();
+            _voteTask = null;
+        }
+        if (_leaveTask is { IsCompleted: true })
+        {
+            _leaveTask.GetAwaiter().GetResult();
+            _leaveTask = null;
+        }
+    }
+
+    private void PostToUi(Action action)
+    {
+        if (_closed) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_closed) action();
+        });
     }
 
     private void ShowCommandError(Exception ex)
@@ -168,7 +217,11 @@ internal sealed class PostMatchWindow : Window
             _repeatAt = now.AddMilliseconds(direction != _previousDirection ? 350 : 120);
         }
         if ((pressed & GamepadButtons.A) != 0) _view.SubmitSelection();
-        if ((pressed & GamepadButtons.B) != 0) _view.RequestLeave();
+        else if ((pressed & GamepadButtons.B) != 0)
+        {
+            if (_view.LeaveConfirmationPending) _view.CancelLeaveConfirmation();
+            else _view.RequestLeave();
+        }
         _previousButtons = state.Buttons;
         _previousDirection = direction;
     }

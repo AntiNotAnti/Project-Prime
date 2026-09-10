@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
@@ -130,7 +131,6 @@ public sealed class PlayController : IAsyncDisposable
     private NodeControlClient? _resumeAttempted;
     private CancellationTokenSource? _activeEntry;
     private readonly SemaphoreSlim _entryOperation = new(1, 1);
-    public string PreferredRegion { get; set; } = "";
     private string[] _maps;
     private readonly Func<CancellationToken, Task<AccountSession?>> _accountResolver;
     private readonly SemaphoreSlim _operation = new(1, 1);
@@ -164,6 +164,12 @@ public sealed class PlayController : IAsyncDisposable
     }
 
     public PlayState State { get { lock (_stateLock) return _state; } }
+    /// <summary>Region used by automatic Node selection.</summary>
+    public string PreferredRegion
+    {
+        get => LauncherPrefs.PreferredRegion;
+        set => LauncherPrefs.PreferredRegion = value;
+    }
     public NodeMapCatalogState MapCatalogState => GetMapCatalogSnapshot().State;
     public IReadOnlyList<string> AvailableMaps => GetMapCatalogSnapshot().Available;
     public string MapCatalogMessage => GetMapCatalogMessage(MapCatalogState);
@@ -222,6 +228,11 @@ public sealed class PlayController : IAsyncDisposable
                 throw new InvalidOperationException("Custom map preparation failed: " + prepared.failures[0]);
             NodeListing[] nodes = await account.GetNodesAsync(NetHeader.Version, BuildVersion.Display,
                 prepared.identity.ContentHash, cancellationToken).ConfigureAwait(false);
+            LauncherPrefs.ObservePreferredRegions(nodes
+                .Select(node => node.Region)
+                .Where(region => !string.IsNullOrWhiteSpace(region))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray());
             _directoryFetchedAt = _time.GetUtcNow();
             Publish(new PlayState(NodeSessions.Current is { Connected: true } ? PlayPhase.Connected : PlayPhase.Nodes, nodes, State.Node, State.LobbyHunter,
                 nodes.Length == 0 ? "No compatible servers are online." : "Choose a server in Advanced Network.", false,
@@ -243,12 +254,19 @@ public sealed class PlayController : IAsyncDisposable
     internal static bool IsDirectoryFresh(DateTimeOffset? fetchedAt, DateTimeOffset now)
         => fetchedAt is { } fetched && now >= fetched && now - fetched < TimeSpan.FromSeconds(25);
 
-    internal static NodeListing? SelectAutomaticNode(IEnumerable<NodeListing> nodes, string region)
-        => nodes.Where(node => node.Capacity > node.OnlineUsers)
-            .OrderByDescending(node => !string.IsNullOrEmpty(region) && StringComparer.OrdinalIgnoreCase.Equals(node.Region, region))
+    internal static NodeListing? SelectAutomaticNode(IEnumerable<NodeListing> nodes, string? region)
+    {
+        ArgumentNullException.ThrowIfNull(nodes);
+        bool hasPreferredRegion = !string.IsNullOrWhiteSpace(region)
+            && !StringComparer.OrdinalIgnoreCase.Equals(region, "Automatic");
+        return nodes.Where(node => node.Capacity > node.OnlineUsers)
+            .OrderByDescending(node => hasPreferredRegion
+                && !StringComparer.OrdinalIgnoreCase.Equals(node.Region, "Automatic")
+                && StringComparer.Ordinal.Equals(node.Region, region))
             .ThenByDescending(node => node.LobbyCount > 0)
             .ThenBy(node => node.OnlineUsers)
             .ThenBy(node => node.NodeId).FirstOrDefault();
+    }
 
     internal static bool IsQuickPlayEligible(LobbyListEntry lobby)
         => lobby.Phase == LobbyPhase.Open && lobby.Players + lobby.BotCount < lobby.PlayerLimit;
@@ -306,18 +324,127 @@ public sealed class PlayController : IAsyncDisposable
             Publish(State with { Message = "No open player slots found. Browse lobbies or host a new lobby." });
         }, cancellationToken);
 
+    /// <summary>Hosts a public lobby with the legacy default seat layout.</summary>
     public Task HostLobbyAsync(string name, CancellationToken cancellationToken = default)
+        => HostLobbyAsync(name, 8, 16, LobbySeatPolicy.ImmediateSeat, cancellationToken);
+
+    /// <summary>
+    /// Hosts a public lobby. Player and observer limits are sent to the Node as
+    /// authoritative capacity; the client does not maintain a second lobby
+    /// roster or apply local seat policy.
+    /// </summary>
+    public Task HostLobbyAsync(string name, int playerLimit, int observerLimit,
+        LobbySeatPolicy seatPolicy = LobbySeatPolicy.ImmediateSeat,
+        CancellationToken cancellationToken = default)
+        => HostLobbyCoreAsync(name, playerLimit, observerLimit, seatPolicy,
+            DuelQueuePolicy.Fifo, cancellationToken);
+
+    /// <summary>Advanced overload retaining the Node's queue-policy field.</summary>
+    public Task HostLobbyAsync(string name, int playerLimit, int observerLimit,
+        LobbySeatPolicy seatPolicy, DuelQueuePolicy duelQueuePolicy,
+        CancellationToken cancellationToken = default)
+        => HostLobbyCoreAsync(name, playerLimit, observerLimit, seatPolicy,
+            duelQueuePolicy, cancellationToken);
+
+    private Task HostLobbyCoreAsync(string name, int playerLimit, int observerLimit,
+        LobbySeatPolicy seatPolicy, DuelQueuePolicy duelQueuePolicy,
+        CancellationToken cancellationToken)
     {
-        string validName = ValidateLobbyName(name);
+        LobbyCreate command = CreateLobbyCommand(name, playerLimit, observerLimit,
+            seatPolicy, duelQueuePolicy);
         return RunEntryAsync(async token =>
         {
             if (!await EnsureNodeAsync(token).ConfigureAwait(false)) return;
             NodeControlClient node = RequireConnected();
             if (node.Lobby != null) return;
-            RequireResponse(await node.SendAndWaitAsync("lobby.create", new LobbyCreate(validName,
-                LobbyVisibility.Public), token).ConfigureAwait(false), "lobby.snapshot");
+            await SendExpectedSnapshotAsync(node, "lobby.create", command, token)
+                .ConfigureAwait(false);
         }, cancellationToken);
     }
+
+    private Task CreateLobbyCoreAsync(string name, int playerLimit, int observerLimit,
+        LobbySeatPolicy seatPolicy, DuelQueuePolicy duelQueuePolicy,
+        CancellationToken cancellationToken)
+    {
+        LobbyCreate command = CreateLobbyCommand(name, playerLimit, observerLimit,
+            seatPolicy, duelQueuePolicy);
+        return SendExpectedSnapshotAsync("lobby.create", command, cancellationToken);
+    }
+
+    internal static LobbyCreate CreateLobbyCommand(string name, int playerLimit,
+        int observerLimit, LobbySeatPolicy seatPolicy = LobbySeatPolicy.ImmediateSeat,
+        DuelQueuePolicy duelQueuePolicy = DuelQueuePolicy.Fifo)
+    {
+        string validName = ValidateLobbyName(name);
+        if (playerLimit is < 1 or > 8)
+            throw new ArgumentOutOfRangeException(nameof(playerLimit),
+                "Player slots must be between 1 and 8.");
+        if (observerLimit is < 0 or > 16)
+            throw new ArgumentOutOfRangeException(nameof(observerLimit),
+                "Observer slots must be between 0 and 16.");
+        if (!Enum.IsDefined(seatPolicy))
+            throw new ArgumentOutOfRangeException(nameof(seatPolicy));
+        if (!Enum.IsDefined(duelQueuePolicy))
+            throw new ArgumentOutOfRangeException(nameof(duelQueuePolicy));
+        if (duelQueuePolicy != DuelQueuePolicy.Fifo)
+            throw new NotSupportedException("Only the FIFO lobby queue policy is supported.");
+        return new(validName, LobbyVisibility.Public, playerLimit, observerLimit,
+            seatPolicy, duelQueuePolicy);
+    }
+
+    internal static LobbyQueueJoin CreateWaitlistJoinCommand(Guid lobbyId, long revision,
+        LobbyQueueRequestedRole requestedRole = LobbyQueueRequestedRole.Player,
+        byte? requestedTeam = null)
+    {
+        if (!Enum.IsDefined(requestedRole))
+            throw new ArgumentOutOfRangeException(nameof(requestedRole));
+        if (requestedTeam is > 1)
+            throw new ArgumentOutOfRangeException(nameof(requestedTeam),
+                "Team must be 0, 1, or unspecified.");
+        return new(ValidateLobbyId(lobbyId), ValidateRevision(revision), requestedRole,
+            requestedTeam);
+    }
+
+    internal static LobbyQueueLeave CreateWaitlistLeaveCommand(Guid lobbyId, long revision)
+        => new(ValidateLobbyId(lobbyId), ValidateRevision(revision));
+
+    internal static NodeCommand CreateWaitlistOfferCommand(Guid lobbyId, long revision,
+        Guid offerId, bool accept)
+    {
+        Guid id = ValidateLobbyId(lobbyId);
+        long expectedRevision = ValidateRevision(revision);
+        if (offerId == Guid.Empty)
+            throw new ArgumentException("A seat offer identity is required.", nameof(offerId));
+        return accept
+            ? new LobbyQueueAccept(id, expectedRevision, offerId)
+            : new LobbyQueueDecline(id, expectedRevision, offerId);
+    }
+
+    internal static LobbyRequestTeam CreateTeamCommand(byte team, long revision)
+    {
+        if (team > 1) throw new ArgumentOutOfRangeException(nameof(team), "Team must be 0 or 1.");
+        return new(team, ValidateRevision(revision));
+    }
+
+    internal static LobbyChat CreateChatCommand(long revision, string text)
+    {
+        ValidateChatText(text);
+        return new(text, ValidateRevision(revision));
+    }
+
+    internal static LobbyConfigure CreateStructuredConfigureCommand(long revision,
+        string mapKey, MatchMode mode, int botCount, LobbyRulesOptions rules)
+    {
+        if (rules is null) throw new ArgumentNullException(nameof(rules));
+        return new(ValidateRevision(revision), ValidateMapKey(mapKey), mode, botCount,
+            rules);
+    }
+
+    internal static LobbyConfigure CreateLegacyConfigureCommand(long revision,
+        string mapKey, MatchMode mode, int botCount, int? timeLimitSeconds,
+        int? pointGoal)
+        => new(ValidateRevision(revision), ValidateMapKey(mapKey), mode, botCount,
+            timeLimitSeconds, pointGoal);
 
     internal async Task RunEntryAsync(Func<CancellationToken, Task> action,
         CancellationToken cancellationToken = default)
@@ -500,12 +627,106 @@ public sealed class PlayController : IAsyncDisposable
     public Task RefreshLobbiesAsync(CancellationToken cancellationToken = default)
         => SendAsync("lobby.list", new LobbyList(), cancellationToken);
 
+    /// <summary>Creates a public lobby with the legacy default seat layout.</summary>
     public Task CreateLobbyAsync(string name, CancellationToken cancellationToken = default)
-        => SendAsync("lobby.create", new LobbyCreate(ValidateLobbyName(name), LobbyVisibility.Public), cancellationToken);
+        => CreateLobbyAsync(name, 8, 16, LobbySeatPolicy.ImmediateSeat, cancellationToken);
+
+    /// <summary>Creates a public lobby with explicit player/observer capacity.</summary>
+    public Task CreateLobbyAsync(string name, int playerLimit, int observerLimit,
+        LobbySeatPolicy seatPolicy = LobbySeatPolicy.ImmediateSeat,
+        CancellationToken cancellationToken = default)
+        => CreateLobbyCoreAsync(name, playerLimit, observerLimit, seatPolicy,
+            DuelQueuePolicy.Fifo, cancellationToken);
+
+    /// <summary>Advanced overload retaining the Node's queue-policy field.</summary>
+    public Task CreateLobbyAsync(string name, int playerLimit, int observerLimit,
+        LobbySeatPolicy seatPolicy, DuelQueuePolicy duelQueuePolicy,
+        CancellationToken cancellationToken = default)
+        => CreateLobbyCoreAsync(name, playerLimit, observerLimit, seatPolicy,
+            duelQueuePolicy, cancellationToken);
 
     public Task JoinLobbyAsync(Guid lobbyId, long revision, bool observer = false,
         CancellationToken cancellationToken = default)
-        => SendAsync("lobby.join", new LobbyJoin(lobbyId, ValidateRevision(revision), observer), cancellationToken);
+        => SendExpectedSnapshotAsync("lobby.join",
+            new LobbyJoin(ValidateLobbyId(lobbyId), ValidateRevision(revision), observer), cancellationToken);
+
+    /// <summary>Explicit observer spelling for callers that do not use a role bool.</summary>
+    public Task JoinObserverAsync(Guid lobbyId, long revision,
+        CancellationToken cancellationToken = default)
+        => JoinLobbyAsync(lobbyId, revision, observer: true, cancellationToken: cancellationToken);
+
+    /// <summary>Compatibility spelling for the observer entry action.</summary>
+    public Task JoinLobbyAsObserverAsync(Guid lobbyId, long revision,
+        CancellationToken cancellationToken = default)
+        => JoinObserverAsync(lobbyId, revision, cancellationToken);
+
+    /// <summary>
+    /// Joins the Node-owned player waitlist. The supplied lobby identity and
+    /// revision are always carried on the command, including for a queued-only
+    /// session that has no member seat in that lobby.
+    /// </summary>
+    public Task JoinWaitlistAsync(Guid lobbyId, long revision,
+        LobbyQueueRequestedRole requestedRole = LobbyQueueRequestedRole.Player,
+        byte? requestedTeam = null, CancellationToken cancellationToken = default)
+    {
+        LobbyQueueJoin command = CreateWaitlistJoinCommand(lobbyId, revision, requestedRole, requestedTeam);
+        return SendExpectedSnapshotAsync("lobby.queue.join", command, cancellationToken);
+    }
+
+    /// <summary>Compatibility spelling for joining the lobby queue.</summary>
+    public Task JoinQueueAsync(Guid lobbyId, long revision,
+        LobbyQueueRequestedRole requestedRole = LobbyQueueRequestedRole.Player,
+        byte? requestedTeam = null, CancellationToken cancellationToken = default)
+        => JoinWaitlistAsync(lobbyId, revision, requestedRole, requestedTeam, cancellationToken);
+
+    /// <summary>Leaves a Node-owned waitlist using its current authoritative revision.</summary>
+    public Task LeaveWaitlistAsync(Guid lobbyId, long revision,
+        CancellationToken cancellationToken = default)
+        => SendExpectedSnapshotAsync("lobby.queue.leave",
+            CreateWaitlistLeaveCommand(lobbyId, revision), cancellationToken);
+
+    /// <summary>Compatibility spelling for leaving the lobby queue.</summary>
+    public Task LeaveQueueAsync(Guid lobbyId, long revision,
+        CancellationToken cancellationToken = default)
+        => LeaveWaitlistAsync(lobbyId, revision, cancellationToken);
+
+    /// <summary>
+    /// Accepts exactly one server-issued seat offer. A stale revision or offer
+    /// is surfaced to the caller; acceptance is never retried implicitly.
+    /// </summary>
+    public Task AcceptWaitlistAsync(Guid lobbyId, long revision, Guid offerId,
+        CancellationToken cancellationToken = default)
+        => SendExpectedSnapshotAsync("lobby.queue.accept",
+            CreateWaitlistOfferCommand(lobbyId, revision, offerId, accept: true), cancellationToken);
+
+    /// <summary>Compatibility spelling for accepting a queue seat offer.</summary>
+    public Task AcceptQueueAsync(Guid lobbyId, long revision, Guid offerId,
+        CancellationToken cancellationToken = default)
+        => AcceptWaitlistAsync(lobbyId, revision, offerId, cancellationToken);
+
+    /// <summary>Explicit spelling for accepting a waitlist seat offer.</summary>
+    public Task AcceptWaitlistOfferAsync(Guid lobbyId, long revision, Guid offerId,
+        CancellationToken cancellationToken = default)
+        => AcceptWaitlistAsync(lobbyId, revision, offerId, cancellationToken);
+
+    /// <summary>
+    /// Declines exactly one server-issued seat offer. A stale revision or offer
+    /// is surfaced to the caller; decline is never retried implicitly.
+    /// </summary>
+    public Task DeclineWaitlistAsync(Guid lobbyId, long revision, Guid offerId,
+        CancellationToken cancellationToken = default)
+        => SendExpectedSnapshotAsync("lobby.queue.decline",
+            CreateWaitlistOfferCommand(lobbyId, revision, offerId, accept: false), cancellationToken);
+
+    /// <summary>Compatibility spelling for declining a queue seat offer.</summary>
+    public Task DeclineQueueAsync(Guid lobbyId, long revision, Guid offerId,
+        CancellationToken cancellationToken = default)
+        => DeclineWaitlistAsync(lobbyId, revision, offerId, cancellationToken);
+
+    /// <summary>Explicit spelling for declining a waitlist seat offer.</summary>
+    public Task DeclineWaitlistOfferAsync(Guid lobbyId, long revision, Guid offerId,
+        CancellationToken cancellationToken = default)
+        => DeclineWaitlistAsync(lobbyId, revision, offerId, cancellationToken);
 
     public Task LeaveLobbyAsync(CancellationToken cancellationToken = default)
     {
@@ -549,6 +770,30 @@ public sealed class PlayController : IAsyncDisposable
         => SendLobbyCommandAsync((lobby, _) => new LobbySetReady(ready, lobby.Revision),
             "lobby.ready.set", cancellationToken);
 
+    /// <summary>
+    /// Requests a team assignment using the revision from the latest lobby
+    /// snapshot. The Node remains authoritative and may reject the request or
+    /// allocate a different team at the next transition.
+    /// </summary>
+    public Task RequestTeamAsync(byte team, CancellationToken cancellationToken = default)
+    {
+        if (team > 1) throw new ArgumentOutOfRangeException(nameof(team), "Team must be 0 or 1.");
+        return SendLobbyCommandAndWaitAsync((lobby, _) => CreateTeamCommand(team, lobby.Revision),
+            "lobby.team.request", cancellationToken);
+    }
+
+    /// <summary>
+    /// Sends one lobby chat command. Chat is bounded in UTF-8 bytes to match
+    /// the Node's 256-byte validation; unlike idempotent directory reads, a
+    /// chat command is never retried after a stale revision or timeout.
+    /// </summary>
+    public Task SendLobbyChatAsync(string text, CancellationToken cancellationToken = default)
+    {
+        ValidateChatText(text);
+        return SendLobbyCommandAndWaitAsync((lobby, _) => CreateChatCommand(lobby.Revision, text),
+            "lobby.chat", cancellationToken);
+    }
+
     /// <summary>Match hunter is lobby state; it never updates the profile favorite.</summary>
     public Task SelectLobbyHunterAsync(Hunter hunter, CancellationToken cancellationToken = default)
     {
@@ -559,11 +804,35 @@ public sealed class PlayController : IAsyncDisposable
             "lobby.hunter.select", cancellationToken);
     }
 
-    public async Task ConfigureLobbyAsync(string mapKey, MatchMode mode, int botCount,
+    /// <summary>
+    /// Legacy lobby configuration overload. The legacy time/point fields stay
+    /// on the wire so older Nodes can consume this call; the server normalizes
+    /// them into its canonical <see cref="LobbyRulesOptions"/> representation.
+    /// </summary>
+    public Task ConfigureLobbyAsync(string mapKey, MatchMode mode, int botCount,
         int? timeLimitSeconds, int? pointGoal,
         CancellationToken cancellationToken = default)
+        => ConfigureLobbyCoreAsync(mapKey, mode, botCount, null,
+            timeLimitSeconds, pointGoal, false, cancellationToken);
+
+    /// <summary>Configures a lobby with the structured authoritative rule set.</summary>
+    public Task ConfigureLobbyAsync(string mapKey, MatchMode mode, int botCount,
+        LobbyRulesOptions? rules, CancellationToken cancellationToken = default)
+        => ConfigureLobbyCoreAsync(mapKey, mode, botCount, rules,
+            null, null, true, cancellationToken);
+
+    /// <summary>Convenience overload for a structured rule set with no bots.</summary>
+    public Task ConfigureLobbyAsync(string mapKey, MatchMode mode,
+        LobbyRulesOptions? rules, CancellationToken cancellationToken = default)
+        => ConfigureLobbyAsync(mapKey, mode, 0, rules, cancellationToken);
+
+    private async Task ConfigureLobbyCoreAsync(string mapKey, MatchMode mode, int botCount,
+        LobbyRulesOptions? rules, int? legacyTimeLimitSeconds, int? legacyPointGoal,
+        bool structured, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(mapKey))
+            throw new ArgumentException("Choose a map hosted by this Node and installed locally.", nameof(mapKey));
+        if (mapKey.Any(c => c is < ' ' or > '~') || mapKey.Length > 128)
             throw new ArgumentException("Choose a map hosted by this Node and installed locally.", nameof(mapKey));
         MapCatalogSnapshot catalog = GetMapCatalogSnapshot();
         if (catalog.State != NodeMapCatalogState.Available
@@ -586,14 +855,21 @@ public sealed class PlayController : IAsyncDisposable
             NodeSessionSnapshot? session = node.Session;
             if (session is null || lobby.OwnerSessionId != session.SessionId)
                 throw new InvalidOperationException("Only the lobby owner can configure a match.");
-            ValidateLobbyConfiguration(lobby, mode, botCount, timeLimitSeconds, pointGoal);
+            LobbyRulesOptions requestedRules = NormalizeLobbyRules(mode, rules,
+                legacyTimeLimitSeconds, legacyPointGoal);
+            ValidateLobbyConfiguration(lobby, mode, botCount, requestedRules);
+            LobbyRulesOptions currentRules = NormalizeLobbyRules(lobby.Mode, lobby.Rules,
+                lobby.TimeLimitSeconds, lobby.PointGoal);
             if (StringComparer.Ordinal.Equals(lobby.MapKey, mapKey) && lobby.Mode == mode
-                && lobby.BotCount == botCount && lobby.TimeLimitSeconds == timeLimitSeconds
-                && lobby.PointGoal == pointGoal) return;
+                && lobby.BotCount == botCount && currentRules == requestedRules) return;
+
+            LobbyConfigure configure = structured
+                ? CreateStructuredConfigureCommand(lobby.Revision, mapKey, mode, botCount, requestedRules)
+                : CreateLegacyConfigureCommand(lobby.Revision, mapKey, mode, botCount,
+                    legacyTimeLimitSeconds, legacyPointGoal);
 
             NodeControlEvent response = await node.SendAndWaitAsync("lobby.configure",
-                new LobbyConfigure(lobby.Revision, mapKey, mode, botCount, timeLimitSeconds, pointGoal),
-                cancellationToken).ConfigureAwait(false);
+                configure, cancellationToken).ConfigureAwait(false);
             if (response.Type == "error")
             {
                 NodeControlError error = response.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)
@@ -604,10 +880,11 @@ public sealed class PlayController : IAsyncDisposable
                 throw new InvalidOperationException("The Node returned an invalid lobby settings response.");
             LobbySnapshot applied = response.Payload.Deserialize(NodeJsonContext.Default.LobbySnapshot)
                 ?? throw new InvalidOperationException("The Node returned an invalid lobby snapshot.");
+            LobbyRulesOptions appliedRules = NormalizeLobbyRules(applied.Mode, applied.Rules,
+                applied.TimeLimitSeconds, applied.PointGoal);
             if (applied.LobbyId != lobby.LobbyId || applied.Revision <= lobby.Revision
                 || !StringComparer.Ordinal.Equals(applied.MapKey, mapKey) || applied.Mode != mode
-                || applied.BotCount != botCount || applied.TimeLimitSeconds != timeLimitSeconds
-                || applied.PointGoal != pointGoal
+                || applied.BotCount != botCount || appliedRules != requestedRules
                 || node.Session?.SessionId != session.SessionId)
                 throw new InvalidOperationException("The lobby changed before these settings were applied. Try again.");
         }
@@ -616,19 +893,20 @@ public sealed class PlayController : IAsyncDisposable
 
     internal static void ValidateLobbyConfiguration(LobbySnapshot lobby, MatchMode mode,
         int botCount, int? timeLimitSeconds, int? pointGoal)
+        => ValidateLobbyConfiguration(lobby, mode, botCount,
+            NormalizeLobbyRules(mode, null, timeLimitSeconds, pointGoal));
+
+    internal static void ValidateLobbyConfiguration(LobbySnapshot lobby, MatchMode mode,
+        int botCount, LobbyRulesOptions? rules)
     {
         ArgumentNullException.ThrowIfNull(lobby);
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
+        LobbyRulesOptions normalized = NormalizeLobbyRules(mode, rules, null, null);
         int humanPlayers = lobby.Members.Count(member => !member.Observer);
         if (botCount < 0 || botCount + humanPlayers > lobby.PlayerLimit)
             throw new ArgumentOutOfRangeException(nameof(botCount),
                 "Bots cannot exceed the lobby's remaining player capacity.");
-        if (timeLimitSeconds is < 1 or > 3600)
-            throw new ArgumentOutOfRangeException(nameof(timeLimitSeconds),
-                "Time limit must be Default or between 1 and 3600 seconds.");
-        if (pointGoal is < 1 or > ushort.MaxValue)
-            throw new ArgumentOutOfRangeException(nameof(pointGoal),
-                "Point limit must be Default or between 1 and 65535.");
+        _ = normalized;
     }
 
     public Task StartMatchAsync(CancellationToken cancellationToken = default)
@@ -697,6 +975,26 @@ public sealed class PlayController : IAsyncDisposable
         NetSession.Stop();
     }
 
+    /// <summary>
+    /// Cancels the currently visible Quick Play/Browse/Host entry operation.
+    /// This only cancels that operation's linked token. In particular, it does
+    /// not disconnect the persistent Node session or stop an active lobby.
+    /// </summary>
+    public bool CancelEntry()
+    {
+        CancellationTokenSource? entry;
+        lock (_stateLock) entry = _activeEntry;
+        if (entry == null) return false;
+        try
+        {
+            if (entry.IsCancellationRequested) return false;
+            entry.Cancel();
+        }
+        catch (ObjectDisposedException) { return false; }
+        Publish(State with { Loading = false, Message = "Connection cancelled. Try again when ready." });
+        return true;
+    }
+
     public void CancelPendingHandoff()
     {
         if (!_handoff.IsActive) return;
@@ -739,6 +1037,32 @@ public sealed class PlayController : IAsyncDisposable
         NodeControlClient node = RequireConnected();
         LobbySnapshot lobby = node.Lobby ?? throw new InvalidOperationException("Join a lobby first.");
         await node.SendAsync(type, command(lobby, node.Session), cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task SendLobbyCommandAndWaitAsync(
+        Func<LobbySnapshot, NodeSessionSnapshot?, NodeCommand> command,
+        string type, CancellationToken cancellationToken)
+    {
+        NodeControlClient node = RequireConnected();
+        LobbySnapshot lobby = node.Lobby ?? throw new InvalidOperationException("Join a lobby first.");
+        await SendExpectedSnapshotAsync(node, type, command(lobby, node.Session), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task SendExpectedSnapshotAsync(string type, NodeCommand command,
+        CancellationToken cancellationToken)
+    {
+        NodeControlClient node = RequireConnected();
+        await SendExpectedSnapshotAsync(node, type, command, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task SendExpectedSnapshotAsync(NodeControlClient node, string type,
+        NodeCommand command, CancellationToken cancellationToken)
+    {
+        NodeControlEvent response = await node.SendAndWaitAsync(type, command, cancellationToken)
+            .ConfigureAwait(false);
+        RequireResponse(response, "lobby.snapshot");
     }
 
     private async Task SendAsync(string type, NodeCommand command,
@@ -989,8 +1313,45 @@ public sealed class PlayController : IAsyncDisposable
         return value;
     }
 
+    private static string ValidateMapKey(string mapKey)
+    {
+        if (mapKey is not { Length: >= 1 and <= 128 } || mapKey.Any(c => c is < ' ' or > '~'))
+            throw new ArgumentException("Map key must be 1 to 128 printable characters.", nameof(mapKey));
+        return mapKey;
+    }
+
+    private static Guid ValidateLobbyId(Guid lobbyId)
+        => lobbyId != Guid.Empty ? lobbyId
+            : throw new ArgumentException("A lobby identity is required.", nameof(lobbyId));
+
     private static long ValidateRevision(long revision)
         => revision > 0 ? revision : throw new ArgumentOutOfRangeException(nameof(revision));
+
+    private static void ValidateChatText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Any(char.IsControl)
+            || Encoding.UTF8.GetByteCount(text) > 256)
+            throw new ArgumentException("Chat text must be non-empty, printable, and at most 256 UTF-8 bytes.",
+                nameof(text));
+    }
+
+    private static LobbyRulesOptions NormalizeLobbyRules(MatchMode mode,
+        LobbyRulesOptions? rules, int? legacyTimeLimitSeconds, int? legacyPointGoal)
+    {
+        try
+        {
+            return (rules ?? LobbyRulesOptions.Empty).Normalize(mode,
+                legacyTimeLimitSeconds, legacyPointGoal);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            throw;
+        }
+        catch (ArgumentException error)
+        {
+            throw new ArgumentException("Invalid lobby rules.", error);
+        }
+    }
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 }

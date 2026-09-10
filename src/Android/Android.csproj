@@ -91,6 +91,7 @@
     <Compile Include="../Client/Launcher/Gui/GuiTheme.cs" Link="Client/Launcher/Gui/GuiTheme.cs" />
     <Compile Include="../Client/Launcher/Gui/HomeView.cs" Link="Client/Launcher/Gui/HomeView.cs" />
     <Compile Include="../Client/Launcher/Gui/AccountView.cs" Link="Client/Launcher/Gui/AccountView.cs" />
+    <Compile Include="../Client/Launcher/Gui/IControllerNavigable.cs" Link="Client/Launcher/Gui/IControllerNavigable.cs" />
     <Compile Include="../Client/Accounts/AccountSession.Nodes.cs" Link="Client/Accounts/AccountSession.Nodes.cs" />
     <Compile Include="../Client/Networking/Nodes/NodeControlClient.cs" Link="Client/Networking/Nodes/NodeControlClient.cs" />
     <Compile Include="../Client/Launcher/Gui/NodeBrowserView.cs" Link="Client/Launcher/Gui/NodeBrowserView.cs" />
@@ -109,24 +110,54 @@
     <Compile Include="../Client/Launcher/Gui/SplashView.cs" Link="Client/Launcher/Gui/SplashView.cs" />
     <Compile Include="../Client/Launcher/Gui/TrackedText.cs" Link="Client/Launcher/Gui/TrackedText.cs" />
     <Compile Include="../Client/Launcher/Gui/UpdateBadge.cs" Link="Client/Launcher/Gui/UpdateBadge.cs" />
+    <Compile Include="../Client/Launcher/Settings/SettingAvailability.cs" Link="Client/Launcher/Settings/SettingAvailability.cs" />
+    <Compile Include="../Client/Launcher/Settings/SettingCategory.cs" Link="Client/Launcher/Settings/SettingCategory.cs" />
+    <Compile Include="../Client/Launcher/Settings/SettingDescriptor.cs" Link="Client/Launcher/Settings/SettingDescriptor.cs" />
+    <Compile Include="../Client/Launcher/Settings/SettingExclusion.cs" Link="Client/Launcher/Settings/SettingExclusion.cs" />
+    <Compile Include="../Client/Launcher/Settings/SettingRegistry.cs" Link="Client/Launcher/Settings/SettingRegistry.cs" />
+    <Compile Include="../Client/Launcher/Settings/SettingRowIds.cs" Link="Client/Launcher/Settings/SettingRowIds.cs" />
+    <Compile Include="../Client/Launcher/Settings/SettingScope.cs" Link="Client/Launcher/Settings/SettingScope.cs" />
     <Compile Include="../Client/Launcher/Shell/ArmoryController.cs" Link="Launcher/Shell/ArmoryController.cs" />
     <Compile Include="../Client/Launcher/Shell/GatewayController.cs" Link="Launcher/Shell/GatewayController.cs" />
     <Compile Include="../Client/Launcher/Shell/HunterLicenseController.cs" Link="Launcher/Shell/HunterLicenseController.cs" />
     <Compile Include="../Client/Launcher/Shell/PlayController.cs" Link="Launcher/Shell/PlayController.cs" />
+    <Compile Include="../Client/Launcher/Shell/Play/HostMatchDraft.cs" Link="Launcher/Shell/Play/HostMatchDraft.cs" />
+    <Compile Include="../Client/Launcher/Shell/Play/LobbyChatPanel.cs" Link="Launcher/Shell/Play/LobbyChatPanel.cs" />
+    <Compile Include="../Client/Launcher/Shell/Play/LobbyRuleApplicability.cs" Link="Launcher/Shell/Play/LobbyRuleApplicability.cs" />
+    <Compile Include="../Client/Launcher/Shell/Play/PlayPresentation.cs" Link="Launcher/Shell/Play/PlayPresentation.cs" />
+    <Compile Include="../Client/Launcher/Shell/Play/PlayPresentationState.cs" Link="Launcher/Shell/Play/PlayPresentationState.cs" />
+    <Compile Include="../Client/Launcher/Shell/Play/PrimeMatchCard.cs" Link="Launcher/Shell/Play/PrimeMatchCard.cs" />
+    <Compile Include="../Client/Launcher/Shell/Play/SeatOfferCard.cs" Link="Launcher/Shell/Play/SeatOfferCard.cs" />
     <Compile Include="../Client/Launcher/Shell/PreviewImageService.cs" Link="Launcher/Shell/PreviewImageService.cs" />
+    <Compile Include="../Client/Launcher/Shell/Results/PostMatchResultsModel.cs" Link="Launcher/Shell/Results/PostMatchResultsModel.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeControls.cs" Link="Launcher/Shell/PrimeControls.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeNavigator.cs" Link="Launcher/Shell/PrimeNavigator.cs" />
+    <Compile Include="../Client/Launcher/Shell/Navigation/PrimeControllerComboSession.cs" Link="Launcher/Shell/Navigation/PrimeControllerComboSession.cs" />
+    <Compile Include="../Client/Launcher/Shell/Navigation/PrimeFocusMemory.cs" Link="Launcher/Shell/Navigation/PrimeFocusMemory.cs" />
+    <Compile Include="../Client/Launcher/Shell/Navigation/PrimeInputNavigator.cs" Link="Launcher/Shell/Navigation/PrimeInputNavigator.cs" />
+    <Compile Include="../Client/Launcher/Shell/Navigation/PrimeModalFocusTrap.cs" Link="Launcher/Shell/Navigation/PrimeModalFocusTrap.cs" />
+    <Compile Include="../Client/Launcher/Shell/Navigation/PrimeNavigationContracts.cs" Link="Launcher/Shell/Navigation/PrimeNavigationContracts.cs" />
+    <Compile Include="../Client/Launcher/Shell/Navigation/PrimeSectionNavigation.cs" Link="Launcher/Shell/Navigation/PrimeSectionNavigation.cs" />
+    <Compile Include="../Client/Launcher/Shell/Navigation/PrimeShellNavigationAdapter.cs" Link="Launcher/Shell/Navigation/PrimeShellNavigationAdapter.cs" />
+    <Compile Include="../Client/Launcher/Shell/Navigation/PrimeSpatialNavigation.cs" Link="Launcher/Shell/Navigation/PrimeSpatialNavigation.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeNotification.cs" Link="Launcher/Shell/PrimeNotification.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeRoute.cs" Link="Launcher/Shell/PrimeRoute.cs" />
+    <Compile Include="../Client/Launcher/Shell/PrimeRoutePresentation.cs" Link="Launcher/Shell/PrimeRoutePresentation.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeShellState.cs" Link="Launcher/Shell/PrimeShellState.cs" />
+    <Compile Include="../Client/Launcher/Shell/PrimeShellCaptureState.cs" Link="Launcher/Shell/PrimeShellCaptureState.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeShellView.axaml.cs" Link="Launcher/Shell/PrimeShellView.axaml.cs" />
     <Compile Include="../Client/Launcher/Shell/RankingsController.cs" Link="Launcher/Shell/RankingsController.cs" />
     <Compile Include="../Client/Launcher/Shell/TheaterController.cs" Link="Launcher/Shell/TheaterController.cs" />
     <Compile Include="../Client/Launcher/Portable/GameFiles.cs" Link="Client/Launcher/Portable/GameFiles.cs" />
     <Compile Include="../Client/Launcher/Portable/LaunchPlan.cs" Link="Client/Launcher/Portable/LaunchPlan.cs" />
     <Compile Include="../Client/Launcher/Portable/LauncherPrefs.cs" Link="Client/Launcher/Portable/LauncherPrefs.cs" />
+    <Compile Include="../Client/Launcher/Portable/MatchRunResult.cs" Link="Client/Launcher/Portable/MatchRunResult.cs" />
     <Compile Include="../Client/Launcher/Portable/OptionalContentPreferenceCodec.cs" Link="Client/Launcher/Portable/OptionalContentPreferenceCodec.cs" />
     <Compile Include="../Client/Launcher/Portable/SetupProgress.cs" Link="Client/Launcher/Portable/SetupProgress.cs" />
+    <Compile Include="../Client/Launcher/Theme/PrimeAccessibility.cs" Link="Client/Launcher/Theme/PrimeAccessibility.cs" />
+    <Compile Include="../Client/Launcher/Theme/PrimeLayoutMetrics.cs" Link="Client/Launcher/Theme/PrimeLayoutMetrics.cs" />
+    <Compile Include="../Client/Launcher/Theme/PrimeMotion.cs" Link="Client/Launcher/Theme/PrimeMotion.cs" />
+    <Compile Include="../Client/Launcher/Theme/PrimeVisualTokens.cs" Link="Client/Launcher/Theme/PrimeVisualTokens.cs" />
     <Compile Include="../Client/Networking/AuthoritativePlay.cs" Link="Client/Networking/AuthoritativePlay.cs" />
     <Compile Include="../Client/Networking/ProjectilePresentationMeasurement.cs" Link="Client/Networking/ProjectilePresentationMeasurement.cs" />
     <Compile Include="../Client/Networking/ClientPrediction.cs" Link="Client/Networking/ClientPrediction.cs" />

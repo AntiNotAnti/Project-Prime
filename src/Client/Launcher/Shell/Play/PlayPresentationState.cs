@@ -1,0 +1,236 @@
+using System;
+using System.Collections.Immutable;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using FruityPrime.Server.Shared;
+
+namespace MphRead.Mods.Launcher.Gui;
+
+/// <summary>
+/// The small amount of state that belongs to the Play surface rather than to
+/// the Node.  Authoritative lobby revisions, member seats, and offer data are
+/// never copied here; this type only keeps bounded user input and presentation
+/// choices alive while the view is rebuilt.
+/// </summary>
+internal sealed class PlayPresentationState
+{
+    public PlaySubsection Subsection { get; set; } = PlaySubsection.Home;
+    public int HostStep { get; set; } = 1;
+    public MatchBrowserFilters Filters { get; private set; } = new();
+    public MatchBrowserSort Sort { get; private set; } = MatchBrowserSort.Recommended;
+    public string ChatDraft { get; private set; } = "";
+    public HostMatchDraft HostDraft { get; } = new();
+    public HostMatchDraft? EditDraft { get; private set; }
+    public bool EditMatchOpen { get; set; }
+    public Guid? LeaveConfirmationLobbyId { get; private set; }
+
+    // These are operation guards, not an offer cache.  They prevent a rebuilt
+    // card or a double click from sending the same non-idempotent command
+    // twice. A failed command releases only the in-flight marker so a fresh
+    // authoritative rebuild can retry that same offer identity.
+    private Guid? _offerActionId;
+    private bool _offerActionInFlight;
+    private bool _offerActionCompleted;
+
+    public void SetFilters(MatchBrowserFilters filters)
+        => Filters = filters with { MapKey = string.IsNullOrWhiteSpace(filters.MapKey) ? null : filters.MapKey };
+
+    public void SetSort(MatchBrowserSort sort) => Sort = sort;
+
+    public void SetChatDraft(string? value) => ChatDraft = Utf8TextLimit.Truncate(value, 256);
+
+    public void ClearChatDraft() => ChatDraft = "";
+
+    public void BeginEdit(LobbySnapshot lobby)
+    {
+        ArgumentNullException.ThrowIfNull(lobby);
+        if (EditDraft?.SourceLobbyId == lobby.LobbyId) return;
+        EditDraft = HostMatchDraft.FromLobby(lobby);
+    }
+
+    public void ClearEdit()
+    {
+        EditDraft = null;
+        EditMatchOpen = false;
+    }
+
+    /// <summary>
+    /// Keep a destructive leave confirmation across the expected authoritative
+    /// view rebuild, but scope it to the lobby identity the player saw.
+    /// </summary>
+    public void ObserveLobby(Guid lobbyId)
+    {
+        if (lobbyId == Guid.Empty
+            || (LeaveConfirmationLobbyId is { } active && active != lobbyId))
+            LeaveConfirmationLobbyId = null;
+    }
+
+    public bool IsLeaveConfirmationOpen(Guid lobbyId)
+        => lobbyId != Guid.Empty && LeaveConfirmationLobbyId == lobbyId;
+
+    public void RequestLeaveConfirmation(Guid lobbyId)
+    {
+        if (lobbyId != Guid.Empty) LeaveConfirmationLobbyId = lobbyId;
+    }
+
+    public void CancelLeaveConfirmation(Guid lobbyId)
+    {
+        if (LeaveConfirmationLobbyId == lobbyId) LeaveConfirmationLobbyId = null;
+    }
+
+    /// <summary>Consume one explicit confirmation; duplicate clicks are ignored.</summary>
+    public bool TryConfirmLeave(Guid lobbyId)
+    {
+        if (!IsLeaveConfirmationOpen(lobbyId)) return false;
+        LeaveConfirmationLobbyId = null;
+        return true;
+    }
+
+    public bool TryBeginOfferAction(Guid offerId)
+    {
+        if (offerId == Guid.Empty) return false;
+        if (_offerActionId != offerId)
+        {
+            _offerActionId = offerId;
+            _offerActionInFlight = false;
+            _offerActionCompleted = false;
+        }
+        if (_offerActionInFlight || _offerActionCompleted) return false;
+        _offerActionInFlight = true;
+        return true;
+    }
+
+    /// <summary>Mark a non-idempotent offer command as successfully sent.</summary>
+    public void CompleteOfferAction(Guid offerId)
+    {
+        if (_offerActionId != offerId || !_offerActionInFlight) return;
+        _offerActionInFlight = false;
+        _offerActionCompleted = true;
+    }
+
+    /// <summary>
+    /// Release an in-flight offer command after a failed request. The identity
+    /// remains associated with the current authoritative offer, but it may be
+    /// attempted again after the next authoritative rebuild.
+    /// </summary>
+    public void ReleaseOfferAction(Guid offerId)
+    {
+        if (_offerActionId != offerId || !_offerActionInFlight) return;
+        _offerActionInFlight = false;
+    }
+
+    /// <summary>Forget only a superseded server offer identity.</summary>
+    public void ObserveOffer(Guid? offerId)
+    {
+        if (_offerActionId.HasValue && _offerActionId != offerId)
+        {
+            _offerActionId = null;
+            _offerActionInFlight = false;
+            _offerActionCompleted = false;
+        }
+    }
+}
+
+internal enum PlaySubsection
+{
+    Home,
+    Browser,
+    HostMatch
+}
+
+internal enum MatchBrowserSort
+{
+    Recommended,
+    MostPlayers,
+    MostOpenSlots,
+    Name
+}
+
+internal sealed record MatchBrowserFilters(
+    MatchMode? Mode = null,
+    string? MapKey = null,
+    bool OpenPlayerSlotsOnly = false,
+    bool SpectatableOnly = false,
+    bool HideFull = false);
+
+/// <summary>Pure, bounded projections used by the match browser.</summary>
+internal static class MatchBrowserFiltering
+{
+    public static int OpenPlayerSlots(LobbyListEntry entry)
+        => Math.Max(0, entry.PlayerLimit - entry.Players - entry.BotCount);
+
+    public static int OpenObserverSlots(LobbyListEntry entry)
+        => Math.Max(0, entry.ObserverLimit - entry.Observers);
+
+    public static bool IsPlayerJoinable(LobbyListEntry entry)
+        => entry.Phase == LobbyPhase.Open && OpenPlayerSlots(entry) > 0;
+
+    public static bool IsSpectatable(LobbyListEntry entry)
+        => entry.Phase == LobbyPhase.Open && OpenObserverSlots(entry) > 0;
+
+    public static bool IsWaitlistJoinable(LobbyListEntry entry)
+        => entry.Phase == LobbyPhase.Open && OpenPlayerSlots(entry) == 0;
+
+    public static ImmutableArray<LobbyListEntry> Apply(
+        System.Collections.Generic.IEnumerable<LobbyListEntry> entries,
+        MatchBrowserFilters filters, MatchBrowserSort sort)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+        ArgumentNullException.ThrowIfNull(filters);
+
+        IEnumerable<LobbyListEntry> query = entries;
+        if (filters.Mode is { } mode)
+            query = query.Where(entry => entry.Mode == mode);
+        if (!string.IsNullOrWhiteSpace(filters.MapKey))
+            query = query.Where(entry => StringComparer.Ordinal.Equals(entry.MapKey, filters.MapKey));
+        if (filters.OpenPlayerSlotsOnly || filters.HideFull)
+            query = query.Where(entry => OpenPlayerSlots(entry) > 0);
+        if (filters.SpectatableOnly)
+            query = query.Where(IsSpectatable);
+
+        query = sort switch
+        {
+            MatchBrowserSort.MostPlayers => query
+                .OrderByDescending(entry => entry.Players)
+                .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(entry => entry.LobbyId),
+            MatchBrowserSort.MostOpenSlots => query
+                .OrderByDescending(OpenPlayerSlots)
+                .ThenByDescending(entry => entry.Players)
+                .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(entry => entry.LobbyId),
+            MatchBrowserSort.Name => query
+                .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(entry => entry.LobbyId),
+            _ => query
+                .OrderByDescending(IsPlayerJoinable)
+                .ThenByDescending(OpenPlayerSlots)
+                .ThenByDescending(entry => entry.Players)
+                .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(entry => entry.LobbyId)
+        };
+        return query.ToImmutableArray();
+    }
+}
+
+internal static class Utf8TextLimit
+{
+    public static string Truncate(string? value, int maxBytes)
+    {
+        if (maxBytes <= 0 || string.IsNullOrEmpty(value)) return "";
+        string text = value;
+        if (Encoding.UTF8.GetByteCount(text) <= maxBytes) return text;
+
+        var builder = new StringBuilder(text.Length);
+        int bytes = 0;
+        foreach (Rune rune in text.EnumerateRunes())
+        {
+            int runeBytes = Encoding.UTF8.GetByteCount(rune.ToString());
+            if (bytes + runeBytes > maxBytes) break;
+            builder.Append(rune.ToString());
+            bytes += runeBytes;
+        }
+        return builder.ToString();
+    }
+}
