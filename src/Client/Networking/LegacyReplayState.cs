@@ -14,8 +14,11 @@ namespace MphRead.Mods.Network
     // legacy datagrams (4) or authoritative presentation records (5 through 9).
 
     /// <summary>Socket-free playback of server facts. Inputs and connection control are never replayed.</summary>
-    internal sealed class ModernDemoState
+    internal sealed class ModernReplayState
     {
+        private readonly IReplaySessionHost _host;
+        internal ModernReplayState(IReplaySessionHost? host = null)
+            => _host = host ?? new TheatreReplaySessionHost();
         private readonly SnapshotPlayer[] _players = new SnapshotPlayer[8];
         private readonly NetRosterEntry[] _roster = new NetRosterEntry[8];
         private readonly ulong[] _identities = new ulong[8];
@@ -43,9 +46,10 @@ namespace MphRead.Mods.Network
         private byte[]? _pendingFeedback;
         private byte[]? _pendingClock;
         private byte[]? _pendingChat;
-        private DemoRecordKind _fragmentKind;
+        private ReplayRecordKind _fragmentKind;
         private bool _reloadOnNextApply;
         private int? _recordedLocalSlot;
+        internal int RecordedLocalSlot => _recordedLocalSlot ?? -1;
         internal void RequestSceneReload() => _reloadOnNextApply = true;
         internal bool HasCompleteCheckpoint => Match.MatchId != 0 && HasSnapshot && _world.HasState
             && _pendingClock != null && _pendingFeedback != null && _feedbackBytes == null
@@ -77,7 +81,7 @@ namespace MphRead.Mods.Network
             _recordedLocalSlot = null; _hasRoster = false;
             _feedbackBytes = _pendingFeedback = _pendingClock = _pendingChat = null; _reloadOnNextApply = false; _feedbackOffset = _feedbackPart = 0;
             _world.LegacyProtocol = protocol is 5 or 6;
-            _world.Protocol7Demo = protocol == 7;
+            _world.Protocol7Replay = protocol == 7;
             Match = default; Snapshot = default; HasSnapshot = _dirty = false;
             PlayerCount = _eventCount = _killCount = _worldEventCount = _rosterCount = _chatCount = _semanticEventCount = 0; _loadedMatch = 0;
             _awardJournal.Reset(); _appliedAwardRevision = 0;
@@ -91,38 +95,38 @@ namespace MphRead.Mods.Network
         {
             if (record.Length < 1 || record.Length > NetConfig.MaxPacketSize) { return false; }
             ReadOnlySpan<byte> body = record[1..];
-            switch ((DemoRecordKind)record[0])
+            switch ((ReplayRecordKind)record[0])
             {
-                case DemoRecordKind.Perspective:
+                case ReplayRecordKind.Perspective:
                     if (_protocol < 8 || body.Length != 1 || (body[0] > 7 && body[0] != 255)) return false;
                     _recordedLocalSlot = body[0] == 255 ? -1 : body[0]; return true;
-                case DemoRecordKind.Clock:
+                case ReplayRecordKind.Clock:
                     if (_protocol < 8 || body.Length != 32
                         || !float.IsFinite(BinaryPrimitives.ReadSingleLittleEndian(body[16..]))
                         || !float.IsFinite(BinaryPrimitives.ReadSingleLittleEndian(body[20..]))
                         || BinaryPrimitives.ReadSingleLittleEndian(body[16..]) < 0
                         || BinaryPrimitives.ReadSingleLittleEndian(body[20..]) < 0) return false;
                     _pendingClock = body.ToArray(); return true;
-                case DemoRecordKind.ChatState:
-                case DemoRecordKind.Presentation:
+                case ReplayRecordKind.ChatState:
+                case ReplayRecordKind.Presentation:
                     if (_protocol < 8 || body.Length < 8) return false;
                     int part = BinaryPrimitives.ReadUInt16LittleEndian(body);
                     int parts = BinaryPrimitives.ReadUInt16LittleEndian(body[2..]);
                     int total = BinaryPrimitives.ReadInt32LittleEndian(body[4..]);
                     if (total is < 1 or > MphRead.Combat.ReplayFeedbackState.MaximumBytes || parts is < 1 or > 256 || part >= parts) return false;
-                    if (part == 0) { _feedbackBytes = new byte[total]; _feedbackOffset = _feedbackPart = 0; _feedbackParts = parts; _fragmentKind = (DemoRecordKind)record[0]; }
-                    if (_fragmentKind != (DemoRecordKind)record[0] || _feedbackBytes == null || _feedbackBytes.Length != total || parts != _feedbackParts || part != _feedbackPart
+                    if (part == 0) { _feedbackBytes = new byte[total]; _feedbackOffset = _feedbackPart = 0; _feedbackParts = parts; _fragmentKind = (ReplayRecordKind)record[0]; }
+                    if (_fragmentKind != (ReplayRecordKind)record[0] || _feedbackBytes == null || _feedbackBytes.Length != total || parts != _feedbackParts || part != _feedbackPart
                         || body.Length - 8 > total - _feedbackOffset) return false;
                     body[8..].CopyTo(_feedbackBytes.AsSpan(_feedbackOffset)); _feedbackOffset += body.Length - 8; _feedbackPart++;
                     if (_feedbackPart == parts)
                     {
                         if (_feedbackOffset != total) return false;
-                        if (_fragmentKind == DemoRecordKind.Presentation) _pendingFeedback = _feedbackBytes;
+                        if (_fragmentKind == ReplayRecordKind.Presentation) _pendingFeedback = _feedbackBytes;
                         else _pendingChat = _feedbackBytes;
                         _feedbackBytes = null;
                     }
                     return true;
-                case DemoRecordKind.Match:
+                case ReplayRecordKind.Match:
                     if (!TryReadMatch(body, out MatchTransitionPacket match) || match.MatchId == 0)
                     { return false; }
                     if (match.MatchId != Match.MatchId)
@@ -135,9 +139,9 @@ namespace MphRead.Mods.Network
                         _awardJournal.Reset(); _appliedAwardRevision = 0;
                     }
                     Match = match;
-                    NetSession.SetPlaybackMatch(match);
+                    _host.SetMatch(match);
                     return true;
-                case DemoRecordKind.Snapshot:
+                case ReplayRecordKind.Snapshot:
                     Span<SnapshotPlayer> players = stackalloc SnapshotPlayer[8];
                     if (!TryReadSnapshot(body, players, out SnapshotPacket snapshot, out int count)
                         || snapshot.MatchId != Match.MatchId || Match.MatchId == 0) { return false; }
@@ -145,31 +149,20 @@ namespace MphRead.Mods.Network
                     players[..count].CopyTo(_players);
                     SnapshotsReceived++;
                     PlayerCount = count; Snapshot = snapshot; HasSnapshot = _dirty = true;
-                    Array.Clear(NetSession.SlotOccupied);
-                    foreach (SnapshotPlayer player in Players)
-                    {
-                        NetSession.SlotOccupied[player.Slot] = true;
-                        NetSession.SlotHunter[player.Slot] = player.Hunter;
-                    }
+                    _host.SetSnapshotRoster(Players);
                     return true;
-                case DemoRecordKind.World:
+                case ReplayRecordKind.World:
                     if (!_world.ValidatePacket(body)) { return false; }
                     _world.Receive(body);
                     return true;
-                case DemoRecordKind.Roster:
+                case ReplayRecordKind.Roster:
                     // Entries contain strings, so use the small fixed-size managed table.
                     if (body.Length < 4 || BinaryPrimitives.ReadUInt32LittleEndian(body) != Match.MatchId
                         || !TryReadRoster(body[4..], _roster, out int rosterCount)) { return false; }
                     _rosterCount = rosterCount; _hasRoster = true;
-                    Array.Clear(NetSession.SlotOccupied);
-                    foreach (NetRosterEntry entry in _roster.AsSpan(0, rosterCount))
-                    {
-                        NetSession.SlotOccupied[entry.Slot] = true;
-                        NetSession.SlotHunter[entry.Slot] = entry.Hunter;
-                        NetSession.SlotPing[entry.Slot] = entry.PingMs;
-                    }
+                    _host.SetRoster(_roster.AsSpan(0, rosterCount));
                     return true;
-                case DemoRecordKind.Event:
+                case ReplayRecordKind.Event:
                     if (body.Length < 5 || BinaryPrimitives.ReadUInt32LittleEndian(body) != Match.MatchId) { return false; }
                     ReliableEventType type = (ReliableEventType)body[4];
                     if (type == ReliableEventType.Chat)
@@ -180,7 +173,7 @@ namespace MphRead.Mods.Network
                             if (_chatCount == _chats.Length) return false;
                             _chats[_chatCount++] = chat;
                         }
-                        else Chat.ChatBox.Receive(new ChatPacket { Slot = chat.Slot, Kind = ChatPacket.KindSay, Name = chat.Name, Text = chat.Text });
+                        else _host.PresentChat(chat);
                         return true;
                     }
                     if (type == ReliableEventType.WorldEvent && _protocol >= 8)
@@ -230,17 +223,17 @@ namespace MphRead.Mods.Network
         private bool TryReadSnapshot(ReadOnlySpan<byte> body, Span<SnapshotPlayer> players,
             out SnapshotPacket packet, out int count)
             => _protocol >= 8 ? SnapshotPacket.TryRead(body, players, out packet, out count)
-                : Protocol7DemoCodec.TryReadSnapshot(body, players, out packet, out count);
+                : Protocol7ReplayCodec.TryReadSnapshot(body, players, out packet, out count);
 
         private bool TryReadRoster(ReadOnlySpan<byte> body, Span<NetRosterEntry> entries, out int count)
             => _protocol >= 8 ? SessionRosterPacket.TryRead(body, entries, out _, out count)
-                : Protocol7DemoRoster.TryRead(body, entries, out _, out count);
+                : Protocol7ReplayRoster.TryRead(body, entries, out _, out count);
 
         private bool TryReadMatch(ReadOnlySpan<byte> body, out MatchTransitionPacket match)
         {
             if (_protocol >= 8) { return MatchTransitionPacket.TryRead(body, out match); }
-            if (_protocol == 7) { return Protocol7DemoCodec.TryReadMatch(body, out match); }
-            // Protocol 5/6 demo-only layout. Never use this decoder on a live socket.
+            if (_protocol == 7) { return Protocol7ReplayCodec.TryReadMatch(body, out match); }
+            // Protocol 5/6 replay-only layout. Never use this decoder on a live socket.
             match = default;
             if (body.Length != 9 + MatchStatePacket.MaxNameBytes || body[8] < (byte)GameMode.Battle
                 || body[8] > (byte)GameMode.PrimeHunter || !NetWireIdentity.ValidText(body[9..])) { return false; }
@@ -255,13 +248,13 @@ namespace MphRead.Mods.Network
         {
             if (_pendingChat != null)
             {
-                if (!Chat.ChatBox.RestoreReplay(_pendingChat)) throw new ProgramException("Invalid replay chat checkpoint.");
+                if (!_host.RestoreChat(_pendingChat)) throw new ProgramException("Invalid replay chat checkpoint.");
                 _pendingChat = null;
             }
             for (int i = 0; i < _chatCount; i++)
             {
                 var chat = _chats[i];
-                Chat.ChatBox.Receive(new ChatPacket { Slot = chat.Slot, Kind = ChatPacket.KindSay, Name = chat.Name, Text = chat.Text });
+                _host.PresentChat(chat);
             }
             _chatCount = 0;
         }
@@ -311,8 +304,8 @@ namespace MphRead.Mods.Network
                     scene.Match.RadarPlayers = Match.Rules.PlayerRadar;
                 }
                 scene.TransitionRoomId = Metadata.GetRoomByName(Match.Room).Item1?.Id
-                    ?? throw new ProgramException($"Unknown demo room: {Match.Room}");
-                (scene.Room ?? throw new ProgramException("Demo scene has no room.")).LoadRoom(resume: false);
+                    ?? throw new ProgramException($"Unknown replay room: {Match.Room}");
+                (scene.Room ?? throw new ProgramException("Replay scene has no room.")).LoadRoom(resume: false);
             }
             if (_pendingClock != null)
             {
@@ -334,6 +327,14 @@ namespace MphRead.Mods.Network
             if (_world.HasState && (!_appliedWorld || _appliedWorldRevision != _world.Revision))
             { _appliedWorld = true; _appliedWorldRevision = _world.Revision; WorldApplications++; }
             ApplyPendingChat();
+            if (!_host.AllowsPresentationSideEffects)
+            {
+                _pendingFeedback = null;
+                _eventCount = _killCount = _worldEventCount = _semanticEventCount = 0;
+                _awardJournal.Reset();
+                _appliedAwardRevision = 0;
+                return;
+            }
             if (_pendingFeedback != null && scene.Presentation is ScenePresentation restoredPresentation)
             {
                 if (!MphRead.Combat.ReplayFeedbackState.Restore(_pendingFeedback, restoredPresentation.CombatFeedback, restoredPresentation.WorldFeedback))
@@ -351,15 +352,29 @@ namespace MphRead.Mods.Network
             {
                 CombatEvent value = _events[i];
                 if (feedback != null && !feedback.Process(value)) continue;
+                if (scene.Presentation is ScenePresentation observedCombat)
+                    observedCombat.BroadcastObservations.Record(value);
                 CombatActor subject = value.Kind is CombatEventKind.Shot or CombatEventKind.Bomb ? value.Actor : value.Target;
                 if (subject.IsValid && _identities[subject.Slot] == subject.ConnectionId && _lives[subject.Slot] == subject.Life)
                 { scene.Players[subject.Slot].GetPresentation().PresentCombat(value); }
             }
             for (int i = 0; i < _killCount; i++) feedback?.Process(_kills[i]);
-            for (int i = 0; i < _worldEventCount; i++) worldFeedback?.Process(_worldEvents[i], feedback?.Local ?? CombatActor.None,
-                HasSnapshot ? Snapshot.ServerTick : 0, scene.Match.Rules.PickupRespawnAnnouncements);
+            for (int i = 0; i < _worldEventCount; i++)
+            {
+                if (scene.Presentation is ScenePresentation observed)
+                    observed.BroadcastObservations.Record(_worldEvents[i]);
+                worldFeedback?.Process(_worldEvents[i], feedback?.Local ?? CombatActor.None,
+                    HasSnapshot ? Snapshot.ServerTick : 0, scene.Match.Rules.PickupRespawnAnnouncements);
+            }
             if (scene.Presentation is ScenePresentation awardPresentation)
             {
+                for (int i = 0; i < _semanticEventCount; i++)
+                    awardPresentation.BroadcastObservations.Record(_semanticEvents[i]);
+                Span<MatchAward> observedAwards = stackalloc MatchAward[SemanticAwardJournal.Capacity];
+                int observedAwardCount = _awardJournal.CopySince(_appliedAwardRevision,
+                    observedAwards);
+                for (int i = 0; i < observedAwardCount; i++)
+                    awardPresentation.BroadcastObservations.Record(observedAwards[i]);
                 byte localTeam = awardPresentation.CombatFeedback.Local.IsValid
                     ? (byte)scene.Players[awardPresentation.CombatFeedback.Local.Slot].TeamIndex
                     : (byte)255;

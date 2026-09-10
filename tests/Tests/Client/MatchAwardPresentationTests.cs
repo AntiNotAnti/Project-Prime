@@ -226,9 +226,9 @@ public sealed class MatchAwardPresentationTests
     [Fact]
     public void ReplayRetainsNewestAwardsForPresentationPastJournalCapacity()
     {
-        var state = new ModernDemoState();
+        var state = new ModernReplayState();
         state.Reset(9);
-        Assert.True(state.Receive(DemoPlaybackTests.Match(1)));
+        Assert.True(state.Receive(ReplayPlaybackTests.Match(1)));
         for (uint id = 1; id <= SemanticAwardJournal.Capacity + 44; id++)
         {
             MatchAwardKind kind = id == SemanticAwardJournal.Capacity + 44
@@ -240,7 +240,7 @@ public sealed class MatchAwardPresentationTests
             BinaryPrimitives.WriteUInt32LittleEndian(body, 1);
             body[4] = (byte)ReliableEventType.MatchAward;
             packet.Write(body.AsSpan(5));
-            Assert.True(state.Receive(DemoPlaybackTests.Record(DemoRecordKind.Event, body)));
+            Assert.True(state.Receive(ReplayPlaybackTests.Record(ReplayRecordKind.Event, body)));
         }
 
         var announcer = new AnnouncerService();
@@ -258,9 +258,9 @@ public sealed class MatchAwardPresentationTests
     [Fact]
     public void ReplayDeliversRecordedSemanticCueWithoutReinterpretingLowLevelEvents()
     {
-        var state = new ModernDemoState();
+        var state = new ModernReplayState();
         state.Reset(9);
-        Assert.True(state.Receive(DemoPlaybackTests.Match(1)));
+        Assert.True(state.Receive(ReplayPlaybackTests.Match(1)));
         MatchEvent value = new(17, 20, 1, 2, MatchEventKind.OvertimeStarted,
             CombatActor.None, CombatActor.None);
         MatchSemanticEventPacket packet = MatchSemanticEventPacketConversion.FromEvent(value);
@@ -268,7 +268,7 @@ public sealed class MatchAwardPresentationTests
         BinaryPrimitives.WriteUInt32LittleEndian(body, 1);
         body[4] = (byte)ReliableEventType.MatchSemantic;
         packet.Write(body.AsSpan(5));
-        Assert.True(state.Receive(DemoPlaybackTests.Record(DemoRecordKind.Event, body)));
+        Assert.True(state.Receive(ReplayPlaybackTests.Record(ReplayRecordKind.Event, body)));
         var announcer = new AnnouncerService();
 
         Assert.Equal(1, state.ApplyPendingSemanticEvents(announcer, 255));

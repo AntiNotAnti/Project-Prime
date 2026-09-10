@@ -4,7 +4,7 @@ using System.Buffers.Binary;
 namespace MphRead.Mods.Network
 {
     /// <summary>Frozen historical layouts. No live socket dispatch calls this adapter.</summary>
-    internal static class Protocol7DemoCodec
+    internal static class Protocol7ReplayCodec
     {
         internal static bool TryReadSnapshot(ReadOnlySpan<byte> bytes, Span<SnapshotPlayer> players,
             out SnapshotPacket packet, out int count)
@@ -38,7 +38,7 @@ namespace MphRead.Mods.Network
         {
             match = default;
             if (bytes.Length != 76 || BinaryPrimitives.ReadUInt32LittleEndian(bytes) == 0
-                || !Protocol7DemoRules.TryRead(bytes[8..], out MatchRules rules)) return false;
+                || !Protocol7ReplayRules.TryRead(bytes[8..], out MatchRules rules)) return false;
             match = new MatchTransitionPacket(BinaryPrimitives.ReadUInt32LittleEndian(bytes),
                 BinaryPrimitives.ReadUInt32LittleEndian(bytes[4..]), rules);
             return true;

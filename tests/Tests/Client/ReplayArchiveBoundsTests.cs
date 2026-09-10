@@ -14,7 +14,7 @@ public sealed class ReplayArchiveBoundsTests
         try
         {
             long prefix;
-            using (var writer = new DemoWriter(path, indexed: true))
+            using (var writer = new ReplayWriter(path, indexed: true))
             {
                 writer.WriteRecord(0, new byte[] { 1, 2, 3 });
                 prefix = new FileInfo(path).Length;
@@ -24,7 +24,7 @@ public sealed class ReplayArchiveBoundsTests
             for (int end = (int)prefix; end < full.Length; end++)
             {
                 File.WriteAllBytes(path, full.AsSpan(0, end).ToArray());
-                using DemoReader reader = DemoReader.Open(path)!;
+                using ReplayReader reader = ReplayReader.Open(path)!;
                 Assert.Equal(new byte[] { 1, 2, 3 }, reader.ReadNext()!.Value.Data);
                 Assert.Null(reader.ReadNext()); Assert.Empty(reader.Index);
                 Assert.Equal(end != prefix, reader.RecoveredTail);
@@ -32,7 +32,7 @@ public sealed class ReplayArchiveBoundsTests
             for (int offset = (int)prefix; offset < full.Length; offset++)
             {
                 byte[] corrupt = (byte[])full.Clone(); corrupt[offset] ^= 1; File.WriteAllBytes(path, corrupt);
-                using DemoReader reader = DemoReader.Open(path)!;
+                using ReplayReader reader = ReplayReader.Open(path)!;
                 Assert.Equal(new byte[] { 1, 2, 3 }, reader.ReadNext()!.Value.Data);
                 Assert.Null(reader.ReadNext()); Assert.True(reader.RecoveredTail); Assert.Empty(reader.Index);
             }
@@ -45,7 +45,7 @@ public sealed class ReplayArchiveBoundsTests
         string path = Temporary();
         try
         {
-            using (var writer = new DemoWriter(path, indexed: true))
+            using (var writer = new ReplayWriter(path, indexed: true))
             {
                 writer.WriteRecord(0, new byte[] { 1 });
                 writer.WriteKeyframe(0, new[] { new byte[] { 2, 3 }, new byte[] { 4 } });
@@ -53,7 +53,7 @@ public sealed class ReplayArchiveBoundsTests
                 writer.WriteKeyframe(300, new[] { new byte[] { 6 } });
                 writer.WriteRecord(301, new byte[] { 7 });
             }
-            using DemoReader reader = DemoReader.Open(path)!;
+            using ReplayReader reader = ReplayReader.Open(path)!;
             Assert.Equal((byte)3, reader.FormatVersion);
             Assert.Equal(3, reader.Index.Count);
             Assert.Equal(301u, reader.LastFrame);
@@ -78,7 +78,7 @@ public sealed class ReplayArchiveBoundsTests
         string path = Temporary();
         try
         {
-            using (var writer = new DemoWriter(path, indexed: true))
+            using (var writer = new ReplayWriter(path, indexed: true))
             {
                 Assert.Throws<InvalidDataException>(() => writer.WriteRecord(ReplayArchive.MaximumFrame + 1, new byte[] { 1 }));
                 Assert.Throws<InvalidDataException>(() => writer.WriteKeyframe(0, Array.Empty<byte[]>()));
@@ -87,10 +87,10 @@ public sealed class ReplayArchiveBoundsTests
                 Assert.Throws<InvalidDataException>(() => writer.WriteRecord(9, new byte[] { 1 }));
             }
             using (var file = new FileStream(path, FileMode.Open, FileAccess.Write)) file.SetLength(ReplayArchive.MaximumFileBytes + 1);
-            Assert.Null(DemoReader.Open(path));
+            Assert.Null(ReplayReader.Open(path));
             Assert.Null(ReplayArchive.Unpack(0, new byte[] { 255, 255, 255, 127 }));
         }
         finally { File.Delete(path); }
     }
-    private static string Temporary() => Path.Combine(Path.GetTempPath(), $"replay-bounds-{Guid.NewGuid():N}.fpdemo");
+    private static string Temporary() => Path.Combine(Path.GetTempPath(), $"replay-bounds-{Guid.NewGuid():N}.fpreplay");
 }

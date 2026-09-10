@@ -8,6 +8,7 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using SDL;
 using MphRead.Entities;
 using MphRead.Mods.Input;
+using MphRead.Mods.Network;
 using PrimeGamepadState = MphRead.Mods.Input.GamepadState;
 
 namespace MphRead
@@ -138,8 +139,11 @@ namespace MphRead
         private uint _activeGamepadId;
         private bool _hasActiveGamepad;
         private bool _gyroSensorEnabled;
+        private ControllerCapabilityOwner? _capabilityOwner;
         private uint? _capturedPenId;
         private ScenePresentation? _presentation;
+        internal KeyboardState Keyboard => _compatibilityInput.Keyboard;
+        internal MouseState Mouse => _compatibilityInput.Mouse;
 
         public SdlGameHost(Vector2i? initialSize = null, string title = "Project Prime — SDL GPU",
             bool showWindow = true)
@@ -195,6 +199,10 @@ namespace MphRead
                     SDL3.SDL_ShowWindow(_window);
                 }
                 _focused = (SDL3.SDL_GetWindowFlags(_window) & SDL_WindowFlags.SDL_WINDOW_INPUT_FOCUS) != 0;
+                _capabilityOwner = ControllerCapabilities.TryAcquire(
+                    ControllerBackend.Sdl, replaceCurrent: true);
+                _capabilityOwner?.Publish(
+                    ControllerCapabilitySnapshot.Disconnected(ControllerBackend.Sdl));
                 GamepadDesktop.Publish(default);
                 GamepadHaptics.Attach(this);
             }
@@ -385,7 +393,8 @@ namespace MphRead
                 SDL3.SDL_ShowWindow(_window);
                 Focus();
                 started?.Invoke();
-                Run(new SdlSceneFrameClient(this, _presentation));
+                using var frameClient = new SdlSceneFrameClient(this, _presentation);
+                Run(frameClient);
             }, () => beforeCleanup?.Invoke(), () =>
             {
                 try
@@ -608,7 +617,7 @@ namespace MphRead
             {
                 if (!key.Down) continue;
                 if (Mods.Chat.ChatBox.HandleKeyDown(key,
-                    canOpen: !Mods.Network.DemoPlayback.IsActive
+                    canOpen: !Mods.Network.ReplayPlayback.IsActive
                         && (_presentation.CameraMode == CameraMode.Player || _presentation.IsFreeCam)))
                 {
                     continue;
@@ -619,9 +628,9 @@ namespace MphRead
                     continue;
                 }
                 if (key.Key == Keys.Space
-                    && (Mods.Network.DemoPlayback.IsActive || Mods.SpectatorMode.IsSpectating))
+                    && (Mods.Network.ReplayPlayback.IsActive || Mods.SpectatorMode.IsSpectating))
                 {
-                    if (Mods.Network.DemoPlayback.IsActive)
+                    if (Mods.Network.ReplayPlayback.IsActive)
                     {
                         _presentation.ToggleFreeCamera();
                     }
@@ -727,6 +736,10 @@ namespace MphRead
                     Name = SDL3.SDL_GetGamepadName(handle) ?? "SDL gamepad",
                     Family = ControllerFamilyFrom(SDL3.SDL_GetGamepadType(handle))
                 };
+                PublishActiveGamepadCapabilities(rawId, handle);
+                // Bias belongs to the physical device. A newly active device
+                // must never inherit calibration from the previous one.
+                GamepadGyro.ResetDevice();
                 SyncGyroSensor();
             }
         }
@@ -746,7 +759,7 @@ namespace MphRead
                 SDL3.SDL_CloseGamepad((SDL_Gamepad*)pointer);
             }
             if (!wasActive) return;
-            GamepadGyro.Reset();
+            GamepadGyro.ResetDevice();
             _hasActiveGamepad = false;
             _gamepadState = default;
             foreach (KeyValuePair<uint, IntPtr> gamepad in _gamepads)
@@ -758,7 +771,13 @@ namespace MphRead
                 _gamepadState.Name = SDL3.SDL_GetGamepadName(handle) ?? "SDL gamepad";
                 _gamepadState.Family = ControllerFamilyFrom(
                     SDL3.SDL_GetGamepadType(handle));
+                PublishActiveGamepadCapabilities(gamepad.Key, handle);
                 break;
+            }
+            if (!_hasActiveGamepad)
+            {
+                _capabilityOwner?.Publish(
+                    ControllerCapabilitySnapshot.Disconnected(ControllerBackend.Sdl));
             }
             SyncGyroSensor();
         }
@@ -849,24 +868,96 @@ namespace MphRead
             if (!_gyroSensorEnabled) GamepadGyro.Reset();
         }
 
+        private void PublishActiveGamepadCapabilities(uint rawId, SDL_Gamepad* handle)
+        {
+            bool? hasGyroscope = TryHasGyroscope(handle);
+            bool? hasLeftTrigger = TryHasAxis(handle,
+                SDL_GamepadAxis.SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
+            bool? hasRightTrigger = TryHasAxis(handle,
+                SDL_GamepadAxis.SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
+            bool? hasAnalogTriggers = hasLeftTrigger == false
+                || hasRightTrigger == false
+                ? false
+                : hasLeftTrigger == true && hasRightTrigger == true
+                    ? true : null;
+            _capabilityOwner?.Publish(ControllerCapabilitySnapshot.Connected(
+                ControllerBackend.Sdl,
+                $"gamepad:{rawId}",
+                _gamepadState.Name,
+                _gamepadState.Family,
+                hasGyroscope,
+                // SDL 3.4.16 exposes the rumble operation but no non-invasive
+                // capability query. Do not probe by actuating the device.
+                hasRumble: null,
+                hasAnalogTriggers: hasAnalogTriggers));
+        }
+
+        private static bool? TryHasGyroscope(SDL_Gamepad* handle)
+        {
+            try
+            {
+                return SDL3.SDL_GamepadHasSensor(handle,
+                    SDL_SensorType.SDL_SENSOR_GYRO);
+            }
+            catch (Exception ex) when (ex is DllNotFoundException
+                || ex is EntryPointNotFoundException || ex is BadImageFormatException)
+            {
+                return null;
+            }
+        }
+
+        private static bool? TryHasAxis(SDL_Gamepad* handle, SDL_GamepadAxis axis)
+        {
+            try
+            {
+                return SDL3.SDL_GamepadHasAxis(handle, axis);
+            }
+            catch (Exception ex) when (ex is DllNotFoundException
+                || ex is EntryPointNotFoundException || ex is BadImageFormatException)
+            {
+                return null;
+            }
+        }
+
         private void HandlePenProximity(SDL_PenProximityEvent evt, bool entered)
         {
             uint id = (uint)evt.which;
             if (!entered)
             {
+                DesktopPenState state = GetPenState(id);
+                bool ended = state.InProximity
+                    && _stylus.PointerProximityExit(PenSample(id, state, 0));
                 if (_capturedPenId == id)
                 {
-                    _stylus.Cancel();
+                    // A malformed or truncated event stream may omit the
+                    // matching proximity sample. Only the captured pen may
+                    // use the fallback cancellation; another pen leaving
+                    // proximity must not cancel its owner.
+                    if (!ended) _stylus.Cancel();
                     _capturedPenId = null;
                 }
                 _pens.Remove(id);
                 return;
             }
+            PointerCoordinateKind coordinateKind = PenCoordinateKind(evt.which);
             _pens[id] = new DesktopPenState
             {
                 Tool = PointerToolKind.Stylus,
-                Direct = SDL3.SDL_GetPenDeviceType(evt.which)
-                    == SDL_PenDeviceType.SDL_PEN_DEVICE_TYPE_DIRECT
+                InProximity = true,
+                CoordinateKind = coordinateKind,
+                // SDL reports direct pen positions in a window-relative
+                // coordinate stream. Keep the known logical-pixel scale in
+                // the neutral sample so high-DPI windows do not make direct
+                // pen aim depend on the framebuffer size.
+                LogicalDisplayScale = coordinateKind == PointerCoordinateKind.Direct
+                    ? LogicalDisplayScale() : 1,
+                // SDL 3.4.16 exposes Direct/Indirect classification but no
+                // mapped tablet extent. Zero is intentional: the neutral
+                // layer uses its conservative fallback until an adapter can
+                // provide a real normalized extent; no physical dimensions
+                // are invented here.
+                MappedExtentX = 0,
+                MappedExtentY = 0
             };
         }
 
@@ -876,6 +967,7 @@ namespace MphRead
             uint id = (uint)evt.which;
             DesktopPenState state = GetPenState(id);
             state.Contact = evt.down;
+            state.InProximity = true;
             state.X = evt.x;
             state.Y = evt.y;
             state.Tool = evt.eraser ? PointerToolKind.Eraser : PenTool(evt.pen_state);
@@ -902,16 +994,23 @@ namespace MphRead
             state.X = evt.x;
             state.Y = evt.y;
             state.Contact = (evt.pen_state & SDL_PenInputFlags.SDL_PEN_INPUT_DOWN) != 0;
+            state.InProximity = true;
             state.Tool = PenTool(evt.pen_state);
             state.Buttons = PenButtons(evt.pen_state);
             _pens[id] = state;
-            if (!state.Contact || _capturedPenId != id || !_stylus.Active)
+            PointerSample sample = PenSample(id, state, evt.timestamp);
+            if (!state.Contact)
+            {
+                _stylus.PointerProximityMove(sample);
+                return;
+            }
+            if (_capturedPenId != id || !_stylus.Active)
             {
                 if (!_stylus.Active) _capturedPenId = null;
                 return;
             }
             ConfigureStylus();
-            _stylus.PointerMove(PenSample(id, state, evt.timestamp));
+            _stylus.PointerMove(sample);
         }
 
         private void HandlePenButton(SDL_PenButtonEvent evt)
@@ -921,11 +1020,12 @@ namespace MphRead
             DesktopPenState state = GetPenState(id);
             state.X = evt.x;
             state.Y = evt.y;
+            state.Contact = (evt.pen_state & SDL_PenInputFlags.SDL_PEN_INPUT_DOWN) != 0;
+            state.InProximity = true;
             state.Tool = PenTool(evt.pen_state);
             state.Buttons = PenButtons(evt.pen_state);
             _pens[id] = state;
-            if (state.Contact && _capturedPenId == id && _stylus.Active)
-                _stylus.PointerMove(PenSample(id, state, evt.timestamp));
+            _stylus.UpdateButtonState(PenSample(id, state, evt.timestamp));
         }
 
         private void HandlePenAxis(SDL_PenAxisEvent evt)
@@ -935,13 +1035,14 @@ namespace MphRead
             DesktopPenState state = GetPenState(id);
             state.X = evt.x;
             state.Y = evt.y;
+            state.Contact = (evt.pen_state & SDL_PenInputFlags.SDL_PEN_INPUT_DOWN) != 0;
+            state.InProximity = true;
             state.Tool = PenTool(evt.pen_state);
             state.Buttons = PenButtons(evt.pen_state);
             if (evt.axis == SDL_PenAxis.SDL_PEN_AXIS_PRESSURE)
                 state.Pressure = Math.Clamp(evt.value, 0, 1);
             _pens[id] = state;
-            if (state.Contact && _capturedPenId == id && _stylus.Active)
-                _stylus.PointerMove(PenSample(id, state, evt.timestamp));
+            _stylus.UpdateButtonState(PenSample(id, state, evt.timestamp));
         }
 
         private void ConfigureStylus()
@@ -968,11 +1069,39 @@ namespace MphRead
             => _pens.TryGetValue(id, out DesktopPenState state) ? state
                 : new DesktopPenState { Tool = PointerToolKind.Stylus };
 
+        private PointerCoordinateKind PenCoordinateKind(SDL_PenID id)
+            => SDL3.SDL_GetPenDeviceType(id) switch
+            {
+                SDL_PenDeviceType.SDL_PEN_DEVICE_TYPE_DIRECT
+                    => PointerCoordinateKind.Direct,
+                SDL_PenDeviceType.SDL_PEN_DEVICE_TYPE_INDIRECT
+                    => PointerCoordinateKind.Indirect,
+                _ => PointerCoordinateKind.Unknown
+            };
+
+        private float LogicalDisplayScale()
+        {
+            if (_logicalSize.X <= 0 || _logicalSize.Y <= 0
+                || _framebufferSize.X <= 0 || _framebufferSize.Y <= 0)
+            {
+                return 1;
+            }
+            float x = _framebufferSize.X / (float)_logicalSize.X;
+            float y = _framebufferSize.Y / (float)_logicalSize.Y;
+            if (!float.IsFinite(x) || !float.IsFinite(y) || x <= 0 || y <= 0)
+            {
+                return 1;
+            }
+            return (x + y) * .5f;
+        }
+
         private static PointerSample PenSample(uint id, DesktopPenState state,
             ulong timestampNanoseconds)
             => new(unchecked((int)id), state.Tool, state.X, state.Y,
                 state.Pressure, state.Buttons,
-                (long)Math.Min(timestampNanoseconds / 1_000_000UL, (ulong)long.MaxValue));
+                (long)Math.Min(timestampNanoseconds / 1_000_000UL, (ulong)long.MaxValue),
+                state.CoordinateKind, state.LogicalDisplayScale,
+                state.MappedExtentX, state.MappedExtentY);
 
         private static PointerToolKind PenTool(SDL_PenInputFlags flags)
             => (flags & SDL_PenInputFlags.SDL_PEN_INPUT_ERASER_TIP) != 0
@@ -1180,10 +1309,13 @@ namespace MphRead
             _disposed = true;
             _stylus.Cancel();
             _capturedPenId = null;
-            GamepadGyro.Reset();
+            GamepadGyro.ResetDevice();
             GamepadHaptics.Stop();
             GamepadHaptics.Pump();
             GamepadHaptics.Detach(this);
+            _capabilityOwner?.Dispose();
+            _capabilityOwner = null;
+            GamepadDesktop.Publish(default);
             try
             {
                 foreach (IntPtr pointer in _gamepads.Values)
@@ -1223,45 +1355,77 @@ namespace MphRead
             public float X, Y, Pressure;
             public StylusButtons Buttons;
             public PointerToolKind Tool;
-            public bool Contact, Direct;
+            public bool Contact, InProximity;
+            public PointerCoordinateKind CoordinateKind;
+            public float LogicalDisplayScale;
+            public float MappedExtentX, MappedExtentY;
         }
     }
 
-    internal sealed class SdlSceneFrameClient : IGameWindowFrameClient
+    internal sealed class SdlSceneFrameClient : IGameWindowFrameClient, IDisposable
     {
         private readonly SdlGameHost _host;
         private readonly ScenePresentation _presentation;
+        private readonly KillcamController? _killcam;
+        private uint _highlightFocusFrame = uint.MaxValue;
+        private bool _highlightEndObserved;
 
         public SdlSceneFrameClient(SdlGameHost host, ScenePresentation presentation)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _presentation = presentation ?? throw new ArgumentNullException(nameof(presentation));
+            if (Mods.Network.AuthoritativePlay.Current != null)
+                _killcam = new KillcamController(presentation, host.LogicalSize,
+                    host.Keyboard, host.Mouse);
         }
+
+        private ScenePresentation ActivePresentation
+            => _killcam?.RenderedPresentation ?? _presentation;
 
         public void OnInput(WindowInputSnapshot input) { }
 
         public void AdvanceSimulation(int steps)
         {
-            for (int i = 0; i < steps; i++) _presentation.OnSimulationFrame();
+            for (int i = 0; i < steps; i++)
+            {
+                _presentation.OnSimulationFrame();
+                _killcam?.Advance();
+                if (_killcam == null && Mods.Network.ReplayPlayback.CurrentHighlight
+                    is ReplayHighlight highlight
+                    && highlight.FocusFrame != _highlightFocusFrame
+                    && Mods.SpectatorMode.IsSpectating)
+                {
+                    _highlightFocusFrame = highlight.FocusFrame;
+                    _presentation.SpectatorCamera.FocusHighlight(_presentation, highlight);
+                }
+                if (_killcam == null && Mods.Network.ReplayPlayback.ShouldExitAtEnd)
+                {
+                    if (_highlightEndObserved) _host.StopScene();
+                    else _highlightEndObserved = true;
+                }
+                else _highlightEndObserved = false;
+            }
         }
 
         public void OnDrawFrame()
         {
-            if (Mods.Input.GamepadInput.TakeMenuPress()
+            ScenePresentation active = ActivePresentation;
+            if (_killcam?.IsPresenting != true && Mods.Input.GamepadInput.TakeMenuPress()
                 && (_presentation.CameraMode == CameraMode.Player || _presentation.IsFreeCam))
             {
                 Mods.PauseMenu.HandleEscape(_host, _presentation.World);
             }
-            _presentation.OnDrawFrame();
+            active.OnDrawFrame();
         }
 
         public void Render(RenderBackendFrame frame, IRenderBackend backend)
-            => backend.Render(frame, _presentation.CurrentRenderFrame);
+            => backend.Render(frame, ActivePresentation.CurrentRenderFrame);
 
-        public void OnFramePresented() => _presentation.OnFramePresented();
-        public void AfterRenderFrame() => _presentation.AfterRenderFrame();
+        public void OnFramePresented() => ActivePresentation.OnFramePresented();
+        public void AfterRenderFrame() => ActivePresentation.AfterRenderFrame();
         public void PumpPauseMenu() => Mods.PauseMenu.Poll(_host);
-        public bool CanRenderFrame => !_presentation.Exiting;
+        public bool CanRenderFrame => !ActivePresentation.Exiting;
+        public void Dispose() => _killcam?.Dispose();
     }
 
     /// <summary>

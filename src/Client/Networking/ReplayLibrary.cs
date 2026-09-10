@@ -6,7 +6,7 @@ using System.IO;
 namespace MphRead.Mods.Network
 {
     /// <summary>One recording found on disk, as a screen needs to show it.</summary>
-    internal readonly struct DemoRecording
+    internal readonly struct ReplayRecording
     {
         public string Path { get; }
         /// <summary>The room, when the file name still carries it. Otherwise empty.</summary>
@@ -16,7 +16,7 @@ namespace MphRead.Mods.Network
 
         public string FileName => System.IO.Path.GetFileName(Path);
 
-        public DemoRecording(string path, string room, DateTime recorded, long bytes)
+        public ReplayRecording(string path, string room, DateTime recorded, long bytes)
         {
             Path = path;
             Room = room;
@@ -30,19 +30,19 @@ namespace MphRead.Mods.Network
     /// written to.
     ///
     /// It exists because the system file picker is the wrong tool for them on
-    /// the platform most likely to be recording. <see cref="DemoRecorder"/>
+    /// the platform most likely to be recording. <see cref="ReplayRecorder"/>
     /// writes into the app's own directory, and since Android 11
     /// <c>Android/data</c> is excluded from the Storage Access Framework: the
     /// picker cannot be pointed at it and a player cannot navigate to it, even
     /// though the app itself reads and writes there with no permission at all.
     /// So the app lists its own folder and the picker is kept for the other
-    /// case -- importing a demo somebody sent you, which really is somewhere
+    /// case -- importing a replay somebody sent you, which really is somewhere
     /// else.
     /// </summary>
-    internal static class DemoLibrary
+    internal static class ReplayLibrary
     {
         /// <summary>
-        /// Where <see cref="DemoRecorder"/> writes, as an absolute path.
+        /// Where <see cref="ReplayRecorder"/> writes, as an absolute path.
         ///
         /// Absolute matters: <c>Paths.Export</c> is empty in every paths.txt a
         /// desktop extraction produces, which makes the recorder's own combine
@@ -50,19 +50,19 @@ namespace MphRead.Mods.Network
         /// fine for writing and useless for handing to anything else.
         /// </summary>
         public static string Directory =>
-            Path.GetFullPath(Paths.Combine(Paths.Export, "_demos"));
+            Path.GetFullPath(Paths.Combine(Paths.Export, "_replays"));
 
         /// <summary>
         /// Every recording in that folder, newest first.
         ///
         /// Nothing is opened. The file name carries the room and the moment
-        /// already (see <see cref="DemoRecorder.Start()"/>), and reading a
+        /// already (see <see cref="ReplayRecorder.Start()"/>), and reading a
         /// header out of every file on a phone to learn what the name says is
         /// a directory listing turned into a disk full of seeks.
         /// </summary>
-        public static IReadOnlyList<DemoRecording> List()
+        public static IReadOnlyList<ReplayRecording> List()
         {
-            var found = new List<DemoRecording>();
+            var found = new List<ReplayRecording>();
             try
             {
                 string directory = Directory;
@@ -71,11 +71,11 @@ namespace MphRead.Mods.Network
                     return found;
                 }
                 foreach (string path in System.IO.Directory
-                    .EnumerateFiles(directory, "*" + DemoFile.Extension))
+                    .EnumerateFiles(directory, "*" + ReplayFile.Extension))
                 {
                     var info = new FileInfo(path);
                     (string room, DateTime? stamp) = ReadName(info.Name);
-                    found.Add(new DemoRecording(path, room,
+                    found.Add(new ReplayRecording(path, room,
                         stamp ?? info.LastWriteTime, info.Length));
                 }
             }
@@ -83,7 +83,7 @@ namespace MphRead.Mods.Network
             {
                 // A folder that cannot be listed is an empty list, not a
                 // screen that refuses to open.
-                Console.WriteLine($"[demo] could not list {Directory}: {ex.Message}");
+                Console.WriteLine($"[replay] could not list {Directory}: {ex.Message}");
             }
             found.Sort((a, b) => b.Recorded.CompareTo(a.Recorded));
             return found;
@@ -115,9 +115,9 @@ namespace MphRead.Mods.Network
         }
 
         /// <summary>"4 Sep 2026, 18:22 — 1.4 MB".</summary>
-        public static string Describe(DemoRecording demo)
+        public static string Describe(ReplayRecording replay)
         {
-            return $"{demo.Recorded:d MMM yyyy, HH:mm} — {Size(demo.Bytes)}";
+            return $"{replay.Recorded:d MMM yyyy, HH:mm} — {Size(replay.Bytes)}";
         }
 
         private static string Size(long bytes)

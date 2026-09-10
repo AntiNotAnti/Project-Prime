@@ -9,9 +9,9 @@ namespace MphRead.Mods.Network
     /// stream. The uncompressed protocol byte selects the record decoder:
     /// legacy protocol-4 packets or authoritative server presentation facts.
     /// </summary>
-    internal static class DemoFile
+    internal static class ReplayFile
     {
-        // "FPDM" -- original Fruity Prime DeMo format identifier.
+        // "FPDM" -- legacy Project Prime replay format identifier.
         public static readonly byte[] Magic = { (byte)'F', (byte)'P', (byte)'D', (byte)'M' };
         /// <summary>
         /// 2: frame-stamped records over a deflate stream. Version 1 files
@@ -23,12 +23,13 @@ namespace MphRead.Mods.Network
         public const byte IndexedFormatVersion = 3;
         // Authoritative protocol 5 was checkpointed before the live wire moved
         // to 6. These formats contain server facts, not joins or input commands;
-        // both remain readable through demo-only adapters after version 7 without enabling either old wire on a socket.
+        // both remain readable through replay-only adapters after version 7 without enabling either old wire on a socket.
         // Protocol 9 changes live JOIN routing only. Recorded snapshots, rosters,
         // world facts and checkpoints retain the protocol-8 layout.
-        public static bool IsAuthoritativeProtocol(byte protocol) => protocol is 5 or 6 or 7 or 8 or 9;
+        public static bool IsAuthoritativeProtocol(byte protocol)
+            => protocol >= 5 && protocol <= NetHeader.Version;
         public static bool IsSupportedProtocol(byte protocol) => protocol == 4 || IsAuthoritativeProtocol(protocol);
-        public const string Extension = ".fpdemo";
+        public const string Extension = ".fpreplay";
 
         /// <summary>Magic, format version, protocol version. Never compressed: it says how to read the rest.</summary>
         public const int HeaderSize = 4 + 1 + 1;
@@ -43,10 +44,10 @@ namespace MphRead.Mods.Network
     }
 
     /// <summary>Appends recorded packets to a file as they arrive. Not thread-safe -- called from the net-update thread only.</summary>
-    internal sealed class DemoWriter : IDisposable
+    internal sealed class ReplayWriter : IDisposable
     {
         /// <summary>
-        /// Frames between flushes. A demo that dies with the game stays
+        /// Frames between flushes. A replay that dies with the game stays
         /// watchable to within this much of the crash.
         /// </summary>
         private const uint FlushIntervalFrames = 15;
@@ -59,7 +60,7 @@ namespace MphRead.Mods.Network
         private readonly byte[] _header = new byte[7];
         public byte ProtocolVersion { get; }
 
-        public DemoWriter(string path, byte protocolVersion = NetHeader.Version, bool indexed = false)
+        public ReplayWriter(string path, byte protocolVersion = NetHeader.Version, bool indexed = false)
         {
             ProtocolVersion = protocolVersion;
             string? dir = Path.GetDirectoryName(path);
@@ -68,8 +69,8 @@ namespace MphRead.Mods.Network
                 Directory.CreateDirectory(dir);
             }
             _stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
-            _stream.Write(DemoFile.Magic);
-            _stream.WriteByte(indexed ? DemoFile.IndexedFormatVersion : DemoFile.FormatVersion);
+            _stream.Write(ReplayFile.Magic);
+            _stream.WriteByte(indexed ? ReplayFile.IndexedFormatVersion : ReplayFile.FormatVersion);
             _stream.WriteByte(protocolVersion);
             _stream.Flush();
             if (indexed) _archive = new ReplayArchive(_stream, scan: false);
@@ -92,13 +93,13 @@ namespace MphRead.Mods.Network
             uint delta = frame - _lastFrame;
             _lastFrame = frame;
             int at = 0;
-            if (delta < DemoFile.LongGap)
+            if (delta < ReplayFile.LongGap)
             {
                 _header[at++] = (byte)delta;
             }
             else
             {
-                _header[at++] = DemoFile.LongGap;
+                _header[at++] = ReplayFile.LongGap;
                 System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(
                     _header.AsSpan(at), delta);
                 at += 4;
@@ -121,7 +122,7 @@ namespace MphRead.Mods.Network
 
         internal void WriteKeyframe(uint frame, System.Collections.Generic.IReadOnlyList<byte[]> records)
         {
-            if (_archive == null) throw new InvalidOperationException("Keyframes require demo format 3.");
+            if (_archive == null) throw new InvalidOperationException("Keyframes require replay format 3.");
             _archive.Write(frame, ReplayArchive.Pack(records), keyframe: true);
         }
 
@@ -132,22 +133,22 @@ namespace MphRead.Mods.Network
         }
     }
 
-    /// <summary>One recorded packet, read back from a demo file.</summary>
-    internal readonly struct DemoRecord
+    /// <summary>One recorded packet, read back from a replay file.</summary>
+    internal readonly struct ReplayRecord
     {
         /// <summary>Simulation frames after the recording started.</summary>
         public readonly uint Frame;
         public readonly byte[] Data;
 
-        public DemoRecord(uint frame, byte[] data)
+        public ReplayRecord(uint frame, byte[] data)
         {
             Frame = frame;
             Data = data;
         }
     }
 
-    /// <summary>Reads a demo file's header, then its records in order.</summary>
-    internal sealed class DemoReader : IDisposable
+    /// <summary>Reads a replay file's header, then its records in order.</summary>
+    internal sealed class ReplayReader : IDisposable
     {
         private readonly FileStream _stream;
         private readonly DeflateStream? _deflate;
@@ -161,33 +162,33 @@ namespace MphRead.Mods.Network
         internal uint LastFrame => _archive?.LastFrame ?? _frame;
         internal bool CanSeek => _archive != null;
         internal bool RecoveredTail => _archive?.RecoveredTail ?? false;
-        internal DemoRecord[]? Seek(uint frame, out uint restoredFrame)
+        internal ReplayRecord[]? Seek(uint frame, out uint restoredFrame)
         {
             restoredFrame = 0;
             return _archive?.Seek(frame, out restoredFrame);
         }
 
-        /// <summary>Null if the file doesn't look like a demo at all (bad magic, wrong version, truncated header).</summary>
-        public static DemoReader? Open(string path)
+        /// <summary>Null if the file doesn't look like a replay at all (bad magic, wrong version, truncated header).</summary>
+        public static ReplayReader? Open(string path)
         {
             FileStream? stream = null;
             try
             {
                 stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-                Span<byte> header = stackalloc byte[DemoFile.HeaderSize];
+                Span<byte> header = stackalloc byte[ReplayFile.HeaderSize];
                 if (stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false)
                     < header.Length)
                 {
                     stream.Dispose();
                     return null;
                 }
-                if (!header[..DemoFile.Magic.Length].SequenceEqual(DemoFile.Magic)
-                    || header[4] is not (DemoFile.FormatVersion or DemoFile.IndexedFormatVersion))
+                if (!header[..ReplayFile.Magic.Length].SequenceEqual(ReplayFile.Magic)
+                    || header[4] is not (ReplayFile.FormatVersion or ReplayFile.IndexedFormatVersion))
                 {
                     stream.Dispose();
                     return null;
                 }
-                return new DemoReader(stream, header[5], header[4]);
+                return new ReplayReader(stream, header[5], header[4]);
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
             {
@@ -196,17 +197,17 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private DemoReader(FileStream stream, byte protocolVersion, byte formatVersion)
+        private ReplayReader(FileStream stream, byte protocolVersion, byte formatVersion)
         {
             _stream = stream;
             FormatVersion = formatVersion;
-            if (formatVersion == DemoFile.IndexedFormatVersion) _archive = new ReplayArchive(stream, scan: true);
+            if (formatVersion == ReplayFile.IndexedFormatVersion) _archive = new ReplayArchive(stream, scan: true);
             else _deflate = new DeflateStream(stream, CompressionMode.Decompress, leaveOpen: true);
             ProtocolVersion = protocolVersion;
         }
 
         /// <summary>The next record, or null at end of file.</summary>
-        public DemoRecord? ReadNext()
+        public ReplayRecord? ReadNext()
         {
             if (_archive != null)
             {
@@ -220,7 +221,7 @@ namespace MphRead.Mods.Network
                     return null;
                 }
                 uint delta = _header[0];
-                if (delta == DemoFile.LongGap)
+                if (delta == ReplayFile.LongGap)
                 {
                     if (!Fill(_header.AsSpan(0, 4)))
                     {
@@ -240,7 +241,7 @@ namespace MphRead.Mods.Network
                     return null;
                 }
                 _frame += delta;
-                return new DemoRecord(_frame, data);
+                return new ReplayRecord(_frame, data);
             }
             catch (InvalidDataException)
             {

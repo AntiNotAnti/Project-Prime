@@ -65,7 +65,7 @@ namespace MphRead.Mods.Chat
         public const int MaxLength = 80;
 
         // Recorded chat ages with the replay timeline, including pause, slow motion and seek.
-        private static long Clock => DemoPlayback.IsActive ? DemoPlayback.CurrentFrame * 1000L / 60 : Environment.TickCount64;
+        private static long Clock => ReplayPlayback.IsActive ? ReplayPlayback.CurrentFrame * 1000L / 60 : Environment.TickCount64;
         internal static byte[] CaptureReplay()
         {
             var visible = new List<(ChatLine Line, float Alpha)>(); CollectVisible(visible);
@@ -390,7 +390,7 @@ namespace MphRead.Mods.Chat
         /// </summary>
         /// <param name="canOpen">
         /// Whether there is a match to talk in. False in the model viewer and
-        /// while a demo is playing back: a recording has nobody to send to,
+        /// while a replay is playing back: a recording has nobody to send to,
         /// and its own chat lines are already in the file.
         /// </param>
         public static bool HandleKeyDown(WindowKeyEvent e, bool canOpen)

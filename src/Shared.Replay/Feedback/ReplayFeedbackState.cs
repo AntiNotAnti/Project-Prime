@@ -127,7 +127,7 @@ namespace MphRead.Combat
             ReplayFeedbackState.Actor(writer, Local);
             // Predicted markers are a local presentation artifact.  Mapping
             // one to None keeps the v1 checkpoint byte layout and ensures a
-            // demo never replays speculative feedback as if it were a server
+            // replay never replays speculative feedback as if it were a server
             // fact.
             HitMarkerKind replayMarker = State.Marker == HitMarkerKind.Predicted
                 ? HitMarkerKind.None : State.Marker;

@@ -27,9 +27,10 @@ namespace MphRead.Mods.Network
         private int _chunks;
         private long _decodedBytes;
         private const long MaximumDecodedBytes = 8L * 1024 * 1024 * 1024;
+        internal const long MaximumDecodedBytesForTimeline = MaximumDecodedBytes;
         private readonly FileStream _file;
         private readonly List<ReplayIndexEntry> _index = new();
-        private long _validEnd = DemoFile.HeaderSize;
+        private long _validEnd = ReplayFile.HeaderSize;
         private uint _lastFrame;
         internal IReadOnlyList<ReplayIndexEntry> Index => _index;
         internal uint LastFrame => _lastFrame;
@@ -69,7 +70,7 @@ namespace MphRead.Mods.Network
         private void Scan()
         {
             if (_file.Length > MaximumFileBytes) throw new InvalidDataException("Replay file exceeds 2 GiB.");
-            _file.Position = DemoFile.HeaderSize;
+            _file.Position = ReplayFile.HeaderSize;
             while (_file.Position < _file.Length)
             {
                 if (++_chunks > MaximumChunks) { RecoveredTail = true; break; }
@@ -87,20 +88,20 @@ namespace MphRead.Mods.Network
                 _lastFrame = frame;
                 _validEnd = _file.Position;
             }
-            _file.Position = DemoFile.HeaderSize;
+            _file.Position = ReplayFile.HeaderSize;
         }
 
-        internal DemoRecord? ReadNext()
+        internal ReplayRecord? ReadNext()
         {
             while (_file.Position < _validEnd)
             {
                 if (!ReadChunk(out uint frame, out bool keyframe, out _, out byte[] data)) return null;
-                if (!keyframe) return new DemoRecord(frame, data);
+                if (!keyframe) return new ReplayRecord(frame, data);
             }
             return null;
         }
 
-        internal DemoRecord[]? Seek(uint target, out uint restoredFrame)
+        internal ReplayRecord[]? Seek(uint target, out uint restoredFrame)
         {
             restoredFrame = 0;
             ReplayIndexEntry? selected = null;
@@ -110,7 +111,7 @@ namespace MphRead.Mods.Network
                 if (entry.Keyframe) selected = entry;
             }
             if (selected is not ReplayIndexEntry checkpoint)
-            { _file.Position = DemoFile.HeaderSize; return Array.Empty<DemoRecord>(); }
+            { _file.Position = ReplayFile.HeaderSize; return Array.Empty<ReplayRecord>(); }
             _file.Position = checkpoint.Offset;
             if (!ReadChunk(out uint frame, out bool keyframe, out _, out byte[] data) || !keyframe) return null;
             restoredFrame = frame;
@@ -132,12 +133,12 @@ namespace MphRead.Mods.Network
             return stream.ToArray();
         }
 
-        internal static DemoRecord[]? Unpack(uint frame, ReadOnlySpan<byte> bytes)
+        internal static ReplayRecord[]? Unpack(uint frame, ReadOnlySpan<byte> bytes)
         {
             if (bytes.Length < 4) return null;
             int count = BinaryPrimitives.ReadInt32LittleEndian(bytes); bytes = bytes[4..];
             if (count is < 1 or > 2048) return null;
-            var records = new DemoRecord[count];
+            var records = new ReplayRecord[count];
             for (int i = 0; i < count; i++)
             {
                 if (bytes.Length < 2) return null;

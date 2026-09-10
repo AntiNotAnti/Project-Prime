@@ -3,7 +3,7 @@ using System.Buffers.Binary;
 
 namespace MphRead.Mods.Network
 {
-    internal static class Protocol7DemoRoster
+    internal static class Protocol7ReplayRoster
     {
         public const int EntrySize = 29;
         public const int HeaderSize = 5;

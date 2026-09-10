@@ -33,7 +33,7 @@ Limits: 12 hours, 2 GiB file size, four million chunks, 8 GiB aggregate decoded 
 
 ## Seek and transport
 
-`DemoPlayback.Seek(frame)` queues a seek; `Transport.Paused`, `Transport.Step()` and `Transport.Rate` provide camera-independent control. Rates are exactly 0.25, 0.5, 1, 2 and 4. Integer quarter-tick scheduling preserves fixed 60 Hz simulation delta time. Pause accumulates no catch-up debt; an explicit step advances exactly one tick. Seeking preserves the selected pause/rate state. Format 2 remains sequentially playable with transport controls; indexed seeking is a format 3 capability.
+`ReplayPlayback.Seek(frame)` queues a seek; `Transport.Paused`, `Transport.Step()` and `Transport.Rate` provide camera-independent control. Rates are exactly 0.25, 0.5, 1, 2 and 4. Integer quarter-tick scheduling preserves fixed 60 Hz simulation delta time. Pause accumulates no catch-up debt; an explicit step advances exactly one tick. Seeking preserves the selected pause/rate state. Format 2 remains sequentially playable with transport controls; indexed seeking is a format 3 capability.
 
 The world stream intentionally contains no active beam/bomb object graph. Seek therefore restores the closest checkpoint at or before `target - 1801`, then runs the actual simulation forward to target. This is a bounded transient warmup, not an approximation of projectile positions:
 
@@ -47,16 +47,61 @@ Chat ages by recording time during playback, so pause and speed changes also pau
 
 Index markers include kill, headshot, authoritative award-based multi-kill, flag capture, node capture, Prime change, match point, overtime and match end. Protocol 9 derives objective/lifecycle markers, including match end, from normalized `MatchSemantic` facts and multi-kill only from the server's `DoubleKill`/`TripleKill` award; the capture award carries only the general `Award` marker. Protocol 8 retains its low-level `WorldEvent` mappings and terminal-world match-end inference for compatibility. Markers contain offsets/ticks, not gameplay commands. Seeking and playback never create a live network connection.
 
+## Replay and observation architecture (F3-F5)
+
+`ReplayPlaybackSession` is the instance owner for a replay source, transport,
+seek state, perspective, decoded world state and scene services. The static
+`ReplayPlayback` entry point remains a compatibility facade for full-file
+Theatre playback. `IReplayTimeline` is the renderer- and network-neutral source
+boundary; `ReplayFileTimeline` reads immutable `.fpreplay` files and
+`RollingReplayTimeline` retains accepted facts in memory without compression or
+disk IO. The rolling source targets 45 seconds, has a hard 64 MiB payload cap,
+and evicts only complete restore segments.
+
+The live killcam freezes a five-second clip only after an accepted `KillEvent`
+matches the current local slot, connection and life identity. It constructs a
+passive replay session with a separate `Scene` and `ScenePresentation`; the live
+scene continues receiving and applying authoritative state and is never rewound.
+Immediate playback ends when the local life, match or connection changes, so it
+cannot delay respawn. Post-round playback waits for a non-playing phase. The
+server policy is `Disabled`, `Immediate` or `PostRound`, and the local setting
+can only disable an allowed killcam. Hidden seek warmup submits no frames or
+audio. Once visible, presentation audio/input ownership moves to the replay scene
+and returns to the live scene on skip, completion or context change.
+
+`HighlightAnalyzer` consumes only recorded Kill, MatchAward and MatchSemantic
+facts. It applies deterministic scores and context bonuses, merges linked or
+overlapping action sequences, and returns at most eight immutable clip windows.
+`ReplayHighlightMetadataService` stores a versioned SHA-256-keyed cache under
+`cache/replay-highlights`; it never mutates the replay. Theatre shows the full
+replay and generated highlights, and launches either one range or a chronological
+reel through the existing seek/transport path.
+
+`ObservationContext` is an immutable view of one scene at one delivered tick.
+It contains only the players, objectives, scores, clock, phase and recent facts
+already delivered to that live observer, replay or killcam source; it never falls
+back to another process-wide session. `BroadcastDirector` consumes that context
+at 10 Hz, with a 2.5-second minimum shot, eight-second normal maximum, switch
+threshold, recent-target penalty, event overrides and manual lock. Camera motion
+remains in `SpectatorCameraController`, including logical operator commands,
+first-person/chase/orbit/free modes, collision checks and presentation-rate
+smoothing. `BroadcastHud` owns Full, Minimal and Off/clean-feed views and does not
+include network diagnostics. Existing Node/Worker authority continues to decide
+ordinary delayed versus trusted zero-delay observation.
+
+The file header identifier `FPDM` is retained solely as an on-disk compatibility
+contract. User-facing names, paths, commands and UI use Replay and Theatre.
+
 ## Verification and limits
 
 Focused tests cover frozen protocol fixtures, accepted live Kill/World recording and semantic roundtrip, fixed-tick rates/pause/step, byte-exact feedback restore and duplicate rejection, malformed checkpoint atomicity, every truncated byte of a final chunk, every corrupted header/payload byte of that chunk, file/payload/frame bounds, nearest checkpoint selection, and fact-stream seeks across match transitions. Real AMHE1 tests exercise single and linked Lockjaw lifetime bounds.
 
-The fact-stream seek fixture does not exercise a GPU or audio device. The existing `DemoPlaybackCheck` requests a hidden compatibility OpenGL window; the host's earlier NSGL context creation failure remains a rendered validation blocker. Consequently full rendered beam/bomb appearance and device audio silence are source-reviewed, not claimed as device-tested. CPU/fact-stream timings are reported separately from rendered seek latency.
+The fact-stream seek fixture does not exercise a GPU or audio device. The existing `ReplayPlaybackCheck` requests a hidden compatibility OpenGL window; the host's earlier NSGL context creation failure remains a rendered validation blocker. Consequently full rendered beam/bomb appearance and device audio silence are source-reviewed, not claimed as device-tested. CPU/fact-stream timings are reported separately from rendered seek latency.
 
-Validated focused command (2026-09-07): `GAME_DATA_DIRECTORY=AMHE1 dotnet test tests/Tests/Tests.csproj -c Release --filter 'FullyQualifiedName~Replay|FullyQualifiedName~DemoPlaybackTests|FullyQualifiedName~FeedbackAudioTests'`. The final run passed 35 tests. In the fact-only fixture, targets 0/2300/2500/4100 restored frames 0/300/600/2100 and ran 1/2001/1901/2001 steps in 0.008/2.128/2.045/2.076 ms respectively. These measurements deliberately exclude rendering, actual projectile presentation and audio devices; they are not rendered seek-latency claims.
+Validated focused command (2026-09-07): `GAME_DATA_DIRECTORY=AMHE1 dotnet test tests/Tests/Tests.csproj -c Release --filter 'FullyQualifiedName~Replay|FullyQualifiedName~ReplayPlaybackTests|FullyQualifiedName~FeedbackAudioTests'`. The final run passed 35 tests. In the fact-only fixture, targets 0/2300/2500/4100 restored frames 0/300/600/2100 and ran 1/2001/1901/2001 steps in 0.008/2.128/2.045/2.076 ms respectively. These measurements deliberately exclude rendering, actual projectile presentation and audio devices; they are not rendered seek-latency claims.
 
 ### Touch camera and transport access
 
-The existing Android VIEW button cycles Free, FirstPerson, Chase, Orbit, and AutoDirector; NEXT cycles the watched target through the same presentation controller. The existing top spectator strip also accepts taps: camera mode / target / objective on its first row, FOV minus/plus and camera speed minus/plus on its second. These commands are consumed by the outer presentation update, including while replay transport is paused. The Android spectator input branch still returns before gameplay input collection. Desktop F1–F4, minus/equals, and brackets remain supported.
+The existing Android VIEW button cycles Free, FirstPerson, Chase, Orbit, and AutoDirector; NEXT cycles the watched target through the same presentation controller. The existing top spectator strip also accepts taps: camera mode / target / objective on its first row, FOV minus/plus and camera speed minus/plus on its second. These commands are consumed by the outer presentation update, including while replay transport is paused. The Android spectator input branch still returns before gameplay input collection. Desktop F1–F4, minus/equals, and brackets remain supported. F5 toggles the director, F11 locks or resumes its target, F12 cycles Full/Minimal/Clean Feed, and Home returns to free camera. F6–F10 remain exclusively owned by replay transport. Raw keys are translated only at the input boundary; camera behavior consumes `SpectatorCommand` actions.
 
 The bottom replay strip exposes pause, one frame, playback speed, previous/next event, and timeline scrubbing. Its single queued touch is bound to the current recording reader, discarded across recording changes, and rejected for non-finite coordinates or while chat/pause UI owns input. Opening a pause/chat UI after a tap was queued discards that tap during consumption. Spectator strip coordinates are finite and bounded, and camera preference changes are gated to spectating. These are source and focused-input checks, not rendered-device acceptance.

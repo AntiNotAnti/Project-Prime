@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <AssemblyName>FruityPrime.Replay</AssemblyName>
+    <AssemblyName>ProjectPrime.Replay</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Game/Game.csproj" />

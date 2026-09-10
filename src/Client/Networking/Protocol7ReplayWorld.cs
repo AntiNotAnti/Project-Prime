@@ -7,7 +7,7 @@ namespace MphRead.Mods.Network
 {
     internal enum Protocol7WorldRecordKind : byte { Spawner = 1, Item, Node, Flag, Match, Score, Time, Lifecycle }
 
-    // Version-7 adds explicit lifecycle facts; versions 5/6 are decoded only for demos. Scalar
+    // Version-7 adds explicit lifecycle facts; versions 5/6 are decoded only for replays. Scalar
     // fields have kind-specific meanings; float bits are transported exactly.
     internal record struct Protocol7WorldRecord(Protocol7WorldRecordKind Kind, byte Slot, ushort Flags,
         uint Id, Vector3 Position, uint A, uint B, uint C, uint D, uint E)

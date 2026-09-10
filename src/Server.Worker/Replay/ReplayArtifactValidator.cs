@@ -10,13 +10,15 @@ public static class ReplayArtifactValidator
 {
     public static ReplayArtifactSummary Validate(string path)
     {
-        using var reader = DemoReader.Open(path) ?? throw new InvalidDataException("Invalid replay header or archive.");
-        if (reader.FormatVersion != DemoFile.IndexedFormatVersion || reader.ProtocolVersion is not (8 or 9)
+        using var reader = ReplayReader.Open(path) ?? throw new InvalidDataException("Invalid replay header or archive.");
+        if (reader.FormatVersion != ReplayFile.IndexedFormatVersion
+            || !ReplayFile.IsAuthoritativeProtocol(reader.ProtocolVersion)
             || reader.RecoveredTail)
-            throw new InvalidDataException("Expected a complete indexed Worker replay using protocol 8 or 9.");
+            throw new InvalidDataException(
+                $"Expected a complete indexed Worker replay using protocol 8 through {NetHeader.Version}.");
         long count = 0;
         uint first = 0, last = 0;
-        while (reader.ReadNext() is DemoRecord record)
+        while (reader.ReadNext() is ReplayRecord record)
         {
             ValidateRecord(record);
             if (count == 0) first = record.Frame;
@@ -30,19 +32,19 @@ public static class ReplayArtifactValidator
         foreach (ReplayIndexEntry entry in reader.Index)
         {
             if (!entry.Keyframe) continue;
-            DemoRecord[] records = reader.Seek(entry.Frame, out uint restored)
+            ReplayRecord[] records = reader.Seek(entry.Frame, out uint restored)
                 ?? throw new InvalidDataException("Replay checkpoint cannot be decoded.");
             if (restored != entry.Frame) throw new InvalidDataException("Replay checkpoint frame mismatch.");
             int kinds = 0;
-            foreach (DemoRecord record in records)
+            foreach (ReplayRecord record in records)
             {
                 ValidateRecord(record);
                 kinds |= 1 << record.Data[0];
             }
-            int required = (1 << (int)DemoRecordKind.Match) | (1 << (int)DemoRecordKind.Snapshot)
-                | (1 << (int)DemoRecordKind.World) | (1 << (int)DemoRecordKind.Roster)
-                | (1 << (int)DemoRecordKind.Presentation) | (1 << (int)DemoRecordKind.Clock)
-                | (1 << (int)DemoRecordKind.Perspective);
+            int required = (1 << (int)ReplayRecordKind.Match) | (1 << (int)ReplayRecordKind.Snapshot)
+                | (1 << (int)ReplayRecordKind.World) | (1 << (int)ReplayRecordKind.Roster)
+                | (1 << (int)ReplayRecordKind.Presentation) | (1 << (int)ReplayRecordKind.Clock)
+                | (1 << (int)ReplayRecordKind.Perspective);
             if ((kinds & required) != required)
                 throw new InvalidDataException("Replay checkpoint lacks required state records.");
             checkpoints++;
@@ -51,9 +53,9 @@ public static class ReplayArtifactValidator
         return new(count, checkpoints, first, last);
     }
 
-    private static void ValidateRecord(DemoRecord record)
+    private static void ValidateRecord(ReplayRecord record)
     {
-        if (record.Data.Length < 2 || !Enum.IsDefined((DemoRecordKind)record.Data[0]))
+        if (record.Data.Length < 2 || !Enum.IsDefined((ReplayRecordKind)record.Data[0]))
             throw new InvalidDataException("Replay contains an invalid record envelope.");
     }
 }

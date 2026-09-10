@@ -6,7 +6,7 @@ using OpenTK.Mathematics;
 namespace MphRead.Mods.Network
 {
     /// <summary>Bounded rendered recording check through the shipping passive playback hooks.</summary>
-    public sealed class DemoPlaybackCheck : IRenderToolClient
+    public sealed class ReplayPlaybackCheck : IRenderToolClient
     {
         private readonly IRenderToolHost _host;
         private readonly ScenePresentation _presentation;
@@ -24,7 +24,7 @@ namespace MphRead.Mods.Network
         private long _stateMismatches;
         private long _deathsObserved;
 
-        private DemoPlaybackCheck(double seconds, IRenderToolHost host)
+        private ReplayPlaybackCheck(double seconds, IRenderToolHost host)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _seconds = seconds;
@@ -33,7 +33,7 @@ namespace MphRead.Mods.Network
             _presentation = host.CreatePresentation(_scene);
             _scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
             NetLaunch.BuildPlayers(_scene, Hunter.Samus, 0, localSlot: -1);
-            var room = NetLaunch.ServerRoom() ?? throw new ProgramException("Demo has no room.");
+            var room = NetLaunch.ServerRoom() ?? throw new ProgramException("Replay has no room.");
             _scene.AddRoom(room.RoomKey, room.Mode, playerCount: NetConfig.RoomPlayerCount);
         }
 
@@ -54,7 +54,7 @@ namespace MphRead.Mods.Network
             if (frame.Submitted)
             {
                 _frames++;
-                ModernDemoState state = DemoPlayback.Modern;
+                ModernReplayState state = ReplayPlayback.Modern;
                 if (_match != state.Match.MatchId)
                 {
                     _match = state.Match.MatchId;
@@ -85,7 +85,7 @@ namespace MphRead.Mods.Network
                     _seen[slot] = true;
                     _last[slot] = player.Position;
                 }
-                if (DemoPlayback.AtEnd) { _endFrames++; }
+                if (ReplayPlayback.AtEnd) { _endFrames++; }
             }
             if (_frames >= _durationFrames || _endFrames >= 60) { _host.Close(); }
         }
@@ -113,14 +113,14 @@ namespace MphRead.Mods.Network
 
         private int Report()
         {
-            ModernDemoState state = DemoPlayback.Modern;
+            ModernReplayState state = ReplayPlayback.Modern;
             int moving = 0;
             for (int slot = 0; slot < 8; slot++) { if (_travel[slot] > 1) { moving++; } }
             bool passed = _frames >= 300 && _lit && moving > 0 && state.SnapshotsReceived >= 300
                 && state.WorldApplications > 0 && _stateMismatches == 0
                 && AuthoritativePlay.Current == null && NetSession.LocalSlot == -1;
-            Console.WriteLine($"DEMOCHECK frames={_frames} snapshots={state.SnapshotsReceived} "
-                + $"moving={moving} lit={_lit} atEnd={DemoPlayback.AtEnd} matches={state.MatchesLoaded} "
+            Console.WriteLine($"REPLAYCHECK frames={_frames} snapshots={state.SnapshotsReceived} "
+                + $"moving={moving} lit={_lit} atEnd={ReplayPlayback.AtEnd} matches={state.MatchesLoaded} "
                 + $"worldApplications={state.WorldApplications} combatEvents={state.CombatEventsReceived} "
                 + $"damageEvents={state.DamageEventsReceived} deaths={_deathsObserved} "
                 + $"stateMismatches={_stateMismatches} result={(passed ? "PASS" : "FAIL")}");
@@ -130,19 +130,19 @@ namespace MphRead.Mods.Network
         public static int Run(string path, double seconds)
         {
             if (!double.IsFinite(seconds) || seconds < 10 || seconds > 300) { return 2; }
-            if (!DemoPlayback.Join(path)) { Console.Error.WriteLine(DemoPlayback.LastError); return 1; }
+            if (!ReplayPlayback.Join(path)) { Console.Error.WriteLine(ReplayPlayback.LastError); return 1; }
             try
             {
-                if (!DemoPlayback.IsModern)
-                { Console.Error.WriteLine("Rendered demo check requires an authoritative recording."); return 2; }
+                if (!ReplayPlayback.IsModern)
+                { Console.Error.WriteLine("Rendered replay check requires an authoritative recording."); return 2; }
                 using IRenderToolHost host = RenderToolHostFactory.Create(
-                    new Vector2i(320, 180), "Prime Hunters demo playback check",
+                    new Vector2i(320, 180), "Project Prime replay playback check",
                     updateFrequency: 60, visible: false, presentable: false);
-                var check = new DemoPlaybackCheck(seconds, host);
+                var check = new ReplayPlaybackCheck(seconds, host);
                 host.Run(check);
                 return check.Report();
             }
-            finally { DemoPlayback.Stop(); }
+            finally { ReplayPlayback.Stop(); }
         }
     }
 }

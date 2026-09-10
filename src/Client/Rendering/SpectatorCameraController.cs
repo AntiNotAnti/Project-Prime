@@ -1,6 +1,9 @@
 using System;
 using MphRead.Entities;
+using MphRead.Formats;
+using MphRead.Combat;
 using MphRead.Mods;
+using MphRead.Mods.Network;
 using MphRead.Hud;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
@@ -9,10 +12,28 @@ namespace MphRead;
 
 public enum SpectatorCameraMode { Free, FirstPerson, Chase, Orbit, AutoDirector }
 
+[Flags]
+public enum SpectatorCommand
+{
+    None = 0,
+    CameraMode = 1,
+    NextTarget = 2,
+    PreviousTarget = 4,
+    Objective = 8,
+    FovDown = 16,
+    FovUp = 32,
+    SpeedDown = 64,
+    SpeedUp = 128,
+    Director = 256,
+    LockTarget = 512,
+    HudMode = 1024,
+    FreeCamera = 2048
+}
+
 /// <summary>Presentation-only camera state; never changes a replicated actor transform.</summary>
 public sealed class SpectatorCameraController
 {
-    private int _held;
+    private SpectatorCommand _held;
     private static readonly object TouchGate = new();
     private static SpectatorCameraController? _touchOwner;
     private int _touchCommand;
@@ -39,31 +60,69 @@ public sealed class SpectatorCameraController
     private float _orbit;
     private EntityBase? _objective;
     private RoomEntity? _room;
+    private bool _external;
+    private bool _hasCameraPose;
+    private Vector3 _smoothedPosition;
+    private Vector3 _smoothedTarget;
+    private SpectatorCameraMode _directorCameraMode = SpectatorCameraMode.Chase;
+    public BroadcastDirector Director { get; } = new();
+    public BroadcastHud BroadcastHud { get; } = new();
     public float FieldOfView { get; private set; } = 78;
     public float SpeedScale { get; private set; } = 1;
     public SpectatorCameraMode Mode { get; private set; }
     public int TargetSlot { get; private set; } = -1;
 
+    internal void ConfigureKillcam(int targetSlot, SpectatorCameraMode mode)
+    {
+        if (targetSlot is < 0 or >= PlayerEntity.SlotCapacity)
+            throw new ArgumentOutOfRangeException(nameof(targetSlot));
+        if (mode is not (SpectatorCameraMode.FirstPerson or SpectatorCameraMode.Chase))
+            throw new ArgumentOutOfRangeException(nameof(mode));
+        _external = true;
+        TargetSlot = targetSlot;
+        Mode = mode;
+        _objective = null;
+        _hasCameraPose = false;
+    }
+
+    internal void FocusHighlight(ScenePresentation presentation,
+        in ReplayHighlight highlight)
+    {
+        if (!highlight.Focus.IsValid) return;
+        TargetSlot = highlight.Focus.Slot;
+        _objective = null;
+        SpectatorMode.SelectTarget(presentation.World, TargetSlot);
+        _directorCameraMode = highlight.Kind is HighlightKind.Headshot
+            or HighlightKind.DoubleKill or HighlightKind.TripleKill
+            ? SpectatorCameraMode.FirstPerson : SpectatorCameraMode.Chase;
+        Mode = SpectatorCameraMode.AutoDirector;
+        presentation.SetFreeCamera(false);
+        Director.Lock(BroadcastFocus.Player(TargetSlot), ObservationContext.Capture(
+            presentation.World, presentation, ObservationSourceKind.Replay));
+    }
+
     internal void Poll(ScenePresentation presentation, KeyboardState keyboard)
     {
-        if (!SpectatorMode.IsSpectating) { lock (TouchGate) { _touchCommand = 0; if (ReferenceEquals(_touchOwner, this)) _touchOwner = null; } _held = 0; TargetSlot = -1; _objective = null; Mode = SpectatorCameraMode.Free; return; }
+        if (_external) return;
+        if (!SpectatorMode.IsSpectating) { lock (TouchGate) { _touchCommand = 0; if (ReferenceEquals(_touchOwner, this)) _touchOwner = null; } _held = SpectatorCommand.None; TargetSlot = -1; _objective = null; Mode = SpectatorCameraMode.Free; return; }
         if (!ReferenceEquals(_room, presentation.World.Room))
         { lock (TouchGate) _touchCommand = 0; _room = presentation.World.Room; _objective = null; TargetSlot = -1; Mode = SpectatorCameraMode.Free; presentation.SetFreeCamera(true); }
-        int keys = (keyboard.IsKeyDown(Keys.F1) ? 1 : 0) | (keyboard.IsKeyDown(Keys.F2) ? 2 : 0)
-            | (keyboard.IsKeyDown(Keys.F3) ? 4 : 0) | (keyboard.IsKeyDown(Keys.F4) ? 8 : 0)
-            | (keyboard.IsKeyDown(Keys.Minus) ? 16 : 0) | (keyboard.IsKeyDown(Keys.Equal) ? 32 : 0)
-            | (keyboard.IsKeyDown(Keys.LeftBracket) ? 64 : 0) | (keyboard.IsKeyDown(Keys.RightBracket) ? 128 : 0);
-        int pressed = keys & ~_held; _held = keys;
+        SpectatorCommand keys = SpectatorCommandInput.FromKeyboard(keyboard);
+        SpectatorCommand pressed = keys & ~_held; _held = keys;
         lock (TouchGate)
         {
             _touchOwner = this;
-            pressed |= _touchCommand; _touchCommand = 0;
+            pressed |= (SpectatorCommand)_touchCommand; _touchCommand = 0;
         }
         if (Mods.ClientInputState.PauseOpen || Mods.Chat.ChatBox.Composing) return;
-        ApplyCommands(presentation, pressed);
-        if (Mode == SpectatorCameraMode.AutoDirector && ++_directorTick >= 300)
-        { _directorTick = 0; Select(presentation.World, 1); }
-        _orbit = (_orbit + .006f) % MathF.Tau;
+        ApplyCommand(presentation, pressed);
+        if (Mode == SpectatorCameraMode.AutoDirector && ++_directorTick >= BroadcastDirector.CadenceTicks)
+        {
+            _directorTick = 0;
+            ApplyDirector(presentation, Director.Update(ObservationContext.Capture(
+                presentation.World, presentation)));
+        }
+        if (Mode == SpectatorCameraMode.Orbit) _orbit = (_orbit + .006f) % MathF.Tau;
         if (SpectatorMode.FreeCamera) Mode = SpectatorCameraMode.Free;
         else if (Mode == SpectatorCameraMode.Free) Mode = SpectatorCameraMode.FirstPerson;
         if (Mode == SpectatorCameraMode.FirstPerson) TargetSlot = presentation.World.LocalPlayerSlot;
@@ -71,12 +130,17 @@ public sealed class SpectatorCameraController
 
     internal void ApplyCommands(ScenePresentation presentation, int pressed)
     {
+        ApplyCommand(presentation, (SpectatorCommand)pressed);
+    }
+
+    public void ApplyCommand(ScenePresentation presentation, SpectatorCommand command)
+    {
         if (!SpectatorMode.IsSpectating || Mods.ClientInputState.PauseOpen || Mods.Chat.ChatBox.Composing) return;
-        if ((pressed & 16) != 0) FieldOfView = Math.Clamp(FieldOfView - 5, 40, 110);
-        if ((pressed & 32) != 0) FieldOfView = Math.Clamp(FieldOfView + 5, 40, 110);
-        if ((pressed & 64) != 0) SpeedScale = Math.Clamp(SpeedScale / 2, .25f, 4);
-        if ((pressed & 128) != 0) SpeedScale = Math.Clamp(SpeedScale * 2, .25f, 4);
-        if ((pressed & 8) != 0)
+        if ((command & SpectatorCommand.FovDown) != 0) FieldOfView = Math.Clamp(FieldOfView - 5, 40, 110);
+        if ((command & SpectatorCommand.FovUp) != 0) FieldOfView = Math.Clamp(FieldOfView + 5, 40, 110);
+        if ((command & SpectatorCommand.SpeedDown) != 0) SpeedScale = Math.Clamp(SpeedScale / 2, .25f, 4);
+        if ((command & SpectatorCommand.SpeedUp) != 0) SpeedScale = Math.Clamp(SpeedScale * 2, .25f, 4);
+        if ((command & SpectatorCommand.Objective) != 0)
         {
             EntityBase? first = null, next = null; bool found = _objective == null;
             foreach (EntityBase entity in presentation.World.Entities)
@@ -89,15 +153,65 @@ public sealed class SpectatorCameraController
             _objective = next ?? first;
             if (_objective != null) { Mode = SpectatorCameraMode.Orbit; presentation.SetFreeCamera(false); }
         }
-        if ((pressed & 1) != 0)
+        if ((command & SpectatorCommand.CameraMode) != 0)
         {
             _objective = null;
             Mode = (SpectatorCameraMode)(((int)Mode + 1) % 5);
             if (Mode != SpectatorCameraMode.Free && TargetSlot < 0) Select(presentation.World, 1);
             presentation.SetFreeCamera(Mode == SpectatorCameraMode.Free || TargetSlot < 0);
         }
-        if ((pressed & 2) != 0) Select(presentation.World, 1);
-        if ((pressed & 4) != 0) Select(presentation.World, -1);
+        if ((command & SpectatorCommand.NextTarget) != 0) Select(presentation.World, 1);
+        if ((command & SpectatorCommand.PreviousTarget) != 0) Select(presentation.World, -1);
+        if ((command & SpectatorCommand.Director) != 0)
+        {
+            Mode = Mode == SpectatorCameraMode.AutoDirector
+                ? SpectatorCameraMode.Chase : SpectatorCameraMode.AutoDirector;
+            if (Mode == SpectatorCameraMode.AutoDirector)
+                ApplyDirector(presentation, Director.Resume(ObservationContext.Capture(
+                    presentation.World, presentation)));
+        }
+        if ((command & SpectatorCommand.LockTarget) != 0)
+        {
+            ObservationContext context = ObservationContext.Capture(
+                presentation.World, presentation);
+            if (Director.IsManualLock) Director.Resume(context);
+            else if (TargetSlot >= 0) Director.Lock(BroadcastFocus.Player(TargetSlot), context);
+        }
+        if ((command & SpectatorCommand.HudMode) != 0) BroadcastHud.CycleMode();
+        if ((command & SpectatorCommand.FreeCamera) != 0)
+        {
+            Mode = SpectatorCameraMode.Free;
+            presentation.SetFreeCamera(true);
+        }
+    }
+
+    private void ApplyDirector(ScenePresentation presentation, BroadcastFocus focus)
+    {
+        if (focus.Kind == BroadcastFocusKind.Player)
+        {
+            _objective = null;
+            TargetSlot = focus.Id;
+            SpectatorMode.SelectTarget(presentation.World, focus.Id);
+            bool precision = false;
+            ObservationContext context = ObservationContext.Capture(
+                presentation.World, presentation);
+            foreach (KillFeedEntry entry in context.CombatFeedback)
+                if (entry.Killer.IsValid && entry.Killer.Slot == focus.Id
+                    && unchecked(context.DeliveredTick - entry.Tick) < 120)
+                { precision = true; break; }
+            _directorCameraMode = precision
+                ? SpectatorCameraMode.FirstPerson : SpectatorCameraMode.Chase;
+            Mode = SpectatorCameraMode.AutoDirector;
+            presentation.SetFreeCamera(false);
+        }
+        else if (focus.Kind == BroadcastFocusKind.Objective)
+        {
+            foreach (EntityBase entity in presentation.World.Entities)
+                if (entity.Id == focus.Id) { _objective = entity; break; }
+            _directorCameraMode = SpectatorCameraMode.Orbit;
+            Mode = SpectatorCameraMode.AutoDirector;
+            presentation.SetFreeCamera(false);
+        }
     }
 
     private void Select(Scene scene, int direction)
@@ -117,56 +231,95 @@ public sealed class SpectatorCameraController
 
     internal void Draw(ScenePresentation presentation)
     {
-        if (!SpectatorMode.IsSpectating || presentation.World.Players.Count == 0) return;
-        presentation.DrawHudFlatBox(5, 4, 251, 29, new Vector4(0, 0, 0, .7f));
-        var hud = presentation.World.LocalPlayer!.GetPresentation();
-        hud.DrawText2D(46, 7, Align.Center, 0, $"{Mode}", scale: .45f);
-        hud.DrawText2D(128, 7, Align.Center, 0, "TARGET", scale: .45f);
-        hud.DrawText2D(210, 7, Align.Center, 0, "OBJECTIVE", scale: .45f);
-        hud.DrawText2D(36, 19, Align.Center, 0, $"FOV {FieldOfView:0} -", scale: .45f);
-        hud.DrawText2D(98, 19, Align.Center, 0, "FOV +", scale: .45f);
-        hud.DrawText2D(160, 19, Align.Center, 0, $"{SpeedScale:0.##}x -", scale: .45f);
-        hud.DrawText2D(222, 19, Align.Center, 0, "SPEED +", scale: .45f);
-        if (_objective != null)
-        {
-            string status = _objective is NodeDefenseEntity node
-                ? $"NODE TEAM {node.CurrentTeam} {(node.Contested ? "CONTESTED" : "")}"
-                : _objective is OctolithFlagEntity flag ? $"OCTOLITH {(flag.Carrier != null ? "CARRIED" : flag.AtBase ? "AT BASE" : "DROPPED")}" : "";
-            hud.DrawText2D(128, 33, Align.Center, 0, status, scale: .55f);
-        }
-        else if (TargetSlot is >= 0 and < 8)
-        {
-            PlayerEntity target = presentation.World.Players[TargetSlot];
-            var stats = presentation.World.Match.Players[TargetSlot];
-            string ammo = "";
-            if (Mods.Network.AuthoritativePlay.Current is { } play)
-                foreach (var snapshot in play.Client.SnapshotPlayers)
-                    if (snapshot.Slot == TargetSlot) { ammo = $" AMMO {snapshot.AmmoUa}/{snapshot.AmmoMissiles}"; break; }
-            hud.DrawText2D(128, 33, Align.Center, 0,
-                $"{presentation.World.Roster.Nicknames[TargetSlot]}  {target.Hunter}  HP {target.Health}  {target.CurrentWeapon}{ammo}", scale: .5f);
-            hud.DrawText2D(128, 42, Align.Center, 0,
-                $"K/D/A {stats.Kills}/{stats.Deaths}/{stats.Assists}  SCORE {stats.Points}", scale: .5f);
-        }
+        if (_external || !SpectatorMode.IsSpectating
+            || presentation.World.Players.Count == 0) return;
+        ObservationContext context = ObservationContext.Capture(
+            presentation.World, presentation);
+        BroadcastFocus focus = _objective != null
+            ? BroadcastFocus.Objective(_objective.Id)
+            : TargetSlot >= 0 ? BroadcastFocus.Player(TargetSlot) : BroadcastFocus.None;
+        BroadcastHud.Draw(presentation, BroadcastHud.Compose(context, focus,
+            Mode, FieldOfView, SpeedScale));
     }
 
     internal bool TryView(Scene scene, out Matrix4 view)
     {
         view = Matrix4.Identity;
-        if (SpectatorMode.IsSpectating && _objective != null)
+        bool active = _external || SpectatorMode.IsSpectating;
+        if (active && _objective != null)
         {
             Vector3 center = _objective.Position + Vector3.UnitY;
-            view = Matrix4.LookAt(center + new Vector3(MathF.Sin(_orbit) * 7, 4, MathF.Cos(_orbit) * 7), center, Vector3.UnitY);
+            Vector3 desired = center + new Vector3(MathF.Sin(_orbit) * 7, 4,
+                MathF.Cos(_orbit) * 7);
+            ResolveCamera(scene, center, desired, out Vector3 cameraPosition,
+                out Vector3 cameraTarget);
+            view = Matrix4.LookAt(cameraPosition, cameraTarget, Vector3.UnitY);
             return true;
         }
-        if (!SpectatorMode.IsSpectating || Mode is SpectatorCameraMode.Free or SpectatorCameraMode.FirstPerson
+        SpectatorCameraMode viewMode = Mode == SpectatorCameraMode.AutoDirector
+            ? _directorCameraMode : Mode;
+        if (!active || viewMode is SpectatorCameraMode.Free or SpectatorCameraMode.FirstPerson
             || TargetSlot < 0 || TargetSlot >= scene.Players.Count) return false;
         PlayerEntity player = scene.Players[TargetSlot];
         if (!player.LoadFlags.TestFlag(LoadFlags.Active)) return false;
         Vector3 target = player.Position + Vector3.UnitY;
-        Vector3 offset = Mode == SpectatorCameraMode.Orbit
+        Vector3 offset = viewMode == SpectatorCameraMode.Orbit
             ? new Vector3(MathF.Sin(_orbit) * 6, 3, MathF.Cos(_orbit) * 6)
             : -player.FacingVector * 5 + Vector3.UnitY * 2;
-        view = Matrix4.LookAt(target + offset, target, Vector3.UnitY);
+        ResolveCamera(scene, target, target + offset, out Vector3 position,
+            out Vector3 smoothedTarget);
+        view = Matrix4.LookAt(position, smoothedTarget, Vector3.UnitY);
         return true;
+    }
+
+    private void ResolveCamera(Scene scene, Vector3 target, Vector3 desired,
+        out Vector3 position, out Vector3 smoothedTarget)
+    {
+        CollisionResult collision = default;
+        if (CollisionDetection.CheckBetweenPoints(target, desired, TestFlags.Players,
+                scene, ref collision))
+        {
+            Vector3 offset = desired - target;
+            desired = target + offset * Math.Clamp(collision.Distance, 0, 1)
+                + collision.Plane.Xyz * .15f;
+        }
+        if (!_hasCameraPose)
+        {
+            _smoothedPosition = desired;
+            _smoothedTarget = target;
+            _hasCameraPose = true;
+        }
+        else
+        {
+            // Stable critically-damped approximation at presentation rate.
+            const float response = .18f;
+            _smoothedPosition += (desired - _smoothedPosition) * response;
+            _smoothedTarget += (target - _smoothedTarget) * response;
+        }
+        position = _smoothedPosition;
+        smoothedTarget = _smoothedTarget;
+    }
+}
+
+internal static class SpectatorCommandInput
+{
+    internal static SpectatorCommand FromKeyboard(KeyboardState keyboard)
+    {
+        SpectatorCommand command = SpectatorCommand.None;
+        if (keyboard.IsKeyDown(Keys.F1)) command |= SpectatorCommand.CameraMode;
+        if (keyboard.IsKeyDown(Keys.F2)) command |= SpectatorCommand.NextTarget;
+        if (keyboard.IsKeyDown(Keys.F3)) command |= SpectatorCommand.PreviousTarget;
+        if (keyboard.IsKeyDown(Keys.F4)) command |= SpectatorCommand.Objective;
+        if (keyboard.IsKeyDown(Keys.Minus)) command |= SpectatorCommand.FovDown;
+        if (keyboard.IsKeyDown(Keys.Equal)) command |= SpectatorCommand.FovUp;
+        if (keyboard.IsKeyDown(Keys.LeftBracket)) command |= SpectatorCommand.SpeedDown;
+        if (keyboard.IsKeyDown(Keys.RightBracket)) command |= SpectatorCommand.SpeedUp;
+        if (keyboard.IsKeyDown(Keys.F5)) command |= SpectatorCommand.Director;
+        // F6-F10 belong to replay transport. Keep broadcast actions disjoint so
+        // replay/highlight observation never performs two commands per key press.
+        if (keyboard.IsKeyDown(Keys.F11)) command |= SpectatorCommand.LockTarget;
+        if (keyboard.IsKeyDown(Keys.F12)) command |= SpectatorCommand.HudMode;
+        if (keyboard.IsKeyDown(Keys.Home)) command |= SpectatorCommand.FreeCamera;
+        return command;
     }
 }

@@ -30,7 +30,7 @@ public sealed class ServerReplaySession
 
     public ServerReplaySession(string directory)
     {
-        _path = Path.Combine(Path.GetFullPath(directory), ReplayId.ToString("D") + DemoFile.Extension);
+        _path = Path.Combine(Path.GetFullPath(directory), ReplayId.ToString("D") + ReplayFile.Extension);
         _status = new(ReplayId, "opening", null);
         Completion = Task.Run(WriteAsync);
     }
@@ -44,7 +44,7 @@ public sealed class ServerReplaySession
             _frames.Writer.TryComplete(); return;
         }
         _hasTick = true; _lastTick = frame.Tick;
-        byte[] clock = new byte[33]; clock[0] = (byte)DemoRecordKind.Clock;
+        byte[] clock = new byte[33]; clock[0] = (byte)ReplayRecordKind.Clock;
         BinaryPrimitives.WriteUInt64LittleEndian(clock.AsSpan(1), scene.FrameCount);
         BinaryPrimitives.WriteUInt64LittleEndian(clock.AsSpan(9), scene.LiveFrames);
         BinaryPrimitives.WriteSingleLittleEndian(clock.AsSpan(17), scene.ElapsedTime);
@@ -71,7 +71,7 @@ public sealed class ServerReplaySession
     {
         try
         {
-            using var writer = new DemoWriter(_path, indexed: true);
+            using var writer = new ReplayWriter(_path, indexed: true);
             var opening = Status;
             if (opening.State == "opening") Interlocked.CompareExchange(ref _status, new(ReplayId, "recording", null), opening);
             uint? origin = null; uint previousKeyframe = 0, previousRoster = uint.MaxValue;
@@ -88,9 +88,9 @@ public sealed class ServerReplaySession
                 byte[][]? presentation = keyframe ? feedback.Checkpoint() : null;
                 if (keyframe)
                 {
-                    var records = new List<byte[]> { Match(source), new byte[] { (byte)DemoRecordKind.Perspective, byte.MaxValue },
-                        Record(DemoRecordKind.Roster, source.Roster!), Record(DemoRecordKind.Snapshot, source.Snapshot!) };
-                    foreach (var batch in source.World!) records.Add(Record(DemoRecordKind.World, batch));
+                    var records = new List<byte[]> { Match(source), new byte[] { (byte)ReplayRecordKind.Perspective, byte.MaxValue },
+                        Record(ReplayRecordKind.Roster, source.Roster!), Record(ReplayRecordKind.Snapshot, source.Snapshot!) };
+                    foreach (var batch in source.World!) records.Add(Record(ReplayRecordKind.World, batch));
                     records.Add(captured.Clock); records.AddRange(presentation!);
                     writer.WriteKeyframe(frame, records); previousKeyframe = frame;
                 }
@@ -98,23 +98,23 @@ public sealed class ServerReplaySession
                 if (frame == 0)
                 {
                     writer.WriteRecord(frame, Match(source));
-                    writer.WriteRecord(frame, new byte[] { (byte)DemoRecordKind.Perspective, byte.MaxValue });
+                    writer.WriteRecord(frame, new byte[] { (byte)ReplayRecordKind.Perspective, byte.MaxValue });
                 }
                 writer.WriteRecord(frame, captured.Clock);
                 if (source.RosterRevision != previousRoster || frame == 0)
-                { writer.WriteRecord(frame, Record(DemoRecordKind.Roster, source.Roster!)); previousRoster = source.RosterRevision; }
-                if (source.FreshSnapshot || frame == 0) writer.WriteRecord(frame, Record(DemoRecordKind.Snapshot, source.Snapshot!));
-                if (source.FreshWorld || frame == 0) foreach (var batch in source.World!) writer.WriteRecord(frame, Record(DemoRecordKind.World, batch));
+                { writer.WriteRecord(frame, Record(ReplayRecordKind.Roster, source.Roster!)); previousRoster = source.RosterRevision; }
+                if (source.FreshSnapshot || frame == 0) writer.WriteRecord(frame, Record(ReplayRecordKind.Snapshot, source.Snapshot!));
+                if (source.FreshWorld || frame == 0) foreach (var batch in source.World!) writer.WriteRecord(frame, Record(ReplayRecordKind.World, batch));
                 if (frame == 0) foreach (var record in presentation!) writer.WriteRecord(frame, record);
                 ReplayMarker terminalWorld = indexer.ForTerminalWorld(writer.ProtocolVersion,
                     source.World!.Any(HasMatchEnd));
                 if (terminalWorld != ReplayMarker.None)
                 {
-                    writer.WriteRecord(frame, Record(DemoRecordKind.World, source.World![0]), terminalWorld);
+                    writer.WriteRecord(frame, Record(ReplayRecordKind.World, source.World![0]), terminalWorld);
                 }
                 foreach (var item in source.Events)
                 {
-                    byte[] bytes = new byte[item.Payload.Length + 2]; bytes[0] = (byte)DemoRecordKind.Event;
+                    byte[] bytes = new byte[item.Payload.Length + 2]; bytes[0] = (byte)ReplayRecordKind.Event;
                     item.Payload.AsSpan(0, 4).CopyTo(bytes.AsSpan(1)); bytes[5] = (byte)item.Type;
                     item.Payload.AsSpan(4).CopyTo(bytes.AsSpan(6));
                     writer.WriteRecord(frame, bytes, indexer.ForEvent(
@@ -140,9 +140,9 @@ public sealed class ServerReplaySession
 
     private static byte[] Match(ObserverFrame frame)
     {
-        byte[] bytes = new byte[1 + MatchTransitionPacket.Size]; bytes[0] = (byte)DemoRecordKind.Match;
+        byte[] bytes = new byte[1 + MatchTransitionPacket.Size]; bytes[0] = (byte)ReplayRecordKind.Match;
         new MatchTransitionPacket(frame.MatchId, frame.Tick, frame.Rules).Write(bytes.AsSpan(1)); return bytes;
     }
-    private static byte[] Record(DemoRecordKind kind, byte[] payload)
+    private static byte[] Record(ReplayRecordKind kind, byte[] payload)
     { byte[] bytes = new byte[payload.Length + 1]; bytes[0] = (byte)kind; payload.CopyTo(bytes, 1); return bytes; }
 }

@@ -40,7 +40,7 @@ public sealed class ReplayTransientBoundTests
         int steps = 0;
         while (firstAlive || secondAlive)
         {
-            Assert.True(++steps <= DemoPlayback.TransientWarmupTicks);
+            Assert.True(++steps <= ReplayPlayback.TransientWarmupTicks);
             if (firstAlive) firstAlive = first.Process();
             if (secondAlive) secondAlive = second!.Process();
         }

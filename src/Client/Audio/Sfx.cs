@@ -54,8 +54,7 @@ namespace MphRead.Sound
         public static void Load(Scene scene)
         {
             if (_requests != null) { _requests.Requested -= HandleRequest; }
-            _requests = scene.Audio;
-            _requests.Requested += HandleRequest;
+            _requests = null;
             if (scene.IsHeadless || Mods.ThumbnailMode.Active)
             {
                 // Reading and decoding every sample in the game, plus the
@@ -67,6 +66,7 @@ namespace MphRead.Sound
                 ForceFieldSfxMute = 0;
                 TimedSfxMute = 0;
                 LongSfxMute = 0;
+                BindPresentation(scene, stopCurrent: false);
                 return;
             }
             Instance = new SfxInstance();
@@ -90,6 +90,27 @@ namespace MphRead.Sound
             ForceFieldSfxMute = 0;
             TimedSfxMute = 0;
             LongSfxMute = 0;
+            BindPresentation(scene, stopCurrent: false);
+        }
+
+        /// <summary>
+        /// Route the process audio device to the scene that currently owns
+        /// presentation. This changes no simulation state and reuses the
+        /// already-loaded sound banks/device.
+        /// </summary>
+        public static void BindPresentation(Scene scene, bool stopCurrent = true)
+        {
+            ArgumentNullException.ThrowIfNull(scene);
+            if (ReferenceEquals(_requests, scene.Audio))
+            {
+                Instance?.SetScene(scene);
+                return;
+            }
+            if (stopCurrent) Instance?.StopAllSound(force: true);
+            if (_requests != null) _requests.Requested -= HandleRequest;
+            _requests = scene.Audio;
+            _requests.Requested += HandleRequest;
+            Instance?.SetScene(scene);
         }
 
         private static void HandleRequest(AudioRequest request)
@@ -438,7 +459,7 @@ namespace MphRead.Sound
         private SoundInstance? PlaySampleGetInst(int id, SoundSource? source, bool? loop, bool noUpdate,
             float recency, bool sourceOnly, bool cancellable)
         {
-            if (Mods.Network.DemoPlayback.IsSeeking) return null;
+            if (Mods.Network.ReplayPlayback.IsSeeking) return null;
             bool setUp = SetUpInstance(id, source, loop.GetValueOrDefault(),
                 recency, sourceOnly, cancellable, out SoundInstance inst);
             if (!setUp)
@@ -495,7 +516,7 @@ namespace MphRead.Sound
         public override void PlayScript(int id, SoundSource? source, bool noUpdate,
             float recency, bool sourceOnly, bool cancellable)
         {
-            if (Mods.Network.DemoPlayback.IsSeeking) return;
+            if (Mods.Network.ReplayPlayback.IsSeeking) return;
             Debug.Assert((id & 0x4000) != 0);
             int scriptId = id & 0x3FFF;
             Debug.Assert(scriptId >= 0 && scriptId < _sfxScripts.Count);
@@ -1407,6 +1428,11 @@ namespace MphRead.Sound
             }
         }
 
+        public override void SetScene(Scene scene)
+        {
+            _scene = ScenePresentation.Get(scene);
+        }
+
         public override void ShutDown()
         {
             MusicPlayer.Remove(shutdown: true);
@@ -1560,6 +1586,10 @@ namespace MphRead.Sound
         }
 
         public virtual void Load(Scene scene)
+        {
+        }
+
+        public virtual void SetScene(Scene scene)
         {
         }
 

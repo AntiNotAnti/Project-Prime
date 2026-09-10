@@ -55,7 +55,7 @@ internal sealed class ServerReplayFeedback
         for (int fragment = 0; fragment < count; fragment++)
         {
             int length = Math.Min(size, bytes.Length - fragment * size);
-            byte[] record = new byte[9 + length]; record[0] = (byte)DemoRecordKind.Presentation;
+            byte[] record = new byte[9 + length]; record[0] = (byte)ReplayRecordKind.Presentation;
             BinaryPrimitives.WriteUInt16LittleEndian(record.AsSpan(1), (ushort)fragment);
             BinaryPrimitives.WriteUInt16LittleEndian(record.AsSpan(3), (ushort)count);
             BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(5), bytes.Length);

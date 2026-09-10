@@ -5,7 +5,7 @@ namespace MphRead.Mods.Network
 {
     /// <summary>Version 7 reliable match configuration. Durations use exact TimeSpan ticks;
     /// -1 represents an absent limit/goal. All validation precedes rule construction.</summary>
-    internal static class Protocol7DemoRules
+    internal static class Protocol7ReplayRules
     {
         public const int Size = 68;
         public static void Write(Span<byte> destination, MatchRules rules)
@@ -45,7 +45,7 @@ namespace MphRead.Mods.Network
                 limit == -1 ? null : TimeSpan.FromTicks(limit), score,
                 objective == -1 ? null : TimeSpan.FromTicks(objective), lives,
                 (source[2] & 1) != 0, (source[2] & 2) != 0, (source[2] & 4) != 0,
-                (source[2] & 8) != 0, source[3]);
+                (source[2] & 8) != 0, source[3], killcamPolicy: KillcamPolicy.Disabled);
             try { MatchLifecycle.ValidateRules(rules); }
             catch (ArgumentOutOfRangeException) { rules = null!; return false; }
             return true;

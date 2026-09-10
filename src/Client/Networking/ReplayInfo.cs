@@ -5,30 +5,30 @@ using System.IO;
 namespace MphRead.Mods.Network
 {
     /// <summary>
-    /// What a demo file actually contains, without loading a room to find
+    /// What a replay file actually contains, without loading a room to find
     /// out.
     ///
     /// A replay that looks wrong has two very different causes -- the file is
     /// missing something, or the player is mishandling what is there -- and
     /// nothing could tell them apart from the outside. The count that matters
     /// most is snapshots: they are the only carrier of health, score, the
-    /// damage sequence and the spawn flag, so a demo with none of them opens
+    /// damage sequence and the spawn flag, so a replay with none of them opens
     /// on an empty room however good the rest of it is.
     /// </summary>
-    internal static class DemoInfo
+    internal static class ReplayInfo
     {
         public static int Print(string path, bool replay)
         {
             if (!File.Exists(path))
             {
-                Console.WriteLine($"[demo] no such file: {path}");
+                Console.WriteLine($"[replay] no such file: {path}");
                 return 1;
             }
-            using DemoReader? reader = DemoReader.Open(path);
+            using ReplayReader? reader = ReplayReader.Open(path);
             if (reader == null)
             {
-                Console.WriteLine($"[demo] \"{path}\" is not a demo this build can read "
-                    + $"(bad magic, or not format version {DemoFile.FormatVersion})");
+                Console.WriteLine($"[replay] \"{path}\" is not a replay this build can read "
+                    + $"(bad magic, or not format version {ReplayFile.FormatVersion})");
                 return 1;
             }
             var counts = new Dictionary<string, int>();
@@ -40,7 +40,7 @@ namespace MphRead.Mods.Network
             uint biggestGap = 0;
             uint previousFrame = 0;
             bool first = true;
-            while (reader.ReadNext() is DemoRecord record)
+            while (reader.ReadNext() is ReplayRecord record)
             {
                 records++;
                 payload += record.Data.Length;
@@ -55,8 +55,8 @@ namespace MphRead.Mods.Network
                 lastFrame = record.Frame;
                 if (record.Data.Length > 0)
                 {
-                    string type = DemoFile.IsAuthoritativeProtocol(reader.ProtocolVersion)
-                        ? ((DemoRecordKind)record.Data[0]).ToString() : ((PacketType)record.Data[0]).ToString();
+                    string type = ReplayFile.IsAuthoritativeProtocol(reader.ProtocolVersion)
+                        ? ((ReplayRecordKind)record.Data[0]).ToString() : ((PacketType)record.Data[0]).ToString();
                     counts.TryGetValue(type, out int count);
                     counts[type] = count + 1;
                     bytes.TryGetValue(type, out long size);
@@ -66,10 +66,10 @@ namespace MphRead.Mods.Network
             long onDisk = new FileInfo(path).Length;
             uint frames = records == 0 ? 0 : lastFrame - firstFrame + 1;
             double seconds = frames / 60.0;
-            Console.WriteLine($"[demo] {path}");
+            Console.WriteLine($"[replay] {path}");
             Console.WriteLine($"  protocol {reader.ProtocolVersion} "
                 + $"(this build: {NetConfig.ProtocolVersion})"
-                + (DemoFile.IsSupportedProtocol(reader.ProtocolVersion) ? "" : "  -- UNSUPPORTED"));
+                + (ReplayFile.IsSupportedProtocol(reader.ProtocolVersion) ? "" : "  -- UNSUPPORTED"));
             Console.WriteLine($"  {records} record(s) over frames {firstFrame}-{lastFrame} "
                 + $"({seconds:0.0} s at 60 fps)");
             Console.WriteLine($"  {onDisk / 1024.0:0.0} KiB on disk, {payload / 1024.0:0.0} KiB of "
@@ -101,15 +101,15 @@ namespace MphRead.Mods.Network
         /// recording had, none-then-two is the stutter, and the longest run
         /// of frames with nothing is how long a player stands still.
         /// </summary>
-        private static long SnapshotCount() => DemoPlayback.IsModern
-            ? DemoPlayback.Modern.SnapshotsReceived : NetSession.SnapshotsReceived;
+        private static long SnapshotCount() => ReplayPlayback.IsModern
+            ? ReplayPlayback.Modern.SnapshotsReceived : NetSession.SnapshotsReceived;
 
         private static int Replay(string path)
         {
-            Console.WriteLine("  --- replayed through DemoPlayback ---");
-            if (!DemoPlayback.Join(path))
+            Console.WriteLine("  --- replayed through ReplayPlayback ---");
+            if (!ReplayPlayback.Join(path))
             {
-                Console.WriteLine($"  replay failed: {DemoPlayback.LastError}");
+                Console.WriteLine($"  replay failed: {ReplayPlayback.LastError}");
                 return 1;
             }
             long previousSnapshots = SnapshotCount();
@@ -120,16 +120,16 @@ namespace MphRead.Mods.Network
             long gap = 0;
             long worstGap = 0;
             long intents = 0;
-            while (!DemoPlayback.AtEnd && frames < 60 * 60 * 30)
+            while (!ReplayPlayback.AtEnd && frames < 60 * 60 * 30)
             {
-                DemoPlayback.PumpFrame();
+                ReplayPlayback.PumpFrame();
                 NetSession.Update(frames / 60.0);
                 frames++;
                 long snapshots = SnapshotCount() - previousSnapshots;
                 previousSnapshots = SnapshotCount();
                 // This command measures framing without a scene; presentation
                 // events are validated and discarded instead of accumulating.
-                DemoPlayback.Modern.DiscardEvents();
+                ReplayPlayback.Modern.DiscardEvents();
                 intents += NetSession.IntentsReceived - previousIntents;
                 previousIntents = NetSession.IntentsReceived;
                 if (snapshots == 0)
@@ -145,7 +145,7 @@ namespace MphRead.Mods.Network
                     framesWithSeveral++;
                 }
             }
-            DemoPlayback.Stop();
+            ReplayPlayback.Stop();
             NetSession.Stop();
             double percent = frames == 0 ? 0 : 100.0 * framesWithSnapshot / frames;
             Console.WriteLine($"  {frames} frame(s) replayed, {intents} slot intent(s) applied");
