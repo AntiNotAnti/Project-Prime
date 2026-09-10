@@ -1,5 +1,35 @@
 # Running a Prime Hunters server
 
+## Quick development start
+
+From the repository root, the supported all-in-one command is:
+
+```bash
+./start-server.sh
+```
+
+It identifies the host RID, reuses or creates a matching server bundle, safely
+stops only a previously verified stack in the same state directory, and starts
+the local Backend, persistent Server Node, and Node-managed Workers. Extracted
+`AMHE1` content is used by default from `./AMHE1`; override it with
+`--content-dir` or `PRIME_CONTENT_DIRECTORY`.
+
+Use `./start-server.sh --status` for a read-only check and
+`./start-server.sh --stop-only` to stop without restarting. Runtime logs,
+generated development credentials, lock metadata, replays, and artifacts live
+under `${PRIME_DEV_STATE_DIR:-${TMPDIR:-/tmp}/project-prime-dev}` unless
+`--state-dir` is supplied. Shutdown drains the Node first. If the overall grace
+period expires (`--grace-seconds`, default 60), remaining verified processes
+are forced down and any active matches can be interrupted.
+
+For all deployable clients and servers, run `./build-all.sh`. Android is built
+by default and requires the Android workload, JDK, and SDK; pass
+`--skip-android` only when intentionally omitting it. Outputs are written to a
+new timestamped directory under `publish/` unless `--output` is provided. The
+packages contain custom `.fpmap` bundles but never AMHE1-derived room binaries
+or other proprietary game assets; those room binaries are prepared at runtime
+from operator-provided extracted content.
+
 The G6 UI/lobby update has been rolled back. Rebuild and deploy matching client
 and server binaries; do not mix G6 builds with the restored match admission.
 The original launcher and automatic match countdown are restored. Backend
@@ -308,21 +338,54 @@ and a host range. Fill in the placeholders with
 `tools/render-server-unit.py`, then install the rendered unit. systemd stop
 requests and Ctrl+C both shut down the simulation cleanly.
 
-`deploy-server.sh` builds and uploads only the ARM64 server binary. Install the
-content on the remote machine first and provide its existing absolute path:
+`deploy-server.sh` transactionally deploys the combined Node + Worker bundle.
+Given no bundle it builds a fresh `linux-arm64` package for compatibility. A
+complete build can be deployed without recompiling:
 
 ```bash
-MPH_SERVER_HOST=games.example.com MPH_SERVER_USER=gameuser \
-MPH_SERVER_DIR=/home/gameuser/fruityprime-server \
-MPH_SERVER_DATA=/srv/fruity-content \
-MPH_SERVER_MASTER=games.example.com:27889 ./deploy-server.sh
+./build-all.sh --skip-android --output publish/deploy
+./deploy-server.sh --host games.example.com --user gameuser \
+  --deploy-dir /home/gameuser/project-prime \
+  --config /absolute/local/path/appsettings.production.json \
+  --data /srv/project-prime-content/AMHE1 \
+  --bundle publish/deploy/servers/linux-arm64 --rid linux-arm64 --preflight-only
+./deploy-server.sh --host games.example.com --user gameuser \
+  --deploy-dir /home/gameuser/project-prime \
+  --config /absolute/local/path/appsettings.production.json \
+  --data /srv/project-prime-content/AMHE1 \
+  --bundle publish/deploy/servers/linux-arm64 --rid linux-arm64
 ```
 
-`MPH_SERVER_DATA` is required. `MPH_SERVER_DATA_VERSION` defaults to `AMHE1`;
-omit `MPH_SERVER_MASTER` to leave the match unlisted; and set
-`MPH_DEPLOY_MASTER=0` to leave the directory service untouched. Deployment
-validates the remote content before stopping services, preserves existing unit
-rules, and never uploads extracted files or a server-content package.
+The existing `MPH_SERVER_HOST`, `MPH_SERVER_USER`, `MPH_SERVER_DIR`,
+`MPH_SERVER_CONFIG`, `MPH_SERVER_DATA`, `MPH_SERVER_DATA_VERSION`, and
+`MPH_SERVER_PASS` environment names remain supported. Copy
+`.env.deploy.example` to ignored `.env.deploy` for local settings. Explicit CLI
+options win. `PRIME_DEPLOY_BUNDLE` selects a compiled bundle;
+`MPH_SERVER_BUNDLE` remains a compatibility alias. `--preflight-only` performs local bundle/config and read-only
+remote architecture, content, key, privilege, path, and disk checks without an
+upload or service stop.
+
+In the operator Node config, each packaged Worker uses
+`<deploy-dir>/current` as its `WorkingDirectory` and
+`<deploy-dir>/current/maps` as its `--map-dir`. Its `--content-dir` must equal
+`MPH_SERVER_DATA`. The deployer checks these paths before connecting or stopping
+the service, preventing a successful binary update from retaining stale legacy
+map paths. Content, authentication keys, artifacts, and replays must remain
+outside `current` and `releases` so retention can never remove operator state.
+
+Releases live under `<deploy-dir>/releases`, with an atomic `current` symlink.
+Uploaded hashes are verified before `fruityprime-node` is stopped. A failed
+activation restores the prior pointer, unit, configuration, enabled state, and
+active state while retaining the failed release and journal evidence. The first
+deployment can migrate a legacy direct bundle into a bounded release; failure
+moves it back. Only `fruityprime-node` is managed. The included `backend/`
+payload remains inert: deployment never installs or starts Backend, touches a
+database, uploads AMHE1, or archives operator configuration.
+
+If the SSH session is interrupted after activation begins, the remote deployment
+lock is deliberately retained. Verify no activation or rollback process remains
+before manually removing `<deploy-dir>/.deploy.lock`; the next deployment will
+otherwise fail closed rather than overlap an uncertain update.
 
 ## Compatibility and verification
 

@@ -9,16 +9,19 @@ RID=""
 OUTPUT=""
 CONFIGURATION="Release"
 VERSION=""
+SKIP_MAP_COOK=0
 
 usage() {
   cat <<'NOTE'
-Usage: tools/package-server.sh --rid RID --output DIRECTORY [--configuration CONFIGURATION] [--version VERSION]
+Usage: tools/package-server.sh --rid RID --output DIRECTORY [--configuration CONFIGURATION] [--version VERSION] [--skip-map-cook]
 
 Publishes the Backend beneath backend/, Server.Node at the bundle root, and
 Server.Worker beneath worker/. The package contains binaries only: credentials,
 database state, and game content remain operator-supplied.
 Release RIDs are linux-x64, linux-arm64, win-x64. osx-arm64 is available for
 local package-smoke validation and is intentionally not a release artifact.
+Use --skip-map-cook only when the current map bundles were already cooked and
+validated by the calling build.
 NOTE
 }
 
@@ -28,6 +31,7 @@ while (($# > 0)); do
     --output) [[ $# -ge 2 ]] || { echo "--output requires a value" >&2; exit 2; }; OUTPUT="$2"; shift 2 ;;
     --configuration) [[ $# -ge 2 ]] || { echo "--configuration requires a value" >&2; exit 2; }; CONFIGURATION="$2"; shift 2 ;;
     --version) [[ $# -ge 2 ]] || { echo "--version requires a value" >&2; exit 2; }; VERSION="$2"; shift 2 ;;
+    --skip-map-cook) SKIP_MAP_COOK=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -44,8 +48,10 @@ esac
 # Keep a direct server-package invocation in step with the client publish.
 # Bundles contain only map recipes/level data/textures, so this does not need
 # extracted game content and can run before any of the server projects publish.
-dotnet run --project "$ROOT/src/Tools/Tools.csproj" -c "$CONFIGURATION" -- \
-  -mapdir "$ROOT/maps" -mapbundle all
+if [[ "$SKIP_MAP_COOK" -eq 0 ]]; then
+  dotnet run --project "$ROOT/src/Tools/Tools.csproj" -c "$CONFIGURATION" -- \
+    -mapdir "$ROOT/maps" -mapbundle all
+fi
 
 PUBLISH_ARGS=(-c "$CONFIGURATION" -r "$RID" --self-contained true -p:PublishSingleFile=true)
 [[ -n "$VERSION" ]] && PUBLISH_ARGS+=("-p:Version=$VERSION" "-p:InformationalVersion=$VERSION")

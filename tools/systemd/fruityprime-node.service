@@ -8,8 +8,9 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=__USER__
-WorkingDirectory="__DIR__"
-ExecStart="__DIR__/FruityPrimeServer" --contentRoot "__DIR__"
+UMask=0077
+WorkingDirectory="__DIR__/current"
+ExecStart="__DIR__/current/FruityPrimeServer" --contentRoot "__CONFIG_DIR__"
 Restart=always
 RestartSec=5
 NoNewPrivileges=true

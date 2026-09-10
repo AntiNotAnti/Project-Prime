@@ -29,7 +29,7 @@ Starts the packaged Server Node and Worker in the foreground. Press Ctrl-C to
 stop children. Runtime state and logs are outside the checkout by default.
 
   --content-dir PATH   AMHE1 content directory
-  --package-dir PATH   server-linux-x64 bundle
+  --package-dir PATH   host-compatible server bundle
   --state-dir PATH     runtime state and logs
   --with-backend       start a local development Backend too
   --no-backend         use the shared Backend
@@ -50,9 +50,13 @@ USAGE
 CONTENT_DIR=$PRIME_CONTENT_DIRECTORY
 if [[ -z "$CONTENT_DIR" ]]; then CONTENT_DIR=$GAME_DATA_DIRECTORY; fi
 if [[ -z "$CONTENT_DIR" && -d "$ROOT/AMHE1" ]]; then CONTENT_DIR=$ROOT/AMHE1; fi
+PACKAGE_EXPLICIT=0
+if [[ -n "$PRIME_SERVER_PACKAGE" ]]; then PACKAGE_EXPLICIT=1; fi
 PACKAGE_DIR=$PRIME_SERVER_PACKAGE
 if [[ -z "$PACKAGE_DIR" ]]; then
-    if [[ -f "$ROOT/FruityPrimeServer" ]]; then PACKAGE_DIR=$ROOT; else PACKAGE_DIR=$ROOT/publish/server-linux-x64; fi
+    if [[ -f "$ROOT/FruityPrimeServer" ]]; then
+        PACKAGE_DIR=$ROOT
+    fi
 fi
 STATE_DIR=$PRIME_DEV_STATE_DIR
 if [[ -z "$STATE_DIR" ]]; then
@@ -66,7 +70,7 @@ if [[ "$(basename "${BASH_SOURCE[0]}")" == start-stack-dev.sh ]]; then FORCE_LOC
 while (($#)); do
     case "$1" in
         --content-dir) [[ $# -ge 2 ]] || { echo "--content-dir needs a path." >&2; exit 2; }; CONTENT_DIR=$2; shift 2 ;;
-        --package-dir) [[ $# -ge 2 ]] || { echo "--package-dir needs a path." >&2; exit 2; }; PACKAGE_DIR=$2; shift 2 ;;
+        --package-dir) [[ $# -ge 2 ]] || { echo "--package-dir needs a path." >&2; exit 2; }; PACKAGE_DIR=$2; PACKAGE_EXPLICIT=1; shift 2 ;;
         --state-dir) [[ $# -ge 2 ]] || { echo "--state-dir needs a path." >&2; exit 2; }; STATE_DIR=$2; shift 2 ;;
         --with-backend) START_BACKEND=1; shift ;;
         --no-backend) START_BACKEND=0; shift ;;
@@ -74,6 +78,15 @@ while (($#)); do
         *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
     esac
 done
+if [[ -z "$PACKAGE_DIR" ]]; then
+    case "$(uname -s):$(uname -m)" in
+        Darwin:arm64) HOST_SERVER_RID=osx-arm64 ;;
+        Linux:x86_64|Linux:amd64) HOST_SERVER_RID=linux-x64 ;;
+        Linux:arm64|Linux:aarch64) HOST_SERVER_RID=linux-arm64 ;;
+        *) echo "Unsupported development server host: $(uname -s) $(uname -m). Set PRIME_SERVER_PACKAGE or --package-dir to a compatible package." >&2; exit 1 ;;
+    esac
+    PACKAGE_DIR=$ROOT/publish/server-$HOST_SERVER_RID
+fi
 if [[ "$FORCE_LOCAL_STACK" == 1 ]]; then
     START_BACKEND=1
 elif [[ "$START_BACKEND" == auto ]]; then
@@ -93,12 +106,110 @@ mkdir -p "$STATE_DIR/artifacts" "$STATE_DIR/replays" "$STATE_DIR/data-protection
 chmod 700 "$STATE_DIR" "$STATE_DIR/data-protection"
 
 if [[ ! -f "$PACKAGE_DIR/FruityPrimeServer" ]]; then
-    PACKAGE_DIR=$STATE_DIR/package
-    if [[ ! -f "$PACKAGE_DIR/FruityPrimeServer" ]]; then
-        [[ -x "$ROOT/tools/package-server.sh" ]] || { echo "Missing Linux server bundle: $PACKAGE_DIR" >&2; exit 1; }
-        echo "Publishing the Linux server bundle into $PACKAGE_DIR"
-        "$ROOT/tools/package-server.sh" --rid linux-x64 --output "$PACKAGE_DIR"
+    if [[ "$PACKAGE_EXPLICIT" == 1 || -f "$ROOT/FruityPrimeServer" ]]; then
+        echo "The explicitly selected server package is invalid: $PACKAGE_DIR" >&2
+        exit 1
     fi
+    PACKAGE_DIR=$STATE_DIR/package-$HOST_SERVER_RID
+fi
+
+canonical_path() {
+    python3 - "$1" <<'PY'
+import os
+import sys
+print(os.path.realpath(os.path.abspath(sys.argv[1])))
+PY
+}
+ROOT=$(canonical_path "$ROOT")
+STATE_DIR=$(canonical_path "$STATE_DIR")
+PACKAGE_DIR=$(canonical_path "$PACKAGE_DIR")
+SUPERVISOR_SCRIPT=$(canonical_path "${BASH_SOURCE[0]}")
+
+SUPERVISOR_LOCK_HELD=0
+SUPERVISOR_METADATA=$STATE_DIR/supervisor.json
+SUPERVISOR_PID_FILE=$STATE_DIR/supervisor.pid
+if ! exec 8>"$STATE_DIR/supervisor.lock"; then
+    echo "Unable to open the development stack lock in $STATE_DIR." >&2
+    exit 1
+fi
+if python3 - <<'PY'
+import fcntl
+import sys
+try:
+    fcntl.flock(8, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    raise SystemExit(75)
+except OSError as error:
+    print(f"Unable to acquire the development stack lock: {error}", file=sys.stderr)
+    raise SystemExit(1)
+PY
+then
+    SUPERVISOR_LOCK_HELD=1
+else
+    lock_status=$?
+    exec 8>&-
+    if [[ "$lock_status" == 75 ]]; then
+        echo "A Project Prime development stack already owns state directory $STATE_DIR." >&2
+        echo "Run ./start-server.sh --status or ./start-server.sh --stop-only --state-dir '$STATE_DIR'." >&2
+    fi
+    exit 1
+fi
+
+release_supervisor_lock() {
+    release_status=$?
+    if [[ "$SUPERVISOR_LOCK_HELD" == 1 ]]; then
+        rm -f "$SUPERVISOR_METADATA" "$SUPERVISOR_PID_FILE"
+        exec 8>&-
+        SUPERVISOR_LOCK_HELD=0
+    fi
+    return "$release_status"
+}
+trap release_supervisor_lock EXIT
+
+export SUPERVISOR_METADATA SUPERVISOR_PID_FILE ROOT STATE_DIR SUPERVISOR_SCRIPT PACKAGE_DIR
+if ! python3 - <<'PY'
+import json
+import os
+import subprocess
+
+pid = os.getppid()
+birth = subprocess.run(
+    ["ps", "-p", str(pid), "-o", "lstart="],
+    check=True, capture_output=True, text=True,
+).stdout.strip()
+if not birth:
+    raise SystemExit("Unable to determine the development supervisor birth token.")
+metadata = {
+    "pid": pid,
+    "birth_token": birth,
+    "root": os.environ["ROOT"],
+    "state_dir": os.environ["STATE_DIR"],
+    "script": os.environ["SUPERVISOR_SCRIPT"],
+    "package_dir": os.environ["PACKAGE_DIR"],
+}
+temporary = os.environ["SUPERVISOR_METADATA"] + ".tmp"
+with open(temporary, "w", encoding="utf-8") as handle:
+    json.dump(metadata, handle, indent=2, sort_keys=True)
+    handle.write("\n")
+os.chmod(temporary, 0o600)
+os.replace(temporary, os.environ["SUPERVISOR_METADATA"])
+with open(os.environ["SUPERVISOR_PID_FILE"] + ".tmp", "w", encoding="ascii") as handle:
+    handle.write(f"{pid}\n")
+os.chmod(os.environ["SUPERVISOR_PID_FILE"] + ".tmp", 0o600)
+os.replace(os.environ["SUPERVISOR_PID_FILE"] + ".tmp", os.environ["SUPERVISOR_PID_FILE"])
+PY
+then
+    echo "Unable to publish development supervisor metadata." >&2
+    exit 1
+fi
+
+if [[ ! -f "$PACKAGE_DIR/FruityPrimeServer" ]]; then
+    if [[ ! -x "$ROOT/tools/package-server.sh" ]]; then
+        echo "Missing server bundle and package helper: $PACKAGE_DIR" >&2
+        exit 1
+    fi
+    echo "Publishing the $HOST_SERVER_RID server bundle into $PACKAGE_DIR"
+    "$ROOT/tools/package-server.sh" --rid "$HOST_SERVER_RID" --output "$PACKAGE_DIR" 8>&-
 fi
 PACKAGE_DIR=$(cd "$PACKAGE_DIR" && pwd)
 NODE_PATH=$PACKAGE_DIR/FruityPrimeServer
@@ -228,7 +339,6 @@ except OSError as error:
 PY
     then
         CONTENT_LOCK_HELD=1
-        trap release_content_lock EXIT
     else
         lock_status=$?
         exec 9>&-
@@ -544,6 +654,8 @@ if [[ "$START_BACKEND" == 1 ]]; then
     echo "Starting Backend on $BACKEND_BIND (logs: $BACKEND_LOG)"
     # shellcheck disable=SC2030
     (
+        exec 8>&-
+        exec 9>&-
         export ASPNETCORE_ENVIRONMENT=Development
         export ASPNETCORE_URLS=$BACKEND_BIND
         export Backend__AllowRemoteHttp=true Backend__AllowLoopbackHttp=true
@@ -564,15 +676,46 @@ if [[ "$START_BACKEND" == 1 ]]; then
 fi
 
 NODE_PID=
+is_running_child() {
+    child_pid=$1
+    [[ -n "$child_pid" && "$child_pid" != 0 ]] || return 1
+    kill -0 "$child_pid" 2>/dev/null || return 1
+    child_state=$(ps -p "$child_pid" -o stat= 2>/dev/null | tr -d '[:space:]')
+    [[ -n "$child_state" && "$child_state" != Z* ]]
+}
+stop_child() {
+    child_pid=$1
+    grace_seconds=$2
+    child_name=$3
+    if ! is_running_child "$child_pid"; then
+        [[ -n "$child_pid" && "$child_pid" != 0 ]] && wait "$child_pid" 2>/dev/null || true
+        return
+    fi
+    kill -TERM "$child_pid" 2>/dev/null || true
+    elapsed=0
+    while is_running_child "$child_pid" && [[ "$elapsed" -lt "$grace_seconds" ]]; do
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    if is_running_child "$child_pid"; then
+        echo "$child_name did not stop within ${grace_seconds}s; forcing it to exit." >&2
+        kill -KILL "$child_pid" 2>/dev/null || true
+    fi
+    wait "$child_pid" 2>/dev/null || true
+}
 cleanup() {
     status=$?
     trap - EXIT INT TERM
-    [[ -n "$NODE_PID" && "$NODE_PID" != 0 ]] && kill "$NODE_PID" 2>/dev/null || true
-    [[ -n "$BACKEND_PID" && "$BACKEND_PID" != 0 ]] && kill "$BACKEND_PID" 2>/dev/null || true
-    wait "$NODE_PID" 2>/dev/null || true
-    wait "$BACKEND_PID" 2>/dev/null || true
+    NODE_DRAIN_SECONDS=${PRIME_NODE_DRAIN_SECONDS:-45}
+    BACKEND_DRAIN_SECONDS=${PRIME_BACKEND_DRAIN_SECONDS:-12}
+    case "$NODE_DRAIN_SECONDS:$BACKEND_DRAIN_SECONDS" in
+        *[!0-9:]*|:*|*:) echo "Invalid shutdown grace setting; using 45s for Node and 12s for Backend." >&2; NODE_DRAIN_SECONDS=45; BACKEND_DRAIN_SECONDS=12 ;;
+    esac
+    stop_child "$NODE_PID" "$NODE_DRAIN_SECONDS" "Server Node"
+    stop_child "$BACKEND_PID" "$BACKEND_DRAIN_SECONDS" "Backend"
     release_content_lock
     rm -f "$STATE_DIR/node.pid" "$STATE_DIR/backend.pid"
+    release_supervisor_lock
     exit "$status"
 }
 trap cleanup EXIT INT TERM
@@ -615,6 +758,8 @@ NODE_LOG=$STATE_DIR/node.log
 echo "Starting Server Node (logs: $NODE_LOG)"
  # shellcheck disable=SC2031
 (
+    exec 8>&-
+    exec 9>&-
     export ASPNETCORE_ENVIRONMENT=Development
     export ASPNETCORE_URLS=$NODE_BIND
     export ASPNETCORE_Kestrel__Certificates__Default__Path=$CERT_PFX
@@ -633,7 +778,12 @@ printf '%s\n' "$NODE_PID" > "$STATE_DIR/node.pid"
 
 NODE_HEALTH=$PRIME_NODE_HEALTH_URL
 if [[ -z "$NODE_HEALTH" ]]; then
-    if [[ "$START_BACKEND" == 1 ]]; then NODE_HEALTH=https://127.0.0.1:8443/health
+    if [[ "$START_BACKEND" == 1 ]]; then
+        NODE_HEALTH=$NODE_BIND
+        NODE_HEALTH=${NODE_HEALTH/0.0.0.0/127.0.0.1}
+        NODE_HEALTH=${NODE_HEALTH/'[::]'/'127.0.0.1'}
+        if [[ "$NODE_HEALTH" != */ ]]; then NODE_HEALTH=$NODE_HEALTH/; fi
+        NODE_HEALTH=${NODE_HEALTH}health
     else NODE_HEALTH=$(printf '%s' "$NODE_CONTROL_URI" | sed 's#^wss://#https://#; s#/v1/control$#/health#'); fi
 fi
 echo "Waiting for Node health: $NODE_HEALTH"

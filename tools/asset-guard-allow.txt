@@ -18,6 +18,11 @@ src/Client/Assets/fruity-prime-mark-server.png
 # that limit as well as from the picture-format rule.
 src/Client/Assets/fruity-prime-intro.png
 
+# Original Project Prime presentation source artwork retained at the repository
+# root by the asset update. These are not cartridge captures or game data.
+Banner.png
+Logo.png
+
 # The same mark again, scaled into an Android launcher icon: five densities of
 # the flat one and five of the adaptive foreground. Generated from
 # fruity-prime-mark.png above, committed so a build needs no image tooling.
@@ -37,3 +42,10 @@ maps/parallax/source/textures/parallax/spawn.tga
 maps/parallax/source/textures/parallax/trim.tga
 maps/parallax/source/textures/parallax/upper.tga
 maps/parallax/source/textures/parallax/wall.tga
+
+# Original PARALLAX authoring evidence. The art README records the ImageGen
+# master provenance; the other two files are offline previews of our own map
+# and generated material tiles, not captures from Metroid Prime Hunters.
+maps/parallax/source/art/alimbic-stone.png
+maps/parallax/source/art/materials.png
+maps/parallax/source/art/preview.png

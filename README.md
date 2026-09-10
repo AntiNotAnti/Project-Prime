@@ -84,6 +84,29 @@ multiplayer match.
 
 ## Building
 
+For a complete deployable build, use:
+
+```bash
+./build-all.sh
+```
+
+This cooks all custom map bundles once, then compiles, publishes, and validates
+desktop clients for `win-x64`, `linux-x64`, `osx-x64`, and
+`osx-arm64`; release server bundles for `win-x64`, `linux-x64`, and
+`linux-arm64`; a clearly marked local/development `osx-arm64` server; and an
+Android APK. Android needs the .NET Android workload plus a JDK and Android SDK;
+use `./build-all.sh --skip-android` when intentionally building desktop/server
+artifacts only. `--version VERSION` stamps the artifacts and `--output DIR`
+selects the final directory. The default is a timestamped directory beneath
+ignored `publish/`. A failed build never replaces that final directory and
+preserves its partial staging directory with an `.incomplete` name for diagnosis.
+
+The output carries custom `.fpmap` bundles, not proprietary game content.
+AMHE1-derived room binaries are prepared at runtime from each operator's own
+extracted content and are explicitly not shipped.
+
+The lower-level equivalents are:
+
 ```bash
 dotnet run --project src/Tools/Tools.csproj -c Release -- \
   -mapdir maps -mapbundle all
@@ -120,6 +143,23 @@ root; set `PRIME_NODE_BIND` and `PRIME_NODE_PUBLIC_CONTROL_URI` to use another
 port.
 All paths need external AMHE1 content; the shared-Backend path also needs its
 provisioned Node ID, Backend ticket public key, and directory credential.
+
+For the easiest repository start or restart, put extracted `AMHE1` at the
+repository root (or pass `--content-dir`) and run:
+
+```bash
+./start-server.sh
+./start-server.sh --status
+./start-server.sh --stop-only
+```
+
+The command safely stops only the stack verified against its state-directory
+lock and supervisor metadata, then starts the Backend, Node, and Node-managed
+Workers. Logs and generated credentials live in
+`${PRIME_DEV_STATE_DIR:-${TMPDIR:-/tmp}/project-prime-dev}`. Use `--state-dir`
+to select another state directory and `--grace-seconds` to change the overall
+restart wait (default 60 seconds). A forced stop can interrupt active matches;
+the supervisor allows the Node up to 45 seconds to drain, then stops the Backend.
 
 Build the desktop solution with `dotnet build Game.sln`; Android remains a separate
 workload build. The [project layout](docs/PROJECT_LAYOUT.md) describes the Game,

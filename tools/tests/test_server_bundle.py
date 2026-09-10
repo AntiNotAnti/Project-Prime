@@ -97,6 +97,8 @@ class ServerBundleContractTests(unittest.TestCase):
         self.assertIn("grep -F 'FruityPrime.Server.Node'", script)
         self.assertIn("start-bundle-dev.sh", script)
         self.assertIn("start-stack-dev.sh", script)
+        self.assertIn("--skip-map-cook", script)
+        self.assertIn('if [[ "$SKIP_MAP_COOK" -eq 0 ]]', script)
         self.assertNotIn("| rg ", script)
         self.assertIn("osx-arm64", script)
 
@@ -177,9 +179,15 @@ class ServerBundleContractTests(unittest.TestCase):
             cleanup_start = script.index("cleanup() {")
             cleanup_end = script.index("\n}", cleanup_start)
             cleanup = script[cleanup_start:cleanup_end]
-            self.assertIn("trap release_content_lock EXIT", script)
+            if name == "start-dev.sh":
+                self.assertIn("trap release_supervisor_lock EXIT", script)
+            else:
+                self.assertIn("trap release_content_lock EXIT", script)
             self.assertIn("release_content_lock", cleanup)
-            self.assertLess(cleanup.index('wait "$NODE_PID"'), cleanup.index("release_content_lock"))
+            if name == "start-dev.sh":
+                self.assertLess(cleanup.index('stop_child "$NODE_PID"'), cleanup.index("release_content_lock"))
+            else:
+                self.assertLess(cleanup.index('wait "$NODE_PID"'), cleanup.index("release_content_lock"))
 
     def test_launchers_report_content_lock_contention_before_preparation(self):
         for name in ("start-dev.sh", "start-bundle-dev.sh"):
@@ -319,12 +327,20 @@ class ServerBundleContractTests(unittest.TestCase):
         ):
             self.assertIn(marker, smoke)
 
-    def test_deployment_requires_explicit_operator_config_and_keeps_legacy_migration_manual(self):
+    def test_deployment_uses_combined_release_bundle_and_never_starts_backend(self):
         script = (ROOT / "deploy-server.sh").read_text(encoding="utf-8")
         self.assertIn("MPH_SERVER_CONFIG", script)
         self.assertIn("tools/package-server.sh", script)
         self.assertIn("fruityprime-node.service", script)
-        self.assertIn("REMOTE_BACKUP", script)
+        self.assertIn("MPH_SERVER_BUNDLE", script)
+        self.assertIn("MPH_SERVER_RID", script)
+        self.assertIn("--preflight-only", script)
+        self.assertIn(".deploy.lock", script)
+        self.assertIn(".deploy-manifest.sha256", script)
+        self.assertIn("mv -Tf", script)
+        self.assertIn("deploy-failure-journal.txt", script)
+        self.assertNotIn("systemctl start PrimeHunters.Backend", script)
+        self.assertNotIn("systemctl start fruityprime-backend", script)
         self.assertNotIn("src/Server/Server.csproj", script)
 
 
