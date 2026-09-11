@@ -20,6 +20,9 @@ public static class ProfileEndpoints
     {
         app.MapGet("/v1/me", async (HttpContext http, UserManager<HunterAccount> users) =>
         {
+            if (http.User.Identity?.IsAuthenticated != true)
+                return BackendProblem.Create("invalid_credential", "The session is invalid.",
+                    StatusCodes.Status401Unauthorized);
             var user = await users.GetUserAsync(http.User);
             return user == null ? BackendProblem.Create("invalid_credential", "The session is invalid.",
                 StatusCodes.Status401Unauthorized) : Results.Ok(new
@@ -28,11 +31,14 @@ public static class ProfileEndpoints
                 // Future official admission must also check server and match policies.
                 EmailEligibleForOfficialPlay = user.EmailConfirmed
             });
-        }).RequireAuthorization().RequireRateLimiting(BackendRoutePolicy.Api);
+        }).RequireRateLimiting(BackendRoutePolicy.Api);
 
         app.MapPatch("/v1/me/profile", async (ProfilePatch patch, HttpContext http,
             UserManager<HunterAccount> users, BackendDbContext db, CancellationToken cancellationToken) =>
         {
+            if (http.User.Identity?.IsAuthenticated != true)
+                return BackendProblem.Create("invalid_credential", "The session is invalid.",
+                    StatusCodes.Status401Unauthorized);
             if ((patch.DisplayName == null && patch.FavoriteHunter == null)
                 || (patch.DisplayName != null && !ValidDisplayName(patch.DisplayName))
                 || (patch.FavoriteHunter.HasValue && patch.FavoriteHunter.Value > Hunter.Weavel))
@@ -53,7 +59,7 @@ public static class ProfileEndpoints
             if (patch.FavoriteHunter.HasValue) { profile.FavoriteHunter = patch.FavoriteHunter.Value; }
             await db.SaveChangesAsync(cancellationToken);
             return Results.NoContent();
-        }).RequireAuthorization().RequireRateLimiting(BackendRoutePolicy.Api);
+        }).RequireRateLimiting(BackendRoutePolicy.Api);
 
         app.MapGet("/v1/players/{id}/license", async (string id, BackendDbContext db, CancellationToken cancellationToken) =>
         {

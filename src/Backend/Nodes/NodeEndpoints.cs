@@ -97,6 +97,9 @@ public static class NodeEndpoints
             UserManager<HunterAccount> users, SignInManager<HunterAccount> signIn, BackendDbContext db,
             NodeDirectory directory, GameTicketIssuer issuer, CancellationToken cancellationToken) =>
         {
+            if (http.User.Identity?.IsAuthenticated != true)
+                return BackendProblem.Create("invalid_credential", "The session is invalid.",
+                    StatusCodes.Status401Unauthorized);
             if (request.NodeId == Guid.Empty)
                 return BackendProblem.Create("invalid_request", "The Node identity is invalid.",
                     StatusCodes.Status400BadRequest);
@@ -116,7 +119,7 @@ public static class NodeEndpoints
                 return BackendProblem.Create("node_admission_unavailable", "The Node admission identity is unavailable.",
                     StatusCodes.Status404NotFound);
             return Results.Ok(issuer.IssueNodeAdmission(new PlayerId(user.Id), profile.DisplayName, node.NodeId, node.PublicControlUri));
-        }).RequireAuthorization().RequireRateLimiting(BackendRoutePolicy.Auth);
+        }).RequireRateLimiting(BackendRoutePolicy.Auth);
 
         app.MapPost("/v1/guest-node-admissions",
             (GuestNodeAdmissionRequest request, NodeDirectory directory, GameTicketIssuer issuer) =>
