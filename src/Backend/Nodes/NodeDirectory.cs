@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using MphRead.Backend.Tickets;
 using MphRead.Identity;
 using ProjectPrime.Server.Shared;
@@ -23,19 +25,25 @@ public sealed class NodeDirectoryPageException(string code, string message, int 
 
 /// <summary>Ephemeral discovery only. Restart clears listings; Nodes republish. No live
 /// match or admission authority depends on retention of this directory.</summary>
-public sealed class NodeDirectory(GameServerRegistry owners, TimeProvider clock)
+public sealed class NodeDirectory(GameServerRegistry owners, TimeProvider clock,
+    ILogger<NodeDirectory>? logger = null)
 {
     public static readonly TimeSpan OnlineLifetime = TimeSpan.FromSeconds(90);
     private readonly object _gate = new();
     private readonly Dictionary<Guid, (Guid Incarnation, NodeListing Listing)> _nodes = [];
     private long _revision = 1;
+    private readonly ILogger _logger = logger ?? NullLogger<NodeDirectory>.Instance;
 
     public bool Authenticate(Guid nodeId, string secret, out MatchTrustClass trust)
         => owners.TryAuthenticate(nodeId, secret, out trust);
 
     public bool Register(Guid nodeId, string secret, NodeRegistration value)
     {
-        if (!Authenticate(nodeId, secret, out var trust)) return false;
+        if (!Authenticate(nodeId, secret, out var trust))
+        {
+            BackendDiagnostics.Directory(_logger, "registration", "invalid");
+            return false;
+        }
         Validate(value);
         var listing = new NodeListing(nodeId, value.Name, value.Region, value.PublicControlUri,
             value.ProtocolVersion, value.BuildVersion, value.ContentHash, value.Capacity, 0, 0, 0,
@@ -48,22 +56,32 @@ public sealed class NodeDirectory(GameServerRegistry owners, TimeProvider clock)
             _nodes[nodeId] = (value.Incarnation, listing);
             _revision++;
         }
+        BackendDiagnostics.Directory(_logger, "registration", "success");
         return true;
     }
 
     public bool Heartbeat(Guid nodeId, string secret, NodeHeartbeat value)
     {
-        if (!Authenticate(nodeId, secret, out _)) return false;
+        if (!Authenticate(nodeId, secret, out _))
+        {
+            BackendDiagnostics.Directory(_logger, "heartbeat", "invalid");
+            return false;
+        }
         lock (_gate)
         {
             PruneExpiredLocked();
-            if (!_nodes.TryGetValue(nodeId, out var current) || current.Incarnation != value.Incarnation) return false;
+            if (!_nodes.TryGetValue(nodeId, out var current) || current.Incarnation != value.Incarnation)
+            {
+                BackendDiagnostics.Directory(_logger, "heartbeat", "stale");
+                return false;
+            }
             if (value.OnlineUsers < 0 || value.OnlineUsers > current.Listing.Capacity
                 || value.LobbyCount is < 0 or > 10000 || value.ActiveMatches is < 0 or > 10000)
                 throw new ArgumentException("Invalid Node population.");
             _nodes[nodeId] = (current.Incarnation, current.Listing with { OnlineUsers = value.OnlineUsers,
                 LobbyCount = value.LobbyCount, ActiveMatches = value.ActiveMatches, LastHeartbeat = clock.GetUtcNow() });
             _revision++;
+            BackendDiagnostics.Directory(_logger, "heartbeat", "success");
             return true;
         }
     }
@@ -72,13 +90,22 @@ public sealed class NodeDirectory(GameServerRegistry owners, TimeProvider clock)
     /// replayed shutdown hint cannot remove a replacement Node.</summary>
     public bool Deregister(Guid nodeId, string secret, Guid incarnation)
     {
-        if (!Authenticate(nodeId, secret, out _)) return false;
+        if (!Authenticate(nodeId, secret, out _))
+        {
+            BackendDiagnostics.Directory(_logger, "deregistration", "invalid");
+            return false;
+        }
         if (incarnation == Guid.Empty) throw new ArgumentException("Invalid Node incarnation.");
         lock (_gate)
         {
-            if (!_nodes.TryGetValue(nodeId, out var current) || current.Incarnation != incarnation) return true;
+            if (!_nodes.TryGetValue(nodeId, out var current) || current.Incarnation != incarnation)
+            {
+                BackendDiagnostics.Directory(_logger, "deregistration", "stale");
+                return true;
+            }
             _nodes.Remove(nodeId);
             _revision++;
+            BackendDiagnostics.Directory(_logger, "deregistration", "success");
             return true;
         }
     }
@@ -154,6 +181,7 @@ public sealed class NodeDirectory(GameServerRegistry owners, TimeProvider clock)
         if (expired.Length == 0) return;
         foreach (Guid nodeId in expired) _nodes.Remove(nodeId);
         _revision++;
+        BackendDiagnostics.Directory(_logger, "expiry", "pruned");
     }
     private static bool Text(string? value, int max) => value is { Length: > 0 } && value.Length <= max
         && value.All(c => char.IsAscii(c) && !char.IsControl(c));
