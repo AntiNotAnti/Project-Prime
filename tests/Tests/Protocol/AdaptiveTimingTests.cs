@@ -141,7 +141,7 @@ public sealed class AdaptiveTimingTests
         Assert.Equal(4, controller.Active.PresentationDelayTicks);
         Assert.Equal(4, controller.RewindPresentationDelayTicks);
 
-        var telemetry = new NetworkTimingTelemetry(normal.Revision, 4, 20, 1, 20, 333, 150);
+        var telemetry = new NetworkTimingTelemetry(normal.Revision, 4, 60, 3, 20, 333, 150);
         Assert.True(controller.ObserveTelemetry(telemetry, 21));
         Assert.True(controller.TrySelectOffer(21, 120, 0,
             out NetworkTimingProfile saferPresentation, out _));
@@ -203,6 +203,88 @@ public sealed class AdaptiveTimingTests
 
         Assert.True(controller.ObserveTelemetry(telemetry with { SnapshotUnderruns = 8 }, 21));
         Assert.Equal(TimingTelemetryBand.Unstable, controller.LastTelemetryBand);
+    }
+
+    [Fact]
+    public void V2DownshiftRequiresFreshExcellentTelemetryAndRestartsDwellAfterGap()
+    {
+        var controller = new ServerNetworkTimingController(enabled: true,
+            requireFreshTelemetry: true);
+        Assert.True(controller.TrySelectOffer(0, 25, 0,
+            out NetworkTimingProfile initial, out _));
+        controller.MarkOffered(initial, 0);
+        Assert.True(controller.TryAcknowledge(initial.Revision));
+
+        NetworkTimingTelemetry telemetry = new(initial.Revision, 6, 30, 0, 0, 333, 0);
+        Assert.True(controller.ObserveTelemetry(telemetry, 1));
+        Assert.False(controller.TrySelectOffer(1, 25, 0, out _, out _));
+
+        // The observation is stale before the next evaluation. A stale
+        // interval cannot consume the clean dwell or create a downshift.
+        Assert.False(controller.TrySelectOffer(4, 25, 0, out _, out _));
+        Assert.Equal(1, controller.TelemetryStaleIntervals);
+        Assert.Equal(1, controller.DownshiftBlockedByStaleTelemetry);
+        Assert.Equal(3, controller.TelemetryAge(4));
+
+        // The first fresh sample after the gap is evidence of recovery, not
+        // eight seconds of retroactive dwell. Keep the sample fresh once per
+        // second until a complete clean dwell has elapsed.
+        for (int sample = 0; sample <= 9; sample++)
+        {
+            double now = 4.1 + sample;
+            Assert.True(controller.ObserveTelemetry(telemetry, now));
+            bool offered = controller.TrySelectOffer(now, 25, 0, out _, out _);
+            if (sample < 9) Assert.False(offered);
+            if (sample == 9) Assert.True(offered);
+        }
+    }
+
+    [Fact]
+    public void V2AcceptsShortTelemetryEpochButBlocksDownshiftEvidence()
+    {
+        var controller = new ServerNetworkTimingController(enabled: true,
+            requireFreshTelemetry: true);
+        Assert.True(controller.TrySelectOffer(0, 25, 0,
+            out NetworkTimingProfile initial, out _));
+        controller.MarkOffered(initial, 0);
+        Assert.True(controller.TryAcknowledge(initial.Revision));
+
+        NetworkTimingTelemetry shortEpoch = new(initial.Revision, 6, 1, 0, 0, 333, 0);
+        Assert.True(shortEpoch.IsValid);
+        Assert.True(controller.ObserveTelemetry(shortEpoch, 1));
+        Assert.False(controller.TelemetrySampleSufficient);
+        Assert.False(controller.TrySelectOffer(1, 25, 0, out _, out _));
+        Assert.Equal(1, controller.DownshiftBlockedByStaleTelemetry);
+    }
+
+    [Fact]
+    public void V2CumulativeMissingTelemetryCountersSurviveProfileAcknowledgement()
+    {
+        var controller = new ServerNetworkTimingController(enabled: true,
+            requireFreshTelemetry: true);
+        Assert.True(controller.TrySelectOffer(0, 25, 0,
+            out NetworkTimingProfile initial, out _));
+        controller.MarkOffered(initial, 0);
+        Assert.True(controller.TryAcknowledge(initial.Revision));
+
+        NetworkTimingTelemetry telemetry = new(initial.Revision, 6, 30, 0, 0, 333, 0);
+        Assert.True(controller.ObserveTelemetry(telemetry, 1));
+        Assert.False(controller.TrySelectOffer(1, 25, 0, out _, out _));
+        for (int now = 2; now <= 8; now++)
+        {
+            Assert.True(controller.ObserveTelemetry(telemetry, now));
+            Assert.False(controller.TrySelectOffer(now, 25, 0, out _, out _));
+        }
+        Assert.True(controller.ObserveTelemetry(telemetry, 9));
+        Assert.True(controller.TrySelectOffer(9, 25, 0,
+            out NetworkTimingProfile downshift, out _));
+        controller.MarkOffered(downshift, 9);
+        Assert.True(controller.TryAcknowledge(downshift.Revision));
+        Assert.False(controller.TelemetryObserved);
+
+        Assert.False(controller.TrySelectOffer(10, 25, 0, out _, out _));
+        Assert.Equal(1, controller.TelemetryStaleIntervals);
+        Assert.Equal(1, controller.DownshiftBlockedByStaleTelemetry);
     }
 
     [Fact]

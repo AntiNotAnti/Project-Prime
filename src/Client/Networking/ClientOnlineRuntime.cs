@@ -19,6 +19,10 @@ public enum OnlineRecoveryState
 
 internal readonly record struct RejoinCompletion(ulong ConnectionId, uint InputEpoch);
 
+internal readonly record struct OnlineRuntimeSnapshot(NodeControlClient? Node,
+    MatchClientContext? Match, OnlineRecoveryState RecoveryState,
+    ClientSessionPhase SessionPhase);
+
 /// <summary>
 /// One bounded, epoch-fenced request owned by a MatchClientContext. The
 /// request is completed by the gameplay owner; no transport work runs here.
@@ -189,6 +193,7 @@ public sealed class ClientOnlineRuntime : IAsyncDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private MatchClientContext? _match;
     private NodeControlClient? _node;
+    private OnlineRecoveryState _recoveryState = OnlineRecoveryState.Connected;
     private int _disposed;
     private long _recoveryEpoch;
     private CancellationTokenSource? _recoveryOperation;
@@ -200,7 +205,16 @@ public sealed class ClientOnlineRuntime : IAsyncDisposable
     public ClientSessionCoordinator Flow { get; } = new();
     public NodeControlClient? Node { get { lock (_gate) return _node; } }
     public MatchClientContext? Match { get { lock (_gate) return _match; } }
-    public OnlineRecoveryState RecoveryState { get; private set; } = OnlineRecoveryState.Connected;
+    public OnlineRecoveryState RecoveryState
+    {
+        get { lock (_gate) return _recoveryState; }
+        private set { lock (_gate) _recoveryState = value; }
+    }
+    internal OnlineRuntimeSnapshot GetSnapshot()
+    {
+        lock (_gate)
+            return new(_node, _match, _recoveryState, Flow.Phase);
+    }
     public CancellationToken Lifetime => _lifetime.Token;
     public event Action? Changed;
 

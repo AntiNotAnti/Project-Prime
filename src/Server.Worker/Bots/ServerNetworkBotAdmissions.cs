@@ -92,7 +92,7 @@ public sealed partial class ServerNetwork
             if (UdpAuthenticationEnabled)
                 length = NetAuthentication.Sign(key, NetAuthDirection.ServerToClient, header, payload, packet);
             else { header.Write(packet); length = NetHeader.Size + payload.Length; }
-            _transport.SendDatagram(endpoint, packet[..length]);
+            _transport.SendDatagram(endpoint, packet[..length], NetDeliveryClass.Critical);
         }
         finally { if (key.Length != 0) CryptographicOperations.ZeroMemory(key); }
     }

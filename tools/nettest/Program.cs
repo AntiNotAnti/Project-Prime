@@ -50,6 +50,9 @@ namespace MphRead.NetTest
                     case "--baseline": return ConnectionBaseline.Run(args);
                     case "--connection-server": return ConnectionBaseline.RunServer(args);
                     case "--performance-baseline": return PerformanceBaselineCheck.Run(args);
+                    case "--performance-baseline-self-test": return PerformanceBaselineCheck.AllocationSelfTest();
+                    case "--udp-receive-baseline": return UdpReceiveBaseline.Run(args);
+                    case "--udp-receive-baseline-self-test": return UdpReceiveBaseline.SelfTest();
                     case "--snapshot-cadence": return SnapshotCadenceCheck.Run(args);
                     case "--help": PrintUsage(); return 0;
                 }
@@ -128,6 +131,9 @@ namespace MphRead.NetTest
             Console.WriteLine("--simulation-order DATA: real-content simultaneous-event ordering and lifecycle boundaries");
             Console.WriteLine("--match-baseline DATA: current multiplayer scoring and objective behavior");
             Console.WriteLine("--performance-baseline OUTPUT_JSON [AMHE1_DIRECTORY | --data AMHE1_DIRECTORY]: deterministic timing/allocation baseline; content-backed mode measures room-dependent targets");
+            Console.WriteLine("--performance-baseline-self-test: bounded reliable allocation scenarios (TryEnqueue, encode, receive/queue, combat receive/queue)");
+            Console.WriteLine("--udp-receive-baseline [OUTPUT_JSON] [--mode smoke|measurement --duration SEC --loads 1,8,16,32]: real localhost UdpTransport receive baseline (30s smoke / 60s measurement defaults; process-local, not WAN proof)");
+            Console.WriteLine("--udp-receive-baseline-self-test: short real-loopback socket, parser, and report-shape check");
             Console.WriteLine("--snapshot-cadence: deterministic 30/60 Hz snapshot packet counts/bytes for 2/4/8 players; synthetic codec accounting only");
             Console.WriteLine("--match-phases DATA: authoritative waiting, countdown reset, phase timing and input epochs");
             Console.WriteLine("--overtime-check DATA [VERSION]: real-content regulation expiry and mode-specific overtime");

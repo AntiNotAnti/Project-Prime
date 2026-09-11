@@ -14,7 +14,7 @@ namespace MphRead.Mods.Network
     /// inbox with a fixed packet budget. Sends use the socket directly unless
     /// the optional impairment worker holds them. Every retained queue is bounded.
     /// </summary>
-    public sealed class UdpTransport : INetTransport
+    public sealed class UdpTransport : INetTransport, IAcceptedNetDatagramSink
     {
         private readonly UdpClient _socket;
         private readonly Thread _worker;
@@ -22,6 +22,7 @@ namespace MphRead.Mods.Network
         private int _disposed;
         private long _packetsDropped;
         private volatile bool _running;
+        private Action? _networkWake;
 
         /// <summary>Hard capacity of each inbox and simulated-delay queue.</summary>
         public const int MaxQueuedPackets = 2048;
@@ -132,6 +133,7 @@ namespace MphRead.Mods.Network
                     _keepAliveDue = 0;
                 }
             }
+            SignalNetworkWork();
         }
 
         private static KeepAlive CopyKeepAlive(IPEndPoint target, ReadOnlySpan<byte> datagram)
@@ -160,6 +162,7 @@ namespace MphRead.Mods.Network
                     _keepAliveDue = 0;
                 }
             }
+            SignalNetworkWork();
         }
 
         private void SendAuthenticatedKeepAlive(AuthenticatedKeepAlive keepAlive)
@@ -246,6 +249,44 @@ namespace MphRead.Mods.Network
         public int HeldIncomingPackets { get { lock (_heldLock) { return _heldIn.Count; } } }
         public int HeldOutgoingPackets { get { lock (_heldLock) { return _heldOut.Count; } } }
         public NetTrafficMetrics Metrics { get; } = new();
+
+        public bool HasReadyNetworkWork
+        {
+            get
+            {
+                lock (_heldLock)
+                    return _inbox.Count > 0 || _heldIn.Count > 0
+                        && _heldIn.Peek().DueAt <= Stopwatch.GetTimestamp();
+            }
+        }
+
+        public long NextNetworkDeadlineTimestamp
+        {
+            get
+            {
+                lock (_heldLock)
+                    return _heldIn.Count == 0 ? long.MaxValue : _heldIn.Peek().DueAt;
+            }
+        }
+
+        public void SetNetworkWake(Action? signal)
+        {
+            bool ready;
+            lock (_heldLock)
+            {
+                _networkWake = signal;
+                ready = signal != null && (_inbox.Count > 0
+                    || _heldIn.Count > 0);
+            }
+            if (ready) signal!.Invoke();
+        }
+
+        private void SignalNetworkWork()
+        {
+            Action? signal;
+            lock (_heldLock) signal = _networkWake;
+            signal?.Invoke();
+        }
 
         /// <summary>
         /// Packets dropped by every transport in this process, for the test
@@ -433,15 +474,27 @@ namespace MphRead.Mods.Network
                         long holdFor = NetLag.HoldTicks();
                         if (holdFor > 0)
                         {
+                            bool notify = false;
                             lock (_heldLock)
                             {
                                 if (_running)
                                 {
+                                    long dueAt = Stopwatch.GetTimestamp() + holdFor;
+                                    long priorDeadline = _heldIn.Count == 0
+                                        ? long.MaxValue : _heldIn.Peek().DueAt;
                                     MakeRoom(_heldIn);
-                                    _heldIn.Enqueue((Stopwatch.GetTimestamp() + holdFor,
+                                    _heldIn.Enqueue((dueAt,
                                         new ReceivedPacket(sender, data, data.Length)));
+                                    Metrics.ObserveQueueDepth(_inbox.Count + _heldIn.Count);
+                                    // A sleeping owner may have no deadline
+                                    // cached yet. Publish the queue entry
+                                    // before signalling, and notify only when
+                                    // this packet creates a new earliest
+                                    // held-arrival deadline.
+                                    notify = dueAt < priorDeadline;
                                 }
                             }
+                            if (notify) SignalNetworkWork();
                             continue;
                         }
                     }
@@ -500,14 +553,18 @@ namespace MphRead.Mods.Network
         // across the receiver, delayed-arrival promotion and replay playback.
         private void Enqueue(ReceivedPacket packet)
         {
+            bool becameReady = false;
             lock (_heldLock)
             {
                 if (_running)
                 {
+                    becameReady = _inbox.Count == 0;
                     MakeRoom(_inbox);
                     _inbox.Enqueue(packet);
+                    Metrics.ObserveQueueDepth(_inbox.Count + _heldIn.Count);
                 }
             }
+            if (becameReady) SignalNetworkWork();
         }
 
         private void MakeRoom<T>(Queue<T> queue)
@@ -525,6 +582,7 @@ namespace MphRead.Mods.Network
         private void PromoteHeldArrivals()
         {
             long now = Stopwatch.GetTimestamp();
+            bool becameReady = false;
             lock (_heldLock)
             {
                 for (int i = 0; i < MaxPacketsPerDrain; i++)
@@ -533,10 +591,13 @@ namespace MphRead.Mods.Network
                     {
                         break;
                     }
+                    becameReady |= _inbox.Count == 0;
                     MakeRoom(_inbox);
                     _inbox.Enqueue(_heldIn.Dequeue().Packet);
+                    Metrics.ObserveQueueDepth(_inbox.Count + _heldIn.Count);
                 }
             }
+            if (becameReady) SignalNetworkWork();
         }
 
         private static readonly IPEndPoint _playbackSender = new(IPAddress.Loopback, 0);
@@ -584,22 +645,30 @@ namespace MphRead.Mods.Network
             => SendDatagram(endpoint, datagram);
 
         public void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram, long extraHoldTicks = 0)
+            => TrySendDatagramCore(target, datagram, extraHoldTicks);
+
+        public bool TrySendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram,
+            NetDeliveryClass deliveryClass)
+            => TrySendDatagramCore(target, datagram, 0);
+
+        private bool TrySendDatagramCore(IPEndPoint target, ReadOnlySpan<byte> datagram,
+            long extraHoldTicks)
         {
             if (datagram.Length == 0 || datagram.Length > NetConfig.MaxPacketSize)
             {
                 Metrics.Reject();
-                return;
+                return false;
             }
             if (!_running)
             {
-                return;
+                return false;
             }
             if (_lagWorker != null)
             {
                 if (NetLag.Drops())
                 {
                     Metrics.DropSimulated();
-                    return;
+                    return false;
                 }
                 long holdFor = NetLag.HoldTicks() + extraHoldTicks;
                 if (holdFor > 0)
@@ -614,31 +683,39 @@ namespace MphRead.Mods.Network
                             byte[] copy = datagram.ToArray();
                             _heldOut.Enqueue((Stopwatch.GetTimestamp() + holdFor,
                                 target, copy, copy.Length));
+                            // The bounded impairment queue may make room by
+                            // evicting an older held carrier before it is
+                            // flushed. Do not let a piggybacked ACK clear its
+                            // deadline on this non-durable acceptance path.
+                            return false;
                         }
                     }
-                    return;
+                    return false;
                 }
             }
-            SendNow(target, datagram);
+            return SendNow(target, datagram);
         }
 
-        private void SendNow(IPEndPoint target, ReadOnlySpan<byte> datagram)
+        private bool SendNow(IPEndPoint target, ReadOnlySpan<byte> datagram)
         {
             try
             {
                 _socket.Send(datagram, target);
                 Metrics.Sent(datagram.Length);
                 Interlocked.Increment(ref TotalPacketsSent);
+                return true;
             }
             catch (SocketException)
             {
                 Metrics.SendFailed();
                 // Same rationale as above: one unreachable peer must not
                 // take down the session for everyone else.
+                return false;
             }
             catch (ObjectDisposedException)
             {
                 // The session ended while the simulated line still held this.
+                return false;
             }
         }
 

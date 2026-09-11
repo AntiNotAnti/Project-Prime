@@ -48,6 +48,9 @@ public sealed class NetworkTimingProfileTests
         Assert.False(NetworkTimingTelemetry.TryRead(bytes, out _));
         Assert.False(NetworkTimingTelemetry.TryRead(bytes[..^1], out _));
         Assert.False((telemetry with { PresentedFrames = 0 }).IsValid);
+        Assert.True((telemetry with { PresentedFrames = 1, SnapshotUnderruns = 0, ExtrapolatedFrames = 0 }).IsValid);
+        Assert.True((telemetry with { PresentedFrames = 29 }).IsValid);
+        Assert.True((telemetry with { PresentedFrames = 30 }).IsValid);
         Assert.False((telemetry with { SnapshotUnderruns = 61 }).IsValid);
         Assert.False((telemetry with { ExtrapolatedFrames = 61 }).IsValid);
     }
@@ -55,7 +58,7 @@ public sealed class NetworkTimingProfileTests
     [Fact]
     public void CurrentProtocolRecognizesTheBoundedTimingDatagram()
     {
-        Assert.Equal(14, NetHeader.Version);
+        Assert.Equal(15, NetHeader.Version);
         Span<byte> datagram = stackalloc byte[NetHeader.Size];
         new NetHeader(NetMessageType.TimingTelemetry, NetHeaderFlags.None, 1, 2, 0, 0)
             .Write(datagram);

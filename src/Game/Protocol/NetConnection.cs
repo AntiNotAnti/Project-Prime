@@ -55,6 +55,11 @@ namespace MphRead.Mods.Network
         private ulong _nextKeepAliveCounter = 1;
         private bool _hasKeepAliveCounter;
         private ulong _lastKeepAliveCounter;
+        private readonly bool _ackCoalescingEnabled;
+        private bool _ackPending;
+        private uint _ackDueTick;
+        private bool _ackDueTickValid;
+        private double _ackDueAt;
         public ulong Id { get; }
         public IPEndPoint Endpoint { get; private set; }
         public NetConnectionState State { get; private set; } = NetConnectionState.Loading;
@@ -66,6 +71,9 @@ namespace MphRead.Mods.Network
         public bool IsSequenceExhausted => _sequenceExhausted;
         public NetAuthDirection AuthDirection => _authDirection;
         public NetAuthDirection ReceiveAuthDirection => _receiveAuthDirection;
+        public bool AckCoalescingEnabled => _ackCoalescingEnabled;
+        internal bool AckPending => _ackPending;
+        internal uint AckDueTick => _ackDueTick;
 
         /// <summary>
         /// Legacy unkeyed compatibility seam for bootstrap and isolated tests.
@@ -73,9 +81,9 @@ namespace MphRead.Mods.Network
         /// this overload does not provide a runtime authentication downgrade.
         /// </summary>
         public NetConnection(ulong id, IPEndPoint endpoint, uint matchId, double now,
-            bool adaptiveReliableRto = true)
+            bool adaptiveReliableRto = true, bool ackCoalescingEnabled = false)
             : this(id, endpoint, matchId, now, ReadOnlySpan<byte>.Empty,
-                NetAuthDirection.ClientToServer, adaptiveReliableRto) { }
+                NetAuthDirection.ClientToServer, adaptiveReliableRto, ackCoalescingEnabled) { }
 
         /// <summary>
         /// Creates an established connection with an owned copy of its UDP
@@ -83,7 +91,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public NetConnection(ulong id, IPEndPoint endpoint, uint matchId, double now,
             ReadOnlySpan<byte> authKey, NetAuthDirection authDirection,
-            bool adaptiveReliableRto = true)
+            bool adaptiveReliableRto = true, bool ackCoalescingEnabled = false)
         {
             if (id == 0)
             {
@@ -106,6 +114,7 @@ namespace MphRead.Mods.Network
             _receiveAuthDirection = authDirection == NetAuthDirection.ClientToServer
                 ? NetAuthDirection.ServerToClient
                 : NetAuthDirection.ClientToServer;
+            _ackCoalescingEnabled = ackCoalescingEnabled;
             Reliable = new ReliableChannel(adaptiveRetryEnabled: adaptiveReliableRto);
         }
 
@@ -131,6 +140,105 @@ namespace MphRead.Mods.Network
             }
             NetHeaderFlags flags = _received.HasReceived ? NetHeaderFlags.HasAck : NetHeaderFlags.None;
             return new NetHeader(type, flags, Id, _nextSequence++, _received.Ack, _received.AckBits);
+        }
+
+        /// <summary>
+        /// Begins one ACK generation for a reliable packet that was accepted
+        /// by the application. The deadline is fixed to the next simulation
+        /// tick and is never extended by duplicates in that tick.
+        /// </summary>
+        internal void RequestAck(uint simulationTick)
+        {
+            if (!_ackCoalescingEnabled || !_received.HasReceived || _ackPending)
+            {
+                return;
+            }
+            _ackPending = true;
+            _ackDueTick = unchecked(simulationTick + 1);
+            _ackDueTickValid = true;
+            _ackDueAt = Double.NaN;
+        }
+
+        /// <summary>
+        /// Monotonic-time deadline seam for clients whose polling cadence can
+        /// differ from the 60 Hz simulation. Server owners use the tick-aware
+        /// overload below and also retain this timestamp as a hard bound.
+        /// </summary>
+        internal void RequestAck(double now)
+        {
+            if (!_ackCoalescingEnabled || !_received.HasReceived || _ackPending
+                || !Double.IsFinite(now))
+            {
+                return;
+            }
+            _ackPending = true;
+            _ackDueTick = 0;
+            _ackDueTickValid = false;
+            _ackDueAt = now + NetConfig.SimulationTickSeconds;
+        }
+
+        internal void RequestAck(uint simulationTick, double now)
+        {
+            if (!_ackCoalescingEnabled || !_received.HasReceived || _ackPending)
+            {
+                return;
+            }
+            _ackPending = true;
+            _ackDueTick = unchecked(simulationTick + 1);
+            _ackDueTickValid = true;
+            _ackDueAt = Double.IsFinite(now)
+                ? now + NetConfig.SimulationTickSeconds : Double.NaN;
+        }
+
+        /// <summary>Whether the current tick has reached a pending ACK deadline.</summary>
+        internal bool IsAckDue(uint simulationTick)
+            => _ackPending && _ackDueTickValid && (simulationTick == _ackDueTick
+                || Sequence32.IsNewer(simulationTick, _ackDueTick));
+
+        /// <summary>
+        /// Emits the standalone ACK at or after its hard deadline. A legacy
+        /// void sink cannot prove queue acceptance, so this remains the
+        /// fallback even when a prior carrier included the same ACK window.
+        /// Optional accepted sinks may request another deadline after a
+        /// rejected standalone submission.
+        /// </summary>
+        internal bool FlushPendingAck(INetDatagramSink transport, uint simulationTick,
+            double now, bool force = false)
+        {
+            bool timeDue = Double.IsFinite(_ackDueAt) && now >= _ackDueAt;
+            bool deadlineDue = timeDue || IsAckDue(simulationTick);
+            if (!_ackCoalescingEnabled || !_ackPending || !_received.HasReceived
+                || !Double.IsFinite(now) || !force && !deadlineDue)
+            {
+                return false;
+            }
+            bool accepted;
+            try
+            {
+                accepted = SendCore(transport, NetMessageType.Ack, ReadOnlySpan<byte>.Empty);
+            }
+            catch (InvalidOperationException)
+            {
+                // Authenticated sequence retirement is terminal. Keep the
+                // pending generation observable rather than claiming an ACK
+                // was emitted after the sequence space closed.
+                return false;
+            }
+            Metrics.StandaloneAckAttempt();
+            if (accepted) Metrics.StandaloneAckAccepted();
+            if (deadlineDue) Metrics.AckDeadlineExpired();
+            if (transport is IAcceptedNetDatagramSink && !accepted)
+            {
+                _ackDueTick = unchecked(simulationTick + 1);
+                _ackDueTickValid = true;
+                _ackDueAt = now + NetConfig.SimulationTickSeconds;
+            }
+            else
+            {
+                _ackPending = false;
+                _ackDueTickValid = false;
+            }
+            return true;
         }
 
         /// <summary>Deterministic boundary seam for protocol tests.</summary>
@@ -234,6 +342,12 @@ namespace MphRead.Mods.Network
 
         public void Send(INetDatagramSink transport, NetMessageType type, ReadOnlySpan<byte> payload = default)
         {
+            SendCore(transport, type, payload);
+        }
+
+        private bool SendCore(INetDatagramSink transport, NetMessageType type,
+            ReadOnlySpan<byte> payload)
+        {
             Span<byte> datagram = stackalloc byte[NetConfig.MaxPacketSize];
             int maximumPayload = _authKey == null
                 ? datagram.Length - NetHeader.Size : NetAuthentication.MaximumPayloadSize;
@@ -253,7 +367,23 @@ namespace MphRead.Mods.Network
                 payload.CopyTo(datagram[NetHeader.Size..]);
                 length = NetHeader.Size + payload.Length;
             }
-            transport.SendDatagram(Endpoint, datagram[..length]);
+            NetDeliveryClass delivery = DeliveryClassFor(type);
+            bool accepted = SubmitDatagram(transport, datagram[..length], delivery);
+            if (type != NetMessageType.Ack && _ackCoalescingEnabled
+                && _ackPending && (header.Flags & NetHeaderFlags.HasAck) != 0)
+            {
+                // This is an observed carrier, not proof of delivery. Legacy
+                // void sinks therefore leave the pending generation alive for
+                // the standalone deadline below.
+                Metrics.PiggybackAckAttempt();
+                if (accepted)
+                {
+                    Metrics.PiggybackAckAccepted();
+                    _ackPending = false;
+                    _ackDueTickValid = false;
+                }
+            }
+            return accepted;
         }
 
         public void FlushReliable(INetDatagramSink transport, double now)
@@ -286,10 +416,48 @@ namespace MphRead.Mods.Network
                     header.Write(datagram);
                     length = NetHeader.Size + bodyLength;
                 }
-                transport.SendDatagram(Endpoint, datagram[..length]);
+                NetDeliveryClass delivery = ReliableEventPolicy.IsCritical(type)
+                    ? NetDeliveryClass.Critical : NetDeliveryClass.Reliable;
+                bool accepted = SubmitDatagram(transport, datagram[..length], delivery);
+                if (_ackCoalescingEnabled && _ackPending
+                    && (header.Flags & NetHeaderFlags.HasAck) != 0)
+                {
+                    Metrics.PiggybackAckAttempt();
+                    if (accepted)
+                    {
+                        Metrics.PiggybackAckAccepted();
+                        _ackPending = false;
+                        _ackDueTickValid = false;
+                    }
+                }
                 Reliable.MarkSent(id, header.Sequence, now);
             }
         }
+
+        private bool SubmitDatagram(INetDatagramSink transport,
+            ReadOnlySpan<byte> datagram, NetDeliveryClass delivery)
+        {
+            if (transport is IAcceptedNetDatagramSink accepted)
+            {
+                return accepted.TrySendDatagram(Endpoint, datagram, delivery);
+            }
+            transport.SendDatagram(Endpoint, datagram, delivery);
+            return false;
+        }
+
+        private static NetDeliveryClass DeliveryClassFor(NetMessageType type)
+            => type switch
+            {
+                NetMessageType.Accepted or NetMessageType.Refused or NetMessageType.JoinPending
+                    or NetMessageType.Ack => NetDeliveryClass.Critical,
+                NetMessageType.Event => NetDeliveryClass.Reliable,
+                NetMessageType.Input or NetMessageType.Snapshot => NetDeliveryClass.State,
+                NetMessageType.World => NetDeliveryClass.World,
+                NetMessageType.Debug or NetMessageType.TimingTelemetry
+                    or NetMessageType.Ping or NetMessageType.Pong or NetMessageType.KeepAlive
+                    => NetDeliveryClass.BestEffort,
+                _ => NetDeliveryClass.Auto
+            };
 
         /// <summary>
         /// Verifies the envelope without changing receive windows, endpoint,
@@ -368,10 +536,26 @@ namespace MphRead.Mods.Network
             ReceiveWindow next = _received;
             ReceiveResult preview = next.RecordNonWrapping(header.Sequence);
             result = preview;
-            if (preview is ReceiveResult.Duplicate or ReceiveResult.TooOld)
+            if (preview == ReceiveResult.TooOld)
             {
                 Metrics.AuthReplayRejected();
                 return false;
+            }
+            if (preview == ReceiveResult.Duplicate)
+            {
+                // Reliable retransmissions are valid authenticated traffic.
+                // They must renew the ACK deadline, but they must not refresh
+                // endpoint ownership or deliver the application event twice.
+                if (header.Type is not (NetMessageType.Event or NetMessageType.Accepted)
+                    || !sender.Equals(Endpoint))
+                {
+                    Metrics.AuthReplayRejected();
+                    return false;
+                }
+                // A duplicate is eligible to renew the sender's ACK through
+                // the owner callback, but it must not refresh liveness or
+                // mutate the remote reliable state a second time.
+                return true;
             }
             bool endpointChanged = !sender.Equals(Endpoint);
             if (endpointChanged && preview != ReceiveResult.Newest)

@@ -34,7 +34,7 @@ public sealed class NetAuthenticationTests
         Assert.True(NetAuthentication.TrySign(Key, NetAuthDirection.ClientToServer,
             header, payload, datagram, out int length));
         Assert.Equal(datagram.Length, length);
-        Assert.Equal("22F805A2D848E891A1F82F1103F644C3",
+        Assert.Equal("BB11C1316687CC63BFC0DC7F421B72C2",
             Convert.ToHexString(datagram[^NetAuthentication.TagSize..]));
         Assert.True(NetAuthentication.TryVerify(Key, NetAuthDirection.ClientToServer,
             datagram, out NetHeader decoded, out ReadOnlySpan<byte> decodedPayload));

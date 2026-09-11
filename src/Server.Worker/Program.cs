@@ -66,6 +66,7 @@ public static class Program
                 WorkerGlobalNetworkBudgetEnabled = Boolean("--worker-global-network-budget-enabled", true),
                 MaximumDatagramsPerPump = Number("--max-datagrams-per-pump", WorkerNetworkHub.DefaultMaximumDatagramsPerPump),
                 ReliableAdaptiveRtoEnabled = Boolean("--reliable-adaptive-rto", false),
+                AckCoalescingEnabled = Boolean("--ack-coalescing", false),
                 UdpAuthenticationEnabled = Boolean("--udp-authentication", true),
                 LagCompensationMode = WorkerOptions.ParseLagCompensationMode(
                     flags.GetValueOrDefault("--lag-compensation-mode", "players")),
@@ -226,7 +227,7 @@ public static class Program
     {
         if (!flags.TryGetValue("--map-dir", out string? directory)) { return; }
         if (String.IsNullOrWhiteSpace(directory)) throw new ArgumentException("Map directory is required.");
-        CustomRooms.MapDirectory = Path.GetFullPath(directory);
+        CustomRooms.SetBuildMapDirectory(Path.GetFullPath(directory));
     }
 
     internal static int PrepareContent(string directory, string version)
@@ -248,7 +249,7 @@ public static class Program
         CustomRooms.RefreshAsync().AsTask().GetAwaiter().GetResult();
         int generated = 0;
         foreach (InstalledMap map in CustomRooms.Catalog.Snapshot.Maps
-            .Where(map => map.BuildState != MapBuildState.Invalid)
+            .Where(map => map.BuildState is MapBuildState.NeedsBuild or MapBuildState.Ready)
             .OrderBy(map => map.ContentIdentity.Identity.StableId, StringComparer.Ordinal)
             .ThenBy(map => map.SourcePath, StringComparer.Ordinal))
         {
@@ -263,9 +264,17 @@ public static class Program
             catch (Exception error) when (error is MapCompilationException or MapValidationException
                 or MapDependencyException or InvalidDataException or IOException or ArgumentException)
             {
-                Console.Error.WriteLine($"[map] {map.DisplayName} is invalid: {error.Message}");
+                Console.Error.WriteLine($"[map] {map.DisplayName} could not be prepared: {error.Message}");
+                CompilationFailureKind kind = error switch
+                {
+                    MapDependencyException => CompilationFailureKind.MissingDependency,
+                    MapCompilationException compilation when compilation.Diagnostics.Count != 0
+                        => CompilationFailureKinds.FromDiagnostics(compilation.Diagnostics),
+                    IOException => CompilationFailureKind.IOFailure,
+                    _ => CompilationFailureKind.InvalidSource
+                };
                 ((MapCatalog)CustomRooms.Catalog).PublishBuildState(map.ContentIdentity,
-                    MapBuildState.Invalid, null,
+                    kind.ToBuildState(), null,
                     [new MapDiagnostic("MAP-CMP-001", MapDiagnosticSeverity.Error,
                         error.Message, SourcePath: map.SourcePath)]);
             }
@@ -292,7 +301,7 @@ public static class Program
     internal static Dictionary<string, string> ParseArguments(string[] args)
     {
         string[] names = ["--describe-content", "--prepare-content", "--node-pipe", "--node-id", "--worker-id", "--worker-incarnation", "--content-dir", "--content-version", "--content-hash",
-            "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--snapshot-rate-hz", "--adaptive-timing", "--adaptive-timing-v2", "--adaptive-input-playout", "--transport-queue-v2", "--transport-critical-reserve-enabled", "--critical-transport-reserve", "--worker-global-network-budget-enabled", "--max-datagrams-per-pump", "--reliable-adaptive-rto", "--udp-authentication", "--lag-compensation-mode", "--validation-fixture", "--headshot-validation-scenario", "--headshot-scenario-seconds", "--replay-dir", "--artifact-dir", "--map-dir"];
+            "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--snapshot-rate-hz", "--adaptive-timing", "--adaptive-timing-v2", "--adaptive-input-playout", "--transport-queue-v2", "--transport-critical-reserve-enabled", "--critical-transport-reserve", "--worker-global-network-budget-enabled", "--max-datagrams-per-pump", "--reliable-adaptive-rto", "--ack-coalescing", "--udp-authentication", "--lag-compensation-mode", "--validation-fixture", "--headshot-validation-scenario", "--headshot-scenario-seconds", "--replay-dir", "--artifact-dir", "--map-dir"];
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         for (int index = 0; index < args.Length; index += 2)
             if (index + 1 == args.Length || !names.Contains(args[index], StringComparer.Ordinal) || !result.TryAdd(args[index], args[index + 1]))

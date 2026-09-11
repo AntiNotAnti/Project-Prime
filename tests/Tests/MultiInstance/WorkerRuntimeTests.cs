@@ -82,18 +82,21 @@ public sealed class WorkerRuntimeTests
         Assert.True(defaults.TransportCriticalReserveEnabled);
         Assert.True(defaults.WorkerGlobalNetworkBudgetEnabled);
         Assert.False(defaults.ReliableAdaptiveRtoEnabled);
+        Assert.False(defaults.AckCoalescingEnabled);
         Assert.Equal(32, defaults.CriticalTransportReserve);
         Assert.Equal(WorkerNetworkHub.DefaultMaximumDatagramsPerPump, defaults.MaximumDatagramsPerPump);
         Dictionary<string, string> parsed = ProjectPrime.Server.Worker.Program.ParseArguments(
             ["--transport-queue-v2", "true", "--transport-critical-reserve-enabled", "false",
                 "--critical-transport-reserve", "16", "--worker-global-network-budget-enabled", "false",
-                "--max-datagrams-per-pump", "256", "--reliable-adaptive-rto", "true"]);
+                "--max-datagrams-per-pump", "256", "--reliable-adaptive-rto", "true",
+                "--ack-coalescing", "true"]);
         Assert.Equal("true", parsed["--transport-queue-v2"]);
         Assert.Equal("false", parsed["--transport-critical-reserve-enabled"]);
         Assert.Equal("16", parsed["--critical-transport-reserve"]);
         Assert.Equal("false", parsed["--worker-global-network-budget-enabled"]);
         Assert.Equal("256", parsed["--max-datagrams-per-pump"]);
         Assert.Equal("true", parsed["--reliable-adaptive-rto"]);
+        Assert.Equal("true", parsed["--ack-coalescing"]);
         Assert.Throws<ArgumentException>(() => new WorkerOptions { CriticalTransportReserve = -1 }.Validate());
         Assert.Throws<ArgumentException>(() => new WorkerOptions { MaximumDatagramsPerPump = 0 }.Validate());
     }
@@ -259,14 +262,12 @@ public sealed class WorkerRuntimeTests
         ];
         foreach (MatchSpec wrong in wrongShape)
             Assert.IsType<MatchFailed>(await runtime.CreateAsync(wrong));
-        Assert.Throws<ArgumentException>(() =>
-        {
-            _ = runtime.CreateAsync(spec with
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            runtime.CreateAsync(spec with
             {
                 MatchId = new(Guid.NewGuid()),
                 Rules = spec.Rules.With(roomKey: "RULES ONLY")
-            });
-        });
+            }));
 
         WorkerEvent response = await runtime.CreateAsync(spec);
         Assert.True(response is MatchReady, (response as MatchFailed)?.Reason);

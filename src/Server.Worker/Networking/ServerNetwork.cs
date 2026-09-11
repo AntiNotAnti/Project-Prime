@@ -3,11 +3,27 @@ using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
 using System.Security.Cryptography;
+using System.Threading;
 using MphRead.Identity;
 using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Network
 {
+    /// <summary>
+    /// Immutable, owner-published timing observations. The simulation owner
+    /// updates this at a bounded cadence; diagnostics readers never inspect a
+    /// live timing controller from another thread.
+    /// </summary>
+    internal sealed record ServerTimingTelemetrySnapshot(
+        long ObservedConnections,
+        long StaleConnections,
+        double MaxAgeSeconds,
+        long StaleIntervals,
+        long DownshiftBlocked)
+    {
+        public static ServerTimingTelemetrySnapshot Empty { get; } = new(0, 0, 0, 0, 0);
+    }
+
     public sealed class ServerPeer
     {
         public PlayerId? PlayerId { get; internal set; }
@@ -81,6 +97,8 @@ namespace MphRead.Mods.Network
         private double _now;
         private bool _rosterDirty = true;
         private uint _rosterRevision;
+        private ServerTimingTelemetrySnapshot _timingTelemetry = ServerTimingTelemetrySnapshot.Empty;
+        private bool _timingTelemetryPublished;
         private readonly NetRosterEntry[] _rosterEntries = new NetRosterEntry[8];
         private readonly byte[] _rosterPayload = new byte[4 + SessionRosterPacket.MaxSize];
         private readonly ReceivedPacket[] _receiveBuffer = new ReceivedPacket[256];
@@ -107,6 +125,9 @@ namespace MphRead.Mods.Network
         internal bool AdaptiveInputPlayoutEnabled { get; private set; }
         internal bool ReliableAdaptiveRtoEnabled { get; private set; }
         internal bool UdpAuthenticationEnabled { get; private set; }
+        internal bool AckCoalescingEnabled { get; private set; }
+        internal ServerTimingTelemetrySnapshot TimingTelemetry
+            => Volatile.Read(ref _timingTelemetry);
 
         internal void ConfigureTiming(bool adaptiveTiming, bool adaptiveInputPlayout,
             bool reliableAdaptiveRto = false, bool adaptiveTimingV2 = false)
@@ -134,7 +155,8 @@ namespace MphRead.Mods.Network
             : this(transport, MatchRules.CreateDefault(mode.ToMatchMode(), room, capacity), matchId) { }
 
         public ServerNetwork(INetTransport transport, MatchRules rules, uint matchId = 1,
-            ObserverOptions? observers = null, bool udpAuthenticationEnabled = false)
+            ObserverOptions? observers = null, bool udpAuthenticationEnabled = false,
+            bool ackCoalescingEnabled = false)
         {
             ObserverConfiguration = observers ?? new();
             ObserverConfiguration.Validate();
@@ -155,6 +177,7 @@ namespace MphRead.Mods.Network
             Mode = mode;
             MatchId = matchId;
             UdpAuthenticationEnabled = udpAuthenticationEnabled;
+            AckCoalescingEnabled = ackCoalescingEnabled;
             _now = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
             _joins = new NetRateLimit(16, 32, _now);
             _statusQueries = new NetRateLimit(8, 16, _now);
@@ -225,8 +248,60 @@ namespace MphRead.Mods.Network
                     peer.NextPing = _now + 1;
                     connection.Send(_transport, NetMessageType.Ping, ping);
                 }
+                connection.FlushPendingAck(_transport, Tick, _now);
 
             }
+            PublishTimingTelemetry();
+        }
+
+        private void PublishTimingTelemetry()
+        {
+            // A one-second publication cadence is enough for diagnostics and
+            // avoids creating an immutable snapshot on every authoritative
+            // tick. The first poll publishes immediately.
+            if (_timingTelemetryPublished && Tick % 60 != 0) return;
+            long observed = 0;
+            long stale = 0;
+            long staleIntervals = 0;
+            long downshiftBlocked = 0;
+            double maxAge = 0;
+            foreach (ServerPeer? peer in _connections)
+            {
+                if (peer == null) continue;
+                ServerNetworkTimingController timing = peer.Timing;
+                staleIntervals += timing.TelemetryStaleIntervals;
+                downshiftBlocked += timing.DownshiftBlockedByStaleTelemetry;
+                if (!timing.TelemetryObserved)
+                {
+                    // A V2 peer with no report yet is explicitly stale, not
+                    // absent from diagnostics. Use the freshness threshold as
+                    // a bounded age marker; Infinity must never cross IPC.
+                    if (AdaptiveTimingV2Enabled)
+                    {
+                        stale++;
+                        maxAge = Math.Max(maxAge,
+                            ServerNetworkTimingController.MaximumTelemetryAgeSeconds);
+                    }
+                    continue;
+                }
+                observed++;
+                double age = timing.TelemetryAge(_now);
+                if (Double.IsFinite(age)) maxAge = Math.Max(maxAge, Math.Max(0, age));
+                if (timing.TelemetryStale || age > ServerNetworkTimingController.MaximumTelemetryAgeSeconds)
+                    stale++;
+            }
+            ServerTimingTelemetrySnapshot previous = Volatile.Read(ref _timingTelemetry);
+            if (previous.ObservedConnections != observed
+                || previous.StaleConnections != stale
+                || previous.MaxAgeSeconds != maxAge
+                || previous.StaleIntervals != staleIntervals
+                || previous.DownshiftBlocked != downshiftBlocked)
+            {
+                Volatile.Write(ref _timingTelemetry,
+                    new ServerTimingTelemetrySnapshot(observed, stale, maxAge,
+                        staleIntervals, downshiftBlocked));
+            }
+            _timingTelemetryPublished = true;
         }
 
         private bool Handle(in ReceivedPacket packet, long timestamp)
@@ -369,10 +444,24 @@ namespace MphRead.Mods.Network
             else if (header.Type == NetMessageType.Event)
             {
                 // ACK duplicates too: the previous ACK may have been lost.
-                connection.Send(_transport, NetMessageType.Ack);
+                if (AckCoalescingEnabled)
+                {
+                    connection.RequestAck(Tick, _now);
+                }
+                else
+                {
+                    connection.Send(_transport, NetMessageType.Ack);
+                }
                 if (connection.Reliable.Receive(eventId))
                 {
-                    if (eventType == ReliableEventType.Disconnect) { Remove(peer.ConnectionIndex, reason: ParticipantExitReason.ExplicitLeave); }
+                    if (eventType == ReliableEventType.Disconnect)
+                    {
+                        // Removal detaches the peer from the poll list. Emit
+                        // its coalesced ACK before the owner retires it.
+                        if (AckCoalescingEnabled)
+                            connection.FlushPendingAck(_transport, Tick, _now, force: true);
+                        Remove(peer.ConnectionIndex, reason: ParticipantExitReason.ExplicitLeave);
+                    }
                     else if (eventType == ReliableEventType.ClientReady)
                     {
                         bool ready = connection.Ready(BinaryPrimitives.ReadUInt32LittleEndian(eventBody));
@@ -577,7 +666,8 @@ namespace MphRead.Mods.Network
             }
             ulong id = AllocateConnectionIdentity();
             var connection = new NetConnection(id, endpoint, MatchId, _now,
-                authKey, NetAuthDirection.ServerToClient, ReliableAdaptiveRtoEnabled);
+                authKey, NetAuthDirection.ServerToClient, ReliableAdaptiveRtoEnabled,
+                AckCoalescingEnabled);
             var accepted = new JoinAcceptedPacket(join.Nonce, (byte)free, MatchId, Tick, 60, Rules);
             Span<byte> payload = stackalloc byte[JoinAcceptedPacket.Size];
             accepted.Write(payload);
@@ -598,7 +688,8 @@ namespace MphRead.Mods.Network
                 WaitingForNextMatch = inProgress && !returningParticipant
                     && Rules.LateJoinPolicy == LateJoinPolicy.SpectateUntilNextMatch
             };
-            _peers[free]!.Timing = new ServerNetworkTimingController(AdaptiveTimingEnabled);
+            _peers[free]!.Timing = new ServerNetworkTimingController(AdaptiveTimingEnabled,
+                AdaptiveTimingV2Enabled);
             if (AdaptiveInputPlayoutEnabled)
                 _peers[free]!.Inputs.ConfigurePlayout(_peers[free]!.Timing.Active.InputPlayoutTicks);
             _connections[free] = _peers[free];
@@ -795,7 +886,8 @@ namespace MphRead.Mods.Network
                 peer.HasParticipated = false;
                 peer.SurvivalEliminated = false;
                 peer.Inputs = new ServerInputStream();
-                peer.Timing = new ServerNetworkTimingController(AdaptiveTimingEnabled);
+                peer.Timing = new ServerNetworkTimingController(AdaptiveTimingEnabled,
+                    AdaptiveTimingV2Enabled);
                 if (AdaptiveInputPlayoutEnabled)
                     peer.Inputs.ConfigurePlayout(peer.Timing.Active.InputPlayoutTicks);
                 peer.HasRoster = false;
@@ -905,7 +997,7 @@ namespace MphRead.Mods.Network
                     header.Write(datagram);
                     length = payload.Length + NetHeader.Size;
                 }
-                _transport.SendDatagram(endpoint, datagram[..length]);
+                _transport.SendDatagram(endpoint, datagram[..length], NetDeliveryClass.Critical);
             }
             finally
             {

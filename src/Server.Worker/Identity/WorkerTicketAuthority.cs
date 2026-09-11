@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
@@ -23,6 +24,8 @@ public sealed class WorkerTicketAuthority : IServerTicketAuthority
     private readonly Dictionary<(IPEndPoint, ulong), JoinPacket> _pending = new();
     private readonly Dictionary<(IPEndPoint, ulong), (JoinPacket Join, TicketIdentity Identity)> _accepted = new();
     private readonly Dictionary<Guid, AdmissionKeyLease> _admissionKeys = new();
+    private readonly Guid[] _expiredAdmissionIds = new Guid[AdmissionKeyCapacity];
+    private readonly (IPEndPoint Endpoint, ulong Nonce)[] _expiredAccepted = new (IPEndPoint, ulong)[4096];
     private readonly CancellationTokenSource _stop = new();
     private readonly Task _worker;
     private int _disposed;
@@ -51,7 +54,8 @@ public sealed class WorkerTicketAuthority : IServerTicketAuthority
     /// </summary>
     public bool TryInstallAdmissionKey(InstallAdmissionKey command, out string reason)
     {
-        ExpireAdmissionKeys(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        long nowTimestamp = Stopwatch.GetTimestamp();
+        ExpireAdmissionKeys(nowTimestamp);
         if (command.NodeId != _spec.NodeId || command.NodeIncarnation != _spec.NodeIncarnation
             || command.MatchId != _spec.MatchId || command.WireMatchId != _placement.WireMatchId
             || command.WorkerId != _placement.WorkerId || command.WorkerIncarnation != _placement.WorkerIncarnation)
@@ -76,9 +80,25 @@ public sealed class WorkerTicketAuthority : IServerTicketAuthority
             reason = "";
             return true;
         }
-        if (_admissionKeys.Count >= AdmissionKeyCapacity) return Reject(out reason, "admission_capacity");
+        if (_admissionKeys.Count >= AdmissionKeyCapacity)
+        {
+            CryptographicOperations.ZeroMemory(key);
+            return Reject(out reason, "admission_capacity");
+        }
+        long remainingSeconds = command.ExpiresAt - now;
+        long deadline;
+        try
+        {
+            long durationTicks = checked(remainingSeconds * Stopwatch.Frequency);
+            deadline = checked(nowTimestamp + Math.Max(1, durationTicks));
+        }
+        catch (OverflowException)
+        {
+            CryptographicOperations.ZeroMemory(key);
+            return Reject(out reason, "admission_expired");
+        }
         _admissionKeys.Add(command.AdmissionId, new(command.TicketId, command.NodeSessionId, command.MatchId,
-            command.WireMatchId, command.SeatId, command.JoinNonce, command.ExpiresAt, key));
+            command.WireMatchId, command.SeatId, command.JoinNonce, command.ExpiresAt, deadline, key));
         reason = "";
         return true;
     }
@@ -86,7 +106,7 @@ public sealed class WorkerTicketAuthority : IServerTicketAuthority
     /// <summary>Test/diagnostic seam that returns a copy, never the owned key buffer.</summary>
     public bool TryGetAdmissionKey(Guid admissionId, out byte[] key)
     {
-        ExpireAdmissionKeys(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        ExpireAdmissionKeys(Stopwatch.GetTimestamp());
         if (_admissionKeys.TryGetValue(admissionId, out AdmissionKeyLease lease))
         {
             key = lease.Key.ToArray();
@@ -98,7 +118,7 @@ public sealed class WorkerTicketAuthority : IServerTicketAuthority
 
     public bool ValidateAdmissionJoin(Guid admissionId, in JoinPacket join)
     {
-        ExpireAdmissionKeys(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        ExpireAdmissionKeys(Stopwatch.GetTimestamp());
         return admissionId != Guid.Empty && admissionId == join.AdmissionId
             && _admissionKeys.TryGetValue(admissionId, out AdmissionKeyLease lease)
             && lease.MatchId == _spec.MatchId && lease.WireMatchId == _placement.WireMatchId
@@ -107,7 +127,6 @@ public sealed class WorkerTicketAuthority : IServerTicketAuthority
 
     public bool ValidateAdmissionIdentity(Guid admissionId, in JoinPacket join, in TicketIdentity identity)
     {
-        ExpireAdmissionKeys(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         return ValidateAdmissionJoin(admissionId, join)
             && _admissionKeys.TryGetValue(admissionId, out AdmissionKeyLease lease)
             && identity.WorkerAdmission && identity.TicketId == lease.TicketId
@@ -129,7 +148,7 @@ public sealed class WorkerTicketAuthority : IServerTicketAuthority
     }
     public bool TryRead(out ValidatedTicketJoin result)
     {
-        ExpireAdmissionKeys(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        ExpireAdmissionKeys(Stopwatch.GetTimestamp());
         if (!_results.TryDequeue(out result)) return false;
         _pending.Remove((result.Endpoint, result.Join.Nonce));
         return true;
@@ -145,8 +164,15 @@ public sealed class WorkerTicketAuthority : IServerTicketAuthority
                 {
                     DateTimeOffset now = DateTimeOffset.UtcNow;
                     long seconds = now.ToUnixTimeSeconds();
-                    foreach (var expired in _accepted.Where(pair => pair.Value.Identity.ExpiresAt <= seconds).Select(pair => pair.Key).ToArray())
-                        _accepted.Remove(expired);
+                    int expiredAcceptedCount = 0;
+                    foreach (var pair in _accepted)
+                    {
+                        if (pair.Value.Identity.ExpiresAt <= seconds
+                            && expiredAcceptedCount < _expiredAccepted.Length)
+                            _expiredAccepted[expiredAcceptedCount++] = pair.Key;
+                    }
+                    for (int i = 0; i < expiredAcceptedCount; i++)
+                        _accepted.Remove(_expiredAccepted[i]);
                     var retryKey = (request.Endpoint, request.Join.Nonce);
                     if (_accepted.TryGetValue(retryKey, out var accepted))
                     {
@@ -180,12 +206,21 @@ public sealed class WorkerTicketAuthority : IServerTicketAuthority
     }
 
     private readonly record struct AdmissionKeyLease(Guid TicketId, Guid NodeSessionId, MatchId MatchId,
-        WireMatchId WireMatchId, byte SeatId, ulong JoinNonce, long ExpiresAt, byte[] Key);
+        WireMatchId WireMatchId, byte SeatId, ulong JoinNonce, long ExpiresAt,
+        long ExpiresAtTimestamp, byte[] Key);
 
-    private void ExpireAdmissionKeys(long now)
+    private void ExpireAdmissionKeys(long nowTimestamp)
     {
-        foreach (Guid id in _admissionKeys.Where(pair => pair.Value.ExpiresAt <= now).Select(pair => pair.Key).ToArray())
+        int expiredCount = 0;
+        foreach (var pair in _admissionKeys)
         {
+            if (pair.Value.ExpiresAtTimestamp <= nowTimestamp
+                && expiredCount < _expiredAdmissionIds.Length)
+                _expiredAdmissionIds[expiredCount++] = pair.Key;
+        }
+        for (int i = 0; i < expiredCount; i++)
+        {
+            Guid id = _expiredAdmissionIds[i];
             AdmissionKeyLease lease = _admissionKeys[id];
             CryptographicOperations.ZeroMemory(lease.Key);
             _admissionKeys.Remove(id);

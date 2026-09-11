@@ -17,6 +17,8 @@ public sealed record MatchInstanceOptions(MatchSpec Spec, uint WireMatchId)
     public bool AdaptiveTimingV2Enabled { get; init; }
     public bool AdaptiveInputPlayoutEnabled { get; init; }
     public bool ReliableAdaptiveRtoEnabled { get; init; }
+    /// <summary>Experimental one-tick ACK coalescing; conservative default is off.</summary>
+    public bool AckCoalescingEnabled { get; init; }
     /// <summary>Production matches require the authenticated UDP admission path.</summary>
     public bool UdpAuthenticationEnabled { get; init; } = true;
     public bool LagCompEnabled { get; init; } = true;

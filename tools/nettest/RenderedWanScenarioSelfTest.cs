@@ -1,8 +1,11 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Security.Cryptography;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.NetTest;
 
@@ -22,6 +25,33 @@ internal static partial class RenderedWanValidationCheck
         ExpectScenarioFailure(() => RenderedWanScenarioParser.Parse("HEADSHOT"));
         cases++;
 
+        Guid oldAdmission = Guid.NewGuid();
+        Guid freshAdmission = Guid.NewGuid();
+        byte[] oldKey = Enumerable.Range(1, AdmissionKeyRules.ByteLength).Select(value => (byte)value).ToArray();
+        byte[] freshKey = Enumerable.Range(33, AdmissionKeyRules.ByteLength).Select(value => (byte)value).ToArray();
+        using (var transport = new NetTransport(0))
+        using (var client = new NetClient(transport, new IPEndPoint(IPAddress.Loopback, 1),
+                   "RECONNECT-REGRESSION", Hunter.Noxus, nonce: 1, ticket: "old.ticket.sig",
+                   wireMatchId: 7, admissionId: oldAdmission, authKey: oldKey,
+                   udpAuthenticationEnabled: true))
+        {
+            NodeMatchHandoff freshHandoff = new(Guid.NewGuid(), 7, "127.0.0.1", 1,
+                "fresh.ticket.sig", 2, false, Hunter.Noxus, freshAdmission,
+                Convert.ToBase64String(freshKey), true);
+            ApplyReconnectHandoff(client, freshHandoff);
+            Require(client.AdmissionId == freshAdmission && client.State == NetConnectionState.Connecting);
+
+            NodeMatchHandoff reusedHandoff = freshHandoff with
+            {
+                Ticket = "another.ticket.sig",
+                Nonce = 3
+            };
+            ExpectScenarioFailure(() => ApplyReconnectHandoff(client, reusedHandoff));
+        }
+        CryptographicOperations.ZeroMemory(oldKey);
+        CryptographicOperations.ZeroMemory(freshKey);
+        cases++;
+
         Require(HeadshotScenarioStage.At(0, 12)
             == new HeadshotScenarioStage(HeadshotScenarioVariant.Vertical, HeadshotScenarioRange.Close));
         Require(HeadshotScenarioStage.At(180, 12)
@@ -38,12 +68,42 @@ internal static partial class RenderedWanValidationCheck
             && plan1.Arm == 1 && plan1.Vertical && plan1.LongRange
             && plan2.Arm == 2 && !plan2.Vertical && !plan2.LongRange
             && plan3.Arm == 3 && !plan3.Vertical && plan3.LongRange);
+        HeadshotValidationPlan calibration = HeadshotValidationController.Plan(
+            HeadshotValidationController.StationaryCalibrationFrames - 1, 12, 6);
+        HeadshotValidationPlan firstMotion = HeadshotValidationController.Plan(
+            HeadshotValidationController.StationaryCalibrationFrames, 12, 6);
+        Require(HeadshotValidationController.StationaryCalibrationFrames
+            == HeadshotScenarioThresholds.StationaryCalibrationFrames);
+        Require(calibration.Buttons == InputButtons.None
+            && calibration.Pressed == InputButtons.None
+            && (firstMotion.Buttons & InputButtons.Jump) != 0
+            && (firstMotion.Pressed & InputButtons.Jump) != 0);
         InputCommand controlled = HeadshotValidationController.CreateCommand(
-            90, 12, 6, Vector3.UnitX, inputEpoch: 7);
+            HeadshotValidationController.StationaryCalibrationFrames,
+            12, 6, Vector3.UnitX, inputEpoch: 7);
         CombatActor controlledActor = new(1, 22, controlled.InputEpoch);
         Require(controlledActor.IsValid && controlled.InputEpoch == 7
             && (controlled.Buttons & InputButtons.Jump) != 0
             && (controlled.Pressed & InputButtons.Jump) != 0);
+        InputCommand respawn = HeadshotValidationController.CreateRespawnCommand(
+            91, Vector3.UnitX, inputEpoch: 7);
+        Require(respawn.InputEpoch == 7
+            && respawn.Buttons == InputButtons.Shoot
+            && respawn.Pressed == InputButtons.None);
+        Require(HeadshotValidationController.NeedsRespawn(0)
+            && !HeadshotValidationController.NeedsRespawn(1));
+        Require(HeadshotScenarioAim.IsBodyCalibration(
+                targetLife: 2, trackedLife: 2, lifeStartFrame: 120,
+                lifeKnown: true, scenarioTick: 120)
+            && HeadshotScenarioAim.IsBodyCalibration(
+                targetLife: 2, trackedLife: 2, lifeStartFrame: 120,
+                lifeKnown: true, scenarioTick: 209)
+            && !HeadshotScenarioAim.IsBodyCalibration(
+                targetLife: 2, trackedLife: 2, lifeStartFrame: 120,
+                lifeKnown: true, scenarioTick: 210)
+            && !HeadshotScenarioAim.IsBodyCalibration(
+                targetLife: 3, trackedLife: 2, lifeStartFrame: 120,
+                lifeKnown: true, scenarioTick: 150));
         cases++;
 
         var facts = new HeadshotScenarioFacts();
@@ -83,13 +143,67 @@ internal static partial class RenderedWanValidationCheck
                 target.Position, out Vector3 point) ? point : target.Position;
             Vector3 aimPoint = frame < 30 ? target.Position : head;
             aimedShooter.Aim = (aimPoint - aimedShooter.Position).Normalized();
-            facts.ObserveTarget(target, aimedShooter, stage);
+            facts.ObserveTarget(target, aimedShooter, stage,
+                bodyCalibrationAim: frame < 30);
         }
         Require(facts.FramesObserved == 720 && facts.FramesOnTarget == 690);
         Require(facts.VerticalFrames >= 30 && facts.StrafeFrames >= 30);
         Require(facts.CloseFrames >= 30 && facts.LongFrames >= 30);
         Require(facts.TargetAirborneFrames >= 30 && facts.TargetMovedFrames >= 30);
         Require(facts.MaximumVerticalSpeed >= 1);
+
+        // A rendered client can spend the first calibration frames presenting
+        // the target before the aim edge arrives. Stationary samples must be
+        // tied to the observed pose, not discarded solely because they occur
+        // after the first 60 local observations.
+        var delayedAimFacts = new HeadshotScenarioFacts();
+        for (uint frame = 0; frame < 120; frame++)
+        {
+            bool settling = frame < 20;
+            SnapshotPlayer delayedTarget = new()
+            {
+                Slot = 1, ConnectionId = 22, Life = 1,
+                Hunter = Hunter.Noxus,
+                Position = new Vector3(6, settling ? frame * 0.2f : 4f, 0),
+                Speed = settling ? Vector3.UnitY : Vector3.Zero,
+                Flags = SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned
+                    | (settling ? SnapshotPlayerFlags.None : SnapshotPlayerFlags.Grounded)
+            };
+            Vector3 delayedHead = HeadshotScenarioGeometry.TryGetHeadPoint(
+                delayedTarget, delayedTarget.Position, out Vector3 delayedPoint)
+                ? delayedPoint : delayedTarget.Position;
+            Vector3 delayedAimPoint = frame < 60 ? -Vector3.UnitZ
+                : frame < HeadshotScenarioThresholds.StationaryBodyAimFrames
+                    ? delayedTarget.Position : delayedHead;
+            SnapshotPlayer delayedShooter = shooter;
+            delayedShooter.Aim = (delayedAimPoint - delayedShooter.Position).Normalized();
+            bool bodyCalibrationAim = frame >= 60
+                && frame < HeadshotScenarioThresholds.StationaryBodyAimFrames;
+            delayedAimFacts.ObserveTarget(delayedTarget, delayedShooter,
+                HeadshotScenarioStage.At(frame, 12), bodyCalibrationAim);
+        }
+        Require(delayedAimFacts.StationaryBodyFrames >= 20
+            && delayedAimFacts.StationaryHeadFrames >= 20);
+
+        // At long range the body/head direction cones overlap. A body-phase
+        // frame must remain body-only even when it also falls inside the head
+        // cone, otherwise one pose could satisfy both calibration gates.
+        var overlappingConeFacts = new HeadshotScenarioFacts();
+        SnapshotPlayer distantTarget = new()
+        {
+            Slot = 1, ConnectionId = 22, Life = 1,
+            Hunter = Hunter.Noxus, Position = new Vector3(20, 0, 0),
+            Speed = Vector3.Zero,
+            Flags = SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned
+                | SnapshotPlayerFlags.Grounded
+        };
+        SnapshotPlayer distantShooter = shooter;
+        distantShooter.Aim = (distantTarget.Position - distantShooter.Position).Normalized();
+        for (int frame = 0; frame < 30; frame++)
+            overlappingConeFacts.ObserveTarget(distantTarget, distantShooter,
+                HeadshotScenarioStage.At((uint)frame, 12), bodyCalibrationAim: true);
+        Require(overlappingConeFacts.StationaryBodyFrames >= 20
+            && overlappingConeFacts.StationaryHeadFrames == 0);
         cases++;
 
         for (uint sequence = 0; sequence < 36; sequence++)

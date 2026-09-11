@@ -102,6 +102,7 @@ namespace MphRead.Mods.Network
         private readonly ProjectilePresentationMeasurement _projectilePresentation = new();
         private readonly PredictedHitFeedback _hitPrediction = new();
         private readonly PredictedSelfImpulse _selfImpulse = new();
+        private readonly PendingWeaponPrediction _weaponPrediction = new();
         private Scene? _presentationScene;
         private ulong _viewConnectionId;
         private uint _inputViewTick;
@@ -139,7 +140,8 @@ namespace MphRead.Mods.Network
 
         public AuthoritativePlay(string host, int port, string name, Hunter hunter, ulong? joinNonce = null,
             string ticket = "", bool observer = false, uint wireMatchId = 0, Guid admissionId = default,
-            byte[]? authKey = null, bool udpAuthenticationEnabled = false)
+            byte[]? authKey = null, bool udpAuthenticationEnabled = false,
+            bool ackCoalescingEnabled = false)
         {
             if (Current != null || NetSession.Active)
             {
@@ -154,7 +156,8 @@ namespace MphRead.Mods.Network
             try
             {
                 Client = new NetClient(_transport, endpoint, name, Launcher.Hunters.Resolve(hunter), joinNonce,
-                    ticket, observer, wireMatchId, admissionId, authKey, udpAuthenticationEnabled);
+                    ticket, observer, wireMatchId, admissionId, authKey, udpAuthenticationEnabled,
+                    ackCoalescingEnabled);
             }
             catch { _transport.Dispose(); throw; }
             Client.WorldPacketValidator = WorldPacket.TryValidate;
@@ -418,6 +421,11 @@ namespace MphRead.Mods.Network
                     if (_presentationScene?.Presentation is ScenePresentation killPresentation)
                     {
                         bool accepted = killPresentation.CombatFeedback.Process(kill);
+                        if (accepted && kill.Victim.Slot < scene.Players.Count
+                            && _identities[kill.Victim.Slot] == kill.Victim.ConnectionId
+                            && _lives[kill.Victim.Slot] == kill.Victim.Life)
+                            scene.Players[kill.Victim.Slot].GetPresentation()
+                                .PresentAuthoritativeKill(kill, WorldServerTick, suppressSound: false);
                         if (accepted && LocalSlot >= 0 && LocalSlot < scene.Players.Count)
                         {
                             PlayerEntity localPlayer = scene.Players[LocalSlot];
@@ -538,8 +546,11 @@ namespace MphRead.Mods.Network
             uint inputEpoch = _lives[LocalSlot];
             if (inputEpoch == 0) { return; }
             local.ModRepairVectors();
-            _inputs[_sequence % InputBundle.Capacity] = local.CaptureNetworkInput(
+            InputCommand command = local.CaptureNetworkInput(
                 _sequence, _inputViewTick, inputEpoch);
+            _inputs[_sequence % InputBundle.Capacity] = command;
+            _weaponPrediction.ObserveInput(_identities[LocalSlot], inputEpoch,
+                command.DesiredWeapon, command.Sequence);
             Prediction.Record(_sequence, local.Position, local.IsAltForm);
             _inputCount = Math.Min(_inputCount + 1, InputBundle.Capacity);
             Span<InputCommand> bundle = stackalloc InputCommand[InputBundle.Capacity];
@@ -571,13 +582,32 @@ namespace MphRead.Mods.Network
                     bool newIdentity = _identities[slot] != state.ConnectionId;
                     if (newIdentity)
                     {
+                        player.GetPresentation().ResetAuthoritativeDeathPresentation();
                         player.ClientActivate(state);
                         _identities[slot] = state.ConnectionId;
                         _lives[slot] = 0;
                     }
                     bool newLife = _lives[slot] != state.Life;
                     bool local = slot == LocalSlot;
-                    player.ApplyServerState(state, newLife, local);
+                    bool applyWeapon = true;
+                    if (local)
+                    {
+                        _weaponPrediction.ObserveAuthoritative(state.ConnectionId,
+                            state.Life, state.Weapon);
+                        applyWeapon = _weaponPrediction.ShouldApplyAuthoritative(
+                            state.ConnectionId, state.Life, Client.Snapshot.HasProcessedInput,
+                            Client.Snapshot.LastProcessedInput);
+                    }
+                    bool snapshotDeath = state.Health == 0
+                        && (state.Flags & (SnapshotPlayerFlags.Spectating | SnapshotPlayerFlags.WaitingForMatch)) == 0;
+                    bool engineDeath = snapshotDeath && player.Health > 0
+                        && (state.Flags & SnapshotPlayerFlags.Spawned) == 0
+                        && !scene.Services.SuppressDamage(player);
+                    player.ApplyServerState(state, newLife, local, applyWeapon);
+                    player.GetPresentation().ObserveAuthoritativeDeath(
+                        new CombatActor(state.Slot, state.ConnectionId, state.Life), snapshotDeath,
+                        (state.Flags & SnapshotPlayerFlags.AltForm) != 0, Client.Snapshot.ServerTick,
+                        engineDeath, suppressSound: false);
                     if (local)
                         SpectatorMode.ApplyWaitingForMatch(scene, (state.Flags & SnapshotPlayerFlags.WaitingForMatch) != 0);
                     player.GetPresentation().ReconcileNetworkAfflictions(state, Client.Snapshot.ServerTick);
@@ -608,7 +638,8 @@ namespace MphRead.Mods.Network
                         _selfImpulse.NoteCorrection(correctionDistance, Prediction.LastCorrectionHard);
                         if (Prediction.LastCorrectionHard)
                         {
-                            player.ApplyServerState(state, newLife: false);
+                            player.ApplyServerState(state, newLife: false,
+                                reconcileWeapon: applyWeapon);
                             player.Speed = state.Speed;
                             _localVelocityApplied = true;
                             _localVelocityAppliedTick = Client.Snapshot.ServerTick;
@@ -620,6 +651,7 @@ namespace MphRead.Mods.Network
                 {
                     if ((occupied & (1 << slot)) == 0 && _identities[slot] != 0)
                     {
+                        scene.Players[slot].GetPresentation().ResetAuthoritativeDeathPresentation();
                         scene.Players[slot].GetPresentation().ClearNetworkAfflictions();
                         scene.Players[slot].ServerDeactivate();
                         NetScoreboard.ForgetSlot(scene, slot);
@@ -651,6 +683,7 @@ namespace MphRead.Mods.Network
             _presentedCollision.Clear();
             _hitPrediction.Clear();
             _selfImpulse.Clear();
+            _weaponPrediction.Reset();
             InputBalanceTelemetry.ResetAttribution();
             Client.Close();
             Client.Dispose();
@@ -688,6 +721,7 @@ namespace MphRead.Mods.Network
             _timingRevision = 0;
             _presentationPending = false;
             _hasInputViewTick = false;
+            _weaponPrediction.Reset();
             if (_presentationScene is Scene scene)
             {
                 foreach (PlayerEntity player in scene.Players)

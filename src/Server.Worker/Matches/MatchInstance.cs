@@ -65,6 +65,7 @@ public sealed class MatchInstance : IDisposable
     private long _deadlineMisses;
     private long _allocatedBytes;
     private MatchPerformanceSnapshot _publishedPerformance = new(0, 0, default, 0, 0, 0, 0, 0, 0);
+    private ServerTimingTelemetrySnapshot _publishedTimingTelemetry = ServerTimingTelemetrySnapshot.Empty;
     private readonly Queue<string> _diagnostics = new();
     public int DroppedDiagnostics { get; private set; }
     public bool TryDequeueDiagnostic(out string? message) => _diagnostics.TryDequeue(out message);
@@ -102,6 +103,9 @@ public sealed class MatchInstance : IDisposable
             return Volatile.Read(ref _publishedPerformance);
         }
     }
+    /// <summary>Owner-published timing freshness observations for diagnostics.</summary>
+    internal ServerTimingTelemetrySnapshot TimingTelemetry
+        => Volatile.Read(ref _publishedTimingTelemetry);
     public MatchInstanceStatus Status => new(MatchId, WireMatchId, State, tick,
         Simulation.Scene.Match.Phase, Network.Count + Simulation.Bots.Count, _error);
     public event Action<MatchCompletion>? Completed;
@@ -206,7 +210,8 @@ public sealed class MatchInstance : IDisposable
             }
             Network = transferredNetwork ?? new ServerNetwork(transport, Spec.Rules, WireMatchId,
                 Spec.ObserverPolicy == ObserverPolicy.Disabled ? new ObserverOptions(0) : options.Observers,
-                options.UdpAuthenticationEnabled && !options.LegacyDynamicAdmission);
+                options.UdpAuthenticationEnabled && !options.LegacyDynamicAdmission,
+                options.AckCoalescingEnabled);
             Network.ConfigureTiming(options.AdaptiveTimingEnabled, options.AdaptiveInputPlayoutEnabled,
                 options.ReliableAdaptiveRtoEnabled, options.AdaptiveTimingV2Enabled);
             Network.AdmissionClosed = !options.LegacyDynamicAdmission && options.Tickets == null;
@@ -368,6 +373,7 @@ public sealed class MatchInstance : IDisposable
         Span<byte> packet = stackalloc byte[NetConfig.MaxPacketSize];
         Span<CombatEvent> events = stackalloc CombatEvent[CombatEventBatch.MaxCount];
         network.Poll(tick);
+        Volatile.Write(ref _publishedTimingTelemetry, network.TimingTelemetry);
         if (replay?.Status.State == "failed") throw new InvalidOperationException("Authoritative replay failed: " + replay.Status.Error);
         if (Spec.ReplayPolicy == ReplayPolicy.Record && replay == null) StartReplay();
         Admin?.BeforeStep(tick, replay);

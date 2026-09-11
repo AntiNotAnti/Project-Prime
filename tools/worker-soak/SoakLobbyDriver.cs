@@ -60,6 +60,7 @@ internal sealed class SoakLobbyDriver : IDisposable
         public LobbyIdentity Owner { get; } = owner;
         public IReadOnlyList<LobbyIdentity> Players { get; } = players;
         public IReadOnlyList<LobbyIdentity> Observers { get; } = observers;
+        public IReadOnlyList<LobbyIdentity> Participants { get; } = players.Concat(observers).ToArray();
         public SoakIdentityLease IdentityLease { get; } = identityLease;
         public Task<bool> Completion { get; } = completion;
         public IReadOnlyList<HistoryPoint> History => history.ToArray();
@@ -212,13 +213,36 @@ internal sealed class SoakLobbyDriver : IDisposable
     {
         bool interrupted = await round.Completion.WaitAsync(cancellationToken);
         var terminal = _lobbies.ForSession(round.Owner.SessionId) ?? throw new InvalidOperationException("Completion lost the lobby.");
-        Require(terminal.Phase == LobbyPhase.PostMatch && terminal.CurrentMatchId == round.Spec.MatchId.Value,
-            "Terminal Worker event did not return the owning lobby to PostMatch.");
+        Require(interrupted
+                ? terminal.Phase == LobbyPhase.Open && terminal.CurrentMatchId == null
+                : terminal.Phase == LobbyPhase.PostMatch && terminal.CurrentMatchId == round.Spec.MatchId.Value,
+            "Terminal Worker event did not publish the expected lobby lifecycle state.");
         Record(round.MutableHistory, interrupted ? "interrupted" : "completed", terminal);
-        var reopened = (LobbySnapshot)await _coordinator.ExecuteAsync(round.Owner, new LobbyRematch(terminal.Revision));
+        LobbySnapshot reopened;
+        if (interrupted)
+        {
+            // Interrupted rounds are reopened immediately and have no Node
+            // intermission ballot.
+            reopened = terminal;
+        }
+        else
+        {
+            var ballot = (NodeRoundSnapshot)await _coordinator.ExecuteAsync(round.Owner,
+                new LobbyRoundStatus(terminal.Revision));
+            LobbyVoteEntry returnOption = ballot.Options.Single(option =>
+                option.Choice == LobbyVoteChoice.ReturnToLobby);
+            NodeRoundSnapshot vote = ballot;
+            foreach (LobbyIdentity player in round.Players)
+            {
+                vote = (NodeRoundSnapshot)await _coordinator.ExecuteAsync(player,
+                    new LobbyVoteCast(vote.Lobby.Revision, ballot.BallotRevision,
+                        returnOption.Id));
+            }
+            reopened = vote.Lobby;
+        }
         Require(reopened.LobbyId == round.LobbyId && reopened.Phase == LobbyPhase.Open && reopened.CurrentMatchId == null
-            && reopened.Members.All(m => !m.Ready), "Rematch did not reopen the same lobby with fresh readiness.");
-        Record(round.MutableHistory, "rematch.open", reopened);
+            && reopened.Members.All(m => !m.Ready), "Round completion did not reopen the same lobby with fresh readiness.");
+        Record(round.MutableHistory, "round.open", reopened);
         _completions.TryRemove(round.Spec.MatchId, out _);
         if (!leave) return;
         DisconnectMembers(round);

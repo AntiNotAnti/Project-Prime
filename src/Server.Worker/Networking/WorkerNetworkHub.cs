@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Net;
 using System.Threading;
 
 namespace MphRead.Mods.Network;
@@ -15,18 +16,25 @@ public sealed class WorkerNetworkHub : IDisposable
     private readonly INetTransport _physical;
     private readonly IWorkerDatagramRouter _router;
     private readonly object _gate = new();
+    // Serializes lifetime publication of retired match counters with readers.
+    // Keep this as the outer lock for retirement paths; no match lock is taken
+    // while it is held, avoiding hub/match lock inversion.
+    private readonly object _criticalDropsGate = new();
     private readonly object _ioGate = new();
     private long _routingBudgetExhaustions;
     private long _datagramsAttempted;
     private long _datagramBudgetExhaustions;
     private readonly BoundedPercentileSampler _pumpDurations = new();
+    private readonly WorkerNetworkLoopMetrics _networkLoop = new();
+    private Action? _networkWakeSignal;
     public const int MaxRoutingAttemptsPerPump = 256;
     internal const int AdmissionRouteLimitPerMatch = 64;
     public long RoutingBudgetExhaustions => Interlocked.Read(ref _routingBudgetExhaustions);
     private readonly Dictionary<uint, MatchDatagramTransport> _matches = new();
-    private readonly Dictionary<ulong, MatchDatagramTransport> _connections = new();
+    private readonly Dictionary<ulong, ConnectionRoute> _connections = new();
     private readonly Dictionary<Guid, AdmissionRoute> _admissions = new();
     private readonly List<Guid> _expiredAdmissions = new();
+    private readonly JoinSourceIngressLimiter _joinIngress = new();
     private MatchDatagramTransport[] _activeMatches = Array.Empty<MatchDatagramTransport>();
     private readonly ReceivedPacket[] _receiveBuffer = new ReceivedPacket[MaxRoutingAttemptsPerPump];
     private ulong _nextConnection = NetConnection.NewIdentity();
@@ -34,6 +42,12 @@ public sealed class WorkerNetworkHub : IDisposable
     private MatchDatagramTransport? _flushCursorMatch;
     private bool _disposed;
     private int _pumping;
+    private long _preAuthIngressDrops;
+    private long _establishedIngressDrops;
+    private long _admissionIngressDrops;
+    private long _perConnectionQuotaDrops;
+    private int _maximumConnectionIngressDepth;
+    private long _retiredCriticalTransportDrops;
     public Guid Incarnation { get; }
     public int LocalPort => _physical.LocalPort;
     public NetTrafficMetrics Metrics { get; } = new();
@@ -43,10 +57,29 @@ public sealed class WorkerNetworkHub : IDisposable
     public int MaximumDatagramsPerPump { get; }
     public long DatagramsAttempted => Interlocked.Read(ref _datagramsAttempted);
     public long DatagramBudgetExhaustions => Interlocked.Read(ref _datagramBudgetExhaustions);
+    public long PreAuthIngressDrops => Interlocked.Read(ref _preAuthIngressDrops);
+    public long EstablishedIngressDrops => Interlocked.Read(ref _establishedIngressDrops);
+    public long AdmissionIngressDrops => Interlocked.Read(ref _admissionIngressDrops);
+    public long PerConnectionQuotaDrops => Interlocked.Read(ref _perConnectionQuotaDrops);
+    public int MaximumConnectionIngressDepth => Volatile.Read(ref _maximumConnectionIngressDepth);
+    public long CriticalTransportDrops
+    {
+        get
+        {
+            lock (_criticalDropsGate)
+            {
+                long total = Interlocked.Read(ref _retiredCriticalTransportDrops);
+                foreach (MatchDatagramTransport match in Volatile.Read(ref _activeMatches))
+                    total += match.CriticalTransportDrops;
+                return total;
+            }
+        }
+    }
     public BoundedPercentileSnapshot PumpDurationPercentiles
     {
         get { lock (_ioGate) return _pumpDurations.Snapshot(); }
     }
+    public WorkerNetworkLoopSnapshot NetworkLoopDiagnostics => _networkLoop.Snapshot();
 
     public WorkerNetworkHub(INetTransport physical, Guid incarnation, IWorkerDatagramRouter router,
         int matchLimit = 64, int maximumDatagramsPerPump = DefaultMaximumDatagramsPerPump,
@@ -62,8 +95,58 @@ public sealed class WorkerNetworkHub : IDisposable
         MaximumDatagramsPerPump = maximumDatagramsPerPump;
         WorkerGlobalNetworkBudgetEnabled = workerGlobalNetworkBudgetEnabled;
         UdpAuthenticationEnabled = udpAuthenticationEnabled;
-        _physical.AnswerPingsImmediately();
     }
+
+    /// <summary>Attaches the worker-owned event used to wake the I/O loop.</summary>
+    public void SetNetworkWake(Action? signal)
+    {
+        Volatile.Write(ref _networkWakeSignal, signal);
+        _physical.SetNetworkWake(signal);
+        foreach (MatchDatagramTransport match in Volatile.Read(ref _activeMatches))
+            match.SetNetworkWake(signal);
+    }
+
+    internal void SignalNetworkWork()
+    {
+        Volatile.Read(ref _networkWakeSignal)?.Invoke();
+    }
+
+    public bool HasReadyNetworkWork
+    {
+        get
+        {
+            if (_physical.HasReadyNetworkWork) return true;
+            long now = Stopwatch.GetTimestamp();
+            lock (_gate)
+            {
+                foreach (AdmissionRoute admission in _admissions.Values)
+                    if (admission.ExpiresAtTimestamp <= now) return true;
+            }
+            foreach (MatchDatagramTransport match in Volatile.Read(ref _activeMatches))
+                if (match.HasReadyNetworkWork) return true;
+            return false;
+        }
+    }
+
+    public long NextNetworkDeadlineTimestamp
+    {
+        get
+        {
+            long deadline = _physical.NextNetworkDeadlineTimestamp;
+            foreach (MatchDatagramTransport match in Volatile.Read(ref _activeMatches))
+                deadline = Math.Min(deadline, match.NextNetworkDeadlineTimestamp);
+            lock (_gate)
+                foreach (AdmissionRoute admission in _admissions.Values)
+                    deadline = Math.Min(deadline, admission.ExpiresAtTimestamp);
+            return deadline;
+        }
+    }
+
+    internal void RecordNetworkWakeup() => _networkLoop.RecordWakeup();
+    internal void RecordImmediateRepump() => _networkLoop.RecordImmediateRepump();
+    internal void RecordIdleWait() => _networkLoop.RecordIdleWait();
+    internal void ObserveOutboundEnqueueToSendAge(long ageTicks)
+        => _networkLoop.RecordOutboundAge(ageTicks);
 
     public MatchDatagramTransport RegisterMatch(uint wireMatchId, int queueCapacity = 2048,
         int drainBudget = 256, int maxConnections = 32, bool queueV2Enabled = true,
@@ -78,8 +161,10 @@ public sealed class WorkerNetworkHub : IDisposable
             if (_matches.Count >= MatchLimit || _matches.ContainsKey(wireMatchId)) throw new InvalidOperationException("Match route is duplicate or worker capacity is full.");
             var transport = new MatchDatagramTransport(this, wireMatchId, queueCapacity,
                 drainBudget, maxConnections, queueV2Enabled, criticalReserve);
+            transport.SetNetworkWake(Volatile.Read(ref _networkWakeSignal));
             _matches.Add(wireMatchId, transport);
             PublishActiveMatches();
+            SignalNetworkWork();
             return transport;
         }
     }
@@ -92,12 +177,14 @@ public sealed class WorkerNetworkHub : IDisposable
             if (incarnation != Incarnation || !_matches.TryGetValue(match.WireMatchId, out var current) || current != match)
                 throw new InvalidOperationException("Stale match or worker incarnation.");
             int count = 0;
-            foreach (var owner in _connections.Values) if (owner == match) count++;
+            foreach (ConnectionRoute owner in _connections.Values)
+                if (owner.Match == match) count++;
             if (count >= match.MaxConnections) throw new InvalidOperationException("Match connection route capacity exceeded.");
             // Never reuse an allocated ID during this incarnation, including after route removal.
             if (_nextConnection == ulong.MaxValue) throw new InvalidOperationException("Worker connection identity space exhausted.");
             ulong id = ++_nextConnection;
-            _connections.Add(id, match);
+            _connections.Add(id, new ConnectionRoute(match,
+                Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency));
             return id;
         }
     }
@@ -105,17 +192,29 @@ public sealed class WorkerNetworkHub : IDisposable
     internal void RemoveConnection(MatchDatagramTransport match, ulong id)
     {
         lock (_gate)
-            if (_connections.TryGetValue(id, out var current) && current == match) _connections.Remove(id);
+            if (_connections.TryGetValue(id, out ConnectionRoute? current)
+                && current.Match == match) _connections.Remove(id);
     }
 
     internal bool RegisterAdmission(Guid admissionId, MatchDatagramTransport match,
         long expiresAtUnixSeconds, out bool created)
     {
         created = false;
-        if (admissionId == Guid.Empty || expiresAtUnixSeconds <= DateTimeOffset.UtcNow.ToUnixTimeSeconds()) return false;
+        long nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        long nowTimestamp = Stopwatch.GetTimestamp();
+        if (admissionId == Guid.Empty || expiresAtUnixSeconds <= nowUnix) return false;
+        long remainingSeconds = expiresAtUnixSeconds - nowUnix;
+        long durationTicks;
+        long deadline;
+        try
+        {
+            durationTicks = checked(remainingSeconds * Stopwatch.Frequency);
+            deadline = checked(nowTimestamp + Math.Max(1, durationTicks));
+        }
+        catch (OverflowException) { return false; }
         lock (_gate)
         {
-            PurgeExpiredAdmissions(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            PurgeExpiredAdmissions(nowTimestamp);
             if (_disposed || !_matches.TryGetValue(match.WireMatchId, out MatchDatagramTransport? current)
                 || current != match) return false;
             if (_admissions.TryGetValue(admissionId, out AdmissionRoute existing))
@@ -131,8 +230,9 @@ public sealed class WorkerNetworkHub : IDisposable
                 if (route.Match == match) matchAdmissionCount++;
             if (matchAdmissionCount >= AdmissionRouteLimitPerMatch
                 || _admissions.Count >= MatchLimit * AdmissionRouteLimitPerMatch) return false;
-            _admissions[admissionId] = new(match, expiresAtUnixSeconds);
+            _admissions[admissionId] = new(match, deadline);
             created = true;
+            SignalNetworkWork();
             return true;
         }
     }
@@ -146,32 +246,44 @@ public sealed class WorkerNetworkHub : IDisposable
                 && route.Match == match)
             {
                 _admissions.Remove(admissionId);
+                SignalNetworkWork();
                 return true;
             }
             return false;
         }
     }
 
-    private void PurgeExpiredAdmissions(long nowUnixSeconds)
+    private void PurgeExpiredAdmissions(long nowTimestamp)
     {
         _expiredAdmissions.Clear();
         foreach ((Guid id, AdmissionRoute route) in _admissions)
-            if (route.ExpiresAtUnixSeconds <= nowUnixSeconds) _expiredAdmissions.Add(id);
+            if (route.ExpiresAtTimestamp <= nowTimestamp) _expiredAdmissions.Add(id);
         foreach (Guid id in _expiredAdmissions) _admissions.Remove(id);
     }
 
     internal void Unregister(MatchDatagramTransport match)
     {
-        lock (_gate)
+        lock (_criticalDropsGate)
         {
-            if (_matches.TryGetValue(match.WireMatchId, out var current) && current == match) _matches.Remove(match.WireMatchId);
-            var remove = new List<ulong>();
-            foreach (var entry in _connections) if (entry.Value == match) remove.Add(entry.Key);
-            foreach (ulong id in remove) _connections.Remove(id);
-            _expiredAdmissions.Clear();
-            foreach (var entry in _admissions) if (entry.Value.Match == match) _expiredAdmissions.Add(entry.Key);
-            foreach (Guid admissionId in _expiredAdmissions) _admissions.Remove(admissionId);
-            PublishActiveMatches();
+            bool retired = false;
+            lock (_gate)
+            {
+                if (_matches.TryGetValue(match.WireMatchId, out var current) && current == match)
+                {
+                    _matches.Remove(match.WireMatchId);
+                    retired = true;
+                }
+                var remove = new List<ulong>();
+                foreach (var entry in _connections) if (entry.Value.Match == match) remove.Add(entry.Key);
+                foreach (ulong id in remove) _connections.Remove(id);
+                _expiredAdmissions.Clear();
+                foreach (var entry in _admissions) if (entry.Value.Match == match) _expiredAdmissions.Add(entry.Key);
+                foreach (Guid admissionId in _expiredAdmissions) _admissions.Remove(admissionId);
+                PublishActiveMatches();
+            }
+            if (retired)
+                Interlocked.Add(ref _retiredCriticalTransportDrops, match.CriticalTransportDrops);
+            SignalNetworkWork();
         }
     }
 
@@ -182,9 +294,13 @@ public sealed class WorkerNetworkHub : IDisposable
         Volatile.Write(ref _activeMatches, active);
     }
 
-    public void Pump()
+    public void Pump() => PumpOnce();
+
+    internal WorkerNetworkPumpResult PumpOnce()
     {
         if (Interlocked.Exchange(ref _pumping, 1) != 0) throw new InvalidOperationException("Hub has one I/O reader.");
+        bool routingBudgetExhausted = false;
+        bool flushBudgetExhausted = false;
         try
         {
             lock (_ioGate)
@@ -195,18 +311,30 @@ public sealed class WorkerNetworkHub : IDisposable
                 {
                     // The physical transport already bounds its drain; enforce a worker budget as well.
                     int received = _physical.Drain(_receiveBuffer);
+                    long nowTimestamp = Stopwatch.GetTimestamp();
+                    double now = nowTimestamp / (double)Stopwatch.Frequency;
+                    lock (_gate) PurgeExpiredAdmissions(nowTimestamp);
                     for (int packetIndex = 0; packetIndex < received; packetIndex++)
                     {
                         ReceivedPacket packet = _receiveBuffer[packetIndex];
                         Metrics.Received(packet.Length);
                         if (packet.Length <= 0 || packet.Length > packet.Data.Length || packet.Length > NetConfig.MaxPacketSize
                             || !_router.TryRoute(packet.Data.AsSpan(0, packet.Length), out var route))
-                        { Metrics.Reject(); continue; }
+                        { Metrics.Reject(); Interlocked.Increment(ref _preAuthIngressDrops); continue; }
+                        bool statusQuery = packet.Length == 2
+                            && packet.Data[0] == (byte)PacketType.StatusQuery;
+                        if (route.IsJoin && !statusQuery
+                            && !_joinIngress.TryTake(packet.Sender, now))
+                        {
+                            Metrics.Reject();
+                            Interlocked.Increment(ref _admissionIngressDrops);
+                            continue;
+                        }
+                        MatchDatagramTransport? match = null;
+                        ConnectionRoute? connectionRoute = null;
+                        bool found = false;
                         lock (_gate)
                         {
-                            PurgeExpiredAdmissions(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-                            MatchDatagramTransport? match = null;
-                            bool found = false;
                             if (route.IsJoin && route.ConnectionId == 0)
                             {
                                 if (route.AdmissionId != Guid.Empty && UdpAuthenticationEnabled
@@ -223,20 +351,59 @@ public sealed class WorkerNetworkHub : IDisposable
                                 }
                             }
                             else if (!route.IsJoin && route.ConnectionId != 0
-                                && _connections.TryGetValue(route.ConnectionId, out MatchDatagramTransport? establishedMatch))
+                                && _connections.TryGetValue(route.ConnectionId, out connectionRoute))
                             {
-                                match = establishedMatch;
+                                match = connectionRoute.Match;
                                 found = true;
                             }
-                            if (!found) { Metrics.Reject(); continue; }
-                            if (match is null) { Metrics.Reject(); continue; }
+                            if (!found)
+                            {
+                                Metrics.Reject();
+                                if (route.IsJoin) Interlocked.Increment(ref _admissionIngressDrops);
+                                else Interlocked.Increment(ref _establishedIngressDrops);
+                                continue;
+                            }
+                            if (match is null)
+                            {
+                                Metrics.Reject();
+                                Interlocked.Increment(ref _preAuthIngressDrops);
+                                continue;
+                            }
                             if (route.WireMatchId != 0 && route.WireMatchId != match.WireMatchId)
-                            { Metrics.Reject(); continue; }
-                            if (!match.Enqueue(packet)) Metrics.DropQueued();
+                            {
+                                Metrics.Reject();
+                                Interlocked.Increment(ref _preAuthIngressDrops);
+                                continue;
+                            }
                         }
+                        if (connectionRoute is not null)
+                        {
+                            if (!connectionRoute.TakeIngress(now))
+                            {
+                                Metrics.Reject();
+                                Interlocked.Increment(ref _establishedIngressDrops);
+                                continue;
+                            }
+                            if (!connectionRoute.TryReserve())
+                            {
+                                Metrics.Reject();
+                                Interlocked.Increment(ref _perConnectionQuotaDrops);
+                                continue;
+                            }
+                            ObserveHighWater(ref _maximumConnectionIngressDepth,
+                                connectionRoute.Queued);
+                        }
+                        if (!match.Enqueue(packet, connectionRoute))
+                            Metrics.DropQueued();
+                        else
+                            _networkLoop.RecordReceiveToRouteAge(
+                                Math.Max(0, Stopwatch.GetTimestamp() - packet.ReceivedAt));
                     }
                     if (received == _receiveBuffer.Length && _physical.QueuedPackets > 0)
+                    {
                         Interlocked.Increment(ref _routingBudgetExhaustions);
+                        routingBudgetExhausted = true;
+                    }
                     MatchDatagramTransport[] active = Volatile.Read(ref _activeMatches);
                     int remaining = MaximumDatagramsPerPump;
                     int attemptedThisPump = 0;
@@ -299,7 +466,14 @@ public sealed class WorkerNetworkHub : IDisposable
                     }
                     Interlocked.Add(ref _datagramsAttempted, attemptedThisPump);
                     if (WorkerGlobalNetworkBudgetEnabled && remaining == 0)
+                    {
                         Interlocked.Increment(ref _datagramBudgetExhaustions);
+                        flushBudgetExhausted = active.Any(match => match.HasReadyNetworkWork);
+                    }
+                    else if (!WorkerGlobalNetworkBudgetEnabled)
+                    {
+                        flushBudgetExhausted = active.Any(match => match.HasReadyNetworkWork);
+                    }
                 }
                 finally
                 {
@@ -308,6 +482,7 @@ public sealed class WorkerNetworkHub : IDisposable
             }
         }
         finally { Volatile.Write(ref _pumping, 0); }
+        return new WorkerNetworkPumpResult(routingBudgetExhausted, flushBudgetExhausted);
     }
 
     private int ResolveFlushStart(MatchDatagramTransport[] active)
@@ -325,18 +500,140 @@ public sealed class WorkerNetworkHub : IDisposable
 
     public void Dispose()
     {
+        MatchDatagramTransport[] matches;
+        Volatile.Write(ref _networkWakeSignal, null);
+        _physical.SetNetworkWake(null);
         lock (_ioGate)
-        lock (_gate)
         {
-            if (_disposed) return;
-            _disposed = true;
-            foreach (var match in _matches.Values) match.CloseFromHub();
-            _matches.Clear(); _connections.Clear();
-            _admissions.Clear();
-            Volatile.Write(ref _activeMatches, Array.Empty<MatchDatagramTransport>());
+            lock (_criticalDropsGate)
+            {
+                lock (_gate)
+                {
+                    if (_disposed) return;
+                    _disposed = true;
+                    matches = new MatchDatagramTransport[_matches.Count];
+                    _matches.Values.CopyTo(matches, 0);
+                    _matches.Clear(); _connections.Clear();
+                    _admissions.Clear();
+                    Volatile.Write(ref _activeMatches, Array.Empty<MatchDatagramTransport>());
+                }
+                // The match gate is entered only after the hub gate is
+                // released, while the publication gate prevents readers from
+                // observing the active-list removal before final capture.
+                foreach (MatchDatagramTransport match in matches)
+                {
+                    match.SetNetworkWake(null);
+                    match.CloseFromHub();
+                    Interlocked.Add(ref _retiredCriticalTransportDrops, match.CriticalTransportDrops);
+                }
+            }
             _physical.Dispose();
+        }
+    }
+
+    private static void ObserveHighWater(ref int target, int value)
+    {
+        while (true)
+        {
+            int current = Volatile.Read(ref target);
+            if (value <= current || Interlocked.CompareExchange(ref target, value, current) == current)
+                return;
         }
     }
 }
 
-internal readonly record struct AdmissionRoute(MatchDatagramTransport Match, long ExpiresAtUnixSeconds);
+internal readonly record struct WorkerNetworkPumpResult(
+    bool RoutingBudgetExhausted, bool FlushBudgetExhausted)
+{
+    public bool CanImmediateRepump => RoutingBudgetExhausted || FlushBudgetExhausted;
+}
+
+public readonly record struct WorkerNetworkLoopSnapshot(
+    long NetworkWakeups,
+    long ImmediateRepumps,
+    long IdleWaits,
+    BoundedPercentileSnapshot ReceiveToRouteAgeMilliseconds,
+    BoundedPercentileSnapshot OutboundEnqueueToSendAgeMilliseconds);
+
+internal sealed class WorkerNetworkLoopMetrics
+{
+    private long _networkWakeups;
+    private long _immediateRepumps;
+    private long _idleWaits;
+    private readonly BoundedPercentileSampler _receiveToRouteAge = new();
+    private readonly BoundedPercentileSampler _outboundEnqueueToSendAge = new();
+
+    public void RecordWakeup() => Interlocked.Increment(ref _networkWakeups);
+    public void RecordImmediateRepump() => Interlocked.Increment(ref _immediateRepumps);
+    public void RecordIdleWait() => Interlocked.Increment(ref _idleWaits);
+
+    public void RecordReceiveToRouteAge(long ageTicks)
+    {
+        if (ageTicks < 0) ageTicks = 0;
+        _receiveToRouteAge.Record(ageTicks * (1000.0 / Stopwatch.Frequency));
+    }
+
+    public void RecordOutboundAge(long ageTicks)
+    {
+        if (ageTicks < 0) ageTicks = 0;
+        _outboundEnqueueToSendAge.Record(ageTicks * (1000.0 / Stopwatch.Frequency));
+    }
+
+    public WorkerNetworkLoopSnapshot Snapshot()
+    {
+        _receiveToRouteAge.TrySnapshot(out BoundedPercentileSnapshot receive);
+        _outboundEnqueueToSendAge.TrySnapshot(out BoundedPercentileSnapshot outbound);
+        return new(Interlocked.Read(ref _networkWakeups),
+            Interlocked.Read(ref _immediateRepumps), Interlocked.Read(ref _idleWaits),
+            receive, outbound);
+    }
+}
+
+internal readonly record struct AdmissionRoute(MatchDatagramTransport Match, long ExpiresAtTimestamp);
+
+/// <summary>Fixed-size source-IP limiter for unauthenticated Join abuse.</summary>
+internal sealed class JoinSourceIngressLimiter
+{
+    private const int Capacity = 128;
+    private sealed class Entry
+    {
+        public IPAddress? Address;
+        public NetRateLimit Limit;
+        public double LastSeen;
+    }
+
+    private readonly Entry[] _entries = new Entry[Capacity];
+
+    public JoinSourceIngressLimiter()
+    {
+        for (int i = 0; i < _entries.Length; i++) _entries[i] = new Entry();
+    }
+
+    public bool TryTake(IPEndPoint sender, double now)
+    {
+        IPAddress address = sender.Address;
+        int free = -1;
+        int oldest = 0;
+        double oldestTime = double.PositiveInfinity;
+        for (int i = 0; i < _entries.Length; i++)
+        {
+            Entry entry = _entries[i];
+            if (entry.Address?.Equals(address) == true)
+            {
+                entry.LastSeen = now;
+                return entry.Limit.Take(now);
+            }
+            if (entry.Address == null && free < 0) free = i;
+            if (entry.Address != null && entry.LastSeen < oldestTime)
+            {
+                oldest = i;
+                oldestTime = entry.LastSeen;
+            }
+        }
+        Entry selected = _entries[free >= 0 ? free : oldest];
+        selected.Address = address;
+        selected.Limit = new NetRateLimit(20, 40, now);
+        selected.LastSeen = now;
+        return selected.Limit.Take(now);
+    }
+}

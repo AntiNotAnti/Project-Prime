@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MphRead.Entities;
+using MphRead.Formats;
 using MphRead.Reporting;
 using OpenTK.Mathematics;
 
@@ -21,6 +22,8 @@ namespace MphRead.Mods.Network
         private readonly int _headshotScenarioFrames;
         private int _headshotValidationArm = -1;
         private int _headshotScenarioPlayingFrames;
+        private ulong _headshotValidationShooterConnection;
+        private uint _headshotValidationTargetLife;
         public Scene Scene { get; }
         public ServerCombat Combat { get; }
         public ServerBotManager Bots { get; }
@@ -339,7 +342,21 @@ namespace MphRead.Mods.Network
             if (target is not { } bot) return;
             PlayerEntity targetPlayer = Scene.Players[bot.Slot];
             uint inputEpoch = targetPlayer.ServerCombatIdentity.Life;
-            if (!targetPlayer.ModInPlay || targetPlayer.Health <= 0)
+            if (HeadshotValidationController.NeedsRespawn(targetPlayer.Health))
+            {
+                // Imperialist headshots are genuinely lethal at the fixture's
+                // production health. Exercise the same production fire-to-
+                // respawn input edge instead of restoring health or injecting
+                // a synthetic damage/hit. Spawn and the new life epoch remain
+                // owned by PlayerProcess and the authoritative simulation.
+                targetPlayer.IsBot = false;
+                InputCommand respawn = HeadshotValidationController.CreateRespawnCommand(
+                    tick, targetPlayer.ModGunVector, inputEpoch);
+                targetPlayer.ApplyNetworkInput(respawn);
+                Combat.SetCommand(bot.Slot, respawn);
+                return;
+            }
+            if (!targetPlayer.ModInPlay)
             {
                 // Spawn/respawn remains owned by the normal bot lifecycle. The
                 // next active tick re-enters this deterministic controller.
@@ -361,6 +378,17 @@ namespace MphRead.Mods.Network
             }
             if (shooter == null) return;
 
+            // Rejoining replaces the human connection identity and respawns
+            // its body. Re-arm the current choreography arm so the target is
+            // staged against the new authoritative shooter position instead
+            // of waiting for the next ten-second arm boundary.
+            ulong shooterConnection = shooter.ServerCombatIdentity.ConnectionId;
+            if (_headshotValidationShooterConnection != shooterConnection)
+            {
+                _headshotValidationShooterConnection = shooterConnection;
+                _headshotValidationArm = -1;
+            }
+
             Vector3 toShooter = shooter.Position - targetPlayer.Position;
             Vector3 aim = toShooter.LengthSquared > 0.001f
                 ? toShooter.Normalized() : -Vector3.UnitZ;
@@ -368,7 +396,9 @@ namespace MphRead.Mods.Network
             uint scenarioTick = checked((uint)_headshotScenarioPlayingFrames);
             HeadshotValidationPlan plan = HeadshotValidationController.Plan(
                 scenarioTick, _headshotScenarioFrames / 60, range);
-            if (plan.Arm != _headshotValidationArm)
+            if (HeadshotValidationController.NeedsRestage(plan.Arm,
+                    _headshotValidationArm, inputEpoch,
+                    _headshotValidationTargetLife))
             {
                 // Each test arm begins at an observed close/long range. This
                 // staging is confined to the explicit developer fixture; the
@@ -379,14 +409,20 @@ namespace MphRead.Mods.Network
                 Vector3 direction = horizontal.LengthSquared > 0.001f
                     ? horizontal.Normalized() : Vector3.UnitZ;
                 float desiredRange = plan.LongRange ? 18f : 6f;
-                Vector3 desired = shooter.Position + direction * desiredRange;
-                desired.Y = targetPlayer.Position.Y;
+                Vector3 desired = SelectHeadshotStagingPosition(
+                    shooter, targetPlayer, direction, desiredRange, out direction);
                 targetPlayer.Reposition(desired - targetPlayer.Position, targetPlayer.NodeRef);
-                targetPlayer.Speed = new Vector3(0, targetPlayer.Speed.Y, 0);
+                // The ordinary target command aims back at the shooter. Set
+                // the initial facing to the same radial direction so Forward
+                // and Back are deterministic and Right/Left are a real
+                // strafe, rather than depending on the spawn pose.
+                targetPlayer.Reposition(targetPlayer.Position, -direction, targetPlayer.NodeRef);
+                targetPlayer.Speed = Vector3.Zero;
                 _headshotValidationArm = plan.Arm;
                 Vector3 stagedAim = shooter.Position - targetPlayer.Position;
                 aim = stagedAim.LengthSquared > 0.001f
                     ? stagedAim.Normalized() : -Vector3.UnitZ;
+                _headshotValidationTargetLife = inputEpoch;
             }
             // The participant remains a bot to the Node/roster, but its body
             // receives an ordinary authoritative command for this test arm.
@@ -395,6 +431,70 @@ namespace MphRead.Mods.Network
                 tick, plan, aim, inputEpoch);
             targetPlayer.ApplyNetworkInput(command);
             Combat.SetCommand(bot.Slot, command);
+        }
+
+        /// <summary>
+        /// Choose a deterministic range position whose actual production beam
+        /// ray is not hidden by the validation room. The old fixture preserved
+        /// the previous radial direction, which could place the bot behind a
+        /// wall; the rendered client then aimed correctly at the presented bot
+        /// while every legal beam struck the wall first. This helper is only
+        /// reachable through the explicit headshot validation Worker flag.
+        /// </summary>
+        private Vector3 SelectHeadshotStagingPosition(PlayerEntity shooter,
+            PlayerEntity target, Vector3 preferredDirection, float desiredRange,
+            out Vector3 selectedDirection)
+        {
+            preferredDirection.Y = 0;
+            if (preferredDirection.LengthSquared <= 0.001f)
+                preferredDirection = Vector3.UnitZ;
+            else
+                preferredDirection = preferredDirection.Normalized();
+
+            // Sixteen fixed 22.5-degree rotations keep the choreography
+            // deterministic while covering the small validation room without
+            // introducing a random or map-specific spawn choice.
+            for (int index = 0; index < 16; index++)
+            {
+                float angle = index * (MathF.PI / 8);
+                float cosine = MathF.Cos(angle);
+                float sine = MathF.Sin(angle);
+                Vector3 direction = new(
+                    preferredDirection.X * cosine - preferredDirection.Z * sine,
+                    0,
+                    preferredDirection.X * sine + preferredDirection.Z * cosine);
+                Vector3 candidate = shooter.Position + direction * desiredRange;
+                candidate.Y = target.Position.Y;
+                if (HasHeadshotStagingLineOfSight(shooter, target, candidate))
+                {
+                    selectedDirection = direction;
+                    return candidate;
+                }
+            }
+
+            // Do not claim a clear shot when the fixture has no legal
+            // candidate. The fallback preserves the previous staging behavior
+            // so the run reports a genuine invalid choreography instead of
+            // changing authoritative collision or fabricating a hit.
+            selectedDirection = preferredDirection;
+            Vector3 fallback = shooter.Position + preferredDirection * desiredRange;
+            fallback.Y = target.Position.Y;
+            return fallback;
+        }
+
+        private bool HasHeadshotStagingLineOfSight(PlayerEntity shooter,
+            PlayerEntity target, Vector3 candidate)
+        {
+            // Use the same muzzle origin that BeamProjectileEntity consumes;
+            // the camera/eye point is not a sufficient proxy in this fixture.
+            Vector3 start = shooter._muzzlePos;
+            if (start.LengthSquared <= 0.001f)
+                start = shooter.Position.AddY(Fixed.ToFloat(shooter.Values.AimYOffset));
+            Vector3 end = candidate.AddY(
+                Fixed.ToFloat(target.Values.MaxPickupHeight) - 0.15f);
+            CollisionResult collision = default;
+            return !CollisionDetection.CheckBetweenPoints(start, end,
+                TestFlags.Beams | TestFlags.Players, Scene, ref collision);
         }
 
         private void PublishPhase(ServerNetwork network)
@@ -414,6 +514,8 @@ namespace MphRead.Mods.Network
             Combat.Reset();
             _headshotValidationArm = -1;
             _headshotScenarioPlayingFrames = 0;
+            _headshotValidationShooterConnection = 0;
+            _headshotValidationTargetLife = 0;
             Scene.Match.ResetCompetitiveState();
             Scene.Match.Flow.ResetProgress();
             for (int slot = 0; slot < 8; slot++) { Scene.Players[slot].ServerDeactivate(); }

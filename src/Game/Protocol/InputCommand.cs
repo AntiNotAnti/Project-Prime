@@ -29,6 +29,61 @@ namespace MphRead.Mods.Network
     }
 
     /// <summary>
+    /// Canonical wire conversion for the optional radial movement sample.
+    /// Axes deliberately use -127..127; -128 is reserved so malformed values
+    /// cannot be mistaken for a valid direction after sign extension.
+    /// </summary>
+    public static class AnalogMovementCodec
+    {
+        public const int MaxAxis = 127;
+        private const float RadialTolerance = 2 / (float)MaxAxis;
+
+        public static bool TryQuantize(Vector2 movement, out sbyte moveX, out sbyte moveY)
+        {
+            moveX = moveY = 0;
+            if (!IsFinite(movement)) return false;
+            float radial = movement.Length;
+            if (!float.IsFinite(radial) || radial > 1 + 0.0001f) return false;
+            moveX = (sbyte)Math.Clamp((int)MathF.Round(
+                Math.Clamp(movement.X, -1, 1) * MaxAxis, MidpointRounding.AwayFromZero),
+                -MaxAxis, MaxAxis);
+            moveY = (sbyte)Math.Clamp((int)MathF.Round(
+                Math.Clamp(movement.Y, -1, 1) * MaxAxis, MidpointRounding.AwayFromZero),
+                -MaxAxis, MaxAxis);
+            return true;
+        }
+
+        public static bool TryDecode(sbyte moveX, sbyte moveY, bool present,
+            out Vector2 movement)
+        {
+            movement = Vector2.Zero;
+            if (moveX == sbyte.MinValue || moveY == sbyte.MinValue)
+            {
+                return false;
+            }
+            if (!present)
+            {
+                return moveX == 0 && moveY == 0;
+            }
+            movement = new Vector2(moveX / (float)MaxAxis, moveY / (float)MaxAxis);
+            if (!IsFinite(movement)) return false;
+            float radial = movement.Length;
+            if (!float.IsFinite(radial) || radial > 1 + RadialTolerance) return false;
+            // Encoder-rounded diagonals such as (90,90) are just over unit
+            // length. Normalize that bounded tolerance, but reject genuinely
+            // malformed radial values instead of silently changing intent.
+            if (radial > 1)
+            {
+                movement /= radial;
+            }
+            return IsFinite(movement);
+        }
+
+        private static bool IsFinite(Vector2 value)
+            => float.IsFinite(value.X) && float.IsFinite(value.Y);
+    }
+
+    /// <summary>
     /// One 60 Hz input sample. ViewServerTick is the last presented remote-world
     /// timeline, floored to a whole tick, or the newest usable startup snapshot.
     /// InputEpoch is the client's observed local CombatActor life. The server
@@ -37,9 +92,9 @@ namespace MphRead.Mods.Network
     public readonly record struct InputCommand(uint Sequence, uint ClientTick, uint ViewServerTick,
         InputButtons Buttons, InputButtons Pressed, Vector3 Aim, byte DesiredWeapon,
         BoostActivation BoostActivation, sbyte BoostDirectionX, sbyte BoostDirectionY,
-        uint InputEpoch)
+        uint InputEpoch, sbyte MoveX, sbyte MoveY, bool AnalogMovementPresent)
     {
-        public const int Size = 40;
+        public const int Size = 43;
         public const byte NoWeapon = Byte.MaxValue;
 
         // The source-compatible constructors intentionally target the first
@@ -57,7 +112,7 @@ namespace MphRead.Mods.Network
                 desiredWeapon,
                 (buttons & InputButtons.Boost) != 0
                     ? BoostActivation.Charge : BoostActivation.None,
-                0, 0, DefaultInputEpoch)
+                0, 0, DefaultInputEpoch, 0, 0, false)
         {
         }
 
@@ -66,7 +121,7 @@ namespace MphRead.Mods.Network
             in BoostIntent boostIntent)
             : this(sequence, clientTick, viewServerTick, buttons, pressed, aim,
                 desiredWeapon, boostIntent.Activation, boostIntent.X, boostIntent.Y,
-                DefaultInputEpoch)
+                DefaultInputEpoch, 0, 0, false)
         {
         }
 
@@ -77,7 +132,7 @@ namespace MphRead.Mods.Network
                 desiredWeapon,
                 (buttons & InputButtons.Boost) != 0
                     ? BoostActivation.Charge : BoostActivation.None,
-                0, 0, inputEpoch)
+                0, 0, inputEpoch, 0, 0, false)
         {
         }
 
@@ -86,9 +141,29 @@ namespace MphRead.Mods.Network
             in BoostIntent boostIntent, uint inputEpoch)
             : this(sequence, clientTick, viewServerTick, buttons, pressed, aim,
                 desiredWeapon, boostIntent.Activation, boostIntent.X, boostIntent.Y,
-                inputEpoch)
+                inputEpoch, 0, 0, false)
         {
         }
+
+        public InputCommand(uint sequence, uint clientTick, uint viewServerTick,
+            InputButtons buttons, InputButtons pressed, Vector3 aim, byte desiredWeapon,
+            in BoostIntent boostIntent, uint inputEpoch, sbyte moveX, sbyte moveY,
+            bool analogMovementPresent)
+            : this(sequence, clientTick, viewServerTick, buttons, pressed, aim,
+                desiredWeapon, boostIntent.Activation, boostIntent.X, boostIntent.Y,
+                inputEpoch, moveX, moveY, analogMovementPresent)
+        {
+            if (!AnalogMovementCodec.TryDecode(moveX, moveY, analogMovementPresent,
+                out _))
+            {
+                throw new ArgumentOutOfRangeException(nameof(moveX),
+                    "Analog movement must be finite, bounded, and use -127..127.");
+            }
+        }
+
+        public Vector2 AnalogMovement
+            => AnalogMovementCodec.TryDecode(MoveX, MoveY, AnalogMovementPresent,
+                out Vector2 movement) ? movement : Vector2.Zero;
 
         public BoostIntent BoostRequest
             => BoostIntent.TryDecode(BoostActivation, BoostDirectionX,
@@ -109,6 +184,9 @@ namespace MphRead.Mods.Network
             destination[37] = (byte)BoostActivation;
             destination[38] = unchecked((byte)BoostDirectionX);
             destination[39] = unchecked((byte)BoostDirectionY);
+            destination[40] = unchecked((byte)MoveX);
+            destination[41] = unchecked((byte)MoveY);
+            destination[42] = AnalogMovementPresent ? (byte)1 : (byte)0;
         }
 
         public static bool TryRead(ReadOnlySpan<byte> source, out InputCommand command)
@@ -131,6 +209,9 @@ namespace MphRead.Mods.Network
             var boostActivation = (BoostActivation)source[37];
             sbyte boostX = unchecked((sbyte)source[38]);
             sbyte boostY = unchecked((sbyte)source[39]);
+            sbyte moveX = unchecked((sbyte)source[40]);
+            sbyte moveY = unchecked((sbyte)source[41]);
+            byte movementPresent = source[42];
             bool boostHeld = (buttons & InputButtons.Boost) != 0;
             // Bound before normalization. A zero, infinite or enormous ray
             // must never introduce NaNs into shared collision state.
@@ -144,10 +225,17 @@ namespace MphRead.Mods.Network
             {
                 return false;
             }
+            if (movementPresent > 1
+                || !AnalogMovementCodec.TryDecode(moveX, moveY, movementPresent != 0,
+                    out _))
+            {
+                return false;
+            }
             command = new InputCommand(BinaryPrimitives.ReadUInt32LittleEndian(source),
                 BinaryPrimitives.ReadUInt32LittleEndian(source[4..]),
                 BinaryPrimitives.ReadUInt32LittleEndian(source[8..]), buttons, pressed,
-                aim, source[36], boostIntent, inputEpoch);
+                aim, source[36], boostIntent, inputEpoch, moveX, moveY,
+                movementPresent != 0);
             return true;
         }
 
@@ -167,7 +255,10 @@ namespace MphRead.Mods.Network
         public InputCommand Neutral() => WithoutEdges() with
         {
             Buttons = Buttons & InputButtons.Spectate,
-            BoostActivation = BoostActivation.None
+            BoostActivation = BoostActivation.None,
+            MoveX = 0,
+            MoveY = 0,
+            AnalogMovementPresent = false
         };
     }
 

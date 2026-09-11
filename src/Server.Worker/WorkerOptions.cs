@@ -43,6 +43,8 @@ public sealed record WorkerOptions
     public bool WorkerGlobalNetworkBudgetEnabled { get; init; } = true;
     public int MaximumDatagramsPerPump { get; init; } = WorkerNetworkHub.DefaultMaximumDatagramsPerPump;
     public bool ReliableAdaptiveRtoEnabled { get; init; }
+    /// <summary>Experimental one-tick ACK coalescing; remains opt-in.</summary>
+    public bool AckCoalescingEnabled { get; init; }
     /// <summary>Per-handoff UDP MACs are the production default.</summary>
     public bool UdpAuthenticationEnabled { get; init; } = true;
     public WorkerLagCompensationMode LagCompensationMode { get; init; } = WorkerLagCompensationMode.Players;

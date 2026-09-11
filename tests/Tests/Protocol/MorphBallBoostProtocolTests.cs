@@ -38,9 +38,9 @@ public sealed class MorphBallBoostProtocolTests
     [Fact]
     public void CommandsRoundTripAllModesAtTheExactProtocolSize()
     {
-        Assert.Equal(40, InputCommand.Size);
-        Assert.Equal(329, InputBundle.MaxSize);
-        Assert.Equal(14, NetHeader.Version);
+        Assert.Equal(43, InputCommand.Size);
+        Assert.Equal(353, InputBundle.MaxSize);
+        Assert.Equal(15, NetHeader.Version);
         Assert.True(BoostIntent.TryCreateFlick(new Vector2(.25f, -1),
             out BoostIntent flick));
         InputCommand[] commands =

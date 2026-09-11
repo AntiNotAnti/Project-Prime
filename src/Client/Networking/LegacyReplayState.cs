@@ -49,6 +49,7 @@ namespace MphRead.Mods.Network
         private ReplayRecordKind _fragmentKind;
         private bool _reloadOnNextApply;
         private int? _recordedLocalSlot;
+        internal bool PresentationAudioSuppressed { get; set; }
         internal int RecordedLocalSlot => _recordedLocalSlot ?? -1;
         internal void RequestSceneReload() => _reloadOnNextApply = true;
         internal bool HasCompleteCheckpoint => Match.MatchId != 0 && HasSnapshot && _world.HasState
@@ -89,6 +90,7 @@ namespace MphRead.Mods.Network
             _world.Reset(0);
             SnapshotsReceived = CombatEventsReceived = DamageEventsReceived = WorldApplications = 0;
             MatchesLoaded = 0; _appliedWorld = false;
+            PresentationAudioSuppressed = false;
         }
 
         public bool Receive(ReadOnlySpan<byte> record)
@@ -356,7 +358,12 @@ namespace MphRead.Mods.Network
             for (int i = 0; i < _eventCount; i++)
             {
                 CombatEvent value = _events[i];
-                if (feedback != null && !feedback.Process(value)) continue;
+                bool currentTarget = !value.Target.IsValid
+                    || value.Target.Slot < _identities.Length
+                    && _identities[value.Target.Slot] == value.Target.ConnectionId
+                    && _lives[value.Target.Slot] == value.Target.Life;
+                if (feedback != null && !feedback.Process(value,
+                    allowLocalHitMarker: currentTarget)) continue;
                 if (scene.Presentation is ScenePresentation observedCombat)
                     observedCombat.BroadcastObservations.Record(value,
                         Match.MatchId, scene.Match.PhaseRevision);
@@ -364,7 +371,19 @@ namespace MphRead.Mods.Network
                 if (subject.IsValid && _identities[subject.Slot] == subject.ConnectionId && _lives[subject.Slot] == subject.Life)
                 { scene.Players[subject.Slot].GetPresentation().PresentCombat(value); }
             }
-            for (int i = 0; i < _killCount; i++) feedback?.Process(_kills[i]);
+            for (int i = 0; i < _killCount; i++)
+            {
+                KillEvent value = _kills[i];
+                if (feedback?.Process(value) == true
+                    && value.Victim.Slot < scene.Players.Count
+                    && _identities[value.Victim.Slot] == value.Victim.ConnectionId
+                    && _lives[value.Victim.Slot] == value.Victim.Life)
+                {
+                    scene.Players[value.Victim.Slot].GetPresentation()
+                        .PresentAuthoritativeKill(value, scene.Services.WorldServerTick,
+                            PresentationAudioSuppressed);
+                }
+            }
             for (int i = 0; i < _worldEventCount; i++)
             {
                 if (scene.Presentation is ScenePresentation observed)
@@ -453,11 +472,21 @@ namespace MphRead.Mods.Network
                 PlayerEntity player = scene.Players[slot];
                 if (_identities[slot] != state.ConnectionId)
                 {
+                    player.GetPresentation().ResetAuthoritativeDeathPresentation();
                     player.ClientActivate(state);
                     _identities[slot] = state.ConnectionId;
                     _lives[slot] = 0;
                 }
+                bool snapshotDeath = state.Health == 0
+                    && (state.Flags & (SnapshotPlayerFlags.Spectating | SnapshotPlayerFlags.WaitingForMatch)) == 0;
+                bool engineDeath = snapshotDeath && player.Health > 0
+                    && (state.Flags & SnapshotPlayerFlags.Spawned) == 0
+                    && !scene.Services.SuppressDamage(player);
                 player.ApplyServerState(state, _lives[slot] != state.Life);
+                player.GetPresentation().ObserveAuthoritativeDeath(
+                    new CombatActor(state.Slot, state.ConnectionId, state.Life), snapshotDeath,
+                    (state.Flags & SnapshotPlayerFlags.AltForm) != 0, Snapshot.ServerTick,
+                    engineDeath, PresentationAudioSuppressed);
                 player.GetPresentation().ReconcileNetworkAfflictions(state, Snapshot.ServerTick, legacy: _protocol < 8);
                 // Replays do not use live snapshot interpolation. Feed the
                 // recorded engine velocity explicitly so removing animation
@@ -472,6 +501,7 @@ namespace MphRead.Mods.Network
             {
                 if ((occupied & (1 << slot)) == 0 && _identities[slot] != 0)
                 {
+                    scene.Players[slot].GetPresentation().ResetAuthoritativeDeathPresentation();
                     scene.Players[slot].GetPresentation().ClearNetworkAfflictions();
                     scene.Players[slot].ServerDeactivate();
                     NetScoreboard.ForgetSlot(scene, slot);

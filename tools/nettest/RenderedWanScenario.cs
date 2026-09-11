@@ -119,6 +119,16 @@ internal static class HeadshotScenarioGeometry
     }
 }
 
+internal static class HeadshotScenarioAim
+{
+    internal static bool IsBodyCalibration(uint targetLife, uint trackedLife,
+        uint lifeStartFrame, bool lifeKnown, uint scenarioTick)
+        => lifeKnown && targetLife != 0 && targetLife == trackedLife
+            && scenarioTick >= lifeStartFrame
+            && scenarioTick - lifeStartFrame
+                < HeadshotScenarioThresholds.StationaryBodyAimFrames;
+}
+
 /// <summary>Initial N2 evidence thresholds for a genuine headshot run.</summary>
 internal static class HeadshotScenarioThresholds
 {
@@ -130,6 +140,8 @@ internal static class HeadshotScenarioThresholds
     internal const int MinimumHeadshotCases = 10;
     internal const int MinimumStationaryBodyFrames = 20;
     internal const int MinimumStationaryHeadFrames = 20;
+    internal const int StationaryBodyAimFrames = 90;
+    internal const int StationaryCalibrationFrames = 180;
     internal const int MinimumMotionFrames = 30;
     internal const float MinimumReasonableHitRate = 0.5f;
 }
@@ -318,6 +330,8 @@ internal sealed class HeadshotScenarioFacts
     internal float MaximumVerticalSpeed { get; private set; }
     internal Vector3 InitialTargetPosition { get; private set; }
     internal bool HasInitialTargetPosition { get; private set; }
+    private Vector3 _previousTargetPosition;
+    private bool _hasPreviousTargetPosition;
     internal CorrelatedShotLedger Shots { get; } = new();
 
     internal double AverageRange => RangeSamples == 0 ? 0 : RangeSum / RangeSamples;
@@ -341,6 +355,8 @@ internal sealed class HeadshotScenarioFacts
         MaximumVerticalSpeed = 0;
         InitialTargetPosition = Vector3.Zero;
         HasInitialTargetPosition = false;
+        _previousTargetPosition = Vector3.Zero;
+        _hasPreviousTargetPosition = false;
         Shots.Reset();
     }
 
@@ -350,7 +366,7 @@ internal sealed class HeadshotScenarioFacts
     }
 
     internal void ObserveTarget(in SnapshotPlayer target, in SnapshotPlayer shooter,
-        in HeadshotScenarioStage stage)
+        in HeadshotScenarioStage stage, bool bodyCalibrationAim)
     {
         if (!HasInitialTargetPosition)
         {
@@ -358,6 +374,10 @@ internal sealed class HeadshotScenarioFacts
             HasInitialTargetPosition = true;
         }
         FramesObserved++;
+        float frameDisplacement = _hasPreviousTargetPosition
+            ? (target.Position - _previousTargetPosition).Length : 0;
+        _previousTargetPosition = target.Position;
+        _hasPreviousTargetPosition = true;
         float displacement = (target.Position - InitialTargetPosition).Length;
         if (displacement >= 0.1f) TargetMovedFrames++;
         if ((target.Flags & SnapshotPlayerFlags.Grounded) == 0)
@@ -382,14 +402,19 @@ internal sealed class HeadshotScenarioFacts
         else if (stage.Variant == HeadshotScenarioVariant.Strafe && horizontalSpeed >= 0.05f)
             StrafeFrames++;
 
-        bool stationary = FramesObserved <= 60
-            && target.Speed.LengthSquared <= 0.0025f
-            && displacement < 0.1f;
+        // Stationary evidence is based on the observed pose, not an assumed
+        // client-frame window or the run's original spawn position. A target
+        // may settle under gravity before the first rendered aim sample; its
+        // current zero-speed, zero-step pose is still a genuine stationary
+        // sample. Admission, interpolation, and reconnect can delay that
+        // sample, so fencing it to frames 1..60 loses real evidence.
+        bool stationary = target.Speed.LengthSquared <= 0.0025f
+            && frameDisplacement < 0.02f;
         Vector3 body = target.Position - shooter.Position;
-        if (stationary && body.LengthSquared > 0.001f
+        if (bodyCalibrationAim && stationary && body.LengthSquared > 0.001f
             && Vector3.Dot(shooter.Aim, body.Normalized()) >= 0.996f)
         {
-            if (FramesObserved <= 30) StationaryBodyFrames++;
+            StationaryBodyFrames++;
         }
 
         if (!HeadshotScenarioGeometry.TryGetHeadPoint(target, target.Position,
@@ -398,7 +423,7 @@ internal sealed class HeadshotScenarioFacts
         Vector3 toHead = head - shooter.Position;
         bool aimedAtHead = toHead.LengthSquared > 0.001f
             && Vector3.Dot(shooter.Aim, toHead.Normalized()) >= 0.996f;
-        if (stationary && aimedAtHead && FramesObserved > 30 && FramesObserved <= 60)
+        if (!bodyCalibrationAim && stationary && aimedAtHead)
             StationaryHeadFrames++;
         if (aimedAtHead)
             FramesOnTarget++;

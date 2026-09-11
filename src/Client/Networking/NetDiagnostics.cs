@@ -127,7 +127,14 @@ namespace MphRead.Mods.Network
                 + $" queue-age avg/max={Sample(connection?.QueueAgeMs.Count > 0 ? connection.QueueAgeMs.Mean : null)}/"
                 + $"{Sample(connection?.QueueAgeMs.Count > 0 ? connection.QueueAgeMs.Max : null)} ms"
                 + $" rejected transport/protocol={traffic.PacketsRejected}/{client.Rejected}"
-                + $" queue-drops={traffic.QueueDrops} simulated-drops={traffic.SimulatedDrops} send-errors={traffic.SendErrors}");
+                + $" queue-drops={traffic.QueueDrops} simulated-drops={traffic.SimulatedDrops} send-errors={traffic.SendErrors}"
+                + $" ack standalone accepted/attempts={connection?.StandaloneAcks ?? 0}"
+                + $"/{connection?.StandaloneAckAttempts ?? 0}"
+                + $" piggyback accepted/attempts={connection?.PiggybackAcks ?? 0}"
+                + $"/{connection?.PiggybackAckAttempts ?? 0}"
+                + $" deadline={connection?.AckDeadlineExpirations ?? 0}"
+                + $" reliable pending/retransmissions={client.Connection?.Reliable.PendingCount ?? 0}"
+                + $"/{client.Connection?.Reliable.Retransmissions ?? 0}");
             Console.WriteLine($"[net-hit] discrete predicted/confirmed/denied/authority-only="
                 + $"{hit.Predicted}/{hit.Confirmed}/{hit.Denied}/{hit.AuthoritativeUnpredicted}"
                 + $" pending={hit.Pending} duplicate-prevented={hit.DuplicatePrevented}"

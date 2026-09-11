@@ -23,7 +23,8 @@ public enum MatchTrafficClass : byte
 /// World traffic retain their ordering. The hub performs physical sends outside
 /// the mailbox lock.
 /// </summary>
-public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRoutes
+public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRoutes,
+    IAcceptedNetDatagramSink
 {
     private const int TrafficClassCount = 5;
     private static readonly MatchTrafficClass[] Schedule =
@@ -109,7 +110,8 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
 
     private readonly WorkerNetworkHub _hub;
     private readonly object _gate = new();
-    private readonly Queue<ReceivedPacket> _inbound;
+    private Action? _networkWake;
+    private readonly Queue<RoutedReceivedPacket> _inbound;
     private readonly OutboundSlot[] _slots;
     private readonly int[] _freeSlots;
     private readonly SlotQueue[] _outbound;
@@ -196,6 +198,50 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
     public int QueuedPackets { get { lock (_gate) return _inbound.Count; } }
     public int HeldIncomingPackets => 0;
     public int HeldOutgoingPackets { get { lock (_gate) return _outboundCount; } }
+    public bool HasReadyNetworkWork
+    {
+        get
+        {
+            lock (_gate)
+            {
+                long now = Stopwatch.GetTimestamp();
+                return _outboundCount > 0
+                    || (_nextKeepAlive != long.MaxValue && now >= _nextKeepAlive
+                        && (_keepAlives.Length > 0 || _authenticatedKeepAlives.Length > 0));
+            }
+        }
+    }
+    public long NextNetworkDeadlineTimestamp
+    {
+        get
+        {
+            lock (_gate)
+            {
+                if (_outboundCount > 0) return Stopwatch.GetTimestamp();
+                if (_keepAlives.Length == 0 && _authenticatedKeepAlives.Length == 0)
+                    return long.MaxValue;
+                return _nextKeepAlive == 0 ? Stopwatch.GetTimestamp() : _nextKeepAlive;
+            }
+        }
+    }
+    public void SetNetworkWake(Action? signal)
+    {
+        bool ready;
+        lock (_gate)
+        {
+            _networkWake = signal;
+            ready = signal != null && (_outboundCount > 0
+                || _nextKeepAlive == 0 && (_keepAlives.Length > 0 || _authenticatedKeepAlives.Length > 0));
+        }
+        if (ready) signal!.Invoke();
+    }
+
+    private void SignalNetworkWork()
+    {
+        Action? signal;
+        lock (_gate) signal = _networkWake;
+        signal?.Invoke();
+    }
     public int InboundQueueHighWater => Volatile.Read(ref _inboundQueueHighWater);
     public int OutboundQueueHighWater => Volatile.Read(ref _outboundQueueHighWater);
     public long ControlEnqueues => Interlocked.Read(ref _controlEnqueues);
@@ -247,7 +293,7 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
         _criticalReserve = Math.Min(criticalReserve, capacity / 4);
         _ordinaryCapacity = capacity - _criticalReserve;
         _queueV2Enabled = queueV2Enabled;
-        _inbound = new Queue<ReceivedPacket>(capacity);
+        _inbound = new Queue<RoutedReceivedPacket>(capacity);
         _slots = new OutboundSlot[capacity];
         _freeSlots = new int[capacity];
         _outbound = new SlotQueue[TrafficClassCount];
@@ -265,11 +311,19 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
     public void RemoveConnection(ulong connectionId) => _hub.RemoveConnection(this, connectionId);
 
     internal bool Enqueue(in ReceivedPacket packet)
+        => Enqueue(packet, null);
+
+    internal bool Enqueue(in ReceivedPacket packet, ConnectionRoute? route)
     {
         lock (_gate)
         {
-            if (_disposed || _inbound.Count >= _capacity) { Metrics.DropQueued(); return false; }
-            _inbound.Enqueue(packet);
+            if (_disposed || _inbound.Count >= _capacity)
+            {
+                route?.ReleaseReservation();
+                Metrics.DropQueued();
+                return false;
+            }
+            _inbound.Enqueue(new RoutedReceivedPacket(packet, route));
             ObserveHighWater(ref _inboundQueueHighWater, _inbound.Count);
             Metrics.ObserveQueueDepth(_inbound.Count);
             Metrics.Received(packet.Length);
@@ -285,12 +339,13 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
         {
             for (int i = 0; i < _budget; i++)
             {
-                ReceivedPacket packet;
+                RoutedReceivedPacket routed;
                 lock (_gate)
                 {
-                    if (_disposed || !_inbound.TryDequeue(out packet)) yield break;
+                    if (_disposed || !_inbound.TryDequeue(out routed)) yield break;
                 }
-                yield return packet;
+                routed.ReleaseReservation();
+                yield return routed.Packet;
             }
         }
         finally { Volatile.Write(ref _reading, 0); }
@@ -306,8 +361,11 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
             int limit = Math.Min(destination.Length, _budget);
             lock (_gate)
             {
-                while (!_disposed && count < limit && _inbound.TryDequeue(out ReceivedPacket packet))
-                    destination[count++] = packet;
+                while (!_disposed && count < limit && _inbound.TryDequeue(out RoutedReceivedPacket routed))
+                {
+                    routed.ReleaseReservation();
+                    destination[count++] = routed.Packet;
+                }
             }
             return count;
         }
@@ -321,37 +379,74 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
         Span<byte> bytes = stackalloc byte[payload.Length + 1];
         bytes[0] = (byte)type;
         payload.CopyTo(bytes[1..]);
-        SendDatagram(target, bytes, extraHoldTicks);
+        // Status discovery is the one intentionally legacy, non-NetHeader
+        // control datagram still emitted through a virtual match transport.
+        // Give it an explicit best-effort hint; all gameplay datagrams use
+        // the authenticated NetHeader path and malformed Auto submissions
+        // are rejected below.
+        SendDatagram(target, bytes, extraHoldTicks,
+            type == PacketType.StatusReply ? NetDeliveryClass.BestEffort : NetDeliveryClass.Auto);
     }
 
     public void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram)
-        => SendDatagram(target, datagram, 0);
+        => SendDatagram(target, datagram, 0, NetDeliveryClass.Auto);
+
+    public void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram,
+        NetDeliveryClass deliveryClass)
+        => EnqueueDatagram(target, datagram, 0, deliveryClass);
 
     public void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram, long extraHoldTicks)
+        => EnqueueDatagram(target, datagram, extraHoldTicks, NetDeliveryClass.Auto);
+
+    public void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram,
+        long extraHoldTicks, NetDeliveryClass deliveryClass)
+        => EnqueueDatagram(target, datagram, extraHoldTicks, deliveryClass);
+
+    public bool TrySendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram,
+        NetDeliveryClass deliveryClass)
+        => EnqueueDatagram(target, datagram, 0, deliveryClass);
+
+    private bool EnqueueDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram,
+        long extraHoldTicks, NetDeliveryClass deliveryClass)
     {
         ArgumentNullException.ThrowIfNull(target);
         if (datagram.IsEmpty || datagram.Length > NetConfig.MaxPacketSize || extraHoldTicks < 0)
-        { Metrics.Reject(); return; }
-        MatchTrafficClass trafficClass = Classify(datagram, out ulong snapshotKey);
+        { Metrics.Reject(); return false; }
+        if (!TryClassify(datagram, deliveryClass, out MatchTrafficClass trafficClass,
+            out ulong snapshotKey, out NetMessageType messageType))
+        {
+            // An Auto packet that cannot be parsed is malformed. Never turn
+            // uncertainty into critical priority and consume the reserve.
+            Metrics.Reject();
+            return false;
+        }
         int classIndex = (int)trafficClass;
+        bool becameReady = false;
         lock (_gate)
         {
-            if (_disposed) return;
+            if (_disposed) return false;
             bool update = trafficClass is MatchTrafficClass.Snapshot or MatchTrafficClass.World;
-            if (_queueV2Enabled && trafficClass == MatchTrafficClass.Snapshot
+            bool coalescibleSnapshot = _queueV2Enabled
+                && trafficClass == MatchTrafficClass.Snapshot
+                && messageType == NetMessageType.Snapshot;
+            if (coalescibleSnapshot
                 && _snapshots.TryGetValue(snapshotKey, out int existing))
             {
                 Fill(_slots[existing], target, datagram, extraHoldTicks, trafficClass, snapshotKey);
                 Interlocked.Increment(ref _updateEnqueues);
                 Interlocked.Increment(ref _snapshotsSuperseded);
-                return;
+                // A queued snapshot can still be evicted by a later critical
+                // admission. Do not let a piggybacked ACK treat this slot as
+                // a durable carrier.
+                return false;
             }
             if (!TryAcquireSlot(trafficClass, out bool usesCriticalReserve))
             {
                 Drop(trafficClass, update);
-                return;
+                return false;
             }
             int slotIndex = _freeSlots[--_freeCount];
+            becameReady = _outboundCount == 0;
             OutboundSlot slot = _slots[slotIndex];
             Fill(slot, target, datagram, extraHoldTicks, trafficClass, snapshotKey);
             slot.UsesCriticalReserve = usesCriticalReserve;
@@ -367,7 +462,7 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
             }
             _outbound[classIndex].Enqueue(slotIndex);
             _outboundCount++;
-            if (_queueV2Enabled && trafficClass == MatchTrafficClass.Snapshot)
+            if (coalescibleSnapshot)
                 _snapshots.Add(snapshotKey, slotIndex);
             if (update) Interlocked.Increment(ref _updateEnqueues);
             else Interlocked.Increment(ref _controlEnqueues);
@@ -375,6 +470,11 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
             ObserveHighWater(ref _outboundQueueHighWater, _outboundCount);
             Metrics.ObserveQueueDepth(_outboundCount);
         }
+        if (becameReady) SignalNetworkWork();
+        // Only reliable/world queues are non-evictable after admission. State
+        // and best-effort slots may be superseded or evicted before the hub
+        // flushes them, so callers must retain their ACK deadline fallback.
+        return IsNonEvictableSubmission(trafficClass);
     }
 
     internal int Flush(INetTransport physical, NetTrafficMetrics hubMetrics, int budget)
@@ -401,6 +501,8 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
                     Metrics.ObserveQueueDepth(_outboundCount);
                     hubMetrics.ObserveQueueDepth(_outboundCount);
                 }
+                _hub.ObserveOutboundEnqueueToSendAge(
+                    Math.Max(0, Stopwatch.GetTimestamp() - slot.EnqueuedAt));
                 SendPhysical(physical, hubMetrics, slot.Target,
                     slot.Bytes.AsSpan(0, slot.Length), slot.HoldTicks, slot.Class);
                 attempted++;
@@ -611,7 +713,9 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
         {
             _ordinaryUsed--;
         }
-        if (_queueV2Enabled && trafficClass == MatchTrafficClass.Snapshot)
+        if (_queueV2Enabled && trafficClass == MatchTrafficClass.Snapshot
+            && _snapshots.TryGetValue(slot.SnapshotKey, out int indexedSlot)
+            && indexedSlot == slotIndex)
             _snapshots.Remove(slot.SnapshotKey);
         long age = Math.Max(0, Stopwatch.GetTimestamp() - slot.EnqueuedAt);
         ObserveHighWater(ref _maximumClassAgeTicks[(int)trafficClass], age);
@@ -704,33 +808,176 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
         slot.SnapshotKey = snapshotKey;
     }
 
-    private static MatchTrafficClass Classify(ReadOnlySpan<byte> datagram,
-        out ulong snapshotKey)
+    private static bool TryClassify(ReadOnlySpan<byte> datagram,
+        NetDeliveryClass deliveryClass, out MatchTrafficClass trafficClass,
+        out ulong snapshotKey, out NetMessageType messageType)
     {
+        trafficClass = default;
         snapshotKey = 0;
+        messageType = default;
+        if ((byte)deliveryClass > (byte)NetDeliveryClass.BestEffort)
+            return false;
         if (!NetHeader.TryRead(datagram, out NetHeader header))
-            return MatchTrafficClass.CriticalReliable;
-        snapshotKey = header.ConnectionId;
-        if (header.Type == NetMessageType.Snapshot) return MatchTrafficClass.Snapshot;
-        if (header.Type == NetMessageType.World) return MatchTrafficClass.World;
-        if (header.Type == NetMessageType.Debug) return MatchTrafficClass.BestEffort;
-        if (header.Type == NetMessageType.Event
-            && ReliableEventPacket.TryRead(datagram[NetHeader.Size..], out _,
-                out ReliableEventType eventType, out _))
         {
-            return eventType switch
+            // The discovery reply predates the gameplay envelope and is
+            // admitted only through the explicit legacy Send(PacketType)
+            // seam above. It must never be reachable through Auto.
+            if (deliveryClass == NetDeliveryClass.BestEffort
+                && !datagram.IsEmpty && datagram[0] == (byte)PacketType.StatusReply)
             {
-                ReliableEventType.Welcome or ReliableEventType.MapTransition
-                    or ReliableEventType.ObserverTransition or ReliableEventType.Disconnect
-                    or ReliableEventType.Kill or ReliableEventType.MatchState
-                    or ReliableEventType.WorldEvent or ReliableEventType.TimingProfile
-                    => MatchTrafficClass.CriticalReliable,
-                _ => MatchTrafficClass.NormalReliable
-            };
+                trafficClass = MatchTrafficClass.BestEffort;
+                return true;
+            }
+            return false;
         }
-        return header.Type is NetMessageType.Accepted or NetMessageType.Refused
-            or NetMessageType.JoinPending or NetMessageType.Ack
-            ? MatchTrafficClass.CriticalReliable : MatchTrafficClass.NormalReliable;
+        messageType = header.Type;
+        snapshotKey = header.ConnectionId;
+        if (deliveryClass != NetDeliveryClass.Auto)
+        {
+            if (!IsDeliveryClassCoherent(header.Type, deliveryClass)
+                || !ValidateExplicitBody(header.Type, datagram[NetHeader.Size..]))
+                return false;
+            trafficClass = deliveryClass switch
+            {
+                NetDeliveryClass.Critical => MatchTrafficClass.CriticalReliable,
+                NetDeliveryClass.Reliable => MatchTrafficClass.NormalReliable,
+                NetDeliveryClass.State => MatchTrafficClass.Snapshot,
+                NetDeliveryClass.World => MatchTrafficClass.World,
+                NetDeliveryClass.BestEffort => MatchTrafficClass.BestEffort,
+                _ => default
+            };
+            return true;
+        }
+        if (header.Type == NetMessageType.Snapshot)
+        {
+            trafficClass = MatchTrafficClass.Snapshot;
+            return true;
+        }
+        if (header.Type == NetMessageType.World)
+        {
+            trafficClass = MatchTrafficClass.World;
+            return true;
+        }
+        if (header.Type == NetMessageType.Debug)
+        {
+            trafficClass = MatchTrafficClass.BestEffort;
+            return true;
+        }
+        if (header.Type == NetMessageType.Event)
+        {
+            if (!TryReadReliableBody(datagram[NetHeader.Size..], out _,
+                out ReliableEventType eventType, out _)) return false;
+            trafficClass = ReliableEventPolicy.IsCritical(eventType)
+                ? MatchTrafficClass.CriticalReliable : MatchTrafficClass.NormalReliable;
+            return true;
+        }
+        if (header.Type == NetMessageType.Accepted)
+        {
+            if (!TryReadReliableBody(datagram[NetHeader.Size..], out _,
+                out ReliableEventType type, out ReadOnlySpan<byte> body)
+                || type != ReliableEventType.Welcome
+                || !JoinAcceptedPacket.TryRead(body, out _)) return false;
+            trafficClass = MatchTrafficClass.CriticalReliable;
+            return true;
+        }
+        if (header.Type == NetMessageType.Refused)
+        {
+            ReadOnlySpan<byte> body = datagram[NetHeader.Size..];
+            if (body.Length == NetAuthentication.TagSize) return false;
+            if (body.Length >= NetAuthentication.TagSize)
+            {
+                ReadOnlySpan<byte> unsigned = body[..^NetAuthentication.TagSize];
+                if (unsigned.Length == 48) body = unsigned;
+            }
+            if (body.Length != 48) return false;
+            trafficClass = MatchTrafficClass.CriticalReliable;
+            return true;
+        }
+        if (header.Type == NetMessageType.JoinPending)
+        {
+            ReadOnlySpan<byte> body = datagram[NetHeader.Size..];
+            if (body.Length >= NetAuthentication.TagSize
+                && body.Length - NetAuthentication.TagSize == JoinPendingPacket.Size)
+                body = body[..^NetAuthentication.TagSize];
+            if (!JoinPendingPacket.TryRead(body, out _)) return false;
+            trafficClass = MatchTrafficClass.CriticalReliable;
+            return true;
+        }
+        if (header.Type == NetMessageType.Ack)
+        {
+            ReadOnlySpan<byte> body = datagram[NetHeader.Size..];
+            if (!body.IsEmpty && body.Length != NetAuthentication.TagSize) return false;
+            trafficClass = MatchTrafficClass.CriticalReliable;
+            return true;
+        }
+        trafficClass = header.Type is NetMessageType.Input or NetMessageType.Snapshot
+                ? MatchTrafficClass.Snapshot
+                : header.Type == NetMessageType.World
+                    ? MatchTrafficClass.World : MatchTrafficClass.BestEffort;
+        return true;
+    }
+
+    private static bool IsDeliveryClassCoherent(NetMessageType type,
+        NetDeliveryClass deliveryClass)
+        => deliveryClass switch
+        {
+            NetDeliveryClass.Critical => type is NetMessageType.Accepted
+                or NetMessageType.Refused or NetMessageType.JoinPending
+                or NetMessageType.Ack or NetMessageType.Event,
+            NetDeliveryClass.Reliable => type == NetMessageType.Event,
+            NetDeliveryClass.State => type is NetMessageType.Input or NetMessageType.Snapshot,
+            NetDeliveryClass.World => type == NetMessageType.World,
+            NetDeliveryClass.BestEffort => type is NetMessageType.Debug
+                or NetMessageType.TimingTelemetry or NetMessageType.Ping
+                or NetMessageType.Pong or NetMessageType.KeepAlive,
+            _ => false
+        };
+
+    private static bool ValidateExplicitBody(NetMessageType type,
+        ReadOnlySpan<byte> payload)
+    {
+        if (type == NetMessageType.Event)
+            return TryReadReliableBody(payload, out _, out _, out _);
+        if (type == NetMessageType.Accepted)
+        {
+            return TryReadReliableBody(payload, out _, out ReliableEventType eventType,
+                out ReadOnlySpan<byte> body)
+                && eventType == ReliableEventType.Welcome
+                && JoinAcceptedPacket.TryRead(body, out _);
+        }
+        if (type == NetMessageType.Refused)
+        {
+            if (payload.Length == NetAuthentication.TagSize) return false;
+            ReadOnlySpan<byte> body = payload;
+            if (body.Length >= NetAuthentication.TagSize
+                && body.Length - NetAuthentication.TagSize == 48)
+                body = body[..^NetAuthentication.TagSize];
+            return body.Length == 48;
+        }
+        if (type == NetMessageType.JoinPending)
+        {
+            ReadOnlySpan<byte> body = payload;
+            if (body.Length >= NetAuthentication.TagSize
+                && body.Length - NetAuthentication.TagSize == JoinPendingPacket.Size)
+                body = body[..^NetAuthentication.TagSize];
+            return JoinPendingPacket.TryRead(body, out _);
+        }
+        if (type == NetMessageType.Ack)
+            return payload.IsEmpty || payload.Length == NetAuthentication.TagSize;
+        return true;
+    }
+
+    private static bool TryReadReliableBody(ReadOnlySpan<byte> payload,
+        out uint eventId, out ReliableEventType eventType, out ReadOnlySpan<byte> body)
+    {
+        if (ReliableEventPacket.TryRead(payload, out eventId, out eventType, out body)) return true;
+        if (payload.Length < NetAuthentication.TagSize)
+        {
+            eventId = 0; eventType = default; body = default;
+            return false;
+        }
+        return ReliableEventPacket.TryRead(payload[..^NetAuthentication.TagSize],
+            out eventId, out eventType, out body);
     }
 
     private static int ClassIndex(MatchTrafficClass trafficClass)
@@ -739,6 +986,10 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
         if ((uint)index >= TrafficClassCount) throw new ArgumentOutOfRangeException(nameof(trafficClass));
         return index;
     }
+
+    private static bool IsNonEvictableSubmission(MatchTrafficClass trafficClass)
+        => trafficClass is MatchTrafficClass.CriticalReliable
+            or MatchTrafficClass.NormalReliable or MatchTrafficClass.World;
 
     private static void ObserveHighWater(ref int target, int value)
     {
@@ -763,7 +1014,7 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
     {
         try
         {
-            physical.SendDatagram(target, bytes, hold);
+            physical.SendDatagram(target, bytes, hold, ToDeliveryClass(trafficClass));
             Metrics.Sent(bytes.Length);
             hubMetrics.Sent(bytes.Length);
             Interlocked.Increment(ref _classSent[(int)trafficClass]);
@@ -774,6 +1025,16 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
             hubMetrics.SendFailed();
         }
     }
+
+    private static NetDeliveryClass ToDeliveryClass(MatchTrafficClass trafficClass)
+        => trafficClass switch
+        {
+            MatchTrafficClass.CriticalReliable => NetDeliveryClass.Critical,
+            MatchTrafficClass.NormalReliable => NetDeliveryClass.Reliable,
+            MatchTrafficClass.Snapshot => NetDeliveryClass.State,
+            MatchTrafficClass.World => NetDeliveryClass.World,
+            _ => NetDeliveryClass.BestEffort
+        };
 
     public void SetKeepAlive(IPEndPoint? target, ReadOnlySpan<byte> datagram = default)
     {
@@ -806,6 +1067,7 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
                 _nextKeepAlive = 0;
             }
         }
+        SignalNetworkWork();
     }
 
     public void SetKeepAliveDescriptors(ReadOnlySpan<NetKeepAliveDescriptor> entries)
@@ -841,6 +1103,7 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
                 _nextKeepAlive = 0;
             }
         }
+        SignalNetworkWork();
     }
 
     public void AnswerPingsImmediately() { }
@@ -852,7 +1115,8 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
         lock (_gate)
         {
             _disposed = true;
-            _inbound.Clear();
+            while (_inbound.TryDequeue(out RoutedReceivedPacket routed))
+                routed.ReleaseReservation();
             foreach (SlotQueue queue in _outbound) queue.Clear();
             _snapshots.Clear();
             _outboundCount = 0;
@@ -864,6 +1128,7 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
             RetireKeepAlivesLocked(_authenticatedKeepAlives);
             _authenticatedKeepAlives = Array.Empty<AuthenticatedKeepAlive>();
             _authenticatedKeepAliveCursor = 0;
+            _networkWake = null;
         }
     }
 

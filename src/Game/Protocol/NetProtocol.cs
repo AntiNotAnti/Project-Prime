@@ -1244,6 +1244,9 @@ namespace MphRead.Mods.Network
         public const int MaxPacketSize = 1024;
         public const int DefaultMaximumDatagramsPerPump = 512;
         public const int ProtocolVersion = NetHeader.Version;
+        // Authoritative simulation and presentation ACK deadlines are bounded
+        // to one fixed 60 Hz tick. This is a deadline, not a scheduler.
+        public const double SimulationTickSeconds = 1.0 / 60.0;
         // Both peers maintain independent transport liveness during content loads.
         public const double TimeoutSeconds = 30.0;
     }

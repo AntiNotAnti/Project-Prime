@@ -33,6 +33,7 @@ public sealed class WorkerRuntime : IAsyncDisposable
     private readonly Channel<(MatchRegistry.Entry Entry, MatchCompletion? Completion, Guid? ReplayId, ServerReplaySession? Replay, WorkerEvent? Override)> _artifacts;
     private readonly Task _artifactWriter;
     private readonly CancellationTokenSource _ioStop = new();
+    private readonly AutoResetEvent _networkWake = new(false);
     private readonly Thread _io;
     private WorkerStatus _status = WorkerStatus.Ready;
     private NodeId? _node;
@@ -69,13 +70,15 @@ public sealed class WorkerRuntime : IAsyncDisposable
             _artifacts = Channel.CreateBounded<(MatchRegistry.Entry, MatchCompletion?, Guid?, ServerReplaySession?, WorkerEvent?)>(new BoundedChannelOptions(options.MaxMatches * 2)
                 { SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
             _artifactWriter = WriteArtifactsAsync();
+            _hub.SetNetworkWake(() => { _networkWake.Set(); });
             _io = new Thread(PumpNetwork) { IsBackground = true, Name = "worker-network" };
             _io.Start();
         }
         catch
         {
             _artifacts?.Writer.TryComplete();
-            _lanes?.Dispose(); _hub.Dispose(); _ioStop.Dispose(); _contentLease.Dispose();
+            _lanes?.Dispose(); _hub.SetNetworkWake(null); _hub.Dispose(); _ioStop.Dispose();
+            _networkWake.Dispose(); _contentLease.Dispose();
             throw;
         }
     }
@@ -228,6 +231,7 @@ public sealed class WorkerRuntime : IAsyncDisposable
                         AdaptiveTimingV2Enabled = _options.AdaptiveTimingV2Enabled,
                         AdaptiveInputPlayoutEnabled = _options.AdaptiveInputPlayoutEnabled,
                         ReliableAdaptiveRtoEnabled = _options.ReliableAdaptiveRtoEnabled,
+                        AckCoalescingEnabled = _options.AckCoalescingEnabled,
                         UdpAuthenticationEnabled = _options.UdpAuthenticationEnabled,
                         ValidationFixture = _options.ValidationFixture,
                         HeadshotValidationScenario = _options.HeadshotValidationScenario,
@@ -460,7 +464,8 @@ public sealed class WorkerRuntime : IAsyncDisposable
         {
             _health.Sample();
             IReadOnlyList<LaneMetrics> lanes = _lanes.Metrics;
-            BoundedPercentileSnapshot networkLoop = _hub.PumpDurationPercentiles;
+            BoundedPercentileSnapshot pumpDuration = _hub.PumpDurationPercentiles;
+            WorkerNetworkLoopSnapshot networkLoop = _hub.NetworkLoopDiagnostics;
             ImmutableArray<WorkerLaneHealth> laneHealth = lanes.Select(lane => new WorkerLaneHealth(lane.LaneId, lane.Matches, lane.Ticks,
                 lane.CatchUpTicks, lane.DroppedTicks, lane.P50Milliseconds, lane.P95Milliseconds, lane.P99Milliseconds,
                 lane.MaxMilliseconds, lane.P999Milliseconds, lane.DeadlineMisses, lane.CommandQueueHighWater)).ToImmutableArray();
@@ -477,6 +482,21 @@ public sealed class WorkerRuntime : IAsyncDisposable
                         performance?.ProcessGen0Collections ?? 0, performance?.ProcessGen1Collections ?? 0,
                         performance?.ProcessGen2Collections ?? 0);
                 }).ToImmutableArray();
+            long timingObserved = 0;
+            long timingStale = 0;
+            double timingMaxAge = 0;
+            long timingStaleIntervals = 0;
+            long timingDownshiftBlocked = 0;
+            foreach (MatchRegistry.Entry entry in _registry.ByWireId.Values)
+            {
+                ServerTimingTelemetrySnapshot timing = entry.Instance?.TimingTelemetry
+                    ?? ServerTimingTelemetrySnapshot.Empty;
+                timingObserved += timing.ObservedConnections;
+                timingStale += timing.StaleConnections;
+                timingMaxAge = Math.Max(timingMaxAge, timing.MaxAgeSeconds);
+                timingStaleIntervals += timing.StaleIntervals;
+                timingDownshiftBlocked += timing.DownshiftBlocked;
+            }
             return new(_options.WorkerId, _options.Incarnation, CapacityLocked(),
                 new(_status, _health.UptimeMilliseconds, lanes.Max(lane => lane.P99Milliseconds), _health.WorkingSetBytes,
                     new(laneHealth, _health.CpuPercent, GC.GetTotalMemory(false),
@@ -484,20 +504,70 @@ public sealed class WorkerRuntime : IAsyncDisposable
                         _hub.Metrics.PacketsSent, _hub.Metrics.BytesReceived, _hub.Metrics.BytesSent,
                         _hub.Metrics.QueueDrops, _hub.Metrics.PacketsRejected,
                         matchHealth, _registry.ByWireId.Count, _registry.ByWireId.Count > WorkerDiagnostics.MaximumMatchSamples,
-                        _health.AllocationBytesPerSecond, networkLoop.P99, networkLoop.P999,
-                        _hub.Metrics.QueueHighWater, networkLoop.TotalCount)));
+                        _health.AllocationBytesPerSecond, pumpDuration.P99, pumpDuration.P999,
+                        _hub.Metrics.QueueHighWater, pumpDuration.TotalCount,
+                        _hub.PreAuthIngressDrops, _hub.AdmissionIngressDrops,
+                        _hub.EstablishedIngressDrops, _hub.PerConnectionQuotaDrops,
+                        _hub.MaximumConnectionIngressDepth, _hub.CriticalTransportDrops,
+                        timingObserved, timingStale, timingMaxAge, timingStaleIntervals,
+                        timingDownshiftBlocked,
+                        NetworkWakeups: networkLoop.NetworkWakeups,
+                        ImmediateRepumps: networkLoop.ImmediateRepumps,
+                        IdleWaits: networkLoop.IdleWaits,
+                        ReceiveToRouteSampleCount: networkLoop.ReceiveToRouteAgeMilliseconds.TotalCount,
+                        ReceiveToRouteP50Milliseconds: networkLoop.ReceiveToRouteAgeMilliseconds.P50,
+                        ReceiveToRouteP95Milliseconds: networkLoop.ReceiveToRouteAgeMilliseconds.P95,
+                        ReceiveToRouteP99Milliseconds: networkLoop.ReceiveToRouteAgeMilliseconds.P99,
+                        ReceiveToRouteP999Milliseconds: networkLoop.ReceiveToRouteAgeMilliseconds.P999,
+                        ReceiveToRouteMaxMilliseconds: networkLoop.ReceiveToRouteAgeMilliseconds.Max,
+                        OutboundEnqueueToSendSampleCount: networkLoop.OutboundEnqueueToSendAgeMilliseconds.TotalCount,
+                        OutboundEnqueueToSendP50Milliseconds: networkLoop.OutboundEnqueueToSendAgeMilliseconds.P50,
+                        OutboundEnqueueToSendP95Milliseconds: networkLoop.OutboundEnqueueToSendAgeMilliseconds.P95,
+                        OutboundEnqueueToSendP99Milliseconds: networkLoop.OutboundEnqueueToSendAgeMilliseconds.P99,
+                        OutboundEnqueueToSendP999Milliseconds: networkLoop.OutboundEnqueueToSendAgeMilliseconds.P999,
+                        OutboundEnqueueToSendMaxMilliseconds: networkLoop.OutboundEnqueueToSendAgeMilliseconds.Max)));
         }
     }
     private WorkerCapacity CapacityLocked() => new(_configuredLimit, _configuredPlayers, _registry.ByWireId.Count,
         _registry.ByWireId.Values.Sum(entry => entry.Snapshot?.PlayerCount ?? entry.Spec.Roster.Length));
     private void PumpNetwork()
     {
-        try { while (!_ioStop.IsCancellationRequested) { _hub.Pump(); _ioStop.Token.WaitHandle.WaitOne(1); } }
+        try
+        {
+            while (!_ioStop.IsCancellationRequested)
+            {
+                WorkerNetworkPumpResult result = _hub.PumpOnce();
+                if (result.CanImmediateRepump)
+                {
+                    _hub.RecordImmediateRepump();
+                    continue;
+                }
+                // A producer may publish and signal between PumpOnce and the
+                // wait. Recheck ownership-visible readiness immediately before
+                // sleeping; AutoResetEvent retains an earlier signal.
+                if (_hub.HasReadyNetworkWork) continue;
+                long now = Stopwatch.GetTimestamp();
+                long deadline = _hub.NextNetworkDeadlineTimestamp;
+                if (_hub.HasReadyNetworkWork) continue;
+                _hub.RecordIdleWait();
+                _networkWake.WaitOne(NetworkWaitMilliseconds(now, deadline));
+                _hub.RecordNetworkWakeup();
+            }
+        }
         catch (Exception error)
         {
             lock (_registry.Gate) _status = WorkerStatus.Faulted;
             Emit(new WorkerFault(_options.WorkerId, _options.Incarnation, Bounded(error.Message)));
         }
+    }
+
+    private static int NetworkWaitMilliseconds(long now, long deadline)
+    {
+        if (deadline == long.MaxValue) return Timeout.Infinite;
+        long remaining = deadline - now;
+        if (remaining <= 0) return 0;
+        double milliseconds = remaining * (1000.0 / Stopwatch.Frequency);
+        return milliseconds >= int.MaxValue ? int.MaxValue : Math.Max(1, (int)Math.Ceiling(milliseconds));
     }
     private void Emit(WorkerEvent value)
     {
@@ -550,11 +620,20 @@ public sealed class WorkerRuntime : IAsyncDisposable
         finally
         {
             _ioStop.Cancel();
+            _networkWake.Set();
             try
             {
                 if (!_io.Join(TimeSpan.FromSeconds(5))) throw new TimeoutException("Worker I/O did not stop.");
             }
-            finally { _hub.Dispose(); _ioStop.Dispose(); _contentLease.Dispose(); }
+            finally
+            {
+                _mapBuilds.Dispose();
+                _hub.SetNetworkWake(null);
+                _hub.Dispose();
+                _ioStop.Dispose();
+                _networkWake.Dispose();
+                _contentLease.Dispose();
+            }
             lock (_registry.Gate) _status = WorkerStatus.Stopped;
         }
     }

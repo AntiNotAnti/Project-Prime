@@ -31,6 +31,8 @@ namespace MphRead.Mods.Network
         public static bool ShouldExitAtEnd => _default.ShouldExitAtEnd;
         public static ReplayHighlight? CurrentHighlight => _default.CurrentHighlight;
         public static string? LastError => _default.LastError;
+        public static bool Prepare(string path) => _default.Prepare(path);
+        internal static bool ConsumePrepared(string path) => _default.ConsumePrepared(path);
         public static bool Join(string path, int timeoutMs = 8000) => _default.Join(path, timeoutMs);
         public static bool Seek(uint frame) => _default.Seek(frame);
         public static bool SeekEvent(bool next) => _default.SeekEvent(next);

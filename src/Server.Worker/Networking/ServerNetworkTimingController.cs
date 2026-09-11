@@ -28,12 +28,14 @@ internal sealed class ServerNetworkTimingController
     internal const double TransitionTimeoutSeconds = 5;
     internal const double ExcellentMaxUnderrunRate = 0.0025;
     internal const double ExcellentMaxExtrapolationRate = 0.005;
+    internal const double MaximumTelemetryAgeSeconds = 2.5;
     internal const double HealthyMaxUnderrunRate = 0.01;
     internal const double HealthyMaxExtrapolationRate = 0.02;
     internal const double UnstableUnderrunRate = 0.02;
     internal const double UnstableExtrapolationRate = 0.05;
 
     private readonly bool _enabled;
+    private readonly bool _requireFreshTelemetry;
     private uint _nextRevision = 1;
     private double _nextEvaluation;
     private double _cleanSince = -1;
@@ -41,18 +43,33 @@ internal sealed class ServerNetworkTimingController
     private long _lastStarvedTicks;
     private byte _trustedRewindDelay = NetworkTimingProfile.Compatibility.PresentationDelayTicks;
     private bool _telemetryObserved;
+    private double _lastTelemetryAt = -1;
+    private bool _telemetryStale;
+    private bool _telemetrySampleSufficient;
+    private long _telemetryStaleIntervals;
+    private long _downshiftBlockedByStaleTelemetry;
 
     public NetworkTimingProfile Active { get; private set; } = NetworkTimingProfile.Compatibility;
     public NetworkTimingProfile? Offered { get; private set; }
     public double OfferedAt { get; private set; }
     public double LastUnderrunRate { get; private set; }
     public double LastExtrapolationRate { get; private set; }
+    public double LastTelemetryAt => _lastTelemetryAt;
+    public bool TelemetryObserved => _telemetryObserved;
+    public bool TelemetryStale => _telemetryStale;
+    public bool TelemetrySampleSufficient => _telemetrySampleSufficient;
+    public long TelemetryStaleIntervals => _telemetryStaleIntervals;
+    public long DownshiftBlockedByStaleTelemetry => _downshiftBlockedByStaleTelemetry;
     internal TimingTelemetryBand LastTelemetryBand { get; private set; } = TimingTelemetryBand.Excellent;
     public byte RewindPresentationDelayTicks => _enabled
         ? _trustedRewindDelay : NetworkTimingProfile.Compatibility.PresentationDelayTicks;
     public bool Enabled => _enabled;
 
-    public ServerNetworkTimingController(bool enabled) => _enabled = enabled;
+    public ServerNetworkTimingController(bool enabled, bool requireFreshTelemetry = false)
+    {
+        _enabled = enabled;
+        _requireFreshTelemetry = requireFreshTelemetry;
+    }
 
     public void Reset()
     {
@@ -66,6 +83,11 @@ internal sealed class ServerNetworkTimingController
         _lastStarvedTicks = 0;
         _trustedRewindDelay = NetworkTimingProfile.Compatibility.PresentationDelayTicks;
         _telemetryObserved = false;
+        _lastTelemetryAt = -1;
+        _telemetryStale = false;
+        _telemetrySampleSufficient = false;
+        _telemetryStaleIntervals = 0;
+        _downshiftBlockedByStaleTelemetry = 0;
         LastUnderrunRate = LastExtrapolationRate = 0;
         LastTelemetryBand = TimingTelemetryBand.Excellent;
     }
@@ -76,6 +98,14 @@ internal sealed class ServerNetworkTimingController
             || telemetry.ProfileRevision != Active.Revision
                 && telemetry.ProfileRevision != Offered?.Revision)
             return false;
+        bool staleGap = _lastTelemetryAt >= 0 && now - _lastTelemetryAt > MaximumTelemetryAgeSeconds;
+        if (_lastTelemetryAt < 0 || staleGap)
+            _cleanSince = -1;
+        if (staleGap && !_telemetryStale)
+            _telemetryStaleIntervals++;
+        _lastTelemetryAt = now;
+        _telemetryStale = false;
+        _telemetrySampleSufficient = telemetry.PresentedFrames >= 30;
         LastUnderrunRate = telemetry.SnapshotUnderruns / (double)telemetry.PresentedFrames;
         LastExtrapolationRate = telemetry.ExtrapolatedFrames / (double)telemetry.PresentedFrames;
         LastTelemetryBand = ClassifyTelemetry(LastUnderrunRate, LastExtrapolationRate);
@@ -124,6 +154,13 @@ internal sealed class ServerNetworkTimingController
         if (now < _clientUnstableUntil && desired < NetworkTimingLevel.Recovery)
             desired++;
 
+        double telemetryAge = TelemetryAge(now);
+        if (telemetryAge > MaximumTelemetryAgeSeconds)
+        {
+            if (!_telemetryStale) _telemetryStaleIntervals++;
+            _telemetryStale = true;
+        }
+
         if (desired > current)
         {
             _cleanSince = -1;
@@ -134,6 +171,14 @@ internal sealed class ServerNetworkTimingController
             // Healthy, Degraded, and Unstable intervals are intentionally not
             // clean recovery evidence. This prevents rates in the gaps between
             // the escalation thresholds from advancing the downward dwell.
+            if (_requireFreshTelemetry
+                && (!_telemetryObserved || telemetryAge > MaximumTelemetryAgeSeconds
+                    || !_telemetrySampleSufficient))
+            {
+                _cleanSince = -1;
+                _downshiftBlockedByStaleTelemetry++;
+                return false;
+            }
             if (_telemetryObserved && LastTelemetryBand != TimingTelemetryBand.Excellent)
             {
                 _cleanSince = -1;
@@ -183,10 +228,23 @@ internal sealed class ServerNetworkTimingController
         Offered = null;
         OfferedAt = 0;
         _cleanSince = -1;
+        // A new profile revision is a new presentation epoch. Evidence from
+        // the previous revision must not authorize its first downshift.
+        _telemetryObserved = false;
+        _lastTelemetryAt = -1;
+        _telemetryStale = false;
+        _telemetrySampleSufficient = false;
         // A completed downward presentation transition proves future inputs no
         // longer legitimately refer to the older, deeper presentation buffer.
         _trustedRewindDelay = Math.Min(_trustedRewindDelay, offered.PresentationDelayTicks);
         return true;
+    }
+
+    public double TelemetryAge(double now)
+    {
+        if (!Double.IsFinite(now) || now < 0 || _lastTelemetryAt < 0 || now < _lastTelemetryAt)
+            return double.PositiveInfinity;
+        return now - _lastTelemetryAt;
     }
 
     private static NetworkTimingLevel TrustedLevel(double rttMs, bool starved)

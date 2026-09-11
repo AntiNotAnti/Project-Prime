@@ -54,14 +54,16 @@ public sealed partial class ServerNetwork
         if (baseline == null) { Refuse(endpoint, join.Nonce, "Observer history is warming up. Try again later.", join.AdmissionId, authKey); return true; }
         ulong id = AllocateConnectionIdentity();
         var connection = new NetConnection(id, endpoint, baseline.Value.MatchId, _now,
-            authKey, NetAuthDirection.ServerToClient, ReliableAdaptiveRtoEnabled);
+            authKey, NetAuthDirection.ServerToClient, ReliableAdaptiveRtoEnabled,
+            AckCoalescingEnabled);
         var peer = new ServerPeer(connection, join, byte.MaxValue, _now)
         {
             ConnectionIndex = (byte)(8 + free), TeamIndex = byte.MaxValue,
             PlayerId = identity?.PlayerId, GuestSessionId = identity?.GuestSessionId, ReservedSeat = identity?.ReservedSeat, TicketId = identity?.TicketId ?? Guid.Empty,
             TrustedObserver = identity?.TrustedObserver == true,
             ObserverDelayTicks = delay, ObserverCursor = baseline, ObserverNeedsBaseline = true,
-            Timing = new ServerNetworkTimingController(AdaptiveTimingEnabled)
+            Timing = new ServerNetworkTimingController(AdaptiveTimingEnabled,
+                AdaptiveTimingV2Enabled)
         };
         var accepted = new JoinAcceptedPacket(join.Nonce, byte.MaxValue, baseline.Value.MatchId, baseline.Value.Tick, 60, baseline.Value.Rules);
         Span<byte> payload = stackalloc byte[JoinAcceptedPacket.Size]; accepted.Write(payload);

@@ -95,6 +95,68 @@ public sealed class NodeControlClientTests
     }
 
     [Fact]
+    public async Task MatchingLobbyLeftClearsJoinedStateButPreservesCompletionHistory()
+    {
+        Guid nodeId = Guid.NewGuid(), sessionId = Guid.NewGuid(), playerId = Guid.NewGuid();
+        Guid lobbyId = Guid.NewGuid(), matchId = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        var session = new NodeSessionSnapshot(sessionId, playerId, "Hunter", nodeId, new string('a', 43));
+        var lobby = new LobbySnapshot(lobbyId, "Room", LobbyVisibility.Public, sessionId,
+            LobbyPhase.StartingMatch, 1, 8, 16,
+            [new LobbyMember(sessionId, playerId, "Hunter", Hunter.Samus, 0, false, false)], [],
+            CurrentMatchId: matchId);
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 2, null, lobby));
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 3, null,
+            new NodeMatchHandoff(matchId, 1, "127.0.0.1", 5000, "ticket", 1, false, Hunter.Samus)));
+        client.MarkGameplayJoined(matchId);
+        client.ApplyEvent(NodeControlCodec.Write("match.ended", 4, null, new NodeMatchEnded(matchId, false)));
+        MatchCompletionSummary summary = Completion(matchId);
+        client.ApplyEvent(NodeControlCodec.Write("match.completion", 5, null, new NodeMatchCompletion(summary)));
+
+        client.ApplyEvent(NodeControlCodec.Write("lobby.left", 6, null, new LobbyLeft(lobbyId)));
+
+        Assert.Null(client.Lobby);
+        Assert.Null(client.Round);
+        Assert.Null(client.Handoff);
+        Assert.False(client.MatchEnded);
+        Assert.Null(client.State.JoinedMatchId);
+        Assert.Null(client.State.JoinedCompletion);
+        Assert.Null(client.State.JoinedCompletionSummary);
+        Assert.Equal(matchId, client.State.LastEndedMatchId);
+        Assert.Equal(summary.ReportId, client.State.LastCompletionSummary!.ReportId);
+    }
+
+    [Fact]
+    public async Task StaleLobbyLeftCannotClearAReplacementLobbyOrJoinedState()
+    {
+        Guid nodeId = Guid.NewGuid(), sessionId = Guid.NewGuid(), playerId = Guid.NewGuid();
+        Guid firstLobbyId = Guid.NewGuid(), secondLobbyId = Guid.NewGuid(), matchId = Guid.NewGuid(), secondMatchId = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        var session = new NodeSessionSnapshot(sessionId, playerId, "Hunter", nodeId, new string('a', 43));
+        var first = new LobbySnapshot(firstLobbyId, "First", LobbyVisibility.Public, sessionId,
+            LobbyPhase.StartingMatch, 1, 8, 16,
+            [new LobbyMember(sessionId, playerId, "Hunter", Hunter.Samus, 0, false, false)], [],
+            CurrentMatchId: matchId);
+        var second = first with { LobbyId = secondLobbyId, Name = "Second", Phase = LobbyPhase.Open,
+            Revision = first.Revision + 1, CurrentMatchId = null };
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 2, null, first));
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 3, null,
+            new NodeMatchHandoff(matchId, 1, "127.0.0.1", 5000, "ticket", 1, false, Hunter.Samus)));
+        client.MarkGameplayJoined(matchId);
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 4, null, second));
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 5, null,
+            new NodeMatchHandoff(secondMatchId, 2, "127.0.0.1", 5000, "ticket", 2, false, Hunter.Samus)));
+        client.MarkGameplayJoined(secondMatchId);
+
+        client.ApplyEvent(NodeControlCodec.Write("lobby.left", 6, null, new LobbyLeft(firstLobbyId)));
+
+        Assert.Equal(secondLobbyId, client.Lobby!.LobbyId);
+        Assert.Equal(secondMatchId, client.State.JoinedMatchId);
+    }
+
+    [Fact]
     public async Task WorkerCleanupDoesNotReplaceNodeOrLobby()
     {
         var field = typeof(NodeSessions).GetField("_current", BindingFlags.Static | BindingFlags.NonPublic)!;

@@ -280,6 +280,21 @@ namespace MphRead.Mods.Network
         public long UnauthenticatedRebindAttempts { get; private set; }
         public long AuthenticatedKeepAlives { get; private set; }
         public long KeepAliveReplayRejects { get; private set; }
+        /// <summary>ACK datagrams whose bounded sink explicitly accepted submission.</summary>
+        public long StandaloneAcks => Interlocked.Read(ref _standaloneAcks);
+        /// <summary>Sequenced carriers whose bounded sink explicitly accepted the ACK window.</summary>
+        public long PiggybackAcks => Interlocked.Read(ref _piggybackAcks);
+        /// <summary>Pending ACK generations that reached their hard deadline.</summary>
+        public long AckDeadlineExpirations => Interlocked.Read(ref _ackDeadlineExpirations);
+        /// <summary>Standalone ACK submission attempts, including unknown/rejected sink results.</summary>
+        public long StandaloneAckAttempts => Interlocked.Read(ref _standaloneAckAttempts);
+        /// <summary>Piggyback submission observations, including unknown/rejected sink results.</summary>
+        public long PiggybackAckAttempts => Interlocked.Read(ref _piggybackAckAttempts);
+        private long _standaloneAcks;
+        private long _piggybackAcks;
+        private long _ackDeadlineExpirations;
+        private long _standaloneAckAttempts;
+        private long _piggybackAckAttempts;
         private long _lastReceived;
         private long _lastPacketReceived;
         private long _lastSnapshot;
@@ -322,6 +337,14 @@ namespace MphRead.Mods.Network
             Rtt.Record(milliseconds);
         }
 
+        /// <summary>Clears RTT diagnostics while retaining their bounded storage.</summary>
+        internal void ResetRtt()
+        {
+            Rtt.Clear();
+            SmoothedRttMs = 0;
+            JitterMs = 0;
+        }
+
         public void Input(long now)
         {
             if (_lastInput > 0 && now >= _lastInput)
@@ -360,6 +383,12 @@ namespace MphRead.Mods.Network
         }
         public void AuthenticatedRebind() => AuthenticatedRebinds++;
         public void AuthenticatedKeepAlive() => AuthenticatedKeepAlives++;
+
+        internal void PiggybackAckAttempt() => Interlocked.Increment(ref _piggybackAckAttempts);
+        internal void PiggybackAckAccepted() => Interlocked.Increment(ref _piggybackAcks);
+        internal void StandaloneAckAttempt() => Interlocked.Increment(ref _standaloneAckAttempts);
+        internal void StandaloneAckAccepted() => Interlocked.Increment(ref _standaloneAcks);
+        internal void AckDeadlineExpired() => Interlocked.Increment(ref _ackDeadlineExpirations);
 
         public void LateInput(bool duplicate)
         {
@@ -423,7 +452,10 @@ namespace MphRead.Mods.Network
                 + $" silence {Sample(SilenceMs(now))} ms"
                 + $" input duplicate/reordered {DuplicateInputs}/{ReorderedInputs}"
                 + $" snapshot duplicate/reordered {DuplicateSnapshots}/{ReorderedSnapshots}"
-                + $" received {PacketsReceived} bytes {BytesReceived} rejected {PacketsRejected}";
+                + $" received {PacketsReceived} bytes {BytesReceived} rejected {PacketsRejected}"
+                + $" ack standalone accepted/attempts {StandaloneAcks}/{StandaloneAckAttempts}"
+                + $" piggyback accepted/attempts {PiggybackAcks}/{PiggybackAckAttempts}"
+                + $" deadline {AckDeadlineExpirations}";
         }
     }
 }

@@ -20,17 +20,23 @@ namespace MphRead.Mods.Network
     public static class NetLaunch
     {
         /// <summary>
-        /// Pin an accepted ticket to one of the addresses resolved for its host.
+        /// Explicit developer opt-in for one-tick ACK coalescing. The
+        /// production default remains conservative; reconnects retain the
+        /// setting on their existing <see cref="NetClient"/> instance.
         /// </summary>
-        internal static string PinTicketDestination(GameTicket ticket, ReadOnlySpan<IPAddress> resolved, int port)
-        {
-            if (ticket.TryGetEndpoint(out IPEndPoint? registered) && registered!.Port == port)
-                foreach (IPAddress address in resolved)
-                    if (address.Equals(registered.Address)) return registered.Address.ToString();
-            throw new InvalidOperationException("This server address does not match the Backend's registered ticket destination. No ticket was sent.");
-        }
+        public static bool AckCoalescingEnabled
+            => ParseOptIn(Environment.GetEnvironmentVariable("PROJECT_PRIME_ACK_COALESCING"));
 
-        public static Task<bool> JoinWorkerAsync(NodeMatchHandoff handoff, string playerName, CancellationToken cancel = default, int timeoutMs = 8000)
+        internal static bool ParseOptIn(string? value)
+            => value?.Trim() switch
+            {
+                "1" or "true" or "True" or "TRUE" or "on" or "On" or "ON" => true,
+                _ => false
+            };
+
+        public static Task<bool> JoinWorkerAsync(NodeMatchHandoff handoff, string playerName,
+            CancellationToken cancel = default, int timeoutMs = 8000,
+            bool? ackCoalescingEnabled = null)
         {
             if (timeoutMs is < 1 or > 30000) throw new ArgumentOutOfRangeException(nameof(timeoutMs));
             if (handoff.MatchId == Guid.Empty || handoff.WireMatchId == 0 || handoff.Nonce == 0
@@ -50,12 +56,14 @@ namespace MphRead.Mods.Network
             if (existing != null) NetSession.Stop();
             return Task.Run(() => JoinCore(handoff.Host, handoff.Port, playerName, handoff.Hunter,
                 timeoutMs, cancel, handoff.Nonce, handoff.Ticket, handoff.Observer, handoff.WireMatchId,
-                handoff.AdmissionId, handoff.AdmissionKey, handoff.UdpAuthenticationEnabled), cancel);
+                handoff.AdmissionId, handoff.AdmissionKey, handoff.UdpAuthenticationEnabled,
+                ackCoalescingEnabled ?? AckCoalescingEnabled), cancel);
         }
 
         private static bool JoinCore(string address, int port, string playerName, Hunter hunter,
             int timeoutMs, CancellationToken cancel, ulong? nonce, string ticket, bool observer,
-            uint wireMatchId, Guid admissionId, string admissionKey, bool udpAuthenticationEnabled)
+            uint wireMatchId, Guid admissionId, string admissionKey, bool udpAuthenticationEnabled,
+            bool ackCoalescingEnabled)
         {
             AuthoritativePlay? play = null;
             byte[]? key = udpAuthenticationEnabled ? AdmissionKeyRules.Decode(admissionKey) : null;
@@ -64,7 +72,7 @@ namespace MphRead.Mods.Network
             {
                 cancel.ThrowIfCancellationRequested();
                 play = new AuthoritativePlay(address, port, playerName, hunter, nonce, ticket, observer,
-                    wireMatchId, admissionId, key, udpAuthenticationEnabled);
+                    wireMatchId, admissionId, key, udpAuthenticationEnabled, ackCoalescingEnabled);
                 var clock = Stopwatch.StartNew();
                 bool announcedPending = false;
                 while (play.Client.State == NetConnectionState.Connecting)

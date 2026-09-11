@@ -24,6 +24,11 @@ namespace MphRead.Mods.Network
         private ReplayHighlight[]? _highlightReel;
         private int _highlightIndex;
         private uint? _highlightEndFrame;
+        // The launcher may have to validate a replay before it can hand the
+        // window to MatchStart.  Keep that validation explicit: an active
+        // playback session by itself is not evidence that the next launch is
+        // meant to reuse it.
+        private string? _preparedPath;
 
         internal ReplayPlaybackSession(IReplaySessionHost host)
         {
@@ -59,6 +64,7 @@ namespace MphRead.Mods.Network
         public int LastSeekSteps { get; private set; }
         public double LastSeekMilliseconds { get; private set; }
         public string? LastError { get; private set; }
+        internal string? PreparedPath => _preparedPath;
         public bool AtEnd => IsActive && (_highlightEndFrame.HasValue
             ? _started && _frame >= _highlightEndFrame.Value
             : !HasPending && (_clip != null || _reader?.CanSeek != true
@@ -71,12 +77,52 @@ namespace MphRead.Mods.Network
 
         private bool HasPending => _clip != null ? _clipCursor < _clip.Records.Count : _pending != null;
 
+        /// <summary>
+        /// Opens and rewinds an exact replay path for a subsequent MatchStart
+        /// launch.  The prepared identity is one-shot and is never inferred
+        /// from an already active playback session.
+        /// </summary>
+        public bool Prepare(string path)
+        {
+            _preparedPath = null;
+            if (!TryNormalizePath(path, out string normalized))
+            {
+                Stop();
+                LastError = "That replay path is invalid.";
+                return false;
+            }
+            if (!Join(normalized)) return false;
+            _preparedPath = normalized;
+            return true;
+        }
+
+        /// <summary>Consumes a successful <see cref="Prepare"/> exactly once.</summary>
+        public bool ConsumePrepared(string path)
+        {
+            if (!TryNormalizePath(path, out string normalized)
+                || _preparedPath is not { } prepared
+                || !String.Equals(prepared, normalized, StringComparison.Ordinal)
+                || !IsActive)
+            {
+                return false;
+            }
+            _preparedPath = null;
+            return true;
+        }
+
         public bool Join(string path, int timeoutMs = 8000)
         {
             _ = timeoutMs;
+            _preparedPath = null;
+            if (!TryNormalizePath(path, out string normalized))
+            {
+                Stop();
+                LastError = "That replay path is invalid.";
+                return false;
+            }
             Stop();
             LastError = null;
-            ReplayReader? reader = ReplayReader.Open(path);
+            ReplayReader? reader = ReplayReader.Open(normalized);
             if (reader == null)
             {
                 LastError = "That file isn't a replay this build recognises (wrong extension, damaged, or from a different build).";
@@ -109,14 +155,14 @@ namespace MphRead.Mods.Network
                 PumpFrame();
                 Modern.DiscardEvents();
                 _host.AdvanceLegacy(_frame);
-                if (IsModern && Modern.HasSnapshot && Modern.World.HasState) return Rewind(path);
+                if (IsModern && Modern.HasSnapshot && Modern.World.HasState) return Rewind(normalized);
                 bool knowsMatch = IsModern
                     ? Modern.Match.MatchId != 0 && !String.IsNullOrWhiteSpace(Modern.Match.Room)
                     : NetSession.ServerMatch?.RoomKey.Length > 0;
                 if (knowsMatch)
                 {
                     if (knownAt < 0) knownAt = _frame;
-                    else if (_frame - knownAt >= ReplayPlayback.JoinGraceFrames || AtEnd) return Rewind(path);
+                    else if (_frame - knownAt >= ReplayPlayback.JoinGraceFrames || AtEnd) return Rewind(normalized);
                 }
                 else if (AtEnd) break;
             }
@@ -131,6 +177,7 @@ namespace MphRead.Mods.Network
         public bool Join(ReplayTimelineClip clip)
         {
             ArgumentNullException.ThrowIfNull(clip);
+            _preparedPath = null;
             Stop();
             LastError = null;
             _reader = null;
@@ -149,6 +196,7 @@ namespace MphRead.Mods.Network
         public bool Join(IReplayTimeline timeline, uint startRecordingFrame, uint endRecordingFrame)
         {
             ArgumentNullException.ThrowIfNull(timeline);
+            _preparedPath = null;
             if (!timeline.TryFreeze(startRecordingFrame, endRecordingFrame, out ReplayTimelineClip? clip)
                 || clip == null)
             {
@@ -368,6 +416,7 @@ namespace MphRead.Mods.Network
                 }
                 LastRestoreFrame = _frame; LastSeekSteps = 0;
                 _seekStarted = Stopwatch.GetTimestamp(); IsSeeking = true;
+                Modern.PresentationAudioSuppressed = true;
                 beginSeek?.Invoke();
             }
             if (!IsSeeking) return false;
@@ -378,14 +427,14 @@ namespace MphRead.Mods.Network
                 { FailSeek(error.Message); break; }
                 LastSeekSteps++;
                 if (_frame >= _seekTarget)
-                { IsSeeking = false; LastSeekMilliseconds = Stopwatch.GetElapsedTime(_seekStarted).TotalMilliseconds; break; }
+                { IsSeeking = false; Modern.PresentationAudioSuppressed = false; LastSeekMilliseconds = Stopwatch.GetElapsedTime(_seekStarted).TotalMilliseconds; break; }
             }
             return true;
         }
 
         private void FailSeek(string message)
         {
-            LastError = message; IsSeeking = false; _requestedSeek = null;
+            LastError = message; IsSeeking = false; Modern.PresentationAudioSuppressed = false; _requestedSeek = null;
             if (_clip != null) _clipCursor = _clip.Records.Count;
             Transport.Paused = true; _pending = null; _frame = DurationFrames; _started = true;
         }
@@ -432,6 +481,7 @@ namespace MphRead.Mods.Network
 
         public void Stop()
         {
+            _preparedPath = null;
             if (!_host.IsPassive && IsActive) { _host.Stop(); return; }
             CloseFile();
             _host.Stop();
@@ -439,6 +489,7 @@ namespace MphRead.Mods.Network
 
         internal void CloseFile()
         {
+            _preparedPath = null;
             IsActive = false; IsSeeking = false; _requestedSeek = null; Transport.Reset();
             _reader?.Dispose(); _reader = null; _clip = null; _clipCursor = 0;
             _initialRules = null; _pending = null; _frame = 0; _started = false;
@@ -447,5 +498,19 @@ namespace MphRead.Mods.Network
         }
 
         public void Dispose() => Stop();
+
+        private static bool TryNormalizePath(string? path, out string normalized)
+        {
+            normalized = "";
+            if (String.IsNullOrWhiteSpace(path)) return false;
+            try
+            {
+                normalized = Path.GetFullPath(path.Trim());
+                return normalized.Length != 0;
+            }
+            catch (ArgumentException) { return false; }
+            catch (NotSupportedException) { return false; }
+            catch (PathTooLongException) { return false; }
+        }
     }
 }

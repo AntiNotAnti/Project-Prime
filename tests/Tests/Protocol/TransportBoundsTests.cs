@@ -156,6 +156,82 @@ namespace MphRead.Tests
         }
 
         [Fact]
+        public void DelayedOnlyArrivalExposesAbsoluteDeadlineWithoutBusyReadyState()
+        {
+            Assert.True(NetLag.Configure("200"));
+            using var transport = new NetTransport(0);
+            try
+            {
+                byte[] packet = { 1 };
+                using var socket = new UdpClient();
+                var endpoint = new IPEndPoint(IPAddress.Loopback, transport.LocalPort);
+                socket.Send(packet, endpoint);
+                Assert.True(SpinWait.SpinUntil(() => transport.HeldIncomingPackets == 1, 1000));
+                Assert.False(transport.HasReadyNetworkWork);
+                long now = Stopwatch.GetTimestamp();
+                long deadline = transport.NextNetworkDeadlineTimestamp;
+                Assert.InRange(deadline, now, now + Stopwatch.Frequency);
+            }
+            finally
+            {
+                NetLag.Configure("0");
+            }
+        }
+
+        [Fact]
+        public void DelayedArrivalWakesAnIdleOwnerToRecomputeItsDeadline()
+        {
+            Assert.True(NetLag.Configure("200"));
+            using var wake = new AutoResetEvent(false);
+            using var transport = (INetTransport)Activator.CreateInstance(
+                typeof(ServerNetwork).Assembly.GetType("MphRead.Mods.Network.UdpTransport")!, new object[] { 0 })!;
+            try
+            {
+                transport.SetNetworkWake(() => { wake.Set(); });
+                byte[] packet = { 1 };
+                using var socket = new UdpClient();
+                var endpoint = new IPEndPoint(IPAddress.Loopback, transport.LocalPort);
+                socket.Send(packet, endpoint);
+
+                Assert.True(wake.WaitOne(1000));
+                Assert.Equal(1, transport.HeldIncomingPackets);
+                Assert.False(transport.HasReadyNetworkWork);
+                long now = Stopwatch.GetTimestamp();
+                Assert.InRange(transport.NextNetworkDeadlineTimestamp,
+                    now, now + Stopwatch.Frequency);
+            }
+            finally
+            {
+                NetLag.Configure("0");
+            }
+        }
+
+        [Fact]
+        public void AttachingAnIdleOwnerToExistingDelayedArrivalSignalsItsDeadline()
+        {
+            Assert.True(NetLag.Configure("200"));
+            using var transport = (INetTransport)Activator.CreateInstance(
+                typeof(ServerNetwork).Assembly.GetType("MphRead.Mods.Network.UdpTransport")!, new object[] { 0 })!;
+            using var wake = new AutoResetEvent(false);
+            try
+            {
+                byte[] packet = { 1 };
+                using var socket = new UdpClient();
+                var endpoint = new IPEndPoint(IPAddress.Loopback, transport.LocalPort);
+                socket.Send(packet, endpoint);
+                Assert.True(SpinWait.SpinUntil(() => transport.HeldIncomingPackets == 1, 1000));
+                transport.SetNetworkWake(() => { wake.Set(); });
+                Assert.True(wake.WaitOne(1000));
+                Assert.False(transport.HasReadyNetworkWork);
+                Assert.True(transport.NextNetworkDeadlineTimestamp > Stopwatch.GetTimestamp());
+            }
+            finally
+            {
+                NetLag.Configure("0");
+            }
+        }
+
+        [Fact]
         public void InvalidDatagramsAndPlaybackLengthsNeverEnterQueues()
         {
             using var transport = new NetTransport(0);

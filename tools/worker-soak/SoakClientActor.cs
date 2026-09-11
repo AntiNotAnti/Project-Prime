@@ -1,5 +1,8 @@
 using System.Net;
 using System.Globalization;
+using System.Security.Cryptography;
+using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Node.Workers;
 using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Mods.Network;
@@ -85,6 +88,14 @@ public sealed class SoakReconnectTracker
 /// Node signer and frozen roster. It does not create scenes or fake packets.</summary>
 public sealed class SoakClientActor : IDisposable
 {
+    private sealed class AdmissionGrant(ulong nonce, string ticket, Guid admissionId, byte[] key)
+    {
+        public ulong Nonce { get; } = nonce;
+        public string Ticket { get; } = ticket;
+        public Guid AdmissionId { get; } = admissionId;
+        public byte[] Key { get; } = key;
+    }
+
     private sealed class Peer(RosterSeat seat, NetTransport transport, NetClient client)
     {
         public RosterSeat Seat { get; } = seat;
@@ -104,52 +115,133 @@ public sealed class SoakClientActor : IDisposable
     private readonly MatchSpec _spec;
     private readonly MatchPlacement _placement;
     private readonly WorkerAdmissionIssuer _issuer;
+    private readonly WorkerScheduler _scheduler;
+    private readonly IReadOnlyList<LobbyIdentity> _participants;
     private readonly List<Peer> _peers = [];
     private readonly SoakReconnectTracker _reconnects = new();
     private long _worldPackets, _inputs, _playingSnapshots;
     private int _failures;
-    public SoakClientActor(MatchSpec spec, MatchPlacement placement, WorkerAdmissionIssuer issuer)
+
+    private SoakClientActor(MatchSpec spec, MatchPlacement placement, WorkerAdmissionIssuer issuer,
+        WorkerScheduler scheduler, IReadOnlyList<LobbyIdentity> participants)
     {
-        _spec = spec; _placement = placement; _issuer = issuer;
+        _spec = spec; _placement = placement; _issuer = issuer; _scheduler = scheduler;
+        _participants = participants.ToArray();
+    }
+
+    /// <summary>
+    /// Creates authenticated gameplay peers only after the Node-issued ticket
+    /// and its matching Worker admission key have both been installed. The
+    /// old ticket-only constructor was deliberately removed: authenticated
+    /// Workers must never be silently downgraded by the soak harness.
+    /// </summary>
+    public static async Task<SoakClientActor> CreateAsync(MatchSpec spec, MatchPlacement placement,
+        WorkerAdmissionIssuer issuer, WorkerScheduler scheduler, IReadOnlyList<LobbyIdentity> participants,
+        CancellationToken cancellationToken = default)
+    {
+        if (!placement.UdpAuthenticationEnabled)
+            throw new InvalidOperationException("Worker soak requires authenticated UDP admission.");
+        ArgumentNullException.ThrowIfNull(participants);
+        if (participants.Count == 0) throw new ArgumentException("At least one Node participant is required.", nameof(participants));
+        var actor = new SoakClientActor(spec, placement, issuer, scheduler, participants);
         try
         {
-            foreach (var seat in spec.Roster.Where(s => s.Role is SeatRole.Player or SeatRole.Observer))
+            await actor.InitializeAsync(cancellationToken).ConfigureAwait(false);
+            return actor;
+        }
+        catch
+        {
+            actor.Dispose();
+            throw;
+        }
+    }
+
+    private async Task InitializeAsync(CancellationToken cancellationToken)
+    {
+        foreach (RosterSeat seat in _spec.Roster.Where(s => s.Role is SeatRole.Player or SeatRole.Observer))
+        {
+            AdmissionGrant grant = await CreateAdmissionAsync(seat, cancellationToken).ConfigureAwait(false);
+            NetTransport? transport = null;
+            try
             {
-                var grant = Ticket(seat);
-                var endpoint = new IPEndPoint(IPAddress.Parse(placement.Host), placement.Port);
-                var transport = new NetTransport(0);
-                NetClient client;
-                try { client = new NetClient(transport, endpoint, seat.DisplayName, seat.Hunter, grant.Nonce,
-                    grant.Ticket, seat.Role == SeatRole.Observer, placement.WireMatchId.Value); }
-                catch { transport.Dispose(); throw; }
+                transport = new NetTransport(0);
+                NetClient client = new(transport, new IPEndPoint(IPAddress.Parse(_placement.Host), _placement.Port),
+                    seat.DisplayName, seat.Hunter, grant.Nonce, grant.Ticket, seat.Role == SeatRole.Observer,
+                    _placement.WireMatchId.Value, grant.AdmissionId, grant.Key,
+                    udpAuthenticationEnabled: true);
                 var peer = new Peer(seat, transport, client);
                 _peers.Add(peer);
-                client.WorldPacketValidator = WorldPacket.TryValidate;
-                client.WorldPacketReceived = bytes =>
-                {
-                    _worldPackets++;
-                    for (int offset = WorldPacket.HeaderSize; offset < bytes.Length; offset += WorldRecord.Size)
-                    {
-                        if (!WorldRecord.TryRead(bytes.Slice(offset, WorldRecord.Size), out var record)) continue;
-                        if (record.Kind == WorldRecordKind.Lifecycle) peer.PhaseRevision = record.C;
-                        if (record.Kind == WorldRecordKind.Match)
-                        {
-                            peer.Phase = (MatchPhase)record.B;
-                            peer.AuthoritativeRemainingSeconds = record.Position.X;
-                        }
-                    }
-                };
+                ConfigureClient(peer);
+                transport = null; // The peer now owns the transport.
+            }
+            finally
+            {
+                transport?.Dispose();
+                CryptographicOperations.ZeroMemory(grant.Key);
             }
         }
-        catch { Dispose(); throw; }
     }
-    private (ulong Nonce, string Ticket) Ticket(RosterSeat seat)
+
+    private void ConfigureClient(Peer peer)
     {
-        ulong nonce = NetConnection.NewIdentity(); long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var claims = new WorkerAdmissionClaims(_spec.NodeId, _spec.NodeIncarnation, _placement.WorkerId, _placement.WorkerIncarnation,
-            _spec.LobbyId, _spec.MatchId, _placement.WireMatchId, seat.GuestSessionId ?? seat.PlayerId!.Value.Value,
-            seat.PlayerId, seat.GuestSessionId, seat.Role, seat.SeatId, seat.DisplayName, nonce, now, now + 120, Guid.NewGuid());
-        return (nonce, _issuer.Issue(claims));
+        NetClient client = peer.Client;
+        client.WorldPacketValidator = WorldPacket.TryValidate;
+        client.WorldPacketReceived = bytes =>
+        {
+            _worldPackets++;
+            for (int offset = WorldPacket.HeaderSize; offset < bytes.Length; offset += WorldRecord.Size)
+            {
+                if (!WorldRecord.TryRead(bytes.Slice(offset, WorldRecord.Size), out var record)) continue;
+                if (record.Kind == WorldRecordKind.Lifecycle) peer.PhaseRevision = record.C;
+                if (record.Kind == WorldRecordKind.Match)
+                {
+                    peer.Phase = (MatchPhase)record.B;
+                    peer.AuthoritativeRemainingSeconds = record.Position.X;
+                }
+            }
+        };
+    }
+
+    private async Task<AdmissionGrant> CreateAdmissionAsync(RosterSeat seat,
+        CancellationToken cancellationToken)
+    {
+        LobbyIdentity participant = ParticipantFor(seat);
+        ulong nonce = NetConnection.NewIdentity();
+        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        long expires = checked(now + 120);
+        Guid ticketId = Guid.NewGuid();
+        Guid admissionId = Guid.NewGuid();
+        byte[] key = RandomNumberGenerator.GetBytes(AdmissionKeyRules.ByteLength);
+        try
+        {
+            Guid nodeSessionId = participant.SessionId;
+            var claims = new WorkerAdmissionClaims(_spec.NodeId, _spec.NodeIncarnation,
+                _placement.WorkerId, _placement.WorkerIncarnation, _spec.LobbyId, _spec.MatchId,
+                _placement.WireMatchId, nodeSessionId, seat.PlayerId, seat.GuestSessionId,
+                seat.Role, seat.SeatId, seat.DisplayName, nonce, now, expires, ticketId);
+            string ticket = _issuer.Issue(claims);
+            var install = new InstallAdmissionKey(admissionId, ticketId, nodeSessionId,
+                _spec.NodeId, _spec.NodeIncarnation, _spec.MatchId, _placement.WireMatchId,
+                _placement.WorkerId, _placement.WorkerIncarnation, seat.SeatId, nonce, expires,
+                Convert.ToBase64String(key));
+            await _scheduler.InstallAdmissionKeyAsync(install, cancellationToken).ConfigureAwait(false);
+            return new(nonce, ticket, admissionId, key);
+        }
+        catch
+        {
+            CryptographicOperations.ZeroMemory(key);
+            throw;
+        }
+    }
+
+    private LobbyIdentity ParticipantFor(RosterSeat seat)
+    {
+        LobbyIdentity? participant = _participants.FirstOrDefault(candidate =>
+            seat.PlayerId is { } player
+                ? candidate.PlayerId == player.Value
+                : candidate.GuestSessionId == seat.GuestSessionId);
+        return participant ?? throw new InvalidOperationException(
+            $"No Node session was supplied for authenticated seat {seat.SeatId}.");
     }
     public void Tick()
     {
@@ -201,8 +293,9 @@ public sealed class SoakClientActor : IDisposable
             recoveryDeadlineSeconds, evidence);
     }
 
-    public SoakReconnectBatch Reconnect(
-        double recoveryDeadlineSeconds = SoakRecoveryPolicy.ReconnectRecoveryDeadlineSeconds)
+    public async Task<SoakReconnectBatch> ReconnectAsync(
+        double recoveryDeadlineSeconds = SoakRecoveryPolicy.ReconnectRecoveryDeadlineSeconds,
+        CancellationToken cancellationToken = default)
     {
         SoakReconnectReadiness readiness = ReconnectReadiness(recoveryDeadlineSeconds);
         if (!readiness.Ready)
@@ -217,13 +310,20 @@ public sealed class SoakClientActor : IDisposable
         var injected = new List<SoakReconnectPeerEvidence>(peers.Length);
         foreach (var peer in peers)
         {
-            var grant = Ticket(peer.Seat);
+            AdmissionGrant grant = await CreateAdmissionAsync(peer.Seat, cancellationToken).ConfigureAwait(false);
             // The server keeps an observer reservation until it receives the
             // client's disconnect or its timeout expires. Flush that explicit
             // close before replacing the client session so a fresh observer
             // ticket can be admitted during the same reconnect generation.
-            peer.Client.Disconnect();
-            peer.Client.Reconnect(grant.Nonce, grant.Ticket);
+            try
+            {
+                peer.Client.Disconnect();
+                peer.Client.Reconnect(grant.Nonce, grant.Ticket, grant.AdmissionId, grant.Key);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(grant.Key);
+            }
             peer.Sequence = 0; peer.PhaseRevision = 1; peer.Phase = MatchPhase.WaitingForPlayers;
             peer.FailureCounted = false;
             peer.MaximumServerTick = 0; peer.HasProgress = false; peer.HasPlayingProgress = false;

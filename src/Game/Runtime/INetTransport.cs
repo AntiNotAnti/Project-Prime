@@ -20,6 +20,23 @@ namespace MphRead.Mods.Network
         /// sequence/ACK windows.
         /// </summary>
         void SetKeepAliveDescriptors(ReadOnlySpan<NetKeepAliveDescriptor> entries) { }
+
+        /// <summary>
+        /// Installs an owner-provided signal for work that can wake a bounded
+        /// network pump. The default is deliberately inert for legacy and
+        /// test transports that are still polled by their caller.
+        /// </summary>
+        void SetNetworkWake(Action? signal) { }
+
+        /// <summary>Whether this transport currently has work the owner can service.</summary>
+        bool HasReadyNetworkWork => QueuedPackets > 0;
+
+        /// <summary>
+        /// Absolute <see cref="System.Diagnostics.Stopwatch"/> timestamp for
+        /// the next transport-owned deadline, or <see cref="long.MaxValue"/>.
+        /// </summary>
+        long NextNetworkDeadlineTimestamp => long.MaxValue;
+
         void AnswerPingsImmediately();
         IEnumerable<ReceivedPacket> Drain();
         int Drain(Span<ReceivedPacket> destination)
@@ -35,5 +52,10 @@ namespace MphRead.Mods.Network
         void EnqueueForPlayback(byte[] data, int length);
         void Send(IPEndPoint target, PacketType type, ReadOnlySpan<byte> payload, long extraHoldTicks = 0);
         void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram, long extraHoldTicks);
+
+        /// <summary>Compatibility path for non-scheduling transports.</summary>
+        void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram,
+            long extraHoldTicks, NetDeliveryClass deliveryClass)
+            => SendDatagram(target, datagram, extraHoldTicks);
     }
 }

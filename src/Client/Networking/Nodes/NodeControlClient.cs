@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Text.Json;
@@ -23,6 +25,9 @@ public sealed class NodeControlClient : IAsyncDisposable
     private Guid _nodeId;
     private Guid? _resumingSession;
     private string[]? _advertisedMapKeys;
+    private ContentIdentity[]? _advertisedCatalog;
+    private long _mapCatalogRevision;
+    private string? _mapCatalogHash;
     internal string? Endpoint { get; private set; }
     public NodeControlClient() { }
     internal NodeControlClient(ClientWebSocket socket) { _socket.Dispose(); _socket = socket; }
@@ -66,6 +71,10 @@ public sealed class NodeControlClient : IAsyncDisposable
     /// <summary>Snapshot of the catalog advertised by the selected Node. Null means the
     /// directory response predates the catalog field and its hosted maps are unknown.</summary>
     public string[]? AdvertisedMapKeys => Volatile.Read(ref _advertisedMapKeys)?.ToArray();
+    public ContentIdentity[]? AdvertisedMapCatalog => Volatile.Read(ref _advertisedCatalog)?.ToArray();
+    public long MapCatalogRevision => Interlocked.Read(ref _mapCatalogRevision);
+    public string? MapCatalogHash => Volatile.Read(ref _mapCatalogHash);
+    public bool CatalogReady => Volatile.Read(ref _advertisedCatalog) != null;
     private int _pendingSends;
     private int _disposed;
     private readonly TaskCompletionSource _sendsDrained = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -86,6 +95,8 @@ public sealed class NodeControlClient : IAsyncDisposable
     }
     private async Task OpenAsync(Guid nodeId, string endpoint, string authorization, CancellationToken cancel)
     {
+        if (!NodeEndpointContract.TryValidatePublicControlUri(endpoint, out _))
+            throw new ArgumentException("A secure Node control endpoint is required.", nameof(endpoint));
         _nodeId = nodeId; Endpoint = endpoint;
         _socket.Options.SetRequestHeader("Authorization", authorization);
         _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
@@ -211,6 +222,12 @@ public sealed class NodeControlClient : IAsyncDisposable
                     || session.ResumeToken is not { Length: 43 } || !session.ResumeToken.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_')
                     || Session != null || (_resumingSession.HasValue && session.SessionId != _resumingSession.Value)) throw new JsonException("Unexpected Node identity.");
                 Publish(state => state with { Session = session }); _greeting.TrySetResult(); break;
+            case "node.catalog.page":
+                var catalogPage = value.Payload.Deserialize(NodeJsonContext.Default.NodeCatalogPage)
+                    ?? throw new JsonException("Missing Node catalog page.");
+                try { NodeControlCodec.ValidateEventPayload(catalogPage); }
+                catch (ArgumentException ex) { throw new JsonException("Invalid Node catalog page.", ex); }
+                break;
             case "lobby.snapshot":
                 var lobby = value.Payload.Deserialize(NodeJsonContext.Default.LobbySnapshot) ?? throw new JsonException("Missing lobby.");
                 try { NodeControlCodec.ValidateEventPayload(lobby); }
@@ -256,7 +273,18 @@ public sealed class NodeControlClient : IAsyncDisposable
                 Publish(state => state with { Lobbies = list }); break;
             case "lobby.left":
                 var left = value.Payload.Deserialize(NodeJsonContext.Default.LobbyLeft);
-                if (left?.LobbyId == Lobby?.LobbyId) Publish(state => state with { Lobby = null, Round = null, Handoff = null, MatchEnded = false, LastLobbyMatchId = null, Error = null });
+                if (left?.LobbyId == Lobby?.LobbyId) Publish(state => state with
+                {
+                    Lobby = null,
+                    Round = null,
+                    Handoff = null,
+                    MatchEnded = false,
+                    JoinedMatchId = null,
+                    JoinedCompletion = null,
+                    JoinedCompletionSummary = null,
+                    LastLobbyMatchId = null,
+                    Error = null
+                });
                 break;
             case "match.handoff":
                 var handoff = value.Payload.Deserialize(NodeJsonContext.Default.NodeMatchHandoff) ?? throw new JsonException("Missing match handoff.");
@@ -347,6 +375,92 @@ public sealed class NodeControlClient : IAsyncDisposable
             throw new ArgumentException("The Node advertised an invalid map catalog.", nameof(mapKeys));
         Volatile.Write(ref _advertisedMapKeys, mapKeys?.ToArray());
     }
+
+    internal void SetAdvertisedCatalog(ContentIdentity[]? catalog, long revision = 0, string? hash = null)
+    {
+        if (catalog is not null)
+        {
+            if (catalog.Length > 256 || catalog.Any(identity => identity is null))
+                throw new ArgumentException("The Node advertised an invalid map catalog.", nameof(catalog));
+            foreach (ContentIdentity identity in catalog) NodeControlCodec.ValidateEventPayload(
+                new NodeCatalogPage(Math.Max(1, revision), 0, 1, catalog.Length,
+                    hash ?? new string('0', 64), new[] { identity }.ToImmutableArray()));
+        }
+        Volatile.Write(ref _advertisedCatalog, catalog?.ToArray());
+        Interlocked.Exchange(ref _mapCatalogRevision, revision);
+        Volatile.Write(ref _mapCatalogHash, hash);
+        Volatile.Write(ref _advertisedMapKeys, catalog?.Select(value => value.MapKey).ToArray());
+    }
+
+    /// <summary>Fetches a complete revision-pinned catalog before publishing it.
+    /// Any incomplete, duplicated, or changed page leaves the previous validated
+    /// catalog untouched.</summary>
+    internal async Task RequestCatalogAsync(long revision, int totalEntries, string? expectedHash,
+        CancellationToken cancel = default)
+    {
+        if (revision <= 0 || totalEntries is < 0 or > 256
+            || expectedHash is { Length: > 0 } && (expectedHash.Length != 64
+                || !expectedHash.All(char.IsAsciiHexDigit)))
+            throw new ArgumentException("The Node advertised invalid catalog metadata.");
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancel, _stop.Token);
+        deadline.CancelAfter(TimeSpan.FromSeconds(15));
+        var pages = new List<NodeCatalogPage>();
+        int? pageCount = null;
+        try
+        {
+            for (int page = 0; ; page++)
+            {
+                NodeControlEvent response = await SendAndWaitAsync("node.catalog",
+                    new NodeCatalogRequest(revision, page, 8), deadline.Token).ConfigureAwait(false);
+                if (response.Type == "error")
+                {
+                    NodeControlError error = response.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)
+                        ?? throw new JsonException("Missing Node catalog error.");
+                    throw new InvalidOperationException($"Node catalog request failed: {error.Code}.");
+                }
+                if (response.Type != "node.catalog.page")
+                    throw new JsonException("Unexpected Node catalog response.");
+                NodeCatalogPage received = response.Payload.Deserialize(NodeJsonContext.Default.NodeCatalogPage)
+                    ?? throw new JsonException("Missing Node catalog page.");
+                ValidateCatalogPage(received, revision, totalEntries, expectedHash, page, ref pageCount);
+                pages.Add(received);
+                if (page + 1 >= pageCount!.Value) break;
+            }
+
+            var entries = pages.SelectMany(value => value.Entries).ToArray();
+            if (entries.Length != totalEntries
+                || entries.Select(value => value.MapKey).Distinct(StringComparer.Ordinal).Count() != entries.Length)
+                throw new JsonException("Node catalog is incomplete or contains duplicate maps.");
+            ContentIdentity[] ordered = entries.OrderBy(value => value.MapKey, StringComparer.Ordinal).ToArray();
+            string hash = pages[0].CatalogHash.ToLowerInvariant();
+            SetAdvertisedCatalog(ordered, revision, hash);
+        }
+        catch
+        {
+            // No write occurs until every page has passed validation. Keep any
+            // previous catalog for callers that can continue using it.
+            throw;
+        }
+    }
+
+    private static void ValidateCatalogPage(NodeCatalogPage page, long revision, int totalEntries,
+        string? expectedHash, int requestedPage, ref int? pageCount)
+    {
+        if (page.Revision != revision || page.TotalEntries != totalEntries || page.Page != requestedPage
+            || page.CatalogHash is not { Length: 64 } || !page.CatalogHash.All(char.IsAsciiHexDigit)
+            || expectedHash is { Length: > 0 } && !string.Equals(page.CatalogHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+            throw new JsonException("Node catalog page revision or identity changed.");
+        pageCount ??= page.PageCount;
+        if (page.PageCount != pageCount.Value || page.PageCount is < 1 or > 32
+            || page.Page >= page.PageCount || page.Entries.IsDefault || page.Entries.Length > 8)
+            throw new JsonException("Node catalog page bounds are invalid.");
+        int expectedEntries = page.Page == page.PageCount - 1
+            ? totalEntries - (page.PageCount - 1) * 8 : 8;
+        if (expectedEntries < 0 || page.Entries.Length != expectedEntries)
+            throw new JsonException("Node catalog page is incomplete.");
+        if (page.Entries.Select(value => value.MapKey).Distinct(StringComparer.Ordinal).Count() != page.Entries.Length)
+            throw new JsonException("Node catalog page contains duplicate maps.");
+    }
     private void NotifyChanged()
     {
         if (Changed != null) foreach (Action handler in Changed.GetInvocationList())
@@ -379,20 +493,25 @@ public static class NodeSessions
     public static event Action<NodeControlClient?>? CurrentChanged;
 
     public static Task<NodeControlClient> ConnectAsync(AccountSession account, Guid nodeId, CancellationToken cancel = default)
-        => ConnectAsyncCore(account, nodeId, null, cancel);
+        => ConnectAsyncCore(account, nodeId, cancel);
 
     public static Task<NodeControlClient> ConnectAsync(AccountSession account, NodeListing node,
         CancellationToken cancel = default)
     {
         ArgumentNullException.ThrowIfNull(node);
-        string[]? mapKeys = node.MapKeys?.ToArray();
-        if (!AccountSession.ValidMapKeys(mapKeys))
-            throw new InvalidOperationException("The Node advertised an invalid map catalog.");
-        return ConnectAsyncCore(account, node.NodeId, mapKeys, cancel);
+        if (node.MapCatalogRevision < 0 || node.MapCount is < 0 or > 256
+            || node.MapCatalogRevision == 0 && node.MapCount != 0
+            || node.MapCatalogHash is { Length: > 0 } hash && (hash.Length != 64 || !hash.All(char.IsAsciiHexDigit)))
+            throw new InvalidOperationException("The Node advertised invalid catalog metadata.");
+        return ConnectAsyncCore(account, node, cancel);
     }
 
     private static async Task<NodeControlClient> ConnectAsyncCore(AccountSession account, Guid nodeId,
-        string[]? mapKeys, CancellationToken cancel)
+        CancellationToken cancel)
+        => await ConnectAsyncCore(account, new NodeListing(nodeId, "", "", "", 0, "", "", 1, 0, 0, 0, "", default), cancel).ConfigureAwait(false);
+
+    private static async Task<NodeControlClient> ConnectAsyncCore(AccountSession account, NodeListing node,
+        CancellationToken cancel)
     {
         ArgumentNullException.ThrowIfNull(account);
         await Transition.WaitAsync(cancel).ConfigureAwait(false);
@@ -407,11 +526,13 @@ public static class NodeSessions
             var next = new NodeControlClient();
             try
             {
-                next.SetAdvertisedMapKeys(mapKeys);
                 CancellationToken transitionToken = transitionCancellation.Token;
-                await next.ConnectAsync(await GetAdmissionAsync(account, nodeId, transitionToken).ConfigureAwait(false),
+                await next.ConnectAsync(await GetAdmissionAsync(account, node.NodeId, transitionToken).ConfigureAwait(false),
                         transitionToken)
                     .ConfigureAwait(false);
+                if (node.MapCatalogRevision > 0)
+                    await next.RequestCatalogAsync(node.MapCatalogRevision, node.MapCount, node.MapCatalogHash,
+                        transitionToken).ConfigureAwait(false);
                 ReplaceCurrent(next);
                 return next;
             }
@@ -443,7 +564,10 @@ public static class NodeSessions
             var next = new NodeControlClient();
             try
             {
-                next.SetAdvertisedMapKeys(previous.AdvertisedMapKeys);
+                next.SetAdvertisedCatalog(previous.AdvertisedMapCatalog, previous.MapCatalogRevision,
+                    previous.MapCatalogHash);
+                if (previous.AdvertisedMapCatalog == null)
+                    next.SetAdvertisedMapKeys(previous.AdvertisedMapKeys);
                 await next.ResumeAsync(previous, transitionCancellation.Token).ConfigureAwait(false);
                 ReplaceCurrent(next);
                 await previous.DisposeAsync().ConfigureAwait(false);

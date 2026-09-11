@@ -1,7 +1,9 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -24,6 +26,8 @@ internal static class PerformanceBaselineCheck
     private const int WarmupIterations = 32;
     private const int SampleCount = 4096;
     private const int OperationsPerSample = 128;
+    private const int SelfTestSampleCount = 32;
+    private const int SelfTestOperationsPerSample = 32;
     private static readonly double NanosecondsPerTick = 1_000_000_000.0 / Stopwatch.Frequency;
     private static readonly SnapshotPlayer[] EmptyPlayers = Array.Empty<SnapshotPlayer>();
     private static readonly IPEndPoint Endpoint = new(IPAddress.Loopback, 50000);
@@ -76,13 +80,17 @@ internal static class PerformanceBaselineCheck
         try
         {
         long suiteStart = Stopwatch.GetTimestamp();
-        var scenarios = new List<PerformanceScenario>(11)
+        var scenarios = new List<PerformanceScenario>(15)
         {
             RunSafe("SnapshotPacket.Write", MeasureSnapshotWrite),
             RunSafe("LagCompensationPolicy.ResolveTick", MeasureLagCompensationPolicy),
             RunSafe("LagCompensationHistory.TryGet", MeasureLagCompensationHistory),
             RunSafe("ServerInputStream.ReceiveTake", MeasureServerInputStream),
             RunSafe("ReliableChannel.TryGetDue.MarkSent", MeasureReliableDue),
+            RunSafe("ReliableChannel.TryEnqueue", () => MeasureReliableEnqueue()),
+            RunSafe("ReliableEventPacket.Encode", () => MeasureReliableEventEncode()),
+            RunSafe("NetClient.EventReceiveQueue", () => MeasureNetClientEventReceiveQueue()),
+            RunSafe("NetClient.CombatReceiveQueue", () => MeasureNetClientCombatReceiveQueue()),
             RunSafe("MatchDatagramTransport.EnqueueFlush", MeasureMatchTransport),
             RunSafe("ServerCombat.CaptureShot", MeasureServerCombatShot),
             RunSafe("DynamicCollisionHistory.Record", MeasureDynamicCollisionHistoryRecord),
@@ -136,6 +144,30 @@ internal static class PerformanceBaselineCheck
         return scenarios.Exists(static scenario => scenario.Status == "gap") ? 1 : 0;
         }
         finally { content?.Dispose(); }
+    }
+
+    /// <summary>
+    /// Short operator/CI entry point for the four N12-H allocation paths. The
+    /// full performance report remains available through --performance-baseline;
+    /// this check deliberately does not change any channel or codec behavior.
+    /// </summary>
+    public static int AllocationSelfTest()
+    {
+        var scenarios = new[]
+        {
+            RunSafe("ReliableChannel.TryEnqueue", () => MeasureReliableEnqueue(SelfTestSampleCount, SelfTestOperationsPerSample)),
+            RunSafe("ReliableEventPacket.Encode", () => MeasureReliableEventEncode(SelfTestSampleCount, SelfTestOperationsPerSample)),
+            RunSafe("NetClient.EventReceiveQueue", () => MeasureNetClientEventReceiveQueue(SelfTestSampleCount, SelfTestOperationsPerSample)),
+            RunSafe("NetClient.CombatReceiveQueue", () => MeasureNetClientCombatReceiveQueue(SelfTestSampleCount, SelfTestOperationsPerSample))
+        };
+        bool passed = scenarios.All(static value => value.Status == "ok"
+            && value.Iterations > 0
+            && Double.IsFinite(value.NanosecondsPerOperation)
+            && value.AllocatedBytes >= 0);
+        Console.WriteLine($"Reliable allocation self-test: {(passed ? "PASS" : "FAIL")} "
+            + String.Join(", ", scenarios.Select(static value =>
+                $"{value.Name}={value.NanosecondsPerOperation:0.0}ns/{value.AllocatedBytesPerOperation:0.0}B")));
+        return passed ? 0 : 1;
     }
 
     private static PerformanceScenario RunSafe(string name, Func<PerformanceScenario> scenario)
@@ -218,6 +250,85 @@ internal static class PerformanceBaselineCheck
             }
             now += 0.2;
         });
+    }
+
+    private static PerformanceScenario MeasureReliableEnqueue(
+        int sampleCount = SampleCount, int operationsPerSample = OperationsPerSample)
+    {
+        var channel = new ReliableChannel();
+        byte[] payload = [1, 2, 3, 4];
+        uint packetSequence = 1;
+        double now = 1;
+        return Measure("ReliableChannel.TryEnqueue", "bounded reliable admission and payload ownership copy", () =>
+        {
+            if (!channel.TryEnqueue(ReliableEventType.Combat, payload, out uint eventId))
+                throw new InvalidOperationException("ReliableChannel did not admit the allocation baseline event.");
+            if (!channel.TryGetDue(now, out uint dueId, out _, out _))
+                throw new InvalidOperationException("ReliableChannel did not expose the allocation baseline event.");
+            channel.MarkSent(dueId, packetSequence, now);
+            channel.Acknowledge(packetSequence, 0);
+            _sink ^= (int)(eventId ^ dueId);
+            packetSequence++;
+            now += 0.001;
+        }, sampleCount: sampleCount, operationsPerSample: operationsPerSample);
+    }
+
+    private static PerformanceScenario MeasureReliableEventEncode(
+        int sampleCount = SampleCount, int operationsPerSample = OperationsPerSample)
+    {
+        byte[] payload = [1, 2, 3, 4, 5, 6, 7, 8];
+        byte[] destination = new byte[ReliableEventPacket.HeaderSize + payload.Length];
+        uint eventId = 1;
+        return Measure("ReliableEventPacket.Encode", "reliable application event wire encoding", () =>
+        {
+            _sink ^= ReliableEventPacket.Write(destination, eventId++, ReliableEventType.TimingProfileApplied, payload);
+        }, allocationBudgetBytesPerOperation: 0,
+            sampleCount: sampleCount, operationsPerSample: operationsPerSample);
+    }
+
+    private static PerformanceScenario MeasureNetClientEventReceiveQueue(
+        int sampleCount = SampleCount, int operationsPerSample = OperationsPerSample)
+    {
+        using var fixture = new NetClientQueueFixture();
+        uint eventId = 2;
+        uint sequence = 1;
+        return Measure("NetClient.EventReceiveQueue",
+            "production NetClient application queue: owned payload copy, deferred drain, and duplicate suppression",
+            () =>
+            {
+                fixture.QueueChat(eventId, sequence);
+                if (!fixture.TryDequeueOwnedChat(out NetApplicationEvent message)
+                    || message.Type != ReliableEventType.Chat
+                    || message.Payload.Length != SessionChatPacket.Size
+                    || BinaryPrimitives.ReadUInt64LittleEndian(message.Payload.Span) != NetClientQueueFixture.ChatConnectionId)
+                {
+                    throw new InvalidOperationException($"NetClient did not retain the valid owned chat payload (rejected={fixture.Client.Rejected}, failure={fixture.Client.Failure ?? "none"}, state={fixture.Client.State}, queued={fixture.Client.TryDequeueEvent(out _)}).");
+                }
+                _sink ^= message.Payload.Span[0];
+                eventId++;
+                sequence += 2;
+            }, allocationBudgetBytesPerOperation: null,
+                sampleCount: sampleCount, operationsPerSample: operationsPerSample);
+    }
+
+    private static PerformanceScenario MeasureNetClientCombatReceiveQueue(
+        int sampleCount = SampleCount, int operationsPerSample = OperationsPerSample)
+    {
+        using var fixture = new NetClientQueueFixture();
+        uint eventId = 2;
+        uint sequence = 1;
+        return Measure("NetClient.CombatReceiveQueue",
+            "production NetClient application queue: combat validation, owned payload copy, deferred drain, and duplicate suppression",
+            () =>
+            {
+                fixture.QueueCombat(eventId, sequence);
+                if (!fixture.TryDequeueOwnedCombat(out NetApplicationEvent message))
+                    throw new InvalidOperationException($"NetClient did not retain the valid owned combat payload (rejected={fixture.Client.Rejected}, failure={fixture.Client.Failure ?? "none"}, state={fixture.Client.State}, queued={fixture.Client.TryDequeueEvent(out _)}).");
+                _sink ^= message.Payload.Span[0];
+                eventId++;
+                sequence += 2;
+            }, allocationBudgetBytesPerOperation: null,
+                sampleCount: sampleCount, operationsPerSample: operationsPerSample);
     }
 
     private static PerformanceScenario MeasureServerCombatShot()
@@ -323,12 +434,13 @@ internal static class PerformanceBaselineCheck
     }
 
     private static PerformanceScenario Measure(string name, string workload, Action operation,
-        long? allocationBudgetBytesPerOperation = null)
+        long? allocationBudgetBytesPerOperation = null,
+        int sampleCount = SampleCount, int operationsPerSample = OperationsPerSample)
     {
         for (int warmup = 0; warmup < WarmupIterations; warmup++)
-            for (int iteration = 0; iteration < OperationsPerSample; iteration++) operation();
+            for (int iteration = 0; iteration < operationsPerSample; iteration++) operation();
 
-        var samples = new double[SampleCount];
+        var samples = new double[sampleCount];
 
         // Warm-up includes JIT and one-time data structures. Establish the
         // allocation/collection baseline only after it has completed.
@@ -343,13 +455,13 @@ internal static class PerformanceBaselineCheck
         int measuredSamples = 0;
         try
         {
-            for (int sample = 0; sample < SampleCount; sample++)
+            for (int sample = 0; sample < sampleCount; sample++)
             {
                 long start = Stopwatch.GetTimestamp();
-                for (int iteration = 0; iteration < OperationsPerSample; iteration++) operation();
+                for (int iteration = 0; iteration < operationsPerSample; iteration++) operation();
                 long elapsed = Stopwatch.GetTimestamp() - start;
                 totalTicks += elapsed;
-                samples[measuredSamples++] = elapsed * NanosecondsPerTick / OperationsPerSample;
+                samples[measuredSamples++] = elapsed * NanosecondsPerTick / operationsPerSample;
             }
         }
         catch (Exception ex)
@@ -364,10 +476,10 @@ internal static class PerformanceBaselineCheck
         int gen1After = GC.CollectionCount(1);
         int gen2After = GC.CollectionCount(2);
         long allocated = Math.Max(0, GC.GetAllocatedBytesForCurrentThread() - allocatedBefore);
-        var percentile = new BoundedPercentileSampler(SampleCount);
+        var percentile = new BoundedPercentileSampler(sampleCount);
         for (int i = 0; i < measuredSamples; i++) percentile.Record(samples[i]);
         BoundedPercentileSnapshot summary = percentile.Snapshot();
-        long operations = (long)measuredSamples * OperationsPerSample;
+        long operations = (long)measuredSamples * operationsPerSample;
         double allocatedPerOperation = operations == 0 ? 0 : (double)allocated / operations;
         bool allocationBudgetPassed = allocationBudgetBytesPerOperation is not { } budget
             || allocated <= checked(budget * operations);
@@ -378,7 +490,7 @@ internal static class PerformanceBaselineCheck
             Workload = workload,
             SampleCount = measuredSamples,
             WarmupIterations = WarmupIterations,
-            OperationsPerSample = OperationsPerSample,
+            OperationsPerSample = operationsPerSample,
             Iterations = operations,
             AllocatedBytes = allocated,
             AllocatedBytesPerOperation = allocatedPerOperation,
@@ -541,6 +653,283 @@ internal static class PerformanceBaselineCheck
     private sealed class BaselineEntity : EntityBase
     {
         public BaselineEntity(Scene scene, int id) : base(EntityType.Object, scene) => Id = id;
+    }
+
+    /// <summary>
+    /// Bounded in-memory host transport for N12-H. It keeps the production
+    /// NetClient Poll/Handle/ACK/deferred-queue path intact while making the
+    /// benchmark independent of socket timing and unreachable endpoints.
+    /// </summary>
+    private sealed class InMemoryNetTransport : INetTransport
+    {
+        private const int MaxQueuedPackets = 256;
+        private readonly Queue<ReceivedPacket> _incoming = new();
+        private readonly IPEndPoint _sender;
+        private bool _disposed;
+
+        public InMemoryNetTransport(IPEndPoint sender) => _sender = sender;
+
+        public int LocalPort => 0;
+        public long PacketsDropped { get; private set; }
+        public int QueuedPackets => _incoming.Count;
+        public int HeldIncomingPackets => 0;
+        public int HeldOutgoingPackets => 0;
+        public NetTrafficMetrics Metrics { get; } = new();
+
+        public void EnqueueForPlayback(byte[] data, int length)
+        {
+            if (_disposed || length <= 0 || length > NetConfig.MaxPacketSize || length > data.Length)
+            {
+                Metrics.Reject();
+                return;
+            }
+            if (_incoming.Count == MaxQueuedPackets)
+            {
+                _incoming.Dequeue();
+                PacketsDropped++;
+                Metrics.DropQueued();
+            }
+            _incoming.Enqueue(new ReceivedPacket(_sender, data, length));
+        }
+
+        public IEnumerable<ReceivedPacket> Drain()
+        {
+            while (_incoming.Count > 0)
+                yield return _incoming.Dequeue();
+        }
+
+        public int Drain(Span<ReceivedPacket> destination)
+        {
+            int count = 0;
+            while (count < destination.Length && _incoming.TryDequeue(out ReceivedPacket packet))
+                destination[count++] = packet;
+            return count;
+        }
+
+        public void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram)
+            => SendDatagram(target, datagram, 0);
+
+        public void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram, long extraHoldTicks)
+        {
+            if (_disposed || datagram.Length == 0 || datagram.Length > NetConfig.MaxPacketSize)
+            {
+                Metrics.Reject();
+                return;
+            }
+            // This is the bounded sink: ACKs are consumed here, never sent to
+            // an OS socket, so a valid application send cannot create a
+            // SocketException or contaminate the allocation result.
+            Metrics.Sent(datagram.Length);
+        }
+
+        public void Send(IPEndPoint target, PacketType type, ReadOnlySpan<byte> payload,
+            long extraHoldTicks = 0)
+        {
+            if (payload.Length >= NetConfig.MaxPacketSize)
+            {
+                Metrics.Reject();
+                return;
+            }
+            Span<byte> datagram = stackalloc byte[payload.Length + 1];
+            datagram[0] = (byte)type;
+            payload.CopyTo(datagram[1..]);
+            SendDatagram(target, datagram, extraHoldTicks);
+        }
+
+        public void SetKeepAlive(IPEndPoint? target, ReadOnlySpan<byte> datagram = default) { }
+        public void SetKeepAlives(ReadOnlySpan<NetKeepAlive> entries) { }
+        public void AnswerPingsImmediately() { }
+        public void Dispose()
+        {
+            _disposed = true;
+            _incoming.Clear();
+        }
+    }
+
+    /// <summary>
+    /// A real client-side receive boundary used only by N12-H. It admits one
+    /// valid bootstrap packet, then feeds production NetClient event packets
+    /// through the transport playback boundary. Each operation queues one new
+    /// event and one newer-sequence duplicate; NetClient must copy the payload
+    /// before the source datagram is mutated and must deliver only one event.
+    /// </summary>
+    private sealed class NetClientQueueFixture : IDisposable
+    {
+        public const ulong ChatConnectionId = 0x0102_0304_0506_0708;
+        private const ulong ClientConnectionId = 0x1112_1314_1516_1718;
+        private const ulong ClientNonce = 0x2122_2324_2526_2728;
+        private const uint MatchId = 1;
+        private const uint AcceptedEventId = 1;
+        // The bounded in-memory transport presents the same sender endpoint
+        // to NetClient for admission fencing and consumes production ACKs
+        // without sending them to an unbound Loopback:0 socket.
+        private readonly IPEndPoint _server = new(IPAddress.Loopback, 43000);
+        private readonly byte[] _chatPayload;
+        private readonly byte[] _combatPayload;
+        private readonly byte[] _chatPrimary;
+        private readonly byte[] _chatDuplicate;
+        private readonly byte[] _combatPrimary;
+        private readonly byte[] _combatDuplicate;
+        private bool _disposed;
+
+        public InMemoryNetTransport Transport { get; }
+        public NetClient Client { get; }
+
+        public NetClientQueueFixture()
+        {
+            InMemoryNetTransport? transport = null;
+            NetClient? client = null;
+            try
+            {
+                transport = new InMemoryNetTransport(_server);
+                client = new NetClient(transport, _server, "N12-QUEUE", Hunter.Samus,
+                    nonce: ClientNonce, wireMatchId: MatchId);
+                transport.EnqueueForPlayback(BuildAcceptedDatagram(),
+                    NetHeader.Size + ReliableEventPacket.HeaderSize + JoinAcceptedPacket.Size);
+                client.Poll();
+                if (client.Connection == null || client.Connection.Id != ClientConnectionId)
+                {
+                    throw new InvalidOperationException("NetClient did not accept the valid N12 queue bootstrap.");
+                }
+
+                _chatPayload = BuildChatPayload();
+                _combatPayload = BuildCombatPayload();
+                _chatPrimary = new byte[DatagramSize(_chatPayload.Length)];
+                _chatDuplicate = new byte[_chatPrimary.Length];
+                _combatPrimary = new byte[DatagramSize(_combatPayload.Length)];
+                _combatDuplicate = new byte[_combatPrimary.Length];
+                PrepareEvent(_chatPrimary, _chatPayload, ReliableEventType.Chat, 2, 1);
+                PrepareEvent(_chatDuplicate, _chatPayload, ReliableEventType.Chat, 2, 2);
+                bool headerValid = NetHeader.TryRead(_chatPrimary, out _);
+                bool packetValid = ReliableEventPacket.TryRead(_chatPrimary[NetHeader.Size..], out _,
+                    out ReliableEventType chatType, out ReadOnlySpan<byte> chatBody);
+                bool chatPayloadValid = packetValid && chatType == ReliableEventType.Chat
+                    && chatBody.Length == _chatPayload.Length
+                    && BinaryPrimitives.ReadUInt32LittleEndian(chatBody) == MatchId
+                    && SessionChatPacket.TryRead(chatBody[4..], out _);
+                if (!headerValid || !chatPayloadValid)
+                {
+                    string name = packetValid && chatBody.Length >= 4 + 9 + ChatPacket.MaxNameBytes
+                        ? NetText.Read(chatBody.Slice(4 + 9, ChatPacket.MaxNameBytes)) : "?";
+                    string text = packetValid && chatBody.Length >= 4 + SessionChatPacket.Size
+                        ? NetText.Read(chatBody.Slice(4 + 9 + ChatPacket.MaxNameBytes, ChatPacket.MaxTextBytes)) : "?";
+                    throw new InvalidOperationException($"N12 queue fixture did not build a valid production chat event (header={headerValid}, packet={packetValid}, type={chatType}, body={chatBody.Length}, expected={_chatPayload.Length}, match={(packetValid && chatBody.Length >= 4 ? BinaryPrimitives.ReadUInt32LittleEndian(chatBody) : 0)}, chat={chatPayloadValid}, name='{name}', text='{text}').");
+                }
+                Transport = transport;
+                Client = client;
+            }
+            catch
+            {
+                client?.Dispose();
+                transport?.Dispose();
+                throw;
+            }
+        }
+
+        public void QueueChat(uint eventId, uint sequence)
+        {
+            PrepareEvent(_chatPrimary, _chatPayload, ReliableEventType.Chat, eventId, sequence);
+            PrepareEvent(_chatDuplicate, _chatPayload, ReliableEventType.Chat, eventId, sequence + 1);
+            Transport.EnqueueForPlayback(_chatPrimary, _chatPrimary.Length);
+            Transport.EnqueueForPlayback(_chatDuplicate, _chatDuplicate.Length);
+            Client.Poll();
+            AssertNoSendFailures();
+        }
+
+        public void QueueCombat(uint eventId, uint sequence)
+        {
+            PrepareEvent(_combatPrimary, _combatPayload, ReliableEventType.Combat, eventId, sequence);
+            PrepareEvent(_combatDuplicate, _combatPayload, ReliableEventType.Combat, eventId, sequence + 1);
+            Transport.EnqueueForPlayback(_combatPrimary, _combatPrimary.Length);
+            Transport.EnqueueForPlayback(_combatDuplicate, _combatDuplicate.Length);
+            Client.Poll();
+            AssertNoSendFailures();
+        }
+
+        private void AssertNoSendFailures()
+        {
+            long failures = Transport.Metrics.SendErrors;
+            if (failures != 0)
+                throw new InvalidOperationException($"NetClient queue fixture produced {failures} ACK send failures for bound sink {_server}.");
+        }
+
+        public bool TryDequeueOwnedChat(out NetApplicationEvent message)
+        {
+            // NetClient should have copied payload[4..] into its application
+            // queue. Mutating the source after Poll catches aliasing regressions.
+            _chatPrimary[NetHeader.Size + ReliableEventPacket.HeaderSize + 4] ^= 0x7f;
+            bool present = Client.TryDequeueEvent(out message);
+            bool valid = present && message.Type == ReliableEventType.Chat
+                && message.Payload.Length == SessionChatPacket.Size
+                && BinaryPrimitives.ReadUInt64LittleEndian(message.Payload.Span) == ChatConnectionId;
+            return valid && !Client.TryDequeueEvent(out _);
+        }
+
+        public bool TryDequeueOwnedCombat(out NetApplicationEvent message)
+        {
+            _combatPrimary[NetHeader.Size + ReliableEventPacket.HeaderSize + 4] ^= 0x7f;
+            bool present = Client.TryDequeueEvent(out message);
+            Span<CombatEvent> events = stackalloc CombatEvent[CombatEventBatch.MaxCount];
+            bool valid = present && message.Type == ReliableEventType.Combat
+                && CombatEventBatch.TryRead(message.Payload.Span, events, out int count) && count == 1;
+            return valid && !Client.TryDequeueEvent(out _);
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            try { Client.Dispose(); }
+            finally { Transport.Dispose(); }
+        }
+
+        private byte[] BuildAcceptedDatagram()
+        {
+            byte[] datagram = new byte[DatagramSize(JoinAcceptedPacket.Size)];
+            new NetHeader(NetMessageType.Accepted, NetHeaderFlags.None,
+                ClientConnectionId, 0, 0, 0).Write(datagram);
+            Span<byte> body = datagram.AsSpan(NetHeader.Size);
+            Span<byte> accepted = body[ReliableEventPacket.HeaderSize..];
+            new JoinAcceptedPacket(ClientNonce, 0, MatchId, 1, 60,
+                GameMode.Battle, "MP1 SANCTORUS").Write(accepted);
+            ReliableEventPacket.Write(body, AcceptedEventId, ReliableEventType.Welcome, accepted);
+            return datagram;
+        }
+
+        private byte[] BuildChatPayload()
+        {
+            byte[] payload = new byte[4 + SessionChatPacket.Size];
+            BinaryPrimitives.WriteUInt32LittleEndian(payload, MatchId);
+            new SessionChatPacket(ChatConnectionId, 0, "N12", "queue baseline").Write(payload.AsSpan(4));
+            return payload;
+        }
+
+        private static byte[] BuildCombatPayload()
+        {
+            byte[] payload = new byte[CombatEventBatch.MaxSize];
+            Span<CombatEvent> source = stackalloc CombatEvent[1];
+            source[0] = new CombatEvent(1, 1, 1, CombatEventKind.Shot, 0,
+                CombatEventFlags.None, new CombatActor(0, ChatConnectionId, 1),
+                CombatActor.None, 0, 0, Vector3.Zero, -Vector3.UnitZ, 0, 0, 0);
+            int length = CombatEventBatch.Write(payload, source);
+            byte[] result = new byte[4 + length];
+            BinaryPrimitives.WriteUInt32LittleEndian(result, MatchId);
+            payload.AsSpan(0, length).CopyTo(result.AsSpan(4));
+            return result;
+        }
+
+        private static int DatagramSize(int payloadLength)
+            => NetHeader.Size + ReliableEventPacket.HeaderSize + payloadLength;
+
+        private static void PrepareEvent(byte[] datagram, byte[] payload,
+            ReliableEventType type, uint eventId, uint sequence)
+        {
+            new NetHeader(NetMessageType.Event, NetHeaderFlags.None,
+                ClientConnectionId, sequence, 0, 0).Write(datagram);
+            int length = ReliableEventPacket.Write(datagram.AsSpan(NetHeader.Size), eventId, type, payload);
+            if (length + NetHeader.Size != datagram.Length)
+                throw new InvalidOperationException("N12 queue datagram length drifted from its prebuilt payload.");
+        }
     }
 
     private sealed class BaselineTransport : INetTransport

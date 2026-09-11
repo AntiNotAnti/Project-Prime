@@ -13,8 +13,11 @@ if (mode == "network-flags"
         || Get("--worker-global-network-budget-enabled") != "False"
         || Get("--max-datagrams-per-pump") != "256"
         || Get("--reliable-adaptive-rto") != "True")) return 32;
+if (mode == "ack-coalescing" && Get("--ack-coalescing") != "True") return 33;
 var activeMatches = new Dictionary<MatchId, MatchSpec>();
-if (mode == "environment" && Environment.GetEnvironmentVariable("PRIME_NODE_DIRECTORY_SECRET") != null) return 29;
+if (mode == "environment"
+    && (Environment.GetEnvironmentVariable("PRIME_NODE_DIRECTORY_SECRET") != null
+        || Environment.GetEnvironmentVariable("PRIME_DATA_DIRECTORY") != Get("--expected-data-directory"))) return 29;
 if (mode == "exit") return 17;
 if (mode == "hang") { await Task.Delay(60000); return 0; }
 var node = new NodeId(Guid.Parse(Get("--node-id")));

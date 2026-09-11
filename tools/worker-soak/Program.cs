@@ -169,7 +169,9 @@ internal static class Program
                 {
                     case MatchReady ready when running.TryGetValue(ready.Placement.MatchId, out var readyActive):
                         readyActive.Placement = ready.Placement;
-                        readyActive.Actor ??= new(readyActive.Spec, ready.Placement, signer);
+                        if (readyActive.Actor == null)
+                            readyActive.Actor = await SoakClientActor.CreateAsync(readyActive.Spec, ready.Placement,
+                                signer, scheduler, readyActive.Round.Participants, end.Token);
                         break;
                     case MatchCompleted result:
                         if (!running.TryGetValue(result.Summary.MatchId, out var completedActive))
@@ -277,11 +279,13 @@ internal static class Program
                 catch (WorkerPlacementException) { break; }
                 var host = hosts.Single(host => host.Worker.Id == round.Placement.WorkerId);
                 var active = new Running(host, round.Spec) { Round = round, Placement = round.Placement,
-                    Actor = new(round.Spec, round.Placement, signer), StartedAt = elapsed.Elapsed.TotalSeconds,
+                    StartedAt = elapsed.Elapsed.TotalSeconds,
                     RematchEligible = scenario.RematchesEnabled && (created + 1) % scenario.RematchEvery == 0,
                     ReconnectEarliestAt = elapsed.Elapsed.TotalSeconds + Math.Min(
                         SoakRecoveryPolicy.PreferredReconnectStartSeconds,
                         Math.Max(1, scenario.RoundSeconds / 5.0)) };
+                active.Actor = await SoakClientActor.CreateAsync(round.Spec, round.Placement,
+                    signer, scheduler, round.Participants, end.Token);
                 running.Add(round.Spec.MatchId, active); host.Created++; created++;
                 log.Write(new { kind = "lobby_started", round.Spec.MatchId, round.LobbyId, round.History });
             }
@@ -320,7 +324,7 @@ internal static class Program
 
                     SoakReconnectReadiness readiness = actor.ReconnectReadiness();
                     if (!readiness.Ready) continue;
-                    SoakReconnectBatch batch = actor.Reconnect(readiness.RecoveryDeadlineSeconds);
+                    SoakReconnectBatch batch = await actor.ReconnectAsync(readiness.RecoveryDeadlineSeconds, end.Token);
                     active.ReconnectInjected = true;
                     reconnectAttempts += batch.Attempts;
                     log.Write(new { kind = "reconnect_injected", match = active.Spec.MatchId,
@@ -499,9 +503,10 @@ internal static class Program
                 var next = new Running(host, nextRound.Spec)
                 {
                     Round = nextRound, Placement = nextRound.Placement,
-                    Actor = new(nextRound.Spec, nextRound.Placement, signer),
                     StartedAt = elapsed.Elapsed.TotalSeconds, RematchEligible = false
                 };
+                next.Actor = await SoakClientActor.CreateAsync(nextRound.Spec, nextRound.Placement,
+                    signer, scheduler, nextRound.Participants, end.Token);
                 running.Remove(active.Spec.MatchId);
                 running.Add(next.Spec.MatchId, next); host.Created++; created++;
                 next.IsRematch = true; rematchPlaced++;

@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.Accounts;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Network;
 
@@ -54,9 +55,7 @@ internal static class NodeLatencyProbe
 
     internal static Uri HealthUri(NodeListing node)
     {
-        if (!Uri.TryCreate(node.PublicControlUri, UriKind.Absolute, out Uri? control)
-            || control.Scheme != "wss" || control.UserInfo.Length != 0
-            || control.Query.Length != 0 || control.Fragment.Length != 0)
+        if (!NodeEndpointContract.TryValidatePublicControlUri(node.PublicControlUri, out Uri control))
             throw new ArgumentException("Node control URI is invalid.", nameof(node));
         return new UriBuilder(control) { Scheme = "https", Path = "/health", Query = "", Fragment = "" }.Uri;
     }

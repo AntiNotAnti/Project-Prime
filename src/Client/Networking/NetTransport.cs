@@ -4,7 +4,7 @@ using System.Net;
 namespace MphRead.Mods.Network
 {
     /// <summary>Client transport façade; platform implementation is private to each executable.</summary>
-    public sealed class NetTransport : INetTransport
+    public sealed class NetTransport : INetTransport, IAcceptedNetDatagramSink
     {
         private readonly UdpTransport _transport;
         public NetTransport(int port) => _transport = new UdpTransport(port);
@@ -23,6 +23,9 @@ namespace MphRead.Mods.Network
         public void SetKeepAlives(ReadOnlySpan<NetKeepAlive> entries) => _transport.SetKeepAlives(entries);
         public void SetKeepAliveDescriptors(ReadOnlySpan<NetKeepAliveDescriptor> entries)
             => _transport.SetKeepAliveDescriptors(entries);
+        public void SetNetworkWake(Action? signal) => _transport.SetNetworkWake(signal);
+        public bool HasReadyNetworkWork => _transport.HasReadyNetworkWork;
+        public long NextNetworkDeadlineTimestamp => _transport.NextNetworkDeadlineTimestamp;
         public void AnswerPingsImmediately() => _transport.AnswerPingsImmediately();
         public IEnumerable<ReceivedPacket> Drain() => _transport.Drain();
         public void EnqueueForPlayback(byte[] data, int length) => _transport.EnqueueForPlayback(data, length);
@@ -31,6 +34,9 @@ namespace MphRead.Mods.Network
         void INetDatagramSink.SendDatagram(IPEndPoint endpoint, ReadOnlySpan<byte> datagram) => _transport.SendDatagram(endpoint, datagram);
         public void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram, long extraHoldTicks = 0)
             => _transport.SendDatagram(target, datagram, extraHoldTicks);
+        public bool TrySendDatagram(IPEndPoint target, ReadOnlySpan<byte> datagram,
+            NetDeliveryClass deliveryClass)
+            => _transport.TrySendDatagram(target, datagram, deliveryClass);
         public void Dispose() => _transport.Dispose();
     }
 }

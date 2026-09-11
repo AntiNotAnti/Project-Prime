@@ -13,9 +13,11 @@ namespace MphRead.Mods.Network
     /// </summary>
     public sealed class NetClient : IDisposable
     {
-        private readonly NetTransport _transport;
+        private readonly INetTransport _transport;
         private readonly IPEndPoint _server;
         private readonly bool _udpAuthenticationEnabled;
+        private readonly bool _ackCoalescingEnabled;
+        private uint _pollTick;
         private byte[]? _admissionKey;
         private JoinPacket _join;
         private double _joinDue;
@@ -67,6 +69,7 @@ namespace MphRead.Mods.Network
         public bool IsObserver => _join.Observer;
         public Guid AdmissionId => _join.AdmissionId;
         public bool UdpAuthenticationEnabled => _udpAuthenticationEnabled;
+        public bool AckCoalescingEnabled => _ackCoalescingEnabled;
         public NetConnection? Connection { get; private set; }
         public JoinAcceptedPacket Accepted { get; private set; }
         public NetClock Clock { get; private set; } = new();
@@ -75,9 +78,10 @@ namespace MphRead.Mods.Network
         public NetConnectionState State => IsDisconnecting ? NetConnectionState.Disconnecting : Connection?.State ?? (Failure == null
             ? NetConnectionState.Connecting : NetConnectionState.Disconnecting);
 
-        public NetClient(NetTransport transport, IPEndPoint server, string name, Hunter hunter, ulong? nonce = null,
+        public NetClient(INetTransport transport, IPEndPoint server, string name, Hunter hunter, ulong? nonce = null,
             string ticket = "", bool observer = false, uint wireMatchId = 0, Guid admissionId = default,
-            byte[]? authKey = null, bool udpAuthenticationEnabled = false)
+            byte[]? authKey = null, bool udpAuthenticationEnabled = false,
+            bool ackCoalescingEnabled = false)
         {
             _transport = transport;
             _server = server;
@@ -87,6 +91,7 @@ namespace MphRead.Mods.Network
             if (!udpAuthenticationEnabled && authKey is { Length: > 0 })
                 throw new ArgumentException("A UDP key requires the explicit authenticated mode.");
             _udpAuthenticationEnabled = udpAuthenticationEnabled;
+            _ackCoalescingEnabled = ackCoalescingEnabled;
             _admissionKey = authKey is null ? null : (byte[])authKey.Clone();
             if (nonce == 0 || (!string.IsNullOrEmpty(ticket) && (!nonce.HasValue || !JoinPacket.ValidTicketText(ticket))))
                 throw new ArgumentException("An authenticated join requires its ticket's nonzero nonce.");
@@ -128,12 +133,14 @@ namespace MphRead.Mods.Network
             _joinStarted = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
             _joinDue = _pingDue = 0;
             _pingSent = 0;
+            _pollTick = 0;
             ClearMatchState();
             _disconnectDeadline = 0;
         }
 
         public void Poll()
         {
+            _pollTick = unchecked(_pollTick + 1);
             long timestamp = Stopwatch.GetTimestamp();
             double now = timestamp / (double)Stopwatch.Frequency;
             foreach (ReceivedPacket packet in _transport.Drain())
@@ -145,6 +152,7 @@ namespace MphRead.Mods.Network
             }
             if (Failure != null)
             {
+                Connection?.FlushPendingAck(_transport, _pollTick, now, force: true);
                 return;
             }
             NetConnection? connection = Connection;
@@ -186,7 +194,12 @@ namespace MphRead.Mods.Network
             connection.FlushReliable(_transport, now);
             if (IsDisconnecting)
             {
-                if (connection.Reliable.PendingCount == 0 || now >= _disconnectDeadline)
+                bool retiring = connection.Reliable.PendingCount == 0 || now >= _disconnectDeadline;
+                // Retire only after one final bounded ACK attempt. A pending
+                // generation must not disappear merely because the reliable
+                // disconnect drain reached its terminal branch.
+                connection.FlushPendingAck(_transport, _pollTick, now, force: retiring);
+                if (retiring)
                 {
                     connection.Disconnect();
                     _transport.SetKeepAlive(null);
@@ -201,6 +214,7 @@ namespace MphRead.Mods.Network
                 connection.Send(_transport, NetMessageType.Ping, ping);
                 _pingDue = now + 1;
             }
+            connection.FlushPendingAck(_transport, _pollTick, now);
         }
 
         private bool Handle(in ReceivedPacket packet, long timestamp, double now)
@@ -270,7 +284,7 @@ namespace MphRead.Mods.Network
                 }
                 connection = new NetConnection(header.ConnectionId, _server, bootstrapAccepted.MatchId, now,
                     _udpAuthenticationEnabled ? _admissionKey! : ReadOnlySpan<byte>.Empty,
-                    NetAuthDirection.ClientToServer);
+                    NetAuthDirection.ClientToServer, ackCoalescingEnabled: _ackCoalescingEnabled);
                 if (_udpAuthenticationEnabled)
                 {
                     // Re-obtain the connection-owned opaque token so the
@@ -355,7 +369,18 @@ namespace MphRead.Mods.Network
             long packetAt = packet.ReceivedAt > 0 ? packet.ReceivedAt : processedAt;
             if (header.Type == NetMessageType.Event)
             {
-                connection.Send(_transport, NetMessageType.Ack);
+                if (_ackCoalescingEnabled)
+                {
+                    // Request after full body validation and receive-window
+                    // admission. Reliable duplicates are intentionally still
+                    // eligible here so a lost ACK can be renewed without a
+                    // second application delivery.
+                    connection.RequestAck(now);
+                }
+                else
+                {
+                    connection.Send(_transport, NetMessageType.Ack);
+                }
                 if (connection.Reliable.Receive(eventId))
                 {
                     if (eventType == ReliableEventType.ObserverTransition && !_join.Observer)
@@ -413,7 +438,14 @@ namespace MphRead.Mods.Network
             else if (header.Type == NetMessageType.Accepted)
             {
                 connection.Reliable.Receive(eventId);
-                connection.Send(_transport, NetMessageType.Ack);
+                if (_ackCoalescingEnabled)
+                {
+                    connection.RequestAck(now);
+                }
+                else
+                {
+                    connection.Send(_transport, NetMessageType.Ack);
+                }
             }
             else if (header.Type == NetMessageType.Pong && result != ReceiveResult.Duplicate)
             {
@@ -701,6 +733,11 @@ namespace MphRead.Mods.Network
         private void Fail(string reason)
         {
             Failure = reason;
+            // A failure can be raised while handling the reliable packet that
+            // requested an ACK. Flush that final generation while the
+            // authentication key is still live, then retire the connection.
+            Connection?.FlushPendingAck(_transport, _pollTick,
+                Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency, force: true);
             Connection?.Disconnect();
             _transport.SetKeepAlive(null);
         }

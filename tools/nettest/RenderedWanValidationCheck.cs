@@ -890,6 +890,9 @@ internal static partial class RenderedWanValidationCheck
         private int _simulationFrames;
         private long _nextSimulationTimestamp;
         private int _headshotPlayingFrames;
+        private uint _headshotTargetLife;
+        private uint _headshotTargetLifeStartFrame;
+        private bool _headshotTargetLifeKnown;
         private int _submittedFrames;
         private int _acknowledgedFrames;
         private int _captureFailures;
@@ -1019,13 +1022,12 @@ internal static partial class RenderedWanValidationCheck
 
         private void AdvanceReconnect()
         {
-            // The headshot arm first needs one uninterrupted correlated-shot
-            // population. Exercise the same-session reconnect after that
-            // population has completed so connection rotation cannot turn a
-            // valid pre-reconnect reliable echo into a false scenario setup
-            // failure. General validation keeps its configured mid-run arm.
+            // Reconnect at the configured active-scenario point for both
+            // scenarios. Headshot observations continue across the handoff;
+            // the command/life-fenced ledger keeps pre- and post-reconnect
+            // shots separate, so a fresh connection cannot adopt stale facts.
             bool reconnectDue = _options.Scenario == RenderedWanScenario.Headshot
-                ? _headshotPlayingFrames >= _options.Seconds * 60
+                ? _headshotPlayingFrames >= _options.ReconnectAt * 60
                 : _wall.Elapsed.TotalSeconds >= _options.ReconnectAt;
             if (_rejoinTask == null && reconnectDue
                 && _play.Client.State == NetConnectionState.Playing)
@@ -1049,7 +1051,7 @@ internal static partial class RenderedWanValidationCheck
                     _rejoinTask.Exception?.GetBaseException());
             if (!_rejoinTask.IsCompletedSuccessfully) return;
             NodeMatchHandoff handoff = _rejoinTask.Result;
-            _play.Client.Reconnect(handoff.Nonce, handoff.Ticket);
+            ApplyReconnectHandoff(_play.Client, handoff);
             _reconnectApplied = true;
         }
 
@@ -1150,12 +1152,16 @@ internal static partial class RenderedWanValidationCheck
                 player.EquipInfo.InfiniteAmmo = true;
                 if (!player.EquipInfo.Zoomed)
                     pressed |= InputButtons.Zoom;
-                // The edge follows the production Imperialist MP cooldown
-                // (60 simulation ticks). The held window keeps the input
-                // legal across the client command sample boundary while the
-                // pressed edge provides one deterministic trigger attempt.
-                uint shotPhase = IsHeadshotScenarioActive() && scenarioTick >= 60
-                    ? (scenarioTick - 60) % 60 : uint.MaxValue;
+                // The edge is sampled every 30 simulation ticks, while the
+                // production Imperialist cooldown still decides which edges
+                // create a legal projectile. The extra rejected edges make
+                // the deterministic schedule resilient to a render/input
+                // callback falling on a handoff boundary; the authoritative
+                // cooldown still bounds a 60-second run at its 30 legal
+                // slots. This does not fabricate a shot or change the
+                // production cooldown/weapon path.
+                uint shotPhase = IsHeadshotScenarioActive()
+                    ? scenarioTick % 30 : uint.MaxValue;
                 if (shotPhase < 6)
                     held |= InputButtons.Shoot;
                 if (shotPhase == 0)
@@ -1176,7 +1182,7 @@ internal static partial class RenderedWanValidationCheck
         private Vector3 optionsHead(PlayerEntity player, in SnapshotPlayer target,
             uint scenarioTick)
             => _options.Scenario == RenderedWanScenario.Headshot
-                ? scenarioTick < 30 ? PresentedTargetPosition(target) : PresentedTargetHead(target)
+                ? HeadshotAimPoint(target, scenarioTick)
                 : PresentedTargetPosition(target);
 
         private bool IsExpectedHeadshotTarget(byte slot)
@@ -1192,11 +1198,38 @@ internal static partial class RenderedWanValidationCheck
             if (!hasTarget) return;
             uint scenarioTick = (uint)Math.Max(0, _headshotPlayingFrames);
             if (IsHeadshotScenarioActive()) scenarioTick++;
-            Vector3 targetPoint = scenarioTick < 30
-                ? PresentedTargetPosition(target)
-                : PresentedTargetHead(target);
+            Vector3 targetPoint = HeadshotAimPoint(target, scenarioTick);
             Vector3 networkAim = player.ModNetworkAimTowards(targetPoint);
             if (networkAim.LengthSquared > 0.01f) aim = networkAim.Normalized();
+        }
+
+        /// <summary>
+        /// Keep the first legal shot of every observed target life on the
+        /// target's body. Imperialist headshots are intentionally lethal in
+        /// the production rules, so this life-fenced body sample leaves the
+        /// ordinary target alive for a second legal shot; that next shot uses
+        /// the same metadata-derived head band used by BeamProjectileEntity.
+        /// Reconnects do not reset the target life and therefore cannot turn a
+        /// stale pre-handoff pose into a new calibration claim.
+        /// </summary>
+        private Vector3 HeadshotAimPoint(in SnapshotPlayer target, uint scenarioTick)
+            => IsHeadshotBodyCalibration(target, scenarioTick)
+                ? PresentedTargetPosition(target)
+                : PresentedTargetHead(target);
+
+        private bool IsHeadshotBodyCalibration(in SnapshotPlayer target,
+            uint scenarioTick)
+        {
+            if (target.Life != 0 && (!_headshotTargetLifeKnown
+                    || target.Life != _headshotTargetLife))
+            {
+                _headshotTargetLifeKnown = true;
+                _headshotTargetLife = target.Life;
+                _headshotTargetLifeStartFrame = scenarioTick;
+            }
+            return HeadshotScenarioAim.IsBodyCalibration(
+                target.Life, _headshotTargetLife, _headshotTargetLifeStartFrame,
+                _headshotTargetLifeKnown, scenarioTick);
         }
 
         private Vector3 PresentedTargetHead(in SnapshotPlayer target)
@@ -1262,9 +1295,11 @@ internal static partial class RenderedWanValidationCheck
                 Position = shooter.Position,
                 Aim = shooter.ModGunVector
             };
+            uint scenarioTick = (uint)Math.Max(0, _headshotPlayingFrames - 1);
+            bool bodyCalibrationAim = IsHeadshotBodyCalibration(target, scenarioTick);
             _headshotFacts.ObserveTarget(target, shooterState,
-                HeadshotScenarioStage.At((uint)Math.Max(0, _headshotPlayingFrames - 1),
-                    _options.Seconds));
+                HeadshotScenarioStage.At(scenarioTick, _options.Seconds),
+                bodyCalibrationAim);
         }
 
         private void ObserveLocalRootShot(CombatShot shot)
@@ -1457,6 +1492,28 @@ internal static partial class RenderedWanValidationCheck
                 _debugMetrics,
                 _reconnectCompleted, _reconnectSameMatch, _reconnectSameSeat,
                 _connectionIdentityRotated, scenario, null);
+        }
+    }
+
+    private static void ApplyReconnectHandoff(NetClient client, NodeMatchHandoff handoff)
+    {
+        handoff.Validate();
+        if (handoff.UdpAuthenticationEnabled != client.UdpAuthenticationEnabled)
+            throw new InvalidOperationException("Reconnect handoff authentication mode changed.");
+        if (handoff.UdpAuthenticationEnabled && handoff.AdmissionId == client.AdmissionId)
+            throw new InvalidOperationException("Reconnect handoff reused the current admission identity.");
+
+        byte[]? admissionKey = null;
+        try
+        {
+            if (handoff.UdpAuthenticationEnabled)
+                admissionKey = AdmissionKeyRules.Decode(handoff.AdmissionKey);
+            client.Reconnect(handoff.Nonce, handoff.Ticket, handoff.AdmissionId, admissionKey);
+        }
+        finally
+        {
+            if (admissionKey is not null)
+                CryptographicOperations.ZeroMemory(admissionKey);
         }
     }
 

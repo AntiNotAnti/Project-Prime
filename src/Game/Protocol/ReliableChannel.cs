@@ -129,11 +129,15 @@ namespace MphRead.Mods.Network
 
         public bool CanEnqueue => CanEnqueueType(ReliableEventType.Combat);
 
+        /// <summary>Compatibility forwarding surface; policy lives in one place.</summary>
+        public static bool IsCritical(ReliableEventType type)
+            => ReliableEventPolicy.IsCritical(type);
+
         public bool CanEnqueueType(ReliableEventType type)
         {
             if (type < ReliableEventType.Welcome || type > ReliableEventType.TimingProfileApplied)
                 return false;
-            if (PendingCount >= (IsCritical(type) ? Capacity : OrdinaryCapacity)) return false;
+            if (PendingCount >= (ReliableEventPolicy.IsCritical(type) ? Capacity : OrdinaryCapacity)) return false;
             foreach (Pending pending in _pending)
             {
                 if (pending.Payload != null && unchecked(_nextId - pending.Id) >= EventWindowCapacity)
@@ -150,7 +154,7 @@ namespace MphRead.Mods.Network
             {
                 LastAdmissionFailure = ReliableAdmissionFailure.Capacity;
                 CapacityRejections++;
-                if (IsCritical(type)) CriticalAdmissionRejections++;
+                if (ReliableEventPolicy.IsCritical(type)) CriticalAdmissionRejections++;
                 else OrdinaryAdmissionRejections++;
                 return false;
             }
@@ -160,7 +164,7 @@ namespace MphRead.Mods.Network
                 OversizedPayloadRejections++;
                 return false;
             }
-            bool critical = IsCritical(type);
+            bool critical = ReliableEventPolicy.IsCritical(type);
             if (!critical && PendingCount >= OrdinaryCapacity)
             {
                 LastAdmissionFailure = ReliableAdmissionFailure.ReservedCapacity;
@@ -297,14 +301,6 @@ namespace MphRead.Mods.Network
                 MinimumRetrySeconds, MaximumRetrySeconds);
             return true;
         }
-
-        public static bool IsCritical(ReliableEventType type)
-            => type is ReliableEventType.Welcome or ReliableEventType.ClientReady
-                or ReliableEventType.MapTransition or ReliableEventType.Disconnect
-                or ReliableEventType.MatchState or ReliableEventType.Kill
-                or ReliableEventType.WorldEvent or ReliableEventType.ObserverTransition
-                or ReliableEventType.IntermissionBallot or ReliableEventType.TimingProfile
-                or ReliableEventType.TimingProfileApplied;
 
         public void Acknowledge(uint ack, uint ackBits)
         {
