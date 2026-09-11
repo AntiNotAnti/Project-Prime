@@ -37,78 +37,122 @@ public static class AccountEndpoints
             app.Services.GetRequiredService<TimeProvider>());
         var auth = app.MapGroup("/v1/auth").RequireRateLimiting(BackendRoutePolicy.Auth);
         auth.MapPost("/register", Register);
-        auth.MapPost("/login", async (LoginRequest request, SignInManager<HunterAccount> signIn) =>
+        auth.MapPost("/login", async (LoginRequest request, SignInManager<HunterAccount> signIn,
+            ILoggerFactory loggerFactory) =>
         {
+            ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.AccountCategory);
             if (!ValidEmail(request.Email) || !ValidPassword(request.Password))
+            {
+                BackendDiagnostics.Account(logger, "login", "invalid");
                 return BackendProblem.Create("invalid_credential", "Sign-in failed.", StatusCodes.Status401Unauthorized);
+            }
             signIn.AuthenticationScheme = IdentityConstants.BearerScheme;
             var result = await signIn.PasswordSignInAsync(request.Email, request.Password,
                 isPersistent: false, lockoutOnFailure: true);
             // No distinction between unknown, locked, unconfirmed or wrong-password accounts.
             // SignInManager writes the framework's bearer-token response on success.
+            BackendDiagnostics.Account(logger, "login", result.Succeeded ? "success" : "invalid");
             return result.Succeeded ? Results.Empty
                 : BackendProblem.Create("invalid_credential", "Sign-in failed.", StatusCodes.Status401Unauthorized);
         });
         auth.MapPost("/refresh", async (RefreshRequest request, SignInManager<HunterAccount> signIn,
-            IOptionsMonitor<BearerTokenOptions> tokens, TimeProvider clock) =>
+            IOptionsMonitor<BearerTokenOptions> tokens, TimeProvider clock, ILoggerFactory loggerFactory) =>
         {
+            ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.AccountCategory);
             if (request.RefreshToken is not { Length: >= 1 and <= 8192 })
+            {
+                BackendDiagnostics.Account(logger, "refresh", "invalid");
                 return BackendProblem.Create("invalid_refresh", "The refresh session is invalid.", StatusCodes.Status401Unauthorized);
+            }
             var ticket = tokens.Get(IdentityConstants.BearerScheme).RefreshTokenProtector.Unprotect(request.RefreshToken);
             if (ticket?.Properties.ExpiresUtc is not { } expires || clock.GetUtcNow() >= expires
                 || await signIn.ValidateSecurityStampAsync(ticket.Principal) is not HunterAccount user
                 || !await signIn.CanSignInAsync(user)
                 || await signIn.UserManager.IsLockedOutAsync(user))
             {
+                BackendDiagnostics.Account(logger, "refresh", "invalid");
                 return BackendProblem.Create("invalid_refresh", "The refresh session is invalid.", StatusCodes.Status401Unauthorized);
             }
             var principal = await signIn.CreateUserPrincipalAsync(user);
+            BackendDiagnostics.Account(logger, "refresh", "success");
             return Results.SignIn(principal, authenticationScheme: IdentityConstants.BearerScheme);
         });
-        auth.MapPost("/confirm-email", async (ConfirmRequest request, UserManager<HunterAccount> users) =>
+        auth.MapPost("/confirm-email", async (ConfirmRequest request, UserManager<HunterAccount> users,
+            ILoggerFactory loggerFactory) =>
         {
+            ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.AccountCategory);
             if (!PlayerId.TryParse(request.PlayerId, out PlayerId playerId)
                 || request.Code is not { Length: >= 1 and <= 4096 })
             {
+                BackendDiagnostics.Account(logger, "confirm", "invalid");
                 return BackendProblem.Create("invalid_confirmation", "The confirmation request is invalid.", StatusCodes.Status400BadRequest);
             }
             if (!confirmationTokens.TryUnprotect(request.Code, out string identityToken))
+            {
+                BackendDiagnostics.Account(logger, "confirm", "invalid");
                 return BackendProblem.Create("invalid_confirmation", "The confirmation request is invalid.", StatusCodes.Status400BadRequest);
+            }
             var user = await users.FindByIdAsync(playerId.ToString());
             if (user == null)
+            {
+                BackendDiagnostics.Account(logger, "confirm", "invalid");
                 return BackendProblem.Create("invalid_confirmation", "The confirmation request is invalid.", StatusCodes.Status400BadRequest);
+            }
             var result = await users.ConfirmEmailAsync(user, identityToken);
+            BackendDiagnostics.Account(logger, "confirm", result.Succeeded ? "success" : "invalid");
             return result.Succeeded ? Results.NoContent()
                 : BackendProblem.Create("invalid_confirmation", "The confirmation request is invalid.", StatusCodes.Status400BadRequest);
         });
         auth.MapPost("/resend-confirmation", async (ResendRequest request, HttpContext http,
-            UserManager<HunterAccount> users, IConfirmationEmail email, CancellationToken cancellationToken) =>
+            UserManager<HunterAccount> users, IConfirmationEmail email, CancellationToken cancellationToken,
+            ILoggerFactory loggerFactory) =>
         {
+            ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.AccountCategory);
             if (!ValidEmail(request.Email))
+            {
+                BackendDiagnostics.Account(logger, "resend", "invalid");
                 return BackendProblem.Create("invalid_email", "The email address is invalid.", StatusCodes.Status400BadRequest);
+            }
             if (!email.IsConfigured)
+            {
+                BackendDiagnostics.Account(logger, "resend", "unavailable");
                 return BackendProblem.Create("confirmation_delivery_unavailable",
                     "Confirmation delivery is unavailable.", StatusCodes.Status503ServiceUnavailable);
+            }
             string normalized = users.NormalizeEmail(request.Email) ?? request.Email.ToUpperInvariant();
-            if (!resendLimiter.TryAcquire(http.Connection.RemoteIpAddress, normalized)) return Results.Accepted();
+            if (!resendLimiter.TryAcquire(http.Connection.RemoteIpAddress, normalized))
+            {
+                BackendDiagnostics.Account(logger, "resend", "limited");
+                return Results.Accepted();
+            }
             var user = await users.FindByEmailAsync(request.Email);
             if (user is { EmailConfirmed: false })
             {
                 string code = confirmationTokens.Protect(await users.GenerateEmailConfirmationTokenAsync(user));
                 await email.TrySendAsync(user.Email!, new PlayerId(user.Id), code, cancellationToken);
             }
+            BackendDiagnostics.Account(logger, "resend", "accepted");
             return Results.Accepted();
         });
-        auth.MapPost("/revoke-sessions", async (HttpContext http, UserManager<HunterAccount> users) =>
+        auth.MapPost("/revoke-sessions", async (HttpContext http, UserManager<HunterAccount> users,
+            ILoggerFactory loggerFactory) =>
         {
+            ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.AccountCategory);
             if (http.User.Identity?.IsAuthenticated != true)
+            {
+                BackendDiagnostics.Account(logger, "revoke", "invalid");
                 return BackendProblem.Create("invalid_credential", "The session is invalid.",
                     StatusCodes.Status401Unauthorized);
+            }
             var user = await users.GetUserAsync(http.User);
             if (user == null)
+            {
+                BackendDiagnostics.Account(logger, "revoke", "invalid");
                 return BackendProblem.Create("invalid_credential", "The session is invalid.", StatusCodes.Status401Unauthorized);
+            }
             var result = await users.UpdateSecurityStampAsync(user);
             // Existing access tokens expire normally; refresh tokens fail stamp validation.
+            BackendDiagnostics.Account(logger, "revoke", result.Succeeded ? "success" : "unavailable");
             return result.Succeeded ? Results.NoContent()
                 : BackendProblem.Create("service_busy", "The account service is temporarily unavailable.",
                     StatusCodes.Status409Conflict);
@@ -117,17 +161,21 @@ public static class AccountEndpoints
 
     private static async Task<IResult> Register(RegisterRequest request, UserManager<HunterAccount> users,
         BackendDbContext db, IOptions<AccountOptions> settings, IConfirmationEmail email,
-        IDataProtectionProvider protection, TimeProvider clock, CancellationToken cancellationToken)
+        IDataProtectionProvider protection, TimeProvider clock, CancellationToken cancellationToken,
+        ILoggerFactory loggerFactory)
     {
+        ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.AccountCategory);
         if (!ValidEmail(request.Email) || !ValidPassword(request.Password)
             || !ProfileEndpoints.ValidDisplayName(request.DisplayName))
         {
+            BackendDiagnostics.Account(logger, "register", "invalid");
             return BackendProblem.Create(!ValidEmail(request.Email) ? "invalid_email"
                 : !ValidPassword(request.Password) ? "invalid_password" : "invalid_display_name",
                 "The registration request is invalid.", StatusCodes.Status400BadRequest);
         }
         if (settings.Value.RequireConfirmedEmail && !email.IsConfigured)
         {
+            BackendDiagnostics.Account(logger, "register", "unavailable");
             return BackendProblem.Create("confirmation_delivery_unavailable",
                 "Confirmation delivery is unavailable.", StatusCodes.Status503ServiceUnavailable);
         }
@@ -140,9 +188,11 @@ public static class AccountEndpoints
             {
                 if (result.Errors.Any(x => x.Code is "DuplicateEmail" or "DuplicateUserName"))
                 {
+                    BackendDiagnostics.Account(logger, "register", "duplicate");
                     return BackendProblem.Create("duplicate_account", "The account already exists.",
                         StatusCodes.Status409Conflict);
                 }
+                BackendDiagnostics.Account(logger, "register", "invalid");
                 return BackendProblem.Create("invalid_password",
                     "The password does not meet account requirements.", StatusCodes.Status400BadRequest);
             }
@@ -154,6 +204,7 @@ public static class AccountEndpoints
         catch (DbUpdateException exception) when (exception.InnerException is PostgresException
             { SqlState: PostgresErrorCodes.UniqueViolation })
         {
+            BackendDiagnostics.Account(logger, "register", "duplicate");
             return BackendProblem.Create("duplicate_account", "The account already exists.",
                 StatusCodes.Status409Conflict);
         }
@@ -166,6 +217,8 @@ public static class AccountEndpoints
             string code = confirmationTokens.Protect(await users.GenerateEmailConfirmationTokenAsync(user));
             confirmationDelivered = await email.TrySendAsync(user.Email!, new PlayerId(user.Id), code, cancellationToken);
         }
+        BackendDiagnostics.Account(logger, "register",
+            settings.Value.RequireConfirmedEmail && !confirmationDelivered ? "delivery_pending" : "success");
         return Results.Created($"/v1/players/{user.Id:D}/license", new
         {
             PlayerId = new PlayerId(user.Id), ConfirmationRequired = settings.Value.RequireConfirmedEmail,
