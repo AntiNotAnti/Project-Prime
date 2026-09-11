@@ -257,8 +257,14 @@ internal static class FidelityScenarioRunner
             ((ServerPeer?[])field.GetValue(Network)!)[0] = peer;
         }
 
-        public void ApplyInput(uint tick, InputButtons buttons) => Network.Peers[0]!.Inputs.Receive(
-            [new InputCommand(tick, tick, tick, buttons, InputButtons.None, -Vector3.UnitZ, InputCommand.NoWeapon)], tick);
+        public void ApplyInput(uint tick, InputButtons buttons)
+        {
+            uint inputEpoch = Simulation.Scene.Players[0].ServerCombatIdentity.Life;
+            if (inputEpoch == 0) inputEpoch = 1;
+            Network.Peers[0]!.Inputs.Receive(
+                [new InputCommand(tick, tick, tick, buttons, InputButtons.None,
+                    -Vector3.UnitZ, InputCommand.NoWeapon, inputEpoch)], tick);
+        }
         public void Dispose() => Simulation.Dispose();
     }
 
