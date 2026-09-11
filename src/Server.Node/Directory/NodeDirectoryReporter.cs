@@ -124,13 +124,19 @@ public sealed class NodeDirectoryReporter : BackgroundService
                     try { await SendDeregistrationAsync(cancellationToken); }
                     catch (Exception error) when (error is not OutOfMemoryException)
                     {
-                        LastFailure = error is OperationCanceledException ? "timeout" : error.GetType().Name;
+                        LastFailure = FailureCategory(error);
+                        NodeDiagnostics.Directory(_logger, "deregistration", LastFailure);
                     }
-                    finally { _deregistrationAttempted = true; }
+                    finally
+                    {
+                        _deregistrationAttempted = true;
+                        if (LastFailure == null) NodeDiagnostics.Directory(_logger, "deregistration", "success");
+                    }
                 }
                 _registered = false;
                 LastFailure = readiness.Code;
                 Volatile.Write(ref _failures, Math.Min(16, ConsecutiveFailures + 1));
+                NodeDiagnostics.Directory(_logger, "readiness", "unready");
                 return false;
             }
             NodeDirectoryHeartbeat population = _population();
@@ -147,16 +153,18 @@ public sealed class NodeDirectoryReporter : BackgroundService
             await SendAsync(HttpMethod.Post, "v1/node/heartbeat", population, cancellationToken);
             Interlocked.Exchange(ref _lastSuccess, _clock.GetUtcNow().ToUnixTimeMilliseconds());
             Volatile.Write(ref _failures, 0); LastFailure = null;
+            NodeDiagnostics.Directory(_logger, "publish", "success");
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
             _registered = false;
-            LastFailure = error is OperationCanceledException ? "timeout" : error.GetType().Name;
+            LastFailure = FailureCategory(error);
             int failures = Math.Min(16, ConsecutiveFailures + 1); Volatile.Write(ref _failures, failures);
             // Never log exception text, request headers, bodies, or operator credentials.
-            if (failures == 1 || failures == 16) _logger.LogWarning("Node directory update failed ({Category}); live sessions continue.", LastFailure);
+            if (failures == 1 || failures == 16)
+                NodeDiagnostics.Directory(_logger, "publish", LastFailure);
             return false;
         }
         finally { _publish.Release(); }
@@ -219,15 +227,33 @@ public sealed class NodeDirectoryReporter : BackgroundService
         {
             if (_registered && !_deregistrationAttempted)
             {
-                try { await SendDeregistrationAsync(cancellationToken); }
+                try
+                {
+                    await SendDeregistrationAsync(cancellationToken);
+                    NodeDiagnostics.Directory(_logger, "deregistration", "success");
+                }
                 catch (Exception error) when (error is not OutOfMemoryException)
-                { LastFailure = error is OperationCanceledException ? "timeout" : error.GetType().Name; }
+                {
+                    LastFailure = FailureCategory(error);
+                    NodeDiagnostics.Directory(_logger, "deregistration", LastFailure);
+                }
                 finally { _deregistrationAttempted = true; _registered = false; }
             }
         }
         finally { _publish.Release(); }
         await base.StopAsync(cancellationToken);
     }
+
+    private static string FailureCategory(Exception error)
+        => error switch
+        {
+            OperationCanceledException => "timeout",
+            HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests } => "rate_limited",
+            HttpRequestException { StatusCode: >= HttpStatusCode.BadRequest and < HttpStatusCode.InternalServerError } => "rejected",
+            HttpRequestException => "transport",
+            IOException => "transport",
+            _ => "failure"
+        };
 }
 
 public static class NodeDirectoryRegistrationExtensions
