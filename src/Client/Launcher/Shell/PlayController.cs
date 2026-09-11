@@ -1,7 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Sockets;
+using System.Net.WebSockets;
+using System.Security;
+using System.Security.Authentication;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,6 +40,147 @@ public enum NodeMapCatalogState
     Available
 }
 
+public enum MapPreparationPhase
+{
+    None,
+    Downloading,
+    Compiling,
+    Ready,
+    Failed,
+    Cancelled
+}
+
+public enum OnlineLifecyclePhase
+{
+    Offline,
+    Discovering,
+    Connecting,
+    Connected,
+    InLobby,
+    PreparingContent,
+    Launching,
+    InMatch,
+    Results,
+    Returning,
+    Interrupted,
+    Reconnecting,
+    RejoiningMatch,
+    AwaitingMatchSnapshot,
+    SessionExpired,
+    RecoverableError
+}
+
+/// <summary>
+/// One immutable presentation projection for the online shell. It combines
+/// existing PlayController, map-preparation, session-flow, and runtime
+/// snapshots; it owns no transitions or mutable lifecycle state.
+/// </summary>
+public sealed record OnlineLifecyclePresentation(
+    OnlineLifecyclePhase Phase,
+    OnlineRecoveryState RecoveryState,
+    bool HasNode,
+    bool NodeConnected,
+    bool HasMatch,
+    string Message,
+    ClientSessionPhase SessionPhase = ClientSessionPhase.Gateway,
+    MapPreparationPhase PreparationPhase = MapPreparationPhase.None)
+{
+    internal static OnlineLifecyclePresentation FromRuntime(OnlineRecoveryState recoveryState,
+        bool hasNode, bool nodeConnected, bool hasMatch)
+    {
+        OnlineLifecyclePhase phase = recoveryState switch
+        {
+            OnlineRecoveryState.Connected when nodeConnected => OnlineLifecyclePhase.Connected,
+            OnlineRecoveryState.Connected when !hasNode => OnlineLifecyclePhase.Offline,
+            OnlineRecoveryState.Connected => OnlineLifecyclePhase.Interrupted,
+            OnlineRecoveryState.ConnectionLost when !hasNode => OnlineLifecyclePhase.Offline,
+            OnlineRecoveryState.ConnectionLost => OnlineLifecyclePhase.Interrupted,
+            OnlineRecoveryState.Reconnecting => OnlineLifecyclePhase.Reconnecting,
+            OnlineRecoveryState.RejoiningMatch => OnlineLifecyclePhase.RejoiningMatch,
+            OnlineRecoveryState.AwaitingMatchSnapshot => OnlineLifecyclePhase.AwaitingMatchSnapshot,
+            OnlineRecoveryState.SessionExpired => OnlineLifecyclePhase.SessionExpired,
+            _ => OnlineLifecyclePhase.Offline
+        };
+        return new(phase, recoveryState, hasNode, nodeConnected, hasMatch,
+            MessageFor(phase, hasMatch));
+    }
+
+    internal static OnlineLifecyclePresentation FromRuntime(OnlineRecoveryState recoveryState,
+        bool hasNode, bool nodeConnected, bool hasMatch, PlayState state,
+        MapPreparationPhase preparationPhase, ClientSessionPhase sessionPhase)
+    {
+        OnlineLifecyclePresentation runtime = FromRuntime(recoveryState,
+            hasNode, nodeConnected, hasMatch);
+        OnlineLifecyclePhase phase = recoveryState != OnlineRecoveryState.Connected
+            ? runtime.Phase
+            : preparationPhase is MapPreparationPhase.Downloading or MapPreparationPhase.Compiling
+                ? OnlineLifecyclePhase.PreparingContent
+                : preparationPhase == MapPreparationPhase.Failed
+                    ? OnlineLifecyclePhase.RecoverableError
+                    : sessionPhase switch
+                    {
+                        ClientSessionPhase.Launching => OnlineLifecyclePhase.Launching,
+                        ClientSessionPhase.InMatch => OnlineLifecyclePhase.InMatch,
+                        ClientSessionPhase.Results => OnlineLifecyclePhase.Results,
+                        ClientSessionPhase.ReturningToLobby => OnlineLifecyclePhase.Returning,
+                        ClientSessionPhase.Closing => OnlineLifecyclePhase.Offline,
+                        _ => state.Phase switch
+                        {
+                            PlayPhase.Nodes when state.Loading => OnlineLifecyclePhase.Discovering,
+                            PlayPhase.Nodes => OnlineLifecyclePhase.Offline,
+                            PlayPhase.LoadingNodes => OnlineLifecyclePhase.Connecting,
+                            PlayPhase.Connected when state.Node?.MatchEnded == true => OnlineLifecyclePhase.Results,
+                            PlayPhase.Connected => OnlineLifecyclePhase.Connected,
+                            PlayPhase.Lobby when state.Node?.MatchEnded == true => OnlineLifecyclePhase.Results,
+                            PlayPhase.Lobby => OnlineLifecyclePhase.InLobby,
+                            PlayPhase.Handoff => OnlineLifecyclePhase.Launching,
+                            PlayPhase.Error => OnlineLifecyclePhase.RecoverableError,
+                            _ => OnlineLifecyclePhase.Offline
+                        }
+                    };
+        return runtime with
+        {
+            Phase = phase,
+            Message = MessageFor(phase, hasMatch),
+            SessionPhase = sessionPhase,
+            PreparationPhase = preparationPhase
+        };
+    }
+
+    internal static string MessageFor(OnlineLifecyclePhase phase, bool hasMatch)
+        => phase switch
+        {
+            OnlineLifecyclePhase.Discovering => "Discovering servers…",
+            OnlineLifecyclePhase.Connecting => "Connecting to server…",
+            OnlineLifecyclePhase.Connected => hasMatch ? "Connected · match active" : "Connected",
+            OnlineLifecyclePhase.InLobby => "In lobby",
+            OnlineLifecyclePhase.PreparingContent => "Preparing arena content…",
+            OnlineLifecyclePhase.Launching => "Launching match…",
+            OnlineLifecyclePhase.InMatch => "In match",
+            OnlineLifecyclePhase.Results => "Match results",
+            OnlineLifecyclePhase.Returning => "Returning to lobby…",
+            OnlineLifecyclePhase.Interrupted => "Connection lost",
+            OnlineLifecyclePhase.Reconnecting => "Reconnecting…",
+            OnlineLifecyclePhase.RejoiningMatch => "Rejoining match…",
+            OnlineLifecyclePhase.AwaitingMatchSnapshot => "Syncing match…",
+            OnlineLifecyclePhase.SessionExpired => "Session expired",
+            OnlineLifecyclePhase.RecoverableError => "Connection needs attention",
+            _ => "Offline"
+        };
+}
+
+/// <summary>Immutable UI projection for one required-map preparation task.</summary>
+public sealed record MapPreparationState(MapPreparationPhase Phase,
+    MapRequirement? Requirement, long Received, long Total, string? Failure,
+    long Generation)
+{
+    public static MapPreparationState None { get; } = new(
+        MapPreparationPhase.None, null, 0, 0, null, 0);
+
+    public bool IsReadyFor(MapRequirement requirement)
+        => Phase == MapPreparationPhase.Ready && Requirement == requirement;
+}
+
 public sealed record PlayState(PlayPhase Phase, IReadOnlyList<NodeListing> Nodes,
     NodeControlClient.ViewState? Node, Hunter LobbyHunter, string Message,
     bool Loading, long Revision)
@@ -44,6 +191,12 @@ public sealed record PlayState(PlayPhase Phase, IReadOnlyList<NodeListing> Nodes
     public LobbySnapshot? Lobby => Node?.Lobby;
     public LobbyListSnapshot? BrowsedLobbies { get; init; }
     public LobbyListSnapshot? Lobbies => BrowsedLobbies ?? Node?.Lobbies;
+    /// <summary>
+    /// Current public match-directory presentation state. The projection is
+    /// evaluated from this immutable snapshot and never caches lobby entries.
+    /// </summary>
+    internal MatchDirectoryPresentationState MatchDirectoryState
+        => MatchDirectoryPresentation.From(this);
     public NodeMatchHandoff? Handoff => Node?.Handoff;
     public NodeRoundSnapshot? Round => Node?.Round;
 }
@@ -67,7 +220,7 @@ public sealed class PlayHandoffGate
     public bool TryBegin(PlayHandoffKey key)
     {
         if (key.NodeId == Guid.Empty || key.MatchId == Guid.Empty || key.Nonce == 0)
-            throw new ArgumentException("A handoff requires Node, match, and nonce identities.", nameof(key));
+            throw new ArgumentException("The match connection details are invalid.", nameof(key));
         lock (_gate)
         {
             if (_current is { } current)
@@ -125,6 +278,22 @@ public sealed class PlayHandoffGate
 public sealed class PlayController : IAsyncDisposable
 {
     private readonly record struct MapCatalogSnapshot(NodeMapCatalogState State, string[] Available);
+    internal enum NodeConnectFailureKind
+    {
+        None,
+        Transient,
+        Permanent,
+        Stale
+    }
+
+    private readonly record struct NodeConnectOutcome(NodeConnectFailureKind Failure,
+        Exception? Error = null)
+    {
+        public bool Connected => Failure == NodeConnectFailureKind.None;
+    }
+
+    private const int QuickPlayMaximumCandidates = 3;
+    private static readonly TimeSpan QuickPlayConnectDeadline = TimeSpan.FromSeconds(20);
     private readonly PrimeShellState _shell;
     private readonly TimeProvider _time;
     private DateTimeOffset? _directoryFetchedAt;
@@ -140,6 +309,7 @@ public sealed class PlayController : IAsyncDisposable
     private readonly object _handoffTaskLock = new();
     private readonly object _stateLock = new();
     private readonly object _mapCatalogLock = new();
+    private readonly object _mapPreparationLock = new();
     private NodeControlClient? _observed;
     private bool _hasSelectedNode;
     private string[]? _hostedMapKeys;
@@ -150,10 +320,17 @@ public sealed class PlayController : IAsyncDisposable
     private int _handoffEnabled;
     private Task<bool>? _handoffTask;
     private int _disposed;
+    private Guid? _leavingLobbyId;
     private readonly ClientOnlineRuntime _online;
     private readonly bool _ownsOnline;
-    private readonly MapAcquisitionService _mapAcquisition = new();
+    private readonly MapAcquisitionService _mapAcquisition = MapAcquisitionService.Shared;
     private readonly Task _mapAcquisitionInitialization;
+    private CancellationTokenSource? _mapPreparationCancellation;
+    private Task<InstalledMap>? _mapPreparationTask;
+    private NodeControlClient? _mapPreparationNode;
+    private MapRequirement? _mapPreparationRequirement;
+    private long _mapPreparationGeneration;
+    private MapPreparationState _mapPreparation = MapPreparationState.None;
 
     public PlayController(PrimeShellState shell, IReadOnlyList<string>? maps = null,
         Func<CancellationToken, Task<AccountSession?>>? accountResolver = null, TimeProvider? timeProvider = null,
@@ -180,6 +357,18 @@ public sealed class PlayController : IAsyncDisposable
     }
     public NodeMapCatalogState MapCatalogState => GetMapCatalogSnapshot().State;
     public IReadOnlyList<string> AvailableMaps => GetMapCatalogSnapshot().Available;
+    public MapPreparationState MapPreparation => Volatile.Read(ref _mapPreparation);
+    public OnlineLifecyclePresentation OnlineLifecycle
+    {
+        get
+        {
+            PlayState state = State;
+            OnlineRuntimeSnapshot runtime = _online.GetSnapshot();
+            return OnlineLifecyclePresentation.FromRuntime(runtime.RecoveryState,
+                runtime.Node != null, runtime.Node?.Connected == true, runtime.Match != null,
+                state, MapPreparation.Phase, runtime.SessionPhase);
+        }
+    }
 
     private async Task InitializeMapAcquisitionAsync()
     {
@@ -266,8 +455,10 @@ public sealed class PlayController : IAsyncDisposable
         }
         catch (Exception error)
         {
-            Publish(State with { Phase = PlayPhase.Error, Loading = false, Message = error.Message });
-            _shell.Notify(PrimeNotificationKind.Error, error.Message);
+            string message = PrimeRoutePresentation.PlayerFacingNetworkError(error.Message,
+                "Server directory unavailable. Try again.");
+            Publish(State with { Phase = PlayPhase.Error, Loading = false, Message = message });
+            _shell.Notify(PrimeNotificationKind.Error, message);
         }
         finally { _operation.Release(); }
     }
@@ -276,21 +467,44 @@ public sealed class PlayController : IAsyncDisposable
         => fetchedAt is { } fetched && now >= fetched && now - fetched < TimeSpan.FromSeconds(25);
 
     internal static NodeListing? SelectAutomaticNode(IEnumerable<NodeListing> nodes, string? region,
-        IReadOnlyDictionary<Guid, TimeSpan>? measuredLatency = null)
+        IReadOnlyDictionary<Guid, TimeSpan>? measuredLatency = null,
+        NodeHealthCache? healthCache = null, DateTimeOffset? now = null)
+        => OrderAutomaticNodes(nodes, region, measuredLatency, healthCache, now).FirstOrDefault();
+
+    internal static IEnumerable<NodeListing> OrderAutomaticNodes(IEnumerable<NodeListing> nodes,
+        string? region, IReadOnlyDictionary<Guid, TimeSpan>? measuredLatency = null,
+        NodeHealthCache? healthCache = null, DateTimeOffset? now = null)
     {
         ArgumentNullException.ThrowIfNull(nodes);
         bool hasPreferredRegion = !string.IsNullOrWhiteSpace(region)
             && !StringComparer.OrdinalIgnoreCase.Equals(region, "Automatic");
+        DateTimeOffset current = now ?? DateTimeOffset.UtcNow;
         return nodes.Where(node => node.Capacity > node.OnlineUsers)
-            .OrderByDescending(node => hasPreferredRegion
-                && !StringComparer.OrdinalIgnoreCase.Equals(node.Region, "Automatic")
-                && StringComparer.Ordinal.Equals(node.Region, region))
-            .ThenByDescending(node => measuredLatency?.ContainsKey(node.NodeId) == true)
-            .ThenBy(node => measuredLatency != null && measuredLatency.TryGetValue(node.NodeId, out TimeSpan latency)
-                ? latency : TimeSpan.MaxValue)
-            .ThenByDescending(node => node.LobbyCount > 0)
-            .ThenBy(node => node.OnlineUsers)
-            .ThenBy(node => node.NodeId).FirstOrDefault();
+            .Select(node =>
+            {
+                bool recentFailure = healthCache?.IsUnhealthy(node.NodeId, current) == true;
+                TimeSpan cachedLatency = default;
+                bool hasCachedLatency = healthCache?.TryGetRecentRtt(node.NodeId, current,
+                    out cachedLatency) == true;
+                return (Node: node, RecentFailure: recentFailure,
+                    HasCachedLatency: hasCachedLatency,
+                    CachedLatency: hasCachedLatency ? cachedLatency : TimeSpan.MaxValue);
+            })
+            // A recent failure is a penalty, not a ban. If every advertised
+            // Node failed, Quick Play still has a deterministic fallback set.
+            .OrderBy(candidate => candidate.RecentFailure)
+            .ThenByDescending(candidate => hasPreferredRegion
+                && !StringComparer.OrdinalIgnoreCase.Equals(candidate.Node.Region, "Automatic")
+                && StringComparer.Ordinal.Equals(candidate.Node.Region, region))
+            .ThenByDescending(candidate => measuredLatency?.ContainsKey(candidate.Node.NodeId) == true
+                || candidate.HasCachedLatency)
+            .ThenBy(candidate => measuredLatency != null
+                && measuredLatency.TryGetValue(candidate.Node.NodeId, out TimeSpan latency)
+                    ? latency : candidate.CachedLatency)
+            .ThenByDescending(candidate => candidate.Node.LobbyCount > 0)
+            .ThenBy(candidate => candidate.Node.OnlineUsers)
+            .ThenBy(candidate => candidate.Node.NodeId)
+            .Select(candidate => candidate.Node);
     }
 
     internal static bool IsQuickPlayEligible(LobbyListEntry lobby)
@@ -320,6 +534,100 @@ public sealed class PlayController : IAsyncDisposable
         return await ConnectNodeAsync(selected, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Quick Play is the one automatic entry point allowed to try more than
+    /// one Node. Selection is deterministic, the three-attempt cap and one
+    /// overall deadline fence the operation, and only transport/unreachable
+    /// failures can move to the next advertised candidate. Admission,
+    /// certificate, protocol, content, and server-data failures stop the
+    /// operation instead of hiding a real configuration problem.
+    /// </summary>
+    private async Task<bool> EnsureNodeForQuickPlayAsync(CancellationToken cancellationToken)
+    {
+        if (!_shell.HasNetworkIdentity)
+            throw new InvalidOperationException("Choose an account or Guest access first.");
+        if (_online.Node is { Connected: true }) return true;
+
+        NodeControlClient? previous = _online.Node;
+        if (previous != null && !ReferenceEquals(previous, _resumeAttempted))
+        {
+            _resumeAttempted = previous;
+            if (await ResumeAsync(cancellationToken).ConfigureAwait(false)) return true;
+        }
+
+        await RefreshNodesAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsDirectoryFresh(_directoryFetchedAt, _time.GetUtcNow())) return false;
+
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(QuickPlayConnectDeadline);
+        IReadOnlyDictionary<Guid, TimeSpan> latency;
+        try
+        {
+            latency = await NodeLatencyProbe.ProbeAsync(
+                State.Nodes, PreferredRegion, deadline.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested
+            && deadline.IsCancellationRequested)
+        {
+            PublishQuickPlayFailure(permanent: false);
+            return false;
+        }
+        NodeListing[] candidates = OrderAutomaticNodes(State.Nodes, PreferredRegion, latency,
+            NodeHealthCache.Shared, _time.GetUtcNow())
+            .Take(QuickPlayMaximumCandidates).ToArray();
+        if (candidates.Length == 0)
+        {
+            Publish(State with { Loading = false,
+                Message = "No compatible servers are available. Refresh servers in Advanced Network." });
+            return false;
+        }
+
+        long generation = Interlocked.Increment(ref _generation);
+        _handoff.Cancel();
+        foreach (NodeListing candidate in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (deadline.IsCancellationRequested)
+            {
+                PublishQuickPlayFailure(permanent: false);
+                return false;
+            }
+            NodeConnectOutcome outcome = await ConnectNodeAttemptAsync(candidate,
+                deadline.Token, generation, cancellationToken).ConfigureAwait(false);
+            if (outcome.Connected)
+            {
+                TimeSpan? measured = latency.TryGetValue(candidate.NodeId, out TimeSpan rtt)
+                    ? rtt : null;
+                NodeHealthCache.Shared.RecordSuccess(candidate.NodeId, _time.GetUtcNow(), measured);
+                return true;
+            }
+            if (outcome.Failure != NodeConnectFailureKind.Transient)
+            {
+                PublishQuickPlayFailure(permanent: true);
+                return false;
+            }
+            NodeHealthCache.Shared.RecordTransientFailure(candidate.NodeId, _time.GetUtcNow());
+        }
+        PublishQuickPlayFailure(permanent: false);
+        return false;
+    }
+
+    private void PublishQuickPlayFailure(bool permanent)
+    {
+        string message = permanent
+            ? "Quick Play stopped because a server rejected the connection. Check your account or client version."
+            : "No compatible servers could be reached. Try again later.";
+        Publish(State with { Phase = PlayPhase.Error, Loading = false, Message = message });
+        _shell.Notify(PrimeNotificationKind.Error, message);
+    }
+
+    public Task PrepareHostMatchAsync(CancellationToken cancellationToken = default)
+        => RunEntryAsync(async token =>
+        {
+            await EnsureNodeAsync(token).ConfigureAwait(false);
+        }, cancellationToken);
+
     public Task BrowseLobbiesAsync(CancellationToken cancellationToken = default)
         => RunEntryAsync(async token =>
         {
@@ -339,7 +647,7 @@ public sealed class PlayController : IAsyncDisposable
     public Task QuickPlayAsync(CancellationToken cancellationToken = default)
         => RunEntryAsync(async token =>
         {
-            if (!await EnsureNodeAsync(token).ConfigureAwait(false)) return;
+            if (!await EnsureNodeForQuickPlayAsync(token).ConfigureAwait(false)) return;
             NodeControlClient node = RequireConnected();
             if (node.Lobby != null) return;
             NodeControlEvent response = await node.SendAndWaitAsync("quickplay.join", new QuickPlayJoin(), token)
@@ -583,30 +891,56 @@ public sealed class PlayController : IAsyncDisposable
     private static void RequireResponse(NodeControlEvent response, string expected)
     {
         if (response.Type == "error") throw new InvalidOperationException(
-            response.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)?.Message ?? "The server rejected the request.");
+            PrimeRoutePresentation.PlayerFacingNetworkError(
+                response.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)?.Message,
+                "The server rejected the request."));
         if (response.Type != expected) throw new InvalidOperationException("The server returned an unexpected response.");
     }
 
     public async Task<bool> ConnectNodeAsync(NodeListing node,
         CancellationToken cancellationToken = default)
     {
+        NodeConnectOutcome outcome = await ConnectNodeAttemptAsync(node, cancellationToken)
+            .ConfigureAwait(false);
+        if (outcome.Connected)
+            NodeHealthCache.Shared.RecordSuccess(node.NodeId, _time.GetUtcNow());
+        return outcome.Connected;
+    }
+
+    private async Task<NodeConnectOutcome> ConnectNodeAttemptAsync(NodeListing node,
+        CancellationToken cancellationToken, long? expectedGeneration = null,
+        CancellationToken? externalCancellation = null)
+    {
         await _operation.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
+            long generation = expectedGeneration ?? Interlocked.Increment(ref _generation);
+            if (expectedGeneration is { } expected
+                && expected != Interlocked.Read(ref _generation))
+                return new(NodeConnectFailureKind.Stale);
             // A directory selection replaces the current control session. An
             // older Worker handoff must be invalidated before the new Node is
             // observed, otherwise its completion can occupy the gate and race
             // the replacement session.
-            Interlocked.Increment(ref _generation);
             _handoff.Cancel();
             ClearSelectedNodeCatalog();
             NetSession.Stop();
             AccountSession account = await RequireAccountAsync(cancellationToken).ConfigureAwait(false);
+            if (expectedGeneration is { } accountExpected
+                && accountExpected != Interlocked.Read(ref _generation))
+                return new(NodeConnectFailureKind.Stale);
             Publish(State with { Phase = PlayPhase.LoadingNodes, Loading = true,
                 Message = $"Connecting to {node.Name}…" });
             NodeControlClient connected = await NodeSessions.ConnectAsync(account, node,
                 cancellationToken).ConfigureAwait(false);
+            if (expectedGeneration is { } connectedExpected
+                && connectedExpected != Interlocked.Read(ref _generation))
+            {
+                if (ReferenceEquals(_online.Node, connected))
+                    await NodeSessions.DisconnectAsync().ConfigureAwait(false);
+                return new(NodeConnectFailureKind.Stale);
+            }
             Publish(State with { BrowsedLobbies = null });
             Observe(connected);
             _connectedNodeName = node.Name;
@@ -614,16 +948,72 @@ public sealed class PlayController : IAsyncDisposable
             _shell.SetNodeStatus(true, node.Name, node.Region);
             Publish(State with { Phase = PlayPhase.Connected, Loading = false,
                 Message = $"Connected to {node.Name}." });
-            return true;
+            return new(NodeConnectFailureKind.None);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested
+            && (externalCancellation is null || externalCancellation.Value.IsCancellationRequested)) { throw; }
+        catch (OperationCanceledException error) when (cancellationToken.IsCancellationRequested)
+        {
+            // An internal Quick Play deadline is a transient candidate failure,
+            // not a user cancellation. Let the aggregate owner publish the one
+            // final outcome instead of escaping into RunEntryAsync's generic
+            // cancellation message.
+            return new(NodeConnectFailureKind.Transient, error);
+        }
         catch (Exception error)
         {
-            Publish(State with { Phase = PlayPhase.Error, Loading = false, Message = error.Message });
-            _shell.Notify(PrimeNotificationKind.Error, error.Message);
-            return false;
+            // Quick Play owns the aggregate outcome. Keeping candidate
+            // failures out of the shell prevents three transient attempts
+            // from producing three terminal notifications and leaves the
+            // final classification to EnsureNodeForQuickPlayAsync.
+            if (expectedGeneration is null)
+            {
+                string message = PrimeRoutePresentation.PlayerFacingNetworkError(error.Message,
+                    "Could not connect to the server. Try again.");
+                Publish(State with { Phase = PlayPhase.Error, Loading = false, Message = message });
+                _shell.Notify(PrimeNotificationKind.Error, message);
+            }
+            return new(ClassifyNodeConnectFailure(error, cancellationToken), error);
         }
         finally { _operation.Release(); }
+    }
+
+    internal static NodeConnectFailureKind ClassifyNodeConnectFailure(Exception error,
+        CancellationToken cancellationToken)
+    {
+        if (error is OperationCanceledException && !cancellationToken.IsCancellationRequested)
+            return NodeConnectFailureKind.Transient;
+        if (ContainsSecurityFailure(error)) return NodeConnectFailureKind.Permanent;
+        if (error is AccountServiceException accountService)
+            return IsTransientAccountFailure(accountService.Kind)
+                ? NodeConnectFailureKind.Transient : NodeConnectFailureKind.Permanent;
+        if (error is ArgumentException or JsonException
+            or InvalidDataException or FormatException or NotSupportedException
+            or InvalidOperationException)
+            return NodeConnectFailureKind.Permanent;
+        if (error is WebSocketException webSocket
+            && webSocket.WebSocketErrorCode is WebSocketError.InvalidMessageType
+                or WebSocketError.NotAWebSocket or WebSocketError.HeaderError
+                or WebSocketError.UnsupportedVersion or WebSocketError.UnsupportedProtocol)
+            return NodeConnectFailureKind.Permanent;
+        if (error is HttpRequestException or IOException or SocketException
+            or TimeoutException or WebSocketException)
+            return NodeConnectFailureKind.Transient;
+        return NodeConnectFailureKind.Permanent;
+    }
+
+    internal static bool IsTransientAccountFailure(AccountFailureKind kind)
+        => kind is AccountFailureKind.RateLimited
+            or AccountFailureKind.ServiceUnavailable
+            or AccountFailureKind.TransportUnavailable
+            or AccountFailureKind.Timeout;
+
+    private static bool ContainsSecurityFailure(Exception error)
+    {
+        for (Exception? current = error; current != null; current = current.InnerException)
+            if (current is AuthenticationException or SecurityException)
+                return true;
+        return false;
     }
 
     public async Task<bool> ResumeAsync(CancellationToken cancellationToken = default)
@@ -634,6 +1024,7 @@ public sealed class PlayController : IAsyncDisposable
             ThrowIfDisposed();
             Interlocked.Increment(ref _generation);
             _handoff.Cancel();
+            CancelMapPreparation();
             if (_online.Match == null) NetSession.Stop();
             NodeControlClient session = await _online.ResumeAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -646,7 +1037,9 @@ public sealed class PlayController : IAsyncDisposable
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception error)
         {
-            Publish(State with { Phase = PlayPhase.Error, Loading = false, Message = error.Message });
+            Publish(State with { Phase = PlayPhase.Error, Loading = false,
+                Message = PrimeRoutePresentation.PlayerFacingNetworkError(error.Message,
+                    "Could not restore the server connection. Try again.") });
             return false;
         }
         finally { _operation.Release(); }
@@ -656,8 +1049,9 @@ public sealed class PlayController : IAsyncDisposable
     {
         ThrowIfDisposed();
         _directoryFetchedAt = null;
-        _generation++;
+        Interlocked.Increment(ref _generation);
         _handoff.Cancel();
+        CancelMapPreparation();
         ClearSelectedNodeCatalog();
         _connectedNodeName = "";
         _connectedNodeRegion = "";
@@ -665,7 +1059,7 @@ public sealed class PlayController : IAsyncDisposable
         Observe(null);
         _shell.SetNodeStatus(false);
         Publish(State with { Phase = PlayPhase.Nodes, Node = null, BrowsedLobbies = null, Loading = false,
-            Message = "Node disconnected." });
+            Message = "Server disconnected." });
     }
 
     public Task RefreshLobbiesAsync(CancellationToken cancellationToken = default)
@@ -772,12 +1166,40 @@ public sealed class PlayController : IAsyncDisposable
         CancellationToken cancellationToken = default)
         => DeclineWaitlistAsync(lobbyId, revision, offerId, cancellationToken);
 
-    public Task LeaveLobbyAsync(CancellationToken cancellationToken = default)
+    public async Task LeaveLobbyAsync(CancellationToken cancellationToken = default)
     {
-        CancelPendingHandoff();
         NodeControlClient node = RequireConnected();
-        return LeaveLobbyWithRetryAsync(() => node.Lobby,
-            (command, token) => node.SendAndWaitAsync("lobby.leave", command, token), cancellationToken);
+        if (!ReferenceEquals(_observed, node))
+            throw new InvalidOperationException("The selected server connection is no longer current.");
+        LobbySnapshot lobby = node.Lobby
+            ?? throw new InvalidOperationException("Join a lobby first.");
+        Guid lobbyId = lobby.LobbyId;
+        lock (_stateLock)
+        {
+            if (_leavingLobbyId.HasValue)
+                throw new InvalidOperationException("A lobby leave is already in progress.");
+            _leavingLobbyId = lobbyId;
+        }
+
+        // Explicit leave owns the complete gameplay teardown.  A handoff gate
+        // may already be completed by the time the user leaves, so the normal
+        // conditional CancelPendingHandoff path is not sufficient here.
+        Interlocked.Increment(ref _generation);
+        _handoff.Cancel();
+        NetSession.Stop();
+        try
+        {
+            await LeaveLobbyWithRetryAsync(() => node.Lobby,
+                (command, token) => node.SendAndWaitAsync("lobby.leave", command, token),
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            lock (_stateLock)
+            {
+                if (_leavingLobbyId == lobbyId) _leavingLobbyId = null;
+            }
+        }
     }
 
     internal static async Task LeaveLobbyWithRetryAsync(Func<LobbySnapshot?> currentLobby,
@@ -793,15 +1215,16 @@ public sealed class PlayController : IAsyncDisposable
             if (response.Type == "lobby.left")
             {
                 if (response.Payload.Deserialize(NodeJsonContext.Default.LobbyLeft)?.LobbyId != lobbyId)
-                    throw new InvalidOperationException("The Node confirmed leaving a different lobby.");
+                    throw new InvalidOperationException("The server confirmed leaving a different lobby.");
                 return;
             }
             if (response.Type != "error")
-                throw new InvalidOperationException("The Node did not confirm leaving the lobby.");
+                throw new InvalidOperationException("The server did not confirm leaving the lobby.");
             NodeControlError error = response.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)
-                ?? new NodeControlError("rejected", "The Node rejected leaving the lobby.");
+                ?? new NodeControlError("rejected", "The server rejected leaving the lobby.");
             if (error.Code != "stale_revision" || attempt != 0)
-                throw new InvalidOperationException(error.Message);
+                throw new InvalidOperationException(PrimeRoutePresentation.PlayerFacingNetworkError(error.Message,
+                    "The server rejected leaving the lobby. Try again."));
             LobbySnapshot? latest = currentLobby();
             if (latest == null) return; // Membership was removed while the rejected request was in flight.
             if (latest.LobbyId != lobbyId)
@@ -830,15 +1253,12 @@ public sealed class PlayController : IAsyncDisposable
             ?? throw new InvalidOperationException(
                 "This lobby does not require a downloadable map.");
         string endpoint = node.Endpoint
-            ?? throw new InvalidOperationException("The Node control origin is unavailable.");
-        var progress = new Progress<MapDownloadProgress>(value => Publish(State with
-        {
-            Loading = value.Stage != "Ready",
-            Message = $"{value.Stage} {requirement.StableId} · "
-                + $"{value.Received:N0}/{value.Total:N0} bytes"
-        }));
-        await _mapAcquisition.AcquireAsync(requirement, endpoint, progress, cancellationToken)
-            .ConfigureAwait(false);
+            ?? throw new InvalidOperationException("The server connection is unavailable.");
+        long generation = Interlocked.Read(ref _generation);
+        Task<InstalledMap> preparation = StartMapPreparation(node, requirement, endpoint,
+            generation);
+        await preparation.WaitAsync(cancellationToken).ConfigureAwait(false);
+        EnsureMapPreparationCurrent(node, requirement, generation);
         Publish(State with { Loading = false,
             Message = $"{requirement.StableId} {requirement.Version} is ready." });
         Changed?.Invoke(this, EventArgs.Empty);
@@ -905,9 +1325,9 @@ public sealed class PlayController : IAsyncDisposable
         bool structured, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(mapKey))
-            throw new ArgumentException("Choose a map hosted by this Node and installed locally.", nameof(mapKey));
+            throw new ArgumentException("Choose a map hosted by this server and installed locally.", nameof(mapKey));
         if (mapKey.Any(c => c is < ' ' or > '~') || mapKey.Length > 128)
-            throw new ArgumentException("Choose a map hosted by this Node and installed locally.", nameof(mapKey));
+            throw new ArgumentException("Choose a map hosted by this server and installed locally.", nameof(mapKey));
         MapCatalogSnapshot catalog = GetMapCatalogSnapshot();
         if (catalog.State != NodeMapCatalogState.Available
             || !catalog.Available.Contains(mapKey, StringComparer.Ordinal))
@@ -917,7 +1337,7 @@ public sealed class PlayController : IAsyncDisposable
                 NodeMapCatalogState.Unknown => new InvalidOperationException(MapCatalogMessageFor(NodeMapCatalogState.Unknown)),
                 NodeMapCatalogState.Empty => new InvalidOperationException(MapCatalogMessageFor(NodeMapCatalogState.Empty)),
                 NodeMapCatalogState.Disjoint => new InvalidOperationException(MapCatalogMessageFor(NodeMapCatalogState.Disjoint)),
-                _ => new ArgumentException("Choose a map hosted by this Node and installed locally.", nameof(mapKey))
+                _ => new ArgumentException("Choose a map hosted by this server and installed locally.", nameof(mapKey))
             };
         }
 
@@ -947,13 +1367,14 @@ public sealed class PlayController : IAsyncDisposable
             if (response.Type == "error")
             {
                 NodeControlError error = response.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)
-                    ?? new NodeControlError("rejected", "The Node rejected the lobby settings.");
-                throw new InvalidOperationException(error.Message);
+                    ?? new NodeControlError("rejected", "The server rejected the lobby settings.");
+                throw new InvalidOperationException(PrimeRoutePresentation.PlayerFacingNetworkError(error.Message,
+                    "The server rejected the lobby settings. Try again."));
             }
             if (response.Type != "lobby.snapshot")
-                throw new InvalidOperationException("The Node returned an invalid lobby settings response.");
+                throw new InvalidOperationException("The server returned an invalid lobby settings response.");
             LobbySnapshot applied = response.Payload.Deserialize(NodeJsonContext.Default.LobbySnapshot)
-                ?? throw new InvalidOperationException("The Node returned an invalid lobby snapshot.");
+                ?? throw new InvalidOperationException("The server returned an invalid lobby snapshot.");
             LobbyRulesOptions appliedRules = NormalizeLobbyRules(applied.Mode, applied.Rules,
                 applied.TimeLimitSeconds, applied.PointGoal);
             if (applied.LobbyId != lobby.LobbyId || applied.Revision <= lobby.Revision
@@ -994,7 +1415,7 @@ public sealed class PlayController : IAsyncDisposable
     public async Task CastPostMatchVoteAsync(byte optionId, CancellationToken cancellationToken = default)
     {
         NodeControlClient node = RequireConnected();
-        NodeRoundSnapshot round = node.Round ?? throw new InvalidOperationException("No Node ballot is available.");
+        NodeRoundSnapshot round = node.Round ?? throw new InvalidOperationException("No post-match vote is available.");
         if (round.OwnVote != 0 || round.ResolvedOption != null || round.VoteDeadline <= DateTimeOffset.UtcNow
             || !round.Options.Any(option => option.Id == optionId))
             throw new InvalidOperationException("This vote is no longer available.");
@@ -1002,9 +1423,10 @@ public sealed class PlayController : IAsyncDisposable
             new LobbyVoteCast(node.Lobby!.Revision, round.BallotRevision, optionId), cancellationToken)
             .ConfigureAwait(false);
         if (response.Type == "error")
-            throw new InvalidOperationException(response.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)?.Message
-                ?? "The Node rejected the vote.");
-        if (response.Type != "lobby.round") throw new InvalidOperationException("The Node did not confirm the vote.");
+            throw new InvalidOperationException(PrimeRoutePresentation.PlayerFacingNetworkError(
+                response.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)?.Message,
+                "The server rejected the vote."));
+        if (response.Type != "lobby.round") throw new InvalidOperationException("The server did not confirm the vote.");
     }
 
     public Task RematchAsync(CancellationToken cancellationToken = default)
@@ -1017,7 +1439,7 @@ public sealed class PlayController : IAsyncDisposable
     {
         NodeControlClient node = RequireConnected();
         NodeMatchHandoff handoff = node.Handoff
-            ?? throw new InvalidOperationException("No Worker handoff is available to rejoin.");
+            ?? throw new InvalidOperationException("No match connection is available to rejoin.");
         Interlocked.Increment(ref _generation);
         _handoff.Cancel();
         NetSession.Stop();
@@ -1028,7 +1450,7 @@ public sealed class PlayController : IAsyncDisposable
     {
         NodeControlClient node = RequireConnected();
         NodeMatchHandoff handoff = node.Handoff
-            ?? throw new InvalidOperationException("No Worker handoff is available.");
+            ?? throw new InvalidOperationException("No match connection is available.");
         Interlocked.Increment(ref _generation);
         _handoff.Cancel();
         return await StartTrackedHandoffAsync(node, handoff, cancellationToken).ConfigureAwait(false);
@@ -1046,6 +1468,7 @@ public sealed class PlayController : IAsyncDisposable
         _resumeAttempted = null;
         Interlocked.Increment(ref _generation);
         _handoff.Cancel();
+        CancelMapPreparation();
         NetSession.Stop();
     }
 
@@ -1074,15 +1497,17 @@ public sealed class PlayController : IAsyncDisposable
         if (!_handoff.IsActive) return;
         Interlocked.Increment(ref _generation);
         _handoff.Cancel();
+        CancelMapPreparation();
         NetSession.Stop();
-        Publish(State with { Loading = false, Message = "Worker connection cancelled." });
+        Publish(State with { Loading = false, Message = "Match connection canceled." });
     }
 
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
-        _generation++;
+        Interlocked.Increment(ref _generation);
         _lifetime.Cancel();
+        CancelMapPreparation();
         _handoff.Cancel();
         NodeSessions.CurrentChanged -= NodeSessionChanged;
         Observe(null);
@@ -1104,7 +1529,6 @@ public sealed class PlayController : IAsyncDisposable
         await _configureOperation.WaitAsync().ConfigureAwait(false);
         _configureOperation.Release();
         _configureOperation.Dispose();
-        _mapAcquisition.Dispose();
         _lifetime.Dispose();
         if (_ownsOnline) await _online.DisposeAsync().ConfigureAwait(false);
     }
@@ -1154,10 +1578,210 @@ public sealed class PlayController : IAsyncDisposable
     {
         if (_observed != null) _observed.Changed -= NodeChanged;
         _observed = session;
-        if (session == null) return;
+        if (session == null)
+        {
+            CancelMapPreparation();
+            return;
+        }
         RestoreNodeCatalog(session);
         session.Changed += NodeChanged;
         PublishFromNode(session);
+        SynchronizeMapPreparation(session);
+    }
+
+    private void SynchronizeMapPreparation(NodeControlClient node)
+    {
+        MapRequirement? requirement = node.Lobby?.RequiredMap;
+        string? endpoint = node.Endpoint;
+        if (requirement == null || endpoint == null || !node.Connected)
+        {
+            CancelMapPreparation();
+            return;
+        }
+
+        long generation = Interlocked.Read(ref _generation);
+        _ = StartMapPreparation(node, requirement, endpoint, generation);
+    }
+
+    private Task<InstalledMap> StartMapPreparation(NodeControlClient node,
+        MapRequirement requirement, string endpoint, long generation)
+    {
+        CancellationTokenSource? previousCancellation = null;
+        CancellationTokenSource currentCancellation;
+        Task<InstalledMap>? task;
+        bool started = false;
+        lock (_mapPreparationLock)
+        {
+            if (_mapPreparationTask is { } existing
+                && ReferenceEquals(_mapPreparationNode, node)
+                && _mapPreparationRequirement == requirement
+                && _mapPreparationGeneration == generation)
+                return existing;
+
+            previousCancellation = _mapPreparationCancellation;
+            currentCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                _lifetime.Token);
+            _mapPreparationCancellation = currentCancellation;
+            _mapPreparationNode = node;
+            _mapPreparationRequirement = requirement;
+            _mapPreparationGeneration = generation;
+            _mapPreparation = new MapPreparationState(MapPreparationPhase.Downloading,
+                requirement, 0, requirement.PackageSize, null, generation);
+            task = PrepareMapAsync(node, requirement, endpoint, generation,
+                currentCancellation.Token);
+            _mapPreparationTask = task;
+            started = true;
+        }
+
+        if (previousCancellation != null)
+        {
+            try { previousCancellation.Cancel(); }
+            catch (ObjectDisposedException) { }
+            previousCancellation.Dispose();
+        }
+        if (started)
+        {
+            Publish(State with { Loading = true,
+                Message = $"Preparing {requirement.StableId} {requirement.Version}…" });
+            _ = ObserveMapPreparationAsync(task!, node, requirement, generation,
+                currentCancellation);
+        }
+        return task!;
+    }
+
+    private async Task<InstalledMap> PrepareMapAsync(NodeControlClient node,
+        MapRequirement requirement, string endpoint, long generation,
+        CancellationToken cancellationToken)
+    {
+        var progress = new Progress<MapDownloadProgress>(value =>
+        {
+            MapPreparationPhase phase = value.Stage switch
+            {
+                "Ready" => MapPreparationPhase.Ready,
+                "Compiling" or "Verifying" => MapPreparationPhase.Compiling,
+                _ => MapPreparationPhase.Downloading
+            };
+            UpdateMapPreparation(node, requirement, generation, phase,
+                value.Received, value.Total, null);
+        });
+        return await _mapAcquisition.AcquireAsync(requirement, endpoint, progress,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task ObserveMapPreparationAsync(Task<InstalledMap> task,
+        NodeControlClient node, MapRequirement requirement, long generation,
+        CancellationTokenSource cancellation)
+    {
+        try
+        {
+            await task.ConfigureAwait(false);
+            UpdateMapPreparation(node, requirement, generation, MapPreparationPhase.Ready,
+                requirement.PackageSize, requirement.PackageSize, null);
+        }
+        catch (OperationCanceledException)
+        {
+            UpdateMapPreparation(node, requirement, generation,
+                MapPreparationPhase.Cancelled, 0, requirement.PackageSize, null);
+        }
+        catch (Exception error)
+        {
+            string message = error.Message is { Length: > 0 and <= 512 } text
+                ? text : "The required map could not be prepared.";
+            UpdateMapPreparation(node, requirement, generation,
+                MapPreparationPhase.Failed, 0, requirement.PackageSize, message);
+        }
+        finally
+        {
+            lock (_mapPreparationLock)
+            {
+                if (ReferenceEquals(_mapPreparationTask, task)
+                    && ReferenceEquals(_mapPreparationCancellation, cancellation))
+                {
+                    _mapPreparationCancellation = null;
+                    cancellation.Dispose();
+                }
+            }
+        }
+    }
+
+    private void UpdateMapPreparation(NodeControlClient node, MapRequirement requirement,
+        long generation, MapPreparationPhase phase, long received, long total,
+        string? failure)
+    {
+        lock (_mapPreparationLock)
+        {
+            if (!ReferenceEquals(_mapPreparationNode, node)
+                || _mapPreparationRequirement != requirement
+                || _mapPreparationGeneration != generation
+                || _mapPreparationTask == null)
+                return;
+            _mapPreparation = new MapPreparationState(phase, requirement,
+                Math.Clamp(received, 0, requirement.PackageSize),
+                Math.Clamp(total, 0, requirement.PackageSize), failure, generation);
+        }
+        Publish(State with
+        {
+            Loading = phase is not MapPreparationPhase.Ready
+                and not MapPreparationPhase.Failed
+                and not MapPreparationPhase.Cancelled,
+            Message = phase switch
+            {
+                MapPreparationPhase.Ready => $"{requirement.StableId} {requirement.Version} is ready.",
+                MapPreparationPhase.Failed => failure ?? "The required map could not be prepared.",
+                MapPreparationPhase.Cancelled => "Required map preparation canceled.",
+                _ => $"{phase} {requirement.StableId} · {received:N0}/{total:N0} bytes"
+            }
+        });
+    }
+
+    private void EnsureMapPreparationCurrent(NodeControlClient node,
+        MapRequirement requirement, long generation)
+    {
+        lock (_mapPreparationLock)
+        {
+            if (!ReferenceEquals(_mapPreparationNode, node)
+                || _mapPreparationRequirement != requirement
+                || _mapPreparationGeneration != generation
+                || !_mapPreparation.IsReadyFor(requirement))
+                throw new OperationCanceledException(
+                    "The required map preparation was replaced before launch.");
+        }
+    }
+
+    private void CancelMapPreparation()
+    {
+        CancellationTokenSource? cancellation;
+        MapRequirement? priorRequirement;
+        bool changed;
+        lock (_mapPreparationLock)
+        {
+            changed = _mapPreparationTask != null || _mapPreparationCancellation != null
+                || _mapPreparation.Phase != MapPreparationPhase.None;
+            if (!changed) return;
+            cancellation = _mapPreparationCancellation;
+            priorRequirement = _mapPreparationRequirement;
+            _mapPreparationCancellation = null;
+            _mapPreparationTask = null;
+            _mapPreparationNode = null;
+            _mapPreparationRequirement = null;
+            _mapPreparationGeneration = 0;
+            _mapPreparation = priorRequirement == null
+                ? MapPreparationState.None
+                : new MapPreparationState(MapPreparationPhase.Cancelled,
+                    priorRequirement, 0, priorRequirement.PackageSize, null,
+                    Interlocked.Read(ref _generation));
+        }
+        if (cancellation != null)
+        {
+            try { cancellation.Cancel(); }
+            catch (ObjectDisposedException) { }
+            cancellation.Dispose();
+        }
+        if (Volatile.Read(ref _disposed) == 0)
+            Publish(State with { Loading = false,
+                Message = priorRequirement == null
+                    ? "Required map preparation canceled."
+                    : "Required map preparation canceled." });
     }
 
     private void NodeChanged()
@@ -1165,6 +1789,7 @@ public sealed class PlayController : IAsyncDisposable
         NodeControlClient? node = _observed;
         if (node == null || Volatile.Read(ref _disposed) != 0) return;
         PublishFromNode(node);
+        SynchronizeMapPreparation(node);
         if (node.State.MatchEnded) _handoff.Cancel();
         if (node.State.Lobby == null) CancelPendingHandoff();
         if (Volatile.Read(ref _handoffEnabled) != 0
@@ -1178,10 +1803,11 @@ public sealed class PlayController : IAsyncDisposable
         Observe(node);
         if (node == null)
         {
+            CancelMapPreparation();
             ClearSelectedNodeCatalog();
             _shell.SetNodeStatus(false);
             Publish(State with { Phase = PlayPhase.Nodes, Node = null, BrowsedLobbies = null, Loading = false,
-                Message = "Node disconnected." });
+                Message = "Server disconnected." });
         }
     }
 
@@ -1191,12 +1817,15 @@ public sealed class PlayController : IAsyncDisposable
         PlayPhase phase = state.Handoff != null && !state.MatchEnded ? PlayPhase.Handoff
             : state.Lobby != null ? PlayPhase.Lobby
             : node.Connected ? PlayPhase.Connected : PlayPhase.Error;
-        string message = state.Error ?? (phase switch
+        string message = state.Error is { } error
+            ? PrimeRoutePresentation.PlayerFacingNetworkError(error,
+                "Connection issue. Reconnect and try again.")
+            : (phase switch
         {
-            PlayPhase.Handoff => "Match authorized. Connecting gameplay transport…",
+            PlayPhase.Handoff => "Match found. Connecting to the match server…",
             PlayPhase.Lobby => state.Lobby!.Name,
             PlayPhase.Connected => "Connected to server.",
-            _ => "Node disconnected. Reconnect to continue."
+            _ => "Server disconnected. Reconnect to continue."
         });
         _shell.SetNodeStatus(node.Connected, _connectedNodeName, _connectedNodeRegion);
         Publish(State with { Phase = phase, Node = state, Loading = false, Message = message });
@@ -1206,24 +1835,36 @@ public sealed class PlayController : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         if (Volatile.Read(ref _handoffEnabled) == 0) return false;
+        Guid? lobbyId = node.Lobby?.LobbyId;
+        if (IsLobbyLeaving(lobbyId)) return false;
         NodeSessionSnapshot session = node.Session
-            ?? throw new InvalidOperationException("The Node session is not ready.");
+            ?? throw new InvalidOperationException("The server connection is not ready.");
         long generation = Interlocked.Read(ref _generation);
         PlayHandoffKey key = new(session.NodeId, handoff.MatchId, handoff.Nonce, generation);
         if (!_handoff.TryBegin(key)) return false;
         Publish(State with { Phase = PlayPhase.Handoff, Loading = true,
-            Message = "Allocating Worker and synchronizing content…" });
+            Message = "Preparing the match server and synchronizing content…" });
         bool joined = false;
         try
         {
             if (node.Lobby?.RequiredMap is { } required)
-                await _mapAcquisition.AcquireAsync(required, node.Endpoint!, null,
-                    cancellationToken).ConfigureAwait(false);
+            {
+                string endpoint = node.Endpoint
+                    ?? throw new InvalidOperationException("The server connection is unavailable.");
+                Task<InstalledMap> preparation = StartMapPreparation(node, required, endpoint,
+                    generation);
+                await preparation.WaitAsync(cancellationToken).ConfigureAwait(false);
+                EnsureMapPreparationCurrent(node, required, generation);
+            }
             joined = await NetLaunch.JoinWorkerAsync(handoff, session.DisplayName, cancellationToken)
                 .ConfigureAwait(false);
-            if (!joined) throw new InvalidOperationException(NetLaunch.LastJoinError);
+            if (!joined)
+                throw new InvalidOperationException(PrimeRoutePresentation.PlayerFacingNetworkError(
+                    NetLaunch.LastJoinError,
+                    "Could not join the match. Check your connection and try again."));
             if (Volatile.Read(ref _disposed) != 0 || generation != Interlocked.Read(ref _generation)
                 || Volatile.Read(ref _handoffEnabled) == 0 || cancellationToken.IsCancellationRequested
+                || IsLobbyLeaving(lobbyId)
                 || !ReferenceEquals(_observed, node)
                 || !_handoff.TryComplete(key))
             {
@@ -1245,7 +1886,7 @@ public sealed class PlayController : IAsyncDisposable
                 Port = handoff.Port
             };
             Launch?.Invoke(this, plan);
-            Publish(State with { Loading = false, Message = "Gameplay transport connected." });
+            Publish(State with { Loading = false, Message = "Connected to the match server." });
             return true;
         }
         catch (OperationCanceledException)
@@ -1253,7 +1894,8 @@ public sealed class PlayController : IAsyncDisposable
             NetSession.Stop();
             _handoff.Cancel(key);
             if (IsStaleHandoff(node, generation, cancellationToken)) return false;
-            Publish(State with { Phase = PlayPhase.Error, Loading = false, Message = "Worker connection cancelled." });
+            Publish(State with { Phase = PlayPhase.Error, Loading = false,
+                Message = "Match connection canceled." });
             return false;
         }
         catch (Exception error)
@@ -1261,8 +1903,10 @@ public sealed class PlayController : IAsyncDisposable
             NetSession.Stop();
             _handoff.Cancel(key);
             if (IsStaleHandoff(node, generation, cancellationToken)) return false;
-            Publish(State with { Phase = PlayPhase.Error, Loading = false, Message = error.Message });
-            _shell.Notify(PrimeNotificationKind.Error, error.Message);
+            string message = PrimeRoutePresentation.PlayerFacingNetworkError(error.Message,
+                "Could not join the match. Check your connection and try again.");
+            Publish(State with { Phase = PlayPhase.Error, Loading = false, Message = message });
+            _shell.Notify(PrimeNotificationKind.Error, message);
             return false;
         }
     }
@@ -1294,12 +1938,21 @@ public sealed class PlayController : IAsyncDisposable
             || cancellationToken.IsCancellationRequested
             || !ReferenceEquals(_observed, node);
 
+    private bool IsLobbyLeaving(Guid? lobbyId)
+    {
+        lock (_stateLock)
+        {
+            return _leavingLobbyId is { } leaving
+                && (!lobbyId.HasValue || lobbyId.Value == leaving);
+        }
+    }
+
     private async Task<AccountSession> RequireAccountAsync(CancellationToken cancellationToken)
     {
         if (!_shell.HasNetworkIdentity)
-            throw new InvalidOperationException("Sign in or explicitly choose Guest access before browsing Nodes.");
+            throw new InvalidOperationException("Sign in or choose Guest access before browsing servers.");
         return await _accountResolver(cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("Configure a Backend in Settings before browsing Nodes.");
+            ?? throw new InvalidOperationException("Configure online services in Settings before browsing servers.");
     }
 
     private static async Task<AccountSession?> ResolveAccountAsync(CancellationToken cancellationToken)
@@ -1313,7 +1966,7 @@ public sealed class PlayController : IAsyncDisposable
 
     private NodeControlClient RequireConnected()
         => _online.Node is { Connected: true } node
-            ? node : throw new InvalidOperationException("Connect to a Node first.");
+            ? node : throw new InvalidOperationException("Connect to a server first.");
 
     private void Publish(PlayState state)
     {
@@ -1372,7 +2025,7 @@ public sealed class PlayController : IAsyncDisposable
 
     private static string GetMapCatalogMessage(NodeMapCatalogState state) => state switch
     {
-        NodeMapCatalogState.None => "Select a Node to see hosted maps.",
+        NodeMapCatalogState.None => "Select a server to see hosted maps.",
         NodeMapCatalogState.Unknown => MapCatalogMessageFor(NodeMapCatalogState.Unknown),
         NodeMapCatalogState.Empty => MapCatalogMessageFor(NodeMapCatalogState.Empty),
         NodeMapCatalogState.Disjoint => MapCatalogMessageFor(NodeMapCatalogState.Disjoint),
@@ -1381,9 +2034,9 @@ public sealed class PlayController : IAsyncDisposable
 
     private static string MapCatalogMessageFor(NodeMapCatalogState state) => state switch
     {
-        NodeMapCatalogState.Unknown => "This Node did not advertise its hosted map catalog; map selection is unavailable.",
-        NodeMapCatalogState.Empty => "This Node advertises no hosted maps.",
-        NodeMapCatalogState.Disjoint => "This Node's hosted maps are not installed locally.",
+        NodeMapCatalogState.Unknown => "This server did not provide its hosted map catalog; map selection is unavailable.",
+        NodeMapCatalogState.Empty => "This server has no hosted maps.",
+        NodeMapCatalogState.Disjoint => "This server's hosted maps are not installed locally.",
         _ => ""
     };
 

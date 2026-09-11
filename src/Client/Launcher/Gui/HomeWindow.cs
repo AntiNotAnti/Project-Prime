@@ -21,6 +21,7 @@ namespace MphRead.Mods.Launcher.Gui
     internal sealed class HomeWindow : Window
     {
         private readonly PrimeShellView _view;
+        private readonly DesktopGameOverlayCoordinator? _overlay;
         private PostMatchWindow? _results;
         private bool _waitingForContinuation;
 
@@ -115,20 +116,35 @@ namespace MphRead.Mods.Launcher.Gui
         internal void CloseMatchTransition() => _view.CloseMatchTransition();
 
         internal void ShowContinuationTransition(MatchTransitionState state)
-            => _results?.EnterContinuationLoading(state);
+        {
+            if (_overlay != null) _overlay.ShowContinuationTransition(state);
+            else _results?.EnterContinuationLoading(state);
+        }
 
         internal void UpdateContinuationTransition(MatchTransitionState state)
-            => _results?.UpdateContinuationLoading(state);
+        {
+            if (_overlay != null) _overlay.UpdateContinuationTransition(state);
+            else _results?.UpdateContinuationLoading(state);
+        }
 
         internal void HideResultsForTransition()
         {
+            if (_overlay != null)
+            {
+                _overlay.HideResultsForTransition();
+                return;
+            }
             if (_results == null) return;
             _results.UserCloseRequested -= ResultsWindowCloseRequested;
             if (!_results.CompleteContinuation()) _results.CloseForTransition();
             _results = null;
         }
 
-        internal void ShowResultsForTransition() => _results?.ShowForTransition();
+        internal void ShowResultsForTransition()
+        {
+            if (_overlay != null) _overlay.ShowResultsForTransition();
+            else _results?.ShowForTransition();
+        }
 
         internal MatchResultsPresentationResult PresentResults(MatchResultsSnapshot? results,
             Func<bool> pump, Action resultsVisible,
@@ -136,6 +152,11 @@ namespace MphRead.Mods.Launcher.Gui
         {
             Guid? completed = AuthoritativePlay.Current?.NodeMatchId ?? NodeSessions.Current?.State.JoinedMatchId;
             if (!completed.HasValue) return new();
+            if (_overlay != null)
+            {
+                return _overlay.PresentResults(_view.Play, completed.Value, results,
+                    pump, resultsVisible, continuationSelected);
+            }
             PauseMenuWindow.CloseIfOpen();
             var resultsWindow = new PostMatchWindow(_view.Play, completed.Value, results);
             _results = resultsWindow;
@@ -159,6 +180,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void CloseResults()
         {
+            if (_overlay != null)
+            {
+                _overlay.CloseForTransition();
+                return;
+            }
             if (_results != null)
             {
                 _results.UserCloseRequested -= ResultsWindowCloseRequested;
@@ -170,8 +196,12 @@ namespace MphRead.Mods.Launcher.Gui
         private void ResultsWindowCloseRequested(object? sender, EventArgs args)
             => ResultsCloseRequested?.Invoke(this, EventArgs.Empty);
 
-        public HomeWindow(MenuSettings settings, IReadOnlyList<string> rooms)
+        public HomeWindow(MenuSettings settings, IReadOnlyList<string> rooms,
+            DesktopGameOverlayCoordinator? overlay = null)
         {
+            _overlay = overlay;
+            if (_overlay != null)
+                _overlay.CloseRequested += OverlayCloseRequested;
             _view = new PrimeShellView(settings, rooms);
             _view.Done += (_, plan) =>
             {
@@ -194,7 +224,12 @@ namespace MphRead.Mods.Launcher.Gui
             });
             _view.MatchTransitionReturnToLobbyRequested += (_, _) =>
                 TransitionReturnToLobbyRequested?.Invoke(this, EventArgs.Empty);
-            Closed += (_, _) => { IsClosed = true; CloseResults(); };
+            Closed += (_, _) =>
+            {
+                IsClosed = true;
+                if (_overlay != null) _overlay.CloseRequested -= OverlayCloseRequested;
+                CloseResults();
+            };
             Closed += (_, _) => _ = _view.DisposeAsync().AsTask();
 
             Title = Mods.Branding.Name;
@@ -208,5 +243,8 @@ namespace MphRead.Mods.Launcher.Gui
             RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
             Content = _view;
         }
+
+        private void OverlayCloseRequested(object? sender, EventArgs args)
+            => ResultsCloseRequested?.Invoke(this, EventArgs.Empty);
     }
 }

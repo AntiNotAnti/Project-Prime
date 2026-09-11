@@ -267,13 +267,18 @@ public sealed class UpdateContractTests
             File.WriteAllText(Path.Combine(root, ".update", "backup", "stale.bin"), "stale");
             File.WriteAllText(Path.Combine(staged, "ProjectPrime"), "v2");
             File.WriteAllText(Path.Combine(staged, "new.dll"), "new");
-            WriteReleaseFiles(staged, "1.1.0", ("ProjectPrime", "v2"), ("new.dll", "new"));
+            Directory.CreateDirectory(Path.Combine(staged, "editor"));
+            File.WriteAllText(Path.Combine(staged, "editor", "ProjectPrime.Editor"), "editor-v2");
+            WriteReleaseFiles(staged, "1.1.0", ("ProjectPrime", "v2"), ("new.dll", "new"),
+                ("editor/ProjectPrime.Editor", "editor-v2"));
 
             UpdateTransactionResult result = new DesktopUpdateTransaction(root, staged)
                 .Apply("1.0.0", "1.1.0");
             Assert.True(result.Success, result.Error);
             Assert.Equal("v2", File.ReadAllText(Path.Combine(root, "ProjectPrime")));
             Assert.Equal("new", File.ReadAllText(Path.Combine(root, "new.dll")));
+            Assert.Equal("editor-v2", File.ReadAllText(Path.Combine(root,
+                "editor", "ProjectPrime.Editor")));
             Assert.False(File.Exists(Path.Combine(root, "old.dll")));
             Assert.Equal("player modified", File.ReadAllText(Path.Combine(root, "modified.dll")));
             Assert.Equal("player paths", File.ReadAllText(Path.Combine(root, "paths.txt")));

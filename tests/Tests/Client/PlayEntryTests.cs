@@ -89,6 +89,24 @@ public sealed class PlayEntryTests
         Assert.Equal(fallback, PlayController.SelectAutomaticNode([fallback, sentinel], region));
     }
 
+    [Theory]
+    [InlineData(AccountFailureKind.RateLimited, true)]
+    [InlineData(AccountFailureKind.ServiceUnavailable, true)]
+    [InlineData(AccountFailureKind.TransportUnavailable, true)]
+    [InlineData(AccountFailureKind.Timeout, true)]
+    [InlineData(AccountFailureKind.InvalidCredential, false)]
+    [InlineData(AccountFailureKind.InvalidResponse, false)]
+    [InlineData(AccountFailureKind.Cancelled, false)]
+    public void QuickPlayClassifiesTypedAccountFailuresForFailover(
+        AccountFailureKind kind, bool transient)
+    {
+        var error = new AccountServiceException("test", kind);
+        Assert.Equal(transient, PlayController.IsTransientAccountFailure(kind));
+        Assert.Equal(transient,
+            PlayController.ClassifyNodeConnectFailure(error, CancellationToken.None)
+                == PlayController.NodeConnectFailureKind.Transient);
+    }
+
     [Fact]
     public async Task PreferredRegionUsesTheAuthoritativeLauncherPreference()
     {
@@ -383,7 +401,7 @@ public sealed class PlayEntryTests
         => new(Guid.NewGuid(), "Lobby", phase, players, 4, 0, 1, BotCount: bots);
 
     private static NodeListing Node(int id, string region, int players)
-        => new(new Guid(id, 0, 0, new byte[8]), "Server", region, "wss://localhost", 1,
+        => new(new Guid(id, 0, 0, new byte[8]), "Server", region, "wss://localhost/v1/control", 1,
             "build", "content", 8, players, 1, 0, "community", DateTimeOffset.UnixEpoch);
 
     private sealed class ProbeHandler : HttpMessageHandler

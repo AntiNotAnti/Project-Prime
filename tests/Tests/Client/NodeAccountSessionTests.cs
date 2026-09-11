@@ -1,14 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Network;
+using ProjectPrime.Server.Shared;
 using Xunit;
 
 namespace MphRead.Tests;
@@ -16,10 +19,10 @@ namespace MphRead.Tests;
 public sealed class NodeAccountSessionTests
 {
     [Theory]
-    [InlineData("wss://node.example/control", true)]
-    [InlineData("ws://node.example/control", false)]
-    [InlineData("wss://user:password@node.example/control", false)]
-    [InlineData("wss://node.example/control?ticket=secret", false)]
+    [InlineData("wss://node.example/v1/control", true)]
+    [InlineData("ws://node.example/v1/control", false)]
+    [InlineData("wss://user:password@node.example/v1/control", false)]
+    [InlineData("wss://node.example/v1/control?ticket=secret", false)]
     public async Task DirectoryPinsCompatibilityAndSecureControlEndpoint(string endpoint, bool valid)
     {
         var node = new NodeListing(Guid.NewGuid(), "Node", "us", endpoint, 9, "build", new string('a', 64), 10, 1, 1, 0, "community", DateTimeOffset.UtcNow);
@@ -28,26 +31,26 @@ public sealed class NodeAccountSessionTests
         {
             NodeListing[] entries = await session.GetNodesAsync(9, "build", new string('a', 64));
             Assert.Single(entries);
-            Assert.Null(entries[0].MapKeys); // Old directory JSON has no catalog field.
+            Assert.Equal("wss://node.example/v1/control", entries[0].PublicControlUri);
         }
         else await Assert.ThrowsAsync<InvalidOperationException>(() => session.GetNodesAsync(9, "build", new string('a', 64)));
         await Assert.ThrowsAsync<InvalidOperationException>(() => session.GetNodesAsync(8, "build", new string('a', 64)));
     }
 
     [Fact]
-    public async Task DirectoryRejectsInvalidAdvertisedMapCatalogs()
+    public async Task DirectoryRejectsInvalidAdvertisedCatalogMetadata()
     {
-        foreach (string[] keys in new[]
+        foreach ((long Revision, int Count, string? Hash) metadata in new[]
         {
-            new string[257],
-            new[] { "" },
-            new[] { "map\nkey" },
-            new[] { "same", "same" },
-            new[] { "map\u007fkey" }
+            (0L, 1, null),
+            (1L, 257, null),
+            (1L, 1, "not-a-sha256")
         })
         {
-            var node = new NodeListing(Guid.NewGuid(), "Node", "us", "wss://node.example/control", 9,
-                "build", new string('a', 64), 10, 1, 1, 0, "community", DateTimeOffset.UtcNow, keys);
+            var node = new NodeListing(Guid.NewGuid(), "Node", "us", "wss://node.example/v1/control", 9,
+                "build", new string('a', 64), 10, 1, 1, 0, "community", DateTimeOffset.UtcNow,
+                MapCatalogRevision: metadata.Revision, MapCount: metadata.Count,
+                MapCatalogHash: metadata.Hash);
             using var session = new AccountSession(new Uri("https://backend.example/"), new Handler(node));
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 session.GetNodesAsync(9, "build", new string('a', 64)));
@@ -65,7 +68,7 @@ public sealed class NodeAccountSessionTests
                 nodeId,
                 name = "Node",
                 region = "us",
-                publicControlUri = "wss://node.example/control",
+                publicControlUri = "wss://node.example/v1/control",
                 protocolVersion = 9,
                 buildVersion = "build",
                 contentHash = new string('a', 64),
@@ -79,8 +82,8 @@ public sealed class NodeAccountSessionTests
         }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         using var session = new AccountSession(new Uri("https://backend.example/"), new RawJsonHandler(json));
 
-        NodeListing listing = Assert.Single(await session.GetNodesAsync(9, "build", new string('a', 64)));
-        Assert.Null(listing.MapKeys);
+        await Assert.ThrowsAsync<JsonException>(() =>
+            session.GetNodesAsync(9, "build", new string('a', 64)));
     }
 
     [Fact]
@@ -92,11 +95,9 @@ public sealed class NodeAccountSessionTests
             Assert.Equal(HttpMethod.Get, request.Method);
             Assert.Equal("/v1/nodes", request.RequestUri!.AbsolutePath);
             Assert.Null(request.Headers.Authorization);
-            return Task.FromResult(JsonResponse(new[]
-            {
-                new NodeListing(nodeId, "Node", "us", "wss://node.example/control", 9, "build", new string('a', 64),
-                    10, 1, 1, 0, "community", DateTimeOffset.UtcNow)
-            }));
+            return Task.FromResult(JsonResponse(Page(new NodeListing(nodeId, "Node", "us",
+                "wss://node.example/v1/control", 9, "build", new string('a', 64),
+                10, 1, 1, 0, "community", DateTimeOffset.UtcNow))));
         });
         using var session = new AccountSession(new Uri("https://backend.example/"), handler);
 
@@ -105,11 +106,53 @@ public sealed class NodeAccountSessionTests
     }
 
     [Fact]
+    public async Task DirectoryAssemblesBoundedRevisionPinnedPagesAtomically()
+    {
+        NodeListing[] expected = Enumerable.Range(0, NodeDirectoryContract.MaximumPageEntries + 3)
+            .Select(index => new NodeListing(Guid.NewGuid(), $"Node-{index}", "us",
+                "wss://node.example/v1/control", 9, "build", new string('a', 64),
+                10, 1, 1, 0, "community", DateTimeOffset.UtcNow)).ToArray();
+        var handler = new RecordingHandler((request, _) =>
+        {
+            int page = QueryInt(request.RequestUri!, "page");
+            string? pinned = QueryValue(request.RequestUri!, "revision");
+            Assert.Equal(page == 0 ? null : "41", pinned);
+            NodeListing[] slice = expected.Skip(page * NodeDirectoryContract.MaximumPageEntries)
+                .Take(NodeDirectoryContract.MaximumPageEntries).ToArray();
+            return Task.FromResult(JsonResponse(Page(slice, 41, page, 2, expected.Length)));
+        });
+        using var session = new AccountSession(new Uri("https://backend.example/"), handler);
+
+        NodeListing[] actual = await session.GetNodesAsync(9, "build", new string('a', 64));
+
+        Assert.Equal(expected, actual);
+        Assert.Equal(2, handler.Snapshot().Length);
+    }
+
+    [Fact]
+    public async Task DirectoryRejectsDuplicateEntriesBeforePublishingSnapshot()
+    {
+        NodeListing node = new(Guid.NewGuid(), "Node", "us",
+            "wss://node.example/v1/control", 9, "build", new string('a', 64),
+            10, 1, 1, 0, "community", DateTimeOffset.UtcNow);
+        NodeDirectoryEntry entry = new(node.NodeId, node.Name, node.Region,
+            node.PublicControlUri, node.ProtocolVersion, node.BuildVersion,
+            node.ContentHash, node.Capacity, node.OnlineUsers, node.LobbyCount,
+            node.ActiveMatches, node.TrustClass, node.LastHeartbeat);
+        using var session = new AccountSession(new Uri("https://backend.example/"),
+            new RawJsonHandler(JsonSerializer.Serialize(new NodeDirectoryPage(1, 0, 1, 2,
+                ImmutableArray.Create(entry, entry)), new JsonSerializerOptions(JsonSerializerDefaults.Web))));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            session.GetNodesAsync(9, "build", new string('a', 64)));
+    }
+
+    [Fact]
     public async Task GuestAdmissionTrimsNameAndUsesAnonymousGuestEndpoint()
     {
         Guid nodeId = Guid.NewGuid();
         var ticket = new NodeAdmissionTicket("guest.ticket", DateTimeOffset.UtcNow.AddSeconds(30), nodeId,
-            "wss://node.example/control");
+            "wss://node.example/v1/control");
         var handler = new RecordingHandler((request, _) =>
         {
             Assert.Equal(HttpMethod.Post, request.Method);
@@ -147,7 +190,7 @@ public sealed class NodeAccountSessionTests
     {
         Guid playerId = Guid.NewGuid(), nodeId = Guid.NewGuid();
         var ticket = new NodeAdmissionTicket("account.ticket", DateTimeOffset.UtcNow.AddSeconds(30), nodeId,
-            "wss://node.example/control");
+            "wss://node.example/v1/control");
         var handler = new RecordingHandler((request, _) => request.RequestUri!.AbsolutePath switch
         {
             "/v1/auth/login" => Task.FromResult(JsonResponse(new
@@ -198,9 +241,36 @@ public sealed class NodeAccountSessionTests
         {
             Assert.Equal("backend.example", request.RequestUri!.Host);
             Assert.Null(request.Headers.Authorization);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new[] { listing }) });
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(Page(listing))
+            });
         }
     }
+
+    private static NodeDirectoryPage Page(NodeListing listing, long revision = 1,
+        int page = 0, int pageCount = 1, int? totalEntries = null)
+        => Page(new[] { listing }, revision, page, pageCount, totalEntries);
+
+    private static NodeDirectoryPage Page(IReadOnlyList<NodeListing> listings,
+        long revision = 1, int page = 0, int pageCount = 1, int? totalEntries = null)
+        => new(revision, page, pageCount, totalEntries ?? listings.Count,
+            listings.Select(listing => new NodeDirectoryEntry(listing.NodeId, listing.Name,
+                listing.Region, listing.PublicControlUri, listing.ProtocolVersion,
+                listing.BuildVersion, listing.ContentHash, listing.Capacity,
+                listing.OnlineUsers, listing.LobbyCount, listing.ActiveMatches,
+                listing.TrustClass, listing.LastHeartbeat, listing.MapCatalogRevision,
+                listing.MapCount, listing.MapCatalogHash)).ToImmutableArray());
+
+    private static int QueryInt(Uri uri, string name)
+        => int.Parse(QueryValue(uri, name) ?? throw new InvalidOperationException("Missing query value."));
+
+    private static string? QueryValue(Uri uri, string name)
+        => uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => part.Split('=', 2))
+            .Where(pair => pair.Length == 2)
+            .FirstOrDefault(pair => Uri.UnescapeDataString(pair[0]) == name) is { } value
+            ? Uri.UnescapeDataString(value[1]) : null;
 
     private sealed class RawJsonHandler(string json) : HttpMessageHandler
     {

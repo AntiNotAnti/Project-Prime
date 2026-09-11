@@ -33,6 +33,25 @@ public sealed class GatewayControllerAuthTests
         Assert.Null(gateway.PendingRegistration);
     }
 
+    [Theory]
+    [InlineData(false, false, "Account created. You can sign in now.")]
+    [InlineData(true, false, "Account created. Enter the confirmation code, then sign in.")]
+    [InlineData(true, true, "Account created. Your confirmation email is still being delivered. Enter the code when it arrives.")]
+    public async Task RegistrationMessageReflectsConfirmationDeliveryState(bool required,
+        bool deliveryPending, string expectedMessage)
+    {
+        var account = new AccountFake
+        {
+            RegistrationConfirmationRequired = required,
+            RegistrationDeliveryPending = deliveryPending
+        };
+        using var shell = new PrimeShellState();
+        await using var gateway = Create(shell, account);
+
+        Assert.NotNull(await gateway.RegisterAsync("pilot@example.test", "secret", "Pilot"));
+        Assert.Equal(expectedMessage, gateway.State.Message);
+    }
+
     [Fact]
     public async Task SuccessfulIdentityAndSignOutClearPendingRegistration()
     {
@@ -242,6 +261,28 @@ public sealed class GatewayControllerAuthTests
         Assert.Equal(1, identityEvents);
     }
 
+    [Fact]
+    public async Task TemporaryRestoreShowsRecoverableGatewayStateWithoutForcingSignIn()
+    {
+        var account = new AccountFake
+        {
+            RestoreState = AccountRestoreState.TemporarilyUnavailable,
+            RestoreError = new AccountServiceException("service unavailable",
+                AccountFailureKind.ServiceUnavailable)
+        };
+        using var shell = new PrimeShellState();
+        await using var gateway = Create(shell, account);
+
+        Assert.False(await gateway.RestoreAsync());
+        Assert.Equal(GatewayPhase.Gateway, gateway.State.Phase);
+        Assert.Contains("temporarily unavailable", gateway.State.Message,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.False(shell.SignedIn);
+        Assert.False(shell.GuestSelected);
+        Assert.True(await gateway.UseGuestAsync());
+        Assert.True(shell.GuestSelected);
+    }
+
     private static GatewayController Create(PrimeShellState shell,
         AccountFake account)
         => new(shell, _ => Task.FromResult<IPrimeGatewayAccount>(account));
@@ -254,6 +295,10 @@ public sealed class GatewayControllerAuthTests
         public bool IsSignedIn { get; private set; }
         public AccountIdentity? Identity { get; private set; }
         public bool RestoreResult { get; init; }
+        public AccountRestoreState RestoreState { get; init; } = AccountRestoreState.NoStoredSession;
+        public AccountServiceException? RestoreError { get; init; }
+        public bool RegistrationConfirmationRequired { get; init; } = true;
+        public bool RegistrationDeliveryPending { get; init; }
         public bool FailSignIn { get; init; }
         public TaskCompletionSource? DisposeStarted { get; init; }
         public Task? AllowDispose { get; init; }
@@ -265,14 +310,23 @@ public sealed class GatewayControllerAuthTests
         public int UsesAfterDispose { get; private set; }
         public bool Disposed { get; private set; }
 
-        public Task<bool> RestoreAsync(CancellationToken cancellationToken)
+        public async Task<bool> RestoreAsync(CancellationToken cancellationToken)
         {
-            if (RestoreResult)
+            AccountRestoreResult result = await RestoreDetailedAsync(cancellationToken);
+            if (result.State == AccountRestoreState.InvalidStoredSession && result.Error is { } error)
+                throw error;
+            return result.State == AccountRestoreState.Restored;
+        }
+
+        public Task<AccountRestoreResult> RestoreDetailedAsync(CancellationToken cancellationToken)
+        {
+            if (RestoreResult || RestoreState == AccountRestoreState.Restored)
             {
                 IsSignedIn = true;
                 Identity = new AccountIdentity(PlayerId, true, true);
+                return Task.FromResult(new AccountRestoreResult(AccountRestoreState.Restored));
             }
-            return Task.FromResult(RestoreResult);
+            return Task.FromResult(new AccountRestoreResult(RestoreState, RestoreError));
         }
 
         public Task SignInAsync(string email, string password,
@@ -290,7 +344,8 @@ public sealed class GatewayControllerAuthTests
         public Task<AccountRegistration> RegisterAsync(string email,
             string password, string displayName,
             CancellationToken cancellationToken)
-            => Task.FromResult(new AccountRegistration(PlayerId, true));
+            => Task.FromResult(new AccountRegistration(PlayerId,
+                RegistrationConfirmationRequired, RegistrationDeliveryPending));
 
         public Task ConfirmEmailAsync(PlayerId playerId, string code,
             CancellationToken cancellationToken)

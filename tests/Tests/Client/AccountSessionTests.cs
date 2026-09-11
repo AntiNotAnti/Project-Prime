@@ -23,19 +23,49 @@ public sealed class AccountSessionTests
     private const int RegisteredPort = 27888;
 
     [Theory]
-    [InlineData("https://accounts.example.test/")]
-    [InlineData("https://accounts.example.test/base")]
-    [InlineData("http://localhost:4711/")]
-    [InlineData("http://127.0.0.1:4711/")]
-    [InlineData("http://[::1]:4711/")]
-    [InlineData("http://51.161.113.128:18085/")]
-    public void BackendPolicyAllowsHttpsAndLoopbackHttp(string value)
-        => Assert.True(AccountSession.IsAllowedBackend(new Uri(value)));
+    [InlineData("https://accounts.example.test/", true)]
+    [InlineData("https://accounts.example.test/base", true)]
+    [InlineData("http://localhost:4711/", true)]
+    [InlineData("http://127.0.0.1:4711/", true)]
+    [InlineData("http://[::1]:4711/", true)]
+    [InlineData("http://51.161.113.128:18085/", false)]
+    public void BackendPolicyAllowsHttpsAndLoopbackHttp(string value, bool allowed)
+        => Assert.Equal(allowed, AccountSession.IsAllowedBackend(new Uri(value)));
 
     [Fact]
-    public void FreshLauncherUsesConfiguredDevelopmentBackendPort()
-        => Assert.Equal("http://51.161.113.128:18085/",
+    public void FreshLauncherUsesSecurePublicBackend()
+        => Assert.Equal("https://rebooty.xyz/",
             MphRead.Mods.Launcher.LauncherPrefs.DefaultBackendAddress);
+
+    [Fact]
+    public void LauncherMigratesRetiredPublicHttpBackend()
+    {
+        string previousDirectory = MphRead.Mods.Launcher.LauncherPrefs.Directory;
+        string previousBackend = MphRead.Mods.Launcher.LauncherPrefs.BackendAddress;
+        string directory = Path.Combine(Path.GetTempPath(),
+            "project-prime-backend-migration-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            MphRead.Mods.Launcher.LauncherPrefs.Directory = directory;
+            File.WriteAllText(Path.Combine(directory, "launcher.txt"),
+                "backend_address=http://51.161.113.128:18085/\n");
+
+            MphRead.Mods.Launcher.LauncherPrefs.Load();
+
+            Assert.Equal("https://rebooty.xyz/",
+                MphRead.Mods.Launcher.LauncherPrefs.BackendAddress);
+            Assert.Contains("backend_address=https://rebooty.xyz/",
+                File.ReadAllText(Path.Combine(directory, "launcher.txt")),
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            MphRead.Mods.Launcher.LauncherPrefs.Directory = previousDirectory;
+            MphRead.Mods.Launcher.LauncherPrefs.BackendAddress = previousBackend;
+            Directory.Delete(directory, recursive: true);
+        }
+    }
 
     [Fact]
     public void BackendPolicyRejectsCredentialsQueriesFragmentsNonLoopbackHttpAndRelativeUris()
@@ -48,34 +78,6 @@ public sealed class AccountSessionTests
         Assert.False(AccountSession.IsAllowedBackend(new Uri("https://accounts.example.test/?redirect=http://localhost/")));
         Assert.False(AccountSession.IsAllowedBackend(new Uri("https://accounts.example.test/#fragment")));
         Assert.False(AccountSession.IsAllowedBackend(new Uri("accounts", UriKind.Relative)));
-    }
-
-    [Fact]
-    public void TicketEndpointRequiresCanonicalPublicIpv4AndValidPort()
-    {
-        Guid server = Guid.NewGuid();
-        Guid incarnation = Guid.NewGuid();
-        DateTimeOffset expiry = DateTimeOffset.UtcNow.AddMinutes(5);
-        Assert.True(new GameTicket("ticket", expiry, server, incarnation, RegisteredAddress, 1).TryGetEndpoint(out IPEndPoint? first));
-        Assert.Equal(1, first!.Port);
-        Assert.True(new GameTicket("ticket", expiry, server, incarnation, RegisteredAddress, 65535).TryGetEndpoint(out IPEndPoint? last));
-        Assert.Equal(65535, last!.Port);
-
-        foreach ((string Address, int Port) invalid in new[]
-        {
-            ("", RegisteredPort),
-            ("127.000.000.001", RegisteredPort),
-            ("0.1.2.3", RegisteredPort),
-            ("224.0.0.1", RegisteredPort),
-            ("255.255.255.255", RegisteredPort),
-            ("::1", RegisteredPort),
-            (RegisteredAddress, 0),
-            (RegisteredAddress, 65536)
-        })
-        {
-            Assert.False(new GameTicket("ticket", expiry, server, incarnation, invalid.Address, invalid.Port).TryGetEndpoint(out _),
-                $"{invalid.Address}:{invalid.Port} should not be accepted as a game endpoint.");
-        }
     }
 
     [Fact]
@@ -145,7 +147,7 @@ public sealed class AccountSessionTests
         await using var server = new RedirectServer();
         using var session = new AccountSession(server.Endpoint);
 
-        await Assert.ThrowsAsync<HttpRequestException>(() =>
+        await Assert.ThrowsAsync<AccountServiceException>(() =>
             session.RegisterAsync("hunter@example.test", "A-long-password-1!", "Hunter"));
 
         Assert.Equal(1, server.RequestCount);
@@ -228,60 +230,6 @@ public sealed class AccountSessionTests
     }
 
     [Fact]
-    public async Task ConcurrentExpiredTicketRequestsPerformOneSerializedRefresh()
-    {
-        var time = new TestTimeProvider(new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero));
-        Guid playerId = Guid.NewGuid();
-        Guid serverId = Guid.NewGuid();
-        Guid incarnation = Guid.NewGuid();
-        int refreshCount = 0;
-        var handler = new RecordingHandler(async (request, cancel) =>
-        {
-            switch (request.RequestUri!.AbsolutePath)
-            {
-                case "/v1/auth/login":
-                    return JsonResponse(new
-                    {
-                        tokenType = "Bearer",
-                        accessToken = "access-before-refresh",
-                        expiresIn = 60,
-                        refreshToken = "refresh-token"
-                    });
-                case "/v1/me":
-                    return JsonResponse(new AccountIdentity(new PlayerId(playerId), true, true));
-                case "/v1/auth/refresh":
-                    Assert.Null(request.Headers.Authorization);
-                    Assert.Equal(1, Interlocked.Increment(ref refreshCount));
-                    await Task.Delay(40, cancel);
-                    return JsonResponse(new
-                    {
-                        tokenType = "Bearer",
-                        accessToken = "access-after-refresh",
-                        expiresIn = 3600,
-                        refreshToken = "refresh-token-2"
-                    });
-                case "/v1/game-tickets":
-                    await Task.Delay(5, cancel);
-                    return JsonResponse(new GameTicket("aaa.bbb.ccc", time.GetUtcNow().AddMinutes(5), serverId, incarnation,
-                        RegisteredAddress, RegisteredPort));
-                default:
-                    throw new InvalidOperationException($"Unexpected account path {request.RequestUri.AbsolutePath}.");
-            }
-        });
-        using var session = new AccountSession(new Uri("https://accounts.example.test/"), handler, time);
-        await session.SignInAsync("hunter@example.test", "A-long-password-1!");
-        time.Advance(TimeSpan.FromSeconds(40));
-
-        GameTicket[] tickets = await Task.WhenAll(Enumerable.Range(1, 8)
-            .Select(n => session.GetTicketAsync(serverId, (ulong)n)));
-
-        Assert.Equal(1, refreshCount);
-        Assert.All(tickets, ticket => Assert.Equal("aaa.bbb.ccc", ticket.Ticket));
-        Assert.All(handler.Snapshot().Where(x => x.Uri.AbsolutePath == "/v1/game-tickets"),
-            request => Assert.Equal("Bearer access-after-refresh", request.Authorization));
-    }
-
-    [Fact]
     public async Task SignInStoresOnlyScopedRefreshMaterialAndRestoreRotatesIt()
     {
         const string password = "A-long-password-1!";
@@ -350,6 +298,58 @@ public sealed class AccountSessionTests
         Assert.DoesNotContain(secondAccess, text, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task FailedSignInPreservesAnExistingRecoverableRefreshRecord()
+    {
+        var backend = new Uri("https://accounts.example.test/");
+        var store = new FakeSecureSessionStore();
+        store.Seed(backend.AbsoluteUri, SecureSessionRecordCodec.Encode(
+            backend.AbsoluteUri, "recoverable-refresh"));
+        using var session = new AccountSession(backend, new RecordingHandler((request, _) =>
+            Task.FromResult(new HttpResponseMessage(request.RequestUri!.AbsolutePath == "/v1/auth/login"
+                ? HttpStatusCode.Unauthorized : HttpStatusCode.InternalServerError))),
+            sessionStore: store);
+
+        await Assert.ThrowsAsync<AccountServiceException>(() =>
+            session.SignInAsync("hunter@example.test", "wrong-password"));
+
+        Assert.True(SecureSessionRecordCodec.TryDecode(backend.AbsoluteUri,
+            store.Read(backend.AbsoluteUri)!, out string refresh));
+        Assert.Equal("recoverable-refresh", refresh);
+        Assert.Equal(0, store.DeleteCount);
+    }
+
+    [Fact]
+    public async Task UnauthorizedIdentityLookupAfterRefreshPreservesRotatedRefreshMaterial()
+    {
+        var backend = new Uri("https://accounts.example.test/");
+        var store = new FakeSecureSessionStore();
+        store.Seed(backend.AbsoluteUri, SecureSessionRecordCodec.Encode(
+            backend.AbsoluteUri, "first-refresh"));
+        Guid player = Guid.NewGuid();
+        using var session = new AccountSession(backend, new RecordingHandler((request, _) =>
+            request.RequestUri!.AbsolutePath switch
+            {
+                "/v1/auth/refresh" => Task.FromResult(JsonResponse(new
+                {
+                    tokenType = "Bearer", accessToken = "rotated-access", expiresIn = 3600,
+                    refreshToken = "rotated-refresh"
+                })),
+                "/v1/me" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Unauthorized)),
+                _ => throw new InvalidOperationException($"Unexpected account path {request.RequestUri.AbsolutePath}.")
+            }), sessionStore: store);
+
+        AccountRestoreResult result = await session.RestoreDetailedAsync();
+
+        Assert.Equal(AccountRestoreState.TemporarilyUnavailable, result.State);
+        Assert.Equal(AccountFailureKind.InvalidCredential, result.Error?.Kind);
+        Assert.True(SecureSessionRecordCodec.TryDecode(backend.AbsoluteUri,
+            store.Read(backend.AbsoluteUri)!, out string refresh));
+        Assert.Equal("rotated-refresh", refresh);
+        Assert.Equal(0, store.DeleteCount);
+        Assert.Null(session.Identity);
+    }
+
     [Theory]
     [InlineData("{\"version\":2,\"backendScope\":\"https://accounts.example.test/\",\"refreshToken\":\"refresh\"}")]
     [InlineData("{\"version\":1,\"backendScope\":\"https://other.example.test/\",\"refreshToken\":\"refresh\"}")]
@@ -379,7 +379,8 @@ public sealed class AccountSessionTests
             Task.FromResult(new HttpResponseMessage(request.RequestUri!.AbsolutePath == "/v1/auth/refresh"
                 ? HttpStatusCode.Unauthorized : HttpStatusCode.InternalServerError))), sessionStore: store);
 
-        await Assert.ThrowsAsync<HttpRequestException>(() => session.RestoreAsync());
+        AccountServiceException error = await Assert.ThrowsAsync<AccountServiceException>(() => session.RestoreAsync());
+        Assert.Equal(AccountFailureKind.InvalidCredential, error.Kind);
 
         Assert.False(session.IsSignedIn);
         Assert.Null(session.Identity);
@@ -487,135 +488,7 @@ public sealed class AccountSessionTests
         Assert.False(session.IsSignedIn);
         Assert.Null(session.Identity);
         await Assert.ThrowsAsync<InvalidOperationException>(() => session.UpdateProfileAsync("Renamed", 2));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => session.GetTicketAsync(Guid.NewGuid(), 1));
         Assert.Equal(2, handler.Snapshot().Length);
-    }
-
-    [Fact]
-    public async Task TicketResponseMustMatchServerAndStayWithinBounds()
-    {
-        var time = new TestTimeProvider(new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero));
-        Guid playerId = Guid.NewGuid();
-        Guid serverId = Guid.NewGuid();
-        Guid incarnation = Guid.NewGuid();
-        var cases = new (string Name, GameTicket Ticket, bool Valid)[]
-        {
-            ("wrong server", new("valid.ticket", time.GetUtcNow().AddMinutes(1), Guid.NewGuid(), incarnation), false),
-            ("missing incarnation", new("valid.ticket", time.GetUtcNow().AddMinutes(1), serverId, Guid.Empty), false),
-            ("expired", new("valid.ticket", time.GetUtcNow(), serverId, incarnation), false),
-            ("missing ticket", new("", time.GetUtcNow().AddMinutes(1), serverId, incarnation), false),
-            ("too long", new(new string('a', JoinPacket.MaxTicketBytes + 1), time.GetUtcNow().AddMinutes(1), serverId, incarnation), false),
-            ("maximum length", new(new string('a', JoinPacket.MaxTicketBytes), time.GetUtcNow().AddMinutes(1), serverId, incarnation,
-                RegisteredAddress, RegisteredPort), true)
-        };
-
-        foreach (var testCase in cases)
-        {
-            var handler = SignedInHandler(playerId, ticket: _ => JsonResponse(testCase.Ticket));
-            using var session = new AccountSession(new Uri("https://accounts.example.test/"), handler, time);
-            await session.SignInAsync("hunter@example.test", "A-long-password-1!");
-
-            if (testCase.Valid)
-            {
-                GameTicket result = await session.GetTicketAsync(serverId, 1);
-                Assert.Equal(testCase.Ticket, result);
-            }
-            else
-            {
-                InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                    session.GetTicketAsync(serverId, 1));
-                Assert.Contains("invalid game ticket", error.Message, StringComparison.OrdinalIgnoreCase);
-            }
-        }
-    }
-
-    [Fact]
-    public async Task TicketResponseRejectsMissingOrUnsafeRegisteredEndpoint()
-    {
-        var time = new TestTimeProvider(new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero));
-        Guid playerId = Guid.NewGuid();
-        Guid serverId = Guid.NewGuid();
-        Guid incarnation = Guid.NewGuid();
-        foreach ((string Address, int Port) endpoint in new[]
-        {
-            ("", 0),
-            ("127.000.000.001", RegisteredPort),
-            ("224.0.0.1", RegisteredPort),
-            (RegisteredAddress, 0),
-            (RegisteredAddress, 65536)
-        })
-        {
-            GameTicket ticket = new("valid.ticket", time.GetUtcNow().AddMinutes(1), serverId, incarnation,
-                endpoint.Address, endpoint.Port);
-            using var session = new AccountSession(new Uri("https://accounts.example.test/"),
-                SignedInHandler(playerId, ticket: _ => JsonResponse(ticket)), time);
-            await session.SignInAsync("hunter@example.test", "A-long-password-1!");
-            await Assert.ThrowsAsync<InvalidOperationException>(() => session.GetTicketAsync(serverId, 1));
-        }
-    }
-
-    [Fact]
-    public void TicketDestinationPinRequiresRegisteredAddressAndExactPort()
-    {
-        Guid serverId = Guid.NewGuid();
-        Guid incarnation = Guid.NewGuid();
-        var ticket = new GameTicket("valid.ticket", DateTimeOffset.UtcNow.AddMinutes(5), serverId, incarnation,
-            "198.51.100.8", RegisteredPort);
-        IPAddress first = IPAddress.Parse("192.0.2.4");
-        IPAddress second = IPAddress.Parse("198.51.100.8");
-
-        Assert.Equal(second.ToString(), NetLaunch.PinTicketDestination(ticket, new[] { first, second }, RegisteredPort));
-        Assert.Throws<InvalidOperationException>(() =>
-            NetLaunch.PinTicketDestination(ticket, new[] { first }, RegisteredPort));
-        Assert.Throws<InvalidOperationException>(() =>
-            NetLaunch.PinTicketDestination(ticket, new[] { first, second }, RegisteredPort + 1));
-    }
-
-    [Fact]
-    public async Task TicketRequestRejectsEmptyServerAndNonce()
-    {
-        using var session = new AccountSession(new Uri("https://accounts.example.test/"),
-            new RecordingHandler((_, _) => throw new InvalidOperationException("No request expected.")));
-
-        await Assert.ThrowsAsync<ArgumentException>(() => session.GetTicketAsync(Guid.Empty, 1));
-        await Assert.ThrowsAsync<ArgumentException>(() => session.GetTicketAsync(Guid.NewGuid(), 0));
-    }
-
-    [Fact]
-    public async Task GameJoinCarriesOnlyShortLivedTicketAndNeverAccountCredentials()
-    {
-        var time = new TestTimeProvider(new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero));
-        Guid playerId = Guid.NewGuid();
-        Guid serverId = Guid.NewGuid();
-        Guid incarnation = Guid.NewGuid();
-        const string password = "A-long-password-1!";
-        const string accessToken = "account-access-secret";
-        const string refreshToken = "account-refresh-secret";
-        const string ticketText = "aaa.bbb.ccc";
-        var handler = SignedInHandler(playerId, accessToken, refreshToken,
-            ticket: _ => JsonResponse(new GameTicket(ticketText, time.GetUtcNow().AddMinutes(5), serverId, incarnation,
-                RegisteredAddress, RegisteredPort)));
-        using var session = new AccountSession(new Uri("https://accounts.example.test/"), handler, time);
-        await session.SignInAsync("hunter@example.test", password);
-        GameTicket ticket = await session.GetTicketAsync(serverId, 42);
-
-        RequestLog[] requests = handler.Snapshot();
-        Assert.All(requests, request => Assert.StartsWith("/v1/", request.Uri.AbsolutePath, StringComparison.Ordinal));
-        RequestLog ticketRequest = Assert.Single(requests, x => x.Uri.AbsolutePath == "/v1/game-tickets");
-        Assert.Equal($"Bearer {accessToken}", ticketRequest.Authorization);
-        Assert.DoesNotContain(password, ticketRequest.Body, StringComparison.Ordinal);
-        Assert.DoesNotContain(refreshToken, ticketRequest.Body, StringComparison.Ordinal);
-        Assert.DoesNotContain(accessToken, ticketRequest.Body, StringComparison.Ordinal);
-
-        var join = new JoinPacket(NetHeader.Version, 42, Hunter.Samus, "Hunter", Ticket: ticket.Ticket);
-        byte[] joinBytes = new byte[join.EncodedSize];
-        join.Write(joinBytes);
-        string gameServerWire = Encoding.ASCII.GetString(joinBytes);
-        Assert.Contains(ticketText, gameServerWire, StringComparison.Ordinal);
-        Assert.DoesNotContain(password, gameServerWire, StringComparison.Ordinal);
-        Assert.DoesNotContain(accessToken, gameServerWire, StringComparison.Ordinal);
-        Assert.DoesNotContain(refreshToken, gameServerWire, StringComparison.Ordinal);
-        Assert.DoesNotContain("Bearer", gameServerWire, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -637,11 +510,10 @@ public sealed class AccountSessionTests
 
         Assert.False(session.IsSignedIn);
         Assert.Null(session.Identity);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => session.GetTicketAsync(Guid.NewGuid(), 1));
     }
 
     private static RecordingHandler SignedInHandler(Guid playerId, string accessToken = "access-token",
-        string refreshToken = "refresh-token", Func<HttpRequestMessage, HttpResponseMessage>? ticket = null)
+        string refreshToken = "refresh-token")
         => new((request, _) => request.RequestUri!.AbsolutePath switch
         {
             "/v1/auth/login" => Task.FromResult(JsonResponse(new
@@ -649,9 +521,6 @@ public sealed class AccountSessionTests
                 tokenType = "Bearer", accessToken, expiresIn = 3600, refreshToken
             })),
             "/v1/me" => Task.FromResult(JsonResponse(new AccountIdentity(new PlayerId(playerId), true, true))),
-            "/v1/game-tickets" => Task.FromResult(ticket?.Invoke(request)
-                ?? JsonResponse(new GameTicket("aaa.bbb.ccc", DateTimeOffset.UtcNow.AddMinutes(5),
-                    Guid.NewGuid(), Guid.NewGuid(), RegisteredAddress, RegisteredPort))),
             _ => throw new InvalidOperationException($"Unexpected account path {request.RequestUri.AbsolutePath}.")
         });
 

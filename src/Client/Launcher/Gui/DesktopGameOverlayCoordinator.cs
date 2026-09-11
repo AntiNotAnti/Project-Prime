@@ -1,0 +1,427 @@
+using System;
+using Avalonia.Controls;
+using MphRead.Mods.Input;
+using MphRead.Mods.Network;
+using ProjectPrime.Server.Shared;
+
+namespace MphRead.Mods.Launcher.Gui;
+
+/// <summary>
+/// Owns the one desktop overlay surface and swaps scene-bound views into it.
+/// The mode is committed before replacing content or calling a native window
+/// so a close/activation callback cannot re-enter an obsolete presentation.
+/// </summary>
+internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPresenter
+{
+    private readonly IDesktopGameOverlaySurface _surface;
+    private readonly Func<GameHostPresentationState>? _state;
+    private readonly Action? _pump;
+    // The transition coordinator supplies the production instance. Tests and
+    // standalone overlay callers receive an instance scoped to this
+    // coordinator; there is deliberately no process-global owner.
+    private readonly DesktopInputOwner _inputOwner;
+    private SdlGameHost? _host;
+    private Scene? _scene;
+    private PauseMenuView? _pauseView;
+    private SettingsView? _settingsView;
+    private PostMatchSession? _results;
+    private bool _disposed;
+    private DesktopOverlayMode _mode;
+
+    // Compatibility routing hook for PauseMenu/HomeWindow. It exposes the
+    // active coordinator instance only; presentation and input state remain
+    // owned by that instance (and by the transition coordinator supplied to
+    // it), never by a process-global input singleton.
+    internal DesktopOverlayMode Mode => _mode;
+    internal bool IsOpen => _mode != DesktopOverlayMode.None;
+    internal DesktopGameOverlayWindow? Window => _surface as DesktopGameOverlayWindow;
+    internal PostMatchSession? ResultsSession => _results;
+    internal DesktopInputOwner InputOwner => _inputOwner;
+    internal event EventHandler? CloseRequested;
+
+    bool IPauseMenuPresenter.IsOpen => IsOpen;
+    bool IPauseMenuPresenter.Open(Scene scene) => OpenPause(scene);
+    void IPauseMenuPresenter.Close() => CloseFromMenu();
+    void IPauseMenuPresenter.Pump() => Pump();
+    void IPauseMenuPresenter.OnWindowMoved() { }
+
+    internal DesktopGameOverlayCoordinator(IDesktopGameOverlaySurface surface,
+        Func<GameHostPresentationState>? state = null, Action? pump = null,
+        DesktopInputOwner? inputOwner = null)
+    {
+        _surface = surface ?? throw new ArgumentNullException(nameof(surface));
+        _state = state;
+        _pump = pump;
+        _inputOwner = inputOwner ?? new DesktopInputOwner();
+        _surface.UserCloseRequested += SurfaceUserCloseRequested;
+        _surface.Activated += SurfaceActivated;
+        _surface.Deactivated += SurfaceDeactivated;
+    }
+
+    internal DesktopGameOverlayCoordinator(Func<SdlGameHost?> host,
+        Action? pump = null, DesktopInputOwner? inputOwner = null)
+        : this(new DesktopGameOverlayWindow(),
+            () => host()?.PresentationState ?? default, pump, inputOwner)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+        SdlGameHost? initialHost = host();
+        if (initialHost != null) AttachHost(initialHost);
+    }
+
+    internal void AttachHost(SdlGameHost host)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+        if (ReferenceEquals(_host, host)) return;
+        if (_host != null)
+        {
+            _host.PresentationStateChanged -= HostPresentationChanged;
+            _host.DetachInputOwner(_inputOwner);
+        }
+        _host = host;
+        _host.AttachInputOwner(_inputOwner);
+        _host.PresentationStateChanged += HostPresentationChanged;
+        HostPresentationChanged(host.PresentationState);
+    }
+
+    internal bool OpenPause(Scene scene)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ThrowIfDisposed();
+        _scene = scene;
+        PauseMenu.SetOverlayOpen(true);
+        if (_mode == DesktopOverlayMode.Pause)
+        {
+            ShowCurrent(activate: true);
+            return true;
+        }
+        EndCurrentContent();
+        _mode = DesktopOverlayMode.Pause;
+        var view = _pauseView = new PauseMenuView(offerWindowMode: true);
+        view.Resumed += (_, _) => CloseFromMenu();
+        view.SettingsRequested += (_, _) => OpenSettings();
+        view.FullscreenRequested += (_, _) =>
+        {
+            PauseMenu.RequestFullscreenToggle();
+            CloseFromMenu();
+        };
+        view.SpectateRequested += (_, _) =>
+        {
+            CloseFromMenu();
+            SpectatorMode.Start(scene);
+        };
+        view.RejoinRequested += (_, _) =>
+        {
+            CloseFromMenu();
+            SpectatorMode.Rejoin(scene);
+        };
+        view.RecordToggleRequested += (_, _) =>
+        {
+            if (ReplayRecorder.IsRecording) ReplayRecorder.Stop();
+            else ReplayRecorder.Start();
+            CloseFromMenu();
+        };
+        view.LeaveRequested += (_, _) =>
+        {
+            PauseMenu.RequestLeave();
+            CloseFromMenu();
+        };
+        view.QuitRequested += (_, _) =>
+        {
+            PauseMenu.RequestQuit();
+            CloseFromMenu();
+        };
+        _surface.SetContent(view, _mode);
+        _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
+            GamepadInput.State.Buttons);
+        ShowCurrent(activate: true);
+        view.FocusResume();
+        return true;
+    }
+
+    internal void OpenSettings()
+    {
+        ThrowIfDisposed();
+        if (_scene == null) return;
+        if (_mode == DesktopOverlayMode.Settings)
+        {
+            ShowCurrent(activate: true);
+            return;
+        }
+        if (_mode != DesktopOverlayMode.Pause) return;
+
+        // Pause is a presentation session, not a parent window. Dispose it
+        // before creating a fresh settings edit session so SettingsView's
+        // visual-tree lifetime cannot accidentally share a stale draft.
+        _pauseView = null;
+        _mode = DesktopOverlayMode.Settings;
+        SettingsView settings = _settingsView = new SettingsView(
+            ClientSettings.LoadSettings(), inGame: true, scene: _scene,
+            embedActionBar: false);
+        settings.Closed += SettingsClosed;
+        _surface.SetContent(BuildSettingsHost(settings), _mode);
+        _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
+            GamepadInput.State.Buttons);
+        ShowCurrent(activate: true);
+    }
+
+    private void SettingsClosed(object? sender, EventArgs args)
+    {
+        SettingsView? settings = _settingsView;
+        if (settings == null || !ReferenceEquals(sender, settings)) return;
+        settings.Closed -= SettingsClosed;
+        settings.Dispose();
+        _settingsView = null;
+        if (_disposed || _mode != DesktopOverlayMode.Settings) return;
+        // Settings -> Pause is explicit: the old edit session is complete and
+        // a new pause view is mounted into the same native window.
+        _surface.SetContent(null, DesktopOverlayMode.None);
+        _mode = DesktopOverlayMode.None;
+        if (_scene != null) OpenPause(_scene);
+    }
+
+    private static Control BuildSettingsHost(SettingsView settings)
+    {
+        var host = new Grid
+        {
+            RowDefinitions = new RowDefinitions("*,Auto"),
+            Background = GuiTheme.InkBrush
+        };
+        host.Children.Add(settings);
+        var actions = new SettingsActionBar(settings, inGame: true);
+        host.Children.Add(actions);
+        Grid.SetRow(actions, 1);
+        return host;
+    }
+
+    internal MatchResultsPresentationResult PresentResults(PlayController play,
+        Guid completedMatch, MatchResultsSnapshot? results, Func<bool> pump,
+        Action resultsVisible, Action<MatchTransitionState> continuationSelected)
+    {
+        ArgumentNullException.ThrowIfNull(play);
+        ArgumentNullException.ThrowIfNull(pump);
+        ArgumentNullException.ThrowIfNull(resultsVisible);
+        ArgumentNullException.ThrowIfNull(continuationSelected);
+        ThrowIfDisposed();
+        EndCurrentContent();
+        _mode = DesktopOverlayMode.Results;
+        PauseMenu.SetOverlayOpen(true);
+        PostMatchSession session = _results = new PostMatchSession(play,
+            completedMatch, results, _inputOwner);
+        _surface.SetContent(session.View, _mode);
+        _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
+            GamepadInput.State.Buttons);
+        session.Wait(pump, () =>
+        {
+            resultsVisible();
+            // The transition coordinator commits Results before this native
+            // show callback. If a direct caller has no coordinator, still
+            // make the overlay visible here.
+            if (_mode == DesktopOverlayMode.Results) ShowCurrent(activate: true);
+        }, () => continuationSelected(ContinuationState(play)));
+        return new(session.Transition == PostMatchTransition.Quit,
+            session.Failure);
+    }
+
+    internal void ShowResultsForTransition()
+    {
+        if (_mode != DesktopOverlayMode.Results || _results == null) return;
+        _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
+            GamepadInput.State.Buttons);
+        ShowCurrent(activate: true);
+    }
+
+    internal void ShowContinuationTransition(MatchTransitionState state)
+    {
+        if (_mode != DesktopOverlayMode.Results || _results == null) return;
+        if (!_results.EnterContinuationLoading(state)) return;
+        _mode = DesktopOverlayMode.ContinuationLoading;
+        _surface.SetContent(_results.View, _mode);
+        _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
+            GamepadInput.State.Buttons);
+        ShowCurrent(activate: true);
+    }
+
+    internal void UpdateContinuationTransition(MatchTransitionState state)
+    {
+        if (_mode != DesktopOverlayMode.ContinuationLoading || _results == null) return;
+        _results.UpdateContinuationLoading(state);
+    }
+
+    internal void HideResultsForTransition()
+    {
+        if (_results == null) return;
+        PostMatchSession session = _results;
+        _results = null;
+        if (!session.CompleteContinuation()) session.CloseForTransition();
+        session.Dispose();
+        _surface.ReleaseContent();
+        _mode = DesktopOverlayMode.None;
+        PauseMenu.SetOverlayOpen(false);
+        _inputOwner.SetOwner(_scene == null ? DesktopInputOwnerKind.None
+            : DesktopInputOwnerKind.Scene, GamepadInput.State.Buttons);
+    }
+
+    internal void Pump()
+    {
+        // The game thread calls this exactly once at its frame-loop boundary;
+        // no second persistent polling timer is introduced for the overlay.
+        _pump?.Invoke();
+        if (_mode == DesktopOverlayMode.Results && _results != null
+            && !_results.IsPolling)
+        {
+            _results.Pump();
+        }
+    }
+
+    /// <summary>Headless seam for deterministic host minimize/restore tests.</summary>
+    internal void ApplyHostPresentationForTests(GameHostPresentationState state)
+        => HostPresentationChanged(state);
+
+    internal void CloseFromMenu()
+    {
+        if (_mode == DesktopOverlayMode.None) return;
+        EndCurrentContent();
+        _mode = DesktopOverlayMode.None;
+        PauseMenu.SetOverlayOpen(false);
+        _inputOwner.SetOwner(_scene == null ? DesktopInputOwnerKind.None
+            : DesktopInputOwnerKind.Scene, GamepadInput.State.Buttons);
+        PauseMenu.MarkClosed();
+    }
+
+    internal void CloseForTransition()
+    {
+        if (_mode == DesktopOverlayMode.None) return;
+        EndCurrentContent();
+        _mode = DesktopOverlayMode.None;
+        PauseMenu.SetOverlayOpen(false);
+        _inputOwner.SetOwner(_scene == null ? DesktopInputOwnerKind.None
+            : DesktopInputOwnerKind.Scene, GamepadInput.State.Buttons);
+    }
+
+    private void EndCurrentContent()
+    {
+        SettingsView? settings = _settingsView;
+        _settingsView = null;
+        if (settings != null)
+        {
+            settings.Closed -= SettingsClosed;
+            settings.Dispose();
+        }
+        _pauseView = null;
+        PostMatchSession? results = _results;
+        _results = null;
+        if (results != null) results.Dispose();
+        _surface.ReleaseContent();
+    }
+
+    private void ShowCurrent(bool activate)
+    {
+        if (_mode == DesktopOverlayMode.None) return;
+        GameHostPresentationState state = CurrentHostState();
+        if (state.IsMinimized)
+        {
+            _surface.SetZOrderOwned(false);
+            _surface.HideForHostPreservingContent(state);
+        }
+        else
+            _surface.ShowForHost(state, activate);
+    }
+
+    private GameHostPresentationState CurrentHostState()
+    {
+        GameHostPresentationState state = _state?.Invoke() ?? _host?.PresentationState ?? default;
+        if (state.HasValidGeometry) return state;
+        return new GameHostPresentationState(new(1280, 720), new(1280, 720),
+            default, IsVisible: true, IsMinimized: false, IsFocused: true,
+            ActivationDeferred: false, IsFullscreen: false);
+    }
+
+    private void HostPresentationChanged(GameHostPresentationState state)
+    {
+        if (_disposed || _mode == DesktopOverlayMode.None) return;
+        if (state.IsMinimized || !state.IsVisible)
+        {
+            // A source-host visibility change is not an activation request.
+            // Suspend the overlay z-order while retaining its logical mode and
+            // attached content for minimize/settings-draft preservation.
+            _surface.SetZOrderOwned(false);
+            _surface.HideForHostPreservingContent(state);
+        }
+        else
+        {
+            // Host focus loss alone is not an Alt-Tab signal and must not
+            // re-activate or re-promote an overlay on background restore.
+            _surface.ShowForHost(state, activate: false);
+        }
+    }
+
+    private void SurfaceUserCloseRequested(object? sender, EventArgs args)
+    {
+        if (_disposed) return;
+        if (_results != null)
+        {
+            _results.RequestClose();
+            CloseRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+        CloseFromMenu();
+    }
+
+    private void SurfaceActivated(object? sender, EventArgs args)
+    {
+        if (!_disposed && _mode != DesktopOverlayMode.None)
+        {
+            _surface.SetZOrderOwned(true);
+            _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
+                GamepadInput.State.Buttons);
+        }
+    }
+
+    private void SurfaceDeactivated(object? sender, EventArgs args)
+    {
+        // Deactivation is not proof of Alt-Tab. Release input ownership, but
+        // leave the logical mode/content intact and never auto-activate on a
+        // background restore. A real activation event reacquires ownership.
+        if (!_disposed && _mode != DesktopOverlayMode.None)
+        {
+            _surface.SetZOrderOwned(false);
+            if (_inputOwner.Owns(DesktopInputOwnerKind.Overlay))
+                _inputOwner.SetOwner(DesktopInputOwnerKind.None);
+        }
+    }
+
+    private MatchTransitionState ContinuationState(PlayController play)
+    {
+        NodeControlClient.ViewState? state = play.State.Node;
+        LobbyVoteEntry? resolved = state?.Round?.ResolvedOption;
+        return new MatchTransitionState(MatchTransitionStage.LoadingNextRound,
+            Map: resolved?.MapKey ?? state?.Lobby?.MapKey,
+            Mode: (resolved?.Mode ?? state?.Lobby?.Mode)?.ToString(),
+            Hunter: state?.Handoff?.Hunter.ToString(),
+            Detail: "Preparing the selected arena and frozen roster.");
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        if (_host != null)
+        {
+            _host.PresentationStateChanged -= HostPresentationChanged;
+            _host.DetachInputOwner(_inputOwner);
+        }
+        EndCurrentContent();
+        _mode = DesktopOverlayMode.None;
+        _inputOwner.SetOwner(DesktopInputOwnerKind.None);
+        _surface.UserCloseRequested -= SurfaceUserCloseRequested;
+        _surface.Activated -= SurfaceActivated;
+        _surface.Deactivated -= SurfaceDeactivated;
+        _surface.Dispose();
+        CloseRequested = null;
+    }
+
+    private void ThrowIfDisposed()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+    }
+}

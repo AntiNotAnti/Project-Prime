@@ -1,4 +1,6 @@
 using System;
+using System.Globalization;
+using MphRead;
 using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Launcher.Gui;
@@ -53,4 +55,60 @@ internal readonly record struct LobbyRuleApplicability(
         try { return legacy.Normalize(lobby.Mode); }
         catch (ArgumentException) { return legacy; }
     }
+}
+
+/// <summary>
+/// User-facing labels for nullable lobby rules.  The values come from the
+/// authoritative runtime defaults rather than a second table in the launcher.
+/// </summary>
+internal static class LobbyRuleDefaults
+{
+    private const string DisplayRoom = "launcher-default-preview";
+
+    public static MatchRules For(MatchMode mode)
+        => MatchRules.CreateDefault(mode, DisplayRoom);
+
+    public static string Time(MatchMode mode, int? seconds)
+        => seconds is { } value
+            ? FormatDuration(value)
+            : $"{FormatDuration((int)For(mode).TimeLimit!.Value.TotalSeconds)} (default)";
+
+    public static string Score(MatchMode mode, int? value)
+        => value?.ToString(CultureInfo.InvariantCulture)
+            ?? $"{For(mode).ScoreGoal.ToString(CultureInfo.InvariantCulture)} (default)";
+
+    public static string Lives(MatchMode mode, int? value)
+        => value?.ToString(CultureInfo.InvariantCulture)
+            ?? $"{For(mode).StartingLives.ToString(CultureInfo.InvariantCulture)} (default)";
+
+    public static string ObjectiveTime(MatchMode mode, int? seconds)
+        => seconds is { } value
+            ? FormatDuration(value)
+            : $"{FormatDuration((int)For(mode).ObjectiveTimeGoal!.Value.TotalSeconds)} (default)";
+
+    public static string TimeWatermark(MatchMode mode)
+        => $"{FormatDuration((int)For(mode).TimeLimit!.Value.TotalSeconds)} (default) or m:ss";
+
+    public static string NumberWatermark(MatchMode mode, bool lives)
+        => $"{(lives ? For(mode).StartingLives : For(mode).ScoreGoal).ToString(CultureInfo.InvariantCulture)} (default) or number";
+
+    public static string ObjectiveWatermark(MatchMode mode)
+        => $"{FormatDuration((int)For(mode).ObjectiveTimeGoal!.Value.TotalSeconds)} (default) or m:ss";
+
+    public static string Damage(MatchMode mode)
+        => $"{DamageName(For(mode).DamageLevel)} (default)";
+
+    public static string Bool(MatchMode mode, Func<MatchRules, bool> selector)
+        => $"{(selector(For(mode)) ? "On" : "Off")} (default)";
+
+    private static string DamageName(int value) => value switch
+    {
+        0 => "Low",
+        2 => "High",
+        _ => "Normal"
+    };
+
+    private static string FormatDuration(int seconds)
+        => TimeSpan.FromSeconds(Math.Max(0, seconds))
+            .ToString(seconds >= 3600 ? @"h\:mm\:ss" : @"m\:ss", CultureInfo.InvariantCulture);
 }

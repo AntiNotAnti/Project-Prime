@@ -23,6 +23,7 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Launcher.Settings;
+using MphRead.Mods.MapGen;
 using ProjectPrime.Server.Shared;
 using Xunit;
 
@@ -57,10 +58,15 @@ public sealed class UiCaptureFixtureTests
         "gateway-confirm-clean",
         "gateway-error", "gateway-guest",
         "play-home", "play-finding", "play-empty", "play-browser", "play-browser-full",
-        "play-network-error", "play-advanced-network",
-        "maps-default",
+        "play-network-error", "play-advanced-network", "play-directory-not-loaded",
+        "play-directory-loading", "play-directory-empty", "play-directory-loaded",
+        "play-directory-error",
+        "maps-default", "maps-library", "maps-my-maps", "maps-community-empty",
+        "maps-details", "maps-many-items",
+        "theatre-list", "theatre-selected", "theatre-empty", "theatre-advanced",
         "host-wide", "host-compact", "host-mobile",
-        "lobby-owner-team", "lobby-owner-ffa", "lobby-ffa", "lobby-team-selector",
+        "lobby-owner-team", "lobby-owner-ffa", "lobby-owner-start-disabled",
+        "lobby-ffa", "lobby-team-selector",
         "lobby-member-team", "lobby-observer",
         "lobby-full", "lobby-waitlist", "lobby-seat-offer", "lobby-chat",
         "lobby-disconnected", "lobby-handoff-failure", "lobby-postmatch",
@@ -68,7 +74,8 @@ public sealed class UiCaptureFixtureTests
         "lobby-observer-wide", "lobby-waitlist-wide", "lobby-chat-wide", "lobby-mobile",
         "results-ffa", "results-team", "results-ballot", "results-voted", "results-resolved",
         "results-no-authoritative-result",
-        "settings-gameplay", "settings-controls", "controls-gamepad", "controls-mobile",
+        "settings-shell-route", "settings-gameplay", "settings-controls",
+        "controls-gamepad", "controls-mobile",
         "settings-graphics", "settings-audio",
         "settings-system", "settings-network", "settings-accessibility", "settings-about",
         "settings-pro-hud-off", "settings-pro-hud-on", "settings-radar-custom",
@@ -108,12 +115,82 @@ public sealed class UiCaptureFixtureTests
             UiCapture.PlannedButUnavailableFixtures.ToArray());
         Assert.Empty(RequiredFixtureNames.Intersect(UnavailableFixtureNames,
             StringComparer.OrdinalIgnoreCase));
-        Assert.Equal(78, RequiredFixtureNames.Length + UnavailableFixtureNames.Length);
+        Assert.Equal(94, RequiredFixtureNames.Length + UnavailableFixtureNames.Length);
         Assert.Equal(RequiredFixtureNames.Length * sizes.Length,
             UiCapture.FixtureDefinitions.Count * sizes.Length);
         Assert.Equal(UiCapture.FixtureDefinitions.Count,
             UiCapture.FixtureDefinitions.Select(fixture => fixture.Name)
                 .Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1024, 720)]
+    [InlineData(560, 800)]
+    public void SettingsShellRouteCaptureOwnsOneResponsiveActionBar(int width, int height)
+    {
+        PrimeShellView shell = Assert.IsType<PrimeShellView>(UiCapture.BuildFixture(
+            "settings-shell-route", new MenuSettings(), Array.Empty<string>()));
+        var window = new Window { Width = width, Height = height, Content = shell };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.Measure(new Size(width, height));
+            window.Arrange(new Rect(0, 0, width, height));
+
+            SettingsView settings = Assert.Single(shell.GetVisualDescendants()
+                .OfType<SettingsView>());
+            Assert.False(settings.HasEmbeddedActionBar);
+            SettingsActionBar actionBar = Assert.Single(shell.GetVisualDescendants()
+                .OfType<SettingsActionBar>());
+            Panel shellActionBar = Assert.Single(shell.GetVisualDescendants()
+                .OfType<Panel>(), panel => panel.Name == "ActionBar");
+            Assert.Same(actionBar, Assert.Single(shellActionBar.Children));
+            Assert.Equal(width <= 600, actionBar.IsNarrow);
+
+            using WriteableBitmap frame = window.CaptureRenderedFrame()!;
+            Assert.Equal(new PixelSize(width, height), frame.PixelSize);
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            DisposeView(shell);
+        }
+    }
+
+    [AvaloniaFact]
+    public void OwnerStartDisabledCaptureUsesTheRealLobbyEligibilityState()
+    {
+        PrimeShellView shell = Assert.IsType<PrimeShellView>(UiCapture.BuildFixture(
+            "lobby-owner-start-disabled", new MenuSettings(),
+            new[] { "MP3 PROVING GROUND" }));
+        var window = new Window { Width = 940, Height = 560, Content = shell };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            PlayState play = Assert.IsType<PlayState>(shell.CapturePlayState);
+            LobbySnapshot lobby = Assert.IsType<LobbySnapshot>(play.Lobby);
+            NodeSessionSnapshot session = Assert.IsType<NodeSessionSnapshot>(
+                play.Node?.Session);
+            Assert.Equal(session.SessionId, lobby.OwnerSessionId);
+            Assert.Contains(lobby.Members, member => !member.Ready && !member.Observer);
+
+            PrimeButton start = Assert.Single(shell.GetVisualDescendants()
+                .OfType<PrimeButton>(), button => Equals(button.Content, "Start Match"));
+            Assert.False(start.IsEnabled);
+            Assert.False(start.IsEffectivelyEnabled);
+            Assert.Contains("prime-primary", start.Classes);
+            Assert.Contains("ready", TextOf(shell), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            DisposeView(shell);
+        }
     }
 
     [Fact]
@@ -190,6 +267,207 @@ public sealed class UiCaptureFixtureTests
         finally
         {
             DisposeView(overview);
+        }
+    }
+
+    [AvaloniaFact]
+    public void PlayDirectoryFixturesExposeExactlyOneDirectoryStatus()
+    {
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["play-directory-not-loaded"] = "prime-directory-not-loaded",
+            ["play-directory-loading"] = "prime-directory-loading",
+            ["play-directory-empty"] = "prime-directory-empty",
+            ["play-directory-loaded"] = "prime-directory-loaded",
+            ["play-directory-error"] = "prime-directory-failed"
+        };
+
+        foreach ((string fixtureName, string expectedClass) in expected)
+        {
+            Control control = UiCapture.BuildFixture(fixtureName, new MenuSettings(),
+                new[] { "MP3 PROVING GROUND" });
+            PrimeShellView view = Assert.IsType<PrimeShellView>(control);
+            var window = new Window { Width = 940, Height = 560, Content = view };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                PrimeSectionPanel status = Assert.Single(view.GetVisualDescendants()
+                    .OfType<PrimeSectionPanel>(),
+                    panel => panel.Classes.Contains("prime-directory-state"));
+                Assert.Contains(expectedClass, status.Classes);
+
+                string[] stateClasses =
+                [
+                    "prime-directory-not-loaded", "prime-directory-loading",
+                    "prime-directory-empty", "prime-directory-loaded",
+                    "prime-directory-failed"
+                ];
+                Assert.Single(stateClasses, status.Classes.Contains);
+            }
+            finally
+            {
+                window.Close();
+                DisposeView(view);
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void MapsCaptureFixturesUseTheirRequestedPlayerSurfaces()
+    {
+        Control libraryFixture = UiCapture.BuildFixture("maps-library",
+            new MenuSettings(), Array.Empty<string>());
+        MapsPresentationView library = ExtractRouteContent<MapsPresentationView>(libraryFixture);
+        try
+        {
+            Assert.Equal("Library", Assert.Single(Walk(library).OfType<PrimeTabStrip>())
+                .SelectedTab.Label);
+            Assert.Single(library.ItemsControl!.ItemsSource!.Cast<InstalledMap>());
+        }
+        finally
+        {
+            DisposeView(libraryFixture);
+        }
+
+        Control myMapsFixture = UiCapture.BuildFixture("maps-my-maps",
+            new MenuSettings(), Array.Empty<string>());
+        MapsPresentationView myMaps = ExtractRouteContent<MapsPresentationView>(myMapsFixture);
+        try
+        {
+            Assert.Equal("My Maps", Assert.Single(Walk(myMaps).OfType<PrimeTabStrip>())
+                .SelectedTab.Label);
+            Assert.Single(myMaps.ItemsControl!.ItemsSource!.Cast<InstalledMap>());
+        }
+        finally
+        {
+            DisposeView(myMapsFixture);
+        }
+
+        Control communityFixture = UiCapture.BuildFixture("maps-community-empty",
+            new MenuSettings(), Array.Empty<string>());
+        MapsPresentationView community =
+            ExtractRouteContent<MapsPresentationView>(communityFixture);
+        try
+        {
+            Assert.Equal("Community", Assert.Single(Walk(community).OfType<PrimeTabStrip>())
+                .SelectedTab.Label);
+            Assert.Null(community.ItemsControl);
+            Assert.Contains("Community maps are coming later.", TextOf(community),
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            DisposeView(communityFixture);
+        }
+
+        Control manyFixture = UiCapture.BuildFixture("maps-many-items",
+            new MenuSettings(), Array.Empty<string>());
+        MapsPresentationView many = ExtractRouteContent<MapsPresentationView>(manyFixture);
+        try
+        {
+            ListBox manyItems = many.ItemsControl
+                ?? throw new Xunit.Sdk.XunitException("Many-items fixture has no map list.");
+            Assert.Equal(120, manyItems.ItemsSource!.Cast<InstalledMap>().Count());
+            Assert.NotNull(manyItems.ItemsPanel);
+        }
+        finally
+        {
+            DisposeView(manyFixture);
+        }
+
+        Control detailsFixture = UiCapture.BuildFixture("maps-details", new MenuSettings(),
+            Array.Empty<string>());
+        Control details = ExtractRouteContent<Control>(detailsFixture);
+        try
+        {
+            string detailText = TextOf(details);
+            Assert.Contains("MAP DETAILS", detailText, StringComparison.Ordinal);
+            Assert.Contains("STABLE ID", detailText, StringComparison.Ordinal);
+            Assert.Contains("CONTENT HASH", detailText, StringComparison.Ordinal);
+            Assert.Contains("SOURCE PATH", detailText, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DisposeView(detailsFixture);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(940, 560)]
+    [InlineData(560, 800)]
+    public void MapsCaptureFixturesRenderAtDesktopAndMobileSizes(int width, int height)
+    {
+        foreach (string fixtureName in new[]
+        {
+            "maps-library", "maps-my-maps", "maps-community-empty", "maps-details",
+            "maps-many-items"
+        })
+        {
+            Control view = UiCapture.BuildFixture(fixtureName, new MenuSettings(),
+                Array.Empty<string>());
+            var window = new Window { Width = width, Height = height, Content = view };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                using WriteableBitmap frame = window.CaptureRenderedFrame()!;
+                Assert.Equal(new PixelSize(width, height), frame.PixelSize);
+                AssertFiniteBounds(view, fixtureName);
+                if (fixtureName == "maps-many-items")
+                {
+                    int realized = view.GetVisualDescendants().OfType<ListBoxItem>().Count();
+                    Assert.InRange(realized, 1, 119);
+                }
+            }
+            finally
+            {
+                window.Close();
+                DisposeView(view);
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheatreCaptureFixturesKeepGeneratedFilenamesInAdvancedOnly()
+    {
+        foreach (string fixtureName in new[]
+        {
+            "theatre-list", "theatre-selected", "theatre-empty", "theatre-advanced"
+        })
+        {
+            Control fixture = UiCapture.BuildFixture(fixtureName, new MenuSettings(),
+                Array.Empty<string>());
+            Control view = ExtractRouteContent<Control>(fixture);
+            try
+            {
+                Expander advanced = Assert.Single(Walk(view).OfType<Expander>(),
+                    item => Equals(item.Header, "Advanced"));
+                PrimeSectionPanel[] normalPanels = Walk(view)
+                    .OfType<PrimeSectionPanel>().ToArray();
+                string normalText = String.Join('\n', normalPanels.Select(TextOf));
+                Assert.DoesNotContain("capture-final-001.fpreplay", normalText,
+                    StringComparison.Ordinal);
+                Assert.DoesNotContain("capture-final-002.fpreplay", normalText,
+                    StringComparison.Ordinal);
+                Assert.DoesNotContain("capture-final-003.fpreplay", normalText,
+                    StringComparison.Ordinal);
+
+                if (fixtureName == "theatre-advanced")
+                {
+                    Assert.True(advanced.IsExpanded);
+                    Assert.Contains("capture-final-001.fpreplay", TextOf(advanced),
+                        StringComparison.Ordinal);
+                }
+                else
+                {
+                    Assert.False(advanced.IsExpanded);
+                }
+            }
+            finally
+            {
+                DisposeView(fixture);
+            }
         }
     }
 
@@ -1336,6 +1614,33 @@ public sealed class UiCaptureFixtureTests
         }
     }
 
+    private static string TextOf(Control root)
+        => String.Join('\n', Walk(root).OfType<TextBlock>()
+            .Select(text => text.Text).OfType<string>());
+
+    private static IEnumerable<Control> Walk(Control control)
+    {
+        yield return control;
+        if (control is Panel panel)
+        {
+            foreach (Control child in panel.Children)
+            {
+                foreach (Control descendant in Walk(child))
+                    yield return descendant;
+            }
+        }
+        else if (control is ContentControl content && content.Content is Control contentChild)
+        {
+            foreach (Control descendant in Walk(contentChild))
+                yield return descendant;
+        }
+        else if (control is Decorator decorator && decorator.Child is Control decoratorChild)
+        {
+            foreach (Control descendant in Walk(decoratorChild))
+                yield return descendant;
+        }
+    }
+
     private static void DisposeView(Control view)
     {
         if (view is PrimeShellView shell)
@@ -1513,6 +1818,15 @@ public sealed class UiCaptureFixtureTests
             ?? (control as ContentControl)?.Content as SettingsView
             ?? throw new Xunit.Sdk.XunitException(
                 $"Fixture returned {control.GetType().Name}, not a SettingsView.");
+
+    private static T ExtractRouteContent<T>(Control fixture) where T : Control
+    {
+        Control content = fixture is PrimeShellView shell
+            ? shell.CaptureRouteContent ?? throw new Xunit.Sdk.XunitException(
+                "Shell capture did not mount route content.")
+            : fixture;
+        return Assert.IsAssignableFrom<T>(content);
+    }
 
     private static void AssertFiniteBounds(Control view, string fixtureName)
     {

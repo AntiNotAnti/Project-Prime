@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using MphRead.Identity;
 
 namespace MphRead.Mods.Launcher.Gui;
@@ -19,6 +22,8 @@ public enum PrimeInputDevice
 /// </summary>
 public sealed class PrimeShellState : INotifyPropertyChanged, IDisposable
 {
+    internal static readonly TimeSpan DefaultNotificationDuration = TimeSpan.FromSeconds(5);
+
     private bool _signedIn;
     private bool _guestSelected;
     private bool _accountEligible;
@@ -33,11 +38,19 @@ public sealed class PrimeShellState : INotifyPropertyChanged, IDisposable
     private PrimeInputDevice _lastInputDevice = PrimeInputDevice.Unknown;
     private PlayerId? _playerId;
     private long _identityGeneration;
+    private readonly object _notificationLock = new();
+    private readonly Timer _notificationTimer;
+    private readonly Dictionary<string, NotificationEntry> _notifications = new(
+        StringComparer.Ordinal);
+    private long _notificationSequence;
+    private bool _disposed;
 
     public PrimeShellState(PrimeNavigator? navigator = null)
     {
         Navigator = navigator ?? new PrimeNavigator();
         Navigator.Changed += NavigatorChanged;
+        _notificationTimer = new Timer(NotificationTimerElapsed, null,
+            Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -56,7 +69,10 @@ public sealed class PrimeShellState : INotifyPropertyChanged, IDisposable
     public string NodeName { get => _nodeName; private set => Set(ref _nodeName, value); }
     public string NodeRegion { get => _nodeRegion; private set => Set(ref _nodeRegion, value); }
     public string? BusyOperation { get => _busyOperation; private set => Set(ref _busyOperation, value); }
-    public PrimeNotification? Notification { get => _notification; private set => Set(ref _notification, value); }
+    public PrimeNotification? Notification
+    {
+        get { lock (_notificationLock) return _notification; }
+    }
     public PrimeInputDevice LastInputDevice { get => _lastInputDevice; private set => Set(ref _lastInputDevice, value); }
     public PlayerId? PlayerId => _playerId;
     public long IdentityGeneration => _identityGeneration;
@@ -121,10 +137,55 @@ public sealed class PrimeShellState : INotifyPropertyChanged, IDisposable
 
     public void SetBusy(string? operation) => BusyOperation = operation;
 
+    /// <summary>Compatibility helper for existing command producers.</summary>
     public void Notify(PrimeNotificationKind kind, string message)
-        => Notification = new PrimeNotification(kind, message);
+        => NotifyTransient("command", kind, message);
 
-    public void ClearNotification() => Notification = null;
+    public void NotifyTransient(string key, PrimeNotificationKind kind, string message,
+        TimeSpan? duration = null)
+        => SetNotification(new PrimeNotification(key, kind, message,
+            PrimeNotificationScope.Transient, duration ?? DefaultNotificationDuration));
+
+    public void NotifyRoute(string key, PrimeNotificationKind kind, string message,
+        TimeSpan? duration = null)
+        => NotifyRoute(key, kind, message,
+            PrimeRoutePresentation.Normalize(CurrentRoute), duration);
+
+    public void NotifyRoute(string key, PrimeNotificationKind kind, string message,
+        PrimeRoute route, TimeSpan? duration = null)
+    {
+        PrimeRoute owner = PrimeRoutePresentation.Normalize(route);
+        if (owner != PrimeRoutePresentation.Normalize(CurrentRoute)) return;
+        SetNotification(new PrimeNotification(key, kind, message,
+            PrimeNotificationScope.Route, duration, owner));
+    }
+
+    public void NotifyGlobal(string key, PrimeNotificationKind kind, string message,
+        TimeSpan? duration = null)
+        => SetNotification(new PrimeNotification(key, kind, message,
+            PrimeNotificationScope.Global, duration));
+
+    public void ClearNotification(string? key = null)
+    {
+        bool changed;
+        lock (_notificationLock)
+        {
+            PrimeNotification? previous = _notification;
+            if (key is null) _notifications.Clear();
+            else if (!_notifications.Remove(key)) return;
+            SelectLatestNotificationLocked();
+            ScheduleNotificationTimerLocked();
+            changed = !Equals(previous, _notification);
+        }
+        if (changed) OnPropertyChanged(nameof(Notification));
+    }
+
+    public void DismissNotification()
+    {
+        string? key;
+        lock (_notificationLock) key = _notification?.Key;
+        if (key is not null) ClearNotification(key);
+    }
 
     public void SetLastInputDevice(PrimeInputDevice device) => LastInputDevice = device;
 
@@ -140,10 +201,128 @@ public sealed class PrimeShellState : INotifyPropertyChanged, IDisposable
         IdentityChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public void Dispose() => Navigator.Changed -= NavigatorChanged;
+    public void Dispose()
+    {
+        lock (_notificationLock)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _notifications.Clear();
+            _notification = null;
+            _notificationTimer.Change(Timeout.InfiniteTimeSpan,
+                Timeout.InfiniteTimeSpan);
+        }
+        Navigator.Changed -= NavigatorChanged;
+        _notificationTimer.Dispose();
+    }
 
     private void NavigatorChanged(object? sender, PrimeNavigationChangedEventArgs args)
-        => OnPropertyChanged(nameof(CurrentRoute));
+    {
+        ClearRouteNotification(args.Route);
+        OnPropertyChanged(nameof(CurrentRoute));
+    }
+
+    private void SetNotification(PrimeNotification notification)
+    {
+        ArgumentNullException.ThrowIfNull(notification);
+        bool changed;
+        lock (_notificationLock)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_notifications.TryGetValue(notification.Key, out NotificationEntry existing)
+                && existing.Notification.Kind == notification.Kind
+                && existing.Notification.Scope == notification.Scope
+                && existing.Notification.Route == notification.Route
+                && existing.Notification.Duration == notification.Duration
+                && String.Equals(existing.Notification.Message, notification.Message,
+                    StringComparison.Ordinal))
+                return;
+            PrimeNotification? previous = _notification;
+            _notifications[notification.Key] = new NotificationEntry(notification,
+                ++_notificationSequence);
+            while (_notifications.Count > 16)
+            {
+                string oldest = _notifications.MinBy(pair => pair.Value.Sequence).Key;
+                _notifications.Remove(oldest);
+            }
+            SelectLatestNotificationLocked();
+            ScheduleNotificationTimerLocked();
+            changed = !Equals(previous, _notification);
+        }
+        if (changed) OnPropertyChanged(nameof(Notification));
+    }
+
+    private void ClearRouteNotification(PrimeRoute route)
+    {
+        bool changed = false;
+        PrimeRoute normalized = PrimeRoutePresentation.Normalize(route);
+        lock (_notificationLock)
+        {
+            PrimeNotification? previous = _notification;
+            string[] expiredRoutes = _notifications
+                .Where(pair => pair.Value.Notification is
+                    { Scope: PrimeNotificationScope.Route } current
+                    && current.Route != normalized)
+                .Select(pair => pair.Key).ToArray();
+            foreach (string key in expiredRoutes)
+                _notifications.Remove(key);
+            if (expiredRoutes.Length > 0)
+            {
+                SelectLatestNotificationLocked();
+                ScheduleNotificationTimerLocked();
+                changed = !Equals(previous, _notification);
+            }
+        }
+        if (changed) OnPropertyChanged(nameof(Notification));
+    }
+
+    private void NotificationTimerElapsed(object? state)
+    {
+        bool changed = false;
+        lock (_notificationLock)
+        {
+            if (_disposed) return;
+            PrimeNotification? previous = _notification;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            string[] expired = _notifications
+                .Where(pair => pair.Value.Notification.ExpiresAt is { } expires
+                    && expires <= now)
+                .Select(pair => pair.Key).ToArray();
+            foreach (string key in expired)
+                _notifications.Remove(key);
+            SelectLatestNotificationLocked();
+            ScheduleNotificationTimerLocked();
+            changed = !Equals(previous, _notification);
+        }
+        if (changed) OnPropertyChanged(nameof(Notification));
+    }
+
+    private void SelectLatestNotificationLocked()
+        => _notification = _notifications.Count == 0 ? null
+            : _notifications.MaxBy(pair => pair.Value.Sequence).Value.Notification;
+
+    private void ScheduleNotificationTimerLocked()
+    {
+        DateTimeOffset? next = null;
+        foreach (NotificationEntry entry in _notifications.Values)
+        {
+            if (entry.Notification.ExpiresAt is { } expires
+                && (!next.HasValue || expires < next.Value))
+                next = expires;
+        }
+        TimeSpan due = next is { } nextExpires
+            ? MaxTimerDue(nextExpires - DateTimeOffset.UtcNow)
+            : Timeout.InfiniteTimeSpan;
+        _notificationTimer.Change(due, Timeout.InfiniteTimeSpan);
+    }
+
+    private static TimeSpan MaxTimerDue(TimeSpan due)
+        => due <= TimeSpan.Zero ? TimeSpan.Zero
+            : due > TimeSpan.FromMilliseconds(UInt32.MaxValue - 1)
+                ? TimeSpan.FromMilliseconds(UInt32.MaxValue - 1) : due;
+
+    private readonly record struct NotificationEntry(PrimeNotification Notification,
+        long Sequence);
 
     private void Set<T>(ref T field, T value, [CallerMemberName] string? property = null)
     {

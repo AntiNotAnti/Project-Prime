@@ -26,7 +26,7 @@ public sealed record GatewayState(GatewayPhase Phase, string Message, bool Signe
     string DisplayName)
 {
     public static GatewayState Initial => new(GatewayPhase.Gateway,
-        "Sign in or choose explicit Guest access to enter the network.", false, false,
+        "Sign in or choose Guest access to play online.", false, false,
         false, false, null, "Guest");
 }
 
@@ -48,6 +48,15 @@ public interface IPrimeGatewayAccount : IAsyncDisposable
     bool IsSignedIn { get; }
     AccountIdentity? Identity { get; }
     Task<bool> RestoreAsync(CancellationToken cancellationToken);
+    /// <summary>Returns the restore outcome without collapsing an unavailable
+    /// account service into an absent local session. The default preserves the
+    /// older adapter/fake contract while new adapters can forward the typed
+    /// AccountSession result.</summary>
+    async Task<AccountRestoreResult> RestoreDetailedAsync(CancellationToken cancellationToken)
+    {
+        bool restored = await RestoreAsync(cancellationToken).ConfigureAwait(false);
+        return new(restored ? AccountRestoreState.Restored : AccountRestoreState.NoStoredSession);
+    }
     Task SignInAsync(string email, string password, CancellationToken cancellationToken);
     Task<AccountRegistration> RegisterAsync(string email, string password, string displayName,
         CancellationToken cancellationToken);
@@ -67,6 +76,8 @@ internal sealed class AccountSessionGatewayAdapter : IPrimeGatewayAccount
     public bool IsSignedIn => _session.IsSignedIn;
     public AccountIdentity? Identity => _session.Identity;
     public Task<bool> RestoreAsync(CancellationToken cancellationToken) => _session.RestoreAsync(cancellationToken);
+    public Task<AccountRestoreResult> RestoreDetailedAsync(CancellationToken cancellationToken)
+        => _session.RestoreDetailedAsync(cancellationToken);
     public Task SignInAsync(string email, string password, CancellationToken cancellationToken)
         => _session.SignInAsync(email, password, cancellationToken);
     public Task<AccountRegistration> RegisterAsync(string email, string password, string displayName,
@@ -263,10 +274,13 @@ public sealed class GatewayController : IAsyncDisposable
             PendingRegistration = result.ConfirmationRequired
                 ? new PendingRegistration(result.PlayerId, normalizedEmail)
                 : null;
+            string registrationMessage = !result.ConfirmationRequired
+                ? "Account created. You can sign in now."
+                : result.ConfirmationDeliveryPending
+                    ? "Account created. Your confirmation email is still being delivered. Enter the code when it arrives."
+                    : "Account created. Enter the confirmation code, then sign in.";
             SetState(_state with { Phase = GatewayPhase.Gateway,
-                Message = result.ConfirmationRequired
-                    ? "Account created. Enter the confirmation code, then sign in."
-                    : "Account created. You can sign in now." });
+                Message = registrationMessage });
             return result;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
@@ -381,7 +395,7 @@ public sealed class GatewayController : IAsyncDisposable
             PendingRegistration = null;
             _shell.SelectGuest(LauncherPrefs.PlayerName);
             SetState(new GatewayState(GatewayPhase.Guest,
-                "Guest access selected. Choose a Node from Play.", false, true,
+                "Guest access selected. Choose a server from Play.", false, true,
                 false, false, null, LauncherPrefs.PlayerName));
             IdentityChanged?.Invoke(this, EventArgs.Empty);
             return true;
@@ -461,7 +475,7 @@ public sealed class GatewayController : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         if (!AccountSession.IsAllowedBackend(backend))
-            throw new ArgumentException("Use an HTTPS Backend address or HTTP on loopback for local testing.", nameof(backend));
+            throw new ArgumentException("Use an HTTPS server address or HTTP on loopback for local testing.", nameof(backend));
         long generation = BeginTransition();
         await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
         bool identityCleared = false;
@@ -494,14 +508,14 @@ public sealed class GatewayController : IAsyncDisposable
                 _restoreTask = null;
                 _automaticRestoreState = AutomaticRestoreCommitState.NotStarted;
             }
-            SetState(GatewayState.Initial with { Message = "Backend saved. Sign in or choose explicit Guest access." });
+            SetState(GatewayState.Initial with { Message = "Server saved. Sign in or choose Guest access." });
             IdentityChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             if (identityCleared && IsCurrentGeneration(generation))
-                SetBackendFailure("Backend change canceled. Sign in or choose explicit Guest access.",
+                SetBackendFailure("Server change canceled. Sign in or choose Guest access.",
                     notifyIdentity: true);
             throw;
         }
@@ -512,7 +526,7 @@ public sealed class GatewayController : IAsyncDisposable
             // shell explicitly signed out and keep the previous preference
             // untouched. A later explicit sign-in can resolve a fresh adapter.
             if (identityCleared && IsCurrentGeneration(generation))
-                SetBackendFailure("The account service could not be changed. Try again.",
+                SetBackendFailure("The online service could not be changed. Try again.",
                     notifyIdentity: true, error);
             else if (CanCommit(generation, cancellationToken))
                 Fail("Backend change", error);
@@ -564,10 +578,22 @@ public sealed class GatewayController : IAsyncDisposable
                 return false;
             }
             RequireSecureAuthenticationEndpoint(account.Backend);
-            if (!await account.RestoreAsync(cancellationToken).ConfigureAwait(false))
+            AccountRestoreResult restore = await account.RestoreDetailedAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (restore.State != AccountRestoreState.Restored)
             {
                 if (!CanCommit(generation, cancellationToken)) return false;
-                SetState(GatewayState.Initial with { Message = "No saved session was found." });
+                string message = restore.State switch
+                {
+                    AccountRestoreState.NoStoredSession
+                        => "No saved session was found. Sign in or continue as Guest.",
+                    AccountRestoreState.TemporarilyUnavailable
+                        => "The account service is temporarily unavailable. Try again, or continue as Guest.",
+                    AccountRestoreState.InvalidStoredSession
+                        => "Your saved session is no longer valid. Sign in or continue as Guest.",
+                    _ => "Your saved session could not be restored. Sign in or continue as Guest."
+                };
+                SetState(GatewayState.Initial with { Message = message });
                 _shell.SetBackendStatus(true);
                 return false;
             }
@@ -670,7 +696,7 @@ public sealed class GatewayController : IAsyncDisposable
     {
         if (!Uri.TryCreate(LauncherPrefs.BackendAddress?.Trim(), UriKind.Absolute, out Uri? backend)
             || !AccountSession.IsAllowedBackend(backend))
-            throw new InvalidOperationException("Configure a valid HTTPS Backend address in Settings first.");
+            throw new InvalidOperationException("Configure a valid HTTPS server address in Settings first.");
         AccountSession account = await AccountSessions.ConfigureAsync(backend, restore: false,
             cancellationToken).ConfigureAwait(false);
         return new AccountSessionGatewayAdapter(account);
@@ -679,7 +705,7 @@ public sealed class GatewayController : IAsyncDisposable
     private static void RequireSecureAuthenticationEndpoint(Uri backend)
     {
         if (IsSecureAuthenticationEndpoint(backend)) return;
-        throw new InvalidOperationException("Account sign-in is unavailable for this Backend.");
+        throw new InvalidOperationException("Account sign-in is unavailable for this server.");
     }
 
     private static bool IsSecureAuthenticationEndpoint(Uri backend)
@@ -723,11 +749,11 @@ public sealed class GatewayController : IAsyncDisposable
             "Sign out" => "Sign out could not be completed. Try again.",
             "Profile update" => "Your profile could not be updated. Check your details and try again.",
             "Session restore" => "Your saved session could not be restored. Sign in or choose Guest access.",
-            "Backend change" => "The account service could not be changed. Try again.",
+            "Backend change" => "The online service could not be changed. Try again.",
             _ => "Could not complete that request. Try again."
         };
         SetState(_state with { Phase = GatewayPhase.Failed, Message = message });
-        _shell.Notify(PrimeNotificationKind.Error, message);
+        _shell.NotifyRoute("gateway-error", PrimeNotificationKind.Error, message);
     }
 
     private void SetBackendFailure(string message, bool notifyIdentity,
@@ -743,7 +769,7 @@ public sealed class GatewayController : IAsyncDisposable
             Phase = GatewayPhase.Failed,
             Message = message
         });
-        _shell.Notify(PrimeNotificationKind.Error, message);
+        _shell.NotifyRoute("gateway-error", PrimeNotificationKind.Error, message);
         if (notifyIdentity) IdentityChanged?.Invoke(this, EventArgs.Empty);
     }
 

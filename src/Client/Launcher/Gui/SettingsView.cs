@@ -94,6 +94,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly bool? _captureGyroSupported;
         private readonly bool? _captureAdvancedControllerExpanded;
         private readonly SettingsIdentityContext _identity;
+        private readonly bool _embedActionBar;
         private readonly InputSettings.Snapshot _inputSnapshot;
         private bool _inputSnapshotCompleted;
         private bool _closed;
@@ -121,10 +122,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly Grid _grid = new();
         private readonly Border _railPanel;
         private Control? _heading;
-        private readonly Border _footerPanel;
-        private readonly Grid _footerGrid = new();
-        private Control _footerContext = null!;
-        private Control _footerActions = null!;
+        private readonly SettingsActionBar? _footerPanel;
         private readonly ScrollViewer _railScroll;
         private bool _narrow;
         private bool _laidOut;
@@ -283,7 +281,6 @@ namespace MphRead.Mods.Launcher.Gui
         private MenuEntry _shareLogs = null!;
         private Note _updateStatus = null!;
         private ToggleRow _reducedMotion = null!;
-        private Note _saveError = null!;
 
         private readonly HashSet<string> _renderedRowIds = new(StringComparer.Ordinal);
         private bool _refreshingControllerRows;
@@ -359,17 +356,17 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly Scene? _scene;
 
         public SettingsView(MenuSettings settings, bool inGame = false, Scene? scene = null,
-            SettingsIdentityContext? identity = null)
+            SettingsIdentityContext? identity = null, bool embedActionBar = true)
             : this(settings, inGame, scene, captureTouchControls: false,
                 captureGyroSupported: null, captureAdvancedControllerExpanded: null,
-                identity: identity)
+                identity: identity, embedActionBar: embedActionBar)
         {
         }
 
         internal SettingsView(MenuSettings settings, bool inGame, Scene? scene,
             bool captureTouchControls, bool? captureGyroSupported,
             bool? captureAdvancedControllerExpanded,
-            SettingsIdentityContext? identity = null)
+            SettingsIdentityContext? identity = null, bool embedActionBar = true)
         {
             _scene = scene;
             _settings = settings;
@@ -378,6 +375,7 @@ namespace MphRead.Mods.Launcher.Gui
             _captureGyroSupported = captureGyroSupported;
             _captureAdvancedControllerExpanded = captureAdvancedControllerExpanded;
             _identity = identity ?? SettingsIdentityContext.SignedOut;
+            _embedActionBar = embedActionBar;
             _inputSnapshot = InputSettings.CaptureSnapshot();
             DetachedFromVisualTree += (_, _) => CompleteInputSnapshot();
 
@@ -389,7 +387,6 @@ namespace MphRead.Mods.Launcher.Gui
                 Content = _rail,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
             };
-            Control footer = BuildFooter();
             _railPanel = new Border
             {
                 Background = GuiTheme.PanelBrush,
@@ -397,20 +394,16 @@ namespace MphRead.Mods.Launcher.Gui
                 BorderThickness = new Thickness(0, 0, 1, 0),
                 Child = _railScroll
             };
-            _footerPanel = new Border
-            {
-                Background = GuiTheme.PanelBrush,
-                BorderBrush = GuiTheme.EdgeBrush,
-                BorderThickness = new Thickness(0, 1, 0, 0),
-                Child = footer
-            };
+            _footerPanel = _embedActionBar
+                ? new SettingsActionBar(this, _inGame)
+                : null;
             // A grid rather than a docked panel so that the sections come
             // before the footer in the tab order: a DockPanel fills with its
             // *last* child, which would have put Save and Cancel first and made
             // the first Tab in the window a press away from closing it.
             _grid.Children.Add(_railPanel);
             _grid.Children.Add(_pages);
-            _grid.Children.Add(_footerPanel);
+            if (_footerPanel != null) _grid.Children.Add(_footerPanel);
             ApplyLayout(narrow: false);
             Content = _grid;
             SizeChanged += (_, e) => ApplyLayout(e.NewSize.Width < _narrowWidth);
@@ -443,7 +436,8 @@ namespace MphRead.Mods.Launcher.Gui
             if (narrow)
             {
                 _grid.ColumnDefinitions = new ColumnDefinitions("*");
-                _grid.RowDefinitions = new RowDefinitions("Auto,*,Auto");
+                _grid.RowDefinitions = new RowDefinitions(
+                    _embedActionBar ? "Auto,*,Auto" : "Auto,*");
                 MoveSections(_railWrap);
                 _railScroll.Content = _railWrap;
                 _railScroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
@@ -451,19 +445,19 @@ namespace MphRead.Mods.Launcher.Gui
                 _railPanel.Width = Double.NaN;
                 _railPanel.Padding = new Thickness(12, 8, 12, 6);
                 _railPanel.BorderThickness = new Thickness(0, 0, 0, 1);
-                _footerPanel.Width = Double.NaN;
-                _footerPanel.Padding = new Thickness(12, 6, 12, 10);
-                _footerGrid.ColumnDefinitions = new ColumnDefinitions("*");
-                _footerGrid.RowDefinitions = new RowDefinitions("Auto,Auto");
-                Place(_footerContext, 0, 0, rowSpan: 1);
-                Place(_footerActions, 1, 0, rowSpan: 1);
+                if (_footerPanel != null)
+                {
+                    _footerPanel.Width = Double.NaN;
+                    _footerPanel.Padding = new Thickness(12, 6, 12, 10);
+                    _footerPanel.ApplyLayout(narrow: true);
+                }
                 Place(_railPanel, 0, 0, rowSpan: 1);
                 Place(_pages, 1, 0, rowSpan: 1);
-                Place(_footerPanel, 2, 0, rowSpan: 1);
+                if (_footerPanel != null) Place(_footerPanel, 2, 0, rowSpan: 1);
                 return;
             }
             _grid.ColumnDefinitions = new ColumnDefinitions("Auto,*");
-            _grid.RowDefinitions = new RowDefinitions("*,Auto");
+            _grid.RowDefinitions = new RowDefinitions(_embedActionBar ? "*,Auto" : "*");
             MoveSections(_rail);
             _railScroll.Content = _rail;
             _railScroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
@@ -471,15 +465,15 @@ namespace MphRead.Mods.Launcher.Gui
             _railPanel.Width = _railWidth;
             _railPanel.Padding = new Thickness(18, 20, 14, 4);
             _railPanel.BorderThickness = new Thickness(0, 0, 1, 0);
-            _footerPanel.Width = Double.NaN;
-            _footerPanel.Padding = new Thickness(26, 10, 26, 12);
-            _footerGrid.ColumnDefinitions = new ColumnDefinitions("*,Auto");
-            _footerGrid.RowDefinitions = new RowDefinitions("Auto");
-            Place(_footerContext, 0, 0, rowSpan: 1);
-            Place(_footerActions, 0, 1, rowSpan: 1);
-            Place(_railPanel, 0, 0, rowSpan: 2);
+            if (_footerPanel != null)
+            {
+                _footerPanel.Width = Double.NaN;
+                _footerPanel.Padding = new Thickness(26, 10, 26, 12);
+                _footerPanel.ApplyLayout(narrow: false);
+            }
+            Place(_railPanel, 0, 0, rowSpan: _embedActionBar ? 2 : 1);
             Place(_pages, 0, 1, rowSpan: 1);
-            Place(_footerPanel, 1, 1, rowSpan: 1);
+            if (_footerPanel != null) Place(_footerPanel, 1, 1, rowSpan: 1);
         }
 
         /// <summary>
@@ -663,6 +657,26 @@ namespace MphRead.Mods.Launcher.Gui
             Closed?.Invoke(this, EventArgs.Empty);
         }
 
+        /// <summary>Apply the current draft through the existing persistence path.</summary>
+        internal bool ApplyAndSave(out string? error)
+        {
+            error = null;
+            if (_closed) return Saved;
+            try
+            {
+                Commit();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = $"Could not save: {ex.Message}";
+                return false;
+            }
+        }
+
+        /// <summary>Cancel this draft and restore eager input mutations.</summary>
+        internal void Cancel() => Close();
+
         private void CompleteInputSnapshot()
         {
             if (_inputSnapshotCompleted) return;
@@ -671,7 +685,9 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         /// <summary>Test seam for the rollback path used by Cancel and Escape.</summary>
-        internal void CancelForTests() => Close();
+        internal void CancelForTests() => Cancel();
+
+        internal bool HasEmbeddedActionBar => _embedActionBar;
 
         // ----------------------------------------------------------- structure
 
@@ -856,7 +872,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// transferring its command or persistence ownership to SettingsView.</summary>
         internal void AddNetworkAdvanced(Control control)
         {
-            Heading(_networkPage, "Backend service");
+            Heading(_networkPage, "Online service");
             Add(_networkPage, control);
         }
 
@@ -2470,7 +2486,7 @@ namespace MphRead.Mods.Launcher.Gui
             _preferredRegion = Add(page, new ChoiceRow("Preferred region", regionLabels,
                 Math.Max(0, selectedRegion)),
                 SettingRowIds.PreferredRegion);
-            Explain(page, "Automatic chooses the best available Node. Friendly labels are presentation only; the saved value remains the exact region ID observed from discovery.");
+            Explain(page, "Automatic chooses the best available server. Friendly labels are presentation only; the saved value remains the exact region ID observed from discovery.");
             Heading(page, "Diagnostics");
             _advancedNetworkRow = Add(page, new ToggleRow("Network diagnostics",
                 global::MphRead.Hud.Network.NetworkHealthSettings.Advanced), SettingRowIds.NetworkDiagnostics);
@@ -2484,94 +2500,6 @@ namespace MphRead.Mods.Launcher.Gui
             _reducedMotion = Add(page, new ToggleRow("Reduce interface motion",
                 LauncherPrefs.ReducedMotion), SettingRowIds.ReducedMotion);
             Explain(page, "Disables optional Project Prime shell transitions and decorative motion. Gameplay animation is unchanged.");
-        }
-
-        // -------------------------------------------------------------- footer
-
-        private Control BuildFooter()
-        {
-            var save = new MenuEntry("Apply & save settings", titleSize: 13)
-            {
-                Primary = true,
-                Height = 40,
-                MinWidth = 180
-            };
-            save.Click += (_, _) => TryCommit();
-            var cancel = new MenuEntry("Cancel", titleSize: 13)
-            {
-                Height = 40,
-                MinWidth = 72,
-                Accent = GuiTheme.TextDim,
-                Margin = new Thickness(0, 0, 10, 0)
-            };
-            cancel.Click += (_, _) => Close();
-            _saveError = new Note("", GuiTheme.Warm) { IsVisible = false };
-
-            var actionLabel = new TextBlock
-            {
-                Text = _inGame ? "ACTIVE MATCH CONFIGURATION" : "LOCAL PROFILE CONFIGURATION",
-                FontFamily = GuiTheme.Display,
-                FontSize = 10,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = GuiTheme.TextBrush
-            };
-            var actionDetail = new TextBlock
-            {
-                Text = _inGame
-                    ? "Save changes and return to the active match."
-                    : "Save changes to this device and close settings.",
-                FontFamily = GuiTheme.Display,
-                FontSize = 10,
-                Foreground = GuiTheme.TextDimBrush,
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 2, 12, 0)
-            };
-            var context = new StackPanel
-            {
-                VerticalAlignment = VerticalAlignment.Center,
-                MinWidth = 0
-            };
-            context.Children.Add(actionLabel);
-            context.Children.Add(actionDetail);
-            context.Children.Add(_saveError);
-            _footerContext = context;
-
-            var actions = new Grid
-            {
-                ColumnDefinitions = new ColumnDefinitions("Auto,Auto"),
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            Grid.SetColumn(cancel, 0);
-            Grid.SetColumn(save, 1);
-            actions.Children.Add(cancel);
-            actions.Children.Add(save);
-            _footerActions = actions;
-
-            _footerGrid.Children.Add(_footerContext);
-            _footerGrid.Children.Add(_footerActions);
-            return _footerGrid;
-        }
-
-        /// <summary>
-        /// Save, and say so on the window if it does not work.
-        ///
-        /// Writing settings.json touches the disk, and the disk is allowed to
-        /// say no -- a read-only folder, a file open elsewhere, a full drive.
-        /// That is worth a line on the screen, not an exception out of a window
-        /// that may be sitting over a match still being played.
-        /// </summary>
-        private void TryCommit()
-        {
-            try
-            {
-                Commit();
-            }
-            catch (Exception ex)
-            {
-                _saveError.Text = $"Could not save: {ex.Message}";
-                _saveError.IsVisible = true;
-            }
         }
 
         /// <summary>Test seam for exercising the same save path as the footer.</summary>

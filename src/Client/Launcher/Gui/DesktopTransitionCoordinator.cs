@@ -45,20 +45,25 @@ internal sealed class DesktopTransitionCoordinator : IDisposable
     private readonly IDesktopTransitionSurface _surface;
     private readonly Action<string> _log;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
+    private readonly DesktopInputOwner _inputOwner;
     private DesktopTransitionState _state = DesktopTransitionState.Shell;
     private ulong _generation;
     private bool _scenePrepared;
     private bool _disposed;
 
     public DesktopTransitionCoordinator(IDesktopTransitionSurface surface,
-        Action<string>? log = null)
+        Action<string>? log = null, DesktopInputOwner? inputOwner = null)
     {
         _surface = surface ?? throw new ArgumentNullException(nameof(surface));
         _log = log ?? (message => DebugLog.Line("transition", message));
+        _inputOwner = inputOwner ?? new DesktopInputOwner();
+        if (_surface is DesktopTransitionSurface desktopSurface)
+            desktopSurface.AttachInputOwner(_inputOwner);
     }
 
     public DesktopTransitionState State => _state;
     public ulong CurrentGeneration => _generation;
+    internal DesktopInputOwner InputOwner => _inputOwner;
 
     public ulong BeginMatchLaunch(MatchTransitionState state)
     {
@@ -239,6 +244,7 @@ internal sealed class DesktopTransitionCoordinator : IDisposable
         if (_disposed) return;
         _disposed = true;
         _state = DesktopTransitionState.Closing;
+        _inputOwner.SetOwner(DesktopInputOwnerKind.None);
         Log($"generation={_generation} closing");
     }
 
@@ -267,20 +273,34 @@ internal sealed class DesktopTransitionSurface : IDesktopTransitionSurface
     private readonly Func<HomeWindow?> _shell;
     private readonly Func<SdlGameHost?> _scene;
     private readonly Action _pump;
+    private DesktopInputOwner? _inputOwner;
 
     public DesktopTransitionSurface(Func<HomeWindow?> shell,
-        Func<SdlGameHost?> scene, Action pump)
+        Func<SdlGameHost?> scene, Action pump,
+        DesktopInputOwner? inputOwner = null)
     {
         _shell = shell ?? throw new ArgumentNullException(nameof(shell));
         _scene = scene ?? throw new ArgumentNullException(nameof(scene));
         _pump = pump ?? throw new ArgumentNullException(nameof(pump));
+        _inputOwner = inputOwner;
+    }
+
+    internal void AttachInputOwner(DesktopInputOwner inputOwner)
+    {
+        ArgumentNullException.ThrowIfNull(inputOwner);
+        _inputOwner = inputOwner;
     }
 
     public void ShowShellForPreparation() => RequireShell().ShowForPreparation();
     public void PumpShell() => _pump();
     public void HideShell() => RequireShell().HideForTransition();
     public void ActivateShell() => RequireShell().ActivateForTransition();
-    public void ShowSceneForPreparation() => RequireScene().ShowForPreparation();
+    public void ShowSceneForPreparation()
+    {
+        SdlGameHost scene = RequireScene();
+        if (_inputOwner != null) scene.AttachInputOwner(_inputOwner);
+        scene.ShowForPreparation();
+    }
     public void HideScene() => _scene()?.Hide();
     public void ActivateScene() => RequireScene().Activate();
     public void ShowShellTransition(MatchTransitionState state)

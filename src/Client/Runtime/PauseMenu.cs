@@ -4,6 +4,21 @@ using OpenTK.Mathematics;
 namespace MphRead.Mods
 {
     /// <summary>
+    /// Presentation boundary for the match pause surface. Runtime input and
+    /// lifecycle code only asks the registered presenter to open, pump, move,
+    /// or close; desktop windows and Android in-app surfaces stay behind this
+    /// interface.
+    /// </summary>
+    internal interface IPauseMenuPresenter
+    {
+        bool IsOpen { get; }
+        bool Open(Scene scene);
+        void Close();
+        void Pump();
+        void OnWindowMoved();
+    }
+
+    /// <summary>
     /// The host surface the pause menu needs between frames. Keeping this
     /// independent of an OpenTK window host lets SDL service the same Avalonia
     /// menu.
@@ -41,6 +56,20 @@ namespace MphRead.Mods
         private static volatile bool _quit;
         private static volatile bool _toggleFullscreen;
         private static volatile bool _refocus;
+        private static IPauseMenuPresenter? _presenter;
+
+        internal static bool HasPresenter => _presenter != null;
+
+        internal static void RegisterPresenter(IPauseMenuPresenter presenter)
+        {
+            ArgumentNullException.ThrowIfNull(presenter);
+            _presenter = presenter;
+        }
+
+        internal static void UnregisterPresenter(IPauseMenuPresenter presenter)
+        {
+            if (ReferenceEquals(_presenter, presenter)) _presenter = null;
+        }
         /// <summary>Open right now: the cursor is free and the player is not driving.</summary>
         public static bool Open => _open;
 
@@ -123,11 +152,11 @@ namespace MphRead.Mods
                 if (WindowMoved)
                 {
                     WindowMoved = false;
-                    Launcher.Gui.PauseMenuWindow.FollowGameWindow();
+                    _presenter?.OnWindowMoved();
                 }
                 // The menu's share of this frame. Everything it decided lands
                 // in the flags below before they are read.
-                Launcher.Gui.GuiLauncher.Pump();
+                _presenter?.Pump();
             }
             if (_refocus)
             {
@@ -192,6 +221,17 @@ namespace MphRead.Mods
 
         internal static void RequestFullscreenToggle() => _toggleFullscreen = true;
 
+        /// <summary>
+        /// Results and continuation use the same desktop overlay surface but
+        /// are not opened by Escape. Keep the legacy pause-open bridge honest
+        /// while the scene cleanup/transition coordinator is running.
+        /// </summary>
+        internal static void SetOverlayOpen(bool open)
+        {
+            _open = open;
+            if (!open) _refocus = true;
+        }
+
         internal static void MarkClosed()
         {
             _open = false;
@@ -204,12 +244,12 @@ namespace MphRead.Mods
 
         private static void OpenMenu(Scene scene)
         {
-            _open = Launcher.Gui.PauseMenuWindow.Open(scene);
+            _open = _presenter?.Open(scene) == true;
         }
 
         private static void Close()
         {
-            Launcher.Gui.PauseMenuWindow.CloseIfOpen();
+            _presenter?.Close();
             _open = false;
         }
     }

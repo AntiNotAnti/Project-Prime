@@ -68,6 +68,7 @@
     <Compile Include="TouchOverlayView.cs" />
     <Compile Include="AndroidMapImageDecoder.cs" />
     <Compile Include="AndroidScreenCapture.cs" />
+    <Compile Include="AndroidSecureSessionStore.cs" />
   </ItemGroup>
   <!-- Shared Client presentation, input, networking and UI; no desktop entry or test harnesses. -->
   <ItemGroup>
@@ -97,16 +98,22 @@
     <Compile Include="../Client/Launcher/Gui/NodeBrowserView.cs" Link="Client/Launcher/Gui/NodeBrowserView.cs" />
     <Compile Include="../Client/Accounts/AccountSession.cs" Link="Client/Accounts/AccountSession.cs" />
     <Compile Include="../Client/Accounts/SecureSessionStore.cs" Link="Client/Accounts/SecureSessionStore.cs" />
+    <Compile Include="../Client/Accounts/ProtectedSessionStores.cs" Link="Client/Accounts/ProtectedSessionStores.cs" />
     <Compile Include="../Client/Accounts/CareerQueries.cs" Link="Client/Accounts/CareerQueries.cs" />
     <Compile Include="../Client/Launcher/Gui/KeyRow.cs" Link="Client/Launcher/Gui/KeyRow.cs" />
     <Compile Include="../Client/Launcher/Gui/MapPickerView.cs" Link="Client/Launcher/Gui/MapPickerView.cs" />
     <Compile Include="../Client/Launcher/Maps/MapAcquisitionService.cs" Link="Client/Launcher/Maps/MapAcquisitionService.cs" />
+    <Compile Include="../Client/Launcher/Maps/MapsController.cs" Link="Client/Launcher/Maps/MapsController.cs" />
     <Compile Include="../Client/Launcher/Maps/MapsHubView.cs" Link="Client/Launcher/Maps/MapsHubView.cs" />
+    <Compile Include="../Client/Launcher/Maps/MapsPresentation.cs" Link="Client/Launcher/Maps/MapsPresentation.cs" />
+    <Compile Include="../Client/Launcher/Maps/MapsPreviewCache.cs" Link="Client/Launcher/Maps/MapsPreviewCache.cs" />
+    <Compile Include="../Client/Launcher/Maps/MapsState.cs" Link="Client/Launcher/Maps/MapsState.cs" />
     <Compile Include="../Client/Launcher/Gui/MenuEntry.cs" Link="Client/Launcher/Gui/MenuEntry.cs" />
     <Compile Include="../Client/Launcher/Gui/PadRow.cs" Link="Client/Launcher/Gui/PadRow.cs" />
     <Compile Include="../Client/Launcher/Gui/PauseMenuView.cs" Link="Client/Launcher/Gui/PauseMenuView.cs" />
     <Compile Include="../Client/Launcher/Gui/ProgressRow.cs" Link="Client/Launcher/Gui/ProgressRow.cs" />
     <Compile Include="../Client/Launcher/Gui/Rows.cs" Link="Client/Launcher/Gui/Rows.cs" />
+    <Compile Include="../Client/Launcher/Gui/SettingsActionBar.cs" Link="Client/Launcher/Gui/SettingsActionBar.cs" />
     <Compile Include="../Client/Launcher/Gui/SettingsView.cs" Link="Client/Launcher/Gui/SettingsView.cs" />
     <Compile Include="../Client/Launcher/Gui/SliderRow.cs" Link="Client/Launcher/Gui/SliderRow.cs" />
     <Compile Include="../Client/Launcher/Gui/SplashView.cs" Link="Client/Launcher/Gui/SplashView.cs" />
@@ -207,6 +214,7 @@
     <Compile Include="../Client/Networking/NetStatus.cs" Link="Client/Networking/NetStatus.cs" />
     <Compile Include="../Client/Networking/NetTestScript.cs" Link="Client/Networking/NetTestScript.cs" />
     <Compile Include="../Client/Networking/NetTransport.cs" Link="Client/Networking/NetTransport.cs" />
+    <Compile Include="../Client/Networking/PendingWeaponPrediction.cs" Link="Client/Networking/PendingWeaponPrediction.cs" />
     <Compile Include="../Client/Networking/SnapshotInterpolation.cs" Link="Client/Networking/SnapshotInterpolation.cs" />
     <Compile Include="../Client/Networking/Protocol7ReplayCodec.cs" Link="Client/Networking/Protocol7ReplayCodec.cs" />
     <Compile Include="../Client/Networking/Protocol8ReplayCodec.cs" Link="Client/Networking/Protocol8ReplayCodec.cs" />
@@ -362,6 +370,7 @@
     <Compile Include="../Client/Rendering/Geometry/RenderVertex.cs" Link="Client/Rendering/Geometry/RenderVertex.cs" />
     <Compile Include="../Client/Rendering/NodePoseSampler.cs" Link="Rendering/NodePoseSampler.cs" />
     <Compile Include="../Client/Rendering/ModelPoseHistory.cs" Link="Rendering/ModelPoseHistory.cs" />
+    <Compile Include="../Client/Rendering/ScalarPoseHistory.cs" Link="Rendering/ScalarPoseHistory.cs" />
     <Compile Include="../Client/Rendering/SimulationPoseHistory.cs" Link="Presentation/SimulationPoseHistory.cs" />
     <Compile Include="../Client/Rendering/PlayerBipedPoseHistory.cs" Link="Rendering/PlayerBipedPoseHistory.cs" />
     <Compile Include="../Client/Rendering/RenderInterpolation.cs" Link="Presentation/RenderInterpolation.cs" />
@@ -372,6 +381,7 @@
     <Compile Include="../Client/Combat/PredictedHitFeedback.cs" Link="Combat/PredictedHitFeedback.cs" />
     <Compile Include="../Client/Combat/PredictedSelfImpulse.cs" Link="Combat/PredictedSelfImpulse.cs" />
     <Compile Include="../Client/Presentation/Players/PlayerPresentationCombatFeedback.cs" Link="Presentation/PlayerPresentationCombatFeedback.cs" />
+    <Compile Include="../Client/Presentation/Players/PlayerPresentationDeath.cs" Link="Presentation/PlayerPresentationDeath.cs" />
     <Compile Include="../Client/Presentation/Players/PlayerPresentationVisor.cs" Link="Presentation/PlayerPresentationVisor.cs" />
   </ItemGroup>
   <ItemGroup>

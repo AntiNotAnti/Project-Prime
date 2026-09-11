@@ -189,6 +189,144 @@ public sealed class PlayPresentationTests
     }
 
     [AvaloniaFact]
+    public async Task PlayLandingUsesOneLoadedEmptyDirectoryStateWithHostAndRefresh()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            PlayState state = PlayState.Initial with
+            {
+                Phase = PlayPhase.Connected,
+                BrowsedLobbies = new LobbyListSnapshot([], null),
+                Message = "No lobbies available. Host a new lobby."
+            };
+            Control view = PlayPresentation.Build(Context(shell, controller, lobby: null,
+                state: state));
+            var window = new Window { Width = 1280, Height = 800, Content = view };
+            try
+            {
+                window.Show();
+                Assert.Single(view.GetVisualDescendants().OfType<PrimeSectionPanel>(),
+                    panel => panel.Classes.Contains("prime-directory-empty"));
+                Assert.Equal(1, view.GetVisualDescendants().OfType<TextBlock>()
+                    .Count(text => text.Text == "NO OPEN MATCHES"));
+                Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(),
+                    text => text.Text == "No public matches are available right now.");
+                Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(),
+                    text => text.Text?.Contains("No match directory loaded", StringComparison.Ordinal) == true);
+                Assert.Single(view.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Refresh"));
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task PlayLandingWideLayoutKeepsQuickBrowseAndHostInOneDashboard()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            PlayState state = PlayState.Initial with
+            {
+                Phase = PlayPhase.Connected,
+                BrowsedLobbies = new LobbyListSnapshot([], null)
+            };
+            Control view = PlayPresentation.Build(Context(shell, controller, lobby: null,
+                state: state));
+            var window = new Window { Width = 1280, Height = 800, Content = view };
+            try
+            {
+                window.Show();
+                PrimePlayResponsivePanel dashboard = Assert.Single(
+                    view.GetVisualDescendants().OfType<PrimePlayResponsivePanel>(),
+                    panel => panel.Classes.Contains("prime-play-landing-dashboard"));
+                dashboard.ApplyLayout(1280);
+                Assert.Equal(PrimeContentLayout.Wide, dashboard.Layout);
+                Assert.Contains(dashboard.Children,
+                    child => PrimePlayResponsivePanel.GetLane(child) == PrimePlayLane.Left);
+                Assert.Contains(dashboard.Children,
+                    child => PrimePlayResponsivePanel.GetLane(child) == PrimePlayLane.Right);
+                Assert.Contains(view.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Quick Play"));
+                Assert.Contains(view.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Browse Matches"));
+                Assert.Contains(view.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Host Match"));
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task HostMatchNavigationSchedulesExactlyOneNodePreparation()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            var ui = new PlayPresentationState();
+            int commandCount = 0;
+            int refreshCount = 0;
+            string? operation = null;
+            Func<Task>? prepare = null;
+            Control view = PlayPresentation.Build(Context(shell, controller, lobby: null,
+                run: (label, action) =>
+                {
+                    commandCount++;
+                    operation = label;
+                    prepare = action;
+                }, ui: ui, refresh: () => refreshCount++));
+            var window = new Window { Width = 940, Height = 900, Content = view };
+            try
+            {
+                window.Show();
+                PrimeButton host = Assert.Single(view.GetVisualDescendants()
+                    .OfType<PrimeButton>(), button => Equals(button.Content, "Host Match"));
+
+                host.Invoke();
+
+                Assert.Equal(PlaySubsection.HostMatch, ui.Subsection);
+                Assert.Equal(1, ui.HostStep);
+                Assert.Equal("Prepare host match", operation);
+                Assert.Equal(1, commandCount);
+                Assert.NotNull(prepare);
+                Assert.Equal(1, refreshCount);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
     public void LobbyChatUsesLocalPeerAndSystemNameSemantics()
     {
         Guid local = Guid.NewGuid();
@@ -292,6 +430,10 @@ public sealed class PlayPresentationTests
             }
             finally
             {
+                // The cached same-lobby view is intentionally reused below.
+                // Detach it before closing the headless window so Avalonia's
+                // ContentPresenter does not retain the old parent.
+                window.Content = null;
                 window.Close();
             }
 
@@ -319,6 +461,7 @@ public sealed class PlayPresentationTests
             }
             finally
             {
+                defaultWindow.Content = null;
                 defaultWindow.Close();
             }
 
@@ -636,6 +779,92 @@ public sealed class PlayPresentationTests
     }
 
     [AvaloniaFact]
+    public async Task LobbyRevisionUpdatesTargetsWithoutRebuildingLayoutPreviewOrDraft()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            Guid sessionId = Guid.NewGuid();
+            LobbySnapshot first = Lobby(sessionId, MatchMode.TeamBattle,
+                team: 0, ready: false, owner: true);
+            var ui = new PlayPresentationState();
+            int previewBuilds = 0;
+            Control? preview = null;
+            Control firstView = PlayPresentation.Build(Context(shell, controller,
+                first, ui: ui, buildPreview: (_, height, _) =>
+                {
+                    previewBuilds++;
+                    return preview = new Border { Height = height };
+                }));
+            PrimePlayResponsivePanel layout = Assert.IsType<PrimePlayResponsivePanel>(
+                firstView);
+            var window = new Window
+            {
+                Width = 1280,
+                Height = 720,
+                Content = firstView
+            };
+            try
+            {
+                window.Show();
+                layout.ApplyLayout(1280);
+                LobbyChatPanel chat = Assert.Single(firstView.GetVisualDescendants()
+                    .OfType<LobbyChatPanel>());
+                Assert.True(chat.DraftEditor.Focus());
+                chat.DraftEditor.Text = "typed while the lobby updates";
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                Assert.Equal(chat.DraftEditor.Text, ui.ChatDraft);
+                Assert.NotNull(preview);
+                Control firstPreview = preview!;
+
+                LobbyMember readyMember = first.Members[0] with { Ready = true };
+                var message = new LobbyChatEntry(1, Guid.NewGuid(), "Squadmate",
+                    "Ready when you are.");
+                LobbySnapshot second = first with
+                {
+                    Revision = first.Revision + 1,
+                    Members = ImmutableArray.Create(readyMember),
+                    Chat = ImmutableArray.Create(message)
+                };
+
+                Control secondView = PlayPresentation.Build(Context(shell, controller,
+                    second, ui: ui, buildPreview: (_, height, _) =>
+                    {
+                        previewBuilds++;
+                        return preview = new Border { Height = height };
+                    }));
+
+                Assert.Same(firstView, secondView);
+                Assert.Same(layout, Assert.IsType<PrimePlayResponsivePanel>(secondView));
+                Assert.Same(firstPreview, preview);
+                Assert.Equal(1, previewBuilds);
+                Assert.Same(chat, Assert.Single(secondView.GetVisualDescendants()
+                    .OfType<LobbyChatPanel>()));
+                Assert.True(chat.DraftEditor.IsFocused);
+                Assert.Equal("typed while the lobby updates", chat.DraftEditor.Text);
+                Assert.Equal(chat.DraftEditor.Text, ui.ChatDraft);
+                Assert.Contains(secondView.GetVisualDescendants().OfType<TextBlock>(),
+                    text => text.Text == "Ready.");
+                Assert.Contains(secondView.GetVisualDescendants().OfType<TextBlock>(),
+                    text => text.Text == "Ready when you are.");
+                Assert.Contains(secondView.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Not Ready"));
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
     public async Task WideHostExposesTheCompleteBattleConfiguration()
     {
         var shell = new PrimeShellState();
@@ -666,6 +895,39 @@ public sealed class PlayPresentationTests
                 Assert.True(create.IsVisible);
                 Assert.DoesNotContain(VisibleTextBlocks(view),
                     item => item.Text?.Contains("Lobby seats", StringComparison.Ordinal) == true);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task LoadingHostStateDisablesCreateMatch()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            controller.SetCaptureMapCatalog(new[] { "MP1 SANCTORUS" });
+            var ui = new PlayPresentationState { Subsection = PlaySubsection.HostMatch };
+            PlayState loading = PlayState.Initial with { Loading = true };
+            Control view = PlayPresentation.Build(Context(shell, controller, lobby: null,
+                ui: ui, state: loading));
+            var window = new Window { Width = 1280, Height = 720, Content = view };
+            try
+            {
+                window.Show();
+                PrimeButton create = Assert.Single(view.GetVisualDescendants()
+                    .OfType<PrimeButton>(), button => Equals(button.Content, "Create Match"));
+                Assert.False(create.IsEnabled);
             }
             finally
             {
@@ -752,29 +1014,31 @@ public sealed class PlayPresentationTests
         PlayController controller, LobbySnapshot? lobby,
         Action<string, Func<Task>>? run = null,
         PlayPresentationState? ui = null,
-        Func<string?, double, string, Control>? buildPreview = null)
+        Func<string?, double, string, Control>? buildPreview = null,
+        PlayState? state = null,
+        Action? refresh = null)
     {
-        PlayState state = PlayState.Initial;
+        PlayState resolvedState = state ?? PlayState.Initial;
         if (lobby is not null)
         {
             LobbyMember current = lobby.Members[0];
             var session = new NodeSessionSnapshot(current.SessionId, current.PlayerId,
                 current.DisplayName, Guid.NewGuid(), new string('a', 43),
                 current.GuestSessionId);
-            state = new PlayState(PlayPhase.Lobby, Array.Empty<NodeListing>(),
+            resolvedState = new PlayState(PlayPhase.Lobby, Array.Empty<NodeListing>(),
                 new NodeControlClient.ViewState(Session: session, Lobby: lobby),
                 current.Hunter, "", Loading: false, Revision: lobby.Revision);
         }
         return new PlayPresentationContext(
             shell,
             controller,
-            state,
+            resolvedState,
             Array.Empty<string>(),
             ui ?? new PlayPresentationState(),
             CancellationToken.None,
             run ?? ((_, _) => { }),
             static action => action(),
-            static () => { },
+            refresh ?? (static () => { }),
             static () => { },
             buildPreview ?? ((_, height, _) => new Border { Height = height }),
             static _ => Task.CompletedTask,

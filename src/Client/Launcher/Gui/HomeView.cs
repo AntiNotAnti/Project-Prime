@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -14,6 +15,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MphRead.Entities;
 using MphRead.Mods;
+using MphRead.Mods.Accounts;
 using MphRead.Mods.Network;
 using MphRead.Mods.Update;
 
@@ -40,7 +42,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// there is no second window to open, which is what
     /// <see cref="ShowOverlay"/> is.
     /// </summary>
-    internal sealed class HomeView : UserControl
+    internal sealed class HomeView : UserControl, IAsyncDisposable, IDisposable
     {
         private readonly MenuSettings _settings;
         private readonly List<string> _playable = new();
@@ -49,6 +51,12 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly Grid _layout = new();
         private readonly Panel _overlay;
         private readonly Border _panel;
+        // The classic surface is only a compatibility presentation. Keep the
+        // same canonical controller/runtime pair alive behind it so the old
+        // overlay cannot grow its own account, directory, or lobby owner.
+        private readonly PrimeShellState _classicShell = new();
+        private readonly ClientOnlineRuntime _classicOnline = new(enabled: false);
+        private readonly PlayController _classicPlay;
 
         private readonly ProgressRow _setupProgress = new();
         private MenuEntry _setupBack = null!;
@@ -59,6 +67,7 @@ namespace MphRead.Mods.Launcher.Gui
         private Control? _current;
         private bool _finished;
         private bool _observingUpdates;
+        private int _disposed;
 
         /// <summary>Below this width the screen folds into one column.</summary>
         private const double _narrowWidth = 720;
@@ -79,6 +88,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _playable.Add(room);
             }
+            _classicPlay = new PlayController(_classicShell, _playable,
+                onlineRuntime: _classicOnline);
 
             Background = GuiTheme.PanelBrush;
 
@@ -295,6 +306,28 @@ namespace MphRead.Mods.Launcher.Gui
             }
             base.OnDetachedFromVisualTree(e);
         }
+
+        /// <summary>
+        /// Release the classic compatibility controller only when the owning
+        /// HomeView is finished. Overlay detachment is deliberately not a
+        /// lifetime boundary: Android and desktop overlays may attach this
+        /// view again while the shell remains active.
+        /// </summary>
+        public async ValueTask DisposeAsync()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+            if (_observingUpdates)
+            {
+                Update.Updater.Coordinator.StatusChanged -= UpdateStatusChanged;
+                _observingUpdates = false;
+            }
+            await _classicPlay.DisposeAsync().ConfigureAwait(false);
+            await _classicOnline.DisposeAsync().ConfigureAwait(false);
+            _classicShell.Dispose();
+        }
+
+        public void Dispose()
+            => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
         private void UpdateStatusChanged(object? sender, UpdateStatus status)
         {
@@ -1340,7 +1373,7 @@ namespace MphRead.Mods.Launcher.Gui
             // could see it is the bug this replaces.
             _replayEntry.IsEnabled = false;
             _replayEntry.Title = "Loading...";
-            bool joined = await Task.Run(() => ReplayPlayback.Join(path));
+            bool joined = await Task.Run(() => ReplayPlayback.Prepare(path));
             if (!joined)
             {
                 _replayEntry.IsEnabled = true;
@@ -1429,7 +1462,16 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         private async void OpenNodeBrowser(bool createLobby)
         {
-            var view = new NodeBrowserView(_playable, createLobby);
+            if (Volatile.Read(ref _disposed) != 0) return;
+            AccountIdentity? identity = AccountSessions.Current?.IsSignedIn == true
+                ? AccountSessions.Current.Identity : null;
+            if (identity is { } account)
+                _classicShell.SetIdentity(account.PlayerId, LauncherPrefs.PlayerName,
+                    account.EmailEligibleForOfficialPlay);
+            else
+                _classicShell.SelectGuest(LauncherPrefs.PlayerName);
+            _classicPlay.SetMaps(_playable);
+            var view = new NodeBrowserView(_classicPlay, createLobby);
             view.Launch += (_, plan) => { CloseOverlay(); Finish(plan); };
             await ShowOverlay(view, handler => view.Closed += handler);
         }
@@ -1514,6 +1556,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _playable.Add(room);
             }
+            _classicPlay.SetMaps(_playable);
         }
     }
 }

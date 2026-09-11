@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using MphRead.Entities;
 using MphRead.Mods;
+using MphRead.Mods.Accounts;
 using MphRead.Mods.Network;
 using MphRead.Mods.Update;
 
@@ -19,6 +20,7 @@ namespace MphRead.Mods.Launcher
         public static void Run()
         {
             LauncherPrefs.Load();
+            AccountSessions.ConfigurePlatformStore();
             if (LauncherPrefs.UpdatePolicy != UpdatePolicy.Off && Update.Updater.Configured)
             {
                 // Started in the background and then waited on briefly. This

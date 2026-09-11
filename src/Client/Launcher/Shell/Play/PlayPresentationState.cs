@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Avalonia.Controls;
 using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Launcher.Gui;
@@ -30,6 +31,12 @@ internal sealed class PlayPresentationState
     public HostMatchDraft? EditDraft { get; private set; }
     public bool EditMatchOpen { get; set; }
     public Guid? LeaveConfirmationLobbyId { get; private set; }
+
+    // This is a view reuse seam, not a second lobby snapshot. The cached view
+    // is replaced whenever the authoritative lobby identity changes or the
+    // route leaves the lobby, while its Update method consumes the latest
+    // snapshot supplied by the shell.
+    internal ILobbyPresentationView? LobbyView { get; set; }
 
     // Only the cursor needed to count new entries is retained. Chat messages
     // themselves always come from the current authoritative snapshot.
@@ -251,6 +258,47 @@ internal sealed class PlayPresentationState
             _offerActionInFlight = false;
             _offerActionCompleted = false;
         }
+    }
+}
+
+internal interface ILobbyPresentationView
+{
+    Guid LobbyId { get; }
+    Control View { get; }
+    LobbyChatPanel ChatPanel { get; }
+    void Update(PlayPresentationContext context, LobbySnapshot lobby);
+}
+
+/// <summary>
+/// The presentation state of the authoritative public match directory.  This
+/// is deliberately separate from <see cref="PlayPhase"/>: a connected Node
+/// can have no directory yet, an empty directory, or a directory that failed
+/// to load, and those states need different player-facing copy.
+/// </summary>
+internal enum MatchDirectoryPresentationState
+{
+    NotLoaded,
+    Loading,
+    Empty,
+    Loaded,
+    Failed
+}
+
+/// <summary>Projects the current Play state without retaining directory data.</summary>
+internal static class MatchDirectoryPresentation
+{
+    public static MatchDirectoryPresentationState From(PlayState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (state.Phase == PlayPhase.Error) return MatchDirectoryPresentationState.Failed;
+        if (state.Loading || state.Phase == PlayPhase.LoadingNodes)
+            return MatchDirectoryPresentationState.Loading;
+
+        LobbyListSnapshot? directory = state.Lobbies;
+        if (directory is null) return MatchDirectoryPresentationState.NotLoaded;
+        return directory.Lobbies.IsDefaultOrEmpty
+            ? MatchDirectoryPresentationState.Empty
+            : MatchDirectoryPresentationState.Loaded;
     }
 }
 

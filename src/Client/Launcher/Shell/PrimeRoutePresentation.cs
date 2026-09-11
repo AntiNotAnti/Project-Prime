@@ -30,6 +30,17 @@ public enum PrimeShellBreakpoint
 /// </summary>
 public static class PrimeRoutePresentation
 {
+    public static string PlayerFacingNetworkError(string? message, string fallback)
+    {
+        string value = message?.Trim() ?? "";
+        if (value.Length == 0) return fallback;
+        return value.Contains("Node", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("Worker", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("Backend", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("handoff", StringComparison.OrdinalIgnoreCase)
+                ? fallback : value;
+    }
+
     public const double MobileUpperBound = 720;
     public const double WideLowerBound = 1000;
 
@@ -97,10 +108,27 @@ public static class PrimeRoutePresentation
 public sealed class PrimeRouteViewState
 {
     private readonly Dictionary<PrimeRoute, Vector> _scrollOffsets = new();
+    private bool _guestHunterEntryPrepared;
 
     public HunterSection HunterSection { get; private set; } = HunterSection.Overview;
 
     public void SelectHunterSection(HunterSection section) => HunterSection = section;
+
+    /// <summary>
+    /// Guests enter on locally available Arsenal data. Once they explicitly
+    /// choose another Hunter tab, route rebuilds preserve that choice.
+    /// </summary>
+    public HunterSection PrepareHunterEntry(bool signedIn)
+    {
+        if (!signedIn && !_guestHunterEntryPrepared)
+        {
+            HunterSection = HunterSection.Arsenal;
+            _guestHunterEntryPrepared = true;
+        }
+        return HunterSection;
+    }
+
+    public void ResetGuestHunterEntry() => _guestHunterEntryPrepared = false;
 
     public void CaptureScroll(PrimeRoute route, Vector offset)
     {

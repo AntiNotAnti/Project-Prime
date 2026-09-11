@@ -33,6 +33,9 @@ internal sealed record HunterPresentationContext(
 /// </summary>
 internal static class HunterPresentation
 {
+    public static bool RequiresAccount(HunterSection section)
+        => section != HunterSection.Arsenal;
+
     public static Control Build(HunterPresentationContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -49,10 +52,10 @@ internal static class HunterPresentation
         if (!context.SignedIn)
         {
             root.Children.Add(PrimeControlFactory.SectionPanel(Stack(
-                Text("Sign in required", "prime-heading"),
-                Text("Profile and official career records require an account. Arsenal data remains available to guests.",
+                Text("Sign in to view this tab", "prime-heading"),
+                Text("Profile and official career records require an account. Your Arsenal remains available without signing in.",
                     "prime-muted"),
-                Button("Open Gateway", context.OpenGateway, primary: true))));
+                Button("Sign In", context.OpenGateway, primary: true))));
             return root;
         }
 

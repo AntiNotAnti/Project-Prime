@@ -127,6 +127,9 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private MatchTransitionView? _matchTransition;
     private GatewayForm _gatewayForm;
     private string _settingsFocusCategory = "Player";
+    private SettingsView? _settingsActionView;
+    private SettingsActionBar? _settingsActionBar;
+    private string? _backgroundStatus;
     private int _busyOperations;
     private string? _overlayModalId;
     private KeyboardNavigationMode _overlayTabNavigationBeforeOpen;
@@ -177,6 +180,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
 
         PrimeAccessibility.SetName(AccountButton, "Open account menu");
         PrimeAccessibility.SetName(SettingsButton, "Open settings");
+        PrimeAccessibility.SetName(NotificationDismissButton, "Dismiss notification");
         PrimeAccessibility.SetName(InputHintText, "Controller and keyboard controls");
         PrimeAccessibility.SetStatus(ConnectionText, "Offline");
 
@@ -209,6 +213,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         SizeChanged += (_, e) => ApplyResponsiveLayout(e.NewSize.Width, e.NewSize.Height);
         AccountButton.Click += (_, _) => ShowAccountMenu();
         SettingsButton.Click += (_, _) => Navigate(PrimeRoute.Settings);
+        NotificationDismissButton.Click += (_, _) => _shell.DismissNotification();
 
         _inputTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
         _inputTimer.Tick += (_, _) => PollInput();
@@ -741,6 +746,27 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     internal PlayState? CapturePlayState => _capturePlayState;
     internal HunterLicensePageState? CaptureLicenseState => _captureLicenseState;
     internal RankingsState? CaptureRankingsState => _captureRankingsState;
+    internal Control? CaptureRouteContent => PageHost.Content as Control;
+
+    /// <summary>
+    /// Mount a deterministic route presentation inside the real shell chrome.
+    /// This keeps screenshot fixtures on the same inherited styles, viewport,
+    /// navigation, and footer surface as production without starting route I/O.
+    /// </summary>
+    internal void SetRouteContentForCapture(PrimeRoute route, Control content)
+    {
+        if (!_captureMode)
+            throw new InvalidOperationException("Route content injection is capture-only.");
+        PrimeRoute normalized = PrimeRoutePresentation.Normalize(route);
+        _shell.Navigator.NavigateRoot(normalized);
+        if (PageHost.Content is IDisposable previous)
+            previous.Dispose();
+        PageHost.Content = content ?? throw new ArgumentNullException(nameof(content));
+        RouteTitle.Text = PrimeRouteInfo.Label(normalized);
+        _renderedRoute = normalized;
+        RefreshNavigation();
+        RefreshChrome();
+    }
     internal MatchTransitionView? ActiveMatchTransition => _matchTransition;
     internal void SetMenuInputEnabled(bool enabled)
     {
@@ -751,7 +777,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     public void ShowMatchOutcome(MatchRunResult result)
     {
         if (result.Reason is MatchExitReason.Completed or MatchExitReason.LeftMatch) return;
-        _shell.Notify(PrimeNotificationKind.Error,
+        _shell.NotifyGlobal("match-outcome", PrimeNotificationKind.Error,
             (result.Reason == MatchExitReason.FailedToStart ? "Match could not start. " : "Match connection lost. ")
             + result.Message + " Return to your lobby and try again.");
     }
@@ -930,6 +956,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             {
                 Resources["PrimeReducedMotion"] = LauncherPrefs.ReducedMotion;
                 CloseOverlay();
+                ShowPauseMenu(scene, onResume, onLeave, onQuit);
             };
             ShowOverlay(settings, "pause-settings");
         };
@@ -1244,6 +1271,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     {
         PrimeRoute normalizedRoute = PrimeRoutePresentation.Normalize(route);
         bool routeChanged = _renderedRoute != normalizedRoute;
+        if (normalizedRoute == PrimeRoute.Hunter && _shell.GuestSelected)
+            _routeViewState.PrepareHunterEntry(signedIn: false);
         RememberCurrentNavigationFocus();
         _routeMotion?.Dispose();
         _routeMotion = null;
@@ -1331,7 +1360,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         content.Margin = new Thickness(0, 16);
 
         var heading = PrimeControlFactory.PageHeading("ENTER THE ARENA",
-            subtitle: "Choose how you want to play.");
+            subtitle: "Sign in, create an account, or continue as a guest.");
         CenterHeading(heading);
         content.Children.Add(heading);
 
@@ -1347,12 +1376,18 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         var cardHost = new Border { Child = card, HorizontalAlignment = HorizontalAlignment.Stretch,
             MaxWidth = 580 };
         content.Children.Add(cardHost);
-        TextBlock status = Text(PrimeRoutePresentation.GatewaySummary(
-            gateway.Phase, gateway.Message), "prime-status-text");
-        PrimeAccessibility.SetStatus(status, status.Text ?? String.Empty,
-            gateway.Phase == GatewayPhase.Failed
-                ? PrimeStatusKind.Error : PrimeStatusKind.Info);
-        content.Children.Add(status);
+        bool showStatus = gateway.Phase != GatewayPhase.Gateway
+            || !String.Equals(gateway.Message, GatewayState.Initial.Message,
+                StringComparison.Ordinal);
+        if (showStatus)
+        {
+            TextBlock status = Text(PrimeRoutePresentation.GatewaySummary(
+                gateway.Phase, gateway.Message), "prime-status-text");
+            PrimeAccessibility.SetStatus(status, status.Text ?? String.Empty,
+                gateway.Phase == GatewayPhase.Failed
+                    ? PrimeStatusKind.Error : PrimeStatusKind.Info);
+            content.Children.Add(status);
+        }
         if (gateway.Phase == GatewayPhase.Failed
             && !String.IsNullOrWhiteSpace(gateway.Message))
         {
@@ -1643,7 +1678,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         }
         if (lobby == null)
             throw new InvalidOperationException(
-                "The Node created the lobby but did not publish its authoritative snapshot.");
+                "The server created the lobby but did not return its current state.");
 
         string mapKey = draft.MapKey;
         if (string.IsNullOrWhiteSpace(mapKey))
@@ -1754,6 +1789,11 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private void SelectHunterSection(HunterSection section)
     {
         _routeViewState.SelectHunterSection(section);
+        if (!_shell.SignedIn && HunterPresentation.RequiresAccount(section))
+        {
+            RenderRoute(PrimeRoute.Hunter);
+            return;
+        }
         switch (section)
         {
             case HunterSection.Overview:
@@ -1836,6 +1876,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private Control BuildHunterPreviewStage(Hunter hunter)
     {
         Control content;
+        bool compactFailure = false;
         if (_hunterPreviewPaths.TryGetValue(hunter, out string? path))
         {
             content = new PrimeLocalImage(path, 330) { Stretch = Stretch.Uniform };
@@ -1846,6 +1887,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         }
         else if (_hunterPreviewRetryAfter.ContainsKey(hunter))
         {
+            compactFailure = true;
             content = Stack(Text("Preview unavailable.", "prime-muted"),
                 MakeButton("Retry preview", () => RetryHunterPreview(hunter)));
         }
@@ -1859,9 +1901,12 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             text.VerticalAlignment = VerticalAlignment.Center;
         }
         var stage = PrimeControlFactory.PreviewStage(content);
-        stage.Height = 360;
+        stage.Height = HunterPreviewHeight(compactFailure);
         return stage;
     }
+
+    internal static double HunterPreviewHeight(bool compactFailure)
+        => compactFailure ? 180 : 360;
 
     private static void AddHunterBadges(StackPanel target, HunterDossier dossier)
     {
@@ -2113,7 +2158,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private Control BuildTheatrePage()
     {
         TheatreState state = _theatre.State;
-        if (!_theatreLoaded)
+        if (!_theatreLoaded && !_captureMode)
         {
             _theatreLoaded = true;
             RunCommand("Load Theatre", () => _theatre.LoadAsync(_lifetime.Token));
@@ -2276,16 +2321,16 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     {
         var existing = new SettingsView(_settings, identity:
             SettingsIdentityContext.From(_shell,
-                () => Navigate(PrimeRoute.Hunter)))
+                () => Navigate(PrimeRoute.Hunter)), embedActionBar: false)
         {
             Height = Math.Max(420, Bounds.Height > 0 ? Bounds.Height - 203 : 520)
         };
-        var backend = Input(LauncherPrefs.BackendAddress, "Backend address");
+        var backend = Input(LauncherPrefs.BackendAddress, "Server address");
         var backendCard = Stack(Text("Network · Advanced", "prime-heading"), backend,
-            MakeButton("Save Backend", () => RunCommand("Save Backend", async () =>
+            MakeButton("Save Server", () => RunCommand("Save server", async () =>
             {
                 if (!Uri.TryCreate(backend.Text?.Trim(), UriKind.Absolute, out Uri? uri))
-                    throw new InvalidOperationException("Enter a valid Backend address.");
+                    throw new InvalidOperationException("Enter a valid server address.");
                 await _gateway.ConfigureBackendAsync(uri, _lifetime.Token).ConfigureAwait(false);
                 PostUi(() => _shell.Navigator.NavigateRoot(PrimeRoute.Gateway));
             }), primary: true));
@@ -2305,6 +2350,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             {
                 RouteTitle.Text = "Game files";
                 PageHost.Content = BuildGameFilesPage();
+                RefreshActionBar();
             });
         };
         return existing;
@@ -2349,17 +2395,17 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
                 break;
             case PrimeSeatOfferTransition.Close:
                 CloseSeatOfferOverlay();
+                _shell.ClearNotification("seat-offer");
                 if (routeAvailable && connected && offer is null)
-                    _shell.Notify(PrimeNotificationKind.Warning,
+                    _shell.NotifyRoute("seat-offer-unavailable", PrimeNotificationKind.Warning,
                         "Player seat offer is no longer available.");
-                else if (String.Equals(_shell.Notification?.Message,
-                    SeatOfferAvailableAnnouncement, StringComparison.Ordinal))
-                    _shell.ClearNotification();
                 RefreshChrome();
                 break;
             case PrimeSeatOfferTransition.Expired:
                 CloseSeatOfferOverlay();
-                _shell.Notify(PrimeNotificationKind.Warning, "Player seat offer expired.");
+                _shell.ClearNotification("seat-offer");
+                _shell.NotifyRoute("seat-offer-expired", PrimeNotificationKind.Warning,
+                    "Player seat offer expired.");
                 RefreshChrome();
                 break;
         }
@@ -2385,7 +2431,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             SeatOfferAvailableAnnouncement,
             PrimeStatusKind.Warning);
         ShowOverlay(card, modalId);
-        _shell.Notify(PrimeNotificationKind.Info, SeatOfferAvailableAnnouncement);
+        _shell.NotifyRoute("seat-offer", PrimeNotificationKind.Info,
+            SeatOfferAvailableAnnouncement);
         RefreshChrome();
     }
 
@@ -2411,6 +2458,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             return;
         }
         CloseSeatOfferOverlay();
+        _shell.ClearNotification("seat-offer");
         string operation = accept ? "Accept seat" : "Decline seat";
         RunCommand(operation, async () =>
         {
@@ -2440,7 +2488,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
                 ReconcileSeatOfferModal();
                 if (_seatOfferModal.Active is null)
                 {
-                    _shell.Notify(PrimeNotificationKind.Success,
+                    _shell.NotifyTransient("seat-offer-result", PrimeNotificationKind.Success,
                         accept ? "Player seat accepted." : "Player seat declined.");
                     RefreshChrome();
                 }
@@ -2571,16 +2619,13 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         => PostUi(RefreshChrome);
 
     private void GatewayChanged(object? sender, EventArgs args)
-        => PostUi(() =>
-        {
-            StatusText.Text = _gateway.State.Message;
-            RefreshChrome();
-        });
+        => PostUi(RefreshChrome);
 
     private void GatewayIdentityChanged(object? sender, EventArgs args)
         => PostUi(() =>
         {
             _play.CancelIdentityOperations();
+            _routeViewState.ResetGuestHunterEntry();
             if (!_shell.HasNetworkIdentity)
                 _gatewayForm = GatewayForm.Landing;
             RefreshNavigation();
@@ -2637,33 +2682,24 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
 
     private void RefreshChrome()
     {
-        GatewayState gateway = _captureGatewayState ?? _gateway.State;
-        bool sanitizeGatewayError = _shell.CurrentRoute == PrimeRoute.Gateway
-            && gateway.Phase == GatewayPhase.Failed;
         string? notificationMessage = _shell.Notification?.Message;
-        if (sanitizeGatewayError)
-            notificationMessage = PrimeRoutePresentation.GatewaySummary(
-                gateway.Phase, gateway.Message);
+        bool signedOutGateway = !_shell.HasNetworkIdentity
+            && PrimeRoutePresentation.Normalize(_shell.CurrentRoute) == PrimeRoute.Gateway;
         AccountButton.Content = _shell.HasNetworkIdentity ? $"{_shell.DisplayName} ▾" : "Sign In";
+        AccountButton.IsVisible = !signedOutGateway;
         ConnectionText.Text = _shell.NodeConnected
             ? $"{_shell.NodeRegion} · Connected".TrimStart(' ', '·')
             : _shell.BackendConnected ? "Online" : "Offline";
         PrimeAccessibility.SetStatus(ConnectionText, ConnectionText.Text,
             _shell.NodeConnected || _shell.BackendConnected
                 ? PrimeStatusKind.Info : PrimeStatusKind.Warning);
-        StatusText.Text = _shell.BusyOperation ?? notificationMessage
-            ?? DescribeUpdateStatus()
-            ?? (_shell.CurrentRoute == PrimeRoute.Gateway
-                ? PrimeRoutePresentation.GatewaySummary(gateway.Phase, gateway.Message)
-                : "Ready");
-        PrimeAccessibility.SetStatus(StatusText, StatusText.Text,
-            _shell.Notification?.Kind switch
-            {
-                PrimeNotificationKind.Error => PrimeStatusKind.Error,
-                PrimeNotificationKind.Warning => PrimeStatusKind.Warning,
-                PrimeNotificationKind.Success => PrimeStatusKind.Success,
-                _ => PrimeStatusKind.Info
-            });
+        string? footerStatus = _shell.BusyOperation ?? _backgroundStatus
+            ?? DescribeUpdateStatus();
+        StatusText.Text = footerStatus ?? "";
+        StatusText.IsVisible = !String.IsNullOrWhiteSpace(footerStatus);
+        if (StatusText.IsVisible)
+            PrimeAccessibility.SetStatus(StatusText, StatusText.Text,
+                PrimeStatusKind.Info);
         PrimeAccessibility.SetName(InputHintText,
             "Controller and keyboard controls");
         InputHintText.Text = _shell.LastInputDevice switch
@@ -2697,14 +2733,33 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
 
     private void RefreshActionBar()
     {
+        if (PrimeRoutePresentation.Normalize(_shell.CurrentRoute) == PrimeRoute.Settings
+            && PageHost.Content is SettingsView settings)
+        {
+            if (!ReferenceEquals(_settingsActionView, settings)
+                || _settingsActionBar == null)
+            {
+                _settingsActionView = settings;
+                _settingsActionBar = new SettingsActionBar(settings, inGame: false);
+            }
+            if (ActionBar.Children.Count != 1
+                || !ReferenceEquals(ActionBar.Children[0], _settingsActionBar))
+            {
+                ActionBar.Children.Clear();
+                ActionBar.Children.Add(_settingsActionBar);
+            }
+            return;
+        }
+        _settingsActionView = null;
+        _settingsActionBar = null;
         ActionBar.Children.Clear();
-        if (_shell.Navigator.CanGoBack)
-            ActionBar.Children.Add(MakeButton("Back", () => GoBack(), quiet: true));
         if (Update.Updater.Configured && _update is { } update)
         {
-            ActionBar.Children.Add(MakeButton($"Update available · {update.Tag}",
+            AvaloniaButton install = MakeButton($"Update available · {update.Tag}",
                 () => RunCommand("Install update", () => DownloadAndInstall(update)),
-                primary: true));
+                primary: true);
+            install.HorizontalAlignment = HorizontalAlignment.Right;
+            ActionBar.Children.Add(install);
         }
     }
 
@@ -2737,7 +2792,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             .ConfigureAwait(true);
         if (!started)
         {
-            _shell.Notify(PrimeNotificationKind.Warning,
+            _shell.NotifyGlobal("update-failed", PrimeNotificationKind.Warning,
                 coordinator.Status.Message ?? "the update could not be staged");
             RefreshChrome();
             return;
@@ -2753,7 +2808,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             .ConfigureAwait(true);
         if (!started)
         {
-            _shell.Notify(PrimeNotificationKind.Warning,
+            _shell.NotifyGlobal("update-failed", PrimeNotificationKind.Warning,
                 Update.Updater.Coordinator.Status.Message ?? "the update could not be staged");
             RefreshChrome();
             return;
@@ -2764,8 +2819,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             Finish(default);
             return;
         }
-        _shell.Notify(PrimeNotificationKind.Success,
-            "Update submitted. Return here after Android finishes installing, then retry Node discovery.");
+        _shell.NotifyGlobal("update-submitted", PrimeNotificationKind.Success,
+            "Update submitted. Return here after Android finishes installing, then retry server discovery.");
         RefreshChrome();
     }
 
@@ -2783,7 +2838,6 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             UpdateState.Staged => "Update staged; ready to restart",
             UpdateState.WaitingForSafePoint => "Update staged; waiting for a safe point",
             UpdateState.Installing or UpdateState.Restarting => status.Message,
-            UpdateState.Failed => status.Message,
             _ => null
         };
     }
@@ -2793,6 +2847,10 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         PostUi(() =>
         {
             _updateStatus = status;
+            if (status.State == UpdateState.Failed
+                && !String.IsNullOrWhiteSpace(status.Message))
+                _shell.NotifyGlobal("update-failed", PrimeNotificationKind.Error,
+                    status.Message);
             RefreshChrome();
             if ((status.State is UpdateState.Available or UpdateState.Staged
                     or UpdateState.WaitingForSafePoint)
@@ -3120,7 +3178,10 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     }
 
     private void RunCommand(string operation, Func<Task> work)
-        => _ = ExecuteCommandAsync(operation, work);
+    {
+        PrimeRoute owner = PrimeRoutePresentation.Normalize(_shell.CurrentRoute);
+        _ = ExecuteCommandAsync(operation, work, owner);
+    }
 
     private void StartPreviewCatchup()
     {
@@ -3131,7 +3192,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         }
         catch (Exception error)
         {
-            _shell.Notify(PrimeNotificationKind.Warning,
+            _shell.NotifyRoute("map-preview-check", PrimeNotificationKind.Warning,
                 $"Map preview check failed: {error.Message}");
             return;
         }
@@ -3143,19 +3204,32 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     {
         try
         {
-            await ThumbnailHost.RenderMissingAsync(line =>
-                PostUi(() => StatusText.Text = line)).ConfigureAwait(false);
-            PostUi(() => _shell.Notify(PrimeNotificationKind.Success,
-                "Local map previews are ready."));
+            await ThumbnailHost.RenderMissingAsync(line => PostUi(() =>
+            {
+                _backgroundStatus = line;
+                RefreshChrome();
+            })).ConfigureAwait(false);
+            PostUi(() => _shell.NotifyTransient("map-previews-ready",
+                PrimeNotificationKind.Success, "Local map previews are ready."));
         }
         catch (Exception error)
         {
-            PostUi(() => _shell.Notify(PrimeNotificationKind.Warning,
+            PostUi(() => _shell.NotifyRoute("map-preview-render",
+                PrimeNotificationKind.Warning,
                 $"Map preview rendering did not finish: {error.Message}"));
+        }
+        finally
+        {
+            PostUi(() =>
+            {
+                _backgroundStatus = null;
+                RefreshChrome();
+            });
         }
     }
 
-    private async Task ExecuteCommandAsync(string operation, Func<Task> work)
+    private async Task ExecuteCommandAsync(string operation, Func<Task> work,
+        PrimeRoute owner)
     {
         if (_disposed) return;
         Interlocked.Increment(ref _busyOperations);
@@ -3164,7 +3238,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (Exception error)
         {
-            PostUi(() => _shell.Notify(PrimeNotificationKind.Error, error.Message));
+            PostUi(() => _shell.NotifyRoute($"command:{operation}",
+                PrimeNotificationKind.Error, error.Message, owner));
         }
         finally
         {

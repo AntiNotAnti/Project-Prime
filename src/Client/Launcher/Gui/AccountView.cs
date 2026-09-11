@@ -54,7 +54,7 @@ internal sealed class AccountView : UserControl
             // Explicit guest selection must clear a previously restored
             // account identity so Node admission uses the anonymous route.
             await session.SignOutAsync(_cancel.Token);
-            _status.Text = "Backend configured. Guest play is ready from Host or Join.";
+            _status.Text = "Online service configured. Guest play is ready from Host or Join.";
         }));
         _actions.Children.Add(Action("Sign in", async session =>
         {
@@ -157,7 +157,11 @@ internal sealed class AccountView : UserControl
                 await action(session);
             }
             catch (OperationCanceledException) { _status.Text = "Cancelled."; }
-            catch (Exception error) { _status.Text = error.Message; }
+            catch (Exception error)
+            {
+                _status.Text = PrimeRoutePresentation.PlayerFacingNetworkError(error.Message,
+                    "The online service could not complete that request. Try again.");
+            }
             finally { _actions.IsEnabled = true; }
         };
         return entry;

@@ -66,7 +66,10 @@ internal static class PlayPresentation
         {
             if (context.Ui.EditMatchOpen && context.Ui.EditDraft is { } edit
                 && edit.SourceLobbyId == lobby.LobbyId)
+            {
+                context.Ui.LobbyView = null;
                 return BuildEditMatch(context, lobby, edit);
+            }
             if (context.Ui.EditMatchOpen && context.Ui.EditDraft is not null)
                 context.Ui.ClearEdit();
             return BuildLobby(context, lobby);
@@ -74,6 +77,7 @@ internal static class PlayPresentation
 
         // A lobby disappearing is an authoritative boundary, so do not carry
         // a confirmation into a later lobby that happens to reuse the route.
+        context.Ui.LobbyView = null;
         context.Ui.ObserveLobby(Guid.Empty);
         context.Ui.ResetChatPresentation();
         return context.Ui.Subsection switch
@@ -107,73 +111,72 @@ internal static class PlayPresentation
         var root = Page("Play", "ONLINE MULTIPLAYER",
             "Find a match, browse open lobbies, or host a game for your squad.");
 
+        void BrowseMatches()
+        {
+            context.Ui.Subsection = PlaySubsection.Browser;
+            context.RunCommand("Browse matches",
+                () => context.Controller.BrowseLobbiesAsync(context.CancellationToken));
+            context.Refresh();
+        }
+
+        void PrepareHostMatch()
+        {
+            context.Ui.Subsection = PlaySubsection.HostMatch;
+            context.Ui.HostStep = 1;
+            context.RunCommand("Prepare host match",
+                () => context.Controller.PrepareHostMatchAsync(context.CancellationToken));
+            context.Refresh();
+        }
+
+        void RefreshMatches()
+        {
+            context.RunCommand("Refresh matches",
+                () => context.Controller.BrowseLobbiesAsync(context.CancellationToken));
+            context.Refresh();
+        }
+
         AvaloniaButton quickPlay = Button("Quick Play", () =>
         {
             context.Ui.Subsection = PlaySubsection.Home;
             context.RunCommand("Quick Play", () => context.Controller.QuickPlayAsync(context.CancellationToken));
         }, primary: true);
         quickPlay.IsEnabled = !state.Loading;
-        var quickPlayHero = new PrimeCard(Stack(
+        var quickPlayCard = new PrimeCard(Stack(
             Text("QUICK PLAY", "prime-kicker"),
             Text("Find the best available open match.", "prime-heading"),
             quickPlay));
-        quickPlayHero.BorderBrush = GuiTheme.BrandBrush;
-        quickPlayHero.BorderThickness = new Thickness(3, 1, 1, 1);
-        root.Children.Add(quickPlayHero);
+        quickPlayCard.BorderBrush = GuiTheme.BrandBrush;
+        quickPlayCard.BorderThickness = new Thickness(3, 1, 1, 1);
 
-        var actions = new WrapPanel { Orientation = Orientation.Horizontal };
-        actions.Children.Add(Button("Browse Matches", () =>
-        {
-            context.Ui.Subsection = PlaySubsection.Browser;
-            context.RunCommand("Browse matches", () => context.Controller.BrowseLobbiesAsync(context.CancellationToken));
-            context.Refresh();
-        }));
-        actions.Children.Add(Button("Host Match", () =>
-        {
-            context.Ui.Subsection = PlaySubsection.HostMatch;
-            context.Ui.HostStep = 1;
-            context.Refresh();
-        }));
-        actions.IsEnabled = !state.Loading;
-        root.Children.Add(actions);
+        AvaloniaButton browse = Button("Browse Matches", BrowseMatches);
+        AvaloniaButton host = Button("Host Match", PrepareHostMatch);
+        browse.IsEnabled = host.IsEnabled = !state.Loading;
+        var browseCard = new PrimeCard(Stack(
+            Text("BROWSE MATCHES", "prime-kicker"),
+            Text("Find a specific lobby.", "prime-heading"),
+            browse));
+        var hostCard = new PrimeCard(Stack(
+            Text("HOST MATCH", "prime-kicker"),
+            Text("Create a lobby for your squad.", "prime-heading"),
+            host));
+        var secondary = Stack(browseCard, hostCard);
+        secondary.Classes.Add("prime-play-secondary-actions");
 
-        if (state.Loading)
+        var dashboard = new PrimePlayResponsivePanel(wideLeftWeight: 7,
+            wideRightWeight: 5)
         {
-            root.Children.Add(Section(Stack(
-                Text("Finding a match…", "prime-heading"),
-                Text("Quick Play is checking the current open lobbies. Your match connection stays available while this runs.",
-                    "prime-muted"),
-                Button("Cancel", () => context.Controller.CancelEntry(), quiet: true))));
-        }
-        else if (!string.IsNullOrWhiteSpace(state.Message)
-            && !(state.Phase == PlayPhase.Nodes && state.Revision == 0))
-        {
-            root.Children.Add(StatusCard(state.Message,
-                state.Phase == PlayPhase.Error ? GuiTheme.BadBrush : GuiTheme.EdgeBrush));
-        }
+            Spacing = 10
+        };
+        dashboard.Classes.Add("prime-play-landing-dashboard");
+        AddDashboardChild(dashboard, quickPlayCard, PrimePlayLane.Left, 0);
+        AddDashboardChild(dashboard, secondary, PrimePlayLane.Right, 1);
+        root.Children.Add(dashboard);
 
-        LobbyListSnapshot? lobbies = state.Lobbies;
-        if (lobbies is { Lobbies.IsDefaultOrEmpty: false })
-        {
-            ImmutableArray<LobbyListEntry> entries = lobbies.Lobbies;
-            var preview = Stack(
-                Text("Matches ready to join", "prime-heading"),
-                Text("These cards use the latest match directory. Open Browse Matches for filters and all actions.",
-                    "prime-muted"));
-            foreach (LobbyListEntry entry in entries.Take(3))
-                preview.Children.Add(CreateMatchCard(context, entry));
-            preview.Children.Add(Button("Browse all matches", () =>
-            {
-                context.Ui.Subsection = PlaySubsection.Browser;
-                context.Refresh();
-            }, quiet: true));
-            root.Children.Add(Section(preview));
-        }
-        else if (state.Phase is PlayPhase.Nodes or PlayPhase.Connected && !state.Loading)
-        {
-            root.Children.Add(Section(new PrimeEmptyState(
-                "No match directory loaded yet. Choose Browse Matches to look for open games.")));
-        }
+        // The directory panel is the single source of loading, empty, loaded,
+        // and failure copy on the landing page. This prevents a stale generic
+        // status and an empty-state card appearing together after a rebuild.
+        root.Children.Add(BuildMatchDirectoryState(context, state.MatchDirectoryState,
+            BrowseMatches, PrepareHostMatch, RefreshMatches));
 
         PrimeSectionPanel networkPanel = Section(BuildNetwork(context));
         networkPanel.Classes.Add("prime-tech");
@@ -184,6 +187,73 @@ internal static class PlayPresentation
             Content = networkPanel
         });
         return root;
+    }
+
+    private static Control BuildMatchDirectoryState(PlayPresentationContext context,
+        MatchDirectoryPresentationState state, Action browseMatches,
+        Action prepareHostMatch, Action refreshMatches)
+    {
+        StackPanel content;
+        string className;
+        switch (state)
+        {
+            case MatchDirectoryPresentationState.Loading:
+                className = "prime-directory-loading";
+                content = Stack(
+                    Text("OPEN MATCHES", "prime-kicker"),
+                    Text("Loading the public match directory…", "prime-heading"),
+                    Text("The latest open matches are being retrieved.", "prime-muted"),
+                    Button("Cancel", () => context.Controller.CancelEntry(), quiet: true));
+                break;
+            case MatchDirectoryPresentationState.Empty:
+                className = "prime-directory-empty";
+                var emptyActions = new WrapPanel { Orientation = Orientation.Horizontal };
+                emptyActions.Children.Add(Button("Host Match", prepareHostMatch, primary: true));
+                emptyActions.Children.Add(Button("Refresh", refreshMatches, quiet: true));
+                content = Stack(
+                    Text("NO OPEN MATCHES", "prime-kicker"),
+                    Text("No public matches are available right now.", "prime-heading"),
+                    emptyActions);
+                break;
+            case MatchDirectoryPresentationState.Loaded:
+                className = "prime-directory-loaded";
+                content = Stack(
+                    Text("OPEN MATCHES", "prime-kicker"),
+                    Text("Choose a match to join or browse the full directory.", "prime-heading"));
+                foreach (LobbyListEntry entry in context.State.Lobbies!.Lobbies.Take(3))
+                    content.Children.Add(CreateMatchCard(context, entry));
+                content.Children.Add(Button("Browse all matches", browseMatches, quiet: true));
+                break;
+            case MatchDirectoryPresentationState.Failed:
+                className = "prime-directory-failed";
+                content = Stack(
+                    Text("MATCH DIRECTORY UNAVAILABLE", "prime-kicker"),
+                    Text("We couldn’t load public matches right now.", "prime-heading"),
+                    Text("Refresh to try again.", "prime-muted"),
+                    Button("Refresh", refreshMatches, primary: true));
+                break;
+            default:
+                className = "prime-directory-not-loaded";
+                content = Stack(
+                    Text("OPEN MATCHES", "prime-kicker"),
+                    Text("Browse the current public match directory when you’re ready.",
+                        "prime-heading"),
+                    Button("Browse Matches", browseMatches));
+                break;
+        }
+
+        PrimeSectionPanel panel = Section(content);
+        panel.Classes.Add("prime-directory-state");
+        panel.Classes.Add(className);
+        PrimeAccessibility.SetName(panel, state switch
+        {
+            MatchDirectoryPresentationState.Empty => "No open matches",
+            MatchDirectoryPresentationState.Loading => "Loading open matches",
+            MatchDirectoryPresentationState.Failed => "Match directory unavailable",
+            MatchDirectoryPresentationState.Loaded => "Open matches",
+            _ => "Open matches not loaded"
+        });
+        return panel;
     }
 
     private static Control BuildNetwork(PlayPresentationContext context)
@@ -564,6 +634,7 @@ internal static class PlayPresentation
             context.RunCommand("Host match", () => context.HostMatch(draft));
         }, primary: true);
         create.MinWidth = 180;
+        create.IsEnabled = !context.State.Loading;
         createRow.Children.Add(create);
         Grid.SetColumn(create, 1);
         configuration.Children.Add(createRow);
@@ -691,35 +762,40 @@ internal static class PlayPresentation
     private static Control BuildRuleControls(PlayPresentationContext context, HostMatchDraft draft)
     {
         LobbyRuleApplicability applicability = LobbyRuleApplicability.For(draft.Mode);
+        MphRead.MatchRules defaults = LobbyRuleDefaults.For(draft.Mode);
         var content = new StackPanel { Spacing = 8 };
         content.Children.Add(Text("MATCH RULES", "prime-heading"));
-        content.Children.Add(Text("Only controls applicable to the selected mode are shown. Default uses the match mode default.",
+        content.Children.Add(Text("Only controls applicable to the selected mode are shown. Leave a field blank to use the shown mode default.",
             "prime-muted"));
         var fields = new PrimeFieldGrid(maximumColumns: 3,
             minimumColumnWidth: 150);
 
-        TextBox time = Editor(draft.TimeLimitText, "Default or m:ss");
+        TextBox time = Editor(draft.TimeLimitText,
+            LobbyRuleDefaults.TimeWatermark(draft.Mode));
         time.TextChanged += (_, _) => draft.TimeLimitText = time.Text ?? "";
         TrackEditor(context, time);
         fields.Children.Add(Field("Time limit", time));
 
         if (applicability.ScoreGoal)
         {
-            TextBox score = Editor(draft.ScoreGoalText, "Default or points");
+            TextBox score = Editor(draft.ScoreGoalText,
+                LobbyRuleDefaults.NumberWatermark(draft.Mode, lives: false));
             score.TextChanged += (_, _) => draft.ScoreGoalText = score.Text ?? "";
             TrackEditor(context, score);
             fields.Children.Add(Field(applicability.GoalLabel, score));
         }
         else if (applicability.StartingLives)
         {
-            TextBox lives = Editor(draft.StartingLivesText, "Default or lives");
+            TextBox lives = Editor(draft.StartingLivesText,
+                LobbyRuleDefaults.NumberWatermark(draft.Mode, lives: true));
             lives.TextChanged += (_, _) => draft.StartingLivesText = lives.Text ?? "";
             TrackEditor(context, lives);
             fields.Children.Add(Field(applicability.GoalLabel, lives));
         }
         else if (applicability.ObjectiveTimeGoal)
         {
-            TextBox objective = Editor(draft.ObjectiveTimeGoalText, "Default or m:ss");
+            TextBox objective = Editor(draft.ObjectiveTimeGoalText,
+                LobbyRuleDefaults.ObjectiveWatermark(draft.Mode));
             objective.TextChanged += (_, _) => draft.ObjectiveTimeGoalText = objective.Text ?? "";
             TrackEditor(context, objective);
             fields.Children.Add(Field(applicability.GoalLabel, objective));
@@ -729,7 +805,7 @@ internal static class PlayPresentation
         {
             DamageChoice[] choices =
             [
-                new("Default", null),
+                new(LobbyRuleDefaults.Damage(draft.Mode), null),
                 new("Low", 0),
                 new("Normal", 1),
                 new("High", 2)
@@ -745,24 +821,28 @@ internal static class PlayPresentation
         }
 
         AddBoolControl(fields, context, "Friendly fire", draft.FriendlyFire,
+            defaults.FriendlyFire,
             value => draft.FriendlyFire = value, applicability.FriendlyFire);
         AddBoolControl(fields, context, "Affinity weapons", draft.AffinityWeapons,
+            defaults.AffinityWeapons,
             value => draft.AffinityWeapons = value, applicability.AffinityWeapons);
         AddBoolControl(fields, context, "Player radar", draft.PlayerRadar,
+            defaults.PlayerRadar,
             value => draft.PlayerRadar = value, applicability.PlayerRadar);
         AddBoolControl(fields, context, "Octolith reset", draft.OctolithReset,
+            defaults.OctolithReset,
             value => draft.OctolithReset = value, applicability.OctolithReset);
         content.Children.Add(fields);
         return content;
     }
 
     private static void AddBoolControl(Panel content, PlayPresentationContext context,
-        string label, bool? value, Action<bool?> set, bool applicable)
+        string label, bool? value, bool defaultValue, Action<bool?> set, bool applicable)
     {
         if (!applicable) return;
         BoolChoice[] choices =
         [
-            new("Default", null),
+            new(defaultValue ? "On (default)" : "Off (default)", null),
             new("On", true),
             new("Off", false)
         ];
@@ -780,110 +860,20 @@ internal static class PlayPresentation
     {
         context.Ui.ObserveLobby(lobby.LobbyId);
         context.Ui.ObserveChat(lobby.LobbyId, lobby.Chat);
-        PlayState state = context.State;
-        Guid? sessionId = state.Node?.Session?.SessionId;
-        LobbyMember? current = sessionId is { } id
-            ? lobby.Members.FirstOrDefault(member => member.SessionId == id)
-            : null;
-        bool owner = sessionId is { } ownerSession && lobby.OwnerSessionId == ownerSession;
         LobbyWaitlistSnapshot waitlist = lobby.Waitlist ?? LobbyWaitlistSnapshot.Empty;
         context.Ui.ObserveOffer(waitlist.SelfOffer?.OfferId);
-
-        var dashboard = new PrimePlayResponsivePanel(wideLeftWeight: 7,
-            wideRightWeight: 4, compactColumns: true)
+        if (context.Ui.LobbyView is { } existing
+            && existing.LobbyId == lobby.LobbyId)
         {
-            Spacing = 8
-        };
-        dashboard.Classes.Add("prime-lobby-layout");
-        var header = new PrimeFieldGrid(maximumColumns: 2,
-            minimumColumnWidth: 360);
-        header.Children.Add(PrimeControlFactory.PageHeading(lobby.Name, "ACTIVE LOBBY",
-            "Mission first: confirm the arena and rules, then ready when your squad is set."));
-        header.Children.Add(BuildLobbyHeader(lobby, current, waitlist));
-        AddDashboardChild(dashboard, header, PrimePlayLane.Full, 0);
-
-        if (state.Node?.Session is null || NodeSessions.Current is { Connected: false })
-        {
-            Control connection = Section(Stack(
-                Text("Connection interrupted. Reconnect to keep your place in this lobby.",
-                    "prime-body"),
-                Button("Reconnect", () => context.RunCommand("Reconnect",
-                    () => context.Controller.ResumeAsync(context.CancellationToken)),
-                    primary: true)));
-            AddDashboardChild(dashboard, connection, PrimePlayLane.Full, 1);
+            existing.Update(context, lobby);
+            context.TrackChatPanel?.Invoke(existing.ChatPanel);
+            return existing.View;
         }
 
-        Control mission = BuildMissionPanel(context, lobby, owner,
-            out Control missionPreview);
-        AddDashboardChild(dashboard, mission, PrimePlayLane.Left, 2);
-
-        bool teamMode = lobby.Mode.IsTeamMode();
-        LobbyMember[] players = lobby.Members.Where(member => !member.Observer).ToArray();
-        LobbyMember[] observers = lobby.Members.Where(member => member.Observer).ToArray();
-        var rosterGroups = new PrimeFieldGrid(maximumColumns: 2,
-            minimumColumnWidth: 280);
-        rosterGroups.Children.Add(BuildRoster(teamMode ? "TEAM 1" : "PLAYERS",
-            teamMode ? players.Where(member => member.Team == 0) : players,
-            sessionId, GuiTheme.WarningBrush, showTeam: teamMode));
-        if (teamMode)
-            rosterGroups.Children.Add(BuildRoster("TEAM 2",
-                players.Where(member => member.Team == 1), sessionId,
-                GuiTheme.TechBrush, showTeam: true));
-        rosterGroups.Children.Add(BuildRoster("OBSERVERS", observers, sessionId,
-            GuiTheme.TechBrush, showTeam: false));
-        var rosterScroll = new ScrollViewer
-        {
-            Content = rosterGroups,
-            MaxHeight = 340,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
-        };
-        rosterScroll.Classes.Add("prime-roster-scroll");
-        AddDashboardChild(dashboard, rosterScroll, PrimePlayLane.Left, 3);
-
-        Control memberControls = BuildMemberControls(context, lobby, current);
-        Control lobbyActions = BuildLobbyActions(context, lobby, current, owner, state);
-        StackPanel commandContent = Stack(memberControls, lobbyActions);
-        var commandRail = (PrimeSectionPanel)Section(commandContent);
-        AddDashboardChild(dashboard, commandRail, PrimePlayLane.Right, 4);
-        Control? queue = BuildQueuePanel(context, lobby, current, waitlist);
-        if (queue is not null)
-            AddDashboardChild(dashboard, queue, PrimePlayLane.Right, 5);
-        var chat = new LobbyChatPanel(lobby.Chat, context.Ui.ChatDraft,
-            context.Ui.SetChatDraft,
-            text => SendChat(context, text),
-            context.Ui.SetChatEditing,
-            context.Ui.ChatScrollOffset,
-            context.Ui.ChatScrollPositionKnown,
-            context.Ui.SetChatScrollOffset,
-            context.Ui.ChatUnreadCount,
-            context.Ui.MarkChatRead,
-            sessionId);
-        context.TrackChatPanel?.Invoke(chat);
-        TrackEditor(context, chat.DraftEditor);
-        AddDashboardChild(dashboard, chat, PrimePlayLane.Right, 6);
-        void ApplyLobbySizing()
-        {
-            double viewportHeight = dashboard.ViewportSize.Height;
-            missionPreview.Height = LobbyPreviewHeight(dashboard.Layout,
-                viewportHeight);
-            rosterScroll.MaxHeight = LobbyRosterHeight(dashboard.Layout,
-                viewportHeight);
-            chat.HistoryMaxHeight = LobbyChatHeight(dashboard.Layout,
-                viewportHeight);
-            bool dense = dashboard.Layout == PrimeContentLayout.Wide;
-            commandRail.Padding = new Thickness(dense ? 4 : 16);
-            commandRail.Margin = dense ? default : new Thickness(0, 0, 0, 12);
-            commandContent.Spacing = dense ? 4 : 8;
-            if (memberControls is StackPanel memberStack)
-                memberStack.Spacing = dense ? 6 : 8;
-            if (lobbyActions is StackPanel actionStack)
-                actionStack.Spacing = dense ? 6 : 8;
-            chat.CompactChrome = dense;
-        }
-        dashboard.LayoutChanged += _ => ApplyLobbySizing();
-        dashboard.ViewportChanged += _ => ApplyLobbySizing();
-        return dashboard;
+        var view = new LobbyPresentationView(context, lobby);
+        context.Ui.LobbyView = view;
+        context.TrackChatPanel?.Invoke(view.ChatPanel);
+        return view.View;
     }
 
     private static Control BuildLobbyHeader(LobbySnapshot lobby, LobbyMember? current,
@@ -964,17 +954,17 @@ internal static class PlayPresentation
         }
         stats.Children.Add(modeTile);
         stats.Children.Add(PrimeControlFactory.StatTile("TIME",
-            rules.TimeLimitSeconds is { } seconds ? FormatDuration(seconds) : "Default"));
+            LobbyRuleDefaults.Time(lobby.Mode, rules.TimeLimitSeconds)));
         if (applicability.ScoreGoal)
             stats.Children.Add(PrimeControlFactory.StatTile("SCORE",
-                rules.ScoreGoal?.ToString(CultureInfo.InvariantCulture) ?? "Default"));
+                LobbyRuleDefaults.Score(lobby.Mode, rules.ScoreGoal)));
         else if (applicability.StartingLives)
             stats.Children.Add(PrimeControlFactory.StatTile("LIVES",
-                rules.StartingLives?.ToString(CultureInfo.InvariantCulture) ?? "Default"));
+                LobbyRuleDefaults.Lives(lobby.Mode, rules.StartingLives)));
         else if (applicability.ObjectiveTimeGoal)
             stats.Children.Add(PrimeControlFactory.StatTile("OBJECTIVE",
-                rules.ObjectiveTimeGoalSeconds is { } objective
-                    ? FormatDuration(objective) : "Default"));
+                LobbyRuleDefaults.ObjectiveTime(lobby.Mode,
+                    rules.ObjectiveTimeGoalSeconds)));
         stats.Children.Add(PrimeControlFactory.StatTile("BOTS",
             lobby.BotCount.ToString(CultureInfo.InvariantCulture)));
         stats.Children.Add(PrimeControlFactory.StatTile("PLAYER SEATS",
@@ -1474,6 +1464,381 @@ internal static class PlayPresentation
             "No local map preview is available for this arena.");
     }
 
+    /// <summary>
+    /// Stable active-lobby composition.  The shell can rebuild its route from
+    /// an authoritative PlayState, but a revision for the same lobby updates
+    /// these bounded regions in place so map previews, layout controls, and
+    /// chat editing are not discarded on every roster or message change.
+    /// </summary>
+    private sealed class LobbyPresentationView : ILobbyPresentationView
+    {
+        private PlayPresentationContext _context;
+        private LobbySnapshot _lobby;
+        private readonly PrimePlayResponsivePanel _view;
+        private readonly PrimeFieldGrid _header;
+        private readonly Border _headingHost;
+        private readonly Border _headerStatusHost;
+        private readonly Border _connectionHost;
+        private readonly LobbyMissionPanel _mission;
+        private readonly PrimeFieldGrid _rosterGroups;
+        private readonly ScrollViewer _rosterScroll;
+        private readonly PrimeSectionPanel _commandRail;
+        private readonly StackPanel _commandContent;
+        private readonly Border _memberHost;
+        private readonly Border _actionsHost;
+        private readonly Border _queueHost;
+        private readonly LobbyChatPanel _chat;
+        private bool? _connectionVisible;
+
+        public LobbyPresentationView(PlayPresentationContext context,
+            LobbySnapshot lobby)
+        {
+            ArgumentNullException.ThrowIfNull(context);
+            ArgumentNullException.ThrowIfNull(lobby);
+            _context = context;
+            _lobby = lobby;
+            _view = new PrimePlayResponsivePanel(wideLeftWeight: 7,
+                wideRightWeight: 4, compactColumns: true)
+            {
+                Spacing = 8
+            };
+            _view.Classes.Add("prime-lobby-layout");
+
+            (Guid? sessionId, LobbyMember? current, bool owner) = ResolveUser(
+                context, lobby);
+            LobbyWaitlistSnapshot waitlist = lobby.Waitlist
+                ?? LobbyWaitlistSnapshot.Empty;
+
+            _header = new PrimeFieldGrid(maximumColumns: 2,
+                minimumColumnWidth: 360);
+            _headingHost = new Border { Child = PrimeControlFactory.PageHeading(
+                lobby.Name, "ACTIVE LOBBY",
+                "Mission first: confirm the arena and rules, then ready when your squad is set.") };
+            _header.Children.Add(_headingHost);
+            _headerStatusHost = new Border
+            {
+                Child = BuildLobbyHeader(lobby, current, waitlist)
+            };
+            _header.Children.Add(_headerStatusHost);
+            AddDashboardChild(_view, _header, PrimePlayLane.Full, 0);
+
+            _connectionHost = new Border();
+            AddDashboardChild(_view, _connectionHost, PrimePlayLane.Full, 1);
+
+            _mission = new LobbyMissionPanel(context, lobby, owner);
+            AddDashboardChild(_view, _mission.View, PrimePlayLane.Left, 2);
+
+            _rosterGroups = new PrimeFieldGrid(maximumColumns: 2,
+                minimumColumnWidth: 280);
+            _rosterScroll = new ScrollViewer
+            {
+                Content = _rosterGroups,
+                MaxHeight = 340,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            };
+            _rosterScroll.Classes.Add("prime-roster-scroll");
+            AddDashboardChild(_view, _rosterScroll, PrimePlayLane.Left, 3);
+
+            _memberHost = new Border();
+            _actionsHost = new Border();
+            _commandContent = Stack(_memberHost, _actionsHost);
+            _commandRail = new PrimeSectionPanel(_commandContent);
+            AddDashboardChild(_view, _commandRail, PrimePlayLane.Right, 4);
+
+            _queueHost = new Border();
+            AddDashboardChild(_view, _queueHost, PrimePlayLane.Right, 5);
+
+            _chat = new LobbyChatPanel(lobby.Chat, context.Ui.ChatDraft,
+                context.Ui.SetChatDraft,
+                text => SendChat(_context, text),
+                context.Ui.SetChatEditing,
+                context.Ui.ChatScrollOffset,
+                context.Ui.ChatScrollPositionKnown,
+                context.Ui.SetChatScrollOffset,
+                context.Ui.ChatUnreadCount,
+                context.Ui.MarkChatRead,
+                sessionId);
+            TrackEditor(context, _chat.DraftEditor);
+            AddDashboardChild(_view, _chat, PrimePlayLane.Right, 6);
+
+            PopulateRoster(_rosterGroups, lobby, sessionId);
+            UpdateConnection(context);
+            _memberHost.Child = BuildMemberControls(context, lobby, current);
+            _actionsHost.Child = BuildLobbyActions(context, lobby, current,
+                owner, context.State);
+            UpdateQueue(context, lobby, current, waitlist);
+            _view.LayoutChanged += _ => ApplyLobbySizing();
+            _view.ViewportChanged += _ => ApplyLobbySizing();
+            ApplyLobbySizing();
+        }
+
+        public Guid LobbyId => _lobby.LobbyId;
+
+        public Control View => _view;
+
+        public LobbyChatPanel ChatPanel => _chat;
+
+        public void Update(PlayPresentationContext context, LobbySnapshot lobby)
+        {
+            ArgumentNullException.ThrowIfNull(context);
+            ArgumentNullException.ThrowIfNull(lobby);
+            if (lobby.LobbyId != LobbyId)
+                throw new InvalidOperationException(
+                    "A lobby presentation cannot be updated with another lobby identity.");
+
+            _context = context;
+            _lobby = lobby;
+            (Guid? sessionId, LobbyMember? current, bool owner) = ResolveUser(
+                context, lobby);
+            LobbyWaitlistSnapshot waitlist = lobby.Waitlist
+                ?? LobbyWaitlistSnapshot.Empty;
+
+            UpdateHeading(lobby.Name);
+            _headerStatusHost.Child = BuildLobbyHeader(lobby, current, waitlist);
+            UpdateConnection(context);
+            _mission.Update(context, lobby, owner);
+            PopulateRoster(_rosterGroups, lobby, sessionId);
+            _memberHost.Child = BuildMemberControls(context, lobby, current);
+            _actionsHost.Child = BuildLobbyActions(context, lobby, current,
+                owner, context.State);
+            UpdateQueue(context, lobby, current, waitlist);
+            _chat.Update(lobby.Chat, context.Ui.ChatDraft,
+                context.Ui.ChatScrollOffset,
+                context.Ui.ChatScrollPositionKnown,
+                context.Ui.ChatUnreadCount,
+                sessionId);
+            ApplyLobbySizing();
+        }
+
+        private void UpdateHeading(string name)
+        {
+            if (_headingHost.Child is PrimePageHeading heading
+                && heading.Children.OfType<TextBlock>()
+                    .FirstOrDefault(text => text.Classes.Contains("prime-title"))
+                    is { } title
+                && StringComparer.Ordinal.Equals(title.Text, name))
+                return;
+            _headingHost.Child = PrimeControlFactory.PageHeading(name,
+                "ACTIVE LOBBY",
+                "Mission first: confirm the arena and rules, then ready when your squad is set.");
+        }
+
+        private void UpdateConnection(PlayPresentationContext context)
+        {
+            bool visible = context.State.Node?.Session is null
+                || NodeSessions.Current is { Connected: false };
+            if (_connectionVisible == visible) return;
+            _connectionVisible = visible;
+            _connectionHost.IsVisible = visible;
+            _connectionHost.Child = visible
+                ? Section(Stack(
+                    Text("Connection interrupted. Reconnect to keep your place in this lobby.",
+                        "prime-body"),
+                    Button("Reconnect", () => _context.RunCommand("Reconnect",
+                        () => _context.Controller.ResumeAsync(
+                            _context.CancellationToken)), primary: true)))
+                : null;
+        }
+
+        private void UpdateQueue(PlayPresentationContext context,
+            LobbySnapshot lobby, LobbyMember? current,
+            LobbyWaitlistSnapshot waitlist)
+        {
+            Control? queue = BuildQueuePanel(context, lobby, current, waitlist);
+            _queueHost.Child = queue;
+            _queueHost.IsVisible = queue is not null;
+        }
+
+        private void ApplyLobbySizing()
+        {
+            double viewportHeight = _view.ViewportSize.Height;
+            _mission.Preview.Height = LobbyPreviewHeight(_view.Layout,
+                viewportHeight);
+            _rosterScroll.MaxHeight = LobbyRosterHeight(_view.Layout,
+                viewportHeight);
+            _chat.HistoryMaxHeight = LobbyChatHeight(_view.Layout,
+                viewportHeight);
+            bool dense = _view.Layout == PrimeContentLayout.Wide;
+            _commandRail.Padding = new Thickness(dense ? 4 : 16);
+            _commandRail.Margin = dense ? default : new Thickness(0, 0, 0, 12);
+            _commandContent.Spacing = dense ? 4 : 8;
+            if (_memberHost.Child is StackPanel memberStack)
+                memberStack.Spacing = dense ? 6 : 8;
+            if (_actionsHost.Child is StackPanel actionStack)
+                actionStack.Spacing = dense ? 6 : 8;
+            _chat.CompactChrome = dense;
+        }
+
+        private static (Guid? SessionId, LobbyMember? Current, bool Owner)
+            ResolveUser(PlayPresentationContext context, LobbySnapshot lobby)
+        {
+            Guid? sessionId = context.State.Node?.Session?.SessionId;
+            LobbyMember? current = sessionId is { } id
+                ? lobby.Members.FirstOrDefault(member => member.SessionId == id)
+                : null;
+            bool owner = sessionId is { } ownerSession
+                && lobby.OwnerSessionId == ownerSession;
+            return (sessionId, current, owner);
+        }
+
+        private static void PopulateRoster(PrimeFieldGrid rosterGroups,
+            LobbySnapshot lobby, Guid? sessionId)
+        {
+            rosterGroups.Children.Clear();
+            bool teamMode = lobby.Mode.IsTeamMode();
+            LobbyMember[] players = lobby.Members
+                .Where(member => !member.Observer).ToArray();
+            LobbyMember[] observers = lobby.Members
+                .Where(member => member.Observer).ToArray();
+            rosterGroups.Children.Add(BuildRoster(teamMode ? "TEAM 1" : "PLAYERS",
+                teamMode ? players.Where(member => member.Team == 0) : players,
+                sessionId, GuiTheme.WarningBrush, showTeam: teamMode));
+            if (teamMode)
+                rosterGroups.Children.Add(BuildRoster("TEAM 2",
+                    players.Where(member => member.Team == 1), sessionId,
+                    GuiTheme.TechBrush, showTeam: true));
+            rosterGroups.Children.Add(BuildRoster("OBSERVERS", observers,
+                sessionId, GuiTheme.TechBrush, showTeam: false));
+        }
+    }
+
+    /// <summary>Mission region whose preview is replaced only when the map key changes.</summary>
+    private sealed class LobbyMissionPanel
+    {
+        private readonly PrimeSectionPanel _view;
+        private readonly StackPanel _content;
+        private readonly Grid _header;
+        private readonly Border _previewHost;
+        private readonly PrimeFieldGrid _stats;
+        private readonly TextBlock _mapName;
+        private readonly TextBlock _details;
+        private string _mapKey;
+        private AvaloniaButton? _editButton;
+        private PlayPresentationContext _context;
+        private LobbySnapshot _lobby;
+
+        public LobbyMissionPanel(PlayPresentationContext context,
+            LobbySnapshot lobby, bool owner)
+        {
+            _view = new PrimeSectionPanel(new StackPanel { Spacing = 8 });
+            _content = (StackPanel)_view.Child!;
+            _context = context;
+            _lobby = lobby;
+            _mapKey = lobby.MapKey;
+
+            _header = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                ColumnSpacing = 12
+            };
+            _header.Children.Add(Text("MISSION", "prime-kicker"));
+            _content.Children.Add(_header);
+
+            _mapName = Text(PrimeGameText.MapName(lobby.MapKey), "prime-heading");
+            _content.Children.Add(_mapName);
+
+            _previewHost = new Border
+            {
+                Child = BuildMapPreview(context, lobby.MapKey, 260)
+            };
+            _stats = new PrimeFieldGrid(maximumColumns: 5,
+                minimumColumnWidth: 110)
+            {
+                ColumnSpacing = 8,
+                RowSpacing = 8
+            };
+            _details = Text("", "prime-muted");
+            var body = new PrimeFieldGrid(maximumColumns: 2,
+                minimumColumnWidth: 260)
+            {
+                ColumnSpacing = 12,
+                RowSpacing = 10
+            };
+            body.Children.Add(_previewHost);
+            body.Children.Add(Stack(_stats, _details));
+            _content.Children.Add(body);
+            Update(context, lobby, owner);
+        }
+
+        public Control Preview => _previewHost.Child!;
+
+        public Control View => _view;
+
+        public void Update(PlayPresentationContext context,
+            LobbySnapshot lobby, bool owner)
+        {
+            ArgumentNullException.ThrowIfNull(context);
+            ArgumentNullException.ThrowIfNull(lobby);
+            _context = context;
+            _lobby = lobby;
+            if (!StringComparer.Ordinal.Equals(_mapKey, lobby.MapKey))
+            {
+                _mapKey = lobby.MapKey;
+                _previewHost.Child = BuildMapPreview(context, lobby.MapKey, 260);
+            }
+            _mapName.Text = PrimeGameText.MapName(lobby.MapKey);
+            UpdateStats(lobby);
+            UpdateEditButton(owner && lobby.Phase == LobbyPhase.Open);
+        }
+
+        private void UpdateStats(LobbySnapshot lobby)
+        {
+            _stats.Children.Clear();
+            LobbyRulesOptions rules = LobbyRuleApplicability.RulesFromLobby(lobby);
+            LobbyRuleApplicability applicability = LobbyRuleApplicability.For(lobby.Mode);
+            PrimeStatTile modeTile = PrimeControlFactory.StatTile("MODE",
+                PrimeGameText.ModeLabel(lobby.Mode));
+            if (modeTile.Child is StackPanel modeContent
+                && modeContent.Children.OfType<TextBlock>().Skip(1)
+                    .FirstOrDefault() is { } modeValue)
+            {
+                modeValue.FontSize = 18;
+                modeValue.TextWrapping = TextWrapping.Wrap;
+            }
+            _stats.Children.Add(modeTile);
+            _stats.Children.Add(PrimeControlFactory.StatTile("TIME",
+                LobbyRuleDefaults.Time(lobby.Mode, rules.TimeLimitSeconds)));
+            if (applicability.ScoreGoal)
+                _stats.Children.Add(PrimeControlFactory.StatTile("SCORE",
+                    LobbyRuleDefaults.Score(lobby.Mode, rules.ScoreGoal)));
+            else if (applicability.StartingLives)
+                _stats.Children.Add(PrimeControlFactory.StatTile("LIVES",
+                    LobbyRuleDefaults.Lives(lobby.Mode, rules.StartingLives)));
+            else if (applicability.ObjectiveTimeGoal)
+                _stats.Children.Add(PrimeControlFactory.StatTile("OBJECTIVE",
+                    LobbyRuleDefaults.ObjectiveTime(lobby.Mode,
+                        rules.ObjectiveTimeGoalSeconds)));
+            _stats.Children.Add(PrimeControlFactory.StatTile("BOTS",
+                lobby.BotCount.ToString(CultureInfo.InvariantCulture)));
+            _stats.Children.Add(PrimeControlFactory.StatTile("PLAYER SEATS",
+                lobby.PlayerLimit.ToString(CultureInfo.InvariantCulture)));
+            _details.Text = $"{PrimeGameText.SeatPolicyLabel(lobby.SeatPolicy)} · "
+                + $"{lobby.ObserverLimit} observer seats · "
+                + $"{lobby.Waitlist?.Count ?? 0} waiting";
+        }
+
+        private void UpdateEditButton(bool visible)
+        {
+            if (visible && _editButton is null)
+            {
+                _editButton = Button("Edit Match", () =>
+                {
+                    _context.Ui.BeginEdit(_lobby);
+                    _context.Ui.EditMatchOpen = true;
+                    _context.Refresh();
+                }, quiet: true);
+                _header.Children.Add(_editButton);
+                Grid.SetColumn(_editButton, 1);
+            }
+            else if (!visible && _editButton is not null)
+            {
+                _header.Children.Remove(_editButton);
+                _editButton = null;
+            }
+        }
+    }
+
     private static double HostPreviewHeight(PrimeContentLayout layout,
         double viewportHeight)
     {
@@ -1508,7 +1873,7 @@ internal static class PlayPresentation
         double height = EffectiveViewportHeight(viewportHeight);
         return layout switch
         {
-            PrimeContentLayout.Wide => Math.Clamp(103 + (height - 568) * 0.36,
+            PrimeContentLayout.Wide => Math.Clamp(94 + (height - 568) * 0.36,
                 72, 270),
             PrimeContentLayout.Compact => Math.Clamp(180 + (height - 568) * 0.24,
                 120, 260),

@@ -20,10 +20,12 @@ internal sealed class HostMatchDraft
     public MatchMode Mode { get; set; } = MatchMode.Battle;
     public int BotCount { get; set; }
 
-    public string TimeLimitText { get; set; } = "Default";
-    public string ScoreGoalText { get; set; } = "Default";
-    public string StartingLivesText { get; set; } = "Default";
-    public string ObjectiveTimeGoalText { get; set; } = "Default";
+    // An empty value preserves the nullable "use mode default" wire meaning.
+    // The editor supplies the concrete default as a mode-aware watermark.
+    public string TimeLimitText { get; set; } = "";
+    public string ScoreGoalText { get; set; } = "";
+    public string StartingLivesText { get; set; } = "";
+    public string ObjectiveTimeGoalText { get; set; } = "";
     public int? DamageLevel { get; set; }
     public bool? FriendlyFire { get; set; }
     public bool? AffinityWeapons { get; set; }
@@ -64,7 +66,7 @@ internal sealed class HostMatchDraft
         if (!TryParseTime(TimeLimitText, out int? time))
         {
             rules = LobbyRulesOptions.Empty;
-            error = "Time limit must be Default, seconds, or m:ss between 0:01 and 60:00.";
+            error = "Time limit must be blank/default, seconds, or m:ss between 0:01 and 60:00.";
             return false;
         }
 
@@ -72,7 +74,7 @@ internal sealed class HostMatchDraft
         if (applicability.ScoreGoal && !TryParseNumber(ScoreGoalText, out score))
         {
             rules = LobbyRulesOptions.Empty;
-            error = "Score limit must be Default or a whole number between 1 and 65535.";
+            error = "Score limit must be blank/default or a whole number between 1 and 65535.";
             return false;
         }
 
@@ -80,7 +82,7 @@ internal sealed class HostMatchDraft
         if (applicability.StartingLives && !TryParseNumber(StartingLivesText, out lives))
         {
             rules = LobbyRulesOptions.Empty;
-            error = "Lives must be Default or a whole number between 1 and 65535.";
+            error = "Lives must be blank/default or a whole number between 1 and 65535.";
             return false;
         }
 
@@ -89,7 +91,7 @@ internal sealed class HostMatchDraft
             && !TryParseTime(ObjectiveTimeGoalText, out objective))
         {
             rules = LobbyRulesOptions.Empty;
-            error = "Objective time must be Default, seconds, or m:ss between 0:01 and 60:00.";
+            error = "Objective time must be blank/default, seconds, or m:ss between 0:01 and 60:00.";
             return false;
         }
 
@@ -165,8 +167,8 @@ internal sealed class HostMatchDraft
     }
 
     internal static string FormatTime(int? seconds)
-        => seconds is { } value ? $"{value / 60}:{value % 60:00}" : "Default";
+        => seconds is { } value ? $"{value / 60}:{value % 60:00}" : "";
 
     internal static string FormatNumber(int? value)
-        => value?.ToString(CultureInfo.InvariantCulture) ?? "Default";
+        => value?.ToString(CultureInfo.InvariantCulture) ?? "";
 }

@@ -30,6 +30,12 @@
     <Setter Property="Background" Value="{DynamicResource PrimeBrandSurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeBrandEdgeBrush}" />
   </Style>
+  <Style Selector=":is(Button).prime-button:disabled">
+    <Setter Property="Background" Value="{DynamicResource PrimeSurfaceMutedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeDividerBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
+    <Setter Property="Opacity" Value="0.58" />
+  </Style>
   <Style Selector=":is(Button).prime-primary">
     <Setter Property="Background" Value="{DynamicResource PrimeBrandBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeOnBrandBrush}" />
@@ -43,6 +49,12 @@
   <Style Selector=":is(Button).prime-primary:pressed">
     <Setter Property="Background" Value="{DynamicResource PrimeBrandEdgeBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeBrandBrush}" />
+  </Style>
+  <Style Selector=":is(Button).prime-primary:disabled">
+    <Setter Property="Background" Value="{DynamicResource PrimeSurfaceMutedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeDividerBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
+    <Setter Property="Opacity" Value="0.58" />
   </Style>
   <Style Selector=":is(Button).prime-quiet">
     <Setter Property="Background" Value="Transparent" />
@@ -91,6 +103,12 @@
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeFocusBrush}" />
     <Setter Property="BorderThickness" Value="2" />
   </Style>
+  <Style Selector=":is(Button).prime-tab:disabled">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
+    <Setter Property="Opacity" Value="0.58" />
+  </Style>
   <Style Selector="ComboBox">
     <Setter Property="FocusAdorner" Value="{x:Null}" />
     <Setter Property="MinHeight" Value="44" />
@@ -103,6 +121,12 @@
   <Style Selector="ComboBox:focus">
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeFocusBrush}" />
     <Setter Property="BorderThickness" Value="2" />
+  </Style>
+  <Style Selector="ComboBox:disabled">
+    <Setter Property="Background" Value="{DynamicResource PrimeSurfaceMutedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeDividerBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
+    <Setter Property="Opacity" Value="0.58" />
   </Style>
   <Style Selector="TextBox.prime-input, ComboBox.prime-input">
     <Setter Property="FocusAdorner" Value="{x:Null}" />
@@ -121,6 +145,12 @@
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeFocusBrush}" />
     <Setter Property="BorderThickness" Value="2" />
   </Style>
+  <Style Selector="TextBox.prime-input:disabled, ComboBox.prime-input:disabled">
+    <Setter Property="Background" Value="{DynamicResource PrimeSurfaceMutedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeDividerBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
+    <Setter Property="Opacity" Value="0.58" />
+  </Style>
   <Style Selector="ComboBox.prime-input:pointerover">
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeStrongBrush}" />
   </Style>
@@ -130,9 +160,17 @@
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
     <Setter Property="FontSize" Value="13" />
   </Style>
+  <Style Selector="CheckBox.prime-input:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
+    <Setter Property="Opacity" Value="0.58" />
+  </Style>
   <Style Selector="Slider.prime-input">
     <Setter Property="MinHeight" Value="44" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeBrandBrush}" />
+  </Style>
+  <Style Selector="Slider.prime-input:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
+    <Setter Property="Opacity" Value="0.58" />
   </Style>
   <Style Selector=":is(Border).prime-card">
     <Setter Property="Background" Value="{DynamicResource PrimeSurfaceRaisedBrush}" />

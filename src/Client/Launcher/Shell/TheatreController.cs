@@ -307,7 +307,7 @@ public sealed class TheatreController : IDisposable
         replay ??= _state.Selected;
         if (replay == null) throw new InvalidOperationException("Choose a replay first.");
         if (!File.Exists(replay.Path)) throw new FileNotFoundException("The replay is no longer available.");
-        bool opened = await Task.Run(() => ReplayPlayback.Join(replay.Path), cancellationToken)
+        bool opened = await Task.Run(() => ReplayPlayback.Prepare(replay.Path), cancellationToken)
             .ConfigureAwait(false);
         if (!opened)
         {

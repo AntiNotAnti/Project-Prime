@@ -14,8 +14,9 @@ namespace MphRead.Mods.Launcher.Gui
     /// out.
     ///
     /// A view rather than a window, because there is a platform with no windows
-    /// on it to be. <c>PauseMenuWindow</c> wraps this on the desktop,
-    /// where a small window over a still-running match is the right shape;
+    /// on it to be. <c>DesktopGameOverlayWindow</c> wraps this on the desktop,
+    /// where one persistent native overlay over a still-running match is the
+    /// right shape;
     /// Android shows the same object through the launcher's full-screen
     /// overlay, which is what <see cref="HomeView"/> already does with the
     /// settings. One menu either way, so an entry added here turns up on both

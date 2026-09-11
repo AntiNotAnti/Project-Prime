@@ -324,7 +324,7 @@ public static class PostMatchResultsBuilder
                 player.Standing is >= 0 and < 8 ? player.Standing + 1 : rows.Count + 1,
                 player.Slot ?? -1, player.DisplayName, player.Hunter, player.TeamIndex ?? -1,
                 player.Points, player.Kills, player.Deaths, 0, 0, 0, 0,
-                "Recovered from the Node's immutable Worker result", local,
+                "Detailed results unavailable; recovered from the match summary", local,
                 player.Kind == MphRead.Identity.ParticipantKind.Bot,
                 player.Standing, player.TeamStanding, HasDetailedStats: false));
         }

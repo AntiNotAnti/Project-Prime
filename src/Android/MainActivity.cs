@@ -10,6 +10,7 @@ using Android.Views.InputMethods;
 using Android.Widget;
 using Avalonia;
 using Avalonia.Android;
+using MphRead.Mods.Accounts;
 using MphRead.Mods;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
@@ -87,6 +88,10 @@ namespace MphRead.Droid
                     Console.WriteLine($"[android] could not use {root} as the working directory: {ex.Message}");
                 }
             }
+            // Keystore setup must happen before any launcher view can resolve
+            // AccountSessions; it is never a late replacement for an existing
+            // in-memory session.
+            AccountSessions.UseSecureStore(new AndroidKeyStoreSessionStore(this));
             // Before the front screen, which lists the rooms: the custom maps
             // have to be out of the package and their directory named before
             // anything reads the room tables, since that list is built once.

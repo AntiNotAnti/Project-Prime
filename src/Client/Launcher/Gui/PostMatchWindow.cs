@@ -154,13 +154,17 @@ internal sealed class PostMatchWindow : Window
         PollGamepad();
         if (NodeSessions.Current?.Connected != true)
         {
-            Failure = "Node connection lost. Reconnect to continue.";
+            Failure = "Results unavailable because the server connection was lost. Reconnect to continue.";
             Transition = PostMatchTransition.Lobby;
             EndResultsWait();
             return;
         }
         NodeControlClient.ViewState? state = _play.State.Node;
-        _view.Update(state?.Round, _message ?? state?.Error);
+        string? error = _message ?? (state?.Error is { } connectionError
+            ? PrimeRoutePresentation.PlayerFacingNetworkError(connectionError,
+                "Results unavailable. Reconnect and try again.")
+            : null);
+        _view.Update(state?.Round, error);
         PostMatchTransition next = PostMatchFlow.Evaluate(state, _completedMatch);
         if (next == PostMatchTransition.Lobby)
         {
@@ -308,9 +312,10 @@ internal sealed class PostMatchWindow : Window
     private void ShowCommandError(Exception ex)
     {
         if (_closed || Mode != PostMatchPresentationMode.Results) return;
-        _message = ex.Message;
+        _message = PrimeRoutePresentation.PlayerFacingNetworkError(ex.Message,
+            "Results unavailable. Reconnect and try again.");
         _view.RejectPending();
-        _view.Update(_play.State.Round, ex.Message);
+        _view.Update(_play.State.Round, _message);
     }
 
     private void PollGamepad()

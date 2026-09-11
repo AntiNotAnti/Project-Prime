@@ -32,9 +32,9 @@ public sealed class PrimeRouteModuleTests
             (_, _) => throw new InvalidOperationException()));
 
         string text = TextOf(view);
-        Assert.Contains("Sign in required", text, StringComparison.Ordinal);
+        Assert.Contains("Sign in to view this tab", text, StringComparison.Ordinal);
         Assert.Contains("Arsenal", text, StringComparison.Ordinal);
-        Assert.Contains("available to guests", text, StringComparison.Ordinal);
+        Assert.Contains("available without signing in", text, StringComparison.Ordinal);
     }
 
     [Fact]

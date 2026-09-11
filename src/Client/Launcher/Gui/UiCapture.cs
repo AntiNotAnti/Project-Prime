@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -13,6 +16,7 @@ using MphRead.Entities;
 using MphRead.Identity;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Input;
+using MphRead.Mods.MapGen;
 using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Launcher.Gui
@@ -122,13 +126,29 @@ namespace MphRead.Mods.Launcher.Gui
             new("play-browser-full", CreatePlayBrowserFull),
             new("play-network-error", CreatePlayNetworkError),
             new("play-advanced-network", CreatePlayAdvancedNetwork),
-            new("maps-default", (_, _) => new MapsHubView(captureMode: true)),
+            new("play-directory-not-loaded", CreatePlayDirectoryNotLoaded),
+            new("play-directory-loading", CreatePlayDirectoryLoading),
+            new("play-directory-empty", CreatePlayDirectoryEmpty),
+            new("play-directory-loaded", CreatePlayDirectoryLoaded),
+            new("play-directory-error", CreatePlayDirectoryError),
+            new("maps-default", (settings, rooms) => CreateShellRouteCapture(
+                settings, rooms, PrimeRoute.Maps, new MapsHubView(captureMode: true))),
+            new("maps-library", CreateMapsLibrary),
+            new("maps-my-maps", CreateMapsMyMaps),
+            new("maps-community-empty", CreateMapsCommunityEmpty),
+            new("maps-details", CreateMapsDetails),
+            new("maps-many-items", CreateMapsManyItems),
+            new("theatre-list", CreateTheatreList),
+            new("theatre-selected", CreateTheatreSelected),
+            new("theatre-empty", CreateTheatreEmpty),
+            new("theatre-advanced", CreateTheatreAdvanced),
             new("host-wide", CreateHostMatch),
             new("host-compact", CreateHostMatch),
             new("host-mobile", CreateHostMatch),
 
             new("lobby-owner-team", CreateLobby),
             new("lobby-owner-ffa", CreateLobbyOwnerFfa),
+            new("lobby-owner-start-disabled", CreateLobbyOwnerStartDisabled),
             new("lobby-ffa", CreateLobbyOwnerFfa),
             new("lobby-team-selector", CreateLobby),
             new("lobby-member-team", CreateLobbyMemberTeam),
@@ -155,6 +175,7 @@ namespace MphRead.Mods.Launcher.Gui
             new("results-resolved", CreateResultsResolved),
             new("results-no-authoritative-result", CreateResults),
 
+            new("settings-shell-route", CreateSettingsShellRoute),
             new("settings-gameplay", (settings, _) => CreateSettings(settings, "Gameplay")),
             new("settings-controls", (settings, _) => CreateSettings(settings, "Controls")),
             new("controls-gamepad", CreateControlsGamepad),
@@ -388,7 +409,7 @@ namespace MphRead.Mods.Launcher.Gui
             => PrimeShellView.CreateCapture(settings, rooms, PrimeRoute.Gateway,
                 new PrimeShellCaptureState(
                     Gateway: new GatewayState(GatewayPhase.SigningIn,
-                        "Signing in to the Project Prime Backend…", false, false,
+                        "Signing in to Project Prime online services…", false, false,
                         false, false, null, "Guest")));
 
         private static Control CreateGatewayRegister(MenuSettings settings,
@@ -427,7 +448,7 @@ namespace MphRead.Mods.Launcher.Gui
             => PrimeShellView.CreateCapture(settings, rooms, PrimeRoute.Gateway,
                 new PrimeShellCaptureState(
                     Gateway: new GatewayState(GatewayPhase.Failed,
-                        "The capture Backend is unavailable; no request was sent.",
+                        "The capture online service is unavailable; no request was sent.",
                         false, false, false, false, null, "Guest")));
 
         private static Control CreateGatewayGuest(MenuSettings settings,
@@ -478,8 +499,8 @@ namespace MphRead.Mods.Launcher.Gui
             => CreatePlayCapture(settings, rooms, new PrimeShellCaptureState(
                 Play: new PlayState(PlayPhase.Error, Array.Empty<NodeListing>(),
                     new NodeControlClient.ViewState(Session: CaptureSession(),
-                        Error: "The Node directory request failed during capture."),
-                    Hunter.Samus, "The Node directory request failed during capture.",
+                        Error: "The server directory request failed during capture."),
+                    Hunter.Samus, "The server directory request failed during capture.",
                     Loading: false, Revision: 2),
                 Identity: PrimeShellCaptureIdentity.SignedIn));
 
@@ -491,6 +512,298 @@ namespace MphRead.Mods.Launcher.Gui
                     Hunter.Samus, "", Loading: false, Revision: 1),
                 ExpandAdvancedNetwork: true,
                 Identity: PrimeShellCaptureIdentity.SignedIn));
+
+        private static Control CreatePlayDirectoryNotLoaded(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => CreatePlayDirectoryCapture(settings, rooms, PlayPhase.Connected,
+                "The server directory has not been loaded yet.", Loading: false, lobbies: null);
+
+        private static Control CreatePlayDirectoryLoading(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => CreatePlayDirectoryCapture(settings, rooms, PlayPhase.LoadingNodes,
+                "Loading compatible servers…", Loading: true, lobbies: null);
+
+        private static Control CreatePlayDirectoryEmpty(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => CreatePlayDirectoryCapture(settings, rooms, PlayPhase.Connected,
+                "No compatible servers are online.", Loading: false,
+                lobbies: new LobbyListSnapshot(ImmutableArray<LobbyListEntry>.Empty, null));
+
+        private static Control CreatePlayDirectoryLoaded(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => CreatePlayDirectoryCapture(settings, rooms, PlayPhase.Connected,
+                "Compatible servers are ready.", Loading: false,
+                lobbies: CaptureDirectoryLobbies());
+
+        private static Control CreatePlayDirectoryError(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => CreatePlayDirectoryCapture(settings, rooms, PlayPhase.Error,
+                "The server directory request failed during capture.", Loading: false,
+                lobbies: null);
+
+        private static Control CreatePlayDirectoryCapture(MenuSettings settings,
+            IReadOnlyList<string> rooms, PlayPhase phase, string message, bool Loading,
+            LobbyListSnapshot? lobbies)
+        {
+            NodeControlClient.ViewState node = new(
+                Session: CaptureSession(),
+                Lobbies: lobbies);
+            var play = new PlayState(phase, CaptureNodes(), node, Hunter.Samus, message,
+                Loading, Revision: 4)
+            {
+                BrowsedLobbies = lobbies
+            };
+            return CreatePlayCapture(settings, rooms, new PrimeShellCaptureState(
+                Play: play,
+                Identity: PrimeShellCaptureIdentity.SignedIn));
+        }
+
+        private static LobbyListSnapshot CaptureDirectoryLobbies()
+            => BrowserPlayState(full: false).BrowsedLobbies
+                ?? throw new InvalidOperationException("Capture browser state has no lobbies.");
+
+        private static Control CreateMapsLibrary(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => CreateMapsCapture(settings, rooms, new MapsState(MapsTab.Library,
+                new MapCatalogSnapshot(1, [CaptureMap(0, MapInstallSource.InstalledPackage,
+                    MapBuildState.Ready, "Alinos Perch")], []), false, null, null, null));
+
+        private static Control CreateMapsMyMaps(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => CreateMapsCapture(settings, rooms, new MapsState(MapsTab.MyMaps,
+                new MapCatalogSnapshot(2, [CaptureMap(1, MapInstallSource.LocalProject,
+                    MapBuildState.NeedsBuild, "Authoring Workshop", authoring: true)], []),
+                false, null, null, null));
+
+        private static Control CreateMapsCommunityEmpty(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => CreateMapsCapture(settings, rooms, new MapsState(MapsTab.Community,
+                new MapCatalogSnapshot(3, [CaptureMap(2, MapInstallSource.InstalledPackage,
+                    MapBuildState.Ready, "Library map")], []), false, null, null, null));
+
+        private static Control CreateMapsDetails(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+        {
+            // The production detail surface is a shell-owned popup. Keep this
+            // fixture capture-only and source-backed rather than manufacturing
+            // a second Maps route or requiring a real TopLevel/window owner.
+            InstalledMap map = CaptureMap(3, MapInstallSource.InstalledPackage,
+                MapBuildState.Ready, "Alinos Perch Details");
+            var root = new StackPanel
+            {
+                Spacing = 18,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            root.Children.Add(PrimeControlFactory.PageHeading("Maps", "MAP DETAILS",
+                "Technical information for the selected map."));
+            var navigation = new WrapPanel { Orientation = Orientation.Horizontal };
+            navigation.Children.Add(PrimeControlFactory.Button("Back to Maps", () => { },
+                quiet: true));
+            navigation.Children.Add(PrimeControlFactory.Button("Play", () => { },
+                primary: true));
+            root.Children.Add(navigation);
+            var body = new StackPanel { Spacing = 8 };
+            AddDetail(body, "NAME", map.DisplayName);
+            AddDetail(body, "AUTHOR", map.Author);
+            AddDetail(body, "DESCRIPTION", map.Description);
+            AddDetail(body, "STABLE ID", map.ContentIdentity.Identity.StableId);
+            AddDetail(body, "VERSION", map.ContentIdentity.Identity.Version.ToString());
+            AddDetail(body, "CONTENT HASH", map.ContentIdentity.ContentHash);
+            AddDetail(body, "ARTIFACT HASH", map.ArtifactHash ?? "Editable local project");
+            AddDetail(body, "SUPPORTED MODES", String.Join(", ", map.SupportedModes));
+            AddDetail(body, "PACKAGE SIZE", $"{map.PackageSize:N0} bytes");
+            AddDetail(body, "INSTALLED", map.InstalledAt?.ToLocalTime().ToString("g")
+                ?? "Not installed");
+            AddDetail(body, "BUILD STATE", MapsPresentation.BuildStateLabel(map.BuildState));
+            AddDetail(body, "BUILD STATISTICS", map.Statistics == null
+                ? "Not built"
+                : $"{map.Statistics.RenderTriangles:N0} triangles · "
+                    + $"{map.Statistics.CollisionFaces:N0} collision faces · "
+                    + $"{map.Statistics.Entities:N0} entities");
+            AddDetail(body, "SOURCE PATH", map.SourcePath);
+            AddDetail(body, "DIAGNOSTICS", map.Diagnostics.IsEmpty
+                ? "None"
+                : String.Join(Environment.NewLine, map.Diagnostics.Select(value =>
+                    $"{value.Severity} {value.Code}: {value.Message}")));
+            root.Children.Add(PrimeControlFactory.SectionPanel(new ScrollViewer
+            {
+                Content = body,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            }));
+            return CreateShellRouteCapture(settings, rooms, PrimeRoute.Maps, root);
+        }
+
+        private static void AddDetail(Panel body, string label, string value)
+        {
+            body.Children.Add(new TextBlock { Text = label, Classes = { "prime-kicker" } });
+            body.Children.Add(new TextBlock
+            {
+                Text = value,
+                TextWrapping = TextWrapping.Wrap,
+                Classes = { "prime-body" }
+            });
+        }
+
+        private static Control CreateMapsManyItems(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+        {
+            var maps = ImmutableArray.CreateBuilder<InstalledMap>(120);
+            for (int index = 0; index < 120; index++)
+            {
+                maps.Add(CaptureMap(index, MapInstallSource.InstalledPackage,
+                    index % 7 == 0 ? MapBuildState.NeedsBuild : MapBuildState.Ready,
+                    $"Capture Map {index + 1:000}"));
+            }
+            return CreateMapsCapture(settings, rooms, new MapsState(MapsTab.Library,
+                new MapCatalogSnapshot(4, maps.ToImmutable(), []), false, null, null, null));
+        }
+
+        private static Control CreateMapsCapture(MenuSettings settings,
+            IReadOnlyList<string> rooms, MapsState state)
+        {
+            MapsPresentationView view = MapsPresentation.Build(new MapsPresentationContext(
+                state,
+                CaptureMode: true,
+                SelectTab: _ => { },
+                Refresh: () => { },
+                Install: () => { },
+                Create: () => { },
+                ImportQ3: () => { },
+                Play: _ => { },
+                Build: _ => { },
+                Edit: _ => { },
+                Export: _ => { },
+                AddTexture: _ => { },
+                Remove: _ => { },
+                Details: _ => { },
+                LoadPreview: null));
+            view.HorizontalAlignment = HorizontalAlignment.Stretch;
+            view.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+            return CreateShellRouteCapture(settings, rooms, PrimeRoute.Maps, view);
+        }
+
+        private static InstalledMap CaptureMap(int index, MapInstallSource source,
+            MapBuildState buildState, string name, bool authoring = false)
+        {
+            string stableId = $"capture.map.{index:000}";
+            MapVersion version = new(1, 0, index);
+            var identity = new MapContentIdentity(new MapIdentity(stableId, version),
+                new string((char)('a' + index % 6), 64));
+            var project = new MapProject
+            {
+                StableId = stableId,
+                Version = version,
+                Metadata = new MapProjectMetadata
+                {
+                    Name = name,
+                    Author = "Capture Studio",
+                    Description = "A deterministic source-backed map fixture."
+                },
+                SupportedModes = [MapMode.Battle, MapMode.Survival],
+                SourcePath = $"/capture/maps/{stableId}.json",
+                Authoring = authoring ? new MapAuthoringScene() : null
+            };
+            return new InstalledMap(identity, name, "Capture Studio",
+                "A deterministic source-backed map fixture.", source,
+                [MapMode.Battle, MapMode.Survival], buildState,
+                PreviewPath: null, project.SourcePath!,
+                ArtifactHash: new string((char)('f' - index % 6), 64),
+                PackageSize: 128 + index, InstalledAt: DateTimeOffset.UnixEpoch,
+                Statistics: null, Diagnostics: [], Project: project);
+        }
+
+        private static Control CreateTheatreList(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => CreateTheatreCapture(settings, rooms,
+                new TheatreState(CaptureTheatreReplays(), null,
+                Loading: false, Error: null));
+
+        private static Control CreateTheatreSelected(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+        {
+            PrimeReplayEntry[] replays = CaptureTheatreReplays();
+            return CreateTheatreCapture(settings, rooms, new TheatreState(replays, replays[1],
+                Loading: false, Error: null));
+        }
+
+        private static Control CreateTheatreEmpty(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => CreateTheatreCapture(settings, rooms,
+                new TheatreState(Array.Empty<PrimeReplayEntry>(), null,
+                Loading: false, Error: null));
+
+        private static Control CreateTheatreAdvanced(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+        {
+            PrimeReplayEntry[] replays = CaptureTheatreReplays();
+            Control presentation = BuildTheatreCapture(new TheatreState(replays, replays[0],
+                Loading: false, Error: null));
+            Expander? advanced = (presentation as Panel)?.Children.OfType<Expander>()
+                .FirstOrDefault(item => Equals(item.Header, "Advanced"));
+            if (advanced != null) advanced.IsExpanded = true;
+            return CreateShellRouteCapture(settings, rooms, PrimeRoute.Theatre, presentation);
+        }
+
+        private static PrimeReplayEntry[] CaptureTheatreReplays()
+        {
+            DateTime recorded = new(2026, 9, 4, 18, 22, 7);
+            return
+            [
+                new PrimeReplayEntry("capture-replay-001",
+                    "/capture/replays/capture-final-001.fpreplay",
+                    "capture-final-001.fpreplay", "AD2 ALINOS PERCH", recorded, 1_512_320),
+                new PrimeReplayEntry("capture-replay-002",
+                    "/capture/replays/capture-final-002.fpreplay",
+                    "capture-final-002.fpreplay", "MP3 PROVING GROUND",
+                    recorded.AddDays(-2), 402_112),
+                new PrimeReplayEntry("capture-replay-003",
+                    "/capture/replays/capture-final-003.fpreplay",
+                    "capture-final-003.fpreplay", "COMBAT HALL",
+                    recorded.AddDays(-9), 88_400)
+            ];
+        }
+
+        private static Control CreateTheatreCapture(MenuSettings settings,
+            IReadOnlyList<string> rooms, TheatreState state)
+            => CreateShellRouteCapture(settings, rooms, PrimeRoute.Theatre,
+                BuildTheatreCapture(state));
+
+        private static Control BuildTheatreCapture(TheatreState state)
+        {
+            Control presentation = TheatrePresentation.Build(new TheatrePresentationContext(
+                State: state,
+                SupportsImport: true,
+                SupportsExport: true,
+                SupportsRename: true,
+                PendingDeleteId: null,
+                Run: (_, _) => { },
+                Refresh: () => Task.CompletedTask,
+                ImportWithPicker: () => Task.CompletedTask,
+                ImportFromPath: _ => Task.CompletedTask,
+                Select: _ => { },
+                Play: _ => Task.CompletedTask,
+                SelectHighlight: _ => { },
+                PlayHighlight: _ => Task.CompletedTask,
+                PlayHighlightReel: () => Task.CompletedTask,
+                ExportWithPicker: _ => Task.CompletedTask,
+                ExportToPath: (_, _) => Task.CompletedTask,
+                Rename: (_, _) => Task.CompletedTask,
+                Delete: _ => Task.CompletedTask,
+                RequestDelete: _ => { },
+                CancelDelete: () => { },
+                SupportsReveal: true,
+                Reveal: _ => Task.CompletedTask,
+                LoadMapPreview: null));
+            return presentation;
+        }
+
+        private static Control CreateShellRouteCapture(MenuSettings settings,
+            IReadOnlyList<string> rooms, PrimeRoute route, Control content)
+        {
+            PrimeShellView shell = PrimeShellView.CreateCapture(settings, rooms, route);
+            shell.SetRouteContentForCapture(route, content);
+            return shell;
+        }
 
         private static Control CreateHostMatch(MenuSettings settings,
             IReadOnlyList<string> rooms)
@@ -516,13 +829,11 @@ namespace MphRead.Mods.Launcher.Gui
                 new(CaptureNodeId, "SOL-77", "US-East",
                     "https://node.capture.invalid/control", 1, "capture-build",
                     "capture-content", 64, 12, 3, 1, "verified",
-                    new DateTimeOffset(2026, 9, 4, 18, 22, 7, TimeSpan.Zero),
-                    new[] { "MP3 PROVING GROUND", "COMBAT HALL" }),
+                    new DateTimeOffset(2026, 9, 4, 18, 22, 7, TimeSpan.Zero)),
                 new(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), "LUNA-12",
                     "EU-West", "https://luna.capture.invalid/control", 1,
                     "capture-build", "capture-content", 48, 7, 2, 0, "verified",
-                    new DateTimeOffset(2026, 9, 4, 18, 21, 33, TimeSpan.Zero),
-                    new[] { "MP3 PROVING GROUND" })
+                    new DateTimeOffset(2026, 9, 4, 18, 21, 33, TimeSpan.Zero))
             ];
 
         private static PlayState BrowserPlayState(bool full)
@@ -597,6 +908,10 @@ namespace MphRead.Mods.Launcher.Gui
             IReadOnlyList<string> rooms)
             => CreateLobbyVariant(settings, rooms, CaptureLobbyVariant.OwnerFfa);
 
+        private static Control CreateLobbyOwnerStartDisabled(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => CreateLobbyVariant(settings, rooms, CaptureLobbyVariant.OwnerStartDisabled);
+
         private static Control CreateLobbyMemberTeam(MenuSettings settings,
             IReadOnlyList<string> rooms)
             => CreateLobbyVariant(settings, rooms, CaptureLobbyVariant.MemberTeam);
@@ -636,6 +951,7 @@ namespace MphRead.Mods.Launcher.Gui
         private enum CaptureLobbyVariant
         {
             OwnerFfa,
+            OwnerStartDisabled,
             MemberTeam,
             Observer,
             Full,
@@ -668,6 +984,14 @@ namespace MphRead.Mods.Launcher.Gui
                         playerLimit: 8, observerLimit: 16,
                         members: MakePlayers(3, CaptureSessionId, owner: true,
                             teamMode: false), mapKey: mapKey, mode: MatchMode.Battle);
+                    node = new NodeControlClient.ViewState(Session: CaptureSession(), Lobby: lobby);
+                    break;
+                case CaptureLobbyVariant.OwnerStartDisabled:
+                    lobby = MakeLobby("Owner Waiting Room", LobbyPhase.Open,
+                        owner: CaptureSessionId, currentMatchId: null,
+                        playerLimit: 8, observerLimit: 16,
+                        members: MakeOwnerStartDisabledPlayers(), mapKey: mapKey,
+                        mode: MatchMode.TeamBattle);
                     node = new NodeControlClient.ViewState(Session: CaptureSession(), Lobby: lobby);
                     break;
                 case CaptureLobbyVariant.MemberTeam:
@@ -729,17 +1053,17 @@ namespace MphRead.Mods.Launcher.Gui
                         playerLimit: 8, observerLimit: 16,
                         members: MakePlayers(3, CaptureSessionId, owner: true,
                             teamMode: true), mapKey: mapKey, mode: MatchMode.TeamBattle);
-                    message = "Node connection lost while this lobby was open.";
+                    message = "Server connection lost while this lobby was open.";
                     node = new NodeControlClient.ViewState(Lobby: lobby, Error: message);
                     break;
                 case CaptureLobbyVariant.HandoffFailure:
-                    lobby = MakeLobby("Worker Recovery Room", LobbyPhase.InMatch,
+                    lobby = MakeLobby("Match Recovery Room", LobbyPhase.InMatch,
                         owner: CaptureSessionId,
                         currentMatchId: Guid.Parse("b1000000-0000-4000-8000-000000000001"),
                         playerLimit: 4, observerLimit: 8,
                         members: MakePlayers(4, CaptureSessionId, owner: true,
                             teamMode: true), mapKey: mapKey, mode: MatchMode.TeamBattle);
-                    message = "Worker handoff failed; retry the gameplay connection.";
+                    message = "Could not join the match; retry the match connection.";
                     node = new NodeControlClient.ViewState(
                         Lobby: lobby,
                         Handoff: MakeHandoff(lobby.CurrentMatchId!.Value),
@@ -754,7 +1078,7 @@ namespace MphRead.Mods.Launcher.Gui
                             teamMode: true), mapKey: mapKey, mode: MatchMode.TeamBattle);
                     node = new NodeControlClient.ViewState(Session: CaptureSession(), Lobby: lobby,
                         Round: MakeLobbyRound(lobby));
-                    message = "The match is complete; the Node is preparing the next round.";
+                    message = "The match is complete; the server is preparing the next round.";
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(variant));
@@ -784,6 +1108,7 @@ namespace MphRead.Mods.Launcher.Gui
             => name switch
             {
                 "FFA Owner Room" => Guid.Parse("b0000000-0000-4000-8000-000000000001"),
+                "Owner Waiting Room" => Guid.Parse("b0000000-0000-4000-8000-00000000000b"),
                 "Team Member Room" => Guid.Parse("b0000000-0000-4000-8000-000000000002"),
                 "Observer Room" => Guid.Parse("b0000000-0000-4000-8000-000000000003"),
                 "Full Player Room" => Guid.Parse("b0000000-0000-4000-8000-000000000004"),
@@ -791,10 +1116,19 @@ namespace MphRead.Mods.Launcher.Gui
                 "Seat Offer Room" => Guid.Parse("b0000000-0000-4000-8000-000000000006"),
                 "Chat Practice Room" => Guid.Parse("b0000000-0000-4000-8000-000000000007"),
                 "Disconnected Room" => Guid.Parse("b0000000-0000-4000-8000-000000000008"),
-                "Worker Recovery Room" => Guid.Parse("b0000000-0000-4000-8000-000000000009"),
+                "Match Recovery Room" => Guid.Parse("b0000000-0000-4000-8000-000000000009"),
                 "Post-match Room" => Guid.Parse("b0000000-0000-4000-8000-00000000000a"),
                 _ => throw new ArgumentOutOfRangeException(nameof(name))
             };
+
+        private static ImmutableArray<LobbyMember> MakeOwnerStartDisabledPlayers()
+            => ImmutableArray.Create(
+                CaptureMember(CaptureSessionId, CapturePlayerId.Value,
+                    "Capture Preview", 0, teamMode: true, ready: true),
+                CaptureMember(OtherSession(1), OtherPlayer(1),
+                    "Pilot-01", 1, teamMode: true, ready: false),
+                CaptureMember(OtherSession(2), OtherPlayer(2),
+                    "Pilot-02", 2, teamMode: true, ready: true));
 
         private static ImmutableArray<LobbyMember> MakePlayers(int count,
             Guid currentSession, bool owner, bool teamMode,
@@ -1026,6 +1360,10 @@ namespace MphRead.Mods.Launcher.Gui
         {
             public bool IsReplica => true;
         }
+
+        private static Control CreateSettingsShellRoute(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => PrimeShellView.CreateCapture(settings, rooms, PrimeRoute.Settings);
 
         private static SettingsView CreateSettings(MenuSettings settings, string section)
         {

@@ -19,14 +19,18 @@ internal sealed class LobbyChatPanel : Border
     private const int HistoryLimit = PlayPresentationState.ChatHistoryLimit;
     private readonly TextBox _draft;
     private readonly ScrollViewer _historyScroll;
+    private readonly StackPanel _historyLines;
+    private readonly PrimeStatusChip _unreadChip;
+    private readonly StackPanel _content;
     private readonly TextBlock _usageHint;
     private readonly Action<string> _setDraft;
     private readonly Action<string> _send;
     private readonly Action<bool> _setEditing;
     private readonly Action<double> _setScrollOffset;
     private readonly Action _markRead;
-    private readonly double _initialScrollOffset;
-    private readonly bool _scrollPositionKnown;
+    private double _initialScrollOffset;
+    private bool _scrollPositionKnown;
+    private Guid? _localSessionId;
     private bool _editing;
     private bool _normalizing;
 
@@ -50,62 +54,28 @@ internal sealed class LobbyChatPanel : Border
         _markRead = markRead ?? (() => { });
         _initialScrollOffset = double.IsFinite(scrollOffset) ? Math.Max(0, scrollOffset) : 0;
         _scrollPositionKnown = scrollPositionKnown;
+        _localSessionId = localSessionId;
 
         Padding = new Thickness(14);
         Classes.Add("prime-section-panel");
         PrimeAccessibility.SetName(this, "Lobby chat");
         PrimeAccessibility.SetDescription(this,
             "Recent lobby messages and a bounded message editor.");
-        var content = new StackPanel { Spacing = 8 };
+        _content = new StackPanel { Spacing = 8 };
+        StackPanel content = _content;
         var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         header.Children.Add(new TextBlock { Text = "LOBBY CHAT", Classes = { "prime-heading" } });
-        if (unreadCount > 0)
-        {
-            int boundedUnread = Math.Clamp(unreadCount, 1, HistoryLimit);
-            var unread = new PrimeStatusChip($"{boundedUnread} new", GuiTheme.TechBrush);
-            PrimeAccessibility.SetStatus(unread, $"{boundedUnread} new lobby messages");
-            header.Children.Add(unread);
-            Grid.SetColumn(unread, 1);
-        }
+        _unreadChip = new PrimeStatusChip("") { IsVisible = false };
+        header.Children.Add(_unreadChip);
+        Grid.SetColumn(_unreadChip, 1);
+        UpdateUnreadChip(unreadCount);
         content.Children.Add(header);
 
-        var lines = new StackPanel { Spacing = 5 };
-        IEnumerable<LobbyChatEntry> visible = history.TakeLast(HistoryLimit);
-        foreach (LobbyChatEntry entry in visible)
-        {
-            bool system = entry.SessionId == Guid.Empty;
-            bool local = !system && localSessionId == entry.SessionId;
-            var line = new Grid
-            {
-                ColumnDefinitions = new ColumnDefinitions("Auto,*"),
-                ColumnSpacing = 6
-            };
-            var name = new TextBlock
-            {
-                Text = $"{entry.DisplayName}:",
-                Classes = { system ? "prime-muted" : "prime-body" },
-                Foreground = system ? GuiTheme.TextDimBrush
-                    : local ? GuiTheme.BrandBrush : GuiTheme.TechBrush
-            };
-            name.Classes.Add(system ? "prime-chat-system"
-                : local ? "prime-chat-local-name" : "prime-chat-peer-name");
-            var message = new TextBlock
-            {
-                Text = entry.Text,
-                TextWrapping = TextWrapping.Wrap,
-                Classes = { system ? "prime-muted" : "prime-body" }
-            };
-            if (system) message.Classes.Add("prime-chat-system");
-            line.Children.Add(name);
-            line.Children.Add(message);
-            Grid.SetColumn(message, 1);
-            lines.Children.Add(line);
-        }
-        if (lines.Children.Count == 0)
-            lines.Children.Add(new TextBlock { Text = "No messages yet.", Classes = { "prime-muted" } });
+        _historyLines = new StackPanel { Spacing = 5 };
+        RebuildHistory(history);
         _historyScroll = new ScrollViewer
         {
-            Content = lines,
+            Content = _historyLines,
             MaxHeight = 210,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
@@ -170,6 +140,43 @@ internal sealed class LobbyChatPanel : Border
 
     public TextBox DraftEditor => _draft;
 
+    /// <summary>
+    /// Update only the authoritative chat region of an existing lobby view.
+    /// The editor, its focus, and the bounded local draft are intentionally
+    /// retained while the message history is replaced from the latest
+    /// snapshot.
+    /// </summary>
+    internal void Update(IReadOnlyList<LobbyChatEntry> history, string draft,
+        double scrollOffset, bool scrollPositionKnown, int unreadCount,
+        Guid? localSessionId)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        bool preserveEditor = _editing || _draft.IsFocused;
+        double currentOffset = _historyScroll.Offset.Y;
+        _localSessionId = localSessionId;
+        RebuildHistory(history);
+        UpdateUnreadChip(unreadCount);
+
+        _initialScrollOffset = scrollPositionKnown
+            ? double.IsFinite(scrollOffset) ? Math.Max(0, scrollOffset) : 0
+            : Math.Max(0, currentOffset);
+        _scrollPositionKnown = scrollPositionKnown;
+
+        if (!preserveEditor)
+        {
+            string bounded = Utf8TextLimit.Truncate(draft, 256);
+            if (!StringComparer.Ordinal.Equals(_draft.Text, bounded))
+            {
+                _normalizing = true;
+                _draft.Text = bounded;
+                _draft.CaretIndex = bounded.Length;
+                _normalizing = false;
+            }
+        }
+
+        Avalonia.Threading.Dispatcher.UIThread.Post(RestoreHistoryScroll);
+    }
+
     internal double HistoryMaxHeight
     {
         get => _historyScroll.MaxHeight;
@@ -180,8 +187,12 @@ internal sealed class LobbyChatPanel : Border
     {
         set
         {
-            Padding = new Thickness(value ? 8 : 14);
+            // Wide lobby columns have a fixed command rail beside chat. Keep
+            // the editor's touch target intact while tightening only the
+            // surrounding chrome enough to keep the whole panel in view.
+            Padding = value ? new Thickness(8, 4) : new Thickness(14);
             Margin = value ? default : new Thickness(0, 0, 0, 12);
+            _content.Spacing = value ? 4 : 8;
             _usageHint.IsVisible = !value;
         }
     }
@@ -241,6 +252,60 @@ internal sealed class LobbyChatPanel : Border
             _historyScroll.ScrollToEnd();
         }
         if (IsAtEnd()) _markRead();
+    }
+
+    private void RebuildHistory(IReadOnlyList<LobbyChatEntry> history)
+    {
+        _historyLines.Children.Clear();
+        foreach (LobbyChatEntry entry in history.TakeLast(HistoryLimit))
+            _historyLines.Children.Add(CreateHistoryLine(entry));
+        if (_historyLines.Children.Count == 0)
+            _historyLines.Children.Add(new TextBlock
+            {
+                Text = "No messages yet.",
+                Classes = { "prime-muted" }
+            });
+    }
+
+    private Control CreateHistoryLine(LobbyChatEntry entry)
+    {
+        bool system = entry.SessionId == Guid.Empty;
+        bool local = !system && _localSessionId == entry.SessionId;
+        var line = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+            ColumnSpacing = 6
+        };
+        var name = new TextBlock
+        {
+            Text = $"{entry.DisplayName}:",
+            Classes = { system ? "prime-muted" : "prime-body" },
+            Foreground = system ? GuiTheme.TextDimBrush
+                : local ? GuiTheme.BrandBrush : GuiTheme.TechBrush
+        };
+        name.Classes.Add(system ? "prime-chat-system"
+            : local ? "prime-chat-local-name" : "prime-chat-peer-name");
+        var message = new TextBlock
+        {
+            Text = entry.Text,
+            TextWrapping = TextWrapping.Wrap,
+            Classes = { system ? "prime-muted" : "prime-body" }
+        };
+        if (system) message.Classes.Add("prime-chat-system");
+        line.Children.Add(name);
+        line.Children.Add(message);
+        Grid.SetColumn(message, 1);
+        return line;
+    }
+
+    private void UpdateUnreadChip(int unreadCount)
+    {
+        int bounded = Math.Clamp(unreadCount, 0, HistoryLimit);
+        _unreadChip.IsVisible = bounded > 0;
+        _unreadChip.Text = bounded > 0 ? $"{bounded} new" : "";
+        if (bounded > 0)
+            PrimeAccessibility.SetStatus(_unreadChip,
+                $"{bounded} new lobby messages");
     }
 
     private void SendDraft() => _send(_draft.Text ?? "");

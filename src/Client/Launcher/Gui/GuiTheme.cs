@@ -90,7 +90,7 @@ namespace MphRead.Mods.Launcher.Gui
             FontStyle.Normal, bold ? FontWeight.SemiBold : FontWeight.Normal);
 
         /// <summary>
-        /// The window's icon -- the cherry mark alone, not the wordmark: a
+        /// The window's icon -- the Project Prime mark alone, not the wordmark: a
         /// title bar, taskbar entry and alt-tab thumbnail are all small and
         /// square, and the wide banner would either be squeezed unreadable or
         /// cropped to nothing. Lazy for the same reason the splash's copy of

@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
+using MphRead.Mods.Accounts;
 using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Launcher.Gui
@@ -85,6 +86,8 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (_setUp)
             {
+                if (!PauseMenu.HasPresenter)
+                    PauseMenu.RegisterPresenter(LegacyPauseMenuPresenter.Instance);
                 return true;
             }
             if (_failed || !Probe())
@@ -106,6 +109,7 @@ namespace MphRead.Mods.Launcher.Gui
                     .WithInterFont()
                     .SetupWithoutStarting();
                 _setUp = true;
+                PauseMenu.RegisterPresenter(LegacyPauseMenuPresenter.Instance);
                 return true;
 #endif
             }
@@ -145,6 +149,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static void Run()
         {
             LauncherPrefs.Load();
+            AccountSessions.ConfigurePlatformStore();
             if (GameFiles.Ready)
             {
                 // Upstream's CheckSetup does this before anything runs; the
@@ -163,9 +168,18 @@ namespace MphRead.Mods.Launcher.Gui
             // MatchStart consumes only the per-round scene on a supplied host.
             SdlGameHost? persistentHost = null;
             var coordinator = new ClientSessionCoordinator();
+            // One coordinator-scoped owner crosses the shell, persistent SDL
+            // host, and overlay; no surface creates a process-wide input bus.
+            var presentationSurface = new DesktopTransitionSurface(
+                () => persistentWindow, () => persistentHost, Pump);
             var presentationCoordinator = new DesktopTransitionCoordinator(
-                new DesktopTransitionSurface(() => persistentWindow,
-                    () => persistentHost, Pump));
+                presentationSurface);
+            using var desktopOverlay = new DesktopGameOverlayCoordinator(
+                () => persistentHost, Pump, presentationCoordinator.InputOwner);
+            if (!ClassicUi)
+            {
+                PauseMenu.RegisterPresenter(desktopOverlay);
+            }
             MatchRunResult? lastResult = null;
             try
             {
@@ -198,7 +212,8 @@ namespace MphRead.Mods.Launcher.Gui
                     {
                         if (persistentWindow == null)
                         {
-                            persistentWindow = new HomeWindow(settings, rooms);
+                            persistentWindow = new HomeWindow(settings, rooms,
+                                desktopOverlay);
                             persistentWindow.ResultsCloseRequested += (_, _) =>
                             {
                                 persistentHost?.Close();
@@ -214,6 +229,7 @@ namespace MphRead.Mods.Launcher.Gui
                                 try
                                 {
                                     persistentHost = new SdlGameHost(showWindow: false);
+                                    desktopOverlay.AttachHost(persistentHost);
                                     persistentHost.SetInitialPosition(
                                         new OpenTK.Mathematics.Vector2i(
                                             persistentWindow.Position.X,
@@ -287,6 +303,7 @@ namespace MphRead.Mods.Launcher.Gui
                         if (!ClassicUi && persistentHost == null)
                         {
                             persistentHost = new SdlGameHost(showWindow: false);
+                            desktopOverlay.AttachHost(persistentHost);
                             if (persistentWindow != null)
                                 persistentHost.SetInitialPosition(new OpenTK.Mathematics.Vector2i(
                                     persistentWindow.Position.X, persistentWindow.Position.Y));
@@ -335,7 +352,10 @@ namespace MphRead.Mods.Launcher.Gui
             }
             finally
             {
+                desktopOverlay.CloseForTransition();
                 presentationCoordinator.Close();
+                PauseMenu.UnregisterPresenter(desktopOverlay);
+                PauseMenu.RegisterPresenter(LegacyPauseMenuPresenter.Instance);
                 persistentHost?.Dispose();
                 coordinator.Quit();
                 if (persistentWindow is { IsClosed: false }) persistentWindow.Close();
@@ -385,6 +405,8 @@ namespace MphRead.Mods.Launcher.Gui
                 // the target-first hide/focus ordering once the dispatcher is
                 // ready. The initial visit remains the active native window.
                 window.Resume(result, activate: result == null);
+                if (!window.WaitingForContinuation)
+                    presentationCoordinator.InputOwner.SetOwner(DesktopInputOwnerKind.Shell);
                 if (result != null && !window.WaitingForContinuation)
                     presentationCoordinator.BeginReturnToShell();
                 Dispatcher.UIThread.PushFrame(frame);
@@ -400,6 +422,8 @@ namespace MphRead.Mods.Launcher.Gui
                 window.GameHostPrewarmRequested -= PrewarmGameHost;
                 sdlPump.Stop();
                 sdlPump.Tick -= PumpSdlInput;
+                if (presentationCoordinator.InputOwner.Owns(DesktopInputOwnerKind.Shell))
+                    presentationCoordinator.InputOwner.SetOwner(DesktopInputOwnerKind.None);
             }
         }
 
@@ -427,6 +451,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Content = view
             };
             view.Done += (_, _) => window.Close();
+            window.Closed += (_, _) => _ = view.DisposeAsync().AsTask();
             var frame = new DispatcherFrame();
             window.Closed += (_, _) => frame.Continue = false;
             window.Show();

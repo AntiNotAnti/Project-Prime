@@ -67,16 +67,18 @@ internal sealed class PrimeMatchCard : Border
         body.Children.Add(modeLine);
 
         var rules = new WrapPanel { Orientation = Orientation.Horizontal };
-        rules.Children.Add(Metric("TIME", entry.TimeLimitSeconds is { } seconds
-            ? FormatDuration(seconds) : "Default"));
+        rules.Children.Add(Metric("TIME",
+            LobbyRuleDefaults.Time(entry.Mode, entry.TimeLimitSeconds)));
         LobbyRuleApplicability applicability = LobbyRuleApplicability.For(entry.Mode);
         if (applicability.ScoreGoal)
-            rules.Children.Add(Metric("SCORE", entry.PointGoal?.ToString(CultureInfo.InvariantCulture) ?? "Default"));
+            rules.Children.Add(Metric("SCORE",
+                LobbyRuleDefaults.Score(entry.Mode, entry.PointGoal)));
         else if (applicability.StartingLives)
-            rules.Children.Add(Metric("LIVES", entry.PointGoal?.ToString(CultureInfo.InvariantCulture) ?? "Default"));
+            rules.Children.Add(Metric("LIVES",
+                LobbyRuleDefaults.Lives(entry.Mode, entry.PointGoal)));
         else if (applicability.ObjectiveTimeGoal)
-            rules.Children.Add(Metric("OBJECTIVE", entry.ObjectiveTimeGoalSeconds is { } objective
-                ? FormatDuration(objective) : "Default"));
+            rules.Children.Add(Metric("OBJECTIVE",
+                LobbyRuleDefaults.ObjectiveTime(entry.Mode, entry.ObjectiveTimeGoalSeconds)));
         rules.Children.Add(Metric("OBSERVERS", $"{entry.Observers}/{entry.ObserverLimit}"));
         if (entry.BotCount > 0)
             rules.Children.Add(Metric("BOTS", entry.BotCount.ToString(CultureInfo.InvariantCulture)));
@@ -126,6 +128,4 @@ internal sealed class PrimeMatchCard : Border
     private static PrimeStatTile Metric(string label, string value)
         => PrimeControlFactory.StatTile(label, value);
 
-    private static string FormatDuration(int seconds)
-        => TimeSpan.FromSeconds(Math.Max(0, seconds)).ToString(seconds >= 3600 ? @"h\:mm\:ss" : @"m\:ss");
 }

@@ -38,7 +38,7 @@ public sealed class BrandPresentationTests
                 .Select(text => text!)
                 .ToArray();
             Assert.Contains("ENTER THE ARENA", copy);
-            Assert.Contains("Choose how you want to play.", copy);
+            Assert.Contains("Sign in, create an account, or continue as a guest.", copy);
             Assert.DoesNotContain("PROJECT PRIME", copy);
             Assert.DoesNotContain("Play now", copy);
             Assert.Empty(gateway.GetVisualDescendants().OfType<PrimeBrandMark>());

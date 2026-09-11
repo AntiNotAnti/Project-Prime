@@ -30,7 +30,8 @@ namespace MphRead.Mods.Launcher
         public const string AutomaticPreferredRegionId = "Automatic";
 
         /// <summary>Backend origin used by fresh development clients.</summary>
-        public const string DefaultBackendAddress = "http://51.161.113.128:18085/";
+        public const string DefaultBackendAddress = "https://rebooty.xyz/";
+        private const string LegacyBackendAddress = "http://51.161.113.128:18085/";
         public static string BackendAddress { get; set; } = DefaultBackendAddress;
         /// <summary>
         /// Where launcher.txt lives. Beside the executable, which is where the
@@ -274,6 +275,7 @@ namespace MphRead.Mods.Launcher
             bool policyRead = false;
             bool legacyRead = false;
             bool legacyValue = false;
+            bool backendMigrated = false;
             try
             {
                 foreach (string raw in File.ReadAllLines(Path))
@@ -327,7 +329,16 @@ namespace MphRead.Mods.Launcher
                         case "backend_address":
                             if (value.Length > 0)
                             {
-                                BackendAddress = value;
+                                if (value.Equals(LegacyBackendAddress,
+                                    StringComparison.OrdinalIgnoreCase))
+                                {
+                                    BackendAddress = DefaultBackendAddress;
+                                    backendMigrated = true;
+                                }
+                                else
+                                {
+                                    BackendAddress = value;
+                                }
                             }
                             break;
                         case "auto_update":
@@ -390,6 +401,12 @@ namespace MphRead.Mods.Launcher
             {
                 UpdatePolicy = legacyValue ? UpdatePolicy.NotifyOnly : UpdatePolicy.Off;
                 // One-time migration: Save no longer writes the legacy key.
+                Save();
+            }
+            else if (backendMigrated)
+            {
+                // Retire the former public HTTP origin. Authentication rejects
+                // non-loopback HTTP, so preserving it would strand upgraded clients.
                 Save();
             }
         }

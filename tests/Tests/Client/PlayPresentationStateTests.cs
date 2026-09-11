@@ -39,6 +39,42 @@ public sealed class PlayPresentationStateTests
     }
 
     [Fact]
+    public void MatchDirectoryPresentationStateHasOneAuthoritativeProjection()
+    {
+        PlayState initial = PlayState.Initial;
+        Assert.Equal(MatchDirectoryPresentationState.NotLoaded,
+            MatchDirectoryPresentation.From(initial));
+        Assert.Equal(MatchDirectoryPresentationState.Loading,
+            MatchDirectoryPresentation.From(initial with { Loading = true }));
+        Assert.Equal(MatchDirectoryPresentationState.Loading,
+            MatchDirectoryPresentation.From(initial with { Phase = PlayPhase.LoadingNodes }));
+        Assert.Equal(MatchDirectoryPresentationState.Failed,
+            MatchDirectoryPresentation.From(initial with { Phase = PlayPhase.Error }));
+
+        var empty = new LobbyListSnapshot([], null);
+        PlayState emptyState = initial with
+        {
+            Phase = PlayPhase.Connected,
+            BrowsedLobbies = empty
+        };
+        Assert.Equal(MatchDirectoryPresentationState.Empty,
+            MatchDirectoryPresentation.From(emptyState));
+        Assert.Equal(MatchDirectoryPresentationState.Empty,
+            emptyState.MatchDirectoryState);
+
+        LobbyListEntry entry = Entry("Open", MatchMode.Battle, players: 1,
+            playerLimit: 4, observers: 0, observerLimit: 2);
+        PlayState loadedState = emptyState with
+        {
+            BrowsedLobbies = new LobbyListSnapshot([entry], null)
+        };
+        Assert.Equal(MatchDirectoryPresentationState.Loaded,
+            MatchDirectoryPresentation.From(loadedState));
+        Assert.Equal(MatchDirectoryPresentationState.Failed,
+            MatchDirectoryPresentation.From(loadedState with { Phase = PlayPhase.Error }));
+    }
+
+    [Fact]
     public void ChatDraftIsBoundedInUtf8WithoutSplittingACharacter()
     {
         string draft = new string('é', 200);
@@ -102,6 +138,44 @@ public sealed class PlayPresentationStateTests
         Assert.Equal(120, rules.ObjectiveTimeGoalSeconds);
         Assert.Null(rules.ScoreGoal);
     }
+
+    [Fact]
+    public void LauncherRuleLabelsResolveConcreteModeDefaultsWithoutChangingNullWireValues()
+    {
+        Assert.Equal("7:00 (default)", LobbyRuleDefaults.Time(MatchMode.Battle, null));
+        Assert.Equal("7 (default)", LobbyRuleDefaults.Score(MatchMode.Battle, null));
+        Assert.Equal("2 (default)", LobbyRuleDefaults.Lives(MatchMode.Survival, null));
+        Assert.Equal("1:30 (default)", LobbyRuleDefaults.ObjectiveTime(MatchMode.Defender, null));
+        Assert.Equal("Normal (default)", LobbyRuleDefaults.Damage(MatchMode.Battle));
+        Assert.Equal("Off (default)", LobbyRuleDefaults.Bool(MatchMode.Battle,
+            rules => rules.FriendlyFire));
+
+        var draft = new HostMatchDraft { Mode = MatchMode.Battle };
+        Assert.Equal("", draft.TimeLimitText);
+        Assert.Equal("", draft.ScoreGoalText);
+        Assert.True(draft.TryBuildRules(out LobbyRulesOptions rules, out string error), error);
+        Assert.Null(rules.TimeLimitSeconds);
+        Assert.Null(rules.ScoreGoal);
+        Assert.Equal("7:00 (default) or m:ss", LobbyRuleDefaults.TimeWatermark(MatchMode.Battle));
+        Assert.Equal("1:30 (default) or m:ss", LobbyRuleDefaults.ObjectiveWatermark(MatchMode.Defender));
+
+        Guid sessionId = Guid.NewGuid();
+        var lobby = new LobbySnapshot(Guid.NewGuid(), "Room", LobbyVisibility.Public,
+            sessionId, LobbyPhase.Open, 1, 8, 16,
+            [new LobbyMember(sessionId, Guid.NewGuid(), "Hunter", Hunter.Samus, 0, false, false)], [],
+            Mode: MatchMode.Battle);
+        HostMatchDraft fromLobby = HostMatchDraft.FromLobby(lobby);
+        Assert.Equal("", fromLobby.TimeLimitText);
+        Assert.Equal("", fromLobby.ScoreGoalText);
+    }
+
+    [Theory]
+    [InlineData("", true)]
+    [InlineData("Default", true)]
+    [InlineData("default", true)]
+    [InlineData("420", true)]
+    public void HostDraftKeepsLegacyDefaultParserAcceptance(string text, bool accepted)
+        => Assert.Equal(accepted, HostMatchDraft.TryParseTime(text, out _));
 
     [Fact]
     public void PresentationStatePreservesDraftsAndAllowsOnlyOneOfferAction()

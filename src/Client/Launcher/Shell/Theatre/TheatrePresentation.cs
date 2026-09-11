@@ -11,6 +11,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using AvaloniaButton = Avalonia.Controls.Button;
+using MphRead.Mods.Launcher.Presentation;
 using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Launcher.Gui;
@@ -88,12 +89,18 @@ internal static class TheatrePresentation
                     "Export replay", () => context.ExportToPath(captured,
                         exportPath.Text ?? "")), quiet: true));
             }
+            advanced.Children.Add(Text("Selected replay metadata", "prime-heading"));
             advanced.Children.Add(BuildTechnicalDetails(selected));
         }
-        root.Children.Add(new Expander { Header = "Advanced", Content = advanced });
+        root.Children.Add(new Expander
+        {
+            Header = "Advanced",
+            Content = advanced,
+            IsExpanded = false
+        });
         root.Children.Add(ResponsiveSplit(
             PrimeControlFactory.SectionPanel(BuildList(context, selected)),
-            PrimeControlFactory.SectionPanel(BuildDetails(context, selected, exportPath))));
+            PrimeControlFactory.SectionPanel(BuildDetails(context, selected))));
         return root;
     }
 
@@ -110,20 +117,33 @@ internal static class TheatrePresentation
         {
             PrimeReplayEntry captured = replay;
             PrimeReplayPresentation card = PrimeReplayPresentation.From(replay);
-            var content = Stack(Text(card.Title, "prime-heading"),
+            var content = Stack(Text(ReplayTitle(replay), "prime-heading"),
                 Text(card.RecordedLine, "prime-body"),
-                Text($"{card.FileName} · {card.Size}", "prime-muted"));
+                Text(card.Size, "prime-muted"));
             AvaloniaButton select = Button("", () => context.Select(captured), quiet: true);
             select.Content = content;
             select.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-            list.Children.Add(new PrimeCard(PrimeControlFactory.SelectedRow(select,
-                selected?.Id == replay.Id)));
+            select.HorizontalAlignment = HorizontalAlignment.Stretch;
+
+            var row = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                ColumnSpacing = 8
+            };
+            row.Children.Add(select);
+            AvaloniaButton watch = Button("Watch", () => context.Run("Play replay",
+                () => context.Play(captured)));
+            watch.VerticalAlignment = VerticalAlignment.Center;
+            row.Children.Add(watch);
+            Grid.SetColumn(watch, 1);
+            list.Children.Add(PrimeControlFactory.SelectedRow(row,
+                selected?.Id == replay.Id));
         }
         return list;
     }
 
     private static Control BuildDetails(TheatrePresentationContext context,
-        PrimeReplayEntry? selected, TextBox exportPath)
+        PrimeReplayEntry? selected)
     {
         var detail = Stack(Text("Replay details", "prime-heading"));
         if (selected == null)
@@ -134,18 +154,20 @@ internal static class TheatrePresentation
 
         PrimeReplayEntry captured = selected;
         PrimeReplayPresentation card = PrimeReplayPresentation.From(selected);
-        detail.Children.Add(Text(card.Title, "prime-title"));
-        detail.Children.Add(Text(card.FileName, "prime-body"));
+        detail.Children.Add(Text(ReplayTitle(selected), "prime-title"));
         detail.Children.Add(Text($"Recorded {card.RecordedLine} · {card.Size}", "prime-muted"));
         if (context.LoadMapPreview != null && !String.IsNullOrWhiteSpace(captured.Room))
         {
             detail.Children.Add(PrimeControlFactory.PreviewStage(
                 new TheatreMapPreview(captured.Room, context.LoadMapPreview)));
         }
-        detail.Children.Add(Text("FULL REPLAY", "prime-label"));
-        detail.Children.Add(Button("Watch Replay", () => context.Run("Play replay",
-            () => context.Play(captured)), primary: true));
-        detail.Children.Add(Text("HIGHLIGHTS", "prime-label"));
+        detail.Children.Add(Text("Full replay", "prime-label"));
+        AvaloniaButton watchReplay = Button("Watch Replay", () => context.Run("Play replay",
+            () => context.Play(captured)), primary: true);
+        watchReplay.HorizontalAlignment = HorizontalAlignment.Left;
+        watchReplay.MinWidth = 160;
+        detail.Children.Add(watchReplay);
+        detail.Children.Add(Text("Highlights", "prime-label"));
         if (context.State.HighlightMetadata == null)
             detail.Children.Add(Text("Analyzing authoritative replay events…", "prime-muted"));
         else if (!context.State.HighlightMetadata.IsAvailable)
@@ -173,41 +195,69 @@ internal static class TheatrePresentation
             detail.Children.Add(Button("Play Highlight Reel", () => context.Run(
                 "Play highlight reel", context.PlayHighlightReel)));
         }
-        if (context.SupportsExport)
+        detail.Children.Add(new Expander
         {
-            detail.Children.Add(Button("Export Replay", () => context.Run("Export replay",
-                () => context.ExportWithPicker(captured))));
-        }
-        if (context.SupportsReveal && context.Reveal is { } reveal)
-        {
-            detail.Children.Add(Button("Reveal in Folder", () => context.Run(
-                "Reveal replay", () => reveal(captured)), quiet: true));
-        }
-
-        if (context.SupportsRename)
-        {
-            TextBox rename = Input("Rename replay");
-            detail.Children.Add(rename);
-            detail.Children.Add(Button("Rename", () => context.Run("Rename replay",
-                () => context.Rename(captured, rename.Text ?? ""))));
-        }
-
-        if (context.PendingDeleteId == selected.Id)
-        {
-            detail.Children.Add(Text("Delete this local replay?", "prime-muted"));
-            detail.Children.Add(Button("Confirm Delete", () => context.Run("Delete replay",
-                () => context.Delete(captured)), primary: true));
-            detail.Children.Add(Button("Cancel", context.CancelDelete, quiet: true));
-        }
-        else detail.Children.Add(Button("Delete", () => context.RequestDelete(captured)));
+            Header = "Manage replay",
+            Content = BuildManagementActions(context, captured),
+            IsExpanded = false
+        });
         return detail;
     }
 
+    private static Control BuildManagementActions(TheatrePresentationContext context,
+        PrimeReplayEntry replay)
+    {
+        var management = Stack(Text(
+            "Secondary actions affect the local replay file.", "prime-muted"));
+        var actions = new WrapPanel { Orientation = Orientation.Horizontal };
+        if (context.SupportsExport)
+        {
+            actions.Children.Add(Button("Export Replay", () => context.Run("Export replay",
+                () => context.ExportWithPicker(replay)), quiet: true));
+        }
+        if (context.SupportsReveal && context.Reveal is { } reveal)
+        {
+            actions.Children.Add(Button("Show File", () => context.Run(
+                "Show replay file", () => reveal(replay)), quiet: true));
+        }
+        if (actions.Children.Count > 0) management.Children.Add(actions);
+
+        if (context.SupportsRename)
+        {
+            TextBox rename = Input("New replay name");
+            management.Children.Add(Stack(Text("Rename", "prime-label"), rename,
+                Button("Rename", () => context.Run("Rename replay",
+                    () => context.Rename(replay, rename.Text ?? "")), quiet: true)));
+        }
+
+        var deleteActions = new WrapPanel { Orientation = Orientation.Horizontal };
+        if (context.PendingDeleteId == replay.Id)
+        {
+            management.Children.Add(Text("Delete this local replay?", "prime-muted"));
+            deleteActions.Children.Add(Button("Confirm Delete", () => context.Run(
+                "Delete replay", () => context.Delete(replay))));
+            deleteActions.Children.Add(Button("Cancel", context.CancelDelete, quiet: true));
+        }
+        else
+        {
+            deleteActions.Children.Add(Button("Delete",
+                () => context.RequestDelete(replay), quiet: true));
+        }
+        management.Children.Add(deleteActions);
+        return management;
+    }
+
     private static Control BuildTechnicalDetails(PrimeReplayEntry replay)
-        => Stack(Text($"Replay path: {replay.Path}", "prime-muted"),
+        => Stack(Text($"File name: {replay.FileName}", "prime-muted"),
+            Text($"Replay path: {replay.Path}", "prime-muted"),
             Text($"Room key: {replay.Room}", "prime-muted"),
             Text($"Recorded value: {replay.Recorded:O}", "prime-muted"),
             Text($"Byte count: {replay.Bytes}", "prime-muted"));
+
+    private static string ReplayTitle(PrimeReplayEntry replay)
+        => String.IsNullOrWhiteSpace(replay.Room)
+            ? "Replay"
+            : PrimeGameText.MapName(replay.Room);
 
     private static Grid ResponsiveSplit(Control left, Control right)
     {
@@ -273,7 +323,7 @@ internal static class TheatrePresentation
         {
             _roomKey = roomKey;
             _load = load;
-            Height = 120;
+            Height = 220;
             HorizontalAlignment = HorizontalAlignment.Stretch;
             Content = Text("Loading map preview…", "prime-muted");
             AttachedToVisualTree += (_, _) => StartLoad();

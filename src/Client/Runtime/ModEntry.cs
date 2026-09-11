@@ -83,6 +83,7 @@ namespace MphRead.Mods
             // on for a single run without the setting, for the case where the
             // launcher itself is what will not start.
             Launcher.LauncherPrefs.Load();
+            Accounts.AccountSessions.ConfigurePlatformStore();
             // Pictures of the launcher's own screens are intentionally handled
             // after the input and launcher preferences are initialized but
             // before Program.CheckSetup. A fresh checkout has no paths.txt,

@@ -160,7 +160,8 @@ namespace MphRead.Mods.Launcher
         {
             try
             {
-                if (!ReplayPlayback.Join(plan.ReplayPath))
+                if (!ReplayPlayback.ConsumePrepared(plan.ReplayPath)
+                    && !ReplayPlayback.Join(plan.ReplayPath))
                 {
                     throw new InvalidOperationException("Could not open or read the replay file.");
                 }

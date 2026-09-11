@@ -1,273 +1,293 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Threading;
 using ProjectPrime.Server.Shared;
 using MphRead.Mods.Accounts;
-using MphRead.Mods.MapGen;
-using MphRead.Mods.Network;
-using MphRead.Mods.Update;
 
 namespace MphRead.Mods.Launcher.Gui;
 
-/// <summary>Node connection and lobby remain alive when this view closes for gameplay.</summary>
+/// <summary>
+/// Compatibility presentation for the classic launcher. Discovery, Node
+/// admission, lobby commands, reconnect, map preparation, and Worker handoff
+/// all belong to <see cref="PlayController"/> and its
+/// <see cref="MphRead.Mods.Network.ClientOnlineRuntime"/>. This view only
+/// renders the immutable controller snapshot and forwards user actions.
+/// </summary>
 internal sealed class NodeBrowserView : UserControl
 {
+    private readonly PlayController _play;
+    private readonly bool _createLobby;
     private readonly StackPanel _rows = new() { Spacing = 8 };
     private readonly TextBlock _status = new() { TextWrapping = Avalonia.Media.TextWrapping.Wrap };
-    private readonly string[] _maps;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly TextBox _name = new() { Text = LauncherPrefs.PlayerName, Watermark = "Lobby name" };
-    private readonly AccountSession? _account = ResolveAccountSession();
-    private readonly bool _createLobby;
-    private NodeControlClient? _observed;
     private bool _busy;
-    private Guid _joiningMatch;
-    private ulong _joiningNonce;
-    private string? _joinError;
     private bool _createRequested;
-    private string[]? _hostedMapKeys;
+    private int _disposed;
+
     public event EventHandler<LaunchPlan>? Launch;
     public event EventHandler? Closed;
 
-    private static AccountSession? ResolveAccountSession()
+    public NodeBrowserView(PlayController play, bool createLobby = false)
     {
-        if (AccountSessions.Current is { } current)
-            return current;
-
-        string address = LauncherPrefs.BackendAddress?.Trim() ?? "";
-        if (!Uri.TryCreate(address, UriKind.Absolute, out Uri? backend)
-            || !AccountSession.IsAllowedBackend(backend))
-            return null;
-
-        // Configure a signed-out session from the saved Backend origin. Guest
-        // admission is anonymous, but Node discovery still has to use the
-        // Backend directory.
-        return AccountSessions.Configure(backend);
-    }
-    public NodeBrowserView(System.Collections.Generic.IReadOnlyList<string> maps, bool createLobby = false)
-    {
-        _maps = maps.ToArray();
+        _play = play ?? throw new ArgumentNullException(nameof(play));
         _createLobby = createLobby;
         var root = new StackPanel { Spacing = 12, Margin = new Thickness(20) };
-        root.Children.Add(new TextBlock { Text = "Server Nodes", FontSize = 24 });
+        root.Children.Add(new TextBlock { Text = "Game Servers", FontSize = 24 });
         root.Children.Add(_status);
-        root.Children.Add(Button("Refresh Nodes", Refresh));
-        root.Children.Add(Button("Back", () => { Closed?.Invoke(this, EventArgs.Empty); return Task.CompletedTask; }));
+        root.Children.Add(Button("Refresh Servers", Refresh));
+        root.Children.Add(Button("Back", () =>
+        {
+            Closed?.Invoke(this, EventArgs.Empty);
+            return Task.CompletedTask;
+        }));
         root.Children.Add(_rows);
         Content = new ScrollViewer { Content = root };
-        DetachedFromVisualTree += (_, _) => { _lifetime.Cancel(); Observe(null); };
-        if (_account != null && NodeSessions.Current is { Connected: true } current) { Observe(current); RenderSession(); }
-        else _ = Run(Refresh);
+
+        _play.Changed += ControllerChanged;
+        _play.Launch += ControllerLaunch;
+        _play.SetHandoffEnabled(true);
+        DetachedFromVisualTree += Detached;
+        Render();
+        if (_play.State.Node?.Session == null)
+            _ = Run(Refresh);
     }
+
     private Avalonia.Controls.Button Button(string label, Func<Task> action)
     {
-        var button = new Avalonia.Controls.Button { Content = label, HorizontalAlignment = HorizontalAlignment.Stretch };
+        var button = new Avalonia.Controls.Button
+        {
+            Content = label,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
         button.Click += async (_, _) => await Run(action);
         return button;
     }
+
     private async Task Run(Func<Task> action)
     {
-        if (_busy) return;
+        if (_busy || Volatile.Read(ref _disposed) != 0) return;
         _busy = true;
-        try { await action(); }
-        catch (Exception e) { _status.Text = e.Message; }
+        try { await action().ConfigureAwait(true); }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception error)
+        {
+            _status.Text = PrimeRoutePresentation.PlayerFacingNetworkError(error.Message,
+                "Could not complete the server request. Try again.");
+        }
         finally { _busy = false; }
     }
+
     private async Task Refresh()
     {
-        if (_account == null)
+        if (_play.State.Node?.Session != null)
         {
-            _status.Text = "Set the Backend URL in Hunter License, then choose Guest access.";
+            await _play.RefreshLobbiesAsync(_lifetime.Token).ConfigureAwait(true);
             return;
         }
-        if (NodeSessions.Current is { Connected: true } current) { Observe(current); await current.SendAsync("lobby.list", new LobbyList()); return; }
-        _hostedMapKeys = null;
-        _status.Text = _account.IsSignedIn
-            ? "Checking compatible Nodes…"
-            : "Guest access: checking compatible Nodes…";
-        // Node discovery compares immutable base/gameplay content. A selected
-        // custom map is resolved and compiled during lobby admission instead of
-        // making unrelated installed maps part of directory compatibility.
-        var identity = await Task.Run(ContentEnvironment.GetContentIdentity);
-        var nodes = await _account.GetNodesAsync(NetHeader.Version, BuildVersion.Display, identity.ContentHash, _lifetime.Token);
+        _createRequested = false;
+        await _play.RefreshNodesAsync(_lifetime.Token).ConfigureAwait(true);
+    }
+
+    private void ControllerChanged(object? sender, EventArgs args)
+        => Dispatcher.UIThread.Post(Render);
+
+    private void ControllerLaunch(object? sender, LaunchPlan plan)
+        => Launch?.Invoke(this, plan);
+
+    private void Detached(object? sender, VisualTreeAttachmentEventArgs args)
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        _lifetime.Cancel();
+        _play.SetHandoffEnabled(false);
+        _play.Changed -= ControllerChanged;
+        _play.Launch -= ControllerLaunch;
+    }
+
+    private void Render()
+    {
+        if (Volatile.Read(ref _disposed) != 0) return;
+        PlayState state = _play.State;
         _rows.Children.Clear();
-        foreach (var node in nodes)
-            _rows.Children.Add(Button($"{node.Name} · {node.Region} · {node.OnlineUsers}/{node.Capacity} · {node.TrustClass}", async () =>
-            {
-                var session = await NodeSessions.ConnectAsync(_account, node, _lifetime.Token);
-                Observe(session); await session.SendAsync("lobby.list", new LobbyList()); RenderSession();
-            }));
-        _status.Text = nodes.Length == 0
-            ? (_account.IsSignedIn ? "No compatible Nodes are online." : "Guest access: no compatible Nodes are online.")
-            : (_account.IsSignedIn ? "Choose a Node." : "Guest access: choose a Node.");
-    }
-    private void Observe(NodeControlClient? session)
-    {
-        if (_observed != null) _observed.Changed -= OnChanged;
-        _observed = session;
-        _hostedMapKeys = session?.AdvertisedMapKeys;
-        if (session != null) session.Changed += OnChanged;
-    }
-    private void OnChanged() => Dispatcher.UIThread.Post(RenderSession);
-    private async Task JoinWorker(NodeControlClient node, NodeMatchHandoff handoff)
-    {
-        try
+        _status.Text = state.Message;
+
+        if (state.Node?.Session is not { } session)
         {
-            _joinError = null;
-            _status.Text = "Joining Worker match…";
-            if (!await NetLaunch.JoinWorkerAsync(handoff, node.Session!.DisplayName, _lifetime.Token))
-                throw new InvalidOperationException(NetLaunch.LastJoinError);
-            node.MarkGameplayJoined(handoff.MatchId);
-            Launch?.Invoke(this, new LaunchPlan { Kind = LaunchKind.Online, Hunter = handoff.Hunter,
-                PlayerName = node.Session.DisplayName, RoomKey = "", Mode = GameMode.Battle, Port = handoff.Port });
-        }
-        catch (Exception e) { _joinError = e.Message; RenderSession(); }
-    }
-    private void RenderSession()
-    {
-        var node = _observed;
-        if (node == null) return;
-        var state = node.State;
-        if (state.Handoff is { } handoff && !state.MatchEnded && (handoff.MatchId != _joiningMatch || handoff.Nonce != _joiningNonce) && state.JoinedMatchId != handoff.MatchId)
-        {
-            _joiningMatch = handoff.MatchId; _joiningNonce = handoff.Nonce;
-            _ = JoinWorker(node, handoff);
-        }
-        _rows.Children.Clear();
-        bool guest = state.Session?.GuestSessionId is not null;
-        _status.Text = _joinError ?? state.Error ?? (node.Connected
-            ? (guest ? "Connected to Node with Guest access (not an authenticated account)." : "Connected to Node")
-            : "Node disconnected. Reconnect to continue.");
-        _rows.Children.Add(Button("Disconnect Node", async () => { Observe(null); _hostedMapKeys = null; await NodeSessions.DisconnectAsync(); await Refresh(); }));
-        if (!node.Connected)
-        {
-            _rows.Children.Add(Button("Resume Node session", async () => { Observe(await NodeSessions.ResumeAsync(_lifetime.Token)); RenderSession(); }));
+            RenderDirectory(state);
             return;
         }
-        if (_joinError != null && state.Handoff is { } retry && !state.MatchEnded)
-            _rows.Children.Add(Button("Retry Worker connection", () => node.SendAsync("match.rejoin", new NodeMatchRejoin(retry.MatchId))));
-        if (state.Session is { } session)
+
+        _status.Text = state.Node.Error is { Length: > 0 } error
+            ? PrimeRoutePresentation.PlayerFacingNetworkError(error,
+                "Connection issue. Reconnect and try again.")
+            : state.Message;
+        _rows.Children.Add(new TextBlock
+        {
+            Text = session.GuestSessionId is not null
+                ? $"Guest session · {session.DisplayName}"
+                : $"Account session · {session.DisplayName}"
+        });
+        _rows.Children.Add(Button("Disconnect Server", async () =>
+        {
+            _createRequested = false;
+            await _play.DisconnectAsync().ConfigureAwait(true);
+        }));
+
+        if (state.Lobby is { } lobby)
+            RenderLobby(state, lobby, session);
+        else
+            RenderLobbies(state);
+    }
+
+    private void RenderDirectory(PlayState state)
+    {
+        _rows.Children.Add(new TextBlock
+        {
+            Text = state.Nodes.Count == 0
+                ? "No compatible servers are online."
+                : "Choose a server."
+        });
+        foreach (NodeListing node in state.Nodes)
+        {
+            NodeListing selected = node;
+            _rows.Children.Add(Button(
+                $"{node.Name} · {node.Region} · {node.OnlineUsers}/{node.Capacity} · {node.TrustClass}",
+                async () =>
+                {
+                    if (!await _play.ConnectNodeAsync(selected, _lifetime.Token).ConfigureAwait(true))
+                        return;
+                    await _play.RefreshLobbiesAsync(_lifetime.Token).ConfigureAwait(true);
+                }));
+        }
+    }
+
+    private void RenderLobbies(PlayState state)
+    {
+        if (_createLobby && !_createRequested && state.Lobbies != null)
+        {
+            _createRequested = true;
+            _ = Run(() => _play.CreateLobbyAsync(LobbyName(), _lifetime.Token));
+        }
+
+        _rows.Children.Add(_name);
+        _rows.Children.Add(Button("Create public lobby",
+            () => _play.CreateLobbyAsync(LobbyName(), _lifetime.Token)));
+        foreach (LobbyListEntry entry in state.Lobbies?.Lobbies ?? [])
+        {
+            int humanPlayerLimit = Math.Max(0, entry.PlayerLimit - entry.BotCount);
+            LobbyListEntry selected = entry;
+            _rows.Children.Add(Button(
+                $"{entry.Name} · Players {entry.Players}/{humanPlayerLimit} · Waitlist {entry.WaitlistCount}",
+                () => _play.JoinLobbyAsync(selected.LobbyId, selected.Revision,
+                    cancellationToken: _lifetime.Token)));
+            if (entry.Observers < entry.ObserverLimit)
+                _rows.Children.Add(Button(
+                    $"Spectate {entry.Name} · {entry.Observers}/{entry.ObserverLimit}",
+                    () => _play.JoinObserverAsync(selected.LobbyId, selected.Revision,
+                        _lifetime.Token)));
+            if (entry.Players >= humanPlayerLimit)
+                _rows.Children.Add(Button($"Waitlist for {entry.Name}",
+                    () => _play.JoinWaitlistAsync(selected.LobbyId, selected.Revision,
+                        cancellationToken: _lifetime.Token)));
+        }
+    }
+
+    private void RenderLobby(PlayState state, LobbySnapshot lobby, NodeSessionSnapshot session)
+    {
+        _rows.Children.Add(new TextBlock { Text = $"{lobby.Name} · {lobby.Phase}" });
+        int players = lobby.Members.Count(member => !member.Observer);
+        int observers = lobby.Members.Count(member => member.Observer);
+        int humanPlayerLimit = Math.Max(0, lobby.PlayerLimit - lobby.BotCount);
+        _rows.Children.Add(new TextBlock
+        {
+            Text = $"Players {players}/{humanPlayerLimit} · Spectators {observers}/{lobby.ObserverLimit} · Waitlist {lobby.Waitlist?.Count ?? 0}"
+        });
+        foreach (LobbyMember member in lobby.Members)
+        {
+            string identity = member.GuestSessionId is not null
+                ? $"Guest · {member.DisplayName}"
+                : $"Account · {member.DisplayName}";
             _rows.Children.Add(new TextBlock
             {
-                Text = session.GuestSessionId is not null
-                    ? $"Guest session · {session.DisplayName}"
-                    : $"Account session · {session.DisplayName}"
+                Text = $"{identity} · {member.Hunter} · {(member.Ready ? "Ready" : "Not ready")}"
             });
-        if (state.Lobby is { } lobby)
-        {
-            _rows.Children.Add(new TextBlock { Text = $"{lobby.Name} · {lobby.Phase}" });
-            LobbyWaitlistSnapshot? waitlist = lobby.Waitlist;
-            int players = lobby.Members.Count(member => !member.Observer);
-            int observers = lobby.Members.Count(member => member.Observer);
-            int humanPlayerLimit = Math.Max(0, lobby.PlayerLimit - lobby.BotCount);
-            _rows.Children.Add(new TextBlock { Text = $"Players {players}/{humanPlayerLimit} · Spectators {observers}/{lobby.ObserverLimit} · Waitlist {waitlist?.Count ?? 0}" });
-            foreach (var member in lobby.Members)
-            {
-                string identity = member.GuestSessionId is not null
-                    ? $"Guest · {member.DisplayName}"
-                    : $"Account · {member.DisplayName}";
-                _rows.Children.Add(new TextBlock { Text = $"{identity} · {member.Hunter} · {(member.Ready ? "Ready" : "Not ready")}" });
-            }
-            if (waitlist is { Entries.Length: > 0 })
-            {
-                _rows.Children.Add(new TextBlock { Text = "Ordered waitlist" });
-                foreach (var entry in waitlist.Entries)
-                    _rows.Children.Add(new TextBlock { Text = $"#{entry.Position} {entry.DisplayName} · {entry.State}" });
-            }
-            var self = lobby.Members.FirstOrDefault(x => x.SessionId == state.Session?.SessionId);
-            if (self is not null)
-                _rows.Children.Add(Button(self.Ready ? "Not ready" : "Ready", () => node.SendAsync("lobby.ready.set", new LobbySetReady(!self.Ready, lobby.Revision))));
-            if (waitlist?.IsSelfQueued == true)
-            {
-                if (waitlist.SelfOffer is { } offer)
-                {
-                    _rows.Children.Add(new TextBlock { Text = $"PLAYER SLOT AVAILABLE · expires {offer.ExpiresAt.LocalDateTime:t}" });
-                    _rows.Children.Add(Button("Accept player slot", () => node.SendAsync("lobby.queue.accept",
-                        new LobbyQueueAccept(lobby.LobbyId, lobby.Revision, offer.OfferId))));
-                    _rows.Children.Add(Button("Decline slot", () => node.SendAsync("lobby.queue.decline",
-                        new LobbyQueueDecline(lobby.LobbyId, lobby.Revision, offer.OfferId))));
-                }
-                _rows.Children.Add(Button("Cancel waitlist", () => node.SendAsync("lobby.queue.leave",
-                    new LobbyQueueLeave(lobby.LobbyId, lobby.Revision))));
-            }
-            else if (self is { Observer: true })
-            {
-                _rows.Children.Add(Button("Join player waitlist", () => node.SendAsync("lobby.queue.join",
-                    new LobbyQueueJoin(lobby.LobbyId, lobby.Revision))));
-            }
-            if (lobby.OwnerSessionId == state.Session?.SessionId)
-            {
-                if (lobby.Phase == LobbyPhase.Open && HostedMaps() is { Count: > 0 } maps)
-                {
-                    var map = new ComboBox { ItemsSource = maps, SelectedItem = maps.Contains(lobby.MapKey, StringComparer.Ordinal) ? lobby.MapKey : maps[0] };
-                    var mode = new ComboBox { ItemsSource = Enum.GetValues<MatchMode>(), SelectedItem = lobby.Mode };
-                    _rows.Children.Add(new TextBlock { Text = "Map and mode" });
-                    _rows.Children.Add(map); _rows.Children.Add(mode);
-                    _rows.Children.Add(Button("Apply match settings", () => node.SendAsync("lobby.configure", new LobbyConfigure(lobby.Revision,
-                        map.SelectedItem as string ?? "", mode.SelectedItem is MatchMode selected ? selected : MatchMode.Battle))));
-                    _rows.Children.Add(Button("Start match", () => node.SendAsync("lobby.start", new LobbyStart(lobby.Revision))));
-                }
-                else if (lobby.Phase == LobbyPhase.Open)
-                    _rows.Children.Add(new TextBlock { Text = MapCatalogMessage() });
-                if (lobby.Phase == LobbyPhase.PostMatch)
-                {
-                    _rows.Children.Add(Button("Rematch", () => node.SendAsync("lobby.rematch", new LobbyRematch(lobby.Revision))));
-                    _rows.Children.Add(Button("Return to open lobby", () => node.SendAsync("lobby.return", new LobbyReturn(lobby.Revision))));
-                }
-            }
-            _rows.Children.Add(Button("Leave lobby", () => node.SendAsync("lobby.leave", new LobbyLeave(lobby.Revision))));
         }
-        else
+
+        LobbyWaitlistSnapshot? waitlist = lobby.Waitlist;
+        if (waitlist is { Entries.Length: > 0 })
         {
-            _rows.Children.Add(_name);
-            if (_createLobby && !_createRequested && state.Lobbies != null)
+            _rows.Children.Add(new TextBlock { Text = "Ordered waitlist" });
+            foreach (LobbyQueueEntrySummary entry in waitlist.Entries)
+                _rows.Children.Add(new TextBlock { Text = $"#{entry.Position} {entry.DisplayName} · {entry.State}" });
+        }
+
+        LobbyMember? self = lobby.Members.FirstOrDefault(x => x.SessionId == session.SessionId);
+        if (self is not null)
+            _rows.Children.Add(Button(self.Ready ? "Not ready" : "Ready",
+                () => _play.SetReadyAsync(!self.Ready, _lifetime.Token)));
+        if (waitlist?.IsSelfQueued == true)
+        {
+            if (waitlist.SelfOffer is { } offer)
             {
-                _createRequested = true;
-                _ = node.SendAsync("lobby.create", new LobbyCreate(LobbyName(), LobbyVisibility.Public));
+                _rows.Children.Add(new TextBlock { Text = $"PLAYER SLOT AVAILABLE · expires {offer.ExpiresAt.LocalDateTime:t}" });
+                _rows.Children.Add(Button("Accept player slot", () => _play.AcceptWaitlistAsync(
+                    lobby.LobbyId, lobby.Revision, offer.OfferId, _lifetime.Token)));
+                _rows.Children.Add(Button("Decline slot", () => _play.DeclineWaitlistAsync(
+                    lobby.LobbyId, lobby.Revision, offer.OfferId, _lifetime.Token)));
             }
-            _rows.Children.Add(Button("Create public lobby", () =>
-                node.SendAsync("lobby.create", new LobbyCreate(LobbyName(), LobbyVisibility.Public))));
-            foreach (var lobbyEntry in state.Lobbies?.Lobbies ?? [])
+            _rows.Children.Add(Button("Cancel waitlist", () => _play.LeaveWaitlistAsync(
+                lobby.LobbyId, lobby.Revision, _lifetime.Token)));
+        }
+        else if (self is { Observer: true })
+        {
+            _rows.Children.Add(Button("Join player waitlist", () => _play.JoinWaitlistAsync(
+                lobby.LobbyId, lobby.Revision, cancellationToken: _lifetime.Token)));
+        }
+
+        if (lobby.OwnerSessionId == session.SessionId)
+        {
+            if (lobby.Phase == LobbyPhase.Open && _play.AvailableMaps is { Count: > 0 } maps)
             {
-                int humanPlayerLimit = Math.Max(0, lobbyEntry.PlayerLimit - lobbyEntry.BotCount);
-                _rows.Children.Add(Button($"{lobbyEntry.Name} · Players {lobbyEntry.Players}/{humanPlayerLimit} · Waitlist {lobbyEntry.WaitlistCount}",
-                    () => node.SendAsync("lobby.join", new LobbyJoin(lobbyEntry.LobbyId, lobbyEntry.Revision))));
-                if (lobbyEntry.Observers < lobbyEntry.ObserverLimit)
-                    _rows.Children.Add(Button($"Spectate {lobbyEntry.Name} · {lobbyEntry.Observers}/{lobbyEntry.ObserverLimit}",
-                        () => node.SendAsync("lobby.join", new LobbyJoin(lobbyEntry.LobbyId, lobbyEntry.Revision, true))));
-                if (lobbyEntry.Players >= humanPlayerLimit)
-                    _rows.Children.Add(Button($"Waitlist for {lobbyEntry.Name}", () => node.SendAsync("lobby.queue.join",
-                        new LobbyQueueJoin(lobbyEntry.LobbyId, lobbyEntry.Revision))));
+                var map = new ComboBox
+                {
+                    ItemsSource = maps,
+                    SelectedItem = maps.Contains(lobby.MapKey, StringComparer.Ordinal)
+                        ? lobby.MapKey : maps[0]
+                };
+                var mode = new ComboBox { ItemsSource = Enum.GetValues<MatchMode>(), SelectedItem = lobby.Mode };
+                _rows.Children.Add(new TextBlock { Text = "Map and mode" });
+                _rows.Children.Add(map);
+                _rows.Children.Add(mode);
+                _rows.Children.Add(Button("Apply match settings", () => _play.ConfigureLobbyAsync(
+                    map.SelectedItem as string ?? "", mode.SelectedItem is MatchMode selected
+                        ? selected : MatchMode.Battle, lobby.BotCount, (LobbyRulesOptions?)null,
+                    _lifetime.Token)));
+                _rows.Children.Add(Button("Start match", () => _play.StartMatchAsync(_lifetime.Token)));
+            }
+            else if (lobby.Phase == LobbyPhase.Open)
+                _rows.Children.Add(new TextBlock { Text = _play.MapCatalogMessage });
+            if (lobby.Phase == LobbyPhase.PostMatch)
+            {
+                _rows.Children.Add(Button("Rematch", () => _play.RematchAsync(_lifetime.Token)));
+                _rows.Children.Add(Button("Return to open lobby", () => _play.ReturnToLobbyAsync(_lifetime.Token)));
             }
         }
+
+        _rows.Children.Add(Button("Leave lobby", () => _play.LeaveLobbyAsync(_lifetime.Token)));
+        if (state.Node is { Handoff: not null, MatchEnded: false })
+            _rows.Children.Add(Button("Retry Match Connection", async () =>
+                await _play.RetryHandoffAsync(_lifetime.Token).ConfigureAwait(true)));
     }
 
     private string LobbyName()
     {
         string name = (_name.Text ?? "").Trim();
         return name.Length > 0 ? name : "Hunters";
-    }
-
-    private IReadOnlyList<string> HostedMaps()
-    {
-        if (_hostedMapKeys is null || _hostedMapKeys.Length == 0) return Array.Empty<string>();
-        var hosted = _hostedMapKeys.ToHashSet(StringComparer.Ordinal);
-        return _maps.Where(hosted.Contains).Distinct(StringComparer.Ordinal)
-            .OrderBy(map => map, StringComparer.Ordinal).ToArray();
-    }
-
-    private string MapCatalogMessage()
-    {
-        if (_hostedMapKeys is null)
-            return "This Node did not advertise its hosted map catalog; map selection is unavailable.";
-        if (_hostedMapKeys.Length == 0)
-            return "This Node advertises no hosted maps.";
-        return "This Node's hosted maps are not installed locally.";
     }
 }

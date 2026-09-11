@@ -205,7 +205,8 @@ public sealed class HunterLicenseController : IDisposable
                 ?? _shell.DisplayName, (int)hunter, cancellationToken).ConfigureAwait(false);
             Invalidate(queries.BackendScope, queries.PlayerId);
             await LoadOverviewAsync(cancellationToken).ConfigureAwait(false);
-            _shell.Notify(PrimeNotificationKind.Success, "Favorite Hunter updated.");
+            _shell.NotifyTransient("hunter-favorite", PrimeNotificationKind.Success,
+                "Favorite Hunter updated.");
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
@@ -227,7 +228,8 @@ public sealed class HunterLicenseController : IDisposable
             Invalidate(queries.BackendScope, queries.PlayerId);
             await LoadOverviewAsync(cancellationToken).ConfigureAwait(false);
             _shell.SetDisplayName(_state.License?.DisplayName ?? value);
-            _shell.Notify(PrimeNotificationKind.Success, "Display name updated.");
+            _shell.NotifyTransient("hunter-display-name", PrimeNotificationKind.Success,
+                "Display name updated.");
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
