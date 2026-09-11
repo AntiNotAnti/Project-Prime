@@ -5,6 +5,9 @@
     second implementation of the runtime bridge.
   -->
   <ItemGroup>
+    <PrimeSharedRuntimeCompile Include="$(MSBuildThisFileDirectory)Launcher/Shell/ClientSessionCoordinator.cs">
+      <Link>Client/Launcher/Shell/ClientSessionCoordinator.cs</Link>
+    </PrimeSharedRuntimeCompile>
     <PrimeSharedRuntimeCompile Include="$(MSBuildThisFileDirectory)Networking/ClientOnlineRuntime.cs">
       <Link>Client/Networking/ClientOnlineRuntime.cs</Link>
     </PrimeSharedRuntimeCompile>

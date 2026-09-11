@@ -1425,7 +1425,9 @@ namespace MphRead
             // Native polling/sampling is render-rate. Fixed-step input owns
             // hysteresis, boost timing and button edges; these calls only
             // refresh the latest raw state/velocity for prediction.
+#if !ANDROID
             Mods.Input.GamepadDesktop.Poll();
+#endif
             if (CanCaptureSimulationLook)
             {
                 Mods.Input.GamepadInput.SampleNativeFrame();

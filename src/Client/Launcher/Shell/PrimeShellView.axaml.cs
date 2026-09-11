@@ -527,8 +527,10 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
 
         // Seed both title and normal navigation state so the continue press
         // cannot leak into the route beneath the fading layer.
+#if !ANDROID
         if (!_captureMode)
             GamepadDesktop.PollForMenu();
+#endif
         _titleInput.SeedController(_captureMode ? default : GamepadInput.State);
         _previousPadButtons = _captureMode
             ? GamepadButtons.None : GamepadInput.EffectiveButtons;
@@ -569,8 +571,10 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             && _shell.HasNetworkIdentity);
         // Desktop polling owns the freshest physical state. Sample only after
         // it runs, then seed held buttons so activation/reconnect is edge-free.
+#if !ANDROID
         if (!_captureMode)
             GamepadDesktop.PollForMenu();
+#endif
         GamepadState titlePadState = _captureMode ? default : GamepadInput.State;
         _titleInput.SeedController(titlePadState);
         _previousPadButtons = _captureMode
@@ -2765,7 +2769,9 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private void PollInput()
     {
         if (!_active || _disposed) return;
+#if !ANDROID
         GamepadDesktop.PollForMenu();
+#endif
         if (IsTitleBlocking)
         {
             HandleTitleControllerState(GamepadInput.State);

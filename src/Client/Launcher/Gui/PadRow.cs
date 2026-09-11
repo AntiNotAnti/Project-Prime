@@ -97,7 +97,9 @@ namespace MphRead.Mods.Launcher.Gui
         private void Listen()
         {
             _listening = true;
+#if !ANDROID
             GamepadDesktop.PollForMenu();
+#endif
             _baseline = GamepadInput.EffectiveButtons;
             _watch?.Stop();
             _watch = new DispatcherTimer(TimeSpan.FromMilliseconds(30),
@@ -121,8 +123,10 @@ namespace MphRead.Mods.Launcher.Gui
             }
             // Android fills the state from events and needs nothing here; the
             // desktop's pad is polled, and with no game window running there
-            // is nothing else pumping GLFW. Both cases are inside this call.
+            // is nothing else pumping GLFW.
+#if !ANDROID
             GamepadDesktop.PollForMenu();
+#endif
             GamepadButtons current = GamepadInput.EffectiveButtons;
             GamepadButtons pressed = current & ~_baseline;
             // Whatever is no longer held stops shielding: a player who was

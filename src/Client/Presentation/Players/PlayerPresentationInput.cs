@@ -39,8 +39,12 @@ namespace MphRead.Entities
         {
             KeyboardState keyboardSnap = keyboardState.GetSnapshot();
             MouseState mouseSnap = mouseState.GetSnapshot();
+#if ANDROID
+            Mods.Input.StylusState desktopStylus = Mods.Input.StylusState.Empty;
+#else
             Mods.Input.StylusState desktopStylus
                 = Mods.Input.DesktopStylusInput.ConsumeState();
+#endif
             if (noPlayerInput || Mods.SpectatorMode.IsSpectating
                 || scene.LocalPlayer == null)
             {

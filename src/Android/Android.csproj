@@ -80,6 +80,7 @@
     <Compile Include="../Client/Launcher/Gui/IControllerNavigable.cs" Link="Client/Launcher/Gui/IControllerNavigable.cs" />
     <Compile Include="../Client/Accounts/AccountSession.Nodes.cs" Link="Client/Accounts/AccountSession.Nodes.cs" />
     <Compile Include="../Client/Networking/Nodes/NodeControlClient.cs" Link="Client/Networking/Nodes/NodeControlClient.cs" />
+    <Compile Include="../Client/Networking/Nodes/NodeLatencyProbe.cs" Link="Client/Networking/Nodes/NodeLatencyProbe.cs" />
     <Compile Include="../Client/Launcher/Gui/NodeBrowserView.cs" Link="Client/Launcher/Gui/NodeBrowserView.cs" />
     <Compile Include="../Client/Accounts/AccountSession.cs" Link="Client/Accounts/AccountSession.cs" />
     <Compile Include="../Client/Accounts/SecureSessionStore.cs" Link="Client/Accounts/SecureSessionStore.cs" />
