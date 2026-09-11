@@ -3,6 +3,7 @@ using MphRead.Entities;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
+using MapPreparation = MphRead.Mods.MapGen.MapPreparation;
 
 namespace MphRead.Droid
 {
@@ -21,8 +22,7 @@ namespace MphRead.Droid
                 throw new ProgramException("Join a server before starting a match.");
             }
             GameFiles.ApplyPaths();
-            // Build missing custom maps before any room is loaded.
-            AndroidMaps.EnsureBuilt();
+            AndroidMaps.RefreshCatalog();
             if (plan.Kind == LaunchKind.Replay)
             {
                 return BuildReplay(input, size, plan, close);
@@ -32,6 +32,9 @@ namespace MphRead.Droid
             {
                 throw new ProgramException("The server did not say which map it is running.");
             }
+            MapPreparation.CompileAndMountRoomAsync(room.Value.RoomKey,
+                NetHeader.Version.ToString(), System.Threading.CancellationToken.None)
+                .GetAwaiter().GetResult();
             var scene = new Scene(features: ClientMatchFeatures.Capture());
             var presentation = new ScenePresentation(scene, size, input.Keyboard, input.Mouse, _ => { }, close);
             bool teamPlay = room.Value.Mode.IsTeamMode();

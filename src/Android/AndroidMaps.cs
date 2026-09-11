@@ -64,29 +64,47 @@ namespace MphRead.Droid
                     }
                     try
                     {
-                    string target = Path.Combine(directory, name);
-                    using Stream source = assets.Open($"{AssetFolder}/{name}");
-                    using var bytes = new MemoryStream();
-                    source.CopyTo(bytes);
-                    // Written only when it would actually differ.
-                    //
-                    // The first version of this compared the file's date
-                    // against the package's install time, which is the obvious
-                    // way and quietly did nothing: whatever
-                    // PackageManager.LastUpdateTime returned here, the test
-                    // came out "already up to date" and an updated map file
-                    // stayed at the version the previous install had unpacked.
-                    // Comparing the bytes needs no Android API to be right and
-                    // cannot get stuck. The cost is that an edit to a map that
-                    // shipped is undone on the next launch -- to keep one,
-                    // copy it to a name of your own, which is a new map as far
-                    // as the game is concerned.
-                    if (File.Exists(target) && File.ReadAllBytes(target).AsSpan()
-                        .SequenceEqual(bytes.ToArray()))
-                    {
-                        continue;
-                    }
-                        File.WriteAllBytes(target, bytes.ToArray());
+                        string target = Path.Combine(directory, name);
+                        using Stream source = assets.Open($"{AssetFolder}/{name}");
+                        using var bytes = new MemoryStream();
+                        source.CopyTo(bytes);
+                        byte[] content = bytes.ToArray();
+                        // Written only when it would actually differ.
+                        //
+                        // The first version of this compared the file's date
+                        // against the package's install time, which is the obvious
+                        // way and quietly did nothing: whatever
+                        // PackageManager.LastUpdateTime returned here, the test
+                        // came out "already up to date" and an updated map file
+                        // stayed at the version the previous install had unpacked.
+                        // Comparing the bytes needs no Android API to be right and
+                        // cannot get stuck. The cost is that an edit to a map that
+                        // shipped is undone on the next launch -- to keep one,
+                        // copy it to a name of your own, which is a new map as far
+                        // as the game is concerned.
+                        if (File.Exists(target) && File.ReadAllBytes(target).AsSpan()
+                            .SequenceEqual(content))
+                        {
+                            continue;
+                        }
+                        string temporary = target + ".install-" + Guid.NewGuid().ToString("N")
+                            + (name.EndsWith(MapBundle.Extension, StringComparison.OrdinalIgnoreCase)
+                                ? MapBundle.Extension : ".tmp");
+                        try
+                        {
+                            File.WriteAllBytes(temporary, content);
+                            if (name.EndsWith(MapBundle.Extension, StringComparison.OrdinalIgnoreCase))
+                            {
+                                MapBundleValidationResult validation = new MapBundleValidator().Validate(temporary);
+                                if (!validation.IsValid)
+                                    throw new InvalidDataException("Bundled map package failed validation.");
+                            }
+                            File.Move(temporary, target, overwrite: true);
+                        }
+                        finally
+                        {
+                            if (File.Exists(temporary)) File.Delete(temporary);
+                        }
                         Console.WriteLine($"[android] unpacked {name}");
                     }
                     catch (Exception ex)
@@ -103,16 +121,10 @@ namespace MphRead.Droid
         }
 
         /// <summary>
-        /// Build the binaries for any map that has none yet.
-        ///
-        /// The desktop does this from <c>ModEntry.TryHandle</c>, which every
-        /// entry point passes through. This head has no <c>Main</c> at all --
-        /// the entry point is an activity -- so nothing there ever runs, and a
-        /// map would be listed by the launcher and then fail to load. It needs
-        /// the extracted game files, since that is where a map's borrowed
-        /// textures come from and where its own binaries go.
+        /// Refresh the immutable catalog after APK maps have been installed.
+        /// Compilation is deliberately deferred until a map is selected.
         /// </summary>
-        public static void EnsureBuilt()
+        public static void RefreshCatalog()
         {
             try
             {
@@ -121,11 +133,11 @@ namespace MphRead.Droid
                     return;
                 }
                 GameFiles.ApplyPaths();
-                MapPreparation.GenerateMissing();
+                CustomRooms.RefreshAsync().AsTask().GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[android] could not build the custom maps: {ex.Message}");
+                Console.WriteLine($"[android] could not refresh the map catalog: {ex.Message}");
             }
         }
     }

@@ -742,6 +742,7 @@ namespace MphRead.Droid
                     finally
                     {
                         Scene = null;
+                        ContentEnvironment.UnmountMap();
                     }
                     _ended = true;
                     _onError(ex.Message);
@@ -867,6 +868,7 @@ namespace MphRead.Droid
                 finally
                 {
                     Scene = null;
+                    ContentEnvironment.UnmountMap();
                 }
                 _onEnd();
             }

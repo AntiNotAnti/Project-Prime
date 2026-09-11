@@ -280,14 +280,6 @@ if ! DESCRIPTOR_TMP=$(mktemp "$STATE_DIR/.content-description.XXXXXX"); then
     echo "Unable to create the Worker content descriptor in $STATE_DIR." >&2
     exit 1
 fi
-if [[ "$CONTENT_IS_BAKED" == 0 ]]; then
-    if ! "$WORKER_PATH" --prepare-content true --content-dir "$CONTENT_DIR" \
-        --content-version "$CONTENT_VERSION" --map-dir "$MAP_DIR"; then
-        rm -f "$DESCRIPTOR_TMP"
-        echo "Worker content preparation failed; no Node configuration was generated." >&2
-        exit 1
-    fi
-fi
 if ! "$WORKER_PATH" --describe-content true --content-dir "$CONTENT_DIR" \
     --content-version "$CONTENT_VERSION" --map-dir "$MAP_DIR" > "$DESCRIPTOR_TMP"; then
     rm -f "$DESCRIPTOR_TMP"
@@ -366,7 +358,23 @@ try:
             pair_count += 1
             if pair_count > 768:
                 invalid("discovery returned more than 768 map/mode pairs")
-        maps.append({"MapKey": key, "Modes": sorted(normalized_modes)})
+        mapped = {"MapKey": key, "Modes": sorted(normalized_modes)}
+        required = entry.get("RequiredMap")
+        package_path = entry.get("PackagePath")
+        if required is not None:
+            if not isinstance(required, dict) or type(package_path) is not str or not package_path:
+                invalid(f"map {key!r} has incomplete package distribution metadata")
+            for field in ("StableId", "Version", "ContentHash", "ArtifactHash"):
+                valid_text(f"Maps[{index}].RequiredMap.{field}", required.get(field))
+            package_size = required.get("PackageSize")
+            if type(package_size) is not int or not 0 < package_size <= 268435456:
+                invalid(f"map {key!r} package size is invalid")
+            mapped.update({"StableId": required["StableId"], "Version": required["Version"],
+                "MapContentHash": required["ContentHash"], "ArtifactHash": required["ArtifactHash"],
+                "PackageSize": package_size, "PackagePath": package_path})
+        elif package_path is not None:
+            invalid(f"map {key!r} has a package path without acquisition metadata")
+        maps.append(mapped)
 
     maps.sort(key=lambda entry: entry["MapKey"])
     override = os.environ.get("MAP_KEY", "")
@@ -448,8 +456,7 @@ trap cleanup EXIT INT TERM
 
 HEALTH=$BACKEND_URL
 if [[ "$HEALTH" != */ ]]; then HEALTH=$HEALTH/; fi
-BUILD_QUERY=$(python3 -c 'from urllib.parse import quote; import sys; print(quote(sys.argv[1],safe=""))' "$BUILD_VERSION")
-HEALTH=$HEALTH"v1/nodes?protocol=1&build=$BUILD_QUERY&content=$CONTENT_HASH"
+HEALTH=$HEALTH"health/ready"
 echo "Waiting for shared Backend: $BACKEND_URL"
 for ((i=0;i<30;i++)); do
     if curl --fail --silent --show-error --max-time 3 "$HEALTH" >/dev/null 2>&1; then break; fi

@@ -8,6 +8,7 @@ using ProjectPrime.Server.Shared;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using ProjectPrime.Server.Node.Discovery;
 using System.Threading.RateLimiting;
+using ProjectPrime.Server.Node.Maps;
 
 namespace ProjectPrime.Server.Node;
 
@@ -32,8 +33,13 @@ public static class NodeApplication
             builder.Configuration.GetValue("Node:QuickPlayV2Enabled", true),
             sp.GetRequiredService<ILogger<LobbyManager>>()));
         builder.Services.AddNodeWorkerPool(builder.Configuration, auth.NodeId);
-        builder.Services.AddSingleton(NodeContentCatalog.FromConfiguration(
-            builder.Configuration.GetSection("Node:Maps").Get<NodeMapConfiguration[]>() ?? []));
+        NodeMapConfiguration[] mapConfigurations =
+            builder.Configuration.GetSection("Node:Maps").Get<NodeMapConfiguration[]>() ?? [];
+        builder.Services.AddSingleton(mapConfigurations);
+        builder.Services.AddSingleton(sp => new NodeMapPackageStore(mapConfigurations,
+            builder.Environment.ContentRootPath));
+        builder.Services.AddSingleton(sp => NodeContentCatalog.FromConfiguration(
+            sp.GetRequiredService<NodeMapPackageStore>().ReadyConfigurations));
         builder.Services.AddSingleton<NodeMatchCoordinator>();
         builder.Services.AddSingleton(sp => new NodeSessionManager(sp.GetRequiredService<LobbyManager>(), auth.NodeId,
             builder.Configuration.GetValue("Node:MaximumSessions", 1024), sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<NodeMatchCoordinator>()));
@@ -51,18 +57,41 @@ public static class NodeApplication
             options.AddPolicy("host-admin", context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            options.AddPolicy("map-download", context => RateLimitPartition.GetConcurrencyLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new ConcurrencyLimiterOptions { PermitLimit = 2, QueueLimit = 0 }));
         });
         var app = builder.Build();
         // Fail at startup, rather than expose an accidentally unauthenticated service.
         _ = app.Services.GetRequiredService<NodeAdmissionValidator>();
         _ = app.Services.GetRequiredService<LobbyManager>();
+        _ = app.Services.GetRequiredService<NodeMapPackageStore>();
         app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(20), KeepAliveTimeout = TimeSpan.FromSeconds(20) });
         app.UseRateLimiter();
         app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
             .RequireRateLimiting("latency-probe");
-        app.MapGet("/v1/status", (NodeSessionManager sessions, LobbyManager lobbies, NodeContentCatalog content) =>
+        app.MapGet("/v1/status", (NodeSessionManager sessions, LobbyManager lobbies,
+            NodeContentCatalog content, NodeMapPackageStore packages) =>
             Results.Ok(new { nodeId = auth.NodeId, protocolVersion = 1, onlineUsers = sessions.Count, lobbyCount = lobbies.Count,
-                protocolClosures = sessions.ProtocolClosures, maps = content.Maps }));
+                protocolClosures = sessions.ProtocolClosures, maps = content.Maps,
+                mapStates = packages.States }));
+        app.MapGet("/v1/maps/{stableId}/{version}/{artifactHash}",
+            (HttpContext context, NodeMapPackageStore packages, string stableId,
+                string version, string artifactHash) =>
+            {
+                if (!context.Request.IsHttps) return Results.StatusCode(StatusCodes.Status403Forbidden);
+                try
+                {
+                    if (!packages.TryOpen(stableId, version, artifactHash,
+                        out FileStream? stream, out MapRequirement? requirement)) return Results.NotFound();
+                    context.Response.Headers.ETag = $"\"sha256-{requirement!.ArtifactHash}\"";
+                    context.Response.Headers.CacheControl = "public,max-age=31536000,immutable";
+                    return Results.Stream(stream!, "application/vnd.project-prime.fpmap",
+                        $"{requirement.StableId}-{requirement.Version}.fpmap",
+                        enableRangeProcessing: false);
+                }
+                catch (InvalidDataException) { return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            }).RequireRateLimiting("map-download");
         if (hostAdmin.Enabled)
         {
             app.MapPost("/v1/host/matches/{matchId:guid}/lagcomp-debug",

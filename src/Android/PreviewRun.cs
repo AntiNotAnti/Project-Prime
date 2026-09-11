@@ -5,6 +5,7 @@ using MphRead.Mods;
 using MphRead.Mods.Render;
 using MphRead.Sound;
 using OpenTK.Mathematics;
+using MapGen = MphRead.Mods.MapGen;
 
 namespace MphRead.Droid
 {
@@ -92,6 +93,8 @@ namespace MphRead.Droid
             Scene? scene = null;
             try
             {
+                MapGen.MapPreparation.CompileAndMountRoomAsync(room, "thumbnail",
+                    System.Threading.CancellationToken.None).GetAwaiter().GetResult();
                 // A player has to exist for the multiplayer intro camera to run
                 // at all: The match flow sets the sequence up against
                 // the scene local player's camera info.
@@ -141,6 +144,7 @@ namespace MphRead.Droid
                 {
                     report($"[thumbnails] {room}: cleanup failed: {ex.Message}");
                 }
+                ContentEnvironment.UnmountMap();
             }
         }
 

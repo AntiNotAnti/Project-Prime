@@ -184,11 +184,9 @@ namespace MphRead.Droid
             base.OnCreate(savedInstanceState);
             _tearingDown = false;
             GamepadBridge.Activate();
-            // The desktop builds missing map binaries from ModEntry.TryHandle;
-            // this head has no Main for that to live in. Off the UI thread:
-            // it reads the extracted game files and writes three binaries per
-            // map, and only the first launch after a map changes does any work.
-            System.Threading.Tasks.Task.Run(AndroidMaps.EnsureBuilt);
+            // Catalog discovery is cheap and asynchronous. Selected maps are
+            // compiled on demand by the match/preview path.
+            System.Threading.Tasks.Task.Run(AndroidMaps.RefreshCatalog);
             _content = FindViewById(Android.Resource.Id.Content) as ViewGroup;
             _launcherView = _content?.GetChildAt(0);
         }

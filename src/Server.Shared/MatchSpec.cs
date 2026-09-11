@@ -2,6 +2,8 @@ using System.Collections.Immutable;
 using MphRead;
 using MphRead.Identity;
 using MphRead.Mods.Network;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace ProjectPrime.Server.Shared;
 
@@ -16,8 +18,31 @@ public enum ObserverPolicy { Disabled, Allowed }
 public enum ReplayPolicy { Disabled, Record }
 public enum TelemetryPolicy { Disabled, Record }
 
+public sealed record MapRequirement(string StableId, string Version, string ContentHash,
+    string ArtifactHash, long PackageSize, string MatchContentHash)
+{
+    public void Validate()
+    {
+        _ = MphRead.Mods.MapGen.MapIdentity.ValidateStableId(StableId);
+        _ = MphRead.Mods.MapGen.MapVersion.Parse(Version);
+        _ = MphRead.Mods.MapGen.MapHash.Validate(ContentHash, nameof(ContentHash));
+        _ = MphRead.Mods.MapGen.MapHash.Validate(ArtifactHash, nameof(ArtifactHash));
+        _ = MphRead.Mods.MapGen.MapHash.Validate(MatchContentHash, nameof(MatchContentHash));
+        if (PackageSize is < 1 or > 268_435_456)
+            throw new ArgumentOutOfRangeException(nameof(PackageSize));
+    }
+
+    public static string ComputeMatchContentHash(string baseContentHash, string stableId,
+        string version, string contentHash, string buildVersion, byte protocolVersion)
+    {
+        string value = string.Join('\0', "ProjectPrime.MatchContent.v1", baseContentHash,
+            stableId, version, contentHash, buildVersion + ":" + protocolVersion);
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+    }
+}
+
 public sealed record ContentIdentity(string MapKey, string ContentHash, string ContentVersion,
-    string BuildVersion, byte ProtocolVersion);
+    string BuildVersion, byte ProtocolVersion, MapRequirement? RequiredMap = null);
 public sealed record RosterSeat(byte SeatId, PlayerId? PlayerId, Guid? GuestSessionId,
     string DisplayName, Hunter Hunter, byte Team, SeatRole Role, bool RankingEligible);
 
@@ -38,6 +63,7 @@ public sealed record MatchSpec(MatchId MatchId, LobbyId LobbyId, NodeId NodeId, 
         MatchRulesWire.Write(new byte[MatchRulesWire.Size], Rules);
         ContractGuard.Text(Content.MapKey, 128); ContractGuard.Text(Content.ContentHash, 128);
         ContractGuard.Text(Content.ContentVersion, 128); ContractGuard.Text(Content.BuildVersion, 128);
+        Content.RequiredMap?.Validate();
         if (!String.Equals(Content.MapKey, Rules.RoomKey, StringComparison.Ordinal)) throw new ArgumentException("Content and rules map identities differ.");
         if (Content.ProtocolVersion == 0) throw new ArgumentException("Protocol is required.");
         ContractGuard.Defined(TrustClass); ContractGuard.Defined(BotFillPolicy);
