@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Linq;
 using MphRead.Backend.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -222,6 +223,57 @@ public sealed class BackendRouteContractTests
             $"/v1/nodes?protocol=1&build=build&content={registration.ContentHash}");
         NodeDirectoryPage afterPage = (await after.Content.ReadFromJsonAsync<NodeDirectoryPage>())!;
         Assert.Empty(afterPage.Entries);
+    }
+
+    [Fact]
+    public async Task DirectoryRoutePinsAndBoundsGrowingResultsByImmutablePages()
+    {
+        const string secret = "route-contract-node-secret-at-least-thirty-two";
+        const string content = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        Guid[] nodeIds = Enumerable.Range(1, NodeDirectoryContract.MaximumPageEntries + 1)
+            .Select(index => new Guid(index, 0, 0, new byte[8])).ToArray();
+        using var factory = new BackendFactory(configure: services => services.Configure<GameServerOptions>(options =>
+        {
+            foreach (Guid nodeId in nodeIds)
+                options.Servers.Add(new GameServerRegistration
+                {
+                    Id = nodeId,
+                    Enabled = true,
+                    ApiKeySha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                        Encoding.UTF8.GetBytes(secret)))
+                });
+        }));
+        using var client = factory.CreateClient();
+        foreach (Guid nodeId in nodeIds)
+        {
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secret);
+            client.DefaultRequestHeaders.Remove("X-Server-Id");
+            client.DefaultRequestHeaders.Add("X-Server-Id", nodeId.ToString("D"));
+            using HttpResponseMessage registered = await client.PutAsJsonAsync("/v1/node/registration",
+                new NodeRegistration(Guid.NewGuid(), "Node", "us", "wss://node.example/v1/control",
+                    1, "build", content, 100));
+            Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
+        }
+
+        using HttpResponseMessage firstResponse = await client.GetAsync(
+            $"/v1/nodes?protocol=1&build=build&content={content}");
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+        Assert.InRange((await firstResponse.Content.ReadAsByteArrayAsync()).Length, 1, 64 * 1024);
+        NodeDirectoryPage first = (await firstResponse.Content.ReadFromJsonAsync<NodeDirectoryPage>())!;
+        Assert.Equal(2, first.PageCount);
+        Assert.Equal(nodeIds.Length, first.TotalEntries);
+        Assert.Equal(NodeDirectoryContract.MaximumPageEntries, first.Entries.Length);
+
+        using HttpResponseMessage secondResponse = await client.GetAsync(
+            $"/v1/nodes?protocol=1&build=build&content={content}&page=1&revision={first.Revision}");
+        Assert.Equal(HttpStatusCode.OK, secondResponse.StatusCode);
+        Assert.InRange((await secondResponse.Content.ReadAsByteArrayAsync()).Length, 1, 64 * 1024);
+        NodeDirectoryPage second = (await secondResponse.Content.ReadFromJsonAsync<NodeDirectoryPage>())!;
+        Assert.Equal(first.Revision, second.Revision);
+        Assert.Equal(1, second.Page);
+        Assert.Single(second.Entries);
+        Assert.Empty(first.Entries.Select(entry => entry.NodeId).Intersect(
+            second.Entries.Select(entry => entry.NodeId)));
     }
 
     [Theory]
