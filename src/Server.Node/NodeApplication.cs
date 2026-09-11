@@ -86,9 +86,12 @@ public static class NodeApplication
             .RequireRateLimiting("latency-probe");
         app.MapGet("/health/live", () => Results.Ok(new { status = "live" }))
             .RequireRateLimiting("latency-probe");
-        app.MapGet("/health/ready", (NodeContentCatalog content, NodeReadinessEvaluator readiness) =>
+        app.MapGet("/health/ready", (NodeContentCatalog content, NodeReadinessEvaluator readiness,
+            ILoggerFactory loggerFactory) =>
         {
             NodeReadinessResult result = readiness.Evaluate();
+            ILogger logger = loggerFactory.CreateLogger(NodeDiagnostics.ReadinessCategory);
+            NodeDiagnostics.Readiness(logger, result.IsReady ? "ready" : result.Code);
             return result.IsReady
                 ? Results.Ok(new { status = "ready", catalogRevision = content.MapCatalogRevision })
                 : Results.Json(new { status = "not_ready", code = result.Code },
@@ -103,20 +106,34 @@ public static class NodeApplication
             .RequireRateLimiting("status");
         app.MapGet("/v1/maps/{stableId}/{version}/{artifactHash}",
             (HttpContext context, NodeMapPackageStore packages, string stableId,
-                string version, string artifactHash) =>
+                string version, string artifactHash, ILoggerFactory loggerFactory) =>
             {
-                if (!context.Request.IsHttps) return Results.StatusCode(StatusCodes.Status403Forbidden);
+                ILogger logger = loggerFactory.CreateLogger(NodeDiagnostics.MapCategory);
+                if (!context.Request.IsHttps)
+                {
+                    NodeDiagnostics.Map(logger, "download", "https_required");
+                    return Results.StatusCode(StatusCodes.Status403Forbidden);
+                }
                 try
                 {
                     if (!packages.TryOpen(stableId, version, artifactHash,
-                        out FileStream? stream, out MapRequirement? requirement)) return Results.NotFound();
+                        out FileStream? stream, out MapRequirement? requirement))
+                    {
+                        NodeDiagnostics.Map(logger, "download", "not_found");
+                        return Results.NotFound();
+                    }
                     context.Response.Headers.ETag = $"\"sha256-{requirement!.ArtifactHash}\"";
                     context.Response.Headers.CacheControl = "public,max-age=31536000,immutable";
+                    NodeDiagnostics.Map(logger, "download", "success");
                     return Results.Stream(stream!, "application/vnd.project-prime.fpmap",
                         $"{requirement.StableId}-{requirement.Version}.fpmap",
                         enableRangeProcessing: true);
                 }
-                catch (InvalidDataException) { return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+                catch (InvalidDataException)
+                {
+                    NodeDiagnostics.Map(logger, "download", "package_changed");
+                    return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+                }
             }).RequireRateLimiting("map-download");
         if (hostAdmin.Enabled)
         {
@@ -125,23 +142,43 @@ public static class NodeApplication
                 .RequireRateLimiting("host-admin");
         }
         app.MapMethods("/v1/control", [HttpMethods.Get], async (HttpContext context,
-            NodeAdmissionValidator admission, NodeSessionManager sessions) =>
+            NodeAdmissionValidator admission, NodeSessionManager sessions, ILoggerFactory loggerFactory) =>
         {
-            if (!context.Request.IsHttps) { context.Response.StatusCode = 403; return; }
-            if (!context.WebSockets.IsWebSocketRequest) { context.Response.StatusCode = 400; return; }
+            ILogger logger = loggerFactory.CreateLogger(NodeDiagnostics.WebSocketCategory);
+            if (!context.Request.IsHttps)
+            {
+                NodeDiagnostics.Rejected(logger, "control", "https_required");
+                context.Response.StatusCode = 403; return;
+            }
+            if (!context.WebSockets.IsWebSocketRequest)
+            {
+                NodeDiagnostics.Rejected(logger, "control", "not_websocket");
+                context.Response.StatusCode = 400; return;
+            }
             string authorization = context.Request.Headers.Authorization.ToString();
             if (authorization.StartsWith("Resume ", StringComparison.Ordinal))
             {
                 string resume = authorization[7..];
-                if (!sessions.CanResume(resume)) { context.Response.StatusCode = 401; return; }
+                if (!sessions.CanResume(resume))
+                {
+                    NodeDiagnostics.Rejected(logger, "control", "resume_invalid");
+                    context.Response.StatusCode = 401; return;
+                }
                 using var resumed = await context.WebSockets.AcceptWebSocketAsync();
                 await sessions.RunAsync(resumed, null, context.RequestAborted, resume);
                 return;
             }
             if (!authorization.StartsWith("Bearer ", StringComparison.Ordinal) || authorization.Length > 4103)
-            { context.Response.StatusCode = 401; return; }
+            {
+                NodeDiagnostics.Rejected(logger, "control", "credential_missing");
+                context.Response.StatusCode = 401; return;
+            }
             var identity = await admission.ValidateAsync(authorization[7..], context.RequestAborted);
-            if (identity == null) { context.Response.StatusCode = 401; return; }
+            if (identity == null)
+            {
+                NodeDiagnostics.Rejected(logger, "control", "credential_invalid");
+                context.Response.StatusCode = 401; return;
+            }
             using var socket = await context.WebSockets.AcceptWebSocketAsync();
             await sessions.RunAsync(socket, identity, context.RequestAborted);
         }).RequireRateLimiting("control-upgrade");
