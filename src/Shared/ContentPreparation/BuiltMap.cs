@@ -19,6 +19,9 @@ namespace MphRead.Mods.MapGen
         public List<BuiltFace> Faces { get; } = new List<BuiltFace>();
         public List<BuiltFace> Solid { get; } = new List<BuiltFace>();
         public List<EntityEditorBase> Entities { get; } = new List<EntityEditorBase>();
+        /// <summary>Native custom images keyed by authoring material index.</summary>
+        public IReadOnlyDictionary<int, MapTexturePack.Entry> CustomTextures { get; set; }
+            = new Dictionary<int, MapTexturePack.Entry>();
 
         public BuiltMap(MapDefinition definition)
         {

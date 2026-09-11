@@ -1,7 +1,7 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
+using System.Text;
 
 namespace MphRead.Mods.MapGen
 {
@@ -31,6 +31,7 @@ namespace MphRead.Mods.MapGen
     public static class MapBundle
     {
         public const string Extension = ".fpmap";
+        public const string ManifestPath = "manifest.json";
 
         public static bool Is(string path)
         {
@@ -40,16 +41,8 @@ namespace MphRead.Mods.MapGen
         /// <summary>The recipe inside a bundle, or null if it holds none.</summary>
         public static string? ReadRecipe(string bundlePath)
         {
-            using ZipArchive archive = ZipFile.OpenRead(bundlePath);
-            ZipArchiveEntry? entry = archive.Entries.FirstOrDefault(
-                e => e.FullName.EndsWith(".json", StringComparison.OrdinalIgnoreCase));
-            if (entry == null)
-            {
-                return null;
-            }
-            using Stream stream = entry.Open();
-            using var reader = new StreamReader(stream);
-            return reader.ReadToEnd();
+            MapBundleReadResult bundle = new MapBundleReader().Read(bundlePath);
+            return Encoding.UTF8.GetString(bundle.ReadDeclaredFile(bundle.Manifest.Recipe));
         }
 
         /// <summary>
@@ -63,19 +56,29 @@ namespace MphRead.Mods.MapGen
             {
                 return null;
             }
-            using ZipArchive archive = ZipFile.OpenRead(bundlePath);
-            ZipArchiveEntry? entry = archive.Entries.FirstOrDefault(
-                e => e.FullName.Equals(name, StringComparison.OrdinalIgnoreCase))
-                ?? archive.Entries.FirstOrDefault(
-                    e => e.FullName.EndsWith("/" + name, StringComparison.OrdinalIgnoreCase));
-            if (entry == null)
-            {
-                return null;
-            }
-            using Stream stream = entry.Open();
-            using var memory = new MemoryStream();
-            stream.CopyTo(memory);
-            return memory.ToArray();
+            MapBundleReadResult bundle = new MapBundleReader().Read(bundlePath);
+            string canonical = MapBundlePath.Canonicalize(name);
+            return bundle.Files.TryGetValue(canonical, out byte[]? bytes)
+                ? (byte[])bytes.Clone() : null;
+        }
+
+        public static byte[] ReadGeometry(string bundlePath, string? mapName)
+        {
+            MapBundleReadResult bundle = new MapBundleReader().Read(bundlePath);
+            MapManifestFile[] geometry = bundle.Manifest.Files
+                .Where(file => file.Role == MapFileRole.Geometry)
+                .OrderBy(file => file.Path, StringComparer.Ordinal)
+                .ToArray();
+            if (geometry.Length == 0)
+                throw new MapPackageException("MAP-PKG-006", "Map bundle declares no geometry file.");
+            MapManifestFile? selected = mapName == null && geometry.Length == 1
+                ? geometry[0]
+                : geometry.FirstOrDefault(file => Path.GetFileNameWithoutExtension(file.Path)
+                    .Equals(mapName, StringComparison.OrdinalIgnoreCase));
+            if (selected == null)
+                throw new MapPackageException("MAP-PKG-006",
+                    $"Map bundle does not declare geometry for '{mapName}'.");
+            return bundle.ReadDeclaredFile(selected.Path);
         }
     }
 }

@@ -32,6 +32,10 @@ namespace MphRead.Mods.MapGen
         private const float CellSize = 4f;
 
         public static byte[] Pack(IReadOnlyList<CollisionDataEditor> data)
+            => Pack(data, out _);
+
+        public static byte[] Pack(IReadOnlyList<CollisionDataEditor> data,
+            out MapCollisionStatistics statistics)
         {
             if (data.Count == 0)
             {
@@ -55,11 +59,21 @@ namespace MphRead.Mods.MapGen
                 }
                 if (!planeIds.TryGetValue(editor.Plane, out ushort planeIndex))
                 {
+                    if (planes.Count > UInt16.MaxValue)
+                    {
+                        throw new ProgramException(
+                            "The map has more than 65535 collision planes, which the format cannot index.");
+                    }
                     planeIndex = (ushort)planes.Count;
                     planes.Add(editor.Plane);
                     planeIds.Add(editor.Plane, planeIndex);
                 }
                 int start = pointIndices.Count;
+                if (start > UInt16.MaxValue)
+                {
+                    throw new ProgramException(
+                        "The collision point-index list exceeds the format's 16-bit face offset.");
+                }
                 foreach (Vector3 point in editor.Points)
                 {
                     if (!pointIds.TryGetValue(point, out ushort pointIndex))
@@ -88,6 +102,10 @@ namespace MphRead.Mods.MapGen
             int partsY = Math.Max(1, (int)MathF.Floor((max.Y - min.Y) / CellSize) + 1);
             int partsZ = Math.Max(1, (int)MathF.Floor((max.Z - min.Z) / CellSize) + 1);
             var cells = new List<ushort>[partsX * partsY * partsZ];
+            if (data.Count > UInt16.MaxValue + 1)
+            {
+                throw new ProgramException("The map has more than 65536 collision faces, which the grid cannot index.");
+            }
             for (int i = 0; i < data.Count; i++)
             {
                 CollisionDataEditor editor = data[i];
@@ -136,6 +154,10 @@ namespace MphRead.Mods.MapGen
                 }
                 if (cell != null)
                 {
+                    if (cell.Count > UInt16.MaxValue)
+                    {
+                        throw new ProgramException("One collision grid cell contains more than 65535 face references.");
+                    }
                     dataIndices.AddRange(cell);
                 }
                 entries.Add(((ushort)(cell?.Count ?? 0), (ushort)start));
@@ -206,6 +228,8 @@ namespace MphRead.Mods.MapGen
             writer.Write(entryOffset);
             writer.Write(0); // portal count
             writer.Write(portalOffset);
+            statistics = new MapCollisionStatistics(faces.Count, points.Count, planes.Count,
+                partsX, partsY, partsZ, references);
             return stream.ToArray();
         }
 

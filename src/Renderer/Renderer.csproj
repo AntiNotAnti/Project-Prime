@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>MphRead</RootNamespace>
+    <AssemblyName>ProjectPrime.Renderer</AssemblyName>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Game/Game.csproj" />
+    <ProjectReference Include="../Imaging/Imaging.csproj" />
+    <PackageReference Include="OpenTK.Mathematics" Version="4.9.4" />
+    <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.9.4" />
+    <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
+    <PackageReference Include="ppy.SDL3-CS" Version="2026.722.0" ExcludeAssets="native" />
+  </ItemGroup>
+
+  <!-- Renderer sources remain in their established location while ownership
+       moves to this reusable assembly. Client excludes these same files. -->
+  <ItemGroup>
+    <Compile Include="../Client/Rendering/Core/**/*.cs" Link="Core/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Client/Rendering/Backends/RenderBackendContracts.cs" Link="Backends/RenderBackendContracts.cs" />
+    <Compile Include="../Client/Rendering/Backends/ISdlOffscreenToolBackend.cs" Link="Backends/ISdlOffscreenToolBackend.cs" />
+    <Compile Include="../Client/Rendering/Backends/SdlGpu/**/*.cs" Link="Backends/SdlGpu/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Client/Rendering/Enhanced/**/*.cs" Link="Enhanced/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Client/Rendering/Geometry/**/*.cs" Link="Geometry/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Client/Rendering/Materials/**/*.cs" Link="Materials/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Client/Rendering/Lighting/**/*.cs" Link="Lighting/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Client/Rendering/Environment/**/*.cs" Link="Environment/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Client/Rendering/FrameTiming.cs" Link="FrameTiming.cs" />
+    <Compile Include="../Client/Runtime/RenderOptions.cs" Link="Configuration/RenderOptions.cs" />
+    <Compile Include="../Client/Runtime/MenuSettings.cs" Link="Configuration/MenuSettings.cs" />
+    <Compile Include="Properties/AssemblyInfo.cs" />
+    <Compile Include="Platform/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../Client/Rendering/Shaders/Generated/**/*" CopyToOutputDirectory="PreserveNewest"
+          Link="Rendering/Shaders/Generated/%(RecursiveDir)%(Filename)%(Extension)" />
+    <None Include="../Client/Rendering/Shaders/*.hlsl" CopyToOutputDirectory="PreserveNewest"
+          Link="Rendering/Shaders/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

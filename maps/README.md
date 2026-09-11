@@ -1,72 +1,96 @@
-# Maps
+# Project Prime maps
 
-No level lives here, only recipes: the game ships the 27 multiplayer rooms of
-the cartridge and nothing else. What lives here is the *hook* for custom ones —
-drop a `.json` in, or a folder with a `.json` in it, and the game builds it and
-lists it. A map whose source level is not on this machine is left out rather
-than listed and broken.
+Project Prime keeps editable map source, compiled content, distributable packages,
+and mounted runtime content separate:
 
-Each `.json` describes one custom room. The binaries a room is actually made
-of are generated on the machine that runs the game, from that machine's own
-extracted files, because a room's textures are borrowed from a shipped room
-and end up inside its model file. That is why no `.bin` is ever committed, and
-why the asset guard refuses one.
-
-- `q3dm17.json.example` — rename to `q3dm17.json` and drop your own `pak0.pk3`
-  beside it to convert the original Quake III map. Nothing here downloads it
-  for you: that is id Software's commercial data.
-- `dust2/dust2.json` — de_dust2, by way of the DeFRaG level `df_dust2`, which
-  ships beside it. A map keeps its level in a folder of its own like this; it
-  is looked for beside the map file first.
-- `parallax/parallax.json` — PARALLAX Alimbic visual pass v0.2, an original
-  rotationally symmetric duel arena. Editable Quake 3 source, original materials,
-  build instructions and validation evidence are in [parallax/source/README.md](parallax/source/README.md).
-
-A map's level travels with it, so a downloaded release has its custom maps
-ready and the first launch builds them. The `.tex` does not: it is baked from
-the level when it is missing, exactly like the room binaries.
-
-## Bundles
-
-What ships, and what you hand somebody, is a **`.fpmap` bundle**: the recipe,
-the level and the baked textures in one file, with the level trimmed to the
-lumps the importer actually reads. de_dust2 comes out at 376 KB against the
-2.8 MB its folder weighs, and it is one file rather than three — which is what
-makes a map something you can send, and what a downloader will want when a
-server starts offering its maps to the players joining it.
-
-```
-ProjectPrimeTools -mapdir maps -mapbundle all       # cook every map
-ProjectPrimeTools -mapdir maps -mapbundle DUST2    # cook one map
+```text
+MapProject (map.json) -> MapCompiler -> map-cache/<fingerprint>/ -> .fpmap
+                                                        |
+                                                        +-> selected-map overlay
 ```
 
-The folder is what a map is *worked on* as; the bundle is what leaves. Bundles
-are not committed — the workflow cooks them before it publishes — and a folder
-and a bundle of the same name are the same map, so the bundle wins and the room
-is registered once. It is also the only shape that reaches Android: an APK's
-asset list does not recurse into folders.
+The checked-in `maps/` tree contains first-party editable recipes and import
+sources. It never contains extracted cartridge data or generated room binaries.
+Generated `Model.bin`, `Anim.bin`, `Collision.bin`, `Ent.bin`, and `Node.bin`
+files are written atomically to the content-addressed map cache, not into AMHE1.
+At runtime, only the selected map cache is mounted over immutable base content.
 
-The client and server package steps both carry the top-level `.fpmap` files. On
-the first launch, the client generates the room binaries from those bundles and
-the installed `AMHE1` files before it computes its content identity. A server
-must use the same map bundles and content version; after generation, the client
-and Worker therefore advertise the same content hash and the Node can admit the
-client. `-content-dir` is accepted as an alias for `-data`, so a publish can be
-prepared directly from a checkout:
+## Map identities
 
+Every map has three distinct identifiers:
+
+- `StableId` is a canonical creator-owned ID such as `community.parallax`.
+- `Version` is the declared map version.
+- `ContentHash` is the canonical SHA-256 of the logical package content.
+
+An installed `.fpmap` also has an artifact hash: the SHA-256 of the package
+bytes. Runtime numeric room IDs are allocated locally and are never used as a
+persistent or network identity.
+
+## Authoring and editor
+
+Launch `ProjectPrime.Editor` directly, or choose **Maps -> My Maps -> Edit** in
+the desktop launcher. A native project contains authoring geometry, materials,
+entities, environment, mode support, and editor-only view settings. Build,
+playtest, and export operate on a snapshot; autosaves never overwrite the saved
+project. Use **Maps -> Import Q3** for BSP/PK3 sources (kept as read-only imported
+geometry), and **Add Texture** on a local project to add creator-owned PNG/JPEG
+materials before assigning them to a whole brush or one selected face in the editor.
+The face inspector controls tiling, UV scale/offset/rotation, terrain, and
+solid-versus-decorative collision behavior.
+
+The current first-party examples include:
+
+- `dust2/dust2.json` — imported `df_dust2` geometry.
+- `parallax/parallax.json` — the original PARALLAX arena; editable Q3 source and
+  validation evidence are under `parallax/source/`.
+- `q3dm17.json.example` — an example requiring a separately obtained `pak0.pk3`.
+  Project Prime does not download or redistribute id Software's commercial data.
+
+## Command line
+
+Use the dedicated map command surface for new automation:
+
+```bash
+ProjectPrimeTools map validate maps/parallax/parallax.json
+ProjectPrimeTools map build maps/parallax/parallax.json --content-dir /path/to/AMHE1
+ProjectPrimeTools map cook maps/parallax/parallax.json --out PARALLAX.fpmap
+ProjectPrimeTools map verify PARALLAX.fpmap
+ProjectPrimeTools map stats PARALLAX.fpmap
 ```
-ProjectPrimeTools -mapdir maps -data publish/osx-arm64/files/AMHE1 -mapgen all
-```
 
-A bundle does not settle whether a level may be handed out. Cooking somebody's
-level into a smaller container leaves it their level.
+The legacy `-mapgen`, `-mapbundle`, Q3 inspection, thumbnail, and map-test flags
+remain as compatibility wrappers while existing map workflows migrate.
 
-What still may not be committed is somebody else's commercial data — the
-cartridge dump, and id Software's `pak0.pk3` and friends, which the asset
-guard refuses by name. Everything else is a judgement for whoever commits it:
-publish a level you have the right to publish.
+## Packages and installation
 
-The format, the Quake 3 importer and the traps are in
-`../.claude/mapgen/MAP-PIPELINE.md`. `ProjectPrime -mapgen` builds every map in
-this folder; `ProjectPrime -mapmaterials "MP3 PROVING GROUND"` prints the
-textures a shipped room can lend.
+`.fpmap` v2 is a data-only ZIP package with canonical `manifest.json` and
+manifest-declared paths. The package validator rejects undeclared content,
+duplicate or ambiguous paths, traversal, links, executables, unsupported formats,
+malformed JSON, oversized entries, excessive expansion, and hash mismatches.
+Both compressed artifact size and decompressed content are bounded before a
+package is admitted.
+
+The launcher installs packages under the Project Prime data directory using a
+temporary file plus atomic rename. It does not unpack packages into AMHE1.
+Installed packages, editable projects, generated caches, and preview caches are
+owned independently so removing an installed map never deletes creator source or
+base-game files.
+
+For online play, the Node advertises the exact stable ID, version, content hash,
+artifact hash, and package size. Missing maps are downloaded only from the trusted
+Node HTTPS origin, verified while streaming, installed atomically, compiled, and
+then checked again as part of the match content identity before admission.
+Each configured Node map is validated independently: only `Ready` entries enter
+the lobby/map-vote catalog, while an `Invalid` community package remains visible
+in Node status without taking the Node offline.
+
+## Distribution rights
+
+Packaging a level does not grant permission to redistribute it. Publish only
+source, textures, previews, and imported data you have the right to distribute.
+The repository asset guards continue to reject extracted game data and known
+commercial archives.
+
+Low-level importer and binary-format evidence is documented in
+[`../.claude/mapgen/MAP-PIPELINE.md`](../.claude/mapgen/MAP-PIPELINE.md).

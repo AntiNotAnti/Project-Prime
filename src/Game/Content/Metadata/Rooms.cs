@@ -115,8 +115,8 @@ namespace MphRead
     {
         // Global IDs are wire/content identities, not indices in the retained catalog.
         // First Hunt metadata keeps its separate local IDs; custom IDs begin at 138.
-        private static readonly IReadOnlyDictionary<int, string> _roomIds
-            = Mods.MapGen.CustomRooms.AppendIds(new Dictionary<int, string>()
+        private static readonly IReadOnlyDictionary<int, string> _baseRoomIds
+            = new Dictionary<int, string>()
             {
                 [93] = "MP1 SANCTORUS",
                 [94] = "MP2 HARVESTER",
@@ -157,10 +157,13 @@ namespace MphRead
                 [135] = "Level MP5",
                 [136] = "Level MP1b",
                 [137] = "E3 level",
-            });
+            };
 
-        public static readonly IReadOnlyList<RoomMetadata> RoomList
-            = Mods.MapGen.CustomRooms.AppendRooms(new List<RoomMetadata>()
+        private static IReadOnlyDictionary<int, string> RoomIds
+            => Mods.MapGen.CustomRooms.AppendIds(new Dictionary<int, string>(_baseRoomIds));
+
+        private static readonly IReadOnlyList<RoomMetadata> BaseRoomList
+            = new List<RoomMetadata>()
         {
             new RoomMetadata(
                 id: 93,
@@ -1427,9 +1430,13 @@ namespace MphRead
                 size: RoomSize.SinglePlayer,
                 multiplayer: true,
                 firstHunt: true)
-        });
+        };
 
-        public static readonly FrozenDictionary<string, RoomMetadata> RoomMetadata = RoomList.ToFrozenDictionary(d => d.Name);
+        public static IReadOnlyList<RoomMetadata> RoomList
+            => Mods.MapGen.CustomRooms.AppendRooms(new List<RoomMetadata>(BaseRoomList));
+
+        public static FrozenDictionary<string, RoomMetadata> RoomMetadata
+            => RoomList.ToFrozenDictionary(d => d.Name);
 
         public static readonly FrozenDictionary<int, string> CtfNodeDataOverrides = Frozen.Create<int, string>(
         [

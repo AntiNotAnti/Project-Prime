@@ -110,22 +110,6 @@ namespace MphRead
     }
 
     /// <summary>
-    /// Narrow SDL GPU seam for deterministic utilities. The offscreen path
-    /// acquires only a command buffer and the backend-owned final target; it
-    /// must not acquire a swapchain image or run presentation callbacks. The
-    /// capture agent implements this on SdlGpuBackend alongside its readback
-    /// queue. Authoritative checks intentionally use the ordinary presentable
-    /// IRenderBackend path instead.
-    /// </summary>
-    internal interface ISdlOffscreenToolBackend
-    {
-        bool TryBeginOffscreenFrame(out RenderBackendFrame frame);
-        void RenderOffscreen(RenderBackendFrame frame, RenderFrame snapshot);
-        bool TrySubmitOffscreenFrame(RenderBackendFrame frame);
-        void FlushCaptures();
-    }
-
-    /// <summary>
     /// SDL host for deterministic utilities. Offscreen tools acquire only the
     /// backend's command buffer/final target; the authoritative check opts
     /// into the presentable path explicitly. Neither path enters the

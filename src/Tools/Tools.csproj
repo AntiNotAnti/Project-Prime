@@ -26,6 +26,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../Game/Game.csproj" />
+    <ProjectReference Include="../Imaging/Imaging.csproj" />
+    <ProjectReference Include="../MapPlatform/MapPlatform.csproj" />
     <!-- These were previously transitive through Audio.Ncsf. Keep them direct
          because Tools now source-links the CPU decoder instead of referencing
          the music-playing assembly. -->
@@ -38,22 +40,6 @@
 
   <ItemGroup>
     <Compile Include="../Shared/ContentImport/Extract.cs" Link="Shared/ContentImport/Extract.cs" />
-    <Compile Include="../Shared/ContentPreparation/CollisionDataEditor.cs" Link="Shared/ContentPreparation/CollisionDataEditor.cs" />
-    <Compile Include="../Shared/ContentPreparation/RepackModelPacking.cs" Link="Shared/ContentPreparation/RepackModelPacking.cs" />
-    <Compile Include="../Shared/ContentPreparation/MapTextureBake.cs" Link="Shared/ContentPreparation/MapTextureBake.cs" />
-    <Compile Include="../Shared/ContentPreparation/MapPreparation.cs" Link="Shared/ContentPreparation/MapPreparation.cs" />
-    <Compile Include="../Shared/ContentPreparation/MapCollisionPacker.cs" Link="Shared/ContentPreparation/MapCollisionPacker.cs" />
-    <Compile Include="../Shared/ContentPreparation/MapPacker.cs" Link="Shared/ContentPreparation/MapPacker.cs" />
-    <Compile Include="../Shared/ContentPreparation/RepackEntityPacking.cs" Link="Shared/ContentPreparation/RepackEntityPacking.cs" />
-    <Compile Include="../Shared/ContentPreparation/EntityMapEditors.cs" Link="Shared/ContentPreparation/EntityMapEditors.cs" />
-    <Compile Include="../Shared/ContentPreparation/BuiltMap.cs" Link="Shared/ContentPreparation/BuiltMap.cs" />
-    <Compile Include="../Shared/ContentPreparation/MapBuilder.cs" Link="Shared/ContentPreparation/MapBuilder.cs" />
-    <Compile Include="../Shared/ContentPreparation/MapImageDecoding.cs" Link="Shared/ContentPreparation/MapImageDecoding.cs" />
-    <Compile Include="../Shared/ContentPreparation/Q3Bsp.cs" Link="Shared/ContentPreparation/Q3Bsp.cs" />
-    <Compile Include="../Shared/ContentPreparation/Q3Import.cs" Link="Shared/ContentPreparation/Q3Import.cs" />
-    <Compile Include="../Shared/ContentPreparation/RawStructs.cs" Link="Shared/ContentPreparation/RawStructs.cs" />
-    <Compile Include="../Shared/ContentPreparation/MapNodePacker.cs" Link="Shared/ContentPreparation/MapNodePacker.cs" />
-    <Compile Include="../Shared/Imaging/StbImageDecoder.cs" Link="Shared/Imaging/StbImageDecoder.cs" />
     <Compile Include="../Shared/Hosting/ConsoleSetup.cs" Link="Shared/Hosting/ConsoleSetup.cs" />
   </ItemGroup>
 </Project>

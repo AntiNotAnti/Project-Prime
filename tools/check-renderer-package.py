@@ -31,11 +31,12 @@ FORBIDDEN_DESKTOP_ASSEMBLIES = {
 }
 
 
-def inspect_package(root: Path, rid: str) -> list[str]:
+def inspect_package(root: Path, rid: str, executable_override: str | None = None) -> list[str]:
     errors: list[str] = []
     if rid not in RUNTIME_FILES:
         return [f"unsupported desktop RID: {rid}"]
     executable, sdl_library, required_format = RUNTIME_FILES[rid]
+    executable = executable_override or executable
     for relative in (executable, sdl_library):
         if not (root / relative).is_file():
             errors.append(f"missing {relative}")
@@ -93,9 +94,10 @@ def inspect_package(root: Path, rid: str) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rid", required=True, choices=sorted(RUNTIME_FILES))
+    parser.add_argument("--executable", help="expected executable name (defaults to the game client)")
     parser.add_argument("package", type=Path)
     args = parser.parse_args()
-    errors = inspect_package(args.package.resolve(), args.rid)
+    errors = inspect_package(args.package.resolve(), args.rid, args.executable)
     for error in errors:
         print(f"renderer package: {error}", file=sys.stderr)
     if errors:

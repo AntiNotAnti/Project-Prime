@@ -108,6 +108,11 @@ namespace MphRead.Mods.MapGen
             return Parse(ReadLevel(source, mapName));
         }
 
+        public static Q3Bsp Load(ReadOnlySpan<byte> bytes)
+        {
+            return Parse(bytes.ToArray());
+        }
+
         /// <summary>
         /// The level's bytes, out of a .bsp or out of the zip around it --
         /// what <see cref="Load"/> parses and what <see cref="Trim"/> cooks.
@@ -121,6 +126,10 @@ namespace MphRead.Mods.MapGen
             if (Path.GetExtension(source).Equals(".bsp", StringComparison.OrdinalIgnoreCase))
             {
                 return File.ReadAllBytes(source);
+            }
+            if (MapBundle.Is(source))
+            {
+                return MapBundle.ReadGeometry(source, mapName);
             }
             using ZipArchive archive = ZipFile.OpenRead(source);
             List<ZipArchiveEntry> maps = archive.Entries

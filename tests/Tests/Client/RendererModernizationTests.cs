@@ -31,8 +31,64 @@ public sealed class RendererModernizationTests
         Assert.Equal(.4f, command.Alpha);
         Assert.Equal(RenderPresentationStage.ReplayOverlay, command.Stage);
         Assert.Equal(4, command.Vertices.Count);
-        Assert.InRange(command.Vertices[0].TexCoord.X, .6999f, .7001f);
-        Assert.InRange(command.Vertices[0].TexCoord.Y, .7999f, .8001f);
+        Assert.InRange(command.Vertices[0].TexCoord.X, .5999f, .6001f);
+        Assert.InRange(command.Vertices[0].TexCoord.Y, .8999f, .9001f);
+    }
+
+    [Fact]
+    public void HudTextureCommandRotatesNonSquareCropInCropLocalSpace()
+    {
+        var uv = new OpenTK.Mathematics.Vector4(.2f, .3f, .6f, .9f);
+
+        AssertHudTextureCoordinates(CreateHudTextureCommand(uv, 0),
+            (.6f, .3f), (.2f, .3f), (.6f, .9f), (.2f, .9f));
+        AssertHudTextureCoordinates(CreateHudTextureCommand(uv, MathF.PI / 2),
+            (.6f, .9f), (.6f, .3f), (.2f, .9f), (.2f, .3f));
+
+        float diagonal = MathF.Sqrt(2);
+        AssertHudTextureCoordinates(CreateHudTextureCommand(uv, MathF.PI / 4),
+            (.4f + .2f * diagonal, .6f), (.4f, .6f - .3f * diagonal),
+            (.4f, .6f + .3f * diagonal), (.4f - .2f * diagonal, .6f));
+    }
+
+    [Fact]
+    public void HudTextureCommandRotationPreservesCenterAndCropTranslation()
+    {
+        var uv = new OpenTK.Mathematics.Vector4(.1f, .2f, .5f, .8f);
+        var translatedUv = new OpenTK.Mathematics.Vector4(.35f, .1f, .75f, .7f);
+        RenderOverlayCommand command = CreateHudTextureCommand(uv, .73f);
+        RenderOverlayCommand translated = CreateHudTextureCommand(translatedUv, .73f);
+
+        OpenTK.Mathematics.Vector2 center = command.Vertices
+            .Select(vertex => vertex.TexCoord).Aggregate(OpenTK.Mathematics.Vector2.Zero, (sum, value) => sum + value) / 4;
+        AssertNear(center, .3f, .5f);
+
+        for (int i = 0; i < command.Vertices.Count; i++)
+        {
+            OpenTK.Mathematics.Vector2 delta = translated.Vertices[i].TexCoord - command.Vertices[i].TexCoord;
+            AssertNear(delta, .25f, -.1f);
+        }
+    }
+
+    private static RenderOverlayCommand CreateHudTextureCommand(OpenTK.Mathematics.Vector4 uv, float rotation)
+        => ScenePresentation.CreateHudTextureCommand(new OpenTK.Mathematics.Vector2i(256, 192),
+            new TextureIdentity(new object()), 10, 20, 50, 60, OpenTK.Mathematics.Vector4.One,
+            uv, rotation, 1, RenderPresentationStage.HudOverlay);
+
+    private static void AssertHudTextureCoordinates(RenderOverlayCommand command,
+        params (float X, float Y)[] expected)
+    {
+        Assert.Equal(expected.Length, command.Vertices.Count);
+        for (int i = 0; i < expected.Length; i++)
+        {
+            AssertNear(command.Vertices[i].TexCoord, expected[i].X, expected[i].Y);
+        }
+    }
+
+    private static void AssertNear(OpenTK.Mathematics.Vector2 actual, float expectedX, float expectedY)
+    {
+        Assert.InRange(actual.X, expectedX - .0001f, expectedX + .0001f);
+        Assert.InRange(actual.Y, expectedY - .0001f, expectedY + .0001f);
     }
 
     [Fact]

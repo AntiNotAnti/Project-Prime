@@ -1,5 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MphRead.Mods.MapGen
 {
@@ -13,7 +17,7 @@ namespace MphRead.Mods.MapGen
             {
                 if (force || CustomRooms.NeedsGenerating(def))
                 {
-                    MapPacker.Generate(def, CustomRooms.ArchiveDirectory(def), CustomRooms.EntityDirectory(), CustomRooms.NodeDirectory(), verbose);
+                    Prepare(def, force, verbose);
                     count++;
                 }
             }
@@ -41,7 +45,7 @@ namespace MphRead.Mods.MapGen
                         continue;
                     }
                     Console.WriteLine($"[mapgen] building {def.Name}");
-                    MapPacker.Generate(def, CustomRooms.ArchiveDirectory(def), CustomRooms.EntityDirectory(), CustomRooms.NodeDirectory(), verbose: false);
+                    Prepare(def, force: false, verbose: false);
                 }
                 catch (Exception ex)
                 {
@@ -50,6 +54,118 @@ namespace MphRead.Mods.MapGen
                 }
             }
             return failures;
+        }
+
+        public static MapBuildResult Prepare(string roomName, bool force = false, bool verbose = false)
+        {
+            MapDefinition definition = CustomRooms.Definitions.FirstOrDefault(definition =>
+                definition.Name.Equals(roomName, StringComparison.OrdinalIgnoreCase))
+                ?? throw new MapCompilationException($"Unknown custom map '{roomName}'.");
+            return Prepare(definition, force, verbose);
+        }
+
+        public static MapBuildResult Prepare(MapDefinition definition, bool force = false, bool verbose = false)
+            => PrepareAsync(definition, force, verbose, CancellationToken.None).GetAwaiter().GetResult();
+
+        public static async Task<MapBuildResult> PrepareAsync(MapDefinition definition, bool force,
+            bool verbose, CancellationToken cancellationToken)
+        {
+            MapBuildResult result = await CompileAsync(definition, force, verbose, cancellationToken)
+                .ConfigureAwait(false);
+            if (result.CachePath == null)
+                throw new MapCompilationException($"Map {definition.Name} produced no cache path.", result.Diagnostics);
+            MaterializeLegacyRuntime(definition, result.CachePath);
+            return result;
+        }
+
+        public static async Task<MapBuildResult> CompileAsync(MapDefinition definition, bool force,
+            bool verbose, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(definition);
+            return await CompileAsync(MapProject.FromLegacy(definition), force, verbose,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        public static async Task<MapBuildResult> CompileAsync(MapProject project, bool force,
+            bool verbose, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(project);
+            string baseContentIdentity = ContentEnvironment.GetContentIdentity().ContentHash;
+            var compiler = new MapCompiler();
+            MapBuildResult result = await compiler.CompileAsync(project, new MapBuildOptions
+            {
+                CacheDirectory = MapStoragePaths.MapCache,
+                BaseContentIdentity = baseContentIdentity,
+                Force = force,
+                Verbose = verbose
+            }, cancellationToken).ConfigureAwait(false);
+            CustomRooms.PublishBuildResult(project, result);
+            if (!result.Success || result.CachePath == null)
+                throw new MapCompilationException(
+                    result.Diagnostics.FirstOrDefault(d => d.Severity == MapDiagnosticSeverity.Error)?.Message
+                        ?? $"Map {project.Map.Name} could not be compiled.", result.Diagnostics);
+            return result;
+        }
+
+        public static async Task<MatchContentSnapshot> CompileAndMountAsync(MapDefinition definition,
+            string gameplayIdentity, CancellationToken cancellationToken)
+        {
+            return await CompileAndMountAsync(MapProject.FromLegacy(definition), gameplayIdentity,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        public static async Task<MatchContentSnapshot> CompileAndMountAsync(MapProject project,
+            string gameplayIdentity, CancellationToken cancellationToken)
+        {
+            MapBuildResult result = await CompileAsync(project, force: false, verbose: false,
+                cancellationToken).ConfigureAwait(false);
+            return ContentEnvironment.MountMap(result.ContentIdentity!, result.BuildFingerprint,
+                result.CachePath!, project.Map, gameplayIdentity);
+        }
+
+        /// <summary>Compiles and mounts one cataloged map; base-game rooms return null.</summary>
+        public static async Task<MatchContentSnapshot?> CompileAndMountRoomAsync(string roomName,
+            string gameplayIdentity, CancellationToken cancellationToken)
+        {
+            InstalledMap? installed = CustomRooms.Find(roomName);
+            if (installed == null) return null;
+            return await CompileAndMountAsync(installed.Project, gameplayIdentity, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        private static void MaterializeLegacyRuntime(MapDefinition definition, string cachePath)
+        {
+            string prefix = definition.Name.ToLowerInvariant();
+            (string Source, string Destination)[] files =
+            {
+                ("Model.bin", Path.Combine(CustomRooms.ArchiveDirectory(definition), $"{prefix}_Model.bin")),
+                ("Anim.bin", Path.Combine(CustomRooms.ArchiveDirectory(definition), $"{prefix}_Anim.bin")),
+                ("Collision.bin", Path.Combine(CustomRooms.ArchiveDirectory(definition), $"{prefix}_Collision.bin")),
+                ("Ent.bin", Path.Combine(CustomRooms.EntityDirectory(), $"{prefix}_Ent.bin")),
+                ("Node.bin", Path.Combine(CustomRooms.NodeDirectory(), $"{prefix}_Node.bin"))
+            };
+            foreach ((string sourceName, string destination) in files)
+            {
+                string source = Path.Combine(cachePath, sourceName);
+                byte[] bytes = File.ReadAllBytes(source);
+                if (File.Exists(destination) && MapJson.Sha256(File.ReadAllBytes(destination)) == MapJson.Sha256(bytes))
+                    continue;
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                string temporary = destination + ".map-" + Guid.NewGuid().ToString("N");
+                try
+                {
+                    using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    {
+                        stream.Write(bytes);
+                        stream.Flush(flushToDisk: true);
+                    }
+                    File.Move(temporary, destination, overwrite: true);
+                }
+                finally
+                {
+                    if (File.Exists(temporary)) File.Delete(temporary);
+                }
+            }
         }
     }
 }

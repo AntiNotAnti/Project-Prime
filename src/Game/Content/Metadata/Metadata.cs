@@ -1583,7 +1583,7 @@ namespace MphRead
         {
             if (RoomMetadata.TryGetValue(name, out RoomMetadata? metadata))
             {
-                foreach ((int id, string key) in _roomIds)
+                foreach ((int id, string key) in RoomIds)
                 {
                     if (key == metadata.Name) { return (metadata, id); }
                 }
@@ -1598,7 +1598,7 @@ namespace MphRead
                 if (noThrow) { return null; }
                 throw new ArgumentOutOfRangeException(nameof(id));
             }
-            return _roomIds.TryGetValue(id, out string? name)
+            return RoomIds.TryGetValue(id, out string? name)
                 && RoomMetadata.TryGetValue(name, out RoomMetadata? metadata) ? metadata : null;
         }
 

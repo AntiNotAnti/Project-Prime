@@ -193,4 +193,52 @@ namespace MphRead.Editor
             PrintValue(TriggerFlags, other.TriggerFlags, nameof(TriggerFlags));
         }
     }
+
+    /// <summary>Binary packing model for a bounded MPH area volume.</summary>
+    public sealed class AreaVolumeEntityEditor : EntityEditorBase
+    {
+        public CollisionVolume Volume { get; set; }
+        public ushort Unused64 { get; set; } = ushort.MaxValue;
+        public bool Active { get; set; } = true;
+        public bool AlwaysActive { get; set; } = true;
+        public bool AllowMultiple { get; set; } = true;
+        public byte MessageDelay { get; set; }
+        public ushort Unused6A { get; set; }
+        public Message InsideMessage { get; set; }
+        public int InsideMsgParam1 { get; set; }
+        public int InsideMsgParam2 { get; set; }
+        public short ParentId { get; set; } = -1;
+        public Message ExitMessage { get; set; }
+        public int ExitMsgParam1 { get; set; }
+        public int ExitMsgParam2 { get; set; }
+        public short ChildId { get; set; } = -1;
+        public ushort Cooldown { get; set; }
+        public uint Priority { get; set; }
+        public TriggerFlags TriggerFlags { get; set; }
+            = TriggerFlags.PlayerBiped | TriggerFlags.PlayerAlt;
+
+        public AreaVolumeEntityEditor() : base(EntityType.AreaVolume) { }
+    }
+
+    /// <summary>Binary packing model for a Capture/Bounty octolith.</summary>
+    public sealed class OctolithFlagEntityEditor : EntityEditorBase
+    {
+        public byte TeamId { get; set; }
+        public OctolithFlagEntityEditor() : base(EntityType.OctolithFlag) { }
+    }
+
+    /// <summary>Binary packing model for a Capture/Bounty scoring base.</summary>
+    public sealed class FlagBaseEntityEditor : EntityEditorBase
+    {
+        public uint TeamId { get; set; }
+        public CollisionVolume Volume { get; set; }
+        public FlagBaseEntityEditor() : base(EntityType.FlagBase) { }
+    }
+
+    /// <summary>Binary packing model for a Nodes objective.</summary>
+    public sealed class NodeDefenseEntityEditor : EntityEditorBase
+    {
+        public CollisionVolume Volume { get; set; }
+        public NodeDefenseEntityEditor() : base(EntityType.NodeDefense) { }
+    }
 }

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>MphRead</RootNamespace>
+    <AssemblyName>ProjectPrime.Imaging</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
+    <Compile Include="../Shared/ContentPreparation/MapImageDecoding.cs" Link="MapImageDecoding.cs" />
+    <Compile Include="../Shared/Imaging/StbImageDecoder.cs" Link="StbImageDecoder.cs" />
+  </ItemGroup>
+</Project>

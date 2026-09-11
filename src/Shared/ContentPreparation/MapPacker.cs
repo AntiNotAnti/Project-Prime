@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using MphRead.Editor;
@@ -22,23 +23,82 @@ namespace MphRead.Mods.MapGen
             Directory.CreateDirectory(archiveDir);
             Directory.CreateDirectory(entityDir);
             string prefix = def.Name.ToLowerInvariant();
-            (byte[] model, int vertices) = BuildModel(map);
-            byte[] collision = BuildCollision(map);
-            byte[] entities = Repack.PackEntities(map.Entities);
-            (byte[] nodes, int nodeCount, int edges) = MapNodePacker.Pack(map.Solid);
-            File.WriteAllBytes(Path.Combine(archiveDir, $"{prefix}_Model.bin"), model);
-            File.WriteAllBytes(Path.Combine(archiveDir, $"{prefix}_Anim.bin"), new byte[24]);
-            File.WriteAllBytes(Path.Combine(archiveDir, $"{prefix}_Collision.bin"), collision);
-            File.WriteAllBytes(Path.Combine(entityDir, $"{prefix}_Ent.bin"), entities);
+            MapPackedContent content = Compile(map, out int nodeCount, out int edges);
+            File.WriteAllBytes(Path.Combine(archiveDir, $"{prefix}_Model.bin"), content.Model);
+            File.WriteAllBytes(Path.Combine(archiveDir, $"{prefix}_Anim.bin"), content.Animation);
+            File.WriteAllBytes(Path.Combine(archiveDir, $"{prefix}_Collision.bin"), content.Collision);
+            File.WriteAllBytes(Path.Combine(entityDir, $"{prefix}_Ent.bin"), content.Entities);
             Directory.CreateDirectory(nodeDir);
-            File.WriteAllBytes(Path.Combine(nodeDir, $"{prefix}_Node.bin"), nodes);
+            File.WriteAllBytes(Path.Combine(nodeDir, $"{prefix}_Node.bin"), content.Nodes);
             if (verbose)
             {
-                Console.WriteLine($"{def.Name}: {map.Faces.Count} polygons ({vertices} vertices), "
+                Console.WriteLine($"{def.Name}: {map.Faces.Count} polygons ({content.Statistics.RenderVertices} vertices), "
                     + $"{map.Solid.Count} collision faces, {map.Entities.Count} entities");
                 Console.WriteLine($"  {nodeCount} bot waypoints, {edges} routes between them");
-                Console.WriteLine($"  model {model.Length:N0} B, collision {collision.Length:N0} B, "
-                    + $"entities {entities.Length:N0} B, nodes {nodes.Length:N0} B");
+                Console.WriteLine($"  model {content.Model.Length:N0} B, collision {content.Collision.Length:N0} B, "
+                    + $"entities {content.Entities.Length:N0} B, nodes {content.Nodes.Length:N0} B");
+            }
+        }
+
+        public static MapPackedContent Compile(BuiltMap map)
+            => Compile(map, onStageCompleted: null);
+
+        public static MapPackedContent Compile(BuiltMap map,
+            Action<MapStageTiming>? onStageCompleted)
+            => Compile(map, out _, out _, onStageCompleted);
+
+        private static MapPackedContent Compile(BuiltMap map, out int nodeCount, out int edges,
+            Action<MapStageTiming>? onStageCompleted = null)
+        {
+            (byte[] model, int vertices, int materialCount, int textureCount) = Timed(
+                "Build Render Geometry", onStageCompleted, () => BuildModel(map));
+            (byte[] collision, MapCollisionStatistics collisionStatistics) = Timed(
+                "Build Collision", onStageCompleted, () =>
+                {
+                    byte[] bytes = BuildCollision(map, out MapCollisionStatistics statistics);
+                    return (bytes, statistics);
+                });
+            byte[] entities = Timed("Build Entities", onStageCompleted,
+                () => Repack.PackEntities(map.Entities));
+            (byte[] nodes, nodeCount, edges) = Timed("Build Node Data", onStageCompleted,
+                () => MapNodePacker.Pack(map.Solid));
+            (Vector3 min, Vector3 max) = Bounds(map.Faces);
+            MapDefinition definition = map.Definition;
+            var statistics = new MapBuildStatistics
+            {
+                RenderTriangles = map.Faces.Sum(face => Math.Max(0, face.Points.Length - 2)),
+                RenderVertices = vertices,
+                Materials = materialCount,
+                Textures = textureCount,
+                CollisionFaces = collisionStatistics.Faces,
+                CollisionPoints = collisionStatistics.DistinctPoints,
+                CollisionPlanes = collisionStatistics.Planes,
+                CollisionGridX = collisionStatistics.GridX,
+                CollisionGridY = collisionStatistics.GridY,
+                CollisionGridZ = collisionStatistics.GridZ,
+                CollisionGridReferences = collisionStatistics.GridReferences,
+                Entities = map.Entities.Count,
+                Spawns = definition.Spawns.Count,
+                Items = definition.Items.Count,
+                WorldMin = new[] { min.X, min.Y, min.Z },
+                WorldMax = new[] { max.X, max.Y, max.Z },
+                ModelScaleFactor = definition.ScaleFactor,
+                FixedPointPrecision = MathF.Pow(2, definition.ScaleFactor) / 4096f
+            };
+            return new MapPackedContent(model, new byte[24], collision, entities, nodes, statistics);
+        }
+
+        private static T Timed<T>(string stage, Action<MapStageTiming>? completed, Func<T> action)
+        {
+            long start = Stopwatch.GetTimestamp();
+            try
+            {
+                return action();
+            }
+            finally
+            {
+                completed?.Invoke(new MapStageTiming(stage,
+                    Stopwatch.GetElapsedTime(start).TotalMilliseconds));
             }
         }
 
@@ -49,7 +109,7 @@ namespace MphRead.Mods.MapGen
             Generate(map, archiveDir, entityDir, nodeDir, verbose);
         }
 
-        private static (byte[], int) BuildModel(BuiltMap map)
+        private static (byte[], int, int, int) BuildModel(BuiltMap map)
         {
             MapDefinition def = map.Definition;
             MapTexturePack? own = def.Import?.LoadTexturePack();
@@ -67,8 +127,21 @@ namespace MphRead.Mods.MapGen
             var textureMap = new Dictionary<int, int>();
             var paletteMap = new Dictionary<int, int>();
             var materials = new List<Material>();
-            foreach (MapMaterial mapMaterial in def.Materials)
+            for (int mapMaterialIndex = 0; mapMaterialIndex < def.Materials.Count; mapMaterialIndex++)
             {
+                MapMaterial mapMaterial = def.Materials[mapMaterialIndex];
+                if (map.CustomTextures.TryGetValue(mapMaterialIndex, out MapTexturePack.Entry? custom))
+                {
+                    int customTextureId = textures.Count;
+                    int customPaletteId = palettes.Count;
+                    textures.Add(new Repack.TextureInfo(TextureFormat.Palette8Bit, opaque: true,
+                        custom.Height, custom.Width, custom.Pixels));
+                    palettes.Add(new Repack.PaletteInfo(custom.Palette));
+                    materials.Add(RawStructs.MakeMaterial(mapMaterial.Name, customTextureId, customPaletteId,
+                        RepeatMode.Repeat, RepeatMode.Repeat, lighting: false,
+                        diffuse: new ColorRgb(31, 31, 31), ambient: new ColorRgb(0, 0, 0)));
+                    continue;
+                }
                 if (mapMaterial.SourceMaterial < 0 || mapMaterial.SourceMaterial >= source.Materials.Count)
                 {
                     throw new ProgramException($"{def.TextureSource} has no material {mapMaterial.SourceMaterial}.");
@@ -101,7 +174,8 @@ namespace MphRead.Mods.MapGen
             {
                 throw new ProgramException("A map needs at least one material.");
             }
-            return Assemble(map, def, materials, textures, palettes);
+            (byte[] bytes, int vertices) = Assemble(map, def, materials, textures, palettes);
+            return (bytes, vertices, materials.Count, textures.Count);
         }
 
         /// <summary>
@@ -167,7 +241,7 @@ namespace MphRead.Mods.MapGen
         /// off the cartridge ends up in the file: one material per shader, and
         /// each one's image and palette straight out of the pack.
         /// </summary>
-        private static (byte[], int) BuildModel(BuiltMap map, MapTexturePack pack)
+        private static (byte[], int, int, int) BuildModel(BuiltMap map, MapTexturePack pack)
         {
             MapDefinition def = map.Definition;
             var textures = new List<Repack.TextureInfo>();
@@ -189,7 +263,8 @@ namespace MphRead.Mods.MapGen
             {
                 throw new ProgramException("The texture pack is empty.");
             }
-            return Assemble(map, def, materials, textures, palettes);
+            (byte[] bytes, int vertices) = Assemble(map, def, materials, textures, palettes);
+            return (bytes, vertices, materials.Count, textures.Count);
         }
 
         /// <summary>Splits a polygon with more than four sides into a triangle fan.</summary>
@@ -274,7 +349,7 @@ namespace MphRead.Mods.MapGen
             return new RenderInstruction(InstructionCode.VTX_16, x | (y << 16), z);
         }
 
-        private static byte[] BuildCollision(BuiltMap map)
+        private static byte[] BuildCollision(BuiltMap map, out MapCollisionStatistics statistics)
         {
             var editors = new List<CollisionDataEditor>();
             foreach (BuiltFace face in map.Solid)
@@ -300,7 +375,20 @@ namespace MphRead.Mods.MapGen
             {
                 throw new ProgramException("A map needs at least one solid face.");
             }
-            return MapCollisionPacker.Pack(editors);
+            return MapCollisionPacker.Pack(editors, out statistics);
+        }
+
+        private static (Vector3 Min, Vector3 Max) Bounds(IReadOnlyList<BuiltFace> faces)
+        {
+            var min = new Vector3(Single.MaxValue);
+            var max = new Vector3(Single.MinValue);
+            foreach (BuiltFace face in faces)
+            foreach (Vector3 point in face.Points)
+            {
+                min = Vector3.ComponentMin(min, point);
+                max = Vector3.ComponentMax(max, point);
+            }
+            return faces.Count == 0 ? (Vector3.Zero, Vector3.Zero) : (min, max);
         }
 
         public static int GetPrimaryAxis(Vector3 normal)

@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Collections.Immutable;
+using System.Threading;
+using System.Threading.Tasks;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.MapGen
@@ -11,14 +14,15 @@ namespace MphRead.Mods.MapGen
     /// handle: the launcher lists them, -maptest loads them, the server can
     /// run them.
     ///
-    /// A map is a JSON file in `maps/` next to the executable. Its three
-    /// binaries are generated into the player's own extracted files, since
-    /// that is where a room's paths point and where the textures come from,
-    /// and they are regenerated whenever the JSON is newer than they are.
+    /// A map may be editable source or an installed package. Compiled binaries
+    /// live in the content-addressed map cache and are exposed through a
+    /// selected-map overlay; the extracted base game remains immutable.
     /// </summary>
     public static class CustomRooms
     {
         private static IReadOnlyList<MapDefinition>? _definitions;
+        private static MapCatalog? _catalog;
+        private static string? _catalogDirectory;
         private static int _firstId = -1;
         // Android builds the map binaries on a background thread while the
         // front screen is listing rooms on another, and both go through here.
@@ -29,12 +33,40 @@ namespace MphRead.Mods.MapGen
         /// Android head moves it, because the package directory there is read
         /// only and the maps have to live where the extracted game files
         /// already do. Set it before anything reads <see cref="Definitions"/>:
-        /// the list is loaded once and cached.
+        /// the immutable catalog is refreshed explicitly when content changes.
         /// </summary>
         public static string ContentRoot { get; set; } = AppContext.BaseDirectory;
 
-        public static string MapDirectory { get; set; }
-            = Path.Combine(AppContext.BaseDirectory, "maps");
+        private static string _mapDirectory = Path.Combine(AppContext.BaseDirectory, "maps");
+        public static string MapDirectory
+        {
+            get => _mapDirectory;
+            set
+            {
+                lock (_lock)
+                {
+                    string full = Path.GetFullPath(value);
+                    if (_mapDirectory == full) return;
+                    _mapDirectory = full;
+                    _definitions = null;
+                    _catalog?.Dispose();
+                    _catalog = null;
+                    _catalogDirectory = null;
+                }
+            }
+        }
+
+        public static IMapCatalog Catalog
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    EnsureCatalog();
+                    return _catalog!;
+                }
+            }
+        }
 
         public static IReadOnlyList<MapDefinition> Definitions
         {
@@ -81,47 +113,129 @@ namespace MphRead.Mods.MapGen
 
         private static IReadOnlyList<MapDefinition> LoadDefinitions()
         {
-            var results = new List<MapDefinition>();
-            if (!Directory.Exists(MapDirectory))
+            EnsureCatalog();
+            _catalog!.RefreshAsync().AsTask().GetAwaiter().GetResult();
+            foreach (MapDiagnostic diagnostic in _catalog.Snapshot.Diagnostics)
             {
-                return results;
+                Console.WriteLine($"Ignoring map {Path.GetFileName(diagnostic.SourcePath)}: {diagnostic.Message}");
             }
-            foreach (string path in MapFiles().OrderBy(p => p))
+            return _catalog.Snapshot.Maps
+                .Where(map => map.BuildState is MapBuildState.NeedsBuild or MapBuildState.Ready)
+                .OrderByDescending(map => map.Source is MapInstallSource.InstalledPackage
+                    or MapInstallSource.BundledPackage or MapInstallSource.LegacyPackage)
+                .ThenBy(map => map.SourcePath, StringComparer.Ordinal)
+                .Select(map => map.Project.Map)
+                .Where(definition => definition.Import == null || definition.Import.Resolve() != null)
+                .GroupBy(definition => definition.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .OrderBy(definition => definition.SourcePath, StringComparer.Ordinal)
+                .ToArray();
+        }
+
+        public static async ValueTask RefreshAsync(CancellationToken cancellationToken = default)
+        {
+            MapCatalog catalog;
+            lock (_lock)
             {
-                try
-                {
-                    MapDefinition definition = MapDefinition.Load(path);
-                    if (definition.Import == null && definition.Brushes.Count == 0)
-                    {
-                        // Source folders also contain JSON reports. Deserializing one
-                        // must not register the default empty CUSTOM room.
-                        Console.WriteLine($"Ignoring map {Path.GetFileName(path)}: no imported level or brushes.");
-                        continue;
-                    }
-                    definition.Name = definition.Name.ToUpperInvariant();
-                    if (definition.Import != null && definition.Import.Resolve() == null)
-                    {
-                        // Rooms are indexed by their position in a table that
-                        // is built once, so a room registered here cannot be
-                        // taken out again later -- it would sit in the launcher
-                        // and crash whoever picked it. A converted map whose
-                        // source level is not on this machine is the case that
-                        // actually happens: the map file travels with the
-                        // repository, the level it was made from does not.
-                        Console.WriteLine($"Leaving out map {definition.Name}: its source level "
-                            + $"{definition.Import.Source} is not here. Put it in "
-                            + $"{definition.BaseDirectory ?? MapDirectory} to have this map.");
-                        continue;
-                    }
-                    results.Add(definition);
-                }
-                catch (Exception ex)
-                {
-                    // a broken map file must not stop the game from starting
-                    Console.WriteLine($"Ignoring map {Path.GetFileName(path)}: {ex.Message}");
-                }
+                EnsureCatalog();
+                catalog = _catalog!;
             }
-            return results;
+            await catalog.RefreshAsync(cancellationToken).ConfigureAwait(false);
+            lock (_lock) _definitions = BuildDefinitions(catalog.Snapshot);
+        }
+
+        public static async ValueTask<InstalledMap> InstallAsync(string packagePath,
+            CancellationToken cancellationToken = default)
+        {
+            MapCatalog catalog = (MapCatalog)Catalog;
+            InstalledMap map = await catalog.InstallAsync(packagePath, cancellationToken).ConfigureAwait(false);
+            lock (_lock) _definitions = BuildDefinitions(catalog.Snapshot);
+            return map;
+        }
+
+        public static async ValueTask RemoveAsync(MapContentIdentity identity,
+            CancellationToken cancellationToken = default)
+        {
+            MapCatalog catalog = (MapCatalog)Catalog;
+            await catalog.RemoveAsync(identity, cancellationToken).ConfigureAwait(false);
+            lock (_lock) _definitions = BuildDefinitions(catalog.Snapshot);
+        }
+
+        private static void EnsureCatalog()
+        {
+            string directory = Path.GetFullPath(MapDirectory);
+            if (_catalog != null && _catalogDirectory == directory) return;
+            _catalog?.Dispose();
+            _catalog = new MapCatalog(new MapCatalogOptions
+            {
+                InstalledDirectory = MapStoragePaths.InstalledMaps,
+                ProjectDirectories = [MapStoragePaths.Projects, directory],
+                CacheDirectory = MapStoragePaths.MapCache
+            });
+            _catalogDirectory = directory;
+        }
+
+        private static IReadOnlyList<MapDefinition> BuildDefinitions(MapCatalogSnapshot snapshot)
+            => snapshot.Maps
+                .Where(map => map.BuildState is MapBuildState.NeedsBuild or MapBuildState.Ready)
+                .OrderByDescending(map => map.Source is MapInstallSource.InstalledPackage
+                    or MapInstallSource.BundledPackage or MapInstallSource.LegacyPackage)
+                .ThenBy(map => map.SourcePath, StringComparer.Ordinal)
+                .Select(map => map.Project.Map)
+                .Where(definition => definition.Import == null || definition.Import.Resolve() != null)
+                .GroupBy(definition => definition.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .OrderBy(definition => definition.SourcePath, StringComparer.Ordinal)
+                .ToArray();
+
+        public static ImmutableArray<MapMode> SupportedModes(string roomName)
+        {
+            lock (_lock)
+            {
+                EnsureCatalog();
+                InstalledMap? map = _catalog!.Snapshot.Maps.FirstOrDefault(candidate =>
+                    candidate.Project.Map.Name.Equals(roomName, StringComparison.OrdinalIgnoreCase));
+                return map?.SupportedModes ?? [MapMode.Battle, MapMode.Survival];
+            }
+        }
+
+        public static InstalledMap? Find(string roomName)
+        {
+            lock (_lock)
+            {
+                EnsureCatalog();
+                if (_catalog!.Snapshot.Revision == 0)
+                {
+                    _catalog.RefreshAsync().AsTask().GetAwaiter().GetResult();
+                    _definitions = BuildDefinitions(_catalog.Snapshot);
+                }
+                return _catalog.Snapshot.Maps.FirstOrDefault(candidate =>
+                    candidate.Project.Map.Name.Equals(roomName, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        /// <summary>Publishes a per-map compiler result without creating catalog ownership implicitly.</summary>
+        public static void PublishBuildResult(MapProject project, MapBuildResult result)
+        {
+            ArgumentNullException.ThrowIfNull(project);
+            ArgumentNullException.ThrowIfNull(result);
+            MapCatalog? catalog;
+            InstalledMap? map;
+            lock (_lock)
+            {
+                catalog = _catalog;
+                if (catalog == null) return;
+                map = catalog.Snapshot.Maps.FirstOrDefault(candidate =>
+                    result.ContentIdentity != null && candidate.ContentIdentity == result.ContentIdentity
+                    || project.SourcePath != null && candidate.SourcePath.Equals(
+                        Path.GetFullPath(project.SourcePath), StringComparison.Ordinal));
+            }
+            if (map == null) return;
+            catalog.PublishBuildState(map.ContentIdentity,
+                result.Success ? MapBuildState.Ready : MapBuildState.Invalid,
+                result.Statistics, result.Diagnostics);
+            lock (_lock)
+                if (ReferenceEquals(_catalog, catalog)) _definitions = BuildDefinitions(catalog.Snapshot);
         }
 
         /// <summary>Called from the sparse room ID table; custom identities retain their original base.</summary>
@@ -221,22 +335,14 @@ namespace MphRead.Mods.MapGen
         /// </summary>
         public static string? WhyUnplayable(string roomName)
         {
-            MapDefinition? def = null;
-            foreach (MapDefinition candidate in Definitions)
-            {
-                if (candidate.Name.Equals(roomName, StringComparison.OrdinalIgnoreCase))
-                {
-                    def = candidate;
-                    break;
-                }
-            }
-            if (def == null || !NeedsGenerating(def))
-            {
-                return null;
-            }
-            string file = Path.GetFileName(def.SourcePath) ?? "its map file";
-            return $"{def.Name} could not be built from {file}, so there is no room to load. "
-                + "The [mapgen] line above says what went wrong with it.";
+            InstalledMap? map = Find(roomName);
+            if (map == null || map.BuildState == MapBuildState.Ready) return null;
+            if (map.BuildState == MapBuildState.NeedsBuild && !NeedsGenerating(map.Project.Map))
+                return null; // Legacy materialized output remains loadable during migration.
+            string detail = map.Diagnostics.FirstOrDefault(value =>
+                value.Severity == MapDiagnosticSeverity.Error)?.Message
+                ?? "The selected map has not reached Ready state.";
+            return $"{map.DisplayName} is {map.BuildState}: {detail}";
         }
 
         public static bool NeedsGenerating(MapDefinition def)

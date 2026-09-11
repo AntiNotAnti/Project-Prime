@@ -49,7 +49,12 @@ namespace MphRead.Mods.MapGen
         public int[] Light2Color { get; set; } = new[] { 10, 11, 16 };
         public float[] Light2Vector { get; set; } = new[] { -0.3f, 1f, -0.2f };
 
+        /// <summary>
+        /// Legacy recommendation retained for v1 recipes. Lobby/match rules are
+        /// authoritative; map content never overrides configured match rules.
+        /// </summary>
         public uint BattleTimeLimit { get; set; } = 7 * 60 * 30;
+        /// <summary>Legacy recommended score limit; not an authoritative rule source.</summary>
         public short PointLimit { get; set; } = 7;
 
         /// <summary>Set to convert a level from another engine instead of building from brushes.</summary>
@@ -100,11 +105,7 @@ namespace MphRead.Mods.MapGen
                 ? MapBundle.ReadRecipe(path)
                     ?? throw new ProgramException($"{Path.GetFileName(path)} has no map in it.")
                 : File.ReadAllText(path);
-            MapDefinition? result = JsonSerializer.Deserialize<MapDefinition>(text, _options);
-            if (result == null)
-            {
-                throw new ProgramException($"Could not read map definition {path}.");
-            }
+            MapDefinition result = DeserializeLegacy(text, path);
             result.BaseDirectory = Path.GetDirectoryName(Path.GetFullPath(path));
             result.SourcePath = Path.GetFullPath(path);
             result.BundlePath = MapBundle.Is(path) ? result.SourcePath : null;
@@ -115,6 +116,10 @@ namespace MphRead.Mods.MapGen
             }
             return result;
         }
+
+        internal static MapDefinition DeserializeLegacy(string text, string sourceName)
+            => JsonSerializer.Deserialize<MapDefinition>(text, _options)
+                ?? throw new ProgramException($"Could not read map definition {sourceName}.");
 
         public void Save(string path)
         {

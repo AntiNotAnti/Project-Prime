@@ -11,5 +11,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Client/Client.csproj" />
+    <ProjectReference Include="../Renderer/Renderer.csproj" />
   </ItemGroup>
 </Project>

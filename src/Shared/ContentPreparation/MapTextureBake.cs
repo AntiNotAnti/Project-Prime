@@ -130,6 +130,37 @@ namespace MphRead.Mods.MapGen
             }
         }
 
+        /// <summary>Bakes editor image assets in deterministic material-index order.</summary>
+        public static MapTexturePack BakeImages(
+            IEnumerable<(int SourceIndex, string Name, ReadOnlyMemory<byte> Encoded)> images,
+            int size = DefaultSize)
+        {
+            var entries = images.OrderBy(value => value.SourceIndex).ToArray();
+            if (entries.Select(value => value.SourceIndex).Distinct().Count() != entries.Length)
+                throw new MapCompilationException("Custom texture material indices must be unique.");
+            using var memory = new MemoryStream();
+            using (var writer = new BinaryWriter(memory, Encoding.UTF8, leaveOpen: true))
+            {
+                writer.Write(new[] { 'F', 'P', 'T', 'X' });
+                writer.Write((ushort)1);
+                writer.Write(checked((ushort)entries.Length));
+                foreach ((int sourceIndex, string name, ReadOnlyMemory<byte> encoded) in entries)
+                {
+                    (ushort[] palette, byte[] pixels) = Quantize(Decode(encoded.ToArray(), size), size);
+                    byte[] encodedName = Encoding.UTF8.GetBytes(name);
+                    writer.Write(checked((ushort)sourceIndex));
+                    writer.Write(checked((ushort)size));
+                    writer.Write(checked((ushort)size));
+                    writer.Write(checked((ushort)palette.Length));
+                    writer.Write(checked((ushort)encodedName.Length));
+                    writer.Write(encodedName);
+                    foreach (ushort color in palette) writer.Write(color);
+                    writer.Write(pixels);
+                }
+            }
+            return MapTexturePack.Load(memory.ToArray(), "native-editor-images.fptx");
+        }
+
         /// <summary>Which shaders the drawn surfaces reference, and their names.</summary>
         private static IEnumerable<(int, string)> UsedTextures(Q3Bsp bsp, bool sky)
         {

@@ -54,6 +54,41 @@ namespace MphRead.Utility
             writer.Write((uint)entity.TriggerFlags);
         }
 
+        private static void WriteMphAreaVolume(AreaVolumeEntityEditor entity, BinaryWriter writer)
+        {
+            writer.WriteVolume(entity.Volume);
+            writer.Write(entity.Unused64);
+            writer.WriteByte(entity.Active);
+            writer.WriteByte(entity.AlwaysActive);
+            writer.WriteByte(entity.AllowMultiple);
+            writer.Write(entity.MessageDelay);
+            writer.Write(entity.Unused6A);
+            writer.Write((uint)entity.InsideMessage);
+            writer.Write(entity.InsideMsgParam1);
+            writer.Write(entity.InsideMsgParam2);
+            writer.Write(entity.ParentId);
+            writer.Write((ushort)0);
+            writer.Write((uint)entity.ExitMessage);
+            writer.Write(entity.ExitMsgParam1);
+            writer.Write(entity.ExitMsgParam2);
+            writer.Write(entity.ChildId);
+            writer.Write(entity.Cooldown);
+            writer.Write(entity.Priority);
+            writer.Write((uint)entity.TriggerFlags);
+        }
+
+        private static void WriteMphOctolithFlag(OctolithFlagEntityEditor entity, BinaryWriter writer)
+            => writer.Write(entity.TeamId);
+
+        private static void WriteMphFlagBase(FlagBaseEntityEditor entity, BinaryWriter writer)
+        {
+            writer.Write(entity.TeamId);
+            writer.WriteVolume(entity.Volume);
+        }
+
+        private static void WriteMphNodeDefense(NodeDefenseEntityEditor entity, BinaryWriter writer)
+            => writer.WriteVolume(entity.Volume);
+
         public static void WriteVolume(this BinaryWriter writer, CollisionVolume volume)
         {
             uint padInt = 0;
@@ -164,7 +199,9 @@ namespace MphRead.Utility
                     throw new ProgramException("File entities must have a positive entity ID.");
                 }
                 if (entity is not PlayerSpawnEntityEditor && entity is not ItemSpawnEntityEditor
-                    && entity is not JumpPadEntityEditor)
+                    && entity is not JumpPadEntityEditor && entity is not AreaVolumeEntityEditor
+                    && entity is not OctolithFlagEntityEditor && entity is not FlagBaseEntityEditor
+                    && entity is not NodeDefenseEntityEditor)
                 {
                     throw new ProgramException($"Unsupported generated map entity type {entity.Type}.");
                 }
@@ -189,6 +226,18 @@ namespace MphRead.Utility
                 break;
             case JumpPadEntityEditor pad:
                 WriteMphJumpPad(pad, writer);
+                break;
+            case AreaVolumeEntityEditor area:
+                WriteMphAreaVolume(area, writer);
+                break;
+            case OctolithFlagEntityEditor flag:
+                WriteMphOctolithFlag(flag, writer);
+                break;
+            case FlagBaseEntityEditor flagBase:
+                WriteMphFlagBase(flagBase, writer);
+                break;
+            case NodeDefenseEntityEditor node:
+                WriteMphNodeDefense(node, writer);
                 break;
             }
             return (int)(writer.BaseStream.Position - position);

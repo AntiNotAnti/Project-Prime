@@ -51,6 +51,17 @@ class RendererPackageTests(unittest.TestCase):
 
         self.assertEqual([], CHECKER.inspect_package(self.root, "linux-x64"))
 
+    def test_editor_package_can_declare_its_own_executable(self):
+        self.make_package("linux-x64")
+        (self.root / "ProjectPrime").rename(self.root / "ProjectPrime.Editor")
+
+        self.assertEqual(
+            [],
+            CHECKER.inspect_package(
+                self.root, "linux-x64", "ProjectPrime.Editor"
+            ),
+        )
+
     def test_missing_sdl_and_stale_shader_are_reported(self):
         self.make_package("win-arm64")
         (self.root / "SDL3.dll").unlink()

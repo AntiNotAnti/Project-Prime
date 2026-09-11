@@ -21,6 +21,7 @@ namespace MphRead
                 if (args.Length > 0 && args[0] == "telemetry") return TelemetryCommand.Run(args);
                 if (args.Length > 0 && args[0] == "fidelity") return FidelityCommand.Run(args[1..]);
                 MapGen.MapImageDecoding.Decoder = MphRead.Imaging.StbImageDecoder.Decode;
+                if (args.Length > 0 && args[0] == "map") return MapGen.MapCommand.Run(args[1..]);
                 if (args.Length == 0 || HasFlag(args, "help"))
                 { Console.WriteLine("ProjectPrimeTools: fidelity <command>, -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -content-dir DIRECTORY, -mapbundle [NAME|all], -mapgen [NAME|all], -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return 0; }
                 string? mapDir = ValueAfter(args, "mapdir");
