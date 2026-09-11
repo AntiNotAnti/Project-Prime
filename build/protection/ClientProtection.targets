@@ -2,11 +2,6 @@
   <PropertyGroup>
     <_PrimeProtectionEnabled Condition="'$(Configuration)' == 'Release' and '$(PrimeProtectClient)' == 'true' and '$(PublishSingleFile)' == 'true'">true</_PrimeProtectionEnabled>
     <_PrimeRepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../..'))</_PrimeRepositoryRoot>
-    <_PrimeProtectionRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/$(IntermediateOutputPath)prime-protection'))</_PrimeProtectionRoot>
-    <_PrimeProtectionInput>$(_PrimeProtectionRoot)/input</_PrimeProtectionInput>
-    <_PrimeProtectionOutput>$(_PrimeProtectionRoot)/output</_PrimeProtectionOutput>
-    <_PrimeProtectionConfig>$(_PrimeProtectionRoot)/obfuscar.xml</_PrimeProtectionConfig>
-    <_PrimeProtectionMap>$(_PrimeProtectionRoot)/Mapping.txt</_PrimeProtectionMap>
   </PropertyGroup>
 
   <Target Name="ValidateProjectPrimeClientProtection"
@@ -24,6 +19,17 @@
           AfterTargets="PrepareForBundle"
           BeforeTargets="_GenerateSingleFileBundleInputCache;GenerateSingleFileBundle"
           Condition="'$(_PrimeProtectionEnabled)' == 'true'">
+    <PropertyGroup>
+      <!-- IntermediateOutputPath may be absolute when protected compilation
+           uses the repository artifacts layout. Resolve either form without
+           prepending the project directory to an already-rooted path. -->
+      <_PrimeProtectionRoot Condition="$([System.IO.Path]::IsPathRooted('$(IntermediateOutputPath)'))">$([System.IO.Path]::GetFullPath('$(IntermediateOutputPath)prime-protection'))</_PrimeProtectionRoot>
+      <_PrimeProtectionRoot Condition="!$([System.IO.Path]::IsPathRooted('$(IntermediateOutputPath)'))">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/$(IntermediateOutputPath)prime-protection'))</_PrimeProtectionRoot>
+      <_PrimeProtectionInput>$(_PrimeProtectionRoot)/input</_PrimeProtectionInput>
+      <_PrimeProtectionOutput>$(_PrimeProtectionRoot)/output</_PrimeProtectionOutput>
+      <_PrimeProtectionConfig>$(_PrimeProtectionRoot)/obfuscar.xml</_PrimeProtectionConfig>
+      <_PrimeProtectionMap>$(_PrimeProtectionRoot)/Mapping.txt</_PrimeProtectionMap>
+    </PropertyGroup>
     <ItemGroup>
       <_PrimeProjectPrime Include="@(FilesToBundle)" Condition="'%(Filename)%(Extension)' == 'ProjectPrime.dll'" />
       <_PrimeGame Include="@(FilesToBundle)" Condition="'%(Filename)%(Extension)' == 'ProjectPrime.Game.dll'" />

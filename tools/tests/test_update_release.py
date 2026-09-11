@@ -20,6 +20,8 @@ class UpdateReleaseTests(unittest.TestCase):
             directory = Path(temporary) / "win"
             directory.mkdir()
             (directory / "ProjectPrime.exe").write_bytes(b"binary")
+            (directory / "editor").mkdir()
+            (directory / "editor" / "ProjectPrime.Editor.exe").write_bytes(b"editor")
             (directory / "paths.txt").write_bytes(b"player-owned template")
             (directory / "saves").mkdir()
             (directory / "saves" / "slot.dat").write_bytes(b"player-owned save")
@@ -40,10 +42,26 @@ class UpdateReleaseTests(unittest.TestCase):
                 next(item["sha256"] for item in manifest["files"] if item["path"] == "ProjectPrime.exe"),
             )
             managed_paths = {item["path"].casefold() for item in manifest["files"]}
+            self.assertIn("editor/projectprime.editor.exe", managed_paths)
             self.assertNotIn("paths.txt", managed_paths)
             self.assertFalse(any(path.startswith("saves/") for path in managed_paths))
             self.assertFalse(any(path.startswith("files/") for path in managed_paths))
             self.assertFalse(any(path.startswith("content/") for path in managed_paths))
+
+    def test_release_files_reject_desktop_package_without_editor(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary) / "linux"
+            directory.mkdir()
+            (directory / "ProjectPrime").write_bytes(b"binary")
+            result = subprocess.run(
+                ["python3", str(TOOL), "--version", "1.2.3",
+                 "--output", str(Path(temporary) / "out"),
+                 "--desktop-dir", str(directory)],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                check=False,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("editor/ProjectPrime.Editor", result.stderr)
 
     def test_contract_requires_all_player_rids_and_rejects_missing_package(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -157,18 +175,22 @@ class UpdateReleaseTests(unittest.TestCase):
     @staticmethod
     def _write_desktop_archive(package: Path, rid: str, version: str = "1.2.3") -> None:
         executable = "ProjectPrime.exe" if rid == "win-x64" else "ProjectPrime"
+        editor = "editor/ProjectPrime.Editor.exe" if rid == "win-x64" \
+            else "editor/ProjectPrime.Editor"
         binary = b"binary-" + rid.encode()
+        editor_binary = b"editor-" + rid.encode()
         metadata = {
             "schemaVersion": 1,
             "version": version,
-            "files": [{
-                "path": executable,
-                "sha256": hashlib.sha256(binary).hexdigest(),
-            }],
+            "files": [
+                {"path": executable, "sha256": hashlib.sha256(binary).hexdigest()},
+                {"path": editor, "sha256": hashlib.sha256(editor_binary).hexdigest()},
+            ],
         }
         if package.suffix == ".zip":
             with zipfile.ZipFile(package, "w", zipfile.ZIP_DEFLATED) as archive:
                 archive.writestr(executable, binary)
+                archive.writestr(editor, editor_binary)
                 archive.writestr("paths.txt", b"player template")
                 archive.writestr("release-files.json", json.dumps(
                     metadata, separators=(",", ":")).encode())
@@ -176,6 +198,7 @@ class UpdateReleaseTests(unittest.TestCase):
             with tarfile.open(package, "w:gz") as archive:
                 for name, content in (
                     (executable, binary),
+                    (editor, editor_binary),
                     ("paths.txt", b"player template"),
                     ("release-files.json", json.dumps(
                         metadata, separators=(",", ":")).encode()),

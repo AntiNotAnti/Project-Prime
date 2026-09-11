@@ -5,8 +5,8 @@
 # out of the cartridge -- those are produced on each player's own machine and
 # do not belong in this repository or in a release.
 
-# The Project Prime title screen, the cherry mark alone (padded square, for
-# icons), and the same mark with a small server badge. Sources for the .ico
+# The Project Prime title screen, the Project Prime mark alone (padded square,
+# for icons), and the same mark with a small server badge. Sources for the .ico
 # files below and for what the launchers and the README show.
 src/Client/Assets/project-prime-title-screen.png
 # These removed rename destinations remain visible in the shared index until

@@ -12,7 +12,8 @@ usage() {
     cat <<'USAGE'
 Usage: ./build-all.sh [--version VERSION] [--output DIRECTORY] [--skip-android] [--no-client-protection]
 
-Cooks every custom map once, publishes all deployable desktop clients,
+Cooks every custom map once, publishes all deployable desktop clients with
+their matching Project Prime Editor creator tools,
 packages every release server RID plus a local/dev Apple Silicon server, and
 builds Android by default. The final directory appears only after all outputs
 have passed package, map, proprietary-asset, and Windows subsystem checks.
@@ -157,7 +158,14 @@ for rid in win-x64 linux-x64 osx-x64 osx-arm64; do
     dotnet publish src/Client/Client.csproj -c Release -r "$rid" --self-contained true \
         -p:PublishSingleFile=true -p:SkipCustomMapBundleCook=true "${PROTECTION_ARGS[@]}" \
         "${STAMP_ARGS[@]}" -o "$destination"
+    echo "Publishing bundled map editor $rid..."
+    dotnet publish src/Editor/Editor.csproj -c Release -r "$rid" --self-contained true \
+        -p:PublishSingleFile=true "${STAMP_ARGS[@]}" -o "$destination/editor"
     python3 tools/check-renderer-package.py --rid "$rid" "$destination"
+    editor_executable=ProjectPrime.Editor
+    if [[ "$rid" == win-x64 ]]; then editor_executable=ProjectPrime.Editor.exe; fi
+    python3 tools/check-renderer-package.py --rid "$rid" \
+        --executable "$editor_executable" "$destination/editor"
     bash tools/check-maps-shipped.sh "$destination"
     bash tools/check-no-game-assets.sh "$destination"
     python3 tools/protection/check-obfuscation.py public "$destination"
@@ -232,7 +240,7 @@ root, version, map_count, android, protection = sys.argv[1:]
 protection_enabled = protection == "1"
 summary = f"""Project Prime complete build
 Version: {version}
-Desktop clients: win-x64, linux-x64, osx-x64, osx-arm64
+Desktop clients + bundled map editor: win-x64, linux-x64, osx-x64, osx-arm64
 Release servers: win-x64, linux-x64, linux-arm64
 Local/dev server: osx-arm64
 Android: {android}
@@ -248,6 +256,11 @@ manifest = {
     "product": "Project Prime",
     "version": version,
     "clients": ["win-x64", "linux-x64", "osx-x64", "osx-arm64"],
+    "desktop_editor": {
+        "bundled": True,
+        "relative_directory": "editor",
+        "rids": ["win-x64", "linux-x64", "osx-x64", "osx-arm64"],
+    },
     "release_servers": ["win-x64", "linux-x64", "linux-arm64"],
     "local_dev_servers": ["osx-arm64"],
     "android_signing": android,

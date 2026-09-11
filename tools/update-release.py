@@ -76,7 +76,22 @@ def digest(path: Path) -> str:
     return h.hexdigest()
 
 
+def required_desktop_components(directory: Path) -> tuple[str, str]:
+    """Resolve and require one complete platform-specific desktop product."""
+    if (directory / "ProjectPrime.exe").is_file():
+        required = ("ProjectPrime.exe", "editor/ProjectPrime.Editor.exe")
+    elif (directory / "ProjectPrime").is_file():
+        required = ("ProjectPrime", "editor/ProjectPrime.Editor")
+    else:
+        fail(f"desktop package has no Project Prime client executable: {directory}")
+    for relative in required:
+        if not (directory / relative).is_file():
+            fail(f"desktop package is missing required component {relative}")
+    return required
+
+
 def managed_files(directory: Path) -> list[dict[str, str]]:
+    required_desktop_components(directory)
     entries: list[dict[str, str]] = []
     seen: set[str] = set()
     total = 0
@@ -189,6 +204,8 @@ def hash_stream(stream: io.BufferedIOBase) -> str:
 
 def verify_desktop_archive(package: Path, version: str, rid: str) -> None:
     executable = "ProjectPrime.exe" if rid == "win-x64" else "ProjectPrime"
+    editor_executable = "editor/ProjectPrime.Editor.exe" if rid == "win-x64" \
+        else "editor/ProjectPrime.Editor"
     entries: dict[str, tuple[str, object, int]] = {}
     archive_paths: dict[str, bool] = {}
     total = 0
@@ -275,9 +292,10 @@ def verify_desktop_archive(package: Path, version: str, rid: str) -> None:
                 if actual != expected:
                     fail(f"{package.name} hash mismatch for {entry[0]!r}")
 
-    executable_key = executable.casefold()
-    if executable_key not in entries or executable_key not in files:
-        fail(f"{package.name} does not manage required executable {executable}")
+    for required in (executable, editor_executable):
+        required_key = required.casefold()
+        if required_key not in entries or required_key not in files:
+            fail(f"{package.name} does not manage required component {required}")
     for key, (name, _, _) in entries.items():
         pieces = key.split("/")
         for index in range(1, len(pieces)):

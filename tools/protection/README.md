@@ -26,12 +26,21 @@ preserve external disposal contract method names on internal types and the revie
 equality-contract types.
 
 Obfuscar 3.0.0-beta.20 currently omits ECMA-335 `FieldMarshal` rows when it rewrites
-an assembly. Immediately after each Obfuscar run, the release-only `MetadataRepair`
-tool copies field, parameter, and return-value marshal descriptors from the staged
-input to the matching obfuscated metadata tokens. It verifies the complete descriptor
-count before atomically replacing the protected output. This keeps binary structures,
-P/Invoke parameters, and ROM extraction functional without mutating canonical build
-outputs. A missing module, changed token/signature, or incomplete repair is fatal.
+an assembly. It can also rewrite the framework `System.ValueType` constraint used by
+`unmanaged` generic parameters as a reference scoped to the protected assembly itself,
+and it emits zero-instruction bodies for C# default interface implementations.
+Immediately after each Obfuscar run, the release-only `MetadataRepair` tool copies
+field, parameter, and return-value marshal descriptors from the staged input and
+repairs only that known bad generic-constraint scope. It also restores each stripped
+default-interface body while remapping its IL references to the jointly obfuscated
+five-module graph. Repairs use matching metadata tokens and generic-parameter positions.
+The tool validates parameter attributes, constraint counts, framework scope, the complete
+marshal-descriptor count, and stable default-interface IL profiles before atomically
+replacing the protected output. This keeps binary structures, P/Invoke parameters, ROM
+extraction, constrained generic methods, and optional interface hooks functional without
+mutating canonical build outputs. A missing module, changed token/signature, unexpected
+constraint/body shape, or incomplete repair is fatal. The repair runs for all five
+modules even when a module needs no repair.
 
 `check-obfuscation.py protected` checks the five staged inputs, outputs, mapping,
 rename totals, preserve rules, hashes, and PE debug directories.

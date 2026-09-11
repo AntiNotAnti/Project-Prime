@@ -33,7 +33,7 @@ come from that bundle; no repository checkout or dotnet SDK is needed.
 The shared Backend must already know this Node. Set PRIME_NODE_ID,
 PRIME_NODE_PUBLIC_KEY_FILE (Backend ticket-signing public SPKI PEM), and either
 PRIME_NODE_DIRECTORY_SECRET or PRIME_NODE_DIRECTORY_SECRET_FILE. The Backend
-defaults to http://51.161.113.128:18085/. PRIME_NODE_CERT_PFX and
+defaults to https://rebooty.xyz/. PRIME_NODE_CERT_PFX and
 PRIME_NODE_CERT_PASSWORD may provide a trusted WSS certificate; otherwise a
 self-signed development certificate is generated in the state directory.
 The Node defaults to HTTPS/WSS port 8443, which is Cloudflare-proxyable without
@@ -83,13 +83,28 @@ WORKER_PATH=$BUNDLE_DIR/worker/ProjectPrime.Server.Worker
 chmod +x "$NODE_PATH" "$WORKER_PATH"
 mkdir -p "$STATE_DIR/artifacts" "$STATE_DIR/replays"
 chmod 700 "$STATE_DIR" "$STATE_DIR/artifacts" "$STATE_DIR/replays"
+STATE_DIR=$(cd "$STATE_DIR" && pwd -P)
+
+# BEGIN_STATE_DATA_DIRECTORY
+if [[ -z "$PRIME_DATA_DIRECTORY" ]]; then PRIME_DATA_DIRECTORY=$STATE_DIR/map-data; fi
+if ! mkdir -p "$PRIME_DATA_DIRECTORY"; then
+    echo "Unable to create the Worker map data directory: $PRIME_DATA_DIRECTORY" >&2
+    exit 1
+fi
+PRIME_DATA_DIRECTORY=$(cd "$PRIME_DATA_DIRECTORY" && pwd -P)
+if ! chmod 700 "$PRIME_DATA_DIRECTORY"; then
+    echo "Unable to secure the Worker map data directory: $PRIME_DATA_DIRECTORY" >&2
+    exit 1
+fi
+export PRIME_DATA_DIRECTORY
+# END_STATE_DATA_DIRECTORY
 
 CONTENT_VERSION=$PRIME_CONTENT_VERSION
 if [[ -z "$CONTENT_VERSION" ]]; then CONTENT_VERSION=AMHE1; fi
 BACKEND_URL=$PRIME_BACKEND_URL
-if [[ -z "$BACKEND_URL" ]]; then BACKEND_URL=http://51.161.113.128:18085/; fi
+if [[ -z "$BACKEND_URL" ]]; then BACKEND_URL=https://rebooty.xyz/; fi
 NODE_PUBLIC_HOST=$PRIME_NODE_PUBLIC_HOST
-if [[ -z "$NODE_PUBLIC_HOST" ]]; then NODE_PUBLIC_HOST=51.161.113.128; fi
+if [[ -z "$NODE_PUBLIC_HOST" ]]; then NODE_PUBLIC_HOST=localhost; fi
 NODE_CONTROL_URI=$PRIME_NODE_PUBLIC_CONTROL_URI
 if [[ -z "$NODE_CONTROL_URI" ]]; then NODE_CONTROL_URI=wss://$NODE_PUBLIC_HOST:8443/v1/control; fi
 NODE_BIND=$PRIME_NODE_BIND
@@ -161,8 +176,8 @@ if [[ "$BACKEND_SCHEME" != http && "$BACKEND_SCHEME" != https ]]; then
     echo "PRIME_BACKEND_URL must use HTTP or HTTPS." >&2
     exit 1
 fi
-if [[ "$BACKEND_SCHEME" == http && "$BACKEND_HOST" != 51.161.113.128 && "$BACKEND_HOST" != localhost && "$BACKEND_HOST" != 127.0.0.1 && "$BACKEND_HOST" != ::1 ]]; then
-    echo "Plain HTTP is limited to 51.161.113.128 or loopback." >&2
+if [[ "$BACKEND_SCHEME" == http && "$BACKEND_HOST" != localhost && "$BACKEND_HOST" != 127.0.0.1 && "$BACKEND_HOST" != ::1 ]]; then
+    echo "Plain HTTP is limited to loopback for development." >&2
     exit 1
 fi
 python3 - "$TICKET_ISSUER" <<'PY'
@@ -172,10 +187,22 @@ u = urlparse(sys.argv[1])
 if u.scheme.lower() != "https" or not u.hostname or u.username or u.password or u.query or u.fragment:
     raise SystemExit("PRIME_TICKET_ISSUER must be an HTTPS origin")
 PY
-if [[ "$NODE_CONTROL_URI" != wss://* ]]; then
-    echo "PRIME_NODE_PUBLIC_CONTROL_URI must use wss://." >&2
-    exit 1
-fi
+python3 - "$NODE_CONTROL_URI" <<'PY'
+import sys
+from urllib.parse import urlsplit
+
+value = sys.argv[1]
+parsed = urlsplit(value)
+if (len(value) > 256 or parsed.scheme.lower() != "wss" or not parsed.hostname
+        or parsed.username or parsed.password or parsed.query or parsed.fragment
+        or parsed.path != "/v1/control"):
+    raise SystemExit("PRIME_NODE_PUBLIC_CONTROL_URI must be exact wss://host[:port]/v1/control")
+try:
+    if parsed.port is not None and not 1 <= parsed.port <= 65535:
+        raise ValueError
+except ValueError:
+    raise SystemExit("PRIME_NODE_PUBLIC_CONTROL_URI has an invalid port")
+PY
 
 CERT_PFX=$PRIME_NODE_CERT_PFX
 if [[ -z "$CERT_PFX" ]]; then CERT_PFX=$STATE_DIR/node-tls.pfx; fi

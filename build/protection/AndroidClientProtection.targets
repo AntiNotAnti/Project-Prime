@@ -11,7 +11,8 @@
       <!-- The verified multi-RID publish invokes this boundary once with the
            aggregate ten-item graph. Keep both RIDs under one deterministic
            root so final APK verification can compare both assembly stores. -->
-      <_PrimeProtectionRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/$(IntermediateOutputPath)prime-protection'))</_PrimeProtectionRoot>
+      <_PrimeProtectionRoot Condition="$([System.IO.Path]::IsPathRooted('$(IntermediateOutputPath)'))">$([System.IO.Path]::GetFullPath('$(IntermediateOutputPath)prime-protection'))</_PrimeProtectionRoot>
+      <_PrimeProtectionRoot Condition="!$([System.IO.Path]::IsPathRooted('$(IntermediateOutputPath)'))">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/$(IntermediateOutputPath)prime-protection'))</_PrimeProtectionRoot>
       <_PrimeProtectionInput>$(_PrimeProtectionRoot)/input</_PrimeProtectionInput>
       <_PrimeProtectionOutput>$(_PrimeProtectionRoot)/output</_PrimeProtectionOutput>
       <_PrimeProtectionPackage>$(_PrimeProtectionRoot)/package</_PrimeProtectionPackage>

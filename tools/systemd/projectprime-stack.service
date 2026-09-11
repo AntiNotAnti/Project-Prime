@@ -13,6 +13,7 @@ Environment=PRIME_DEV_ENV_FILE=__ROOT__/state/dev.env
 Environment=PRIME_DEV_STATE_DIR=__ROOT__/state
 Environment=PRIME_SERVER_PACKAGE=__ROOT__/current
 Environment=PRIME_CONTENT_DIRECTORY=__ROOT__/AMHE1
+Environment=PRIME_REQUIRE_BACKEND_DATABASE=1
 ExecStart=__ROOT__/current/start-stack-dev.sh --with-backend --package-dir __ROOT__/current --content-dir __ROOT__/AMHE1 --state-dir __ROOT__/state
 KillMode=mixed
 TimeoutStopSec=75

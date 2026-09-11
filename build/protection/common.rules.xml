@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Reviewed name-sensitive first-party surfaces shared by desktop and Android. -->
 <PrimeProtectionRules>
+  <!-- Object.ToString overrides retain external virtual dispatch and user-facing formatting. -->
   <Module name="ProjectPrime.dll">
     <!-- External interface slots on non-public types must retain their CLR
          contract names; Obfuscar otherwise renames public Dispose methods. -->
     <SkipMethod type="*" name="Dispose" />
     <SkipMethod type="*" name="DisposeAsync" />
+    <SkipMethod type="*" name="ToString" />
     <!-- Key bindings are discovered and persisted by PropertyInfo.Name. -->
     <SkipType name="MphRead.Entities.ClientPlayerBindings" skipMethods="true"
               skipFields="true" skipProperties="true" skipEvents="true" />
@@ -19,6 +21,7 @@
   <Module name="ProjectPrime.Game.dll">
     <SkipMethod type="*" name="Dispose" />
     <SkipMethod type="*" name="DisposeAsync" />
+    <SkipMethod type="*" name="ToString" />
     <!-- IEqualityComparer<T> methods were renamed on this internal type. -->
     <SkipType name="MphRead.Formats.CollisionWorkspace/CollisionDataComparer"
               skipMethods="true" skipFields="true"
@@ -27,13 +30,16 @@
   <Module name="Server.Shared.dll">
     <SkipMethod type="*" name="Dispose" />
     <SkipMethod type="*" name="DisposeAsync" />
+    <SkipMethod type="*" name="ToString" />
   </Module>
   <Module name="ProjectPrime.Replay.dll">
     <SkipMethod type="*" name="Dispose" />
     <SkipMethod type="*" name="DisposeAsync" />
+    <SkipMethod type="*" name="ToString" />
   </Module>
   <Module name="Audio.Ncsf.dll">
     <SkipMethod type="*" name="Dispose" />
     <SkipMethod type="*" name="DisposeAsync" />
+    <SkipMethod type="*" name="ToString" />
   </Module>
 </PrimeProtectionRules>

@@ -343,7 +343,7 @@ jobs:
             destination="$private/${relative//\//__}"
             cp "$mapping" "$destination"
             count=$((count + 1))
-          done < <(find src/Client/obj src/Android/obj -path '*/prime-protection/*' -name Mapping.txt -type f -print | sort)
+          done < <(find artifacts/prime-protection/obj src/Android/obj -path '*/prime-protection/*' -name Mapping.txt -type f -print | sort)
           test "$count" -eq 6
           python3 - "$private/metadata.json" "$VERSION" "$COMMIT_SHA" "$GITHUB_WORKSPACE" <<'PY'
           import hashlib
@@ -353,7 +353,11 @@ jobs:
           output, version, commit, workspace = sys.argv[1:]
           root = pathlib.Path(output).parent
           mappings = sorted(root.glob('*Mapping.txt'))
-          configs = sorted(pathlib.Path(workspace).glob('src/*/obj/**/prime-protection/**/obfuscar.xml'))
+          workspace_path = pathlib.Path(workspace)
+          configs = sorted({
+              *workspace_path.glob('artifacts/prime-protection/obj/**/prime-protection/**/obfuscar.xml'),
+              *workspace_path.glob('src/Android/obj/**/prime-protection/**/obfuscar.xml'),
+          })
           if len(configs) != 6:
               raise SystemExit(f"expected six generated protection configs, found {len(configs)}")
           metadata = {
@@ -452,6 +456,8 @@ jobs:
           Play online joins a server. Play offline is a match against bots.
           Host a game has a public machine run the match and puts you in it,
           so there is nothing to open on your router.
+          The desktop package includes Project Prime Editor. Open Maps > My Maps
+          to create or edit a map; the launcher starts the matching bundled editor.
           F11 or Alt+Enter switches to fullscreen, Escape leaves it.
 
           To run a server for other people without playing on it yourself,
@@ -488,6 +494,9 @@ jobs:
             ./ProjectPrime -hostgame "ROOM"      have a server run a match for you
             ./ProjectPrime -menu                 volumes, controls, match rules
 
+          Project Prime Editor is included in editor/. Open Maps > My Maps in
+          the launcher to create or edit a map with the matching bundled editor.
+
           An authoritative dedicated server is distributed separately. Its
           server packages omit the launcher and provide the simulation for
           plain x64 Linux, Raspberry Pi ARM64, and Windows.
@@ -515,6 +524,9 @@ jobs:
 
           opens the front screen: adventure, play online, play offline against
           bots, host a game, settings, and the game-files setup.
+
+          Project Prime Editor is included in editor/. Open Maps > My Maps in
+          the launcher to create or edit a map with the matching bundled editor.
 
           macOS keeps downloaded programs quarantined. If it refuses to open
           this one, clear the flag on the folder:

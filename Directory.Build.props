@@ -10,6 +10,19 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(PrimeProtectClient)' == 'true'">
+    <!-- A protected publish changes compiler/debug settings throughout the
+         client project-reference graph. Keep those outputs and incremental
+         caches separate so a later ordinary build never observes a protected
+         build's missing debug artifacts (or vice versa). -->
+    <!-- The supported SDK artifacts layout isolates desktop and referenced
+         managed builds. The Android app's outer/inner post-link graph requires
+         its conventional project-local obj layout, so isolate only its bin. -->
+    <ArtifactsPath Condition="'$(MSBuildProjectName)' != 'Android'">$(MSBuildThisFileDirectory)artifacts/prime-protection</ArtifactsPath>
+    <BaseOutputPath Condition="'$(MSBuildProjectName)' == 'Android'">$(MSBuildThisFileDirectory)artifacts/prime-protection/bin/Android/</BaseOutputPath>
+    <!-- Redirecting protected outputs can remove the SDK's implicit exclusion
+         for each project's conventional obj/ tree. Keep old normal
+         intermediates out of Compile/Content globs during protected builds. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)/bin/**;$(MSBuildProjectDirectory)/obj/**</DefaultItemExcludes>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>

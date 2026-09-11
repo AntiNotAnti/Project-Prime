@@ -111,7 +111,7 @@ class ProjectBoundaryGuardTests(unittest.TestCase):
 
         errors = self.inspect()
 
-        self.assertIn("Backend: project references ['Client']; expected ['Game']", errors)
+        self.assertIn("Backend: project references ['Client']; expected ['Game', 'Server.Shared']", errors)
         self.assertIn("Backend: unexpected platform packages: ['Avalonia']", errors)
 
     def test_shared_replay_allows_game_only_and_rejects_client_dependency(self):

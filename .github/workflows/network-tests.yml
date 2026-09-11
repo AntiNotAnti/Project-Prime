@@ -10,6 +10,30 @@ permissions:
   contents: read
 
 jobs:
+  map-platform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: map package, identity, catalog, compiler, scheduler, and editor tests
+        run: >
+          dotnet test tests/MapPlatform.Tests/MapPlatform.Tests.csproj -c Release
+          --filter "RequiresGameContent!=true"
+      - name: map characterization tests when authoritative content is supplied
+        env:
+          GAME_DATA_DIRECTORY: ${{ secrets.GAME_DATA_DIRECTORY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GAME_DATA_DIRECTORY:-}" ]; then
+            echo "GAME_DATA_DIRECTORY is not configured; content-free map platform verification completed."
+          else
+            dotnet test tests/MapPlatform.Tests/MapPlatform.Tests.csproj -c Release \
+              --filter "RequiresGameContent=true"
+          fi
+
   protocol:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -32,10 +56,6 @@ jobs:
           --filter "Category=FidelitySmoke&RequiresGameContent!=true"
       - name: Server.Shared contract tests
         run: dotnet test tests/Server.Shared.Tests/Server.Shared.Tests.csproj -c Release
-      - name: map package, identity, catalog and compiler tests (content-free)
-        run: >
-          dotnet test tests/MapPlatform.Tests/MapPlatform.Tests.csproj -c Release
-          --filter "RequiresGameContent!=true"
       - name: Server.Worker runtime build
         run: dotnet build src/Server.Worker/Server.Worker.csproj -c Release
       - name: package the Backend, Node and Worker bundle
@@ -99,8 +119,6 @@ jobs:
           else
             dotnet test tests/Tests/Tests.csproj -c Release --no-build \
               --filter "Category=FidelitySmoke&RequiresGameContent=true"
-            dotnet test tests/MapPlatform.Tests/MapPlatform.Tests.csproj -c Release \
-              --filter "RequiresGameContent=true"
           fi
       - name: authoritative WAN connection baseline (synthetic states, not gameplay)
         run: >

@@ -25,7 +25,7 @@ STACK_ENV=${MPH_SERVER_ENV_FILE:-$STATE_DIR/dev.env}
 PUBLIC_HOST=${PRIME_NODE_PUBLIC_HOST:-rebooty.xyz}
 PUBLIC_CONTROL_URI=${PRIME_NODE_PUBLIC_CONTROL_URI:-wss://$PUBLIC_HOST:8443/v1/control}
 NODE_HEALTH=${MPH_SERVER_HEALTH_URL:-https://127.0.0.1:8443/health}
-BACKEND_HEALTH=${MPH_BACKEND_HEALTH_URL:-http://127.0.0.1:18085/health/ready}
+BACKEND_HEALTH=http://127.0.0.1:18085/health/ready
 HEALTH_TIMEOUT=${MPH_SERVER_HEALTH_TIMEOUT:-180}
 KEEP_RELEASES=${MPH_SERVER_KEEP_RELEASES:-3}
 PREFLIGHT_ONLY=0
@@ -80,8 +80,24 @@ case "$HEALTH_TIMEOUT" in ''|*[!0-9]*) echo "MPH_SERVER_HEALTH_TIMEOUT must be a
 [[ "$HEALTH_TIMEOUT" -ge 60 ]] || { echo "MPH_SERVER_HEALTH_TIMEOUT must be at least 60 seconds" >&2; exit 2; }
 [[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9_.:-]+$ && "$DEPLOY_USER" =~ ^[A-Za-z_][A-Za-z0-9_.-]*$ ]] || { echo "Invalid host or user" >&2; exit 2; }
 [[ "$DEPLOY_DIR" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "Deploy root must not contain shell-sensitive characters" >&2; exit 2; }
-[[ "$PUBLIC_HOST" =~ ^[A-Za-z0-9.-]+$ && "$PUBLIC_CONTROL_URI" == wss://* ]] \
-  || { echo "Invalid Project Prime public host or control URI" >&2; exit 2; }
+[[ "$PUBLIC_HOST" =~ ^[A-Za-z0-9.-]+$ ]] \
+  || { echo "Invalid Project Prime public host" >&2; exit 2; }
+python3 - "$PUBLIC_CONTROL_URI" <<'PY'
+import sys
+from urllib.parse import urlsplit
+
+value = sys.argv[1]
+parsed = urlsplit(value)
+if (len(value) > 256 or parsed.scheme.lower() != "wss" or not parsed.hostname
+        or parsed.username or parsed.password or parsed.query or parsed.fragment
+        or parsed.path != "/v1/control"):
+    raise SystemExit("PRIME_NODE_PUBLIC_CONTROL_URI must be exact wss://host[:port]/v1/control")
+try:
+    if parsed.port is not None and not 1 <= parsed.port <= 65535:
+        raise ValueError
+except ValueError:
+    raise SystemExit("PRIME_NODE_PUBLIC_CONTROL_URI has an invalid port")
+PY
 python3 - "$DEPLOY_DIR" "$DEPLOY_DATA" "$STATE_DIR" "$STACK_ENV" <<'PY'
 import pathlib,sys
 for value,label in zip(sys.argv[1:],('deploy root','content','state','stack environment')):
@@ -195,19 +211,24 @@ state=root/'state'
 if state.stat().st_uid != pwd.getpwnam(user).pw_uid or stat.S_IMODE(state.stat().st_mode) != 0o700: raise SystemExit('state must remain service-user owned mode 0700')
 if not os.access(root/'AMHE1',os.R_OK|os.W_OK|os.X_OK): raise SystemExit('AMHE1 must be readable and writable by the service user')
 if not (state/'dev.env').is_file() or (state/'dev.env').is_symlink(): raise SystemExit('state/dev.env is missing or unsafe')
-public={}
+# BEGIN_DEPLOY_ENV_VALIDATION
+selected={}
 for raw in (state/'dev.env').read_text(encoding='utf-8').splitlines():
     line=raw.strip()
     if not line or line.startswith('#'): continue
     key,separator,value=line.partition('=')
-    if not separator or key not in ('PRIME_NODE_PUBLIC_HOST','PRIME_NODE_PUBLIC_CONTROL_URI'): continue
-    if key in public: raise SystemExit('state/dev.env has duplicate '+key)
-    parsed=shlex.split(value,posix=True)
+    if not separator or key not in ('PRIME_NODE_PUBLIC_HOST','PRIME_NODE_PUBLIC_CONTROL_URI','ConnectionStrings__Backend'): continue
+    if key in selected: raise SystemExit('state/dev.env has duplicate '+key)
+    try: parsed=shlex.split(value,posix=True)
+    except ValueError: raise SystemExit('state/dev.env has invalid '+key)
     if len(parsed)!=1: raise SystemExit('state/dev.env has invalid '+key)
-    public[key]=parsed[0]
-if public.get('PRIME_NODE_PUBLIC_HOST') != public_host \
-        or public.get('PRIME_NODE_PUBLIC_CONTROL_URI') != public_control:
+    selected[key]=parsed[0]
+if not selected.get('ConnectionStrings__Backend','').strip():
+    raise SystemExit('state/dev.env is missing a non-empty ConnectionStrings__Backend')
+if selected.get('PRIME_NODE_PUBLIC_HOST') != public_host \
+        or selected.get('PRIME_NODE_PUBLIC_CONTROL_URI') != public_control:
     raise SystemExit('state/dev.env public rebooty endpoint does not match deployment settings')
+# END_DEPLOY_ENV_VALIDATION
 # Keep the already-running VPS layout as an explicit migration boundary. Split
 # the pre-rename names so broad branding replacements cannot rewrite them.
 layouts=(
@@ -224,10 +245,26 @@ if releases.exists() and (releases.is_symlink() or not releases.is_dir()): raise
 manifest=root/'AMHE1/server-content.json'
 if manifest.is_file() and json.loads(manifest.read_text()).get('Version') != version: raise SystemExit('content version mismatch')
 PY
+# BEGIN_PRIOR_HEALTH_CONTRACT
+ready_status=$(curl -sSk --connect-timeout 2 --max-time 4 -o /dev/null -w '%{http_code}' \
+  http://127.0.0.1:18085/health/ready 2>/dev/null || true)
+if [ "$ready_status" = 200 ]; then
+  prior_health=ready
+elif [ "$ready_status" = 404 ]; then
+  legacy_status=$(curl -sSk --connect-timeout 2 --max-time 4 -o /dev/null -w '%{http_code}' \
+    'http://127.0.0.1:18085/v1/nodes?protocol=1&build=deploy&content=deploy' 2>/dev/null || true)
+  [ "$legacy_status" = 200 ] || { echo "Legacy Backend health contract failed" >&2; exit 1; }
+  prior_health=legacy
+else
+  echo "Backend readiness health refused deployment" >&2
+  exit 1
+fi
+# END_PRIOR_HEALTH_CONTRACT
 load=$(sudo -n systemctl show -p LoadState --value projectprime-stack 2>/dev/null || true)
-python3 - "$root" "$load" <<'PY'
+python3 - "$root" "$load" "$prior_health" <<'PY'
 import pathlib,sys
-root=pathlib.Path(sys.argv[1]); load=sys.argv[2]; app=root/'app'; state=root/'state'; env_file=state/'dev.env'
+root=pathlib.Path(sys.argv[1]); load=sys.argv[2]; prior_health=sys.argv[3]
+app=root/'app'; state=root/'state'; env_file=state/'dev.env'
 matches=[]
 for entry in pathlib.Path('/proc').iterdir():
     if not entry.name.isdigit(): continue
@@ -255,7 +292,7 @@ def descendants(parent):
     return selected-{parent}
 if load == 'loaded':
     if matches: raise SystemExit('manual and systemd stack instances overlap')
-    print('systemd:0:0')
+    print('systemd:0:0:'+prior_health)
 elif load == 'not-found':
     layouts=(
         {
@@ -298,7 +335,7 @@ elif load == 'not-found':
         if executable == selected['worker'] and str(root/'AMHE1') not in argv:
             raise SystemExit('legacy Worker content path mismatch')
     if found != required: raise SystemExit('legacy supervisor ancestry is missing Backend, Node, or Worker')
-    print('legacy:%d:%s'%owner)
+    print('legacy:%d:%s:%s'%(owner[0],owner[1],prior_health))
 else:
     raise SystemExit('unsupported projectprime-stack unit state: '+(load or 'unknown'))
 PY
@@ -307,7 +344,7 @@ available=$(df -Pk "$probe" | awk 'NR==2 {print $4}')
 [ "$available" -ge "$required_kb" ] || { echo "Insufficient remote disk space" >&2; exit 1; }
 REMOTE_PREFLIGHT
 )
-case "$SNAPSHOT" in legacy:[0-9]*:[0-9]*|systemd:0:0) ;; *) echo "Invalid remote stack snapshot" >&2; exit 1 ;; esac
+case "$SNAPSHOT" in legacy:[0-9]*:[0-9]*:ready|legacy:[0-9]*:[0-9]*:legacy|systemd:0:0:ready|systemd:0:0:legacy) ;; *) echo "Invalid remote stack snapshot" >&2; exit 1 ;; esac
 echo "Remote stack snapshot: ${SNAPSHOT%%:*}"
 if [[ "$PREFLIGHT_ONLY" == 1 ]]; then echo "Preflight complete; no upload or stop occurred."; exit 0; fi
 
@@ -348,8 +385,27 @@ if actual!=expected:
     raise SystemExit('uploaded bundle hash mismatch')
 if hashlib.sha256(pathlib.Path(sys.argv[2]).read_bytes()).hexdigest()!=sys.argv[3]: raise SystemExit('uploaded unit hash mismatch')
 PY
-chmod -R go-rwx "$stage"; mv "$stage" "$release"
 REMOTE_VERIFY
+
+echo "Checking candidate Backend database compatibility..."
+if ! ssh_run "bash -s -- $(quote "$REMOTE_STAGE") $(quote "$STACK_ENV")" <<'REMOTE_DATABASE_CHECK'
+set -eu
+stage=$1; env_file=$2
+env -i HOME="$HOME" PATH="$PATH" bash -c '
+  umask 077
+  set -a
+  . "$2"
+  set +a
+  cd "$1/backend"
+  exec "$1/backend/ProjectPrime.Backend" --check-database
+' projectprime-database-check "$stage" "$env_file" >/dev/null 2>&1
+REMOTE_DATABASE_CHECK
+then
+  echo "candidate Backend database check failed" >&2
+  exit 1
+fi
+remote chmod -R go-rwx "$REMOTE_STAGE"
+remote mv "$REMOTE_STAGE" "$REMOTE_RELEASE"
 REMOTE_STAGE_CREATED=0
 
 ACTIVATION_SENT=1
@@ -357,7 +413,7 @@ if ! ssh_run "bash -s -- $(quote "$DEPLOY_DIR") $(quote "$RELEASE_ID") $(quote "
 set -Eeuo pipefail
 root=$1; release_id=$2; snapshot=$3; unit_stage=$4; node_health=$5; backend_health=$6; keep=$7; health_timeout=$8
 releases=$root/releases; release=$releases/$release_id; current=$root/current; lock=$releases/.deploy-lock; rollback=$releases/.rollback-$release_id
-prior_target=app; had_unit=0; downtime=0; mode=unknown; legacy_pid=0
+prior_target=app; had_unit=0; downtime=0; mode=unknown; legacy_pid=0; prior_health=unknown
 mkdir -m 700 "$rollback"
 if [ -L "$current" ]; then prior_target=$(readlink "$current"); case "$prior_target" in app|releases/*) ;; *) echo "Unsafe current target" >&2; exit 1 ;; esac; fi
 if sudo -n test -f /etc/systemd/system/projectprime-stack.service; then sudo -n cp /etc/systemd/system/projectprime-stack.service "$rollback/unit"; had_unit=1; fi
@@ -383,9 +439,15 @@ rollback_stack() {
   sudo -n systemctl enable projectprime-stack >/dev/null || ok=0
   sudo -n systemctl start projectprime-stack || ok=0
   sudo -n systemctl is-active --quiet projectprime-stack || ok=0
+  case "$prior_health" in
+    ready) prior_backend_health=http://127.0.0.1:18085/health/ready ;;
+    legacy) prior_backend_health='http://127.0.0.1:18085/v1/nodes?protocol=1&build=deploy&content=deploy' ;;
+    *) ok=0; prior_backend_health= ;;
+  esac
   healthy=0; health_deadline=$((SECONDS + health_timeout))
   while [ "$SECONDS" -lt "$health_deadline" ]; do
-    if curl -fsSk --connect-timeout 2 --max-time 4 "$backend_health" >/dev/null 2>&1 \
+    if [ -n "$prior_backend_health" ] \
+        && curl -fsSk --connect-timeout 2 --max-time 4 "$prior_backend_health" >/dev/null 2>&1 \
         && curl -fsSk --connect-timeout 2 --max-time 4 "$node_health" >/dev/null 2>&1; then healthy=1; break; fi
     sleep 1
   done
@@ -396,7 +458,27 @@ rollback_stack() {
 }
 trap rollback_stack ERR EXIT
 
-mode=${snapshot%%:*}; rest=${snapshot#*:}; legacy_pid=${rest%%:*}; legacy_start=${rest##*:}
+require_backend_database() {
+  python3 - "$root/state/dev.env" <<'PY'
+import pathlib,shlex,sys
+found=[]
+for raw in pathlib.Path(sys.argv[1]).read_text(encoding='utf-8').splitlines():
+    line=raw.strip()
+    if not line or line.startswith('#'): continue
+    key,separator,value=line.partition('=')
+    if not separator or key != 'ConnectionStrings__Backend': continue
+    if found: raise SystemExit('state/dev.env has duplicate ConnectionStrings__Backend')
+    try: parsed=shlex.split(value,posix=True)
+    except ValueError: raise SystemExit('state/dev.env has invalid ConnectionStrings__Backend')
+    if len(parsed)!=1 or not parsed[0].strip():
+        raise SystemExit('state/dev.env requires a non-empty ConnectionStrings__Backend')
+    found.append(True)
+if not found: raise SystemExit('state/dev.env requires a non-empty ConnectionStrings__Backend')
+PY
+}
+
+IFS=: read -r mode legacy_pid legacy_start prior_health snapshot_extra <<< "$snapshot"
+[ -z "${snapshot_extra:-}" ] || { echo "unsupported deployment snapshot" >&2; false; }
 case "$mode" in
 legacy)
   python3 - "$legacy_pid" "$legacy_start" "$root" <<'PY'
@@ -406,12 +488,14 @@ if (proc/'stat').read_text().split()[21]!=start: raise SystemExit('legacy superv
 argv=[x.decode() for x in (proc/'cmdline').read_bytes().split(b'\0') if x]
 if argv != ['bash','./start-stack-dev.sh'] or (proc/'cwd').resolve()!=app: raise SystemExit('legacy supervisor command/cwd changed')
 PY
+  require_backend_database
   downtime=1
   kill -TERM "$legacy_pid"
   for unused in $(seq 1 70); do kill -0 "$legacy_pid" 2>/dev/null || break; sleep 1; done
   ! kill -0 "$legacy_pid" 2>/dev/null || { echo "Legacy stack did not stop within 70 seconds" >&2; false; }
   ;;
 systemd)
+  require_backend_database
   downtime=1
   sudo -n systemctl stop projectprime-stack
   ! sudo -n systemctl is-active --quiet projectprime-stack || { echo "projectprime-stack remained active" >&2; false; }

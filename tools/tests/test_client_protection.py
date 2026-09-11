@@ -57,7 +57,9 @@ class ClientProtectionTests(unittest.TestCase):
             sys.executable, str(GENERATOR), "--input-dir", str(input_dir),
             "--output-dir", str(output_dir), "--mapping-file", str(mapping),
             "--output-config", str(config), "--source-root", str(source),
-            "--platform", "desktop", "--rules", str(rule), *modules,
+            "--platform", "desktop",
+            "--rules", str(ROOT / "build/protection/common.rules.xml"),
+            "--rules", str(rule), *modules,
         ], capture_output=True, text=True, check=False)
         self.assertEqual(0, result.returncode, result.stderr)
         root = ET.parse(config).getroot()
@@ -72,8 +74,8 @@ class ClientProtectionTests(unittest.TestCase):
         main = next(module for module in root.findall("Module")
                     if Path(module.attrib["file"]).name == "ProjectPrime.dll")
         skipped = {item.attrib["name"] for item in main.findall("SkipType")}
-        self.assertEqual(
-            {"Prime.Reflection", "Prime.Ui.View", "Prime.Ui.PrimeBrandMark"}, skipped)
+        self.assertTrue(
+            {"Prime.Reflection", "Prime.Ui.View", "Prime.Ui.PrimeBrandMark"}.issubset(skipped))
         generated = next(item for item in main.findall("SkipType")
                          if item.attrib["name"] == "Prime.Ui.PrimeBrandMark")
         self.assertEqual(
@@ -84,6 +86,17 @@ class ClientProtectionTests(unittest.TestCase):
                     if Path(module.attrib["file"]).name == "ProjectPrime.Game.dll")
         self.assertIn("Prime.GameUi.GameWidget", {
             item.attrib["name"] for item in game.findall("SkipType")})
+        self.assertIn(("*", "ToString"), {
+            (method.attrib.get("type"), method.attrib.get("name"))
+            for method in main.findall("SkipMethod")})
+
+        mapping.write_text(
+            '[ProjectPrime]Prime.InternalChoice -> [ProjectPrime]a\n'
+            '\t[ProjectPrime]Prime.InternalChoice::ToString[]( ) -> b\n',
+            encoding="utf-8")
+        self.assertEqual(
+            ["ProjectPrime.dll:Prime.InternalChoice.ToString"],
+            CHECKER.configured_preserve_violations(mapping, config))
 
     def test_common_rules_preserve_external_interface_contracts(self):
         root = ET.parse(ROOT / "build/protection/common.rules.xml").getroot()
@@ -94,6 +107,7 @@ class ClientProtectionTests(unittest.TestCase):
                        for rule in module.findall("SkipMethod")}
             self.assertIn(("*", "Dispose"), methods)
             self.assertIn(("*", "DisposeAsync"), methods)
+            self.assertIn(("*", "ToString"), methods)
         main_types = {rule.attrib.get("name") for rule in modules["ProjectPrime.dll"].findall("SkipType")}
         game_types = {rule.attrib.get("name") for rule in modules["ProjectPrime.Game.dll"].findall("SkipType")}
         self.assertIn("MphRead.BloomPyramidWeights", main_types)
@@ -132,6 +146,47 @@ class ClientProtectionTests(unittest.TestCase):
             methods,
         )
 
+    def test_protected_compilation_uses_isolated_artifact_paths(self):
+        props = ET.parse(ROOT / "Directory.Build.props").getroot()
+        protected_groups = [
+            group for group in props.findall("PropertyGroup")
+            if "PrimeProtectClient" in group.attrib.get("Condition", "")
+        ]
+        self.assertEqual(1, len(protected_groups))
+        artifacts_path = protected_groups[0].find("ArtifactsPath")
+        output_path = protected_groups[0].find("BaseOutputPath")
+        self.assertIsNotNone(artifacts_path)
+        self.assertIsNotNone(output_path)
+        self.assertIn("artifacts/prime-protection", artifacts_path.text)
+        self.assertIn("MSBuildProjectName", artifacts_path.attrib.get("Condition", ""))
+        self.assertIn("artifacts/prime-protection/bin/Android", output_path.text)
+        self.assertIn("MSBuildProjectName", output_path.attrib.get("Condition", ""))
+        excludes = protected_groups[0].find("DefaultItemExcludes")
+        self.assertIsNotNone(excludes)
+        self.assertIn("$(MSBuildProjectDirectory)/obj/**", excludes.text)
+
+        for path in (
+            ROOT / "build/protection/ClientProtection.targets",
+            ROOT / "build/protection/AndroidClientProtection.targets",
+        ):
+            target = path.read_text(encoding="utf-8")
+            self.assertIn("System.IO.Path]::IsPathRooted('$(IntermediateOutputPath)')", target)
+            self.assertIn("$(IntermediateOutputPath)prime-protection", target)
+
+        build_workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
+        release_workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        build_all = (ROOT / "tools/build-all.sh").read_text(encoding="utf-8")
+        expected_android_root = "src/Android/obj/Release"
+        self.assertIn(expected_android_root, build_workflow)
+        self.assertIn(expected_android_root, release_workflow)
+        self.assertIn(expected_android_root, build_all)
+        self.assertIn(
+            "artifacts/prime-protection/obj/**/prime-protection/**/obfuscar.xml",
+            release_workflow)
+        self.assertIn(
+            "src/Android/obj/**/prime-protection/**/obfuscar.xml",
+            release_workflow)
+
     def test_protection_repairs_fieldmarshal_metadata_after_obfuscar(self):
         project = ET.parse(
             ROOT / "tools/protection/MetadataRepair/MetadataRepair.csproj").getroot()
@@ -155,7 +210,56 @@ class ClientProtectionTests(unittest.TestCase):
         self.assertIn("field.HasMarshalInfo", source)
         self.assertIn("parameter.HasMarshalInfo", source)
         self.assertIn("method.MethodReturnType.HasMarshalInfo", source)
-        self.assertIn("CountMarshalMetadata(verified.MainModule)", source)
+        self.assertIn(
+            "ValidateMetadata(verified.MainModule, expectedMarshalDescriptors,",
+            source)
+
+    def test_protection_repairs_self_scoped_value_type_constraints(self):
+        source = (ROOT / "tools/protection/MetadataRepair/Program.cs").read_text(
+            encoding="utf-8")
+
+        self.assertIn(
+            "RepairGenericParameters(type.GenericParameters, targetType.GenericParameters",
+            source)
+        self.assertIn(
+            "RepairGenericParameters(method.GenericParameters, targetMethod.GenericParameters",
+            source)
+        self.assertIn(
+            'Lookup<MethodDefinition>(output, method.MetadataToken, "method")', source)
+        self.assertIn("expected.Attributes != actual.Attributes", source)
+        self.assertIn("expected.Constraints.Count != actual.Constraints.Count", source)
+        self.assertIn("TryGetUnmanagedValueTypeConstraint(expectedType", source)
+        self.assertIn('required.ElementType.FullName == "System.ValueType"', source)
+        self.assertIn(
+            'required.ModifierType.FullName == "System.Runtime.InteropServices.UnmanagedType"',
+            source)
+        self.assertIn(
+            'actualType.FullName == "System.ValueType" && IsSelfScoped(actualType, output)',
+            source)
+        self.assertIn(
+            "actualConstraint.ConstraintType = output.ImportReference(expectedType)",
+            source)
+        self.assertIn("contains a stripped, self-scoped unmanaged constraint", source)
+        self.assertIn("UnmanagedConstraintProfiles(output.MainModule)", source)
+        self.assertIn("UnmanagedConstraintProfiles(output)", source)
+        self.assertIn("parameter:{parameter.Position}", source)
+        self.assertIn("RequireMatchingExternalConstraint(expectedType, actualType", source)
+        self.assertIn("ConstraintIdentity(constraint.ConstraintType)", source)
+        self.assertIn("repaired {genericConstraints} generic constraint(s)", source)
+
+    def test_protection_restores_stripped_default_interface_bodies(self):
+        source = (ROOT / "tools/protection/MetadataRepair/Program.cs").read_text(
+            encoding="utf-8")
+
+        self.assertIn("RestoreDefaultInterfaceBodies(", source)
+        self.assertIn("candidate.IsInterface", source)
+        self.assertIn("candidate.HasBody", source)
+        self.assertIn("actualInstructions != 0", source)
+        self.assertIn("target.Body = CloneMethodBody", source)
+        self.assertIn("DefaultInterfaceBodyProfiles(output.MainModule)", source)
+        self.assertIn("DefaultInterfaceBodyProfiles(output)", source)
+        self.assertIn("default interface bodies changed after metadata repair", source)
+        self.assertIn("restored {interfaceBodies} default interface body/bodies", source)
 
     def test_generator_rejects_relative_build_paths(self):
         result = subprocess.run([
@@ -237,6 +341,26 @@ class ClientProtectionTests(unittest.TestCase):
                 self.assertEqual(
                     (rid + ":" + name).encode(),
                     (self.root / "input" / rid / name).read_bytes())
+        routing = json.loads((self.root / "routes.json").read_text(encoding="utf-8"))
+        self.assertEqual({"android-arm64", "android-x64"}, set(routing))
+
+    def test_android_staging_accepts_isolated_artifact_pivots(self):
+        sources = []
+        for rid in ("android-arm64", "android-x64"):
+            directory = self.root / f"release_{rid}" / "linked/shrunk"
+            directory.mkdir(parents=True)
+            for name in CHECKER.EXPECTED_MODULES:
+                path = directory / name
+                path.write_bytes((rid + ":" + name).encode())
+                sources.extend(("--source", str(path)))
+
+        result = subprocess.run([
+            sys.executable, str(CHECKER_PATH), "stage-android",
+            "--input-root", str(self.root / "input"),
+            "--routing-file", str(self.root / "routes.json"), *sources,
+        ], capture_output=True, text=True, check=False)
+
+        self.assertEqual(0, result.returncode, result.stderr)
         routing = json.loads((self.root / "routes.json").read_text(encoding="utf-8"))
         self.assertEqual({"android-arm64", "android-x64"}, set(routing))
 

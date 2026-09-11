@@ -116,11 +116,64 @@ class ServerBundleContractTests(unittest.TestCase):
             'if curl --fail --silent --show-error --max-time 3 "$HEALTH"',
             readiness,
         )
+        self.assertIn('HEALTH=$HEALTH"health/live"', script)
         self.assertIn('HEALTH=$HEALTH"health/ready"', script)
         self.assertIn(
             "sleep 1\n            if ! kill -0 \"$BACKEND_PID\"",
             readiness,
         )
+
+    def test_launcher_selects_health_by_backend_database_contract(self):
+        script = (ROOT / "tools/start-dev.sh").read_text(encoding="utf-8")
+        block = script.split("# BEGIN_BACKEND_HEALTH_SELECTION\n", 1)[1].split(
+            "# END_BACKEND_HEALTH_SELECTION", 1
+        )[0]
+
+        def select(start_backend, supplied, explicit=""):
+            environment = os.environ.copy()
+            environment.update({
+                "START_BACKEND": str(start_backend),
+                "BACKEND_CONNECTION_SUPPLIED": str(supplied),
+                "PRIME_BACKEND_HEALTH_URL": explicit,
+                "BACKEND_BIND": "http://0.0.0.0:18085",
+                "BACKEND_URL": "https://backend.example.test",
+            })
+            result = subprocess.run(
+                ["bash", "-c", block + '\nprintf "%s" "$HEALTH"\n'],
+                env=environment, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            return result.stdout
+
+        self.assertEqual("http://127.0.0.1:18085/health/live", select(1, 0))
+        self.assertEqual("http://127.0.0.1:18085/health/ready", select(1, 1))
+        self.assertEqual("https://backend.example.test/health/ready", select(0, 0))
+        self.assertEqual("https://explicit.example/health/ready", select(0, 1, "https://explicit.example"))
+
+    def test_required_database_gate_fails_without_printing_connection(self):
+        launcher = ROOT / "tools/start-dev.sh"
+        with tempfile.TemporaryDirectory(prefix="prime-required-database-") as directory:
+            env_file = Path(directory) / "dev.env"
+            env_file.write_text("PRIME_REQUIRE_BACKEND_DATABASE=0\n", encoding="utf-8")
+            environment = os.environ.copy()
+            environment.update({
+                "PRIME_REQUIRE_BACKEND_DATABASE": "1",
+                "ConnectionStrings__Backend": "   ",
+                "PRIME_DEV_ENV_FILE": str(env_file),
+            })
+            result = subprocess.run(
+                [str(launcher)], env=environment, capture_output=True, text=True, check=False,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("non-empty Backend database connection is required", result.stderr)
+            self.assertNotIn("ConnectionStrings__Backend", result.stdout + result.stderr)
+
+            environment["PRIME_REQUIRE_BACKEND_DATABASE"] = "2"
+            result = subprocess.run(
+                [str(launcher)], env=environment, capture_output=True, text=True, check=False,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("must be 0 or 1", result.stderr)
 
     def test_development_launchers_default_to_cloudflare_proxyable_node_port(self):
         for name in ("start-dev.sh", "start-bundle-dev.sh"):
@@ -135,41 +188,60 @@ class ServerBundleContractTests(unittest.TestCase):
         }
         for name, map_dir in expected.items():
             script = (ROOT / "tools" / name).read_text(encoding="utf-8")
-            self.assertIn('--prepare-content true --content-dir "$CONTENT_DIR"', script)
             self.assertIn('--describe-content true --content-dir "$CONTENT_DIR"', script)
             self.assertIn('--content-version "$CONTENT_VERSION" --map-dir "$MAP_DIR"', script)
             self.assertIn(f"MAP_DIR={map_dir}", script)
             self.assertIn('"--map-dir",os.environ["MAP_DIR"]', script)
             self.assertIn('chmod 600 "$DESCRIPTOR_TMP"', script)
             self.assertIn('mv -f "$DESCRIPTOR_TMP" "$DESCRIPTOR_PATH"', script)
-            self.assertLess(script.index("--prepare-content true"), script.index("--describe-content true"))
-            self.assertGreaterEqual(script.count("--map-dir"), 3)
+            self.assertNotIn("--prepare-content true", script)
+            self.assertEqual(2, script.count("--map-dir"))
 
-    def test_launchers_skip_preparation_when_content_has_a_baked_manifest(self):
+    def test_launchers_bind_default_map_cache_to_private_state_directory(self):
         for name in ("start-dev.sh", "start-bundle-dev.sh"):
             script = (ROOT / "tools" / name).read_text(encoding="utf-8")
-            manifest_check = 'if [[ -f "$CONTENT_DIR/server-content.json" ]]; then'
-            manifest_index = script.index(manifest_check)
-            self.assertIn("CONTENT_IS_BAKED=1", script[manifest_index:])
-            descriptor_index = script.index("DESCRIPTOR_PATH=", manifest_index)
-            preparation_guard = script.index(
-                'if [[ "$CONTENT_IS_BAKED" == 0 ]]; then', descriptor_index
-            )
-            preparation_index = script.index("--prepare-content true", preparation_guard)
-            describe_index = script.index("--describe-content true", preparation_index)
-            guard_end = script.rfind("\nfi", preparation_guard, describe_index)
-            self.assertLess(manifest_index, preparation_guard)
-            self.assertLess(preparation_index, guard_end)
-            self.assertLess(guard_end, describe_index)
+            block = script.split("# BEGIN_STATE_DATA_DIRECTORY\n", 1)[1].split(
+                "# END_STATE_DATA_DIRECTORY", 1)[0]
+            with self.subTest(name=name), tempfile.TemporaryDirectory(
+                prefix="prime-state-map-data-") as directory:
+                state = Path(directory).resolve()
+                environment = os.environ.copy()
+                environment.update({"STATE_DIR": str(state), "PRIME_DATA_DIRECTORY": ""})
+                result = subprocess.run(
+                    ["bash", "-c", block + '\nprintf "%s" "$PRIME_DATA_DIRECTORY"\n'],
+                    env=environment, capture_output=True, text=True, check=False,
+                )
+                expected = state / "map-data"
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertEqual(str(expected), result.stdout)
+                self.assertTrue(expected.is_dir())
+                self.assertEqual(0o700, expected.stat().st_mode & 0o777)
 
-    def test_launchers_acquire_the_content_lock_before_preparation(self):
+                override = state / "operator-cache"
+                environment["PRIME_DATA_DIRECTORY"] = "operator-cache"
+                result = subprocess.run(
+                    ["bash", "-c", block + '\nprintf "%s" "$PRIME_DATA_DIRECTORY"\n'],
+                    cwd=state, env=environment, capture_output=True, text=True, check=False,
+                )
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertEqual(str(override), result.stdout)
+                self.assertTrue(override.is_dir())
+                self.assertEqual(0o700, override.stat().st_mode & 0o777)
+
+    def test_launchers_never_prepare_content_during_discovery(self):
+        for name in ("start-dev.sh", "start-bundle-dev.sh"):
+            script = (ROOT / "tools" / name).read_text(encoding="utf-8")
+            self.assertNotIn("--prepare-content true", script)
+            self.assertIn("--describe-content true", script)
+
+    def test_launchers_acquire_the_content_lock_before_discovery(self):
         for name in ("start-dev.sh", "start-bundle-dev.sh"):
             script = (ROOT / "tools" / name).read_text(encoding="utf-8")
             open_index = script.index('exec 9>"$CONTENT_LOCK_FILE"')
             flock_index = script.index("fcntl.flock(9, fcntl.LOCK_EX | fcntl.LOCK_NB)")
-            preparation_index = script.index("--prepare-content true")
+            discovery_index = script.index("--describe-content true")
             self.assertLess(open_index, flock_index)
-            self.assertLess(flock_index, preparation_index)
+            self.assertLess(flock_index, discovery_index)
             self.assertIn("CONTENT_LOCK_ROOT=${TMPDIR:-/tmp}/project-prime-content-locks-$UID", script)
             self.assertIn('python3 - "$CONTENT_DIR"', script)
             self.assertIn("hashlib.sha256", script)

@@ -7,6 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "build-all.sh"
+IMPLEMENTATION = ROOT / "tools" / "build-all.sh"
 
 
 class BuildAllContractTests(unittest.TestCase):
@@ -37,6 +38,13 @@ class BuildAllContractTests(unittest.TestCase):
             )
         self.assertEqual(1, result.returncode)
         self.assertIn("Refusing to overwrite", result.stderr)
+
+    def test_every_desktop_client_bundles_the_matching_editor(self):
+        script = IMPLEMENTATION.read_text(encoding="utf-8")
+        self.assertIn("dotnet publish src/Editor/Editor.csproj", script)
+        self.assertIn('-o "$destination/editor"', script)
+        self.assertIn('--executable "$editor_executable" "$destination/editor"', script)
+        self.assertIn('"desktop_editor": {', script)
 
 
 if __name__ == "__main__":

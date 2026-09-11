@@ -14,12 +14,26 @@ fi
 LAUNCHER_NAME=$(basename "${BASH_SOURCE[0]}")
 ENV_FILE=$PRIME_DEV_ENV_FILE
 if [[ -z "$ENV_FILE" ]]; then ENV_FILE=$ROOT/.env.dev; fi
+REQUIRE_BACKEND_DATABASE_ENV=${PRIME_REQUIRE_BACKEND_DATABASE:-}
 if [[ -f "$ENV_FILE" ]]; then
     set -a
     # shellcheck disable=SC1090
     source "$ENV_FILE"
     set +a
 fi
+BACKEND_CONNECTION_SUPPLIED=0
+if [[ -n "${ConnectionStrings__Backend//[[:space:]]/}" ]]; then
+    BACKEND_CONNECTION_SUPPLIED=1
+fi
+if [[ -n "$REQUIRE_BACKEND_DATABASE_ENV" ]]; then
+    REQUIRE_BACKEND_DATABASE=$REQUIRE_BACKEND_DATABASE_ENV
+else
+    REQUIRE_BACKEND_DATABASE=${PRIME_REQUIRE_BACKEND_DATABASE:-0}
+fi
+[[ "$REQUIRE_BACKEND_DATABASE" == 0 || "$REQUIRE_BACKEND_DATABASE" == 1 ]] || {
+    echo "PRIME_REQUIRE_BACKEND_DATABASE must be 0 or 1." >&2
+    exit 2
+}
 
 usage() {
     cat <<USAGE
@@ -38,8 +52,8 @@ stop children. Runtime state and logs are outside the checkout by default.
 Shared Backend mode needs PRIME_NODE_ID, PRIME_NODE_PUBLIC_KEY_FILE, and
 PRIME_NODE_DIRECTORY_SECRET (or PRIME_NODE_DIRECTORY_SECRET_FILE). Local
 Backend mode generates development Node/ticket/TLS credentials in the state
-directory and defaults to 51.161.113.128 on ports 18085 (Backend) and 8443
-(Node), binding both services on all interfaces. Port 8443 is
+directory and defaults to loopback HTTP on port 18085 (Backend) and HTTPS/WSS
+on port 8443 (Node). Port 8443 is
 Cloudflare-proxyable and does not require root. With no complete shared
 credential set, the default auto mode starts the local Backend; use
 --no-backend to require the shared path. Put persistent overrides in .env.dev
@@ -98,6 +112,10 @@ elif [[ "$START_BACKEND" == auto ]]; then
     fi
 fi
 [[ "$START_BACKEND" == 0 || "$START_BACKEND" == 1 ]] || { echo "PRIME_START_BACKEND must be 0, 1, or auto." >&2; exit 2; }
+if [[ "$REQUIRE_BACKEND_DATABASE" == 1 && "$BACKEND_CONNECTION_SUPPLIED" == 0 ]]; then
+    echo "A non-empty Backend database connection is required." >&2
+    exit 1
+fi
 
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing command: $1" >&2; exit 1; }; }
 need python3
@@ -124,6 +142,20 @@ ROOT=$(canonical_path "$ROOT")
 STATE_DIR=$(canonical_path "$STATE_DIR")
 PACKAGE_DIR=$(canonical_path "$PACKAGE_DIR")
 SUPERVISOR_SCRIPT=$(canonical_path "${BASH_SOURCE[0]}")
+
+# BEGIN_STATE_DATA_DIRECTORY
+if [[ -z "$PRIME_DATA_DIRECTORY" ]]; then PRIME_DATA_DIRECTORY=$STATE_DIR/map-data; fi
+if ! mkdir -p "$PRIME_DATA_DIRECTORY"; then
+    echo "Unable to create the Worker map data directory: $PRIME_DATA_DIRECTORY" >&2
+    exit 1
+fi
+PRIME_DATA_DIRECTORY=$(cd "$PRIME_DATA_DIRECTORY" && pwd -P)
+if ! chmod 700 "$PRIME_DATA_DIRECTORY"; then
+    echo "Unable to secure the Worker map data directory: $PRIME_DATA_DIRECTORY" >&2
+    exit 1
+fi
+export PRIME_DATA_DIRECTORY
+# END_STATE_DATA_DIRECTORY
 
 SUPERVISOR_LOCK_HELD=0
 SUPERVISOR_METADATA=$STATE_DIR/supervisor.json
@@ -235,20 +267,36 @@ CONTENT_VERSION=$PRIME_CONTENT_VERSION
 if [[ -z "$CONTENT_VERSION" ]]; then CONTENT_VERSION=AMHE1; fi
 BACKEND_BIND=$PRIME_BACKEND_BIND
 if [[ -z "$BACKEND_BIND" ]]; then
-    if [[ "$START_BACKEND" == 1 ]]; then BACKEND_BIND=http://0.0.0.0:18085; else BACKEND_BIND=http://0.0.0.0:80; fi
+    if [[ "$START_BACKEND" == 1 ]]; then BACKEND_BIND=http://127.0.0.1:18085; else BACKEND_BIND=http://127.0.0.1:80; fi
 fi
 BACKEND_URL=$PRIME_BACKEND_URL
 if [[ -z "$BACKEND_URL" ]]; then
-    BACKEND_URL=http://51.161.113.128:18085/
+    BACKEND_URL=https://rebooty.xyz/
 fi
 NODE_PUBLIC_HOST=$PRIME_NODE_PUBLIC_HOST
 if [[ -z "$NODE_PUBLIC_HOST" ]]; then
-    NODE_PUBLIC_HOST=51.161.113.128
+    NODE_PUBLIC_HOST=localhost
 fi
 NODE_CONTROL_URI=$PRIME_NODE_PUBLIC_CONTROL_URI
 if [[ -z "$NODE_CONTROL_URI" ]]; then
     NODE_CONTROL_URI=wss://$NODE_PUBLIC_HOST:8443/v1/control
 fi
+python3 - "$NODE_CONTROL_URI" <<'PY'
+import sys
+from urllib.parse import urlsplit
+
+value = sys.argv[1]
+parsed = urlsplit(value)
+if (len(value) > 256 or parsed.scheme.lower() != "wss" or not parsed.hostname
+        or parsed.username or parsed.password or parsed.query or parsed.fragment
+        or parsed.path != "/v1/control"):
+    raise SystemExit("PRIME_NODE_PUBLIC_CONTROL_URI must be exact wss://host[:port]/v1/control")
+try:
+    if parsed.port is not None and not 1 <= parsed.port <= 65535:
+        raise ValueError
+except ValueError:
+    raise SystemExit("PRIME_NODE_PUBLIC_CONTROL_URI has an invalid port")
+PY
 # shellcheck disable=SC2153
 NODE_BIND=$PRIME_NODE_BIND
 if [[ -z "$NODE_BIND" ]]; then
@@ -382,8 +430,8 @@ if [[ "$BACKEND_SCHEME" != http && "$BACKEND_SCHEME" != https ]]; then
     echo "Backend URL must use HTTP or HTTPS: $BACKEND_URL" >&2
     exit 1
 fi
-if [[ "$BACKEND_SCHEME" == http && "$BACKEND_HOST" != 51.161.113.128 && "$BACKEND_HOST" != localhost && "$BACKEND_HOST" != 127.0.0.1 && "$BACKEND_HOST" != ::1 ]]; then
-    echo "Plain HTTP is limited to 51.161.113.128 or loopback." >&2
+if [[ "$BACKEND_SCHEME" == http && "$BACKEND_HOST" != localhost && "$BACKEND_HOST" != 127.0.0.1 && "$BACKEND_HOST" != ::1 ]]; then
+    echo "Plain HTTP is limited to loopback for development." >&2
     exit 1
 fi
 
@@ -638,6 +686,7 @@ IFS=$'\t' read -r CONTENT_HASH BUILD_VERSION PROTOCOL_VERSION <<< "$identity"
 }
 chmod 600 "$CONFIG_PATH"
 
+# BEGIN_BACKEND_HEALTH_SELECTION
 BACKEND_HEALTH_URL=$PRIME_BACKEND_HEALTH_URL
 if [[ -z "$BACKEND_HEALTH_URL" ]]; then
     if [[ "$START_BACKEND" == 1 ]]; then
@@ -648,11 +697,19 @@ if [[ -z "$BACKEND_HEALTH_URL" ]]; then
         BACKEND_HEALTH_URL=$BACKEND_URL
     fi
 fi
+HEALTH=$BACKEND_HEALTH_URL
+if [[ "$HEALTH" != */ ]]; then HEALTH=$HEALTH/; fi
+if [[ "$START_BACKEND" == 1 && "$BACKEND_CONNECTION_SUPPLIED" == 0 ]]; then
+    HEALTH=$HEALTH"health/live"
+else
+    HEALTH=$HEALTH"health/ready"
+fi
+# END_BACKEND_HEALTH_SELECTION
 
 BACKEND_PID=
 BACKEND_LOG=
 if [[ "$START_BACKEND" == 1 ]]; then
-    if [[ -z "$ConnectionStrings__Backend" ]]; then
+    if [[ "$BACKEND_CONNECTION_SUPPLIED" == 0 ]]; then
         ConnectionStrings__Backend='Host=127.0.0.1;Database=prime_dev;Username=prime_dev;Password=prime_dev'
         echo "No PostgreSQL connection supplied; guest/node endpoints work, account endpoints need PostgreSQL and migrations."
     fi
@@ -666,7 +723,7 @@ if [[ "$START_BACKEND" == 1 ]]; then
         exec 9>&-
         export ASPNETCORE_ENVIRONMENT=Development
         export ASPNETCORE_URLS=$BACKEND_BIND
-        export Backend__AllowRemoteHttp=true Backend__AllowLoopbackHttp=true
+        export Backend__AllowLoopbackHttp=true
         export Accounts__DataProtectionKeyPath=$STATE_DIR/data-protection
         export Tickets__Issuer=$TICKET_ISSUER Tickets__KeyId=$KEY_ID Tickets__SigningKeyPemPath=$TICKET_KEY
         export GameServers__Servers__0__Id=$NODE_ID GameServers__Servers__0__Enabled=true
@@ -729,9 +786,6 @@ cleanup() {
 trap cleanup EXIT INT TERM
 if [[ -n "$BACKEND_PID" ]]; then printf '%s\n' "$BACKEND_PID" > "$STATE_DIR/backend.pid"; fi
 
-HEALTH=$BACKEND_HEALTH_URL
-if [[ "$HEALTH" != */ ]]; then HEALTH=$HEALTH/; fi
-HEALTH=$HEALTH"health/ready"
 echo "Waiting for Backend: $BACKEND_URL"
 for ((i=0;i<30;i++)); do
     if [[ -n "$BACKEND_PID" ]] && ! kill -0 "$BACKEND_PID" 2>/dev/null; then

@@ -276,14 +276,24 @@ def check_public(args: argparse.Namespace) -> int:
     return 0
 
 
+def android_rid_from_path(path: Path) -> str:
+    matches = {
+        rid
+        for part in path.parts
+        for rid in ANDROID_RID_TO_ABI
+        if part == rid or part.endswith(f"_{rid}")
+    }
+    if len(matches) != 1:
+        raise ValueError(f"cannot identify Android RID from linked input path: {path}")
+    return matches.pop()
+
+
 def stage_android(args: argparse.Namespace) -> int:
     sources = [Path(value).resolve() for value in args.source]
     grouped: dict[str, dict[str, Path]] = defaultdict(dict)
     for path in sources:
         if path.name in EXPECTED_MODULES:
-            rid = next((part for part in reversed(path.parts) if part.startswith("android-")), None)
-            if rid is None:
-                raise ValueError(f"cannot identify Android RID from linked input path: {path}")
+            rid = android_rid_from_path(path)
             if rid in grouped[path.name]:
                 raise ValueError(f"more than one {path.name} linked input resolved for {rid}")
             grouped[path.name][rid] = path

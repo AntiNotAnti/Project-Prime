@@ -22,7 +22,7 @@ PROJECTS = {
     'Android': {'Game', 'Imaging', 'MapPlatform', 'Audio.Ncsf', 'Shared.Replay', 'Server.Shared'},
     'Audio.Ncsf': set(),
     'Shared.Replay': {'Game'},
-    'Backend': {'Game'},
+    'Backend': {'Game', 'Server.Shared'},
 }
 PLATFORM_NAMES = re.compile(
     r'\b(?:Avalonia|SoundFlow|NCSFCommon|ReFuel|Silk\.NET\.OpenAL)\b'
