@@ -84,7 +84,7 @@ class ProjectBoundaryGuardTests(unittest.TestCase):
         errors = self.inspect()
 
         self.assertIn(
-            "Server.Worker: project references ['Client']; expected ['Game', 'Server.Shared', 'Shared.Replay']",
+            "Server.Worker: project references ['Client']; expected ['Game', 'Imaging', 'MapPlatform', 'Server.Shared', 'Shared.Replay']",
             errors,
         )
         self.assertIn("Server.Worker: unexpected platform packages: ['Avalonia']", errors)

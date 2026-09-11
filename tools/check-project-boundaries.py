@@ -10,12 +10,16 @@ import xml.etree.ElementTree as ET
 
 PROJECTS = {
     'Game': set(),
-    'Client': {'Game', 'Audio.Ncsf', 'Server.Shared', 'Shared.Replay'},
+    'Imaging': set(),
+    'MapPlatform': {'Game', 'Imaging'},
+    'Renderer': {'Game', 'Imaging'},
+    'Editor': {'Game', 'MapPlatform', 'Renderer'},
+    'Client': {'Game', 'MapPlatform', 'Renderer', 'Audio.Ncsf', 'Server.Shared', 'Shared.Replay'},
     'Server.Shared': {'Game'},
     'Server.Node': {'Server.Shared'},
-    'Server.Worker': {'Game', 'Server.Shared', 'Shared.Replay'},
-    'Tools': {'Game'},
-    'Android': {'Game', 'Audio.Ncsf', 'Shared.Replay', 'Server.Shared'},
+    'Server.Worker': {'Game', 'Imaging', 'MapPlatform', 'Server.Shared', 'Shared.Replay'},
+    'Tools': {'Game', 'Imaging', 'MapPlatform'},
+    'Android': {'Game', 'Imaging', 'MapPlatform', 'Audio.Ncsf', 'Shared.Replay', 'Server.Shared'},
     'Audio.Ncsf': set(),
     'Shared.Replay': {'Game'},
     'Backend': {'Game'},
@@ -41,7 +45,11 @@ RETIRED_SERVER_SYMBOLS = re.compile(
     r'ServerVoting|AdminHttpServer)\b')
 RETIRED_SERVER_PROJECT = Path('src/Server/Server.csproj')
 PLATFORM_SOURCE_PROJECTS = {
-    'Game', 'Server.Shared', 'Server.Node', 'Server.Worker', 'Backend', 'Shared.Replay'
+    'Game', 'MapPlatform', 'Server.Shared', 'Server.Node', 'Server.Worker', 'Backend', 'Shared.Replay'
+}
+OWNED_SOURCE_GLOBS = {
+    'MapPlatform': ('../Shared/Maps/',),
+    'Renderer': ('../Client/Rendering/',),
 }
 
 
@@ -131,12 +139,17 @@ def inspect(root: Path) -> list[str]:
                     target = (owner.parent / normalized).resolve()
                     cross_project = not target.is_relative_to(path.parent.resolve())
                     if cross_project and any(c in normalized for c in '*?$'):
-                        errors.append(f'{owner.relative_to(root)}: shared sources must be explicit files: {include}')
+                        allowed_globs = OWNED_SOURCE_GLOBS.get(name, ())
+                        if not any(normalized.startswith(prefix) for prefix in allowed_globs):
+                            errors.append(f'{owner.relative_to(root)}: shared sources must be explicit files: {include}')
                         continue
                     if cross_project and not target.is_file():
                         errors.append(f'{owner.relative_to(root)}: missing linked source: {include}')
                     if cross_project:
                         allowed = {'Client': {'Shared'},
+                                   'Imaging': {'Shared'},
+                                   'MapPlatform': {'Shared'},
+                                   'Renderer': {'Client'},
                                    'Server.Worker': {'Shared'},
                                    'Tools': {'Shared', 'Audio.Ncsf'},
                                    'Android': {'Shared', 'Client'},
