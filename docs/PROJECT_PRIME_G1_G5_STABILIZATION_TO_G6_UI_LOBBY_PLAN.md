@@ -2,6 +2,12 @@
 # G1-G5 Stabilization -> G6 Lobby + UI/UX Overhaul
 ## Full Implementation Plan
 
+> **HISTORICAL DESIGN DOCUMENT — SUPERSEDED PLAN.** This plan records an
+> earlier protocol-8/unreleased G1–G5-to-G6 sequence and is not a current
+> architecture or release guide. Use [CURRENT_ARCHITECTURE.md](CURRENT_ARCHITECTURE.md)
+> and [CURRENT_PROTOCOL.md](CURRENT_PROTOCOL.md) for the current system; source
+> and the release ledger take precedence over this plan.
+
 **Target codebase:** latest uploaded Project Prime snapshot (`Project-Prime(2).zip`)
 **Current runtime:** .NET 10 / protocol 8 unreleased  
 **Purpose:** finish and harden the already-implemented G1-G5 program, freeze a trustworthy multiplayer baseline, then build a persistent server-owned lobby and a complete cross-platform UI/UX shell around Project Prime.

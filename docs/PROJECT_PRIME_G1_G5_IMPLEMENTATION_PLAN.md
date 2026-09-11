@@ -1,5 +1,11 @@
 # Project Prime - G1-G5 Gameplay and Online Systems Implementation Plan
 
+> **HISTORICAL DESIGN DOCUMENT — SUPERSEDED IMPLEMENTATION PLAN.** This plan
+> records an earlier G1–G5 baseline and is not a current task queue or
+> architecture reference. Use [CURRENT_ARCHITECTURE.md](CURRENT_ARCHITECTURE.md)
+> and [CURRENT_PROTOCOL.md](CURRENT_PROTOCOL.md) for the current system; source
+> and the release ledger take precedence over this plan.
+
 ## Document purpose
 
 This is the implementation plan for the next five major Project Prime gameplay and online systems epics, based on a fresh audit of the latest uploaded codebase.
@@ -2459,7 +2465,7 @@ Examples:
 ```text
 POST  /v1/auth/register
 POST  /v1/auth/login
-POST  /v1/game-tickets
+Historical/retired client route (superseded by Node admission): POST /v1/game-tickets
 
 GET   /v1/players/{id}/license
 PATCH /v1/me/profile

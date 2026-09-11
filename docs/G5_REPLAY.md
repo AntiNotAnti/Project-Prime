@@ -96,7 +96,15 @@ contract. User-facing names, paths, commands and UI use Replay and Theatre.
 
 Focused tests cover frozen protocol fixtures, accepted live Kill/World recording and semantic roundtrip, fixed-tick rates/pause/step, byte-exact feedback restore and duplicate rejection, malformed checkpoint atomicity, every truncated byte of a final chunk, every corrupted header/payload byte of that chunk, file/payload/frame bounds, nearest checkpoint selection, and fact-stream seeks across match transitions. Real AMHE1 tests exercise single and linked Lockjaw lifetime bounds.
 
-The fact-stream seek fixture does not exercise a GPU or audio device. The existing `ReplayPlaybackCheck` requests a hidden compatibility OpenGL window; the host's earlier NSGL context creation failure remains a rendered validation blocker. Consequently full rendered beam/bomb appearance and device audio silence are source-reviewed, not claimed as device-tested. CPU/fact-stream timings are reported separately from rendered seek latency.
+The fact-stream seek fixture does not exercise a GPU or audio device. The
+`ReplayPlaybackCheck` now requests the SDL `IRenderToolHost` path, which owns a
+hidden SDL GPU presentation rather than the retired hidden compatibility-OpenGL
+window. No successful rendered run is recorded for the current host, so full
+beam/bomb appearance and device-audio silence remain open acceptance gates.
+The earlier NSGL compatibility-profile failure is retained as historical
+evidence for the retired probe only; it is not evidence that the SDL GPU path
+has passed. CPU/fact-stream timings are reported separately from rendered seek
+latency.
 
 Validated focused command (2026-09-07): `GAME_DATA_DIRECTORY=AMHE1 dotnet test tests/Tests/Tests.csproj -c Release --filter 'FullyQualifiedName~Replay|FullyQualifiedName~ReplayPlaybackTests|FullyQualifiedName~FeedbackAudioTests'`. The final run passed 35 tests. In the fact-only fixture, targets 0/2300/2500/4100 restored frames 0/300/600/2100 and ran 1/2001/1901/2001 steps in 0.008/2.128/2.045/2.076 ms respectively. These measurements deliberately exclude rendering, actual projectile presentation and audio devices; they are not rendered seek-latency claims.
 

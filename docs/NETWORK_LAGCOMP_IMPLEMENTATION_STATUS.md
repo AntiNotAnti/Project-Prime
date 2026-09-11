@@ -43,7 +43,7 @@ show that the presentation improvement clears the plan's release gate.
 
 ### Unified timing
 
-Protocol 14 carries versioned `NetworkTimingProfile` updates and bounded client
+Protocol 15 carries versioned `NetworkTimingProfile` updates and bounded client
 timing telemetry with a `PresentedFrames` denominator. The Worker is the policy
 owner. Profiles move one adjacent step at a time, increase safety quickly,
 require an eight-second clean dwell to reduce buffering, and fall back safely if
@@ -60,12 +60,13 @@ adaptive timing, frame telemetry (`AdaptiveTimingV2Enabled`), and adaptive input
 behavior have independent Node-owned operational flags and default off until
 rendered WAN acceptance is available. Disabling V2 fail-closes telemetry
 consumption while retaining the older RTT/input policy; it does not make
-Protocol 13 peers wire-compatible with the Protocol 14 build.
+Protocol 14 peers are not wire-compatible with the Protocol 15 build.
 
-### Protocol-14 UDP authentication boundary
+### Protocol-15 UDP authentication boundary
 
-Protocol 14 is the current gameplay wire contract. In addition to the timing
-telemetry message, the UDP envelope has a direction-bound authentication
+Protocol 15 is the current gameplay wire contract. In addition to the timing
+telemetry message and explicit optional radial movement axes in each input
+command, the UDP envelope has a direction-bound authentication
 primitive: a 32-byte per-handoff key protects a 16-byte tag, and the maximum
 authenticated payload is bounded by the existing 1,024-byte datagram cap. The
 verification order is deliberately opaque verify, body validation, then
@@ -171,7 +172,7 @@ the deterministic Node ID tie-break. The endpoint is rate-limited per source.
 The implementation provides the planned bounded controls:
 
 - Worker: `SnapshotRateHz`, `AdaptiveTimingEnabled`,
-  `AdaptiveTimingV2Enabled` (protocol-14 frame telemetry; disabled fail-closed
+  `AdaptiveTimingV2Enabled` (protocol-15 frame telemetry; disabled fail-closed
   when rollback is required),
   `AdaptiveInputPlayoutEnabled`, `TransportQueueV2Enabled`,
   `ReliableAdaptiveRtoEnabled`, and `UdpAuthenticationEnabled` (production
@@ -236,8 +237,9 @@ changing combat authority:
   rejects stale epochs and installs a neutral current-life combat command at
   the spawn boundary. Protocol 13 introduced the presented-frame denominator;
   protocol 14 adds the authenticated UDP envelope while retaining that timing
-  telemetry. Protocol 11/12/13 peers are intentionally incompatible with the
-  current wire contract.
+  telemetry, and protocol 15 adds explicit quantized radial movement axes.
+  Protocol 11/12/13/14 peers are intentionally incompatible with the current
+  wire contract.
 
 The evidence gates remain closed. No presented collision proxy is used for
 speculative gameplay (F7), no real geographic WAN matrix has been accepted
@@ -271,3 +273,141 @@ agreement without actual headshot evidence; it emits no `renderedWanProof`
 claim for local fixtures, missing evidence, or mismatched reports. These
 checks make local loopback and process-local impairment useful harness evidence
 without promoting them to geographic WAN or human-review acceptance.
+
+## N12 NetPlay hardening and optimization (2026-09-11)
+
+N12's locally actionable hardening is implemented on the current Protocol 15
+baseline. N12 did not add or revise a wire message. References to Protocol 14 in
+the N12 plan describe its target baseline; the intervening radial-input work
+already made Protocol 15 the repository contract.
+
+### Transport, ingress, and timing
+
+- Signed datagrams carry an explicit semantic delivery class. One canonical
+  reliable-event policy maps critical, normal, state, world, and best-effort
+  traffic; malformed `Auto` submissions are dropped instead of being
+  reclassified from authenticated bytes. Saturation tests exercise actual
+  signed datagrams and the critical reserve.
+- Worker ingress has bounded pre-authentication, admission, and established
+  route limits. Established connections have a 240 datagram/second rate with a
+  360-datagram burst and a 64-datagram queued-work cap. Per-class aggregate
+  drops and maximum connection depth are observable without high-cardinality
+  heartbeat state.
+- Admission leases use monotonic deadlines. Expiry is purged once per pump,
+  not scanned per packet, and retired key material is zeroed.
+- Accepted client timing telemetry records freshness. A downshift requires at
+  least 30 presented samples and telemetry no older than 2.5 seconds. Missing
+  or stale telemetry blocks only a safety downshift; it cannot suppress an
+  upshift.
+- The Worker network lane uses an event signal plus absolute deadlines instead
+  of 1 ms polling. Publish-before-signal ordering, bounded per-pump work,
+  round-robin match service, delayed-held-datagram wakeups, and immediate
+  repumps preserve latency without unbounded work. Wake, idle, immediate
+  repump, receive-to-route age, and outbound age are measured.
+- `NetClock` retains a bounded 16-sample low-RTT/MAD-filtered window, uses
+  bounded slew, preserves monotonic presentation, detects persistent latency
+  regime changes, and rejects transient outliers after a new regime is
+  established.
+- Per-connection quotas are the first-stage inbound fairness mechanism. A
+  deterministic abusive-peer-versus-healthy-peer test passes. A second input
+  coalescing queue was not added because the measured bounded design does not
+  justify the extra ownership surface.
+
+### ACK coalescing
+
+ACK coalescing is implemented behind an opt-in flag and remains disabled by
+default. Pending ACK state uses monotonic/tick deadlines, duplicate reliable
+events renew acknowledgement pressure without redelivery or liveness/rebind
+mutation, eligible outbound traffic piggybacks the ACK, and the deadline falls
+back to a standalone ACK. Disconnect and terminal failure perform a final
+flush attempt.
+
+Only a non-evictable reliable/world queue acceptance or a successful direct
+socket send counts as an accepted ACK carrier. Evictable state, best-effort,
+and held-impairment submissions cannot clear pending ACK state. Metrics
+separate carrier submission attempts from accepted standalone and piggyback
+emissions. The Client opt-in is `PROJECT_PRIME_ACK_COALESCING`; Worker and Node
+placement use `--ack-coalescing`.
+
+### Allocation and capacity evidence
+
+The 60-second real-loopback UDP receive measurement is
+`/tmp/prime-n12-udp-measurement-60s.json`. All 1/8/16/32-player cells emitted
+every scheduled interval and reported zero receive/drain mismatch, queue drop,
+transport rejection, send error, or skipped interval. The 32-player cell
+received 2,302.97 packets/second, allocated 680,056 managed bytes/second
+process-wide, performed four Gen0 and zero Gen1/Gen2 collections, spent 0.881 ms
+in GC pause (0.00147% of wall time), used 0.356% process CPU, and reached queue
+high-water 96. These are localhost transport measurements, not deployed-host
+or WAN capacity claims.
+
+The measured receive pressure did not justify introducing leased pooled packet
+ownership. The latest reliable-path self-test reports `TryEnqueue` 1,369.2 ns/32 B,
+encode 21.7 ns/0 B, event queue 3,022.2 ns/392 B, and combat event 2,876.1
+ns/176 B. Those bounded allocations did not justify a payload slab or a more
+complex client event store. N12.7 and the optional parts of N12.8 were therefore
+correctly skipped by their evidence gates.
+
+Authenticated content-backed capacity runs passed at 1 match/8 peers, 2/16,
+and 4/32. The 4/32 run completed 9,600 playing ticks, processed 70,560 inputs
+and 20,173 snapshots, drained all four matches, ingested all four reports, and
+reported zero queue drops or packet rejections. Maximum ingress depth was 12,
+maximum deadline misses were 1, network-pump P99 was 0.6994 ms, P99.9 was
+1.1873 ms, receive-to-route P99 was 1.6060 ms, and outbound-age P99 was 0.778
+ms. The soak uses fresh Node-installed admission identity and key material for
+every initial connection and reconnect; it has no keyless fallback.
+
+### Fidelity and release boundary
+
+The latest 60-second local headshot run is recorded at
+`/tmp/prime-n12-headshot-local-20260911-r5/report.json`. Choreography passed,
+including vertical/strafe, close/long, legal Imperialist cadence, stationary
+body/head calibration, and same-session/same-match/same-seat reconnect with a
+rotated connection identity. It correlated 29 of 29 local and authoritative
+root shots, but missed the minimum by one shot and produced only two predicted
+contacts and one authoritative headshot. A target-lifecycle repair moved
+ordinary respawn processing ahead of the validation `ModInPlay` gate, but this
+rerun still produced no post-reconnect hit population. The report is correctly `HARNESS
+INVALID`; thresholds were not lowered and no agreement rate was published.
+Stationary body/head evidence is now life-fenced and phase-exclusive; a
+long-range overlap regression prevents one aim frame from satisfying both
+calibration populations. That final accounting guard passed its focused
+self-test after r5; no later local run is being promoted as acceptance evidence.
+Later diagnostic captures show ordinary scripted target motion entering
+occluded room geometry. A bounded choreography revision that preserves genuine
+movement without repeated Worker-side repositioning is still required before
+the local combat-population gate can pass.
+
+The repository contains fail-closed self-tested tooling for the real UDP
+baseline, snapshot matrix, and independent two-client report merge. This local
+machine cannot supply independent geographic US, Europe, and APAC paths or a
+human-reviewed two-client population. Consequently the N12 Definition of Done
+remains externally gated on:
+
+- sufficient local and independent two-client combat/headshot populations;
+- real geographic WAN validation;
+- paired 30 Hz versus 60 Hz rendered-WAN cells; and
+- controlled WAN evidence for each production-default graduation.
+
+The evidence does not authorize gameplay use of presented collision,
+prediction enrichment, or a larger rewind window. `MaxRewindTicks` remains 15,
+snapshot cadence remains 30 Hz by default, and adaptive timing V1/V2, adaptive
+input playout, Queue V2, adaptive RTO, and ACK coalescing remain disabled by
+default. UDP authentication, the critical reserve, and the Worker global
+network budget remain enabled.
+
+Post-implementation validation on the shared dirty worktree produced a clean
+Release solution build, 135/135 focused N12 tests, all four WAN-tool self-tests,
+the seven-case headshot scenario self-test, 172/172 Python tool tests, a clean
+project-boundary check, and a clean diff whitespace check. The broad game suite
+ran 2,625/2,628; its three failures are in concurrent map-platform work
+(`MapAcquisitionServiceTests` and two `ServerContentValidationTests`). The
+content-backed Node suite ran 207/208; its one failure is the concurrent A24
+admission test using an exactly-30-second future issue time while the shared
+contract currently permits 30 seconds of skew. These failures are outside N12,
+were not hidden or changed here, and mean the entire dirty worktree is not being
+reported globally green.
+After that clean solution build, later concurrent UI/replay edits introduced
+three Client compile errors in `SdlGameHost`/`KillcamController`; the final
+Worker and nettest sources were therefore rebuilt independently against their
+already-built references and passed with zero warnings or errors.

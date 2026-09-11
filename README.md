@@ -69,8 +69,10 @@ see the [implementation and validation notes](docs/NETWORK_MODERNIZATION.md) and
 
 ## Custom maps
 
-A map is one file: `something.fpmap`. Put it in the `maps` folder beside the game and it is in the
-map list next time you open the launcher, picture and all. **de_dust2** comes with it.
+A map is one file: `something.fpmap`. Install it from **Maps** in the launcher and it is available
+without copying generated files into the base game content. Desktop packages include the matching
+Project Prime Editor in `editor/`; use **Maps → My Maps** to create, import, or edit a project.
+Android installs and plays maps but does not include the editor. **de_dust2** comes with the game.
 
 ## Not done yet
 
@@ -91,7 +93,7 @@ For a complete deployable build, use:
 ```
 
 This cooks all custom map bundles once, then compiles, publishes, and validates
-desktop clients for `win-x64`, `linux-x64`, `osx-x64`, and
+desktop clients with their matching bundled map editor for `win-x64`, `linux-x64`, `osx-x64`, and
 `osx-arm64`; release server bundles for `win-x64`, `linux-x64`, and
 `linux-arm64`; a clearly marked local/development `osx-arm64` server; and an
 Android APK. Android needs the .NET Android workload plus a JDK and Android SDK;

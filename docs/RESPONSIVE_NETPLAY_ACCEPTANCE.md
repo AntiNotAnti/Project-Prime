@@ -8,12 +8,15 @@ afflictions, objectives, collision history, and lag-compensation selection.
 The later NetPlay fidelity pass changed the input wire contract to protocol 12
 only after a deterministic death/respawn regression proved that unseen
 pre-death commands needed an explicit life epoch. The current wire contract is
-protocol 14: it carries the presented-frame denominator and the authenticated
-UDP envelope. This does not grant the client gameplay authority; the Worker
+protocol 15: it carries the presented-frame denominator, the authenticated UDP
+envelope, and an explicit optional radial movement sample. The movement sample
+is quantized to signed axes in the inclusive range -127..127; -128 is reserved
+and malformed radial values are rejected. This does not grant the client gameplay
+authority; the Worker
 validates the epoch against its current player life and remains the sole
 authority for gameplay state.
 
-The protocol-14 authentication boundary is Node-issued, per-handoff, and
+The protocol-15 authentication boundary is Node-issued, per-handoff, and
 direction-bound. A handoff exposes a bounded `AdmissionId`; the associated
 32-byte key is installed and acknowledged by the owning Worker before the
 handoff is published. Client joins and established packets are authenticated
@@ -21,8 +24,10 @@ before body validation and state application. Enabled mode drops unknown or
 unauthenticated joins and has no keyless fallback. `UdpAuthenticationEnabled`
 is enabled for production; disabling it is an explicit legacy/test seam only.
 Keys are redacted from logs, string representations, tickets, CLI arguments,
-and environment values. Protocol 13 and older peers are intentionally
-incompatible with this contract.
+and environment values. Protocol 14 and older peers are intentionally
+incompatible with this live wire contract. Protocol-14 replay timelines remain
+readable when their stored timeline format is independent of the current
+input-command payload.
 
 ## Repository implementation status
 

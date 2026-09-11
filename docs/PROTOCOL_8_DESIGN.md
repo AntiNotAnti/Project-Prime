@@ -1,6 +1,12 @@
 # Protocol 8 proposal (read-only G1–G3 audit)
 
-Status: UNRELEASED, EVOLVING. Implemented: live protocol8, player96 durable statuses/assists and radar flags, rules84 spawn/overtime/late-join/assist policies, Kill137/type11, WorldEvent64/type12, and a58-record rich world prefix. G4 signed tickets and G5 observer roles are implemented as described in the updates below. Live accepts version8; historical versions remain confined to frozen replay adapters. Do not increment repeatedly while this revision remains unreleased. Runtime/GUI/WAN evidence is separate from codec and focused-test evidence.
+> **HISTORICAL DESIGN DOCUMENT — SUPERSEDED.** This proposal describes an
+> earlier unreleased protocol-8 baseline and is not the live wire contract.
+> Use [CURRENT_ARCHITECTURE.md](CURRENT_ARCHITECTURE.md) and
+> [CURRENT_PROTOCOL.md](CURRENT_PROTOCOL.md) for current ownership and protocol
+> behavior; source and the release ledger take precedence over this document.
+
+Status: HISTORICAL, SUPERSEDED. The protocol-8 layout and the statements below that it accepted live version8 are retained as design history only. The current live authoritative protocol is 15; historical versions remain confined to frozen replay adapters. Runtime/GUI/WAN evidence is separate from codec and focused-test evidence.
 
 ## Confirmed wire baseline
 

@@ -40,10 +40,10 @@ configuration is absent. The deployment record must contain, at minimum:
   or fragment. Production middleware rejects HTTP requests. If TLS terminates
   at a reverse proxy, the proxy must forward the external scheme and client
   address through the allowlist described below.
-- `Backend__AllowLoopbackHttp=true` permits loopback HTTP in Development. The
-  temporary `Backend__AllowRemoteHttp=true` setting additionally permits plain
-  HTTP only when the request Host is `51.161.113.128`, and is ignored outside
-  Development. Leave both settings false in every shared or public environment.
+- `Backend__AllowLoopbackHttp=true` permits loopback HTTP in Development only.
+  Remote plaintext HTTP is retired; `Backend__AllowRemoteHttp` is rejected by
+  configuration validation. Leave loopback HTTP disabled in every shared or
+  public environment.
 - `Accounts__RequireConfirmedEmail=true` and
   `Accounts__DataProtectionKeyPath` as an absolute, durable, operator-owned
   directory. Protect and back up this directory; losing it invalidates
@@ -136,11 +136,13 @@ server credentials, or signing material.
 
 ## Ticket keys, session revocation, and server revocation
 
-`GameTicketIssuer` signs short-lived ES256/P-256 tickets. The current private
-key is configured by `Tickets__SigningKeyPemPath`; `/v1/game-ticket-keys`
-publishes the current public key and configured previous public keys. Tickets
-expire after 120 seconds and are bound to the account, server UUID, server
-incarnation, display name, and join nonce.
+`GameTicketIssuer` signs short-lived ES256/P-256 Node admission tickets. The
+current private key is configured by `Tickets__SigningKeyPemPath`; configured
+previous public keys overlap during a deployment. There is no public key-fetch
+route in the current Node admission architecture, so each Node loads its
+bounded static verification-key set at startup. Tickets expire after 120
+seconds and are bound to the account or guest session, Node UUID, display name,
+and admission audience.
 
 Use this rotation sequence:
 
@@ -148,13 +150,13 @@ Use this rotation sequence:
 2. Configure it as the current `Tickets__KeyId` and
    `Tickets__SigningKeyPemPath`, while publishing the former public key under
    `Tickets__PreviousKeys__*`.
-3. Restart the Backend, then verify `/v1/game-ticket-keys` and a real ticket
-   issue/admission flow.
+3. Restart the Backend and every Node with the overlapping public-key set, then
+   verify a real account and guest admission flow.
 4. Keep the previous public key until every ticket it could have signed has
-   expired, plus verifier clock skew and the current server key-cache window.
-   The conservative operational window for the current verifier is at least
-   three minutes after the last old-key issuance. Remove the old public key in
-   a later restart and record the retirement time.
+   expired, plus verifier clock skew. The conservative window for the current
+   static verifier is at least three minutes after the last old-key issuance.
+   Remove the old public key in a later coordinated restart and record the
+   retirement time.
 
 Account `/v1/auth/revoke-sessions` updates the Identity security stamp. Refresh
 tokens then fail validation; existing access tokens expire normally, and game
