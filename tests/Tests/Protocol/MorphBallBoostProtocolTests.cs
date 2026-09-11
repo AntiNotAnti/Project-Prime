@@ -38,9 +38,9 @@ public sealed class MorphBallBoostProtocolTests
     [Fact]
     public void CommandsRoundTripAllModesAtTheExactProtocolSize()
     {
-        Assert.Equal(36, InputCommand.Size);
-        Assert.Equal(297, InputBundle.MaxSize);
-        Assert.Equal(11, NetHeader.Version);
+        Assert.Equal(40, InputCommand.Size);
+        Assert.Equal(329, InputBundle.MaxSize);
+        Assert.Equal(12, NetHeader.Version);
         Assert.True(BoostIntent.TryCreateFlick(new Vector2(.25f, -1),
             out BoostIntent flick));
         InputCommand[] commands =
@@ -77,9 +77,9 @@ public sealed class MorphBallBoostProtocolTests
     public void MalformedModesDirectionsAndHeldChargeContractsAreRejected()
     {
         Assert.True(BoostIntent.TryCreateFlick(Vector2.UnitX, out BoostIntent flick));
-        AssertRejected(Command(1, InputButtons.None, flick), 33, 3); // unknown mode
-        AssertRejected(Command(1, InputButtons.None, flick), 34, 0x80); // forbidden -128
-        AssertRejected(Command(1, InputButtons.None, flick), 35, 0x80); // forbidden -128
+        AssertRejected(Command(1, InputButtons.None, flick), 37, 3); // unknown mode
+        AssertRejected(Command(1, InputButtons.None, flick), 38, 0x80); // forbidden -128
+        AssertRejected(Command(1, InputButtons.None, flick), 39, 0x80); // forbidden -128
         AssertRejectedZeroFlick(Command(1, InputButtons.None, flick));
 
         Assert.True(BoostIntent.TryDecode(BoostActivation.Flick, 127, -127,
@@ -90,12 +90,12 @@ public sealed class MorphBallBoostProtocolTests
         Assert.Equal(extreme, decodedExtreme.BoostRequest);
 
         InputCommand none = Command(1, InputButtons.None, BoostIntent.None);
-        AssertRejected(none, 34, 1); // reserved direction on None
+        AssertRejected(none, 38, 1); // reserved direction on None
         InputCommand charge = Command(1, InputButtons.Boost, BoostIntent.Charge);
-        AssertRejected(charge, 35, 1); // reserved direction on Charge
+        AssertRejected(charge, 39, 1); // reserved direction on Charge
         AssertRejected(charge, 13, 0); // Charge without held Boost
         InputCommand heldNone = none with { Buttons = InputButtons.Boost };
-        AssertRejected(heldNone, 33, (byte)BoostActivation.None);
+        AssertRejected(heldNone, 37, (byte)BoostActivation.None);
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public sealed class MorphBallBoostProtocolTests
         };
         byte[] wire = new byte[InputBundle.HeaderSize + source.Length * InputCommand.Size];
         int length = InputBundle.Write(wire, 7, source);
-        wire[InputBundle.HeaderSize + InputCommand.Size + 33] = 0xFF;
+        wire[InputBundle.HeaderSize + InputCommand.Size + 37] = 0xFF;
         InputCommand sentinel = Command(99, InputButtons.Boost, BoostIntent.Charge);
         var destination = new[] { sentinel, sentinel };
 
@@ -181,8 +181,8 @@ public sealed class MorphBallBoostProtocolTests
     {
         Span<byte> wire = stackalloc byte[InputCommand.Size];
         command.Write(wire);
-        wire[34] = 0;
-        wire[35] = 0;
+        wire[38] = 0;
+        wire[39] = 0;
         Assert.False(InputCommand.TryRead(wire, out _));
     }
 }

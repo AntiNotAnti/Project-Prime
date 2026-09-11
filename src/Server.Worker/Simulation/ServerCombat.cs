@@ -99,6 +99,22 @@ namespace MphRead.Mods.Network
             HistoricalCollisionRegistry = new HistoricalCollisionRegistry();
             DynamicCollisionHistory = new DynamicCollisionHistory(HistoricalCollisionRegistry);
             CatchUp = new ProjectileCatchUp(this);
+            ReserveLagCompensationSamples();
+        }
+
+        private void ReserveLagCompensationSamples()
+        {
+            RequestedRewindTicks.Reserve();
+            ValidatedRewindTicks.Reserve();
+            ClampPositionError.Reserve();
+            ClampVerticalError.Reserve();
+            ClampHorizontalError.Reserve();
+            for (int i = 0; i < ClampWeaponMetricCount; i++)
+            {
+                _clampPositionErrorByWeapon[i].Reserve();
+                _clampVerticalErrorByWeapon[i].Reserve();
+                _clampHorizontalErrorByWeapon[i].Reserve();
+            }
         }
         // Only accepted spreading root shots advance this match-owned stream.
         // Damage and effects still consume the ordinary gameplay RNG independently.
@@ -134,6 +150,23 @@ namespace MphRead.Mods.Network
         // rewind. Future/ambiguous requests contribute zero requested ticks.
         public NetSample RequestedRewindTicks;
         public NetSample ValidatedRewindTicks;
+        private const int ClampWeaponMetricCount = (int)BeamType.OmegaCannon + 1;
+        private const float HeadshotBandThreshold = 0.3f;
+        private readonly NetSample[] _clampPositionErrorByWeapon = new NetSample[ClampWeaponMetricCount];
+        private readonly NetSample[] _clampVerticalErrorByWeapon = new NetSample[ClampWeaponMetricCount];
+        private readonly NetSample[] _clampHorizontalErrorByWeapon = new NetSample[ClampWeaponMetricCount];
+        public NetSample ClampPositionError;
+        public NetSample ClampVerticalError;
+        public NetSample ClampHorizontalError;
+        public long ClampHistoryUnavailable { get; private set; }
+        public long ClampRequestedHistoryMissing { get; private set; }
+        public long ClampServedHistoryMissing { get; private set; }
+        public long ClampFutureRequests { get; private set; }
+        public long ClampVerticalErrorOverHeadshotBand { get; private set; }
+        public long ClampTotalErrorOverPlayerRadius { get; private set; }
+        public ReadOnlySpan<NetSample> ClampPositionErrorByWeapon => _clampPositionErrorByWeapon;
+        public ReadOnlySpan<NetSample> ClampVerticalErrorByWeapon => _clampVerticalErrorByWeapon;
+        public ReadOnlySpan<NetSample> ClampHorizontalErrorByWeapon => _clampHorizontalErrorByWeapon;
         public void BeginTick(uint tick) { Tick = tick; }
         public void SetCommand(int slot, in InputCommand command, double rttMs = 0,
             byte rewindPresentationDelayTicks = NetworkTimingProfile.CompatibilityPresentationDelayTicks)
@@ -173,7 +206,21 @@ namespace MphRead.Mods.Network
             ShotsConsidered = ShotsEligible = ShotsRewound = ShotsClamped = 0;
             HistoricalDoorQueries = HistoricalForceFieldQueries = HistoricalObjectQueries = HistoricalPlatformQueries = 0;
             HistoricalGeometryMissing = HistoricalGeometryChangedOutcome = 0;
-            RequestedRewindTicks = ValidatedRewindTicks = default;
+            ClampHistoryUnavailable = ClampRequestedHistoryMissing = ClampServedHistoryMissing = 0;
+            ClampFutureRequests = ClampVerticalErrorOverHeadshotBand = 0;
+            ClampTotalErrorOverPlayerRadius = 0;
+            RequestedRewindTicks.Clear();
+            ValidatedRewindTicks.Clear();
+            ClampPositionError.Clear();
+            ClampVerticalError.Clear();
+            ClampHorizontalError.Clear();
+            for (int i = 0; i < ClampWeaponMetricCount; i++)
+            {
+                _clampPositionErrorByWeapon[i].Clear();
+                _clampVerticalErrorByWeapon[i].Clear();
+                _clampHorizontalErrorByWeapon[i].Clear();
+            }
+            ReserveLagCompensationSamples();
         }
 
         internal void NoteHistoricalQuery(HistoricalColliderKind kind)
@@ -302,10 +349,16 @@ namespace MphRead.Mods.Network
             Vector3 end = _hasDiagnosticPath ? _lastDiagnosticEnd : Vector3.Zero;
             HistoricalCollisionDebugFrame frame = CopyHistoricalDebugSnapshot(shot, start, end,
                 players, colliders, out int playerCount, out int dynamicCount);
+            BoundedPercentileSnapshot clampPosition = ClampPositionError.Percentiles;
+            BoundedPercentileSnapshot clampVertical = ClampVerticalError.Percentiles;
             var metrics = new HistoricalCollisionDebugMetrics(DynamicHistoryRecords,
                 DynamicHistoryQueries, DynamicHistoryMissing, HistoricalDoorQueries,
                 HistoricalForceFieldQueries, HistoricalPlatformQueries,
-                HistoricalGeometryChangedOutcome);
+                HistoricalGeometryChangedOutcome,
+                (int)Math.Min(UInt16.MaxValue, ClampPositionError.Count),
+                (float)clampPosition.P95, (float)clampPosition.P99,
+                (float)ClampPositionError.Max, (float)clampVertical.P95,
+                (float)ClampVerticalError.Max);
             return HistoricalCollisionDebugPacket.Write(destination, matchId, mode, frame,
                 mode == HistoricalCollisionDebugMode.History ? players[..playerCount] : ReadOnlySpan<HistoricalPlayerVolumeDiagnostic>.Empty,
                 mode == HistoricalCollisionDebugMode.Dynamic ? colliders[..dynamicCount] : ReadOnlySpan<HistoricalCollisionDiagnostic>.Empty,
@@ -350,6 +403,12 @@ namespace MphRead.Mods.Network
                 .Append(" historical_force_field_queries=").Append(HistoricalForceFieldQueries)
                 .Append(" historical_platform_queries=").Append(HistoricalPlatformQueries)
                 .Append(" historical_geometry_changed_outcome=").Append(HistoricalGeometryChangedOutcome)
+                .Append(" requested_rewind_p50/p95/p99=").Append(Percentiles(RequestedRewindTicks))
+                .Append(" validated_rewind_p50/p95/p99=").Append(Percentiles(ValidatedRewindTicks))
+                .Append(" clamped_shots=").Append(ShotsClamped)
+                .Append(" clamp_error_p50/p95/p99/max=").Append(Percentiles(ClampPositionError, includeMax: true))
+                .Append(" clamp_vertical_p95/max=").Append(Percentiles(ClampVerticalError, p95Only: true, includeMax: true))
+                .Append(" clamp_history_unavailable=").Append(ClampHistoryUnavailable)
                 .Append(" path_start=").Append(Vector3Text(projectileStart))
                 .Append(" path_end=").Append(Vector3Text(projectileEnd));
             if (history)
@@ -386,6 +445,17 @@ namespace MphRead.Mods.Network
                 => $"({NumberText(value.X)},{NumberText(value.Y)},{NumberText(value.Z)})";
             static string Vector4Text(Vector4 value)
                 => $"({NumberText(value.X)},{NumberText(value.Y)},{NumberText(value.Z)},{NumberText(value.W)})";
+            static string Percentiles(NetSample sample, bool p95Only = false, bool includeMax = false)
+            {
+                if (sample.Count == 0) return "n/a";
+                BoundedPercentileSnapshot values = sample.Percentiles;
+                if (p95Only) return includeMax
+                    ? $"{values.P95:0.###}/{values.Max:0.###}"
+                    : $"{values.P95:0.###}";
+                return includeMax
+                    ? $"{values.P50:0.###}/{values.P95:0.###}/{values.P99:0.###}/{values.Max:0.###}"
+                    : $"{values.P50:0.###}/{values.P95:0.###}/{values.P99:0.###}";
+            }
             static void AppendDynamic(StringBuilder output, HistoricalCollisionDiagnostic diagnostic)
             {
                 HistoricalCollisionState state = diagnostic.State;
@@ -476,8 +546,121 @@ namespace MphRead.Mods.Network
             ValidatedRewindTicks.Record(time.RewindTicks);
             if (time.RewindTicks > 0) ShotsRewound++;
             if (time.Clamped) ShotsClamped++;
+            if (time.Clamped && (_scene != null || History.HasRecords))
+                RecordClampedSpatialError(actor, shot.ViewServerTick, time.Tick, shot.SourceWeapon);
             return shot with { ActionServerTick = time.Tick, RewindTicks = time.RewindTicks, Mode = mode };
         }
+
+        /// <summary>
+        /// Measures the geometry difference introduced by a rewind clamp. This
+        /// path reads history only; it never moves an actor or participates in
+        /// the authoritative collision decision.
+        /// </summary>
+        private void RecordClampedSpatialError(in CombatActor shooter, uint requestedTick,
+            uint servedTick, byte weapon)
+        {
+            bool requestedFuture = IsFutureTick(requestedTick);
+            bool servedFuture = IsFutureTick(servedTick);
+            if (requestedFuture) ClampFutureRequests++;
+            if (servedFuture && !requestedFuture) ClampFutureRequests++;
+            bool hasSceneCandidates = _scene != null;
+            for (int slot = 0; slot < LagCompensationHistory.PlayerCapacity; slot++)
+            {
+                if (slot == shooter.Slot) continue;
+
+                CombatActor candidate;
+                if (hasSceneCandidates)
+                {
+                    PlayerEntity? player = _scene!.Players[slot];
+                    if (player == null) continue;
+                    candidate = player.ServerCombatIdentity;
+                    if (!candidate.IsValid || candidate == shooter || player.Health <= 0
+                        || player.Flags2.TestFlag(PlayerFlags2.Spectating)) continue;
+                }
+                else
+                {
+                    // Test/diagnostic callers without a bound scene can still
+                    // compare two identity-fenced history cells.
+                    LagCompensationState requestedRaw = default;
+                    LagCompensationState servedRaw = default;
+                    bool requestedRawFound = !requestedFuture
+                        && History.TryGetDiagnostic(slot, requestedTick,
+                            out requestedRaw);
+                    bool servedRawFound = History.TryGetDiagnostic(slot, servedTick,
+                        out servedRaw);
+                    LagCompensationState identityRaw = requestedRawFound ? requestedRaw : servedRaw;
+                    if ((!requestedRawFound && !servedRawFound)
+                        || requestedRawFound && servedRawFound
+                        && (requestedRaw.ConnectionId != servedRaw.ConnectionId
+                            || requestedRaw.LifeId != servedRaw.LifeId)
+                        || !identityRaw.CanBeHit)
+                        continue;
+                    candidate = new CombatActor((byte)slot, identityRaw.ConnectionId, identityRaw.LifeId);
+                }
+
+                LagCompensationState requested = default;
+                bool requestedFound = !requestedFuture
+                    && TryGetDiagnosticCandidate(candidate, requestedTick, out requested);
+                if (!requestedFound)
+                {
+                    // A future/ambiguous request is a timing classification,
+                    // not a missing history cell. Keep it out of the
+                    // unavailable denominator and report it once per shot.
+                    if (requestedFuture) continue;
+                    ClampHistoryUnavailable++;
+                    ClampRequestedHistoryMissing++;
+                    continue;
+                }
+                bool servedFound = TryGetDiagnosticCandidate(candidate, servedTick,
+                    out LagCompensationState served);
+                if (!servedFound)
+                {
+                    if (servedFuture) continue;
+                    ClampHistoryUnavailable++;
+                    ClampServedHistoryMissing++;
+                    continue;
+                }
+                if (!requested.CanBeHit || !served.CanBeHit) continue;
+
+                Vector3 delta = requested.Position - served.Position;
+                float horizontal = MathF.Sqrt(delta.X * delta.X + delta.Z * delta.Z);
+                float vertical = MathF.Abs(delta.Y);
+                float total = delta.Length;
+                ClampPositionError.Record(total);
+                ClampVerticalError.Record(vertical);
+                ClampHorizontalError.Record(horizontal);
+                if (vertical > HeadshotBandThreshold) ClampVerticalErrorOverHeadshotBand++;
+                if (served.SphereRadius > 0 && total > served.SphereRadius)
+                    ClampTotalErrorOverPlayerRadius++;
+                if (weapon < ClampWeaponMetricCount)
+                {
+                    _clampPositionErrorByWeapon[weapon].Record(total);
+                    _clampVerticalErrorByWeapon[weapon].Record(vertical);
+                    _clampHorizontalErrorByWeapon[weapon].Record(horizontal);
+                }
+            }
+        }
+
+        private bool TryGetDiagnosticCandidate(in CombatActor candidate, uint tick,
+            out LagCompensationState state)
+        {
+            if (_scene != null && tick == Tick)
+            {
+                PlayerEntity? player = _scene.Players[candidate.Slot];
+                if (player != null && player.ServerCombatIdentity == candidate)
+                {
+                    state = LagCompensationState.Capture(player, candidate.ConnectionId, candidate.Life);
+                    return true;
+                }
+                state = default;
+                return false;
+            }
+            return History.TryGetDiagnostic(candidate.Slot, tick, candidate.ConnectionId,
+                candidate.Life, out state);
+        }
+
+        private bool IsFutureTick(uint tick)
+            => tick != Tick && unchecked(tick - Tick) <= 0x80000000u;
         // A failed historical identity lookup is not permission to test a
         // replacement's live collider. The completed current endpoint is explicit.
         public bool TryGetPlayerCollider(PlayerEntity player, in CombatShot shot, out LagCompensationState state)

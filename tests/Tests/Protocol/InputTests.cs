@@ -72,6 +72,32 @@ namespace MphRead.Tests
         }
 
         [Fact]
+        public void InputEpochRoundTripsAndMixedLifeBundlesAreRejected()
+        {
+            InputCommand first = Command(10) with { InputEpoch = 7 };
+            InputCommand second = Command(11) with { InputEpoch = 7 };
+            byte[] bytes = new byte[InputBundle.MaxSize];
+            int length = InputBundle.Write(bytes, 7, new[] { first, second });
+            var decoded = new InputCommand[InputBundle.Capacity];
+            Assert.True(InputBundle.TryRead(bytes.AsSpan(0, length), decoded,
+                out _, out _, out int count));
+            Assert.Equal(2, count);
+            Assert.Equal(7u, decoded[0].InputEpoch);
+
+            second = second with { InputEpoch = 8 };
+            length = InputBundle.Write(bytes, 7,
+                new[] { first, first with { Sequence = 11, ClientTick = 11 } });
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(
+                bytes.AsSpan(InputBundle.HeaderSize + InputCommand.Size + 32), second.InputEpoch);
+            Assert.False(InputBundle.TryRead(bytes.AsSpan(0, length), decoded,
+                out _, out _, out _));
+
+            byte[] zeroEpoch = new byte[InputCommand.Size];
+            (first with { InputEpoch = 0 }).Write(zeroEpoch);
+            Assert.False(InputCommand.TryRead(zeroEpoch, out _));
+        }
+
+        [Fact]
         public void RedundancyDoesNotRepeatEdgesOrAccelerateSimulation()
         {
             var stream = new ServerInputStream();
@@ -111,6 +137,27 @@ namespace MphRead.Tests
             Assert.Equal(600u, recovered.Sequence);
             Assert.Equal(InputButtons.Morph, recovered.Pressed);
             Assert.True(stream.SkippedCommands >= 599);
+        }
+
+        [Fact]
+        public void StaleInputEpochCannotBeAppliedAfterRespawn()
+        {
+            var stream = new ServerInputStream();
+            stream.SetInputEpoch(1);
+            var firstLife = Command(0, InputButtons.Shoot) with { InputEpoch = 1 };
+            stream.Receive(new[] { firstLife }, 0);
+            for (uint tick = 0; tick < 7; tick++)
+            {
+                stream.Take(tick);
+            }
+
+            stream.SetInputEpoch(2);
+            var delayedOldLife = Command(1, InputButtons.Shoot) with { InputEpoch = 1 };
+            stream.Receive(new[] { delayedOldLife }, 10);
+
+            InputCommand applied = stream.Take(10);
+            Assert.Equal(InputButtons.None, applied.Buttons & InputButtons.Shoot);
+            Assert.Equal(InputButtons.None, applied.Pressed & InputButtons.Shoot);
         }
     }
 }

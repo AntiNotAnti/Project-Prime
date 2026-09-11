@@ -65,6 +65,8 @@ public static class Program
                     flags.GetValueOrDefault("--lag-compensation-mode", "players")),
                 ValidationFixture = WorkerOptions.ParseValidationFixture(
                     flags.GetValueOrDefault("--validation-fixture", "none")),
+                HeadshotValidationScenario = Boolean("--headshot-validation-scenario", false),
+                HeadshotScenarioSeconds = Number("--headshot-scenario-seconds", 15),
                 ReplayDirectory = flags.GetValueOrDefault("--replay-dir"), ArtifactDirectory = flags.GetValueOrDefault("--artifact-dir")
             };
             options.Validate();
@@ -264,7 +266,7 @@ public static class Program
     internal static Dictionary<string, string> ParseArguments(string[] args)
     {
         string[] names = ["--describe-content", "--prepare-content", "--node-pipe", "--node-id", "--worker-id", "--worker-incarnation", "--content-dir", "--content-version", "--content-hash",
-            "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--snapshot-rate-hz", "--adaptive-timing", "--adaptive-input-playout", "--transport-queue-v2", "--reliable-adaptive-rto", "--lag-compensation-mode", "--validation-fixture", "--replay-dir", "--artifact-dir", "--map-dir"];
+            "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--snapshot-rate-hz", "--adaptive-timing", "--adaptive-input-playout", "--transport-queue-v2", "--reliable-adaptive-rto", "--lag-compensation-mode", "--validation-fixture", "--headshot-validation-scenario", "--headshot-scenario-seconds", "--replay-dir", "--artifact-dir", "--map-dir"];
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         for (int index = 0; index < args.Length; index += 2)
             if (index + 1 == args.Length || !names.Contains(args[index], StringComparer.Ordinal) || !result.TryAdd(args[index], args[index + 1]))

@@ -114,5 +114,72 @@ namespace MphRead.Tests
             Assert.Equal(10_001, combat.ShotsClamped);
             Assert.Equal(10_001, combat.ValidatedRewindTicks.Count);
         }
+
+        [Fact]
+        public void ClampedShotMeasuresIdentityFencedSpatialErrorWithoutGameplayQueries()
+        {
+            var combat = new ServerCombat();
+            combat.BeginTick(100);
+            combat.History.Record(0, State(1, 456, 3, new Vector3(0, 1, 0), .25f));
+            combat.History.Record(94, State(1, 456, 3, Vector3.Zero, .25f));
+            long queriesBefore = combat.History.Queries;
+            combat.SetCommand(0, Command(6, 0), 0);
+
+            CombatShot shot = combat.CaptureShot(Actor, Mechanics(BeamType.Imperialist));
+
+            Assert.Equal(queriesBefore, combat.History.Queries);
+            Assert.Equal(1, combat.ClampPositionError.Count);
+            Assert.Equal(1d, combat.ClampPositionError.Mean);
+            Assert.Equal(1d, combat.ClampVerticalError.Mean);
+            Assert.Equal(0d, combat.ClampHorizontalError.Mean);
+            Assert.Equal(1, combat.ClampPositionErrorByWeapon[(int)BeamType.Imperialist].Count);
+            Assert.Equal(1, combat.ClampVerticalErrorOverHeadshotBand);
+            Assert.Equal(1, combat.ClampTotalErrorOverPlayerRadius);
+        }
+
+        [Fact]
+        public void ClampedSpatialDiagnosticsDistinguishMissingAndFutureHistory()
+        {
+            var requestedMissing = new ServerCombat();
+            requestedMissing.BeginTick(100);
+            requestedMissing.History.Record(94, State(1, 456, 3, Vector3.Zero, 1));
+            requestedMissing.SetCommand(0, Command(7, 0), 0);
+            requestedMissing.CaptureShot(Actor, Mechanics(BeamType.Imperialist));
+            Assert.Equal(1, requestedMissing.ClampRequestedHistoryMissing);
+            Assert.Equal(0, requestedMissing.ClampServedHistoryMissing);
+            Assert.Equal(1, requestedMissing.ClampHistoryUnavailable);
+
+            var servedMissing = new ServerCombat();
+            servedMissing.BeginTick(100);
+            servedMissing.History.Record(0, State(1, 456, 3, Vector3.Zero, 1));
+            servedMissing.SetCommand(0, Command(8, 0), 0);
+            servedMissing.CaptureShot(Actor, Mechanics(BeamType.Imperialist));
+            Assert.Equal(0, servedMissing.ClampRequestedHistoryMissing);
+            Assert.Equal(1, servedMissing.ClampServedHistoryMissing);
+            Assert.Equal(1, servedMissing.ClampHistoryUnavailable);
+
+            var future = new ServerCombat();
+            future.BeginTick(100);
+            future.History.Record(100, State(1, 456, 3, Vector3.Zero, 1));
+            future.SetCommand(0, Command(9, 101), 0);
+            long queriesBefore = future.History.Queries;
+            future.CaptureShot(Actor, Mechanics(BeamType.Imperialist));
+            Assert.Equal(1, future.ClampFutureRequests);
+            Assert.Equal(0, future.ClampHistoryUnavailable);
+            Assert.Equal(queriesBefore, future.History.Queries);
+        }
+
+        private static LagCompensationState State(int slot, ulong connectionId, uint life,
+            Vector3 position, float radius)
+            => new()
+            {
+                Slot = slot,
+                ConnectionId = connectionId,
+                LifeId = life,
+                Alive = true,
+                Hunter = Hunter.Samus,
+                Position = position,
+                SphereRadius = radius
+            };
     }
 }

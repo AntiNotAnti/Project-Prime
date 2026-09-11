@@ -203,7 +203,9 @@ public sealed class WorkerRuntime : IAsyncDisposable
                         AdaptiveTimingEnabled = _options.AdaptiveTimingEnabled,
                         AdaptiveInputPlayoutEnabled = _options.AdaptiveInputPlayoutEnabled,
                         ReliableAdaptiveRtoEnabled = _options.ReliableAdaptiveRtoEnabled,
-                        ValidationFixture = _options.ValidationFixture
+                        ValidationFixture = _options.ValidationFixture,
+                        HeadshotValidationScenario = _options.HeadshotValidationScenario,
+                        HeadshotScenarioSeconds = _options.HeadshotScenarioSeconds
                     }, entry.Transport);
                     deadline.Token.ThrowIfCancellationRequested();
                     ObjectDisposedException.ThrowIf(_disposed != 0, this);

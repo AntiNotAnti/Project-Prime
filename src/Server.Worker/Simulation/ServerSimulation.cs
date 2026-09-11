@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using MphRead.Entities;
 using MphRead.Reporting;
+using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
 {
@@ -16,6 +17,10 @@ namespace MphRead.Mods.Network
         private readonly uint _initialRng2;
         private ServerNetwork? _network;
         private int _stateCount;
+        private readonly bool _headshotValidationScenario;
+        private readonly int _headshotScenarioFrames;
+        private int _headshotValidationArm = -1;
+        private uint? _headshotValidationStartTick;
         public Scene Scene { get; }
         public ServerCombat Combat { get; }
         public ServerBotManager Bots { get; }
@@ -47,10 +52,18 @@ namespace MphRead.Mods.Network
         internal ServerSimulation(MatchRules rules, bool lagCompEnabled,
             bool projectileCatchUpEnabled, BotFillPolicy? botFill,
             uint rng1, uint rng2, bool historicalDynamicCollisionEnabled,
-            DeveloperValidationFixtureId validationFixture)
+            DeveloperValidationFixtureId validationFixture,
+            bool headshotValidationScenario = false, int headshotScenarioSeconds = 15)
         {
             MatchLifecycle.ValidateRules(rules);
             (botFill ?? new BotFillPolicy()).Validate(rules.MaxPlayers);
+            if (headshotValidationScenario
+                && validationFixture != DeveloperValidationFixtureId.Unit1Rm1Dynamic)
+                throw new ProgramException("Headshot validation requires the isolated Unit1 RM1 developer fixture.");
+            if (headshotValidationScenario && headshotScenarioSeconds is (< 12 or > 60))
+                throw new ArgumentOutOfRangeException(nameof(headshotScenarioSeconds));
+            _headshotValidationScenario = headshotValidationScenario;
+            _headshotScenarioFrames = checked((headshotValidationScenario ? headshotScenarioSeconds : 15) * 60);
             _pristineCapture = new(validationFixture != DeveloperValidationFixtureId.None);
             Scene = Scene.CreateHeadless();
             Scene.Random.SetRng1(rng1);
@@ -166,9 +179,12 @@ namespace MphRead.Mods.Network
                     if (!peer.ReturningParticipant) NetScoreboard.ForgetSlot(Scene, slot);
                     Scene.Roster.Nicknames[slot] = peer.Name;
                     player.ServerActivate(peer.Connection.Id, peer.Hunter, peer.TeamIndex);
+                    if (_headshotValidationScenario)
+                        player.ModArmWeapon(BeamType.Imperialist);
                     peer.HasParticipated = true;
                     Reports?.Activate(Scene, peer, tick);
                     _activeConnections[slot] = peer.Connection.Id;
+                    peer.Inputs.SetInputEpoch(player.ServerCombatIdentity.Life, tick);
                     peer.Connection.StartPlaying();
                 }
                 if (peer?.Connection.State == NetConnectionState.Playing && !peer.WaitingForNextMatch)
@@ -195,17 +211,60 @@ namespace MphRead.Mods.Network
                 {
                     ServerPeer? peer = network.Peers[slot];
                     if (peer?.Connection.State != NetConnectionState.Playing) { continue; }
+                    PlayerEntity player = Scene.Players[slot];
+                    uint inputEpoch = player.ServerCombatIdentity.Life;
+                    if (inputEpoch != 0 && peer.Inputs.InputEpoch != inputEpoch)
+                    {
+                        // Spawn is the owner of life transitions. This check
+                        // is a same-tick safeguard for tests and hosts that
+                        // enter Playing without the normal activation branch.
+                        peer.Inputs.SetInputEpoch(inputEpoch, tick);
+                    }
                     InputCommand input = peer.Inputs.Take(tick,
                         out byte rewindPresentationDelayTicks);
                     if (peer.WaitingForNextMatch) continue;
+                    if (inputEpoch == 0 || input.InputEpoch != inputEpoch)
+                    {
+                        // Never let a stale fallback command mutate Controls or
+                        // enqueue a weapon/boost edge after a respawn. Keep the
+                        // combat journal's slot command current and neutral so
+                        // later attribution cannot observe a prior-life edge.
+                        player.Controls.ClearAll();
+                        player.Input.ClearBoostIntents();
+                        Combat.SetCommand(slot, NeutralNetworkInput(tick, inputEpoch),
+                            peer.Connection.Metrics.SmoothedRttMs,
+                            rewindPresentationDelayTicks);
+                        continue;
+                    }
                     Combat.SetCommand(slot, input, peer.Connection.Metrics.SmoothedRttMs,
                         rewindPresentationDelayTicks);
-                    Scene.Players[slot].ApplyNetworkInput(input);
+                    player.ApplyNetworkInput(input);
                 }
-                foreach (var bot in Bots.Participants)
-                    if (bot != null) Combat.SetCommand(bot.Slot, new InputCommand(tick, tick, tick, InputButtons.None, InputButtons.None, Scene.Players[bot.Slot].ModGunVector, InputCommand.NoWeapon));
+                if (_headshotValidationScenario)
+                    ApplyHeadshotValidationInput(network, tick);
+                else
+                {
+                    foreach (var bot in Bots.Participants)
+                        if (bot != null) Combat.SetCommand(bot.Slot, new InputCommand(tick, tick, tick, InputButtons.None, InputButtons.None, Scene.Players[bot.Slot].ModGunVector, InputCommand.NoWeapon));
+                }
                 ulong beforeFrame = Scene.FrameCount;
                 Scene.StepHeadlessFrame();
+                for (int slot = 0; slot < 8; slot++)
+                {
+                    ServerPeer? peer = network.Peers[slot];
+                    if (peer?.Connection.State != NetConnectionState.Playing) continue;
+                    uint inputEpoch = Scene.Players[slot].ServerCombatIdentity.Life;
+                    if (inputEpoch != 0 && peer.Inputs.InputEpoch != inputEpoch)
+                    {
+                        // NoteServerCombatSpawn owns this transition. Update
+                        // the bounded stream immediately after the scene pass,
+                        // before the next Poll can enqueue old retransmits.
+                        peer.Inputs.SetInputEpoch(inputEpoch, tick);
+                        Combat.SetCommand(slot, NeutralNetworkInput(tick, inputEpoch),
+                            peer.Connection.Metrics.SmoothedRttMs,
+                            peer.Timing.RewindPresentationDelayTicks);
+                    }
+                }
                 if (Scene.FrameCount != beforeFrame) Reports?.RecordPlayedStep(tick);
                 if (Scene.Match.Phase == MatchPhase.Playing) { Combat.CatchUp.Drain(); }
                 else { Combat.CatchUp.Clear(); }
@@ -255,17 +314,101 @@ namespace MphRead.Mods.Network
             }
         }
 
+        /// <summary>
+        /// Drives only the bot seat in the explicit developer headshot fixture.
+        /// BotManager still owns the roster/identity; setting IsBot false after
+        /// activation makes the ordinary PlayerEntity input path own movement
+        /// while preserving the bot participant and its authoritative identity.
+        /// </summary>
+        private void ApplyHeadshotValidationInput(ServerNetwork network, uint tick)
+        {
+            BotParticipant? target = null;
+            foreach (BotParticipant? candidate in Bots.Participants)
+            {
+                if (candidate != null)
+                {
+                    target = candidate;
+                    break;
+                }
+            }
+            if (target is not { } bot) return;
+            PlayerEntity targetPlayer = Scene.Players[bot.Slot];
+            uint inputEpoch = targetPlayer.ServerCombatIdentity.Life;
+            if (!targetPlayer.ModInPlay || targetPlayer.Health <= 0)
+            {
+                // Spawn/respawn remains owned by the normal bot lifecycle. The
+                // next active tick re-enters this deterministic controller.
+                return;
+            }
+
+            PlayerEntity? shooter = null;
+            for (int slot = 0; slot < Scene.Match.Rules.MaxPlayers; slot++)
+            {
+                ServerPeer? peer = network.Peers[slot];
+                if (peer?.Connection.State == NetConnectionState.Playing
+                    && !peer.WaitingForNextMatch && slot != bot.Slot)
+                {
+                    shooter = Scene.Players[slot];
+                    shooter.ModArmWeapon(BeamType.Imperialist);
+                    break;
+                }
+            }
+            if (shooter == null) return;
+
+            Vector3 toShooter = shooter.Position - targetPlayer.Position;
+            Vector3 aim = toShooter.LengthSquared > 0.001f
+                ? toShooter.Normalized() : -Vector3.UnitZ;
+            float range = toShooter.Length;
+            _headshotValidationStartTick ??= tick;
+            uint scenarioTick = tick - _headshotValidationStartTick.Value;
+            HeadshotValidationPlan plan = HeadshotValidationController.Plan(
+                scenarioTick, _headshotScenarioFrames / 60, range);
+            if (plan.Arm != _headshotValidationArm)
+            {
+                // Each test arm begins at an observed close/long range. This
+                // staging is confined to the explicit developer fixture; the
+                // normal movement path remains responsible for the rest of
+                // the arm and supplies the motion evidence used by the gate.
+                Vector3 horizontal = targetPlayer.Position - shooter.Position;
+                horizontal.Y = 0;
+                Vector3 direction = horizontal.LengthSquared > 0.001f
+                    ? horizontal.Normalized() : Vector3.UnitZ;
+                float desiredRange = plan.LongRange ? 18f : 6f;
+                Vector3 desired = shooter.Position + direction * desiredRange;
+                desired.Y = targetPlayer.Position.Y;
+                targetPlayer.Reposition(desired - targetPlayer.Position, targetPlayer.NodeRef);
+                targetPlayer.Speed = new Vector3(0, targetPlayer.Speed.Y, 0);
+                _headshotValidationArm = plan.Arm;
+                Vector3 stagedAim = shooter.Position - targetPlayer.Position;
+                aim = stagedAim.LengthSquared > 0.001f
+                    ? stagedAim.Normalized() : -Vector3.UnitZ;
+            }
+            // The participant remains a bot to the Node/roster, but its body
+            // receives an ordinary authoritative command for this test arm.
+            targetPlayer.IsBot = false;
+            InputCommand command = HeadshotValidationController.CreateCommand(
+                tick, plan, aim, inputEpoch);
+            targetPlayer.ApplyNetworkInput(command);
+            Combat.SetCommand(bot.Slot, command);
+        }
+
         private void PublishPhase(ServerNetwork network)
         {
             network.Phase = Scene.Match.Phase;
             network.PhaseRevision = Scene.Match.PhaseRevision;
         }
 
+        private static InputCommand NeutralNetworkInput(uint tick, uint inputEpoch)
+            => new(tick, tick, tick, InputButtons.None, InputButtons.None,
+                -OpenTK.Mathematics.Vector3.UnitZ, InputCommand.NoWeapon, inputEpoch);
+
         private void ResetForCountdown()
         {
             ServerNetwork network = _network ?? throw new InvalidOperationException("Countdown requires a server session.");
             AssertPristineWorld();
             Combat.Reset();
+            _headshotValidationArm = -1;
+            _headshotValidationStartTick = null;
             Scene.Match.ResetCompetitiveState();
             Scene.Match.Flow.ResetProgress();
             for (int slot = 0; slot < 8; slot++) { Scene.Players[slot].ServerDeactivate(); }
@@ -278,6 +421,8 @@ namespace MphRead.Mods.Network
                 if (peer?.Connection.State == NetConnectionState.Playing)
                 {
                     Scene.Players[slot].ServerActivate(peer.Connection.Id, peer.Hunter, peer.TeamIndex);
+                    if (_headshotValidationScenario)
+                        Scene.Players[slot].ModArmWeapon(BeamType.Imperialist);
                 }
             }
             foreach (var bot in Bots.Participants) if (bot != null) Bots.Activate(bot);

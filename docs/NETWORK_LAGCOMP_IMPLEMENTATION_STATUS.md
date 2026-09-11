@@ -139,3 +139,55 @@ must not be inferred from local tests.
 P3 remains intentionally deferred: the measurements collected here do not
 justify a pose protocol, World replication redesign, multiple reliable streams,
 or richer Worker placement classes.
+
+## NetPlay fidelity alignment (2026-09-10)
+
+The follow-on fidelity pass adds measurement and test infrastructure without
+changing combat authority:
+
+- Android and desktop now import one Client-owned shared runtime source list.
+  The Android compile manifest includes `ClientOnlineRuntime` and the bounded
+  presented-collision measurement type; there is no duplicate runtime
+  implementation.
+- Predicted contacts retain their local headshot classification. Diagnostics
+  distinguish headshot agreement, downgrade, promotion, denial, and
+  authoritative-only populations while keeping the pre-existing authoritative
+  headshot cue counter separate.
+- Clamped rewind requests record bounded, identity-fenced requested-versus-
+  served position error in world units, including vertical/horizontal and
+  fixed per-weapon samples. Missing requested history, missing served history,
+  and future timing hints remain separate facts.
+- Authenticated rendered-run reports carry clamp position P95/P99/max and
+  vertical P95/max, plus interpolation underruns/extrapolated frames and
+  prediction correction P95/max. The diagnostic overlay carries at most seven
+  dynamic colliders per packet (with its existing truncation flag) so these
+  metrics fit without increasing the 1024-byte transport cap.
+- The Client stages value-only remote positions while the sampled presentation
+  pose is active and publishes them only when that exact frame is committed.
+  This is position/continuity measurement, not a complete historical hunter
+  collision proxy and not gameplay collision authority.
+- `nettest --rendered-wan-validation --scenario headshot` adds an isolated
+  Unit1 RM1 developer-fixture scenario with deterministic target choreography,
+  Imperialist/zoom/ammo checks, command-sequence shot correlation, scenario
+  validity reasons, unique RunId metadata, and exclusive output reservation.
+  Invalid setup is classified as `HARNESS INVALID`, not network failure.
+- A deterministic real-respawn regression proved that an unseen pre-death
+  input can cross a death/respawn inside `Playing` when input has no life
+  identity. Protocol 12 therefore adds a required `InputEpoch`; the Worker
+  rejects stale epochs and installs a neutral current-life combat command at
+  the spawn boundary. Protocol 11 peers are intentionally incompatible.
+
+The evidence gates remain closed. No presented collision proxy is used for
+speculative gameplay (F7), no real geographic WAN matrix has been accepted
+(F8), `MaxRewindTicks` remains 15 (F9), and production speculative defaults
+remain unchanged (F10). The local headshot fixture is explicitly
+`rendered-loopback-process-local-impairment`; it cannot satisfy the real-WAN or
+human-review gate.
+
+A clean-link rendered loopback run on 2026-09-10 passed the scenario-validity
+gate with six trigger attempts, six local Imperialist roots, six authoritative
+roots, and six command-correlated roots. Both vertical/strafe and close/long
+target observations were present, and the same-session reconnect retained the
+match and seat while rotating the connection identity. The run produced no
+predicted or authoritative hit population, so it is harness-readiness evidence
+only; it is not headshot-agreement evidence and does not authorize F7.

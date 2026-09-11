@@ -36,6 +36,9 @@ public sealed record WorkerOptions
     public bool ReliableAdaptiveRtoEnabled { get; init; }
     public WorkerLagCompensationMode LagCompensationMode { get; init; } = WorkerLagCompensationMode.Players;
     internal MphRead.DeveloperValidationFixtureId ValidationFixture { get; init; }
+    /// <summary>Explicit developer-only choreography for rendered headshot validation.</summary>
+    internal bool HeadshotValidationScenario { get; init; }
+    internal int HeadshotScenarioSeconds { get; init; } = 15;
     public string? ReplayDirectory { get; init; }
     public string? ArtifactDirectory { get; init; }
     public int MaximumArtifactFiles { get; init; } = 4096;
@@ -68,6 +71,10 @@ public sealed record WorkerOptions
                 || !IPAddress.TryParse(AdvertisedHost, out IPAddress? host)
                 || !IPAddress.IsLoopback(host)))
             throw new ArgumentException("Developer validation fixture requires an isolated single-match loopback Worker.");
+        if (HeadshotValidationScenario
+            && (ValidationFixture != MphRead.DeveloperValidationFixtureId.Unit1Rm1Dynamic
+                || HeadshotScenarioSeconds is < 12 or > 60))
+            throw new ArgumentException("Headshot validation requires the isolated Unit1 RM1 developer fixture and a 12-60 second duration.");
     }
 
     internal (bool LagCompEnabled, bool ProjectileCatchUpEnabled, bool HistoricalDynamicCollisionEnabled)

@@ -226,6 +226,116 @@ public sealed class NetworkActionIntegrationTests
 
     [Trait("RequiresGameContent", "true")]
     [Fact]
+    public void RespawnInputEpochRejectsDelayedOldLifeAndAllowsNewLifeShot()
+    {
+        using var content = OpenAmhe1();
+        var rules = new MatchRules(MatchMode.Battle, "MP1 SANCTORUS", maxPlayers: 1);
+        using var simulation = new ServerSimulation(rules);
+        using var serverTransport = new NetTransport(0);
+        using var clientTransport = new NetTransport(0);
+        using var client = new NetClient(clientTransport,
+            new IPEndPoint(IPAddress.Loopback, serverTransport.LocalPort),
+            "UDP-LIFE-EPOCH", Hunter.Samus);
+        var server = new ServerNetwork(serverTransport, rules);
+
+        JoinAndReady(server, client);
+        StepAndSend(serverTransport, server, simulation, client, 1);
+        simulation.Scene.Match.Phase = MatchPhase.Playing;
+        server.Phase = MatchPhase.Playing;
+        server.PhaseRevision = simulation.Scene.Match.PhaseRevision;
+        StepAndSend(serverTransport, server, simulation, client, 2);
+
+        ServerPeer peer = Assert.IsType<ServerPeer>(server.Find(client.Connection!.Id));
+        PlayerEntity player = simulation.Scene.Players[peer.Slot];
+        uint oldLife = player.ServerCombatIdentity.Life;
+        Assert.NotEqual(0u, oldLife);
+
+        uint tick = 3;
+        // Feed one complete, contiguous startup bundle directly into the real
+        // peer stream. This keeps the fixture deterministic while still
+        // traversing ServerInputStream.Receive -> Take -> ApplyNetworkInput.
+        var startup = new InputCommand[InputBundle.Capacity];
+        for (int i = 0; i < startup.Length; i++)
+        {
+            startup[i] = EpochCommand((uint)i, tick + (uint)i, oldLife);
+        }
+        peer.Inputs.Receive(startup, tick);
+        for (int i = 0; i < InputBundle.Capacity + peer.Inputs.InputPlayoutTicks; i++)
+        {
+            simulation.Step(server, tick++);
+        }
+        Assert.Equal(7u, peer.Inputs.LastProcessed);
+
+        uint respawnSequence = unchecked(peer.Inputs.LastProcessed + 1);
+        player.TakeDamage((uint)player.Health,
+            DamageFlags.Death | DamageFlags.NoDmgInvuln, null, null);
+        player.RespawnTimer = 1;
+        int shotsBeforeRespawn = ActiveShots(simulation.Scene, player);
+        peer.Inputs.Receive(new[] { EpochCommand(respawnSequence, tick, oldLife,
+            InputButtons.Shoot, InputButtons.Shoot) }, tick);
+        simulation.Step(server, tick++);
+
+        uint newLife = player.ServerCombatIdentity.Life;
+        Assert.Equal(unchecked(oldLife + 1), newLife);
+        Assert.Equal(shotsBeforeRespawn, ActiveShots(simulation.Scene, player));
+        Assert.False(player.Controls.Shoot.IsDown);
+        Assert.False(player.Controls.Shoot.IsPressed);
+        Assert.Equal(InputButtons.None,
+            simulation.Combat.GetCommand(peer.Slot).Buttons & (InputButtons.Shoot | InputButtons.AltAttack));
+
+        // These commands are validly framed and have previously unseen (or
+        // repeated/reordered) sequences, but belong to the dead life. The
+        // matrix also covers a held continuous-style shot, a release, Missile,
+        // Imperialist, and an applicable alt-form edge without depending on
+        // weapon-pickup or animation setup for the negative assertions.
+        uint staleSequence = unchecked(respawnSequence + 1);
+        InputCommand[] staleCommands =
+        {
+            EpochCommand(staleSequence, tick, oldLife,
+                InputButtons.Shoot, InputButtons.Shoot, (byte)BeamType.Missile),
+            EpochCommand(staleSequence, tick, oldLife,
+                InputButtons.Shoot, InputButtons.Shoot, (byte)BeamType.Missile),
+            EpochCommand(unchecked(staleSequence + 2), tick, oldLife,
+                InputButtons.Shoot, InputButtons.None, (byte)BeamType.Imperialist),
+            EpochCommand(unchecked(staleSequence + 1), tick, oldLife),
+            EpochCommand(unchecked(staleSequence + 3), tick, oldLife,
+                InputButtons.AltAttack, InputButtons.AltAttack)
+        };
+        int shotsBeforeStale = ActiveShots(simulation.Scene, player);
+        foreach (InputCommand stale in staleCommands)
+        {
+            peer.Inputs.Receive(new[] { stale }, tick);
+            simulation.Step(server, tick++);
+            Assert.Equal(shotsBeforeStale, ActiveShots(simulation.Scene, player));
+            InputCommand journal = simulation.Combat.GetCommand(peer.Slot);
+            Assert.Equal(newLife, journal.InputEpoch);
+            Assert.Equal(InputButtons.None,
+                journal.Buttons & (InputButtons.Shoot | InputButtons.AltAttack));
+            Assert.Equal(InputButtons.None,
+                journal.Pressed & (InputButtons.Shoot | InputButtons.AltAttack));
+            Assert.Equal(InputCommand.NoWeapon, journal.DesiredWeapon);
+        }
+        Assert.True(peer.Inputs.StaleEpochCommands >= staleCommands.Length);
+
+        // The stream never advances _next for rejected old-life commands, so
+        // this exact current-life sequence is ready without a timing race.
+        uint newSequence = respawnSequence + 1;
+        peer.Inputs.Receive(new[] { EpochCommand(newSequence, tick, newLife,
+            InputButtons.Shoot, InputButtons.Shoot) }, tick);
+        simulation.Step(server, tick++);
+        for (int i = 0; i < 6 && ActiveShots(simulation.Scene, player) == shotsBeforeStale; i++)
+        {
+            uint sequence = unchecked(newSequence + 1u + (uint)i);
+            peer.Inputs.Receive(new[] { EpochCommand(sequence, tick, newLife,
+                InputButtons.Shoot) }, tick);
+            simulation.Step(server, tick++);
+        }
+        Assert.True(ActiveShots(simulation.Scene, player) > shotsBeforeStale,
+            "A current-life shot was not spawned after stale-life input was fenced.");
+    }
+
+    [Trait("RequiresGameContent", "true")]
+    [Fact]
     public void DisconnectingFlagPublishesTheCurrentSimulationTick()
     {
         using var content = OpenAmhe1();
@@ -292,8 +402,15 @@ public sealed class NetworkActionIntegrationTests
         ref uint sequence, ref uint tick, InputButtons buttons, InputButtons pressed,
         byte desiredWeapon = InputCommand.NoWeapon)
     {
+        ServerPeer peer = Assert.IsType<ServerPeer>(server.Find(client.Connection?.Id ?? 0));
+        uint inputEpoch = simulation.Scene.Players[peer.Slot].ServerCombatIdentity.Life;
+        Assert.NotEqual(0u, inputEpoch);
+        if (history.Count > 0 && history[^1].InputEpoch != inputEpoch)
+        {
+            history.Clear();
+        }
         history.Add(new InputCommand(sequence, sequence, tick, buttons, pressed,
-            -Vector3.UnitZ, desiredWeapon));
+            -Vector3.UnitZ, desiredWeapon, inputEpoch));
         sequence++;
         int first = Math.Max(0, history.Count - InputBundle.Capacity);
         InputCommand[] bundle = history.GetRange(first, history.Count - first).ToArray();
@@ -306,6 +423,22 @@ public sealed class NetworkActionIntegrationTests
         SendSnapshot(transport, server, simulation, client, tick);
         client.Poll();
         tick++;
+    }
+
+    private static InputCommand EpochCommand(uint sequence, uint tick, uint inputEpoch,
+        InputButtons buttons = InputButtons.None, InputButtons pressed = InputButtons.None,
+        byte desiredWeapon = InputCommand.NoWeapon)
+        => new(sequence, tick, tick, buttons, pressed, -Vector3.UnitZ,
+            desiredWeapon, inputEpoch);
+
+    private static int ActiveShots(Scene scene, PlayerEntity owner)
+    {
+        int count = 0;
+        foreach (BeamProjectileEntity beam in scene.GetBeamProjectileEntities())
+        {
+            if (beam.Owner == owner && beam.Lifespan > 0) count++;
+        }
+        return count;
     }
 
     private static void RecordProcessed(ServerPeer peer, ServerSimulation simulation,

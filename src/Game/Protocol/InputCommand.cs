@@ -31,14 +31,21 @@ namespace MphRead.Mods.Network
     /// <summary>
     /// One 60 Hz input sample. ViewServerTick is the last presented remote-world
     /// timeline, floored to a whole tick, or the newest usable startup snapshot.
-    /// The server validates this timing hint; no client-owned gameplay state.
+    /// InputEpoch is the client's observed local CombatActor life. The server
+    /// validates both hints; neither is client-owned gameplay state.
     /// </summary>
     public readonly record struct InputCommand(uint Sequence, uint ClientTick, uint ViewServerTick,
         InputButtons Buttons, InputButtons Pressed, Vector3 Aim, byte DesiredWeapon,
-        BoostActivation BoostActivation, sbyte BoostDirectionX, sbyte BoostDirectionY)
+        BoostActivation BoostActivation, sbyte BoostDirectionX, sbyte BoostDirectionY,
+        uint InputEpoch)
     {
-        public const int Size = 36;
+        public const int Size = 40;
         public const byte NoWeapon = Byte.MaxValue;
+
+        // The source-compatible constructors intentionally target the first
+        // server life. Live capture supplies the authoritative snapshot life
+        // explicitly through the overload below.
+        private const uint DefaultInputEpoch = 1;
 
         /// <summary>
         /// Source-compatible constructor for existing callers. The held Boost
@@ -50,7 +57,7 @@ namespace MphRead.Mods.Network
                 desiredWeapon,
                 (buttons & InputButtons.Boost) != 0
                     ? BoostActivation.Charge : BoostActivation.None,
-                0, 0)
+                0, 0, DefaultInputEpoch)
         {
         }
 
@@ -58,7 +65,28 @@ namespace MphRead.Mods.Network
             InputButtons buttons, InputButtons pressed, Vector3 aim, byte desiredWeapon,
             in BoostIntent boostIntent)
             : this(sequence, clientTick, viewServerTick, buttons, pressed, aim,
-                desiredWeapon, boostIntent.Activation, boostIntent.X, boostIntent.Y)
+                desiredWeapon, boostIntent.Activation, boostIntent.X, boostIntent.Y,
+                DefaultInputEpoch)
+        {
+        }
+
+        public InputCommand(uint sequence, uint clientTick, uint viewServerTick,
+            InputButtons buttons, InputButtons pressed, Vector3 aim, byte desiredWeapon,
+            uint inputEpoch)
+            : this(sequence, clientTick, viewServerTick, buttons, pressed, aim,
+                desiredWeapon,
+                (buttons & InputButtons.Boost) != 0
+                    ? BoostActivation.Charge : BoostActivation.None,
+                0, 0, inputEpoch)
+        {
+        }
+
+        public InputCommand(uint sequence, uint clientTick, uint viewServerTick,
+            InputButtons buttons, InputButtons pressed, Vector3 aim, byte desiredWeapon,
+            in BoostIntent boostIntent, uint inputEpoch)
+            : this(sequence, clientTick, viewServerTick, buttons, pressed, aim,
+                desiredWeapon, boostIntent.Activation, boostIntent.X, boostIntent.Y,
+                inputEpoch)
         {
         }
 
@@ -76,16 +104,22 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteSingleLittleEndian(destination[20..], Aim.X);
             BinaryPrimitives.WriteSingleLittleEndian(destination[24..], Aim.Y);
             BinaryPrimitives.WriteSingleLittleEndian(destination[28..], Aim.Z);
-            destination[32] = DesiredWeapon;
-            destination[33] = (byte)BoostActivation;
-            destination[34] = unchecked((byte)BoostDirectionX);
-            destination[35] = unchecked((byte)BoostDirectionY);
+            BinaryPrimitives.WriteUInt32LittleEndian(destination[32..], InputEpoch);
+            destination[36] = DesiredWeapon;
+            destination[37] = (byte)BoostActivation;
+            destination[38] = unchecked((byte)BoostDirectionX);
+            destination[39] = unchecked((byte)BoostDirectionY);
         }
 
         public static bool TryRead(ReadOnlySpan<byte> source, out InputCommand command)
         {
             command = default;
-            if (source.Length != Size || (source[32] != NoWeapon && source[32] > 8))
+            if (source.Length != Size)
+            {
+                return false;
+            }
+            uint inputEpoch = BinaryPrimitives.ReadUInt32LittleEndian(source[32..]);
+            if (inputEpoch == 0 || (source[36] != NoWeapon && source[36] > 8))
             {
                 return false;
             }
@@ -94,9 +128,9 @@ namespace MphRead.Mods.Network
             var aim = new Vector3(BinaryPrimitives.ReadSingleLittleEndian(source[20..]),
                 BinaryPrimitives.ReadSingleLittleEndian(source[24..]),
                 BinaryPrimitives.ReadSingleLittleEndian(source[28..]));
-            var boostActivation = (BoostActivation)source[33];
-            sbyte boostX = unchecked((sbyte)source[34]);
-            sbyte boostY = unchecked((sbyte)source[35]);
+            var boostActivation = (BoostActivation)source[37];
+            sbyte boostX = unchecked((sbyte)source[38]);
+            sbyte boostY = unchecked((sbyte)source[39]);
             bool boostHeld = (buttons & InputButtons.Boost) != 0;
             // Bound before normalization. A zero, infinite or enormous ray
             // must never introduce NaNs into shared collision state.
@@ -113,7 +147,7 @@ namespace MphRead.Mods.Network
             command = new InputCommand(BinaryPrimitives.ReadUInt32LittleEndian(source),
                 BinaryPrimitives.ReadUInt32LittleEndian(source[4..]),
                 BinaryPrimitives.ReadUInt32LittleEndian(source[8..]), buttons, pressed,
-                aim, source[32], boostIntent);
+                aim, source[36], boostIntent, inputEpoch);
             return true;
         }
 
@@ -150,6 +184,18 @@ namespace MphRead.Mods.Network
             {
                 throw new ArgumentOutOfRangeException(nameof(commands));
             }
+            uint inputEpoch = commands[0].InputEpoch;
+            if (inputEpoch == 0)
+            {
+                throw new ArgumentException("Input epoch is required.", nameof(commands));
+            }
+            for (int i = 1; i < commands.Length; i++)
+            {
+                if (commands[i].InputEpoch != inputEpoch)
+                {
+                    throw new ArgumentException("An input bundle cannot mix life epochs.", nameof(commands));
+                }
+            }
             BinaryPrimitives.WriteUInt32LittleEndian(destination, matchId);
             destination[4] = (byte)commands.Length;
             BinaryPrimitives.WriteUInt32LittleEndian(destination[5..], phaseRevision);
@@ -182,7 +228,8 @@ namespace MphRead.Mods.Network
                 if (!InputCommand.TryRead(source.Slice(HeaderSize + i * InputCommand.Size,
                         InputCommand.Size), out decoded[i])
                     || (i > 0 && (decoded[i].Sequence != unchecked(decoded[i - 1].Sequence + 1)
-                        || decoded[i].ClientTick != unchecked(decoded[i - 1].ClientTick + 1))))
+                        || decoded[i].ClientTick != unchecked(decoded[i - 1].ClientTick + 1)
+                        || decoded[i].InputEpoch != decoded[i - 1].InputEpoch)))
                 {
                     return false;
                 }

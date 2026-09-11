@@ -1,4 +1,5 @@
 using System;
+using MphRead.Entities;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 using Xunit;
@@ -41,6 +42,8 @@ public sealed class PredictedHitFeedbackTests
         Assert.False(feedback.Confirm(Damage(1, 9, Local, Target with { Life = 2 }, 2)));
         Assert.False(feedback.Confirm(Damage(2, 9, Local with { ConnectionId = 11 }, Target, 2)));
         Assert.False(feedback.Confirm(Damage(3, 9, Local, Target, 3)));
+        Assert.False(feedback.Confirm(Damage(3, 9, Local, Target, 3, CombatEventFlags.Headshot)));
+        Assert.Equal(1, feedback.Metrics.AuthoritativeHeadshotsUnpredicted);
         Assert.Equal(1, feedback.Metrics.Pending);
 
         feedback.SetContext(2, Local);
@@ -93,6 +96,55 @@ public sealed class PredictedHitFeedbackTests
         Assert.True(feedback.Confirm(Damage(2, 21, Local, Target, 1, health: 0)));
         Assert.Equal(1, feedback.Metrics.HeadshotPromotions);
         Assert.Equal(1, feedback.Metrics.KillPromotions);
+    }
+
+    [Fact]
+    public void HeadshotClassificationSeparatesAgreementDowngradeAndPromotion()
+    {
+        var feedback = New();
+        Assert.True(feedback.ObserveDamageAttempt(Shot(30), Target, 1, DamageFlags.Headshot, false));
+        Assert.True(feedback.Confirm(Damage(1, 30, Local, Target, 1)));
+        Assert.True(feedback.ObserveDamageAttempt(Shot(31), Target, 1, DamageFlags.Headshot, false));
+        Assert.True(feedback.Confirm(Damage(2, 31, Local, Target, 1, CombatEventFlags.Headshot)));
+        Assert.True(feedback.ObserveDamageAttempt(Shot(32), Target, 1, DamageFlags.None, false));
+        Assert.True(feedback.Confirm(Damage(3, 32, Local, Target, 1, CombatEventFlags.Headshot)));
+
+        HitPredictionMetrics metrics = feedback.Metrics;
+        Assert.Equal(2, metrics.PredictedHeadshots);
+        Assert.Equal(1, metrics.ConfirmedHeadshots);
+        Assert.Equal(1, metrics.HeadshotsDowngraded);
+        Assert.Equal(1, metrics.HeadshotsPromoted);
+        Assert.Equal(2, metrics.AuthoritativeHeadshotCues);
+        Assert.Equal(1d / 2d, metrics.HeadshotAgreementRate);
+        Assert.Equal(1d / 2d, metrics.HeadshotDowngradeRate);
+        Assert.Equal(1d / 2d, metrics.HeadshotPromotionRate);
+    }
+
+    [Fact]
+    public void HeadshotExpiryAndUnpredictedAuthorityAreCountedSeparately()
+    {
+        var feedback = New();
+        Assert.True(feedback.ObserveDamageAttempt(Shot(33), Target, 1, DamageFlags.Headshot, false));
+        for (int i = 0; i < PredictedHitFeedback.MaxLifetimeFrames; i++) feedback.Advance();
+        Assert.Equal(1, feedback.Metrics.HeadshotsDenied);
+
+        Assert.False(feedback.Confirm(Damage(4, 34, Local, Target, 1, CombatEventFlags.Headshot)));
+        Assert.Equal(1, feedback.Metrics.AuthoritativeHeadshotsUnpredicted);
+        Assert.Null(feedback.Metrics.HeadshotAgreementRate);
+        Assert.Null(feedback.Metrics.HeadshotDowngradeRate);
+        Assert.Null(feedback.Metrics.HeadshotPromotionRate);
+    }
+
+    [Fact]
+    public void DirectConfirmDoesNotPretendToDeduplicateEvents()
+    {
+        var feedback = New();
+        Assert.True(feedback.ObserveDamageAttempt(Shot(35), Target, 1, DamageFlags.Headshot, false));
+        CombatEvent value = Damage(5, 35, Local, Target, 1, CombatEventFlags.Headshot);
+        Assert.True(feedback.Confirm(value));
+        Assert.False(feedback.Confirm(value));
+        Assert.Equal(1, feedback.Metrics.ConfirmedHeadshots);
+        Assert.Equal(1, feedback.Metrics.AuthoritativeHeadshotsUnpredicted);
     }
 
     [Fact]

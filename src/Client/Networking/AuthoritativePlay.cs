@@ -75,6 +75,7 @@ namespace MphRead.Mods.Network
         private long _lastPresentation = Stopwatch.GetTimestamp();
         private readonly ClientWorldState _world = new();
         private readonly SnapshotInterpolation _interpolation = new();
+        private readonly PresentedCollisionFrame _presentedCollision = new();
         private readonly ProjectilePresentationMeasurement _projectilePresentation = new();
         private readonly PredictedHitFeedback _hitPrediction = new();
         private readonly PredictedSelfImpulse _selfImpulse = new();
@@ -91,10 +92,20 @@ namespace MphRead.Mods.Network
         public ClientPrediction Prediction { get; } = new();
         /// <summary>Per-match presentation diagnostics; never gameplay authority.</summary>
         public ProjectilePresentationMeasurement ProjectilePresentation => _projectilePresentation;
+        public PresentedCollisionFrame PresentedCollision => _presentedCollision;
+        public SnapshotInterpolationMetrics InterpolationMetrics => _interpolation.Metrics;
         public PredictedHitFeedback HitPrediction => _hitPrediction;
         public PredictedSelfImpulse SelfImpulse => _selfImpulse;
         public long CombatEvents { get; private set; }
         public long DamageEvents { get; private set; }
+        /// <summary>
+        /// Test-only observations used by nettest's scenario correlation. They
+        /// are emitted from the existing local prediction and authoritative
+        /// event boundaries; they never affect gameplay state.
+        /// </summary>
+        internal event Action<CombatShot>? LocalRootShotObserved;
+        internal event Action<CombatEvent>? AuthoritativeCombatEventObserved;
+        internal event Action<CombatShot, CombatActor, bool>? PredictedContactObserved;
         public bool HasWorldState => _world.HasState;
         public uint WorldServerTick => _world.ServerTick;
         private uint _inputPhaseRevision;
@@ -205,6 +216,7 @@ namespace MphRead.Mods.Network
                 if (ObserveCompletion()) return;
                 State = TerminalState.Failed;
                 _projectilePresentation.Clear();
+                _presentedCollision.Clear();
                 _hitPrediction.Clear();
                 _selfImpulse.Clear();
                 throw new ProgramException(Client.Failure);
@@ -217,6 +229,7 @@ namespace MphRead.Mods.Network
                     sessionPresentation.WorldFeedback.ClearPendingNotices();
                 ResetPresentation();
                 _projectilePresentation.Clear();
+                _presentedCollision.Clear();
                 _hitPrediction.Clear();
                 _selfImpulse.Clear();
                 _inputCount = 0;
@@ -249,6 +262,7 @@ namespace MphRead.Mods.Network
                 Prediction.Reset();
                 ResetPresentation();
                 _projectilePresentation.Clear();
+                _presentedCollision.Clear();
                 _hitPrediction.Clear();
                 _selfImpulse.Clear();
                 _world.Reset(_loadedMatch);
@@ -317,7 +331,7 @@ namespace MphRead.Mods.Network
             { ScriptInput?.Invoke(scene.Players[LocalSlot], _sequence); }
             else if (LocalSlot >= 0) { scene.Players[LocalSlot].Controls.ClearAll(); }
             NetDiagnostics.ReportAuthoritative(Client, Prediction, _interpolation, _transport.Metrics,
-                _hitPrediction, _selfImpulse);
+                _hitPrediction, _selfImpulse, _presentedCollision);
         }
 
         public PlayerEntity RebuildPlayers(Scene scene, Hunter hunter, int recolor)
@@ -436,7 +450,16 @@ namespace MphRead.Mods.Network
                 foreach (CombatEvent value in events[..count])
                 {
                     if (value.Kind == CombatEventKind.Shot)
+                    {
                         _projectilePresentation.RecordAuthoritativeShot(value);
+                        AuthoritativeCombatEventObserved?.Invoke(value);
+                    }
+                    else if (value.Kind == CombatEventKind.Damage)
+                    {
+                        // Observe the wire fact before presentation filtering;
+                        // scenario correlation owns its own actor/life fence.
+                        AuthoritativeCombatEventObserved?.Invoke(value);
+                    }
                     bool currentTarget = !value.Target.IsValid
                         || value.Target.Slot < _identities.Length
                         && _identities[value.Target.Slot] == value.Target.ConnectionId
@@ -487,8 +510,11 @@ namespace MphRead.Mods.Network
             if (_presentationScene?.Match.Phase != MatchPhase.Playing || !_hasInputViewTick
                 || Client.State is not (NetConnectionState.Ready or NetConnectionState.Playing)) { return; }
             PlayerEntity local = scene.Players[LocalSlot];
+            uint inputEpoch = _lives[LocalSlot];
+            if (inputEpoch == 0) { return; }
             local.ModRepairVectors();
-            _inputs[_sequence % InputBundle.Capacity] = local.CaptureNetworkInput(_sequence, _inputViewTick);
+            _inputs[_sequence % InputBundle.Capacity] = local.CaptureNetworkInput(
+                _sequence, _inputViewTick, inputEpoch);
             Prediction.Record(_sequence, local.Position, local.IsAltForm);
             _inputCount = Math.Min(_inputCount + 1, InputBundle.Capacity);
             Span<InputCommand> bundle = stackalloc InputCommand[InputBundle.Capacity];
@@ -536,6 +562,13 @@ namespace MphRead.Mods.Network
                     }
                     else if (newIdentity || newLife || (state.Flags & SnapshotPlayerFlags.Spawned) == 0)
                     {
+                        if (local && (newLife || (state.Flags & SnapshotPlayerFlags.Spawned) == 0))
+                        {
+                            // A death or respawn starts a new input epoch. Do
+                            // not retransmit commands from the prior life in
+                            // the next redundant bundle.
+                            _inputCount = 0;
+                        }
                         Prediction.Reset();
                         player.ApplySnapshotTransform(state, local: true);
                         _localVelocityApplied = true;
@@ -588,6 +621,7 @@ namespace MphRead.Mods.Network
             if (_presentationScene?.Presentation is ScenePresentation sessionPresentation)
                 sessionPresentation.WorldFeedback.ClearPendingNotices();
             _projectilePresentation.Clear();
+            _presentedCollision.Clear();
             _hitPrediction.Clear();
             _selfImpulse.Clear();
             InputBalanceTelemetry.ResetAttribution();
@@ -623,6 +657,7 @@ namespace MphRead.Mods.Network
         private void ResetPresentation()
         {
             _interpolation.Reset();
+            _presentedCollision.Clear();
             _timingRevision = 0;
             _presentationPending = false;
             _hasInputViewTick = false;
@@ -692,12 +727,14 @@ namespace MphRead.Mods.Network
             // advance a claim about remote poses the player did not see.
             long now = Stopwatch.GetTimestamp();
             if (!TryPrepareRemotePresentation(now, out SnapshotPresentation presentation)) return;
+            _presentedCollision.Begin(presentation);
             for (int slot = 0; slot < 8; slot++)
             {
                 if (slot != LocalSlot && _interpolation.TrySamplePresentation(slot, presentation,
                     out SnapshotPlayerPresentation sample))
                 {
                     scene.Players[slot].GetPresentation().BeginInterpolatedPose(sample.State);
+                    _presentedCollision.Stage(sample.State);
                 }
             }
             _pendingPresentation = presentation;
@@ -709,7 +746,10 @@ namespace MphRead.Mods.Network
         {
             if (!ReferenceEquals(scene, _presentationScene) || !_presentationPending) return;
             _presentationPending = false;
-            _interpolation.MarkPresented(_pendingPresentation);
+            if (_interpolation.MarkPresented(_pendingPresentation))
+                _presentedCollision.Commit(_pendingPresentation);
+            else
+                _presentedCollision.AbortPending();
         }
 
         public void EndRemotePresentation()
@@ -725,7 +765,13 @@ namespace MphRead.Mods.Network
                 return null;
             CombatActor actor = GetLocalCombatActor();
             if (!actor.IsValid) return null;
-            _projectilePresentation.ObservePredictedShot(shooter, actor, _sequence);
+            if (_projectilePresentation.ObservePredictedShot(shooter, actor,
+                    out CombatShot shot) > 0)
+            {
+                MeasureLocalShot(scene, shot);
+                LocalRootShotObserved?.Invoke(shot with
+                    { SourceWeapon = (byte)shooter.CurrentWeapon });
+            }
             return _sequence;
         }
 
@@ -742,9 +788,39 @@ namespace MphRead.Mods.Network
                 || !ReferenceEquals(player.Scene, scene) || player.SlotIndex != LocalSlot
                 || !IsPredictionEpochActive(scene) || !actor.IsValid)
                 return default;
-            var shot = new CombatShot(actor, _sequence, 0, 0, 0, 0);
+            var shot = CreatePresentationShot(actor);
             _hitPrediction.ObserveShot(shot);
+            MeasureLocalShot(scene, shot);
             return shot;
+        }
+
+        private CombatShot CreatePresentationShot(in CombatActor actor)
+        {
+            uint viewTick = _hasInputViewTick ? _inputViewTick
+                : _interpolation.TryCaptureViewTick(out uint capturedTick) ? capturedTick : 0;
+            return new CombatShot(actor, _sequence, WorldServerTick, viewTick, 0, 0);
+        }
+
+        private void MeasureLocalShot(Scene scene, in CombatShot shot)
+        {
+            if (!_presentedCollision.BeginLocalShot(shot)) return;
+            for (int slot = 0; slot < 8; slot++)
+            {
+                if (slot == LocalSlot) continue;
+                PlayerEntity player = scene.Players[slot];
+                if (slot >= _identities.Length || _identities[slot] == 0 || _lives[slot] == 0)
+                    continue;
+                CombatActor candidate = new((byte)slot, _identities[slot], _lives[slot]);
+                bool active = player.LoadFlags.TestFlag(LoadFlags.Active);
+                bool spawned = player.LoadFlags.TestFlag(LoadFlags.Spawned);
+                if (!candidate.IsValid || !active || !spawned) continue;
+                bool spectating = player.Flags2.TestFlag(PlayerFlags2.Spectating);
+                bool alive = player.Health > 0;
+                _presentedCollision.RecordShotCandidate(shot, candidate, player.Position,
+                    player.Hunter, (byte)player.TeamIndex, active, spawned,
+                    alive: alive, altForm: player.IsAltForm, spectating: spectating,
+                    simulationTick: WorldServerTick);
+            }
         }
 
         internal void ObserveDamageAttempt(PlayerEntity victim, DamageFlags flags,
@@ -802,8 +878,16 @@ namespace MphRead.Mods.Network
                     return;
             }
             if (!_hitPrediction.OwnsCurrentShot(shot)) return;
-            if (!_hitPrediction.ObserveDamageAttempt(shot, target, weapon, continuous))
+            if (!_hitPrediction.ObserveDamageAttempt(shot, target, weapon, flags, continuous))
                 return;
+            bool targetSpectating = victim.Flags2.TestFlag(PlayerFlags2.Spectating);
+            bool targetAlive = victim.Health > 0;
+            _presentedCollision.RecordSpeculativeHit(shot, target, victim.Position,
+                victim.Hunter, (byte)victim.TeamIndex, victim.LoadFlags.TestFlag(LoadFlags.Active),
+                spawned: victim.LoadFlags.TestFlag(LoadFlags.Spawned), alive: targetAlive, altForm: victim.IsAltForm,
+                spectating: targetSpectating, simulationTick: WorldServerTick);
+            PredictedContactObserved?.Invoke(shot with { SourceWeapon = weapon }, target,
+                flags.TestFlag(DamageFlags.Headshot));
             if (scene.Presentation is ScenePresentation presentation)
                 presentation.CombatFeedback.PresentPredictedHit(shot.Actor, target, WorldServerTick);
         }

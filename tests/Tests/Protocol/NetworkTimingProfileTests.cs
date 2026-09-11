@@ -52,7 +52,7 @@ public sealed class NetworkTimingProfileTests
     [Fact]
     public void ProtocolTenRecognizesTheBoundedTimingDatagram()
     {
-        Assert.Equal(11, NetHeader.Version);
+        Assert.Equal(12, NetHeader.Version);
         Span<byte> datagram = stackalloc byte[NetHeader.Size];
         new NetHeader(NetMessageType.TimingTelemetry, NetHeaderFlags.None, 1, 2, 0, 0)
             .Write(datagram);

@@ -146,6 +146,25 @@ namespace MphRead.Mods.Network
             => _percentiles is { } sampler && sampler.TrySnapshot(out BoundedPercentileSnapshot snapshot)
                 ? snapshot : default;
 
+        /// <summary>
+        /// Allocates the bounded percentile window during setup. This lets a
+        /// hot path warm all of its samples without recording a fabricated
+        /// value.
+        /// </summary>
+        public void Reserve(int capacity = BoundedPercentileSampler.DefaultCapacity)
+        {
+            if (capacity is < 1 or > 4096) throw new ArgumentOutOfRangeException(nameof(capacity));
+            _percentiles ??= new BoundedPercentileSampler(capacity);
+        }
+
+        /// <summary>Clears statistics while retaining an already-reserved window.</summary>
+        public void Clear()
+        {
+            Count = 0;
+            Last = Mean = Min = Max = 0;
+            _percentiles?.Clear();
+        }
+
         public void Record(double value)
         {
             if (!Double.IsFinite(value) || value < 0)

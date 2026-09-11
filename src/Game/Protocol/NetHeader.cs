@@ -41,8 +41,8 @@ namespace MphRead.Mods.Network
     {
         public const ushort Magic = 0x5046;
         public const int Size = 24;
-        // Protocol 11 adds deterministic Morph Ball boost intent to input commands.
-        public const byte Version = 11;
+        // Protocol 12 adds the authoritative player input epoch to input commands.
+        public const byte Version = 12;
 
         public void Write(Span<byte> destination)
         {

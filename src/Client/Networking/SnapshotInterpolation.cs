@@ -25,6 +25,16 @@ namespace MphRead.Mods.Network
     public readonly record struct SnapshotPlayerPresentation(
         SnapshotPlayer State, Vector3 VisualSpeed);
 
+    /// <summary>Value-only presentation counters for evidence reports.</summary>
+    public readonly record struct SnapshotInterpolationMetrics(
+        long InterpolatedFrames,
+        long ExtrapolatedFrames,
+        long SnapshotUnderruns,
+        long HeldFrames,
+        double MaximumExtrapolationTicks,
+        double DelayTicks,
+        double TargetDelayTicks);
+
     /// <summary>
     /// Single-writer presentation history. Add validated snapshots on receipt, then
     /// sample remote transforms using NetClock's continuous server tick estimate.
@@ -70,6 +80,9 @@ namespace MphRead.Mods.Network
         public long HeldSamples { get; private set; }
         public double MaximumExtrapolationTicks { get; private set; }
         public bool HasPresented => _hasPresented;
+        public SnapshotInterpolationMetrics Metrics => new(InterpolatedSamples,
+            ExtrapolatedSamples, UnderrunSamples, HeldSamples,
+            MaximumExtrapolationTicks, DelayTicks, TargetDelayTicks);
 
         public SnapshotInterpolation(double delayTicks = DefaultDelayTicks,
             double maxExtrapolationTicks = DefaultExtrapolationTicks)

@@ -63,24 +63,39 @@ public readonly record struct HistoricalCollisionDebugMetrics(
     long HistoricalDoorQueries,
     long HistoricalForceFieldQueries,
     long HistoricalPlatformQueries,
-    long HistoricalGeometryChangedOutcome)
+    long HistoricalGeometryChangedOutcome,
+    int ClampPositionSamples = 0,
+    float ClampPositionErrorP95 = 0,
+    float ClampPositionErrorP99 = 0,
+    float ClampPositionErrorMax = 0,
+    float ClampVerticalErrorP95 = 0,
+    float ClampVerticalErrorMax = 0)
 {
     public bool IsValid => DynamicHistoryRecords >= 0 && DynamicHistoryQueries >= 0
         && DynamicHistoryMissing >= 0 && HistoricalDoorQueries >= 0
         && HistoricalForceFieldQueries >= 0 && HistoricalPlatformQueries >= 0
-        && HistoricalGeometryChangedOutcome >= 0;
+        && HistoricalGeometryChangedOutcome >= 0
+        && ClampPositionSamples is >= 0 and <= UInt16.MaxValue
+        && ValidMetric(ClampPositionErrorP95) && ValidMetric(ClampPositionErrorP99)
+        && ValidMetric(ClampPositionErrorMax) && ValidMetric(ClampVerticalErrorP95)
+        && ValidMetric(ClampVerticalErrorMax);
+
+    private static bool ValidMetric(float value) => Single.IsFinite(value) && value >= 0;
 }
 
 /// <summary>
 /// Fixed-shape wire data for QZ1.14. The largest valid payload is below the
-/// 1024-byte datagram budget even when all eight dynamic records are present.
+/// 1024-byte datagram budget even when all seven dynamic records are present.
 /// A history packet carries players; a dynamic packet carries colliders.
 /// </summary>
 public sealed class HistoricalCollisionDebugPacket
 {
     public const int MaxPlayers = 8;
-    public const int MaxColliders = 8;
-    private const int HeaderSize = 100;
+    // Seven leaves room for the F8 clamp headline without increasing the
+    // transport MTU. The registry remains complete; this developer overlay
+    // packet is explicitly bounded and marks a larger result as truncated.
+    public const int MaxColliders = 7;
+    private const int HeaderSize = 112;
     private const int PlayerSize = 40;
     private const int ColliderSize = 112;
     public const int MaxSize = HeaderSize + MaxColliders * ColliderSize;
@@ -253,6 +268,13 @@ public sealed class HistoricalCollisionDebugPacket
         BinaryPrimitives.WriteInt64LittleEndian(destination[32..], metrics.HistoricalForceFieldQueries);
         BinaryPrimitives.WriteInt64LittleEndian(destination[40..], metrics.HistoricalPlatformQueries);
         BinaryPrimitives.WriteInt64LittleEndian(destination[48..], metrics.HistoricalGeometryChangedOutcome);
+        BinaryPrimitives.WriteUInt16LittleEndian(destination[56..],
+            checked((ushort)metrics.ClampPositionSamples));
+        WriteHalf(destination[58..], metrics.ClampPositionErrorP95);
+        WriteHalf(destination[60..], metrics.ClampPositionErrorP99);
+        WriteHalf(destination[62..], metrics.ClampPositionErrorMax);
+        WriteHalf(destination[64..], metrics.ClampVerticalErrorP95);
+        WriteHalf(destination[66..], metrics.ClampVerticalErrorMax);
     }
 
     private static HistoricalCollisionDebugMetrics ReadMetrics(ReadOnlySpan<byte> source)
@@ -262,7 +284,21 @@ public sealed class HistoricalCollisionDebugPacket
             BinaryPrimitives.ReadInt64LittleEndian(source[24..]),
             BinaryPrimitives.ReadInt64LittleEndian(source[32..]),
             BinaryPrimitives.ReadInt64LittleEndian(source[40..]),
-            BinaryPrimitives.ReadInt64LittleEndian(source[48..]));
+            BinaryPrimitives.ReadInt64LittleEndian(source[48..]),
+            BinaryPrimitives.ReadUInt16LittleEndian(source[56..]),
+            ReadHalf(source[58..]), ReadHalf(source[60..]), ReadHalf(source[62..]),
+            ReadHalf(source[64..]), ReadHalf(source[66..]));
+
+    private static void WriteHalf(Span<byte> destination, float value)
+    {
+        System.Half encoded = (System.Half)MathF.Min(value, (float)System.Half.MaxValue);
+        BinaryPrimitives.WriteInt16LittleEndian(destination,
+            BitConverter.HalfToInt16Bits(encoded));
+    }
+
+    private static float ReadHalf(ReadOnlySpan<byte> source)
+        => (float)BitConverter.Int16BitsToHalf(
+            BinaryPrimitives.ReadInt16LittleEndian(source));
 
     private static void WritePlayer(Span<byte> destination, HistoricalPlayerVolumeDiagnostic value)
     {

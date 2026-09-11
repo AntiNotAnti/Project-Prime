@@ -52,7 +52,8 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void ReportAuthoritative(NetClient client, ClientPrediction prediction,
             SnapshotInterpolation interpolation, NetTrafficMetrics traffic,
-            PredictedHitFeedback hitPrediction, PredictedSelfImpulse selfImpulsePrediction)
+            PredictedHitFeedback hitPrediction, PredictedSelfImpulse selfImpulsePrediction,
+            PresentedCollisionFrame? presentedCollision = null)
         {
             if (!Enabled) return;
             long now = Stopwatch.GetTimestamp();
@@ -95,6 +96,26 @@ namespace MphRead.Mods.Network
                 + $" extrapolated={interpolation.ExtrapolatedSamples} held={interpolation.HeldSamples}"
                 + $" delay-ticks={interpolation.DelayTicks:0.###}"
                 + $" max-extrapolation={Sample(interpolation.MaximumExtrapolationTicks * (1000.0 / 60))} ms");
+            if (presentedCollision is not null)
+            {
+                PresentedCollisionMetrics presented = presentedCollision.Metrics;
+                Console.WriteLine($"[net-render-collision] pose samples/mean/p95/p99/max="
+                    + $"{presented.PresentedPoseSamples}/{Sample(presented.PresentedPoseErrorMean)}"
+                    + $"/{Sample(presented.PresentedPoseErrorP95)}/{Sample(presented.PresentedPoseErrorP99)}"
+                    + $"/{Sample(presented.PresentedPoseErrorMax)} world-units"
+                    + $" vertical mean/p95/max={Sample(presented.PresentedVerticalErrorMean)}"
+                    + $"/{Sample(presented.PresentedVerticalErrorP95)}/{Sample(presented.PresentedVerticalErrorMax)}"
+                    + $" tick-shot/simulation={Sample(presented.PresentedTickVsShotTickMismatch.Count > 0
+                        ? presented.PresentedTickVsShotTickMismatch.Mean : null)}"
+                    + $"/{Sample(presented.PresentedTickVsSimulationTickMismatch.Count > 0
+                        ? presented.PresentedTickVsSimulationTickMismatch.Mean : null)}"
+                    + $" buckets aligned/minor/material/severe={presented.Aligned}/{presented.Minor}"
+                    + $"/{presented.Material}/{presented.Severe} unavailable={presented.PresentedPoseUnavailable}"
+                    + $" speculative-hit-mean/max={Sample(presented.SpeculativeHitPresentedPoseDistance.Count > 0
+                        ? presented.SpeculativeHitPresentedPoseDistance.Mean : null)}"
+                    + $"/{Sample(presented.SpeculativeHitPresentedPoseDistance.Count > 0
+                        ? presented.SpeculativeHitPresentedPoseDistance.Max : null)}");
+            }
             Console.WriteLine($"[net-traffic] packets in/out={traffic.PacketsReceived}/{traffic.PacketsSent}"
                 + $" bytes in/out={counters.BytesReceived}/{counters.BytesSent}"
                 + $" KiB/s in/out={Sample(rates.BytesReceivedPerSecond / 1024)}/{Sample(rates.BytesSentPerSecond / 1024)}"
@@ -105,7 +126,12 @@ namespace MphRead.Mods.Network
             Console.WriteLine($"[net-hit] discrete predicted/confirmed/denied/authority-only="
                 + $"{hit.Predicted}/{hit.Confirmed}/{hit.Denied}/{hit.AuthoritativeUnpredicted}"
                 + $" pending={hit.Pending} duplicate-prevented={hit.DuplicatePrevented}"
-                + $" headshot/kill-promotions={hit.HeadshotPromotions}/{hit.KillPromotions}"
+                + $" headshot predicted/agreed/down/up/denied/authority-only="
+                + $"{hit.PredictedHeadshots}/{hit.ConfirmedHeadshots}/{hit.HeadshotsDowngraded}"
+                + $"/{hit.HeadshotsPromoted}/{hit.HeadshotsDenied}/{hit.AuthoritativeHeadshotsUnpredicted}"
+                + $" authoritative-cues={hit.AuthoritativeHeadshotCues}"
+                + $" kill-promotions={hit.KillPromotions}"
+                + $" headshot-agreement={Sample(hit.HeadshotAgreementRate * 100)}%"
                 + $" confirmation/denial={Sample(hit.ConfirmationRate * 100)}/{Sample(hit.DenialRate * 100)}%"
                 + $" shot-to-predicted/confirmed/lead={Sample(hit.MeanShotToPredictionFrames)}"
                 + $"/{Sample(hit.MeanShotToConfirmationFrames)}/{Sample(hit.MeanPredictionLeadFrames)} frames"

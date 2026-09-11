@@ -25,6 +25,7 @@ namespace MphRead.Mods.Network
         private int _bufferedCommands;
         private InputCommand _last = new(0, 0, 0, InputButtons.None, InputButtons.None,
             -Vector3.UnitZ, InputCommand.NoWeapon);
+        private uint _inputEpoch;
 
         public bool HasProcessed { get; private set; }
         public uint LastProcessed { get; private set; }
@@ -32,10 +33,38 @@ namespace MphRead.Mods.Network
         public long LateCommands { get; private set; }
         public long SkippedCommands { get; private set; }
         public long StarvedTicks { get; private set; }
+        public long StaleEpochCommands { get; private set; }
         public int BufferedCommands => _bufferedCommands;
         public int MaximumBufferedCommands { get; private set; }
+        public uint InputEpoch => _inputEpoch;
         /// <summary>Startup/gap tolerance; this is not a continuously forced queue depth.</summary>
         public byte InputPlayoutTicks => _playoutTicks;
+
+        public void SetInputEpoch(uint inputEpoch, uint serverTick = 0)
+        {
+            if (inputEpoch == 0) throw new ArgumentOutOfRangeException(nameof(inputEpoch));
+            if (_inputEpoch == inputEpoch) return;
+            _inputEpoch = inputEpoch;
+            for (int i = 0; i < Capacity; i++)
+            {
+                if (_present[i] && _commands[i].InputEpoch != inputEpoch)
+                {
+                    _present[i] = false;
+                    _bufferedCommands--;
+                    StaleEpochCommands++;
+                }
+            }
+            _gap = 0;
+            _startup = 0;
+            // The first fallback after a spawn is still a valid current-life
+            // command, but it must not carry the previous life’s view/tick
+            // metadata into combat attribution or lag-compensation requests.
+            // Keep the next expected client sequence for ordering diagnostics;
+            // stamp both client/view ticks at the authoritative boundary.
+            _last = new InputCommand(_next, serverTick, serverTick,
+                InputButtons.None, InputButtons.None, -Vector3.UnitZ,
+                InputCommand.NoWeapon, inputEpoch);
+        }
 
         public void ConfigurePlayout(byte ticks)
         {
@@ -58,11 +87,50 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            uint newest = commands[^1].Sequence;
+
+            // Direct callers used by deterministic fixtures may not configure
+            // the first epoch separately. Once the server has an authoritative
+            // spawn epoch, every later command is checked before sequence
+            // playout so an old-life retransmission cannot become input.
+            if (_inputEpoch == 0)
+            {
+                for (int i = 0; i < commands.Length; i++)
+                {
+                    if (commands[i].InputEpoch != 0)
+                    {
+                        SetInputEpoch(commands[i].InputEpoch);
+                        break;
+                    }
+                }
+            }
+            if (_inputEpoch == 0)
+            {
+                StaleEpochCommands += commands.Length;
+                return;
+            }
+            int firstIndex = -1;
+            int newestIndex = -1;
+            for (int i = 0; i < commands.Length; i++)
+            {
+                if (commands[i].InputEpoch == _inputEpoch)
+                {
+                    if (firstIndex < 0) firstIndex = i;
+                    newestIndex = i;
+                }
+                else
+                {
+                    StaleEpochCommands++;
+                }
+            }
+            if (newestIndex < 0)
+            {
+                return;
+            }
+            uint newest = commands[newestIndex].Sequence;
             if (!_started)
             {
                 _started = true;
-                _next = commands[0].Sequence;
+                _next = commands[firstIndex].Sequence;
                 _startup = _playoutTicks;
             }
             if (newest != _next && !Sequence32.IsNewer(newest, _next))
@@ -91,6 +159,10 @@ namespace MphRead.Mods.Network
             bool receivedNew = false;
             foreach (InputCommand command in commands)
             {
+                if (command.InputEpoch != _inputEpoch)
+                {
+                    continue;
+                }
                 if (command.Sequence != _next && !Sequence32.IsNewer(command.Sequence, _next))
                 {
                     LateCommands++;
@@ -131,6 +203,12 @@ namespace MphRead.Mods.Network
             }
             _startup = 0;
             int index = (int)(_next % Capacity);
+            if (_present[index] && _commands[index].InputEpoch != _inputEpoch)
+            {
+                _present[index] = false;
+                _bufferedCommands--;
+                StaleEpochCommands++;
+            }
             if (!_present[index] || _commands[index].Sequence != _next)
             {
                 _gap = Math.Min(_gap + 1, 3);

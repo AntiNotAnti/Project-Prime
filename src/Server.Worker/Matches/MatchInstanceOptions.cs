@@ -20,6 +20,9 @@ public sealed record MatchInstanceOptions(MatchSpec Spec, uint WireMatchId)
     /// <summary>QZ1 dynamic collision is disabled until WAN validation.</summary>
     public bool HistoricalDynamicCollisionEnabled { get; init; }
     internal DeveloperValidationFixtureId ValidationFixture { get; init; }
+    /// <summary>Test-only deterministic target choreography for F4.</summary>
+    internal bool HeadshotValidationScenario { get; init; }
+    internal int HeadshotScenarioSeconds { get; init; } = 15;
     public BotFillPolicy? BotFill { get; init; }
     public ObserverOptions Observers { get; init; } = new();
     public string ServerName { get; init; } = "Project Prime";

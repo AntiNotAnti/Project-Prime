@@ -256,8 +256,10 @@ namespace MphRead.Mods.Network
         /// an immutable observation. No projectile reference or local object
         /// identifier is retained as authority.
         /// </summary>
-        public int ObservePredictedShot(PlayerEntity shooter, CombatActor actor, uint commandSequence)
+        public int ObservePredictedShot(PlayerEntity shooter, CombatActor actor,
+            out CombatShot shot)
         {
+            shot = default;
             if (shooter.Scene is not Scene scene)
                 return 0;
 
@@ -273,10 +275,12 @@ namespace MphRead.Mods.Network
                 if (count == MaxVisualsPerShot)
                     break;
             }
-            if (first is null)
+            if (first is null || !first.CombatShot.IsValid
+                || first.CombatShot.Actor != actor)
                 return 0;
 
-            return RecordPredictedShot(actor, commandSequence, (byte)first.Beam,
+            shot = first.CombatShot;
+            return RecordPredictedShot(actor, shot.CommandSequence, (byte)first.Beam,
                 first.Position, first.Direction, count) ? count : 0;
         }
 

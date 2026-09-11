@@ -4,8 +4,12 @@
 
 This pass adds presentation-only speculative hit feedback and local self-impulse
 prediction. The Worker remains the sole owner of health, death, score,
-afflictions, objectives, collision history, and lag-compensation selection. No
-wire field or gameplay protocol version changed.
+afflictions, objectives, collision history, and lag-compensation selection.
+The later NetPlay fidelity pass changed the input wire contract to protocol 12
+only after a deterministic death/respawn regression proved that unseen
+pre-death commands needed an explicit life epoch. This does not grant the
+client gameplay authority; the Worker validates the epoch against its current
+player life.
 
 ## Repository implementation status
 
@@ -18,6 +22,13 @@ wire field or gameplay protocol version changed.
 | P4 WAN tooling | Implemented | Existing rendered Node to Worker tools now capture hit and impulse metrics. Real geographic evidence is not yet recorded. |
 | P5 rewind tuning | Not authorized by evidence | The server cap remains 15 ticks. |
 | P6 rollout | Pending | Instant timing and self-impulse defaults require the external gates below. |
+
+Fidelity-alignment observability is implemented: headshot classifications,
+rewind clamp error in world units, and committed presented-versus-simulation
+position error are all bounded metrics. The deterministic headshot scenario
+and its validity gate are available only in the isolated loopback developer
+fixture. No presented collision proxy or production-default change has been
+authorized by those local measurements.
 
 Development controls:
 

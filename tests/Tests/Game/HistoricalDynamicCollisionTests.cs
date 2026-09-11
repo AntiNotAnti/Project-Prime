@@ -608,7 +608,8 @@ public sealed class HistoricalDynamicCollisionTests
             new(4, 5, 6), OpenTK.Mathematics.Vector3.UnitY,
             OpenTK.Mathematics.Vector3.UnitX, 2, 3);
         var dynamic = new HistoricalCollisionDiagnostic(id, HistoricalColliderKind.ForceField, state);
-        var metrics = new HistoricalCollisionDebugMetrics(10, 9, 1, 4, 3, 2, 1);
+        var metrics = new HistoricalCollisionDebugMetrics(10, 9, 1, 4, 3, 2, 1,
+            12, 0.5f, 1, 2, 0.25f, 0.75f);
         var frame = new HistoricalCollisionDebugFrame(100, 94, 6, new(0, 1, 2),
             new(3, 4, 5), true, false, 1, 1, false);
         byte[] bytes = new byte[HistoricalCollisionDebugPacket.MaxSize];

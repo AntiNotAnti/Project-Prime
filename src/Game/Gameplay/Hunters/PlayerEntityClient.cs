@@ -49,11 +49,15 @@ namespace MphRead.Entities
 
         internal BeamType AffinitySlotWeapon => _weaponSlots[2];
         internal InputCommand CaptureNetworkInput(uint sequence, uint viewServerTick)
+            => CaptureNetworkInput(sequence, viewServerTick, 1);
+
+        internal InputCommand CaptureNetworkInput(uint sequence, uint viewServerTick,
+            uint inputEpoch)
         {
             if (_scene.Services.DesiredSpectating)
             {
                 return new InputCommand(sequence, sequence, viewServerTick, InputButtons.Spectate,
-                    InputButtons.None, _gunVec1, InputCommand.NoWeapon);
+                    InputButtons.None, _gunVec1, InputCommand.NoWeapon, inputEpoch);
             }
             InputButtons held = 0, pressed = 0;
             Capture(Controls.MoveLeft, InputButtons.Left, ref held, ref pressed);
@@ -74,7 +78,7 @@ namespace MphRead.Entities
             Capture(Controls.RollDown, InputButtons.RollBack, ref held, ref pressed);
             BoostIntent boostIntent = Input.ConsumedBoostIntent;
             return new InputCommand(sequence, sequence, viewServerTick, held, pressed, _gunVec1,
-                (byte)CurrentWeapon, boostIntent);
+                (byte)CurrentWeapon, boostIntent, inputEpoch);
         }
 
         private static void Capture(PlayerActionState bind, InputButtons button, ref InputButtons held,

@@ -17,7 +17,13 @@ public readonly record struct HitPredictionMetrics(
     long ContinuousDenied,
     long ContinuousAuthoritativeUnpredicted,
     long CapacityEvicted,
-    long HeadshotPromotions,
+    long AuthoritativeHeadshotCues,
+    long PredictedHeadshots,
+    long ConfirmedHeadshots,
+    long HeadshotsDowngraded,
+    long HeadshotsPromoted,
+    long HeadshotsDenied,
+    long AuthoritativeHeadshotsUnpredicted,
     long KillPromotions,
     long ShotToPredictionFrames,
     long ShotToConfirmationFrames,
@@ -26,6 +32,9 @@ public readonly record struct HitPredictionMetrics(
     int Pending,
     int ContinuousPending)
 {
+    /// <summary>Compatibility alias for the pre-fidelity generic cue counter.</summary>
+    public long HeadshotPromotions => AuthoritativeHeadshotCues;
+
     public double ConfirmationRate => Predicted == 0 ? 0 : Confirmed / (double)Predicted;
     public double DenialRate => Predicted == 0 ? 0 : Denied / (double)Predicted;
     public double AuthoritativeUnpredictedRate
@@ -33,6 +42,15 @@ public readonly record struct HitPredictionMetrics(
         : AuthoritativeUnpredicted / (double)(Confirmed + AuthoritativeUnpredicted);
     public double ContinuousConfirmationRate => ContinuousPredicted == 0
         ? 0 : ContinuousConfirmed / (double)ContinuousPredicted;
+    public double? HeadshotAgreementRate
+        => ConfirmedHeadshots + HeadshotsDowngraded == 0
+            ? null : ConfirmedHeadshots / (double)(ConfirmedHeadshots + HeadshotsDowngraded);
+    public double? HeadshotDowngradeRate
+        => ConfirmedHeadshots + HeadshotsDowngraded == 0
+            ? null : HeadshotsDowngraded / (double)(ConfirmedHeadshots + HeadshotsDowngraded);
+    public double? HeadshotPromotionRate
+        => ConfirmedHeadshots + HeadshotsPromoted == 0
+            ? null : HeadshotsPromoted / (double)(ConfirmedHeadshots + HeadshotsPromoted);
     public double MeanShotToPredictionFrames
         => TimingSamples == 0 ? 0 : ShotToPredictionFrames / (double)TimingSamples;
     public double MeanShotToConfirmationFrames
@@ -84,7 +102,9 @@ public sealed class PredictedHitFeedback
     public HitPredictionMetrics Metrics => new(Predicted, Confirmed, Denied,
         AuthoritativeUnpredicted, DuplicatePrevented, ContinuousPredicted,
         ContinuousConfirmed, ContinuousDenied, ContinuousAuthoritativeUnpredicted, CapacityEvicted,
-        HeadshotPromotions, KillPromotions, ShotToPredictionFrames,
+        AuthoritativeHeadshotCues, PredictedHeadshots, ConfirmedHeadshots,
+        HeadshotsDowngraded, HeadshotsPromoted, HeadshotsDenied,
+        AuthoritativeHeadshotsUnpredicted, KillPromotions, ShotToPredictionFrames,
         ShotToConfirmationFrames, PredictionLeadFrames, TimingSamples, _pendingCount,
         ContinuousPendingCount());
 
@@ -98,7 +118,15 @@ public sealed class PredictedHitFeedback
     public long ContinuousDenied { get; private set; }
     public long ContinuousAuthoritativeUnpredicted { get; private set; }
     public long CapacityEvicted { get; private set; }
-    public long HeadshotPromotions { get; private set; }
+    /// <summary>Generic authoritative headshot-cue count retained for existing diagnostics.</summary>
+    public long AuthoritativeHeadshotCues { get; private set; }
+    public long PredictedHeadshots { get; private set; }
+    public long ConfirmedHeadshots { get; private set; }
+    public long HeadshotsDowngraded { get; private set; }
+    public long HeadshotsPromoted { get; private set; }
+    public long HeadshotsDenied { get; private set; }
+    public long AuthoritativeHeadshotsUnpredicted { get; private set; }
+    public long HeadshotPromotions => AuthoritativeHeadshotCues;
     public long KillPromotions { get; private set; }
     public long ShotToPredictionFrames { get; private set; }
     public long ShotToConfirmationFrames { get; private set; }
@@ -120,7 +148,10 @@ public sealed class PredictedHitFeedback
         Predicted = Confirmed = Denied = AuthoritativeUnpredicted = 0;
         DuplicatePrevented = ContinuousPredicted = ContinuousConfirmed = ContinuousDenied = 0;
         ContinuousAuthoritativeUnpredicted = 0;
-        CapacityEvicted = HeadshotPromotions = KillPromotions = 0;
+        CapacityEvicted = AuthoritativeHeadshotCues = 0;
+        PredictedHeadshots = ConfirmedHeadshots = HeadshotsDowngraded = 0;
+        HeadshotsPromoted = HeadshotsDenied = AuthoritativeHeadshotsUnpredicted = 0;
+        KillPromotions = 0;
         ShotToPredictionFrames = ShotToConfirmationFrames = 0;
         PredictionLeadFrames = TimingSamples = 0;
     }
@@ -147,6 +178,7 @@ public sealed class PredictedHitFeedback
             if (_frame - _pending[i].PredictedFrame < MaxLifetimeFrames)
                 continue;
             Denied++;
+            if (_pending[i].PredictedHeadshot) HeadshotsDenied++;
             Retire(_pending[i].Identity);
             RemovePendingAt(i);
         }
@@ -193,7 +225,7 @@ public sealed class PredictedHitFeedback
     }
 
     public bool ObserveDamageAttempt(in CombatShot shot, in CombatActor target,
-        byte weapon, bool continuous)
+        byte weapon, DamageFlags predictedFlags, bool continuous)
     {
         if (!Enabled || _matchId == 0 || shot.Actor != _localActor
             || !shot.Actor.IsValid || !target.IsValid || target == _localActor)
@@ -220,12 +252,18 @@ public sealed class PredictedHitFeedback
         {
             Identity = identity,
             Weapon = weapon,
+            PredictedHeadshot = (predictedFlags & DamageFlags.Headshot) != 0,
             ShotFrame = shotFrame,
             PredictedFrame = _frame
         };
         Predicted++;
+        if (_pending[_pendingCount - 1].PredictedHeadshot) PredictedHeadshots++;
         return true;
     }
+
+    public bool ObserveDamageAttempt(in CombatShot shot, in CombatActor target,
+        byte weapon, bool continuous)
+        => ObserveDamageAttempt(shot, target, weapon, DamageFlags.None, continuous);
 
     /// <summary>Consumes an already deduplicated authoritative Damage fact.</summary>
     public bool Confirm(in CombatEvent value)
@@ -265,16 +303,30 @@ public sealed class PredictedHitFeedback
         if (index < 0)
         {
             AuthoritativeUnpredicted++;
+            if ((value.Flags & CombatEventFlags.Headshot) != 0)
+                AuthoritativeHeadshotsUnpredicted++;
             return false;
         }
         PendingEntry pending = _pending[index];
         if (pending.Weapon != 255 && value.Weapon != 255 && pending.Weapon != value.Weapon)
         {
             AuthoritativeUnpredicted++;
+            if ((value.Flags & CombatEventFlags.Headshot) != 0)
+                AuthoritativeHeadshotsUnpredicted++;
             return false;
         }
         Confirmed++;
-        if ((value.Flags & CombatEventFlags.Headshot) != 0) HeadshotPromotions++;
+        bool authoritativeHeadshot = (value.Flags & CombatEventFlags.Headshot) != 0;
+        if (authoritativeHeadshot)
+        {
+            AuthoritativeHeadshotCues++;
+            if (pending.PredictedHeadshot) ConfirmedHeadshots++;
+            else HeadshotsPromoted++;
+        }
+        else if (pending.PredictedHeadshot)
+        {
+            HeadshotsDowngraded++;
+        }
         if (value.Health == 0) KillPromotions++;
         long shotToPrediction = Math.Max(0, pending.PredictedFrame - pending.ShotFrame);
         long shotToConfirmation = Math.Max(0, _frame - pending.ShotFrame);
@@ -409,6 +461,7 @@ public sealed class PredictedHitFeedback
     {
         public PredictedHitIdentity Identity;
         public byte Weapon;
+        public bool PredictedHeadshot;
         public long ShotFrame;
         public long PredictedFrame;
     }

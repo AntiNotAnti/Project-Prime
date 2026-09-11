@@ -168,7 +168,8 @@ public sealed class MatchInstance : IDisposable
             ? new() : options.BotFill ?? new(Spec.Roster.Count(seat => seat.Role != SeatRole.Observer));
         Simulation = new ServerSimulation(Spec.Rules, options.LagCompEnabled, options.ProjectileCatchUpEnabled,
             fill, Spec.Rng1Seed, Spec.Rng2Seed, options.HistoricalDynamicCollisionEnabled,
-            options.ValidationFixture);
+            options.ValidationFixture, options.HeadshotValidationScenario,
+            options.HeadshotScenarioSeconds);
         try
         {
             if (options.ReportingServerId is { } server)

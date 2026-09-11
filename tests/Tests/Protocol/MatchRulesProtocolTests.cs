@@ -17,9 +17,9 @@ namespace MphRead.Tests
         [Fact]
         public void CompleteRulesRoundTripAcrossReliableBoundaries()
         {
-            // Live protocol 11 adds deterministic Morph Ball boost input; older replay fixtures
+            // Live protocol 12 adds the authoritative input epoch; older replay fixtures
             // below intentionally keep their historical protocol versions.
-            Assert.Equal(11, NetHeader.Version);
+            Assert.Equal(12, NetHeader.Version);
             foreach (MatchMode mode in Enum.GetValues<MatchMode>())
             {
                 MatchRules rules = Rules(mode);

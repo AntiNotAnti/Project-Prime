@@ -11,6 +11,7 @@ namespace MphRead.Mods.Network
         private readonly Entry[] _entries = new Entry[Capacity * PlayerCapacity];
         public long Queries { get; private set; }
         public long Missing { get; private set; }
+        public bool HasRecords { get; private set; }
 
         private struct Entry
         {
@@ -29,6 +30,7 @@ namespace MphRead.Mods.Network
                 throw new ArgumentOutOfRangeException(nameof(state));
             }
             _entries[Index(state.Slot, tick)] = new Entry { Present = true, Tick = tick, State = state };
+            HasRecords = true;
         }
 
         public bool TryGet(int slot, uint tick, ulong connectionId, uint lifeId, out LagCompensationState state)
@@ -75,10 +77,21 @@ namespace MphRead.Mods.Network
             Array.Clear(_entries);
             Queries = 0;
             Missing = 0;
+            HasRecords = false;
         }
 
-        private bool TryGetDiagnostic(int slot, uint tick, out LagCompensationState state)
+        /// <summary>
+        /// Reads one history cell without changing gameplay query/missing
+        /// counters. The identity overload below is the safe form for
+        /// diagnostics that compare a historical collider.
+        /// </summary>
+        public bool TryGetDiagnostic(int slot, uint tick, out LagCompensationState state)
         {
+            if ((uint)slot >= PlayerCapacity)
+            {
+                state = default;
+                return false;
+            }
             ref readonly Entry entry = ref _entries[Index(slot, tick)];
             if (entry.Present && entry.Tick == tick)
             {
@@ -87,6 +100,20 @@ namespace MphRead.Mods.Network
             }
             state = default;
             return false;
+        }
+
+        /// <summary>Side-effect-free lookup fenced to one connection and life.</summary>
+        public bool TryGetDiagnostic(int slot, uint tick, ulong connectionId, uint lifeId,
+            out LagCompensationState state)
+        {
+            if (connectionId == 0 || lifeId == 0
+                || !TryGetDiagnostic(slot, tick, out state)
+                || state.ConnectionId != connectionId || state.LifeId != lifeId)
+            {
+                state = default;
+                return false;
+            }
+            return true;
         }
 
         private static int Index(int slot, uint tick) => slot * Capacity + (int)(tick & (Capacity - 1));
