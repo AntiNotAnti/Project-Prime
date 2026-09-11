@@ -81,8 +81,14 @@ public sealed class Program
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.OnRejected = async (context, cancellationToken) =>
+            {
+                BackendDiagnostics.Rejected(
+                    context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                        .CreateLogger(BackendDiagnostics.RequestCategory),
+                    "rate_limit", "rate_limited");
                 await BackendProblem.WriteAsync(context.HttpContext, "rate_limited",
                     "Request rate limit exceeded.", StatusCodes.Status429TooManyRequests, cancellationToken);
+            };
             options.AddPolicy(BackendRoutePolicy.Auth, http => RateLimitPartition.GetFixedWindowLimiter(
                 BackendSecurity.EndpointPartitionKey(http), _ => new FixedWindowRateLimiterOptions
                 { PermitLimit = BackendRoutePolicy.AuthPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
@@ -178,6 +184,8 @@ public sealed class Program
                 throw new InvalidOperationException($"Backend database readiness failed: {readiness.Failure}.");
         }
         app.UseForwardedHeaders();
+        ILogger requestLogger = app.Services.GetRequiredService<ILoggerFactory>()
+            .CreateLogger(BackendDiagnostics.RequestCategory);
         // Correlation is assigned before HTTPS, body-size, concurrency, and
         // rate-limit rejects so every HTTP response has an ID.
         app.Use(async (http, next) =>
@@ -195,6 +203,7 @@ public sealed class Program
                 && !(app.Environment.IsDevelopment()
                     && BackendSecurity.IsExplicitLoopbackDevelopmentRequest(http, securityOptions)))
             {
+                BackendDiagnostics.Rejected(requestLogger, "https", "https_required");
                 await BackendProblem.WriteAsync(http, "https_required", "HTTPS is required.",
                     StatusCodes.Status400BadRequest, http.RequestAborted);
                 return;
@@ -205,6 +214,7 @@ public sealed class Program
             if (bodyLimit is { IsReadOnly: false }) bodyLimit.MaxRequestBodySize = limit;
             if (http.Request.ContentLength > limit)
             {
+                BackendDiagnostics.Rejected(requestLogger, "body", "request_too_large");
                 await BackendProblem.WriteAsync(http, "request_too_large", "The request exceeds its route size bound.",
                     StatusCodes.Status413PayloadTooLarge, http.RequestAborted);
                 return;
@@ -222,6 +232,7 @@ public sealed class Program
                 if (read == 0) break;
                 if (buffered.Length + read > limit)
                 {
+                    BackendDiagnostics.Rejected(requestLogger, "body", "request_too_large");
                     await BackendProblem.WriteAsync(http, "request_too_large", "The request exceeds its route size bound.",
                         StatusCodes.Status413PayloadTooLarge, http.RequestAborted);
                     return;
@@ -244,6 +255,7 @@ public sealed class Program
             using RateLimitLease lease = await limiter.AcquireAsync(1, http.RequestAborted);
             if (!lease.IsAcquired)
             {
+                BackendDiagnostics.Rejected(requestLogger, "concurrency", "service_busy");
                 await BackendProblem.WriteAsync(http, "service_busy", "The service is temporarily unavailable.",
                     StatusCodes.Status503ServiceUnavailable, http.RequestAborted);
                 return;

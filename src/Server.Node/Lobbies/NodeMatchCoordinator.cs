@@ -490,7 +490,9 @@ public sealed class NodeMatchCoordinator : IDisposable
         catch (Exception ex) when (ex is WorkerPlacementException or TimeoutException or OperationCanceledException
             or LobbyCommandException or ArgumentException or ObjectDisposedException)
         {
-            _logger.LogWarning("Match {MatchId} placement failed: {FailureType}: {Reason}", spec.MatchId.Value, ex.GetType().Name, ex.Message);
+            // Match and exception text are intentionally omitted: event IDs and
+            // finite outcomes are sufficient for operational correlation.
+            NodeDiagnostics.Worker(_logger, "placement", "failed");
             Ended(spec.MatchId, true);
             _scheduler.CancelMatch(spec.MatchId, "Lobby placement failed.");
             throw new LobbyCommandException("placement_failed", "Match could not be placed; the lobby remains available.");
