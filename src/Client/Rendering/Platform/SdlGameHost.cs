@@ -136,6 +136,7 @@ namespace MphRead
         private bool _sdlInitialized;
         private bool _fullscreen;
         private bool _cursorCaptured;
+        private bool _activationDeferred;
         private uint _activeGamepadId;
         private bool _hasActiveGamepad;
         private bool _gyroSensorEnabled;
@@ -238,6 +239,76 @@ namespace MphRead
             else SDL3.SDL_HideWindow(_window);
         }
 
+        /// <summary>
+        /// Maps the SDL window and clears stale input without taking focus.
+        /// The desktop transition coordinator calls this before the first
+        /// submitted scene frame so the launcher remains the active surface
+        /// until the scene is genuinely ready.
+        /// </summary>
+        internal void ShowForPreparation()
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            ResetInput();
+            SetWindowFocusable(false);
+            SDL3.SDL_ShowWindow(_window);
+            _activationDeferred = true;
+            _focused = false;
+        }
+
+        /// <summary>Hides the SDL window and neutralizes all held input.</summary>
+        internal void Hide()
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            ResetInput();
+            SDL3.SDL_HideWindow(_window);
+            _activationDeferred = false;
+            _focused = false;
+        }
+
+        /// <summary>Takes focus for an already mapped SDL scene.</summary>
+        internal void Activate()
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _activationDeferred = false;
+            SetWindowFocusable(true);
+            SDL3.SDL_RaiseWindow(_window);
+            _focused = true;
+        }
+
+        private void SetWindowFocusable(bool focusable)
+        {
+            if (!SDL3.SDL_SetWindowFocusable(_window, focusable))
+            {
+                throw new InvalidOperationException($"SDL window focusability change failed: {SDL3.SDL_GetError()}");
+            }
+        }
+
+        /// <summary>
+        /// Clears keyboard, mouse, gamepad, stylus and relative-mode state.
+        /// This is safe to call at a presentation boundary and is deliberately
+        /// separate from focus acquisition.
+        /// </summary>
+        internal void ResetInput()
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            ClearInputAfterFocusLoss();
+        }
+
+        /// <summary>
+        /// Seeds the hidden host onto the shell's display before its first
+        /// fullscreen/windowed transition. Subsequent rounds keep SDL's own
+        /// user-adjusted geometry because the host is persistent.
+        /// </summary>
+        internal void SetInitialPosition(Vector2i position)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!SDL3.SDL_SetWindowPosition(_window, position.X, position.Y))
+            {
+                throw new InvalidOperationException(
+                    $"SDL window placement failed: {SDL3.SDL_GetError()}");
+            }
+        }
+
         internal void AttachToolPresentation(ScenePresentation presentation)
         {
             if (presentation == null) throw new ArgumentNullException(nameof(presentation));
@@ -268,8 +339,7 @@ namespace MphRead
 
         public void Focus()
         {
-            SDL3.SDL_RaiseWindow(_window);
-            _focused = true;
+            Activate();
         }
 
         public void SyncTopmost(bool menuOpen)
@@ -328,6 +398,18 @@ namespace MphRead
             return !_lifetime.CloseRequested;
         }
 
+        /// <summary>
+        /// Keeps SDL's authoritative controller ownership live while Avalonia
+        /// owns the visible shell. No scene is advanced and no hidden window
+        /// receives keyboard or pointer input.
+        /// </summary>
+        internal bool PumpShellEvents()
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            ProcessEvents();
+            return !_lifetime.CloseRequested;
+        }
+
         private bool IsWindowMinimized()
             => (SDL3.SDL_GetWindowFlags(_window) & SDL_WindowFlags.SDL_WINDOW_MINIMIZED) != 0
                 || _framebufferSize.X <= 0 || _framebufferSize.Y <= 0;
@@ -365,7 +447,10 @@ namespace MphRead
         /// GPU backend.
         /// </summary>
         public void RunScene(Scene scene, Action<ScenePresentation> configure, Action? beforeCleanup = null,
-            Action? started = null, Func<bool>? suspendFrame = null)
+            Action? started = null, Func<bool>? suspendFrame = null,
+            SceneExitPresentation exitPresentation = SceneExitPresentation.HideWindow,
+            ulong transitionGeneration = 0, Action<ulong>? firstFramePresented = null,
+            Action<ulong>? windowPrepared = null)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             ArgumentNullException.ThrowIfNull(scene);
@@ -374,7 +459,7 @@ namespace MphRead
             {
                 ProcessEvents();
                 if (_lifetime.CloseRequested) return;
-                ClearInputAfterFocusLoss();
+                ResetInput();
                 _keyEvents.Clear();
                 _mouseButtonEvents.Clear();
                 _text.Clear();
@@ -390,10 +475,21 @@ namespace MphRead
                 configure(_presentation);
                 _presentation.OnLoad();
                 _windowModePreference.ApplyIfChanged(Mods.WindowMode.Startup, ApplyWindowMode);
-                SDL3.SDL_ShowWindow(_window);
-                Focus();
+                if (windowPrepared == null)
+                {
+                    ShowForPreparation();
+                    Activate();
+                }
+                else
+                {
+                    if (transitionGeneration == 0)
+                        throw new ArgumentOutOfRangeException(nameof(transitionGeneration),
+                            "A prepared-window callback requires a transition generation.");
+                    windowPrepared(transitionGeneration);
+                }
                 started?.Invoke();
-                using var frameClient = new SdlSceneFrameClient(this, _presentation);
+                using var frameClient = new SdlSceneFrameClient(this, _presentation,
+                    transitionGeneration, firstFramePresented);
                 Run(frameClient);
             }, () => beforeCleanup?.Invoke(), () =>
             {
@@ -413,8 +509,19 @@ namespace MphRead
                     {
                         _presentation = null;
                         _suspendFrame = null;
-                        ClearInputAfterFocusLoss();
-                        SDL3.SDL_HideWindow(_window);
+                        if (exitPresentation == SceneExitPresentation.HideWindow)
+                        {
+                            Hide();
+                        }
+                        else
+                        {
+                            // Results are presented over the still-live scene
+                            // by the GUI. Leave it mapped, but release all
+                            // focus-sensitive state before the shell return.
+                            ResetInput();
+                            _activationDeferred = false;
+                            _focused = false;
+                        }
                     }
                 }
             });
@@ -480,7 +587,8 @@ namespace MphRead
                         if (IsOurWindow(evt.window.windowID)) _lifetime.Close();
                         break;
                     case SDL_EventType.SDL_EVENT_WINDOW_FOCUS_GAINED:
-                        if (IsOurWindow(evt.window.windowID)) _focused = true;
+                        if (IsOurWindow(evt.window.windowID))
+                            _focused = !_activationDeferred;
                         break;
                     case SDL_EventType.SDL_EVENT_WINDOW_FOCUS_LOST:
                         if (IsOurWindow(evt.window.windowID))
@@ -561,24 +669,30 @@ namespace MphRead
                         HandleGamepadSensor(evt.gsensor);
                         break;
                     case SDL_EventType.SDL_EVENT_PEN_PROXIMITY_IN:
-                        HandlePenProximity(evt.pproximity, entered: true);
+                        if (_presentation is null || _focused)
+                            HandlePenProximity(evt.pproximity, entered: true);
                         break;
                     case SDL_EventType.SDL_EVENT_PEN_PROXIMITY_OUT:
-                        HandlePenProximity(evt.pproximity, entered: false);
+                        if (_presentation is null || _focused)
+                            HandlePenProximity(evt.pproximity, entered: false);
                         break;
                     case SDL_EventType.SDL_EVENT_PEN_DOWN:
                     case SDL_EventType.SDL_EVENT_PEN_UP:
-                        HandlePenTouch(evt.ptouch);
+                        if (_presentation is null || _focused)
+                            HandlePenTouch(evt.ptouch);
                         break;
                     case SDL_EventType.SDL_EVENT_PEN_MOTION:
-                        HandlePenMotion(evt.pmotion);
+                        if (_presentation is null || _focused)
+                            HandlePenMotion(evt.pmotion);
                         break;
                     case SDL_EventType.SDL_EVENT_PEN_BUTTON_DOWN:
                     case SDL_EventType.SDL_EVENT_PEN_BUTTON_UP:
-                        HandlePenButton(evt.pbutton);
+                        if (_presentation is null || _focused)
+                            HandlePenButton(evt.pbutton);
                         break;
                     case SDL_EventType.SDL_EVENT_PEN_AXIS:
-                        HandlePenAxis(evt.paxis);
+                        if (_presentation is null || _focused)
+                            HandlePenAxis(evt.paxis);
                         break;
                 }
             }
@@ -655,7 +769,8 @@ namespace MphRead
             }
             foreach (WindowMouseButtonEvent button in snapshot.MouseButtonEvents)
             {
-                _presentation.OnMouseClick(button.Down);
+                if (button.Button == MouseButton.Left)
+                    _presentation.OnMouseClick(button.Down);
             }
             if (snapshot.RelativeMouse != Vector2.Zero)
             {
@@ -1362,18 +1477,73 @@ namespace MphRead
         }
     }
 
+    /// <summary>
+    /// Determines whether a reused SDL host remains mapped after a scene's
+    /// cleanup. The GUI keeps it mapped for results; standalone callers retain
+    /// the historical hide-on-exit behavior.
+    /// </summary>
+    public enum SceneExitPresentation
+    {
+        HideWindow,
+        KeepWindowVisible
+    }
+
+    /// <summary>
+    /// Per-frame presentation acknowledgement with a one-shot external first
+    /// frame callback. The presentation acknowledgement runs before the
+    /// external callback, matching <see cref="GameWindowFrameLoop"/> ordering.
+    /// </summary>
+    internal sealed class SceneFirstFrameNotification
+    {
+        private readonly ulong _generation;
+        private readonly Action<ulong>? _callback;
+        private bool _reported;
+
+        public SceneFirstFrameNotification(ulong generation, Action<ulong>? callback)
+        {
+            if (generation == 0)
+                throw new ArgumentOutOfRangeException(nameof(generation));
+            _generation = generation;
+            _callback = callback;
+        }
+
+        public bool Notify(Action acknowledgePresentation)
+        {
+            ArgumentNullException.ThrowIfNull(acknowledgePresentation);
+            // Every successful submit acknowledges its active presentation;
+            // only the external handoff callback is a first-frame one-shot.
+            acknowledgePresentation();
+            if (_reported) return false;
+            // Set before the callback so re-entry from the coordinator cannot
+            // report a second first frame.
+            _reported = true;
+            _callback?.Invoke(_generation);
+            return true;
+        }
+    }
+
     internal sealed class SdlSceneFrameClient : IGameWindowFrameClient, IDisposable
     {
         private readonly SdlGameHost _host;
         private readonly ScenePresentation _presentation;
         private readonly KillcamController? _killcam;
+        private readonly SceneFirstFrameNotification? _firstFrame;
         private uint _highlightFocusFrame = uint.MaxValue;
         private bool _highlightEndObserved;
 
-        public SdlSceneFrameClient(SdlGameHost host, ScenePresentation presentation)
+        public SdlSceneFrameClient(SdlGameHost host, ScenePresentation presentation,
+            ulong transitionGeneration = 0, Action<ulong>? firstFramePresented = null)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _presentation = presentation ?? throw new ArgumentNullException(nameof(presentation));
+            if (firstFramePresented != null)
+            {
+                if (transitionGeneration == 0)
+                    throw new ArgumentOutOfRangeException(nameof(transitionGeneration),
+                        "A first-frame callback requires a non-zero transition generation.");
+                _firstFrame = new SceneFirstFrameNotification(transitionGeneration,
+                    firstFramePresented);
+            }
             if (Mods.Network.AuthoritativePlay.Current != null)
                 _killcam = new KillcamController(presentation, host.LogicalSize,
                     host.Keyboard, host.Mouse);
@@ -1421,7 +1591,11 @@ namespace MphRead
         public void Render(RenderBackendFrame frame, IRenderBackend backend)
             => backend.Render(frame, ActivePresentation.CurrentRenderFrame);
 
-        public void OnFramePresented() => ActivePresentation.OnFramePresented();
+        public void OnFramePresented()
+        {
+            if (_firstFrame == null) ActivePresentation.OnFramePresented();
+            else _firstFrame.Notify(ActivePresentation.OnFramePresented);
+        }
         public void AfterRenderFrame() => ActivePresentation.AfterRenderFrame();
         public void PumpPauseMenu() => Mods.PauseMenu.Poll(_host);
         public bool CanRenderFrame => !ActivePresentation.Exiting;

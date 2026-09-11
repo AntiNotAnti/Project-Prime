@@ -1337,6 +1337,7 @@ namespace MphRead
                 {
                     bool noPlayerInput = _isolatedPresentation || _gameplayInputSuppressed
                         || PlaybackSeeking || _inputMode == InputMode.CameraOnly
+                        || !Mods.ClientInputState.WindowFocused
                         || Mods.ClientInputState.PauseOpen || Mods.Chat.ChatBox.Composing;
                     bool allowLocalLook = CanCaptureSimulationLook && !noPlayerInput;
                     Mods.Input.GamepadInput.BeginFrame(allowLocalLook,
@@ -2281,19 +2282,18 @@ namespace MphRead
             float y0 = (halfH - top / 192f * size.Y) / halfH;
             float y1 = (halfH - bottom / 192f * size.Y) / halfH;
             Vector2 center = new((uvRect.X + uvRect.Z) / 2, (uvRect.Y + uvRect.W) / 2);
+            Vector2 halfExtent = new((uvRect.Z - uvRect.X) / 2, (uvRect.W - uvRect.Y) / 2);
             float cosine = MathF.Cos(rotation), sine = MathF.Sin(rotation);
-            Vector2 Rotate(Vector2 uv)
-            {
-                Vector2 delta = uv - center;
-                return center + new Vector2(delta.X * cosine - delta.Y * sine,
-                    delta.X * sine + delta.Y * cosine);
-            }
+            Vector2 Rotate(float localX, float localY)
+                => center + new Vector2(
+                    halfExtent.X * (localX * cosine - localY * sine),
+                    halfExtent.Y * (localX * sine + localY * cosine));
             return new RenderOverlayCommand(RenderOverlayKind.HudTexture, new[]
             {
-                new RenderOverlayVertex(new Vector3(x1, y0, 0), Rotate(new Vector2(uvRect.Z, uvRect.Y)), color),
-                new RenderOverlayVertex(new Vector3(x0, y0, 0), Rotate(new Vector2(uvRect.X, uvRect.Y)), color),
-                new RenderOverlayVertex(new Vector3(x1, y1, 0), Rotate(new Vector2(uvRect.Z, uvRect.W)), color),
-                new RenderOverlayVertex(new Vector3(x0, y1, 0), Rotate(new Vector2(uvRect.X, uvRect.W)), color)
+                new RenderOverlayVertex(new Vector3(x1, y0, 0), Rotate(1, -1), color),
+                new RenderOverlayVertex(new Vector3(x0, y0, 0), Rotate(-1, -1), color),
+                new RenderOverlayVertex(new Vector3(x1, y1, 0), Rotate(1, 1), color),
+                new RenderOverlayVertex(new Vector3(x0, y1, 0), Rotate(-1, 1), color)
             }, texture: texture, alpha: alpha, useTexture: true, color: color, stage: stage);
         }
 
@@ -2568,6 +2568,7 @@ namespace MphRead
             Mods.Network.AuthoritativePlay.Current?.CommitRemotePresentation(World);
             if (RenderBackendSelection.Current == RenderBackendKind.Sdl)
             {
+                CountFrame();
                 // The request has crossed the backend submission boundary. A
                 // failed/minimized frame never reaches this callback and keeps
                 // the same request pending for the next picture.
@@ -2750,6 +2751,26 @@ namespace MphRead
         }
 
         public float FramesPerSecond { get; private set; }
+
+        /// <summary>
+        /// Frames a second, over the half second just gone. Desktop counts only
+        /// successful presentations; Android counts its render-thread frames.
+        /// Wall time is intentional so slow frames remain visible in the result.
+        /// </summary>
+        private readonly Stopwatch _fpsClock = Stopwatch.StartNew();
+        private int _fpsFrames;
+
+        private void CountFrame()
+        {
+            _fpsFrames++;
+            double elapsed = _fpsClock.Elapsed.TotalSeconds;
+            if (elapsed >= 0.5)
+            {
+                FramesPerSecond = (float)(_fpsFrames / elapsed);
+                _fpsFrames = 0;
+                _fpsClock.Restart();
+            }
+        }
 
 #if ANDROID
         /// <summary>
@@ -3006,36 +3027,6 @@ namespace MphRead
                 + $"here, {ratio.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}x "
                 + $"the {_claimedQuantum.ToString("0.#######e+0", System.Globalization.CultureInfo.InvariantCulture)} "
                 + $"the driver stores -- {howBad}.");
-        }
-
-        /// <summary>
-        /// Frames a second, over the half second just gone.
-        ///
-        /// Measured here rather than in either head because both heads drive
-        /// the same method: the desktop from its window's render callback and
-        /// Android from the render thread's own loop. One number, measured the
-        /// same way, so the two are worth comparing with each other -- which
-        /// is most of what a counter is for.
-        ///
-        /// Wall clock, not the frame the engine thinks it is on: the point is
-        /// to catch the frames that took too long, and a fixed-step counter
-        /// cannot.
-        /// </summary>
-        private readonly Stopwatch _fpsClock = Stopwatch.StartNew();
-        private int _fpsFrames;
-
-        private void CountFrame()
-        {
-            _fpsFrames++;
-            double elapsed = _fpsClock.Elapsed.TotalSeconds;
-            // Long enough to be steady, short enough to answer "is it this
-            // corridor?" while you are still standing in it.
-            if (elapsed >= 0.5)
-            {
-                FramesPerSecond = (float)(_fpsFrames / elapsed);
-                _fpsFrames = 0;
-                _fpsClock.Restart();
-            }
         }
 
         public bool OnRenderFrame()

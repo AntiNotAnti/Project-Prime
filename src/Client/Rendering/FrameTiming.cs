@@ -262,7 +262,7 @@ namespace MphRead.Mods.Render
             _windowsSinceReport = 0;
             _reportedDrops = DroppedSteps;
             _reportedStalls = Stalls;
-            DebugLog.Line(trouble ? "frametiming!" : "frametiming", Describe());
+            RendererLog.Line(trouble ? "frametiming!" : "frametiming", Describe());
         }
 
         public static int ParseCap(string? value, int fallback)

@@ -106,7 +106,7 @@ public sealed class SpectatorCameraController
         if (_external) return;
         if (!SpectatorMode.IsSpectating) { lock (TouchGate) { _touchCommand = 0; if (ReferenceEquals(_touchOwner, this)) _touchOwner = null; } _held = SpectatorCommand.None; TargetSlot = -1; _objective = null; Mode = SpectatorCameraMode.Free; return; }
         if (!ReferenceEquals(_room, presentation.World.Room))
-        { lock (TouchGate) _touchCommand = 0; _room = presentation.World.Room; _objective = null; TargetSlot = -1; Mode = SpectatorCameraMode.Free; presentation.SetFreeCamera(true); }
+        { lock (TouchGate) _touchCommand = 0; _room = presentation.World.Room; _objective = null; TargetSlot = -1; Mode = SpectatorCameraMode.Free; _hasCameraPose = false; _directorTick = 0; Director.Reset(); presentation.SetFreeCamera(true); }
         SpectatorCommand keys = SpectatorCommandInput.FromKeyboard(keyboard);
         SpectatorCommand pressed = keys & ~_held; _held = keys;
         lock (TouchGate)

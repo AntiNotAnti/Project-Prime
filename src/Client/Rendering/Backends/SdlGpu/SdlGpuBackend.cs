@@ -386,7 +386,7 @@ namespace MphRead
             if (!_loggedFirstSubmit)
             {
                 _loggedFirstSubmit = true;
-                Mods.DebugLog.Line("gpu", $"first frame submitted; backend={Info.Name} driver={Info.Driver} "
+                RendererLog.Line("gpu", $"first frame submitted; backend={Info.Name} driver={Info.Driver} "
                     + $"swapchain={Surface.SwapchainFormat} present={Surface.PresentMode} "
                     + $"logical={Surface.LogicalSize.X}x{Surface.LogicalSize.Y} "
                     + $"framebuffer={Surface.FramebufferSize.X}x{Surface.FramebufferSize.Y}");
