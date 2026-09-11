@@ -68,7 +68,12 @@ public static class NodeEndpoints
                 return BackendProblem.Create("rate_limited", "Node update rate limit exceeded.",
                     StatusCodes.Status429TooManyRequests);
             }
-            try { return directory.Register(id, secret, value) ? Results.Ok() : BackendProblem.Create("invalid_credential", "Node credentials are invalid.", StatusCodes.Status401Unauthorized); }
+            try
+            {
+                bool accepted = directory.Register(id, secret, value);
+                BackendDiagnostics.Directory(logger, "registration", accepted ? "success" : "invalid");
+                return accepted ? Results.Ok() : BackendProblem.Create("invalid_credential", "Node credentials are invalid.", StatusCodes.Status401Unauthorized);
+            }
             catch (ArgumentException)
             {
                 BackendDiagnostics.Directory(logger, "registration", "invalid_request");
@@ -131,7 +136,12 @@ public static class NodeEndpoints
                 return BackendProblem.Create("rate_limited", "Node update rate limit exceeded.",
                     StatusCodes.Status429TooManyRequests);
             }
-            try { return directory.Heartbeat(id, secret, value) ? Results.Ok() : BackendProblem.Create("invalid_credential", "Node credentials are invalid.", StatusCodes.Status401Unauthorized); }
+            try
+            {
+                bool accepted = directory.Heartbeat(id, secret, value);
+                BackendDiagnostics.Directory(logger, "heartbeat", accepted ? "success" : "stale");
+                return accepted ? Results.Ok() : BackendProblem.Create("invalid_credential", "Node credentials are invalid.", StatusCodes.Status401Unauthorized);
+            }
             catch (ArgumentException)
             {
                 BackendDiagnostics.Directory(logger, "heartbeat", "invalid_request");
@@ -141,46 +151,79 @@ public static class NodeEndpoints
         }).RequireRateLimiting(BackendRoutePolicy.MachinePreAuth);
         app.MapPost("/v1/node-admissions", async (NodeAdmissionRequest request, HttpContext http,
             UserManager<HunterAccount> users, SignInManager<HunterAccount> signIn, BackendDbContext db,
-            NodeDirectory directory, GameTicketIssuer issuer, CancellationToken cancellationToken) =>
+            NodeDirectory directory, GameTicketIssuer issuer, CancellationToken cancellationToken,
+            ILoggerFactory loggerFactory) =>
         {
+            ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.AdmissionCategory);
             if (http.User.Identity?.IsAuthenticated != true)
+            {
+                BackendDiagnostics.Admission(logger, "registered", "invalid_credential");
                 return BackendProblem.Create("invalid_credential", "The session is invalid.",
                     StatusCodes.Status401Unauthorized);
+            }
             if (request.NodeId == Guid.Empty)
+            {
+                BackendDiagnostics.Admission(logger, "registered", "invalid_request");
                 return BackendProblem.Create("invalid_request", "The Node identity is invalid.",
                     StatusCodes.Status400BadRequest);
+            }
             var user = await signIn.ValidateSecurityStampAsync(http.User);
             if (user == null || !user.EmailConfirmed || await users.IsLockedOutAsync(user))
+            {
+                BackendDiagnostics.Admission(logger, "registered", "account_ineligible");
                 return BackendProblem.Create("account_unconfirmed", "The account is not eligible for Node access.",
                     StatusCodes.Status403Forbidden);
+            }
             if (!issuer.IsConfigured)
+            {
+                BackendDiagnostics.Admission(logger, "registered", "unavailable");
                 return BackendProblem.Create("admission_unavailable", "Node admission is unavailable.",
                     StatusCodes.Status503ServiceUnavailable);
+            }
             var node = directory.FindOnline(request.NodeId);
             if (node == null)
+            {
+                BackendDiagnostics.Admission(logger, "registered", "node_not_found");
                 return BackendProblem.Create("node_not_found", "The Node is not currently available.",
                     StatusCodes.Status404NotFound);
+            }
             var profile = await db.Profiles.AsNoTracking().SingleOrDefaultAsync(x => x.PlayerId == user.Id, cancellationToken);
             if (profile == null)
+            {
+                BackendDiagnostics.Admission(logger, "registered", "profile_missing");
                 return BackendProblem.Create("node_admission_unavailable", "The Node admission identity is unavailable.",
                     StatusCodes.Status404NotFound);
+            }
+            BackendDiagnostics.Admission(logger, "registered", "success");
             return Results.Ok(issuer.IssueNodeAdmission(new PlayerId(user.Id), profile.DisplayName, node.NodeId, node.PublicControlUri));
         }).RequireRateLimiting(BackendRoutePolicy.Auth);
 
         app.MapPost("/v1/guest-node-admissions",
-            (GuestNodeAdmissionRequest request, NodeDirectory directory, GameTicketIssuer issuer) =>
+            (GuestNodeAdmissionRequest request, NodeDirectory directory, GameTicketIssuer issuer,
+                ILoggerFactory loggerFactory) =>
             {
+                ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.AdmissionCategory);
                 if (request.NodeId == Guid.Empty || !TryGuestDisplayName(request.DisplayName, out string name))
+                {
+                    BackendDiagnostics.Admission(logger, "guest", "invalid_request");
                     return BackendProblem.Create("invalid_request", "The guest admission request is invalid.",
                         StatusCodes.Status400BadRequest);
+                }
                 if (!issuer.IsConfigured)
+                {
+                    BackendDiagnostics.Admission(logger, "guest", "unavailable");
                     return BackendProblem.Create("admission_unavailable", "Node admission is unavailable.",
                         StatusCodes.Status503ServiceUnavailable);
+                }
                 var node = directory.FindOnline(request.NodeId);
                 if (node == null)
+                {
+                    BackendDiagnostics.Admission(logger, "guest", "node_not_found");
                     return BackendProblem.Create("node_not_found", "The Node is not currently available.",
                         StatusCodes.Status404NotFound);
+                }
                 Guid guestId = Guid.NewGuid();
+                BackendDiagnostics.Admission(logger, "guest", "success");
                 return Results.Ok(issuer.IssueGuestNodeAdmission(guestId, name, node.NodeId,
                     node.PublicControlUri));
             }).RequireRateLimiting(BackendRoutePolicy.GuestAuth);
