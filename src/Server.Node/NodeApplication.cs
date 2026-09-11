@@ -50,7 +50,8 @@ public static class NodeApplication
         builder.Services.AddSingleton<NodeMatchCoordinator>();
         builder.Services.AddSingleton(sp => new NodeSessionManager(sp.GetRequiredService<LobbyManager>(), auth.NodeId,
             builder.Configuration.GetValue("Node:MaximumSessions", 1024), sp.GetRequiredService<TimeProvider>(),
-            sp.GetRequiredService<NodeMatchCoordinator>(), sp.GetRequiredService<NodeContentCatalog>()));
+            sp.GetRequiredService<NodeMatchCoordinator>(), sp.GetRequiredService<NodeContentCatalog>(),
+            sp.GetRequiredService<ILogger<NodeSessionManager>>()));
         builder.Services.AddHostedService<NodeSessionReaper>();
         builder.Services.AddNodeDirectoryReporter(builder.Configuration);
         builder.Services.AddRateLimiter(options =>
