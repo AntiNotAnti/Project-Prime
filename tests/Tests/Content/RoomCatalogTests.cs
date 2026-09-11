@@ -99,7 +99,10 @@ namespace MphRead.Tests
                 File.WriteAllText(Path.Combine(reportDirectory, "hash-report.json"),
                     "{\"mapSha256\":\"abc\",\"nested\":{\"bspSha256\":\"def\"}}");
                 File.WriteAllText(Path.Combine(temporaryDirectory, "brush.json"),
-                    "{\"name\":\"brush map\",\"brushes\":[{\"min\":[0,0,0],\"max\":[1,1,1]}]}");
+                    "{\"name\":\"brush map\","
+                    + "\"materials\":[{\"name\":\"fixture\",\"sourceMaterial\":0}],"
+                    + "\"brushes\":[{\"min\":[0,0,0],\"max\":[1,1,1]}],"
+                    + "\"spawns\":[{\"position\":[-2,2,0]},{\"position\":[2,2,0]}]}");
                 File.WriteAllText(Path.Combine(temporaryDirectory, "level.bsp"), "fixture");
                 File.WriteAllText(Path.Combine(temporaryDirectory, "import.json"),
                     "{\"name\":\"import map\",\"import\":{\"source\":\"level.bsp\"}}");

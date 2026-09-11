@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
@@ -47,18 +48,55 @@ public sealed record InstalledMap(
     ImmutableArray<MapDiagnostic> Diagnostics,
     MapProject Project);
 
-public sealed record MapCatalogSnapshot(long Revision, ImmutableArray<InstalledMap> Maps,
-    ImmutableArray<MapDiagnostic> Diagnostics)
+public sealed record MapCatalogSnapshot
 {
     public static MapCatalogSnapshot Empty { get; } = new(0, [], []);
+    public long Revision { get; init; }
+    public ImmutableArray<InstalledMap> Maps { get; }
+    public ImmutableArray<MapDiagnostic> Diagnostics { get; }
+    public FrozenDictionary<MapContentIdentity, InstalledMap> ByIdentity { get; }
+    public FrozenDictionary<MapIdentity, ImmutableArray<InstalledMap>> ByStableIdVersion { get; }
+    public FrozenDictionary<string, InstalledMap> ByRoomName { get; }
+
+    public MapCatalogSnapshot(long revision, ImmutableArray<InstalledMap> maps,
+        ImmutableArray<MapDiagnostic> diagnostics)
+    {
+        Revision = revision;
+        Maps = maps;
+        Diagnostics = diagnostics;
+        ByIdentity = maps.GroupBy(map => map.ContentIdentity)
+            .ToFrozenDictionary(group => group.Key, group => Preferred(group));
+        ByStableIdVersion = maps.GroupBy(map => map.ContentIdentity.Identity)
+            .ToFrozenDictionary(group => group.Key,
+                group => group.OrderByDescending(LookupPriority)
+                    .ThenBy(map => map.SourcePath, StringComparer.Ordinal).ToImmutableArray());
+        ByRoomName = maps.Where(map => !string.IsNullOrWhiteSpace(map.Project.Map.Name))
+            .GroupBy(map => map.Project.Map.Name, StringComparer.OrdinalIgnoreCase)
+            .ToFrozenDictionary(group => group.Key, group => Preferred(group),
+                StringComparer.OrdinalIgnoreCase);
+    }
 
     public InstalledMap? Find(MapContentIdentity identity)
-        => Maps.FirstOrDefault(map => map.ContentIdentity == identity);
+        => ByIdentity.GetValueOrDefault(identity);
 
     public InstalledMap? Find(string stableId, MapVersion version, string contentHash)
-        => Maps.FirstOrDefault(map => map.ContentIdentity.Identity.StableId == stableId
-            && map.ContentIdentity.Identity.Version == version
-            && map.ContentIdentity.ContentHash.Equals(contentHash, StringComparison.OrdinalIgnoreCase));
+        => Find(new MapContentIdentity(new MapIdentity(stableId, version), contentHash));
+
+    public InstalledMap? FindRoom(string roomName)
+        => string.IsNullOrWhiteSpace(roomName) ? null : ByRoomName.GetValueOrDefault(roomName);
+
+    private static InstalledMap Preferred(IEnumerable<InstalledMap> maps)
+        => maps.OrderByDescending(LookupPriority)
+            .ThenBy(map => map.SourcePath, StringComparer.Ordinal).First();
+
+    private static int LookupPriority(InstalledMap map) => map.Source switch
+    {
+        MapInstallSource.InstalledPackage => 4,
+        MapInstallSource.BundledPackage => 4,
+        MapInstallSource.LocalProject => 3,
+        MapInstallSource.LegacyPackage => 2,
+        _ => 1
+    };
 }
 
 public interface IMapCatalog
@@ -224,7 +262,7 @@ public sealed class MapCatalog : IMapCatalog, IDisposable
                     ? map with { BuildState = state, Statistics = statistics, Diagnostics = [.. diagnostics] }
                     : map)
                 .ToImmutableArray();
-            Publish(current with { Revision = current.Revision + 1, Maps = maps });
+            Publish(new MapCatalogSnapshot(current.Revision + 1, maps, current.Diagnostics));
         }
         finally
         {
@@ -274,6 +312,16 @@ public sealed class MapCatalog : IMapCatalog, IDisposable
             accepted.Add(winner);
         }
         ApplyCacheState(accepted);
+        HashSet<MapContentIdentity> building = Snapshot.Maps
+            .Where(map => map.BuildState == MapBuildState.Building)
+            .Select(map => map.ContentIdentity).ToHashSet();
+        for (int index = 0; index < accepted.Count; index++)
+        {
+            InstalledMap map = accepted[index];
+            if (building.Contains(map.ContentIdentity)
+                && map.BuildState is MapBuildState.NeedsBuild or MapBuildState.Ready)
+                accepted[index] = map with { BuildState = MapBuildState.Building };
+        }
         return new MapCatalogSnapshot(0,
             accepted.OrderBy(map => map.ContentIdentity.Identity.StableId, StringComparer.Ordinal)
                 .ThenByDescending(map => map.ContentIdentity.Identity.Version).ToImmutableArray(),
@@ -485,11 +533,7 @@ public sealed class MapCatalog : IMapCatalog, IDisposable
         MapDiagnostic[] errors = diagnostics
             .Where(diagnostic => diagnostic.Severity == MapDiagnosticSeverity.Error).ToArray();
         if (errors.Length == 0) return MapBuildState.NeedsBuild;
-        if (errors.All(diagnostic => diagnostic.Code.StartsWith("MAP-DEP-", StringComparison.Ordinal)))
-            return MapBuildState.MissingDependency;
-        if (errors.Any(diagnostic => diagnostic.Code is "MAP-SRC-001" or "MAP-MODE-003"))
-            return MapBuildState.Unsupported;
-        return MapBuildState.Invalid;
+        return CompilationFailureKinds.FromDiagnostics(errors).ToBuildState();
     }
 
     private void Publish(MapCatalogSnapshot snapshot)

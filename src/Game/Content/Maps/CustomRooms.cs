@@ -23,6 +23,7 @@ namespace MphRead.Mods.MapGen
         private static IReadOnlyList<MapDefinition>? _definitions;
         private static MapCatalog? _catalog;
         private static string? _catalogDirectory;
+        private static bool _includeUserProjects = true;
         private static int _firstId = -1;
         // Android builds the map binaries on a background thread while the
         // front screen is listing rooms on another, and both go through here.
@@ -41,18 +42,29 @@ namespace MphRead.Mods.MapGen
         public static string MapDirectory
         {
             get => _mapDirectory;
-            set
+            set => ConfigureMapDirectory(value, includeUserProjects: true);
+        }
+
+        /// <summary>
+        /// Selects an explicit build input directory without also discovering
+        /// per-user editor projects. Release/package tooling must be a pure
+        /// function of the supplied repository directory.
+        /// </summary>
+        internal static void SetBuildMapDirectory(string value)
+            => ConfigureMapDirectory(value, includeUserProjects: false);
+
+        private static void ConfigureMapDirectory(string value, bool includeUserProjects)
+        {
+            lock (_lock)
             {
-                lock (_lock)
-                {
-                    string full = Path.GetFullPath(value);
-                    if (_mapDirectory == full) return;
-                    _mapDirectory = full;
-                    _definitions = null;
-                    _catalog?.Dispose();
-                    _catalog = null;
-                    _catalogDirectory = null;
-                }
+                string full = Path.GetFullPath(value);
+                if (_mapDirectory == full && _includeUserProjects == includeUserProjects) return;
+                _mapDirectory = full;
+                _includeUserProjects = includeUserProjects;
+                _definitions = null;
+                _catalog?.Dispose();
+                _catalog = null;
+                _catalogDirectory = null;
             }
         }
 
@@ -166,11 +178,17 @@ namespace MphRead.Mods.MapGen
             string directory = Path.GetFullPath(MapDirectory);
             if (_catalog != null && _catalogDirectory == directory) return;
             _catalog?.Dispose();
+            ImmutableArray<string> projectDirectories = _includeUserProjects
+                ? [MapStoragePaths.Projects, directory]
+                : [directory];
+            string installedDirectory = _includeUserProjects
+                ? MapStoragePaths.InstalledMaps
+                : Path.Combine(directory, ".project-prime-build-scope", "installed");
             _catalog = new MapCatalog(new MapCatalogOptions
             {
-                InstalledDirectory = MapStoragePaths.InstalledMaps,
-                ProjectDirectories = [MapStoragePaths.Projects, directory],
-                CacheDirectory = MapStoragePaths.MapCache
+                InstalledDirectory = installedDirectory,
+                ProjectDirectories = projectDirectories,
+                CacheDirectory = _includeUserProjects ? MapStoragePaths.MapCache : null
             });
             _catalogDirectory = directory;
         }
@@ -193,8 +211,7 @@ namespace MphRead.Mods.MapGen
             lock (_lock)
             {
                 EnsureCatalog();
-                InstalledMap? map = _catalog!.Snapshot.Maps.FirstOrDefault(candidate =>
-                    candidate.Project.Map.Name.Equals(roomName, StringComparison.OrdinalIgnoreCase));
+                InstalledMap? map = _catalog!.Snapshot.FindRoom(roomName);
                 return map?.SupportedModes ?? [MapMode.Battle, MapMode.Survival];
             }
         }
@@ -209,8 +226,7 @@ namespace MphRead.Mods.MapGen
                     _catalog.RefreshAsync().AsTask().GetAwaiter().GetResult();
                     _definitions = BuildDefinitions(_catalog.Snapshot);
                 }
-                return _catalog.Snapshot.Maps.FirstOrDefault(candidate =>
-                    candidate.Project.Map.Name.Equals(roomName, StringComparison.OrdinalIgnoreCase));
+                return _catalog.Snapshot.FindRoom(roomName);
             }
         }
 
@@ -225,14 +241,15 @@ namespace MphRead.Mods.MapGen
             {
                 catalog = _catalog;
                 if (catalog == null) return;
-                map = catalog.Snapshot.Maps.FirstOrDefault(candidate =>
-                    result.ContentIdentity != null && candidate.ContentIdentity == result.ContentIdentity
-                    || project.SourcePath != null && candidate.SourcePath.Equals(
+                map = result.ContentIdentity == null ? null
+                    : catalog.Snapshot.Find(result.ContentIdentity);
+                map ??= project.SourcePath == null ? null
+                    : catalog.Snapshot.Maps.FirstOrDefault(candidate => candidate.SourcePath.Equals(
                         Path.GetFullPath(project.SourcePath), StringComparison.Ordinal));
             }
             if (map == null) return;
             catalog.PublishBuildState(map.ContentIdentity,
-                result.Success ? MapBuildState.Ready : MapBuildState.Invalid,
+                result.Success ? MapBuildState.Ready : result.FailureKind.ToBuildState(),
                 result.Statistics, result.Diagnostics);
             lock (_lock)
                 if (ReferenceEquals(_catalog, catalog)) _definitions = BuildDefinitions(catalog.Snapshot);
@@ -337,8 +354,6 @@ namespace MphRead.Mods.MapGen
         {
             InstalledMap? map = Find(roomName);
             if (map == null || map.BuildState == MapBuildState.Ready) return null;
-            if (map.BuildState == MapBuildState.NeedsBuild && !NeedsGenerating(map.Project.Map))
-                return null; // Legacy materialized output remains loadable during migration.
             string detail = map.Diagnostics.FirstOrDefault(value =>
                 value.Severity == MapDiagnosticSeverity.Error)?.Message
                 ?? "The selected map has not reached Ready state.";

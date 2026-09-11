@@ -41,6 +41,81 @@ public sealed class EditorDocumentTests : IDisposable
     }
 
     [Fact]
+    public void SaveThenEditIsDirty()
+    {
+        Directory.CreateDirectory(_directory);
+        MapDocument document = MapDocument.New("community.save-edit", "Save Edit");
+        document.Save(Path.Combine(_directory, "save-edit.json"));
+
+        document.Execute(Rename(document, "Edited"));
+
+        Assert.True(document.IsDirty);
+        Assert.NotEqual(document.SavedStateId, document.CurrentStateId);
+    }
+
+    [Fact]
+    public void SaveEditUndoIsClean()
+    {
+        Directory.CreateDirectory(_directory);
+        MapDocument document = MapDocument.New("community.save-undo", "Save Undo");
+        document.Save(Path.Combine(_directory, "save-undo.json"));
+        document.Execute(Rename(document, "Edited"));
+
+        document.Undo();
+
+        Assert.False(document.IsDirty);
+        Assert.Equal(document.SavedStateId, document.CurrentStateId);
+    }
+
+    [Fact]
+    public void BranchAfterUndoDoesNotReuseSavedStateIdentity()
+    {
+        Directory.CreateDirectory(_directory);
+        MapDocument document = MapDocument.New("community.branch", "Branch");
+        document.Execute(Rename(document, "Edit A"));
+        document.Save(Path.Combine(_directory, "branch.json"));
+        DocumentStateId saved = document.SavedStateId;
+        document.Execute(Rename(document, "Edit B"));
+        document.Undo();
+
+        document.Execute(Rename(document, "Edit C"));
+
+        Assert.True(document.IsDirty);
+        Assert.NotEqual(saved, document.CurrentStateId);
+        Assert.Equal("Edit C", document.Project.Metadata.Name);
+    }
+
+    [Fact]
+    public void UndoPastSaveIsDirtyAndRedoBackToSaveIsClean()
+    {
+        Directory.CreateDirectory(_directory);
+        MapDocument document = MapDocument.New("community.saved-node", "Saved Node");
+        document.Execute(Rename(document, "A"));
+        document.Execute(Rename(document, "Saved"));
+        document.Save(Path.Combine(_directory, "saved-node.json"));
+
+        document.Undo();
+        Assert.True(document.IsDirty);
+
+        document.Redo();
+        Assert.False(document.IsDirty);
+    }
+
+    [Fact]
+    public void SaveResetsDirtyIdentity()
+    {
+        Directory.CreateDirectory(_directory);
+        MapDocument document = MapDocument.New("community.save-reset", "Save Reset");
+        document.Execute(Rename(document, "Changed"));
+        Assert.True(document.IsDirty);
+
+        document.Save(Path.Combine(_directory, "save-reset.json"));
+
+        Assert.False(document.IsDirty);
+        Assert.Equal(document.CurrentStateId, document.SavedStateId);
+    }
+
+    [Fact]
     public void AutosaveRecoveryNeverOverwritesCreatorProject()
     {
         Directory.CreateDirectory(_directory);
@@ -124,6 +199,51 @@ public sealed class EditorDocumentTests : IDisposable
     }
 
     [Fact]
+    public void TransformTransactionsCoalesceAndCommonCommandsUseDeltas()
+    {
+        MapDocument document = MapDocument.New("community.coalesced", "Coalesced");
+        MapTransform original = document.Project.Authoring!.Brushes[0].Transform;
+        var first = new MapTransform
+        {
+            Position = [1, 0, 0], Rotation = [0, 0, 0], Scale = [1, 1, 1]
+        };
+        document.ExecuteCoalesced(
+            new TransformObjectCommand(document, "brush.floor", first), "drag-1");
+        var final = new MapTransform
+        {
+            Position = [3, 2, 1], Rotation = [0, 45, 0], Scale = [2, 1, 0.5f]
+        };
+        document.ExecuteCoalesced(
+            new TransformObjectCommand(document, "brush.floor", final), "drag-1");
+
+        Assert.Equal(1, document.UndoCount);
+        Assert.True(document.HistoryMemoryBytes <= 256);
+        Assert.Equal(final.Position, document.Project.Authoring.Brushes[0].Transform.Position);
+
+        document.Undo();
+        Assert.Equal(original.Position, document.Project.Authoring.Brushes[0].Transform.Position);
+        document.Redo();
+        Assert.Equal(final.Position, document.Project.Authoring.Brushes[0].Transform.Position);
+    }
+
+    [Fact]
+    public void HistoryDropsOldestCommandsAtConfiguredLimitWithoutBreakingDirtyState()
+    {
+        MapDocument document = MapDocument.New("community.bounded", "Bounded",
+            new EditorHistoryLimits(3, 1024 * 1024));
+        for (int index = 0; index < 6; index++)
+            document.Execute(Rename(document, $"Edit {index}"));
+
+        Assert.Equal(3, document.UndoCount);
+        Assert.True(document.IsDirty);
+        document.Undo();
+        document.Undo();
+        document.Undo();
+        Assert.False(document.CanUndo);
+        Assert.True(document.IsDirty);
+    }
+
+    [Fact]
     public void Q3FactoryCreatesAReadOnlyImportedProjectWithPortableRelativeSource()
     {
         Directory.CreateDirectory(_directory);
@@ -145,8 +265,66 @@ public sealed class EditorDocumentTests : IDisposable
         Assert.Equal("assets/fixture.bsp", project.Map.Import.Source);
     }
 
+    [Fact]
+    public void Q3FactoryCopiesExternalSourcesIntoProjectByDefault()
+    {
+        Directory.CreateDirectory(_directory);
+        string source = Path.Combine(_directory, "incoming", "fixture.pk3");
+        Directory.CreateDirectory(Path.GetDirectoryName(source)!);
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        string texture = Path.Combine(_directory, "incoming", "fixture.tex");
+        File.WriteAllBytes(texture, [5, 6, 7]);
+        string projectPath = Path.Combine(_directory, "project", "map.project.json");
+
+        MapProject project = Q3MapProjectFactory.Create(source, projectPath,
+            "community.portable-q3", "Portable Q3", textures: texture);
+        MapProjectIO.Save(project, projectPath);
+        File.Delete(source);
+        File.Delete(texture);
+
+        Assert.Equal("source/fixture.pk3", project.Map.Import!.Source);
+        Assert.Equal("textures/fixture.tex", project.Map.Import.Textures);
+        Assert.False(Path.IsPathRooted(project.Map.Import.Source));
+        Assert.True(File.Exists(project.Map.Import.Resolve()));
+        Assert.True(File.Exists(project.Map.Import.ResolveTextures()));
+    }
+
+    [Fact]
+    public void Q3FactoryCanExplicitlyRetainAnExternalDevelopmentReference()
+    {
+        Directory.CreateDirectory(_directory);
+        string source = Path.Combine(_directory, "incoming", "external.bsp");
+        Directory.CreateDirectory(Path.GetDirectoryName(source)!);
+        File.WriteAllBytes(source, [1, 2, 3]);
+        string projectPath = Path.Combine(_directory, "project", "map.project.json");
+
+        MapProject project = Q3MapProjectFactory.Create(source, projectPath,
+            "community.external-q3", "External Q3",
+            sourceReferenceMode: Q3SourceReferenceMode.ReferenceExternally);
+
+        Assert.Equal(Path.GetFullPath(source), project.Map.Import!.Source);
+        Assert.False(Directory.Exists(Path.Combine(_directory, "project", "source")));
+    }
+
+    [Fact]
+    public async Task EditorRequiresBaseContentOnlyForMapsThatBorrowIt()
+    {
+        Directory.CreateDirectory(_directory);
+        using var builds = new ProjectPrime.Editor.App.EditorBuildService(null, "AMHE1",
+            Path.Combine(_directory, "cache"));
+        MapProject borrowed = MapDocument.New("community.borrowed", "Borrowed").Project;
+
+        MapBuildResult result = await builds.BuildAsync(borrowed, false, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Contains(result.Diagnostics, value => value.Code == "MAP-DEP-010");
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
     }
+
+    private static ModifyPropertyCommand Rename(MapDocument document, string name)
+        => new(document, "Rename", project => project.Metadata.Name = name);
 }

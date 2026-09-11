@@ -16,6 +16,11 @@ namespace MphRead.Tests;
 [Collection("Transport impairment")]
 public sealed class ServerContentValidationTests : IDisposable
 {
+    private const string ValidLegacyMap = "{\"name\":\"fixture\","
+        + "\"materials\":[{\"name\":\"fixture\",\"sourceMaterial\":0}],"
+        + "\"brushes\":[{\"min\":[0,0,0],\"max\":[1,1,1]}],"
+        + "\"spawns\":[{\"position\":[-2,2,0]},{\"position\":[2,2,0]}]}\n";
+
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "project-prime-staged-content-test-" + Guid.NewGuid().ToString("N"));
 
     public ServerContentValidationTests() => Directory.CreateDirectory(_directory);
@@ -275,9 +280,8 @@ public sealed class ServerContentValidationTests : IDisposable
             ContentEnvironment.Open(_directory, "AMHE1");
             string mapDirectory = Path.Combine(_directory, "maps");
             Directory.CreateDirectory(mapDirectory);
-            File.WriteAllText(Path.Combine(mapDirectory, "fixture.json"),
-                "{\"name\":\"fixture\",\"brushes\":[{\"min\":[0,0,0],\"max\":[1,1,1]}]}\n");
-            CustomRooms.MapDirectory = mapDirectory;
+            File.WriteAllText(Path.Combine(mapDirectory, "fixture.json"), ValidLegacyMap);
+            CustomRooms.SetBuildMapDirectory(mapDirectory);
             CustomRooms.ContentRoot = _directory;
             MethodInfo loader = typeof(CustomRooms).GetMethod("LoadDefinitions",
                 BindingFlags.Static | BindingFlags.NonPublic)!;
@@ -313,13 +317,12 @@ public sealed class ServerContentValidationTests : IDisposable
         string previousDirectory = CustomRooms.MapDirectory;
         string mapDirectory = Path.Combine(_directory, "maps");
         Directory.CreateDirectory(mapDirectory);
-        const string definition = "{\"name\":\"fixture\",\"brushes\":[{\"min\":[0,0,0],\"max\":[1,1,1]}]}\n";
-        File.WriteAllText(Path.Combine(mapDirectory, "fixture.json"), definition);
+        File.WriteAllText(Path.Combine(mapDirectory, "fixture.json"), ValidLegacyMap);
         File.WriteAllText(Path.Combine(mapDirectory, "._fixture.json"),
             "{\"name\":\"apple double\",\"brushes\":[{\"min\":[0,0,0],\"max\":[1,1,1]}]}\n");
         try
         {
-            CustomRooms.MapDirectory = mapDirectory;
+            CustomRooms.SetBuildMapDirectory(mapDirectory);
             MethodInfo loader = typeof(CustomRooms).GetMethod("LoadDefinitions",
                 BindingFlags.Static | BindingFlags.NonPublic)!;
             var definitions = (IReadOnlyList<MapDefinition>)loader.Invoke(null, null)!;
@@ -330,14 +333,55 @@ public sealed class ServerContentValidationTests : IDisposable
     }
 
     [Fact]
-    public void WorkerAcceptsMapDirectoryAndNormalizesItBeforeUse()
+    public void WorkerExplicitMapDirectoryExcludesUnrelatedUserEditorDraft()
+    {
+        string previous = CustomRooms.MapDirectory;
+        string? previousData = Environment.GetEnvironmentVariable("PRIME_DATA_DIRECTORY");
+        try
+        {
+            string mapDirectory = Path.Combine(_directory, "worker-maps");
+            string dataDirectory = Path.Combine(_directory, "user-data");
+            string draftDirectory = Path.Combine(dataDirectory, "maps", "projects", "draft");
+            Directory.CreateDirectory(mapDirectory);
+            Directory.CreateDirectory(draftDirectory);
+            File.WriteAllText(Path.Combine(mapDirectory, "release.json"), ValidLegacyMap);
+            File.WriteAllText(Path.Combine(draftDirectory, "map.project.json"),
+                "{\"stableId\":\"community.draft\",\"version\":\"1.0.0\","
+                + "\"metadata\":{\"name\":\"User Draft\",\"author\":\"test\","
+                + "\"description\":\"\",\"redistribution\":false},"
+                + "\"map\":{\"name\":\"USER DRAFT\"},\"supportedModes\":[\"Battle\"]}");
+            Environment.SetEnvironmentVariable("PRIME_DATA_DIRECTORY", dataDirectory);
+
+            var flags = ProjectPrime.Server.Worker.Program.ParseArguments(
+                new[] { "--map-dir", mapDirectory });
+            ProjectPrime.Server.Worker.Program.ApplyMapDirectory(flags);
+
+            Assert.Equal(Path.GetFullPath(mapDirectory), CustomRooms.MapDirectory);
+            MapDefinition definition = Assert.Single(CustomRooms.Definitions);
+            Assert.Equal("FIXTURE", definition.Name);
+            Assert.DoesNotContain(CustomRooms.Definitions,
+                candidate => candidate.Name.Equals("USER DRAFT", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PRIME_DATA_DIRECTORY", previousData);
+            CustomRooms.MapDirectory = previous;
+        }
+    }
+
+    [Fact]
+    public void WorkerWithoutMapDirectoryLeavesExistingScopeUnchanged()
     {
         string previous = CustomRooms.MapDirectory;
         try
         {
-            var flags = ProjectPrime.Server.Worker.Program.ParseArguments(new[] { "--map-dir", "worker-maps" });
-            ProjectPrime.Server.Worker.Program.ApplyMapDirectory(flags);
-            Assert.Equal(Path.GetFullPath("worker-maps"), CustomRooms.MapDirectory);
+            string existing = Path.Combine(_directory, "existing-map-scope");
+            CustomRooms.MapDirectory = existing;
+
+            ProjectPrime.Server.Worker.Program.ApplyMapDirectory(
+                new Dictionary<string, string>());
+
+            Assert.Equal(Path.GetFullPath(existing), CustomRooms.MapDirectory);
         }
         finally
         {

@@ -15,7 +15,7 @@ internal static class Program
                 ?? Environment.GetEnvironmentVariable("PRIME_CONTENT_DIRECTORY");
             string contentVersion = Option(args, "--content-version") ?? "AMHE1";
             string? cache = Option(args, "--cache");
-            var builds = new EditorBuildService(content, contentVersion, cache);
+            using var builds = new EditorBuildService(content, contentVersion, cache);
             return args.FirstOrDefault() switch
             {
                 "new" => New(args),
@@ -68,7 +68,10 @@ internal static class Program
             keepSky: args.Contains("--keep-sky", StringComparer.Ordinal),
             keepSpawns: !args.Contains("--drop-spawns", StringComparer.Ordinal),
             patchLevel: checked((int)Number(args, "--patch", 3)),
-            textureScale: Number(args, "--texture-scale", 24));
+            textureScale: Number(args, "--texture-scale", 24),
+            sourceReferenceMode: args.Contains("--external-source", StringComparer.Ordinal)
+                ? Q3SourceReferenceMode.ReferenceExternally
+                : Q3SourceReferenceMode.CopyIntoProject);
         MapProjectIO.Save(project, output);
         IReadOnlyList<MapDiagnostic> diagnostics = new MapValidator().ValidateProject(project);
         Print(diagnostics);

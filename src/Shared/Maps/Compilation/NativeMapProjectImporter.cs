@@ -27,12 +27,13 @@ public sealed class NativeMapProjectImporter : IMapImporter
             .OrderBy(material => material.Id, StringComparer.Ordinal).ToArray();
         if (materials.Count == 0)
             throw Failure("MAP-MAT-001", "Native maps require at least one material.");
-        string[] sourceRooms = materials.Select(material => material.SourceRoom ?? definition.TextureSource)
+        string[] sourceRooms = materials.Where(material => material.SourceMaterial.HasValue)
+            .Select(material => material.SourceRoom ?? definition.TextureSource)
             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        if (sourceRooms.Length != 1)
+        if (sourceRooms.Length > 1)
             throw Failure("MAP-MAT-007",
                 "The current Prime material packer requires base-game material references to use one source room.");
-        definition.TextureSource = sourceRooms[0];
+        if (sourceRooms.Length == 1) definition.TextureSource = sourceRooms[0];
         definition.Materials = materials.Select(material => new MapMaterial
         {
             Name = material.Name,

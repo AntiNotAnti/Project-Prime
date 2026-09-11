@@ -36,6 +36,10 @@ internal static class Program
         await RunCatalog(async test => await test.EditableProjectAndInstalledPackageWithSameIdentityCoexist());
         await RunCatalog(async test => await test.MissingImportedGeometryRemainsVisibleAsRepairableCatalogState());
         await RunCatalog(async test => await test.InstallRejectsSemanticallyInvalidPackageWithoutPublishingOrCopyingIt());
+        await RunCatalog(async test => await test.InstallAndRefreshShareOneMutationAuthority());
+        await RunCatalog(async test => await test.RemoveAndRefreshShareOneMutationAuthority());
+        await RunCatalog(test => { test.SnapshotBuildsDeterministicLookupIndexes(); return Task.CompletedTask; });
+        await RunCatalog(async test => await test.RefreshDoesNotEraseAnActiveBuildState());
 
         await RunCompiler(test => { test.StableIdentityAndCanonicalSourceHashingAreStrict(); return Task.CompletedTask; });
         foreach (object[] values in MapCompilerTests.FirstPartyMaps)
@@ -44,6 +48,7 @@ internal static class Program
         await RunCompiler(test => { test.ModeSpawnMaterialAndFixedPointValidationProducesStructuredCodes(); return Task.CompletedTask; });
         await RunCompiler(test => { test.NativeSpawnValidationDetectsSolidIntersectionsAndOverlap(); return Task.CompletedTask; });
         await RunCompiler(test => { test.NativeMaterialValidationRejectsAmbiguousSourceAndUnknownTerrain(); return Task.CompletedTask; });
+        await RunCompiler(test => { test.UnsupportedFutureEntityKindsFailValidation(); return Task.CompletedTask; });
         await RunCompiler(test => { test.CollisionPackingIsByteDeterministicAndReportsGridMetrics(); return Task.CompletedTask; });
         await RunCompiler(test => { test.CaptureBountyAndNodesCompileToTypedRuntimeEntities(); return Task.CompletedTask; });
         await RunCompiler(async test => await test.CompileSameMapTwiceUsesValidatedContentAddressedCache());
@@ -53,15 +58,45 @@ internal static class Program
         await RunCompiler(async test => await test.NativeCustomImagesAndDamageVolumesCompileAndTravelInsidePackage());
         await RunCompiler(test => { test.ProjectContentIdentityIncludesExternalDependencyBytesButNotTimestamps(); return Task.CompletedTask; });
         await RunCompiler(test => { test.BuildFingerprintIncludesOnlyRelevantBaseContentIdentity(); return Task.CompletedTask; });
+        await RunCompiler(test => { test.DependencyAnalysisIsTheBaseContentAuthority(); return Task.CompletedTask; });
+        await RunCompiler(test => { test.FullyCustomNativeMapCompilesWithoutOpeningBaseContent(); return Task.CompletedTask; });
+        await RunCompiler(async test => await test.BuildSchedulerSingleFlightsAndCallerCancellationDoesNotCancelSharedBuild());
+        await RunCompiler(test => { test.CancelledCompilerPublishLeavesNoPartialCache(); return Task.CompletedTask; });
+        await RunCompiler(test => { test.CompilerFailuresCarryStableBuildStateClassification(); return Task.CompletedTask; });
         await RunCompiler(async test => await test.AmbientMatchMountsAreIsolatedAcrossConcurrentExecutionContexts());
 
         await RunEditor(test => { test.NewProjectStartsWithEditableArenaAndStableIdentity(); return Task.CompletedTask; });
         await RunEditor(test => { test.CommandsRoundTripThroughUndoAndRedo(); return Task.CompletedTask; });
+        await RunEditor(test => { test.SaveThenEditIsDirty(); return Task.CompletedTask; });
+        await RunEditor(test => { test.SaveEditUndoIsClean(); return Task.CompletedTask; });
+        await RunEditor(test => { test.BranchAfterUndoDoesNotReuseSavedStateIdentity(); return Task.CompletedTask; });
+        await RunEditor(test => { test.UndoPastSaveIsDirtyAndRedoBackToSaveIsClean(); return Task.CompletedTask; });
+        await RunEditor(test => { test.SaveResetsDirtyIdentity(); return Task.CompletedTask; });
         await RunEditor(test => { test.AutosaveRecoveryNeverOverwritesCreatorProject(); return Task.CompletedTask; });
         await RunEditor(test => { test.PlaytestSnapshotDoesNotChangeDocumentPathOrDirtyState(); return Task.CompletedTask; });
         await RunEditor(test => { test.AuthoringEnvironmentBecomesTheCompiledRuntimeEnvironment(); return Task.CompletedTask; });
         await RunEditor(test => { test.MaterialCommandTargetsOneFaceOrTheWholeBrushAndUndoRestoresIt(); return Task.CompletedTask; });
+        await RunEditor(test => { test.TransformTransactionsCoalesceAndCommonCommandsUseDeltas(); return Task.CompletedTask; });
+        await RunEditor(test => { test.HistoryDropsOldestCommandsAtConfiguredLimitWithoutBreakingDirtyState(); return Task.CompletedTask; });
         await RunEditor(test => { test.Q3FactoryCreatesAReadOnlyImportedProjectWithPortableRelativeSource(); return Task.CompletedTask; });
+        await RunEditor(test => { test.Q3FactoryCopiesExternalSourcesIntoProjectByDefault(); return Task.CompletedTask; });
+        await RunEditor(test => { test.Q3FactoryCanExplicitlyRetainAnExternalDevelopmentReference(); return Task.CompletedTask; });
+        await RunEditor(async test => await test.EditorRequiresBaseContentOnlyForMapsThatBorrowIt());
+
+        var viewport = new EditorViewportTests();
+        viewport.HiDpiLayoutUsesOneLogicalAndPixelViewportContract(); passed++;
+        viewport.SelectionAndOverlayChangesDoNotRebuildGeometry(); passed++;
+        foreach (object[] values in new object[][]
+        {
+            [1f, 1f, 1f, 0f], [10f, 1f, 1f, 0f],
+            [1f, 10f, 0.5f, 0f], [1f, 10f, 0.5f, 37f]
+        })
+        {
+            viewport.BrushPickingUsesWorldDistanceUnderScaleAndRotation(
+                (float)values[0], (float)values[1], (float)values[2], (float)values[3]);
+            passed++;
+        }
+        viewport.NearestWorldSpaceBrushWins(); passed++;
 
         Console.WriteLine($"Map platform self-test passed ({passed} cases). VSTest remains the CI runner.");
         return 0;

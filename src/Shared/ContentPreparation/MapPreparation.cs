@@ -10,6 +10,7 @@ namespace MphRead.Mods.MapGen
     // Explicit map preparation capability shared by platform composition and Tools.
     public static class MapPreparation
     {
+        private static IMapBuildScheduler Builds => MapPlatformService.Shared.Builds;
         public static int GenerateAll(bool force = false, bool verbose = true)
         {
             int count = 0;
@@ -17,7 +18,7 @@ namespace MphRead.Mods.MapGen
             {
                 if (force || CustomRooms.NeedsGenerating(def))
                 {
-                    Prepare(def, force, verbose);
+                    PrepareLegacyRuntime(def, force, verbose);
                     count++;
                 }
             }
@@ -45,7 +46,7 @@ namespace MphRead.Mods.MapGen
                         continue;
                     }
                     Console.WriteLine($"[mapgen] building {def.Name}");
-                    Prepare(def, force: false, verbose: false);
+                    PrepareLegacyRuntime(def, force: false, verbose: false);
                 }
                 catch (Exception ex)
                 {
@@ -74,7 +75,19 @@ namespace MphRead.Mods.MapGen
                 .ConfigureAwait(false);
             if (result.CachePath == null)
                 throw new MapCompilationException($"Map {definition.Name} produced no cache path.", result.Diagnostics);
-            MaterializeLegacyRuntime(definition, result.CachePath);
+            return result;
+        }
+
+        /// <summary>
+        /// Explicit compatibility path for old tools that still require
+        /// AMHE1-style generated files. Client, editor, and server runtime
+        /// paths compile into the content-addressed cache and mount overlays.
+        /// </summary>
+        public static MapBuildResult PrepareLegacyRuntime(MapDefinition definition,
+            bool force = false, bool verbose = false)
+        {
+            MapBuildResult result = Prepare(definition, force, verbose);
+            MaterializeLegacyRuntime(definition, result.CachePath!);
             return result;
         }
 
@@ -91,8 +104,7 @@ namespace MphRead.Mods.MapGen
         {
             ArgumentNullException.ThrowIfNull(project);
             string baseContentIdentity = ContentEnvironment.GetContentIdentity().ContentHash;
-            var compiler = new MapCompiler();
-            MapBuildResult result = await compiler.CompileAsync(project, new MapBuildOptions
+            MapBuildResult result = await Builds.BuildAsync(project, new MapBuildOptions
             {
                 CacheDirectory = MapStoragePaths.MapCache,
                 BaseContentIdentity = baseContentIdentity,

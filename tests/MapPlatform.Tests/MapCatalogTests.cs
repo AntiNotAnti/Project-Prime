@@ -221,8 +221,98 @@ public sealed class MapCatalogTests : IDisposable
         Assert.True(File.Exists(incoming));
     }
 
+    [Fact]
+    public async Task InstallAndRefreshShareOneMutationAuthority()
+    {
+        (string incoming, MapContentIdentity identity) = await CreatePackageAsync("install-refresh");
+        using var catalog = new MapCatalog(new MapCatalogOptions
+            { InstalledDirectory = Path.Combine(_root, "installed-race") });
+
+        await Task.WhenAll(catalog.InstallAsync(incoming).AsTask(),
+            catalog.RefreshAsync().AsTask());
+
+        Assert.NotNull(catalog.Snapshot.Find(identity));
+        Assert.Single(catalog.Snapshot.Maps);
+    }
+
+    [Fact]
+    public async Task RemoveAndRefreshShareOneMutationAuthority()
+    {
+        (string incoming, MapContentIdentity identity) = await CreatePackageAsync("remove-refresh");
+        using var catalog = new MapCatalog(new MapCatalogOptions
+            { InstalledDirectory = Path.Combine(_root, "remove-race") });
+        await catalog.InstallAsync(incoming);
+
+        await Task.WhenAll(catalog.RemoveAsync(identity).AsTask(),
+            catalog.RefreshAsync().AsTask());
+
+        Assert.Null(catalog.Snapshot.Find(identity));
+        Assert.Empty(catalog.Snapshot.Maps);
+    }
+
+    [Fact]
+    public void SnapshotBuildsDeterministicLookupIndexes()
+    {
+        MapProject project = new()
+        {
+            StableId = "community.indexed",
+            Version = new MapVersion(1, 2, 3),
+            Metadata = new MapProjectMetadata { Name = "Indexed", Author = "Tests" },
+            Map = new MapDefinition { Name = "INDEXED ROOM" }
+        };
+        var identity = new MapContentIdentity(project.Identity, new string('a', 64));
+        var installed = new InstalledMap(identity, "Indexed", "Tests", "",
+            MapInstallSource.InstalledPackage, [MapMode.Battle], MapBuildState.Ready,
+            null, "/installed.fpmap", new string('b', 64), 12, null, null, [], project);
+        var editable = installed with
+        {
+            Source = MapInstallSource.LocalProject,
+            SourcePath = "/project/map.project.json"
+        };
+
+        var snapshot = new MapCatalogSnapshot(4, [installed, editable], []);
+
+        Assert.Same(installed, snapshot.Find(identity));
+        Assert.Same(installed, snapshot.Find("community.indexed", new MapVersion(1, 2, 3),
+            new string('A', 64)));
+        Assert.Same(installed, snapshot.FindRoom("indexed room"));
+        Assert.Equal(2, snapshot.ByStableIdVersion[project.Identity].Length);
+    }
+
+    [Fact]
+    public async Task RefreshDoesNotEraseAnActiveBuildState()
+    {
+        (string incoming, MapContentIdentity identity) = await CreatePackageAsync("building");
+        using var catalog = new MapCatalog(new MapCatalogOptions
+            { InstalledDirectory = Path.Combine(_root, "building-installed") });
+        await catalog.InstallAsync(incoming);
+        catalog.PublishBuildState(identity, MapBuildState.Building, null, []);
+
+        await catalog.RefreshAsync();
+
+        Assert.Equal(MapBuildState.Building, catalog.Snapshot.Find(identity)!.BuildState);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+    }
+
+    private async Task<(string Path, MapContentIdentity Identity)> CreatePackageAsync(string suffix)
+    {
+        string path = Path.Combine(_root, suffix + ".fpmap");
+        MapBundleWriteResult result = await new MapBundleWriter().WriteAsync(path, new MapManifest
+        {
+            StableId = "community." + suffix,
+            Version = new MapVersion(1, 0, 0),
+            Name = suffix,
+            Author = "Tests",
+            SupportedModes = [MapMode.Battle],
+            Recipe = "map.json"
+        }, [new("map.json", MapFileRole.Recipe, Encoding.UTF8.GetBytes(
+            $"{{\"name\":\"{suffix.ToUpperInvariant()}\",\"materials\":[{{\"name\":\"fixture\",\"sourceMaterial\":1}}],"
+            + "\"brushes\":[{\"min\":[0,0,0],\"max\":[1,1,1]}],"
+            + "\"spawns\":[{\"position\":[0,2,0]},{\"position\":[2,2,0]}]}"))]);
+        return (path, result.ContentIdentity);
     }
 }

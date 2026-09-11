@@ -13,7 +13,8 @@ namespace MphRead.Mods.MapGen;
 
 public sealed class MapCompiler
 {
-    public const int CompilerSchemaVersion = 1;
+    public const int CompilerSchemaVersion = MapCompilerSchema.Current;
+    private const int TotalStages = 12;
     private static readonly string[] RuntimeFiles =
         ["Model.bin", "Anim.bin", "Collision.bin", "Ent.bin", "Node.bin"];
     // Publication is the only serialized portion of compilation. Stripes keep
@@ -25,7 +26,7 @@ public sealed class MapCompiler
 
     public MapCompiler(MapValidator? validator = null) => _validator = validator ?? new MapValidator();
 
-    public async Task<MapBuildResult> CompileAsync(MapProject project, MapBuildOptions options,
+    public MapBuildResult Compile(MapProject project, MapBuildOptions options,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -37,14 +38,22 @@ public sealed class MapCompiler
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
+            Report(options, "Validating", 0);
             ImmutableArray<MapDiagnostic> sourceDiagnostics = Timed("Validate Source", timings,
                 () => _validator.ValidateProject(project));
             diagnostics.AddRange(sourceDiagnostics);
             if (diagnostics.HasErrors)
-                return Failure(fingerprint, diagnostics, timings);
+                return Failure(fingerprint, diagnostics, timings,
+                    CompilationFailureKinds.FromDiagnostics(sourceDiagnostics));
 
-            Timed("Resolve Dependencies", timings,
-                () => { _ = MapBuildFingerprint.Dependencies(project); return true; });
+            Report(options, "Resolving dependencies", 1);
+            MapDependencyAnalysis dependencies = Timed("Resolve Dependencies", timings,
+                () => MapDependencyAnalyzer.Analyze(project));
+            diagnostics.AddRange(dependencies.Diagnostics);
+            if (diagnostics.HasErrors)
+                return Failure(fingerprint, diagnostics, timings,
+                    CompilationFailureKind.MissingDependency);
+            Report(options, "Fingerprinting", 2);
             fingerprint = Timed("Fingerprint", timings,
                 () => MapBuildFingerprint.Compute(project, options.BaseContentIdentity));
             string cacheRoot = Path.GetFullPath(options.CacheDirectory);
@@ -52,28 +61,43 @@ public sealed class MapCompiler
             if (!options.Force && TryReadValidCache(destination, fingerprint, out MapBuildMetadata? cached))
             {
                 diagnostics.AddRange(cached.Diagnostics);
+                Report(options, "Complete", TotalStages);
                 return new MapBuildResult(true, true, fingerprint, destination, cached.SourceIdentity,
                     diagnostics.ToImmutable(), cached.Statistics, [.. timings]);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+            Report(options, "Importing geometry", 3);
             MapBuildScene scene = Timed("Import", timings, () =>
                 (project.Authoring == null ? (IMapImporter)new LegacyMapImporter() : new NativeMapProjectImporter())
                     .Import(project, options.Verbose));
+            scene.DependencyAnalysis = dependencies;
+            cancellationToken.ThrowIfCancellationRequested();
+            Report(options, "Normalizing", 4);
             Timed("Normalize", timings, () => ValidateSceneShape(scene));
+            Report(options, "Optimizing geometry", 5);
             Timed("Optimize Geometry", timings, () => true); // Current importers already emit normalized shared faces.
 
             cancellationToken.ThrowIfCancellationRequested();
-            MapPackedContent content = MapPacker.Compile(scene, timings.Add);
+            int packedStage = 6;
+            MapPackedContent content = MapPacker.Compile(scene, timing =>
+            {
+                timings.Add(timing);
+                packedStage++;
+            }, cancellationToken, stage => Report(options, stage, packedStage));
+            Report(options, "Validating runtime content", 10);
             ImmutableArray<MapDiagnostic> budgetDiagnostics = Timed("Validate Runtime Content", timings,
                 () => _validator.ValidateStatistics(content.Statistics));
             diagnostics.AddRange(budgetDiagnostics);
             if (diagnostics.HasErrors)
-                return Failure(fingerprint, diagnostics, timings);
+                return Failure(fingerprint, diagnostics, timings,
+                    CompilationFailureKind.FormatLimit);
 
             Directory.CreateDirectory(cacheRoot);
             temporary = Path.Combine(cacheRoot, ".build-" + fingerprint + "-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(temporary);
+            cancellationToken.ThrowIfCancellationRequested();
+            Report(options, "Publishing cache", 11);
             Timed("Publish Cache", timings, () =>
             {
                 Write(Path.Combine(temporary, RuntimeFiles[0]), content.Model);
@@ -137,6 +161,7 @@ public sealed class MapCompiler
                     }
                 }
             }
+            Report(options, "Complete", TotalStages);
             return new MapBuildResult(true, false, fingerprint, destination, sourceIdentity,
                 diagnostics.ToImmutable(), content.Statistics, [.. timings]);
         }
@@ -150,7 +175,17 @@ public sealed class MapCompiler
             if (!exception.Diagnostics.Any())
                 diagnostics.Add(new("MAP-CMP-001", MapDiagnosticSeverity.Error, exception.Message,
                     SourcePath: project.SourcePath));
-            return Failure(fingerprint, diagnostics, timings);
+            CompilationFailureKind kind = exception is MapDependencyException
+                ? CompilationFailureKind.MissingDependency
+                : CompilationFailureKinds.FromDiagnostics(exception.Diagnostics);
+            return Failure(fingerprint, diagnostics, timings, kind);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            diagnostics.Add(new("MAP-CMP-002", MapDiagnosticSeverity.Error,
+                exception.Message, SourcePath: project.SourcePath,
+                SuggestedAction: "Retry the build after checking file access and available storage."));
+            return Failure(fingerprint, diagnostics, timings, CompilationFailureKind.IOFailure);
         }
         catch (Exception exception)
         {
@@ -158,7 +193,7 @@ public sealed class MapCompiler
             diagnostics.Add(new("MAP-CMP-999", MapDiagnosticSeverity.Error,
                 exception.Message, SourcePath: project.SourcePath,
                 SuggestedAction: "See the full compiler log for the retained exception details."));
-            return Failure(fingerprint, diagnostics, timings);
+            return Failure(fingerprint, diagnostics, timings, CompilationFailureKind.InternalError);
         }
         finally
         {
@@ -224,6 +259,10 @@ public sealed class MapCompiler
         => PublishLocks[Convert.ToInt32(fingerprint[..2], 16) % PublishLocks.Length];
 
     private static MapBuildResult Failure(string fingerprint, MapDiagnosticBag diagnostics,
-        List<MapStageTiming> timings)
-        => new(false, false, fingerprint, null, null, diagnostics.ToImmutable(), null, [.. timings]);
+        List<MapStageTiming> timings, CompilationFailureKind kind)
+        => new(false, false, fingerprint, null, null, diagnostics.ToImmutable(), null,
+            [.. timings], kind);
+
+    private static void Report(MapBuildOptions options, string stage, int completedStages)
+        => options.Progress?.Report(new(stage, completedStages, TotalStages));
 }

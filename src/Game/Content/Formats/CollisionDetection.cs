@@ -520,37 +520,61 @@ namespace MphRead.Formats
                     }
                     Vector3 vec = transPoint1 + (transPoint2 - transPoint1) * pct;
 
-                    float GetEdgeDotDifference(int pIndex)
+                    bool TryGetEdge(int pIndex, out Vector3 dataPoint1, out Vector3 dataPoint2)
                     {
+                        dataPoint1 = Vector3.Zero;
+                        dataPoint2 = Vector3.Zero;
+                        if (pIndex < 0 || pIndex >= data.PointIndexCount)
+                        {
+                            return false;
+                        }
                         int index = data.PointStartIndex + pIndex;
-                        Vector3 dataPoint1 = info.Points[info.PointIndices[index]];
-                        // index + 1 may exceed the count, in which case we get the copy of the first index
-                        Vector3 dataPoint2 = info.Points[info.PointIndices[index + 1]];
-                        Vector3 edgeDir = (dataPoint1 - dataPoint2).Normalized();
-                        var cross = Vector3.Cross(edgeDir, plane.Xyz);
-                        float crossDot1 = Vector3.Dot(cross, dataPoint2);
-                        float crossDot2 = Vector3.Dot(vec, cross);
-                        return crossDot2 - crossDot1;
+                        if (index < 0 || index >= info.PointIndices.Count)
+                        {
+                            return false;
+                        }
+                        int nextIndex = data.PointStartIndex + pIndex + 1;
+                        if (nextIndex >= info.PointIndices.Count)
+                        {
+                            nextIndex = data.PointStartIndex;
+                        }
+                        dataPoint1 = info.Points[info.PointIndices[index]];
+                        dataPoint2 = info.Points[info.PointIndices[nextIndex]];
+                        return VectorMath.IsFinite(dataPoint1) && VectorMath.IsFinite(dataPoint2);
                     }
 
                     Debug.Assert(data.PointIndexCount > 0);
                     bool fullCollision = true;
+                    bool edgeCollisionAdded = false;
                     for (int p1 = 0; p1 < data.PointIndexCount; p1++)
                     {
-                        float dotDiff = GetEdgeDotDifference(p1);
+                        if (!TryGetEdge(p1, out Vector3 edgePoint1, out Vector3 edgePoint2))
+                        {
+                            continue;
+                        }
+                        Vector3 edgeDirection = edgePoint1 - edgePoint2;
+                        if (!VectorMath.TryNormalize(edgeDirection, out edgeDirection))
+                        {
+                            // Duplicate points do not describe a boundary. Do
+                            // not normalize them and let them create NaNs.
+                            continue;
+                        }
+                        Vector3 cross = Vector3.Cross(edgeDirection, plane.Xyz);
+                        float dotDiff = Vector3.Dot(vec, cross) - Vector3.Dot(edgePoint2, cross);
                         if (dotDiff < -0.03125f)
                         {
                             fullCollision = false;
-                            // bug? - the first edge that we're outside of by the 0.03 margin may only be partially outside,
-                            // so after the radius check we return this face as collided without testing any of the other edges,
-                            // which we might be way outside of and thus not actually colliding with the face (e.g. High Ground)
-                            // --> this may be compensated for by the some collision handling routines, but not all?
-                            if (includeOffset && dotDiff >= -radius)
+                            // The signed edge margin is retained for the face
+                            // classification, but it is not a distance to the
+                            // segment. Check the actual closest point and accept
+                            // only the first edge that physically intersects the
+                            // sphere, preserving polygon order and its metadata.
+                            if (includeOffset && radius >= 0
+                                && VectorMath.TryClosestPointOnSegment(vec, edgePoint1, edgePoint2,
+                                    out _, out float distanceSquared)
+                                && distanceSquared <= radius * radius)
                             {
                                 // unimpl-collision: see note below
-                                int epIndex = data.PointStartIndex + p1;
-                                Vector3 edgePoint1 = info.Points[info.PointIndices[epIndex]];
-                                Vector3 edgePoint2 = info.Points[info.PointIndices[epIndex + 1]];
                                 CollisionResult result = results[count];
                                 result.Field0 = 1;
                                 result.EntityCollision = candidate.EntityCollision;
@@ -586,11 +610,12 @@ namespace MphRead.Formats
                                     }
                                 }
                                 results[count++] = result;
+                                edgeCollisionAdded = true;
+                                break;
                             }
-                            break;
                         }
                     }
-                    if (fullCollision)
+                    if (fullCollision && !edgeCollisionAdded)
                     {
                         // unimpl-collision: if a flag is set, only successuively closer results are added (inserted at the front of the list)
                         CollisionResult result = results[count];

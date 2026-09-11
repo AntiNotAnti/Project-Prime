@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using MphRead.Formats.Collision;
 using MphRead.Utility;
 using OpenTK.Mathematics;
@@ -36,6 +37,10 @@ namespace MphRead.Mods.MapGen
 
         public static byte[] Pack(IReadOnlyList<CollisionDataEditor> data,
             out MapCollisionStatistics statistics)
+            => Pack(data, out statistics, CancellationToken.None);
+
+        public static byte[] Pack(IReadOnlyList<CollisionDataEditor> data,
+            out MapCollisionStatistics statistics, CancellationToken cancellationToken)
         {
             if (data.Count == 0)
             {
@@ -50,8 +55,10 @@ namespace MphRead.Mods.MapGen
             var min = new Vector3(Single.MaxValue);
             var max = new Vector3(Single.MinValue);
 
-            foreach (CollisionDataEditor editor in data)
+            for (int dataIndex = 0; dataIndex < data.Count; dataIndex++)
             {
+                if ((dataIndex & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
+                CollisionDataEditor editor = data[dataIndex];
                 if (editor.Points.Count < 3 || editor.Points.Count > 10)
                 {
                     throw new ProgramException(
@@ -108,6 +115,7 @@ namespace MphRead.Mods.MapGen
             }
             for (int i = 0; i < data.Count; i++)
             {
+                if ((i & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
                 CollisionDataEditor editor = data[i];
                 var faceMin = new Vector3(Single.MaxValue);
                 var faceMax = new Vector3(Single.MinValue);
@@ -136,14 +144,18 @@ namespace MphRead.Mods.MapGen
             }
 
             int references = 0;
-            foreach (List<ushort>? cell in cells)
+            for (int cellIndex = 0; cellIndex < cells.Length; cellIndex++)
             {
+                if ((cellIndex & 1023) == 0) cancellationToken.ThrowIfCancellationRequested();
+                List<ushort>? cell = cells[cellIndex];
                 references += cell?.Count ?? 0;
             }
             var dataIndices = new List<ushort>();
             var entries = new List<(ushort Count, ushort Start)>();
-            foreach (List<ushort>? cell in cells)
+            for (int cellIndex = 0; cellIndex < cells.Length; cellIndex++)
             {
+                if ((cellIndex & 1023) == 0) cancellationToken.ThrowIfCancellationRequested();
+                List<ushort>? cell = cells[cellIndex];
                 int start = dataIndices.Count;
                 if (start > UInt16.MaxValue)
                 {
@@ -165,6 +177,7 @@ namespace MphRead.Mods.MapGen
 
             using var stream = new MemoryStream();
             using var writer = new BinaryWriter(stream);
+            cancellationToken.ThrowIfCancellationRequested();
             stream.Position = Sizes.CollisionHeader;
             int pointOffset = (int)stream.Position;
             foreach (Vector3 point in points)

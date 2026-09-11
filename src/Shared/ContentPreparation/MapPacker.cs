@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using MphRead.Editor;
 using MphRead.Formats.Collision;
 using MphRead.Utility;
@@ -47,21 +48,38 @@ namespace MphRead.Mods.MapGen
             Action<MapStageTiming>? onStageCompleted)
             => Compile(map, out _, out _, onStageCompleted);
 
+        public static MapPackedContent Compile(BuiltMap map,
+            Action<MapStageTiming>? onStageCompleted, CancellationToken cancellationToken,
+            Action<string>? onStageStarted)
+            => Compile(map, out _, out _, onStageCompleted, cancellationToken, onStageStarted);
+
         private static MapPackedContent Compile(BuiltMap map, out int nodeCount, out int edges,
-            Action<MapStageTiming>? onStageCompleted = null)
+            Action<MapStageTiming>? onStageCompleted = null,
+            CancellationToken cancellationToken = default,
+            Action<string>? onStageStarted = null)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            onStageStarted?.Invoke("Building render geometry");
             (byte[] model, int vertices, int materialCount, int textureCount) = Timed(
                 "Build Render Geometry", onStageCompleted, () => BuildModel(map));
+            cancellationToken.ThrowIfCancellationRequested();
+            onStageStarted?.Invoke("Building collision");
             (byte[] collision, MapCollisionStatistics collisionStatistics) = Timed(
                 "Build Collision", onStageCompleted, () =>
                 {
-                    byte[] bytes = BuildCollision(map, out MapCollisionStatistics statistics);
+                    byte[] bytes = BuildCollision(map, out MapCollisionStatistics statistics,
+                        cancellationToken);
                     return (bytes, statistics);
                 });
+            cancellationToken.ThrowIfCancellationRequested();
+            onStageStarted?.Invoke("Building entities");
             byte[] entities = Timed("Build Entities", onStageCompleted,
                 () => Repack.PackEntities(map.Entities));
+            cancellationToken.ThrowIfCancellationRequested();
+            onStageStarted?.Invoke("Building navigation");
             (byte[] nodes, nodeCount, edges) = Timed("Build Node Data", onStageCompleted,
                 () => MapNodePacker.Pack(map.Solid));
+            cancellationToken.ThrowIfCancellationRequested();
             (Vector3 min, Vector3 max) = Bounds(map.Faces);
             MapDefinition definition = map.Definition;
             var statistics = new MapBuildStatistics
@@ -117,8 +135,13 @@ namespace MphRead.Mods.MapGen
             {
                 return BuildModel(map, own);
             }
-            Model source = Read.GetRoomModelInstance(def.TextureSource).Model;
-            Recolor recolor = source.Recolors[0];
+            bool needsBaseContent = map is MapBuildScene { DependencyAnalysis: { } dependencies }
+                ? dependencies.RequiresBaseContent
+                : Enumerable.Range(0, def.Materials.Count)
+                    .Any(index => !map.CustomTextures.ContainsKey(index));
+            Model? source = needsBaseContent
+                ? Read.GetRoomModelInstance(def.TextureSource).Model : null;
+            Recolor? recolor = source?.Recolors[0];
             // copy only the textures the map asks for, remapping the IDs as we
             // go -- the texture and its palette are copied as a pair, so a
             // material can never end up wearing someone else's colours
@@ -142,6 +165,8 @@ namespace MphRead.Mods.MapGen
                         diffuse: new ColorRgb(31, 31, 31), ambient: new ColorRgb(0, 0, 0)));
                     continue;
                 }
+                if (source == null || recolor == null)
+                    throw new ProgramException($"Material {mapMaterialIndex} has no custom texture or base-content source.");
                 if (mapMaterial.SourceMaterial < 0 || mapMaterial.SourceMaterial >= source.Materials.Count)
                 {
                     throw new ProgramException($"{def.TextureSource} has no material {mapMaterial.SourceMaterial}.");
@@ -349,11 +374,14 @@ namespace MphRead.Mods.MapGen
             return new RenderInstruction(InstructionCode.VTX_16, x | (y << 16), z);
         }
 
-        private static byte[] BuildCollision(BuiltMap map, out MapCollisionStatistics statistics)
+        private static byte[] BuildCollision(BuiltMap map, out MapCollisionStatistics statistics,
+            CancellationToken cancellationToken = default)
         {
             var editors = new List<CollisionDataEditor>();
-            foreach (BuiltFace face in map.Solid)
+            for (int faceIndex = 0; faceIndex < map.Solid.Count; faceIndex++)
             {
+                if ((faceIndex & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
+                BuiltFace face = map.Solid[faceIndex];
                 // the collision format takes at most ten points per face
                 foreach (BuiltFace part in face.Points.Length <= 10 ? new[] { face } : Fan(face).ToArray())
                 {
@@ -375,7 +403,7 @@ namespace MphRead.Mods.MapGen
             {
                 throw new ProgramException("A map needs at least one solid face.");
             }
-            return MapCollisionPacker.Pack(editors, out statistics);
+            return MapCollisionPacker.Pack(editors, out statistics, cancellationToken);
         }
 
         private static (Vector3 Min, Vector3 Max) Bounds(IReadOnlyList<BuiltFace> faces)

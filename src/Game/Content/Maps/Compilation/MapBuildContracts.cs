@@ -1,8 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 
 namespace MphRead.Mods.MapGen;
+
+public static class MapCompilerSchema
+{
+    public const int Current = 1;
+}
 
 public sealed record MapCollisionStatistics(
     int Faces,
@@ -39,6 +45,12 @@ public sealed record MapGeneratedFile(string Path, long Size, string Sha256);
 
 public sealed record MapStageTiming(string Stage, double ElapsedMilliseconds);
 
+public sealed record MapBuildProgress(
+    string Stage,
+    int CompletedStages,
+    int TotalStages,
+    double? StageProgress = null);
+
 public sealed class MapBuildMetadata
 {
     public int CompilerSchemaVersion { get; set; }
@@ -68,7 +80,49 @@ public sealed record MapBuildResult(
     MapContentIdentity? ContentIdentity,
     ImmutableArray<MapDiagnostic> Diagnostics,
     MapBuildStatistics? Statistics,
-    ImmutableArray<MapStageTiming> Timings);
+    ImmutableArray<MapStageTiming> Timings,
+    CompilationFailureKind? FailureKind = null);
+
+public enum CompilationFailureKind
+{
+    InvalidSource,
+    MissingDependency,
+    UnsupportedFeature,
+    FormatLimit,
+    IOFailure,
+    Cancelled,
+    InternalError
+}
+
+public static class CompilationFailureKinds
+{
+    public static MapBuildState ToBuildState(this CompilationFailureKind kind)
+        => ((CompilationFailureKind?)kind).ToBuildState();
+
+    public static MapBuildState ToBuildState(this CompilationFailureKind? kind) => kind switch
+    {
+        CompilationFailureKind.MissingDependency => MapBuildState.MissingDependency,
+        CompilationFailureKind.UnsupportedFeature => MapBuildState.Unsupported,
+        CompilationFailureKind.InvalidSource or CompilationFailureKind.FormatLimit
+            => MapBuildState.Invalid,
+        _ => MapBuildState.NeedsBuild
+    };
+
+    public static CompilationFailureKind FromDiagnostics(
+        IEnumerable<MapDiagnostic> diagnostics)
+    {
+        string[] codes = diagnostics.Where(value => value.Severity == MapDiagnosticSeverity.Error)
+            .Select(value => value.Code).ToArray();
+        if (codes.Any(code => code is "MAP-SRC-001" or "MAP-MODE-003" or "MAP-ENT-005"))
+            return CompilationFailureKind.UnsupportedFeature;
+        if (codes.Any(code => code is "MAP-COL-004" or "MAP-COL-005" or "MAP-COL-006"
+            or "MAP-ENT-004")) return CompilationFailureKind.FormatLimit;
+        if (codes.Length != 0
+            && codes.All(code => code.StartsWith("MAP-DEP-", StringComparison.Ordinal)))
+            return CompilationFailureKind.MissingDependency;
+        return CompilationFailureKind.InvalidSource;
+    }
+}
 
 public sealed class MapBuildOptions
 {
@@ -77,4 +131,5 @@ public sealed class MapBuildOptions
     public string BaseContentIdentity { get; init; } = "unversioned";
     public bool Force { get; init; }
     public bool Verbose { get; init; }
+    public IProgress<MapBuildProgress>? Progress { get; init; }
 }

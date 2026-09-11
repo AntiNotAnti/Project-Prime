@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using MphRead;
 using MphRead.Mods.MapGen;
 using ProjectPrime.Server.Node.Lobbies;
@@ -19,7 +18,7 @@ public sealed record NodeMapReadiness(string MapKey, NodeMapPackageState State, 
 /// <summary>Validated, explicitly configured data-only packages served by this Node.</summary>
 public sealed class NodeMapPackageStore
 {
-    private sealed record Entry(MapRequirement Requirement, string Path);
+    private sealed record Entry(MapRequirement Requirement, string Path, long Length, long LastWriteTimeUtcTicks);
     private readonly IReadOnlyDictionary<(string StableId, string Version, string ArtifactHash), Entry> _entries;
     public IReadOnlyList<NodeMapConfiguration> ReadyConfigurations { get; }
     public IReadOnlyList<NodeMapReadiness> States { get; }
@@ -66,7 +65,13 @@ public sealed class NodeMapPackageStore
                     if (entries.ContainsKey(key))
                         throw new ArgumentException(
                             "Node map package configuration contains a duplicate acquisition identity.");
-                    package = (key, new(requirement, path));
+                    var file = new FileInfo(path);
+                    if (!file.Exists || file.Length != requirement.PackageSize)
+                        throw new InvalidDataException("Configured package disappeared or has an unexpected size.");
+                    // The deployment contract is immutable package bytes. Cache
+                    // file metadata once at startup so every request can detect
+                    // an accidental replacement without hashing the whole file.
+                    package = (key, new(requirement, path, file.Length, file.LastWriteTimeUtc.Ticks));
                 }
                 // Validate the complete control-plane configuration and the
                 // aggregate catalog bounds before publishing this individual
@@ -100,11 +105,8 @@ public sealed class NodeMapPackageStore
             64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
         try
         {
-            if (opened.Length != entry.Requirement.PackageSize)
-                throw new InvalidDataException("Map package changed after Node startup.");
-            string actual = Convert.ToHexString(SHA256.HashData(opened)).ToLowerInvariant();
-            if (!CryptographicOperations.FixedTimeEquals(Convert.FromHexString(actual),
-                Convert.FromHexString(entry.Requirement.ArtifactHash)))
+            if (opened.Length != entry.Length
+                || File.GetLastWriteTimeUtc(entry.Path).Ticks != entry.LastWriteTimeUtcTicks)
                 throw new InvalidDataException("Map package changed after Node startup.");
             opened.Position = 0;
             stream = opened;

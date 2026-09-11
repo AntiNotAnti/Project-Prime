@@ -9,6 +9,7 @@ namespace MphRead.Mods.MapGen;
 public sealed class MapBuildScene : BuiltMap
 {
     public MapBuildScene(MapDefinition definition) : base(definition) { }
+    public MapDependencyAnalysis? DependencyAnalysis { get; set; }
 
     public static MapBuildScene FromBuiltMap(BuiltMap source)
     {

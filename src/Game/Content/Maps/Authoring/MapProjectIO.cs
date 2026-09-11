@@ -11,31 +11,7 @@ public static class MapProjectIO
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         string fullPath = Path.GetFullPath(path);
         if (MapBundle.Is(fullPath))
-        {
-            MapBundleReadResult bundle = new MapBundleReader().Read(fullPath);
-            ReadOnlyMemory<byte> recipe = bundle.ReadDeclaredFile(bundle.Manifest.Recipe);
-            using JsonDocument document = MapJson.ParseStrict(recipe.Span);
-            if (document.RootElement.TryGetProperty("stableId", out _)
-                && document.RootElement.TryGetProperty("map", out _))
-            {
-                MapProject packagedProject = JsonSerializer.Deserialize(recipe.Span,
-                    MapJsonContext.Default.MapProject)
-                    ?? throw new MapValidationException("Map package project is null.");
-                packagedProject.SourcePath = fullPath;
-                packagedProject.DeclaredContentIdentity = new MapContentIdentity(
-                    bundle.Manifest.Identity, bundle.Manifest.ContentHash);
-                Attach(packagedProject.Map, fullPath, bundlePath: fullPath);
-                return packagedProject;
-            }
-            MapDefinition definition = bundle.IsLegacy
-                ? MapDefinition.DeserializeLegacy(System.Text.Encoding.UTF8.GetString(recipe.Span), fullPath)
-                : JsonSerializer.Deserialize(recipe.Span, MapJsonContext.Default.MapDefinition)
-                    ?? throw new MapValidationException("Map package recipe is null.");
-            Attach(definition, fullPath, bundlePath: fullPath);
-            MapProject project = MapProject.FromLegacy(definition, bundle.Manifest.StableId);
-            project.SourcePath = fullPath;
-            return project;
-        }
+            return LoadBundle(fullPath);
 
         byte[] bytes = File.ReadAllBytes(fullPath);
         try
@@ -57,6 +33,35 @@ public static class MapProjectIO
         }
         MapDefinition legacy = MapDefinition.Load(fullPath);
         return MapProject.FromLegacy(legacy);
+    }
+
+    internal static MapProject LoadBundle(string path, MapBundleReadResult? verifiedBundle = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        string fullPath = Path.GetFullPath(path);
+        MapBundleReadResult bundle = verifiedBundle ?? new MapBundleReader().Read(fullPath);
+        ReadOnlyMemory<byte> recipe = bundle.ReadDeclaredFile(bundle.Manifest.Recipe);
+        using JsonDocument document = MapJson.ParseStrict(recipe.Span);
+        if (document.RootElement.TryGetProperty("stableId", out _)
+            && document.RootElement.TryGetProperty("map", out _))
+        {
+            MapProject packagedProject = JsonSerializer.Deserialize(recipe.Span,
+                MapJsonContext.Default.MapProject)
+                ?? throw new MapValidationException("Map package project is null.");
+            packagedProject.SourcePath = fullPath;
+            packagedProject.DeclaredContentIdentity = new MapContentIdentity(
+                bundle.Manifest.Identity, bundle.Manifest.ContentHash);
+            Attach(packagedProject.Map, fullPath, bundlePath: fullPath);
+            return packagedProject;
+        }
+        MapDefinition definition = bundle.IsLegacy
+            ? MapDefinition.DeserializeLegacy(System.Text.Encoding.UTF8.GetString(recipe.Span), fullPath)
+            : JsonSerializer.Deserialize(recipe.Span, MapJsonContext.Default.MapDefinition)
+                ?? throw new MapValidationException("Map package recipe is null.");
+        Attach(definition, fullPath, bundlePath: fullPath);
+        MapProject project = MapProject.FromLegacy(definition, bundle.Manifest.StableId);
+        project.SourcePath = fullPath;
+        return project;
     }
 
     public static void Save(MapProject project, string path)

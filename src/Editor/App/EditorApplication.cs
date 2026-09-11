@@ -24,6 +24,10 @@ public sealed class EditorApplication
     private ImmutableArray<MapDiagnostic> _diagnostics = [];
     private MapBuildStatistics? _statistics;
     private Task<MapBuildResult>? _pendingBuild;
+    private Task<MapBundleWriteResult>? _pendingExport;
+    private Task<MapBuildResult>? _pendingPlay;
+    private string? _pendingPlaySnapshot;
+    private bool _pendingPlayBots;
     private string _status = "READY";
     private TransformMode _transformMode;
     private Guid? _previewRequest;
@@ -54,20 +58,27 @@ public sealed class EditorApplication
             float elapsed = (float)Math.Clamp(now - previous, 0, 0.1);
             previous = now;
             CompleteBuild();
+            CompleteExport();
+            CompletePlay();
             HandleKeyboard(input);
-            EditorRect viewportRect = _ui.Viewport(surface.LogicalSize);
-            _viewport.Update(_document, input, surface.LogicalSize, viewportRect, elapsed);
-            RenderFrame frame = _viewport.BuildFrame(_document, surface.FramebufferSize);
+            EditorViewportLayout viewportLayout = _ui.Viewport(
+                surface.LogicalSize, surface.FramebufferSize);
+            _viewport.Update(_document, input, viewportLayout, elapsed);
+            RenderFrame frame = _viewport.BuildFrame(_document, surface.FramebufferSize,
+                viewportLayout);
             if (_previewRequest is Guid requestId)
             {
                 frame.AddCaptureRequest(new RenderCaptureRequest(requestId, _frameNumber,
-                    CaptureTargetKind.SceneTarget, surface.FramebufferSize.X, surface.FramebufferSize.Y,
+                    CaptureTargetKind.SceneTarget, viewportLayout.PixelRect.Width,
+                    viewportLayout.PixelRect.Height,
                     CapturePixelFormat.Rgb8, CaptureRowOrientation.TopDown,
                     CaptureDeliveryKind.Screenshot, _previewPath));
                 _previewRequest = null;
             }
-            string? action = _ui.Draw(frame, surface.FramebufferSize, input, _document,
+            EditorPresentationStages.BeginHudOverlay(frame);
+            string? action = _ui.Draw(frame, surface.LogicalSize, input, _document,
                 _diagnostics, _statistics, _status, _recoveryPath != null);
+            EditorPresentationStages.Complete(frame);
             if (action != null) HandleAction(action);
             frame.Seal();
             surface.Render(frame);
@@ -77,6 +88,7 @@ public sealed class EditorApplication
             surface.SetTitle(Title());
             Thread.Sleep(1);
         }
+        DeletePendingPlaySnapshot();
         return 0;
     }
 
@@ -251,11 +263,12 @@ public sealed class EditorApplication
     private void ToggleSelectedBrushSolid()
     {
         if (_document.SelectedObjectId is not { } id) return;
-        _document.Execute(new ModifyPropertyCommand(_document, "Toggle Brush Collision", project =>
-        {
-            ConvexBrush brush = project.Authoring!.Brushes.Single(value => value.Id == id);
-            brush.Solid = !brush.Solid;
-        }));
+        _document.Execute(new DeltaEditorCommand<bool>(_document, "Toggle Brush Collision",
+            EditorChangeKind.Geometry,
+            project => project.Authoring!.Brushes.Single(value => value.Id == id).Solid,
+            (project, value) => project.Authoring!.Brushes
+                .Single(item => item.Id == id).Solid = value,
+            static value => value, static value => !value));
         Validate();
     }
 
@@ -267,8 +280,15 @@ public sealed class EditorApplication
         if (selected == null || selected.Faces.Count == 0) return;
         int face = Math.Clamp(_document.SelectedFaceIndex ?? 0, 0, selected.Faces.Count - 1);
         string materialId = selected.Faces[face].MaterialId;
-        _document.Execute(new ModifyPropertyCommand(_document, commandName, project =>
-            change(project.Authoring!.Materials.Single(value => value.Id == materialId))));
+        _document.Execute(new DeltaEditorCommand<MapAuthoringMaterial>(_document, commandName,
+            EditorChangeKind.Material,
+            project => project.Authoring!.Materials.Single(value => value.Id == materialId),
+            (project, value) =>
+            {
+                List<MapAuthoringMaterial> materials = project.Authoring!.Materials;
+                materials[materials.FindIndex(item => item.Id == materialId)] = value;
+            }, EditorCommandCopies.Material,
+            value => { change(value); return value; }, approximateMemoryBytes: 512));
         Validate();
     }
 
@@ -279,8 +299,13 @@ public sealed class EditorApplication
         ConvexBrush? selected = scene.Brushes.FirstOrDefault(value => value.Id == id);
         if (selected == null || selected.Faces.Count == 0) return;
         int face = Math.Clamp(_document.SelectedFaceIndex ?? 0, 0, selected.Faces.Count - 1);
-        _document.Execute(new ModifyPropertyCommand(_document, commandName, project =>
-            change(project.Authoring!.Brushes.Single(value => value.Id == id).Faces[face])));
+        _document.Execute(new DeltaEditorCommand<ConvexBrushFace>(_document, commandName,
+            EditorChangeKind.Material,
+            project => project.Authoring!.Brushes.Single(value => value.Id == id).Faces[face],
+            (project, value) => project.Authoring!.Brushes
+                .Single(item => item.Id == id).Faces[face] = value,
+            EditorCommandCopies.Face,
+            value => { change(value); return value; }, approximateMemoryBytes: 256));
         Validate();
     }
 
@@ -298,40 +323,52 @@ public sealed class EditorApplication
     private void SelectNextTeam()
     {
         if (_document.SelectedObjectId is not { } id) return;
-        _document.Execute(new ModifyPropertyCommand(_document, "Change Team", project =>
-        {
-            MapEntityDefinition entity = project.Authoring!.Entities.Single(value => value.Id == id);
-            entity.Team = entity.Team == 0 ? 1 : 0;
-        }));
+        _document.Execute(new DeltaEditorCommand<int>(_document, "Change Team",
+            EditorChangeKind.Entity,
+            project => project.Authoring!.Entities.Single(value => value.Id == id).Team,
+            (project, value) => project.Authoring!.Entities
+                .Single(item => item.Id == id).Team = value,
+            static value => value, static value => value == 0 ? 1 : 0));
         Validate();
     }
 
     private void ToggleMode(MapMode mode)
     {
-        _document.Execute(new ModifyPropertyCommand(_document, "Toggle Mode", project =>
-        {
-            if (!project.SupportedModes.Remove(mode)) project.SupportedModes.Add(mode);
-            project.SupportedModes.Sort();
-        }));
+        _document.Execute(new DeltaEditorCommand<List<MapMode>>(_document, "Toggle Mode",
+            EditorChangeKind.Metadata, project => project.SupportedModes,
+            (project, value) => project.SupportedModes = value,
+            static value => [.. value], value =>
+            {
+                if (!value.Remove(mode)) value.Add(mode);
+                value.Sort();
+                return value;
+            }, approximateMemoryBytes: 256));
         Validate();
     }
 
     private void ToggleOverlay(Action<MapEditorSettings> change)
     {
-        _document.Execute(new ModifyPropertyCommand(_document, "Toggle Overlay", project =>
-            change((project.Authoring ?? throw new InvalidOperationException(
-                "Project is not natively editable.")).Editor)));
+        _document.Execute(new DeltaEditorCommand<MapEditorSettings>(_document, "Toggle Overlay",
+            EditorChangeKind.Overlay,
+            project => (project.Authoring ?? throw new InvalidOperationException(
+                "Project is not natively editable.")).Editor,
+            (project, value) => project.Authoring!.Editor = value,
+            EditorCommandCopies.Settings,
+            value => { change(value); return value; }, approximateMemoryBytes: 256));
         Validate();
     }
 
     private void ModifyEnvironment(Action<MapEnvironment> change)
     {
-        _document.Execute(new ModifyPropertyCommand(_document, "Change Environment", project =>
-        {
-            project.Environment ??= MapEnvironment.From(project.Map);
-            change(project.Environment);
-            project.Environment.ApplyTo(project.Map);
-        }));
+        _document.Execute(new DeltaEditorCommand<MapEnvironment>(_document, "Change Environment",
+            EditorChangeKind.Environment,
+            project => project.Environment ?? MapEnvironment.From(project.Map),
+            (project, value) =>
+            {
+                project.Environment = value;
+                value.ApplyTo(project.Map);
+            }, EditorCommandCopies.Environment,
+            value => { change(value); return value; }, approximateMemoryBytes: 512));
         Validate();
     }
 
@@ -427,10 +464,17 @@ public sealed class EditorApplication
 
     private void BeginBuild(bool force)
     {
-        if (_pendingBuild is { IsCompleted: false }) return;
+        if (_pendingBuild is { IsCompleted: false } || _pendingExport is { IsCompleted: false }
+            || _pendingPlay is { IsCompleted: false }) return;
         Save();
         _status = "BUILDING";
-        _pendingBuild = _builds.BuildAsync(_document.Project, force, CancellationToken.None);
+        _pendingBuild = _builds.BuildAsync(_document.Project, force, CancellationToken.None,
+            new Progress<MapBuildProgress>(progress =>
+            {
+                int percent = progress.TotalStages == 0 ? 0
+                    : progress.CompletedStages * 100 / progress.TotalStages;
+                _status = $"{progress.Stage.ToUpperInvariant()} {percent}%";
+            }));
     }
 
     private void CompleteBuild()
@@ -455,12 +499,30 @@ public sealed class EditorApplication
 
     private void Export()
     {
+        if (_pendingExport is { IsCompleted: false } || _pendingBuild is { IsCompleted: false }
+            || _pendingPlay is { IsCompleted: false }) return;
         try
         {
             Save();
             string destination = Path.ChangeExtension(_document.Path!, MapBundle.Extension);
-            MapBundleWriteResult result = _builds.ExportAsync(_document.Project, _document.Path!, destination,
-                CancellationToken.None).GetAwaiter().GetResult();
+            _status = "EXPORTING";
+            _pendingExport = _builds.ExportAsync(_document.Project, _document.Path!, destination,
+                CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            _diagnostics = [new("MAP-EDT-003", MapDiagnosticSeverity.Error, exception.Message)];
+            _status = "EXPORT FAILED";
+        }
+    }
+
+    private void CompleteExport()
+    {
+        if (_pendingExport is not { IsCompleted: true } task) return;
+        _pendingExport = null;
+        try
+        {
+            MapBundleWriteResult result = task.GetAwaiter().GetResult();
             _status = $"EXPORTED {Path.GetFileName(result.Path)} {result.ArtifactHash[..12]}";
         }
         catch (Exception exception)
@@ -472,45 +534,67 @@ public sealed class EditorApplication
 
     private void Play(bool bots)
     {
-        string? snapshotPath = null;
-        bool launched = false;
+        if (_pendingPlay is { IsCompleted: false } || _pendingBuild is { IsCompleted: false }
+            || _pendingExport is { IsCompleted: false }) return;
         try
         {
             string projectDirectory = _document.Path == null
                 ? Path.Combine(MapStoragePaths.Projects, _document.Project.StableId)
                 : Path.GetDirectoryName(_document.Path)!;
             Directory.CreateDirectory(projectDirectory);
-            snapshotPath = Path.Combine(projectDirectory,
+            _pendingPlaySnapshot = Path.Combine(projectDirectory,
                 $".project-prime-playtest-{Guid.NewGuid():N}.json");
-            _document.SaveSnapshot(snapshotPath);
-            MapProject snapshot = MapProjectIO.Load(snapshotPath);
-            MapBuildResult result = _builds.BuildAsync(snapshot, false,
-                CancellationToken.None).GetAwaiter().GetResult();
+            _document.SaveSnapshot(_pendingPlaySnapshot);
+            MapProject snapshot = MapProjectIO.Load(_pendingPlaySnapshot);
+            _pendingPlayBots = bots;
+            _status = "PREPARING PLAYTEST";
+            _pendingPlay = _builds.BuildAsync(snapshot, false, CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            _diagnostics = [new("MAP-EDT-004", MapDiagnosticSeverity.Error, exception.Message)];
+            _status = "PLAYTEST FAILED";
+            DeletePendingPlaySnapshot();
+        }
+    }
+
+    private void CompletePlay()
+    {
+        if (_pendingPlay is not { IsCompleted: true } task) return;
+        _pendingPlay = null;
+        try
+        {
+            MapBuildResult result = task.GetAwaiter().GetResult();
             _diagnostics = result.Diagnostics;
             _statistics = result.Statistics;
             if (!result.Success)
             {
                 _status = "PLAYTEST BLOCKED BY VALIDATION";
+                DeletePendingPlaySnapshot();
                 return;
             }
-            _playtest.Launch(snapshotPath, bots, deleteProjectOnExit: true);
-            launched = true;
+            string snapshotPath = _pendingPlaySnapshot
+                ?? throw new InvalidOperationException("Playtest snapshot is unavailable.");
+            _playtest.Launch(snapshotPath, _pendingPlayBots, deleteProjectOnExit: true);
+            _pendingPlaySnapshot = null;
             _status = "PLAYTEST RUNNING - RETURN BY CLOSING THE GAME";
         }
         catch (Exception exception)
         {
             _diagnostics = [new("MAP-EDT-004", MapDiagnosticSeverity.Error, exception.Message)];
             _status = "PLAYTEST FAILED";
+            DeletePendingPlaySnapshot();
         }
-        finally
-        {
-            if (!launched && snapshotPath != null)
-            {
-                try { File.Delete(snapshotPath); }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
-            }
-        }
+    }
+
+    private void DeletePendingPlaySnapshot()
+    {
+        string? path = _pendingPlaySnapshot;
+        _pendingPlaySnapshot = null;
+        if (path == null) return;
+        try { File.Delete(path); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     private void GeneratePreview()

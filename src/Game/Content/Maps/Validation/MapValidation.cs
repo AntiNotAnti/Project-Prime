@@ -47,6 +47,8 @@ public sealed class MapValidator
             diagnostics.Add(new("MAP-MODE-001", MapDiagnosticSeverity.Error,
                 "Supported modes contain duplicates."));
 
+        diagnostics.AddRange(MapDependencyAnalyzer.Analyze(project).Diagnostics);
+
         ValidateDefinition(project.Map, diagnostics, project.Authoring != null);
         if (project.Environment != null) ValidateEnvironment(project.Environment, diagnostics);
         if (project.Authoring != null) ValidateAuthoring(project, diagnostics);
@@ -90,23 +92,11 @@ public sealed class MapValidator
                 "Kill height and far clip must be finite, and far clip must be positive."));
         if (definition.Import is { } import)
         {
-            if (string.IsNullOrWhiteSpace(import.Source))
-                diagnostics.Add(new("MAP-DEP-001", MapDiagnosticSeverity.Error,
-                    "Imported geometry source is required."));
-            else if (import.Resolve() == null)
-                diagnostics.Add(new("MAP-DEP-002", MapDiagnosticSeverity.Error,
-                    $"Imported geometry source '{import.Source}' is missing.",
-                    SourcePath: definition.SourcePath,
-                    SuggestedAction: "Restore the BSP/PK3 beside the project or update its source path."));
             if (!float.IsFinite(import.UnitsPerUnit) || import.UnitsPerUnit <= 0
                 || !float.IsFinite(import.TexScale) || import.TexScale <= 0
                 || import.PatchLevel is < 1 or > 16)
                 diagnostics.Add(new("MAP-GEO-006", MapDiagnosticSeverity.Error,
                     "Q3 import units/texture scale must be positive and patch level must be 1..16."));
-            if (!string.IsNullOrWhiteSpace(import.Textures) && !TextureSourceExists(import))
-                diagnostics.Add(new("MAP-DEP-003", MapDiagnosticSeverity.Error,
-                    $"Imported texture pack '{import.Textures}' is missing.",
-                    SourcePath: definition.SourcePath));
         }
 
         for (int index = 0; index < definition.Brushes.Count; index++)
@@ -186,21 +176,6 @@ public sealed class MapValidator
         }
     }
 
-    private static bool TextureSourceExists(MapImport import)
-    {
-        if (import.BundlePath == null)
-            return import.ResolveTextures() != null;
-        try
-        {
-            return import.ReadBundledTextures() != null;
-        }
-        catch (MapPackageException)
-        {
-            // Package validation reports the more specific structural error.
-            return false;
-        }
-    }
-
     private static void ValidateAuthoring(MapProject project, MapDiagnosticBag diagnostics)
     {
         MapAuthoringScene scene = project.Authoring!;
@@ -251,6 +226,11 @@ public sealed class MapValidator
         var priorSpawns = new List<MapEntityDefinition>();
         foreach (MapEntityDefinition entity in scene.Entities)
         {
+            if (!MapEntitySupport.IsCompilerSupported(entity.Kind))
+                diagnostics.Add(new("MAP-ENT-005", MapDiagnosticSeverity.Error,
+                    $"{entity.Kind} is not supported by compiler schema {MapCompilerSchema.Current}.",
+                    entity.Id,
+                    SuggestedAction: "Remove the entity or use a compiler version that explicitly supports it."));
             if (!MapObjectId.IsValid(entity.Id) || !ids.Add(entity.Id))
                 diagnostics.Add(new("MAP-ENT-002", MapDiagnosticSeverity.Error,
                     $"Entity ID '{entity.Id}' is invalid or duplicated.", entity.Id));

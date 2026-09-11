@@ -25,7 +25,8 @@ public static class MapBuildFingerprint
             writer.WriteStartObject();
             writer.WriteNumber("compilerSchemaVersion", MapCompiler.CompilerSchemaVersion);
             writer.WriteString("projectSha256", MapJson.Sha256(canonicalProject));
-            writer.WriteString("baseContentIdentity", NeedsBaseContent(project) ? baseContentIdentity : "not-required");
+            writer.WriteString("baseContentIdentity", MapDependencyAnalyzer.Analyze(project).RequiresBaseContent
+                ? baseContentIdentity : "not-required");
             writer.WritePropertyName("dependencies");
             writer.WriteStartArray();
             foreach ((string name, string hash) in dependencies.OrderBy(value => value.Name, StringComparer.Ordinal))
@@ -46,12 +47,5 @@ public static class MapBuildFingerprint
 
     public static IReadOnlyList<(string Name, string Hash)> Dependencies(MapProject project)
         => MapProjectContentHasher.Dependencies(project);
-
-    private static bool NeedsBaseContent(MapProject project)
-    {
-        if (project.Authoring != null)
-            return project.Authoring.Materials.Any(material => material.SourceMaterial.HasValue);
-        return string.IsNullOrWhiteSpace(project.Map.Import?.Textures);
-    }
 
 }

@@ -24,7 +24,11 @@ public sealed class MapBundleValidator
                     SuggestedAction: "Re-export the map as .fpmap v2.")
                 : new("MAP-PKG-000", MapDiagnosticSeverity.Info,
                     "Map bundle is valid.", SourcePath: bundlePath);
-            MapProject project = MapProjectIO.Load(bundlePath);
+            // The explicit reader establishes that this is a package. Incoming
+            // downloads intentionally use temporary suffixes such as
+            // ".fpmap.partial", so semantic validation must not rediscover the
+            // content type from the filename.
+            MapProject project = MapProjectIO.LoadBundle(bundlePath, bundle);
             var diagnostics = new List<MapDiagnostic> { packageDiagnostic };
             diagnostics.AddRange(new MapValidator().ValidateProject(project));
             if (!bundle.IsLegacy)

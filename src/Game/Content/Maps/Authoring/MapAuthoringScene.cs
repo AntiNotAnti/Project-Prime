@@ -33,6 +33,14 @@ public enum MapEntityKind
     Trigger
 }
 
+public static class MapEntitySupport
+{
+    public static bool IsCompilerSupported(MapEntityKind kind) => kind is
+        MapEntityKind.PlayerSpawn or MapEntityKind.ItemSpawn or MapEntityKind.JumpPad
+        or MapEntityKind.DamageVolume or MapEntityKind.KillVolume or MapEntityKind.TeamSpawn
+        or MapEntityKind.CaptureBase or MapEntityKind.BountyBase or MapEntityKind.NodeObjective;
+}
+
 public sealed class MapAuthoringScene
 {
     public List<MapAuthoringMaterial> Materials { get; set; } = [];

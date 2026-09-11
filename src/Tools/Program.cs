@@ -25,7 +25,11 @@ namespace MphRead
                 if (args.Length == 0 || HasFlag(args, "help"))
                 { Console.WriteLine("ProjectPrimeTools: fidelity <command>, -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -content-dir DIRECTORY, -mapbundle [NAME|all], -mapgen [NAME|all], -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return 0; }
                 string? mapDir = ValueAfter(args, "mapdir");
-                if (mapDir != null) MapGen.CustomRooms.MapDirectory = Path.GetFullPath(Path.Combine(ConsoleSetup.LaunchDirectory, mapDir));
+                if (mapDir != null)
+                {
+                    MapGen.CustomRooms.SetBuildMapDirectory(
+                        Path.GetFullPath(Path.Combine(ConsoleSetup.LaunchDirectory, mapDir)));
+                }
                 if (HandleEarly(args) || CheckSetup(args) || HandleAssets(args)) return Environment.ExitCode;
                 IReadOnlyList<Argument> arguments = ParseArguments(args);
             if (arguments.Any(a => a.Name == "setup"))

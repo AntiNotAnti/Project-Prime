@@ -56,13 +56,13 @@ public static class MapCommand
         if (content != null) ContentEnvironment.Open(Resolve(content), Option(args, "--content-version") ?? "AMHE1");
         (string _, string baseHash) = ContentEnvironment.GetContentIdentity();
         string cache = Resolve(Option(args, "--cache") ?? MapStoragePaths.MapCache);
-        MapBuildResult result = new MapCompiler().CompileAsync(project, new MapBuildOptions
+        MapBuildResult result = new MapCompiler().Compile(project, new MapBuildOptions
         {
             CacheDirectory = cache,
             BaseContentIdentity = baseHash,
             Force = args.Contains("--force", StringComparer.Ordinal),
             Verbose = true
-        }, CancellationToken.None).GetAwaiter().GetResult();
+        }, CancellationToken.None);
         Print(result.Diagnostics);
         foreach (MapStageTiming timing in result.Timings)
             Console.WriteLine($"{timing.Stage,-26} {timing.ElapsedMilliseconds,10:N2} ms");

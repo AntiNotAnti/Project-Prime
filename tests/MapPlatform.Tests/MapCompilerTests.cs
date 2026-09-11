@@ -88,7 +88,7 @@ public sealed class MapCompilerTests : IDisposable
         string repository = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
         ContentEnvironment.Open(GameDataDirectory(), "AMHE1");
         MapProject project = MapProjectIO.Load(Path.Combine(repository, expected.ProjectPath));
-        MapBuildResult result = await new MapCompiler().CompileAsync(project, new MapBuildOptions
+        MapBuildResult result = new MapCompiler().Compile(project, new MapBuildOptions
         {
             CacheDirectory = Path.Combine(_directory, "characterization"),
             BaseContentIdentity = ContentEnvironment.GetContentIdentity().ContentHash,
@@ -159,6 +159,22 @@ public sealed class MapCompilerTests : IDisposable
 
         Assert.Contains(diagnostics, value => value.Code == "MAP-MAT-004");
         Assert.Contains(diagnostics, value => value.Code == "MAP-MAT-006");
+    }
+
+    [Fact]
+    public void UnsupportedFutureEntityKindsFailValidation()
+    {
+        MapProject project = NativeProject();
+        project.Authoring!.Entities.Add(new MapEntityDefinition
+        {
+            Id = "door.future",
+            Kind = MapEntityKind.Door
+        });
+
+        var diagnostics = new MapValidator().ValidateProject(project);
+
+        Assert.Contains(diagnostics, value => value.Code == "MAP-ENT-005"
+            && value.ObjectId == "door.future");
     }
 
     [Fact]
@@ -246,8 +262,8 @@ public sealed class MapCompilerTests : IDisposable
         };
         var compiler = new MapCompiler();
 
-        MapBuildResult first = await compiler.CompileAsync(project, options, CancellationToken.None);
-        MapBuildResult second = await compiler.CompileAsync(project, options, CancellationToken.None);
+        MapBuildResult first = compiler.Compile(project, options, CancellationToken.None);
+        MapBuildResult second = compiler.Compile(project, options, CancellationToken.None);
 
         Assert.True(first.Success, string.Join(Environment.NewLine, first.Diagnostics));
         Assert.False(first.CacheHit);
@@ -302,8 +318,8 @@ public sealed class MapCompilerTests : IDisposable
         };
 
         MapBuildResult[] results = await Task.WhenAll(
-            Task.Run(() => new MapCompiler().CompileAsync(project, options, CancellationToken.None)),
-            Task.Run(() => new MapCompiler().CompileAsync(project, options, CancellationToken.None)));
+            Task.Run(() => new MapCompiler().Compile(project, options, CancellationToken.None)),
+            Task.Run(() => new MapCompiler().Compile(project, options, CancellationToken.None)));
 
         Assert.All(results, result => Assert.True(result.Success,
             string.Join(Environment.NewLine, result.Diagnostics)));
@@ -343,11 +359,11 @@ public sealed class MapCompilerTests : IDisposable
         string secondCache = Path.Combine(_directory, "native-b");
         string baseIdentity = ContentEnvironment.GetContentIdentity().ContentHash;
 
-        MapBuildResult first = await compiler.CompileAsync(project, new MapBuildOptions
+        MapBuildResult first = compiler.Compile(project, new MapBuildOptions
         {
             CacheDirectory = firstCache, BaseContentIdentity = baseIdentity, Force = true
         }, CancellationToken.None);
-        MapBuildResult second = await compiler.CompileAsync(project, new MapBuildOptions
+        MapBuildResult second = compiler.Compile(project, new MapBuildOptions
         {
             CacheDirectory = secondCache, BaseContentIdentity = baseIdentity, Force = true
         }, CancellationToken.None);
@@ -403,7 +419,7 @@ public sealed class MapCompilerTests : IDisposable
         MapBundleWriteResult written = MapPackageBuilder.Cook(project, source, bundle);
         MapBundleReadResult package = new MapBundleReader().Read(bundle);
         MapProject loaded = MapProjectIO.Load(bundle);
-        MapBuildResult result = await new MapCompiler().CompileAsync(loaded, new MapBuildOptions
+        MapBuildResult result = new MapCompiler().Compile(loaded, new MapBuildOptions
         {
             CacheDirectory = Path.Combine(_directory, "custom-cache"),
             BaseContentIdentity = ContentEnvironment.GetContentIdentity().ContentHash
@@ -457,6 +473,153 @@ public sealed class MapCompilerTests : IDisposable
 
         Assert.Equal(first, unrelatedBase);
         Assert.NotEqual(borrowedFirst, borrowedSecond);
+    }
+
+    [Fact]
+    public void DependencyAnalysisIsTheBaseContentAuthority()
+    {
+        MapProject project = NativeProject();
+        MapDependencyAnalysis borrowed = MapDependencyAnalyzer.Analyze(project);
+        project.Authoring!.Materials[0].SourceMaterial = null;
+        project.Authoring.Materials[0].CustomImage = "custom.png";
+        string image = Path.Combine(_directory, "custom.png");
+        File.WriteAllBytes(image, [1, 2, 3]);
+        MapProjectIO.Save(project, Path.Combine(_directory, "dependency.project.json"));
+
+        MapDependencyAnalysis custom = MapDependencyAnalyzer.Analyze(project);
+
+        Assert.True(borrowed.RequiresBaseContent);
+        Assert.Contains(borrowed.Dependencies, value => value.Kind == MapDependencyKind.BaseContent);
+        Assert.False(custom.RequiresBaseContent);
+        Assert.True(custom.RequiresExternalTextures);
+        Assert.Contains(custom.Dependencies, value => value.Kind == MapDependencyKind.CustomTexture
+            && value.Hash == MapJson.Sha256(File.ReadAllBytes(image)));
+    }
+
+    [Fact]
+    public void FullyCustomNativeMapCompilesWithoutOpeningBaseContent()
+    {
+        MapImageDecoding.Decoder = global::MphRead.Imaging.StbImageDecoder.Decode;
+        MapProject project = NativeProject();
+        string image = Path.Combine(_directory, "self-contained.png");
+        File.Copy(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+            "../../../../../Logo.png")), image);
+        project.Authoring!.Materials[0].SourceMaterial = null;
+        project.Authoring.Materials[0].CustomImage = Path.GetFileName(image);
+        MapProjectIO.Save(project, Path.Combine(_directory, "self-contained.project.json"));
+
+        MapBuildResult result = new MapCompiler().Compile(project, new MapBuildOptions
+        {
+            CacheDirectory = Path.Combine(_directory, "self-contained-cache"),
+            BaseContentIdentity = "unconfigured"
+        }, CancellationToken.None);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        Assert.Equal(1, result.Statistics!.Textures);
+    }
+
+    [Fact]
+    public async Task BuildSchedulerSingleFlightsAndCallerCancellationDoesNotCancelSharedBuild()
+    {
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        int calls = 0;
+        MapBuildResult expected = new(true, false, new string('a', 64), _directory,
+            NativeProject().Identity is { } identity
+                ? new MapContentIdentity(identity, new string('b', 64)) : null,
+            [], new MapBuildStatistics(), []);
+        using var scheduler = new MapBuildScheduler(2, (_, _, token) =>
+        {
+            Interlocked.Increment(ref calls);
+            entered.Set();
+            release.Wait(token);
+            return expected;
+        });
+        MapProject project = NativeProject();
+        var options = new MapBuildOptions
+        {
+            CacheDirectory = Path.Combine(_directory, "scheduled"),
+            BaseContentIdentity = "base"
+        };
+
+        Task<MapBuildResult> first = scheduler.BuildAsync(project, options);
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+        using var cancel = new CancellationTokenSource();
+        Task<MapBuildResult> second = scheduler.BuildAsync(project, options, cancel.Token);
+        Assert.True(SpinWait.SpinUntil(() => scheduler.ActiveWaiters == 2,
+            TimeSpan.FromSeconds(5)));
+        cancel.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => second);
+        release.Set();
+
+        Assert.Same(expected, await first);
+        Assert.Equal(1, Volatile.Read(ref calls));
+    }
+
+    [Fact]
+    public void CancelledCompilerPublishLeavesNoPartialCache()
+    {
+        MapImageDecoding.Decoder = global::MphRead.Imaging.StbImageDecoder.Decode;
+        MapProject project = NativeProject();
+        string image = Path.Combine(_directory, "cancel.png");
+        File.Copy(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+            "../../../../../Logo.png")), image);
+        project.Authoring!.Materials[0].SourceMaterial = null;
+        project.Authoring.Materials[0].CustomImage = Path.GetFileName(image);
+        MapProjectIO.Save(project, Path.Combine(_directory, "cancel.project.json"));
+        string cache = Path.Combine(_directory, "cancel-cache");
+        using var cancellation = new CancellationTokenSource();
+        var progress = new InlineProgress<MapBuildProgress>(value =>
+        {
+            if (value.Stage == "Publishing cache") cancellation.Cancel();
+        });
+
+        Assert.Throws<OperationCanceledException>(() => new MapCompiler().Compile(project,
+            new MapBuildOptions
+            {
+                CacheDirectory = cache,
+                BaseContentIdentity = "unconfigured",
+                Progress = progress
+            }, cancellation.Token));
+
+        Assert.False(Directory.Exists(cache) && Directory.EnumerateDirectories(cache).Any());
+    }
+
+    [Fact]
+    public void CompilerFailuresCarryStableBuildStateClassification()
+    {
+        MapProject unsupported = NativeProject();
+        unsupported.Authoring!.Entities.Add(new MapEntityDefinition
+        {
+            Id = "door.future",
+            Kind = MapEntityKind.Door
+        });
+        MapBuildResult unsupportedResult = new MapCompiler().Compile(unsupported,
+            new MapBuildOptions { CacheDirectory = Path.Combine(_directory, "unsupported") },
+            CancellationToken.None);
+
+        var missing = new MapProject
+        {
+            StableId = "community.missing-build-source",
+            Metadata = new MapProjectMetadata { Name = "Missing", Author = "Tests" },
+            SupportedModes = [MapMode.Battle],
+            Map = new MapDefinition
+            {
+                Name = "MISSING",
+                Import = new MapImport { Source = "missing.bsp" }
+            }
+        };
+        MapProjectIO.Save(missing, Path.Combine(_directory, "missing.project.json"));
+        MapBuildResult missingResult = new MapCompiler().Compile(missing,
+            new MapBuildOptions { CacheDirectory = Path.Combine(_directory, "missing") },
+            CancellationToken.None);
+
+        Assert.Equal(CompilationFailureKind.UnsupportedFeature, unsupportedResult.FailureKind);
+        Assert.Equal(MapBuildState.Unsupported, unsupportedResult.FailureKind.ToBuildState());
+        Assert.Equal(CompilationFailureKind.MissingDependency, missingResult.FailureKind);
+        Assert.Equal(MapBuildState.MissingDependency, missingResult.FailureKind.ToBuildState());
+        Assert.Equal(MapBuildState.NeedsBuild,
+            CompilationFailureKind.IOFailure.ToBuildState());
     }
 
     [Fact]
@@ -518,6 +681,11 @@ public sealed class MapCompilerTests : IDisposable
             SupportedModes = [MapMode.Battle, MapMode.Survival],
             Map = definition
         };
+    }
+
+    private sealed class InlineProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
     }
 
     private static MapProject NativeProject()

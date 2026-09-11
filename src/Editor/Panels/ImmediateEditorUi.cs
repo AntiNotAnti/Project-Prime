@@ -18,9 +18,11 @@ public sealed class ImmediateEditorUi
     private static readonly Vector4 TextColor = new(0.84f, 0.9f, 0.95f, 1);
     private static readonly Vector4 Muted = new(0.48f, 0.56f, 0.64f, 1);
 
-    public EditorRect Viewport(Vector2i size) => new(LeftWidth, MenuHeight,
-        Math.Max(1, size.X - LeftWidth - RightWidth),
-        Math.Max(1, size.Y - MenuHeight - BottomHeight));
+    public EditorViewportLayout Viewport(Vector2i logicalSize, Vector2i framebufferSize)
+        => EditorViewportLayout.Create(logicalSize, framebufferSize,
+            new EditorRect(LeftWidth, MenuHeight,
+                Math.Max(1, logicalSize.X - LeftWidth - RightWidth),
+                Math.Max(1, logicalSize.Y - MenuHeight - BottomHeight)));
 
     public string? Draw(RenderFrame frame, Vector2i size, RenderSurfaceInput input,
         MapDocument document, IReadOnlyList<MapDiagnostic> diagnostics,
