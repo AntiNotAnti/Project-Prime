@@ -3,6 +3,20 @@ using System;
 namespace MphRead.Mods.Network;
 
 /// <summary>
+/// Presentation telemetry bands are deliberately stricter than the escalation
+/// thresholds. Only an Excellent interval is eligible to advance the slow
+/// recovery dwell; Healthy and Degraded intervals are observable but remain
+/// non-clean, while Unstable can immediately add a safety step.
+/// </summary>
+internal enum TimingTelemetryBand : byte
+{
+    Excellent,
+    Healthy,
+    Degraded,
+    Unstable
+}
+
+/// <summary>
 /// One connection's server-owned timing policy. Client observations may make
 /// presentation safer, but only trusted RTT/input starvation may expand the
 /// rewind-eligible presentation allowance.
@@ -12,6 +26,12 @@ internal sealed class ServerNetworkTimingController
     internal const double EvaluationIntervalSeconds = 1;
     internal const double CleanDwellSeconds = 8;
     internal const double TransitionTimeoutSeconds = 5;
+    internal const double ExcellentMaxUnderrunRate = 0.0025;
+    internal const double ExcellentMaxExtrapolationRate = 0.005;
+    internal const double HealthyMaxUnderrunRate = 0.01;
+    internal const double HealthyMaxExtrapolationRate = 0.02;
+    internal const double UnstableUnderrunRate = 0.02;
+    internal const double UnstableExtrapolationRate = 0.05;
 
     private readonly bool _enabled;
     private uint _nextRevision = 1;
@@ -20,10 +40,14 @@ internal sealed class ServerNetworkTimingController
     private double _clientUnstableUntil;
     private long _lastStarvedTicks;
     private byte _trustedRewindDelay = NetworkTimingProfile.Compatibility.PresentationDelayTicks;
+    private bool _telemetryObserved;
 
     public NetworkTimingProfile Active { get; private set; } = NetworkTimingProfile.Compatibility;
     public NetworkTimingProfile? Offered { get; private set; }
     public double OfferedAt { get; private set; }
+    public double LastUnderrunRate { get; private set; }
+    public double LastExtrapolationRate { get; private set; }
+    internal TimingTelemetryBand LastTelemetryBand { get; private set; } = TimingTelemetryBand.Excellent;
     public byte RewindPresentationDelayTicks => _enabled
         ? _trustedRewindDelay : NetworkTimingProfile.Compatibility.PresentationDelayTicks;
     public bool Enabled => _enabled;
@@ -41,6 +65,9 @@ internal sealed class ServerNetworkTimingController
         _clientUnstableUntil = 0;
         _lastStarvedTicks = 0;
         _trustedRewindDelay = NetworkTimingProfile.Compatibility.PresentationDelayTicks;
+        _telemetryObserved = false;
+        LastUnderrunRate = LastExtrapolationRate = 0;
+        LastTelemetryBand = TimingTelemetryBand.Excellent;
     }
 
     public bool ObserveTelemetry(in NetworkTimingTelemetry telemetry, double now)
@@ -49,7 +76,13 @@ internal sealed class ServerNetworkTimingController
             || telemetry.ProfileRevision != Active.Revision
                 && telemetry.ProfileRevision != Offered?.Revision)
             return false;
-        if (telemetry.SnapshotUnderruns > 0 || telemetry.ExtrapolatedFrames > 2
+        LastUnderrunRate = telemetry.SnapshotUnderruns / (double)telemetry.PresentedFrames;
+        LastExtrapolationRate = telemetry.ExtrapolatedFrames / (double)telemetry.PresentedFrames;
+        LastTelemetryBand = ClassifyTelemetry(LastUnderrunRate, LastExtrapolationRate);
+        if (telemetry.SnapshotJitterTenthsMs >= 100)
+            LastTelemetryBand = TimingTelemetryBand.Unstable;
+        _telemetryObserved = true;
+        if (LastTelemetryBand == TimingTelemetryBand.Unstable
             || telemetry.SnapshotJitterTenthsMs >= 100)
             _clientUnstableUntil = Math.Max(_clientUnstableUntil, now + 2);
         return true;
@@ -98,6 +131,14 @@ internal sealed class ServerNetworkTimingController
         }
         else if (desired < current)
         {
+            // Healthy, Degraded, and Unstable intervals are intentionally not
+            // clean recovery evidence. This prevents rates in the gaps between
+            // the escalation thresholds from advancing the downward dwell.
+            if (_telemetryObserved && LastTelemetryBand != TimingTelemetryBand.Excellent)
+            {
+                _cleanSince = -1;
+                return false;
+            }
             if (_cleanSince < 0) _cleanSince = now;
             if (now - _cleanSince < CleanDwellSeconds) return false;
             _cleanSince = now;
@@ -113,6 +154,17 @@ internal sealed class ServerNetworkTimingController
         // client-only instability never changes this value.
         if (trustedDelay > _trustedRewindDelay) _trustedRewindDelay = trustedDelay;
         return true;
+    }
+
+    private static TimingTelemetryBand ClassifyTelemetry(double underrunRate, double extrapolationRate)
+    {
+        if (underrunRate >= UnstableUnderrunRate || extrapolationRate >= UnstableExtrapolationRate)
+            return TimingTelemetryBand.Unstable;
+        if (underrunRate >= HealthyMaxUnderrunRate || extrapolationRate >= HealthyMaxExtrapolationRate)
+            return TimingTelemetryBand.Degraded;
+        if (underrunRate >= ExcellentMaxUnderrunRate || extrapolationRate >= ExcellentMaxExtrapolationRate)
+            return TimingTelemetryBand.Healthy;
+        return TimingTelemetryBand.Excellent;
     }
 
     public void MarkOffered(in NetworkTimingProfile profile, double now)

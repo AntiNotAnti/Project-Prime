@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
+using System.Security.Cryptography;
 using MphRead.Identity;
 using ProjectPrime.Server.Shared;
 
@@ -102,22 +103,28 @@ namespace MphRead.Mods.Network
         public int Count { get; private set; }
         public long Rejected { get; private set; }
         internal bool AdaptiveTimingEnabled { get; private set; }
+        internal bool AdaptiveTimingV2Enabled { get; private set; }
         internal bool AdaptiveInputPlayoutEnabled { get; private set; }
         internal bool ReliableAdaptiveRtoEnabled { get; private set; }
+        internal bool UdpAuthenticationEnabled { get; private set; }
 
         internal void ConfigureTiming(bool adaptiveTiming, bool adaptiveInputPlayout,
-            bool reliableAdaptiveRto = false)
+            bool reliableAdaptiveRto = false, bool adaptiveTimingV2 = false)
         {
+            if (adaptiveTimingV2 && !adaptiveTiming)
+                throw new ArgumentException("Adaptive timing V2 requires adaptive timing.");
             if (adaptiveInputPlayout && !adaptiveTiming) throw new ArgumentException("Adaptive input playout requires adaptive timing.");
             if (Count != 0)
             {
                 if (AdaptiveTimingEnabled != adaptiveTiming
+                    || AdaptiveTimingV2Enabled != adaptiveTimingV2
                     || AdaptiveInputPlayoutEnabled != adaptiveInputPlayout
                     || ReliableAdaptiveRtoEnabled != reliableAdaptiveRto)
                     throw new InvalidOperationException("Timing policy cannot change while connections are admitted.");
                 return;
             }
             AdaptiveTimingEnabled = adaptiveTiming;
+            AdaptiveTimingV2Enabled = adaptiveTimingV2;
             AdaptiveInputPlayoutEnabled = adaptiveInputPlayout;
             ReliableAdaptiveRtoEnabled = reliableAdaptiveRto;
         }
@@ -126,7 +133,8 @@ namespace MphRead.Mods.Network
             uint matchId = 1, int capacity = RosterPacket.MaxSlots)
             : this(transport, MatchRules.CreateDefault(mode.ToMatchMode(), room, capacity), matchId) { }
 
-        public ServerNetwork(INetTransport transport, MatchRules rules, uint matchId = 1, ObserverOptions? observers = null)
+        public ServerNetwork(INetTransport transport, MatchRules rules, uint matchId = 1,
+            ObserverOptions? observers = null, bool udpAuthenticationEnabled = false)
         {
             ObserverConfiguration = observers ?? new();
             ObserverConfiguration.Validate();
@@ -146,6 +154,7 @@ namespace MphRead.Mods.Network
             Room = room;
             Mode = mode;
             MatchId = matchId;
+            UdpAuthenticationEnabled = udpAuthenticationEnabled;
             _now = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
             _joins = new NetRateLimit(16, 32, _now);
             _statusQueries = new NetRateLimit(8, 16, _now);
@@ -178,9 +187,21 @@ namespace MphRead.Mods.Network
             if (TicketAuthority != null)
                 while (TicketAuthority.TryRead(out ValidatedTicketJoin completed))
                 {
-                    if (completed.Identity is TicketIdentity identity && identity.ExpiresAt > DateTimeOffset.UtcNow.ToUnixTimeSeconds())
-                        Admit(completed.Endpoint, completed.Join, identity);
-                    else Refuse(completed.Endpoint, completed.Join.Nonce, "Game ticket rejected.");
+                    byte[] admissionKey = Array.Empty<byte>();
+                    bool verified = !UdpAuthenticationEnabled
+                        || TicketAuthority.TryGetAdmissionKey(completed.Join.AdmissionId, out admissionKey);
+                    bool validIdentity = completed.Identity is TicketIdentity identity
+                        && identity.ExpiresAt > DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                        && (!UdpAuthenticationEnabled
+                            || TicketAuthority.ValidateAdmissionIdentity(completed.Join.AdmissionId,
+                                completed.Join, identity));
+                    if (validIdentity)
+                        Admit(completed.Endpoint, completed.Join, completed.Identity,
+                            verified ? admissionKey : ReadOnlySpan<byte>.Empty);
+                    else if (!UdpAuthenticationEnabled || verified)
+                        Refuse(completed.Endpoint, completed.Join.Nonce, "Game ticket rejected.",
+                            completed.Join.AdmissionId, admissionKey);
+                    if (admissionKey.Length != 0) CryptographicOperations.ZeroMemory(admissionKey);
                 }
             ProcessBotAdmissions();
             PublishRoster();
@@ -245,14 +266,49 @@ namespace MphRead.Mods.Network
             ReadOnlySpan<byte> body = bytes[NetHeader.Size..];
             if (header.Type == NetMessageType.Join)
             {
-                return _joins.Take(_now) && JoinPacket.TryRead(body, out JoinPacket join)
-                    && SubmitJoin(packet.Sender, join);
+                if (!UdpAuthenticationEnabled)
+                {
+                    if (!_joins.Take(_now)) return false;
+                    return JoinPacket.TryRead(body, out JoinPacket join)
+                        && SubmitJoin(packet.Sender, join);
+                }
+                ReadOnlySpan<byte> unsignedBody = body.Length >= NetAuthentication.TagSize
+                    ? body[..^NetAuthentication.TagSize] : body;
+                if (TicketAuthority is not { } authority
+                    || !JoinPacket.TryReadAdmissionId(unsignedBody, out Guid admissionId)
+                    || !authority.TryGetAdmissionKey(admissionId, out byte[] key)) return false;
+                try
+                {
+                    if (!NetAuthentication.TryVerify(key, NetAuthDirection.ClientToServer,
+                            bytes, out NetHeader verifiedHeader, out ReadOnlySpan<byte> verifiedBody)
+                        || verifiedHeader.Type != NetMessageType.Join
+                        || !JoinPacket.TryRead(verifiedBody, out JoinPacket join)
+                        || join.AdmissionId != admissionId
+                        || !authority.ValidateAdmissionJoin(admissionId, join)) return false;
+                    // Do not let forged or unknown admission IDs consume the
+                    // global Join budget. Authentication and admission
+                    // validation must complete before this stateful limiter.
+                    if (!_joins.Take(_now)) return false;
+                    return SubmitJoin(packet.Sender, join, key);
+                }
+                finally { CryptographicOperations.ZeroMemory(key); }
             }
             ServerPeer? peer = Find(header.ConnectionId);
-            if (peer == null || !peer.Packets.Take(_now))
+            if (peer == null)
             {
                 return false;
             }
+            NetConnection connection = peer.Connection;
+            NetConnection.VerifiedPacket verifiedPacket = default;
+            bool verifiedDatagram = false;
+            if (UdpAuthenticationEnabled)
+            {
+                if (!connection.TryVerify(bytes, packet.Sender, out verifiedPacket)) return false;
+                header = verifiedPacket.Header;
+                body = verifiedPacket.Payload;
+                verifiedDatagram = true;
+            }
+            if (!peer.Packets.Take(_now)) return false;
             uint eventId = 0;
             ReliableEventType eventType = default;
             ReadOnlySpan<byte> eventBody = default;
@@ -261,14 +317,16 @@ namespace MphRead.Mods.Network
             int commandCount = 0;
             bool valid = header.Type switch
             {
-                NetMessageType.KeepAlive or NetMessageType.Ack => body.IsEmpty,
+                NetMessageType.KeepAlive => UdpAuthenticationEnabled
+                    ? body.Length == NetAuthentication.CounterSize : body.IsEmpty,
+                NetMessageType.Ack => body.IsEmpty,
                 NetMessageType.Ping => body.Length == 8,
                 NetMessageType.Pong => body.Length == 12 && peer.PingSent != 0
                     && BinaryPrimitives.ReadInt64LittleEndian(body) == peer.PingSent,
                 NetMessageType.Input => !peer.IsObserver && InputBundle.TryRead(body, commands, out uint inputMatch, out uint inputPhase, out commandCount)
                     && inputMatch == MatchId && peer.Connection.State == NetConnectionState.Playing
                     && Phase == MatchPhase.Playing && inputPhase == PhaseRevision,
-                NetMessageType.TimingTelemetry => AdaptiveTimingEnabled
+                NetMessageType.TimingTelemetry => AdaptiveTimingEnabled && AdaptiveTimingV2Enabled
                     && _now >= peer.NextTimingTelemetry
                     && NetworkTimingTelemetry.TryRead(body, out timingTelemetry),
                 NetMessageType.Event => ReliableEventPacket.TryRead(body, out eventId, out eventType, out eventBody)
@@ -282,9 +340,14 @@ namespace MphRead.Mods.Network
                             && AdaptiveTimingEnabled && NetworkTimingProfileAppliedPacket.TryRead(eventBody, out _)),
                 _ => false
             };
-            NetConnection connection = peer.Connection;
             IPEndPoint previousEndpoint = connection.Endpoint;
-            if (!valid || !connection.TryReceive(header, packet.Sender, _now, out ReceiveResult result))
+            if (!valid) return false;
+            ReceiveResult result;
+            if (verifiedDatagram)
+            {
+                if (!connection.ApplyVerified(verifiedPacket, packet.Sender, _now, out result)) return false;
+            }
+            else if (!connection.TryReceive(header, packet.Sender, _now, out result))
             {
                 return false;
             }
@@ -363,40 +426,58 @@ namespace MphRead.Mods.Network
         public Action<int, byte>? BotTeamAssigned { get; set; }
         public void InvalidateRoster() => _rosterDirty = true;
 
-        private bool SubmitJoin(IPEndPoint endpoint, in JoinPacket join)
+        private bool SubmitJoin(IPEndPoint endpoint, in JoinPacket join,
+            ReadOnlySpan<byte> authenticatedKey = default)
         {
             if (!MatchesJoinRoute(join)) return false;
+            if (UdpAuthenticationEnabled && authenticatedKey.Length != NetAuthentication.KeySize) return false;
             if (RetryBotAdmission(endpoint, join)) return true;
-            if (join.Protocol != NetHeader.Version) return Admit(endpoint, join);
+            if (join.Protocol != NetHeader.Version)
+            {
+                Refuse(endpoint, join.Nonce, $"Authoritative protocol {NetHeader.Version} required.",
+                    join.AdmissionId, authenticatedKey);
+                return true;
+            }
             if (!string.IsNullOrEmpty(join.Ticket))
             {
-                if (TicketAuthority != null && TicketAuthority.Submit(endpoint, join)) return true;
-                Refuse(endpoint, join.Nonce, "Ticket authentication unavailable or busy.");
+                if (TicketAuthority != null && (!UdpAuthenticationEnabled
+                    || TicketAuthority.ValidateAdmissionJoin(join.AdmissionId, join))
+                    && TicketAuthority.Submit(endpoint, join)) return true;
+                Refuse(endpoint, join.Nonce, "Ticket authentication unavailable or busy.",
+                    join.AdmissionId, authenticatedKey);
                 return true;
             }
             if (TicketAuthority?.RequireTickets == true)
             {
-                Refuse(endpoint, join.Nonce, "This server requires a game ticket.");
+                Refuse(endpoint, join.Nonce, "This server requires a game ticket.",
+                    join.AdmissionId, authenticatedKey);
                 return true;
             }
-            return Admit(endpoint, join);
+            return Admit(endpoint, join, authKey: authenticatedKey);
         }
 
-        private bool Admit(IPEndPoint endpoint, in JoinPacket join, TicketIdentity? authenticated = null)
+        /// <summary>Explicit unkeyed test seam for the legacy bot-retirement admission path.</summary>
+        internal bool SubmitLegacyJoinForTesting(IPEndPoint endpoint, in JoinPacket join)
+            => UdpAuthenticationEnabled ? false : SubmitJoin(endpoint, join);
+
+        private bool Admit(IPEndPoint endpoint, in JoinPacket join, TicketIdentity? authenticated = null,
+            ReadOnlySpan<byte> authKey = default)
         {
             if (!MatchesJoinRoute(join)) return false;
             if (RequireRoutedJoins && (authenticated is not { WorkerAdmission: true, ReservedSeat: not null }
                 || AdmissionIdentityPolicy != null && !AdmissionIdentityPolicy(join, authenticated.Value))) return false;
+            if (UdpAuthenticationEnabled && authKey.Length != NetAuthentication.KeySize) return false;
             byte? reservedSeat = authenticated?.ReservedSeat;
             if (!join.Observer && reservedSeat >= _capacity) return false;
             if (RetryBotAdmission(endpoint, join)) return true;
             if (AdmissionClosed) { return false; }
             if (join.Protocol != NetHeader.Version)
             {
-                Refuse(endpoint, join.Nonce, $"Authoritative protocol {NetHeader.Version} required.");
+                Refuse(endpoint, join.Nonce, $"Authoritative protocol {NetHeader.Version} required.",
+                    join.AdmissionId, authKey);
                 return true;
             }
-            if (join.Observer) return AdmitObserver(endpoint, join, authenticated);
+            if (join.Observer) return AdmitObserver(endpoint, join, authenticated, authKey);
             foreach (ServerPeer? observer in _observers)
                 if (observer != null && (observer.Connection.Endpoint.Equals(endpoint) || observer.Nonce == join.Nonce)) return false;
             int free = -1;
@@ -461,19 +542,19 @@ namespace MphRead.Mods.Network
             bool duelInProgress = Phase is MatchPhase.Playing or MatchPhase.Ending or MatchPhase.Intermission;
             if (Rules.RulesetPreset == RulesetPreset.Duel && returningFrom == 0 && (free < 0 || duelInProgress))
             {
-                if (authenticated?.WorkerAdmission == true) { Refuse(endpoint, join.Nonce, "Reserved player admission is unavailable."); return true; }
-                return AdmitObserver(endpoint, join with { Observer = true }, authenticated);
+                if (authenticated?.WorkerAdmission == true) { Refuse(endpoint, join.Nonce, "Reserved player admission is unavailable.", join.AdmissionId, authKey); return true; }
+                return AdmitObserver(endpoint, join with { Observer = true }, authenticated, authKey);
             }
             if (free < 0)
             {
-                Refuse(endpoint, join.Nonce, "Server is full.");
+                Refuse(endpoint, join.Nonce, "Server is full.", join.AdmissionId, authKey);
                 return true;
             }
             bool inProgress = Phase is MatchPhase.Playing or MatchPhase.Ending or MatchPhase.Intermission;
-            if (AdminRosterLocked && returningFrom == 0) { Refuse(endpoint, join.Nonce, "The player roster is locked."); return true; }
+            if (AdminRosterLocked && returningFrom == 0) { Refuse(endpoint, join.Nonce, "The player roster is locked.", join.AdmissionId, authKey); return true; }
             if (inProgress && !returningParticipant && Rules.LateJoinPolicy == LateJoinPolicy.Disabled)
             {
-                Refuse(endpoint, join.Nonce, "Joining is disabled until the next match.");
+                Refuse(endpoint, join.Nonce, "Joining is disabled until the next match.", join.AdmissionId, authKey);
                 return true;
             }
             if (!returningParticipant && CanClaimPlayerSlot != null)
@@ -492,11 +573,11 @@ namespace MphRead.Mods.Network
                     if (CanClaimPlayerSlot(botCandidate)) free = botCandidate;
                     else return QueueBotAdmission(endpoint, join, authenticated, botCandidate);
                 }
-                if (free < 0) { Refuse(endpoint, join.Nonce, "Player slots are not available yet."); return true; }
+                if (free < 0) { Refuse(endpoint, join.Nonce, "Player slots are not available yet.", join.AdmissionId, authKey); return true; }
             }
             ulong id = AllocateConnectionIdentity();
             var connection = new NetConnection(id, endpoint, MatchId, _now,
-                ReliableAdaptiveRtoEnabled);
+                authKey, NetAuthDirection.ServerToClient, ReliableAdaptiveRtoEnabled);
             var accepted = new JoinAcceptedPacket(join.Nonce, (byte)free, MatchId, Tick, 60, Rules);
             Span<byte> payload = stackalloc byte[JoinAcceptedPacket.Size];
             accepted.Write(payload);
@@ -533,6 +614,18 @@ namespace MphRead.Mods.Network
             // Membership and authenticated routing changes are infrequent.
             // Publish complete immutable templates; the socket worker never
             // reads connection state, ACK windows, or simulation objects.
+            if (UdpAuthenticationEnabled)
+            {
+                var descriptors = new NetKeepAliveDescriptor[Count + ObserverCount];
+                int descriptorCount = 0;
+                foreach (ServerPeer? peer in _connections)
+                {
+                    if (peer == null) continue;
+                    descriptors[descriptorCount++] = peer.Connection.CreateKeepAliveDescriptor();
+                }
+                _transport.SetKeepAliveDescriptors(descriptors.AsSpan(0, descriptorCount));
+                return;
+            }
             var keepAlives = new NetKeepAlive[Count + ObserverCount];
             int count = 0;
             foreach (ServerPeer? peer in _connections)
@@ -775,7 +868,9 @@ namespace MphRead.Mods.Network
         /// </summary>
         public bool TrySendDebug(ServerPeer peer, ReadOnlySpan<byte> payload)
         {
-            if (payload.Length > NetConfig.MaxPacketSize - NetHeader.Size
+            int maximumPayload = UdpAuthenticationEnabled
+                ? NetAuthentication.MaximumPayloadSize : NetConfig.MaxPacketSize - NetHeader.Size;
+            if (payload.Length > maximumPayload
                 || Find(peer.Connection.Id) != peer
                 || peer.IsObserver
                 || peer.Connection.State is not (NetConnectionState.Ready or NetConnectionState.Playing))
@@ -784,13 +879,38 @@ namespace MphRead.Mods.Network
             return true;
         }
 
-        private void Refuse(IPEndPoint endpoint, ulong nonce, string reason)
+        private void Refuse(IPEndPoint endpoint, ulong nonce, string reason,
+            Guid admissionId = default, ReadOnlySpan<byte> suppliedKey = default)
         {
-            Span<byte> datagram = stackalloc byte[NetHeader.Size + 8 + 40];
-            new NetHeader(NetMessageType.Refused, NetHeaderFlags.Unsequenced, 0, 0, 0, 0).Write(datagram);
-            BinaryPrimitives.WriteUInt64LittleEndian(datagram[NetHeader.Size..], nonce);
-            NetText.Write(datagram[(NetHeader.Size + 8)..], reason);
-            _transport.SendDatagram(endpoint, datagram);
+            byte[]? ownedKey = null;
+            ReadOnlySpan<byte> key = suppliedKey;
+            if (UdpAuthenticationEnabled && key.Length != NetAuthentication.KeySize)
+            {
+                if (admissionId == Guid.Empty || TicketAuthority is not { } authority
+                    || !authority.TryGetAdmissionKey(admissionId, out ownedKey)) return;
+                key = ownedKey;
+            }
+            try
+            {
+                Span<byte> datagram = stackalloc byte[NetConfig.MaxPacketSize];
+                Span<byte> payload = datagram[NetHeader.Size..(NetHeader.Size + 8 + 40)];
+                BinaryPrimitives.WriteUInt64LittleEndian(payload, nonce);
+                NetText.Write(payload[8..], reason);
+                NetHeader header = new(NetMessageType.Refused, NetHeaderFlags.Unsequenced, 0, 0, 0, 0);
+                int length;
+                if (UdpAuthenticationEnabled)
+                    length = NetAuthentication.Sign(key, NetAuthDirection.ServerToClient, header, payload, datagram);
+                else
+                {
+                    header.Write(datagram);
+                    length = payload.Length + NetHeader.Size;
+                }
+                _transport.SendDatagram(endpoint, datagram[..length]);
+            }
+            finally
+            {
+                if (ownedKey is not null) CryptographicOperations.ZeroMemory(ownedKey);
+            }
         }
 
         public ServerPeer? Find(ulong connectionId)

@@ -20,7 +20,7 @@ namespace MphRead.Mods.Network
         private readonly bool _headshotValidationScenario;
         private readonly int _headshotScenarioFrames;
         private int _headshotValidationArm = -1;
-        private uint? _headshotValidationStartTick;
+        private int _headshotScenarioPlayingFrames;
         public Scene Scene { get; }
         public ServerCombat Combat { get; }
         public ServerBotManager Bots { get; }
@@ -180,7 +180,10 @@ namespace MphRead.Mods.Network
                     Scene.Roster.Nicknames[slot] = peer.Name;
                     player.ServerActivate(peer.Connection.Id, peer.Hunter, peer.TeamIndex);
                     if (_headshotValidationScenario)
+                    {
                         player.ModArmWeapon(BeamType.Imperialist);
+                        player.EquipInfo.InfiniteAmmo = true;
+                    }
                     peer.HasParticipated = true;
                     Reports?.Activate(Scene, peer, tick);
                     _activeConnections[slot] = peer.Connection.Id;
@@ -249,6 +252,8 @@ namespace MphRead.Mods.Network
                 }
                 ulong beforeFrame = Scene.FrameCount;
                 Scene.StepHeadlessFrame();
+                if (_headshotValidationScenario && Scene.Match.Phase == MatchPhase.Playing)
+                    _headshotScenarioPlayingFrames++;
                 for (int slot = 0; slot < 8; slot++)
                 {
                     ServerPeer? peer = network.Peers[slot];
@@ -350,6 +355,7 @@ namespace MphRead.Mods.Network
                 {
                     shooter = Scene.Players[slot];
                     shooter.ModArmWeapon(BeamType.Imperialist);
+                    shooter.EquipInfo.InfiniteAmmo = true;
                     break;
                 }
             }
@@ -359,8 +365,7 @@ namespace MphRead.Mods.Network
             Vector3 aim = toShooter.LengthSquared > 0.001f
                 ? toShooter.Normalized() : -Vector3.UnitZ;
             float range = toShooter.Length;
-            _headshotValidationStartTick ??= tick;
-            uint scenarioTick = tick - _headshotValidationStartTick.Value;
+            uint scenarioTick = checked((uint)_headshotScenarioPlayingFrames);
             HeadshotValidationPlan plan = HeadshotValidationController.Plan(
                 scenarioTick, _headshotScenarioFrames / 60, range);
             if (plan.Arm != _headshotValidationArm)
@@ -408,7 +413,7 @@ namespace MphRead.Mods.Network
             AssertPristineWorld();
             Combat.Reset();
             _headshotValidationArm = -1;
-            _headshotValidationStartTick = null;
+            _headshotScenarioPlayingFrames = 0;
             Scene.Match.ResetCompetitiveState();
             Scene.Match.Flow.ResetProgress();
             for (int slot = 0; slot < 8; slot++) { Scene.Players[slot].ServerDeactivate(); }
@@ -422,7 +427,10 @@ namespace MphRead.Mods.Network
                 {
                     Scene.Players[slot].ServerActivate(peer.Connection.Id, peer.Hunter, peer.TeamIndex);
                     if (_headshotValidationScenario)
+                    {
                         Scene.Players[slot].ModArmWeapon(BeamType.Imperialist);
+                        Scene.Players[slot].EquipInfo.InfiniteAmmo = true;
+                    }
                 }
             }
             foreach (var bot in Bots.Participants) if (bot != null) Bots.Activate(bot);

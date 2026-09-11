@@ -475,6 +475,16 @@ namespace MphRead.Entities
             return _muzzlePos + direction * t - eye;
         }
 
+        /// <summary>
+        /// Return the networked aim ray whose production muzzle/convergence
+        /// path reaches <paramref name="target"/>. This is a measurement and
+        /// validation helper: callers still submit the returned ray through
+        /// ApplyNetworkInput, so projectile creation and combat resolution are
+        /// unchanged.
+        /// </summary>
+        internal Vector3 ModNetworkAimTowards(Vector3 target)
+            => ModAimVectorTowards(target);
+
         /// <summary>Where a shot aimed at this player should be pointed.</summary>
         internal Vector3 ModAimTarget => Position + PlayerVolumes[(int)Hunter, 0].SpherePosition;
 

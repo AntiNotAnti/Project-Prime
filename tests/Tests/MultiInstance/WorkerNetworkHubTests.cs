@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.Network;
@@ -60,6 +61,165 @@ public sealed class WorkerNetworkHubTests
         Assert.Equal(1, match.FlushDurationPercentiles.Count);
         Assert.Equal(2, hub.Metrics.QueueHighWater);
         Assert.Equal(1, hub.PumpDurationPercentiles.Count);
+    }
+
+    [Fact]
+    public void CriticalReserveRemainsUsableWhenOrdinaryCapacityIsFull()
+    {
+        var physical = new MemoryTransport();
+        using var hub = new WorkerNetworkHub(physical, Guid.NewGuid(), new TestRouter(),
+            maximumDatagramsPerPump: 4);
+        using var match = hub.RegisterMatch(1, queueCapacity: 4, drainBudget: 4,
+            criticalReserve: 1);
+        ulong id = match.AllocateConnectionId();
+
+        for (uint sequence = 1; sequence <= 3; sequence++)
+            match.SendDatagram(Endpoint, Packet(NetMessageType.Event, id, sequence));
+        Assert.Equal(3, match.HeldOutgoingPackets);
+        Assert.Equal(0, match.CriticalReserveInUse);
+
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Ack, id, 4));
+        Assert.Equal(4, match.HeldOutgoingPackets);
+        Assert.Equal(1, match.CriticalReserveInUse);
+        Assert.Equal(1, match.CriticalReserveUses);
+        Assert.Equal(1, match.CriticalReserveHighWater);
+
+        // Ordinary reliable traffic cannot consume the reserved slot, and a
+        // critical packet cannot evict normal reliable traffic to do so.
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Event, id, 5));
+        Assert.Equal(4, match.HeldOutgoingPackets);
+        Assert.Equal(1, match.ClassPacketsDropped(MatchTrafficClass.NormalReliable));
+
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Ack, id, 6));
+        Assert.Equal(4, match.HeldOutgoingPackets);
+        Assert.Equal(1, match.CriticalTransportDrops);
+        Assert.Equal(1, match.CriticalReserveExhaustions);
+
+        hub.Pump();
+        Assert.Equal(4, physical.Sent.Count);
+        Assert.Equal(0, match.CriticalReserveInUse);
+        Assert.True(match.MaximumCriticalReserveQueueAgeMilliseconds >= 0);
+        Assert.True(match.OutboundQueueHighWater >= 4);
+    }
+
+    [Fact]
+    public void CriticalSurvivesSnapshotFloodAndSnapshotsStillCoalesce()
+    {
+        var physical = new MemoryTransport();
+        using var hub = new WorkerNetworkHub(physical, Guid.NewGuid(), new TestRouter(),
+            maximumDatagramsPerPump: 4);
+        using var match = hub.RegisterMatch(1, queueCapacity: 4, drainBudget: 4,
+            maxConnections: 4, criticalReserve: 1);
+        ulong first = match.AllocateConnectionId();
+        ulong second = match.AllocateConnectionId();
+        ulong third = match.AllocateConnectionId();
+        ulong fourth = match.AllocateConnectionId();
+
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Snapshot, first, 1));
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Snapshot, second, 2));
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Snapshot, third, 3));
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Ack, first, 4));
+        Assert.Equal(4, match.HeldOutgoingPackets);
+        Assert.Equal(1, match.CriticalReserveInUse);
+
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Snapshot, fourth, 5));
+        Assert.Equal(1, match.ClassPacketsDropped(MatchTrafficClass.Snapshot));
+        Assert.Equal(4, match.HeldOutgoingPackets);
+
+        // Replacing an already queued snapshot does not consume another slot
+        // or disturb the reserved critical packet.
+        match.SendDatagram(Endpoint, Packet(NetMessageType.Snapshot, first, 6));
+        Assert.Equal(4, match.HeldOutgoingPackets);
+        Assert.Equal(1, match.SnapshotsSuperseded);
+        hub.Pump();
+
+        Assert.Contains(physical.Sent, bytes => ReadHeader(bytes).Type == NetMessageType.Ack);
+        Assert.Contains(physical.Sent, bytes => ReadHeader(bytes).Type == NetMessageType.Snapshot
+            && ReadHeader(bytes).Sequence == 6);
+        Assert.Equal(4, physical.Sent.Count);
+    }
+
+    [Fact]
+    public void WorkerSendBudgetServicesMatchesRoundRobinAndCountsFailedAttempts()
+    {
+        var physical = new MemoryTransport();
+        using var hub = new WorkerNetworkHub(physical, Guid.NewGuid(), new TestRouter(),
+            matchLimit: 3, maximumDatagramsPerPump: 3);
+        using var first = hub.RegisterMatch(1, queueCapacity: 8, drainBudget: 8, criticalReserve: 0);
+        using var second = hub.RegisterMatch(2, queueCapacity: 8, drainBudget: 8, criticalReserve: 0);
+        using var third = hub.RegisterMatch(3, queueCapacity: 8, drainBudget: 8, criticalReserve: 0);
+        ulong firstId = first.AllocateConnectionId();
+        ulong secondId = second.AllocateConnectionId();
+        ulong thirdId = third.AllocateConnectionId();
+        foreach (MatchDatagramTransport match in new[] { first, second, third })
+        {
+            ulong id = match == first ? firstId : match == second ? secondId : thirdId;
+            match.SendDatagram(Endpoint, Packet(NetMessageType.Ack, id, 1));
+            match.SendDatagram(Endpoint, Packet(NetMessageType.Ack, id, 2));
+        }
+
+        hub.Pump();
+        Assert.Equal(3, physical.Sent.Count);
+        Assert.Equal(new ulong[] { firstId, secondId, thirdId },
+            physical.Sent.Select(bytes => ReadHeader(bytes).ConnectionId));
+        Assert.Equal(3, hub.DatagramsAttempted);
+        Assert.Equal(1, hub.DatagramBudgetExhaustions);
+
+        hub.Pump();
+        Assert.Equal(6, physical.Sent.Count);
+        Assert.Equal(new ulong[] { firstId, secondId, thirdId },
+            physical.Sent.Skip(3).Select(bytes => ReadHeader(bytes).ConnectionId));
+        Assert.Equal(6, hub.DatagramsAttempted);
+
+        physical.FailSends = true;
+        first.SendDatagram(Endpoint, Packet(NetMessageType.Ack, firstId, 3));
+        hub.Pump();
+        Assert.Equal(7, hub.DatagramsAttempted);
+        Assert.Equal(1, hub.Metrics.SendErrors);
+        Assert.Equal(3L, first.FlushDatagramsAttempted);
+    }
+
+    [Fact]
+    public void KeepAlivesConsumeTheWorkerBudgetAsDatagrams()
+    {
+        var physical = new MemoryTransport();
+        using var hub = new WorkerNetworkHub(physical, Guid.NewGuid(), new TestRouter(),
+            maximumDatagramsPerPump: 1);
+        using var match = hub.RegisterMatch(1, queueCapacity: 4, drainBudget: 4, criticalReserve: 0);
+        ulong id = match.AllocateConnectionId();
+        byte[] keepAlive = new byte[NetHeader.Size];
+        new NetHeader(NetMessageType.KeepAlive, NetHeaderFlags.Unsequenced, id, 0, 0, 0).Write(keepAlive);
+        match.SetKeepAlive(Endpoint, keepAlive);
+
+        hub.Pump();
+
+        Assert.Single(physical.Sent);
+        Assert.Equal(NetMessageType.KeepAlive, ReadHeader(physical.Sent[0]).Type);
+        Assert.Equal(1, hub.DatagramsAttempted);
+        Assert.Equal(1, hub.DatagramBudgetExhaustions);
+    }
+
+    [Fact]
+    public void DisablingGlobalBudgetRestoresIndependentMatchFlushBudgets()
+    {
+        var physical = new MemoryTransport();
+        using var hub = new WorkerNetworkHub(physical, Guid.NewGuid(), new TestRouter(),
+            matchLimit: 2, maximumDatagramsPerPump: 1,
+            workerGlobalNetworkBudgetEnabled: false);
+        using var first = hub.RegisterMatch(1, queueCapacity: 4, drainBudget: 2, criticalReserve: 0);
+        using var second = hub.RegisterMatch(2, queueCapacity: 4, drainBudget: 2, criticalReserve: 0);
+        ulong firstId = first.AllocateConnectionId();
+        ulong secondId = second.AllocateConnectionId();
+        first.SendDatagram(Endpoint, Packet(NetMessageType.Ack, firstId, 1));
+        first.SendDatagram(Endpoint, Packet(NetMessageType.Ack, firstId, 2));
+        second.SendDatagram(Endpoint, Packet(NetMessageType.Ack, secondId, 1));
+        second.SendDatagram(Endpoint, Packet(NetMessageType.Ack, secondId, 2));
+
+        hub.Pump();
+
+        Assert.Equal(4, physical.Sent.Count);
+        Assert.Equal(4, hub.DatagramsAttempted);
+        Assert.Equal(0, hub.DatagramBudgetExhaustions);
     }
 
     [Fact]
@@ -259,6 +419,23 @@ public sealed class WorkerNetworkHubTests
     }
 
     [Fact]
+    public void AdmissionRoutesArePerMatchBoundedAndExpiredLeasesCanBeReplaced()
+    {
+        var physical = new MemoryTransport();
+        using var hub = new WorkerNetworkHub(physical, Guid.NewGuid(), new RoutedMatchDatagramRouter(),
+            matchLimit: 1, udpAuthenticationEnabled: true);
+        using var match = hub.RegisterMatch(1);
+        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        for (int i = 0; i < WorkerNetworkHub.AdmissionRouteLimitPerMatch; i++)
+            Assert.True(match.RegisterAdmissionId(Guid.NewGuid(), now + 1, out bool created) && created);
+        Assert.False(match.RegisterAdmissionId(Guid.NewGuid(), now + 1, out _));
+
+        Thread.Sleep(1200);
+        Assert.True(match.RegisterAdmissionId(Guid.NewGuid(), DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 60,
+            out bool replacementCreated) && replacementCreated);
+    }
+
+    [Fact]
     public void GlobalRoutingBudgetBoundsUnknownFloodWithoutAllocatingRoutes()
     {
         var physical = new MemoryTransport(); using var hub = new WorkerNetworkHub(physical, Guid.NewGuid(), new RoutedMatchDatagramRouter());
@@ -281,6 +458,7 @@ public sealed class WorkerNetworkHubTests
     private sealed class MemoryTransport : INetTransport
     {
         public ConcurrentQueue<ReceivedPacket> Incoming = new(); public List<byte[]> Sent = new(); public bool Disposed;
+        public bool FailSends;
         public Action? Sending;
         public int LocalPort => 50001; public long PacketsDropped => 0; public int QueuedPackets => Incoming.Count;
         public int HeldIncomingPackets => 0; public int HeldOutgoingPackets => 0; public NetTrafficMetrics Metrics { get; } = new();
@@ -293,7 +471,11 @@ public sealed class WorkerNetworkHubTests
             return count;
         }
         public void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> bytes)
-        { Sending?.Invoke(); Sent.Add(bytes.ToArray()); }
+        {
+            Sending?.Invoke();
+            if (FailSends) throw new SocketException((int)SocketError.NoBufferSpaceAvailable);
+            Sent.Add(bytes.ToArray());
+        }
         public void SendDatagram(IPEndPoint target, ReadOnlySpan<byte> bytes, long extraHoldTicks) => SendDatagram(target, bytes);
         public void Send(IPEndPoint target, PacketType type, ReadOnlySpan<byte> bytes, long extraHoldTicks = 0) => throw new NotSupportedException();
         public void SetKeepAlive(IPEndPoint? target, ReadOnlySpan<byte> bytes = default) { }

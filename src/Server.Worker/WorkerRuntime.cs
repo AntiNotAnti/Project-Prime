@@ -11,9 +11,11 @@ using MphRead.Identity;
 using MphRead.Admin;
 using MphRead.Replay;
 using MphRead.Mods.Network;
+using MphRead.Mods.MapGen;
 using BotPolicy = MphRead.Mods.Network.BotFillPolicy;
 using SharedBotPolicy = ProjectPrime.Server.Shared.BotFillPolicy;
 using OpenTK.Mathematics;
+using ProjectPrime.Server.Worker.Maps;
 
 namespace ProjectPrime.Server.Worker;
 
@@ -23,6 +25,7 @@ public sealed class WorkerRuntime : IAsyncDisposable
     private readonly WorkerOptions _options;
     private readonly WorkerContent _content;
     private readonly WorkerContentLease _contentLease;
+    private readonly WorkerMapBuildService _mapBuilds;
     private readonly WorkerNetworkHub _hub;
     private readonly MatchRegistry _registry = new();
     private readonly SimulationLaneManager _lanes;
@@ -52,6 +55,7 @@ public sealed class WorkerRuntime : IAsyncDisposable
         { _contentLease.Dispose(); throw new ArgumentException("Worker must hold the active immutable content view."); }
         try
         {
+            _mapBuilds = new(options, content);
             if (options.ValidationFixture != DeveloperValidationFixtureId.None)
             {
                 DeveloperValidationFixtureDescriptor descriptor
@@ -95,9 +99,25 @@ public sealed class WorkerRuntime : IAsyncDisposable
         }
     }
 
-    public Task<WorkerEvent> CreateAsync(MatchSpec spec)
+    public async Task<WorkerEvent> CreateAsync(MatchSpec spec)
     {
         spec.Validate();
+        MatchContentSnapshot? snapshot;
+        try
+        {
+            using var timeout = new CancellationTokenSource(_options.CreationTimeout);
+            snapshot = await _mapBuilds.PrepareAsync(spec.Content, timeout.Token).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is MapDependencyException or MapCompilationException
+            or MapPackageException or OperationCanceledException)
+        {
+            return new MatchFailed(spec.MatchId, "Required map is missing, invalid, or not ready.");
+        }
+        return await RegisterAsync(spec, snapshot).ConfigureAwait(false);
+    }
+
+    private Task<WorkerEvent> RegisterAsync(MatchSpec spec, MatchContentSnapshot? contentSnapshot)
+    {
         byte[] fingerprint = MatchRegistry.Fingerprint(spec);
         MatchRegistry.Entry entry;
         lock (_registry.Gate)
@@ -122,7 +142,8 @@ public sealed class WorkerRuntime : IAsyncDisposable
             if (spec.Content.ContentVersion != _content.Version || spec.Content.ContentHash != _content.ContentHash
                 || spec.Content.BuildVersion != _options.BuildVersion || spec.Content.ProtocolVersion != _options.ProtocolVersion
                 || (fixtureMap ? !IsValidationFixtureSpec(spec)
-                    : !_content.SupportedRooms.Contains(spec.Content.MapKey, StringComparer.Ordinal)))
+                    : spec.Content.RequiredMap == null
+                        && !_content.SupportedRooms.Contains(spec.Content.MapKey, StringComparer.Ordinal)))
                 return Task.FromResult<WorkerEvent>(new MatchFailed(spec.MatchId, "Content, map, build or protocol mismatch."));
             if (spec.ReplayPolicy == ReplayPolicy.Record && string.IsNullOrWhiteSpace(_options.ReplayDirectory)
                 || spec.TelemetryPolicy == TelemetryPolicy.Record && string.IsNullOrWhiteSpace(_options.ArtifactDirectory))
@@ -142,7 +163,8 @@ public sealed class WorkerRuntime : IAsyncDisposable
             SimulationLaneManager.Lease lease;
             try { lease = _lanes.Reserve(); }
             catch (InvalidOperationException error) { return Task.FromResult<WorkerEvent>(new MatchFailed(spec.MatchId, error.Message)); }
-            entry = new(spec, fingerprint, new(_registry.AllocateWireId())) { Lease = lease };
+            entry = new(spec, fingerprint, new(_registry.AllocateWireId()))
+                { Lease = lease, ContentSnapshot = contentSnapshot };
             _registry.Entries.Add(spec.MatchId, entry); _registry.ByWireId.Add(entry.WireId.Value, entry);
             if (fixtureMap) _validationFixtureMatchAccepted = true;
         }
@@ -185,7 +207,9 @@ public sealed class WorkerRuntime : IAsyncDisposable
                 {
                     var lagCompensation = _options.ResolveLagCompensation();
                     entry.Transport = _hub.RegisterMatch(entry.WireId.Value, maxConnections: 32,
-                        queueV2Enabled: _options.TransportQueueV2Enabled);
+                        queueV2Enabled: _options.TransportQueueV2Enabled,
+                        criticalReserve: _options.TransportCriticalReserveEnabled
+                            ? _options.CriticalTransportReserve : 0);
                     lock (_registry.Gate)
                         entry.Tickets = new WorkerTicketAuthority(entry.Spec, Placement(entry), _keyId!, _publicKey!);
                     entry.Instance = new MatchInstance(new(entry.Spec, entry.WireId.Value)
@@ -201,11 +225,14 @@ public sealed class WorkerRuntime : IAsyncDisposable
                         HistoricalDynamicCollisionEnabled = lagCompensation.HistoricalDynamicCollisionEnabled,
                         SnapshotRateHz = _options.SnapshotRateHz,
                         AdaptiveTimingEnabled = _options.AdaptiveTimingEnabled,
+                        AdaptiveTimingV2Enabled = _options.AdaptiveTimingV2Enabled,
                         AdaptiveInputPlayoutEnabled = _options.AdaptiveInputPlayoutEnabled,
                         ReliableAdaptiveRtoEnabled = _options.ReliableAdaptiveRtoEnabled,
+                        UdpAuthenticationEnabled = _options.UdpAuthenticationEnabled,
                         ValidationFixture = _options.ValidationFixture,
                         HeadshotValidationScenario = _options.HeadshotValidationScenario,
-                        HeadshotScenarioSeconds = _options.HeadshotScenarioSeconds
+                        HeadshotScenarioSeconds = _options.HeadshotScenarioSeconds,
+                        ContentSnapshot = entry.ContentSnapshot
                     }, entry.Transport);
                     deadline.Token.ThrowIfCancellationRequested();
                     ObjectDisposedException.ThrowIf(_disposed != 0, this);
@@ -381,6 +408,34 @@ public sealed class WorkerRuntime : IAsyncDisposable
         catch (InvalidOperationException) { return new(command.MatchId, command.Action, false, "not_active", "Match is not active."); }
     }
 
+    /// <summary>
+    /// Dispatches admission-key installation to the owning match lane. The
+    /// control reader never mutates WorkerTicketAuthority directly.
+    /// </summary>
+    public async Task<WorkerEvent> InstallAdmissionKeyAsync(InstallAdmissionKey command)
+    {
+        WorkerIpcCodec.Encode(command);
+        if (command.WorkerId != _options.WorkerId || command.WorkerIncarnation != _options.Incarnation)
+            return new AdmissionKeyInstallFailed(command.AdmissionId, command.MatchId, "worker_scope");
+        try
+        {
+            (bool Accepted, string Reason) installed = await InvokeMatchAsync(command.MatchId, match =>
+            {
+                bool accepted = match.TryInstallAdmissionKey(command, out string reason);
+                return (Accepted: accepted, Reason: reason);
+            });
+            return installed.Accepted
+                ? new AdmissionKeyInstalled(command.AdmissionId, command.TicketId, command.NodeSessionId,
+                    command.NodeId, command.NodeIncarnation, command.MatchId, command.WireMatchId,
+                    command.WorkerId, command.WorkerIncarnation, command.SeatId, command.JoinNonce, command.ExpiresAt)
+                : new AdmissionKeyInstallFailed(command.AdmissionId, command.MatchId, installed.Reason);
+        }
+        catch (InvalidOperationException)
+        {
+            return new AdmissionKeyInstallFailed(command.AdmissionId, command.MatchId, "match_unavailable");
+        }
+    }
+
     public async Task CancelAsync(MatchId id)
     {
         MatchRegistry.Entry? entry;
@@ -451,7 +506,8 @@ public sealed class WorkerRuntime : IAsyncDisposable
             try { handler(value); } catch (Exception) { /* A control subscriber cannot terminate a simulation lane. */ }
     }
     private MatchPlacement Placement(MatchRegistry.Entry entry) => new(entry.Spec.MatchId, entry.WireId,
-        _options.WorkerId, _options.Incarnation, _options.AdvertisedHost, checked((ushort)_hub.LocalPort));
+        _options.WorkerId, _options.Incarnation, _options.AdvertisedHost, checked((ushort)_hub.LocalPort),
+        _options.UdpAuthenticationEnabled);
     public Task UpdateSigningKeyAsync(UpdateNodeSigningKey command)
     {
         WorkerIpcCodec.Encode(command);

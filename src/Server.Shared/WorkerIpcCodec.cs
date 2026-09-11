@@ -40,7 +40,11 @@ public static class WorkerIpcCodec
         typeof(MatchReportReady),
         typeof(WorkerDraining),
         typeof(WorkerFault),
-        typeof(MatchAdminResult)
+        typeof(MatchAdminResult),
+        // Append-only: never insert a new Worker IPC type before an existing one.
+        typeof(InstallAdmissionKey),
+        typeof(AdmissionKeyInstalled),
+        typeof(AdmissionKeyInstallFailed)
     ];
 
     public static byte[] Encode(WorkerMessage message)
@@ -149,6 +153,11 @@ public static class WorkerIpcCodec
                 if (m.SeatId >= 32 || needsSeat != m.SeatId.HasValue) throw new ArgumentException("Invalid admin target.");
                 break;
             case UpdateNodeSigningKey m: ContractGuard.Text(m.KeyId, 128); ContractGuard.Text(m.PublicKey, 8192); break;
+            case InstallAdmissionKey m:
+                ValidateAdmissionKeyBinding(m.AdmissionId, m.TicketId, m.NodeSessionId, m.NodeId, m.NodeIncarnation,
+                    m.MatchId, m.WireMatchId, m.WorkerId, m.WorkerIncarnation, m.SeatId, m.JoinNonce, m.ExpiresAt);
+                AdmissionKeyRules.Validate(m.AdmissionKey);
+                break;
             case MatchStarted m: ContractGuard.Id(m.MatchId.Value); break;
             case MatchCompleted m: if (m.Summary is null) throw new ArgumentException("Missing completion summary."); m.Summary.Validate(); break;
             case MatchFailed m: ContractGuard.Id(m.MatchId.Value); ContractGuard.Text(m.Reason, 1024); break;
@@ -156,8 +165,25 @@ public static class WorkerIpcCodec
             case MatchReportReady m: m.Validate(); break;
             case WorkerDraining m: ContractGuard.Id(m.WorkerId.Value); ContractGuard.Id(m.WorkerIncarnation); break;
             case WorkerFault m: ContractGuard.Id(m.WorkerId.Value); ContractGuard.Id(m.WorkerIncarnation); ContractGuard.Text(m.Reason, 1024); break;
+            case AdmissionKeyInstalled m:
+                ValidateAdmissionKeyBinding(m.AdmissionId, m.TicketId, m.NodeSessionId, m.NodeId, m.NodeIncarnation,
+                    m.MatchId, m.WireMatchId, m.WorkerId, m.WorkerIncarnation, m.SeatId, m.JoinNonce, m.ExpiresAt);
+                break;
+            case AdmissionKeyInstallFailed m:
+                ContractGuard.Id(m.AdmissionId); ContractGuard.Id(m.MatchId.Value); ContractGuard.Text(m.Reason, 256);
+                break;
             default: throw new ArgumentException("Unknown message.");
         }
+    }
+    private static void ValidateAdmissionKeyBinding(Guid admissionId, Guid ticketId, Guid nodeSessionId,
+        NodeId nodeId, Guid nodeIncarnation, MatchId matchId, WireMatchId wireMatchId,
+        WorkerId workerId, Guid workerIncarnation, byte seatId, ulong joinNonce, long expiresAt)
+    {
+        ContractGuard.Id(admissionId); ContractGuard.Id(ticketId); ContractGuard.Id(nodeSessionId);
+        ContractGuard.Id(nodeId.Value); ContractGuard.Id(nodeIncarnation); ContractGuard.Id(matchId.Value);
+        ContractGuard.Id(workerId.Value); ContractGuard.Id(workerIncarnation);
+        if (wireMatchId.Value == 0 || seatId >= 32 || joinNonce == 0 || expiresAt <= 0)
+            throw new ArgumentException("Invalid admission-key binding.");
     }
     private static void Capacity(WorkerCapacity? capacity)
     { if (capacity is null) throw new ArgumentException("Missing capacity."); capacity.Validate(); }
@@ -171,6 +197,7 @@ public static class WorkerIpcCodec
 [JsonSerializable(typeof(Shutdown))]
 [JsonSerializable(typeof(MatchAdminCommand))]
 [JsonSerializable(typeof(UpdateNodeSigningKey))]
+[JsonSerializable(typeof(InstallAdmissionKey))]
 [JsonSerializable(typeof(WorkerHello))]
 [JsonSerializable(typeof(WorkerReady))]
 [JsonSerializable(typeof(WorkerHeartbeat))]
@@ -182,6 +209,8 @@ public static class WorkerIpcCodec
 [JsonSerializable(typeof(MatchReportReady))]
 [JsonSerializable(typeof(WorkerDraining))]
 [JsonSerializable(typeof(WorkerFault))]
+[JsonSerializable(typeof(AdmissionKeyInstalled))]
+[JsonSerializable(typeof(AdmissionKeyInstallFailed))]
 [JsonSerializable(typeof(MatchAdminResult))]
 [JsonSerializable(typeof(NodeMatchSummary))]
 internal partial class WorkerJsonContext : JsonSerializerContext;

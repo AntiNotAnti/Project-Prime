@@ -2,6 +2,7 @@ using System;
 using ProjectPrime.Server.Shared;
 using MphRead.Admin;
 using MphRead.Identity;
+using MphRead.Mods.MapGen;
 
 namespace MphRead.Mods.Network;
 
@@ -13,8 +14,11 @@ public sealed record MatchInstanceOptions(MatchSpec Spec, uint WireMatchId)
     public uint InitialTick { get; init; }
     public int SnapshotRateHz { get; init; } = SnapshotCadence.DefaultRateHz;
     public bool AdaptiveTimingEnabled { get; init; }
+    public bool AdaptiveTimingV2Enabled { get; init; }
     public bool AdaptiveInputPlayoutEnabled { get; init; }
     public bool ReliableAdaptiveRtoEnabled { get; init; }
+    /// <summary>Production matches require the authenticated UDP admission path.</summary>
+    public bool UdpAuthenticationEnabled { get; init; } = true;
     public bool LagCompEnabled { get; init; } = true;
     public bool ProjectileCatchUpEnabled { get; init; } = true;
     /// <summary>QZ1 dynamic collision is disabled until WAN validation.</summary>
@@ -31,6 +35,7 @@ public sealed record MatchInstanceOptions(MatchSpec Spec, uint WireMatchId)
     public bool RequireReplay { get; init; }
     public bool CollectTelemetry { get; init; }
     public Guid? ReportingServerId { get; init; }
+    public MatchContentSnapshot? ContentSnapshot { get; init; }
     public bool EnableAdmin { get; init; }
     // A host may resolve and receive next-round selections; the match never applies them.
     public Func<string?, string?, MatchRules>? ResolveAdminSelection { get; init; }

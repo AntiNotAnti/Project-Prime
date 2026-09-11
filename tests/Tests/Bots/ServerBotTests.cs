@@ -118,11 +118,10 @@ public sealed class ServerBotTests
         network.CanClaimPlayerSlot = slot => { requested[slot] = true; if (safe) retired = true; return safe; };
         var endpoint = new IPEndPoint(IPAddress.Loopback, 10002);
         var join = new JoinPacket { Protocol = NetHeader.Version, Name = "Joining", Hunter = Hunter.Samus, Nonce = 200 };
-        var submit = typeof(ServerNetwork).GetMethod("SubmitJoin", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        Assert.True((bool)submit.Invoke(network, new object[] { endpoint, join })!);
+        Assert.True(network.SubmitLegacyJoinForTesting(endpoint, join));
         Assert.Single(requested, value => value);
         Assert.True(network.HasPendingBotAdmission(1));
-        for (int retry = 0; retry < 5; retry++) submit.Invoke(network, new object[] { endpoint, join });
+        for (int retry = 0; retry < 5; retry++) network.SubmitLegacyJoinForTesting(endpoint, join);
         Assert.Single(requested, value => value);
         Assert.Null(network.Peers[1]);
         safe = true;

@@ -1242,6 +1242,7 @@ namespace MphRead.Mods.Network
         public const int RoomPlayerCount = 2;
         public const ushort DefaultPort = 27888;
         public const int MaxPacketSize = 1024;
+        public const int DefaultMaximumDatagramsPerPump = 512;
         public const int ProtocolVersion = NetHeader.Version;
         // Both peers maintain independent transport liveness during content loads.
         public const double TimeoutSeconds = 30.0;

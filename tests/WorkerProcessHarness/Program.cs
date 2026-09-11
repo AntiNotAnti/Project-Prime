@@ -7,7 +7,12 @@ if (mode == "snapshot-rate" && Get("--snapshot-rate-hz") != "60") return 30;
 if (mode == "adaptive-timing"
     && (Get("--adaptive-timing") != "True" || Get("--adaptive-input-playout") != "True")) return 31;
 if (mode == "network-flags"
-    && (Get("--transport-queue-v2") != "True" || Get("--reliable-adaptive-rto") != "True")) return 32;
+    && (Get("--transport-queue-v2") != "True"
+        || Get("--transport-critical-reserve-enabled") != "False"
+        || Get("--critical-transport-reserve") != "16"
+        || Get("--worker-global-network-budget-enabled") != "False"
+        || Get("--max-datagrams-per-pump") != "256"
+        || Get("--reliable-adaptive-rto") != "True")) return 32;
 var activeMatches = new Dictionary<MatchId, MatchSpec>();
 if (mode == "environment" && Environment.GetEnvironmentVariable("PRIME_NODE_DIRECTORY_SECRET") != null) return 29;
 if (mode == "exit") return 17;
@@ -73,6 +78,24 @@ while (true)
             if (activeMatches.Remove(admin.MatchId, out var completed))
                 await WorkerIpcCodec.WriteAsync(pipe, new MatchCompleted(new(completed.MatchId,
                     completed.LobbyId, MphRead.MatchEndReason.TimeLimit, [], null, null, Guid.NewGuid())));
+            break;
+        case InstallAdmissionKey admission:
+            if (mode == "admission-key-noack") break;
+            if (mode == "admission-key-crash") return 44;
+            if (mode == "admission-key-delay") await Task.Delay(500);
+            if (mode == "admission-key-failure-stale")
+            {
+                await WorkerIpcCodec.WriteAsync(pipe,
+                    new AdmissionKeyInstallFailed(admission.AdmissionId, new MatchId(Guid.NewGuid()), "stale"));
+                break;
+            }
+            await WorkerIpcCodec.WriteAsync(pipe, mode == "admission-key-stale"
+                ? new AdmissionKeyInstalled(admission.AdmissionId, Guid.NewGuid(), admission.NodeSessionId,
+                    admission.NodeId, admission.NodeIncarnation, admission.MatchId, admission.WireMatchId,
+                    admission.WorkerId, admission.WorkerIncarnation, admission.SeatId, admission.JoinNonce, admission.ExpiresAt)
+                : new AdmissionKeyInstalled(admission.AdmissionId, admission.TicketId, admission.NodeSessionId,
+                    admission.NodeId, admission.NodeIncarnation, admission.MatchId, admission.WireMatchId,
+                    admission.WorkerId, admission.WorkerIncarnation, admission.SeatId, admission.JoinNonce, admission.ExpiresAt));
             break;
         case CancelMatch cancel:
             await WorkerIpcCodec.WriteAsync(pipe, new MatchInterrupted(cancel.MatchId, "cancelled")); break;

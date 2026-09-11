@@ -13,9 +13,21 @@ public sealed record WorkerLaunchOptions
     public WorkerCapacity Capacity { get; init; } = new(8, 64, 0, 0);
     public int SnapshotRateHz { get; init; } = SnapshotCadence.DefaultRateHz;
     public bool AdaptiveTimingEnabled { get; init; }
+    /// <summary>
+    /// Enables the protocol-13 frame-denominator telemetry path. This is kept
+    /// separate from the older RTT/input adaptive policy so it can be rolled
+    /// back without silently accepting incompatible telemetry.
+    /// </summary>
+    public bool AdaptiveTimingV2Enabled { get; init; }
     public bool AdaptiveInputPlayoutEnabled { get; init; }
     public bool TransportQueueV2Enabled { get; init; }
+    public bool TransportCriticalReserveEnabled { get; init; } = true;
+    public int CriticalTransportReserve { get; init; } = 32;
+    public bool WorkerGlobalNetworkBudgetEnabled { get; init; } = true;
+    public int MaximumDatagramsPerPump { get; init; } = NetConfig.DefaultMaximumDatagramsPerPump;
     public bool ReliableAdaptiveRtoEnabled { get; init; }
+    /// <summary>Production Worker UDP admission authentication; false only for explicit test/legacy seams.</summary>
+    public bool UdpAuthenticationEnabled { get; init; } = true;
     public TimeSpan StartupTimeout { get; init; } = TimeSpan.FromSeconds(15);
     public TimeSpan HeartbeatTimeout { get; init; } = TimeSpan.FromSeconds(10);
     public TimeSpan ShutdownTimeout { get; init; } = TimeSpan.FromSeconds(10);
@@ -78,8 +90,13 @@ public sealed record WorkerLaunchOptions
             throw new ArgumentException("Worker artifact root must be absolute.");
         if (Capacity.ActiveMatches != 0 || Capacity.ActivePlayers != 0) throw new ArgumentException("New workers must start empty.");
         if (!SnapshotCadence.IsSupported(SnapshotRateHz)) throw new ArgumentException("Snapshot rate must be 30 or 60 Hz.");
+        if (AdaptiveTimingV2Enabled && !AdaptiveTimingEnabled)
+            throw new ArgumentException("Adaptive timing V2 requires adaptive timing.");
         if (AdaptiveInputPlayoutEnabled && !AdaptiveTimingEnabled)
             throw new ArgumentException("Adaptive input playout requires adaptive timing.");
+        if (CriticalTransportReserve is < 0 or > 65536
+            || MaximumDatagramsPerPump is < 1 or > 65536)
+            throw new ArgumentException("Worker transport budgets must be bounded.");
         int? lanes = NumberArgument("--lanes");
         int? maxMatches = NumberArgument("--max-matches");
         int? maxMatchesPerLane = NumberArgument("--max-matches-per-lane");
@@ -102,9 +119,15 @@ public sealed record WorkerLaunchOptions
             throw new ArgumentException("Worker identity arguments are owned by the manager.");
         if (Arguments.Contains("--snapshot-rate-hz", StringComparer.Ordinal)
             || Arguments.Contains("--adaptive-timing", StringComparer.Ordinal)
+            || Arguments.Contains("--adaptive-timing-v2", StringComparer.Ordinal)
             || Arguments.Contains("--adaptive-input-playout", StringComparer.Ordinal)
             || Arguments.Contains("--transport-queue-v2", StringComparer.Ordinal)
-            || Arguments.Contains("--reliable-adaptive-rto", StringComparer.Ordinal))
+            || Arguments.Contains("--transport-critical-reserve-enabled", StringComparer.Ordinal)
+            || Arguments.Contains("--critical-transport-reserve", StringComparer.Ordinal)
+            || Arguments.Contains("--worker-global-network-budget-enabled", StringComparer.Ordinal)
+            || Arguments.Contains("--max-datagrams-per-pump", StringComparer.Ordinal)
+            || Arguments.Contains("--reliable-adaptive-rto", StringComparer.Ordinal)
+            || Arguments.Contains("--udp-authentication", StringComparer.Ordinal))
             throw new ArgumentException("Node-owned networking options must use WorkerLaunchOptions properties.");
     }
 }

@@ -17,9 +17,10 @@ namespace MphRead.Tests
         [Fact]
         public void CompleteRulesRoundTripAcrossReliableBoundaries()
         {
-            // Live protocol 12 adds the authoritative input epoch; older replay fixtures
-            // below intentionally keep their historical protocol versions.
-            Assert.Equal(12, NetHeader.Version);
+            // Live protocol 14 carries authenticated UDP framing in addition
+            // to the input epoch and frame timing denominator; older replay fixtures below
+            // intentionally keep their historical protocol versions.
+            Assert.Equal(14, NetHeader.Version);
             foreach (MatchMode mode in Enum.GetValues<MatchMode>())
             {
                 MatchRules rules = Rules(mode);

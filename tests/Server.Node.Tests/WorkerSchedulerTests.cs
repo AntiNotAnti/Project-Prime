@@ -68,4 +68,73 @@ public sealed class WorkerSchedulerTests
         await scheduler.PlaceAsync(WorkerManagerTests.Spec(manager));
         Assert.False(await ended.Task.WaitAsync(TimeSpan.FromSeconds(3)));
     }
+
+    [Fact]
+    public async Task AdmissionKeyInstallRequiresWorkerAcknowledgement()
+    {
+        var manager = Manager();
+        await using var scheduler = new WorkerScheduler(manager, admissionInstallTimeout: TimeSpan.FromMilliseconds(500));
+        ManagedWorker worker = await scheduler.StartWorkerAsync(Launch("admission-key"));
+        MatchSpec spec = WorkerManagerTests.Spec(manager);
+        MatchPlacement placement = await scheduler.PlaceAsync(spec);
+        InstallAdmissionKey command = Install(spec, placement, worker);
+
+        AdmissionKeyInstalled installed = await scheduler.InstallAdmissionKeyAsync(command);
+
+        Assert.Equal(command.AdmissionId, installed.AdmissionId);
+        Assert.Equal(command.TicketId, installed.TicketId);
+        Assert.Equal(command.WireMatchId, installed.WireMatchId);
+    }
+
+    [Fact]
+    public async Task AdmissionKeyInstallTimesOutAndStaleAcknowledgementCannotCompleteIt()
+    {
+        var manager = Manager();
+        await using var scheduler = new WorkerScheduler(manager, admissionInstallTimeout: TimeSpan.FromMilliseconds(150));
+        ManagedWorker worker = await scheduler.StartWorkerAsync(Launch("admission-key-noack"));
+        MatchSpec spec = WorkerManagerTests.Spec(manager);
+        MatchPlacement placement = await scheduler.PlaceAsync(spec);
+
+        await Assert.ThrowsAsync<WorkerPlacementException>(() =>
+            scheduler.InstallAdmissionKeyAsync(Install(spec, placement, worker)));
+    }
+
+    [Fact]
+    public async Task AdmissionKeyInstallRejectsStaleAckAndWorkerLoss()
+    {
+        var manager = Manager();
+        await using var scheduler = new WorkerScheduler(manager, admissionInstallTimeout: TimeSpan.FromMilliseconds(500));
+        ManagedWorker worker = await scheduler.StartWorkerAsync(Launch("admission-key-stale"));
+        MatchSpec spec = WorkerManagerTests.Spec(manager);
+        MatchPlacement placement = await scheduler.PlaceAsync(spec);
+        await Assert.ThrowsAsync<WorkerPlacementException>(() =>
+            scheduler.InstallAdmissionKeyAsync(Install(spec, placement, worker)));
+
+        var lossManager = Manager();
+        await using var lossScheduler = new WorkerScheduler(lossManager, admissionInstallTimeout: TimeSpan.FromSeconds(2));
+        ManagedWorker lost = await lossScheduler.StartWorkerAsync(Launch("admission-key-crash"));
+        MatchSpec lossSpec = WorkerManagerTests.Spec(lossManager);
+        MatchPlacement lossPlacement = await lossScheduler.PlaceAsync(lossSpec);
+        await Assert.ThrowsAsync<WorkerPlacementException>(() =>
+            lossScheduler.InstallAdmissionKeyAsync(Install(lossSpec, lossPlacement, lost)));
+    }
+
+    [Fact]
+    public async Task AdmissionKeyInstallFailureWithWrongMatchIsIgnoredUntilTimeout()
+    {
+        var manager = Manager();
+        await using var scheduler = new WorkerScheduler(manager, admissionInstallTimeout: TimeSpan.FromMilliseconds(150));
+        ManagedWorker worker = await scheduler.StartWorkerAsync(Launch("admission-key-failure-stale"));
+        MatchSpec spec = WorkerManagerTests.Spec(manager);
+        MatchPlacement placement = await scheduler.PlaceAsync(spec);
+
+        await Assert.ThrowsAsync<WorkerPlacementException>(() =>
+            scheduler.InstallAdmissionKeyAsync(Install(spec, placement, worker)));
+    }
+
+    private static InstallAdmissionKey Install(MatchSpec spec, MatchPlacement placement, ManagedWorker worker)
+        => new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), spec.NodeId, spec.NodeIncarnation,
+            spec.MatchId, placement.WireMatchId, worker.Id, worker.Incarnation, spec.Roster[0].SeatId,
+            123, DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 60,
+            Convert.ToBase64String(new byte[AdmissionKeyRules.ByteLength]));
 }

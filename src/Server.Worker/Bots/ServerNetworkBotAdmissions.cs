@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using System.Security.Cryptography;
 
 namespace MphRead.Mods.Network;
 
@@ -36,9 +37,9 @@ public sealed partial class ServerNetwork
             if (pending.Join.Equals(join))
             {
                 pending.LastRetry = _now;
-                SendJoinPending(endpoint, join.Nonce);
+                SendJoinPending(endpoint, join);
             }
-            else Refuse(endpoint, join.Nonce, "Another admission is pending.");
+            else Refuse(endpoint, join.Nonce, "Another admission is pending.", join.AdmissionId);
             return true;
         }
         return false;
@@ -46,7 +47,7 @@ public sealed partial class ServerNetwork
     private bool QueueBotAdmission(IPEndPoint endpoint, in JoinPacket join, TicketIdentity? identity, int slot)
     {
         _botJoins[slot] = new(endpoint, join, identity, slot, MatchId, _now);
-        SendJoinPending(endpoint, join.Nonce);
+        SendJoinPending(endpoint, join);
         return true;
     }
     private void ProcessBotAdmissions()
@@ -61,21 +62,38 @@ public sealed partial class ServerNetwork
             {
                 _botJoins[slot] = null;
                 CancelBotClaim?.Invoke(slot);
-                Refuse(pending.Endpoint, pending.Join.Nonce, "Pending admission expired; please retry.");
+                Refuse(pending.Endpoint, pending.Join.Nonce, "Pending admission expired; please retry.", pending.Join.AdmissionId);
                 continue;
             }
             if (_peers[slot] != null || HasReconnectReservation(slot)) continue;
             if (CanClaimPlayerSlot?.Invoke(slot) != true) continue;
             _botJoins[slot] = null;
             // This identity was already verified; never consume its one-use ticket twice.
-            Admit(pending.Endpoint, pending.Join, pending.Identity);
+            byte[] key = Array.Empty<byte>();
+            if (UdpAuthenticationEnabled && (TicketAuthority is not { } authority
+                || !authority.TryGetAdmissionKey(pending.Join.AdmissionId, out key))) continue;
+            try { Admit(pending.Endpoint, pending.Join, pending.Identity,
+                UdpAuthenticationEnabled ? key : ReadOnlySpan<byte>.Empty); }
+            finally { if (key.Length != 0) CryptographicOperations.ZeroMemory(key); }
         }
     }
-    private void SendJoinPending(IPEndPoint endpoint, ulong nonce)
+    private void SendJoinPending(IPEndPoint endpoint, in JoinPacket join)
     {
-        Span<byte> packet = stackalloc byte[NetHeader.Size + JoinPendingPacket.Size];
-        new NetHeader(NetMessageType.JoinPending, NetHeaderFlags.Unsequenced, 0, 0, 0, 0).Write(packet);
-        new JoinPendingPacket(nonce).Write(packet[NetHeader.Size..]);
-        _transport.SendDatagram(endpoint, packet);
+        byte[] key = Array.Empty<byte>();
+        if (UdpAuthenticationEnabled && (TicketAuthority is not { } authority
+            || !authority.TryGetAdmissionKey(join.AdmissionId, out key))) return;
+        try
+        {
+            Span<byte> packet = stackalloc byte[NetConfig.MaxPacketSize];
+            Span<byte> payload = packet[NetHeader.Size..(NetHeader.Size + JoinPendingPacket.Size)];
+            new JoinPendingPacket(join.Nonce).Write(payload);
+            NetHeader header = new(NetMessageType.JoinPending, NetHeaderFlags.Unsequenced, 0, 0, 0, 0);
+            int length;
+            if (UdpAuthenticationEnabled)
+                length = NetAuthentication.Sign(key, NetAuthDirection.ServerToClient, header, payload, packet);
+            else { header.Write(packet); length = NetHeader.Size + payload.Length; }
+            _transport.SendDatagram(endpoint, packet[..length]);
+        }
+        finally { if (key.Length != 0) CryptographicOperations.ZeroMemory(key); }
     }
 }

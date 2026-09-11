@@ -3,7 +3,8 @@ using System;
 namespace MphRead.Mods.Network;
 
 /// <summary>Parsed routing metadata, not a new wire format. Zero WireMatchId means absent on an established header.</summary>
-public readonly record struct WorkerDatagramRoute(uint WireMatchId, ulong ConnectionId, bool IsJoin);
+public readonly record struct WorkerDatagramRoute(uint WireMatchId, ulong ConnectionId, bool IsJoin,
+    Guid AdmissionId = default);
 
 /// <summary>Routing parser seam; ticket authentication remains at admission. Reject malformed framing here.</summary>
 public interface IWorkerDatagramRouter
@@ -58,7 +59,17 @@ public sealed class RoutedMatchDatagramRouter : IWorkerDatagramRouter
         if (!NetHeader.TryRead(datagram, out NetHeader header)) return false;
         if (header.Type == NetMessageType.Join)
         {
-            if (!JoinPacket.TryRead(datagram[NetHeader.Size..], out JoinPacket join)
+            ReadOnlySpan<byte> body = datagram[NetHeader.Size..];
+            ReadOnlySpan<byte> unsignedBody = body.Length >= NetAuthentication.TagSize
+                ? body[..^NetAuthentication.TagSize] : body;
+            if (JoinPacket.TryReadAdmissionId(unsignedBody, out Guid admissionId))
+            {
+                route = new(0, 0, true, admissionId);
+                return true;
+            }
+            // The explicit disabled/test seam still routes a legacy join by
+            // its wire match. Enabled workers reject this fallback in the hub.
+            if (!JoinPacket.TryRead(body, out JoinPacket join)
                 || join.Protocol != NetHeader.Version || join.WireMatchId == 0) return false;
             route = new(join.WireMatchId, 0, true);
         }

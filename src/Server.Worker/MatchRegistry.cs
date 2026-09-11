@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using ProjectPrime.Server.Shared;
 using MphRead.Mods.Network;
 using ProjectPrime.Server.Worker.Simulation;
+using MphRead.Mods.MapGen;
 
 namespace ProjectPrime.Server.Worker;
 
@@ -20,6 +21,7 @@ internal sealed class MatchRegistry
         public WorkerTicketAuthority? Tickets;
         public MatchInstanceStatus? Snapshot;
         public WorkerEvent? Terminal;
+        public MatchContentSnapshot? ContentSnapshot;
         public bool Released;
     }
     public object Gate { get; } = new();

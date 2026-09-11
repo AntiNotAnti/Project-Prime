@@ -128,8 +128,24 @@ public sealed class ClientWorkerVerticalTests
                 var player = AuthoritativePlay.Current!.Client;
                 owner.MarkGameplayJoined(handoff.MatchId);
                 using var transport = new NetTransport(0);
-                using var second = new NetClient(transport, new IPEndPoint(IPAddress.Parse(guestHandoff.Host), guestHandoff.Port),
-                    "Player", guestHandoff.Hunter, guestHandoff.Nonce, guestHandoff.Ticket, false, guestHandoff.WireMatchId);
+                byte[]? guestAdmissionKey = guestHandoff.UdpAuthenticationEnabled
+                    ? AdmissionKeyRules.Decode(guestHandoff.AdmissionKey) : null;
+                NetClient second;
+                try
+                {
+                    second = new NetClient(transport,
+                        new IPEndPoint(IPAddress.Parse(guestHandoff.Host), guestHandoff.Port),
+                        "Player", guestHandoff.Hunter, guestHandoff.Nonce, guestHandoff.Ticket,
+                        false, guestHandoff.WireMatchId, guestHandoff.AdmissionId, guestAdmissionKey,
+                        guestHandoff.UdpAuthenticationEnabled);
+                }
+                finally
+                {
+                    if (guestAdmissionKey is not null)
+                        System.Security.Cryptography.CryptographicOperations.ZeroMemory(guestAdmissionKey);
+                }
+                using (second)
+                {
                 MatchPhase observedPhase = MatchPhase.WaitingForPlayers;
                 player.WorldPacketReceived = bytes =>
                 {
@@ -244,6 +260,7 @@ public sealed class ClientWorkerVerticalTests
                     });
                     Assert.Equal(session, owner.Session!.SessionId);
                     Assert.Equal(lobbyId, owner.Lobby.LobbyId);
+                }
                 }
             }
         }

@@ -153,9 +153,9 @@ public sealed class WorkerAdmissionTests
     {
         var f = Fixture();
         string ticket = new string('A', JoinPacket.MaxRoutedTicketBytes - 4) + ".B.C";
-        JoinPacket routed = f.Join with { Ticket = ticket, Observer = true };
+        JoinPacket routed = f.Join with { Ticket = ticket, Observer = true, AdmissionId = Guid.NewGuid() };
         byte[] bytes = new byte[routed.EncodedSize]; routed.Write(bytes);
-        Assert.Equal(NetConfig.MaxPacketSize, bytes.Length + NetHeader.Size);
+        Assert.Equal(NetConfig.MaxPacketSize, bytes.Length + NetHeader.Size + NetAuthentication.TagSize);
         Assert.True(JoinPacket.TryRead(bytes, out var parsed)); Assert.Equal(routed, parsed);
         Assert.False(JoinPacket.TryRead(bytes.AsSpan(0, bytes.Length - 1), out _));
         byte flags = bytes[JoinPacket.Size];
@@ -177,9 +177,13 @@ public sealed class WorkerAdmissionTests
         var f = Fixture();
         using var issuer = new WorkerAdmissionIssuer(new string('k', 32));
         string ticket = issuer.Issue(f.Claims with { Name = new string('<', 16), JoinNonce = ulong.MaxValue });
-        var join = f.Join with { Name = new string('<', 16), Nonce = ulong.MaxValue, Ticket = ticket };
+        var join = f.Join with
+        {
+            Name = new string('<', 16), Nonce = ulong.MaxValue, Ticket = ticket,
+            AdmissionId = Guid.NewGuid()
+        };
         Assert.True(ticket.Length <= JoinPacket.MaxRoutedTicketBytes);
-        Assert.True(NetHeader.Size + join.EncodedSize <= NetConfig.MaxPacketSize);
+        Assert.True(NetHeader.Size + join.EncodedSize + NetAuthentication.TagSize <= NetConfig.MaxPacketSize);
         byte[] bytes = new byte[join.EncodedSize]; join.Write(bytes);
         Assert.True(JoinPacket.TryRead(bytes, out var parsed)); Assert.Equal(join, parsed);
     }

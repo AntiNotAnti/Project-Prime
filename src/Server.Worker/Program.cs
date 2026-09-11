@@ -58,9 +58,15 @@ public static class Program
                 MaxMatchesPerLane = Number("--max-matches-per-lane", 1),
                 SnapshotRateHz = Number("--snapshot-rate-hz", SnapshotCadence.DefaultRateHz),
                 AdaptiveTimingEnabled = Boolean("--adaptive-timing", false),
+                AdaptiveTimingV2Enabled = Boolean("--adaptive-timing-v2", false),
                 AdaptiveInputPlayoutEnabled = Boolean("--adaptive-input-playout", false),
                 TransportQueueV2Enabled = Boolean("--transport-queue-v2", false),
+                TransportCriticalReserveEnabled = Boolean("--transport-critical-reserve-enabled", true),
+                CriticalTransportReserve = Number("--critical-transport-reserve", 32),
+                WorkerGlobalNetworkBudgetEnabled = Boolean("--worker-global-network-budget-enabled", true),
+                MaximumDatagramsPerPump = Number("--max-datagrams-per-pump", WorkerNetworkHub.DefaultMaximumDatagramsPerPump),
                 ReliableAdaptiveRtoEnabled = Boolean("--reliable-adaptive-rto", false),
+                UdpAuthenticationEnabled = Boolean("--udp-authentication", true),
                 LagCompensationMode = WorkerOptions.ParseLagCompensationMode(
                     flags.GetValueOrDefault("--lag-compensation-mode", "players")),
                 ValidationFixture = WorkerOptions.ParseValidationFixture(
@@ -73,6 +79,9 @@ public static class Program
             NodeId node = new(Guid.Parse(Required("--node-id")));
             if (node.Value == Guid.Empty) throw new ArgumentException("Node identity is required.");
             ContentEnvironment.Open(Required("--content-dir"), Required("--content-version"));
+            MapImageDecoding.Decoder = global::MphRead.Imaging.StbImageDecoder.Decode;
+            CustomRooms.ContentRoot = Path.GetFullPath(Required("--content-dir"));
+            await CustomRooms.RefreshAsync();
             using WorkerContentLease content = ContentEnvironment.AcquireContent();
             if (flags.TryGetValue("--content-hash", out string? expectedHash) && expectedHash != content.Content.ContentHash)
                 throw new ArgumentException("Worker content hash does not match launch configuration.");
@@ -83,7 +92,9 @@ public static class Program
                 && !IPAddress.IsLoopback(bindAddress))
                 throw new ArgumentException("Developer validation fixture requires a loopback bind address.");
             var physical = new UdpTransport(port, bindAddress);
-            var hub = new WorkerNetworkHub(physical, options.Incarnation, new RoutedMatchDatagramRouter(), options.MaxMatches);
+            var hub = new WorkerNetworkHub(physical, options.Incarnation, new RoutedMatchDatagramRouter(),
+                options.MaxMatches, options.MaximumDatagramsPerPump,
+                options.WorkerGlobalNetworkBudgetEnabled, options.UdpAuthenticationEnabled);
             await using var runtime = new WorkerRuntime(options, content.Content, hub);
             using var startup = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             string token = await ReadStartupTokenAsync(Console.In, startup.Token);
@@ -136,6 +147,7 @@ public static class Program
                         break;
                     case MatchAdminCommand admin: Dispatch(AdminAsync(admin)); break;
                     case UpdateNodeSigningKey key: await runtime.UpdateSigningKeyAsync(key); break;
+                    case InstallAdmissionKey admission: Dispatch(InstallAdmissionAsync(admission)); break;
                     case CancelMatch cancel: Dispatch(runtime.CancelAsync(cancel.MatchId)); break;
                     case Drain: runtime.Drain(); break;
                     case Shutdown:
@@ -172,6 +184,8 @@ public static class Program
             finally { lock (pendingGate) pending.Remove(operation); }
         }
         async Task AdminAsync(MatchAdminCommand admin) => await outbound.Writer.WriteAsync(await runtime.AdminAsync(admin), stop.Token);
+        async Task InstallAdmissionAsync(InstallAdmissionKey admission)
+            => await outbound.Writer.WriteAsync(await runtime.InstallAdmissionKeyAsync(admission), stop.Token);
         async Task CreateAsync(CreateMatch create)
         {
             WorkerEvent response = await runtime.CreateAsync(create.Spec);
@@ -231,17 +245,29 @@ public static class Program
         ContentEnvironment.Open(contentDirectory, version);
         CustomRooms.ContentRoot = contentDirectory;
 
-        int generated = MapPreparation.GenerateAll(force: false, verbose: true);
-        foreach (MapDefinition definition in CustomRooms.Definitions)
+        CustomRooms.RefreshAsync().AsTask().GetAwaiter().GetResult();
+        int generated = 0;
+        foreach (InstalledMap map in CustomRooms.Catalog.Snapshot.Maps
+            .Where(map => map.BuildState != MapBuildState.Invalid)
+            .OrderBy(map => map.ContentIdentity.Identity.StableId, StringComparer.Ordinal)
+            .ThenBy(map => map.SourcePath, StringComparer.Ordinal))
         {
-            if (CustomRooms.NeedsGenerating(definition))
+            try
             {
-                throw new ProgramException($"Custom map {definition.Name} is still missing generated room files.");
+                MapBuildResult result = MapPreparation.CompileAsync(map.Project, force: false,
+                    verbose: true, CancellationToken.None).GetAwaiter().GetResult();
+                if (!result.CacheHit) generated++;
+                ((MapCatalog)CustomRooms.Catalog).PublishBuildState(map.ContentIdentity,
+                    MapBuildState.Ready, result.Statistics, result.Diagnostics);
             }
-            string? reason = CustomRooms.WhyUnplayable(definition.Name);
-            if (reason != null)
+            catch (Exception error) when (error is MapCompilationException or MapValidationException
+                or MapDependencyException or InvalidDataException or IOException or ArgumentException)
             {
-                throw new ProgramException(reason);
+                Console.Error.WriteLine($"[map] {map.DisplayName} is invalid: {error.Message}");
+                ((MapCatalog)CustomRooms.Catalog).PublishBuildState(map.ContentIdentity,
+                    MapBuildState.Invalid, null,
+                    [new MapDiagnostic("MAP-CMP-001", MapDiagnosticSeverity.Error,
+                        error.Message, SourcePath: map.SourcePath)]);
             }
         }
         return generated;
@@ -266,7 +292,7 @@ public static class Program
     internal static Dictionary<string, string> ParseArguments(string[] args)
     {
         string[] names = ["--describe-content", "--prepare-content", "--node-pipe", "--node-id", "--worker-id", "--worker-incarnation", "--content-dir", "--content-version", "--content-hash",
-            "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--snapshot-rate-hz", "--adaptive-timing", "--adaptive-input-playout", "--transport-queue-v2", "--reliable-adaptive-rto", "--lag-compensation-mode", "--validation-fixture", "--headshot-validation-scenario", "--headshot-scenario-seconds", "--replay-dir", "--artifact-dir", "--map-dir"];
+            "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--snapshot-rate-hz", "--adaptive-timing", "--adaptive-timing-v2", "--adaptive-input-playout", "--transport-queue-v2", "--transport-critical-reserve-enabled", "--critical-transport-reserve", "--worker-global-network-budget-enabled", "--max-datagrams-per-pump", "--reliable-adaptive-rto", "--udp-authentication", "--lag-compensation-mode", "--validation-fixture", "--headshot-validation-scenario", "--headshot-scenario-seconds", "--replay-dir", "--artifact-dir", "--map-dir"];
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         for (int index = 0; index < args.Length; index += 2)
             if (index + 1 == args.Length || !names.Contains(args[index], StringComparer.Ordinal) || !result.TryAdd(args[index], args[index + 1]))

@@ -17,7 +17,7 @@ public sealed class ObserverTimelineTests
         bytes[34] = 2; Assert.False(JoinPacket.TryRead(bytes, out _));
         bytes[34] = 0; Assert.False(JoinPacket.TryRead(bytes, out _));
         bytes[34] = 1; bytes[35] = 1; Assert.False(JoinPacket.TryRead(bytes, out _));
-        Assert.Equal(963, JoinPacket.MaxTicketBytes);
+        Assert.Equal(947, JoinPacket.MaxTicketBytes);
     }
 
     [Theory]

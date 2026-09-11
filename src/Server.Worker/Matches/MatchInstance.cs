@@ -9,6 +9,7 @@ using MphRead.Replay;
 using MphRead.Identity;
 using MphRead.Reporting;
 using MphRead.Telemetry;
+using MphRead.Mods.MapGen;
 using ProjectPrime.Server.Shared;
 using OpenTK.Mathematics;
 
@@ -34,6 +35,7 @@ public sealed record MatchPerformanceSnapshot(
 public sealed class MatchInstance : IDisposable
 {
     private readonly MatchInstanceOptions _options;
+    private readonly MatchContentSnapshot? _contentSnapshot;
     private readonly INetTransport transport;
     private readonly WorldStateCapture world;
     private readonly SnapshotCadence _snapshotCadence;
@@ -114,6 +116,28 @@ public sealed class MatchInstance : IDisposable
         Vector3 projectileStart, Vector3 projectileEnd)
         => Simulation.Combat.NetDebug(command, shot, projectileStart, projectileEnd);
 
+    /// <summary>Installs control-plane admission material on this match's owner lane.</summary>
+    internal bool TryInstallAdmissionKey(InstallAdmissionKey command, out string reason)
+    {
+        if (_options.Tickets is not WorkerTicketAuthority authority)
+        {
+            reason = "admission_unavailable";
+            return false;
+        }
+        bool routeCreated = false;
+        if (_options.UdpAuthenticationEnabled && !_options.LegacyDynamicAdmission
+            && transport is MatchDatagramTransport routed
+            && !routed.RegisterAdmissionId(command.AdmissionId, command.ExpiresAt, out routeCreated))
+        {
+            reason = "admission_route_capacity";
+            return false;
+        }
+        bool installed = authority.TryInstallAdmissionKey(command, out reason);
+        if (!installed && routeCreated && transport is MatchDatagramTransport registered)
+            registered.UnregisterAdmissionId(command.AdmissionId);
+        return installed;
+    }
+
     /// <summary>
     /// Sends one bounded QZ1.14 diagnostic to the explicitly selected player.
     /// This is called only by the authenticated Node-&gt;Worker admin command;
@@ -150,6 +174,7 @@ public sealed class MatchInstance : IDisposable
         options.Spec.Validate();
         if (options.WireMatchId == 0) throw new ArgumentOutOfRangeException(nameof(options));
         _options = options;
+        _contentSnapshot = options.ContentSnapshot;
         _snapshotCadence = new SnapshotCadence(options.SnapshotRateHz);
         world = new(options.ValidationFixture != DeveloperValidationFixtureId.None);
         this.transport = transport ?? throw new ArgumentNullException(nameof(transport));
@@ -166,6 +191,8 @@ public sealed class MatchInstance : IDisposable
         }
         BotFillPolicy fill = Spec.BotFillPolicy == ProjectPrime.Server.Shared.BotFillPolicy.Disabled
             ? new() : options.BotFill ?? new(Spec.Roster.Count(seat => seat.Role != SeatRole.Observer));
+        using IDisposable? contentScope = _contentSnapshot == null
+            ? null : ContentEnvironment.UseMatchContent(_contentSnapshot);
         Simulation = new ServerSimulation(Spec.Rules, options.LagCompEnabled, options.ProjectileCatchUpEnabled,
             fill, Spec.Rng1Seed, Spec.Rng2Seed, options.HistoricalDynamicCollisionEnabled,
             options.ValidationFixture, options.HeadshotValidationScenario,
@@ -178,9 +205,10 @@ public sealed class MatchInstance : IDisposable
                 Simulation.Reports.ConfigureRoundIdentity(Spec.TournamentId?.ToString("D"), Spec.RoundId?.ToString("D"), null);
             }
             Network = transferredNetwork ?? new ServerNetwork(transport, Spec.Rules, WireMatchId,
-                Spec.ObserverPolicy == ObserverPolicy.Disabled ? new ObserverOptions(0) : options.Observers);
+                Spec.ObserverPolicy == ObserverPolicy.Disabled ? new ObserverOptions(0) : options.Observers,
+                options.UdpAuthenticationEnabled && !options.LegacyDynamicAdmission);
             Network.ConfigureTiming(options.AdaptiveTimingEnabled, options.AdaptiveInputPlayoutEnabled,
-                options.ReliableAdaptiveRtoEnabled);
+                options.ReliableAdaptiveRtoEnabled, options.AdaptiveTimingV2Enabled);
             Network.AdmissionClosed = !options.LegacyDynamicAdmission && options.Tickets == null;
             Network.RequireRoutedJoins = !options.LegacyDynamicAdmission;
             Network.AdmissionIdentityPolicy = options.LegacyDynamicAdmission ? null : AdmitFrozenSeat;
@@ -269,6 +297,8 @@ public sealed class MatchInstance : IDisposable
         long allocatedAtStart = GC.GetAllocatedBytesForCurrentThread();
         try
         {
+            using IDisposable? contentScope = _contentSnapshot == null
+                ? null : ContentEnvironment.UseMatchContent(_contentSnapshot);
             Step();
             uint completedTick = tick++;
             if (Simulation.Lifecycle.RotationDue) Finish(completedTick, null);

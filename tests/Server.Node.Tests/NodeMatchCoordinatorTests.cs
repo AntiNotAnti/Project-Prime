@@ -239,6 +239,50 @@ public sealed class NodeMatchCoordinatorTests
     }
 
     [Fact]
+    public async Task CanceledReconnectWaiterDoesNotCancelNodeOwnedAdmissionInstall()
+    {
+        var manager = new WorkerManager(new(Guid.NewGuid()), Guid.NewGuid());
+        await using var scheduler = new WorkerScheduler(manager, admissionInstallTimeout: TimeSpan.FromSeconds(5));
+        using var issuer = new WorkerAdmissionIssuer("test");
+        await scheduler.StartWorkerAsync(WorkerManagerTests.Launch("admission-key-delay") with
+        { Content = new("1", "hash", "test", 8), HeartbeatTimeout = TimeSpan.FromSeconds(5) });
+        var lobbies = new LobbyManager();
+        var owner = new LobbyIdentity(Guid.NewGuid(), Guid.NewGuid(), "Owner");
+        var coordinator = new NodeMatchCoordinator(lobbies, scheduler, manager, issuer,
+            new NodeContentCatalog([new ContentIdentity("unit", "hash", "1", "test", 8)]));
+        try
+        {
+            var lobby = (LobbySnapshot)lobbies.Execute(owner, new LobbyCreate("Arena", LobbyVisibility.Public));
+            lobby = (LobbySnapshot)lobbies.Execute(owner, new LobbyConfigure(lobby.Revision, "unit", MatchMode.Battle));
+            lobby = (LobbySnapshot)lobbies.Execute(owner, new LobbySetReady(true, lobby.Revision));
+            await coordinator.ExecuteAsync(owner, new LobbyStart(lobby.Revision));
+            var initial = Assert.IsType<NodeMatchHandoff>(coordinator.ForSession(owner.SessionId));
+
+            using var canceled = new CancellationTokenSource(TimeSpan.FromMilliseconds(40));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                coordinator.ForSessionEventsAsync(owner.SessionId, canceled.Token));
+
+            NodeMatchHandoff refreshed = await WaitForHandoffAsync(coordinator, owner.SessionId,
+                initial.AdmissionId, TimeSpan.FromSeconds(10));
+            Assert.Equal(refreshed, Assert.IsType<NodeMatchHandoff>(coordinator.ForSession(owner.SessionId)));
+            scheduler.CancelMatch(new(initial.MatchId), "test cleanup");
+        }
+        finally { coordinator.Dispose(); }
+    }
+
+    private static async Task<NodeMatchHandoff> WaitForHandoffAsync(NodeMatchCoordinator coordinator,
+        Guid sessionId, Guid previousAdmissionId, TimeSpan timeout)
+    {
+        using var cancellation = new CancellationTokenSource(timeout);
+        while (true)
+        {
+            if (coordinator.ForSession(sessionId) is NodeMatchHandoff handoff
+                && handoff.AdmissionId != previousAdmissionId) return handoff;
+            await Task.Delay(10, cancellation.Token);
+        }
+    }
+
+    [Fact]
     public async Task FrozenLobbyPlacesThroughAuthenticatedChildAndIssuesNewResumeTicket()
     {
         var manager = new WorkerManager(new(Guid.NewGuid()), Guid.NewGuid());
@@ -255,16 +299,19 @@ public sealed class NodeMatchCoordinatorTests
         var placed = (LobbySnapshot)await coordinator.ExecuteAsync(owner, new LobbyStart(lobby.Revision));
         Assert.Equal(LobbyPhase.InMatch, placed.Phase);
         var handoff = Assert.IsType<NodeMatchHandoff>(coordinator.ForSession(owner.SessionId));
+        Assert.NotEqual(Guid.Empty, handoff.AdmissionId);
+        Assert.NotEmpty(handoff.AdmissionKey);
         Assert.True(coordinator.TrySendHistoricalDebug(new(handoff.MatchId), AdminAction.LagCompHistory, 0));
         Assert.True(coordinator.TrySendHistoricalDebug(new(handoff.MatchId), AdminAction.LagCompDynamic, 0));
         Assert.True(coordinator.TrySendHistoricalDebug(new(handoff.MatchId), AdminAction.LagCompClear, 0));
         Assert.False(coordinator.TrySendHistoricalDebug(new(handoff.MatchId), AdminAction.EndMatch, 0));
         Assert.False(coordinator.TrySendHistoricalDebug(new(handoff.MatchId), AdminAction.LagCompHistory, 1));
-        var refreshed = Assert.IsType<NodeMatchHandoff>(coordinator.ForSession(owner.SessionId));
+        var refreshed = Assert.IsType<NodeMatchHandoff>(Assert.Single(await coordinator.ForSessionEventsAsync(owner.SessionId)));
         Assert.Equal(placed.CurrentMatchId, handoff.MatchId);
         Assert.NotEqual(handoff.Ticket, refreshed.Ticket);
         Assert.NotEqual(handoff.Nonce, refreshed.Nonce);
         Assert.DoesNotContain(handoff.Ticket, handoff.ToString());
+        Assert.DoesNotContain(handoff.AdmissionKey, handoff.ToString());
         var retry = Assert.IsType<NodeMatchHandoff>(await coordinator.ExecuteAsync(owner, new NodeMatchRejoin(handoff.MatchId)));
         Assert.NotEqual(refreshed.Ticket, retry.Ticket);
         await Assert.ThrowsAsync<LobbyCommandException>(() => coordinator.ExecuteAsync(owner, new NodeMatchRejoin(handoff.MatchId)));

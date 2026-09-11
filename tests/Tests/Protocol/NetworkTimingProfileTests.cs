@@ -39,7 +39,7 @@ public sealed class NetworkTimingProfileTests
     [Fact]
     public void TelemetryRoundTripsAndRejectsOutOfRangeFields()
     {
-        var telemetry = new NetworkTimingTelemetry(9, 4, 2, 3, 333, 75);
+        var telemetry = new NetworkTimingTelemetry(9, 4, 60, 2, 3, 333, 75);
         Span<byte> bytes = stackalloc byte[NetworkTimingTelemetry.Size];
         telemetry.Write(bytes);
         Assert.True(NetworkTimingTelemetry.TryRead(bytes, out NetworkTimingTelemetry decoded));
@@ -47,12 +47,15 @@ public sealed class NetworkTimingProfileTests
         bytes[4] = 1;
         Assert.False(NetworkTimingTelemetry.TryRead(bytes, out _));
         Assert.False(NetworkTimingTelemetry.TryRead(bytes[..^1], out _));
+        Assert.False((telemetry with { PresentedFrames = 0 }).IsValid);
+        Assert.False((telemetry with { SnapshotUnderruns = 61 }).IsValid);
+        Assert.False((telemetry with { ExtrapolatedFrames = 61 }).IsValid);
     }
 
     [Fact]
-    public void ProtocolTenRecognizesTheBoundedTimingDatagram()
+    public void CurrentProtocolRecognizesTheBoundedTimingDatagram()
     {
-        Assert.Equal(12, NetHeader.Version);
+        Assert.Equal(14, NetHeader.Version);
         Span<byte> datagram = stackalloc byte[NetHeader.Size];
         new NetHeader(NetMessageType.TimingTelemetry, NetHeaderFlags.None, 1, 2, 0, 0)
             .Write(datagram);

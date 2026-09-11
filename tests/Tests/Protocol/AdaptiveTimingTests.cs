@@ -64,6 +64,20 @@ public sealed class AdaptiveTimingTests
     }
 
     [Fact]
+    public void FrameTelemetryRequiresTheExplicitAdaptiveTimingV2Flag()
+    {
+        using var transport = new NetTransport(0);
+        var server = new ServerNetwork(transport, "MP1 SANCTORUS", GameMode.Battle);
+        Assert.Throws<ArgumentException>(() => server.ConfigureTiming(
+            adaptiveTiming: false, adaptiveInputPlayout: false,
+            reliableAdaptiveRto: false, adaptiveTimingV2: true));
+        server.ConfigureTiming(adaptiveTiming: true, adaptiveInputPlayout: false,
+            reliableAdaptiveRto: false, adaptiveTimingV2: true);
+        Assert.True(server.AdaptiveTimingEnabled);
+        Assert.True(server.AdaptiveTimingV2Enabled);
+    }
+
+    [Fact]
     public void ControllerRequiresCleanDwellAndAcknowledgedCompletionBeforeTightening()
     {
         var controller = new ServerNetworkTimingController(enabled: true);
@@ -127,7 +141,7 @@ public sealed class AdaptiveTimingTests
         Assert.Equal(4, controller.Active.PresentationDelayTicks);
         Assert.Equal(4, controller.RewindPresentationDelayTicks);
 
-        var telemetry = new NetworkTimingTelemetry(normal.Revision, 4, 1, 20, 333, 150);
+        var telemetry = new NetworkTimingTelemetry(normal.Revision, 4, 20, 1, 20, 333, 150);
         Assert.True(controller.ObserveTelemetry(telemetry, 21));
         Assert.True(controller.TrySelectOffer(21, 120, 0,
             out NetworkTimingProfile saferPresentation, out _));
@@ -137,6 +151,121 @@ public sealed class AdaptiveTimingTests
         Assert.Equal(5, controller.Active.PresentationDelayTicks);
         Assert.Equal(4, controller.RewindPresentationDelayTicks);
         Assert.False(controller.ObserveTelemetry(telemetry with { ProfileRevision = 99 }, 21.5));
+    }
+
+    [Fact]
+    public void OneIsolatedUnderrunDoesNotEscalateAStablePresentation()
+    {
+        var controller = new ServerNetworkTimingController(enabled: true);
+        Assert.True(controller.TrySelectOffer(0, 120, 0,
+            out NetworkTimingProfile initial, out _));
+        controller.MarkOffered(initial, 0);
+        Assert.True(controller.TryAcknowledge(initial.Revision));
+        Assert.False(controller.TrySelectOffer(1, 120, 0, out _, out _));
+        Assert.True(controller.TrySelectOffer(10, 120, 0,
+            out NetworkTimingProfile first, out _));
+        controller.MarkOffered(first, 10);
+        Assert.True(controller.TryAcknowledge(first.Revision));
+        Assert.False(controller.TrySelectOffer(11, 120, 0, out _, out _));
+        Assert.True(controller.TrySelectOffer(20, 120, 0,
+            out NetworkTimingProfile normal, out _));
+        controller.MarkOffered(normal, 20);
+        Assert.True(controller.TryAcknowledge(normal.Revision));
+
+        var telemetry = new NetworkTimingTelemetry(normal.Revision, 4, 60, 1, 0, 333, 0);
+        Assert.True(controller.ObserveTelemetry(telemetry, 21));
+        Assert.False(controller.TrySelectOffer(21, 120, 0, out _, out _));
+        Assert.Equal(1 / 60.0, controller.LastUnderrunRate, 6);
+        Assert.Equal(0, controller.LastExtrapolationRate);
+        Assert.Equal(TimingTelemetryBand.Degraded, controller.LastTelemetryBand);
+    }
+
+    [Fact]
+    public void TelemetryBandsUseStrictCleanRecoveryBoundaries()
+    {
+        var controller = new ServerNetworkTimingController(enabled: true);
+        Assert.True(controller.TrySelectOffer(0, 25, 0, out NetworkTimingProfile initial, out _));
+        controller.MarkOffered(initial, 0);
+        Assert.True(controller.TryAcknowledge(initial.Revision));
+
+        NetworkTimingTelemetry telemetry = new(initial.Revision, 6, 400, 0, 0, 333, 0);
+        Assert.True(controller.ObserveTelemetry(telemetry, 1));
+        Assert.Equal(TimingTelemetryBand.Excellent, controller.LastTelemetryBand);
+        Assert.False(controller.TrySelectOffer(1, 25, 0, out _, out _));
+
+        Assert.True(controller.ObserveTelemetry(telemetry with { PresentedFrames = 400, SnapshotUnderruns = 1 }, 2));
+        Assert.Equal(TimingTelemetryBand.Healthy, controller.LastTelemetryBand);
+        Assert.False(controller.TrySelectOffer(10, 25, 0, out _, out _));
+
+        Assert.True(controller.ObserveTelemetry(telemetry with { SnapshotUnderruns = 4 }, 11));
+        Assert.Equal(TimingTelemetryBand.Degraded, controller.LastTelemetryBand);
+        Assert.False(controller.TrySelectOffer(20, 25, 0, out _, out _));
+
+        Assert.True(controller.ObserveTelemetry(telemetry with { SnapshotUnderruns = 8 }, 21));
+        Assert.Equal(TimingTelemetryBand.Unstable, controller.LastTelemetryBand);
+    }
+
+    [Fact]
+    public void EqualFrameRatesProduceTheSameDecisionRegardlessOfPlayerCount()
+    {
+        static (ServerNetworkTimingController Controller, NetworkTimingProfile Profile) Ready()
+        {
+            var controller = new ServerNetworkTimingController(enabled: true);
+            Assert.True(controller.TrySelectOffer(0, 120, 0,
+                out NetworkTimingProfile initial, out _));
+            controller.MarkOffered(initial, 0);
+            Assert.True(controller.TryAcknowledge(initial.Revision));
+            Assert.False(controller.TrySelectOffer(1, 120, 0, out _, out _));
+            Assert.True(controller.TrySelectOffer(10, 120, 0,
+                out NetworkTimingProfile first, out _));
+            controller.MarkOffered(first, 10);
+            Assert.True(controller.TryAcknowledge(first.Revision));
+            Assert.False(controller.TrySelectOffer(11, 120, 0, out _, out _));
+            Assert.True(controller.TrySelectOffer(20, 120, 0,
+                out NetworkTimingProfile normal, out _));
+            controller.MarkOffered(normal, 20);
+            Assert.True(controller.TryAcknowledge(normal.Revision));
+            return (controller, normal);
+        }
+
+        (ServerNetworkTimingController twoPlayer, NetworkTimingProfile twoProfile) = Ready();
+        (ServerNetworkTimingController eightPlayer, NetworkTimingProfile eightProfile) = Ready();
+        Assert.True(twoPlayer.ObserveTelemetry(
+            new NetworkTimingTelemetry(twoProfile.Revision, 4, 60, 2, 0, 333, 0), 21));
+        Assert.True(eightPlayer.ObserveTelemetry(
+            new NetworkTimingTelemetry(eightProfile.Revision, 4, 240, 8, 0, 333, 0), 21));
+        Assert.Equal(
+            twoPlayer.TrySelectOffer(21, 120, 0, out NetworkTimingProfile twoOffer, out bool twoTimedOut),
+            eightPlayer.TrySelectOffer(21, 120, 0, out NetworkTimingProfile eightOffer, out bool eightTimedOut));
+        Assert.False(twoTimedOut);
+        Assert.False(eightTimedOut);
+        Assert.Equal(twoOffer.PresentationDelayTicks, eightOffer.PresentationDelayTicks);
+    }
+
+    [Fact]
+    public void TrustedRttDeteriorationCanWidenTheRewindAllowance()
+    {
+        var controller = new ServerNetworkTimingController(enabled: true);
+        Assert.True(controller.TrySelectOffer(0, 25, 0,
+            out NetworkTimingProfile initial, out _));
+        controller.MarkOffered(initial, 0);
+        Assert.True(controller.TryAcknowledge(initial.Revision));
+        Assert.Equal(6, controller.RewindPresentationDelayTicks);
+
+        // Clean RTT gradually tightens the active policy and its trusted cap.
+        Assert.False(controller.TrySelectOffer(1, 25, 0, out _, out _));
+        Assert.True(controller.TrySelectOffer(10, 25, 0, out NetworkTimingProfile tighter, out _));
+        controller.MarkOffered(tighter, 10);
+        Assert.True(controller.TryAcknowledge(tighter.Revision));
+        Assert.Equal(5, controller.RewindPresentationDelayTicks);
+
+        // A trusted RTT deterioration may widen the security allowance before
+        // the adjacent timing offer is acknowledged.
+        Assert.True(controller.TrySelectOffer(11, 300, 0, out NetworkTimingProfile safer, out _));
+        Assert.Equal(6, controller.RewindPresentationDelayTicks);
+        controller.MarkOffered(safer, 11);
+        Assert.True(controller.TryAcknowledge(safer.Revision));
+        Assert.Equal(6, controller.RewindPresentationDelayTicks);
     }
 
     [Fact]

@@ -181,7 +181,8 @@ public sealed record LobbySnapshot(Guid LobbyId, string Name, LobbyVisibility Vi
     string MapKey = "", MatchMode Mode = MatchMode.Battle, Guid? CurrentMatchId = null, int BotCount = 0, int? TimeLimitSeconds = null,
     LobbySeatPolicy SeatPolicy = LobbySeatPolicy.ImmediateSeat, DuelQueuePolicy DuelQueuePolicy = DuelQueuePolicy.Fifo,
     LobbyWaitlistSnapshot? Waitlist = null, int? PointGoal = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LobbyRulesOptions? Rules = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LobbyRulesOptions? Rules = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] MapRequirement? RequiredMap = null);
 public sealed record LobbyListEntry(Guid LobbyId, string Name, LobbyPhase Phase, int Players, int PlayerLimit, int Observers, long Revision,
     int WaitlistCount = 0, int ObserverLimit = 16, int BotCount = 0, string MapKey = "", MatchMode Mode = MatchMode.Battle,
     int? TimeLimitSeconds = null, int? PointGoal = null, int? ObjectiveTimeGoalSeconds = null,
@@ -270,8 +271,34 @@ public sealed record LobbyConfigure(long ExpectedRevision, string MapKey, MatchM
 public sealed record LobbyStart(long ExpectedRevision) : NodeCommand;
 public sealed record LobbyRematch(long ExpectedRevision) : NodeCommand;
 public sealed record LobbyReturn(long ExpectedRevision) : NodeCommand;
-public sealed record NodeMatchHandoff(Guid MatchId, uint WireMatchId, string Host, ushort Port, string Ticket, ulong Nonce, bool Observer, Hunter Hunter)
-{ public override string ToString() => $"NodeMatchHandoff {{ MatchId = {MatchId}, WireMatchId = {WireMatchId}, Observer = {Observer} }}"; }
+[method: JsonConstructor]
+public sealed record NodeMatchHandoff(Guid MatchId, uint WireMatchId, string Host, ushort Port, string Ticket, ulong Nonce, bool Observer, Hunter Hunter,
+    Guid AdmissionId = default, string AdmissionKey = "", bool UdpAuthenticationEnabled = true)
+{
+    // Source-level legacy/test handoffs are explicitly keyless. Production
+    // Node code uses the full constructor and therefore keeps authentication
+    // enabled by default; this overload prevents an omitted mode from being
+    // mistaken for an authenticated handoff with missing key material.
+    public NodeMatchHandoff(Guid matchId, uint wireMatchId, string host, ushort port,
+        string ticket, ulong nonce, bool observer, Hunter hunter)
+        : this(matchId, wireMatchId, host, port, ticket, nonce, observer, hunter,
+            Guid.Empty, "", false) { }
+
+    public void Validate()
+    {
+        ContractGuard.Id(MatchId);
+        if (WireMatchId == 0 || Port == 0 || Nonce == 0 || String.IsNullOrWhiteSpace(Ticket)
+            || (AdmissionId == Guid.Empty) != String.IsNullOrEmpty(AdmissionKey)
+            || UdpAuthenticationEnabled && AdmissionId == Guid.Empty
+            || !UdpAuthenticationEnabled && AdmissionId != Guid.Empty)
+            throw new ArgumentException("Invalid match handoff.");
+        if (AdmissionId != Guid.Empty) AdmissionKeyRules.Validate(AdmissionKey);
+    }
+
+    // AdmissionKey is intentionally omitted from diagnostics and exception text.
+    public override string ToString()
+        => $"NodeMatchHandoff {{ MatchId = {MatchId}, WireMatchId = {WireMatchId}, AdmissionId = {AdmissionId}, Observer = {Observer} }}";
+}
 public sealed record NodeMatchEnded(Guid MatchId, bool Interrupted);
 /// <summary>Authenticated immutable Worker result relayed by Node without recalculation.</summary>
 public sealed record NodeMatchCompletion(MatchCompletionSummary Summary);

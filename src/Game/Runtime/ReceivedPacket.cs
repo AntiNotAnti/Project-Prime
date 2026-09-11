@@ -5,6 +5,25 @@ namespace MphRead.Mods.Network
 {
     public readonly record struct NetKeepAlive(IPEndPoint Endpoint, ReadOnlyMemory<byte> Datagram);
 
+    /// <summary>
+    /// A transport-owned keepalive template. The transport signs a fresh
+    /// header plus Counter each interval; it never replays a caller-provided
+    /// static unsequenced datagram.
+    /// </summary>
+    public readonly record struct NetKeepAliveDescriptor(IPEndPoint Endpoint,
+        ulong ConnectionId, ulong Counter, ReadOnlyMemory<byte> Key,
+        NetAuthDirection Direction)
+    {
+        public void Validate()
+        {
+            if (Endpoint == null || ConnectionId == 0 || Counter == 0
+                || Key.Length != NetAuthentication.KeySize)
+                throw new ArgumentException("Invalid authenticated keepalive descriptor.");
+            if (Direction is not (NetAuthDirection.ClientToServer or NetAuthDirection.ServerToClient))
+                throw new ArgumentException("Invalid authenticated keepalive direction.");
+        }
+    }
+
     public readonly struct ReceivedPacket
     {
         public readonly IPEndPoint Sender;

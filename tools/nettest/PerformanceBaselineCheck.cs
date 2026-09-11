@@ -76,7 +76,7 @@ internal static class PerformanceBaselineCheck
         try
         {
         long suiteStart = Stopwatch.GetTimestamp();
-        var scenarios = new List<PerformanceScenario>(10)
+        var scenarios = new List<PerformanceScenario>(11)
         {
             RunSafe("SnapshotPacket.Write", MeasureSnapshotWrite),
             RunSafe("LagCompensationPolicy.ResolveTick", MeasureLagCompensationPolicy),
@@ -85,6 +85,7 @@ internal static class PerformanceBaselineCheck
             RunSafe("ReliableChannel.TryGetDue.MarkSent", MeasureReliableDue),
             RunSafe("MatchDatagramTransport.EnqueueFlush", MeasureMatchTransport),
             RunSafe("ServerCombat.CaptureShot", MeasureServerCombatShot),
+            RunSafe("DynamicCollisionHistory.Record", MeasureDynamicCollisionHistoryRecord),
             RunSafe("SnapshotState.CaptureServerState", () => MeasureSnapshotStateCapture(content, contentSetupError)),
             RunSafe("HistoricalCollisionQueryEngine.TryQuery", () => MeasureHistoricalCollisionQuery(content, contentSetupError)),
             RunSafe("WorldStateCapture.Capture", () => MeasureWorldStateCapture(content, contentSetupError))
@@ -127,7 +128,10 @@ internal static class PerformanceBaselineCheck
         {
             Console.WriteLine($"{scenario.Name}: {scenario.Status} "
                 + $"{scenario.NanosecondsPerOperation:0.0} ns/op, "
-                + $"{scenario.AllocatedBytesPerOperation:0.0} B/op");
+                + $"{scenario.AllocatedBytesPerOperation:0.0} B/op"
+                + (scenario.AllocationBudgetBytesPerOperation is { } budget
+                    ? $", budget={budget:0.0} B/op ({(scenario.AllocationBudgetPassed ? "pass" : "FAIL")})"
+                    : String.Empty));
         }
         return scenarios.Exists(static scenario => scenario.Status == "gap") ? 1 : 0;
         }
@@ -230,7 +234,26 @@ internal static class PerformanceBaselineCheck
         {
             shot = combat.CaptureShot(actor, mechanics);
             _sink ^= (int)(shot.CommandSequence ^ shot.RewindTicks);
-        });
+        }, allocationBudgetBytesPerOperation: 0);
+    }
+
+    private static PerformanceScenario MeasureDynamicCollisionHistoryRecord()
+    {
+        using Scene scene = Scene.CreateHeadless();
+        var registry = new HistoricalCollisionRegistry(scene, hardColliderCap: 1);
+        var entity = new BaselineEntity(scene, 1);
+        scene.InsertEntity(entity);
+        if (!registry.TryRegister(entity, 0, out _))
+            throw new InvalidOperationException("Dynamic collision baseline entity could not be registered.");
+        registry.Seal();
+        var history = new DynamicCollisionHistory(registry);
+        history.Record(0);
+        uint tick = 1;
+        return Measure("DynamicCollisionHistory.Record", "content-free fixed-ring dynamic collision capture", () =>
+        {
+            history.Record(tick++);
+            _sink ^= history.ColliderCount;
+        }, allocationBudgetBytesPerOperation: 0);
     }
 
     private static PerformanceScenario MeasureSnapshotStateCapture(ContentPerformanceFixture? content, Exception? setupError)
@@ -299,7 +322,8 @@ internal static class PerformanceBaselineCheck
         });
     }
 
-    private static PerformanceScenario Measure(string name, string workload, Action operation)
+    private static PerformanceScenario Measure(string name, string workload, Action operation,
+        long? allocationBudgetBytesPerOperation = null)
     {
         for (int warmup = 0; warmup < WarmupIterations; warmup++)
             for (int iteration = 0; iteration < OperationsPerSample; iteration++) operation();
@@ -344,17 +368,24 @@ internal static class PerformanceBaselineCheck
         for (int i = 0; i < measuredSamples; i++) percentile.Record(samples[i]);
         BoundedPercentileSnapshot summary = percentile.Snapshot();
         long operations = (long)measuredSamples * OperationsPerSample;
+        double allocatedPerOperation = operations == 0 ? 0 : (double)allocated / operations;
+        bool allocationBudgetPassed = allocationBudgetBytesPerOperation is not { } budget
+            || allocated <= checked(budget * operations);
         return new PerformanceScenario
         {
             Name = name,
-            Status = "ok",
+            Status = allocationBudgetPassed ? "ok" : "gap",
             Workload = workload,
             SampleCount = measuredSamples,
             WarmupIterations = WarmupIterations,
             OperationsPerSample = OperationsPerSample,
             Iterations = operations,
             AllocatedBytes = allocated,
-            AllocatedBytesPerOperation = operations == 0 ? 0 : (double)allocated / operations,
+            AllocatedBytesPerOperation = allocatedPerOperation,
+            AllocationBudgetBytesPerOperation = allocationBudgetBytesPerOperation,
+            AllocationBudgetPassed = allocationBudgetPassed,
+            Exception = allocationBudgetPassed ? null
+                : $"Measured {allocatedPerOperation:0.0} B/op, exceeding the enforced budget of {allocationBudgetBytesPerOperation:0.0} B/op.",
             NanosecondsPerOperation = operations == 0 ? 0 : totalTicks * NanosecondsPerTick / operations,
             P50Nanoseconds = summary.P50,
             P95Nanoseconds = summary.P95,
@@ -507,6 +538,11 @@ internal static class PerformanceBaselineCheck
         }
     }
 
+    private sealed class BaselineEntity : EntityBase
+    {
+        public BaselineEntity(Scene scene, int id) : base(EntityType.Object, scene) => Id = id;
+    }
+
     private sealed class BaselineTransport : INetTransport
     {
         private readonly Queue<ReceivedPacket> _incoming = new();
@@ -579,6 +615,8 @@ internal static class PerformanceBaselineCheck
         public long Iterations { get; init; }
         public long AllocatedBytes { get; init; }
         public double AllocatedBytesPerOperation { get; init; }
+        public long? AllocationBudgetBytesPerOperation { get; init; }
+        public bool AllocationBudgetPassed { get; init; } = true;
         public double NanosecondsPerOperation { get; init; }
         public double P50Nanoseconds { get; init; }
         public double P95Nanoseconds { get; init; }

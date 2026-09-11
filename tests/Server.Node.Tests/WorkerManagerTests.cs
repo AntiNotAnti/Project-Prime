@@ -87,6 +87,7 @@ public sealed class WorkerManagerTests
         ManagedWorker worker = await manager.StartAsync(Launch("adaptive-timing") with
         {
             AdaptiveTimingEnabled = true,
+            AdaptiveTimingV2Enabled = true,
             AdaptiveInputPlayoutEnabled = true
         });
         Assert.Equal(WorkerStatus.Ready, worker.Snapshot().Status);
@@ -100,6 +101,10 @@ public sealed class WorkerManagerTests
         ManagedWorker worker = await manager.StartAsync(Launch("network-flags") with
         {
             TransportQueueV2Enabled = true,
+            TransportCriticalReserveEnabled = false,
+            CriticalTransportReserve = 16,
+            WorkerGlobalNetworkBudgetEnabled = false,
+            MaximumDatagramsPerPump = 256,
             ReliableAdaptiveRtoEnabled = true
         });
         Assert.Equal(WorkerStatus.Ready, worker.Snapshot().Status);

@@ -100,13 +100,18 @@ public static class NetworkTimingProfileAppliedPacket
 public readonly record struct NetworkTimingTelemetry(
     uint ProfileRevision,
     byte CurrentPresentationDelayTicks,
+    ushort PresentedFrames,
     ushort SnapshotUnderruns,
     ushort ExtrapolatedFrames,
     ushort AverageSnapshotIntervalTenthsMs,
     ushort SnapshotJitterTenthsMs)
 {
-    public const int Size = 13;
-    public bool IsValid => CurrentPresentationDelayTicks is >= NetworkTimingProfile.MinimumPresentationDelayTicks
+    public const int Size = 15;
+    public bool IsValid => ProfileRevision != 0
+        && PresentedFrames > 0
+        && SnapshotUnderruns <= PresentedFrames
+        && ExtrapolatedFrames <= PresentedFrames
+        && CurrentPresentationDelayTicks is >= NetworkTimingProfile.MinimumPresentationDelayTicks
         and <= NetworkTimingProfile.MaximumPresentationDelayTicks
         && AverageSnapshotIntervalTenthsMs is >= 50 and <= 10_000
         && SnapshotJitterTenthsMs <= 10_000;
@@ -116,10 +121,11 @@ public readonly record struct NetworkTimingTelemetry(
         if (destination.Length < Size || !IsValid) throw new ArgumentException("Invalid timing telemetry.");
         BinaryPrimitives.WriteUInt32LittleEndian(destination, ProfileRevision);
         destination[4] = CurrentPresentationDelayTicks;
-        BinaryPrimitives.WriteUInt16LittleEndian(destination[5..], SnapshotUnderruns);
-        BinaryPrimitives.WriteUInt16LittleEndian(destination[7..], ExtrapolatedFrames);
-        BinaryPrimitives.WriteUInt16LittleEndian(destination[9..], AverageSnapshotIntervalTenthsMs);
-        BinaryPrimitives.WriteUInt16LittleEndian(destination[11..], SnapshotJitterTenthsMs);
+        BinaryPrimitives.WriteUInt16LittleEndian(destination[5..], PresentedFrames);
+        BinaryPrimitives.WriteUInt16LittleEndian(destination[7..], SnapshotUnderruns);
+        BinaryPrimitives.WriteUInt16LittleEndian(destination[9..], ExtrapolatedFrames);
+        BinaryPrimitives.WriteUInt16LittleEndian(destination[11..], AverageSnapshotIntervalTenthsMs);
+        BinaryPrimitives.WriteUInt16LittleEndian(destination[13..], SnapshotJitterTenthsMs);
     }
 
     public static bool TryRead(ReadOnlySpan<byte> source, out NetworkTimingTelemetry telemetry)
@@ -130,7 +136,8 @@ public readonly record struct NetworkTimingTelemetry(
             BinaryPrimitives.ReadUInt16LittleEndian(source[5..]),
             BinaryPrimitives.ReadUInt16LittleEndian(source[7..]),
             BinaryPrimitives.ReadUInt16LittleEndian(source[9..]),
-            BinaryPrimitives.ReadUInt16LittleEndian(source[11..]));
+            BinaryPrimitives.ReadUInt16LittleEndian(source[11..]),
+            BinaryPrimitives.ReadUInt16LittleEndian(source[13..]));
         return telemetry.IsValid;
     }
 }

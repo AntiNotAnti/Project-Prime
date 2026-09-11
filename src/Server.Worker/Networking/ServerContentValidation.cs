@@ -2,13 +2,15 @@ using System;
 using System.Collections.Generic;
 using MphRead.Entities;
 using MphRead.Mods.MapGen;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Network
 {
     /// <summary>One map and the multiplayer modes supported by the Worker.</summary>
-    public sealed record ContentMapDescriptor(string MapKey, MatchMode[] Modes);
+    public sealed record ContentMapDescriptor(string MapKey, MatchMode[] Modes,
+        MapRequirement? RequiredMap = null, string? PackagePath = null);
 
-    /// <summary>Runs only in the staged executable, without opening a transport or generating content.</summary>
+    /// <summary>Runs only in the staged executable, without opening a transport or mutating base content.</summary>
     public static class ServerContentValidation
     {
         private const int MaximumMaps = 256;
@@ -48,8 +50,27 @@ namespace MphRead.Mods.Network
                 .OrderBy(group => group.Key, StringComparer.Ordinal)
                 .Select(group => new ContentMapDescriptor(group.Key,
                     group.Select(scenario => scenario.Mode.ToMatchMode()).Distinct()
-                        .OrderBy(mode => (byte)mode).ToArray()))
+                        .OrderBy(mode => (byte)mode).ToArray(),
+                    RequirementFor(group.Key, out string? packagePath), packagePath))
                 .ToArray();
+        }
+
+        private static MapRequirement? RequirementFor(string roomKey, out string? packagePath)
+        {
+            packagePath = null;
+            InstalledMap? map = CustomRooms.Find(roomKey);
+            if (map?.Source is not (MapInstallSource.InstalledPackage or MapInstallSource.BundledPackage)
+                || map.ArtifactHash == null
+                || !map.Project.Metadata.Redistribution) return null;
+            packagePath = map.SourcePath;
+            (string _, string baseHash) = ContentEnvironment.GetContentIdentity();
+            string matchHash = MapRequirement.ComputeMatchContentHash(baseHash,
+                map.ContentIdentity.Identity.StableId, map.ContentIdentity.Identity.Version.ToString(),
+                map.ContentIdentity.ContentHash,
+                ProjectPrime.Server.Worker.WorkerOptions.ActualBuildVersion, NetHeader.Version);
+            return new(map.ContentIdentity.Identity.StableId,
+                map.ContentIdentity.Identity.Version.ToString(), map.ContentIdentity.ContentHash,
+                map.ArtifactHash, map.PackageSize, matchHash);
         }
 
         public static int Validate(string directory, string version, IReadOnlyList<RotationEntry> rotation,
@@ -87,7 +108,7 @@ namespace MphRead.Mods.Network
             if (hosting && ServerContent.ValidatedScenarios.IsEmpty)
             {
                 foreach (string room in ServerContentPackage.RetailRooms) { AddModes(scenarios, room); }
-                foreach (MapDefinition definition in CustomRooms.Definitions) { AddModes(scenarios, definition.Name); }
+                foreach (MapDefinition definition in CustomRooms.Definitions) { AddCustomModes(scenarios, definition); }
             }
             if (scenarios.Count is < 1 or > MaximumScenarios)
             {
@@ -120,7 +141,7 @@ namespace MphRead.Mods.Network
             IReadOnlyList<MapDefinition> customDefinitions = PlayableCustomDefinitions();
             foreach (MapDefinition definition in customDefinitions)
             {
-                AddModes(candidates, definition.Name);
+                AddCustomModes(candidates, definition);
             }
 
             var supported = new List<ServerContentScenario>();
@@ -157,17 +178,32 @@ namespace MphRead.Mods.Network
                 {
                     throw new ProgramException("Custom map definitions contain a duplicate map key: " + definition.Name);
                 }
-                if (CustomRooms.WhyUnplayable(definition.Name) == null)
-                {
-                    playable.Add(definition);
-                }
+                // NeedsBuild maps are admitted to the bounded probe below;
+                // only a successful per-map compile/probe becomes advertised.
+                playable.Add(definition);
             }
             return playable;
         }
 
         private static bool TryProbeOptional(ServerContentScenario scenario)
         {
-            try { return Probe(scenario); }
+            try
+            {
+                InstalledMap? map = CustomRooms.Find(scenario.Room);
+                if (map == null) return false;
+                MapBuildResult result = MapPreparation.CompileAsync(map.Project, force: false,
+                    verbose: false, CancellationToken.None).GetAwaiter().GetResult();
+                if (!result.Success || result.CachePath == null || result.ContentIdentity == null)
+                    return false;
+                MatchContentSnapshot snapshot = ContentEnvironment.CreateMapSnapshot(
+                    result.ContentIdentity, result.BuildFingerprint, result.CachePath,
+                    map.Project.Map, ProjectPrime.Server.Worker.WorkerOptions.ActualBuildVersion
+                        + ":" + NetHeader.Version);
+                using (ContentEnvironment.UseMatchContent(snapshot))
+                {
+                    return Probe(scenario);
+                }
+            }
             catch (Exception error) when (error is ProgramException or ArgumentException or InvalidDataException
                 or InvalidOperationException or IOException or EndOfStreamException or IndexOutOfRangeException)
             {
@@ -221,6 +257,25 @@ namespace MphRead.Mods.Network
                 {
                     throw new ProgramException("Content validation supports at most 768 unique scenarios.");
                 }
+            }
+        }
+
+        private static void AddCustomModes(HashSet<ServerContentScenario> scenarios, MapDefinition definition)
+        {
+            foreach (MapMode mode in CustomRooms.SupportedModes(definition.Name))
+            {
+                GameMode? gameMode = mode switch
+                {
+                    MapMode.Battle => GameMode.Battle,
+                    MapMode.Survival => GameMode.Survival,
+                    MapMode.Capture => GameMode.Capture,
+                    MapMode.Bounty => GameMode.Bounty,
+                    MapMode.Nodes => GameMode.Nodes,
+                    _ => null
+                };
+                if (gameMode.HasValue) scenarios.Add(new(definition.Name, gameMode.Value));
+                if (scenarios.Count > MaximumScenarios)
+                    throw new ProgramException("Content validation supports at most 768 unique scenarios.");
             }
         }
 

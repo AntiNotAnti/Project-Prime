@@ -19,6 +19,10 @@ namespace MphRead.Tests
             uint match = 1) => Assert.True(history.Add(new SnapshotPacket(tick, tick, match, 0, false, 0, 0),
                 new[] { player }, tick));
 
+        private static void AddEmpty(SnapshotInterpolation history, uint tick, uint match = 1)
+            => Assert.True(history.Add(new SnapshotPacket(tick, tick, match, 0, false, 0, 0),
+                ReadOnlySpan<SnapshotPlayer>.Empty, tick));
+
         [Fact]
         public void DefaultDelayInterpolatesTransformsButUsesLatestGameplayState()
         {
@@ -433,6 +437,77 @@ namespace MphRead.Tests
             long start = GC.GetAllocatedBytesForCurrentThread();
             for (int i = 0; i < 10000; i++) Present(history);
             Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - start);
+        }
+
+        [Fact]
+        public void FrameCountersArePlayerCountNeutralAndCommitOnlyAfterPresentation()
+        {
+            static SnapshotInterpolation Build(int players)
+            {
+                var history = new SnapshotInterpolation();
+                var first = new SnapshotPlayer[players];
+                var second = new SnapshotPlayer[players];
+                for (byte slot = 0; slot < players; slot++)
+                {
+                    first[slot] = Player(slot, slot);
+                    second[slot] = Player(slot + 10, slot);
+                }
+                Assert.True(history.Add(new SnapshotPacket(100, 100, 1, 0, false, 0, 0), first, 100));
+                Assert.True(history.Add(new SnapshotPacket(110, 110, 1, 0, false, 0, 0), second, 110));
+                Assert.True(history.TryPreparePresentation(111, out SnapshotPresentation frame));
+                for (int slot = 0; slot < players; slot++)
+                    Assert.True(history.TrySamplePresentation(slot, frame, out _));
+                Assert.Equal(0, history.PresentedFrames);
+                Assert.True(history.MarkPresented(frame));
+                return history;
+            }
+
+            SnapshotInterpolation two = Build(2);
+            SnapshotInterpolation eight = Build(8);
+            Assert.Equal(1, two.PresentedFrames);
+            Assert.Equal(1, two.InterpolatedFrames);
+            Assert.Equal(two.PresentedFrames, eight.PresentedFrames);
+            Assert.Equal(two.InterpolatedFrames, eight.InterpolatedFrames);
+            Assert.Equal(0, two.UnderrunFrames);
+            Assert.Equal(0, two.HeldFrames);
+        }
+
+        [Fact]
+        public void FrameFlagsAreInclusiveForExtrapolationHoldsAndResetForAbortedEpochs()
+        {
+            var extrapolated = new SnapshotInterpolation();
+            Add(extrapolated, 100, Player(0));
+            Add(extrapolated, 110, Player(10));
+            Assert.True(extrapolated.TryPreparePresentation(118, out SnapshotPresentation moving));
+            Assert.Equal(SnapshotPresentationMode.Extrapolated, moving.Mode);
+            Assert.True(extrapolated.MarkPresented(moving));
+            Assert.Equal(1, extrapolated.PresentedFrames);
+            Assert.Equal(1, extrapolated.UnderrunFrames);
+            Assert.Equal(1, extrapolated.ExtrapolatedFrames);
+            Assert.Equal(0, extrapolated.HeldFrames);
+
+            var held = new SnapshotInterpolation(maxExtrapolationTicks: 0);
+            Add(held, 100, Player(0));
+            Add(held, 110, Player(10));
+            Assert.True(held.TryPreparePresentation(118, out SnapshotPresentation endpoint));
+            Assert.Equal(SnapshotPresentationMode.ExtrapolationHold, endpoint.Mode);
+            Assert.True(held.MarkPresented(endpoint));
+            Assert.Equal(1, held.UnderrunFrames);
+            Assert.Equal(0, held.ExtrapolatedFrames);
+            Assert.Equal(1, held.HeldFrames);
+
+            var empty = new SnapshotInterpolation();
+            AddEmpty(empty, 100);
+            AddEmpty(empty, 110);
+            Assert.True(empty.TryPreparePresentation(111, out SnapshotPresentation zeroPlayer));
+            Assert.Equal(0, empty.PresentedFrames);
+            Assert.True(empty.MarkPresented(zeroPlayer));
+            Assert.Equal(1, empty.PresentedFrames);
+            Assert.True(empty.TryPreparePresentation(112, out SnapshotPresentation abandoned));
+            Assert.Equal(1, empty.PresentedFrames);
+            empty.Reset();
+            Assert.Equal(0, empty.PresentedFrames);
+            Assert.False(empty.MarkPresented(abandoned));
         }
     }
 }

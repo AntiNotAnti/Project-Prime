@@ -10,7 +10,7 @@ public sealed partial class LobbyManager
     private sealed class RoundState
     {
         public Guid? Tournament, Round, CompletedRound;
-        public bool Paused, Ended;
+        public bool Paused, Ended, AwaitingMapReadiness;
         public long ConfigurationRevision;
         public uint BallotRevision;
         public LobbyVoteEntry? Resolved;
@@ -43,11 +43,14 @@ public sealed partial class LobbyManager
             ?? [new LobbyMapChoice(lobby.MapKey, lobby.Mode)];
         var next = maps[0];
         var options = ImmutableArray.CreateBuilder<LobbyVoteEntry>();
-        options.Add(new(1, LobbyVoteChoice.Rematch, lobby.MapKey, lobby.Mode, 0));
-        options.Add(new(2, LobbyVoteChoice.NextMap, next.MapKey, next.Mode, 0));
-        options.Add(new(3, LobbyVoteChoice.ReturnToLobby, lobby.MapKey, lobby.Mode, 0));
+        options.Add(new(1, LobbyVoteChoice.Rematch, lobby.MapKey, lobby.Mode, 0,
+            ContentCatalog?.RequiredMap(lobby.MapKey)));
+        options.Add(new(2, LobbyVoteChoice.NextMap, next.MapKey, next.Mode, 0, next.RequiredMap));
+        options.Add(new(3, LobbyVoteChoice.ReturnToLobby, lobby.MapKey, lobby.Mode, 0,
+            ContentCatalog?.RequiredMap(lobby.MapKey)));
         foreach (var map in maps.Where(m => m.MapKey != lobby.MapKey && m.MapKey != next.MapKey).Take(5))
-            options.Add(new((byte)(options.Count + 1), LobbyVoteChoice.Map, map.MapKey, map.Mode, 0));
+            options.Add(new((byte)(options.Count + 1), LobbyVoteChoice.Map, map.MapKey, map.Mode, 0,
+                map.RequiredMap));
         state.Options = options.ToImmutable();
         state.BallotRevision++; if (state.BallotRevision == 0) state.BallotRevision = 1;
         state.Electorate = lobby.Members.Values.Where(m => !m.Observer).Select(m => m.SessionId).ToHashSet();
@@ -70,13 +73,34 @@ public sealed partial class LobbyManager
         state.Resolved = state.Resolved with { Votes = maximum };
         state.ConfigurationRevision++;
         if (state.Resolved.Choice == LobbyVoteChoice.ReturnToLobby) ReopenCore(lobby);
+        else if (state.Resolved.RequiredMap != null && state.Resolved.MapKey != lobby.MapKey)
+            BeginMapReadiness(lobby, state, state.Resolved);
         Publish(lobby);
+    }
+    private void BeginMapReadiness(Lobby lobby, RoundState state, LobbyVoteEntry selected)
+    {
+        ContentIdentity content = ContentCatalog?.Get(selected.MapKey, selected.Mode)
+            ?? throw Error("map_unavailable", "No hosted content catalog.");
+        if (content.RequiredMap != selected.RequiredMap)
+            throw Error("map_identity", "The selected map package identity changed.");
+        lobby.MapKey = selected.MapKey;
+        lobby.Mode = selected.Mode;
+        lobby.HostRules = lobby.HostRules.ForMode(selected.Mode);
+        lobby.Phase = LobbyPhase.Open;
+        lobby.MatchId = null;
+        InvalidateReady(lobby);
+        state.AwaitingMapReadiness = true;
+        state.Options = [];
+        state.Votes.Clear();
+        state.Deadline = null;
+        state.Electorate.Clear();
     }
     private void ReopenCore(Lobby lobby)
     {
         lobby.Phase = LobbyPhase.Open; lobby.MatchId = null; InvalidateReady(lobby);
         var state = Round(lobby.Id);
         state.Options = []; state.Votes.Clear(); state.Deadline = null; state.Electorate.Clear();
+        state.AwaitingMapReadiness = false;
     }
     public IReadOnlyList<(MatchSpec Spec, LobbyMember[] Members)> PrepareContinuations(NodeId node, Guid incarnation, int maximum = 64)
         => PrepareContinuations(node, incarnation, maximum, out _);
@@ -92,10 +116,15 @@ public sealed partial class LobbyManager
             foreach (var lobby in _lobbies.Values.ToArray())
             {
                 var state = Round(lobby.Id);
-                if (lobby.Phase != LobbyPhase.PostMatch || state.Tournament != null) continue;
+                bool postMatch = lobby.Phase == LobbyPhase.PostMatch;
+                bool acquiring = lobby.Phase == LobbyPhase.Open && state.AwaitingMapReadiness;
+                if ((!postMatch && !acquiring) || state.Tournament != null) continue;
                 ResolveBallot(lobby, state);
                 if (result.Count >= maximum) continue;
-                if (lobby.Phase != LobbyPhase.PostMatch || state.Resolved is not { } selected) continue;
+                if (state.Resolved is not { } selected) continue;
+                if (state.AwaitingMapReadiness
+                    && lobby.Members.Values.Any(member => !member.Observer && !member.Ready)) continue;
+                if (lobby.Phase is not (LobbyPhase.PostMatch or LobbyPhase.Open)) continue;
                 try
                 {
                     if (_admissionClosed) throw Error("draining", "Node is draining.");
@@ -109,7 +138,9 @@ public sealed partial class LobbyManager
                     _ = nextRules.ToMatchRules(selected.Mode, selected.MapKey, lobby.Rules.PlayerLimit);
                     lobby.MapKey = selected.MapKey; lobby.Mode = selected.Mode;
                     lobby.HostRules = nextRules;
-                    var spec = PrepareMatchCore(lobby, content, node, incarnation, requireReady: false);
+                    bool requireReady = state.AwaitingMapReadiness;
+                    state.AwaitingMapReadiness = false;
+                    var spec = PrepareMatchCore(lobby, content, node, incarnation, requireReady);
                     state.Options = []; state.Votes.Clear(); state.Deadline = null; state.Electorate.Clear();
                     result.Add((spec, lobby.Members.Values.ToArray()));
                 }
@@ -236,10 +267,11 @@ public sealed partial class LobbyManager
     private static void PruneVotes(Lobby lobby, RoundState state)
     { state.Electorate.RemoveWhere(id => !lobby.Members.TryGetValue(id, out var member) || member.Observer);
         foreach (Guid id in state.Votes.Keys.ToArray()) if (!state.Electorate.Contains(id)) state.Votes.Remove(id); }
-    private static NodeRoundSnapshot RoundSnapshot(Lobby lobby, RoundState state, Guid session)
+    private NodeRoundSnapshot RoundSnapshot(Lobby lobby, RoundState state, Guid session)
     {
         PruneVotes(lobby, state);
-        return new(lobby.Snapshot(IdentityForSession(lobby, session)), state.Tournament, state.Round, state.Paused, state.Ended, state.ConfigurationRevision,
+        return new(lobby.Snapshot(IdentityForSession(lobby, session), RequirementFor(lobby)),
+            state.Tournament, state.Round, state.Paused, state.Ended, state.ConfigurationRevision,
             state.BallotRevision, state.Deadline, state.Options.Select(o => o with { Votes = state.Votes.Values.Count(v => v == o.Id) }).ToImmutableArray(), state.Votes.GetValueOrDefault(session), state.Resolved);
     }
 }

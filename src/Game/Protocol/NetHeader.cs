@@ -41,8 +41,10 @@ namespace MphRead.Mods.Network
     {
         public const ushort Magic = 0x5046;
         public const int Size = 24;
-        // Protocol 12 adds the authoritative player input epoch to input commands.
-        public const byte Version = 12;
+        // Protocol 12 added the authoritative player input epoch to input
+        // commands, protocol 13 added timing telemetry, and protocol 14 adds
+        // authenticated established-connection datagrams.
+        public const byte Version = 14;
 
         public void Write(Span<byte> destination)
         {

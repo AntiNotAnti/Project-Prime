@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using MphRead.Identity;
 using MphRead.Mods.Network;
@@ -29,6 +30,13 @@ public sealed record WorkerAdmissionClaims(NodeId NodeId, Guid NodeIncarnation, 
 /// <summary>Node-owned P-256 signer. Only ExportPublicKey crosses Node/Worker IPC.</summary>
 public sealed class WorkerAdmissionIssuer : IDisposable
 {
+    // The signed payload is base64url encoded before crossing any HTML/JSON
+    // boundary. Avoiding HTML-only escapes keeps every valid 16-byte roster
+    // name within the authenticated 1,024-byte UDP envelope.
+    private static readonly JsonSerializerOptions TicketJson = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
     private readonly ECDsa _key;
     private readonly object _sync = new();
     public string KeyId { get; }
@@ -42,7 +50,8 @@ public sealed class WorkerAdmissionIssuer : IDisposable
     public string Issue(WorkerAdmissionClaims claims)
     {
         claims.Validate();
-        string header = WorkerAdmissionEncoding.Encode(JsonSerializer.SerializeToUtf8Bytes(new { alg = "ES256", typ = "fp-worker-admission", kid = KeyId }));
+        string header = WorkerAdmissionEncoding.Encode(JsonSerializer.SerializeToUtf8Bytes(
+            new { alg = "ES256", typ = "fp-worker-admission", kid = KeyId }, TicketJson));
         // Compact names keep the complete signed reservation within the existing 1024-byte UDP cap.
         var payload = new Dictionary<string, object?>
         {
@@ -55,7 +64,8 @@ public sealed class WorkerAdmissionIssuer : IDisposable
             ["nonce"] = claims.JoinNonce, ["iat"] = claims.IssuedAt, ["exp"] = claims.ExpiresAt,
             ["jti"] = claims.TicketId.ToString("N")
         };
-        string signingInput = header + "." + WorkerAdmissionEncoding.Encode(JsonSerializer.SerializeToUtf8Bytes(payload));
+        string signingInput = header + "." + WorkerAdmissionEncoding.Encode(
+            JsonSerializer.SerializeToUtf8Bytes(payload, TicketJson));
         byte[] signature;
         lock (_sync) signature = _key.SignData(Encoding.ASCII.GetBytes(signingInput), HashAlgorithmName.SHA256,
             DSASignatureFormat.IeeeP1363FixedFieldConcatenation);

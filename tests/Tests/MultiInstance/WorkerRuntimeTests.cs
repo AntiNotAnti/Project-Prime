@@ -50,7 +50,12 @@ public sealed class WorkerRuntimeTests
     {
         var defaults = new WorkerOptions();
         Assert.False(defaults.AdaptiveTimingEnabled);
+        Assert.False(defaults.AdaptiveTimingV2Enabled);
         Assert.False(defaults.AdaptiveInputPlayoutEnabled);
+        Assert.Throws<ArgumentException>(() => new WorkerOptions
+        {
+            AdaptiveTimingV2Enabled = true
+        }.Validate());
         Assert.Throws<ArgumentException>(() => new WorkerOptions
         {
             AdaptiveInputPlayoutEnabled = true
@@ -65,6 +70,8 @@ public sealed class WorkerRuntimeTests
             ["--adaptive-timing", "true", "--adaptive-input-playout", "true"]);
         Assert.Equal("true", parsed["--adaptive-timing"]);
         Assert.Equal("true", parsed["--adaptive-input-playout"]);
+        Assert.Equal("true", ProjectPrime.Server.Worker.Program.ParseArguments(
+            ["--adaptive-timing", "true", "--adaptive-timing-v2", "true"])["--adaptive-timing-v2"]);
     }
 
     [Fact]
@@ -72,11 +79,23 @@ public sealed class WorkerRuntimeTests
     {
         var defaults = new WorkerOptions();
         Assert.False(defaults.TransportQueueV2Enabled);
+        Assert.True(defaults.TransportCriticalReserveEnabled);
+        Assert.True(defaults.WorkerGlobalNetworkBudgetEnabled);
         Assert.False(defaults.ReliableAdaptiveRtoEnabled);
+        Assert.Equal(32, defaults.CriticalTransportReserve);
+        Assert.Equal(WorkerNetworkHub.DefaultMaximumDatagramsPerPump, defaults.MaximumDatagramsPerPump);
         Dictionary<string, string> parsed = ProjectPrime.Server.Worker.Program.ParseArguments(
-            ["--transport-queue-v2", "true", "--reliable-adaptive-rto", "true"]);
+            ["--transport-queue-v2", "true", "--transport-critical-reserve-enabled", "false",
+                "--critical-transport-reserve", "16", "--worker-global-network-budget-enabled", "false",
+                "--max-datagrams-per-pump", "256", "--reliable-adaptive-rto", "true"]);
         Assert.Equal("true", parsed["--transport-queue-v2"]);
+        Assert.Equal("false", parsed["--transport-critical-reserve-enabled"]);
+        Assert.Equal("16", parsed["--critical-transport-reserve"]);
+        Assert.Equal("false", parsed["--worker-global-network-budget-enabled"]);
+        Assert.Equal("256", parsed["--max-datagrams-per-pump"]);
         Assert.Equal("true", parsed["--reliable-adaptive-rto"]);
+        Assert.Throws<ArgumentException>(() => new WorkerOptions { CriticalTransportReserve = -1 }.Validate());
+        Assert.Throws<ArgumentException>(() => new WorkerOptions { MaximumDatagramsPerPump = 0 }.Validate());
     }
 
     [Theory]

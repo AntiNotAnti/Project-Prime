@@ -31,9 +31,20 @@ public sealed record WorkerOptions
     public byte ProtocolVersion { get; init; } = MphRead.Mods.Network.NetHeader.Version;
     public int SnapshotRateHz { get; init; } = SnapshotCadence.DefaultRateHz;
     public bool AdaptiveTimingEnabled { get; init; }
+    /// <summary>Protocol-13 frame-based timing telemetry; disabled by default for rollback.</summary>
+    public bool AdaptiveTimingV2Enabled { get; init; }
     public bool AdaptiveInputPlayoutEnabled { get; init; }
     public bool TransportQueueV2Enabled { get; init; }
+    // Enabled by default for the hardened path; false restores the pre-N4
+    // admission behavior while retaining validation of the configured reserve.
+    public bool TransportCriticalReserveEnabled { get; init; } = true;
+    public int CriticalTransportReserve { get; init; } = 32;
+    // Enabled by default; false restores independent per-match flush budgets.
+    public bool WorkerGlobalNetworkBudgetEnabled { get; init; } = true;
+    public int MaximumDatagramsPerPump { get; init; } = WorkerNetworkHub.DefaultMaximumDatagramsPerPump;
     public bool ReliableAdaptiveRtoEnabled { get; init; }
+    /// <summary>Per-handoff UDP MACs are the production default.</summary>
+    public bool UdpAuthenticationEnabled { get; init; } = true;
     public WorkerLagCompensationMode LagCompensationMode { get; init; } = WorkerLagCompensationMode.Players;
     internal MphRead.DeveloperValidationFixtureId ValidationFixture { get; init; }
     /// <summary>Explicit developer-only choreography for rendered headshot validation.</summary>
@@ -56,11 +67,14 @@ public sealed record WorkerOptions
             || !double.IsFinite(PlacementCpuPercent) || PlacementCpuPercent is <= 0 or > 100
             || MaximumArtifactFiles is < 1 or > 100000 || MaximumArtifactBytes < 1
             || ArtifactReservationBytes < 1 || ArtifactReservationBytes > MaximumArtifactBytes
+            || CriticalTransportReserve is < 0 or > 65536
+            || MaximumDatagramsPerPump is < 1 or > 65536
             || ArtifactDirectory != null && !Path.IsPathFullyQualified(ArtifactDirectory)
             || ReplayDirectory != null && !Path.IsPathFullyQualified(ReplayDirectory)
             || MinimumMemoryHeadroomBytes < 0 || string.IsNullOrWhiteSpace(AdvertisedHost)
             || AdvertisedHost.Length > 253 || AdvertisedHost.Any(char.IsWhiteSpace) || Uri.CheckHostName(AdvertisedHost) == UriHostNameType.Unknown
             || !SnapshotCadence.IsSupported(SnapshotRateHz)
+            || AdaptiveTimingV2Enabled && !AdaptiveTimingEnabled
             || AdaptiveInputPlayoutEnabled && !AdaptiveTimingEnabled
             || !Enum.IsDefined(LagCompensationMode)
             || !Enum.IsDefined(ValidationFixture)

@@ -7,9 +7,22 @@ prediction. The Worker remains the sole owner of health, death, score,
 afflictions, objectives, collision history, and lag-compensation selection.
 The later NetPlay fidelity pass changed the input wire contract to protocol 12
 only after a deterministic death/respawn regression proved that unseen
-pre-death commands needed an explicit life epoch. This does not grant the
-client gameplay authority; the Worker validates the epoch against its current
-player life.
+pre-death commands needed an explicit life epoch. The current wire contract is
+protocol 14: it carries the presented-frame denominator and the authenticated
+UDP envelope. This does not grant the client gameplay authority; the Worker
+validates the epoch against its current player life and remains the sole
+authority for gameplay state.
+
+The protocol-14 authentication boundary is Node-issued, per-handoff, and
+direction-bound. A handoff exposes a bounded `AdmissionId`; the associated
+32-byte key is installed and acknowledged by the owning Worker before the
+handoff is published. Client joins and established packets are authenticated
+before body validation and state application. Enabled mode drops unknown or
+unauthenticated joins and has no keyless fallback. `UdpAuthenticationEnabled`
+is enabled for production; disabling it is an explicit legacy/test seam only.
+Keys are redacted from logs, string representations, tickets, CLI arguments,
+and environment values. Protocol 13 and older peers are intentionally
+incompatible with this contract.
 
 ## Repository implementation status
 
@@ -19,7 +32,7 @@ player life.
 | P1 hit prediction | Implemented | Existing collision attempts are observed before replica suppression; identity is match/connection/life/command fenced. |
 | P2 markers | Implemented | Predicted, hit, headshot, and kill use one priority state with authoritative-only audio. |
 | P3 self impulse | Implemented, developer-disabled | Verified Missile, Battlehammer, and Magmaul self-damage directions use the shared engine transform. Bomb jump remains its separate retail velocity-floor path. |
-| P4 WAN tooling | Implemented | Existing rendered Node to Worker tools now capture hit and impulse metrics. Real geographic evidence is not yet recorded. |
+| P4 WAN tooling | Implemented, evidence-pending | Existing rendered Node to Worker tools capture hit and impulse metrics; N5/N6 tooling fails closed for missing real-WAN evidence. Real geographic evidence is not yet recorded. |
 | P5 rewind tuning | Not authorized by evidence | The server cap remains 15 ticks. |
 | P6 rollout | Pending | Instant timing and self-impulse defaults require the external gates below. |
 
@@ -59,6 +72,22 @@ candidate evidence until endpoint geography and human review are recorded.
 Client reports carrying the new hit and impulse metrics use the versioned
 `project-prime.rendered-wan-split.v2` tooling schema; this does not change the
 gameplay wire protocol.
+
+## N5/N6 fail-closed tooling boundary
+
+N5 is represented by `--rendered-wan-snapshot-matrix-plan` and its self-test.
+It creates paired 30/60 Hz cells for an operator to run, but local or
+process-local impairment remains `rendered-loopback-process-local-impairment`.
+The decision remains `INSUFFICIENT_REAL_WAN_EVIDENCE` unless all cells are
+complete and explicitly marked `real-wan-independent-path`; no planner output
+can promote 60 Hz or change the production default.
+
+N6 is represented by the authenticated two-client report/merge checks. The
+merge validates run, match, Worker, role, connection, and shot-identity
+bindings, rejects developer-fixture or mismatched reports, and will not emit
+headshot agreement without actual headshot evidence. `renderedWanProof` and
+human-review acceptance remain false for local fixtures, incomplete reports,
+or missing geographic endpoints.
 
 ## Required external gate
 

@@ -14,6 +14,12 @@ namespace MphRead.Mods.Network
         NetTrafficMetrics Metrics { get; }
         void SetKeepAlive(IPEndPoint? target, ReadOnlySpan<byte> datagram = default);
         void SetKeepAlives(ReadOnlySpan<NetKeepAlive> entries);
+        /// <summary>
+        /// Publishes transport-owned authenticated keepalives. Implementations
+        /// copy descriptor state and advance counters independently of packet
+        /// sequence/ACK windows.
+        /// </summary>
+        void SetKeepAliveDescriptors(ReadOnlySpan<NetKeepAliveDescriptor> entries) { }
         void AnswerPingsImmediately();
         IEnumerable<ReceivedPacket> Drain();
         int Drain(Span<ReceivedPacket> destination)

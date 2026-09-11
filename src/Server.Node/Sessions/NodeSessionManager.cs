@@ -122,7 +122,7 @@ public sealed class NodeSessionManager
             if (_lobbies.ForSession(session.Id) is { } restored) Send(session, "lobby.snapshot", null, restored);
             if (_lobbies.RoundForSession(session.Id) is { } restoredRound) Send(session, "lobby.round", null, restoredRound);
             if (_matches != null)
-                foreach (object matchState in _matches.ForSessionEvents(session.Id)) SendMatch(session, matchState);
+                foreach (object matchState in await _matches.ForSessionEventsAsync(session.Id, connection.Stop.Token)) SendMatch(session, matchState);
             byte[] buffer = new byte[NodeControlCodec.MaximumFrameBytes];
             long window = _clock.GetTimestamp(); int requests = 0;
             while (!connection.Stop.IsCancellationRequested)

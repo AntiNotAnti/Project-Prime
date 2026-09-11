@@ -13,7 +13,8 @@ public sealed partial class ServerNetwork
     public bool ObserverFramesRequired => ObserverConfiguration.MaxSpectators > 0 || ObserverFrameCaptured != null;
     public ReadOnlySpan<ServerPeer?> ObserverPeers => _observers.AsSpan(0, ObserverConfiguration.MaxSpectators);
     public ReadOnlySpan<ServerPeer?> AllConnections => _connections;
-    private bool AdmitObserver(IPEndPoint endpoint, in JoinPacket join, TicketIdentity? identity)
+    private bool AdmitObserver(IPEndPoint endpoint, in JoinPacket join, TicketIdentity? identity,
+        ReadOnlySpan<byte> authKey = default)
     {
         ServerPeer? replacing = null;
         int replacementSlot = -1;
@@ -47,13 +48,13 @@ public sealed partial class ServerNetwork
         int free = replacementSlot >= 0
             ? replacementSlot
             : Array.FindIndex(_observers, 0, ObserverConfiguration.MaxSpectators, peer => peer == null);
-        if (free < 0) { Refuse(endpoint, join.Nonce, "Observer connections are full or disabled."); return true; }
+        if (free < 0) { Refuse(endpoint, join.Nonce, "Observer connections are full or disabled.", join.AdmissionId, authKey); return true; }
         uint delay = identity?.TrustedObserver == true ? 0 : (uint)ObserverConfiguration.DelaySeconds * 60;
         var baseline = _observerTimeline.Baseline(Tick, delay);
-        if (baseline == null) { Refuse(endpoint, join.Nonce, "Observer history is warming up. Try again later."); return true; }
+        if (baseline == null) { Refuse(endpoint, join.Nonce, "Observer history is warming up. Try again later.", join.AdmissionId, authKey); return true; }
         ulong id = AllocateConnectionIdentity();
         var connection = new NetConnection(id, endpoint, baseline.Value.MatchId, _now,
-            ReliableAdaptiveRtoEnabled);
+            authKey, NetAuthDirection.ServerToClient, ReliableAdaptiveRtoEnabled);
         var peer = new ServerPeer(connection, join, byte.MaxValue, _now)
         {
             ConnectionIndex = (byte)(8 + free), TeamIndex = byte.MaxValue,
@@ -70,7 +71,7 @@ public sealed partial class ServerNetwork
             || !connection.Reliable.TryEnqueue(ReliableEventType.Roster, baseline.Value.Roster!, out _))
         {
             connection.Disconnect();
-            Refuse(endpoint, join.Nonce, "Observer admission could not be queued.");
+            Refuse(endpoint, join.Nonce, "Observer admission could not be queued.", join.AdmissionId, authKey);
             return true;
         }
         if (replacing != null)

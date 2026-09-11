@@ -1,8 +1,10 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Threading;
 
 namespace MphRead.Mods.Network
@@ -37,7 +39,29 @@ namespace MphRead.Mods.Network
 
         private volatile bool _autoPong;
         private sealed record KeepAlive(IPEndPoint Target, byte[] Datagram);
+        private sealed class AuthenticatedKeepAlive
+        {
+            public readonly IPEndPoint Target;
+            public readonly ulong ConnectionId;
+            public readonly byte[] Key;
+            public readonly NetAuthDirection Direction;
+            public ulong Counter;
+            public bool Retired;
+            public bool Detached;
+            public int InFlight;
+
+            public AuthenticatedKeepAlive(IPEndPoint target, ulong connectionId,
+                ulong counter, byte[] key, NetAuthDirection direction)
+            {
+                Target = target;
+                ConnectionId = connectionId;
+                Counter = counter;
+                Key = key;
+                Direction = direction;
+            }
+        }
         private KeepAlive[] _keepAlives = Array.Empty<KeepAlive>();
+        private AuthenticatedKeepAlive[] _authenticatedKeepAlives = Array.Empty<AuthenticatedKeepAlive>();
         private long _keepAliveDue;
         public const int MaxKeepAlives = 24; // Eight players plus sixteen observers.
 
@@ -69,6 +93,47 @@ namespace MphRead.Mods.Network
             PublishKeepAlives(copies);
         }
 
+        /// <summary>
+        /// Publishes transport-owned authenticated keepalives. Each descriptor
+        /// gets a fresh counter on every interval; the exhausted counter is
+        /// retired instead of wrapping into a replayable value.
+        /// </summary>
+        public void SetKeepAliveDescriptors(ReadOnlySpan<NetKeepAliveDescriptor> entries)
+        {
+            if (entries.Length > MaxKeepAlives)
+                throw new ArgumentOutOfRangeException(nameof(entries));
+            lock (_heldLock)
+            {
+                if (_running)
+                {
+                    AuthenticatedKeepAlive[] previous =
+                        Volatile.Read(ref _authenticatedKeepAlives);
+                    var copies = entries.IsEmpty
+                        ? Array.Empty<AuthenticatedKeepAlive>()
+                        : new AuthenticatedKeepAlive[entries.Length];
+                    for (int i = 0; i < entries.Length; i++)
+                    {
+                        NetKeepAliveDescriptor entry = entries[i];
+                        entry.Validate();
+                        AuthenticatedKeepAlive? prior = FindKeepAlive(previous, entry);
+                        ulong counter = prior == null
+                            ? entry.Counter
+                            : Math.Max(entry.Counter, prior.Counter);
+                        copies[i] = new AuthenticatedKeepAlive(
+                            new IPEndPoint(new IPAddress(entry.Endpoint.Address.GetAddressBytes()), entry.Endpoint.Port),
+                            entry.ConnectionId, counter, entry.Key.ToArray(), entry.Direction)
+                        {
+                            Retired = prior?.Retired == true
+                        };
+                    }
+                    RetireKeepAlivesLocked(previous);
+                    Volatile.Write(ref _keepAlives, Array.Empty<KeepAlive>());
+                    Volatile.Write(ref _authenticatedKeepAlives, copies);
+                    _keepAliveDue = 0;
+                }
+            }
+        }
+
         private static KeepAlive CopyKeepAlive(IPEndPoint target, ReadOnlySpan<byte> datagram)
         {
             if (target == null || target.AddressFamily != AddressFamily.InterNetwork)
@@ -87,7 +152,68 @@ namespace MphRead.Mods.Network
         {
             lock (_heldLock)
             {
-                if (_running) { Volatile.Write(ref _keepAlives, entries); }
+                if (_running)
+                {
+                    RetireKeepAlivesLocked(Volatile.Read(ref _authenticatedKeepAlives));
+                    Volatile.Write(ref _authenticatedKeepAlives, Array.Empty<AuthenticatedKeepAlive>());
+                    Volatile.Write(ref _keepAlives, entries);
+                    _keepAliveDue = 0;
+                }
+            }
+        }
+
+        private void SendAuthenticatedKeepAlive(AuthenticatedKeepAlive keepAlive)
+        {
+            ulong counter;
+            lock (_heldLock)
+            {
+                if (!_running || keepAlive.Detached || keepAlive.Retired) return;
+                keepAlive.InFlight++;
+                counter = keepAlive.Counter;
+                if (counter == ulong.MaxValue) keepAlive.Retired = true;
+                else keepAlive.Counter++;
+            }
+            try
+            {
+                Span<byte> datagram = stackalloc byte[NetHeader.Size + NetAuthentication.CounterSize + NetAuthentication.TagSize];
+                NetHeader header = new(NetMessageType.KeepAlive, NetHeaderFlags.Unsequenced,
+                    keepAlive.ConnectionId, 0, 0, 0);
+                BinaryPrimitives.WriteUInt64LittleEndian(datagram[NetHeader.Size..], counter);
+                int length = NetAuthentication.Sign(keepAlive.Key, keepAlive.Direction, header,
+                    datagram.Slice(NetHeader.Size, NetAuthentication.CounterSize), datagram);
+                SendDatagram(keepAlive.Target, datagram[..length]);
+            }
+            finally
+            {
+                lock (_heldLock)
+                {
+                    keepAlive.InFlight--;
+                    if (keepAlive.Detached && keepAlive.InFlight == 0)
+                        CryptographicOperations.ZeroMemory(keepAlive.Key);
+                }
+            }
+        }
+
+        private static AuthenticatedKeepAlive? FindKeepAlive(
+            AuthenticatedKeepAlive[] previous, NetKeepAliveDescriptor descriptor)
+        {
+            foreach (AuthenticatedKeepAlive candidate in previous)
+            {
+                if (candidate.ConnectionId == descriptor.ConnectionId
+                    && candidate.Direction == descriptor.Direction
+                    && CryptographicOperations.FixedTimeEquals(candidate.Key, descriptor.Key.Span))
+                    return candidate;
+            }
+            return null;
+        }
+
+        private static void RetireKeepAlivesLocked(AuthenticatedKeepAlive[] entries)
+        {
+            foreach (AuthenticatedKeepAlive entry in entries)
+            {
+                entry.Detached = true;
+                if (entry.InFlight == 0)
+                    CryptographicOperations.ZeroMemory(entry.Key);
             }
         }
 
@@ -223,7 +349,9 @@ namespace MphRead.Mods.Network
                 try
                 {
                     KeepAlive[] keepAlives = Volatile.Read(ref _keepAlives);
-                    if (keepAlives.Length > 0)
+                    AuthenticatedKeepAlive[] authenticatedKeepAlives =
+                        Volatile.Read(ref _authenticatedKeepAlives);
+                    if (keepAlives.Length > 0 || authenticatedKeepAlives.Length > 0)
                     {
                         long now = Stopwatch.GetTimestamp();
                         if (now >= _keepAliveDue)
@@ -231,6 +359,10 @@ namespace MphRead.Mods.Network
                             foreach (KeepAlive keepAlive in keepAlives)
                             {
                                 SendDatagram(keepAlive.Target, keepAlive.Datagram);
+                            }
+                            foreach (AuthenticatedKeepAlive keepAlive in authenticatedKeepAlives)
+                            {
+                                SendAuthenticatedKeepAlive(keepAlive);
                             }
                             _keepAliveDue = now + Stopwatch.Frequency;
                         }
@@ -519,7 +651,9 @@ namespace MphRead.Mods.Network
             lock (_heldLock)
             {
                 _running = false;
+                RetireKeepAlivesLocked(Volatile.Read(ref _authenticatedKeepAlives));
                 Volatile.Write(ref _keepAlives, Array.Empty<KeepAlive>());
+                Volatile.Write(ref _authenticatedKeepAlives, Array.Empty<AuthenticatedKeepAlive>());
             }
             _socket.Dispose(); // Interrupt the blocking receive before joining it.
             _worker.Join();

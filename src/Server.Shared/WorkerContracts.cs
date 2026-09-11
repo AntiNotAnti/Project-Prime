@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using MphRead;
 using MphRead.Mods.Network;
@@ -26,7 +27,8 @@ public sealed record WorkerHealth(WorkerStatus Status, long UptimeMilliseconds, 
         Diagnostics?.Validate();
     }
 }
-public sealed record MatchPlacement(MatchId MatchId, WireMatchId WireMatchId, WorkerId WorkerId, Guid WorkerIncarnation, string Host, ushort Port)
+public sealed record MatchPlacement(MatchId MatchId, WireMatchId WireMatchId, WorkerId WorkerId, Guid WorkerIncarnation,
+    string Host, ushort Port, bool UdpAuthenticationEnabled = true)
 {
     public void Validate()
     {
@@ -61,6 +63,21 @@ public enum AdminAction { Pause, Resume, EndMatch, KickSeat, LagCompHistory, Lag
 public sealed record MatchAdminCommand(MatchId MatchId, AdminAction Action, byte? SeatId) : WorkerCommand;
 /// <summary>Public verification material only; private signing keys remain with Node.</summary>
 public sealed record UpdateNodeSigningKey(string KeyId, string PublicKey) : WorkerCommand;
+/// <summary>
+/// Installs one short-lived UDP admission secret in the owning match. The
+/// command is control-plane-only; the secret is deliberately absent from the
+/// acknowledgement and all diagnostic string representations.
+/// </summary>
+public sealed record InstallAdmissionKey(
+    Guid AdmissionId, Guid TicketId, Guid NodeSessionId,
+    NodeId NodeId, Guid NodeIncarnation,
+    MatchId MatchId, WireMatchId WireMatchId,
+    WorkerId WorkerId, Guid WorkerIncarnation,
+    byte SeatId, ulong JoinNonce, long ExpiresAt, string AdmissionKey) : WorkerCommand
+{
+    public override string ToString()
+        => $"InstallAdmissionKey {{ AdmissionId = {AdmissionId}, TicketId = {TicketId}, MatchId = {MatchId}, SeatId = {SeatId} }}";
+}
 /// <summary>First message on a new local connection. Transport must verify and consume StartupToken before accepting commands.</summary>
 public sealed record WorkerContentIdentity(string ContentVersion, string ContentHash, string BuildVersion, byte ProtocolVersion)
 {
@@ -68,6 +85,34 @@ public sealed record WorkerContentIdentity(string ContentVersion, string Content
     {
         ContractGuard.Text(ContentVersion, 128); ContractGuard.Text(ContentHash, 128); ContractGuard.Text(BuildVersion, 128);
         if (ProtocolVersion == 0) throw new ArgumentException("Protocol version is required.");
+    }
+}
+
+/// <summary>Validation and canonical encoding rules for the phase-A UDP admission secret.</summary>
+public static class AdmissionKeyRules
+{
+    public const int ByteLength = 32;
+    public const int Base64Length = 44;
+
+    public static byte[] Decode(string value)
+    {
+        if (value is null || value.Length != Base64Length)
+            throw new ArgumentException("Admission key must be a 32-byte canonical base64 value.");
+        byte[] bytes;
+        try { bytes = Convert.FromBase64String(value); }
+        catch (FormatException error) { throw new ArgumentException("Admission key is not valid base64.", error); }
+        if (bytes.Length != ByteLength || !String.Equals(Convert.ToBase64String(bytes), value, StringComparison.Ordinal))
+        {
+            CryptographicOperations.ZeroMemory(bytes);
+            throw new ArgumentException("Admission key must be a 32-byte canonical base64 value.");
+        }
+        return bytes;
+    }
+
+    public static void Validate(string value)
+    {
+        byte[] bytes = Decode(value);
+        CryptographicOperations.ZeroMemory(bytes);
     }
 }
 
@@ -147,6 +192,15 @@ public sealed record MatchReportReady(MatchId MatchId, Guid ReportId, WorkerId W
 }
 public sealed record WorkerDraining(WorkerId WorkerId, Guid WorkerIncarnation) : WorkerEvent;
 public sealed record WorkerFault(WorkerId WorkerId, Guid WorkerIncarnation, string Reason) : WorkerEvent;
+/// <summary>Positive acknowledgement that a Worker match owns the admission key.</summary>
+public sealed record AdmissionKeyInstalled(
+    Guid AdmissionId, Guid TicketId, Guid NodeSessionId,
+    NodeId NodeId, Guid NodeIncarnation,
+    MatchId MatchId, WireMatchId WireMatchId,
+    WorkerId WorkerId, Guid WorkerIncarnation,
+    byte SeatId, ulong JoinNonce, long ExpiresAt) : WorkerEvent;
+/// <summary>Bounded, non-secret rejection of an admission-key installation.</summary>
+public sealed record AdmissionKeyInstallFailed(Guid AdmissionId, MatchId MatchId, string Reason) : WorkerEvent;
 
 public sealed record WorkerLaneHealth(int LaneId, int Matches, long Ticks, long CatchUpTicks, long DroppedTicks,
     double P50Milliseconds, double P95Milliseconds, double P99Milliseconds, double MaxMilliseconds,

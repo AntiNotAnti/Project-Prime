@@ -93,8 +93,16 @@ public sealed class ManagedWorker : IAsyncDisposable
                 _specs.Add(create.Spec.MatchId, create.Spec);
                 return true;
             }
-            MatchId? target = command switch { CancelMatch c => c.MatchId, MatchAdminCommand c => c.MatchId, _ => null };
+            MatchId? target = command switch
+            {
+                CancelMatch c => c.MatchId,
+                MatchAdminCommand c => c.MatchId,
+                InstallAdmissionKey c => c.MatchId,
+                _ => null
+            };
             if (target is { } id && (!_matches.TryGetValue(id, out var status) || !IsActive(status))) return false;
+            if (command is InstallAdmissionKey admission
+                && (admission.WorkerId != Id || admission.WorkerIncarnation != Incarnation)) return false;
             if (!_commands.Writer.TryWrite(command)) return false;
             if (command is Drain) _status = WorkerStatus.Draining;
             if (command is Shutdown) { _shutdownRequested = true; _status = WorkerStatus.Draining; }
@@ -151,12 +159,24 @@ public sealed class ManagedWorker : IAsyncDisposable
             start.ArgumentList.Add(_options.SnapshotRateHz.ToString(System.Globalization.CultureInfo.InvariantCulture));
             start.ArgumentList.Add("--adaptive-timing");
             start.ArgumentList.Add(_options.AdaptiveTimingEnabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add("--adaptive-timing-v2");
+            start.ArgumentList.Add(_options.AdaptiveTimingV2Enabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
             start.ArgumentList.Add("--adaptive-input-playout");
             start.ArgumentList.Add(_options.AdaptiveInputPlayoutEnabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
             start.ArgumentList.Add("--transport-queue-v2");
             start.ArgumentList.Add(_options.TransportQueueV2Enabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add("--transport-critical-reserve-enabled");
+            start.ArgumentList.Add(_options.TransportCriticalReserveEnabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add("--critical-transport-reserve");
+            start.ArgumentList.Add(_options.CriticalTransportReserve.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add("--worker-global-network-budget-enabled");
+            start.ArgumentList.Add(_options.WorkerGlobalNetworkBudgetEnabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add("--max-datagrams-per-pump");
+            start.ArgumentList.Add(_options.MaximumDatagramsPerPump.ToString(System.Globalization.CultureInfo.InvariantCulture));
             start.ArgumentList.Add("--reliable-adaptive-rto");
             start.ArgumentList.Add(_options.ReliableAdaptiveRtoEnabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add("--udp-authentication");
+            start.ArgumentList.Add(_options.UdpAuthenticationEnabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (_options.ArtifactDirectory is { } artifacts) { start.ArgumentList.Add("--artifact-dir"); start.ArgumentList.Add(artifacts); }
             foreach (string argument in new[] { "--node-pipe", _pipeName, "--node-id", _nodeId.Value.ToString("D"),
                 "--worker-id", Id.Value.ToString("D"), "--worker-incarnation", Incarnation.ToString("D") }) start.ArgumentList.Add(argument);
@@ -320,6 +340,17 @@ public sealed class ManagedWorker : IAsyncDisposable
                     case MatchInterrupted interrupted: Transition(interrupted.MatchId, MatchStatus.Interrupted); break;
                     case MatchAdminResult admin:
                         if (!_matches.TryGetValue(admin.MatchId, out var adminStatus) || !IsActive(adminStatus)) throw new InvalidDataException();
+                        break;
+                    case AdmissionKeyInstalled admission:
+                        CheckIdentity(admission.WorkerId, admission.WorkerIncarnation);
+                        // The command and terminal event are independent lanes: a
+                        // valid install acknowledgement can arrive after the
+                        // match has ended or its placement was forgotten. The
+                        // scheduler owns the pending admission identity and
+                        // drops such acknowledgements as stale; do not turn this
+                        // expected race into a Worker protocol fault.
+                        break;
+                    case AdmissionKeyInstallFailed admission:
                         break;
                     case MatchReportReady report:
                         CheckIdentity(report.WorkerId, report.WorkerIncarnation);

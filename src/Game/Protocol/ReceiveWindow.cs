@@ -20,6 +20,17 @@ namespace MphRead.Mods.Network
         public uint AckBits { get; private set; }
 
         public ReceiveResult Record(uint sequence)
+            => RecordCore(sequence, wrapping: true);
+
+        /// <summary>
+        /// Records a sequence from a stream whose key is retired before the
+        /// uint space wraps. Authenticated traffic uses this ordering so a
+        /// captured low sequence can never become newest after the high half.
+        /// </summary>
+        public ReceiveResult RecordNonWrapping(uint sequence)
+            => RecordCore(sequence, wrapping: false);
+
+        private ReceiveResult RecordCore(uint sequence, bool wrapping)
         {
             if (!HasReceived)
             {
@@ -31,9 +42,9 @@ namespace MphRead.Mods.Network
             {
                 return ReceiveResult.Duplicate;
             }
-            if (Sequence32.IsNewer(sequence, Ack))
+            if (wrapping ? Sequence32.IsNewer(sequence, Ack) : sequence > Ack)
             {
-                uint distance = unchecked(sequence - Ack);
+                uint distance = sequence - Ack;
                 // C# masks a uint's shift count to five bits: handle 32
                 // separately, or a jump of 32 preserves obsolete history.
                 AckBits = distance > 32 ? 0
@@ -42,7 +53,7 @@ namespace MphRead.Mods.Network
                 Ack = sequence;
                 return ReceiveResult.Newest;
             }
-            uint age = unchecked(Ack - sequence);
+            uint age = Ack - sequence;
             if (age > 32)
             {
                 return ReceiveResult.TooOld;

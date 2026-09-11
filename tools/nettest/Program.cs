@@ -33,6 +33,10 @@ namespace MphRead.NetTest
                     case "--dynamic-lagcomp-comparison": return HistoricalDynamicCollisionComparisonCheck.Run(args);
                     case "--rendered-wan-validation": return RenderedWanValidationCheck.Run(args);
                     case "--rendered-wan-scenario-self-test": return RenderedWanValidationCheck.ScenarioSelfTest();
+                    case "--rendered-wan-snapshot-matrix-plan": return RenderedWanValidationCheck.SnapshotMatrixPlan(args);
+                    case "--rendered-wan-snapshot-matrix-self-test": return RenderedWanValidationCheck.SnapshotMatrixSelfTest();
+                    case "--rendered-wan-two-client-self-test": return RenderedWanValidationCheck.TwoClientSelfTest();
+                    case "--rendered-wan-two-client-merge": return RenderedWanValidationCheck.TwoClientMerge(args);
                     case "--rendered-wan-operator": return RenderedWanValidationCheck.RunOperator(args);
                     case "--rendered-wan-client": return RenderedWanValidationCheck.RunClient(args);
                     case "--rendered-wan-merge": return RenderedWanValidationCheck.RunMerge(args);
@@ -142,6 +146,10 @@ namespace MphRead.NetTest
             Console.WriteLine("--dynamic-lagcomp-comparison [OUTPUT_JSON]: deterministic 0/50/100/150/200 ms historical-geometry comparison; not rendered WAN proof");
             Console.WriteLine("--rendered-wan-validation DATA OUTPUT_DIRECTORY [--mode off|players|dynamic --rtt MS --jitter MS --loss PCT --seconds N --reconnect-at N --room KEY --fixture none|unit1-rm1-dynamic --scenario general|headshot]: production Node-to-Worker loopback render evidence; not real-WAN proof");
             Console.WriteLine("--rendered-wan-scenario-self-test: bounded scenario parser, deterministic target-controller, correlation, gate, and output-reservation checks");
+            Console.WriteLine("--rendered-wan-snapshot-matrix-plan OUTPUT_DIRECTORY [--depth smoke|release|deep]: reserve and emit a fail-closed paired 30/60 matrix plan");
+            Console.WriteLine("--rendered-wan-snapshot-matrix-self-test: bounded paired 30/60 smoke/release/deep definitions and fail-closed decision checks");
+            Console.WriteLine("--rendered-wan-two-client-self-test: authenticated two-client binding, shot-identity, role, secret, and merged-gate checks");
+            Console.WriteLine("--rendered-wan-two-client-merge SERVER_REPORT SHOOTER_REPORT TARGET_REPORT OUTPUT_JSON: strict offline merge with authenticated run/match/Worker binding");
             Console.WriteLine("--rendered-wan-operator DATA OUTPUT_DIRECTORY --node-bind IPV4 --node-port PORT --node-uri WSS_URI --tls-pfx FILE --tls-password-file FILE --worker-bind IPV4 --worker-host IPV4 --worker-port PORT [--mode off|players|dynamic --room KEY --seconds N --reconnect-at N --wait-seconds N]: one-Node/one-Worker WAN operator");
             Console.WriteLine("--rendered-wan-client DATA DESCRIPTOR_JSON SECRET_JSON OUTPUT_DIRECTORY [--allow-lab-pin true|false --width N --height N]: remote rendered client; lab pin is exact certificate+SPKI only");
             Console.WriteLine("--rendered-wan-merge DESCRIPTOR_JSON SERVER_REPORT CLIENT_REPORT CAPTURE_DIRECTORY OUTPUT_JSON: strict offline candidate-evidence manifest");

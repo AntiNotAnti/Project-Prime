@@ -273,6 +273,13 @@ namespace MphRead.Mods.Network
         public long ReorderedInputs { get; private set; }
         public long DuplicateSnapshots { get; private set; }
         public long ReorderedSnapshots { get; private set; }
+        public long AuthenticatedPackets { get; private set; }
+        public long AuthFailures { get; private set; }
+        public long AuthReplayRejects { get; private set; }
+        public long AuthenticatedRebinds { get; private set; }
+        public long UnauthenticatedRebindAttempts { get; private set; }
+        public long AuthenticatedKeepAlives { get; private set; }
+        public long KeepAliveReplayRejects { get; private set; }
         private long _lastReceived;
         private long _lastPacketReceived;
         private long _lastSnapshot;
@@ -338,6 +345,21 @@ namespace MphRead.Mods.Network
         }
 
         public void Reject() => PacketsRejected++;
+
+        public void Authenticated() => AuthenticatedPackets++;
+        public void AuthenticationFailed(bool endpointChanged)
+        {
+            AuthFailures++;
+            if (endpointChanged) UnauthenticatedRebindAttempts++;
+        }
+        public void UnauthenticatedRebindAttempt() => UnauthenticatedRebindAttempts++;
+        public void AuthReplayRejected(bool keepAlive = false)
+        {
+            AuthReplayRejects++;
+            if (keepAlive) KeepAliveReplayRejects++;
+        }
+        public void AuthenticatedRebind() => AuthenticatedRebinds++;
+        public void AuthenticatedKeepAlive() => AuthenticatedKeepAlives++;
 
         public void LateInput(bool duplicate)
         {

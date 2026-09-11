@@ -416,6 +416,26 @@ internal static partial class RenderedWanValidationCheck
                     measuredJitterMs = result.MeasuredJitterMs
                 },
                 scenarioFacts = result.Scenario,
+                scenarioThresholds = options.Scenario == RenderedWanScenario.Headshot ? new
+                {
+                    triggerAttempts = HeadshotScenarioThresholds.MinimumTriggerAttempts,
+                    rootShots = HeadshotScenarioThresholds.MinimumRootShots,
+                    correlatedRootShots = HeadshotScenarioThresholds.MinimumCorrelatedRootShots,
+                    predictedContacts = HeadshotScenarioThresholds.MinimumPredictedContacts,
+                    authoritativeHits = HeadshotScenarioThresholds.MinimumAuthoritativeHits,
+                    headshotCases = HeadshotScenarioThresholds.MinimumHeadshotCases,
+                    stationaryBodyFrames = HeadshotScenarioThresholds.MinimumStationaryBodyFrames,
+                    stationaryHeadFrames = HeadshotScenarioThresholds.MinimumStationaryHeadFrames
+                } : null,
+                scenarioGates = result.Scenario is { } scenario ? new
+                {
+                    scenario.ChoreographyValid,
+                    scenario.ShotCorrelationValid,
+                    scenario.CombatCoverageValid,
+                    scenario.HeadshotEvidenceValid,
+                    scenario.ScenarioValid,
+                    meaningfulHeadshotAgreement = scenario.HeadshotAgreementRate.HasValue
+                } : null,
                 classification = passed ? "PASS"
                     : scenarioValid && workerStillOwned ? "NETWORK FAIL" : "HARNESS INVALID",
                 harness = new
@@ -915,6 +935,7 @@ internal static partial class RenderedWanValidationCheck
                 // authoritative and must independently emit Imperialist Shot
                 // facts for the scenario to become valid.
                 _scene.Players[play.LocalSlot].ModArmWeapon(BeamType.Imperialist);
+                _scene.Players[play.LocalSlot].EquipInfo.InfiniteAmmo = true;
                 play.LocalRootShotObserved += ObserveLocalRootShot;
                 play.AuthoritativeCombatEventObserved += ObserveAuthoritativeCombatEvent;
                 play.PredictedContactObserved += ObservePredictedContact;
@@ -953,6 +974,7 @@ internal static partial class RenderedWanValidationCheck
             {
                 _presentation.OnSimulationFrame();
                 _simulationFrames++;
+                if (IsHeadshotScenarioActive()) _headshotPlayingFrames++;
                 ObserveHeadshotScenario();
                 ObserveDebug();
                 _nextSimulationTimestamp += _simulationPeriod;
@@ -1073,7 +1095,13 @@ internal static partial class RenderedWanValidationCheck
         {
             uint scenarioTick = tick;
             if (_options.Scenario == RenderedWanScenario.Headshot)
-                scenarioTick = (uint)_headshotPlayingFrames++;
+            {
+                // Drive runs before this simulation step. Count the current
+                // valid Playing/snapshot frame without allowing countdown or
+                // reconnect frames to advance the scenario choreography.
+                scenarioTick = (uint)Math.Max(0, _headshotPlayingFrames);
+                if (IsHeadshotScenarioActive()) scenarioTick++;
+            }
             Vector3 aim = -Vector3.UnitZ;
             SnapshotPlayer target = default;
             bool hasTarget = false;
@@ -1083,7 +1111,7 @@ internal static partial class RenderedWanValidationCheck
                 if (hasTarget || !IsExpectedHeadshotTarget(other.Slot)) continue;
                 target = other;
                 hasTarget = true;
-                Vector3 targetPoint = optionsHead(player, other);
+                Vector3 targetPoint = optionsHead(player, other, scenarioTick);
                 Vector3 direction = targetPoint - player.Position;
                 if (direction.LengthSquared > 0.01f) aim = direction.Normalized();
             }
@@ -1119,18 +1147,16 @@ internal static partial class RenderedWanValidationCheck
                 desiredWeapon = (byte)BeamType.Imperialist;
                 if (player.CurrentWeapon != BeamType.Imperialist)
                     player.ModArmWeapon(BeamType.Imperialist);
+                player.EquipInfo.InfiniteAmmo = true;
                 if (!player.EquipInfo.Zoomed)
                     pressed |= InputButtons.Zoom;
-                // The single-frame edge is intentional: it records a legal
-                // trigger attempt and lets weapon cooldown, ammo and spawn
-                // rules decide whether a Shot actually exists.
-                // Imperialist's multiplayer cooldown spans 120 render ticks.
-                // Two extra ticks avoid boundary-order ambiguity, preserve
-                // the 30 Hz input-sample phase, and yield six legal attempts
-                // during the twelve-second population.
-                uint shotPhase = scenarioTick >= 30
-                    ? (scenarioTick - 30) % 122 : uint.MaxValue;
-                if (shotPhase < 12)
+                // The edge follows the production Imperialist MP cooldown
+                // (60 simulation ticks). The held window keeps the input
+                // legal across the client command sample boundary while the
+                // pressed edge provides one deterministic trigger attempt.
+                uint shotPhase = IsHeadshotScenarioActive() && scenarioTick >= 60
+                    ? (scenarioTick - 60) % 60 : uint.MaxValue;
+                if (shotPhase < 6)
                     held |= InputButtons.Shoot;
                 if (shotPhase == 0)
                 {
@@ -1147,9 +1173,10 @@ internal static partial class RenderedWanValidationCheck
                 desiredWeapon));
         }
 
-        private Vector3 optionsHead(PlayerEntity player, in SnapshotPlayer target)
+        private Vector3 optionsHead(PlayerEntity player, in SnapshotPlayer target,
+            uint scenarioTick)
             => _options.Scenario == RenderedWanScenario.Headshot
-                ? PresentedTargetHead(target)
+                ? scenarioTick < 30 ? PresentedTargetPosition(target) : PresentedTargetHead(target)
                 : PresentedTargetPosition(target);
 
         private bool IsExpectedHeadshotTarget(byte slot)
@@ -1163,24 +1190,23 @@ internal static partial class RenderedWanValidationCheck
             bool hasTarget, ref Vector3 aim)
         {
             if (!hasTarget) return;
-            Vector3 targetPoint = PresentedTargetHead(target);
-            Vector3 direction = targetPoint - player.Position;
-            if (direction.LengthSquared > 0.01f) aim = direction.Normalized();
-        }
-
-        private float PresentedTargetHeadHeight(byte slot)
-        {
-            if (slot < _scene.Players.Count)
-            {
-                PlayerEntity entity = _scene.Players[slot];
-                return Fixed.ToFloat(entity.Values.MaxPickupHeight) - 0.15f;
-            }
-            return 1.1f;
+            uint scenarioTick = (uint)Math.Max(0, _headshotPlayingFrames);
+            if (IsHeadshotScenarioActive()) scenarioTick++;
+            Vector3 targetPoint = scenarioTick < 30
+                ? PresentedTargetPosition(target)
+                : PresentedTargetHead(target);
+            Vector3 networkAim = player.ModNetworkAimTowards(targetPoint);
+            if (networkAim.LengthSquared > 0.01f) aim = networkAim.Normalized();
         }
 
         private Vector3 PresentedTargetHead(in SnapshotPlayer target)
-            => PresentedTargetPosition(target)
-                + new Vector3(0, PresentedTargetHeadHeight(target.Slot), 0);
+        {
+            PlayerEntity? entity = target.Slot < _scene.Players.Count
+                ? _scene.Players[target.Slot] : null;
+            return HeadshotScenarioGeometry.TryGetHeadPoint(target,
+                PresentedTargetPosition(target), out Vector3 point, entity)
+                ? point : PresentedTargetPosition(target);
+        }
 
         private Vector3 PresentedTargetPosition(in SnapshotPlayer target)
         {
@@ -1210,6 +1236,7 @@ internal static partial class RenderedWanValidationCheck
         private void ObserveHeadshotScenario()
         {
             if (_options.Scenario != RenderedWanScenario.Headshot
+                || !IsHeadshotScenarioActive()
                 || _play.LocalSlot < 0 || _play.LocalSlot >= _scene.Players.Count)
                 return;
             PlayerEntity shooter = _scene.Players[_play.LocalSlot];
@@ -1237,8 +1264,7 @@ internal static partial class RenderedWanValidationCheck
             };
             _headshotFacts.ObserveTarget(target, shooterState,
                 HeadshotScenarioStage.At((uint)Math.Max(0, _headshotPlayingFrames - 1),
-                    _options.Seconds),
-                PresentedTargetHeadHeight(target.Slot));
+                    _options.Seconds));
         }
 
         private void ObserveLocalRootShot(CombatShot shot)
@@ -1320,6 +1346,12 @@ internal static partial class RenderedWanValidationCheck
             _presentation.DoCleanup();
         }
 
+        private bool IsHeadshotScenarioActive()
+            => _options.Scenario == RenderedWanScenario.Headshot
+                && _play.Client.State == NetConnectionState.Playing
+                && _play.Client.HasSnapshot && _play.HasWorldState
+                && HasValidParticipant();
+
         private bool HasValidParticipant()
         {
             if (_play.Client.State != NetConnectionState.Playing
@@ -1349,12 +1381,22 @@ internal static partial class RenderedWanValidationCheck
             // enough facts in each scheduled arm to show actual motion and
             // both requested range bands.
             return _headshotTargetSeen && _headshotFacts.FramesObserved >= 120
-                && _headshotFacts.TargetMovedFrames >= 30
-                && _headshotFacts.TargetAirborneFrames >= 30
-                && _headshotFacts.VerticalFrames >= 30
-                && _headshotFacts.StrafeFrames >= 30
-                && _headshotFacts.CloseFrames >= 30
-                && _headshotFacts.LongFrames >= 30
+                && _headshotFacts.TargetMovedFrames
+                    >= HeadshotScenarioThresholds.MinimumMotionFrames
+                && _headshotFacts.TargetAirborneFrames
+                    >= HeadshotScenarioThresholds.MinimumMotionFrames
+                && _headshotFacts.VerticalFrames
+                    >= HeadshotScenarioThresholds.MinimumMotionFrames
+                && _headshotFacts.StrafeFrames
+                    >= HeadshotScenarioThresholds.MinimumMotionFrames
+                && _headshotFacts.CloseFrames
+                    >= HeadshotScenarioThresholds.MinimumMotionFrames
+                && _headshotFacts.LongFrames
+                    >= HeadshotScenarioThresholds.MinimumMotionFrames
+                && _headshotFacts.StationaryBodyFrames
+                    >= HeadshotScenarioThresholds.MinimumStationaryBodyFrames
+                && _headshotFacts.StationaryHeadFrames
+                    >= HeadshotScenarioThresholds.MinimumStationaryHeadFrames
                 && _headshotFacts.MaximumVerticalSpeed >= 0.05f;
         }
 

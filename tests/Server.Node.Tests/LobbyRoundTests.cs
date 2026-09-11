@@ -189,6 +189,50 @@ public sealed class LobbyRoundTests
         Assert.DoesNotContain(options, o => o.Choice == LobbyVoteChoice.Map && (o.MapKey == "map0" || o.MapKey == "map2"));
     }
 
+    [Fact]
+    public void CustomMapVoteCarriesExactIdentityAndWaitsForPlayerReadiness()
+    {
+        string baseHash = new('a', 64);
+        string mapHash = new('b', 64);
+        string matchHash = MapRequirement.ComputeMatchContentHash(baseHash,
+            "community.rotation", "1.4.0", mapHash, "test-build", 1);
+        var requirement = new MapRequirement("community.rotation", "1.4.0", mapHash,
+            new string('c', 64), 319_488, matchHash);
+        var catalog = new NodeContentCatalog(
+        [
+            new ContentIdentity("MP1 SANCTORUS", baseHash, "AMHE1", "test-build", 1),
+            new ContentIdentity("CUSTOM ROTATION", baseHash, "AMHE1", "test-build", 1,
+                requirement)
+        ]);
+        var manager = new LobbyManager { ContentCatalog = catalog };
+        var owner = new LobbyIdentity(Guid.NewGuid(), Guid.NewGuid(), "Owner");
+        var lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Custom rotation", LobbyVisibility.Public, 1));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "MP1 SANCTORUS", MatchMode.Battle));
+        lobby = (LobbySnapshot)manager.Execute(owner, new LobbySetReady(true, lobby.Revision));
+        MatchSpec first = manager.PrepareMatch(owner.SessionId, lobby.Revision,
+            catalog.Get("MP1 SANCTORUS"), new(Guid.NewGuid()), Guid.NewGuid());
+        manager.MatchEnded(first.MatchId, false);
+
+        NodeRoundSnapshot ballot = manager.RoundForSession(owner.SessionId)!;
+        LobbyVoteEntry next = ballot.Options.Single(option => option.Choice == LobbyVoteChoice.NextMap);
+        Assert.Equal(requirement, next.RequiredMap);
+        NodeRoundSnapshot resolved = (NodeRoundSnapshot)manager.Execute(owner,
+            new LobbyVoteCast(ballot.Lobby.Revision, ballot.BallotRevision, next.Id));
+
+        Assert.Equal(LobbyPhase.Open, resolved.Lobby.Phase);
+        Assert.Equal(requirement, resolved.Lobby.RequiredMap);
+        Assert.False(resolved.Lobby.Members.Single().Ready);
+        Assert.Empty(manager.PrepareContinuations(new(Guid.NewGuid()), Guid.NewGuid()));
+
+        manager.Execute(owner, new LobbySetReady(true, manager.ForSession(owner.SessionId)!.Revision));
+        MatchSpec continuation = Assert.Single(manager.PrepareContinuations(
+            new(Guid.NewGuid()), Guid.NewGuid())).Spec;
+        Assert.Equal("CUSTOM ROTATION", continuation.Content.MapKey);
+        Assert.Equal(requirement, continuation.Content.RequiredMap);
+    }
+
     [Theory]
     [InlineData(4)] [InlineData(31)]
     public void InvalidVoteWindowFailsConstruction(int seconds)

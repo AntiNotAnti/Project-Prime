@@ -25,12 +25,21 @@ public sealed class WorkerScheduler : IAsyncDisposable
         public bool ReportExpected, ReportQueued;
         public CancellationTokenSource Deadline = new();
     }
+    private sealed class AdmissionInstall(InstallAdmissionKey command, ManagedWorker worker)
+    {
+        public InstallAdmissionKey Command { get; } = command;
+        public ManagedWorker Worker { get; } = worker;
+        public TaskCompletionSource<AdmissionKeyInstalled> Completion { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
     private readonly object _gate = new();
     private readonly WorkerManager _manager;
     private readonly Dictionary<WorkerId, ManagedWorker> _workers = new();
     private readonly Dictionary<WorkerId, Task> _readers = new();
     private readonly Dictionary<MatchId, Placement> _placements = new();
+    private readonly Dictionary<Guid, AdmissionInstall> _admissionInstalls = new();
     private readonly TimeSpan _creationTimeout;
+    private readonly TimeSpan _admissionInstallTimeout;
     private readonly double _maximumTickP99;
     private readonly ILogger<WorkerScheduler> _logger;
     private bool _draining, _disposed;
@@ -42,10 +51,13 @@ public sealed class WorkerScheduler : IAsyncDisposable
     public event Action<WorkerMatchAssignment, MatchReportReady>? ReportReady;
 
     public WorkerScheduler(WorkerManager manager, TimeSpan? creationTimeout = null,
-        double maximumTickP99 = 16.6667, ILogger<WorkerScheduler>? logger = null, NodeReportIngestor? reports = null)
+        double maximumTickP99 = 16.6667, ILogger<WorkerScheduler>? logger = null, NodeReportIngestor? reports = null,
+        TimeSpan? admissionInstallTimeout = null)
     {
         _manager = manager; _reports = reports; _creationTimeout = creationTimeout ?? TimeSpan.FromSeconds(30);
-        if (_creationTimeout <= TimeSpan.Zero || !double.IsFinite(maximumTickP99) || maximumTickP99 <= 0) throw new ArgumentOutOfRangeException();
+        _admissionInstallTimeout = admissionInstallTimeout ?? TimeSpan.FromSeconds(5);
+        if (_creationTimeout <= TimeSpan.Zero || _admissionInstallTimeout <= TimeSpan.Zero
+            || !double.IsFinite(maximumTickP99) || maximumTickP99 <= 0) throw new ArgumentOutOfRangeException();
         _maximumTickP99 = maximumTickP99; _logger = logger ?? NullLogger<WorkerScheduler>.Instance;
     }
 
@@ -154,6 +166,51 @@ public sealed class WorkerScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Sends one admission-key install and awaits the Worker lane's explicit
+    /// acknowledgement. Pending ownership is bounded by the scheduler and is
+    /// failed on timeout, stale acknowledgement, match termination, or Worker loss.
+    /// </summary>
+    public async Task<AdmissionKeyInstalled> InstallAdmissionKeyAsync(InstallAdmissionKey command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkerIpcCodec.Encode(command);
+        AdmissionInstall pending;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_admissionInstalls.Count >= 64) throw new WorkerPlacementException("Admission-key install queue is full.");
+            if (_admissionInstalls.ContainsKey(command.AdmissionId))
+                throw new WorkerPlacementException("Admission-key identity is already pending.");
+            if (!_placements.TryGetValue(command.MatchId, out Placement? placement) || !IsActive(placement.Status)
+                || placement.Worker.Id != command.WorkerId || placement.Worker.Incarnation != command.WorkerIncarnation
+                || placement.Ready.Task.IsCompletedSuccessfully && placement.Ready.Task.Result.WireMatchId != command.WireMatchId)
+                throw new WorkerPlacementException("Admission-key placement is stale.");
+            pending = new(command, placement.Worker);
+            _admissionInstalls.Add(command.AdmissionId, pending);
+        }
+
+        if (!pending.Worker.TrySend(command))
+        {
+            RemoveAdmissionInstall(command.AdmissionId, pending);
+            throw new WorkerPlacementException("Worker rejected admission-key installation.");
+        }
+        try
+        {
+            return await pending.Completion.Task.WaitAsync(_admissionInstallTimeout, cancellationToken).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            RemoveAdmissionInstall(command.AdmissionId, pending);
+            throw new WorkerPlacementException("Worker admission-key installation timed out.");
+        }
+        catch
+        {
+            RemoveAdmissionInstall(command.AdmissionId, pending);
+            throw;
+        }
+    }
+
     public void Drain(string reason)
     {
         lock (_gate)
@@ -215,6 +272,17 @@ public sealed class WorkerScheduler : IAsyncDisposable
                 foreach (Action<ManagedWorker, WorkerEvent> observer in observers.GetInvocationList())
                     try { observer(worker, message); }
                     catch (Exception error) { _logger.LogError(error, "Worker event observer failed for {WorkerId}", worker.Id.Value); }
+            if (message is AdmissionKeyInstalled installed)
+            {
+                CompleteAdmissionInstall(worker, installed);
+                continue;
+            }
+            if (message is AdmissionKeyInstallFailed failed)
+            {
+                FailAdmissionInstall(worker, failed.AdmissionId, failed.MatchId, new WorkerPlacementException(
+                    "Worker rejected admission-key installation."));
+                continue;
+            }
             if (message is MatchReportReady report)
             {
                 WorkerMatchAssignment? assignment = null;
@@ -290,9 +358,11 @@ public sealed class WorkerScheduler : IAsyncDisposable
             {
                 if (message is MatchCompleted completed) NotifyCompleted(completed.Summary);
                 NotifyEnded(id, interrupted);
+                FailAdmissionInstallsForMatch(id, new WorkerPlacementException("Match ended before admission-key installation."));
             }
         }
         await worker.Completion;
+        FailAdmissionInstallsForWorker(worker, new WorkerPlacementException("Worker was lost during admission-key installation."));
         MatchId[] interruptedIds;
         lock (_gate)
         {
@@ -330,9 +400,83 @@ public sealed class WorkerScheduler : IAsyncDisposable
     private static bool RequiresBackendReport(MatchSpec spec)
         => !ContainsGuest(spec) && (spec.TrustClass is MatchTrustClass.VerifiedCasual or MatchTrustClass.Ranked or MatchTrustClass.Tournament);
 
+    private void CompleteAdmissionInstall(ManagedWorker worker, AdmissionKeyInstalled installed)
+    {
+        AdmissionInstall? pending = null;
+        Exception? failure = null;
+        lock (_gate)
+        {
+            if (!_admissionInstalls.TryGetValue(installed.AdmissionId, out pending) || pending.Worker != worker)
+                return; // Timed-out/retired acknowledgements are stale by definition.
+            if (!AdmissionMatches(pending.Command, installed))
+                failure = new WorkerPlacementException("Worker returned a stale admission-key acknowledgement.");
+            _admissionInstalls.Remove(installed.AdmissionId);
+        }
+        if (failure != null) pending.Completion.TrySetException(failure);
+        else pending.Completion.TrySetResult(installed);
+    }
+
+    private void FailAdmissionInstall(ManagedWorker worker, Guid admissionId, MatchId matchId, Exception error)
+    {
+        AdmissionInstall? pending = null;
+        lock (_gate)
+        {
+            if (_admissionInstalls.TryGetValue(admissionId, out var current)
+                && current.Worker == worker && current.Command.MatchId == matchId)
+            { pending = current; _admissionInstalls.Remove(admissionId); }
+        }
+        pending?.Completion.TrySetException(error);
+    }
+
+    private void FailAdmissionInstallsForMatch(MatchId matchId, Exception error)
+    {
+        AdmissionInstall[] pending;
+        lock (_gate)
+        {
+            pending = _admissionInstalls.Values.Where(value => value.Command.MatchId == matchId).ToArray();
+            foreach (AdmissionInstall value in pending) _admissionInstalls.Remove(value.Command.AdmissionId);
+        }
+        foreach (AdmissionInstall value in pending) value.Completion.TrySetException(error);
+    }
+
+    private void FailAdmissionInstallsForWorker(ManagedWorker worker, Exception error)
+    {
+        AdmissionInstall[] pending;
+        lock (_gate)
+        {
+            pending = _admissionInstalls.Values.Where(value => value.Worker == worker).ToArray();
+            foreach (AdmissionInstall value in pending) _admissionInstalls.Remove(value.Command.AdmissionId);
+        }
+        foreach (AdmissionInstall value in pending) value.Completion.TrySetException(error);
+    }
+
+    private void RemoveAdmissionInstall(Guid admissionId, AdmissionInstall pending)
+    {
+        lock (_gate)
+            if (_admissionInstalls.TryGetValue(admissionId, out var current) && ReferenceEquals(current, pending))
+                _admissionInstalls.Remove(admissionId);
+    }
+
+    private static bool AdmissionMatches(InstallAdmissionKey command, AdmissionKeyInstalled installed)
+        => command.AdmissionId == installed.AdmissionId && command.TicketId == installed.TicketId
+            && command.NodeSessionId == installed.NodeSessionId && command.NodeId == installed.NodeId
+            && command.NodeIncarnation == installed.NodeIncarnation && command.MatchId == installed.MatchId
+            && command.WireMatchId == installed.WireMatchId && command.WorkerId == installed.WorkerId
+            && command.WorkerIncarnation == installed.WorkerIncarnation && command.SeatId == installed.SeatId
+            && command.JoinNonce == installed.JoinNonce && command.ExpiresAt == installed.ExpiresAt;
+
     public async ValueTask DisposeAsync()
     {
-        lock (_gate) { if (_disposed) return; _disposed = true; _draining = true; }
+        AdmissionInstall[] pending;
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true; _draining = true;
+            pending = _admissionInstalls.Values.ToArray();
+            _admissionInstalls.Clear();
+        }
+        foreach (AdmissionInstall value in pending)
+            value.Completion.TrySetException(new WorkerPlacementException("Worker scheduler was disposed."));
         await _manager.DisposeAsync();
         Task[] readers;
         lock (_gate) readers = _readers.Values.ToArray();

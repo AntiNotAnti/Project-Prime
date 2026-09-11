@@ -80,6 +80,7 @@ public static class NodeControlCodec
     {
         switch (payload)
         {
+            case NodeMatchHandoff handoff: handoff.Validate(); break;
             case LobbyConfigure configure:
                 if (configure.ExpectedRevision < 0 || configure.MapKey is not { Length: > 0 and <= 128 }
                     || configure.MapKey.Any(c => c is < ' ' or > '~') || !Enum.IsDefined(configure.Mode)
@@ -104,7 +105,8 @@ public static class NodeControlCodec
                 {
                     ValidateVoteEntry(resolved);
                     if (!round.Options.IsEmpty && !round.Options.Any(o => o.Id == resolved.Id
-                        && o.Choice == resolved.Choice && o.MapKey == resolved.MapKey && o.Mode == resolved.Mode))
+                        && o.Choice == resolved.Choice && o.MapKey == resolved.MapKey && o.Mode == resolved.Mode
+                        && o.RequiredMap == resolved.RequiredMap))
                         throw new ArgumentException("Invalid resolved option.");
                 }
                 break;
@@ -130,6 +132,7 @@ public static class NodeControlCodec
                         throw new ArgumentException("Lobby rule projections conflict with canonical rules.");
                 }
                 catch (ArgumentException ex) { throw new ArgumentException("Invalid lobby rules.", ex); }
+                lobby.RequiredMap?.Validate();
                 foreach (LobbyMember member in lobby.Members)
                 {
                     if (member is null) throw new ArgumentException("Null lobby member.");
@@ -165,6 +168,7 @@ public static class NodeControlCodec
         if (option == null || option.Id is < 1 or > 8 || option.Votes is < 0 or > 8)
             throw new ArgumentException("Invalid vote option.");
         ContractGuard.Defined(option.Choice); ContractGuard.Defined(option.Mode); ContractGuard.Text(option.MapKey, 128);
+        option.RequiredMap?.Validate();
     }
     private static bool InvalidListRuleMetadata(LobbyListEntry entry)
     {

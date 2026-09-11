@@ -52,9 +52,11 @@ public sealed partial class LobbyManager
         public Dictionary<Guid, LobbyMember> Members = [];
         public Queue<LobbyChatEntry> Chat = [];
         public LobbyWaitlist Waitlist = null!;
-        public LobbySnapshot Snapshot(HumanIdentityKey? self = null) => new(Id, Rules.Name, Rules.Visibility, Owner, Phase, Revision,
+        public LobbySnapshot Snapshot(HumanIdentityKey? self = null,
+            MapRequirement? requiredMap = null) => new(Id, Rules.Name, Rules.Visibility, Owner, Phase, Revision,
             Rules.PlayerLimit, Rules.ObserverLimit, Members.Values.ToImmutableArray(), Chat.ToImmutableArray(), MapKey, Mode, MatchId, BotCount,
-            HostRules.TimeLimitSeconds, Rules.SeatPolicy, Rules.DuelQueuePolicy, Waitlist.Snapshot(self), HostRules.LegacyPointGoal(Mode), HostRules);
+            HostRules.TimeLimitSeconds, Rules.SeatPolicy, Rules.DuelQueuePolicy, Waitlist.Snapshot(self),
+            HostRules.LegacyPointGoal(Mode), HostRules, requiredMap);
     }
     private readonly object _gate = new();
     private readonly Dictionary<Guid, Lobby> _lobbies = [];
@@ -116,9 +118,11 @@ public sealed partial class LobbyManager
         lock (_gate)
         {
             if (_membership.TryGetValue(sessionId, out var memberLobby) && _lobbies.TryGetValue(memberLobby, out var memberTarget))
-                return memberTarget.Snapshot(IdentityForSession(memberTarget, sessionId));
+                return memberTarget.Snapshot(IdentityForSession(memberTarget, sessionId),
+                    RequirementFor(memberTarget));
             if (_queueSessions.TryGetValue(sessionId, out var queueLobby) && _lobbies.TryGetValue(queueLobby, out var queueTarget))
-                return queueTarget.Snapshot(IdentityForSession(queueTarget, sessionId));
+                return queueTarget.Snapshot(IdentityForSession(queueTarget, sessionId),
+                    RequirementFor(queueTarget));
             return null;
         }
     }
@@ -241,6 +245,8 @@ public sealed partial class LobbyManager
                             catch (ArgumentException ex)
                             { throw Error("invalid", ex.Message); }
                             lobby.Waitlist.DeferOffers();
+                            Round(lobby.Id).AwaitingMapReadiness = false;
+                            Round(lobby.Id).Resolved = null;
                             lobby.MapKey = configure.MapKey; lobby.Mode = configure.Mode;
                             lobby.BotCount = configure.BotCount; lobby.HostRules = normalized;
                             foreach (var item in lobby.Members.ToArray()) lobby.Members[item.Key] = item.Value with { Ready = false };
@@ -290,7 +296,11 @@ public sealed partial class LobbyManager
     }
     private MatchSpec PrepareMatchCore(Lobby lobby, ContentIdentity content, NodeId nodeId, Guid incarnation, bool requireReady)
     {
-            if (requireReady) Round(lobby.Id).Resolved = null;
+            if (requireReady)
+            {
+                Round(lobby.Id).Resolved = null;
+                Round(lobby.Id).AwaitingMapReadiness = false;
+            }
             var players = lobby.Members.Values.Where(m => !m.Observer).ToArray();
             if (players.Length == 0 || requireReady && players.Any(m => !m.Ready)) throw Error("not_ready", "All players must be ready.");
             var seats = ImmutableArray.CreateBuilder<RosterSeat>();
@@ -582,7 +592,10 @@ public sealed partial class LobbyManager
     }
 
     private LobbySnapshot SnapshotFor(Lobby lobby, HumanIdentityKey identity)
-        => lobby.Snapshot(identity);
+        => lobby.Snapshot(identity, RequirementFor(lobby));
+
+    private MapRequirement? RequirementFor(Lobby lobby)
+        => String.IsNullOrWhiteSpace(lobby.MapKey) ? null : ContentCatalog?.RequiredMap(lobby.MapKey);
 
     private void RemoveQueueIndexes(Entry entry)
     {
@@ -698,7 +711,7 @@ public sealed partial class LobbyManager
     private LobbySnapshot Publish(Lobby lobby)
     {
         lobby.Revision++;
-        var snapshot = lobby.Snapshot();
+        var snapshot = lobby.Snapshot(requiredMap: RequirementFor(lobby));
         // One latest snapshot per bounded lobby, one wake signal. A slow network
         // consumer cannot run callbacks under the authority lock or grow a queue.
         _notifications[lobby.Id] = snapshot;

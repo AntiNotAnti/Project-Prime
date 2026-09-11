@@ -39,7 +39,7 @@ internal static partial class RenderedWanValidationCheck
             && plan2.Arm == 2 && !plan2.Vertical && !plan2.LongRange
             && plan3.Arm == 3 && !plan3.Vertical && plan3.LongRange);
         InputCommand controlled = HeadshotValidationController.CreateCommand(
-            0, 12, 6, Vector3.UnitX, inputEpoch: 7);
+            90, 12, 6, Vector3.UnitX, inputEpoch: 7);
         CombatActor controlledActor = new(1, 22, controlled.InputEpoch);
         Require(controlledActor.IsValid && controlled.InputEpoch == 7
             && (controlled.Buttons & InputButtons.Jump) != 0
@@ -65,24 +65,34 @@ internal static partial class RenderedWanValidationCheck
             SnapshotPlayer target = new()
             {
                 Slot = 1, ConnectionId = 22, Life = 1, Health = 100,
+                Hunter = Hunter.Noxus,
                 Position = new Vector3(range + lateral, strafe ? 0 : frame * 0.01f, 0),
                 Speed = strafe ? new Vector3(0.25f, 0, 0) : new Vector3(0, 1, 0),
                 Flags = SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned
                     | (strafe ? SnapshotPlayerFlags.Grounded : SnapshotPlayerFlags.None)
             };
+            if (frame < 60)
+            {
+                target.Position = new Vector3(6, 0, 0);
+                target.Speed = Vector3.Zero;
+                target.Flags = SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned
+                    | SnapshotPlayerFlags.Grounded;
+            }
             SnapshotPlayer aimedShooter = shooter;
-            Vector3 head = target.Position + new Vector3(0, 1.1f, 0);
-            aimedShooter.Aim = (head - aimedShooter.Position).Normalized();
+            Vector3 head = HeadshotScenarioGeometry.TryGetHeadPoint(target,
+                target.Position, out Vector3 point) ? point : target.Position;
+            Vector3 aimPoint = frame < 30 ? target.Position : head;
+            aimedShooter.Aim = (aimPoint - aimedShooter.Position).Normalized();
             facts.ObserveTarget(target, aimedShooter, stage);
         }
-        Require(facts.FramesObserved == 720 && facts.FramesOnTarget == 720);
+        Require(facts.FramesObserved == 720 && facts.FramesOnTarget == 690);
         Require(facts.VerticalFrames >= 30 && facts.StrafeFrames >= 30);
         Require(facts.CloseFrames >= 30 && facts.LongFrames >= 30);
         Require(facts.TargetAirborneFrames >= 30 && facts.TargetMovedFrames >= 30);
         Require(facts.MaximumVerticalSpeed >= 1);
         cases++;
 
-        for (uint sequence = 0; sequence < 8; sequence++)
+        for (uint sequence = 0; sequence < 36; sequence++)
         {
             facts.Trigger();
             facts.Shots.ObserveLocalRoot(actor, sequence, (byte)BeamType.Imperialist);
@@ -100,25 +110,34 @@ internal static partial class RenderedWanValidationCheck
                 (byte)BeamType.Imperialist, CombatEventFlags.Headshot, actor,
                 targetActor, 90, 10, Vector3.Zero, Vector3.UnitX, 0, 0, 0));
         }
-        Require(facts.Shots.LocalRootShots == 8);
-        Require(facts.Shots.AuthoritativeRootShots == 8);
-        Require(facts.Shots.CorrelatedRootShots == 8);
-        Require(facts.Shots.CountLocalWeapon((byte)BeamType.Imperialist) == 8);
-        Require(facts.Shots.CountAuthorityWeapon((byte)BeamType.Imperialist) == 8);
-        Require(facts.Shots.PredictedContacts == 8 && facts.Shots.PredictedHeadshots == 8);
-        Require(facts.Shots.AuthoritativeHits == 8 && facts.Shots.AuthoritativeHeadshots == 8);
+        Require(facts.Shots.LocalRootShots == 36);
+        Require(facts.Shots.AuthoritativeRootShots == 36);
+        Require(facts.Shots.CorrelatedRootShots == 36);
+        Require(facts.Shots.CountLocalWeapon((byte)BeamType.Imperialist) == 36);
+        Require(facts.Shots.CountAuthorityWeapon((byte)BeamType.Imperialist) == 36);
+        Require(facts.Shots.PredictedContacts == 36 && facts.Shots.PredictedHeadshots == 36);
+        Require(facts.Shots.AuthoritativeHits == 36 && facts.Shots.AuthoritativeHeadshots == 36);
+        Require(facts.Shots.ConfirmedHeadshots == 36
+            && facts.Shots.DowngradedHeadshots == 0
+            && facts.Shots.PromotedHeadshots == 0
+            && facts.Shots.DeniedHeadshots == 0);
+        Require(facts.StationaryBodyFrames >= 20 && facts.StationaryHeadFrames >= 20);
         cases++;
 
         ScenarioGateResult valid = ScenarioGateResult.ValidateHeadshot(
             facts, correctWeapon: true, authorityWeapon: true, zoomed: true,
             ammoAvailable: true, minimumDuration: true, validParticipant: true,
             authoritativeWorker: true, deterministicTarget: true, cleanLink: true);
-        Require(valid.Valid && valid.FailureReasons.Length == 0);
+        Require(valid.Valid && valid.ChoreographyValid && valid.ShotCorrelationValid
+            && valid.CombatCoverageValid && valid.HeadshotEvidenceValid
+            && valid.FailureReasons.Length == 0);
         ScenarioGateResult invalid = ScenarioGateResult.ValidateHeadshot(
             facts, correctWeapon: false, authorityWeapon: true, zoomed: true,
             ammoAvailable: true, minimumDuration: true, validParticipant: true,
             authoritativeWorker: true, deterministicTarget: false, cleanLink: true);
-        Require(!invalid.Valid && invalid.FailureReasons.Contains("weapon-not-imperialist")
+        Require(!invalid.Valid && !invalid.ShotCorrelationValid
+            && !invalid.ChoreographyValid
+            && invalid.FailureReasons.Contains("weapon-not-imperialist")
             && invalid.FailureReasons.Contains("target-trajectory-not-deterministic"));
         cases++;
 

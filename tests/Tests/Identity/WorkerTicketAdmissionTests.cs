@@ -35,6 +35,25 @@ public sealed class WorkerTicketAdmissionTests
             now, now + 60, Guid.NewGuid());
         using var issuer = new WorkerAdmissionIssuer("node");
         using var authority = new WorkerTicketAuthority(spec, placement, issuer.KeyId, issuer.ExportPublicKey());
+        Guid admissionId = Guid.NewGuid();
+        Guid sessionId = claims.NodeSessionId;
+        Guid ticketId = claims.TicketId;
+        string admissionKey = Convert.ToBase64String(Enumerable.Range(0, AdmissionKeyRules.ByteLength).Select(value => (byte)value).ToArray());
+        var admission = new InstallAdmissionKey(admissionId, ticketId, sessionId, spec.NodeId, spec.NodeIncarnation,
+            spec.MatchId, placement.WireMatchId, placement.WorkerId, placement.WorkerIncarnation,
+            claims.SeatId, claims.JoinNonce, now + 60, admissionKey);
+        Assert.True(authority.TryInstallAdmissionKey(admission, out string installReason), installReason);
+        Assert.True(authority.TryGetAdmissionKey(admissionId, out byte[] storedKey));
+        Assert.Equal(Convert.FromBase64String(admissionKey), storedKey);
+        storedKey[0] ^= 0xFF;
+        Assert.True(authority.TryGetAdmissionKey(admissionId, out byte[] retainedKey));
+        Assert.Equal(Convert.FromBase64String(admissionKey), retainedKey);
+        Assert.False(authority.TryInstallAdmissionKey(admission with
+        {
+            AdmissionKey = Convert.ToBase64String(Enumerable.Repeat((byte)0xFF, AdmissionKeyRules.ByteLength).ToArray())
+        }, out _));
+        Assert.False(authority.TryInstallAdmissionKey(admission with { MatchId = new MatchId(Guid.NewGuid()) }, out _));
+        Assert.False(authority.TryInstallAdmissionKey(admission with { AdmissionId = Guid.NewGuid(), ExpiresAt = now - 1 }, out _));
         using var transport = new MemoryTransport();
         var network = new ServerNetwork(transport, rules, 55) { TicketAuthority = authority, RequireRoutedJoins = true };
         var endpoint = new IPEndPoint(IPAddress.Loopback, 50002);
