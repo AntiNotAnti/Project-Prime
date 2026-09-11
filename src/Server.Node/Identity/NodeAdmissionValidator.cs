@@ -237,6 +237,7 @@ public sealed class NodeAdmissionValidator : IDisposable
 
     private async Task<Dictionary<string, ECDsaSecurityKey>?> FetchKeysAsync(CancellationToken cancellationToken)
     {
+        Dictionary<string, ECDsaSecurityKey>? result = null;
         try
         {
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -262,24 +263,50 @@ public sealed class NodeAdmissionValidator : IDisposable
             NodeControlCodec.RejectDuplicates(document.RootElement);
             if (document.RootElement.ValueKind != JsonValueKind.Array
                 || document.RootElement.GetArrayLength() is < 1 or > MaximumKeys) return null;
-            var result = new Dictionary<string, ECDsaSecurityKey>(StringComparer.Ordinal);
+            result = new Dictionary<string, ECDsaSecurityKey>(StringComparer.Ordinal);
             foreach (JsonElement element in document.RootElement.EnumerateArray())
             {
                 if (element.ValueKind != JsonValueKind.Object || element.EnumerateObject().Any(property =>
                     property.Name is not ("kty" or "crv" or "x" or "y" or "kid" or "use" or "alg"))) return null;
                 NodeAdmissionPublicKey? key = element.Deserialize<NodeAdmissionPublicKey>();
-                if (key == null || !ValidPublicKeyText(key) || !result.TryAdd(key.Kid, ImportJwk(key)))
+                if (key == null || !ValidPublicKeyText(key))
                 {
-                    foreach (ECDsaSecurityKey value in result.Values) value.ECDsa.Dispose();
+                    DisposeKeys(result);
+                    return null;
+                }
+                ECDsaSecurityKey imported = ImportJwk(key);
+                if (!result.TryAdd(key.Kid, imported))
+                {
+                    imported.ECDsa.Dispose();
+                    DisposeKeys(result);
                     return null;
                 }
             }
             return result;
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { return null; }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            DisposeKeys(result);
+            return null;
+        }
+        catch (OperationCanceledException)
+        {
+            DisposeKeys(result);
+            throw;
+        }
         catch (Exception ex) when (ex is HttpRequestException or IOException or JsonException or CryptographicException
             or ArgumentException or NotSupportedException)
-        { return null; }
+        {
+            DisposeKeys(result);
+            return null;
+        }
+    }
+
+    private static void DisposeKeys(Dictionary<string, ECDsaSecurityKey>? keys)
+    {
+        if (keys == null) return;
+        foreach (ECDsaSecurityKey key in keys.Values) key.ECDsa.Dispose();
+        keys.Clear();
     }
 
     private static bool ValidPublicKeyText(NodeAdmissionPublicKey key)

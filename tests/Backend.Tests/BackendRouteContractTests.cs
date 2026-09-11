@@ -183,7 +183,7 @@ public sealed class BackendRouteContractTests
         using HttpResponseMessage page = await client.GetAsync(
             "/v1/nodes?protocol=1&build=build&content=" + new string('a', 64));
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
-        Assert.InRange(await page.Content.ReadAsByteArrayAsync(), 1, 64 * 1024);
+        Assert.InRange((await page.Content.ReadAsByteArrayAsync()).Length, 1, 64 * 1024);
     }
 
     [Fact]
