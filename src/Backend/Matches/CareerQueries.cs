@@ -52,21 +52,37 @@ public static class CareerQueries
     public static void MapCareerQueries(this WebApplication app)
     {
         app.MapGet("/v1/players/{id}/career", async (string id, MatchTrustClass? trustClass,
-            BackendDbContext db, CancellationToken ct) =>
+            BackendDbContext db, CancellationToken ct, ILoggerFactory loggerFactory) =>
         {
+            ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.CareerCategory);
             if (!PlayerId.TryParse(id, out var player) || !Enum.IsDefined(trustClass ?? MatchTrustClass.VerifiedCasual))
+            {
+                BackendDiagnostics.Career(logger, "career", "invalid");
                 return BackendProblem.Create("invalid_request", "The career query is invalid.", StatusCodes.Status400BadRequest);
+            }
             if (!await db.Licenses.AnyAsync(x => x.PlayerId == player.Value, ct))
+            {
+                BackendDiagnostics.Career(logger, "career", "not_found");
                 return BackendProblem.Create("license_not_found", "The player license was not found.", StatusCodes.Status404NotFound);
-            return Results.Ok(await ReadAsync(db, player.Value, trustClass, ct));
+            }
+            var result = await ReadAsync(db, player.Value, trustClass, ct);
+            BackendDiagnostics.Career(logger, "career", "success");
+            return Results.Ok(result);
         }).RequireRateLimiting(BackendRoutePolicy.Api);
         app.MapGet("/v1/players/{id}/matches", async (string id, long? before, int? limit,
-            BackendDbContext db, CancellationToken ct) =>
+            BackendDbContext db, CancellationToken ct, ILoggerFactory loggerFactory) =>
         {
+            ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.CareerCategory);
             if (!PlayerId.TryParse(id, out var player) || before is <= 0 || limit is < 1 or > 100)
+            {
+                BackendDiagnostics.Career(logger, "matches", "invalid");
                 return BackendProblem.Create("invalid_request", "The match history query is invalid.", StatusCodes.Status400BadRequest);
+            }
             if (!await db.Licenses.AnyAsync(x => x.PlayerId == player.Value, ct))
+            {
+                BackendDiagnostics.Career(logger, "matches", "not_found");
                 return BackendProblem.Create("license_not_found", "The player license was not found.", StatusCodes.Status404NotFound);
+            }
             int count = limit ?? 25;
             var rows = await (from participation in db.Participations.AsNoTracking()
                 join match in db.Matches.AsNoTracking() on participation.MatchId equals match.MatchId
@@ -77,6 +93,7 @@ public static class CareerQueries
                     participation.Outcome, participation.PlayedTicks, participation.Kills, participation.Deaths,
                     participation.Assists, participation.Damage, match.RatingStatus }).Take(count + 1).ToListAsync(ct);
             bool more = rows.Count > count; if (more) rows.RemoveAt(count);
+            BackendDiagnostics.Career(logger, "matches", "success");
             return Results.Ok(new { Entries = rows, NextCursor = more ? (long?)rows[^1].ProcessingOrder : null });
         }).RequireRateLimiting(BackendRoutePolicy.Api);
         app.MapGet("/v1/leaderboards/career", LeaderboardAsync).RequireRateLimiting(BackendRoutePolicy.Api);
@@ -85,8 +102,9 @@ public static class CareerQueries
     private sealed record BoardCursor(decimal Score, Guid PlayerId, string Metric, MatchTrustClass? TrustClass, Hunter? Hunter);
 
     private static async Task<IResult> LeaderboardAsync(MatchTrustClass? trustClass, string? metric, int? limit,
-        string? cursor, Hunter? hunter, BackendDbContext db, CancellationToken ct)
+        string? cursor, Hunter? hunter, BackendDbContext db, CancellationToken ct, ILoggerFactory loggerFactory)
     {
+        ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.CareerCategory);
         metric ??= "kills";
         if ((trustClass.HasValue && !Enum.IsDefined(trustClass.Value)) || limit is < 1 or > 100
             || hunter is < Hunter.Samus or > Hunter.Weavel
@@ -131,6 +149,7 @@ public static class CareerQueries
             }).ToArray();
             string? ratingNext = ratingMore ? Convert.ToBase64String(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(
                 new BoardCursor(ratingRows[^1].Score, ratingRows[^1].PlayerId, metric, trustClass, hunter))) : null;
+            BackendDiagnostics.Career(logger, "leaderboard", "success");
             return Results.Ok(new { Metric = metric, Scope = scope, TrustClass = trustClass,
                 RatingStatus = "active", Policy = RatingPolicyVersion.PairwiseNormalizedV1.ToString(),
                 Entries = entries, NextCursor = ratingNext });
@@ -154,6 +173,7 @@ public static class CareerQueries
         bool more = rows.Count > count; if (more) rows.RemoveAt(count);
         string? next = more ? Convert.ToBase64String(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(
             new BoardCursor(rows[^1].Score, rows[^1].PlayerId, metric, trustClass, hunter))) : null;
+        BackendDiagnostics.Career(logger, "leaderboard", "success");
         return Results.Ok(new { Metric = metric, Scope = scope, TrustClass = trustClass, Hunter = hunter, Entries = rows, NextCursor = next });
     }
 }
