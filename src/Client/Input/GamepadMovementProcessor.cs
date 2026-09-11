@@ -13,23 +13,29 @@ namespace MphRead.Mods.Input
         Left = 1 << 3
     }
 
-    /// <summary>One fixed-step, eight-way movement result.</summary>
+    /// <summary>One fixed-step movement result with legacy and radial forms.</summary>
     public readonly struct GamepadMovementSample
     {
         public GamepadMovementSample(GamepadMovementDirection direction,
-            Vector2 vector, float rawMagnitude, bool active)
+            Vector2 vector, float rawMagnitude, float magnitude, bool active)
         {
             Direction = direction;
             Vector = vector;
             RawMagnitude = rawMagnitude;
+            Magnitude = magnitude;
             Active = active;
         }
 
+        /// <summary>Legacy eight-way direction used by menus and animation.</summary>
         public GamepadMovementDirection Direction { get; }
+
+        /// <summary>Radial vector after the configured inner deadzone.</summary>
         public Vector2 Vector { get; }
         public float RawMagnitude { get; }
+        public float Magnitude { get; }
         public bool Active { get; }
         public bool IsActive => Active;
+        public GamepadMovementDirection DigitalDirection => Direction;
     }
 
     /// <summary>
@@ -109,7 +115,7 @@ namespace MphRead.Mods.Input
             {
                 _sector = -1;
                 return _processed = new GamepadMovementSample(GamepadMovementDirection.None,
-                    Vector2.Zero, MathF.Min(rawMagnitude, 1), false);
+                    Vector2.Zero, MathF.Min(rawMagnitude, 1), 0, false);
             }
 
             StickSample processed = StickProcessor.Evaluate(raw, InnerDeadzone, 0);
@@ -119,13 +125,13 @@ namespace MphRead.Mods.Input
                 // the inner deadzone. Preserve hysteresis but do not invent a
                 // direction from a neutral stick.
                 return _processed = new GamepadMovementSample(GamepadMovementDirection.None,
-                    Vector2.Zero, MathF.Min(rawMagnitude, 1), true);
+                    Vector2.Zero, MathF.Min(rawMagnitude, 1), 0, true);
             }
             _sector = QuantizeSector(processed.Direction, _sector,
                 DirectionHysteresisDegrees);
             GamepadMovementDirection direction = FromSector(_sector);
-            return _processed = new GamepadMovementSample(direction, ToVector(direction),
-                MathF.Min(rawMagnitude, 1), true);
+            return _processed = new GamepadMovementSample(direction, processed.Vector,
+                MathF.Min(rawMagnitude, 1), processed.Magnitude, true);
         }
 
         public void Reset()

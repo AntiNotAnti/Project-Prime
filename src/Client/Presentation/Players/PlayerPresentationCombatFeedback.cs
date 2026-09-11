@@ -88,7 +88,7 @@ namespace MphRead.Entities
             CombatFeedback feedback = Presentation.CombatFeedback;
             uint tick = AuthoritativePlay.Current?.WorldServerTick ?? ReplayPlayback.WorldServerTick ?? 0;
             HitMarkerKind marker = feedback.VisibleMarker(tick);
-            bool identityView = feedback.Local.IsValid && feedback.Local.Slot == _player.SlotIndex;
+            bool identityView = feedback.Local.IsValid && feedback.Local == AuthoritativeActor;
             bool localView = identityView && !Mods.SpectatorMode.IsSpectating;
             if (_feedbackSoundIdentity != feedback.Local)
             {
@@ -122,6 +122,12 @@ namespace MphRead.Entities
             WorldFeedback world = Presentation.WorldFeedback;
             if (world.Message.Length > 0 && CombatFeedback.Age(tick, world.Tick) < 120)
                 DrawText2D(128, 32, Align.Center, 0, world.Message, scale: .7f);
+            if (localView && feedback.IsHeadshotNoticeVisible(tick))
+                DrawText2D(128, 40, Align.Center, 0, feedback.State.HeadshotNotice.Text,
+                    scale: .8f);
+            if (localView && feedback.IsKillNoticeVisible(tick))
+                DrawText2D(128, 70, Align.Center, 0, feedback.State.KillNotice.Text,
+                    scale: .75f);
             if (localView && _player.Health > 0 && marker != HitMarkerKind.None)
             {
                 uint age = CombatFeedback.Age(tick, feedback.State.MarkerTick);

@@ -52,6 +52,18 @@ public class RenderInterpolationTests
     }
 
     [Fact]
+    public void CameraScalarHistoryInterpolatesFovAndResetsAtDiscontinuity()
+    {
+        var history = new ScalarPoseHistory();
+        history.Capture(78, 1, 0);
+        history.Capture(60, 2, 0);
+        Assert.Equal(69, history.Resolve(.5f));
+
+        history.Capture(100, 3, 0, discontinuity: true);
+        Assert.Equal(100, history.Resolve(0));
+    }
+
+    [Fact]
     public void SubmissionChangesOnlyCopiedStackEvenWhenDrawingFails()
     {
         float[] source = {1,0,0,0, 0,1,0,0, 0,0,1,0, 4,5,6,1};

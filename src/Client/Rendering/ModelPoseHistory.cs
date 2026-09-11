@@ -23,9 +23,20 @@ namespace MphRead.Mods.Render
             for (int i = 0; i < _nodes.Length; i++) _nodes[i] = new();
             _stack = new float[model.NodeMatrixIds.Count * 16];
         }
-        public void Capture(AnimationInfo info, Matrix4 parent, ulong tick, long epoch)
+        public Model Model => _model;
+        public bool HasSamples
         {
-            bool reset = _group != info.Node.Group || _index != info.NodeIndex
+            get
+            {
+                for (int i = 0; i < _nodes.Length; i++)
+                    if (_nodes[i].HasSamples) return true;
+                return false;
+            }
+        }
+        public void Capture(AnimationInfo info, Matrix4 parent, ulong tick, long epoch,
+            bool discontinuity = false)
+        {
+            bool reset = discontinuity || _group != info.Node.Group || _index != info.NodeIndex
                 || Math.Abs(info.NodeFrame - _frame) > 2;
             NodePoseSampler.Sample(_model, info, parent, _transforms, _sample);
             for (int i = 0; i < _nodes.Length; i++) _nodes[i].Capture(_sample[i], tick, epoch, reset);

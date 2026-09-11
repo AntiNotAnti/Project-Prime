@@ -307,15 +307,32 @@ namespace MphRead.Entities
 
         private void UpdateAimFacing()
         {
-            float dot = Vector3.Dot(_gunVec1, _facingVector);
+            _gunVec1 = VectorMath.NormalizeOr(_gunVec1, _facingVector);
+            _facingVector = ResolveAimFacing(_gunVec1, _facingVector);
+        }
+
+        internal static Vector3 ResolveAimFacing(Vector3 gunVector, Vector3 facingVector)
+        {
+            gunVector = VectorMath.NormalizeOr(gunVector, facingVector);
+            facingVector = VectorMath.NormalizeOr(facingVector, gunVector);
+            float dot = Vector3.Dot(gunVector, facingVector);
+            if (!float.IsFinite(dot))
+            {
+                dot = 1;
+            }
+            dot = Math.Clamp(dot, -1, 1);
             if (dot < Fixed.ToFloat(3956))
             {
-                Vector3 temp1 = (_facingVector - _gunVec1 * dot).Normalized();
-                _facingVector = Fixed.ToFloat(3956) * _gunVec1 + Fixed.ToFloat(1060) * temp1;
+                Vector3 tangent = facingVector - gunVector * dot;
+                if (!VectorMath.TryNormalize(tangent, out tangent))
+                {
+                    tangent = VectorMath.Perpendicular(gunVector, facingVector);
+                }
+                facingVector = Fixed.ToFloat(3956) * gunVector + Fixed.ToFloat(1060) * tangent;
             }
-            Vector3 temp2 = _gunVec1 - _facingVector;
-            _facingVector += temp2 * 0.1f;
-            _facingVector = _facingVector.Normalized();
+            Vector3 temp2 = gunVector - facingVector;
+            facingVector += temp2 * 0.1f;
+            return VectorMath.NormalizeOr(facingVector, gunVector);
         }
 
         private void UpdateAimY(float amount)
@@ -359,7 +376,7 @@ namespace MphRead.Entities
             {
                 vector = new Vector3(0, -MathF.Sin(-diff), MathF.Cos(-diff));
             }
-            _gunVec1 = Matrix.Vec3MultMtx3(vector, transform).Normalized();
+            _gunVec1 = VectorMath.NormalizeOr(Matrix.Vec3MultMtx3(vector, transform), _gunVec1);
             _aimPosition = CameraInfo.Position + _gunVec1 * Fixed.ToFloat(Values.AimDistance);
             UpdateAimFacing();
         }
@@ -401,7 +418,7 @@ namespace MphRead.Entities
             float z = _gunVec1.Z;
             _gunVec1.X = x * cos + z * sin;
             _gunVec1.Z = x * -sin + z * cos;
-            _gunVec1 = _gunVec1.Normalized();
+            _gunVec1 = VectorMath.NormalizeOr(_gunVec1, _facingVector);
             _aimPosition = CameraInfo.Position + _gunVec1 * Fixed.ToFloat(Values.AimDistance);
             if (EquipInfo.Zoomed)
             {
@@ -529,10 +546,18 @@ namespace MphRead.Entities
                 bool jumping = false;
                 if (!Flags2.TestAny(PlayerFlags2.BipedLock | PlayerFlags2.BipedStuck))
                 {
+                    float digitalLateralSign = Controls.MoveRight.IsDown ? 1
+                        : Controls.MoveLeft.IsDown ? -1 : 0;
+                    float digitalForwardSign = Controls.MoveUp.IsDown ? 1
+                        : Controls.MoveDown.IsDown ? -1 : 0;
+                    float lateralSign = ResolveMovementAxis(digitalLateralSign,
+                        _analogMovement.X, horizontal: true);
+                    float forwardSign = ResolveMovementAxis(digitalForwardSign,
+                        _analogMovement.Y, horizontal: false);
                     // unimpl-controls: the game also tests for either the free strafe flag, or the strafe button held
                     // and later, for up/down, it tests for either flag, or the look button not held
 
-                    void MoveRightLeft(PlayerAnimation walkAnim, int sign)
+                    void MoveRightLeft(PlayerAnimation walkAnim, float sign)
                     {
                         Flags1 |= PlayerFlags1.Strafing;
                         Flags1 |= PlayerFlags1.MovingBiped;
@@ -555,7 +580,7 @@ namespace MphRead.Entities
                         }
                         speedDelta.X -= _field78 * traction * sign;
                         speedDelta.Z -= _field7C * traction * sign;
-                        if (!Controls.MoveUp.IsDown && !Controls.MoveDown.IsDown
+                        if (forwardSign == 0
                             && Flags1.TestFlag(PlayerFlags1.Grounded) && _timeSinceJumpPad > SimTicks.From30HzFrames(7))
                         {
                             anim1 = walkAnim;
@@ -567,7 +592,7 @@ namespace MphRead.Entities
                         }
                     }
 
-                    void MoveForwardBack(PlayerAnimation walkAnim, int sign)
+                    void MoveForwardBack(PlayerAnimation walkAnim, float sign)
                     {
                         Flags1 |= PlayerFlags1.MovingBiped;
                         if (Flags1.TestFlag(PlayerFlags1.Standing))
@@ -600,13 +625,13 @@ namespace MphRead.Entities
                         }
                     }
 
-                    if (Controls.MoveRight.IsDown)
+                    if (lateralSign > 0)
                     {
-                        MoveRightLeft(PlayerAnimation.WalkRight, sign: 1);
+                        MoveRightLeft(PlayerAnimation.WalkRight, sign: lateralSign);
                     }
-                    else if (Controls.MoveLeft.IsDown)
+                    else if (lateralSign < 0)
                     {
-                        MoveRightLeft(PlayerAnimation.WalkLeft, sign: -1);
+                        MoveRightLeft(PlayerAnimation.WalkLeft, sign: lateralSign);
                     }
                     if (_viewTiltAngleH < Fixed.ToFloat(500) && _viewTiltAngleH > Fixed.ToFloat(-500))
                     {
@@ -616,13 +641,13 @@ namespace MphRead.Entities
                     {
                         _viewTiltAngleH *= 0.9f; // sktodo: FPS stuff
                     }
-                    if (Controls.MoveUp.IsDown)
+                    if (forwardSign > 0)
                     {
-                        MoveForwardBack(PlayerAnimation.WalkForward, sign: 1);
+                        MoveForwardBack(PlayerAnimation.WalkForward, sign: forwardSign);
                     }
-                    else if (Controls.MoveDown.IsDown)
+                    else if (forwardSign < 0)
                     {
-                        MoveForwardBack(PlayerAnimation.WalkBackward, sign: -1);
+                        MoveForwardBack(PlayerAnimation.WalkBackward, sign: forwardSign);
                     }
                     if (_viewTiltAngleV < Fixed.ToFloat(500) && _viewTiltAngleV > Fixed.ToFloat(-500))
                     {
@@ -878,7 +903,7 @@ namespace MphRead.Entities
                 {
                     Vector3 diff = _gunVec1 - _facingVector;
                     _facingVector += diff * 0.3f / 2; // todo: FPS stuff
-                    _facingVector = _facingVector.Normalized();
+                    _facingVector = VectorMath.NormalizeOr(_facingVector, _gunVec1);
                 }
                 // Authoritative replicas have no movement Controls on this client;
                 // their delayed presentation sample supplies only the local
@@ -974,7 +999,7 @@ namespace MphRead.Entities
                 shotVec.Y += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
                 shotVec.Z += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
             }
-            shotVec = shotVec.Normalized();
+            shotVec = VectorMath.NormalizeOr(shotVec, _gunVec1);
             WeaponInfo curWeapon = EquipInfo.Weapon;
             if (IsPrimeHunter)
             {
@@ -1168,10 +1193,18 @@ namespace MphRead.Entities
                     }
                     if (!Flags2.TestFlag(PlayerFlags2.BipedLock) && (Hunter != Hunter.Trace || !Flags2.TestFlag(PlayerFlags2.AltAttack)))
                     {
+                        float digitalLateralSign = Controls.MoveRight.IsDown ? 1
+                            : Controls.MoveLeft.IsDown ? -1 : 0;
+                        float digitalForwardSign = Controls.MoveUp.IsDown ? 1
+                            : Controls.MoveDown.IsDown ? -1 : 0;
+                        float lateralSign = ResolveMovementAxis(digitalLateralSign,
+                            _analogMovement.X, horizontal: true, roll: false);
+                        float forwardSign = ResolveMovementAxis(digitalForwardSign,
+                            _analogMovement.Y, horizontal: false, roll: false);
                         // unimpl-controls: the game also tests for either the free strafe flag, or the strafe button held
                         // and later, for up/down, it tests for either flag, or the look button not held
 
-                        void MoveRightLeft(int walkAnim, int sign)
+                        void MoveRightLeft(int walkAnim, float sign)
                         {
                             Flags1 |= PlayerFlags1.Strafing;
                             Flags1 |= PlayerFlags1.MovingBiped;
@@ -1201,7 +1234,7 @@ namespace MphRead.Entities
                             }
                         }
 
-                        void MoveForwardBack(int walkAnim, int sign)
+                        void MoveForwardBack(int walkAnim, float sign)
                         {
                             Flags1 |= PlayerFlags1.MovingBiped;
                             if (Flags1.TestFlag(PlayerFlags1.Standing))
@@ -1234,22 +1267,22 @@ namespace MphRead.Entities
                             }
                         }
 
-                        if (Controls.MoveRight.IsDown)
+                        if (lateralSign > 0)
                         {
-                            MoveRightLeft(walkAnim: 4, sign: 1); // TraceAltAnim.MoveRight or WeavelAltAnim.MoveRight
+                            MoveRightLeft(walkAnim: 4, sign: lateralSign); // TraceAltAnim.MoveRight or WeavelAltAnim.MoveRight
                         }
-                        else if (Controls.MoveLeft.IsDown)
+                        else if (lateralSign < 0)
                         {
-                            MoveRightLeft(walkAnim: 2, sign: -1); // TraceAltAnim.MoveLeft or WeavelAltAnim.MoveLeft
+                            MoveRightLeft(walkAnim: 2, sign: lateralSign); // TraceAltAnim.MoveLeft or WeavelAltAnim.MoveLeft
                         }
                         // todo: update field684
-                        if (Controls.MoveUp.IsDown)
+                        if (forwardSign > 0)
                         {
-                            MoveForwardBack(walkAnim: 3, sign: 1); // TraceAltAnim.MoveForward or WeavelAltAnim.MoveForward
+                            MoveForwardBack(walkAnim: 3, sign: forwardSign); // TraceAltAnim.MoveForward or WeavelAltAnim.MoveForward
                         }
-                        else if (Controls.MoveDown.IsDown)
+                        else if (forwardSign < 0)
                         {
-                            MoveForwardBack(walkAnim: 5, sign: -1); // TraceAltAnim.MoveBackward or WeavelAltAnim.MoveBackward
+                            MoveForwardBack(walkAnim: 5, sign: forwardSign); // TraceAltAnim.MoveBackward or WeavelAltAnim.MoveBackward
                         }
                         // todo: update field684
                         // unimpl-controls: in the up/down code path, the game processes aim reset if that flag is off
@@ -1264,25 +1297,31 @@ namespace MphRead.Entities
                     {
                         traction *= Fixed.ToFloat(Values.JumpPadSlideFactor);
                     }
-                    if (Controls.RollUp.IsDown)
+                    float rollForwardSign = ResolveMovementAxis(
+                        Controls.RollUp.IsDown ? 1 : Controls.RollDown.IsDown ? -1 : 0,
+                        _analogMovement.Y, horizontal: false, roll: true);
+                    float rollLateralSign = ResolveMovementAxis(
+                        Controls.RollRight.IsDown ? 1 : Controls.RolltLeft.IsDown ? -1 : 0,
+                        _analogMovement.X, horizontal: true, roll: true);
+                    if (rollForwardSign > 0)
                     {
-                        speedDelta.X += _altRollFbX * traction;
-                        speedDelta.Z += _altRollFbZ * traction;
+                        speedDelta.X += _altRollFbX * traction * rollForwardSign;
+                        speedDelta.Z += _altRollFbZ * traction * rollForwardSign;
                     }
-                    else if (Controls.RollDown.IsDown)
+                    else if (rollForwardSign < 0)
                     {
-                        speedDelta.X -= _altRollFbX * traction;
-                        speedDelta.Z -= _altRollFbZ * traction;
+                        speedDelta.X += _altRollFbX * traction * rollForwardSign;
+                        speedDelta.Z += _altRollFbZ * traction * rollForwardSign;
                     }
-                    if (Controls.RolltLeft.IsDown)
+                    if (rollLateralSign < 0)
                     {
-                        speedDelta.X += _altRollLrX * traction;
-                        speedDelta.Z += _altRollLrZ * traction;
+                        speedDelta.X -= _altRollLrX * traction * rollLateralSign;
+                        speedDelta.Z -= _altRollLrZ * traction * rollLateralSign;
                     }
-                    else if (Controls.RollRight.IsDown)
+                    else if (rollLateralSign > 0)
                     {
-                        speedDelta.X -= _altRollLrX * traction;
-                        speedDelta.Z -= _altRollLrZ * traction;
+                        speedDelta.X -= _altRollLrX * traction * rollLateralSign;
+                        speedDelta.Z -= _altRollLrZ * traction * rollLateralSign;
                     }
                 }
                 if (!IsMorphing)
@@ -1350,7 +1389,8 @@ namespace MphRead.Entities
                             _spireRockPosL = Position;
                             _spireAltUp = _fieldC0;
                             var cross = Vector3.Cross(_facingVector, _spireAltUp);
-                            _spireAltFacing = Vector3.Cross(_spireAltUp, cross).Normalized();
+                            _spireAltFacing = VectorMath.NormalizeOr(
+                                Vector3.Cross(_spireAltUp, cross), _facingVector);
                         }
                     }
                     if (_abilities.TestFlag(AbilityFlags.TraceAltAttack))
@@ -1767,13 +1807,14 @@ namespace MphRead.Entities
                 _hSpeedMag = hSpeedMag;
             }
             // todo: check how much of this overwrites stuff done above
-            float hMag = MathF.Sqrt(_facingVector.X * _facingVector.X + _facingVector.Z * _facingVector.Z);
-            _field70 = _facingVector.X / hMag;
-            _field74 = _facingVector.Z / hMag;
+            Vector3 horizontalFacing = VectorMath.NormalizeHorizontalOr(_facingVector,
+                VectorMath.NormalizeHorizontalOr(_gunVec1, Vector3.UnitZ));
+            _field70 = horizontalFacing.X;
+            _field74 = horizontalFacing.Z;
             _gunVec2 = new Vector3(_field74, 0, -_field70);
             _field78 = _gunVec2.X;
             _field7C = _gunVec2.Z;
-            _upVector = Vector3.Cross(_facingVector, _gunVec2).Normalized();
+            _upVector = VectorMath.NormalizeOr(Vector3.Cross(_facingVector, _gunVec2), Vector3.UnitY);
             if (Values.AltFormStrafe != 0)
             {
                 _field80 = _field70;
@@ -1782,7 +1823,11 @@ namespace MphRead.Entities
             _aimPosition = _gunVec1 * Fixed.ToFloat(Values.AimDistance);
             _aimPosition += CameraInfo.Position;
             // unimpl-controls: this calculation is different when exact aim is not set
-            hMag = MathF.Sqrt(_gunVec1.X * _gunVec1.X + _gunVec1.Z * _gunVec1.Z);
+            float hMag = MathF.Sqrt(_gunVec1.X * _gunVec1.X + _gunVec1.Z * _gunVec1.Z);
+            if (!float.IsFinite(hMag))
+            {
+                hMag = 0;
+            }
             _aimY = MathHelper.RadiansToDegrees(MathF.Atan2(_gunVec1.Y, hMag));
             if (_aimY > 75 || _aimY < -75)
             {
@@ -1966,7 +2011,7 @@ namespace MphRead.Entities
             }
             else if (_fieldC0 != Vector3.Zero)
             {
-                _fieldC0 = _fieldC0.Normalized();
+                _fieldC0 = VectorMath.NormalizeOr(_fieldC0, prevC0);
             }
             else
             {

@@ -17,10 +17,14 @@ namespace MphRead
             public bool HasState;
             public readonly Dictionary<ModelInstance, ModelPoseHistory> Models = new();
             public PlayerBipedPoseHistory? Biped;
+            public ModelPoseHistory? Gun;
+            public int GunState;
+            public bool HasGunState;
         }
         private readonly Dictionary<EntityBase, PoseTrack> _poses = new();
         private readonly List<EntityBase> _removedPoses = new();
         private readonly SimulationPoseHistory _cameraHistory = new();
+        private readonly ScalarPoseHistory _cameraFovHistory = new();
         private long _poseGeneration;
         private long _timingGeneration;
         private long _correctionGeneration;
@@ -110,6 +114,7 @@ namespace MphRead
             _poses.Clear();
             _particlePoses.Clear();
             _cameraHistory.Reset();
+            _cameraFovHistory.Reset();
             ResetRenderLook();
         }
         private void CaptureSimulationPoses()
@@ -151,6 +156,30 @@ namespace MphRead
                     track.Biped.Capture(biped._bipedModel1.AnimInfo, biped._bipedModel2.AnimInfo,
                         PlayerEntity.GetBipedPitch(biped._facingVector), _poseTick, _poseGeneration, discontinuity);
                 }
+                if (entity is PlayerEntity firstPerson && firstPerson.IsMainPlayer
+                    && firstPerson.CameraType == CameraType.First && !firstPerson.IsAltForm
+                    && !firstPerson.IsMorphing && !firstPerson.IsUnmorphing
+                    && firstPerson._gunModel != null)
+                {
+                    // The gun is a presentation-only node track. Material,
+                    // texture and texcoord state still advances through the
+                    // normal UpdateTransforms call at draw time; only the
+                    // node matrices are sampled here.
+                    int gunState = HashCode.Combine(firstPerson.CurrentWeapon,
+                        firstPerson.GunAnimation, firstPerson.LoadFlags,
+                        firstPerson.Health == 0, firstPerson.PresentationPoseEpoch,
+                        _timingGeneration, _correctionGeneration, _poseGeneration);
+                    bool gunDiscontinuity = !track.HasGunState || track.GunState != gunState;
+                    track.Gun ??= new ModelPoseHistory(firstPerson._gunModel.Model);
+                    if (!ReferenceEquals(track.Gun.Model, firstPerson._gunModel.Model))
+                        track.Gun = new ModelPoseHistory(firstPerson._gunModel.Model);
+                    Matrix4 gunTransform = PlayerEntity.GetTransformMatrix(
+                        firstPerson._aimVec, firstPerson._upVector, firstPerson._gunDrawPos);
+                    track.Gun.Capture(firstPerson._gunModel.AnimInfo, gunTransform,
+                        _poseTick, _poseGeneration, gunDiscontinuity || discontinuity);
+                    track.GunState = gunState;
+                    track.HasGunState = true;
+                }
                 if (entity is DoorEntity or PlatformEntity)
                 {
                     for (int i = 0; i < entity._models.Count; i++)
@@ -172,8 +201,16 @@ namespace MphRead
                 World.LocalPlayer!.IsMorphing, World.LocalPlayer!.IsUnmorphing, World.LocalPlayer!.CameraType, World.CameraSequences.Current);
             if (World.LocalPlayer!.Health > 0 && !World.LocalPlayer!.IsAltForm
                 && !World.LocalPlayer!.IsMorphing && !World.LocalPlayer!.IsUnmorphing)
+            {
                 _cameraHistory.Capture(World.LocalPlayer!.CameraInfo.ViewMatrix.Inverted(), _poseTick, _poseGeneration, cameraState != _cameraState);
-            else _cameraHistory.Reset();
+                _cameraFovHistory.Capture(World.LocalPlayer!.CameraInfo.Fov, _poseTick,
+                    _poseGeneration, cameraState != _cameraState);
+            }
+            else
+            {
+                _cameraHistory.Reset();
+                _cameraFovHistory.Reset();
+            }
             _cameraState = cameraState;
         }
         private void BeginEntitySubmission(EntityBase entity)
@@ -220,6 +257,22 @@ namespace MphRead
             return true;
         }
 
+        internal bool ResolvePlayerGunSubmission(PlayerEntity player, ModelInstance inst,
+            out Matrix4[] nodes, out float[] stack)
+        {
+            nodes = Array.Empty<Matrix4>();
+            stack = Array.Empty<float>();
+            if (!SkeletalInterpolationEnabled || !InterpolationEnabled
+                || !_poses.TryGetValue(player, out PoseTrack? track)
+                || track.Gun is not { HasSamples: true } history
+                || !ReferenceEquals(history.Model, inst.Model)) return false;
+            history.Resolve(FrameTiming.RenderAlpha, out nodes, out stack);
+            // Unlike biped history, the gun history already contains its
+            // simulation camera root. Leave the submission delta armed so the
+            // renderer composes the current final render camera exactly once.
+            return true;
+        }
+
         private void EndEntitySubmission() { _submissionDelta = Matrix4.Identity; _submissionInterpolated = false; }
         private Matrix4 SubmissionTransform(Matrix4 transform) => _submissionInterpolated ? transform * _submissionDelta : transform;
         private void ApplyRenderCamera()
@@ -227,6 +280,11 @@ namespace MphRead
             if (!ControlsPlayer || Mods.SpectatorMode.IsSpectating || Mods.Network.ReplayPlayback.IsActive) return;
             Matrix4 camera = World.LocalPlayer!.CameraInfo.ViewMatrix.Inverted();
             if (InterpolationEnabled && _cameraHistory.HasSamples) camera.Row3.Xyz = _cameraHistory.Resolve(FrameTiming.RenderAlpha).Row3.Xyz;
+            if (InterpolationEnabled && _cameraFovHistory.HasSamples)
+            {
+                float fov = _cameraFovHistory.Resolve(FrameTiming.RenderAlpha);
+                if (float.IsFinite(fov) && fov > 0) _cameraFov = MathHelper.DegreesToRadians(fov);
+            }
             if (CanCaptureRenderLook)
             {
                 PlayerEntity player = World.LocalPlayer!;

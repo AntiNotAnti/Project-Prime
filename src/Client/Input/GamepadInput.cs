@@ -1,5 +1,6 @@
 using System;
 using MphRead.Entities;
+using MphRead.Mods.Network;
 using MphRead.Mods.Render;
 using OpenTK.Mathematics;
 using System.Diagnostics;
@@ -59,12 +60,14 @@ namespace MphRead.Mods.Input
         {
             get
             {
+                if (_gameplayInputQuarantine || _postQuarantineUntilRelease)
+                    return GamepadButtons.None;
                 TriggerProcessor preview = _triggers;
                 preview.Configure(InputSettings.GamepadTriggerPressThreshold,
                     InputSettings.GamepadTriggerReleaseThreshold);
                 TriggerSample trigger = preview.Preview(State.LeftTrigger,
                     State.RightTrigger);
-                return State.Buttons | trigger.Buttons;
+                return GameplayButtons() | trigger.Buttons;
             }
         }
 
@@ -72,6 +75,8 @@ namespace MphRead.Mods.Input
         public static GamepadButtons ReleasedButtons => _released;
 
         private static GamepadButtons _previous;
+        private static bool _gameplayInputQuarantine;
+        private static bool _postQuarantineUntilRelease;
 
         /// <summary>Buttons that went down this frame, for the one-shot actions.</summary>
         private static GamepadButtons _pressed;
@@ -156,6 +161,8 @@ namespace MphRead.Mods.Input
         /// </summary>
         public static void BeginFrame(bool allowLook = true, bool zoomed = false)
         {
+            if (_postQuarantineUntilRelease && !PhysicalControllerInputActive())
+                _postQuarantineUntilRelease = false;
             if (!Active)
             {
                 ResetControllerState();
@@ -167,19 +174,22 @@ namespace MphRead.Mods.Input
                 Reset();
             }
 
+            bool quarantined = InputQuarantined;
             _triggers.Configure(InputSettings.GamepadTriggerPressThreshold,
                 InputSettings.GamepadTriggerReleaseThreshold);
-            TriggerSample trigger = _triggers.Process(State.LeftTrigger,
-                State.RightTrigger);
-            _effective = State.Buttons | trigger.Buttons;
+            TriggerSample trigger = _triggers.Process(
+                quarantined ? 0 : State.LeftTrigger,
+                quarantined ? 0 : State.RightTrigger);
+            _effective = quarantined ? GamepadButtons.None
+                : State.Buttons | trigger.Buttons;
             _pressed = _effective & ~_previous;
             _released = _previous & ~_effective;
             _previous = _effective;
             _movement.Configure(InputSettings.GamepadMoveDeadZone,
                 InputSettings.GamepadMoveActivateThreshold,
                 InputSettings.GamepadMoveReleaseThreshold);
-            _movement.Process(
-                new Vector2(State.LeftX, State.LeftY));
+            _movement.Process(quarantined ? Vector2.Zero
+                : new Vector2(State.LeftX, State.LeftY));
 
             bool weaponRadial = (_effective & PadBindings.Get(PadAction.WeaponWheel)) != 0;
             if (!allowLook || weaponRadial)
@@ -314,6 +324,62 @@ namespace MphRead.Mods.Input
         }
 
         /// <summary>
+        /// Hide all controller gameplay state while a replay-owned surface is
+        /// active. The physical state remains readable by that surface so a
+        /// rising edge can be consumed without leaking a held action into the
+        /// live scene.
+        /// </summary>
+        internal static void BeginGameplayInputQuarantine()
+        {
+            _gameplayInputQuarantine = true;
+            _postQuarantineUntilRelease = false;
+            Reset();
+        }
+
+        /// <summary>
+        /// Keep held buttons neutral until their physical release. This is
+        /// deliberately separate from <see cref="Reset"/> so scene teardown
+        /// cannot reintroduce a stale button edge.
+        /// </summary>
+        internal static void EndGameplayInputQuarantine()
+        {
+            if (!_gameplayInputQuarantine) return;
+            _gameplayInputQuarantine = false;
+            _postQuarantineUntilRelease = PhysicalControllerInputActive();
+            Reset();
+        }
+
+        internal static bool InputQuarantined
+            => _gameplayInputQuarantine || _postQuarantineUntilRelease;
+
+        private static GamepadButtons GameplayButtons()
+            => InputQuarantined ? GamepadButtons.None : State.Buttons;
+
+        private static bool PhysicalControllerInputActive()
+        {
+            if (State.Buttons != GamepadButtons.None) return true;
+            if (!float.IsFinite(State.LeftX) || !float.IsFinite(State.LeftY)
+                || !float.IsFinite(State.RightX) || !float.IsFinite(State.RightY)
+                || !float.IsFinite(State.LeftTrigger)
+                || !float.IsFinite(State.RightTrigger))
+            {
+                // A malformed native sample is not a release. Keep the
+                // post-handoff quarantine in place until a finite neutral
+                // sample arrives rather than leaking undefined input.
+                return true;
+            }
+            float moveRelease = InputSettings.GamepadMoveReleaseThreshold;
+            float lookRelease = InputSettings.GamepadLookDeadZone;
+            float triggerRelease = InputSettings.GamepadTriggerReleaseThreshold;
+            return State.LeftX * State.LeftX + State.LeftY * State.LeftY
+                    >= moveRelease * moveRelease
+                || State.RightX * State.RightX + State.RightY * State.RightY
+                    > lookRelease * lookRelease
+                || State.LeftTrigger > triggerRelease
+                || State.RightTrigger > triggerRelease;
+        }
+
+        /// <summary>
         /// True once for each press of Start, which opens and closes the pause
         /// menu.
         ///
@@ -347,24 +413,71 @@ namespace MphRead.Mods.Input
         /// </summary>
         public static void Apply(PlayerEntity? player)
         {
-            if (player == null || !Active || player.IsBot
-                || !player.LoadFlags.TestFlag(LoadFlags.Active))
+            if (player == null)
             {
                 return;
             }
+            if (!Active || player.IsBot
+                || !player.LoadFlags.TestFlag(LoadFlags.Active))
+            {
+                player.ClearAnalogMovement();
+                return;
+            }
             ClientPlayerBindings controls = player.GetPresentation().Bindings;
+            // Capture the non-controller axis before adding the legacy
+            // digital binds. This lets the authoritative movement path retain
+            // keyboard/touch intent while using the radial sample for a pad's
+            // own contribution.
+            Vector2 digitalBeforeAnalog = new(
+                controls.MoveRight.IsDown ? 1 : controls.MoveLeft.IsDown ? -1 : 0,
+                controls.MoveUp.IsDown ? 1 : controls.MoveDown.IsDown ? -1 : 0);
+            Vector2 digitalRollBeforeAnalog = new(
+                controls.RollRight.IsDown ? 1 : controls.RolltLeft.IsDown ? -1 : 0,
+                controls.RollUp.IsDown ? 1 : controls.RollDown.IsDown ? -1 : 0);
+            InputButtons digitalMovementButtons = InputButtons.None;
+            if (controls.MoveLeft.IsDown) digitalMovementButtons |= InputButtons.Left;
+            if (controls.MoveRight.IsDown) digitalMovementButtons |= InputButtons.Right;
+            if (controls.MoveUp.IsDown) digitalMovementButtons |= InputButtons.Forward;
+            if (controls.MoveDown.IsDown) digitalMovementButtons |= InputButtons.Back;
+            InputButtons digitalMovementPressed = InputButtons.None;
+            if (controls.MoveLeft.IsPressed) digitalMovementPressed |= InputButtons.Left;
+            if (controls.MoveRight.IsPressed) digitalMovementPressed |= InputButtons.Right;
+            if (controls.MoveUp.IsPressed) digitalMovementPressed |= InputButtons.Forward;
+            if (controls.MoveDown.IsPressed) digitalMovementPressed |= InputButtons.Back;
+            InputButtons digitalRollButtons = InputButtons.None;
+            if (controls.RolltLeft.IsDown) digitalRollButtons |= InputButtons.RollLeft;
+            if (controls.RollRight.IsDown) digitalRollButtons |= InputButtons.RollRight;
+            if (controls.RollUp.IsDown) digitalRollButtons |= InputButtons.RollForward;
+            if (controls.RollDown.IsDown) digitalRollButtons |= InputButtons.RollBack;
+            InputButtons digitalRollPressed = InputButtons.None;
+            if (controls.RolltLeft.IsPressed) digitalRollPressed |= InputButtons.RollLeft;
+            if (controls.RollRight.IsPressed) digitalRollPressed |= InputButtons.RollRight;
+            if (controls.RollUp.IsPressed) digitalRollPressed |= InputButtons.RollForward;
+            if (controls.RollDown.IsPressed) digitalRollPressed |= InputButtons.RollBack;
+            GamepadMovementSample movement = _movement.Processed;
+            if (movement.Active)
+            {
+                player.SetAnalogMovement(movement.Vector, digitalBeforeAnalog,
+                    digitalRollBeforeAnalog, digitalMovementButtons,
+                    digitalRollButtons, digitalMovementPressed,
+                    digitalRollPressed);
+            }
+            else
+            {
+                player.ClearAnalogMovement();
+            }
             // Both sets, as the touch controls do: walking reads Move and the
             // morph ball reads Roll, and a player who has bound them to
             // different keys expects the stick to drive whichever form they
             // are in.
-            Hold(controls.MoveUp, (_movement.Processed.Direction & GamepadMovementDirection.Up) != 0);
-            Hold(controls.RollUp, (_movement.Processed.Direction & GamepadMovementDirection.Up) != 0);
-            Hold(controls.MoveDown, (_movement.Processed.Direction & GamepadMovementDirection.Down) != 0);
-            Hold(controls.RollDown, (_movement.Processed.Direction & GamepadMovementDirection.Down) != 0);
-            Hold(controls.MoveLeft, (_movement.Processed.Direction & GamepadMovementDirection.Left) != 0);
-            Hold(controls.RolltLeft, (_movement.Processed.Direction & GamepadMovementDirection.Left) != 0);
-            Hold(controls.MoveRight, (_movement.Processed.Direction & GamepadMovementDirection.Right) != 0);
-            Hold(controls.RollRight, (_movement.Processed.Direction & GamepadMovementDirection.Right) != 0);
+            Hold(controls.MoveUp, (movement.Direction & GamepadMovementDirection.Up) != 0);
+            Hold(controls.RollUp, (movement.Direction & GamepadMovementDirection.Up) != 0);
+            Hold(controls.MoveDown, (movement.Direction & GamepadMovementDirection.Down) != 0);
+            Hold(controls.RollDown, (movement.Direction & GamepadMovementDirection.Down) != 0);
+            Hold(controls.MoveLeft, (movement.Direction & GamepadMovementDirection.Left) != 0);
+            Hold(controls.RolltLeft, (movement.Direction & GamepadMovementDirection.Left) != 0);
+            Hold(controls.MoveRight, (movement.Direction & GamepadMovementDirection.Right) != 0);
+            Hold(controls.RollRight, (movement.Direction & GamepadMovementDirection.Right) != 0);
 
             // Which button each of these is on is the player's business now:
             // see PadBindings, which starts as the table that used to be

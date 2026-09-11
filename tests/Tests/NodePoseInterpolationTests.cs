@@ -49,6 +49,24 @@ public class NodePoseInterpolationTests
         history.Resolve(0, out poses, out stack);
         Assert.Equal(2f, poses[0].M41);
     }
+
+    [Fact]
+    public void ModelHistoryDiscontinuityDoesNotBlendGunNodeAcrossWeaponChange()
+    {
+        var (model, info) = Fixture();
+        var history = new ModelPoseHistory(model);
+        info.Frame[0] = 0;
+        history.Capture(info, Matrix4.CreateTranslation(1, 0, 0), 1, 0);
+        info.Frame[0] = 1;
+        history.Capture(info, Matrix4.CreateTranslation(7, 0, 0), 2, 0, discontinuity: true);
+
+        history.Resolve(0, out Matrix4[] poses, out _);
+
+        // The authored frame contributes +2 to the supplied parent transform;
+        // the important boundary is that no interpolation with the prior
+        // weapon pose contributes to this value.
+        Assert.Equal(9f, poses[0].M41);
+    }
     private static (Model, AnimationInfo) Fixture()
     {
         Model model = (Model)RuntimeHelpers.GetUninitializedObject(typeof(Model));

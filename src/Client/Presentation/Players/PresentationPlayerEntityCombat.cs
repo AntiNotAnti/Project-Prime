@@ -107,7 +107,7 @@ namespace MphRead.Entities
             }
             else if (value.Kind == CombatEventKind.Damage)
             {
-                if ((value.Flags & CombatEventFlags.Silent) == 0)
+                if (value.Health != 0 && (value.Flags & CombatEventFlags.Silent) == 0)
                     PlayHunterSfx(HunterSfx.Damage);
                 if (value.Health == 0 || !_player.IsMainPlayer || _player.IsAltForm)
                     return;

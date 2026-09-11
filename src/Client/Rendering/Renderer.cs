@@ -231,6 +231,8 @@ namespace MphRead
         private readonly bool _isolatedPresentation;
         private bool _audioActive;
         private bool _gameplayInputSuppressed;
+        private long _presentationAudioVersion;
+        private long _gameplayInputVersion;
         internal Action<ScenePresentation>? AdditionalOverlay { get; set; }
 
         private bool PlaybackActive => _replaySession?.IsActive
@@ -1262,6 +1264,8 @@ namespace MphRead
             ResetTransientVisualLights();
             ResetEnvironmentalParticlePresentation();
             ResetImpactDecalPresentation();
+            foreach (PlayerEntity player in World.GetPlayerEntities())
+                player.GetPresentation().ResetAuthoritativeDeathPresentation();
             if (!_isolatedPresentation)
             {
                 Sound.Sfx.Instance.StopAllSound(force: true);
@@ -1347,6 +1351,12 @@ namespace MphRead
                     if (!noPlayerInput && !Mods.SpectatorMode.IsSpectating)
                     {
                         Mods.Input.GamepadInput.Apply(World.LocalPlayer!);
+                    }
+                    else
+                    {
+                        // A suppressed fixed step must not retain a previous
+                        // controller sample when input becomes eligible again.
+                        World.LocalPlayer!.ClearAnalogMovement();
                     }
                     World.Services.AfterInput(World);
                     World.LocalPlayer!.GetPresentation().ApplyWeaponSelection(noPlayerInput || Mods.SpectatorMode.IsSpectating);
@@ -4780,11 +4790,35 @@ namespace MphRead
         internal void SetPresentationAudio(bool active)
         {
             _audioActive = active;
+            _presentationAudioVersion++;
+        }
+
+        internal bool PresentationAudioActive => _audioActive;
+        internal long PresentationAudioVersion => _presentationAudioVersion;
+
+        internal bool TryRestorePresentationAudio(bool active, long expectedVersion)
+        {
+            if (_exiting || _presentationAudioVersion != expectedVersion) return false;
+            _audioActive = active;
+            _presentationAudioVersion++;
+            return true;
         }
 
         internal void SetGameplayInputSuppressed(bool suppressed)
         {
             _gameplayInputSuppressed = suppressed;
+            _gameplayInputVersion++;
+        }
+
+        internal long GameplayInputSuppressionVersion => _gameplayInputVersion;
+
+        internal bool TryRestoreGameplayInputSuppressed(bool suppressed,
+            long expectedVersion)
+        {
+            if (_exiting || _gameplayInputVersion != expectedVersion) return false;
+            _gameplayInputSuppressed = suppressed;
+            _gameplayInputVersion++;
+            return true;
         }
 
         private void EndFade()

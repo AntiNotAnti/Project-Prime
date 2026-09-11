@@ -18,11 +18,49 @@ namespace MphRead.Tests
     [Collection("Replay global state")]
     public sealed class ReplayPlaybackTests
     {
+        [Fact]
+        public void PreparedReplayIsConsumedOnceForTheExactPath()
+        {
+            string path = TemporaryFile();
+            string otherPath = TemporaryFile();
+            try
+            {
+                using (var writer = new ReplayWriter(path, NetHeader.Version))
+                {
+                    writer.WriteRecord(0, Match(1));
+                    writer.WriteRecord(0, Snapshot(1, 1, 0));
+                    foreach (byte[] world in LiveWorld(1)) writer.WriteRecord(0, world);
+                }
+
+                using var session = new ReplayPlaybackSession();
+                Assert.True(session.Prepare(path));
+                Assert.True(session.IsActive);
+                Assert.False(session.ConsumePrepared(otherPath));
+                Assert.True(session.ConsumePrepared(Path.GetRelativePath(
+                    Environment.CurrentDirectory, path)));
+                Assert.False(session.ConsumePrepared(path));
+
+                Assert.True(session.Prepare(path));
+                session.Stop();
+                Assert.False(session.ConsumePrepared(path));
+                Assert.False(session.Prepare(otherPath));
+                Assert.False(session.ConsumePrepared(path));
+            }
+            finally
+            {
+                File.Delete(path);
+                File.Delete(otherPath);
+            }
+        }
+
         [Theory]
         [InlineData(8, false)]
         [InlineData(8, true)]
         [InlineData(9, false)]
         [InlineData(9, true)]
+        [InlineData(14, false)]
+        [InlineData(14, true)]
+        [InlineData(15, false)]
         public void JoinRoutingRevisionPreservesAuthoritativeReplayFacts(byte protocol, bool indexed)
         {
             string path = TemporaryFile();
@@ -43,6 +81,34 @@ namespace MphRead.Tests
                 Assert.False(ReplayFile.IsSupportedProtocol(unchecked((byte)(NetHeader.Version + 1))));
             }
             finally { File.Delete(path); }
+        }
+
+        [Fact]
+        public void Protocol14TimelineFixtureRemainsReadableAfterProtocol15InputBump()
+        {
+            string path = TemporaryFile();
+            try
+            {
+                using (var writer = new ReplayWriter(path, 14))
+                {
+                    writer.WriteRecord(0, Match(14));
+                    writer.WriteRecord(1, Snapshot(14, 11, 30));
+                }
+
+                Assert.True(ReplayFile.IsSupportedProtocol(14));
+                using ReplayReader reader = ReplayReader.Open(path)!;
+                Assert.Equal((byte)14, reader.ProtocolVersion);
+                var state = new ModernReplayState();
+                state.Reset(reader.ProtocolVersion);
+                while (reader.ReadNext() is { } record)
+                    Assert.True(state.Receive(record.Data));
+                Assert.Equal(14u, state.Match.MatchId);
+                Assert.Equal(30, state.Players[0].Points);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
         }
 
         [Fact]

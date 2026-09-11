@@ -16,30 +16,51 @@ public sealed class BroadcastDirector
     public const uint RecentTargetTicks = 600;
     public const int SwitchThreshold = 25;
 
-    private readonly uint[] _recentPlayers = new uint[8];
+    private const int RecentActorCapacity = 16;
+    private readonly CombatActor[] _recentActors = new CombatActor[RecentActorCapacity];
+    private readonly uint[] _recentActorTicks = new uint[RecentActorCapacity];
     private readonly int[] _recentObjectives = new int[16];
     private readonly uint[] _recentObjectiveTicks = new uint[16];
+    private int _recentActorHead;
     private int _recentObjectiveHead;
     private bool _hasTick;
     private bool _hasMatch;
     private uint _matchId;
     private uint _lastTick, _lastEvaluationTick, _shotStartedTick;
     private bool _manualLock;
+    private CombatActor _focusActor = CombatActor.None;
 
     public BroadcastFocus Focus { get; private set; }
     public bool IsManualLock => _manualLock;
 
+    public BroadcastDirectorDiagnostics CaptureDiagnostics(ObservationContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        Candidate current = Score(context, Focus);
+        Candidate best = Best(context, BroadcastFocus.None);
+        uint shotAge = _hasTick && !Sequence32.IsNewer(_shotStartedTick,
+            context.DeliveredTick)
+            ? unchecked(context.DeliveredTick - _shotStartedTick) : 0;
+        return new(Focus, _manualLock, _shotStartedTick, shotAge,
+            current.Score, best.Score, current.Override, best.Override,
+            current.RecentPenalty, best.RecentPenalty,
+            _recentActorHead, _recentObjectiveHead);
+    }
+
     public void Reset()
     {
-        Array.Clear(_recentPlayers);
+        Array.Clear(_recentActors);
+        Array.Clear(_recentActorTicks);
         Array.Clear(_recentObjectives);
         Array.Clear(_recentObjectiveTicks);
+        _recentActorHead = 0;
         _recentObjectiveHead = 0;
         _hasTick = false;
         _hasMatch = false;
         _matchId = 0;
         _lastTick = _lastEvaluationTick = _shotStartedTick = 0;
         _manualLock = false;
+        _focusActor = CombatActor.None;
         Focus = BroadcastFocus.None;
     }
 
@@ -48,7 +69,7 @@ public sealed class BroadcastDirector
         ArgumentNullException.ThrowIfNull(context);
         BeginContext(context);
         if (!context.IsValidFocus(focus)) return false;
-        SwitchTo(focus, context.DeliveredTick);
+        SwitchTo(focus, context.DeliveredTick, ActorFor(context, focus));
         _manualLock = true;
         return true;
     }
@@ -76,9 +97,10 @@ public sealed class BroadcastDirector
 
         if (_manualLock)
         {
-            if (context.IsValidFocus(Focus)) { _hasTick = true; return Focus; }
+            if (IsFocusValid(context)) { _hasTick = true; return Focus; }
             _manualLock = false;
             Focus = BroadcastFocus.None;
+            _focusActor = CombatActor.None;
         }
 
         if (_hasTick && !Elapsed(tick, _lastEvaluationTick, CadenceTicks)) return Focus;
@@ -86,9 +108,9 @@ public sealed class BroadcastDirector
         _lastEvaluationTick = tick;
 
         Candidate best = Best(context, exclude: BroadcastFocus.None);
-        if (!best.Focus.Equals(default) && !context.IsValidFocus(Focus))
+        if (!best.Focus.Equals(default) && !IsFocusValid(context))
         {
-            SwitchTo(best.Focus, tick);
+            SwitchTo(best.Focus, tick, ActorFor(context, best.Focus));
             return Focus;
         }
         if (best.Focus.Equals(default))
@@ -109,8 +131,16 @@ public sealed class BroadcastDirector
         }
         if (best.Focus != Focus && (shotAge >= MaximumShotTicks
             || eventOverride || best.Score >= current.Score + SwitchThreshold))
-            SwitchTo(best.Focus, tick);
+            SwitchTo(best.Focus, tick, ActorFor(context, best.Focus));
         return Focus;
+    }
+
+    private bool IsFocusValid(ObservationContext context)
+    {
+        if (!context.IsValidFocus(Focus)) return false;
+        if (Focus.Kind != BroadcastFocusKind.Player || !_focusActor.IsValid) return true;
+        return context.TryGetPlayer(Focus.Id, out ObservationPlayer player)
+            && player.Identity == _focusActor;
     }
 
     private void BeginContext(ObservationContext context)
@@ -156,8 +186,7 @@ public sealed class BroadcastDirector
             foreach (CombatEvent value in context.CombatEvents)
             {
                 if (!Recent(context.DeliveredTick, value.Tick, 120)) continue;
-                if (value.Actor.IsValid && value.Actor.Slot == player.Slot
-                    || value.Target.IsValid && value.Target.Slot == player.Slot)
+                if (Matches(value.Actor, player) || Matches(value.Target, player))
                 {
                     activeFight = true;
                     score += value.Kind == CombatEventKind.Damage ? 35 : 15;
@@ -174,7 +203,7 @@ public sealed class BroadcastDirector
             if (context.IsMatchPoint) score += player.CarriesObjective ? 50 : 15;
             foreach (MatchAward award in context.Awards)
             {
-                if (award.Subject.Slot != player.Slot || !Recent(context.DeliveredTick, award.Tick, 300)) continue;
+                if (!Matches(award.Subject, player) || !Recent(context.DeliveredTick, award.Tick, 300)) continue;
                 score += award.Priority;
                 if (award.Kind is MatchAwardKind.DoubleKill or MatchAwardKind.TripleKill)
                     eventOverride = true;
@@ -182,7 +211,7 @@ public sealed class BroadcastDirector
             foreach (MatchEvent value in context.SemanticEvents)
             {
                 if (!Recent(context.DeliveredTick, value.Tick, 180)) continue;
-                if (value.Subject.IsValid && value.Subject.Slot == player.Slot)
+                if (Matches(value.Subject, player))
                 {
                     score += value.Kind switch
                     {
@@ -199,11 +228,11 @@ public sealed class BroadcastDirector
             foreach (KillFeedEntry value in context.CombatFeedback)
             {
                 if (Recent(context.DeliveredTick, value.Tick, 120)
-                    && value.Killer.IsValid && value.Killer.Slot == player.Slot) score += 35;
+                    && Matches(value.Killer, player)) score += 35;
             }
-            uint recent = _recentPlayers[player.Slot];
-            if (recent != 0 && Recent(context.DeliveredTick, recent, RecentTargetTicks)) score -= 35;
-            return new(focus, score, eventOverride);
+            int recentPenalty = RecentlyViewed(context.DeliveredTick, player) ? 35 : 0;
+            score -= recentPenalty;
+            return new(focus, score, eventOverride, recentPenalty);
         }
 
         if (focus.Kind == BroadcastFocusKind.Objective
@@ -237,20 +266,26 @@ public sealed class BroadcastDirector
                 score += 80;
                 eventOverride = true;
             }
+            int recentPenalty = 0;
             for (int index = 0; index < _recentObjectives.Length; index++)
                 if (_recentObjectives[index] == objective.EntityId
                     && _recentObjectiveTicks[index] != 0
                     && Recent(context.DeliveredTick, _recentObjectiveTicks[index], RecentTargetTicks))
-                { score -= 35; break; }
-            return new(focus, score, eventOverride);
+                { recentPenalty = 35; break; }
+            score -= recentPenalty;
+            return new(focus, score, eventOverride, recentPenalty);
         }
         return default;
     }
 
-    private void SwitchTo(BroadcastFocus focus, uint tick)
+    private void SwitchTo(BroadcastFocus focus, uint tick, CombatActor actor)
     {
-        if (Focus.Kind == BroadcastFocusKind.Player && (uint)Focus.Id < _recentPlayers.Length)
-            _recentPlayers[Focus.Id] = tick == 0 ? 1 : tick;
+        if (_focusActor.IsValid)
+        {
+            _recentActors[_recentActorHead] = _focusActor;
+            _recentActorTicks[_recentActorHead] = tick == 0 ? 1 : tick;
+            _recentActorHead = (_recentActorHead + 1) % _recentActors.Length;
+        }
         else if (Focus.Kind == BroadcastFocusKind.Objective)
         {
             _recentObjectives[_recentObjectiveHead] = Focus.Id;
@@ -258,8 +293,30 @@ public sealed class BroadcastDirector
             _recentObjectiveHead = (_recentObjectiveHead + 1) % _recentObjectives.Length;
         }
         Focus = focus;
+        _focusActor = actor.IsValid ? actor : CombatActor.None;
         _shotStartedTick = tick;
     }
+
+    private static CombatActor ActorFor(ObservationContext context, BroadcastFocus focus)
+        => focus.Kind == BroadcastFocusKind.Player
+            && context.TryGetPlayer(focus.Id, out ObservationPlayer player)
+            ? player.Identity : CombatActor.None;
+
+    private bool RecentlyViewed(uint now, ObservationPlayer player)
+    {
+        if (!player.Identity.IsValid) return false;
+        for (int index = 0; index < _recentActors.Length; index++)
+        {
+            if (_recentActors[index] == player.Identity
+                && _recentActorTicks[index] != 0
+                && Recent(now, _recentActorTicks[index], RecentTargetTicks))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool Matches(CombatActor actor, ObservationPlayer player)
+        => actor.IsValid && player.Identity.IsValid && actor == player.Identity;
 
     private static bool Better(Candidate candidate, Candidate current)
     {
@@ -277,5 +334,12 @@ public sealed class BroadcastDirector
     private static bool Recent(uint now, uint then, uint duration)
         => !Sequence32.IsNewer(then, now) && unchecked(now - then) < duration;
 
-    private readonly record struct Candidate(BroadcastFocus Focus, int Score, bool Override);
+    private readonly record struct Candidate(BroadcastFocus Focus, int Score,
+        bool Override, int RecentPenalty);
 }
+
+public readonly record struct BroadcastDirectorDiagnostics(
+    BroadcastFocus Focus, bool ManualLock, uint ShotStartedTick, uint ShotAgeTicks,
+    int CurrentScore, int BestScore, bool CurrentOverride, bool BestOverride,
+    int CurrentRecentPenalty, int BestRecentPenalty, int RecentActorHead,
+    int RecentObjectiveHead);

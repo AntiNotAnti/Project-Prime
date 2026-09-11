@@ -25,6 +25,16 @@ public readonly record struct ObservationPlayer(
     int AmmoUa, int AmmoMissiles, int Points, int Kills, int Deaths, int Assists,
     Vector3 Position, Vector3 Facing)
 {
+    /// <summary>
+    /// Identity delivered with this scene's snapshot. It is deliberately not
+    /// inferred from Slot: slots are reusable across reconnects and lives.
+    /// Synthetic contexts may leave this as <see cref="CombatActor.None"/>;
+    /// those contexts simply cannot attribute actor-scoped facts.
+    /// </summary>
+    public CombatActor Identity { get; init; } = CombatActor.None;
+
+    public bool HasIdentity => Identity.IsValid;
+
     public bool Selectable => Slot is >= 0 and < PlayerEntity.SlotCapacity
         && Connected && Active && Alive;
 }
@@ -131,13 +141,15 @@ public sealed class ObservationContext
             LoadFlags flags = player.LoadFlags;
             (int ua, int missiles) = player.ModAmmo;
             PlayerMatchStats stats = scene.Match.Players[slot];
-            players.Add(new ObservationPlayer(slot, scene.Roster.Nicknames[slot] ?? $"Player{slot + 1}",
+            ObservationPlayer observed = new ObservationPlayer(slot, scene.Roster.Nicknames[slot] ?? $"Player{slot + 1}",
                 player.Hunter, player.TeamIndex,
                 flags.TestFlag(LoadFlags.Connected), flags.TestFlag(LoadFlags.Active),
                 player.Health > 0 && flags.TestFlag(LoadFlags.Spawned), carrierSlots[slot],
                 scene.Match.PrimeHunter == slot, player.Health, player.CurrentWeapon,
                 ua, missiles, stats.Points, stats.Kills, stats.Deaths, stats.Assists,
-                player.Position, player.FacingVector));
+                player.Position, player.FacingVector)
+                with { Identity = player.CombatIdentity };
+            players.Add(observed);
         }
 
         var combat = ImmutableArray.CreateBuilder<KillFeedEntry>(presentation.CombatFeedback.FeedCount);
@@ -203,6 +215,29 @@ public sealed class ObservationContext
         return false;
     }
 
+    /// <summary>
+    /// Resolve an actor only against the identity captured in this delivered
+    /// context. There is intentionally no slot fallback.
+    /// </summary>
+    public bool TryGetPlayer(CombatActor actor, out ObservationPlayer player)
+    {
+        if (!actor.IsValid)
+        {
+            player = default;
+            return false;
+        }
+        foreach (ObservationPlayer candidate in Players)
+        {
+            if (candidate.Identity == actor)
+            {
+                player = candidate;
+                return true;
+            }
+        }
+        player = default;
+        return false;
+    }
+
     public bool TryGetObjective(int entityId, out ObservationObjective objective)
     {
         foreach (ObservationObjective candidate in Objectives)
@@ -244,7 +279,8 @@ public sealed class ObservationContext
         {
             if (value.Slot is < 0 or >= PlayerEntity.SlotCapacity || value.Slot == prior
                 || value.Name == null || !Finite(value.Position) || !Finite(value.Facing)
-                || value.Health < 0 || value.AmmoUa < 0 || value.AmmoMissiles < 0)
+                || value.Health < 0 || value.AmmoUa < 0 || value.AmmoMissiles < 0
+                || (!value.Identity.IsValid && !value.Identity.IsNone))
                 throw new ArgumentException("Invalid observation player.", nameof(source));
             prior = value.Slot;
         }

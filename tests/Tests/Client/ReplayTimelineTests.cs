@@ -156,6 +156,19 @@ public sealed class ReplayTimelineTests
         Assert.Equal(400u, clip!.EndRecordingFrame);
     }
 
+    [Theory]
+    [InlineData(false, false, false, 0)]
+    [InlineData(true, false, false, 1)]
+    [InlineData(false, true, false, 1)]
+    [InlineData(false, false, true, 1)]
+    [InlineData(true, true, true, 1)]
+    public void KillcamCommandSurfaceIsOneShotAcrossInputDevices(
+        bool keyboard, bool gamepad, bool touch, int expected)
+    {
+        Assert.Equal(expected == 0 ? KillcamCommand.None : KillcamCommand.Skip,
+            KillcamController.TranslateCommand(keyboard, gamepad, touch));
+    }
+
     [Fact]
     public void FailedClipSeekBecomesTerminalInsteadOfRetainingPendingRecords()
     {

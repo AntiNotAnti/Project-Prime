@@ -41,6 +41,7 @@ namespace MphRead.Entities
 
         public void SpawnPresentation()
         {
+            ResetAuthoritativeDeathPresentation();
             _missileSfxHandle = -1;
             if (_player.IsMainPlayer)
             {

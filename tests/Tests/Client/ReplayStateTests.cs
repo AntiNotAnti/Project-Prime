@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.IO;
 using MphRead.Combat;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
@@ -85,5 +86,53 @@ public sealed class ReplayStateTests
         Assert.True(ReplayFeedbackState.Restore(checkpoint, restoredCombat, restoredWorld));
         Assert.False(restoredWorld.TryDequeueNotice(out _));
         Assert.Equal(checkpoint, ReplayFeedbackState.Capture(restoredCombat, restoredWorld));
+    }
+
+    [Fact]
+    public void FeedbackCheckpointV2RoundTripsNoticesAndV1RestoresWithEmptyNotices()
+    {
+        var source = new CombatFeedback();
+        var world = new WorldFeedback();
+        var roster = new[]
+        {
+            new NetRosterEntry(0, 100, Hunter.Samus, 0, "Local"),
+            new NetRosterEntry(1, 200, Hunter.Trace, 1, "Original")
+        };
+        var local = new CombatActor(0, 100, 1);
+        var enemy = new CombatActor(1, 200, 1);
+        source.Bind(1, local, roster, presentationTick: 100, phaseRevision: 1);
+        Assert.True(source.Process(new CombatEvent(1, 100, 1, CombatEventKind.Damage, 0,
+            CombatEventFlags.Headshot, local, enemy, 80, 20, Vector3.Zero,
+            Vector3.UnitZ, 0, 0, 0)));
+        Assert.True(source.Process(new KillEvent(2, 100, 1, 1, local, enemy, 0,
+            KillEventFlags.Headshot, ImmutableArray<CombatActor>.Empty)));
+        world.Bind(1, 1);
+
+        byte[] v2 = ReplayFeedbackState.Capture(source, world);
+        Assert.Equal(2, v2[0]);
+        var restoredV2 = new CombatFeedback();
+        var restoredWorldV2 = new WorldFeedback();
+        Assert.True(ReplayFeedbackState.Restore(v2, restoredV2, restoredWorldV2));
+        Assert.Equal("HEADSHOT!", restoredV2.State.HeadshotNotice.Text);
+        Assert.Equal("YOUR HEADSHOT KILLED Original!", restoredV2.State.KillNotice.Text);
+        Assert.Equal(v2, ReplayFeedbackState.Capture(restoredV2, restoredWorldV2));
+
+        // Build the old outer-v1 layout through the compatibility writer. It
+        // deliberately omits the new notice fields while retaining every old
+        // combat/world field in its original order.
+        byte[] v1;
+        using (var stream = new MemoryStream())
+        using (var writer = new BinaryWriter(stream))
+        {
+            writer.Write((byte)1);
+            source.WriteReplay(writer);
+            world.WriteReplay(writer);
+            v1 = stream.ToArray();
+        }
+        var restoredV1 = new CombatFeedback();
+        var restoredWorldV1 = new WorldFeedback();
+        Assert.True(ReplayFeedbackState.Restore(v1, restoredV1, restoredWorldV1));
+        Assert.False(restoredV1.State.HeadshotNotice.IsValid);
+        Assert.False(restoredV1.State.KillNotice.IsValid);
     }
 }

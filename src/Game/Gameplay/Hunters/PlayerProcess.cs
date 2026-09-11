@@ -50,6 +50,7 @@ namespace MphRead.Entities
                 UnequipOmegaCannon();
                 Flags2 &= ~PlayerFlags2.UnequipOmegaCannon;
             }
+            TryApplyPendingAutoEquip();
             if (IsBot)
             {
                 if (AiData.Flags3.TestFlag(AiFlags3.Bit5))
@@ -632,11 +633,10 @@ namespace MphRead.Entities
                 }
             }
             UpdateGunAnimation();
-            // Shock Coil needs to be updated (restarted) every frame to prevent the animation from jumping
-            // todo: bugfix: because Shock Coil restarts every frame, texcoord and other animations don't play
-            // (very noticeable with the display screen on Sylux's gun)
-            if (_scene.FrameCount != 0 && _scene.FrameCount % 2 == 0 // todo: FPS stuff
-                || CurrentWeapon == BeamType.ShockCoil && GunAnimation == GunAnimation.Shot)
+            // Gun material, texture, and texcoord tracks advance at the
+            // authored 30 Hz cadence. Shock Coil enters its held shot state
+            // once in UpdateGunAnimation and is intentionally not restarted.
+            if (_scene.FrameCount != 0 && _scene.FrameCount % 2 == 0) // todo: FPS stuff
             {
                 _gunModel.UpdateAnimFrames();
             }
@@ -1260,6 +1260,7 @@ namespace MphRead.Entities
         private void PickUpWeapon(ItemType itemType)
         {
             BeamType weapon;
+            bool affinityPickup = itemType == ItemType.AffinityWeapon;
             if (itemType == ItemType.AffinityWeapon)
             {
                 if (Hunter == Hunter.Samus || Hunter == Hunter.Guardian) // game doesn't check for Guardian
@@ -1296,10 +1297,38 @@ namespace MphRead.Entities
             {
                 _ammo[info.AmmoType] = Math.Min(_ammo[info.AmmoType] + 60, 60);
             }
-            if (!_availableWeapons[weapon])
+            bool newlyAvailable = !_availableWeapons[weapon];
+            if (newlyAvailable)
             {
                 _availableWeapons[weapon] = true;
                 _availableCharges[weapon] = true;
+            }
+            if (affinityPickup)
+            {
+                // Affinity pickups are the player's signature weapon.  They
+                // always become the selected weapon, including ammo-only
+                // pickups, while the slot is updated even if a morph/weapon
+                // transition temporarily defers the actual equip.
+                UpdateAffinityWeaponSlot(weapon);
+                if (CurrentWeapon == weapon)
+                {
+                    _pendingAutoEquipWeapon = BeamType.None;
+                }
+                else if (IsAltForm || IsMorphing || IsUnmorphing
+                    || GunAnimation == GunAnimation.UpDown
+                    || !TryEquipWeapon(weapon, suppressFailureSound: true))
+                {
+                    _pendingAutoEquipWeapon = weapon;
+                }
+                if (IsMainPlayer)
+                {
+                    PlayPickupSound(newlyAvailable
+                        ? SfxId.WEAPON_POWER_UP : SfxId.AMMO_POWER_UP1);
+                }
+                return;
+            }
+            if (newlyAvailable)
+            {
                 BeamType slot2Weapon = _weaponSlots[2];
                 int slot2Index = (int)slot2Weapon;
                 BeamType affinityWeapon = Weapons.GetAffinityBeam(Hunter);

@@ -57,7 +57,7 @@ namespace MphRead
                     | SDL_GPUShaderFormat.SDL_GPU_SHADERFORMAT_DXBC
                     | SDL_GPUShaderFormat.SDL_GPU_SHADERFORMAT_MSL
                     | SDL_GPUShaderFormat.SDL_GPU_SHADERFORMAT_METALLIB;
-            SDL.Utf8String preferredDriver = OperatingSystem.IsMacOS() ? "metal" : string.Empty;
+            SDL.Utf8String preferredDriver = PreferredDriverNameForPlatform(OperatingSystem.IsMacOS());
             SDL_GPUDevice* device = SDL3.SDL_CreateGPUDevice(requested, true, preferredDriver);
             if (device == null)
             {
@@ -129,6 +129,9 @@ namespace MphRead
         internal static bool IsSrgbFormat(SDL_GPUTextureFormat format)
             => format is SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB
                 or SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB;
+
+        internal static string? PreferredDriverNameForPlatform(bool isMacOS)
+            => isMacOS ? "metal" : null;
 
         public void Dispose()
         {

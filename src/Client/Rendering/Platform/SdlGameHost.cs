@@ -8,6 +8,7 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using SDL;
 using MphRead.Entities;
 using MphRead.Mods.Input;
+using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Network;
 using PrimeGamepadState = MphRead.Mods.Input.GamepadState;
 
@@ -143,8 +144,44 @@ namespace MphRead
         private ControllerCapabilityOwner? _capabilityOwner;
         private uint? _capturedPenId;
         private ScenePresentation? _presentation;
+        private GameHostPresentationTracker? _presentationTracker;
+        // A host used without the desktop shell still needs a local owner.
+        // The normal launcher attaches the owner held by its transition
+        // coordinator, so input ownership is never process-global.
+        private readonly DesktopInputOwner _fallbackInputOwner = new();
+        private DesktopInputOwner? _attachedInputOwner;
         internal KeyboardState Keyboard => _compatibilityInput.Keyboard;
         internal MouseState Mouse => _compatibilityInput.Mouse;
+
+        internal DesktopInputOwner InputOwner
+            => _attachedInputOwner ?? _fallbackInputOwner;
+
+        /// <summary>
+        /// Raised only when the host presentation contract changes.  Consumers
+        /// must not infer application activation from focus loss; focus is one
+        /// field in this event-driven snapshot and activation is an explicit
+        /// operation on the owning coordinator.
+        /// </summary>
+        internal event Action<GameHostPresentationState>? PresentationStateChanged;
+
+        internal GameHostPresentationState PresentationState
+            => _presentationTracker?.Current ?? default;
+
+        internal void AttachInputOwner(DesktopInputOwner owner)
+        {
+            ArgumentNullException.ThrowIfNull(owner);
+            _attachedInputOwner = owner;
+            owner.Reset(_gamepadState.Buttons);
+        }
+
+        internal void DetachInputOwner(DesktopInputOwner owner)
+        {
+            if (ReferenceEquals(_attachedInputOwner, owner))
+            {
+                _attachedInputOwner = null;
+                _fallbackInputOwner.Reset(_gamepadState.Buttons);
+            }
+        }
 
         public SdlGameHost(Vector2i? initialSize = null, string title = "Project Prime — SDL GPU",
             bool showWindow = true)
@@ -182,6 +219,7 @@ namespace MphRead
                 }
                 _windowId = SDL3.SDL_GetWindowID(_window);
                 ReadWindowSize(out _logicalSize, out _framebufferSize);
+                ReadWindowPosition(out Vector2i position);
                 Mods.DebugLog.Line("sdl", $"window creation complete; logical={_logicalSize.X}x{_logicalSize.Y} "
                     + $"framebuffer={_framebufferSize.X}x{_framebufferSize.Y} fullscreen=false visible={showWindow}");
                 Mods.DebugLog.Line("gpu", "device creation starting");
@@ -200,6 +238,11 @@ namespace MphRead
                     SDL3.SDL_ShowWindow(_window);
                 }
                 _focused = (SDL3.SDL_GetWindowFlags(_window) & SDL_WindowFlags.SDL_WINDOW_INPUT_FOCUS) != 0;
+                _presentationTracker = new GameHostPresentationTracker(_logicalSize,
+                    _framebufferSize, position, isVisible: showWindow,
+                    isMinimized: IsWindowMinimized(), isFocused: _focused);
+                _presentationTracker.Changed += state =>
+                    PresentationStateChanged?.Invoke(state);
                 _capabilityOwner = ControllerCapabilities.TryAcquire(
                     ControllerBackend.Sdl, replaceCurrent: true);
                 _capabilityOwner?.Publish(
@@ -216,8 +259,9 @@ namespace MphRead
 
         public Vector2i LogicalSize => _logicalSize;
         public Vector2i FramebufferSize => _framebufferSize;
-        public bool IsMinimized => (_backend?.Surface.IsMinimized ?? false)
-            || _framebufferSize.X <= 0 || _framebufferSize.Y <= 0;
+        public bool IsMinimized => _presentationTracker?.Current.IsMinimized
+            ?? ((_backend?.Surface.IsMinimized ?? false)
+                || _framebufferSize.X <= 0 || _framebufferSize.Y <= 0);
         public bool IsFocused => _focused;
 
         // The deterministic render-tool adapter uses the same SDL device and
@@ -237,6 +281,7 @@ namespace MphRead
         {
             if (visible) SDL3.SDL_ShowWindow(_window);
             else SDL3.SDL_HideWindow(_window);
+            PublishPresentationState();
         }
 
         /// <summary>
@@ -253,6 +298,7 @@ namespace MphRead
             SDL3.SDL_ShowWindow(_window);
             _activationDeferred = true;
             _focused = false;
+            PublishPresentationState();
         }
 
         /// <summary>Hides the SDL window and neutralizes all held input.</summary>
@@ -263,6 +309,7 @@ namespace MphRead
             SDL3.SDL_HideWindow(_window);
             _activationDeferred = false;
             _focused = false;
+            PublishPresentationState();
         }
 
         /// <summary>Takes focus for an already mapped SDL scene.</summary>
@@ -273,6 +320,7 @@ namespace MphRead
             SetWindowFocusable(true);
             SDL3.SDL_RaiseWindow(_window);
             _focused = true;
+            PublishPresentationState();
         }
 
         private void SetWindowFocusable(bool focusable)
@@ -307,6 +355,7 @@ namespace MphRead
                 throw new InvalidOperationException(
                     $"SDL window placement failed: {SDL3.SDL_GetError()}");
             }
+            PublishPresentationState();
         }
 
         internal void AttachToolPresentation(ScenePresentation presentation)
@@ -382,8 +431,10 @@ namespace MphRead
                 previous = now;
                 WindowInputSnapshot snapshot = BuildSnapshot();
                 SyncPresentationSize();
-                _compatibilityInput.Apply(snapshot);
-                DispatchCompatibilityInput(snapshot);
+                _compatibilityInput.Apply(snapshot, client.SuppressNativeInput);
+                client.OnResize(_framebufferSize.X > 0 && _framebufferSize.Y > 0
+                    ? _framebufferSize : _logicalSize);
+                DispatchCompatibilityInput(snapshot, client);
                 _frameLoop.Tick(elapsed, snapshot, client, _backend!);
                 DrainCaptureResults();
             }
@@ -472,6 +523,8 @@ namespace MphRead
                 _presentation = new ScenePresentation(scene, _logicalSize, _compatibilityInput.Keyboard,
                     _compatibilityInput.Mouse, SetTitle, StopScene);
                 _presentation.EnableDesktopLook();
+                InputOwner.SetOwner(DesktopInputOwnerKind.Scene,
+                    _gamepadState.Buttons);
                 configure(_presentation);
                 _presentation.OnLoad();
                 _windowModePreference.ApplyIfChanged(Mods.WindowMode.Startup, ApplyWindowMode);
@@ -521,7 +574,14 @@ namespace MphRead
                             ResetInput();
                             _activationDeferred = false;
                             _focused = false;
+                            PublishPresentationState();
                         }
+                        InputOwner.SetOwner(
+                            exitPresentation == SceneExitPresentation.KeepWindowVisible
+                                && Mods.PauseMenu.Open
+                                ? DesktopInputOwnerKind.Overlay
+                                : DesktopInputOwnerKind.None,
+                            _gamepadState.Buttons);
                     }
                 }
             });
@@ -563,8 +623,7 @@ namespace MphRead
             _fullscreen = fullscreen;
             Mods.WindowMode.SetFullscreenState(fullscreen);
             SyncTopmost(Mods.PauseMenu.Open);
-            ReadWindowSize(out _logicalSize, out _framebufferSize);
-            _backend!.Resize(_logicalSize, _framebufferSize);
+            RefreshWindowSize();
         }
 
         private void ProcessEvents()
@@ -588,36 +647,53 @@ namespace MphRead
                         break;
                     case SDL_EventType.SDL_EVENT_WINDOW_FOCUS_GAINED:
                         if (IsOurWindow(evt.window.windowID))
+                        {
                             _focused = !_activationDeferred;
+                            PublishPresentationState();
+                        }
                         break;
                     case SDL_EventType.SDL_EVENT_WINDOW_FOCUS_LOST:
                         if (IsOurWindow(evt.window.windowID))
                         {
                             _focused = false;
                             ClearInputAfterFocusLoss();
+                            PublishPresentationState();
                         }
                         break;
                     case SDL_EventType.SDL_EVENT_WINDOW_RESIZED:
                     case SDL_EventType.SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                         if (IsOurWindow(evt.window.windowID))
                         {
-                            ReadWindowSize(out _logicalSize, out _framebufferSize);
-                            _backend!.Resize(_logicalSize, _framebufferSize);
-                            SyncPresentationSize();
+                            RefreshWindowSize();
+                        }
+                        break;
+                    case SDL_EventType.SDL_EVENT_WINDOW_MOVED:
+                    case SDL_EventType.SDL_EVENT_WINDOW_SHOWN:
+                    case SDL_EventType.SDL_EVENT_WINDOW_HIDDEN:
+                        if (IsOurWindow(evt.window.windowID))
+                        {
+                            // Position and native visibility can change at the
+                            // window-manager boundary without going through a
+                            // launcher-owned Show/Hide call. Publish the SDL
+                            // flags/geometry as the single source of truth.
+                            PublishPresentationState();
                         }
                         break;
                     case SDL_EventType.SDL_EVENT_WINDOW_MINIMIZED:
                         if (IsOurWindow(evt.window.windowID))
                         {
-                            _logicalSize = new Vector2i(evt.window.data1, evt.window.data2);
+                            // SDL may report a zero drawable size while a
+                            // window is minimized. Retain the last valid
+                            // logical/framebuffer dimensions for overlays and
+                            // report minimization separately.
+                            ClearInputAfterFocusLoss();
+                            PublishPresentationState();
                         }
                         break;
                     case SDL_EventType.SDL_EVENT_WINDOW_RESTORED:
                         if (IsOurWindow(evt.window.windowID))
                         {
-                            ReadWindowSize(out _logicalSize, out _framebufferSize);
-                            _backend!.Resize(_logicalSize, _framebufferSize);
-                            SyncPresentationSize();
+                            RefreshWindowSize();
                         }
                         break;
                     case SDL_EventType.SDL_EVENT_KEY_DOWN:
@@ -698,6 +774,7 @@ namespace MphRead
             }
             GamepadDesktop.Publish(_gamepadState);
             GamepadHaptics.Pump();
+            PublishPresentationState();
         }
 
         private WindowInputSnapshot BuildSnapshot()
@@ -706,11 +783,23 @@ namespace MphRead
                 _keyEvents, _mouseButtonEvents,
                 _presentation?.FrameAdvance ?? false);
 
-        private void DispatchCompatibilityInput(WindowInputSnapshot snapshot)
+        private void DispatchCompatibilityInput(WindowInputSnapshot snapshot,
+            IGameWindowFrameClient? frameClient = null)
         {
             Mods.ClientInputState.WindowFocused = snapshot.Focused;
             if (_presentation == null) return;
+            if (frameClient?.SuppressNativeInput == true)
+            {
+                // Keep the window responsive while quarantining all live
+                // gameplay/menu bindings during a replay-owned surface.
+                DesktopStylusInput.Cancel();
+                _capturedPenId = null;
+                _presentation.ResetRenderLook();
+                if (_cursorCaptured) SetCursorCaptured(false);
+                return;
+            }
             bool shouldCapture = _focused
+                && InputOwner.Owns(DesktopInputOwnerKind.Scene)
                 && (_presentation.CameraMode == CameraMode.Player || _presentation.IsFreeCam)
                 && !Mods.PauseMenu.Open
                 && !_presentation.ShowCursor
@@ -729,6 +818,7 @@ namespace MphRead
             }
             foreach (WindowKeyEvent key in snapshot.KeyEvents)
             {
+                if (!InputOwner.Owns(DesktopInputOwnerKind.Scene)) break;
                 if (!key.Down) continue;
                 if (Mods.Chat.ChatBox.HandleKeyDown(key,
                     canOpen: !Mods.Network.ReplayPlayback.IsActive
@@ -767,6 +857,7 @@ namespace MphRead
                 }
                 _presentation.OnKeyDown(key);
             }
+            if (!InputOwner.Owns(DesktopInputOwnerKind.Scene)) return;
             foreach (WindowMouseButtonEvent button in snapshot.MouseButtonEvents)
             {
                 if (button.Button == MouseButton.Left)
@@ -1278,6 +1369,36 @@ namespace MphRead
             framebuffer = new Vector2i(framebufferWidth, framebufferHeight);
         }
 
+        private void RefreshWindowSize()
+        {
+            ReadWindowSize(out Vector2i logical, out Vector2i framebuffer);
+            if (logical.X > 0 && logical.Y > 0) _logicalSize = logical;
+            if (framebuffer.X > 0 && framebuffer.Y > 0) _framebufferSize = framebuffer;
+            _backend?.Resize(_logicalSize, _framebufferSize);
+            SyncPresentationSize();
+            PublishPresentationState();
+        }
+
+        private void ReadWindowPosition(out Vector2i position)
+        {
+            int x = 0, y = 0;
+            SDL3.SDL_GetWindowPosition(_window, &x, &y);
+            position = new Vector2i(x, y);
+        }
+
+        private void PublishPresentationState()
+        {
+            if (_presentationTracker == null) return;
+            ReadWindowPosition(out Vector2i position);
+            SDL_WindowFlags flags = SDL3.SDL_GetWindowFlags(_window);
+            bool visible = (flags & SDL_WindowFlags.SDL_WINDOW_HIDDEN) == 0;
+            bool minimized = (flags & SDL_WindowFlags.SDL_WINDOW_MINIMIZED) != 0
+                || _framebufferSize.X <= 0 || _framebufferSize.Y <= 0;
+            _presentationTracker.Update(visible, minimized, _focused,
+                _activationDeferred, _logicalSize, _framebufferSize, position,
+                _fullscreen);
+        }
+
         private static KeyModifiers TranslateModifiers(SDL_Keymod modifiers)
         {
             ushort raw = (ushort)modifiers;
@@ -1430,6 +1551,7 @@ namespace MphRead
             GamepadHaptics.Detach(this);
             _capabilityOwner?.Dispose();
             _capabilityOwner = null;
+            PresentationStateChanged = null;
             GamepadDesktop.Publish(default);
             try
             {
@@ -1545,14 +1667,21 @@ namespace MphRead
                     firstFramePresented);
             }
             if (Mods.Network.AuthoritativePlay.Current != null)
-                _killcam = new KillcamController(presentation, host.LogicalSize,
+                _killcam = new KillcamController(presentation, () =>
+                    host.FramebufferSize.X > 0 && host.FramebufferSize.Y > 0
+                        ? host.FramebufferSize : host.LogicalSize,
                     host.Keyboard, host.Mouse);
         }
 
         private ScenePresentation ActivePresentation
             => _killcam?.RenderedPresentation ?? _presentation;
 
-        public void OnInput(WindowInputSnapshot input) { }
+        public bool SuppressNativeInput => _killcam?.IsActive == true;
+
+        public void OnResize(Vector2i size) => _killcam?.Resize(size);
+
+        public void OnInput(WindowInputSnapshot input)
+            => _killcam?.SubmitInput(input);
 
         public void AdvanceSimulation(int steps)
         {

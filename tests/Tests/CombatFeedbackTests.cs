@@ -69,8 +69,9 @@ public class CombatFeedbackTests : IDisposable
     private static CombatEvent Damage(uint id, CombatActor source, CombatActor target, ushort amount = 10, ushort health = 90,
         CombatEventFlags flags = 0) => new(id, 100, 1, CombatEventKind.Damage, 0, flags, source, target, health, amount,
             Vector3.Zero, Vector3.UnitZ, 0, 0, 0);
-    private static KillEvent Kill(uint id, CombatActor source, CombatActor target, uint match = 1, KillEventFlags flags = 0)
-        => new(id, 100, match, 1, source, target, 0, flags, ImmutableArray<CombatActor>.Empty);
+    private static KillEvent Kill(uint id, CombatActor source, CombatActor target, uint match = 1,
+        KillEventFlags flags = 0, uint phase = 1)
+        => new(id, 100, match, phase, source, target, 0, flags, ImmutableArray<CombatActor>.Empty);
 
     [Fact]
     public void MarkerRequiresPositiveNonSilentAuthoritativeDamage()
@@ -171,6 +172,109 @@ public class CombatFeedbackTests : IDisposable
         CombatFeedbackSettings.KillConfirmation = false;
         f.Process(Kill(3, Local, Enemy));
         Assert.Equal(HitMarkerKind.Hit, f.VisibleMarker(100));
+    }
+
+    [Fact]
+    public void NoticesAreLocalIndependentReceiptBoundAndSettingGated()
+    {
+        var f = New();
+        Assert.True(f.Process(Damage(1, Local, Enemy, flags: CombatEventFlags.Headshot)));
+        Assert.Equal("HEADSHOT!", f.State.HeadshotNotice.Text);
+        Assert.True(f.IsHeadshotNoticeVisible(139));
+        Assert.False(f.IsHeadshotNoticeVisible(140));
+
+        Assert.True(f.Process(Kill(2, Local, Enemy, flags: KillEventFlags.Headshot)));
+        Assert.Equal("YOUR HEADSHOT KILLED Enemy!", f.State.KillNotice.Text);
+        Assert.True(f.IsKillNoticeVisible(219));
+        Assert.False(f.IsKillNoticeVisible(220));
+
+        // A remote headshot/kill never becomes a local center-screen notice,
+        // and a retransmit cannot refresh either independent receipt window.
+        Assert.True(f.Process(Damage(3, Enemy, Local, flags: CombatEventFlags.Headshot)));
+        Assert.False(f.Process(Damage(1, Local, Enemy, flags: CombatEventFlags.Headshot)));
+        Assert.False(f.Process(Kill(2, Local, Enemy, flags: KillEventFlags.Headshot)));
+        Assert.Equal(100u, f.State.HeadshotNotice.Tick);
+        Assert.Equal(100u, f.State.KillNotice.Tick);
+
+        CombatFeedbackSettings.HeadshotCue = false;
+        CombatFeedbackSettings.KillConfirmation = false;
+        Assert.False(f.IsHeadshotNoticeVisible(100));
+        Assert.False(f.IsKillNoticeVisible(100));
+    }
+
+    [Fact]
+    public void NoticesResetOnLifeAndPhaseTransitionsAndLethalHeadshotKeepsBoth()
+    {
+        var f = New();
+        Assert.True(f.Process(Damage(1, Local, Enemy, health: 0,
+            flags: CombatEventFlags.Headshot)));
+        Assert.True(f.Process(Kill(2, Local, Enemy, flags: KillEventFlags.Headshot)));
+        Assert.True(f.State.HeadshotNotice.IsValid);
+        Assert.True(f.State.KillNotice.IsValid);
+
+        f.Bind(1, Local, Roster, presentationTick: 100, phaseRevision: 2);
+        Assert.False(f.State.HeadshotNotice.IsValid);
+        Assert.False(f.State.KillNotice.IsValid);
+        Assert.True(f.Process(Damage(3, Local, Enemy, flags: CombatEventFlags.Headshot)));
+        f.Bind(1, Local with { Life = 2 }, Roster, presentationTick: 100, phaseRevision: 2);
+        Assert.False(f.State.HeadshotNotice.IsValid);
+        Assert.False(f.State.KillNotice.IsValid);
+    }
+
+    [Fact]
+    public void ReplayTargetFenceCanSuppressLocalNoticeWithoutRejectingTheFact()
+    {
+        var f = New();
+        Assert.True(f.Process(Damage(1, Local, Enemy, flags: CombatEventFlags.Headshot),
+            allowLocalHitMarker: false));
+        Assert.Equal(HitMarkerKind.None, f.VisibleMarker(100));
+        Assert.False(f.State.HeadshotNotice.IsValid);
+    }
+
+    [Fact]
+    public void LateKillFromPriorPhaseCannotRepopulateFeedback()
+    {
+        var f = New();
+        f.Bind(1, Local, Roster, phaseRevision: 2);
+        Assert.False(f.Process(Kill(1, Local, Enemy, phase: 1)));
+        Assert.Equal(0, f.FeedCount);
+        Assert.False(f.State.KillNotice.IsValid);
+        Assert.True(f.Process(Kill(2, Local, Enemy, phase: 2)));
+        Assert.True(f.State.KillNotice.IsValid);
+    }
+
+    [Fact]
+    public void DeathPresentationGateOrdersAndDeduplicatesSnapshotAndKillFacts()
+    {
+        CombatActor actor = new(1, 200, 1);
+        var gate = new DeathPresentationGate();
+
+        // Joining after the death does not invent a cue. A matching reliable
+        // kill event can confirm that first dead observation later.
+        Assert.False(gate.ObserveSnapshot(actor, dead: true, altForm: false, tick: 10).IsValid);
+        DeathPresentationCue cue = gate.ObserveKill(actor, 11);
+        Assert.True(cue.IsValid);
+        Assert.Equal(11u, cue.Tick);
+        Assert.False(gate.ObserveKill(actor, 12).IsValid);
+        Assert.False(gate.ObserveSnapshot(actor, dead: true, altForm: false, tick: 13).IsValid);
+
+        gate.Reset();
+        Assert.False(gate.ObserveSnapshot(actor, dead: false, altForm: false, tick: 20).IsValid);
+        cue = gate.ObserveSnapshot(actor, dead: true, altForm: false, tick: 21);
+        Assert.True(cue.IsValid);
+        Assert.False(gate.ObserveSnapshot(actor, dead: true, altForm: false, tick: 22).IsValid);
+        Assert.False(gate.ObserveKill(actor, 23).IsValid);
+
+        gate.Reset();
+        Assert.False(gate.ObserveSnapshot(actor, dead: false, altForm: true, tick: 30).IsValid);
+        Assert.False(gate.ObserveKill(actor, 31).IsValid);
+        cue = gate.ObserveSnapshot(actor, dead: true, altForm: true, tick: 32);
+        Assert.True(cue.IsValid);
+        Assert.True(cue.AltForm);
+
+        gate.Reset();
+        Assert.False(gate.ObserveSnapshot(actor with { Life = 2 }, dead: true,
+            altForm: false, tick: 40).IsValid);
     }
 
     [Theory]

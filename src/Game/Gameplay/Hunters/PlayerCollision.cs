@@ -43,8 +43,7 @@ namespace MphRead.Entities
                         {
                             toTurret.Y = 0;
                         }
-                        Debug.Assert(toTurret != Vector3.Zero);
-                        toTurret = toTurret.Normalized();
+                        toTurret = VectorMath.NormalizeOr(toTurret, other.FacingVector);
                         turretRes.Field0 = 0;
                         turretRes.Plane = new Vector4(toTurret);
                         toTurret *= 0.45f;
@@ -125,6 +124,14 @@ namespace MphRead.Entities
         }
 
         // todo: more visualization
+        internal static Vector3 ResolveHorizontalKnockbackDirection(Vector3 between,
+            Vector3 attackerFacing, float reciprocalMagnitude)
+        {
+            Vector3 direction = VectorMath.NormalizeHorizontalOr(between,
+                VectorMath.NormalizeHorizontalOr(attackerFacing, Vector3.UnitX));
+            return direction * reciprocalMagnitude;
+        }
+
         private static void CheckAltAttackHit1(PlayerEntity attacker, PlayerEntity target, bool halfturret)
         {
             // the game assumes the hunter is noxus based on the alt attack timer
@@ -150,9 +157,8 @@ namespace MphRead.Entities
                     {
                         float x = target.Position.X - attacker.Position.X;
                         float z = target.Position.Z - attacker.Position.Z;
-                        float factor = MathF.Sqrt(x * x + z * z) * 4;
-                        dir.X = x / factor;
-                        dir.Z = z / factor;
+                        dir = ResolveHorizontalKnockbackDirection(
+                            new Vector3(x, 0, z), attacker._facingVector, 1 / 4f);
                     }
                     ushort damage = attacker.Values.AltAttackDamage;
                     DamageFlags flags = DamageFlags.NoSfx | DamageFlags.NoDmgInvuln;
@@ -183,8 +189,8 @@ namespace MphRead.Entities
                     radAddSqr *= radAddSqr;
                     if (hMagSqr < radAddSqr)
                     {
-                        float factor = MathF.Sqrt(hMagSqr) * 8;
-                        var dir = new Vector3(between.X / factor, 0, between.Z / factor);
+                        Vector3 dir = ResolveHorizontalKnockbackDirection(
+                            between, attacker._facingVector, 1 / 8f);
                         target.Acceleration = dir;
                         target._accelerationTimer = (ushort)SimTicks.From30HzFrames(8);
                         ushort damage = attacker.Values.AltAttackDamage;
@@ -423,10 +429,15 @@ namespace MphRead.Entities
                             if (result.Field0 == 1)
                             {
                                 Vector3 edge = result.EdgePoint2 - result.EdgePoint1;
-                                Debug.Assert(edge != Vector3.Zero);
+                                float edgeLengthSquared = edge.LengthSquared;
+                                if (!(edgeLengthSquared > VectorMath.DefaultEpsilon * VectorMath.DefaultEpsilon)
+                                    || !float.IsFinite(edgeLengthSquared))
+                                {
+                                    continue;
+                                }
                                 Vector3 between = point2 - result.EdgePoint1;
                                 float dot = Vector3.Dot(between, edge);
-                                float div = Math.Clamp(dot / edge.LengthSquared, 0, 1);
+                                float div = Math.Clamp(dot / edgeLengthSquared, 0, 1);
                                 between = result.EdgePoint1 + edge * div;
                                 between = point2 - between;
                                 float magSqr = between.LengthSquared;
@@ -575,10 +586,15 @@ namespace MphRead.Entities
                         return;
                     }
                     Vector3 edge = result.EdgePoint2 - result.EdgePoint1;
-                    Debug.Assert(edge != Vector3.Zero);
+                    float edgeLengthSquared = edge.LengthSquared;
+                    if (!(edgeLengthSquared > VectorMath.DefaultEpsilon * VectorMath.DefaultEpsilon)
+                        || !float.IsFinite(edgeLengthSquared))
+                    {
+                        return;
+                    }
                     Vector3 between = altPos - result.EdgePoint1;
                     float dot = Vector3.Dot(between, edge);
-                    float div = Math.Clamp(dot / edge.LengthSquared, 0, 1);
+                    float div = Math.Clamp(dot / edgeLengthSquared, 0, 1);
                     between = altPos - (result.EdgePoint1 + edge * div);
                     float magSqr = between.LengthSquared;
                     if (magSqr >= altRad * altRad || magSqr <= 0)
@@ -586,7 +602,7 @@ namespace MphRead.Entities
                         return;
                     }
                     float mag = MathF.Sqrt(magSqr);
-                    between /= mag;
+                    between = VectorMath.NormalizeOr(between, result.Plane.Xyz);
                     dot = Vector3.Dot(between, result.Plane.Xyz) * (altRad - mag);
                     v2 = dot * dot;
                 }
@@ -618,7 +634,12 @@ namespace MphRead.Entities
                 float v162 = 1;
                 bool v169 = false;
                 Vector3 edge = result.EdgePoint2 - result.EdgePoint1;
-                Debug.Assert(edge != Vector3.Zero);
+                float edgeLengthSquared = edge.LengthSquared;
+                if (!(edgeLengthSquared > VectorMath.DefaultEpsilon * VectorMath.DefaultEpsilon)
+                    || !float.IsFinite(edgeLengthSquared))
+                {
+                    return;
+                }
                 float yTop = Position.Y + Fixed.ToFloat(Values.MaxPickupHeight);
                 float yBot = Position.Y + Fixed.ToFloat(Values.MinPickupHeight);
                 float yBotAdd = yBot + 0.5f;
@@ -647,7 +668,13 @@ namespace MphRead.Entities
                     }
                     float betweenX = Position.X - result.EdgePoint1.X;
                     float betweenZ = Position.Z - result.EdgePoint1.Z;
-                    float div = (betweenX * edge.X + betweenZ * edge.Z) / (edge.X * edge.X + edge.Z * edge.Z);
+                    float horizontalEdgeLengthSquared = edge.X * edge.X + edge.Z * edge.Z;
+                    if (!(horizontalEdgeLengthSquared > VectorMath.DefaultEpsilon * VectorMath.DefaultEpsilon)
+                        || !float.IsFinite(horizontalEdgeLengthSquared))
+                    {
+                        return;
+                    }
+                    float div = (betweenX * edge.X + betweenZ * edge.Z) / horizontalEdgeLengthSquared;
                     div = Math.Clamp(div, 0, 1);
                     var between = new Vector3(
                         Position.X - result.EdgePoint1.X + edge.X * div,
@@ -660,7 +687,7 @@ namespace MphRead.Entities
                         return;
                     }
                     float mag = MathF.Sqrt(magSqr);
-                    result.Plane.Xyz = between / mag;
+                    result.Plane.Xyz = VectorMath.NormalizeOr(between, result.Plane.Xyz);
                     v2 = 0.5f - mag;
                     v169 = true;
                 }
@@ -688,6 +715,11 @@ namespace MphRead.Entities
                     );
                     float dot1 = Vector3.Dot(between, edge);
                     float dot2 = Vector3.Dot(edge, edge);
+                    if (!(dot2 > VectorMath.DefaultEpsilon * VectorMath.DefaultEpsilon)
+                        || !float.IsFinite(dot2))
+                    {
+                        return;
+                    }
                     float div = dot1 / dot2;
                     if (div >= v11)
                     {
@@ -718,7 +750,7 @@ namespace MphRead.Entities
                             return;
                         }
                         float mag = MathF.Sqrt(magSqr);
-                        result.Plane.Xyz = between / mag;
+                        result.Plane.Xyz = VectorMath.NormalizeOr(between, result.Plane.Xyz);
                         v2 = 0.5f - mag;
                     }
                     else
@@ -732,7 +764,8 @@ namespace MphRead.Entities
                             return;
                         }
                         float v32 = MathF.Sqrt(v31);
-                        result.Plane.Xyz = new Vector3(betweenX / v32, 0, betweenZ / v32);
+                        result.Plane.Xyz = VectorMath.NormalizeHorizontalOr(
+                            new Vector3(betweenX, 0, betweenZ), result.Plane.Xyz);
                         v2 = radius - v32;
                         if (betweenY > Position.Y)
                         {
@@ -842,7 +875,9 @@ namespace MphRead.Entities
                             // todo: revisit these calculations and improve the wall climbing "stickiness" issue
                             // --> related to the need for a hack to get pushed out more by horizontal collision (without jittering)
                             Position += result.Plane.Xyz * dot;
-                            vec = new Vector3(Position.X - vec.X, 0, Position.Z - vec.Z).Normalized();
+                            vec = VectorMath.NormalizeHorizontalOr(
+                                new Vector3(Position.X - vec.X, 0, Position.Z - vec.Z),
+                                result.Plane.Xyz);
                             vec.X *= dot / 4;
                             vec.Z *= dot / 4;
                             vec.X *= _hSpeedMag + 0.1f;

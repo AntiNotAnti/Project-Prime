@@ -196,7 +196,8 @@ public sealed class SpectatorCameraController
             ObservationContext context = ObservationContext.Capture(
                 presentation.World, presentation);
             foreach (KillFeedEntry entry in context.CombatFeedback)
-                if (entry.Killer.IsValid && entry.Killer.Slot == focus.Id
+                if (context.TryGetPlayer(focus.Id, out ObservationPlayer focused)
+                    && focused.Identity.IsValid && entry.Killer == focused.Identity
                     && unchecked(context.DeliveredTick - entry.Tick) < 120)
                 { precision = true; break; }
             _directorCameraMode = precision
@@ -276,13 +277,7 @@ public sealed class SpectatorCameraController
         out Vector3 position, out Vector3 smoothedTarget)
     {
         CollisionResult collision = default;
-        if (CollisionDetection.CheckBetweenPoints(target, desired, TestFlags.Players,
-                scene, ref collision))
-        {
-            Vector3 offset = desired - target;
-            desired = target + offset * Math.Clamp(collision.Distance, 0, 1)
-                + collision.Plane.Xyz * .15f;
-        }
+        desired = ClampCameraPosition(scene, target, desired, ref collision);
         if (!_hasCameraPose)
         {
             _smoothedPosition = desired;
@@ -296,8 +291,24 @@ public sealed class SpectatorCameraController
             _smoothedPosition += (desired - _smoothedPosition) * response;
             _smoothedTarget += (target - _smoothedTarget) * response;
         }
-        position = _smoothedPosition;
+        // The smoothed candidate can cross a wall between fixed updates even
+        // when the newly requested endpoint was clear. Re-sweep the final
+        // render position and clamp it before building the view matrix.
+        Vector3 safePosition = ClampCameraPosition(scene, target,
+            _smoothedPosition, ref collision);
+        _smoothedPosition = safePosition;
+        position = safePosition;
         smoothedTarget = _smoothedTarget;
+    }
+
+    private static Vector3 ClampCameraPosition(Scene scene, Vector3 target,
+        Vector3 desired, ref CollisionResult collision)
+    {
+        if (!CollisionDetection.CheckBetweenPoints(target, desired,
+                TestFlags.Players, scene, ref collision)) return desired;
+        Vector3 offset = desired - target;
+        return target + offset * Math.Clamp(collision.Distance, 0, 1)
+            + collision.Plane.Xyz * .15f;
     }
 }
 

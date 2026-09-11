@@ -1,4 +1,5 @@
 using System;
+using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Render
 {
@@ -112,6 +113,74 @@ namespace MphRead.Mods.Render
         public static long DroppedSteps { get; private set; }
         public static long Stalls { get; private set; }
 
+        private const int RuntimeSampleCapacity = 256;
+        private static readonly BoundedPercentileSampler _simulationFrameTimes
+            = new(RuntimeSampleCapacity);
+        private static readonly BoundedPercentileSampler _renderFrameTimes
+            = new(RuntimeSampleCapacity);
+        private static long _gcAllocatedBaseline;
+        private static long _gcAllocatedBytes;
+        private static double _gcElapsedSeconds;
+        private static int _gcGen0Baseline;
+        private static int _gcGen1Baseline;
+        private static int _gcGen2Baseline;
+        private static bool _gcBaselineInitialized;
+
+        /// <summary>
+        /// Bounded presentation observations captured by the shared frame
+        /// loop. The render and simulation samples are CPU wall time around
+        /// their existing callbacks; they never alter scheduling or authority.
+        /// </summary>
+        public static FrameTimingDiagnosticsSnapshot CaptureDiagnostics()
+        {
+            _simulationFrameTimes.TrySnapshot(out BoundedPercentileSnapshot simulation);
+            _renderFrameTimes.TrySnapshot(out BoundedPercentileSnapshot render);
+            double allocationRate = _gcElapsedSeconds > 0
+                ? _gcAllocatedBytes / _gcElapsedSeconds : 0;
+            return new FrameTimingDiagnosticsSnapshot(simulation, render,
+                TotalFrames, TotalSteps, DroppedSteps, Stalls, allocationRate,
+                _gcBaselineInitialized ? Math.Max(0,
+                    GC.CollectionCount(0) - _gcGen0Baseline) : 0,
+                _gcBaselineInitialized ? Math.Max(0,
+                    GC.CollectionCount(1) - _gcGen1Baseline) : 0,
+                _gcBaselineInitialized ? Math.Max(0,
+                    GC.CollectionCount(2) - _gcGen2Baseline) : 0);
+        }
+
+        /// <summary>
+        /// Records one frame-loop observation. This is intentionally public so
+        /// deterministic hosts and focused tests can feed the same core as a
+        /// platform window without constructing a GPU surface.
+        /// </summary>
+        public static void RecordRuntimeFrame(double simulationMilliseconds,
+            double renderMilliseconds, double elapsedSeconds)
+        {
+            if (Double.IsFinite(simulationMilliseconds) && simulationMilliseconds >= 0)
+                _simulationFrameTimes.Record(simulationMilliseconds);
+            if (Double.IsFinite(renderMilliseconds) && renderMilliseconds >= 0)
+                _renderFrameTimes.Record(renderMilliseconds);
+            if (!Double.IsFinite(elapsedSeconds) || elapsedSeconds <= 0)
+                return;
+
+            long allocated = GC.GetTotalAllocatedBytes(false);
+            int gen0 = GC.CollectionCount(0);
+            int gen1 = GC.CollectionCount(1);
+            int gen2 = GC.CollectionCount(2);
+            if (!_gcBaselineInitialized)
+            {
+                _gcAllocatedBaseline = allocated;
+                _gcGen0Baseline = gen0;
+                _gcGen1Baseline = gen1;
+                _gcGen2Baseline = gen2;
+                _gcBaselineInitialized = true;
+                return;
+            }
+            if (allocated >= _gcAllocatedBaseline)
+                _gcAllocatedBytes += allocated - _gcAllocatedBaseline;
+            _gcAllocatedBaseline = allocated;
+            _gcElapsedSeconds += elapsedSeconds;
+        }
+
         /// <summary>
         /// How many frames ran 0, 1, 2, 3, 4 or 5+ simulation steps. A healthy
         /// 144 Hz run is mostly 0s and 1s in roughly 84/60 proportion; a run
@@ -138,6 +207,15 @@ namespace MphRead.Mods.Render
             _windowSeconds = 0;
             _windowSteps = 0;
             _windowFrames = 0;
+            _simulationFrameTimes.Clear();
+            _renderFrameTimes.Clear();
+            _gcAllocatedBaseline = 0;
+            _gcAllocatedBytes = 0;
+            _gcElapsedSeconds = 0;
+            _gcGen0Baseline = 0;
+            _gcGen1Baseline = 0;
+            _gcGen2Baseline = 0;
+            _gcBaselineInitialized = false;
         }
 
         public static string Describe()
@@ -300,4 +378,10 @@ namespace MphRead.Mods.Render
             return cap == DisplayRate ? "display" : cap.ToString();
         }
     }
+
+    public readonly record struct FrameTimingDiagnosticsSnapshot(
+        BoundedPercentileSnapshot Simulation, BoundedPercentileSnapshot Render,
+        long TotalFrames, long TotalSteps, long DroppedSteps, long Stalls,
+        double GcAllocatedBytesPerSecond, int Gen0Collections,
+        int Gen1Collections, int Gen2Collections);
 }

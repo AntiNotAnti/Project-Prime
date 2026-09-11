@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using MphRead.Mods.Network;
 using Xunit;
 
@@ -185,6 +186,114 @@ public sealed class ReplayHighlightTests : IDisposable
         Assert.Equal(2, results.Count);
         Assert.Contains(results, value => value.Focus == Actor);
         Assert.Contains(results, value => value.Focus == OtherActor);
+    }
+
+    [Fact]
+    public void GeneratedIntervalsRemainDeterministicBoundedAndIdentitySafe()
+    {
+        const uint duration = 720;
+        // The first two windows overlap at the start and merge by their exact
+        // actor. The frame-360 and frame-720 windows are adjacent to their
+        // neighbors but exceed the combat linkage age, so they remain distinct.
+        // The two players at frame 120 deliberately reuse a slot while changing
+        // connection/life and must never be merged.
+        CombatActor reused = Actor with { ConnectionId = 404, Life = 8 };
+        ReplayHighlightEvent[] generated =
+        {
+            Event(0, 0, 1, Actor, HighlightKind.Kill, ReplayMarker.Kill),
+            Event(10, 10, 2, Actor, HighlightKind.Headshot,
+                ReplayMarker.Kill | ReplayMarker.Headshot),
+            Event(120, 120, 3, OtherActor, HighlightKind.Kill, ReplayMarker.Kill),
+            Event(120, 120, 4, reused, HighlightKind.Kill, ReplayMarker.Kill),
+            Event(360, 360, 5, Victim, HighlightKind.Kill, ReplayMarker.Kill),
+            Event(719, 719, 6, new CombatActor(4, 404, 9),
+                HighlightKind.ObjectiveCapture, ReplayMarker.FlagCapture),
+            Event(720, 720, 7, new CombatActor(5, 505, 1),
+                HighlightKind.MatchEnd, ReplayMarker.MatchEnd)
+        };
+        var analyzer = new HighlightAnalyzer();
+        ReplayHighlight[] expected = analyzer.Analyze(generated,
+            Array.Empty<ReplayHighlightTimelineAnchor>(), duration).ToArray();
+
+        Assert.Contains(expected, value => value.Focus == Actor);
+        Assert.Contains(expected, value => value.Focus == reused);
+        Assert.Contains(expected, value => value.Focus == new CombatActor(4, 404, 9));
+        Assert.Contains(expected, value => value.Focus == new CombatActor(5, 505, 1));
+        Assert.All(expected, value =>
+        {
+            Assert.InRange(value.StartFrame, 0u, duration);
+            Assert.InRange(value.FocusFrame, 0u, duration);
+            Assert.InRange(value.EndFrame, 0u, duration);
+            Assert.True(value.StartFrame <= value.FocusFrame);
+            Assert.True(value.FocusFrame <= value.EndFrame);
+        });
+
+        var random = new Random(0x51A7);
+        for (int iteration = 0; iteration < 64; iteration++)
+        {
+            List<ReplayHighlightEvent> shuffled = generated.ToList();
+            for (int index = shuffled.Count - 1; index > 0; index--)
+            {
+                int other = random.Next(index + 1);
+                (shuffled[index], shuffled[other]) = (shuffled[other], shuffled[index]);
+            }
+            // Exact duplicate records are a normal consequence of a replay
+            // retry/merge and must not alter deterministic output.
+            shuffled.Add(generated[iteration % generated.Length]);
+            ReplayHighlight[] actual = analyzer.Analyze(shuffled,
+                Array.Empty<ReplayHighlightTimelineAnchor>(), duration).ToArray();
+            Assert.Equal(expected, actual);
+        }
+    }
+
+    [Fact]
+    public async Task ConcurrentMetadataRequestsPublishOneValidCache()
+    {
+        string replay = Path.Combine(_root, "concurrent.fpreplay");
+        WriteReplay(replay, includeAwardAndSemantic: true);
+        var services = Enumerable.Range(0, 8)
+            .Select(_ => new ReplayHighlightMetadataService(_root)).ToArray();
+
+        ReplayHighlightMetadata[] results = await Task.WhenAll(services.Select(service =>
+            Task.Run(() => service.Get(replay))));
+
+        Assert.All(results, result => Assert.True(result.IsAvailable));
+        Assert.All(results, result => Assert.Equal(results[0].Highlights,
+            result.Highlights));
+        Assert.Single(Directory.EnumerateFiles(services[0].CacheDirectory,
+            "*.json", SearchOption.TopDirectoryOnly));
+        Assert.Empty(Directory.EnumerateFiles(services[0].CacheDirectory,
+            "*.tmp", SearchOption.TopDirectoryOnly));
+    }
+
+    [Fact]
+    public void OversizedAndUnavailableCacheAreFailSoftAndDoNotRewriteReplay()
+    {
+        string replay = Path.Combine(_root, "cache-faults.fpreplay");
+        WriteReplay(replay, includeAwardAndSemantic: false);
+        byte[] originalReplay = File.ReadAllBytes(replay);
+        var service = new ReplayHighlightMetadataService(_root);
+        ReplayHighlightMetadata first = service.Get(replay);
+        string cachePath = service.CachePath(first.ReplayFingerprint);
+
+        File.WriteAllBytes(cachePath,
+            new byte[ReplayHighlightMetadataService.MaximumCacheBytes + 1]);
+        ReplayHighlightMetadata oversized = service.Get(replay);
+        Assert.True(oversized.IsAvailable);
+        Assert.False(oversized.FromCache);
+        Assert.True(new FileInfo(cachePath).Length
+            <= ReplayHighlightMetadataService.MaximumCacheBytes);
+
+        File.Delete(cachePath);
+        // A directory at the final name simulates a read/write interruption
+        // without relying on platform-specific chmod behavior. The metadata
+        // result remains usable even though the cache cannot be replaced.
+        Directory.CreateDirectory(cachePath);
+        ReplayHighlightMetadata unavailable = service.Get(replay);
+        Assert.True(unavailable.IsAvailable);
+        Assert.False(unavailable.FromCache);
+        Assert.True(Directory.Exists(cachePath));
+        Assert.Equal(originalReplay, File.ReadAllBytes(replay));
     }
 
     [Theory]

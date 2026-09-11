@@ -256,6 +256,17 @@ public sealed class P5VisualSystemTests
             "BorderBrush", "{DynamicResource PrimeBrandBrush}");
         AssertSetter(controls, ":is(Button).prime-tab:focus", "BorderBrush",
             "{DynamicResource PrimeFocusBrush}");
+        AssertSetter(controls, ":is(Button).prime-button:disabled", "Opacity",
+            "0.58");
+        AssertSetter(controls, ":is(Button).prime-primary:disabled", "Background",
+            "{DynamicResource PrimeSurfaceMutedBrush}");
+        AssertSetter(controls, ":is(Button).prime-tab:disabled", "Foreground",
+            "{DynamicResource PrimeTextMutedBrush}");
+        AssertSetter(controls,
+            "TextBox.prime-input:disabled, ComboBox.prime-input:disabled",
+            "BorderBrush", "{DynamicResource PrimeDividerBrush}");
+        AssertSetter(controls, "CheckBox.prime-input:disabled", "Opacity", "0.58");
+        AssertSetter(controls, "Slider.prime-input:disabled", "Opacity", "0.58");
         AssertSetter(controls, ":is(Border).prime-history-row", "BorderBrush",
             "{DynamicResource PrimeDividerBrush}");
         AssertSetter(controls, ":is(Border).prime-status-muted", "BorderBrush",

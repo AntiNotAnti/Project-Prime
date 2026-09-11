@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
+using MphRead.Combat;
 using MphRead.Formats;
 using OpenTK.Mathematics;
 using MphRead.Hud;
@@ -198,7 +199,20 @@ namespace MphRead.Entities
                 {
                     Matrix4 transform = PlayerEntity.GetTransformMatrix(_player._aimVec, _player._upVector, _player._gunDrawPos);
                     UpdateTransforms(_player._gunModel, transform, _player.Recolor);
-                    GetDrawItems(_player._gunModel, _player._gunModel.Model.Nodes[0], _player._curAlpha);
+                    // Keep authored material/texture animation on the normal
+                    // draw path. Render history supplies only node matrices,
+                    // and the active submission delta composes the final
+                    // camera once (without changing muzzle or aim state).
+                    if (Presentation.ResolvePlayerGunSubmission(_player, _player._gunModel,
+                        out Matrix4[] gunNodes, out float[] gunStack))
+                    {
+                        GetDrawItems(_player._gunModel, _player._gunModel.Model.Nodes[0],
+                            _player._curAlpha, nodePoses: gunNodes, nodeStack: gunStack);
+                    }
+                    else
+                    {
+                        GetDrawItems(_player._gunModel, _player._gunModel.Model.Nodes[0], _player._curAlpha);
+                    }
                     if (_player.Flags1.TestFlag(PlayerFlags1.DrawGunSmoke))
                     {
                         // todo?: the game uses an alternate projection matrix to draw this
@@ -526,10 +540,12 @@ namespace MphRead.Entities
         public void DrawDeathParticles(Matrix4[]? nodePoses = null)
         {
             // get current percentage through the first 1/3 of the respawn cooldown
-            float timePct = 1 - ((_player._respawnTimer - (2 / 3f * PlayerEntity.RespawnTime)) / (1 / 3f * PlayerEntity.RespawnTime));
-            if (timePct < 0 || timePct > 1)
+            float timePct;
+            if (!TryGetNetworkDeathParticleTime(_player._scene.Services.WorldServerTick, out timePct))
             {
-                return;
+                timePct = 1 - ((_player._respawnTimer - (2 / 3f * PlayerEntity.RespawnTime)) / (1 / 3f * PlayerEntity.RespawnTime));
+                if (timePct < 0 || timePct > 1)
+                    return;
             }
 
             float scale = timePct / 2 + 0.1f;

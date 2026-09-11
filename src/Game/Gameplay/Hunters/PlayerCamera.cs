@@ -12,8 +12,11 @@ namespace MphRead.Entities
         public CameraInfo CameraInfo { get; } = new CameraInfo();
         public CameraType CameraType { get; private set; } = CameraType.First;
         private Vector3 _field544;
-        private float _field554 = 0;
-        private float _field558 = 0;
+        // Camera obstruction response is kept on independent axes. These were
+        // previously anonymous fields, which made it easy for the vertical
+        // branch to accidentally reset the horizontal response.
+        private float _cameraVerticalAvoidance = 0;
+        private float _cameraHorizontalAvoidance = 0;
         private float _field68C = 0;
         private float _field690 = 0;
 
@@ -234,26 +237,26 @@ namespace MphRead.Entities
                 point1 = CameraInfo.Position.AddX(v35).AddZ(v36);
                 point2 = Volume.SpherePosition.AddX(v35).AddZ(v36);
                 CollisionResult res = default;
-                if (CollisionDetection.CheckBetweenPoints(candidates, point1, point1, TestFlags.Players, _scene, ref res))
+                if (CollisionDetection.CheckBetweenPoints(candidates, point1, point2, TestFlags.Players, _scene, ref res))
                 {
                     blocked1 = true;
                 }
                 point1 = CameraInfo.Position.AddX(-v35).AddZ(-v36);
                 point2 = Volume.SpherePosition.AddX(-v35).AddZ(-v36);
-                if (CollisionDetection.CheckBetweenPoints(candidates, point1, point1, TestFlags.Players, _scene, ref res))
+                if (CollisionDetection.CheckBetweenPoints(candidates, point1, point2, TestFlags.Players, _scene, ref res))
                 {
                     blocked2 = true;
                 }
                 point1 = CameraInfo.Position + CameraInfo.UpVector * margin;
                 point2 = Volume.SpherePosition + CameraInfo.UpVector * margin;
-                if (CollisionDetection.CheckBetweenPoints(candidates, point1, point1, TestFlags.Players, _scene, ref res))
+                if (CollisionDetection.CheckBetweenPoints(candidates, point1, point2, TestFlags.Players, _scene, ref res))
                 {
                     blocked4 = true;
                     _field551 = 0;
                 }
                 point1 = CameraInfo.Position - CameraInfo.UpVector * (margin / 2);
                 point2 = Volume.SpherePosition - CameraInfo.UpVector * (margin / 2);
-                if (CollisionDetection.CheckBetweenPoints(candidates, point1, point1, TestFlags.Players, _scene, ref res))
+                if (CollisionDetection.CheckBetweenPoints(candidates, point1, point2, TestFlags.Players, _scene, ref res))
                 {
                     blocked8 = true;
                     _field551 = 0;
@@ -263,24 +266,24 @@ namespace MphRead.Entities
                 {
                     speedMagSqr = max;
                 }
-                if (!blocked1 || _field558 <= 0 && blocked2)
+                if (!blocked1 || _cameraHorizontalAvoidance <= 0 && blocked2)
                 {
                     if (!blocked2)
                     {
-                        _field558 = 0;
+                        _cameraHorizontalAvoidance = 0;
                     }
                     else
                     {
-                        if (_field558 > 0)
+                        if (_cameraHorizontalAvoidance > 0)
                         {
-                            _field558 = 0;
+                            _cameraHorizontalAvoidance = 0;
                         }
-                        _field558 -= Fixed.ToFloat(Values.Field88) * speedMagSqr / max / 2; // todo: FPS stuff
-                        if (_field558 < -Fixed.ToFloat(Values.Field8C))
+                        _cameraHorizontalAvoidance -= Fixed.ToFloat(Values.Field88) * speedMagSqr / max / 2; // todo: FPS stuff
+                        if (_cameraHorizontalAvoidance < -Fixed.ToFloat(Values.Field8C))
                         {
-                            _field558 = -Fixed.ToFloat(Values.Field8C);
+                            _cameraHorizontalAvoidance = -Fixed.ToFloat(Values.Field8C);
                         }
-                        float angle = MathHelper.DegreesToRadians(_field558 * 22.5f); // 360 / 16 = 22.5
+                        float angle = MathHelper.DegreesToRadians(_cameraHorizontalAvoidance * 22.5f); // 360 / 16 = 22.5
                         float cos;
                         float sin;
                         if (angle <= 0)
@@ -304,16 +307,16 @@ namespace MphRead.Entities
                 else
                 {
                     // todo?: similar to above except for some signs/comparisons
-                    if (_field558 < 0)
+                    if (_cameraHorizontalAvoidance < 0)
                     {
-                        _field558 = 0;
+                        _cameraHorizontalAvoidance = 0;
                     }
-                    _field558 += Fixed.ToFloat(Values.Field88) * speedMagSqr / max / 2; // todo: FPS stuff
-                    if (_field558 > Fixed.ToFloat(Values.Field8C))
+                    _cameraHorizontalAvoidance += Fixed.ToFloat(Values.Field88) * speedMagSqr / max / 2; // todo: FPS stuff
+                    if (_cameraHorizontalAvoidance > Fixed.ToFloat(Values.Field8C))
                     {
-                        _field558 = Fixed.ToFloat(Values.Field8C);
+                        _cameraHorizontalAvoidance = Fixed.ToFloat(Values.Field8C);
                     }
-                    float angle = MathHelper.DegreesToRadians(_field558 * 22.5f); // 360 / 16 = 22.5
+                    float angle = MathHelper.DegreesToRadians(_cameraHorizontalAvoidance * 22.5f); // 360 / 16 = 22.5
                     float cos;
                     float sin;
                     if (angle <= 0)
@@ -333,24 +336,24 @@ namespace MphRead.Entities
                     v219.Z = x * -sin + z * cos;
                     CameraInfo.Position = v219 + CameraInfo.Target;
                 }
-                if (!blocked8 || _field554 <= 0 && blocked4)
+                if (!blocked8 || _cameraVerticalAvoidance <= 0 && blocked4)
                 {
                     if (!blocked4)
                     {
-                        _field554 = 0;
+                        _cameraVerticalAvoidance = 0;
                     }
                     else
                     {
-                        if (_field558 > 0) // bug?: seems like this should have been _field554?
+                        if (_cameraVerticalAvoidance > 0)
                         {
-                            _field558 = 0;
+                            _cameraVerticalAvoidance = 0;
                         }
-                        _field554 -= Fixed.ToFloat(Values.Field88) * speedMagSqr / max / 2; // todo: FPS stuff
-                        if (_field554 < -Fixed.ToFloat(Values.Field8C))
+                        _cameraVerticalAvoidance -= Fixed.ToFloat(Values.Field88) * speedMagSqr / max / 2; // todo: FPS stuff
+                        if (_cameraVerticalAvoidance < -Fixed.ToFloat(Values.Field8C))
                         {
-                            _field554 = -Fixed.ToFloat(Values.Field8C);
+                            _cameraVerticalAvoidance = -Fixed.ToFloat(Values.Field8C);
                         }
-                        float angle = MathHelper.DegreesToRadians(_field554);
+                        float angle = MathHelper.DegreesToRadians(_cameraVerticalAvoidance);
                         float cos;
                         float sin;
                         if (angle <= 0)
@@ -376,16 +379,16 @@ namespace MphRead.Entities
                 else
                 {
                     // todo?: similar to above except for some signs/comparisons
-                    if (_field558 < 0) // bug?: seems like this should have been _field554?
+                    if (_cameraVerticalAvoidance < 0)
                     {
-                        _field558 = 0;
+                        _cameraVerticalAvoidance = 0;
                     }
-                    _field554 += Fixed.ToFloat(Values.Field88) * speedMagSqr / max / 2; // todo: FPS stuff
-                    if (_field554 > Fixed.ToFloat(Values.Field8C))
+                    _cameraVerticalAvoidance += Fixed.ToFloat(Values.Field88) * speedMagSqr / max / 2; // todo: FPS stuff
+                    if (_cameraVerticalAvoidance > Fixed.ToFloat(Values.Field8C))
                     {
-                        _field554 = Fixed.ToFloat(Values.Field8C);
+                        _cameraVerticalAvoidance = Fixed.ToFloat(Values.Field8C);
                     }
-                    float angle = MathHelper.DegreesToRadians(_field554);
+                    float angle = MathHelper.DegreesToRadians(_cameraVerticalAvoidance);
                     float cos;
                     float sin;
                     if (angle <= 0)
@@ -892,16 +895,31 @@ namespace MphRead.Entities
                 }
             }
             _shake = !_shake;
-            Facing = Target - Position;
-            float facingX = Facing.X;
-            float facingZ = Facing.Z;
-            float hMag = MathF.Sqrt(facingX * facingX + facingZ * facingZ);
-            Facing = Facing.Normalized();
-            Field48 = facingX / hMag;
-            Field4C = facingZ / hMag;
+            Vector3 previousFacing = Facing;
+            Vector3 fallbackFacing = VectorMath.NormalizeOr(previousFacing, -Vector3.UnitZ);
+            Vector3 lookVector = Target - Position;
+            Vector3 facing = VectorMath.NormalizeOr(lookVector, fallbackFacing);
+            bool hasLookTarget = VectorMath.IsFinite(Target) && VectorMath.IsFinite(Position)
+                && VectorMath.IsFinite(lookVector)
+                && lookVector.LengthSquared > VectorMath.DefaultEpsilon * VectorMath.DefaultEpsilon;
+            Vector3 lookTarget = hasLookTarget ? Target : Position + facing;
+            // A vertical or zero-length view has no horizontal basis. Keep the
+            // established look direction for the strafe/roll fields instead of
+            // dividing by zero and poisoning the next simulation tick.
+            Vector3 horizontalFacing = VectorMath.NormalizeHorizontalOr(lookVector,
+                VectorMath.NormalizeHorizontalOr(previousFacing, Vector3.UnitZ));
+            Field48 = horizontalFacing.X;
+            Field4C = horizontalFacing.Z;
+            Facing = facing;
             Field50 = Field4C;
             Field54 = -Field48;
-            ViewMatrix = Matrix4.LookAt(Position, Target, camUp);
+            if (!VectorMath.IsFinite(camUp) || camUp.LengthSquared <= VectorMath.DefaultEpsilon * VectorMath.DefaultEpsilon)
+            {
+                Vector3 upReference = VectorMath.NormalizeOr(UpVector, Vector3.UnitY);
+                Vector3 right = VectorMath.Perpendicular(facing, upReference);
+                camUp = VectorMath.NormalizeOr(Vector3.Cross(right, facing), Vector3.UnitY);
+            }
+            ViewMatrix = Matrix4.LookAt(Position, lookTarget, camUp);
             TrueUp = camUp;
             // todo?: set transposes and stuff
         }

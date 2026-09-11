@@ -61,6 +61,7 @@ namespace MphRead.Combat
                 _phase = phaseRevision;
                 _combatEvents.Reset();
                 _killEvents.Reset();
+                State.ClearNotices();
             }
             if (_match != match)
             {
@@ -160,7 +161,12 @@ namespace MphRead.Combat
             // Silent events are still legitimate history, but produce no confirmation cue.
             if (allowLocalHitMarker && value.Actor == Local && Local.IsValid && value.Target != Local
                 && (value.Flags & CombatEventFlags.Silent) == 0)
-                Marker((value.Flags & CombatEventFlags.Headshot) != 0 ? HitMarkerKind.Headshot : HitMarkerKind.Hit, value.Tick);
+            {
+                bool headshot = (value.Flags & CombatEventFlags.Headshot) != 0;
+                Marker(headshot ? HitMarkerKind.Headshot : HitMarkerKind.Hit, value.Tick);
+                if (headshot && CombatFeedbackSettings.HeadshotCue)
+                    State.HeadshotNotice = new("HEADSHOT!", ReceiptTick(value.Tick));
+            }
             if (value.Target != Local) Recaps.ApplyLate(value, Name(value.Actor), WeaponName(value.Weapon));
             if (value.Target == Local && Local.IsValid)
             {
@@ -178,7 +184,9 @@ namespace MphRead.Combat
         }
         public bool Process(in KillEvent value)
         {
-            if (!value.IsValid || value.MatchId != _match || !_killEvents.Accept(value.Id)) return false;
+            if (!value.IsValid || value.MatchId != _match
+                || (_phase != 0 && value.PhaseRevision != _phase)
+                || !_killEvents.Accept(value.Id)) return false;
             string weapon = value.SourceKind switch
             {
                 KillSourceKind.Bomb => "Bomb", KillSourceKind.Alt => "Alt form", KillSourceKind.Environment => "Environment",
@@ -192,7 +200,20 @@ namespace MphRead.Combat
             if (value.Assists.Length > 0) text += $" +{value.Assists.Length}";
             if (FeedCount == FeedCapacity) Array.Copy(_feed, 1, _feed, 0, --FeedCount);
             _feed[FeedCount++] = new(ReceiptTick(value.Tick), value.Killer, value.Victim, text);
-            if (value.Killer == Local && Local.IsValid && value.Victim != Local) Marker(HitMarkerKind.Kill, value.Tick);
+            if (value.Killer == Local && Local.IsValid && value.Victim != Local)
+            {
+                Marker(HitMarkerKind.Kill, value.Tick);
+                if (CombatFeedbackSettings.KillConfirmation)
+                {
+                    State.KillNotice = new(
+                        (value.Flags & KillEventFlags.TeamKill) != 0
+                            ? $"YOU KILLED A TEAMMATE, ({Name(value.Victim)})!"
+                            : (value.Flags & KillEventFlags.Headshot) != 0
+                                ? $"YOUR HEADSHOT KILLED {Name(value.Victim)}!"
+                                : $"YOU KILLED {Name(value.Victim)}!",
+                        ReceiptTick(value.Tick));
+                }
+            }
             if (value.Victim != Local) Recaps.ApplyLate(value, Name(value.Killer), weapon);
             if (value.Victim == Local && Local.IsValid)
             {
@@ -206,6 +227,12 @@ namespace MphRead.Combat
         public static uint Age(uint now, uint then) => Sequence32.IsNewer(then, now) ? 0 : unchecked(now - then);
         public HitMarkerKind VisibleMarker(uint tick) => CombatFeedbackSettings.HitMarkers == HitMarkerMode.Off
             || Age(tick, State.MarkerTick) >= MarkerDuration(State.Marker) ? HitMarkerKind.None : State.Marker;
+        public bool IsHeadshotNoticeVisible(uint tick) => CombatFeedbackSettings.HeadshotCue
+            && State.HeadshotNotice.IsValid
+            && Age(tick, State.HeadshotNotice.Tick) < CombatFeedbackState.HeadshotNoticeTicks;
+        public bool IsKillNoticeVisible(uint tick) => CombatFeedbackSettings.KillConfirmation
+            && State.KillNotice.IsValid
+            && Age(tick, State.KillNotice.Tick) < CombatFeedbackState.KillNoticeTicks;
         public static int DamageSector(Vector3 direction, Vector3 forward, Vector3 right)
         {
             Vector3 horizontalForward = new(forward.X, 0, forward.Z);

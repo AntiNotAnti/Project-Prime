@@ -66,6 +66,81 @@ namespace MphRead
         private static ushort _mutedTracks = 0;
         private static ushort _fadingTracks = 0;
 
+        /// <summary>
+        /// The small piece of static mixer state a temporary replay may borrow.
+        /// It intentionally excludes handles and decoder objects: those are
+        /// owned by MusicPlayer and are rebuilt through the normal sequence
+        /// path on restore.
+        /// </summary>
+        internal readonly record struct PresentationAudioSnapshot(
+            MusicId MusicId, SeqId MusicSequence, SeqId NextSequence,
+            ushort ActiveTracks, ushort PendingTracks, ushort NextTracks,
+            bool Playing, bool Paused, bool Queued, float MusicVolume,
+            ushort BaseTempo, bool Available)
+        {
+            internal bool IsValid => Available;
+        }
+
+        internal static PresentationAudioSnapshot CapturePresentationAudio()
+        {
+            if (_musicInfo == null || _roomMusic == null)
+                return default;
+            return new(_currentMusicId, _currentMusicSeq, _nextMusicSeq,
+                _activeTracks, _pendingTracks, _nextTracks, _playing, _paused,
+                _musicQueued, MusicVolume, _baseTempo, Available: true);
+        }
+
+        /// <summary>
+        /// Restore a snapshot only through the existing music sequence loader.
+        /// No room lookup is performed, so a replay cannot replace the live
+        /// scene's selected track with a guessed room default.
+        /// </summary>
+        internal static bool TryRestorePresentationAudio(
+            in PresentationAudioSnapshot snapshot)
+        {
+            if (!snapshot.IsValid || _musicInfo == null) return false;
+            try
+            {
+                if (snapshot.MusicSequence != SeqId.None)
+                {
+                    PlaySeq(snapshot.MusicSequence,
+                        snapshot.ActiveTracks == 0 ? UInt16.MaxValue : snapshot.ActiveTracks,
+                        queue: false, notReady: false);
+                }
+                else if (snapshot.MusicId != MusicId.None)
+                {
+                    PlayMusic(snapshot.MusicId,
+                        snapshot.PendingTracks == 0 ? null : snapshot.PendingTracks,
+                        toggleOnTracks: false, toggleOffTracks: false);
+                }
+                else
+                {
+                    Stop();
+                }
+
+                _currentMusicId = snapshot.MusicId;
+                _currentMusicSeq = snapshot.MusicSequence;
+                _nextMusicSeq = snapshot.NextSequence;
+                _activeTracks = snapshot.ActiveTracks;
+                _pendingTracks = snapshot.PendingTracks;
+                _nextTracks = snapshot.NextTracks;
+                _playing = snapshot.Playing;
+                _paused = snapshot.Paused;
+                _musicQueued = snapshot.Queued;
+                MusicVolume = snapshot.MusicVolume;
+                _baseTempo = snapshot.BaseTempo;
+                UpdateTempo(snapshot.BaseTempo, 0);
+                if (snapshot.Paused) MusicPlayer.Pause();
+                else if (snapshot.Playing) MusicPlayer.Play(Volume);
+                return true;
+            }
+            catch (Exception error) when (error is not OutOfMemoryException)
+            {
+                Mods.DebugLog.Exception("music-restore", error);
+                return false;
+            }
+        }
+
         public static void Init(ClientPresentationContentState? content = null)
         {
             _optionalPresentation?.Dispose();

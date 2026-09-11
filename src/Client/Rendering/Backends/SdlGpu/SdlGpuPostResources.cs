@@ -302,7 +302,7 @@ namespace MphRead
                     finalWidth, finalHeight, frame.Exposure,
                     toneMap: true, shaderConvertsLinearToSrgb: false,
                     frame.Composite.Filter, sceneFormat, sceneResources,
-                    clear: true);
+                    clear: true, destinationViewport: frame.Composite.DestinationViewport);
                 if (frame.ColorGrade.Enabled)
                 {
                     EncodeColorGrade(commandBuffer, frame, _displayLinearA,
@@ -323,7 +323,8 @@ namespace MphRead
                     _device.SwapchainFormat, operation: 0, alpha: 1,
                     color: Vector4.One, blend: false, frame.Composite.Filter,
                     clear: frame.Composite.ClearDestination, sceneResources,
-                    displayAssetsToLinear: false);
+                    displayAssetsToLinear: false,
+                    destinationViewport: frame.Composite.DestinationViewport);
             }
         }
 
@@ -447,7 +448,8 @@ namespace MphRead
             SDL_GPUTexture* source, SDL_GPUTexture* target, uint width, uint height,
             float exposure, bool toneMap, bool shaderConvertsLinearToSrgb,
             RenderCompositeFilter filter, SDL_GPUTextureFormat targetFormat,
-            SdlGpuSceneResources resources, bool clear)
+            SdlGpuSceneResources resources, bool clear,
+            RenderDestinationViewport? destinationViewport = null)
         {
             ToneMapConstants constants = new()
             {
@@ -461,7 +463,7 @@ namespace MphRead
                 PostShader.ToneMap, targetFormat,
                 blend: false, additive: false, clear, source,
                 (SDL_GPUTexture*)resources.WhiteTextureHandle, sampler, sampler,
-                &constants, (uint)sizeof(ToneMapConstants));
+                &constants, (uint)sizeof(ToneMapConstants), destinationViewport);
         }
 
         private void EncodeColorGrade(SDL_GPUCommandBuffer* commandBuffer,
@@ -679,7 +681,8 @@ namespace MphRead
             nint maskHandle, SDL_GPUTexture* target, uint width, uint height, PostShader shader,
             SDL_GPUTextureFormat targetFormat, float operation, float alpha, Vector4 color,
             bool blend, RenderCompositeFilter filter, bool clear,
-            SdlGpuSceneResources resources, bool displayAssetsToLinear = false)
+            SdlGpuSceneResources resources, bool displayAssetsToLinear = false,
+            RenderDestinationViewport? destinationViewport = null)
         {
             FullscreenConstants constants = new()
             {
@@ -694,14 +697,15 @@ namespace MphRead
             BeginFullscreenPass(commandBuffer, target, width, height, shader, targetFormat,
                 blend, additive: false, clear, source, (SDL_GPUTexture*)maskHandle,
                 sampler, sampler,
-                &constants, (uint)sizeof(FullscreenConstants));
+                &constants, (uint)sizeof(FullscreenConstants), destinationViewport);
         }
 
         private void BeginFullscreenPass(SDL_GPUCommandBuffer* commandBuffer, SDL_GPUTexture* target,
             uint width, uint height, PostShader shader, SDL_GPUTextureFormat targetFormat,
             bool blend, bool additive, bool clear,
             SDL_GPUTexture* source, SDL_GPUTexture* mask, nint samplerOne, nint samplerTwo,
-            void* constants, uint constantsSize)
+            void* constants, uint constantsSize,
+            RenderDestinationViewport? destinationViewport = null)
         {
             SDL_GPUColorTargetInfo targetInfo = new()
             {
@@ -715,7 +719,20 @@ namespace MphRead
             if (pass == null) throw new InvalidOperationException($"SDL {shader} pass failed: {SDL3.SDL_GetError()}");
             try
             {
-                SDL_GPUViewport viewport = new() { w = width, h = height, min_depth = 0, max_depth = 1 };
+                RenderDestinationViewport destination = destinationViewport
+                    is { IsValid: true } requested
+                    && requested.X + requested.Width <= width
+                    && requested.Y + requested.Height <= height
+                        ? requested : new(0, 0, checked((int)width), checked((int)height));
+                SDL_GPUViewport viewport = new()
+                {
+                    x = destination.X,
+                    y = destination.Y,
+                    w = destination.Width,
+                    h = destination.Height,
+                    min_depth = 0,
+                    max_depth = 1
+                };
                 SDL3.SDL_SetGPUViewport(pass, &viewport);
                 SDL3.SDL_BindGPUGraphicsPipeline(pass, Pipeline(new PostPipelineKey(shader, blend,
                     SDL_GPUPrimitiveType.SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP,

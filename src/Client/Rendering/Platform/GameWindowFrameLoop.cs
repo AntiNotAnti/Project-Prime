@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using MphRead.Mods.Render;
@@ -60,6 +61,13 @@ namespace MphRead
     public interface IGameWindowFrameClient
     {
         void OnInput(WindowInputSnapshot input);
+        /// <summary>
+        /// The active presentation is consuming a logical command surface and
+        /// native compatibility input must not reach the live scene this tick.
+        /// </summary>
+        bool SuppressNativeInput => false;
+        /// <summary>Notify presentation-owned overlays of the current drawable size.</summary>
+        void OnResize(Vector2i size) { }
         void AdvanceSimulation(int steps);
         void OnDrawFrame();
         void Render(RenderBackendFrame frame, IRenderBackend backend);
@@ -88,66 +96,87 @@ namespace MphRead
             if (client == null) throw new ArgumentNullException(nameof(client));
             if (backend == null) throw new ArgumentNullException(nameof(backend));
 
-            // 1. Poll/translate input before the clock and simulation.
-            client.OnInput(input);
-            int steps;
-            if (input.FrameAdvanceMode)
+            long simulationStart = 0;
+            long simulationEnd = 0;
+            long renderStart = 0;
+            try
             {
-                // A manual step is a discontinuity in wall-clock time. Reset
-                // the accumulator first so a held display interval cannot
-                // add a second simulation tick to the explicitly requested
-                // one.
-                FrameTiming.Reset();
-                steps = FrameTiming.ManualStep();
-            }
-            else
-            {
-                steps = FrameTiming.Advance(elapsedSeconds);
-            }
-            client.AdvanceSimulation(steps);
-
-            // 2. Build presentation data once per drawn frame.
-            client.OnDrawFrame();
-
-            if (!client.CanRenderFrame)
-            {
-                client.PumpPauseMenu();
-                return;
-            }
-
-            // 3. The backend may have no drawable image while minimized or
-            // occluded. In that case there is deliberately no presentation
-            // acknowledgement, but the pause-menu pump still runs below.
-            bool submitted = false;
-            if (backend.TryBeginFrame(out RenderBackendFrame? frame))
-            {
-                client.Render(frame, backend);
-                if (backend.TrySubmitFrame(frame))
+                // 1. Poll/translate input before the clock and simulation.
+                client.OnInput(input);
+                int steps;
+                if (input.FrameAdvanceMode)
                 {
-                    submitted = true;
-                    client.OnFramePresented();
-                    // Pause/settings UI is owned by the window thread and
-                    // must be serviced after the present acknowledgement but
-                    // before the frame's transient state is retired.
+                    // A manual step is a discontinuity in wall-clock time. Reset
+                    // the accumulator first so a held display interval cannot
+                    // add a second simulation tick to the explicitly requested
+                    // one.
+                    FrameTiming.Reset();
+                    steps = FrameTiming.ManualStep();
+                }
+                else
+                {
+                    steps = FrameTiming.Advance(elapsedSeconds);
+                }
+                simulationStart = Stopwatch.GetTimestamp();
+                client.AdvanceSimulation(steps);
+                simulationEnd = Stopwatch.GetTimestamp();
+
+                // 2. Build and submit presentation data once per drawn frame.
+                renderStart = simulationEnd;
+                client.OnDrawFrame();
+
+                if (!client.CanRenderFrame)
+                {
+                    client.PumpPauseMenu();
+                    return;
+                }
+
+                // 3. The backend may have no drawable image while minimized or
+                // occluded. In that case there is deliberately no presentation
+                // acknowledgement, but the pause-menu pump still runs below.
+                bool submitted = false;
+                if (backend.TryBeginFrame(out RenderBackendFrame? frame))
+                {
+                    client.Render(frame, backend);
+                    if (backend.TrySubmitFrame(frame))
+                    {
+                        submitted = true;
+                        client.OnFramePresented();
+                        // Pause/settings UI is owned by the window thread and
+                        // must be serviced after the present acknowledgement but
+                        // before the frame's transient state is retired.
+                        client.PumpPauseMenu();
+                    }
+                }
+
+                // The desktop path records/clears its per-frame state only
+                // after a real swapchain image was encoded and submitted. A
+                // minimized, occluded, or failed-submit frame must not advance
+                // that acknowledgement boundary; input/pause pumping below is
+                // still required for the auxiliary UI to remain responsive.
+                if (submitted)
+                {
+                    client.AfterRenderFrame();
+                }
+                // Avalonia pause/settings windows must remain responsive even when
+                // the game surface did not produce a swapchain image. The success
+                // path already pumped above to preserve the desktop ordering.
+                if (!submitted)
+                {
                     client.PumpPauseMenu();
                 }
             }
-
-            // The desktop path records/clears its per-frame state only
-            // after a real swapchain image was encoded and submitted. A
-            // minimized, occluded, or failed-submit frame must not advance
-            // that acknowledgement boundary; input/pause pumping below is
-            // still required for the auxiliary UI to remain responsive.
-            if (submitted)
+            finally
             {
-                client.AfterRenderFrame();
-            }
-            // Avalonia pause/settings windows must remain responsive even when
-            // the game surface did not produce a swapchain image. The success
-            // path already pumped above to preserve the desktop ordering.
-            if (!submitted)
-            {
-                client.PumpPauseMenu();
+                long now = Stopwatch.GetTimestamp();
+                double simulationMilliseconds = simulationStart != 0
+                    ? (simulationEnd != 0 ? simulationEnd : now) - simulationStart
+                    : double.NaN;
+                double renderMilliseconds = renderStart != 0 ? now - renderStart : double.NaN;
+                FrameTiming.RecordRuntimeFrame(
+                    simulationMilliseconds * 1000.0 / Stopwatch.Frequency,
+                    renderMilliseconds * 1000.0 / Stopwatch.Frequency,
+                    elapsedSeconds);
             }
         }
     }

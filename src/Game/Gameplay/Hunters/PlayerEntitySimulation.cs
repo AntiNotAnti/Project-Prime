@@ -50,12 +50,15 @@ namespace MphRead.Entities
 
         internal void ServerDeactivate()
         {
+            ClearClientCombatIdentity();
             _aimAssist.Reset();
             ResetLockjawBombState();
             AdvancePresentationPoseEpoch();
             IsBot = false;
             Controls.ClearAll();
             Input.ClearBoostIntents();
+            _pendingAutoEquipWeapon = BeamType.None;
+            ClearAnalogMovement();
             ResetRemoteLocomotion();
             _networkInputActive = false;
             Health = 0;
@@ -70,7 +73,11 @@ namespace MphRead.Entities
             if (_scene.IsHeadless)
             {
                 ServerSetSpectating((command.Buttons & InputButtons.Spectate) != 0);
-                if (Flags2.TestFlag(PlayerFlags2.Spectating)) { return; }
+                if (Flags2.TestFlag(PlayerFlags2.Spectating))
+                {
+                    ClearAnalogMovement();
+                    return;
+                }
             }
             _networkInputActive = true;
             _networkAim = command.Aim;
@@ -78,7 +85,8 @@ namespace MphRead.Entities
             Input.QueueBoostIntent(boostIntent);
             Input.HasInput = command.Buttons != InputButtons.None
                 || command.Pressed != InputButtons.None
-                || boostIntent.Activation != BoostActivation.None;
+                || boostIntent.Activation != BoostActivation.None
+                || command.AnalogMovementPresent && command.AnalogMovement != Vector2.Zero;
             PlayerControls c = Controls;
             SetNetworkBind(c.MoveLeft, InputButtons.Left, command);
             SetNetworkBind(c.MoveRight, InputButtons.Right, command);
@@ -96,7 +104,33 @@ namespace MphRead.Entities
             SetNetworkBind(c.RollRight, InputButtons.RollRight, command);
             SetNetworkBind(c.RollUp, InputButtons.RollForward, command);
             SetNetworkBind(c.RollDown, InputButtons.RollBack, command);
-            if (command.DesiredWeapon <= 8)
+            if (command.AnalogMovementPresent)
+            {
+                InputButtons movementButtons = (command.Buttons | command.Pressed)
+                    & (InputButtons.Left | InputButtons.Right
+                        | InputButtons.Forward | InputButtons.Back);
+                InputButtons rollButtons = (command.Buttons | command.Pressed)
+                    & (InputButtons.RollLeft | InputButtons.RollRight
+                        | InputButtons.RollForward | InputButtons.RollBack);
+                SetAnalogMovement(command.AnalogMovement,
+                    new Vector2(DigitalAxis(movementButtons, InputButtons.Right,
+                        InputButtons.Left),
+                        DigitalAxis(movementButtons, InputButtons.Forward,
+                            InputButtons.Back)),
+                    new Vector2(DigitalAxis(rollButtons, InputButtons.RollRight,
+                        InputButtons.RollLeft),
+                        DigitalAxis(rollButtons, InputButtons.RollForward,
+                            InputButtons.RollBack)),
+                    movementButtons, rollButtons,
+                    command.Pressed & movementButtons,
+                    command.Pressed & rollButtons);
+            }
+            else
+            {
+                ClearAnalogMovement();
+            }
+            if (command.DesiredWeapon <= 8
+                && (BeamType)command.DesiredWeapon != CurrentWeapon)
             {
                 // Normal availability, cooldown and transition checks apply.
                 // Unlike the old owner state path, this never grants a weapon
@@ -113,6 +147,11 @@ namespace MphRead.Entities
             bind.IsDown = down;
             bind.IsPressed = pressed;
         }
+
+        private static float DigitalAxis(InputButtons buttons, InputButtons positive,
+            InputButtons negative)
+            => (buttons & positive) != 0 ? 1
+                : (buttons & negative) != 0 ? -1 : 0;
 
         internal SnapshotPlayer CaptureServerState()
         {

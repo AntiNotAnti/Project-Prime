@@ -12,7 +12,7 @@ namespace MphRead.Combat
         internal static byte[] Capture(CombatFeedback combat, WorldFeedback world)
         {
             using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);
-            writer.Write((byte)1); combat.WriteReplay(writer); world.WriteReplay(writer);
+            writer.Write((byte)2); combat.WriteReplay(writer, includeNotices: true); world.WriteReplay(writer);
             if (stream.Length > MaximumBytes) throw new InvalidDataException("Replay feedback exceeds its bound.");
             return stream.ToArray();
         }
@@ -32,8 +32,9 @@ namespace MphRead.Combat
         private static void Read(byte[] bytes, CombatFeedback combat, WorldFeedback world)
         {
             using var stream = new MemoryStream(bytes, false); using var reader = new BinaryReader(stream);
-            if (reader.ReadByte() != 1) throw new InvalidDataException("Replay feedback version.");
-            combat.ReadReplay(reader); world.ReadReplay(reader);
+            byte version = reader.ReadByte();
+            if (version is not (1 or 2)) throw new InvalidDataException("Replay feedback version.");
+            combat.ReadReplay(reader, includeNotices: version >= 2); world.ReadReplay(reader);
             if (stream.Position != stream.Length) throw new InvalidDataException("Replay feedback trailing bytes.");
         }
         internal static void Text(BinaryWriter writer, string text)
@@ -49,6 +50,19 @@ namespace MphRead.Combat
             byte[] bytes = reader.ReadBytes(size);
             if (bytes.Length != size) throw new EndOfStreamException();
             return Utf8.GetString(bytes);
+        }
+        internal static void Notice(BinaryWriter writer, CombatFeedbackNotice notice)
+        {
+            writer.Write(notice.IsValid);
+            if (!notice.IsValid) return;
+            writer.Write(notice.Tick);
+            Text(writer, notice.Text);
+        }
+        internal static CombatFeedbackNotice Notice(BinaryReader reader)
+        {
+            if (!reader.ReadBoolean()) return default;
+            uint tick = reader.ReadUInt32();
+            return new(Text(reader), tick);
         }
         internal static int Count(BinaryReader reader, int maximum)
         {
@@ -112,7 +126,7 @@ namespace MphRead.Combat
     }
     public sealed partial class CombatFeedback
     {
-        internal void WriteReplay(BinaryWriter writer)
+        internal void WriteReplay(BinaryWriter writer, bool includeNotices = false)
         {
             writer.Write(_match); writer.Write(_presentationTick); writer.Write(_phase);
             _combatEvents.WriteReplay(writer); _killEvents.WriteReplay(writer);
@@ -134,9 +148,14 @@ namespace MphRead.Combat
             writer.Write((byte)replayMarker); writer.Write(State.MarkerTick); writer.Write(State.MarkerSequence);
             writer.Write(State.Dead); writer.Write(State.FinalDamage);
             ReplayFeedbackState.Text(writer, State.RecapHeading); ReplayFeedbackState.Text(writer, State.RecapFinal);
+            if (includeNotices)
+            {
+                ReplayFeedbackState.Notice(writer, State.HeadshotNotice);
+                ReplayFeedbackState.Notice(writer, State.KillNotice);
+            }
             History.WriteReplay(writer); Recaps.WriteReplay(writer);
         }
-        internal void ReadReplay(BinaryReader reader)
+        internal void ReadReplay(BinaryReader reader, bool includeNotices = false)
         {
             _match = reader.ReadUInt32(); _presentationTick = reader.ReadUInt32(); _phase = reader.ReadUInt32();
             _combatEvents.ReadReplay(reader); _killEvents.ReadReplay(reader);
@@ -158,6 +177,12 @@ namespace MphRead.Combat
             State.MarkerAudioSequence = State.MarkerSequence;
             State.Dead = reader.ReadBoolean(); State.FinalDamage = reader.ReadUInt16();
             State.RecapHeading = ReplayFeedbackState.Text(reader); State.RecapFinal = ReplayFeedbackState.Text(reader);
+            State.ClearNotices();
+            if (includeNotices)
+            {
+                State.HeadshotNotice = ReplayFeedbackState.Notice(reader);
+                State.KillNotice = ReplayFeedbackState.Notice(reader);
+            }
             History.ReadReplay(reader); Recaps.ReadReplay(reader);
         }
     }

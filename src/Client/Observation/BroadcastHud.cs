@@ -76,9 +76,9 @@ public sealed class BroadcastHud
             if (!context.Awards.IsEmpty)
             {
                 MatchAward award = context.Awards[^1];
-                string subject = context.TryGetPlayer(award.Subject.Slot,
+                string subject = context.TryGetPlayer(award.Subject,
                     out ObservationPlayer awardedPlayer)
-                    ? awardedPlayer.Name : $"P{award.Subject.Slot + 1}";
+                    ? awardedPlayer.Name : "UNKNOWN";
                 lines.Add($"{AwardLabel(award.Kind)} · {subject}");
             }
         }

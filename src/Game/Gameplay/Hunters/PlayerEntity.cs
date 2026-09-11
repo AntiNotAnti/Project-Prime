@@ -4,6 +4,7 @@ using System.Diagnostics;
 using MphRead.Effects;
 using MphRead.Formats;
 using MphRead.Formats.Culling;
+using MphRead.Mods.Network;
 using MphRead.Text;
 using OpenTK.Mathematics;
 
@@ -341,6 +342,7 @@ namespace MphRead.Entities
         public int Health { get => _health; set => _health = value; }
         public int HealthMax => _healthMax;
         private readonly BeamType[] _weaponSlots = new BeamType[3];
+        private BeamType _pendingAutoEquipWeapon = BeamType.None;
         internal readonly AvailableArray _availableWeapons = new AvailableArray();
         public AvailableArray AvailableWeapons => _availableWeapons;
         private readonly AvailableArray _availableCharges = new AvailableArray();
@@ -451,6 +453,10 @@ namespace MphRead.Entities
         public EntityBase? BurnedBy => _burnedBy;
         private EntityBase? _lastTarget = null;
         private EntityBase? _shockCoilTarget = null;
+        // Shock Coil's shot animation is a held state. Keep this separate
+        // from GunAnimation so entering it does not restart the authored
+        // material/texture tracks every simulation tick.
+        private bool _shockCoilAnimationActive;
         public EntityBase? ShockCoilTarget => _shockCoilTarget;
 
         public bool IsAltForm => Flags1.TestFlag(PlayerFlags1.AltForm);
@@ -466,6 +472,112 @@ namespace MphRead.Entities
         private ushort _accelerationTimer = 0;
         private float _hSpeedCap = 0;
         internal float _hSpeedMag = 0; // todo: all FPS stuff with speed
+        private Vector2 _analogMovement;
+        private Vector2 _digitalMovementBeforeAnalog;
+        private Vector2 _digitalRollBeforeAnalog;
+        private InputButtons _digitalMovementButtonsBeforeAnalog;
+        private InputButtons _digitalRollButtonsBeforeAnalog;
+        private InputButtons _digitalMovementPressedBeforeAnalog;
+        private InputButtons _digitalRollPressedBeforeAnalog;
+        private bool _analogMovementPresent;
+        internal bool AnalogMovementPresent => _analogMovementPresent;
+        internal Vector2 AnalogMovement => _analogMovement;
+        internal Vector2 DigitalMovementBeforeAnalog => _digitalMovementBeforeAnalog;
+        internal Vector2 DigitalRollBeforeAnalog => _digitalRollBeforeAnalog;
+        internal InputButtons DigitalMovementButtonsBeforeAnalog => _digitalMovementButtonsBeforeAnalog;
+        internal InputButtons DigitalRollButtonsBeforeAnalog => _digitalRollButtonsBeforeAnalog;
+        internal InputButtons DigitalMovementPressedBeforeAnalog => _digitalMovementPressedBeforeAnalog;
+        internal InputButtons DigitalRollPressedBeforeAnalog => _digitalRollPressedBeforeAnalog;
+
+        /// <summary>
+        /// Publishes the optional radial controller sample for this input
+        /// tick. The digital intent is captured before controller binds are
+        /// ORed in, so keyboard/touch/bot movement keeps its existing path.
+        /// </summary>
+        internal void SetAnalogMovement(Vector2 movement, Vector2 digitalBeforeAnalog,
+            Vector2 digitalRollBeforeAnalog, InputButtons digitalButtons = InputButtons.None,
+            InputButtons digitalRollButtons = InputButtons.None,
+            InputButtons digitalPressed = InputButtons.None,
+            InputButtons digitalRollPressed = InputButtons.None)
+        {
+            if (!AnalogMovementCodec.TryQuantize(movement,
+                out sbyte moveX, out sbyte moveY)
+                || !AnalogMovementCodec.TryDecode(moveX, moveY, present: true,
+                    out Vector2 decodedMovement))
+            {
+                ClearAnalogMovement();
+                return;
+            }
+            // Use the same rounded value that is sent over the wire so a
+            // predicted local tick and its authoritative replay share the
+            // exact movement vector.
+            _analogMovement = decodedMovement;
+            _digitalMovementBeforeAnalog = new Vector2(
+                Math.Clamp(digitalBeforeAnalog.X, -1, 1),
+                Math.Clamp(digitalBeforeAnalog.Y, -1, 1));
+            _digitalRollBeforeAnalog = new Vector2(
+                Math.Clamp(digitalRollBeforeAnalog.X, -1, 1),
+                Math.Clamp(digitalRollBeforeAnalog.Y, -1, 1));
+            _digitalMovementButtonsBeforeAnalog = digitalButtons;
+            _digitalRollButtonsBeforeAnalog = digitalRollButtons;
+            _digitalMovementPressedBeforeAnalog = digitalPressed;
+            _digitalRollPressedBeforeAnalog = digitalRollPressed;
+            _analogMovementPresent = true;
+        }
+
+        internal void SetAnalogMovement(Vector2 movement, Vector2 digitalBeforeAnalog)
+            => SetAnalogMovement(movement, digitalBeforeAnalog, digitalBeforeAnalog);
+
+        internal void ClearAnalogMovement()
+        {
+            _analogMovement = Vector2.Zero;
+            _digitalMovementBeforeAnalog = Vector2.Zero;
+            _digitalRollBeforeAnalog = Vector2.Zero;
+            _digitalMovementButtonsBeforeAnalog = InputButtons.None;
+            _digitalRollButtonsBeforeAnalog = InputButtons.None;
+            _digitalMovementPressedBeforeAnalog = InputButtons.None;
+            _digitalRollPressedBeforeAnalog = InputButtons.None;
+            _analogMovementPresent = false;
+        }
+
+        /// <summary>
+        /// Combines a digital axis with an optional analog axis. A held
+        /// digital component is never weakened by an opposing fractional pad
+        /// value; same-direction values are bounded to the existing full
+        /// acceleration. With no digital component, the radial value is used
+        /// directly for fine movement.
+        /// </summary>
+        internal static float ResolveAnalogMovementAxis(float digitalAxis,
+            float analogAxis, bool analogPresent)
+        {
+            if (!analogPresent || !float.IsFinite(digitalAxis)
+                || !float.IsFinite(analogAxis))
+            {
+                return digitalAxis;
+            }
+            digitalAxis = Math.Clamp(digitalAxis, -1, 1);
+            analogAxis = Math.Clamp(analogAxis, -1, 1);
+            if (MathF.Abs(digitalAxis) <= 0.0001f)
+            {
+                return analogAxis;
+            }
+            float combined = digitalAxis + analogAxis;
+            if (MathF.Abs(combined) < MathF.Abs(digitalAxis))
+            {
+                return digitalAxis;
+            }
+            return Math.Clamp(combined, -1, 1);
+        }
+
+        internal float ResolveMovementAxis(float digitalAxis, float analogAxis,
+            bool horizontal, bool roll = false)
+        {
+            if (!_analogMovementPresent) return digitalAxis;
+            Vector2 digital = roll ? _digitalRollBeforeAnalog : _digitalMovementBeforeAnalog;
+            return ResolveAnalogMovementAxis(horizontal ? digital.X : digital.Y,
+                analogAxis, analogPresent: true);
+        }
+
         private float _gravity = 0;
         private int _slipperiness = 0; // from stand_ter_flags
         internal Terrain _standTerrain; // from stand_ter_flags
@@ -615,6 +727,7 @@ namespace MphRead.Entities
             _healthMax = 2 * Values.EnergyTank - 1;
             _ammoMax[UA] = _ammoMax[Missiles] = Values.MpAmmoCap;
             InitializeWeapon();
+            _pendingAutoEquipWeapon = BeamType.None;
             _availableWeapons[BeamType.PowerBeam] = true;
             TryEquipWeapon(BeamType.PowerBeam, silent: true);
             _facingVector = -Vector3.UnitZ;
@@ -631,6 +744,7 @@ namespace MphRead.Entities
             _walkViewBob = 0;
             _health = 0;
             Flags2 |= PlayerFlags2.HideModel;
+            ClearAnalogMovement();
             _field35C = null;
             EquipInfo.ChargeLevel = 0;
             _timeSinceShot = 255;
@@ -761,6 +875,7 @@ namespace MphRead.Entities
                 _abilities |= AbilityFlags.WeavelAltAttack;
             }
             _health = Values.EnergyTank - 1;
+            ClearAnalogMovement();
             // todo?: a lot of this doesn't need to be set at all in create/init when it gets set every time you spawn anyway
             _availableWeapons.ClearAll();
             _availableCharges.ClearAll();
@@ -772,6 +887,7 @@ namespace MphRead.Entities
             _doubleDmgTimer = 0;
             _cloakTimer = 0;
             _deathaltTimer = 0;
+            _pendingAutoEquipWeapon = BeamType.None;
             PreviousWeapon = BeamType.PowerBeam;
             TryEquipWeapon(BeamType.PowerBeam, silent: true);
             Metadata.LoadEffectiveness(0x2AAAA, BeamEffectiveness);
@@ -1157,7 +1273,8 @@ namespace MphRead.Entities
             }
         }
 
-        private bool TryEquipWeapon(BeamType beam, bool silent = false, bool debug = false)
+        private bool TryEquipWeapon(BeamType beam, bool silent = false, bool debug = false,
+            bool suppressFailureSound = false)
         {
             int index = (int)beam;
             if (index < 0 || index >= 9)
@@ -1175,7 +1292,7 @@ namespace MphRead.Entities
             bool hasAmmo = beam == BeamType.PowerBeam || _ammo[ammoType] >= info.AmmoCost || _ammo[ammoType] == -1;
             if (!silent && (!hasAmmo || !_availableWeapons[beam] || GunAnimation == GunAnimation.UpDown))
             {
-                if (IsMainPlayer)
+                if (IsMainPlayer && !suppressFailureSound)
                 {
                     _soundSource.PlayFreeSfx(SfxId.BEAM_SWITCH_FAIL);
                     if (!hasAmmo)
@@ -1239,6 +1356,31 @@ namespace MphRead.Entities
             return true;
         }
 
+        private void TryApplyPendingAutoEquip()
+        {
+            BeamType pending = _pendingAutoEquipWeapon;
+            if (pending == BeamType.None) return;
+            if (CurrentWeapon == pending)
+            {
+                _pendingAutoEquipWeapon = BeamType.None;
+                return;
+            }
+            if (Health <= 0 || IsAltForm || IsMorphing || IsUnmorphing
+                || GunAnimation == GunAnimation.UpDown)
+            {
+                return;
+            }
+            if (!_availableWeapons[pending])
+            {
+                _pendingAutoEquipWeapon = BeamType.None;
+                return;
+            }
+            if (TryEquipWeapon(pending, suppressFailureSound: true))
+            {
+                _pendingAutoEquipWeapon = BeamType.None;
+            }
+        }
+
         public void UpdateZoom(bool zoom)
         {
             if (IsMainPlayer && EquipInfo.Zoomed != zoom)
@@ -1299,6 +1441,10 @@ namespace MphRead.Entities
 
         private void SetGunAnimation(GunAnimation anim, AnimFlags animFlags = AnimFlags.None)
         {
+            if (anim != GunAnimation.Shot || CurrentWeapon != BeamType.ShockCoil)
+            {
+                _shockCoilAnimationActive = false;
+            }
             GunAnimation = anim;
             int animId = Metadata.GunAnimationIds[(int)Hunter, (int)anim, 0];
             SetFlags setFlags = SetFlags.Texture | SetFlags.Texcoord | SetFlags.Material | SetFlags.Unused | SetFlags.Node;
@@ -1325,8 +1471,40 @@ namespace MphRead.Entities
             }
         }
 
+        internal static bool ShouldPlayShockCoilAnimation(BeamType weapon, bool shooting, int ammo,
+            int ammoCost, int health, bool altForm, bool morphing, bool unmorphing)
+        {
+            if (weapon != BeamType.ShockCoil || !shooting || health <= 0
+                || altForm || morphing || unmorphing)
+            {
+                return false;
+            }
+            return ammo == -1 || ammo >= ammoCost;
+        }
+
         private void UpdateGunAnimation()
         {
+            bool shockCoilFiring = ShouldPlayShockCoilAnimation(CurrentWeapon,
+                Flags2.TestFlag(PlayerFlags2.Shooting), EquipInfo.Ammo, EquipWeapon.AmmoCost,
+                _health, IsAltForm, IsMorphing, IsUnmorphing);
+            if (shockCoilFiring)
+            {
+                if (!_shockCoilAnimationActive || GunAnimation != GunAnimation.Shot)
+                {
+                    _shockCoilAnimationActive = true;
+                    SetGunAnimation(GunAnimation.Shot, AnimFlags.None);
+                }
+                return;
+            }
+            if (_shockCoilAnimationActive)
+            {
+                _shockCoilAnimationActive = false;
+                if (GunAnimation == GunAnimation.Shot)
+                {
+                    SetGunAnimation(GunAnimation.Idle, AnimFlags.NoLoop);
+                }
+                return;
+            }
             if (_timeSinceInput == 0)
             {
                 if (GunAnimation == GunAnimation.UpDown && _gunModel.AnimInfo.Flags[0].TestFlag(AnimFlags.Reverse))
@@ -1743,6 +1921,7 @@ namespace MphRead.Entities
                 }
                 else
                 {
+                    _pendingAutoEquipWeapon = BeamType.None;
                     _health = 0;
                 }
                 UpdateZoom(false);

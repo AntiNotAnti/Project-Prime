@@ -2348,12 +2348,22 @@ namespace MphRead.Entities
             MatchMode mode = _player._scene.Match.Rules.Mode;
             if (mode == MatchMode.Battle || mode == MatchMode.TeamBattle || mode == MatchMode.Capture || mode == MatchMode.Nodes || mode == MatchMode.TeamNodes || mode == MatchMode.Bounty || mode == MatchMode.TeamBounty)
             {
+                PlayerMatchStats stats = _player._scene.Match.Players[slot];
                 if (_player._scene.Match.Rules.Teams)
                 {
-                    return $"{_player._scene.Match.TeamPoints[_player._scene.Players[slot].TeamIndex]} / {_player._scene.Match.Rules.LegacyPointGoal}";
+                    int team = _player._scene.Players[slot].TeamIndex;
+                    int score = team is >= 0 and < 2
+                        ? _player._scene.Match.TeamPoints[team] : stats.Points;
+                    return mode is MatchMode.Battle or MatchMode.TeamBattle
+                        ? FormatBattleScore(stats.Kills, score,
+                            _player._scene.Match.Rules.LegacyPointGoal)
+                        : $"{score} / {_player._scene.Match.Rules.LegacyPointGoal}";
                 }
 
-                return $"{_player._scene.Match.Players[slot].Points} / {_player._scene.Match.Rules.LegacyPointGoal}";
+                return mode is MatchMode.Battle or MatchMode.TeamBattle
+                    ? FormatBattleScore(stats.Kills, stats.Points,
+                        _player._scene.Match.Rules.LegacyPointGoal)
+                    : $"{stats.Points} / {_player._scene.Match.Rules.LegacyPointGoal}";
             }
 
             if (mode == MatchMode.Survival || mode == MatchMode.TeamSurvival)
@@ -2369,6 +2379,9 @@ namespace MphRead.Entities
 
             return " ";
         }
+
+        internal static string FormatBattleScore(int kills, int score, int goal)
+            => $"K {kills} · {score}/{goal}";
 
         public void DrawModeScore(int messageId, string text)
         {
@@ -2394,7 +2407,7 @@ namespace MphRead.Entities
 
         public void DrawHudBattle()
         {
-            DrawModeScore(212, FormatModeScore(_player._scene.LocalPlayerSlot)); // points
+            DrawModeScore(220, FormatModeScore(_player._scene.LocalPlayerSlot)); // kills + score
         }
 
         public void DrawHudSurvival()

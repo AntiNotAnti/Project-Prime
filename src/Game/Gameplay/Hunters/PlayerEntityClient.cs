@@ -60,10 +60,28 @@ namespace MphRead.Entities
                     InputButtons.None, _gunVec1, InputCommand.NoWeapon, inputEpoch);
             }
             InputButtons held = 0, pressed = 0;
-            Capture(Controls.MoveLeft, InputButtons.Left, ref held, ref pressed);
-            Capture(Controls.MoveRight, InputButtons.Right, ref held, ref pressed);
-            Capture(Controls.MoveUp, InputButtons.Forward, ref held, ref pressed);
-            Capture(Controls.MoveDown, InputButtons.Back, ref held, ref pressed);
+            if (AnalogMovementPresent)
+            {
+                // GamepadInput captures the pre-pad digital state before it
+                // ORs legacy direction binds into Controls. This keeps the
+                // command's digital component exact while the two axes carry
+                // the controller's radial contribution.
+                held |= DigitalMovementButtonsBeforeAnalog
+                    | DigitalRollButtonsBeforeAnalog;
+                pressed |= DigitalMovementPressedBeforeAnalog
+                    | DigitalRollPressedBeforeAnalog;
+            }
+            else
+            {
+                Capture(Controls.MoveLeft, InputButtons.Left, ref held, ref pressed);
+                Capture(Controls.MoveRight, InputButtons.Right, ref held, ref pressed);
+                Capture(Controls.MoveUp, InputButtons.Forward, ref held, ref pressed);
+                Capture(Controls.MoveDown, InputButtons.Back, ref held, ref pressed);
+                Capture(Controls.RolltLeft, InputButtons.RollLeft, ref held, ref pressed);
+                Capture(Controls.RollRight, InputButtons.RollRight, ref held, ref pressed);
+                Capture(Controls.RollUp, InputButtons.RollForward, ref held, ref pressed);
+                Capture(Controls.RollDown, InputButtons.RollBack, ref held, ref pressed);
+            }
             Capture(Controls.Shoot, InputButtons.Shoot, ref held, ref pressed);
             Capture(Controls.Zoom, InputButtons.Zoom, ref held, ref pressed);
             Capture(Controls.Jump, InputButtons.Jump, ref held, ref pressed);
@@ -72,13 +90,18 @@ namespace MphRead.Entities
             Capture(Controls.AltAttack, InputButtons.AltAttack, ref held, ref pressed);
             Capture(Controls.NextWeapon, InputButtons.NextWeapon, ref held, ref pressed);
             Capture(Controls.PrevWeapon, InputButtons.PreviousWeapon, ref held, ref pressed);
-            Capture(Controls.RolltLeft, InputButtons.RollLeft, ref held, ref pressed);
-            Capture(Controls.RollRight, InputButtons.RollRight, ref held, ref pressed);
-            Capture(Controls.RollUp, InputButtons.RollForward, ref held, ref pressed);
-            Capture(Controls.RollDown, InputButtons.RollBack, ref held, ref pressed);
             BoostIntent boostIntent = Input.ConsumedBoostIntent;
+            sbyte moveX = 0, moveY = 0;
+            bool analogPresent = AnalogMovementPresent
+                && AnalogMovementCodec.TryQuantize(AnalogMovement,
+                    out moveX, out moveY);
+            if (!analogPresent)
+            {
+                moveX = moveY = 0;
+            }
             return new InputCommand(sequence, sequence, viewServerTick, held, pressed, _gunVec1,
-                (byte)CurrentWeapon, boostIntent, inputEpoch);
+                (byte)CurrentWeapon, boostIntent, inputEpoch, moveX, moveY,
+                analogPresent);
         }
 
         private static void Capture(PlayerActionState bind, InputButtons button, ref InputButtons held,
@@ -104,8 +127,10 @@ namespace MphRead.Entities
             Initialize();
         }
 
-        internal void ApplyServerState(in SnapshotPlayer state, bool newLife, bool predicted = false)
+        internal void ApplyServerState(in SnapshotPlayer state, bool newLife,
+            bool predicted = false, bool reconcileWeapon = true)
         {
+            SetClientCombatIdentity(state);
             bool spawned = (state.Flags & SnapshotPlayerFlags.Spawned) != 0;
             SnapshotPlayerFlags flags = state.Flags;
             bool formChanged = IsAltForm != ((flags & SnapshotPlayerFlags.AltForm) != 0)
@@ -136,7 +161,10 @@ namespace MphRead.Entities
             {
                 _availableWeapons[(BeamType)weapon] = (state.AvailableWeapons & (1 << weapon)) != 0;
             }
-            ModSetWeapon((BeamType)state.Weapon);
+            if (reconcileWeapon)
+            {
+                ModSetWeapon((BeamType)state.Weapon);
+            }
             _ammo[UA] = state.AmmoUa;
             _ammo[Missiles] = state.AmmoMissiles;
             EquipInfo.Zoomed = (state.Flags & SnapshotPlayerFlags.Zoomed) != 0;

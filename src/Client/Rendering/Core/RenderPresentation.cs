@@ -291,11 +291,18 @@ namespace MphRead
         }
     }
 
+    /// <summary>Optional device-pixel destination for tools that share one window with native UI.</summary>
+    public readonly record struct RenderDestinationViewport(int X, int Y, int Width, int Height)
+    {
+        public bool IsValid => X >= 0 && Y >= 0 && Width > 0 && Height > 0;
+    }
+
     public readonly record struct RenderCompositeState(
         Vector2i DrawableSize,
         Vector2i SceneTargetSize,
         RenderCompositeFilter Filter,
-        bool ClearDestination);
+        bool ClearDestination,
+        RenderDestinationViewport? DestinationViewport = null);
 
     public readonly record struct RenderFadeState(
         bool Active,
