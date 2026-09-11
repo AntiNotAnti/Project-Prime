@@ -15,80 +15,126 @@ public static class NodeEndpoints
     public static void MapNodes(this WebApplication app)
     {
         app.MapGet("/v1/nodes", (int protocol, string build, string content, int? page,
-            long? revision, NodeDirectory directory) =>
+            long? revision, NodeDirectory directory, ILoggerFactory loggerFactory) =>
         {
+            ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.DirectoryCategory);
             try
             {
-                return Results.Ok(directory.BrowsePage(protocol, build, content,
+                IResult result = Results.Ok(directory.BrowsePage(protocol, build, content,
                     page ?? 0, revision));
+                BackendDiagnostics.Directory(logger, "browse", "success");
+                return result;
             }
             catch (NodeDirectoryPageException error)
             {
+                BackendDiagnostics.Directory(logger, "browse", error.Code);
                 return BackendProblem.Create(error.Code, error.Message, error.StatusCode);
             }
         }).RequireRateLimiting(BackendRoutePolicy.Api);
-        app.MapGet("/v1/node-admission-keys", (HttpContext http, GameTicketIssuer issuer) =>
+        app.MapGet("/v1/node-admission-keys", (HttpContext http, GameTicketIssuer issuer,
+            ILoggerFactory loggerFactory) =>
         {
+            ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.AdmissionCategory);
             // Public verification material is useful only over HTTPS. Local
             // loopback HTTP remains an explicit development seam.
             if (!http.Request.IsHttps && !IPAddress.IsLoopback(http.Connection.LocalIpAddress ?? IPAddress.None))
+            {
+                BackendDiagnostics.Admission(logger, "keys", "https_required");
                 return BackendProblem.Create("https_required", "Node admission keys require HTTPS.",
                     StatusCodes.Status400BadRequest);
+            }
+            BackendDiagnostics.Admission(logger, "keys", "success");
             return Results.Ok(issuer.PublicKeys);
         }).AllowAnonymous().RequireRateLimiting(BackendRoutePolicy.Api);
         app.MapPut("/v1/node/registration", (NodeRegistration value, HttpContext http, NodeDirectory directory,
-            AuthenticatedNodeRateLimiter nodeLimiter) =>
+            AuthenticatedNodeRateLimiter nodeLimiter, ILoggerFactory loggerFactory) =>
         {
+            ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.DirectoryCategory);
             if (!Credentials(http, out var id, out var secret))
+            {
+                BackendDiagnostics.Directory(logger, "registration", "invalid");
                 return BackendProblem.Create("invalid_credential", "Node credentials are invalid.",
                     StatusCodes.Status401Unauthorized);
+            }
             if (!directory.Authenticate(id, secret, out _))
+            {
+                BackendDiagnostics.Directory(logger, "registration", "invalid");
                 return BackendProblem.Create("invalid_credential", "Node credentials are invalid.",
                     StatusCodes.Status401Unauthorized);
+            }
             if (!nodeLimiter.TryAcquire(id, "registration"))
+            {
+                BackendDiagnostics.Directory(logger, "registration", "limited");
                 return BackendProblem.Create("rate_limited", "Node update rate limit exceeded.",
                     StatusCodes.Status429TooManyRequests);
+            }
             try { return directory.Register(id, secret, value) ? Results.Ok() : BackendProblem.Create("invalid_credential", "Node credentials are invalid.", StatusCodes.Status401Unauthorized); }
             catch (ArgumentException)
             {
+                BackendDiagnostics.Directory(logger, "registration", "invalid_request");
                 return BackendProblem.Create("invalid_request", "The Node registration is invalid.",
                     StatusCodes.Status400BadRequest);
             }
         }).RequireRateLimiting(BackendRoutePolicy.MachinePreAuth);
         app.MapDelete("/v1/node/registration", (HttpContext http, NodeDirectory directory,
-            AuthenticatedNodeRateLimiter nodeLimiter) =>
+            AuthenticatedNodeRateLimiter nodeLimiter, ILoggerFactory loggerFactory) =>
         {
+            ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.DirectoryCategory);
             if (!Credentials(http, out var id, out var secret))
+            {
+                BackendDiagnostics.Directory(logger, "deregistration", "invalid");
                 return BackendProblem.Create("invalid_credential", "Node credentials are invalid.",
                     StatusCodes.Status401Unauthorized);
+            }
             if (!directory.Authenticate(id, secret, out _))
+            {
+                BackendDiagnostics.Directory(logger, "deregistration", "invalid");
                 return BackendProblem.Create("invalid_credential", "Node credentials are invalid.",
                     StatusCodes.Status401Unauthorized);
+            }
             if (!nodeLimiter.TryAcquire(id, "deregistration"))
+            {
+                BackendDiagnostics.Directory(logger, "deregistration", "limited");
                 return BackendProblem.Create("rate_limited", "Node update rate limit exceeded.",
                     StatusCodes.Status429TooManyRequests);
+            }
             if (!Guid.TryParseExact(http.Request.Query["incarnation"], "D", out Guid incarnation)
                 || incarnation == Guid.Empty)
+            {
+                BackendDiagnostics.Directory(logger, "deregistration", "invalid_request");
                 return BackendProblem.Create("invalid_request", "The Node incarnation is invalid.",
                     StatusCodes.Status400BadRequest);
+            }
             directory.Deregister(id, secret, incarnation);
+            BackendDiagnostics.Directory(logger, "deregistration", "success");
             return Results.NoContent();
         }).RequireRateLimiting(BackendRoutePolicy.MachinePreAuth);
         app.MapPost("/v1/node/heartbeat", (NodeHeartbeat value, HttpContext http, NodeDirectory directory,
-            AuthenticatedNodeRateLimiter nodeLimiter) =>
+            AuthenticatedNodeRateLimiter nodeLimiter, ILoggerFactory loggerFactory) =>
         {
+            ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.DirectoryCategory);
             if (!Credentials(http, out var id, out var secret))
+            {
+                BackendDiagnostics.Directory(logger, "heartbeat", "invalid");
                 return BackendProblem.Create("invalid_credential", "Node credentials are invalid.",
                     StatusCodes.Status401Unauthorized);
+            }
             if (!directory.Authenticate(id, secret, out _))
+            {
+                BackendDiagnostics.Directory(logger, "heartbeat", "invalid");
                 return BackendProblem.Create("invalid_credential", "Node credentials are invalid.",
                     StatusCodes.Status401Unauthorized);
+            }
             if (!nodeLimiter.TryAcquire(id, "heartbeat"))
+            {
+                BackendDiagnostics.Directory(logger, "heartbeat", "limited");
                 return BackendProblem.Create("rate_limited", "Node update rate limit exceeded.",
                     StatusCodes.Status429TooManyRequests);
+            }
             try { return directory.Heartbeat(id, secret, value) ? Results.Ok() : BackendProblem.Create("invalid_credential", "Node credentials are invalid.", StatusCodes.Status401Unauthorized); }
             catch (ArgumentException)
             {
+                BackendDiagnostics.Directory(logger, "heartbeat", "invalid_request");
                 return BackendProblem.Create("invalid_request", "The Node heartbeat is invalid.",
                     StatusCodes.Status400BadRequest);
             }
