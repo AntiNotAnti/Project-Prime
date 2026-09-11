@@ -36,7 +36,12 @@ namespace MphRead.Mods.Network
             if (handoff.MatchId == Guid.Empty || handoff.WireMatchId == 0 || handoff.Nonce == 0
                 || handoff.Port == 0 || !IPAddress.TryParse(handoff.Host, out var address)
                 || address.AddressFamily != AddressFamily.InterNetwork || address.ToString() != handoff.Host
-                || address.GetAddressBytes()[0] is 0 or >= 224 || handoff.Ticket is not { Length: > 0 and <= JoinPacket.MaxRoutedTicketBytes })
+                || address.GetAddressBytes()[0] is 0 or >= 224
+                || handoff.Ticket is not { Length: > 0 and <= JoinPacket.MaxRoutedTicketBytes }
+                || handoff.UdpAuthenticationEnabled && (handoff.AdmissionId == Guid.Empty
+                    || handoff.AdmissionKey.Length != AdmissionKeyRules.Base64Length)
+                || !handoff.UdpAuthenticationEnabled && (handoff.AdmissionId != Guid.Empty
+                    || handoff.AdmissionKey.Length != 0))
                 throw new ArgumentException("Invalid Worker handoff.");
             var existing = AuthoritativePlay.Current;
             if (existing?.Client.Connection?.MatchId == handoff.WireMatchId
@@ -44,18 +49,22 @@ namespace MphRead.Mods.Network
                 return Task.FromResult(true);
             if (existing != null) NetSession.Stop();
             return Task.Run(() => JoinCore(handoff.Host, handoff.Port, playerName, handoff.Hunter,
-                timeoutMs, cancel, handoff.Nonce, handoff.Ticket, handoff.Observer, handoff.WireMatchId), cancel);
+                timeoutMs, cancel, handoff.Nonce, handoff.Ticket, handoff.Observer, handoff.WireMatchId,
+                handoff.AdmissionId, handoff.AdmissionKey, handoff.UdpAuthenticationEnabled), cancel);
         }
 
         private static bool JoinCore(string address, int port, string playerName, Hunter hunter,
-            int timeoutMs, CancellationToken cancel, ulong? nonce, string ticket, bool observer, uint wireMatchId = 0)
+            int timeoutMs, CancellationToken cancel, ulong? nonce, string ticket, bool observer,
+            uint wireMatchId, Guid admissionId, string admissionKey, bool udpAuthenticationEnabled)
         {
             AuthoritativePlay? play = null;
+            byte[]? key = udpAuthenticationEnabled ? AdmissionKeyRules.Decode(admissionKey) : null;
             LastJoinError = String.Empty;
             try
             {
                 cancel.ThrowIfCancellationRequested();
-                play = new AuthoritativePlay(address, port, playerName, hunter, nonce, ticket, observer, wireMatchId);
+                play = new AuthoritativePlay(address, port, playerName, hunter, nonce, ticket, observer,
+                    wireMatchId, admissionId, key, udpAuthenticationEnabled);
                 var clock = Stopwatch.StartNew();
                 bool announcedPending = false;
                 while (play.Client.State == NetConnectionState.Connecting)
@@ -86,6 +95,10 @@ namespace MphRead.Mods.Network
                 LastJoinError = exception is OperationCanceledException ? "Connection cancelled." : exception.Message;
                 Console.WriteLine($"[net] {LastJoinError}");
                 return false;
+            }
+            finally
+            {
+                if (key is not null) System.Security.Cryptography.CryptographicOperations.ZeroMemory(key);
             }
         }
 

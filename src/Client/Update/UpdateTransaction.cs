@@ -13,7 +13,8 @@ public enum UpdateTransactionState
     Applying,
     Committed,
     RolledBack,
-    RecoveryRequired
+    RecoveryRequired,
+    OldProcessStillRunning
 }
 
 public sealed record UpdateTransactionFile(
@@ -173,12 +174,21 @@ internal static class UpdateFileSystem
     {
         string? parent = Path.GetDirectoryName(destination);
         if (!String.IsNullOrEmpty(parent)) Directory.CreateDirectory(parent);
-        using FileStream input = new(source, FileMode.Open, FileAccess.Read, FileShare.Read,
-            64 * 1024, FileOptions.SequentialScan);
-        using FileStream output = new(destination, FileMode.CreateNew, FileAccess.Write,
-            FileShare.None, 64 * 1024, FileOptions.WriteThrough);
-        input.CopyTo(output);
-        output.Flush(flushToDisk: true);
+        using (FileStream input = new(source, FileMode.Open, FileAccess.Read, FileShare.Read,
+            64 * 1024, FileOptions.SequentialScan))
+        using (FileStream output = new(destination, FileMode.CreateNew, FileAccess.Write,
+            FileShare.None, 64 * 1024, FileOptions.WriteThrough))
+        {
+            input.CopyTo(output);
+            output.Flush(flushToDisk: true);
+        }
+        PreserveUnixMode(source, destination);
+    }
+
+    internal static void PreserveUnixMode(string source, string destination)
+    {
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(destination, File.GetUnixFileMode(source));
     }
 
     internal static bool TryDeleteFile(string path)
@@ -234,7 +244,7 @@ public sealed class DesktopUpdateTransaction
             {
                 string journalPath = Path.Combine(updateDirectory, "transaction.json");
                 if (!WaitForOldProcess(oldPid))
-                    return new(false, UpdateTransactionState.RolledBack,
+                    return new(false, UpdateTransactionState.OldProcessStillRunning,
                         "the previous Project Prime process did not exit in time");
                 if (!File.Exists(journalPath))
                     ClearStaleBackup(updateDirectory);
@@ -384,11 +394,22 @@ public sealed class DesktopUpdateTransaction
     {
         string installation = Path.GetFullPath(installationDirectory);
         string updateDirectory = Path.Combine(installation, ".update");
+        string journalPath = Path.Combine(updateDirectory, "transaction.json");
+        // Ordinary startup must remain read-only when there is no transaction:
+        // do not create .update or acquire a lock merely to discover that it is
+        // absent. Once a journal exists, the lock/recheck below makes recovery
+        // race-safe with a staged/applying process.
+        if (!File.Exists(journalPath))
+            return new(true, UpdateTransactionState.Committed, null);
         UpdateInstallationLock? installationLock = UpdateInstallationLock.TryAcquire(updateDirectory);
         if (installationLock == null)
             return new(false, UpdateTransactionState.RecoveryRequired, "update lock is held");
         using (installationLock)
+        {
+            if (!File.Exists(journalPath))
+                return new(true, UpdateTransactionState.Committed, null);
             return RecoverLocked(installation);
+        }
     }
 
     /// <summary>
@@ -437,6 +458,30 @@ public sealed class DesktopUpdateTransaction
                 return new(false, UpdateTransactionState.RecoveryRequired, ex.Message);
             }
         }
+    }
+
+    /// <summary>Verify the installed release before a clean rollback restart.</summary>
+    internal static bool VerifyInstalledRelease(string installationDirectory, string version)
+    {
+        try
+        {
+            if (!UpdateManifestValidator.IsExactVersion(version)) return false;
+            string installation = Path.GetFullPath(installationDirectory);
+            string metadata = UpdateFileSystem.FullPathUnder(installation, ReleaseFilesName);
+            if (!File.Exists(metadata) || UpdateFileSystem.IsLinkOrReparse(metadata)) return false;
+            ReleaseFilesManifest manifest = ReleaseFilesJson.Parse(File.ReadAllBytes(metadata));
+            if (!String.Equals(manifest.Version, version, StringComparison.Ordinal)) return false;
+            foreach (ReleaseFile file in manifest.Files)
+            {
+                string path = UpdateFileSystem.FullPathUnder(installation, file.Path);
+                if (!File.Exists(path) || UpdateFileSystem.IsLinkOrReparse(path)
+                    || !String.Equals(UpdateFileSystem.Sha256(path), file.Sha256,
+                        StringComparison.OrdinalIgnoreCase))
+                    return false;
+            }
+            return true;
+        }
+        catch (Exception) { return false; }
     }
 
     private ReleaseFilesManifest LoadStagedManifest()
@@ -521,11 +566,11 @@ public sealed class DesktopUpdateTransaction
                 catch (IOException) when (attempt < 20) { Thread.Sleep(100); }
                 catch (UnauthorizedAccessException) when (attempt < 20) { Thread.Sleep(100); }
             }
-            if (!OperatingSystem.IsWindows())
-            {
-                try { File.SetUnixFileMode(destination, File.GetUnixFileMode(source)); }
-                catch (Exception) { }
-            }
+            // CopyDurably carries the source mode onto the temporary file
+            // before the rename. Keep the explicit mode application for file
+            // systems that normalize a mode during Move, but fail closed if
+            // executable permissions cannot be restored.
+            UpdateFileSystem.PreserveUnixMode(source, destination);
         }
         finally
         {
@@ -652,7 +697,10 @@ public sealed class DesktopUpdateTransaction
         if (journal == null || journal.SchemaVersion != JournalSchemaVersion
             || !UpdateManifestValidator.IsExactVersion(journal.FromVersion)
             || !UpdateManifestValidator.IsExactVersion(journal.ToVersion)
-            || !Enum.IsDefined(journal.State)
+            || journal.State is not (UpdateTransactionState.Applying
+                or UpdateTransactionState.Committed
+                or UpdateTransactionState.RolledBack
+                or UpdateTransactionState.RecoveryRequired)
             || String.IsNullOrWhiteSpace(journal.StagedDirectory)
             || !Path.IsPathFullyQualified(journal.StagedDirectory)
             || journal.Files == null || journal.Files.Count > ReleaseFilesManifestValidator.MaxFiles)
@@ -705,6 +753,9 @@ public sealed class DesktopUpdateTransaction
         TryDeleteTree(Path.Combine(updateDirectory, "backup"));
         TryDeleteTree(Path.Combine(updateDirectory, "package"));
         TryDeleteTree(Path.Combine(updateDirectory, "staged"));
+        _ = UpdateFileSystem.TryDeleteFile(Path.Combine(updateDirectory, "staged-update.json"));
+        _ = UpdateFileSystem.TryDeleteFile(Path.Combine(updateDirectory, "launch.claim"));
+        _ = UpdateFileSystem.TryDeleteFile(Path.Combine(updateDirectory, "launch.pending"));
         try { if (File.Exists(journalPath)) File.Delete(journalPath); }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }

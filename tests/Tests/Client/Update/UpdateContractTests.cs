@@ -2,7 +2,9 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Formats.Tar;
 using System.IO;
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -64,6 +66,56 @@ public sealed class UpdateContractTests
 
         UpdateCheckResult.Failed failed = Assert.IsType<UpdateCheckResult.Failed>(result);
         Assert.Contains("no package for linux-x64", failed.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ManifestClientPinsPackageToTheSignedReleaseTag()
+    {
+        byte[] manifest = UpdateManifestJson.Serialize(Manifest("1.1.0"));
+        using ECDsa signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var feed = new FeedHandler(manifest, signer.SignData(
+            manifest, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence));
+        var client = new UpdateManifestClient(feed,
+            new UpdateTrust(signer.ExportSubjectPublicKeyInfo()),
+            installedVersion: new Version(1, 0, 0), rid: "win-x64");
+
+        UpdateCheckResult.Available available = Assert.IsType<UpdateCheckResult.Available>(
+            await client.CheckAsync());
+
+        Assert.Contains("/releases/download/v1.1.0/", available.PackageUri.AbsolutePath,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("/releases/latest/", available.PackageUri.AbsolutePath,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ManifestAndPackageTransportTimeOutWithoutLeavingPartials()
+    {
+        using ECDsa signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var stalled = new StallingHandler();
+        var client = new UpdateManifestClient(stalled,
+            new UpdateTrust(signer.ExportSubjectPublicKeyInfo()),
+            installedVersion: new Version(1, 0, 0), rid: "win-x64",
+            operationTimeout: TimeSpan.FromMilliseconds(50));
+        UpdateCheckResult.Failed check = Assert.IsType<UpdateCheckResult.Failed>(
+            await client.CheckAsync());
+        Assert.Contains("timed out", check.Message, StringComparison.Ordinal);
+
+        string root = Directory.CreateTempSubdirectory("prime-download-timeout-").FullName;
+        try
+        {
+            string destination = Path.Combine(root, "package.zip");
+            var package = new UpdatePackage("win-x64", "package.zip", 3,
+                new string('a', 64));
+            DownloadResult download = await UpdateDownload.DownloadAsync(package,
+                new Uri("https://github.com/AntiNotAnti/Project-Prime-Releases/package.zip"),
+                destination, handler: stalled, operationTimeout: TimeSpan.FromMilliseconds(50));
+            Assert.False(download.Success);
+            Assert.Equal("timed out", download.Error);
+            Assert.False(File.Exists(destination));
+            Assert.False(File.Exists(destination + ".part"));
+        }
+        finally { Directory.Delete(root, recursive: true); }
     }
 
     [Fact]
@@ -252,18 +304,21 @@ public sealed class UpdateContractTests
             WriteReleaseFiles(root, "1.0.0", ("ProjectPrime", "#!/bin/sh\nprintf '1.0.0'\n"));
             File.WriteAllText(Path.Combine(staged, "ProjectPrime"),
                 "#!/bin/sh\nprintf '1.1.0'\n");
+            File.SetUnixFileMode(Path.Combine(staged, "ProjectPrime"),
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+                | UnixFileMode.GroupRead | UnixFileMode.GroupExecute
+                | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
             WriteReleaseFiles(staged, "1.1.0", ("ProjectPrime", "#!/bin/sh\nprintf '1.1.0'\n"));
 
             UpdateTransactionResult result = new DesktopUpdateTransaction(root, staged)
                 .Apply("1.0.0", "1.1.0");
 
             Assert.True(result.Success, result.Error);
-            var start = new ProcessStartInfo("/bin/sh")
+            var start = new ProcessStartInfo(Path.Combine(root, "ProjectPrime"))
             {
                 RedirectStandardOutput = true,
                 UseShellExecute = false
             };
-            start.ArgumentList.Add(Path.Combine(root, "ProjectPrime"));
             using Process process = Process.Start(start)!;
             string reportedVersion = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
@@ -303,10 +358,195 @@ public sealed class UpdateContractTests
             UpdateTransactionResult timedOut = new DesktopUpdateTransaction(root, staged,
                 waitForProcess: (_, _) => false).Apply("1.0.0", "1.1.0", oldPid: 7);
             Assert.False(timedOut.Success);
+            Assert.Equal(UpdateTransactionState.OldProcessStillRunning, timedOut.State);
             Assert.Equal("v1", File.ReadAllText(Path.Combine(root, "ProjectPrime")));
             Assert.True(File.Exists(Path.Combine(root, ".update", "backup", "must-remain")));
         }
         finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void FailedUpdateRestoresExecutableModeAndCanLaunchOldBuild()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        string root = Directory.CreateTempSubdirectory("prime-update-mode-").FullName;
+        try
+        {
+            const string oldScript = "#!/bin/sh\nprintf 'old'\n";
+            const string newScript = "#!/bin/sh\nprintf 'new'\n";
+            string staged = Path.Combine(root, "staged");
+            Directory.CreateDirectory(staged);
+            string installedBinary = Path.Combine(root, "ProjectPrime");
+            string stagedBinary = Path.Combine(staged, "ProjectPrime");
+            File.WriteAllText(installedBinary, oldScript);
+            File.WriteAllText(stagedBinary, newScript);
+            File.WriteAllText(Path.Combine(staged, "new.dll"), "new");
+            UnixFileMode executable = UnixFileMode.UserRead | UnixFileMode.UserWrite
+                | UnixFileMode.UserExecute | UnixFileMode.GroupRead
+                | UnixFileMode.GroupExecute | UnixFileMode.OtherRead
+                | UnixFileMode.OtherExecute;
+            File.SetUnixFileMode(installedBinary, executable);
+            File.SetUnixFileMode(stagedBinary, executable);
+            WriteReleaseFiles(root, "1.0.0", ("ProjectPrime", oldScript));
+            WriteReleaseFiles(staged, "1.1.0", ("ProjectPrime", newScript), ("new.dll", "new"));
+
+            UpdateTransactionResult result = new DesktopUpdateTransaction(root, staged,
+                failureInjector: (_, destination) => destination.EndsWith("new.dll",
+                    StringComparison.Ordinal) ? new IOException("injected") : null)
+                .Apply("1.0.0", "1.1.0");
+
+            Assert.False(result.Success);
+            Assert.Equal(UpdateTransactionState.RolledBack, result.State);
+            Assert.True((File.GetUnixFileMode(installedBinary) & UnixFileMode.UserExecute) != 0);
+            using Process process = Process.Start(new ProcessStartInfo(installedBinary)
+            {
+                RedirectStandardOutput = true,
+                UseShellExecute = false
+            })!;
+            Assert.Equal("old", process.StandardOutput.ReadToEnd());
+            process.WaitForExit();
+            Assert.Equal(0, process.ExitCode);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void RecoveryWithoutJournalDoesNotCreateUpdateDirectory()
+    {
+        string root = Directory.CreateTempSubdirectory("prime-readonly-recovery-").FullName;
+        UnixFileMode? originalMode = null;
+        try
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                originalMode = File.GetUnixFileMode(root);
+                File.SetUnixFileMode(root, originalMode.Value
+                    & ~(UnixFileMode.UserWrite | UnixFileMode.GroupWrite
+                        | UnixFileMode.OtherWrite));
+            }
+            UpdateTransactionResult result = DesktopUpdateTransaction.Recover(root);
+            Assert.True(result.Success, result.Error);
+            Assert.Equal(UpdateTransactionState.Committed, result.State);
+            Assert.False(Directory.Exists(Path.Combine(root, ".update")));
+        }
+        finally
+        {
+            if (!OperatingSystem.IsWindows() && originalMode.HasValue)
+                File.SetUnixFileMode(root, originalMode.Value);
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ApplyRestartsVerifiedOldLauncherAfterRollback()
+    {
+        string root = Directory.CreateTempSubdirectory("prime-update-restart-").FullName;
+        Process placeholder = Process.GetCurrentProcess();
+        try
+        {
+            string staged = Path.Combine(root, "staged");
+            Directory.CreateDirectory(staged);
+            string binaryName = DesktopUpdate.BinaryName();
+            File.WriteAllText(Path.Combine(root, binaryName), "old");
+            File.WriteAllText(Path.Combine(staged, binaryName), "new");
+            File.WriteAllText(Path.Combine(staged, "new.dll"), "new dependency");
+            WriteReleaseFiles(root, "1.0.0", (binaryName, "old"));
+            WriteReleaseFiles(staged, "1.1.0", (binaryName, "new"),
+                ("new.dll", "new dependency"));
+            ProcessStartInfo? restarted = null;
+            DesktopUpdate.ProcessStarterForTests = start =>
+            {
+                restarted = start;
+                return placeholder;
+            };
+
+            int exitCode = DesktopUpdate.ApplyFromSource(root, staged, 0, "1.0.0",
+                failureInjector: (_, destination) => destination.EndsWith("new.dll",
+                    StringComparison.Ordinal) ? new IOException("injected") : null);
+
+            Assert.Equal(0, exitCode);
+            Assert.NotNull(restarted);
+            Assert.Equal(Path.Combine(root, binaryName), restarted.FileName);
+            Assert.Equal("old", File.ReadAllText(Path.Combine(root, binaryName)));
+            Assert.True(DesktopUpdateTransaction.VerifyInstalledRelease(root, "1.0.0"));
+        }
+        finally
+        {
+            DesktopUpdate.ProcessStarterForTests = null;
+            placeholder.Dispose();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task SignedFeedDownloadsStagesAppliesAndRestartsNewRelease()
+    {
+        string root = Directory.CreateTempSubdirectory("prime-update-full-flow-").FullName;
+        Process placeholder = Process.GetCurrentProcess();
+        try
+        {
+            string binaryName = DesktopUpdate.BinaryName();
+            File.WriteAllText(Path.Combine(root, binaryName), "v1");
+            File.WriteAllText(Path.Combine(root, "paths.txt"), "player path");
+            WriteReleaseFiles(root, "1.0.0", (binaryName, "v1"));
+
+            byte[] releaseFiles = ReleaseFilesJson.Serialize(new ReleaseFilesManifest(1,
+                "1.1.0", [new ReleaseFile(binaryName, Hash("v2"))]));
+            byte[] archive = CreateDesktopArchive(binaryName, releaseFiles);
+            string rid = RuntimePlatform.Rid();
+            string suffix = OperatingSystem.IsWindows() ? ".zip" : ".tar.gz";
+            var package = new UpdatePackage(rid,
+                $"ProjectPrime-v1.1.0-{rid}{suffix}", archive.Length,
+                Convert.ToHexString(SHA256.HashData(archive)).ToLowerInvariant());
+            var manifest = new UpdateManifest(1, "stable", "1.1.0",
+                new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), [package]);
+            byte[] manifestBytes = UpdateManifestJson.Serialize(manifest);
+            using ECDsa signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var feed = new FeedHandler(manifestBytes, signer.SignData(manifestBytes,
+                HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence));
+            var client = new UpdateManifestClient(feed,
+                new UpdateTrust(signer.ExportSubjectPublicKeyInfo()),
+                installedVersion: new Version(1, 0, 0), rid: rid);
+            UpdateCheckResult.Available available = Assert.IsType<UpdateCheckResult.Available>(
+                await client.CheckAsync());
+            UpdateInfo update = UpdateCheck.ToInfo(available) with
+            {
+                AllowLocalTestInstall = true
+            };
+
+            Assert.True(await DesktopUpdate.StageAtAsync(update, root,
+                new DownloadHandler(archive)), DesktopUpdate.LastError);
+            using JsonDocument claim = JsonDocument.Parse(File.ReadAllBytes(
+                Path.Combine(root, ".update", "staged-update.json")));
+            string staged = claim.RootElement.GetProperty("StagedDirectory").GetString()!;
+            string transactionId = claim.RootElement.GetProperty("TransactionId").GetString()!;
+            Assert.False(await DesktopUpdate.StageAtAsync(update, root,
+                new DownloadHandler(archive)));
+            Assert.Contains("already staged", DesktopUpdate.LastError, StringComparison.Ordinal);
+            var starts = new List<ProcessStartInfo>();
+            DesktopUpdate.ProcessStarterForTests = start =>
+            {
+                starts.Add(start);
+                return placeholder;
+            };
+
+            Assert.True(DesktopUpdate.LaunchAt(root), DesktopUpdate.LastError);
+            Assert.Single(starts);
+            Assert.Equal(staged, starts[0].WorkingDirectory);
+            Assert.Equal(0, DesktopUpdate.ApplyFromSource(root, staged, 0, "1.0.0",
+                transactionId));
+            Assert.Equal("v2", File.ReadAllText(Path.Combine(root, binaryName)));
+            Assert.Equal("player path", File.ReadAllText(Path.Combine(root, "paths.txt")));
+            Assert.Equal(2, starts.Count);
+            Assert.Equal(Path.Combine(root, binaryName), starts[1].FileName);
+            Assert.True(DesktopUpdateTransaction.VerifyInstalledRelease(root, "1.1.0"));
+        }
+        finally
+        {
+            DesktopUpdate.ProcessStarterForTests = null;
+            placeholder.Dispose();
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -403,6 +643,37 @@ public sealed class UpdateContractTests
         Assert.True(await coordinator.DownloadAsync());
     }
 
+    [Fact]
+    public async Task CoordinatorBlocksForcedRecheckDuringStagingAndDisabledInstall()
+    {
+        byte[] manifest = UpdateManifestJson.Serialize(Manifest("1.1.0"));
+        using ECDsa signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var feed = new FeedHandler(manifest, signer.SignData(
+            manifest, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence));
+        var client = new UpdateManifestClient(feed,
+            new UpdateTrust(signer.ExportSubjectPublicKeyInfo()),
+            installedVersion: new Version(1, 0, 0), rid: "win-x64");
+        var installer = new BlockingInstaller();
+        var coordinator = new UpdateCoordinator(client, installer,
+            installedVersion: new Version(1, 0, 0));
+        Assert.IsType<UpdateCheckResult.Available>(await coordinator.CheckAsync());
+
+        Task<bool> download = coordinator.DownloadAsync();
+        await installer.PrepareStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        UpdateCheckResult.Failed forced = Assert.IsType<UpdateCheckResult.Failed>(
+            await coordinator.CheckAsync(force: true));
+        Assert.Contains("already in progress", forced.Message, StringComparison.Ordinal);
+        Assert.Equal(2, feed.Requests);
+        installer.AllowPrepare.TrySetResult(true);
+        Assert.True(await download);
+
+        coordinator.Disabled = true;
+        coordinator.SetSafeToRestart(true);
+        Assert.False(await coordinator.InstallIfReadyAsync());
+        Assert.Equal(0, installer.InstallCalls);
+        Assert.Equal(UpdateState.Staged, coordinator.Status.State);
+    }
+
     private static UpdateManifest Manifest(string version = "1.0.0") => new(
         1, "stable", version, new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
         [new UpdatePackage("win-x64", "ProjectPrime-v" + version + "-win-x64.zip", 3,
@@ -417,6 +688,42 @@ public sealed class UpdateContractTests
                 Encoding.UTF8.GetBytes(contents))).ToLowerInvariant()));
         File.WriteAllBytes(Path.Combine(root, "release-files.json"),
             ReleaseFilesJson.Serialize(new ReleaseFilesManifest(1, version, entries)));
+    }
+
+    private static byte[] CreateDesktopArchive(string binaryName, byte[] releaseFiles)
+    {
+        using var bytes = new MemoryStream();
+        if (OperatingSystem.IsWindows())
+        {
+            using (var zip = new ZipArchive(bytes, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                using (Stream binary = zip.CreateEntry(binaryName).Open())
+                    binary.Write(Encoding.UTF8.GetBytes("v2"));
+                using Stream metadata = zip.CreateEntry(
+                    DesktopUpdateTransaction.ReleaseFilesName).Open();
+                metadata.Write(releaseFiles);
+            }
+        }
+        else
+        {
+            using (var compressed = new GZipStream(bytes, CompressionLevel.SmallestSize,
+                leaveOpen: true))
+            using (var tar = new TarWriter(compressed, TarEntryFormat.Pax, leaveOpen: true))
+            {
+                using var binaryData = new MemoryStream(Encoding.UTF8.GetBytes("v2"));
+                tar.WriteEntry(new PaxTarEntry(TarEntryType.RegularFile, binaryName)
+                {
+                    DataStream = binaryData
+                });
+                using var metadataData = new MemoryStream(releaseFiles);
+                tar.WriteEntry(new PaxTarEntry(TarEntryType.RegularFile,
+                    DesktopUpdateTransaction.ReleaseFilesName)
+                {
+                    DataStream = metadataData
+                });
+            }
+        }
+        return bytes.ToArray();
     }
 
     private static string Hash(string contents) => Convert.ToHexString(SHA256.HashData(
@@ -481,6 +788,16 @@ public sealed class UpdateContractTests
         }
     }
 
+    private sealed class StallingHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            throw new InvalidOperationException("unreachable");
+        }
+    }
+
     private sealed class FakeInstaller : IUpdateInstaller
     {
         public bool Allowed => true;
@@ -501,5 +818,34 @@ public sealed class UpdateContractTests
             IProgress<UpdateProgress>? progress = null,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new UpdatePrepareResult(true, null));
+    }
+
+    private sealed class BlockingInstaller : IUpdateInstaller
+    {
+        public TaskCompletionSource<bool> PrepareStarted { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> AllowPrepare { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        public int InstallCalls { get; private set; }
+        public bool Allowed => true;
+        public bool ExitAfterInstall => true;
+        public Action<bool, string>? Finished { get; set; }
+        public bool Prepare(UpdateInfo update, Action<float>? progress, out string error) =>
+            throw new NotSupportedException();
+        public bool Install(out string error)
+        {
+            InstallCalls++;
+            error = "";
+            return true;
+        }
+        public bool RequestPermission() => true;
+        public async Task<UpdatePrepareResult> PrepareAsync(UpdateInfo update,
+            IProgress<UpdateProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            PrepareStarted.TrySetResult(true);
+            await AllowPrepare.Task.WaitAsync(cancellationToken);
+            return new UpdatePrepareResult(true, null);
+        }
     }
 }

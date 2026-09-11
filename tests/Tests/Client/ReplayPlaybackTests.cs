@@ -46,6 +46,22 @@ namespace MphRead.Tests
         }
 
         [Fact]
+        public void HistoricalProtocolEightMatchRulesRemainReplayable()
+        {
+            byte[] record = HistoricalProtocolEightMatch(5);
+            var state = new ModernReplayState();
+            state.Reset(8);
+
+            Assert.True(state.Receive(record));
+            Assert.Equal(5u, state.Match.MatchId);
+            Assert.Equal("MP1 SANCTORUS", state.Match.Room);
+            Assert.Equal(KillcamPolicy.Disabled, state.Match.Rules.KillcamPolicy);
+            Assert.True(ReplayTimelineTickReader.TryRead(record, 0,
+                out uint tick, protocol: 8));
+            Assert.Equal(120u, tick);
+        }
+
+        [Fact]
         public void LegacyPlaybackIgnoresConnectionControlAndRewindsOpeningSnapshot()
         {
             string path = TemporaryFile();
@@ -458,6 +474,25 @@ namespace MphRead.Tests
             }
             var body = new byte[MatchTransitionPacket.Size];
             new MatchTransitionPacket(match, 120, GameMode.Battle, "MP1 SANCTORUS").Write(body);
+            return Record(ReplayRecordKind.Match, body);
+        }
+
+        private static byte[] HistoricalProtocolEightMatch(uint match)
+        {
+            byte[] body = new byte[8 + MatchRulesWire.Size];
+            BinaryPrimitives.WriteUInt32LittleEndian(body, match);
+            BinaryPrimitives.WriteUInt32LittleEndian(body.AsSpan(4), 120);
+            Span<byte> rules = body.AsSpan(8);
+            rules[0] = (byte)GameMode.Battle;
+            rules[1] = 4;
+            rules[3] = 1;
+            BinaryPrimitives.WriteInt32LittleEndian(rules[4..], 7);
+            BinaryPrimitives.WriteInt32LittleEndian(rules[8..], 0);
+            BinaryPrimitives.WriteInt64LittleEndian(rules[12..], -1);
+            BinaryPrimitives.WriteInt64LittleEndian(rules[20..], -1);
+            NetText.Write(rules.Slice(28, MatchStatePacket.MaxNameBytes),
+                "MP1 SANCTORUS");
+            rules[68] = (byte)SpawnPolicy.Classic;
             return Record(ReplayRecordKind.Match, body);
         }
         private static byte[] HistoricalSnapshot(uint match, uint sequence, int points)

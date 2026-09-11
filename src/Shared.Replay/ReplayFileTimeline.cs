@@ -46,7 +46,8 @@ public sealed class ReplayFileTimeline : IReplayTimeline
         uint tick = 0;
         while (reader.ReadNext() is ReplayRecord raw)
         {
-            if (!ReplayTimelineTickReader.TryRead(raw.Data, tick, out uint recordTick)) return null;
+            if (!ReplayTimelineTickReader.TryRead(raw.Data, tick,
+                    out uint recordTick, reader.ProtocolVersion)) return null;
             tick = recordTick;
             ReplayTimelineRecord record;
             try { record = new(raw.Frame, tick, raw.Data); }
@@ -66,7 +67,9 @@ public sealed class ReplayFileTimeline : IReplayTimeline
                 uint restoreTick = tick;
                 for (int i = 0; i < rawRestore.Length; i++)
                 {
-                    if (!ReplayTimelineTickReader.TryRead(rawRestore[i].Data, restoreTick, out uint recordTick)) return null;
+                    if (!ReplayTimelineTickReader.TryRead(rawRestore[i].Data,
+                            restoreTick, out uint recordTick,
+                            reader.ProtocolVersion)) return null;
                     restoreTick = recordTick;
                     try { checkpoint[i] = new(entry.Frame, recordTick, rawRestore[i].Data); }
                     catch (ArgumentException) { return null; }
@@ -87,6 +90,22 @@ public sealed class ReplayFileTimeline : IReplayTimeline
             if (_records[i].ServerTick == serverTick)
             { recordingFrame = _records[i].RecordingFrame; return true; }
         recordingFrame = 0; return false;
+    }
+
+    public bool TryMapKillToRecordingFrame(in KillEvent kill,
+        out uint recordingFrame)
+    {
+        for (int i = 0; i < _records.Length; i++)
+        {
+            ReplayTimelineRecord record = _records[i];
+            if (ReplayTimelineEventReader.IsExactKill(record, kill))
+            {
+                recordingFrame = record.RecordingFrame;
+                return true;
+            }
+        }
+        recordingFrame = 0;
+        return false;
     }
 
     public bool TryGetRestorePoint(uint recordingFrame, out ReplayRestorePoint? restorePoint)

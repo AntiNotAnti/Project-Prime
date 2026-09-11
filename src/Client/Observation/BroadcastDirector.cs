@@ -21,6 +21,8 @@ public sealed class BroadcastDirector
     private readonly uint[] _recentObjectiveTicks = new uint[16];
     private int _recentObjectiveHead;
     private bool _hasTick;
+    private bool _hasMatch;
+    private uint _matchId;
     private uint _lastTick, _lastEvaluationTick, _shotStartedTick;
     private bool _manualLock;
 
@@ -34,6 +36,8 @@ public sealed class BroadcastDirector
         Array.Clear(_recentObjectiveTicks);
         _recentObjectiveHead = 0;
         _hasTick = false;
+        _hasMatch = false;
+        _matchId = 0;
         _lastTick = _lastEvaluationTick = _shotStartedTick = 0;
         _manualLock = false;
         Focus = BroadcastFocus.None;
@@ -42,6 +46,7 @@ public sealed class BroadcastDirector
     public bool Lock(BroadcastFocus focus, ObservationContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
+        BeginContext(context);
         if (!context.IsValidFocus(focus)) return false;
         SwitchTo(focus, context.DeliveredTick);
         _manualLock = true;
@@ -59,8 +64,14 @@ public sealed class BroadcastDirector
     public BroadcastFocus Update(ObservationContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
+        BeginContext(context);
         uint tick = context.DeliveredTick;
-        if (_hasTick && Sequence32.IsNewer(_lastTick, tick)) Reset();
+        if (_hasTick && Sequence32.IsNewer(_lastTick, tick))
+        {
+            Reset();
+            _hasMatch = true;
+            _matchId = context.MatchId;
+        }
         _lastTick = tick;
 
         if (_manualLock)
@@ -100,6 +111,13 @@ public sealed class BroadcastDirector
             || eventOverride || best.Score >= current.Score + SwitchThreshold))
             SwitchTo(best.Focus, tick);
         return Focus;
+    }
+
+    private void BeginContext(ObservationContext context)
+    {
+        if (_hasMatch && _matchId != context.MatchId) Reset();
+        _hasMatch = true;
+        _matchId = context.MatchId;
     }
 
     internal int Interest(ObservationContext context, BroadcastFocus focus)

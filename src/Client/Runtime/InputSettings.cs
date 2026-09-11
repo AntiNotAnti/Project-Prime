@@ -462,6 +462,41 @@ namespace MphRead.Mods
         private static ClientPlayerBindings? _current;
 
         /// <summary>
+        /// Exact in-memory state captured before a Settings view exposes the
+        /// controls that edit bindings and presets eagerly. It uses the complete
+        /// controls.txt schema without touching the filesystem.
+        /// </summary>
+        internal sealed class Snapshot
+        {
+            private readonly string[] _lines;
+            private readonly Input.GamepadResponseCurvePreset _responseCurve;
+            private readonly float _lookExponent;
+
+            internal Snapshot(IEnumerable<string> lines,
+                Input.GamepadResponseCurvePreset responseCurve, float lookExponent)
+            {
+                _lines = lines.ToArray();
+                _responseCurve = responseCurve;
+                _lookExponent = lookExponent;
+            }
+
+            internal void Restore()
+            {
+                LoadLines(_lines);
+                // GamepadLookExponent and a named curve are independently
+                // persisted for compatibility. Loading a named curve normally
+                // resolves its exponent; rollback must restore the exact
+                // in-memory pair that existed when Settings opened.
+                _gamepadLookExponent = _lookExponent;
+                _gamepadResponseCurve = _responseCurve;
+            }
+        }
+
+        internal static Snapshot CaptureSnapshot()
+            => new(GetStateLines(roundTrip: true), _gamepadResponseCurve,
+                _gamepadLookExponent);
+
+        /// <summary>
         /// The bindings every player is created with. The settings screen
         /// edits this set; <see cref="Apply"/> copies it onto each set upstream
         /// creates, and <see cref="ApplyToPlayers"/> onto the ones that already
@@ -1025,12 +1060,19 @@ namespace MphRead.Mods
         /// every save writes the modern controller values.
         /// </summary>
         public static IReadOnlyList<string> GetSaveLines()
+            => GetStateLines(roundTrip: false);
+
+        private static IReadOnlyList<string> GetStateLines(bool roundTrip)
         {
+            string Float(float value) => value.ToString(
+                roundTrip ? "R" : "0.###", CultureInfo.InvariantCulture);
+            string LegacyFloat(float value) => value.ToString(
+                roundTrip ? "R" : null, CultureInfo.InvariantCulture);
             var lines = new List<string>
             {
                     $"# {Branding.Name} controls. Delete a line to go back to the default.",
                     "input_schema=4",
-                    $"sensitivity={MouseSensitivity.ToString("0.###", CultureInfo.InvariantCulture)}",
+                    $"sensitivity={Float(MouseSensitivity)}",
                     $"invert_y={InvertMouseY.ToString().ToLowerInvariant()}",
                     $"invert_x={InvertMouseX.ToString().ToLowerInvariant()}",
                     $"scroll_all_weapons={ScrollAllWeapons.ToString().ToLowerInvariant()}",
@@ -1039,40 +1081,40 @@ namespace MphRead.Mods
                     $"morph_ball_swipe_boost={MorphBallSwipeBoost.ToString().ToLowerInvariant()}",
                     $"chat_key={(ChatKey == Keys.Unknown ? "none" : ChatKey.ToString())}",
                     $"controller_preset={ControllerPreset}",
-                    "gamepad_move_deadzone=" + GamepadMoveDeadZone.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_look_deadzone=" + GamepadLookDeadZone.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_outer_deadzone=" + GamepadOuterDeadZone.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_move_activate=" + GamepadMoveActivateThreshold.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_move_release=" + GamepadMoveReleaseThreshold.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_look_exponent=" + GamepadLookExponent.ToString("0.###", CultureInfo.InvariantCulture),
+                    "gamepad_move_deadzone=" + Float(GamepadMoveDeadZone),
+                    "gamepad_look_deadzone=" + Float(GamepadLookDeadZone),
+                    "gamepad_outer_deadzone=" + Float(GamepadOuterDeadZone),
+                    "gamepad_move_activate=" + Float(GamepadMoveActivateThreshold),
+                    "gamepad_move_release=" + Float(GamepadMoveReleaseThreshold),
+                    "gamepad_look_exponent=" + Float(GamepadLookExponent),
                     $"gamepad_response_curve={GamepadResponseCurve}",
-                    "gamepad_yaw_rate=" + GamepadYawRate.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_pitch_rate=" + GamepadPitchRate.ToString("0.###", CultureInfo.InvariantCulture),
+                    "gamepad_yaw_rate=" + Float(GamepadYawRate),
+                    "gamepad_pitch_rate=" + Float(GamepadPitchRate),
                     $"gamepad_turn_acceleration={GamepadTurnAcceleration}",
-                    "gamepad_outer_boost_start=" + GamepadOuterBoostStart.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_outer_yaw_boost=" + GamepadOuterYawBoost.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_outer_pitch_boost=" + GamepadOuterPitchBoost.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_boost_delay=" + GamepadBoostDelaySeconds.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_boost_ramp=" + GamepadBoostRampSeconds.ToString("0.###", CultureInfo.InvariantCulture),
+                    "gamepad_outer_boost_start=" + Float(GamepadOuterBoostStart),
+                    "gamepad_outer_yaw_boost=" + Float(GamepadOuterYawBoost),
+                    "gamepad_outer_pitch_boost=" + Float(GamepadOuterPitchBoost),
+                    "gamepad_boost_delay=" + Float(GamepadBoostDelaySeconds),
+                    "gamepad_boost_ramp=" + Float(GamepadBoostRampSeconds),
                     $"gamepad_outer_boost_enabled={GamepadOuterBoostEnabled.ToString().ToLowerInvariant()}",
-                    "gamepad_trigger_press=" + GamepadTriggerPressThreshold.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_trigger_release=" + GamepadTriggerReleaseThreshold.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_horizontal_sensitivity=" + GamepadHorizontalSensitivity.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_vertical_sensitivity=" + GamepadVerticalSensitivity.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_zoom_multiplier=" + GamepadZoomMultiplier.ToString("0.###", CultureInfo.InvariantCulture),
+                    "gamepad_trigger_press=" + Float(GamepadTriggerPressThreshold),
+                    "gamepad_trigger_release=" + Float(GamepadTriggerReleaseThreshold),
+                    "gamepad_horizontal_sensitivity=" + Float(GamepadHorizontalSensitivity),
+                    "gamepad_vertical_sensitivity=" + Float(GamepadVerticalSensitivity),
+                    "gamepad_zoom_multiplier=" + Float(GamepadZoomMultiplier),
                     $"gamepad_aim_assist_enabled={GamepadAimAssistEnabled.ToString().ToLowerInvariant()}",
-                    "gamepad_aim_assist_strength=" + GamepadAimAssistStrength.ToString("0.###", CultureInfo.InvariantCulture),
+                    "gamepad_aim_assist_strength=" + Float(GamepadAimAssistStrength),
                     $"gamepad_gyro_enabled={GamepadGyroEnabled.ToString().ToLowerInvariant()}",
                     $"gamepad_gyro_mode={GamepadGyroMode}",
                     $"gamepad_gyro_activation={GamepadGyroActivation}",
-                    "gamepad_gyro_sensitivity=" + GamepadGyroSensitivity.ToString("0.###", CultureInfo.InvariantCulture),
+                    "gamepad_gyro_sensitivity=" + Float(GamepadGyroSensitivity),
                     $"gamepad_gyro_invert_x={GamepadGyroInvertX.ToString().ToLowerInvariant()}",
                     $"gamepad_gyro_invert_y={GamepadGyroInvertY.ToString().ToLowerInvariant()}",
                     $"gamepad_haptics_enabled={GamepadHapticsEnabled.ToString().ToLowerInvariant()}",
-                    "gamepad_haptics_strength=" + GamepadHapticsStrength.ToString("0.###", CultureInfo.InvariantCulture),
+                    "gamepad_haptics_strength=" + Float(GamepadHapticsStrength),
                     $"input_balance_telemetry={InputBalanceTelemetryEnabled.ToString().ToLowerInvariant()}",
                     $"stylus_aiming={StylusAimingEnabled.ToString().ToLowerInvariant()}",
-                    "stylus_sensitivity=" + StylusSensitivity.ToString("0.###", CultureInfo.InvariantCulture),
+                    "stylus_sensitivity=" + Float(StylusSensitivity),
                     $"stylus_invert_y={StylusInvertY.ToString().ToLowerInvariant()}",
                     $"stylus_primary={StylusPrimaryAction}",
                     $"stylus_secondary={StylusSecondaryAction}",
@@ -1080,9 +1122,9 @@ namespace MphRead.Mods
                     $"stylus_double_tap_jump={StylusDoubleTapJump.ToString().ToLowerInvariant()}",
                     $"stylus_flick_boost={StylusFlickBoost.ToString().ToLowerInvariant()}",
                     $"stylus_pressure_to_fire={StylusPressureToFire.ToString().ToLowerInvariant()}",
-                    "stylus_pressure_threshold=" + StylusPressureThreshold.ToString("0.###", CultureInfo.InvariantCulture),
-                    "gamepad_deadzone=" + GamepadDeadZone.ToString(CultureInfo.InvariantCulture),
-                    "gamepad_look=" + GamepadLookSensitivity.ToString(CultureInfo.InvariantCulture),
+                    "stylus_pressure_threshold=" + Float(StylusPressureThreshold),
+                    "gamepad_deadzone=" + LegacyFloat(GamepadDeadZone),
+                    "gamepad_look=" + LegacyFloat(GamepadLookSensitivity),
                     $"gamepad_invert_y={GamepadInvertY.ToString().ToLowerInvariant()}"
             };
             foreach (Input.PadAction action in Input.PadBindings.Actions)

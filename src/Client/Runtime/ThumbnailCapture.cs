@@ -267,6 +267,8 @@ namespace MphRead.Mods
             try
             {
                 ThumbnailMode.Enter();
+                MapGen.MapPreparation.CompileAndMountRoomAsync(roomKey, "thumbnail",
+                    System.Threading.CancellationToken.None).GetAwaiter().GetResult();
                 // Each capture owns its player roster and fresh random streams.
 
 
@@ -282,6 +284,11 @@ namespace MphRead.Mods
                 Console.WriteLine($"[thumbnails] failed {roomKey}: {ex.Message}");
                 ThumbnailLog.Write($"{roomKey}: threw {ex.GetType().Name}: {ex.Message}");
                 return false;
+            }
+            finally
+            {
+                ContentEnvironment.UnmountMap();
+                ThumbnailMode.Exit();
             }
         }
     }

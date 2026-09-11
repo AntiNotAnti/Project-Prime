@@ -1171,23 +1171,49 @@ namespace MphRead.Entities
         }
 
         private readonly List<LocatorInfo> _locatorInfo = new List<LocatorInfo>(15);
-        public void AddLocatorInfo(Vector3 position, ModelInstance inst, ColorRgb color, float alpha = 1, int team = -1)
+        public void AddLocatorInfo(Vector3 position, ModelInstance inst, ColorRgb color, float alpha = 1,
+            int team = -1, Hud.Radar.RadarContactType? playerContactType = null)
         {
             _locatorInfo.Add(new LocatorInfo(position, inst, color, alpha));
             // This sink receives only contacts admitted by the existing mode
             // policy below. Enhanced drawing never searches additional entities.
-            var type = inst == _playerLocator && team >= 0 && team == _player.TeamIndex
-                ? Hud.Radar.RadarContactType.Teammate
-                : inst == _playerLocator ? Hud.Radar.RadarContactType.Enemy
+            var type = inst == _playerLocator
+                ? playerContactType ?? ClassifyRadarPlayer(_player.TeamIndex, team, isPrime: false)
                 : Hud.Radar.RadarContactType.Objective;
             var objective = inst == _playerLocator ? Hud.Radar.RadarObjective.None
                 : inst == _octolithLocator ? Hud.Radar.RadarObjective.Flag
                 : _player._scene.Match.Rules.Mode is MatchMode.Nodes or MatchMode.TeamNodes ? Hud.Radar.RadarObjective.Node
                 : _player._scene.Match.Rules.Mode is MatchMode.Defender or MatchMode.TeamDefender ? Hud.Radar.RadarObjective.Defender
                 : Hud.Radar.RadarObjective.Base;
-            if (inst == _playerLocator && _player._scene.Match.Rules.Mode == MatchMode.PrimeHunter)
-                type = Hud.Radar.RadarContactType.PrimeHunter;
             _radarFrame.AddApproved(new(type, position, team, objective, alpha));
+        }
+
+        internal static bool TryClassifyRadarPlayer(MatchMode mode, bool radarPlayers,
+            int localSlot, int localTeam, int contactSlot, int contactTeam, bool active, int health,
+            int primeSlot, out Hud.Radar.RadarContactType type)
+        {
+            type = Hud.Radar.RadarContactType.Enemy;
+            if (!radarPlayers || mode is MatchMode.Survival or MatchMode.TeamSurvival
+                || !active || health <= 0 || contactSlot == localSlot)
+            {
+                return false;
+            }
+
+            type = ClassifyRadarPlayer(localTeam, contactTeam,
+                isPrime: mode == MatchMode.PrimeHunter && contactSlot == primeSlot);
+            return true;
+        }
+
+        private static Hud.Radar.RadarContactType ClassifyRadarPlayer(int localTeam, int contactTeam,
+            bool isPrime)
+        {
+            if (isPrime)
+            {
+                return Hud.Radar.RadarContactType.PrimeHunter;
+            }
+            return contactTeam >= 0 && contactTeam == localTeam
+                ? Hud.Radar.RadarContactType.Teammate
+                : Hud.Radar.RadarContactType.Enemy;
         }
 
         public void DrawLocatorIcons()
@@ -1929,6 +1955,7 @@ namespace MphRead.Entities
             _locatorInfo.Clear();
             _radarFrame.Begin(_player.Position, _player.FacingVector, _player._scene.FrameCount);
             ProcessOpponent();
+            ProcessHudRadarPlayers();
             if (_player._scene.Match.Rules.Mode == MatchMode.Survival || _player._scene.Match.Rules.Mode == MatchMode.TeamSurvival)
             {
                 ProcessHudSurvival();
@@ -1952,6 +1979,43 @@ namespace MphRead.Entities
             else if (_player._scene.Match.Rules.Mode == MatchMode.PrimeHunter)
             {
                 ProcessHudPrimeHunter();
+            }
+        }
+
+        private void ProcessHudRadarPlayers()
+        {
+            MatchRuntime match = _player._scene.Match;
+            MatchMode mode = match.Rules.Mode;
+            if (!match.RadarPlayers || mode is MatchMode.Survival or MatchMode.TeamSurvival)
+            {
+                return;
+            }
+
+            int inspected = 0;
+            foreach (PlayerEntity player in _player._scene.GetPlayerEntities())
+            {
+                if (inspected++ == PlayerEntity.SlotCapacity)
+                {
+                    break;
+                }
+                if (!TryClassifyRadarPlayer(mode, match.RadarPlayers,
+                    _player.SlotIndex, _player.TeamIndex, player.SlotIndex, player.TeamIndex,
+                    player.LoadFlags.TestFlag(LoadFlags.Active), player.Health, match.PrimeHunter,
+                    out Hud.Radar.RadarContactType type))
+                {
+                    continue;
+                }
+
+                Vector3 pos = player.Position;
+                if (!player.IsAltForm)
+                {
+                    pos.Y += 0.75f;
+                }
+                ColorRgb color = type == Hud.Radar.RadarContactType.PrimeHunter
+                    ? new ColorRgb(31, 0, 0)
+                    : new ColorRgb(31, 31, 31);
+                AddLocatorInfo(pos, _playerLocator, color, team: player.TeamIndex,
+                    playerContactType: type);
             }
         }
 
@@ -2227,7 +2291,7 @@ namespace MphRead.Entities
                     _hudIsPrimeHunter = false;
                 }
 
-                if (_player._scene.Match.PrimeHunter != -1)
+                if (!_player._scene.Match.RadarPlayers && _player._scene.Match.PrimeHunter != -1)
                 {
                     PlayerEntity primeHunter = _player._scene.Players[_player._scene.Match.PrimeHunter];
                     Vector3 pos = primeHunter.Position;
@@ -2236,7 +2300,8 @@ namespace MphRead.Entities
                         pos.Y += 0.75f;
                     }
 
-                    AddLocatorInfo(pos, _playerLocator, new ColorRgb(31, 0, 0), team: primeHunter.TeamIndex);
+                    AddLocatorInfo(pos, _playerLocator, new ColorRgb(31, 0, 0), team: primeHunter.TeamIndex,
+                        playerContactType: Hud.Radar.RadarContactType.PrimeHunter);
                 }
             }
 

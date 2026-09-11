@@ -231,7 +231,12 @@ namespace MphRead.Mods.Network
 
         private bool TryReadMatch(ReadOnlySpan<byte> body, out MatchTransitionPacket match)
         {
-            if (_protocol >= 8) { return MatchTransitionPacket.TryRead(body, out match); }
+            if (_protocol >= 9) { return MatchTransitionPacket.TryRead(body, out match); }
+            if (_protocol == 8)
+            {
+                return MatchTransitionPacket.TryRead(body, out match)
+                    || Protocol8ReplayCodec.TryReadMatch(body, out match);
+            }
             if (_protocol == 7) { return Protocol7ReplayCodec.TryReadMatch(body, out match); }
             // Protocol 5/6 replay-only layout. Never use this decoder on a live socket.
             match = default;
@@ -353,7 +358,8 @@ namespace MphRead.Mods.Network
                 CombatEvent value = _events[i];
                 if (feedback != null && !feedback.Process(value)) continue;
                 if (scene.Presentation is ScenePresentation observedCombat)
-                    observedCombat.BroadcastObservations.Record(value);
+                    observedCombat.BroadcastObservations.Record(value,
+                        Match.MatchId, scene.Match.PhaseRevision);
                 CombatActor subject = value.Kind is CombatEventKind.Shot or CombatEventKind.Bomb ? value.Actor : value.Target;
                 if (subject.IsValid && _identities[subject.Slot] == subject.ConnectionId && _lives[subject.Slot] == subject.Life)
                 { scene.Players[subject.Slot].GetPresentation().PresentCombat(value); }

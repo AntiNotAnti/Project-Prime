@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -11,6 +12,9 @@ internal static class UpdateTransport
 {
     internal const int MaxRedirects = 5;
     internal const int MaxMetadataBytes = 256 * 1024;
+    internal static readonly TimeSpan MetadataTimeout = TimeSpan.FromSeconds(30);
+    internal static readonly TimeSpan PackageTimeout = TimeSpan.FromMinutes(15);
+    internal static readonly TimeSpan IdleTimeout = TimeSpan.FromSeconds(30);
 
     private static readonly string[] AllowedHosts =
     [
@@ -46,6 +50,26 @@ internal static class UpdateTransport
         client.DefaultRequestHeaders.UserAgent.ParseAdd(
             $"{Mods.Branding.FileName}/{BuildVersion.Display}");
         return client;
+    }
+
+    internal static CancellationTokenSource CreateTimeoutToken(
+        CancellationToken callerToken, TimeSpan timeout)
+    {
+        var linked = CancellationTokenSource.CreateLinkedTokenSource(callerToken);
+        linked.CancelAfter(timeout);
+        return linked;
+    }
+
+    /// <summary>
+    /// Read with an idle deadline in addition to the operation deadline owned
+    /// by the caller. A byte received resets the idle deadline, so a large
+    /// package is not rejected merely because it takes time to transfer.
+    /// </summary>
+    internal static async ValueTask<int> ReadWithIdleTimeoutAsync(Stream stream,
+        Memory<byte> buffer, CancellationTokenSource idleToken)
+    {
+        idleToken.CancelAfter(IdleTimeout);
+        return await stream.ReadAsync(buffer, idleToken.Token).ConfigureAwait(false);
     }
 
     /// <summary>

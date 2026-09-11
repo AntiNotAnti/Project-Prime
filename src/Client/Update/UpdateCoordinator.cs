@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -49,6 +50,7 @@ public sealed class UpdateCoordinator
     private UpdateCheckResult? _lastCheckResult;
     private bool _hasCompletedCheck;
     private Task<bool>? _downloadTask;
+    private Task<bool>? _installTask;
     private bool _safeToRestart;
     private bool _disabled;
     private int _playLeases;
@@ -87,15 +89,29 @@ public sealed class UpdateCoordinator
         get { lock (_gate) return _disabled; }
         set
         {
-            lock (_gate) _disabled = value;
-            if (value) SetStatus(UpdateState.Idle, "updates disabled for this run");
+            UpdateState state;
+            lock (_gate)
+            {
+                _disabled = value;
+                state = _status.State;
+            }
+            if (value && state is not (UpdateState.Staged or UpdateState.WaitingForSafePoint
+                or UpdateState.Installing or UpdateState.Restarting))
+                SetStatus(UpdateState.Idle, "updates disabled for this run");
         }
     }
 
     public void SetPolicy(UpdatePolicy policy)
     {
-        lock (_gate) _policy = policy;
-        if (policy == UpdatePolicy.Off) SetStatus(UpdateState.Idle, "automatic updates are off");
+        UpdateState state;
+        lock (_gate)
+        {
+            _policy = policy;
+            state = _status.State;
+        }
+        if (policy == UpdatePolicy.Off && state is not (UpdateState.Staged
+            or UpdateState.WaitingForSafePoint or UpdateState.Installing or UpdateState.Restarting))
+            SetStatus(UpdateState.Idle, "automatic updates are off");
     }
 
     public Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken = default,
@@ -107,6 +123,14 @@ public sealed class UpdateCoordinator
                 return Task.FromResult<UpdateCheckResult>(
                     new UpdateCheckResult.Failed("updates are disabled"));
             if (_checkTask != null) return _checkTask;
+            if (force && (_downloadTask != null || _installTask != null
+                || _status.State is UpdateState.Downloading or UpdateState.Verifying
+                or UpdateState.Staged or UpdateState.WaitingForSafePoint
+                or UpdateState.Installing or UpdateState.Restarting))
+            {
+                return Task.FromResult<UpdateCheckResult>(
+                    new UpdateCheckResult.Failed("an update operation is already in progress"));
+            }
             if (!force && _hasCompletedCheck && _lastCheckResult != null)
                 return Task.FromResult(_lastCheckResult);
             // Start outside the lock so the first synchronous state event from
@@ -125,9 +149,10 @@ public sealed class UpdateCoordinator
             if (_status.State is UpdateState.Staged or UpdateState.WaitingForSafePoint
                 or UpdateState.Installing or UpdateState.Restarting)
                 return Task.FromResult(true);
-            noUpdate = _available == null;
+            UpdateCheckResult.Available? available = _available;
+            noUpdate = available == null;
             if (!noUpdate)
-                _downloadTask = Task.Run(() => DownloadCoreAsync(_available!, cancellationToken));
+                _downloadTask = Task.Run(() => DownloadCoreAsync(available!, cancellationToken));
         }
         if (noUpdate)
         {
@@ -137,42 +162,59 @@ public sealed class UpdateCoordinator
         return _downloadTask!;
     }
 
-    public async Task<bool> InstallIfReadyAsync(CancellationToken cancellationToken = default)
+    public Task<bool> InstallIfReadyAsync(CancellationToken cancellationToken = default)
     {
-        IUpdateInstaller? installer;
-        UpdateState state;
-        bool shouldWait;
         lock (_gate)
         {
-            state = _status.State;
-            shouldWait = (state is UpdateState.Staged or UpdateState.WaitingForSafePoint)
-                && (!_safeToRestart || _playLeases != 0);
-            if (_installClaim || state is UpdateState.Installing or UpdateState.Restarting
-                || !_safeToRestart || _playLeases != 0
-                || state is not (UpdateState.Staged or UpdateState.WaitingForSafePoint))
-            {
-                installer = null;
-            }
-            else
-            {
-                installer = _installer;
-                if (installer != null) _installClaim = true;
-            }
+            if (_disabled || _policy == UpdatePolicy.Off)
+                return Task.FromResult(false);
+            if (_installTask != null) return _installTask;
+            _installTask = Task.Run(() => InstallIfReadyCoreAsync(cancellationToken));
+            return _installTask;
         }
+    }
 
-        if (shouldWait)
-            SetStatus(UpdateState.WaitingForSafePoint, "update ready; waiting for a safe restart point");
-        if (installer == null)
-        {
-            if (!shouldWait && state is (UpdateState.Staged or UpdateState.WaitingForSafePoint))
-                SetStatus(UpdateState.Failed, "this platform cannot install updates automatically");
-            return false;
-        }
-
-        SetStatus(UpdateState.Installing, "installing update");
+    private async Task<bool> InstallIfReadyCoreAsync(CancellationToken cancellationToken)
+    {
         bool launched = false;
         try
         {
+            lock (_gate)
+            {
+                if (_disabled || _policy == UpdatePolicy.Off)
+                    return false;
+            }
+            IUpdateInstaller? installer;
+            UpdateState state;
+            bool shouldWait;
+            lock (_gate)
+            {
+                state = _status.State;
+                shouldWait = (state is UpdateState.Staged or UpdateState.WaitingForSafePoint)
+                    && (!_safeToRestart || _playLeases != 0);
+                if (_installClaim || state is UpdateState.Installing or UpdateState.Restarting
+                    || !_safeToRestart || _playLeases != 0
+                    || state is not (UpdateState.Staged or UpdateState.WaitingForSafePoint))
+                {
+                    installer = null;
+                }
+                else
+                {
+                    installer = _installer;
+                    if (installer != null) _installClaim = true;
+                }
+            }
+
+            if (shouldWait)
+                SetStatus(UpdateState.WaitingForSafePoint, "update ready; waiting for a safe restart point");
+            if (installer == null)
+            {
+                if (!shouldWait && state is (UpdateState.Staged or UpdateState.WaitingForSafePoint))
+                    SetStatus(UpdateState.Failed, "this platform cannot install updates automatically");
+                return false;
+            }
+
+            SetStatus(UpdateState.Installing, "installing update");
             if (!installer.ExitAfterInstall)
             {
                 // Android completes asynchronously through PackageInstaller.
@@ -207,9 +249,10 @@ public sealed class UpdateCoordinator
         }
         finally
         {
-            if (!launched)
+            lock (_gate)
             {
-                lock (_gate) _installClaim = false;
+                if (!launched) _installClaim = false;
+                _installTask = null;
             }
         }
     }
@@ -293,14 +336,13 @@ public sealed class UpdateCoordinator
         {
             _lastCheckResult = result;
             _hasCompletedCheck = true;
-            _checkTask = null;
             switch (result)
             {
                 case UpdateCheckResult.UpToDate:
                     _available = null;
                     break;
                 case UpdateCheckResult.Available available:
-                    _available = available;
+                    _available = SnapshotAvailable(available);
                     break;
                 default:
                     _available = null;
@@ -319,7 +361,22 @@ public sealed class UpdateCoordinator
                 SetStatus(UpdateState.Failed, failed.Message);
                 break;
         }
+        // Keep the completed task published until all state/event work for the
+        // check has finished. A caller racing the final status notification
+        // must coalesce onto this task rather than start a second request.
+        lock (_gate) _checkTask = null;
         return result;
+    }
+
+    private static UpdateCheckResult.Available SnapshotAvailable(
+        UpdateCheckResult.Available available)
+    {
+        UpdateManifest manifest = available.Manifest with
+        {
+            Packages = available.Manifest.Packages.ToArray()
+        };
+        UpdatePackage package = available.Package with { };
+        return available with { Manifest = manifest, Package = package };
     }
 
     private async Task<bool> DownloadCoreAsync(UpdateCheckResult.Available available,

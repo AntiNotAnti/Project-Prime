@@ -21,6 +21,8 @@ namespace MphRead.Mods.Network
         public NetTrafficMetrics Metrics => _transport.Metrics;
         public void SetKeepAlive(IPEndPoint? target, ReadOnlySpan<byte> datagram = default) => _transport.SetKeepAlive(target, datagram);
         public void SetKeepAlives(ReadOnlySpan<NetKeepAlive> entries) => _transport.SetKeepAlives(entries);
+        public void SetKeepAliveDescriptors(ReadOnlySpan<NetKeepAliveDescriptor> entries)
+            => _transport.SetKeepAliveDescriptors(entries);
         public void AnswerPingsImmediately() => _transport.AnswerPingsImmediately();
         public IEnumerable<ReceivedPacket> Drain() => _transport.Drain();
         public void EnqueueForPlayback(byte[] data, int length) => _transport.EnqueueForPlayback(data, length);

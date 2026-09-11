@@ -14,6 +14,25 @@ namespace MphRead.Tests.Client;
 public sealed class FeedbackAudioTests
 {
     [Fact]
+    public void StopRequestsPreserveBusOrderAndForceSemantics()
+    {
+        var requests = new AudioRequests();
+        var emitted = new List<AudioRequest>();
+        requests.Requested += emitted.Add;
+
+        requests.StopEnvironment();
+        requests.StopAll(force: false);
+
+        Assert.Collection(emitted,
+            request => Assert.Equal(AudioRequestKind.StopEnvironment, request.Kind),
+            request =>
+            {
+                Assert.Equal(AudioRequestKind.StopAll, request.Kind);
+                Assert.False(request.Force);
+            });
+    }
+
+    [Fact]
     public void DistinctCuesEmitTheirMappedSounds()
     {
         WithHeadlessScene((scene, requests) =>

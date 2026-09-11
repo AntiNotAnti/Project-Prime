@@ -256,8 +256,7 @@ namespace MphRead.Mods.Network
         /// an immutable observation. No projectile reference or local object
         /// identifier is retained as authority.
         /// </summary>
-        public int ObservePredictedShot(PlayerEntity shooter, CombatActor actor,
-            out CombatShot shot)
+        public int ObservePredictedShot(PlayerEntity shooter, out CombatShot shot)
         {
             shot = default;
             if (shooter.Scene is not Scene scene)
@@ -276,11 +275,15 @@ namespace MphRead.Mods.Network
                     break;
             }
             if (first is null || !first.CombatShot.IsValid
-                || first.CombatShot.Actor != actor)
+                || first.CombatShot.Actor != _localActor)
                 return 0;
 
             shot = first.CombatShot;
-            return RecordPredictedShot(actor, shot.CommandSequence, (byte)first.Beam,
+            // The projectile attribution is the source of truth for actor,
+            // life/epoch, and command sequence. The caller's current actor is
+            // not used for identity; the measurement context above still
+            // fences this age-zero beam to the current match/slot/life.
+            return RecordPredictedShot(shot.Actor, shot.CommandSequence, (byte)first.Beam,
                 first.Position, first.Direction, count) ? count : 0;
         }
 

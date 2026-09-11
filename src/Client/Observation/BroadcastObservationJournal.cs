@@ -43,9 +43,9 @@ public sealed class BroadcastObservationJournal
             static item => item.Id);
     }
 
-    public bool Record(in CombatEvent value)
+    public bool Record(in CombatEvent value, uint matchId, uint phaseRevision)
     {
-        if (!value.IsValid) return false;
+        if (!Accept(matchId, phaseRevision, value.IsValid)) return false;
         return Append(_combat, ref _combatHead, ref _combatCount, value, value.Id,
             static item => item.Id);
     }

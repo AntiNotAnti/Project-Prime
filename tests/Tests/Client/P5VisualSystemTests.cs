@@ -8,6 +8,8 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
+using MphRead.Entities;
+using MphRead.Mods;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
@@ -62,6 +64,43 @@ public sealed class P5VisualSystemTests
         Assert.Single(PrimeMotion.CreateTransitions(reducedMotion: false)!);
         Assert.Equal(2, PrimeMotion.CreateTranslationTransitions(
             reducedMotion: false)!.Count);
+    }
+
+    [AvaloniaFact]
+    public void CustomSettingsControlsExposeNamesAndTouchSizedTargets()
+    {
+        Control[] controls =
+        [
+            new MenuEntry("Player"),
+            new ChoiceRow("Input type", ["Mouse", "Stylus"]),
+            new ToggleRow("Invert aim", false),
+            new SliderRow("Sensitivity", 50),
+            new KeyRow("Chat", () => new Keybind(
+                    OpenTK.Windowing.GraphicsLibraryFramework.Keys.T),
+                (_, _, _) => { }),
+            new PadRow(PadAction.Jump)
+        ];
+
+        Assert.All(controls, control =>
+        {
+            Assert.True(control.Height >= PrimeTouchTargets.MinimumDip);
+            Assert.False(String.IsNullOrWhiteSpace(
+                AutomationProperties.GetName(control)));
+        });
+        Assert.All(controls.Skip(1), control => Assert.False(
+            String.IsNullOrWhiteSpace(AutomationProperties.GetItemStatus(control))));
+    }
+
+    [AvaloniaFact]
+    public void SliderValueGutterDoesNotActLikeTheMaximumEndOfTheTrack()
+    {
+        var slider = new SliderRow("Sensitivity", 50);
+        slider.Measure(new Size(420, PrimeTouchTargets.MinimumDip));
+        slider.Arrange(new Rect(0, 0, 420, PrimeTouchTargets.MinimumDip));
+
+        Rect track = slider.RenderedTrack;
+        Assert.True(slider.CanStartDrag(track.Center));
+        Assert.False(slider.CanStartDrag(new Point(419, track.Center.Y)));
     }
 
     [AvaloniaFact]

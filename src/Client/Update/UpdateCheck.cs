@@ -78,7 +78,7 @@ public static class UpdateCheck
                 }
             }
             if (package == null) return null;
-            Uri uri = new UpdateManifestClient().BuildPackageUri(package);
+            Uri uri = new UpdateManifestClient().BuildPackageUri(package, manifest.Version);
             return ToInfo(new UpdateCheckResult.Available(manifest, package, uri));
         }
         catch (Exception ex) when (ex is FormatException or System.Text.Json.JsonException)

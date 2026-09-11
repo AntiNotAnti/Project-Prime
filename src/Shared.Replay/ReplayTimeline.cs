@@ -120,6 +120,7 @@ public interface IReplayTimeline
     uint? FirstServerTick { get; }
     uint? LastServerTick { get; }
     bool TryMapServerTickToRecordingFrame(uint serverTick, out uint recordingFrame);
+    bool TryMapKillToRecordingFrame(in KillEvent kill, out uint recordingFrame);
     bool TryGetRestorePoint(uint recordingFrame, out ReplayRestorePoint? restorePoint);
     bool TryFreeze(uint startRecordingFrame, uint endRecordingFrame, out ReplayTimelineClip? clip);
 }
@@ -145,7 +146,8 @@ public sealed class ReplayTimelineClip
 
 internal static class ReplayTimelineTickReader
 {
-    internal static bool TryRead(ReadOnlySpan<byte> data, uint fallback, out uint tick)
+    internal static bool TryRead(ReadOnlySpan<byte> data, uint fallback, out uint tick,
+        byte protocol = NetHeader.Version)
     {
         tick = fallback;
         if (data.Length < 2 || !Enum.IsDefined((ReplayRecordKind)data[0])) return false;
@@ -153,8 +155,17 @@ internal static class ReplayTimelineTickReader
         switch ((ReplayRecordKind)data[0])
         {
             case ReplayRecordKind.Match:
-                if (!MatchTransitionPacket.TryRead(body, out MatchTransitionPacket match)) return false;
-                tick = match.ServerTick; return true;
+                if (MatchTransitionPacket.TryRead(body, out MatchTransitionPacket match))
+                {
+                    tick = match.ServerTick;
+                    return true;
+                }
+                // The original protocol-8 match record has the same envelope
+                // length but zeroes extension fields introduced later.
+                if (protocol != 8 || body.Length != MatchTransitionPacket.Size
+                    || BinaryPrimitives.ReadUInt32LittleEndian(body) == 0) return false;
+                tick = BinaryPrimitives.ReadUInt32LittleEndian(body[4..]);
+                return true;
             case ReplayRecordKind.Snapshot:
                 if (body.Length < SnapshotPacket.HeaderSize) return false;
                 tick = BinaryPrimitives.ReadUInt32LittleEndian(body); return true;
@@ -202,4 +213,21 @@ internal static class ReplayTimelineTickReader
 
     private static bool IsNewer(uint value, uint previous)
         => value != previous && unchecked(value - previous) < 0x80000000u;
+}
+
+internal static class ReplayTimelineEventReader
+{
+    internal static bool IsExactKill(ReplayTimelineRecord record,
+        in KillEvent expected)
+    {
+        if (record.Kind != ReplayRecordKind.Event) return false;
+        ReadOnlySpan<byte> data = record.Span;
+        if (data.Length != 6 + KillEvent.Size
+            || BinaryPrimitives.ReadUInt32LittleEndian(data[1..]) != expected.MatchId
+            || (ReliableEventType)data[5] != ReliableEventType.Kill
+            || !KillEvent.TryRead(data[6..], out KillEvent actual)) return false;
+        return actual.MatchId == expected.MatchId && actual.Id == expected.Id
+            && actual.Tick == expected.Tick && actual.Killer == expected.Killer
+            && actual.Victim == expected.Victim;
+    }
 }

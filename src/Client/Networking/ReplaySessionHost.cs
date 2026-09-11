@@ -84,6 +84,7 @@ namespace MphRead.Mods.Network
         private readonly ReplayPlaybackSession _session;
         internal ReplaySceneServices(ReplayPlaybackSession session) => _session = session;
         public bool IsReplica => true;
+        public bool RebuildingRoom => true;
         public int LocalSlot => _session.PerspectiveSlot;
         public uint WorldServerTick => _session.WorldServerTick ?? _session.SnapshotServerTick ?? _session.CurrentFrame;
         public bool MayEndOnScore => false;
@@ -93,6 +94,9 @@ namespace MphRead.Mods.Network
         public bool TryGetRemoteAim(int slot, out Vector3 aim) { aim = default; return false; }
         public bool DesiredSpectating => LocalSlot < 0;
         public bool SuppressDamage(PlayerEntity victim) => true;
+        public PlayerEntity RebuildPlayers(Scene scene, Hunter hunter, int recolor)
+            => _session.RebuildPlayers(scene);
+        public void AfterRoomRebuild(Scene scene) => _session.AfterRoomRebuild(scene);
         public void AfterInput(Scene scene) => _session.BeforeSimulation(scene);
         public void AfterSimulation(Scene scene) => _session.AfterSimulation(scene);
     }

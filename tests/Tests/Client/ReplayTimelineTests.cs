@@ -141,6 +141,42 @@ public sealed class ReplayTimelineTests
     }
 
     [Fact]
+    public void KillcamMapsTheExactKillRecordWhenCheckpointSharesItsServerTick()
+    {
+        var timeline = new RollingReplayTimeline();
+        Assert.True(timeline.AppendRestorePoint(CompleteRestore(0, 9_000)));
+        KillEvent kill = new(77, 9_000, 1, 2,
+            new CombatActor(1, 101, 3), new CombatActor(2, 202, 4), 0,
+            KillEventFlags.Headshot, ImmutableArray<CombatActor>.Empty);
+        Assert.True(timeline.Append(new ReplayTimelineRecord(400, kill.Tick,
+            KillRecord(kill))));
+
+        Assert.True(KillcamController.TryCaptureClip(timeline, kill,
+            out ReplayTimelineClip? clip));
+        Assert.Equal(400u, clip!.EndRecordingFrame);
+    }
+
+    [Fact]
+    public void FailedClipSeekBecomesTerminalInsteadOfRetainingPendingRecords()
+    {
+        var timeline = new RollingReplayTimeline();
+        Assert.True(timeline.AppendRestorePoint(CompleteRestore(0, 100)));
+        Assert.True(timeline.Append(new ReplayTimelineRecord(1, 101,
+            new byte[] { (byte)ReplayRecordKind.Event, 1 })));
+        Assert.True(timeline.TryFreeze(0, 1, out ReplayTimelineClip? clip));
+        using var session = new ReplayPlaybackSession();
+        Assert.True(session.Join(clip!));
+        Assert.True(session.Seek(1));
+
+        Assert.True(session.ProcessSeek(() =>
+            throw new ProgramException("synthetic replay application failure")));
+
+        Assert.False(session.IsSeeking);
+        Assert.True(session.AtEnd);
+        Assert.Contains("synthetic replay application failure", session.LastError);
+    }
+
+    [Fact]
     public void AcceptedCaptureRunsWhenFileRecordingIsDisabled()
     {
         ReplayRecorder.ResetTimelineForSession();
@@ -263,7 +299,7 @@ public sealed class ReplayTimelineTests
         SessionRosterPacket.Write(roster.AsSpan(5), 1, ReadOnlySpan<NetRosterEntry>.Empty);
         records.Add(roster);
         records.Add(Presentation());
-        records.Add(new byte[] { (byte)ReplayRecordKind.Clock, 1 });
+        records.Add(Clock());
         records.Add(new byte[] { (byte)ReplayRecordKind.Perspective, 255 });
         var result = new List<ReplayTimelineRecord>(records.Count);
         foreach (byte[] record in records) result.Add(new ReplayTimelineRecord(frame, tick, record));
@@ -277,6 +313,23 @@ public sealed class ReplayTimelineTests
         BinaryPrimitives.WriteUInt16LittleEndian(record.AsSpan(3), 1);
         BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(5), 1);
         record[9] = 42;
+        return record;
+    }
+
+    private static byte[] Clock()
+    {
+        byte[] record = new byte[33];
+        record[0] = (byte)ReplayRecordKind.Clock;
+        return record;
+    }
+
+    private static byte[] KillRecord(in KillEvent kill)
+    {
+        byte[] record = new byte[6 + KillEvent.Size];
+        record[0] = (byte)ReplayRecordKind.Event;
+        BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(1), kill.MatchId);
+        record[5] = (byte)ReliableEventType.Kill;
+        kill.Write(record.AsSpan(6));
         return record;
     }
 }

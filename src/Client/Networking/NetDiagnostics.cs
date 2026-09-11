@@ -92,8 +92,13 @@ namespace MphRead.Mods.Network
                 + $"{Sample(error.Count > 0 ? error.Last : null)}/{Sample(error.Count > 0 ? error.Mean : null)}/"
                 + $"{Sample(error.Count > 0 ? error.Max : null)} world-units"
                 + $" corrections={prediction.Corrections} hard={prediction.HardCorrections} history-misses={prediction.HistoryMisses}"
-                + $" interpolation-samples={interpolation.InterpolatedSamples} underrun={interpolation.UnderrunSamples}"
-                + $" extrapolated={interpolation.ExtrapolatedSamples} held={interpolation.HeldSamples}"
+                + $" interpolation-samples={interpolation.InterpolatedSamples} sample-underrun={interpolation.UnderrunSamples}"
+                + $" sample-extrapolated={interpolation.ExtrapolatedSamples} sample-held={interpolation.HeldSamples}"
+                + $" frames presented/interpolated/underrun/extrapolated/held="
+                + $"{interpolation.PresentedFrames}/{interpolation.InterpolatedFrames}/{interpolation.UnderrunFrames}"
+                + $"/{interpolation.ExtrapolatedFrames}/{interpolation.HeldFrames}"
+                + $" underrun-rate={Sample(interpolation.PresentedFrames > 0
+                    ? interpolation.UnderrunFrames / (double)interpolation.PresentedFrames : null)}"
                 + $" delay-ticks={interpolation.DelayTicks:0.###}"
                 + $" max-extrapolation={Sample(interpolation.MaximumExtrapolationTicks * (1000.0 / 60))} ms");
             if (presentedCollision is not null)

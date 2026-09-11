@@ -504,8 +504,8 @@ public sealed class AccountSessionTests
             ("missing incarnation", new("valid.ticket", time.GetUtcNow().AddMinutes(1), serverId, Guid.Empty), false),
             ("expired", new("valid.ticket", time.GetUtcNow(), serverId, incarnation), false),
             ("missing ticket", new("", time.GetUtcNow().AddMinutes(1), serverId, incarnation), false),
-            ("too long", new(new string('a', 964), time.GetUtcNow().AddMinutes(1), serverId, incarnation), false),
-            ("maximum length", new(new string('a', 963), time.GetUtcNow().AddMinutes(1), serverId, incarnation,
+            ("too long", new(new string('a', JoinPacket.MaxTicketBytes + 1), time.GetUtcNow().AddMinutes(1), serverId, incarnation), false),
+            ("maximum length", new(new string('a', JoinPacket.MaxTicketBytes), time.GetUtcNow().AddMinutes(1), serverId, incarnation,
                 RegisteredAddress, RegisteredPort), true)
         };
 

@@ -20,6 +20,29 @@ namespace MphRead.Mods.Network
         public bool Interrupted { get; private set; }
         public MatchCompletionSummary? CompletionSummary { get; private set; }
         internal event Action<KillEvent>? LocalPlayerKilled;
+        private MatchClientContext? _onlineContext;
+        private RejoinRequest? _rejoin;
+        private RejoinBaseline _rejoinBaseline;
+        private long _rejoinStarted;
+        private bool _rejoinReadySent;
+        private bool _rejoinSnapshotReady;
+
+        private readonly record struct RejoinBaseline(ulong ConnectionId, uint MatchId,
+            byte Slot, bool Observer, long SnapshotCount);
+
+        internal void AttachOnlineContext(MatchClientContext context)
+        {
+            ArgumentNullException.ThrowIfNull(context);
+            if (_onlineContext is { } existing && !ReferenceEquals(existing, context))
+                throw new InvalidOperationException("Gameplay already belongs to another online context.");
+            _onlineContext = context;
+        }
+
+        internal void DetachOnlineContext(MatchClientContext context)
+        {
+            if (ReferenceEquals(_onlineContext, context)) _onlineContext = null;
+        }
+
         internal void BindNodeMatch(Guid matchId)
         {
             if (matchId == Guid.Empty || NodeMatchId is { } existing && existing != matchId)
@@ -114,7 +137,9 @@ namespace MphRead.Mods.Network
         public int LocalSlot => IsObserver ? -1 : Client.Accepted.Slot;
         internal Action<PlayerEntity, uint>? ScriptInput { get; set; }
 
-        public AuthoritativePlay(string host, int port, string name, Hunter hunter, ulong? joinNonce = null, string ticket = "", bool observer = false, uint wireMatchId = 0)
+        public AuthoritativePlay(string host, int port, string name, Hunter hunter, ulong? joinNonce = null,
+            string ticket = "", bool observer = false, uint wireMatchId = 0, Guid admissionId = default,
+            byte[]? authKey = null, bool udpAuthenticationEnabled = false)
         {
             if (Current != null || NetSession.Active)
             {
@@ -126,7 +151,11 @@ namespace MphRead.Mods.Network
             if (address == null) { throw new ProgramException($"{host} has no IPv4 address."); }
             var endpoint = new IPEndPoint(address, port);
             _transport = new NetTransport(0);
-            try { Client = new NetClient(_transport, endpoint, name, Launcher.Hunters.Resolve(hunter), joinNonce, ticket, observer, wireMatchId); }
+            try
+            {
+                Client = new NetClient(_transport, endpoint, name, Launcher.Hunters.Resolve(hunter), joinNonce,
+                    ticket, observer, wireMatchId, admissionId, authKey, udpAuthenticationEnabled);
+            }
             catch { _transport.Dispose(); throw; }
             Client.WorldPacketValidator = WorldPacket.TryValidate;
             Client.WorldPacketReceived = payload =>
@@ -146,29 +175,6 @@ namespace MphRead.Mods.Network
                 Thread.Sleep(10);
             }
             NetLaunch.DisableCheatsForMatch();
-        }
-
-        internal void Rejoin(NodeMatchHandoff handoff, CancellationToken cancellationToken,
-            int timeoutMilliseconds = 8000)
-        {
-            if (handoff.MatchId != NodeMatchId || handoff.WireMatchId != Client.Accepted.MatchId
-                || handoff.Nonce == 0 || handoff.Ticket is not { Length: > 0 and <= JoinPacket.MaxRoutedTicketBytes })
-                throw new InvalidOperationException("The rejoin handoff does not match this gameplay session.");
-            Client.Reconnect(handoff.Nonce, handoff.Ticket);
-            _inputCount = 0;
-            Prediction.Reset();
-            ResetPresentation();
-            _world.Reset(handoff.WireMatchId);
-            var timeout = Stopwatch.StartNew();
-            while (Client.State == NetConnectionState.Connecting)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (timeout.ElapsedMilliseconds >= timeoutMilliseconds)
-                    throw new TimeoutException("The Worker did not accept the rejoin before the deadline.");
-                Client.Poll();
-                if (Client.Failure != null) throw new InvalidOperationException(Client.Failure);
-                if (Client.State == NetConnectionState.Connecting) Thread.Sleep(10);
-            }
         }
 
         public void BuildPlayers(Scene scene, Hunter hunter, int recolor)
@@ -204,11 +210,19 @@ namespace MphRead.Mods.Network
         public void BeforeSimulation(Scene scene)
         {
             _localVelocityApplied = false;
-            if (ObserveCompletion()) return;
+            if (ObserveCompletion())
+            {
+                _onlineContext?.CancelPendingRejoin();
+                return;
+            }
+            if (TryStartQueuedRejoin(scene))
+            {
+                if (!AdvanceQueuedRejoin()) return;
+            }
             // Input was sampled before this hook. New packets below must not
             // change which previously presented picture that input refers to.
             _hasInputViewTick = _interpolation.TryCaptureViewTick(out _inputViewTick);
-            Client.Poll();
+            if (_rejoin == null) Client.Poll();
             UpdateNetworkTiming(Stopwatch.GetTimestamp());
             ReplayRecorder.RecordFrame(Client, scene);
             if (Client.Failure != null)
@@ -290,6 +304,16 @@ namespace MphRead.Mods.Network
                 ApplySnapshot(scene);
                 _interpolation.Add(Client.Snapshot, Client.SnapshotPlayers, Client.SnapshotReceivedAt);
                 _appliedSnapshot = Client.SnapshotsReceived;
+            }
+            if (_rejoin is { } rejoin && _rejoinSnapshotReady)
+            {
+                if (!HasValidRejoinSnapshot())
+                {
+                    FailQueuedRejoin(rejoin, new InvalidOperationException(
+                        "The Worker rejoin did not provide an eligible fresh player snapshot."));
+                    return;
+                }
+                CompleteQueuedRejoin(rejoin);
             }
             // First usable state after join/rotation may arrive during Poll.
             // Until then no input command invents a historical view timestamp.
@@ -468,7 +492,8 @@ namespace MphRead.Mods.Network
                         && !feedbackPresentation.CombatFeedback.Process(value,
                             allowLocalHitMarker: currentTarget)) continue;
                     if (_presentationScene?.Presentation is ScenePresentation observedCombat)
-                        observedCombat.BroadcastObservations.Record(value);
+                        observedCombat.BroadcastObservations.Record(value,
+                            message.MatchId, scene.Match.PhaseRevision);
                     CombatEvents++;
                     if (value.Kind == CombatEventKind.Damage
                         && value.Actor == GetLocalCombatActor()
@@ -618,6 +643,8 @@ namespace MphRead.Mods.Network
         public void Dispose()
         {
             State = TerminalState.Disposed;
+            _onlineContext?.CancelPendingRejoin();
+            _onlineContext = null;
             if (_presentationScene?.Presentation is ScenePresentation sessionPresentation)
                 sessionPresentation.WorldFeedback.ClearPendingNotices();
             _projectilePresentation.Clear();
@@ -666,6 +693,171 @@ namespace MphRead.Mods.Network
                 foreach (PlayerEntity player in scene.Players)
                     player.ResetRemoteLocomotion();
             }
+        }
+
+        private bool TryStartQueuedRejoin(Scene scene)
+        {
+            if (_rejoin != null) return true;
+            if (_onlineContext is not { } context || !context.Owns(this)
+                || !context.TryTakeRejoin(out RejoinRequest request)) return false;
+            if (!context.IsCurrentRejoin(request))
+            {
+                context.AbandonRejoin(request);
+                return false;
+            }
+            NodeMatchHandoff handoff = request.Handoff;
+            if (NodeMatchId != handoff.MatchId || handoff.WireMatchId == 0
+                || handoff.Nonce == 0 || handoff.Ticket is not { Length: > 0 and <= JoinPacket.MaxRoutedTicketBytes }
+                || handoff.UdpAuthenticationEnabled != Client.UdpAuthenticationEnabled
+                || handoff.UdpAuthenticationEnabled && (handoff.AdmissionId == Guid.Empty
+                    || handoff.AdmissionKey.Length != AdmissionKeyRules.Base64Length)
+                || !handoff.UdpAuthenticationEnabled && (handoff.AdmissionId != Guid.Empty
+                    || handoff.AdmissionKey.Length != 0)
+                || Client.Accepted.MatchId != handoff.WireMatchId
+                || handoff.Observer != Client.IsObserver
+                || !Client.IsObserver && Client.Accepted.Slot >= PlayerEntity.SlotCapacity)
+            {
+                context.FailRejoin(request, new InvalidOperationException(
+                    "The rejoin handoff does not match the current gameplay seat."));
+                return false;
+            }
+            _rejoin = request;
+            _rejoinBaseline = new(Client.Connection?.Id ?? 0, Client.Accepted.MatchId,
+                Client.IsObserver ? byte.MaxValue : Client.Accepted.Slot,
+                Client.IsObserver, Client.SnapshotsReceived);
+            _rejoinStarted = Stopwatch.GetTimestamp();
+            _rejoinReadySent = false;
+            _rejoinSnapshotReady = false;
+            byte[]? admissionKey = null;
+            try
+            {
+                if (handoff.UdpAuthenticationEnabled) admissionKey = AdmissionKeyRules.Decode(handoff.AdmissionKey);
+                Client.Reconnect(handoff.Nonce, handoff.Ticket, handoff.AdmissionId, admissionKey);
+            }
+            catch (Exception error)
+            {
+                FailQueuedRejoin(request, error);
+                return false;
+            }
+            finally
+            {
+                if (admissionKey is not null)
+                    System.Security.Cryptography.CryptographicOperations.ZeroMemory(admissionKey);
+            }
+            _inputCount = 0;
+            Array.Clear(_identities);
+            Array.Clear(_lives);
+            _appliedSnapshot = 0;
+            _inputPhaseRevision = 0;
+            _viewConnectionId = 0;
+            _hasInputViewTick = false;
+            Prediction.Reset();
+            ResetPresentation();
+            _world.Reset(handoff.WireMatchId);
+            _projectilePresentation.Clear();
+            _presentedCollision.Clear();
+            _hitPrediction.Clear();
+            _selfImpulse.Clear();
+            if (scene.Presentation is ScenePresentation presentation)
+                ResetRoleFeedback(presentation.CombatFeedback, presentation.WorldFeedback,
+                    presentation.Announcer, presentation.AwardHud);
+            else Chat.ChatBox.Clear();
+            return true;
+        }
+
+        /// <summary>
+        /// Advance exactly one bounded owner-side transport poll. The caller
+        /// never waits or sleeps; the next simulation boundary continues the
+        /// same request until a replacement connection supplies a snapshot.
+        /// </summary>
+        private bool AdvanceQueuedRejoin()
+        {
+            RejoinRequest? request = _rejoin;
+            if (request == null) return false;
+            MatchClientContext? context = _onlineContext;
+            if (context is null || !context.Owns(this) || !context.IsCurrentRejoin(request))
+            {
+                context?.AbandonRejoin(request);
+                _rejoin = null;
+                _rejoinSnapshotReady = false;
+                return false;
+            }
+            if (Stopwatch.GetElapsedTime(_rejoinStarted).TotalMilliseconds >= 8000)
+            {
+                FailQueuedRejoin(request, new TimeoutException(
+                    "The Worker did not accept the rejoin before the deadline."));
+                return false;
+            }
+            Client.Poll();
+            if (!context.IsCurrentRejoin(request))
+            {
+                context.AbandonRejoin(request);
+                _rejoin = null;
+                _rejoinSnapshotReady = false;
+                return false;
+            }
+            if (Client.Failure != null)
+            {
+                FailQueuedRejoin(request, new InvalidOperationException(Client.Failure));
+                return false;
+            }
+            NetConnection? connection = Client.Connection;
+            if (connection == null) return false;
+            if (connection.Id == _rejoinBaseline.ConnectionId
+                || Client.Accepted.MatchId != _rejoinBaseline.MatchId
+                || Client.IsObserver != _rejoinBaseline.Observer
+                || Client.Accepted.Slot != _rejoinBaseline.Slot
+                || request.Handoff.Observer != Client.IsObserver)
+            {
+                FailQueuedRejoin(request, new InvalidOperationException(
+                    "The Worker changed the authoritative match seat during rejoin."));
+                return false;
+            }
+            if (Client.State == NetConnectionState.Loading && !_rejoinReadySent)
+            {
+                if (!Client.Ready(Client.Accepted.MatchId))
+                {
+                    FailQueuedRejoin(request, new InvalidOperationException(
+                        "The replacement gameplay connection could not become ready."));
+                    return false;
+                }
+                _rejoinReadySent = true;
+            }
+            if (!Client.HasSnapshot || Client.SnapshotsReceived <= _rejoinBaseline.SnapshotCount)
+                return false;
+            _rejoinSnapshotReady = true;
+            return true;
+        }
+
+        private bool HasValidRejoinSnapshot()
+        {
+            if (_rejoin is not { } request || Client.Connection is not { } connection
+                || connection.Id == _rejoinBaseline.ConnectionId
+                || Client.Snapshot.MatchId != _rejoinBaseline.MatchId
+                || Client.State is not (NetConnectionState.Ready or NetConnectionState.Playing)) return false;
+            if (Client.IsObserver) return true;
+            int slot = Client.Accepted.Slot;
+            return (uint)slot < (uint)_identities.Length
+                && _identities[slot] == connection.Id && _lives[slot] != 0
+                && !request.Handoff.Observer;
+        }
+
+        private void CompleteQueuedRejoin(RejoinRequest request)
+        {
+            if (_onlineContext is not { } context || !context.IsCurrentRejoin(request)) return;
+            int slot = Client.IsObserver ? -1 : Client.Accepted.Slot;
+            uint inputEpoch = slot >= 0 && slot < _lives.Length ? _lives[slot] : 0;
+            context.CompleteRejoin(request, new RejoinCompletion(Client.Connection!.Id, inputEpoch));
+            _rejoin = null;
+            _rejoinSnapshotReady = false;
+        }
+
+        private void FailQueuedRejoin(RejoinRequest request, Exception error)
+        {
+            if (_onlineContext is { } context) context.FailRejoin(request, error);
+            _rejoin = null;
+            _rejoinSnapshotReady = false;
+            Client.Connection?.Disconnect();
         }
 
         private void UpdateNetworkTiming(long now)
@@ -765,14 +957,15 @@ namespace MphRead.Mods.Network
                 return null;
             CombatActor actor = GetLocalCombatActor();
             if (!actor.IsValid) return null;
-            if (_projectilePresentation.ObservePredictedShot(shooter, actor,
+            if (_projectilePresentation.ObservePredictedShot(shooter,
                     out CombatShot shot) > 0)
             {
                 MeasureLocalShot(scene, shot);
                 LocalRootShotObserved?.Invoke(shot with
                     { SourceWeapon = (byte)shooter.CurrentWeapon });
+                return shot.CommandSequence;
             }
-            return _sequence;
+            return null;
         }
 
         internal CombatShot CapturePresentationAttribution(EntityBase owner)

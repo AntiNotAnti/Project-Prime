@@ -239,8 +239,7 @@ namespace MphRead.Mods.Network
                     continue;
                 }
                 scene.InsertEntity(player);
-                player.Initialize();
-                scene.InitEntity(player);
+                scene.InitializeEntity(player);
                 scene.InitEntity(player.Halfturret);
                 NetLog.Event($"slot {slot} re-inserted into the new room");
             }

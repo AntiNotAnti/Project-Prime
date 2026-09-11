@@ -34,22 +34,25 @@ public static class UpdateDownload
 
     public static Task<DownloadResult> DownloadAsync(UpdatePackage package, Uri source,
         string destination, IProgress<UpdateProgress>? progress = null,
-        CancellationToken cancellationToken = default, HttpMessageHandler? handler = null)
+        CancellationToken cancellationToken = default, HttpMessageHandler? handler = null,
+        TimeSpan? operationTimeout = null)
     {
         return DownloadCoreAsync(package, source, destination, progress,
-            cancellationToken, handler);
+            cancellationToken, handler, operationTimeout);
     }
 
     public static Task<DownloadResult> DownloadAsync(UpdatePackage package, string source,
         string destination, IProgress<UpdateProgress>? progress = null,
-        CancellationToken cancellationToken = default, HttpMessageHandler? handler = null)
+        CancellationToken cancellationToken = default, HttpMessageHandler? handler = null,
+        TimeSpan? operationTimeout = null)
     {
         if (!Uri.TryCreate(source, UriKind.Absolute, out Uri? uri))
         {
             return Task.FromResult(new DownloadResult(false, destination, 0,
                 "the download address is invalid"));
         }
-        return DownloadAsync(package, uri, destination, progress, cancellationToken, handler);
+        return DownloadAsync(package, uri, destination, progress, cancellationToken, handler,
+            operationTimeout);
     }
 
     /// <summary>
@@ -92,10 +95,13 @@ public static class UpdateDownload
     private static async Task<DownloadResult> DownloadCoreAsync(UpdatePackage package,
         Uri source, string destination, IProgress<UpdateProgress>? progress,
         CancellationToken cancellationToken, HttpMessageHandler? handler,
-        bool verifyHash = true)
+        TimeSpan? operationTimeout = null, bool verifyHash = true)
     {
         string partial = destination + ".part";
         long received = 0;
+        using CancellationTokenSource timeout = UpdateTransport.CreateTimeoutToken(
+            cancellationToken, operationTimeout ?? UpdateTransport.PackageTimeout);
+        CancellationToken operationToken = timeout.Token;
         try
         {
             UpdateManifestValidator.Validate(new UpdateManifest(1, "stable", "1.0.0",
@@ -111,7 +117,7 @@ public static class UpdateDownload
 
             using HttpClient client = UpdateTransport.CreateClient(handler, out _);
             using HttpResponseMessage response = await UpdateTransport.SendFollowingRedirectsAsync(
-                client, source, cancellationToken).ConfigureAwait(false);
+                client, source, operationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
                 return Failure(destination, $"update host returned {(int)response.StatusCode}");
             long? contentLength = response.Content.Headers.ContentLength;
@@ -120,38 +126,50 @@ public static class UpdateDownload
             if (expectedLength && contentLength.HasValue && contentLength.Value != package.Size)
                 return Failure(destination, "download length does not match the signed package");
 
-            await using Stream input = await response.Content.ReadAsStreamAsync(cancellationToken)
-                .ConfigureAwait(false);
-            await using var output = new FileStream(partial, FileMode.CreateNew,
-                FileAccess.Write, FileShare.None, 64 * 1024,
-                FileOptions.Asynchronous | FileOptions.SequentialScan);
-            using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            byte[] buffer = new byte[64 * 1024];
-            while (true)
+            await using (Stream input = await response.Content.ReadAsStreamAsync(operationToken)
+                .ConfigureAwait(false))
             {
-                int read = await input.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-                if (read == 0) break;
-                cancellationToken.ThrowIfCancellationRequested();
-                received += read;
-                if (received > MaxPackageBytes || (expectedLength && received > package.Size))
-                    return Failure(destination, "download exceeded the signed package size", received);
-                await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken)
-                    .ConfigureAwait(false);
-                hash.AppendData(buffer, 0, read);
-                progress?.Report(new UpdateProgress(received,
-                    expectedLength ? package.Size : contentLength ?? 0));
+                using var idleTimeout = CancellationTokenSource.CreateLinkedTokenSource(
+                    operationToken);
+                using (var output = new FileStream(partial, FileMode.CreateNew,
+                    FileAccess.Write, FileShare.None, 64 * 1024,
+                    FileOptions.Asynchronous | FileOptions.SequentialScan))
+                using (IncrementalHash hash = IncrementalHash.CreateHash(
+                    HashAlgorithmName.SHA256))
+                {
+                    byte[] buffer = new byte[64 * 1024];
+                    while (true)
+                    {
+                        int read = await UpdateTransport.ReadWithIdleTimeoutAsync(input,
+                            buffer.AsMemory(), idleTimeout).ConfigureAwait(false);
+                        if (read == 0) break;
+                        operationToken.ThrowIfCancellationRequested();
+                        received += read;
+                        if (received > MaxPackageBytes || (expectedLength && received > package.Size))
+                            return Failure(destination, "download exceeded the signed package size", received);
+                        await output.WriteAsync(buffer.AsMemory(0, read), operationToken)
+                            .ConfigureAwait(false);
+                        hash.AppendData(buffer, 0, read);
+                        progress?.Report(new UpdateProgress(received,
+                            expectedLength ? package.Size : contentLength ?? 0));
+                    }
+                    if (expectedLength && received != package.Size)
+                        return Failure(destination, "the download ended before the signed length", received);
+                    if (verifyHash)
+                    {
+                        byte[] actual = hash.GetHashAndReset();
+                        if (!CryptographicOperations.FixedTimeEquals(actual,
+                            Convert.FromHexString(package.Sha256)))
+                            return Failure(destination, "download SHA-256 does not match the signed package", received);
+                    }
+                    await output.FlushAsync(operationToken).ConfigureAwait(false);
+                    output.Flush(flushToDisk: true);
+                }
             }
-            if (expectedLength && received != package.Size)
-                return Failure(destination, "the download ended before the signed length", received);
-            if (verifyHash)
-            {
-                byte[] actual = hash.GetHashAndReset();
-                if (!CryptographicOperations.FixedTimeEquals(actual,
-                    Convert.FromHexString(package.Sha256)))
-                    return Failure(destination, "download SHA-256 does not match the signed package", received);
-            }
-            await output.FlushAsync(cancellationToken).ConfigureAwait(false);
-            output.Flush(flushToDisk: true);
+            operationToken.ThrowIfCancellationRequested();
+            // The partial stream is deliberately out of scope before this
+            // rename. Windows refuses to replace an open file, and a failed
+            // rename must never leave a verified package looking incomplete.
             File.Move(partial, destination, overwrite: true);
             progress?.Report(new UpdateProgress(received,
                 expectedLength ? package.Size : contentLength ?? received));
@@ -160,7 +178,8 @@ public static class UpdateDownload
         }
         catch (OperationCanceledException)
         {
-            return Failure(destination, "cancelled", received);
+            return Failure(destination,
+                cancellationToken.IsCancellationRequested ? "cancelled" : "timed out", received);
         }
         catch (Exception ex)
         {

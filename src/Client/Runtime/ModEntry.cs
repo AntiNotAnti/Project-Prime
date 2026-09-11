@@ -105,6 +105,7 @@ namespace MphRead.Mods
                 DebugLog.Force();
             }
             DebugLog.Attach();
+            RendererLog.Sink = DebugLog.Line;
             // -noupdate is an absolute per-process override. In particular,
             // an explicit -update must not turn it back on below.
             Update.Updater.Disabled = HasFlag(args, "noupdate");
@@ -126,7 +127,8 @@ namespace MphRead.Mods
                 // argument that can begin with a dash.
                 Environment.ExitCode = Update.DesktopUpdate.Apply(args[applyAt + 1],
                     Int32.TryParse(args[applyAt + 2], out int parsed) ? parsed : -1,
-                    applyAt + 3 < args.Length ? args[applyAt + 3] : "0.0.0");
+                    applyAt + 3 < args.Length ? args[applyAt + 3] : "0.0.0",
+                    applyAt + 4 < args.Length ? args[applyAt + 4] : null);
                 return true;
             }
             // Recover an interrupted transaction before launcher/game startup.
@@ -264,16 +266,9 @@ namespace MphRead.Mods
         {
             (int width, int height) = ParseSize(args);
 
-            // Custom maps are registered as rooms from their JSON at startup,
-            // but a room whose binaries are not on disk crashes the moment
-            // something tries to load it. Generating what is missing here --
-            // the one place every entry point passes through, launcher
-            // included, and after the game-file check -- means a map file is
-            // enough to have a working room.
-            if (!HasFlag(args, "mapgen"))
-            {
-                MapGen.MapPreparation.GenerateMissing();
-            }
+            // Custom maps are cataloged at startup but compiled only when a
+            // selected match requires one. The explicit -mapgen command remains
+            // available as a compatibility/authoring operation.
 
             // Opt-in per-second report of what this process believes about a
             // networked session -- slot occupancy, scoreboard count, which
@@ -395,6 +390,33 @@ namespace MphRead.Mods
             if (HasFlag(args, "frametimingcheck"))
             {
                 Environment.ExitCode = Render.FrameTimingCheck.Run();
+                return true;
+            }
+
+            string? editorPlaytest = ValueAfter(args, "editorplaytest");
+            if (editorPlaytest != null)
+            {
+                string path = System.IO.Path.GetFullPath(System.IO.Path.Combine(
+                    ConsoleSetup.LaunchDirectory, editorPlaytest));
+                MapGen.MapProject project = MapGen.MapProjectIO.Load(path);
+                MapGen.CustomRooms.MapDirectory = System.IO.Path.GetDirectoryName(path)!;
+                MapGen.CustomRooms.RefreshAsync().AsTask().GetAwaiter().GetResult();
+                MapGen.MapPreparation.CompileAndMountAsync(project, "editor-playtest",
+                    System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+                try
+                {
+                    Network.MapAudit.ShowWindow = true;
+                    double seconds = 86400;
+                    string? duration = ValueAfter(args, "seconds");
+                    if (duration != null) Double.TryParse(duration,
+                        System.Globalization.CultureInfo.InvariantCulture, out seconds);
+                    Environment.ExitCode = Network.MapAudit.Run(project.Map.Name, 8, seconds,
+                        GameMode.Battle, bots: HasFlag(args, "bots"));
+                }
+                finally
+                {
+                    ContentEnvironment.UnmountMap();
+                }
                 return true;
             }
 

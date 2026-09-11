@@ -34,17 +34,19 @@ public sealed class UpdateManifestClient
     private readonly Version? _installedVersion;
     private readonly string _rid;
     private readonly bool _allowLocalBuild;
+    private readonly TimeSpan _operationTimeout;
 
     public UpdateManifestClient()
         : this(null, null, null, null, null, null, allowLocalBuildForTests: false) { }
 
     public UpdateManifestClient(HttpMessageHandler? handler, UpdateTrust? trust = null,
         Uri? manifestUri = null, Uri? signatureUri = null, Version? installedVersion = null,
-        string? rid = null, bool allowLocalBuildForTests = false)
+        string? rid = null, bool allowLocalBuildForTests = false,
+        TimeSpan? operationTimeout = null)
     {
         if (handler == null && (trust != null || manifestUri != null
             || signatureUri != null || installedVersion != null || rid != null
-            || allowLocalBuildForTests))
+            || allowLocalBuildForTests || operationTimeout != null))
         {
             throw new ArgumentException(
                 "custom update trust and transport are available only with an injected test handler");
@@ -55,6 +57,7 @@ public sealed class UpdateManifestClient
         _signatureUri = signatureUri ?? DefaultSignatureUri;
         _installedVersion = installedVersion;
         _rid = rid ?? RuntimePlatform.Rid();
+        _operationTimeout = operationTimeout ?? UpdateTransport.MetadataTimeout;
         // Local/dev builds never check through the production constructor. A
         // handler plus explicit opt-in is the narrow test seam, not a setting
         // a player can persist or pass through the launcher.
@@ -78,13 +81,16 @@ public sealed class UpdateManifestClient
             || !UpdateTransport.IsAllowedUri(_signatureUri))
             return new UpdateCheckResult.Failed("the update feed address is not trusted");
 
+        using CancellationTokenSource timeout = UpdateTransport.CreateTimeoutToken(
+            cancellationToken, _operationTimeout);
+        CancellationToken operationToken = timeout.Token;
         try
         {
             using HttpClient client = UpdateTransport.CreateClient(_handler, out _);
             byte[] manifestBytes = await ReadBoundedAsync(client, _manifestUri,
-                UpdateManifestValidator.MaxManifestBytes, cancellationToken).ConfigureAwait(false);
+                UpdateManifestValidator.MaxManifestBytes, operationToken).ConfigureAwait(false);
             byte[] signature = await ReadBoundedAsync(client, _signatureUri,
-                UpdateManifestValidator.MaxSignatureBytes, cancellationToken).ConfigureAwait(false);
+                UpdateManifestValidator.MaxSignatureBytes, operationToken).ConfigureAwait(false);
 
             // Verify the bytes as downloaded before any parser sees them.
             if (!_trust.VerifyManifest(manifestBytes, signature))
@@ -109,12 +115,13 @@ public sealed class UpdateManifestClient
                 return new UpdateCheckResult.Failed(
                     $"release {manifest.Version} has no package for {_rid}");
 
-            Uri packageUri = BuildPackageUri(package);
+            Uri packageUri = BuildPackageUri(package, manifest.Version);
             return new UpdateCheckResult.Available(manifest, package, packageUri);
         }
         catch (OperationCanceledException)
         {
-            return new UpdateCheckResult.Failed("update check cancelled");
+            return new UpdateCheckResult.Failed(cancellationToken.IsCancellationRequested
+                ? "update check cancelled" : "update check timed out");
         }
         catch (UpdateManifestValidationException ex)
         {
@@ -129,11 +136,13 @@ public sealed class UpdateManifestClient
         }
     }
 
-    public Uri BuildPackageUri(UpdatePackage package)
+    public Uri BuildPackageUri(UpdatePackage package, string version)
     {
+        if (!UpdateManifestValidator.IsExactVersion(version))
+            throw new UpdateManifestValidationException("release version is invalid");
         UpdateManifestValidator.Validate(new UpdateManifest(1, "stable", "1.0.0",
             new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), [package]));
-        return new Uri($"https://github.com/{Mods.Branding.UpdateRepository}/releases/latest/download/"
+        return new Uri($"https://github.com/{Mods.Branding.UpdateRepository}/releases/download/v{version}/"
             + Uri.EscapeDataString(package.FileName));
     }
 
@@ -154,9 +163,12 @@ public sealed class UpdateManifestClient
             ? (int)contentLength.Value : Math.Min(limit, 4096));
         byte[] buffer = new byte[8192];
         int total = 0;
+        using CancellationTokenSource idleTimeout = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken);
         while (true)
         {
-            int read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            int read = await UpdateTransport.ReadWithIdleTimeoutAsync(stream, buffer,
+                idleTimeout).ConfigureAwait(false);
             if (read == 0) break;
             total += read;
             if (total > limit) throw new InvalidDataException("update metadata is too large");

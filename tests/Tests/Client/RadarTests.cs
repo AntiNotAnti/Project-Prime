@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using MphRead.Entities;
 using MphRead.Formats;
 using MphRead.Formats.Collision;
 using OpenTK.Mathematics;
@@ -10,6 +11,58 @@ namespace MphRead.Tests;
 
 public sealed class RadarTests
 {
+    [Fact]
+    public void PlayerRadarAdmissionUsesEffectiveFlagAndExcludesSelfDeadAndInactivePlayers()
+    {
+        Assert.True(PlayerPresentation.TryClassifyRadarPlayer(MatchMode.Battle, radarPlayers: true,
+            localSlot: 0, localTeam: 0, contactSlot: 1, contactTeam: 1, active: true, health: 99,
+            primeSlot: -1, out RadarContactType type));
+        Assert.Equal(RadarContactType.Enemy, type);
+
+        Assert.False(PlayerPresentation.TryClassifyRadarPlayer(MatchMode.Battle, radarPlayers: false,
+            0, 0, 1, 1, active: true, health: 99, -1, out _));
+        Assert.False(PlayerPresentation.TryClassifyRadarPlayer(MatchMode.Battle, radarPlayers: true,
+            0, 0, 0, 0, active: true, health: 99, -1, out _));
+        Assert.False(PlayerPresentation.TryClassifyRadarPlayer(MatchMode.Battle, radarPlayers: true,
+            0, 0, 1, 1, active: true, health: 0, -1, out _));
+        Assert.False(PlayerPresentation.TryClassifyRadarPlayer(MatchMode.Battle, radarPlayers: true,
+            0, 0, 1, 1, active: false, health: 99, -1, out _));
+    }
+
+    [Fact]
+    public void PlayerRadarClassifiesTeammateEnemyAndExactlyOnePrimeHunter()
+    {
+        Assert.True(PlayerPresentation.TryClassifyRadarPlayer(MatchMode.TeamBattle, radarPlayers: true,
+            localSlot: 0, localTeam: 0, contactSlot: 2, contactTeam: 0, active: true, health: 99,
+            primeSlot: -1, out RadarContactType teammate));
+        Assert.Equal(RadarContactType.Teammate, teammate);
+        Assert.True(PlayerPresentation.TryClassifyRadarPlayer(MatchMode.TeamBattle, radarPlayers: true,
+            0, 0, 1, 1, active: true, health: 99, -1, out RadarContactType enemy));
+        Assert.Equal(RadarContactType.Enemy, enemy);
+
+        RadarContactType[] contacts = new RadarContactType[3];
+        for (int slot = 1; slot <= 3; slot++)
+        {
+            Assert.True(PlayerPresentation.TryClassifyRadarPlayer(MatchMode.PrimeHunter, radarPlayers: true,
+                0, 0, slot, slot, active: true, health: 99, primeSlot: 2,
+                out contacts[slot - 1]));
+        }
+        Assert.Single(contacts, contact => contact == RadarContactType.PrimeHunter);
+        Assert.Equal(RadarContactType.Enemy, contacts[0]);
+        Assert.Equal(RadarContactType.PrimeHunter, contacts[1]);
+        Assert.Equal(RadarContactType.Enemy, contacts[2]);
+    }
+
+    [Theory]
+    [InlineData(MatchMode.Survival)]
+    [InlineData(MatchMode.TeamSurvival)]
+    public void AllPlayerRadarProducerNeverOverridesSurvivalRevealPolicy(MatchMode mode)
+    {
+        Assert.False(PlayerPresentation.TryClassifyRadarPlayer(mode, radarPlayers: true,
+            localSlot: 0, localTeam: 0, contactSlot: 1, contactTeam: 1, active: true, health: 99,
+            primeSlot: -1, out _));
+    }
+
     [Fact]
     public void HeadingProjectionPlacesFacingDirectionAtTheTop()
     {

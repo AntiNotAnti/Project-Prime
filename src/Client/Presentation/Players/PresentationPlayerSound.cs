@@ -490,7 +490,10 @@ namespace MphRead.Entities
 
         public void StopFlagCarrySfx()
         {
-            _player._soundSource.StopSfxByHandle(_flagCarrySfxHandle);
+            if (_flagCarrySfxHandle != -1)
+            {
+                _player._soundSource.StopSfxByHandle(_flagCarrySfxHandle);
+            }
             _flagCarrySfxHandle = -1;
             _flagCarrySfxOn = false;
         }
@@ -512,8 +515,8 @@ namespace MphRead.Entities
             // todo: the game stops music here, but I think we have other cases covered, and need to not stop for teleporters
             _player._soundSource.StopFreeSfxScripts();
             _player._soundSource.StopFreeSfx(SfxId.FAST_SCROLL_UP_LOOP);
-            Sfx.Instance.StopEnvironmentSfx();
-            Sfx.Instance.StopAllSound(force: false);
+            _player._scene.Audio.StopEnvironment();
+            _player._scene.Audio.StopAll(force: false);
         }
 
         public void PlayTimedSfx(SfxId id)

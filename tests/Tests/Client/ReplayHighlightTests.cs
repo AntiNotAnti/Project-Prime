@@ -231,6 +231,20 @@ public sealed class ReplayHighlightTests : IDisposable
     }
 
     [Fact]
+    public void ProtocolNineAwardsRemainHighlightCandidates()
+    {
+        string replay = Path.Combine(_root, "protocol-nine.fpreplay");
+        WriteReplay(replay, includeAwardAndSemantic: true, protocolVersion: 9);
+
+        ReplayHighlightMetadata metadata = new ReplayHighlightMetadataService(_root)
+            .Get(replay);
+
+        Assert.True(metadata.IsAvailable);
+        Assert.Contains(metadata.Highlights, value => value.Kind
+            == HighlightKind.DoubleKill);
+    }
+
+    [Fact]
     public void CacheCorruptionOldVersionAndReplayChangeRegenerateDeterministically()
     {
         string replay = Path.Combine(_root, "changing.fpreplay");
@@ -305,9 +319,9 @@ public sealed class ReplayHighlightTests : IDisposable
             markers, source);
 
     private static void WriteReplay(string path, bool includeAwardAndSemantic,
-        uint killTick = 1060)
+        uint killTick = 1060, byte protocolVersion = 10)
     {
-        using var writer = new ReplayWriter(path, protocolVersion: 10);
+        using var writer = new ReplayWriter(path, protocolVersion);
         var match = new MatchTransitionPacket(1, 1000, GameMode.Battle, "unit1");
         byte[] matchBytes = new byte[MatchTransitionPacket.Size];
         match.Write(matchBytes);

@@ -269,6 +269,13 @@ namespace MphRead.Mods.Network
             Seek(highlight.StartFrame);
         }
 
+        private Hunter HunterForSlot(int slot)
+        {
+            foreach (NetRosterEntry entry in Modern.Roster)
+                if (entry.Slot == slot) return entry.Hunter;
+            return Hunter.Samus;
+        }
+
         internal void BuildPlayers(Scene scene)
         {
             ArgumentNullException.ThrowIfNull(scene);
@@ -276,10 +283,7 @@ namespace MphRead.Mods.Network
             scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
             for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
             {
-                Hunter hunter = Hunter.Samus;
-                foreach (NetRosterEntry entry in Modern.Roster)
-                    if (entry.Slot == slot) { hunter = entry.Hunter; break; }
-                scene.AddPlayer(hunter, recolor: 0, team: -1);
+                scene.AddPlayer(HunterForSlot(slot), recolor: 0, team: -1);
                 PlayerEntity player = scene.Players[slot];
                 player.IsBot = false;
                 player.BotLevel = 0;
@@ -289,6 +293,41 @@ namespace MphRead.Mods.Network
                 ? PerspectiveSlot : 0;
             scene.LocalPlayerSlot = main;
             scene.Players.ActiveCount = 0;
+        }
+
+        internal PlayerEntity RebuildPlayers(Scene scene)
+        {
+            ArgumentNullException.ThrowIfNull(scene);
+            Modern.ApplyRoster(scene);
+            scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
+            for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
+            {
+                PlayerEntity player = scene.Players.Create(HunterForSlot(slot), recolor: 0)
+                    ?? throw new ProgramException("Could not rebuild replay player.");
+                player.LoadFlags = LoadFlags.SlotActive | LoadFlags.Initial;
+                player.IsBot = false;
+                player.BotLevel = 0;
+            }
+            int main = PerspectiveSlot is >= 0 and < PlayerEntity.SlotCapacity
+                ? PerspectiveSlot : 0;
+            scene.LocalPlayerSlot = main;
+            scene.Players.ActiveCount = 0;
+            return scene.LocalPlayer
+                ?? throw new ProgramException("Replay scene has no local player after rebuild.");
+        }
+
+        internal void AfterRoomRebuild(Scene scene)
+        {
+            ArgumentNullException.ThrowIfNull(scene);
+            for (int slot = 0; slot < scene.Players.Count; slot++)
+            {
+                if (slot == scene.LocalPlayerSlot) continue;
+                PlayerEntity player = scene.Players[slot];
+                if (!player.LoadFlags.TestFlag(LoadFlags.SlotActive)) continue;
+                scene.InsertEntity(player);
+                scene.InitializeEntity(player);
+                scene.InitEntity(player.Halfturret);
+            }
         }
 
         internal int TakeSimulationSteps() => IsActive ? (AtEnd ? 0 : Transport.TakeSteps()) : 1;
@@ -347,6 +386,7 @@ namespace MphRead.Mods.Network
         private void FailSeek(string message)
         {
             LastError = message; IsSeeking = false; _requestedSeek = null;
+            if (_clip != null) _clipCursor = _clip.Records.Count;
             Transport.Paused = true; _pending = null; _frame = DurationFrames; _started = true;
         }
 

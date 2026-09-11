@@ -111,6 +111,35 @@ public sealed class RollingReplayTimeline : IReplayTimeline
         recordingFrame = 0; return false;
     }
 
+    public bool TryMapKillToRecordingFrame(in KillEvent kill,
+        out uint recordingFrame)
+    {
+        for (int i = 0; i < _prefix.Count; i++)
+        {
+            ReplayTimelineRecord record = _prefix[i];
+            if (ReplayTimelineEventReader.IsExactKill(record, kill))
+            {
+                recordingFrame = record.RecordingFrame;
+                return true;
+            }
+        }
+        for (int i = 0; i < _segments.Count; i++)
+        {
+            Segment segment = _segments[i];
+            for (int j = 0; j < segment.Records.Count; j++)
+            {
+                ReplayTimelineRecord record = segment.Records[j];
+                if (ReplayTimelineEventReader.IsExactKill(record, kill))
+                {
+                    recordingFrame = record.RecordingFrame;
+                    return true;
+                }
+            }
+        }
+        recordingFrame = 0;
+        return false;
+    }
+
     public bool TryGetRestorePoint(uint recordingFrame, out ReplayRestorePoint? restorePoint)
     {
         restorePoint = null;

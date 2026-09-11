@@ -27,13 +27,23 @@ namespace MphRead.Mods.Network
 
     /// <summary>Value-only presentation counters for evidence reports.</summary>
     public readonly record struct SnapshotInterpolationMetrics(
+        long InterpolatedSamples,
+        long ExtrapolatedSamples,
+        long SnapshotUnderrunSamples,
+        long HeldSamples,
+        long PresentedFrames,
         long InterpolatedFrames,
+        long UnderrunFrames,
         long ExtrapolatedFrames,
-        long SnapshotUnderruns,
         long HeldFrames,
         double MaximumExtrapolationTicks,
         double DelayTicks,
-        double TargetDelayTicks);
+        double TargetDelayTicks)
+    {
+        // Compatibility alias for reports that consumed the former
+        // per-slot counter name. New timing policy uses UnderrunFrames.
+        public long SnapshotUnderruns => SnapshotUnderrunSamples;
+    }
 
     /// <summary>
     /// Single-writer presentation history. Add validated snapshots on receipt, then
@@ -78,10 +88,21 @@ namespace MphRead.Mods.Network
         public long ExtrapolatedSamples { get; private set; }
         public long UnderrunSamples { get; private set; }
         public long HeldSamples { get; private set; }
+        /// <summary>One count per successfully committed presentation frame.</summary>
+        public long PresentedFrames { get; private set; }
+        public long InterpolatedFrames { get; private set; }
+        /// <summary>Includes both extrapolation and bounded extrapolation holds.</summary>
+        public long UnderrunFrames { get; private set; }
+        /// <summary>Only frames that actually advance beyond the newest snapshot.</summary>
+        public long ExtrapolatedFrames { get; private set; }
+        /// <summary>Includes history/startup holds and bounded extrapolation holds.</summary>
+        public long HeldFrames { get; private set; }
         public double MaximumExtrapolationTicks { get; private set; }
         public bool HasPresented => _hasPresented;
         public SnapshotInterpolationMetrics Metrics => new(InterpolatedSamples,
             ExtrapolatedSamples, UnderrunSamples, HeldSamples,
+            PresentedFrames, InterpolatedFrames, UnderrunFrames,
+            ExtrapolatedFrames, HeldFrames,
             MaximumExtrapolationTicks, DelayTicks, TargetDelayTicks);
 
         public SnapshotInterpolation(double delayTicks = DefaultDelayTicks,
@@ -101,6 +122,7 @@ namespace MphRead.Mods.Network
             Count = 0;
             _newest = -1;
             InterpolatedSamples = ExtrapolatedSamples = UnderrunSamples = HeldSamples = 0;
+            PresentedFrames = InterpolatedFrames = UnderrunFrames = ExtrapolatedFrames = HeldFrames = 0;
             MaximumExtrapolationTicks = 0;
             _generation++;
             _hasPresented = false;
@@ -223,6 +245,31 @@ namespace MphRead.Mods.Network
             if (!MatchesHistory(presentation)) return false;
             _presentedTick = presentation.Tick;
             _hasPresented = true;
+            PresentedFrames++;
+            switch (presentation.Mode)
+            {
+                case SnapshotPresentationMode.Interpolated:
+                    InterpolatedFrames++;
+                    break;
+                case SnapshotPresentationMode.Extrapolated:
+                    UnderrunFrames++;
+                    ExtrapolatedFrames++;
+                    break;
+                case SnapshotPresentationMode.ExtrapolationHold:
+                    // These flags are intentionally inclusive: an endpoint hold
+                    // is both an underrun and a held presentation, but not an
+                    // extrapolated movement frame.
+                    UnderrunFrames++;
+                    HeldFrames++;
+                    break;
+                case SnapshotPresentationMode.Startup:
+                case SnapshotPresentationMode.HistoryHold:
+                    HeldFrames++;
+                    break;
+                default:
+                    HeldFrames++;
+                    break;
+            }
             return true;
         }
 

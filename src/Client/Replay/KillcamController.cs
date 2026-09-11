@@ -1,6 +1,7 @@
 using System;
 using MphRead.Entities;
 using MphRead.Hud;
+using MphRead.Mods;
 using MphRead.Mods.Network;
 using MphRead.Sound;
 using OpenTK.Mathematics;
@@ -61,7 +62,7 @@ internal sealed class KillcamController : IDisposable
         KillcamPolicy policy = Mods.GameSettings.ResolveKillcamPolicy(
             _play?.Client.Accepted.Rules.KillcamPolicy ?? KillcamPolicy.Disabled);
         if (policy == KillcamPolicy.Disabled) return;
-        if (!TryCaptureClip(ReplayRecorder.Timeline, kill.Tick,
+        if (!TryCaptureClip(ReplayRecorder.Timeline, kill,
                 out ReplayTimelineClip? clip) || clip == null) return;
         _pending = new PendingKillcam(kill, clip, policy);
     }
@@ -77,7 +78,40 @@ internal sealed class KillcamController : IDisposable
         return timeline.TryFreeze(startFrame, killFrame, out clip) && clip != null;
     }
 
+    internal static bool TryCaptureClip(IReplayTimeline timeline,
+        in KillEvent kill, out ReplayTimelineClip? clip)
+    {
+        ArgumentNullException.ThrowIfNull(timeline);
+        clip = null;
+        if (!timeline.TryMapKillToRecordingFrame(kill, out uint killFrame))
+            return false;
+        uint startFrame = killFrame > LeadFrames ? killFrame - LeadFrames : 0;
+        return timeline.TryFreeze(startFrame, killFrame, out clip) && clip != null;
+    }
+
     internal void Advance()
+    {
+        try
+        {
+            AdvanceCore();
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        {
+            DebugLog.Exception("killcam", error);
+            Console.Error.WriteLine($"[killcam] Advance failed: {error.Message}");
+            try
+            {
+                Stop();
+            }
+            catch (Exception cleanupError) when (cleanupError is not OutOfMemoryException)
+            {
+                DebugLog.Exception("killcam-cleanup", cleanupError);
+                Console.Error.WriteLine($"[killcam] Cleanup failed: {cleanupError.Message}");
+            }
+        }
+    }
+
+    private void AdvanceCore()
     {
         Bind(AuthoritativePlay.Current);
         int keys = (_keyboard.IsKeyDown(Keys.Space) ? 1 : 0)

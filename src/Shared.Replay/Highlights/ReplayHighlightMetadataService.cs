@@ -162,10 +162,12 @@ public sealed class ReplayHighlightMetadataService
             switch ((ReplayRecordKind)record.Data[0])
             {
                 case ReplayRecordKind.Match:
-                    if (MatchTransitionPacket.TryRead(body,
-                            out MatchTransitionPacket match))
-                        AddTimeline(record.Frame, match.ServerTick, match.MatchId,
-                            timeline, lastTimelineFrame);
+                    if (ReplayTimelineTickReader.TryRead(record.Data, 0,
+                            out uint matchTick, reader.ProtocolVersion)
+                        && body.Length >= 8)
+                        AddTimeline(record.Frame, matchTick,
+                            BinaryPrimitives.ReadUInt32LittleEndian(body), timeline,
+                            lastTimelineFrame);
                     break;
                 case ReplayRecordKind.Snapshot:
                     if (SnapshotPacket.TryRead(body, snapshotPlayers,
@@ -236,7 +238,7 @@ public sealed class ReplayHighlightMetadataService
                     : HighlightKind.Kill, markers, ReplayHighlightSourceKind.Kill);
             return true;
         }
-        if (type == ReliableEventType.MatchAward && protocol >= 10
+        if (type == ReliableEventType.MatchAward && protocol >= 9
             && MatchAwardPacket.TryRead(payload, out MatchAwardPacket awardPacket)
             && awardPacket.MatchId == matchId
             && MatchAwardPacketConversion.TryToAward(awardPacket,

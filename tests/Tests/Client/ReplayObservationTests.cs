@@ -67,6 +67,39 @@ public sealed class ReplayObservationTests
     }
 
     [Fact]
+    public void DirectorManualLockDoesNotLeakIntoAnotherMatch()
+    {
+        var director = new BroadcastDirector();
+        ObservationContext first = Context(60, [Player(0), Player(1)]);
+        Assert.Equal(BroadcastFocus.Player(0), director.Update(first));
+        Assert.True(director.Lock(BroadcastFocus.Player(1), first));
+
+        ObservationContext nextMatch = ObservationContext.Create(
+            ObservationSourceKind.LiveSpectator, 120, 8, 1, MatchMode.Battle,
+            MatchPhase.Playing, MatchPeriod.Regulation,
+            players: [Player(0), Player(1)], matchTimeSeconds: 300);
+
+        Assert.Equal(BroadcastFocus.Player(0), director.Update(nextMatch));
+        Assert.False(director.IsManualLock);
+    }
+
+    [Fact]
+    public void FirstCombatFactEstablishesJournalEpochAndNewMatchClearsTheOldOne()
+    {
+        var journal = new BroadcastObservationJournal();
+        CombatEvent first = Combat(id: 1, tick: 10);
+        CombatEvent second = Combat(id: 2, tick: 20);
+
+        Assert.True(journal.Record(first, 7, 2));
+        Assert.Single(journal.Snapshot(7, 2, 10).CombatEvents);
+        Assert.True(journal.Record(second, 8, 1));
+
+        BroadcastObservationFacts next = journal.Snapshot(8, 1, 20);
+        Assert.Single(next.CombatEvents);
+        Assert.Equal(2u, next.CombatEvents[0].Id);
+    }
+
+    [Fact]
     public void BroadcastHudOffIsCleanFeed()
     {
         var hud = new BroadcastHud();
@@ -117,4 +150,9 @@ public sealed class ReplayObservationTests
         Weapon: BeamType.PowerBeam, AmmoUa: 40, AmmoMissiles: 5,
         Points: 0, Kills: 0, Deaths: 0, Assists: 0,
         Position: new Vector3(slot * 4, 0, 0), Facing: -Vector3.UnitZ);
+
+    private static CombatEvent Combat(uint id, uint tick) => new(id, tick, 0,
+        CombatEventKind.Damage, 0, CombatEventFlags.None,
+        new CombatActor(0, 10, 1), new CombatActor(1, 11, 1), 90, 10,
+        Vector3.Zero, Vector3.UnitZ, 0, 0, 0);
 }

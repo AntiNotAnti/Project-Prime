@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
+using System.Security.Cryptography;
 using System.Threading;
 
 namespace MphRead.Mods.Network
@@ -14,6 +15,8 @@ namespace MphRead.Mods.Network
     {
         private readonly NetTransport _transport;
         private readonly IPEndPoint _server;
+        private readonly bool _udpAuthenticationEnabled;
+        private byte[]? _admissionKey;
         private JoinPacket _join;
         private double _joinDue;
         private bool _discovered;
@@ -44,8 +47,9 @@ namespace MphRead.Mods.Network
         private readonly SnapshotPlayer[] _snapshotPlayers = new SnapshotPlayer[8];
         private int _snapshotCount;
         private double _nextTimingTelemetry;
-        private long _reportedUnderruns;
-        private long _reportedExtrapolated;
+        private long _reportedPresentedFrames;
+        private long _reportedUnderrunFrames;
+        private long _reportedExtrapolatedFrames;
         private uint _timingAcknowledgedRevision;
         public ReadOnlySpan<SnapshotPlayer> SnapshotPlayers => _snapshotPlayers.AsSpan(0, _snapshotCount);
         public SnapshotPacket Snapshot { get; private set; }
@@ -61,6 +65,8 @@ namespace MphRead.Mods.Network
             = NetworkTimingProfile.Compatibility;
         public bool HasTimingProfile => TimingProfile.Revision != 0;
         public bool IsObserver => _join.Observer;
+        public Guid AdmissionId => _join.AdmissionId;
+        public bool UdpAuthenticationEnabled => _udpAuthenticationEnabled;
         public NetConnection? Connection { get; private set; }
         public JoinAcceptedPacket Accepted { get; private set; }
         public NetClock Clock { get; private set; } = new();
@@ -69,30 +75,49 @@ namespace MphRead.Mods.Network
         public NetConnectionState State => IsDisconnecting ? NetConnectionState.Disconnecting : Connection?.State ?? (Failure == null
             ? NetConnectionState.Connecting : NetConnectionState.Disconnecting);
 
-        public NetClient(NetTransport transport, IPEndPoint server, string name, Hunter hunter, ulong? nonce = null, string ticket = "", bool observer = false, uint wireMatchId = 0)
+        public NetClient(NetTransport transport, IPEndPoint server, string name, Hunter hunter, ulong? nonce = null,
+            string ticket = "", bool observer = false, uint wireMatchId = 0, Guid admissionId = default,
+            byte[]? authKey = null, bool udpAuthenticationEnabled = false)
         {
             _transport = transport;
             _server = server;
+            if (udpAuthenticationEnabled && (admissionId == Guid.Empty
+                || authKey is not { Length: NetAuthentication.KeySize }))
+                throw new ArgumentException("Authenticated joins require an admission identity and 32-byte key.");
+            if (!udpAuthenticationEnabled && authKey is { Length: > 0 })
+                throw new ArgumentException("A UDP key requires the explicit authenticated mode.");
+            _udpAuthenticationEnabled = udpAuthenticationEnabled;
+            _admissionKey = authKey is null ? null : (byte[])authKey.Clone();
             if (nonce == 0 || (!string.IsNullOrEmpty(ticket) && (!nonce.HasValue || !JoinPacket.ValidTicketText(ticket))))
                 throw new ArgumentException("An authenticated join requires its ticket's nonzero nonce.");
-            _join = new JoinPacket(NetHeader.Version, nonce ?? NetConnection.NewIdentity(), hunter, name, Ticket: ticket, Observer: observer, WireMatchId: wireMatchId);
+            _join = new JoinPacket(NetHeader.Version, nonce ?? NetConnection.NewIdentity(), hunter, name,
+                Ticket: ticket, Observer: observer, WireMatchId: wireMatchId, AdmissionId: admissionId);
             _discovered = wireMatchId != 0;
             AwaitingBotRetirement = false;
             _joinStarted = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
         }
 
-        public void Reconnect(ulong? nonce = null, string ticket = "")
+        public void Reconnect(ulong? nonce = null, string ticket = "", Guid admissionId = default,
+            byte[]? authKey = null)
         {
             if ((!string.IsNullOrEmpty(_join.Ticket) && (string.IsNullOrEmpty(ticket) || ticket == _join.Ticket || nonce == _join.Nonce)) || nonce == 0
                 || (!string.IsNullOrEmpty(ticket) && (!nonce.HasValue || !JoinPacket.ValidTicketText(ticket))))
                 throw new ArgumentException("Authenticated reconnect requires a fresh ticket and nonce.");
+            if (_udpAuthenticationEnabled && (admissionId == Guid.Empty
+                || authKey is not { Length: NetAuthentication.KeySize }))
+                throw new ArgumentException("Authenticated reconnect requires a fresh admission identity and key.");
+            if (_admissionKey is not null) CryptographicOperations.ZeroMemory(_admissionKey);
+            _admissionKey = authKey is null ? null : (byte[])authKey.Clone();
+            NetConnection? previousConnection = Connection;
             _join = _join with
             {
                 Ticket = ticket,
                 Nonce = nonce ?? NetConnection.NewIdentity(),
-                PreviousConnectionId = Connection?.Id ?? _join.PreviousConnectionId
+                PreviousConnectionId = previousConnection?.Id ?? _join.PreviousConnectionId,
+                AdmissionId = admissionId
             };
             _transport.SetKeepAlive(null);
+            previousConnection?.Disconnect();
             _hasRoleFence = false;
             Connection = null;
             _discovered = _join.WireMatchId != 0;
@@ -139,10 +164,16 @@ namespace MphRead.Mods.Network
                         _joinDue = now + 0.5;
                         return;
                     }
-                    Span<byte> datagram = stackalloc byte[NetHeader.Size + _join.EncodedSize];
-                    new NetHeader(NetMessageType.Join, NetHeaderFlags.Unsequenced, 0, 0, 0, 0).Write(datagram);
-                    _join.Write(datagram[NetHeader.Size..]);
-                    _transport.SendDatagram(_server, datagram);
+                    Span<byte> datagram = stackalloc byte[NetConfig.MaxPacketSize];
+                    NetHeader header = new(NetMessageType.Join, NetHeaderFlags.Unsequenced, 0, 0, 0, 0);
+                    Span<byte> payload = datagram[NetHeader.Size..(NetHeader.Size + _join.EncodedSize)];
+                    _join.Write(payload);
+                    int length;
+                    if (_udpAuthenticationEnabled)
+                        length = NetAuthentication.Sign(_admissionKey!, NetAuthDirection.ClientToServer,
+                            header, payload, datagram);
+                    else { header.Write(datagram); length = NetHeader.Size + payload.Length; }
+                    _transport.SendDatagram(_server, datagram[..length]);
                     _joinDue = now + 0.5;
                 }
                 return;
@@ -176,7 +207,8 @@ namespace MphRead.Mods.Network
         {
             if (Failure != null || !packet.Sender.Equals(_server)) { return false; }
             ReadOnlySpan<byte> datagram = packet.Data.AsSpan(0, packet.Length);
-            if (Connection == null && datagram.Length > 1 && datagram[0] == (byte)PacketType.StatusReply)
+            if (Connection == null && !_udpAuthenticationEnabled && !_discovered
+                && datagram.Length > 1 && datagram[0] == (byte)PacketType.StatusReply)
             {
                 if (!ServerStatusPacket.TryRead(datagram[1..], out ServerStatusPacket status)) { return false; }
                 if (!NetWireIdentity.IsCompatible(status.Family, status.Protocol))
@@ -194,10 +226,24 @@ namespace MphRead.Mods.Network
             {
                 return false;
             }
+            NetConnection.VerifiedPacket verifiedPacket = default;
+            bool verifiedDatagram = false;
+            ReadOnlySpan<byte> body = packet.Data.AsSpan(NetHeader.Size, packet.Length - NetHeader.Size);
+            NetConnection? connection = Connection;
+            bool bootstrap = connection == null;
+            JoinAcceptedPacket bootstrapAccepted = default;
+            if (bootstrap && _udpAuthenticationEnabled)
+            {
+                if (_admissionKey is not { } key
+                    || !NetAuthentication.TryVerify(key, NetAuthDirection.ServerToClient,
+                        datagram, out NetHeader verifiedHeader, out ReadOnlySpan<byte> verifiedBody))
+                    return false;
+                header = verifiedHeader;
+                body = verifiedBody;
+            }
             if (_hasRoleFence && header.Type is NetMessageType.Snapshot or NetMessageType.World or NetMessageType.Debug
                 && !Sequence32.IsNewer(header.Sequence, _roleHeaderFence)) return false;
-            ReadOnlySpan<byte> body = packet.Data.AsSpan(NetHeader.Size, packet.Length - NetHeader.Size);
-            if (Connection == null)
+            if (bootstrap)
             {
                 if (header.Type == NetMessageType.JoinPending && JoinPendingPacket.TryRead(body, out var pending)
                     && pending.Nonce == _join.Nonce)
@@ -215,35 +261,54 @@ namespace MphRead.Mods.Network
                 if (header.Type != NetMessageType.Accepted
                     || !ReliableEventPacket.TryRead(body, out _, out ReliableEventType type, out ReadOnlySpan<byte> payload)
                     || type != ReliableEventType.Welcome
-                    || !JoinAcceptedPacket.TryRead(payload, out JoinAcceptedPacket accepted)
-                    || accepted.ClientNonce != _join.Nonce || _join.Observer && !accepted.IsObserver)
+                    || !JoinAcceptedPacket.TryRead(payload, out bootstrapAccepted)
+                    || bootstrapAccepted.ClientNonce != _join.Nonce
+                    || _join.Observer && !bootstrapAccepted.IsObserver
+                    || _udpAuthenticationEnabled && bootstrapAccepted.MatchId != _join.WireMatchId)
                 {
                     return false;
                 }
-                Connection = new NetConnection(header.ConnectionId, _server, accepted.MatchId, now);
-                Accepted = accepted;
-                if (accepted.IsObserver) _join = _join with { Observer = true };
-                Span<byte> keepalive = stackalloc byte[NetHeader.Size];
-                new NetHeader(NetMessageType.KeepAlive, NetHeaderFlags.Unsequenced,
-                    header.ConnectionId, 0, 0, 0).Write(keepalive);
-                _transport.SetKeepAlive(_server, keepalive);
+                connection = new NetConnection(header.ConnectionId, _server, bootstrapAccepted.MatchId, now,
+                    _udpAuthenticationEnabled ? _admissionKey! : ReadOnlySpan<byte>.Empty,
+                    NetAuthDirection.ClientToServer);
+                if (_udpAuthenticationEnabled)
+                {
+                    // Re-obtain the connection-owned opaque token so the
+                    // welcome packet follows the same verify/validate/apply
+                    // receive ordering as every later established packet.
+                    if (!connection.TryVerify(datagram, packet.Sender, out verifiedPacket)) return false;
+                    header = verifiedPacket.Header;
+                    body = verifiedPacket.Payload;
+                    verifiedDatagram = true;
+                }
+            }
+            else if (_udpAuthenticationEnabled)
+            {
+                if (!connection!.TryVerify(datagram, packet.Sender, out verifiedPacket)) return false;
+                header = verifiedPacket.Header;
+                body = verifiedPacket.Payload;
+                verifiedDatagram = true;
             }
             uint eventId = 0;
             ReliableEventType eventType = default;
             ReadOnlySpan<byte> eventBody = default;
-            NetConnection connection = Connection;
+            if (connection is null) return false;
             Span<SnapshotPlayer> players = stackalloc SnapshotPlayer[8];
             SnapshotPacket snapshot = default;
             HistoricalCollisionDebugPacket? debug = null;
             int playerCount = 0;
             bool valid = header.Type switch
             {
-                NetMessageType.KeepAlive or NetMessageType.Ack => body.IsEmpty,
+                NetMessageType.KeepAlive => _udpAuthenticationEnabled
+                    ? body.Length == NetAuthentication.CounterSize : body.IsEmpty,
+                NetMessageType.Ack => body.IsEmpty,
                 NetMessageType.Accepted => ReliableEventPacket.TryRead(body, out eventId,
                     out ReliableEventType type, out ReadOnlySpan<byte> payload)
                     && type == ReliableEventType.Welcome
                     && JoinAcceptedPacket.TryRead(payload, out JoinAcceptedPacket accepted)
-                    && accepted.ClientNonce == _join.Nonce && accepted.Slot == Accepted.Slot,
+                    && accepted.ClientNonce == _join.Nonce
+                    && accepted.Slot == (bootstrap ? bootstrapAccepted.Slot : Accepted.Slot)
+                    && (!_udpAuthenticationEnabled || accepted.MatchId == _join.WireMatchId),
                 NetMessageType.Event => ReliableEventPacket.TryRead(body, out eventId, out eventType, out eventBody)
                     && ValidateEvent(eventType, eventBody),
                 NetMessageType.World => WorldPacketValidator != null && WorldPacketReceived != null
@@ -256,9 +321,34 @@ namespace MphRead.Mods.Network
                 NetMessageType.Debug => HistoricalCollisionDebugPacket.TryRead(body, connection.MatchId, out debug),
                 _ => false
             };
-            if (!valid || !connection.TryReceive(header, packet.Sender, now, out ReceiveResult result))
+            if (!valid) return false;
+            ReceiveResult result;
+            if (verifiedDatagram)
             {
-                return false;
+                if (!connection.ApplyVerified(verifiedPacket, packet.Sender, now, out result)) return false;
+            }
+            else if (!connection.TryReceive(header, packet.Sender, now, out result)) return false;
+            if (bootstrap)
+            {
+                // Publish the replacement only after the complete welcome
+                // body has been validated and the verified token has updated
+                // the candidate receive state. A forged or malformed welcome
+                // therefore cannot leave a half-admitted Connection behind.
+                Connection = connection;
+                Accepted = bootstrapAccepted;
+                if (bootstrapAccepted.IsObserver) _join = _join with { Observer = true };
+                if (_udpAuthenticationEnabled)
+                {
+                    NetKeepAliveDescriptor descriptor = connection.CreateKeepAliveDescriptor();
+                    _transport.SetKeepAliveDescriptors(new[] { descriptor });
+                }
+                else
+                {
+                    Span<byte> keepalive = stackalloc byte[NetHeader.Size];
+                    new NetHeader(NetMessageType.KeepAlive, NetHeaderFlags.Unsequenced,
+                        header.ConnectionId, 0, 0, 0).Write(keepalive);
+                    _transport.SetKeepAlive(_server, keepalive);
+                }
             }
             long processedAt = Stopwatch.GetTimestamp();
             connection.Metrics.Receive(packet, processedAt);
@@ -460,7 +550,7 @@ namespace MphRead.Mods.Network
             TimingProfile = NetworkTimingProfile.Compatibility;
             _timingAcknowledgedRevision = 0;
             _nextTimingTelemetry = 0;
-            _reportedUnderruns = _reportedExtrapolated = 0;
+            _reportedPresentedFrames = _reportedUnderrunFrames = _reportedExtrapolatedFrames = 0;
         }
 
         public bool TryDequeueEvent(out NetApplicationEvent item)
@@ -577,16 +667,28 @@ namespace MphRead.Mods.Network
                 || connection.State is not (NetConnectionState.Ready or NetConnectionState.Playing)
                 || now < _nextTimingTelemetry || connection.Metrics.SnapshotIntervalMs.Count == 0)
                 return false;
-            long underruns = Math.Max(0, interpolation.UnderrunSamples - _reportedUnderruns);
-            long extrapolated = Math.Max(0, interpolation.ExtrapolatedSamples - _reportedExtrapolated);
-            _reportedUnderruns = interpolation.UnderrunSamples;
-            _reportedExtrapolated = interpolation.ExtrapolatedSamples;
+            // Presentation counters are match/epoch-local. A role or match
+            // reset may clear them without replacing the NetClient, so restart
+            // the delta baseline instead of waiting for the old count to catch up.
+            if (interpolation.PresentedFrames < _reportedPresentedFrames)
+                _reportedPresentedFrames = _reportedUnderrunFrames = _reportedExtrapolatedFrames = 0;
+            long presented = Math.Max(0, interpolation.PresentedFrames - _reportedPresentedFrames);
+            if (presented == 0) return false;
+            long underruns = Math.Max(0, interpolation.UnderrunFrames - _reportedUnderrunFrames);
+            long extrapolated = Math.Max(0, interpolation.ExtrapolatedFrames - _reportedExtrapolatedFrames);
+            _reportedPresentedFrames = interpolation.PresentedFrames;
+            _reportedUnderrunFrames = interpolation.UnderrunFrames;
+            _reportedExtrapolatedFrames = interpolation.ExtrapolatedFrames;
+            ushort presentedFrames = (ushort)Math.Min(UInt16.MaxValue, presented);
+            ushort underrunFrames = (ushort)Math.Min(presentedFrames, Math.Min(UInt16.MaxValue, underruns));
+            ushort extrapolatedFrames = (ushort)Math.Min(presentedFrames, Math.Min(UInt16.MaxValue, extrapolated));
             var telemetry = new NetworkTimingTelemetry(TimingProfile.Revision,
                 (byte)Math.Clamp((int)Math.Round(interpolation.DelayTicks),
                     NetworkTimingProfile.MinimumPresentationDelayTicks,
                     NetworkTimingProfile.MaximumPresentationDelayTicks),
-                (ushort)Math.Min(UInt16.MaxValue, underruns),
-                (ushort)Math.Min(UInt16.MaxValue, extrapolated),
+                presentedFrames,
+                underrunFrames,
+                extrapolatedFrames,
                 (ushort)Math.Clamp((int)Math.Round(connection.Metrics.SnapshotIntervalMs.Mean * 10), 50, 10_000),
                 (ushort)Math.Clamp((int)Math.Round(connection.Metrics.SnapshotIntervalJitterMs * 10), 0, 10_000));
             Span<byte> payload = stackalloc byte[NetworkTimingTelemetry.Size];
@@ -608,6 +710,11 @@ namespace MphRead.Mods.Network
             Disconnect();
             _transport.SetKeepAlive(null);
             Connection?.Disconnect();
+            if (_admissionKey is not null)
+            {
+                CryptographicOperations.ZeroMemory(_admissionKey);
+                _admissionKey = null;
+            }
         }
     }
 }
