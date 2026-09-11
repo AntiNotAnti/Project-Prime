@@ -35,9 +35,9 @@ public sealed class MatchIngestion(BackendDbContext db, TimeProvider clock, ILog
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception)
         {
-            logger.LogWarning("Match ingestion failed: {FailureClass}", exception.GetType().Name);
+            BackendDiagnostics.Rejected(logger, "match_report", "exception");
             throw;
         }
     }
