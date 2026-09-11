@@ -37,6 +37,23 @@ jobs:
   protocol:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # The Backend integration boundary is opt-in locally through
+    # PRIME_TEST_POSTGRES_FILE. CI supplies the same private connection-file
+    # contract against an isolated service, so the PostgreSQL cases exercise
+    # the real migration, transaction, concurrency, and role boundaries.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: prime-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
@@ -78,7 +95,16 @@ jobs:
         run: >
           dotnet test tests/Server.Node.Tests/Server.Node.Tests.csproj -c Release
           --filter "RequiresGameContent!=true"
-      - name: Backend tests (four PostgreSQL cases skip without PRIME_TEST_POSTGRES_FILE)
+      - name: prepare the opt-in PostgreSQL connection file
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s\n' 'Host=localhost;Port=5432;Username=postgres;Password=prime-ci-only;Database=postgres' \
+            > "$RUNNER_TEMP/prime-postgres-connection.txt"
+          test "$(stat -c '%a' "$RUNNER_TEMP/prime-postgres-connection.txt")" = 600
+      - name: Backend tests with the existing PostgreSQL boundary
+        env:
+          PRIME_TEST_POSTGRES_FILE: ${{ runner.temp }}/prime-postgres-connection.txt
         run: dotnet test tests/Backend.Tests/Backend.Tests.csproj -c Release
       - name: isolated imaging tests
         run: dotnet test tests/Imaging/Imaging.Tests.csproj -c Release

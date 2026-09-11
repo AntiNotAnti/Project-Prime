@@ -17,15 +17,17 @@ public sealed class RatingPersistenceTests
 {
     private static readonly Guid Server = Guid.Parse("f6a83c04-5b69-46c2-ab0c-80a25ba66fc0");
     private const string Secret = "rating-persistence-test-secret-32-characters";
+    private static string PostgreSql => File.ReadAllText(
+        Environment.GetEnvironmentVariable("PRIME_TEST_POSTGRES_FILE")!).Trim();
 
-    private static BackendFactory Factory() => new(configure: services =>
+    private static BackendFactory Factory(string? postgres = null) => new(configure: services =>
         services.Configure<GameServerOptions>(options => options.Servers.Add(new()
         {
             Id = Server,
             Enabled = true,
             TrustClass = MatchTrustClass.VerifiedCasual,
             ApiKeySha256 = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Secret)))
-        })));
+        })), postgresConnection: postgres);
 
     private static async Task<Guid> Register(HttpClient client, int index)
     {
@@ -129,6 +131,30 @@ public sealed class RatingPersistenceTests
         Assert.Equal(1, career.GetProperty("favoriteWeapon").GetProperty("matchesUsed").GetInt64());
         JsonElement board = await client.GetFromJsonAsync<JsonElement>("/v1/leaderboards/career?metric=rp");
         Assert.Equal(winner, board.GetProperty("entries")[0].GetProperty("playerId").GetGuid());
+    }
+
+    [PostgresFact]
+    public async Task PostgreSqlRatedReportPersistsTheRatingTransactionAndItsIdempotentReceipt()
+    {
+        using var factory = Factory(PostgreSql); using HttpClient client = factory.CreateDatabaseClient();
+        Guid winner = await Register(client, 101), loser = await Register(client, 102);
+        MatchReportV1 report = Report(Participant(winner, 0, 0, 2), Participant(loser, 1, 1, 0));
+
+        HttpResponseMessage first = await Submit(client, report);
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        MatchReceipt receipt = (await first.Content.ReadFromJsonAsync<MatchReceipt>())!;
+        Assert.Equal("applied", receipt.RatingStatus);
+        Assert.Equal(2, receipt.Rating.Transactions.Count);
+
+        HttpResponseMessage duplicate = await Submit(client, report);
+        Assert.Equal(HttpStatusCode.OK, duplicate.StatusCode);
+
+        using IServiceScope scope = factory.Services.CreateScope();
+        BackendDbContext db = scope.ServiceProvider.GetRequiredService<BackendDbContext>();
+        Assert.Equal(2, await db.RatingTransactions.CountAsync());
+        Assert.Equal(2, await db.RatingPairContributions.CountAsync());
+        Assert.Equal(2, (await db.Licenses.SingleAsync(x => x.PlayerId == winner)).RatingPoints);
+        Assert.Equal(0, (await db.Licenses.SingleAsync(x => x.PlayerId == loser)).RatingPoints);
     }
 
     [Fact]
