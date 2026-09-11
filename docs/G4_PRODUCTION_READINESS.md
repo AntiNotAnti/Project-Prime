@@ -29,9 +29,13 @@ separately managed PostgreSQL database and secret store. `Program` and
 `BackendSecurity` fail startup or reject requests when the required production
 configuration is absent. The deployment record must contain, at minimum:
 
-- `ConnectionStrings__Backend` pointing at the production PostgreSQL database
-  with a least-privileged application role. Schema migration is a separate
-  operator step; application startup does not call `Migrate` or `EnsureCreated`.
+- `ConnectionStrings__Backend` pointing at Supabase PostgreSQL with the
+  least-privileged `prime_app` role, port 5432, `SSL Mode=VerifyFull`, and a
+  trusted Supabase CA. The Backend forces a 0–10 connection Npgsql pool,
+  10-second connection timeout, 15-second command timeout, and stable
+  `ProjectPrime.Backend` application/data-source name. Schema migration is a
+  separate operator step; application startup does not call `Migrate` or
+  `EnsureCreated`.
 - `Backend__PublicUrl` as the public HTTPS origin, without credentials, query,
   or fragment. Production middleware rejects HTTP requests. If TLS terminates
   at a reverse proxy, the proxy must forward the external scheme and client
@@ -68,6 +72,16 @@ test, player, SMTP, reporter, or ticket-signing credential. Keep the plaintext
 only in the service environment/secret provider. A report-only server may use
 `PRIME_REPORT_CREDENTIAL`; it must still be a separately managed operator
 secret and must never be a player bearer token or signing key.
+
+Supabase remains infrastructure only. Disable its Data API and enable database
+SSL enforcement. Do not configure Supabase Auth, Realtime, client SDK database
+access, or PostgreSQL credentials in the launcher, Client, Node, or Worker.
+Use the direct IPv6 endpoint on port5432 when available, or the shared session
+pooler on port5432 for an IPv4-only Backend host. Port6543 transaction mode is
+not an accepted Project Prime deployment configuration. Verify both
+`GET /health/live` (process-only) and `GET /health/ready` (bounded database,
+exact migration, schema/table, and projection checks); deployment activation
+must use readiness.
 
 ## Forwarded headers, rate limits, and concurrency
 
@@ -162,16 +176,27 @@ registration closes new ticket admission for that process.
 Keep these operations separate from application startup and from a normal
 release health check:
 
-1. Review the exact EF migration set (`InitialAccounts`, `MatchLedger`, and
-   `CareerStatistics` in the current tree), generate an idempotent SQL script
-   or migration bundle, and apply it with a migration-only role during a
-   maintenance window.
+1. Review the clean first-deployment `PrimeInitialPostgres` EF baseline,
+   generate an idempotent SQL script or migration bundle, and apply it with a
+   migration-only role during a maintenance window. `--migrate` refuses legacy
+   Project Prime tables/history in `public`; if such a database exists, stop and
+   author an explicit `MoveToPrimeSchema` migration rather than creating a
+   parallel empty schema.
 2. Take and verify a restorable PostgreSQL backup before applying schema
    changes. Include the durable Data Protection directory, ticket key material
    and public-key history, and any pending server report spool in the recovery
    plan. Keep secrets in the secret manager rather than copying them into the
    repository or backup logs.
-3. Deploy the application only after the migration and restore check pass.
+3. Run `Data/Scripts/provision-prime-app.sql` as the administrator with the
+   runtime password passed through the required psql variable. Confirm
+   `prime_app` can use application DML/sequences and read migration history but
+   cannot mutate history, create/alter/drop schema objects, or manage roles.
+4. Run `--rebuild-career` as the runtime identity. It fails on missing, pending,
+   or unknown migrations and never performs DDL. Then run the non-destructive
+   `--check-database` smoke and retain its safe version/user/schema/migration/
+   table result.
+5. Deploy the application only after the migration, role, rebuild, smoke, and
+   restore checks pass. Gate the service on `/health/ready`.
    A rollback must use a tested backward-compatible application build or a
    verified database restore/corrective migration; do not improvise a destructive
    down-migration over accepted immutable reports. Career tables are projections
@@ -181,6 +206,13 @@ release health check:
 Record migration version, backup identifier, restore test result, application
 version, and rollback decision together. A green process start without this
 record is not a migration or backup proof.
+
+Free-plan development also requires scheduled encrypted off-site logical dumps;
+automatic production backup guarantees are not assumed. Restore into a
+disposable database and run `--check-database` plus account/match reads before
+calling the backup usable. Upgrade before public accounts and rating history
+depend on Free-plan availability. When the Backend has a stable outbound IP,
+restrict database ingress to it and an explicit administration/VPN address.
 
 ## Reporting and outbox operations
 
@@ -198,6 +230,14 @@ these fields in service monitoring:
 
 `Ready`, `ReservedReports`, `ReservedBytes`, `Quarantined`, `DurablePending`,
 `QueuedPending`, `OldestAgeSeconds`, and `LastError`.
+
+Collect Npgsql's native meter for acquisition/command latency, database
+failures, and pool used/idle/max. Collect the Backend match-ingestion duration,
+failure, accepted-count, and accepted-payload-byte instruments. Monitor
+database-side accepted match count, average/p95/total `OriginalReport` bytes,
+monthly growth, and database size. These signals must never include credentials,
+authorization headers, account/server tokens, report bodies, or connection
+strings.
 
 Per-report state is one of `Queued`, `DurablyStored`, `BackendAccepted`,
 `Quarantined`, or `Failed`. A report is accepted only after the Backend receipt
@@ -221,6 +261,15 @@ the serialized body, delete a poison file to clear the counter, or run a second
 worker against the same directory. The current source exposes status through
 the periodic log and local spool files; it does not provide a remote quarantine
 editing endpoint.
+
+Deployment acceptance must exercise account registration/confirmation/login/
+refresh/profile/license after restart and the complete Node-to-Worker-to-outbox-
+to-Backend-to-Supabase match path. During a controlled database outage, an
+active match must continue, the completed report must survive in the spool, and
+one result must appear after recovery. Repeat exact delivery for 201/200
+idempotency, conflicting delivery for 409/no mutation, Backend restart, Node
+restart/recovery, and concurrent overlapping matches. Local/unit success is not
+this evidence.
 
 ## Ranked Path B boundary
 

@@ -12,14 +12,20 @@ using MphRead.Backend;
 using MphRead.Backend.Data;
 using MphRead.Backend.Identity;
 using MphRead.Identity;
+using Npgsql;
 
 namespace MphRead.Backend.Tests;
 
 internal sealed class BackendFactory(bool requireConfirmation = false, Action<IServiceCollection>? configure = null, string? postgresConnection = null) : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
-    private readonly string _schema = "test_" + Guid.NewGuid().ToString("N");
+    private readonly string? _database = postgresConnection == null
+        ? null
+        : "project_prime_test_" + Guid.NewGuid().ToString("N");
+    private string? _testConnection;
     public CapturedEmail Email { get; } = new();
+    public string PostgreSqlConnection => _testConnection
+        ?? throw new InvalidOperationException("This factory is not using PostgreSQL.");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -31,18 +37,28 @@ internal sealed class BackendFactory(bool requireConfirmation = false, Action<IS
         {
             services.RemoveAll<DbContextOptions<BackendDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<BackendDbContext>>();
+            services.RemoveAll<NpgsqlDataSource>();
             if (postgresConnection == null) _connection.Open();
             else
             {
-                using var admin = new Npgsql.NpgsqlConnection(postgresConnection); admin.Open();
-                using var create = new Npgsql.NpgsqlCommand($"CREATE SCHEMA {_schema}", admin); create.ExecuteNonQuery();
+                _testConnection = CreateDisposableDatabase(postgresConnection, _database!);
             }
             services.AddDbContext<BackendDbContext>((provider, options) =>
             {
                 if (postgresConnection == null) options.UseSqlite(_connection);
-                else options.UseNpgsql(new Npgsql.NpgsqlConnectionStringBuilder(postgresConnection) { SearchPath = _schema }.ConnectionString);
+                else options.UseNpgsql(provider.GetRequiredService<NpgsqlDataSource>(), BackendDatabase.ConfigureEf);
                 options.AddInterceptors(provider.GetServices<SaveChangesInterceptor>());
             });
+            if (postgresConnection != null)
+            {
+                services.AddSingleton<NpgsqlDataSource>(_ =>
+                {
+                    var builder = new NpgsqlDataSourceBuilder(_testConnection!);
+                    builder.Name = BackendDatabase.DataSourceName;
+                    BackendDatabase.Configure(builder.ConnectionStringBuilder, new TestHostEnvironment("Testing"));
+                    return builder.Build();
+                });
+            }
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
             services.RemoveAll<IConfirmationEmail>();
             services.AddSingleton<IConfirmationEmail>(Email);
@@ -68,12 +84,34 @@ internal sealed class BackendFactory(bool requireConfirmation = false, Action<IS
         if (disposing)
         {
             _connection.Dispose();
-            if (postgresConnection != null)
+            if (postgresConnection != null && _database != null)
             {
-                using var admin = new Npgsql.NpgsqlConnection(postgresConnection); admin.Open();
-                using var drop = new Npgsql.NpgsqlCommand($"DROP SCHEMA IF EXISTS {_schema} CASCADE", admin); drop.ExecuteNonQuery();
+                using var admin = new NpgsqlConnection(AdminConnection(postgresConnection)); admin.Open();
+                using var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{_database}\" WITH (FORCE)", admin);
+                drop.ExecuteNonQuery();
             }
         }
+    }
+
+    private static string CreateDisposableDatabase(string adminConnection, string database)
+    {
+        var builder = new NpgsqlConnectionStringBuilder(adminConnection);
+        string[] hosts = (builder.Host ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (hosts.Length != 1 || hosts[0] is not ("localhost" or "127.0.0.1" or "::1"))
+            throw new InvalidOperationException("PostgreSQL integration tests require a disposable local localhost/127.0.0.1/::1 admin connection.");
+        using var admin = new NpgsqlConnection(AdminConnection(adminConnection));
+        admin.Open();
+        using var create = new NpgsqlCommand($"CREATE DATABASE \"{database}\"", admin);
+        create.ExecuteNonQuery();
+        builder.Database = database;
+        builder.SearchPath = null;
+        return builder.ConnectionString;
+    }
+
+    private static string AdminConnection(string connection)
+    {
+        var builder = new NpgsqlConnectionStringBuilder(connection) { Database = "postgres" };
+        return builder.ConnectionString;
     }
 }
 

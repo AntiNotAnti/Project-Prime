@@ -12,14 +12,15 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MphRead.Backend.Data.Migrations
 {
     [DbContext(typeof(BackendDbContext))]
-    [Migration("20260907104836_CareerStatistics")]
-    partial class CareerStatistics
+    [Migration("20260911104521_PrimeInitialPostgres")]
+    partial class PrimeInitialPostgres
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("prime")
                 .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -49,7 +50,7 @@ namespace MphRead.Backend.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("RoleNameIndex");
 
-                    b.ToTable("AspNetRoles", (string)null);
+                    b.ToTable("AspNetRoles", "prime");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -73,7 +74,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetRoleClaims", (string)null);
+                    b.ToTable("AspNetRoleClaims", "prime");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -97,7 +98,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserClaims", (string)null);
+                    b.ToTable("AspNetUserClaims", "prime");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
@@ -118,7 +119,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserLogins", (string)null);
+                    b.ToTable("AspNetUserLogins", "prime");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
@@ -133,7 +134,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetUserRoles", (string)null);
+                    b.ToTable("AspNetUserRoles", "prime");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
@@ -152,7 +153,30 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("AspNetUserTokens", (string)null);
+                    b.ToTable("AspNetUserTokens", "prime");
+                });
+
+            modelBuilder.Entity("MphRead.Backend.Data.CareerProjectionState", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("RebuildRequired")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("career_projection_state", "prime");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            RebuildRequired = true
+                        });
                 });
 
             modelBuilder.Entity("MphRead.Backend.Data.HunterAccount", b =>
@@ -218,7 +242,7 @@ namespace MphRead.Backend.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
 
-                    b.ToTable("players", (string)null);
+                    b.ToTable("players", "prime");
                 });
 
             modelBuilder.Entity("MphRead.Backend.Data.HunterLicense", b =>
@@ -229,9 +253,12 @@ namespace MphRead.Backend.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("RatingPoints")
+                        .HasColumnType("integer");
+
                     b.HasKey("PlayerId");
 
-                    b.ToTable("hunter_licenses", (string)null);
+                    b.ToTable("hunter_licenses", "prime");
                 });
 
             modelBuilder.Entity("MphRead.Backend.Data.PlayerProfile", b =>
@@ -249,7 +276,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasKey("PlayerId");
 
-                    b.ToTable("player_profiles", (string)null);
+                    b.ToTable("player_profiles", "prime");
                 });
 
             modelBuilder.Entity("MphRead.Backend.Matches.AcceptedMatch", b =>
@@ -285,6 +312,14 @@ namespace MphRead.Backend.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("ProcessingOrder"));
 
+                    b.Property<int?>("RatingIneligibilityReason")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RatingPolicyVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
                     b.Property<string>("RatingStatus")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -309,7 +344,7 @@ namespace MphRead.Backend.Data.Migrations
                     b.HasIndex("ProcessingOrder")
                         .IsUnique();
 
-                    b.ToTable("accepted_matches", (string)null);
+                    b.ToTable("accepted_matches", "prime");
                 });
 
             modelBuilder.Entity("MphRead.Backend.Matches.CareerAggregate", b =>
@@ -361,6 +396,9 @@ namespace MphRead.Backend.Data.Migrations
                     b.Property<long>("LongestWinStreak")
                         .HasColumnType("bigint");
 
+                    b.Property<long>("Losses")
+                        .HasColumnType("bigint");
+
                     b.Property<long>("Matches")
                         .HasColumnType("bigint");
 
@@ -388,7 +426,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasIndex("TrustClass", "Dimension", "Wins", "PlayerId");
 
-                    b.ToTable("career_aggregates", (string)null);
+                    b.ToTable("career_aggregates", "prime");
                 });
 
             modelBuilder.Entity("MphRead.Backend.Matches.CareerParticipation", b =>
@@ -433,7 +471,81 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasIndex("PlayerId", "ProcessingOrder");
 
-                    b.ToTable("career_participations", (string)null);
+                    b.ToTable("career_participations", "prime");
+                });
+
+            modelBuilder.Entity("MphRead.Backend.Matches.RatingLedgerEntry", b =>
+                {
+                    b.Property<Guid>("MatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AppliedDelta")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("NormalizedDelta")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OpponentCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PointsAfter")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PointsBefore")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PolicyVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("ProcessingOrder")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("RawDelta")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TierAfter")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TierBefore")
+                        .HasColumnType("integer");
+
+                    b.HasKey("MatchId", "PlayerId");
+
+                    b.HasIndex("PlayerId", "ProcessingOrder")
+                        .IsUnique();
+
+                    b.ToTable("rating_transactions", "prime");
+                });
+
+            modelBuilder.Entity("MphRead.Backend.Matches.RatingPairLedgerEntry", b =>
+                {
+                    b.Property<Guid>("MatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OpponentPlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Delta")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OpponentPointsBefore")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OpponentTierBefore")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Result")
+                        .HasColumnType("integer");
+
+                    b.HasKey("MatchId", "PlayerId", "OpponentPlayerId");
+
+                    b.ToTable("rating_pair_contributions", "prime");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -525,6 +637,30 @@ namespace MphRead.Backend.Data.Migrations
                     b.HasOne("MphRead.Backend.Data.HunterLicense", null)
                         .WithMany()
                         .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MphRead.Backend.Matches.RatingLedgerEntry", b =>
+                {
+                    b.HasOne("MphRead.Backend.Matches.AcceptedMatch", null)
+                        .WithMany()
+                        .HasForeignKey("MatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MphRead.Backend.Data.HunterLicense", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MphRead.Backend.Matches.RatingPairLedgerEntry", b =>
+                {
+                    b.HasOne("MphRead.Backend.Matches.RatingLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("MatchId", "PlayerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

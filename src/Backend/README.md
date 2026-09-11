@@ -8,7 +8,7 @@ Use deployment environment variables or an operator-managed secret provider. No 
 
 | Environment variable | Meaning |
 |---|---|
-| `ConnectionStrings__Backend` | PostgreSQL connection string; required; use a least-privileged application role |
+| `ConnectionStrings__Backend` | PostgreSQL connection string; required; supplied privately; runtime uses `prime_app` |
 | `Accounts__RequireConfirmedEmail` | Defaults true; false enables private testing login only, never unconfirmed game tickets |
 | `Accounts__DataProtectionKeyPath` | Durable Identity token/confirmation key directory, required outside Development/Testing |
 | `Email__Host`, `Email__Port`, `Email__Sender` | SMTP delivery; port defaults587, TLS is required |
@@ -29,6 +29,43 @@ Persist and protect the Data Protection directory and private PEM with owner-onl
 
 Production rejects HTTP. Terminate TLS at Kestrel or explicitly configure and audit trusted proxy forwarding before deployment; this slice does not trust arbitrary forwarded headers. Do not expose a Development/Testing environment publicly. Request bodies are limited to16KiB at Kestrel; known oversized bodies are also rejected before binding. Authentication endpoints allow20 requests/minute per method/route/account-or-IP partition; read/profile APIs allow120. A bounded concurrency limiter returns503 without queueing when the configured request permits are exhausted. Reverse-proxy address/rate-limit tuning remains deployment work.
 
+## Supabase PostgreSQL boundary
+
+Supabase is PostgreSQL infrastructure only. Project Prime does not use Supabase
+Auth, client SDKs, Realtime, the Data API, or direct database access from the
+Client, Server.Node, or Server.Worker. Server.Worker produces an authoritative
+result, Server.Node durably spools and sends it over HTTPS, and only the Backend
+uses EF Core/Npgsql to reach PostgreSQL.
+
+All application and ASP.NET Identity tables use the private `prime` schema.
+EF history is `prime.__EFMigrationsHistory`. In the Supabase dashboard, disable
+the Data API and enable incoming PostgreSQL SSL enforcement. Production Backend
+configuration also fails closed unless the connection uses port5432 and
+`SSL Mode=VerifyFull`. Install the project CA certificate in the Backend host's
+trusted certificate store or set Npgsql's `Root Certificate` to the protected
+CA file; do not use `Trust Server Certificate=true`.
+
+Use one of these dashboard-provided connection modes:
+
+1. Direct connection on port5432 when the Backend host has IPv6. The runtime
+   username is `prime_app`.
+2. Shared session pooler on port5432 when the Backend host needs IPv4. The
+   runtime username is `prime_app.<project-ref>` and the pooler hostname must be
+   copied from the dashboard.
+
+Port6543 transaction mode is not a supported Project Prime deployment. The
+Backend owns one long-lived `NpgsqlDataSource` with minimum pool size0, maximum
+pool size10, connection timeout10 seconds, command timeout15 seconds, and
+application/data-source name `ProjectPrime.Backend`. Automatic EF retry
+strategies remain disabled because account, match-ingestion, and projection
+flows own explicit transactions; a transient persistence failure returns 5xx
+and the Node outbox retries later.
+
+Supabase references: [PostgreSQL connection modes](https://supabase.com/docs/guides/database/connecting-to-postgres),
+[SSL enforcement and CA verification](https://supabase.com/docs/guides/platform/ssl-enforcement),
+[disabling the Data API](https://supabase.com/docs/guides/api/securing-your-api), and
+[database backups](https://supabase.com/docs/guides/platform/backups).
+
 ## API
 
 - `POST /v1/auth/register` `{email,password,displayName}` returns201 `{playerId,confirmationRequired,confirmationDeliveryPending}`. Email is unique, at most254 characters; password is12–256 characters with Identity's default complexity; display name is1–16 trimmed printable ASCII characters. Account/profile/license rows commit together. A duplicate returns409 without partial rows.
@@ -36,6 +73,8 @@ Production rejects HTTP. Terminate TLS at Kestrel or explicitly configure and au
 - `POST /v1/auth/refresh` `{refreshToken}` checks expiry, security stamp, confirmation policy and lockout. Access lasts10 minutes, refresh seven days.
 - `POST /v1/auth/confirm-email` `{playerId,code}` consumes the protected Identity-generated code delivered by email. `POST /v1/auth/resend-confirmation` `{email}` returns202 without revealing whether an account exists, including when the per-account or per-IP resend limit is reached. Delivery must be configured; no confirmation codes are returned by registration or printed to logs.
 - `POST /v1/auth/revoke-sessions` requires account authentication and invalidates refresh tokens via the security stamp. Already-issued access tokens expire normally; ticket issuance additionally checks the current stamp. This is not instant revocation of every profile/read access token.
+- `GET /health/live` proves only that the Backend process can answer; it never queries PostgreSQL and bypasses request-concurrency saturation.
+- `GET /health/ready` performs a two-second bounded PostgreSQL check and returns200 only when `SELECT 1`, the exact checked-in migration sequence, every expected `prime` table, and initialized career projections are present. It returns a detail-free503 otherwise.
 - `GET /v1/me` requires account authentication and returns `{playerId,emailConfirmed,emailEligibleForOfficialPlay}`. Email eligibility alone is not server/match/rating authorization.
 - `PATCH /v1/me/profile` `{displayName?,favoriteHunter?}` updates only the authenticated owner. Favorite Hunter is numeric0–6. Unknown properties, including supplied ownership/RP fields, are rejected.
 - `GET /v1/players/{id}/license` returns `{playerId,displayName,favoriteHunter,joinedAt,points,tier,title,nextThreshold,lastOfficialDelta,policy}`. No account email/password metadata is exposed.
@@ -80,17 +119,54 @@ no Backend account/career or ranked report. A guest-containing match therefore
 cannot contribute account statistics or rating even when other roster members
 are registered.
 
-## Explicit migrations and validation
+## Explicit migrations, roles, and validation
 
-The checked-in `Data/Migrations/InitialAccounts` creates Identity plus profile/license tables. Startup never calls `Migrate` or `EnsureCreated`. Migration tooling uses `BackendDesignTimeFactory` and the same environment connection-string key. Model construction and script generation do not connect to PostgreSQL.
+`Data/Migrations/PrimeInitialPostgres` is the clean first-deployment baseline.
+It creates the `prime` schema and the complete Identity, account, match, career,
+and rating model. It deliberately replaces the earlier development-only chain.
+Normal startup never calls `Migrate` or `EnsureCreated`. Migration tooling uses
+`BackendDesignTimeFactory` and `ConnectionStrings__Backend`; model construction
+and script generation do not connect to PostgreSQL.
 
-With a compatible10.x `dotnet-ef` tool, generate/review an idempotent SQL script or migration bundle, then apply it separately with a migration role. Do not apply a migration against a shared database as part of a normal build/test. Example (writes a script only):
+If any real database already contains the retired development migrations or
+Project Prime tables in `public`, do not apply this baseline. `--migrate`
+detects those legacy objects and fails without moving or dropping them; create
+and review a dedicated `MoveToPrimeSchema` migration instead.
+
+Use an administrator/migration credential only for schema work. After migration,
+run `Data/Scripts/provision-prime-app.sql` with the password supplied through the
+required psql variable. The `prime_app` role receives CONNECT, schema USAGE,
+application-table SELECT/INSERT/UPDATE/DELETE, sequence access, and SELECT-only
+EF history. It owns no objects and has no DDL or role-management capability.
+Re-run the grants script after a migration adds objects. Never use the Supabase
+`postgres` administrator as the runtime identity.
+
+With a compatible10.x `dotnet-ef` tool, generate/review an idempotent SQL script
+or migration bundle. The supported deployment order is:
+
+1. Take an encrypted off-site dump and verify a restore into a disposable database.
+2. Supply the migration credential and run the Backend once with `--migrate`.
+3. Apply the `prime_app` grant script as the migration administrator.
+4. Supply the runtime credential and run `--rebuild-career`.
+5. Run `--check-database`; record the safe JSON version/user/schema/migration/table result.
+6. Start the Backend normally as `prime_app`, then gate activation on `/health/ready`.
+
+`--rebuild-career` now refuses pending, missing, or unknown migrations and never
+performs DDL. `--migrate`, `--rebuild-career`, and `--check-database` are mutually
+exclusive one-shot operations and do not open an HTTP listener or require SMTP,
+ticket, or Node registration settings.
+
+Example offline SQL generation (writes a script only):
 
 ```sh
 dotnet ef migrations script --idempotent --project src/Backend --output /tmp/prime-backend-migration.sql
 ```
 
-`dotnet test tests/Backend.Tests/Backend.Tests.csproj` uses ephemeral SQLite and an in-process HTTP host, captures email only in test doubles, and validates PostgreSQL migration SQL/model offline. This is not PostgreSQL execution, deployed TLS, SMTP delivery, or native-client credential-storage proof. Before deployment, run migrations and account uniqueness/transaction/restart checks against disposable PostgreSQL, verify TLS/SMTP and durable protected keys, and complete server/client admission integration. No database or service is started by these tests.
+`dotnet test tests/Backend.Tests/Backend.Tests.csproj` uses ephemeral SQLite and
+an in-process HTTP host, captures email only in test doubles, and validates the
+PostgreSQL migration/model offline. This is not deployed TLS, SMTP delivery, or
+native-client credential-storage proof. No database or service is started by
+the default test run.
 
 Package/API basis: [ASP.NET Identity APIs](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity-api-authorization?view=aspnetcore-10.0), [Identity framework endpoint source](https://github.com/dotnet/aspnetcore/blob/v10.0.0/src/Identity/Core/src/IdentityApiEndpointRouteBuilderExtensions.cs), [Npgsql EF10](https://www.npgsql.org/efcore/release-notes/10.0.html), [EF migration deployment](https://learn.microsoft.com/en-us/ef/core/managing-schemas/migrations/applying). Password/token cryptography stays in established framework components; JWT signing is Backend-owned and Game has no cryptographic/package dependency.
 
@@ -103,13 +179,13 @@ The endpoint requires `Idempotency-Key` (match UUID), `X-Content-SHA256` (upperc
 
 One PostgreSQL transaction takes a shared rebuild barrier, a UUID-derived report advisory lock, and all affected license rows in canonical PlayerId order. It freezes every current balance, calculates all PairwiseNormalizedV1 results, inserts the match and immutable rating ledger, applies every balance, records participant history, and updates projections before commit. Any failure rolls back all changes. Gaps in the sequence after rollback are valid. Disjoint participants may commit independently; overlapping participants always calculate from committed balances in their mutation order.
 
-`CareerRebuild.RebuildAsync` is an explicit operator service with no public HTTP route. Run the one-shot operator command after applying the RatingLedger migration and before starting the public Backend:
+`CareerRebuild.RebuildAsync` is an explicit operator service with no public HTTP route. Run the one-shot operator command after applying the current migration and runtime grants, before starting the public Backend:
 
 ```sh
 dotnet run --project src/Backend/Backend.csproj -- --rebuild-career
 ```
 
-The command applies pending migrations, takes the exclusive rebuild barrier, verifies raw report hashes and identities plus every persisted rating before/after chain and pair contribution, restores RP balances from the immutable rating ledger, rebuilds career projections in processing order, and exits without opening an HTTP listener. The RatingLedger migration remaps legacy participation outcomes and removes legacy weapon rows whose old `Matches` value cannot truthfully represent `MatchesUsed`; this rebuild restores those weapon projections from authoritative `BeamKills` facts.
+The command first proves the exact checked-in migration sequence and projection-state row are present. It never applies migrations. It then takes the exclusive rebuild barrier, verifies raw report hashes and identities plus every persisted rating before/after chain and pair contribution, restores RP balances from the immutable rating ledger, rebuilds career projections in processing order, and exits without opening an HTTP listener.
 
 Public queries:
 
@@ -121,7 +197,56 @@ Career includes explicit finished-win, finished-loss, tie, forfeit, grace-expire
 
 ## PostgreSQL integration tests
 
-Set `PRIME_TEST_POSTGRES_FILE` to a private file containing the connection string for an explicitly disposable local PostgreSQL instance. Each PostgreSQL test creates a unique schema, applies actual migrations, and drops only that schema afterward. Without this variable those tests are explicitly skipped. Tests cover concurrent registration, overlapping-player reports, same-body idempotency, conflicts, raw-body preservation, rollback, rebuild equality, trust separation, malformed facts, and actual PostgreSQL leaderboard/keyset translation. SQLite covers focused HTTP/auth boundaries; it is not a production persistence substitute.
+Set `PRIME_TEST_POSTGRES_FILE` to a private file containing an administrator
+connection for an explicitly disposable PostgreSQL instance on
+`localhost`, `127.0.0.1`, or `::1`. The role must be allowed to create and drop
+databases. Each PostgreSQL test creates an exact random
+`project_prime_test_<uuid>` database, applies the real migration into its literal
+`prime` schema, and drops only that database afterward. Remote and Supabase hosts
+are rejected before destructive setup. Without the variable, PostgreSQL cases
+are explicitly skipped.
+
+Coverage includes schema/history placement, runtime role DML versus DDL/history
+denial, raw `FOR UPDATE`, advisory locks, concurrent registration, overlapping
+matches, idempotency/conflicts, rollback, rebuild equality, and PostgreSQL query
+translation. SQLite remains only for focused HTTP/auth boundaries.
+
+## Deployment acceptance, observability, and recovery
+
+The non-destructive Supabase smoke is `--check-database`: connect, `SELECT 1`,
+report PostgreSQL version/current user, verify `prime`, verify the exact migration,
+verify expected tables, and disconnect. Never point the destructive integration
+suite at Supabase.
+
+After that smoke, record live evidence for both complete paths: register,
+confirm, log in/refresh, update/read profile and Hunter License; then sign in,
+join a Node/lobby/Worker match, finish it, drain the durable report through
+`/v1/server/matches`, and observe history/career/RP after Backend restart. Repeat
+the same report for 201 then exact-idempotent200, and submit the same MatchId with
+a changed body for409 without projection changes.
+
+For failure acceptance, block Backend/database access while a match runs. The
+match must finish, the Node spool must retain the report, retry after recovery,
+and remove it only after the exact receipt. Repeat across Backend restart and
+Node restart. Verify statistics change once and concurrent overlapping matches
+remain serialized. These are live gates, not conclusions from unit tests.
+
+Collect the native `Npgsql` meter for connection acquisition/command duration,
+failures, and pool used/idle/max; its data-source label is the sanitized stable
+name `ProjectPrime.Backend`. The `ProjectPrime.Backend` meter adds match ingestion
+duration/failures, accepted count, and accepted-report byte histograms. Node
+already logs `DurablePending`, `QueuedPending`, and `OldestAgeSeconds` every30
+seconds. An external database collector should measure `accepted_matches` count,
+`avg`, p95, and total `octet_length("OriginalReport")`, plus
+`pg_database_size(current_database())`. Never label/log IDs, report bodies,
+connection strings, passwords, tokens, authorization headers, or server keys.
+
+Keep `AcceptedMatch.OriginalReport`: it is the immutable rebuild authority.
+Measure storage before considering compressed object storage. On the Free plan,
+schedule encrypted off-site `pg_dump`/Supabase CLI dumps and test restoring them;
+upgrade before public account/rating value depends on Free-plan availability.
+After the Backend has a stable outbound IP, restrict PostgreSQL ingress to that
+host and an explicit administrator/VPN address.
 
 
 The `publicControlUri` in a Node listing and admission is HTTPS-authenticated

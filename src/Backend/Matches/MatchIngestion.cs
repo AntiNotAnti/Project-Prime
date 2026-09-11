@@ -13,7 +13,7 @@ public sealed record MatchReceipt(Guid MatchId, string PayloadHash, long Process
     string RatingStatus, RatingReceipt Rating);
 public sealed record IngestionResult(int StatusCode, MatchReceipt? Receipt = null, string? Error = null);
 
-public sealed class MatchIngestion(BackendDbContext db, TimeProvider clock)
+public sealed class MatchIngestion(BackendDbContext db, TimeProvider clock, ILogger<MatchIngestion> logger)
 {
     public static readonly JsonSerializerOptions ReportJson = new()
     {
@@ -22,6 +22,27 @@ public sealed class MatchIngestion(BackendDbContext db, TimeProvider clock)
     };
 
     public async Task<IngestionResult> AcceptAsync(Guid serverId, MatchTrustClass trust, Guid matchId,
+        string claimedHash, byte[] payload, CancellationToken ct)
+    {
+        using BackendMetrics.MatchIngestionMeasurement measurement = BackendMetrics.Begin(payload.Length);
+        try
+        {
+            IngestionResult result = await AcceptCoreAsync(serverId, trust, matchId, claimedHash, payload, ct);
+            measurement.Complete(result.StatusCode);
+            return result;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning("Match ingestion failed: {FailureClass}", exception.GetType().Name);
+            throw;
+        }
+    }
+
+    private async Task<IngestionResult> AcceptCoreAsync(Guid serverId, MatchTrustClass trust, Guid matchId,
         string claimedHash, byte[] payload, CancellationToken ct)
     {
         if (payload.Length is 0 or > ReportValidation.MaximumBytes || claimedHash.Length != 64)
@@ -63,7 +84,7 @@ public sealed class MatchIngestion(BackendDbContext db, TimeProvider clock)
             // Every aggregate update (and future approved current-balance rating calculation)
             // follows these stable license-row locks, in the same total order.
             var license = db.Database.IsNpgsql()
-                ? await db.Licenses.FromSqlInterpolated($"SELECT * FROM hunter_licenses WHERE \"PlayerId\" = {player} FOR UPDATE").SingleOrDefaultAsync(ct)
+                ? await db.Licenses.FromSqlInterpolated($"SELECT * FROM \"prime\".\"hunter_licenses\" WHERE \"PlayerId\" = {player} FOR UPDATE").SingleOrDefaultAsync(ct)
                 : await db.Licenses.SingleOrDefaultAsync(p => p.PlayerId == player, ct);
             if (license == null) return new(400, Error: "Report contains an unknown registered player.");
             licenses.Add(player, license);

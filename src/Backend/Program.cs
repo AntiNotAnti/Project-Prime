@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Text.Json;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.DataProtection;
@@ -12,6 +13,7 @@ using MphRead.Backend.Identity;
 using MphRead.Backend.Profiles;
 using MphRead.Backend.Tickets;
 using MphRead.Backend.Nodes;
+using Npgsql;
 
 namespace MphRead.Backend;
 
@@ -19,6 +21,12 @@ public sealed class Program
 {
     public static async Task Main(string[] args)
     {
+        string[] operatorFlags = new[] { "--migrate", "--rebuild-career", "--check-database" }
+            .Where(flag => args.Contains(flag, StringComparer.Ordinal)).ToArray();
+        if (operatorFlags.Length > 1)
+            throw new InvalidOperationException("Specify exactly one operator flag: --migrate, --rebuild-career, or --check-database.");
+        string? operatorMode = operatorFlags.SingleOrDefault();
+
         var builder = WebApplication.CreateBuilder(args);
         builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 16 * 1024);
         builder.Services.ConfigureHttpJsonOptions(options =>
@@ -30,21 +38,16 @@ public sealed class Program
         builder.Services.Configure<BackendSecurityOptions>(builder.Configuration.GetSection("Backend"));
         var accountOptions = builder.Configuration.GetSection("Accounts").Get<AccountOptions>() ?? new();
         var securityOptions = builder.Configuration.GetSection("Backend").Get<BackendSecurityOptions>() ?? new();
-        BackendSecurity.ValidateCommon(securityOptions);
-        if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"))
-        {
-            BackendSecurity.ValidateProductionListeners(builder.Configuration, securityOptions);
-            if (string.IsNullOrWhiteSpace(accountOptions.DataProtectionKeyPath))
-                throw new InvalidOperationException("Accounts__DataProtectionKeyPath must be configured outside Development/Testing.");
-        }
         var protection = builder.Services.AddDataProtection().SetApplicationName("ProjectPrime.Backend");
         if (!string.IsNullOrWhiteSpace(accountOptions.DataProtectionKeyPath))
         {
             protection.PersistKeysToFileSystem(new DirectoryInfo(accountOptions.DataProtectionKeyPath));
         }
-        string connection = builder.Configuration.GetConnectionString("Backend")
-            ?? throw new InvalidOperationException("ConnectionStrings__Backend must be configured.");
-        builder.Services.AddDbContext<BackendDbContext>(options => options.UseNpgsql(connection));
+        builder.Services.AddSingleton<NpgsqlDataSource>(services =>
+            BackendDatabase.CreateDataSource(builder.Configuration, builder.Environment,
+                services.GetRequiredService<ILoggerFactory>()));
+        builder.Services.AddDbContext<BackendDbContext>((services, options) =>
+            options.UseNpgsql(services.GetRequiredService<NpgsqlDataSource>(), BackendDatabase.ConfigureEf));
         builder.Services.AddIdentityCore<HunterAccount>(options =>
         {
             options.User.RequireUniqueEmail = true;
@@ -70,6 +73,8 @@ public sealed class Program
         builder.Services.AddSingleton<NodeDirectory>();
         builder.Services.AddScoped<MatchIngestion>();
         builder.Services.AddScoped<CareerRebuild>();
+        builder.Services.AddScoped<BackendReadinessChecker>();
+        builder.Services.AddScoped<BackendDatabaseChecker>();
         builder.Services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -91,6 +96,60 @@ public sealed class Program
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
             BackendSecurity.ConfigureForwarding(options, securityOptions));
         var app = builder.Build();
+
+        // Operator commands intentionally run before listener, SMTP, ticket, and
+        // server-registration validation. They are one-shot and never open a web listener.
+        if (operatorMode != null)
+        {
+            await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
+            switch (operatorMode)
+            {
+                case "--migrate":
+                    await LegacyDatabaseGuard.ThrowIfLegacyObjectsAsync(
+                        scope.ServiceProvider.GetRequiredService<NpgsqlDataSource>());
+                    await scope.ServiceProvider.GetRequiredService<BackendDbContext>().Database.MigrateAsync();
+                    return;
+                case "--rebuild-career":
+                {
+                    using var rebuildDeadline = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+                    BackendReadinessResult current = await scope.ServiceProvider
+                        .GetRequiredService<BackendReadinessChecker>().CheckForRebuildAsync(rebuildDeadline.Token);
+                    if (!current.Ready)
+                        throw new InvalidOperationException(
+                            $"Cannot rebuild career until the exact prime migration sequence and projection state exist (failure: {current.Failure}). Run --migrate first; --rebuild-career never migrates.");
+                    await scope.ServiceProvider.GetRequiredService<CareerRebuild>().RebuildAsync(rebuildDeadline.Token);
+                    return;
+                }
+                case "--check-database":
+                {
+                    using var checkDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                    BackendDatabaseCheckReport report = await scope.ServiceProvider
+                        .GetRequiredService<BackendDatabaseChecker>().CheckAsync(checkDeadline.Token);
+                    Console.WriteLine(JsonSerializer.Serialize(new
+                    {
+                        success = report.Success,
+                        selectOne = report.SelectOne,
+                        serverVersion = report.ServerVersion,
+                        currentUser = report.CurrentUser,
+                        primeSchema = report.PrimeSchema,
+                        exactMigrations = report.ExactMigrations,
+                        migration = report.Migration,
+                        expectedTables = report.ExpectedTables,
+                        failure = report.Failure.Length == 0 ? null : report.Failure
+                    }));
+                    if (!report.Success) Environment.ExitCode = 1;
+                    return;
+                }
+            }
+        }
+
+        BackendSecurity.ValidateCommon(securityOptions);
+        if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
+        {
+            BackendSecurity.ValidateProductionListeners(builder.Configuration, securityOptions);
+            if (string.IsNullOrWhiteSpace(accountOptions.DataProtectionKeyPath))
+                throw new InvalidOperationException("Accounts__DataProtectionKeyPath must be configured outside Development/Testing.");
+        }
         // Validate configured operator identities/keys before accepting requests.
         _ = app.Services.GetRequiredService<GameServerRegistry>();
         var ticketIssuer = app.Services.GetRequiredService<GameTicketIssuer>();
@@ -101,21 +160,14 @@ public sealed class Program
             BackendSecurity.ValidateProduction(securityOptions, accountOptions, ticketOptions,
                 serverOptions, confirmationEmail.IsConfigured, ticketIssuer.IsConfigured);
         }
-        if (args.Contains("--rebuild-career", StringComparer.Ordinal))
-        {
-            await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
-            BackendDbContext database = scope.ServiceProvider.GetRequiredService<BackendDbContext>();
-            await database.Database.MigrateAsync();
-            await scope.ServiceProvider.GetRequiredService<CareerRebuild>().RebuildAsync();
-            return;
-        }
         if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
         {
             await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
-            bool rebuildRequired = await scope.ServiceProvider.GetRequiredService<BackendDbContext>()
-                .ProjectionStates.AsNoTracking().AnyAsync(x => x.Id == 1 && x.RebuildRequired);
-            if (rebuildRequired)
-                throw new InvalidOperationException("Run the Backend once with --rebuild-career before serving requests.");
+            using var readinessDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            BackendReadinessResult readiness = await scope.ServiceProvider
+                .GetRequiredService<BackendReadinessChecker>().CheckAsync(readinessDeadline.Token);
+            if (!readiness.Ready)
+                throw new InvalidOperationException($"Backend database readiness failed: {readiness.Failure}.");
         }
         app.UseForwardedHeaders();
         app.UseExceptionHandler();
@@ -138,6 +190,11 @@ public sealed class Program
         app.UseRouting();
         app.Use(async (http, next) =>
         {
+            if (http.Request.Path.Equals("/health/live", StringComparison.OrdinalIgnoreCase))
+            {
+                await next(http);
+                return;
+            }
             var limiter = http.RequestServices.GetRequiredService<ConcurrencyLimiter>();
             using RateLimitLease lease = await limiter.AcquireAsync(1, http.RequestAborted);
             if (!lease.IsAcquired)
@@ -150,6 +207,16 @@ public sealed class Program
         app.UseAuthentication();
         app.UseRateLimiter();
         app.UseAuthorization();
+        app.MapGet("/health/live", () => Results.Ok(new { status = "live" })).AllowAnonymous();
+        app.MapGet("/health/ready", async (BackendReadinessChecker checker, CancellationToken requestAborted) =>
+        {
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(requestAborted);
+            deadline.CancelAfter(TimeSpan.FromSeconds(2));
+            BackendReadinessResult readiness = await checker.CheckAsync(deadline.Token);
+            return readiness.Ready
+                ? Results.Ok(new { status = "ready" })
+                : Results.Json(new { status = "not_ready" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+        }).AllowAnonymous();
         app.MapAccounts();
         app.MapProfiles();
         app.MapGameTickets();

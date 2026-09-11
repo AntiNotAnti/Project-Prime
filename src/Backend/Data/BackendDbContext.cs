@@ -42,6 +42,7 @@ public sealed class BackendDbContext(DbContextOptions<BackendDbContext> options)
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.HasDefaultSchema(BackendDatabase.Schema);
         MatchDataModel.Configure(builder);
         builder.Entity<HunterAccount>().ToTable("players");
         // Identity's normalized username is already unique; require email uniqueness too.

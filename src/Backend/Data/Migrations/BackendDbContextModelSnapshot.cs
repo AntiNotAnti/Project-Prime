@@ -17,6 +17,7 @@ namespace MphRead.Backend.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("prime")
                 .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -46,7 +47,7 @@ namespace MphRead.Backend.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("RoleNameIndex");
 
-                    b.ToTable("AspNetRoles", (string)null);
+                    b.ToTable("AspNetRoles", "prime");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -70,7 +71,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetRoleClaims", (string)null);
+                    b.ToTable("AspNetRoleClaims", "prime");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -94,7 +95,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserClaims", (string)null);
+                    b.ToTable("AspNetUserClaims", "prime");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
@@ -115,7 +116,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserLogins", (string)null);
+                    b.ToTable("AspNetUserLogins", "prime");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
@@ -130,7 +131,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetUserRoles", (string)null);
+                    b.ToTable("AspNetUserRoles", "prime");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
@@ -149,7 +150,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("AspNetUserTokens", (string)null);
+                    b.ToTable("AspNetUserTokens", "prime");
                 });
 
             modelBuilder.Entity("MphRead.Backend.Data.CareerProjectionState", b =>
@@ -165,7 +166,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("career_projection_state", (string)null);
+                    b.ToTable("career_projection_state", "prime");
 
                     b.HasData(
                         new
@@ -238,7 +239,7 @@ namespace MphRead.Backend.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
 
-                    b.ToTable("players", (string)null);
+                    b.ToTable("players", "prime");
                 });
 
             modelBuilder.Entity("MphRead.Backend.Data.HunterLicense", b =>
@@ -254,7 +255,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasKey("PlayerId");
 
-                    b.ToTable("hunter_licenses", (string)null);
+                    b.ToTable("hunter_licenses", "prime");
                 });
 
             modelBuilder.Entity("MphRead.Backend.Data.PlayerProfile", b =>
@@ -272,7 +273,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasKey("PlayerId");
 
-                    b.ToTable("player_profiles", (string)null);
+                    b.ToTable("player_profiles", "prime");
                 });
 
             modelBuilder.Entity("MphRead.Backend.Matches.AcceptedMatch", b =>
@@ -340,7 +341,7 @@ namespace MphRead.Backend.Data.Migrations
                     b.HasIndex("ProcessingOrder")
                         .IsUnique();
 
-                    b.ToTable("accepted_matches", (string)null);
+                    b.ToTable("accepted_matches", "prime");
                 });
 
             modelBuilder.Entity("MphRead.Backend.Matches.CareerAggregate", b =>
@@ -422,7 +423,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasIndex("TrustClass", "Dimension", "Wins", "PlayerId");
 
-                    b.ToTable("career_aggregates", (string)null);
+                    b.ToTable("career_aggregates", "prime");
                 });
 
             modelBuilder.Entity("MphRead.Backend.Matches.CareerParticipation", b =>
@@ -467,7 +468,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasIndex("PlayerId", "ProcessingOrder");
 
-                    b.ToTable("career_participations", (string)null);
+                    b.ToTable("career_participations", "prime");
                 });
 
             modelBuilder.Entity("MphRead.Backend.Matches.RatingLedgerEntry", b =>
@@ -513,7 +514,7 @@ namespace MphRead.Backend.Data.Migrations
                     b.HasIndex("PlayerId", "ProcessingOrder")
                         .IsUnique();
 
-                    b.ToTable("rating_transactions", (string)null);
+                    b.ToTable("rating_transactions", "prime");
                 });
 
             modelBuilder.Entity("MphRead.Backend.Matches.RatingPairLedgerEntry", b =>
@@ -541,7 +542,7 @@ namespace MphRead.Backend.Data.Migrations
 
                     b.HasKey("MatchId", "PlayerId", "OpponentPlayerId");
 
-                    b.ToTable("rating_pair_contributions", (string)null);
+                    b.ToTable("rating_pair_contributions", "prime");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
