@@ -29,6 +29,17 @@ public sealed record GatewayState(GatewayPhase Phase, string Message, bool Signe
         false, false, null, "Guest");
 }
 
+public sealed record PendingRegistration(PlayerId PlayerId, string Email);
+
+internal enum AutomaticRestoreCommitState
+{
+    NotStarted,
+    Pending,
+    Committed,
+    NotRestored,
+    Abandoned
+}
+
 /// <summary>Small account boundary used by GatewayController and its tests.</summary>
 public interface IPrimeGatewayAccount : IAsyncDisposable
 {
@@ -81,11 +92,14 @@ public sealed class GatewayController : IAsyncDisposable
 {
     private readonly PrimeShellState _shell;
     private readonly Func<CancellationToken, Task<IPrimeGatewayAccount>> _resolve;
+    private readonly Action? _beforeAutomaticRestoreCommit;
     private readonly SemaphoreSlim _transition = new(1, 1);
     private readonly object _restoreLock = new();
     private IPrimeGatewayAccount? _account;
     private Task<bool>? _restoreTask;
+    private AutomaticRestoreCommitState _automaticRestoreState;
     private GatewayState _state = GatewayState.Initial;
+    private long _generation;
     private int _disposed;
 
     public GatewayController(PrimeShellState shell,
@@ -95,46 +109,122 @@ public sealed class GatewayController : IAsyncDisposable
         _resolve = resolve ?? ResolveDefaultAsync;
     }
 
+    internal GatewayController(PrimeShellState shell,
+        Func<CancellationToken, Task<IPrimeGatewayAccount>> resolve,
+        Action beforeAutomaticRestoreCommit)
+        : this(shell, resolve)
+        => _beforeAutomaticRestoreCommit = beforeAutomaticRestoreCommit;
+
     public GatewayState State => _state;
     public HunterLicense? License { get; private set; }
-    public PlayerId? PendingConfirmationPlayerId { get; private set; }
+    public PendingRegistration? PendingRegistration { get; private set; }
+    internal AutomaticRestoreCommitState AutomaticRestoreState
+    {
+        get { lock (_restoreLock) return _automaticRestoreState; }
+    }
     public event EventHandler? Changed;
     public event EventHandler? IdentityChanged;
 
     /// <summary>Restore exactly once, even when two startup callers race.</summary>
     public Task<bool> RestoreAsync(CancellationToken cancellationToken = default)
     {
+        TaskCompletionSource<bool>? owner = null;
+        long generation = 0;
+        Task<bool> restore;
         lock (_restoreLock)
         {
-            _restoreTask ??= RestoreCoreAsync(cancellationToken);
-            return _restoreTask.WaitAsync(cancellationToken);
+            if (_restoreTask is null)
+            {
+                _automaticRestoreState = AutomaticRestoreCommitState.Pending;
+                generation = Interlocked.Increment(ref _generation);
+                owner = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                _restoreTask = owner.Task;
+            }
+            restore = _restoreTask;
         }
+        // Start outside _restoreLock. A fully synchronous adapter is allowed
+        // to reach the commit boundary immediately, which must not keep an
+        // abandonment caller from acquiring that same boundary.
+        if (owner is not null)
+            _ = CompleteRestoreAsync(owner, generation, cancellationToken);
+        return restore.WaitAsync(cancellationToken);
+    }
+
+    private async Task CompleteRestoreAsync(TaskCompletionSource<bool> owner,
+        long generation, CancellationToken cancellationToken)
+    {
+        try
+        {
+            owner.TrySetResult(await RestoreCoreAsync(generation,
+                cancellationToken).ConfigureAwait(false));
+        }
+        catch (OperationCanceledException error)
+        {
+            owner.TrySetCanceled(error.CancellationToken);
+        }
+        catch (Exception error)
+        {
+            owner.TrySetException(error);
+        }
+    }
+
+    /// <summary>Atomically abandon only an automatic restore whose identity
+    /// commit has not won. Saved credentials are intentionally untouched.</summary>
+    public bool TryAbandonAutomaticRestore()
+    {
+        bool resetState;
+        lock (_restoreLock)
+        {
+            if (_automaticRestoreState != AutomaticRestoreCommitState.Pending)
+                return false;
+            _automaticRestoreState = AutomaticRestoreCommitState.Abandoned;
+            Interlocked.Increment(ref _generation);
+            resetState = _state.Phase == GatewayPhase.Restoring;
+        }
+        if (resetState) SetState(GatewayState.Initial);
+        return true;
+    }
+
+    /// <summary>Populate the immutable confirmation context used by the
+    /// deterministic offline capture surface. Production registration is the
+    /// only other writer.</summary>
+    internal void SetPendingRegistrationForCapture(PendingRegistration? pending)
+    {
+        ThrowIfDisposed();
+        PendingRegistration = pending;
     }
 
     public async Task<bool> SignInAsync(string email, string password,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(email)) throw new ArgumentException("Enter an email address.", nameof(email));
+        long generation = BeginTransition();
         // The controller never retains this value. Callers should clear their
         // TextBox immediately after taking a local copy.
         await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
+            if (!CanCommit(generation, cancellationToken)) return false;
             SetState(_state with { Phase = GatewayPhase.SigningIn, Message = "Signing in…" });
             // A successful sign-in can replace a guest or another account;
             // never leave the old identity attached to a Node session while
             // the new license is being applied.
             await NodeSessions.DisconnectAsync().ConfigureAwait(false);
             _shell.SetNodeStatus(false);
-            IPrimeGatewayAccount account = await GetAccountAsync(cancellationToken).ConfigureAwait(false);
+            IPrimeGatewayAccount? account = await GetAccountAsync(generation,
+                cancellationToken).ConfigureAwait(false);
+            if (account is null) return false;
             RequireSecureAuthenticationEndpoint(account.Backend);
             await account.SignInAsync(email.Trim(), password, cancellationToken).ConfigureAwait(false);
-            return await ApplyIdentityAsync(account, cancellationToken).ConfigureAwait(false);
+            return await ApplyIdentityAsync(account, generation, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception error)
         {
+            if (!CanCommit(generation, cancellationToken)) return false;
             Fail("Sign in", error);
             return false;
         }
@@ -144,16 +234,24 @@ public sealed class GatewayController : IAsyncDisposable
     public async Task<AccountRegistration?> RegisterAsync(string email, string password,
         string displayName, CancellationToken cancellationToken = default)
     {
+        string normalizedEmail = NormalizeEmail(email);
+        long generation = BeginTransition();
         await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
+            if (!CanCommit(generation, cancellationToken)) return null;
             SetState(_state with { Phase = GatewayPhase.Registering, Message = "Creating account…" });
-            IPrimeGatewayAccount account = await GetAccountAsync(cancellationToken).ConfigureAwait(false);
+            IPrimeGatewayAccount? account = await GetAccountAsync(generation,
+                cancellationToken).ConfigureAwait(false);
+            if (account is null) return null;
             RequireSecureAuthenticationEndpoint(account.Backend);
-            AccountRegistration result = await account.RegisterAsync(email.Trim(), password,
+            AccountRegistration result = await account.RegisterAsync(normalizedEmail, password,
                 displayName.Trim(), cancellationToken).ConfigureAwait(false);
-            PendingConfirmationPlayerId = result.ConfirmationRequired ? result.PlayerId : null;
+            if (!CanCommit(generation, cancellationToken)) return null;
+            PendingRegistration = result.ConfirmationRequired
+                ? new PendingRegistration(result.PlayerId, normalizedEmail)
+                : null;
             SetState(_state with { Phase = GatewayPhase.Gateway,
                 Message = result.ConfirmationRequired
                     ? "Account created. Enter the confirmation code, then sign in."
@@ -161,63 +259,100 @@ public sealed class GatewayController : IAsyncDisposable
             return result;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (Exception error) { Fail("Account creation", error); return null; }
+        catch (Exception error)
+        {
+            if (CanCommit(generation, cancellationToken)) Fail("Account creation", error);
+            return null;
+        }
         finally { _transition.Release(); }
     }
 
-    public async Task<bool> ConfirmEmailAsync(PlayerId playerId, string code,
+    public async Task<bool> ConfirmPendingAsync(string code,
         CancellationToken cancellationToken = default)
     {
+        PendingRegistration pending = PendingRegistration
+            ?? throw new InvalidOperationException("No email confirmation is pending.");
+        long generation = BeginTransition();
         await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
+            if (!CanCommit(generation, cancellationToken)
+                || PendingRegistration != pending) return false;
             SetState(_state with { Phase = GatewayPhase.Confirming, Message = "Confirming email…" });
-            IPrimeGatewayAccount account = await GetAccountAsync(cancellationToken).ConfigureAwait(false);
+            IPrimeGatewayAccount? account = await GetAccountAsync(generation,
+                cancellationToken).ConfigureAwait(false);
+            if (account is null) return false;
             RequireSecureAuthenticationEndpoint(account.Backend);
-            await account.ConfirmEmailAsync(playerId, code.Trim(), cancellationToken).ConfigureAwait(false);
-            PendingConfirmationPlayerId = null;
+            await account.ConfirmEmailAsync(pending.PlayerId, code.Trim(), cancellationToken)
+                .ConfigureAwait(false);
+            if (!CanCommit(generation, cancellationToken)
+                || PendingRegistration != pending) return false;
+            PendingRegistration = null;
             SetState(_state with { Phase = GatewayPhase.Gateway,
                 Message = "Email confirmed. Sign in to refresh eligibility." });
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (Exception error) { Fail("Email confirmation", error); return false; }
+        catch (Exception error)
+        {
+            if (CanCommit(generation, cancellationToken)) Fail("Email confirmation", error);
+            return false;
+        }
         finally { _transition.Release(); }
     }
 
-    public async Task<bool> ResendConfirmationAsync(string email,
+    public async Task<bool> ResendPendingAsync(
         CancellationToken cancellationToken = default)
     {
+        PendingRegistration pending = PendingRegistration
+            ?? throw new InvalidOperationException("No email confirmation is pending.");
+        long generation = BeginTransition();
         await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
-            IPrimeGatewayAccount account = await GetAccountAsync(cancellationToken).ConfigureAwait(false);
+            if (!CanCommit(generation, cancellationToken)
+                || PendingRegistration != pending) return false;
+            IPrimeGatewayAccount? account = await GetAccountAsync(generation,
+                cancellationToken).ConfigureAwait(false);
+            if (account is null) return false;
             RequireSecureAuthenticationEndpoint(account.Backend);
-            await account.ResendConfirmationAsync(email.Trim(), cancellationToken).ConfigureAwait(false);
+            await account.ResendConfirmationAsync(pending.Email, cancellationToken)
+                .ConfigureAwait(false);
+            if (!CanCommit(generation, cancellationToken)
+                || PendingRegistration != pending) return false;
             SetState(_state with { Phase = GatewayPhase.Gateway,
                 Message = "If confirmation is needed, a new code will be sent." });
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (Exception error) { Fail("Resending confirmation", error); return false; }
+        catch (Exception error)
+        {
+            if (CanCommit(generation, cancellationToken)) Fail("Resending confirmation", error);
+            return false;
+        }
         finally { _transition.Release(); }
     }
 
     /// <summary>Explicitly select anonymous access; auth failure never calls this.</summary>
     public async Task<bool> UseGuestAsync(CancellationToken cancellationToken = default)
     {
+        long generation = BeginTransition();
         await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
-            IPrimeGatewayAccount account = await GetAccountAsync(cancellationToken).ConfigureAwait(false);
+            if (!CanCommit(generation, cancellationToken)) return false;
+            IPrimeGatewayAccount? account = await GetAccountAsync(generation,
+                cancellationToken).ConfigureAwait(false);
+            if (account is null) return false;
             if (account.IsSignedIn) await account.SignOutAsync(cancellationToken).ConfigureAwait(false);
             await NodeSessions.DisconnectAsync().ConfigureAwait(false);
+            if (!CanCommit(generation, cancellationToken)) return false;
             _shell.SetNodeStatus(false);
             License = null;
-            PendingConfirmationPlayerId = null;
+            PendingRegistration = null;
             _shell.SelectGuest(LauncherPrefs.PlayerName);
             SetState(new GatewayState(GatewayPhase.Guest,
                 "Guest access selected. Choose a Node from Play.", false, true,
@@ -226,50 +361,68 @@ public sealed class GatewayController : IAsyncDisposable
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (Exception error) { Fail("Guest access", error); return false; }
+        catch (Exception error)
+        {
+            if (CanCommit(generation, cancellationToken)) Fail("Guest access", error);
+            return false;
+        }
         finally { _transition.Release(); }
     }
 
     public async Task<bool> SignOutAsync(CancellationToken cancellationToken = default)
     {
+        long generation = BeginTransition();
         await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
+            if (!CanCommit(generation, cancellationToken)) return false;
             if (_account != null && _account.IsSignedIn)
             {
                 RequireSecureAuthenticationEndpoint(_account.Backend);
                 await _account.SignOutAsync(cancellationToken).ConfigureAwait(false);
             }
             await NodeSessions.DisconnectAsync().ConfigureAwait(false);
+            if (!CanCommit(generation, cancellationToken)) return false;
             _shell.SetNodeStatus(false);
             License = null;
-            PendingConfirmationPlayerId = null;
+            PendingRegistration = null;
             _shell.ClearIdentity();
             SetState(GatewayState.Initial with { Message = "Signed out. Choose sign in or explicit Guest access." });
             IdentityChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (Exception error) { Fail("Sign out", error); return false; }
+        catch (Exception error)
+        {
+            if (CanCommit(generation, cancellationToken)) Fail("Sign out", error);
+            return false;
+        }
         finally { _transition.Release(); }
     }
 
     public async Task<bool> UpdateProfileAsync(string displayName, int favoriteHunter,
         CancellationToken cancellationToken = default)
     {
+        long generation = BeginTransition();
         await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
+            if (!CanCommit(generation, cancellationToken)) return false;
             IPrimeGatewayAccount account = RequireSignedIn();
             RequireSecureAuthenticationEndpoint(account.Backend);
             await account.UpdateProfileAsync(displayName.Trim(), favoriteHunter, cancellationToken)
                 .ConfigureAwait(false);
-            return await ApplyIdentityAsync(account, cancellationToken).ConfigureAwait(false);
+            return await ApplyIdentityAsync(account, generation, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (Exception error) { Fail("Profile update", error); return false; }
+        catch (Exception error)
+        {
+            if (CanCommit(generation, cancellationToken)) Fail("Profile update", error);
+            return false;
+        }
         finally { _transition.Release(); }
     }
 
@@ -283,20 +436,36 @@ public sealed class GatewayController : IAsyncDisposable
     {
         if (!AccountSession.IsAllowedBackend(backend))
             throw new ArgumentException("Use an HTTPS Backend address or HTTP on loopback for local testing.", nameof(backend));
+        long generation = BeginTransition();
         await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
+            if (!CanCommit(generation, cancellationToken)) return false;
             await NodeSessions.DisconnectAsync().ConfigureAwait(false);
-            if (_account != null) await _account.DisposeAsync().ConfigureAwait(false);
+            if (!CanCommit(generation, cancellationToken)) return false;
+            // Detach before the awaited disposal. A newer auth intent may be
+            // queued while disposal is pending; it must never observe or
+            // reuse an adapter whose replacement has already begun.
+            IPrimeGatewayAccount? previousAccount = _account;
             _account = null;
             License = null;
-            PendingConfirmationPlayerId = null;
+            PendingRegistration = null;
             _shell.ClearIdentity();
             _shell.SetBackendStatus(false);
+            if (previousAccount != null)
+                await previousAccount.DisposeAsync().ConfigureAwait(false);
+            // A queued auth transition may supersede the generation, but it
+            // cannot execute until this serialized replacement completes.
+            // Disposal of the controller itself is the only reason to stop.
+            if (Volatile.Read(ref _disposed) != 0) return false;
             LauncherPrefs.BackendAddress = new Uri(backend.AbsoluteUri.TrimEnd('/') + "/").AbsoluteUri;
             LauncherPrefs.Save();
-            lock (_restoreLock) _restoreTask = null;
+            lock (_restoreLock)
+            {
+                _restoreTask = null;
+                _automaticRestoreState = AutomaticRestoreCommitState.NotStarted;
+            }
             SetState(GatewayState.Initial with { Message = "Backend saved. Sign in or choose explicit Guest access." });
             IdentityChanged?.Invoke(this, EventArgs.Empty);
             return true;
@@ -307,6 +476,8 @@ public sealed class GatewayController : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        Interlocked.Increment(ref _generation);
+        PendingRegistration = null;
         // Wait for the current serialized transition before disposing the
         // semaphore or account. Deactivate cancels shell-owned requests, but
         // a caller may have supplied a longer-lived token and disposal must
@@ -323,16 +494,21 @@ public sealed class GatewayController : IAsyncDisposable
         }
     }
 
-    private async Task<bool> RestoreCoreAsync(CancellationToken cancellationToken)
+    private async Task<bool> RestoreCoreAsync(long generation,
+        CancellationToken cancellationToken)
     {
         await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
+            if (!CanCommit(generation, cancellationToken)) return false;
             SetState(_state with { Phase = GatewayPhase.Restoring, Message = "Restoring secure session…" });
-            IPrimeGatewayAccount account = await GetAccountAsync(cancellationToken).ConfigureAwait(false);
+            IPrimeGatewayAccount? account = await GetAccountAsync(generation,
+                cancellationToken).ConfigureAwait(false);
+            if (account is null) return false;
             if (!IsSecureAuthenticationEndpoint(account.Backend))
             {
+                if (!CanCommit(generation, cancellationToken)) return false;
                 SetState(GatewayState.Initial with
                 {
                     Message = "Continue as Guest or sign in with an available account service."
@@ -342,42 +518,99 @@ public sealed class GatewayController : IAsyncDisposable
             RequireSecureAuthenticationEndpoint(account.Backend);
             if (!await account.RestoreAsync(cancellationToken).ConfigureAwait(false))
             {
+                if (!CanCommit(generation, cancellationToken)) return false;
                 SetState(GatewayState.Initial with { Message = "No saved session was found." });
                 _shell.SetBackendStatus(true);
                 return false;
             }
-            return await ApplyIdentityAsync(account, cancellationToken).ConfigureAwait(false);
+            if (!CanCommit(generation, cancellationToken)) return false;
+            return await ApplyIdentityAsync(account, generation, cancellationToken,
+                    automaticRestore: true)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (Exception error) { Fail("Session restore", error); return false; }
-        finally { _transition.Release(); }
+        catch (Exception error)
+        {
+            if (CanCommit(generation, cancellationToken)) Fail("Session restore", error);
+            return false;
+        }
+        finally
+        {
+            MarkAutomaticRestoreNotRestored();
+            _transition.Release();
+        }
     }
 
     private async Task<bool> ApplyIdentityAsync(IPrimeGatewayAccount account,
-        CancellationToken cancellationToken)
+        long generation, CancellationToken cancellationToken,
+        bool automaticRestore = false)
     {
+        if (!CanCommit(generation, cancellationToken)) return false;
         AccountIdentity identity = account.Identity
             ?? throw new InvalidOperationException("The account service returned no identity.");
         HunterLicense license = await account.GetLicenseAsync(identity.PlayerId, cancellationToken)
             .ConfigureAwait(false);
-        License = license;
-        // Account display name is an authenticated identity, not the local
-        // guest preference. Keep LauncherPrefs.PlayerName untouched so a
-        // signed-out/guest session can retain its own device-local name.
-        _shell.SetIdentity(identity.PlayerId, license.DisplayName, identity.EmailEligibleForOfficialPlay);
-        SetState(new GatewayState(GatewayPhase.SignedIn, "Identity restored.", true, false,
-            identity.EmailConfirmed, identity.EmailEligibleForOfficialPlay, identity.PlayerId,
-            license.DisplayName));
+        if (automaticRestore)
+        {
+            _beforeAutomaticRestoreCommit?.Invoke();
+            lock (_restoreLock)
+            {
+                if (!CanCommit(generation, cancellationToken)
+                    || _automaticRestoreState != AutomaticRestoreCommitState.Pending)
+                    return false;
+                _automaticRestoreState = AutomaticRestoreCommitState.Committed;
+                CommitIdentity(identity, license);
+            }
+        }
+        else
+        {
+            if (!CanCommit(generation, cancellationToken)) return false;
+            CommitIdentity(identity, license);
+        }
+        Changed?.Invoke(this, EventArgs.Empty);
         IdentityChanged?.Invoke(this, EventArgs.Empty);
         return true;
     }
 
-    private async Task<IPrimeGatewayAccount> GetAccountAsync(CancellationToken cancellationToken)
+    private void CommitIdentity(AccountIdentity identity, HunterLicense license)
     {
-        if (_account != null) return _account;
-        _account = await _resolve(cancellationToken).ConfigureAwait(false);
+        License = license;
+        PendingRegistration = null;
+        // Account display name is an authenticated identity, not the local
+        // guest preference. Keep LauncherPrefs.PlayerName untouched so a
+        // signed-out/guest session can retain its own device-local name.
+        _shell.SetIdentity(identity.PlayerId, license.DisplayName,
+            identity.EmailEligibleForOfficialPlay);
+        _state = new GatewayState(GatewayPhase.SignedIn, "Identity restored.", true,
+            false, identity.EmailConfirmed, identity.EmailEligibleForOfficialPlay,
+            identity.PlayerId, license.DisplayName);
+    }
+
+    private void MarkAutomaticRestoreNotRestored()
+    {
+        lock (_restoreLock)
+        {
+            if (_automaticRestoreState == AutomaticRestoreCommitState.Pending)
+                _automaticRestoreState = AutomaticRestoreCommitState.NotRestored;
+        }
+    }
+
+    private async Task<IPrimeGatewayAccount?> GetAccountAsync(long generation,
+        CancellationToken cancellationToken)
+    {
+        if (_account != null)
+            return CanCommit(generation, cancellationToken) ? _account : null;
+        IPrimeGatewayAccount account = await _resolve(cancellationToken).ConfigureAwait(false);
+        if (!CanCommit(generation, cancellationToken))
+        {
+            await account.DisposeAsync().ConfigureAwait(false);
+            return null;
+        }
+        // Installing a new account object is an account replacement boundary.
+        PendingRegistration = null;
+        _account = account;
         _shell.SetBackendStatus(true);
-        return _account;
+        return account;
     }
 
     private IPrimeGatewayAccount RequireSignedIn()
@@ -404,6 +637,20 @@ public sealed class GatewayController : IAsyncDisposable
     private static bool IsSecureAuthenticationEndpoint(Uri backend)
         => backend.Scheme == Uri.UriSchemeHttps
             || backend.Scheme == Uri.UriSchemeHttp && backend.IsLoopback;
+
+    private long BeginTransition() => Interlocked.Increment(ref _generation);
+
+    private bool CanCommit(long generation, CancellationToken cancellationToken)
+        => !cancellationToken.IsCancellationRequested
+            && Volatile.Read(ref _disposed) == 0
+            && Volatile.Read(ref _generation) == generation;
+
+    private static string NormalizeEmail(string email)
+    {
+        if (String.IsNullOrWhiteSpace(email))
+            throw new ArgumentException("Enter an email address.", nameof(email));
+        return email.Trim().ToLowerInvariant();
+    }
 
     private void SetState(GatewayState state)
     {

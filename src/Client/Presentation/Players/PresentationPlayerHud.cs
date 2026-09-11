@@ -1555,7 +1555,21 @@ namespace MphRead.Entities
             _ammoBarMeter.TankAmount = _player._ammoMax[info.AmmoType] + 1;
             _ammoBarMeter.TankCount = 0;
             int amount = _player._ammo[info.AmmoType];
-            DrawMeter(_hudObjects.AmmoBarPosX + _objShiftX, _hudObjects.AmmoBarPosY + _objShiftY, amount, amount, _ammoBarPalette, _ammoBarMeter, drawText: false, drawTanks: false, Features.HudOpacity);
+            float meterY = _hudObjects.AmmoBarPosY + _objShiftY;
+            int meterLength = _ammoBarMeter.Length;
+            if (Hud.Radar.RadarSettings.Style == Hud.Radar.RadarStyle.Enhanced
+                && Hud.Radar.RadarSettings.Anchor == Hud.Radar.RadarAnchor.TopRight)
+            {
+                Hud.Radar.RadarLayout radar = Hud.Radar.RadarLayoutCalculator.Calculate(
+                    Hud.Radar.RadarSettings.Anchor, Hud.Radar.RadarSettings.Scale,
+                    Hud.Radar.RadarSettings.OffsetX, Hud.Radar.RadarSettings.OffsetY, HudAspectFix);
+                meterLength = Hud.Radar.RadarLayoutCalculator.FitVerticalMeterBelow(
+                    radar, meterY, meterLength);
+            }
+
+            DrawMeter(_hudObjects.AmmoBarPosX + _objShiftX, meterY, amount, amount,
+                _ammoBarPalette, _ammoBarMeter, drawText: false, drawTanks: false,
+                Features.HudOpacity, lengthOverride: meterLength);
             amount /= info.AmmoCost;
             DrawText2D(_hudObjects.AmmoBarPosX + _ammoBarMeter.BarOffsetX + _objShiftX, _hudObjects.AmmoBarPosY + _ammoBarMeter.BarOffsetY + _objShiftY, _ammoBarMeter.Align, _ammoBarPalette, $"{amount:00}", alpha: Features.HudOpacity);
         }
@@ -1810,7 +1824,9 @@ namespace MphRead.Entities
             }
         }
 
-        public void DrawMeter(float x, float y, int baseAmount, int curAmount, int palette, HudMeter meter, bool drawText, bool drawTanks, float alpha = 1)
+        public void DrawMeter(float x, float y, int baseAmount, int curAmount, int palette,
+            HudMeter meter, bool drawText, bool drawTanks, float alpha = 1,
+            int? lengthOverride = null)
         {
             int filledTanks = 0;
             int remaining = curAmount;
@@ -1828,10 +1844,10 @@ namespace MphRead.Entities
                 }
             }
 
-            int barAmount;
-            barAmount = Math.Min(baseAmount, curAmount);
-            int tiles = (meter.Length + 7) / 8;
-            int filledTiles = 100000 * barAmount / (99000 * meter.TankAmount / meter.Length);
+            int barAmount = Math.Min(baseAmount, curAmount);
+            int meterLength = lengthOverride ?? meter.Length;
+            int tiles = (meterLength + 7) / 8;
+            int filledTiles = 100000 * barAmount / (99000 * meter.TankAmount / meterLength);
             if (filledTiles == 0 && barAmount > 0)
             {
                 filledTiles = 1;

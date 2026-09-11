@@ -13,6 +13,14 @@ internal enum PrimeTitleScreenPhase
     Hidden
 }
 
+internal enum PrimeStartupRestoreState
+{
+    Pending,
+    Restored,
+    NotRestored,
+    Abandoned
+}
+
 internal sealed class PrimeTitleScreenLifecycle
 {
     public PrimeTitleScreenLifecycle(PrimeTitleScreenPhase initial =

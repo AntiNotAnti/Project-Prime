@@ -13,6 +13,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Styling;
 using ProjectPrime.Server.Shared;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher.Theme;
@@ -52,6 +53,8 @@ public sealed class PostMatchView : UserControl, IDisposable
     private readonly MapPreviewService _mapPreviews;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly PostMatchResultsModel _results;
+    private readonly IBrush _selectedBallotBorderBrush;
+    private readonly IBrush _selectedBallotSurfaceBrush;
     private readonly EventHandler<SizeChangedEventArgs> _sizeChangedHandler;
     private NodeRoundSnapshot? _round;
     private NodeRoundSnapshot? _projectedRound;
@@ -181,6 +184,12 @@ public sealed class PostMatchView : UserControl, IDisposable
         UpdateLeaveConfirmation();
 
         Content = _zones;
+        _selectedBallotBorderBrush = ResolveThemeBrush(
+            PrimeVisualTokens.BrushKey(PrimeSemanticColor.Brand),
+            ResolveThemeBrush(PrimeVisualTokens.BrushKey(PrimeSemanticColor.Accent),
+                GuiTheme.AccentBrush));
+        _selectedBallotSurfaceBrush = ResolveThemeBrush(PrimeVisualTokens.BrandSurfaceBrush,
+            ResolveThemeBrush(PrimeVisualTokens.SelectedSurfaceBrush, GuiTheme.BrandSurfaceBrush));
         ApplyResponsiveLayout();
         Update(null);
     }
@@ -209,7 +218,7 @@ public sealed class PostMatchView : UserControl, IDisposable
         }
         else
         {
-            header.Children.Add(Text("Authoritative match results are unavailable.", 12,
+            header.Children.Add(Text("Match results are unavailable.", 12,
                 FontWeight.Normal, GuiTheme.TextDimBrush));
         }
         return header;
@@ -221,12 +230,12 @@ public sealed class PostMatchView : UserControl, IDisposable
         _scoreboard.Children.Clear();
         if (!_results.HasAuthoritativeResult)
         {
-            _scoreboard.Children.Add(EmptyPanel("No authoritative result was received. Scores and outcome are not available."));
+            _scoreboard.Children.Add(EmptyPanel("Match results are unavailable."));
             return;
         }
         if (!_results.HasScoreboard)
         {
-            _scoreboard.Children.Add(EmptyPanel("No authoritative player rows were included in this result."));
+            _scoreboard.Children.Add(EmptyPanel("No player results were received."));
             return;
         }
 
@@ -292,7 +301,7 @@ public sealed class PostMatchView : UserControl, IDisposable
     {
         var header = new Border
         {
-            Child = Text("PLAYER  ·  SCORE  ·  K / D / A  ·  DAMAGE", 10,
+            Child = Text("SCOREBOARD", 10,
                 FontWeight.SemiBold, GuiTheme.TextDimBrush),
             BorderBrush = GuiTheme.EdgeBrush,
             BorderThickness = new Thickness(0, 0, 0, 1),
@@ -436,8 +445,7 @@ public sealed class PostMatchView : UserControl, IDisposable
         };
         text.Children.Add(new TextBlock
         {
-            Text = CardHeading(option, index, _ballotModel.OwnVote,
-                _round?.ResolvedOption?.Id ?? 0),
+            Text = CardHeadingForDisplay(option, index),
             FontFamily = GuiTheme.Display,
             FontSize = 13,
             FontWeight = FontWeight.SemiBold,
@@ -621,15 +629,22 @@ public sealed class PostMatchView : UserControl, IDisposable
                 && Selection.CanChoose && _ballotModel.CanVote;
             bool selected = i == Selection.SelectedIndex;
             card.BorderThickness = new Thickness(selected ? 2 : 1);
-            card.BorderBrush = selected ? GuiTheme.AccentBrush
+            card.BorderBrush = selected ? _selectedBallotBorderBrush
                 : option.IsResolved ? GuiTheme.WarmBrush : GuiTheme.EdgeBrush;
-            card.Background = selected ? GuiTheme.PanelLightBrush : GuiTheme.PanelBrush;
-            if (refreshHeadings && card.Content is StackPanel panel && panel.Children[0] is TextBlock heading)
+            card.Background = selected ? _selectedBallotSurfaceBrush : GuiTheme.PanelBrush;
+            if (refreshHeadings
+                && card.Content is StackPanel panel && panel.Children[0] is TextBlock heading)
             {
-                heading.Text = CardHeading(option, i, _ballotModel.OwnVote,
-                    _round?.ResolvedOption?.Id ?? 0);
+                heading.Text = CardHeadingForDisplay(option, i);
             }
         }
+    }
+
+    private string CardHeadingForDisplay(PostMatchBallotOption option, int index)
+    {
+        string heading = CardHeading(option, index, _ballotModel.OwnVote,
+            _round?.ResolvedOption?.Id ?? 0);
+        return option.IsResolved ? $"{heading} · SELECTED" : heading;
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -803,6 +818,18 @@ public sealed class PostMatchView : UserControl, IDisposable
             Padding = new Thickness(12),
             Margin = new Thickness(0, 0, 0, 6)
         };
+
+    private IBrush ResolveThemeBrush(string resourceKey, IBrush fallback)
+    {
+        if (this.TryFindResource(resourceKey, out object? localValue)
+            && localValue is IBrush localBrush)
+            return localBrush;
+        if (Application.Current?.TryGetResource(resourceKey, ThemeVariant.Default,
+                out object? applicationValue) == true
+            && applicationValue is IBrush applicationBrush)
+            return applicationBrush;
+        return fallback;
+    }
 
     private static TextBlock Text(string text, double size, FontWeight weight, IBrush foreground)
         => new()

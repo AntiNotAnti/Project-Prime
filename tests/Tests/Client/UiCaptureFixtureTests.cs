@@ -23,6 +23,7 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Launcher.Settings;
+using ProjectPrime.Server.Shared;
 using Xunit;
 
 [assembly: AvaloniaTestApplication(typeof(MphRead.Tests.Client.UiCaptureTestAppBuilder))]
@@ -53,29 +54,34 @@ public sealed class UiCaptureFixtureTests
         "title-loading", "title-ready-keyboard", "title-ready-controller",
         "title-ready-touch", "title-reduced-motion",
         "gateway-default", "gateway-login", "gateway-register", "gateway-confirm",
+        "gateway-confirm-clean",
         "gateway-error", "gateway-guest",
         "play-home", "play-finding", "play-empty", "play-browser", "play-browser-full",
         "play-network-error", "play-advanced-network",
-        "lobby-owner-team", "lobby-owner-ffa", "lobby-member-team", "lobby-observer",
+        "lobby-owner-team", "lobby-owner-ffa", "lobby-ffa", "lobby-team-selector",
+        "lobby-member-team", "lobby-observer",
         "lobby-full", "lobby-waitlist", "lobby-seat-offer", "lobby-chat",
         "lobby-disconnected", "lobby-handoff-failure", "lobby-postmatch",
         "results-ffa", "results-team", "results-ballot", "results-voted", "results-resolved",
         "results-no-authoritative-result",
-        "settings-gameplay", "settings-controls", "settings-graphics", "settings-audio",
+        "settings-gameplay", "settings-controls", "controls-gamepad", "controls-mobile",
+        "settings-graphics", "settings-audio",
         "settings-system", "settings-network", "settings-accessibility", "settings-about",
         "settings-pro-hud-off", "settings-pro-hud-on", "settings-radar-custom",
         "settings-gyro-unsupported", "settings-gyro-supported",
         "settings-touch-buttons-off", "settings-touch-buttons-on",
         "settings-advanced-controller-collapsed", "settings-advanced-controller-expanded",
         "hunter-overview", "hunter-arsenal", "hunter-roster", "hunter-career",
-        "hunter-matches", "hunter-empty-history", "hunter-preview-failure"
+        "hunter-matches", "hunter-history", "hunter-overview-simplified",
+        "hunter-empty-history", "hunter-preview-failure", "rankings-mobile"
     };
 
     private static readonly string[] UnavailableFixtureNames = Array.Empty<string>();
 
     private static readonly string[] SettingsFixtureNames =
     {
-        "settings-gameplay", "settings-controls", "settings-graphics", "settings-audio",
+        "settings-gameplay", "settings-controls", "controls-gamepad", "controls-mobile",
+        "settings-graphics", "settings-audio",
         "settings-system", "settings-network", "settings-accessibility", "settings-about",
         "settings-pro-hud-off", "settings-pro-hud-on", "settings-radar-custom",
         "settings-gyro-unsupported", "settings-gyro-supported",
@@ -98,12 +104,128 @@ public sealed class UiCaptureFixtureTests
             UiCapture.PlannedButUnavailableFixtures.ToArray());
         Assert.Empty(RequiredFixtureNames.Intersect(UnavailableFixtureNames,
             StringComparer.OrdinalIgnoreCase));
-        Assert.Equal(59, RequiredFixtureNames.Length + UnavailableFixtureNames.Length);
+        Assert.Equal(67, RequiredFixtureNames.Length + UnavailableFixtureNames.Length);
         Assert.Equal(RequiredFixtureNames.Length * sizes.Length,
             UiCapture.FixtureDefinitions.Count * sizes.Length);
         Assert.Equal(UiCapture.FixtureDefinitions.Count,
             UiCapture.FixtureDefinitions.Select(fixture => fixture.Name)
                 .Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    [Fact]
+    public void NamedUi2FixturesCarryTheirRequestedCaptureStates()
+    {
+        PrimeShellView confirmation = Assert.IsType<PrimeShellView>(
+            UiCapture.BuildFixture("gateway-confirm-clean", new MenuSettings(),
+                Array.Empty<string>()));
+        try
+        {
+            Assert.Equal(GatewayPhase.Confirming,
+                confirmation.CaptureGatewayState?.Phase);
+            Assert.Null(confirmation.CaptureGatewayState?.PlayerId);
+            Assert.NotNull(confirmation.Gateway.PendingRegistration);
+        }
+        finally
+        {
+            DisposeView(confirmation);
+        }
+
+        PrimeShellView ffa = Assert.IsType<PrimeShellView>(UiCapture.BuildFixture(
+            "lobby-ffa", new MenuSettings(), new[] { "MP3 PROVING GROUND" }));
+        try
+        {
+            LobbySnapshot lobby = Assert.IsType<LobbySnapshot>(ffa.CapturePlayState?.Lobby);
+            Assert.Equal(MatchMode.Battle, lobby.Mode);
+            Assert.All(lobby.Members, member => Assert.Equal((byte)0, member.Team));
+        }
+        finally
+        {
+            DisposeView(ffa);
+        }
+
+        PrimeShellView team = Assert.IsType<PrimeShellView>(UiCapture.BuildFixture(
+            "lobby-team-selector", new MenuSettings(),
+            new[] { "MP3 PROVING GROUND" }));
+        try
+        {
+            LobbySnapshot lobby = Assert.IsType<LobbySnapshot>(team.CapturePlayState?.Lobby);
+            Assert.Equal(MatchMode.TeamBattle, lobby.Mode);
+            Assert.Contains(lobby.Members, member => member.Team == 0);
+            Assert.Contains(lobby.Members, member => member.Team == 1);
+        }
+        finally
+        {
+            DisposeView(team);
+        }
+
+        PrimeShellView history = Assert.IsType<PrimeShellView>(UiCapture.BuildFixture(
+            "hunter-history", new MenuSettings(), Array.Empty<string>()));
+        try
+        {
+            HunterLicensePageState state = Assert.IsType<HunterLicensePageState>(
+                history.CaptureLicenseState);
+            Assert.Equal(HunterLicenseSection.Matches, state.Section);
+            Assert.NotEmpty(state.Matches);
+        }
+        finally
+        {
+            DisposeView(history);
+        }
+
+        PrimeShellView overview = Assert.IsType<PrimeShellView>(UiCapture.BuildFixture(
+            "hunter-overview-simplified", new MenuSettings(),
+            Array.Empty<string>()));
+        try
+        {
+            HunterLicensePageState state = Assert.IsType<HunterLicensePageState>(
+                overview.CaptureLicenseState);
+            Assert.Equal(HunterLicenseSection.Overview, state.Section);
+            Assert.NotNull(state.License);
+            Assert.NotNull(state.Career);
+        }
+        finally
+        {
+            DisposeView(overview);
+        }
+    }
+
+    [AvaloniaFact]
+    public void RankingsMobileFixtureUsesRankingDataAndResponsiveMobileLayout()
+    {
+        PrimeShellView view = Assert.IsType<PrimeShellView>(UiCapture.BuildFixture(
+            "rankings-mobile", new MenuSettings(), Array.Empty<string>()));
+        var window = new Window { Width = 560, Height = 800, Content = view };
+        try
+        {
+            RankingsState state = Assert.IsType<RankingsState>(
+                view.CaptureRankingsState);
+            Assert.Equal("rp", state.Metric);
+            Assert.NotEmpty(state.Rows);
+            Assert.Contains(state.Rows, row => row.IsCurrentPlayer);
+
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.Measure(new Size(560, 800));
+            window.Arrange(new Rect(0, 0, 560, 800));
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+            PrimeResponsiveLeaderboard responsive = Assert.Single(view
+                .GetVisualDescendants().OfType<PrimeResponsiveLeaderboard>());
+            Control mobile = Assert.Single(responsive.GetVisualDescendants().OfType<Control>(),
+                candidate => candidate.Classes.Contains("prime-rankings-mobile"));
+            Control desktop = Assert.Single(responsive.GetVisualDescendants().OfType<Control>(),
+                candidate => candidate.Classes.Contains("prime-rankings-desktop"));
+            Assert.True(mobile.IsEffectivelyVisible);
+            Assert.False(desktop.IsEffectivelyVisible);
+            Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(),
+                text => text.Text == "Capture Preview YOU");
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            DisposeView(view);
+        }
     }
 
     [AvaloniaFact]
@@ -132,6 +254,60 @@ public sealed class UiCaptureFixtureTests
     }
 
     [AvaloniaFact]
+    public void ControlsCaptureFixturesExposeTheirRequestedPlatformAndActiveTab()
+    {
+        SettingsView desktop = ExtractSettingsView(UiCapture.BuildFixture(
+            "controls-gamepad", new MenuSettings(), Array.Empty<string>()));
+        var desktopWindow = new Window
+        {
+            Width = 940,
+            Height = 560,
+            Content = desktop
+        };
+        try
+        {
+            desktopWindow.Show();
+            Assert.Equal(new[] { "Mouse & Keyboard", "Gamepad" },
+                desktop.ControlsTabNames.ToArray());
+            Assert.Equal(new[] { "Gamepad" },
+                desktop.VisibleControlsTabNames.ToArray());
+            Assert.Equal("Gamepad", desktop.ActiveControlsTab);
+        }
+        finally
+        {
+            desktopWindow.Close();
+            DisposeView(desktop);
+        }
+
+        SettingsView mobile = ExtractSettingsView(UiCapture.BuildFixture(
+            "controls-mobile", new MenuSettings(), Array.Empty<string>()));
+        var mobileWindow = new Window
+        {
+            Width = 560,
+            Height = 800,
+            Content = mobile
+        };
+        try
+        {
+            mobileWindow.Show();
+            Assert.Equal(new[] { "Touch", "Gamepad", "Stylus" },
+                mobile.ControlsTabNames.ToArray());
+            Assert.Equal(new[] { "Touch" },
+                mobile.VisibleControlsTabNames.ToArray());
+            Assert.Equal("Touch", mobile.ActiveControlsTab);
+            Assert.DoesNotContain("Mouse & Keyboard", mobile.ControlsTabNames);
+            Assert.True(mobile.HasTouchControlRows);
+            Assert.Contains(SettingRowIds.TouchButtons, mobile.RenderedRowIds);
+            Assert.Contains(SettingRowIds.StylusAiming, mobile.RenderedRowIds);
+        }
+        finally
+        {
+            mobileWindow.Close();
+            DisposeView(mobile);
+        }
+    }
+
+    [AvaloniaFact]
     public void CaptureRoutesAndSeatOfferOverlayAreOpaqueWithPlausibleCountdowns()
     {
         Control control = UiCapture.BuildFixture("lobby-seat-offer",
@@ -155,7 +331,7 @@ public sealed class UiCaptureFixtureTests
 
             string countdown = Assert.Single(offer.GetVisualDescendants()
                 .OfType<TextBlock>().Select(text => text.Text),
-                text => text?.StartsWith("Offer expires in ",
+                text => text?.StartsWith("Accept within ",
                     StringComparison.Ordinal) == true)!;
             string[] time = countdown[(countdown.LastIndexOf(' ') + 1)..].Split(':');
             Assert.Equal(2, time.Length);
@@ -339,6 +515,77 @@ public sealed class UiCaptureFixtureTests
         {
             window.Close();
             DisposeView(view);
+        }
+    }
+
+    [AvaloniaFact]
+    public void ControlsTabsAreDesktopAwareAndPreservePendingEdits()
+    {
+        ControllerTuningSnapshot previous = CaptureControllerTuning();
+        ControllerPreset previousPreset = InputSettings.ControllerPreset;
+        var view = new SettingsView(new MenuSettings());
+        var window = new Window { Width = 940, Height = 560, Content = view };
+        try
+        {
+            SetDefaultControllerTuningWithEnabledGyro();
+            InputSettings.ControllerPreset = ControllerPreset.Classic;
+            window.Show();
+            view.ShowSection("Controls");
+
+            Assert.Equal(new[] { "Mouse & Keyboard", "Gamepad" },
+                view.ControlsTabNames.ToArray());
+            Assert.Equal(new[] { "Mouse & Keyboard" },
+                view.VisibleControlsTabNames.ToArray());
+            Assert.Equal("Mouse & Keyboard", view.ActiveControlsTab);
+
+            view.ShowControlsTab("Gamepad");
+            SliderRow horizontal = GetPrivateField<SliderRow>(view,
+                "_gamepadHorizontalSensitivity");
+            int editedValue = NextSliderValue(horizontal);
+            horizontal.Value = editedValue;
+
+            // The same SliderRow remains alive while the local page changes;
+            // switching back cannot rebuild it or lose its dirty marker.
+            view.ShowControlsTab("Mouse & Keyboard");
+            Assert.Equal(new[] { "Mouse & Keyboard" },
+                view.VisibleControlsTabNames.ToArray());
+            view.ShowControlsTab("Gamepad");
+            Assert.Equal(editedValue, horizontal.Value);
+        }
+        finally
+        {
+            window.Close();
+            view.Dispose();
+            RestoreControllerTuning(previous);
+            InputSettings.ControllerPreset = previousPreset;
+        }
+    }
+
+    [AvaloniaFact]
+    public void ControlsTabsUseTouchGamepadAndStylusOnAndroidWithoutEmptyMouseTab()
+    {
+        var view = new SettingsView(new MenuSettings(), inGame: false, scene: null,
+            captureTouchControls: true, captureGyroSupported: false,
+            captureAdvancedControllerExpanded: false);
+        var window = new Window { Width = 560, Height = 800, Content = view };
+        try
+        {
+            window.Show();
+            view.ShowSection("Controls");
+
+            Assert.Equal(new[] { "Touch", "Gamepad", "Stylus" },
+                view.ControlsTabNames.ToArray());
+            Assert.Equal(new[] { "Touch" }, view.VisibleControlsTabNames.ToArray());
+            Assert.DoesNotContain("Mouse & Keyboard", view.ControlsTabNames);
+            Assert.True(view.HasTouchControlRows);
+            Assert.Contains(SettingRowIds.TouchButtons, view.RenderedRowIds);
+            Assert.Contains(SettingRowIds.StylusAiming, view.RenderedRowIds);
+            Assert.False(view.RenderedAdvancedControllerExpanded);
+        }
+        finally
+        {
+            window.Close();
+            view.Dispose();
         }
     }
 

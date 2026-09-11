@@ -110,6 +110,11 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly WrapPanel _railWrap = new();
         private readonly Panel _pages = new();
         private readonly List<(MenuEntry Button, Control Page)> _sections = new();
+        private readonly List<ControlsTab> _controlTabs = new();
+        private SettingsPage _mouseKeyboardControlsPage = null!;
+        private SettingsPage _gamepadControlsPage = null!;
+        private SettingsPage? _touchControlsPage;
+        private SettingsPage? _stylusControlsPage;
         private readonly Grid _grid = new();
         private readonly Border _railPanel;
         private Control? _heading;
@@ -223,6 +228,10 @@ namespace MphRead.Mods.Launcher.Gui
             = Array.Empty<InstalledOptionalPresentationPack>();
         private IReadOnlyList<InstalledOptionalPresentationPack> _musicPacks
             = Array.Empty<InstalledOptionalPresentationPack>();
+        private Note _announcerPackDetails = null!;
+        private Note _musicPackDetails = null!;
+        private Expander _announcerPackDetailsExpander = null!;
+        private Expander _musicPackDetailsExpander = null!;
         private ChoiceRow _languageRow = null!;
         private SliderRow _sensitivity = null!;
         private ToggleRow _invertY = null!;
@@ -299,6 +308,21 @@ namespace MphRead.Mods.Launcher.Gui
         /// <summary>Short compatibility name for UI coverage callers.</summary>
         internal IReadOnlyCollection<string> RenderedRowIds => _renderedRowIds;
 
+        /// <summary>
+        /// Input-device tabs are local to the Controls page. Their pages are
+        /// created once and only reparented/hidden, so switching tabs cannot
+        /// discard a pending edit or reset a controller capability observer.
+        /// </summary>
+        internal IReadOnlyList<string> ControlsTabNames
+            => _controlTabs.Select(tab => tab.Button.Title).ToArray();
+
+        internal IReadOnlyList<string> VisibleControlsTabNames
+            => _controlTabs.Where(tab => tab.Page.IsVisible)
+                .Select(tab => tab.Button.Title).ToArray();
+
+        internal string? ActiveControlsTab
+            => _controlTabs.FirstOrDefault(tab => tab.Page.IsVisible)?.Button.Title;
+
         internal bool HasTouchControlRows => _touchButtonsRow != null;
         internal bool? RenderedTouchButtonsVisible => _touchButtonsRow?.On;
         internal bool RenderedGyroControlsEnabled
@@ -308,6 +332,9 @@ namespace MphRead.Mods.Launcher.Gui
         internal string? RenderedGyroCapabilityNote => _gyroCapabilityNote?.Text;
         internal bool? RenderedAdvancedControllerExpanded
             => _advancedControllerExpander?.IsExpanded;
+        internal bool PresentationPackDetailsCollapsed
+            => !_announcerPackDetailsExpander.IsExpanded
+                && !_musicPackDetailsExpander.IsExpanded;
         internal bool? CaptureAdvancedControllerExpanded
             => _captureAdvancedControllerExpanded;
         internal SettingsIdentityContext IdentityContext => _identity;
@@ -636,6 +663,22 @@ namespace MphRead.Mods.Launcher.Gui
             public StackPanel? ActiveSector { get; set; }
         }
 
+        private sealed class ControlsTab
+        {
+            public ControlsTab(string name, string subtitle, SettingsPage page)
+            {
+                Button = new MenuEntry(name, subtitle, titleSize: 12)
+                {
+                    Height = 42,
+                    Margin = new Thickness(0, 0, 6, 6)
+                };
+                Page = page;
+            }
+
+            public MenuEntry Button { get; }
+            public SettingsPage Page { get; }
+        }
+
         private Control BuildRailHeading()
         {
             var title = new TextBlock
@@ -690,16 +733,6 @@ namespace MphRead.Mods.Launcher.Gui
 
         private Control BuildPageHeader(string name)
         {
-            var marker = new TextBlock
-            {
-                Text = _inGame
-                    ? "SYS CONFIG MATRIX // ACTIVE_SESSION"
-                    : "SYS CONFIG MATRIX // LOCAL_RUNTIME",
-                FontFamily = GuiTheme.Display,
-                FontSize = 10,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = GuiTheme.AccentBrush
-            };
             var title = new TextBlock
             {
                 Text = SectionTitle(name),
@@ -718,7 +751,6 @@ namespace MphRead.Mods.Launcher.Gui
                 TextWrapping = TextWrapping.Wrap
             };
             var stack = new StackPanel();
-            stack.Children.Add(marker);
             stack.Children.Add(title);
             stack.Children.Add(detail);
             return new Border
@@ -749,11 +781,11 @@ namespace MphRead.Mods.Launcher.Gui
             "Player" => "PLAYER PROFILE",
             "Controls" => "CONTROLS",
             "Graphics" => "DISPLAY & GRAPHICS",
-            "Audio" => "AUDIO & PRESENTATION",
-            "System" => "SYSTEM & SUPPORT",
-            "Network" => "NETWORK PREFERENCES",
-            "Accessibility" => "ACCESSIBILITY & MOTION",
-            "About" => "PROJECT PRIME SYSTEM",
+            "Audio" => "AUDIO",
+            "System" => "SYSTEM",
+            "Network" => "NETWORK",
+            "Accessibility" => "ACCESSIBILITY",
+            "About" => "ABOUT PROJECT PRIME",
             _ => name.ToUpperInvariant()
         };
 
@@ -1423,8 +1455,32 @@ namespace MphRead.Mods.Launcher.Gui
             _musicPacks = ClientPresentationContent.Packs(content, OptionalPresentationKind.Music);
             _announcerPackRow = Add(page, new ChoiceRow("Announcer",
                 PackLabels(_announcerPacks), SelectedPackIndex(_announcerPacks, LauncherPrefs.AnnouncerPack)), SettingRowIds.AnnouncerPack);
+            _announcerPackDetails = new Note(
+                PackTechnicalDetails(_announcerPacks, _announcerPackRow.Index));
+            _announcerPackDetailsExpander = Add(page, new Expander
+            {
+                Header = "Advanced details",
+                Content = _announcerPackDetails,
+                IsExpanded = false,
+                Margin = new Thickness(0, 0, 0, 2)
+            });
+            _announcerPackRow.Changed += (_, _) =>
+                _announcerPackDetails.Text = PackTechnicalDetails(
+                    _announcerPacks, _announcerPackRow.Index);
             _musicPackRow = Add(page, new ChoiceRow("Music pack",
                 PackLabels(_musicPacks), SelectedPackIndex(_musicPacks, LauncherPrefs.MusicPack)), SettingRowIds.MusicPack);
+            _musicPackDetails = new Note(
+                PackTechnicalDetails(_musicPacks, _musicPackRow.Index));
+            _musicPackDetailsExpander = Add(page, new Expander
+            {
+                Header = "Advanced details",
+                Content = _musicPackDetails,
+                IsExpanded = false,
+                Margin = new Thickness(0, 0, 0, 2)
+            });
+            _musicPackRow.Changed += (_, _) =>
+                _musicPackDetails.Text = PackTechnicalDetails(
+                    _musicPacks, _musicPackRow.Index);
             Explain(page, $"Data-only packs are discovered in {LauncherPrefs.OptionalContentDirectory}. "
                 + "Missing or invalid selections use built-in presentation; changes apply to the next match.");
             Heading(page, "Language");
@@ -1448,9 +1504,30 @@ namespace MphRead.Mods.Launcher.Gui
             for (int i = 0; i < packs.Count; i++)
             {
                 ContentPackIdentity identity = packs[i].Identity;
-                labels[i + 1] = $"{identity.StableId} {identity.Version} ({identity.ContentHash[..8]})";
+                labels[i + 1] = PresentationPackLabel(identity,
+                    packs[i].Manifest.DisplayName);
             }
             return labels;
+        }
+
+        internal static string PresentationPackLabel(ContentPackIdentity identity,
+            string? displayName)
+        {
+            string primary = String.IsNullOrWhiteSpace(displayName)
+                ? identity.StableId : displayName.Trim();
+            return $"{primary} · Version {identity.Version}";
+        }
+
+        private static string PackTechnicalDetails(
+            IReadOnlyList<InstalledOptionalPresentationPack> packs, int index)
+        {
+            if (index <= 0 || index > packs.Count)
+            {
+                return "Built-in presentation has no package ID or content hash.";
+            }
+            ContentPackIdentity identity = packs[index - 1].Identity;
+            return $"Package ID: {identity.StableId}\n"
+                + $"Content Hash: {identity.ContentHash}";
         }
 
         private static int SelectedPackIndex(IReadOnlyList<InstalledOptionalPresentationPack> packs,
@@ -1470,10 +1547,103 @@ namespace MphRead.Mods.Launcher.Gui
 
         // ------------------------------------------------------------ controls
 
+        private bool IsAndroidSettingsPlatform
+            => OperatingSystem.IsAndroid() || _captureTouchControls;
+
+        private void BuildControlsTabs(SettingsPage section)
+        {
+            var title = new Caption("Input device");
+            section.Children.Add(title);
+
+            var tabStrip = new WrapPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            section.Children.Add(tabStrip);
+
+            var tabHost = new Grid
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            section.Children.Add(tabHost);
+
+            if (IsAndroidSettingsPlatform)
+            {
+                // Keep the existing mouse/keyboard rows alive for their
+                // shared commit/reset paths, but do not present a tab for an
+                // input source the Android surface does not advertise.
+                _mouseKeyboardControlsPage = new SettingsPage
+                {
+                    Spacing = 10,
+                    IsVisible = false
+                };
+                section.Children.Add(_mouseKeyboardControlsPage);
+                _touchControlsPage = AddControlsTab(tabStrip, tabHost,
+                    "Touch", "On-screen controls and gestures");
+            }
+            else
+            {
+                _mouseKeyboardControlsPage = AddControlsTab(tabStrip, tabHost,
+                    "Mouse & Keyboard", "Mouse, keyboard and chat");
+            }
+
+            _gamepadControlsPage = AddControlsTab(tabStrip, tabHost,
+                "Gamepad", "Controller aim, response and bindings");
+
+            if (IsAndroidSettingsPlatform)
+            {
+                _stylusControlsPage = AddControlsTab(tabStrip, tabHost,
+                    "Stylus", "Pen aiming and gestures");
+            }
+
+            // At least Gamepad is always present. The first page is selected
+            // once, after all pages have been created, and later tab changes
+            // only toggle visibility on these same controls.
+            ShowControlsTab(_controlTabs[0].Button.Title);
+        }
+
+        private SettingsPage AddControlsTab(WrapPanel tabStrip, Grid tabHost,
+            string name, string subtitle)
+        {
+            var page = new SettingsPage
+            {
+                Spacing = 10,
+                IsVisible = false
+            };
+            var tab = new ControlsTab(name, subtitle, page);
+            tab.Button.Click += (_, _) => ShowControlsTab(name);
+            _controlTabs.Add(tab);
+            tabStrip.Children.Add(tab.Button);
+            tabHost.Children.Add(page);
+            return page;
+        }
+
+        internal void ShowControlsTab(string name)
+        {
+            ControlsTab? selected = _controlTabs.FirstOrDefault(tab =>
+                String.Equals(tab.Button.Title, name, StringComparison.OrdinalIgnoreCase));
+            if (selected == null)
+            {
+                return;
+            }
+            foreach (ControlsTab tab in _controlTabs)
+            {
+                bool isSelected = ReferenceEquals(tab, selected);
+                tab.Page.IsVisible = isSelected;
+                tab.Button.Selected = isSelected;
+            }
+        }
+
         private void BuildControls()
         {
-            StackPanel page = AddSection("Controls");
-            Heading(page, "Mouse");
+            SettingsPage section = (SettingsPage)AddSection("Controls");
+            BuildControlsTabs(section);
+            StackPanel page = _mouseKeyboardControlsPage;
+            if (!IsAndroidSettingsPlatform)
+            {
+                Heading(page, "Mouse & keyboard");
+            }
             _sensitivity = Add(page, new SliderRow("Sensitivity",
                 SensitivityToSlider(InputSettings.MouseSensitivity),
                 v => $"{SliderToSensitivity(v).ToString("0.00", CultureInfo.InvariantCulture)}x"), SettingRowIds.MouseSensitivity);
@@ -1495,18 +1665,25 @@ namespace MphRead.Mods.Launcher.Gui
                     }
                 }), SettingRowIds.ChatKey);
 
-            BuildTouchControls(page);
-            if (OperatingSystem.IsAndroid())
+            if (_touchControlsPage != null)
             {
-                _morphBallSwipeBoost = Add(page, new ToggleRow(
+                BuildTouchControls(_touchControlsPage);
+            }
+            if (IsAndroidSettingsPlatform)
+            {
+                _morphBallSwipeBoost = Add(_touchControlsPage ?? page, new ToggleRow(
                     "Morph Ball swipe boost", InputSettings.MorphBallSwipeBoost),
                     SettingRowIds.MorphBallSwipeBoost);
             }
-            BuildStylusControls(page);
+            if (_stylusControlsPage != null)
+            {
+                BuildStylusControls(_stylusControlsPage);
+            }
 
             // Its own section rather than more rows under "Mouse": a pad has
             // its own feel, and somebody who inverts one of the two very often
             // does not invert the other.
+            page = _gamepadControlsPage;
             Heading(page, "Gamepad");
             // No "use a connected gamepad" toggle. A pad that is not being
             // held changes nothing on its own -- see GamepadInput.Active --
@@ -1806,7 +1983,8 @@ namespace MphRead.Mods.Launcher.Gui
             };
             Add(page, resetController, SettingRowIds.ControllerPreset + ".reset-all");
 
-            Heading(page, "Keys");
+            page = _mouseKeyboardControlsPage;
+            Heading(page, "Keyboard bindings");
             var rows = new List<KeyRow>();
             foreach (PropertyInfo property in InputSettings.Bindings)
             {
@@ -1875,7 +2053,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         private void BuildTouchControls(StackPanel page)
         {
-            if (!OperatingSystem.IsAndroid() && !_captureTouchControls)
+            if (!IsAndroidSettingsPlatform)
             {
                 return;
             }
@@ -1904,7 +2082,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void BuildStylusControls(StackPanel page)
         {
-            if (!OperatingSystem.IsAndroid()) return;
+            if (!IsAndroidSettingsPlatform) return;
             Heading(page, "Stylus");
             _stylusAiming = Add(page, new ToggleRow("Stylus aiming",
                 InputSettings.StylusAimingEnabled), SettingRowIds.StylusAiming);

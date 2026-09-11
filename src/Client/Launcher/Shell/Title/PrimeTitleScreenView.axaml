@@ -4,18 +4,23 @@
              x:Class="MphRead.Mods.Launcher.Gui.PrimeTitleScreenView"
              x:Name="TitleRoot"
              Focusable="True"
-             Background="#05080D">
+             Background="{DynamicResource PrimeBackgroundBrush}">
+  <UserControl.Styles>
+    <StyleInclude Source="avares://ProjectPrime/Launcher/Theme/PrimeTheme.axaml" />
+  </UserControl.Styles>
+
   <Grid>
     <Image x:Name="BackgroundImage" Stretch="UniformToFill"
            HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
-    <Grid x:Name="FallbackPanel" IsVisible="False" Background="#07111C">
+    <Grid x:Name="FallbackPanel" IsVisible="False"
+          Background="{DynamicResource PrimeBackgroundBrush}">
       <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                   Spacing="18">
-        <prime:PrimeDiamond Width="68" Height="68"
-                            StrokeBrush="#E8EEF5"
-                            HorizontalAlignment="Center" />
+        <prime:PrimeBrandMark Width="68" Height="68"
+                              HorizontalAlignment="Center" />
         <TextBlock Text="PROJECT PRIME" FontSize="38" FontWeight="Bold"
-                   Foreground="#F4F7FA" HorizontalAlignment="Center" />
+                   Foreground="{DynamicResource PrimeBrandBrush}"
+                   HorizontalAlignment="Center" />
       </StackPanel>
     </Grid>
     <Border VerticalAlignment="Bottom" Height="190">
@@ -29,11 +34,12 @@
     <StackPanel x:Name="PromptArea" VerticalAlignment="Bottom"
                 HorizontalAlignment="Center" Spacing="8">
       <TextBlock x:Name="LoadingText" Text="INITIALIZING"
-                 FontSize="15" FontWeight="SemiBold" Foreground="#E8EEF5"
+                 FontSize="15" FontWeight="SemiBold"
+                 Foreground="{DynamicResource PrimeBrandBrush}"
                  HorizontalAlignment="Center" />
       <TextBlock x:Name="PromptText" Text="PRESS ANY KEY TO CONTINUE"
                  IsVisible="False" FontSize="14" FontWeight="SemiBold"
-                 Foreground="{DynamicResource PrimeWarningBrush}"
+                 Foreground="{DynamicResource PrimeBrandBrush}"
                  HorizontalAlignment="Center" />
     </StackPanel>
   </Grid>

@@ -1,11 +1,13 @@
 using System;
 using System.IO;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.Audio;
 using MphRead.Mods.Content;
 using MphRead.Mods.Launcher;
+using MphRead.Mods.Launcher.Gui;
 using MphRead.Runtime.Content;
 using Xunit;
 
@@ -38,6 +40,70 @@ public sealed class OptionalPresentationContentTests : IDisposable
         Assert.True(OptionalContentPreferenceCodec.TryDecode(
             OptionalContentPreferenceCodec.Encode(maximumUtf8), out ContentPackIdentity? maximumDecoded));
         Assert.Equal(maximumUtf8, maximumDecoded);
+    }
+
+    [Fact]
+    public void PresentationDisplayNameIsOptionalAndUsesStableIdFallback()
+    {
+        InstalledOptionalPresentationPack legacy = Pack("legacy-voice",
+            OptionalPresentationKind.Announcer, ("first.wav", new byte[] { 1, 2, 3 }));
+
+        byte[] oldJson = ContentManifestJson.Serialize(legacy.Manifest);
+        Assert.DoesNotContain("displayName", Encoding.UTF8.GetString(oldJson),
+            StringComparison.Ordinal);
+        OptionalPresentationManifest oldRead =
+            ContentManifestJson.ParseOptionalPresentation(oldJson);
+        Assert.Null(oldRead.DisplayName);
+        Assert.Equal("legacy-voice", oldRead.FriendlyName);
+        Assert.Equal("legacy-voice · Version 1",
+            SettingsView.PresentationPackLabel(oldRead.PackIdentity, oldRead.DisplayName));
+
+        OptionalPresentationManifest named = legacy.Manifest with
+        {
+            DisplayName = "Prime Arena Announcer"
+        };
+        Assert.Equal(legacy.Identity, named.PackIdentity);
+        byte[] newJson = ContentManifestJson.Serialize(named);
+        Assert.Contains("\"displayName\": \"Prime Arena Announcer\"",
+            Encoding.UTF8.GetString(newJson), StringComparison.Ordinal);
+        OptionalPresentationManifest newRead =
+            ContentManifestJson.ParseOptionalPresentation(newJson);
+        Assert.Equal("Prime Arena Announcer", newRead.DisplayName);
+        Assert.Equal("Prime Arena Announcer", newRead.FriendlyName);
+        Assert.Equal(legacy.Identity, newRead.PackIdentity);
+        Assert.Equal("Prime Arena Announcer · Version 1",
+            SettingsView.PresentationPackLabel(newRead.PackIdentity, newRead.DisplayName));
+    }
+
+    [Fact]
+    public void PresentationDisplayNameRejectsInvalidOrOversizedMetadata()
+    {
+        InstalledOptionalPresentationPack pack = Pack("named-voice",
+            OptionalPresentationKind.Announcer, ("first.wav", new byte[] { 1, 2, 3 }));
+        string[] invalid =
+        {
+            "",
+            "   ",
+            "line\nbreak",
+            "em\u2003dash",
+            "nul\0name",
+            new string('x', ContentManifestLimits.MaximumDisplayNameLength + 1)
+        };
+
+        foreach (string displayName in invalid)
+        {
+            Assert.Throws<ContentManifestValidationException>(() =>
+                ContentManifestValidator.ValidateOptional(
+                    pack.Manifest with { DisplayName = displayName }));
+        }
+
+        OptionalPresentationManifest maximum =
+            ContentManifestValidator.ValidateOptional(pack.Manifest with
+            {
+                DisplayName = new string('x', ContentManifestLimits.MaximumDisplayNameLength)
+            });
+        Assert.Equal(ContentManifestLimits.MaximumDisplayNameLength,
+            maximum.DisplayName!.Length);
     }
 
     [Fact]

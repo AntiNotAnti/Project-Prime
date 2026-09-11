@@ -23,6 +23,7 @@
   </PropertyGroup>
 
   <Import Project="Client.SharedInput.props" />
+  <Import Project="Client.SharedRuntime.props" />
 
   <ItemGroup>
     <ProjectReference Include="../Game/Game.csproj" />

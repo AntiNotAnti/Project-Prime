@@ -7,6 +7,7 @@ using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Launcher;
+using MphRead.Mods.Launcher.Presentation;
 using Xunit;
 
 namespace MphRead.Tests;
@@ -164,10 +165,11 @@ public sealed class PlayPresentationStateTests
         Assert.Equal("Automatic", PlayPresentation.PreferredRegionLabel("  "));
         Assert.Equal("Europe", PlayPresentation.PreferredRegionLabel(" eu-west "));
         Assert.Equal("Unknown (eu-central)", PlayPresentation.PreferredRegionLabel(" eu-central "));
-        Assert.Equal("Offer expires in 0:12", SeatOfferCard.FormatCountdown(12));
-        Assert.Equal("Offer expires in 1:00", SeatOfferCard.FormatCountdown(60));
+        Assert.Equal("Accept within 00:12", SeatOfferCard.FormatCountdown(12));
+        Assert.Equal("Accept within 01:00", SeatOfferCard.FormatCountdown(60));
         Assert.Equal("Offer expired", SeatOfferCard.FormatCountdown(0));
-        Assert.Equal("Immediate seat", PrimeMatchCard.SeatPolicyLabel(LobbySeatPolicy.ImmediateSeat));
+        Assert.Equal("Immediate seat",
+            PrimeGameText.SeatPolicyLabel(LobbySeatPolicy.ImmediateSeat));
     }
 
     [Fact]

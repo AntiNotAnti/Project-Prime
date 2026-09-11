@@ -76,11 +76,22 @@ public sealed record OptionalPresentationManifest(
     string ContentHash,
     OptionalPresentationKind Kind,
     ContentFileEntry[] Files,
-    OptionalPresentationEvent[] Events)
+    OptionalPresentationEvent[] Events,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? DisplayName = null)
 {
     public const int CurrentFormat = 1;
     [JsonIgnore]
     public ContentPackIdentity PackIdentity => new(StableId, Version, ContentHash);
+
+    /// <summary>
+    /// Player-facing name when a manifest supplies one, otherwise the stable
+    /// identifier from the original schema. The fallback keeps old manifests
+    /// readable without changing their selection identity.
+    /// </summary>
+    [JsonIgnore]
+    public string FriendlyName => String.IsNullOrWhiteSpace(DisplayName)
+        ? StableId : DisplayName;
 }
 
 /// <summary>Manifest file names recognized by local discovery.</summary>
@@ -101,6 +112,7 @@ public static class ContentManifestLimits
     public const int MaximumIdentityLength = 128;
     public const int MaximumStableIdLength = 96;
     public const int MaximumVersionLength = 64;
+    public const int MaximumDisplayNameLength = 96;
     public const long MaximumIndividualFileBytes = 64L * 1024 * 1024;
     public const long MaximumTotalFileBytes = 256L * 1024 * 1024;
     public const int MaximumCatalogEntries = 256;

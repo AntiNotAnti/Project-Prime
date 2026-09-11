@@ -34,7 +34,7 @@ internal sealed class SeatOfferCard : Border
         _expiresAt = offer.ExpiresAt;
         Padding = new Thickness(16);
         Classes.Add("prime-card");
-        BorderBrush = GuiTheme.WarmBrush;
+        BorderBrush = GuiTheme.BrandBrush;
         BorderThickness = new Thickness(3, 1, 1, 1);
         PrimeAccessibility.SetName(this, "Player seat offer");
         PrimeAccessibility.SetDescription(this,
@@ -42,8 +42,8 @@ internal sealed class SeatOfferCard : Border
 
         _countdown = new TextBlock { Classes = { "prime-title" } };
         PrimeAccessibility.SetName(_countdown, "Seat offer countdown");
-        _accept = OfferButton("Accept seat", () => RunOnce(accept), primary: true);
-        _decline = OfferButton("Decline seat", () => RunOnce(decline));
+        _accept = OfferButton("Accept", () => RunOnce(accept), primary: true);
+        _decline = OfferButton("Decline", () => RunOnce(decline));
         PrimeAccessibility.SetName(_accept, "Accept player seat");
         PrimeAccessibility.SetDescription(_accept, "Accept this one-time player seat offer.");
         PrimeAccessibility.SetName(_decline, "Decline player seat offer");
@@ -80,7 +80,7 @@ internal sealed class SeatOfferCard : Border
     {
         AvaloniaButton button = PrimeControlFactory.Button(text, action, primary: primary);
         button.MinHeight = 44;
-        button.MinWidth = text == "Accept seat" ? 120 : 100;
+        button.MinWidth = text == "Accept" ? 120 : 100;
         return button;
     }
 
@@ -121,5 +121,5 @@ internal sealed class SeatOfferCard : Border
     internal static string FormatCountdown(int seconds)
         => seconds <= 0
             ? "Offer expired"
-            : $"Offer expires in {seconds / 60}:{seconds % 60:00}";
+            : $"Accept within {seconds / 60:00}:{seconds % 60:00}";
 }

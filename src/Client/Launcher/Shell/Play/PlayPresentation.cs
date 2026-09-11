@@ -16,6 +16,7 @@ using MphRead.Mods.Accounts;
 using MphRead.Mods;
 using MphRead.Mods.Network;
 using MphRead.Mods.Launcher;
+using MphRead.Mods.Launcher.Presentation;
 using MphRead.Mods.Launcher.Theme;
 using AvaloniaButton = Avalonia.Controls.Button;
 
@@ -106,12 +107,21 @@ internal static class PlayPresentation
         var root = Page("Play", "ONLINE MULTIPLAYER",
             "Find a match, browse open lobbies, or host a game for your squad.");
 
-        var actions = new WrapPanel { Orientation = Orientation.Horizontal };
-        actions.Children.Add(Button("Quick Play", () =>
+        AvaloniaButton quickPlay = Button("Quick Play", () =>
         {
             context.Ui.Subsection = PlaySubsection.Home;
             context.RunCommand("Quick Play", () => context.Controller.QuickPlayAsync(context.CancellationToken));
-        }, primary: true));
+        }, primary: true);
+        quickPlay.IsEnabled = !state.Loading;
+        var quickPlayHero = new PrimeCard(Stack(
+            Text("QUICK PLAY", "prime-kicker"),
+            Text("Find the best available open match.", "prime-heading"),
+            quickPlay));
+        quickPlayHero.BorderBrush = GuiTheme.BrandBrush;
+        quickPlayHero.BorderThickness = new Thickness(3, 1, 1, 1);
+        root.Children.Add(quickPlayHero);
+
+        var actions = new WrapPanel { Orientation = Orientation.Horizontal };
         actions.Children.Add(Button("Browse Matches", () =>
         {
             context.Ui.Subsection = PlaySubsection.Browser;
@@ -165,11 +175,13 @@ internal static class PlayPresentation
                 "No match directory loaded yet. Choose Browse Matches to look for open games.")));
         }
 
+        PrimeSectionPanel networkPanel = Section(BuildNetwork(context));
+        networkPanel.Classes.Add("prime-tech");
         root.Children.Add(new Expander
         {
-            Header = "Advanced Network",
+            Header = Text("Advanced Network", "prime-tech"),
             IsExpanded = context.ExpandAdvancedNetwork,
-            Content = BuildNetwork(context)
+            Content = networkPanel
         });
         return root;
     }
@@ -284,7 +296,7 @@ internal static class PlayPresentation
         var row = new WrapPanel { Orientation = Orientation.Horizontal };
 
         ModeChoice[] modeChoices = Enum.GetValues<MatchMode>()
-            .Select(value => new ModeChoice(value, FormatWords(value.ToString()))).ToArray();
+            .Select(value => new ModeChoice(value, PrimeGameText.ModeLabel(value))).ToArray();
         object[] modes = new object[] { "Any" }
             .Concat(modeChoices.Cast<object>()).ToArray();
         object selectedMode = context.Ui.Filters.Mode is { } selected
@@ -302,18 +314,26 @@ internal static class PlayPresentation
         TrackEditor(context, mode);
         row.Children.Add(Field("Mode", mode, 190));
 
-        string[] mapValues = new[] { "Any" }.Concat(entries
+        MapChoice[] mapChoices = entries
             .Select(entry => entry.MapKey)
+            .Concat(context.Ui.Filters.MapKey is { } filterMap
+                ? new[] { filterMap } : Array.Empty<string>())
             .Where(key => !string.IsNullOrWhiteSpace(key))
             .Distinct(StringComparer.Ordinal)
-            .OrderBy(key => key, StringComparer.Ordinal)).ToArray();
-        ComboBox map = Combo(mapValues.Cast<object>().ToArray(),
-            context.Ui.Filters.MapKey ?? "Any");
+            .OrderBy(key => PrimeGameText.MapName(key), StringComparer.Ordinal)
+            .Select(key => new MapChoice(key, PrimeGameText.MapName(key))).ToArray();
+        object[] mapValues = new object[] { "Any" }
+            .Concat(mapChoices.Cast<object>()).ToArray();
+        object selectedMap = context.Ui.Filters.MapKey is { } selectedMapKey
+            ? mapChoices.First(choice => StringComparer.Ordinal.Equals(
+                choice.Key, selectedMapKey))
+            : "Any";
+        ComboBox map = Combo(mapValues, selectedMap);
         map.SelectionChanged += (_, _) =>
         {
             context.Ui.SetFilters(context.Ui.Filters with
             {
-                MapKey = map.SelectedItem as string is { } value && value != "Any" ? value : null
+                MapKey = map.SelectedItem is MapChoice value ? value.Key : null
             });
             rebuild();
         };
@@ -423,7 +443,8 @@ internal static class PlayPresentation
         TrackEditor(context, observers);
 
         SeatPolicyChoice[] policies = Enum.GetValues<LobbySeatPolicy>()
-            .Select(value => new SeatPolicyChoice(value, FormatWords(value.ToString()))).ToArray();
+            .Select(value => new SeatPolicyChoice(value,
+                PrimeGameText.SeatPolicyLabel(value))).ToArray();
         ComboBox seatPolicy = Combo(policies.Cast<object>().ToArray(),
             policies.First(policy => policy.Value == draft.SeatPolicy));
         seatPolicy.SelectionChanged += (_, _) =>
@@ -484,12 +505,19 @@ internal static class PlayPresentation
     {
         string[] maps = context.Controller.AvailableMaps.ToArray();
         if (draft.MapKey.Length == 0 && maps.Length > 0) draft.MapKey = maps[0];
-        var map = Combo(maps.Cast<object>().ToArray(), draft.MapKey);
-        map.SelectionChanged += (_, _) => draft.MapKey = map.SelectedItem as string ?? "";
+        MapChoice[] mapChoices = maps
+            .Concat(draft.MapKey.Length > 0 ? new[] { draft.MapKey } : Array.Empty<string>())
+            .Distinct(StringComparer.Ordinal)
+            .Select(value => new MapChoice(value, PrimeGameText.MapName(value))).ToArray();
+        var map = Combo(mapChoices.Cast<object>().ToArray(),
+            mapChoices.FirstOrDefault(choice => StringComparer.Ordinal.Equals(
+                choice.Key, draft.MapKey)));
+        map.SelectionChanged += (_, _) => draft.MapKey =
+            map.SelectedItem is MapChoice choice ? choice.Key : "";
         TrackEditor(context, map);
 
         ModeChoice[] modes = Enum.GetValues<MatchMode>()
-            .Select(value => new ModeChoice(value, FormatWords(value.ToString()))).ToArray();
+            .Select(value => new ModeChoice(value, PrimeGameText.ModeLabel(value))).ToArray();
         var mode = Combo(modes.Cast<object>().ToArray(),
             modes.First(choice => choice.Value == draft.Mode));
         TrackEditor(context, mode);
@@ -646,13 +674,15 @@ internal static class PlayPresentation
         LobbyMember[] observers = lobby.Members.Where(member => member.Observer).ToArray();
         Control left = BuildRoster(teamMode ? "TEAM 1" : "PLAYERS",
             teamMode ? players.Where(member => member.Team == 0) : players,
-            sessionId, GuiTheme.WarmBrush);
+            sessionId, GuiTheme.WarningBrush, showTeam: teamMode);
         Control right = teamMode
             ? Stack(
                 BuildRoster("TEAM 2", players.Where(member => member.Team == 1),
-                    sessionId, GuiTheme.AccentBrush),
-                BuildRoster("OBSERVERS", observers, sessionId, GuiTheme.EdgeBrush))
-            : BuildRoster("OBSERVERS", observers, sessionId, GuiTheme.AccentBrush);
+                    sessionId, GuiTheme.TechBrush, showTeam: true),
+                BuildRoster("OBSERVERS", observers, sessionId,
+                    GuiTheme.TechBrush, showTeam: false))
+            : BuildRoster("OBSERVERS", observers, sessionId,
+                GuiTheme.TechBrush, showTeam: false);
         root.Children.Add(ResponsiveColumns(left, right));
 
         var lower = new StackPanel { Spacing = 12 };
@@ -667,7 +697,8 @@ internal static class PlayPresentation
             context.Ui.ChatScrollPositionKnown,
             context.Ui.SetChatScrollOffset,
             context.Ui.ChatUnreadCount,
-            context.Ui.MarkChatRead);
+            context.Ui.MarkChatRead,
+            sessionId);
         context.TrackChatPanel?.Invoke(chat);
         TrackEditor(context, chat.DraftEditor);
         lower.Children.Add(chat);
@@ -682,20 +713,23 @@ internal static class PlayPresentation
         int observers = lobby.Members.Count(member => member.Observer);
         int openPlayers = Math.Max(0, lobby.PlayerLimit - players - lobby.BotCount);
         var content = new StackPanel { Spacing = 5 };
-        content.Children.Add(Text(lobby.Phase switch
-        {
-            LobbyPhase.Open => "OPEN FOR PLAYERS",
-            LobbyPhase.StartingMatch => "PREPARING MATCH",
-            LobbyPhase.InMatch => "MATCH IN PROGRESS",
-            LobbyPhase.PostMatch => "BETWEEN ROUNDS",
-            _ => lobby.Phase.ToString().ToUpperInvariant()
-        }, "prime-kicker"));
+        content.Children.Add(Text(PrimeGameText.LobbyPhaseLabel(lobby.Phase)
+            .ToUpperInvariant(), "prime-kicker"));
         content.Children.Add(Text(
             $"{players + lobby.BotCount}/{lobby.PlayerLimit} player seats · {observers}/{lobby.ObserverLimit} observers · {openPlayers} open player seats",
             "prime-body"));
         if (current is not null)
-            content.Children.Add(Text(current.Observer ? "You are observing this lobby."
-                : current.Ready ? "You are Ready." : "You are choosing a hunter.", "prime-muted"));
+        {
+            if (current.Observer)
+                content.Children.Add(Text("You are observing this lobby.", "prime-muted"));
+            else if (current.Ready)
+                content.Children.Add(Text("Ready.", "prime-body"));
+            else
+            {
+                content.Children.Add(Text("Not ready.", "prime-body"));
+                content.Children.Add(Text("Choose your Hunter, then Ready.", "prime-muted"));
+            }
+        }
         else if (waitlist.IsSelfQueued)
             content.Children.Add(Text("You are waiting for a player seat.",
                 "prime-muted"));
@@ -707,14 +741,16 @@ internal static class PlayPresentation
         string? mapPath = !string.IsNullOrWhiteSpace(lobby.MapKey)
             && ThumbnailGenerator.Exists(lobby.MapKey)
             ? ThumbnailGenerator.PathFor(lobby.MapKey) : null;
-        var mission = Stack(context.BuildPreview(mapPath, 210,
-                "No local map preview is available for this arena."),
+        var mission = Stack(
             Text("MISSION", "prime-kicker"),
-            Text(DisplayMap(lobby.MapKey), "prime-heading"));
+            Text(PrimeGameText.MapName(lobby.MapKey), "prime-heading"),
+            context.BuildPreview(mapPath, 210,
+                "No local map preview is available for this arena."));
         var stats = new WrapPanel { Orientation = Orientation.Horizontal };
         LobbyRulesOptions rules = LobbyRuleApplicability.RulesFromLobby(lobby);
         LobbyRuleApplicability applicability = LobbyRuleApplicability.For(lobby.Mode);
-        stats.Children.Add(PrimeControlFactory.StatTile("MODE", FormatWords(lobby.Mode.ToString())));
+        stats.Children.Add(PrimeControlFactory.StatTile("MODE",
+            PrimeGameText.ModeLabel(lobby.Mode)));
         stats.Children.Add(PrimeControlFactory.StatTile("TIME",
             rules.TimeLimitSeconds is { } seconds ? FormatDuration(seconds) : "Default"));
         if (applicability.ScoreGoal)
@@ -729,11 +765,13 @@ internal static class PlayPresentation
                     ? FormatDuration(objective) : "Default"));
         stats.Children.Add(PrimeControlFactory.StatTile("BOTS",
             lobby.BotCount.ToString(CultureInfo.InvariantCulture)));
-        stats.Children.Add(PrimeControlFactory.StatTile("SEATS",
-            $"{lobby.PlayerLimit} players / {lobby.ObserverLimit} observers"));
+        stats.Children.Add(PrimeControlFactory.StatTile("PLAYER SEATS",
+            lobby.PlayerLimit.ToString(CultureInfo.InvariantCulture)));
         mission.Children.Add(stats);
         mission.Children.Add(Text(
-            $"Seat policy · {FormatWords(lobby.SeatPolicy.ToString())} · waitlist {lobby.Waitlist?.Count ?? 0}",
+            $"{PrimeGameText.SeatPolicyLabel(lobby.SeatPolicy)} · "
+            + $"{lobby.ObserverLimit} observer seats · "
+            + $"{lobby.Waitlist?.Count ?? 0} waiting",
             "prime-muted"));
         if (owner && lobby.Phase == LobbyPhase.Open)
             mission.Children.Add(Button("Edit Match", () =>
@@ -746,7 +784,7 @@ internal static class PlayPresentation
     }
 
     private static Control BuildRoster(string title, IEnumerable<LobbyMember> members,
-        Guid? sessionId, IBrush accent)
+        Guid? sessionId, IBrush accent, bool showTeam)
     {
         LobbyMember[] list = members.ToArray();
         var content = Stack();
@@ -761,21 +799,40 @@ internal static class PlayPresentation
         {
             bool isYou = sessionId == member.SessionId;
             string state = member.Observer ? "Observer" : member.Ready ? "Ready" : "Not ready";
-            string owner = isYou ? " · You" : "";
             var line = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 8 };
             var identity = Stack(Text(member.DisplayName, "prime-body"),
-                Text($"{FormatWords(member.Hunter.ToString())} · Team {member.Team + 1}{owner}", "prime-muted"));
+                Text(LobbyMemberDetail(member, showTeam, isYou), "prime-muted"));
             line.Children.Add(identity);
             line.Children.Add(new PrimeStatusChip(state,
-                member.Ready ? GuiTheme.GoodBrush : member.Observer ? GuiTheme.AccentBrush : GuiTheme.WarmBrush));
+                LobbyMemberStatusBrush(member)));
             Grid.SetColumn(line.Children[^1], 1);
-            Border row = PrimeControlFactory.SelectedRow(line, isYou);
-            row.BorderBrush = isYou ? accent : GuiTheme.EdgeBrush;
+            // Current-player identity uses a narrow brand edge and explicit
+            // text; it is not a selected list item and should not tint the row.
+            Border row = PrimeControlFactory.SelectedRow(line, selected: false);
+            row.BorderBrush = isYou ? GuiTheme.BrandBrush : GuiTheme.GunmetalBrush;
             row.BorderThickness = new Thickness(3, 1, 1, 1);
             content.Children.Add(row);
         }
         if (list.Length == 0) content.Children.Add(new PrimeEmptyState("No members in this group."));
         return Section(content);
+    }
+
+    internal static string LobbyMemberDetail(LobbyMember member, bool showTeam,
+        bool isCurrent)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        var details = new List<string> { PrimeGameText.HunterLabel(member.Hunter) };
+        if (showTeam && !member.Observer)
+            details.Add($"Team {member.Team + 1}");
+        if (isCurrent) details.Add("YOU");
+        return String.Join(" · ", details);
+    }
+
+    internal static IBrush LobbyMemberStatusBrush(LobbyMember member)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        return member.Observer ? GuiTheme.TechBrush
+            : member.Ready ? GuiTheme.SuccessBrush : GuiTheme.WarningBrush;
     }
 
     private static Control BuildMemberControls(PlayPresentationContext context, LobbySnapshot lobby,
@@ -789,14 +846,18 @@ internal static class PlayPresentation
             return Section(content);
         }
 
+        Hunter[] hunterValues = Enum.GetValues<Hunter>()
+            .Where(value => value <= Hunter.Weavel).ToArray();
         var hunter = new ComboBox
         {
-            ItemsSource = Enum.GetValues<Hunter>().Where(value => value <= Hunter.Weavel).ToArray(),
+            ItemsSource = hunterValues,
             SelectedItem = current.Hunter,
             Tag = ControllerComboSelector.Hunter,
             MinWidth = 220,
             MinHeight = 44,
-            IsEnabled = !current.Observer && lobby.Phase == LobbyPhase.Open
+            IsEnabled = !current.Observer && lobby.Phase == LobbyPhase.Open,
+            ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<Hunter>(
+                (value, _) => Text(PrimeGameText.HunterLabel(value), "prime-body"))
         };
         var selection = new DeferredControllerSelection<Hunter>(current.Hunter, selected =>
             context.RunCommand("Select hunter", () => context.Controller.SelectLobbyHunterAsync(
@@ -814,14 +875,13 @@ internal static class PlayPresentation
         if (lobby.Mode.IsTeamMode() && !current.Observer && lobby.Phase == LobbyPhase.Open)
         {
             var teamActions = new WrapPanel { Orientation = Orientation.Horizontal };
-            teamActions.Children.Add(Button("Request Team 1", () => context.RunCommand("Request Team 1",
+            teamActions.Children.Add(Button("Team 1", () => context.RunCommand("Select Team 1",
                 () => context.Controller.RequestTeamAsync(0, context.CancellationToken)),
                 primary: current.Team == 0));
-            teamActions.Children.Add(Button("Request Team 2", () => context.RunCommand("Request Team 2",
+            teamActions.Children.Add(Button("Team 2", () => context.RunCommand("Select Team 2",
                 () => context.Controller.RequestTeamAsync(1, context.CancellationToken)),
                 primary: current.Team == 1));
-            content.Children.Add(Text($"Current team · Team {current.Team + 1}. Your request takes effect when the lobby confirms it.",
-                "prime-muted"));
+            content.Children.Add(Text("TEAM", "prime-label"));
             content.Children.Add(teamActions);
         }
         return Section(content);
@@ -934,22 +994,30 @@ internal static class PlayPresentation
     {
         var content = Stack(Text("LOBBY ACTIONS", "prime-heading"));
         LobbyStartEligibility eligibility = LobbyStartEligibility.Evaluate(lobby);
+        var primaryActions = new WrapPanel { Orientation = Orientation.Horizontal };
         if (current is { Observer: false } && lobby.Phase == LobbyPhase.Open)
         {
             bool ready = current.Ready;
-            content.Children.Add(Button(ready ? "Not Ready" : "Ready", () => context.RunCommand(
+            AvaloniaButton readyAction = Button(ready ? "Not Ready" : "Ready", () => context.RunCommand(
                 ready ? "Clear ready" : "Set ready",
-                () => context.Controller.SetReadyAsync(!ready, context.CancellationToken)), primary: !ready));
+                () => context.Controller.SetReadyAsync(!ready, context.CancellationToken)),
+                primary: !ready);
+            readyAction.MinWidth = 120;
+            primaryActions.Children.Add(readyAction);
         }
         if (owner && lobby.Phase == LobbyPhase.Open)
         {
-            content.Children.Add(Text(PlayerFacingEligibilityMessage(eligibility),
-                eligibility.CanStart ? "prime-muted" : "prime-body"));
             AvaloniaButton start = Button("Start Match", () => context.RunCommand("Start match",
                 () => context.Controller.StartMatchAsync(context.CancellationToken)), primary: true);
             start.IsEnabled = eligibility.CanStart;
-            content.Children.Add(start);
+            start.MinWidth = 180;
+            primaryActions.Children.Add(start);
+            if (!eligibility.CanStart)
+                content.Children.Add(Text(PlayerFacingEligibilityMessage(eligibility),
+                    "prime-body"));
         }
+        if (primaryActions.Children.Count > 0)
+            content.Children.Add(primaryActions);
         if (state.Handoff is not null)
         {
             content.Children.Add(Text("Match connection is ready. Rejoin if the game link was interrupted.",
@@ -1088,9 +1156,9 @@ internal static class PlayPresentation
     {
         var row = new WrapPanel { Orientation = Orientation.Horizontal };
         row.Children.Add(new PrimeStatusChip(step == 1 ? "1 · Lobby seats" : "✓ · Lobby seats",
-            step == 1 ? GuiTheme.AccentBrush : GuiTheme.GoodBrush));
+            step == 1 ? GuiTheme.BrandBrush : GuiTheme.SuccessBrush));
         row.Children.Add(new PrimeStatusChip("2 · Mission and rules",
-            step == 2 ? GuiTheme.AccentBrush : GuiTheme.EdgeBrush));
+            step == 2 ? GuiTheme.BrandBrush : GuiTheme.EdgeBrush));
         return row;
     }
 
@@ -1188,15 +1256,8 @@ internal static class PlayPresentation
     private static void TrackEditor(PlayPresentationContext context, Control editor)
         => editor.LostFocus += (_, _) => context.EditorLostFocus();
 
-    private static string DisplayMap(string map)
-        => string.IsNullOrWhiteSpace(map) ? "MAP NOT CONFIGURED"
-            : map.Replace('_', ' ').ToUpperInvariant();
-
     internal static string PreferredRegionLabel(string? value)
         => LauncherPrefs.PreferredRegionLabel(value);
-
-    private static string FormatWords(string value)
-        => System.Text.RegularExpressions.Regex.Replace(value, "(?<!^)([A-Z])", " $1");
 
     private static string FormatDuration(int seconds)
         => TimeSpan.FromSeconds(Math.Max(0, seconds))
@@ -1232,6 +1293,11 @@ internal static class PlayPresentation
     }
 
     private sealed record ModeChoice(MatchMode Value, string Label)
+    {
+        public override string ToString() => Label;
+    }
+
+    private sealed record MapChoice(string Key, string Label)
     {
         public override string ToString() => Label;
     }

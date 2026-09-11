@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using MphRead.Mods.Accounts;
+using MphRead.Mods.Launcher.Presentation;
 using AvaloniaButton = Avalonia.Controls.Button;
 
 namespace MphRead.Mods.Launcher.Gui;
@@ -80,8 +81,13 @@ internal static class HunterPresentation
             case HunterSection.Matches:
                 root.Children.Add(BuildMatches(context));
                 break;
-            case HunterSection.Career when state.Career != null:
-                root.Children.Add(PrimeControlFactory.SectionPanel(BuildCareer(state.Career)));
+            case HunterSection.Career:
+                root.Children.Add(state.Career != null
+                    ? PrimeControlFactory.SectionPanel(BuildCareer(state.Career))
+                    : PrimeControlFactory.SectionPanel(new PrimeEmptyState(
+                        state.LoadingCareer
+                            ? "Loading career analytics…"
+                            : "Career analytics are ready to load.")));
                 break;
             default:
                 BuildOverview(context, root);
@@ -121,24 +127,28 @@ internal static class HunterPresentation
         card.Children.Add(Text($"Longest kill streak {totals.LongestKillStreak} · "
             + $"longest win streak {totals.LongestWinStreak}", "prime-body"));
         card.Children.Add(Text("Favorites", "prime-heading"));
-        card.Children.Add(Text($"Most played Hunter · {ChoiceText(career.MostPlayedHunter)}\n"
-            + $"Best Hunter · {ChoiceText(career.BestHunter)}\n"
-            + $"Map · {ChoiceText(career.FavoriteMap)}\n"
-            + $"Mode · {ChoiceText(career.FavoriteMode)}\n"
-            + $"Weapon · {ChoiceText(career.FavoriteWeapon)}", "prime-body"));
+        card.Children.Add(Text($"Most played Hunter · {PrimeGameText.CareerChoiceLabel(career.MostPlayedHunter, "hunter")}\n"
+            + $"Best Hunter · {PrimeGameText.CareerChoiceLabel(career.BestHunter, "hunter")}\n"
+            + $"Favorite map · {PrimeGameText.CareerChoiceLabel(career.FavoriteMap, "map")}\n"
+            + $"Favorite mode · {PrimeGameText.CareerChoiceLabel(career.FavoriteMode, "mode")}\n"
+            + $"Favorite weapon · {PrimeGameText.CareerChoiceLabel(career.FavoriteWeapon, "weapon")}",
+            "prime-body"));
+        card.Children.Add(Text("Rating", "prime-heading"));
+        card.Children.Add(Text($"{career.Rating.Title} · "
+            + $"{career.Rating.Points.ToString("N0", CultureInfo.InvariantCulture)} RP · "
+            + $"Tier {career.Rating.Tier}", "prime-body"));
+        card.Children.Add(Text(RatingProgress(career), "prime-muted"));
         return card;
     }
 
     private static Control BuildTabs(HunterPresentationContext context)
     {
-        var tabs = new WrapPanel { Orientation = Orientation.Horizontal };
-        foreach (HunterSection section in Enum.GetValues<HunterSection>())
+        return new PrimeTabStrip(Enum.GetValues<HunterSection>().Select(section =>
         {
             HunterSection captured = section;
-            tabs.Children.Add(Button(section.ToString(), () => context.SelectSection(captured),
-                quiet: context.Section != section));
-        }
-        return tabs;
+            return new PrimeTabItem(section.ToString(), context.Section == section,
+                () => context.SelectSection(captured));
+        }));
     }
 
     private static Control BuildMatches(HunterPresentationContext context)
@@ -151,7 +161,7 @@ internal static class HunterPresentation
             matches.Children.Add(Text("No official matches recorded. Complete an eligible match to begin your career history.",
                 "prime-muted"));
         foreach (MatchHistoryEntry match in state.Matches)
-            matches.Children.Add(BuildHistoryRow(match));
+            matches.Children.Add(new PrimeHistoryRow(match));
         if (context.CanLoadMore)
             matches.Children.Add(Button("Load older matches", () => context.Run(
                 "Load older matches", context.LoadOlder), primary: true));
@@ -174,29 +184,34 @@ internal static class HunterPresentation
         else
         {
             foreach (MatchHistoryEntry match in state.Matches.Take(5))
-                recent.Children.Add(BuildHistoryRow(match));
-            recent.Children.Add(Button("View all matches", () => context.Run(
-                "Load matches", context.LoadAll)));
+                recent.Children.Add(new PrimeHistoryRow(match));
         }
+        var actions = new WrapPanel { Orientation = Orientation.Horizontal };
+        actions.Children.Add(Button("View Career", () =>
+            context.SelectSection(HunterSection.Career), primary: true));
+        actions.Children.Add(Button("View All Matches", () => context.Run(
+            "Load matches", async () =>
+            {
+                await context.LoadAll().ConfigureAwait(false);
+                context.SelectSection(HunterSection.Matches);
+            })));
+        recent.Children.Add(actions);
         root.Children.Add(PrimeControlFactory.SectionPanel(recent));
-    }
-
-    private static Control BuildHistoryRow(MatchHistoryEntry match)
-    {
-        PrimeMatchHistoryPresentation row = PrimeMatchHistoryPresentation.From(match);
-        return PrimeControlFactory.SectionPanel(Stack(
-            Text(row.Outcome, "prime-heading"),
-            Text(row.Mission, "prime-body"),
-            Text(row.CombatLine, "prime-muted"),
-            Text(row.RatingLine, "prime-muted"),
-            Text(row.DateLine, "prime-label")));
     }
 
     private static string FormatDecimal(decimal? value)
         => value?.ToString("0.00", CultureInfo.InvariantCulture) ?? "—";
 
-    private static string ChoiceText(CareerChoice? value)
-        => value?.Key is { Length: > 0 } key ? key : "—";
+    private static string RatingProgress(CareerSummary career)
+    {
+        string next = career.Rating.NextThreshold is { } threshold
+            ? $"Next rank at {threshold.ToString("N0", CultureInfo.InvariantCulture)} RP"
+            : "Highest reported rank";
+        string change = career.Rating.LastOfficialDelta is { } delta
+            ? $"Last match {delta:+#;-#;0} RP"
+            : "No recent rating change";
+        return $"{next} · {change} · {career.RatingStatus}";
+    }
 
     private static StackPanel Stack(params Control[] controls)
     {

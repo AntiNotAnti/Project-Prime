@@ -146,6 +146,18 @@ public sealed class RadarTests
     }
 
     [Fact]
+    public void VerticalMeterShortensToClearTopRadarWithoutGrowing()
+    {
+        RadarLayout radar = RadarLayoutCalculator.Calculate(RadarAnchor.TopRight,
+            1, 0, 0, .75f);
+
+        Assert.Equal(56, RadarLayoutCalculator.FitVerticalMeterBelow(radar, 112, 72));
+        Assert.Equal(40, RadarLayoutCalculator.FitVerticalMeterBelow(radar, 100, 72));
+        Assert.Equal(64, RadarLayoutCalculator.FitVerticalMeterBelow(radar, 180, 64));
+        Assert.Equal(8, RadarLayoutCalculator.FitVerticalMeterBelow(radar, 40, 8));
+    }
+
+    [Fact]
     public void WorldProjectionHandlesCornersCenterAndDegenerateBounds()
     {
         var geometry = new RadarMapGeometry(new Vector2(-10, -20), new Vector2(30, 60),

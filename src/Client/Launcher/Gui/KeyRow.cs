@@ -242,6 +242,13 @@ namespace MphRead.Mods.Launcher.Gui
 
         public override void Render(DrawingContext context)
         {
+            // Avalonia can schedule one final render after a tab is detached,
+            // when layout has already collapsed the row to a zero-sized box.
+            if (Bounds.Width <= 0 || Bounds.Height <= 0)
+            {
+                return;
+            }
+
             // See MenuEntry.Render: hit testing follows the drawing.
             context.FillRectangle(Brushes.Transparent,
                 new Rect(0, 0, Bounds.Width, Bounds.Height));
@@ -263,7 +270,7 @@ namespace MphRead.Mods.Launcher.Gui
             // Never wider than the box: a binding nobody has heard of should
             // not push its own frame off the row.
             value.MaxTextWidth = Math.Max(20, box.Width - 12);
-            value.MaxTextHeight = box.Height;
+            value.MaxTextHeight = Math.Max(1, box.Height);
             value.Trimming = TextTrimming.CharacterEllipsis;
             context.DrawText(value, new Point(box.X + (box.Width - value.Width) / 2,
                 box.Y + (box.Height - value.Height) / 2));

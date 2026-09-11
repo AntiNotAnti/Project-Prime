@@ -9,6 +9,7 @@ public static class RadarLayoutCalculator
 {
     public const float BaseDiameter = 52;
     public const float Margin = 9;
+    public const float HudClearance = 3;
 
     public static RadarLayout Calculate(RadarAnchor anchor, float scale,
         float offsetX, float offsetY, float aspectFix)
@@ -40,5 +41,17 @@ public static class RadarLayoutCalculator
         top = Math.Clamp(top, 0, Math.Max(0, 192 - height));
         return new RadarLayout(left, top, width, height,
             left + width / 2, top + height / 2, MathF.Min(width / aspectFix, height) / 2 - 3);
+    }
+
+    public static int FitVerticalMeterBelow(RadarLayout obstacle, float meterBottom, int originalLength)
+    {
+        if (originalLength <= 8)
+        {
+            return originalLength;
+        }
+
+        float availableSpan = meterBottom - (obstacle.Top + obstacle.Height + HudClearance);
+        int availableTiles = Math.Max(1, (int)MathF.Floor(availableSpan / 8) + 1);
+        return Math.Min(originalLength, availableTiles * 8);
     }
 }

@@ -111,6 +111,7 @@ namespace MphRead.Mods.Launcher.Gui
             new("gateway-login", CreateGatewayLogin),
             new("gateway-register", CreateGatewayRegister),
             new("gateway-confirm", CreateGatewayConfirm),
+            new("gateway-confirm-clean", CreateGatewayConfirmClean),
             new("gateway-error", CreateGatewayError),
             new("gateway-guest", CreateGatewayGuest),
 
@@ -124,6 +125,8 @@ namespace MphRead.Mods.Launcher.Gui
 
             new("lobby-owner-team", CreateLobby),
             new("lobby-owner-ffa", CreateLobbyOwnerFfa),
+            new("lobby-ffa", CreateLobbyOwnerFfa),
+            new("lobby-team-selector", CreateLobby),
             new("lobby-member-team", CreateLobbyMemberTeam),
             new("lobby-observer", CreateLobbyObserver),
             new("lobby-full", CreateLobbyFull),
@@ -143,6 +146,8 @@ namespace MphRead.Mods.Launcher.Gui
 
             new("settings-gameplay", (settings, _) => CreateSettings(settings, "Gameplay")),
             new("settings-controls", (settings, _) => CreateSettings(settings, "Controls")),
+            new("controls-gamepad", CreateControlsGamepad),
+            new("controls-mobile", CreateControlsMobile),
             new("settings-graphics", (settings, _) => CreateSettings(settings, "Graphics")),
             new("settings-audio", (settings, _) => CreateSettings(settings, "Audio")),
             new("settings-system", (settings, _) => CreateSettings(settings, "System")),
@@ -164,8 +169,12 @@ namespace MphRead.Mods.Launcher.Gui
             new("hunter-roster", CreateHunterRoster),
             new("hunter-career", CreateHunterCareer),
             new("hunter-matches", CreateHunterMatches),
+            new("hunter-history", CreateHunterMatches),
+            new("hunter-overview-simplified", CreateHunterOverview),
             new("hunter-empty-history", CreateHunterEmptyHistory),
             new("hunter-preview-failure", CreateHunterPreviewFailure),
+
+            new("rankings-mobile", CreateRankingsMobile),
         };
 
         /// <summary>
@@ -388,8 +397,19 @@ namespace MphRead.Mods.Launcher.Gui
                     Gateway: new GatewayState(GatewayPhase.Confirming,
                         "Enter the confirmation code delivered to your email.",
                         false, false, false, false, player, "Guest"),
-                    PendingConfirmationPlayerId: player));
+                    PendingRegistration: new PendingRegistration(player,
+                        "pilot@example.com")));
         }
+
+        private static Control CreateGatewayConfirmClean(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => PrimeShellView.CreateCapture(settings, rooms, PrimeRoute.Gateway,
+                new PrimeShellCaptureState(
+                    Gateway: new GatewayState(GatewayPhase.Confirming,
+                        "Enter the confirmation code delivered to your email.",
+                        false, false, false, false, null, "Guest"),
+                    PendingRegistration: new PendingRegistration(CapturePlayerId,
+                        "pilot@example.com")));
 
         private static Control CreateGatewayError(MenuSettings settings,
             IReadOnlyList<string> rooms)
@@ -520,6 +540,32 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 BrowsedLobbies = snapshot
             };
+        }
+
+        private static Control CreateRankingsMobile(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => PrimeShellView.CreateCapture(settings, rooms, PrimeRoute.Rankings,
+                new PrimeShellCaptureState(Rankings: CaptureRankings(),
+                    Identity: PrimeShellCaptureIdentity.SignedIn));
+
+        private static RankingsState CaptureRankings()
+        {
+            ImmutableArray<PrimeLeaderboardRow> rows = ImmutableArray.Create(
+                new PrimeLeaderboardRow(new LeaderboardEntry(
+                    new PlayerId(OtherPlayer(1)), "Lastraven", Kills: 103,
+                    Deaths: 48, Wins: 15, Matches: 22, AttributedMatches: 22,
+                    Score: 515m, Points: 515, Tier: 4, Title: "Frontier Veteran"),
+                    IsCurrentPlayer: false),
+                new PrimeLeaderboardRow(new LeaderboardEntry(CapturePlayerId,
+                    "Capture Preview", Kills: 96, Deaths: 54, Wins: 12, Matches: 18,
+                    AttributedMatches: 18, Score: 420m, Points: 420, Tier: 4,
+                    Title: "Frontier Veteran"), IsCurrentPlayer: true),
+                new PrimeLeaderboardRow(new LeaderboardEntry(
+                    new PlayerId(OtherPlayer(2)), "Vuum", Kills: 88, Deaths: 61,
+                    Wins: 10, Matches: 19, AttributedMatches: 19, Score: 390m,
+                    Points: 390, Tier: 3, Title: "Elite Hunter"), IsCurrentPlayer: false));
+            return new RankingsState("rp", null, rows, NextCursor: null,
+                Loading: false, Error: null);
         }
 
         private static Control CreateLobby(MenuSettings settings,
@@ -967,6 +1013,23 @@ namespace MphRead.Mods.Launcher.Gui
             return view;
         }
 
+        private static SettingsView CreateControlsGamepad(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+        {
+            SettingsView view = CreateCaptureSettings(settings, "Controls");
+            view.ShowControlsTab("Gamepad");
+            return view;
+        }
+
+        private static SettingsView CreateControlsMobile(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+        {
+            SettingsView view = CreateCaptureSettings(settings, "Controls",
+                touchControls: true, advancedControllerExpanded: false);
+            view.ShowControlsTab("Touch");
+            return view;
+        }
+
         private static SettingsView CreateCaptureSettings(MenuSettings settings,
             string section, bool touchControls = false, bool? gyroSupported = null,
             bool? advancedControllerExpanded = null)
@@ -1286,11 +1349,15 @@ namespace MphRead.Mods.Launcher.Gui
                     Content = view
                 };
                 window.Show();
+                window.Measure(size);
+                window.Arrange(new Rect(size));
                 // The views post work to the dispatcher as they are built --
                 // the front screen focuses its first control that way, and the
                 // map picker loads its pictures -- and a render before that has
-                // run is a picture of a half-built screen. Several passes,
-                // because one job can queue another.
+                // run is a picture of a half-built screen. Establish layout
+                // first so a posted focus adorner never caches the control's
+                // pre-layout origin over the shell header. Several passes are
+                // needed because one job can queue another.
                 for (int i = 0; i < 8; i++)
                 {
                     Dispatcher.UIThread.RunJobs();

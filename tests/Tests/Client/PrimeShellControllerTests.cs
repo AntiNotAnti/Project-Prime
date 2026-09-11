@@ -571,10 +571,12 @@ public sealed class PrimeShellControllerTests
         public bool SupportsImport => true;
         public bool SupportsExport => true;
         public bool SupportsRename => true;
+        public bool SupportsReveal => false;
         public IReadOnlyList<PrimeReplayEntry> List() => _replays.ToArray();
         public bool Delete(PrimeReplayEntry replay) => _replays.RemoveAll(item => item.Id == replay.Id) == 1;
         public bool Rename(PrimeReplayEntry replay, string fileName) => false;
         public bool Export(PrimeReplayEntry replay, string destinationPath) => false;
+        public bool Reveal(PrimeReplayEntry replay) => false;
 
         public bool Import(string sourcePath, out PrimeReplayEntry? imported)
         {

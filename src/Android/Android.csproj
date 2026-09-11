@@ -18,6 +18,7 @@
   </PropertyGroup>
 
   <Import Project="../Client/Client.SharedInput.props" />
+  <Import Project="../Client/Client.SharedRuntime.props" />
 
   <ItemGroup>
     <ProjectReference Include="../Game/Game.csproj" />
@@ -106,6 +107,8 @@
     <Compile Include="../Client/Launcher/Shell/GatewayController.cs" Link="Launcher/Shell/GatewayController.cs" />
     <Compile Include="../Client/Launcher/Shell/HunterLicenseController.cs" Link="Launcher/Shell/HunterLicenseController.cs" />
     <Compile Include="../Client/Launcher/Shell/Hunter/HunterPresentation.cs" Link="Launcher/Shell/Hunter/HunterPresentation.cs" />
+    <Compile Include="../Client/Launcher/Shell/Hunter/HunterOverviewPresentation.cs" Link="Launcher/Shell/Hunter/HunterOverviewPresentation.cs" />
+    <Compile Include="../Client/Launcher/Shell/Hunter/PrimeHistoryRow.cs" Link="Launcher/Shell/Hunter/PrimeHistoryRow.cs" />
     <Compile Include="../Client/Launcher/Shell/LobbyStartEligibility.cs" Link="Launcher/Shell/LobbyStartEligibility.cs" />
     <Compile Include="../Client/Launcher/Shell/PlayController.cs" Link="Launcher/Shell/PlayController.cs" />
     <Compile Include="../Client/Launcher/Shell/Play/HostMatchDraft.cs" Link="Launcher/Shell/Play/HostMatchDraft.cs" />
@@ -118,7 +121,9 @@
     <Compile Include="../Client/Launcher/Shell/PreviewImageService.cs" Link="Launcher/Shell/PreviewImageService.cs" />
     <Compile Include="../Client/Launcher/Shell/Results/PostMatchResultsModel.cs" Link="Launcher/Shell/Results/PostMatchResultsModel.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeControls.cs" Link="Launcher/Shell/PrimeControls.cs" />
+    <Compile Include="../Client/Launcher/Shell/PrimeBrandMark.cs" Link="Launcher/Shell/PrimeBrandMark.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeNavigator.cs" Link="Launcher/Shell/PrimeNavigator.cs" />
+    <Compile Include="../Client/Launcher/Shell/PrimeTabStrip.cs" Link="Launcher/Shell/PrimeTabStrip.cs" />
     <Compile Include="../Client/Launcher/Shell/Navigation/PrimeControllerComboSession.cs" Link="Launcher/Shell/Navigation/PrimeControllerComboSession.cs" />
     <Compile Include="../Client/Launcher/Shell/Navigation/PrimeFocusMemory.cs" Link="Launcher/Shell/Navigation/PrimeFocusMemory.cs" />
     <Compile Include="../Client/Launcher/Shell/Navigation/PrimeInputNavigator.cs" Link="Launcher/Shell/Navigation/PrimeInputNavigator.cs" />
@@ -131,6 +136,7 @@
     <Compile Include="../Client/Launcher/Shell/PrimeNotification.cs" Link="Launcher/Shell/PrimeNotification.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeRoute.cs" Link="Launcher/Shell/PrimeRoute.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeRoutePresentation.cs" Link="Launcher/Shell/PrimeRoutePresentation.cs" />
+    <Compile Include="../Client/Launcher/Presentation/PrimeGameText.cs" Link="Launcher/Presentation/PrimeGameText.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeShellState.cs" Link="Launcher/Shell/PrimeShellState.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeShellCaptureState.cs" Link="Launcher/Shell/PrimeShellCaptureState.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeShellView.axaml.cs" Link="Launcher/Shell/PrimeShellView.axaml.cs" />

@@ -13,7 +13,15 @@ public enum PrimeSemanticColor
     Warning,
     Error,
     Destructive,
-    Focus
+    Focus,
+    Brand,
+    BrandStrong,
+    BrandSurface,
+    BrandEdge,
+    OnBrand,
+    Tech,
+    TechStrong,
+    Gunmetal
 }
 
 /// <summary>
@@ -31,6 +39,16 @@ public static class PrimeVisualTokens
     public const string ModalSurfaceBrush = "PrimeModalSurfaceBrush";
     public const string PanelBrush = "PrimePanelBrush";
 
+    public const string BrandBrush = "PrimeBrandBrush";
+    public const string BrandStrongBrush = "PrimeBrandStrongBrush";
+    public const string BrandSurfaceBrush = "PrimeBrandSurfaceBrush";
+    public const string BrandEdgeBrush = "PrimeBrandEdgeBrush";
+    public const string OnBrandBrush = "PrimeOnBrandBrush";
+    public const string TechBrush = "PrimeTechBrush";
+    public const string TechStrongBrush = "PrimeTechStrongBrush";
+    public const string GunmetalBrush = "PrimeGunmetalBrush";
+
+    /// <summary>Compatibility alias for older views; new code uses Brand or Tech.</summary>
     public const string AccentBrush = "PrimeAccentBrush";
     public const string InfoBrush = "PrimeInfoBrush";
     public const string WarmBrush = "PrimeWarmBrush";
@@ -62,6 +80,14 @@ public static class PrimeVisualTokens
     public static IReadOnlyList<string> SemanticBrushResourceKeys { get; } =
         new[]
         {
+            BrandBrush,
+            BrandStrongBrush,
+            BrandSurfaceBrush,
+            BrandEdgeBrush,
+            OnBrandBrush,
+            TechBrush,
+            TechStrongBrush,
+            GunmetalBrush,
             AccentBrush,
             InfoBrush,
             WarmBrush,
@@ -75,6 +101,14 @@ public static class PrimeVisualTokens
     public static string BrushKey(PrimeSemanticColor color)
         => color switch
         {
+            PrimeSemanticColor.Brand => BrandBrush,
+            PrimeSemanticColor.BrandStrong => BrandStrongBrush,
+            PrimeSemanticColor.BrandSurface => BrandSurfaceBrush,
+            PrimeSemanticColor.BrandEdge => BrandEdgeBrush,
+            PrimeSemanticColor.OnBrand => OnBrandBrush,
+            PrimeSemanticColor.Tech => TechBrush,
+            PrimeSemanticColor.TechStrong => TechStrongBrush,
+            PrimeSemanticColor.Gunmetal => GunmetalBrush,
             PrimeSemanticColor.Accent => AccentBrush,
             PrimeSemanticColor.Info => InfoBrush,
             PrimeSemanticColor.Warm => WarmBrush,

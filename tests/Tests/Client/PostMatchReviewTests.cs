@@ -7,9 +7,12 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using ProjectPrime.Server.Shared;
+using MphRead.Identity;
 using MphRead.Mods.Input;
+using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Network;
 using MphRead.Tests.Client;
@@ -158,6 +161,98 @@ public sealed class PostMatchReviewTests
             Assert.Single(vote.Children.OfType<ScrollViewer>()).HorizontalScrollBarVisibility);
     }
 
+    [AvaloniaFact]
+    public void ResultsUnavailableCopyIsPlayerFacingAndSpecific()
+    {
+        using var view = new PostMatchView(null);
+        var zones = Assert.IsType<Grid>(view.Content);
+        var score = Assert.IsType<Grid>(zones.Children[0]);
+        var header = Assert.IsType<StackPanel>(score.Children[0]);
+        Assert.Contains(header.Children.OfType<TextBlock>(), text =>
+            text.Text == "Match results are unavailable.");
+        Assert.DoesNotContain(header.Children.OfType<TextBlock>(), text =>
+            text.Text == "Authoritative match results are unavailable.");
+
+        ScrollViewer scoreScroll = Assert.Single(score.Children.OfType<ScrollViewer>());
+        var scoreboard = Assert.IsType<StackPanel>(scoreScroll.Content);
+        var empty = Assert.IsType<Border>(Assert.Single(scoreboard.Children));
+        var message = Assert.IsType<TextBlock>(empty.Child);
+        Assert.Equal("Match results are unavailable.", message.Text);
+    }
+
+    [AvaloniaFact]
+    public void EmptyAuthoritativeScoreboardUsesPlayerResultsCopy()
+    {
+        using var view = new PostMatchView(CompletionSnapshot(withPlayer: false));
+        var zones = Assert.IsType<Grid>(view.Content);
+        var score = Assert.IsType<Grid>(zones.Children[0]);
+        ScrollViewer scoreScroll = Assert.Single(score.Children.OfType<ScrollViewer>());
+        var scoreboard = Assert.IsType<StackPanel>(scoreScroll.Content);
+        var empty = Assert.IsType<Border>(Assert.Single(scoreboard.Children));
+        var message = Assert.IsType<TextBlock>(empty.Child);
+
+        Assert.Equal("No player results were received.", message.Text);
+    }
+
+    [AvaloniaFact]
+    public void CompactScoreboardUsesSingleLabelInsteadOfDesktopColumnHeader()
+    {
+        using var view = new PostMatchView(CompletionSnapshot(withPlayer: true));
+        Arrange(view, 899, 800);
+
+        var zones = Assert.IsType<Grid>(view.Content);
+        var score = Assert.IsType<Grid>(zones.Children[0]);
+        ScrollViewer scoreScroll = Assert.Single(score.Children.OfType<ScrollViewer>());
+        var scoreboard = Assert.IsType<StackPanel>(scoreScroll.Content);
+        var header = Assert.IsType<Border>(scoreboard.Children[0]);
+        var label = Assert.IsType<TextBlock>(header.Child);
+
+        Assert.Equal("SCOREBOARD", label.Text);
+        Assert.DoesNotContain("PLAYER", label.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("K / D / A", label.Text, StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
+    public void SelectedBallotCardHasSemanticStateAndExplicitLabels()
+    {
+        var options = ImmutableArray.Create(
+            new LobbyVoteEntry(1, LobbyVoteChoice.Rematch, "same-map", MatchMode.Battle, 2),
+            new LobbyVoteEntry(2, LobbyVoteChoice.NextMap, "next-map", MatchMode.Battle, 1));
+        var round = new NodeRoundSnapshot(null!, null, null, false, false, 4, 9,
+            DateTimeOffset.UtcNow.AddMinutes(1), options, OwnVote: 1,
+            ResolvedOption: options[1]);
+        using var view = new PostMatchView(null);
+        view.Update(round);
+
+        var zones = Assert.IsType<Grid>(view.Content);
+        var vote = Assert.IsType<Grid>(zones.Children[1]);
+        ScrollViewer ballotScroll = Assert.Single(vote.Children.OfType<ScrollViewer>());
+        var ballot = Assert.IsType<StackPanel>(ballotScroll.Content);
+        Avalonia.Controls.Button[] cards = ballot.Children
+            .OfType<Avalonia.Controls.Button>().ToArray();
+        Assert.Equal(2, cards.Length);
+
+        var ownHeading = Assert.IsType<TextBlock>(
+            Assert.IsType<StackPanel>(cards[0].Content).Children[0]);
+        var resolvedHeading = Assert.IsType<TextBlock>(
+            Assert.IsType<StackPanel>(cards[1].Content).Children[0]);
+        Assert.Contains("YOUR VOTE", ownHeading.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("SELECTED", ownHeading.Text, StringComparison.Ordinal);
+        Assert.Contains("SELECTED", resolvedHeading.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("YOUR VOTE", resolvedHeading.Text, StringComparison.Ordinal);
+
+        view.MoveSelection(1);
+
+        Assert.Equal(new Thickness(2), cards[1].BorderThickness);
+
+        var selectedSurface = Assert.IsType<SolidColorBrush>(cards[1].Background);
+        var normalSurface = Assert.IsType<SolidColorBrush>(cards[0].Background);
+        Assert.Equal(GuiTheme.BrandSurface, selectedSurface.Color);
+        Assert.NotEqual(normalSurface.Color, selectedSurface.Color);
+        var selectedBorder = Assert.IsType<SolidColorBrush>(cards[1].BorderBrush);
+        Assert.Equal(GuiTheme.Brand, selectedBorder.Color);
+    }
+
     [AvaloniaTheory]
     [InlineData(940, 560)]
     [InlineData(560, 800)]
@@ -299,5 +394,19 @@ public sealed class PostMatchReviewTests
         view.Measure(new Size(width, height));
         view.Arrange(new Rect(0, 0, width, height));
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+    }
+
+    private static MatchResultsSnapshot CompletionSnapshot(bool withPlayer)
+    {
+        PlayerId? local = withPlayer ? new PlayerId(Guid.NewGuid()) : null;
+        ImmutableArray<PlayerOutcomeSummary> players = withPlayer
+            ? ImmutableArray.Create(new PlayerOutcomeSummary(Guid.NewGuid(), local,
+                ParticipantKind.RegisteredHuman, "Local", ParticipantOutcome.Finished,
+                Standing: 0, TeamStanding: 0, Points: 3, Kills: 2, Deaths: 1,
+                Slot: 0, Hunter: Hunter.Samus, TeamIndex: 0))
+            : ImmutableArray<PlayerOutcomeSummary>.Empty;
+        var completion = new MatchCompletionSummary(new(Guid.NewGuid()), new(Guid.NewGuid()),
+            MatchEndReason.ScoreGoal, players, Guid.NewGuid(), null, Guid.NewGuid());
+        return new MatchResultsSnapshot("fixture-map", GameMode.Battle, null, completion, local);
     }
 }

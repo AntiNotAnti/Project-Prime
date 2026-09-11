@@ -36,7 +36,8 @@ internal sealed class LobbyChatPanel : Border
         bool scrollPositionKnown = false,
         Action<double>? setScrollOffset = null,
         int unreadCount = 0,
-        Action? markRead = null)
+        Action? markRead = null,
+        Guid? localSessionId = null)
     {
         ArgumentNullException.ThrowIfNull(history);
         ArgumentNullException.ThrowIfNull(setDraft);
@@ -60,7 +61,7 @@ internal sealed class LobbyChatPanel : Border
         if (unreadCount > 0)
         {
             int boundedUnread = Math.Clamp(unreadCount, 1, HistoryLimit);
-            var unread = new PrimeStatusChip($"{boundedUnread} new", GuiTheme.AccentBrush);
+            var unread = new PrimeStatusChip($"{boundedUnread} new", GuiTheme.TechBrush);
             PrimeAccessibility.SetStatus(unread, $"{boundedUnread} new lobby messages");
             header.Children.Add(unread);
             Grid.SetColumn(unread, 1);
@@ -71,12 +72,32 @@ internal sealed class LobbyChatPanel : Border
         IEnumerable<LobbyChatEntry> visible = history.TakeLast(HistoryLimit);
         foreach (LobbyChatEntry entry in visible)
         {
-            var line = new TextBlock
+            bool system = entry.SessionId == Guid.Empty;
+            bool local = !system && localSessionId == entry.SessionId;
+            var line = new Grid
             {
-                Text = $"{entry.DisplayName}: {entry.Text}",
-                TextWrapping = TextWrapping.Wrap,
-                Classes = { "prime-body" }
+                ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+                ColumnSpacing = 6
             };
+            var name = new TextBlock
+            {
+                Text = $"{entry.DisplayName}:",
+                Classes = { system ? "prime-muted" : "prime-body" },
+                Foreground = system ? GuiTheme.TextDimBrush
+                    : local ? GuiTheme.BrandBrush : GuiTheme.TechBrush
+            };
+            name.Classes.Add(system ? "prime-chat-system"
+                : local ? "prime-chat-local-name" : "prime-chat-peer-name");
+            var message = new TextBlock
+            {
+                Text = entry.Text,
+                TextWrapping = TextWrapping.Wrap,
+                Classes = { system ? "prime-muted" : "prime-body" }
+            };
+            if (system) message.Classes.Add("prime-chat-system");
+            line.Children.Add(name);
+            line.Children.Add(message);
+            Grid.SetColumn(message, 1);
             lines.Children.Add(line);
         }
         if (lines.Children.Count == 0)

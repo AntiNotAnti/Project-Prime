@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Avalonia;
 using MphRead.Mods.Accounts;
+using MphRead.Mods.Launcher.Presentation;
 
 namespace MphRead.Mods.Launcher.Gui;
 
@@ -121,12 +122,17 @@ public sealed record PrimeMatchHistoryPresentation(string Outcome, string Missio
     public static PrimeMatchHistoryPresentation From(MatchHistoryEntry match)
     {
         ArgumentNullException.ThrowIfNull(match);
-        string rating = String.IsNullOrWhiteSpace(match.RatingStatus)
-            ? (match.Eligible ? "Official match" : "Not rating eligible")
-            : match.RatingStatus;
+        string rating = match.RatingStatus switch
+        {
+            "applied" => "Official match",
+            "ineligible" => "Not rating eligible",
+            _ when String.IsNullOrWhiteSpace(match.RatingStatus)
+                => match.Eligible ? "Official match" : "Not rating eligible",
+            _ => match.RatingStatus
+        };
         return new PrimeMatchHistoryPresentation(
-            match.Outcome.ToString(),
-            $"{match.RoomKey} · {match.Mode}",
+            PrimeGameText.OutcomeLabel(match.Outcome).ToUpperInvariant(),
+            $"{PrimeGameText.MapName(match.RoomKey)} · {PrimeGameText.ModeLabel(match.Mode)}",
             $"{match.Kills} K / {match.Deaths} D / {match.Assists} A · {match.Damage} damage",
             rating,
             match.EndedAt.ToString("MMM d, yyyy", CultureInfo.InvariantCulture));

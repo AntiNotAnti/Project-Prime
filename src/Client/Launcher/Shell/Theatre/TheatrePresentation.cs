@@ -1,11 +1,15 @@
 using System;
+using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using AvaloniaButton = Avalonia.Controls.Button;
 using MphRead.Mods.Network;
 
@@ -31,7 +35,10 @@ internal sealed record TheatrePresentationContext(
     Func<PrimeReplayEntry, string, Task> Rename,
     Func<PrimeReplayEntry, Task> Delete,
     Action<PrimeReplayEntry> RequestDelete,
-    Action CancelDelete);
+    Action CancelDelete,
+    bool SupportsReveal = false,
+    Func<PrimeReplayEntry, Task>? Reveal = null,
+    Func<string, Task<PrimePreviewImage?>>? LoadMapPreview = null);
 
 /// <summary>Local replay presentation. File-picker authority remains in the shell.</summary>
 internal static class TheatrePresentation
@@ -55,16 +62,13 @@ internal static class TheatrePresentation
         if (context.SupportsImport)
             actions.Children.Add(Button("Import Replay", () => context.Run(
                 "Import replay", context.ImportWithPicker), primary: true));
-        else
-            actions.Children.Add(Text("Import replay is unavailable on this platform.",
-                "prime-muted"));
         actions.Children.Add(Button("Refresh", () => context.Run(
             "Refresh replays", context.Refresh), quiet: true));
         root.Children.Add(actions);
 
         var importPath = Input("Import path");
         var exportPath = Input("Export destination");
-        var advanced = Stack(Text("Raw paths are provided for advanced workflows only.",
+        var advanced = Stack(Text("Raw paths and technical details are for advanced workflows only.",
             "prime-muted"));
         if (context.SupportsImport)
             advanced.Children.Add(Stack(Text("Import path", "prime-label"), importPath,
@@ -73,9 +77,20 @@ internal static class TheatrePresentation
         if (context.SupportsExport)
             advanced.Children.Add(Stack(Text("Export destination", "prime-label"),
                 exportPath));
-        root.Children.Add(new Expander { Header = "Advanced", Content = advanced });
 
         PrimeReplayEntry? selected = state.Selected ?? state.Replays.FirstOrDefault();
+        if (selected != null)
+        {
+            if (context.SupportsExport)
+            {
+                PrimeReplayEntry captured = selected;
+                advanced.Children.Add(Button("Export to path", () => context.Run(
+                    "Export replay", () => context.ExportToPath(captured,
+                        exportPath.Text ?? "")), quiet: true));
+            }
+            advanced.Children.Add(BuildTechnicalDetails(selected));
+        }
+        root.Children.Add(new Expander { Header = "Advanced", Content = advanced });
         root.Children.Add(ResponsiveSplit(
             PrimeControlFactory.SectionPanel(BuildList(context, selected)),
             PrimeControlFactory.SectionPanel(BuildDetails(context, selected, exportPath))));
@@ -122,6 +137,11 @@ internal static class TheatrePresentation
         detail.Children.Add(Text(card.Title, "prime-title"));
         detail.Children.Add(Text(card.FileName, "prime-body"));
         detail.Children.Add(Text($"Recorded {card.RecordedLine} · {card.Size}", "prime-muted"));
+        if (context.LoadMapPreview != null && !String.IsNullOrWhiteSpace(captured.Room))
+        {
+            detail.Children.Add(PrimeControlFactory.PreviewStage(
+                new TheatreMapPreview(captured.Room, context.LoadMapPreview)));
+        }
         detail.Children.Add(Text("FULL REPLAY", "prime-label"));
         detail.Children.Add(Button("Watch Replay", () => context.Run("Play replay",
             () => context.Play(captured)), primary: true));
@@ -157,24 +177,20 @@ internal static class TheatrePresentation
         {
             detail.Children.Add(Button("Export Replay", () => context.Run("Export replay",
                 () => context.ExportWithPicker(captured))));
-            detail.Children.Add(Button("Export to advanced path", () => context.Run(
-                "Export replay", () => context.ExportToPath(captured,
-                    exportPath.Text ?? "")), quiet: true));
         }
-        else
-            detail.Children.Add(Text("Export replay is unavailable on this platform.",
-                "prime-muted"));
-        detail.Children.Add(Text("Show File is unavailable on this platform.", "prime-muted"));
+        if (context.SupportsReveal && context.Reveal is { } reveal)
+        {
+            detail.Children.Add(Button("Reveal in Folder", () => context.Run(
+                "Reveal replay", () => reveal(captured)), quiet: true));
+        }
 
         if (context.SupportsRename)
         {
-            TextBox rename = Input("Rename file (must end in .fpreplay)");
+            TextBox rename = Input("Rename replay");
             detail.Children.Add(rename);
             detail.Children.Add(Button("Rename", () => context.Run("Rename replay",
                 () => context.Rename(captured, rename.Text ?? ""))));
         }
-        else detail.Children.Add(Text("Rename is unavailable on this platform.",
-            "prime-muted"));
 
         if (context.PendingDeleteId == selected.Id)
         {
@@ -186,6 +202,12 @@ internal static class TheatrePresentation
         else detail.Children.Add(Button("Delete", () => context.RequestDelete(captured)));
         return detail;
     }
+
+    private static Control BuildTechnicalDetails(PrimeReplayEntry replay)
+        => Stack(Text($"Replay path: {replay.Path}", "prime-muted"),
+            Text($"Room key: {replay.Room}", "prime-muted"),
+            Text($"Recorded value: {replay.Recorded:O}", "prime-muted"),
+            Text($"Byte count: {replay.Bytes}", "prime-muted"));
 
     private static Grid ResponsiveSplit(Control left, Control right)
     {
@@ -232,4 +254,84 @@ internal static class TheatrePresentation
     private static AvaloniaButton Button(string label, Action action,
         bool primary = false, bool quiet = false)
         => PrimeControlFactory.Button(label, action, primary, quiet);
+
+    /// <summary>
+    /// Owns only the decoded bitmap for this rendered card. The map service
+    /// and its bounded cache remain shell-owned and are supplied through the
+    /// context hook.
+    /// </summary>
+    private sealed class TheatreMapPreview : ContentControl
+    {
+        private readonly string _roomKey;
+        private readonly Func<string, Task<PrimePreviewImage?>> _load;
+        private Bitmap? _bitmap;
+        private int _loadGeneration;
+        private bool _loadStarted;
+
+        internal TheatreMapPreview(string roomKey,
+            Func<string, Task<PrimePreviewImage?>> load)
+        {
+            _roomKey = roomKey;
+            _load = load;
+            Height = 120;
+            HorizontalAlignment = HorizontalAlignment.Stretch;
+            Content = Text("Loading map preview…", "prime-muted");
+            AttachedToVisualTree += (_, _) => StartLoad();
+            DetachedFromVisualTree += (_, _) =>
+            {
+                _loadStarted = false;
+                Interlocked.Increment(ref _loadGeneration);
+                DisposeBitmap();
+            };
+            StartLoad();
+        }
+
+        private void StartLoad()
+        {
+            if (_loadStarted) return;
+            _loadStarted = true;
+            int generation = Interlocked.Increment(ref _loadGeneration);
+            Content = Text("Loading map preview…", "prime-muted");
+            _ = LoadAsync(generation);
+        }
+
+        private async Task LoadAsync(int generation)
+        {
+            try
+            {
+                PrimePreviewImage? preview = await _load(_roomKey)
+                    .ConfigureAwait(false);
+                if (preview == null || generation != Volatile.Read(ref _loadGeneration)) return;
+                using var stream = new MemoryStream(preview.Data, writable: false);
+                Bitmap bitmap = new(stream);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (generation != Volatile.Read(ref _loadGeneration))
+                    {
+                        bitmap.Dispose();
+                        return;
+                    }
+                    Bitmap? previous = _bitmap;
+                    _bitmap = bitmap;
+                    Content = new Image
+                    {
+                        Source = bitmap,
+                        Stretch = Stretch.Uniform,
+                        HorizontalAlignment = HorizontalAlignment.Stretch
+                    };
+                    previous?.Dispose();
+                });
+            }
+            catch (OperationCanceledException) { }
+            catch (IOException) { }
+            catch (ArgumentException) { }
+            catch (InvalidOperationException) { }
+        }
+
+        private void DisposeBitmap()
+        {
+            _bitmap?.Dispose();
+            _bitmap = null;
+        }
+    }
 }

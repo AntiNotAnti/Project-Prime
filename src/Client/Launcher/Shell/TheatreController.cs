@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -33,22 +34,36 @@ public interface IPrimeReplayLibrary
     bool SupportsImport { get; }
     bool SupportsExport { get; }
     bool SupportsRename { get; }
+    bool SupportsReveal { get; }
     IReadOnlyList<PrimeReplayEntry> List();
     bool Delete(PrimeReplayEntry replay);
     bool Rename(PrimeReplayEntry replay, string fileName);
     bool Import(string sourcePath, out PrimeReplayEntry? imported);
     bool Export(PrimeReplayEntry replay, string destinationPath);
+    bool Reveal(PrimeReplayEntry replay);
 }
 
 internal sealed class ReplayLibraryAdapter : IPrimeReplayLibrary
 {
-    public string Directory => ReplayLibrary.Directory;
+    private readonly string? _directoryOverride;
+    private string? _directory;
+
+    internal ReplayLibraryAdapter(string? directory = null)
+    {
+        // Do not touch Paths.Export while the launcher is being constructed.
+        // The default replay directory depends on game path initialization,
+        // which is not guaranteed for title/settings-only shell instances.
+        _directoryOverride = directory;
+    }
+
+    public string Directory => ResolveDirectory();
     public bool SupportsImport => true;
     public bool SupportsExport => true;
     public bool SupportsRename => true;
+    public bool SupportsReveal => ReplayReveal.CurrentPlatform != ReplayRevealPlatform.Unsupported;
 
     public IReadOnlyList<PrimeReplayEntry> List()
-        => ReplayLibrary.List().Select(ToEntry).ToArray();
+        => ReplayLibrary.List(ResolveDirectory()).Select(ToEntry).ToArray();
 
     public bool Delete(PrimeReplayEntry replay)
     {
@@ -60,10 +75,18 @@ internal sealed class ReplayLibraryAdapter : IPrimeReplayLibrary
 
     public bool Rename(PrimeReplayEntry replay, string fileName)
     {
-        if (!IsLocal(replay) || fileName is not { Length: > 0 and <= 128 }
-            || fileName.Any(c => c is '<' or '>' or ':' or '"' or '/' or '\\' or '|' or '?' or '*')
-            || !fileName.EndsWith(ReplayFile.Extension, StringComparison.OrdinalIgnoreCase)) return false;
-        string destination = Path.Combine(ReplayLibrary.Directory, fileName);
+        if (!IsLocal(replay)
+            || !ReplayFileNamePolicy.TryNormalize(fileName, out string normalized))
+            return false;
+        string destination;
+        try
+        {
+            string directory = ResolveDirectory();
+            destination = Path.GetFullPath(Path.Combine(directory, normalized));
+            if (!ReplayFileNamePolicy.IsWithinDirectory(directory, destination)) return false;
+        }
+        catch (ArgumentException) { return false; }
+        catch (NotSupportedException) { return false; }
         try { File.Move(replay.Path, destination, overwrite: false); return true; }
         catch (IOException) { return false; }
         catch (UnauthorizedAccessException) { return false; }
@@ -75,12 +98,13 @@ internal sealed class ReplayLibraryAdapter : IPrimeReplayLibrary
         if (sourcePath is not { Length: > 0 } || !File.Exists(sourcePath)) return false;
         try
         {
-            ReplayLibraryAdapter.EnsureDirectory();
+            EnsureDirectory();
             string name = Path.GetFileName(sourcePath);
             if (!name.EndsWith(ReplayFile.Extension, StringComparison.OrdinalIgnoreCase)) return false;
-            string destination = Path.Combine(ReplayLibrary.Directory, name);
+            string directory = ResolveDirectory();
+            string destination = Path.Combine(directory, name);
             if (File.Exists(destination))
-                destination = Path.Combine(ReplayLibrary.Directory,
+                destination = Path.Combine(directory,
                     Path.GetFileNameWithoutExtension(name) + "-imported" + ReplayFile.Extension);
             File.Copy(sourcePath, destination, overwrite: false);
             imported = List().FirstOrDefault(item => item.Path == destination);
@@ -92,7 +116,8 @@ internal sealed class ReplayLibraryAdapter : IPrimeReplayLibrary
 
     public bool Export(PrimeReplayEntry replay, string destinationPath)
     {
-        if (!IsLocal(replay) || destinationPath is not { Length: > 0 }) return false;
+        if (!IsLocal(replay) || destinationPath is not { Length: > 0 }
+            || !File.Exists(replay.Path)) return false;
         try
         {
             string? parent = Path.GetDirectoryName(destinationPath);
@@ -104,19 +129,106 @@ internal sealed class ReplayLibraryAdapter : IPrimeReplayLibrary
         catch (UnauthorizedAccessException) { return false; }
     }
 
+    public bool Reveal(PrimeReplayEntry replay)
+    {
+        if (!SupportsReveal || !IsLocal(replay) || !File.Exists(replay.Path)) return false;
+        ProcessStartInfo? start = ReplayReveal.CreateStartInfo(
+            replay.Path, ReplayReveal.CurrentPlatform);
+        if (start == null) return false;
+        try { return Process.Start(start) != null; }
+        catch (System.ComponentModel.Win32Exception) { return false; }
+        catch (Exception ex) when (ex is InvalidOperationException
+            or IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
     private static PrimeReplayEntry ToEntry(ReplayRecording replay)
         => new(replay.Path, replay.Path, replay.FileName, replay.Room, replay.Recorded, replay.Bytes);
 
-    private static bool IsLocal(PrimeReplayEntry replay)
+    private bool IsLocal(PrimeReplayEntry replay)
     {
-        string root = Path.GetFullPath(ReplayLibrary.Directory) + Path.DirectorySeparatorChar;
-        string path;
-        try { path = Path.GetFullPath(replay.Path); }
-        catch (Exception) { return false; }
-        return path.StartsWith(root, StringComparison.OrdinalIgnoreCase);
+        return File.Exists(replay.Path)
+            && ReplayFileNamePolicy.IsWithinDirectory(ResolveDirectory(), replay.Path);
     }
 
-    private static void EnsureDirectory() => System.IO.Directory.CreateDirectory(ReplayLibrary.Directory);
+    private void EnsureDirectory() => System.IO.Directory.CreateDirectory(ResolveDirectory());
+
+    private string ResolveDirectory()
+    {
+        if (_directory is { } resolved) return resolved;
+        resolved = Path.GetFullPath(_directoryOverride ?? ReplayLibrary.Directory);
+        _directory = resolved;
+        return resolved;
+    }
+}
+
+internal enum ReplayRevealPlatform
+{
+    Windows,
+    MacOS,
+    Linux,
+    Unsupported
+}
+
+/// <summary>
+/// Builds platform-specific file-manager launches without shell parsing.
+/// The path is always one argument, so replay names cannot become commands.
+/// </summary>
+internal static class ReplayReveal
+{
+    internal static ReplayRevealPlatform CurrentPlatform
+        => OperatingSystem.IsAndroid() ? ReplayRevealPlatform.Unsupported
+        : OperatingSystem.IsWindows() ? ReplayRevealPlatform.Windows
+        : OperatingSystem.IsMacOS() ? ReplayRevealPlatform.MacOS
+        : OperatingSystem.IsLinux() ? ReplayRevealPlatform.Linux
+        : ReplayRevealPlatform.Unsupported;
+
+    internal static ProcessStartInfo? CreateStartInfo(string replayPath,
+        ReplayRevealPlatform platform)
+    {
+        if (String.IsNullOrWhiteSpace(replayPath)) return null;
+        string path;
+        try { path = Path.GetFullPath(replayPath); }
+        catch (ArgumentException) { return null; }
+        catch (NotSupportedException) { return null; }
+        catch (IOException) { return null; }
+        ProcessStartInfo start = platform switch
+        {
+            ReplayRevealPlatform.Windows => new ProcessStartInfo("explorer.exe")
+            {
+                UseShellExecute = false
+            },
+            ReplayRevealPlatform.MacOS => new ProcessStartInfo("open")
+            {
+                UseShellExecute = false
+            },
+            ReplayRevealPlatform.Linux => new ProcessStartInfo("xdg-open")
+            {
+                UseShellExecute = false
+            },
+            _ => null!
+        };
+        if (platform == ReplayRevealPlatform.Unsupported) return null;
+
+        if (platform == ReplayRevealPlatform.Windows)
+        {
+            start.ArgumentList.Add($"/select,{path}");
+        }
+        else if (platform == ReplayRevealPlatform.MacOS)
+        {
+            start.ArgumentList.Add("-R");
+            start.ArgumentList.Add(path);
+        }
+        else
+        {
+            string? directory = Path.GetDirectoryName(path);
+            if (String.IsNullOrEmpty(directory)) return null;
+            start.ArgumentList.Add(directory);
+        }
+        return start;
+    }
 }
 
 /// <summary>Local replay library; playback emits the existing Replay LaunchPlan.</summary>
@@ -253,6 +365,16 @@ public sealed class TheatreController : IDisposable
         replay ??= _state.Selected;
         if (replay == null) return false;
         return await Task.Run(() => _library.Export(replay, destinationPath), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<bool> RevealAsync(PrimeReplayEntry? replay = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_library.SupportsReveal) return false;
+        replay ??= _state.Selected;
+        if (replay == null) return false;
+        return await Task.Run(() => _library.Reveal(replay), cancellationToken)
             .ConfigureAwait(false);
     }
 

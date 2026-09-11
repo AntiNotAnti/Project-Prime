@@ -4,13 +4,13 @@
     <Setter Property="FontSize" Value="14" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="LetterSpacing" Value="1.25" />
-    <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeBrandStrongBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-route-context">
     <Setter Property="FontSize" Value="12" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="LetterSpacing" Value="0.35" />
-    <Setter Property="Foreground" Value="{DynamicResource PrimeAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeBrandBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-account">
     <Setter Property="FontSize" Value="13" />
@@ -21,7 +21,7 @@
     <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="LetterSpacing" Value="0.35" />
-    <Setter Property="Foreground" Value="{DynamicResource PrimeAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTechBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-online-text">
     <Setter Property="FontSize" Value="11" />
@@ -33,7 +33,7 @@
     <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="LetterSpacing" Value="1.1" />
-    <Setter Property="Foreground" Value="{DynamicResource PrimeAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeBrandBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-title">
     <Setter Property="FontSize" Value="26" />
@@ -100,5 +100,8 @@
     <Setter Property="FontSize" Value="10" />
     <Setter Property="LetterSpacing" Value="0.45" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextDimBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-tech">
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTechBrush}" />
   </Style>
 </Styles>

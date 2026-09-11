@@ -112,15 +112,16 @@ def inspect(root: Path) -> list[str]:
                     references.add(target.stem)
                 if item.tag == 'PackageReference':
                     packages.add(item.attrib['Include'])
-                if item.tag not in {'Compile', 'PrimeSharedInputCompile'} or 'Include' not in item.attrib:
+                if item.tag not in {'Compile', 'PrimeSharedInputCompile',
+                                    'PrimeSharedRuntimeCompile'} or 'Include' not in item.attrib:
                     continue
                 for include in item.attrib['Include'].split(';'):
-                    # Client.SharedInput.props materializes this item list in
+                    # Client shared props materialize these item lists in
                     # projects that disable SDK default Compile items. The
-                    # transform itself is not a source path; the imported
-                    # PrimeSharedInputCompile entries below are the paths to
-                    # validate.
-                    if item.tag == 'Compile' and include == '@(PrimeSharedInputCompile)':
+                    # transforms are not source paths; the imported item-list
+                    # entries below are the paths to validate.
+                    if item.tag == 'Compile' and include in {
+                            '@(PrimeSharedInputCompile)', '@(PrimeSharedRuntimeCompile)'}:
                         continue
                     normalized = include.replace('\\', '/')
                     if '$(MSBuildThisFileDirectory)' in normalized:

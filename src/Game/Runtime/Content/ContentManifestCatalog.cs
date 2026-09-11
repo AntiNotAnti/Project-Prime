@@ -185,6 +185,7 @@ public static class ContentManifestValidator
         if (!Enum.IsDefined(manifest.Kind))
             throw new ContentManifestValidationException("Unknown optional presentation kind.");
         ValidateIdentity(new(manifest.StableId, manifest.Version, manifest.ContentHash));
+        string? displayName = ValidateOptionalDisplayName(manifest.DisplayName);
         ContentFileEntry[] files = ValidateFiles(manifest.Files, requireFiles: true, AllowedExtensions[manifest.Kind],
             allowManifestNames: false);
         OptionalPresentationEvent[] events = manifest.Events ?? throw new ContentManifestValidationException("Events are required.");
@@ -208,7 +209,7 @@ public static class ContentManifestValidator
 
         if (files.Length + events.Length > ContentManifestLimits.MaximumManifestItems)
             throw new ContentManifestValidationException("Optional presentation manifest contains too many items.");
-        return manifest with { Files = files, Events = events };
+        return manifest with { Files = files, Events = events, DisplayName = displayName };
     }
 
     public static bool IsIdentity(ContentPackIdentity identity)
@@ -302,6 +303,26 @@ public static class ContentManifestValidator
             || value.Any(c => Char.IsWhiteSpace(c) && c != ' ' && c != '\t')
             || !allowSlash && value.Any(c => c is '/' or '\\' or ':' or '?' or '*'))
             throw new ContentManifestValidationException($"Invalid {name}.");
+    }
+
+    private static string? ValidateOptionalDisplayName(string? displayName)
+    {
+        if (displayName == null)
+        {
+            return null;
+        }
+        // Display names are presentation text, not stable identities. Keep
+        // ordinary spaces for readable labels, but reject controls and other
+        // Unicode whitespace so a manifest cannot inject line breaks or
+        // non-space separators into the launcher.
+        if (String.IsNullOrWhiteSpace(displayName)
+            || displayName.Length > ContentManifestLimits.MaximumDisplayNameLength
+            || displayName.Any(Char.IsControl)
+            || displayName.Any(c => Char.IsWhiteSpace(c) && c != ' '))
+        {
+            throw new ContentManifestValidationException("Invalid optional presentation display name.");
+        }
+        return displayName.Trim();
     }
 
     private static bool IsManifestFileName(string path)

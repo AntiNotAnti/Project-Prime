@@ -7,8 +7,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using MphRead.Formats;
 using MphRead.Identity;
 using MphRead.Mods.Accounts;
+using MphRead.Mods.Launcher.Presentation;
 
 namespace MphRead.Mods.Launcher.Gui;
 
@@ -180,24 +182,15 @@ internal sealed class AccountView : UserControl
             + $"Damage {totals.Damage} · Headshot kills {Known(totals.HeadshotKills)}\nBiped kills {Known(totals.BipedKills)} · Alt-form kills {Known(totals.AltFormKills)}\n"
             + $"Longest kill streak {Known(totals.LongestKillStreak)} · Longest win streak {Known(totals.LongestWinStreak)}\n"
             + $"Played {totals.PlayedTicks / 3600.0:0.0} minutes\nMost-played Hunter: {Choice(career.MostPlayedHunter, "hunter")}\n"
-            + $"Favorite map: {Choice(career.FavoriteMap)} · Favorite mode: {Choice(career.FavoriteMode, "mode")}\nFavorite weapon: {Choice(career.FavoriteWeapon, "weapon")}\n"
-            + $"Best map: {Choice(career.BestMap)} · Best Hunter: {Choice(career.BestHunter, "hunter")} (minimum {career.BestMinimumMatches} matches)\n"
+            + $"Favorite map: {Choice(career.FavoriteMap, "map")} · Favorite mode: {Choice(career.FavoriteMode, "mode")}\nFavorite weapon: {Choice(career.FavoriteWeapon, "weapon")}\n"
+            + $"Best map: {Choice(career.BestMap, "map")} · Best Hunter: {Choice(career.BestHunter, "hunter")} (minimum {career.BestMinimumMatches} matches)\n"
             + (career.RatingStatus == "policyPending" ? "Ranking Points are not available yet." : "");
         _status.Text = "Hunter License updated.";
     }
 
     private static string Known(long? value) => value?.ToString(CultureInfo.InvariantCulture) ?? "—";
-    private static string Choice(CareerChoice? value, string dimension = "")
-    {
-        if (value == null) return "—";
-        if (int.TryParse(value.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out int key))
-        {
-            if (dimension == "hunter" && key is >= 0 and <= 6) return ((Hunter)key).ToString();
-            if (dimension == "mode" && Enum.IsDefined(typeof(MatchMode), key)) return ((MatchMode)key).ToString();
-            if (dimension == "weapon" && key is >= 0 and <= 8) return MphRead.Combat.CombatFeedback.WeaponName((byte)key);
-        }
-        return value.Key;
-    }
+    private static string Choice(CareerChoice? value, string dimension = "map")
+        => PrimeGameText.CareerChoiceLabel(value, dimension);
 
     private async Task RefreshHistory(AccountSession session, bool older)
     {

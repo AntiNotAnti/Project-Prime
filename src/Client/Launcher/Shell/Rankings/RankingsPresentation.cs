@@ -26,6 +26,8 @@ internal sealed record RankingsPresentationContext(
 /// <summary>Pure Avalonia composition over authoritative ranking state.</summary>
 internal static class RankingsPresentation
 {
+    private const double CompactRankingsWidth = 720;
+
     public static Control Build(RankingsPresentationContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -75,26 +77,35 @@ internal static class RankingsPresentation
         {
             root.Children.Add(PrimeControlFactory.SectionPanel(Stack(
                 Text("Your position", "prime-heading"),
-                Text(currentPlayer.Entry.DisplayName, "prime-title"),
-                Text($"{PrimeLeaderboardMetrics.Label(state.Metric)} · "
-                    + currentPlayer.Entry.Score.ToString(CultureInfo.InvariantCulture),
+                Text($"{currentPlayer.Entry.DisplayName} YOU", "prime-title"),
+                Text($"{MetricValue(state.Metric, currentPlayer.Entry.Score)} "
+                    + PrimeLeaderboardMetrics.Label(state.Metric),
                     "prime-body"),
                 Text($"{currentPlayer.Entry.Matches} matches · "
                     + $"{currentPlayer.Entry.Kills} kills", "prime-muted"))));
         }
 
+        Control desktop = BuildDesktopLeaderboard(context, state);
+        Control mobile = BuildMobileLeaderboard(context, state);
+        root.Children.Add(new PrimeResponsiveLeaderboard(desktop, mobile));
+        return root;
+    }
+
+    private static Control BuildDesktopLeaderboard(RankingsPresentationContext context,
+        RankingsState state)
+    {
         var table = Stack();
         // This row remains outside any future vertical paging host, making it
         // the stable table header without introducing a custom grid control.
-        table.Children.Add(BuildRow("#", "Player",
-            PrimeLeaderboardMetrics.Label(state.Metric), "Matches", "Kills", header: true));
+        table.Children.Add(BuildRow("#", "Player", "Score", "Matches", "Kills",
+            header: true));
         int rank = 0;
         foreach (PrimeLeaderboardRow row in state.Rows)
         {
             rank++;
             table.Children.Add(PrimeControlFactory.SelectedRow(BuildRow(
-                rank.ToString(CultureInfo.InvariantCulture), row.Entry.DisplayName,
-                row.Entry.Score.ToString(CultureInfo.InvariantCulture),
+                rank.ToString(CultureInfo.InvariantCulture), PlayerLabel(row),
+                MetricValue(state.Metric, row.Entry.Score),
                 row.Entry.Matches.ToString(CultureInfo.InvariantCulture),
                 row.Entry.Kills.ToString(CultureInfo.InvariantCulture)),
                 row.IsCurrentPlayer));
@@ -102,13 +113,41 @@ internal static class RankingsPresentation
         if (state.CanLoadMore)
             table.Children.Add(Button("Next page", () => context.Run(
                 "Load next ranking page", () => context.Load(true)), primary: true));
-        root.Children.Add(new ScrollViewer
+        var scroller = new ScrollViewer
         {
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Content = PrimeControlFactory.SectionPanel(table)
-        });
-        return root;
+        };
+        scroller.Classes.Add("prime-rankings-desktop");
+        return scroller;
+    }
+
+    private static Control BuildMobileLeaderboard(RankingsPresentationContext context,
+        RankingsState state)
+    {
+        var cards = Stack();
+        int rank = 0;
+        foreach (PrimeLeaderboardRow row in state.Rows)
+        {
+            rank++;
+            var content = Stack(
+                Text($"#{rank.ToString(CultureInfo.InvariantCulture)}  {PlayerLabel(row)}",
+                    "prime-heading"),
+                Text($"{MetricValue(state.Metric, row.Entry.Score)} "
+                    + PrimeLeaderboardMetrics.Label(state.Metric), "prime-body"),
+                Text($"{row.Entry.Matches.ToString("N0", CultureInfo.InvariantCulture)} Matches · "
+                    + $"{row.Entry.Kills.ToString("N0", CultureInfo.InvariantCulture)} Kills",
+                    "prime-muted"));
+            cards.Children.Add(PrimeControlFactory.SelectedRow(content,
+                row.IsCurrentPlayer));
+        }
+        if (state.CanLoadMore)
+            cards.Children.Add(Button("Next page", () => context.Run(
+                "Load next ranking page", () => context.Load(true)), primary: true));
+        PrimeSectionPanel panel = PrimeControlFactory.SectionPanel(cards);
+        panel.Classes.Add("prime-rankings-mobile");
+        return panel;
     }
 
     private static Control BuildFilters(RankingsPresentationContext context)
@@ -117,8 +156,11 @@ internal static class RankingsPresentation
         var grid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,*"),
-            ColumnSpacing = 12
+            RowDefinitions = new RowDefinitions("Auto"),
+            ColumnSpacing = 12,
+            HorizontalAlignment = HorizontalAlignment.Stretch
         };
+        grid.Classes.Add("prime-rankings-filters");
         var metricChoice = new ComboBox
         {
             ItemsSource = PrimeLeaderboardMetrics.All,
@@ -157,7 +199,33 @@ internal static class RankingsPresentation
             grid.Children.Add(field);
             Grid.SetColumn(field, 1);
         }
+        grid.SizeChanged += (_, args) => ApplyFilterLayout(grid,
+            args.NewSize.Width);
         return grid;
+    }
+
+    internal static bool UsesMobileLayout(double width)
+        => width > 0 && width <= CompactRankingsWidth;
+
+    internal static string MetricValue(string metric, decimal score)
+        => metric == "winPercentage"
+            ? score.ToString("0.0%", CultureInfo.InvariantCulture)
+            : score.ToString("#,0.##", CultureInfo.InvariantCulture);
+
+    private static string PlayerLabel(PrimeLeaderboardRow row)
+        => row.Entry.DisplayName + (row.IsCurrentPlayer ? " YOU" : "");
+
+    internal static void ApplyFilterLayout(Grid grid, double width)
+    {
+        bool mobile = UsesMobileLayout(width);
+        grid.ColumnDefinitions = new ColumnDefinitions(mobile ? "*" : "*,*");
+        grid.RowDefinitions = new RowDefinitions(mobile ? "Auto,Auto" : "Auto");
+        grid.ColumnSpacing = mobile ? 0 : 12;
+        grid.RowSpacing = mobile ? 12 : 0;
+        if (grid.Children.Count < 2) return;
+        Control hunter = grid.Children[1];
+        Grid.SetColumn(hunter, mobile ? 0 : 1);
+        Grid.SetRow(hunter, mobile ? 1 : 0);
     }
 
     private static Grid BuildRow(string rank, string player, string score,
@@ -197,4 +265,31 @@ internal static class RankingsPresentation
 
     private static AvaloniaButton Button(string label, Action action, bool primary = false)
         => PrimeControlFactory.Button(label, action, primary);
+}
+
+/// <summary>
+/// Keeps the desktop leaderboard table intact while replacing it with cards
+/// when the route itself has no room for the fixed table columns.
+/// </summary>
+internal sealed class PrimeResponsiveLeaderboard : Grid
+{
+    private readonly Control _desktop;
+    private readonly Control _mobile;
+
+    public PrimeResponsiveLeaderboard(Control desktop, Control mobile)
+    {
+        _desktop = desktop ?? throw new ArgumentNullException(nameof(desktop));
+        _mobile = mobile ?? throw new ArgumentNullException(nameof(mobile));
+        Children.Add(_desktop);
+        Children.Add(_mobile);
+        ApplyLayout(0);
+        SizeChanged += (_, args) => ApplyLayout(args.NewSize.Width);
+    }
+
+    internal void ApplyLayout(double width)
+    {
+        bool mobile = RankingsPresentation.UsesMobileLayout(width);
+        _desktop.IsVisible = !mobile;
+        _mobile.IsVisible = mobile;
+    }
 }

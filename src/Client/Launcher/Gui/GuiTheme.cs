@@ -10,12 +10,9 @@ namespace MphRead.Mods.Launcher.Gui
     /// <summary>
     /// The front screen's palette and metrics, in Avalonia terms.
     ///
-    /// The colours are <c>LauncherTheme</c>'s, value for value, and are
-    /// meant to stay that way: the two screens are the same product on
-    /// different toolkits, and a palette copied by eye would drift the first
-    /// time either was adjusted. They are duplicated rather than shared because
-    /// LauncherTheme is System.Drawing and does not compile off Windows;
-    /// the numbers, not the types, are the thing being kept in step.
+    /// These values mirror <c>PrimeColors.axaml</c> so code-built launcher
+    /// pages and XAML chrome are one product. A focused test keeps the two
+    /// representations synchronized.
     ///
     /// No DPI scaling here, unlike the WinForms theme: Avalonia lays out in
     /// device-independent pixels and scales the whole visual tree itself, which
@@ -23,16 +20,28 @@ namespace MphRead.Mods.Launcher.Gui
     /// </summary>
     internal static class GuiTheme
     {
-        public static readonly Color Ink = Color.FromRgb(10, 12, 16);
-        public static readonly Color Panel = Color.FromRgb(18, 21, 28);
-        public static readonly Color PanelLight = Color.FromRgb(26, 31, 41);
-        public static readonly Color Edge = Color.FromRgb(38, 46, 60);
-        public static readonly Color Text = Color.FromRgb(230, 234, 242);
-        public static readonly Color TextDim = Color.FromRgb(138, 147, 166);
-        public static readonly Color Accent = Color.FromRgb(41, 197, 255);
-        public static readonly Color Warm = Color.FromRgb(255, 179, 71);
-        public static readonly Color Good = Color.FromRgb(110, 231, 135);
-        public static readonly Color Bad = Color.FromRgb(255, 107, 107);
+        public static readonly Color Ink = Color.FromRgb(9, 12, 16);
+        public static readonly Color Panel = Color.FromRgb(21, 25, 30);
+        public static readonly Color PanelLight = Color.FromRgb(28, 33, 39);
+        public static readonly Color Gunmetal = Color.FromRgb(52, 59, 67);
+        public static readonly Color Edge = Gunmetal;
+        public static readonly Color Text = Color.FromRgb(228, 231, 234);
+        public static readonly Color TextDim = Color.FromRgb(155, 163, 170);
+        public static readonly Color Brand = Color.FromRgb(242, 154, 46);
+        public static readonly Color BrandStrong = Color.FromRgb(255, 180, 65);
+        public static readonly Color BrandSurface = Color.FromRgb(48, 34, 20);
+        public static readonly Color Tech = Color.FromRgb(25, 207, 230);
+        public static readonly Color TechStrong = Color.FromRgb(81, 230, 245);
+        public static readonly Color Success = Color.FromRgb(101, 214, 138);
+        public static readonly Color Warning = Color.FromRgb(255, 176, 87);
+        public static readonly Color Error = Color.FromRgb(255, 100, 105);
+
+        // Compatibility names for the existing code-built controls. New code
+        // should choose Brand, Tech, or an explicit state semantic.
+        public static readonly Color Accent = Brand;
+        public static readonly Color Warm = Warning;
+        public static readonly Color Good = Success;
+        public static readonly Color Bad = Error;
 
         public static readonly IBrush InkBrush = new SolidColorBrush(Ink);
         public static readonly IBrush PanelBrush = new SolidColorBrush(Panel);
@@ -40,10 +49,20 @@ namespace MphRead.Mods.Launcher.Gui
         public static readonly IBrush EdgeBrush = new SolidColorBrush(Edge);
         public static readonly IBrush TextBrush = new SolidColorBrush(Text);
         public static readonly IBrush TextDimBrush = new SolidColorBrush(TextDim);
-        public static readonly IBrush AccentBrush = new SolidColorBrush(Accent);
-        public static readonly IBrush WarmBrush = new SolidColorBrush(Warm);
-        public static readonly IBrush GoodBrush = new SolidColorBrush(Good);
-        public static readonly IBrush BadBrush = new SolidColorBrush(Bad);
+        public static readonly IBrush BrandBrush = new SolidColorBrush(Brand);
+        public static readonly IBrush BrandStrongBrush = new SolidColorBrush(BrandStrong);
+        public static readonly IBrush BrandSurfaceBrush = new SolidColorBrush(BrandSurface);
+        public static readonly IBrush TechBrush = new SolidColorBrush(Tech);
+        public static readonly IBrush TechStrongBrush = new SolidColorBrush(TechStrong);
+        public static readonly IBrush GunmetalBrush = new SolidColorBrush(Gunmetal);
+        public static readonly IBrush SuccessBrush = new SolidColorBrush(Success);
+        public static readonly IBrush WarningBrush = new SolidColorBrush(Warning);
+        public static readonly IBrush ErrorBrush = new SolidColorBrush(Error);
+
+        public static readonly IBrush AccentBrush = BrandBrush;
+        public static readonly IBrush WarmBrush = WarningBrush;
+        public static readonly IBrush GoodBrush = SuccessBrush;
+        public static readonly IBrush BadBrush = ErrorBrush;
 
         /// <summary>
         /// What the pause menu and the in-game settings lay over the match.

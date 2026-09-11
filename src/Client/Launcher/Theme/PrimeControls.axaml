@@ -1,12 +1,16 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Style Selector=":is(Button).prime-button">
+    <!-- Prime controls draw focus in their own stable border. The Fluent
+         overlay adorner can retain pre-layout coordinates during route
+         transitions and paint over shell chrome. -->
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
     <Setter Property="MinHeight" Value="44" />
     <Setter Property="MinWidth" Value="44" />
     <Setter Property="Padding" Value="16,8" />
     <Setter Property="Margin" Value="0,0,8,8" />
-    <Setter Property="Background" Value="{DynamicResource PrimeSurfaceRaisedBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeBrush}" />
+    <Setter Property="Background" Value="{DynamicResource PrimeInteractiveSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeGunmetalBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -19,18 +23,26 @@
     <Setter Property="BorderThickness" Value="2" />
   </Style>
   <Style Selector=":is(Button).prime-button:pointerover">
-    <Setter Property="Background" Value="{DynamicResource PrimeSelectedBrush}" />
+    <Setter Property="Background" Value="{DynamicResource PrimeSurfaceRaisedBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeStrongBrush}" />
   </Style>
   <Style Selector=":is(Button).prime-button:pressed">
-    <Setter Property="Background" Value="{DynamicResource PrimeAccentStrongBrush}" />
-    <Setter Property="Foreground" Value="{DynamicResource PrimeOnAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource PrimeBrandSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeBrandEdgeBrush}" />
   </Style>
   <Style Selector=":is(Button).prime-primary">
-    <Setter Property="Background" Value="{DynamicResource PrimeAccentStrongBrush}" />
-    <Setter Property="Foreground" Value="{DynamicResource PrimeOnAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource PrimeBrandBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeOnBrandBrush}" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeAccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeBrandStrongBrush}" />
+  </Style>
+  <Style Selector=":is(Button).prime-primary:pointerover">
+    <Setter Property="Background" Value="{DynamicResource PrimeBrandStrongBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeBrandStrongBrush}" />
+  </Style>
+  <Style Selector=":is(Button).prime-primary:pressed">
+    <Setter Property="Background" Value="{DynamicResource PrimeBrandEdgeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeBrandBrush}" />
   </Style>
   <Style Selector=":is(Button).prime-quiet">
     <Setter Property="Background" Value="Transparent" />
@@ -44,20 +56,47 @@
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderBrush" Value="Transparent" />
   </Style>
-  <!-- Navigation buttons use prime-primary as the selected marker in the
-       existing codebehind. Keep this after the base navigation rule so the
-       active route receives the reference shell's compact cyan tab. -->
+  <!-- Navigation uses prime-primary as its selected marker. It stays dark and
+       uses a compact amber underline rather than becoming a solid action. -->
   <Style Selector="#NavPanel :is(Button).prime-button.prime-primary">
-    <Setter Property="Background" Value="{DynamicResource PrimeAccentStrongBrush}" />
-    <Setter Property="Foreground" Value="{DynamicResource PrimeOnAccentBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeAccentBrush}" />
-    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Background" Value="{DynamicResource PrimeBrandSurfaceBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeBrandStrongBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeBrandBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,2" />
+  </Style>
+  <Style Selector="#NavPanel :is(Button).prime-button.prime-primary:focus">
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeFocusBrush}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+  <Style Selector=":is(Button).prime-tab">
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+    <Setter Property="MinHeight" Value="44" />
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0,0,0,2" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector=":is(Button).prime-tab:pointerover">
+    <Setter Property="Background" Value="{DynamicResource PrimeSurfaceRaisedBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
+  </Style>
+  <Style Selector=":is(Button).prime-tab.prime-selected">
+    <Setter Property="Foreground" Value="{DynamicResource PrimeBrandStrongBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeBrandBrush}" />
+  </Style>
+  <Style Selector=":is(Button).prime-tab:focus">
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeFocusBrush}" />
+    <Setter Property="BorderThickness" Value="2" />
   </Style>
   <Style Selector="ComboBox">
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
     <Setter Property="MinHeight" Value="44" />
     <Setter Property="Padding" Value="12,8" />
     <Setter Property="Background" Value="{DynamicResource PrimeControlBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeGunmetalBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
     <Setter Property="FontSize" Value="13" />
   </Style>
@@ -66,16 +105,17 @@
     <Setter Property="BorderThickness" Value="2" />
   </Style>
   <Style Selector="TextBox.prime-input, ComboBox.prime-input">
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
     <Setter Property="MinHeight" Value="44" />
     <Setter Property="Padding" Value="12,8" />
     <Setter Property="Margin" Value="0,0,0,8" />
     <Setter Property="Background" Value="{DynamicResource PrimeControlBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeGunmetalBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
     <Setter Property="FontSize" Value="13" />
   </Style>
   <Style Selector="TextBox.prime-input">
-    <Setter Property="CaretBrush" Value="{DynamicResource PrimeAccentBrush}" />
+    <Setter Property="CaretBrush" Value="{DynamicResource PrimeBrandBrush}" />
   </Style>
   <Style Selector="TextBox.prime-input:focus, ComboBox.prime-input:focus">
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeFocusBrush}" />
@@ -92,11 +132,11 @@
   </Style>
   <Style Selector="Slider.prime-input">
     <Setter Property="MinHeight" Value="44" />
-    <Setter Property="Foreground" Value="{DynamicResource PrimeAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeBrandBrush}" />
   </Style>
   <Style Selector=":is(Border).prime-card">
     <Setter Property="Background" Value="{DynamicResource PrimeSurfaceRaisedBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeGunmetalBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Padding" Value="16" />
@@ -104,7 +144,7 @@
   </Style>
   <Style Selector=":is(Border).prime-section-panel">
     <Setter Property="Background" Value="{DynamicResource PrimePrimarySurfaceBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeGunmetalBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Padding" Value="16" />
@@ -112,15 +152,21 @@
   </Style>
   <Style Selector=":is(Border).prime-selected-row">
     <Setter Property="Background" Value="{DynamicResource PrimeSecondarySurfaceBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeGunmetalBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="5" />
     <Setter Property="Padding" Value="12" />
     <Setter Property="Margin" Value="0,0,0,8" />
   </Style>
   <Style Selector=":is(Border).prime-selected-row.prime-selected">
-    <Setter Property="Background" Value="{DynamicResource PrimeSelectedBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource PrimeBrandSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeBrandBrush}" />
+  </Style>
+  <Style Selector=":is(Border).prime-history-row">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeDividerBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="Padding" Value="0,12" />
   </Style>
   <Style Selector=":is(Border).prime-divider">
     <Setter Property="Background" Value="{DynamicResource PrimeDividerBrush}" />
@@ -128,7 +174,7 @@
   </Style>
   <Style Selector=":is(Border).prime-preview-stage">
     <Setter Property="Background" Value="{DynamicResource PrimeSurfaceMutedBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeGunmetalBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Padding" Value="12" />
@@ -144,7 +190,7 @@
   </Style>
   <Style Selector=":is(Border).prime-status-chip">
     <Setter Property="Background" Value="{DynamicResource PrimeSecondarySurfaceBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeGunmetalBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="4" />
     <Setter Property="Padding" Value="8,4" />
@@ -158,7 +204,7 @@
   </Style>
   <Style Selector="Border.prime-notification">
     <Setter Property="Background" Value="{DynamicResource PrimeSurfaceRaisedBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeAccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeGunmetalBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="5" />
     <Setter Property="Padding" Value="12,8" />
@@ -169,7 +215,7 @@
        making every panel the same dark rectangle. -->
   <Style Selector=":is(Border).prime-panel">
     <Setter Property="Background" Value="{DynamicResource PrimePanelBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeGunmetalBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Padding" Value="16" />
@@ -181,15 +227,18 @@
     <Setter Property="Background" Value="{DynamicResource PrimeInteractiveSurfaceBrush}" />
   </Style>
   <Style Selector=":is(Border).prime-panel-selected">
-    <Setter Property="Background" Value="{DynamicResource PrimeSelectedSurfaceBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource PrimeBrandSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeBrandBrush}" />
   </Style>
   <Style Selector=":is(Border).prime-panel-modal">
     <Setter Property="Background" Value="{DynamicResource PrimeModalSurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeStrongBrush}" />
   </Style>
+  <Style Selector=":is(Border).prime-tech">
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeTechBrush}" />
+  </Style>
   <Style Selector=":is(Border).prime-status-info">
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeInfoBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeTechBrush}" />
   </Style>
   <Style Selector=":is(Border).prime-status-success">
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeSuccessBrush}" />
@@ -200,11 +249,14 @@
   <Style Selector=":is(Border).prime-status-error">
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeErrorBrush}" />
   </Style>
+  <Style Selector=":is(Border).prime-status-muted">
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeDividerBrush}" />
+  </Style>
   <!-- Severity classes are applied by PrimeAccessibility.SetStatus. Keep
        status color semantic by coloring only status text/edges; surfaces stay
        neutral and continue to carry the label for non-color users. -->
   <Style Selector="TextBlock.prime-status-info, Border.prime-status-info TextBlock">
-    <Setter Property="Foreground" Value="{DynamicResource PrimeInfoBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTechBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-status-success, Border.prime-status-success TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource PrimeSuccessBrush}" />
@@ -214,5 +266,8 @@
   </Style>
   <Style Selector="TextBlock.prime-status-error, Border.prime-status-error TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource PrimeErrorBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-status-muted, Border.prime-status-muted TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
   </Style>
 </Styles>

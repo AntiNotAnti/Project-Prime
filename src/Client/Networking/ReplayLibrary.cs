@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 
 namespace MphRead.Mods.Network
 {
@@ -61,17 +62,21 @@ namespace MphRead.Mods.Network
         /// a directory listing turned into a disk full of seeks.
         /// </summary>
         public static IReadOnlyList<ReplayRecording> List()
+            => List(Directory);
+
+        /// <summary>List a caller-supplied replay directory for library adapters and tests.</summary>
+        internal static IReadOnlyList<ReplayRecording> List(string directory)
         {
             var found = new List<ReplayRecording>();
             try
             {
-                string directory = Directory;
-                if (!System.IO.Directory.Exists(directory))
+                string replayDirectory = Path.GetFullPath(directory);
+                if (!System.IO.Directory.Exists(replayDirectory))
                 {
                     return found;
                 }
                 foreach (string path in System.IO.Directory
-                    .EnumerateFiles(directory, "*" + ReplayFile.Extension))
+                    .EnumerateFiles(replayDirectory, "*" + ReplayFile.Extension))
                 {
                     var info = new FileInfo(path);
                     (string room, DateTime? stamp) = ReadName(info.Name);
@@ -83,7 +88,7 @@ namespace MphRead.Mods.Network
             {
                 // A folder that cannot be listed is an empty list, not a
                 // screen that refuses to open.
-                Console.WriteLine($"[replay] could not list {Directory}: {ex.Message}");
+                Console.WriteLine($"[replay] could not list {directory}: {ex.Message}");
             }
             found.Sort((a, b) => b.Recorded.CompareTo(a.Recorded));
             return found;
@@ -131,6 +136,66 @@ namespace MphRead.Mods.Network
                 return (bytes / 1024) + " KB";
             }
             return bytes + " bytes";
+        }
+    }
+
+    /// <summary>
+    /// Cross-platform policy for a replay basename. The extension is a
+    /// storage detail and is added exactly once after the basename is checked.
+    /// </summary>
+    internal static class ReplayFileNamePolicy
+    {
+        internal const int MaximumLength = 128;
+
+        internal static bool TryNormalize(string? candidate, out string normalized)
+        {
+            normalized = "";
+            if (String.IsNullOrWhiteSpace(candidate)) return false;
+
+            string name = candidate.Trim();
+            if (name is "." or ".." || Path.IsPathRooted(name)) return false;
+            if (name.IndexOfAny(['/', '\\']) >= 0) return false;
+
+            string stem = name.EndsWith(ReplayFile.Extension,
+                StringComparison.OrdinalIgnoreCase)
+                ? name[..^ReplayFile.Extension.Length]
+                : name;
+            if (stem.Length == 0 || stem is "." or ".."
+                || stem.EndsWith(ReplayFile.Extension,
+                    StringComparison.OrdinalIgnoreCase)
+                || stem.EndsWith('.') || stem.EndsWith(' ')) return false;
+
+            foreach (char character in name)
+            {
+                if (Char.IsControl(character)
+                    || Path.GetInvalidFileNameChars().Contains(character)
+                    || character is '<' or '>' or ':' or '"' or '|' or '?' or '*')
+                    return false;
+            }
+
+            normalized = stem + ReplayFile.Extension;
+            return normalized.Length <= MaximumLength;
+        }
+
+        internal static bool IsWithinDirectory(string directory, string path)
+        {
+            try
+            {
+                string root = Path.GetFullPath(directory);
+                string fullPath = Path.GetFullPath(path);
+                StringComparison comparison = OperatingSystem.IsWindows()
+                    || OperatingSystem.IsMacOS()
+                    ? StringComparison.OrdinalIgnoreCase
+                    : StringComparison.Ordinal;
+                if (String.Equals(root, fullPath, comparison)) return false;
+                string prefix = root.EndsWith(Path.DirectorySeparatorChar)
+                    || root.EndsWith(Path.AltDirectorySeparatorChar)
+                    ? root : root + Path.DirectorySeparatorChar;
+                return fullPath.StartsWith(prefix, comparison);
+            }
+            catch (ArgumentException) { return false; }
+            catch (NotSupportedException) { return false; }
+            catch (IOException) { return false; }
         }
     }
 }

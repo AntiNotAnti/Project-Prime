@@ -1,10 +1,16 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
+using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Launcher.Theme;
 using Xunit;
 
@@ -110,6 +116,18 @@ public sealed class P5VisualSystemTests
             PrimeVisualTokens.HierarchyBrushResourceKeys);
         Assert.Contains(PrimeVisualTokens.ModalSurfaceBrush,
             PrimeVisualTokens.HierarchyBrushResourceKeys);
+        Assert.Contains(PrimeVisualTokens.BrandBrush,
+            PrimeVisualTokens.SemanticBrushResourceKeys);
+        Assert.Contains(PrimeVisualTokens.BrandStrongBrush,
+            PrimeVisualTokens.SemanticBrushResourceKeys);
+        Assert.Contains(PrimeVisualTokens.OnBrandBrush,
+            PrimeVisualTokens.SemanticBrushResourceKeys);
+        Assert.Contains(PrimeVisualTokens.TechBrush,
+            PrimeVisualTokens.SemanticBrushResourceKeys);
+        Assert.Contains(PrimeVisualTokens.TechStrongBrush,
+            PrimeVisualTokens.SemanticBrushResourceKeys);
+        Assert.Contains(PrimeVisualTokens.GunmetalBrush,
+            PrimeVisualTokens.SemanticBrushResourceKeys);
         Assert.Contains(PrimeVisualTokens.InfoBrush,
             PrimeVisualTokens.SemanticBrushResourceKeys);
         Assert.Contains(PrimeVisualTokens.SuccessBrush,
@@ -124,6 +142,97 @@ public sealed class P5VisualSystemTests
             PrimeVisualTokens.BrushKey(PrimeSemanticColor.Success));
         Assert.Equal(PrimeVisualTokens.DestructiveBrush,
             PrimeVisualTokens.BrushKey(PrimeSemanticColor.Destructive));
+        Assert.Equal(PrimeVisualTokens.BrandBrush,
+            PrimeVisualTokens.BrushKey(PrimeSemanticColor.Brand));
+        Assert.Equal(PrimeVisualTokens.TechBrush,
+            PrimeVisualTokens.BrushKey(PrimeSemanticColor.Tech));
+        Assert.Equal(PrimeVisualTokens.BrandSurfaceBrush,
+            PrimeVisualTokens.BrushKey(PrimeSemanticColor.BrandSurface));
+    }
+
+    [Fact]
+    public void XamlAndCodeBuiltPalettesStaySynchronized()
+    {
+        Dictionary<string, XElement> palette = LoadElements(
+            "src/Client/Launcher/Theme/PrimeColors.axaml", "SolidColorBrush");
+
+        AssertBrushColor(palette, "PrimeBackgroundBrush", GuiTheme.Ink);
+        AssertBrushColor(palette, "PrimePrimarySurfaceBrush", GuiTheme.Panel);
+        AssertBrushColor(palette, "PrimeSurfaceRaisedBrush", GuiTheme.PanelLight);
+        AssertBrushColor(palette, "PrimeTextBrush", GuiTheme.Text);
+        AssertBrushColor(palette, "PrimeTextMutedBrush", GuiTheme.TextDim);
+        AssertBrushColor(palette, "PrimeBrandBrush", GuiTheme.Brand);
+        AssertBrushColor(palette, "PrimeBrandStrongBrush", GuiTheme.BrandStrong);
+        AssertBrushColor(palette, "PrimeBrandSurfaceBrush", GuiTheme.BrandSurface);
+        AssertBrushColor(palette, "PrimeTechBrush", GuiTheme.Tech);
+        AssertBrushColor(palette, "PrimeTechStrongBrush", GuiTheme.TechStrong);
+        AssertBrushColor(palette, "PrimeGunmetalBrush", GuiTheme.Gunmetal);
+        AssertBrushColor(palette, "PrimeSuccessBrush", GuiTheme.Success);
+        AssertBrushColor(palette, "PrimeWarningBrush", GuiTheme.Warning);
+        AssertBrushColor(palette, "PrimeErrorBrush", GuiTheme.Error);
+
+        AssertBrushColor(palette, "PrimeAccentBrush", GuiTheme.Brand);
+        AssertBrushColor(palette, "PrimeAccentStrongBrush", GuiTheme.BrandStrong);
+        AssertBrushColor(palette, "PrimeOnBrandBrush", GuiTheme.Ink);
+        AssertBrushColor(palette, "PrimeOnAccentBrush", GuiTheme.Ink);
+        AssertBrushColor(palette, "PrimeInfoBrush", GuiTheme.Tech);
+        AssertBrushColor(palette, "PrimeWarmBrush", GuiTheme.Warning);
+        Assert.Equal(GuiTheme.Brand, GuiTheme.Accent);
+        Assert.Same(GuiTheme.BrandBrush, GuiTheme.AccentBrush);
+
+        double dotOpacity = Double.Parse(
+            palette["PrimeDotBrush"].Attribute("Opacity")!.Value,
+            System.Globalization.CultureInfo.InvariantCulture);
+        Assert.InRange(dotOpacity, 0.20, 0.28);
+    }
+
+    [Fact]
+    public void ThemeStylesKeepBrandTechSelectionAndFocusDistinct()
+    {
+        Dictionary<string, XElement> controls = LoadElements(
+            "src/Client/Launcher/Theme/PrimeControls.axaml", "Style",
+            "Selector");
+        Dictionary<string, XElement> typography = LoadElements(
+            "src/Client/Launcher/Theme/PrimeTypography.axaml", "Style",
+            "Selector");
+
+        AssertSetter(controls, ":is(Button).prime-button", "Background",
+            "{DynamicResource PrimeInteractiveSurfaceBrush}");
+        AssertSetter(controls, ":is(Button).prime-button", "BorderBrush",
+            "{DynamicResource PrimeGunmetalBrush}");
+        AssertSetter(controls, ":is(Button).prime-primary", "Background",
+            "{DynamicResource PrimeBrandBrush}");
+        AssertSetter(controls, ":is(Button).prime-primary", "BorderBrush",
+            "{DynamicResource PrimeBrandStrongBrush}");
+        AssertSetter(controls, ":is(Button).prime-button:focus", "BorderBrush",
+            "{DynamicResource PrimeFocusBrush}");
+        AssertSetter(controls,
+            ":is(Border).prime-selected-row.prime-selected", "Background",
+            "{DynamicResource PrimeBrandSurfaceBrush}");
+        AssertSetter(controls, ":is(Border).prime-status-info", "BorderBrush",
+            "{DynamicResource PrimeTechBrush}");
+        AssertSetter(controls, ":is(Border).prime-tech", "BorderBrush",
+            "{DynamicResource PrimeTechBrush}");
+        AssertSetter(controls, ":is(Button).prime-tab.prime-selected",
+            "BorderBrush", "{DynamicResource PrimeBrandBrush}");
+        AssertSetter(controls, ":is(Button).prime-tab:focus", "BorderBrush",
+            "{DynamicResource PrimeFocusBrush}");
+        AssertSetter(controls, ":is(Border).prime-history-row", "BorderBrush",
+            "{DynamicResource PrimeDividerBrush}");
+        AssertSetter(controls, ":is(Border).prime-status-muted", "BorderBrush",
+            "{DynamicResource PrimeDividerBrush}");
+
+        AssertSetter(typography, "TextBlock.prime-brand", "Foreground",
+            "{DynamicResource PrimeBrandStrongBrush}");
+        AssertSetter(typography, "TextBlock.prime-status-text", "Foreground",
+            "{DynamicResource PrimeTechBrush}");
+        AssertSetter(typography, "TextBlock.prime-kicker", "Foreground",
+            "{DynamicResource PrimeBrandBrush}");
+
+        Assert.DoesNotContain("PrimeAccent", File.ReadAllText(FindRepositoryFile(
+            "src/Client/Launcher/Theme/PrimeControls.axaml")));
+        Assert.DoesNotContain("PrimeAccent", File.ReadAllText(FindRepositoryFile(
+            "src/Client/Launcher/Theme/PrimeTypography.axaml")));
     }
 
     [AvaloniaFact]
@@ -179,5 +288,45 @@ public sealed class P5VisualSystemTests
             GamepadButtons.A, family));
         Assert.Equal($"Deploy ({expected})", PrimeControllerGlyphs.Prompt(
             "Deploy", GamepadButtons.A, family));
+    }
+
+    private static Dictionary<string, XElement> LoadElements(string relativePath,
+        string elementName, string keyAttribute = "Key")
+    {
+        XDocument document = XDocument.Load(FindRepositoryFile(relativePath));
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+        return document.Descendants()
+            .Where(element => element.Name.LocalName == elementName)
+            .ToDictionary(element => keyAttribute == "Key"
+                ? element.Attribute(xaml + keyAttribute)!.Value
+                : element.Attribute(keyAttribute)!.Value,
+                StringComparer.Ordinal);
+    }
+
+    private static void AssertBrushColor(IReadOnlyDictionary<string, XElement> palette,
+        string key, Color expected)
+        => Assert.Equal(expected, Color.Parse(palette[key].Attribute("Color")!.Value));
+
+    private static void AssertSetter(IReadOnlyDictionary<string, XElement> styles,
+        string selector, string property, string expected)
+    {
+        XElement setter = styles[selector].Elements()
+            .Single(element => element.Name.LocalName == "Setter"
+                && element.Attribute("Property")?.Value == property);
+        Assert.Equal(expected, setter.Attribute("Value")?.Value);
+    }
+
+    private static string FindRepositoryFile(string relativePath)
+    {
+        for (DirectoryInfo? directory = new(AppContext.BaseDirectory);
+            directory != null; directory = directory.Parent)
+        {
+            string candidate = Path.Combine(directory.FullName, relativePath);
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        throw new FileNotFoundException(
+            $"Could not locate repository file '{relativePath}'.");
     }
 }

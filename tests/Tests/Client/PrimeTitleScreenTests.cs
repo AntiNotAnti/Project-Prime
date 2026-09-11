@@ -129,7 +129,8 @@ public sealed class PrimeTitleScreenTests
             Assert.True(fallback.BlinkRunning);
             Assert.Contains(fallback.GetVisualDescendants().OfType<TextBlock>(),
                 text => text.Text == "PROJECT PRIME");
-            Assert.Single(fallback.GetVisualDescendants().OfType<PrimeDiamond>());
+            Assert.Single(fallback.GetVisualDescendants().OfType<PrimeBrandMark>());
+            Assert.Empty(fallback.GetVisualDescendants().OfType<PrimeDiamond>());
         }
         finally
         {
@@ -225,6 +226,9 @@ public sealed class PrimeTitleScreenTests
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(expectedRoute, shell.CurrentRoute);
             Assert.Equal(PrimeTitleScreenPhase.Ready, shell.TitlePhase);
+            Assert.Equal(restored ? PrimeStartupRestoreState.Restored
+                : PrimeStartupRestoreState.NotRestored,
+                shell.StartupRestoreState);
             Assert.NotNull(shell.TitleScreen);
 
             shell.HandleTitleKeyDown(Key.Enter);
@@ -255,6 +259,8 @@ public sealed class PrimeTitleScreenTests
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(PrimeRoute.Gateway, shell.CurrentRoute);
             Assert.Equal(PrimeTitleScreenPhase.Ready, shell.TitlePhase);
+            Assert.Equal(PrimeStartupRestoreState.NotRestored,
+                shell.StartupRestoreState);
             Assert.NotNull(shell.TitleScreen);
         }
         finally
@@ -302,6 +308,219 @@ public sealed class PrimeTitleScreenTests
             window.Close();
             shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
+    }
+
+    [AvaloniaFact]
+    public void RestoreBudgetMakesTitleReadyWithoutCompletingRestore()
+    {
+        var restore = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var delay = new ControlledDelay();
+        PrimeShellView shell = new(new MenuSettings(), Array.Empty<string>(),
+            restoreOnActivate: true, ignoreGameFileGate: true, captureMode: true,
+            titleCaptureState: new(PrimeTitleScreenPhase.Loading,
+                ReducedMotion: true),
+            restoreSession: _ => restore.Task,
+            startupDelay: delay.WaitAsync);
+        var window = new Window { Width = 940, Height = 560, Content = shell };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(PrimeStartupRestoreState.Pending,
+                shell.StartupRestoreState);
+            Assert.Equal(PrimeTitleScreenPhase.Loading, shell.TitlePhase);
+            Assert.Equal(PrimeShellView.StartupRestoreUiBudget, delay.Requested);
+
+            delay.Complete();
+            Assert.True(SpinWait.SpinUntil(() =>
+            {
+                Dispatcher.UIThread.RunJobs();
+                return shell.TitlePhase == PrimeTitleScreenPhase.Ready;
+            }, TimeSpan.FromSeconds(2)));
+            Assert.Equal(PrimeStartupRestoreState.Pending,
+                shell.StartupRestoreState);
+            Assert.Equal(PrimeRoute.Gateway, shell.CurrentRoute);
+        }
+        finally
+        {
+            restore.TrySetResult(false);
+            window.Content = null;
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
+    public void LateRestoreBeforeContinueStillSelectsPlay()
+    {
+        var restore = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var delay = new ControlledDelay();
+        PrimeShellView shell = new(new MenuSettings(), Array.Empty<string>(),
+            restoreOnActivate: true, ignoreGameFileGate: true, captureMode: true,
+            titleCaptureState: new(PrimeTitleScreenPhase.Loading,
+                ReducedMotion: true), restoreSession: _ => restore.Task,
+            startupDelay: delay.WaitAsync);
+        var window = new Window { Width = 940, Height = 560, Content = shell };
+        window.Show();
+        try
+        {
+            delay.Complete();
+            Assert.True(SpinWait.SpinUntil(() =>
+            {
+                Dispatcher.UIThread.RunJobs();
+                return shell.TitlePhase == PrimeTitleScreenPhase.Ready;
+            }, TimeSpan.FromSeconds(2)));
+
+            restore.SetResult(true);
+            Assert.True(SpinWait.SpinUntil(() =>
+            {
+                Dispatcher.UIThread.RunJobs();
+                return shell.StartupRestoreState
+                    == PrimeStartupRestoreState.Restored;
+            }, TimeSpan.FromSeconds(2)));
+            Assert.Equal(PrimeRoute.Play, shell.CurrentRoute);
+
+            shell.HandleTitleKeyDown(Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(PrimeTitleScreenPhase.Hidden, shell.TitlePhase);
+            Assert.Equal(PrimeRoute.Play, shell.CurrentRoute);
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ContinueAfterBudgetAbandonsLateInjectedRestoreAndEntersGateway()
+    {
+        var restore = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var delay = new ControlledDelay();
+        PrimeShellView shell = new(new MenuSettings(), Array.Empty<string>(),
+            restoreOnActivate: true, ignoreGameFileGate: true, captureMode: true,
+            titleCaptureState: new(PrimeTitleScreenPhase.Loading,
+                ReducedMotion: true), restoreSession: _ => restore.Task,
+            startupDelay: delay.WaitAsync);
+        var window = new Window { Width = 940, Height = 560, Content = shell };
+        window.Show();
+        try
+        {
+            delay.Complete();
+            Assert.True(SpinWait.SpinUntil(() =>
+            {
+                Dispatcher.UIThread.RunJobs();
+                return shell.TitlePhase == PrimeTitleScreenPhase.Ready;
+            }, TimeSpan.FromSeconds(2)));
+
+            shell.HandleTitleKeyDown(Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(PrimeStartupRestoreState.Abandoned,
+                shell.StartupRestoreState);
+            Assert.Equal(PrimeRoute.Gateway, shell.CurrentRoute);
+
+            restore.SetResult(true);
+            shell.StartupRestoreTask.GetAwaiter().GetResult();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(PrimeStartupRestoreState.Abandoned,
+                shell.StartupRestoreState);
+            Assert.Equal(PrimeRoute.Gateway, shell.CurrentRoute);
+        }
+        finally
+        {
+            restore.TrySetResult(false);
+            window.Content = null;
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ContinueWinsAtGatewayIdentityCommitBarrier()
+    {
+        var account = new DeferredRestoreAccount();
+        var entered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        PrimeShellView shell = new(new MenuSettings(), Array.Empty<string>(),
+            restoreOnActivate: true, ignoreGameFileGate: true, captureMode: true,
+            titleCaptureState: new(PrimeTitleScreenPhase.Loading,
+                ReducedMotion: true),
+            startupDelay: (_, _) => Task.CompletedTask,
+            gatewayFactory: state => new GatewayController(state,
+                _ => Task.FromResult<IPrimeGatewayAccount>(account), () =>
+                {
+                    entered.TrySetResult();
+                    release.Wait();
+                }));
+        int identityEvents = 0;
+        shell.Gateway.IdentityChanged += (_, _) => identityEvents++;
+        var window = new Window { Width = 940, Height = 560, Content = shell };
+        window.Show();
+        try
+        {
+            Assert.True(SpinWait.SpinUntil(() =>
+            {
+                Dispatcher.UIThread.RunJobs();
+                return shell.TitlePhase == PrimeTitleScreenPhase.Ready;
+            }, TimeSpan.FromSeconds(2)));
+            account.CompleteLicense();
+            entered.Task.Wait(TimeSpan.FromSeconds(2));
+
+            shell.HandleTitleKeyDown(Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(PrimeStartupRestoreState.Abandoned,
+                shell.StartupRestoreState);
+            Assert.Equal(PrimeRoute.Gateway, shell.CurrentRoute);
+            release.Set();
+
+            Assert.True(SpinWait.SpinUntil(() =>
+            {
+                Dispatcher.UIThread.RunJobs();
+                return shell.StartupRestoreTask.IsCompleted;
+            }, TimeSpan.FromSeconds(2)));
+            Assert.False(shell.Gateway.State.SignedIn);
+            Assert.Equal(0, identityEvents);
+        }
+        finally
+        {
+            release.Set();
+            window.Content = null;
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
+    public void DisposalAbandonsPendingStartupRestoreWithoutWaitingForSources()
+    {
+        var restore = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var delay = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        PrimeShellView shell = new(new MenuSettings(), Array.Empty<string>(),
+            restoreOnActivate: true, ignoreGameFileGate: true, captureMode: true,
+            titleCaptureState: new(PrimeTitleScreenPhase.Loading,
+                ReducedMotion: true), restoreSession: _ => restore.Task,
+            startupDelay: (_, _) => delay.Task);
+        var window = new Window { Width = 940, Height = 560, Content = shell };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        window.Content = null;
+        window.Close();
+        shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+
+        Assert.Equal(PrimeStartupRestoreState.Abandoned,
+            shell.StartupRestoreState);
+        Assert.Equal(PrimeTitleScreenPhase.Hidden, shell.TitlePhase);
+        Assert.True(shell.ShellInputEnabled);
+        restore.TrySetResult(true);
+        delay.TrySetResult();
     }
 
     [AvaloniaFact]
@@ -498,5 +717,57 @@ public sealed class PrimeTitleScreenTests
             Play: new PlayState(PlayPhase.Lobby, Array.Empty<NodeListing>(), node,
                 Hunter.Samus, lobby.Name, Loading: false, Revision: lobby.Revision),
             Identity: PrimeShellCaptureIdentity.SignedIn);
+    }
+
+    private sealed class ControlledDelay
+    {
+        private readonly TaskCompletionSource _completion = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TimeSpan Requested { get; private set; }
+
+        public Task WaitAsync(TimeSpan delay, CancellationToken cancellationToken)
+        {
+            Requested = delay;
+            return _completion.Task.WaitAsync(cancellationToken);
+        }
+
+        public void Complete() => _completion.TrySetResult();
+    }
+
+    private sealed class DeferredRestoreAccount : IPrimeGatewayAccount
+    {
+        private readonly PlayerId _playerId = new(Guid.Parse(
+            "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
+        private readonly TaskCompletionSource<HunterLicense> _license = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Uri Backend => new("https://backend.test/");
+        public bool IsSignedIn => true;
+        public AccountIdentity? Identity => new(_playerId, true, true);
+
+        public Task<bool> RestoreAsync(CancellationToken cancellationToken)
+            => Task.FromResult(true);
+
+        public Task<HunterLicense> GetLicenseAsync(PlayerId playerId,
+            CancellationToken cancellationToken) => _license.Task;
+
+        public void CompleteLicense() => _license.TrySetResult(new HunterLicense(
+            _playerId, "Pilot", 0, DateTimeOffset.UnixEpoch));
+
+        public Task SignInAsync(string email, string password,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<AccountRegistration> RegisterAsync(string email,
+            string password, string displayName,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task ConfirmEmailAsync(PlayerId playerId, string code,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task ResendConfirmationAsync(string email,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task SignOutAsync(CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+        public Task UpdateProfileAsync(string displayName, int favoriteHunter,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

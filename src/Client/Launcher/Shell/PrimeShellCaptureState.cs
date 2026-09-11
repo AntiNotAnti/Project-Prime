@@ -18,7 +18,7 @@ namespace MphRead.Mods.Launcher.Gui;
 /// </summary>
 internal sealed record PrimeShellCaptureState(
     GatewayState? Gateway = null,
-    PlayerId? PendingConfirmationPlayerId = null,
+    PendingRegistration? PendingRegistration = null,
     PlayState? Play = null,
     PlaySubsection? PlaySubsection = null,
     bool ExpandAdvancedNetwork = false,
@@ -26,6 +26,7 @@ internal sealed record PrimeShellCaptureState(
     IReadOnlyList<HunterDossier>? Hunters = null,
     HunterSection? HunterSection = null,
     bool HunterPreviewFailure = false,
+    RankingsState? Rankings = null,
     PrimeShellCaptureIdentity Identity = PrimeShellCaptureIdentity.None);
 
 internal enum PrimeShellCaptureIdentity
