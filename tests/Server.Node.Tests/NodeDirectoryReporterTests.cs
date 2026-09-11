@@ -11,22 +11,24 @@ namespace ProjectPrime.Server.Node.Tests;
 public sealed class NodeDirectoryReporterTests
 {
     [Fact]
-    public void DirectorySettingsUseConfiguredDevelopmentBackendPortByDefault()
-        => Assert.Equal("http://51.161.113.128:18085/", new NodeDirectorySettings().BackendUri);
+    public void DirectorySettingsUseSecurePublicBackendByDefault()
+        => Assert.Equal("https://rebooty.xyz/", new NodeDirectorySettings().BackendUri);
 
     private static NodeDirectoryReporterOptions Options() => new(Guid.NewGuid(), new Uri("https://backend.example/"),
         new(Guid.NewGuid(), "Node", "us", "wss://node.example/v1/control", 9, "test-build", new string('a', 64), 100), "private-test-credential");
     private sealed class Handler : HttpMessageHandler
     {
-        public readonly List<(HttpMethod Method, string Path, string? Scheme, string? Credential, string Node, JsonElement Body)> Requests = [];
+        public readonly List<(HttpMethod Method, string Path, string Query, string? Scheme, string? Credential, string Node, JsonElement Body)> Requests = [];
         public readonly Queue<HttpStatusCode> Results = [];
         public bool Block;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             if (Block) await Task.Delay(Timeout.Infinite, cancellationToken);
-            using var document = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
-            Requests.Add((request.Method, request.RequestUri!.AbsolutePath, request.Headers.Authorization?.Scheme,
-                request.Headers.Authorization?.Parameter, request.Headers.GetValues("X-Server-Id").Single(), document.RootElement.Clone()));
+            JsonElement body = request.Content == null
+                ? default
+                : JsonDocument.Parse(await request.Content.ReadAsStringAsync(cancellationToken)).RootElement.Clone();
+            Requests.Add((request.Method, request.RequestUri!.AbsolutePath, request.RequestUri.Query, request.Headers.Authorization?.Scheme,
+                request.Headers.Authorization?.Parameter, request.Headers.GetValues("X-Server-Id").Single(), body));
             return new(Results.TryDequeue(out var status) ? status : HttpStatusCode.OK);
         }
     }
@@ -42,21 +44,24 @@ public sealed class NodeDirectoryReporterTests
         var catalog = new NodeContentCatalog([
             new ContentIdentity("zeta", "hash", "1", "test-build", 9),
             new ContentIdentity("Alpha", "hash", "1", "test-build", 9)]);
-        string[] mapKeys = catalog.Maps.ToArray();
         var original = new NodeDirectoryRegistration(Guid.NewGuid(), "Node", "us",
-            "wss://node.example/v1/control", 9, "test-build", new string('a', 64), 100, mapKeys);
+            "wss://node.example/v1/control", 9, "test-build", new string('a', 64), 100,
+            catalog.MapCatalogRevision, catalog.MapCount, catalog.MapCatalogHash);
         var options = new NodeDirectoryReporterOptions(Guid.NewGuid(), new Uri("https://backend.example/"), original,
             "private-test-credential");
-        mapKeys[0] = "mutated-after-options";
         using var handler = new Handler(); using var http = new HttpClient(handler);
         using var reporter = new NodeDirectoryReporter(options,
             () => new(options.Registration.Incarnation, 0, 0, 0),
             NullLogger<NodeDirectoryReporter>.Instance, http, new Clock());
 
         Assert.True(await reporter.PublishOnceAsync());
-        string[] sent = handler.Requests[0].Body.GetProperty("mapKeys").EnumerateArray()
-            .Select(value => value.GetString()!).ToArray();
-        Assert.Equal(new[] { "Alpha", "zeta" }, sent);
+        JsonElement sent = handler.Requests[0].Body;
+        Assert.False(sent.TryGetProperty("mapKeys", out _));
+        Assert.Equal(catalog.MapCatalogRevision,
+            sent.GetProperty("mapCatalogRevision").GetInt64());
+        Assert.Equal(catalog.MapCount, sent.GetProperty("mapCount").GetInt32());
+        Assert.Equal(catalog.MapCatalogHash,
+            sent.GetProperty("mapCatalogHash").GetString());
     }
     [Fact]
     public async Task RegistersThenHeartbeatsExactCompatibleMetadataAndBoundedPopulation()
@@ -152,5 +157,45 @@ public sealed class NodeDirectoryReporterTests
         Assert.False(await reporter.PublishOnceAsync()); Assert.Single(handler.Requests);
         Assert.Throws<ArgumentException>(() => new NodeDirectoryReporterOptions(options.NodeId, new Uri("http://untrusted.example/"),
             options.Registration, "secret").Validate());
+    }
+
+    [Fact]
+    public async Task ReadyToUnreadySendsOneIncarnationCheckedDeregistrationAndStopsAdvertising()
+    {
+        var options = Options(); using var handler = new Handler(); using var http = new HttpClient(handler);
+        bool ready = true;
+        using var reporter = new NodeDirectoryReporter(options,
+            () => new(options.Registration.Incarnation, 0, 0, 0),
+            NullLogger<NodeDirectoryReporter>.Instance, http, new Clock(),
+            () => ready ? NodeReadinessResult.Ready : new(false, false, true, "maps_unready"));
+        Assert.True(await reporter.PublishOnceAsync());
+        ready = false;
+        Assert.False(await reporter.PublishOnceAsync());
+        Assert.Equal(3, handler.Requests.Count);
+        Assert.Equal(HttpMethod.Delete, handler.Requests[2].Method);
+        Assert.Equal("/v1/node/registration", handler.Requests[2].Path);
+        Assert.Equal($"?incarnation={options.Registration.Incarnation:D}", handler.Requests[2].Query);
+        Assert.False(await reporter.PublishOnceAsync());
+        Assert.Equal(3, handler.Requests.Count);
+        ready = true;
+        Assert.True(await reporter.PublishOnceAsync());
+        Assert.Equal(HttpMethod.Put, handler.Requests[3].Method);
+    }
+
+    [Fact]
+    public async Task UnreadyStartupNeverRegistersAndStopDeregistersAdvertisedNode()
+    {
+        var options = Options(); using var handler = new Handler(); using var http = new HttpClient(handler);
+        bool ready = false;
+        using var reporter = new NodeDirectoryReporter(options,
+            () => new(options.Registration.Incarnation, 0, 0, 0),
+            NullLogger<NodeDirectoryReporter>.Instance, http, new Clock(),
+            () => ready ? NodeReadinessResult.Ready : new(false, true, false, "worker_unready"));
+        Assert.False(await reporter.PublishOnceAsync());
+        Assert.Empty(handler.Requests);
+        ready = true;
+        Assert.True(await reporter.PublishOnceAsync());
+        await reporter.StopAsync(CancellationToken.None);
+        Assert.Equal(HttpMethod.Delete, handler.Requests[^1].Method);
     }
 }

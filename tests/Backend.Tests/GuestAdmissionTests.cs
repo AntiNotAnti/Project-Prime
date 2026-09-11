@@ -91,7 +91,7 @@ public sealed class GuestAdmissionTests
         var secondJwt = new JsonWebToken(second.Ticket);
 
         Assert.Equal(NodeId, first.NodeId);
-        Assert.Equal("wss://node.example/control", first.PublicControlUri);
+        Assert.Equal("wss://node.example/v1/control", first.PublicControlUri);
         Assert.Equal("Guest One", firstJwt.GetClaim("name").Value);
         Assert.Equal("guest", firstJwt.GetClaim("kind").Value);
         Assert.Equal("pp-node-admission+jwt", firstJwt.Typ);
@@ -142,7 +142,7 @@ public sealed class GuestAdmissionTests
         client.DefaultRequestHeaders.Add("X-Server-Id", NodeId.ToString("D"));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Secret);
         var registration = new NodeRegistration(Guid.NewGuid(), "Node", "us-central",
-            "wss://node.example/control", 1, "build1", new string('a', 64), 100);
+            "wss://node.example/v1/control", 1, "build1", new string('a', 64), 100);
         Assert.Equal(HttpStatusCode.OK,
             (await client.PutAsJsonAsync("/v1/node/registration", registration)).StatusCode);
         Assert.Equal(HttpStatusCode.OK,

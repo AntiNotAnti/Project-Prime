@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using MphRead.Identity;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.Backend.Tickets;
 
@@ -25,7 +26,8 @@ public sealed record PublicTicketKey(string Kty, string Crv, string X, string Y,
 
 public sealed class GameTicketIssuer : IDisposable
 {
-    public const int LifetimeSeconds = 120;
+    public const int LifetimeSeconds = NodeAdmissionContract.LifetimeSeconds;
+    public const int MaximumPublicKeys = 8;
     private readonly TimeProvider _clock;
     private readonly string? _issuer;
     private readonly ECDsa? _signer;
@@ -55,6 +57,11 @@ public sealed class GameTicketIssuer : IDisposable
             var key = new ECDsaSecurityKey(_signer) { KeyId = settings.KeyId };
             _credentials = new SigningCredentials(key, SecurityAlgorithms.EcdsaSha256);
             var publicKeys = new List<PublicTicketKey> { Export(_signer, settings.KeyId!) };
+            // The current signing key and every overlap key are exposed through
+            // the public Node-admission contract. Keep the total bounded so a
+            // configured rotation cannot exceed the Node's immutable snapshot.
+            if (settings.PreviousKeys.Count > MaximumPublicKeys - 1)
+                throw new InvalidOperationException("Ticket verification key overlap is limited to eight keys.");
             foreach (var previous in settings.PreviousKeys)
             {
                 if (!ValidKeyId(previous.KeyId) || publicKeys.Any(x => x.Kid == previous.KeyId))

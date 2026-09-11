@@ -204,6 +204,13 @@ public sealed record NodeSessionSnapshot(Guid SessionId, Guid? PlayerId, string 
     public override string ToString() => $"NodeSessionSnapshot {{ SessionId = {SessionId}, PlayerId = {PlayerId}, GuestSessionId = {GuestSessionId}, NodeId = {NodeId} }}";
 }
 public sealed record NodePing : NodeCommand;
+/// <summary>Requests one bounded, revision-pinned page of the Node catalog.</summary>
+public sealed record NodeCatalogRequest(long Revision, int Page = 0, int PageSize = 8) : NodeCommand;
+/// <summary>One bounded catalog page. Pages are never a second authority: the
+/// Node remains authoritative and clients replace their prior catalog only
+/// after every page for this revision has been validated.</summary>
+public sealed record NodeCatalogPage(long Revision, int Page, int PageCount, int TotalEntries,
+    string CatalogHash, ImmutableArray<ContentIdentity> Entries);
 public sealed record NodePong(long ServerUnixMilliseconds);
 public sealed record NodeControlError(string Code, string Message);
 public sealed record LobbyLeft(Guid LobbyId);

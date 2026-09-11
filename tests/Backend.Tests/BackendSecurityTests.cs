@@ -108,6 +108,19 @@ public sealed class BackendSecurityTests
     }
 
     [Fact]
+    public void PreAuthMachinePartitionIgnoresCallerControlledServerId()
+    {
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Parse("::ffff:192.0.2.10");
+        context.Request.Headers["X-Server-Id"] = Guid.NewGuid().ToString("D");
+        string first = BackendSecurity.MachinePartitionKey(context);
+
+        context.Request.Headers["X-Server-Id"] = Guid.NewGuid().ToString("D");
+        Assert.Equal(first, BackendSecurity.MachinePartitionKey(context));
+        Assert.Equal("machine-ip:192.0.2.10", first);
+    }
+
+    [Fact]
     public void ForwardingAcceptsOnlyExplicitCanonicalProxyAddresses()
     {
         var forwarding = new ForwardedHeadersOptions();
@@ -138,15 +151,17 @@ public sealed class BackendSecurityTests
     }
 
     [Fact]
-    public void TemporaryRemoteDevelopmentHttpRequiresExplicitHostAndOptIn()
+    public void RemoteDevelopmentHttpIsRetiredEvenWhenOptedIn()
     {
         var context = new DefaultHttpContext();
         context.Request.Host = new HostString(BackendSecurity.TemporaryDevelopmentBackendHost);
         Assert.False(BackendSecurity.IsExplicitRemoteHttpDevelopmentRequest(context, new BackendSecurityOptions()));
-        Assert.True(BackendSecurity.IsExplicitRemoteHttpDevelopmentRequest(context,
+        Assert.False(BackendSecurity.IsExplicitRemoteHttpDevelopmentRequest(context,
             new BackendSecurityOptions { AllowRemoteHttp = true }));
         context.Request.Host = new HostString("51.161.113.127");
         Assert.False(BackendSecurity.IsExplicitRemoteHttpDevelopmentRequest(context,
+            new BackendSecurityOptions { AllowRemoteHttp = true }));
+        Assert.Throws<InvalidOperationException>(() => BackendSecurity.ValidateCommon(
             new BackendSecurityOptions { AllowRemoteHttp = true }));
     }
 

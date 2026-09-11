@@ -78,5 +78,10 @@ public sealed class WorkerPackageContractTests
         {
             FileName = "dotnet"
         }.SnapshotRateHz);
+        Assert.False(new WorkerLaunchOptions { FileName = "dotnet" }.AckCoalescingEnabled);
+        await Assert.ThrowsAsync<ArgumentException>(() => manager.StartAsync(launch with
+        {
+            Arguments = ["worker.dll", "--ack-coalescing", "true"]
+        }));
     }
 }

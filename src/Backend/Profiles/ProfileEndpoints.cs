@@ -21,13 +21,14 @@ public static class ProfileEndpoints
         app.MapGet("/v1/me", async (HttpContext http, UserManager<HunterAccount> users) =>
         {
             var user = await users.GetUserAsync(http.User);
-            return user == null ? Results.Unauthorized() : Results.Ok(new
+            return user == null ? BackendProblem.Create("invalid_credential", "The session is invalid.",
+                StatusCodes.Status401Unauthorized) : Results.Ok(new
             {
                 PlayerId = new PlayerId(user.Id), user.EmailConfirmed,
                 // Future official admission must also check server and match policies.
                 EmailEligibleForOfficialPlay = user.EmailConfirmed
             });
-        }).RequireAuthorization().RequireRateLimiting("api");
+        }).RequireAuthorization().RequireRateLimiting(BackendRoutePolicy.Api);
 
         app.MapPatch("/v1/me/profile", async (ProfilePatch patch, HttpContext http,
             UserManager<HunterAccount> users, BackendDbContext db, CancellationToken cancellationToken) =>
@@ -36,32 +37,42 @@ public static class ProfileEndpoints
                 || (patch.DisplayName != null && !ValidDisplayName(patch.DisplayName))
                 || (patch.FavoriteHunter.HasValue && patch.FavoriteHunter.Value > Hunter.Weavel))
             {
-                return Results.BadRequest(new { Error = "Supply a valid display name or playable favorite hunter." });
+                return BackendProblem.Create("invalid_display_name",
+                    "Supply a valid display name or playable favorite hunter.",
+                    StatusCodes.Status400BadRequest);
             }
             var user = await users.GetUserAsync(http.User);
-            if (user == null) { return Results.Unauthorized(); }
+            if (user == null)
+                return BackendProblem.Create("invalid_credential", "The session is invalid.",
+                    StatusCodes.Status401Unauthorized);
             var profile = await db.Profiles.SingleOrDefaultAsync(x => x.PlayerId == user.Id, cancellationToken);
-            if (profile == null) { return Results.NotFound(); }
+            if (profile == null)
+                return BackendProblem.Create("invalid_credential", "The account profile is unavailable.",
+                    StatusCodes.Status404NotFound);
             if (patch.DisplayName != null) { profile.DisplayName = patch.DisplayName; }
             if (patch.FavoriteHunter.HasValue) { profile.FavoriteHunter = patch.FavoriteHunter.Value; }
             await db.SaveChangesAsync(cancellationToken);
             return Results.NoContent();
-        }).RequireAuthorization().RequireRateLimiting("api");
+        }).RequireAuthorization().RequireRateLimiting(BackendRoutePolicy.Api);
 
         app.MapGet("/v1/players/{id}/license", async (string id, BackendDbContext db, CancellationToken cancellationToken) =>
         {
-            if (!PlayerId.TryParse(id, out PlayerId playerId)) { return Results.BadRequest(); }
+            if (!PlayerId.TryParse(id, out PlayerId playerId))
+                return BackendProblem.Create("invalid_request", "The player identity is invalid.",
+                    StatusCodes.Status400BadRequest);
             var result = await (from profile in db.Profiles.AsNoTracking()
                 join license in db.Licenses.AsNoTracking() on profile.PlayerId equals license.PlayerId
                 where profile.PlayerId == playerId.Value
                 select new { Profile = profile, License = license })
                 .SingleOrDefaultAsync(cancellationToken);
-            if (result == null) return Results.NotFound();
+            if (result == null)
+                return BackendProblem.Create("license_not_found", "The player license was not found.",
+                    StatusCodes.Status404NotFound);
             RatingSummary rating = await RatingProjection.ReadSummaryAsync(db, result.License, cancellationToken);
             return Results.Ok(new LicenseResponse(playerId, result.Profile.DisplayName,
                 result.Profile.FavoriteHunter, result.License.CreatedAt, rating.Points, rating.Tier,
                 rating.Title, rating.NextThreshold, rating.LastOfficialDelta, rating.Policy,
                 rating.LastOfficialMatchId));
-        }).RequireRateLimiting("api");
+        }).RequireRateLimiting(BackendRoutePolicy.Api);
     }
 }

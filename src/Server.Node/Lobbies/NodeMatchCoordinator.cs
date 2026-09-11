@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
+using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Channels;
 using ProjectPrime.Server.Node.Workers;
 using ProjectPrime.Server.Shared;
@@ -85,6 +87,7 @@ public sealed class NodeContentCatalog
     private sealed record Entry(ContentIdentity Identity, MatchMode[] Modes);
     private readonly IReadOnlyDictionary<string, Entry> _maps;
     private readonly string[] _order;
+    private readonly ContentIdentity[] _catalogEntries;
 
     public NodeContentCatalog(IEnumerable<ContentIdentity> maps)
         : this(maps, null) { }
@@ -128,9 +131,20 @@ public sealed class NodeContentCatalog
         }
         _maps = catalog;
         _order = entries.Select(e => e.MapKey).ToArray();
+        _catalogEntries = entries.OrderBy(e => e.MapKey, StringComparer.Ordinal).ToArray();
+        string material = string.Join("\n", _catalogEntries.Select(CatalogMaterial));
+        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(material));
+        MapCatalogHash = Convert.ToHexString(hash).ToLowerInvariant();
+        MapCatalogRevision = BinaryPrimitives.ReadInt64LittleEndian(hash.AsSpan()) & long.MaxValue;
+        if (MapCatalogRevision == 0) MapCatalogRevision = 1;
     }
     public IReadOnlyCollection<string> Maps => _order.OrderBy(key => key, StringComparer.Ordinal).ToArray();
     public IReadOnlyList<ContentIdentity> Entries => _order.Select(key => _maps[key].Identity).ToArray();
+    /// <summary>Stable, map-key ordered catalog used for bounded Node discovery pages.</summary>
+    public IReadOnlyList<ContentIdentity> CatalogEntries => _catalogEntries;
+    public int MapCount => _catalogEntries.Length;
+    public long MapCatalogRevision { get; }
+    public string MapCatalogHash { get; }
     public ContentIdentity Get(string mapKey) => _maps.TryGetValue(mapKey, out var map) ? map.Identity : throw new LobbyCommandException("map_unavailable", "Map is not configured on this Node.");
     public MapRequirement? RequiredMap(string mapKey)
         => _maps.TryGetValue(mapKey, out var map) ? map.Identity.RequiredMap : null;
@@ -179,6 +193,16 @@ public sealed class NodeContentCatalog
         }
         if (modes.Count == 0) throw new ArgumentException("Node map catalog contains no allowed modes.");
         return modes.ToArray();
+    }
+
+    private static string CatalogMaterial(ContentIdentity identity)
+    {
+        MapRequirement? required = identity.RequiredMap;
+        return string.Join('\0', identity.MapKey, identity.ContentHash, identity.ContentVersion,
+            identity.BuildVersion, identity.ProtocolVersion.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            required?.StableId ?? "", required?.Version ?? "", required?.ContentHash ?? "",
+            required?.ArtifactHash ?? "", required?.PackageSize.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "",
+            required?.MatchContentHash ?? "");
     }
 }
 

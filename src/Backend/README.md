@@ -1,6 +1,6 @@
 # Backend account and ticket foundation
 
-This net10.0 service references Game only. It provides registered identity, profile/license fields, confirmation, bearer login/refresh, signed server-bound game tickets, authenticated match submission, immutable career/rating projections, and read-only career leaderboards. Public license responses contain server-authoritative Ranking Points and tier data.
+This net10.0 service references Game and the small shared Node contract assembly. It provides registered identity, profile/license fields, confirmation, bearer login/refresh, Node admissions, authenticated match submission, immutable career/rating projections, and read-only career leaderboards. Public license responses contain server-authoritative Ranking Points and tier data.
 
 ## Configuration
 
@@ -21,7 +21,7 @@ Use deployment environment variables or an operator-managed secret provider. No 
 | `GameServers__Servers__0__Enabled` | Must explicitly be true |
 | `GameServers__Servers__0__ApiKeySha256` | SHA256 hex digest of a separately generated high-entropy server credential |
 | `GameServers__Servers__0__TrustClass` | Backend-assigned community/verified reporting class; Nodes cannot self-assert it |
-| `Backend__AllowRemoteHttp` | Temporary Development-only plain HTTP for `51.161.113.128`; keep false elsewhere |
+| `Backend__AllowLoopbackHttp` | Explicit Development-only loopback HTTP; remote plaintext HTTP is retired |
 
 Use distinct per-Node secrets (at least32 characters of cryptographic entropy), and deliver the plaintext only to that Node. A length check is not an entropy guarantee. Changing server configuration requires restarting this initial service. Node credentials authenticate registration, heartbeat and report ingestion; they do not grant account access, ticket signing or official rating authority.
 

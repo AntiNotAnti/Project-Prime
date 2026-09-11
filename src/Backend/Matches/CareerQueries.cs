@@ -54,15 +54,19 @@ public static class CareerQueries
         app.MapGet("/v1/players/{id}/career", async (string id, MatchTrustClass? trustClass,
             BackendDbContext db, CancellationToken ct) =>
         {
-            if (!PlayerId.TryParse(id, out var player) || !Enum.IsDefined(trustClass ?? MatchTrustClass.VerifiedCasual)) return Results.BadRequest();
-            if (!await db.Licenses.AnyAsync(x => x.PlayerId == player.Value, ct)) return Results.NotFound();
+            if (!PlayerId.TryParse(id, out var player) || !Enum.IsDefined(trustClass ?? MatchTrustClass.VerifiedCasual))
+                return BackendProblem.Create("invalid_request", "The career query is invalid.", StatusCodes.Status400BadRequest);
+            if (!await db.Licenses.AnyAsync(x => x.PlayerId == player.Value, ct))
+                return BackendProblem.Create("license_not_found", "The player license was not found.", StatusCodes.Status404NotFound);
             return Results.Ok(await ReadAsync(db, player.Value, trustClass, ct));
-        }).RequireRateLimiting("api");
+        }).RequireRateLimiting(BackendRoutePolicy.Api);
         app.MapGet("/v1/players/{id}/matches", async (string id, long? before, int? limit,
             BackendDbContext db, CancellationToken ct) =>
         {
-            if (!PlayerId.TryParse(id, out var player) || before is <= 0 || limit is < 1 or > 100) return Results.BadRequest();
-            if (!await db.Licenses.AnyAsync(x => x.PlayerId == player.Value, ct)) return Results.NotFound();
+            if (!PlayerId.TryParse(id, out var player) || before is <= 0 || limit is < 1 or > 100)
+                return BackendProblem.Create("invalid_request", "The match history query is invalid.", StatusCodes.Status400BadRequest);
+            if (!await db.Licenses.AnyAsync(x => x.PlayerId == player.Value, ct))
+                return BackendProblem.Create("license_not_found", "The player license was not found.", StatusCodes.Status404NotFound);
             int count = limit ?? 25;
             var rows = await (from participation in db.Participations.AsNoTracking()
                 join match in db.Matches.AsNoTracking() on participation.MatchId equals match.MatchId
@@ -74,8 +78,8 @@ public static class CareerQueries
                     participation.Assists, participation.Damage, match.RatingStatus }).Take(count + 1).ToListAsync(ct);
             bool more = rows.Count > count; if (more) rows.RemoveAt(count);
             return Results.Ok(new { Entries = rows, NextCursor = more ? (long?)rows[^1].ProcessingOrder : null });
-        }).RequireRateLimiting("api");
-        app.MapGet("/v1/leaderboards/career", LeaderboardAsync).RequireRateLimiting("api");
+        }).RequireRateLimiting(BackendRoutePolicy.Api);
+        app.MapGet("/v1/leaderboards/career", LeaderboardAsync).RequireRateLimiting(BackendRoutePolicy.Api);
     }
 
     private sealed record BoardCursor(decimal Score, Guid PlayerId, string Metric, MatchTrustClass? TrustClass, Hunter? Hunter);
@@ -86,20 +90,24 @@ public static class CareerQueries
         metric ??= "kills";
         if ((trustClass.HasValue && !Enum.IsDefined(trustClass.Value)) || limit is < 1 or > 100
             || hunter is < Hunter.Samus or > Hunter.Weavel
-            || metric is not ("kills" or "wins" or "kd" or "rp" or "winPercentage" or "headshots" or "octolithScores" or "nodesCaptured" or "killsAsPrime")) return Results.BadRequest();
+            || metric is not ("kills" or "wins" or "kd" or "rp" or "winPercentage" or "headshots" or "octolithScores" or "nodesCaptured" or "killsAsPrime"))
+            return BackendProblem.Create("invalid_query", "The leaderboard query is invalid.", StatusCodes.Status400BadRequest);
         BoardCursor? after = null;
         if (cursor != null)
         {
-            if (cursor.Length > 256) return Results.BadRequest();
+            if (cursor.Length > 256) return BackendProblem.Create("invalid_query", "The leaderboard cursor is invalid.", StatusCodes.Status400BadRequest);
             try { after = System.Text.Json.JsonSerializer.Deserialize<BoardCursor>(Convert.FromBase64String(cursor)); }
-            catch (Exception e) when (e is FormatException or System.Text.Json.JsonException) { return Results.BadRequest(); }
+            catch (Exception e) when (e is FormatException or System.Text.Json.JsonException)
+            { return BackendProblem.Create("invalid_query", "The leaderboard cursor is invalid.", StatusCodes.Status400BadRequest); }
             if (after == null || after.Score < 0 || after.PlayerId == Guid.Empty
-                || after.Metric != metric || after.TrustClass != trustClass || after.Hunter != hunter) return Results.BadRequest();
+                || after.Metric != metric || after.TrustClass != trustClass || after.Hunter != hunter)
+                return BackendProblem.Create("invalid_query", "The leaderboard cursor is invalid.", StatusCodes.Status400BadRequest);
         }
         string scope = trustClass.HasValue ? "trustClass" : "official";
         if (metric == "rp")
         {
-            if (trustClass.HasValue || hunter.HasValue) return Results.BadRequest();
+            if (trustClass.HasValue || hunter.HasValue)
+                return BackendProblem.Create("invalid_query", "The rating leaderboard filters are invalid.", StatusCodes.Status400BadRequest);
             var ratings = from license in db.Licenses.AsNoTracking()
                 join profile in db.Profiles.AsNoTracking() on license.PlayerId equals profile.PlayerId
                 select new

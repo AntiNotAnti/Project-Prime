@@ -8,6 +8,6 @@ public static class TicketEndpoints
     public static void MapGameTickets(this WebApplication app)
     {
         app.MapGet("/v1/ranked-availability", (GameServerRegistry registry) =>
-            Results.Ok(registry.RankedAvailability)).RequireRateLimiting("api");
+            Results.Ok(registry.RankedAvailability)).RequireRateLimiting(BackendRoutePolicy.Api);
     }
 }

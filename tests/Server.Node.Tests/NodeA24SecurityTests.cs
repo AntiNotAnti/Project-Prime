@@ -165,7 +165,9 @@ public sealed class NodeA24SecurityTests
         await using var host = new NodeHostFixture(clock);
         var validator = host.App.Services.GetRequiredService<NodeAdmissionValidator>();
         Assert.Null(await validator.ValidateAsync(Issue(host, host.SigningKey, now.AddSeconds(-10), now.AddSeconds(-1))));
-        Assert.Null(await validator.ValidateAsync(Issue(host, host.SigningKey, now.AddSeconds(30), now.AddSeconds(90))));
+        // The shared admission contract allows the documented 30-second future
+        // skew.  Exercise a token that is actually beyond that boundary.
+        Assert.Null(await validator.ValidateAsync(Issue(host, host.SigningKey, now.AddSeconds(31), now.AddSeconds(90))));
         using var wrongKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         Assert.Null(await validator.ValidateAsync(Issue(host, wrongKey, now, now.AddSeconds(60))));
     }

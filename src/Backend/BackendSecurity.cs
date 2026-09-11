@@ -18,6 +18,7 @@ public sealed class BackendSecurityOptions
     public bool AllowRemoteHttp { get; set; }
     public int MaxConcurrentRequests { get; set; } = 128;
     public List<string> TrustedProxies { get; set; } = [];
+    public List<string> TrustedNetworks { get; set; } = [];
 }
 
 public static class BackendSecurity
@@ -50,6 +51,13 @@ public static class BackendSecurity
     public static string IpPartitionKey(HttpContext http)
         => $"ip:{CanonicalAddress(http.Connection.RemoteIpAddress)}";
 
+    /// <summary>Pre-auth machine traffic is partitioned only by the effective
+    /// source address. X-Server-Id is an untrusted credential selector until
+    /// <see cref="GameServerRegistry"/> authenticates it in the endpoint, so a
+    /// caller cannot mint a fresh limiter bucket by changing that header.</summary>
+    public static string MachinePartitionKey(HttpContext http)
+        => $"machine-ip:{CanonicalAddress(http.Connection.RemoteIpAddress)}";
+
     public static void ConfigureForwarding(ForwardedHeadersOptions forwarding, BackendSecurityOptions settings)
     {
         forwarding.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -66,12 +74,20 @@ public static class BackendSecurity
             }
             forwarding.KnownProxies.Add(address);
         }
+        foreach (string configured in settings.TrustedNetworks)
+        {
+            if (!TryParseNetwork(configured, out IPAddress? address, out int prefixLength))
+                throw new InvalidOperationException("Backend__TrustedNetworks entries must be canonical CIDR networks.");
+            forwarding.KnownIPNetworks.Add(new System.Net.IPNetwork(address!, prefixLength));
+        }
     }
 
     public static void ValidateCommon(BackendSecurityOptions settings)
     {
         if (settings.MaxConcurrentRequests is < 1 or > 10_000)
             throw new InvalidOperationException("Backend__MaxConcurrentRequests must be between 1 and 10000.");
+        if (settings.AllowRemoteHttp)
+            throw new InvalidOperationException("Backend__AllowRemoteHttp is retired; use HTTPS or loopback HTTP in Development only.");
         // Parse and canonicalize every entry even when forwarding is not otherwise used.
         ConfigureForwarding(new ForwardedHeadersOptions(), settings);
     }
@@ -82,9 +98,7 @@ public static class BackendSecurity
             && http.Connection.RemoteIpAddress is { } remote && IPAddress.IsLoopback(remote);
 
     public static bool IsExplicitRemoteHttpDevelopmentRequest(HttpContext http, BackendSecurityOptions settings)
-        => settings.AllowRemoteHttp
-            && string.Equals(http.Request.Host.Host, TemporaryDevelopmentBackendHost,
-                StringComparison.OrdinalIgnoreCase);
+        => false;
 
     public static void ValidateProductionListeners(IConfiguration configuration, BackendSecurityOptions security)
     {
@@ -92,14 +106,15 @@ public static class BackendSecurity
         ArgumentNullException.ThrowIfNull(security);
 
         string[] listeners = ConfiguredListeners(configuration);
-        bool trustedTlsTermination = security.TrustedProxies.Count > 0;
+        bool trustedTlsTermination = security.TrustedProxies.Count > 0
+            || security.TrustedNetworks.Count > 0;
         foreach (string listener in listeners)
         {
             if (listener.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) continue;
             if (trustedTlsTermination
                 && listener.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) continue;
             throw new InvalidOperationException(
-                "Production Backend listeners must use HTTPS. Plain HTTP requires an explicitly configured Backend__TrustedProxies TLS terminator.");
+                "Production Backend listeners must use HTTPS. Plain HTTP requires an explicitly configured trusted TLS terminator.");
         }
     }
 
@@ -143,6 +158,18 @@ public static class BackendSecurity
 
     private static string Hash(string value)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private static bool TryParseNetwork(string value, out IPAddress? address, out int prefixLength)
+    {
+        address = null; prefixLength = 0;
+        string[] parts = value.Split('/', StringSplitOptions.None);
+        if (parts.Length != 2 || !IPAddress.TryParse(parts[0], out IPAddress? parsed)
+            || !int.TryParse(parts[1], out int prefix)
+            || parsed.ToString() != parts[0]) return false;
+        int maximum = parsed.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? 32 : 128;
+        if (prefix is < 0 || prefix > maximum) return false;
+        address = parsed; prefixLength = prefix; return true;
+    }
 
     private static string[] ConfiguredListeners(IConfiguration configuration)
     {

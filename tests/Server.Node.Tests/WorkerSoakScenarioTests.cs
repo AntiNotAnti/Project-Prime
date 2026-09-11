@@ -1,3 +1,5 @@
+using ProjectPrime.Server.Shared;
+using ProjectPrime.Server.Node.Lobbies;
 using ProjectPrime.WorkerSoak;
 using Xunit;
 
@@ -5,6 +7,16 @@ namespace ProjectPrime.Server.Node.Tests;
 
 public sealed class WorkerSoakScenarioTests
 {
+    [Fact]
+    public async Task AuthenticatedSoakActorsRefuseKeylessPlacements()
+    {
+        var placement = new MatchPlacement(new(Guid.NewGuid()), new(1), new(Guid.NewGuid()),
+            Guid.NewGuid(), "127.0.0.1", 1, UdpAuthenticationEnabled: false);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => SoakClientActor.CreateAsync(
+            default!, placement, null!, null!, Array.Empty<LobbyIdentity>()));
+    }
+
     [Fact]
     public void RosterValidationKeepsActiveAndObserverBoundsExplicit()
     {

@@ -147,11 +147,13 @@ public sealed class ManagedWorker : IAsyncDisposable
                 UseShellExecute = false, RedirectStandardInput = true,
                 RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true
             };
-            // Only runtime/platform environment reaches the child. Node reporting and signing
-            // credentials must not cross the process boundary through inherited environment.
+            // Only runtime/platform environment and the explicit map cache root reach the child.
+            // Node reporting and signing credentials must not cross the process boundary through
+            // inherited environment.
             start.Environment.Clear();
             foreach (string name in new[] { "PATH", "HOME", "TMPDIR", "TEMP", "TMP", "DOTNET_ROOT", "DOTNET_ROOT_X64", "DOTNET_ROOT_ARM64",
-                "SystemRoot", "SystemDrive", "WINDIR", "USERPROFILE", "LOCALAPPDATA", "COMSPEC", "LANG", "LC_ALL", "TZ" })
+                "SystemRoot", "SystemDrive", "WINDIR", "USERPROFILE", "LOCALAPPDATA", "COMSPEC", "LANG", "LC_ALL", "TZ",
+                "PRIME_DATA_DIRECTORY" })
                 if (Environment.GetEnvironmentVariable(name) is { } value) start.Environment[name] = value;
             if (_options.WorkingDirectory is { } directory) start.WorkingDirectory = directory;
             foreach (string argument in _options.Arguments) start.ArgumentList.Add(argument);
@@ -175,6 +177,8 @@ public sealed class ManagedWorker : IAsyncDisposable
             start.ArgumentList.Add(_options.MaximumDatagramsPerPump.ToString(System.Globalization.CultureInfo.InvariantCulture));
             start.ArgumentList.Add("--reliable-adaptive-rto");
             start.ArgumentList.Add(_options.ReliableAdaptiveRtoEnabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add("--ack-coalescing");
+            start.ArgumentList.Add(_options.AckCoalescingEnabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
             start.ArgumentList.Add("--udp-authentication");
             start.ArgumentList.Add(_options.UdpAuthenticationEnabled.ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (_options.ArtifactDirectory is { } artifacts) { start.ArgumentList.Add("--artifact-dir"); start.ArgumentList.Add(artifacts); }

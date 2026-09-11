@@ -264,6 +264,33 @@ public sealed class AccountTests
         for (int i = 0; i < 20; i++) await client.PostAsJsonAsync("/v1/auth/login", new { Email = "bad", Password = "bad" });
         Assert.Equal(HttpStatusCode.TooManyRequests, (await client.PostAsJsonAsync("/v1/auth/login", new { Email = "bad", Password = "bad" })).StatusCode);
     }
+
+    [Fact]
+    public async Task ChunkedOversizedJsonUsesTheDefaultRouteBound()
+    {
+        using var factory = new BackendFactory();
+        using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/auth/register")
+        {
+            Content = new ChunkedContent(new string('x', BackendRequestLimits.DefaultJsonBytes + 1))
+        };
+
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+    }
+
+    private sealed class ChunkedContent(string value) : HttpContent
+    {
+        private readonly byte[] _bytes = Encoding.UTF8.GetBytes(value);
+        protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+            => await stream.WriteAsync(_bytes);
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
+    }
 }
 
 internal sealed class AdjustableTimeProvider(DateTimeOffset now) : TimeProvider

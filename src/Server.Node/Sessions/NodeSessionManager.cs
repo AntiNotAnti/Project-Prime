@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text;
@@ -39,14 +40,17 @@ public sealed class NodeSessionManager
     private readonly int _maximumSessions;
     private readonly TimeProvider _clock;
     private readonly NodeMatchCoordinator? _matches;
+    private readonly NodeContentCatalog? _catalog;
     public static TimeSpan DisconnectGrace => ReconnectPolicy.SessionGrace;
     private long _protocolClosures;
     public long ProtocolClosures => Interlocked.Read(ref _protocolClosures);
     public int Count => _sessions.Values.Count(s => s.Connection != null);
-    public NodeSessionManager(LobbyManager lobbies, Guid nodeId, int maximumSessions = 1024, TimeProvider? clock = null, NodeMatchCoordinator? matches = null)
+    public NodeSessionManager(LobbyManager lobbies, Guid nodeId, int maximumSessions = 1024,
+        TimeProvider? clock = null, NodeMatchCoordinator? matches = null, NodeContentCatalog? catalog = null)
     {
         if (maximumSessions is < 1 or > 10000) throw new ArgumentOutOfRangeException(nameof(maximumSessions));
-        _lobbies = lobbies; _nodeId = nodeId; _maximumSessions = maximumSessions; _clock = clock ?? TimeProvider.System; _matches = matches;
+        _lobbies = lobbies; _nodeId = nodeId; _maximumSessions = maximumSessions; _clock = clock ?? TimeProvider.System;
+        _matches = matches; _catalog = catalog;
     }
     public async Task BroadcastAsync(CancellationToken cancellationToken)
     {
@@ -149,6 +153,11 @@ public sealed class NodeSessionManager
                 if (session.RequestOrder.Count > 256) session.RecentRequests.Remove(session.RequestOrder.Dequeue());
                 if (request.Command is NodePing)
                 { Send(session, "node.pong", request.RequestId, new NodePong(_clock.GetUtcNow().ToUnixTimeMilliseconds())); continue; }
+                if (request.Command is NodeCatalogRequest catalogRequest)
+                {
+                    SendCatalog(session, request.RequestId, catalogRequest);
+                    continue;
+                }
                 try
                 {
                     var lobbyIdentity = new LobbyIdentity(session.Id, session.Identity.PlayerId, session.Identity.DisplayName,
@@ -183,6 +192,39 @@ public sealed class NodeSessionManager
         }
     }
     private static string Hash(string token) => Convert.ToHexString(SHA256.HashData(Encoding.ASCII.GetBytes(token)));
+
+    private void SendCatalog(Session session, Guid requestId, NodeCatalogRequest request)
+    {
+        if (_catalog == null)
+        {
+            Send(session, "error", requestId,
+                new NodeControlError("catalog_unavailable", "The Node catalog is unavailable."));
+            return;
+        }
+        if (request.Revision != _catalog.MapCatalogRevision)
+        {
+            Send(session, "error", requestId,
+                new NodeControlError("catalog_revision_changed", "The Node catalog revision is no longer current."));
+            return;
+        }
+
+        // Eight entries keeps the worst-case required-map metadata comfortably
+        // below the shared 32 KiB control frame bound. The client may request a
+        // smaller page, but never a larger one.
+        int pageSize = Math.Min(request.PageSize, 8);
+        int pageCount = Math.Max(1, (_catalog.MapCount + pageSize - 1) / pageSize);
+        if (request.Page >= pageCount)
+        {
+            Send(session, "error", requestId,
+                new NodeControlError("catalog_page_not_found", "The requested Node catalog page does not exist."));
+            return;
+        }
+        ImmutableArray<ContentIdentity> entries = _catalog.CatalogEntries
+            .Skip(request.Page * pageSize).Take(pageSize).ToImmutableArray();
+        Send(session, "node.catalog.page", requestId, new NodeCatalogPage(
+            _catalog.MapCatalogRevision, request.Page, pageCount, _catalog.MapCount,
+            _catalog.MapCatalogHash, entries));
+    }
     private static void SendMatch(Session session, object message)
     {
         switch (message)

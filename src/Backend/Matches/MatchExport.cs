@@ -13,8 +13,12 @@ public static class MatchExport
         app.MapGet("/v1/matches/{id}/export", async (Guid id, BackendDbContext db, GameTicketIssuer signer, CancellationToken ct) =>
         {
             var match = await db.Matches.AsNoTracking().SingleOrDefaultAsync(x => x.MatchId == id, ct);
-            if (match == null) return Results.NotFound();
-            if (!signer.IsConfigured) return Results.Problem("Result signing is not configured.", statusCode: 503);
+            if (match == null)
+                return BackendProblem.Create("invalid_request", "The match export was not found.",
+                    StatusCodes.Status404NotFound);
+            if (!signer.IsConfigured)
+                return BackendProblem.Create("service_busy", "Result signing is not configured.",
+                    StatusCodes.Status503ServiceUnavailable);
             var report = JsonSerializer.Deserialize<MatchReportV1>(match.OriginalReport, MatchIngestion.ReportJson)!;
             RatingReceipt rating = await RatingProjection.ReadReceiptAsync(db, match, ct);
             return Results.Ok(new
@@ -25,6 +29,6 @@ public static class MatchExport
                 Scoreboard = report.Participants, match.RatingStatus, Rating = rating,
                 SignedReceipt = signer.SignMatchResult(match.MatchId, match.PayloadHash, match.ProcessingOrder, match.TrustClass)
             });
-        }).RequireRateLimiting("api");
+        }).RequireRateLimiting(BackendRoutePolicy.Api);
     }
 }

@@ -6,6 +6,7 @@ using ProjectPrime.Server.Node.Sessions;
 using ProjectPrime.Server.Node.Workers;
 using ProjectPrime.Server.Shared;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.AspNetCore.HttpOverrides;
 using ProjectPrime.Server.Node.Discovery;
 using System.Threading.RateLimiting;
 using ProjectPrime.Server.Node.Maps;
@@ -19,9 +20,14 @@ public static class NodeApplication
         var builder = WebApplication.CreateBuilder(args);
         configure?.Invoke(builder);
         var auth = builder.Configuration.GetSection("Node:Authentication").Get<NodeAuthOptions>() ?? new();
+        var network = builder.Configuration.GetSection("Node:Network").Get<NodeNetworkOptions>() ?? new();
+        NodeNetworkOptions.Validate(network);
         var hostAdmin = NodeHostAdminAuthorization.Load(builder.Configuration);
         builder.Services.TryAddSingleton(TimeProvider.System);
         builder.Services.AddSingleton(auth);
+        builder.Services.AddSingleton(network);
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            NodeNetworkOptions.ConfigureForwarding(options, network));
         builder.Services.AddSingleton(hostAdmin);
         builder.Services.AddSingleton<NodeAdmissionValidator>();
         builder.Services.AddSingleton(sp => new LobbyManager(
@@ -40,41 +46,60 @@ public static class NodeApplication
             builder.Environment.ContentRootPath));
         builder.Services.AddSingleton(sp => NodeContentCatalog.FromConfiguration(
             sp.GetRequiredService<NodeMapPackageStore>().ReadyConfigurations));
+        builder.Services.AddSingleton<NodeReadinessEvaluator>();
         builder.Services.AddSingleton<NodeMatchCoordinator>();
         builder.Services.AddSingleton(sp => new NodeSessionManager(sp.GetRequiredService<LobbyManager>(), auth.NodeId,
-            builder.Configuration.GetValue("Node:MaximumSessions", 1024), sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<NodeMatchCoordinator>()));
+            builder.Configuration.GetValue("Node:MaximumSessions", 1024), sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<NodeMatchCoordinator>(), sp.GetRequiredService<NodeContentCatalog>()));
         builder.Services.AddHostedService<NodeSessionReaper>();
         builder.Services.AddNodeDirectoryReporter(builder.Configuration);
         builder.Services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.AddPolicy("control-upgrade", context => RateLimitPartition.GetFixedWindowLimiter(
-                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                NodeNetworkOptions.EffectiveRemoteAddress(context),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.AddPolicy("latency-probe", context => RateLimitPartition.GetFixedWindowLimiter(
-                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                NodeNetworkOptions.EffectiveRemoteAddress(context),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.AddPolicy("host-admin", context => RateLimitPartition.GetFixedWindowLimiter(
-                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                NodeNetworkOptions.EffectiveRemoteAddress(context),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.AddPolicy("map-download", context => RateLimitPartition.GetConcurrencyLimiter(
-                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                NodeNetworkOptions.EffectiveRemoteAddress(context),
                 _ => new ConcurrencyLimiterOptions { PermitLimit = 2, QueueLimit = 0 }));
+            options.AddPolicy("status", context => RateLimitPartition.GetFixedWindowLimiter(
+                NodeNetworkOptions.EffectiveRemoteAddress(context),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         });
         var app = builder.Build();
         // Fail at startup, rather than expose an accidentally unauthenticated service.
         _ = app.Services.GetRequiredService<NodeAdmissionValidator>();
         _ = app.Services.GetRequiredService<LobbyManager>();
         _ = app.Services.GetRequiredService<NodeMapPackageStore>();
+        app.UseForwardedHeaders();
+        NodeRequestId.Use(app);
         app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(20), KeepAliveTimeout = TimeSpan.FromSeconds(20) });
         app.UseRateLimiter();
         app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
             .RequireRateLimiting("latency-probe");
+        app.MapGet("/health/live", () => Results.Ok(new { status = "live" }))
+            .RequireRateLimiting("latency-probe");
+        app.MapGet("/health/ready", (NodeContentCatalog content, NodeReadinessEvaluator readiness) =>
+        {
+            NodeReadinessResult result = readiness.Evaluate();
+            return result.IsReady
+                ? Results.Ok(new { status = "ready", catalogRevision = content.MapCatalogRevision })
+                : Results.Json(new { status = "not_ready", code = result.Code },
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
+        })
+            .RequireRateLimiting("latency-probe");
         app.MapGet("/v1/status", (NodeSessionManager sessions, LobbyManager lobbies,
-            NodeContentCatalog content, NodeMapPackageStore packages) =>
+            NodeContentCatalog content) =>
             Results.Ok(new { nodeId = auth.NodeId, protocolVersion = 1, onlineUsers = sessions.Count, lobbyCount = lobbies.Count,
-                protocolClosures = sessions.ProtocolClosures, maps = content.Maps,
-                mapStates = packages.States }));
+                protocolClosures = sessions.ProtocolClosures, mapCount = content.MapCount,
+                catalogRevision = content.MapCatalogRevision, catalogHash = content.MapCatalogHash }))
+            .RequireRateLimiting("status");
         app.MapGet("/v1/maps/{stableId}/{version}/{artifactHash}",
             (HttpContext context, NodeMapPackageStore packages, string stableId,
                 string version, string artifactHash) =>
@@ -88,7 +113,7 @@ public static class NodeApplication
                     context.Response.Headers.CacheControl = "public,max-age=31536000,immutable";
                     return Results.Stream(stream!, "application/vnd.project-prime.fpmap",
                         $"{requirement.StableId}-{requirement.Version}.fpmap",
-                        enableRangeProcessing: false);
+                        enableRangeProcessing: true);
                 }
                 catch (InvalidDataException) { return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
             }).RequireRateLimiting("map-download");
@@ -98,7 +123,8 @@ public static class NodeApplication
                 NodeHostAdminEndpoints.ConfigureHistoricalDebugAsync)
                 .RequireRateLimiting("host-admin");
         }
-        app.Map("/v1/control", async (HttpContext context, NodeAdmissionValidator admission, NodeSessionManager sessions) =>
+        app.MapMethods("/v1/control", [HttpMethods.Get], async (HttpContext context,
+            NodeAdmissionValidator admission, NodeSessionManager sessions) =>
         {
             if (!context.Request.IsHttps) { context.Response.StatusCode = 403; return; }
             if (!context.WebSockets.IsWebSocketRequest) { context.Response.StatusCode = 400; return; }

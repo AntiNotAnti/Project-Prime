@@ -43,6 +43,7 @@ public static class NodeControlCodec
             "lobby.vote.cast" => Decode(p, NodeJsonContext.Default.LobbyVoteCast),
             "lobby.vote.resolve" => Decode(p, NodeJsonContext.Default.LobbyVoteResolve),
             "node.ping" => Decode(p, NodeJsonContext.Default.NodePing),
+            "node.catalog" => Decode(p, NodeJsonContext.Default.NodeCatalogRequest),
             "match.rejoin" => Decode(p, NodeJsonContext.Default.NodeMatchRejoin),
             "lobby.create" => Decode(p, NodeJsonContext.Default.LobbyCreate),
             "lobby.list" => Decode(p, NodeJsonContext.Default.LobbyList),
@@ -80,6 +81,24 @@ public static class NodeControlCodec
     {
         switch (payload)
         {
+            case NodeCatalogRequest catalog:
+                if (catalog.Revision <= 0 || catalog.Page is < 0 or > 31 || catalog.PageSize is < 1 or > 32)
+                    throw new ArgumentException("Invalid Node catalog request.");
+                break;
+            case NodeCatalogPage catalog:
+                if (catalog.Revision <= 0 || catalog.Page is < 0 or > 31
+                    || catalog.PageCount is < 1 or > 32 || catalog.Page >= catalog.PageCount
+                    || catalog.TotalEntries is < 0 or > 256
+                    || catalog.CatalogHash is not { Length: 64 } || !catalog.CatalogHash.All(char.IsAsciiHexDigit)
+                    || catalog.Entries.IsDefault || catalog.Entries.Length > 32)
+                    throw new ArgumentException("Invalid Node catalog page.");
+                var pageKeys = new HashSet<string>(StringComparer.Ordinal);
+                foreach (ContentIdentity identity in catalog.Entries)
+                {
+                    ValidateCatalogIdentity(identity);
+                    if (!pageKeys.Add(identity.MapKey)) throw new ArgumentException("Node catalog page contains a duplicate map.");
+                }
+                break;
             case NodeMatchHandoff handoff: handoff.Validate(); break;
             case LobbyConfigure configure:
                 if (configure.ExpectedRevision < 0 || configure.MapKey is not { Length: > 0 and <= 128 }
@@ -175,6 +194,21 @@ public static class NodeControlCodec
         bool objective = entry.Mode is MatchMode.Defender or MatchMode.TeamDefender or MatchMode.PrimeHunter;
         return objective ? entry.PointGoal is not null : entry.ObjectiveTimeGoalSeconds is not null;
     }
+
+    private static void ValidateCatalogIdentity(ContentIdentity identity)
+    {
+        if (identity is null || identity.MapKey is not { Length: > 0 and <= 128 }
+            || identity.MapKey.Any(c => c is < ' ' or > '~')
+            || identity.ContentHash is not { Length: > 0 and <= 128 }
+            || identity.ContentHash.Any(char.IsControl)
+            || identity.ContentVersion is not { Length: > 0 and <= 128 }
+            || identity.ContentVersion.Any(char.IsControl)
+            || identity.BuildVersion is not { Length: > 0 and <= 128 }
+            || identity.BuildVersion.Any(char.IsControl)
+            || identity.ProtocolVersion == 0)
+            throw new ArgumentException("Invalid Node catalog identity.");
+        identity.RequiredMap?.Validate();
+    }
     public static void RejectDuplicates(JsonElement value)
     {
         if (value.ValueKind == JsonValueKind.Object)
@@ -228,6 +262,10 @@ public sealed record NodeControlEvent(int Version, string Type, long EventId, Gu
 [JsonSerializable(typeof(LobbyListSnapshot))]
 [JsonSerializable(typeof(NodeSessionSnapshot))]
 [JsonSerializable(typeof(NodePing))]
+[JsonSerializable(typeof(NodeCatalogRequest))]
+[JsonSerializable(typeof(NodeCatalogPage))]
+[JsonSerializable(typeof(ContentIdentity))]
+[JsonSerializable(typeof(MapRequirement))]
 [JsonSerializable(typeof(NodePong))]
 [JsonSerializable(typeof(NodeControlError))]
 [JsonSerializable(typeof(LobbyLeft))]

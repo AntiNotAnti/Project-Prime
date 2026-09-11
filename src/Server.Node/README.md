@@ -8,7 +8,8 @@ constructs a gameplay Scene.
 `NodeApplication.Build` wires the Worker pool, lobby coordinator, session reaper,
 and optional Backend directory reporter. Configure Kestrel HTTPS normally. Public
 control connections require TLS; HTTP control upgrades are rejected. `/health`
-and `/v1/status` expose only aggregate status and configured map keys.
+and `/v1/status` expose only aggregate status and bounded catalog metadata;
+authenticated WSS catalog pages carry the configured map identities.
 
 Required configuration:
 

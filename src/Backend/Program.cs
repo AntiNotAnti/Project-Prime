@@ -28,7 +28,8 @@ public sealed class Program
         string? operatorMode = operatorFlags.SingleOrDefault();
 
         var builder = WebApplication.CreateBuilder(args);
-        builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 16 * 1024);
+        builder.WebHost.ConfigureKestrel(options =>
+            options.Limits.MaxRequestBodySize = BackendRequestLimits.MaximumKestrelRequestBytes);
         builder.Services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow);
         builder.Services.AddProblemDetails();
@@ -70,6 +71,7 @@ public sealed class Program
         var serverOptions = builder.Configuration.GetSection("GameServers").Get<GameServerOptions>() ?? new();
         builder.Services.AddSingleton<GameTicketIssuer>();
         builder.Services.AddSingleton<GameServerRegistry>();
+        builder.Services.AddSingleton<AuthenticatedNodeRateLimiter>();
         builder.Services.AddSingleton<NodeDirectory>();
         builder.Services.AddScoped<MatchIngestion>();
         builder.Services.AddScoped<CareerRebuild>();
@@ -78,15 +80,21 @@ public sealed class Program
         builder.Services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            options.AddPolicy("auth", http => RateLimitPartition.GetFixedWindowLimiter(
+            options.OnRejected = async (context, cancellationToken) =>
+                await BackendProblem.WriteAsync(context.HttpContext, "rate_limited",
+                    "Request rate limit exceeded.", StatusCodes.Status429TooManyRequests, cancellationToken);
+            options.AddPolicy(BackendRoutePolicy.Auth, http => RateLimitPartition.GetFixedWindowLimiter(
                 BackendSecurity.EndpointPartitionKey(http), _ => new FixedWindowRateLimiterOptions
-                { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
-            options.AddPolicy("guest-auth", http => RateLimitPartition.GetFixedWindowLimiter(
+                { PermitLimit = BackendRoutePolicy.AuthPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            options.AddPolicy(BackendRoutePolicy.GuestAuth, http => RateLimitPartition.GetFixedWindowLimiter(
                 BackendSecurity.IpPartitionKey(http), _ => new FixedWindowRateLimiterOptions
-                { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
-            options.AddPolicy("api", http => RateLimitPartition.GetFixedWindowLimiter(
+                { PermitLimit = BackendRoutePolicy.GuestAuthPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            options.AddPolicy(BackendRoutePolicy.Api, http => RateLimitPartition.GetFixedWindowLimiter(
                 BackendSecurity.EndpointPartitionKey(http), _ => new FixedWindowRateLimiterOptions
-                { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+                { PermitLimit = BackendRoutePolicy.ApiPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            options.AddPolicy(BackendRoutePolicy.MachinePreAuth, http => RateLimitPartition.GetFixedWindowLimiter(
+                BackendSecurity.MachinePartitionKey(http), _ => new FixedWindowRateLimiterOptions
+                { PermitLimit = BackendRoutePolicy.MachinePreAuthPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         });
         builder.Services.AddSingleton(new ConcurrencyLimiter(new ConcurrencyLimiterOptions
         {
@@ -170,21 +178,58 @@ public sealed class Program
                 throw new InvalidOperationException($"Backend database readiness failed: {readiness.Failure}.");
         }
         app.UseForwardedHeaders();
+        // Correlation is assigned before HTTPS, body-size, concurrency, and
+        // rate-limit rejects so every HTTP response has an ID.
+        app.Use(async (http, next) =>
+        {
+            string supplied = http.Request.Headers["X-Request-Id"].ToString();
+            string requestId = Guid.TryParseExact(supplied, "D", out Guid parsed) && parsed != Guid.Empty
+                ? parsed.ToString("D") : Guid.NewGuid().ToString("D");
+            http.Response.Headers["X-Request-Id"] = requestId;
+            await next(http);
+        });
         app.UseExceptionHandler();
         app.Use(async (http, next) =>
         {
             if (!http.Request.IsHttps && !app.Environment.IsEnvironment("Testing")
                 && !(app.Environment.IsDevelopment()
-                    && (BackendSecurity.IsExplicitLoopbackDevelopmentRequest(http, securityOptions)
-                        || BackendSecurity.IsExplicitRemoteHttpDevelopmentRequest(http, securityOptions))))
-            { http.Response.StatusCode = StatusCodes.Status400BadRequest; return; }
+                    && BackendSecurity.IsExplicitLoopbackDevelopmentRequest(http, securityOptions)))
+            {
+                await BackendProblem.WriteAsync(http, "https_required", "HTTPS is required.",
+                    StatusCodes.Status400BadRequest, http.RequestAborted);
+                return;
+            }
             // Reject known oversized bodies before binding; Kestrel also bounds chunked bodies.
-            long limit = http.Request.Path == "/v1/server/matches" ? ReportValidation.MaximumBytes : 16 * 1024;
+            long limit = BackendRequestLimits.ForPath(http.Request.Path);
             var bodyLimit = http.Features.Get<IHttpMaxRequestBodySizeFeature>();
             if (bodyLimit is { IsReadOnly: false }) bodyLimit.MaxRequestBodySize = limit;
             if (http.Request.ContentLength > limit)
-            { http.Response.StatusCode = StatusCodes.Status413PayloadTooLarge; return; }
+            {
+                await BackendProblem.WriteAsync(http, "request_too_large", "The request exceeds its route size bound.",
+                    StatusCodes.Status413PayloadTooLarge, http.RequestAborted);
+                return;
+            }
             http.Response.Headers.CacheControl = "no-store";
+            // TestServer and some reverse proxies do not enforce Kestrel's
+            // MaxRequestBodySize for a chunked request. Buffer only this
+            // already-bounded body so the same route contract applies before
+            // model binding regardless of transfer framing.
+            using var buffered = new MemoryStream();
+            byte[] buffer = new byte[8192];
+            while (true)
+            {
+                int read = await http.Request.Body.ReadAsync(buffer.AsMemory(), http.RequestAborted);
+                if (read == 0) break;
+                if (buffered.Length + read > limit)
+                {
+                    await BackendProblem.WriteAsync(http, "request_too_large", "The request exceeds its route size bound.",
+                        StatusCodes.Status413PayloadTooLarge, http.RequestAborted);
+                    return;
+                }
+                await buffered.WriteAsync(buffer.AsMemory(0, read), http.RequestAborted);
+            }
+            buffered.Position = 0;
+            http.Request.Body = buffered;
             await next(http);
         });
         app.UseRouting();
@@ -199,7 +244,8 @@ public sealed class Program
             using RateLimitLease lease = await limiter.AcquireAsync(1, http.RequestAborted);
             if (!lease.IsAcquired)
             {
-                http.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                await BackendProblem.WriteAsync(http, "service_busy", "The service is temporarily unavailable.",
+                    StatusCodes.Status503ServiceUnavailable, http.RequestAborted);
                 return;
             }
             await next(http);

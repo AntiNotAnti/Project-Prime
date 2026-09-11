@@ -12,6 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 using MphRead.Backend.Nodes;
 using MphRead.Backend.Tickets;
 using MphRead.Identity;
+using ProjectPrime.Server.Shared;
 using Xunit;
 
 namespace MphRead.Backend.Tests;
@@ -20,7 +21,7 @@ public sealed class NodeDirectoryTests
 {
     private const string Secret = "test-node-secret-at-least-thirty-two-characters";
     private static readonly Guid Node = Guid.NewGuid();
-    private static NodeRegistration Registration() => new(Guid.NewGuid(), "Node", "us-central", "wss://node.example/control", 1, "build1", new string('a', 64), 100);
+    private static NodeRegistration Registration() => new(Guid.NewGuid(), "Node", "us-central", "wss://node.example/v1/control", 1, "build1", new string('a', 64), 100);
     private static NodeDirectory Directory(Clock clock, MatchTrustClass trust = MatchTrustClass.Community) => new(new GameServerRegistry(Options.Create(new GameServerOptions
     {
         Servers = [new() { Id = Node, Enabled = true, ApiKeySha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Secret))), TrustClass = trust }]
@@ -40,42 +41,80 @@ public sealed class NodeDirectoryTests
         clock.Now += NodeDirectory.OnlineLifetime;
         Assert.Null(directory.FindOnline(Node));
         Assert.Empty(directory.Browse(1, "build1", registration.ContentHash));
+        Assert.False(directory.Heartbeat(Node, Secret, new(registration.Incarnation, 3, 2, 1)));
+        Assert.True(directory.Register(Node, Secret, registration));
         Assert.True(directory.Heartbeat(Node, Secret, new(registration.Incarnation, 3, 2, 1)));
         Assert.Equal(3, directory.FindOnline(Node)!.OnlineUsers);
     }
 
     [Fact]
-    public void MapCatalogRoundTripsAndSnapshotsRegistrationAndListings()
+    public void PublicDirectoryPagesPinExpiryChangesToAnExplicitRevision()
+    {
+        var clock = new Clock();
+        var directory = Directory(clock);
+        var registration = Registration();
+        Assert.True(directory.Register(Node, Secret, registration));
+
+        NodeDirectoryPage first = directory.BrowsePage(1, "build1", registration.ContentHash);
+        Assert.Equal(0, first.Page);
+        // The first registration increments the initial revision from one to
+        // two; expiry is another revision change before the pinned read.
+        clock.Now += NodeDirectory.OnlineLifetime;
+
+        NodeDirectoryPage empty = directory.BrowsePage(1, "build1", registration.ContentHash);
+        Assert.Empty(empty.Entries);
+        Assert.True(empty.Revision > first.Revision);
+        NodeDirectoryPageException error = Assert.Throws<NodeDirectoryPageException>(() =>
+            directory.BrowsePage(1, "build1", registration.ContentHash, revision: first.Revision));
+        Assert.Equal("directory_revision_changed", error.Code);
+    }
+
+    [Fact]
+    public void MapCatalogMetadataRoundTripsThroughPublicListings()
     {
         var directory = Directory(new Clock());
-        string[] keys = ["MP1 SANCTORUS", "custom-room"];
-        var registration = Registration() with { MapKeys = keys };
+        var registration = Registration() with
+        {
+            MapCatalogRevision = 17, MapCount = 2,
+            MapCatalogHash = new string('b', 64)
+        };
 
         Assert.True(directory.Register(Node, Secret, registration));
-        keys[0] = "mutated-after-register";
 
         NodeListing listed = Assert.Single(directory.Browse(1, "build1", registration.ContentHash));
-        Assert.Equal(new[] { "MP1 SANCTORUS", "custom-room" }, listed.MapKeys);
-        listed.MapKeys![0] = "mutated-after-browse";
-        Assert.Equal(new[] { "MP1 SANCTORUS", "custom-room" }, directory.FindOnline(Node)!.MapKeys);
+        Assert.Equal(17, listed.MapCatalogRevision);
+        Assert.Equal(2, listed.MapCount);
+        Assert.Equal(new string('b', 64), listed.MapCatalogHash);
     }
 
     [Fact]
     public void InvalidMapCatalogEntriesAreRejected()
     {
-        foreach (string[] keys in new[]
+        foreach ((long Revision, int Count, string? Hash) metadata in new[]
         {
-            new string[257],
-            new[] { "" },
-            new[] { "map\nkey" },
-            new[] { "same", "same" },
-            new[] { "map\u007fkey" }
+            (0L, 1, null),
+            (1L, 257, null),
+            (1L, 1, "not-a-sha256")
         })
         {
             var directory = Directory(new Clock());
             Assert.Throws<ArgumentException>(() => directory.Register(Node, Secret,
-                Registration() with { MapKeys = keys }));
+                Registration() with { MapCatalogRevision = metadata.Revision,
+                    MapCount = metadata.Count, MapCatalogHash = metadata.Hash }));
         }
+    }
+
+    [Fact]
+    public void DeregistrationHonorsAuthenticatedIncarnation()
+    {
+        var clock = new Clock();
+        var directory = Directory(clock);
+        var registration = Registration();
+        Assert.True(directory.Register(Node, Secret, registration));
+        Assert.True(directory.Deregister(Node, Secret, Guid.NewGuid()));
+        Assert.NotNull(directory.FindOnline(Node));
+        Assert.True(directory.Deregister(Node, Secret, registration.Incarnation));
+        Assert.Null(directory.FindOnline(Node));
     }
 
     [Fact]
@@ -105,7 +144,7 @@ public sealed class NodeDirectoryTests
             using var issuer = new GameTicketIssuer(Options.Create(new TicketOptions
                 { Issuer = "https://backend.example", KeyId = "node-test", SigningKeyPemPath = path }), clock);
             var player = new PlayerId(Guid.NewGuid());
-            var response = issuer.IssueNodeAdmission(player, "Hunter", Node, "wss://node.example/control");
+            var response = issuer.IssueNodeAdmission(player, "Hunter", Node, "wss://node.example/v1/control");
             var jwt = new JsonWebToken(response.Ticket);
             Assert.Equal("pp-node-admission+jwt", jwt.Typ);
             Assert.Equal("ES256", jwt.Alg); Assert.Equal("node-test", jwt.Kid);
@@ -123,7 +162,7 @@ public sealed class NodeDirectoryTests
                 ValidateLifetime = false
             });
             Assert.True(validation.IsValid, validation.Exception?.Message);
-            Assert.NotEqual(jwt.Id, new JsonWebToken(issuer.IssueNodeAdmission(player, "Hunter", Node, "wss://node.example/control").Ticket).Id);
+            Assert.NotEqual(jwt.Id, new JsonWebToken(issuer.IssueNodeAdmission(player, "Hunter", Node, "wss://node.example/v1/control").Ticket).Id);
         }
         finally { File.Delete(path); }
     }
@@ -151,8 +190,8 @@ public sealed class NodeDirectoryTests
             var spoof = JsonSerializer.SerializeToNode(registration)!; spoof["TrustClass"] = "verified";
             Assert.Equal(HttpStatusCode.BadRequest, (await server.PutAsJsonAsync("/v1/node/registration", spoof)).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await server.PostAsJsonAsync("/v1/node/heartbeat", new NodeHeartbeat(registration.Incarnation, 2, 1, 0))).StatusCode);
-            var listing = await client.GetFromJsonAsync<NodeListing[]>("/v1/nodes?protocol=1&build=build1&content=" + registration.ContentHash);
-            Assert.Equal("community", Assert.Single(listing!).TrustClass);
+            var listing = await client.GetFromJsonAsync<NodeDirectoryPage>("/v1/nodes?protocol=1&build=build1&content=" + registration.ContentHash);
+            Assert.Equal("community", Assert.Single(listing!.Entries).TrustClass);
             Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/v1/node-admissions", new { NodeId = Node })).StatusCode);
             const string password = "Test-Strong-Password123!";
             await client.PostAsJsonAsync("/v1/auth/register", new { Email = "node@example.test", Password = password, DisplayName = "Hunter" });

@@ -26,6 +26,8 @@ public sealed record WorkerLaunchOptions
     public bool WorkerGlobalNetworkBudgetEnabled { get; init; } = true;
     public int MaximumDatagramsPerPump { get; init; } = NetConfig.DefaultMaximumDatagramsPerPump;
     public bool ReliableAdaptiveRtoEnabled { get; init; }
+    /// <summary>Experimental one-tick ACK coalescing; remains opt-in.</summary>
+    public bool AckCoalescingEnabled { get; init; }
     /// <summary>Production Worker UDP admission authentication; false only for explicit test/legacy seams.</summary>
     public bool UdpAuthenticationEnabled { get; init; } = true;
     public TimeSpan StartupTimeout { get; init; } = TimeSpan.FromSeconds(15);
@@ -127,6 +129,7 @@ public sealed record WorkerLaunchOptions
             || Arguments.Contains("--worker-global-network-budget-enabled", StringComparer.Ordinal)
             || Arguments.Contains("--max-datagrams-per-pump", StringComparer.Ordinal)
             || Arguments.Contains("--reliable-adaptive-rto", StringComparer.Ordinal)
+            || Arguments.Contains("--ack-coalescing", StringComparer.Ordinal)
             || Arguments.Contains("--udp-authentication", StringComparer.Ordinal))
             throw new ArgumentException("Node-owned networking options must use WorkerLaunchOptions properties.");
     }

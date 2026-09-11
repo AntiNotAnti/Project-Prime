@@ -214,7 +214,33 @@ public sealed record WorkerDiagnostics(ImmutableArray<WorkerLaneHealth> Lanes, d
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double NetworkLoopP99Milliseconds = 0,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double NetworkLoopP999Milliseconds = 0,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long NetworkQueueHighWater = 0,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long NetworkLoopSampleCount = 0)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long NetworkLoopSampleCount = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long PreAuthIngressDrops = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long AdmissionIngressDrops = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long EstablishedIngressDrops = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long PerConnectionQuotaDrops = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long MaximumConnectionIngressDepth = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long CriticalTransportDrops = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long TimingTelemetryObservedConnections = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long TimingTelemetryStaleConnections = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double TimingTelemetryMaxAgeSeconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long TimingTelemetryStaleIntervals = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long TimingDownshiftBlocked = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long NetworkWakeups = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ImmediateRepumps = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long IdleWaits = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ReceiveToRouteSampleCount = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double ReceiveToRouteP50Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double ReceiveToRouteP95Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double ReceiveToRouteP99Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double ReceiveToRouteP999Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double ReceiveToRouteMaxMilliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long OutboundEnqueueToSendSampleCount = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double OutboundEnqueueToSendP50Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double OutboundEnqueueToSendP95Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double OutboundEnqueueToSendP99Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double OutboundEnqueueToSendP999Milliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double OutboundEnqueueToSendMaxMilliseconds = 0)
 {
     // The IPC frame is 64 KiB and diagnostics serialize as JSON. This cap is
     // derived from the maximum-shape heartbeat (64 lanes plus 32 fully
@@ -232,7 +258,13 @@ public sealed record WorkerDiagnostics(ImmutableArray<WorkerLaneHealth> Lanes, d
             || !double.IsFinite(AllocationBytesPerSecond) || AllocationBytesPerSecond < 0
             || !double.IsFinite(NetworkLoopP99Milliseconds) || NetworkLoopP99Milliseconds < 0
             || !double.IsFinite(NetworkLoopP999Milliseconds) || NetworkLoopP999Milliseconds < 0
-            || NetworkLoopQueueBoundsInvalid())
+            || PreAuthIngressDrops < 0 || AdmissionIngressDrops < 0
+            || EstablishedIngressDrops < 0 || PerConnectionQuotaDrops < 0
+            || MaximumConnectionIngressDepth < 0 || CriticalTransportDrops < 0
+            || TimingTelemetryObservedConnections < 0 || TimingTelemetryStaleConnections < 0
+            || !double.IsFinite(TimingTelemetryMaxAgeSeconds) || TimingTelemetryMaxAgeSeconds < 0
+            || TimingTelemetryStaleIntervals < 0 || TimingDownshiftBlocked < 0
+            || NetworkLoopQueueBoundsInvalid() || NetworkLoopAgeBoundsInvalid())
             throw new ArgumentException("Invalid worker diagnostics.");
         if (!Matches.IsDefault)
         {
@@ -280,6 +312,20 @@ public sealed record WorkerDiagnostics(ImmutableArray<WorkerLaneHealth> Lanes, d
     private bool NetworkLoopQueueBoundsInvalid()
         => NetworkQueueHighWater < 0 || NetworkLoopSampleCount < 0
             || NetworkLoopSampleCount > 0 && NetworkLoopP999Milliseconds < NetworkLoopP99Milliseconds;
+
+    private bool NetworkLoopAgeBoundsInvalid()
+        => NetworkWakeups < 0 || ImmediateRepumps < 0 || IdleWaits < 0
+            || ReceiveToRouteSampleCount < 0 || OutboundEnqueueToSendSampleCount < 0
+            || !double.IsFinite(ReceiveToRouteP50Milliseconds) || ReceiveToRouteP50Milliseconds < 0
+            || !double.IsFinite(ReceiveToRouteP95Milliseconds) || ReceiveToRouteP95Milliseconds < ReceiveToRouteP50Milliseconds
+            || !double.IsFinite(ReceiveToRouteP99Milliseconds) || ReceiveToRouteP99Milliseconds < ReceiveToRouteP95Milliseconds
+            || !double.IsFinite(ReceiveToRouteP999Milliseconds) || ReceiveToRouteP999Milliseconds < ReceiveToRouteP99Milliseconds
+            || !double.IsFinite(ReceiveToRouteMaxMilliseconds) || ReceiveToRouteMaxMilliseconds < ReceiveToRouteP999Milliseconds
+            || !double.IsFinite(OutboundEnqueueToSendP50Milliseconds) || OutboundEnqueueToSendP50Milliseconds < 0
+            || !double.IsFinite(OutboundEnqueueToSendP95Milliseconds) || OutboundEnqueueToSendP95Milliseconds < OutboundEnqueueToSendP50Milliseconds
+            || !double.IsFinite(OutboundEnqueueToSendP99Milliseconds) || OutboundEnqueueToSendP99Milliseconds < OutboundEnqueueToSendP95Milliseconds
+            || !double.IsFinite(OutboundEnqueueToSendP999Milliseconds) || OutboundEnqueueToSendP999Milliseconds < OutboundEnqueueToSendP99Milliseconds
+            || !double.IsFinite(OutboundEnqueueToSendMaxMilliseconds) || OutboundEnqueueToSendMaxMilliseconds < OutboundEnqueueToSendP999Milliseconds;
 
     private static bool IsLegacyMatch(WorkerMatchHealth match)
         => match.TickSamples == 0 && match.DeadlineMisses == 0

@@ -48,18 +48,30 @@ public sealed class WorkerManagerTests
     }
 
     [Fact]
-    public async Task WorkerChildNeverInheritsNodeDirectoryCredentialEnvironment()
+    public async Task WorkerChildReceivesDataDirectoryButNeverNodeDirectoryCredential()
     {
-        string? previous = Environment.GetEnvironmentVariable("PRIME_NODE_DIRECTORY_SECRET");
+        string dataDirectory = Path.Combine(Path.GetTempPath(), "project-prime-map-data-forwarding");
+        string? previousSecret = Environment.GetEnvironmentVariable("PRIME_NODE_DIRECTORY_SECRET");
+        string? previousData = Environment.GetEnvironmentVariable("PRIME_DATA_DIRECTORY");
         try
         {
             Environment.SetEnvironmentVariable("PRIME_NODE_DIRECTORY_SECRET", "test-only-marker");
+            Environment.SetEnvironmentVariable("PRIME_DATA_DIRECTORY", dataDirectory);
             await using var manager = Manager();
-            ManagedWorker worker = await manager.StartAsync(Launch("environment"));
+            WorkerLaunchOptions launch = Launch("environment");
+            launch = launch with
+            {
+                Arguments = [.. launch.Arguments, "--expected-data-directory", dataDirectory]
+            };
+            ManagedWorker worker = await manager.StartAsync(launch);
             Assert.Equal(WorkerStatus.Ready, worker.Snapshot().Status);
             await worker.ShutdownAsync("test completed");
         }
-        finally { Environment.SetEnvironmentVariable("PRIME_NODE_DIRECTORY_SECRET", previous); }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PRIME_NODE_DIRECTORY_SECRET", previousSecret);
+            Environment.SetEnvironmentVariable("PRIME_DATA_DIRECTORY", previousData);
+        }
     }
 
     [Fact]
@@ -109,6 +121,18 @@ public sealed class WorkerManagerTests
         });
         Assert.Equal(WorkerStatus.Ready, worker.Snapshot().Status);
         await worker.ShutdownAsync("network flags completed");
+    }
+
+    [Fact]
+    public async Task NodeLaunchPassesOptInAckCoalescingFlagToWorkerProcess()
+    {
+        await using var manager = Manager();
+        ManagedWorker worker = await manager.StartAsync(Launch("ack-coalescing") with
+        {
+            AckCoalescingEnabled = true
+        });
+        Assert.Equal(WorkerStatus.Ready, worker.Snapshot().Status);
+        await worker.ShutdownAsync("ack coalescing flag completed");
     }
 
     [Fact]

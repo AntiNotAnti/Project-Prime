@@ -66,6 +66,20 @@ public sealed class TicketTests
     }
 
     [Fact]
+    public void NodeAdmissionPublicKeyOverlapIsBoundedToEightKeys()
+    {
+        using var keys = new TestKeys();
+        var options = new TicketOptions();
+        keys.ConfigureMany(options, previousCount: 7);
+        using (var issuer = new GameTicketIssuer(Options.Create(options), TimeProvider.System))
+            Assert.Equal(GameTicketIssuer.MaximumPublicKeys, issuer.PublicKeys.Count);
+
+        keys.ConfigureMany(options, previousCount: 8);
+        Assert.Throws<InvalidOperationException>(() =>
+            new GameTicketIssuer(Options.Create(options), TimeProvider.System));
+    }
+
+    [Fact]
     public async Task SignedResultsHaveDistinctAudiencePurposeAndNoTicketAuthority()
     {
         using var keys = new TestKeys(); var options = new TicketOptions(); keys.Configure(options);
@@ -108,6 +122,21 @@ public sealed class TicketTests
             options.Issuer = Issuer; options.KeyId = "current";
             options.SigningKeyPemPath = Path.Combine(_directory, "private.pem");
             options.PreviousKeys = [new() { KeyId = "previous", PublicKeyPemPath = Path.Combine(_directory, "previous.pem") }];
+        }
+        public void ConfigureMany(TicketOptions options, int previousCount)
+        {
+            if (previousCount is < 0 or > 8) throw new ArgumentOutOfRangeException(nameof(previousCount));
+            Configure(options);
+            options.PreviousKeys = Enumerable.Range(0, previousCount).Select(index =>
+            {
+                string path = Path.Combine(_directory, $"previous-{index}.pem");
+                if (!File.Exists(path))
+                {
+                    using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+                    File.WriteAllText(path, key.ExportSubjectPublicKeyInfoPem());
+                }
+                return new PreviousTicketKey { KeyId = $"previous-{index}", PublicKeyPemPath = path };
+            }).ToList();
         }
         public void Dispose() => Directory.Delete(_directory, recursive: true);
     }
