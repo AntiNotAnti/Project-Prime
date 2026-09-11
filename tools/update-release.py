@@ -318,7 +318,8 @@ def package_metadata(dist: Path, version: str, output: Path, published_utc: str)
     return manifest
 
 
-def verify_manifest(path: Path, public_key: Path | None = None) -> None:
+def verify_manifest(path: Path, public_key: Path | None = None,
+                    signature: Path | None = None) -> dict:
     raw = path.read_bytes()
     if len(raw) == 0 or len(raw) > 64 * 1024:
         fail("manifest size is outside bounds")
@@ -359,7 +360,7 @@ def verify_manifest(path: Path, public_key: Path | None = None) -> None:
     if seen != set(RIDS):
         fail("manifest is missing a supported RID")
     if public_key is not None:
-        signature = path.with_suffix(".sig")
+        signature = signature or path.with_suffix(".sig")
         if not signature.is_file() or signature.stat().st_size == 0 or signature.stat().st_size > 256:
             fail("manifest signature is missing or invalid")
         result = subprocess.run(
@@ -368,6 +369,22 @@ def verify_manifest(path: Path, public_key: Path | None = None) -> None:
         )
         if result.returncode != 0 or result.stdout.strip() != "Verified OK":
             fail("manifest signature self-test failed")
+    return data
+
+
+def verify_manifest_assets(manifest_path: Path, asset_directory: Path,
+                           public_key: Path, signature: Path | None = None) -> None:
+    data = verify_manifest(manifest_path, public_key, signature)
+    for package in data["packages"]:
+        asset = asset_directory / package["fileName"]
+        if not asset.is_file():
+            fail(f"downloaded public draft is missing {package['fileName']}")
+        if asset.stat().st_size != package["size"]:
+            fail(f"public draft size mismatch for {asset.name}")
+        if digest(asset) != package["sha256"]:
+            fail(f"public draft hash mismatch for {asset.name}")
+        if package["rid"] != "android":
+            verify_desktop_archive(asset, data["version"], package["rid"])
 
 
 def sign_manifest(path: Path, key: Path) -> None:
@@ -384,14 +401,25 @@ def sign_manifest(path: Path, key: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", required=True)
+    parser.add_argument("--version")
     parser.add_argument("--dist", type=Path)
     parser.add_argument("--desktop-dir", action="append", type=Path, default=[])
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--signing-key", type=Path)
     parser.add_argument("--public-key", type=Path)
     parser.add_argument("--published-utc")
+    parser.add_argument("--verify-manifest", type=Path)
+    parser.add_argument("--signature", type=Path)
+    parser.add_argument("--asset-dir", type=Path)
     args = parser.parse_args()
+    if args.verify_manifest is not None:
+        if args.public_key is None or args.asset_dir is None:
+            parser.error("--verify-manifest requires --public-key and --asset-dir")
+        verify_manifest_assets(args.verify_manifest, args.asset_dir,
+                               args.public_key, args.signature)
+        return
+    if not args.version or not args.output:
+        parser.error("--version and --output are required when creating a manifest")
     published_utc = args.published_utc or datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     try:
         parsed_time = datetime.fromisoformat(published_utc.replace("Z", "+00:00"))

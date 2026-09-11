@@ -11,7 +11,7 @@
     <AssemblyName>ProjectPrime.Game</AssemblyName>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DebugType>embedded</DebugType>
+    <DebugType Condition="'$(PrimeProtectClient)' != 'true'">embedded</DebugType>
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
   </PropertyGroup>
 

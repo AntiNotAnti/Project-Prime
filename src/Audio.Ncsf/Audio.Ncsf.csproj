@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
-    <DebugType>embedded</DebugType>
+    <DebugType Condition="'$(PrimeProtectClient)' != 'true'">embedded</DebugType>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 

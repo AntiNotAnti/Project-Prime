@@ -1,0 +1,183 @@
+<Project>
+  <PropertyGroup>
+    <_PrimeAndroidProtectionEnabled Condition="'$(Configuration)' == 'Release' and '$(PrimeProtectClient)' == 'true'">true</_PrimeAndroidProtectionEnabled>
+    <_PrimeRepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../..'))</_PrimeRepositoryRoot>
+  </PropertyGroup>
+
+  <!-- Evaluate intermediate paths at target execution time. IntermediateOutputPath
+       is finalized by the Android SDK after this project-level import is read. -->
+  <Target Name="InitializeProjectPrimeAndroidProtectionPaths">
+    <PropertyGroup>
+      <!-- The verified multi-RID publish invokes this boundary once with the
+           aggregate ten-item graph. Keep both RIDs under one deterministic
+           root so final APK verification can compare both assembly stores. -->
+      <_PrimeProtectionRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/$(IntermediateOutputPath)prime-protection'))</_PrimeProtectionRoot>
+      <_PrimeProtectionInput>$(_PrimeProtectionRoot)/input</_PrimeProtectionInput>
+      <_PrimeProtectionOutput>$(_PrimeProtectionRoot)/output</_PrimeProtectionOutput>
+      <_PrimeProtectionPackage>$(_PrimeProtectionRoot)/package</_PrimeProtectionPackage>
+      <_PrimeProtectionConfigRoot>$(_PrimeProtectionRoot)/config</_PrimeProtectionConfigRoot>
+      <_PrimeProtectionMapRoot>$(_PrimeProtectionRoot)/mapping</_PrimeProtectionMapRoot>
+      <_PrimeProtectionRoutes>$(_PrimeProtectionRoot)/android-routing.json</_PrimeProtectionRoutes>
+      <_PrimeProtectionState>$(_PrimeProtectionRoot)/client-protection-state.txt</_PrimeProtectionState>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="ValidateProjectPrimeAndroidProtection"
+          BeforeTargets="PrepareForPublish"
+          DependsOnTargets="InitializeProjectPrimeAndroidProtectionPaths"
+          Condition="'$(PrimeProtectClient)' == 'true'">
+    <Error Condition="'$(Configuration)' != 'Release'" Text="PrimeProtectClient=true is supported only for Release publishes." />
+    <Error Condition="'$(PublishTrimmed)' != 'true'" Text="Protected Android clients require the Release IL trimming/link stage." />
+    <Error Condition="'$(_AndroidRuntime)' == 'NativeAOT' or '$(PublishAot)' == 'true'"
+           Text="Prime client protection does not support Android NativeAOT configurations." />
+    <Error Condition="'$(AotAssemblies)' == 'true' or '$(AotAssemblies)' == 'True' or '$(AndroidEnableProfiledAot)' == 'true' or '$(AndroidEnableProfiledAot)' == 'True' or ('$(AndroidAotMode)' != '' and '$(AndroidAotMode)' != 'None' and '$(AndroidAotMode)' != 'Interpreter')"
+           Text="Protected Android clients must disable AOT: Android AOT inputs are resolved before the post-link protection stage." />
+  </Target>
+
+  <!-- Verified against Microsoft.Android.Sdk 36.1.69: protect linked per-RID IL
+       after _PrepareAssemblies, but before compressed-assembly native sizing
+       consumes _ResolvedUserAssemblies. Keep the other resolved/shrunk sets on
+       canonical paths here because GenerateJavaStubs requires adjacent SDK
+       sidecars such as .jlo.xml. -->
+  <Target Name="ProtectProjectPrimeAndroidClient"
+          AfterTargets="_PrepareAssemblies"
+          BeforeTargets="_GenerateJavaStubs"
+          DependsOnTargets="_PrepareAssemblies;InvalidateProjectPrimeAndroidProtectionTransition;InitializeProjectPrimeAndroidProtectionPaths"
+          Condition="'$(_PrimeAndroidProtectionEnabled)' == 'true'">
+    <ItemGroup>
+      <_PrimeAndroidOriginal Include="@(_ShrunkUserAssemblies)"
+          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
+      <_PrimeAndroidResolvedUserOriginal Include="@(_ResolvedUserAssemblies)"
+          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
+      <_PrimeAndroidMissingRid Include="@(_PrimeAndroidOriginal)" Condition="'%(RuntimeIdentifier)' == ''" />
+      <_PrimeAndroidExpectedRid Include="@(_PrimeAndroidOriginal->'%(RuntimeIdentifier)')" />
+      <_PrimeAndroidRawSearchPath Include="@(_ShrunkAssemblies->'%(RootDir)%(Directory)')" />
+    </ItemGroup>
+    <Error Condition="'@(_PrimeAndroidOriginal)' == ''" Text="Android linker omitted all five expected Project Prime modules." />
+    <Error Condition="'@(_PrimeAndroidMissingRid)' != ''"
+           Text="Android protection requires RuntimeIdentifier metadata on every linked first-party assembly: @(_PrimeAndroidMissingRid)" />
+    <RemoveDuplicates Inputs="@(_PrimeAndroidExpectedRid)">
+      <Output TaskParameter="Filtered" ItemName="_PrimeAndroidExpectedRidUnique" />
+    </RemoveDuplicates>
+    <RemoveDuplicates Inputs="@(_PrimeAndroidRawSearchPath)">
+      <Output TaskParameter="Filtered" ItemName="_PrimeAndroidSearchPath" />
+    </RemoveDuplicates>
+
+    <RemoveDir Directories="$(_PrimeProtectionInput);$(_PrimeProtectionOutput);$(_PrimeProtectionPackage);$(_PrimeProtectionConfigRoot);$(_PrimeProtectionMapRoot)" />
+    <Delete Files="$(_PrimeProtectionRoutes)" />
+    <MakeDir Directories="$(_PrimeProtectionInput);$(_PrimeProtectionOutput);$(_PrimeProtectionPackage);$(_PrimeProtectionConfigRoot);$(_PrimeProtectionMapRoot)" />
+    <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
+          Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/check-obfuscation.py&quot; stage-android --input-root &quot;$(_PrimeProtectionInput)&quot; --routing-file &quot;$(_PrimeProtectionRoutes)&quot; @(_PrimeAndroidOriginal->'--source &quot;%(FullPath)&quot;', ' ')" />
+
+    <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
+          Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/generate-obfuscar-config.py&quot; --input-dir &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --output-dir &quot;$(_PrimeProtectionOutput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --mapping-file &quot;$(_PrimeProtectionMapRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/Mapping.txt&quot; --output-config &quot;$(_PrimeProtectionConfigRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/obfuscar.xml&quot; --source-root &quot;$(_PrimeRepositoryRoot)&quot; --platform android --rules &quot;$(_PrimeRepositoryRoot)/build/protection/common.rules.xml&quot; --rules &quot;$(_PrimeRepositoryRoot)/build/protection/android.rules.xml&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/ProjectPrime.dll&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/ProjectPrime.Game.dll&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/Server.Shared.dll&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/ProjectPrime.Replay.dll&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/Audio.Ncsf.dll&quot; @(_PrimeAndroidSearchPath->'--search-path &quot;%(FullPath)&quot;', ' ')" />
+    <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
+          Command="dotnet tool run obfuscar.console &quot;$(_PrimeProtectionConfigRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/obfuscar.xml&quot;" />
+    <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
+          Command="dotnet run --project &quot;$(_PrimeRepositoryRoot)/tools/protection/MetadataRepair/MetadataRepair.csproj&quot; -c Release --no-launch-profile -- --input-dir &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --output-dir &quot;$(_PrimeProtectionOutput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot;" />
+    <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
+          Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/check-obfuscation.py&quot; protected --input-dir &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --output-dir &quot;$(_PrimeProtectionOutput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --mapping &quot;$(_PrimeProtectionMapRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/Mapping.txt&quot; --config &quot;$(_PrimeProtectionConfigRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/obfuscar.xml&quot;" />
+
+    <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
+          Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/check-obfuscation.py&quot; package-android --output-root &quot;$(_PrimeProtectionOutput)&quot; --package-root &quot;$(_PrimeProtectionPackage)&quot; --routing-file &quot;$(_PrimeProtectionRoutes)&quot;" />
+
+    <ItemGroup>
+      <!-- Clone resolved-user metadata while changing only the identity used
+           by compressed-assembly native size generation. -->
+      <_PrimeAndroidResolvedUserProtected Include="@(_PrimeAndroidResolvedUserOriginal->'$(_PrimeProtectionPackage)/%(RuntimeIdentifier)/%(Filename)%(Extension)')" />
+    </ItemGroup>
+    <ItemGroup>
+      <_ResolvedUserAssemblies Remove="@(_PrimeAndroidResolvedUserOriginal)" />
+      <_ResolvedUserAssemblies Include="@(_PrimeAndroidResolvedUserProtected)" />
+      <FileWrites Include="$(_PrimeProtectionInput)/**;$(_PrimeProtectionOutput)/**;$(_PrimeProtectionPackage)/**;$(_PrimeProtectionConfigRoot)/**;$(_PrimeProtectionMapRoot)/**;$(_PrimeProtectionRoutes)" />
+    </ItemGroup>
+    <ItemGroup>
+      <_PrimeAndroidResolvedRoutingInput Include="@(_ResolvedUserAssemblies)"
+          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
+    </ItemGroup>
+    <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
+          Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/check-obfuscation.py&quot; verify-android-routing --package-root &quot;$(_PrimeProtectionPackage)&quot; --output-root &quot;$(_PrimeProtectionOutput)&quot; @(_PrimeAndroidExpectedRidUnique->'--rid &quot;%(Identity)&quot;', ' ') @(_PrimeAndroidResolvedRoutingInput->'--source &quot;%(FullPath)&quot;', ' ')" />
+    <Message Importance="high" Text="Protected five Android first-party modules independently for @(_PrimeAndroidExpectedRidUnique) and routed protected resolved-user inputs into compressed-assembly native sizing; linked outputs were not modified." />
+  </Target>
+
+  <!-- _RemoveRegisterAttribute must see canonical resolved paths so its SDK
+       sidecars remain available. Once it finishes, route only the two final
+       compression item sets to the already-created protected package copies. -->
+  <Target Name="RouteProjectPrimeAndroidCompressionInputs"
+          AfterTargets="_RemoveRegisterAttribute"
+          BeforeTargets="_CollectAssembliesToCompress"
+          DependsOnTargets="_RemoveRegisterAttribute;ProtectProjectPrimeAndroidClient;InitializeProjectPrimeAndroidProtectionPaths"
+          Condition="'$(_PrimeAndroidProtectionEnabled)' == 'true'">
+    <ItemGroup>
+      <_PrimeAndroidLateShrunkOriginal Include="@(_ShrunkAssemblies)"
+          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
+      <_PrimeAndroidLateShrunkUserOriginal Include="@(_ShrunkUserAssemblies)"
+          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
+      <_PrimeAndroidLateShrunkProtected Include="@(_PrimeAndroidLateShrunkOriginal->'$(_PrimeProtectionPackage)/%(RuntimeIdentifier)/%(Filename)%(Extension)')" />
+      <_PrimeAndroidLateShrunkUserProtected Include="@(_PrimeAndroidLateShrunkUserOriginal->'$(_PrimeProtectionPackage)/%(RuntimeIdentifier)/%(Filename)%(Extension)')" />
+    </ItemGroup>
+    <ItemGroup>
+      <_ShrunkAssemblies Remove="@(_PrimeAndroidLateShrunkOriginal)" />
+      <_ShrunkAssemblies Include="@(_PrimeAndroidLateShrunkProtected)" />
+      <_ShrunkUserAssemblies Remove="@(_PrimeAndroidLateShrunkUserOriginal)" />
+      <_ShrunkUserAssemblies Include="@(_PrimeAndroidLateShrunkUserProtected)" />
+    </ItemGroup>
+    <Message Importance="high" Text="Routed protected Project Prime assemblies after Android Java/JNI sidecar generation and before managed compression." />
+  </Target>
+
+  <!-- The SDK compression target is incremental. Protected runs always use
+       freshly obfuscated bytes; the first unprotected run after a protected
+       build must also invalidate compression and package outputs. -->
+  <Target Name="InvalidateProjectPrimeAndroidProtectionTransition"
+          BeforeTargets="_GenerateJavaStubs;_CollectAssembliesToCompress"
+          DependsOnTargets="_PrepareAssemblies;InitializeProjectPrimeAndroidProtectionPaths"
+          Condition="'$(_PrimeAndroidProtectionEnabled)' == 'true' or Exists('$(MSBuildProjectDirectory)/$(IntermediateOutputPath)prime-protection/client-protection-state.txt')">
+    <ReadLinesFromFile File="$(_PrimeProtectionState)" Condition="Exists('$(_PrimeProtectionState)')">
+      <Output TaskParameter="Lines" ItemName="_PrimePreviousProtectionState" />
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <_PrimeCurrentProtectionState Condition="'$(_PrimeAndroidProtectionEnabled)' == 'true'">protected</_PrimeCurrentProtectionState>
+      <_PrimeCurrentProtectionState Condition="'$(_PrimeAndroidProtectionEnabled)' != 'true'">unprotected</_PrimeCurrentProtectionState>
+      <_PrimeInvalidateAndroidPackage Condition="'$(_PrimeAndroidProtectionEnabled)' == 'true' or '@(_PrimePreviousProtectionState)' == 'protected'">true</_PrimeInvalidateAndroidPackage>
+    </PropertyGroup>
+    <RemoveDir Directories="$(IntermediateOutputPath)android/lz4"
+               Condition="'$(_PrimeInvalidateAndroidPackage)' == 'true'" />
+    <RemoveDir Directories="$(_AndroidApplicationSharedLibraryPath)"
+               Condition="'$(_PrimeInvalidateAndroidPackage)' == 'true' and '$(_AndroidApplicationSharedLibraryPath)' != ''" />
+    <ItemGroup Condition="'$(_PrimeInvalidateAndroidPackage)' == 'true'">
+      <_PrimeAndroidGeneratedNative Include="$(_NativeAssemblySourceDir)*.ll;$(_NativeAssemblySourceDir)*.s;$(_NativeAssemblySourceDir)*.c;$(_NativeAssemblySourceDir)*.cc;$(_NativeAssemblySourceDir)*.o"
+          Condition="'$(_NativeAssemblySourceDir)' != ''" />
+      <_PrimeAndroidGeneratedStamp Include="$(_AndroidStampDirectory)_GenerateJavaStubs.stamp;$(_AndroidStampDirectory)_GenerateJniMarshalMethods.stamp;$(_AndroidStampDirectory)_GeneratePackageManagerJava.stamp;$(_AndroidStampDirectory)_CompileJava.stamp"
+          Condition="'$(_AndroidStampDirectory)' != ''" />
+      <_PrimeAndroidGeneratedStamp Include="$(_RemoveRegisterFlag)" Condition="'$(_RemoveRegisterFlag)' != ''" />
+    </ItemGroup>
+    <Delete Files="@(_PrimeAndroidGeneratedNative);@(_PrimeAndroidGeneratedStamp)"
+            Condition="'$(_PrimeInvalidateAndroidPackage)' == 'true'" />
+    <Delete Files="$(ApkFileIntermediate);$(_AppBundleIntermediate);$(_BaseZipIntermediate)"
+            Condition="'$(_PrimeInvalidateAndroidPackage)' == 'true'" />
+    <MakeDir Directories="$(_PrimeProtectionRoot)"
+             Condition="'$(_PrimeAndroidProtectionEnabled)' == 'true'" />
+    <WriteLinesToFile File="$(_PrimeProtectionState)" Lines="$(_PrimeCurrentProtectionState)"
+                      Overwrite="true" WriteOnlyWhenDifferent="true"
+                      Condition="'$(_PrimeAndroidProtectionEnabled)' == 'true'" />
+    <Delete Files="$(_PrimeProtectionState)"
+            Condition="'$(_PrimeAndroidProtectionEnabled)' != 'true' and Exists('$(_PrimeProtectionState)')" />
+    <Message Importance="high" Condition="'$(_PrimeInvalidateAndroidPackage)' == 'true'"
+             Text="Invalidated Android compression/package intermediates for $(_PrimeCurrentProtectionState) client inputs." />
+  </Target>
+
+  <!-- Prove the late-substituted shrunk compression inputs contain exactly the
+       Obfuscar outputs and no canonical assembly was reselected. -->
+  <Target Name="VerifyProjectPrimeAndroidCompressionInputs"
+          BeforeTargets="_CollectAssembliesToCompress"
+          DependsOnTargets="RouteProjectPrimeAndroidCompressionInputs;InitializeProjectPrimeAndroidProtectionPaths"
+          Condition="'$(_PrimeAndroidProtectionEnabled)' == 'true'">
+    <ItemGroup>
+      <_PrimeAndroidCompressionInput Include="@(_ShrunkUserAssemblies)"
+          Condition="'%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll'" />
+    </ItemGroup>
+    <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
+          Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/check-obfuscation.py&quot; verify-android-routing --package-root &quot;$(_PrimeProtectionPackage)&quot; --output-root &quot;$(_PrimeProtectionOutput)&quot; @(_PrimeAndroidExpectedRidUnique->'--rid &quot;%(Identity)&quot;', ' ') @(_PrimeAndroidCompressionInput->'--source &quot;%(FullPath)&quot;', ' ')" />
+    <Message Importance="high" Text="Verified protected Android first-party inputs immediately before managed assembly compression." />
+  </Target>
+</Project>

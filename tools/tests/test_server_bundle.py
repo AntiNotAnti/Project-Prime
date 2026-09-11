@@ -116,6 +116,7 @@ class ServerBundleContractTests(unittest.TestCase):
             'if curl --fail --silent --show-error --max-time 3 "$HEALTH"',
             readiness,
         )
+        self.assertIn('HEALTH=$HEALTH"health/ready"', script)
         self.assertIn(
             "sleep 1\n            if ! kill -0 \"$BACKEND_PID\"",
             readiness,

@@ -4,12 +4,13 @@ set -Eeuo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 SKIP_ANDROID=0
+CLIENT_PROTECTION=1
 VERSION=""
 OUTPUT=""
 
 usage() {
     cat <<'USAGE'
-Usage: ./build-all.sh [--version VERSION] [--output DIRECTORY] [--skip-android]
+Usage: ./build-all.sh [--version VERSION] [--output DIRECTORY] [--skip-android] [--no-client-protection]
 
 Cooks every custom map once, publishes all deployable desktop clients,
 packages every release server RID plus a local/dev Apple Silicon server, and
@@ -19,6 +20,8 @@ have passed package, map, proprietary-asset, and Windows subsystem checks.
   --version VERSION   stamp all packages (default: local timestamp version)
   --output DIRECTORY  final output (default: publish/full-TIMESTAMP)
   --skip-android      omit Android when its workload/JDK/SDK are unavailable
+  --no-client-protection
+                      diagnostic only: build clients without Obfuscar
   --help              show this help
 
 Optional Android release signing requires all four environment variables:
@@ -33,6 +36,7 @@ while (($#)); do
         --version) [[ $# -ge 2 ]] || { echo "--version needs a value." >&2; exit 2; }; VERSION=$2; shift 2 ;;
         --output) [[ $# -ge 2 ]] || { echo "--output needs a path." >&2; exit 2; }; OUTPUT=$2; shift 2 ;;
         --skip-android) SKIP_ANDROID=1; shift ;;
+        --no-client-protection) CLIENT_PROTECTION=0; shift ;;
         --help|-h) usage; exit 0 ;;
         *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
     esac
@@ -61,6 +65,15 @@ case "$SDK_VERSION" in
     10.*) ;;
     *) echo "Project Prime requires .NET SDK 10.x; found $SDK_VERSION." >&2; exit 1 ;;
 esac
+
+PROTECTION_ARGS=()
+if [[ "$CLIENT_PROTECTION" -eq 1 ]]; then
+    echo "Restoring pinned client protection tools..."
+    dotnet tool restore
+    PROTECTION_ARGS=(-p:PrimeProtectClient=true)
+else
+    echo "WARNING: client protection disabled; artifacts are not suitable for public distribution." >&2
+fi
 
 ANDROID_SIGNING_STATUS=omitted
 ANDROID_SDK=""
@@ -142,10 +155,12 @@ for rid in win-x64 linux-x64 osx-x64 osx-arm64; do
     destination=$STAGE/clients/$rid
     echo "Publishing desktop client $rid..."
     dotnet publish src/Client/Client.csproj -c Release -r "$rid" --self-contained true \
-        -p:PublishSingleFile=true -p:SkipCustomMapBundleCook=true "${STAMP_ARGS[@]}" -o "$destination"
+        -p:PublishSingleFile=true -p:SkipCustomMapBundleCook=true "${PROTECTION_ARGS[@]}" \
+        "${STAMP_ARGS[@]}" -o "$destination"
     python3 tools/check-renderer-package.py --rid "$rid" "$destination"
     bash tools/check-maps-shipped.sh "$destination"
     bash tools/check-no-game-assets.sh "$destination"
+    python3 tools/protection/check-obfuscation.py public "$destination"
     if [[ "$rid" == win-x64 ]]; then bash tools/check-subsystem.sh gui "$destination/ProjectPrime.exe"; fi
 done
 
@@ -176,10 +191,23 @@ if [[ "$SKIP_ANDROID" -eq 0 ]]; then
     mkdir -p "$STAGE/android"
     dotnet publish src/Android/Android.csproj -c Release -p:AndroidPackageFormat=apk \
         -p:SkipCustomMapBundleCook=true -p:ApplicationDisplayVersion="$VERSION" \
-        "${STAMP_ARGS[@]}" "${ANDROID_ARGS[@]}" -o "$STAGE/android"
+        "${PROTECTION_ARGS[@]}" "${STAMP_ARGS[@]}" "${ANDROID_ARGS[@]}" -o "$STAGE/android"
     APK=$(find "$STAGE/android" -maxdepth 1 -type f -name '*-Signed.apk' | head -n 1)
     [[ -n "$APK" ]] || { echo "Android publish produced no signed/installable APK." >&2; exit 1; }
     unzip -t "$APK" >/dev/null
+    APKSIGNER=$(find "$ANDROID_SDK/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+    [[ -x "$APKSIGNER" ]] || { echo "Android SDK contains no executable apksigner." >&2; exit 1; }
+    "$APKSIGNER" verify "$APK"
+    python3 tools/protection/check-obfuscation.py public "$APK" "$STAGE/android"
+    if [[ "$CLIENT_PROTECTION" -eq 1 ]]; then
+        ANDROID_PROTECTION_OUTPUT=$ROOT/src/Android/obj/Release/net10.0-android36.0/prime-protection/output
+        [[ -d "$ANDROID_PROTECTION_OUTPUT" ]] || {
+            echo "Android per-RID protection outputs are missing: $ANDROID_PROTECTION_OUTPUT" >&2
+            exit 1
+        }
+        python3 tools/protection/check-obfuscation.py verify-android-apk \
+            --apk "$APK" --output-root "$ANDROID_PROTECTION_OUTPUT"
+    fi
     ANDROID_CHECK=$(mktemp -d "${TMPDIR:-/tmp}/project-prime-android-check.XXXXXX")
     unzip -q "$APK" -d "$ANDROID_CHECK"
     if find "$ANDROID_CHECK" -type f \( -iname '*.nds' -o -iname '*.arc' -o -iname '*.narc' -o -path '*/AMHE1/*' -o -path '*/_bin/arm9.bin' \) | grep . >/dev/null; then
@@ -195,18 +223,20 @@ if [[ "$SKIP_ANDROID" -eq 0 ]]; then
     }
 fi
 
-python3 - "$STAGE" "$VERSION" "$MAP_COUNT" "$ANDROID_SIGNING_STATUS" <<'PY'
+python3 - "$STAGE" "$VERSION" "$MAP_COUNT" "$ANDROID_SIGNING_STATUS" "$CLIENT_PROTECTION" <<'PY'
 import json
 import os
 import sys
 
-root, version, map_count, android = sys.argv[1:]
+root, version, map_count, android, protection = sys.argv[1:]
+protection_enabled = protection == "1"
 summary = f"""Project Prime complete build
 Version: {version}
 Desktop clients: win-x64, linux-x64, osx-x64, osx-arm64
 Release servers: win-x64, linux-x64, linux-arm64
 Local/dev server: osx-arm64
 Android: {android}
+Client protection: {"Obfuscar 3.0.0-beta.20" if protection_enabled else "DISABLED - NOT FOR PUBLIC DISTRIBUTION"}
 Custom map bundles: {map_count}
 
 AMHE1-derived room binaries are not shipped. Each client/server prepares them
@@ -221,6 +251,12 @@ manifest = {
     "release_servers": ["win-x64", "linux-x64", "linux-arm64"],
     "local_dev_servers": ["osx-arm64"],
     "android_signing": android,
+    "client_protection": {
+        "enabled": protection_enabled,
+        "tool": "Obfuscar",
+        "version": "3.0.0-beta.20",
+        "policy": "client-v1",
+    },
     "map_bundles": int(map_count),
     "runtime_content": "AMHE1-derived room binaries are prepared at runtime and are not shipped",
 }

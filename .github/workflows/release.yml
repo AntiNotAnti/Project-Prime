@@ -140,6 +140,9 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: restore pinned client protection tool
+        run: dotnet tool restore
+
       # For the Android package. The workload brings the .NET side of that
       # toolchain and not a JDK, and the Android SDK's build tools are Java.
       - uses: actions/setup-java@v5
@@ -174,8 +177,20 @@ jobs:
           stamp="-p:Version=$VERSION -p:InformationalVersion=$VERSION"
           for rid in win-x64 linux-x64 osx-x64 osx-arm64; do
             dotnet publish src/Client/Client.csproj -c Release -r "$rid" $stamp \
-              --self-contained true -p:PublishSingleFile=true -o "publish/$rid"
+              --self-contained true -p:PublishSingleFile=true \
+              -p:PrimeProtectClient=true -o "publish/$rid"
+            dotnet publish src/Editor/Editor.csproj -c Release -r "$rid" $stamp \
+              --self-contained true -p:PublishSingleFile=true \
+              -o "publish/$rid/editor"
             python3 tools/check-renderer-package.py --rid "$rid" "publish/$rid"
+            editor_executable=ProjectPrime.Editor
+            if [ "$rid" = win-x64 ]; then editor_executable=ProjectPrime.Editor.exe; fi
+            python3 tools/check-renderer-package.py --rid "$rid" \
+              --executable "$editor_executable" "publish/$rid/editor"
+            python3 tools/protection/check-obfuscation.py public "publish/$rid"
+            if [ "$rid" = linux-x64 ]; then
+              python3 tools/protection/linux-client-smoke.py --package "publish/$rid"
+            fi
           done
           # Backend, Node and Worker are shipped as one server bundle. The
           # package script preserves managed assembly identities and renames
@@ -241,6 +256,7 @@ jobs:
             -p:AcceptAndroidSDKLicenses=True
           dotnet publish "$proj" -c Release -p:AndroidPackageFormat=apk "${sdk[@]}" \
             "${signing[@]}" \
+            -p:PrimeProtectClient=true \
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
             -p:ApplicationDisplayVersion="$VERSION" \
             -o publish/android
@@ -258,11 +274,108 @@ jobs:
           # for Android decides which schemes to use on its own.
           signer=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | tail -1 || true)
           if [ -n "$signer" ]; then
+            "$signer" verify "$apk"
             "$signer" verify --print-certs "$apk" | grep -Ei "SHA-256 digest|Signer" || true
           else
-            "$JAVA_HOME/bin/keytool" -printcert -jarfile "$apk" \
-              | grep -E "SHA256:|Owner:" || true
+            "$JAVA_HOME/bin/keytool" -printcert -jarfile "$apk" > "$RUNNER_TEMP/apk-certificate.txt"
+            grep -E "SHA256:|Owner:" "$RUNNER_TEMP/apk-certificate.txt" || true
           fi
+
+      - name: verify protected APK container
+        run: |
+          set -euo pipefail
+          mapfile -t apks < <(find publish/android -maxdepth 1 -type f -name '*-Signed.apk' -print)
+          test "${#apks[@]}" -eq 1
+          apk=${apks[0]}
+          unzip -t "$apk" >/dev/null
+          python3 tools/protection/check-obfuscation.py public "$apk" publish/android
+          mapfile -t protection_outputs < <(find src/Android/obj/Release -type d -path '*/prime-protection/output' -print)
+          test "${#protection_outputs[@]}" -eq 1
+          python3 tools/protection/check-obfuscation.py verify-android-apk \
+            --apk "$apk" --output-root "${protection_outputs[0]}"
+          extracted="$RUNNER_TEMP/protected-apk"
+          mkdir -p "$extracted"
+          unzip -q "$apk" -d "$extracted"
+          tools/check-no-game-assets.sh "$extracted"
+
+      - name: enable KVM for protected Android release emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Runtime startup is a fatal release contract. The maintained action
+      # provisions the device on this runner; no external adb serial is assumed.
+      - name: smoke protected APK on required release Android emulator
+        uses: reactivecircus/android-emulator-runner@v2.38.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            mapfile -t apks < <(find publish/android -maxdepth 1 -type f -name '*-Signed.apk' -print)
+            test "${#apks[@]}" -eq 1
+            python3 tools/protection/android-smoke.py --adb "$ANDROID_HOME/platform-tools/adb" --apk "${apks[0]}" --artifacts "$RUNNER_TEMP/protected-android-smoke"
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() }}
+        with:
+          name: ProjectPrime-protected-android-smoke-v${{ steps.name.outputs.version }}
+          path: ${{ runner.temp }}/protected-android-smoke
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: retain private protection maps
+        env:
+          VERSION: ${{ steps.name.outputs.version }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          private="$RUNNER_TEMP/protection-maps"
+          mkdir -p "$private"
+          count=0
+          while IFS= read -r mapping; do
+            relative=${mapping#./}
+            destination="$private/${relative//\//__}"
+            cp "$mapping" "$destination"
+            count=$((count + 1))
+          done < <(find src/Client/obj src/Android/obj -path '*/prime-protection/*' -name Mapping.txt -type f -print | sort)
+          test "$count" -eq 6
+          python3 - "$private/metadata.json" "$VERSION" "$COMMIT_SHA" "$GITHUB_WORKSPACE" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import sys
+          output, version, commit, workspace = sys.argv[1:]
+          root = pathlib.Path(output).parent
+          mappings = sorted(root.glob('*Mapping.txt'))
+          configs = sorted(pathlib.Path(workspace).glob('src/*/obj/**/prime-protection/**/obfuscar.xml'))
+          if len(configs) != 6:
+              raise SystemExit(f"expected six generated protection configs, found {len(configs)}")
+          metadata = {
+              "version": version,
+              "commit": commit,
+              "tool": "Obfuscar",
+              "tool_version": "3.0.0-beta.20",
+              "policy": "client-v1",
+              "mapping_sha256": {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in mappings},
+              "configuration_sha256": {
+                  str(path.relative_to(workspace)): hashlib.sha256(path.read_bytes()).hexdigest()
+                  for path in configs
+              },
+          }
+          pathlib.Path(output).write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ProjectPrime-protection-map-v${{ steps.name.outputs.version }}
+          path: ${{ runner.temp }}/protection-maps
+          if-no-files-found: error
+          retention-days: 30
 
       - name: unlock the update signing key
         env:
@@ -457,6 +570,7 @@ jobs:
             --published-utc "$published_utc" \
             --output dist --signing-key "$RUNNER_TEMP/update-signing-key.pem" \
             --public-key "$RUNNER_TEMP/update-signing-public.pem"
+          python3 tools/protection/check-obfuscation.py public dist/*
           ls -la dist
 
       - name: updater contract tests
@@ -504,3 +618,21 @@ jobs:
             gh release create "$TAG" "${assets[@]}" --repo "$PUBLIC_REPOSITORY" \
               --draft --target main --title "Project Prime $TAG" --notes "$public_notes"
           fi
+
+  updater-windows:
+    name: updater contract (Windows)
+    needs: release
+    if: ${{ needs.release.result == 'success' }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: run updater contract tests
+        shell: pwsh
+        run: |
+          dotnet restore tests/Tests/Tests.csproj
+          dotnet test tests/Tests/Tests.csproj -c Release --no-restore --filter FullyQualifiedName~MphRead.Tests.Client.Update.UpdateContractTests

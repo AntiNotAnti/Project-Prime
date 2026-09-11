@@ -4,5 +4,13 @@
     <Nullable>enable</Nullable>
     <LangVersion>14.0</LangVersion>
     <Deterministic>true</Deterministic>
+    <!-- Client protection is an explicit release-publish concern. Keeping the
+         default here makes ordinary build/test/run completely unaware of it. -->
+    <PrimeProtectClient Condition="'$(PrimeProtectClient)' == ''">false</PrimeProtectClient>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(PrimeProtectClient)' == 'true'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 </Project>

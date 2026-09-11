@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Desktop P/Invoke entry-point methods stay explicit during the conservative pass. -->
+<PrimeProtectionRules>
+  <Module name="ProjectPrime.dll">
+    <!-- The CLR module .cctor invokes this method by its metadata name. Obfuscar
+         3.0.0-beta.20 renames the method without rewriting that call site. -->
+    <SkipMethod type="MphRead.Mods.DesktopPresentationServices"
+                name="Initialize" />
+    <SkipType name="MphRead.Mods.ConsoleWindow" skipMethods="true"
+              skipFields="true" skipProperties="true" skipEvents="true" />
+    <SkipType name="MphRead.Mods.DebugLog" skipMethods="true"
+              skipFields="true" skipProperties="true" skipEvents="true" />
+  </Module>
+</PrimeProtectionRules>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Java/JNI-visible Android entry and adapter code is deliberately untouched in P1. -->
+<PrimeProtectionRules>
+  <Module name="ProjectPrime.dll">
+    <SkipNamespace name="MphRead.Droid*" />
+    <SkipType name="MphRead.Mods.Render.EsBindings" skipMethods="true"
+              skipFields="true" skipProperties="true" skipEvents="true" />
+  </Module>
+</PrimeProtectionRules>

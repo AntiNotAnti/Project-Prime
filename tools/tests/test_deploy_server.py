@@ -104,6 +104,7 @@ class DeployServerTests(unittest.TestCase):
                        "Stopping stale Project Prime processes", "signal.SIGTERM", "signal.SIGKILL",
                        "unrelated Project Prime installations are deliberately outside this set"):
             self.assertIn(marker, script)
+        self.assertIn("http://127.0.0.1:18085/health/ready", script)
 
     def test_stack_unit_owns_launcher_and_only_state_is_writable(self):
         unit = UNIT.read_text(encoding="utf-8")

@@ -17,11 +17,24 @@
     <NoWarn>$(NoWarn);XA0141</NoWarn>
   </PropertyGroup>
 
+  <!-- Protection runs after IL linking. Android AOT resolves its inputs earlier,
+       so protected builds deliberately ship IL-only until an SDK-supported
+       post-protection AOT hook is available. This is scoped to public clients. -->
+  <PropertyGroup Condition="'$(PrimeProtectClient)' == 'true'">
+    <RuntimeIdentifiers Condition="'$(RuntimeIdentifiers)' == ''">android-arm64;android-x64</RuntimeIdentifiers>
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <AndroidAotMode>None</AndroidAotMode>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <AndroidBuildRuntimeIdentifiersInParallel>false</AndroidBuildRuntimeIdentifiersInParallel>
+  </PropertyGroup>
+
   <Import Project="../Client/Client.SharedInput.props" />
   <Import Project="../Client/Client.SharedRuntime.props" />
 
   <ItemGroup>
     <ProjectReference Include="../Game/Game.csproj" />
+    <ProjectReference Include="../Imaging/Imaging.csproj" />
+    <ProjectReference Include="../MapPlatform/MapPlatform.csproj" />
     <ProjectReference Include="../Server.Shared/Server.Shared.csproj" />
     <ProjectReference Include="../Shared.Replay/Shared.Replay.csproj" />
     <ProjectReference Include="../Audio.Ncsf/Audio.Ncsf.csproj" />
@@ -87,6 +100,8 @@
     <Compile Include="../Client/Accounts/CareerQueries.cs" Link="Client/Accounts/CareerQueries.cs" />
     <Compile Include="../Client/Launcher/Gui/KeyRow.cs" Link="Client/Launcher/Gui/KeyRow.cs" />
     <Compile Include="../Client/Launcher/Gui/MapPickerView.cs" Link="Client/Launcher/Gui/MapPickerView.cs" />
+    <Compile Include="../Client/Launcher/Maps/MapAcquisitionService.cs" Link="Client/Launcher/Maps/MapAcquisitionService.cs" />
+    <Compile Include="../Client/Launcher/Maps/MapsHubView.cs" Link="Client/Launcher/Maps/MapsHubView.cs" />
     <Compile Include="../Client/Launcher/Gui/MenuEntry.cs" Link="Client/Launcher/Gui/MenuEntry.cs" />
     <Compile Include="../Client/Launcher/Gui/PadRow.cs" Link="Client/Launcher/Gui/PadRow.cs" />
     <Compile Include="../Client/Launcher/Gui/PauseMenuView.cs" Link="Client/Launcher/Gui/PauseMenuView.cs" />
@@ -117,6 +132,7 @@
     <Compile Include="../Client/Launcher/Shell/Play/LobbyRuleApplicability.cs" Link="Launcher/Shell/Play/LobbyRuleApplicability.cs" />
     <Compile Include="../Client/Launcher/Shell/Play/PlayPresentation.cs" Link="Launcher/Shell/Play/PlayPresentation.cs" />
     <Compile Include="../Client/Launcher/Shell/Play/PlayPresentationState.cs" Link="Launcher/Shell/Play/PlayPresentationState.cs" />
+    <Compile Include="../Client/Launcher/Shell/Play/PrimePlayLayout.cs" Link="Launcher/Shell/Play/PrimePlayLayout.cs" />
     <Compile Include="../Client/Launcher/Shell/Play/PrimeMatchCard.cs" Link="Launcher/Shell/Play/PrimeMatchCard.cs" />
     <Compile Include="../Client/Launcher/Shell/Play/SeatOfferCard.cs" Link="Launcher/Shell/Play/SeatOfferCard.cs" />
     <Compile Include="../Client/Launcher/Shell/PreviewImageService.cs" Link="Launcher/Shell/PreviewImageService.cs" />
@@ -141,6 +157,9 @@
     <Compile Include="../Client/Launcher/Shell/PrimeShellState.cs" Link="Launcher/Shell/PrimeShellState.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeShellCaptureState.cs" Link="Launcher/Shell/PrimeShellCaptureState.cs" />
     <Compile Include="../Client/Launcher/Shell/PrimeShellView.axaml.cs" Link="Launcher/Shell/PrimeShellView.axaml.cs" />
+    <Compile Include="../Client/Launcher/Shell/Transitions/MatchTransitionStage.cs" Link="Launcher/Shell/Transitions/MatchTransitionStage.cs" />
+    <Compile Include="../Client/Launcher/Shell/Transitions/MatchTransitionState.cs" Link="Launcher/Shell/Transitions/MatchTransitionState.cs" />
+    <Compile Include="../Client/Launcher/Shell/Transitions/MatchTransitionView.axaml.cs" Link="Launcher/Shell/Transitions/MatchTransitionView.axaml.cs" />
     <Compile Include="../Client/Launcher/Shell/Title/PrimeTitleScreenPhase.cs" Link="Launcher/Shell/Title/PrimeTitleScreenPhase.cs" />
     <Compile Include="../Client/Launcher/Shell/Title/PrimeTitleScreenView.axaml.cs" Link="Launcher/Shell/Title/PrimeTitleScreenView.axaml.cs" />
     <Compile Include="../Client/Launcher/Shell/RankingsController.cs" Link="Launcher/Shell/RankingsController.cs" />
@@ -190,6 +209,7 @@
     <Compile Include="../Client/Networking/NetTransport.cs" Link="Client/Networking/NetTransport.cs" />
     <Compile Include="../Client/Networking/SnapshotInterpolation.cs" Link="Client/Networking/SnapshotInterpolation.cs" />
     <Compile Include="../Client/Networking/Protocol7ReplayCodec.cs" Link="Client/Networking/Protocol7ReplayCodec.cs" />
+    <Compile Include="../Client/Networking/Protocol8ReplayCodec.cs" Link="Client/Networking/Protocol8ReplayCodec.cs" />
     <Compile Include="../Client/Networking/Protocol7ReplayRoster.cs" Link="Client/Networking/Protocol7ReplayRoster.cs" />
     <Compile Include="../Client/Networking/Protocol7ReplayRules.cs" Link="Client/Networking/Protocol7ReplayRules.cs" />
     <Compile Include="../Client/Networking/Protocol7ReplaySnapshot.cs" Link="Client/Networking/Protocol7ReplaySnapshot.cs" />
@@ -248,6 +268,7 @@
     <Compile Include="../Client/Rendering/EsBindings.cs" Link="Client/Rendering/EsBindings.cs" />
     <Compile Include="../Client/Rendering/EsShaders.cs" Link="Client/Rendering/EsShaders.cs" />
     <Compile Include="../Client/Rendering/FrameTiming.cs" Link="Client/Rendering/FrameTiming.cs" />
+    <Compile Include="../Client/Rendering/Core/RendererLog.cs" Link="Client/Rendering/Core/RendererLog.cs" />
     <Compile Include="../Client/Rendering/GlEs.cs" Link="Client/Rendering/GlEs.cs" />
     <Compile Include="../Client/Rendering/HistoricalCollisionDebugPresentation.cs" Link="Client/Rendering/HistoricalCollisionDebugPresentation.cs" />
     <Compile Include="../Client/Rendering/PreviewCamera.cs" Link="Client/Rendering/PreviewCamera.cs" />
@@ -297,21 +318,6 @@
   </ItemGroup>
   <!-- Narrow import/preparation capabilities, never Tools command implementations. -->
   <ItemGroup>
-    <Compile Include="../Shared/ContentPreparation/BuiltMap.cs" Link="Shared/ContentPreparation/BuiltMap.cs" />
-    <Compile Include="../Shared/ContentPreparation/CollisionDataEditor.cs" Link="Shared/ContentPreparation/CollisionDataEditor.cs" />
-    <Compile Include="../Shared/ContentPreparation/EntityMapEditors.cs" Link="Shared/ContentPreparation/EntityMapEditors.cs" />
-    <Compile Include="../Shared/ContentPreparation/MapBuilder.cs" Link="Shared/ContentPreparation/MapBuilder.cs" />
-    <Compile Include="../Shared/ContentPreparation/MapCollisionPacker.cs" Link="Shared/ContentPreparation/MapCollisionPacker.cs" />
-    <Compile Include="../Shared/ContentPreparation/MapImageDecoding.cs" Link="Shared/ContentPreparation/MapImageDecoding.cs" />
-    <Compile Include="../Shared/ContentPreparation/MapNodePacker.cs" Link="Shared/ContentPreparation/MapNodePacker.cs" />
-    <Compile Include="../Shared/ContentPreparation/MapPacker.cs" Link="Shared/ContentPreparation/MapPacker.cs" />
-    <Compile Include="../Shared/ContentPreparation/MapPreparation.cs" Link="Shared/ContentPreparation/MapPreparation.cs" />
-    <Compile Include="../Shared/ContentPreparation/MapTextureBake.cs" Link="Shared/ContentPreparation/MapTextureBake.cs" />
-    <Compile Include="../Shared/ContentPreparation/Q3Bsp.cs" Link="Shared/ContentPreparation/Q3Bsp.cs" />
-    <Compile Include="../Shared/ContentPreparation/Q3Import.cs" Link="Shared/ContentPreparation/Q3Import.cs" />
-    <Compile Include="../Shared/ContentPreparation/RawStructs.cs" Link="Shared/ContentPreparation/RawStructs.cs" />
-    <Compile Include="../Shared/ContentPreparation/RepackEntityPacking.cs" Link="Shared/ContentPreparation/RepackEntityPacking.cs" />
-    <Compile Include="../Shared/ContentPreparation/RepackModelPacking.cs" Link="Shared/ContentPreparation/RepackModelPacking.cs" />
     <Compile Include="../Shared/Imaging/TgaImageDecoder.cs" Link="Shared/Imaging/TgaImageDecoder.cs" />
     <Compile Include="../Shared/ContentImport/Extract.cs" Link="Shared/ContentImport/Extract.cs" />
     <Compile Include="../Shared/Transport/UdpTransport.cs" Link="Shared/Transport/UdpTransport.cs" />
@@ -437,10 +443,12 @@
     <Compile Include="../Client/Rendering/ScenePresentation.EnvironmentalParticles.cs" Link="Client/Rendering/ScenePresentation.EnvironmentalParticles.cs" />
     <Compile Include="../Client/Rendering/ScenePresentation.ImpactDecals.cs" Link="Client/Rendering/ScenePresentation.ImpactDecals.cs" />
     <Compile Include="../Client/Rendering/ScenePresentation.TransientVisualLights.cs" Link="Client/Rendering/ScenePresentation.TransientVisualLights.cs" />
-    <Compile Include="../Shared/Imaging/StbImageDecoder.cs" Link="Shared/Imaging/StbImageDecoder.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Client/HUD/PostMatchPresentation.cs" Link="HUD/PostMatchPresentation.cs" />
     <Compile Include="../Client/Presentation/Players/PlayerPresentationPostMatch.cs" Link="Presentation/PlayerPresentationPostMatch.cs" />
   </ItemGroup>
+  <!-- Imported for both modes so the first unprotected build after a protected
+       publish can invalidate protection-sensitive Android intermediates. -->
+  <Import Project="../../build/protection/AndroidClientProtection.targets" />
 </Project>

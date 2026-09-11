@@ -84,7 +84,7 @@ if [[ "$DRAFT_ONLY" -eq 1 && "$ASSUME_YES" -eq 1 ]]; then
   die "--draft-only and --yes cannot be used together"
 fi
 
-for command in git gh jq; do
+for command in git gh jq python3 openssl; do
   command -v "$command" >/dev/null 2>&1 || die "$command is required"
 done
 
@@ -200,6 +200,45 @@ MANIFEST_VERSION="$(gh release download "$EXPECTED_TAG" --repo "$PUBLIC_REPOSITO
   --pattern update-manifest.json --output - | jq -r '.version')"
 [[ "$MANIFEST_VERSION" == "$VERSION" ]] || die \
   "public manifest version $MANIFEST_VERSION does not match $VERSION"
+
+# Verify the exact signed metadata and every package hash before offering the
+# draft for publication. This uses the same pinned public SPKI shipped by the
+# client; no GitHub API metadata is trusted as a substitute for the bytes.
+VERIFY_DIR="$(mktemp -d "${TMPDIR:-/tmp}/project-prime-release-verify.XXXXXX")"
+trap 'rm -rf "$VERIFY_DIR"' EXIT
+for asset in "${EXPECTED_ASSETS[@]}"; do
+  gh release download "$EXPECTED_TAG" --repo "$PUBLIC_REPOSITORY" \
+    --pattern "$asset" --dir "$VERIFY_DIR" --clobber >/dev/null
+done
+if ! PUBLIC_KEY_B64="$(python3 - <<'PY'
+import pathlib
+import re
+import sys
+
+source = pathlib.Path("src/Client/Update/UpdateTrust.cs").read_text(encoding="utf-8")
+match = re.search(r'PinnedPublicKeySpkiBase64\s*=\s*"([A-Za-z0-9+/=]+)"\s*;', source)
+if match is None:
+    sys.exit(1)
+print(match.group(1))
+PY
+)"; then
+  die "could not read the pinned update public key"
+fi
+[[ -n "$PUBLIC_KEY_B64" ]] || die "could not read the pinned update public key"
+python3 - "$PUBLIC_KEY_B64" "$VERIFY_DIR/pinned-public.der" <<'PY'
+import base64
+import pathlib
+import sys
+pathlib.Path(sys.argv[2]).write_bytes(base64.b64decode(sys.argv[1], validate=True))
+PY
+openssl pkey -pubin -inform DER -in "$VERIFY_DIR/pinned-public.der" \
+  -out "$VERIFY_DIR/pinned-public.pem" >/dev/null 2>&1 || die \
+  "the pinned update public key is not valid SPKI"
+python3 tools/update-release.py --verify-manifest \
+  "$VERIFY_DIR/update-manifest.json" \
+  --signature "$VERIFY_DIR/update-manifest.sig" \
+  --public-key "$VERIFY_DIR/pinned-public.pem" \
+  --asset-dir "$VERIFY_DIR"
 
 RELEASE_URL="$(jq -r '.url' <<<"$RELEASE_JSON")"
 printf 'Verified public draft: %s\n' "$RELEASE_URL"

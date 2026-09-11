@@ -14,6 +14,7 @@ class BuildAllContractTests(unittest.TestCase):
         result = subprocess.run([str(SCRIPT), "--help"], capture_output=True, text=True, check=False)
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn("--skip-android", result.stdout)
+        self.assertIn("--no-client-protection", result.stdout)
         self.assertIn("PRIME_ANDROID_KEYSTORE_FILE", result.stdout)
 
     def test_invalid_version_fails_before_build(self):

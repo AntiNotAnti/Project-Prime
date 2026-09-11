@@ -1,0 +1,72 @@
+<Project>
+  <PropertyGroup>
+    <_PrimeProtectionEnabled Condition="'$(Configuration)' == 'Release' and '$(PrimeProtectClient)' == 'true' and '$(PublishSingleFile)' == 'true'">true</_PrimeProtectionEnabled>
+    <_PrimeRepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../..'))</_PrimeRepositoryRoot>
+    <_PrimeProtectionRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/$(IntermediateOutputPath)prime-protection'))</_PrimeProtectionRoot>
+    <_PrimeProtectionInput>$(_PrimeProtectionRoot)/input</_PrimeProtectionInput>
+    <_PrimeProtectionOutput>$(_PrimeProtectionRoot)/output</_PrimeProtectionOutput>
+    <_PrimeProtectionConfig>$(_PrimeProtectionRoot)/obfuscar.xml</_PrimeProtectionConfig>
+    <_PrimeProtectionMap>$(_PrimeProtectionRoot)/Mapping.txt</_PrimeProtectionMap>
+  </PropertyGroup>
+
+  <Target Name="ValidateProjectPrimeClientProtection"
+          BeforeTargets="PrepareForPublish"
+          Condition="'$(PrimeProtectClient)' == 'true'">
+    <Error Condition="'$(Configuration)' != 'Release'"
+           Text="PrimeProtectClient=true is supported only for Release publishes." />
+    <Error Condition="'$(PublishSingleFile)' != 'true'"
+           Text="Protected desktop clients must set PublishSingleFile=true." />
+  </Target>
+
+  <!-- PrepareForBundle owns the complete bundle input inventory. Replace only
+       copied first-party entries before the SDK computes its bundle input cache. -->
+  <Target Name="ProtectProjectPrimeClient"
+          AfterTargets="PrepareForBundle"
+          BeforeTargets="_GenerateSingleFileBundleInputCache;GenerateSingleFileBundle"
+          Condition="'$(_PrimeProtectionEnabled)' == 'true'">
+    <ItemGroup>
+      <_PrimeProjectPrime Include="@(FilesToBundle)" Condition="'%(Filename)%(Extension)' == 'ProjectPrime.dll'" />
+      <_PrimeGame Include="@(FilesToBundle)" Condition="'%(Filename)%(Extension)' == 'ProjectPrime.Game.dll'" />
+      <_PrimeServerShared Include="@(FilesToBundle)" Condition="'%(Filename)%(Extension)' == 'Server.Shared.dll'" />
+      <_PrimeReplay Include="@(FilesToBundle)" Condition="'%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll'" />
+      <_PrimeAudio Include="@(FilesToBundle)" Condition="'%(Filename)%(Extension)' == 'Audio.Ncsf.dll'" />
+    </ItemGroup>
+    <Error Condition="'@(_PrimeProjectPrime->Count())' != '1'" Text="Protection expected exactly one ProjectPrime.dll in FilesToBundle; found @(_PrimeProjectPrime->Count())." />
+    <Error Condition="'@(_PrimeGame->Count())' != '1'" Text="Protection expected exactly one ProjectPrime.Game.dll in FilesToBundle; found @(_PrimeGame->Count())." />
+    <Error Condition="'@(_PrimeServerShared->Count())' != '1'" Text="Protection expected exactly one Server.Shared.dll in FilesToBundle; found @(_PrimeServerShared->Count())." />
+    <Error Condition="'@(_PrimeReplay->Count())' != '1'" Text="Protection expected exactly one ProjectPrime.Replay.dll in FilesToBundle; found @(_PrimeReplay->Count())." />
+    <Error Condition="'@(_PrimeAudio->Count())' != '1'" Text="Protection expected exactly one Audio.Ncsf.dll in FilesToBundle; found @(_PrimeAudio->Count())." />
+
+    <ItemGroup>
+      <_PrimeClientBundleAssembly Include="@(_PrimeProjectPrime);@(_PrimeGame);@(_PrimeServerShared);@(_PrimeReplay);@(_PrimeAudio)" />
+      <_PrimeRawSearchPath Include="@(FilesToBundle->'%(RootDir)%(Directory)')" />
+    </ItemGroup>
+    <RemoveDuplicates Inputs="@(_PrimeRawSearchPath)">
+      <Output TaskParameter="Filtered" ItemName="_PrimeSearchPath" />
+    </RemoveDuplicates>
+    <RemoveDir Directories="$(_PrimeProtectionInput);$(_PrimeProtectionOutput)" />
+    <Delete Files="$(_PrimeProtectionConfig);$(_PrimeProtectionMap)" />
+    <MakeDir Directories="$(_PrimeProtectionInput);$(_PrimeProtectionOutput)" />
+    <Copy SourceFiles="@(_PrimeClientBundleAssembly)" DestinationFolder="$(_PrimeProtectionInput)" />
+    <ItemGroup>
+      <_PrimeProtectionModule Include="@(_PrimeClientBundleAssembly->'$(_PrimeProtectionInput)/%(Filename)%(Extension)')" />
+    </ItemGroup>
+    <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
+          Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/generate-obfuscar-config.py&quot; --input-dir &quot;$(_PrimeProtectionInput)&quot; --output-dir &quot;$(_PrimeProtectionOutput)&quot; --mapping-file &quot;$(_PrimeProtectionMap)&quot; --output-config &quot;$(_PrimeProtectionConfig)&quot; --source-root &quot;$(_PrimeRepositoryRoot)&quot; --platform desktop --rules &quot;$(_PrimeRepositoryRoot)/build/protection/common.rules.xml&quot; --rules &quot;$(_PrimeRepositoryRoot)/build/protection/desktop.rules.xml&quot; @(_PrimeProtectionModule->'--module &quot;%(FullPath)&quot;', ' ') @(_PrimeSearchPath->'--search-path &quot;%(FullPath)&quot;', ' ')" />
+    <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
+          Command="dotnet tool run obfuscar.console &quot;$(_PrimeProtectionConfig)&quot;" />
+    <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
+          Command="dotnet run --project &quot;$(_PrimeRepositoryRoot)/tools/protection/MetadataRepair/MetadataRepair.csproj&quot; -c Release --no-launch-profile -- --input-dir &quot;$(_PrimeProtectionInput)&quot; --output-dir &quot;$(_PrimeProtectionOutput)&quot;" />
+    <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
+          Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/check-obfuscation.py&quot; protected --input-dir &quot;$(_PrimeProtectionInput)&quot; --output-dir &quot;$(_PrimeProtectionOutput)&quot; --mapping &quot;$(_PrimeProtectionMap)&quot; --config &quot;$(_PrimeProtectionConfig)&quot;" />
+
+    <ItemGroup>
+      <!-- MSBuild transforms clone source metadata, including RelativePath. -->
+      <_PrimeProtectedBundle Include="@(_PrimeClientBundleAssembly->'$(_PrimeProtectionOutput)/%(Filename)%(Extension)')" />
+      <FilesToBundle Remove="@(_PrimeClientBundleAssembly)" />
+      <FilesToBundle Include="@(_PrimeProtectedBundle)" />
+      <FileWrites Include="$(_PrimeProtectionInput)/**;$(_PrimeProtectionOutput)/**;$(_PrimeProtectionConfig);$(_PrimeProtectionMap)" />
+    </ItemGroup>
+    <Message Importance="high" Text="Protected five first-party client modules for $(RuntimeIdentifier); canonical build outputs were not modified." />
+  </Target>
+</Project>

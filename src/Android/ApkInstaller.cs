@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Android.App;
 using Android.Content;
@@ -103,9 +104,9 @@ namespace MphRead.Droid
         /// carries a different certificate, so this is the answer somebody
         /// coming from one of those builds will get, and it needs to say so.
         ///
-        /// Unreadable is not the same as different. A package whose signatures
-        /// cannot be read at all is let through to Android, which is the
-        /// authority on this and will refuse it if it is wrong.
+        /// Unreadable is a hard stop. Passing a package whose signer cannot be
+        /// established to the system installer would turn a trust decision
+        /// into an opaque "App not installed" dialog.
         /// </summary>
         public static bool SameSigner(Context context, string apkPath, out string? mismatch)
         {
@@ -115,39 +116,110 @@ namespace MphRead.Droid
                 PackageManager? manager = context.PackageManager;
                 if (manager == null)
                 {
-                    return true;
+                    mismatch = "Android's package manager is unavailable; the update was not installed";
+                    return false;
                 }
-#pragma warning disable CA1422, CS0618 // the flags overloads that exist on every version we target
-                PackageInfo? installed = manager.GetPackageInfo(
-                    context.PackageName!, PackageInfoFlags.Signatures);
-                PackageInfo? downloaded = manager.GetPackageArchiveInfo(
-                    apkPath, PackageInfoFlags.Signatures);
-                System.Collections.Generic.IList<Signature>? mine = installed?.Signatures;
-                System.Collections.Generic.IList<Signature>? theirs = downloaded?.Signatures;
+                PackageInfo? installed;
+                PackageInfo? downloaded;
+                if (OperatingSystem.IsAndroidVersionAtLeast(28))
+                {
+                    // GET_SIGNING_CERTIFICATES (0x08000000) is the API-28
+                    // replacement for the deprecated GET_SIGNATURES flag.
+                    PackageInfoFlags flags = (PackageInfoFlags)0x08000000;
+                    installed = manager.GetPackageInfo(context.PackageName!, flags);
+                    downloaded = manager.GetPackageArchiveInfo(apkPath, flags);
+                }
+                else
+                {
+#pragma warning disable CA1422, CS0618
+                    installed = manager.GetPackageInfo(
+                        context.PackageName!, PackageInfoFlags.Signatures);
+                    downloaded = manager.GetPackageArchiveInfo(
+                        apkPath, PackageInfoFlags.Signatures);
 #pragma warning restore CA1422, CS0618
-                if (mine == null || theirs == null || mine.Count == 0 || theirs.Count == 0)
-                {
-                    return true;
                 }
-                foreach (Signature ours in mine)
+                if (!CanReplaceSigner(installed, downloaded, out bool readable))
                 {
-                    foreach (Signature other in theirs)
-                    {
-                        if (ours.Equals(other))
-                        {
-                            return true;
-                        }
-                    }
+                    mismatch = readable
+                        ? "that download is signed with a different key, so Android "
+                            + "will not install it over this copy. Install it by hand once."
+                        : "Android could not read the installed or downloaded signing certificate; the update was not installed";
+                    return false;
                 }
-                mismatch = "that download is signed with a different key, so Android "
-                    + "will not install it over this copy. Install it by hand once.";
-                return false;
+                return true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[update] could not compare signatures: {ex.Message}");
-                return true;
+                mismatch = "Android could not verify the update signing certificate; the update was not installed";
+                return false;
             }
+        }
+
+        private static bool CanReplaceSigner(PackageInfo? installed, PackageInfo? downloaded,
+            out bool readable)
+        {
+            readable = false;
+            if (installed == null || downloaded == null) return false;
+            if (!OperatingSystem.IsAndroidVersionAtLeast(28))
+            {
+#pragma warning disable CA1422, CS0618
+                Signature[] mine = installed.Signatures is { Count: > 0 } installedSignatures
+                    ? new List<Signature>(installedSignatures).ToArray() : Array.Empty<Signature>();
+                Signature[] theirs = downloaded.Signatures is { Count: > 0 } downloadedSignatures
+                    ? new List<Signature>(downloadedSignatures).ToArray() : Array.Empty<Signature>();
+#pragma warning restore CA1422, CS0618
+                readable = mine.Length > 0 && theirs.Length > 0;
+                return readable && SignerSetsEqual(mine, theirs);
+            }
+
+            SigningInfo? mineInfo = installed.SigningInfo;
+            SigningInfo? theirInfo = downloaded.SigningInfo;
+            if (mineInfo == null || theirInfo == null) return false;
+            if (mineInfo.HasMultipleSigners || theirInfo.HasMultipleSigners)
+            {
+                Signature[] mine = ToArray(mineInfo.GetApkContentsSigners());
+                Signature[] theirs = ToArray(theirInfo.GetApkContentsSigners());
+                readable = mine.Length > 0 && theirs.Length > 0;
+                // Multi-signer packages cannot rotate: Android treats the
+                // complete unordered signer set as the package identity.
+                return readable && mineInfo.HasMultipleSigners == theirInfo.HasMultipleSigners
+                    && SignerSetsEqual(mine, theirs);
+            }
+
+            Signature[] installedHistory = ToArray(mineInfo.GetSigningCertificateHistory());
+            Signature[] downloadedHistory = ToArray(theirInfo.GetSigningCertificateHistory());
+            readable = installedHistory.Length > 0 && downloadedHistory.Length > 0;
+            if (!readable) return false;
+            // Android returns a single-signer lineage oldest-to-current. A
+            // replacement is valid when the installed current signer is in
+            // the downloaded package's proven lineage. The reverse check
+            // would incorrectly accept signing-key rollback.
+            return ContainsSigner(downloadedHistory, installedHistory[^1]);
+        }
+
+        private static Signature[] ToArray(IList<Signature>? signatures) =>
+            signatures is { Count: > 0 }
+                ? new List<Signature>(signatures).ToArray()
+                : Array.Empty<Signature>();
+
+        private static bool SignerSetsEqual(Signature[] left, Signature[] right)
+        {
+            if (left.Length != right.Length) return false;
+            foreach (Signature signer in left)
+            {
+                if (!ContainsSigner(right, signer)) return false;
+            }
+            return true;
+        }
+
+        private static bool ContainsSigner(Signature[] signers, Signature expected)
+        {
+            foreach (Signature signer in signers)
+            {
+                if (expected.Equals(signer)) return true;
+            }
+            return false;
         }
 
         /// <summary>
