@@ -13,9 +13,9 @@ import zipfile
 
 FAMILY = 2
 # Keep update manifests tied to the live authoritative wire identity.  The
-# current source protocol is 11; a stale package policy must fail closed
+# current source protocol is 12; a stale package policy must fail closed
 # rather than producing an artifact that cannot be admitted by the server.
-PROTOCOL = 11
+PROTOCOL = 12
 PACKAGE_LIMIT = 256 * 1024 * 1024
 EXPANDED_LIMIT = 512 * 1024 * 1024
 FILE_LIMIT = 2048
