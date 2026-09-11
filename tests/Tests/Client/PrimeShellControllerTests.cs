@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Net;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using ProjectPrime.Server.Shared;
@@ -10,6 +11,7 @@ using MphRead.Identity;
 using MphRead.Mods;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Launcher.Gui;
+using MphRead.Mods.Network;
 using Xunit;
 
 namespace MphRead.Tests;
@@ -199,6 +201,28 @@ public sealed class PrimeShellControllerTests
         var rejoin = key with { Nonce = 8, Generation = 2 };
         Assert.True(gate.TryBegin(rejoin));
         Assert.True(gate.IsCurrent(rejoin));
+    }
+
+    [Fact]
+    public async Task ReenablingHandoffFromChangedHandlerDoesNotRepublish()
+    {
+        using var shell = new PrimeShellState();
+        await using var online = new ClientOnlineRuntime(enabled: false);
+        await using var controller = new PlayController(shell, onlineRuntime: online);
+        await using var node = new NodeControlClient(Guid.NewGuid());
+        typeof(PlayController).GetMethod("Observe", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(controller, [node]);
+        long revision = controller.State.Revision;
+        int notifications = 0;
+        controller.Changed += (_, _) =>
+        {
+            if (++notifications == 1) controller.SetHandoffEnabled(true);
+        };
+
+        controller.SetHandoffEnabled(true);
+
+        Assert.Equal(1, notifications);
+        Assert.Equal(revision + 1, controller.State.Revision);
     }
 
     [Fact]

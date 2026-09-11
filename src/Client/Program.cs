@@ -14,6 +14,32 @@ namespace MphRead
         private static void Main(string[] args)
         {
             ConsoleSetup.Run();
+            if (args.Length == 1 && File.Exists(args[0])
+                && Path.GetExtension(args[0]).Equals(Mods.MapGen.MapBundle.Extension,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    using var catalog = new Mods.MapGen.MapCatalog(new Mods.MapGen.MapCatalogOptions
+                    {
+                        InstalledDirectory = Mods.MapGen.MapStoragePaths.InstalledMaps,
+                        ProjectDirectories = [Mods.MapGen.MapStoragePaths.Projects,
+                            Mods.MapGen.CustomRooms.MapDirectory],
+                        CacheDirectory = Mods.MapGen.MapStoragePaths.MapCache
+                    });
+                    Mods.MapGen.InstalledMap installed = catalog.InstallAsync(args[0])
+                        .AsTask().GetAwaiter().GetResult();
+                    Console.WriteLine($"Installed {installed.DisplayName} "
+                        + installed.ContentIdentity.Identity.Version);
+                    args = ["-launcher"];
+                }
+                catch (Exception exception)
+                {
+                    Console.Error.WriteLine($"Map installation rejected: {exception.Message}");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+            }
             // A console only if this run is going to use one: the Windows
             // build is a GUI binary, so double-clicking it opens the launcher
             // with no terminal behind it.

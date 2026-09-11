@@ -192,7 +192,9 @@ public sealed record PostMatchBallotModel
         LobbyVoteChoice.ReturnToLobby => "Return to the lobby together",
         LobbyVoteChoice.NextMap or LobbyVoteChoice.Map => string.IsNullOrWhiteSpace(entry.MapKey)
             ? "Continue to the next match"
-            : $"{entry.MapKey} · {ModeLabel(entry.Mode)}",
+            : entry.RequiredMap is { } map
+                ? $"{entry.MapKey} · {ModeLabel(entry.Mode)} · {map.StableId} {map.Version}"
+                : $"{entry.MapKey} · {ModeLabel(entry.Mode)}",
         _ => "Continue to the next match"
     };
 

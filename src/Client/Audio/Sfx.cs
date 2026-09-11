@@ -177,6 +177,7 @@ namespace MphRead.Sound
                     if (request.Force) { ForceFieldSfxMute++; }
                     else if (ForceFieldSfxMute > 0) { ForceFieldSfxMute--; }
                     break;
+                case AudioRequestKind.StopEnvironment: Instance.StopEnvironmentSfx(); break;
                 case AudioRequestKind.StopAll: Instance.StopAllSound(request.Force); break;
             }
         }

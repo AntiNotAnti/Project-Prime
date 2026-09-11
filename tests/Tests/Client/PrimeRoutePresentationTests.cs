@@ -10,10 +10,11 @@ namespace MphRead.Tests.Client;
 public sealed class PrimeRoutePresentationTests
 {
     [Fact]
-    public void PrimaryNavigationContainsExactlyFourPlayerDestinations()
+    public void PrimaryNavigationContainsMapManagementAndPlayerDestinations()
     {
         Assert.Equal(
-            [PrimeRoute.Play, PrimeRoute.Hunter, PrimeRoute.Rankings, PrimeRoute.Theatre],
+            [PrimeRoute.Play, PrimeRoute.Maps, PrimeRoute.Hunter,
+                PrimeRoute.Rankings, PrimeRoute.Theatre],
             PrimeRouteInfo.Navigation);
         Assert.DoesNotContain(PrimeRoute.Settings, PrimeRouteInfo.Navigation);
         Assert.DoesNotContain(PrimeRoute.Armory, PrimeRouteInfo.Navigation);
@@ -41,14 +42,14 @@ public sealed class PrimeRoutePresentationTests
             PrimeRoutePresentation.NavigationLabel(route,
                 PrimeShellBreakpoint.Mobile)).Append("More").ToArray();
 
-        Assert.Equal(["Play", "Hunter", "Ranks", "Replays"], compact);
+        Assert.Equal(["Play", "Maps", "Hunter", "Ranks", "Replays"], compact);
         Assert.Equal(["Play", "Hunter", "Ranks", "More"], mobile);
         Assert.All(compact.Concat(mobile), label => Assert.True(label.Length >= 4));
     }
 
     [Fact]
     public void MobileMoreMenuContainsEveryNonPrimaryDestination()
-        => Assert.Equal(["Theatre", "Settings", "Account", "Connection", "About"],
+        => Assert.Equal(["Maps", "Theatre", "Settings", "Account", "Connection", "About"],
             PrimeRoutePresentation.MoreItems);
 
     [Fact]

@@ -14,6 +14,30 @@ namespace MphRead.Tests;
 
 public sealed class PlayPresentationStateTests
 {
+    [Theory]
+    [InlineData(560, "Mobile")]
+    [InlineData(719, "Mobile")]
+    [InlineData(720, "Compact")]
+    [InlineData(1000, "Compact")]
+    [InlineData(1079, "Compact")]
+    [InlineData(1080, "Wide")]
+    [InlineData(1280, "Wide")]
+    [InlineData(1920, "Wide")]
+    public void PlayContentLayoutUsesStableContentWidthBoundaries(double width,
+        string expected)
+        => Assert.Equal(expected, PrimePlayLayout.ResolveContentLayout(width).ToString());
+
+    [Fact]
+    public void InvalidInitialPlayWidthsResolveDeterministicallyToMobile()
+    {
+        Assert.Equal(PrimeContentLayout.Mobile,
+            PrimePlayLayout.ResolveContentLayout(0));
+        Assert.Equal(PrimeContentLayout.Mobile,
+            PrimePlayLayout.ResolveContentLayout(double.NaN));
+        Assert.Equal(PrimeContentLayout.Mobile,
+            PrimePlayLayout.ResolveContentLayout(double.PositiveInfinity));
+    }
+
     [Fact]
     public void ChatDraftIsBoundedInUtf8WithoutSplittingACharacter()
     {

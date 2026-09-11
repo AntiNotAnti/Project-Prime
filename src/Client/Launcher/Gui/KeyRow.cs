@@ -1,11 +1,13 @@
 using System;
 using System.Reflection;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using MphRead.Entities;
 using MphRead.Mods;
+using MphRead.Mods.Launcher.Theme;
 using GlfwKeys = OpenTK.Windowing.GraphicsLibraryFramework.Keys;
 using GlfwMouse = OpenTK.Windowing.GraphicsLibraryFramework.MouseButton;
 
@@ -39,9 +41,11 @@ namespace MphRead.Mods.Launcher.Gui
             _binding = () => InputSettings.Bind(property);
             _rebind = (type, key, button) => InputSettings.Rebind(property, type, key, button);
             _labelWidth = labelWidth;
-            Height = 32;
+            Height = PrimeTouchTargets.MinimumDip;
             Focusable = true;
             Cursor = new Cursor(StandardCursorType.Hand);
+            PrimeAccessibility.SetName(this, _label);
+            UpdateAccessibleValue();
         }
 
         /// <summary>
@@ -57,9 +61,11 @@ namespace MphRead.Mods.Launcher.Gui
             _binding = binding;
             _rebind = rebind;
             _labelWidth = labelWidth;
-            Height = 32;
+            Height = PrimeTouchTargets.MinimumDip;
             Focusable = true;
             Cursor = new Cursor(StandardCursorType.Hand);
+            PrimeAccessibility.SetName(this, _label);
+            UpdateAccessibleValue();
         }
 
         private Rect Box => new(_labelWidth, 2,
@@ -164,9 +170,14 @@ namespace MphRead.Mods.Launcher.Gui
         private void Done()
         {
             _listening = false;
+            UpdateAccessibleValue();
             InvalidateVisual();
             Rebound?.Invoke(this, EventArgs.Empty);
         }
+
+        private void UpdateAccessibleValue()
+            => AutomationProperties.SetItemStatus(this,
+                InputSettings.Describe(_binding()));
 
         protected override void OnLostFocus(Avalonia.Interactivity.RoutedEventArgs e)
         {

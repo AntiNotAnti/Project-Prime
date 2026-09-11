@@ -152,6 +152,8 @@ public sealed class PlayController : IAsyncDisposable
     private int _disposed;
     private readonly ClientOnlineRuntime _online;
     private readonly bool _ownsOnline;
+    private readonly MapAcquisitionService _mapAcquisition = new();
+    private readonly Task _mapAcquisitionInitialization;
 
     public PlayController(PrimeShellState shell, IReadOnlyList<string>? maps = null,
         Func<CancellationToken, Task<AccountSession?>>? accountResolver = null, TimeProvider? timeProvider = null,
@@ -164,6 +166,7 @@ public sealed class PlayController : IAsyncDisposable
         _online = onlineRuntime ?? new ClientOnlineRuntime();
         _ownsOnline = onlineRuntime == null;
         NodeSessions.CurrentChanged += NodeSessionChanged;
+        _mapAcquisitionInitialization = InitializeMapAcquisitionAsync();
         if (_online.Node is { } current)
             Observe(current);
     }
@@ -177,6 +180,24 @@ public sealed class PlayController : IAsyncDisposable
     }
     public NodeMapCatalogState MapCatalogState => GetMapCatalogSnapshot().State;
     public IReadOnlyList<string> AvailableMaps => GetMapCatalogSnapshot().Available;
+
+    private async Task InitializeMapAcquisitionAsync()
+    {
+        try
+        {
+            await _mapAcquisition.InitializeAsync(_lifetime.Token)
+                .ConfigureAwait(false);
+            if (Volatile.Read(ref _disposed) == 0)
+                Changed?.Invoke(this, EventArgs.Empty);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception error)
+        {
+            if (Volatile.Read(ref _disposed) == 0)
+                Publish(State with { Message = "Installed maps could not be scanned: "
+                    + error.Message });
+        }
+    }
     public string MapCatalogMessage => GetMapCatalogMessage(MapCatalogState);
     public PlayHandoffGate HandoffGate => _handoff;
     public event EventHandler? Changed;
@@ -202,9 +223,10 @@ public sealed class PlayController : IAsyncDisposable
 
     public void SetHandoffEnabled(bool enabled)
     {
-        Volatile.Write(ref _handoffEnabled, enabled ? 1 : 0);
-        if (!enabled) CancelPendingHandoff();
-        else NodeChanged();
+        int desired = enabled ? 1 : 0;
+        if (Interlocked.Exchange(ref _handoffEnabled, desired) == desired) return;
+        if (enabled) NodeChanged();
+        else CancelPendingHandoff();
     }
 
     public Task RefreshNodesAsync(CancellationToken cancellationToken = default)
@@ -223,16 +245,10 @@ public sealed class PlayController : IAsyncDisposable
             Publish(State with { Phase = PlayPhase.LoadingNodes, Loading = true,
                 Message = "Finding compatible servers…" });
             AccountSession account = await RequireAccountAsync(cancellationToken).ConfigureAwait(false);
-            (IReadOnlyList<string> failures, (string Version, string ContentHash) identity) prepared =
-                await Task.Run(() =>
-                {
-                    IReadOnlyList<string> failures = MapPreparation.GenerateMissing();
-                    return (failures, ContentEnvironment.GetContentIdentity());
-                }, cancellationToken).ConfigureAwait(false);
-            if (prepared.failures.Count != 0)
-                throw new InvalidOperationException("Custom map preparation failed: " + prepared.failures[0]);
+            (string Version, string ContentHash) identity = await Task.Run(
+                ContentEnvironment.GetContentIdentity, cancellationToken).ConfigureAwait(false);
             NodeListing[] nodes = await account.GetNodesAsync(NetHeader.Version, BuildVersion.Display,
-                prepared.identity.ContentHash, cancellationToken).ConfigureAwait(false);
+                identity.ContentHash, cancellationToken).ConfigureAwait(false);
             LauncherPrefs.ObservePreferredRegions(nodes
                 .Select(node => node.Region)
                 .Where(region => !string.IsNullOrWhiteSpace(region))
@@ -795,8 +811,38 @@ public sealed class PlayController : IAsyncDisposable
     }
 
     public Task SetReadyAsync(bool ready, CancellationToken cancellationToken = default)
-        => SendLobbyCommandAsync((lobby, _) => new LobbySetReady(ready, lobby.Revision),
+    {
+        if (ready && State.Lobby?.RequiredMap is { } required
+            && !_mapAcquisition.IsInstalled(required))
+            throw new InvalidOperationException(
+                "Download and prepare the exact required map before becoming Ready.");
+        return SendLobbyCommandAsync((lobby, _) => new LobbySetReady(ready, lobby.Revision),
             "lobby.ready.set", cancellationToken);
+    }
+
+    public bool IsRequiredMapInstalled(MapRequirement requirement)
+        => _mapAcquisition.IsInstalled(requirement);
+
+    public async Task AcquireRequiredMapAsync(CancellationToken cancellationToken = default)
+    {
+        NodeControlClient node = RequireConnected();
+        MapRequirement requirement = node.Lobby?.RequiredMap
+            ?? throw new InvalidOperationException(
+                "This lobby does not require a downloadable map.");
+        string endpoint = node.Endpoint
+            ?? throw new InvalidOperationException("The Node control origin is unavailable.");
+        var progress = new Progress<MapDownloadProgress>(value => Publish(State with
+        {
+            Loading = value.Stage != "Ready",
+            Message = $"{value.Stage} {requirement.StableId} · "
+                + $"{value.Received:N0}/{value.Total:N0} bytes"
+        }));
+        await _mapAcquisition.AcquireAsync(requirement, endpoint, progress, cancellationToken)
+            .ConfigureAwait(false);
+        Publish(State with { Loading = false,
+            Message = $"{requirement.StableId} {requirement.Version} is ready." });
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>
     /// Requests a team assignment using the revision from the latest lobby
@@ -1047,6 +1093,8 @@ public sealed class PlayController : IAsyncDisposable
             try { await handoffTask.ConfigureAwait(false); }
             catch (OperationCanceledException) { }
         }
+        try { await _mapAcquisitionInitialization.ConfigureAwait(false); }
+        catch (OperationCanceledException) { }
         await _entryOperation.WaitAsync().ConfigureAwait(false);
         _entryOperation.Release();
         _entryOperation.Dispose();
@@ -1056,6 +1104,7 @@ public sealed class PlayController : IAsyncDisposable
         await _configureOperation.WaitAsync().ConfigureAwait(false);
         _configureOperation.Release();
         _configureOperation.Dispose();
+        _mapAcquisition.Dispose();
         _lifetime.Dispose();
         if (_ownsOnline) await _online.DisposeAsync().ConfigureAwait(false);
     }
@@ -1167,6 +1216,9 @@ public sealed class PlayController : IAsyncDisposable
         bool joined = false;
         try
         {
+            if (node.Lobby?.RequiredMap is { } required)
+                await _mapAcquisition.AcquireAsync(required, node.Endpoint!, null,
+                    cancellationToken).ConfigureAwait(false);
             joined = await NetLaunch.JoinWorkerAsync(handoff, session.DisplayName, cancellationToken)
                 .ConfigureAwait(false);
             if (!joined) throw new InvalidOperationException(NetLaunch.LastJoinError);

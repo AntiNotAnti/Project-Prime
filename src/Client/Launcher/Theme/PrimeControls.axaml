@@ -255,19 +255,19 @@
   <!-- Severity classes are applied by PrimeAccessibility.SetStatus. Keep
        status color semantic by coloring only status text/edges; surfaces stay
        neutral and continue to carry the label for non-color users. -->
-  <Style Selector="TextBlock.prime-status-info, Border.prime-status-info TextBlock">
+  <Style Selector="TextBlock.prime-status-info">
     <Setter Property="Foreground" Value="{DynamicResource PrimeTechBrush}" />
   </Style>
-  <Style Selector="TextBlock.prime-status-success, Border.prime-status-success TextBlock">
+  <Style Selector="TextBlock.prime-status-success">
     <Setter Property="Foreground" Value="{DynamicResource PrimeSuccessBrush}" />
   </Style>
-  <Style Selector="TextBlock.prime-status-warning, Border.prime-status-warning TextBlock">
+  <Style Selector="TextBlock.prime-status-warning">
     <Setter Property="Foreground" Value="{DynamicResource PrimeWarningBrush}" />
   </Style>
-  <Style Selector="TextBlock.prime-status-error, Border.prime-status-error TextBlock">
+  <Style Selector="TextBlock.prime-status-error">
     <Setter Property="Foreground" Value="{DynamicResource PrimeErrorBrush}" />
   </Style>
-  <Style Selector="TextBlock.prime-status-muted, Border.prime-status-muted TextBlock">
+  <Style Selector="TextBlock.prime-status-muted">
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
   </Style>
 </Styles>

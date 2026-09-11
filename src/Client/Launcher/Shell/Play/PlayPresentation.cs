@@ -388,59 +388,76 @@ internal static class PlayPresentation
     private static Control BuildHostMatch(PlayPresentationContext context)
     {
         HostMatchDraft draft = context.Ui.HostDraft;
-        var root = Page("Host Match", "NEW MULTIPLAYER LOBBY",
-            "Set the lobby capacity first, then choose the mission and rules for your match.");
-        root.Children.Add(Button("Back to Play", () =>
+        var dashboard = new PrimePlayResponsivePanel(wideLeftWeight: 5,
+            wideRightWeight: 7)
+        {
+            CurrentStep = context.Ui.HostStep,
+            Spacing = 14
+        };
+        dashboard.Classes.Add("prime-host-layout");
+
+        var header = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            ColumnSpacing = 12
+        };
+        header.Children.Add(PrimeControlFactory.PageHeading("Host Match",
+            "NEW MULTIPLAYER LOBBY",
+            "Create and configure a multiplayer lobby."));
+        AvaloniaButton backToPlay = Button("Back to Play", () =>
         {
             context.Ui.Subsection = PlaySubsection.Home;
             context.Refresh();
-        }, quiet: true));
-        root.Children.Add(StepRail(context.Ui.HostStep));
+        }, quiet: true);
+        header.Children.Add(backToPlay);
+        Grid.SetColumn(backToPlay, 1);
+        AddDashboardChild(dashboard, header, PrimePlayLane.Full, 0);
 
-        if (context.Ui.HostStep == 1)
-            root.Children.Add(BuildHostStepOne(context, draft));
-        else
-            root.Children.Add(BuildMatchConfiguration(context, draft,
-                submitLabel: "Create Match", cancel: () =>
-                {
-                    context.Ui.HostStep = 1;
-                    context.Refresh();
-                }, submit: () =>
-                {
-                    if (!draft.TryBuildRules(out _, out string error))
-                    {
-                        context.Notify(PrimeNotificationKind.Error, error);
-                        return;
-                    }
-                    context.RunCommand("Host match", () => context.HostMatch(draft));
-                }));
-        return root;
-    }
+        WrapPanel stepRail = StepRail(context.Ui.HostStep);
+        PrimePlayResponsivePanel.SetHideInWide(stepRail, true);
+        AddDashboardChild(dashboard, stepRail, PrimePlayLane.Full, 1);
+        dashboard.CurrentStepChanged += step =>
+        {
+            context.Ui.HostStep = step;
+            UpdateStepRail(stepRail, step);
+        };
 
-    private static Control BuildHostStepOne(PlayPresentationContext context, HostMatchDraft draft)
-    {
         var name = Editor(draft.Name, "Lobby name");
         name.MaxLength = 64;
         name.TextChanged += (_, _) => draft.Name = name.Text ?? "";
         TrackEditor(context, name);
 
-        ComboBox players = Combo(Enumerable.Range(1, 8).Cast<object>().ToArray(), draft.PlayerLimit);
+        ComboBox players = Combo(Enumerable.Range(1, 8).Cast<object>().ToArray(),
+            draft.PlayerLimit);
+        ComboBox observers = Combo(Enumerable.Range(0, 17).Cast<object>().ToArray(),
+            draft.ObserverLimit);
+        ComboBox bots = Combo(Array.Empty<object>(), draft.BotCount);
+        void UpdateBots()
+        {
+            int maximumBots = Math.Max(0, draft.PlayerLimit - 1);
+            draft.BotCount = Math.Clamp(draft.BotCount, 0, maximumBots);
+            bots.ItemsSource = Enumerable.Range(0, maximumBots + 1)
+                .Cast<object>().ToArray();
+            bots.SelectedItem = draft.BotCount;
+        }
         players.SelectionChanged += (_, _) =>
         {
-            if (players.SelectedItem is int value)
-            {
-                draft.PlayerLimit = value;
-                draft.BotCount = Math.Min(draft.BotCount, value);
-            }
+            if (players.SelectedItem is not int value) return;
+            draft.PlayerLimit = value;
+            UpdateBots();
         };
-        TrackEditor(context, players);
-
-        ComboBox observers = Combo(Enumerable.Range(0, 17).Cast<object>().ToArray(), draft.ObserverLimit);
         observers.SelectionChanged += (_, _) =>
         {
             if (observers.SelectedItem is int value) draft.ObserverLimit = value;
         };
+        bots.SelectionChanged += (_, _) =>
+        {
+            if (bots.SelectedItem is int value) draft.BotCount = value;
+        };
+        UpdateBots();
+        TrackEditor(context, players);
         TrackEditor(context, observers);
+        TrackEditor(context, bots);
 
         SeatPolicyChoice[] policies = Enum.GetValues<LobbySeatPolicy>()
             .Select(value => new SeatPolicyChoice(value,
@@ -449,28 +466,142 @@ internal static class PlayPresentation
             policies.First(policy => policy.Value == draft.SeatPolicy));
         seatPolicy.SelectionChanged += (_, _) =>
         {
-            if (seatPolicy.SelectedItem is SeatPolicyChoice value) draft.SeatPolicy = value.Value;
+            if (seatPolicy.SelectedItem is SeatPolicyChoice value)
+                draft.SeatPolicy = value.Value;
         };
         TrackEditor(context, seatPolicy);
 
-        var fields = new StackPanel { Spacing = 10 };
-        fields.Children.Add(Field("Match name", name, 420));
-        fields.Children.Add(Field("Player seats", players, 180));
-        fields.Children.Add(Field("Observer seats", observers, 180));
-        fields.Children.Add(Field("Seat policy", seatPolicy, 280));
-        fields.Children.Add(Text("Player seats include bots. Observer seats remain separate, and a full player roster can offer a place in the player queue.",
-            "prime-muted"));
-        fields.Children.Add(Button("Next: mission and rules", () =>
+        var identityFields = new PrimeFieldGrid(maximumColumns: 2,
+            minimumColumnWidth: 170);
+        identityFields.Children.Add(Field("Match name", name));
+        identityFields.Children.Add(Field("Seat policy", seatPolicy));
+        var seatFields = new PrimeFieldGrid(maximumColumns: 3,
+            minimumColumnWidth: 110);
+        seatFields.Children.Add(Field("Player seats", players));
+        seatFields.Children.Add(Field("Observer seats", observers));
+        seatFields.Children.Add(Field("Bots", bots));
+        Control identity = Stack(
+            Text("LOBBY & SEATS", "prime-kicker"),
+            identityFields,
+            seatFields);
+        AddDashboardChild(dashboard, identity, PrimePlayLane.Left, 2,
+            PrimePlayStage.One);
+
+        string[] maps = context.Controller.AvailableMaps.ToArray();
+        if (draft.MapKey.Length == 0 && maps.Length > 0) draft.MapKey = maps[0];
+        MapChoice[] mapChoices = maps
+            .Concat(draft.MapKey.Length > 0 ? new[] { draft.MapKey } : Array.Empty<string>())
+            .Distinct(StringComparer.Ordinal)
+            .Select(value => new MapChoice(value, PrimeGameText.MapName(value))).ToArray();
+        ComboBox map = Combo(mapChoices.Cast<object>().ToArray(),
+            mapChoices.FirstOrDefault(choice => StringComparer.Ordinal.Equals(
+                choice.Key, draft.MapKey)));
+        TrackEditor(context, map);
+
+        ModeChoice[] modes = Enum.GetValues<MatchMode>()
+            .Select(value => new ModeChoice(value, PrimeGameText.ModeLabel(value))).ToArray();
+        ComboBox mode = Combo(modes.Cast<object>().ToArray(),
+            modes.First(choice => choice.Value == draft.Mode));
+        TrackEditor(context, mode);
+
+        var mapSummary = Text(PrimeGameText.MapName(draft.MapKey), "prime-heading");
+        var modeSummary = Text(PrimeGameText.ModeLabel(draft.Mode), "prime-muted");
+        var previewHost = new Border
+        {
+            Child = BuildMapPreview(context, draft.MapKey, 250),
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        Control mission = Stack(
+            Text("MISSION", "prime-kicker"), mapSummary, modeSummary, previewHost);
+        AddDashboardChild(dashboard, mission, PrimePlayLane.Left, 3,
+            PrimePlayStage.Two);
+
+        var rulesHost = new Border();
+        void RebuildRules() => rulesHost.Child = BuildRuleControls(context, draft);
+        map.SelectionChanged += (_, _) =>
+        {
+            if (map.SelectedItem is not MapChoice choice) return;
+            draft.MapKey = choice.Key;
+            mapSummary.Text = PrimeGameText.MapName(choice.Key);
+            Control nextPreview = BuildMapPreview(context, choice.Key, 250);
+            nextPreview.Height = HostPreviewHeight(dashboard.Layout,
+                dashboard.ViewportSize.Height);
+            previewHost.Child = nextPreview;
+        };
+        mode.SelectionChanged += (_, _) =>
+        {
+            if (mode.SelectedItem is not ModeChoice value) return;
+            draft.Mode = value.Value;
+            modeSummary.Text = PrimeGameText.ModeLabel(value.Value);
+            RebuildRules();
+        };
+        RebuildRules();
+
+        var missionFields = new PrimeFieldGrid(maximumColumns: 2,
+            minimumColumnWidth: 190);
+        missionFields.Children.Add(Field("Map", map));
+        missionFields.Children.Add(Field("Mode", mode));
+        var configuration = Stack(
+            Text("MATCH CONFIGURATION", "prime-heading"), missionFields);
+        if (maps.Length == 0)
+            configuration.Children.Add(StatusCard(context.Controller.MapCatalogMessage,
+                GuiTheme.WarmBrush));
+        configuration.Children.Add(rulesHost);
+        var createRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        AvaloniaButton create = Button("Create Match", () =>
         {
             if (string.IsNullOrWhiteSpace(draft.Name))
             {
-                context.Notify(PrimeNotificationKind.Error, "Enter a match name before continuing.");
+                context.Notify(PrimeNotificationKind.Error,
+                    "Enter a match name before creating the lobby.");
                 return;
             }
-            context.Ui.HostStep = 2;
-            context.Refresh();
-        }, primary: true));
-        return Section(fields);
+            if (!draft.TryBuildRules(out _, out string error))
+            {
+                context.Notify(PrimeNotificationKind.Error, error);
+                return;
+            }
+            context.RunCommand("Host match", () => context.HostMatch(draft));
+        }, primary: true);
+        create.MinWidth = 180;
+        createRow.Children.Add(create);
+        Grid.SetColumn(create, 1);
+        configuration.Children.Add(createRow);
+        AddDashboardChild(dashboard, Section(configuration), PrimePlayLane.Right, 4,
+            PrimePlayStage.Two);
+
+        AvaloniaButton next = Button("Next: mission and rules", () =>
+        {
+            if (string.IsNullOrWhiteSpace(draft.Name))
+            {
+                context.Notify(PrimeNotificationKind.Error,
+                    "Enter a match name before continuing.");
+                return;
+            }
+            dashboard.CurrentStep = 2;
+        }, primary: true);
+        PrimePlayResponsivePanel.SetHideInWide(next, true);
+        AddDashboardChild(dashboard, next, PrimePlayLane.Full, 5,
+            PrimePlayStage.One);
+
+        AvaloniaButton previous = Button("Back: lobby and seats", () =>
+        {
+            dashboard.CurrentStep = 1;
+        }, quiet: true);
+        PrimePlayResponsivePanel.SetHideInWide(previous, true);
+        AddDashboardChild(dashboard, previous, PrimePlayLane.Full, 5,
+            PrimePlayStage.Two);
+
+        void ApplyHostSizing()
+        {
+            if (previewHost.Child is not { } preview) return;
+            preview.Height = HostPreviewHeight(dashboard.Layout,
+                dashboard.ViewportSize.Height);
+        }
+        dashboard.LayoutChanged += _ => ApplyHostSizing();
+        dashboard.ViewportChanged += _ => ApplyHostSizing();
+
+        return dashboard;
     }
 
     private static Control BuildEditMatch(PlayPresentationContext context, LobbySnapshot lobby,
@@ -564,32 +695,34 @@ internal static class PlayPresentation
         content.Children.Add(Text("MATCH RULES", "prime-heading"));
         content.Children.Add(Text("Only controls applicable to the selected mode are shown. Default uses the match mode default.",
             "prime-muted"));
+        var fields = new PrimeFieldGrid(maximumColumns: 3,
+            minimumColumnWidth: 150);
 
         TextBox time = Editor(draft.TimeLimitText, "Default or m:ss");
         time.TextChanged += (_, _) => draft.TimeLimitText = time.Text ?? "";
         TrackEditor(context, time);
-        content.Children.Add(Field("Time limit", time, 180));
+        fields.Children.Add(Field("Time limit", time));
 
         if (applicability.ScoreGoal)
         {
             TextBox score = Editor(draft.ScoreGoalText, "Default or points");
             score.TextChanged += (_, _) => draft.ScoreGoalText = score.Text ?? "";
             TrackEditor(context, score);
-            content.Children.Add(Field(applicability.GoalLabel, score, 180));
+            fields.Children.Add(Field(applicability.GoalLabel, score));
         }
         else if (applicability.StartingLives)
         {
             TextBox lives = Editor(draft.StartingLivesText, "Default or lives");
             lives.TextChanged += (_, _) => draft.StartingLivesText = lives.Text ?? "";
             TrackEditor(context, lives);
-            content.Children.Add(Field(applicability.GoalLabel, lives, 180));
+            fields.Children.Add(Field(applicability.GoalLabel, lives));
         }
         else if (applicability.ObjectiveTimeGoal)
         {
             TextBox objective = Editor(draft.ObjectiveTimeGoalText, "Default or m:ss");
             objective.TextChanged += (_, _) => draft.ObjectiveTimeGoalText = objective.Text ?? "";
             TrackEditor(context, objective);
-            content.Children.Add(Field(applicability.GoalLabel, objective, 180));
+            fields.Children.Add(Field(applicability.GoalLabel, objective));
         }
 
         if (applicability.DamageLevel)
@@ -608,21 +741,22 @@ internal static class PlayPresentation
                 if (damage.SelectedItem is DamageChoice choice) draft.DamageLevel = choice.Value;
             };
             TrackEditor(context, damage);
-            content.Children.Add(Field("Damage level", damage, 180));
+            fields.Children.Add(Field("Damage level", damage));
         }
 
-        AddBoolControl(content, context, "Friendly fire", draft.FriendlyFire,
+        AddBoolControl(fields, context, "Friendly fire", draft.FriendlyFire,
             value => draft.FriendlyFire = value, applicability.FriendlyFire);
-        AddBoolControl(content, context, "Affinity weapons", draft.AffinityWeapons,
+        AddBoolControl(fields, context, "Affinity weapons", draft.AffinityWeapons,
             value => draft.AffinityWeapons = value, applicability.AffinityWeapons);
-        AddBoolControl(content, context, "Player radar", draft.PlayerRadar,
+        AddBoolControl(fields, context, "Player radar", draft.PlayerRadar,
             value => draft.PlayerRadar = value, applicability.PlayerRadar);
-        AddBoolControl(content, context, "Octolith reset", draft.OctolithReset,
+        AddBoolControl(fields, context, "Octolith reset", draft.OctolithReset,
             value => draft.OctolithReset = value, applicability.OctolithReset);
-        return PrimeControlFactory.SectionPanel(content);
+        content.Children.Add(fields);
+        return content;
     }
 
-    private static void AddBoolControl(StackPanel content, PlayPresentationContext context,
+    private static void AddBoolControl(Panel content, PlayPresentationContext context,
         string label, bool? value, Action<bool?> set, bool applicable)
     {
         if (!applicable) return;
@@ -639,7 +773,7 @@ internal static class PlayPresentation
             if (combo.SelectedItem is BoolChoice choice) set(choice.Value);
         };
         TrackEditor(context, combo);
-        content.Children.Add(Field(label, combo, 180));
+        content.Children.Add(Field(label, combo));
     }
 
     private static Control BuildLobby(PlayPresentationContext context, LobbySnapshot lobby)
@@ -655,40 +789,66 @@ internal static class PlayPresentation
         LobbyWaitlistSnapshot waitlist = lobby.Waitlist ?? LobbyWaitlistSnapshot.Empty;
         context.Ui.ObserveOffer(waitlist.SelfOffer?.OfferId);
 
-        var root = Page(lobby.Name, "ACTIVE LOBBY",
-            "Mission first: confirm the arena and rules, choose your hunter, then ready when your squad is set.");
-        root.Children.Add(BuildLobbyHeader(lobby, current, waitlist));
+        var dashboard = new PrimePlayResponsivePanel(wideLeftWeight: 7,
+            wideRightWeight: 4, compactColumns: true)
+        {
+            Spacing = 8
+        };
+        dashboard.Classes.Add("prime-lobby-layout");
+        var header = new PrimeFieldGrid(maximumColumns: 2,
+            minimumColumnWidth: 360);
+        header.Children.Add(PrimeControlFactory.PageHeading(lobby.Name, "ACTIVE LOBBY",
+            "Mission first: confirm the arena and rules, then ready when your squad is set."));
+        header.Children.Add(BuildLobbyHeader(lobby, current, waitlist));
+        AddDashboardChild(dashboard, header, PrimePlayLane.Full, 0);
 
         if (state.Node?.Session is null || NodeSessions.Current is { Connected: false })
         {
-            root.Children.Add(StatusCard("Connection interrupted. Reconnect to keep your place in this lobby.",
-                GuiTheme.WarmBrush));
-            root.Children.Add(Button("Reconnect", () => context.RunCommand("Reconnect",
-                () => context.Controller.ResumeAsync(context.CancellationToken)), primary: true));
+            Control connection = Section(Stack(
+                Text("Connection interrupted. Reconnect to keep your place in this lobby.",
+                    "prime-body"),
+                Button("Reconnect", () => context.RunCommand("Reconnect",
+                    () => context.Controller.ResumeAsync(context.CancellationToken)),
+                    primary: true)));
+            AddDashboardChild(dashboard, connection, PrimePlayLane.Full, 1);
         }
 
-        root.Children.Add(BuildMissionPanel(context, lobby, owner));
+        Control mission = BuildMissionPanel(context, lobby, owner,
+            out Control missionPreview);
+        AddDashboardChild(dashboard, mission, PrimePlayLane.Left, 2);
 
         bool teamMode = lobby.Mode.IsTeamMode();
         LobbyMember[] players = lobby.Members.Where(member => !member.Observer).ToArray();
         LobbyMember[] observers = lobby.Members.Where(member => member.Observer).ToArray();
-        Control left = BuildRoster(teamMode ? "TEAM 1" : "PLAYERS",
+        var rosterGroups = new PrimeFieldGrid(maximumColumns: 2,
+            minimumColumnWidth: 280);
+        rosterGroups.Children.Add(BuildRoster(teamMode ? "TEAM 1" : "PLAYERS",
             teamMode ? players.Where(member => member.Team == 0) : players,
-            sessionId, GuiTheme.WarningBrush, showTeam: teamMode);
-        Control right = teamMode
-            ? Stack(
-                BuildRoster("TEAM 2", players.Where(member => member.Team == 1),
-                    sessionId, GuiTheme.TechBrush, showTeam: true),
-                BuildRoster("OBSERVERS", observers, sessionId,
-                    GuiTheme.TechBrush, showTeam: false))
-            : BuildRoster("OBSERVERS", observers, sessionId,
-                GuiTheme.TechBrush, showTeam: false);
-        root.Children.Add(ResponsiveColumns(left, right));
+            sessionId, GuiTheme.WarningBrush, showTeam: teamMode));
+        if (teamMode)
+            rosterGroups.Children.Add(BuildRoster("TEAM 2",
+                players.Where(member => member.Team == 1), sessionId,
+                GuiTheme.TechBrush, showTeam: true));
+        rosterGroups.Children.Add(BuildRoster("OBSERVERS", observers, sessionId,
+            GuiTheme.TechBrush, showTeam: false));
+        var rosterScroll = new ScrollViewer
+        {
+            Content = rosterGroups,
+            MaxHeight = 340,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+        };
+        rosterScroll.Classes.Add("prime-roster-scroll");
+        AddDashboardChild(dashboard, rosterScroll, PrimePlayLane.Left, 3);
 
-        var lower = new StackPanel { Spacing = 12 };
-        lower.Children.Add(BuildMemberControls(context, lobby, current));
-        lower.Children.Add(BuildQueuePanel(context, lobby, current, waitlist));
-        lower.Children.Add(BuildLobbyActions(context, lobby, current, owner, state));
+        Control memberControls = BuildMemberControls(context, lobby, current);
+        Control lobbyActions = BuildLobbyActions(context, lobby, current, owner, state);
+        StackPanel commandContent = Stack(memberControls, lobbyActions);
+        var commandRail = (PrimeSectionPanel)Section(commandContent);
+        AddDashboardChild(dashboard, commandRail, PrimePlayLane.Right, 4);
+        Control? queue = BuildQueuePanel(context, lobby, current, waitlist);
+        if (queue is not null)
+            AddDashboardChild(dashboard, queue, PrimePlayLane.Right, 5);
         var chat = new LobbyChatPanel(lobby.Chat, context.Ui.ChatDraft,
             context.Ui.SetChatDraft,
             text => SendChat(context, text),
@@ -701,9 +861,29 @@ internal static class PlayPresentation
             sessionId);
         context.TrackChatPanel?.Invoke(chat);
         TrackEditor(context, chat.DraftEditor);
-        lower.Children.Add(chat);
-        root.Children.Add(lower);
-        return root;
+        AddDashboardChild(dashboard, chat, PrimePlayLane.Right, 6);
+        void ApplyLobbySizing()
+        {
+            double viewportHeight = dashboard.ViewportSize.Height;
+            missionPreview.Height = LobbyPreviewHeight(dashboard.Layout,
+                viewportHeight);
+            rosterScroll.MaxHeight = LobbyRosterHeight(dashboard.Layout,
+                viewportHeight);
+            chat.HistoryMaxHeight = LobbyChatHeight(dashboard.Layout,
+                viewportHeight);
+            bool dense = dashboard.Layout == PrimeContentLayout.Wide;
+            commandRail.Padding = new Thickness(dense ? 4 : 16);
+            commandRail.Margin = dense ? default : new Thickness(0, 0, 0, 12);
+            commandContent.Spacing = dense ? 4 : 8;
+            if (memberControls is StackPanel memberStack)
+                memberStack.Spacing = dense ? 6 : 8;
+            if (lobbyActions is StackPanel actionStack)
+                actionStack.Spacing = dense ? 6 : 8;
+            chat.CompactChrome = dense;
+        }
+        dashboard.LayoutChanged += _ => ApplyLobbySizing();
+        dashboard.ViewportChanged += _ => ApplyLobbySizing();
+        return dashboard;
     }
 
     private static Control BuildLobbyHeader(LobbySnapshot lobby, LobbyMember? current,
@@ -736,21 +916,53 @@ internal static class PlayPresentation
         return Section(content);
     }
 
-    private static Control BuildMissionPanel(PlayPresentationContext context, LobbySnapshot lobby, bool owner)
+    private static Control BuildMissionPanel(PlayPresentationContext context,
+        LobbySnapshot lobby, bool owner, out Control preview)
     {
         string? mapPath = !string.IsNullOrWhiteSpace(lobby.MapKey)
             && ThumbnailGenerator.Exists(lobby.MapKey)
             ? ThumbnailGenerator.PathFor(lobby.MapKey) : null;
+        var header = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            ColumnSpacing = 12
+        };
+        header.Children.Add(Text("MISSION", "prime-kicker"));
+        if (owner && lobby.Phase == LobbyPhase.Open)
+        {
+            AvaloniaButton edit = Button("Edit Match", () =>
+            {
+                context.Ui.BeginEdit(lobby);
+                context.Ui.EditMatchOpen = true;
+                context.Refresh();
+            }, quiet: true);
+            header.Children.Add(edit);
+            Grid.SetColumn(edit, 1);
+        }
+        preview = context.BuildPreview(mapPath, 260,
+            "No local map preview is available for this arena.");
         var mission = Stack(
-            Text("MISSION", "prime-kicker"),
-            Text(PrimeGameText.MapName(lobby.MapKey), "prime-heading"),
-            context.BuildPreview(mapPath, 210,
-                "No local map preview is available for this arena."));
-        var stats = new WrapPanel { Orientation = Orientation.Horizontal };
+            header,
+            Text(PrimeGameText.MapName(lobby.MapKey), "prime-heading"));
+        var stats = new PrimeFieldGrid(maximumColumns: 5,
+            minimumColumnWidth: 110)
+        {
+            ColumnSpacing = 8,
+            RowSpacing = 8
+        };
         LobbyRulesOptions rules = LobbyRuleApplicability.RulesFromLobby(lobby);
         LobbyRuleApplicability applicability = LobbyRuleApplicability.For(lobby.Mode);
-        stats.Children.Add(PrimeControlFactory.StatTile("MODE",
-            PrimeGameText.ModeLabel(lobby.Mode)));
+        PrimeStatTile modeTile = PrimeControlFactory.StatTile("MODE",
+            PrimeGameText.ModeLabel(lobby.Mode));
+        if (modeTile.Child is StackPanel modeContent
+            && modeContent.Children.OfType<TextBlock>().Skip(1).FirstOrDefault() is { } modeValue)
+        {
+            // Mission stats share the narrow half of the desktop card. Keep
+            // multi-word modes readable instead of clipping their last word.
+            modeValue.FontSize = 18;
+            modeValue.TextWrapping = TextWrapping.Wrap;
+        }
+        stats.Children.Add(modeTile);
         stats.Children.Add(PrimeControlFactory.StatTile("TIME",
             rules.TimeLimitSeconds is { } seconds ? FormatDuration(seconds) : "Default"));
         if (applicability.ScoreGoal)
@@ -767,19 +979,20 @@ internal static class PlayPresentation
             lobby.BotCount.ToString(CultureInfo.InvariantCulture)));
         stats.Children.Add(PrimeControlFactory.StatTile("PLAYER SEATS",
             lobby.PlayerLimit.ToString(CultureInfo.InvariantCulture)));
-        mission.Children.Add(stats);
-        mission.Children.Add(Text(
+        var details = Stack(stats, Text(
             $"{PrimeGameText.SeatPolicyLabel(lobby.SeatPolicy)} · "
             + $"{lobby.ObserverLimit} observer seats · "
             + $"{lobby.Waitlist?.Count ?? 0} waiting",
             "prime-muted"));
-        if (owner && lobby.Phase == LobbyPhase.Open)
-            mission.Children.Add(Button("Edit Match", () =>
-            {
-                context.Ui.BeginEdit(lobby);
-                context.Ui.EditMatchOpen = true;
-                context.Refresh();
-            }, quiet: true));
+        var missionBody = new PrimeFieldGrid(maximumColumns: 2,
+            minimumColumnWidth: 260)
+        {
+            ColumnSpacing = 12,
+            RowSpacing = 10
+        };
+        missionBody.Children.Add(preview);
+        missionBody.Children.Add(details);
+        mission.Children.Add(missionBody);
         return Section(mission);
     }
 
@@ -843,7 +1056,7 @@ internal static class PlayPresentation
         {
             content.Children.Add(Text("You are not occupying a player or observer seat in this lobby.",
                 "prime-muted"));
-            return Section(content);
+            return content;
         }
 
         Hunter[] hunterValues = Enum.GetValues<Hunter>()
@@ -884,10 +1097,10 @@ internal static class PlayPresentation
             content.Children.Add(Text("TEAM", "prime-label"));
             content.Children.Add(teamActions);
         }
-        return Section(content);
+        return content;
     }
 
-    private static Control BuildQueuePanel(PlayPresentationContext context, LobbySnapshot lobby,
+    private static Control? BuildQueuePanel(PlayPresentationContext context, LobbySnapshot lobby,
         LobbyMember? current, LobbyWaitlistSnapshot waitlist)
     {
         var content = Stack(Text("PLAYER SEAT QUEUE", "prime-heading"));
@@ -942,10 +1155,7 @@ internal static class PlayPresentation
                 () => context.Controller.JoinWaitlistAsync(lobby.LobbyId, lobby.Revision,
                     LobbyQueueRequestedRole.Player, null, context.CancellationToken)), primary: true));
         }
-        else
-        {
-            content.Children.Add(Text("No queue action is available for your current seat.", "prime-muted"));
-        }
+        else return null;
         return Section(content);
     }
 
@@ -992,8 +1202,21 @@ internal static class PlayPresentation
     private static Control BuildLobbyActions(PlayPresentationContext context, LobbySnapshot lobby,
         LobbyMember? current, bool owner, PlayState state)
     {
-        var content = Stack(Text("LOBBY ACTIONS", "prime-heading"));
+        var content = Stack();
         LobbyStartEligibility eligibility = LobbyStartEligibility.Evaluate(lobby);
+        MapRequirement? required = lobby.RequiredMap;
+        bool missingRequiredMap = required != null
+            && !context.Controller.IsRequiredMapInstalled(required);
+        if (missingRequiredMap)
+        {
+            content.Children.Add(Text(
+                $"This server requires {required!.StableId} {required.Version} · "
+                    + $"{required.PackageSize / 1024.0:0.#} KB.", "prime-body"));
+            content.Children.Add(Button("Download & Prepare", () => context.RunCommand(
+                "Download required map",
+                () => context.Controller.AcquireRequiredMapAsync(context.CancellationToken)),
+                primary: true));
+        }
         var primaryActions = new WrapPanel { Orientation = Orientation.Horizontal };
         if (current is { Observer: false } && lobby.Phase == LobbyPhase.Open)
         {
@@ -1003,6 +1226,7 @@ internal static class PlayPresentation
                 () => context.Controller.SetReadyAsync(!ready, context.CancellationToken)),
                 primary: !ready);
             readyAction.MinWidth = 120;
+            readyAction.IsEnabled = !missingRequiredMap && !state.Loading;
             primaryActions.Children.Add(readyAction);
         }
         if (owner && lobby.Phase == LobbyPhase.Open)
@@ -1068,7 +1292,7 @@ internal static class PlayPresentation
             }, quiet: true));
             content.Children.Add(confirmation);
         }
-        return Section(content);
+        return content;
     }
 
     internal static bool RequiresLeaveConfirmation(LobbyPhase phase, bool hasHandoff)
@@ -1152,14 +1376,25 @@ internal static class PlayPresentation
     private static PrimeSectionPanel Section(Control child)
         => PrimeControlFactory.SectionPanel(child);
 
-    private static Control StepRail(int step)
+    private static WrapPanel StepRail(int step)
     {
         var row = new WrapPanel { Orientation = Orientation.Horizontal };
-        row.Children.Add(new PrimeStatusChip(step == 1 ? "1 · Lobby seats" : "✓ · Lobby seats",
-            step == 1 ? GuiTheme.BrandBrush : GuiTheme.SuccessBrush));
-        row.Children.Add(new PrimeStatusChip("2 · Mission and rules",
-            step == 2 ? GuiTheme.BrandBrush : GuiTheme.EdgeBrush));
+        row.Children.Add(new PrimeStatusChip(""));
+        row.Children.Add(new PrimeStatusChip(""));
+        UpdateStepRail(row, step);
         return row;
+    }
+
+    private static void UpdateStepRail(WrapPanel rail, int step)
+    {
+        PrimeStatusChip first = (PrimeStatusChip)rail.Children[0];
+        PrimeStatusChip second = (PrimeStatusChip)rail.Children[1];
+        first.Text = step == 1 ? "1 · Lobby seats" : "✓ · Lobby seats";
+        second.Text = "2 · Mission and rules";
+        ((TextBlock)first.Child!).Foreground = step == 1
+            ? GuiTheme.BrandBrush : GuiTheme.SuccessBrush;
+        ((TextBlock)second.Child!).Foreground = step == 2
+            ? GuiTheme.BrandBrush : GuiTheme.EdgeBrush;
     }
 
     private static StackPanel Stack(params Control[] controls)
@@ -1202,11 +1437,12 @@ internal static class PlayPresentation
         => new() { Content = label, IsChecked = value, MinHeight = 44,
             Margin = new Thickness(0, 0, 16, 0) };
 
-    private static Control Field(string label, Control editor, double width)
+    private static Control Field(string label, Control editor, double? width = null)
     {
         var field = Stack(Text(label, "prime-label"), editor);
-        field.Width = width;
-        field.Margin = new Thickness(0, 0, 12, 8);
+        if (width is > 0) field.Width = width.Value;
+        field.HorizontalAlignment = HorizontalAlignment.Stretch;
+        editor.HorizontalAlignment = HorizontalAlignment.Stretch;
         return field;
     }
 
@@ -1228,29 +1464,87 @@ internal static class PlayPresentation
         return card;
     }
 
-    private static Grid ResponsiveColumns(Control left, Control right)
+    private static Control BuildMapPreview(PlayPresentationContext context,
+        string mapKey, double height)
     {
-        var grid = new Grid
+        string? mapPath = !string.IsNullOrWhiteSpace(mapKey)
+            && ThumbnailGenerator.Exists(mapKey)
+            ? ThumbnailGenerator.PathFor(mapKey) : null;
+        return context.BuildPreview(mapPath, height,
+            "No local map preview is available for this arena.");
+    }
+
+    private static double HostPreviewHeight(PrimeContentLayout layout,
+        double viewportHeight)
+    {
+        double height = EffectiveViewportHeight(viewportHeight);
+        return layout switch
         {
-            ColumnDefinitions = new ColumnDefinitions("*,*"),
-            RowDefinitions = new RowDefinitions("Auto"),
-            ColumnSpacing = 12
+            PrimeContentLayout.Wide => Math.Clamp(160 + (height - 568) * 0.38,
+                120, 320),
+            PrimeContentLayout.Compact => Math.Clamp(220 + (height - 568) * 0.18,
+                180, 270),
+            _ => 250
         };
-        grid.Children.Add(left);
-        grid.Children.Add(right);
-        Grid.SetColumn(right, 1);
-        grid.SizeChanged += (_, args) =>
+    }
+
+    private static double LobbyPreviewHeight(PrimeContentLayout layout,
+        double viewportHeight)
+    {
+        double height = EffectiveViewportHeight(viewportHeight);
+        return layout switch
         {
-            bool narrow = args.NewSize.Width > 0 && args.NewSize.Width < 720;
-            grid.ColumnDefinitions = new ColumnDefinitions(narrow ? "*" : "*,*");
-            grid.RowDefinitions = new RowDefinitions(narrow ? "Auto,Auto" : "Auto");
-            grid.RowSpacing = narrow ? 12 : 0;
-            Grid.SetColumn(left, 0);
-            Grid.SetColumn(right, narrow ? 0 : 1);
-            Grid.SetRow(left, 0);
-            Grid.SetRow(right, narrow ? 1 : 0);
+            PrimeContentLayout.Wide => Math.Clamp(200 + (height - 568) * 0.34,
+                150, 340),
+            PrimeContentLayout.Compact => Math.Clamp(180 + (height - 568) * 0.22,
+                150, 260),
+            _ => 260
         };
-        return grid;
+    }
+
+    private static double LobbyRosterHeight(PrimeContentLayout layout,
+        double viewportHeight)
+    {
+        double height = EffectiveViewportHeight(viewportHeight);
+        return layout switch
+        {
+            PrimeContentLayout.Wide => Math.Clamp(103 + (height - 568) * 0.36,
+                72, 270),
+            PrimeContentLayout.Compact => Math.Clamp(180 + (height - 568) * 0.24,
+                120, 260),
+            _ => 340
+        };
+    }
+
+    private static double LobbyChatHeight(PrimeContentLayout layout,
+        double viewportHeight)
+    {
+        double height = EffectiveViewportHeight(viewportHeight);
+        return layout switch
+        {
+            // The right lane also owns its command rail and the fixed chat
+            // editor chrome. Budgeting 72 DIP for history at a 720p shell
+            // clipped the editor in member and active-chat states.
+            PrimeContentLayout.Wide => Math.Clamp(36 + (height - 568) * 0.24,
+                28, 230),
+            PrimeContentLayout.Compact => Math.Clamp(100 + (height - 568) * 0.24,
+                64, 190),
+            _ => 210
+        };
+    }
+
+    private static double EffectiveViewportHeight(double viewportHeight)
+        => double.IsFinite(viewportHeight) && viewportHeight > 0
+            ? viewportHeight : 568;
+
+    private static void AddDashboardChild(PrimePlayResponsivePanel panel,
+        Control child, PrimePlayLane lane, int mobileOrder,
+        PrimePlayStage stage = PrimePlayStage.Always)
+    {
+        PrimePlayResponsivePanel.SetLane(child, lane);
+        PrimePlayResponsivePanel.SetMobileOrder(child, mobileOrder);
+        PrimePlayResponsivePanel.SetStage(child, stage);
+        panel.Children.Add(child);
     }
 
     private static void TrackEditor(PlayPresentationContext context, Control editor)

@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using MphRead.Mods.Launcher.Theme;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -170,6 +172,7 @@ namespace MphRead.Mods.Launcher.Gui
                 if (clamped != _index)
                 {
                     _index = clamped;
+                    AutomationProperties.SetItemStatus(this, Value);
                     InvalidateVisual();
                     Changed?.Invoke(this, EventArgs.Empty);
                 }
@@ -183,9 +186,11 @@ namespace MphRead.Mods.Launcher.Gui
             _label = label;
             _options = options;
             _index = options.Count == 0 ? 0 : Math.Clamp(index, 0, options.Count - 1);
-            Height = 34;
+            Height = PrimeTouchTargets.MinimumDip;
             Focusable = true;
             Cursor = new Cursor(StandardCursorType.Hand);
+            PrimeAccessibility.SetName(this, label);
+            AutomationProperties.SetItemStatus(this, Value);
         }
 
         /// <summary>Replace the options in place, e.g. after a room list changes.</summary>
@@ -193,6 +198,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _options = options;
             _index = options.Count == 0 ? 0 : Math.Clamp(index, 0, options.Count - 1);
+            AutomationProperties.SetItemStatus(this, Value);
             InvalidateVisual();
         }
 
@@ -219,7 +225,7 @@ namespace MphRead.Mods.Launcher.Gui
                 // points across, and a row of the ordinary height cannot show
                 // that without shrinking it -- which would defeat a preview
                 // whose job is partly to answer "how big is Big".
-                Height = value == null ? 34 : 48;
+                Height = value == null ? PrimeTouchTargets.MinimumDip : 48;
                 InvalidateVisual();
             }
         }
@@ -429,6 +435,7 @@ namespace MphRead.Mods.Launcher.Gui
                 if (_on != value)
                 {
                     _on = value;
+                    AutomationProperties.SetItemStatus(this, value ? "On" : "Off");
                     InvalidateVisual();
                     Changed?.Invoke(this, EventArgs.Empty);
                 }
@@ -439,9 +446,11 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _label = label;
             _on = on;
-            Height = 34;
+            Height = PrimeTouchTargets.MinimumDip;
             Focusable = true;
             Cursor = new Cursor(StandardCursorType.Hand);
+            PrimeAccessibility.SetName(this, label);
+            AutomationProperties.SetItemStatus(this, on ? "On" : "Off");
         }
 
         protected override void OnPointerPressed(PointerPressedEventArgs e)

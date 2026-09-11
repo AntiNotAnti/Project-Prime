@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Immutable;
+using System.Reflection;
+using System.Threading.Tasks;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using System.Linq;
@@ -8,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ProjectPrime.Server.Shared;
 using MphRead.Identity;
@@ -255,6 +258,9 @@ public sealed class PostMatchReviewTests
 
     [AvaloniaTheory]
     [InlineData(940, 560)]
+    [InlineData(899, 560)]
+    [InlineData(720, 560)]
+    [InlineData(560, 500)]
     [InlineData(560, 800)]
     public void ResultsActionTargetsRemainFullWidthAndInsideViewport(double width, double height)
     {
@@ -387,6 +393,139 @@ public sealed class PostMatchReviewTests
         {
             GamepadInput.State = before;
         }
+    }
+
+    [AvaloniaFact]
+    public async Task ContinuationLoadingStopsResultsWorkAndClosesIdempotently()
+    {
+        using var shell = new PrimeShellState();
+        await using var play = new PlayController(shell);
+        var window = new PostMatchWindow(play, Guid.NewGuid(), null);
+        try
+        {
+            Func<bool> pump = () => true;
+            typeof(PostMatchWindow).GetField("_pump", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(window, pump);
+            DispatcherTimer timer = (DispatcherTimer)typeof(PostMatchWindow)
+                .GetField("_timer", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(window)!;
+            timer.Start();
+            Assert.True(window.IsScenePumpActive);
+            Assert.True(window.IsGameplayPollingActive);
+
+            var transition = new MatchTransitionState(
+                MatchTransitionStage.LoadingNextRound, "next-map", "Battle",
+                "Samus", "Preparing the selected arena.");
+            Assert.True(window.EnterContinuationLoading(transition));
+            Assert.Equal(PostMatchPresentationMode.ContinuationLoading, window.Mode);
+            Assert.False(window.EnterContinuationLoading(transition));
+            Assert.False(window.IsScenePumpActive);
+            Assert.False(window.IsGameplayPollingActive);
+            Assert.True(window.View.IsContinuationLoading);
+            Assert.True(window.Topmost);
+            Assert.Equal(GuiTheme.InkBrush, window.View.Background);
+            Assert.Equal(1, window.View.Opacity);
+
+            var stage = Assert.IsType<MatchTransitionView>(window.View.Content);
+            Assert.Equal(MatchTransitionStage.LoadingNextRound,
+                stage.State.Stage);
+            Assert.Equal("next-map", stage.State.Map);
+
+            Assert.True(window.CompleteContinuation());
+            Assert.False(window.CompleteContinuation());
+            Assert.True(window.IsClosed);
+        }
+        finally
+        {
+            if (!window.IsClosed) window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task UserCloseDuringContinuationPropagatesAfterResultsWaitHasEnded()
+    {
+        using var shell = new PrimeShellState();
+        await using var play = new PlayController(shell);
+        var window = new PostMatchWindow(play, Guid.NewGuid(), null);
+        bool closeRequested = false;
+        window.UserCloseRequested += (_, _) => closeRequested = true;
+        try
+        {
+            Assert.True(window.EnterContinuationLoading(new MatchTransitionState(
+                MatchTransitionStage.LoadingNextRound,
+                Detail: "Preparing the selected arena.")));
+
+            window.Close();
+
+            Assert.True(closeRequested);
+            Assert.True(window.IsClosed);
+            Assert.Equal(PostMatchTransition.Quit, window.Transition);
+        }
+        finally
+        {
+            if (!window.IsClosed) window.CloseForTransition();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task CoordinatorCloseOfContinuationDoesNotMasqueradeAsUserQuit()
+    {
+        using var shell = new PrimeShellState();
+        await using var play = new PlayController(shell);
+        var window = new PostMatchWindow(play, Guid.NewGuid(), null);
+        bool closeRequested = false;
+        window.UserCloseRequested += (_, _) => closeRequested = true;
+        try
+        {
+            Assert.True(window.EnterContinuationLoading(new MatchTransitionState(
+                MatchTransitionStage.LoadingNextRound)));
+
+            Assert.True(window.CompleteContinuation());
+
+            Assert.False(closeRequested);
+            Assert.True(window.IsClosed);
+            Assert.Equal(PostMatchTransition.Continue, window.Transition);
+        }
+        finally
+        {
+            if (!window.IsClosed) window.CloseForTransition();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ContinuationStageRejectsCommandsAndStaleResultUpdates()
+    {
+        var options = ImmutableArray.Create(
+            new LobbyVoteEntry(1, LobbyVoteChoice.Rematch, "same-map", MatchMode.Battle, 1),
+            new LobbyVoteEntry(2, LobbyVoteChoice.NextMap, "next-map", MatchMode.Battle, 0));
+        var round = new NodeRoundSnapshot(null!, null, null, false, false, 1, 2,
+            DateTimeOffset.UtcNow.AddMinutes(1), options, OwnVote: 0);
+        using var view = new PostMatchView(null);
+        int votes = 0;
+        int leaves = 0;
+        view.VoteRequested += _ => votes++;
+        view.LeaveRequested += () => leaves++;
+        view.Update(round);
+        view.MoveSelection(1);
+        int selected = view.Selection.SelectedIndex;
+        uint revision = view.Selection.BallotRevision;
+        PostMatchBallotModel ballot = view.Ballot;
+        Assert.True(view.EnterContinuationLoading(new MatchTransitionState(
+            MatchTransitionStage.LoadingNextRound, "next-map", "Battle",
+            "Samus", "Preparing the selected arena.")));
+        object stageContent = view.Content!;
+        view.Choose();
+        view.RequestLeave();
+        view.ConfirmLeave();
+        view.Update(round with { OwnVote = 1, BallotRevision = 3 });
+
+        Assert.Equal(0, votes);
+        Assert.Equal(0, leaves);
+        Assert.False(view.LeaveConfirmationPending);
+        Assert.Equal(selected, view.Selection.SelectedIndex);
+        Assert.Equal(revision, view.Selection.BallotRevision);
+        Assert.Same(ballot, view.Ballot);
+        Assert.Same(stageContent, view.Content);
     }
 
     private static void Arrange(Control view, double width, double height)

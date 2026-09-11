@@ -19,6 +19,7 @@ internal sealed class LobbyChatPanel : Border
     private const int HistoryLimit = PlayPresentationState.ChatHistoryLimit;
     private readonly TextBox _draft;
     private readonly ScrollViewer _historyScroll;
+    private readonly TextBlock _usageHint;
     private readonly Action<string> _setDraft;
     private readonly Action<string> _send;
     private readonly Action<bool> _setEditing;
@@ -158,15 +159,32 @@ internal sealed class LobbyChatPanel : Border
         input.Children.Add(sendButton);
         Grid.SetColumn(sendButton, 1);
         content.Children.Add(input);
-        content.Children.Add(new TextBlock
+        _usageHint = new TextBlock
         {
             Text = "256 UTF-8 bytes maximum · Enter sends · Escape exits editing",
             Classes = { "prime-muted" }
-        });
+        };
+        content.Children.Add(_usageHint);
         Child = content;
     }
 
     public TextBox DraftEditor => _draft;
+
+    internal double HistoryMaxHeight
+    {
+        get => _historyScroll.MaxHeight;
+        set => _historyScroll.MaxHeight = Math.Max(28, value);
+    }
+
+    internal bool CompactChrome
+    {
+        set
+        {
+            Padding = new Thickness(value ? 8 : 14);
+            Margin = value ? default : new Thickness(0, 0, 0, 12);
+            _usageHint.IsVisible = !value;
+        }
+    }
 
     /// <summary>Exit text editing without discarding a typed draft.</summary>
     public bool TryExitEditing()

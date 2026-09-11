@@ -72,6 +72,8 @@ public sealed class PostMatchView : UserControl, IDisposable
     private bool _scoreboardUsesMobileCards;
     private PrimeInputDevice _lastInputDevice = PrimeInputDevice.KeyboardMouse;
     private ControllerFamily _lastControllerFamily = ControllerFamily.Generic;
+    private bool _continuationLoading;
+    private MatchTransitionView? _continuationView;
 
     public PostMatchSelection Selection { get; } = new();
     public PostMatchResultsModel Results => _results;
@@ -81,6 +83,9 @@ public sealed class PostMatchView : UserControl, IDisposable
     internal PrimeInputDevice LastInputDevice => _lastInputDevice;
     internal string InputHint => _hints.Text ?? "";
     internal bool InputHintVisible => _hints.IsVisible;
+    internal bool IsContinuationLoading => _continuationLoading;
+    internal PostMatchPresentationMode PresentationMode => _continuationLoading
+        ? PostMatchPresentationMode.ContinuationLoading : PostMatchPresentationMode.Results;
     public event Action<byte>? VoteRequested;
     public event Action? LeaveRequested;
 
@@ -246,6 +251,7 @@ public sealed class PostMatchView : UserControl, IDisposable
 
     private void ApplyResponsiveLayout()
     {
+        if (_continuationLoading || _disposed) return;
         double width = Bounds.Width > 0 ? Bounds.Width : Width;
         bool compact = double.IsFinite(width) && width > 0
             && width < CompactResultsBreakpoint;
@@ -278,13 +284,15 @@ public sealed class PostMatchView : UserControl, IDisposable
 
         if (_compactLayout)
         {
-            // The stacked layout shares one viewport. Keeping each region
-            // bounded leaves the ballot actions reachable on a short phone
-            // screen while retaining independent vertical scrolling.
+            // Budget the fixed header, status, hint, action, and outer-margin
+            // bands before splitting the remaining short-screen space. A
+            // 160-DIP minimum for both scroll regions made the Leave action
+            // unreachable immediately below the compact breakpoint.
+            double flexibleHeight = Math.Max(0, height - 300);
             _scoreScroll.MaxHeight = Math.Min(CompactScoreMaxHeight,
-                Math.Max(160, height * .32));
+                Math.Max(72, flexibleHeight * .45));
             _ballotScroll.MaxHeight = Math.Min(CompactBallotMaxHeight,
-                Math.Max(160, height * .28));
+                Math.Max(72, flexibleHeight * .35));
         }
         else
         {
@@ -492,20 +500,55 @@ public sealed class PostMatchView : UserControl, IDisposable
         };
         card.PointerEntered += (_, _) =>
         {
+            if (_disposed || _continuationLoading) return;
             Selection.Select(index);
             RefreshCards();
         };
         card.Click += (_, _) =>
         {
+            if (_disposed || _continuationLoading) return;
             Selection.Select(index);
             Choose();
         };
         return card;
     }
 
+    /// <summary>
+    /// Switches this existing view to the opaque continuation stage without
+    /// rebuilding its authoritative result or ballot projections.
+    /// </summary>
+    internal bool EnterContinuationLoading(MatchTransitionState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (_disposed || _continuationLoading) return false;
+
+        _continuationLoading = true;
+        _renderGeneration++;
+        _lifetime.Cancel();
+        _leaveConfirmationPending = false;
+        _ballot.Children.Clear();
+        _cards.Clear();
+        foreach (Bitmap bitmap in _bitmaps) bitmap.Dispose();
+        _bitmaps.Clear();
+        _previewLoads.Clear();
+
+        Background = GuiTheme.InkBrush;
+        Opacity = 1;
+        _continuationView = new MatchTransitionView(state);
+        Content = _continuationView;
+        return true;
+    }
+
+    internal void UpdateContinuationLoading(MatchTransitionState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (_disposed || !_continuationLoading) return;
+        _continuationView?.Update(state);
+    }
+
     public void Update(NodeRoundSnapshot? round, string? message = null)
     {
-        if (_disposed) return;
+        if (_disposed || _continuationLoading) return;
         _round = round;
         DateTimeOffset now = DateTimeOffset.UtcNow;
         Selection.Update(round, now);
@@ -547,6 +590,7 @@ public sealed class PostMatchView : UserControl, IDisposable
     public void MoveSelection(int delta) => Move(delta);
     public void SubmitSelection()
     {
+        if (_disposed || _continuationLoading) return;
         if (_leaveConfirmationPending) ConfirmLeave();
         else Choose();
     }
@@ -555,7 +599,7 @@ public sealed class PostMatchView : UserControl, IDisposable
 
     internal void SetInputDevice(PrimeInputDevice device)
     {
-        if (_disposed) return;
+        if (_disposed || _continuationLoading) return;
         ControllerFamily family = device == PrimeInputDevice.Gamepad
             ? GamepadInput.State.Family : ControllerFamily.Generic;
         if (_lastInputDevice == device
@@ -567,7 +611,7 @@ public sealed class PostMatchView : UserControl, IDisposable
 
     public void RequestLeave()
     {
-        if (_disposed) return;
+        if (_disposed || _continuationLoading) return;
         if (_leaveConfirmationPending)
         {
             ConfirmLeave();
@@ -580,7 +624,7 @@ public sealed class PostMatchView : UserControl, IDisposable
 
     public void ConfirmLeave()
     {
-        if (!_leaveConfirmationPending || _disposed) return;
+        if (!_leaveConfirmationPending || _disposed || _continuationLoading) return;
         _leaveConfirmationPending = false;
         UpdateLeaveConfirmation();
         LeaveRequested?.Invoke();
@@ -588,7 +632,7 @@ public sealed class PostMatchView : UserControl, IDisposable
 
     public void CancelLeaveConfirmation()
     {
-        if (!_leaveConfirmationPending || _disposed) return;
+        if (!_leaveConfirmationPending || _disposed || _continuationLoading) return;
         _leaveConfirmationPending = false;
         UpdateLeaveConfirmation();
         _leaveButton.Focus();
@@ -596,13 +640,14 @@ public sealed class PostMatchView : UserControl, IDisposable
 
     public void RejectPending()
     {
+        if (_disposed || _continuationLoading) return;
         Selection.RejectPending();
         RefreshCards();
     }
 
     public void Move(int delta)
     {
-        if (_leaveConfirmationPending) return;
+        if (_disposed || _continuationLoading || _leaveConfirmationPending) return;
         Selection.Move(delta);
         RefreshCards();
         if (Selection.SelectedIndex < _cards.Count)
@@ -614,6 +659,7 @@ public sealed class PostMatchView : UserControl, IDisposable
 
     public void Choose()
     {
+        if (_disposed || _continuationLoading) return;
         Selection.Update(_round, DateTimeOffset.UtcNow);
         if (Selection.Choose() is { } id) VoteRequested?.Invoke(id);
         RefreshCards();
@@ -621,6 +667,7 @@ public sealed class PostMatchView : UserControl, IDisposable
 
     private void RefreshCards(bool refreshHeadings = false)
     {
+        if (_disposed || _continuationLoading) return;
         for (int i = 0; i < _cards.Count; i++)
         {
             AvaloniaButton card = _cards[i];
@@ -649,6 +696,11 @@ public sealed class PostMatchView : UserControl, IDisposable
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (_continuationLoading)
+        {
+            base.OnKeyDown(e);
+            return;
+        }
         SetInputDevice(PrimeInputDevice.KeyboardMouse);
         base.OnKeyDown(e);
         if (_leaveConfirmationPending)
@@ -686,6 +738,11 @@ public sealed class PostMatchView : UserControl, IDisposable
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
+        if (_continuationLoading)
+        {
+            base.OnPointerPressed(e);
+            return;
+        }
         SetInputDevice(PrimeInputDevice.Touch);
         base.OnPointerPressed(e);
     }
@@ -744,13 +801,14 @@ public sealed class PostMatchView : UserControl, IDisposable
         try
         {
             PrimePreviewImage? preview = await _mapPreviews.LoadAsync(mapKey, _lifetime.Token);
-            if (preview == null || _disposed || _renderGeneration != generation
+            if (preview == null || _disposed || _continuationLoading
+                || _renderGeneration != generation
                 || card.Content is not StackPanel panel
                 || panel.Children.OfType<ContentControl>().FirstOrDefault() is not { } target)
                 return;
             using var stream = new MemoryStream(preview.Data, writable: false);
             var bitmap = new Bitmap(stream);
-            if (_disposed || _renderGeneration != generation)
+            if (_disposed || _continuationLoading || _renderGeneration != generation)
             {
                 bitmap.Dispose();
                 return;
@@ -864,6 +922,9 @@ public sealed class PostMatchView : UserControl, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _continuationLoading = true;
+        _continuationView?.Dispose();
+        _continuationView = null;
         SizeChanged -= _sizeChangedHandler;
         _lifetime.Cancel();
         _lifetime.Dispose();

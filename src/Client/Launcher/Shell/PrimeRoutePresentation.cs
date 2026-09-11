@@ -37,7 +37,7 @@ public static class PrimeRoutePresentation
         new[] { PrimeRoute.Play, PrimeRoute.Hunter, PrimeRoute.Rankings };
 
     public static IReadOnlyList<string> MoreItems { get; } =
-        new[] { "Theatre", "Settings", "Account", "Connection", "About" };
+        new[] { "Maps", "Theatre", "Settings", "Account", "Connection", "About" };
 
     public static PrimeShellBreakpoint Breakpoint(double width)
     {

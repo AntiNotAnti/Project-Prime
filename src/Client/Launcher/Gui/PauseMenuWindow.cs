@@ -88,11 +88,25 @@ namespace MphRead.Mods.Launcher.Gui
             }
             try
             {
+                CloseSettingsIfOpen();
                 window.Close();
             }
             catch (Exception)
             {
                 // A menu that will not close must not take the match with it.
+            }
+        }
+
+        private static void CloseSettingsIfOpen()
+        {
+            Window? settings = _openSettings;
+            _openSettings = null;
+            if (settings == null) return;
+            try { settings.Close(); }
+            catch (Exception)
+            {
+                // Parent cleanup must continue even if the owned dialog is
+                // already in a platform close transition.
             }
         }
 
@@ -269,10 +283,14 @@ namespace MphRead.Mods.Launcher.Gui
             }
             finally
             {
-                _openSettings = null;
+                if (_openSettings?.Owner == this)
+                    _openSettings = null;
                 _settingsOpen = false;
-                Topmost = wasTopmost;
-                Activate();
+                if (ReferenceEquals(_open, this))
+                {
+                    Topmost = wasTopmost;
+                    Activate();
+                }
             }
         }
 
@@ -296,6 +314,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         protected override void OnClosed(EventArgs e)
         {
+            CloseSettingsIfOpen();
             if (ReferenceEquals(_open, this))
             {
                 _open = null;

@@ -76,7 +76,7 @@
     <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="LetterSpacing" Value="0.9" />
-    <Setter Property="Foreground" Value="{DynamicResource PrimeTextDimBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
   </Style>
 
   <!-- Explicit semantic scale for new views. The existing classes above stay
@@ -99,7 +99,7 @@
   <Style Selector="TextBlock.prime-telemetry">
     <Setter Property="FontSize" Value="10" />
     <Setter Property="LetterSpacing" Value="0.45" />
-    <Setter Property="Foreground" Value="{DynamicResource PrimeTextDimBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-tech">
     <Setter Property="Foreground" Value="{DynamicResource PrimeTechBrush}" />

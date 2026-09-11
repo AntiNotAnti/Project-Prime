@@ -23,7 +23,7 @@ internal sealed class PrimeShellNavigationAdapter
     internal const string CoordinateRoot = "shell";
 
     private static readonly HashSet<string> SettingsSectionIds = new(
-        new[] { "Gameplay", "Controls", "Graphics", "Audio", "System",
+        new[] { "Player", "Controls", "Graphics", "Audio", "System",
             "Network", "Accessibility", "About" },
         StringComparer.OrdinalIgnoreCase);
 
@@ -340,7 +340,7 @@ internal sealed class PrimeShellNavigationAdapter
             return (int)hunterSection;
         if (route == PrimeRoute.Settings)
         {
-            string[] order = ["Gameplay", "Controls", "Graphics", "Audio",
+            string[] order = ["Player", "Controls", "Graphics", "Audio",
                 "System", "Network", "Accessibility", "About"];
             int index = Array.FindIndex(order, candidate =>
                 String.Equals(candidate, section, StringComparison.OrdinalIgnoreCase));

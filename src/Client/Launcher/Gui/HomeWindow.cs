@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using MphRead.Mods.Network;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -26,36 +27,148 @@ namespace MphRead.Mods.Launcher.Gui
         /// <summary>What the screen decided. Kind None means it was closed.</summary>
         public LaunchPlan Plan => IsClosed ? default : _view.Plan;
         internal ClientSessionCoordinator SessionCoordinator => _view.Online.Flow;
+        internal bool WaitingForContinuation => _waitingForContinuation;
         public bool IsClosed { get; private set; }
         public event EventHandler? LaunchRequested;
-        public void Resume(MatchRunResult? result)
+        internal event EventHandler? GameHostPrewarmRequested;
+        internal event EventHandler? ResultsCloseRequested;
+        internal event EventHandler? TransitionReturnToLobbyRequested;
+        /// <summary>
+        /// Raised when an automatic next-match handoff has finished and the
+        /// shell may take focus. GuiLauncher routes this through the single
+        /// desktop presentation coordinator.
+        /// </summary>
+        internal event EventHandler? ShellReadyForTransition;
+
+        public void Resume(MatchRunResult? result, bool activate = true)
         {
             _view.Reset();
             if (result != null) _view.ShowMatchOutcome(result);
             _waitingForContinuation = result?.Reason == MatchExitReason.Completed
                 && NodeSessions.Current?.State is { Handoff: { } handoff, MatchEnded: false }
                 && handoff.MatchId != result.MatchId;
-            if (!_waitingForContinuation) { CloseResults(); Show(); }
             _view.Activate();
-            _view.SetMenuInputEnabled(!_waitingForContinuation);
-            if (!_waitingForContinuation) Activate();
+            _view.SetMenuInputEnabled(result == null && !_waitingForContinuation);
+            if (result == null)
+            {
+                Show();
+                if (activate) Activate();
+            }
+            if (_view.Play.State.Lobby != null)
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (!IsClosed && _view.Play.State.Lobby != null)
+                        GameHostPrewarmRequested?.Invoke(this, EventArgs.Empty);
+                }, DispatcherPriority.Background);
         }
 
-        internal MatchResultsPresentationResult PresentResults(MatchResultsSnapshot? results, Func<bool> pump)
+        /// <summary>Shows the shell without taking native focus.</summary>
+        internal void ShowForPreparation()
+        {
+            if (IsClosed) return;
+            if (_results != null) _results.Topmost = false;
+            Topmost = true;
+            Show();
+        }
+
+        /// <summary>Hides the shell and releases its controller focus.</summary>
+        internal void HideForTransition()
+        {
+            if (IsClosed) return;
+            _view.Deactivate();
+            Hide();
+            Topmost = false;
+        }
+
+        /// <summary>Takes native focus after the shell has been prepared.</summary>
+        internal void ActivateForTransition()
+        {
+            if (IsClosed) return;
+            _view.Activate();
+            _view.SetMenuInputEnabled(true);
+            Activate();
+            Topmost = false;
+        }
+
+        internal void ShowMatchTransition(MatchTransitionState state)
+        {
+            if (IsClosed) return;
+            Topmost = true;
+            _view.SetMenuInputEnabled(false);
+            _view.ShowMatchTransition(state);
+        }
+
+        internal void UpdateMatchTransition(MatchTransitionState state)
+            => _view.UpdateMatchTransition(state);
+
+        internal void FailMatchTransition(string message)
+        {
+            if (IsClosed) return;
+            ShowForPreparation();
+            _view.FailMatchTransition(message);
+            // Failure is an interactive modal state. The underlying shell is
+            // still isolated by modal navigation, while controller polling is
+            // required for the only recovery action.
+            _view.SetMenuInputEnabled(true);
+        }
+
+        internal void CloseMatchTransition() => _view.CloseMatchTransition();
+
+        internal void ShowContinuationTransition(MatchTransitionState state)
+            => _results?.EnterContinuationLoading(state);
+
+        internal void UpdateContinuationTransition(MatchTransitionState state)
+            => _results?.UpdateContinuationLoading(state);
+
+        internal void HideResultsForTransition()
+        {
+            if (_results == null) return;
+            _results.UserCloseRequested -= ResultsWindowCloseRequested;
+            if (!_results.CompleteContinuation()) _results.CloseForTransition();
+            _results = null;
+        }
+
+        internal void ShowResultsForTransition() => _results?.ShowForTransition();
+
+        internal MatchResultsPresentationResult PresentResults(MatchResultsSnapshot? results,
+            Func<bool> pump, Action resultsVisible,
+            Action<MatchTransitionState> continuationSelected)
         {
             Guid? completed = AuthoritativePlay.Current?.NodeMatchId ?? NodeSessions.Current?.State.JoinedMatchId;
             if (!completed.HasValue) return new();
             PauseMenuWindow.CloseIfOpen();
-            _results = new PostMatchWindow(_view.Play, completed.Value, results);
-            _results.Wait(pump);
-            return new(_results.Transition == PostMatchTransition.Quit, _results.Failure);
+            var resultsWindow = new PostMatchWindow(_view.Play, completed.Value, results);
+            _results = resultsWindow;
+            resultsWindow.UserCloseRequested += ResultsWindowCloseRequested;
+            resultsWindow.Wait(pump, resultsVisible,
+                () => continuationSelected(ContinuationState()));
+            return new(resultsWindow.Transition == PostMatchTransition.Quit,
+                resultsWindow.Failure);
+        }
+
+        private MatchTransitionState ContinuationState()
+        {
+            NodeControlClient.ViewState? state = _view.Play.State.Node;
+            LobbyVoteEntry? resolved = state?.Round?.ResolvedOption;
+            return new MatchTransitionState(MatchTransitionStage.LoadingNextRound,
+                Map: resolved?.MapKey ?? state?.Lobby?.MapKey,
+                Mode: (resolved?.Mode ?? state?.Lobby?.Mode)?.ToString(),
+                Hunter: state?.Handoff?.Hunter.ToString(),
+                Detail: "Preparing the selected arena and frozen roster.");
         }
 
         private void CloseResults()
         {
-            _results?.Close();
+            if (_results != null)
+            {
+                _results.UserCloseRequested -= ResultsWindowCloseRequested;
+                _results.CloseForTransition();
+            }
             _results = null;
         }
+
+        private void ResultsWindowCloseRequested(object? sender, EventArgs args)
+            => ResultsCloseRequested?.Invoke(this, EventArgs.Empty);
 
         public HomeWindow(MenuSettings settings, IReadOnlyList<string> rooms)
         {
@@ -64,22 +177,23 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 if (plan.Kind == LaunchKind.None) { Close(); return; }
                 _waitingForContinuation = false;
-                CloseResults();
                 _view.Deactivate();
-                Hide();
                 LaunchRequested?.Invoke(this, EventArgs.Empty);
             };
             _view.Play.Changed += (_, _) => Dispatcher.UIThread.Post(() =>
             {
-                if (!_waitingForContinuation || IsClosed) return;
+                if (IsClosed) return;
+                if (_view.Play.State.Lobby != null)
+                    GameHostPrewarmRequested?.Invoke(this, EventArgs.Empty);
+                if (!_waitingForContinuation) return;
                 if (_view.Play.State.Phase != PlayPhase.Handoff && !_view.Play.State.Loading)
                 {
                     _waitingForContinuation = false;
-                    CloseResults();
-                    _view.SetMenuInputEnabled(true);
-                    Show(); Activate();
+                    ShellReadyForTransition?.Invoke(this, EventArgs.Empty);
                 }
             });
+            _view.MatchTransitionReturnToLobbyRequested += (_, _) =>
+                TransitionReturnToLobbyRequested?.Invoke(this, EventArgs.Empty);
             Closed += (_, _) => { IsClosed = true; CloseResults(); };
             Closed += (_, _) => _ = _view.DisposeAsync().AsTask();
 

@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Identity;
 using MphRead.Mods.Accounts;
+using MphRead.Mods;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Network;
 
@@ -101,6 +102,11 @@ public sealed class GatewayController : IAsyncDisposable
     private GatewayState _state = GatewayState.Initial;
     private long _generation;
     private int _disposed;
+    // Register and confirmation are non-idempotent account operations. A
+    // second click must wait for the first request's result rather than
+    // advancing the generation and making the first request stale.
+    private int _registrationInFlight;
+    private int _confirmationInFlight;
 
     public GatewayController(PrimeShellState shell,
         Func<CancellationToken, Task<IPrimeGatewayAccount>>? resolve = null)
@@ -234,11 +240,16 @@ public sealed class GatewayController : IAsyncDisposable
     public async Task<AccountRegistration?> RegisterAsync(string email, string password,
         string displayName, CancellationToken cancellationToken = default)
     {
-        string normalizedEmail = NormalizeEmail(email);
-        long generation = BeginTransition();
-        await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
+        if (Interlocked.CompareExchange(ref _registrationInFlight, 1, 0) != 0)
+            return null;
+        bool entered = false;
+        long generation = 0;
         try
         {
+            string normalizedEmail = NormalizeEmail(email);
+            generation = BeginTransition();
+            await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
+            entered = true;
             ThrowIfDisposed();
             if (!CanCommit(generation, cancellationToken)) return null;
             SetState(_state with { Phase = GatewayPhase.Registering, Message = "Creating account…" });
@@ -261,21 +272,31 @@ public sealed class GatewayController : IAsyncDisposable
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception error)
         {
-            if (CanCommit(generation, cancellationToken)) Fail("Account creation", error);
+            if (generation != 0 && CanCommit(generation, cancellationToken))
+                Fail("Account creation", error);
             return null;
         }
-        finally { _transition.Release(); }
+        finally
+        {
+            if (entered) _transition.Release();
+            Volatile.Write(ref _registrationInFlight, 0);
+        }
     }
 
     public async Task<bool> ConfirmPendingAsync(string code,
         CancellationToken cancellationToken = default)
     {
-        PendingRegistration pending = PendingRegistration
-            ?? throw new InvalidOperationException("No email confirmation is pending.");
-        long generation = BeginTransition();
-        await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
+        if (Interlocked.CompareExchange(ref _confirmationInFlight, 1, 0) != 0)
+            return false;
+        bool entered = false;
+        long generation = 0;
         try
         {
+            PendingRegistration pending = PendingRegistration
+                ?? throw new InvalidOperationException("No email confirmation is pending.");
+            generation = BeginTransition();
+            await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
+            entered = true;
             ThrowIfDisposed();
             if (!CanCommit(generation, cancellationToken)
                 || PendingRegistration != pending) return false;
@@ -296,10 +317,15 @@ public sealed class GatewayController : IAsyncDisposable
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception error)
         {
-            if (CanCommit(generation, cancellationToken)) Fail("Email confirmation", error);
+            if (generation != 0 && CanCommit(generation, cancellationToken))
+                Fail("Email confirmation", error);
             return false;
         }
-        finally { _transition.Release(); }
+        finally
+        {
+            if (entered) _transition.Release();
+            Volatile.Write(ref _confirmationInFlight, 0);
+        }
     }
 
     public async Task<bool> ResendPendingAsync(
@@ -438,6 +464,7 @@ public sealed class GatewayController : IAsyncDisposable
             throw new ArgumentException("Use an HTTPS Backend address or HTTP on loopback for local testing.", nameof(backend));
         long generation = BeginTransition();
         await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
+        bool identityCleared = false;
         try
         {
             ThrowIfDisposed();
@@ -453,6 +480,7 @@ public sealed class GatewayController : IAsyncDisposable
             PendingRegistration = null;
             _shell.ClearIdentity();
             _shell.SetBackendStatus(false);
+            identityCleared = true;
             if (previousAccount != null)
                 await previousAccount.DisposeAsync().ConfigureAwait(false);
             // A queued auth transition may supersede the generation, but it
@@ -469,6 +497,26 @@ public sealed class GatewayController : IAsyncDisposable
             SetState(GatewayState.Initial with { Message = "Backend saved. Sign in or choose explicit Guest access." });
             IdentityChanged?.Invoke(this, EventArgs.Empty);
             return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            if (identityCleared && IsCurrentGeneration(generation))
+                SetBackendFailure("Backend change canceled. Sign in or choose explicit Guest access.",
+                    notifyIdentity: true);
+            throw;
+        }
+        catch (Exception error)
+        {
+            // Account disposal is part of the replacement boundary. If it
+            // fails, the old adapter is no longer safe to reuse, so leave the
+            // shell explicitly signed out and keep the previous preference
+            // untouched. A later explicit sign-in can resolve a fresh adapter.
+            if (identityCleared && IsCurrentGeneration(generation))
+                SetBackendFailure("The account service could not be changed. Try again.",
+                    notifyIdentity: true, error);
+            else if (CanCommit(generation, cancellationToken))
+                Fail("Backend change", error);
+            return false;
         }
         finally { _transition.Release(); }
     }
@@ -645,6 +693,10 @@ public sealed class GatewayController : IAsyncDisposable
             && Volatile.Read(ref _disposed) == 0
             && Volatile.Read(ref _generation) == generation;
 
+    private bool IsCurrentGeneration(long generation)
+        => Volatile.Read(ref _disposed) == 0
+            && Volatile.Read(ref _generation) == generation;
+
     private static string NormalizeEmail(string email)
     {
         if (String.IsNullOrWhiteSpace(email))
@@ -660,9 +712,39 @@ public sealed class GatewayController : IAsyncDisposable
 
     private void Fail(string operation, Exception error)
     {
-        string message = error.Message.Length > 0 ? error.Message : $"{operation} failed.";
+        DebugLog.Line("gateway", $"{operation} failed ({error.GetType().Name}).");
+        string message = operation switch
+        {
+            "Account creation" => "Could not complete that request. Check your details and try again.",
+            "Sign in" => "Sign in could not be completed. Check your details and try again.",
+            "Email confirmation" => "Email confirmation could not be completed. Check the code and try again.",
+            "Resending confirmation" => "A new confirmation code could not be sent. Try again.",
+            "Guest access" => "Guest access could not be selected. Try again.",
+            "Sign out" => "Sign out could not be completed. Try again.",
+            "Profile update" => "Your profile could not be updated. Check your details and try again.",
+            "Session restore" => "Your saved session could not be restored. Sign in or choose Guest access.",
+            "Backend change" => "The account service could not be changed. Try again.",
+            _ => "Could not complete that request. Try again."
+        };
         SetState(_state with { Phase = GatewayPhase.Failed, Message = message });
         _shell.Notify(PrimeNotificationKind.Error, message);
+    }
+
+    private void SetBackendFailure(string message, bool notifyIdentity,
+        Exception? error = null)
+    {
+        if (error != null)
+        {
+            DebugLog.Line("gateway", "Backend replacement could not release the previous "
+                + $"account ({error.GetType().Name}).");
+        }
+        SetState(GatewayState.Initial with
+        {
+            Phase = GatewayPhase.Failed,
+            Message = message
+        });
+        _shell.Notify(PrimeNotificationKind.Error, message);
+        if (notifyIdentity) IdentityChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);

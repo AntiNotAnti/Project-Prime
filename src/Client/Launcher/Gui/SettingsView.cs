@@ -94,6 +94,9 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly bool? _captureGyroSupported;
         private readonly bool? _captureAdvancedControllerExpanded;
         private readonly SettingsIdentityContext _identity;
+        private readonly InputSettings.Snapshot _inputSnapshot;
+        private bool _inputSnapshotCompleted;
+        private bool _closed;
         private bool _observingControllerCapabilities;
         private bool _disposed;
         private readonly StackPanel _rail = new() { Spacing = 2 };
@@ -267,6 +270,7 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow? _stylusAiming, _stylusInvertY, _stylusClassicGestures,
             _stylusDoubleTapJump, _stylusFlickBoost, _stylusPressureToFire;
         private SliderRow? _stylusSensitivity, _stylusPressureThreshold;
+        private bool _mouseSensitivityEdited, _stylusSensitivityEdited;
         private ChoiceRow? _stylusPrimary, _stylusSecondary;
         private FieldRow _playerName = null!;
         private ChoiceRow _hunterRow = null!;
@@ -374,6 +378,8 @@ namespace MphRead.Mods.Launcher.Gui
             _captureGyroSupported = captureGyroSupported;
             _captureAdvancedControllerExpanded = captureAdvancedControllerExpanded;
             _identity = identity ?? SettingsIdentityContext.SignedOut;
+            _inputSnapshot = InputSettings.CaptureSnapshot();
+            DetachedFromVisualTree += (_, _) => CompleteInputSnapshot();
 
             Background = GuiTheme.InkBrush;
             Focusable = true;
@@ -629,6 +635,7 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             _disposed = true;
+            CompleteInputSnapshot();
             UnsubscribeControllerCapabilities();
             if (_observingUpdates)
             {
@@ -648,7 +655,23 @@ namespace MphRead.Mods.Launcher.Gui
             base.OnKeyDown(e);
         }
 
-        private void Close() => Closed?.Invoke(this, EventArgs.Empty);
+        private void Close()
+        {
+            if (_closed) return;
+            _closed = true;
+            CompleteInputSnapshot();
+            Closed?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void CompleteInputSnapshot()
+        {
+            if (_inputSnapshotCompleted) return;
+            if (!Saved) _inputSnapshot.Restore();
+            _inputSnapshotCompleted = true;
+        }
+
+        /// <summary>Test seam for the rollback path used by Cancel and Escape.</summary>
+        internal void CancelForTests() => Close();
 
         // ----------------------------------------------------------- structure
 
@@ -1647,6 +1670,7 @@ namespace MphRead.Mods.Launcher.Gui
             _sensitivity = Add(page, new SliderRow("Sensitivity",
                 SensitivityToSlider(InputSettings.MouseSensitivity),
                 v => $"{SliderToSensitivity(v).ToString("0.00", CultureInfo.InvariantCulture)}x"), SettingRowIds.MouseSensitivity);
+            _sensitivity.ValueChanged += (_, _) => _mouseSensitivityEdited = true;
             _invertY = Add(page, new ToggleRow("Invert vertical aim", InputSettings.InvertMouseY), SettingRowIds.MouseInvertY);
             _invertX = Add(page, new ToggleRow("Invert horizontal aim", InputSettings.InvertMouseX), SettingRowIds.MouseInvertX);
             _scrollAllWeapons = Add(page, new ToggleRow("Wheel cycles every weapon",
@@ -2089,6 +2113,7 @@ namespace MphRead.Mods.Launcher.Gui
             _stylusSensitivity = Add(page, new SliderRow("Sensitivity",
                 LookToSlider(InputSettings.StylusSensitivity),
                 v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"), SettingRowIds.StylusSensitivity);
+            _stylusSensitivity.ValueChanged += (_, _) => _stylusSensitivityEdited = true;
             Add(page, new StylusTurnPreview(
                 () => SliderToLook(_stylusSensitivity.Value)));
             _stylusInvertY = Add(page, new ToggleRow("Invert vertical aim",
@@ -2624,7 +2649,8 @@ namespace MphRead.Mods.Launcher.Gui
                 ? null : _musicPacks[_musicPackRow.Index - 1].Identity;
             _settings.Language = _languageRow.Value;
             // Controls
-            InputSettings.MouseSensitivity = SliderToSensitivity(_sensitivity.Value);
+            if (_mouseSensitivityEdited)
+                InputSettings.MouseSensitivity = SliderToSensitivity(_sensitivity.Value);
             InputSettings.InvertMouseY = _invertY.On;
             InputSettings.InvertMouseX = _invertX.On;
             InputSettings.ScrollAllWeapons = _scrollAllWeapons.On;
@@ -2658,7 +2684,8 @@ namespace MphRead.Mods.Launcher.Gui
             if (_stylusAiming != null)
             {
                 InputSettings.StylusAimingEnabled = _stylusAiming.On;
-                InputSettings.StylusSensitivity = SliderToLook(_stylusSensitivity!.Value);
+                if (_stylusSensitivityEdited)
+                    InputSettings.StylusSensitivity = SliderToLook(_stylusSensitivity!.Value);
                 InputSettings.StylusInvertY = _stylusInvertY!.On;
                 InputSettings.StylusPrimaryAction = (Mods.Input.StylusAction)_stylusPrimary!.Index;
                 InputSettings.StylusSecondaryAction = (Mods.Input.StylusAction)_stylusSecondary!.Index;

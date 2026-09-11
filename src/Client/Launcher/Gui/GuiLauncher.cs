@@ -163,6 +163,9 @@ namespace MphRead.Mods.Launcher.Gui
             // MatchStart consumes only the per-round scene on a supplied host.
             SdlGameHost? persistentHost = null;
             var coordinator = new ClientSessionCoordinator();
+            var presentationCoordinator = new DesktopTransitionCoordinator(
+                new DesktopTransitionSurface(() => persistentWindow,
+                    () => persistentHost, Pump));
             MatchRunResult? lastResult = null;
             try
             {
@@ -193,9 +196,38 @@ namespace MphRead.Mods.Launcher.Gui
                     if (ClassicUi) plan = AskClassic(settings, rooms);
                     else
                     {
-                        persistentWindow ??= new HomeWindow(settings, rooms);
+                        if (persistentWindow == null)
+                        {
+                            persistentWindow = new HomeWindow(settings, rooms);
+                            persistentWindow.ResultsCloseRequested += (_, _) =>
+                            {
+                                persistentHost?.Close();
+                                if (!persistentWindow.IsClosed) persistentWindow.Close();
+                            };
+                        }
                         coordinator = persistentWindow.SessionCoordinator;
-                        plan = Ask(persistentWindow, lastResult);
+                        plan = Ask(persistentWindow, lastResult, presentationCoordinator,
+                            () => persistentHost,
+                            () =>
+                            {
+                                if (persistentHost != null || persistentWindow.IsClosed) return;
+                                try
+                                {
+                                    persistentHost = new SdlGameHost(showWindow: false);
+                                    persistentHost.SetInitialPosition(
+                                        new OpenTK.Mathematics.Vector2i(
+                                            persistentWindow.Position.X,
+                                            persistentWindow.Position.Y));
+                                    DebugLog.Line("transition",
+                                        "prewarmed persistent SDL/GPU host");
+                                }
+                                catch (Exception ex)
+                                {
+                                    // Prewarming is opportunistic. A later match
+                                    // launch performs the normal surfaced retry.
+                                    DebugLog.Exception("transition-prewarm", ex);
+                                }
+                            });
                     }
                     if (plan.Kind == LaunchKind.None)
                     {
@@ -206,16 +238,83 @@ namespace MphRead.Mods.Launcher.Gui
                     try
                     {
                         coordinator.BeginLaunch();
-                        if (!ClassicUi) persistentHost ??= new SdlGameHost(showWindow: false);
+                        ulong transitionGeneration = 0;
+                        Action<ulong>? firstFramePresented = null;
+                        Action<ulong>? windowPrepared = null;
+                        Action<MatchLoadStatus>? progress = null;
+                        if (!ClassicUi)
+                        {
+                            MatchTransitionState preparing = TransitionState(plan,
+                                presentationCoordinator.State
+                                    == DesktopTransitionState.PreparingContinuation
+                                    ? MatchTransitionStage.LoadingNextRound
+                                    : MatchTransitionStage.Preparing,
+                                "Preparing the match request.");
+                            transitionGeneration = presentationCoordinator.State
+                                == DesktopTransitionState.PreparingContinuation
+                                ? presentationCoordinator.BeginContinuation(preparing)
+                                : presentationCoordinator.BeginMatchLaunch(preparing);
+                            ulong generation = transitionGeneration;
+                            firstFramePresented = generation =>
+                                presentationCoordinator.GameFirstFramePresented(generation);
+                            windowPrepared = preparedGeneration =>
+                            {
+                                presentationCoordinator.UpdateLoading(preparedGeneration,
+                                    TransitionState(plan, MatchTransitionStage.EnteringMatch,
+                                        "The arena is ready. Presenting the first frame."));
+                                Pump();
+                                if (persistentWindow?.IsClosed == true)
+                                    persistentHost?.Close();
+                                else
+                                    presentationCoordinator.GameWindowPrepared(preparedGeneration);
+                            };
+                            progress = status =>
+                            {
+                                MatchTransitionStage stage = status.Stage
+                                    == MatchTransitionStage.Preparing
+                                    && presentationCoordinator.State
+                                        == DesktopTransitionState.PreparingContinuation
+                                    ? MatchTransitionStage.LoadingNextRound
+                                    : status.Stage;
+                                presentationCoordinator.UpdateLoading(generation,
+                                    TransitionState(plan, stage, status.Detail,
+                                        status.MapName));
+                                Pump();
+                                if (persistentWindow?.IsClosed == true)
+                                    persistentHost?.Close();
+                            };
+                        }
+                        if (!ClassicUi && persistentHost == null)
+                        {
+                            persistentHost = new SdlGameHost(showWindow: false);
+                            if (persistentWindow != null)
+                                persistentHost.SetInitialPosition(new OpenTK.Mathematics.Vector2i(
+                                    persistentWindow.Position.X, persistentWindow.Position.Y));
+                        }
+                        if (persistentWindow?.IsClosed == true)
+                            persistentHost?.Close();
+                        Func<MatchResultsSnapshot?, Func<bool>, MatchResultsPresentationResult>?
+                            presentResults = persistentWindow == null ? null : (results, pump) =>
+                                persistentWindow.PresentResults(results, pump,
+                                    presentationCoordinator.BeginResults,
+                                    state => { presentationCoordinator.BeginContinuation(state); });
                         lastResult = MatchStart.Run(settings, plan, coordinator.NotifyMatchStarted,
-                            persistentWindow == null ? null : (results, pump) =>
-                                persistentWindow.PresentResults(results, pump), persistentHost);
+                            presentResults,
+                            persistentHost, transitionGeneration, firstFramePresented,
+                            progress, windowPrepared);
+                        if (!ClassicUi && lastResult.Reason is MatchExitReason.FailedToStart
+                            or MatchExitReason.ClientError)
+                            presentationCoordinator.FailLaunch(transitionGeneration,
+                                lastResult.Message);
                         coordinator.NotifyMatchEnded(lastResult);
                     }
                     catch (Exception ex)
                     {
                         DebugLog.Exception("match", ex);
                         lastResult = new MatchRunResult(MatchExitReason.FailedToStart, Message: ex.Message);
+                        if (!ClassicUi)
+                            presentationCoordinator.FailLaunch(
+                                presentationCoordinator.CurrentGeneration, ex.Message);
                         coordinator.NotifyMatchEnded(lastResult);
                     }
                     finally
@@ -234,7 +333,13 @@ namespace MphRead.Mods.Launcher.Gui
                     }
                 }
             }
-            finally { persistentHost?.Dispose(); coordinator.Quit(); if (persistentWindow is { IsClosed: false }) persistentWindow.Close(); }
+            finally
+            {
+                presentationCoordinator.Close();
+                persistentHost?.Dispose();
+                coordinator.Quit();
+                if (persistentWindow is { IsClosed: false }) persistentWindow.Close();
+            }
         }
 
         /// <summary>
@@ -244,21 +349,66 @@ namespace MphRead.Mods.Launcher.Gui
         /// loop ends on launch or application close. Match return reactivates
         /// the same window and shell on the same toolkit.
         /// </summary>
-        private static LaunchPlan Ask(HomeWindow window, MatchRunResult? result)
+        private static LaunchPlan Ask(HomeWindow window, MatchRunResult? result,
+            DesktopTransitionCoordinator presentationCoordinator,
+            Func<SdlGameHost?> gameHost,
+            Action prewarmGameHost)
         {
             var frame = new DispatcherFrame();
+            var sdlPump = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(33)
+            };
             void Done(object? sender, EventArgs args) => frame.Continue = false;
+            void ShellReady(object? sender, EventArgs args)
+                => presentationCoordinator.BeginReturnToShell();
+            void ReturnFromFailure(object? sender, EventArgs args)
+                => presentationCoordinator.CompleteFailedReturn();
+            void PrewarmGameHost(object? sender, EventArgs args)
+                => prewarmGameHost();
+            void PumpSdlInput(object? sender, EventArgs args)
+            {
+                SdlGameHost? host = gameHost();
+                if (host != null && !host.PumpShellEvents() && !window.IsClosed)
+                    window.Close();
+            }
             window.Closed += Done;
             window.LaunchRequested += Done;
+            window.ShellReadyForTransition += ShellReady;
+            window.TransitionReturnToLobbyRequested += ReturnFromFailure;
+            window.GameHostPrewarmRequested += PrewarmGameHost;
+            sdlPump.Tick += PumpSdlInput;
+            sdlPump.Start();
             try
             {
-                window.Resume(result);
+                // Prepare the returned shell first; the coordinator performs
+                // the target-first hide/focus ordering once the dispatcher is
+                // ready. The initial visit remains the active native window.
+                window.Resume(result, activate: result == null);
+                if (result != null && !window.WaitingForContinuation)
+                    presentationCoordinator.BeginReturnToShell();
                 Dispatcher.UIThread.PushFrame(frame);
                 Pump();
                 return window.Plan;
             }
-            finally { window.Closed -= Done; window.LaunchRequested -= Done; }
+            finally
+            {
+                window.Closed -= Done;
+                window.LaunchRequested -= Done;
+                window.ShellReadyForTransition -= ShellReady;
+                window.TransitionReturnToLobbyRequested -= ReturnFromFailure;
+                window.GameHostPrewarmRequested -= PrewarmGameHost;
+                sdlPump.Stop();
+                sdlPump.Tick -= PumpSdlInput;
+            }
         }
+
+        private static MatchTransitionState TransitionState(LaunchPlan plan,
+            MatchTransitionStage stage, string? detail, string? mapName = null)
+            => new(stage,
+                Map: String.IsNullOrWhiteSpace(mapName) ? plan.RoomKey : mapName,
+                Mode: plan.Mode.ToString(), Hunter: plan.Hunter.ToString(),
+                Detail: detail);
 
         private static LaunchPlan AskClassic(MenuSettings settings, IReadOnlyList<string> rooms)
         {

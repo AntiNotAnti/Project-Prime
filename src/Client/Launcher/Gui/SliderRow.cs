@@ -1,9 +1,11 @@
 using System;
 using System.Globalization;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using MphRead.Mods.Launcher.Theme;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -49,9 +51,11 @@ namespace MphRead.Mods.Launcher.Gui
             _keyStep = Math.Max(1, keyStep);
             _value = Math.Clamp(value, _min, _max);
             _format = format ?? (v => $"{v.ToString(CultureInfo.InvariantCulture)}%");
-            Height = 34;
+            Height = PrimeTouchTargets.MinimumDip;
             Focusable = true;
             Cursor = new Cursor(StandardCursorType.Hand);
+            PrimeAccessibility.SetName(this, label);
+            AutomationProperties.SetItemStatus(this, _format(_value));
         }
 
         public int Value
@@ -63,6 +67,7 @@ namespace MphRead.Mods.Launcher.Gui
                 if (clamped != _value)
                 {
                     _value = clamped;
+                    AutomationProperties.SetItemStatus(this, _format(_value));
                     InvalidateVisual();
                     ValueChanged?.Invoke(this, EventArgs.Empty);
                 }
@@ -117,7 +122,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             Focus();
             Point p = e.GetPosition(this);
-            if (p.X >= Track.X && IsEnabled)
+            if (CanStartDrag(p))
             {
                 _dragging = true;
                 // Captured so a drag that leaves the row keeps moving the
@@ -128,6 +133,9 @@ namespace MphRead.Mods.Launcher.Gui
             }
             base.OnPointerPressed(e);
         }
+
+        internal bool CanStartDrag(Point point)
+            => IsEnabled && Track.Contains(point);
 
         protected override void OnPointerMoved(PointerEventArgs e)
         {

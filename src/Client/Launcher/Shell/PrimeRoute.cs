@@ -12,6 +12,7 @@ public enum PrimeRoute
 {
     Gateway,
     Play,
+    Maps,
     Hunter,
     Theatre,
     Rankings,
@@ -28,6 +29,7 @@ public static class PrimeRouteInfo
         new[]
         {
             PrimeRoute.Play,
+            PrimeRoute.Maps,
             PrimeRoute.Hunter,
             PrimeRoute.Rankings,
             PrimeRoute.Theatre
@@ -44,6 +46,7 @@ public static class PrimeRouteInfo
     {
         PrimeRoute.Gateway => "Gateway",
         PrimeRoute.Play => "Play",
+        PrimeRoute.Maps => "Maps",
         PrimeRoute.Hunter => "Hunter",
         PrimeRoute.HunterLicense => "Hunter",
         PrimeRoute.Armory => "Hunter",
@@ -65,7 +68,7 @@ public static class PrimeRouteInfo
     };
 
     public static bool IsAuthenticated(PrimeRoute route)
-        => route is PrimeRoute.Play or PrimeRoute.Hunter or PrimeRoute.HunterLicense
+        => route is PrimeRoute.Play or PrimeRoute.Maps or PrimeRoute.Hunter or PrimeRoute.HunterLicense
             or PrimeRoute.Armory or PrimeRoute.Theatre or PrimeRoute.Rankings
             or PrimeRoute.Settings;
 

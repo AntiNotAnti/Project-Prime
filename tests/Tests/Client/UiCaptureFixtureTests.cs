@@ -58,10 +58,14 @@ public sealed class UiCaptureFixtureTests
         "gateway-error", "gateway-guest",
         "play-home", "play-finding", "play-empty", "play-browser", "play-browser-full",
         "play-network-error", "play-advanced-network",
+        "maps-default",
+        "host-wide", "host-compact", "host-mobile",
         "lobby-owner-team", "lobby-owner-ffa", "lobby-ffa", "lobby-team-selector",
         "lobby-member-team", "lobby-observer",
         "lobby-full", "lobby-waitlist", "lobby-seat-offer", "lobby-chat",
         "lobby-disconnected", "lobby-handoff-failure", "lobby-postmatch",
+        "lobby-owner-ffa-wide", "lobby-owner-team-wide", "lobby-member-wide",
+        "lobby-observer-wide", "lobby-waitlist-wide", "lobby-chat-wide", "lobby-mobile",
         "results-ffa", "results-team", "results-ballot", "results-voted", "results-resolved",
         "results-no-authoritative-result",
         "settings-gameplay", "settings-controls", "controls-gamepad", "controls-mobile",
@@ -104,7 +108,7 @@ public sealed class UiCaptureFixtureTests
             UiCapture.PlannedButUnavailableFixtures.ToArray());
         Assert.Empty(RequiredFixtureNames.Intersect(UnavailableFixtureNames,
             StringComparer.OrdinalIgnoreCase));
-        Assert.Equal(67, RequiredFixtureNames.Length + UnavailableFixtureNames.Length);
+        Assert.Equal(78, RequiredFixtureNames.Length + UnavailableFixtureNames.Length);
         Assert.Equal(RequiredFixtureNames.Length * sizes.Length,
             UiCapture.FixtureDefinitions.Count * sizes.Length);
         Assert.Equal(UiCapture.FixtureDefinitions.Count,
@@ -188,6 +192,83 @@ public sealed class UiCaptureFixtureTests
             DisposeView(overview);
         }
     }
+
+    [AvaloniaFact]
+    public void WidePlayFixturesKeepInitialActionsInsideTheRealShellViewport()
+    {
+        foreach (string fixtureName in new[] { "host-wide", "lobby-owner-team-wide",
+            "lobby-member-wide", "lobby-chat-wide" })
+        {
+            Control view = UiCapture.BuildFixture(fixtureName, new MenuSettings(),
+                new[] { "MP3 PROVING GROUND" });
+            var window = new Window { Width = 1280, Height = 720, Content = view };
+            try
+            {
+                window.Show();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                PrimePlayResponsivePanel layout = Assert.Single(view
+                    .GetVisualDescendants().OfType<PrimePlayResponsivePanel>());
+                Assert.Equal(PrimeContentLayout.Wide, layout.Layout);
+                ScrollViewer pageScroller = Assert.Single(view
+                    .GetVisualDescendants().OfType<ScrollViewer>(),
+                    scroller => scroller.Name == "PageScroller");
+                Assert.Equal(0, pageScroller.Offset.Y);
+                Assert.True(pageScroller.Extent.Height <= pageScroller.Viewport.Height + 1,
+                    $"{fixtureName}: route still requires scrolling "
+                    + $"({pageScroller.Extent} vs {pageScroller.Viewport}); children "
+                    + String.Join("; ", layout.Children.Select(child =>
+                        $"{PrimePlayResponsivePanel.GetLane(child)}:{child.GetType().Name}={child.Bounds}")));
+                Rect viewport = new(pageScroller.Viewport);
+
+                IEnumerable<Control> required = fixtureName == "host-wide"
+                    ? layout.GetVisualDescendants().OfType<Control>()
+                        .Where(control => control is TextBox { Watermark: not null }
+                            || control is ComboBox
+                            || control is PrimeButton button
+                                && Equals(button.Content, "Create Match"))
+                    : view.GetVisualDescendants().OfType<Control>()
+                        .Where(control => control is LobbyChatPanel
+                            || control is ComboBox
+                            || control is PrimePreviewStage
+                            || control is PrimeButton button
+                                && (Equals(button.Content, "Ready")
+                                    || Equals(button.Content, "Start Match")
+                                    || Equals(button.Content, "Edit Match"))
+                            || control is ScrollViewer scroll
+                                && scroll.Classes.Contains("prime-roster-scroll"));
+                Control[] targets = required.ToArray();
+                Assert.NotEmpty(targets);
+                foreach (Control target in targets)
+                {
+                    Assert.True(target.IsEffectivelyVisible,
+                        $"{fixtureName}: {Describe(target)} is not effectively visible.");
+                    Point? origin = target.TranslatePoint(default, pageScroller);
+                    Assert.True(origin.HasValue,
+                        $"{fixtureName}: could not resolve {target.GetType().Name} bounds.");
+                    Rect bounds = new(origin!.Value, target.Bounds.Size);
+                    Assert.True(bounds.Left >= viewport.Left - 1
+                        && bounds.Top >= viewport.Top - 1
+                        && bounds.Right <= viewport.Right + 1
+                        && bounds.Bottom <= viewport.Bottom + 1,
+                        $"{fixtureName}: {Describe(target)} is outside PageScroller "
+                        + $"({bounds}, layout {layout.Bounds}, viewport {viewport}).");
+                }
+            }
+            finally
+            {
+                window.Close();
+                DisposeView(view);
+            }
+        }
+    }
+
+    private static string Describe(Control control)
+        => control switch
+        {
+            TextBox textBox => $"TextBox '{textBox.Watermark}'",
+            PrimeButton button => $"PrimeButton '{button.Content}'",
+            _ => control.GetType().Name
+        };
 
     [AvaloniaFact]
     public void RankingsMobileFixtureUsesRankingDataAndResponsiveMobileLayout()

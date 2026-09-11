@@ -369,9 +369,390 @@ public sealed class PlayPresentationTests
         }
     }
 
+    [AvaloniaFact]
+    public async Task HostResponsiveTreeRetainsEditorsDraftAndActionsAcrossLayouts()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            controller.SetCaptureMapCatalog(new[] { "MP1 SANCTORUS", "MP3 PROVING GROUND" });
+            var ui = new PlayPresentationState { Subsection = PlaySubsection.HostMatch };
+            ui.HostDraft.MapKey = "MP1 SANCTORUS";
+            ui.HostDraft.BotCount = 7;
+            ui.HostDraft.TimeLimitText = "10:00";
+            ui.SetChatDraft("Unsent lobby note");
+            int actions = 0;
+            int previewBuilds = 0;
+            Control view = PlayPresentation.Build(Context(shell, controller, lobby: null,
+                run: (_, _) => actions++, ui: ui,
+                buildPreview: (_, height, _) =>
+                {
+                    previewBuilds++;
+                    return new Border { Height = height };
+                }));
+            PrimePlayResponsivePanel layout = Assert.IsType<PrimePlayResponsivePanel>(view);
+            var window = new Window { Width = 1280, Height = 720, Content = view };
+            try
+            {
+                window.Show();
+                layout.ApplyLayout(1280);
+                TextBox name = Assert.Single(view.GetVisualDescendants().OfType<TextBox>(),
+                    editor => Equals(editor.Watermark, "Lobby name"));
+                ComboBox players = FieldEditor<ComboBox>(view, "Player seats");
+                ComboBox bots = FieldEditor<ComboBox>(view, "Bots");
+                name.Text = "Competitive Test";
+                players.SelectedItem = 2;
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+                Assert.Equal(1, ui.HostDraft.BotCount);
+                Assert.Equal(2, bots.ItemsSource!.Cast<object>().Count());
+                Assert.Equal(1, bots.SelectedItem);
+                int initialTransitions = layout.LayoutTransitionCount;
+
+                layout.ApplyLayout(1300);
+                Assert.Equal(initialTransitions, layout.LayoutTransitionCount);
+                layout.ApplyLayout(1000);
+                Assert.Equal(PrimeContentLayout.Compact, layout.Layout);
+                layout.ApplyLayout(560);
+                Assert.Equal(PrimeContentLayout.Mobile, layout.Layout);
+                layout.ApplyLayout(1280);
+                Assert.Equal(PrimeContentLayout.Wide, layout.Layout);
+
+                Assert.Equal("Competitive Test", ui.HostDraft.Name);
+                Assert.Equal("MP1 SANCTORUS", ui.HostDraft.MapKey);
+                Assert.Equal("10:00", ui.HostDraft.TimeLimitText);
+                Assert.Equal("Unsent lobby note", ui.ChatDraft);
+                Assert.Same(name, Assert.Single(view.GetVisualDescendants().OfType<TextBox>(),
+                    editor => Equals(editor.Watermark, "Lobby name")));
+                Assert.Equal(0, actions);
+                Assert.Equal(1, previewBuilds);
+                Assert.Contains("prime-layout-wide", layout.Classes);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task HostResponsiveTransitionKeepsFocusedStageTwoEditorAndSelection()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            controller.SetCaptureMapCatalog(new[] { "MP1 SANCTORUS" });
+            var ui = new PlayPresentationState { Subsection = PlaySubsection.HostMatch };
+            ui.HostDraft.TimeLimitText = "10:00";
+            Control view = PlayPresentation.Build(Context(shell, controller, lobby: null,
+                ui: ui));
+            PrimePlayResponsivePanel layout = Assert.IsType<PrimePlayResponsivePanel>(view);
+            var window = new Window { Width = 1280, Height = 720, Content = view };
+            try
+            {
+                window.Show();
+                Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                layout.ApplyLayout(1280);
+                TextBox time = FieldEditor<TextBox>(view, "Time limit");
+                Assert.True(time.Focus());
+                time.SelectionStart = 1;
+                time.SelectionEnd = 4;
+
+                layout.ApplyLayout(1000);
+
+                Assert.Equal(PrimeContentLayout.Compact, layout.Layout);
+                Assert.Equal(2, layout.CurrentStep);
+                Assert.Equal(2, ui.HostStep);
+                Assert.Same(time, FieldEditor<TextBox>(view, "Time limit"));
+                Assert.True(time.IsFocused);
+                Assert.True(time.IsEffectivelyVisible);
+                Assert.Equal(1, time.SelectionStart);
+                Assert.Equal(4, time.SelectionEnd);
+                WrapPanel rail = Assert.Single(layout.Children.OfType<WrapPanel>());
+                PrimeStatusChip[] steps = rail.Children.OfType<PrimeStatusChip>().ToArray();
+                Assert.Equal("✓ · Lobby seats", steps[0].Text);
+                Assert.Equal("2 · Mission and rules", steps[1].Text);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task HostResponsiveTransitionKeepsOpenStageTwoComboBox()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            controller.SetCaptureMapCatalog(new[] { "MP1 SANCTORUS", "MP3 PROVING GROUND" });
+            var ui = new PlayPresentationState { Subsection = PlaySubsection.HostMatch };
+            Control view = PlayPresentation.Build(Context(shell, controller, lobby: null,
+                ui: ui));
+            PrimePlayResponsivePanel layout = Assert.IsType<PrimePlayResponsivePanel>(view);
+            var window = new Window { Width = 1280, Height = 720, Content = view };
+            try
+            {
+                window.Show();
+                Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                layout.ApplyLayout(1280);
+                ComboBox map = FieldEditor<ComboBox>(view, "Map");
+                map.IsDropDownOpen = true;
+                Assert.True(map.IsDropDownOpen);
+
+                layout.ApplyLayout(560);
+
+                Assert.Equal(PrimeContentLayout.Mobile, layout.Layout);
+                Assert.Equal(2, ui.HostStep);
+                Assert.Same(map, FieldEditor<ComboBox>(view, "Map"));
+                Assert.True(map.IsEffectivelyVisible);
+                Assert.True(map.IsDropDownOpen);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task HeightOnlyViewportChangesResizeStableHostAndLobbyControls()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            controller.SetCaptureMapCatalog(new[] { "MP1 SANCTORUS" });
+            int actions = 0;
+            int hostPreviewBuilds = 0;
+            Control? hostPreview = null;
+            Control hostView = PlayPresentation.Build(Context(shell, controller, lobby: null,
+                run: (_, _) => actions++,
+                ui: new PlayPresentationState { Subsection = PlaySubsection.HostMatch },
+                buildPreview: (_, height, _) =>
+                {
+                    hostPreviewBuilds++;
+                    return hostPreview = new Border { Height = height };
+                }));
+            PrimePlayResponsivePanel hostLayout = Assert.IsType<PrimePlayResponsivePanel>(hostView);
+            var hostWindow = new Window { Width = 1280, Height = 720, Content = hostView };
+            try
+            {
+                hostWindow.Show();
+                hostLayout.ApplyLayout(1280);
+                int transitions = hostLayout.LayoutTransitionCount;
+                int viewportChanges = 0;
+                hostLayout.ViewportChanged += _ => viewportChanges++;
+                hostLayout.ApplyViewport(new Size(1280, 500));
+                double shortHeight = Assert.IsType<Border>(hostPreview).Height;
+                hostLayout.ApplyViewport(new Size(1280, 900));
+                double tallHeight = Assert.IsType<Border>(hostPreview).Height;
+                hostLayout.ApplyViewport(new Size(1280, 900));
+
+                Assert.True(tallHeight > shortHeight);
+                Assert.Equal(2, viewportChanges);
+                Assert.Equal(transitions, hostLayout.LayoutTransitionCount);
+                Assert.Equal(1, hostPreviewBuilds);
+                Assert.Equal(0, actions);
+            }
+            finally
+            {
+                hostWindow.Close();
+            }
+
+            int lobbyPreviewBuilds = 0;
+            Control? lobbyPreview = null;
+            LobbySnapshot lobby = Lobby(Guid.NewGuid(), MatchMode.TeamBattle,
+                team: 0, ready: false, owner: true);
+            Control lobbyView = PlayPresentation.Build(Context(shell, controller, lobby,
+                run: (_, _) => actions++, buildPreview: (_, height, _) =>
+                {
+                    lobbyPreviewBuilds++;
+                    return lobbyPreview = new Border { Height = height };
+                }));
+            PrimePlayResponsivePanel lobbyLayout = Assert.IsType<PrimePlayResponsivePanel>(lobbyView);
+            var lobbyWindow = new Window { Width = 1280, Height = 720, Content = lobbyView };
+            try
+            {
+                lobbyWindow.Show();
+                lobbyLayout.ApplyLayout(1280);
+                LobbyChatPanel chat = Assert.Single(lobbyView.GetVisualDescendants()
+                    .OfType<LobbyChatPanel>());
+                ScrollViewer roster = Assert.Single(lobbyView.GetVisualDescendants()
+                    .OfType<ScrollViewer>(), scroll =>
+                        scroll.Classes.Contains("prime-roster-scroll"));
+                int transitions = lobbyLayout.LayoutTransitionCount;
+                lobbyLayout.ApplyViewport(new Size(1280, 500));
+                double shortPreview = Assert.IsType<Border>(lobbyPreview).Height;
+                double shortRoster = roster.MaxHeight;
+                double shortChat = chat.HistoryMaxHeight;
+                lobbyLayout.ApplyViewport(new Size(1280, 900));
+
+                Assert.True(Assert.IsType<Border>(lobbyPreview).Height > shortPreview);
+                Assert.True(roster.MaxHeight > shortRoster);
+                Assert.True(chat.HistoryMaxHeight > shortChat);
+                Assert.Same(chat, Assert.Single(lobbyView.GetVisualDescendants()
+                    .OfType<LobbyChatPanel>()));
+                Assert.Same(roster, Assert.Single(lobbyView.GetVisualDescendants()
+                    .OfType<ScrollViewer>(), scroll =>
+                        scroll.Classes.Contains("prime-roster-scroll")));
+                Assert.Equal(transitions, lobbyLayout.LayoutTransitionCount);
+                Assert.Equal(1, lobbyPreviewBuilds);
+                Assert.Equal(0, actions);
+            }
+            finally
+            {
+                lobbyWindow.Close();
+            }
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task WideHostExposesTheCompleteBattleConfiguration()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            controller.SetCaptureMapCatalog(new[] { "MP1 SANCTORUS" });
+            var ui = new PlayPresentationState { Subsection = PlaySubsection.HostMatch };
+            Control view = PlayPresentation.Build(Context(shell, controller, lobby: null,
+                ui: ui));
+            PrimePlayResponsivePanel layout = Assert.IsType<PrimePlayResponsivePanel>(view);
+            var window = new Window { Width = 1280, Height = 720, Content = view };
+            try
+            {
+                window.Show();
+                layout.ApplyLayout(1280);
+                string text = VisibleText(view);
+                foreach (string required in new[]
+                {
+                    "Match name", "Map", "Mode", "Player seats", "Observer seats",
+                    "Bots", "Seat policy", "Time limit", "Score limit", "Damage level",
+                    "Friendly fire", "Affinity weapons", "Player radar"
+                })
+                    Assert.Contains(required, text, StringComparison.Ordinal);
+                PrimeButton create = Assert.Single(view.GetVisualDescendants()
+                    .OfType<PrimeButton>(), button => Equals(button.Content, "Create Match"));
+                Assert.True(create.IsVisible);
+                Assert.DoesNotContain(VisibleTextBlocks(view),
+                    item => item.Text?.Contains("Lobby seats", StringComparison.Ordinal) == true);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task LobbyResponsiveDashboardHidesIrrelevantQueueAndFfaTeamControls()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            Guid sessionId = Guid.NewGuid();
+            LobbySnapshot lobby = Lobby(sessionId, MatchMode.Battle,
+                team: 1, ready: false, owner: true);
+            var ui = new PlayPresentationState();
+            ui.SetChatDraft("Keep this draft through resize");
+            int actions = 0;
+            Control view = PlayPresentation.Build(Context(shell, controller, lobby,
+                run: (_, _) => actions++, ui: ui));
+            PrimePlayResponsivePanel layout = Assert.IsType<PrimePlayResponsivePanel>(view);
+            var window = new Window { Width = 1280, Height = 720, Content = view };
+            try
+            {
+                window.Show();
+                layout.ApplyLayout(1280);
+                string text = VisibleText(view);
+                Assert.DoesNotContain("PLAYER SEAT QUEUE", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("TEAM 1", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("TEAM 2", text, StringComparison.Ordinal);
+                Assert.DoesNotContain(view.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Team 1")
+                        || Equals(button.Content, "Team 2"));
+                Assert.Contains(view.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Ready"));
+                Assert.Contains(view.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Start Match"));
+                LobbyChatPanel chat = Assert.Single(view.GetVisualDescendants()
+                    .OfType<LobbyChatPanel>());
+                Assert.True(chat.DraftEditor.IsVisible);
+                layout.ApplyLayout(1000);
+                layout.ApplyLayout(560);
+                layout.ApplyLayout(1280);
+                Assert.Equal(PrimeContentLayout.Wide, layout.Layout);
+                Assert.Same(chat, Assert.Single(view.GetVisualDescendants()
+                    .OfType<LobbyChatPanel>()));
+                Assert.Equal("Keep this draft through resize", chat.DraftEditor.Text);
+                Assert.Equal("Keep this draft through resize", ui.ChatDraft);
+                Assert.Equal(0, actions);
+                Assert.Single(view.GetVisualDescendants().OfType<ScrollViewer>(),
+                    scroll => scroll.Classes.Contains("prime-roster-scroll"));
+            }
+            finally
+            {
+                window.Close();
+            }
+
+            var queued = new LobbyWaitlistSnapshot(1,
+                ImmutableArray.Create(new LobbyQueueEntrySummary(1, "Local Pilot",
+                    LobbyQueueEntryState.Queued, 10)), IsSelfQueued: true,
+                SelfState: LobbyQueueEntryState.Queued, SelfQueueSequence: 10);
+            Control queuedView = PlayPresentation.Build(Context(shell, controller,
+                lobby with { Waitlist = queued }));
+            Assert.Contains(queuedView.GetVisualDescendants().OfType<TextBlock>(),
+                text => text.Text == "PLAYER SEAT QUEUE");
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
     private static PlayPresentationContext Context(PrimeShellState shell,
         PlayController controller, LobbySnapshot? lobby,
-        Action<string, Func<Task>>? run = null)
+        Action<string, Func<Task>>? run = null,
+        PlayPresentationState? ui = null,
+        Func<string?, double, string, Control>? buildPreview = null)
     {
         PlayState state = PlayState.Initial;
         if (lobby is not null)
@@ -389,19 +770,35 @@ public sealed class PlayPresentationTests
             controller,
             state,
             Array.Empty<string>(),
-            new PlayPresentationState(),
+            ui ?? new PlayPresentationState(),
             CancellationToken.None,
             run ?? ((_, _) => { }),
             static action => action(),
             static () => { },
             static () => { },
-            static (_, height, _) => new Border { Height = height },
+            buildPreview ?? ((_, height, _) => new Border { Height = height }),
             static _ => Task.CompletedTask,
             static _ => Task.CompletedTask,
             static (_, _) => { },
             static () => { },
             static (_, _) => { });
     }
+
+    private static T FieldEditor<T>(Control root, string label) where T : Control
+    {
+        StackPanel field = Assert.Single(root.GetVisualDescendants()
+            .OfType<StackPanel>(), candidate => candidate.Children
+                .OfType<TextBlock>().Any(text => text.Text == label)
+                && candidate.Children.OfType<T>().Any());
+        return Assert.Single(field.Children.OfType<T>());
+    }
+
+    private static string VisibleText(Control root)
+        => String.Join('\n', VisibleTextBlocks(root).Select(text => text.Text));
+
+    private static TextBlock[] VisibleTextBlocks(Control root)
+        => root.GetVisualDescendants().OfType<TextBlock>()
+            .Where(text => text.IsEffectivelyVisible).ToArray();
 
     private static LobbySnapshot Lobby(Guid sessionId, MatchMode mode, byte team,
         bool ready, bool owner)

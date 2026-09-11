@@ -92,6 +92,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private bool _finished;
     private bool _theatreLoaded;
     private bool _previewCatchupStarted;
+    private bool _rankingsInitialLoadPending;
     private bool _playRefreshPending;
     private PlayState? _capturePlayState;
     private GatewayState? _captureGatewayState;
@@ -123,12 +124,15 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private DeferredControllerSelection<Hunter>? _hunterPadSelection;
     private LobbyChatPanel? _activeLobbyChatPanel;
     private PrimeTitleScreenView? _titleScreen;
+    private MatchTransitionView? _matchTransition;
     private GatewayForm _gatewayForm;
-    private string _settingsFocusCategory = "Gameplay";
+    private string _settingsFocusCategory = "Player";
+    private int _busyOperations;
     private string? _overlayModalId;
     private KeyboardNavigationMode _overlayTabNavigationBeforeOpen;
     private bool _overlayTabNavigationCaptured;
     private const string SeatOfferModalPrefix = "seat-offer:";
+    private const string MatchTransitionModalId = "match-transition";
     private const string SeatOfferAvailableAnnouncement =
         "A player seat is available. Accept or decline before it expires.";
     private static readonly TimeSpan InitialRestoreUiBudget = TimeSpan.FromSeconds(3);
@@ -136,6 +140,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     public LaunchPlan Plan { get; private set; }
     internal ClientOnlineRuntime Online => _online;
     public event EventHandler<LaunchPlan>? Done;
+    internal event EventHandler? MatchTransitionReturnToLobbyRequested;
 
     public PrimeShellView(MenuSettings settings, IReadOnlyList<string> rooms,
         bool restoreOnActivate = true, bool ignoreGameFileGate = false,
@@ -736,6 +741,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     internal PlayState? CapturePlayState => _capturePlayState;
     internal HunterLicensePageState? CaptureLicenseState => _captureLicenseState;
     internal RankingsState? CaptureRankingsState => _captureRankingsState;
+    internal MatchTransitionView? ActiveMatchTransition => _matchTransition;
     internal void SetMenuInputEnabled(bool enabled)
     {
         if (enabled && _active && !_captureMode) _inputTimer.Start();
@@ -748,6 +754,85 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         _shell.Notify(PrimeNotificationKind.Error,
             (result.Reason == MatchExitReason.FailedToStart ? "Match could not start. " : "Match connection lost. ")
             + result.Message + " Return to your lobby and try again.");
+    }
+
+    internal void ShowMatchTransition(MatchTransitionState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (_disposed || IsTitleBlocking) return;
+        if (_matchTransition is not null
+            && String.Equals(_overlayModalId, MatchTransitionModalId,
+                StringComparison.Ordinal))
+        {
+            _matchTransition.Update(state);
+            return;
+        }
+
+        var transition = new MatchTransitionView(state);
+        transition.ReturnToLobbyRequested += MatchTransitionReturnRequested;
+        ShowOverlay(transition, MatchTransitionModalId);
+        if (ReferenceEquals(OverlayHost.Content, transition))
+        {
+            _matchTransition = transition;
+            return;
+        }
+
+        transition.ReturnToLobbyRequested -= MatchTransitionReturnRequested;
+        transition.Dispose();
+    }
+
+    internal void UpdateMatchTransition(MatchTransitionState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (_disposed || _matchTransition is null
+            || !String.Equals(_overlayModalId, MatchTransitionModalId,
+                StringComparison.Ordinal))
+            return;
+        _matchTransition.Update(state);
+    }
+
+    internal void FailMatchTransition(string? detail)
+    {
+        if (_disposed)
+            return;
+        string failure = String.IsNullOrWhiteSpace(detail)
+            ? "The match could not continue." : detail.Trim();
+        if (_matchTransition is null
+            || !String.Equals(_overlayModalId, MatchTransitionModalId,
+                StringComparison.Ordinal))
+        {
+            ShowMatchTransition(new MatchTransitionState(
+                MatchTransitionStage.Failed, Detail: failure));
+            return;
+        }
+        _matchTransition.Update(_matchTransition.State with
+        {
+            Stage = MatchTransitionStage.Failed,
+            Detail = failure
+        });
+    }
+
+    internal void CloseMatchTransition()
+    {
+        if (!String.Equals(_overlayModalId, MatchTransitionModalId,
+            StringComparison.Ordinal))
+            return;
+        CloseOverlay();
+    }
+
+    private void MatchTransitionReturnRequested(object? sender, EventArgs args)
+    {
+        CloseMatchTransition();
+        MatchTransitionReturnToLobbyRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void DetachMatchTransition()
+    {
+        MatchTransitionView? transition = _matchTransition;
+        _matchTransition = null;
+        if (transition is null) return;
+        transition.ReturnToLobbyRequested -= MatchTransitionReturnRequested;
+        transition.Dispose();
     }
 
     public void Reset()
@@ -767,6 +852,13 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     public bool GoBack()
     {
         if (IsTitleBlocking) return true;
+        // This overlay is a view of coordinator-owned state, not a normal
+        // dismissible modal. Removing it would leave loading running without
+        // coverage, or strand a failed transition without its recovery action.
+        if (_matchTransition != null
+            && String.Equals(_overlayModalId, MatchTransitionModalId,
+                StringComparison.Ordinal))
+            return true;
         if (IsSeatOfferOverlayOpen())
         {
             if (_seatOfferModal.Active is { } key)
@@ -831,10 +923,15 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         view.SettingsRequested += (_, _) =>
         {
             Close();
-            ShowOverlay(new SettingsView(_settings, inGame: true, scene: scene,
+            var settings = new SettingsView(_settings, inGame: true, scene: scene,
                 identity: SettingsIdentityContext.From(_shell,
-                    () => CloseAndNavigate(PrimeRoute.Hunter))),
-                "pause-settings");
+                    () => CloseAndNavigate(PrimeRoute.Hunter)));
+            settings.Closed += (_, _) =>
+            {
+                Resources["PrimeReducedMotion"] = LauncherPrefs.ReducedMotion;
+                CloseOverlay();
+            };
+            ShowOverlay(settings, "pause-settings");
         };
         ShowOverlay(view, "pause-menu");
         view.FocusResume();
@@ -900,6 +997,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         Update.UpdateCoordinator.Shared.StatusChanged -= UpdateStatusChanged;
         _routeMotion?.Dispose();
         _overlayMotion?.Dispose();
+        DetachMatchTransition();
         if (_overlayTabNavigationCaptured)
         {
             KeyboardNavigation.SetTabNavigation(OverlayRoot,
@@ -968,6 +1066,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             Text("More", "prime-title"),
             Text("Routes, account, and connection details.", "prime-muted"));
         content.Children.Add(MakeButton("Theatre", () => CloseAndNavigate(PrimeRoute.Theatre)));
+        content.Children.Add(MakeButton("Maps", () => CloseAndNavigate(PrimeRoute.Maps)));
         content.Children.Add(MakeButton("Settings", () => CloseAndNavigate(PrimeRoute.Settings)));
         content.Children.Add(MakeButton("Account", ShowAccountMenu));
         content.Children.Add(MakeButton("Connection", ShowConnectionDetails));
@@ -1182,6 +1281,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         {
             PrimeRoute.Gateway => BuildGatewayPage(),
             PrimeRoute.Play => BuildPlayPage(),
+            PrimeRoute.Maps => new MapsHubView(_captureMode),
             PrimeRoute.Hunter => BuildHunterPage(),
             PrimeRoute.Theatre => BuildTheatrePage(),
             PrimeRoute.Rankings => BuildRankingsPage(),
@@ -1417,8 +1517,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             MakeButton(GameFiles.Ready ? "Repair from .nds file" : "Choose your .nds file",
                 () => RunCommand("Set up game files", () => ChooseGameFilesAsync(status)),
                 primary: true));
-        if (GameFiles.Ready)
-            root.Children.Add(MakeButton("Back", () => RenderRoute(_shell.CurrentRoute), quiet: true));
+        root.Children.Add(MakeButton("Back", () => RenderRoute(_shell.CurrentRoute), quiet: true));
         return Card(root);
     }
 
@@ -2135,14 +2234,31 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     }
 
     private Control BuildRankingsPage()
-        => RankingsPresentation.Build(new RankingsPresentationContext(
+    {
+        RankingsState state = _captureRankingsState ?? _rankings.State;
+        if (!_captureMode && _shell.SignedIn && !_rankingsInitialLoadPending
+            && !state.Loading && state.Rows.IsEmpty && state.Error is null)
+        {
+            _rankingsInitialLoadPending = true;
+            Dispatcher.UIThread.Post(() =>
+            {
+                _rankingsInitialLoadPending = false;
+                if (!_disposed && _shell.CurrentRoute == PrimeRoute.Rankings
+                    && !_rankings.State.Loading && _rankings.State.Rows.IsEmpty
+                    && _rankings.State.Error is null)
+                    RunCommand("Load Rankings", () =>
+                        _rankings.LoadAsync(cancellationToken: _lifetime.Token));
+            }, DispatcherPriority.Background);
+        }
+        return RankingsPresentation.Build(new RankingsPresentationContext(
             _shell.SignedIn,
-            _captureRankingsState ?? _rankings.State,
+            state,
             () => Navigate(PrimeRoute.Gateway),
             RunCommand,
             ChangeRankingMetricAsync,
             ChangeRankingHunterAsync,
             next => _rankings.LoadAsync(next, _lifetime.Token)));
+    }
 
     private async Task ChangeRankingMetricAsync(string metric)
     {
@@ -2175,16 +2291,22 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             }), primary: true));
         existing.AddNetworkAdvanced(backendCard);
         existing.ShowSection(_settingsFocusCategory);
+        bool openingGameFiles = false;
         existing.Closed += (_, _) =>
         {
             Resources["PrimeReducedMotion"] = LauncherPrefs.ReducedMotion;
-            GoBack();
+            if (!openingGameFiles)
+                GoBack();
         };
-        existing.GameFilesRequested += (_, _) => PostUi(() =>
+        existing.GameFilesRequested += (_, _) =>
         {
-            RouteTitle.Text = "Game files";
-            PageHost.Content = BuildGameFilesPage();
-        });
+            openingGameFiles = true;
+            PostUi(() =>
+            {
+                RouteTitle.Text = "Game files";
+                PageHost.Content = BuildGameFilesPage();
+            });
+        };
         return existing;
     }
 
@@ -2395,6 +2517,9 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         _overlayMotion = null;
         OverlayRoot.IsVisible = false;
         OverlayHost.Content = null;
+        if (String.Equals(modalId, MatchTransitionModalId,
+            StringComparison.Ordinal))
+            DetachMatchTransition();
         if (_overlayTabNavigationCaptured)
         {
             KeyboardNavigation.SetTabNavigation(OverlayRoot,
@@ -3033,6 +3158,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private async Task ExecuteCommandAsync(string operation, Func<Task> work)
     {
         if (_disposed) return;
+        Interlocked.Increment(ref _busyOperations);
         _shell.SetBusy(operation);
         try { await work().ConfigureAwait(false); }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
@@ -3040,7 +3166,14 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         {
             PostUi(() => _shell.Notify(PrimeNotificationKind.Error, error.Message));
         }
-        finally { PostUi(() => _shell.SetBusy(null)); }
+        finally
+        {
+            PostUi(() =>
+            {
+                if (Interlocked.Decrement(ref _busyOperations) == 0)
+                    _shell.SetBusy(null);
+            });
+        }
     }
 
     private void PostUi(Action action)

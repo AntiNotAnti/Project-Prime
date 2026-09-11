@@ -5,7 +5,7 @@ namespace MphRead.Sound
     public enum AudioRequestKind
     {
         UpdateSource, Play, PlayFree, PlayEnvironment, StopSource, StopSourceSound,
-        StopFreeSound, StopFreeScripts, PauseFreeScripts, QueueStream, StopAll,
+        StopFreeSound, StopFreeScripts, PauseFreeScripts, QueueStream, StopEnvironment, StopAll,
         PlayRoomMusic, PlayMusic, PlayMusicSequence, PauseMusic, ResumeMusic, ResetSoundMutes, ChangeForceFieldMute, UpdateMusicTempo
     }
 
@@ -31,6 +31,7 @@ namespace MphRead.Sound
         public void ChangeForceFieldMute(bool increase) => Emit(new(AudioRequestKind.ChangeForceFieldMute, Force: increase));
         public void StopFreeSound(SfxId id) => Emit(new(AudioRequestKind.StopFreeSound, Id: (int)id));
         public void StopFreeScripts() => Emit(new(AudioRequestKind.StopFreeScripts));
+        public void StopEnvironment() => Emit(new(AudioRequestKind.StopEnvironment));
         public void PlayScript(int id) => Emit(new(AudioRequestKind.Play, Id: id | 0x4000));
         public void StopAll(bool force = true) => Emit(new(AudioRequestKind.StopAll, Force: force));
     }

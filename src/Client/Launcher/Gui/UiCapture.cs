@@ -122,6 +122,10 @@ namespace MphRead.Mods.Launcher.Gui
             new("play-browser-full", CreatePlayBrowserFull),
             new("play-network-error", CreatePlayNetworkError),
             new("play-advanced-network", CreatePlayAdvancedNetwork),
+            new("maps-default", (_, _) => new MapsHubView(captureMode: true)),
+            new("host-wide", CreateHostMatch),
+            new("host-compact", CreateHostMatch),
+            new("host-mobile", CreateHostMatch),
 
             new("lobby-owner-team", CreateLobby),
             new("lobby-owner-ffa", CreateLobbyOwnerFfa),
@@ -136,6 +140,13 @@ namespace MphRead.Mods.Launcher.Gui
             new("lobby-disconnected", CreateLobbyDisconnected),
             new("lobby-handoff-failure", CreateLobbyHandoffFailure),
             new("lobby-postmatch", CreateLobbyPostmatch),
+            new("lobby-owner-ffa-wide", CreateLobbyOwnerFfa),
+            new("lobby-owner-team-wide", CreateLobby),
+            new("lobby-member-wide", CreateLobbyMemberTeam),
+            new("lobby-observer-wide", CreateLobbyObserver),
+            new("lobby-waitlist-wide", CreateLobbyWaitlist),
+            new("lobby-chat-wide", CreateLobbyChat),
+            new("lobby-mobile", CreateLobbyOwnerFfa),
 
             new("results-ffa", CreateResultsFfa),
             new("results-team", CreateResultsTeam),
@@ -480,6 +491,16 @@ namespace MphRead.Mods.Launcher.Gui
                     Hunter.Samus, "", Loading: false, Revision: 1),
                 ExpandAdvancedNetwork: true,
                 Identity: PrimeShellCaptureIdentity.SignedIn));
+
+        private static Control CreateHostMatch(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => PrimeShellView.CreateLobbyCapture(settings, rooms,
+                new PrimeShellCaptureState(
+                    Play: new PlayState(PlayPhase.Connected, CaptureNodes(),
+                        new NodeControlClient.ViewState(Session: CaptureSession()),
+                        Hunter.Samus, "", Loading: false, Revision: 1),
+                    PlaySubsection: PlaySubsection.HostMatch,
+                    Identity: PrimeShellCaptureIdentity.SignedIn));
 
         private static Control CreatePlayCapture(MenuSettings settings,
             IReadOnlyList<string> rooms, PrimeShellCaptureState captureState)

@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using MphRead.Mods.Launcher.Theme;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -99,7 +100,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         /// <summary>Two line heights: one for a bare label, one with a line under it.</summary>
-        private const double PlainHeight = 42;
+        private const double PlainHeight = PrimeTouchTargets.MinimumDip;
         private const double SubtitledHeight = 54;
 
         /// <summary>
@@ -120,6 +121,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Height = Subtitle.Length > 0 ? SubtitledHeight : PlainHeight;
             }
+            if (change.Property == TitleProperty && !String.IsNullOrWhiteSpace(Title))
+                PrimeAccessibility.SetName(this, Title);
         }
 
         public MenuEntry(string title, string subtitle = "", double titleSize = 21)
@@ -133,6 +136,7 @@ namespace MphRead.Mods.Launcher.Gui
             Focusable = true;
             Cursor = new Cursor(StandardCursorType.Hand);
             Height = subtitle.Length > 0 ? SubtitledHeight : PlainHeight;
+            PrimeAccessibility.SetName(this, title);
         }
 
         /// <summary>

@@ -1,10 +1,12 @@
 using System;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using MphRead.Mods.Input;
+using MphRead.Mods.Launcher.Theme;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -47,9 +49,11 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _action = action;
             _labelWidth = labelWidth;
-            Height = 32;
+            Height = PrimeTouchTargets.MinimumDip;
             Focusable = true;
             Cursor = new Cursor(StandardCursorType.Hand);
+            PrimeAccessibility.SetName(this, PadBindings.Name(action));
+            UpdateAccessibleValue();
         }
 
         private Rect Box => new(_labelWidth, 2,
@@ -157,9 +161,14 @@ namespace MphRead.Mods.Launcher.Gui
             _listening = false;
             _watch?.Stop();
             _watch = null;
+            UpdateAccessibleValue();
             InvalidateVisual();
             if (changed) Rebound?.Invoke(this, EventArgs.Empty);
         }
+
+        private void UpdateAccessibleValue()
+            => AutomationProperties.SetItemStatus(this,
+                PadBindings.Describe(PadBindings.Get(_action)));
 
         protected override void OnPointerEntered(PointerEventArgs e)
         {

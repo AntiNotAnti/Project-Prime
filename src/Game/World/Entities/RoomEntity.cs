@@ -279,15 +279,18 @@ namespace MphRead.Entities
                 _scene.InsertEntity(player);
             }
             player.ReloadInit = resume;
-            player.Initialize();
             if (!resume)
             {
-                _scene.InitEntity(player);
+                _scene.InitializeEntity(player);
                 _scene.InitEntity(player.Halfturret);
                 if (_scene.Services.RebuildingRoom)
                 {
                     _scene.Services.AfterRoomRebuild(_scene);
                 }
+            }
+            else
+            {
+                player.Initialize();
             }
         }
 

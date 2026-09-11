@@ -91,22 +91,10 @@ internal sealed class NodeBrowserView : UserControl
         _status.Text = _account.IsSignedIn
             ? "Checking compatible Nodes…"
             : "Guest access: checking compatible Nodes…";
-        // Map binaries are derived from the install's extracted game files.
-        // Prepare them before hashing the content sent to the Backend; doing
-        // this only at match launch lets discovery advertise a hash that the
-        // Worker cannot actually use and makes a compatible Node disappear.
-        var prepared = await Task.Run(() =>
-        {
-            IReadOnlyList<string> failures = MapPreparation.GenerateMissing();
-            return (failures, identity: ContentEnvironment.GetContentIdentity());
-        });
-        if (prepared.failures.Count != 0)
-        {
-            _rows.Children.Clear();
-            _status.Text = "Custom map preparation failed: " + prepared.failures[0];
-            return;
-        }
-        var identity = prepared.identity;
+        // Node discovery compares immutable base/gameplay content. A selected
+        // custom map is resolved and compiled during lobby admission instead of
+        // making unrelated installed maps part of directory compatibility.
+        var identity = await Task.Run(ContentEnvironment.GetContentIdentity);
         var nodes = await _account.GetNodesAsync(NetHeader.Version, BuildVersion.Display, identity.ContentHash, _lifetime.Token);
         _rows.Children.Clear();
         foreach (var node in nodes)
