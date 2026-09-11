@@ -71,7 +71,13 @@ public sealed class WorkerScheduler : IAsyncDisposable
             reject = _disposed || _draining;
             if (!reject) { _workers.Add(worker.Id, worker); _readers.Add(worker.Id, ConsumeAsync(worker)); }
         }
-        if (reject) { await worker.DisposeAsync(); throw new WorkerPlacementException("Node is draining."); }
+        if (reject)
+        {
+            await worker.DisposeAsync();
+            NodeDiagnostics.Worker(_logger, "worker_start", "draining");
+            throw new WorkerPlacementException("Node is draining.");
+        }
+        NodeDiagnostics.Worker(_logger, "worker_start", "success");
         return worker;
     }
 
@@ -100,18 +106,23 @@ public sealed class WorkerScheduler : IAsyncDisposable
                     .OrderBy(p => p.State.Matches.Values.Count(IsActive)).ThenBy(p => p.Worker.Id.Value).ToArray();
                 bool reserved = RequiresBackendReport(spec);
                 if (reserved && (_reports == null || !_reports.TryReserve(spec.MatchId)))
+                {
+                    NodeDiagnostics.Worker(_logger, "placement", "report_unavailable");
                     throw new WorkerPlacementException("Official reporting is unavailable or at capacity.");
+                }
                 ManagedWorker? selected = null;
                 foreach (var candidate in candidates)
                     if (candidate.Worker.TrySend(new CreateMatch(spec))) { selected = candidate.Worker; break; }
                 if (selected == null)
                 {
                     if (reserved) _reports!.CancelReservation(spec.MatchId);
+                    NodeDiagnostics.Worker(_logger, "placement", "capacity");
                     throw new WorkerPlacementException("No compatible healthy worker has capacity.");
                 }
                 var placement = new Placement(spec, hash, selected);
                 _placements.Add(spec.MatchId, placement);
                 _ = ExpireCreationAsync(placement);
+                NodeDiagnostics.Worker(_logger, "placement", "accepted");
                 result = placement.Ready.Task;
             }
         }
