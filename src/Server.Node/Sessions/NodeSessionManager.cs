@@ -5,6 +5,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using ProjectPrime.Server.Node.Identity;
 using ProjectPrime.Server.Node.Lobbies;
 using ProjectPrime.Server.Shared;
@@ -41,16 +43,19 @@ public sealed class NodeSessionManager
     private readonly TimeProvider _clock;
     private readonly NodeMatchCoordinator? _matches;
     private readonly NodeContentCatalog? _catalog;
+    private readonly ILogger _logger;
     public static TimeSpan DisconnectGrace => ReconnectPolicy.SessionGrace;
     private long _protocolClosures;
     public long ProtocolClosures => Interlocked.Read(ref _protocolClosures);
     public int Count => _sessions.Values.Count(s => s.Connection != null);
     public NodeSessionManager(LobbyManager lobbies, Guid nodeId, int maximumSessions = 1024,
-        TimeProvider? clock = null, NodeMatchCoordinator? matches = null, NodeContentCatalog? catalog = null)
+        TimeProvider? clock = null, NodeMatchCoordinator? matches = null, NodeContentCatalog? catalog = null,
+        ILogger<NodeSessionManager>? logger = null)
     {
         if (maximumSessions is < 1 or > 10000) throw new ArgumentOutOfRangeException(nameof(maximumSessions));
         _lobbies = lobbies; _nodeId = nodeId; _maximumSessions = maximumSessions; _clock = clock ?? TimeProvider.System;
         _matches = matches; _catalog = catalog;
+        _logger = logger ?? NullLogger<NodeSessionManager>.Instance;
     }
     public async Task BroadcastAsync(CancellationToken cancellationToken)
     {
@@ -77,6 +82,7 @@ public sealed class NodeSessionManager
     }
     public void PruneExpired()
     {
+        int expiredCount = 0;
         lock (_admission)
         {
             foreach (var session in _sessions.Values.Where(s => s.Connection == null && s.ResumeUntil <= _clock.GetUtcNow()).ToArray())
@@ -84,8 +90,10 @@ public sealed class NodeSessionManager
                 _sessions.TryRemove(session.Id, out _); _identities.Remove(session.Identity.IdentityKey); _resume.Remove(session.ResumeHash);
                 _lobbies.Disconnect(session.Id);
                 _matches?.ForgetSession(session.Id);
+                expiredCount++;
             }
         }
+        if (expiredCount != 0) NodeDiagnostics.Session(_logger, "expiry", "pruned");
         _matches?.ReconcileMembership();
     }
     public void PruneWaitlists() => _lobbies.PruneWaitlists();
@@ -101,16 +109,30 @@ public sealed class NodeSessionManager
             {
                 if (resumeToken.Length != 43 || !_resume.TryGetValue(Hash(resumeToken), out var id)
                     || !_sessions.TryGetValue(id, out session!) || session.Connection != null || session.ResumeUntil <= _clock.GetUtcNow())
-                { connection.Stop.Dispose(); socket.Abort(); return; }
+                {
+                    NodeDiagnostics.Session(_logger, "resume", "rejected");
+                    connection.Stop.Dispose(); socket.Abort(); return;
+                }
                 _resume.Remove(session.ResumeHash);
             }
             else
             {
-                if (identity == null) { connection.Stop.Dispose(); socket.Abort(); return; }
+                if (identity == null)
+                {
+                    NodeDiagnostics.Session(_logger, "connect", "missing_identity");
+                    connection.Stop.Dispose(); socket.Abort(); return;
+                }
                 try { identity.Validate(); }
-                catch (ArgumentException) { connection.Stop.Dispose(); socket.Abort(); return; }
+                catch (ArgumentException)
+                {
+                    NodeDiagnostics.Session(_logger, "connect", "invalid_identity");
+                    connection.Stop.Dispose(); socket.Abort(); return;
+                }
                 if (_sessions.Count >= _maximumSessions || _identities.ContainsKey(identity.IdentityKey))
-                { connection.Stop.Dispose(); socket.Abort(); return; }
+                {
+                    NodeDiagnostics.Session(_logger, "connect", "capacity_or_duplicate");
+                    connection.Stop.Dispose(); socket.Abort(); return;
+                }
                 session = new(identity); _identities[identity.IdentityKey] = session.Id; _sessions[session.Id] = session;
             }
             token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
@@ -118,6 +140,7 @@ public sealed class NodeSessionManager
             lock (session) session.Connection = connection;
             _lobbies.SetSessionResumeDeadline(session.Id, null);
         }
+        NodeDiagnostics.Session(_logger, resumeToken == null ? "connect" : "resume", "success");
         Task sender = SendLoop(connection);
         try
         {
@@ -175,9 +198,13 @@ public sealed class NodeSessionManager
                 catch (LobbyCommandException ex) { Send(session, "error", request.RequestId, new NodeControlError(ex.Code, ex.Message)); }
             }
         }
-        catch (Exception ex) when (ex is OperationCanceledException or WebSocketException) { }
+        catch (Exception ex) when (ex is OperationCanceledException or WebSocketException)
+        { NodeDiagnostics.Session(_logger, "disconnect", "transport"); }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or KeyNotFoundException or FormatException or ArgumentException)
-        { Interlocked.Increment(ref _protocolClosures); }
+        {
+            Interlocked.Increment(ref _protocolClosures);
+            NodeDiagnostics.Session(_logger, "protocol", "rejected");
+        }
         finally
         {
             connection.Stop.Cancel(); connection.Outbound.Writer.TryComplete();
@@ -188,6 +215,7 @@ public sealed class NodeSessionManager
                 session.ResumeUntil = _clock.GetUtcNow() + DisconnectGrace;
                 _lobbies.SetSessionResumeDeadline(session.Id, session.ResumeUntil);
             }
+            NodeDiagnostics.Session(_logger, "disconnect", "resume_grace");
             socket.Abort(); connection.Stop.Dispose();
         }
     }
