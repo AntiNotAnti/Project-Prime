@@ -11,6 +11,20 @@ The split harness accepts ordinary multiplayer rooms only. Compiled developer
 fixtures, public diagnostics, UDP relays/tunnels, and protocol changes are
 deliberately unsupported.
 
+The separate same-host rendered harness has a deterministic fidelity probe:
+
+```bash
+dotnet run --project tools/nettest/nettest.csproj -c Release -- \
+  --rendered-wan-validation /absolute/path/to/AMHE1 /new/evidence/path \
+  --scenario headshot --fixture unit1-rm1-dynamic \
+  --mode players --rtt 100 --jitter 15 --loss 1 --seconds 12
+```
+
+It validates scenario choreography, Imperialist root-shot correlation, report
+identity, and failure classification. It remains a loopback developer fixture,
+is always reported with `renderedWanProof=false`, and is not a substitute for
+the split real-WAN matrix below.
+
 ## Server/operator prerequisites
 
 - Reserve one fixed TCP port for the Node's TLS listener and one fixed UDP port
@@ -24,7 +38,9 @@ deliberately unsupported.
 - The Worker advertised endpoint must be a canonical IPv4 literal. Hostnames,
   wildcard addresses, and a loopback advertisement for a non-loopback bind are
   rejected.
-- Use a new or empty output directory. The operator starts exactly one ephemeral
+- Use an output path that does not exist. The harness exclusively reserves it
+  and refuses even an existing empty directory so stale or delayed artifacts
+  cannot be attributed to a new run. The operator starts exactly one ephemeral
   Node and one manager-owned external Worker with one lane and one-match capacity.
 
 Example (replace every value with the real lab endpoints and files):

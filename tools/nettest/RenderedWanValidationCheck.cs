@@ -65,16 +65,22 @@ internal static partial class RenderedWanValidationCheck
             Console.Error.WriteLine($"RENDERED_WAN_VALIDATION result=FAIL error={error.GetType().Name} reason={reason}");
             if (options != null)
             {
-                Directory.CreateDirectory(options.OutputDirectory);
                 WriteJson(Path.Combine(options.OutputDirectory, "report.json"), new
                 {
                     schema = Schema,
                     passed = false,
+                    evidenceClass = "rendered-loopback-process-local-impairment",
                     renderedWanProof = false,
                     qz1Accepted = false,
                     qz5Accepted = false,
                     requiresHumanVisualReview = true,
                     dynamicScenarioAvailable = false,
+                    run = new RenderedWanRunIdentity(options.RunId,
+                        RenderedWanScenarioParser.Format(options.Scenario), options.StartedUtc,
+                        new RenderedWanClientIdentity(null, null, null, null, null),
+                        new RenderedWanWorkerIdentity(null, null, null),
+                        new RenderedWanNodeIdentity(null, null, null), null, null, null),
+                    classification = "HARNESS INVALID",
                     failure = new { type = error.GetType().Name, reason }
                 });
             }
@@ -85,7 +91,8 @@ internal static partial class RenderedWanValidationCheck
 
     private static async Task<int> RunAsync(Options options)
     {
-        Directory.CreateDirectory(options.OutputDirectory);
+        if (!File.Exists(Path.Combine(options.OutputDirectory, ".run-reservation")))
+            throw new IOException("The validation output directory was not exclusively reserved.");
         string captureDirectory = Path.Combine(options.OutputDirectory, "captures");
         Directory.CreateDirectory(captureDirectory);
 
@@ -106,13 +113,23 @@ internal static partial class RenderedWanValidationCheck
             WorkerOptions.ActualBuildVersion, NetHeader.Version);
 
         await using var node = new EphemeralNode(workerContent, options);
+        var runIdentity = new RenderedWanRunIdentity(options.RunId,
+            RenderedWanScenarioParser.Format(options.Scenario), options.StartedUtc,
+            new RenderedWanClientIdentity(null, null, null, null, null),
+            new RenderedWanWorkerIdentity(null, null, null),
+            new RenderedWanNodeIdentity(node.NodeId, null, null), null, null, null);
         // Host services must not inherit the Cocoa main-thread pump. Their
         // Worker IPC readers/writers remain ordinary thread-pool async work
         // while only this orchestration continuation returns to the UI owner.
         Task nodeStart = StartWithoutSynchronizationContext(() => node.App.StartAsync());
         await nodeStart;
+        runIdentity = runIdentity with
+        {
+            Node = runIdentity.Node with { Port = ParsePort(node.App.Urls.Single()) }
+        };
         try
         {
+            WorkerSnapshot[] readyWorkers = [];
             await UntilAsync(() =>
             {
                 WorkerSnapshot[] workers = node.App.Services.GetRequiredService<WorkerManager>().Snapshot().ToArray();
@@ -120,6 +137,15 @@ internal static partial class RenderedWanValidationCheck
                     throw new InvalidOperationException("The external Worker failed during startup.");
                 return workers.Length == 1 && workers[0].Status == WorkerStatus.Ready;
             }, TimeSpan.FromSeconds(35));
+            readyWorkers = node.App.Services.GetRequiredService<WorkerManager>().Snapshot().ToArray();
+            if (readyWorkers.Length != 1)
+                throw new InvalidOperationException("HARNESS INVALID: expected exactly one owned Worker.");
+            WorkerSnapshot ownedWorker = readyWorkers[0];
+            runIdentity = runIdentity with
+            {
+                Worker = new RenderedWanWorkerIdentity(ownedWorker.WorkerId.Value,
+                    ownedWorker.Incarnation, ownedWorker.ProcessId)
+            };
 
             await using NodeControlClient control = node.CreateControlClient();
             await control.ConnectAsync(node.Admission());
@@ -143,11 +169,36 @@ internal static partial class RenderedWanValidationCheck
             await UntilAsync(() => control.Handoff != null, TimeSpan.FromSeconds(35), control);
             NodeMatchHandoff firstHandoff = control.Handoff!;
 
+            WorkerScheduler assignmentScheduler = node.App.Services.GetRequiredService<WorkerScheduler>();
+            if (!assignmentScheduler.TryGetAssignment(new MatchId(firstHandoff.MatchId),
+                    out WorkerMatchAssignment? assignment)
+                || assignment?.Placement is not { } placement
+                || placement.MatchId.Value != firstHandoff.MatchId
+                || placement.WireMatchId.Value != firstHandoff.WireMatchId
+                || placement.WorkerId.Value != ownedWorker.WorkerId.Value
+                || placement.WorkerIncarnation != ownedWorker.Incarnation
+                || placement.Port != firstHandoff.Port)
+                throw new InvalidOperationException("HARNESS INVALID: handoff was not issued by the owned Worker for the expected match.");
+            runIdentity = runIdentity with
+            {
+                WorkerPort = firstHandoff.Port,
+                MatchId = firstHandoff.MatchId,
+                WireMatchId = firstHandoff.WireMatchId
+            };
+
             if (!await NetLaunch.JoinWorkerAsync(firstHandoff, control.Session!.DisplayName,
                     timeoutMs: 30000))
                 throw new InvalidOperationException("The production Worker handoff was rejected: " + Bounded(NetLaunch.LastJoinError));
             AuthoritativePlay play = AuthoritativePlay.Current
                 ?? throw new InvalidOperationException("The Worker handoff did not create an authoritative client.");
+            runIdentity = runIdentity with
+            {
+                Client = new RenderedWanClientIdentity(control.Session?.SessionId,
+                    control.Session?.PlayerId, play.Client.Connection?.Id, play.LocalSlot,
+                    play.LocalUdpPort)
+            };
+            await UntilAsync(() => play.Client.Roster.Length >= 2, TimeSpan.FromSeconds(5));
+            ValidateExpectedParticipant(play, firstHandoff);
             control.MarkGameplayJoined(firstHandoff.MatchId);
 
             async Task<NodeMatchHandoff> RejoinAsync()
@@ -193,11 +244,34 @@ internal static partial class RenderedWanValidationCheck
                 scheduler.Observed -= ObserveWorker;
             }
 
+            WorkerSnapshot[] finalWorkers = node.App.Services.GetRequiredService<WorkerManager>()
+                .Snapshot().ToArray();
+            bool workerStillOwned = finalWorkers.Length == 1
+                && finalWorkers[0].WorkerId == ownedWorker.WorkerId
+                && finalWorkers[0].Incarnation == ownedWorker.Incarnation
+                && finalWorkers[0].ProcessId == ownedWorker.ProcessId
+                && finalWorkers[0].FailureReason == null;
+            if (!workerStillOwned && options.Scenario == RenderedWanScenario.Headshot
+                && result.Scenario is { } scenarioBeforeWorkerCheck)
+            {
+                result = result with
+                {
+                    Scenario = scenarioBeforeWorkerCheck with
+                    {
+                        ScenarioValid = false,
+                        InvalidReasons = scenarioBeforeWorkerCheck.InvalidReasons
+                            .Append("worker-identity-contaminated").ToArray()
+                    }
+                };
+            }
+
             long sent = Math.Max(0, NetTransport.TotalPacketsSent - sentBefore);
             long dropped = Math.Max(0, NetTransport.TotalPacketsDropped - droppedBefore);
             long authoritativeDesiredWeaponShotEvents
-                = (result.ProjectileBeforeReconnect?.AuthoritativeMissileShotObserved ?? 0)
-                + result.ProjectileAfterReconnect.AuthoritativeMissileShotObserved;
+                = options.Scenario == RenderedWanScenario.Headshot
+                    ? result.Scenario?.AuthoritativeImperialistShots ?? 0
+                    : (result.ProjectileBeforeReconnect?.AuthoritativeMissileShotObserved ?? 0)
+                        + result.ProjectileAfterReconnect.AuthoritativeMissileShotObserved;
             bool dynamicScenarioAvailable = result.DynamicColliderMaximum > 0;
             bool dynamicScenarioExercised = fixture != null
                 && options.LagCompensationMode == WorkerLagCompensationMode.Dynamic
@@ -206,8 +280,11 @@ internal static partial class RenderedWanValidationCheck
                 && result.DebugMetrics.DynamicHistoryQueries > 0;
             bool historicalContradictionObserved
                 = result.DebugMetrics.HistoricalGeometryChangedOutcome > 0;
-            bool passed = result.RuntimePassed && result.ReconnectCompleted
+            bool scenarioValid = options.Scenario != RenderedWanScenario.Headshot
+                || result.Scenario?.ScenarioValid == true;
+            bool passed = workerStillOwned && result.RuntimePassed && result.ReconnectCompleted
                 && result.DebugPackets > 0 && sent > 0
+                && scenarioValid
                 && (fixture == null || dynamicScenarioAvailable && result.DynamicDebugPackets > 0
                     && (options.LagCompensationMode != WorkerLagCompensationMode.Dynamic
                         || dynamicScenarioExercised));
@@ -216,7 +293,14 @@ internal static partial class RenderedWanValidationCheck
                 schema = Schema,
                 createdUtc = DateTimeOffset.UtcNow,
                 passed,
+                runId = runIdentity.RunId,
+                scenario = runIdentity.Scenario,
+                startedUtc = runIdentity.StartedUtc,
+                client = runIdentity.Client,
+                worker = runIdentity.Worker,
+                node = runIdentity.Node,
                 evidenceClass = "rendered-loopback-process-local-impairment",
+                run = runIdentity,
                 renderedWanProof = false,
                 qz1Accepted = false,
                 qz5Accepted = false,
@@ -257,7 +341,7 @@ internal static partial class RenderedWanValidationCheck
                             ? (string?)null
                             : "Current validated room content exposed no registered mutable collision entities; dynamic contradictions were not exercised."
                 },
-                worker = new
+                workerRuntime = new
                 {
                     build = WorkerOptions.ActualBuildVersion,
                     protocol = NetHeader.Version,
@@ -301,8 +385,10 @@ internal static partial class RenderedWanValidationCheck
                 },
                 gameplay = new
                 {
+                    scenario = RenderedWanScenarioParser.Format(options.Scenario),
                     scriptedHunter = Hunter.Noxus.ToString(),
-                    scriptedDesiredWeapon = BeamType.Missile.ToString(),
+                    scriptedDesiredWeapon = (options.Scenario == RenderedWanScenario.Headshot
+                        ? BeamType.Imperialist : BeamType.Missile).ToString(),
                     scriptedWeaponConfirmedByReport
                         = authoritativeDesiredWeaponShotEvents > 0,
                     authoritativeDesiredWeaponShotEvents,
@@ -322,8 +408,23 @@ internal static partial class RenderedWanValidationCheck
                     hitPredictionAfterReconnect = result.HitPredictionAfterReconnect,
                     selfImpulseBeforeReconnect = result.SelfImpulseBeforeReconnect,
                     selfImpulseAfterReconnect = result.SelfImpulseAfterReconnect,
+                    presentedCollisionBeforeReconnect = result.PresentedCollisionBeforeReconnect,
+                    presentedCollisionAfterReconnect = result.PresentedCollisionAfterReconnect,
+                    interpolationBeforeReconnect = result.InterpolationBeforeReconnect,
+                    interpolationAfterReconnect = result.InterpolationAfterReconnect,
                     measuredRttMs = result.MeasuredRttMs,
                     measuredJitterMs = result.MeasuredJitterMs
+                },
+                scenarioFacts = result.Scenario,
+                classification = passed ? "PASS"
+                    : scenarioValid && workerStillOwned ? "NETWORK FAIL" : "HARNESS INVALID",
+                harness = new
+                {
+                    ownedWorker = workerStillOwned,
+                    expectedWorkerId = ownedWorker.WorkerId,
+                    expectedWorkerIncarnation = ownedWorker.Incarnation,
+                    expectedWorkerProcessId = ownedWorker.ProcessId,
+                    observedWorkerCount = finalWorkers.Length
                 },
                 debug = new
                 {
@@ -461,6 +562,40 @@ internal static partial class RenderedWanValidationCheck
         return text.Length <= 512 ? text : text[..512];
     }
 
+    private static int ParsePort(string address)
+    {
+        if (!Uri.TryCreate(address, UriKind.Absolute, out Uri? uri)
+            || uri.Port is <= 0 or > ushort.MaxValue)
+            throw new InvalidDataException("The ephemeral Node did not publish a valid listening port.");
+        return uri.Port;
+    }
+
+    private static void ValidateExpectedParticipant(AuthoritativePlay play,
+        NodeMatchHandoff handoff)
+    {
+        if (play.Client.Accepted.MatchId != handoff.WireMatchId
+            || play.LocalSlot < 0 || play.LocalSlot >= 8)
+            throw new InvalidOperationException(
+                "HARNESS INVALID: client joined an unexpected match or slot.");
+        if (play.Client.Roster.Length != 2)
+            throw new InvalidOperationException(
+                "HARNESS INVALID: unexpected third participant in the owned match.");
+        int local = 0, bots = 0;
+        ulong connectionId = play.Client.Connection?.Id ?? 0;
+        foreach (NetRosterEntry entry in play.Client.Roster)
+        {
+            if (entry.IsBot) { bots++; continue; }
+            if (entry.Slot != play.LocalSlot || connectionId == 0
+                || entry.ConnectionId != connectionId)
+                throw new InvalidOperationException(
+                    "HARNESS INVALID: roster contains the wrong client identity.");
+            local++;
+        }
+        if (local != 1 || bots != 1)
+            throw new InvalidOperationException(
+                "HARNESS INVALID: owned match participant set is not one client plus one bot.");
+    }
+
     /// <summary>
     /// Keeps the orchestration continuations on the process main thread until
     /// SDL has created and run its macOS/Cocoa video owner. The queue is
@@ -496,7 +631,8 @@ internal static partial class RenderedWanValidationCheck
     private sealed record Options(string DataDirectory, string OutputDirectory,
         WorkerLagCompensationMode LagCompensationMode, int RoundTripMs, int JitterMs,
         double LossPercent, int Seconds, int ReconnectAt, string Room, int Width, int Height,
-        DeveloperValidationFixtureId ValidationFixture)
+        DeveloperValidationFixtureId ValidationFixture, RenderedWanScenario Scenario,
+        Guid RunId, DateTimeOffset StartedUtc)
     {
         public static Options Parse(string[] args)
         {
@@ -505,10 +641,8 @@ internal static partial class RenderedWanValidationCheck
             string data = Path.GetFullPath(args[1]);
             string output = Path.GetFullPath(args[2]);
             if (!Directory.Exists(data)) throw new DirectoryNotFoundException("The content directory does not exist.");
-            if (Directory.Exists(output) && Directory.EnumerateFileSystemEntries(output).Any())
-                throw new IOException("The output directory must be new or empty.");
             var flags = new Dictionary<string, string>(StringComparer.Ordinal);
-            string[] allowed = ["--mode", "--rtt", "--jitter", "--loss", "--seconds", "--reconnect-at", "--room", "--width", "--height", "--fixture"];
+            string[] allowed = ["--mode", "--rtt", "--jitter", "--loss", "--seconds", "--reconnect-at", "--room", "--width", "--height", "--fixture", "--scenario"];
             for (int i = 3; i < args.Length; i += 2)
             {
                 if (!allowed.Contains(args[i], StringComparer.Ordinal) || !flags.TryAdd(args[i], args[i + 1]))
@@ -533,8 +667,21 @@ internal static partial class RenderedWanValidationCheck
                 || !double.IsFinite(loss) || loss is < 0 or > 25
                 || width is < 320 or > 1920 || height is < 180 or > 1080)
                 throw new ArgumentOutOfRangeException(nameof(args), "Rendered WAN validation limits are invalid.");
+            RenderedWanScenario scenario = RenderedWanScenarioParser.Parse(
+                flags.GetValueOrDefault("--scenario", "general"));
             DeveloperValidationFixtureId fixture = DeveloperValidationFixtures.Parse(
                 flags.GetValueOrDefault("--fixture", "none"));
+            if (scenario == RenderedWanScenario.Headshot && fixture == DeveloperValidationFixtureId.None)
+            {
+                if (flags.ContainsKey("--fixture") || flags.ContainsKey("--room"))
+                    throw new ArgumentException(
+                        "The headshot scenario requires the isolated Unit1 RM1 validation fixture.");
+                fixture = DeveloperValidationFixtureId.Unit1Rm1Dynamic;
+            }
+            if (scenario == RenderedWanScenario.Headshot
+                && fixture != DeveloperValidationFixtureId.Unit1Rm1Dynamic)
+                throw new ArgumentException(
+                    "The headshot scenario requires the isolated Unit1 RM1 validation fixture.");
             if (fixture != DeveloperValidationFixtureId.None && flags.ContainsKey("--room"))
                 throw new ArgumentException("A compiled validation fixture cannot accept an arbitrary room.");
             string room = fixture == DeveloperValidationFixtureId.None
@@ -544,8 +691,11 @@ internal static partial class RenderedWanValidationCheck
                 throw new ArgumentException("The room key is invalid.");
             WorkerLagCompensationMode mode = WorkerOptions.ParseLagCompensationMode(
                 flags.GetValueOrDefault("--mode", "players"));
+            Guid runId = Guid.NewGuid();
+            DateTimeOffset startedUtc = DateTimeOffset.UtcNow;
+            output = RenderedWanRunReservation.ReserveNewDirectory(output);
             return new(data, output, mode, rtt, jitter, loss, seconds, reconnect,
-                room, width, height, fixture);
+                room, width, height, fixture, scenario, runId, startedUtc);
         }
     }
 
@@ -557,6 +707,7 @@ internal static partial class RenderedWanValidationCheck
         private readonly X509Certificate2 _certificate;
         private readonly string _publicKeyPath;
         private readonly Guid _nodeId = Guid.NewGuid();
+        public Guid NodeId => _nodeId;
         public WebApplication App { get; }
 
         public EphemeralNode(WorkerContentIdentity content, Options options)
@@ -595,6 +746,13 @@ internal static partial class RenderedWanValidationCheck
             {
                 workerArguments.Add("--validation-fixture");
                 workerArguments.Add(DeveloperValidationFixtures.Require(options.ValidationFixture).CliValue);
+            }
+            if (options.Scenario == RenderedWanScenario.Headshot)
+            {
+                workerArguments.Add("--headshot-validation-scenario");
+                workerArguments.Add("true");
+                workerArguments.Add("--headshot-scenario-seconds");
+                workerArguments.Add(options.Seconds.ToString(CultureInfo.InvariantCulture));
             }
             var launch = new WorkerLaunchOptions
             {
@@ -690,10 +848,16 @@ internal static partial class RenderedWanValidationCheck
         private readonly string _captureDirectory;
         private readonly Func<Task<NodeMatchHandoff>> _requestRejoin;
         private readonly Stopwatch _wall = Stopwatch.StartNew();
+        private readonly long _simulationPeriod = Stopwatch.Frequency / SimTicks.Hz;
         private readonly Vector3[] _last = new Vector3[8];
         private readonly bool[] _seen = new bool[8];
         private readonly double[] _travel = new double[8];
         private readonly List<CaptureEvidence> _captures = [];
+        private readonly HeadshotScenarioFacts _headshotFacts = new();
+        private bool _headshotCorrectWeapon;
+        private bool _headshotZoomObserved;
+        private bool _headshotAmmoAvailable;
+        private bool _headshotTargetSeen;
         private Task<NodeMatchHandoff>? _rejoinTask;
         private ulong _connectionBeforeReconnect;
         private uint _matchBeforeReconnect;
@@ -704,6 +868,8 @@ internal static partial class RenderedWanValidationCheck
         private bool _reconnectSameSeat;
         private bool _connectionIdentityRotated;
         private int _simulationFrames;
+        private long _nextSimulationTimestamp;
+        private int _headshotPlayingFrames;
         private int _submittedFrames;
         private int _acknowledgedFrames;
         private int _captureFailures;
@@ -724,6 +890,8 @@ internal static partial class RenderedWanValidationCheck
         private ProjectilePresentationMeasurementSnapshot? _projectileBeforeReconnect;
         private HitPredictionMetrics? _hitPredictionBeforeReconnect;
         private SelfImpulseMetrics? _selfImpulseBeforeReconnect;
+        private PresentedCollisionMetricsSnapshot? _presentedCollisionBeforeReconnect;
+        private SnapshotInterpolationMetrics? _interpolationBeforeReconnect;
 
         public RenderedClient(IRenderToolHost host, AuthoritativePlay play, Hunter hunter,
             Options options, string captureDirectory, Func<Task<NodeMatchHandoff>> requestRejoin)
@@ -739,6 +907,18 @@ internal static partial class RenderedWanValidationCheck
             play.SelfImpulse.Enabled = true;
             _presentation = host.CreatePresentation(_scene);
             play.BuildPlayers(_scene, hunter, 0);
+            if (options.Scenario == RenderedWanScenario.Headshot)
+            {
+                if (play.LocalSlot < 0 || play.LocalSlot >= _scene.Players.Count)
+                    throw new InvalidOperationException("HARNESS INVALID: headshot shooter slot is unavailable.");
+                // This is a local test fixture grant only. The Worker remains
+                // authoritative and must independently emit Imperialist Shot
+                // facts for the scenario to become valid.
+                _scene.Players[play.LocalSlot].ModArmWeapon(BeamType.Imperialist);
+                play.LocalRootShotObserved += ObserveLocalRootShot;
+                play.AuthoritativeCombatEventObserved += ObserveAuthoritativeCombatEvent;
+                play.PredictedContactObserved += ObservePredictedContact;
+            }
             if (options.ValidationFixture == DeveloperValidationFixtureId.None)
             {
                 _scene.AddRoom(play.Client.Accepted.Room, play.Client.Accepted.Mode,
@@ -761,18 +941,35 @@ internal static partial class RenderedWanValidationCheck
             _presentation.Size = _host.Size;
             _presentation.OnLoad();
             _presentation.OnResize();
+            _nextSimulationTimestamp = Stopwatch.GetTimestamp();
         }
 
         public void OnFrame()
         {
             AdvanceReconnect();
-            _presentation.OnSimulationFrame();
-            _simulationFrames++;
-            ObserveDebug();
+            long now = Stopwatch.GetTimestamp();
+            int simulationSteps = 0;
+            while (now >= _nextSimulationTimestamp && simulationSteps < 4)
+            {
+                _presentation.OnSimulationFrame();
+                _simulationFrames++;
+                ObserveHeadshotScenario();
+                ObserveDebug();
+                _nextSimulationTimestamp += _simulationPeriod;
+                simulationSteps++;
+            }
+            if (simulationSteps == 4 && now >= _nextSimulationTimestamp)
+            {
+                // A debugger pause or renderer stall may require bounded
+                // catch-up, but this evidence client must never run an
+                // unbounded simulation burst or outrun the 60 Hz Worker.
+                _nextSimulationTimestamp = now + _simulationPeriod;
+            }
+            if (simulationSteps == 0) ObserveDebug();
 
             RenderToolCapture? request = null;
             if (!_capturePending && _captures.Count < MaximumCaptures
-                && _submittedFrames + 1 >= _nextCaptureFrame)
+                && _simulationFrames >= _nextCaptureFrame)
             {
                 request = new RenderToolCapture(CaptureTargetKind.FinalPresentedFrame);
                 _capturePending = true;
@@ -789,8 +986,10 @@ internal static partial class RenderedWanValidationCheck
                 ObserveTravel();
             }
 
-            bool durationReached = _simulationFrames >= _options.Seconds * 60;
-            bool boundedGraceReached = _simulationFrames >= _options.Seconds * 60 + GraceFrames
+            int durationFrames = _options.Scenario == RenderedWanScenario.Headshot
+                ? _headshotPlayingFrames : _simulationFrames;
+            bool durationReached = durationFrames >= _options.Seconds * 60;
+            bool boundedGraceReached = durationFrames >= _options.Seconds * 60 + GraceFrames
                 || _wall.Elapsed >= TimeSpan.FromSeconds(_options.Seconds + 20);
             if (durationReached && _reconnectCompleted && _captures.Count > 0 || boundedGraceReached)
                 _host.Close();
@@ -798,7 +997,15 @@ internal static partial class RenderedWanValidationCheck
 
         private void AdvanceReconnect()
         {
-            if (_rejoinTask == null && _wall.Elapsed.TotalSeconds >= _options.ReconnectAt
+            // The headshot arm first needs one uninterrupted correlated-shot
+            // population. Exercise the same-session reconnect after that
+            // population has completed so connection rotation cannot turn a
+            // valid pre-reconnect reliable echo into a false scenario setup
+            // failure. General validation keeps its configured mid-run arm.
+            bool reconnectDue = _options.Scenario == RenderedWanScenario.Headshot
+                ? _headshotPlayingFrames >= _options.Seconds * 60
+                : _wall.Elapsed.TotalSeconds >= _options.ReconnectAt;
+            if (_rejoinTask == null && reconnectDue
                 && _play.Client.State == NetConnectionState.Playing)
             {
                 _connectionBeforeReconnect = _play.Client.Connection?.Id ?? 0;
@@ -808,6 +1015,9 @@ internal static partial class RenderedWanValidationCheck
                 _projectileBeforeReconnect = _play.ProjectilePresentation.Metrics;
                 _hitPredictionBeforeReconnect = _play.HitPrediction.Metrics;
                 _selfImpulseBeforeReconnect = _play.SelfImpulse.Metrics;
+                _presentedCollisionBeforeReconnect = PresentedCollisionMetricsSnapshot.Capture(
+                    _play.PresentedCollision.Metrics);
+                _interpolationBeforeReconnect = _play.InterpolationMetrics;
                 _play.Client.Close();
                 _rejoinTask = _requestRejoin();
             }
@@ -861,14 +1071,36 @@ internal static partial class RenderedWanValidationCheck
 
         private void Drive(PlayerEntity player, uint tick)
         {
+            uint scenarioTick = tick;
+            if (_options.Scenario == RenderedWanScenario.Headshot)
+                scenarioTick = (uint)_headshotPlayingFrames++;
             Vector3 aim = -Vector3.UnitZ;
+            SnapshotPlayer target = default;
+            bool hasTarget = false;
             foreach (SnapshotPlayer other in _play.Client.SnapshotPlayers)
             {
                 if (other.Slot == _play.LocalSlot || other.Health == 0) continue;
-                Vector3 direction = other.Position - player.Position;
+                if (hasTarget || !IsExpectedHeadshotTarget(other.Slot)) continue;
+                target = other;
+                hasTarget = true;
+                Vector3 targetPoint = optionsHead(player, other);
+                Vector3 direction = targetPoint - player.Position;
                 if (direction.LengthSquared > 0.01f) aim = direction.Normalized();
-                break;
             }
+            if (!hasTarget)
+            {
+                foreach (SnapshotPlayer other in _play.Client.SnapshotPlayers)
+                {
+                    if (other.Slot == _play.LocalSlot || other.Health == 0) continue;
+                    target = other;
+                    hasTarget = true;
+                    Vector3 direction = other.Position - player.Position;
+                    if (direction.LengthSquared > 0.01f) aim = direction.Normalized();
+                    break;
+                }
+            }
+            if (_options.Scenario == RenderedWanScenario.Headshot)
+                DriveHeadshot(player, target, hasTarget, ref aim);
             InputButtons movement = ((tick / 120 + (uint)_play.LocalSlot) % 4) switch
             {
                 0 => InputButtons.Forward,
@@ -878,10 +1110,166 @@ internal static partial class RenderedWanValidationCheck
             };
             InputButtons held = movement;
             InputButtons pressed = tick % 90 == 0 ? InputButtons.Jump : InputButtons.None;
-            if (tick % 20 < 6) held |= InputButtons.Shoot;
-            if (tick % 20 == 0) pressed |= InputButtons.Shoot;
+            byte desiredWeapon = (byte)BeamType.Missile;
+            if (_options.Scenario == RenderedWanScenario.Headshot)
+            {
+                movement = InputButtons.None;
+                held = InputButtons.None;
+                pressed = InputButtons.None;
+                desiredWeapon = (byte)BeamType.Imperialist;
+                if (player.CurrentWeapon != BeamType.Imperialist)
+                    player.ModArmWeapon(BeamType.Imperialist);
+                if (!player.EquipInfo.Zoomed)
+                    pressed |= InputButtons.Zoom;
+                // The single-frame edge is intentional: it records a legal
+                // trigger attempt and lets weapon cooldown, ammo and spawn
+                // rules decide whether a Shot actually exists.
+                // Imperialist's multiplayer cooldown spans 120 render ticks.
+                // Two extra ticks avoid boundary-order ambiguity, preserve
+                // the 30 Hz input-sample phase, and yield six legal attempts
+                // during the twelve-second population.
+                uint shotPhase = scenarioTick >= 30
+                    ? (scenarioTick - 30) % 122 : uint.MaxValue;
+                if (shotPhase < 12)
+                    held |= InputButtons.Shoot;
+                if (shotPhase == 0)
+                {
+                    pressed |= InputButtons.Shoot;
+                    _headshotFacts.Trigger();
+                }
+            }
+            else
+            {
+                if (tick % 20 < 6) held |= InputButtons.Shoot;
+                if (tick % 20 == 0) pressed |= InputButtons.Shoot;
+            }
             player.ApplyNetworkInput(new InputCommand(tick, tick, 0, held, pressed, aim,
-                (byte)BeamType.Missile));
+                desiredWeapon));
+        }
+
+        private Vector3 optionsHead(PlayerEntity player, in SnapshotPlayer target)
+            => _options.Scenario == RenderedWanScenario.Headshot
+                ? PresentedTargetHead(target)
+                : PresentedTargetPosition(target);
+
+        private bool IsExpectedHeadshotTarget(byte slot)
+        {
+            foreach (NetRosterEntry entry in _play.Client.Roster)
+                if (entry.Slot == slot) return entry.IsBot;
+            return false;
+        }
+
+        private void DriveHeadshot(PlayerEntity player, in SnapshotPlayer target,
+            bool hasTarget, ref Vector3 aim)
+        {
+            if (!hasTarget) return;
+            Vector3 targetPoint = PresentedTargetHead(target);
+            Vector3 direction = targetPoint - player.Position;
+            if (direction.LengthSquared > 0.01f) aim = direction.Normalized();
+        }
+
+        private float PresentedTargetHeadHeight(byte slot)
+        {
+            if (slot < _scene.Players.Count)
+            {
+                PlayerEntity entity = _scene.Players[slot];
+                return Fixed.ToFloat(entity.Values.MaxPickupHeight) - 0.15f;
+            }
+            return 1.1f;
+        }
+
+        private Vector3 PresentedTargetHead(in SnapshotPlayer target)
+            => PresentedTargetPosition(target)
+                + new Vector3(0, PresentedTargetHeadHeight(target.Slot), 0);
+
+        private Vector3 PresentedTargetPosition(in SnapshotPlayer target)
+        {
+            if (target.Slot < _scene.Players.Count)
+            {
+                PlayerEntity presented = _scene.Players[target.Slot];
+                if (presented.ModIsInPlay) return presented.Position;
+            }
+            return target.Position;
+        }
+
+        private SnapshotPlayer PresentedTarget(in SnapshotPlayer target)
+        {
+            SnapshotPlayer presented = target;
+            if (target.Slot < _scene.Players.Count)
+            {
+                PlayerEntity entity = _scene.Players[target.Slot];
+                if (entity.ModIsInPlay)
+                {
+                    presented.Position = entity.Position;
+                    presented.Speed = entity.Speed;
+                }
+            }
+            return presented;
+        }
+
+        private void ObserveHeadshotScenario()
+        {
+            if (_options.Scenario != RenderedWanScenario.Headshot
+                || _play.LocalSlot < 0 || _play.LocalSlot >= _scene.Players.Count)
+                return;
+            PlayerEntity shooter = _scene.Players[_play.LocalSlot];
+            if (shooter.CurrentWeapon == BeamType.Imperialist)
+                _headshotCorrectWeapon = true;
+            if (shooter.EquipInfo.Zoomed) _headshotZoomObserved = true;
+            (int ua, int missiles) = shooter.ModAmmo;
+            _headshotAmmoAvailable |= ua > 0 || missiles > 0 || shooter.CurrentWeapon == BeamType.PowerBeam;
+            SnapshotPlayer target = default;
+            bool found = false;
+            foreach (SnapshotPlayer value in _play.Client.SnapshotPlayers)
+            {
+                if (value.Slot == _play.LocalSlot || value.Health == 0
+                    || !IsExpectedHeadshotTarget(value.Slot)) continue;
+                target = PresentedTarget(value);
+                found = true;
+                break;
+            }
+            if (!found) return;
+            _headshotTargetSeen = true;
+            SnapshotPlayer shooterState = new()
+            {
+                Position = shooter.Position,
+                Aim = shooter.ModGunVector
+            };
+            _headshotFacts.ObserveTarget(target, shooterState,
+                HeadshotScenarioStage.At((uint)Math.Max(0, _headshotPlayingFrames - 1),
+                    _options.Seconds),
+                PresentedTargetHeadHeight(target.Slot));
+        }
+
+        private void ObserveLocalRootShot(CombatShot shot)
+        {
+            if (_options.Scenario != RenderedWanScenario.Headshot
+                || _play.LocalSlot < 0 || shot.Actor.Slot != (byte)_play.LocalSlot
+                || !shot.Actor.IsValid) return;
+            _headshotFacts.Shots.ObserveLocalRoot(shot.Actor, shot.CommandSequence,
+                shot.SourceWeapon);
+        }
+
+        private void ObserveAuthoritativeCombatEvent(CombatEvent value)
+        {
+            if (_options.Scenario != RenderedWanScenario.Headshot
+                || _play.LocalSlot < 0 || value.Actor.Slot != (byte)_play.LocalSlot
+                || !value.Actor.IsValid) return;
+            if (value.Kind == CombatEventKind.Shot)
+                _headshotFacts.Shots.ObserveAuthoritativeRoot(value);
+            else if (value.Kind == CombatEventKind.Damage
+                && value.Target.IsValid && IsExpectedHeadshotTarget(value.Target.Slot))
+                _headshotFacts.Shots.ObserveAuthoritativeDamage(value);
+        }
+
+        private void ObservePredictedContact(CombatShot shot, CombatActor target,
+            bool headshot)
+        {
+            if (_options.Scenario != RenderedWanScenario.Headshot
+                || _play.LocalSlot < 0 || shot.Actor.Slot != (byte)_play.LocalSlot
+                || !shot.Actor.IsValid || !target.IsValid
+                || !IsExpectedHeadshotTarget(target.Slot)) return;
+            _headshotFacts.Shots.ObservePredictedContact(shot, target, headshot);
         }
 
         private void ObserveTravel()
@@ -923,10 +1311,75 @@ internal static partial class RenderedWanValidationCheck
         public void OnClosing()
         {
             _play.ScriptInput = null;
+            if (_options.Scenario == RenderedWanScenario.Headshot)
+            {
+                _play.LocalRootShotObserved -= ObserveLocalRootShot;
+                _play.AuthoritativeCombatEventObserved -= ObserveAuthoritativeCombatEvent;
+                _play.PredictedContactObserved -= ObservePredictedContact;
+            }
             _presentation.DoCleanup();
         }
 
-        public RenderedClientResult Result()
+        private bool HasValidParticipant()
+        {
+            if (_play.Client.State != NetConnectionState.Playing
+                || _play.LocalSlot < 0 || _play.LocalSlot >= 8
+                || _play.Client.Accepted.MatchId == 0 || _play.Client.Roster.Length != 2)
+                return false;
+            int local = 0, bots = 0;
+            ulong connectionId = _play.Client.Connection?.Id ?? 0;
+            foreach (NetRosterEntry entry in _play.Client.Roster)
+            {
+                if (entry.IsBot)
+                {
+                    bots++;
+                    continue;
+                }
+                if (entry.Slot != _play.LocalSlot || connectionId == 0
+                    || entry.ConnectionId != connectionId)
+                    return false;
+                local++;
+            }
+            return local == 1 && bots == 1;
+        }
+
+        private bool HasDeterministicTarget()
+        {
+            // These are observations, not arm labels. A valid run must have
+            // enough facts in each scheduled arm to show actual motion and
+            // both requested range bands.
+            return _headshotTargetSeen && _headshotFacts.FramesObserved >= 120
+                && _headshotFacts.TargetMovedFrames >= 30
+                && _headshotFacts.TargetAirborneFrames >= 30
+                && _headshotFacts.VerticalFrames >= 30
+                && _headshotFacts.StrafeFrames >= 30
+                && _headshotFacts.CloseFrames >= 30
+                && _headshotFacts.LongFrames >= 30
+                && _headshotFacts.MaximumVerticalSpeed >= 0.05f;
+        }
+
+        private RenderedWanScenarioReport CreateScenarioReport(bool authoritativeWorker)
+        {
+            int localImperialist = _headshotFacts.Shots.CountLocalWeapon((byte)BeamType.Imperialist);
+            int authoritativeImperialist = _headshotFacts.Shots.CountAuthorityWeapon((byte)BeamType.Imperialist);
+            bool correctWeapon = _headshotCorrectWeapon
+                && localImperialist > 0
+                && localImperialist == _headshotFacts.Shots.LocalRootShots;
+            bool authorityWeapon = authoritativeImperialist > 0
+                && authoritativeImperialist == _headshotFacts.Shots.AuthoritativeRootShots;
+            bool minimumDuration = _headshotPlayingFrames >= _options.Seconds * 60;
+            bool cleanLink = _options.RoundTripMs == 0 && _options.JitterMs == 0
+                && _options.LossPercent == 0;
+            ScenarioGateResult gate = ScenarioGateResult.ValidateHeadshot(
+                _headshotFacts, correctWeapon, authorityWeapon, _headshotZoomObserved,
+                _headshotAmmoAvailable, minimumDuration, HasValidParticipant(),
+                authoritativeWorker, HasDeterministicTarget(), cleanLink);
+            return RenderedWanScenarioReport.Create(_headshotFacts, gate,
+                correctWeapon, authorityWeapon, _headshotZoomObserved,
+                _headshotAmmoAvailable, minimumDuration);
+        }
+
+        public RenderedClientResult Result(bool authoritativeWorker = true)
         {
             int local = _play.LocalSlot;
             int movingRemotes = 0;
@@ -934,10 +1387,15 @@ internal static partial class RenderedWanValidationCheck
                 if (slot != local && _seen[slot] && _travel[slot] > 1) movingRemotes++;
             double localTravel = local is >= 0 and < 8 ? _travel[local] : 0;
             bool lit = _captures.Any(capture => capture.Saved && capture.NonBlackFraction >= 0.01);
+            bool movementEvidence = _options.Scenario == RenderedWanScenario.Headshot
+                ? _headshotFacts.TargetMovedFrames > 0
+                : localTravel > 1 && movingRemotes > 0;
             bool runtimePassed = _play.Client.State == NetConnectionState.Playing
                 && _submittedFrames >= 300 && _acknowledgedFrames > 0 && lit
-                && localTravel > 1 && movingRemotes > 0 && _play.HasWorldState
+                && movementEvidence && _play.HasWorldState
                 && _play.Client.SnapshotsReceived > 0 && _play.CombatEvents > 0;
+            RenderedWanScenarioReport? scenario = _options.Scenario == RenderedWanScenario.Headshot
+                ? CreateScenarioReport(authoritativeWorker) : null;
             NetMetrics metrics = _play.Client.Clock.Metrics;
             return new(runtimePassed, _submittedFrames, _acknowledgedFrames,
                 _captureFailures, _captures.ToArray(), _play.Client.State,
@@ -947,13 +1405,16 @@ internal static partial class RenderedWanValidationCheck
                 _projectileBeforeReconnect, _play.ProjectilePresentation.Metrics,
                 _hitPredictionBeforeReconnect, _play.HitPrediction.Metrics,
                 _selfImpulseBeforeReconnect, _play.SelfImpulse.Metrics,
+                _presentedCollisionBeforeReconnect, PresentedCollisionMetricsSnapshot.Capture(
+                    _play.PresentedCollision.Metrics),
+                _interpolationBeforeReconnect, _play.InterpolationMetrics,
                 metrics.SmoothedRttMs, metrics.JitterMs,
                 _debugPackets, _historyDebugPackets, _dynamicDebugPackets,
                 _historicalPlayerMaximum, _dynamicColliderMaximum,
                 _historicalDynamicEnabledReported, _registryOverflowReported, _truncatedReported,
                 _debugMetrics,
                 _reconnectCompleted, _reconnectSameMatch, _reconnectSameSeat,
-                _connectionIdentityRotated, null);
+                _connectionIdentityRotated, scenario, null);
         }
     }
 
@@ -961,11 +1422,17 @@ internal static partial class RenderedWanValidationCheck
         double NonBlackFraction, bool Saved, string? Sha256);
 
     private sealed record PredictionEvidence(long Samples, double MeanError,
-        double WorstError, long Corrections, long HardCorrections, long HistoryMisses)
+        double? P95Error, double WorstError, long Corrections,
+        long HardCorrections, long HistoryMisses)
     {
-        public static PredictionEvidence Capture(ClientPrediction prediction) => new(
-            prediction.Error.Count, prediction.Error.Mean, prediction.Error.Max,
-            prediction.Corrections, prediction.HardCorrections, prediction.HistoryMisses);
+        public static PredictionEvidence Capture(ClientPrediction prediction)
+        {
+            NetSample error = prediction.Error;
+            return new(error.Count, error.Mean,
+                error.Count == 0 ? null : error.Percentiles.P95, error.Max,
+                prediction.Corrections, prediction.HardCorrections,
+                prediction.HistoryMisses);
+        }
     }
 
     private sealed record RenderedClientResult(bool RuntimePassed, int SubmittedFrames,
@@ -980,11 +1447,16 @@ internal static partial class RenderedWanValidationCheck
         HitPredictionMetrics HitPredictionAfterReconnect,
         SelfImpulseMetrics? SelfImpulseBeforeReconnect,
         SelfImpulseMetrics SelfImpulseAfterReconnect,
+        PresentedCollisionMetricsSnapshot? PresentedCollisionBeforeReconnect,
+        PresentedCollisionMetricsSnapshot PresentedCollisionAfterReconnect,
+        SnapshotInterpolationMetrics? InterpolationBeforeReconnect,
+        SnapshotInterpolationMetrics InterpolationAfterReconnect,
         double MeasuredRttMs, double MeasuredJitterMs,
         int DebugPackets, int HistoryDebugPackets, int DynamicDebugPackets,
         int HistoricalPlayerMaximum, int DynamicColliderMaximum,
         bool HistoricalDynamicEnabledReported, bool RegistryOverflowReported,
         bool TruncatedReported, HistoricalCollisionDebugMetrics DebugMetrics,
         bool ReconnectCompleted, bool ReconnectSameMatch,
-        bool ReconnectSameSeat, bool ConnectionIdentityRotated, RenderBackendInfo? Backend);
+        bool ReconnectSameSeat, bool ConnectionIdentityRotated,
+        RenderedWanScenarioReport? Scenario, RenderBackendInfo? Backend);
 }

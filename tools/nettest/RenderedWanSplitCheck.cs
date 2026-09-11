@@ -57,21 +57,22 @@ internal static partial class RenderedWanValidationCheck
         catch (Exception error)
         {
             Console.Error.WriteLine($"RENDERED_WAN_OPERATOR result=FAIL error={error.GetType().Name} reason={Bounded(error.Message)}");
-            if (options != null) WriteSplitFailure(Path.Combine(options.OutputDirectory, "server-report.json"), "server", error);
+            if (options != null) WriteSplitFailure(Path.Combine(options.OutputDirectory, "server-report.json"), "server", error, options.RunId);
             return 1;
         }
     }
 
     private static async Task<int> RunOperatorAsync(SplitOperatorOptions options)
     {
-        Directory.CreateDirectory(options.OutputDirectory);
+        if (!File.Exists(Path.Combine(options.OutputDirectory, ".run-reservation")))
+            throw new IOException("The operator output directory was not exclusively reserved.");
         ContentEnvironment.Open(options.DataDirectory, "AMHE1");
         (string contentVersion, string contentHash) = ContentEnvironment.GetContentIdentity();
         RequireOrdinaryRoom(options.Room);
         var content = new WorkerContentIdentity(contentVersion, contentHash,
             WorkerOptions.ActualBuildVersion, NetHeader.Version);
         DateTimeOffset started = DateTimeOffset.UtcNow;
-        Guid runId = Guid.NewGuid();
+        Guid runId = options.RunId;
         Guid subject = Guid.NewGuid();
 
         await using var node = new SplitOperatorNode(content, options);
@@ -217,7 +218,7 @@ internal static partial class RenderedWanValidationCheck
         catch (Exception error)
         {
             Console.Error.WriteLine($"RENDERED_WAN_CLIENT result=FAIL error={error.GetType().Name} reason={Bounded(error.Message)}");
-            if (options != null) WriteSplitFailure(Path.Combine(options.OutputDirectory, "client-report.json"), "client", error);
+            if (options != null) WriteSplitFailure(Path.Combine(options.OutputDirectory, "client-report.json"), "client", error, options.RunId);
             NetSession.Stop();
             return 1;
         }
@@ -225,7 +226,8 @@ internal static partial class RenderedWanValidationCheck
 
     private static async Task<int> RunClientAsync(SplitClientOptions options)
     {
-        Directory.CreateDirectory(options.OutputDirectory);
+        if (!File.Exists(Path.Combine(options.OutputDirectory, ".run-reservation")))
+            throw new IOException("The client output directory was not exclusively reserved.");
         string captures = Path.Combine(options.OutputDirectory, "captures");
         Directory.CreateDirectory(captures);
         DateTimeOffset started = DateTimeOffset.UtcNow;
@@ -290,7 +292,8 @@ internal static partial class RenderedWanValidationCheck
         var renderOptions = new Options(options.DataDirectory, options.OutputDirectory,
             WorkerOptions.ParseLagCompensationMode(descriptor.Mode), 0, 0, 0,
             descriptor.Seconds, descriptor.ReconnectAt, descriptor.Room,
-            options.Width, options.Height, DeveloperValidationFixtureId.None);
+            options.Width, options.Height, DeveloperValidationFixtureId.None,
+            RenderedWanScenario.General, descriptor.RunId, started);
         RenderedClientResult result;
         byte clientSeat = checked((byte)play.LocalSlot);
         try
@@ -329,7 +332,9 @@ internal static partial class RenderedWanValidationCheck
             result.CombatEvents, result.DebugPackets, result.HistoryDebugPackets,
             result.DynamicDebugPackets, result.HitPredictionBeforeReconnect,
             result.HitPredictionAfterReconnect, result.SelfImpulseBeforeReconnect,
-            result.SelfImpulseAfterReconnect, captureReport, passed, null,
+            result.SelfImpulseAfterReconnect, result.PresentedCollisionBeforeReconnect,
+            result.PresentedCollisionAfterReconnect, result.InterpolationBeforeReconnect,
+            result.InterpolationAfterReconnect, captureReport, passed, null,
             RenderedWanProof: false, Qz1Accepted: false, Qz5Accepted: false,
             RequiresHumanVisualReview: true);
         WriteSplitJson(Path.Combine(options.OutputDirectory, "client-report.json"), report);
@@ -425,7 +430,7 @@ internal static partial class RenderedWanValidationCheck
                 MatchStatus.Completed.ToString(), 8, 8, 8, 0, 0, null, true, null, false, false, false, true);
             var client = new SplitClientReport(SplitSchema, "client", binding, start.AddSeconds(1), end.AddSeconds(-1),
                 NetConnectionState.Playing.ToString(), true, true, true, true, true, 600, 600, 300,
-                1, 3, 1, 1, null, default, null, default,
+                1, 3, 1, 1, null, default, null, default, null, default, null, default,
                 [capture], true, null, false, false, false, true);
             SplitMergeManifest merged = Merge(descriptor, server, client, captures, hash, hash);
             if (!merged.Passed || merged.RenderedWanProof || merged.Qz1Accepted || merged.Qz5Accepted
@@ -685,14 +690,17 @@ internal static partial class RenderedWanValidationCheck
         stream.Flush(flushToDisk: true);
     }
 
-    private static void WriteSplitFailure(string path, string reportType, Exception error)
+    private static void WriteSplitFailure(string path, string reportType, Exception error,
+        Guid runId)
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
             WriteSplitJson(path, new
             {
                 schema = SplitSchema, reportType, passed = false,
+                runId, scenario = "general", startedUtc = DateTimeOffset.UtcNow,
+                client = (object?)null, worker = (object?)null, node = (object?)null,
+                classification = "HARNESS INVALID",
                 failureReason = Bounded(error.Message), renderedWanProof = false,
                 qz1Accepted = false, qz5Accepted = false, requiresHumanVisualReview = true
             });
@@ -851,6 +859,10 @@ internal static partial class RenderedWanValidationCheck
         long CombatEvents, int DebugPackets, int HistoryDebugPackets, int DynamicDebugPackets,
         HitPredictionMetrics? HitPredictionBeforeReconnect, HitPredictionMetrics HitPredictionAfterReconnect,
         SelfImpulseMetrics? SelfImpulseBeforeReconnect, SelfImpulseMetrics SelfImpulseAfterReconnect,
+        PresentedCollisionMetricsSnapshot? PresentedCollisionBeforeReconnect,
+        PresentedCollisionMetricsSnapshot PresentedCollisionAfterReconnect,
+        SnapshotInterpolationMetrics? InterpolationBeforeReconnect,
+        SnapshotInterpolationMetrics InterpolationAfterReconnect,
         SplitCapture[] Captures,
         bool Passed, string? FailureReason, bool RenderedWanProof, bool Qz1Accepted,
         bool Qz5Accepted, bool RequiresHumanVisualReview);
@@ -866,7 +878,8 @@ internal static partial class RenderedWanValidationCheck
     private sealed record SplitOperatorOptions(string DataDirectory, string OutputDirectory,
         IPAddress NodeBind, ushort NodePort, string NodeControlUri, string TlsPfx,
         string TlsPasswordFile, IPAddress WorkerBind, IPAddress WorkerHost, ushort WorkerPort,
-        WorkerLagCompensationMode Mode, string Room, int Seconds, int ReconnectAt, int WaitSeconds)
+        WorkerLagCompensationMode Mode, string Room, int Seconds, int ReconnectAt, int WaitSeconds,
+        Guid RunId)
     {
         public static SplitOperatorOptions Parse(string[] args)
         {
@@ -875,8 +888,6 @@ internal static partial class RenderedWanValidationCheck
             string data = Path.GetFullPath(args[1]);
             string output = Path.GetFullPath(args[2]);
             if (!Directory.Exists(data)) throw new DirectoryNotFoundException("The content directory does not exist.");
-            if (Directory.Exists(output) && Directory.EnumerateFileSystemEntries(output).Any())
-                throw new IOException("The output directory must be new or empty.");
             var values = ParsePairs(args, 3,
                 ["--node-bind", "--node-port", "--node-uri", "--tls-pfx", "--tls-password-file",
                     "--worker-bind", "--worker-host", "--worker-port", "--mode", "--room",
@@ -907,13 +918,16 @@ internal static partial class RenderedWanValidationCheck
             string room = values.GetValueOrDefault("--room", "MP1 SANCTORUS");
             if (room.Length is < 1 or > 128 || room.Any(char.IsControl)) throw new ArgumentException("Room is invalid.");
             WorkerLagCompensationMode mode = WorkerOptions.ParseLagCompensationMode(values.GetValueOrDefault("--mode", "players"));
+            output = RenderedWanRunReservation.ReserveNewDirectory(output);
             return new(data, output, nodeBind, nodePort, nodeUri, pfx, password,
-                workerBind, workerHost, workerPort, mode, room, seconds, reconnect, wait);
+                workerBind, workerHost, workerPort, mode, room, seconds, reconnect, wait,
+                Guid.NewGuid());
         }
     }
 
     private sealed record SplitClientOptions(string DataDirectory, string DescriptorPath,
-        string SecretPath, string OutputDirectory, bool AllowLabPin, int Width, int Height)
+        string SecretPath, string OutputDirectory, bool AllowLabPin, int Width, int Height,
+        Guid RunId)
     {
         public static SplitClientOptions Parse(string[] args)
         {
@@ -925,8 +939,6 @@ internal static partial class RenderedWanValidationCheck
             string output = Path.GetFullPath(args[4]);
             if (!Directory.Exists(data)) throw new DirectoryNotFoundException("The content directory does not exist.");
             if (!File.Exists(descriptor) || !File.Exists(secret)) throw new FileNotFoundException("Descriptor or secret file is missing.");
-            if (Directory.Exists(output) && Directory.EnumerateFileSystemEntries(output).Any())
-                throw new IOException("The output directory must be new or empty.");
             var values = ParsePairs(args, 5, ["--allow-lab-pin", "--width", "--height"]);
             string rawPin = values.GetValueOrDefault("--allow-lab-pin", "false");
             bool pin = rawPin switch { "true" => true, "false" => false,
@@ -934,7 +946,10 @@ internal static partial class RenderedWanValidationCheck
             int width = Number(values, "--width", 640), height = Number(values, "--height", 360);
             if (width is < 320 or > 1920 || height is < 180 or > 1080)
                 throw new ArgumentOutOfRangeException(nameof(args), "Rendered size is invalid.");
-            return new(data, descriptor, secret, output, pin, width, height);
+            SplitDescriptor descriptorValue = ReadSplit<SplitDescriptor>(descriptor);
+            output = RenderedWanRunReservation.ReserveNewDirectory(output);
+            return new(data, descriptor, secret, output, pin, width, height,
+                descriptorValue.RunId);
         }
     }
 
