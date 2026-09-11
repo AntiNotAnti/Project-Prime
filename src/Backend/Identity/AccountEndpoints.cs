@@ -14,7 +14,10 @@ namespace MphRead.Backend.Identity;
 public sealed record RegisterRequest(string Email, string Password, string DisplayName);
 public sealed record LoginRequest(string Email, string Password);
 public sealed record RefreshRequest(string RefreshToken);
-public sealed record ConfirmRequest(PlayerId PlayerId, string Code);
+// Keep the wire ID as text so malformed/empty JSON values reach the route's
+// stable invalid_confirmation problem instead of framework model binding's
+// untyped 400 response.
+public sealed record ConfirmRequest(string? PlayerId, string? Code);
 public sealed record ResendRequest(string Email);
 
 public static class AccountEndpoints
@@ -64,13 +67,14 @@ public static class AccountEndpoints
         });
         auth.MapPost("/confirm-email", async (ConfirmRequest request, UserManager<HunterAccount> users) =>
         {
-            if (request.PlayerId.IsEmpty || request.Code is not { Length: >= 1 and <= 4096 })
+            if (!PlayerId.TryParse(request.PlayerId, out PlayerId playerId)
+                || request.Code is not { Length: >= 1 and <= 4096 })
             {
                 return BackendProblem.Create("invalid_confirmation", "The confirmation request is invalid.", StatusCodes.Status400BadRequest);
             }
             if (!confirmationTokens.TryUnprotect(request.Code, out string identityToken))
                 return BackendProblem.Create("invalid_confirmation", "The confirmation request is invalid.", StatusCodes.Status400BadRequest);
-            var user = await users.FindByIdAsync(request.PlayerId.ToString());
+            var user = await users.FindByIdAsync(playerId.ToString());
             if (user == null)
                 return BackendProblem.Create("invalid_confirmation", "The confirmation request is invalid.", StatusCodes.Status400BadRequest);
             var result = await users.ConfirmEmailAsync(user, identityToken);
@@ -97,6 +101,9 @@ public static class AccountEndpoints
         });
         auth.MapPost("/revoke-sessions", async (HttpContext http, UserManager<HunterAccount> users) =>
         {
+            if (http.User.Identity?.IsAuthenticated != true)
+                return BackendProblem.Create("invalid_credential", "The session is invalid.",
+                    StatusCodes.Status401Unauthorized);
             var user = await users.GetUserAsync(http.User);
             if (user == null)
                 return BackendProblem.Create("invalid_credential", "The session is invalid.", StatusCodes.Status401Unauthorized);
@@ -105,7 +112,7 @@ public static class AccountEndpoints
             return result.Succeeded ? Results.NoContent()
                 : BackendProblem.Create("service_busy", "The account service is temporarily unavailable.",
                     StatusCodes.Status409Conflict);
-        }).RequireAuthorization();
+        });
     }
 
     private static async Task<IResult> Register(RegisterRequest request, UserManager<HunterAccount> users,
