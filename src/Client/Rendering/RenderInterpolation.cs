@@ -39,9 +39,7 @@ namespace MphRead
         public void ResetRenderLook()
         {
             RenderLook?.Reset();
-#if !ANDROID
-            Mods.Input.DesktopStylusInput.Cancel();
-#endif
+            Mods.Input.GamepadInput.CancelPlatformStylus();
             Mods.Input.GamepadHaptics.Stop();
             // Camera ownership and prediction share the same lifecycle as the
             // mouse accumulator. A pause, focus loss, room transition or

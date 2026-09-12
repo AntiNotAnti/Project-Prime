@@ -18,6 +18,7 @@ using MphRead.Formats.Collision;
 using MphRead.Formats.Culling;
 using MphRead.Hud;
 using MphRead.Mods.Content;
+using MphRead.Mods.MapGen;
 #if ANDROID
 using OpenTK.Graphics.OpenGL;
 #endif
@@ -76,6 +77,12 @@ namespace MphRead
     public partial class ScenePresentation : IScenePresentation
     {
         public Vector2i Size { get; set; }
+        /// <summary>
+        /// Scene-owned lower-screen state. Platform adapters only see the
+        /// narrow registration bridge and never own this mutable model.
+        /// </summary>
+        internal Mods.Input.NativeBottomScreenController BottomScreen { get; }
+        private Mods.Input.NativeBottomScreenPlatformRegistration _bottomScreenRegistration;
         private Matrix4 _viewMatrix = Matrix4.Identity;
         private Matrix4 _viewInvRotMatrix = Matrix4.Identity;
         private Matrix4 _viewInvRotYMatrix = Matrix4.Identity;
@@ -294,6 +301,12 @@ namespace MphRead
             _replaySession = replaySession;
             _isolatedPresentation = replaySession?.IsPassive == true;
             _audioActive = !_isolatedPresentation;
+            BottomScreen = new Mods.Input.NativeBottomScreenController();
+            if (!_isolatedPresentation)
+            {
+                _bottomScreenRegistration
+                    = Mods.Input.NativeBottomScreenPlatformBridge.Register(BottomScreen);
+            }
             _presentations.Add(world, this);
             world.Presentation = this;
             if (!_isolatedPresentation)
@@ -320,7 +333,8 @@ namespace MphRead
         public void AddRoom(string name, GameMode mode = GameMode.None, int playerCount = 0,
             int nodeLayerMask = 0, int entityLayerId = -1)
         {
-            (RoomMetadata? metadata, _) = Metadata.GetRoomByName(name);
+            RuntimeRoomRegistration? registration = Metadata.GetRuntimeRoomByName(name);
+            RoomMetadata? metadata = registration?.Metadata;
             if (metadata == null || !metadata.Multiplayer)
                 throw new ProgramException("No supported multiplayer room with this name is known.");
             if (mode == GameMode.None)
@@ -548,8 +562,40 @@ namespace MphRead
         /// screen stretches it back, and the HUD is drawn after that at full
         /// size, so nothing readable is ever scaled.
         /// </summary>
+        private DynamicResolutionController _dynamicResolution
+            = new(Mods.RenderOptions.ResolutionScale);
+        private int _dynamicResolutionMaximum
+            = Mods.RenderOptions.ResolutionScale;
+        internal DynamicResolutionDecision DynamicResolutionDecision { get; private set; }
+
+        private int EffectiveRenderScale => RenderBackendSelection.Current
+                == RenderBackendKind.Sdl
+            && Mods.RenderOptions.GraphicsPreset == Mods.GraphicsPreset.Enhanced
+                ? _dynamicResolution.ScalePercent
+                : Mods.RenderOptions.ResolutionScale;
+
         public Vector2i RenderSize => new Vector2i(
-            Mods.RenderOptions.Scaled(Size.X), Mods.RenderOptions.Scaled(Size.Y));
+            Mods.RenderOptions.Scaled(Size.X, EffectiveRenderScale),
+            Mods.RenderOptions.Scaled(Size.Y, EffectiveRenderScale));
+
+        /// <summary>
+        /// Applies the completed SDL frame's real GPU duration to the next
+        /// sealed frame. When SDL exposes no timestamp, the controller holds
+        /// the configured scale and reports the capability gate explicitly.
+        /// </summary>
+        internal void UpdateDynamicResolution(RenderTelemetrySnapshot telemetry)
+        {
+            int configuredMaximum = Mods.RenderOptions.ResolutionScale;
+            if (configuredMaximum != _dynamicResolutionMaximum)
+            {
+                _dynamicResolution = new DynamicResolutionController(
+                    configuredMaximum);
+                _dynamicResolutionMaximum = configuredMaximum;
+            }
+            DynamicResolutionDecision = _dynamicResolution.Update(
+                Mods.RenderOptions.GraphicsPreset, configuredMaximum,
+                telemetry.GpuFrameMilliseconds);
+        }
 
         private Vector2i _targetSize;
 
@@ -1435,9 +1481,7 @@ namespace MphRead
             // Native polling/sampling is render-rate. Fixed-step input owns
             // hysteresis, boost timing and button edges; these calls only
             // refresh the latest raw state/velocity for prediction.
-#if !ANDROID
-            Mods.Input.GamepadDesktop.Poll();
-#endif
+            Mods.Input.GamepadInput.PollPlatformForMenu();
             if (CanCaptureSimulationLook)
             {
                 Mods.Input.GamepadInput.SampleNativeFrame();
@@ -4786,13 +4830,30 @@ namespace MphRead
             if (!_exiting)
             {
                 _exiting = true;
+                if (!_isolatedPresentation)
+                {
+                    Mods.Input.NativeBottomScreenPlatformBridge.Unregister(
+                        _bottomScreenRegistration);
+                    BottomScreen.EndPresentation(BottomScreen.Generation);
+                }
                 DisposeAnnouncerAudio();
                 World.CloseWorld();
                 if (!preserveSharedAudio)
                 {
-                    Music.Stop();
-                    Sound.Sfx.ShutDown();
+                    // Audio is process-owned. Leaving a scene stops and
+                    // detaches its requests while retaining decoded banks
+                    // and the device for the next match; final process
+                    // teardown uses AudioService.Dispose explicitly.
+                    Sound.Sfx.StopPresentation();
                     Selection.Clear();
+                }
+                else
+                {
+                    // A replay/killcam cleanup may run after its best-effort
+                    // live handoff failed. Retire only this scene if it still
+                    // owns the binding; never interrupt a scene that already
+                    // reclaimed process audio.
+                    Sound.Sfx.StopPresentationIfBound(World);
                 }
                 if (!_isolatedPresentation) OutputStop();
             }

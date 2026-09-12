@@ -1,7 +1,8 @@
 using System.Runtime.CompilerServices;
 
+[assembly: InternalsVisibleTo("ProjectPrime.Client.Presentation")]
 [assembly: InternalsVisibleTo("ProjectPrime")]
-[assembly: InternalsVisibleTo("ProjectPrime.Editor")]
 [assembly: InternalsVisibleTo("MphRead.Tests")]
 [assembly: InternalsVisibleTo("ProjectPrime.MapPlatform.Tests")]
-[assembly: InternalsVisibleTo("nettest")]
+[assembly: InternalsVisibleTo("ProjectPrime.Renderer.Tests")]
+[assembly: InternalsVisibleTo("ProjectPrimeEnhancedMaterials")]

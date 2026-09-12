@@ -43,7 +43,7 @@ namespace MphRead.Mods.Render
     /// What is lost: <c>glPolygonMode</c>, so the wireframe and collision-volume
     /// debug views draw solid. Nothing a player sees uses it.
     /// </summary>
-    internal static class GlEs
+    public static class GlEs
     {
         // 0..2 position, 3..6 colour, 7..9 normal, 10..12 texcoord + matrix id,
         // 13 "had its own colour", 14..17 tangent + handedness
@@ -122,7 +122,7 @@ namespace MphRead.Mods.Render
             if (_contextGeneration == 0) _contextGeneration = 1;
         }
 
-        public static GlesEnhancedCapabilities QueryEnhancedCapabilities()
+        internal static GlesEnhancedCapabilities QueryEnhancedCapabilities()
         {
             int major = ES.GL.GetInteger(ES.GetPName.MajorVersion);
             int minor = ES.GL.GetInteger(ES.GetPName.MinorVersion);

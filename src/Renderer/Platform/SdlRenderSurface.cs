@@ -115,6 +115,7 @@ public unsafe sealed class SdlRenderSurface : IDisposable
     public Vector2i LogicalSize => _logicalSize;
     public Vector2i FramebufferSize => _framebufferSize;
     public RenderBackendInfo BackendInfo => Backend.Info;
+    public RenderTelemetrySnapshot Telemetry => Backend.Telemetry;
     public bool Closed => _closed;
 
     public RenderSurfaceInput PumpEvents()

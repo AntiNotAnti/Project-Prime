@@ -1,0 +1,65 @@
+{
+  "artifacts": {
+    "fragment_dxil": {
+      "entrypoint": "main_ps",
+      "format": "DXIL",
+      "path": "fullscreen.frag.dxil",
+      "sha256": "a33098ff783cbfda07f970a916fae2d10ce446a8b70651c6638d1a285185cac7",
+      "stage": "fragment"
+    },
+    "fragment_msl": {
+      "entrypoint": "main_ps",
+      "format": "MSL",
+      "path": "fullscreen.frag.msl",
+      "sha256": "f10abfd0e34d8433964409c6c3b547f1320ed17a648af543f91c222fa058c2a9",
+      "stage": "fragment"
+    },
+    "fragment_spirv": {
+      "entrypoint": "main_ps",
+      "format": "SPIRV",
+      "path": "fullscreen.frag.spv",
+      "sha256": "29e1b716b4ae629edf84d652dcc852bf812a54b64204b1c8cbd54aebe86e47a1",
+      "stage": "fragment"
+    },
+    "vertex_dxil": {
+      "entrypoint": "main_vs",
+      "format": "DXIL",
+      "path": "fullscreen.vert.dxil",
+      "sha256": "80d103e2b8415929bd0066477fd93feca6a8d0eb6c6e51ff79774e1b5771a972",
+      "stage": "vertex"
+    },
+    "vertex_msl": {
+      "entrypoint": "main_vs",
+      "format": "MSL",
+      "path": "fullscreen.vert.msl",
+      "sha256": "1c2c4d12136c69bf69423893dfb2058301f3ceb969aed072c5cc57d29b574710",
+      "stage": "vertex"
+    },
+    "vertex_spirv": {
+      "entrypoint": "main_vs",
+      "format": "SPIRV",
+      "path": "fullscreen.vert.spv",
+      "sha256": "577fff48bd68558bbd013d095aae6f669940b7c32d2da2e5441414b0e498b228",
+      "stage": "vertex"
+    }
+  },
+  "blocked_artifacts": {
+    "metallib": "Optional: the SDL_shadercross CLI emits MSL source, while this host has no Xcode xcrun metal compiler to produce a metallib."
+  },
+  "provenance": {
+    "cli": "SDL_shadercross official cli.c",
+    "cli_sha256": "9a40050cd515710428a46d2975c17f930bc6022ac96b79a8bffba3c9caf93d27",
+    "mode": "offline-build-only",
+    "msl_version": "1.2.0 (SDL_shadercross default)",
+    "native_package": "SDL3-CS.MacOS.Shadercross",
+    "native_package_commit": "c1d1cb0da632cb51799da6989f6e48c52f2a539e",
+    "native_package_repository": "https://github.com/edwardgushchin/SDL3-CS.git",
+    "native_package_sha256": "6dba8dd2bac69e333dcb7db529884070a272e93b7cba431235a57cc4ab8e4072",
+    "native_package_version": "3.0.0.11",
+    "sdl_shadercross_commit": "1ff05bec573988a98ef9e0260b4da44f512b8367",
+    "sdl_shadercross_repository": "https://github.com/libsdl-org/SDL_shadercross.git"
+  },
+  "schema": 2,
+  "source": "fullscreen.hlsl",
+  "source_sha256": "f08eb1ea992a903797494045d0e40e698c3b39d04470be7be02556ff6c762327"
+}

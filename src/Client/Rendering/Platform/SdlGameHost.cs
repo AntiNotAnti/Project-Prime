@@ -143,6 +143,7 @@ namespace MphRead
         private bool _gyroSensorEnabled;
         private ControllerCapabilityOwner? _capabilityOwner;
         private uint? _capturedPenId;
+        private uint? _bottomScreenPenId;
         private ScenePresentation? _presentation;
         private GameHostPresentationTracker? _presentationTracker;
         // A host used without the desktop shell still needs a local owner.
@@ -515,7 +516,7 @@ namespace MphRead
             Action? started = null, Func<bool>? suspendFrame = null,
             SceneExitPresentation exitPresentation = SceneExitPresentation.HideWindow,
             ulong transitionGeneration = 0, Action<ulong>? firstFramePresented = null,
-            Action<ulong>? windowPrepared = null)
+            Action<ulong>? windowPrepared = null, ISceneServices? sceneServices = null)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             ArgumentNullException.ThrowIfNull(scene);
@@ -535,7 +536,11 @@ namespace MphRead
                 _framePacer = new SdlFramePacer();
                 _suspendFrame = suspendFrame;
                 _presentation = new ScenePresentation(scene, _logicalSize, _compatibilityInput.Keyboard,
-                    _compatibilityInput.Mouse, SetTitle, StopScene);
+                    _compatibilityInput.Mouse, SetTitle, StopScene, sceneServices);
+                Vector2i drawable = _framebufferSize.X > 0 && _framebufferSize.Y > 0
+                    ? _framebufferSize : _logicalSize;
+                NativeBottomScreenPlatformBridge.Configure(_logicalSize, drawable,
+                    Mods.InputSettings.BottomScreenMode);
                 _presentation.EnableDesktopLook();
                 InputOwner.SetOwner(DesktopInputOwnerKind.Scene,
                     _gamepadState.Buttons);
@@ -827,7 +832,9 @@ namespace MphRead
                 // Keep the window responsive while quarantining all live
                 // gameplay/menu bindings during a replay-owned surface.
                 DesktopStylusInput.Cancel();
+                NativeBottomScreenPlatformBridge.Cancel();
                 _capturedPenId = null;
+                _bottomScreenPenId = null;
                 _presentation.ResetRenderLook();
                 if (_cursorCaptured) SetCursorCaptured(false);
                 return;
@@ -847,7 +854,9 @@ namespace MphRead
             else
             {
                 DesktopStylusInput.Cancel();
+                NativeBottomScreenPlatformBridge.Cancel();
                 _capturedPenId = null;
+                _bottomScreenPenId = null;
                 _presentation.ResetRenderLook();
             }
             foreach (WindowKeyEvent key in snapshot.KeyEvents)
@@ -941,7 +950,9 @@ namespace MphRead
             _relativeMouse = Vector2.Zero;
             _gamepadState = default;
             _stylus.Cancel();
+            NativeBottomScreenPlatformBridge.Cancel();
             _capturedPenId = null;
+            _bottomScreenPenId = null;
             _pens.Clear();
             GamepadGyro.Reset();
             GamepadHaptics.Stop();
@@ -964,6 +975,8 @@ namespace MphRead
                 _presentation.Size = drawable;
                 _presentation.OnResize();
             }
+            NativeBottomScreenPlatformBridge.Configure(_logicalSize, drawable,
+                Mods.InputSettings.BottomScreenMode);
         }
 
         private void OpenGamepad(SDL_JoystickID id)
@@ -1171,6 +1184,13 @@ namespace MphRead
             uint id = (uint)evt.which;
             if (!entered)
             {
+                if (_bottomScreenPenId == id)
+                {
+                    NativeBottomScreenPlatformBridge.CancelPointer((int)id);
+                    _bottomScreenPenId = null;
+                    _pens.Remove(id);
+                    return;
+                }
                 DesktopPenState state = GetPenState(id);
                 bool ended = state.InProximity
                     && _stylus.PointerProximityExit(PenSample(id, state, 0));
@@ -1224,7 +1244,17 @@ namespace MphRead
             PointerSample sample = PenSample(id, state, evt.timestamp);
             if (state.Contact)
             {
+                if (NativeBottomScreenPlatformBridge.TryPointerDown(sample))
+                {
+                    _bottomScreenPenId = id;
+                    return;
+                }
                 EnsureStylusContact(id, state.Contact, sample);
+            }
+            else if (_bottomScreenPenId == id)
+            {
+                NativeBottomScreenPlatformBridge.TryPointerUp(sample);
+                _bottomScreenPenId = null;
             }
             else if (_capturedPenId == id)
             {
@@ -1251,6 +1281,16 @@ namespace MphRead
                 _stylus.PointerProximityMove(sample);
                 return;
             }
+            if (_bottomScreenPenId == id)
+            {
+                NativeBottomScreenPlatformBridge.TryPointerMove(sample);
+                return;
+            }
+            if (NativeBottomScreenPlatformBridge.TryPointerDown(sample))
+            {
+                _bottomScreenPenId = id;
+                return;
+            }
             ConfigureStylus();
             if (!EnsureStylusContact(id, state.Contact, sample)) return;
             _stylus.PointerMove(sample);
@@ -1268,6 +1308,11 @@ namespace MphRead
             state.Tool = PenTool(evt.pen_state);
             state.Buttons = PenButtons(evt.pen_state);
             _pens[id] = state;
+            if (_bottomScreenPenId == id)
+            {
+                NativeBottomScreenPlatformBridge.TryPointerMove(PenSample(id, state, evt.timestamp));
+                return;
+            }
             ConfigureStylus();
             PointerSample sample = PenSample(id, state, evt.timestamp);
             if (!state.Contact || EnsureStylusContact(id, state.Contact, sample))
@@ -1288,6 +1333,11 @@ namespace MphRead
             if (evt.axis == SDL_PenAxis.SDL_PEN_AXIS_PRESSURE)
                 state.Pressure = Math.Clamp(evt.value, 0, 1);
             _pens[id] = state;
+            if (_bottomScreenPenId == id)
+            {
+                NativeBottomScreenPlatformBridge.TryPointerMove(PenSample(id, state, evt.timestamp));
+                return;
+            }
             ConfigureStylus();
             PointerSample sample = PenSample(id, state, evt.timestamp);
             if (!state.Contact || EnsureStylusContact(id, state.Contact, sample))
@@ -1611,7 +1661,9 @@ namespace MphRead
             _lifetime.Dispose();
             _disposed = true;
             _stylus.Cancel();
+            NativeBottomScreenPlatformBridge.Cancel();
             _capturedPenId = null;
+            _bottomScreenPenId = null;
             GamepadGyro.ResetDevice();
             GamepadHaptics.Stop();
             GamepadHaptics.Pump();
@@ -1718,6 +1770,7 @@ namespace MphRead
         private readonly KillcamController? _killcam;
         private readonly ReplayPresentationController? _replayPresentation;
         private readonly SceneFirstFrameNotification? _firstFrame;
+        private IRenderBackendTelemetry? _telemetry;
 
         public SdlSceneFrameClient(SdlGameHost host, ScenePresentation presentation,
             ulong transitionGeneration = 0, Action<ulong>? firstFramePresented = null)
@@ -1732,11 +1785,13 @@ namespace MphRead
                 _firstFrame = new SceneFirstFrameNotification(transitionGeneration,
                     firstFramePresented);
             }
-            if (Mods.Network.AuthoritativePlay.Current != null)
+            Mods.Network.AuthoritativePlay? play =
+                (presentation.World.Services as Mods.Network.ClientSceneServices)?.Play;
+            if (play != null)
                 _killcam = new KillcamController(presentation, () =>
                     host.FramebufferSize.X > 0 && host.FramebufferSize.Y > 0
                         ? host.FramebufferSize : host.LogicalSize,
-                    host.Keyboard, host.Mouse);
+                    host.Keyboard, host.Mouse, play);
             else if (Mods.Network.ReplayPlayback.IsActive)
                 _replayPresentation = new ReplayPresentationController(presentation);
         }
@@ -1778,12 +1833,17 @@ namespace MphRead
         }
 
         public void Render(RenderBackendFrame frame, IRenderBackend backend)
-            => backend.Render(frame, ActivePresentation.CurrentRenderFrame);
+        {
+            _telemetry = backend as IRenderBackendTelemetry;
+            backend.Render(frame, ActivePresentation.CurrentRenderFrame);
+        }
 
         public void OnFramePresented()
         {
             if (_firstFrame == null) ActivePresentation.OnFramePresented();
             else _firstFrame.Notify(ActivePresentation.OnFramePresented);
+            if (_telemetry != null)
+                ActivePresentation.UpdateDynamicResolution(_telemetry.Telemetry);
         }
         public void AfterRenderFrame() => ActivePresentation.AfterRenderFrame();
         public void PumpPauseMenu() => Mods.PauseMenu.Poll(_host);
