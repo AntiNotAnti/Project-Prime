@@ -23,8 +23,15 @@ public sealed class WorkerScheduler : IAsyncDisposable
         public TaskCompletionSource<MatchPlacement> Ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public MatchStatus Status = MatchStatus.Starting;
         public bool ReportExpected, ReportQueued;
+        // Terminal ownership is claimed under _gate. A transition claim keeps
+        // the placement active until the Worker acknowledges cancellation so
+        // capacity cannot be reused while the old MatchInstance still runs.
+        public TerminalClaim Claim;
+        public bool TransitionCancelSent;
+        public bool ReportAdmissionClaimed;
         public CancellationTokenSource Deadline = new();
     }
+    private enum TerminalClaim { None, Completion, Transition }
     private sealed class AdmissionInstall(InstallAdmissionKey command, ManagedWorker worker)
     {
         public InstallAdmissionKey Command { get; } = command;
@@ -46,6 +53,11 @@ public sealed class WorkerScheduler : IAsyncDisposable
     private readonly NodeReportIngestor? _reports;
     private string? _reportFailure;
     public event Action<MatchId, bool>? Ended;
+    /// <summary>Raised only for a Worker terminal acknowledgement belonging to
+    /// an accepted active-match transition. It is intentionally separate from
+    /// <see cref="Ended"/> so transition cancellation cannot look like a
+    /// player-visible ordinary interruption.</summary>
+    public event Action<MatchId, bool>? TransitionEnded;
     public event Action<MatchCompletionSummary>? Completed;
     public event Action<ManagedWorker, WorkerEvent>? Observed;
     public event Action<WorkerMatchAssignment, MatchReportReady>? ReportReady;
@@ -162,6 +174,75 @@ public sealed class WorkerScheduler : IAsyncDisposable
     }
 
     /// <summary>
+    /// Atomically reserves terminal ownership for a transition. Natural
+    /// completion and report admission both participate in this same gate, so
+    /// callers can never publish a completion after this succeeds.
+    /// </summary>
+    public bool TryClaimTransition(MatchId matchId, out WorkerMatchAssignment? assignment)
+    {
+        lock (_gate)
+        {
+            assignment = null;
+            if (!_placements.TryGetValue(matchId, out Placement? placement)
+                || !IsActive(placement.Status) || placement.Claim != TerminalClaim.None
+                || placement.ReportAdmissionClaimed)
+                return false;
+            placement.Claim = TerminalClaim.Transition;
+            assignment = Assignment(placement);
+        }
+        return true;
+    }
+
+    /// <summary>Sends the one transition cancellation. A failed send leaves
+    /// the shared Worker untouched and keeps the claim recoverable by the
+    /// coordinator.</summary>
+    public bool TryCancelTransition(MatchId matchId, string reason)
+    {
+        lock (_gate)
+        {
+            if (!_placements.TryGetValue(matchId, out Placement? placement)
+                || placement.Claim != TerminalClaim.Transition)
+                return false;
+            // A terminal event may have won between the atomic claim and this
+            // send attempt.  Treat that as an already-delivered cancellation
+            // acknowledgement; the coordinator will consume it exactly once.
+            if (!IsActive(placement.Status)) return true;
+            // Retries are idempotent and never enqueue a second cancellation.
+            if (placement.TransitionCancelSent) return true;
+            bool sent = placement.Worker.TrySend(new CancelMatch(matchId, reason));
+            // A failed enqueue does not transfer terminal ownership. Restore
+            // the claim while still under _gate so a terminal Worker event
+            // cannot be misclassified in the gap before the caller observes
+            // the failure.
+            if (!sent) placement.Claim = TerminalClaim.None;
+            else placement.TransitionCancelSent = true;
+            return sent;
+        }
+    }
+
+    /// <summary>Releases a tentative transition claim after the cancellation
+    /// command could not be sent. No placement or Worker capacity is freed.</summary>
+    public bool RollbackTransitionClaim(MatchId matchId)
+    {
+        lock (_gate)
+        {
+            if (!_placements.TryGetValue(matchId, out Placement? placement)
+                || placement.Claim != TerminalClaim.Transition || !IsActive(placement.Status))
+                return false;
+            placement.Claim = TerminalClaim.None;
+            return true;
+        }
+    }
+
+    /// <summary>Read-only seam used by coordinator tests to assert terminal
+    /// ownership without exposing mutable placement state.</summary>
+    public bool IsTransitionClaimed(MatchId matchId)
+    {
+        lock (_gate) return _placements.TryGetValue(matchId, out Placement? placement)
+            && placement.Claim == TerminalClaim.Transition;
+    }
+
+    /// <summary>
     /// Routes a validated match-admin command over the Node-owned authenticated
     /// Worker pipe. This is intentionally a host integration point, not a
     /// public player/control-socket command.
@@ -267,6 +348,7 @@ public sealed class WorkerScheduler : IAsyncDisposable
         lock (_gate)
         {
             if (placement.Status != MatchStatus.Starting) return;
+            if (placement.Claim == TerminalClaim.Transition) return;
             placement.Status = MatchStatus.Interrupted;
             placement.Ready.TrySetException(new WorkerPlacementException("Worker match creation timed out."));
             if (!placement.Worker.TrySend(new CancelMatch(placement.Spec.MatchId, "Match creation timed out."))) _ = placement.Worker.DisposeAsync();
@@ -296,9 +378,21 @@ public sealed class WorkerScheduler : IAsyncDisposable
             }
             if (message is MatchReportReady report)
             {
-                WorkerMatchAssignment? assignment = null;
-                lock (_gate)
-                    if (_placements.TryGetValue(report.MatchId, out var p) && p.Worker == worker) assignment = Assignment(p);
+                bool admitted = TryAdmitReport(worker, report, out WorkerMatchAssignment? assignment,
+                    out bool transitionClaimed);
+                if (!admitted) continue;
+                if (transitionClaimed)
+                {
+                    // Transition-owned artifacts are never admitted to the
+                    // official queue. Validate and clean them after leaving
+                    // _gate; a malformed artifact remains retained safely.
+                    if (assignment?.Placement is { } transitionPlacement
+                        && assignment.ArtifactDirectory is { } transitionRoot)
+                        _ = NodeReportIngestor.TryDiscardArtifact(assignment.Spec,
+                            assignment.WorkerId, assignment.WorkerIncarnation,
+                            transitionPlacement.WireMatchId.Value, transitionRoot, report);
+                    continue;
+                }
                 if (assignment != null && ContainsGuest(assignment.Spec))
                 {
                     // Guest matches still produce and validate a local report-ready
@@ -338,9 +432,28 @@ public sealed class WorkerScheduler : IAsyncDisposable
             };
             if (matchId is not { } id) continue;
             bool notify = false, interrupted = true;
+            bool transitionNotify = false;
             lock (_gate)
             {
                 if (!_placements.TryGetValue(id, out var p) || p.Worker != worker || !IsActive(p.Status)) continue;
+                if (p.Claim == TerminalClaim.Transition)
+                {
+                    // MatchReady and MatchStarted are progress messages, not
+                    // cancellation acknowledgements.  A Worker can still
+                    // flush either message after the Node sent CancelMatch;
+                    // only a terminal event may release transition ownership.
+                    if (message is not (MatchCompleted or MatchFailed or MatchInterrupted))
+                        continue;
+                    // Once transition ownership wins, every later terminal
+                    // Worker message is an intentional transition ack. Never
+                    // publish completion, report, or ordinary interruption.
+                    p.Status = MatchStatus.Interrupted;
+                    p.Deadline.Cancel();
+                    p.Ready.TrySetException(new WorkerPlacementException("Match transitioned."));
+                    transitionNotify = true;
+                }
+                else
+                {
                 switch (message)
                 {
                     case MatchReady ready:
@@ -348,6 +461,7 @@ public sealed class WorkerScheduler : IAsyncDisposable
                     case MatchStarted: p.Status = MatchStatus.Running; break;
                     case MatchCompleted:
                         p.Status = MatchStatus.Completed;
+                        p.Claim = TerminalClaim.Completion;
                         p.ReportExpected = ContainsGuest(p.Spec) ? p.Worker.ArtifactDirectory != null : _reports != null;
                         interrupted = false; notify = true; break;
                     case MatchFailed: p.Status = MatchStatus.Failed; notify = true; break;
@@ -364,6 +478,13 @@ public sealed class WorkerScheduler : IAsyncDisposable
                     };
                     p.Ready.TrySetException(new WorkerPlacementException(reason.Replace('\r', ' ').Replace('\n', ' ')));
                 }
+                }
+            }
+            if (transitionNotify)
+            {
+                FailAdmissionInstallsForMatch(id, new WorkerPlacementException("Match transitioned before admission-key installation."));
+                NotifyTransitionEnded(id, true);
+                continue;
             }
             if (notify)
             {
@@ -374,20 +495,54 @@ public sealed class WorkerScheduler : IAsyncDisposable
         }
         await worker.Completion;
         FailAdmissionInstallsForWorker(worker, new WorkerPlacementException("Worker was lost during admission-key installation."));
-        MatchId[] interruptedIds;
+        MatchId[] interruptedIds, transitionIds;
         lock (_gate)
         {
             // A lost Worker cannot deliver a remaining guest artifact notice.
             foreach (var placement in _placements.Values.Where(p => p.Worker == worker && ContainsGuest(p.Spec)))
                 placement.ReportQueued = true;
             interruptedIds = _placements.Where(p => p.Value.Worker == worker && IsActive(p.Value.Status)).Select(p => p.Key).ToArray();
+            transitionIds = _placements.Where(p => p.Value.Worker == worker && IsActive(p.Value.Status)
+                && p.Value.Claim == TerminalClaim.Transition).Select(p => p.Key).ToArray();
             foreach (MatchId id in interruptedIds)
             {
                 var p = _placements[id]; p.Status = MatchStatus.Interrupted; p.Deadline.Cancel();
                 p.Ready.TrySetException(new WorkerPlacementException("Worker was lost during match creation."));
             }
         }
-        foreach (MatchId id in interruptedIds) NotifyEnded(id, true);
+        foreach (MatchId id in interruptedIds)
+            if (transitionIds.Contains(id)) NotifyTransitionEnded(id, true); else NotifyEnded(id, true);
+    }
+
+    /// <summary>Atomically admits the first report notice for a placement or
+    /// identifies a transition-owned notice that must be discarded. The event
+    /// consumer uses this same seam so report-vs-transition races are tested
+    /// without requiring an invalid Worker protocol sequence.</summary>
+    internal bool TryAdmitReport(ManagedWorker worker, MatchReportReady report,
+        out WorkerMatchAssignment? assignment, out bool transitionClaimed)
+    {
+        lock (_gate)
+        {
+            assignment = null;
+            transitionClaimed = false;
+            if (!_placements.TryGetValue(report.MatchId, out Placement? placement)
+                || placement.Worker != worker)
+                return false;
+            assignment = Assignment(placement);
+            if (placement.Claim == TerminalClaim.Transition)
+            {
+                transitionClaimed = true;
+                return true;
+            }
+            if ((placement.Claim == TerminalClaim.None || placement.Claim == TerminalClaim.Completion)
+                && !placement.ReportAdmissionClaimed)
+            {
+                placement.ReportAdmissionClaimed = true;
+                return true;
+            }
+            assignment = null; // duplicate/stale report admission
+            return false;
+        }
     }
 
     private void NotifyEnded(MatchId id, bool interrupted)
@@ -405,6 +560,18 @@ public sealed class WorkerScheduler : IAsyncDisposable
         foreach (Action<MatchCompletionSummary> handler in handlers.GetInvocationList())
             try { handler(summary); }
             catch (Exception error) { _logger.LogError(error, "Match completion subscriber failed for {MatchId}", summary.MatchId.Value); }
+    }
+
+    private void NotifyTransitionEnded(MatchId id, bool interrupted)
+    {
+        // Reservation ownership stays with the old placement until the Worker
+        // terminal acknowledgement.  It is safe to release only at this
+        // transition-specific terminal boundary, outside _gate.
+        _reports?.CancelReservation(id);
+        if (TransitionEnded is not { } handlers) return;
+        foreach (Action<MatchId, bool> handler in handlers.GetInvocationList())
+            try { handler(id, interrupted); }
+            catch (Exception error) { _logger.LogError(error, "Transition outcome subscriber failed for {MatchId}", id.Value); }
     }
 
     private static bool ContainsGuest(MatchSpec spec) => spec.Roster.Any(seat => seat.GuestSessionId.HasValue);

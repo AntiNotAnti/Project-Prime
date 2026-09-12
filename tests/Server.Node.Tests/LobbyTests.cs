@@ -20,8 +20,15 @@ public sealed class LobbyTests
         var spec = manager.PrepareMatch(owner.SessionId, lobby.Revision, new("unit", "hash", "1", "test", 8), new(Guid.NewGuid()), Guid.NewGuid());
         Assert.Equal(TimeSpan.FromSeconds(3), spec.Rules.TimeLimit);
         Assert.Equal(11, spec.Rules.ScoreGoal);
-        Assert.Equal(2, spec.Roster.Count(s => s.Role == SeatRole.Bot));
-        Assert.All(spec.Roster.Where(s => s.Role == SeatRole.Bot), bot => { Assert.Null(bot.PlayerId); Assert.Null(bot.GuestSessionId); });
+        RosterSeat[] bots = spec.Roster.Where(s => s.Role == SeatRole.Bot).ToArray();
+        Assert.Equal(2, bots.Length);
+        Assert.Equal(2, bots.Select(bot => bot.Hunter).Distinct().Count());
+        Assert.All(bots, bot =>
+        {
+            Assert.InRange(bot.Hunter, Hunter.Samus, Hunter.Weavel);
+            Assert.Null(bot.PlayerId);
+            Assert.Null(bot.GuestSessionId);
+        });
         Assert.Equal(BotFillPolicy.FillVacancies, spec.BotFillPolicy);
         Assert.Equal(3, spec.Roster.Select(s => s.SeatId).Distinct().Count());
     }
@@ -150,6 +157,45 @@ public sealed class LobbyTests
         Assert.Single(((LobbyListSnapshot)manager.Execute(a, new LobbyList())).Lobbies);
         Assert.Throws<LobbyCommandException>(() => manager.Execute(a, new LobbyList(0, 17)));
         Assert.True(NodeControlCodec.Write("lobby.snapshot", 1, null, latest).Length < NodeControlCodec.MaximumFrameBytes);
+    }
+
+    [Fact]
+    public void PublicBrowserHidesReconnectOnlyLobbyWithoutDestroyingIt()
+    {
+        var manager = new LobbyManager();
+        LobbyIdentity owner = Person("Owner");
+        LobbyIdentity browser = Person("Browser");
+        LobbySnapshot lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Reconnect", LobbyVisibility.Public));
+        Assert.Single(((LobbyListSnapshot)manager.Execute(browser, new LobbyList())).Lobbies);
+
+        manager.SetSessionResumeDeadline(owner.SessionId,
+            DateTimeOffset.UtcNow + NodeSessionManager.DisconnectGrace);
+
+        Assert.Empty(((LobbyListSnapshot)manager.Execute(browser, new LobbyList())).Lobbies);
+        Assert.Equal(lobby.LobbyId, manager.ForSession(owner.SessionId)!.LobbyId);
+
+        manager.SetSessionResumeDeadline(owner.SessionId, null);
+        Assert.Single(((LobbyListSnapshot)manager.Execute(browser, new LobbyList())).Lobbies);
+    }
+
+    [Fact]
+    public void PublicBrowserKeepsLobbyVisibleWhileAnotherMemberIsConnected()
+    {
+        var manager = new LobbyManager();
+        LobbyIdentity owner = Person("Owner");
+        LobbyIdentity member = Person("Member");
+        LobbyIdentity browser = Person("Browser");
+        LobbySnapshot lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Occupied", LobbyVisibility.Public));
+        manager.Execute(member, new LobbyJoin(lobby.LobbyId, lobby.Revision));
+
+        manager.SetSessionResumeDeadline(owner.SessionId,
+            DateTimeOffset.UtcNow + NodeSessionManager.DisconnectGrace);
+
+        LobbyListEntry visible = Assert.Single(
+            ((LobbyListSnapshot)manager.Execute(browser, new LobbyList())).Lobbies);
+        Assert.Equal(lobby.LobbyId, visible.LobbyId);
     }
 
     [Fact]

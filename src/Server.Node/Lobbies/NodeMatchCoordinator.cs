@@ -223,6 +223,15 @@ public sealed class NodeMatchCoordinator : IDisposable
         public long ExpiresAt;
         public TaskCompletionSource<NodeMatchHandoff>? InFlight;
     }
+    private sealed class PendingTransition(LobbyMatchTransitionSelection selection,
+        WorkerMatchAssignment assignment)
+    {
+        public LobbyMatchTransitionSelection Selection { get; } = selection;
+        public WorkerMatchAssignment Assignment { get; } = assignment;
+        public bool CancelSent;
+        public bool TerminalAcknowledged;
+        public bool Acknowledged;
+    }
     private readonly object _gate = new();
     private readonly LobbyManager _lobbies;
     private readonly WorkerScheduler _scheduler;
@@ -231,10 +240,15 @@ public sealed class NodeMatchCoordinator : IDisposable
     private readonly NodeContentCatalog _content;
     private readonly ILogger<NodeMatchCoordinator> _logger;
     private readonly Dictionary<MatchId, Pending> _matches = [];
+    private readonly Dictionary<MatchId, PendingTransition> _transitions = [];
     private readonly Dictionary<Guid, long> _lastRejoin = [];
     private readonly ConcurrentDictionary<Guid, object> _latest = [];
     private readonly ConcurrentDictionary<Guid, NodeMatchCompletion> _completions = [];
     private readonly Dictionary<Guid, Queue<object>> _notifications = [];
+    // Expected transition ownership is independent of the single latest
+    // payload slot.  A reconnect must replay Started before any terminal
+    // marker or replacement handoff until the fresh MatchId is delivered.
+    private readonly Dictionary<Guid, NodeMatchTransitionStarted> _expectedTransitions = [];
     private readonly HashSet<Guid> _forgottenSessions = [];
     private readonly CancellationTokenSource _lifetime = new();
     private readonly CancellationToken _lifetimeToken;
@@ -250,6 +264,7 @@ public sealed class NodeMatchCoordinator : IDisposable
         _lobbies.ContentCatalog = content;
         _scheduler.Completed += Completed;
         _scheduler.Ended += Ended;
+        _scheduler.TransitionEnded += TransitionEnded;
     }
     public object? ForSession(Guid sessionId)
     {
@@ -269,10 +284,16 @@ public sealed class NodeMatchCoordinator : IDisposable
     {
         lock (_gate)
         {
-            var result = new List<object>(2);
+            var result = new List<object>(3);
+            if (_lobbies.MatchTransitionForSession(sessionId) is { } transition)
+                result.Add(transition);
+            if (_expectedTransitions.TryGetValue(sessionId, out NodeMatchTransitionStarted? expected))
+                result.Add(expected);
             if (_completions.TryGetValue(sessionId, out var completion)) result.Add(completion);
             if (_latest.TryGetValue(sessionId, out var latest)
                 && (latest is not NodeMatchHandoff || IsLiveHandoffLocked(sessionId))
+                && (latest is not NodeMatchHandoff handoff || !_expectedTransitions.TryGetValue(sessionId, out var old)
+                    || handoff.MatchId != old.PreviousMatchId)
                 && (result.Count == 0 || !ReferenceEquals(result[0], latest))) result.Add(latest);
             return result;
         }
@@ -300,6 +321,7 @@ public sealed class NodeMatchCoordinator : IDisposable
         lock (_gate)
         {
             pending = _matches.Values.SingleOrDefault(value => value.Members.Any(candidate => candidate.SessionId == sessionId));
+            if (pending != null && _transitions.ContainsKey(pending.Spec.MatchId)) pending = null;
             placement = pending?.Placement;
             member = pending?.Members.SingleOrDefault(candidate => candidate.SessionId == sessionId);
         }
@@ -307,9 +329,14 @@ public sealed class NodeMatchCoordinator : IDisposable
         NodeMatchHandoff handoff = await EnsureHandoffAsync(pending, placement, member, forceFresh: true, effectiveCancellation);
         lock (_gate)
         {
-            var result = new List<object>(2);
+            var result = new List<object>(3);
+            if (_lobbies.MatchTransitionForSession(sessionId) is { } transition)
+                result.Add(transition);
+            if (_expectedTransitions.TryGetValue(sessionId, out NodeMatchTransitionStarted? expected))
+                result.Add(expected);
             if (_completions.TryGetValue(sessionId, out var completion)) result.Add(completion);
-            if (result.Count == 0 || !ReferenceEquals(result[0], handoff)) result.Add(handoff);
+            if (!_expectedTransitions.ContainsKey(sessionId) || handoff.MatchId != expected!.PreviousMatchId)
+                result.Add(handoff);
             return result;
         }
     }
@@ -399,6 +426,9 @@ public sealed class NodeMatchCoordinator : IDisposable
         if (command is not LobbyStart start)
         {
             var response = _lobbies.Execute(identity, command);
+            if (response is NodeMatchTransitionVoteSnapshot transition
+                && transition.State == MatchTransitionVoteState.Approved)
+                await BeginTransitionAsync(transition.MatchId, transition.TransitionId);
             if (response is LobbyLeft) ForgetSession(identity.SessionId);
             return response;
         }
@@ -430,6 +460,13 @@ public sealed class NodeMatchCoordinator : IDisposable
                 lock (_gate) if (_disposed) break;
                 foreach (var done in active.Where(task => task.IsCompleted).ToArray())
                 { await done; active.Remove(done); }
+                // Approval can be produced by the Node's owned ballot
+                // continuation (for example when electorate pruning makes the
+                // threshold decisive), not only by the command that cast the
+                // final vote. Discover it on the same loop and let the normal
+                // atomic coordinator path claim it exactly once.
+                DiscoverApprovedTransitions();
+                DiscoverTransitionFailures();
                 List<MatchSpec> prepared = [];
                 List<(Guid SessionId, NodeMatchEnded Message)> failuresToNotify = [];
                 var continuations = _lobbies.PrepareContinuations(_workers.NodeId, _workers.NodeIncarnation, 64 - active.Count, out var failures);
@@ -497,6 +534,201 @@ public sealed class NodeMatchCoordinator : IDisposable
             _scheduler.CancelMatch(spec.MatchId, "Lobby placement failed.");
             throw new LobbyCommandException("placement_failed", "Match could not be placed; the lobby remains available.");
         }
+    }
+
+    private Task BeginTransitionAsync(Guid matchId, Guid transitionId)
+    {
+        MatchId oldMatch = new(matchId);
+        PendingTransition? pending = null;
+        lock (_gate)
+        {
+            if (_disposed || _transitions.ContainsKey(oldMatch)) return Task.CompletedTask;
+            if (!_matches.TryGetValue(oldMatch, out Pending? match) || match.Placement == null)
+                return Task.CompletedTask;
+
+            // This is deliberately inside the coordinator gate: ordinary
+            // Completed/Ended callbacks cannot retire the pending placement
+            // between tentative ownership and the scheduler's atomic claim.
+            if (!_scheduler.TryClaimTransition(oldMatch, out WorkerMatchAssignment? assignment)
+                || assignment == null)
+                return Task.CompletedTask;
+            if (!_lobbies.TryBeginMatchTransition(oldMatch.Value, transitionId,
+                out LobbyMatchTransitionSelection? selection)
+                || selection == null)
+            {
+                _scheduler.RollbackTransitionClaim(oldMatch);
+                return Task.CompletedTask;
+            }
+            pending = new PendingTransition(selection, assignment);
+            _transitions.Add(oldMatch, pending);
+            foreach (LobbyMember member in selection.Members)
+            {
+                _expectedTransitions[member.SessionId] = new NodeMatchTransitionStarted(
+                    selection.LobbyId, selection.MatchId, selection.TransitionId,
+                    selection.Choice, selection.TargetMapKey, selection.Mode);
+                _completions.TryRemove(member.SessionId, out _);
+            }
+        }
+
+        // Publish before cancellation. Notify is queue-owned and does not hold
+        // the scheduler gate; every affected session observes the same frozen
+        // transition identity.
+        NodeMatchTransitionStarted started = new(pending.Selection.LobbyId,
+            pending.Selection.MatchId, pending.Selection.TransitionId,
+            pending.Selection.Choice, pending.Selection.TargetMapKey,
+            pending.Selection.Mode);
+        started.Validate();
+        foreach (LobbyMember member in pending.Selection.Members)
+            Notify(member.SessionId, started);
+
+        if (_scheduler.TryCancelTransition(oldMatch, "Lobby approved a match transition."))
+        {
+            bool completeNow = false;
+            lock (_gate)
+            {
+                if (_transitions.TryGetValue(oldMatch, out PendingTransition? current))
+                {
+                    // The Worker event reader may have delivered the terminal
+                    // acknowledgement while the cancel command was in flight.
+                    // Record CancelSent and consume that ack at this boundary;
+                    // never lose it because it arrived before this flag.
+                    current.CancelSent = true;
+                    if (current.TerminalAcknowledged)
+                    {
+                        current.Acknowledged = true;
+                        _transitions.Remove(oldMatch);
+                        _matches.Remove(oldMatch);
+                        completeNow = true;
+                    }
+                }
+            }
+            if (completeNow) CompleteTransition(oldMatch, pending);
+            return Task.CompletedTask;
+        }
+
+        // A failed send is recoverable. Do not dispose a shared Worker or
+        // launch a replacement; keep the old match active and expose a
+        // bounded failure projection.
+        lock (_gate) _transitions.Remove(oldMatch);
+        _scheduler.RollbackTransitionClaim(oldMatch);
+        _lobbies.FailMatchTransition(oldMatch.Value, pending.Selection.TransitionId,
+            "cancel_send_failed");
+        lock (_gate)
+            foreach (LobbyMember member in pending.Selection.Members)
+                _expectedTransitions.Remove(member.SessionId);
+        PublishTransitionFailure(pending.Selection);
+        return Task.CompletedTask;
+    }
+
+    private void DiscoverApprovedTransitions()
+    {
+        MatchId[] candidates;
+        lock (_gate)
+            candidates = _matches.Keys.Where(matchId => !_transitions.ContainsKey(matchId)).ToArray();
+        foreach (MatchId matchId in candidates)
+            if (_lobbies.TryGetApprovedMatchTransition(matchId.Value,
+                    out LobbyMatchTransitionSelection? selection) && selection != null)
+                _ = BeginTransitionAsync(selection.MatchId, selection.TransitionId);
+    }
+
+    /// <summary>Preparation failures are produced by LobbyManager's owned
+    /// continuation loop, not by a Worker callback. Replay the failed ballot to
+    /// affected sessions once and retire their expected Started marker so a
+    /// reconnect cannot remain in PreparingContinuation forever.</summary>
+    private void DiscoverTransitionFailures()
+    {
+        KeyValuePair<Guid, NodeMatchTransitionStarted>[] expected;
+        lock (_gate) expected = _expectedTransitions.ToArray();
+        foreach (var pair in expected)
+        {
+            if (_lobbies.MatchTransitionForSession(pair.Key) is not { } state
+                || state.TransitionId != pair.Value.TransitionId
+                || state.State != MatchTransitionVoteState.Failed)
+                continue;
+            Notify(pair.Key, state);
+            lock (_gate)
+                if (_expectedTransitions.TryGetValue(pair.Key, out var current)
+                    && current.TransitionId == pair.Value.TransitionId)
+                    _expectedTransitions.Remove(pair.Key);
+        }
+    }
+
+    private void PublishTransitionFailure(LobbyMatchTransitionSelection selection)
+    {
+        foreach (LobbyMember member in selection.Members)
+            if (_lobbies.MatchTransitionForSession(member.SessionId) is { } state)
+                Notify(member.SessionId, state);
+    }
+
+    private void TransitionEnded(MatchId matchId, bool interrupted)
+    {
+        PendingTransition? pending;
+        bool complete = false;
+        lock (_gate)
+        {
+            if (!_transitions.TryGetValue(matchId, out pending) || pending.Acknowledged)
+                return;
+            // Terminal acknowledgement is intentionally remembered even if the
+            // cancellation sender has not yet published its successful return.
+            pending.TerminalAcknowledged = true;
+            if (pending.CancelSent)
+            {
+                pending.Acknowledged = true;
+                _transitions.Remove(matchId);
+                _matches.Remove(matchId);
+                complete = true;
+            }
+        }
+        if (!complete) return;
+        CompleteTransition(matchId, pending);
+    }
+
+    private void CompleteTransition(MatchId matchId, PendingTransition pending)
+    {
+        bool completed;
+        try
+        {
+            completed = _lobbies.CompleteMatchTransition(matchId.Value,
+                pending.Selection.TransitionId);
+        }
+        catch (Exception error) when (error is LobbyCommandException or ArgumentException)
+        {
+            _logger.LogWarning(error, "Transition completion was rejected for {MatchId}", matchId.Value);
+            completed = false;
+        }
+        if (!completed)
+        {
+            // The old Worker has already acknowledged cancellation. Reopen
+            // the lobby and retain a Failed transition snapshot; the ordinary
+            // failed-cancel path intentionally keeps InMatch and is not safe
+            // to reuse after this terminal boundary.
+            bool recovered = _lobbies.FailCompletedMatchTransition(matchId,
+                pending.Selection.TransitionId, "transition_ack_rejected",
+                out LobbyMatchTransitionSelection? failed);
+            if (recovered && failed != null)
+            {
+                PublishTransitionFailure(failed);
+                foreach (LobbyMember member in failed.Members)
+                    Notify(member.SessionId, new NodeMatchEnded(matchId.Value, true));
+            }
+            else
+            {
+                // A concurrent ordinary completion may already own the lobby;
+                // still release the intentional transition marker for every
+                // frozen member.
+                foreach (LobbyMember member in pending.Selection.Members)
+                    Notify(member.SessionId, new NodeMatchEnded(matchId.Value, true));
+            }
+            lock (_gate)
+                foreach (LobbyMember member in pending.Selection.Members)
+                    _expectedTransitions.Remove(member.SessionId);
+            return;
+        }
+        // This is the intentional transition terminal marker, not an ordinary
+        // result/interruption.  It follows Started and lets clients release
+        // the old scene before accepting the fresh continuation handoff.
+        foreach (LobbyMember member in pending.Selection.Members)
+            Notify(member.SessionId, new NodeMatchEnded(matchId.Value, true));
     }
     private async Task<NodeMatchHandoff> EnsureHandoffAsync(Pending pending, MatchPlacement placement,
         LobbyMember member, bool forceFresh, CancellationToken cancellationToken)
@@ -618,7 +850,24 @@ public sealed class NodeMatchCoordinator : IDisposable
         Pending? pending;
         lock (_gate)
         {
+            // A transition claim owns terminal delivery. The dedicated
+            // TransitionEnded callback performs the lobby boundary after the
+            // Worker acknowledgement; this ordinary callback is stale.
+            if (_transitions.ContainsKey(matchId)) return;
             if (!_matches.Remove(matchId, out pending)) return;
+        }
+        // A replacement can fail before its MatchReady boundary. Preserve the
+        // original transition identity and expose a bounded failure instead
+        // of routing this pre-handoff terminal through ordinary post-match
+        // interruption/results handling.
+        if (_lobbies.FailPreparedMatchTransition(matchId,
+            "replacement_placement_failed", out LobbyMatchTransitionSelection? failed))
+        {
+            if (failed != null) PublishTransitionFailure(failed);
+            lock (_gate)
+                foreach (LobbyMember member in failed?.Members ?? [])
+                    _expectedTransitions.Remove(member.SessionId);
+            return;
         }
         _lobbies.MatchEnded(matchId, interrupted);
         foreach (var member in pending.Members) Notify(member.SessionId, new NodeMatchEnded(matchId.Value, interrupted));
@@ -631,6 +880,7 @@ public sealed class NodeMatchCoordinator : IDisposable
         NodeMatchCompletion completion;
         lock (_gate)
         {
+            if (_transitions.ContainsKey(summary.MatchId)) return;
             if (!_matches.TryGetValue(summary.MatchId, out pending)
                 || pending.Spec.LobbyId != summary.LobbyId) return;
             completion = new NodeMatchCompletion(summary);
@@ -643,6 +893,10 @@ public sealed class NodeMatchCoordinator : IDisposable
         lock (_gate)
         {
             if (_disposed || _forgottenSessions.Contains(sessionId)) return;
+            if (message is NodeMatchHandoff handoff
+                && _expectedTransitions.TryGetValue(sessionId, out NodeMatchTransitionStarted? expected)
+                && handoff.MatchId != expected.PreviousMatchId)
+                _expectedTransitions.Remove(sessionId);
             _latest[sessionId] = message;
             if (!_notifications.TryGetValue(sessionId, out var queue)) _notifications.Add(sessionId, queue = new());
             if (queue.TryPeek(out var first) && first is NodeMatchDeliveryOverflow) return;
@@ -664,10 +918,11 @@ public sealed class NodeMatchCoordinator : IDisposable
             inFlight = _matches.Values.SelectMany(pending => pending.Handoffs.Values)
                 .Select(state => state.InFlight).OfType<TaskCompletionSource<NodeMatchHandoff>>().Distinct().ToArray();
             _matches.Clear();
-            _latest.Clear(); _completions.Clear(); _notifications.Clear();
+            _latest.Clear(); _completions.Clear(); _notifications.Clear(); _expectedTransitions.Clear();
         }
         _scheduler.Completed -= Completed;
         _scheduler.Ended -= Ended;
+        _scheduler.TransitionEnded -= TransitionEnded;
         _lifetime.Cancel();
         _signal.Writer.TryComplete();
         foreach (TaskCompletionSource<NodeMatchHandoff> completion in inFlight)

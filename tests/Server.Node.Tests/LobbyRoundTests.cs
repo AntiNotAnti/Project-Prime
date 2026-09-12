@@ -32,6 +32,34 @@ public sealed class LobbyRoundTests
     }
 
     [Fact]
+    public void HunterCanChangeDuringRecapAndIsFrozenIntoNextMatch()
+    {
+        var h = new Harness();
+        MatchSpec first = h.Start();
+        h.Manager.MatchEnded(first.MatchId, false);
+        NodeRoundSnapshot ballot = h.Manager.RoundForSession(h.Owner.SessionId)!;
+
+        var selected = (LobbySnapshot)h.Manager.Execute(h.Owner,
+            new LobbySelectHunter(Hunter.Trace, h.Revision));
+
+        Assert.Equal(LobbyPhase.PostMatch, selected.Phase);
+        Assert.Equal(Hunter.Trace, selected.Members.Single().Hunter);
+        NodeRoundSnapshot resolved = h.Round(new LobbyVoteCast(h.Revision,
+            ballot.BallotRevision, 1));
+        Assert.NotNull(resolved.ResolvedOption);
+        Assert.Equal("phase", Assert.Throws<LobbyCommandException>(() =>
+            h.Manager.Execute(h.Owner, new LobbySelectHunter(Hunter.Spire,
+                h.Revision))).Code);
+
+        MatchSpec next = Assert.Single(h.Manager.PrepareContinuations(
+            new(Guid.NewGuid()), Guid.NewGuid())).Spec;
+        Assert.Equal(Hunter.Trace, Assert.Single(next.Roster
+            .Where(seat => seat.Role == SeatRole.Player)).Hunter);
+        Assert.Equal(Hunter.Samus, Assert.Single(first.Roster
+            .Where(seat => seat.Role == SeatRole.Player)).Hunter);
+    }
+
+    [Fact]
     public void ReturnVoteResetsLobbyAndInterruptedMatchHasNoBallot()
     {
         var h = new Harness(); var first = h.Start(); h.Manager.MatchEnded(first.MatchId, false);

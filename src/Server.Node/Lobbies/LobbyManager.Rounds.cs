@@ -115,6 +115,12 @@ public sealed partial class LobbyManager
             var result = new List<(MatchSpec, LobbyMember[])>();
             foreach (var lobby in _lobbies.Values.ToArray())
             {
+                // Active-match transitions are retired by the coordinator at
+                // the old Worker terminal boundary. Their private continuation
+                // selection is prepared before the legacy post-match ballot.
+                if (TryPrepareTransitionContinuation(lobby, node, incarnation,
+                    result, failed, maximum))
+                    continue;
                 var state = Round(lobby.Id);
                 bool postMatch = lobby.Phase == LobbyPhase.PostMatch;
                 bool acquiring = lobby.Phase == LobbyPhase.Open && state.AwaitingMapReadiness;
@@ -182,6 +188,8 @@ public sealed partial class LobbyManager
             or LobbyTournamentSelectNext or LobbyTournamentAssignTeam or LobbyTournamentSetObserver or LobbyVoteOpen or LobbyVoteCast or LobbyVoteResolve)) return false;
         if (command is LobbyVoteOpen or LobbyVoteResolve) throw Error("unsupported", "The Node owns ballot creation and resolution.");
         var lobby = RequireLobby(identity.SessionId); Revision(lobby, expected);
+        if (_transitionContinuations.ContainsKey(lobby.Id) && command is not LobbyRoundStatus)
+            throw Error("transitioning", "Match transition is preparing.");
         var state = Round(lobby.Id);
         if (command is not (LobbyRoundStatus or LobbyVoteCast) && lobby.Owner != identity.SessionId)
             throw Error("owner", "Only the lobby owner may control the next round.");

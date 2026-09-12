@@ -7,14 +7,14 @@ namespace ProjectPrime.Server.Shared;
 
 public static class NodeControlCodec
 {
-    public const int Version = 2;
+    public const int Version = 3;
     public const string UnsupportedVersionMessage = "Unsupported control envelope version.";
     public const int MaximumFrameBytes = 32 * 1024;
     public const int MaximumLobbyListEntries = 16;
-    // LobbyConfigure.Rules is intentionally additive within envelope v2:
+    // LobbyConfigure.Rules is intentionally additive within envelope v3:
     // older Nodes use UnmappedMemberHandling.Disallow, so an advanced command
     // fails closed instead of silently dropping host rules. Missing optional
-    // fields remain readable for legacy-shaped v2 payloads.
+    // fields remain readable for legacy-shaped v3 payloads.
     public static NodeControlRequest Read(ReadOnlyMemory<byte> bytes)
     {
         if (bytes.Length is < 2 or > MaximumFrameBytes) throw new JsonException("Invalid frame length.");
@@ -31,7 +31,8 @@ public static class NodeControlCodec
         if (!Guid.TryParseExact(e.GetProperty("requestId").GetString(), "D", out Guid requestId) || requestId == Guid.Empty)
             throw new JsonException("Invalid control envelope.");
         var p = e.GetProperty("payload");
-        NodeCommand command = e.GetProperty("type").GetString() switch
+        string? type = e.GetProperty("type").GetString();
+        NodeCommand command = type switch
         {
             "lobby.tournament.team" => Decode(p, NodeJsonContext.Default.LobbyTournamentAssignTeam),
             "lobby.tournament.observer" => Decode(p, NodeJsonContext.Default.LobbyTournamentSetObserver),
@@ -42,6 +43,8 @@ public static class NodeControlCodec
             "lobby.vote.open" => Decode(p, NodeJsonContext.Default.LobbyVoteOpen),
             "lobby.vote.cast" => Decode(p, NodeJsonContext.Default.LobbyVoteCast),
             "lobby.vote.resolve" => Decode(p, NodeJsonContext.Default.LobbyVoteResolve),
+            "match.transition.propose" => Decode(p, NodeJsonContext.Default.LobbyMatchTransitionPropose),
+            "match.transition.vote" => Decode(p, NodeJsonContext.Default.LobbyMatchTransitionVote),
             "node.ping" => Decode(p, NodeJsonContext.Default.NodePing),
             "node.catalog" => Decode(p, NodeJsonContext.Default.NodeCatalogRequest),
             "match.rejoin" => Decode(p, NodeJsonContext.Default.NodeMatchRejoin),
@@ -64,6 +67,8 @@ public static class NodeControlCodec
             "lobby.return" => Decode(p, NodeJsonContext.Default.LobbyReturn),
             _ => throw new JsonException("Unknown control type.")
         };
+        try { ValidateCommand(type!, command); }
+        catch (ArgumentException ex) { throw new JsonException("Invalid control command.", ex); }
         return new(requestId, command);
     }
     private static T Decode<T>(JsonElement value, JsonTypeInfo<T> type) where T : NodeCommand
@@ -71,6 +76,7 @@ public static class NodeControlCodec
     public static byte[] Write<T>(string type, long eventId, Guid? requestId, T payload)
     {
         ValidateEventPayload(payload);
+        ValidateRoute(type, payload);
         var info = (JsonTypeInfo<T>?)NodeJsonContext.Default.GetTypeInfo(typeof(T)) ?? throw new ArgumentException("Unknown event payload.");
         var message = new NodeControlEvent(Version, type, eventId, requestId, JsonSerializer.SerializeToElement(payload, info));
         byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(message, NodeJsonContext.Default.NodeControlEvent);
@@ -100,6 +106,8 @@ public static class NodeControlCodec
                 }
                 break;
             case NodeMatchHandoff handoff: handoff.Validate(); break;
+            case NodeMatchTransitionVoteSnapshot snapshot: snapshot.Validate(); break;
+            case NodeMatchTransitionStarted started: started.Validate(); break;
             case LobbyConfigure configure:
                 if (configure.ExpectedRevision < 0 || configure.MapKey is not { Length: > 0 and <= 128 }
                     || configure.MapKey.Any(c => c is < ' ' or > '~') || !Enum.IsDefined(configure.Mode)
@@ -182,6 +190,36 @@ public static class NodeControlCodec
                 break;
         }
     }
+
+    private static void ValidateCommand(string type, NodeCommand command)
+    {
+        switch (command)
+        {
+            case LobbyMatchTransitionPropose propose:
+                if (type != "match.transition.propose") throw new ArgumentException("Transition command route does not match payload.");
+                propose.Validate();
+                break;
+            case LobbyMatchTransitionVote vote:
+                if (type != "match.transition.vote") throw new ArgumentException("Transition command route does not match payload.");
+                vote.Validate();
+                break;
+        }
+    }
+
+    private static void ValidateRoute<T>(string type, T payload)
+    {
+        if (string.IsNullOrWhiteSpace(type) || type.Length > 64 || type.Any(char.IsControl))
+            throw new ArgumentException("Invalid control route.", nameof(type));
+        bool valid = type switch
+        {
+            "match.transition.state" => payload is NodeMatchTransitionVoteSnapshot,
+            "match.transition.started" => payload is NodeMatchTransitionStarted,
+            "match.transition.propose" => payload is LobbyMatchTransitionPropose,
+            "match.transition.vote" => payload is LobbyMatchTransitionVote,
+            _ => true
+        };
+        if (!valid) throw new ArgumentException("Control route does not match payload.", nameof(type));
+    }
     private static void ValidateVoteEntry(LobbyVoteEntry option)
     {
         if (option == null || option.Id is < 1 or > 8 || option.Votes is < 0 or > 8)
@@ -235,6 +273,10 @@ public sealed record NodeControlEvent(int Version, string Type, long EventId, Gu
 [JsonSerializable(typeof(LobbyVoteOpen))]
 [JsonSerializable(typeof(LobbyVoteCast))]
 [JsonSerializable(typeof(LobbyVoteResolve))]
+[JsonSerializable(typeof(LobbyMatchTransitionPropose))]
+[JsonSerializable(typeof(LobbyMatchTransitionVote))]
+[JsonSerializable(typeof(NodeMatchTransitionVoteSnapshot))]
+[JsonSerializable(typeof(NodeMatchTransitionStarted))]
 [JsonSerializable(typeof(NodeRoundSnapshot))]
 [JsonSerializable(typeof(LobbyCreate))]
 [JsonSerializable(typeof(LobbyRulesOptions))]

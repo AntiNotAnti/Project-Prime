@@ -65,6 +65,8 @@ public sealed class NodeSessionManager
                 {
                     Send(session, "lobby.snapshot", null, _lobbies.ForSession(sessionId) ?? snapshot);
                     if (_lobbies.RoundForSession(sessionId) is { } round) Send(session, "lobby.round", null, round);
+                    if (_lobbies.MatchTransitionForSession(sessionId) is { } transition)
+                        Send(session, "match.transition.state", null, transition);
                 }
     }
     public async Task BroadcastMatchesAsync(CancellationToken cancellationToken)
@@ -148,6 +150,8 @@ public sealed class NodeSessionManager
                 _nodeId, token, session.Identity.GuestSessionId));
             if (_lobbies.ForSession(session.Id) is { } restored) Send(session, "lobby.snapshot", null, restored);
             if (_lobbies.RoundForSession(session.Id) is { } restoredRound) Send(session, "lobby.round", null, restoredRound);
+            if (_lobbies.MatchTransitionForSession(session.Id) is { } restoredTransition)
+                Send(session, "match.transition.state", null, restoredTransition);
             if (_matches != null)
                 foreach (object matchState in await _matches.ForSessionEventsAsync(session.Id, connection.Stop.Token)) SendMatch(session, matchState);
             byte[] buffer = new byte[NodeControlCodec.MaximumFrameBytes];
@@ -193,6 +197,8 @@ public sealed class NodeSessionManager
                         case LobbyLeft left: Send(session, "lobby.left", request.RequestId, left); break;
                         case NodeRoundSnapshot round: Send(session, "lobby.round", request.RequestId, round); break;
                         case NodeMatchHandoff handoff: Send(session, "match.handoff", request.RequestId, handoff); break;
+                        case NodeMatchTransitionVoteSnapshot transition:
+                            Send(session, "match.transition.state", request.RequestId, transition); break;
                     }
                 }
                 catch (LobbyCommandException ex) { Send(session, "error", request.RequestId, new NodeControlError(ex.Code, ex.Message)); }
@@ -263,6 +269,8 @@ public sealed class NodeSessionManager
             case NodeMatchHandoff handoff: Send(session, "match.handoff", null, handoff); break;
             case NodeMatchCompletion completion: Send(session, "match.completion", null, completion); break;
             case NodeMatchEnded ended: Send(session, "match.ended", null, ended); break;
+            case NodeMatchTransitionVoteSnapshot transition: Send(session, "match.transition.state", null, transition); break;
+            case NodeMatchTransitionStarted started: Send(session, "match.transition.started", null, started); break;
         }
     }
     private static void Send<T>(Session session, string type, Guid? requestId, T payload)

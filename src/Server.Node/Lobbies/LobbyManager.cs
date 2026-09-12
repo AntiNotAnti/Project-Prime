@@ -164,7 +164,11 @@ public sealed partial class LobbyManager
     /// worker or timer per lobby.</summary>
     public void PruneWaitlists()
     {
-        lock (_gate) ExpireOffersAndAdvanceAll();
+        lock (_gate)
+        {
+            ExpireOffersAndAdvanceAll();
+            PruneMatchTransitionBallots();
+        }
     }
     public object Execute(LobbyIdentity identity, NodeCommand command)
     {
@@ -173,12 +177,15 @@ public sealed partial class LobbyManager
         {
             ExpireOffersAndAdvanceAll();
             if (TryExecuteRoundCommand(identity, command, out var roundResponse)) return roundResponse;
+            if (TryExecuteMatchTransitionCommand(identity, command, out var transitionResponse)) return transitionResponse;
             switch (command)
             {
                 case LobbyList list:
                     if (list.Offset < 0 || list.Limit is < 1 or > NodeControlCodec.MaximumLobbyListEntries)
                         throw Error("invalid", "Invalid page bounds.");
-                    var rows = _lobbies.Values.Where(l => l.Rules.Visibility == LobbyVisibility.Public)
+                    var rows = _lobbies.Values.Where(l => l.Rules.Visibility == LobbyVisibility.Public
+                            && !_transitionContinuations.ContainsKey(l.Id)
+                            && l.Members.Keys.Any(sessionId => !_sessionResumeDeadlines.ContainsKey(sessionId)))
                         .OrderBy(l => l.Id).Skip(list.Offset).Take(list.Limit + 1).ToArray();
                     return new LobbyListSnapshot(rows.Take(list.Limit).Select(l => new LobbyListEntry(l.Id, l.Rules.Name,
                         l.Phase, l.Members.Values.Count(m => !m.Observer), l.Rules.PlayerLimit,
@@ -212,15 +219,21 @@ public sealed partial class LobbyManager
                     RequireUnjoined(identity.SessionId);
                     if (!_lobbies.TryGetValue(join.LobbyId, out var target)) throw Error("not_found", "Lobby not found.");
                     Revision(target, join.ExpectedRevision);
+                    if (_transitionContinuations.ContainsKey(target.Id))
+                        throw Error("transitioning", "Match transition is preparing.");
                     if (target.Phase != LobbyPhase.Open) throw Error("phase", "Lobby roster is frozen.");
                     if (!join.Observer && target.Waitlist.Find(identity.IdentityKey) is not null)
                         throw Error("already_queued", "Cancel the waitlist entry before joining as a player.");
                     return Join(target, identity, join.Observer);
                 case LobbyQueueJoin queueJoin:
+                    if (_transitionContinuations.ContainsKey(ResolveQueueLobby(identity, queueJoin.LobbyId, allowMissing: false).Id))
+                        throw Error("transitioning", "Match transition is preparing.");
                     return QueueJoin(identity, queueJoin);
                 case LobbyQueueLeave queueLeave:
                     return QueueLeave(identity, queueLeave);
                 case LobbyQueueAccept queueAccept:
+                    if (_transitionContinuations.ContainsKey(ResolveQueueLobby(identity, queueAccept.LobbyId, allowMissing: false).Id))
+                        throw Error("transitioning", "Match transition is preparing.");
                     return QueueAccept(identity, queueAccept);
                 case LobbyQueueDecline queueDecline:
                     return QueueDecline(identity, queueDecline);
@@ -240,7 +253,14 @@ public sealed partial class LobbyManager
                         LobbyConfigure c => c.ExpectedRevision, _ => -1
                     };
                     Revision(lobby, revision);
-                    if (lobby.Phase != LobbyPhase.Open && command is not LobbyChat) throw Error("phase", "Lobby settings are frozen.");
+                    if (_transitionContinuations.ContainsKey(lobby.Id)
+                        && command is not (LobbySetReady or LobbyChat))
+                        throw Error("transitioning", "Match transition is preparing.");
+                    bool postMatchHunter = lobby.Phase == LobbyPhase.PostMatch
+                        && command is LobbySelectHunter;
+                    if (lobby.Phase != LobbyPhase.Open && command is not LobbyChat
+                        && !postMatchHunter)
+                        throw Error("phase", "Lobby settings are frozen.");
                     switch (command)
                     {
                         case LobbyConfigure configure:
@@ -275,6 +295,13 @@ public sealed partial class LobbyManager
                         case LobbySelectHunter hunter:
                             if (member.Observer || !Enum.IsDefined(hunter.Hunter) || hunter.Hunter > Hunter.Guardian)
                                 throw Error("invalid", "Invalid hunter selection.");
+                            if (postMatchHunter)
+                            {
+                                RoundState round = Round(lobby.Id);
+                                if (round.Resolved != null || round.Deadline is not { } deadline
+                                    || RoundClock.GetUtcNow() >= deadline)
+                                    throw Error("phase", "Hunter selection is locked for the next round.");
+                            }
                             if (member.Hunter == hunter.Hunter) return SnapshotFor(lobby, identity.IdentityKey);
                             lobby.Members[identity.SessionId] = member with { Hunter = hunter.Hunter, Ready = false };
                             break;
@@ -303,6 +330,8 @@ public sealed partial class LobbyManager
             ExpireOffersAndAdvance(lobby);
             if (_admissionClosed) throw Error("draining", "Node is draining.");
             Revision(lobby, expectedRevision);
+            if (_transitionContinuations.ContainsKey(lobby.Id))
+                throw Error("transitioning", "Match transition is preparing.");
             if (lobby.Owner != ownerSession) throw Error("owner", "Only the owner may start a match.");
             if (lobby.Phase != LobbyPhase.Open || lobby.MapKey != content.MapKey) throw Error("phase", "Lobby is not configured for this content.");
             ValidateRoundStart(lobby.Id);
@@ -320,13 +349,17 @@ public sealed partial class LobbyManager
             if (players.Any(player => _sessionResumeDeadlines.ContainsKey(player.SessionId)))
                 throw Error("player_disconnected", "Wait for every player to reconnect before starting the match.");
             if (players.Length == 0 || requireReady && players.Any(m => !m.Ready)) throw Error("not_ready", "All players must be ready.");
+            uint gameplaySeed = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(4));
+            uint cosmeticSeed = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(4));
+            Hunter[] botHunters = BuildRandomBotHunters(gameplaySeed);
             var seats = ImmutableArray.CreateBuilder<RosterSeat>();
             foreach (var member in players)
             {
                 seats.Add(ToRosterSeat((byte)seats.Count, member, SeatRole.Player));
             }
             for (int bot = 0; bot < lobby.BotCount; bot++)
-                seats.Add(new((byte)seats.Count, null, null, "Bot" + (bot + 1), Hunter.Samus, (byte)((players.Length + bot) % 2), SeatRole.Bot, false));
+                seats.Add(new((byte)seats.Count, null, null, "Bot" + (bot + 1),
+                    botHunters[bot], (byte)((players.Length + bot) % 2), SeatRole.Bot, false));
             if (lobby.Mode.IsTeamMode() && seats.Select(s => s.Team).Distinct().Count() != 2)
                 throw Error("teams", "Both teams need players.");
             // MatchSpec is immutable. Offers that have not been accepted before
@@ -347,19 +380,39 @@ public sealed partial class LobbyManager
                 null, null, seats.ToImmutable(), lobby.BotCount == 0 ? BotFillPolicy.Disabled : BotFillPolicy.FillVacancies,
                 lobby.Rules.ObserverLimit > 0 ? ObserverPolicy.Allowed : ObserverPolicy.Disabled,
                 ReplayPolicy.Record, TelemetryPolicy.Record,
-                BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(4)), BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(4)));
+                gameplaySeed, cosmeticSeed);
             spec = ApplyRoundIdentity(lobby.Id, spec);
             spec.Validate();
             lobby.MatchId = spec.MatchId.Value; lobby.Phase = LobbyPhase.StartingMatch; Publish(lobby);
             return spec;
     }
+
+    private static Hunter[] BuildRandomBotHunters(uint gameplaySeed)
+    {
+        Hunter[] hunters =
+        [
+            Hunter.Samus, Hunter.Kanden, Hunter.Trace, Hunter.Sylux,
+            Hunter.Noxus, Hunter.Spire, Hunter.Weavel
+        ];
+        for (int index = hunters.Length - 1; index > 0; index--)
+        {
+            int swap = (int)RngAlgorithm.Next(ref gameplaySeed, (uint)(index + 1));
+            (hunters[index], hunters[swap]) = (hunters[swap], hunters[index]);
+        }
+        return hunters;
+    }
+
     public bool MatchReady(MatchPlacement placement)
     {
         lock (_gate)
         {
             var lobby = _lobbies.Values.SingleOrDefault(l => l.MatchId == placement.MatchId.Value);
             if (lobby == null || lobby.Phase != LobbyPhase.StartingMatch) return false;
-            lobby.Phase = LobbyPhase.InMatch; ExpireOffersAndAdvance(lobby); Publish(lobby); return true;
+            lobby.Phase = LobbyPhase.InMatch;
+            // A transition's approved state remains available through
+            // replacement preparation and is retired only at this boundary.
+            CompletePreparedMatchTransition(placement);
+            ExpireOffersAndAdvance(lobby); Publish(lobby); return true;
         }
     }
     public bool MatchEnded(MatchId matchId, bool interrupted)
@@ -368,6 +421,10 @@ public sealed partial class LobbyManager
         {
             var lobby = _lobbies.Values.SingleOrDefault(l => l.MatchId == matchId.Value);
             if (lobby == null || lobby.Phase is not (LobbyPhase.StartingMatch or LobbyPhase.InMatch)) return false;
+            // If the Worker completed before the coordinator could claim a
+            // transition, ordinary completion owns the old MatchId and the
+            // transition ballot must not survive into post-match state.
+            _matchTransitions.Remove(lobby.Id);
             lobby.Phase = LobbyPhase.PostMatch; OnRoundEnded(lobby, interrupted); ExpireOffersAndAdvance(lobby); Publish(lobby); return true;
         }
     }
@@ -649,6 +706,7 @@ public sealed partial class LobbyManager
         Lobby[] candidates = _lobbies.Values
             .Where(lobby => lobby.Rules.Visibility == LobbyVisibility.Public
                 && lobby.Phase == LobbyPhase.Open
+                && !_transitionContinuations.ContainsKey(lobby.Id)
                 && lobby.Waitlist.Count == 0
                 && PlayerSeatsAvailable(lobby) > 0
                 && (command.Mode is null || lobby.Mode == command.Mode)
@@ -722,6 +780,8 @@ public sealed partial class LobbyManager
         }
         if (lobby.Owner == sessionId) lobby.Owner = lobby.Members.Keys.First();
         ResolveBallot(lobby, Round(lobby.Id));
+        if (_matchTransitions.TryGetValue(lobby.Id, out var transition))
+            ResolveMatchTransition(lobby, transition);
         ExpireOffersAndAdvance(lobby);
         Publish(lobby);
     }

@@ -81,10 +81,10 @@ public sealed class ControlCodecTests
     {
         var error = Assert.Throws<JsonException>(() => NodeControlCodec.Read(Frame("lobby.configure",
             "{\"futurePayload\":true}", version: 1)));
-        Assert.Equal("Unsupported control envelope version. Received 1; expected 2.", error.Message);
+        Assert.Equal("Unsupported control envelope version. Received 1; expected 3.", error.Message);
     }
     [Fact]
-    public void CurrentEnvelopeWritesAndReadsAtVersionTwo()
+    public void CurrentEnvelopeWritesAndReadsAtVersionThree()
     {
         byte[] bytes = NodeControlCodec.Write("node.ping", 1, null, new NodePing());
         using JsonDocument eventDocument = JsonDocument.Parse(bytes);
