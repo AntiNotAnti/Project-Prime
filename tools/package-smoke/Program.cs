@@ -123,9 +123,9 @@ public static class Program
             await SendFrameAsync(control, "lobby.start", startRequest, new { expectedRevision = revision }, controlTimeout.Token);
             NodeMatchHandoff handoff = await WaitForHandoffAsync(control, startRequest, controlTimeout.Token);
             Console.WriteLine($"phase: lobby create/configure/start and Worker handoff ({handoff.Host}:{handoff.Port})");
-            UdpAdmission admission = await AdmitUdpAsync(handoff, controlTimeout.Token);
+            using UdpAdmission admission = await AdmitUdpAsync(handoff, controlTimeout.Token);
             Console.WriteLine($"phase: UDP admission (connection {admission.ConnectionId})");
-            await SendReadyAsync(handoff, admission, controlTimeout.Token);
+            await SendReadyAsync(admission, controlTimeout.Token);
             using (await WaitForTypeAsync(control, "match.ended", controlTimeout.Token)) { }
             await WaitForArtifactsAsync(replayRoot, artifactRoot, options.Timeout);
             Console.WriteLine("phase: match ended and replay/artifact roots writable");
@@ -315,7 +315,7 @@ public static class Program
     private static async Task SendFrameAsync(ClientWebSocket socket, string type, Guid requestId,
         object payload, CancellationToken cancellationToken)
     {
-        byte[] frame = JsonSerializer.SerializeToUtf8Bytes(new { version = 1, type, requestId, payload }, Json);
+        byte[] frame = JsonSerializer.SerializeToUtf8Bytes(new { version = NodeControlCodec.Version, type, requestId, payload }, Json);
         await socket.SendAsync(frame, WebSocketMessageType.Text, true, cancellationToken);
     }
 
@@ -369,51 +369,143 @@ public static class Program
 
     private static async Task<UdpAdmission> AdmitUdpAsync(NodeMatchHandoff handoff, CancellationToken cancellationToken)
     {
-        using var udp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
-        var join = new JoinPacket(NetHeader.Version, handoff.Nonce, handoff.Hunter, "Smoke", Ticket: handoff.Ticket,
-            Observer: handoff.Observer, WireMatchId: handoff.WireMatchId);
-        byte[] datagram = new byte[NetHeader.Size + join.EncodedSize];
-        new NetHeader(NetMessageType.Join, NetHeaderFlags.Unsequenced, 0, 0, 0, 0).Write(datagram);
-        join.Write(datagram.AsSpan(NetHeader.Size));
+        bool authenticated = handoff.UdpAuthenticationEnabled;
         IPEndPoint endpoint = new(IPAddress.Parse(handoff.Host), handoff.Port);
-        await udp.SendAsync(datagram, endpoint, cancellationToken);
-        Console.WriteLine($"phase: UDP join sent ({datagram.Length} bytes to {endpoint})");
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        deadline.CancelAfter(TimeSpan.FromSeconds(15));
-        while (true)
+        var udp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+        byte[]? admissionKey = null;
+        try
         {
-            UdpReceiveResult received;
-            try { received = await udp.ReceiveAsync(deadline.Token); }
-            catch (OperationCanceledException) { throw new TimeoutException("Worker UDP admission did not complete."); }
-            if (!NetHeader.TryRead(received.Buffer, out NetHeader header)) continue;
-            Console.WriteLine($"phase: UDP response {header.Type} ({received.Buffer.Length} bytes from {received.RemoteEndPoint})");
-            if (header.Type == NetMessageType.JoinPending) continue;
-            if (header.Type == NetMessageType.Refused) throw new InvalidOperationException("Worker refused the routed admission.");
-            if (header.Type != NetMessageType.Accepted) continue;
-            ReadOnlySpan<byte> body = received.Buffer.AsSpan(NetHeader.Size);
-            JoinAcceptedPacket accepted;
-            if (!JoinAcceptedPacket.TryRead(body, out accepted))
+            if (authenticated) admissionKey = AdmissionKeyRules.Decode(handoff.AdmissionKey);
+            var join = new JoinPacket(NetHeader.Version, handoff.Nonce, handoff.Hunter, "Smoke", Ticket: handoff.Ticket,
+                Observer: handoff.Observer, WireMatchId: handoff.WireMatchId,
+                AdmissionId: authenticated ? handoff.AdmissionId : Guid.Empty);
+            int payloadLength = join.EncodedSize;
+            int datagramLength = authenticated
+                ? NetAuthentication.AuthenticatedSize(payloadLength) : NetHeader.Size + payloadLength;
+            byte[] datagram = new byte[datagramLength];
+            NetHeader joinHeader = new(NetMessageType.Join, NetHeaderFlags.Unsequenced, 0, 0, 0, 0);
+            Span<byte> joinBody = datagram.AsSpan(NetHeader.Size, payloadLength);
+            join.Write(joinBody);
+            int length;
+            if (authenticated)
             {
-                if (!ReliableEventPacket.TryRead(body, out _, out ReliableEventType welcomeType, out ReadOnlySpan<byte> welcomeBody)
-                    || welcomeType != ReliableEventType.Welcome || !JoinAcceptedPacket.TryRead(welcomeBody, out accepted)) continue;
+                length = NetAuthentication.Sign(admissionKey!, NetAuthDirection.ClientToServer,
+                    joinHeader, joinBody, datagram);
             }
-            if (accepted.ClientNonce == handoff.Nonce && accepted.MatchId == handoff.WireMatchId)
-                return new UdpAdmission(accepted, header.ConnectionId);
+            else
+            {
+                joinHeader.Write(datagram);
+                length = NetHeader.Size + payloadLength;
+            }
+            await udp.SendAsync(datagram.AsMemory(0, length), endpoint, cancellationToken);
+            Console.WriteLine($"phase: UDP join sent ({length} bytes to {endpoint})");
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            deadline.CancelAfter(TimeSpan.FromSeconds(15));
+            while (true)
+            {
+                UdpReceiveResult received;
+                try { received = await udp.ReceiveAsync(deadline.Token); }
+                catch (OperationCanceledException) { throw new TimeoutException("Worker UDP admission did not complete."); }
+                if (!received.RemoteEndPoint.Equals(endpoint)) continue;
+                NetHeader header;
+                ReadOnlySpan<byte> body;
+                if (authenticated)
+                {
+                    if (!NetAuthentication.TryVerify(admissionKey!, NetAuthDirection.ServerToClient,
+                            received.Buffer, out header, out body)) continue;
+                }
+                else
+                {
+                    if (!NetHeader.TryRead(received.Buffer, out header)) continue;
+                    body = received.Buffer.AsSpan(NetHeader.Size);
+                }
+                Console.WriteLine($"phase: UDP response {header.Type} ({received.Buffer.Length} bytes from {received.RemoteEndPoint})");
+                if (header.Type == NetMessageType.JoinPending) continue;
+                if (header.Type == NetMessageType.Refused) throw new InvalidOperationException("Worker refused the routed admission.");
+                if (header.Type != NetMessageType.Accepted) continue;
+                JoinAcceptedPacket accepted;
+                if (!JoinAcceptedPacket.TryRead(body, out accepted))
+                {
+                    if (!ReliableEventPacket.TryRead(body, out _, out ReliableEventType welcomeType, out ReadOnlySpan<byte> welcomeBody)
+                        || welcomeType != ReliableEventType.Welcome || !JoinAcceptedPacket.TryRead(welcomeBody, out accepted)) continue;
+                }
+                if (accepted.ClientNonce == handoff.Nonce && accepted.MatchId == handoff.WireMatchId)
+                {
+                    UdpAdmission admission = new(udp, endpoint, accepted, header, admissionKey, authenticated);
+                    admissionKey = null;
+                    return admission;
+                }
+            }
+        }
+        catch
+        {
+            if (admissionKey is not null) CryptographicOperations.ZeroMemory(admissionKey);
+            udp.Dispose();
+            throw;
         }
     }
 
-    private static async Task SendReadyAsync(NodeMatchHandoff handoff, UdpAdmission admission, CancellationToken cancellationToken)
+    private static async Task SendReadyAsync(UdpAdmission admission, CancellationToken cancellationToken)
     {
-        using var udp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
         byte[] eventBody = new byte[4];
         BinaryPrimitives.WriteUInt32LittleEndian(eventBody, admission.Accepted.MatchId);
-        byte[] datagram = new byte[NetHeader.Size + ReliableEventPacket.HeaderSize + eventBody.Length];
-        new NetHeader(NetMessageType.Event, NetHeaderFlags.None, admission.ConnectionId, 0, 0, 0).Write(datagram);
-        ReliableEventPacket.Write(datagram.AsSpan(NetHeader.Size), 0, ReliableEventType.ClientReady, eventBody);
-        await udp.SendAsync(datagram, new IPEndPoint(IPAddress.Parse(handoff.Host), handoff.Port), cancellationToken);
+        int payloadLength = ReliableEventPacket.HeaderSize + eventBody.Length;
+        int datagramLength = admission.Authenticated
+            ? NetAuthentication.AuthenticatedSize(payloadLength) : NetHeader.Size + payloadLength;
+        byte[] datagram = new byte[datagramLength];
+        NetHeader header = new(NetMessageType.Event, NetHeaderFlags.HasAck, admission.ConnectionId,
+            admission.NextClientSequence++, admission.AcceptedHeader.Sequence, 0);
+        Span<byte> payload = datagram.AsSpan(NetHeader.Size, payloadLength);
+        ReliableEventPacket.Write(payload, 0, ReliableEventType.ClientReady, eventBody);
+        int length;
+        if (admission.Authenticated)
+        {
+            length = NetAuthentication.Sign(admission.Key, NetAuthDirection.ClientToServer,
+                header, payload, datagram);
+        }
+        else
+        {
+            header.Write(datagram);
+            length = NetHeader.Size + payloadLength;
+        }
+        await admission.Client.SendAsync(datagram.AsMemory(0, length), admission.Endpoint, cancellationToken);
     }
 
-    private sealed record UdpAdmission(JoinAcceptedPacket Accepted, ulong ConnectionId);
+    private sealed class UdpAdmission : IDisposable
+    {
+        private byte[]? _key;
+        private int _disposed;
+        public UdpClient Client { get; }
+        public IPEndPoint Endpoint { get; }
+        public JoinAcceptedPacket Accepted { get; }
+        public NetHeader AcceptedHeader { get; }
+        public bool Authenticated { get; }
+        public uint NextClientSequence { get; set; }
+        public ulong ConnectionId => AcceptedHeader.ConnectionId;
+        public ReadOnlySpan<byte> Key => _key ?? ReadOnlySpan<byte>.Empty;
+
+        public UdpAdmission(UdpClient client, IPEndPoint endpoint, JoinAcceptedPacket accepted,
+            NetHeader acceptedHeader, byte[]? key, bool authenticated)
+        {
+            Client = client;
+            Endpoint = endpoint;
+            Accepted = accepted;
+            AcceptedHeader = acceptedHeader;
+            _key = key;
+            Authenticated = authenticated;
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+            if (_key is not null)
+            {
+                CryptographicOperations.ZeroMemory(_key);
+                _key = null;
+            }
+            Client.Dispose();
+        }
+    }
 
     private static async Task WaitForArtifactsAsync(string replayRoot, string artifactRoot, TimeSpan timeout)
     {
