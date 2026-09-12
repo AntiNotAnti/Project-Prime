@@ -31,12 +31,29 @@ internal sealed class PlayPresentationState
     public HostMatchDraft? EditDraft { get; private set; }
     public bool EditMatchOpen { get; set; }
     public Guid? LeaveConfirmationLobbyId { get; private set; }
+    public bool PresenceExpanded { get; private set; }
+    public int PresencePage { get; private set; }
 
     // This is a view reuse seam, not a second lobby snapshot. The cached view
     // is replaced whenever the authoritative lobby identity changes or the
     // route leaves the lobby, while its Update method consumes the latest
     // snapshot supplied by the shell.
     internal ILobbyPresentationView? LobbyView { get; set; }
+
+    public void ShowAllPresence()
+    {
+        PresenceExpanded = true;
+        PresencePage = 0;
+    }
+
+    public void ShowPresencePreview()
+    {
+        PresenceExpanded = false;
+        PresencePage = 0;
+    }
+
+    public void SetPresencePage(int page, int pageCount)
+        => PresencePage = Math.Clamp(page, 0, Math.Max(0, pageCount - 1));
 
     // Only the cursor needed to count new entries is retained. Chat messages
     // themselves always come from the current authoritative snapshot.

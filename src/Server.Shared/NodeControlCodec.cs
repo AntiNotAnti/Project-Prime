@@ -46,6 +46,10 @@ public static class NodeControlCodec
             "match.transition.propose" => Decode(p, NodeJsonContext.Default.LobbyMatchTransitionPropose),
             "match.transition.vote" => Decode(p, NodeJsonContext.Default.LobbyMatchTransitionVote),
             "node.ping" => Decode(p, NodeJsonContext.Default.NodePing),
+            "node.presence.visibility" => Decode(p, NodeJsonContext.Default.NodeSetPresenceVisibility),
+            // Keep a short source-compatible alias for clients that named the
+            // action "set" before the canonical route was documented.
+            "node.presence.set" => Decode(p, NodeJsonContext.Default.NodeSetPresenceVisibility),
             "node.catalog" => Decode(p, NodeJsonContext.Default.NodeCatalogRequest),
             "match.rejoin" => Decode(p, NodeJsonContext.Default.NodeMatchRejoin),
             "lobby.create" => Decode(p, NodeJsonContext.Default.LobbyCreate),
@@ -138,6 +142,9 @@ public static class NodeControlCodec
                 }
                 break;
             case NodeSessionSnapshot session: session.Validate(); break;
+            case NodePresenceVisibilityChanged visibility:
+                if (visibility.Revision < 0) throw new ArgumentException("Invalid presence visibility acknowledgement.");
+                break;
             case LobbySnapshot lobby:
                 ContractGuard.Id(lobby.LobbyId); ContractGuard.Id(lobby.OwnerSessionId);
                 ContractGuard.Text(lobby.Name, 64); ContractGuard.Defined(lobby.Visibility); ContractGuard.Defined(lobby.Phase);
@@ -216,6 +223,7 @@ public static class NodeControlCodec
             "match.transition.started" => payload is NodeMatchTransitionStarted,
             "match.transition.propose" => payload is LobbyMatchTransitionPropose,
             "match.transition.vote" => payload is LobbyMatchTransitionVote,
+            "node.presence.visibility" => payload is NodePresenceVisibilityChanged,
             _ => true
         };
         if (!valid) throw new ArgumentException("Control route does not match payload.", nameof(type));
@@ -304,6 +312,8 @@ public sealed record NodeControlEvent(int Version, string Type, long EventId, Gu
 [JsonSerializable(typeof(LobbyListSnapshot))]
 [JsonSerializable(typeof(NodeSessionSnapshot))]
 [JsonSerializable(typeof(NodePing))]
+[JsonSerializable(typeof(NodeSetPresenceVisibility))]
+[JsonSerializable(typeof(NodePresenceVisibilityChanged))]
 [JsonSerializable(typeof(NodeCatalogRequest))]
 [JsonSerializable(typeof(NodeCatalogPage))]
 [JsonSerializable(typeof(ContentIdentity))]

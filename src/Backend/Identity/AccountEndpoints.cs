@@ -170,7 +170,7 @@ public static class AccountEndpoints
             return result.Succeeded ? Results.NoContent()
                 : BackendProblem.Create("service_busy", "The account service is temporarily unavailable.",
                     StatusCodes.Status409Conflict);
-        });
+        }).Bodyless();
     }
 
     private static async Task<IResult> Register(RegisterRequest request, UserManager<HunterAccount> users,

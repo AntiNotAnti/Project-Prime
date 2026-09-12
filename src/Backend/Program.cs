@@ -13,6 +13,7 @@ using MphRead.Backend.Identity;
 using MphRead.Backend.Profiles;
 using MphRead.Backend.Tickets;
 using MphRead.Backend.Nodes;
+using MphRead.Backend.Presence;
 using Npgsql;
 
 namespace MphRead.Backend;
@@ -74,6 +75,7 @@ public sealed class Program
         builder.Services.AddSingleton<GameServerRegistry>();
         builder.Services.AddSingleton<AuthenticatedNodeRateLimiter>();
         builder.Services.AddSingleton<NodeDirectory>();
+        builder.Services.AddSingleton<PresenceDirectory>();
         builder.Services.AddScoped<MatchIngestion>();
         builder.Services.AddScoped<CareerRebuild>();
         builder.Services.AddScoped<BackendReadinessChecker>();
@@ -99,6 +101,9 @@ public sealed class Program
             options.AddPolicy(BackendRoutePolicy.Api, http => RateLimitPartition.GetFixedWindowLimiter(
                 BackendSecurity.EndpointPartitionKey(http), _ => new FixedWindowRateLimiterOptions
                 { PermitLimit = BackendRoutePolicy.ApiPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            options.AddPolicy(BackendRoutePolicy.Presence, http => RateLimitPartition.GetFixedWindowLimiter(
+                BackendSecurity.IpPartitionKey(http), _ => new FixedWindowRateLimiterOptions
+                { PermitLimit = BackendRoutePolicy.PresencePermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.AddPolicy(BackendRoutePolicy.MachinePreAuth, http => RateLimitPartition.GetFixedWindowLimiter(
                 BackendSecurity.MachinePartitionKey(http), _ => new FixedWindowRateLimiterOptions
                 { PermitLimit = BackendRoutePolicy.MachinePreAuthPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
@@ -252,6 +257,7 @@ public sealed class Program
                 await next(http);
                 return;
             }
+            http.Response.Headers.CacheControl = "no-store";
             // Reject known oversized bodies before binding; Kestrel also bounds chunked bodies.
             long limit = BackendRequestLimits.ForPath(http.Request.Path);
             var bodyLimit = http.Features.Get<IHttpMaxRequestBodySizeFeature>();
@@ -263,32 +269,54 @@ public sealed class Program
                     StatusCodes.Status413PayloadTooLarge, http.RequestAborted);
                 return;
             }
-            http.Response.Headers.CacheControl = "no-store";
-            // TestServer and some reverse proxies do not enforce Kestrel's
-            // MaxRequestBodySize for a chunked request. Buffer only this
-            // already-bounded body so the same route contract applies before
-            // model binding regardless of transfer framing. The global lease
-            // above bounds how many slow readers may exist concurrently.
-            using var buffered = new MemoryStream();
-            byte[] buffer = new byte[8192];
-            while (true)
+
+            // A route explicitly marked bodyless never consumes request bytes.
+            // Keep this opt-in: a missing body on a body-bound route must still
+            // pass through the normal model binder and cancellation path.
+            if (BackendRequestLimits.IsBodyless(http)
+                || http.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpRequestBodyDetectionFeature>()
+                    is { CanHaveBody: false })
             {
-                int read = await http.Request.Body.ReadAsync(buffer.AsMemory(), http.RequestAborted);
-                if (read == 0) break;
-                if (buffered.Length + read > limit)
-                {
-                    BackendDiagnostics.Rejected(requestLogger, "body", "request_too_large");
-                    await BackendProblem.WriteAsync(http, "request_too_large", "The request exceeds its route size bound.",
-                        StatusCodes.Status413PayloadTooLarge, http.RequestAborted);
-                    return;
-                }
-                await buffered.WriteAsync(buffer.AsMemory(0, read), http.RequestAborted);
+                await next(http);
+                return;
             }
-            buffered.Position = 0;
-            http.Request.Body = buffered;
-            await next(http);
+
+            // Match reports have one owner for payload consumption: the
+            // endpoint reads one bounded payload and passes those exact bytes to
+            // ingestion for hashing, idempotency, and durable storage. Do not
+            // install a second request-body guard around that path.
+            if (BackendRequestLimits.IsBoundedPayloadRoute(http.Request.Path)
+                || http.Request.ContentLength is not null)
+            {
+                await next(http);
+                return;
+            }
+
+            // TestServer and some reverse proxies do not enforce Kestrel's
+            // MaxRequestBodySize for a chunked request. Guard those streams in
+            // place so model binding receives the original bytes without a
+            // second request buffer. The global lease above bounds how many
+            // slow readers may exist concurrently.
+            var originalBody = http.Request.Body;
+            var boundedBody = new BoundedRequestBodyStream(originalBody, limit);
+            http.Request.Body = boundedBody;
+            try
+            {
+                await next(http);
+            }
+            catch (BackendRequestBodyLimitExceededException)
+                when (!http.Response.HasStarted && !http.RequestAborted.IsCancellationRequested)
+            {
+                BackendDiagnostics.Rejected(requestLogger, "body", "request_too_large");
+                await BackendProblem.WriteAsync(http, "request_too_large", "The request exceeds its route size bound.",
+                    StatusCodes.Status413PayloadTooLarge, http.RequestAborted);
+            }
+            finally
+            {
+                http.Request.Body = originalBody;
+            }
         });
-        app.MapGet("/health/live", () => Results.Ok(new { status = "live" })).AllowAnonymous();
+        app.MapGet("/health/live", () => Results.Ok(new { status = "live" })).Bodyless().AllowAnonymous();
         app.MapGet("/health/ready", async (BackendReadinessChecker checker, CancellationToken requestAborted) =>
         {
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(requestAborted);
@@ -297,11 +325,12 @@ public sealed class Program
             return readiness.Ready
                 ? Results.Ok(new { status = "ready" })
                 : Results.Json(new { status = "not_ready" }, statusCode: StatusCodes.Status503ServiceUnavailable);
-        }).AllowAnonymous();
+        }).Bodyless().AllowAnonymous();
         app.MapAccounts();
         app.MapProfiles();
         app.MapGameTickets();
         app.MapNodes();
+        app.MapPresence();
         app.MapMatches();
         app.MapCareerQueries();
         app.MapMatchExports();

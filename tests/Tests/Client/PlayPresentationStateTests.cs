@@ -142,12 +142,12 @@ public sealed class PlayPresentationStateTests
     [Fact]
     public void LauncherRuleLabelsResolveConcreteModeDefaultsWithoutChangingNullWireValues()
     {
-        Assert.Equal("7:00 (default)", LobbyRuleDefaults.Time(MatchMode.Battle, null));
-        Assert.Equal("7 (default)", LobbyRuleDefaults.Score(MatchMode.Battle, null));
-        Assert.Equal("2 (default)", LobbyRuleDefaults.Lives(MatchMode.Survival, null));
-        Assert.Equal("1:30 (default)", LobbyRuleDefaults.ObjectiveTime(MatchMode.Defender, null));
-        Assert.Equal("Normal (default)", LobbyRuleDefaults.Damage(MatchMode.Battle));
-        Assert.Equal("Off (default)", LobbyRuleDefaults.Bool(MatchMode.Battle,
+        Assert.Equal("7:00", LobbyRuleDefaults.Time(MatchMode.Battle, null));
+        Assert.Equal("7", LobbyRuleDefaults.Score(MatchMode.Battle, null));
+        Assert.Equal("2", LobbyRuleDefaults.Lives(MatchMode.Survival, null));
+        Assert.Equal("1:30", LobbyRuleDefaults.ObjectiveTime(MatchMode.Defender, null));
+        Assert.Equal("Normal", LobbyRuleDefaults.Damage(MatchMode.Battle));
+        Assert.Equal("Off", LobbyRuleDefaults.Bool(MatchMode.Battle,
             rules => rules.FriendlyFire));
 
         var draft = new HostMatchDraft { Mode = MatchMode.Battle };
@@ -156,8 +156,8 @@ public sealed class PlayPresentationStateTests
         Assert.True(draft.TryBuildRules(out LobbyRulesOptions rules, out string error), error);
         Assert.Null(rules.TimeLimitSeconds);
         Assert.Null(rules.ScoreGoal);
-        Assert.Equal("7:00 (default) or m:ss", LobbyRuleDefaults.TimeWatermark(MatchMode.Battle));
-        Assert.Equal("1:30 (default) or m:ss", LobbyRuleDefaults.ObjectiveWatermark(MatchMode.Defender));
+        Assert.Equal("7:00", LobbyRuleDefaults.TimeWatermark(MatchMode.Battle));
+        Assert.Equal("1:30", LobbyRuleDefaults.ObjectiveWatermark(MatchMode.Defender));
 
         Guid sessionId = Guid.NewGuid();
         var lobby = new LobbySnapshot(Guid.NewGuid(), "Room", LobbyVisibility.Public,
@@ -196,6 +196,28 @@ public sealed class PlayPresentationStateTests
         ui.ObserveOffer(second);
         Assert.True(ui.TryBeginOfferAction(second));
         Assert.False(ui.TryBeginOfferAction(Guid.Empty));
+    }
+
+    [Fact]
+    public void PresencePresentationUsesBoundedPagingAndPlayerFacingLabels()
+    {
+        var ui = new PlayPresentationState();
+        ui.ShowAllPresence();
+        ui.SetPresencePage(20, pageCount: 3);
+        Assert.True(ui.PresenceExpanded);
+        Assert.Equal(2, ui.PresencePage);
+        ui.SetPresencePage(-1, pageCount: 3);
+        Assert.Equal(0, ui.PresencePage);
+        ui.ShowPresencePreview();
+        Assert.False(ui.PresenceExpanded);
+        Assert.Equal(0, ui.PresencePage);
+
+        Assert.Equal("Online", OnlinePlayersPanel.ActivityLabel(
+            PlayerPresenceActivity.Online));
+        Assert.Equal("In lobby", OnlinePlayersPanel.ActivityLabel(
+            PlayerPresenceActivity.InLobby));
+        Assert.Equal("In match", OnlinePlayersPanel.ActivityLabel(
+            PlayerPresenceActivity.InMatch));
     }
 
     [Fact]
@@ -252,7 +274,7 @@ public sealed class PlayPresentationStateTests
             new LobbyStartEligibility(false,
                 "All players must be Ready. Changing settings resets readiness."));
 
-        Assert.Equal("Waiting for every player to ready.", message);
+        Assert.Equal("Waiting for all players.", message);
         Assert.DoesNotContain("reset", message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("revision", message, StringComparison.OrdinalIgnoreCase);
     }

@@ -31,7 +31,7 @@ public static class ProfileEndpoints
                 // Future official admission must also check server and match policies.
                 EmailEligibleForOfficialPlay = user.EmailConfirmed
             });
-        }).RequireRateLimiting(BackendRoutePolicy.Api);
+        }).Bodyless().RequireRateLimiting(BackendRoutePolicy.Api);
 
         app.MapPatch("/v1/me/profile", async (ProfilePatch patch, HttpContext http,
             UserManager<HunterAccount> users, BackendDbContext db, CancellationToken cancellationToken) =>
@@ -79,6 +79,6 @@ public static class ProfileEndpoints
                 result.Profile.FavoriteHunter, result.License.CreatedAt, rating.Points, rating.Tier,
                 rating.Title, rating.NextThreshold, rating.LastOfficialDelta, rating.Policy,
                 rating.LastOfficialMatchId));
-        }).RequireRateLimiting(BackendRoutePolicy.Api);
+        }).Bodyless().RequireRateLimiting(BackendRoutePolicy.Api);
     }
 }

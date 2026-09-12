@@ -106,6 +106,59 @@ public sealed class NodeAccountSessionTests
     }
 
     [Fact]
+    public async Task PresenceIsAnonymousRevisionPinnedAndKeepsDuplicateNames()
+    {
+        PublicPresenceEntry[] players = Enumerable.Range(0, PresenceContract.PageSize + 2)
+            .Select(index => new PublicPresenceEntry(index is 0 or 1 ? "Raven" : $"P{index}",
+                index % 2 == 0 ? PlayerPresenceActivity.Online
+                    : PlayerPresenceActivity.InLobby, "us"))
+            .ToArray();
+        var handler = new RecordingHandler((request, _) =>
+        {
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Equal("/v1/presence", request.RequestUri!.AbsolutePath);
+            Assert.Null(request.Headers.Authorization);
+            int page = QueryInt(request.RequestUri, "page");
+            Assert.Equal(page == 0 ? null : "17",
+                QueryValue(request.RequestUri, "revision"));
+            return Task.FromResult(JsonResponse(new PresenceDirectoryPage(17, 60,
+                players.Length, page, 2, players
+                    .Skip(page * PresenceContract.PageSize)
+                    .Take(PresenceContract.PageSize).ToImmutableArray(),
+                DateTimeOffset.UtcNow)));
+        });
+        using var session = new AccountSession(new Uri("https://backend.example/"), handler);
+
+        PresenceDirectorySnapshot snapshot = await session.GetPresenceAsync();
+
+        Assert.Equal(60, snapshot.TotalOnline);
+        Assert.Equal(players, snapshot.Entries);
+        Assert.Equal(2, snapshot.Entries.Count(entry => entry.DisplayName == "Raven"));
+        Assert.Equal(2, handler.Snapshot().Length);
+    }
+
+    [Fact]
+    public async Task PresenceRejectsInconsistentPagesWithoutPublishingPartialData()
+    {
+        var players = Enumerable.Range(0, PresenceContract.PageSize + 1)
+            .Select(index => new PublicPresenceEntry($"P{index}",
+                PlayerPresenceActivity.Online, "us")).ToArray();
+        var handler = new RecordingHandler((request, _) =>
+        {
+            int page = QueryInt(request.RequestUri!, "page");
+            return Task.FromResult(JsonResponse(new PresenceDirectoryPage(
+                page == 0 ? 4 : 5, 51, players.Length, page, 2,
+                players.Skip(page * PresenceContract.PageSize)
+                    .Take(PresenceContract.PageSize).ToImmutableArray(),
+                DateTimeOffset.UtcNow)));
+        });
+        using var session = new AccountSession(new Uri("https://backend.example/"), handler);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => session.GetPresenceAsync());
+    }
+
+    [Fact]
     public async Task DirectoryAssemblesBoundedRevisionPinnedPagesAtomically()
     {
         NodeListing[] expected = Enumerable.Range(0, NodeDirectoryContract.MaximumPageEntries + 3)
@@ -169,6 +222,38 @@ public sealed class NodeAccountSessionTests
         using JsonDocument body = JsonDocument.Parse(requestLog.Body);
         Assert.Equal(nodeId, body.RootElement.GetProperty("nodeId").GetGuid());
         Assert.Equal("Guest", body.RootElement.GetProperty("displayName").GetString());
+        Assert.True(body.RootElement.GetProperty("publicPresence").GetBoolean());
+    }
+
+    [Fact]
+    public async Task AdmissionSendsExplicitHiddenPresencePreference()
+    {
+        Guid playerId = Guid.NewGuid(), nodeId = Guid.NewGuid();
+        var ticket = new NodeAdmissionTicket("account.ticket",
+            DateTimeOffset.UtcNow.AddSeconds(30), nodeId,
+            "wss://node.example/v1/control");
+        var handler = new RecordingHandler((request, _) => request.RequestUri!.AbsolutePath switch
+        {
+            "/v1/auth/login" => Task.FromResult(JsonResponse(new
+            {
+                tokenType = "Bearer", accessToken = "account-access",
+                expiresIn = 3600, refreshToken = "account-refresh"
+            })),
+            "/v1/me" => Task.FromResult(JsonResponse(new AccountIdentity(
+                new MphRead.Identity.PlayerId(playerId), true, true))),
+            "/v1/node-admissions" => Task.FromResult(JsonResponse(ticket)),
+            _ => throw new InvalidOperationException(
+                $"Unexpected account path {request.RequestUri.AbsolutePath}.")
+        });
+        using var session = new AccountSession(new Uri("https://backend.example/"), handler);
+        await session.SignInAsync("hunter@example.test", "A-long-password-1!");
+
+        await session.GetNodeTicketAsync(nodeId, publicPresence: false);
+
+        RequestLog sent = Assert.Single(handler.Snapshot(), request =>
+            request.Uri.AbsolutePath == "/v1/node-admissions");
+        using JsonDocument body = JsonDocument.Parse(sent.Body);
+        Assert.False(body.RootElement.GetProperty("publicPresence").GetBoolean());
     }
 
     [Theory]

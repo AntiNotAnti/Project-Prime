@@ -13,6 +13,14 @@ using ProjectPrime.Server.Shared;
 
 namespace ProjectPrime.Server.Node.Sessions;
 
+/// <summary>
+/// Immutable, presentation-only projection consumed by the optional Node
+/// presence reporter. TotalSessions is intentionally separate from Players
+/// because private sessions still count online.
+/// </summary>
+public sealed record NodePresenceSnapshot(long Revision, int TotalSessions,
+    ImmutableArray<NodePresenceEntry> Players);
+
 public sealed class NodeSessionManager
 {
     private sealed class Connection(WebSocket socket, CancellationToken aborted)
@@ -33,6 +41,8 @@ public sealed class NodeSessionManager
         public readonly HashSet<Guid> RecentRequests = [];
         public readonly Queue<Guid> RequestOrder = [];
     }
+    private sealed record PresenceIdentity(Guid SessionId, string DisplayName,
+        bool PublicPresence, PlayerPresenceActivity Activity);
     private readonly ConcurrentDictionary<Guid, Session> _sessions = [];
     private readonly Dictionary<HumanIdentityKey, Guid> _identities = [];
     private readonly Dictionary<string, Guid> _resume = new(StringComparer.Ordinal);
@@ -44,6 +54,17 @@ public sealed class NodeSessionManager
     private readonly NodeMatchCoordinator? _matches;
     private readonly NodeContentCatalog? _catalog;
     private readonly ILogger _logger;
+    // Snapshot assembly is serialized separately from the short projection
+    // state lock. This prevents two callers that captured different moments
+    // from moving the internal revision/projection backwards.
+    private readonly object _presenceBuildGate = new();
+    private readonly object _presenceGate = new();
+    private ImmutableArray<PresenceIdentity> _presenceProjection = [];
+    private long _presenceRevision;
+    // The empty projection is the initial authoritative state. Starting from
+    // that baseline means the first connected session is a real connect
+    // transition even when no reporter happened to poll before admission.
+    private bool _presenceInitialized = true;
     public static TimeSpan DisconnectGrace => ReconnectPolicy.SessionGrace;
     private long _protocolClosures;
     public long ProtocolClosures => Interlocked.Read(ref _protocolClosures);
@@ -57,6 +78,101 @@ public sealed class NodeSessionManager
         _matches = matches; _catalog = catalog;
         _logger = logger ?? NullLogger<NodeSessionManager>.Instance;
     }
+
+    /// <summary>
+    /// Builds one immutable view from the session and lobby owners. Session
+    /// identity is captured before the lobby read and neither lock is held
+    /// while the other owner is consulted, avoiding a lock-order inversion.
+    /// </summary>
+    public NodePresenceSnapshot CreatePresenceSnapshot()
+    {
+        lock (_presenceBuildGate)
+        {
+            List<(Guid SessionId, NodeIdentity Identity)> connected = [];
+            lock (_admission)
+            {
+                foreach (Session session in _sessions.Values)
+                {
+                    lock (session)
+                    {
+                        if (session.Connection != null)
+                            connected.Add((session.Id, session.Identity));
+                    }
+                }
+            }
+
+            ImmutableDictionary<Guid, PlayerPresenceActivity> activities =
+                _lobbies.SnapshotPresenceActivities();
+            PresenceIdentity[] current = connected
+                .Select(value => new PresenceIdentity(value.SessionId, value.Identity.DisplayName,
+                    value.Identity.PublicPresence,
+                    activities.TryGetValue(value.SessionId, out PlayerPresenceActivity activity)
+                        ? activity : PlayerPresenceActivity.Online))
+                .OrderBy(value => value.SessionId)
+                .ToArray();
+
+            lock (_presenceGate)
+            {
+                if (!_presenceInitialized || !_presenceProjection.SequenceEqual(current))
+                {
+                    if (_presenceInitialized && _presenceRevision < long.MaxValue)
+                        _presenceRevision++;
+                    _presenceProjection = current.ToImmutableArray();
+                    _presenceInitialized = true;
+                }
+
+                ImmutableArray<NodePresenceEntry> players = current
+                    .Where(value => value.PublicPresence)
+                    .Select(value => new NodePresenceEntry(value.DisplayName, value.Activity))
+                    .ToImmutableArray();
+                return new NodePresenceSnapshot(_presenceRevision, connected.Count, players);
+            }
+        }
+    }
+
+    /// <summary>Updates only the addressed connected session. The caller can
+    /// acknowledge a no-op without causing a new presence revision.</summary>
+    public bool TrySetPresenceVisibility(Guid sessionId, bool visible,
+        out long revision)
+    {
+        if (sessionId == Guid.Empty)
+        {
+            revision = CurrentPresenceRevision;
+            return false;
+        }
+        bool unavailable = false;
+        lock (_admission)
+        {
+            if (!_sessions.TryGetValue(sessionId, out Session? session))
+            {
+                unavailable = true;
+            }
+            else lock (session)
+            {
+                if (session.Connection == null)
+                {
+                    unavailable = true;
+                }
+                else if (session.Identity.PublicPresence != visible)
+                    session.Identity = session.Identity with { PublicPresence = visible };
+            }
+        }
+        if (unavailable)
+        {
+            revision = CurrentPresenceRevision;
+            return false;
+        }
+        revision = CreatePresenceSnapshot().Revision;
+        return true;
+    }
+
+    public long PresenceRevision => CreatePresenceSnapshot().Revision;
+
+    private long CurrentPresenceRevision
+    {
+        get { lock (_presenceGate) return _presenceRevision; }
+    }
+
     public async Task BroadcastAsync(CancellationToken cancellationToken)
     {
         await foreach (var snapshot in _lobbies.ReadNotifications(cancellationToken))
@@ -147,7 +263,7 @@ public sealed class NodeSessionManager
         try
         {
             Send(session, "node.session", null, new NodeSessionSnapshot(session.Id, session.Identity.PlayerId, session.Identity.DisplayName,
-                _nodeId, token, session.Identity.GuestSessionId));
+                _nodeId, token, session.Identity.GuestSessionId, session.Identity.PublicPresence));
             if (_lobbies.ForSession(session.Id) is { } restored) Send(session, "lobby.snapshot", null, restored);
             if (_lobbies.RoundForSession(session.Id) is { } restoredRound) Send(session, "lobby.round", null, restoredRound);
             if (_lobbies.MatchTransitionForSession(session.Id) is { } restoredTransition)
@@ -180,6 +296,20 @@ public sealed class NodeSessionManager
                 if (session.RequestOrder.Count > 256) session.RecentRequests.Remove(session.RequestOrder.Dequeue());
                 if (request.Command is NodePing)
                 { Send(session, "node.pong", request.RequestId, new NodePong(_clock.GetUtcNow().ToUnixTimeMilliseconds())); continue; }
+                if (request.Command is NodeSetPresenceVisibility visibility)
+                {
+                    if (!TrySetPresenceVisibility(session.Id, visibility.Visible, out long revision))
+                    {
+                        Send(session, "error", request.RequestId,
+                            new NodeControlError("session_unavailable", "The Node session is no longer active."));
+                    }
+                    else
+                    {
+                        Send(session, "node.presence.visibility", request.RequestId,
+                            new NodePresenceVisibilityChanged(visibility.Visible, revision));
+                    }
+                    continue;
+                }
                 if (request.Command is NodeCatalogRequest catalogRequest)
                 {
                     SendCatalog(session, request.RequestId, catalogRequest);

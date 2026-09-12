@@ -189,7 +189,7 @@ public sealed record LobbyListEntry(Guid LobbyId, string Name, LobbyPhase Phase,
     LobbySeatPolicy SeatPolicy = LobbySeatPolicy.ImmediateSeat);
 public sealed record LobbyListSnapshot(ImmutableArray<LobbyListEntry> Lobbies, int? NextOffset);
 public sealed record NodeSessionSnapshot(Guid SessionId, Guid? PlayerId, string DisplayName, Guid NodeId, string ResumeToken,
-    Guid? GuestSessionId = null)
+    Guid? GuestSessionId = null, bool PublicPresence = true)
 {
     [JsonIgnore]
     public HumanIdentityKey IdentityKey => HumanIdentityValidation.Require(PlayerId, GuestSessionId);
@@ -204,6 +204,11 @@ public sealed record NodeSessionSnapshot(Guid SessionId, Guid? PlayerId, string 
     public override string ToString() => $"NodeSessionSnapshot {{ SessionId = {SessionId}, PlayerId = {PlayerId}, GuestSessionId = {GuestSessionId}, NodeId = {NodeId} }}";
 }
 public sealed record NodePing : NodeCommand;
+/// <summary>Changes only this connected session's public-presence preference.
+/// The Node acknowledges the effective value and current projection revision;
+/// it never treats the display name as an identity input.</summary>
+public sealed record NodeSetPresenceVisibility(bool Visible) : NodeCommand;
+public sealed record NodePresenceVisibilityChanged(bool Visible, long Revision);
 /// <summary>Requests one bounded, revision-pinned page of the Node catalog.</summary>
 public sealed record NodeCatalogRequest(long Revision, int Page = 0, int PageSize = 8) : NodeCommand;
 /// <summary>One bounded catalog page. Pages are never a second authority: the

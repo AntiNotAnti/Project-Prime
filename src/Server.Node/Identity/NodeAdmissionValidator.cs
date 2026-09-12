@@ -10,10 +10,11 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace ProjectPrime.Server.Node.Identity;
 
-public sealed record NodeIdentity(Guid? PlayerId, Guid? GuestSessionId, string DisplayName)
+public sealed record NodeIdentity(Guid? PlayerId, Guid? GuestSessionId, string DisplayName,
+    bool PublicPresence = true)
 {
     // Preserve the account-ticket construction shape used by existing callers.
-    public NodeIdentity(Guid playerId, string displayName) : this(playerId, null, displayName) { }
+    public NodeIdentity(Guid playerId, string displayName) : this(playerId, null, displayName, true) { }
     public HumanIdentityKey IdentityKey => HumanIdentityValidation.Require(PlayerId, GuestSessionId);
     public bool IsGuest => GuestSessionId.HasValue;
     public void Validate()
@@ -159,6 +160,13 @@ public sealed class NodeAdmissionValidator : IDisposable
                 kind = kindClaim.GetString() ?? "";
                 if (kind is not ("registered" or "guest")) return null;
             }
+            bool publicPresence = true;
+            if (c.TryGetProperty("publicPresence", out JsonElement publicPresenceClaim))
+            {
+                if (publicPresenceClaim.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                    return null;
+                publicPresence = publicPresenceClaim.GetBoolean();
+            }
             string? name = c.GetProperty("name").GetString();
             long issued = c.GetProperty("iat").GetInt64(), start = c.GetProperty("nbf").GetInt64(), expires = c.GetProperty("exp").GetInt64();
             if (name is not { Length: >= 1 and <= 16 } || string.IsNullOrWhiteSpace(name) || name.Any(ch => ch < 32 || ch > 126)
@@ -187,8 +195,8 @@ public sealed class NodeAdmissionValidator : IDisposable
             if (_used.ContainsKey(id) || _used.Count >= 8192) return null;
             _used.Add(id, expires);
             var identity = kind == "guest"
-                ? new NodeIdentity(null, subject, name)
-                : new NodeIdentity(subject, null, name);
+                ? new NodeIdentity(null, subject, name, publicPresence)
+                : new NodeIdentity(subject, null, name, publicPresence);
             identity.Validate();
             return identity;
         }

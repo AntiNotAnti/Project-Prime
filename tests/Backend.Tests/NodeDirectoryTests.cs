@@ -149,6 +149,7 @@ public sealed class NodeDirectoryTests
             Assert.Equal("pp-node-admission+jwt", jwt.Typ);
             Assert.Equal("ES256", jwt.Alg); Assert.Equal("node-test", jwt.Kid);
             Assert.Equal(player.ToString(), jwt.Subject); Assert.Equal("Hunter", jwt.GetClaim("name").Value);
+            Assert.Equal("true", jwt.GetClaim("publicPresence").Value);
             Assert.False(jwt.TryGetClaim("kind", out _));
             Assert.Equal("urn:project-prime:node:" + Node.ToString("D"), Assert.Single(jwt.Audiences));
             Assert.Equal(120, (jwt.ValidTo - jwt.IssuedAt).TotalSeconds);
@@ -162,6 +163,9 @@ public sealed class NodeDirectoryTests
                 ValidateLifetime = false
             });
             Assert.True(validation.IsValid, validation.Exception?.Message);
+            var hiddenJwt = new JsonWebToken(issuer.IssueNodeAdmission(player, "Hunter", Node,
+                "wss://node.example/v1/control", publicPresence: false).Ticket);
+            Assert.Equal("false", hiddenJwt.GetClaim("publicPresence").Value);
             Assert.NotEqual(jwt.Id, new JsonWebToken(issuer.IssueNodeAdmission(player, "Hunter", Node, "wss://node.example/v1/control").Ticket).Id);
         }
         finally { File.Delete(path); }

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <data name="Common_Retry" xml:space="preserve"><value>Retry</value></data>
+  <data name="Common_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Common_Close" xml:space="preserve"><value>Close</value></data>
+  <data name="Common_Back" xml:space="preserve"><value>Back</value></data>
+  <data name="Common_Continue" xml:space="preserve"><value>Continue</value></data>
+  <data name="Common_Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Common_ViewAll" xml:space="preserve"><value>View all</value></data>
+  <data name="Common_LearnMore" xml:space="preserve"><value>Learn more</value></data>
+
+  <data name="Play_Title" xml:space="preserve"><value>Play</value></data>
+  <data name="Play_Subtitle" xml:space="preserve"><value>Find a match or host one.</value></data>
+  <data name="Play_QuickPlay_Title" xml:space="preserve"><value>Quick Play</value></data>
+  <data name="Play_QuickPlay_Description" xml:space="preserve"><value>Join the best available open match.</value></data>
+  <data name="Play_HostLobby_Title" xml:space="preserve"><value>Host lobby</value></data>
+  <data name="Play_HostLobby_Description" xml:space="preserve"><value>Create a new lobby.</value></data>
+  <data name="Play_BrowseLobbies_Title" xml:space="preserve"><value>Browse lobbies</value></data>
+  <data name="Play_BrowseLobbies_Description" xml:space="preserve"><value>Browse open lobbies.</value></data>
+  <data name="Play_NoLobbies_Title" xml:space="preserve"><value>No public lobbies are open right now.</value></data>
+  <data name="Play_NoLobbies_Description" xml:space="preserve"><value>Refresh the list or host a new lobby.</value></data>
+  <data name="Play_OnlinePlayers_Title" xml:space="preserve"><value>Online players</value></data>
+  <data name="Play_OnlinePlayers_Empty" xml:space="preserve"><value>No players are online yet.</value></data>
+
+  <data name="Settings_Network_Title" xml:space="preserve"><value>Network</value></data>
+  <data name="Settings_Network_Description" xml:space="preserve"><value>Choose a region and manage network diagnostics.</value></data>
+  <data name="Settings_Network_AutomaticRegion_Description" xml:space="preserve"><value>Automatic selects the best available region.</value></data>
+  <data name="Settings_Updates_Title" xml:space="preserve"><value>Updates</value></data>
+  <data name="Settings_Updates_LocalBuild" xml:space="preserve"><value>Updates are unavailable for local builds.</value></data>
+  <data name="Settings_Updates_Unavailable" xml:space="preserve"><value>Updates are unavailable in this build.</value></data>
+  <data name="Settings_Updates_Disabled" xml:space="preserve"><value>Updates are disabled for this run.</value></data>
+
+  <data name="Theatre_Empty_Title" xml:space="preserve"><value>NO REPLAYS YET</value></data>
+  <data name="Theatre_Empty_Description" xml:space="preserve"><value>Record a match or import a replay to watch it here.</value></data>
+  <data name="Rankings_SignIn_Title" xml:space="preserve"><value>SIGN IN TO VIEW RANKINGS</value></data>
+  <data name="Rankings_SignIn_Description" xml:space="preserve"><value>Track your rating and leaderboard position.</value></data>
+  <data name="Gateway_SessionMissing" xml:space="preserve"><value>No saved session. Sign in or continue as a guest.</value></data>
+  <data name="Gateway_GuestNotice" xml:space="preserve"><value>Your guest name is saved only on this device.</value></data>
+  <data name="Maps_Empty_Title" xml:space="preserve"><value>No maps are available.</value></data>
+  <data name="Maps_Empty_Description" xml:space="preserve"><value>Check your game files or create a map to get started.</value></data>
+  <data name="Hunter_Empty_Title" xml:space="preserve"><value>No hunter data is available.</value></data>
+  <data name="Hunter_Empty_Description" xml:space="preserve"><value>Complete setup to see hunter details.</value></data>
+
+  <data name="Update_Checking" xml:space="preserve"><value>Checking for updates…</value></data>
+  <data name="Update_UpToDate" xml:space="preserve"><value>Project Prime is up to date.</value></data>
+  <data name="Update_Available" xml:space="preserve"><value>An update is available.</value></data>
+  <data name="Update_LocalBuild" xml:space="preserve"><value>Updates are unavailable for local builds.</value></data>
+  <data name="Update_FeedUnavailable" xml:space="preserve"><value>Updates are unavailable in this build.</value></data>
+  <data name="Update_Disabled" xml:space="preserve"><value>Updates are disabled for this run.</value></data>
+  <data name="Update_NetworkUnavailable" xml:space="preserve"><value>Unable to check for updates right now.</value></data>
+  <data name="Update_VersionUnknown" xml:space="preserve"><value>The current version is unavailable, so updates cannot be checked.</value></data>
+  <data name="Update_InstallUnavailable" xml:space="preserve"><value>Automatic installation is unavailable on this platform.</value></data>
+  <data name="Update_VerificationFailed" xml:space="preserve"><value>The update could not be verified. Project Prime was not modified.</value></data>
+
+  <data name="Network_Unavailable" xml:space="preserve"><value>Unable to connect right now. Check your connection and try again.</value></data>
+  <data name="Account_SignInFailed" xml:space="preserve"><value>Sign-in failed. Check your email and password.</value></data>
+  <data name="Account_ConfirmationRequired" xml:space="preserve"><value>Confirm your account email, then try again.</value></data>
+  <data name="Account_ServiceUnavailable" xml:space="preserve"><value>The account service is temporarily unavailable.</value></data>
+  <data name="Account_RateLimited" xml:space="preserve"><value>Too many attempts. Try again shortly.</value></data>
+  <data name="Account_AlreadyExists" xml:space="preserve"><value>An account with that email already exists.</value></data>
+  <data name="Account_NetworkUnavailable" xml:space="preserve"><value>Unable to connect to the account service.</value></data>
+  <data name="Error_Generic" xml:space="preserve"><value>Something went wrong. Try again.</value></data>
+</root>

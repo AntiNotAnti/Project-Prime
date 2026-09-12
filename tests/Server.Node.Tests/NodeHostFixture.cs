@@ -37,11 +37,13 @@ internal sealed class NodeHostFixture : IAsyncDisposable
             builder.WebHost.ConfigureKestrel(server => server.Listen(IPAddress.Loopback, 0, listen => listen.UseHttps(_certificate)));
         });
     }
-    public string Ticket(Guid player, string? audience = null, string? type = null, int expiresIn = 120, string? kind = null)
+    public string Ticket(Guid player, string? audience = null, string? type = null, int expiresIn = 120,
+        string? kind = null, bool? publicPresence = null)
     {
         DateTime now = DateTime.UtcNow;
         var claims = new Dictionary<string, object> { ["sub"] = player.ToString("D"), ["jti"] = Guid.NewGuid().ToString("D"), ["name"] = "Player" };
         if (kind != null) claims["kind"] = kind;
+        if (publicPresence is { } visible) claims["publicPresence"] = visible;
         return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {
             Issuer = "https://backend.example", Audience = audience ?? NodeAdmissionValidator.Audience(NodeId),

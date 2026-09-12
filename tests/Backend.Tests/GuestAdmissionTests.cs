@@ -87,12 +87,15 @@ public sealed class GuestAdmissionTests
 
         var first = await IssueGuestAsync(client, "  Guest One  ");
         var second = await IssueGuestAsync(client, "Guest Two");
+        var hidden = await IssueGuestAsync(client, "Hidden Guest", publicPresence: false);
         var firstJwt = new JsonWebToken(first.Ticket);
         var secondJwt = new JsonWebToken(second.Ticket);
+        var hiddenJwt = new JsonWebToken(hidden.Ticket);
 
         Assert.Equal(NodeId, first.NodeId);
         Assert.Equal("wss://node.example/v1/control", first.PublicControlUri);
         Assert.Equal("Guest One", firstJwt.GetClaim("name").Value);
+        Assert.Equal("true", firstJwt.GetClaim("publicPresence").Value);
         Assert.Equal("guest", firstJwt.GetClaim("kind").Value);
         Assert.Equal("pp-node-admission+jwt", firstJwt.Typ);
         Assert.Equal("ES256", firstJwt.Alg);
@@ -109,6 +112,7 @@ public sealed class GuestAdmissionTests
         Assert.True(Guid.TryParseExact(firstJwt.Id, "D", out _));
         Assert.True(Guid.TryParseExact(secondJwt.Id, "D", out _));
         Assert.NotEqual(firstJwt.Id, secondJwt.Id);
+        Assert.Equal("false", hiddenJwt.GetClaim("publicPresence").Value);
 
         using var verifyScope = factory.Services.CreateScope();
         var db = verifyScope.ServiceProvider.GetRequiredService<BackendDbContext>();
@@ -150,10 +154,11 @@ public sealed class GuestAdmissionTests
                 new NodeHeartbeat(registration.Incarnation, 0, 0, 0))).StatusCode);
     }
 
-    private static async Task<NodeAdmissionResponse> IssueGuestAsync(HttpClient client, string displayName)
+    private static async Task<NodeAdmissionResponse> IssueGuestAsync(HttpClient client,
+        string displayName, bool publicPresence = true)
     {
         HttpResponseMessage response = await client.PostAsJsonAsync(
-            "/v1/guest-node-admissions", new { NodeId, DisplayName = displayName });
+            "/v1/guest-node-admissions", new { NodeId, DisplayName = displayName, publicPresence });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<NodeAdmissionResponse>())!;
     }

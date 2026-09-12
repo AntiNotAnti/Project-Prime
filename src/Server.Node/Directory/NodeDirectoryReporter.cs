@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Node.Presence;
 using ProjectPrime.Server.Node.Sessions;
 using ProjectPrime.Server.Node.Workers;
 using ProjectPrime.Server.Shared;
@@ -97,6 +98,10 @@ public sealed class NodeDirectoryReporter : BackgroundService
     private long _lastSuccess;
     private int _failures;
     private readonly SemaphoreSlim _publish = new(1);
+    /// <summary>True only after the latest registration request succeeded.
+    /// Presence publication uses this boundary so a directory outage cannot
+    /// continue advertising names after the Node has ceased registration.</summary>
+    public bool IsRegistered => Volatile.Read(ref _registered);
     public DateTimeOffset? LastSuccessfulHeartbeat => Interlocked.Read(ref _lastSuccess) is long value && value != 0
         ? DateTimeOffset.FromUnixTimeMilliseconds(value) : null;
     public int ConsecutiveFailures => Volatile.Read(ref _failures);
@@ -138,7 +143,7 @@ public sealed class NodeDirectoryReporter : BackgroundService
                         if (LastFailure == null) NodeDiagnostics.Directory(_logger, "deregistration", "success");
                     }
                 }
-                _registered = false;
+                Volatile.Write(ref _registered, false);
                 LastFailure = readiness.Code;
                 Volatile.Write(ref _failures, Math.Min(16, ConsecutiveFailures + 1));
                 NodeDiagnostics.Directory(_logger, "readiness", "unready");
@@ -152,7 +157,7 @@ public sealed class NodeDirectoryReporter : BackgroundService
             if (!_registered || _clock.GetUtcNow() >= _registerDue)
             {
                 await SendAsync(HttpMethod.Put, "v1/node/registration", _options.SnapshotRegistration(), cancellationToken);
-                _registered = true; _deregistrationAttempted = false;
+                Volatile.Write(ref _registered, true); _deregistrationAttempted = false;
                 _registerDue = _clock.GetUtcNow().AddSeconds(60);
             }
             await SendAsync(HttpMethod.Post, "v1/node/heartbeat", population, cancellationToken);
@@ -164,7 +169,7 @@ public sealed class NodeDirectoryReporter : BackgroundService
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
-            _registered = false;
+            Volatile.Write(ref _registered, false);
             LastFailure = FailureCategory(error);
             int failures = Math.Min(16, ConsecutiveFailures + 1); Volatile.Write(ref _failures, failures);
             // Never log exception text, request headers, bodies, or operator credentials.
@@ -243,7 +248,7 @@ public sealed class NodeDirectoryReporter : BackgroundService
                     LastFailure = FailureCategory(error);
                     NodeDiagnostics.Directory(_logger, "deregistration", LastFailure);
                 }
-                finally { _deregistrationAttempted = true; _registered = false; }
+                finally { _deregistrationAttempted = true; Volatile.Write(ref _registered, false); }
             }
         }
         finally { _publish.Release(); }
@@ -269,7 +274,7 @@ public static class NodeDirectoryRegistrationExtensions
         var settings = configuration.GetSection("Node:Directory").Get<NodeDirectorySettings>() ?? new();
         if (!settings.Enabled) return services;
         string credential = NodeDirectoryReporterOptions.ReadCredential();
-        services.AddSingleton(sp =>
+        services.AddSingleton<NodeDirectoryReporterOptions>(sp =>
         {
             var workers = sp.GetRequiredService<WorkerManager>();
             var catalog = sp.GetRequiredService<NodeContentCatalog>();
@@ -281,7 +286,13 @@ public static class NodeDirectoryRegistrationExtensions
                 settings.PublicControlUri, identity.ProtocolVersion, identity.BuildVersion, identity.ContentHash,
                 configuration.GetValue("Node:MaximumSessions", 1024), catalog.MapCatalogRevision,
                 catalog.MapCount, catalog.MapCatalogHash);
-            var options = new NodeDirectoryReporterOptions(workers.NodeId.Value, new Uri(settings.BackendUri, UriKind.Absolute), registration, credential);
+            return new NodeDirectoryReporterOptions(workers.NodeId.Value,
+                new Uri(settings.BackendUri, UriKind.Absolute), registration, credential);
+        });
+        services.AddSingleton<NodeDirectoryReporter>(sp =>
+        {
+            NodeDirectoryReporterOptions options = sp.GetRequiredService<NodeDirectoryReporterOptions>();
+            var workers = sp.GetRequiredService<WorkerManager>();
             var sessions = sp.GetRequiredService<NodeSessionManager>();
             var lobbies = sp.GetRequiredService<LobbyManager>();
             var readiness = sp.GetRequiredService<NodeReadinessEvaluator>();
@@ -292,6 +303,22 @@ public static class NodeDirectoryRegistrationExtensions
                 readiness: readiness.Evaluate);
         });
         services.AddHostedService(sp => sp.GetRequiredService<NodeDirectoryReporter>());
+        services.AddSingleton<NodePresenceReporter>(sp =>
+        {
+            NodeDirectoryReporterOptions directory = sp.GetRequiredService<NodeDirectoryReporterOptions>();
+            NodeDirectoryReporter registration = sp.GetRequiredService<NodeDirectoryReporter>();
+            NodePresenceReporterOptions options = new(directory.NodeId, directory.Backend,
+                directory.Registration.Incarnation, directory.Registration.Region,
+                directory.Credential);
+            var sessions = sp.GetRequiredService<NodeSessionManager>();
+            var readiness = sp.GetRequiredService<NodeReadinessEvaluator>();
+            return new NodePresenceReporter(options, sessions.CreatePresenceSnapshot,
+                sp.GetRequiredService<ILogger<NodePresenceReporter>>(),
+                clock: sp.GetRequiredService<TimeProvider>(),
+                registered: () => registration.IsRegistered,
+                readiness: readiness.Evaluate);
+        });
+        services.AddHostedService(sp => sp.GetRequiredService<NodePresenceReporter>());
         return services;
     }
 }

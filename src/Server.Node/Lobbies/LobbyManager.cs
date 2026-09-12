@@ -96,6 +96,7 @@ public sealed partial class LobbyManager
     private readonly int _maximumLobbies;
     private readonly int _maximumWaitlistPerLobby;
     private readonly bool _quickPlayV2Enabled;
+    private readonly ReplayPolicy _replayPolicy;
     private readonly ILogger<LobbyManager>? _logger;
     private bool _admissionClosed;
     public void CloseAdmission() { lock (_gate) _admissionClosed = true; }
@@ -109,7 +110,8 @@ public sealed partial class LobbyManager
     }
     public LobbyManager(int maximumLobbies = 256, TimeProvider? clock = null,
         int maximumWaitlistPerLobby = LobbyWaitlist.DefaultMaximumEntries, TimeSpan? offerWindow = null,
-        int postMatchVoteSeconds = 15, bool quickPlayV2Enabled = true, ILogger<LobbyManager>? logger = null)
+        int postMatchVoteSeconds = 15, bool quickPlayV2Enabled = true, ILogger<LobbyManager>? logger = null,
+        ReplayPolicy replayPolicy = ReplayPolicy.Record)
     {
         if (maximumLobbies is < 1 or > 4096) throw new ArgumentOutOfRangeException(nameof(maximumLobbies));
         if (maximumWaitlistPerLobby is < 1 or > LobbyWaitlist.MaximumEntriesLimit)
@@ -118,9 +120,10 @@ public sealed partial class LobbyManager
         if (window < TimeSpan.FromSeconds(10) || window > TimeSpan.FromSeconds(20))
             throw new ArgumentOutOfRangeException(nameof(offerWindow), "Seat offer window must be between 10 and 20 seconds.");
         if (postMatchVoteSeconds is < 5 or > 30) throw new ArgumentOutOfRangeException(nameof(postMatchVoteSeconds));
+        if (!Enum.IsDefined(replayPolicy)) throw new ArgumentOutOfRangeException(nameof(replayPolicy));
         PostMatchVoteSeconds = postMatchVoteSeconds;
         _maximumLobbies = maximumLobbies; _maximumWaitlistPerLobby = maximumWaitlistPerLobby;
-        _quickPlayV2Enabled = quickPlayV2Enabled; _logger = logger;
+        _quickPlayV2Enabled = quickPlayV2Enabled; _logger = logger; _replayPolicy = replayPolicy;
         RoundClock = clock ?? TimeProvider.System; OfferWindow = window;
     }
     public int PostMatchVoteSeconds { get; }
@@ -139,6 +142,36 @@ public sealed partial class LobbyManager
                 return queueTarget.Snapshot(IdentityForSession(queueTarget, sessionId),
                     RequirementFor(queueTarget));
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Returns a read-only activity projection for the current lobby owner.
+    /// This deliberately contains only session handles and coarse activity;
+    /// callers must resolve display identity from their own session authority.
+    /// The lobby lock is never held while a caller combines this projection
+    /// with another owner, which keeps presence snapshots free of lock-order
+    /// dependencies.
+    /// </summary>
+    public ImmutableDictionary<Guid, PlayerPresenceActivity> SnapshotPresenceActivities()
+    {
+        lock (_gate)
+        {
+            var activities = ImmutableDictionary.CreateBuilder<Guid, PlayerPresenceActivity>();
+            foreach (Lobby lobby in _lobbies.Values)
+            {
+                PlayerPresenceActivity activity = lobby.Phase is LobbyPhase.StartingMatch
+                    or LobbyPhase.InMatch
+                    ? PlayerPresenceActivity.InMatch
+                    : PlayerPresenceActivity.InLobby;
+                foreach (Guid sessionId in lobby.Members.Keys)
+                    activities[sessionId] = activity;
+                // A queued player is still participating in this lobby even
+                // though it has not claimed a member seat yet.
+                foreach (Entry entry in lobby.Waitlist.ActiveEntries())
+                    activities.TryAdd(entry.SessionId, PlayerPresenceActivity.InLobby);
+            }
+            return activities.ToImmutable();
         }
     }
 
@@ -379,7 +412,7 @@ public sealed partial class LobbyManager
                     ? MatchTrustClass.Practice : MatchTrustClass.Community,
                 null, null, seats.ToImmutable(), lobby.BotCount == 0 ? BotFillPolicy.Disabled : BotFillPolicy.FillVacancies,
                 lobby.Rules.ObserverLimit > 0 ? ObserverPolicy.Allowed : ObserverPolicy.Disabled,
-                ReplayPolicy.Record, TelemetryPolicy.Record,
+                _replayPolicy, TelemetryPolicy.Record,
                 gameplaySeed, cosmeticSeed);
             spec = ApplyRoundIdentity(lobby.Id, spec);
             spec.Validate();

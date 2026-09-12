@@ -16,6 +16,14 @@ public sealed record NodeListing(Guid NodeId, string Name, string Region, string
     int LobbyCount, int ActiveMatches, string TrustClass, DateTimeOffset LastHeartbeat,
     long MapCatalogRevision = 0, int MapCount = 0, string? MapCatalogHash = null);
 
+/// <summary>
+/// Backend-internal population authority used by the ephemeral presence
+/// directory. The current incarnation is included so a replacement Node can
+/// fence reports from the previous process before any public name is emitted.
+/// </summary>
+public sealed record NodePresencePopulationSnapshot(Guid NodeId, Guid Incarnation,
+    string Region, int Capacity, int OnlineUsers, DateTimeOffset LastHeartbeat);
+
 public sealed class NodeDirectoryPageException(string code, string message, int statusCode)
     : Exception(message)
 {
@@ -167,6 +175,27 @@ public sealed class NodeDirectory(GameServerRegistry owners, TimeProvider clock,
         {
             PruneExpiredLocked();
             return _nodes.TryGetValue(nodeId, out var value) ? Snapshot(value.Listing) : null;
+        }
+    }
+
+    /// <summary>
+    /// Returns the current, fresh Node population projection for Backend-owned
+    /// ephemeral services. This is not a public HTTP DTO: it carries the
+    /// incarnation and capacity needed to authenticate a presence report and
+    /// to derive the total population independently of visible names.
+    /// </summary>
+    public ImmutableArray<NodePresencePopulationSnapshot> SnapshotPresencePopulation()
+    {
+        lock (_gate)
+        {
+            PruneExpiredLocked();
+            return _nodes
+                .OrderBy(pair => pair.Key)
+                .Select(pair => new NodePresencePopulationSnapshot(pair.Key,
+                    pair.Value.Incarnation, pair.Value.Listing.Region,
+                    pair.Value.Listing.Capacity, pair.Value.Listing.OnlineUsers,
+                    pair.Value.Listing.LastHeartbeat))
+                .ToImmutableArray();
         }
     }
 

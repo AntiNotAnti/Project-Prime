@@ -68,7 +68,7 @@ public static class CareerQueries
             var result = await ReadAsync(db, player.Value, trustClass, ct);
             BackendDiagnostics.Career(logger, "career", "success");
             return Results.Ok(result);
-        }).RequireRateLimiting(BackendRoutePolicy.Api);
+        }).Bodyless().RequireRateLimiting(BackendRoutePolicy.Api);
         app.MapGet("/v1/players/{id}/matches", async (string id, long? before, int? limit,
             BackendDbContext db, CancellationToken ct, ILoggerFactory loggerFactory) =>
         {
@@ -95,8 +95,8 @@ public static class CareerQueries
             bool more = rows.Count > count; if (more) rows.RemoveAt(count);
             BackendDiagnostics.Career(logger, "matches", "success");
             return Results.Ok(new { Entries = rows, NextCursor = more ? (long?)rows[^1].ProcessingOrder : null });
-        }).RequireRateLimiting(BackendRoutePolicy.Api);
-        app.MapGet("/v1/leaderboards/career", LeaderboardAsync).RequireRateLimiting(BackendRoutePolicy.Api);
+        }).Bodyless().RequireRateLimiting(BackendRoutePolicy.Api);
+        app.MapGet("/v1/leaderboards/career", LeaderboardAsync).Bodyless().RequireRateLimiting(BackendRoutePolicy.Api);
     }
 
     private sealed record BoardCursor(decimal Score, Guid PlayerId, string Metric, MatchTrustClass? TrustClass, Hunter? Hunter);

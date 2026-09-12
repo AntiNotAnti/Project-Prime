@@ -3,9 +3,10 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.Extensions.Configuration;
@@ -18,6 +19,120 @@ namespace MphRead.Backend.Tests;
 
 public sealed class BackendSecurityTests
 {
+    [Fact]
+    public async Task UnauthorizedMatchRequestDoesNotReadSlowBodyBeforeCredentialCheck()
+    {
+        using var factory = new BackendFactory();
+        using var body = new ProbeReadStream();
+        HttpContext context = await factory.Server.SendAsync(http =>
+        {
+            http.Request.Method = HttpMethods.Post;
+            http.Request.Path = "/v1/server/matches";
+            http.Request.Scheme = Uri.UriSchemeHttps;
+            http.Request.Body = body;
+        });
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
+        Assert.False(body.ReadAttempted);
+        Assert.Equal("no-store", context.Response.Headers.CacheControl.ToString());
+    }
+
+    [Fact]
+    public async Task UnauthorizedPresenceReportDoesNotReadBodyBeforeMachineCredentialCheck()
+    {
+        using var factory = new BackendFactory();
+        using var body = new ProbeReadStream();
+        HttpContext context = await factory.Server.SendAsync(http =>
+        {
+            http.Request.Method = HttpMethods.Put;
+            http.Request.Path = "/v1/node/presence";
+            http.Request.Scheme = Uri.UriSchemeHttps;
+            http.Request.Body = body;
+        });
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
+        Assert.False(body.ReadAttempted);
+        Assert.Equal("no-store", context.Response.Headers.CacheControl.ToString());
+    }
+
+    [Fact]
+    public async Task ExactDefaultBodyLimitRemainsValidAndCacheControlIsRetained()
+    {
+        using var factory = new BackendFactory();
+        using var client = factory.CreateDatabaseClient();
+        string json = JsonSerializer.Serialize(new
+        {
+            Email = "exact-limit@example.test",
+            Password = "Test-Only-Strong123!",
+            DisplayName = "Exact"
+        });
+        string padded = json + new string(' ', BackendRequestLimits.DefaultJsonBytes - Encoding.UTF8.GetByteCount(json));
+        using var content = new StringContent(padded, Encoding.UTF8, "application/json");
+
+        using HttpResponseMessage response = await client.PostAsync("/v1/auth/register", content);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(BackendRequestLimits.DefaultJsonBytes, content.Headers.ContentLength);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
+    public async Task ChunkedExactDefaultBodyLimitRemainsValid()
+    {
+        using var factory = new BackendFactory();
+        using var client = factory.CreateDatabaseClient();
+        string json = JsonSerializer.Serialize(new
+        {
+            Email = "chunked-exact-limit@example.test",
+            Password = "Test-Only-Strong123!",
+            DisplayName = "Chunked"
+        });
+        string padded = json + new string(' ', BackendRequestLimits.DefaultJsonBytes - Encoding.UTF8.GetByteCount(json));
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/auth/register")
+        {
+            Content = new ChunkedContent(padded)
+        };
+        request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+
+        using HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
+    public async Task BodylessRevokeRouteDoesNotConsumeAProvidedBody()
+    {
+        using var factory = new BackendFactory();
+        using var body = new ProbeReadStream();
+        HttpContext context = await factory.Server.SendAsync(http =>
+        {
+            http.Request.Method = HttpMethods.Post;
+            http.Request.Path = "/v1/auth/revoke-sessions";
+            http.Request.Scheme = Uri.UriSchemeHttps;
+            http.Request.Body = body;
+        });
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
+        Assert.False(body.ReadAttempted);
+        Assert.Equal("no-store", context.Response.Headers.CacheControl.ToString());
+    }
+
+    [Fact]
+    public async Task BoundedRequestBodyPropagatesCancellationWithoutRetainingTheBody()
+    {
+        using var source = new CancellationReadStream();
+        using var bounded = new BoundedRequestBodyStream(source, BackendRequestLimits.DefaultJsonBytes);
+        using var cancellation = new CancellationTokenSource();
+        Task<int> read = bounded.ReadAsync(new byte[1], cancellation.Token).AsTask();
+
+        await source.ReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await read);
+        Assert.Equal(0, bounded.BytesRead);
+    }
+
     [Fact]
     public async Task GlobalProtectionBoundsConcurrentWorkWithoutRequestQuota()
     {
@@ -240,5 +355,78 @@ public sealed class BackendSecurityTests
     {
         IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
         BackendSecurity.ValidateProductionListeners(configuration, security ?? new());
+    }
+
+    private sealed class ProbeReadStream : Stream
+    {
+        public bool ReadAttempted { get; private set; }
+
+        public override int Read(Span<byte> buffer)
+        {
+            ReadAttempted = true;
+            return 0;
+        }
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            ReadAttempted = true;
+            return ValueTask.FromResult(0);
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => 0;
+        public override long Position { get; set; }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(ReadOnlySpan<byte> buffer) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private sealed class ChunkedContent(string value) : HttpContent
+    {
+        private readonly byte[] _bytes = Encoding.UTF8.GetBytes(value);
+
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+            => stream.WriteAsync(_bytes).AsTask();
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
+    }
+
+    private sealed class CancellationReadStream : Stream
+    {
+        public TaskCompletionSource<bool> ReadStarted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override int Read(Span<byte> buffer) => throw new NotSupportedException();
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+            => WaitAsync(cancellationToken);
+
+        private async ValueTask<int> WaitAsync(CancellationToken cancellationToken)
+        {
+            ReadStarted.TrySetResult(true);
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return 0;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => 0;
+        public override long Position { get; set; }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(ReadOnlySpan<byte> buffer) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 }

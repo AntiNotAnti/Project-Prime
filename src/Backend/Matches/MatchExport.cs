@@ -29,6 +29,6 @@ public static class MatchExport
                 Scoreboard = report.Participants, match.RatingStatus, Rating = rating,
                 SignedReceipt = signer.SignMatchResult(match.MatchId, match.PayloadHash, match.ProcessingOrder, match.TrustClass)
             });
-        }).RequireRateLimiting(BackendRoutePolicy.Api);
+        }).Bodyless().RequireRateLimiting(BackendRoutePolicy.Api);
     }
 }

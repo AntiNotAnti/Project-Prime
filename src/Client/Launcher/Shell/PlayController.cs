@@ -327,6 +327,7 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
     private readonly SemaphoreSlim _operation = new(1, 1);
     private readonly SemaphoreSlim _configureOperation = new(1, 1);
     private readonly SemaphoreSlim _transitionOperation = new(1, 1);
+    private readonly SemaphoreSlim _presenceOperation = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
     private readonly PlayHandoffGate _handoff = new();
     private readonly object _handoffTaskLock = new();
@@ -356,6 +357,12 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
     private MapPreparationState _mapPreparation = MapPreparationState.None;
     private int _transitionRequestInFlight;
     private string? _transitionError;
+    private readonly object _presenceLeaseLock = new();
+    private CancellationTokenSource? _presenceLease;
+    private Task? _presenceLoop;
+    private long _presenceGeneration;
+    private PresencePresentationState _presence = PresencePresentationState.Initial;
+    private static readonly TimeSpan PresenceRefreshInterval = TimeSpan.FromSeconds(12);
 
     public PlayController(PrimeShellState shell, IReadOnlyList<string>? maps = null,
         Func<CancellationToken, Task<AccountSession?>>? accountResolver = null, TimeProvider? timeProvider = null,
@@ -368,12 +375,15 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         _online = onlineRuntime ?? new ClientOnlineRuntime();
         _ownsOnline = onlineRuntime == null;
         NodeSessions.CurrentChanged += NodeSessionChanged;
+        LauncherPrefs.ShowOnlinePresenceChanged += PresencePreferenceChanged;
         _mapAcquisitionInitialization = InitializeMapAcquisitionAsync();
         if (_online.Node is { } current)
             Observe(current);
     }
 
     public PlayState State { get { lock (_stateLock) return _state; } }
+    public PresencePresentationState Presence => Volatile.Read(ref _presence);
+    internal ClientOnlineRuntime Online => _online;
     /// <summary>Region used by automatic Node selection.</summary>
     public string PreferredRegion
     {
@@ -455,7 +465,153 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
     public string MapCatalogMessage => GetMapCatalogMessage(MapCatalogState);
     public PlayHandoffGate HandoffGate => _handoff;
     public event EventHandler? Changed;
+    public event EventHandler? PresenceChanged;
     public event EventHandler<LaunchPlan>? Launch;
+
+    /// <summary>
+    /// Owns the single route-scoped public presence refresh lease. It is
+    /// independent from lobby/join operations and is stopped whenever Play is
+    /// hidden or the app is suspended.
+    /// </summary>
+    public void SetPresenceRefreshEnabled(bool enabled)
+    {
+        lock (_presenceLeaseLock)
+        {
+            if (!enabled)
+            {
+                _presenceGeneration++;
+                _presenceLease?.Cancel();
+                _presenceLease?.Dispose();
+                _presenceLease = null;
+                _presenceLoop = null;
+                return;
+            }
+            if (_presenceLease != null || Volatile.Read(ref _disposed) != 0)
+                return;
+
+            _presenceLease = CancellationTokenSource.CreateLinkedTokenSource(
+                _lifetime.Token);
+            long generation = ++_presenceGeneration;
+            _presenceLoop = RunPresenceLoopAsync(generation, _presenceLease.Token);
+        }
+    }
+
+    public Task RefreshPresenceAsync(CancellationToken cancellationToken = default)
+        => RefreshPresenceCoreAsync(Volatile.Read(ref _presenceGeneration),
+            cancellationToken);
+
+    private async Task RunPresenceLoopAsync(long generation,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (true)
+            {
+                await RefreshPresenceCoreAsync(generation, cancellationToken)
+                    .ConfigureAwait(false);
+                await Task.Delay(PresenceRefreshInterval, _time,
+                    cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (ObjectDisposedException) when (Volatile.Read(ref _disposed) != 0) { }
+    }
+
+    private async Task RefreshPresenceCoreAsync(long generation,
+        CancellationToken cancellationToken)
+    {
+        if (!await _presenceOperation.WaitAsync(0, cancellationToken)
+                .ConfigureAwait(false))
+            return;
+        try
+        {
+            ThrowIfDisposed();
+            PresencePresentationState previous = Presence;
+            if (previous.State == PresenceLoadState.Unknown)
+                PublishPresence(previous with { State = PresenceLoadState.Loading,
+                    Error = null }, generation);
+
+            AccountSession? account = await _accountResolver(cancellationToken)
+                .ConfigureAwait(false);
+            if (account == null)
+                throw new InvalidOperationException(
+                    "The public presence service is not configured.");
+            PresenceDirectorySnapshot page = await account.GetPresenceAsync(
+                cancellationToken).ConfigureAwait(false);
+            PublishPresence(new PresencePresentationState(PresenceLoadState.Ready,
+                page.TotalOnline, page.VisibleOnline, page.Entries,
+                page.Revision, page.GeneratedAt), generation);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            PresencePresentationState previous = Presence;
+            int fallbackTotal = IsDirectoryFresh(_directoryFetchedAt,
+                _time.GetUtcNow())
+                ? State.Nodes?.Sum(node => node.OnlineUsers) ?? 0 : 0;
+            PublishPresence(previous with
+            {
+                State = PresenceLoadState.Failed,
+                TotalOnline = previous.TotalOnline > 0
+                    ? previous.TotalOnline : fallbackTotal,
+                Error = "Online player status is unavailable."
+            }, generation);
+        }
+        finally
+        {
+            _presenceOperation.Release();
+        }
+    }
+
+    private void PublishPresence(PresencePresentationState state, long generation)
+    {
+        if (generation != Volatile.Read(ref _presenceGeneration)
+            || Volatile.Read(ref _disposed) != 0)
+            return;
+        PresencePresentationState before = Presence;
+        if (SamePresencePresentation(before, state))
+        {
+            // Retain freshness metadata without rebuilding the Play route or
+            // announcing an unchanged population on every polling interval.
+            Volatile.Write(ref _presence, state);
+            return;
+        }
+        Volatile.Write(ref _presence, state);
+        PresenceChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    internal static bool SamePresencePresentation(PresencePresentationState left,
+        PresencePresentationState right)
+        => left.State == right.State
+            && left.TotalOnline == right.TotalOnline
+            && left.VisibleOnline == right.VisibleOnline
+            && left.Revision == right.Revision
+            && StringComparer.Ordinal.Equals(left.Error, right.Error)
+            && left.Players.SequenceEqual(right.Players);
+
+    private void PresencePreferenceChanged(object? sender, EventArgs args)
+        => _ = ApplyPresencePreferenceAsync();
+
+    private async Task ApplyPresencePreferenceAsync()
+    {
+        NodeControlClient? node = _online.Node;
+        if (node is not { Connected: true }) return;
+        try
+        {
+            await node.SetPresenceVisibilityAsync(LauncherPrefs.ShowOnlinePresence,
+                _lifetime.Token).ConfigureAwait(false);
+            await RefreshPresenceAsync(_lifetime.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch
+        {
+            _shell.Notify(PrimeNotificationKind.Warning,
+                "Your visibility setting was saved and will apply when you reconnect.");
+        }
+    }
 
     public void SetMaps(IEnumerable<string> maps)
     {
@@ -990,6 +1146,7 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
             // the replacement session.
             _handoff.Cancel();
             ClearSelectedNodeCatalog();
+            _online.ReleaseMatch(dispose: true);
             NetSession.Stop();
             AccountSession account = await RequireAccountAsync(cancellationToken).ConfigureAwait(false);
             if (expectedGeneration is { } accountExpected
@@ -1251,6 +1408,7 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         // conditional CancelPendingHandoff path is not sufficient here.
         Interlocked.Increment(ref _generation);
         _handoff.Cancel();
+        _online.ReleaseMatch(dispose: true);
         NetSession.Stop();
         try
         {
@@ -1610,7 +1768,7 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
                 is not { Observer: false }
             || State.Round?.TournamentId != null
             || ReplayPlayback.IsActive || ReplayPlayback.IsModern
-            || AuthoritativePlay.Current?.IsObserver == true)
+            || _online.Match?.Play.IsObserver == true)
             return false;
         return true;
     }
@@ -1657,6 +1815,7 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         Interlocked.Increment(ref _generation);
         _handoff.Cancel();
         CancelMapPreparation();
+        _online.ReleaseMatch(dispose: true);
         NetSession.Stop();
     }
 
@@ -1686,6 +1845,7 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         Interlocked.Increment(ref _generation);
         _handoff.Cancel();
         CancelMapPreparation();
+        _online.ReleaseMatch(dispose: true);
         NetSession.Stop();
         Publish(State with { Loading = false, Message = "Match connection canceled." });
     }
@@ -1697,7 +1857,10 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         _lifetime.Cancel();
         CancelMapPreparation();
         _handoff.Cancel();
+        _online.ReleaseMatch(dispose: true);
         NodeSessions.CurrentChanged -= NodeSessionChanged;
+        LauncherPrefs.ShowOnlinePresenceChanged -= PresencePreferenceChanged;
+        SetPresenceRefreshEnabled(false);
         Observe(null);
         Task<bool>? handoffTask;
         lock (_handoffTaskLock) handoffTask = _handoffTask;
@@ -1720,6 +1883,9 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         await _transitionOperation.WaitAsync().ConfigureAwait(false);
         _transitionOperation.Release();
         _transitionOperation.Dispose();
+        await _presenceOperation.WaitAsync().ConfigureAwait(false);
+        _presenceOperation.Release();
+        _presenceOperation.Dispose();
         _lifetime.Dispose();
         if (_ownsOnline) await _online.DisposeAsync().ConfigureAwait(false);
     }
@@ -2059,12 +2225,14 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
                 || !ReferenceEquals(_observed, node)
                 || !_handoff.TryComplete(key))
             {
+                _online.ReleaseMatch(dispose: true);
                 NetSession.Stop();
                 _handoff.Cancel(key);
                 return false;
             }
-            AuthoritativePlay.Current?.BindNodeMatch(handoff.MatchId);
-            if (AuthoritativePlay.Current is { } play) _online.AdoptMatch(play, handoff.MatchId);
+            if (_online.Match?.Play is not { } play)
+                throw new InvalidOperationException("The Worker join completed without a scoped match context.");
+            play.BindNodeMatch(handoff.MatchId);
             node.MarkGameplayJoined(handoff.MatchId);
             LobbySnapshot? lobby = node.Lobby;
             LaunchPlan plan = new()
@@ -2082,6 +2250,7 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         }
         catch (OperationCanceledException)
         {
+            _online.ReleaseMatch(dispose: true);
             NetSession.Stop();
             _handoff.Cancel(key);
             if (IsStaleHandoff(node, generation, cancellationToken)) return false;
@@ -2091,6 +2260,7 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         }
         catch (Exception error)
         {
+            _online.ReleaseMatch(dispose: true);
             NetSession.Stop();
             _handoff.Cancel(key);
             if (IsStaleHandoff(node, generation, cancellationToken)) return false;

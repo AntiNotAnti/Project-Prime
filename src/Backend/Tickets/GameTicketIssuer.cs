@@ -75,7 +75,8 @@ public sealed class GameTicketIssuer : IDisposable
         catch { _signer.Dispose(); throw; }
     }
 
-    public NodeAdmissionResponse IssueNodeAdmission(PlayerId playerId, string name, Guid nodeId, string publicControlUri)
+    public NodeAdmissionResponse IssueNodeAdmission(PlayerId playerId, string name, Guid nodeId,
+        string publicControlUri, bool publicPresence = true)
     {
         if (_credentials == null) throw new InvalidOperationException("Tickets are not configured.");
         if (playerId.IsEmpty || nodeId == Guid.Empty || !Profiles.ProfileEndpoints.ValidDisplayName(name))
@@ -88,13 +89,14 @@ public sealed class GameTicketIssuer : IDisposable
             TokenType = "pp-node-admission+jwt", IssuedAt = now.UtcDateTime, NotBefore = now.UtcDateTime,
             Expires = expires.UtcDateTime, SigningCredentials = _credentials,
             Claims = new Dictionary<string, object> { ["sub"] = playerId.ToString(),
-                ["name"] = name, ["jti"] = Guid.NewGuid().ToString("D") }
+                ["name"] = name, ["publicPresence"] = publicPresence,
+                ["jti"] = Guid.NewGuid().ToString("D") }
         });
         return new(token, expires, nodeId, publicControlUri);
     }
 
     public NodeAdmissionResponse IssueGuestNodeAdmission(Guid guestId, string name, Guid nodeId,
-        string publicControlUri)
+        string publicControlUri, bool publicPresence = true)
     {
         if (_credentials == null) throw new InvalidOperationException("Tickets are not configured.");
         if (guestId == Guid.Empty || nodeId == Guid.Empty || !Profiles.ProfileEndpoints.ValidDisplayName(name))
@@ -107,7 +109,8 @@ public sealed class GameTicketIssuer : IDisposable
             TokenType = "pp-node-admission+jwt", IssuedAt = now.UtcDateTime, NotBefore = now.UtcDateTime,
             Expires = expires.UtcDateTime, SigningCredentials = _credentials,
             Claims = new Dictionary<string, object> { ["sub"] = guestId.ToString("D"),
-                ["name"] = name, ["kind"] = "guest", ["jti"] = Guid.NewGuid().ToString("D") }
+                ["name"] = name, ["kind"] = "guest", ["publicPresence"] = publicPresence,
+                ["jti"] = Guid.NewGuid().ToString("D") }
         });
         return new(token, expires, nodeId, publicControlUri);
     }

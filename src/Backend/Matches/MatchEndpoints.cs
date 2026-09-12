@@ -22,19 +22,13 @@ public static class MatchEndpoints
                 || match == Guid.Empty)
                 return BackendProblem.Create("invalid_request", "The match report identity is invalid.",
                     StatusCodes.Status400BadRequest);
-            using var body = new MemoryStream();
-            byte[] buffer = new byte[8192];
-            while (true)
-            {
-                int count = await http.Request.Body.ReadAsync(buffer, ct);
-                if (count == 0) break;
-                if (body.Length + count > ReportValidation.MaximumBytes)
-                    return BackendProblem.Create("invalid_match_report", "The match report exceeds its size bound.",
-                        StatusCodes.Status413PayloadTooLarge);
-                body.Write(buffer, 0, count);
-            }
+            byte[]? body = await BackendRequestLimits.ReadBoundedPayloadAsync(
+                http.Request.Body, ReportValidation.MaximumBytes, ct);
+            if (body == null)
+                return BackendProblem.Create("invalid_match_report", "The match report exceeds its size bound.",
+                    StatusCodes.Status413PayloadTooLarge);
             var result = await ingestion.AcceptAsync(server, trust, match,
-                http.Request.Headers["X-Content-SHA256"].ToString(), body.ToArray(), ct);
+                http.Request.Headers["X-Content-SHA256"].ToString(), body, ct);
             return result.Receipt != null ? Results.Json(result.Receipt, statusCode: result.StatusCode)
                 : BackendProblem.Create(result.StatusCode == StatusCodes.Status409Conflict
                     ? "report_conflict" : "invalid_match_report",
