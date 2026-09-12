@@ -12,6 +12,14 @@ public abstract record UpdateCheckResult
     public sealed record UpToDate(UpdateManifest? Manifest = null) : UpdateCheckResult;
     public sealed record Available(UpdateManifest Manifest, UpdatePackage Package,
         Uri PackageUri) : UpdateCheckResult;
+    /// <summary>
+    /// The check was deliberately skipped because this build cannot be
+    /// compared with a signed release. This is informational, not a failure.
+    /// </summary>
+    public sealed record NotApplicable(string Reason) : UpdateCheckResult
+    {
+        public string DiagnosticCode => Reason;
+    }
     public sealed record Failed(string Message) : UpdateCheckResult;
 }
 
@@ -69,14 +77,19 @@ public sealed class UpdateManifestClient
     {
         if (channel != UpdateChannel.Stable)
             return new UpdateCheckResult.Failed("only the stable update channel is supported");
-        if (String.IsNullOrWhiteSpace(Mods.Branding.UpdateRepository))
-            return new UpdateCheckResult.Failed("the update feed is not configured");
 
-        Version? installed = _installedVersion ?? BuildVersion.Current;
+        // Injected transports are a deterministic test seam. They must not
+        // inherit the test host's assembly version (for example vstest's own
+        // release number) when the caller deliberately omitted a client
+        // release version to model a local build.
+        Version? installed = _installedVersion
+            ?? (_handler == null ? BuildVersion.Current : null);
         if (installed == null && !_allowLocalBuild)
-            return new UpdateCheckResult.Failed("local builds are never replaced automatically");
+            return new UpdateCheckResult.NotApplicable("LocalBuild");
         if (installed == null)
             return new UpdateCheckResult.Failed("the installed version is unknown");
+        if (String.IsNullOrWhiteSpace(Mods.Branding.UpdateRepository))
+            return new UpdateCheckResult.Failed("the update feed is not configured");
         if (!UpdateTransport.IsAllowedUri(_manifestUri)
             || !UpdateTransport.IsAllowedUri(_signatureUri))
             return new UpdateCheckResult.Failed("the update feed address is not trusted");

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MphRead.Mods.Launcher.Presentation;
 
 namespace MphRead.Mods.Update;
 
@@ -10,6 +11,7 @@ public enum UpdateState
     Idle,
     Checking,
     UpToDate,
+    NotApplicable,
     Available,
     Downloading,
     Verifying,
@@ -358,7 +360,16 @@ public sealed class UpdateCoordinator
                 SetStatus(UpdateState.Available, $"update {available.Manifest.Version} is available");
                 break;
             case UpdateCheckResult.Failed failed:
+                // SetStatus owns the one translation boundary. Keeping the
+                // low-level diagnostic here also lets the logger retain its
+                // context without ever sending it to the route views.
+                DebugLog.Line("update", $"Update check failed: {failed.Message}");
                 SetStatus(UpdateState.Failed, failed.Message);
+                break;
+            case UpdateCheckResult.NotApplicable notApplicable:
+                SetStatus(UpdateState.NotApplicable,
+                    PrimeUserMessage.ForUpdate(notApplicable).Text);
+                DebugLog.Line("update", $"Update check skipped: {notApplicable.Reason}");
                 break;
         }
         // Keep the completed task published until all state/event work for the
@@ -456,6 +467,9 @@ public sealed class UpdateCoordinator
 
     private void SetStatus(UpdateState state, string? message)
     {
+        if (state == UpdateState.Failed && message != null)
+            message = PrimeUserMessage.Translate(message,
+                PrimeUserMessageSeverity.Error).Text;
         UpdateStatus status;
         lock (_gate)
         {

@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using MphRead.Mods.Launcher.Presentation;
 
 namespace MphRead.Mods.Update;
 
@@ -35,7 +36,9 @@ public static class UpdateCheck
         LastReason = null;
         if (!IsConfigured)
         {
-            LastReason = "the update feed is not configured";
+            LastReason = PrimeUserMessage.Translate(
+                "the update feed is not configured",
+                PrimeUserMessageSeverity.Info).Text;
             return null;
         }
         UpdateCheckResult result = new UpdateManifestClient().CheckAsync(
@@ -49,10 +52,13 @@ public static class UpdateCheck
                 LastReason = $"{BuildVersion.Display} is already the latest";
                 return null;
             case UpdateCheckResult.Failed failed:
-                LastReason = failed.Message;
+                LastReason = PrimeUserMessage.ForUpdate(failed).Text;
+                return null;
+            case UpdateCheckResult.NotApplicable notApplicable:
+                LastReason = PrimeUserMessage.ForUpdate(notApplicable).Text;
                 return null;
             default:
-                LastReason = "the update feed returned no result";
+                LastReason = PrimeUserMessage.Translate((string?)null).Text;
                 return null;
         }
     }
@@ -83,7 +89,9 @@ public static class UpdateCheck
         }
         catch (Exception ex) when (ex is FormatException or System.Text.Json.JsonException)
         {
-            LastReason = "the update manifest could not be read";
+            LastReason = PrimeUserMessage.Translate(
+                "the update manifest could not be read",
+                PrimeUserMessageSeverity.Warning).Text;
             return null;
         }
     }
