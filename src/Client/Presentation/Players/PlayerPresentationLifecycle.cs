@@ -32,6 +32,7 @@ namespace MphRead.Entities
             if (_player.IsMainPlayer)
             {
                 SetUpHud();
+                InitializeBottomScreenPresentation();
             }
 
             _walkSfxTimer = 0;
@@ -45,6 +46,7 @@ namespace MphRead.Entities
             _missileSfxHandle = -1;
             if (_player.IsMainPlayer)
             {
+                CancelBottomScreenInteraction();
                 // the game only does this in multiplayer, but it can't hurt either way
                 ResetReticle();
                 _weaponIconInst.SetIndex(0, _player._scene);

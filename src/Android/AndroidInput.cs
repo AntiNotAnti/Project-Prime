@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using MphRead.Entities;
+using MphRead.Mods.Input;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
@@ -117,16 +118,17 @@ namespace MphRead.Droid
         {
             if (bind.Type == ButtonType.Key)
             {
-                if (bind.Key != Keys.Unknown && down)
+                Keys key = (Keys)(int)bind.Key;
+                if (key != Keys.Unknown && down)
                 {
-                    _keysDown.Add(bind.Key);
+                    _keysDown.Add(key);
                 }
             }
             else if (bind.Type == ButtonType.Mouse)
             {
                 if (down)
                 {
-                    _buttonsDown.Add(bind.MouseButton);
+                    _buttonsDown.Add((MouseButton)(int)bind.MouseButton);
                 }
             }
             // Scroll binds have no touch equivalent and are left alone.
@@ -248,11 +250,11 @@ namespace MphRead.Droid
                 Keybind bind = controls.All[i];
                 if (bind.Type == ButtonType.Key)
                 {
-                    SetKey(bind.Key, down: false);
+                    SetKey((Keys)(int)bind.Key, down: false);
                 }
                 else if (bind.Type == ButtonType.Mouse)
                 {
-                    SetButton(bind.MouseButton, down: false);
+                    SetButton((MouseButton)(int)bind.MouseButton, down: false);
                 }
             }
         }

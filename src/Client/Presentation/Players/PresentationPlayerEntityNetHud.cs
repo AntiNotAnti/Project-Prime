@@ -12,13 +12,15 @@ namespace MphRead.Entities
         /// match the two of them move left to make room, and offline nothing
         /// moves at all.
         /// </summary>
-        internal float ModScoreColumn1 => (NetSession.Active || AuthoritativePlay.Active) ? 145 : 160;
-        internal float ModScoreColumn2 => (NetSession.Active || AuthoritativePlay.Active) ? 193 : 215;
+        private bool HasAuthoritativePlay
+            => ClientSceneServices.PlayFor(_player._scene) != null;
+        internal float ModScoreColumn1 => (NetSession.Active || HasAuthoritativePlay) ? 145 : 160;
+        internal float ModScoreColumn2 => (NetSession.Active || HasAuthoritativePlay) ? 193 : 215;
 
         private const float _pingColumnX = 236;
         public void ModDrawPingHeader(float posY)
         {
-            if (!NetSession.Active && !AuthoritativePlay.Active)
+            if (!NetSession.Active && !HasAuthoritativePlay)
             {
                 return;
             }
@@ -28,13 +30,13 @@ namespace MphRead.Entities
 
         public void ModDrawPingRow(float posY, ColorRgba rowColor, int slot)
         {
-            if ((!NetSession.Active && !AuthoritativePlay.Active) || slot < 0 || slot >= PlayerEntity.SlotCapacity)
+            if ((!NetSession.Active && !HasAuthoritativePlay) || slot < 0 || slot >= PlayerEntity.SlotCapacity)
             {
                 return;
             }
 
             int ping = NetSession.SlotPing[slot];
-            if (AuthoritativePlay.Current is { } play)
+            if (ClientSceneServices.PlayFor(_player._scene) is { } play)
             {
                 ping = 0;
                 foreach (NetRosterEntry entry in play.Client.Roster)

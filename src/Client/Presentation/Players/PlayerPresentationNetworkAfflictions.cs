@@ -41,7 +41,7 @@ namespace MphRead.Entities
 
         private uint AfflictionPresentationTick()
         {
-            if (AuthoritativePlay.Current is { } play && play.Client.HasSnapshot)
+            if (ClientSceneServices.PlayFor(_player._scene) is { } play && play.Client.HasSnapshot)
             {
                 double tick = play.Client.Clock.Synchronized
                     ? play.Client.Clock.EstimateServerTick(Stopwatch.GetTimestamp())

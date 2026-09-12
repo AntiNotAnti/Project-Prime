@@ -16,6 +16,9 @@ namespace MphRead.Mods
    ScreenCapture.PngWriter = WritePng;
    ThumbnailHost.Current = new DesktopThumbnailHost();
    ClientInputState.ReadPauseOpen = () => PauseMenu.Open;
+   Input.GamepadInput.PollPlatformForMenuAction = Input.GamepadDesktop.PollForMenu;
+   Input.GamepadInput.ConsumePlatformStylus = Input.DesktopStylusInput.ConsumeState;
+   Input.GamepadInput.CancelPlatformStylus = Input.DesktopStylusInput.Cancel;
   }
   private static void WritePng(byte[] pixels, int width, int height, string path)
   {

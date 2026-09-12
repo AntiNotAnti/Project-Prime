@@ -16,11 +16,12 @@ namespace MphRead.Entities
         private string _runtimeSummary = "", _inputSummary = "";
         private void DrawNetworkHealth()
         {
+            AuthoritativePlay? play = ClientSceneServices.PlayFor(_player._scene);
             long now = Stopwatch.GetTimestamp();
             if (now >= _nextNetworkHealth)
             {
                 _nextNetworkHealth = now + Stopwatch.Frequency / 4;
-                if (AuthoritativePlay.Current is { } play)
+                if (play != null)
                 {
                     if (play.Client.State == NetConnectionState.Connecting)
                     {
@@ -48,7 +49,7 @@ namespace MphRead.Entities
                     + $" look {GamepadInput.LookCoordinator.ActiveLookDevice}"
                     + $"  stick {movement.Magnitude:0.00}  aimω {GamepadInput.AimAngularVelocity.X:0.0},{GamepadInput.AimAngularVelocity.Y:0.0}";
             }
-            if (AuthoritativePlay.Current != null
+            if (play != null
                 && (_networkHealth is NetworkHealthState.Unstable
                     or NetworkHealthState.Poor or NetworkHealthState.Reconnecting))
             {

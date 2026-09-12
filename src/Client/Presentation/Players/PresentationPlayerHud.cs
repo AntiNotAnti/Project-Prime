@@ -592,62 +592,27 @@ namespace MphRead.Entities
         private int _hudPreviousWeaponSelection = -1;
         public void UpdateWeaponSelect()
         {
-            BeamType previousWeapon = _player.WeaponSelection;
             int selection = -1;
             float x = _mouseState?.X ?? 0;
             float y = _mouseState?.Y ?? 0;
             float ratioX = Presentation.Size.X / 256f;
             float ratioY = Presentation.Size.Y / 192f;
-            float distX = 224 * ratioX - x; // todo: invert for left-handed mode
-            float distY = y - 38 * ratioY;
-            if (distX > 0 && distY > 0 && distX * distX + distY * distY > 20 * ratioY * 20 * ratioY)
+            int availableMask = 0;
+            for (int i = 0; i < Mods.Input.NativeWeaponSelector.SlotCount; i++)
             {
-                float div = distX / distY;
-                if (div >= Fixed.ToFloat(1060) * ratioX / (Fixed.ToFloat(3956) * ratioY))
+                byte weapon = Mods.Input.NativeWeaponSelector.WeaponAtSlot(i);
+                if (_player._availableWeapons[(BeamType)weapon])
                 {
-                    if (div >= Fixed.ToFloat(2048) * ratioX / (Fixed.ToFloat(3547) * ratioY))
-                    {
-                        if (div >= Fixed.ToFloat(2896) * ratioX / (Fixed.ToFloat(2896) * ratioY))
-                        {
-                            if (div >= Fixed.ToFloat(3547) * ratioX / (Fixed.ToFloat(2048) * ratioY))
-                            {
-                                if (div >= Fixed.ToFloat(3956) * ratioX / (Fixed.ToFloat(1060) * ratioY))
-                                {
-                                    if (_player._availableWeapons[BeamType.ShockCoil])
-                                    {
-                                        selection = 5;
-                                        _player.WeaponSelection = BeamType.ShockCoil;
-                                    }
-                                }
-                                else if (_player._availableWeapons[BeamType.Magmaul])
-                                {
-                                    selection = 4;
-                                    _player.WeaponSelection = BeamType.Magmaul;
-                                }
-                            }
-                            else if (_player._availableWeapons[BeamType.Judicator])
-                            {
-                                selection = 3;
-                                _player.WeaponSelection = BeamType.Judicator;
-                            }
-                        }
-                        else if (_player._availableWeapons[BeamType.Imperialist])
-                        {
-                            selection = 2;
-                            _player.WeaponSelection = BeamType.Imperialist;
-                        }
-                    }
-                    else if (_player._availableWeapons[BeamType.Battlehammer])
-                    {
-                        selection = 1;
-                        _player.WeaponSelection = BeamType.Battlehammer;
-                    }
+                    availableMask |= 1 << weapon;
                 }
-                else if (_player._availableWeapons[BeamType.VoltDriver])
-                {
-                    selection = 0;
-                    _player.WeaponSelection = BeamType.VoltDriver;
-                }
+            }
+            // Preserve the legacy stretched-window deadzone and slope math by
+            // supplying its original framebuffer ratios to the shared helper.
+            if (Mods.Input.NativeWeaponSelector.TrySelect(new Vector2(x, y),
+                ratioX, ratioY, availableMask, out byte selectedWeapon))
+            {
+                selection = Mods.Input.NativeWeaponSelector.SlotOfWeapon(selectedWeapon);
+                _player.WeaponSelection = (BeamType)selectedWeapon;
             }
 
             for (int i = 0; i < 6; i++)
@@ -1083,7 +1048,9 @@ namespace MphRead.Entities
                 DrawEnhancedRadar();
             }
 
-            if (Mods.Network.AuthoritativePlay.Current?.Client.HistoricalDebug is { } historicalDebug)
+            Mods.Network.AuthoritativePlay? play
+                = Mods.Network.ClientSceneServices.PlayFor(_player._scene);
+            if (play?.Client.HistoricalDebug is { } historicalDebug)
                 DrawHistoricalCollisionDebug(historicalDebug);
 
             // Before the pause check, not after it: a frame rate you cannot
@@ -1112,7 +1079,8 @@ namespace MphRead.Entities
             }
             else if (_player._scene.Match.Phase == MatchPhase.Countdown)
             {
-                uint tick = Mods.Network.AuthoritativePlay.Current?.WorldServerTick ?? Mods.Network.ReplayPlayback.WorldServerTick ?? _player._scene.Match.PhaseStartTick;
+                uint tick = play?.WorldServerTick ?? Mods.Network.ReplayPlayback.WorldServerTick
+                    ?? _player._scene.Match.PhaseStartTick;
                 int remaining = Math.Max(0, unchecked((int)(_player._scene.Match.PhaseEndTick - tick)));
                 int seconds = remaining / 60 + (remaining % 60 == 0 ? 0 : 1);
                 DrawText2D(128, 40, Align.Center, 0, $"STARTING IN {seconds}", new ColorRgba(0x3FEF), fontSpacing: 8);
@@ -1230,6 +1198,9 @@ namespace MphRead.Entities
 
                 DrawQueuedHudMessages();
             }
+            // The optional lower screen is submitted last so it stays above
+            // the ordinary HUD without changing the native HUD instances.
+            DrawBottomScreenOverlay();
         }
 
         private Vector2 RenderedReticlePosition() => CurrentReticlePosition;

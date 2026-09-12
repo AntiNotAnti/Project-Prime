@@ -818,10 +818,12 @@ namespace MphRead.Droid
                     Scene = _build(_input, _size);
                     ScenePresentation presentation = ScenePresentation.Get(Scene);
                     presentation.OnLoad();
-                    if (AuthoritativePlay.Current != null && !ReplayPlayback.IsActive)
+                    AuthoritativePlay? play =
+                        (presentation.World.Services as ClientSceneServices)?.Play;
+                    if (play != null && !ReplayPlayback.IsActive)
                     {
                         _killcam = new KillcamController(presentation, () => _size,
-                            _input.Keyboard, _input.Mouse);
+                            _input.Keyboard, _input.Mouse, play);
                     }
                     else if (ReplayPlayback.IsActive)
                     {
@@ -1291,6 +1293,8 @@ namespace MphRead.Droid
                     Mods.InputSettings.StylusDoubleTapJump,
                     Mods.InputSettings.StylusFlickBoost, main.IsAltForm,
                     _controls.Density);
+                NativeBottomScreenPlatformBridge.Configure(_size, _size,
+                    Mods.InputSettings.BottomScreenMode);
                 StylusState stylus = _stylus.ConsumeState();
                 StylusBindings stylusBindings = Mods.InputSettings.CurrentStylusBindings;
                 PlayerPresentation presentation = main.GetPresentation();

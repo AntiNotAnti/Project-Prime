@@ -25,10 +25,12 @@ namespace MphRead.Entities
         {
             if (control.Type == ButtonType.Key)
             {
-                return control.Key != Keys.Unknown && keyboard.IsKeyDown(control.Key);
+                Keys key = (Keys)(int)control.Key;
+                return key != Keys.Unknown && keyboard.IsKeyDown(key);
             }
 
-            return control.Type == ButtonType.Mouse && mouse.IsButtonDown(control.MouseButton);
+            return control.Type == ButtonType.Mouse
+                && mouse.IsButtonDown((MouseButton)(int)control.MouseButton);
         }
 
         private static bool _isScrollingUp = false;
@@ -39,12 +41,8 @@ namespace MphRead.Entities
         {
             KeyboardState keyboardSnap = keyboardState.GetSnapshot();
             MouseState mouseSnap = mouseState.GetSnapshot();
-#if ANDROID
-            Mods.Input.StylusState desktopStylus = Mods.Input.StylusState.Empty;
-#else
             Mods.Input.StylusState desktopStylus
-                = Mods.Input.DesktopStylusInput.ConsumeState();
-#endif
+                = Mods.Input.GamepadInput.ConsumePlatformStylus();
             if (noPlayerInput || Mods.SpectatorMode.IsSpectating
                 || scene.LocalPlayer == null)
             {
@@ -114,6 +112,8 @@ namespace MphRead.Entities
                     player.Input.MouseDeltaX = 0;
                     player.Input.MouseDeltaY = 0;
                 }
+                player.GetPresentation().ProcessBottomScreenInput(
+                    noPlayerInput || Mods.SpectatorMode.IsSpectating);
                 ProcessMorphBallBoostInput(player, scene.Services.LocalLookFrame,
                     desktopStylus, scene.GlobalElapsedTime);
                 _isScrollingUp = false;
@@ -137,10 +137,11 @@ namespace MphRead.Entities
                         Keybind control = player.GetPresentation().Bindings.All[j];
                         if (control.Type == ButtonType.Key)
                         {
-                            if (control.Key != Keys.Unknown)
+                            Keys key = (Keys)(int)control.Key;
+                            if (key != Keys.Unknown)
                             {
-                                bool prevDown = prevKeyboardSnap?.IsKeyDown(control.Key) ?? false;
-                                control.IsDown = keyboardSnap.IsKeyDown(control.Key);
+                                bool prevDown = prevKeyboardSnap?.IsKeyDown(key) ?? false;
+                                control.IsDown = keyboardSnap.IsKeyDown(key);
                                 control.IsPressed = control.IsDown && !prevDown;
                                 control.IsReleased = !control.IsDown && prevDown;
                                 if (control.IsDown || control.IsPressed || control.IsReleased)
@@ -151,8 +152,9 @@ namespace MphRead.Entities
                         }
                         else if (control.Type == ButtonType.Mouse)
                         {
-                            bool down = mouseSnap.IsButtonDown(control.MouseButton);
-                            bool prevDown = prevMouseSnap?.IsButtonDown(control.MouseButton) ?? false;
+                            MouseButton button = (MouseButton)(int)control.MouseButton;
+                            bool down = mouseSnap.IsButtonDown(button);
+                            bool prevDown = prevMouseSnap?.IsButtonDown(button) ?? false;
                             if (control.NeedsRepress)
                             {
                                 if (!down || !prevDown)

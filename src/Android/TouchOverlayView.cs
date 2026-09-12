@@ -56,6 +56,9 @@ namespace MphRead.Droid
         {
             base.OnSizeChanged(w, h, oldw, oldh);
             _controls.Layout(w, h, Resources?.DisplayMetrics?.Density ?? 1f);
+            NativeBottomScreenPlatformBridge.Configure(new OpenTK.Mathematics.Vector2i(w, h),
+                new OpenTK.Mathematics.Vector2i(w, h),
+                Mods.InputSettings.BottomScreenMode);
             Invalidate();
         }
 
@@ -73,6 +76,10 @@ namespace MphRead.Droid
             if (Width > 0 && Height > 0)
             {
                 _controls.Layout(Width, Height, Resources?.DisplayMetrics?.Density ?? 1f);
+                NativeBottomScreenPlatformBridge.Configure(
+                    new OpenTK.Mathematics.Vector2i(Width, Height),
+                    new OpenTK.Mathematics.Vector2i(Width, Height),
+                    Mods.InputSettings.BottomScreenMode);
             }
             RequestLayout();
             Invalidate();

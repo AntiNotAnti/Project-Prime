@@ -167,7 +167,8 @@ namespace MphRead.Entities
         private int _healthSfxHandle = -1;
         public void UpdateHealthSfx(int health)
         {
-            if (Mods.Network.AuthoritativePlay.Active || Mods.Network.ReplayPlayback.IsModern)
+            if (Mods.Network.ClientSceneServices.PlayFor(_player._scene) != null
+                || Mods.Network.ReplayPlayback.IsModern)
             {
                 // Modern feedback announces threshold crossings once. Retire a
                 // legacy loop if this presentation switches to a network session.
@@ -742,7 +743,8 @@ namespace MphRead.Entities
             // Network matches use the authoritative WorldEvent identity. The
             // local path has no event id, so its simulation frame is the
             // presentation identity and never crosses a protocol boundary.
-            if (_player.IsMainPlayer && !AuthoritativePlay.Active)
+            if (_player.IsMainPlayer
+                && ClientSceneServices.PlayFor(_player._scene) == null)
                 GamepadHaptics.Play(HapticEvent.MajorPickup,
                     unchecked((uint)_player.ModScene.FrameCount));
         }

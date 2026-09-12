@@ -30,6 +30,13 @@ namespace MphRead.Mods.Input
     /// </summary>
     public static class GamepadInput
     {
+        internal static Action? PollPlatformForMenuAction { get; set; }
+        internal static Func<StylusState> ConsumePlatformStylus { get; set; }
+            = static () => StylusState.Empty;
+        internal static Action CancelPlatformStylus { get; set; } = static () => { };
+
+        internal static void PollPlatformForMenu() => PollPlatformForMenuAction?.Invoke();
+
         /// <summary>The pad as of this frame.</summary>
         public static GamepadState State;
 

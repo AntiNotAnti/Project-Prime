@@ -45,6 +45,18 @@ namespace MphRead.Entities
                 WeaponRadial.Reset();
                 return;
             }
+            if (Bindings.HudOverlay.IsPressed)
+            {
+                NativeBottomScreenController bottomScreen = Presentation.BottomScreen;
+                bool wasVisible = bottomScreen.Visible;
+                bool nowVisible = bottomScreen.TogglePopup();
+                if (wasVisible && !nowVisible)
+                {
+                    // Closing is cancellation even if an Up was consumed
+                    // earlier in this fixed step.
+                    CancelBottomScreenInteraction();
+                }
+            }
             int available = 0;
             for (byte i = 0; i < 9; i++)
             {
@@ -61,7 +73,20 @@ namespace MphRead.Entities
                 GamepadInput.State.RightX, GamepadInput.State.RightY,
                 Mods.InputSettings.GamepadLookDeadZone, available);
             if (radial <= 8) _weaponIntent.Request(radial, available);
-            if (Bindings.WeaponMenu.IsReleased) _weaponIntent.Request((byte)_player.WeaponSelection, available);
+            if (Bindings.WeaponMenu.IsReleased)
+                _weaponIntent.Request((byte)_player.WeaponSelection, available);
+            // Precedence is explicit: direct bind > affinity > quick swap >
+            // cycle > bottom screen/native menu > controller radial. Requests
+            // later in this method win; the intent remains the only path that
+            // can reach gameplay authority.
+            byte panel = TakeBottomScreenPending();
+            if (panel <= 8)
+            {
+                BottomScreenWeaponAvailability snapshot
+                    = CaptureBottomScreenAvailability();
+                if (snapshot.Contains(panel))
+                    _weaponIntent.Request(panel, snapshot.Mask);
+            }
             if (Bindings.NextWeapon.IsPressed || Bindings.PrevWeapon.IsPressed)
             {
                 if (_player.Controls.ScrollAllWeapons || _player.CurrentWeapon is not (BeamType.PowerBeam or BeamType.Missile))

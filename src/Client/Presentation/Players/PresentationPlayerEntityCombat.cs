@@ -10,7 +10,8 @@ namespace MphRead.Entities
         private EquipInfo? _combatPresentationEquip;
         public void PresentCombat(in CombatEvent value, bool predictedLocalShot = false)
         {
-            if (_player._scene.IsHeadless || !AuthoritativePlay.Active)
+            if (_player._scene.IsHeadless
+                || ClientSceneServices.PlayFor(_player._scene) == null)
                 return;
             if (value.Kind == CombatEventKind.Affliction)
             {
@@ -19,7 +20,7 @@ namespace MphRead.Entities
             }
             if (value.Kind == CombatEventKind.Shot)
             {
-                AuthoritativePlay.Current?.ObserveAuthoritativeProjectileVisual(value,
+                ClientSceneServices.PlayFor(_player._scene)?.ObserveAuthoritativeProjectileVisual(value,
                     visualWillSpawn: !predictedLocalShot && value.Weapon <= 8);
                 if (value.Weapon > 8)
                     return;

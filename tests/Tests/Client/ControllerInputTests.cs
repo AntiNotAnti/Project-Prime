@@ -815,13 +815,15 @@ public sealed class ControllerInputTests
             Assert.Equal(FrameTiming.StepSeconds / 2,
                 FrameTiming.SimulationRemainderSeconds, 10);
             Assert.Equal(10 * FrameTiming.StepSeconds / 2,
-                prediction.PeekStatefulForRender(null, simulationActive: true).X, 5);
+                prediction.PeekStatefulForRender(null, simulationActive: true,
+                    FrameTiming.SimulationRemainderSeconds).X, 5);
 
             Assert.Equal(1, FrameTiming.Advance(FrameTiming.StepSeconds));
             Assert.Equal(FrameTiming.StepSeconds / 2,
                 FrameTiming.SimulationRemainderSeconds, 10);
             Assert.Equal(10 * FrameTiming.StepSeconds / 2,
-                prediction.PeekStatefulForRender(null, simulationActive: true).X, 5);
+                prediction.PeekStatefulForRender(null, simulationActive: true,
+                    FrameTiming.SimulationRemainderSeconds).X, 5);
         }
         finally
         {

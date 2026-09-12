@@ -87,7 +87,9 @@ namespace MphRead.Entities
         private void ModDrawCombatFeedback()
         {
             CombatFeedback feedback = Presentation.CombatFeedback;
-            uint tick = AuthoritativePlay.Current?.WorldServerTick ?? ReplayPlayback.WorldServerTick ?? 0;
+            AuthoritativePlay? play = ClientSceneServices.PlayFor(_player._scene);
+            NodeControlClient? node = (_player._scene.Services as ClientSceneServices)?.Node;
+            uint tick = play?.WorldServerTick ?? ReplayPlayback.WorldServerTick ?? 0;
             HitMarkerKind marker = feedback.VisibleMarker(tick);
             bool identityView = feedback.Local.IsValid && feedback.Local == AuthoritativeActor;
             bool localView = identityView && !Mods.SpectatorMode.IsSpectating;
@@ -123,8 +125,8 @@ namespace MphRead.Entities
             WorldFeedback world = Presentation.WorldFeedback;
             if (world.Message.Length > 0 && CombatFeedback.Age(tick, world.Tick) < 120)
                 DrawText2D(128, 62, Align.Center, 0, world.Message, scale: .7f);
-            if (localView && AuthoritativePlay.Current?.NodeMatchId is Guid matchId
-                && NodeSessions.Current?.TransitionVoteFor(matchId) is
+            if (localView && play?.NodeMatchId is Guid matchId
+                && node?.TransitionVoteFor(matchId) is
                     { State: MatchTransitionVoteState.Pending } ballot)
             {
                 DrawText2D(128, 38, Align.Center, 0,

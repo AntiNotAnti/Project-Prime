@@ -6,7 +6,7 @@ namespace MphRead.Droid
     /// <summary>Routes neutral samples while retaining per-pointer capture.</summary>
     internal sealed class PointerInputRouter
     {
-        private enum Route { Touch, Stylus }
+        private enum Route { Touch, Stylus, BottomScreen }
         private readonly TouchControls _touch;
         private readonly StylusInput _stylus;
         private readonly Dictionary<int, Route> _routes = new();
@@ -19,6 +19,13 @@ namespace MphRead.Droid
 
         public void PointerDown(in PointerSample sample)
         {
+            // The scene-owned DS panel gets first refusal. A claimed contact
+            // must never also become aim or a touch-control action.
+            if (NativeBottomScreenPlatformBridge.TryPointerDown(sample))
+            {
+                _routes[sample.Id] = Route.BottomScreen;
+                return;
+            }
             bool pen = sample.Tool is PointerToolKind.Stylus or PointerToolKind.Eraser;
             // Mouse/unknown intentionally retain the existing touch/UI path;
             // only an identified pen may claim the dedicated stylus path.
@@ -45,7 +52,11 @@ namespace MphRead.Droid
         public void PointerMove(in PointerSample sample)
         {
             if (!_routes.TryGetValue(sample.Id, out Route route)) return;
-            if (route == Route.Stylus) _stylus.PointerMove(sample);
+            if (route == Route.BottomScreen)
+            {
+                NativeBottomScreenPlatformBridge.TryPointerMove(sample);
+            }
+            else if (route == Route.Stylus) _stylus.PointerMove(sample);
             else _touch.PointerMove(sample.Id, sample.X, sample.Y, sample.Timestamp);
         }
 
@@ -66,7 +77,11 @@ namespace MphRead.Droid
                 _routes[sample.Id] = Route.Stylus;
                 route = Route.Stylus;
             }
-            if (route == Route.Stylus) _stylus.UpdateButtonState(sample);
+            if (route == Route.BottomScreen)
+            {
+                NativeBottomScreenPlatformBridge.TryPointerMove(sample);
+            }
+            else if (route == Route.Stylus) _stylus.UpdateButtonState(sample);
         }
 
         /// <summary>Track pen hover without granting look ownership.</summary>
@@ -81,7 +96,12 @@ namespace MphRead.Droid
         public void PointerUp(in PointerSample sample)
         {
             if (!_routes.TryGetValue(sample.Id, out Route route)) return;
-            if (route == Route.Stylus)
+            if (route == Route.BottomScreen)
+            {
+                NativeBottomScreenPlatformBridge.TryPointerUp(sample);
+                _routes.Remove(sample.Id);
+            }
+            else if (route == Route.Stylus)
             {
                 _stylus.PointerUp(sample);
                 _touch.AimSuppressed = _stylus.Active;
@@ -99,6 +119,12 @@ namespace MphRead.Droid
         public void PointerProximityExit(in PointerSample sample)
         {
             if (_routes.TryGetValue(sample.Id, out Route route)
+                && route == Route.BottomScreen)
+            {
+                NativeBottomScreenPlatformBridge.CancelPointer(sample.Id);
+                _routes.Remove(sample.Id);
+            }
+            else if (_routes.TryGetValue(sample.Id, out route)
                 && route == Route.Stylus)
             {
                 _stylus.PointerProximityExit(sample);
@@ -110,6 +136,7 @@ namespace MphRead.Droid
         public void Cancel()
         {
             _routes.Clear();
+            NativeBottomScreenPlatformBridge.Cancel();
             _stylus.Cancel();
             _touch.AimSuppressed = false;
             _touch.ReleaseEverything();
