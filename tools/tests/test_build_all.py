@@ -3,6 +3,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -45,6 +46,25 @@ class BuildAllContractTests(unittest.TestCase):
         self.assertIn('-o "$destination/editor"', script)
         self.assertIn('--executable "$editor_executable" "$destination/editor"', script)
         self.assertIn('"desktop_editor": {', script)
+
+    def test_bundled_editor_publish_excludes_standalone_symbols(self):
+        project = ET.parse(ROOT / "src/Editor/Editor.csproj").getroot()
+        properties = {
+            child.tag: child.text
+            for group in project.findall("PropertyGroup")
+            for child in group
+        }
+        self.assertEqual("embedded", properties.get("DebugType"))
+        self.assertEqual(
+            "false", properties.get("CopyOutputSymbolsToPublishDirectory"))
+        for dependency in ("MapPlatform", "Renderer", "Imaging"):
+            dependency_project = ET.parse(
+                ROOT / f"src/{dependency}/{dependency}.csproj").getroot()
+            debug_types = dependency_project.findall(".//DebugType")
+            self.assertTrue(
+                any(debug_type.text == "embedded" for debug_type in debug_types),
+                dependency,
+            )
 
 
 if __name__ == "__main__":

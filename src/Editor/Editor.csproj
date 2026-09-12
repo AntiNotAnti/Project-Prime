@@ -9,6 +9,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- The editor ships inside the public client package. Keep useful managed
+         debug information embedded without publishing a standalone PDB. -->
+    <DebugType>embedded</DebugType>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
     <ApplicationIcon Condition="$(RuntimeIdentifier.StartsWith('win'))">../Client/Assets/project-prime.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>

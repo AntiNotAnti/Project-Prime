@@ -5,6 +5,7 @@
     <AssemblyName>ProjectPrime.Renderer</AssemblyName>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugType Condition="'$(PrimeProtectClient)' != 'true'">embedded</DebugType>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
 
