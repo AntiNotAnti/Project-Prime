@@ -66,6 +66,7 @@ internal static class Program
         await RunCompiler(async test => await test.AmbientMatchMountsAreIsolatedAcrossConcurrentExecutionContexts());
 
         await RunEditor(test => { test.NewProjectStartsWithEditableArenaAndStableIdentity(); return Task.CompletedTask; });
+        await RunEditor(test => { test.PlacementMovesNewObjectsAwayFromOccupiedLocations(); return Task.CompletedTask; });
         await RunEditor(test => { test.CommandsRoundTripThroughUndoAndRedo(); return Task.CompletedTask; });
         await RunEditor(test => { test.SaveThenEditIsDirty(); return Task.CompletedTask; });
         await RunEditor(test => { test.SaveEditUndoIsClean(); return Task.CompletedTask; });
@@ -86,6 +87,8 @@ internal static class Program
         var viewport = new EditorViewportTests();
         viewport.HiDpiLayoutUsesOneLogicalAndPixelViewportContract(); passed++;
         viewport.SelectionAndOverlayChangesDoNotRebuildGeometry(); passed++;
+        viewport.EditorGeometryUsesVisibleExplicitColorsWithoutRuntimeLightBindings(); passed++;
+        viewport.DefaultCameraPlacesNewObjectsOnTheVisibleGroundPlane(); passed++;
         foreach (object[] values in new object[][]
         {
             [1f, 1f, 1f, 0f], [10f, 1f, 1f, 0f],

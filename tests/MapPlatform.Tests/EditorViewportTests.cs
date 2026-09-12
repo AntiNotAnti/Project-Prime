@@ -84,6 +84,39 @@ public sealed class EditorViewportTests
         Assert.Equal(overlay.EntityRebuilds + 1, moved.EntityRebuilds);
     }
 
+    [Fact]
+    public void EditorGeometryUsesVisibleExplicitColorsWithoutRuntimeLightBindings()
+    {
+        var viewport = new EditorViewport();
+        MapDocument document = MapDocument.New("community.visible", "Visible");
+        EditorViewportLayout layout = EditorViewportLayout.Create(
+            new Vector2i(1440, 900), new Vector2i(1440, 900),
+            new EditorRect(230, 34, 940, 698));
+
+        RenderFrame frame = viewport.BuildFrame(document, new Vector2i(1440, 900), layout);
+
+        DrawSubmission geometry = Assert.Single(frame.Submissions, item =>
+            item.Primitive == RenderPrimitive.Mesh && !item.Wireframe);
+        Assert.False(geometry.Lighting);
+        CpuMesh mesh = Assert.Single(frame.MeshResources.Values,
+            value => value.TriangleIndexCount > 0);
+        Assert.All(mesh.Vertices, vertex => Assert.True(vertex.HasExplicitColor));
+        Assert.Contains(mesh.Vertices, vertex => vertex.Color.X > 0
+            || vertex.Color.Y > 0 || vertex.Color.Z > 0);
+    }
+
+    [Fact]
+    public void DefaultCameraPlacesNewObjectsOnTheVisibleGroundPlane()
+    {
+        var camera = new EditorCamera();
+
+        Vector3 point = camera.GroundPlacement();
+
+        Assert.Equal(0, point.Y, 5);
+        Assert.InRange(point.X, -8, 8);
+        Assert.InRange(point.Z, -8, 8);
+    }
+
     [Theory]
     [InlineData(1, 1, 1, 0)]
     [InlineData(10, 1, 1, 0)]

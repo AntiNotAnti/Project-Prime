@@ -1,4 +1,6 @@
 using MphRead.Mods.MapGen;
+using OpenTK.Mathematics;
+using ProjectPrime.Editor.App;
 using ProjectPrime.Editor.Commands;
 using ProjectPrime.Editor.Documents;
 
@@ -18,6 +20,21 @@ public sealed class EditorDocumentTests : IDisposable
         Assert.Single(document.Project.Authoring!.Brushes);
         Assert.Equal(4, document.Project.Authoring.Entities.Count);
         Assert.False(document.IsDirty);
+    }
+
+    [Fact]
+    public void PlacementMovesNewObjectsAwayFromOccupiedLocations()
+    {
+        Vector3 desired = new(-3, 0, -3);
+
+        Vector3 first = EditorApplication.FindOpenPlacement(desired, [], 4);
+        Vector3 second = EditorApplication.FindOpenPlacement(desired, [first], 4);
+
+        Assert.Equal(desired, first);
+        Assert.NotEqual(first, second);
+        Assert.Equal(desired.Y, second.Y);
+        Assert.True((new Vector2(second.X, second.Z)
+            - new Vector2(first.X, first.Z)).Length >= 3.2f);
     }
 
     [Fact]

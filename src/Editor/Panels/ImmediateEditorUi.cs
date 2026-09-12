@@ -17,6 +17,7 @@ public sealed class ImmediateEditorUi
     private static readonly Vector4 Accent = new(0.2f, 0.72f, 0.86f, 1);
     private static readonly Vector4 TextColor = new(0.84f, 0.9f, 0.95f, 1);
     private static readonly Vector4 Muted = new(0.48f, 0.56f, 0.64f, 1);
+    private int _outlinerOffset;
 
     public EditorViewportLayout Viewport(Vector2i logicalSize, Vector2i framebufferSize)
         => EditorViewportLayout.Create(logicalSize, framebufferSize,
@@ -40,7 +41,7 @@ public sealed class ImmediateEditorUi
         {
             ("SAVE", "save"), ("BUILD", "build"), ("PLAY SOLO", "play-solo"),
             ("PLAY BOTS", "play-bots"), ("EXPORT", "export"),
-            ("UNDO", "undo"), ("REDO", "redo")
+            ("UNDO", "undo"), ("REDO", "redo"), ("DELETE", "delete")
         })
         {
             float width = label.StartsWith("PLAY", StringComparison.Ordinal) ? 88 : 72;
@@ -53,33 +54,45 @@ public sealed class ImmediateEditorUi
             if (Button(frame, size, input, new(size.X - 116, 5, 104, 24), "DISCARD")) action = "discard-recovery";
         }
 
-        Text(frame, size, 12, 50, "OUTLINER", Accent, 1);
         float row = 72;
         MapAuthoringScene? authoring = document.Project.Authoring;
         if (authoring != null)
         {
-            foreach (ConvexBrush brush in authoring.Brushes.Take(12))
+            (string Id, bool Entity)[] objects =
+            [
+                .. authoring.Brushes.Select(brush => (brush.Id, false)),
+                .. authoring.Entities.Select(entity => (entity.Id, true))
+            ];
+            int visibleRows = Math.Max(1, (int)MathF.Floor((size.Y - 262) / 19f));
+            int maximumOffset = Math.Max(0, objects.Length - visibleRows);
+            EditorRect outliner = new(0, 58, LeftWidth, Math.Max(1, size.Y - 246));
+            if (outliner.Contains(input.MousePosition) && input.MouseWheel.Y != 0)
+                _outlinerOffset = Math.Clamp(_outlinerOffset
+                    - Math.Sign(input.MouseWheel.Y) * 3, 0, maximumOffset);
+            else _outlinerOffset = Math.Clamp(_outlinerOffset, 0, maximumOffset);
+            int end = Math.Min(objects.Length, _outlinerOffset + visibleRows);
+            string range = objects.Length == 0 ? "" : $" {_outlinerOffset + 1}-{end}/{objects.Length}";
+            Text(frame, size, 12, 50, "OUTLINER" + range, Accent, 1);
+            foreach ((string id, bool entity) in objects.Skip(_outlinerOffset).Take(visibleRows))
             {
                 EditorRect rect = new(8, row - 3, LeftWidth - 16, 18);
-                if (document.SelectedObjectId == brush.Id) Box(frame, size, rect, new(0.12f, 0.28f, 0.36f, 1));
-                Text(frame, size, 14, row, brush.Id.ToUpperInvariant(), TextColor, 1);
-                if (input.LeftPressed && rect.Contains(input.MousePosition)) document.SelectedObjectId = brush.Id;
-                row += 19;
-            }
-            foreach (MapEntityDefinition entity in authoring.Entities.Take(Math.Max(0, 12 - authoring.Brushes.Count)))
-            {
-                EditorRect rect = new(8, row - 3, LeftWidth - 16, 18);
-                if (document.SelectedObjectId == entity.Id) Box(frame, size, rect, new(0.12f, 0.28f, 0.36f, 1));
-                Text(frame, size, 14, row, entity.Id.ToUpperInvariant(), TextColor, 1);
-                if (input.LeftPressed && rect.Contains(input.MousePosition)) document.SelectedObjectId = entity.Id;
+                if (document.SelectedObjectId == id)
+                    Box(frame, size, rect, new(0.12f, 0.28f, 0.36f, 1));
+                Text(frame, size, 14, row, id.ToUpperInvariant(),
+                    entity ? Accent : TextColor, 1);
+                if (input.LeftPressed && rect.Contains(input.MousePosition))
+                    document.SelectedObjectId = id;
                 row += 19;
             }
         }
+        else Text(frame, size, 12, 50, "OUTLINER", Accent, 1);
+        Text(frame, size, 12, size.Y - 174, "ADD OBJECT", Accent, 1);
         row = size.Y - 154;
         foreach ((string label, string command) in new[]
         {
-            ("+ BOX", "box"), ("+ WEDGE", "wedge"), ("+ CYLINDER", "cylinder"),
-            ("+ STAIRS", "stairs"), ("+ SPAWN", "spawn"), ("+ ITEM", "item"), ("+ JUMP PAD", "jump")
+            ("ADD BOX", "box"), ("ADD WEDGE", "wedge"), ("ADD CYLINDER", "cylinder"),
+            ("ADD STAIRS", "stairs"), ("ADD SPAWN", "spawn"), ("ADD ITEM", "item"),
+            ("ADD JUMP PAD", "jump")
         })
         {
             if (Button(frame, size, input, new(10, row, LeftWidth - 20, 18), label)) action = command;
@@ -150,7 +163,14 @@ public sealed class ImmediateEditorUi
                     $"TEAM {selectedEntity.Team} - CHANGE")) action = "team-next";
         }
         Text(frame, size, inspectorX, 348, "WASD FLY  RMB LOOK  F FRAME", Muted, 1);
-        Text(frame, size, inspectorX, 364, "W/E/R MODE  ARROWS TRANSFORM", Muted, 1);
+        (string Label, string Command)[] transformButtons =
+        [
+            ("MOVE G", "tool-move"), ("ROTATE R", "tool-rotate"),
+            ("SCALE X", "tool-scale")
+        ];
+        for (int index = 0; index < transformButtons.Length; index++)
+            if (Button(frame, size, input, new(inspectorX + index * 80, 364, 74, 20),
+                transformButtons[index].Label)) action = transformButtons[index].Command;
         Text(frame, size, inspectorX, 390, "OVERLAYS", Accent, 1);
         bool showCollision = authoring?.Editor.ShowCollision == true;
         bool showEntities = authoring?.Editor.ShowEntities == true;
@@ -161,8 +181,10 @@ public sealed class ImmediateEditorUi
             showEntities ? "ENTITIES ON" : "ENTITIES OFF")) action = "toggle-entities";
         if (Button(frame, size, input, new(inspectorX, 462, RightWidth - 28, 22),
             showBounds ? "WORLD BOUNDS ON" : "WORLD BOUNDS OFF")) action = "toggle-bounds";
-        if (Button(frame, size, input, new(inspectorX, 496, RightWidth - 28, 24),
-            "SET + GENERATE PREVIEW")) action = "preview";
+        if (Button(frame, size, input, new(inspectorX, 496, 115, 24),
+            "MAKE PREVIEW")) action = "preview";
+        if (Button(frame, size, input, new(inspectorX + 121, 496, 115, 24),
+            "CLEAR PREVIEW")) action = "clear-preview";
         Text(frame, size, inspectorX, 530, "GAMEPLAY ENTITIES", Accent, 1);
         (string Label, string Command)[] entityButtons =
         [
@@ -239,6 +261,8 @@ public sealed class ImmediateEditorUi
                 $"WORLD {width:0.#} X {height:0.#} X {depth:0.#}", TextColor, 1);
         }
         Text(frame, size, LeftWidth + 12, size.Y - 20, status.ToUpperInvariant(), Muted, 1);
+        Text(frame, size, LeftWidth + 12, MenuHeight + 12,
+            "RMB LOOK  WASD/QE FLY  F FRAME  CLICK TO SELECT", TextColor, 1);
         return action;
     }
 

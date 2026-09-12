@@ -98,6 +98,26 @@ public sealed class EditorCamera
         Position = center - Forward * radius * 2.2f;
     }
 
+    /// <summary>
+    /// Returns the point where the center of the perspective view meets the
+    /// authoring ground plane. New objects use this instead of appearing at a
+    /// fixed distance near the camera, which can put them outside the arena.
+    /// </summary>
+    public Vector3 GroundPlacement(float groundY = 0)
+    {
+        if (Mode != EditorViewMode.Perspective)
+            return new Vector3(_focus.X, groundY, _focus.Z);
+
+        Vector3 forward = Forward;
+        float distance = MathF.Abs(forward.Y) > 0.0001f
+            ? (groundY - Position.Y) / forward.Y : -1;
+        if (!float.IsFinite(distance) || distance < 2 || distance > 100)
+            distance = 8;
+        Vector3 result = Position + forward * distance;
+        result.Y = groundY;
+        return result;
+    }
+
     public void SetMode(EditorViewMode mode)
     {
         Mode = mode;

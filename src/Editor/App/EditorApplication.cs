@@ -105,8 +105,13 @@ public sealed class EditorApplication
             case "play-solo": Play(bots: false); break;
             case "play-bots": Play(bots: true); break;
             case "preview": GeneratePreview(); break;
+            case "clear-preview": ClearPreview(); break;
             case "undo": _document.Undo(); Validate(); break;
             case "redo": _document.Redo(); Validate(); break;
+            case "delete": DeleteSelected(); break;
+            case "tool-move": _transformMode = TransformMode.Move; break;
+            case "tool-rotate": _transformMode = TransformMode.Rotate; break;
+            case "tool-scale": _transformMode = TransformMode.Scale; break;
             case "box": AddBrush(MapPrimitiveKind.Box); break;
             case "wedge": AddBrush(MapPrimitiveKind.Wedge); break;
             case "cylinder": AddBrush(MapPrimitiveKind.Cylinder); break;
@@ -174,26 +179,30 @@ public sealed class EditorApplication
 
     private void HandleKeyboard(RenderSurfaceInput input)
     {
-        if (input.Pressed(RenderSurfaceKey.Delete) && _document.SelectedObjectId is { } selected)
-        {
-            _document.Execute(new DeleteObjectCommand(_document, selected));
-            _document.SelectedObjectId = null;
-            Validate();
-        }
+        if (input.Pressed(RenderSurfaceKey.Delete)) DeleteSelected();
         if (input.Down(RenderSurfaceKey.LeftControl) || input.Down(RenderSurfaceKey.RightControl))
         {
             if (input.Pressed(RenderSurfaceKey.Z)) { _document.Undo(); Validate(); }
             if (input.Pressed(RenderSurfaceKey.Y)) { _document.Redo(); Validate(); }
         }
-        if (input.Pressed(RenderSurfaceKey.W)) _transformMode = TransformMode.Move;
-        if (input.Pressed(RenderSurfaceKey.E)) _transformMode = TransformMode.Rotate;
-        if (input.Pressed(RenderSurfaceKey.R)) _transformMode = TransformMode.Scale;
+        // Keep edit-mode shortcuts disjoint from WASD/QE camera movement.
+        if (input.Pressed(RenderSurfaceKey.G)) _transformMode = TransformMode.Move;
+        if (input.Pressed(RenderSurfaceKey.R)) _transformMode = TransformMode.Rotate;
+        if (input.Pressed(RenderSurfaceKey.X)) _transformMode = TransformMode.Scale;
         Vector3 delta = Vector3.Zero;
         if (input.Pressed(RenderSurfaceKey.Left)) delta.X--;
         if (input.Pressed(RenderSurfaceKey.Right)) delta.X++;
         if (input.Pressed(RenderSurfaceKey.Up)) delta.Z--;
         if (input.Pressed(RenderSurfaceKey.Down)) delta.Z++;
         if (delta != Vector3.Zero) TransformSelected(delta);
+    }
+
+    private void DeleteSelected()
+    {
+        if (_document.SelectedObjectId is not { } selected) return;
+        _document.Execute(new DeleteObjectCommand(_document, selected));
+        _document.SelectedObjectId = null;
+        Validate();
     }
 
     private void TransformSelected(Vector3 delta)
@@ -401,10 +410,18 @@ public sealed class EditorApplication
             MapPrimitiveKind.Stairs => ConvexBrushFactory.Stairs(id, "material.default", new(4, 3, 6)),
             _ => [ConvexBrushFactory.Box(id, "material.default", new(3, 2, 3))]
         };
+        MapAuthoringScene scene = _document.Project.Authoring!;
+        Vector3 desired = Snap(_viewport.Camera.GroundPlacement(), scene.Editor.PositionSnap);
+        Vector3 anchor = FindOpenPlacement(desired, scene.Brushes
+            .Where(brush => brush.Id != "brush.floor")
+            .Select(brush => ToVector(brush.Transform.Position)),
+            kind == MapPrimitiveKind.Stairs ? 5 : 4);
+        float height = kind == MapPrimitiveKind.Stairs ? 1.5f : 1;
         foreach (ConvexBrush brush in brushes)
         {
-            brush.Transform.Position = [_viewport.Camera.Position.X + _viewport.Camera.Forward.X * 5,
-                1, _viewport.Camera.Position.Z + _viewport.Camera.Forward.Z * 5];
+            Vector3 local = ToVector(brush.Transform.Position);
+            brush.Transform.Position = [anchor.X + local.X, height + local.Y,
+                anchor.Z + local.Z];
             _document.Execute(new CreateBrushCommand(_document, brush));
             _document.SelectedObjectId = brush.Id;
         }
@@ -426,7 +443,12 @@ public sealed class EditorApplication
             MapEntityKind.NodeObjective => "node",
             _ => "entity"
         });
-        Vector3 location = _viewport.Camera.Position + _viewport.Camera.Forward * 5;
+        MapAuthoringScene scene = _document.Project.Authoring!;
+        Vector3 desired = Snap(_viewport.Camera.GroundPlacement(), scene.Editor.PositionSnap);
+        Vector3 location = FindOpenPlacement(desired,
+            scene.Entities.Select(entity => ToVector(entity.Transform.Position)), 2);
+        location.Y = kind is MapEntityKind.DamageVolume or MapEntityKind.KillVolume ? 0.5f
+            : kind == MapEntityKind.NodeObjective ? 1 : 0.1f;
         var entity = new MapEntityDefinition
         {
             Id = id, Kind = kind,
@@ -441,6 +463,46 @@ public sealed class EditorApplication
         _document.SelectedObjectId = id;
         Validate();
     }
+
+    private static Vector3 Snap(Vector3 value, float snap)
+    {
+        snap = float.IsFinite(snap) && snap > 0 ? snap : 1;
+        return new Vector3(MathF.Round(value.X / snap) * snap, value.Y,
+            MathF.Round(value.Z / snap) * snap);
+    }
+
+    internal static Vector3 FindOpenPlacement(Vector3 desired,
+        IEnumerable<Vector3> occupied, float spacing)
+    {
+        Vector3[] points = occupied.ToArray();
+        spacing = float.IsFinite(spacing) && spacing > 0 ? spacing : 1;
+        bool Available(Vector3 candidate) => points.All(point =>
+        {
+            float x = candidate.X - point.X, z = candidate.Z - point.Z;
+            return x * x + z * z >= spacing * spacing * 0.64f;
+        });
+        if (Available(desired)) return desired;
+        for (int radius = 1; radius <= 8; radius++)
+        {
+            for (int x = -radius; x <= radius; x++)
+            {
+                Vector3 near = desired + new Vector3(x * spacing, 0, -radius * spacing);
+                if (Available(near)) return near;
+                Vector3 far = desired + new Vector3(x * spacing, 0, radius * spacing);
+                if (Available(far)) return far;
+            }
+            for (int z = -radius + 1; z < radius; z++)
+            {
+                Vector3 left = desired + new Vector3(-radius * spacing, 0, z * spacing);
+                if (Available(left)) return left;
+                Vector3 right = desired + new Vector3(radius * spacing, 0, z * spacing);
+                if (Available(right)) return right;
+            }
+        }
+        return desired + new Vector3(spacing * 9, 0, 0);
+    }
+
+    private static Vector3 ToVector(float[] value) => new(value[0], value[1], value[2]);
 
     private string NextId(string prefix)
     {
@@ -609,7 +671,6 @@ public sealed class EditorApplication
                 Position = [position.X, position.Y, position.Z],
                 Target = [target.X, target.Y, target.Z]
             };
-            project.PreviewImage = "preview.png";
             if (project.Authoring != null)
             {
                 project.Authoring.Editor.CameraPosition = [position.X, position.Y, position.Z];
@@ -621,14 +682,36 @@ public sealed class EditorApplication
         _status = "CAPTURING PREVIEW";
     }
 
+    private void ClearPreview()
+    {
+        if (string.IsNullOrWhiteSpace(_document.Project.PreviewImage)) return;
+        _document.Execute(new ModifyPropertyCommand(_document, "Clear Preview", project =>
+            project.PreviewImage = null));
+        Validate();
+        _status = "PREVIEW REFERENCE CLEARED";
+    }
+
     private void DrainCaptures(SdlRenderSurface surface)
     {
         while (surface.TryDequeueCapture(out RenderCaptureResult? result))
         {
             if (result?.OutputName == null) continue;
-            RenderCapturePng.Write(result, result.OutputName);
-            _document.Save();
-            _status = $"PREVIEW SAVED {result.Width} X {result.Height}";
+            try
+            {
+                RenderCapturePng.Write(result, result.OutputName);
+                _document.Execute(new ModifyPropertyCommand(_document,
+                    "Set Preview Image", project => project.PreviewImage = "preview.png"));
+                _document.Save();
+                Validate();
+                _status = $"PREVIEW SAVED {result.Width} X {result.Height}";
+            }
+            catch (Exception exception)
+            {
+                Console.Error.WriteLine(exception);
+                _diagnostics = [new("MAP-PREVIEW-001", MapDiagnosticSeverity.Error,
+                    exception.Message)];
+                _status = "PREVIEW FAILED";
+            }
         }
         while (surface.TryDequeueCaptureFailure(out RenderCaptureFailure? failure))
         {

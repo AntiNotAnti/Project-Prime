@@ -161,14 +161,15 @@ public sealed class EditorViewport
     {
         var mesh = new LineMeshBuilder();
         Vector4 grid = new(0.18f, 0.23f, 0.28f, 1);
+        const float gridHeight = 0.02f;
         int extent = Math.Clamp((int)MathF.Ceiling(MathF.Max(
             MathF.Max(MathF.Abs(_min.X), MathF.Abs(_max.X)),
             MathF.Max(MathF.Abs(_min.Z), MathF.Abs(_max.Z)))) + 2, 8, 64);
         for (int value = -extent; value <= extent; value++)
         {
-            mesh.Line(new(-extent, 0, value), new(extent, 0, value),
+            mesh.Line(new(-extent, gridHeight, value), new(extent, gridHeight, value),
                 value == 0 ? new(0.5f, 0.2f, 0.2f, 1) : grid);
-            mesh.Line(new(value, 0, -extent), new(value, 0, extent),
+            mesh.Line(new(value, gridHeight, -extent), new(value, gridHeight, extent),
                 value == 0 ? new(0.2f, 0.35f, 0.65f, 1) : grid);
         }
         _gridMesh = mesh.Build();
@@ -293,7 +294,10 @@ public sealed class EditorViewport
         draw.CullingMode = CullingMode.Back;
         draw.Diffuse = Vector3.One;
         draw.Ambient = new Vector3(0.35f);
-        draw.Lighting = true;
+        // Authoring geometry supplies explicit diagnostic colours rather than
+        // room material/light bindings. Enabling legacy lighting here feeds
+        // the shader an empty per-draw LightInfo and renders the mesh black.
+        draw.Lighting = false;
         draw.Alpha = 1;
         frame.Add(draw);
     }
