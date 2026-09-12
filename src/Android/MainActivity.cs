@@ -1166,6 +1166,7 @@ namespace MphRead.Droid
             // match is over rather than left believing it already answered.
             AndroidApp.Home?.Activate();
             AndroidApp.Home?.Reset();
+            ClientOnlineRuntime.Current?.ReleaseMatch(dispose: true);
             NetSession.Stop();
             // A replay feeds NetSession from a file rather than a socket, so
             // stopping the session is not what closes it.

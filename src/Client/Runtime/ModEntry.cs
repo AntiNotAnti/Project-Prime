@@ -83,7 +83,8 @@ namespace MphRead.Mods
             // on for a single run without the setting, for the case where the
             // launcher itself is what will not start.
             Launcher.LauncherPrefs.Load();
-            Accounts.AccountSessions.ConfigurePlatformStore();
+            Accounts.AccountSessions.UseSecureStore(
+                Accounts.SecureSessionStoreFactory.CreateDefault());
             // Pictures of the launcher's own screens are intentionally handled
             // after the input and launcher preferences are initialized but
             // before Program.CheckSetup. A fresh checkout has no paths.txt,
@@ -402,8 +403,14 @@ namespace MphRead.Mods
                 MapGen.MapProject project = MapGen.MapProjectIO.Load(path);
                 MapGen.CustomRooms.MapDirectory = System.IO.Path.GetDirectoryName(path)!;
                 MapGen.CustomRooms.RefreshAsync().AsTask().GetAwaiter().GetResult();
-                MapGen.MapPreparation.CompileAndMountAsync(project, "editor-playtest",
-                    System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+                MapGen.RoomContentPreparationResult preparation =
+                    MapGen.MapPreparation.PrepareRoomAsync(
+                        new MapGen.RoomContentRequest(project.Map.Name, null,
+                            MapGen.GameplayContentIdentity.Tool("editor-playtest"),
+                            MapGen.RoomContentPurpose.EditorPlaytest),
+                        System.Threading.CancellationToken.None)
+                    .GetAwaiter().GetResult();
+                MapGen.MapPreparation.RequirePreparedRoom(preparation);
                 try
                 {
                     Network.MapAudit.ShowWindow = true;

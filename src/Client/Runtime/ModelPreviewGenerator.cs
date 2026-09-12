@@ -311,6 +311,7 @@ internal static class ModelPreviewGenerator
 }
 
 /// <summary>Renderer-worker lifecycle for one actual local game model.</summary>
+#if CLIENT_DESKTOP_HOST
 internal sealed class ModelPreviewCapture : IRenderToolClient
 {
     private readonly IRenderToolHost _host;
@@ -444,4 +445,5 @@ internal sealed class ModelPreviewCapture : IRenderToolClient
         }
     }
 }
+#endif
 #endif

@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net10.0;net10.0-android36.0</TargetFrameworks>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <!-- A desktop publish passes its RID to every project in the restore graph.
+         Do not evaluate the Android TFM with a desktop RID: that makes the
+         Android SDK request a nonexistent Mono desktop runtime pack. -->
+    <TargetFrameworks Condition="'$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('android'))">net10.0;net10.0-android36.0</TargetFrameworks>
     <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-android'))">24</SupportedOSPlatformVersion>
     <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
     <RootNamespace>MphRead</RootNamespace>

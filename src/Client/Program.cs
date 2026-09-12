@@ -121,22 +121,37 @@ namespace MphRead
                         Console.Error.WriteLine("Room inspection supports multiplayer rooms only. Use -export for campaign room assets.");
                         Exit();
                     }
+                    Mods.MapGen.RoomContentPreparationResult preparation =
+                        Mods.MapGen.MapPreparation.PrepareRoomAsync(
+                            new Mods.MapGen.RoomContentRequest(room, null,
+                                Mods.MapGen.GameplayContentIdentity.Tool("room-inspection"),
+                                Mods.MapGen.RoomContentPurpose.Inspection),
+                            System.Threading.CancellationToken.None)
+                        .GetAwaiter().GetResult();
+                    Mods.MapGen.MapPreparation.RequirePreparedRoom(preparation);
                 }
                 bool firstHunt = arguments.Any(a => a.Name == "fh");
                 var scene = new Scene(features: ClientMatchFeatures.Capture());
                 using var sdlHost = new SdlGameHost();
-                sdlHost.RunScene(scene, presentation =>
+                try
                 {
-                    foreach (string room in rooms)
+                    sdlHost.RunScene(scene, presentation =>
                     {
-                        // No player is created: this is the existing free-camera asset viewer.
-                        presentation.AddRoom(room, GameMode.Battle, 0, nodeLayerMask, entityLayerId);
-                    }
-                    foreach ((string model, int recolor) in models)
-                    {
-                        presentation.AddModel(model, recolor, firstHunt);
-                    }
-                });
+                        foreach (string room in rooms)
+                        {
+                            // No player is created: this is the existing free-camera asset viewer.
+                            presentation.AddRoom(room, GameMode.Battle, 0, nodeLayerMask, entityLayerId);
+                        }
+                        foreach ((string model, int recolor) in models)
+                        {
+                            presentation.AddModel(model, recolor, firstHunt);
+                        }
+                    });
+                }
+                finally
+                {
+                    ContentEnvironment.UnmountMap();
+                }
             }
         }
 

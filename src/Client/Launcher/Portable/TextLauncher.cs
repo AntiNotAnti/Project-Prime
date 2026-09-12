@@ -20,7 +20,8 @@ namespace MphRead.Mods.Launcher
         public static void Run()
         {
             LauncherPrefs.Load();
-            AccountSessions.ConfigurePlatformStore();
+            AccountSessions.UseSecureStore(
+                SecureSessionStoreFactory.CreateDefault());
             if (LauncherPrefs.UpdatePolicy != UpdatePolicy.Off && Update.Updater.Configured)
             {
                 // Started in the background and then waited on briefly. This
@@ -39,7 +40,7 @@ namespace MphRead.Mods.Launcher
                 GameFiles.ApplyPaths();
                 // A map added after the install was set up has no picture and
                 // no sweep coming to give it one.
-                Mods.ThumbnailGenerator.EnsureCustomPreviews();
+                Mods.DesktopThumbnailGenerator.EnsureCustomPreviews();
             }
             IReadOnlyList<string> rooms = Array.Empty<string>();
 

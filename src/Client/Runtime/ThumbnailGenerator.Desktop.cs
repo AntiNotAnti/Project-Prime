@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 namespace MphRead.Mods
 {
- public static partial class ThumbnailGenerator
+ internal static class DesktopThumbnailGenerator
  {
         public static void EnsureCustomPreviews(Action<string>? report = null)
         {
@@ -15,7 +15,7 @@ namespace MphRead.Mods
             try
             {
                 var custom = MapGen.CustomRooms.Definitions.Select(d => d.Name).ToHashSet();
-                missing = MissingThumbnails().Where(r => custom.Contains(r)).ToList();
+                missing = ThumbnailGenerator.MissingThumbnails().Where(r => custom.Contains(r)).ToList();
             }
             catch
             {
@@ -30,7 +30,7 @@ namespace MphRead.Mods
             try
             {
                 ThumbnailBatch.Run(missing, ThumbnailBatch.DefaultParallelism,
-                    ThumbnailWidth, ThumbnailHeight, report);
+                    ThumbnailGenerator.ThumbnailWidth, ThumbnailGenerator.ThumbnailHeight, report);
             }
             catch (Exception ex)
             {

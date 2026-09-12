@@ -23,22 +23,24 @@ namespace MphRead.Mods.Launcher
             SdlGameHost? host = null, ulong transitionGeneration = 0,
             Action<ulong>? firstFramePresented = null,
             Action<MatchLoadStatus>? progress = null,
-            Action<ulong>? windowPrepared = null)
+            Action<ulong>? windowPrepared = null,
+            ClientOnlineRuntime? onlineRuntime = null)
         {
             SdlGameHost? ownedHost = null;
             bool persistentHost = host != null;
             bool didStart = false;
             MatchResultsSnapshot? results = null;
             MatchResultsPresentationResult? presentationResult = null;
-            var play = AuthoritativePlay.Current;
-            Guid? matchId = play?.NodeMatchId ?? NodeSessions.Current?.State.JoinedMatchId;
+            ClientOnlineRuntime? runtime = onlineRuntime ?? ClientOnlineRuntime.Current;
+            AuthoritativePlay? play = runtime?.Match?.Play;
+            Guid? matchId = play?.NodeMatchId ?? runtime?.Node?.State.JoinedMatchId;
             try
             {
                 progress?.Invoke(new(MatchTransitionStage.Preparing,
                     "Validating the match request."));
                 host ??= ownedHost = new SdlGameHost(showWindow: false);
                 if (host.CloseRequested) return new MatchRunResult(MatchExitReason.QuitApplication, matchId);
-                RunCore(settings, plan, host, () => { didStart = true; started?.Invoke(); }, (value, pump) =>
+                RunCore(settings, plan, host, () => { didStart = true; started?.Invoke(); }, runtime, (value, pump) =>
                 {
                     results = value;
                     // Present over the still-live SDL scene before shell return.
@@ -78,7 +80,8 @@ namespace MphRead.Mods.Launcher
             finally { ownedHost?.Dispose(); }
         }
 
-        private static void RunCore(MenuSettings settings, LaunchPlan plan, SdlGameHost host, Action started,
+        private static void RunCore(MenuSettings settings, LaunchPlan plan, SdlGameHost host,
+            Action started, ClientOnlineRuntime? runtime,
             Action<MatchResultsSnapshot?, Func<bool>> capture,
             SceneExitPresentation exitPresentation, ulong transitionGeneration,
             Action<ulong>? firstFramePresented, Action<MatchLoadStatus>? progress,
@@ -87,7 +90,7 @@ namespace MphRead.Mods.Launcher
             progress?.Invoke(new(MatchTransitionStage.Connecting,
                 "Confirming the assigned gameplay session."));
             plan.Validate();
-            if (plan.Kind != LaunchKind.Replay && AuthoritativePlay.Current == null)
+            if (plan.Kind != LaunchKind.Replay && runtime?.Match?.Play == null)
             {
                 throw new InvalidOperationException("Join an authoritative server before starting a match.");
             }
@@ -118,17 +121,22 @@ namespace MphRead.Mods.Launcher
                     ?? throw new InvalidOperationException("The server has not provided a match room.");
                 progress?.Invoke(new(MatchTransitionStage.LoadingArena,
                     "Preparing the selected arena.", room.RoomKey));
-                MapGen.MapPreparation.CompileAndMountRoomAsync(room.RoomKey,
-                    gameplayIdentity: NetHeader.Version.ToString(), CancellationToken.None)
+                MapRequirement? requiredMap = runtime?.Node?.Round?.Lobby.RequiredMap
+                    ?? runtime?.Node?.Lobby?.RequiredMap;
+                RoomContentPreparationResult preparation =
+                    MapGen.MapPreparation.PrepareRoomAsync(new RoomContentRequest(
+                        room.RoomKey, requiredMap?.ToRoomContentRequirement(),
+                        GameplayContentIdentity.Current(
+                            BuildIdentity.Display, NetHeader.Version),
+                        RoomContentPurpose.Match), CancellationToken.None)
                     .GetAwaiter().GetResult();
-                string? unplayable = MapGen.CustomRooms.WhyUnplayable(room.RoomKey);
-                if (unplayable != null)
-                {
-                    throw new InvalidOperationException(unplayable);
-                }
+                MapGen.MapPreparation.RequirePreparedRoom(preparation);
                 settings.RoomKey = room.RoomKey;
                 var scene = new Scene(features: ClientMatchFeatures.Capture());
                 var sdlHost = host;
+                AuthoritativePlay? play = runtime?.Match?.Play;
+                ClientSceneServices? sceneServices = runtime?.Match is { } match
+                    ? new ClientSceneServices(match, runtime.Node) : null;
                 sdlHost.RunScene(scene, presentation =>
                 {
                     progress?.Invoke(new(MatchTransitionStage.PreparingPlayers,
@@ -141,10 +149,10 @@ namespace MphRead.Mods.Launcher
                         playerCount: NetLaunch.RoomPlayerCount);
                     progress?.Invoke(new(MatchTransitionStage.Finalizing,
                         "Finalizing scene presentation.", room.RoomKey));
-                }, () => capture(CaptureResults(room.RoomKey, room.Mode, scene.Match.Result, AuthoritativePlay.Current), sdlHost.PumpResultsEvents), started,
-                    () => AuthoritativePlay.Current?.PumpSceneCompletion(scene, sdlHost) == true,
+                }, () => capture(CaptureResults(room.RoomKey, room.Mode, scene.Match.Result, play, runtime?.Node), sdlHost.PumpResultsEvents), started,
+                    () => play != null && AuthoritativePlayDesktop.PumpSceneCompletion(play, scene, sdlHost),
                     exitPresentation, transitionGeneration, firstFramePresented,
-                    windowPrepared);
+                    windowPrepared, sceneServices);
             }
             finally
             {
@@ -155,11 +163,11 @@ namespace MphRead.Mods.Launcher
         }
 
         private static MatchResultsSnapshot? CaptureResults(string mapKey, GameMode mode,
-            MatchResult? replicated, AuthoritativePlay? play)
+            MatchResult? replicated, AuthoritativePlay? play, NodeControlClient? node)
         {
             if (replicated != null) return new(mapKey, mode, replicated);
             if (play?.CompletionSummary is not { } completion) return null;
-            NodeSessionSnapshot? session = NodeSessions.Current?.Session;
+            NodeSessionSnapshot? session = node?.Session;
             PlayerId? playerId = session?.PlayerId is Guid id ? new PlayerId(id) : null;
             return new(mapKey, mode, null, completion, playerId, session?.GuestSessionId);
         }
@@ -184,6 +192,20 @@ namespace MphRead.Mods.Launcher
                 }
                 progress?.Invoke(new(MatchTransitionStage.LoadingArena,
                     "Loading the recorded arena.", room.Value.RoomKey));
+                ReplayMapIdentity? replayMap = ReplayPlayback.MapIdentity;
+                if (replayMap != null && !replayMap.RoomKey.Equals(
+                    room.Value.RoomKey, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        "MAP-RUN-008: Replay map identity does not match its recorded room.");
+                RoomContentPreparationResult preparation =
+                    MapGen.MapPreparation.PrepareRoomAsync(new RoomContentRequest(
+                        room.Value.RoomKey,
+                        replayMap?.ToRoomContentRequirement(),
+                        GameplayContentIdentity.Current(
+                            BuildIdentity.Display, NetHeader.Version),
+                        RoomContentPurpose.Replay), CancellationToken.None)
+                    .GetAwaiter().GetResult();
+                MapGen.MapPreparation.RequirePreparedRoom(preparation);
                 var scene = new Scene(features: ClientMatchFeatures.Capture());
                 var sdlHost = host;
                 sdlHost.RunScene(scene, presentation =>

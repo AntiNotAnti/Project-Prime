@@ -267,8 +267,14 @@ namespace MphRead.Mods
             try
             {
                 ThumbnailMode.Enter();
-                MapGen.MapPreparation.CompileAndMountRoomAsync(roomKey, "thumbnail",
-                    System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+                MapGen.RoomContentPreparationResult preparation =
+                    MapGen.MapPreparation.PrepareRoomAsync(
+                        new MapGen.RoomContentRequest(roomKey, null,
+                            MapGen.GameplayContentIdentity.Tool("thumbnail"),
+                            MapGen.RoomContentPurpose.Thumbnail),
+                        System.Threading.CancellationToken.None)
+                    .GetAwaiter().GetResult();
+                MapGen.MapPreparation.RequirePreparedRoom(preparation);
                 // Each capture owns its player roster and fresh random streams.
 
 
