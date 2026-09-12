@@ -28,6 +28,59 @@ public sealed class ReticlePositionTests
             (float)w, new Vector2((float)x, (float)y)));
     }
 
+    [Fact]
+    public void DynamicReticleUsesNearlyTheFullViewportWithSmoothEdgeSaturation()
+    {
+        Assert.Equal(new Vector2(0.5f, 0.5f),
+            PlayerPresentation.ExpandDynamicReticleRange(new Vector2(0.5f)));
+
+        Vector2 expanded = PlayerPresentation.ExpandDynamicReticleRange(
+            new Vector2(0.75f, 0.25f));
+        Assert.InRange(expanded.X, 0.89f, 0.90f);
+        Assert.InRange(expanded.Y, 0.10f, 0.11f);
+
+        Vector2 edges = PlayerPresentation.ExpandDynamicReticleRange(
+            new Vector2(0, 1));
+        Assert.InRange(edges.X, 0.02f, 0.04f);
+        Assert.InRange(edges.Y, 0.96f, 0.98f);
+        Assert.Equal(1, edges.X + edges.Y, 5);
+    }
+
+    [Fact]
+    public void DynamicReticleFollowsAimQuicklyButReturnsToCenterGently()
+    {
+        var center = new Vector2(0.5f);
+        var displaced = new Vector2(0.9f, 0.5f);
+
+        Vector2 outward = PlayerPresentation.SmoothDynamicReticlePosition(
+            center, displaced, 1f / 60);
+        Vector2 returning = PlayerPresentation.SmoothDynamicReticlePosition(
+            displaced, center, 1f / 60);
+
+        Assert.True(outward.X - center.X > displaced.X - returning.X);
+        Assert.InRange(outward.X, 0.64f, 0.66f);
+        Assert.InRange(returning.X, 0.86f, 0.88f);
+    }
+
+    [Fact]
+    public void DynamicReticleSmoothingIsRefreshRateIndependent()
+    {
+        var center = new Vector2(0.5f);
+        var displaced = new Vector2(0.9f, 0.5f);
+        Vector2 at60Hz = displaced;
+        Vector2 at144Hz = displaced;
+
+        for (int i = 0; i < 30; i++)
+            at60Hz = PlayerPresentation.SmoothDynamicReticlePosition(
+                at60Hz, center, 1f / 60);
+        for (int i = 0; i < 72; i++)
+            at144Hz = PlayerPresentation.SmoothDynamicReticlePosition(
+                at144Hz, center, 1f / 144);
+
+        Assert.Equal(at60Hz.X, at144Hz.X, 5);
+        Assert.Equal(at60Hz.Y, at144Hz.Y, 5);
+    }
+
     [Theory]
     [InlineData(0, 0, -1, 1)]
     [InlineData(0.5, 0.5, 0, 0)]

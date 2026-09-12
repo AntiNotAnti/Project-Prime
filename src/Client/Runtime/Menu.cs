@@ -41,7 +41,7 @@ namespace MphRead
         private static decimal _timeGoal = 0;
         private static decimal _timeLimit = 0;
         private static bool _octolithReset = true;
-        private static bool _radarPlayers = false;
+        private static bool _radarPlayers = true;
         private static int _damageLevel = 1;
         private static bool _friendlyFire = false;
         private static bool _affinityWeapons = false;
@@ -238,7 +238,7 @@ namespace MphRead
                     {
                         if (selection == s - 1)
                         {
-                            _radarPlayers = false;
+                            _radarPlayers = true;
                             _damageLevel = 1;
                             _friendlyFire = false;
                             _affinityWeapons = false;
@@ -319,7 +319,7 @@ namespace MphRead
                         }
                         else if (selection == 4)
                         {
-                            _radarPlayers = false;
+                            _radarPlayers = true;
                         }
                         else if (selection == 5)
                         {

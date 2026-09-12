@@ -23,6 +23,7 @@ namespace MphRead
         public string SfxVolume { get; set; } = "0.35";
         public string MusicVolume { get; set; } = "0.50";
         public string ResolutionScale { get; set; } = "100";
+        public string FieldOfView { get; set; } = "78";
         public string Lighting { get; set; } = "on";
         public string Fog { get; set; } = "on";
         // New quality keys are nullable so a settings file written before
@@ -50,6 +51,9 @@ namespace MphRead
         public string RadarScale { get; set; } = "1.0";
         public string RadarOffsetX { get; set; } = "0";
         public string RadarOffsetY { get; set; } = "0";
+        public string RadarRange { get; set; } = "40";
+        public string RadarOpacity { get; set; } = "1.0";
+        public string RadarElevationIndicators { get; set; } = "on";
         public string ShowFps { get; set; } = "off";
         public string FrameRateCap { get; set; } = "display";
         public string CelShading { get; set; } = "off";
@@ -60,7 +64,7 @@ namespace MphRead
         public string TimeGoal { get; set; } = "1:30";
         public string AutoReset { get; set; } = "on";
         public string TeamPlay { get; set; } = "off";
-        public string HunterRadar { get; set; } = "off";
+        public string HunterRadar { get; set; } = "on";
         public string DamageLevel { get; set; } = "medium";
         public string FriendlyFire { get; set; } = "off";
         public string AffinityWeapons { get; set; } = "off";

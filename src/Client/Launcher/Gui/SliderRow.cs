@@ -135,12 +135,20 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         internal bool CanStartDrag(Point point)
-            => IsEnabled && Track.Contains(point);
+        {
+            Rect track = Track;
+            // Keep the visual track compact, but let the whole touch-sized
+            // row act as its vertical hit lane. The label and value gutter
+            // remain excluded horizontally so a tap on either cannot jump
+            // the slider to an accidental endpoint.
+            return IsEnabled && track.Width > 0
+                && new Rect(track.X, 0, track.Width, Bounds.Height).Contains(point);
+        }
 
         protected override void OnPointerMoved(PointerEventArgs e)
         {
             Point p = e.GetPosition(this);
-            bool hot = p.X >= Track.X;
+            bool hot = CanStartDrag(p);
             if (hot != _hot)
             {
                 _hot = hot;

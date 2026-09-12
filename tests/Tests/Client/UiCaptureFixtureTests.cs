@@ -75,7 +75,7 @@ public sealed class UiCaptureFixtureTests
         "results-ffa", "results-team", "results-ballot", "results-voted", "results-resolved",
         "results-no-authoritative-result",
         "settings-shell-route", "settings-gameplay", "settings-controls",
-        "controls-gamepad", "controls-mobile",
+        "controls-gamepad", "controls-stylus", "controls-mobile",
         "settings-graphics", "settings-audio",
         "settings-system", "settings-network", "settings-accessibility", "settings-about",
         "settings-pro-hud-off", "settings-pro-hud-on", "settings-radar-custom",
@@ -91,7 +91,8 @@ public sealed class UiCaptureFixtureTests
 
     private static readonly string[] SettingsFixtureNames =
     {
-        "settings-gameplay", "settings-controls", "controls-gamepad", "controls-mobile",
+        "settings-gameplay", "settings-controls", "controls-gamepad", "controls-stylus",
+        "controls-mobile",
         "settings-graphics", "settings-audio",
         "settings-system", "settings-network", "settings-accessibility", "settings-about",
         "settings-pro-hud-off", "settings-pro-hud-on", "settings-radar-custom",
@@ -115,7 +116,7 @@ public sealed class UiCaptureFixtureTests
             UiCapture.PlannedButUnavailableFixtures.ToArray());
         Assert.Empty(RequiredFixtureNames.Intersect(UnavailableFixtureNames,
             StringComparer.OrdinalIgnoreCase));
-        Assert.Equal(94, RequiredFixtureNames.Length + UnavailableFixtureNames.Length);
+        Assert.Equal(95, RequiredFixtureNames.Length + UnavailableFixtureNames.Length);
         Assert.Equal(RequiredFixtureNames.Length * sizes.Length,
             UiCapture.FixtureDefinitions.Count * sizes.Length);
         Assert.Equal(UiCapture.FixtureDefinitions.Count,
@@ -626,7 +627,7 @@ public sealed class UiCaptureFixtureTests
         try
         {
             desktopWindow.Show();
-            Assert.Equal(new[] { "Mouse & Keyboard", "Gamepad" },
+            Assert.Equal(new[] { "Mouse & Keyboard", "Gamepad", "Stylus" },
                 desktop.ControlsTabNames.ToArray());
             Assert.Equal(new[] { "Gamepad" },
                 desktop.VisibleControlsTabNames.ToArray());
@@ -891,7 +892,7 @@ public sealed class UiCaptureFixtureTests
             window.Show();
             view.ShowSection("Controls");
 
-            Assert.Equal(new[] { "Mouse & Keyboard", "Gamepad" },
+            Assert.Equal(new[] { "Mouse & Keyboard", "Gamepad", "Stylus" },
                 view.ControlsTabNames.ToArray());
             Assert.Equal(new[] { "Mouse & Keyboard" },
                 view.VisibleControlsTabNames.ToArray());
@@ -910,6 +911,10 @@ public sealed class UiCaptureFixtureTests
                 view.VisibleControlsTabNames.ToArray());
             view.ShowControlsTab("Gamepad");
             Assert.Equal(editedValue, horizontal.Value);
+
+            view.ShowControlsTab("Stylus");
+            Assert.Equal(new[] { "Stylus" }, view.VisibleControlsTabNames.ToArray());
+            Assert.Contains(SettingRowIds.StylusAiming, view.RenderedRowIds);
         }
         finally
         {

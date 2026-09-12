@@ -96,7 +96,8 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly SettingsIdentityContext _identity;
         private readonly bool _embedActionBar;
         private readonly InputSettings.Snapshot _inputSnapshot;
-        private bool _inputSnapshotCompleted;
+        private readonly int _fieldOfViewSnapshot;
+        private bool _draftSnapshotCompleted;
         private bool _closed;
         private bool _observingControllerCapabilities;
         private bool _disposed;
@@ -143,6 +144,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private ChoiceRow? _windowRow;
         private SliderRow _resolutionScale = null!;
+        private SliderRow _fieldOfView = null!;
         private ToggleRow _lightingRow = null!;
         private ToggleRow _fogRow = null!;
         private ChoiceRow _graphicsPresetRow = null!;
@@ -159,6 +161,8 @@ namespace MphRead.Mods.Launcher.Gui
         private ChoiceRow _hitMarkerRow = null!, _radarStyleRow = null!, _radarOrientationRow = null!;
         private ChoiceRow _radarPositionRow = null!;
         private SliderRow _radarScaleRow = null!, _radarOffsetXRow = null!, _radarOffsetYRow = null!;
+        private SliderRow _radarRangeRow = null!, _radarOpacityRow = null!;
+        private ToggleRow _radarElevationRow = null!;
         private ToggleRow _headshotCueRow = null!, _killConfirmationRow = null!, _killcamRow = null!;
 
         /// <summary>
@@ -217,7 +221,7 @@ namespace MphRead.Mods.Launcher.Gui
         private SliderRow _fpsLimitRow = null!;
         private ToggleRow _proHud = null!;
         private ChoiceRow _proHudWeaponRow = null!;
-        private SliderRow _reticleOpacity = null!;
+        private SliderRow _reticleOpacity = null!, _reticleScale = null!;
         private ChoiceRow _hitMarkerTimingRow = null!;
         private ChoiceRow _crosshairSizeRow = null!;
         private ChoiceRow _crosshairStyleRow = null!;
@@ -377,7 +381,8 @@ namespace MphRead.Mods.Launcher.Gui
             _identity = identity ?? SettingsIdentityContext.SignedOut;
             _embedActionBar = embedActionBar;
             _inputSnapshot = InputSettings.CaptureSnapshot();
-            DetachedFromVisualTree += (_, _) => CompleteInputSnapshot();
+            _fieldOfViewSnapshot = RenderOptions.FieldOfView;
+            DetachedFromVisualTree += (_, _) => CompleteDraftSnapshot();
 
             Background = GuiTheme.InkBrush;
             Focusable = true;
@@ -629,7 +634,7 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             _disposed = true;
-            CompleteInputSnapshot();
+            CompleteDraftSnapshot();
             UnsubscribeControllerCapabilities();
             if (_observingUpdates)
             {
@@ -653,7 +658,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (_closed) return;
             _closed = true;
-            CompleteInputSnapshot();
+            CompleteDraftSnapshot();
             Closed?.Invoke(this, EventArgs.Empty);
         }
 
@@ -674,14 +679,18 @@ namespace MphRead.Mods.Launcher.Gui
             }
         }
 
-        /// <summary>Cancel this draft and restore eager input mutations.</summary>
+        /// <summary>Cancel this draft and restore eager preview mutations.</summary>
         internal void Cancel() => Close();
 
-        private void CompleteInputSnapshot()
+        private void CompleteDraftSnapshot()
         {
-            if (_inputSnapshotCompleted) return;
-            if (!Saved) _inputSnapshot.Restore();
-            _inputSnapshotCompleted = true;
+            if (_draftSnapshotCompleted) return;
+            if (!Saved)
+            {
+                _inputSnapshot.Restore();
+                RenderOptions.FieldOfView = _fieldOfViewSnapshot;
+            }
+            _draftSnapshotCompleted = true;
         }
 
         /// <summary>Test seam for the rollback path used by Cancel and Escape.</summary>
@@ -805,7 +814,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static string SectionSubtitle(string name) => name switch
         {
             "Player" => "IDENTITY / HUNTER",
-            "Controls" => "MOUSE / PAD / KEYS",
+            "Controls" => "MOUSE / PAD / PEN / KEYS",
             "Graphics" => "DISPLAY / QUALITY / HUD",
             "Audio" => "MIX / PACKS / LANGUAGE",
             "System" => "UPDATES / FILES / LOGS",
@@ -831,7 +840,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static string SectionDescription(string name) => name switch
         {
             "Player" => "Configure your account or guest display name and preferred hunter. Online match rules belong to the lobby host.",
-            "Controls" => "Tune mouse, gamepad, touch and direct action bindings.",
+            "Controls" => "Tune mouse, gamepad, stylus, touch and direct action bindings.",
             "Graphics" => "Set the display path, render budget, visual quality and combat HUD.",
             "Audio" => "Balance the mix and select installed presentation content.",
             "System" => "Check updates, game-file readiness and local diagnostics.",
@@ -1005,6 +1014,20 @@ namespace MphRead.Mods.Launcher.Gui
                 Explain(page, "Window mode is managed by Android and cannot be changed here.");
             }
 
+            Heading(page, "View");
+            _fieldOfView = Add(page, new SliderRow("Field of view",
+                RenderOptions.FieldOfView,
+                v => v == RenderOptions.DefaultFieldOfView
+                    ? $"{v}° · Original" : $"{v}°",
+                min: RenderOptions.MinFieldOfView,
+                max: RenderOptions.MaxFieldOfView,
+                keyStep: 1), SettingRowIds.FieldOfView);
+            _fieldOfView.ValueChanged += (_, _) =>
+                RenderOptions.FieldOfView = _fieldOfView.Value;
+            Explain(page, "Vertical camera angle, previewed immediately. 78° is the "
+                + "original view. Weapon zoom keeps the same ratio; cutscenes and "
+                + "spectator cameras keep their authored values.");
+
             Heading(page, "Performance");
             _resolutionScale = Add(page, new SliderRow("Render scale",
                 Math.Max(RenderOptions.MinScale, RenderOptions.ResolutionScale),
@@ -1062,8 +1085,10 @@ namespace MphRead.Mods.Launcher.Gui
             // -nohelmet still sets two of them -- they simply are not asked
             // about here.
             Heading(page, "HUD");
-            _proHud = Add(page, new ToggleRow("Pro mode HUD", Features.ProHud), SettingRowIds.ProHud);
-            _proHudWeaponRow = Add(page, new ChoiceRow("Weapon", new[] { "Static", "Dynamic" },
+            _proHud = Add(page, new ToggleRow("Pro HUD", Features.ProHud), SettingRowIds.ProHud);
+            Explain(page, "A clean competitive layout with unobstructed vision, compact edge readouts, "
+                + "a high-contrast crosshair and an always-visible weapon column.");
+            _proHudWeaponRow = Add(page, new ChoiceRow("Weapon motion", new[] { "Static", "Dynamic" },
                 Features.ProHudFixedWeapon ? 0 : 1), SettingRowIds.ProHudWeapon);
             _hitMarkerRow = Add(page, new ChoiceRow("Hit markers", new[] { "Off", "Visual", "Visual + audio" }, (int)Combat.CombatFeedbackSettings.HitMarkers), SettingRowIds.HitMarkers);
             _hitMarkerTimingRow = Add(page, new ChoiceRow("Hit marker timing",
@@ -1085,6 +1110,19 @@ namespace MphRead.Mods.Launcher.Gui
             _radarOffsetYRow = Add(page, new SliderRow("Radar vertical offset",
                 (int)Math.Round(global::MphRead.Hud.Radar.RadarSettings.OffsetY),
                 v => v.ToString(CultureInfo.InvariantCulture), min: -192, max: 192, keyStep: 8), SettingRowIds.RadarOffsetY);
+            _radarRangeRow = Add(page, new SliderRow("Radar range",
+                (int)Math.Round(global::MphRead.Hud.Radar.RadarSettings.Range),
+                v => v.ToString(CultureInfo.InvariantCulture) + " m",
+                min: (int)global::MphRead.Hud.Radar.RadarSettings.MinimumRange,
+                max: (int)global::MphRead.Hud.Radar.RadarSettings.MaximumRange,
+                keyStep: 5), SettingRowIds.RadarRange);
+            _radarOpacityRow = Add(page, new SliderRow("Radar opacity",
+                (int)Math.Round(global::MphRead.Hud.Radar.RadarSettings.Opacity * 100),
+                v => v.ToString(CultureInfo.InvariantCulture) + "%",
+                min: (int)(global::MphRead.Hud.Radar.RadarSettings.MinimumOpacity * 100),
+                max: 100, keyStep: 5), SettingRowIds.RadarOpacity);
+            _radarElevationRow = Add(page, new ToggleRow("Elevation markers",
+                global::MphRead.Hud.Radar.RadarSettings.ElevationIndicators), SettingRowIds.RadarElevation);
             var resetRadar = new MenuEntry("Reset radar position",
                 "Top right, 1.00x scale and zero offsets", titleSize: 13)
             {
@@ -1109,6 +1147,12 @@ namespace MphRead.Mods.Launcher.Gui
             _reticleOpacity = Add(page, new SliderRow("Reticle opacity",
                 OpacityToSlider(Features.ReticleOpacity),
                 v => $"{SliderToOpacity(v) * 100:0}%"), SettingRowIds.ReticleOpacity);
+            _reticleScale = Add(page, new SliderRow("Reticle size",
+                ReticleScaleToSlider(Features.ReticleScale),
+                v => $"{SliderToReticleScale(v) * 100:0}%",
+                min: (int)(Features.MinimumReticleScale * 100),
+                max: (int)(Features.MaximumReticleScale * 100),
+                keyStep: 5), SettingRowIds.ReticleScale);
             _crosshairStyleRow.Preview = (context, area) => CrosshairPreview.Draw(context, area,
                 (CrosshairStyle)_crosshairStyleRow.Index, (CrosshairSize)_crosshairSizeRow.Index);
             // The preview lives on the type row and answers both rows, so the
@@ -1630,11 +1674,12 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepadControlsPage = AddControlsTab(tabStrip, tabHost,
                 "Gamepad", "Controller aim, response and bindings");
 
-            if (IsAndroidSettingsPlatform)
-            {
-                _stylusControlsPage = AddControlsTab(tabStrip, tabHost,
-                    "Stylus", "Pen aiming and gestures");
-            }
+            // SDL exposes real pen events on desktop too. Keep stylus
+            // configuration visible anywhere the dedicated input path exists
+            // instead of silently enabling an input source the player cannot
+            // tune outside Android.
+            _stylusControlsPage = AddControlsTab(tabStrip, tabHost,
+                "Stylus", "DS-style pen aiming and gestures");
 
             // At least Gamepad is always present. The first page is selected
             // once, after all pages have been created, and later tab changes
@@ -2122,8 +2167,10 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void BuildStylusControls(StackPanel page)
         {
-            if (!IsAndroidSettingsPlatform) return;
             Heading(page, "Stylus");
+            Explain(page, "A compatible pen takes over aiming automatically while it touches "
+                + "the play area. Classic gestures mirror the Nintendo DS controls: double tap "
+                + "to jump and flick while in Morph Ball to boost.");
             _stylusAiming = Add(page, new ToggleRow("Stylus aiming",
                 InputSettings.StylusAimingEnabled), SettingRowIds.StylusAiming);
             _stylusSensitivity = Add(page, new SliderRow("Sensitivity",
@@ -2139,7 +2186,7 @@ namespace MphRead.Mods.Launcher.Gui
                 (int)InputSettings.StylusPrimaryAction), SettingRowIds.StylusPrimary);
             _stylusSecondary = Add(page, new ChoiceRow("Secondary button", actions,
                 (int)InputSettings.StylusSecondaryAction), SettingRowIds.StylusSecondary);
-            _stylusClassicGestures = Add(page, new ToggleRow("Classic gestures",
+            _stylusClassicGestures = Add(page, new ToggleRow("DS-style gestures",
                 InputSettings.StylusClassicGestures), SettingRowIds.StylusClassicGestures);
             _stylusDoubleTapJump = Add(page, new ToggleRow("Double tap to jump",
                 InputSettings.StylusDoubleTapJump), SettingRowIds.StylusDoubleTapJump);
@@ -2257,6 +2304,14 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static float SliderToOpacity(int value)
             => .2f + Math.Clamp(value, 0, 100) / 100f * .8f;
+
+        private static int ReticleScaleToSlider(float scale)
+            => (int)Math.Round(Math.Clamp(scale, Features.MinimumReticleScale,
+                Features.MaximumReticleScale) * 100);
+
+        private static float SliderToReticleScale(int value)
+            => Math.Clamp(value / 100f, Features.MinimumReticleScale,
+                Features.MaximumReticleScale);
 
         // ---------------------------------------------------------- match rules
 
@@ -2517,6 +2572,9 @@ namespace MphRead.Mods.Launcher.Gui
             }
             _settings.ResolutionScale = Math.Max(RenderOptions.MinScale, _resolutionScale.Value)
                 .ToString(CultureInfo.InvariantCulture);
+            _settings.FieldOfView = Math.Clamp(_fieldOfView.Value,
+                RenderOptions.MinFieldOfView, RenderOptions.MaxFieldOfView)
+                .ToString(CultureInfo.InvariantCulture);
             _settings.Lighting = RenderOptions.OnOff(_lightingRow.On);
             _settings.Fog = RenderOptions.OnOff(_fogRow.On);
             GraphicsPreset graphicsPreset = (GraphicsPreset)_graphicsPresetRow.Index;
@@ -2555,6 +2613,10 @@ namespace MphRead.Mods.Launcher.Gui
                 .ToString("0.00", CultureInfo.InvariantCulture);
             _settings.RadarOffsetX = _radarOffsetXRow.Value.ToString(CultureInfo.InvariantCulture);
             _settings.RadarOffsetY = _radarOffsetYRow.Value.ToString(CultureInfo.InvariantCulture);
+            _settings.RadarRange = _radarRangeRow.Value.ToString(CultureInfo.InvariantCulture);
+            _settings.RadarOpacity = (_radarOpacityRow.Value / 100f)
+                .ToString("0.00", CultureInfo.InvariantCulture);
+            _settings.RadarElevationIndicators = RenderOptions.OnOff(_radarElevationRow.On);
             int cap = _fpsLimitStops[Math.Clamp(_fpsLimitRow.Value, 0,
                 _fpsLimitStops.Length - 1)].Cap;
             FrameTiming.FrameRateCap = cap;
@@ -2565,6 +2627,7 @@ namespace MphRead.Mods.Launcher.Gui
             Features.ProHud = _proHud.On;
             Features.ProHudFixedWeapon = _proHudWeaponRow.Index == 0;
             Features.ReticleOpacity = SliderToOpacity(_reticleOpacity.Value);
+            Features.ReticleScale = SliderToReticleScale(_reticleScale.Value);
             Crosshair.Size = (CrosshairSize)_crosshairSizeRow.Index;
             Crosshair.Style = (CrosshairStyle)_crosshairStyleRow.Index;
             // Audio

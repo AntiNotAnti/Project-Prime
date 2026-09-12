@@ -147,6 +147,22 @@ namespace MphRead.Mods
 
         public const int MinScale = 25;
 
+        /// <summary>
+        /// Client-local vertical field of view for the normal player camera.
+        /// Authored camera sequences and spectator cameras retain their own FOV.
+        /// </summary>
+        public static int FieldOfView
+        {
+            get => _fieldOfView;
+            set => _fieldOfView = Math.Clamp(value, MinFieldOfView, MaxFieldOfView);
+        }
+
+        private static int _fieldOfView = DefaultFieldOfView;
+
+        public const int DefaultFieldOfView = 78;
+        public const int MinFieldOfView = 60;
+        public const int MaxFieldOfView = 110;
+
         /// <summary>Per-vertex lighting. Off is flatter and cheaper.</summary>
         public static bool Lighting { get; set; } = true;
 
@@ -498,6 +514,33 @@ namespace MphRead.Mods
                 return Math.Clamp(percent, MinScale, 100);
             }
             return fallback;
+        }
+
+        public static int ParseFieldOfView(string? value,
+            int fallback = DefaultFieldOfView)
+        {
+            if (value != null && Int32.TryParse(value.Trim().TrimEnd('°'),
+                NumberStyles.Integer, CultureInfo.InvariantCulture, out int degrees))
+            {
+                return Math.Clamp(degrees, MinFieldOfView, MaxFieldOfView);
+            }
+            return Math.Clamp(fallback, MinFieldOfView, MaxFieldOfView);
+        }
+
+        /// <summary>
+        /// Apply the user's normal-camera FOV while retaining the authored
+        /// zoom ratio. This returns presentation state only; gameplay camera
+        /// state and input sensitivity are not mutated.
+        /// </summary>
+        internal static float ResolvePlayerFieldOfView(float current,
+            float authoredNormal)
+        {
+            if (!float.IsFinite(current) || current <= 0
+                || !float.IsFinite(authoredNormal) || authoredNormal <= 0)
+            {
+                return current;
+            }
+            return FieldOfView * current / authoredNormal;
         }
 
         /// <summary>Unclamped; the properties do their own clamping.</summary>

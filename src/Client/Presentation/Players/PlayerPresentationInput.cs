@@ -272,7 +272,8 @@ namespace MphRead.Entities
             Mods.Input.StylusBindings bindings = Mods.InputSettings.CurrentStylusBindings;
             bool fire = bindings.IsDown(state, Mods.Input.StylusAction.Fire)
                 || state.PressureFireActive;
-            bool firePressed = bindings.IsPressed(state, Mods.Input.StylusAction.Fire);
+            bool firePressed = bindings.IsPressed(state, Mods.Input.StylusAction.Fire)
+                || state.PressureFirePressed;
             bool zoom = bindings.IsDown(state, Mods.Input.StylusAction.Zoom);
             bool zoomPressed = bindings.IsPressed(state, Mods.Input.StylusAction.Zoom);
             ApplyStylusButton(player.GetPresentation().Bindings.Shoot, fire, firePressed);

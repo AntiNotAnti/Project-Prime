@@ -6,6 +6,7 @@ using MphRead.Mods.Content;
 using MphRead.Mods.Hud;
 using MphRead.Mods.Network;
 using MphRead.Mods.Input;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead
 {
@@ -122,6 +123,14 @@ namespace MphRead.Entities
             WorldFeedback world = Presentation.WorldFeedback;
             if (world.Message.Length > 0 && CombatFeedback.Age(tick, world.Tick) < 120)
                 DrawText2D(128, 62, Align.Center, 0, world.Message, scale: .7f);
+            if (localView && AuthoritativePlay.Current?.NodeMatchId is Guid matchId
+                && NodeSessions.Current?.TransitionVoteFor(matchId) is
+                    { State: MatchTransitionVoteState.Pending } ballot)
+            {
+                DrawText2D(128, 38, Align.Center, 0,
+                    FormatTransitionVoteNotice(ballot, DateTimeOffset.UtcNow),
+                    new ColorRgba(242, 154, 46, 255), maxLength: 64, scale: .58f);
+            }
             if (localView && feedback.IsHeadshotNoticeVisible(tick))
                 DrawText2D(128, 70, Align.Center, 0, feedback.State.HeadshotNotice.Text,
                     scale: .8f);
@@ -136,7 +145,8 @@ namespace MphRead.Entities
                 float punch = marker == HitMarkerKind.Predicted
                     ? .85f + .15f * Math.Min(age / 2f, 1f)
                     : 1f + .1f * Math.Max(0, 1f - age / 2f);
-                float hudScale = Features.CustomCrosshair ? Mods.Render.Crosshair.Scale : 1f;
+                float hudScale = Features.CustomCrosshair
+                    ? Mods.Render.Crosshair.Scale : Features.ReticleScale;
                 float scale = .75f * hudScale * punch;
                 int markerX = Math.Clamp((int)MathF.Round(CurrentReticlePosition.X * 256), 0, 255);
                 int markerY = Math.Clamp((int)MathF.Round(CurrentReticlePosition.Y * 192), 0, 191);
@@ -164,6 +174,19 @@ namespace MphRead.Entities
                 for (int i = start; i < feedback.History.Count; i++)
                     DrawText2D(128, 76 + (i - start) * 8, Align.Center, 0, feedback.History[i].Text, maxLength: 44, scale: .65f);
             }
+        }
+
+        internal static string FormatTransitionVoteNotice(
+            NodeMatchTransitionVoteSnapshot ballot, DateTimeOffset now)
+        {
+            int seconds = Math.Max(0,
+                (int)Math.Ceiling((ballot.Deadline - now).TotalSeconds));
+            string action = ballot.Choice == MatchTransitionChoice.Restart
+                ? $"Restart {ballot.TargetMapKey}" : $"Map {ballot.TargetMapKey}";
+            string response = ballot.OwnVote is null
+                ? "Press Start to vote"
+                : ballot.OwnVote.Value ? "Voted yes" : "Voted no";
+            return $"Vote by {ballot.ProposerName}: {action} · Yes {ballot.Yes}/{ballot.Needed} · {seconds}s · {response}";
         }
 
         private static string AwardText(MatchAwardKind kind) => kind switch

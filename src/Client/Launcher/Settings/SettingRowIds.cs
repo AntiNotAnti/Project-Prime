@@ -11,6 +11,7 @@ public static class SettingRowIds
 {
     public const string WindowMode = "graphics.window-mode";
     public const string RenderScale = "graphics.render-scale";
+    public const string FieldOfView = "graphics.field-of-view";
     public const string FpsLimit = "graphics.fps-limit";
     public const string GraphicsPreset = "graphics.quality";
     public const string TextureFiltering = "graphics.texture-filtering";
@@ -26,6 +27,7 @@ public static class SettingRowIds
     public const string ProHud = "hud.pro";
     public const string ProHudWeapon = "hud.pro-weapon";
     public const string ReticleOpacity = "hud.reticle-opacity";
+    public const string ReticleScale = "hud.reticle-scale";
     public const string CrosshairSize = "hud.crosshair-size";
     public const string CrosshairStyle = "hud.crosshair-style";
     public const string HitMarkers = "hud.hit-markers";
@@ -39,6 +41,9 @@ public static class SettingRowIds
     public const string RadarScale = "hud.radar.scale";
     public const string RadarOffsetX = "hud.radar.offset-x";
     public const string RadarOffsetY = "hud.radar.offset-y";
+    public const string RadarRange = "hud.radar.range";
+    public const string RadarOpacity = "hud.radar.opacity";
+    public const string RadarElevation = "hud.radar.elevation";
 
     public const string FeedbackVolume = "audio.feedback-volume";
     public const string SfxVolume = "audio.sfx-volume";
@@ -116,12 +121,13 @@ public static class SettingRowIds
     /// <summary>All fixed IDs; dynamic rows are added by SettingRegistry.</summary>
     public static IReadOnlyList<string> Fixed { get; } =
     [
-        WindowMode, RenderScale, FpsLimit, GraphicsPreset, TextureFiltering,
+        WindowMode, RenderScale, FieldOfView, FpsLimit, GraphicsPreset, TextureFiltering,
         Anisotropy, Msaa, Bloom, DynamicLighting, Lighting, Fog, FpsCounter,
-        CelShading, ProHud, ProHudWeapon, ReticleOpacity, CrosshairSize,
+        CelShading, ProHud, ProHudWeapon, ReticleOpacity, ReticleScale, CrosshairSize,
         CrosshairStyle, HitMarkers, HitMarkerTiming, HeadshotCue,
         KillConfirmation, Killcam, RadarStyle, RadarOrientation, RadarAnchor, RadarScale,
-        RadarOffsetX, RadarOffsetY, FeedbackVolume, SfxVolume, MusicVolume,
+        RadarOffsetX, RadarOffsetY, RadarRange, RadarOpacity, RadarElevation,
+        FeedbackVolume, SfxVolume, MusicVolume,
         AnnouncerPack, MusicPack, Language, MouseSensitivity, MouseInvertY,
         MouseInvertX, ScrollAllWeapons, MorphBallMouseFlickBoost,
         MorphBallStickFlickBoost, MorphBallSwipeBoost, ChatKey, ControllerPreset,

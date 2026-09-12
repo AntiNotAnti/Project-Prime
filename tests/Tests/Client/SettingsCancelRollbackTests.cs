@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Avalonia.Headless.XUnit;
 using MphRead.Entities;
 using MphRead.Mods;
@@ -15,6 +16,35 @@ namespace MphRead.Tests.Client;
 [Collection(AvaloniaUiCollection.Name)]
 public sealed class SettingsCancelRollbackTests
 {
+    [AvaloniaFact]
+    public void FieldOfViewPreviewsImmediatelyAndCancelRestoresOriginalValue()
+    {
+        int prior = RenderOptions.FieldOfView;
+        SettingsView? view = null;
+        try
+        {
+            RenderOptions.FieldOfView = 80;
+            view = new SettingsView(new MenuSettings { FieldOfView = "80" });
+            SliderRow slider = FieldOfViewSlider(view);
+            ((IControllerNavigable)slider).ControllerAdjust(1);
+
+            Assert.Equal(81, RenderOptions.FieldOfView);
+
+            slider.Value = 96;
+
+            Assert.Equal(96, RenderOptions.FieldOfView);
+
+            view.CancelForTests();
+
+            Assert.Equal(80, RenderOptions.FieldOfView);
+        }
+        finally
+        {
+            view?.Dispose();
+            RenderOptions.FieldOfView = prior;
+        }
+    }
+
     [AvaloniaFact]
     public void CancelRestoresExactInputStateAfterEagerPresetBindingAndResetMutations()
     {
@@ -83,6 +113,7 @@ public sealed class SettingsCancelRollbackTests
     public void SaveAcceptsEagerChatAndPadBindingChangesInsteadOfRollingThemBack()
     {
         InputSettings.Snapshot prior = InputSettings.CaptureSnapshot();
+        int priorFieldOfView = RenderOptions.FieldOfView;
         string previousDirectory = LauncherPrefs.Directory;
         string temporaryDirectory = Directory.CreateTempSubdirectory(
             "project-prime-settings-cancel-").FullName;
@@ -93,11 +124,14 @@ public sealed class SettingsCancelRollbackTests
             InputSettings.Reset();
             InputSettings.MouseSensitivity = 1.234567f;
             InputSettings.StylusSensitivity = 3.456789f;
-            view = new SettingsView(new MenuSettings(), inGame: false, scene: null,
+            RenderOptions.FieldOfView = 80;
+            var settings = new MenuSettings { FieldOfView = "80" };
+            view = new SettingsView(settings, inGame: false, scene: null,
                 captureTouchControls: true, captureGyroSupported: null,
                 captureAdvancedControllerExpanded: null);
             InputSettings.ChatKey = Keys.Q;
             PadBindings.Set(PadAction.Jump, GamepadButtons.X);
+            FieldOfViewSlider(view).Value = 96;
 
             view.CommitForTests();
 
@@ -106,11 +140,14 @@ public sealed class SettingsCancelRollbackTests
             Assert.Equal(GamepadButtons.X, PadBindings.Get(PadAction.Jump));
             Assert.Equal(1.234567f, InputSettings.MouseSensitivity);
             Assert.Equal(3.456789f, InputSettings.StylusSensitivity);
+            Assert.Equal("96", settings.FieldOfView);
+            Assert.Equal(96, RenderOptions.FieldOfView);
         }
         finally
         {
             view?.Dispose();
             prior.Restore();
+            RenderOptions.FieldOfView = priorFieldOfView;
             LauncherPrefs.Directory = previousDirectory;
             Directory.Delete(temporaryDirectory, recursive: true);
         }
@@ -139,4 +176,8 @@ public sealed class SettingsCancelRollbackTests
             prior.Restore();
         }
     }
+
+    private static SliderRow FieldOfViewSlider(SettingsView view)
+        => Assert.IsType<SliderRow>(typeof(SettingsView).GetField("_fieldOfView",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(view));
 }

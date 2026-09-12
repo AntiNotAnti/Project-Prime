@@ -179,6 +179,7 @@ namespace MphRead.Mods.Launcher.Gui
             new("settings-gameplay", (settings, _) => CreateSettings(settings, "Gameplay")),
             new("settings-controls", (settings, _) => CreateSettings(settings, "Controls")),
             new("controls-gamepad", CreateControlsGamepad),
+            new("controls-stylus", CreateControlsStylus),
             new("controls-mobile", CreateControlsMobile),
             new("settings-graphics", (settings, _) => CreateSettings(settings, "Graphics")),
             new("settings-audio", (settings, _) => CreateSettings(settings, "Audio")),
@@ -1380,6 +1381,14 @@ namespace MphRead.Mods.Launcher.Gui
             return view;
         }
 
+        private static SettingsView CreateControlsStylus(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+        {
+            SettingsView view = CreateCaptureSettings(settings, "Controls");
+            view.ShowControlsTab("Stylus");
+            return view;
+        }
+
         private static SettingsView CreateControlsMobile(MenuSettings settings,
             IReadOnlyList<string> rooms)
         {
@@ -1421,6 +1430,9 @@ namespace MphRead.Mods.Launcher.Gui
             float previousScale = global::MphRead.Hud.Radar.RadarSettings.Scale;
             float previousOffsetX = global::MphRead.Hud.Radar.RadarSettings.OffsetX;
             float previousOffsetY = global::MphRead.Hud.Radar.RadarSettings.OffsetY;
+            float previousRange = global::MphRead.Hud.Radar.RadarSettings.Range;
+            float previousOpacity = global::MphRead.Hud.Radar.RadarSettings.Opacity;
+            bool previousElevation = global::MphRead.Hud.Radar.RadarSettings.ElevationIndicators;
 
             global::MphRead.Hud.Radar.RadarSettings.Style
                 = global::MphRead.Hud.Radar.RadarStyle.Enhanced;
@@ -1431,6 +1443,10 @@ namespace MphRead.Mods.Launcher.Gui
             global::MphRead.Hud.Radar.RadarSettings.Scale = 1.25f;
             global::MphRead.Hud.Radar.RadarSettings.OffsetX = 24;
             global::MphRead.Hud.Radar.RadarSettings.OffsetY = -16;
+            global::MphRead.Hud.Radar.RadarSettings.Range
+                = global::MphRead.Hud.Radar.RadarSettings.DefaultRange;
+            global::MphRead.Hud.Radar.RadarSettings.Opacity = 1;
+            global::MphRead.Hud.Radar.RadarSettings.ElevationIndicators = true;
             void Restore()
             {
                 global::MphRead.Hud.Radar.RadarSettings.Style = previousStyle;
@@ -1439,6 +1455,9 @@ namespace MphRead.Mods.Launcher.Gui
                 global::MphRead.Hud.Radar.RadarSettings.Scale = previousScale;
                 global::MphRead.Hud.Radar.RadarSettings.OffsetX = previousOffsetX;
                 global::MphRead.Hud.Radar.RadarSettings.OffsetY = previousOffsetY;
+                global::MphRead.Hud.Radar.RadarSettings.Range = previousRange;
+                global::MphRead.Hud.Radar.RadarSettings.Opacity = previousOpacity;
+                global::MphRead.Hud.Radar.RadarSettings.ElevationIndicators = previousElevation;
             }
             try
             {

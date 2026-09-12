@@ -57,4 +57,29 @@ public sealed class ProHudWeaponSettingTests
             Features.ProHudFixedWeapon = before;
         }
     }
+
+    [Fact]
+    public void AuthoredReticleScaleClampsAndRoundTrips()
+    {
+        float before = Features.ReticleScale;
+        try
+        {
+            Features.ReticleScale = 1.35f;
+            var committed = FeaturesSettings.Commit();
+            Features.ReticleScale = 1;
+            FeaturesSettings.Load(committed);
+            Assert.Equal(1.35f, Features.ReticleScale);
+
+            Features.ReticleScale = 99;
+            Assert.Equal(Features.MaximumReticleScale, Features.ReticleScale);
+            Features.ReticleScale = -99;
+            Assert.Equal(Features.MinimumReticleScale, Features.ReticleScale);
+            Features.ReticleScale = float.NaN;
+            Assert.Equal(1, Features.ReticleScale);
+        }
+        finally
+        {
+            Features.ReticleScale = before;
+        }
+    }
 }

@@ -64,6 +64,22 @@ public sealed class RadarTests
     }
 
     [Fact]
+    public void SurvivalRadarRejectsSelfTeammatesDeadAndInactiveReplicas()
+    {
+        Assert.True(PlayerPresentation.IsEligibleSurvivalRadarPlayer(
+            localSlot: 0, localTeam: 0, contactSlot: 1, contactTeam: 1,
+            active: true, health: 99));
+        Assert.False(PlayerPresentation.IsEligibleSurvivalRadarPlayer(
+            0, 0, 0, 1, active: true, health: 99));
+        Assert.False(PlayerPresentation.IsEligibleSurvivalRadarPlayer(
+            0, 0, 1, 0, active: true, health: 99));
+        Assert.False(PlayerPresentation.IsEligibleSurvivalRadarPlayer(
+            0, 0, 1, 1, active: false, health: 99));
+        Assert.False(PlayerPresentation.IsEligibleSurvivalRadarPlayer(
+            0, 0, 1, 1, active: true, health: 0));
+    }
+
+    [Fact]
     public void HeadingProjectionPlacesFacingDirectionAtTheTop()
     {
         RadarPoint point = RadarWidget.Project(Contact(new Vector3(0, 0, 10)),
@@ -118,6 +134,30 @@ public sealed class RadarTests
     }
 
     [Fact]
+    public void ConfiguredProjectionRangeChangesZoomWithoutChangingAdmission()
+    {
+        RadarContact contact = Contact(new Vector3(0, 0, 20));
+        RadarPoint near = RadarWidget.Project(contact, Vector3.Zero,
+            Vector3.UnitZ, RadarOrientation.Heading, range: 20);
+        RadarPoint far = RadarWidget.Project(contact, Vector3.Zero,
+            Vector3.UnitZ, RadarOrientation.Heading, range: 80);
+
+        Assert.False(near.Clamped);
+        Assert.False(far.Clamped);
+        Assert.Equal(-1, near.RelativePosition.Y, 3);
+        Assert.Equal(-.25f, far.RelativePosition.Y, 3);
+    }
+
+    [Fact]
+    public void ObjectiveSymbolsRemainDistinct()
+    {
+        Assert.Equal("F", RadarWidget.Symbol(Objective(RadarObjective.Flag)));
+        Assert.Equal("B", RadarWidget.Symbol(Objective(RadarObjective.Base)));
+        Assert.Equal("N", RadarWidget.Symbol(Objective(RadarObjective.Node)));
+        Assert.Equal("D", RadarWidget.Symbol(Objective(RadarObjective.Defender)));
+    }
+
+    [Fact]
     public void FrameRejectsZeroAlphaAndNonFiniteContacts()
     {
         var frame = NewFrame();
@@ -166,6 +206,20 @@ public sealed class RadarTests
         Assert.True(frame.AddApproved(Contact(new Vector3(7, 0, 0))));
         Assert.Equal(1, frame.Contacts.Length);
         Assert.Equal(new Vector3(7, 0, 0), frame.Contacts[0].Position);
+    }
+
+    [Fact]
+    public void BeginSanitizesNonFiniteViewerPoseBeforeProjection()
+    {
+        var frame = new RadarFrame();
+        frame.Begin(new Vector3(float.NaN), new Vector3(float.PositiveInfinity), 1);
+        Assert.Equal(Vector3.Zero, frame.Origin);
+        Assert.Equal(-Vector3.UnitZ, frame.Facing);
+
+        RadarPoint point = RadarWidget.Project(Contact(Vector3.Zero), frame.Origin,
+            frame.Facing, RadarOrientation.Heading);
+        Assert.True(float.IsFinite(point.RelativePosition.X));
+        Assert.True(float.IsFinite(point.RelativePosition.Y));
     }
 
     [Theory]
@@ -361,4 +415,7 @@ public sealed class RadarTests
         return new RadarContact(RadarContactType.Enemy, position, 0,
             RadarObjective.None, visibility);
     }
+
+    private static RadarContact Objective(RadarObjective objective)
+        => new(RadarContactType.Objective, Vector3.Zero, -1, objective, 1);
 }

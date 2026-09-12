@@ -89,6 +89,84 @@ public sealed class SettingsRegistryTests
     }
 
     [Fact]
+    public void RadarAppearancePreferencesPersistAndClampWithoutChangingRevealPolicy()
+    {
+        MenuSettings restore = GameSettings.Current ?? new MenuSettings();
+        try
+        {
+            var defaults = new MenuSettings();
+            Assert.Equal("40", defaults.RadarRange);
+            Assert.Equal("1.0", defaults.RadarOpacity);
+            Assert.Equal("on", defaults.RadarElevationIndicators);
+
+            SettingDescriptor range = SettingRegistry.Get("hud.radar.range");
+            SettingDescriptor opacity = SettingRegistry.Get("hud.radar.opacity");
+            SettingDescriptor elevation = SettingRegistry.Get("hud.radar.elevation");
+            Assert.Equal(nameof(MenuSettings.RadarRange), range.PersistenceKey);
+            Assert.Equal(nameof(MenuSettings.RadarOpacity), opacity.PersistenceKey);
+            Assert.Equal(nameof(MenuSettings.RadarElevationIndicators), elevation.PersistenceKey);
+
+            GameSettings.Apply(new MenuSettings
+            {
+                RadarRange = "999",
+                RadarOpacity = "0.1",
+                RadarElevationIndicators = "off"
+            });
+            Assert.Equal(Hud.Radar.RadarSettings.MaximumRange,
+                Hud.Radar.RadarSettings.Range);
+            Assert.Equal(Hud.Radar.RadarSettings.MinimumOpacity,
+                Hud.Radar.RadarSettings.Opacity);
+            Assert.False(Hud.Radar.RadarSettings.ElevationIndicators);
+
+            GameSettings.Apply(new MenuSettings
+            {
+                RadarRange = "invalid",
+                RadarOpacity = "invalid",
+                RadarElevationIndicators = "invalid"
+            });
+            Assert.Equal(Hud.Radar.RadarSettings.DefaultRange,
+                Hud.Radar.RadarSettings.Range);
+            Assert.Equal(1, Hud.Radar.RadarSettings.Opacity);
+            Assert.True(Hud.Radar.RadarSettings.ElevationIndicators);
+        }
+        finally
+        {
+            GameSettings.Apply(restore);
+        }
+    }
+
+    [Fact]
+    public void FieldOfViewPreferencePersistsClampsAndPreservesZoomRatio()
+    {
+        MenuSettings restore = GameSettings.Current ?? new MenuSettings();
+        try
+        {
+            var defaults = new MenuSettings();
+            SettingDescriptor descriptor = SettingRegistry.Get("graphics.field-of-view");
+            Assert.Equal("78", defaults.FieldOfView);
+            Assert.Equal("FieldOfView", descriptor.PersistenceKey);
+            Assert.Equal(RenderOptions.MinFieldOfView, descriptor.Minimum);
+            Assert.Equal(RenderOptions.MaxFieldOfView, descriptor.Maximum);
+
+            string json = JsonSerializer.Serialize(new MenuSettings { FieldOfView = "95" });
+            MenuSettings restored = JsonSerializer.Deserialize<MenuSettings>(json)!;
+            GameSettings.Apply(restored);
+            Assert.Equal(95, RenderOptions.FieldOfView);
+            Assert.Equal(95f, RenderOptions.ResolvePlayerFieldOfView(78, 78));
+            Assert.Equal(47.5f, RenderOptions.ResolvePlayerFieldOfView(39, 78));
+
+            GameSettings.Apply(new MenuSettings { FieldOfView = "999" });
+            Assert.Equal(RenderOptions.MaxFieldOfView, RenderOptions.FieldOfView);
+            GameSettings.Apply(new MenuSettings { FieldOfView = "invalid" });
+            Assert.Equal(RenderOptions.DefaultFieldOfView, RenderOptions.FieldOfView);
+        }
+        finally
+        {
+            GameSettings.Apply(restore);
+        }
+    }
+
+    [Fact]
     public void FeatureCommitKeysAreCanonicalRegistryOwners()
     {
         var committedKeys = FeaturesSettings.Commit().Keys.ToHashSet(StringComparer.Ordinal);
@@ -99,7 +177,15 @@ public sealed class SettingsRegistryTests
 
         Assert.All(committedKeys, key => Assert.Contains(key, descriptorKeys));
         Assert.Equal(new[] { "CrosshairSize", "CrosshairStyle", "ProHud",
-            "ProHudFixedWeapon", "ReticleOpacity" }, committedKeys.OrderBy(key => key));
+            "ProHudFixedWeapon", "ReticleOpacity", "ReticleScale" },
+            committedKeys.OrderBy(key => key));
+
+        SettingDescriptor proHud = SettingRegistry.Get("hud.pro");
+        Assert.Equal("Pro HUD", proHud.Label);
+        SettingDescriptor reticleScale = SettingRegistry.Get("hud.reticle-scale");
+        Assert.Equal(nameof(Features.ReticleScale), reticleScale.PersistenceKey);
+        Assert.Equal(Features.MinimumReticleScale, reticleScale.Minimum);
+        Assert.Equal(Features.MaximumReticleScale, reticleScale.Maximum);
     }
 
     [Fact]
@@ -278,6 +364,7 @@ public sealed class SettingsRegistryTests
     [Fact]
     public void MatchRulesAreExplicitlyExcludedFromNormalSettings()
     {
+        Assert.Equal("on", new MenuSettings().HunterRadar);
         string[] ids = SettingRegistry.Exclusions.Select(exclusion => exclusion.Id).ToArray();
         Assert.Contains("legacy.match.point-goal", ids);
         Assert.Contains("legacy.match.time-limit", ids);

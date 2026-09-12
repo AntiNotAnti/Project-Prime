@@ -248,6 +248,10 @@ public sealed class VisualEnhancementTests
         Assert.Equal(5, SdlGpuSceneSamplerAbi.Shadow);
         Assert.Equal(6, SdlGpuSceneSamplerAbi.SurfaceData);
         Assert.Equal(7, SdlGpuSceneSamplerAbi.Count);
+        Assert.Equal(8, SdlGpuSceneSamplerAbi.BindingCountForDriver("direct3d12"));
+        Assert.Equal(8, SdlGpuSceneSamplerAbi.BindingCountForDriver("DIRECT3D12"));
+        Assert.Equal(7, SdlGpuSceneSamplerAbi.BindingCountForDriver("vulkan"));
+        Assert.Equal(7, SdlGpuSceneSamplerAbi.BindingCountForDriver("metal"));
 
         RenderQualitySnapshot enhanced = new(GraphicsPreset.Enhanced,
             TextureFilteringPreset.Enhanced, AnisotropyLevel.X4, MsaaLevel.X4,

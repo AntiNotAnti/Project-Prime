@@ -7,7 +7,11 @@ namespace MphRead.Hud.Radar;
 public static class RadarWidget
 {
     public static RadarPoint Project(in RadarContact contact, Vector3 origin, Vector3 facing,
-        RadarOrientation orientation, float range = RadarSettings.Range)
+        RadarOrientation orientation)
+        => Project(contact, origin, facing, orientation, RadarSettings.Range);
+
+    public static RadarPoint Project(in RadarContact contact, Vector3 origin, Vector3 facing,
+        RadarOrientation orientation, float range)
     {
         if (!float.IsFinite(range) || range <= 0) throw new ArgumentOutOfRangeException(nameof(range));
         Vector3 delta = contact.Position - origin;

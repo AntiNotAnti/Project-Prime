@@ -237,7 +237,7 @@ public sealed class SettingsResetTests
     }
 
     [Fact]
-    public void LauncherLoadClearsRemovedDebugAndMotionPreferences()
+    public void LauncherLoadRestoresDefaultsAndRespectsExplicitDebugPreference()
     {
         string previousDirectory = LauncherPrefs.Directory;
         string directory = Path.Combine(Path.GetTempPath(),
@@ -254,8 +254,12 @@ public sealed class SettingsResetTests
 
             File.WriteAllLines(path, new[] { "player_name=Player" });
             LauncherPrefs.Load();
-            Assert.False(LauncherPrefs.DebugLogs);
+            Assert.True(LauncherPrefs.DebugLogs);
             Assert.False(LauncherPrefs.ReducedMotion);
+
+            File.WriteAllLines(path, new[] { "debug_logs=false" });
+            LauncherPrefs.Load();
+            Assert.False(LauncherPrefs.DebugLogs);
         }
         finally
         {

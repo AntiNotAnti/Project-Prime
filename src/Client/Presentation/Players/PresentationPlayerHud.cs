@@ -685,6 +685,13 @@ namespace MphRead.Entities
         private ushort _smallReticleTimer = 0;
         private bool _sniperReticle = false;
         private bool _hudZoom = false;
+        private static readonly Vector2 ReticleCenter = new Vector2(0.5f, 0.5f);
+        private const float DynamicReticleRangeScale = 2.2f;
+        private const float ReticleEdgeInset = 0.02f;
+        private const float DynamicReticleFollowHalfLife = 0.025f;
+        private const float DynamicReticleReturnHalfLife = 0.14f;
+        private TimeSpan _reticlePresentationTime;
+        private bool _reticlePresentationInitialized;
         public Vector2 CurrentReticlePosition { get; private set; } = new Vector2(0.5f, 0.5f);
         public void HudOnFiredShot()
         {
@@ -725,6 +732,8 @@ namespace MphRead.Entities
             _targetCircleInst.SetIndex(0, _player._scene);
             _smallReticle = false;
             _smallReticleTimer = 0;
+            CurrentReticlePosition = ReticleCenter;
+            _reticlePresentationInitialized = false;
         }
 
         public void UpdateReticle()
@@ -741,14 +750,43 @@ namespace MphRead.Entities
                 }
             }
 
-            float w = Matrix.ProjectPosition(_player._aimPosition, Presentation.ViewMatrix,
-                Presentation.PerspectiveMatrix, out Vector2 projected);
-            CurrentReticlePosition = NormalizeReticlePosition(w, projected);
-            _targetCircleInst.PositionX = CurrentReticlePosition.X;
-            _targetCircleInst.PositionY = CurrentReticlePosition.Y;
-
             _targetCircleInst.Enabled = true;
             _targetCircleInst.ProcessAnimation(_player._scene);
+        }
+
+        private void UpdateRenderedReticlePosition()
+        {
+            // UpdateHud runs before the render camera and projection are
+            // resolved. Projecting there sampled the preceding picture, then
+            // interpolating that result once more made Imperialist zoom trail
+            // the smoothly interpolated world. DrawHudObjects runs after both
+            // matrices are final, so the reticle and scene now share exactly
+            // one camera/FOV sample.
+            float w = Matrix.ProjectPosition(_player._aimPosition, Presentation.ViewMatrix,
+                Presentation.PerspectiveMatrix, out Vector2 projected);
+            Vector2 target = ExpandDynamicReticleRange(
+                NormalizeReticlePosition(w, projected));
+            TimeSpan sampleTime = Presentation.CapturedPresentationTime;
+            float deltaSeconds = 1f / SimTicks.Hz;
+            if (_reticlePresentationInitialized)
+            {
+                deltaSeconds = (float)(sampleTime - _reticlePresentationTime).TotalSeconds;
+                // A seek or presentation ownership change is a discontinuity,
+                // not motion. Do not drag an old reticle across the new view.
+                if (!float.IsFinite(deltaSeconds) || deltaSeconds < 0
+                    || deltaSeconds > 0.25f)
+                {
+                    CurrentReticlePosition = target;
+                    deltaSeconds = 0;
+                }
+            }
+            else
+            {
+                _reticlePresentationInitialized = true;
+            }
+            _reticlePresentationTime = sampleTime;
+            CurrentReticlePosition = SmoothDynamicReticlePosition(
+                CurrentReticlePosition, target, deltaSeconds);
         }
 
         internal static Vector2 NormalizeReticlePosition(float w, Vector2 projected)
@@ -756,6 +794,49 @@ namespace MphRead.Entities
             if (!float.IsFinite(w) || w <= 0 || !float.IsFinite(projected.X) || !float.IsFinite(projected.Y))
                 return new Vector2(0.5f, 0.5f);
             return new Vector2(MathF.Round(projected.X, 5), MathF.Round(projected.Y, 5));
+        }
+
+        internal static Vector2 ExpandDynamicReticleRange(Vector2 position)
+        {
+            if (!float.IsFinite(position.X) || !float.IsFinite(position.Y))
+                return ReticleCenter;
+            return new Vector2(ExpandDynamicReticleAxis(position.X),
+                ExpandDynamicReticleAxis(position.Y));
+        }
+
+        private static float ExpandDynamicReticleAxis(float position)
+        {
+            float maximumOffset = 0.5f - ReticleEdgeInset;
+            float normalized = (position - 0.5f) * DynamicReticleRangeScale
+                / maximumOffset;
+            // Smoothly approach the screen inset instead of hitting a hard
+            // clamp. This keeps quick reversals continuous while allowing the
+            // authored aim/facing divergence to use nearly the full viewport.
+            return 0.5f + maximumOffset * MathF.Tanh(normalized);
+        }
+
+        internal static Vector2 SmoothDynamicReticlePosition(Vector2 current,
+            Vector2 target, float deltaSeconds)
+        {
+            if (!float.IsFinite(target.X) || !float.IsFinite(target.Y))
+                target = ReticleCenter;
+            if (!float.IsFinite(current.X) || !float.IsFinite(current.Y))
+                return target;
+            if (!float.IsFinite(deltaSeconds) || deltaSeconds <= 0)
+                return current;
+
+            Vector2 currentOffset = current - ReticleCenter;
+            Vector2 targetOffset = target - ReticleCenter;
+            bool returningToCenter = Vector2.Dot(currentOffset, targetOffset) >= 0
+                && targetOffset.LengthSquared < currentOffset.LengthSquared;
+            float halfLife = returningToCenter
+                ? DynamicReticleReturnHalfLife
+                : DynamicReticleFollowHalfLife;
+            // Exponential half-life response is stable across refresh rates.
+            // Cap a single sample so a stalled frame cannot look like a snap.
+            float elapsed = Math.Min(deltaSeconds, 0.05f);
+            float blend = 1 - MathF.Pow(0.5f, elapsed / halfLife);
+            return Vector2.Lerp(current, target, blend);
         }
 
         internal static int ReticleShotAnimationStart(int currentFrame)
@@ -992,6 +1073,8 @@ namespace MphRead.Entities
                 return;
             }
 
+            UpdateRenderedReticlePosition();
+
             // The minimap is a full-resolution overlay and is deliberately
             // submitted first so chat, scoreboards and match UI remain above it.
             if (Hud.Radar.RadarSettings.Style == Hud.Radar.RadarStyle.Enhanced
@@ -1114,12 +1197,16 @@ namespace MphRead.Entities
 
                         if (Features.CustomCrosshair)
                         {
-                            Presentation.DrawCustomCrosshair(GetCrosshairColor(), CurrentReticlePosition);
+                            Presentation.DrawCustomCrosshair(GetCrosshairColor(), RenderedReticlePosition());
                         }
                         else
                         {
+                            Vector2 reticlePosition = RenderedReticlePosition();
+                            _targetCircleInst.PositionX = reticlePosition.X;
+                            _targetCircleInst.PositionY = reticlePosition.Y;
                             _targetCircleInst.Alpha = Features.ReticleOpacity;
-                            Presentation.DrawHudObject(_targetCircleInst);
+                            Presentation.DrawHudObject(_targetCircleInst,
+                                scale: Features.ReticleScale);
                         }
 
                         if (Features.ModernHud)
@@ -1144,6 +1231,8 @@ namespace MphRead.Entities
                 DrawQueuedHudMessages();
             }
         }
+
+        private Vector2 RenderedReticlePosition() => CurrentReticlePosition;
 
         public void DrawHudModels()
         {
@@ -1239,6 +1328,10 @@ namespace MphRead.Entities
                 isPrime: mode == MatchMode.PrimeHunter && contactSlot == primeSlot);
             return true;
         }
+
+        internal static bool IsEligibleSurvivalRadarPlayer(int localSlot, int localTeam,
+            int contactSlot, int contactTeam, bool active, int health)
+            => active && health > 0 && contactSlot != localSlot && contactTeam != localTeam;
 
         private static Hud.Radar.RadarContactType ClassifyRadarPlayer(int localTeam, int contactTeam,
             bool isPrime)
@@ -2060,7 +2153,9 @@ namespace MphRead.Entities
             int reveal = 0;
             foreach (PlayerEntity player in _player._scene.GetPlayerEntities())
             {
-                if (player.Health == 0 || player.TeamIndex == _player.TeamIndex)
+                if (!IsEligibleSurvivalRadarPlayer(_player.SlotIndex, _player.TeamIndex,
+                    player.SlotIndex, player.TeamIndex,
+                    player.LoadFlags.TestFlag(LoadFlags.Active), player.Health))
                 {
                     continue;
                 }

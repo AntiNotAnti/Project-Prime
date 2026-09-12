@@ -232,13 +232,11 @@ namespace MphRead.Mods.Launcher
         /// Whether the program writes a file of everything it can say about
         /// itself. See <see cref="Mods.DebugLog"/>.
         ///
-        /// Off, and asked for rather than offered: it is here for the reports
-        /// that cannot be answered any other way -- a crash while a map loads,
-        /// on a machine nobody here can plug in -- and it costs a directory
-        /// that grows and a lock on every line the program prints. One switch,
-        /// in the corner of the front screen, kept where it was left.
+        /// Enabled by default so a first-run failure leaves diagnostics behind.
+        /// The launcher setting remains persistent, so players can turn it off
+        /// when they do not want the extra files and per-line write lock.
         /// </summary>
-        public static bool DebugLogs { get; set; }
+        public static bool DebugLogs { get; set; } = true;
         public static bool ReducedMotion { get; set; }
 
         /// <summary>
@@ -266,7 +264,7 @@ namespace MphRead.Mods.Launcher
             MusicPack = null;
             UpdatePolicy = UpdatePolicy.Automatic;
             PreferredRegion = AutomaticPreferredRegionId;
-            DebugLogs = false;
+            DebugLogs = true;
             ReducedMotion = false;
             if (!File.Exists(Path))
             {

@@ -58,6 +58,11 @@ public static class FeaturesSettings
             {
                 Features.ReticleOpacity = single;
             }
+            if (values.TryGetValue(nameof(Features.ReticleScale), out value)
+                && Single.TryParse(value, CultureInfo.InvariantCulture, out single))
+            {
+                Features.ReticleScale = single;
+            }
             if (values.TryGetValue(nameof(Features.ProHud), out value) && Boolean.TryParse(value, out bool boolean))
             {
                 Features.ProHud = boolean;
@@ -98,6 +103,7 @@ public static class FeaturesSettings
             return Frozen.Create<string, string>(
             [
                 new(nameof(Features.ReticleOpacity), Features.ReticleOpacity.ToString(CultureInfo.InvariantCulture)),
+                new(nameof(Features.ReticleScale), Features.ReticleScale.ToString(CultureInfo.InvariantCulture)),
                 new(nameof(Features.ProHud), Features.ProHud.ToString().ToLower()),
                 new(nameof(Features.ProHudFixedWeapon), Features.ProHudFixedWeapon.ToString().ToLower()),
                 new("CrosshairStyle", Mods.Render.Crosshair.Style.ToString()),

@@ -17,8 +17,8 @@ public sealed class RadarFrame
 
     public void Begin(Vector3 origin, Vector3 facing, ulong tick)
     {
-        Origin = origin;
-        Facing = facing;
+        Origin = Finite(origin) ? origin : Vector3.Zero;
+        Facing = Finite(facing) ? facing : -Vector3.UnitZ;
         Tick = tick;
         _count = Dropped = 0;
     }
@@ -32,4 +32,7 @@ public sealed class RadarFrame
         _contacts[_count++] = contact with { Visibility = Math.Clamp(contact.Visibility, 0, 1) };
         return true;
     }
+
+    private static bool Finite(Vector3 value)
+        => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
 }

@@ -90,6 +90,24 @@ namespace MphRead
         public static float HudOpacity { get; set; } = 1; // 1
         public static float ReticleOpacity { get; set; } = 1; // 1
 
+        public const float MinimumReticleScale = 0.5f;
+        public const float MaximumReticleScale = 2f;
+
+        /// <summary>
+        /// Destination scale for the authored HUD reticle sheets, including
+        /// the Imperialist scope. This deliberately does not replace the Pro
+        /// HUD crosshair size, whose geometry has its own discrete choices.
+        /// </summary>
+        public static float ReticleScale
+        {
+            get => _reticleScale;
+            set => _reticleScale = float.IsFinite(value)
+                ? Math.Clamp(value, MinimumReticleScale, MaximumReticleScale)
+                : 1f;
+        }
+
+        private static float _reticleScale = 1f;
+
         /// <summary>Freezes the reticle's fire animation instead of letting it shrink and expand.</summary>
         public static bool FixedCrosshair
         {

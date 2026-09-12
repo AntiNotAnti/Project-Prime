@@ -33,6 +33,7 @@ namespace MphRead.Entities
             NetworkAfflictions.Reset();
             _networkFrozen = _networkDisrupted = false;
             _player._drawIceLayer = false;
+            if (_player._scene.Services.IsReplica) _player._frozenGfxTimer = 0;
             if (_networkBurnEffect != null) _player._scene.UnlinkEffectEntry(_networkBurnEffect);
             _networkBurnEffect = null;
             HudEndDisrupted();
@@ -61,8 +62,10 @@ namespace MphRead.Entities
             AfflictionTimers timers = NetworkAfflictions.At(AfflictionPresentationTick());
             bool frozen = timers.Frozen > 0 && _player.Health > 0;
             if (frozen && !_networkFrozen) _player._soundSource.PlaySfx(SfxId.SHOTGUN_FREEZE);
+            if (frozen) _player._frozenGfxTimer = NetworkFrozenGraphicsTicks(timers.Frozen);
+            else if (_player.Health <= 0) _player._frozenGfxTimer = 0;
             _networkFrozen = frozen;
-            _player._drawIceLayer = frozen && _player.IsMainPlayer;
+            _player._drawIceLayer = _player._frozenGfxTimer > 0 && _player.IsMainPlayer;
             bool disrupted = timers.Disrupt > 0 && _player.Health > 0;
             if (disrupted && !_networkDisrupted) HudOnDisrupted();
             if (disrupted) _hudDisruptedTimer = timers.Disrupt;
@@ -86,6 +89,13 @@ namespace MphRead.Entities
                 _networkBurnEffectId = effect;
             }
             _networkBurnEffect?.Transform(facing, up, position);
+        }
+
+        internal static ushort NetworkFrozenGraphicsTicks(ushort frozenTicks)
+        {
+            if (frozenTicks == 0) return 0;
+            int duration = frozenTicks + SimTicks.From30HzFrames(5);
+            return (ushort)Math.Min(duration, UInt16.MaxValue);
         }
     }
 }

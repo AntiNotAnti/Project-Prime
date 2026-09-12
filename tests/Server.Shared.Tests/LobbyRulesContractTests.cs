@@ -62,6 +62,7 @@ public sealed class LobbyRulesContractTests
         MatchRules disabled = new LobbyRulesOptions(KillcamPolicy: KillcamPolicy.Disabled)
             .ToMatchRules(MatchMode.Battle, "unit");
 
+        Assert.True(defaults.PlayerRadar);
         Assert.Equal(KillcamPolicy.Immediate, defaults.KillcamPolicy);
         Assert.Equal(KillcamPolicy.Disabled, disabled.KillcamPolicy);
         Assert.Throws<ArgumentException>(() =>

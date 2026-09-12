@@ -28,8 +28,8 @@ namespace MphRead.Entities
         private static readonly Vector4 ProGood = new Vector4(0.24f, 0.85f, 0.32f, 1);
         private static readonly Vector4 ProWarn = new Vector4(1f, 0.68f, 0.1f, 1);
         private static readonly Vector4 ProDanger = new Vector4(0.95f, 0.18f, 0.18f, 1);
-        private static readonly Vector4 ProHudPanel = new Vector4(0, 0, 0, 0.5f);
-        private static readonly Vector4 ProHudShade = new Vector4(0, 0, 0, 0.55f);
+        private static readonly Vector4 ProHudPanel = new Vector4(0.025f, 0.035f, 0.055f, 0.72f);
+        private static readonly Vector4 ProHudShade = new Vector4(0, 0, 0, 0.65f);
         private static readonly Vector4 ProHudTrack = new Vector4(1, 1, 1, 0.16f);
         private static readonly ColorRgba ProHudInk = new ColorRgba(235, 238, 245, 255);
         private static readonly ColorRgba ProHudDim = new ColorRgba(178, 186, 200, 255);
@@ -38,27 +38,19 @@ namespace MphRead.Entities
         {
             float aspect = HudAspectFix;
             Vector4 health = ProHealthColor();
-            Presentation.DrawHudFlatBox(2 * aspect, 170, 46 * aspect, 190, ProHudPanel);
+            DrawProPanel(2 * aspect, 168, 60 * aspect, 190, health);
             ProNumber(6 * aspect, 172, Align.Left, _player._health.ToString(), ProInk(health), 1.5f);
-            ProBar(4 * aspect, 186, 40, 3, ProHealthFraction(), health);
+            ProBar(4 * aspect, 186, 54, 3, ProHealthFraction(), health);
             DrawProAmmo();
             // Below the chat log: the pro score sits in the same corner the
             // log is drawn into, and at 12 units down it was underneath the
             // second line of it. See ModChatClearance.
-            ProScore(4 * aspect, ModChatClearance(12), Align.Left, 1.1f);
+            float scoreY = ModChatClearance(12);
+            DrawProPanel(2 * aspect, scoreY - 2, 70 * aspect, scoreY + 22,
+                new Vector4(0.42f, 0.72f, 1f, 1));
+            ProScore(5 * aspect, scoreY + 1, Align.Left, 1.1f);
         }
 
-        /// <summary>
-        /// The equipped weapon's shots, mirrored into the right foot of the
-        /// screen -- the same panel, the same size, the far side.
-        ///
-        /// The weapon list already carries a number for every weapon, but not
-        /// at a size you can read without looking at it, and the one that
-        /// matters is the one in your hands. Coloured by how much is left, not
-        /// by which weapon it is: drawn in the weapon's own colour first, a
-        /// full ten missiles read red, which is the colour every other
-        /// readout here uses for "you are nearly out".
-        /// </summary>
         /// <summary>
         /// Panel geometry for the ammo corner, in HUD units off the screen's
         /// height. Wider than the energy panel opposite it because it carries
@@ -80,7 +72,7 @@ namespace MphRead.Entities
             Vector4 color = ProAmmoColor();
             float right = 256 - 2 * aspect;
             float left = right - ProAmmoPanelWidth * aspect;
-            Presentation.DrawHudFlatBox(left, 170, right, 190, ProHudPanel);
+            DrawProPanel(left, 168, right, 190, color);
             DrawProAmmoIcon(left + 2 * aspect, 172);
             ProNumber(right - 4 * aspect, 172, Align.Right, ammo, ProInk(color), ProAmmoNumberScale);
             ProBar(left + 2 * aspect, 186, ProAmmoPanelWidth - 4, 3, ProAmmoFraction(), color);
@@ -215,6 +207,17 @@ namespace MphRead.Entities
             {
                 Presentation.DrawHudFlatBox(x, y, x + width * fill * aspect, y + height, color);
             }
+        }
+
+        private void DrawProPanel(float left, float top, float right, float bottom,
+            Vector4 accent)
+        {
+            float shadowOffset = HudAspectFix;
+            Presentation.DrawHudFlatBox(left + shadowOffset, top + 1,
+                right + shadowOffset, bottom + 1, ProHudShade);
+            Presentation.DrawHudFlatBox(left, top, right, bottom, ProHudPanel);
+            Presentation.DrawHudFlatBox(left, top, right, top + 1,
+                new Vector4(accent.X, accent.Y, accent.Z, 0.9f));
         }
 
         public void ProNumber(float x, float y, Align align, ReadOnlySpan<char> text, ColorRgba color, float scale)

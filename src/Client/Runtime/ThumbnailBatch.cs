@@ -211,7 +211,15 @@ namespace MphRead.Mods
                 {
                     Console.WriteLine($"[thumbnails] could not start a worker for "
                         + $"{share.Count} room(s)");
+                    return null;
                 }
+                // Redirected pipes must be consumed while the worker runs.
+                // Waiting only on HasExited can otherwise deadlock once either
+                // child pipe fills, especially when debug logging is enabled.
+                proc.OutputDataReceived += static (_, _) => { };
+                proc.ErrorDataReceived += static (_, _) => { };
+                proc.BeginOutputReadLine();
+                proc.BeginErrorReadLine();
                 return proc;
             }
             catch (Exception ex)

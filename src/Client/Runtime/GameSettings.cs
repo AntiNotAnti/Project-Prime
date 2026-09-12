@@ -76,6 +76,15 @@ namespace MphRead.Mods
                 global::MphRead.Hud.Radar.RadarSettings.MaximumScale);
             global::MphRead.Hud.Radar.RadarSettings.OffsetX = ParseRadarNumber(settings.RadarOffsetX, 0, -256, 256);
             global::MphRead.Hud.Radar.RadarSettings.OffsetY = ParseRadarNumber(settings.RadarOffsetY, 0, -192, 192);
+            global::MphRead.Hud.Radar.RadarSettings.Range = ParseRadarNumber(settings.RadarRange,
+                global::MphRead.Hud.Radar.RadarSettings.DefaultRange,
+                global::MphRead.Hud.Radar.RadarSettings.MinimumRange,
+                global::MphRead.Hud.Radar.RadarSettings.MaximumRange);
+            global::MphRead.Hud.Radar.RadarSettings.Opacity = ParseRadarNumber(settings.RadarOpacity, 1,
+                global::MphRead.Hud.Radar.RadarSettings.MinimumOpacity,
+                global::MphRead.Hud.Radar.RadarSettings.MaximumOpacity);
+            global::MphRead.Hud.Radar.RadarSettings.ElevationIndicators
+                = RenderOptions.ParseOnOff(settings.RadarElevationIndicators, true);
             if (TryVolume(settings.SfxVolume, out float sfx))
             {
                 Sfx.Volume = sfx;
@@ -98,6 +107,7 @@ namespace MphRead.Mods
             // one on its next resize.
             RenderOptions.ResolutionScale = RenderOptions.ParseScale(settings.ResolutionScale,
                 RenderOptions.ResolutionScale);
+            RenderOptions.FieldOfView = RenderOptions.ParseFieldOfView(settings.FieldOfView);
             RenderOptions.Lighting = RenderOptions.ParseOnOff(settings.Lighting, RenderOptions.Lighting);
             RenderOptions.Fog = RenderOptions.ParseOnOff(settings.Fog, RenderOptions.Fog);
             // Quality parsing lives in RenderOptions so every frontend uses
