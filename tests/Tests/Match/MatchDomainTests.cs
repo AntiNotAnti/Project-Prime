@@ -65,6 +65,7 @@ public sealed class MatchDomainTests
         Assert.Equal(7, battle.LegacyPointGoal);
         Assert.Equal(0f, battle.LegacyTimeGoal);
         Assert.False(battle.Teams);
+        Assert.True(battle.PlayerRadar);
 
         MatchRules survival = MatchRules.CreateDefault(MatchMode.Survival, "MP2 ACCELERATOR");
         Assert.Equal(TimeSpan.FromMinutes(15), survival.TimeLimit);

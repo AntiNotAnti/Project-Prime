@@ -17,10 +17,10 @@ namespace MphRead.Tests
         [Fact]
         public void CompleteRulesRoundTripAcrossReliableBoundaries()
         {
-            // Live protocol 15 carries authenticated UDP framing in addition
+            // Live protocol 16 carries authenticated UDP framing in addition
             // to the input epoch and frame timing denominator; older replay fixtures below
             // intentionally keep their historical protocol versions.
-            Assert.Equal(15, NetHeader.Version);
+            Assert.Equal(16, NetHeader.Version);
             foreach (MatchMode mode in Enum.GetValues<MatchMode>())
             {
                 MatchRules rules = Rules(mode);

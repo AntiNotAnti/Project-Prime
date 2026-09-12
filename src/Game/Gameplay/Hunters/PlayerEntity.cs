@@ -728,6 +728,7 @@ namespace MphRead.Entities
             _ammoMax[UA] = _ammoMax[Missiles] = Values.MpAmmoCap;
             InitializeWeapon();
             _pendingAutoEquipWeapon = BeamType.None;
+            _hasAuthoritativeWeaponPickupFence = false;
             _availableWeapons[BeamType.PowerBeam] = true;
             TryEquipWeapon(BeamType.PowerBeam, silent: true);
             _facingVector = -Vector3.UnitZ;
@@ -888,6 +889,7 @@ namespace MphRead.Entities
             _cloakTimer = 0;
             _deathaltTimer = 0;
             _pendingAutoEquipWeapon = BeamType.None;
+            _hasAuthoritativeWeaponPickupFence = false;
             PreviousWeapon = BeamType.PowerBeam;
             TryEquipWeapon(BeamType.PowerBeam, silent: true);
             Metadata.LoadEffectiveness(0x2AAAA, BeamEffectiveness);
@@ -1377,6 +1379,7 @@ namespace MphRead.Entities
             }
             if (TryEquipWeapon(pending, suppressFailureSound: true))
             {
+                MarkAuthoritativeWeaponPickup();
                 _pendingAutoEquipWeapon = BeamType.None;
             }
         }

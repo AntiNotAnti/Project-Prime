@@ -138,12 +138,20 @@ namespace MphRead.Entities
                 || IsUnmorphing != ((flags & SnapshotPlayerFlags.Unmorphing) != 0);
             bool spectatorChanged = Flags2.TestFlag(PlayerFlags2.Spectating)
                 != ((flags & SnapshotPlayerFlags.Spectating) != 0);
+            bool reconcileSpireAltAttack = !predicted || newLife;
+            bool spireAltAttack = spawned && state.Health > 0
+                && state.Hunter == Hunter.Spire
+                && (flags & (SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.SpireAltAttack))
+                    == (SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.SpireAltAttack);
+            bool spireAltAttackChanged = reconcileSpireAltAttack
+                && Flags2.TestFlag(PlayerFlags2.AltAttack) != spireAltAttack;
             bool deactivated = LoadFlags.TestFlag(LoadFlags.Active)
                 && ((flags & SnapshotPlayerFlags.Active) == 0 || !spawned);
             bool died = Health > 0 && state.Health == 0;
             if (newLife || !spawned || died || formChanged || spectatorChanged)
                 Input.ClearBoostIntents();
-            if (newLife || deactivated || died || formChanged || spectatorChanged)
+            if (newLife || deactivated || died || formChanged || spectatorChanged
+                || spireAltAttackChanged)
                 AdvancePresentationPoseEpoch();
             if (newLife || !spawned || state.Health == 0 || formChanged || spectatorChanged)
                 ResetRemoteLocomotion();
@@ -170,6 +178,12 @@ namespace MphRead.Entities
             EquipInfo.Zoomed = (state.Flags & SnapshotPlayerFlags.Zoomed) != 0;
             bool alt = (state.Flags & SnapshotPlayerFlags.AltForm) != 0;
             if ((!predicted || newLife) && IsAltForm != alt) { ModForceForm(alt); }
+            if (reconcileSpireAltAttack)
+            {
+                if (spireAltAttack) BeginSpireAltAttack();
+                else if (Hunter == Hunter.Spire && Flags2.TestFlag(PlayerFlags2.AltAttack))
+                    EndAltAttack();
+            }
             ModSetSpectating((state.Flags & SnapshotPlayerFlags.Spectating) != 0);
             if ((state.Flags & SnapshotPlayerFlags.Active) != 0) LoadFlags |= LoadFlags.Active;
             else LoadFlags &= ~LoadFlags.Active;

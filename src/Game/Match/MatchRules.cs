@@ -155,6 +155,7 @@ namespace MphRead
             bool timedObjective = mode is MatchMode.Defender or MatchMode.TeamDefender or MatchMode.PrimeHunter;
             return new MatchRules(mode, roomKey, maxPlayers, TimeSpan.FromMinutes(battle ? 7 : 15),
                 points, timedObjective ? TimeSpan.FromSeconds(90) : null, survival ? 2 : 0,
+                playerRadar: true,
                 lateJoinPolicy: survival ? LateJoinPolicy.SpectateUntilNextMatch : LateJoinPolicy.JoinImmediately);
         }
     }

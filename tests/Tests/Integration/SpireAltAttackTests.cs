@@ -67,6 +67,51 @@ public sealed class SpireAltAttackTests
         }
     }
 
+    [Trait("RequiresGameContent", "true")]
+    [Fact]
+    public void SpireAltAttackStateReplicatesToRemotePresentation()
+    {
+        bool previousServerMode = Read.ServerMode;
+        try
+        {
+            using var saved = ServerContent.PreserveContext("AMHE1");
+            ServerContent.Open(FindAmhe1(), "AMHE1");
+            using var simulation = new ServerSimulation(new RotationEntry
+            {
+                RoomKey = "MP1 SANCTORUS",
+                Mode = GameMode.Battle
+            });
+
+            PlayerEntity authority = simulation.Scene.Players[0];
+            authority.ServerActivate(0x51, Hunter.Spire, team: 0);
+            authority.ModForceForm(altForm: true);
+            authority.Flags2 |= PlayerFlags2.AltAttack;
+            SnapshotPlayer state = authority.CaptureServerState();
+
+            Assert.True((state.Flags & SnapshotPlayerFlags.SpireAltAttack) != 0);
+            authority.Health = 0;
+            Assert.False((authority.CaptureServerState().Flags
+                & SnapshotPlayerFlags.SpireAltAttack) != 0);
+
+            state.Slot = 1;
+            state.ConnectionId = 0x52;
+            PlayerEntity replica = simulation.Scene.Players[1];
+            replica.ClientActivate(state);
+            replica.ApplyServerState(state, newLife: true);
+            Assert.True(replica.Flags2.TestFlag(PlayerFlags2.AltAttack));
+            Assert.Equal(replica.Position, replica._spireRockPosL);
+            Assert.Equal(replica.Position, replica._spireRockPosR);
+
+            state.Flags &= ~SnapshotPlayerFlags.SpireAltAttack;
+            replica.ApplyServerState(state, newLife: false);
+            Assert.False(replica.Flags2.TestFlag(PlayerFlags2.AltAttack));
+        }
+        finally
+        {
+            Read.ServerMode = previousServerMode;
+        }
+    }
+
     private static string FindAmhe1()
     {
         string? configured = Environment.GetEnvironmentVariable("GAME_DATA_DIRECTORY");

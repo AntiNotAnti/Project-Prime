@@ -153,11 +153,15 @@ public sealed class NetworkActionIntegrationTests
         Assert.Equal(BeamType.PowerBeam, player.CurrentWeapon);
         Assert.Equal(BeamType.PowerBeam, player.PreviousWeapon);
 
-        // The first desired weapon is sent over the real UDP path; subsequent
-        // redundant history is intentionally neutral so the server must apply
-        // the sequence once and keep normal availability/transition checks.
+        // The first desired weapon is sent over the real UDP path together
+        // with the cycle edge that selected it. The target must be the single
+        // authoritative action; applying the edge too would equip Missile and
+        // immediately cycle back to Power Beam. Subsequent redundant history
+        // is intentionally neutral so the server must apply the sequence once
+        // and keep normal availability/transition checks.
         SendAndTickAt(serverTransport, server, simulation, client, history, ref sequence,
-            ref tick, InputButtons.None, InputButtons.None, (byte)BeamType.Missile);
+            ref tick, InputButtons.NextWeapon, InputButtons.NextWeapon,
+            (byte)BeamType.Missile);
         for (int i = 0; i < 18 && player.CurrentWeapon != BeamType.Missile; i++)
         {
             SendAndTickAt(serverTransport, server, simulation, client, history, ref sequence,
@@ -170,7 +174,8 @@ public sealed class NetworkActionIntegrationTests
         // closes the launcher directly, so the ordinary weapon must be active
         // before the test can observe the UpDown transition.
         SendAndTickAt(serverTransport, server, simulation, client, history, ref sequence,
-            ref tick, InputButtons.None, InputButtons.None, (byte)BeamType.PowerBeam);
+            ref tick, InputButtons.PreviousWeapon, InputButtons.PreviousWeapon,
+            (byte)BeamType.PowerBeam);
         for (int i = 0; i < 18 && player.CurrentWeapon != BeamType.PowerBeam; i++)
         {
             SendAndTickAt(serverTransport, server, simulation, client, history, ref sequence,
@@ -222,6 +227,112 @@ public sealed class NetworkActionIntegrationTests
         Assert.True(player.CurrentWeapon == BeamType.Missile,
             $"UDP desired weapon did not survive transition: current={player.CurrentWeapon}, previous={player.PreviousWeapon}, animation={player.GunAnimation}, processed={peer.Inputs.LastProcessed}, late={peer.Inputs.LateCommands}, skipped={peer.Inputs.SkippedCommands}, starved={peer.Inputs.StarvedTicks}, tick={tick}");
         Assert.Equal(BeamType.PowerBeam, player.PreviousWeapon);
+    }
+
+    [Trait("RequiresGameContent", "true")]
+    [Fact]
+    public void SamusAffinityPickupAwardsMissilesAndAutoEquipsThem()
+    {
+        using var content = OpenAmhe1();
+        var rules = new MatchRules(MatchMode.Battle, "MP1 SANCTORUS", maxPlayers: 1);
+        using var simulation = new ServerSimulation(rules);
+        using var serverTransport = new NetTransport(0);
+        using var clientTransport = new NetTransport(0);
+        using var client = new NetClient(clientTransport,
+            new IPEndPoint(IPAddress.Loopback, serverTransport.LocalPort),
+            "UDP-AFFINITY-PICKUP", Hunter.Samus);
+        var server = new ServerNetwork(serverTransport, rules);
+
+        Pump(server, client, () => client.Connection != null, 12);
+        Assert.True(client.Ready(client.Accepted.MatchId));
+        Pump(server, client, () => server.Peers[0]?.Connection.State == NetConnectionState.Ready, 12);
+
+        StepAndSend(serverTransport, server, simulation, client, 1);
+        simulation.Scene.Match.Phase = MatchPhase.Playing;
+        server.Phase = MatchPhase.Playing;
+        server.PhaseRevision = simulation.Scene.Match.PhaseRevision;
+        StepAndSend(serverTransport, server, simulation, client, 2);
+
+        ServerPeer peer = Assert.IsType<ServerPeer>(server.Find(client.Connection!.Id));
+        PlayerEntity player = simulation.Scene.Players[peer.Slot];
+        player.ModSetAmmo(0, 0);
+        Assert.Equal(BeamType.PowerBeam, player.CurrentWeapon);
+
+        ItemInstanceEntity? pickup = ItemSpawnEntity.SpawnItem(ItemType.AffinityWeapon,
+            player.Position, player.NodeRef, SimTicks.From30HzFrames(60), simulation.Scene);
+        Assert.NotNull(pickup);
+
+        var history = new List<InputCommand>();
+        uint sequence = 0;
+        uint tick = 3;
+        SendAndTickAt(serverTransport, server, simulation, client, history,
+            ref sequence, ref tick, InputButtons.None, InputButtons.None,
+            (byte)BeamType.PowerBeam);
+
+        Assert.Equal(BeamType.Missile, player.CurrentWeapon);
+        Assert.Equal(50, player.ModAmmo.Missiles);
+    }
+
+    [Trait("RequiresGameContent", "true")]
+    [Fact]
+    public void WeaponPickupRejectsStaleDesiredWeaponUntilClientObservesPickup()
+    {
+        using var content = OpenAmhe1();
+        var rules = new MatchRules(MatchMode.Battle, "MP1 SANCTORUS", maxPlayers: 1);
+        using var simulation = new ServerSimulation(rules);
+        using var serverTransport = new NetTransport(0);
+        using var clientTransport = new NetTransport(0);
+        using var client = new NetClient(clientTransport,
+            new IPEndPoint(IPAddress.Loopback, serverTransport.LocalPort),
+            "UDP-PICKUP-WEAPON", Hunter.Samus);
+        var server = new ServerNetwork(serverTransport, rules);
+
+        Pump(server, client, () => client.Connection != null, 12);
+        Assert.True(client.Ready(client.Accepted.MatchId));
+        Pump(server, client, () => server.Peers[0]?.Connection.State == NetConnectionState.Ready, 12);
+
+        StepAndSend(serverTransport, server, simulation, client, 1);
+        simulation.Scene.Match.Phase = MatchPhase.Playing;
+        server.Phase = MatchPhase.Playing;
+        server.PhaseRevision = simulation.Scene.Match.PhaseRevision;
+        StepAndSend(serverTransport, server, simulation, client, 2);
+
+        ServerPeer peer = Assert.IsType<ServerPeer>(server.Find(client.Connection!.Id));
+        PlayerEntity player = simulation.Scene.Players[peer.Slot];
+        var history = new List<InputCommand>();
+        uint sequence = 0;
+        uint tick = 3;
+        for (int i = 0; i < 4; i++)
+        {
+            SendAndTickAt(serverTransport, server, simulation, client, history,
+                ref sequence, ref tick, InputButtons.None, InputButtons.None);
+        }
+        Assert.Equal(BeamType.PowerBeam, player.CurrentWeapon);
+
+        ItemInstanceEntity? pickup = ItemSpawnEntity.SpawnItem(ItemType.OmegaCannon,
+            player.Position, player.NodeRef, SimTicks.From30HzFrames(60), simulation.Scene);
+        Assert.NotNull(pickup);
+        uint pickupTick = tick;
+        SendAndTickAt(serverTransport, server, simulation, client, history,
+            ref sequence, ref tick, InputButtons.None, InputButtons.None,
+            (byte)BeamType.PowerBeam);
+        Assert.Equal(BeamType.OmegaCannon, player.CurrentWeapon);
+
+        // This packet was authored from a snapshot before the authority
+        // auto-equipped the pickup. It must not switch the server back.
+        uint staleSequence = sequence++;
+        player.ApplyNetworkInput(new InputCommand(staleSequence, staleSequence, pickupTick - 1,
+            InputButtons.None, InputButtons.None, -Vector3.UnitZ,
+            (byte)BeamType.PowerBeam, player.ServerCombatIdentity.Life));
+        Assert.Equal(BeamType.OmegaCannon, player.CurrentWeapon);
+
+        // Once the client has observed the pickup tick, choosing the old
+        // weapon is a fresh player intent and remains legal.
+        uint currentSequence = sequence++;
+        player.ApplyNetworkInput(new InputCommand(currentSequence, currentSequence, pickupTick,
+            InputButtons.None, InputButtons.None, -Vector3.UnitZ,
+            (byte)BeamType.PowerBeam, player.ServerCombatIdentity.Life));
+        Assert.Equal(BeamType.PowerBeam, player.CurrentWeapon);
     }
 
     [Trait("RequiresGameContent", "true")]

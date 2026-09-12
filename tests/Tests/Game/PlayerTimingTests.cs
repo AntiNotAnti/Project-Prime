@@ -86,5 +86,31 @@ namespace MphRead.Tests
                 Assert.Equal(unchecked((ulong)value * 2), unchecked((ulong)value * SimTicks.TicksPer30HzFrame));
             Assert.Equal(126, SimTicks.From30HzFrames(63));
         }
+
+        [Fact]
+        public void ZoomInUsesResponsiveInterpolatedSimulationSteps()
+        {
+            float first = ZoomFovTransition.StepToward(78, 20);
+            float second = ZoomFovTransition.StepToward(first, 20);
+
+            Assert.Equal(74, first);
+            Assert.Equal(70, second);
+            Assert.Equal(20, ZoomFovTransition.StepToward(21, 20));
+        }
+
+        [Fact]
+        public void ZoomOutPreservesLegacyCurveAcrossTwoTicks()
+        {
+            const float current = 20;
+            const float normal = 78;
+            float first = ZoomFovTransition.StepBackToNormal(current, normal);
+            float second = ZoomFovTransition.StepBackToNormal(first, normal);
+            float legacyStep = current + (normal - current) / 4;
+
+            Assert.Equal(legacyStep, second, precision: 4);
+            Assert.InRange(first, current, legacyStep);
+            Assert.Equal(normal,
+                ZoomFovTransition.StepBackToNormal(normal - 0.1f, normal));
+        }
     }
 }

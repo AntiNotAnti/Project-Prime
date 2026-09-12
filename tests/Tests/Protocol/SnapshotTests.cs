@@ -42,6 +42,22 @@ namespace MphRead.Tests
         }
 
         [Fact]
+        public void SpireAltAttackFlagRoundTripsAndUnknownFlagIsRejected()
+        {
+            SnapshotPlayer player = Player(5);
+            player.Flags |= SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.SpireAltAttack;
+            byte[] bytes = new byte[SnapshotPlayer.Size];
+
+            player.Write(bytes);
+
+            Assert.True(SnapshotPlayer.TryRead(bytes, out SnapshotPlayer parsed));
+            Assert.True((parsed.Flags & SnapshotPlayerFlags.SpireAltAttack) != 0);
+            BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(4),
+                (ushort)((ushort)player.Flags | 0x8000));
+            Assert.False(SnapshotPlayer.TryRead(bytes, out _));
+        }
+
+        [Fact]
         public void RejectsInvalidPlayersDuplicateSlotsAndTrailingBytes()
         {
             var packet = new SnapshotPacket(1, 2, 3, 0, false, 0, 0);

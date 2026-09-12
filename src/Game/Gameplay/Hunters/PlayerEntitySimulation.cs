@@ -11,6 +11,8 @@ namespace MphRead.Entities
         private ulong _serverConnectionId;
         private uint _serverLife;
         private bool _serverWasAlive;
+        private bool _hasAuthoritativeWeaponPickupFence;
+        private uint _authoritativeWeaponPickupTick;
 
         internal void ServerActivate(ulong connectionId, Hunter hunter, int team, int? botSkill = null)
         {
@@ -58,6 +60,7 @@ namespace MphRead.Entities
             Controls.ClearAll();
             Input.ClearBoostIntents();
             _pendingAutoEquipWeapon = BeamType.None;
+            _hasAuthoritativeWeaponPickupFence = false;
             ClearAnalogMovement();
             ResetRemoteLocomotion();
             _networkInputActive = false;
@@ -98,8 +101,19 @@ namespace MphRead.Entities
             SetNetworkBind(c.Morph, InputButtons.Morph, command);
             SetNetworkBind(c.Boost, InputButtons.Boost, command);
             SetNetworkBind(c.AltAttack, InputButtons.AltAttack, command);
-            SetNetworkBind(c.NextWeapon, InputButtons.NextWeapon, command);
-            SetNetworkBind(c.PrevWeapon, InputButtons.PreviousWeapon, command);
+            // The client resolves cycle input against its authoritative
+            // availability snapshot and sends the exact result in
+            // DesiredWeapon. Applying that result and the original cycle
+            // edge would switch twice (for example Power -> Missile ->
+            // Power), which looks like the weapon is repeatedly swapping.
+            // Keep the raw edge in the InputCommand journal, but let the
+            // explicit target be the simulation's single weapon action.
+            InputButtons nextWeaponButton = command.DesiredWeapon <= 8
+                ? InputButtons.None : InputButtons.NextWeapon;
+            InputButtons previousWeaponButton = command.DesiredWeapon <= 8
+                ? InputButtons.None : InputButtons.PreviousWeapon;
+            SetNetworkBind(c.NextWeapon, nextWeaponButton, command);
+            SetNetworkBind(c.PrevWeapon, previousWeaponButton, command);
             SetNetworkBind(c.RolltLeft, InputButtons.RollLeft, command);
             SetNetworkBind(c.RollRight, InputButtons.RollRight, command);
             SetNetworkBind(c.RollUp, InputButtons.RollForward, command);
@@ -130,6 +144,7 @@ namespace MphRead.Entities
                 ClearAnalogMovement();
             }
             if (command.DesiredWeapon <= 8
+                && IsNetworkWeaponIntentCurrent(command.ViewServerTick)
                 && (BeamType)command.DesiredWeapon != CurrentWeapon)
             {
                 // Normal availability, cooldown and transition checks apply.
@@ -137,6 +152,21 @@ namespace MphRead.Entities
                 // or copies a client ammunition count.
                 TryEquipWeapon((BeamType)command.DesiredWeapon);
             }
+        }
+
+        private bool IsNetworkWeaponIntentCurrent(uint viewServerTick)
+            => !_hasAuthoritativeWeaponPickupFence
+                || viewServerTick == _authoritativeWeaponPickupTick
+                || Sequence32.IsNewer(viewServerTick, _authoritativeWeaponPickupTick);
+
+        private void MarkAuthoritativeWeaponPickup()
+        {
+            if (_scene.Services.Combat is not ICombatAuthority authority)
+            {
+                return;
+            }
+            _hasAuthoritativeWeaponPickupFence = true;
+            _authoritativeWeaponPickupTick = authority.Tick;
         }
 
         private static void SetNetworkBind(PlayerActionState bind, InputButtons button, in InputCommand command)
@@ -171,6 +201,11 @@ namespace MphRead.Entities
             if (EquipInfo.Zoomed) flags |= SnapshotPlayerFlags.Zoomed;
             if (Flags2.TestFlag(PlayerFlags2.Spectating)) flags |= SnapshotPlayerFlags.Spectating;
             if (Flags1.TestFlag(PlayerFlags1.Grounded)) flags |= SnapshotPlayerFlags.Grounded;
+            if (alive && Hunter == Hunter.Spire && IsAltForm
+                && Flags2.TestFlag(PlayerFlags2.AltAttack))
+            {
+                flags |= SnapshotPlayerFlags.SpireAltAttack;
+            }
             ushort available = 0;
             for (int weapon = 0; weapon <= 8; weapon++)
             {

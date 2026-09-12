@@ -834,24 +834,8 @@ namespace MphRead.Entities
                             CheckZoomTargets(EntityType.ForceFieldLock);
                             CheckZoomTargets(EntityType.Object);
                             zoomFov *= 2;
-                            float currentFov = CameraInfo.Fov;
-                            if (zoomFov > currentFov)
-                            {
-                                currentFov += 2 * 2;
-                                if (currentFov > zoomFov)
-                                {
-                                    currentFov = zoomFov;
-                                }
-                            }
-                            else if (zoomFov < currentFov)
-                            {
-                                currentFov -= 2 * 2;
-                                if (currentFov < zoomFov)
-                                {
-                                    currentFov = zoomFov;
-                                }
-                            }
-                            CameraInfo.Fov = currentFov;
+                            CameraInfo.Fov = ZoomFovTransition.StepToward(
+                                CameraInfo.Fov, zoomFov);
                         }
                     }
                     if (Controls.Shoot.IsPressed && EquipInfo.ChargeLevel <= SimTicks.From30HzFrames(1)
@@ -1381,16 +1365,8 @@ namespace MphRead.Entities
                         }
                         else if (Controls.AltAttack.IsPressed)
                         {
-                            Flags2 |= PlayerFlags2.AltAttack;
                             NoteOffensiveAction();
-                            _altModel.SetAnimation((int)SpireAltAnim.Attack, AnimFlags.NoLoop);
-                            _soundSource.PlaySfx(SfxId.SPIRE_ALT_ATTACK);
-                            _spireRockPosR = Position;
-                            _spireRockPosL = Position;
-                            _spireAltUp = _fieldC0;
-                            var cross = Vector3.Cross(_facingVector, _spireAltUp);
-                            _spireAltFacing = VectorMath.NormalizeOr(
-                                Vector3.Cross(_spireAltUp, cross), _facingVector);
+                            BeginSpireAltAttack();
                         }
                     }
                     if (_abilities.TestFlag(AbilityFlags.TraceAltAttack))
@@ -1713,6 +1689,24 @@ namespace MphRead.Entities
                 }
                 bomb.PlaySpawnSfx();
             }
+        }
+
+        private void BeginSpireAltAttack()
+        {
+            if (Hunter != Hunter.Spire || !IsAltForm
+                || Flags2.TestFlag(PlayerFlags2.AltAttack))
+            {
+                return;
+            }
+            Flags2 |= PlayerFlags2.AltAttack;
+            _altModel.SetAnimation((int)SpireAltAnim.Attack, AnimFlags.NoLoop);
+            _soundSource.PlaySfx(SfxId.SPIRE_ALT_ATTACK);
+            _spireRockPosR = Position;
+            _spireRockPosL = Position;
+            _spireAltUp = _fieldC0;
+            var cross = Vector3.Cross(_facingVector, _spireAltUp);
+            _spireAltFacing = VectorMath.NormalizeOr(
+                Vector3.Cross(_spireAltUp, cross), _facingVector);
         }
 
         private void EndAltAttack()

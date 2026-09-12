@@ -688,7 +688,7 @@ namespace MphRead.Entities
                     }
                     Flags2 &= ~PlayerFlags2.ChargeEffect;
                 }
-                else if (EquipInfo.ChargeLevel == SimTicks.From30HzFrames(EquipInfo.Weapon.FullCharge))
+                else if (EquipInfo.ChargeLevel >= SimTicks.From30HzFrames(EquipInfo.Weapon.FullCharge))
                 {
                     if (!Flags2.TestFlag(PlayerFlags2.ChargeEffect))
                     {
@@ -875,18 +875,9 @@ namespace MphRead.Entities
             {
                 // note: the game does this during cam seqs, resulting in the FOV thrashing a bit, but it has no visible effect
                 // since the sin/cos values for projection are set aside in the cam info update that's already occurred above.
-                float currentFov = CameraInfo.Fov;
                 float normalFov = Fixed.ToFloat(Values.NormalFov) * 2;
-                float diff = normalFov - currentFov;
-                if (MathF.Abs(diff) >= 0.1f * 2)
-                {
-                    currentFov += diff / 4; // todo: FPS stuff (balances out here)
-                    CameraInfo.Fov = currentFov;
-                }
-                else
-                {
-                    CameraInfo.Fov = normalFov;
-                }
+                CameraInfo.Fov = ZoomFovTransition.StepBackToNormal(
+                    CameraInfo.Fov, normalFov);
             }
             if (_bipedModel2.AnimInfo.Flags[0].TestFlag(AnimFlags.Ended))
             {
@@ -1261,16 +1252,12 @@ namespace MphRead.Entities
         {
             BeamType weapon;
             bool affinityPickup = itemType == ItemType.AffinityWeapon;
+            bool affinityGrantsMissileAmmo = false;
             if (itemType == ItemType.AffinityWeapon)
             {
                 if (Hunter == Hunter.Samus || Hunter == Hunter.Guardian) // game doesn't check for Guardian
                 {
-                    _ammo[1] = Math.Min(_ammo[1] + 50, _ammoMax[1]);
-                    if (IsMainPlayer)
-                    {
-                        PlayPickupSound(SfxId.AMMO_POWER_UP1);
-                    }
-                    return;
+                    affinityGrantsMissileAmmo = true;
                 }
                 weapon = Weapons.GetAffinityBeam(Hunter);
             }
@@ -1293,7 +1280,11 @@ namespace MphRead.Entities
                 return;
             }
             WeaponInfo info = Weapons.Current[(int)weapon];
-            if (_ammo[info.AmmoType] < 60)
+            if (affinityGrantsMissileAmmo)
+            {
+                _ammo[Missiles] = Math.Min(_ammo[Missiles] + 50, _ammoMax[Missiles]);
+            }
+            else if (_ammo[info.AmmoType] < 60)
             {
                 _ammo[info.AmmoType] = Math.Min(_ammo[info.AmmoType] + 60, 60);
             }
@@ -1309,6 +1300,7 @@ namespace MphRead.Entities
                 // always become the selected weapon, including ammo-only
                 // pickups, while the slot is updated even if a morph/weapon
                 // transition temporarily defers the actual equip.
+                bool autoEquipRequested = CurrentWeapon != weapon;
                 UpdateAffinityWeaponSlot(weapon);
                 if (CurrentWeapon == weapon)
                 {
@@ -1320,6 +1312,10 @@ namespace MphRead.Entities
                 {
                     _pendingAutoEquipWeapon = weapon;
                 }
+                if (autoEquipRequested)
+                {
+                    MarkAuthoritativeWeaponPickup();
+                }
                 if (IsMainPlayer)
                 {
                     PlayPickupSound(newlyAvailable
@@ -1329,6 +1325,7 @@ namespace MphRead.Entities
             }
             if (newlyAvailable)
             {
+                BeamType previousWeapon = CurrentWeapon;
                 BeamType slot2Weapon = _weaponSlots[2];
                 int slot2Index = (int)slot2Weapon;
                 BeamType affinityWeapon = Weapons.GetAffinityBeam(Hunter);
@@ -1349,6 +1346,10 @@ namespace MphRead.Entities
                     {
                         UpdateAffinityWeaponSlot(weapon, slot: 2);
                     }
+                }
+                if (CurrentWeapon != previousWeapon)
+                {
+                    MarkAuthoritativeWeaponPickup();
                 }
                 if (IsMainPlayer)
                 {
