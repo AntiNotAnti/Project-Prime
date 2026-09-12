@@ -27,10 +27,13 @@ Required configuration:
   The lobby path requests recorded replays, so include `--replay-dir` with an
   operator-owned writable directory in the Worker arguments as well.
 
-Empty map/worker lists support session/lobby service only; start fails explicitly
-when content or compatible capacity is unavailable. They do not launch dummy
-matches. Optional `Node:Directory` settings publish to Backend; see its reporter
-options. Backend outages do not invalidate connected sessions.
+Empty map/worker lists leave the Node unready for Backend discovery; local
+session/lobby endpoints may still answer, but start fails explicitly when
+content or compatible capacity is unavailable. They do not launch dummy
+matches. Optional `Node:Directory` publication uses the same readiness result,
+so an unready Node is not registered or heartbeated (a cleanly registered Node
+is deregistered once on a ready-to-unready transition). Backend outages do not
+invalidate connected sessions.
 
 The launcher connects to a compatible Node, lists public lobbies, and creates
 `LobbyVisibility.Public` when the user chooses Host. Node list responses contain
@@ -48,9 +51,13 @@ Connect `wss://host/v1/control` with `Authorization: Bearer <NodeAdmissionTicket
 Backend account bearer credentials and gameplay tickets are not Node admissions.
 Admissions use ES256, `typ=pp-node-admission+jwt`, exact issuer, audience
 `urn:project-prime:node:<NodeId>`, UUID `sub/jti`, display `name`, and `iat=nbf` with
-expiry at most 120 seconds later. Replay IDs are consumed once. Verification is
-local and key material is loaded at startup; rotation currently requires a Node
-restart with the new public key set.
+expiry at most 120 seconds later. Replay IDs are consumed once. Verification
+starts with the configured bootstrap keys. When
+`Node:Authentication:KeyOrigin` is an exact HTTPS `/v1/node-admission-keys`
+endpoint, an unknown `kid` triggers one bounded, single-flight refresh;
+bootstrap keys are retained and the immutable snapshot never exceeds eight
+keys. Redirects, `jku`, and remote key hints are rejected. Without a key origin,
+changing the bootstrap set still requires a Node restart.
 
 Guest access uses the anonymous Backend endpoint `POST
 /v1/guest-node-admissions` in every environment. The request is

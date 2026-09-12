@@ -198,4 +198,54 @@ public sealed class NodeDirectoryReporterTests
         await reporter.StopAsync(CancellationToken.None);
         Assert.Equal(HttpMethod.Delete, handler.Requests[^1].Method);
     }
+
+    [Fact]
+    public async Task StopCannotDeregisterAndThenRaceWithAQueuedRepublish()
+    {
+        var options = Options();
+        using var handler = new CoordinatedHandler();
+        using var http = new HttpClient(handler);
+        using var reporter = new NodeDirectoryReporter(options,
+            () => new(options.Registration.Incarnation, 0, 0, 0),
+            NullLogger<NodeDirectoryReporter>.Instance, http);
+
+        Assert.True(await reporter.PublishOnceAsync()); // registration + heartbeat
+        Task<bool> pendingPublish = reporter.PublishOnceAsync();
+        await handler.ThirdRequestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task stop = reporter.StopAsync(CancellationToken.None);
+        await Task.Yield();
+        Assert.False(stop.IsCompleted);
+        Assert.DoesNotContain(HttpMethod.Delete, handler.Methods);
+
+        handler.ReleaseThirdRequest.TrySetResult(true);
+        Assert.True(await pendingPublish.WaitAsync(TimeSpan.FromSeconds(5)));
+        await stop.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal([HttpMethod.Put, HttpMethod.Post, HttpMethod.Post, HttpMethod.Delete], handler.Methods);
+        Assert.False(await reporter.PublishOnceAsync());
+        Assert.Equal(4, handler.Methods.Count);
+    }
+
+    private sealed class CoordinatedHandler : HttpMessageHandler
+    {
+        private int _requestCount;
+        private readonly object _gate = new();
+        public List<HttpMethod> Methods { get; } = [];
+        public TaskCompletionSource<bool> ThirdRequestStarted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> ReleaseThirdRequest { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            lock (_gate) Methods.Add(request.Method);
+            if (Interlocked.Increment(ref _requestCount) == 3)
+            {
+                ThirdRequestStarted.TrySetResult(true);
+                await ReleaseThirdRequest.Task.WaitAsync(cancellationToken);
+            }
+            return new(HttpStatusCode.OK);
+        }
+    }
 }

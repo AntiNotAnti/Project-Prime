@@ -66,7 +66,22 @@ public sealed partial class LobbyManager
     {
         lock (_gate)
         {
-            if (deadline is { } expires) _sessionResumeDeadlines[sessionId] = expires;
+            if (deadline is { } expires)
+            {
+                _sessionResumeDeadlines[sessionId] = expires;
+                // A ready player must be actively present at the control-plane
+                // boundary. Clear readiness as soon as its socket enters the
+                // reconnect grace period so the owner cannot start a match for
+                // a participant that cannot receive the Worker handoff.
+                if (_membership.TryGetValue(sessionId, out Guid lobbyId)
+                    && _lobbies.TryGetValue(lobbyId, out Lobby? lobby)
+                    && lobby.Members.TryGetValue(sessionId, out LobbyMember? member)
+                    && !member.Observer && member.Ready)
+                {
+                    lobby.Members[sessionId] = member with { Ready = false };
+                    Publish(lobby);
+                }
+            }
             else _sessionResumeDeadlines.Remove(sessionId);
         }
     }
@@ -302,6 +317,8 @@ public sealed partial class LobbyManager
                 Round(lobby.Id).AwaitingMapReadiness = false;
             }
             var players = lobby.Members.Values.Where(m => !m.Observer).ToArray();
+            if (players.Any(player => _sessionResumeDeadlines.ContainsKey(player.SessionId)))
+                throw Error("player_disconnected", "Wait for every player to reconnect before starting the match.");
             if (players.Length == 0 || requireReady && players.Any(m => !m.Ready)) throw Error("not_ready", "All players must be ready.");
             var seats = ImmutableArray.CreateBuilder<RosterSeat>();
             foreach (var member in players)

@@ -93,15 +93,30 @@ public sealed class NodeAdmissionValidator : IDisposable
         _keyHttp = keyHttp ?? new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
             { Timeout = TimeSpan.FromSeconds(5) };
         _ownsKeyHttp = keyHttp == null;
+        Dictionary<string, ECDsaSecurityKey>? bootstrap = null;
         try
         {
-            var bootstrap = new Dictionary<string, ECDsaSecurityKey>(StringComparer.Ordinal);
+            bootstrap = new Dictionary<string, ECDsaSecurityKey>(StringComparer.Ordinal);
             foreach (NodeVerificationKey configured in options.Keys)
-                bootstrap.Add(configured.KeyId, LoadPemKey(configured));
-            _keys = bootstrap;
+            {
+                ECDsaSecurityKey key = LoadPemKey(configured);
+                if (!bootstrap.TryAdd(configured.KeyId, key))
+                {
+                    key.ECDsa.Dispose();
+                    throw new InvalidOperationException("Admission key IDs must be unique.");
+                }
+            }
             _bootstrapKeyIds.UnionWith(bootstrap.Keys);
+            _keys = bootstrap;
+            bootstrap = null; // _keys now owns the bootstrap key handles.
         }
-        catch { foreach (var key in _keys.Values) key.ECDsa.Dispose(); throw; }
+        catch
+        {
+            DisposeKeys(bootstrap);
+            foreach (ECDsaSecurityKey key in _keys.Values) key.ECDsa.Dispose();
+            if (_ownsKeyHttp) _keyHttp.Dispose();
+            throw;
+        }
     }
     public async Task<NodeIdentity?> ValidateAsync(string token, CancellationToken cancellationToken = default)
     {
@@ -118,7 +133,7 @@ public sealed class NodeAdmissionValidator : IDisposable
             }
             if (!await HasKeyAsync(jwt.Kid ?? "", cancellationToken))
             {
-                await RefreshKeysAsync(cancellationToken);
+                await RefreshKeysAsync(jwt.Kid ?? "", cancellationToken);
                 if (!await HasKeyAsync(jwt.Kid ?? "", cancellationToken)) return null;
             }
         }
@@ -191,17 +206,26 @@ public sealed class NodeAdmissionValidator : IDisposable
         finally { _keysGate.Release(); }
     }
 
-    private async Task RefreshKeysAsync(CancellationToken cancellationToken)
+    private async Task RefreshKeysAsync(string requestedKeyId, CancellationToken cancellationToken)
     {
         if (_keyOrigin == null) return;
         await _refreshGate.WaitAsync(cancellationToken);
+        Dictionary<string, ECDsaSecurityKey>? refreshed = null;
         try
         {
             DateTimeOffset now = _clock.GetUtcNow();
             if (_lastRefreshTicks != 0 && now.Ticks - _lastRefreshTicks < _keyRefreshInterval.Ticks) return;
             _lastRefreshTicks = now.Ticks;
-            Dictionary<string, ECDsaSecurityKey>? refreshed = await FetchKeysAsync(cancellationToken);
+            refreshed = await FetchKeysAsync(cancellationToken);
             if (refreshed == null) return;
+            if (!refreshed.ContainsKey(requestedKeyId))
+            {
+                // A response which does not contain the kid that triggered the
+                // refresh is not evidence of a usable replacement generation.
+                // Keep the current snapshot intact; the outer finally owns and
+                // disposes every fetched key that was not published.
+                return;
+            }
             await _keysGate.WaitAsync(cancellationToken);
             try
             {
@@ -216,23 +240,41 @@ public sealed class NodeAdmissionValidator : IDisposable
                 {
                     if (old.TryGetValue(id, out ECDsaSecurityKey? key)) merged.Add(id, key);
                 }
+                // The key which caused this refresh is security-critical. It
+                // gets the first available dynamic slot, regardless of its
+                // lexical position in the response. If all eight slots are
+                // occupied by bootstrap keys, the contract is an explicit
+                // validation failure rather than silently selecting another
+                // fetched key.
+                if (refreshed.TryGetValue(requestedKeyId, out ECDsaSecurityKey? requested)
+                    && !merged.ContainsKey(requestedKeyId)
+                    && merged.Count < MaximumKeys)
+                    merged.Add(requestedKeyId, requested);
                 foreach ((string id, ECDsaSecurityKey key) in refreshed.OrderBy(pair => pair.Key, StringComparer.Ordinal))
                 {
                     // A refresh cannot replace a bootstrap key. This also
                     // prevents a compromised endpoint from evicting the
                     // configured overlap key under the same kid.
-                    if (merged.ContainsKey(id)) { key.ECDsa.Dispose(); continue; }
+                    if (merged.ContainsKey(id)) continue;
                     if (merged.Count < MaximumKeys) merged.Add(id, key);
-                    else key.ECDsa.Dispose();
                 }
                 _keys = merged;
                 HashSet<ECDsa> retained = merged.Values.Select(value => value.ECDsa).ToHashSet();
+                foreach (ECDsaSecurityKey key in refreshed.Values)
+                    if (!retained.Contains(key.ECDsa)) key.ECDsa.Dispose();
                 foreach (ECDsaSecurityKey key in old.Values)
                     if (!retained.Contains(key.ECDsa)) key.ECDsa.Dispose();
+                refreshed = null; // all fetched handles are now owned/disposed.
             }
             finally { _keysGate.Release(); }
         }
-        finally { _refreshGate.Release(); }
+        finally
+        {
+            // Fetch may be canceled or fail while waiting for the publication
+            // gate. In either case no fetched ECDsa handle may escape.
+            DisposeKeys(refreshed);
+            _refreshGate.Release();
+        }
     }
 
     private async Task<Dictionary<string, ECDsaSecurityKey>?> FetchKeysAsync(CancellationToken cancellationToken)
@@ -267,22 +309,21 @@ public sealed class NodeAdmissionValidator : IDisposable
             foreach (JsonElement element in document.RootElement.EnumerateArray())
             {
                 if (element.ValueKind != JsonValueKind.Object || element.EnumerateObject().Any(property =>
-                    property.Name is not ("kty" or "crv" or "x" or "y" or "kid" or "use" or "alg"))) return null;
+                    property.Name is not ("kty" or "crv" or "x" or "y" or "kid" or "use" or "alg")))
+                    throw new InvalidDataException("Node admission key contains an unsupported member.");
                 NodeAdmissionPublicKey? key = element.Deserialize<NodeAdmissionPublicKey>();
                 if (key == null || !ValidPublicKeyText(key))
-                {
-                    DisposeKeys(result);
-                    return null;
-                }
+                    throw new InvalidDataException("Node admission key is not a valid ES256 JWK.");
                 ECDsaSecurityKey imported = ImportJwk(key);
                 if (!result.TryAdd(key.Kid, imported))
                 {
                     imported.ECDsa.Dispose();
-                    DisposeKeys(result);
-                    return null;
+                    throw new InvalidDataException("Node admission key IDs must be unique.");
                 }
             }
-            return result;
+            Dictionary<string, ECDsaSecurityKey> completed = result;
+            result = null; // caller owns the complete immutable generation.
+            return completed;
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -295,11 +336,11 @@ public sealed class NodeAdmissionValidator : IDisposable
             throw;
         }
         catch (Exception ex) when (ex is HttpRequestException or IOException or JsonException or CryptographicException
-            or ArgumentException or NotSupportedException)
+            or ArgumentException or NotSupportedException or InvalidDataException)
         {
-            DisposeKeys(result);
             return null;
         }
+        finally { DisposeKeys(result); }
     }
 
     private static void DisposeKeys(Dictionary<string, ECDsaSecurityKey>? keys)
@@ -339,12 +380,19 @@ public sealed class NodeAdmissionValidator : IDisposable
         byte[] x = Base64UrlEncoder.DecodeBytes(key.X);
         byte[] y = Base64UrlEncoder.DecodeBytes(key.Y);
         if (x.Length != 32 || y.Length != 32) throw new CryptographicException("JWK coordinates must be P-256 width.");
-        ECDsa ecdsa = ECDsa.Create(new ECParameters
+        ECDsa? ecdsa = null;
+        try
         {
-            Curve = ECCurve.NamedCurves.nistP256,
-            Q = new ECPoint { X = x, Y = y }
-        });
-        return new(ecdsa) { KeyId = key.Kid };
+            ecdsa = ECDsa.Create(new ECParameters
+            {
+                Curve = ECCurve.NamedCurves.nistP256,
+                Q = new ECPoint { X = x, Y = y }
+            });
+            ECDsaSecurityKey securityKey = new(ecdsa) { KeyId = key.Kid };
+            ecdsa = null; // securityKey now owns the handle.
+            return securityKey;
+        }
+        finally { ecdsa?.Dispose(); }
     }
 
     public void Dispose()

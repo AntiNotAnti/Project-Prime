@@ -92,6 +92,7 @@ public sealed class NodeDirectoryReporter : BackgroundService
     private readonly Func<NodeReadinessResult> _readiness;
     private bool _registered;
     private bool _deregistrationAttempted;
+    private bool _stopping;
     private DateTimeOffset _registerDue;
     private long _lastSuccess;
     private int _failures;
@@ -116,6 +117,10 @@ public sealed class NodeDirectoryReporter : BackgroundService
         await _publish.WaitAsync(cancellationToken);
         try
         {
+            // StopAsync sets this flag while holding the same gate. A loop
+            // iteration that was already queued cannot republish after the
+            // graceful deregistration has completed.
+            if (_stopping) return false;
             NodeReadinessResult readiness = _readiness();
             if (!readiness.IsReady)
             {
@@ -225,6 +230,7 @@ public sealed class NodeDirectoryReporter : BackgroundService
         await _publish.WaitAsync(cancellationToken);
         try
         {
+            _stopping = true;
             if (_registered && !_deregistrationAttempted)
             {
                 try

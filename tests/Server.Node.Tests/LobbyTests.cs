@@ -1,4 +1,5 @@
 using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Node.Sessions;
 using ProjectPrime.Server.Shared;
 using MphRead;
 using Xunit;
@@ -50,6 +51,43 @@ public sealed class LobbyTests
         Assert.Equal(4, spec.Rules.StartingLives);
         Assert.Equal(0, spec.Rules.ScoreGoal);
         Assert.Equal(TimeSpan.FromMinutes(10), spec.Rules.TimeLimit);
+    }
+
+    [Fact]
+    public void DisconnectedPlayerCannotBeFrozenIntoHostOnlyMatch()
+    {
+        var manager = new LobbyManager();
+        var owner = Person("Owner");
+        var guest = Person("Guest");
+        var lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Connected players", LobbyVisibility.Public, 2, 0));
+        lobby = (LobbySnapshot)manager.Execute(guest,
+            new LobbyJoin(lobby.LobbyId, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "unit", MatchMode.Battle));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbySetReady(true, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(guest,
+            new LobbySetReady(true, lobby.Revision));
+
+        manager.SetSessionResumeDeadline(guest.SessionId,
+            DateTimeOffset.UtcNow + NodeSessionManager.DisconnectGrace);
+
+        LobbySnapshot disconnected = manager.ForSession(owner.SessionId)!;
+        Assert.False(disconnected.Members.Single(member => member.SessionId == guest.SessionId).Ready);
+        LobbyCommandException error = Assert.Throws<LobbyCommandException>(() =>
+            manager.PrepareMatch(owner.SessionId, disconnected.Revision,
+                new("unit", "hash", "1", "test", 8), new(Guid.NewGuid()), Guid.NewGuid()));
+        Assert.Equal("player_disconnected", error.Code);
+        Assert.Equal(LobbyPhase.Open, manager.ForSession(owner.SessionId)!.Phase);
+        Assert.Null(manager.ForSession(owner.SessionId)!.CurrentMatchId);
+
+        manager.SetSessionResumeDeadline(guest.SessionId, null);
+        lobby = (LobbySnapshot)manager.Execute(guest,
+            new LobbySetReady(true, disconnected.Revision));
+        MatchSpec spec = manager.PrepareMatch(owner.SessionId, lobby.Revision,
+            new("unit", "hash", "1", "test", 8), new(Guid.NewGuid()), Guid.NewGuid());
+        Assert.Equal(2, spec.Roster.Count(seat => seat.Role == SeatRole.Player));
     }
 
     [Fact]

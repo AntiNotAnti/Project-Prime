@@ -157,6 +157,143 @@ public sealed class NodeAdmissionKeyRotationTests
         finally { Directory.Delete(directory, recursive: true); }
     }
 
+    [Fact]
+    public async Task RefreshMissingRequestedKidPreservesCurrentDynamicGeneration()
+    {
+        Guid node = Guid.NewGuid();
+        string directory = Directory.CreateTempSubdirectory("prime-node-keys-").FullName;
+        var bootstrapKeys = new List<ECDsa>();
+        try
+        {
+            var configured = new List<NodeVerificationKey>();
+            for (int index = 0; index < 7; index++)
+            {
+                ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+                bootstrapKeys.Add(key);
+                string id = $"bootstrap-{index:D2}";
+                string path = Path.Combine(directory, id + ".pem");
+                File.WriteAllText(path, key.ExportSubjectPublicKeyInfoPem());
+                configured.Add(new() { KeyId = id, PublicKeyPemPath = path });
+            }
+
+            using var oldDynamic = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            using var currentDynamic = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var clock = new RotationClock(DateTimeOffset.UtcNow);
+            var handler = new KeyHandler([
+                Jwk(oldDynamic, "a-old"),
+                Jwk(currentDynamic, "z-current")
+            ]);
+            using var http = new HttpClient(handler);
+            using var validator = new NodeAdmissionValidator(new NodeAuthOptions
+            {
+                NodeId = node, Issuer = "https://backend.example", Keys = configured,
+                KeyOrigin = "https://backend.example/v1/node-admission-keys",
+                KeyRefreshSeconds = 30
+            }, clock, http);
+
+            Assert.NotNull(await validator.ValidateAsync(Token(currentDynamic, "z-current", node,
+                Guid.NewGuid(), clock.UtcNow)));
+            Assert.Equal(1, handler.Requests);
+
+            // Once the refresh interval has elapsed, an attacker-controlled kid
+            // must not make an unrelated fetched key replace the current
+            // dynamic generation when the response does not contain that kid.
+            clock.Advance(TimeSpan.FromSeconds(31));
+            Assert.Null(await validator.ValidateAsync(Token(currentDynamic, "attacker-nonexistent", node,
+                Guid.NewGuid(), clock.UtcNow)));
+            Assert.Equal(2, handler.Requests);
+
+            Assert.NotNull(await validator.ValidateAsync(Token(currentDynamic, "z-current", node,
+                Guid.NewGuid(), clock.UtcNow)));
+        }
+        finally
+        {
+            foreach (ECDsa key in bootstrapKeys) key.Dispose();
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RefreshOverflowNeverSilentlyDropsTheRequestedKid()
+    {
+        Guid node = Guid.NewGuid();
+        string directory = Directory.CreateTempSubdirectory("prime-node-keys-").FullName;
+        var bootstrapKeys = new List<ECDsa>();
+        var dynamicKeys = new List<ECDsa>();
+        try
+        {
+            var configured = new List<NodeVerificationKey>();
+            for (int index = 0; index < NodeAdmissionValidator.MaximumKeys; index++)
+            {
+                ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+                bootstrapKeys.Add(key);
+                string id = $"bootstrap-{index:D2}";
+                string path = Path.Combine(directory, id + ".pem");
+                File.WriteAllText(path, key.ExportSubjectPublicKeyInfoPem());
+                configured.Add(new() { KeyId = id, PublicKeyPemPath = path });
+            }
+            var fetched = new List<NodeAdmissionPublicKey>();
+            for (int index = 0; index < NodeAdmissionValidator.MaximumKeys - 1; index++)
+            {
+                ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+                dynamicKeys.Add(key);
+                fetched.Add(Jwk(key, $"dynamic-{index:D2}"));
+            }
+            using var requestedKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            const string requestedKid = "zzzz-requested"; // sorts after every other fetched key
+            fetched.Add(Jwk(requestedKey, requestedKid));
+            var handler = new KeyHandler(fetched);
+            using var http = new HttpClient(handler);
+            using var validator = new NodeAdmissionValidator(new NodeAuthOptions
+            {
+                NodeId = node, Issuer = "https://backend.example", Keys = configured,
+                KeyOrigin = "https://backend.example/v1/node-admission-keys"
+            }, TimeProvider.System, http);
+
+            // The bootstrap set already consumes all eight immutable slots. A
+            // refresh that cannot install the requested kid must fail this
+            // token, rather than alphabetically selecting a different fetched
+            // key and claiming the requested generation was installed.
+            Assert.Null(await validator.ValidateAsync(Token(requestedKey, requestedKid, node, Guid.NewGuid())));
+            Assert.Equal(1, handler.Requests);
+            Assert.NotNull(await validator.ValidateAsync(Token(bootstrapKeys[0], "bootstrap-00", node, Guid.NewGuid())));
+        }
+        finally
+        {
+            foreach (ECDsa key in dynamicKeys) key.Dispose();
+            foreach (ECDsa key in bootstrapKeys) key.Dispose();
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task MalformedLaterJwkDiscardsTheWholeGenerationAndRetainsBootstrap()
+    {
+        Guid node = Guid.NewGuid();
+        string directory = Directory.CreateTempSubdirectory("prime-node-keys-").FullName;
+        string bootstrapPath = Path.Combine(directory, "bootstrap.pem");
+        using var bootstrap = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var rotated = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        File.WriteAllText(bootstrapPath, bootstrap.ExportSubjectPublicKeyInfoPem());
+        string raw = "[" + JsonSerializer.Serialize(Jwk(rotated, "rotated"))
+            + ", {\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"not-base64url\",\"y\":\"not-base64url\",\"kid\":\"broken\",\"use\":\"sig\",\"alg\":\"ES256\"}]";
+        var handler = new RawKeyHandler(raw);
+        using var http = new HttpClient(handler);
+        using var validator = new NodeAdmissionValidator(new NodeAuthOptions
+        {
+            NodeId = node, Issuer = "https://backend.example",
+            Keys = [new() { KeyId = "bootstrap", PublicKeyPemPath = bootstrapPath }],
+            KeyOrigin = "https://backend.example/v1/node-admission-keys"
+        }, TimeProvider.System, http);
+        try
+        {
+            Assert.Null(await validator.ValidateAsync(Token(rotated, "rotated", node, Guid.NewGuid())));
+            Assert.Equal(1, handler.Requests);
+            Assert.NotNull(await validator.ValidateAsync(Token(bootstrap, "bootstrap", node, Guid.NewGuid())));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
     private static string Token(ECDsa key, string kid, Guid node, Guid jti,
         DateTimeOffset? now = null, string? headerExtra = null)
     {
@@ -212,6 +349,20 @@ public sealed class NodeAdmissionKeyRotationTests
                     "application/json");
             }
             return response;
+        }
+    }
+
+    private sealed class RawKeyHandler(string json) : HttpMessageHandler
+    {
+        public int Requests;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref Requests);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+            });
         }
     }
 
