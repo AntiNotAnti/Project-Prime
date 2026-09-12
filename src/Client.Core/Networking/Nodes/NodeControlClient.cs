@@ -31,7 +31,7 @@ public sealed class NodeControlClient : IAsyncDisposable
     private string? _mapCatalogHash;
     internal string? Endpoint { get; private set; }
     public NodeControlClient() { }
-    internal NodeControlClient(ClientWebSocket socket) { _socket.Dispose(); _socket = socket; }
+    public NodeControlClient(ClientWebSocket socket) { _socket.Dispose(); _socket = socket; }
     internal NodeControlClient(Guid expectedNodeId) { _nodeId = expectedNodeId; }
     public sealed record ViewState(NodeSessionSnapshot? Session = null, LobbySnapshot? Lobby = null,
         LobbyListSnapshot? Lobbies = null, NodeMatchHandoff? Handoff = null, bool MatchEnded = false, string? Error = null, Guid? JoinedMatchId = null, Guid? LastEndedMatchId = null, bool LastMatchInterrupted = false, NodeMatchEnded? JoinedCompletion = null, NodeRoundSnapshot? Round = null, Guid? LastLobbyMatchId = null,
@@ -168,6 +168,30 @@ public sealed class NodeControlClient : IAsyncDisposable
             { throw new TimeoutException("The Node did not acknowledge the control command."); }
         }
         finally { EventReceived -= OnEvent; }
+    }
+
+    /// <summary>Updates only this authenticated Node session's public presence setting.</summary>
+    public async Task SetPresenceVisibilityAsync(bool visible,
+        CancellationToken cancellationToken = default)
+    {
+        NodeControlEvent response = await SendAndWaitAsync(
+            "node.presence.visibility", new NodeSetPresenceVisibility(visible),
+            cancellationToken).ConfigureAwait(false);
+        if (response.Type == "error")
+        {
+            NodeControlError error = response.Payload.Deserialize(
+                NodeJsonContext.Default.NodeControlError)
+                ?? throw new JsonException("Missing presence visibility error.");
+            throw new InvalidOperationException(
+                $"Node presence visibility update failed: {error.Code}.");
+        }
+        if (response.Type != "node.presence.visibility")
+            throw new JsonException("Unexpected presence visibility response.");
+        NodePresenceVisibilityChanged changed = response.Payload.Deserialize(
+            NodeJsonContext.Default.NodePresenceVisibilityChanged)
+            ?? throw new JsonException("Missing presence visibility acknowledgement.");
+        if (changed.Visible != visible || changed.Revision < 0)
+            throw new JsonException("Invalid presence visibility acknowledgement.");
     }
 
     private async Task SendAsyncCore(string type, NodeCommand command, CancellationToken cancel,
@@ -662,8 +686,10 @@ public static class NodeSessions
     private static readonly object ActiveTransitionGate = new();
     private static CancellationTokenSource? _activeTransition;
     private static NodeControlClient? _current;
-    public static NodeControlClient? Current
-        => ClientOnlineRuntime.Current?.Node ?? Volatile.Read(ref _current);
+    // The Node session is the source of truth. ClientOnlineRuntime observes
+    // CurrentChanged and owns shell/match lifetime, but Node transport must
+    // not depend back on that higher-level coordinator.
+    public static NodeControlClient? Current => Volatile.Read(ref _current);
     public static event Action<NodeControlClient?>? CurrentChanged;
 
     public static Task<NodeControlClient> ConnectAsync(AccountSession account, Guid nodeId, CancellationToken cancel = default)
@@ -723,8 +749,9 @@ public static class NodeSessions
     {
         ArgumentNullException.ThrowIfNull(account);
         return account.IsSignedIn
-            ? account.GetNodeTicketAsync(nodeId, cancel)
-            : account.GetGuestNodeTicketAsync(nodeId, LauncherPrefs.PlayerName, cancel);
+            ? account.GetNodeTicketAsync(nodeId, LauncherPrefs.ShowOnlinePresence, cancel)
+            : account.GetGuestNodeTicketAsync(nodeId, LauncherPrefs.PlayerName,
+                LauncherPrefs.ShowOnlinePresence, cancel);
     }
     public static async Task<NodeControlClient> ResumeAsync(CancellationToken cancel = default)
     {

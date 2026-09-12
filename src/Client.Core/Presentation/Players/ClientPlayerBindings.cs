@@ -1,5 +1,5 @@
 using System;
-using OpenTK.Windowing.GraphicsLibraryFramework;
+using MphRead.Mods.Input;
 
 namespace MphRead.Entities
 {
@@ -15,20 +15,20 @@ namespace MphRead.Entities
     {
         internal PlayerActionState State { get; set; } = new PlayerActionState();
         public ButtonType Type { get; set; }
-        public Keys Key { get; set; }
-        public MouseButton MouseButton { get; set; }
+        public PrimeKey Key { get; set; }
+        public PrimeMouseButton MouseButton { get; set; }
         public bool IsPressed { get => State.IsPressed; set => State.IsPressed = value; }
         public bool IsDown { get => State.IsDown; set => State.IsDown = value; }
         public bool IsReleased { get => State.IsReleased; set => State.IsReleased = value; }
         public bool NeedsRepress { get => State.NeedsRepress; set => State.NeedsRepress = value; }
 
-        public Keybind(Keys key)
+        public Keybind(PrimeKey key)
         {
             Type = ButtonType.Key;
             Key = key;
         }
 
-        public Keybind(MouseButton mouseButton)
+        public Keybind(PrimeMouseButton mouseButton)
         {
             Type = ButtonType.Mouse;
             MouseButton = mouseButton;
@@ -132,8 +132,8 @@ namespace MphRead.Entities
         public Keybind NextWeapon { get; }
         public Keybind PrevWeapon { get; }
         public Keybind WeaponMenu { get; }
-        public Keybind RecapHistory { get; } = new(Keys.F6);
-        public Keybind QuickSwap { get; } = new(Keys.Q);
+        public Keybind RecapHistory { get; } = new(PrimeKey.F6);
+        public Keybind QuickSwap { get; } = new(PrimeKey.Q);
         public Keybind PowerBeam { get; }
         public Keybind Missile { get; }
         public Keybind VoltDriver { get; }
@@ -269,7 +269,7 @@ namespace MphRead.Entities
 
         private static ClientPlayerBindings CreateDefault()
         {
-            return new ClientPlayerBindings(moveLeft: new Keybind(Keys.A), moveRight: new Keybind(Keys.D), moveUp: new Keybind(Keys.W), moveDown: new Keybind(Keys.S), rollLeft: new Keybind(Keys.A), rollRight: new Keybind(Keys.D), rollUp: new Keybind(Keys.W), rollDown: new Keybind(Keys.S), aimLeft: new Keybind(Keys.Left), aimRight: new Keybind(Keys.Right), aimUp: new Keybind(Keys.Up), aimDown: new Keybind(Keys.Down), shoot: new Keybind(MouseButton.Left), zoom: new Keybind(MouseButton.Right), jump: new Keybind(Keys.Space), morph: new Keybind(Keys.C), boost: new Keybind(Keys.Space), altAttack: new Keybind(MouseButton.Left), nextWeapon: new Keybind(ButtonType.ScrollDown), prevWeapon: new Keybind(ButtonType.ScrollUp), weaponMenu: new Keybind(MouseButton.Middle), powerBeam: new Keybind(Keys.D1), missile: new Keybind(Keys.D2), voltDriver: new Keybind(Keys.D3), battlehammer: new Keybind(Keys.D4), imperialist: new Keybind(Keys.D5), judicator: new Keybind(Keys.D6), magmaul: new Keybind(Keys.D7), shockCoil: new Keybind(Keys.D8), omegaCannon: new Keybind(Keys.D9), affinitySlot: new Keybind(Keys.Unknown), pause: new Keybind(Keys.Tab), hudOverlay: new Keybind(Keys.LeftShift));
+            return new ClientPlayerBindings(moveLeft: new Keybind(PrimeKey.A), moveRight: new Keybind(PrimeKey.D), moveUp: new Keybind(PrimeKey.W), moveDown: new Keybind(PrimeKey.S), rollLeft: new Keybind(PrimeKey.A), rollRight: new Keybind(PrimeKey.D), rollUp: new Keybind(PrimeKey.W), rollDown: new Keybind(PrimeKey.S), aimLeft: new Keybind(PrimeKey.Left), aimRight: new Keybind(PrimeKey.Right), aimUp: new Keybind(PrimeKey.Up), aimDown: new Keybind(PrimeKey.Down), shoot: new Keybind(PrimeMouseButton.Left), zoom: new Keybind(PrimeMouseButton.Right), jump: new Keybind(PrimeKey.Space), morph: new Keybind(PrimeKey.C), boost: new Keybind(PrimeKey.Space), altAttack: new Keybind(PrimeMouseButton.Left), nextWeapon: new Keybind(ButtonType.ScrollDown), prevWeapon: new Keybind(ButtonType.ScrollUp), weaponMenu: new Keybind(PrimeMouseButton.Middle), powerBeam: new Keybind(PrimeKey.D1), missile: new Keybind(PrimeKey.D2), voltDriver: new Keybind(PrimeKey.D3), battlehammer: new Keybind(PrimeKey.D4), imperialist: new Keybind(PrimeKey.D5), judicator: new Keybind(PrimeKey.D6), magmaul: new Keybind(PrimeKey.D7), shockCoil: new Keybind(PrimeKey.D8), omegaCannon: new Keybind(PrimeKey.D9), affinitySlot: new Keybind(PrimeKey.Unknown), pause: new Keybind(PrimeKey.Tab), hudOverlay: new Keybind(PrimeKey.LeftShift));
         }
     }
 }

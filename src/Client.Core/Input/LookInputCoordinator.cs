@@ -188,16 +188,17 @@ namespace MphRead.Mods.Input
         }
 
         public LocalLookFrame PeekForRender(double? seconds = null,
-            bool? simulationActive = null)
+            bool simulationActive = false,
+            double? simulationRemainderSeconds = null)
         {
             lock (_gate)
             {
                 double now = ResolveTime(seconds);
-                bool active = simulationActive ?? MphRead.Mods.Render.FrameTiming.Active;
                 (Vector2 mouse, Vector2 touch, Vector2 stylus)
                     = _prediction.PeekPrecisionForRender(now);
                 Vector2 precision = mouse + touch + stylus;
-                Vector2 controller = _prediction.PeekStatefulForRender(now, active);
+                Vector2 controller = _prediction.PeekStatefulForRender(now,
+                    simulationActive, simulationRemainderSeconds);
                 Vector2 rawMouse = _prediction.PeekRawMouseForRender(now);
                 Vector2 delta = precision + controller;
                 LookDeviceKind contributors = _contributors
@@ -213,12 +214,13 @@ namespace MphRead.Mods.Input
 
         /// <summary>Peek only stateful velocity under the coordinator gate.</summary>
         public Vector2 PeekStatefulForRender(double? seconds = null,
-            bool? simulationActive = null)
+            bool simulationActive = false,
+            double? simulationRemainderSeconds = null)
         {
             lock (_gate)
             {
                 return _prediction.PeekStatefulForRender(ResolveTime(seconds),
-                    simulationActive ?? MphRead.Mods.Render.FrameTiming.Active);
+                    simulationActive, simulationRemainderSeconds);
             }
         }
 

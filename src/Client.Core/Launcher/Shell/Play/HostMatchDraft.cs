@@ -21,7 +21,8 @@ internal sealed class HostMatchDraft
     public int BotCount { get; set; }
 
     // An empty value preserves the nullable "use mode default" wire meaning.
-    // The editor supplies the concrete default as a mode-aware watermark.
+    // The editor displays the effective mode default in the field while this
+    // value remains empty until the player makes an edit.
     public string TimeLimitText { get; set; } = "";
     public string ScoreGoalText { get; set; } = "";
     public string StartingLivesText { get; set; } = "";

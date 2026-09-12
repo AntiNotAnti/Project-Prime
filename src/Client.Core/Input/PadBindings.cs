@@ -155,7 +155,7 @@ namespace MphRead.Mods.Input
                 if (button != GamepadButtons.None && (buttons & button) == button)
                 {
                     names.Add(ControllerGlyphs.Label(button,
-                        GamepadInput.State.Family));
+                        ControllerCapabilities.Current.Family));
                 }
             }
             return String.Join(" or ", names);

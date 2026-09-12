@@ -7,7 +7,6 @@ using System.Reflection;
 using System.Text;
 using MphRead.Entities;
 using MphRead.Mods.Input;
-using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace MphRead.Mods
 {
@@ -84,7 +83,7 @@ namespace MphRead.Mods
         /// before the game sees the key at all, and a binding the game never
         /// reads has no business in the game's binding set.
         /// </summary>
-        public static Keys ChatKey { get; set; } = Keys.T;
+        public static PrimeKey ChatKey { get; set; } = PrimeKey.T;
 
         /// <summary>
         /// How far a stick must move before it counts, 0 to 0.9.
@@ -424,6 +423,13 @@ namespace MphRead.Mods
         }
         private static float _stylusPressureThreshold = 0.35f;
 
+        /// <summary>
+        /// Optional client-only DS lower-screen weapon selector. Off keeps the
+        /// existing HUD and native weapon-menu paths unchanged.
+        /// </summary>
+        public static NativeBottomScreenMode BottomScreenMode { get; set; }
+            = NativeBottomScreenMode.Off;
+
         public static Input.StylusBindings CurrentStylusBindings
             => new(StylusPrimaryAction, StylusSecondaryAction);
 
@@ -571,9 +577,9 @@ namespace MphRead.Mods
                     // what anybody calls them.
                     return bind.MouseButton switch
                     {
-                        MouseButton.Left => "Mouse left",
-                        MouseButton.Right => "Mouse right",
-                        MouseButton.Middle => "Mouse middle",
+                        PrimeMouseButton.Left => "Mouse left",
+                        PrimeMouseButton.Right => "Mouse right",
+                        PrimeMouseButton.Middle => "Mouse middle",
                         _ => $"Mouse {(int)bind.MouseButton + 1}"
                     };
                 case ButtonType.ScrollUp:
@@ -581,12 +587,12 @@ namespace MphRead.Mods
                 case ButtonType.ScrollDown:
                     return "Scroll down";
                 default:
-                    return bind.Key == Keys.Unknown ? "unbound" : KeyName(bind.Key);
+                    return bind.Key == PrimeKey.Unknown ? "unbound" : KeyName(bind.Key);
             }
         }
 
         /// <summary>"D1" -> "1", "LeftShift" -> "Left shift", "KeyPad4" -> "Key pad 4".</summary>
-        public static string KeyName(Keys key)
+        public static string KeyName(PrimeKey key)
         {
             string name = key.ToString();
             if (name.Length == 2 && name[0] == 'D' && Char.IsDigit(name[1]))
@@ -632,12 +638,12 @@ namespace MphRead.Mods
         }
 
         /// <summary>Point a control at a key, a mouse button or the wheel.</summary>
-        public static void Rebind(PropertyInfo property, ButtonType type, Keys key,
-            MouseButton button)
+        public static void Rebind(PropertyInfo property, ButtonType type, PrimeKey key,
+            PrimeMouseButton button)
         {
             Keybind bind = Bind(property);
             bind.Type = type;
-            bind.Key = type == ButtonType.Key ? key : Keys.Unknown;
+            bind.Key = type == ButtonType.Key ? key : PrimeKey.Unknown;
             bind.MouseButton = button;
         }
 
@@ -663,29 +669,22 @@ namespace MphRead.Mods
         }
 
         /// <summary>
-        /// Push the current bindings onto players that already exist.
-        ///
-        /// <see cref="Apply"/> copies values into each player's own Keybind
-        /// objects, so editing this set afterwards reaches nobody -- and a
-        /// rebind made from the pause menu is by definition made in the middle
-        /// of a match, where waiting for the next one is not an answer.
+        /// Push the current values into an already-created set of portable
+        /// bindings. The presentation host supplies the projection from its
+        /// scene; Client.Core never reaches through a renderer-owned player.
         /// </summary>
-        public static void ApplyToPlayers(Scene scene)
+        public static void ApplyToPlayers(IEnumerable<ClientPlayerBindings> players)
         {
+            ArgumentNullException.ThrowIfNull(players);
             try
             {
-                for (int i = 0; i < scene.Players.Count; i++)
-                {
-                    Apply(scene.Players[i].GetPresentation().Bindings);
-                }
+                foreach (ClientPlayerBindings bindings in players) Apply(bindings);
             }
             catch (Exception)
             {
-                // The pause menu's settings window runs on its own thread, so
-                // this can land in the middle of a room load rebuilding the
-                // player list. Losing the push is nothing -- the bindings are
-                // saved, and ClientPlayerBindings.GetDefault applies them to every
-                // set the load is creating anyway.
+                // A presentation may replace its player list while the
+                // settings surface saves. Fresh binding sets still receive
+                // the canonical values through GetDefault.
             }
         }
 
@@ -805,8 +804,8 @@ namespace MphRead.Mods
                     if (key == "chat_key")
                     {
                         if (value.Equals("none", StringComparison.OrdinalIgnoreCase))
-                            ChatKey = Keys.Unknown;
-                        else if (Enum.TryParse(value, out Keys chatKey)) ChatKey = chatKey;
+                            ChatKey = PrimeKey.Unknown;
+                        else if (Enum.TryParse(value, out PrimeKey chatKey)) ChatKey = chatKey;
                         continue;
                     }
                     PropertyInfo? property = Bindings.FirstOrDefault(p => p.Name == key);
@@ -961,6 +960,13 @@ namespace MphRead.Mods
                 case "morph_ball_swipe_boost": if (boolean) MorphBallSwipeBoost = flag; return true;
                 case "stylus_pressure_to_fire": if (boolean) StylusPressureToFire = flag; return true;
                 case "stylus_pressure_threshold": if (parsed) StylusPressureThreshold = number; return true;
+                case "bottom_screen_mode":
+                    if (Enum.TryParse(value, true, out NativeBottomScreenMode bottomScreenMode)
+                        && Enum.IsDefined(bottomScreenMode))
+                    {
+                        BottomScreenMode = bottomScreenMode;
+                    }
+                    return true;
                 default: return false;
             }
         }
@@ -1022,19 +1028,19 @@ namespace MphRead.Mods
             string name = parts.Length > 1 ? parts[1].Trim() : "";
             if (type == "ScrollUp")
             {
-                Rebind(property, ButtonType.ScrollUp, Keys.Unknown, MouseButton.Left);
+                Rebind(property, ButtonType.ScrollUp, PrimeKey.Unknown, PrimeMouseButton.Left);
             }
             else if (type == "ScrollDown")
             {
-                Rebind(property, ButtonType.ScrollDown, Keys.Unknown, MouseButton.Left);
+                Rebind(property, ButtonType.ScrollDown, PrimeKey.Unknown, PrimeMouseButton.Left);
             }
-            else if (type == "Mouse" && Enum.TryParse(name, out MouseButton button))
+            else if (type == "Mouse" && Enum.TryParse(name, out PrimeMouseButton button))
             {
-                Rebind(property, ButtonType.Mouse, Keys.Unknown, button);
+                Rebind(property, ButtonType.Mouse, PrimeKey.Unknown, button);
             }
-            else if (type == "Key" && Enum.TryParse(name, out Keys key))
+            else if (type == "Key" && Enum.TryParse(name, out PrimeKey key))
             {
-                Rebind(property, ButtonType.Key, key, MouseButton.Left);
+                Rebind(property, ButtonType.Key, key, PrimeMouseButton.Left);
             }
         }
 
@@ -1079,7 +1085,7 @@ namespace MphRead.Mods
                     $"morph_ball_mouse_flick_boost={MorphBallMouseFlickBoost.ToString().ToLowerInvariant()}",
                     $"morph_ball_stick_flick_boost={MorphBallStickFlickBoost.ToString().ToLowerInvariant()}",
                     $"morph_ball_swipe_boost={MorphBallSwipeBoost.ToString().ToLowerInvariant()}",
-                    $"chat_key={(ChatKey == Keys.Unknown ? "none" : ChatKey.ToString())}",
+                    $"chat_key={(ChatKey == PrimeKey.Unknown ? "none" : ChatKey.ToString())}",
                     $"controller_preset={ControllerPreset}",
                     "gamepad_move_deadzone=" + Float(GamepadMoveDeadZone),
                     "gamepad_look_deadzone=" + Float(GamepadLookDeadZone),
@@ -1123,6 +1129,7 @@ namespace MphRead.Mods
                     $"stylus_flick_boost={StylusFlickBoost.ToString().ToLowerInvariant()}",
                     $"stylus_pressure_to_fire={StylusPressureToFire.ToString().ToLowerInvariant()}",
                     "stylus_pressure_threshold=" + Float(StylusPressureThreshold),
+                    $"bottom_screen_mode={BottomScreenMode}",
                     "gamepad_deadzone=" + LegacyFloat(GamepadDeadZone),
                     "gamepad_look=" + LegacyFloat(GamepadLookSensitivity),
                     $"gamepad_invert_y={GamepadInvertY.ToString().ToLowerInvariant()}"
@@ -1182,6 +1189,7 @@ namespace MphRead.Mods
             StylusFlickBoost = true;
             StylusPressureToFire = false;
             StylusPressureThreshold = 0.35f;
+            BottomScreenMode = NativeBottomScreenMode.Off;
         }
 
         /// <summary>
@@ -1200,7 +1208,7 @@ namespace MphRead.Mods
             {
                 _creating = false;
             }
-            ChatKey = Keys.T;
+            ChatKey = PrimeKey.T;
             ResetControllerBindings();
         }
 

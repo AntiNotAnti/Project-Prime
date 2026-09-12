@@ -71,35 +71,36 @@ internal static class LobbyRuleDefaults
     public static string Time(MatchMode mode, int? seconds)
         => seconds is { } value
             ? FormatDuration(value)
-            : $"{FormatDuration((int)For(mode).TimeLimit!.Value.TotalSeconds)} (default)";
+            : FormatDuration((int)For(mode).TimeLimit!.Value.TotalSeconds);
 
     public static string Score(MatchMode mode, int? value)
         => value?.ToString(CultureInfo.InvariantCulture)
-            ?? $"{For(mode).ScoreGoal.ToString(CultureInfo.InvariantCulture)} (default)";
+            ?? For(mode).ScoreGoal.ToString(CultureInfo.InvariantCulture);
 
     public static string Lives(MatchMode mode, int? value)
         => value?.ToString(CultureInfo.InvariantCulture)
-            ?? $"{For(mode).StartingLives.ToString(CultureInfo.InvariantCulture)} (default)";
+            ?? For(mode).StartingLives.ToString(CultureInfo.InvariantCulture);
 
     public static string ObjectiveTime(MatchMode mode, int? seconds)
         => seconds is { } value
             ? FormatDuration(value)
-            : $"{FormatDuration((int)For(mode).ObjectiveTimeGoal!.Value.TotalSeconds)} (default)";
+            : FormatDuration((int)For(mode).ObjectiveTimeGoal!.Value.TotalSeconds);
 
     public static string TimeWatermark(MatchMode mode)
-        => $"{FormatDuration((int)For(mode).TimeLimit!.Value.TotalSeconds)} (default) or m:ss";
+        => FormatDuration((int)For(mode).TimeLimit!.Value.TotalSeconds);
 
     public static string NumberWatermark(MatchMode mode, bool lives)
-        => $"{(lives ? For(mode).StartingLives : For(mode).ScoreGoal).ToString(CultureInfo.InvariantCulture)} (default) or number";
+        => (lives ? For(mode).StartingLives : For(mode).ScoreGoal)
+            .ToString(CultureInfo.InvariantCulture);
 
     public static string ObjectiveWatermark(MatchMode mode)
-        => $"{FormatDuration((int)For(mode).ObjectiveTimeGoal!.Value.TotalSeconds)} (default) or m:ss";
+        => FormatDuration((int)For(mode).ObjectiveTimeGoal!.Value.TotalSeconds);
 
     public static string Damage(MatchMode mode)
-        => $"{DamageName(For(mode).DamageLevel)} (default)";
+        => DamageName(For(mode).DamageLevel);
 
     public static string Bool(MatchMode mode, Func<MatchRules, bool> selector)
-        => $"{(selector(For(mode)) ? "On" : "Off")} (default)";
+        => selector(For(mode)) ? "On" : "Off";
 
     private static string DamageName(int value) => value switch
     {

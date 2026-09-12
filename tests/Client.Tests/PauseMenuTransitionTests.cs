@@ -82,7 +82,7 @@ public sealed class PauseMenuTransitionTests
             actions.TransitionError = "The Node rejected the request.";
             actions.RaiseChanged();
             Dispatcher.UIThread.RunJobs();
-            Assert.Contains("The Node rejected the request.", Text(desktop));
+            Assert.Contains("The transition request failed. Try again.", Text(desktop));
 
             actions.TransitionError = null;
             actions.TransitionVote = new NodeMatchTransitionVoteSnapshot(

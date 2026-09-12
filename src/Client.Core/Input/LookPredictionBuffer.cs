@@ -221,9 +221,10 @@ namespace MphRead.Mods.Input
         /// intentionally non-consuming; callers may read it at every refresh.
         /// </summary>
         public Vector2 PeekForRender(double? seconds = null)
-            => PeekForRender(seconds, MphRead.Mods.Render.FrameTiming.Active);
+            => PeekForRender(seconds, simulationActive: false);
 
-        public Vector2 PeekForRender(double? seconds, bool simulationActive)
+        public Vector2 PeekForRender(double? seconds, bool simulationActive,
+            double? simulationRemainderSeconds = null)
         {
             lock (_gate)
             {
@@ -232,7 +233,8 @@ namespace MphRead.Mods.Input
                 Vector2 value = _pending;
                 if (simulationActive && _hasVelocity && _hasSimulationTime)
                 {
-                    double unsimulated = UnsimulatedSeconds(seconds, now);
+                    double unsimulated = UnsimulatedSeconds(seconds, now,
+                        simulationRemainderSeconds);
                     value += _angularVelocity * (float)unsimulated;
                 }
                 return value;
@@ -274,9 +276,10 @@ namespace MphRead.Mods.Input
         /// sources.
         /// </summary>
         public Vector2 PeekStatefulForRender(double? seconds = null)
-            => PeekStatefulForRender(seconds, MphRead.Mods.Render.FrameTiming.Active);
+            => PeekStatefulForRender(seconds, simulationActive: false);
 
-        public Vector2 PeekStatefulForRender(double? seconds, bool simulationActive)
+        public Vector2 PeekStatefulForRender(double? seconds, bool simulationActive,
+            double? simulationRemainderSeconds = null)
         {
             lock (_gate)
             {
@@ -286,7 +289,8 @@ namespace MphRead.Mods.Input
                 {
                     return Vector2.Zero;
                 }
-                double unsimulated = UnsimulatedSeconds(seconds, now);
+                double unsimulated = UnsimulatedSeconds(seconds, now,
+                    simulationRemainderSeconds);
                 return _angularVelocity * (float)unsimulated;
             }
         }
@@ -429,11 +433,12 @@ namespace MphRead.Mods.Input
             }
         }
 
-        private double UnsimulatedSeconds(double? seconds, double now)
+        private double UnsimulatedSeconds(double? seconds, double now,
+            double? simulationRemainderSeconds)
         {
             double elapsed = seconds.HasValue
                 ? now - _simulationTime
-                : MphRead.Mods.Render.FrameTiming.SimulationRemainderSeconds;
+                : simulationRemainderSeconds ?? 0;
             return double.IsFinite(elapsed)
                 ? Math.Clamp(elapsed, 0, MaxAgeSeconds) : 0;
         }

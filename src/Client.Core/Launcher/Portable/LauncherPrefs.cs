@@ -239,6 +239,36 @@ namespace MphRead.Mods.Launcher
         public static bool DebugLogs { get; set; } = true;
         public static bool ReducedMotion { get; set; }
 
+        private static bool _showOnlinePresence = true;
+        private static bool _savedShowOnlinePresence = true;
+
+        /// <summary>
+        /// Whether this device's display name and activity may appear in the
+        /// public Online Players list. This is a local preference only for
+        /// now; the event is the narrow handoff seam for a future connected
+        /// session update and deliberately carries no account or session data.
+        /// </summary>
+        public static bool ShowOnlinePresence
+        {
+            get => _showOnlinePresence;
+            set
+            {
+                if (_showOnlinePresence == value)
+                {
+                    return;
+                }
+
+                _showOnlinePresence = value;
+            }
+        }
+
+        /// <summary>
+        /// Raised after a user settings save successfully persists a changed
+        /// presence preference. Assigning the preference, loading it, and
+        /// ordinary programmatic saves remain silent.
+        /// </summary>
+        public static event EventHandler? ShowOnlinePresenceChanged;
+
         /// <summary>
         /// Exact local optional-pack choices. These identities affect only
         /// presentation and are deliberately absent from admission messages.
@@ -266,8 +296,10 @@ namespace MphRead.Mods.Launcher
             PreferredRegion = AutomaticPreferredRegionId;
             DebugLogs = true;
             ReducedMotion = false;
+            ShowOnlinePresence = true;
             if (!File.Exists(Path))
             {
+                _savedShowOnlinePresence = ShowOnlinePresence;
                 return;
             }
             bool policyRead = false;
@@ -368,6 +400,12 @@ namespace MphRead.Mods.Launcher
                                 ReducedMotion = reducedMotion;
                             }
                             break;
+                        case "show_online_presence":
+                            if (Boolean.TryParse(value, out bool showOnlinePresence))
+                            {
+                                ShowOnlinePresence = showOnlinePresence;
+                            }
+                            break;
                         case "last_kind":
                             if (Int32.TryParse(value, NumberStyles.Integer,
                                 CultureInfo.InvariantCulture, out int kind))
@@ -395,6 +433,10 @@ namespace MphRead.Mods.Launcher
                 // Preferences are a convenience; a unreadable file must not
                 // stop the launcher from opening.
             }
+            // Loading is state initialization, not a user edit. Establish the
+            // comparison point before any migration save so it can never
+            // publish the future live-update seam.
+            _savedShowOnlinePresence = ShowOnlinePresence;
             if (!policyRead && legacyRead)
             {
                 UpdatePolicy = legacyValue ? UpdatePolicy.NotifyOnly : UpdatePolicy.Off;
@@ -409,7 +451,16 @@ namespace MphRead.Mods.Launcher
             }
         }
 
-        public static void Save()
+        /// <summary>Persist the current launcher preferences without publishing a presence update.</summary>
+        public static void Save() => Save(notifyPresenceChange: false);
+
+        /// <summary>
+        /// Persist the current launcher preferences. The notification overload
+        /// is reserved for the Settings user-commit path; all existing callers
+        /// keep the quiet programmatic-save behavior.
+        /// </summary>
+        /// <returns><see langword="true"/> when the file write succeeds.</returns>
+        public static bool Save(bool notifyPresenceChange)
         {
             try
             {
@@ -418,7 +469,19 @@ namespace MphRead.Mods.Launcher
             catch (Exception)
             {
                 // Same rationale as Load: never block launching over this.
+                return false;
             }
+
+            bool presenceChanged = _showOnlinePresence != _savedShowOnlinePresence;
+            _savedShowOnlinePresence = _showOnlinePresence;
+            if (notifyPresenceChange && presenceChanged)
+            {
+                // Publish only after the file write succeeds. A future client
+                // Node adapter can subscribe here without observing a value
+                // that failed to persist.
+                ShowOnlinePresenceChanged?.Invoke(null, EventArgs.Empty);
+            }
+            return true;
         }
 
         /// <summary>
@@ -443,6 +506,7 @@ namespace MphRead.Mods.Launcher
                 $"preferred_region={PreferredRegion}",
                 $"debug_logs={DebugLogs.ToString().ToLowerInvariant()}",
                 $"reduced_motion={ReducedMotion.ToString().ToLowerInvariant()}",
+                $"show_online_presence={ShowOnlinePresence.ToString().ToLowerInvariant()}",
                 $"announcer_pack={OptionalContentPreferenceCodec.Encode(AnnouncerPack)}",
                 $"music_pack={OptionalContentPreferenceCodec.Encode(MusicPack)}",
                 $"window_mode={(WindowMode == WindowStartMode.BorderlessFullscreen ? "borderless" : "windowed")}"

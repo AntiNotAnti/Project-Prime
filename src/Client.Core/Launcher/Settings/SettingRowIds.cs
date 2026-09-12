@@ -102,9 +102,11 @@ public static class SettingRowIds
     public const string StylusFlickBoost = "controls.stylus.flick-boost";
     public const string StylusPressureToFire = "controls.stylus.pressure-to-fire";
     public const string StylusPressureThreshold = "controls.stylus.pressure-threshold";
+    public const string BottomScreenMode = "controls.stylus.bottom-screen-mode";
 
     public const string PlayerName = "gameplay.player-name";
     public const string Hunter = "gameplay.hunter";
+    public const string ShowOnlinePresence = "gameplay.show-online-presence";
     public const string Updates = "system.updates";
     public const string GameFiles = "system.game-files";
     public const string DebugLogging = "system.debug-logging";
@@ -144,8 +146,8 @@ public static class SettingRowIds
         TouchButtons, StylusAiming, StylusSensitivity, StylusInvertY,
         StylusPrimary, StylusSecondary, StylusClassicGestures,
         StylusDoubleTapJump, StylusFlickBoost, StylusPressureToFire,
-        StylusPressureThreshold,
-        PlayerName, Hunter, Updates, GameFiles, DebugLogging, ShareLogs,
+        StylusPressureThreshold, BottomScreenMode,
+        PlayerName, Hunter, ShowOnlinePresence, Updates, GameFiles, DebugLogging, ShareLogs,
         PreferredRegion, NetworkDiagnostics, ReducedMotion
     ];
 }

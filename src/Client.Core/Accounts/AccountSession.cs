@@ -572,16 +572,6 @@ public static class AccountSessions
         Volatile.Write(ref _storeConfigured, 1);
     }
 
-    /// <summary>Installs the platform store before any AccountSession is
-    /// created. Explicit test/application stores always win.</summary>
-    public static void ConfigurePlatformStore()
-    {
-        if (Volatile.Read(ref _storeConfigured) != 0) return;
-        if (Current != null) throw new InvalidOperationException("Configure the secure session store before creating an account session.");
-        _store = SecureSessionStoreFactory.CreateDefault();
-        Volatile.Write(ref _storeConfigured, 1);
-    }
-
     public static AccountSession Configure(Uri backend)
         => ConfigureAsync(backend, restore: false).GetAwaiter().GetResult();
 

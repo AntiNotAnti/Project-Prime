@@ -1,5 +1,4 @@
 using System;
-using MphRead.Entities;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Input
@@ -34,29 +33,6 @@ namespace MphRead.Mods.Input
         /// <summary>Convert the right stick's up-positive sample to screen Y.</summary>
         public static bool TryFromRightStick(Vector2 upPositive, out Vector2 direction)
             => TryNormalize(new Vector2(upPositive.X, -upPositive.Y), out direction);
-    }
-
-    /// <summary>
-    /// Shared client-side eligibility gate for input gesture producers. The
-    /// authoritative simulation still validates the queued intent and the
-    /// Samus ability; this gate prevents stale or suppressed local input from
-    /// accumulating in a detector between fixed ticks.
-    /// </summary>
-    public static class MorphBallBoostEligibility
-    {
-        public static bool IsEligible(PlayerEntity? player, bool enabled = true)
-            => enabled && player != null
-                && player.IsMainPlayer
-                && player.Hunter == Hunter.Samus
-                && player.LoadFlags.TestFlag(LoadFlags.Active)
-                && player.Health > 0
-                && player.IsAltForm
-                && !player.IsMorphing
-                && !player.IsUnmorphing
-                && MphRead.Mods.ClientInputState.WindowFocused
-                && !MphRead.Mods.ClientInputState.PauseOpen
-                && !MphRead.Mods.Chat.ChatBox.Composing
-                && !MphRead.Mods.SpectatorMode.IsSpectating;
     }
 
     /// <summary>

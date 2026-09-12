@@ -121,22 +121,34 @@ public sealed partial class AccountSession
                 MapCatalogHash: entry.MapCatalogHash));
         }
     }
-    public async Task<NodeAdmissionTicket> GetNodeTicketAsync(Guid nodeId, CancellationToken cancel = default)
+    public async Task<NodeAdmissionTicket> GetNodeTicketAsync(Guid nodeId,
+        bool publicPresence = true, CancellationToken cancel = default)
     {
         if (nodeId == Guid.Empty) throw new ArgumentException("A Node identity is required.", nameof(nodeId));
-        var ticket = await SendAsync<NodeAdmissionTicket>(HttpMethod.Post, "v1/node-admissions", new { nodeId },
+        var ticket = await SendAsync<NodeAdmissionTicket>(HttpMethod.Post, "v1/node-admissions",
+            new { nodeId, publicPresence },
             await AccessTokenAsync(cancel).ConfigureAwait(false), cancel).ConfigureAwait(false);
         return ValidateNodeAdmission(ticket, nodeId);
     }
+
+    public Task<NodeAdmissionTicket> GetNodeTicketAsync(Guid nodeId,
+        CancellationToken cancel)
+        => GetNodeTicketAsync(nodeId, publicPresence: true, cancel);
+
     public async Task<NodeAdmissionTicket> GetGuestNodeTicketAsync(Guid nodeId, string displayName,
-        CancellationToken cancel = default)
+        bool publicPresence = true, CancellationToken cancel = default)
     {
         if (nodeId == Guid.Empty) throw new ArgumentException("A Node identity is required.", nameof(nodeId));
         displayName = ValidateGuestDisplayName(displayName);
         var ticket = await SendAsync<NodeAdmissionTicket>(HttpMethod.Post,
-            "v1/guest-node-admissions", new { nodeId, displayName }, null, cancel).ConfigureAwait(false);
+            "v1/guest-node-admissions", new { nodeId, displayName, publicPresence }, null, cancel)
+            .ConfigureAwait(false);
         return ValidateNodeAdmission(ticket, nodeId);
     }
+
+    public Task<NodeAdmissionTicket> GetGuestNodeTicketAsync(Guid nodeId,
+        string displayName, CancellationToken cancel)
+        => GetGuestNodeTicketAsync(nodeId, displayName, publicPresence: true, cancel);
     private NodeAdmissionTicket ValidateNodeAdmission(NodeAdmissionTicket ticket, Guid nodeId)
     {
         DateTimeOffset now = _time.GetUtcNow();
