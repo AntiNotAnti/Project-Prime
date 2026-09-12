@@ -4,3 +4,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("MphRead.Tests")]
 
 [assembly: InternalsVisibleTo("Server.Node.Tests")]
+[assembly: InternalsVisibleTo("Backend.Tests")]

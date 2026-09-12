@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Net.WebSockets;
 using System.Security.Cryptography;
@@ -10,11 +9,15 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using MphRead.Backend.Identity;
 using MphRead.Backend.Nodes;
 using MphRead.Backend.Tickets;
 using MphRead.Identity;
+using MphRead.Mods.Accounts;
+using MphRead.Mods.Network;
 using ProjectPrime.Server.Node;
+using ProjectPrime.Server.Node.Discovery;
 using ProjectPrime.Server.Node.Sessions;
 using ProjectPrime.Server.Shared;
 using Xunit;
@@ -22,10 +25,11 @@ using Xunit;
 namespace MphRead.Backend.Tests;
 
 /// <summary>
-/// A control-plane vertical seam: Backend discovery/admission feeds a real
-/// Kestrel Node, and raw WSS frames exercise the same Node session/lobby wire
-/// contract used by the client. Worker/game-content startup is deliberately
-/// outside this fixture.
+/// A control-plane vertical seam: the production directory reporter publishes
+/// to the real Backend, production AccountSession/NodeControlClient consume
+/// discovery/admission over a real Kestrel Node, and raw WSS frames exercise
+/// resume/lobby details. Worker/game-content startup is deliberately outside
+/// this fixture.
 /// </summary>
 public sealed class BackendNodeVerticalTests
 {
@@ -60,35 +64,61 @@ public sealed class BackendNodeVerticalTests
         string control = node.App.Urls.Single().Replace("https://", "wss://", StringComparison.Ordinal)
             + NodeEndpointContract.ControlPath;
 
-        using (HttpResponseMessage registration = await SendNodeRegistrationAsync(backendClient, nodeId, control))
-            Assert.Equal(HttpStatusCode.OK, registration.StatusCode);
+        using HttpClient reporterHttp = backend.CreateClient();
+        var reporterRegistration = new NodeDirectoryRegistration(Guid.NewGuid(), "Vertical", "test", control,
+            1, "vertical", ContentHash, 8);
+        using var reporter = new NodeDirectoryReporter(
+            new NodeDirectoryReporterOptions(nodeId, new Uri("http://localhost/"), reporterRegistration, Secret),
+            () => new NodeDirectoryHeartbeat(reporterRegistration.Incarnation, 0, 0, 0),
+            NullLogger<NodeDirectoryReporter>.Instance, reporterHttp);
+        Assert.True(await reporter.PublishOnceAsync());
         NodeDirectoryPage page = (await backendClient.GetFromJsonAsync<NodeDirectoryPage>(
             $"/v1/nodes?protocol=1&build=vertical&content={ContentHash}"))!;
         NodeDirectoryEntry listed = Assert.Single(page.Entries);
         Assert.Equal(nodeId, listed.NodeId);
         Assert.Equal(control, listed.PublicControlUri);
 
-        Guid playerId = await RegisterAsync(backendClient);
+        using var account = new AccountSession(new Uri("http://localhost/"), backend.Server.CreateHandler());
+        AccountRegistration accountRegistration = await account.RegisterAsync("vertical@example.test",
+            "Strong-Vertical-Password123!", "Vertical");
+        PlayerId playerId = accountRegistration.PlayerId;
+        Assert.True(accountRegistration.ConfirmationRequired);
         var confirmation = Assert.Single(backend.Email.Sent);
-        using (HttpResponseMessage confirmed = await backendClient.PostAsJsonAsync("/v1/auth/confirm-email",
-            new { playerId = confirmation.PlayerId, code = confirmation.Code }))
-            Assert.Equal(HttpStatusCode.NoContent, confirmed.StatusCode);
-        string accessToken = await LoginAsync(backendClient);
-        string registeredTicket = await ReadTicketAsync(backendClient, "/v1/node-admissions", nodeId,
-            accessToken);
-        string guestTicket = await ReadTicketAsync(backendClient, "/v1/guest-node-admissions", nodeId,
-            accessToken: null, displayName: "Guest");
+        await account.ConfirmEmailAsync(confirmation.PlayerId, confirmation.Code);
+        await account.SignInAsync("vertical@example.test", "Strong-Vertical-Password123!");
+        Assert.True(account.IsSignedIn);
+        MphRead.Mods.Accounts.NodeListing discovered = Assert.Single(await account.GetNodesAsync(1, "vertical", ContentHash));
+        Assert.Equal(nodeId, discovered.NodeId);
+        Assert.Equal(control, discovered.PublicControlUri);
+        NodeAdmissionTicket registeredGrant = await account.GetNodeTicketAsync(nodeId);
+        // Keep two distinct guest grants so the production client can be
+        // exercised alongside the raw-wire guest/resume assertions below.
+        NodeAdmissionTicket productionGuestGrant = await account.GetGuestNodeTicketAsync(nodeId, "ProductionGuest");
+        NodeAdmissionTicket guestGrant = await account.GetGuestNodeTicketAsync(nodeId, "Guest");
 
         // Admissions are bearer grants, not a live dependency on Backend. Once
         // both grants exist the Backend can disappear without interrupting the
         // Node control session or its reconnect grace period.
         backend.Dispose();
 
-        using var registered = await ConnectAsync(control, "Bearer " + registeredTicket,
+        using var productionSocket = new ClientWebSocket();
+        productionSocket.Options.RemoteCertificateValidationCallback = (_, certificate, _, _) =>
+            certificate?.GetCertHashString() == node.CertificateThumbprint;
+        await using var production = new NodeControlClient(productionSocket);
+        using var productionTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        await production.ConnectAsync(productionGuestGrant, productionTimeout.Token);
+        Assert.Equal(nodeId, production.Session!.NodeId);
+        Assert.Equal("ProductionGuest", production.Session.DisplayName);
+        Assert.Null(production.Session.PlayerId);
+        Assert.NotEqual(Guid.Empty, production.Session.GuestSessionId);
+        await production.SendAsync("lobby.list", new LobbyList(), productionTimeout.Token);
+        await UntilAsync(() => production.Lobbies != null, productionTimeout.Token);
+
+        using var registered = await ConnectAsync(control, "Bearer " + registeredGrant.Ticket,
             node.CertificateThumbprint);
         using JsonDocument registeredGreeting = await ReadAsync(registered.Socket, registered.Timeout.Token);
         JsonElement registeredPayload = AssertType(registeredGreeting, "node.session");
-        Assert.Equal(playerId, registeredPayload.GetProperty("playerId").GetGuid());
+        Assert.Equal(playerId.Value, registeredPayload.GetProperty("playerId").GetGuid());
         Assert.Equal(JsonValueKind.Null, registeredPayload.GetProperty("guestSessionId").ValueKind);
         string resumeToken = registeredPayload.GetProperty("resumeToken").GetString()!;
         Guid sessionId = registeredPayload.GetProperty("sessionId").GetGuid();
@@ -115,7 +145,7 @@ public sealed class BackendNodeVerticalTests
         Assert.Equal("lobby.snapshot", restoredLobby.RootElement.GetProperty("type").GetString());
         Assert.Equal(lobbyId, restoredLobby.RootElement.GetProperty("payload").GetProperty("lobbyId").GetGuid());
 
-        using var guest = await ConnectAsync(control, "Bearer " + guestTicket,
+        using var guest = await ConnectAsync(control, "Bearer " + guestGrant.Ticket,
             node.CertificateThumbprint);
         using JsonDocument guestGreeting = await ReadAsync(guest.Socket, guest.Timeout.Token);
         JsonElement guestPayload = AssertType(guestGreeting, "node.session");
@@ -126,59 +156,6 @@ public sealed class BackendNodeVerticalTests
             resumed.Timeout.Token);
         await guest.Socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "test",
             guest.Timeout.Token);
-    }
-
-    private static async Task<HttpResponseMessage> SendNodeRegistrationAsync(HttpClient client, Guid nodeId,
-        string control)
-    {
-        var request = new HttpRequestMessage(HttpMethod.Put, "/v1/node/registration")
-        {
-            Content = JsonContent.Create(new NodeRegistration(Guid.NewGuid(), "Vertical", "test", control,
-                1, "vertical", ContentHash, 8))
-        };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Secret);
-        request.Headers.Add("X-Server-Id", nodeId.ToString("D"));
-        return await client.SendAsync(request);
-    }
-
-    private static async Task<Guid> RegisterAsync(HttpClient client)
-    {
-        using HttpResponseMessage response = await client.PostAsJsonAsync("/v1/auth/register", new
-        {
-            email = "vertical@example.test", password = "Strong-Vertical-Password123!", displayName = "Vertical"
-        });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("playerId").GetGuid();
-    }
-
-    private static async Task<string> LoginAsync(HttpClient client)
-    {
-        using HttpResponseMessage response = await client.PostAsJsonAsync("/v1/auth/login", new
-        {
-            email = "vertical@example.test", password = "Strong-Vertical-Password123!"
-        });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
-    }
-
-    private static async Task<string> ReadTicketAsync(HttpClient client, string path, Guid nodeId,
-        string? accessToken, string? displayName = null)
-    {
-        object payload = displayName == null ? (object)new { nodeId } : new { nodeId, displayName };
-        using var request = new HttpRequestMessage(HttpMethod.Post, path)
-        {
-            Content = JsonContent.Create(payload)
-        };
-        if (accessToken != null)
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        using HttpResponseMessage response = await client.SendAsync(request);
-        if (!response.IsSuccessStatusCode)
-        {
-            string body = await response.Content.ReadAsStringAsync();
-            throw new InvalidOperationException(
-                $"{path} returned {(int)response.StatusCode} {response.StatusCode}: {body}");
-        }
-        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("ticket").GetString()!;
     }
 
     private static JsonElement AssertType(JsonDocument document, string type)
