@@ -171,7 +171,7 @@ namespace MphRead.Mods.Input
 
             if (_timingGeneration != FrameTiming.Discontinuities)
             {
-                Reset();
+                ResetTimingState();
             }
 
             bool quarantined = InputQuarantined;
@@ -259,7 +259,7 @@ namespace MphRead.Mods.Input
             }
             if (_timingGeneration != FrameTiming.Discontinuities)
             {
-                Reset();
+                ResetTimingState();
             }
             if ((EffectiveButtons & PadBindings.Get(PadAction.WeaponWheel)) != 0)
             {
@@ -291,6 +291,33 @@ namespace MphRead.Mods.Input
             AimAngularVelocity = Vector2.Zero;
             GamepadGyro.Reset();
             LookCoordinator.Reset();
+            _timingGeneration = FrameTiming.Discontinuities;
+        }
+
+        /// <summary>
+        /// Reset time-dependent controller processing without forgetting the
+        /// physical button state. A render stall or dropped catch-up step is
+        /// not a button release: clearing <c>_previous</c> here turned every
+        /// held bumper, d-pad direction, or quick-swap button into another
+        /// press on the next fixed tick.
+        /// </summary>
+        private static void ResetTimingState()
+        {
+            _movement.Reset();
+            _look.Reset();
+            _lookConfigured = false;
+            _pressed = GamepadButtons.None;
+            _released = GamepadButtons.None;
+            AimDeltaX = AimDeltaY = 0;
+            AimAngularVelocity = Vector2.Zero;
+            _gyroAllowedForSimulation = false;
+            GamepadGyro.Reset();
+            // A frame-timing discontinuity invalidates controller filters,
+            // not an active relative-input capture. Resetting the whole
+            // coordinator here discarded mouse/touch/stylus movement already
+            // received for this frame and made a held stylus epoch stale
+            // until the player lifted it.
+            LookCoordinator.ResetControllerState();
             _timingGeneration = FrameTiming.Discontinuities;
         }
 

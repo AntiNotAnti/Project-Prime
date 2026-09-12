@@ -14,6 +14,8 @@ namespace MphRead.Mods.Input
         private StylusState _state = StylusState.Empty;
         private StylusButtons _pressed;
         private StylusButtons _released;
+        private bool _pressurePressed;
+        private bool _pressureReleased;
         private float _density = 1;
         private bool _enabled = true;
         private float _sensitivity = 1;
@@ -43,10 +45,24 @@ namespace MphRead.Mods.Input
         {
             lock (_gate)
             {
+                bool wasFlickEnabled = _gestures.FlickEnabled;
+                bool enableFlick = classic && flick && flickContext;
                 _gestures.Enabled = classic;
                 _gestures.DoubleTapEnabled = classic && doubleTap;
-                _gestures.FlickEnabled = classic && flick && flickContext;
                 _gestures.Density = density;
+                if (wasFlickEnabled != enableFlick)
+                {
+                    // Form eligibility can change while the tip stays down.
+                    // Re-arm from the current sample so pre-transition motion
+                    // cannot become a delayed boost and the remainder of the
+                    // same stroke can still produce a valid flick.
+                    _gestures.SetFlickEnabled(enableFlick, _state.X, _state.Y,
+                        _state.Timestamp);
+                }
+                else
+                {
+                    _gestures.FlickEnabled = enableFlick;
+                }
                 _flickContext = flickContext;
                 if (!classic) _gestures.Cancel();
             }
@@ -98,6 +114,11 @@ namespace MphRead.Mods.Input
                 {
                     return false;
                 }
+                // A barrel button held during hover becomes a gameplay press
+                // when the tip first makes contact. Hover cannot act, so
+                // carrying its old edge state into contact would otherwise
+                // make the first shot/zoom silently disappear.
+                _pressed |= sample.Buttons;
                 UpdateButtons(sample.Buttons);
                 _state = Build(sample, contact: true);
                 _gestures.PointerDown(sample.X, sample.Y, sample.Timestamp);
@@ -148,6 +169,7 @@ namespace MphRead.Mods.Input
                 if (!_state.Contact || _state.PointerId != sample.Id) return false;
                 UpdateButtons(StylusButtons.None);
                 _gestures.PointerUp(sample.X, sample.Y, sample.Timestamp);
+                _pressureReleased |= _state.PressureFireActive;
                 _state = new StylusState(false, sample.Id, sample.X, sample.Y,
                     Math.Clamp(sample.Pressure, 0, 1), StylusButtons.None,
                     _pressed, _released, sample.Timestamp, false,
@@ -272,13 +294,18 @@ namespace MphRead.Mods.Input
                     DoubleTapJump = doubleTap,
                     FlickBoost = fired && _flickContext,
                     FlickX = x,
-                    FlickY = y
+                    FlickY = y,
+                    PressureFirePressed = _pressurePressed,
+                    PressureFireReleased = _pressureReleased
                 };
                 _pressed = _released = StylusButtons.None;
+                _pressurePressed = _pressureReleased = false;
                 _state = _state with
                 {
                     PressedButtons = StylusButtons.None,
-                    ReleasedButtons = StylusButtons.None
+                    ReleasedButtons = StylusButtons.None,
+                    PressureFirePressed = false,
+                    PressureFireReleased = false
                 };
                 return result;
             }
@@ -286,13 +313,22 @@ namespace MphRead.Mods.Input
 
         private StylusState Build(in PointerSample sample, bool contact,
             bool preserveAnchor = false)
-            => new(contact, sample.Id,
+        {
+            bool pressureFire = contact && _pressureToFire
+                && sample.Pressure >= _pressureThreshold;
+            _pressurePressed |= pressureFire && !_state.PressureFireActive;
+            _pressureReleased |= !pressureFire && _state.PressureFireActive;
+            return new StylusState(contact, sample.Id,
                 preserveAnchor && _state.InProximity ? _state.X : sample.X,
                 preserveAnchor && _state.InProximity ? _state.Y : sample.Y,
                 Math.Clamp(sample.Pressure, 0, 1), sample.Buttons,
                 _pressed, _released, sample.Timestamp,
-                contact && _pressureToFire && sample.Pressure >= _pressureThreshold,
-                false, false, 0, 0, true);
+                pressureFire, false, false, 0, 0, true)
+            {
+                PressureFirePressed = _pressurePressed,
+                PressureFireReleased = _pressureReleased
+            };
+        }
 
         /// <summary>
         /// Convert native absolute-coordinate deltas into the neutral units
@@ -331,6 +367,7 @@ namespace MphRead.Mods.Input
         private void ResetLocked()
         {
             _released |= _state.Buttons;
+            _pressureReleased |= _state.PressureFireActive;
             _state = StylusState.Empty;
         }
 

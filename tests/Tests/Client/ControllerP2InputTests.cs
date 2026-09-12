@@ -49,6 +49,18 @@ public sealed class ControllerP2InputTests
         Assert.False(SdlGameHost.IsSyntheticPenMouseId(1));
     }
 
+    [Theory]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    public void SdlPenContactBeginsFromAnyUncapturedContactSample(
+        bool contact, bool stylusActive, bool expected)
+    {
+        Assert.Equal(expected,
+            SdlGameHost.ShouldBeginStylusContact(contact, stylusActive));
+    }
+
     [Fact]
     public void OnFootFastStylusMotionRemainsLookInputWithoutFlickBoost()
     {

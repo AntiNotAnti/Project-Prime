@@ -410,7 +410,7 @@ namespace MphRead.Mods.Input
             for (int i = 1; i < _count; i++)
             {
                 int index = (_newest - i + Capacity) % Capacity;
-                if (i > 1 && timestamp - _time[index] > FlickWindowMs) break;
+                if (timestamp - _time[index] > FlickWindowMs) break;
                 Vector2 delta = new(newestX - _x[index], newestY - _y[index]);
                 float square = delta.LengthSquared;
                 if (square > best)

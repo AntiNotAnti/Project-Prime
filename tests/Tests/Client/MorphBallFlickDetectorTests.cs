@@ -95,6 +95,22 @@ public sealed class MorphBallFlickDetectorTests
     }
 
     [Fact]
+    public void PointerFlickDoesNotJoinMovementAcrossAnExpiredWindow()
+    {
+        var detector = new MorphBallPointerFlickDetector();
+        detector.Begin(0, 0, 100);
+
+        Assert.False(detector.Move(80, 0,
+            100 + MorphBallPointerFlickDetector.FlickWindowMs + 1,
+            out _));
+        Assert.False(detector.TakeDirection(out _));
+        Assert.True(detector.Move(140, 0,
+            100 + MorphBallPointerFlickDetector.FlickWindowMs + 20,
+            out Vector2 direction));
+        Assert.Equal(Vector2.UnitX, direction);
+    }
+
+    [Fact]
     public void RawMouseMetadataIsPreservedAndConsumedOnce()
     {
         var coordinator = new LookInputCoordinator(() => 1);

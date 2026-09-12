@@ -104,6 +104,25 @@ namespace MphRead.Mods.Input
             return value;
         }
 
+        /// <summary>
+        /// Change flick eligibility without requiring an active pointer to be
+        /// lifted. Re-enabling starts a fresh timing window at the pointer's
+        /// current position, so movement from before the form change cannot
+        /// become a delayed Morph Ball boost.
+        /// </summary>
+        public void SetFlickEnabled(bool enabled, float x, float y,
+            long timestamp = 0)
+        {
+            FlickEnabled = enabled;
+            _flickPending = false;
+            _flickDetector.Reset();
+            if (enabled && _down)
+            {
+                _flickDetector.Density = ValidDensity();
+                _flickDetector.Begin(x, y, NormalizeTime(timestamp));
+            }
+        }
+
         public (bool Fired, float X, float Y) TakeFlick()
         {
             bool value = _flickPending;

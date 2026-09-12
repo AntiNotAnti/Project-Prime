@@ -156,6 +156,50 @@ public sealed class ControllerInputTests
     }
 
     [Fact]
+    public void StylusPressureFireAndHoverHeldButtonProduceContactEdges()
+    {
+        var pressure = new StylusInput(new LookInputCoordinator());
+        pressure.Configure(true, 1, false, true, .35f, 1);
+        Assert.True(pressure.PointerDown(Pen(30, 10, 10, 1, .2f)));
+        Assert.False(pressure.ConsumeState().PressureFirePressed);
+
+        Assert.True(pressure.UpdateButtonState(Pen(30, 10, 10, 2, .8f)));
+        StylusState thresholdCrossed = pressure.ConsumeState();
+        Assert.True(thresholdCrossed.PressureFireActive);
+        Assert.True(thresholdCrossed.PressureFirePressed);
+        Assert.False(pressure.ConsumeState().PressureFirePressed);
+
+        Assert.True(pressure.UpdateButtonState(Pen(30, 10, 10, 3, .2f)));
+        StylusState thresholdReleased = pressure.ConsumeState();
+        Assert.False(thresholdReleased.PressureFireActive);
+        Assert.True(thresholdReleased.PressureFireReleased);
+
+        var hoverButton = new StylusInput(new LookInputCoordinator());
+        Assert.True(hoverButton.PointerProximityMove(Pen(31, 10, 10, 4,
+            buttons: StylusButtons.Primary)));
+        hoverButton.ConsumeState();
+        Assert.True(hoverButton.PointerDown(Pen(31, 10, 10, 5,
+            buttons: StylusButtons.Primary)));
+        Assert.Equal(StylusButtons.Primary,
+            hoverButton.ConsumeState().PressedButtons);
+    }
+
+    [Fact]
+    public void StylusBindingsHonorConfiguredPrimaryAndSecondaryActions()
+    {
+        var bindings = new StylusBindings(StylusAction.Zoom, StylusAction.Fire);
+        StylusState primary = PenState(StylusButtons.Primary);
+        StylusState secondary = PenState(StylusButtons.Secondary);
+
+        Assert.True(bindings.IsDown(primary, StylusAction.Zoom));
+        Assert.True(bindings.IsPressed(primary, StylusAction.Zoom));
+        Assert.False(bindings.IsDown(primary, StylusAction.Fire));
+        Assert.True(bindings.IsDown(secondary, StylusAction.Fire));
+        Assert.True(bindings.IsPressed(secondary, StylusAction.Fire));
+        Assert.False(bindings.IsDown(secondary, StylusAction.Zoom));
+    }
+
+    [Fact]
     public void StylusFlickAndAimDeltaAreBothPreserved()
     {
         var coordinator = new LookInputCoordinator(() => 1);
@@ -172,6 +216,56 @@ public sealed class ControllerInputTests
         StylusState state = stylus.ConsumeState();
         Assert.True(state.FlickBoost);
         Assert.True(state.FlickX > 0);
+    }
+
+    [Fact]
+    public void StylusFlickRearmsWhenFormBecomesEligibleDuringContact()
+    {
+        var stylus = new StylusInput(new LookInputCoordinator(() => 1));
+        stylus.Configure(true, 1, false, false, .35f, 1);
+        stylus.ConfigureGestures(classic: true, doubleTap: false, flick: true,
+            flickContext: false, density: 1);
+
+        Assert.True(stylus.PointerDown(Pen(21, 0, 0, 1000)));
+        Assert.True(stylus.PointerMove(Pen(21, 10, 0, 1050)));
+        stylus.ConfigureGestures(classic: true, doubleTap: false, flick: true,
+            flickContext: true, density: 1);
+        Assert.True(stylus.PointerMove(Pen(21, 70, 0, 1100)));
+
+        StylusState state = stylus.ConsumeState();
+        Assert.True(state.FlickBoost);
+        Assert.True(state.FlickX > 0);
+    }
+
+    [Fact]
+    public void TimingDiscontinuityPreservesActiveStylusCapture()
+    {
+        LookInputCoordinator coordinator = GamepadInput.LookCoordinator;
+        var stylus = new StylusInput(coordinator);
+        FrameTiming.Reset();
+        GamepadInput.Reset();
+        try
+        {
+            Assert.True(stylus.PointerDown(Pen(22, 0, 0, 1000)));
+            Assert.True(stylus.PointerMove(Pen(22, 20, 0, 1020)));
+
+            FrameTiming.Reset();
+            GamepadInput.BeginFrame(allowLook: false);
+            LocalLookFrame first = coordinator.ConsumeForSimulation(
+                1f / 60f, 1);
+            Assert.NotEqual(Vector2.Zero, first.StylusDeltaDegrees);
+
+            Assert.True(stylus.PointerMove(Pen(22, 40, 0, 1040)));
+            LocalLookFrame second = coordinator.ConsumeForSimulation(
+                1f / 60f, 1.01);
+            Assert.NotEqual(Vector2.Zero, second.StylusDeltaDegrees);
+        }
+        finally
+        {
+            stylus.Cancel();
+            GamepadInput.Reset();
+            FrameTiming.Reset();
+        }
     }
 
     [Fact]
@@ -431,6 +525,11 @@ public sealed class ControllerInputTests
     private static PointerSample Pen(int id, float x, float y, long timestamp,
         float pressure = .5f, StylusButtons buttons = StylusButtons.None)
         => new(id, PointerToolKind.Stylus, x, y, pressure, buttons, timestamp);
+
+    private static StylusState PenState(StylusButtons buttons)
+        => new(true, 1, 0, 0, .5f, buttons, buttons, StylusButtons.None,
+            1, false, false, false, 0, 0, true);
+
     [Fact]
     public void StickCurveIsRadialSymmetricAndRejectsNonFiniteValues()
     {
@@ -593,6 +692,35 @@ public sealed class ControllerInputTests
     }
 
     [Fact]
+    public void HeldControllerNeverBlocksLaterMouseLook()
+    {
+        double now = 35;
+        var coordinator = new LookInputCoordinator(() => now);
+        var stick = new LocalLookFrame(LookDeviceKind.GamepadStick,
+            Vector2.Zero, new Vector2(.7f, 0), .7f);
+
+        Assert.True(coordinator.SubmitStateful(stick, new Vector2(60, 0)));
+        Assert.Equal(LookDeviceKind.GamepadStick,
+            coordinator.ActiveLookDevice);
+        Assert.True(coordinator.Submit(new LocalLookFrame(LookDeviceKind.Mouse,
+            new Vector2(0, 3), new Vector2(0, 12), 12), now + .001));
+        Assert.Equal(LookDeviceKind.Mouse, coordinator.ActiveLookDevice);
+
+        // The held stick may continue publishing state, but it cannot reject
+        // or erase mouse movement that arrived after controller ownership.
+        Assert.True(coordinator.SubmitStateful(stick, new Vector2(60, 0),
+            seconds: now + .002));
+        LocalLookFrame frame = coordinator.ConsumeForSimulation(1f / 60f,
+            now + .003);
+
+        Assert.Equal(new Vector2(1, 0), frame.ControllerDeltaDegrees);
+        Assert.Equal(new Vector2(0, 3), frame.MouseDeltaDegrees);
+        Assert.Equal(new Vector2(1, 3), frame.DeltaDegrees);
+        Assert.True(frame.HasControllerContributor);
+        Assert.True(frame.HasPrecisionContributor);
+    }
+
+    [Fact]
     public void StylusReleasePreservesSampleAndResetFencesStaleSubmission()
     {
         double now = 40;
@@ -697,6 +825,54 @@ public sealed class ControllerInputTests
         }
         finally
         {
+            FrameTiming.Reset();
+        }
+    }
+
+    [Fact]
+    public void TimingDiscontinuityDoesNotRetriggerHeldGamepadButton()
+    {
+        GamepadState previousState = GamepadInput.State;
+        FrameTiming.Reset();
+        GamepadInput.Reset();
+        try
+        {
+            GamepadInput.State = new GamepadState
+            {
+                Connected = true,
+                Buttons = GamepadButtons.RightBumper
+            };
+            GamepadInput.BeginFrame(allowLook: false);
+            Assert.Equal(GamepadButtons.RightBumper,
+                GamepadInput.PressedButtons & GamepadButtons.RightBumper);
+
+            // A stall/dropped-step reset must not manufacture another weapon
+            // cycle edge while the same physical button remains held.
+            FrameTiming.Reset();
+            GamepadInput.BeginFrame(allowLook: false);
+            Assert.Equal(GamepadButtons.None,
+                GamepadInput.PressedButtons & GamepadButtons.RightBumper);
+            Assert.Equal(GamepadButtons.RightBumper,
+                GamepadInput.EffectiveButtons & GamepadButtons.RightBumper);
+
+            GamepadInput.State = new GamepadState { Connected = true };
+            GamepadInput.BeginFrame(allowLook: false);
+            Assert.Equal(GamepadButtons.RightBumper,
+                GamepadInput.ReleasedButtons & GamepadButtons.RightBumper);
+
+            GamepadInput.State = new GamepadState
+            {
+                Connected = true,
+                Buttons = GamepadButtons.RightBumper
+            };
+            GamepadInput.BeginFrame(allowLook: false);
+            Assert.Equal(GamepadButtons.RightBumper,
+                GamepadInput.PressedButtons & GamepadButtons.RightBumper);
+        }
+        finally
+        {
+            GamepadInput.State = previousState;
+            GamepadInput.Reset();
             FrameTiming.Reset();
         }
     }

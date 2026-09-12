@@ -155,12 +155,80 @@ namespace MphRead.Droid
         // touch. See NotePadActivity.
         private bool _padDriving;
 
+        // Killcam is a render-thread-owned modal surface. Touch callbacks run
+        // on Android's UI thread, so this state and the one-shot skip request
+        // stay behind the same lock as the ordinary pointer state. A killcam
+        // pointer never becomes gameplay input, even when it lands outside
+        // the small SKIP target.
+        private bool _killcamMode;
+        private bool _killcamSkipQueued;
+        private readonly HashSet<int> _killcamSkipPointers = new HashSet<int>();
+
+        internal const float KillcamSkipMinX = 208f;
+        internal const float KillcamSkipMaxX = 251f;
+        internal const float KillcamSkipMinY = 4f;
+        internal const float KillcamSkipMaxY = 29f;
+
+        internal static bool IsKillcamSkipHit(float x, float y)
+            => float.IsFinite(x) && float.IsFinite(y)
+                && x >= KillcamSkipMinX && x <= KillcamSkipMaxX
+                && y >= KillcamSkipMinY && y <= KillcamSkipMaxY;
+
+        public bool KillcamMode
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _killcamMode;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Enter or leave the killcam's touch modal. Both transitions release
+        /// every existing contact: an old FIRE/JUMP/MORPH/aim pointer must not
+        /// leak into the live scene when playback ends, and a contact already
+        /// down when playback starts must not press SKIP retroactively.
+        /// </summary>
+        public void SetKillcamMode(bool active)
+        {
+            lock (_lock)
+            {
+                if (_killcamMode == active)
+                {
+                    return;
+                }
+                _killcamMode = active;
+                ReleaseEverythingLocked();
+                ApplyLayoutLocked();
+            }
+            Invalidated?.Invoke();
+        }
+
+        /// <summary>Consume one UI-thread SKIP rising edge on the game thread.</summary>
+        public bool ConsumeKillcamSkip()
+        {
+            lock (_lock)
+            {
+                if (!_killcamMode)
+                {
+                    _killcamSkipQueued = false;
+                    return false;
+                }
+                bool queued = _killcamSkipQueued;
+                _killcamSkipQueued = false;
+                return queued;
+            }
+        }
+
         private readonly HashSet<TouchAction> _held = new HashSet<TouchAction>();
         private readonly Dictionary<int, TouchAction> _buttonPointers = new Dictionary<int, TouchAction>();
         private int _stickPointer = -1;
         private int _aimPointer = -1;
         private float _aimLastX;
         private float _aimLastY;
+        private long _aimLastTimestamp;
         private float _aimDeltaX;
         private float _aimDeltaY;
         private float _aimAbsX;
@@ -196,6 +264,7 @@ namespace MphRead.Droid
         private int _fireAimPointer = -1;
         private float _fireAimLastX;
         private float _fireAimLastY;
+        private long _fireAimLastTimestamp;
 
         // WEAPON is the same trick for a different reason: the finger that
         // opens the wheel is also the one that picks off it. Press, drag into
@@ -239,7 +308,15 @@ namespace MphRead.Droid
             {
                 lock (_lock)
                 {
+                    if (_morphBallBoostEnabled == value)
+                    {
+                        return;
+                    }
                     _morphBallBoostEnabled = value;
+                    _aimGestures.SetFlickEnabled(value, _aimLastX,
+                        _aimLastY, _aimLastTimestamp);
+                    _fireAimGestures.SetFlickEnabled(value, _fireAimLastX,
+                        _fireAimLastY, _fireAimLastTimestamp);
                 }
             }
         }
@@ -346,7 +423,11 @@ namespace MphRead.Droid
             {
                 bool visible;
                 string? label = null;
-                if (_results || _recaps)
+                if (_killcamMode)
+                {
+                    visible = false;
+                }
+                else if (_results || _recaps)
                 {
                     visible = button.Action is TouchAction.Shoot or TouchAction.Morph or TouchAction.Pause
                         || ((!_results || _voting) && button.Action == TouchAction.WeaponMenu);
@@ -576,6 +657,10 @@ namespace MphRead.Droid
         {
             lock (_lock)
             {
+                // Keep stylus samples on the touch route while killcam is
+                // visible so PointerInputRouter cannot hand them to gameplay
+                // stylus input merely because the normal buttons are hidden.
+                if (_killcamMode) return true;
                 foreach (TouchButton button in _buttons)
                 {
                     if (button.Visible && button.Contains(x, y)) return true;
@@ -680,6 +765,23 @@ namespace MphRead.Droid
         {
             if (Width > 0 && Height > 0 && MphRead.Mods.Network.IntermissionVoteControls.QueuePointerDown(
                 x * 256 / Width, y * 192 / Height)) return;
+            float normalizedX = Width > 0 ? x * 256 / Width : float.NaN;
+            float normalizedY = Height > 0 ? y * 192 / Height : float.NaN;
+            lock (_lock)
+            {
+                if (_killcamMode)
+                {
+                    // Every killcam down is consumed. Only a fresh pointer
+                    // entering the narrow top-right target queues SKIP; a
+                    // repeated down for the same contact cannot repeat it.
+                    if (IsKillcamSkipHit(normalizedX, normalizedY)
+                        && _killcamSkipPointers.Add(pointerId))
+                    {
+                        _killcamSkipQueued = true;
+                    }
+                    return;
+                }
+            }
             if (Width > 0 && Height > 0 && MphRead.Mods.Network.ReplayControls.QueuePointerDown(
                 x * 256 / Width, y * 192 / Height)) return;
             if (Width > 0 && Height > 0 && SpectatorCameraController.QueuePointerDown(
@@ -725,6 +827,7 @@ namespace MphRead.Droid
                         _fireAimPointer = pointerId;
                         _fireAimLastX = x;
                         _fireAimLastY = y;
+                        _fireAimLastTimestamp = timestamp;
                         ConfigureGesture(_fireAimGestures);
                         _fireAimGestures.PointerDown(x, y, timestamp);
                     }
@@ -753,6 +856,7 @@ namespace MphRead.Droid
                 _aimPointer = pointerId;
                 _aimLastX = x;
                 _aimLastY = y;
+                _aimLastTimestamp = timestamp;
                 _aimAbsX = x;
                 _aimAbsY = y;
                 _aimDown = true;
@@ -772,6 +876,7 @@ namespace MphRead.Droid
         {
             lock (_lock)
             {
+                if (_killcamMode) return;
                 if (pointerId == _stickPointer)
                 {
                     float dx = x - StickX;
@@ -831,6 +936,7 @@ namespace MphRead.Droid
                     }
                     _aimLastX = x;
                     _aimLastY = y;
+                    _aimLastTimestamp = timestamp;
                     _aimAbsX = x;
                     _aimAbsY = y;
                     return;
@@ -852,6 +958,7 @@ namespace MphRead.Droid
                     }
                     _fireAimLastX = x;
                     _fireAimLastY = y;
+                    _fireAimLastTimestamp = timestamp;
                     return;
                 }
                 if (pointerId == _wheelPointer)
@@ -888,6 +995,11 @@ namespace MphRead.Droid
         {
             lock (_lock)
             {
+                if (_killcamMode)
+                {
+                    _killcamSkipPointers.Remove(pointerId);
+                    return;
+                }
                 if (pointerId == _stickPointer)
                 {
                     _stickPointer = -1;
@@ -925,20 +1037,28 @@ namespace MphRead.Droid
         {
             lock (_lock)
             {
-                _buttonPointers.Clear();
-                _held.Clear();
-                _stickPointer = -1;
-                _aimPointer = -1;
-                _aimDown = false;
-                _fireAimPointer = -1;
-                _wheelPointer = -1;
-                _aimGestures.Cancel();
-                _fireAimGestures.Cancel();
-                StickActive = false;
-                _direction = Dir.None;
-                _aimDeltaX = 0;
-                _aimDeltaY = 0;
+                ReleaseEverythingLocked();
             }
+        }
+
+        /// <summary>Called with the lock held.</summary>
+        private void ReleaseEverythingLocked()
+        {
+            _buttonPointers.Clear();
+            _held.Clear();
+            _killcamSkipPointers.Clear();
+            _killcamSkipQueued = false;
+            _stickPointer = -1;
+            _aimPointer = -1;
+            _aimDown = false;
+            _fireAimPointer = -1;
+            _wheelPointer = -1;
+            _aimGestures.Cancel();
+            _fireAimGestures.Cancel();
+            StickActive = false;
+            _direction = Dir.None;
+            _aimDeltaX = 0;
+            _aimDeltaY = 0;
         }
 
         private void ReleaseAction(TouchAction action)

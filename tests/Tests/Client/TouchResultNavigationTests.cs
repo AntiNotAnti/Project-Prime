@@ -60,6 +60,29 @@ public class TouchResultNavigationTests
     }
 
     [Fact]
+    public void MorphBallSwipeRebasesWhenFormChangesDuringAimContact()
+    {
+        var controls = new TouchControls();
+        controls.Layout(1280, 720, 1);
+        controls.MorphBallBoostEnabled = false;
+        controls.PointerDown(1, 700, 300, 100);
+        controls.PointerMove(1, 730, 300, 110);
+        Assert.False(controls.TakeMorphBallBoost().Fired);
+
+        controls.MorphBallBoostEnabled = true;
+        controls.PointerMove(1, 790, 300, 125);
+
+        (bool fired, float x, float y) = controls.TakeMorphBallBoost();
+        Assert.True(fired);
+        Assert.Equal(1, x, 4);
+        Assert.Equal(0, y, 4);
+
+        controls.MorphBallBoostEnabled = false;
+        controls.PointerMove(1, 900, 300, 135);
+        Assert.False(controls.TakeMorphBallBoost().Fired);
+    }
+
+    [Fact]
     public void WedgeGeometryMatchesTheNineStickSelectionSectors()
     {
         var wheel = new WeaponRadialSelection();
