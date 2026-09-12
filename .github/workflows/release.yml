@@ -36,6 +36,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: project-prime-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -166,8 +170,13 @@ jobs:
       # the packages carry, and it is what somebody can be handed on its own --
       # the .pk3 it was cooked from is a source and is kept out of the output
       # by CopyToPublishDirectory. It is not committed, so it is cooked here.
-      - name: cook the map bundles
-        run: dotnet run --project src/Tools/Tools.csproj -c Release -- -mapdir maps -mapbundle all
+      - name: cook the map bundles once
+        env:
+          VERSION: ${{ steps.name.outputs.version }}
+        run: |
+          tools/cook-maps.sh --source maps --output artifacts/maps/current \
+            --configuration Release --compiler-version "$VERSION" \
+            --schema-version 1 --package-version "$VERSION"
 
       - name: publish every target
         env:
@@ -177,10 +186,14 @@ jobs:
           stamp="-p:Version=$VERSION -p:InformationalVersion=$VERSION"
           for rid in win-x64 linux-x64 osx-x64 osx-arm64; do
             dotnet publish src/Client/Client.csproj -c Release -r "$rid" $stamp \
-              --self-contained true -p:PublishSingleFile=true \
+              --self-contained true -p:PublishSingleFile=true -p:SkipCustomMapBundleCook=true \
+              -p:PrimeMapArtifactRoot="$GITHUB_WORKSPACE/artifacts/maps/current" \
+              -p:PrimeMapCopyToPublish=true \
               -p:PrimeProtectClient=true -o "publish/$rid"
             dotnet publish src/Editor/Editor.csproj -c Release -r "$rid" $stamp \
-              --self-contained true -p:PublishSingleFile=true \
+              --self-contained true -p:PublishSingleFile=true -p:SkipCustomMapBundleCook=true \
+              -p:PrimeMapArtifactRoot="$GITHUB_WORKSPACE/artifacts/maps/current" \
+              -p:PrimeMapCopyToPublish=true \
               -o "publish/$rid/editor"
             python3 tools/check-renderer-package.py --rid "$rid" "publish/$rid"
             editor_executable=ProjectPrime.Editor
@@ -188,6 +201,12 @@ jobs:
             python3 tools/check-renderer-package.py --rid "$rid" \
               --executable "$editor_executable" "publish/$rid/editor"
             python3 tools/protection/check-obfuscation.py public "publish/$rid"
+            if [ "$rid" = osx-x64 ] || [ "$rid" = osx-arm64 ]; then
+              python3 tools/package-macos-app.py package "publish/$rid" \
+                "publish/$rid/Project Prime.app" --version "$VERSION"
+              python3 tools/package-macos-app.py check "publish/$rid/Project Prime.app" \
+                --version "$VERSION"
+            fi
             if [ "$rid" = linux-x64 ]; then
               python3 tools/protection/linux-client-smoke.py --package "publish/$rid"
             fi
@@ -197,6 +216,7 @@ jobs:
           # only the Node top-level apphost to ProjectPrimeServer[.exe].
           for rid in win-x64 linux-x64 linux-arm64; do
             tools/package-server.sh --rid "$rid" --version "$VERSION" \
+              --skip-map-cook --map-artifacts "$GITHUB_WORKSPACE/artifacts/maps/current" \
               --output "publish/server-$rid"
           done
 
@@ -256,7 +276,9 @@ jobs:
             -p:AcceptAndroidSDKLicenses=True
           dotnet publish "$proj" -c Release -p:AndroidPackageFormat=apk "${sdk[@]}" \
             "${signing[@]}" \
-            -p:PrimeProtectClient=true \
+            -p:PrimeProtectClient=true -p:SkipCustomMapBundleCook=true \
+            -p:PrimeMapArtifactRoot="$GITHUB_WORKSPACE/artifacts/maps/current" \
+            -p:PrimeMapCopyToPublish=true \
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
             -p:ApplicationDisplayVersion="$VERSION" \
             -o publish/android

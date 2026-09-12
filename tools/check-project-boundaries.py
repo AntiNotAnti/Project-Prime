@@ -10,16 +10,21 @@ import xml.etree.ElementTree as ET
 
 PROJECTS = {
     'Game': set(),
-    'Imaging': set(),
-    'MapPlatform': {'Game', 'Imaging'},
-    'Renderer': {'Game', 'Imaging'},
-    'Editor': {'Game', 'MapPlatform', 'Renderer'},
-    'Client': {'Game', 'MapPlatform', 'Renderer', 'Audio.Ncsf', 'Server.Shared', 'Shared.Replay'},
+    'Imaging': {'MapPlatform'},
+    'MapPlatform': {'Game'},
+    'Renderer': {'Game', 'Imaging', 'MapPlatform'},
+    'Editor': {'Game', 'Imaging', 'MapPlatform', 'Renderer'},
+    'Client.Core': {'Game', 'MapPlatform', 'Server.Shared', 'Shared.Replay'},
+    'Client.Presentation': {'Audio.Ncsf', 'Client.Core', 'Game', 'Imaging', 'MapPlatform',
+                            'Renderer', 'Server.Shared', 'Shared.Replay'},
+    'Client': {'Audio.Ncsf', 'Client.Core', 'Client.Presentation', 'Game', 'MapPlatform',
+               'Renderer', 'Server.Shared', 'Shared.Replay'},
     'Server.Shared': {'Game'},
     'Server.Node': {'Server.Shared'},
     'Server.Worker': {'Game', 'Imaging', 'MapPlatform', 'Server.Shared', 'Shared.Replay'},
     'Tools': {'Game', 'Imaging', 'MapPlatform'},
-    'Android': {'Game', 'Imaging', 'MapPlatform', 'Audio.Ncsf', 'Shared.Replay', 'Server.Shared'},
+    'Android': {'Audio.Ncsf', 'Client.Core', 'Client.Presentation', 'Game', 'Imaging',
+                'MapPlatform', 'Renderer', 'Shared.Replay', 'Server.Shared'},
     'Audio.Ncsf': set(),
     'Shared.Replay': {'Game'},
     'Backend': {'Game', 'Server.Shared'},
@@ -36,6 +41,10 @@ PLATFORM_PACKAGES = re.compile(
     r'|(?:ppy\.)?SDL(?:2|3)?(?:[-.]|$))',
     re.IGNORECASE,
 )
+CORE_FORBIDDEN_NATIVE = re.compile(
+    r'\b(?:DllImport|LibraryImport)\b|\bSystem\.Runtime\.InteropServices\b'
+    r'|\b(?:Android|Java)\.|\bObjCRuntime\b'
+)
 SERVER_ALLOWED_PACKAGES = {'Microsoft.IdentityModel.JsonWebTokens', 'ReFuel.StbImage'}
 SERVER_ALLOWED_PLATFORM_PACKAGES = {'Server.Worker': {'ReFuel.StbImage'}}
 GAME_IO = re.compile(r'\bSystem\.Net\.Sockets\b|\b(?:NetTransport|UdpTransport|ServerProcessHost|ScenePresentation|PlayerPresentation)\b')
@@ -45,11 +54,16 @@ RETIRED_SERVER_SYMBOLS = re.compile(
     r'ServerVoting|AdminHttpServer)\b')
 RETIRED_SERVER_PROJECT = Path('src/Server/Server.csproj')
 PLATFORM_SOURCE_PROJECTS = {
-    'Game', 'MapPlatform', 'Server.Shared', 'Server.Node', 'Server.Worker', 'Backend', 'Shared.Replay'
+    'Game', 'Client.Core', 'MapPlatform', 'Server.Shared', 'Server.Node', 'Server.Worker',
+    'Backend', 'Shared.Replay'
 }
 OWNED_SOURCE_GLOBS = {
-    'MapPlatform': ('../Shared/Maps/',),
-    'Renderer': ('../Client/Rendering/',),
+    'MapPlatform': (),
+    # Renderer implementation is physically owned by src/Renderer. Keep this
+    # entry explicit so a future cross-project wildcard cannot silently reopen
+    # the transitional Client source-link boundary.
+    'Renderer': (),
+    'Client.Presentation': ('../Client/',),
 }
 
 
@@ -120,17 +134,9 @@ def inspect(root: Path) -> list[str]:
                     references.add(target.stem)
                 if item.tag == 'PackageReference':
                     packages.add(item.attrib['Include'])
-                if item.tag not in {'Compile', 'PrimeSharedInputCompile',
-                                    'PrimeSharedRuntimeCompile'} or 'Include' not in item.attrib:
+                if item.tag != 'Compile' or 'Include' not in item.attrib:
                     continue
                 for include in item.attrib['Include'].split(';'):
-                    # Client shared props materialize these item lists in
-                    # projects that disable SDK default Compile items. The
-                    # transforms are not source paths; the imported item-list
-                    # entries below are the paths to validate.
-                    if item.tag == 'Compile' and include in {
-                            '@(PrimeSharedInputCompile)', '@(PrimeSharedRuntimeCompile)'}:
-                        continue
                     normalized = include.replace('\\', '/')
                     if '$(MSBuildThisFileDirectory)' in normalized:
                         normalized = normalized.replace(
@@ -147,12 +153,14 @@ def inspect(root: Path) -> list[str]:
                         errors.append(f'{owner.relative_to(root)}: missing linked source: {include}')
                     if cross_project:
                         allowed = {'Client': {'Shared'},
+                                   'Client.Core': {'Shared'},
+                                   'Client.Presentation': {'Client', 'Renderer', 'Shared'},
                                    'Imaging': {'Shared'},
-                                   'MapPlatform': {'Shared'},
-                                   'Renderer': {'Client'},
+                                   'MapPlatform': set(),
+                                   'Renderer': set(),
                                    'Server.Worker': {'Shared'},
                                    'Tools': {'Shared', 'Audio.Ncsf'},
-                                   'Android': {'Shared', 'Client'},
+                                   'Android': {'Shared'},
                                    'Backend': {'Shared'}}.get(name, set())
                         relative = target.relative_to(root / 'src') if target.is_relative_to(root / 'src') else None
                         if relative is None or relative.parts[0] not in allowed:
@@ -164,6 +172,8 @@ def inspect(root: Path) -> list[str]:
             errors.append(f'{name}: project references {sorted(references)}; expected {sorted(expected)}')
         if name == 'Game' and packages != {'OpenTK.Mathematics'}:
             errors.append(f'Game: package budget exceeded: {sorted(packages)}')
+        if name == 'Client.Core' and packages != {'OpenTK.Mathematics'}:
+            errors.append(f'Client.Core: package budget exceeded: {sorted(packages)}')
         if name == 'Shared.Replay' and packages:
             errors.append(f'Shared.Replay: unexpected packages: {sorted(packages)}')
         if name == 'Server.Worker':
@@ -182,6 +192,8 @@ def inspect(root: Path) -> list[str]:
                     continue
                 code = module.mask_non_code(source.read_text(encoding='utf-8-sig'))
                 patterns = [PLATFORM_NAMES] + ([GAME_IO] if name == 'Game' else [])
+                if name == 'Client.Core':
+                    patterns.append(CORE_FORBIDDEN_NATIVE)
                 for pattern in patterns:
                     match = pattern.search(code)
                     if match:

@@ -91,10 +91,19 @@ class RendererPackageTests(unittest.TestCase):
         }
 
         binding = packages["ppy.SDL3-CS"]
-        self.assertEqual("2026.722.0", binding.attrib["Version"])
+        self.assertNotIn("Version", binding.attrib)
         self.assertEqual("native", binding.attrib["ExcludeAssets"])
         for package in ("SDL3-CS.Windows", "SDL3-CS.Linux", "SDL3-CS.MacOS"):
-            self.assertEqual("3.4.16", packages[package].attrib["Version"])
+            self.assertNotIn("Version", packages[package].attrib)
+
+        central = ET.parse(ROOT / "Directory.Packages.props").getroot()
+        versions = {
+            item.attrib["Include"]: item.attrib["Version"]
+            for item in central.findall(".//PackageVersion")
+        }
+        self.assertEqual("2026.722.0", versions["ppy.SDL3-CS"])
+        for package in ("SDL3-CS.Windows", "SDL3-CS.Linux", "SDL3-CS.MacOS"):
+            self.assertEqual("3.4.16", versions[package])
 
     def test_desktop_client_has_no_legacy_opentk_renderer_packages(self):
         project = ET.parse(ROOT / "src/Client/Client.csproj").getroot()

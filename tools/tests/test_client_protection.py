@@ -192,7 +192,11 @@ class ClientProtectionTests(unittest.TestCase):
             ROOT / "tools/protection/MetadataRepair/MetadataRepair.csproj").getroot()
         package = project.find(".//PackageReference[@Include='Mono.Cecil']")
         self.assertIsNotNone(package)
-        self.assertEqual("0.11.6", package.attrib["Version"])
+        self.assertNotIn("Version", package.attrib)
+        central = ET.parse(ROOT / "Directory.Packages.props").getroot()
+        central_package = central.find(".//PackageVersion[@Include='Mono.Cecil']")
+        self.assertIsNotNone(central_package)
+        self.assertEqual("0.11.6", central_package.attrib["Version"])
 
         for path in (
             ROOT / "build/protection/ClientProtection.targets",

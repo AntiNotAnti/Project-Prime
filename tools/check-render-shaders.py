@@ -19,8 +19,8 @@ def sha256(path: Path) -> str:
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
-    source = root / "src/Client/Rendering/Shaders/scene_triangle.hlsl"
-    manifest_path = root / "src/Client/Rendering/Shaders/Generated/manifest.json"
+    source = root / "src/Renderer/Shaders/scene_triangle.hlsl"
+    manifest_path = root / "src/Renderer/Shaders/Generated/manifest.json"
     if not source.is_file() or not manifest_path.is_file():
         print("renderer shader source or manifest is missing", file=sys.stderr)
         return 1
@@ -62,8 +62,8 @@ def main() -> int:
         if artifact.get("sha256") != actual:
             print(f"renderer shader artifact {name} is stale: manifest={artifact.get('sha256')} actual={actual}", file=sys.stderr)
             return 1
-    scene_source = root / "src/Client/Rendering/Shaders/scene.hlsl"
-    scene_manifest_path = root / "src/Client/Rendering/Shaders/Generated/scene_manifest.json"
+    scene_source = root / "src/Renderer/Shaders/scene.hlsl"
+    scene_manifest_path = root / "src/Renderer/Shaders/Generated/scene_manifest.json"
     if not scene_source.is_file() or not scene_manifest_path.is_file():
         print("scene shader source or manifest is missing", file=sys.stderr)
         return 1
@@ -95,8 +95,8 @@ def main() -> int:
             return 1
 
     def check_family(stem: str, required_tokens: tuple[str, ...]) -> int:
-        family_source = root / "src/Client/Rendering/Shaders" / f"{stem}.hlsl"
-        family_manifest_path = root / "src/Client/Rendering/Shaders/Generated" / f"{stem}_manifest.json"
+        family_source = root / "src/Renderer/Shaders" / f"{stem}.hlsl"
+        family_manifest_path = root / "src/Renderer/Shaders/Generated" / f"{stem}_manifest.json"
         if not family_source.is_file() or not family_manifest_path.is_file():
             print(f"{stem} shader source or manifest is missing", file=sys.stderr)
             return 1
@@ -145,6 +145,8 @@ def main() -> int:
         "bloom": ("BlurSample", "bloomOptions", "sourceTexture"),
         "tone_map": ("ToneMapAces", "LinearToSRGB", "toneMapOptions"),
         "color_grade": ("LutUv", "LutTextureSize", "colorGradeOptions", "lutTexture"),
+        "reconstruction": ("Lanczos2", "Reconstruct", "reconstructionOptions", "sourceTexture"),
+        "depth_stencil": ("matrixStack", "texgenMatrix", "alphaOptions", "discard"),
         "surface": ("EncodeOctNormal", "ResolveAlpha", "viewDepth", "normalTexture"),
         "ssao": ("RawOcclusion", "Bilateral", "CoordinateRotation", "surfaceTexture"),
         "shadow": ("shadowViewProjection", "SV_Depth", "albedoTexture"),

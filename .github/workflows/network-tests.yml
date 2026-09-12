@@ -3,14 +3,44 @@ name: network tests
 on:
   push:
     branches: ["**"]
+    paths:
+      - '.github/workflows/**'
+      - '.editorconfig'
+      - 'Directory.*'
+      - 'Game.sln'
+      - 'global.json'
+      - 'src/**'
+      - 'tests/**'
+      - 'tools/**'
+      - 'maps/**'
+      - 'build/**'
   pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.editorconfig'
+      - 'Directory.*'
+      - 'Game.sln'
+      - 'global.json'
+      - 'src/**'
+      - 'tests/**'
+      - 'tools/**'
+      - 'maps/**'
+      - 'build/**'
+  schedule:
+    - cron: '47 3 * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: project-prime-network-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   map-platform:
+    name: integration-map-platform
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -23,6 +53,7 @@ jobs:
           dotnet test tests/MapPlatform.Tests/MapPlatform.Tests.csproj -c Release
           --filter "RequiresGameContent!=true"
       - name: map characterization tests when authoritative content is supplied
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
         env:
           GAME_DATA_DIRECTORY: ${{ secrets.GAME_DATA_DIRECTORY }}
         run: |
@@ -35,6 +66,8 @@ jobs:
           fi
 
   protocol:
+    name: integration-network-and-server
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # The Backend integration boundary is opt-in locally through
@@ -67,6 +100,8 @@ jobs:
         run: dotnet build src/Game/Game.csproj -c Release --artifacts-path artifacts/game
       - name: protocol and UDP safety tests (content-free)
         run: dotnet test tests/Tests/Tests.csproj -c Release --filter "RequiresGameContent!=true"
+      - name: extracted replay tests
+        run: dotnet test tests/Replay.Tests/Replay.Tests.csproj -c Release
       - name: fidelity fixture and manifest smoke tests
         run: >
           dotnet test tests/Tests/Tests.csproj -c Release --no-build
@@ -75,8 +110,32 @@ jobs:
         run: dotnet test tests/Server.Shared.Tests/Server.Shared.Tests.csproj -c Release
       - name: Server.Worker runtime build
         run: dotnet build src/Server.Worker/Server.Worker.csproj -c Release
+      - name: Server.Worker tests (content-free)
+        run: >
+          dotnet test tests/Server.Worker.Tests/Server.Worker.Tests.csproj -c Release
+          --filter "RequiresGameContent!=true"
+      - name: Server.Worker authoritative tests (when content is supplied)
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+        env:
+          GAME_DATA_DIRECTORY: ${{ secrets.GAME_DATA_DIRECTORY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GAME_DATA_DIRECTORY:-}" ]; then
+            echo "GAME_DATA_DIRECTORY is not configured; content-backed Worker tests were not run."
+          else
+            dotnet test tests/Server.Worker.Tests/Server.Worker.Tests.csproj -c Release \
+              --filter "RequiresGameContent=true"
+          fi
+      - name: cook map artifacts once for the server package
+        run: |
+          tools/cook-maps.sh --source maps --output artifacts/maps/current \
+            --configuration Release --compiler-version "$GITHUB_SHA" \
+            --schema-version 1 --package-version "$GITHUB_SHA"
       - name: package the Backend, Node and Worker bundle
-        run: tools/package-server.sh --rid linux-x64 --output artifacts/server-linux-x64
+        run: |
+          tools/package-server.sh --rid linux-x64 --skip-map-cook \
+            --map-artifacts "$GITHUB_WORKSPACE/artifacts/maps/current" \
+            --output artifacts/server-linux-x64
       - name: server bundle structural checks
         run: |
           set -euo pipefail
@@ -126,6 +185,7 @@ jobs:
       - name: mixed-combat reliable backpressure checks
         run: dotnet artifacts/nettest/nettest.dll --mixed-backpressure-self-test
       - name: fresh extracted server package smoke (when content is supplied)
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
         env:
           GAME_DATA_DIRECTORY: ${{ secrets.GAME_DATA_DIRECTORY }}
         run: |
@@ -136,6 +196,7 @@ jobs:
             tools/package-smoke.sh --bundle artifacts/server-linux-x64 --content-dir "$GAME_DATA_DIRECTORY"
           fi
       - name: authoritative fidelity smoke (when content is supplied)
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
         env:
           GAME_DATA_DIRECTORY: ${{ secrets.GAME_DATA_DIRECTORY }}
         run: |
@@ -147,6 +208,7 @@ jobs:
               --filter "Category=FidelitySmoke&RequiresGameContent=true"
           fi
       - name: authoritative WAN connection baseline (synthetic states, not gameplay)
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
         run: >
           python3 tools/run-network-baseline.py
           --nettest artifacts/nettest/nettest.dll

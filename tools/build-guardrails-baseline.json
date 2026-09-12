@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "kind": "hot-linq",
+      "path": "src/Game/Gameplay/Hunters/PlayerProcess.cs",
+      "text": "private PlayerSpawnEntity? GetRespawnPoint() => _scene.SpawnDirector.Select(this);"
+    },
+    {
+      "kind": "hot-linq",
+      "path": "src/Game/World/Entities/CameraSequence.cs",
+      "text": "Keyframes = keyframes.Select(k => new CameraSequenceKeyframe(k)).ToList();"
+    },
+    {
+      "kind": "hot-linq",
+      "path": "src/Game/World/Entities/EntityBase.cs",
+      "text": "_anyLighting |= _models.Any(n => n.Model.Materials.Any(m => m.Lighting != 0));"
+    },
+    {
+      "kind": "hot-linq",
+      "path": "src/Game/World/Entities/NodeDefenseEntity.cs",
+      "text": "_terminalMat = terminalInst.Model.Materials.First(m => m.Name == \"lambert4\");"
+    },
+    {
+      "kind": "hot-linq",
+      "path": "src/Game/World/Entities/NodeDefenseEntity.cs",
+      "text": "_ringMat = ringInst.Model.Materials.First(m => m.Name == \"lambert2\");"
+    },
+    {
+      "kind": "hot-linq",
+      "path": "src/Game/World/Entities/RoomEntity.cs",
+      "text": "IEnumerable<string> parts = _portals.Select(p => p.NodeName1).Concat(_portals.Select(p => p.NodeName2)).Distinct();"
+    },
+    {
+      "kind": "hot-linq",
+      "path": "src/Game/World/Entities/RoomEntity.cs",
+      "text": "Debug.Assert(model.Nodes.Any(n => n.RoomPartId >= 0));"
+    },
+    {
+      "kind": "hot-linq",
+      "path": "src/Game/World/Scene/Scene.World.cs",
+      "text": "internal bool IsModelInUse(Model model) => _entities.Any(e => e.GetModels().Any(m => m.Model.Id == model.Id));"
+    }
+  ]
+}

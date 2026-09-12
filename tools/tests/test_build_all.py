@@ -47,6 +47,13 @@ class BuildAllContractTests(unittest.TestCase):
         self.assertIn('--executable "$editor_executable" "$destination/editor"', script)
         self.assertIn('"desktop_editor": {', script)
 
+    def test_desktop_publish_selects_the_desktop_framework(self):
+        script = IMPLEMENTATION.read_text(encoding="utf-8")
+        self.assertIn(
+            'dotnet publish src/Client/Client.csproj -c Release -f net10.0',
+            script,
+        )
+
     def test_bundled_editor_publish_excludes_standalone_symbols(self):
         project = ET.parse(ROOT / "src/Editor/Editor.csproj").getroot()
         properties = {

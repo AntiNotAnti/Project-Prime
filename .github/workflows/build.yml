@@ -1,5 +1,6 @@
-# Build every target on every push, and refuse to publish anything that came
-# out of the cartridge.
+# Run the fast guards for every source push and pull request, and reserve the
+# publish matrix for nightly/manual confidence runs. Refuse to publish
+# anything that came out of the cartridge.
 #
 # The guard runs twice on purpose: once over what git is tracking, and once
 # over what the build produced. The first catches a map preview committed by
@@ -9,18 +10,51 @@ name: build
 on:
   push:
     branches: ["**"]
+    paths:
+      - '.github/workflows/**'
+      - '.editorconfig'
+      - 'Directory.*'
+      - 'Game.sln'
+      - 'global.json'
+      - 'src/**'
+      - 'tests/**'
+      - 'tools/**'
+      - 'maps/**'
+      - 'build/**'
   pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.editorconfig'
+      - 'Directory.*'
+      - 'Game.sln'
+      - 'global.json'
+      - 'src/**'
+      - 'tests/**'
+      - 'tools/**'
+      - 'maps/**'
+      - 'build/**'
+  schedule:
+    # The publish matrix is deliberately a nightly/manual confidence tier;
+    # ordinary pushes and pull requests stay on the fast and integration tiers.
+    - cron: '17 3 * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: project-prime-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  assets:
-    name: no game assets
+  fast:
+    name: fast guards
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
       - name: nothing from the game is tracked
         run: tools/check-no-game-assets.sh
 
@@ -36,9 +70,84 @@ jobs:
       - name: no retired campaign runtime in source
         run: python3 tools/check-multiplayer-only.py
 
-  build:
+      - name: package and source boundary guardrails
+        run: python3 tools/check-build-guardrails.py --root .
+
+      - name: content-free compile of gameplay and client layers
+        run: |
+          set -euo pipefail
+          dotnet build src/Game/Game.csproj -c Release
+          dotnet build src/Client.Core/Client.Core.csproj -c Release
+          dotnet build src/Renderer/Renderer.csproj -c Release
+          dotnet build src/Client/Client.csproj -c Release
+
+      - name: content-free server, replay and map tests
+        run: |
+          dotnet test tests/Server.Shared.Tests/Server.Shared.Tests.csproj -c Release \
+            --filter "RequiresGameContent!=true"
+          dotnet test tests/MapPlatform.Tests/MapPlatform.Tests.csproj -c Release \
+            --filter "RequiresGameContent!=true"
+          dotnet test tests/Replay.Tests/Replay.Tests.csproj -c Release \
+            --filter "RequiresGameContent!=true"
+          dotnet test tests/Server.Worker.Tests/Server.Worker.Tests.csproj -c Release \
+            --filter "RequiresGameContent!=true"
+
+      # P2.1 owns these focused projects. Keep the aggregate content-heavy test
+      # project out of the fast tier while the extracted suites cover the client
+      # lifecycle and renderer contracts directly.
+      - name: focused client and renderer tests
+        run: |
+          dotnet test tests/Client.Tests/Client.Tests.csproj -c Release \
+            --filter "RequiresGameContent!=true"
+          dotnet test tests/Renderer.Tests/Renderer.Tests.csproj -c Release \
+            --filter "RequiresGameContent!=true"
+
+  map-cook:
+    name: cook maps once
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+    needs: fast
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: cook current map artifacts
+        run: |
+          set -euo pipefail
+          tools/cook-maps.sh --source maps --output artifacts/maps/current \
+            --configuration Release --compiler-version "$GITHUB_SHA" \
+            --schema-version 1 --package-version "$GITHUB_SHA"
+          test "$(find artifacts/maps/current -maxdepth 1 -type f -name '*.fpmap' | wc -l)" -gt 0
+          while IFS= read -r bundle; do unzip -t "$bundle" >/dev/null; done \
+            < <(find artifacts/maps/current -maxdepth 1 -type f -name '*.fpmap' | sort)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: project-prime-map-artifacts-${{ github.sha }}
+          path: artifacts/maps/current
+          if-no-files-found: error
+
+  integration:
+    name: integration checks
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+    needs: fast
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: focused shared and map-platform tests
+        run: |
+          dotnet test tests/Server.Shared.Tests/Server.Shared.Tests.csproj -c Release \
+            --filter "RequiresGameContent!=true"
+          dotnet test tests/MapPlatform.Tests/MapPlatform.Tests.csproj -c Release \
+            --filter "RequiresGameContent!=true"
+
+  heavy:
     name: ${{ matrix.id }}
-    needs: assets
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+    needs: [fast, map-cook, integration]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -75,15 +184,10 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # Cook every custom map into the one file it ships as. The recipe, the
-      # level it converts and the textures baked from it go into a .fpmap,
-      # with the level trimmed to the lumps the importer actually reads: 376 KB
-      # for de_dust2 against the 2.8 MB its folder weighs. That bundle is what
-      # the packages carry, and it is what somebody can be handed on its own --
-      # the .pk3 it was cooked from is a source and is kept out of the output
-      # by CopyToPublishDirectory. It is not committed, so it is cooked here.
-      - name: cook the map bundles
-        run: dotnet run --project src/Tools/Tools.csproj -c Release -- -mapdir maps -mapbundle all
+      - uses: actions/download-artifact@v7
+        with:
+          name: project-prime-map-artifacts-${{ github.sha }}
+          path: artifacts/maps/current
 
       # Every target is net10.0 and every launcher is Avalonia, so all six of
       # these come off one Ubuntu runner.
@@ -91,14 +195,18 @@ jobs:
         run: >
           dotnet publish ${{ matrix.project }}
           -c Release -r ${{ matrix.rid }} ${{ matrix.extra }}
-          --self-contained true -p:PublishSingleFile=true
+          --self-contained true -p:PublishSingleFile=true -p:SkipCustomMapBundleCook=true
+          -p:PrimeMapArtifactRoot="$GITHUB_WORKSPACE/artifacts/maps/current"
+          -p:PrimeMapCopyToPublish=true
           -o publish/${{ matrix.id }}
 
       - name: publish the Project Prime Editor
         run: >
           dotnet publish src/Editor/Editor.csproj
           -c Release -r ${{ matrix.rid }}
-          --self-contained true -p:PublishSingleFile=true
+          --self-contained true -p:PublishSingleFile=true -p:SkipCustomMapBundleCook=true
+          -p:PrimeMapArtifactRoot="$GITHUB_WORKSPACE/artifacts/maps/current"
+          -p:PrimeMapCopyToPublish=true
           -o publish/${{ matrix.id }}/editor
 
       - name: verify SDL GPU package payload
@@ -144,11 +252,12 @@ jobs:
   #
   # No asset guard on the output: an APK is a zip this script cannot see into,
   # and pointing it at a directory holding one would prove nothing. What
-  # actually rules game data out is the `assets` job above -- the APK is built
+  # actually rules game data out is the `fast` job above -- the APK is built
   # from tracked sources and NuGet packages and nothing else.
   android:
     name: android
-    needs: assets
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+    needs: [fast, map-cook, integration]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -156,6 +265,11 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: project-prime-map-artifacts-${{ github.sha }}
+          path: artifacts/maps/current
 
       # The Android workload brings the .NET side of the toolchain. It does not
       # bring a JDK, and the Android SDK's build tools are Java.
@@ -166,16 +280,6 @@ jobs:
 
       - name: install the android workload
         run: dotnet workload install android
-
-      # Cook every custom map into the one file it ships as. The recipe, the
-      # level it converts and the textures baked from it go into a .fpmap,
-      # with the level trimmed to the lumps the importer actually reads: 376 KB
-      # for de_dust2 against the 2.8 MB its folder weighs. That bundle is what
-      # the packages carry, and it is what somebody can be handed on its own --
-      # the .pk3 it was cooked from is a source and is kept out of the output
-      # by CopyToPublishDirectory. It is not committed, so it is cooked here.
-      - name: cook the map bundles
-        run: dotnet run --project src/Tools/Tools.csproj -c Release -- -mapdir maps -mapbundle all
 
       # net10.0-android36.0 wants platform 36 and its build tools, which a
       # runner image does not necessarily carry. This target asks for exactly
@@ -199,8 +303,11 @@ jobs:
         run: >
           dotnet publish src/Android/Android.csproj
           -c Release -p:AndroidPackageFormat=apk
+          -p:SkipCustomMapBundleCook=true
           -p:AndroidSdkDirectory="$ANDROID_HOME"
           -p:JavaSdkDirectory="$JAVA_HOME"
+          -p:PrimeMapArtifactRoot="$GITHUB_WORKSPACE/artifacts/maps/current"
+          -p:PrimeMapCopyToPublish=true
           -o publish/android
 
       # One APK, the one people install. An untrimmed Debug build was
@@ -250,22 +357,27 @@ jobs:
   # Ordinary matrix jobs above remain unobfuscated for useful diagnostics.
   protected-linux:
     name: protected-linux-x64
-    needs: assets
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+    needs: [fast, map-cook, integration]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v7
+        with:
+          name: project-prime-map-artifacts-${{ github.sha }}
+          path: artifacts/maps/current
       - name: restore pinned protection tool
         run: dotnet tool restore
-      - name: cook map bundles
-        run: dotnet run --project src/Tools/Tools.csproj -c Release -- -mapdir maps -mapbundle all
       - name: publish protected Linux client
         run: >
           dotnet publish src/Client/Client.csproj -c Release -r linux-x64
           --self-contained true -p:PublishSingleFile=true
           -p:PrimeProtectClient=true -p:SkipCustomMapBundleCook=true
+          -p:PrimeMapArtifactRoot="$GITHUB_WORKSPACE/artifacts/maps/current"
+          -p:PrimeMapCopyToPublish=true
           -o publish/protected-linux-x64
       - name: verify protected public package
         run: |
@@ -279,13 +391,18 @@ jobs:
 
   protected-android:
     name: protected-android
-    needs: assets
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+    needs: [fast, map-cook, integration]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v7
+        with:
+          name: project-prime-map-artifacts-${{ github.sha }}
+          path: artifacts/maps/current
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -304,9 +421,11 @@ jobs:
       - name: publish protected APK
         run: >
           dotnet publish src/Android/Android.csproj -c Release
-          -p:AndroidPackageFormat=apk -p:PrimeProtectClient=true
+          -p:AndroidPackageFormat=apk -p:PrimeProtectClient=true -p:SkipCustomMapBundleCook=true
           -p:AndroidSdkDirectory="$ANDROID_HOME"
           -p:JavaSdkDirectory="$JAVA_HOME"
+          -p:PrimeMapArtifactRoot="$GITHUB_WORKSPACE/artifacts/maps/current"
+          -p:PrimeMapCopyToPublish=true
           -o publish/protected-android
       - name: verify protected APK container
         run: |
@@ -361,7 +480,8 @@ jobs:
   # public ProjectPrimeServer apphost name only at the package boundary.
   server:
     name: server-${{ matrix.rid }}
-    needs: assets
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+    needs: [fast, map-cook, integration]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -374,8 +494,15 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - uses: actions/download-artifact@v7
+        with:
+          name: project-prime-map-artifacts-${{ github.sha }}
+          path: artifacts/maps/current
+
       - name: package Backend, Node and Worker
-        run: tools/package-server.sh --rid "${{ matrix.rid }}" --output "publish/server-${{ matrix.rid }}"
+        run: tools/package-server.sh --rid "${{ matrix.rid }}" --skip-map-cook \
+          --map-artifacts "$GITHUB_WORKSPACE/artifacts/maps/current" \
+          --output "publish/server-${{ matrix.rid }}"
 
       - name: server package structural checks
         run: |

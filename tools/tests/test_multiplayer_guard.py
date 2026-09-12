@@ -93,7 +93,7 @@ class MultiplayerGuardTests(unittest.TestCase):
     def test_raw_exceptions_are_exact_files_and_scoped_to_one_rule(self):
         exceptions = {
             "campaign-mode-selector": [
-                ("src/Shared/ContentPreparation/RepackModelPacking.cs", "GameMode.SinglePlayer"),
+                ("src/MapPlatform/ContentPreparation/RepackModelPacking.cs", "GameMode.SinglePlayer"),
                 ("tests/Tests/Match/MatchDomainTests.cs", "GameMode.SinglePlayer"),
                 ("tests/Tests/Match/RotationRulesTests.cs", "GameMode.SinglePlayer"),
             ],
@@ -126,14 +126,14 @@ class MultiplayerGuardTests(unittest.TestCase):
                 self.write_source(sibling, f"class Fixture {{ object value = {token}; }}\n")
                 siblings.append((sibling.as_posix(), rule, token))
         # An exact exception for GameMode.SinglePlayer must not exempt another rule.
-        self.write_source("src/Shared/ContentPreparation/RepackModelPacking.cs", "class Fixture { StorySave save; }\n")
+        self.write_source("src/MapPlatform/ContentPreparation/RepackModelPacking.cs", "class Fixture { StorySave save; }\n")
 
         rejected = self.run_guard()
         self.assertEqual(rejected.returncode, 1, rejected.stdout + rejected.stderr)
         for relative, rule, token in siblings:
             self.assertIn(f"{relative}:1: {rule}: {token}", rejected.stdout)
         self.assertIn(
-            "src/Shared/ContentPreparation/RepackModelPacking.cs:1: campaign-save: StorySave",
+            "src/MapPlatform/ContentPreparation/RepackModelPacking.cs:1: campaign-save: StorySave",
             rejected.stdout,
         )
 

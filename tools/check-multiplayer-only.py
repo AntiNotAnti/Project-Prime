@@ -33,7 +33,7 @@ class Rule:
 # preserves original cartridge layer selectors; neither exception permits campaign
 # launches.
 RAW_MODE_FILES = frozenset({
-    "src/Shared/ContentPreparation/RepackModelPacking.cs",
+    "src/MapPlatform/ContentPreparation/RepackModelPacking.cs",
     "tests/Tests/Match/MatchDomainTests.cs",
     "tests/Tests/Match/RotationRulesTests.cs",
 })

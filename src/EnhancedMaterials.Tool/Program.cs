@@ -1,4 +1,5 @@
 using System.Text;
+using MphRead.Imaging;
 
 namespace MphRead;
 
@@ -17,6 +18,7 @@ internal static class EnhancedMaterialsProgram
             {
                 "inspect" => Inspect(args),
                 "starter" => Starter(args),
+                "cook" => Cook(args),
                 _ => throw new ArgumentException($"Unknown enhanced-material command: {args[0]}")
             };
         }
@@ -51,6 +53,39 @@ internal static class EnhancedMaterialsProgram
         return 0;
     }
 
+    private static int Cook(string[] args)
+    {
+        if (args.Length != 3 || args[1].StartsWith('-')
+            || args[2].StartsWith('-'))
+            throw new ArgumentException("cook requires an input PNG and output PPTE path.");
+        string input = Path.GetFullPath(args[1]);
+        string output = Path.GetFullPath(args[2]);
+        FileInfo source = new(input);
+        if (!source.Exists)
+            throw new FileNotFoundException("Input PNG was not found.", input);
+        if (source.Length is <= 0 or > EnhancementPackLimits.MaximumTextureFileBytes)
+            throw new InvalidDataException("Input PNG exceeds the enhancement texture file limit.");
+        byte[] encoded = File.ReadAllBytes(input);
+        if (!EnhancementPackLoader.TryReadPngDimensions(encoded,
+                out int width, out int height)
+            || width > EnhancementPackLimits.MaximumTextureDimension
+            || height > EnhancementPackLimits.MaximumTextureDimension
+            || checked((long)width * height * 4)
+                > EnhancementPackLimits.MaximumDecodedTextureBytes)
+        {
+            throw new InvalidDataException(
+                "Input PNG dimensions exceed the enhancement texture limit.");
+        }
+        RgbaImage image = StbImageDecoder.DecodeRgba(encoded);
+        byte[] cooked = EnhancedTextureCookedFormat.Encode(image.Width,
+            image.Height, image.Pixels.Span);
+        string? directory = Path.GetDirectoryName(output);
+        if (!String.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+        File.WriteAllBytes(output, cooked);
+        Console.WriteLine($"Cooked {image.Width}x{image.Height} RGBA8 texture to {output}");
+        return 0;
+    }
+
     private static void Write(string? output, string content)
     {
         if (output is null)
@@ -68,6 +103,7 @@ internal static class EnhancedMaterialsProgram
     {
         Console.WriteLine("inspect PACK_DIRECTORY [--inventory FILE] [--output FILE]");
         Console.WriteLine("starter KEYS_OR_INVENTORY_JSON --output MATERIALS_JSON");
+        Console.WriteLine("cook INPUT.png OUTPUT.ppte");
     }
 
     private sealed class Options

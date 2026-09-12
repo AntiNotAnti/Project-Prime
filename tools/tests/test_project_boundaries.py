@@ -53,10 +53,10 @@ class ProjectBoundaryGuardTests(unittest.TestCase):
             "Client": ("../Shared/Shared.cs", "../Shared/Shared.cs"),
             "Server.Worker": ("../Shared/Shared.cs",),
             "Tools": ("../Shared/Shared.cs",),
-            "Android": ("../Shared/Shared.cs", "../Client/Client.cs"),
+            "Android": ("../Shared/Shared.cs",),
         }
         for name, references in GUARD.PROJECTS.items():
-            packages = ("OpenTK.Mathematics",) if name == "Game" else (
+            packages = ("OpenTK.Mathematics",) if name in {"Game", "Client.Core"} else (
                 ("Microsoft.IdentityModel.JsonWebTokens",) if name == "Server.Worker" else ())
             self.write(
                 f"src/{name}/{name}.csproj",
@@ -145,6 +145,22 @@ class ProjectBoundaryGuardTests(unittest.TestCase):
 
         self.assertIn("src/Backend/Backend.csproj: invalid Backend source link: ../Client/Client.cs", errors)
 
+    def test_renderer_cannot_link_client_implementation(self):
+        self.write_baseline()
+        self.write(
+            "src/Renderer/Renderer.csproj",
+            self.project("Renderer", GUARD.PROJECTS["Renderer"],
+                         links=("../Client/Rendering/LegacyRenderer.cs",)),
+        )
+        self.write("src/Client/Rendering/LegacyRenderer.cs", "class LegacyRenderer { }\n")
+
+        errors = self.inspect()
+
+        self.assertIn(
+            "src/Renderer/Renderer.csproj: invalid Renderer source link: ../Client/Rendering/LegacyRenderer.cs",
+            errors,
+        )
+
     def test_cross_tree_source_glob_is_rejected(self):
         self.write_baseline()
         self.write(
@@ -166,6 +182,33 @@ class ProjectBoundaryGuardTests(unittest.TestCase):
         errors = self.inspect()
 
         self.assertIn("src/Game/Window.cs:1: platform dependency Avalonia", errors)
+
+    def test_client_core_platform_and_native_interop_are_rejected(self):
+        self.write_baseline()
+        self.write("src/Client.Core/Native.cs",
+                   "using System.Runtime.InteropServices;\nclass NativeFixture { }\n")
+
+        errors = self.inspect()
+
+        self.assertIn(
+            "src/Client.Core/Native.cs:1: platform dependency System.Runtime.InteropServices",
+            errors,
+        )
+
+    def test_android_cannot_link_client_implementation(self):
+        self.write_baseline()
+        self.write(
+            "src/Android/Android.csproj",
+            self.project("Android", GUARD.PROJECTS["Android"],
+                         links=("../Client/Client.cs",)),
+        )
+
+        errors = self.inspect()
+
+        self.assertIn(
+            "src/Android/Android.csproj: invalid Android source link: ../Client/Client.cs",
+            errors,
+        )
 
     def test_analyzer_project_reference_does_not_change_runtime_boundary(self):
         self.write_baseline()

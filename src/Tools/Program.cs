@@ -23,7 +23,7 @@ namespace MphRead
                 MapGen.MapImageDecoding.Decoder = MphRead.Imaging.StbImageDecoder.Decode;
                 if (args.Length > 0 && args[0] == "map") return MapGen.MapCommand.Run(args[1..]);
                 if (args.Length == 0 || HasFlag(args, "help"))
-                { Console.WriteLine("ProjectPrimeTools: fidelity <command>, -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -content-dir DIRECTORY, -mapbundle [NAME|all], -mapgen [NAME|all], -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return 0; }
+                { Console.WriteLine("ProjectPrimeTools: fidelity <command>, -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -content-dir DIRECTORY, -mapbundle [NAME|all] [-mapbundle-output DIRECTORY], -mapgen [NAME|all], -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return 0; }
                 string? mapDir = ValueAfter(args, "mapdir");
                 if (mapDir != null)
                 {
@@ -87,7 +87,7 @@ namespace MphRead
             {
                 Extract.ExtractArchive(extractValue);
             }
-                else { Console.WriteLine("ProjectPrimeTools: -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -content-dir DIRECTORY, -mapbundle [NAME|all], -mapgen [NAME|all], -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return args.Length == 0 ? 0 : 2; }
+                else { Console.WriteLine("ProjectPrimeTools: -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -content-dir DIRECTORY, -mapbundle [NAME|all] [-mapbundle-output DIRECTORY], -mapgen [NAME|all], -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return args.Length == 0 ? 0 : 2; }
                 return Environment.ExitCode;
             }
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
@@ -119,6 +119,13 @@ namespace MphRead
             {
                 string? which = ValueAfter(args, "mapbundle");
                 string? outPath = ValueAfter(args, "out");
+                string? outputDirectory = ValueAfter(args, "mapbundle-output");
+                if (outPath != null && outputDirectory != null)
+                {
+                    Console.Error.WriteLine("-out and -mapbundle-output cannot be used together.");
+                    Environment.ExitCode = 2;
+                    return true;
+                }
                 int cooked = 0;
                 int failed = 0;
                 foreach (MapGen.MapDefinition def in MapGen.CustomRooms.Definitions)
@@ -139,7 +146,13 @@ namespace MphRead
                     }
                     try
                     {
-                        MapGen.MapBundleTools.Cook(def, def.SourcePath, outPath);
+                        string? destination = outPath;
+                        if (destination == null && outputDirectory != null)
+                        {
+                            destination = Path.Combine(Path.GetFullPath(outputDirectory),
+                                Path.GetFileNameWithoutExtension(def.SourcePath!) + MapGen.MapBundle.Extension);
+                        }
+                        MapGen.MapBundleTools.Cook(def, def.SourcePath, destination);
                         cooked++;
                     }
                     catch (Exception ex)

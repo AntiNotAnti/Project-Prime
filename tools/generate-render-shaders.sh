@@ -3,27 +3,29 @@ set -euo pipefail
 
 # Offline-only renderer shader generation. The executable never invokes a
 # compiler at runtime; published artifacts are copied from the generated
-# directory by Client.csproj. Every target is produced by the pinned
+# directory by Renderer.csproj. Every target is produced by the pinned
 # SDL_shadercross CLI, not by a backend-specific compiler fallback.
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
-source_file="$repo_root/src/Client/Rendering/Shaders/scene_triangle.hlsl"
-scene_source_file="$repo_root/src/Client/Rendering/Shaders/scene.hlsl"
-fullscreen_source_file="$repo_root/src/Client/Rendering/Shaders/fullscreen.hlsl"
-hud_source_file="$repo_root/src/Client/Rendering/Shaders/hud.hlsl"
-disruption_source_file="$repo_root/src/Client/Rendering/Shaders/disruption.hlsl"
-cel_source_file="$repo_root/src/Client/Rendering/Shaders/cel.hlsl"
-bloom_source_file="$repo_root/src/Client/Rendering/Shaders/bloom.hlsl"
-tone_map_source_file="$repo_root/src/Client/Rendering/Shaders/tone_map.hlsl"
-color_grade_source_file="$repo_root/src/Client/Rendering/Shaders/color_grade.hlsl"
-visor_source_file="$repo_root/src/Client/Rendering/Shaders/visor.hlsl"
-sky_source_file="$repo_root/src/Client/Rendering/Shaders/sky.hlsl"
-surface_source_file="$repo_root/src/Client/Rendering/Shaders/surface.hlsl"
-ssao_source_file="$repo_root/src/Client/Rendering/Shaders/ssao.hlsl"
-shadow_source_file="$repo_root/src/Client/Rendering/Shaders/shadow.hlsl"
-distortion_vector_source_file="$repo_root/src/Client/Rendering/Shaders/distortion.hlsl"
-distortion_warp_source_file="$repo_root/src/Client/Rendering/Shaders/distortion_warp.hlsl"
-output_dir="$repo_root/src/Client/Rendering/Shaders/Generated"
+source_file="$repo_root/src/Renderer/Shaders/scene_triangle.hlsl"
+scene_source_file="$repo_root/src/Renderer/Shaders/scene.hlsl"
+fullscreen_source_file="$repo_root/src/Renderer/Shaders/fullscreen.hlsl"
+hud_source_file="$repo_root/src/Renderer/Shaders/hud.hlsl"
+disruption_source_file="$repo_root/src/Renderer/Shaders/disruption.hlsl"
+cel_source_file="$repo_root/src/Renderer/Shaders/cel.hlsl"
+bloom_source_file="$repo_root/src/Renderer/Shaders/bloom.hlsl"
+tone_map_source_file="$repo_root/src/Renderer/Shaders/tone_map.hlsl"
+color_grade_source_file="$repo_root/src/Renderer/Shaders/color_grade.hlsl"
+reconstruction_source_file="$repo_root/src/Renderer/Shaders/reconstruction.hlsl"
+depth_stencil_source_file="$repo_root/src/Renderer/Shaders/depth_stencil.hlsl"
+visor_source_file="$repo_root/src/Renderer/Shaders/visor.hlsl"
+sky_source_file="$repo_root/src/Renderer/Shaders/sky.hlsl"
+surface_source_file="$repo_root/src/Renderer/Shaders/surface.hlsl"
+ssao_source_file="$repo_root/src/Renderer/Shaders/ssao.hlsl"
+shadow_source_file="$repo_root/src/Renderer/Shaders/shadow.hlsl"
+distortion_vector_source_file="$repo_root/src/Renderer/Shaders/distortion.hlsl"
+distortion_warp_source_file="$repo_root/src/Renderer/Shaders/distortion_warp.hlsl"
+output_dir="$repo_root/src/Renderer/Shaders/Generated"
 shadercross_bin="${SHADERCROSS:-$(command -v shadercross || true)}"
 
 # Official SDL_shadercross source used to build the CLI and the exact native
@@ -51,7 +53,9 @@ if [[ ! -f "$source_file" ]]; then
 fi
 for required_source in "$scene_source_file" "$fullscreen_source_file" "$hud_source_file" \
   "$disruption_source_file" "$cel_source_file" "$bloom_source_file" "$tone_map_source_file" \
-  "$color_grade_source_file" "$surface_source_file" "$ssao_source_file" \
+  "$color_grade_source_file" "$reconstruction_source_file" \
+  "$depth_stencil_source_file" \
+  "$surface_source_file" "$ssao_source_file" \
   "$shadow_source_file" "$distortion_vector_source_file" \
   "$distortion_warp_source_file" "$visor_source_file" "$sky_source_file"; do
   if [[ ! -f "$required_source" ]]; then
@@ -76,7 +80,7 @@ rm -f "$output_dir/scene_triangle.vert.spv" \
   "$output_dir/manifest.json" \
   "$output_dir/scene_manifest.json"
 
-for shader_stem in fullscreen hud disruption cel bloom tone_map color_grade surface ssao shadow distortion distortion_warp visor sky; do
+for shader_stem in fullscreen hud disruption cel bloom tone_map color_grade reconstruction depth_stencil surface ssao shadow distortion distortion_warp visor sky; do
   rm -f "$output_dir/$shader_stem.vert.spv" \
     "$output_dir/$shader_stem.frag.spv" \
     "$output_dir/$shader_stem.vert.msl" \
@@ -141,6 +145,8 @@ generate_family "$cel_source_file" cel
 generate_family "$bloom_source_file" bloom
 generate_family "$tone_map_source_file" tone_map
 generate_family "$color_grade_source_file" color_grade
+generate_family "$reconstruction_source_file" reconstruction
+generate_family "$depth_stencil_source_file" depth_stencil
 generate_family "$surface_source_file" surface
 generate_family "$ssao_source_file" ssao
 generate_family "$shadow_source_file" shadow
@@ -366,6 +372,8 @@ write_manifest "$cel_source_file" cel
 write_manifest "$bloom_source_file" bloom
 write_manifest "$tone_map_source_file" tone_map
 write_manifest "$color_grade_source_file" color_grade
+write_manifest "$reconstruction_source_file" reconstruction
+write_manifest "$depth_stencil_source_file" depth_stencil
 write_manifest "$surface_source_file" surface
 write_manifest "$ssao_source_file" ssao
 write_manifest "$shadow_source_file" shadow

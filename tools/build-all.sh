@@ -146,21 +146,26 @@ python3 tools/check-multiplayer-only.py
 git diff --check
 
 echo "Cooking all custom map bundles once..."
-dotnet run --project src/Tools/Tools.csproj -c Release -- -mapdir maps -mapbundle all
-bash tools/check-maps-shipped.sh
-MAP_COUNT=$(find maps -type f -name '*.fpmap' | wc -l | tr -d '[:space:]')
+MAP_ARTIFACTS="$ROOT/artifacts/maps/current"
+tools/cook-maps.sh --source "$ROOT/maps" --output "$MAP_ARTIFACTS" \
+    --configuration Release --compiler-version "$VERSION" --schema-version 1 \
+    --package-version "$VERSION"
+MAP_COUNT=$(find "$MAP_ARTIFACTS" -maxdepth 1 -type f -name '*.fpmap' | wc -l | tr -d '[:space:]')
 [[ "$MAP_COUNT" -gt 0 ]] || { echo "Map cook produced no .fpmap bundles." >&2; exit 1; }
 
 STAMP_ARGS=(-p:Version="$VERSION" -p:InformationalVersion="$VERSION")
 for rid in win-x64 linux-x64 osx-x64 osx-arm64; do
     destination=$STAGE/clients/$rid
     echo "Publishing desktop client $rid..."
-    dotnet publish src/Client/Client.csproj -c Release -r "$rid" --self-contained true \
-        -p:PublishSingleFile=true -p:SkipCustomMapBundleCook=true "${PROTECTION_ARGS[@]}" \
+    dotnet publish src/Client/Client.csproj -c Release -f net10.0 -r "$rid" --self-contained true \
+        -p:PublishSingleFile=true -p:SkipCustomMapBundleCook=true \
+        -p:PrimeMapArtifactRoot="$MAP_ARTIFACTS" -p:PrimeMapCopyToPublish=true "${PROTECTION_ARGS[@]}" \
         "${STAMP_ARGS[@]}" -o "$destination"
     echo "Publishing bundled map editor $rid..."
     dotnet publish src/Editor/Editor.csproj -c Release -r "$rid" --self-contained true \
-        -p:PublishSingleFile=true "${STAMP_ARGS[@]}" -o "$destination/editor"
+        -p:PublishSingleFile=true -p:SkipCustomMapBundleCook=true \
+        -p:PrimeMapArtifactRoot="$MAP_ARTIFACTS" \
+        -p:PrimeMapCopyToPublish=true "${STAMP_ARGS[@]}" -o "$destination/editor"
     python3 tools/check-renderer-package.py --rid "$rid" "$destination"
     editor_executable=ProjectPrime.Editor
     if [[ "$rid" == win-x64 ]]; then editor_executable=ProjectPrime.Editor.exe; fi
@@ -169,6 +174,12 @@ for rid in win-x64 linux-x64 osx-x64 osx-arm64; do
     bash tools/check-maps-shipped.sh "$destination"
     bash tools/check-no-game-assets.sh "$destination"
     python3 tools/protection/check-obfuscation.py public "$destination"
+    if [[ "$rid" == osx-x64 || "$rid" == osx-arm64 ]]; then
+        python3 tools/package-macos-app.py package "$destination" \
+            "$destination/Project Prime.app" --version "$VERSION"
+        python3 tools/package-macos-app.py check "$destination/Project Prime.app" \
+            --version "$VERSION"
+    fi
     if [[ "$rid" == win-x64 ]]; then bash tools/check-subsystem.sh gui "$destination/ProjectPrime.exe"; fi
 done
 
@@ -177,7 +188,8 @@ for rid in win-x64 linux-x64 linux-arm64 osx-arm64; do
     label=release
     if [[ "$rid" == osx-arm64 ]]; then label=local/dev; fi
     echo "Packaging $label server $rid..."
-    tools/package-server.sh --rid "$rid" --version "$VERSION" --skip-map-cook --output "$destination"
+    tools/package-server.sh --rid "$rid" --version "$VERSION" --skip-map-cook \
+        --map-artifacts "$MAP_ARTIFACTS" --output "$destination"
     bash tools/check-maps-shipped.sh "$destination"
     bash tools/check-no-game-assets.sh "$destination"
     if [[ "$rid" == win-x64 ]]; then bash tools/check-subsystem.sh console "$destination/ProjectPrimeServer.exe"; fi
@@ -199,6 +211,7 @@ if [[ "$SKIP_ANDROID" -eq 0 ]]; then
     mkdir -p "$STAGE/android"
     dotnet publish src/Android/Android.csproj -c Release -p:AndroidPackageFormat=apk \
         -p:SkipCustomMapBundleCook=true -p:ApplicationDisplayVersion="$VERSION" \
+        -p:PrimeMapArtifactRoot="$MAP_ARTIFACTS" -p:PrimeMapCopyToPublish=true \
         "${PROTECTION_ARGS[@]}" "${STAMP_ARGS[@]}" "${ANDROID_ARGS[@]}" -o "$STAGE/android"
     APK=$(find "$STAGE/android" -maxdepth 1 -type f -name '*-Signed.apk' | head -n 1)
     [[ -n "$APK" ]] || { echo "Android publish produced no signed/installable APK." >&2; exit 1; }
