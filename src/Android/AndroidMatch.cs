@@ -1,8 +1,10 @@
 using System;
 using MphRead.Entities;
 using MphRead.Mods.Launcher;
+using MphRead.Mods.MapGen;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
+using ProjectPrime.Server.Shared;
 using MapPreparation = MphRead.Mods.MapGen.MapPreparation;
 
 namespace MphRead.Droid
@@ -17,7 +19,8 @@ namespace MphRead.Droid
         public static Scene Build(AndroidInput input, Vector2i size, LaunchPlan plan, Action close)
         {
             plan.Validate();
-            if (plan.Kind != LaunchKind.Replay && AuthoritativePlay.Current == null)
+            ClientOnlineRuntime? runtime = ClientOnlineRuntime.Current;
+            if (plan.Kind != LaunchKind.Replay && runtime?.Match?.Play == null)
             {
                 throw new ProgramException("Join a server before starting a match.");
             }
@@ -25,16 +28,24 @@ namespace MphRead.Droid
             AndroidMaps.RefreshCatalog();
             if (plan.Kind == LaunchKind.Replay)
             {
-                return BuildReplay(input, size, plan, close);
+                return BuildReplay(input, size, plan, close, runtime);
             }
             (string RoomKey, GameMode Mode)? room = NetLaunch.ServerRoom();
             if (room == null || String.IsNullOrWhiteSpace(room.Value.RoomKey))
             {
                 throw new ProgramException("The server did not say which map it is running.");
             }
-            MapPreparation.CompileAndMountRoomAsync(room.Value.RoomKey,
-                NetHeader.Version.ToString(), System.Threading.CancellationToken.None)
+            MapRequirement? requiredMap = runtime?.Node?.Round?.Lobby.RequiredMap
+                ?? runtime?.Node?.Lobby?.RequiredMap;
+            RoomContentPreparationResult preparation =
+                MapPreparation.PrepareRoomAsync(new RoomContentRequest(
+                    room.Value.RoomKey, requiredMap?.ToRoomContentRequirement(),
+                    GameplayContentIdentity.Current(
+                        BuildIdentity.Display, NetHeader.Version),
+                    RoomContentPurpose.Match),
+                    System.Threading.CancellationToken.None)
                 .GetAwaiter().GetResult();
+            MapPreparation.RequirePreparedRoom(preparation);
             var scene = new Scene(features: ClientMatchFeatures.Capture());
             var presentation = new ScenePresentation(scene, size, input.Keyboard, input.Mouse, _ => { }, close);
             bool teamPlay = room.Value.Mode.IsTeamMode();
@@ -64,7 +75,7 @@ namespace MphRead.Droid
         /// for the run about to start.
         /// </summary>
         private static Scene BuildReplay(AndroidInput input, Vector2i size,
-            LaunchPlan plan, Action close)
+            LaunchPlan plan, Action close, ClientOnlineRuntime? runtime)
         {
             if (!ReplayLaunchCoordinator.TryStart(plan, out string? replayError))
             {
@@ -77,8 +88,25 @@ namespace MphRead.Droid
                 ReplayPlayback.Stop();
                 throw new ProgramException("The replay has no match info in it.");
             }
+            ReplayMapIdentity? replayMap = ReplayPlayback.MapIdentity;
+            if (replayMap != null && !replayMap.RoomKey.Equals(
+                room.Value.RoomKey, StringComparison.OrdinalIgnoreCase))
+                throw new ProgramException(
+                    "MAP-RUN-008: Replay map identity does not match its recorded room.");
+            RoomContentPreparationResult preparation =
+                MapPreparation.PrepareRoomAsync(new RoomContentRequest(
+                    room.Value.RoomKey,
+                    replayMap?.ToRoomContentRequirement(),
+                    GameplayContentIdentity.Current(
+                        BuildIdentity.Display, NetHeader.Version),
+                    RoomContentPurpose.Replay),
+                    System.Threading.CancellationToken.None)
+                .GetAwaiter().GetResult();
+            MapPreparation.RequirePreparedRoom(preparation);
             var scene = new Scene(features: ClientMatchFeatures.Capture());
-            var presentation = new ScenePresentation(scene, size, input.Keyboard, input.Mouse, _ => { }, close);
+            var presentation = new ScenePresentation(scene, size, input.Keyboard, input.Mouse,
+                _ => { }, close,
+                runtime?.Match is { } match ? new ClientSceneServices(match, runtime.Node) : null);
             NetLaunch.BuildPlayers(scene, Hunter.Samus, localRecolor: 0, teamId: -1, localSlot: -1);
             presentation.AddRoom(room.Value.RoomKey, room.Value.Mode, playerCount: NetLaunch.RoomPlayerCount);
             Console.WriteLine($"[match] replay, {room.Value.RoomKey}");

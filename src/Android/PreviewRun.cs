@@ -93,8 +93,14 @@ namespace MphRead.Droid
             Scene? scene = null;
             try
             {
-                MapGen.MapPreparation.CompileAndMountRoomAsync(room, "thumbnail",
-                    System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+                MapGen.RoomContentPreparationResult preparation =
+                    MapGen.MapPreparation.PrepareRoomAsync(
+                        new MapGen.RoomContentRequest(room, null,
+                            MapGen.GameplayContentIdentity.Tool("thumbnail"),
+                            MapGen.RoomContentPurpose.Thumbnail),
+                        System.Threading.CancellationToken.None)
+                    .GetAwaiter().GetResult();
+                MapGen.MapPreparation.RequirePreparedRoom(preparation);
                 // A player has to exist for the multiplayer intro camera to run
                 // at all: The match flow sets the sequence up against
                 // the scene local player's camera info.
