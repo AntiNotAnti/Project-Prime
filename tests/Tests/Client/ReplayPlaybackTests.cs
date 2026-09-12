@@ -467,10 +467,18 @@ namespace MphRead.Tests
                 var state = new ModernReplayState();
                 var kinds = new HashSet<ReplayRecordKind>();
                 bool sawKill = false, sawObjective = false;
+                ReplayMapIdentity? replayMap = null;
                 var replayedSemantics = new HashSet<MatchEventKind>();
                 while (reader.ReadNext() is { } record)
                 {
-                    kinds.Add((ReplayRecordKind)record.Data[0]);
+                    ReplayRecordKind kind = (ReplayRecordKind)record.Data[0];
+                    kinds.Add(kind);
+                    if (kind == ReplayRecordKind.MapIdentity)
+                    {
+                        Assert.True(ReplayMapIdentityCodec.TryReadRecord(
+                            record.Data, out replayMap));
+                        continue;
+                    }
                     Assert.True(state.Receive(record.Data));
                     if ((ReplayRecordKind)record.Data[0] == ReplayRecordKind.Event && record.Data[5] == (byte)ReliableEventType.Kill)
                     {
@@ -496,6 +504,10 @@ namespace MphRead.Tests
                 }
                 Assert.Contains(ReplayRecordKind.Match, kinds); Assert.Contains(ReplayRecordKind.Roster, kinds);
                 Assert.Contains(ReplayRecordKind.Snapshot, kinds); Assert.Contains(ReplayRecordKind.World, kinds);
+                Assert.Contains(ReplayRecordKind.MapIdentity, kinds);
+                Assert.NotNull(replayMap);
+                Assert.Equal("MP1 SANCTORUS", replayMap.RoomKey);
+                Assert.False(replayMap.IsCustom);
                 Assert.True(sawKill); Assert.True(sawObjective);
                 Assert.Contains(MatchEventKind.NodeCaptured, replayedSemantics);
                 Assert.Contains(MatchEventKind.MatchEnded, replayedSemantics);

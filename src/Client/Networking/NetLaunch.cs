@@ -47,12 +47,19 @@ namespace MphRead.Mods.Network
                 || !handoff.UdpAuthenticationEnabled && (handoff.AdmissionId != Guid.Empty
                     || handoff.AdmissionKey.Length != 0))
                 throw new ArgumentException("Invalid Worker handoff.");
-            var existing = AuthoritativePlay.Current;
+            ClientOnlineRuntime runtime = ClientOnlineRuntime.Ensure();
+            AuthoritativePlay? existing = runtime.Match?.Play;
             if (existing?.Client.Connection?.MatchId == handoff.WireMatchId
                 && existing.Client.Failure == null && existing.Client.State is NetConnectionState.Loading or NetConnectionState.Ready or NetConnectionState.Playing)
                 return Task.FromResult(true);
-            if (existing != null) NetSession.Stop();
-            return Task.Run(() => JoinCore(handoff.Host, handoff.Port, playerName, handoff.Hunter,
+            if (existing != null)
+            {
+                // Replacing a Worker session is an owner transition, not a
+                // playback reset. Release the scoped context so callbacks and
+                // rejoin completions from the old match cannot survive.
+                runtime.ReleaseMatch(existing, dispose: true);
+            }
+            return Task.Run(() => JoinCore(handoff.MatchId, handoff.Host, handoff.Port, playerName, handoff.Hunter,
                 timeoutMs, cancel, handoff.Nonce, handoff.Ticket, handoff.Observer, handoff.WireMatchId,
                 handoff.AdmissionId, handoff.AdmissionKey, handoff.UdpAuthenticationEnabled,
                 ackCoalescingEnabled ?? AckCoalescingEnabled), cancel);
@@ -73,7 +80,7 @@ namespace MphRead.Mods.Network
                 && !address.IsIPv6Multicast;
         }
 
-        private static bool JoinCore(string address, int port, string playerName, Hunter hunter,
+        private static bool JoinCore(Guid matchId, string address, int port, string playerName, Hunter hunter,
             int timeoutMs, CancellationToken cancel, ulong? nonce, string ticket, bool observer,
             uint wireMatchId, Guid admissionId, string admissionKey, bool udpAuthenticationEnabled,
             bool ackCoalescingEnabled)
@@ -106,6 +113,7 @@ namespace MphRead.Mods.Network
                 }
                 cancel.ThrowIfCancellationRequested();
                 DisableCheatsForMatch();
+                ClientOnlineRuntime.Current?.AdoptMatch(play, matchId);
                 Console.WriteLine($"[net] joined {play.Client.Accepted.Room} ({play.Client.Accepted.Mode}), "
                     + $"slot {play.LocalSlot}, protocol {NetHeader.Version}");
                 return true;
@@ -164,7 +172,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static (string RoomKey, GameMode Mode)? ServerRoom()
         {
-            if (AuthoritativePlay.Current is { } play)
+            if (ClientOnlineRuntime.Current?.Match?.Play is { } play)
             {
                 return (play.Client.Accepted.Room, play.Client.Accepted.Mode);
             }
@@ -217,7 +225,7 @@ namespace MphRead.Mods.Network
         public static void BuildPlayers(Scene scene, Hunter localHunter, int localRecolor,
             int teamId = -1, int? localSlot = null)
         {
-            if (AuthoritativePlay.Current is { } play)
+            if (ClientOnlineRuntime.Current?.Match?.Play is { } play)
             {
                 play.BuildPlayers(scene, Launcher.Hunters.Resolve(localHunter), localRecolor);
                 return;

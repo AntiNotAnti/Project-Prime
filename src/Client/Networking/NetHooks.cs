@@ -6,14 +6,23 @@ namespace MphRead.Mods.Network
     /// <summary>Game-thread entry points for authoritative play and passive replay presentation.</summary>
     public static class NetHooks
     {
-        public static int LocalSlot => AuthoritativePlay.Current?.LocalSlot
+        private static AuthoritativePlay? ResolvePlay(AuthoritativePlay? play)
+            => play ?? ClientOnlineRuntime.Current?.Match?.Play;
+
+        public static int LocalSlot => GetLocalSlot();
+
+        public static int GetLocalSlot(AuthoritativePlay? play = null) => ResolvePlay(play)?.LocalSlot
             ?? (ReplayPlayback.IsActive ? -1 : 0);
 
-        public static bool KeepSlotAlive(PlayerEntity player) => NetSession.Active || AuthoritativePlay.Active;
+        public static bool KeepSlotAlive(PlayerEntity player, AuthoritativePlay? play = null)
+            => NetSession.Active || ResolvePlay(play) != null;
 
-        public static bool TryApplyRemoteInput(PlayerEntity player, int slot)
+        public static bool TryApplyRemoteInput(PlayerEntity player, int slot,
+            AuthoritativePlay? play = null)
         {
-            if (AuthoritativePlay.Active && slot != LocalSlot)
+            AuthoritativePlay? activePlay = ResolvePlay(play);
+            int localSlot = GetLocalSlot(activePlay);
+            if (activePlay != null && slot != localSlot)
             {
                 player.Controls.ClearAll();
                 return true;
@@ -31,11 +40,11 @@ namespace MphRead.Mods.Network
 
         public static bool ForceSpawn(PlayerEntity player) => false;
 
-        public static void AfterInput(Scene scene)
+        public static void AfterInput(Scene scene, AuthoritativePlay? play = null)
         {
-            if (AuthoritativePlay.Current is { } play)
+            if (ResolvePlay(play) is { } activePlay)
             {
-                play.BeforeSimulation(scene);
+                activePlay.BeforeSimulation(scene);
                 return;
             }
             if (ReplayPlayback.IsModern)
@@ -55,11 +64,11 @@ namespace MphRead.Mods.Network
             NetLog.Snapshot(NetSession.NetFrame / 60.0, scene);
         }
 
-        public static void AfterSimulation(Scene scene)
+        public static void AfterSimulation(Scene scene, AuthoritativePlay? play = null)
         {
-            if (AuthoritativePlay.Current is { } play)
+            if (ResolvePlay(play) is { } activePlay)
             {
-                play.AfterSimulation();
+                activePlay.AfterSimulation();
                 return;
             }
             if (ReplayPlayback.IsModern)

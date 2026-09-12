@@ -1,6 +1,7 @@
 using System;
 using MphRead.Entities;
 using MphRead.Formats.Culling;
+using MphRead.Mods.MapGen;
 
 namespace MphRead.Mods.Network
 {
@@ -62,10 +63,11 @@ namespace MphRead.Mods.Network
         /// decides where the spawn points are, and clients that disagreed
         /// about it would be playing subtly different levels.
         /// </summary>
-        public static int RoomPlayerCount => NetSession.Active || AuthoritativePlay.Active ? NetConfig.RoomPlayerCount : 0;
+        private static bool LiveMatch => ClientOnlineRuntime.Current?.Match != null;
+        public static int RoomPlayerCount => NetSession.Active || LiveMatch ? NetConfig.RoomPlayerCount : 0;
 
         /// <summary>True while a networked session is rebuilding its players for a new room.</summary>
-        public static bool Rebuilding => NetSession.Active || AuthoritativePlay.Active;
+        public static bool Rebuilding => NetSession.Active || LiveMatch;
 
         public static void Reset()
         {
@@ -111,8 +113,9 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            (RoomMetadata? meta, _) = Metadata.GetRoomByName(wanted);
-            if (meta == null)
+            RuntimeRoomRegistration? registration = Metadata.GetRuntimeRoomByName(wanted);
+            RoomMetadata? meta = registration?.Metadata;
+            if (registration == null || meta == null)
             {
                 Console.WriteLine($"[net] server switched to \"{wanted}\", which this build does not know");
                 NetLog.Event($"unknown server map \"{wanted}\"");
@@ -130,7 +133,7 @@ namespace MphRead.Mods.Network
             int pointGoal = scene.Match.Rules.LegacyPointGoal;
             scene.Match.ApplyRules(scene.Match.Rules.With(mode: ((GameMode)state!.Value.Mode).ToMatchMode(),
                 roomKey: meta.Name, scoreGoal: pointGoal, startingLives: pointGoal));
-            scene.TransitionRoomId = meta.Id;
+            scene.TransitionRoomId = registration.RuntimeId;
             ScenePresentation.Get(scene).SetFade(FadeType.FadeOutBlack, length: 10 / 30f, overwrite: true, AfterFade.LoadRoom);
         }
 
@@ -146,7 +149,10 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static PlayerEntity RebuildPlayers(Scene scene, Hunter hunter, int recolor)
         {
-            if (AuthoritativePlay.Current is { } play) { return play.RebuildPlayers(scene, hunter, recolor); }
+            if (ClientOnlineRuntime.Current?.Match?.Play is { } play)
+            {
+                return play.RebuildPlayers(scene, hunter, recolor);
+            }
             int localSlot = Math.Max(NetSession.LocalSlot, 0);
             for (int slot = 0; slot < scene.Players.MaxPlayers; slot++)
             {

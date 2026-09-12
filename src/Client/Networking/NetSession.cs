@@ -109,15 +109,7 @@ namespace MphRead.Mods.Network
         public static void Stop()
         {
             _pendingRandom = null;
-            AuthoritativePlay.Current?.Dispose();
             ReplayPlayback.CloseFile();
-            ReplayRecorder.Stop();
-            NetPlayerSetup.Reset();
-            SpectatorMode.Reset();
-            NetMatchSync.Reset();
-            NetSlotManager.Reset();
-            NetRoomChange.Reset();
-            Chat.ChatBox.Clear();
             RewindPlayback();
             Array.Clear(SlotOccupied);
             Array.Clear(SlotHunter);
@@ -125,6 +117,23 @@ namespace MphRead.Mods.Network
             _playbackRoster = null;
             ServerMatch = null;
             Active = false;
+        }
+
+        /// <summary>
+        /// Clears match-scoped live presentation bindings after the owning
+        /// <see cref="AuthoritativePlay"/> has detached its callbacks. This
+        /// is deliberately separate from <see cref="Stop"/> so resetting
+        /// replay playback cannot tear down a live Worker session.
+        /// </summary>
+        internal static void ResetLiveState()
+        {
+            ReplayRecorder.Stop();
+            NetPlayerSetup.Reset();
+            SpectatorMode.Reset();
+            NetMatchSync.Reset();
+            NetSlotManager.Reset();
+            NetRoomChange.Reset();
+            Chat.ChatBox.Clear();
         }
 
         public static void ForgetSlot(int slot)

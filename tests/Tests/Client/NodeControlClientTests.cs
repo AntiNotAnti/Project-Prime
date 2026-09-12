@@ -171,8 +171,8 @@ public sealed class NodeControlClientTests
         try
         {
             field.SetValue(null, client);
-            var worker = new AuthoritativePlay("127.0.0.1", 5000, "Hunter", Hunter.Samus);
-            NetSession.Stop();
+            using var worker = new AuthoritativePlay("127.0.0.1", 5000, "Hunter", Hunter.Samus);
+            worker.Dispose();
             Assert.Null(AuthoritativePlay.Current);
             Assert.Same(client, NodeSessions.Current);
             Assert.Equal(session, client.Session);

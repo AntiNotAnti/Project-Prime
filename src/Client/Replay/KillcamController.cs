@@ -129,13 +129,13 @@ internal sealed class KillcamController : IDisposable
     }
 
     internal KillcamController(ScenePresentation live, Func<Vector2i> sizeProvider,
-        KeyboardState keyboard, MouseState mouse)
+        KeyboardState keyboard, MouseState mouse, AuthoritativePlay? play = null)
     {
         _live = live;
         _sizeProvider = sizeProvider ?? throw new ArgumentNullException(nameof(sizeProvider));
         _keyboard = keyboard;
         _mouse = mouse;
-        Bind(AuthoritativePlay.Current);
+        Bind(play);
     }
 
     internal bool IsPresenting => _replay != null && _session is { IsSeeking: false };
@@ -448,7 +448,6 @@ internal sealed class KillcamController : IDisposable
 
     private void AdvanceCore()
     {
-        Bind(AuthoritativePlay.Current);
         if (_replay != null && _pendingCommand == KillcamCommand.Skip)
         {
             _pendingCommand = KillcamCommand.None;

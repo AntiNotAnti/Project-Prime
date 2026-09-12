@@ -87,7 +87,8 @@ namespace MphRead.Mods
             // real local entity (not whoever Main points at); NetSession
             // reads this flag into the outgoing snapshot for everyone else.
             int localSlot = Network.NetHooks.LocalSlot;
-            if (!Network.AuthoritativePlay.Active
+            Network.AuthoritativePlay? play = Network.ClientSceneServices.PlayFor(scene);
+            if (play == null
                 && localSlot >= 0 && localSlot < scene.Players.Count)
             {
                 scene.Players[localSlot].ModSetSpectating(true);
@@ -240,7 +241,8 @@ namespace MphRead.Mods
         /// </summary>
         public static void Rejoin(Scene scene)
         {
-            if (!IsSpectating || WaitingForNextMatch || Network.AuthoritativePlay.Current?.IsObserver == true)
+            Network.AuthoritativePlay? play = Network.ClientSceneServices.PlayFor(scene);
+            if (!IsSpectating || WaitingForNextMatch || play?.IsObserver == true)
             {
                 return;
             }
@@ -254,7 +256,7 @@ namespace MphRead.Mods
             // Back behind your own eyes, whichever of the two spectator
             // cameras was up.
             _cameraRequest = false;
-            if (!Network.AuthoritativePlay.Active
+            if (play == null
                 && localSlot >= 0 && localSlot < scene.Players.Count)
             {
                 scene.Players[localSlot].ModSetSpectating(false);

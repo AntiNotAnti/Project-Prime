@@ -231,7 +231,10 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static bool Suppress(PlayerEntity victim)
         {
-            if (AuthoritativePlay.Active) { return !(AuthoritativePlay.ApplyingSnapshot || ReplayPlayback.ApplyingSnapshot); }
+            if (ClientOnlineRuntime.Current?.Match != null)
+            {
+                return !(AuthoritativePlay.ApplyingSnapshot || ReplayPlayback.ApplyingSnapshot);
+            }
             // Recorded replays render resolved hits through Replay. Their local
             // projectile echoes must not produce a second outcome.
             return ReplayPlayback.IsActive && !Replaying;

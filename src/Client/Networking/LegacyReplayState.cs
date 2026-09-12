@@ -332,8 +332,7 @@ namespace MphRead.Mods.Network
                     scene.Match.MatchTime = Match.Rules.TimeLimit.HasValue ? (float)Match.Rules.TimeLimit.Value.TotalSeconds : -1;
                     scene.Match.RadarPlayers = Match.Rules.PlayerRadar;
                 }
-                scene.TransitionRoomId = Metadata.GetRoomByName(Match.Room).Item1?.Id
-                    ?? throw new ProgramException($"Unknown replay room: {Match.Room}");
+                scene.TransitionRoomId = Metadata.RequireRuntimeRoom(Match.Room).RuntimeId;
                 (scene.Room ?? throw new ProgramException("Replay scene has no room.")).LoadRoom(resume: false);
             }
             if (_pendingClock != null)

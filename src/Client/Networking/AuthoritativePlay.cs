@@ -7,6 +7,7 @@ using MphRead.Entities;
 using MphRead.Formats.Culling;
 using OpenTK.Mathematics;
 using MphRead.Mods.Input;
+using MphRead.Mods.MapGen;
 using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Network
@@ -27,6 +28,7 @@ namespace MphRead.Mods.Network
         public MatchCompletionSummary? CompletionSummary { get; private set; }
         internal event Action<KillEvent>? LocalPlayerKilled;
         private MatchClientContext? _onlineContext;
+        private int _disposeStarted;
         private RejoinRequest? _rejoin;
         private RejoinBaseline _rejoinBaseline;
         private long _rejoinStarted;
@@ -332,9 +334,8 @@ namespace MphRead.Mods.Network
                 scene.Match.MatchTime = Client.Accepted.Rules.TimeLimit.HasValue
                     ? (float)Client.Accepted.Rules.TimeLimit.Value.TotalSeconds : -1;
                 scene.Match.RadarPlayers = Client.Accepted.Rules.PlayerRadar;
-                (RoomMetadata? metadata, _) = Metadata.GetRoomByName(Client.Accepted.Room);
-                scene.TransitionRoomId = metadata?.Id
-                    ?? throw new ProgramException($"Unknown server room: {Client.Accepted.Room}");
+                RuntimeRoomRegistration registration = Metadata.RequireRuntimeRoom(Client.Accepted.Room);
+                scene.TransitionRoomId = registration.RuntimeId;
                 (scene.Room ?? throw new ProgramException("Network scene has no room.")).LoadRoom(resume: false);
             }
             // This hook runs only after Scene.OnLoad. The socket's independent
@@ -727,9 +728,20 @@ namespace MphRead.Mods.Network
 
         public void Dispose()
         {
+            if (Interlocked.Exchange(ref _disposeStarted, 1) != 0) return;
             State = TerminalState.Disposed;
-            _onlineContext?.CancelPendingRejoin();
+            MatchClientContext? context = _onlineContext;
+            context?.CancelPendingRejoin();
             _onlineContext = null;
+            // Detach every callback before closing the transport. A queued
+            // receive or presentation completion must not retain this match
+            // after its context has been released.
+            Client.WorldPacketValidator = null;
+            Client.WorldPacketReceived = null;
+            LocalPlayerKilled = null;
+            LocalRootShotObserved = null;
+            AuthoritativeCombatEventObserved = null;
+            PredictedContactObserved = null;
             if (_presentationScene?.Presentation is ScenePresentation sessionPresentation)
                 sessionPresentation.WorldFeedback.ClearPendingNotices();
             _projectilePresentation.Clear();
@@ -741,8 +753,9 @@ namespace MphRead.Mods.Network
             Client.Close();
             Client.Dispose();
             _transport.Dispose();
-            ClientOnlineRuntime.Current?.ReleaseMatch(this);
+            ClientOnlineRuntime.Current?.ReleaseMatch(this, dispose: true);
             if (Current == this) { Current = null; }
+            NetSession.ResetLiveState();
             ReplayRecorder.ResetTimelineForSession();
         }
 

@@ -37,7 +37,8 @@ namespace MphRead.Mods.Network
         public static bool Start()
         {
             LastError = null;
-            if (IsRecording || ReplayPlayback.IsActive || AuthoritativePlay.Current is not { } play
+            if (IsRecording || ReplayPlayback.IsActive
+                || ClientOnlineRuntime.Current?.Match?.Play is not { } play
                 || play.Client.Accepted.MatchId == 0)
             {
                 LastError = "Join a match before recording a replay.";
@@ -104,7 +105,7 @@ namespace MphRead.Mods.Network
             path = null;
             LastQuickCaptureError = null;
             if (frames == 0 || ReplayPlayback.IsActive
-                || AuthoritativePlay.Current is not { } play
+                || ClientOnlineRuntime.Current?.Match?.Play is not { } play
                 || play.Client.Accepted.MatchId == 0)
             {
                 LastQuickCaptureError = "Join a live match before saving a replay clip.";
@@ -273,6 +274,8 @@ namespace MphRead.Mods.Network
                 _snapshotCount = -1;
                 new MatchTransitionPacket(_match, client.Accepted.ServerTick, client.Accepted.Rules).Write(body[..MatchTransitionPacket.Size]);
                 Write(ReplayRecordKind.Match, body[..MatchTransitionPacket.Size], client.Accepted.ServerTick);
+                WriteMapIdentity(client.Accepted.Room,
+                    client.Accepted.ServerTick);
             }
             if (client.HasRoster && (!_hasRoster || _rosterRevision != client.RosterRevision))
             {
@@ -352,6 +355,8 @@ namespace MphRead.Mods.Network
             byte[] body = new byte[NetConfig.MaxPacketSize];
             new MatchTransitionPacket(_match, client.Accepted.ServerTick, client.Accepted.Rules).Write(body.AsSpan(0, MatchTransitionPacket.Size));
             records.Add(Record(ReplayRecordKind.Match, body.AsSpan(0, MatchTransitionPacket.Size)));
+            records.Add(ReplayMapIdentityCodec.WriteRecord(
+                ReplayMapIdentity.Capture(client.Accepted.Room)));
             records.Add(new byte[] { (byte)ReplayRecordKind.Perspective, client.IsObserver ? byte.MaxValue : client.Accepted.Slot });
             BinaryPrimitives.WriteUInt32LittleEndian(body, _match);
             int count = SessionRosterPacket.Write(body.AsSpan(4), client.RosterRevision, client.Roster);
@@ -465,6 +470,9 @@ namespace MphRead.Mods.Network
             new MatchTransitionPacket(client.Accepted.MatchId, client.Accepted.ServerTick,
                 client.Accepted.Rules).Write(body[..MatchTransitionPacket.Size]);
             WriteFileRecord(ReplayRecordKind.Match, body[..MatchTransitionPacket.Size]);
+            if (_writer != null)
+                _writer.WriteRecord(0, ReplayMapIdentityCodec.WriteRecord(
+                    ReplayMapIdentity.Capture(client.Accepted.Room)));
             if (client.HasRoster)
             {
                 BinaryPrimitives.WriteUInt32LittleEndian(body, client.Accepted.MatchId);
@@ -493,6 +501,26 @@ namespace MphRead.Mods.Network
             Span<byte> record = stackalloc byte[payload.Length + 1];
             record[0] = (byte)kind; payload.CopyTo(record[1..]);
             _writer.WriteRecord(0, record);
+        }
+
+        private static void WriteMapIdentity(string roomKey, uint serverTick)
+        {
+            byte[] record = ReplayMapIdentityCodec.WriteRecord(
+                ReplayMapIdentity.Capture(roomKey));
+            CaptureTimelineRecord(_frame, serverTick, record);
+            if (_writer == null) return;
+            try
+            {
+                _writer.WriteRecord(WriterFrame, record);
+            }
+            catch (Exception exception) when (exception is IOException
+                or InvalidDataException)
+            {
+                LastError = exception.Message;
+                Console.WriteLine(
+                    $"[replay] recording stopped: {LastError}");
+                Stop();
+            }
         }
 
         internal static void ResetTimelineForSession()

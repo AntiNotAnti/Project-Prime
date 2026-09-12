@@ -3,9 +3,10 @@ namespace MphRead.Mods.Network
     /// <summary>Server-owned round progression, with passive legacy-replay playback.</summary>
     public static class NetMatchEnd
     {
-        public static bool MayEndOnScore => !AuthoritativePlay.Active && !NetSession.Active;
+        private static bool LiveMatch => ClientOnlineRuntime.Current?.Match != null;
+        public static bool MayEndOnScore => !LiveMatch && !NetSession.Active;
 
-        public static bool InIntermission(Scene scene) => (AuthoritativePlay.Active || NetSession.Active)
+        public static bool InIntermission(Scene scene) => (LiveMatch || NetSession.Active)
             && (scene.Match.LegacyState != MatchState.InProgress
                 || NetSession.Active && NetSession.ServerMatch?.Ending == true);
 
@@ -20,6 +21,6 @@ namespace MphRead.Mods.Network
             }
         }
 
-        public static bool ShouldLeaveAfterMatch => !AuthoritativePlay.Active && !NetSession.Active;
+        public static bool ShouldLeaveAfterMatch => !LiveMatch && !NetSession.Active;
     }
 }

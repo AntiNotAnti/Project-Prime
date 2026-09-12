@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using MphRead.Entities;
 using OpenTK.Mathematics;
+using ProjectPrime.Server.Shared;
+using MapGen = MphRead.Mods.MapGen;
 
 namespace MphRead.Mods.Network
 {
@@ -118,7 +120,7 @@ namespace MphRead.Mods.Network
             for (int slot = 0; slot < 8; slot++) { if (_travel[slot] > 1) { moving++; } }
             bool passed = _frames >= 300 && _lit && moving > 0 && state.SnapshotsReceived >= 300
                 && state.WorldApplications > 0 && _stateMismatches == 0
-                && AuthoritativePlay.Current == null && NetSession.LocalSlot == -1;
+                && ClientOnlineRuntime.Current?.Match == null && NetSession.LocalSlot == -1;
             Console.WriteLine($"REPLAYCHECK frames={_frames} snapshots={state.SnapshotsReceived} "
                 + $"moving={moving} lit={_lit} atEnd={ReplayPlayback.AtEnd} matches={state.MatchesLoaded} "
                 + $"worldApplications={state.WorldApplications} combatEvents={state.CombatEventsReceived} "
@@ -138,11 +140,33 @@ namespace MphRead.Mods.Network
                 using IRenderToolHost host = RenderToolHostFactory.Create(
                     new Vector2i(320, 180), "Project Prime replay playback check",
                     updateFrequency: 60, visible: false, presentable: false);
+                (string RoomKey, GameMode Mode)? room = NetLaunch.ServerRoom();
+                if (room == null)
+                    throw new ProgramException("Replay has no room.");
+                ReplayMapIdentity? replayMap = ReplayPlayback.MapIdentity;
+                if (replayMap != null && !replayMap.RoomKey.Equals(
+                    room.Value.RoomKey, StringComparison.OrdinalIgnoreCase))
+                    throw new ProgramException(
+                        "MAP-RUN-008: Replay map identity does not match its recorded room.");
+                MapGen.RoomContentPreparationResult preparation =
+                    MapGen.MapPreparation.PrepareRoomAsync(
+                        new MapGen.RoomContentRequest(room.Value.RoomKey,
+                            replayMap?.ToRoomContentRequirement(),
+                            MapGen.GameplayContentIdentity.Current(
+                                BuildIdentity.Display, NetHeader.Version),
+                            MapGen.RoomContentPurpose.Replay),
+                        System.Threading.CancellationToken.None)
+                    .GetAwaiter().GetResult();
+                MapGen.MapPreparation.RequirePreparedRoom(preparation);
                 var check = new ReplayPlaybackCheck(seconds, host);
                 host.Run(check);
                 return check.Report();
             }
-            finally { ReplayPlayback.Stop(); }
+            finally
+            {
+                ReplayPlayback.Stop();
+                ContentEnvironment.UnmountMap();
+            }
         }
     }
 }

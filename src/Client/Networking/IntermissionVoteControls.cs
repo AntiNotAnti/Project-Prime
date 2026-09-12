@@ -15,8 +15,10 @@ namespace MphRead.Mods.Network
         private static int _held, _selected;
         private static uint _match, _phase;
         private static NetClient? _session;
-        private static NetClient? Client => AuthoritativePlay.Current?.Client;
-        private static IntermissionBallot? Current => NodeSessions.Current == null && Client is { IsObserver: false } client
+        private static MatchClientContext? Match => ClientOnlineRuntime.Current?.Match;
+        private static NetClient? Client => Match?.Client;
+        private static IntermissionBallot? Current => ClientOnlineRuntime.Current?.Node == null
+            && Client is { IsObserver: false } client
             && client.Ballot is { } ballot && ballot.MatchId == client.Accepted.MatchId ? ballot : null;
         public static bool Available => Current != null;
         internal static bool IsClosed(IntermissionBallot ballot, uint tick) => ballot.HasDeadline

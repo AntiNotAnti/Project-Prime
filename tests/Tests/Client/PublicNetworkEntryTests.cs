@@ -41,10 +41,9 @@ public sealed class PublicNetworkEntryTests
     [Fact]
     public void NodeBrowserHasNoLegacyDirectServerFallback()
     {
-        Type? browser = typeof(GuiLauncher).Assembly.GetType("MphRead.Mods.Launcher.Gui.NodeBrowserView");
-        Assert.NotNull(browser);
+        Type browser = typeof(NodeBrowserView);
         string retiredFallbackEvent = "Legacy" + "Requested";
-        Assert.Null(browser!.GetEvent(retiredFallbackEvent,
+        Assert.Null(browser.GetEvent(retiredFallbackEvent,
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance));
         Assert.DoesNotContain(browser.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance),
             method => method.Name.Contains("Legacy", StringComparison.OrdinalIgnoreCase));

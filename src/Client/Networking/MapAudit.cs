@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using MphRead.Entities;
 using OpenTK.Mathematics;
+using MapGen = MphRead.Mods.MapGen;
 
 namespace MphRead.Mods.Network
 {
@@ -1368,6 +1369,14 @@ namespace MphRead.Mods.Network
             MapAudit? audit = null;
             try
             {
+                MapGen.RoomContentPreparationResult preparation =
+                    MapGen.MapPreparation.PrepareRoomAsync(
+                        new MapGen.RoomContentRequest(room, null,
+                            MapGen.GameplayContentIdentity.Tool("map-audit"),
+                            MapGen.RoomContentPurpose.Audit),
+                        System.Threading.CancellationToken.None)
+                    .GetAwaiter().GetResult();
+                MapGen.MapPreparation.RequirePreparedRoom(preparation);
                 Vector2i size = WindowSize ?? (ShowWindow
                     ? new Vector2i(1024, 576) : new Vector2i(320, 180));
                 host = RenderToolHostFactory.Create(size, "MphRead map audit",
@@ -1398,6 +1407,7 @@ namespace MphRead.Mods.Network
             finally
             {
                 host?.Dispose();
+                ContentEnvironment.UnmountMap();
             }
         }
     }

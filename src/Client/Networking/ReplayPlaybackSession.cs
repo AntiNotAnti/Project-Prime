@@ -21,6 +21,7 @@ namespace MphRead.Mods.Network
         private uint _seekTarget;
         private long _seekStarted;
         private int? _perspectiveSlot;
+        private ReplayMapIdentity? _mapIdentity;
         private ReplayHighlight[]? _highlightReel;
         private int _highlightIndex;
         private uint? _playbackEndFrame;
@@ -60,6 +61,7 @@ namespace MphRead.Mods.Network
         public bool CanSeek => IsModern && (_clip != null || _reader?.CanSeek == true);
         public IReadOnlyList<ReplayIndexEntry> Index => _reader?.Index ?? Array.Empty<ReplayIndexEntry>();
         public MatchRules? InitialRules => IsModern ? Modern.InitialRules ?? _initialRules : null;
+        public ReplayMapIdentity? MapIdentity => _mapIdentity;
         public uint? SnapshotServerTick => IsModern && Modern.HasSnapshot ? Modern.Snapshot.ServerTick : null;
         public uint? WorldServerTick => IsModern && Modern.World.HasState ? Modern.World.ServerTick : null;
         public uint LastRestoreFrame { get; private set; }
@@ -227,7 +229,7 @@ namespace MphRead.Mods.Network
             if (_clip == null) return false;
             Modern.Reset(NetHeader.Version);
             foreach (ReplayTimelineRecord record in _clip.RestorePoint.Records)
-                if (!Modern.Receive(record.Data.Span)) return false;
+                if (!ReceiveModernRecord(record.Data.Span)) return false;
             if (!Modern.HasCompleteCheckpoint) return false;
             Modern.RequestSceneReload();
             _frame = _clip.RestorePoint.RecordingFrame;
@@ -452,7 +454,7 @@ namespace MphRead.Mods.Network
                     _host.ClearChat();
                     Modern.Reset(_reader.ProtocolVersion);
                     foreach (ReplayRecord record in checkpoint)
-                        if (!Modern.Receive(record.Data)) { FailSeek("Replay checkpoint contains an invalid fact."); return true; }
+                        if (!ReceiveModernRecord(record.Data)) { FailSeek("Replay checkpoint contains an invalid fact."); return true; }
                     if (checkpoint.Length != 0 && !Modern.HasCompleteCheckpoint)
                     { FailSeek("Replay checkpoint is incomplete."); return true; }
                     Modern.RequestSceneReload();
@@ -512,11 +514,30 @@ namespace MphRead.Mods.Network
                     Stop();
                     throw new ProgramException(LastError);
                 }
-                if (IsModern) { if (!Modern.Receive(data)) _host.RejectRecord(); }
+                if (IsModern) { if (!ReceiveModernRecord(data)) _host.RejectRecord(); }
                 else _host.InjectLegacy(data.ToArray());
                 if (_clip != null) _clipCursor++;
                 else _pending = _reader!.ReadNext();
             }
+        }
+
+        private bool ReceiveModernRecord(ReadOnlySpan<byte> data)
+        {
+            if (data.Length > 0
+                && data[0] == (byte)ReplayRecordKind.MapIdentity)
+            {
+                if (!ReplayMapIdentityCodec.TryReadRecord(data,
+                        out ReplayMapIdentity? decoded)
+                    || decoded == null
+                    || _mapIdentity != null && _mapIdentity != decoded
+                    || Modern.Match.MatchId != 0
+                        && !decoded.RoomKey.Equals(Modern.Match.Room,
+                            StringComparison.OrdinalIgnoreCase))
+                    return false;
+                _mapIdentity = decoded;
+                return true;
+            }
+            return Modern.Receive(data);
         }
 
         internal void ApplyRoster(Scene scene) { if (IsModern) Modern.ApplyRoster(scene); }
@@ -537,7 +558,7 @@ namespace MphRead.Mods.Network
             IsActive = false; IsSeeking = false; _requestedSeek = null; Transport.Reset();
             _reader?.Dispose(); _reader = null; _clip = null; _clipCursor = 0;
             _initialRules = null; _pending = null; _frame = 0; _started = false;
-            _perspectiveSlot = null; Modern.Reset();
+            _perspectiveSlot = null; _mapIdentity = null; Modern.Reset();
             _highlightReel = null; _highlightIndex = 0; _playbackEndFrame = null;
             _playbackFocus = null; _exitAtPlaybackEnd = false;
         }

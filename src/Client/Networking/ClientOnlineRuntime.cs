@@ -176,6 +176,9 @@ public sealed class MatchClientContext : IDisposable
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
         CancelPendingRejoin();
+        // The context is the lifetime fence for every gameplay completion. A
+        // completion which was already queued must observe the disposed bit
+        // before it can touch a later MatchId.
         Play.DetachOnlineContext(this);
         Play.Dispose();
     }
@@ -186,9 +189,10 @@ public sealed class MatchClientContext : IDisposable
 /// AuthoritativePlay.Current remain compatibility facades while call sites
 /// migrate to this explicit owner.
 /// </summary>
-public sealed class ClientOnlineRuntime : IAsyncDisposable
+public sealed class ClientOnlineRuntime : IDisposable, IAsyncDisposable
 {
     private static ClientOnlineRuntime? _current;
+    private static readonly object CurrentGate = new();
     private readonly object _gate = new();
     private readonly CancellationTokenSource _lifetime = new();
     private MatchClientContext? _match;
@@ -198,9 +202,16 @@ public sealed class ClientOnlineRuntime : IAsyncDisposable
     private long _recoveryEpoch;
     private CancellationTokenSource? _recoveryOperation;
 
-    public static bool DefaultEnabled => ParseEnabled(
-        Environment.GetEnvironmentVariable("PROJECT_PRIME_ONLINE_RUNTIME_V2"));
+    // Online runtime ownership is no longer a rollout choice. Keeping this
+    // property makes older callers source-compatible while making the
+    // canonical owner unconditional.
+    public static bool DefaultEnabled => true;
     public static ClientOnlineRuntime? Current => Volatile.Read(ref _current);
+    public static ClientOnlineRuntime Ensure()
+    {
+        lock (CurrentGate)
+            return Current ?? new ClientOnlineRuntime();
+    }
     public bool Enabled { get; }
     public ClientSessionCoordinator Flow { get; } = new();
     public NodeControlClient? Node { get { lock (_gate) return _node; } }
@@ -220,20 +231,16 @@ public sealed class ClientOnlineRuntime : IAsyncDisposable
 
     public ClientOnlineRuntime(bool? enabled = null)
     {
-        Enabled = enabled ?? DefaultEnabled;
+        _ = enabled;
+        Enabled = true;
         _node = NodeSessions.Current;
-        if (Enabled && Interlocked.CompareExchange(ref _current, this, null) != null)
+        if (Interlocked.CompareExchange(ref _current, this, null) != null)
             throw new InvalidOperationException("A client online runtime is already active.");
         NodeSessions.CurrentChanged += NodeChanged;
         if (_node != null) _node.Changed += NodeStateChanged;
     }
 
-    internal static bool ParseEnabled(string? value)
-        => value == null || value.Trim() switch
-        {
-            "0" or "false" or "False" or "FALSE" or "off" or "Off" or "OFF" => false,
-            _ => true
-        };
+    internal static bool ParseEnabled(string? value) => true;
 
     public MatchClientContext? AdoptMatch(AuthoritativePlay play, Guid matchId)
     {
@@ -258,7 +265,7 @@ public sealed class ClientOnlineRuntime : IAsyncDisposable
         return next;
     }
 
-    public void ReleaseMatch(AuthoritativePlay? expected = null, bool dispose = false)
+    public void ReleaseMatch(AuthoritativePlay? expected = null, bool dispose = true)
     {
         MatchClientContext? removed;
         CancellationTokenSource? recovery;
@@ -271,10 +278,12 @@ public sealed class ClientOnlineRuntime : IAsyncDisposable
             recovery = _recoveryOperation;
         }
         CancelRecoveryOperation(recovery);
-        removed.Play.DetachOnlineContext(removed);
-        removed.CancelPendingRejoin();
-        if (dispose) removed.Dispose();
-        Changed?.Invoke();
+        // Release always disposes the context. The bool remains accepted for
+        // source compatibility with old callers, but a detached context must
+        // never be left alive to complete work against a future match.
+        _ = dispose;
+        removed.Dispose();
+        if (Volatile.Read(ref _disposed) == 0) Changed?.Invoke();
     }
 
     public async Task<NodeControlClient> ResumeAsync(CancellationToken cancellationToken = default)
@@ -352,15 +361,26 @@ public sealed class ClientOnlineRuntime : IAsyncDisposable
     private void NodeChanged(NodeControlClient? node)
     {
         NodeControlClient? previous;
-        lock (_gate) { previous = _node; _node = node; }
-        if (previous != null) previous.Changed -= NodeStateChanged;
-        if (node != null) node.Changed += NodeStateChanged;
+        lock (_gate)
+        {
+            if (_disposed != 0)
+            {
+                if (node != null) node.Changed -= NodeStateChanged;
+                return;
+            }
+            previous = _node;
+            _node = node;
+            if (previous != null) previous.Changed -= NodeStateChanged;
+            if (node != null) node.Changed += NodeStateChanged;
+        }
+        if (Volatile.Read(ref _disposed) != 0) return;
         if (node is { Connected: false }) SetRecovery(OnlineRecoveryState.ConnectionLost);
         else Changed?.Invoke();
     }
 
     private void NodeStateChanged()
     {
+        if (Volatile.Read(ref _disposed) != 0) return;
         NodeControlClient? node = Node;
         if (node is { Connected: false }) SetRecovery(OnlineRecoveryState.ConnectionLost);
         else Changed?.Invoke();
@@ -368,6 +388,7 @@ public sealed class ClientOnlineRuntime : IAsyncDisposable
 
     private void SetRecovery(OnlineRecoveryState state)
     {
+        if (Volatile.Read(ref _disposed) != 0) return;
         RecoveryState = state;
         Changed?.Invoke();
     }
@@ -394,14 +415,28 @@ public sealed class ClientOnlineRuntime : IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0) return ValueTask.CompletedTask;
+        DisposeCore();
+        return ValueTask.CompletedTask;
+    }
+
+    private void DisposeCore()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
         Interlocked.Increment(ref _recoveryEpoch);
         NodeSessions.CurrentChanged -= NodeChanged;
-        if (Node is { } node) node.Changed -= NodeStateChanged;
+        NodeControlClient? node;
+        lock (_gate)
+        {
+            node = _node;
+            _node = null;
+        }
+        if (node != null) node.Changed -= NodeStateChanged;
         Interlocked.CompareExchange(ref _current, null, this);
         _lifetime.Cancel();
         ReleaseMatch(dispose: true);
         _lifetime.Dispose();
-        return ValueTask.CompletedTask;
+        Changed = null;
     }
+
+    public void Dispose() => DisposeCore();
 }

@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using MphRead.Entities;
 using OpenTK.Mathematics;
+using ProjectPrime.Server.Shared;
+using MapGen = MphRead.Mods.MapGen;
 
 namespace MphRead.Mods.Network
 {
@@ -31,7 +33,8 @@ namespace MphRead.Mods.Network
         private uint _spectatorMatch;
         private int _shots;
 
-        private AuthoritativeCheck(AuthoritativePlay play, Hunter hunter, double seconds,
+        private AuthoritativeCheck(AuthoritativePlay play, MatchClientContext match,
+            Hunter hunter, double seconds,
             string? shotDirectory, int width, int height, double spectateAt, double rejoinAt,
             IRenderToolHost host)
         {
@@ -42,7 +45,8 @@ namespace MphRead.Mods.Network
             _shotDirectory = shotDirectory;
             _spectateAt = spectateAt;
             _rejoinAt = rejoinAt;
-            _scene = new Scene(features: ClientMatchFeatures.Capture()) { Services = new ClientSceneServices() };
+            _scene = new Scene(features: ClientMatchFeatures.Capture())
+            { Services = new ClientSceneServices(match) };
             _presentation = host.CreatePresentation(_scene);
             play.BuildPlayers(_scene, hunter, 0);
             _scene.AddRoom(play.Client.Accepted.Room, play.Client.Accepted.Mode,
@@ -213,12 +217,24 @@ namespace MphRead.Mods.Network
         {
             if (!Double.IsFinite(seconds) || seconds < 10 || seconds > 300) { return 2; }
             hunter = Launcher.Hunters.Resolve(hunter);
+            using var runtime = new ClientOnlineRuntime();
             using var play = new AuthoritativePlay(host, port, name, hunter);
             play.Join();
+            MatchClientContext match = runtime.AdoptMatch(play, Guid.NewGuid())!;
             if (shotDirectory != null) { Directory.CreateDirectory(shotDirectory); }
-            if (recordReplay && !ReplayRecorder.Start()) { throw new ProgramException("Could not start replay recording."); }
             try
             {
+                MapGen.RoomContentPreparationResult preparation =
+                    MapGen.MapPreparation.PrepareRoomAsync(
+                        new MapGen.RoomContentRequest(play.Client.Accepted.Room, null,
+                            MapGen.GameplayContentIdentity.Current(
+                                BuildIdentity.Display, NetHeader.Version),
+                            MapGen.RoomContentPurpose.Match),
+                        System.Threading.CancellationToken.None)
+                    .GetAwaiter().GetResult();
+                MapGen.MapPreparation.RequirePreparedRoom(preparation);
+                if (recordReplay && !ReplayRecorder.Start())
+                    throw new ProgramException("Could not start replay recording.");
                 bool sdl = RenderBackendSelection.Current == RenderBackendKind.Sdl;
                 // This check is the one tool whose contract includes a real
                 // presentation acknowledgement. Keep an SDL window visible
@@ -227,12 +243,16 @@ namespace MphRead.Mods.Network
                 using IRenderToolHost hostAdapter = RenderToolHostFactory.Create(
                     new Vector2i(width, height), "Project Prime authoritative check",
                     updateFrequency: 60, visible: sdl, presentable: true);
-                var check = new AuthoritativeCheck(play, hunter, seconds,
+                var check = new AuthoritativeCheck(play, match, hunter, seconds,
                     shotDirectory, width, height, spectateAt, rejoinAt, hostAdapter);
                 hostAdapter.Run(check);
                 return check.Report();
             }
-            finally { if (recordReplay) { ReplayRecorder.Stop(); } }
+            finally
+            {
+                if (recordReplay) { ReplayRecorder.Stop(); }
+                ContentEnvironment.UnmountMap();
+            }
         }
     }
 }

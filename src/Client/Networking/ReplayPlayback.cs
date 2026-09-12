@@ -25,6 +25,7 @@ namespace MphRead.Mods.Network
         public static uint DurationFrames => _default.DurationFrames;
         public static bool CanSeek => _default.CanSeek;
         public static IReadOnlyList<ReplayIndexEntry> Index => _default.Index;
+        public static ReplayMapIdentity? MapIdentity => _default.MapIdentity;
         public static uint LastRestoreFrame => _default.LastRestoreFrame;
         public static int LastSeekSteps => _default.LastSeekSteps;
         public static double LastSeekMilliseconds => _default.LastSeekMilliseconds;

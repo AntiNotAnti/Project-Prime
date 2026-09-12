@@ -157,6 +157,7 @@ public sealed class IntermissionVoteControlsTests
     {
         private readonly NetTransport _serverTransport = new(0);
         private readonly ServerNetwork _server;
+        private readonly ClientOnlineRuntime _runtime;
         private readonly AuthoritativePlay _play;
         private uint _tick;
 
@@ -166,11 +167,13 @@ public sealed class IntermissionVoteControlsTests
         public LiveSession(uint matchId = 1)
         {
             _server = new ServerNetwork(_serverTransport, "MP1 SANCTORUS", GameMode.Battle, matchId);
+            _runtime = new ClientOnlineRuntime();
             _play = new AuthoritativePlay("127.0.0.1", _serverTransport.LocalPort, "VOTE", Hunter.Samus);
             Pump(() => Client.Connection != null);
             Assert.True(Client.Ready(Client.Accepted.MatchId));
             ulong connectionId = Client.Connection!.Id;
             Pump(() => _server.Find(connectionId)?.Connection.State == NetConnectionState.Ready);
+            _runtime.AdoptMatch(_play, Guid.NewGuid());
         }
 
         public void Pump(Func<bool> done)
@@ -189,6 +192,7 @@ public sealed class IntermissionVoteControlsTests
         public void Dispose()
         {
             _play.Dispose();
+            _runtime.Dispose();
             _serverTransport.Dispose();
         }
     }

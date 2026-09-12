@@ -12,14 +12,14 @@ namespace MphRead.Tests;
 public sealed class ClientOnlineRuntimeTests
 {
     [Theory]
-    [InlineData(null, true)]
-    [InlineData("true", true)]
-    [InlineData("1", true)]
-    [InlineData("false", false)]
-    [InlineData("off", false)]
-    [InlineData("0", false)]
-    public void OnlineRuntimeRollbackFlagIsExplicit(string? value, bool expected)
-        => Assert.Equal(expected, ClientOnlineRuntime.ParseEnabled(value));
+    [InlineData(null)]
+    [InlineData("true")]
+    [InlineData("1")]
+    [InlineData("false")]
+    [InlineData("off")]
+    [InlineData("0")]
+    public void OnlineRuntimeIsUnconditional(string? value)
+        => Assert.True(ClientOnlineRuntime.ParseEnabled(value));
 
     [Fact]
     public async Task RuntimeOwnsTheExistingFlowStateMachineAndLifecycleCancellation()
@@ -90,6 +90,31 @@ public sealed class ClientOnlineRuntimeTests
         context.CancelPendingRejoin();
         context.CancelPendingRejoin();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await cancelled);
+    }
+
+    [Fact]
+    public async Task StaleCompletionCannotTouchReplacementMatch()
+    {
+        await using var runtime = new ClientOnlineRuntime(enabled: true);
+        using var oldPlay = new AuthoritativePlay("127.0.0.1", 5000, "Old", Hunter.Samus);
+        MatchClientContext oldContext = runtime.AdoptMatch(oldPlay, Guid.NewGuid())!;
+        Task<RejoinCompletion> stale = oldContext.QueueRejoinAsync(Handoff(6), CancellationToken.None);
+        Assert.True(oldContext.TryTakeRejoin(out RejoinRequest staleRequest));
+
+        runtime.ReleaseMatch(oldPlay, dispose: true);
+
+        using var newPlay = new AuthoritativePlay("127.0.0.1", 5000, "New", Hunter.Samus);
+        MatchClientContext newContext = runtime.AdoptMatch(newPlay, Guid.NewGuid())!;
+        Task<RejoinCompletion> current = newContext.QueueRejoinAsync(Handoff(7), CancellationToken.None);
+        Assert.True(newContext.TryTakeRejoin(out RejoinRequest currentRequest));
+
+        oldContext.CompleteRejoin(staleRequest, new RejoinCompletion(99, 99));
+        Assert.True(newContext.IsCurrentRejoin(currentRequest));
+        Assert.False(oldContext.Owns(oldPlay));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await stale);
+
+        newContext.CancelPendingRejoin();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await current);
     }
 
     private static NodeMatchHandoff Handoff(ulong nonce)

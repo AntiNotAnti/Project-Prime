@@ -4,25 +4,52 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
 {
-    /// <summary>Client and passive recording adapters implement Game's host policy.</summary>
-    public sealed class ClientSceneServices(bool forceSpawn = false) : ISceneServices
+    /// <summary>
+    /// Client and passive recording adapters implement Game's host policy.
+    /// Live match ownership is supplied by the scene owner; this service does
+    /// not discover a match through a process-global facade.
+    /// </summary>
+    public sealed class ClientSceneServices : ISceneServices
     {
-        public bool IsReplica => AuthoritativePlay.Active;
+        private readonly MatchClientContext? _match;
+        private readonly NodeControlClient? _node;
+        private readonly bool _forceSpawn;
+
+        public ClientSceneServices(bool forceSpawn = false)
+            : this(null, null, forceSpawn) { }
+
+        public ClientSceneServices(MatchClientContext? match,
+            NodeControlClient? node = null, bool forceSpawn = false)
+        {
+            _match = match;
+            _node = node;
+            _forceSpawn = forceSpawn;
+        }
+
+        internal AuthoritativePlay? Play => _match?.Play;
+        internal NodeControlClient? Node => _node;
+        internal static AuthoritativePlay? PlayFor(Scene scene)
+            => (scene.Services as ClientSceneServices)?.Play;
+
+        public bool IsReplica => _match != null || ReplayPlayback.IsModern;
         public bool RebuildingRoom => NetRoomChange.Rebuilding;
         public int RoomPlayerCount => NetRoomChange.RoomPlayerCount;
         public PlayerEntity RebuildPlayers(Scene scene, Hunter hunter, int recolor)
             => NetRoomChange.RebuildPlayers(scene, hunter, recolor);
         public void AfterRoomRebuild(Scene scene) => NetRoomChange.AfterRebuild(scene);
-        public int LocalSlot => NetHooks.LocalSlot;
-        public uint WorldServerTick => AuthoritativePlay.Current?.WorldServerTick ?? ReplayPlayback.WorldServerTick ?? 0;
+        public int LocalSlot => NetHooks.GetLocalSlot(_match?.Play);
+        public uint WorldServerTick => _match?.Play.WorldServerTick
+            ?? ReplayPlayback.WorldServerTick ?? 0;
         public bool MayEndOnScore => NetMatchEnd.MayEndOnScore;
         public bool ShouldLeaveAfterMatch => NetMatchEnd.ShouldLeaveAfterMatch;
-        public bool KeepSlotAlive(PlayerEntity player) => NetHooks.KeepSlotAlive(player);
-        public bool TryApplyRemoteInput(PlayerEntity player, int slot) => NetHooks.TryApplyRemoteInput(player, slot);
-        public bool IsRemoteControlled(int slot) => NetSession.Active && slot != NetHooks.LocalSlot;
+        public bool KeepSlotAlive(PlayerEntity player) => NetHooks.KeepSlotAlive(player, _match?.Play);
+        public bool TryApplyRemoteInput(PlayerEntity player, int slot)
+            => NetHooks.TryApplyRemoteInput(player, slot, _match?.Play);
+        public bool IsRemoteControlled(int slot) => NetSession.Active && slot != LocalSlot;
         public bool TryGetRemoteAim(int slot, out Vector3 aim)
         {
-            if (IsRemoteControlled(slot) && NetSession.RemoteIntentValid[slot])
+            if ((uint)slot < NetSession.RemoteIntentValid.Length
+                && IsRemoteControlled(slot) && NetSession.RemoteIntentValid[slot])
             {
                 aim = NetSession.RemoteIntents[slot].Aim;
                 return true;
@@ -52,7 +79,7 @@ namespace MphRead.Mods.Network
         public float ControllerZoomMultiplier => InputSettings.GamepadZoomMultiplier;
         public bool TryGetScriptedAimDelta(int slot, out Vector2 delta)
         {
-            if (NetSession.Active && slot == NetHooks.LocalSlot && NetTestScript.Enabled)
+            if (NetSession.Active && slot == LocalSlot && NetTestScript.Enabled)
             {
                 delta = new(NetTestScript.AimDeltaX, NetTestScript.AimDeltaY);
                 return true;
@@ -65,16 +92,16 @@ namespace MphRead.Mods.Network
             if (NetLog.Enabled && NetSession.Active) { NetLog.CollisionRange(slot, "pre-check", previous, current); }
         }
         public void NoteEvent(string message) => NetLog.Event(message);
-        public bool ForceSpawn(PlayerEntity player) => forceSpawn;
-        public void AfterInput(Scene scene) => NetHooks.AfterInput(scene);
-        public void AfterSimulation(Scene scene) => NetHooks.AfterSimulation(scene);
+        public bool ForceSpawn(PlayerEntity player) => _forceSpawn;
+        public void AfterInput(Scene scene) => NetHooks.AfterInput(scene, _match?.Play);
+        public void AfterSimulation(Scene scene) => NetHooks.AfterSimulation(scene, _match?.Play);
         public CombatShot CapturePresentationAttribution(EntityBase owner)
-            => AuthoritativePlay.Current?.CapturePresentationAttribution(owner) ?? default;
+            => _match?.Play.CapturePresentationAttribution(owner) ?? default;
         public void ObserveDamageAttempt(PlayerEntity victim, uint damage, DamageFlags flags,
             Vector3? direction, EntityBase? source)
-            => AuthoritativePlay.Current?.ObserveDamageAttempt(victim, flags, direction, source);
+            => _match?.Play.ObserveDamageAttempt(victim, flags, direction, source);
         public bool PredictBombJump(PlayerEntity player, BombEntity bomb, float ySpeed)
-            => AuthoritativePlay.Current?.PredictBombJump(player, bomb, ySpeed) == true;
+            => _match?.Play.PredictBombJump(player, bomb, ySpeed) == true;
         public bool SuppressDamage(PlayerEntity victim) => NetDamage.Suppress(victim);
         public BeamType ReplayBeam => NetDamage.ReplayBeam;
         public void NoteDamage(PlayerEntity victim, PlayerEntity? attacker, BeamType beam, DamageFlags flags, Vector3? direction)
@@ -84,8 +111,7 @@ namespace MphRead.Mods.Network
             // NoteFired runs immediately after the local scene creates its
             // visual beam. Measurement copies only immutable spawn facts; it
             // never gives the client projectile gameplay authority.
-            uint? commandSequence = AuthoritativePlay.Current?
-                .ObservePredictedProjectile(shooter);
+            uint? commandSequence = _match?.Play.ObservePredictedProjectile(shooter);
             NetDamage.NoteFired(shooter, shot, aim);
             if (shooter.SlotIndex == LocalSlot && shot.LengthSquared > .000001f
                 && aim.LengthSquared > .000001f)
