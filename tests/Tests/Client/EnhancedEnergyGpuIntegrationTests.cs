@@ -90,18 +90,21 @@ public sealed class EnhancedEnergyGpuIntegrationTests
     [Fact]
     public void DistortionFollowsSixWorldPassesAndWarpsBloomSource()
     {
-        string sceneResources = ReadRepositoryFile("src", "Client",
-            "Rendering", "Backends", "SdlGpu", "SdlGpuSceneResources.cs");
-        int front = sceneResources.IndexOf(
-            "RenderPassKind.TransparentFront,", StringComparison.Ordinal);
-        int vectors = sceneResources.IndexOf(
-            "EncodeEnhancedDistortion(commandBuffer", front,
-            StringComparison.Ordinal);
-        int bloom = sceneResources.IndexOf(
-            "EncodeBloom(commandBuffer", vectors, StringComparison.Ordinal);
+        var graph = new RenderExecutionPlan();
+        RenderGraphLite.Build(graph, new RenderGraphFeatures(
+            DirectionalShadow: true, SurfaceData: true,
+            AmbientOcclusion: true, Sky: true, Distortion: true,
+            Bloom: true, OriginalHud: false, EnhancedOutput: true,
+            SceneCapture: false, Visor: false, EnhancedHud: false));
+        RenderGraphPassKind[] order = graph.Passes.ToArray()
+            .Select(pass => pass.Kind).ToArray();
+        int front = Array.IndexOf(order, RenderGraphPassKind.TransparentFront);
+        int vectors = Array.IndexOf(order,
+            RenderGraphPassKind.DistortionVectors);
+        int bloom = Array.IndexOf(order, RenderGraphPassKind.BloomEmission);
         Assert.True(front >= 0 && vectors > front && bloom > vectors);
 
-        string post = ReadRepositoryFile("src", "Client", "Rendering",
+        string post = ReadRepositoryFile("src", "Renderer",
             "Backends", "SdlGpu", "SdlGpuPostResources.cs");
         int celPass = post.IndexOf("EncodeCel(commandBuffer",
             StringComparison.Ordinal);

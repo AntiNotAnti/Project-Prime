@@ -20,11 +20,13 @@ public sealed class VisualEnhancementTests
         // content arrival order when the bound is reached.
         Assert.False(frame.AddVisualLight(Light(99, 0)));
         Assert.Equal(RenderFrame.MaximumVisualLights, frame.VisualLights.Count);
-        Assert.Equal(7, frame.VisualLights[0].Position.X);
+        Assert.Equal(RenderFrame.MaximumVisualLights - 1,
+            frame.VisualLights[0].Position.X);
 
         Assert.True(frame.AddVisualLight(Light(100, 100)));
         Assert.Equal(100, frame.VisualLights[0].Position.X);
-        Assert.Equal(7, frame.VisualLights[1].Position.X);
+        Assert.Equal(RenderFrame.MaximumVisualLights - 1,
+            frame.VisualLights[1].Position.X);
         Assert.Equal(RenderFrame.MaximumVisualLights,
             frame.VisualLights.Count);
 
@@ -154,7 +156,7 @@ public sealed class VisualEnhancementTests
         Assert.Equal(RenderFrame.MaximumVisualLights,
             SdlGpuVisualLightPolicy.MaximumLights);
         Assert.Equal(144, SdlGpuSceneVertexFrameConstants.AbiByteSize);
-        Assert.Equal(448, SdlGpuSceneFragmentFrameConstants.AbiByteSize);
+        Assert.Equal(1792, SdlGpuSceneFragmentFrameConstants.AbiByteSize);
         Assert.Equal(RenderFrame.MaximumVisualLights * 4,
             SdlGpuSceneFragmentFrameConstants.VisualLightFloatCount);
 
@@ -179,6 +181,7 @@ public sealed class VisualEnhancementTests
             enabled.GetPositionRadius(0));
         Assert.Equal(new OpenTK.Mathematics.Vector4(.25f, .5f, .75f, .6f),
             enabled.GetColorIntensity(0));
+        Assert.Equal(3u, enabled.GetTileMask(0, 0));
         Assert.Equal(new OpenTK.Mathematics.Vector4(9, 8, 7, 1),
             enabled.CameraWorldPosition);
         Assert.Equal(0, disabled.VisualLightCount);
@@ -195,6 +198,30 @@ public sealed class VisualEnhancementTests
         Assert.Equal(0f, SdlGpuEnhancedLightingPolicy.NormalizedBlinnPhong(-1, .25f));
         Assert.True(float.IsFinite(
             SdlGpuEnhancedLightingPolicy.NormalizedBlinnPhong(float.NaN, float.NaN)));
+    }
+
+    [Fact]
+    public void SdlForwardTilesConservativelyCullDistantScreenLights()
+    {
+        var lights = new List<RenderVisualLight>
+        {
+            new(new OpenTK.Mathematics.Vector3(0, 0, -10),
+                OpenTK.Mathematics.Vector3.One, radius: 1, intensity: 1,
+                priority: 1)
+        };
+        SdlGpuSceneFragmentFrameConstants constants
+            = SdlGpuSceneFragmentFrameConstants.Create(
+                OpenTK.Mathematics.Vector4.Zero,
+                OpenTK.Mathematics.Vector4.Zero,
+                OpenTK.Mathematics.Vector4.Zero,
+                OpenTK.Mathematics.Vector3.Zero, lights, enabled: true,
+                viewport: new OpenTK.Mathematics.Vector2(1920, 1080),
+                view: OpenTK.Mathematics.Matrix4.Identity,
+                projection: OpenTK.Mathematics.Matrix4.CreatePerspectiveFieldOfView(
+                    MathF.PI / 2, 16f / 9f, .1f, 100));
+
+        Assert.Equal(0u, constants.GetTileMask(0, 0));
+        Assert.Equal(1u, constants.GetTileMask(8, 4));
     }
 
     [Fact]

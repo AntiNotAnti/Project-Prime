@@ -1553,7 +1553,14 @@ public sealed class RendererModernizationTests
     [Fact]
     public void CheckedInShaderManifestMatchesPublishedArtifacts()
     {
-        string outputRoot = Path.Combine(AppContext.BaseDirectory, "Rendering", "Shaders");
+        string? repositoryRoot = AppContext.BaseDirectory;
+        while (repositoryRoot != null
+            && !File.Exists(Path.Combine(repositoryRoot, "Game.sln")))
+        {
+            repositoryRoot = Directory.GetParent(repositoryRoot)?.FullName;
+        }
+        Assert.NotNull(repositoryRoot);
+        string outputRoot = Path.Combine(repositoryRoot, "src", "Renderer", "Shaders");
         string source = Path.Combine(outputRoot, "scene_triangle.hlsl");
         string manifest = Path.Combine(outputRoot, "Generated", "manifest.json");
         Assert.True(File.Exists(source));
@@ -1592,16 +1599,16 @@ public sealed class RendererModernizationTests
         Assert.Contains("smoothstep(0.46f, 0.54f", sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("textureColor.rgb = flatColor.rgb", sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("result.rgb = cel_shade(result.rgb)", sceneSourceText, StringComparison.Ordinal);
-        Assert.Contains("visualLightPositionRadius[8]", sceneSourceText, StringComparison.Ordinal);
-        Assert.Contains("visualLightColorIntensity[8]", sceneSourceText, StringComparison.Ordinal);
-        Assert.Contains("min((uint)visualLightOptions.x, 8u)", sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("visualLightPositionRadius[32]", sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("visualLightColorIntensity[32]", sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("min((uint)visualLightOptions.x, 32u)", sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("attenuation *= attenuation", sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("float3 worldPosition : TEXCOORD0", sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("float3 worldNormal : TEXCOORD1", sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("float4 cameraWorldPosition", sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("EvaluateRoomLighting", sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("EvaluatePointLight", sceneSourceText, StringComparison.Ordinal);
-        Assert.Contains("EvaluateSpecular", sceneSourceText, StringComparison.Ordinal);
+        Assert.Contains("EvaluateGgxBrdf", sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("float4 tangent : TEXCOORD6", sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("Texture2D normalTexture", sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("ResolveNormalMap", sceneSourceText, StringComparison.Ordinal);
@@ -1617,7 +1624,7 @@ public sealed class RendererModernizationTests
             sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("SampleLevel(\n        reflectionSampler, reflectionVector",
             sceneSourceText, StringComparison.Ordinal);
-        Assert.Contains("result.rgb += EvaluateReflection(input.worldPosition, normal)",
+        Assert.Contains("result.rgb += EvaluateReflection(input.worldPosition, normal,",
             sceneSourceText, StringComparison.Ordinal);
         Assert.Contains("float reciprocalDeterminant = 1.0f / determinant",
             sceneSourceText, StringComparison.Ordinal);

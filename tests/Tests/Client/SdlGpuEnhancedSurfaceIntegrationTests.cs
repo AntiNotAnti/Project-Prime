@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using MphRead;
 using OpenTK.Mathematics;
 using Xunit;
@@ -132,25 +133,25 @@ public sealed class SdlGpuEnhancedSurfaceIntegrationTests
         Assert.Contains("else if (texgen == 3u)", shadow, StringComparison.Ordinal);
         Assert.Contains("dot(input.position", shadow, StringComparison.Ordinal);
 
-        string backend = File.ReadAllText(Path.Combine(FindRepositoryRoot(),
-            "src", "Client", "Rendering", "Backends", "SdlGpu",
-            "SdlGpuSceneResources.cs"));
-        int shadowPass = backend.IndexOf("EncodeDirectionalShadow(commandBuffer",
-            StringComparison.Ordinal);
-        int surfacePass = backend.IndexOf("TryEncodeEnhancedSurface(commandBuffer",
-            shadowPass, StringComparison.Ordinal);
-        int opaque = backend.IndexOf("RenderPassKind.Opaque,", surfacePass,
-            StringComparison.Ordinal);
-        int decal = backend.IndexOf("RenderPassKind.Decal,", opaque,
-            StringComparison.Ordinal);
-        int stencil = backend.IndexOf("RenderPassKind.TransparentStencil,", decal,
-            StringComparison.Ordinal);
-        int rebuild = backend.IndexOf("RenderPassKind.DepthRebuild,", stencil,
-            StringComparison.Ordinal);
-        int behind = backend.IndexOf("RenderPassKind.TransparentBehind,", rebuild,
-            StringComparison.Ordinal);
-        int front = backend.IndexOf("RenderPassKind.TransparentFront,", behind,
-            StringComparison.Ordinal);
+        var plan = new RenderExecutionPlan();
+        RenderGraphLite.Build(plan, new RenderGraphFeatures(
+            DirectionalShadow: true, SurfaceData: true,
+            AmbientOcclusion: true, Sky: true, Distortion: true,
+            Bloom: true, OriginalHud: false, EnhancedOutput: true,
+            SceneCapture: false, Visor: false, EnhancedHud: false));
+        RenderGraphPassKind[] order = plan.Passes.ToArray()
+            .Select(pass => pass.Kind).ToArray();
+        int shadowPass = Array.IndexOf(order,
+            RenderGraphPassKind.DirectionalShadow);
+        int surfacePass = Array.IndexOf(order, RenderGraphPassKind.SurfaceData);
+        int opaque = Array.IndexOf(order, RenderGraphPassKind.Opaque);
+        int decal = Array.IndexOf(order, RenderGraphPassKind.Decal);
+        int stencil = Array.IndexOf(order,
+            RenderGraphPassKind.TransparentStencil);
+        int rebuild = Array.IndexOf(order, RenderGraphPassKind.DepthRebuild);
+        int behind = Array.IndexOf(order,
+            RenderGraphPassKind.TransparentBehind);
+        int front = Array.IndexOf(order, RenderGraphPassKind.TransparentFront);
         Assert.True(shadowPass >= 0 && surfacePass > shadowPass);
         Assert.True(opaque > surfacePass && decal > opaque && stencil > decal
             && rebuild > stencil && behind > rebuild && front > behind);

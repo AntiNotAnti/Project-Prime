@@ -98,7 +98,7 @@ public sealed class GlesEnhancedShaderTests
     public void RuntimeValidatesLinksAndDeletesPartialProgramsTransactionally()
     {
         string source = ReadRepositoryFile(
-            "src/Client/Rendering/Backends/Gles/GlesEnhancedRuntime.cs");
+            "src/Renderer/Backends/Gles/GlesEnhancedRuntime.cs");
 
         Assert.Contains("GetProgramParameterName.LinkStatus", source);
         Assert.Contains("GL.GetProgramInfoLog(program)", source);
@@ -111,7 +111,7 @@ public sealed class GlesEnhancedShaderTests
     public void RuntimeSetsCompleteSamplersAndLutClampLinearState()
     {
         string source = ReadRepositoryFile(
-            "src/Client/Rendering/Backends/Gles/GlesEnhancedRuntime.cs");
+            "src/Renderer/Backends/Gles/GlesEnhancedRuntime.cs");
 
         Assert.Contains("TextureParameterName.TextureMinFilter", source);
         Assert.Contains("TextureParameterName.TextureMagFilter", source);
@@ -125,7 +125,7 @@ public sealed class GlesEnhancedShaderTests
     public void RuntimeEstablishesFullscreenAndWorldRasterStateExplicitly()
     {
         string source = ReadRepositoryFile(
-            "src/Client/Rendering/Backends/Gles/GlesEnhancedRuntime.cs");
+            "src/Renderer/Backends/Gles/GlesEnhancedRuntime.cs");
 
         Assert.Contains("GL.Enable(EnableCap.DepthTest)", source);
         Assert.Contains("GL.DepthMask(true)", source);
@@ -138,7 +138,7 @@ public sealed class GlesEnhancedShaderTests
     public void RuntimeCacheIsBoundedAndDeletesOnlyForCurrentContext()
     {
         string source = ReadRepositoryFile(
-            "src/Client/Rendering/Backends/Gles/GlesEnhancedRuntime.cs");
+            "src/Renderer/Backends/Gles/GlesEnhancedRuntime.cs");
 
         Assert.Equal(2048, GlesEnhancedShaderContract.MaximumCachedTextures);
         Assert.Contains("_textures.Count < GlesEnhancedShaderContract.MaximumCachedTextures",
@@ -147,7 +147,7 @@ public sealed class GlesEnhancedShaderTests
         Assert.Contains("GL.DeleteTexture(cached.Binding)", source);
         Assert.Contains("_textures.Clear()", source);
         Assert.Contains("EnhancedRuntime?.BeginResourceFrame()",
-            ReadRepositoryFile("src/Client/Rendering/Backends/Gles/GlesBackend.cs"));
+            ReadRepositoryFile("src/Renderer/Backends/Gles/GlesBackend.cs"));
         Assert.Contains("if (_pinnedTextures.Contains(identity)) continue", source);
         Assert.Contains("if (!TryEvictOldestTextureIfFull())", source);
         Assert.Contains("binding = fallback", source);
