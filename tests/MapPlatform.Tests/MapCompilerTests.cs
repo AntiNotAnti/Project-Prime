@@ -557,6 +557,68 @@ public sealed class MapCompilerTests : IDisposable
     }
 
     [Fact]
+    [Trait("RequiresGameContent", "true")]
+    public async Task BuildSchedulerFreezesCompilerInputsBeforeConcurrentEditorChanges()
+    {
+        ContentEnvironment.Open(GameDataDirectory(), "AMHE1");
+        MapProject project = NativeProject();
+        string baseIdentity = ContentEnvironment.GetContentIdentity().ContentHash;
+        MapBuildResult baseline = new MapCompiler().Compile(project, new MapBuildOptions
+        {
+            CacheDirectory = Path.Combine(_directory, "snapshot-baseline"),
+            BaseContentIdentity = baseIdentity,
+            Force = true
+        }, CancellationToken.None);
+        Assert.True(baseline.Success, string.Join(Environment.NewLine, baseline.Diagnostics));
+
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var scheduler = new MapBuildScheduler(1, (snapshot, options, token) =>
+        {
+            entered.Set();
+            release.Wait(token);
+            return new MapCompiler().Compile(snapshot, options, token);
+        });
+        string scheduledCache = Path.Combine(_directory, "snapshot-scheduled");
+        Task<MapBuildResult> scheduledTask = scheduler.BuildAsync(project, new MapBuildOptions
+        {
+            CacheDirectory = scheduledCache,
+            BaseContentIdentity = baseIdentity,
+            Force = true
+        });
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+
+        // These edits happen while the compiler delegate is paused. They must
+        // affect only the next editor build, never the already admitted one.
+        project.Authoring!.Brushes[0].Transform.Position[0] = 99;
+        project.Authoring.Entities[0].Id = "spawn.edited-after-submit";
+        project.Map.Name = "EDITED AFTER SUBMIT";
+        release.Set();
+
+        MapBuildResult scheduled = await scheduledTask;
+        Assert.True(scheduled.Success, string.Join(Environment.NewLine, scheduled.Diagnostics));
+        Assert.Equal(baseline.BuildFingerprint, scheduled.BuildFingerprint);
+        Assert.NotNull(baseline.Statistics);
+        Assert.NotNull(scheduled.Statistics);
+        Assert.Equal(baseline.Statistics!.RenderTriangles, scheduled.Statistics!.RenderTriangles);
+        Assert.Equal(baseline.Statistics.RenderVertices, scheduled.Statistics.RenderVertices);
+        Assert.Equal(baseline.Statistics.Materials, scheduled.Statistics.Materials);
+        Assert.Equal(baseline.Statistics.CollisionFaces, scheduled.Statistics.CollisionFaces);
+        Assert.Equal(baseline.Statistics.CollisionPoints, scheduled.Statistics.CollisionPoints);
+        Assert.Equal(baseline.Statistics.CollisionPlanes, scheduled.Statistics.CollisionPlanes);
+        Assert.Equal(baseline.Statistics.CollisionGridReferences, scheduled.Statistics.CollisionGridReferences);
+        Assert.Equal(baseline.Statistics.Entities, scheduled.Statistics.Entities);
+        Assert.Equal(baseline.Statistics.Spawns, scheduled.Statistics.Spawns);
+        Assert.Equal(baseline.Statistics.WorldMin, scheduled.Statistics.WorldMin);
+        Assert.Equal(baseline.Statistics.WorldMax, scheduled.Statistics.WorldMax);
+        foreach (string name in new[] { "Model.bin", "Anim.bin", "Collision.bin", "Ent.bin", "Node.bin" })
+        {
+            Assert.Equal(File.ReadAllBytes(Path.Combine(baseline.CachePath!, name)),
+                File.ReadAllBytes(Path.Combine(scheduled.CachePath!, name)));
+        }
+    }
+
+    [Fact]
     public void CancelledCompilerPublishLeavesNoPartialCache()
     {
         MapImageDecoding.Decoder = global::MphRead.Imaging.StbImageDecoder.Decode;

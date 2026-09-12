@@ -1,3 +1,4 @@
+using MphRead.Mods.MapGen;
 using ProjectPrime.Server.Shared;
 using Xunit;
 
@@ -28,5 +29,31 @@ public sealed class MapRequirementTests
             "wrong", new string('b', 64), 1, new string('c', 64)).Validate());
         Assert.ThrowsAny<ArgumentException>(() => new MapRequirement("community.parallax", "1.0.0",
             new string('a', 64), new string('b', 64), 0, new string('c', 64)).Validate());
+    }
+
+    [Fact]
+    public void AuthoritativeHashExactlyMatchesRuntimeSnapshotFormula()
+    {
+        var identity = new MapContentIdentity(
+            new MapIdentity("community.parallax", new MapVersion(1, 4, 0)),
+            new string('a', 64));
+        const string baseIdentity =
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        string gameplayIdentity =
+            GameplayContentIdentity.Current("test-build", 8);
+
+        string runtime = MatchContentHash.Compute(baseIdentity, identity,
+            gameplayIdentity);
+        string authoritative = MapRequirement.ComputeMatchContentHash(
+            baseIdentity, identity.Identity.StableId,
+            identity.Identity.Version.ToString(), identity.ContentHash,
+            "test-build", 8);
+
+        Assert.Equal(authoritative, runtime);
+        var requirement = new MapRequirement(identity.Identity.StableId,
+            identity.Identity.Version.ToString(), identity.ContentHash,
+            new string('d', 64), 1, authoritative);
+        Assert.Equal(identity,
+            requirement.ToRoomContentRequirement().ContentIdentity);
     }
 }

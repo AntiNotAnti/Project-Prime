@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Text.Json;
 
 namespace MphRead.Mods.MapGen;
 
@@ -46,11 +45,15 @@ public sealed class MapBuildScheduler : IMapBuildScheduler, IDisposable
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
         cancellationToken.ThrowIfCancellationRequested();
 
-        MapProject snapshot = Snapshot(project);
+        // Capture synchronously before the first await. Editor mutations after
+        // admission must not change either the fingerprint or the operation
+        // that is eventually dispatched for that key.
+        MapBuildSnapshot snapshot = MapBuildSnapshot.Capture(project);
+        MapProject compilerProject = snapshot.Materialize();
         string fingerprint;
         try
         {
-            fingerprint = await Task.Run(() => MapBuildFingerprint.Compute(snapshot,
+            fingerprint = await Task.Run(() => MapBuildFingerprint.Compute(compilerProject,
                 options.BaseContentIdentity), cancellationToken).ConfigureAwait(false);
         }
         catch (MapDependencyException)
@@ -64,7 +67,7 @@ public sealed class MapBuildScheduler : IMapBuildScheduler, IDisposable
             + (options.Force ? "\0force" : "\0cached");
         var buildOptions = CopyOptions(options);
         Lazy<Task<MapBuildResult>> operation = _builds.GetOrAdd(key, _ => new(
-            () => RunAsync(snapshot, buildOptions), LazyThreadSafetyMode.ExecutionAndPublication));
+            () => RunAsync(compilerProject, buildOptions), LazyThreadSafetyMode.ExecutionAndPublication));
         Interlocked.Increment(ref _activeWaiters);
         try
         {
@@ -107,25 +110,6 @@ public sealed class MapBuildScheduler : IMapBuildScheduler, IDisposable
         Verbose = options.Verbose,
         Progress = options.Progress
     };
-
-    private static MapProject Snapshot(MapProject project)
-    {
-        MapProject copy = JsonSerializer.Deserialize(
-            JsonSerializer.SerializeToUtf8Bytes(project, MapJsonContext.Default.MapProject),
-            MapJsonContext.Default.MapProject)
-            ?? throw new MapCompilationException("Could not snapshot the map project for background compilation.");
-        copy.SourcePath = project.SourcePath;
-        copy.DeclaredContentIdentity = project.DeclaredContentIdentity;
-        copy.Map.SourcePath = project.Map.SourcePath;
-        copy.Map.BaseDirectory = project.Map.BaseDirectory;
-        copy.Map.BundlePath = project.Map.BundlePath;
-        if (copy.Map.Import != null)
-        {
-            copy.Map.Import.BaseDirectory = project.Map.Import?.BaseDirectory;
-            copy.Map.Import.BundlePath = project.Map.Import?.BundlePath;
-        }
-        return copy;
-    }
 
     public void Dispose()
     {

@@ -19,8 +19,8 @@ namespace MphRead.Tests
         [Fact]
         public void CatalogRetainsSparseBuiltInGlobalsAndAppendsCustomRooms()
         {
-            int customCount = CustomRooms.Definitions.Count;
-            Assert.Equal(39, Metadata.RoomList.Count - customCount);
+            Assert.Equal(39, Metadata.RoomList.Count(room =>
+                room.Id < RuntimeRoomRegistry.FirstCustomRoomId));
 
             int[] builtInIds = Enumerable.Range(93, 27)
                 .Concat(new[] { 122, 123, 124, 125, 126, 127, 128, 129, 130, 135, 136, 137 })
@@ -63,26 +63,36 @@ namespace MphRead.Tests
         }
 
         [Fact]
-        public void CustomRoomIdsStartAtTheReservedGlobalBase()
+        public void CustomRoomIdsComeFromTheRuntimeRegistry()
         {
-            for (int i = 0; i < CustomRooms.Definitions.Count; i++)
+            foreach (MapDefinition definition in CustomRooms.Definitions)
             {
-                int id = 138 + i;
-                RoomMetadata? room = Metadata.GetRoomById(id);
+                RuntimeRoomRegistration registration =
+                    Assert.IsType<RuntimeRoomRegistration>(
+                        Metadata.GetRuntimeRoomByName(definition.Name,
+                            contentIdentity: null));
 
-                Assert.NotNull(room);
-                Assert.Equal(id, room!.Id);
-                Assert.Equal(CustomRooms.Definitions[i].Name, room.Name);
+                Assert.True(registration.IsCustom);
+                Assert.True(registration.RuntimeId
+                    >= RuntimeRoomRegistry.FirstCustomRoomId);
+                Assert.Equal(registration.RuntimeId,
+                    registration.Metadata.Id);
+                Assert.Equal(definition.Name, registration.RoomKey);
             }
         }
 
         [Fact]
-        public void GlobalCatalogUpperBoundRejectsTheFirstIdAfterCustomRooms()
+        public void RuntimeCatalogRejectsAnUnallocatedId()
         {
-            int upperBound = 138 + CustomRooms.Definitions.Count;
+            int unallocated = Metadata.RoomList
+                .Where(room => room.Id >= RuntimeRoomRegistry.FirstCustomRoomId)
+                .Select(room => room.Id)
+                .DefaultIfEmpty(RuntimeRoomRegistry.FirstCustomRoomId - 1)
+                .Max() + 1;
 
-            Assert.Null(Metadata.GetRoomById(upperBound, noThrow: true));
-            Assert.Throws<ArgumentOutOfRangeException>(() => Metadata.GetRoomById(upperBound));
+            Assert.Null(Metadata.GetRoomById(unallocated, noThrow: true));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => Metadata.GetRoomById(unallocated));
         }
 
         [Fact]

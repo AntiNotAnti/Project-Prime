@@ -16,12 +16,28 @@ namespace MphRead
             LoadGame(string name, Scene scene, GameMode mode, int playerCount = 0,
             int nodeLayerMask = 0, int entityLayerId = -1)
         {
-            (RoomMetadata? metadata, int roomId) = Metadata.GetRoomByName(name);
-            if (metadata == null || !metadata.Multiplayer)
+            Mods.MapGen.RuntimeRoomRegistration? registration = Metadata.GetRuntimeRoomByName(name);
+            if (registration == null || !registration.Metadata.Multiplayer)
             {
                 throw new ProgramException("No supported multiplayer room with this name is known.");
             }
-            return LoadGame(metadata, roomId, scene, mode, playerCount,
+            if (registration.IsCustom)
+            {
+                Mods.MapGen.MatchContentSnapshot? content =
+                    ContentEnvironment.CurrentMatchContent;
+                if (content == null)
+                {
+                    throw new ProgramException(
+                        $"MAP-RUN-006: Custom room '{name}' was not prepared before Scene creation.");
+                }
+                if (registration.ContentIdentity == null
+                    || content.MapIdentity != registration.ContentIdentity)
+                {
+                    throw new ProgramException(
+                        $"MAP-RUN-007: Mounted content does not match custom room '{name}'.");
+                }
+            }
+            return LoadGame(registration.Metadata, registration.RuntimeId, scene, mode, playerCount,
                 nodeLayerMask, entityLayerId, allEntityLayers: false,
                 validationFixture: false);
         }

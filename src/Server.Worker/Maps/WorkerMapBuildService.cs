@@ -42,13 +42,15 @@ internal sealed class WorkerMapBuildService : IDisposable
         var identity = new MapContentIdentity(
             new MapIdentity(required.StableId, MapVersion.Parse(required.Version)), required.ContentHash);
         Lazy<Task<PreparedMapContent>> build = _builds.GetOrAdd(identity, _ => new(
-            () => BuildAsync(content.MapKey, required, identity), LazyThreadSafetyMode.ExecutionAndPublication));
+            () => StartBuild(content.MapKey, required, identity),
+            LazyThreadSafetyMode.ExecutionAndPublication));
         try
         {
             PreparedMapContent prepared = await build.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
             MatchContentSnapshot snapshot = ContentEnvironment.CreateMapSnapshot(prepared.Identity,
                 prepared.BuildFingerprint, prepared.CachePath, prepared.RuntimeDefinition,
-                _options.BuildVersion + ":" + _options.ProtocolVersion);
+                GameplayContentIdentity.Current(_options.BuildVersion,
+                    _options.ProtocolVersion));
             if (snapshot.MatchContentIdentity != required.MatchContentHash)
                 throw new MapCompilationException("Compiled map content identity does not match admission.");
             return snapshot;
@@ -61,11 +63,37 @@ internal sealed class WorkerMapBuildService : IDisposable
         }
     }
 
+    private async Task<PreparedMapContent> StartBuild(string mapKey,
+        MapRequirement required, MapContentIdentity identity)
+    {
+        try
+        {
+            return await BuildAsync(mapKey, required, identity)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            _builds.TryRemove(identity, out _);
+            throw;
+        }
+    }
+
     private async Task<PreparedMapContent> BuildAsync(string mapKey, MapRequirement required,
         MapContentIdentity identity)
     {
-        InstalledMap map = CustomRooms.Find(mapKey)
-            ?? throw new MapDependencyException("Required map is not installed.");
+        InstalledMap? map = CustomRooms.Catalog.Snapshot.Find(identity);
+        if (map == null)
+        {
+            await CustomRooms.RefreshAsync().ConfigureAwait(false);
+            map = CustomRooms.Catalog.Snapshot.Find(identity);
+        }
+        if (map == null)
+            throw new MapDependencyException(
+                "Required map is not installed.");
+        if (!map.Project.Map.Name.Equals(mapKey,
+                StringComparison.OrdinalIgnoreCase))
+            throw new MapDependencyException(
+                "Required map room key does not match the installed content.");
         if (map.Source is not (MapInstallSource.InstalledPackage or MapInstallSource.BundledPackage)
             || map.ContentIdentity.Identity.StableId != required.StableId
             || map.ContentIdentity.Identity.Version.ToString() != required.Version
@@ -87,6 +115,12 @@ internal sealed class WorkerMapBuildService : IDisposable
             }, CancellationToken.None).ConfigureAwait(false);
         if (!result.Success || result.CachePath == null || result.ContentIdentity != map.ContentIdentity)
             throw new MapCompilationException("Required map compilation failed.", result.Diagnostics);
+        RuntimeRoomRegistration registration =
+            CustomRooms.ActivateRuntimeRoom(map);
+        if (registration.ContentIdentity != map.ContentIdentity
+            || registration.Metadata.Id != registration.RuntimeId)
+            throw new MapCompilationException(
+                "Prepared map runtime registration is incoherent.");
         var prepared = new PreparedMapContent(map.ContentIdentity, result.BuildFingerprint,
             result.CachePath, map.Project.Map);
         _preparedOrder.Enqueue(identity);

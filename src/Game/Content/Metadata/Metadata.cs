@@ -1581,25 +1581,40 @@ namespace MphRead
 
         public static (RoomMetadata?, int) GetRoomByName(string name)
         {
-            if (RoomMetadata.TryGetValue(name, out RoomMetadata? metadata))
-            {
-                foreach ((int id, string key) in RoomIds)
-                {
-                    if (key == metadata.Name) { return (metadata, id); }
-                }
-            }
-            return (null, -1);
+            Mods.MapGen.RuntimeRoomRegistration? registration = GetRuntimeRoomByName(name);
+            return registration == null
+                ? (null, -1)
+                : (registration.Metadata, registration.RuntimeId);
         }
+
+        public static Mods.MapGen.RuntimeRoomRegistration? GetRuntimeRoomByName(string name)
+            => GetRuntimeRoomByName(name,
+                ContentEnvironment.CurrentMatchContent?.MapIdentity);
+
+        public static Mods.MapGen.RuntimeRoomRegistration? GetRuntimeRoomByName(
+            string name, Mods.MapGen.MapContentIdentity? contentIdentity)
+            => String.IsNullOrWhiteSpace(name) ? null
+                : RuntimeRooms.FindByName(name, contentIdentity);
+
+        public static Mods.MapGen.RuntimeRoomRegistration? GetRuntimeRoomById(int id)
+            => RuntimeRooms.FindById(id,
+                ContentEnvironment.CurrentMatchContent?.MapIdentity);
+
+        public static Mods.MapGen.RuntimeRoomRegistration RequireRuntimeRoom(string name)
+            => RuntimeRooms.Require(name,
+                ContentEnvironment.CurrentMatchContent?.MapIdentity);
 
         public static RoomMetadata? GetRoomById(int id, bool noThrow = false)
         {
-            if (id < 0 || id >= 138 + Mods.MapGen.CustomRooms.Definitions.Count)
+            if (id < 0)
             {
                 if (noThrow) { return null; }
                 throw new ArgumentOutOfRangeException(nameof(id));
             }
-            return RoomIds.TryGetValue(id, out string? name)
-                && RoomMetadata.TryGetValue(name, out RoomMetadata? metadata) ? metadata : null;
+            Mods.MapGen.RuntimeRoomRegistration? registration = GetRuntimeRoomById(id);
+            if (registration != null) return registration.Metadata;
+            if (noThrow) return null;
+            throw new ArgumentOutOfRangeException(nameof(id));
         }
 
         private static uint TimeLimit(uint minutes, uint seconds, uint frames)

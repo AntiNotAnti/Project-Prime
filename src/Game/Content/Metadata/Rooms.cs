@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Linq;
 using OpenTK.Mathematics;
 
 namespace MphRead
@@ -160,7 +162,8 @@ namespace MphRead
             };
 
         private static IReadOnlyDictionary<int, string> RoomIds
-            => Mods.MapGen.CustomRooms.AppendIds(new Dictionary<int, string>(_baseRoomIds));
+            => RuntimeRooms.Snapshot.Rooms.ToDictionary(room => room.RuntimeId,
+                room => room.RoomKey);
 
         private static readonly IReadOnlyList<RoomMetadata> BaseRoomList
             = new List<RoomMetadata>()
@@ -1433,10 +1436,22 @@ namespace MphRead
         };
 
         public static IReadOnlyList<RoomMetadata> RoomList
-            => Mods.MapGen.CustomRooms.AppendRooms(new List<RoomMetadata>(BaseRoomList));
+            => RuntimeRooms.Snapshot.Rooms.Select(room => room.Metadata).ToArray();
 
         public static FrozenDictionary<string, RoomMetadata> RoomMetadata
-            => RoomList.ToFrozenDictionary(d => d.Name);
+            => RuntimeRooms.Snapshot.ByName.Values.ToFrozenDictionary(
+                room => room.RoomKey, room => room.Metadata,
+                StringComparer.OrdinalIgnoreCase);
+
+        internal static Mods.MapGen.RuntimeRoomRegistry RuntimeRooms
+        {
+            get
+            {
+                Mods.MapGen.RuntimeRoomRegistry rooms = Mods.MapGen.CustomRooms.RuntimeRooms;
+                rooms.EnsureBuiltIns(_baseRoomIds, BaseRoomList);
+                return rooms;
+            }
+        }
 
         public static readonly FrozenDictionary<int, string> CtfNodeDataOverrides = Frozen.Create<int, string>(
         [

@@ -179,6 +179,36 @@ public sealed class EditorDocumentTests : IDisposable
     }
 
     [Fact]
+    public void UndoRedoRestoresImportedSourceRuntimeContext()
+    {
+        Directory.CreateDirectory(_directory);
+        string source = Path.Combine(_directory, "arena.bsp");
+        File.WriteAllBytes(source, [1, 2, 3]);
+        string projectPath = Path.Combine(_directory, "map.json");
+        var project = new MapProject
+        {
+            StableId = "community.import-context",
+            Metadata = new MapProjectMetadata { Name = "Import Context" },
+            Map = new MapDefinition
+            {
+                Name = "IMPORT CONTEXT",
+                Import = new MapImport { Source = "arena.bsp", MapName = "arena" }
+            }
+        };
+        MapProjectIO.Save(project, projectPath);
+        MapDocument document = MapDocument.Open(projectPath);
+
+        document.Execute(Rename(document, "Changed"));
+        document.Undo();
+        document.Redo();
+
+        Assert.Equal(Path.GetFullPath(projectPath), document.Project.SourcePath);
+        Assert.Equal(_directory, document.Project.Map.BaseDirectory);
+        Assert.Equal(_directory, document.Project.Map.Import!.BaseDirectory);
+        Assert.Equal(source, document.Project.Map.Import.Resolve());
+    }
+
+    [Fact]
     public void AuthoringEnvironmentBecomesTheCompiledRuntimeEnvironment()
     {
         MapDocument document = MapDocument.New("community.environment", "Environment");

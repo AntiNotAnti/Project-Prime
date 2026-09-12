@@ -24,7 +24,6 @@ namespace MphRead.Mods.MapGen
         private static MapCatalog? _catalog;
         private static string? _catalogDirectory;
         private static bool _includeUserProjects = true;
-        private static int _firstId = -1;
         // Android builds the map binaries on a background thread while the
         // front screen is listing rooms on another, and both go through here.
         private static readonly object _lock = new object();
@@ -65,6 +64,8 @@ namespace MphRead.Mods.MapGen
                 _catalog?.Dispose();
                 _catalog = null;
                 _catalogDirectory = null;
+                RuntimeRoomRegistry.Shared.Synchronize(MapCatalogSnapshot.Empty,
+                    static (map, id) => MakeMetadata(map.Project.Map, id));
             }
         }
 
@@ -127,6 +128,7 @@ namespace MphRead.Mods.MapGen
         {
             EnsureCatalog();
             _catalog!.RefreshAsync().AsTask().GetAwaiter().GetResult();
+            SynchronizeRuntimeRooms(_catalog.Snapshot);
             foreach (MapDiagnostic diagnostic in _catalog.Snapshot.Diagnostics)
             {
                 Console.WriteLine($"Ignoring map {Path.GetFileName(diagnostic.SourcePath)}: {diagnostic.Message}");
@@ -153,7 +155,11 @@ namespace MphRead.Mods.MapGen
                 catalog = _catalog!;
             }
             await catalog.RefreshAsync(cancellationToken).ConfigureAwait(false);
-            lock (_lock) _definitions = BuildDefinitions(catalog.Snapshot);
+            lock (_lock)
+            {
+                _definitions = BuildDefinitions(catalog.Snapshot);
+                SynchronizeRuntimeRooms(catalog.Snapshot);
+            }
         }
 
         public static async ValueTask<InstalledMap> InstallAsync(string packagePath,
@@ -161,7 +167,11 @@ namespace MphRead.Mods.MapGen
         {
             MapCatalog catalog = (MapCatalog)Catalog;
             InstalledMap map = await catalog.InstallAsync(packagePath, cancellationToken).ConfigureAwait(false);
-            lock (_lock) _definitions = BuildDefinitions(catalog.Snapshot);
+            lock (_lock)
+            {
+                _definitions = BuildDefinitions(catalog.Snapshot);
+                SynchronizeRuntimeRooms(catalog.Snapshot);
+            }
             return map;
         }
 
@@ -170,7 +180,11 @@ namespace MphRead.Mods.MapGen
         {
             MapCatalog catalog = (MapCatalog)Catalog;
             await catalog.RemoveAsync(identity, cancellationToken).ConfigureAwait(false);
-            lock (_lock) _definitions = BuildDefinitions(catalog.Snapshot);
+            lock (_lock)
+            {
+                _definitions = BuildDefinitions(catalog.Snapshot);
+                SynchronizeRuntimeRooms(catalog.Snapshot);
+            }
         }
 
         private static void EnsureCatalog()
@@ -225,6 +239,7 @@ namespace MphRead.Mods.MapGen
                 {
                     _catalog.RefreshAsync().AsTask().GetAwaiter().GetResult();
                     _definitions = BuildDefinitions(_catalog.Snapshot);
+                    SynchronizeRuntimeRooms(_catalog.Snapshot);
                 }
                 return _catalog.Snapshot.FindRoom(roomName);
             }
@@ -252,26 +267,58 @@ namespace MphRead.Mods.MapGen
                 result.Success ? MapBuildState.Ready : result.FailureKind.ToBuildState(),
                 result.Statistics, result.Diagnostics);
             lock (_lock)
-                if (ReferenceEquals(_catalog, catalog)) _definitions = BuildDefinitions(catalog.Snapshot);
+                if (ReferenceEquals(_catalog, catalog))
+                {
+                    _definitions = BuildDefinitions(catalog.Snapshot);
+                    SynchronizeRuntimeRooms(catalog.Snapshot);
+                }
         }
 
-        /// <summary>Called from the sparse room ID table; custom identities retain their original base.</summary>
+        internal static RuntimeRoomRegistry RuntimeRooms
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    EnsureCatalog();
+                    if (_catalog!.Snapshot.Revision == 0)
+                        _catalog.RefreshAsync().AsTask().GetAwaiter().GetResult();
+                    _definitions = BuildDefinitions(_catalog.Snapshot);
+                    SynchronizeRuntimeRooms(_catalog.Snapshot);
+                    return RuntimeRoomRegistry.Shared;
+                }
+            }
+        }
+
+        public static RuntimeRoomRegistration ActivateRuntimeRoom(InstalledMap map)
+        {
+            lock (_lock)
+            {
+                return RuntimeRoomRegistry.Shared.RegisterCustom(map,
+                    static (installed, id) => MakeMetadata(installed.Project.Map, id));
+            }
+        }
+
+        private static void SynchronizeRuntimeRooms(MapCatalogSnapshot snapshot)
+            => RuntimeRoomRegistry.Shared.Synchronize(snapshot,
+                static (map, id) => MakeMetadata(map.Project.Map, id));
+
+        /// <summary>Compatibility view over the process-stable runtime registry.</summary>
         public static IReadOnlyDictionary<int, string> AppendIds(Dictionary<int, string> ids)
         {
-            _firstId = 138; // Preserve original global IDs despite removed campaign holes.
-            for (int i = 0; i < Definitions.Count; i++)
+            foreach (RuntimeRoomRegistration room in RuntimeRooms.Snapshot.Rooms)
             {
-                ids.Add(_firstId + i, Definitions[i].Name);
+                if (room.IsCustom) ids.Add(room.RuntimeId, room.RoomKey);
             }
             return ids;
         }
 
-        /// <summary>Called from the room table, after the IDs have been assigned.</summary>
+        /// <summary>Compatibility view over the same registrations as <see cref="AppendIds"/>.</summary>
         public static IReadOnlyList<RoomMetadata> AppendRooms(List<RoomMetadata> rooms)
         {
-            for (int i = 0; i < Definitions.Count; i++)
+            foreach (RuntimeRoomRegistration room in RuntimeRooms.Snapshot.Rooms)
             {
-                rooms.Add(MakeMetadata(Definitions[i], _firstId + i));
+                if (room.IsCustom) rooms.Add(room.Metadata);
             }
             return rooms;
         }

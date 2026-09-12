@@ -218,9 +218,7 @@ public sealed class MapDocument
         string? path = Path;
         Project = JsonSerializer.Deserialize(snapshot, MapJsonContext.Default.MapProject)
             ?? throw new InvalidOperationException("Editor command snapshot is invalid.");
-        Project.SourcePath = path;
-        Project.Map.SourcePath = path;
-        Project.Map.BaseDirectory = path == null ? null : System.IO.Path.GetDirectoryName(path);
+        MapProjectIO.AttachRuntimeContext(Project, path);
     }
 
     private static MapEntityDefinition Spawn(string id, float x, float y, float z, float yaw)

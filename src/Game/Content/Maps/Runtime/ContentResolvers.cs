@@ -131,10 +131,29 @@ public sealed record MatchContentSnapshot(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(baseContentIdentity);
         ArgumentException.ThrowIfNullOrWhiteSpace(gameplayIdentity);
-        string value = string.Join('\0', "ProjectPrime.MatchContent.v1", baseContentIdentity,
-            mapIdentity.Identity.StableId, mapIdentity.Identity.Version.ToString(),
-            mapIdentity.ContentHash, gameplayIdentity);
-        string hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+        string hash = MatchContentHash.Compute(baseContentIdentity,
+            mapIdentity, gameplayIdentity);
         return new MatchContentSnapshot(baseContentIdentity, mapIdentity, gameplayIdentity, hash, mapMount);
+    }
+}
+
+/// <summary>
+/// The one compatibility formula shared by Node admission, Worker preparation,
+/// clients, replays, and immutable runtime snapshots.
+/// </summary>
+public static class MatchContentHash
+{
+    public static string Compute(string baseContentIdentity,
+        MapContentIdentity mapIdentity, string gameplayIdentity)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseContentIdentity);
+        ArgumentNullException.ThrowIfNull(mapIdentity);
+        ArgumentException.ThrowIfNullOrWhiteSpace(gameplayIdentity);
+        string value = string.Join('\0', "ProjectPrime.MatchContent.v1",
+            baseContentIdentity, mapIdentity.Identity.StableId,
+            mapIdentity.Identity.Version.ToString(), mapIdentity.ContentHash,
+            gameplayIdentity);
+        return Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
     }
 }

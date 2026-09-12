@@ -41,6 +41,14 @@ internal static class Program
         await RunCatalog(test => { test.SnapshotBuildsDeterministicLookupIndexes(); return Task.CompletedTask; });
         await RunCatalog(async test => await test.RefreshDoesNotEraseAnActiveBuildState());
 
+        var runtimeRooms = new RuntimeRoomRegistryTests();
+        runtimeRooms.FirstNameLookupAllocatesReservedRuntimeIdWithoutIdLookup(); passed++;
+        runtimeRooms.CatalogChangesNeverShiftOrReuseAllocatedRuntimeIds(); passed++;
+        runtimeRooms.ExactVersionActivationRetainsRoomIdAndChangesContentIdentity(); passed++;
+        runtimeRooms.ConcurrentVersionLookupsShareRoomIdButRetainExactMetadata(); passed++;
+        runtimeRooms.DifferentStableMapsMayShareLegacyRoomName(); passed++;
+        runtimeRooms.ConcurrentSynchronizationPublishesOneConflictFreeRegistration(); passed++;
+
         await RunCompiler(test => { test.StableIdentityAndCanonicalSourceHashingAreStrict(); return Task.CompletedTask; });
         foreach (object[] values in MapCompilerTests.FirstPartyMaps)
             await RunCompiler(async test => await test.FirstPartyMapOutputRemainsCharacterized(
@@ -61,6 +69,7 @@ internal static class Program
         await RunCompiler(test => { test.DependencyAnalysisIsTheBaseContentAuthority(); return Task.CompletedTask; });
         await RunCompiler(test => { test.FullyCustomNativeMapCompilesWithoutOpeningBaseContent(); return Task.CompletedTask; });
         await RunCompiler(async test => await test.BuildSchedulerSingleFlightsAndCallerCancellationDoesNotCancelSharedBuild());
+        await RunCompiler(async test => await test.BuildSchedulerFreezesCompilerInputsBeforeConcurrentEditorChanges());
         await RunCompiler(test => { test.CancelledCompilerPublishLeavesNoPartialCache(); return Task.CompletedTask; });
         await RunCompiler(test => { test.CompilerFailuresCarryStableBuildStateClassification(); return Task.CompletedTask; });
         await RunCompiler(async test => await test.AmbientMatchMountsAreIsolatedAcrossConcurrentExecutionContexts());
@@ -75,6 +84,7 @@ internal static class Program
         await RunEditor(test => { test.SaveResetsDirtyIdentity(); return Task.CompletedTask; });
         await RunEditor(test => { test.AutosaveRecoveryNeverOverwritesCreatorProject(); return Task.CompletedTask; });
         await RunEditor(test => { test.PlaytestSnapshotDoesNotChangeDocumentPathOrDirtyState(); return Task.CompletedTask; });
+        await RunEditor(test => { test.UndoRedoRestoresImportedSourceRuntimeContext(); return Task.CompletedTask; });
         await RunEditor(test => { test.AuthoringEnvironmentBecomesTheCompiledRuntimeEnvironment(); return Task.CompletedTask; });
         await RunEditor(test => { test.MaterialCommandTargetsOneFaceOrTheWholeBrushAndUndoRestoresIt(); return Task.CompletedTask; });
         await RunEditor(test => { test.TransformTransactionsCoalesceAndCommonCommandsUseDeltas(); return Task.CompletedTask; });

@@ -22,8 +22,7 @@ public static class MapProjectIO
             {
                 MapProject project = JsonSerializer.Deserialize(bytes, MapJsonContext.Default.MapProject)
                     ?? throw new MapValidationException("Map project is null.");
-                project.SourcePath = fullPath;
-                Attach(project.Map, fullPath, bundlePath: null);
+                AttachRuntimeContext(project, fullPath);
                 return project;
             }
         }
@@ -48,10 +47,9 @@ public static class MapProjectIO
             MapProject packagedProject = JsonSerializer.Deserialize(recipe.Span,
                 MapJsonContext.Default.MapProject)
                 ?? throw new MapValidationException("Map package project is null.");
-            packagedProject.SourcePath = fullPath;
             packagedProject.DeclaredContentIdentity = new MapContentIdentity(
                 bundle.Manifest.Identity, bundle.Manifest.ContentHash);
-            Attach(packagedProject.Map, fullPath, bundlePath: fullPath);
+            AttachRuntimeContext(packagedProject, fullPath, fullPath);
             return packagedProject;
         }
         MapDefinition definition = bundle.IsLegacy
@@ -60,8 +58,7 @@ public static class MapProjectIO
                 ?? throw new MapValidationException("Map package recipe is null.");
         Attach(definition, fullPath, bundlePath: fullPath);
         MapProject project = MapProject.FromLegacy(definition, bundle.Manifest.StableId);
-        project.SourcePath = fullPath;
-        return project;
+        return AttachRuntimeContext(project, fullPath, fullPath);
     }
 
     public static void Save(MapProject project, string path)
@@ -79,8 +76,7 @@ public static class MapProjectIO
                 stream.Flush(flushToDisk: true);
             }
             File.Move(temporary, fullPath, overwrite: true);
-            project.SourcePath = fullPath;
-            Attach(project.Map, fullPath, bundlePath: null);
+            AttachRuntimeContext(project, fullPath);
         }
         finally
         {
@@ -88,10 +84,34 @@ public static class MapProjectIO
         }
     }
 
-    private static void Attach(MapDefinition definition, string sourcePath, string? bundlePath)
+    /// <summary>
+    /// Restores non-serialized source context after load, undo/redo, recovery,
+    /// autosave, or a temporary playtest snapshot. This is the only owner of
+    /// authoring-path context attachment.
+    /// </summary>
+    public static MapProject AttachRuntimeContext(MapProject project,
+        string? sourcePath, string? bundlePath = null)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        if (sourcePath == null)
+        {
+            project.SourcePath = null;
+            Attach(project.Map, null, null);
+            return project;
+        }
+        string fullPath = Path.GetFullPath(sourcePath);
+        project.SourcePath = fullPath;
+        Attach(project.Map, fullPath, bundlePath == null
+            ? null : Path.GetFullPath(bundlePath));
+        return project;
+    }
+
+    private static void Attach(MapDefinition definition, string? sourcePath,
+        string? bundlePath)
     {
         definition.SourcePath = sourcePath;
-        definition.BaseDirectory = Path.GetDirectoryName(sourcePath);
+        definition.BaseDirectory = sourcePath == null
+            ? null : Path.GetDirectoryName(sourcePath);
         definition.BundlePath = bundlePath;
         if (definition.Import != null)
         {
