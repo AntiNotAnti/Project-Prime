@@ -32,6 +32,7 @@ public readonly record struct ObservationPlayer(
     /// those contexts simply cannot attribute actor-scoped facts.
     /// </summary>
     public CombatActor Identity { get; init; } = CombatActor.None;
+    public Vector3 Velocity { get; init; } = Vector3.Zero;
 
     public bool HasIdentity => Identity.IsValid;
 
@@ -148,7 +149,7 @@ public sealed class ObservationContext
                 scene.Match.PrimeHunter == slot, player.Health, player.CurrentWeapon,
                 ua, missiles, stats.Points, stats.Kills, stats.Deaths, stats.Assists,
                 player.Position, player.FacingVector)
-                with { Identity = player.CombatIdentity };
+                with { Identity = player.CombatIdentity, Velocity = player.Speed };
             players.Add(observed);
         }
 
@@ -279,6 +280,7 @@ public sealed class ObservationContext
         {
             if (value.Slot is < 0 or >= PlayerEntity.SlotCapacity || value.Slot == prior
                 || value.Name == null || !Finite(value.Position) || !Finite(value.Facing)
+                || !Finite(value.Velocity)
                 || value.Health < 0 || value.AmmoUa < 0 || value.AmmoMissiles < 0
                 || (!value.Identity.IsValid && !value.Identity.IsNone))
                 throw new ArgumentException("Invalid observation player.", nameof(source));

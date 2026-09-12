@@ -13,6 +13,29 @@ namespace MphRead.Tests.Client;
 [Collection(AvaloniaUiCollection.Name)]
 public sealed class DesktopOverlayFoundationTests
 {
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(true, false, true)]
+    public void NativeWindowFocusIsAcceptedOnlyAfterDeferredActivationEnds(
+        bool nativeInputFocus, bool activationDeferred, bool expected)
+    {
+        Assert.Equal(expected,
+            SdlGameHost.ResolveNativeFocus(nativeInputFocus, activationDeferred));
+    }
+
+    [Theory]
+    [InlineData(false, false, true, false)]
+    [InlineData(true, true, true, false)]
+    [InlineData(true, false, false, false)]
+    [InlineData(true, false, true, true)]
+    public void FullscreenTopmostOwnershipYieldsAcrossTaskSwitches(
+        bool fullscreen, bool menuOpen, bool focused, bool expected)
+    {
+        Assert.Equal(expected,
+            SdlGameHost.ShouldKeepWindowTopmost(fullscreen, menuOpen, focused));
+    }
+
     [Fact]
     public void PresentationTrackerDeduplicatesAndRetainsLastValidGeometryWhenMinimized()
     {

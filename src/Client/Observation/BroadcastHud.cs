@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Immutable;
 using MphRead.Entities;
+using MphRead.Formats;
 using MphRead.Hud;
 using OpenTK.Mathematics;
 
@@ -8,8 +9,24 @@ namespace MphRead;
 
 public enum BroadcastHudMode { Full, Minimal, Off }
 
+public readonly record struct BroadcastScoreboard(int Team0Score, int Team1Score,
+    string Clock, string MatchState);
+
+public readonly record struct BroadcastPlayerCard(string Name, Hunter Hunter,
+    bool IsPrime, bool CarriesObjective, int Health, BeamType Weapon, int AmmoUa,
+    int AmmoMissiles, int Kills, int Deaths, int Assists, int Points);
+
+public readonly record struct BroadcastObjectiveCard(ObservationObjectiveKind Kind,
+    bool Contested, bool HasCarrier, int CarrierSlot, bool AtBase, int Team);
+
+public readonly record struct BroadcastKillFeed(string Text);
+
+public readonly record struct BroadcastAwardBanner(string Text);
+
 public readonly record struct BroadcastHudModel(BroadcastHudMode Mode,
-    ImmutableArray<string> Lines)
+    BroadcastScoreboard? Scoreboard, BroadcastPlayerCard? PlayerCard,
+    BroadcastObjectiveCard? ObjectiveCard, BroadcastKillFeed? KillFeed,
+    BroadcastAwardBanner? AwardBanner, ImmutableArray<string> Lines)
 {
     public bool Visible => Mode != BroadcastHudMode.Off && !Lines.IsEmpty;
 }
@@ -31,11 +48,11 @@ public sealed class BroadcastHud
         return Mode;
     }
 
-    public BroadcastHudModel Compose(ObservationContext context, BroadcastFocus focus,
-        SpectatorCameraMode cameraMode, float fieldOfView, float speedScale)
+    public BroadcastHudModel Compose(ObservationContext context, BroadcastFocus focus)
     {
         ArgumentNullException.ThrowIfNull(context);
-        if (Mode == BroadcastHudMode.Off) return new(Mode, []);
+        if (Mode == BroadcastHudMode.Off)
+            return new(Mode, null, null, null, null, null, []);
         var lines = ImmutableArray.CreateBuilder<string>(Mode == BroadcastHudMode.Full ? 4 : 2);
         string state = context.IsOvertime ? "OVERTIME" : context.IsMatchPoint ? "MATCH POINT" : context.Phase.ToString();
         string clock = context.MatchTimeSeconds < 0 ? "--:--"
@@ -46,43 +63,58 @@ public sealed class BroadcastHud
             if (value.Team == 0) team0 += value.Points;
             else if (value.Team == 1) team1 += value.Points;
         }
+        var scoreboard = new BroadcastScoreboard(team0, team1, clock, state);
+        BroadcastPlayerCard? playerCard = null;
+        BroadcastObjectiveCard? objectiveCard = null;
+        BroadcastKillFeed? killFeed = null;
+        BroadcastAwardBanner? awardBanner = null;
         lines.Add($"{team0}  {clock}  {team1}    {state}");
         if (focus.Kind == BroadcastFocusKind.Player
             && context.TryGetPlayer(focus.Id, out ObservationPlayer player))
         {
+            playerCard = new(player.Name, player.Hunter, player.IsPrime,
+                player.CarriesObjective, player.Health, player.Weapon, player.AmmoUa,
+                player.AmmoMissiles, player.Kills, player.Deaths, player.Assists,
+                player.Points);
             string role = player.IsPrime ? " PRIME" : player.CarriesObjective ? " CARRIER" : "";
             lines.Add($"{player.Name}  {player.Hunter}{role}  HP {player.Health}");
             if (Mode == BroadcastHudMode.Full)
             {
                 lines.Add($"{player.Weapon}  AMMO {player.AmmoUa}/{player.AmmoMissiles}");
-                lines.Add($"K/D/A {player.Kills}/{player.Deaths}/{player.Assists}  SCORE {player.Points}  {cameraMode}  FOV {fieldOfView:0}  {speedScale:0.##}x");
+                lines.Add($"K/D/A {player.Kills}/{player.Deaths}/{player.Assists}  SCORE {player.Points}");
             }
         }
         else if (focus.Kind == BroadcastFocusKind.Objective
             && context.TryGetObjective(focus.Id, out ObservationObjective objective))
         {
+            objectiveCard = new(objective.Kind, objective.Contested,
+                objective.HasCarrier, objective.CarrierSlot, objective.AtBase,
+                objective.Team);
             string status = objective.Contested ? "CONTESTED"
                 : objective.HasCarrier ? $"CARRIED BY P{objective.CarrierSlot + 1}"
                 : objective.AtBase ? "AT BASE" : $"TEAM {objective.Team}";
             lines.Add($"{objective.Kind}  {status}");
-            if (Mode == BroadcastHudMode.Full)
-                lines.Add($"FOV {fieldOfView:0}  CAMERA {speedScale:0.##}x");
         }
         else lines.Add("NO ACTIVE TARGET");
         if (Mode == BroadcastHudMode.Full)
         {
             if (!context.CombatFeedback.IsEmpty)
-                lines.Add(context.CombatFeedback[^1].Text);
+            {
+                killFeed = new(context.CombatFeedback[^1].Text);
+                lines.Add(killFeed.Value.Text);
+            }
             if (!context.Awards.IsEmpty)
             {
                 MatchAward award = context.Awards[^1];
                 string subject = context.TryGetPlayer(award.Subject,
                     out ObservationPlayer awardedPlayer)
                     ? awardedPlayer.Name : "UNKNOWN";
-                lines.Add($"{AwardLabel(award.Kind)} · {subject}");
+                awardBanner = new($"{AwardLabel(award.Kind)} · {subject}");
+                lines.Add(awardBanner.Value.Text);
             }
         }
-        return new(Mode, lines.ToImmutable());
+        return new(Mode, scoreboard, playerCard, objectiveCard, killFeed,
+            awardBanner, lines.ToImmutable());
     }
 
     private static string AwardLabel(MatchAwardKind kind) => kind switch

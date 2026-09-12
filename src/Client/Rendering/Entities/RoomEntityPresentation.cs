@@ -507,6 +507,25 @@ namespace MphRead.Entities
                 return;
             }
 
+            PlayerEntity localPlayer = _scene.LocalPlayer!;
+            if (localPlayer.Hunter == Hunter.Spire && localPlayer.IsAltForm)
+            {
+                // Spire can rotate onto walls while its third-person camera
+                // crosses a portal independently of the ball. Never replace
+                // the walked gameplay node ref with an absolute lookup here:
+                // portal half-spaces are ambiguous in multipart maps. Use the
+                // lookup only to fail open on rendering when it cannot
+                // corroborate the camera's tracked room part.
+                NodeRef resolvedCameraRef = _entity.GetNodeRefByPosition(Presentation.CameraPosition);
+                if (ShouldBypassSpirePortalCulling(localPlayer.Hunter,
+                    localPlayer.IsAltForm,
+                    localPlayer.Flags2.TestFlag(PlayerFlags2.SpireClimbing),
+                    curNodeRef.PartIndex, resolvedCameraRef.PartIndex))
+                {
+                    return;
+                }
+            }
+
             Debug.Assert(curNodeRef.NodeIndex != -1);
             RoomPartVisInfo curVisInfo = GetPartVisInfo(curNodeRef);
             curVisInfo.ViewMinX = 0;
@@ -530,6 +549,11 @@ namespace MphRead.Entities
             FindVisibleRoomParts(curRoomFrustum, curNodeRef);
             FindAudibleRoomParts(curNodeRef, curNodeRef);
         }
+
+        internal static bool ShouldBypassSpirePortalCulling(Hunter hunter,
+            bool isAltForm, bool isClimbing, int trackedPart, int resolvedPart)
+            => hunter == Hunter.Spire && isAltForm
+                && (isClimbing || resolvedPart == -1 || resolvedPart != trackedPart);
 
         private static readonly Vector3[] _startPointList = new Vector3[14];
         private static readonly Vector3[] _destPointList = new Vector3[14];

@@ -67,6 +67,29 @@ public class NodePoseInterpolationTests
         // weapon pose contributes to this value.
         Assert.Equal(9f, poses[0].M41);
     }
+
+    [Fact]
+    public void PickupSpinAndBobRootBlendBetweenSimulationSteps()
+    {
+        var (model, info) = Fixture();
+        info.Node.Group = null;
+        var history = new ModelPoseHistory(model);
+        Matrix4 first = Matrix4.CreateRotationY(0)
+            * Matrix4.CreateTranslation(0, 1, 0);
+        Matrix4 second = Matrix4.CreateRotationY(MathHelper.DegreesToRadians(30))
+            * Matrix4.CreateTranslation(0, 1.2f, 0);
+
+        history.Capture(info, first, 1, 0);
+        history.Capture(info, second, 2, 0);
+        history.Resolve(.5f, out Matrix4[] poses, out _);
+
+        Assert.Equal(1.1f, poses[0].Row3.Y, 5);
+        Vector3 facing = Vector3.TransformVector(Vector3.UnitZ, poses[0]);
+        Vector3 expected = Vector3.TransformVector(Vector3.UnitZ,
+            Matrix4.CreateRotationY(MathHelper.DegreesToRadians(15)));
+        Assert.True((facing.Normalized() - expected.Normalized()).Length < .00001f);
+    }
+
     private static (Model, AnimationInfo) Fixture()
     {
         Model model = (Model)RuntimeHelpers.GetUninitializedObject(typeof(Model));

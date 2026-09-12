@@ -29,14 +29,6 @@ namespace MphRead.Entities
                 return;
             }
 
-            if (_player.Hunter == Hunter.Spire && _player.Flags2.TestFlag(PlayerFlags2.AltAttack))
-            {
-                // DrawSpireAltAttack applies world translation to these nodes. Reevaluate for
-                // every rendered pose without changing the simulation's collision centers.
-                Matrix4 transform = PlayerEntity.GetTransformMatrix(_player._spireAltFacing, _player._spireAltUp);
-                _player._altModel.Model.AnimateNodes(index: 0, useNodeTransform: false, transform, Vector3.One, _player._altModel.AnimInfo);
-            }
-
             int lod = 0;
             _player.Flags2 &= ~PlayerFlags2.Lod1;
             if (!_player.IsMainPlayer && !Features.MaxPlayerDetail && (_player.Position - _player._scene.LocalPlayer!.CameraInfo.Position).LengthSquared >= 3 * 3)
@@ -66,12 +58,30 @@ namespace MphRead.Entities
                         _player.PaletteOverride = Metadata.RedPalette;
                     }
 
-                    if (_player.Hunter == Hunter.Kanden)
+                    bool interpolatedAlt = Presentation.ResolvePlayerAltSubmission(
+                        _player, _player._altModel, out Matrix4[] altNodes,
+                        out float[] altStack);
+                    if (interpolatedAlt)
+                    {
+                        UpdateMaterials(_player._altModel, _player.Recolor);
+                        GetDrawItems(_player._altModel,
+                            _player._altModel.Model.Nodes[0], _player._curAlpha,
+                            nodePoses: altNodes, nodeStack: altStack);
+                    }
+                    else if (_player.Hunter == Hunter.Kanden)
                     {
                         DrawKandenAlt();
                     }
                     else if (_player.Hunter == Hunter.Spire && _player.Flags2.TestFlag(PlayerFlags2.AltAttack))
                     {
+                        // DrawSpireAltAttack applies world translation to these
+                        // nodes. Reevaluate the authored pose without changing
+                        // simulation collision centers.
+                        Matrix4 transform = PlayerEntity.GetTransformMatrix(
+                            _player._spireAltFacing, _player._spireAltUp);
+                        _player._altModel.Model.AnimateNodes(index: 0,
+                            useNodeTransform: false, transform, Vector3.One,
+                            _player._altModel.AnimInfo);
                         DrawSpireAltAttack();
                     }
                     else
@@ -87,7 +97,8 @@ namespace MphRead.Entities
                         Matrix4 transform = Matrix4.CreateScale(radius) * _player._modelTransform;
                         transform.Row3.Y += Fixed.ToFloat(_player.Values.AltColYPos);
                         UpdateTransforms(_player._altIceModel, transform, recolor: 0);
-                        GetDrawItems(_player._altIceModel, _player._altIceModel.Model.Nodes[0], alpha: 1, recolor: 0);
+                        GetDrawItems(_player._altIceModel, _player._altIceModel.Model.Nodes[0],
+                            alpha: 1, recolor: 0, castsDirectionalShadow: false);
                     }
 
                     if (_player.Hunter == Hunter.Samus && !_player.Flags2.TestFlag(PlayerFlags2.Cloaking))
@@ -183,7 +194,9 @@ namespace MphRead.Entities
 
                             _player._bipedIceModel.Model.UpdateMatrixStack();
                             UpdateMaterials(_player._bipedIceModel, recolor: 0);
-                            GetDrawItems(_player._bipedIceModel, _player._bipedIceModel.Model.Nodes[0], alpha: 1, recolor: 0);
+                            GetDrawItems(_player._bipedIceModel,
+                                _player._bipedIceModel.Model.Nodes[0], alpha: 1,
+                                recolor: 0, castsDirectionalShadow: false);
                         }
                     }
 
@@ -261,7 +274,8 @@ namespace MphRead.Entities
         }
 
         public void GetDrawItems(ModelInstance inst, Node node, float alpha, int polygonId = -1,
-            int recolor = -1, Matrix4[]? nodePoses = null, float[]? nodeStack = null)
+            int recolor = -1, Matrix4[]? nodePoses = null, float[]? nodeStack = null,
+            bool castsDirectionalShadow = true)
         {
             if (alpha <= 0)
             {
@@ -283,11 +297,13 @@ namespace MphRead.Entities
             {
                 return;
             }
-            GetDrawItems(inst, nodeIndex, alpha, polygonId, recolor, nodePoses, nodeStack);
+            GetDrawItems(inst, nodeIndex, alpha, polygonId, recolor, nodePoses,
+                nodeStack, castsDirectionalShadow);
         }
 
         private void GetDrawItems(ModelInstance inst, int nodeIndex, float alpha,
-            int polygonId, int recolor, Matrix4[]? nodePoses, float[]? nodeStack)
+            int polygonId, int recolor, Matrix4[]? nodePoses, float[]? nodeStack,
+            bool castsDirectionalShadow)
         {
             Model model = inst.Model;
             Node node = model.Nodes[nodeIndex];
@@ -313,18 +329,21 @@ namespace MphRead.Entities
                     Matrix4 nodeAnimation = nodePoses == null ? node.Animation : nodePoses[nodeIndex];
                     IReadOnlyList<float> stack = nodeStack == null ? model.MatrixStackValues : nodeStack;
                     Presentation.AddRenderItem(material, polygonId, alpha, emission, GetLightInfo(), texcoordMatrix, nodeAnimation, Presentation.GetMeshListId(mesh), mesh.GeometryIdentity, model.NodeMatrixIds.Count, stack, color, _player.PaletteOverride, selectionType, node.BillboardMode, _player._drawScale, bindingOverride, textureIdentity,
-                        textureAssetKey: ScenePresentation.GetModelTextureAssetKey(model, material, resolvedRecolor));
+                        textureAssetKey: ScenePresentation.GetModelTextureAssetKey(model, material, resolvedRecolor),
+                        castsDirectionalShadow: castsDirectionalShadow);
                 }
 
                 if (node.ChildIndex != -1)
                 {
-                    GetDrawItems(inst, node.ChildIndex, alpha, polygonId, recolor, nodePoses, nodeStack);
+                    GetDrawItems(inst, node.ChildIndex, alpha, polygonId, recolor,
+                        nodePoses, nodeStack, castsDirectionalShadow);
                 }
             }
 
             if (node.NextIndex != -1)
             {
-                GetDrawItems(inst, node.NextIndex, alpha, polygonId, recolor, nodePoses, nodeStack);
+                GetDrawItems(inst, node.NextIndex, alpha, polygonId, recolor,
+                    nodePoses, nodeStack, castsDirectionalShadow);
             }
         }
 

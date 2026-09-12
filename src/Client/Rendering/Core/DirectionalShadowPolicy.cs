@@ -79,6 +79,16 @@ namespace MphRead
         public static ShadowQualitySettings Default => Resolve(DefaultQuality);
     }
 
+    /// <summary>Determines whether an opaque world submission enters the shadow map.</summary>
+    public static class DirectionalShadowCasterPolicy
+    {
+        public static bool ShouldRender(DrawSubmission submission)
+        {
+            ArgumentNullException.ThrowIfNull(submission);
+            return submission.CastsDirectionalShadow && submission.Material.Alpha == 1;
+        }
+    }
+
     /// <summary>
     /// One selected room light suitable for the initial single directional
     /// shadow. SourceIndex is stable and allows authored room data to override

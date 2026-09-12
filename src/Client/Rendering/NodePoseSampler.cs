@@ -7,7 +7,9 @@ namespace MphRead.Mods.Render
     /// No Node.Transform, Node.Animation or skinning cache is written.</summary>
     internal static class NodePoseSampler
     {
-        public static void Sample(Model model, AnimationInfo info, Matrix4 parent, Matrix4[] transforms, Matrix4[] poses)
+        public static void Sample(Model model, AnimationInfo info, Matrix4 parent,
+            Matrix4[] transforms, Matrix4[] poses,
+            bool useNodeTransform = true)
         {
             if (poses.Length != model.Nodes.Count || transforms.Length != poses.Length)
                 throw new ArgumentException("Node pose buffer size does not match model.");
@@ -31,7 +33,8 @@ namespace MphRead.Mods.Render
                 for (int i = index; i != -1; i = model.Nodes[i].NextIndex)
                 {
                     Node node = model.Nodes[i];
-                    Matrix4 value = transforms[i];
+                    Matrix4 value = useNodeTransform
+                        ? transforms[i] : Matrix4.Identity;
                     NodeAnimationGroup? group = info.Node.Group;
                     if (group != null && group.Animations.TryGetValue(node.Name, out NodeAnimation animation))
                     {

@@ -17,6 +17,9 @@ namespace MphRead
             public bool HasState;
             public readonly Dictionary<ModelInstance, ModelPoseHistory> Models = new();
             public PlayerBipedPoseHistory? Biped;
+            public ModelPoseHistory? Alt;
+            public Matrix4[] AltTransforms = Array.Empty<Matrix4>();
+            public Matrix4[] AltPose = Array.Empty<Matrix4>();
         }
         private readonly Dictionary<EntityBase, PoseTrack> _poses = new();
         private readonly List<EntityBase> _removedPoses = new();
@@ -104,7 +107,10 @@ namespace MphRead
             && !Mods.Network.ReplayPlayback.IsSeeking;
         private bool IsLocal(PlayerEntity player) => !World.Services.IsReplica || player.SlotIndex == World.Services.LocalSlot;
         private static bool Tracks(EntityBase entity) => entity is PlayerEntity or PlatformEntity or DoorEntity
-            or BombEntity or BeamProjectileEntity or ItemInstanceEntity;
+            or BombEntity or BeamProjectileEntity or ItemInstanceEntity or FhItemEntity;
+        internal static bool InterpolatesModelPose(EntityType type)
+            => type is EntityType.Door or EntityType.Platform
+                or EntityType.ItemInstance or EntityType.FhItemInstance;
         private void ResetPoseHistory()
         {
             _poseGeneration++;
@@ -153,7 +159,23 @@ namespace MphRead
                     track.Biped.Capture(biped._bipedModel1.AnimInfo, biped._bipedModel2.AnimInfo,
                         PlayerEntity.GetBipedPitch(biped._facingVector), _poseTick, _poseGeneration, discontinuity);
                 }
-                if (entity is DoorEntity or PlatformEntity)
+                if (entity is PlayerEntity alternate && alternate.IsAltForm
+                    && alternate._altModel != null)
+                {
+                    Model altModel = alternate._altModel.Model;
+                    if (track.Alt == null || !ReferenceEquals(track.Alt.Model, altModel))
+                    {
+                        track.Alt = new ModelPoseHistory(altModel);
+                        track.AltTransforms = new Matrix4[altModel.Nodes.Count];
+                        track.AltPose = new Matrix4[altModel.Nodes.Count];
+                    }
+                    int mode = SamplePlayerAltPose(alternate,
+                        track.AltTransforms, track.AltPose);
+                    track.Alt.CaptureResolved(alternate._altModel.AnimInfo,
+                        track.AltPose, _poseTick, _poseGeneration,
+                        discontinuity, mode);
+                }
+                if (InterpolatesModelPose(entity.Type))
                 {
                     for (int i = 0; i < entity._models.Count; i++)
                     {
@@ -202,7 +224,8 @@ namespace MphRead
         {
             nodes = Array.Empty<Matrix4>();
             stack = Array.Empty<float>();
-            if (!InterpolationEnabled || entity is not (DoorEntity or PlatformEntity) || !_poses.TryGetValue(entity, out PoseTrack? track)
+            if (!InterpolationEnabled || !InterpolatesModelPose(entity.Type)
+                || !_poses.TryGetValue(entity, out PoseTrack? track)
                 || !track.Models.TryGetValue(inst, out ModelPoseHistory? history)) return false;
             history.Resolve(FrameTiming.RenderAlpha, out nodes, out stack);
             // These copied matrices already include the interpolated world root.
@@ -228,6 +251,73 @@ namespace MphRead
             _submissionDelta = Matrix4.Identity;
             _submissionInterpolated = false;
             return true;
+        }
+
+        internal bool ResolvePlayerAltSubmission(PlayerEntity player,
+            ModelInstance inst, out Matrix4[] nodes, out float[] stack)
+        {
+            nodes = Array.Empty<Matrix4>();
+            stack = Array.Empty<float>();
+            if (!SkeletalInterpolationEnabled || !player.IsAltForm
+                || !_poses.TryGetValue(player, out PoseTrack? track)
+                || track.Alt is not { HasSamples: true } history
+                || !ReferenceEquals(history.Model, inst.Model))
+            {
+                return false;
+            }
+            SamplePlayerAltPose(player, track.AltTransforms, track.AltPose);
+            history.Resolve(FrameTiming.RenderAlpha, track.AltPose,
+                out nodes, out stack);
+            // The returned matrices already contain the resolved player root.
+            _submissionDelta = Matrix4.Identity;
+            _submissionInterpolated = false;
+            return true;
+        }
+
+        private static int SamplePlayerAltPose(PlayerEntity player,
+            Matrix4[] transforms, Matrix4[] poses)
+        {
+            Model model = player._altModel.Model;
+            if (transforms.Length != model.Nodes.Count
+                || poses.Length != model.Nodes.Count)
+            {
+                throw new ArgumentException("Alternate-form pose buffers do not match the model.");
+            }
+
+            if (player.Hunter == Hunter.Kanden)
+            {
+                for (int i = 0; i < poses.Length; i++)
+                {
+                    poses[i] = i < player._kandenSegMtx.Length
+                        ? player._kandenSegMtx[i]
+                        : model.Nodes[i].Animation;
+                }
+                return 1;
+            }
+
+            Matrix4 root = player._modelTransform;
+            root.Row3.Xyz = player.Position;
+            if (player.Hunter == Hunter.Spire
+                && player.Flags2.TestFlag(PlayerFlags2.AltAttack))
+            {
+                Matrix4 attackRoot = PlayerEntity.GetTransformMatrix(
+                    player._spireAltFacing, player._spireAltUp);
+                NodePoseSampler.Sample(model, player._altModel.AnimInfo,
+                    attackRoot, transforms, poses, useNodeTransform: false);
+                if (poses.Length > 0)
+                {
+                    poses[0] = root;
+                    for (int i = 1; i < poses.Length; i++)
+                    {
+                        poses[i].Row3.Xyz += player.Position;
+                    }
+                }
+                return 2;
+            }
+
+            NodePoseSampler.Sample(model, player._altModel.AnimInfo,
+                root, transforms, poses);
+            return 0;
         }
 
         private void EndEntitySubmission() { _submissionDelta = Matrix4.Identity; _submissionInterpolated = false; }

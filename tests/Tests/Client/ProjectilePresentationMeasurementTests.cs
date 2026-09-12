@@ -126,6 +126,22 @@ public sealed class ProjectilePresentationMeasurementTests
     }
 
     [Fact]
+    public void LocalShotSuppressesAuthoritativeVisualOnlyWhenPredictionMatched()
+    {
+        Assert.True(AuthoritativePlay.HasPredictedPresentation(
+            CombatEventKind.Shot, localSubject: true, matchedPredictedShot: true));
+        Assert.False(AuthoritativePlay.HasPredictedPresentation(
+            CombatEventKind.Shot, localSubject: true, matchedPredictedShot: false));
+        Assert.False(AuthoritativePlay.HasPredictedPresentation(
+            CombatEventKind.Shot, localSubject: false, matchedPredictedShot: true));
+
+        // Local bomb placement is predicted through its existing path and is
+        // not part of the projectile prediction ledger.
+        Assert.True(AuthoritativePlay.HasPredictedPresentation(
+            CombatEventKind.Bomb, localSubject: true, matchedPredictedShot: false));
+    }
+
+    [Fact]
     public void CountsUniqueAuthoritativeJudicatorWeaponFactsAndClearsWithContext()
     {
         var measurement = NewMeasurement();

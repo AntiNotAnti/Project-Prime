@@ -23,6 +23,12 @@ namespace MphRead
         public bool Wireframe { get; set; }
         public bool Lighting { get; set; }
         public bool NoLines { get; set; }
+        /// <summary>
+        /// Whether this world draw contributes to the enhanced directional
+        /// shadow map. Presentation-only shells can opt out without changing
+        /// their normal scene pass.
+        /// </summary>
+        public bool CastsDirectionalShadow { get; set; }
         public Vector3 Diffuse { get; set; }
         public Vector3 Ambient { get; set; }
         public Vector3 Specular { get; set; }
@@ -96,6 +102,7 @@ namespace MphRead
             Wireframe = false;
             Lighting = false;
             NoLines = false;
+            CastsDirectionalShadow = true;
             Diffuse = Vector3.Zero;
             Ambient = Vector3.Zero;
             Specular = Vector3.Zero;

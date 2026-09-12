@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime;
 using System.Text;
@@ -1220,8 +1221,6 @@ namespace MphRead
 
         public void OnSimulationFrame()
         {
-            if (_replaySession != null) _replaySession.AdvanceHighlightRange();
-            else Mods.Network.ReplayPlayback.AdvanceHighlightRange();
             if (!_isolatedPresentation)
             {
                 SpectatorCamera.Poll(this, _keyboardState);
@@ -3334,6 +3333,16 @@ namespace MphRead
                 }
             }
             ApplyRenderCamera();
+            if (_cameraMode == CameraMode.Player
+                && !Mods.SpectatorMode.IsSpectating
+                && World.CameraSequences.Current == null)
+            {
+                PlayerEntity player = World.LocalPlayer!;
+                float authoredNormal = Fixed.ToFloat(player.Values.NormalFov) * 2;
+                float current = MathHelper.RadiansToDegrees(_cameraFov);
+                _cameraFov = MathHelper.DegreesToRadians(
+                    Mods.RenderOptions.ResolvePlayerFieldOfView(current, authoredNormal));
+            }
             if (SpectatorCamera.TryView(World, out Matrix4 spectatorView)) _viewMatrix = spectatorView;
             _viewInvRotMatrix = Matrix4.Transpose(_viewMatrix.ClearTranslation());
             if (_viewInvRotMatrix.Row0.X != 0 || _viewInvRotMatrix.Row0.Z != 0)
@@ -4231,7 +4240,8 @@ namespace MphRead
             Matrix4 transform, int listId, object geometryIdentity, int matrixStackCount, IReadOnlyList<float> matrixStack, Vector4? overrideColor, Vector4? paletteOverride,
             SelectionType selectionType, BillboardMode billboardMode, float scaleFactor = 1, int? bindingOverride = null,
             TextureIdentity? textureIdentity = null, TextureAssetKey? textureAssetKey = null,
-            EnhancedForceFieldDrawState? enhancedForceField = null)
+            EnhancedForceFieldDrawState? enhancedForceField = null,
+            bool castsDirectionalShadow = true)
         {
             transform.Row0.X *= scaleFactor;
             transform.Row0.Y *= scaleFactor;
@@ -4269,6 +4279,7 @@ namespace MphRead
             item.Wireframe = material.Wireframe != 0;
             item.Lighting = material.Lighting != 0;
             item.NoLines = false;
+            item.CastsDirectionalShadow = castsDirectionalShadow;
             item.Diffuse = material.CurrentDiffuse;
             item.Ambient = material.CurrentAmbient;
             item.Specular = material.CurrentSpecular;
@@ -6125,12 +6136,14 @@ namespace MphRead
         private readonly ConcurrentQueue<EntityBase> _unloadQueue = new ConcurrentQueue<EntityBase>();
 
         private readonly CancellationTokenSource _outputCts = new CancellationTokenSource();
+        private Task? _outputTask;
         private string _currentOutput = "";
         private readonly StringBuilder _sb = new StringBuilder();
 
         private void OutputStart()
         {
-            Task.Run(async () => await OutputUpdate(_outputCts.Token), _outputCts.Token);
+            _outputTask ??= Task.Run(() => OutputUpdate(_outputCts.Token),
+                _outputCts.Token);
         }
 
         private void OutputStop()
@@ -6141,39 +6154,45 @@ namespace MphRead
         private async Task OutputUpdate(CancellationToken token)
         {
             if (OperatingSystem.IsAndroid()) return;
-            while (!token.IsCancellationRequested)
+            try
             {
-                if (_promptState == PromptState.Load)
+                while (!token.IsCancellationRequested)
                 {
-                    OutputLoadPrompt();
-                    _promptState = PromptState.None;
-                    _currentOutput = "";
-                }
-                else if (_promptState == PromptState.CameraPos)
-                {
-                    OutputCameraPrompt();
-                    _promptState = PromptState.None;
-                    _currentOutput = "";
-                }
-                string output = OutputGetAll();
-                if (output != _currentOutput)
-                {
-                    Console.Clear(); // todo: this causes flickering
-                    Console.WriteLine(output);
-                    _currentOutput = output;
-                }
-                try
-                {
+                    if (_promptState == PromptState.Load)
+                    {
+                        OutputLoadPrompt();
+                        _promptState = PromptState.None;
+                        _currentOutput = "";
+                    }
+                    else if (_promptState == PromptState.CameraPos)
+                    {
+                        OutputCameraPrompt();
+                        _promptState = PromptState.None;
+                        _currentOutput = "";
+                    }
+                    string output = OutputGetAll();
+                    if (output != _currentOutput)
+                    {
+                        TryClearConsole();
+                        Console.WriteLine(output);
+                        _currentOutput = output;
+                    }
                     await Task.Delay(100, token);
                 }
-                catch (TaskCanceledException) { }
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                // The interactive diagnostic console is optional. A GUI build
+                // without a console must never fault an unobserved task.
+                Console.Error.WriteLine($"[render] diagnostic output stopped: {ex.Message}");
             }
         }
 
         private void OutputLoadPrompt()
         {
             if (OperatingSystem.IsAndroid()) return;
-            Console.Clear();
+            TryClearConsole();
             Console.Write("Enter model name: ");
             string[] input = (Console.ReadLine() ?? "").Trim().Split(' ');
             string name = input[0].Trim();
@@ -6199,7 +6218,7 @@ namespace MphRead
         private void OutputCameraPrompt()
         {
             if (OperatingSystem.IsAndroid()) return;
-            Console.Clear();
+            TryClearConsole();
             Console.Write("Enter camera position: ");
             string[] input = (Console.ReadLine() ?? "").Trim().Replace(",", "").Split(' ');
             float x = 0;
@@ -6294,6 +6313,17 @@ namespace MphRead
                 _sb.AppendLine($"Bot - {player.Hunter}");
                 player.AiData.GetOuptut(_sb);
             }
+        }
+
+        private static void TryClearConsole()
+        {
+            if (Console.IsOutputRedirected) return;
+            try
+            {
+                Console.Clear();
+            }
+            catch (IOException) { }
+            catch (PlatformNotSupportedException) { }
         }
 
         private void OutputGetCollisionMenu()

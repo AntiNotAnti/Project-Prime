@@ -249,9 +249,10 @@ public sealed class ReplayObservationTests
         var hud = new BroadcastHud();
         hud.SetMode(BroadcastHudMode.Off);
         BroadcastHudModel model = hud.Compose(Context(60, [Player(0)]),
-            BroadcastFocus.Player(0), SpectatorCameraMode.Chase, 78, 1);
+            BroadcastFocus.Player(0));
         Assert.False(model.Visible);
         Assert.Empty(model.Lines);
+        Assert.Null(model.Scoreboard);
     }
 
     [Fact]
@@ -269,17 +270,24 @@ public sealed class ReplayObservationTests
             matchTimeSeconds: 300);
         var hud = new BroadcastHud();
 
-        BroadcastHudModel full = hud.Compose(context, BroadcastFocus.Player(0),
-            SpectatorCameraMode.FirstPerson, 78, 1);
+        BroadcastHudModel full = hud.Compose(context, BroadcastFocus.Player(0));
         Assert.Contains("P0 eliminated P1", full.Lines);
         Assert.Contains("FIRST HUNT · P0", full.Lines);
-        Assert.Contains(full.Lines, line => line.Contains("FirstPerson"));
+        Assert.NotNull(full.Scoreboard);
+        Assert.NotNull(full.PlayerCard);
+        Assert.NotNull(full.KillFeed);
+        Assert.NotNull(full.AwardBanner);
+        Assert.DoesNotContain(full.Lines, line => line.Contains("FirstPerson")
+            || line.Contains("FOV") || line.Contains("CAMERA"));
 
         hud.SetMode(BroadcastHudMode.Minimal);
-        BroadcastHudModel minimal = hud.Compose(context, BroadcastFocus.Player(0),
-            SpectatorCameraMode.FirstPerson, 78, 1);
+        BroadcastHudModel minimal = hud.Compose(context, BroadcastFocus.Player(0));
         Assert.DoesNotContain("P0 eliminated P1", minimal.Lines);
         Assert.DoesNotContain("FIRST HUNT · P0", minimal.Lines);
+        Assert.NotNull(minimal.Scoreboard);
+        Assert.NotNull(minimal.PlayerCard);
+        Assert.Null(minimal.KillFeed);
+        Assert.Null(minimal.AwardBanner);
     }
 
     private static ObservationContext Context(uint tick,

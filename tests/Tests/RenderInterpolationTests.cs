@@ -63,6 +63,14 @@ public class RenderInterpolationTests
         Assert.Equal(100, history.Resolve(0));
     }
 
+    [Theory]
+    [InlineData(EntityType.ItemInstance)]
+    [InlineData(EntityType.FhItemInstance)]
+    public void PickupModelsUseFullPoseInterpolation(EntityType type)
+    {
+        Assert.True(ScenePresentation.InterpolatesModelPose(type));
+    }
+
     [Fact]
     public void SubmissionChangesOnlyCopiedStackEvenWhenDrawingFails()
     {

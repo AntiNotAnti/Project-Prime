@@ -318,8 +318,14 @@ namespace MphRead
             ObjectDisposedException.ThrowIf(_disposed, this);
             _activationDeferred = false;
             SetWindowFocusable(true);
-            SDL3.SDL_RaiseWindow(_window);
-            _focused = true;
+            if (!SDL3.SDL_RaiseWindow(_window))
+            {
+                Mods.DebugLog.Line("sdl", $"window activation request failed: {SDL3.SDL_GetError()}");
+            }
+            // Raising is an asynchronous request on several desktop window
+            // managers. Do not claim focus early: relative mouse capture can
+            // otherwise be re-enabled while another application is active.
+            SynchronizeNativeFocus();
             PublishPresentationState();
         }
 
@@ -394,9 +400,17 @@ namespace MphRead
         public void SyncTopmost(bool menuOpen)
         {
             // SDL owns this window and its always-on-top attribute. WindowMode
-            // only mirrors the active mode for launcher/pause-menu state.
-            SDL3.SDL_SetWindowAlwaysOnTop(_window, _fullscreen && !menuOpen);
+            // only mirrors the active mode for launcher/pause-menu state. An
+            // unfocused fullscreen window must leave the topmost band so the
+            // operating system can complete an Alt-Tab handoff; the normal
+            // focus-gain pump promotes it again before input is captured.
+            SDL3.SDL_SetWindowAlwaysOnTop(_window,
+                ShouldKeepWindowTopmost(_fullscreen, menuOpen, _focused));
         }
+
+        internal static bool ShouldKeepWindowTopmost(bool fullscreen,
+            bool menuOpen, bool focused)
+            => fullscreen && !menuOpen && focused;
 
         public void ToggleFullscreen()
         {
@@ -772,10 +786,30 @@ namespace MphRead
                         break;
                 }
             }
+            // A platform can coalesce or reorder focus events around task
+            // switching. The native flag is the final source of truth and
+            // lets a normal click reactivate input even if no gain event was
+            // observed by this pump.
+            SynchronizeNativeFocus();
             GamepadDesktop.Publish(_gamepadState);
             GamepadHaptics.Pump();
             PublishPresentationState();
         }
+
+        private void SynchronizeNativeFocus()
+        {
+            bool focused = ResolveNativeFocus(
+                (SDL3.SDL_GetWindowFlags(_window)
+                    & SDL_WindowFlags.SDL_WINDOW_INPUT_FOCUS) != 0,
+                _activationDeferred);
+            if (focused == _focused) return;
+            _focused = focused;
+            if (!focused) ClearInputAfterFocusLoss();
+        }
+
+        internal static bool ResolveNativeFocus(bool nativeInputFocus,
+            bool activationDeferred)
+            => nativeInputFocus && !activationDeferred;
 
         private WindowInputSnapshot BuildSnapshot()
             => new(_keys, _mouseButtons, _mousePosition,
@@ -829,6 +863,13 @@ namespace MphRead
                 if (key.Key == Keys.F11 || (key.Key == Keys.Enter && key.Alt))
                 {
                     ToggleFullscreen();
+                    continue;
+                }
+                // The shared quick-capture command runs at the frame-client
+                // boundary below. Do not also leak its key chord into normal
+                // gameplay bindings on this input frame.
+                if (Mods.Network.ReplayQuickCapture.IsHotkey(key))
+                {
                     continue;
                 }
                 if (key.Key == Keys.Space
@@ -1183,7 +1224,7 @@ namespace MphRead
             PointerSample sample = PenSample(id, state, evt.timestamp);
             if (state.Contact)
             {
-                if (_stylus.PointerDown(sample)) _capturedPenId = id;
+                EnsureStylusContact(id, state.Contact, sample);
             }
             else if (_capturedPenId == id)
             {
@@ -1210,12 +1251,8 @@ namespace MphRead
                 _stylus.PointerProximityMove(sample);
                 return;
             }
-            if (_capturedPenId != id || !_stylus.Active)
-            {
-                if (!_stylus.Active) _capturedPenId = null;
-                return;
-            }
             ConfigureStylus();
+            if (!EnsureStylusContact(id, state.Contact, sample)) return;
             _stylus.PointerMove(sample);
         }
 
@@ -1231,7 +1268,10 @@ namespace MphRead
             state.Tool = PenTool(evt.pen_state);
             state.Buttons = PenButtons(evt.pen_state);
             _pens[id] = state;
-            _stylus.UpdateButtonState(PenSample(id, state, evt.timestamp));
+            ConfigureStylus();
+            PointerSample sample = PenSample(id, state, evt.timestamp);
+            if (!state.Contact || EnsureStylusContact(id, state.Contact, sample))
+                _stylus.UpdateButtonState(sample);
         }
 
         private void HandlePenAxis(SDL_PenAxisEvent evt)
@@ -1248,7 +1288,30 @@ namespace MphRead
             if (evt.axis == SDL_PenAxis.SDL_PEN_AXIS_PRESSURE)
                 state.Pressure = Math.Clamp(evt.value, 0, 1);
             _pens[id] = state;
-            _stylus.UpdateButtonState(PenSample(id, state, evt.timestamp));
+            ConfigureStylus();
+            PointerSample sample = PenSample(id, state, evt.timestamp);
+            if (!state.Contact || EnsureStylusContact(id, state.Contact, sample))
+                _stylus.UpdateButtonState(sample);
+        }
+
+        private bool EnsureStylusContact(uint id, bool contact,
+            in PointerSample sample)
+        {
+            if (_capturedPenId == id && _stylus.Active) return true;
+            if (!ShouldBeginStylusContact(contact, _stylus.Active))
+                return false;
+
+            // A focus transition can cause the initial PEN_DOWN to be
+            // filtered before SDL reports native focus, and some drivers
+            // begin a contact stream with motion/axis/button events. Recover
+            // from the first contact-bearing sample instead of rejecting the
+            // rest of that stroke. An inactive adapter cannot own a real
+            // capture, so any remembered id at this point is stale.
+            _capturedPenId = null;
+            ConfigureStylus();
+            if (!_stylus.PointerDown(sample)) return false;
+            _capturedPenId = id;
+            return true;
         }
 
         private void ConfigureStylus()
@@ -1267,6 +1330,10 @@ namespace MphRead
 
         internal static bool IsStylusFlickContext(bool hasLocalPlayer, bool isAltForm)
             => hasLocalPlayer && isAltForm;
+
+        internal static bool ShouldBeginStylusContact(bool contact,
+            bool stylusActive)
+            => contact && !stylusActive;
 
         internal static bool IsSyntheticPenMouseId(uint id)
             => id == (uint)SDL3.SDL_PEN_MOUSEID;
@@ -1649,9 +1716,8 @@ namespace MphRead
         private readonly SdlGameHost _host;
         private readonly ScenePresentation _presentation;
         private readonly KillcamController? _killcam;
+        private readonly ReplayPresentationController? _replayPresentation;
         private readonly SceneFirstFrameNotification? _firstFrame;
-        private uint _highlightFocusFrame = uint.MaxValue;
-        private bool _highlightEndObserved;
 
         public SdlSceneFrameClient(SdlGameHost host, ScenePresentation presentation,
             ulong transitionGeneration = 0, Action<ulong>? firstFramePresented = null)
@@ -1671,6 +1737,8 @@ namespace MphRead
                     host.FramebufferSize.X > 0 && host.FramebufferSize.Y > 0
                         ? host.FramebufferSize : host.LogicalSize,
                     host.Keyboard, host.Mouse);
+            else if (Mods.Network.ReplayPlayback.IsActive)
+                _replayPresentation = new ReplayPresentationController(presentation);
         }
 
         private ScenePresentation ActivePresentation
@@ -1681,7 +1749,11 @@ namespace MphRead
         public void OnResize(Vector2i size) => _killcam?.Resize(size);
 
         public void OnInput(WindowInputSnapshot input)
-            => _killcam?.SubmitInput(input);
+        {
+            _killcam?.SubmitInput(input);
+            if (_killcam == null || _killcam.State == KillcamState.Idle)
+                Mods.Network.ReplayQuickCapture.HandleInput(input, _presentation);
+        }
 
         public void AdvanceSimulation(int steps)
         {
@@ -1689,21 +1761,9 @@ namespace MphRead
             {
                 _presentation.OnSimulationFrame();
                 _killcam?.Advance();
-                if (_killcam == null && Mods.Network.ReplayPlayback.CurrentHighlight
-                    is ReplayHighlight highlight
-                    && highlight.FocusFrame != _highlightFocusFrame
-                    && Mods.SpectatorMode.IsSpectating)
-                {
-                    _highlightFocusFrame = highlight.FocusFrame;
-                    _presentation.SpectatorCamera.FocusHighlight(_presentation, highlight);
-                }
-                if (_killcam == null && Mods.Network.ReplayPlayback.ShouldExitAtEnd)
-                {
-                    if (_highlightEndObserved) _host.StopScene();
-                    else _highlightEndObserved = true;
-                }
-                else _highlightEndObserved = false;
             }
+            _replayPresentation?.Advance();
+            if (_replayPresentation?.ShouldClose == true) _host.StopScene();
         }
 
         public void OnDrawFrame()
@@ -1728,7 +1788,11 @@ namespace MphRead
         public void AfterRenderFrame() => ActivePresentation.AfterRenderFrame();
         public void PumpPauseMenu() => Mods.PauseMenu.Poll(_host);
         public bool CanRenderFrame => !ActivePresentation.Exiting;
-        public void Dispose() => _killcam?.Dispose();
+        public void Dispose()
+        {
+            _replayPresentation?.Dispose();
+            _killcam?.Dispose();
+        }
     }
 
     /// <summary>

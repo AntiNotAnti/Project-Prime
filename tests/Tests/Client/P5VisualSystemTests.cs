@@ -92,7 +92,7 @@ public sealed class P5VisualSystemTests
     }
 
     [AvaloniaFact]
-    public void SliderValueGutterDoesNotActLikeTheMaximumEndOfTheTrack()
+    public void SliderUsesTouchSizedTrackLaneWithoutIncludingLabelOrValueGutter()
     {
         var slider = new SliderRow("Sensitivity", 50);
         slider.Measure(new Size(420, PrimeTouchTargets.MinimumDip));
@@ -100,6 +100,10 @@ public sealed class P5VisualSystemTests
 
         Rect track = slider.RenderedTrack;
         Assert.True(slider.CanStartDrag(track.Center));
+        Assert.True(slider.CanStartDrag(new Point(track.Center.X, 2)));
+        Assert.True(slider.CanStartDrag(new Point(track.Center.X,
+            PrimeTouchTargets.MinimumDip - 2)));
+        Assert.False(slider.CanStartDrag(new Point(2, track.Center.Y)));
         Assert.False(slider.CanStartDrag(new Point(419, track.Center.Y)));
     }
 

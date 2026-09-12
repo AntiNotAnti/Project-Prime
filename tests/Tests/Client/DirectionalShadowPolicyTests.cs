@@ -27,6 +27,23 @@ public sealed class DirectionalShadowPolicyTests
     }
 
     [Fact]
+    public void PresentationShellCanOptOutOfDirectionalShadowMap()
+    {
+        var frame = new RenderFrame(2, 2);
+        DrawSubmission character = frame.Acquire();
+        frame.Add(character);
+        DrawSubmission shell = frame.Acquire();
+        shell.CastsDirectionalShadow = false;
+        frame.Add(shell);
+
+        Assert.True(DirectionalShadowCasterPolicy.ShouldRender(character));
+        Assert.False(DirectionalShadowCasterPolicy.ShouldRender(shell));
+
+        frame.Reset();
+        Assert.True(frame.Acquire().CastsDirectionalShadow);
+    }
+
+    [Fact]
     public void PrimaryLightUsesColorIntensityStableTiesAndValidOverride()
     {
         Assert.True(PrimaryShadowLightPolicy.TrySelect(

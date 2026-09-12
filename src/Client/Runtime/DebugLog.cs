@@ -57,6 +57,8 @@ namespace MphRead.Mods
         private static TextWriter? _consoleWas;
         private static int _savedStderrFd = -1;
         private static IntPtr _savedWindowsStderr = IntPtr.Zero;
+        private static bool _windowsStderrAttached;
+        private static bool _windowsStderrWasValid;
 
         /// <summary>Whether lines are going anywhere.</summary>
         public static bool Active => _writer != null;
@@ -357,37 +359,38 @@ namespace MphRead.Mods
         {
             IntPtr process = GetCurrentProcess();
             IntPtr current = GetStdHandle(StandardErrorHandle);
-            if (current == IntPtr.Zero || current == new IntPtr(-1))
-                throw new IOException($"could not read STDERR handle ({Marshal.GetLastPInvokeError()})");
+            bool currentIsValid = current != IntPtr.Zero && current != new IntPtr(-1);
             int savedFd = _dup(2);
-            if (savedFd < 0)
-            {
-                throw new IOException("could not duplicate CRT stderr");
-            }
             if (!DuplicateHandle(process, _nativeStream!.SafeFileHandle.DangerousGetHandle(), process,
                 out IntPtr nativeCrtHandle, 0, false, DuplicateSameAccess))
             {
-                _close(savedFd);
+                if (savedFd >= 0) _close(savedFd);
                 throw new IOException($"could not duplicate native log handle ({Marshal.GetLastPInvokeError()})");
             }
             int nativeFd = _open_osfhandle(nativeCrtHandle, 0x0001 | 0x0008);
             if (nativeFd < 0)
             {
                 CloseHandle(nativeCrtHandle);
-                _close(savedFd);
+                if (savedFd >= 0) _close(savedFd);
                 throw new IOException("could not open native log CRT handle");
             }
             if (!SetStdHandle(StandardErrorHandle, _nativeStream.SafeFileHandle.DangerousGetHandle())
                 || _dup2(nativeFd, 2) != 0)
             {
                 _close(nativeFd);
-                _dup2(savedFd, 2);
-                _close(savedFd);
-                SetStdHandle(StandardErrorHandle, current);
+                if (savedFd >= 0)
+                {
+                    _dup2(savedFd, 2);
+                    _close(savedFd);
+                }
+                SetStdHandle(StandardErrorHandle,
+                    currentIsValid ? current : IntPtr.Zero);
                 throw new IOException($"could not redirect Windows stderr ({Marshal.GetLastPInvokeError()})");
             }
             _close(nativeFd);
             _savedWindowsStderr = current;
+            _windowsStderrWasValid = currentIsValid;
+            _windowsStderrAttached = true;
             _savedStderrFd = savedFd;
         }
 
@@ -410,10 +413,17 @@ namespace MphRead.Mods
                     }
                     _savedStderrFd = -1;
                 }
-                if (_savedWindowsStderr != IntPtr.Zero)
+                else if (OperatingSystem.IsWindows() && _windowsStderrAttached)
                 {
-                    SetStdHandle(StandardErrorHandle, _savedWindowsStderr);
+                    _close(2);
+                }
+                if (_windowsStderrAttached)
+                {
+                    SetStdHandle(StandardErrorHandle, _windowsStderrWasValid
+                        ? _savedWindowsStderr : IntPtr.Zero);
                     _savedWindowsStderr = IntPtr.Zero;
+                    _windowsStderrWasValid = false;
+                    _windowsStderrAttached = false;
                 }
             }
             catch
