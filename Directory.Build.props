@@ -4,6 +4,19 @@
     <Nullable>enable</Nullable>
     <LangVersion>14.0</LangVersion>
     <Deterministic>true</Deterministic>
+    <!-- Enable the SDK analyzers at the root, but keep style diagnostics
+         advisory while the existing codebase is migrated incrementally. A
+         project may opt into stricter warnings explicitly; this root file does
+         not turn the entire repository into a style-failure gate. -->
+    <EnableNETAnalyzers Condition="'$(EnableNETAnalyzers)' == ''">true</EnableNETAnalyzers>
+    <!-- Keep the initial root baseline conservative. Individual projects may
+         opt into a newer analysis level once their warnings are owned; this
+         avoids turning the repository-wide migration into a warning flood or
+         changing existing TreatWarningsAsErrors projects unexpectedly. -->
+    <AnalysisLevel Condition="'$(AnalysisLevel)' == ''">latest-minimum</AnalysisLevel>
+    <EnforceCodeStyleInBuild Condition="'$(EnforceCodeStyleInBuild)' == ''">false</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' == ''">false</GenerateDocumentationFile>
+    <PrimeSourceGuards Condition="'$(PrimeSourceGuards)' == ''">false</PrimeSourceGuards>
     <!-- Client protection is an explicit release-publish concern. Keeping the
          default here makes ordinary build/test/run completely unaware of it. -->
     <PrimeProtectClient Condition="'$(PrimeProtectClient)' == ''">false</PrimeProtectClient>
@@ -26,4 +39,12 @@
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
+
+  <!-- The source guard is opt-in for local builds and is enabled by the fast
+       CI tier. Keeping it outside CoreCompile avoids recursive process calls
+       and makes a guard failure explain its exact source boundary. -->
+  <Target Name="PrimeSourceGuardrails" BeforeTargets="CoreCompile"
+          Condition="'$(PrimeSourceGuards)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(PrimeSourceGuardProject)' != 'false'">
+    <Exec Command="python3 &quot;$(MSBuildThisFileDirectory)tools/check-build-guardrails.py&quot; --root &quot;$(MSBuildThisFileDirectory)&quot; --source-only" />
+  </Target>
 </Project>

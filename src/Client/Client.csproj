@@ -1,9 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!--
-    Source files are physically owned by Client after extraction. There is no
-    Compile Include pointing back to the old src/MphRead tree.
-  -->
+  <!-- Client owns the desktop application and presentation host. Renderer
+       implementation and shader assets are provided by ProjectPrime.Renderer. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType Condition="$(RuntimeIdentifier.StartsWith('win'))">WinExe</OutputType>
@@ -16,16 +14,18 @@
     <DebugType Condition="'$(PrimeProtectClient)' != 'true'">embedded</DebugType>
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     <PublishSingleFile>true</PublishSingleFile>
+    <PrimeMapOwnsMapArtifacts>true</PrimeMapOwnsMapArtifacts>
     <!-- PrimeShell is shared native Avalonia XAML; keep compilation enabled so
          desktop and Android consume the same generated resource tree. -->
-    <EnableAvaloniaXamlCompilation>true</EnableAvaloniaXamlCompilation>
+    <EnableAvaloniaXamlCompilation>false</EnableAvaloniaXamlCompilation>
+    <EnableDefaultAvaloniaItems>false</EnableDefaultAvaloniaItems>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <ApplicationIcon Condition="$(RuntimeIdentifier.StartsWith('win'))">Assets/project-prime.ico</ApplicationIcon>
   </PropertyGroup>
 
-  <Import Project="Client.SharedInput.props" />
-  <Import Project="Client.SharedRuntime.props" />
-
   <ItemGroup>
+    <ProjectReference Include="../Client.Core/Client.Core.csproj" />
+    <ProjectReference Include="../Client.Presentation/Client.Presentation.csproj" />
     <ProjectReference Include="../Game/Game.csproj" />
     <ProjectReference Include="../MapPlatform/MapPlatform.csproj" />
     <ProjectReference Include="../Renderer/Renderer.csproj" />
@@ -33,73 +33,38 @@
     <ProjectReference Include="../Shared.Replay/Shared.Replay.csproj" />
     <ProjectReference Include="../Audio.Ncsf/Audio.Ncsf.csproj" />
 
-    <PackageReference Include="Avalonia" Version="11.3.11" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.11" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.11" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
     <!-- Retain the patched transitive dependency across the UI rollback. -->
-    <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
+    <PackageReference Include="Tmds.DBus.Protocol" />
     <!-- OpenTK math remains the simulation/presentation compatibility ABI.
          GraphicsLibraryFramework currently supplies only the existing
          key/mouse value types and controller input bridge; SDL
          owns every desktop window and graphics context. OpenAL is audio-only. -->
-    <PackageReference Include="OpenTK.Mathematics" Version="4.9.4" />
-    <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.9.4" />
-    <PackageReference Include="OpenTK.Audio.OpenAL" Version="4.9.4" />
+    <PackageReference Include="OpenTK.Mathematics" />
+    <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" />
+    <PackageReference Include="OpenTK.Audio.OpenAL" />
     <!-- Client-side captures/thumbnails and image export still use STB. -->
-    <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
+    <PackageReference Include="ReFuel.StbImage" />
     <!-- Keep the compatible ppy binding but exclude its SDL development-snapshot
          native binaries. Stable SDL 3.4.16 runtimes avoid intermittent black
          first-process Metal renders while preserving this binding's API. -->
-    <PackageReference Include="ppy.SDL3-CS" Version="2026.722.0" ExcludeAssets="native" />
-    <PackageReference Include="SDL3-CS.Windows" Version="3.4.16" />
-    <PackageReference Include="SDL3-CS.Linux" Version="3.4.16" />
-    <PackageReference Include="SDL3-CS.MacOS" Version="3.4.16" />
+    <PackageReference Include="ppy.SDL3-CS" ExcludeAssets="native" />
+    <PackageReference Include="SDL3-CS.Windows" />
+    <PackageReference Include="SDL3-CS.Linux" />
+    <PackageReference Include="SDL3-CS.MacOS" />
     <!-- File-source package; explicit items below preserve loader names. -->
-    <PackageReference Include="Silk.NET.OpenAL.Soft.Native" Version="1.23.1"
+    <PackageReference Include="Silk.NET.OpenAL.Soft.Native"
                       GeneratePathProperty="true" ExcludeAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
-    <AvaloniaResource Include="Assets/project-prime-title-screen.png" />
-    <AvaloniaResource Include="Assets/project-prime-mark.png" />
+    <AvaloniaXaml Remove="**/*.axaml" />
     <None Update="paths.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Rendering/Shaders/Generated/**/*" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/Generated/%(RecursiveDir)%(Filename)%(Extension)" />
-    <None Include="Rendering/Shaders/scene_triangle.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/scene_triangle.hlsl" />
-    <None Include="Rendering/Shaders/scene.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/scene.hlsl" />
-    <None Include="Rendering/Shaders/shadow.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/shadow.hlsl" />
-    <None Include="Rendering/Shaders/fullscreen.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/fullscreen.hlsl" />
-    <None Include="Rendering/Shaders/hud.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/hud.hlsl" />
-    <None Include="Rendering/Shaders/disruption.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/disruption.hlsl" />
-    <None Include="Rendering/Shaders/cel.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/cel.hlsl" />
-    <None Include="Rendering/Shaders/bloom.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/bloom.hlsl" />
-    <None Include="Rendering/Shaders/tone_map.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/tone_map.hlsl" />
-    <None Include="Rendering/Shaders/color_grade.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/color_grade.hlsl" />
-    <None Include="Rendering/Shaders/surface.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/surface.hlsl" />
-    <None Include="Rendering/Shaders/ssao.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/ssao.hlsl" />
-    <None Include="Rendering/Shaders/distortion.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/distortion.hlsl" />
-    <None Include="Rendering/Shaders/distortion_warp.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/distortion_warp.hlsl" />
-    <None Include="Rendering/Shaders/visor.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/visor.hlsl" />
-    <None Include="Rendering/Shaders/sky.hlsl" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Link="Rendering/Shaders/sky.hlsl" />
   </ItemGroup>
 
   <!-- Silk's source names differ from OpenTK's loader names. Keep these
@@ -127,13 +92,10 @@
           CopyToPublishDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
-  <!-- Bundles ship; map work trees and .pk3 sources are output-only. -->
+  <!-- Map source trees and .pk3 files are output-only. The current cooked
+       artifact directory is copied by Directory.Build.targets so every
+       publish consumes the one explicitly-owned cook. -->
   <ItemGroup>
-    <None Include="../../maps/**/*.fpmap;../../maps/*.json;../../maps/*.bsp;../../maps/*.tex"
-          Link="maps/%(RecursiveDir)%(Filename)%(Extension)">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </None>
     <None Include="../../maps/**/*.json;../../maps/**/*.bsp;../../maps/**/*.tex;../../maps/**/*.pk3"
           Exclude="../../maps/*.json;../../maps/*.bsp;../../maps/*.tex"
           Link="maps/%(RecursiveDir)%(Filename)%(Extension)">
@@ -144,42 +106,20 @@
 
 
   <ItemGroup>
-    <Compile Remove="Rendering/Core/**/*.cs" />
-    <Compile Remove="Rendering/Backends/RenderBackendContracts.cs" />
-    <Compile Remove="Rendering/Backends/ISdlOffscreenToolBackend.cs" />
-    <Compile Remove="Rendering/Backends/SdlGpu/**/*.cs" />
-    <Compile Remove="Rendering/Enhanced/**/*.cs" />
-    <Compile Remove="Rendering/Geometry/**/*.cs" />
-    <Compile Remove="Rendering/Materials/**/*.cs" />
-    <Compile Remove="Rendering/Lighting/**/*.cs" />
-    <Compile Remove="Rendering/Environment/**/*.cs" />
-    <Compile Remove="Rendering/FrameTiming.cs" />
-    <Compile Remove="Runtime/RenderOptions.cs" />
-    <Compile Remove="Runtime/MenuSettings.cs" />
-    <Compile Include="../Shared/ContentImport/Extract.cs" Link="Shared/ContentImport/Extract.cs" />
-    <Compile Include="../Shared/Transport/UdpTransport.cs" Link="Shared/Transport/UdpTransport.cs" />
-    <Compile Include="../Shared/Hosting/BuildVersion.cs" Link="Shared/Hosting/BuildVersion.cs" />
     <Compile Include="../Shared/Hosting/ConsoleSetup.cs" Link="Shared/Hosting/ConsoleSetup.cs" />
-    <Compile Include="../Shared/Hosting/RuntimePlatform.cs" Link="Shared/Hosting/RuntimePlatform.cs" />
   </ItemGroup>
 
-  <!-- A direct client publish must not depend on a separately remembered
-       map-cook command. CI still runs the same command as an explicit
-       preflight; this target covers local and release-script publishes too. -->
-  <Target Name="CookCustomMapBundles" AfterTargets="Publish"
-          Condition="'$(DesignTimeBuild)' != 'true' and '$(SkipCustomMapBundleCook)' != 'true'">
-    <Exec WorkingDirectory="$(MSBuildProjectDirectory)/../.."
-          Command="dotnet run --project src/Tools/Tools.csproj -c $(Configuration) -- -mapdir maps -mapbundle all" />
-    <!-- The SDK evaluates wildcard items before the target runs. Copy the
-         freshly cooked files explicitly so a clean direct publish receives
-         the same bundles as a publish after a manual cook. -->
-    <ItemGroup>
-      <_CustomMapBundle Include="$(MSBuildProjectDirectory)/../../maps/**/*.fpmap" />
-    </ItemGroup>
-    <Copy SourceFiles="@(_CustomMapBundle)"
-          DestinationFiles="@(_CustomMapBundle->'$(PublishDir)maps/%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
-  </Target>
+  <!-- Desktop-only entry points, native hosts and platform adapters. The
+       cross-platform implementation is compiled once by Client.Presentation. -->
+  <ItemGroup>
+    <Compile Include="Input/DesktopStylusInput.cs;Input/GamepadDesktop.cs;Input/GamepadProbe.cs;
+      Accounts/ProtectedSessionStores.cs;
+      Launcher/Gui/DesktopGameOverlayCoordinator.cs;Launcher/Gui/DesktopGameOverlayWindow.cs;Launcher/Gui/DesktopInputOwner.cs;Launcher/Gui/DesktopTransitionCoordinator.cs;Launcher/Gui/GuiLauncher.cs;Launcher/Gui/HomeWindow.cs;Launcher/Gui/PauseMenuPresenter.cs;Launcher/Gui/PauseMenuWindow.cs;Launcher/Gui/PostMatchSession.cs;Launcher/Gui/PostMatchWindow.cs;Launcher/Gui/SettingsWindow.cs;Launcher/Gui/UiCapture.cs;
+      Launcher/Portable/MatchStart.cs;Launcher/Portable/TextLauncher.cs;Launcher/Shell/PostMatchCommandScope.cs;Launcher/Shell/PostMatchSelection.cs;Launcher/Shell/PostMatchView.cs;
+      Networking/AuthoritativeCheck.cs;Networking/AuthoritativePlay.Desktop.cs;Networking/MapAudit.cs;Networking/NetCheckClient.cs;Networking/NetProbe.cs;Networking/ReplayPlaybackCheck.cs;Networking/WeaponDps.cs;
+      Program.cs;Rendering/FrameTimingCheck.cs;Rendering/Platform/GameHostPresentationState.cs;Rendering/Platform/RenderToolHost.cs;Rendering/Platform/SceneHostLifetime.cs;Rendering/Platform/SdlCompatibilityInput.cs;Rendering/Platform/SdlGameHost.cs;
+      Runtime/AssemblyInfo.cs;Runtime/ConsoleWindow.cs;Runtime/DesktopPresentationServices.cs;Runtime/Menu.cs;Runtime/ModEntry.cs;Runtime/ModelPreviewCapture.cs;Runtime/PauseMenu.cs;Runtime/ThumbnailBatch.cs;Runtime/ThumbnailCapture.cs;Runtime/ThumbnailGenerator.Desktop.cs" />
+  </ItemGroup>
 
   <Import Project="../../build/protection/ClientProtection.targets"
           Condition="'$(PrimeProtectClient)' == 'true'" />

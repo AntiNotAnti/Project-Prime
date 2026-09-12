@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>MphRead</RootNamespace>
+    <AssemblyName>ProjectPrime.Client.Core</AssemblyName>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Game/Game.csproj" />
+    <ProjectReference Include="../MapPlatform/MapPlatform.csproj" />
+    <ProjectReference Include="../Shared.Replay/Shared.Replay.csproj" />
+    <ProjectReference Include="../Server.Shared/Server.Shared.csproj" />
+    <PackageReference Include="OpenTK.Mathematics" />
+  </ItemGroup>
+
+  <!-- Build identity is already shared source owned outside either client
+       host. All Client.Core-owned sources compile by SDK convention. -->
+  <ItemGroup>
+    <Compile Include="../Shared/Hosting/BuildVersion.cs" Link="Shared/Hosting/BuildVersion.cs" />
+  </ItemGroup>
+</Project>

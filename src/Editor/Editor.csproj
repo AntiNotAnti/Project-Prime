@@ -13,16 +13,18 @@
          debug information embedded without publishing a standalone PDB. -->
     <DebugType>embedded</DebugType>
     <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <PrimeMapOwnsMapArtifacts>true</PrimeMapOwnsMapArtifacts>
     <ApplicationIcon Condition="$(RuntimeIdentifier.StartsWith('win'))">../Client/Assets/project-prime.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Game/Game.csproj" />
+    <ProjectReference Include="../Imaging/Imaging.csproj" />
     <ProjectReference Include="../MapPlatform/MapPlatform.csproj" />
     <ProjectReference Include="../Renderer/Renderer.csproj" />
-    <PackageReference Include="OpenTK.Mathematics" Version="4.9.4" />
-    <PackageReference Include="ppy.SDL3-CS" Version="2026.722.0" ExcludeAssets="native" />
-    <PackageReference Include="SDL3-CS.Windows" Version="3.4.16" />
-    <PackageReference Include="SDL3-CS.Linux" Version="3.4.16" />
-    <PackageReference Include="SDL3-CS.MacOS" Version="3.4.16" />
+    <PackageReference Include="OpenTK.Mathematics" />
+    <PackageReference Include="ppy.SDL3-CS" ExcludeAssets="native" />
+    <PackageReference Include="SDL3-CS.Windows" />
+    <PackageReference Include="SDL3-CS.Linux" />
+    <PackageReference Include="SDL3-CS.MacOS" />
   </ItemGroup>
 </Project>

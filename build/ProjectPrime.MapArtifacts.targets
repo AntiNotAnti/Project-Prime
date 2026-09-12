@@ -1,0 +1,78 @@
+<Project>
+  <PropertyGroup>
+    <PrimeMapSourceRoot Condition="'$(PrimeMapSourceRoot)' == ''">$(MSBuildThisFileDirectory)..\maps</PrimeMapSourceRoot>
+    <PrimeMapArtifactRoot Condition="'$(PrimeMapArtifactRoot)' == ''">$(MSBuildThisFileDirectory)..\artifacts\maps\current</PrimeMapArtifactRoot>
+    <PrimeMapCookScript Condition="'$(PrimeMapCookScript)' == ''">$(MSBuildThisFileDirectory)..\tools\cook-maps.sh</PrimeMapCookScript>
+    <PrimeMapCompilerVersion Condition="'$(PrimeMapCompilerVersion)' == ''">$(Version)</PrimeMapCompilerVersion>
+    <PrimeMapCompilerSchemaVersion Condition="'$(PrimeMapCompilerSchemaVersion)' == ''">1</PrimeMapCompilerSchemaVersion>
+    <PrimeMapPackageVersion Condition="'$(PrimeMapPackageVersion)' == ''">$(Version)</PrimeMapPackageVersion>
+    <PrimeMapOwnsMapArtifacts Condition="'$(PrimeMapOwnsMapArtifacts)' == ''">false</PrimeMapOwnsMapArtifacts>
+    <PrimeMapCookCurrent Condition="'$(PrimeMapCookCurrent)' == '' and '$(PrimeMapOwnsMapArtifacts)' == 'true' and '$(SkipCustomMapBundleCook)' != 'true'">true</PrimeMapCookCurrent>
+    <PrimeMapCookCurrent Condition="'$(PrimeMapCookCurrent)' == ''">false</PrimeMapCookCurrent>
+    <PrimeMapCopyToPublish Condition="'$(PrimeMapCopyToPublish)' == ''">true</PrimeMapCopyToPublish>
+  </PropertyGroup>
+
+  <!-- Source/dependency declarations are intentionally explicit. They make
+       the evaluated target self-documenting and ensure a packer/schema/build
+       version edit invalidates a current artifact instead of reusing it. The
+       cook script repeats the content hash check, so timestamp granularity
+       cannot turn an unchanged artifact into a stale one. -->
+  <ItemGroup>
+    <PrimeMapCookInput Include="$(PrimeMapSourceRoot)\**\*"
+                       Exclude="$(PrimeMapSourceRoot)\**\*.fpmap;$(PrimeMapSourceRoot)\**\.DS_Store;$(PrimeMapSourceRoot)\**\__pycache__\**" />
+    <PrimeMapCookInput Include="$(MSBuildThisFileDirectory)..\Directory.Build.props" />
+    <PrimeMapCookInput Include="$(MSBuildThisFileDirectory)..\Directory.Build.targets" />
+    <PrimeMapCookInput Include="$(MSBuildThisFileDirectory)..\Directory.Packages.props" />
+    <PrimeMapCookInput Include="$(MSBuildThisFileDirectory)..\global.json" />
+    <PrimeMapCookInput Include="$(MSBuildThisFileDirectory)..\src\Game\Content\Maps\**\*.cs" />
+    <PrimeMapCookInput Include="$(MSBuildThisFileDirectory)..\src\MapPlatform\**\*.cs" />
+    <PrimeMapCookInput Include="$(MSBuildThisFileDirectory)..\src\Shared\ContentPreparation\**\*.cs" />
+    <PrimeMapCookInput Include="$(MSBuildThisFileDirectory)..\src\Tools\Conversion\MapBundleTools.cs" />
+    <PrimeMapCookInput Include="$(MSBuildThisFileDirectory)..\src\Tools\Program.cs" />
+    <PrimeMapCookInput Include="$(PrimeMapCookScript)" />
+  </ItemGroup>
+
+  <!-- Explicit owner: an owning project may invoke this before Publish for a
+       direct local publish. Project-reference projects do not own artifacts,
+       so a publish graph cannot start duplicate cooks. CI/build-all/release
+       pass SkipCustomMapBundleCook=true after their one orchestrator cook. The
+       script owns the cross-process lock and content-addressed check; keeping
+       this target unconditional with respect to timestamps ensures changing a
+       compiler/schema/package value reaches that script. -->
+  <Target Name="PrimeCookCurrentMapArtifacts"
+          BeforeTargets="Publish"
+          Condition="'$(PrimeMapCookCurrent)' == 'true'">
+    <MakeDir Directories="$(PrimeMapArtifactRoot)" />
+    <Exec Command="bash &quot;$(PrimeMapCookScript)&quot; --source &quot;$(PrimeMapSourceRoot)&quot; --output &quot;$(PrimeMapArtifactRoot)&quot; --configuration &quot;$(Configuration)&quot; --compiler-version &quot;$(PrimeMapCompilerVersion)&quot; --schema-version &quot;$(PrimeMapCompilerSchemaVersion)&quot; --package-version &quot;$(PrimeMapPackageVersion)&quot;" />
+  </Target>
+
+  <!-- Copy is deliberately unconditional with respect to cooking. A CI job
+       can download the one cooked artifact and every publish consumes it even
+       when no cook target was run in that project. SkipUnchangedFiles=false
+       keeps the package boundary deterministic when a stale destination was
+       left by a prior local publish. -->
+  <Target Name="PrimeCopyMapArtifactsToPublish"
+          DependsOnTargets="PrimeCookCurrentMapArtifacts"
+          BeforeTargets="CopyFilesToPublishDirectory"
+          Condition="'$(PrimeMapCopyToPublish)' != 'false' and '$(PublishDir)' != ''">
+    <ItemGroup>
+      <_PrimeMapArtifact Include="$(PrimeMapArtifactRoot)\*.fpmap" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_PrimeMapArtifact)"
+          DestinationFiles="@(_PrimeMapArtifact->'$(PublishDir)maps\%(Filename)%(Extension)')"
+          SkipUnchangedFiles="false" />
+  </Target>
+
+  <!-- Android consumes assets through its own item type rather than the
+       desktop publish directory. Add the same current artifacts directly to
+       the APK asset list when that project is evaluated. -->
+  <Target Name="PrimeIncludeMapArtifactsForAndroid"
+          DependsOnTargets="PrimeCookCurrentMapArtifacts"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(IsAndroid)' == 'true' or '$(TargetFrameworkIdentifier)' == 'Android'">
+    <ItemGroup>
+      <AndroidAsset Include="$(PrimeMapArtifactRoot)\*.fpmap"
+                    Link="Assets\maps\%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
+</Project>

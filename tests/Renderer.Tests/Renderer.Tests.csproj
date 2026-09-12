@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <AssemblyName>ProjectPrime.Renderer.Tests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <ProjectReference Include="../../src/Renderer/Renderer.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../Tests/Client/RendererTelemetryTests.cs"
+             Link="RendererTelemetryTests.cs" />
+    <Compile Include="../Tests/Client/RenderGraphLiteTests.cs"
+             Link="RenderGraphLiteTests.cs" />
+    <Compile Include="../Tests/Client/EnhancedLightingMathTests.cs"
+             Link="EnhancedLightingMathTests.cs" />
+    <Compile Include="../Tests/Client/EnhancedEnergyGpuIntegrationTests.cs"
+             Link="EnhancedEnergyGpuIntegrationTests.cs" />
+    <Compile Include="../Tests/Client/SdlGpuReconstructionTests.cs"
+             Link="SdlGpuReconstructionTests.cs" />
+    <Compile Include="../Tests/Client/SdlGpuEnhancedSurfaceIntegrationTests.cs"
+             Link="SdlGpuEnhancedSurfaceIntegrationTests.cs" />
+    <Compile Include="../Tests/Client/SdlGpuSceneAbiTests.cs"
+             Link="SdlGpuSceneAbiTests.cs" />
+    <Compile Include="../Tests/Client/SdlGpuSpecializedDepthStencilTests.cs"
+             Link="SdlGpuSpecializedDepthStencilTests.cs" />
+    <Compile Include="../Tests/Client/DynamicResolutionControllerTests.cs"
+             Link="DynamicResolutionControllerTests.cs" />
+    <Compile Include="../Tests/Client/VisualEnhancementTests.cs"
+             Link="VisualEnhancementTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../src/Renderer/Shaders/*.hlsl"
+          Link="Rendering/Shaders/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

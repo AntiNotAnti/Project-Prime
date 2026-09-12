@@ -9,8 +9,8 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
-    <Compile Include="../Shared/ContentPreparation/MapImageDecoding.cs" Link="MapImageDecoding.cs" />
+    <ProjectReference Include="../MapPlatform/MapPlatform.csproj" />
+    <PackageReference Include="ReFuel.StbImage" />
     <Compile Include="../Shared/Imaging/StbImageDecoder.cs" Link="StbImageDecoder.cs" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net10.0-android36.0</TargetFrameworks>
+    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-android'))">24</SupportedOSPlatformVersion>
+    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+    <RootNamespace>MphRead</RootNamespace>
+    <AssemblyName>ProjectPrime.Client.Presentation</AssemblyName>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableAvaloniaXamlCompilation>true</EnableAvaloniaXamlCompilation>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Client.Core/Client.Core.csproj" />
+    <ProjectReference Include="../Game/Game.csproj" />
+    <ProjectReference Include="../Imaging/Imaging.csproj" />
+    <ProjectReference Include="../MapPlatform/MapPlatform.csproj" />
+    <ProjectReference Include="../Renderer/Renderer.csproj" />
+    <ProjectReference Include="../Server.Shared/Server.Shared.csproj" />
+    <ProjectReference Include="../Shared.Replay/Shared.Replay.csproj" />
+    <ProjectReference Include="../Audio.Ncsf/Audio.Ncsf.csproj" />
+
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="OpenTK" />
+    <PackageReference Include="ReFuel.StbImage" />
+  </ItemGroup>
+
+  <!-- Cross-platform presentation compiles here once. Desktop entry points,
+       native hosts, secure storage and platform adapters stay in Client. -->
+  <ItemGroup>
+    <Compile Include="../Client/**/*.cs"
+             Exclude="../Client/bin/**;../Client/obj/**;
+               ../Client/Input/DesktopStylusInput.cs;../Client/Input/GamepadDesktop.cs;../Client/Input/GamepadProbe.cs;
+               ../Client/Accounts/ProtectedSessionStores.cs;
+               ../Client/Launcher/Gui/DesktopGameOverlayCoordinator.cs;../Client/Launcher/Gui/DesktopGameOverlayWindow.cs;../Client/Launcher/Gui/DesktopInputOwner.cs;../Client/Launcher/Gui/DesktopTransitionCoordinator.cs;../Client/Launcher/Gui/GuiLauncher.cs;../Client/Launcher/Gui/HomeWindow.cs;../Client/Launcher/Gui/PauseMenuPresenter.cs;../Client/Launcher/Gui/PauseMenuWindow.cs;../Client/Launcher/Gui/PostMatchSession.cs;../Client/Launcher/Gui/PostMatchWindow.cs;../Client/Launcher/Gui/SettingsWindow.cs;../Client/Launcher/Gui/UiCapture.cs;
+               ../Client/Launcher/Portable/MatchStart.cs;../Client/Launcher/Portable/TextLauncher.cs;../Client/Launcher/Shell/PostMatchCommandScope.cs;../Client/Launcher/Shell/PostMatchSelection.cs;../Client/Launcher/Shell/PostMatchView.cs;
+               ../Client/Networking/AuthoritativeCheck.cs;../Client/Networking/AuthoritativePlay.Desktop.cs;../Client/Networking/MapAudit.cs;../Client/Networking/NetCheckClient.cs;../Client/Networking/NetProbe.cs;../Client/Networking/ReplayPlaybackCheck.cs;../Client/Networking/WeaponDps.cs;
+               ../Client/Program.cs;../Client/Rendering/FrameTimingCheck.cs;../Client/Rendering/Platform/GameHostPresentationState.cs;../Client/Rendering/Platform/RenderToolHost.cs;../Client/Rendering/Platform/SceneHostLifetime.cs;../Client/Rendering/Platform/SdlCompatibilityInput.cs;../Client/Rendering/Platform/SdlGameHost.cs;
+               ../Client/Runtime/AssemblyInfo.cs;../Client/Runtime/ConsoleWindow.cs;../Client/Runtime/DesktopPresentationServices.cs;../Client/Runtime/Menu.cs;../Client/Runtime/ModEntry.cs;../Client/Runtime/ModelPreviewCapture.cs;../Client/Runtime/PauseMenu.cs;../Client/Runtime/ThumbnailBatch.cs;../Client/Runtime/ThumbnailCapture.cs;../Client/Runtime/ThumbnailGenerator.Desktop.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="../Client/Assets/project-prime-title-screen.png" Link="Assets/project-prime-title-screen.png" />
+    <AvaloniaResource Include="../Client/Assets/project-prime-mark.png" Link="Assets/project-prime-mark.png" />
+    <AvaloniaXaml Include="../Client/Launcher/**/*.axaml" Link="Launcher/%(RecursiveDir)%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../Client/Launcher/Resources/PrimeUiCopy.resx"
+                      Link="Launcher/Resources/PrimeUiCopy.resx"
+                      LogicalName="MphRead.Mods.Launcher.Resources.PrimeUiCopy.resources" />
+    <Compile Include="../Shared/ContentImport/Extract.cs" Link="Shared/ContentImport/Extract.cs" />
+    <Compile Include="../Shared/Imaging/TgaImageDecoder.cs" Link="Shared/Imaging/TgaImageDecoder.cs" />
+    <Compile Include="../Shared/Transport/UdpTransport.cs" Link="Shared/Transport/UdpTransport.cs" />
+    <Compile Include="../Shared/Hosting/RuntimePlatform.cs" Link="Shared/Hosting/RuntimePlatform.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.Contains('-android'))">
+    <!-- These two Renderer files are Android implementations behind compile
+         guards; the portable Renderer assembly exposes their contracts. -->
+    <Compile Include="../Renderer/Backends/Gles/GlesBackend.cs" Link="Renderer/Backends/Gles/GlesBackend.cs" />
+    <Compile Include="../Renderer/Backends/Gles/GlesEnhancedRuntime.cs" Link="Renderer/Backends/Gles/GlesEnhancedRuntime.cs" />
+    <Using Include="MphRead.Mods.Render.GlEs" Alias="GL" />
+    <Using Include="MphRead.Mods.Sound.AlEs" Alias="AL" />
+    <Using Include="MphRead.Mods.Sound.AlcEs" Alias="ALC" />
+  </ItemGroup>
+</Project>

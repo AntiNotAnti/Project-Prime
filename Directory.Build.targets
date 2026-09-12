@@ -1,0 +1,7 @@
+<Project>
+  <!-- Keep map cooking and publish copying as separate ownership boundaries.
+       The current-artifact target is opt-in and is run once by CI/local build
+       orchestration. The publish target is copy-only and remains available to
+       every SDK publish, including projects that do not own the compiler. -->
+  <Import Project="$(MSBuildThisFileDirectory)build/ProjectPrime.MapArtifacts.targets" />
+</Project>

@@ -2,17 +2,19 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <IsPackable>false</IsPackable>
+    <ImplicitUsings>enable</ImplicitUsings>
     <IsTestProject>true</IsTestProject>
-    <AssemblyName>MphRead.Imaging.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>ProjectPrime.Replay.Tests</AssemblyName>
   </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <ProjectReference Include="../../src/MapPlatform/MapPlatform.csproj" />
-    <Compile Include="../../src/Shared/Imaging/TgaImageDecoder.cs" Link="Shared/Imaging/TgaImageDecoder.cs" />
+    <ProjectReference Include="../../src/Game/Game.csproj" />
+    <ProjectReference Include="../../src/Shared.Replay/Shared.Replay.csproj" />
   </ItemGroup>
 </Project>

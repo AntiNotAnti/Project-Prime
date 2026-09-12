@@ -31,10 +31,10 @@
     <!-- These were previously transitive through Audio.Ncsf. Keep them direct
          because Tools now source-links the CPU decoder instead of referencing
          the music-playing assembly. -->
-    <PackageReference Include="CommunityToolkit.HighPerformance" Version="8.4.2" />
-    <PackageReference Include="System.IO.Hashing" Version="10.0.9" />
+    <PackageReference Include="CommunityToolkit.HighPerformance" />
+    <PackageReference Include="System.IO.Hashing" />
     <!-- CPU image/map/movie exports use ReFuel.StbImage. -->
-    <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
+    <PackageReference Include="ReFuel.StbImage" />
   </ItemGroup>
 
 

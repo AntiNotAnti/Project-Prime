@@ -14,7 +14,7 @@
       CPU-only map preparation closure source-linked here so a Linux server
       can cook missing custom rooms without starting a client or Tools.
     -->
-    <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
+    <PackageReference Include="ReFuel.StbImage" />
     <Compile Include="../Shared/Transport/UdpTransport.cs" Link="Shared/Transport/UdpTransport.cs" />
     <ProjectReference Include="../Game/Game.csproj" />
     <ProjectReference Include="../Imaging/Imaging.csproj" />

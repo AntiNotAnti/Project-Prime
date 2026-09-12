@@ -222,3 +222,21 @@ dotnet_style_object_initializer = false:silent
 
 # IDE0130: Namespace does not match folder structure
 dotnet_diagnostic.IDE0130.severity = none
+
+# Repository-wide text and tooling conventions
+[*.{csproj,props,targets,proj,xml,json,yml,yaml,md}]
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+[*.{sh,bash}]
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.py]
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
