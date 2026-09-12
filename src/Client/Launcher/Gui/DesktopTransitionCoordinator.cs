@@ -19,6 +19,7 @@ internal interface IDesktopTransitionSurface
     void CloseShellTransition();
     void ShowContinuationTransition(MatchTransitionState state);
     void UpdateContinuationTransition(MatchTransitionState state);
+    void HideContinuationTransition();
     void ShowResults();
     void HideResults();
 }
@@ -49,6 +50,7 @@ internal sealed class DesktopTransitionCoordinator : IDisposable
     private DesktopTransitionState _state = DesktopTransitionState.Shell;
     private ulong _generation;
     private bool _scenePrepared;
+    private bool _continuationFromResults;
     private bool _disposed;
 
     public DesktopTransitionCoordinator(IDesktopTransitionSurface surface,
@@ -101,13 +103,15 @@ internal sealed class DesktopTransitionCoordinator : IDisposable
             _surface.UpdateContinuationTransition(state);
             return _generation;
         }
-        if (_state != DesktopTransitionState.Results)
+        if (_state is not (DesktopTransitionState.Results or DesktopTransitionState.Game))
             throw new InvalidOperationException($"Cannot continue from {_state}.");
 
+        DesktopTransitionState source = _state;
         ulong generation = checked(++_generation);
         _state = DesktopTransitionState.PreparingContinuation;
+        _continuationFromResults = source == DesktopTransitionState.Results;
         _scenePrepared = false;
-        Log($"generation={generation} results -> preparing-continuation");
+        Log($"generation={generation} {source.ToString().ToLowerInvariant()} -> preparing-continuation");
         _surface.ShowContinuationTransition(state);
         return generation;
     }
@@ -144,7 +148,8 @@ internal sealed class DesktopTransitionCoordinator : IDisposable
         Log($"generation={generation} first-frame-presented");
         if (source == DesktopTransitionState.PreparingContinuation)
         {
-            _surface.HideResults();
+            if (_continuationFromResults) _surface.HideResults();
+            else _surface.HideContinuationTransition();
             if (!StillCurrent(DesktopTransitionState.Game, generation)) return false;
         }
         else
@@ -314,6 +319,8 @@ internal sealed class DesktopTransitionSurface : IDesktopTransitionSurface
         => RequireShell().ShowContinuationTransition(state);
     public void UpdateContinuationTransition(MatchTransitionState state)
         => RequireShell().UpdateContinuationTransition(state);
+    public void HideContinuationTransition()
+        => RequireShell().HideContinuationTransition();
     public void ShowResults() => RequireShell().ShowResultsForTransition();
     public void HideResults() => RequireShell().HideResultsForTransition();
 

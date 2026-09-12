@@ -81,6 +81,9 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         public event EventHandler<LaunchPlan>? Done;
 
+        /// <summary>The same narrow transition boundary used by the shell.</summary>
+        internal IMatchTransitionMenuActions TransitionMenuActions => _classicPlay;
+
         public HomeView(MenuSettings settings, IReadOnlyList<string> rooms)
         {
             _settings = settings;
@@ -441,12 +444,23 @@ namespace MphRead.Mods.Launcher.Gui
         /// the match: they were reached from the pause menu and that is where
         /// closing them should land.
         /// </summary>
-        public void ShowPauseMenu(Scene scene, Action onResume, Action onLeave, Action onQuit)
+        public void ShowPauseMenu(Scene scene, Action onResume, Action onLeave, Action onQuit,
+            IMatchTransitionMenuActions? transitionActions = null)
         {
-            var view = new PauseMenuView(offerWindowMode: false);
+            IMatchTransitionMenuActions actions = transitionActions ?? _classicPlay;
+            var view = new PauseMenuView(offerWindowMode: false,
+                transitionActions: actions);
             EventHandler? closed = null;
+            void ActionsChanged(object? sender, EventArgs args)
+                => Dispatcher.UIThread.Post(() =>
+                {
+                    if (_overlay.IsVisible && _overlay.Children.Contains(view))
+                        view.RefreshTransitionPresentation();
+                });
+            actions.Changed += ActionsChanged;
             void Close()
             {
+                actions.Changed -= ActionsChanged;
                 closed?.Invoke(view, EventArgs.Empty);
             }
             view.Resumed += (_, _) => { Close(); onResume(); };
@@ -488,13 +502,61 @@ namespace MphRead.Mods.Launcher.Gui
                 Close();
                 onResume();
             };
+            view.RestartMatchRequested += (_, _) =>
+                _ = ExecuteTransitionActionAsync(actions,
+                    cancellation => actions.RequestRestartMatchAsync(cancellation));
+            view.ChangeMapRequested += (_, _) =>
+            {
+                Close();
+                ShowTransitionMapPicker(scene, actions, onResume, onLeave, onQuit);
+            };
+            view.TransitionVoteRequested += accept =>
+                _ = ExecuteTransitionActionAsync(actions,
+                    cancellation => actions.RequestTransitionVoteAsync(accept, cancellation));
             view.SettingsRequested += async (_, _) =>
             {
                 await OpenSettings(scene);
-                ShowPauseMenu(scene, onResume, onLeave, onQuit);
+                ShowPauseMenu(scene, onResume, onLeave, onQuit, actions);
             };
             _ = ShowOverlay(view, handler => closed += handler);
             view.FocusResume();
+        }
+
+        private async Task ExecuteTransitionActionAsync(IMatchTransitionMenuActions actions,
+            Func<CancellationToken, Task> action)
+        {
+            try
+            {
+                await action(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception error)
+            {
+                Console.WriteLine($"[transition-menu] {error.Message}");
+            }
+        }
+
+        private void ShowTransitionMapPicker(Scene scene,
+            IMatchTransitionMenuActions actions, Action onResume, Action onLeave,
+            Action onQuit)
+        {
+            IReadOnlyList<string> maps = actions.AvailableTransitionMaps;
+            if (maps.Count == 0) return;
+            var picker = new MapPickerView(maps, actions.CurrentMapKey ?? "",
+                excludeCurrent: true);
+            EventHandler? closed = null;
+            closed = (_, _) =>
+            {
+                picker.Closed -= closed;
+                CloseOverlay();
+                string? map = picker.RoomKey;
+                ShowPauseMenu(scene, onResume, onLeave, onQuit, actions);
+                if (map == null) return;
+                _ = ExecuteTransitionActionAsync(actions,
+                    cancellation => actions.RequestChangeMapAsync(map, cancellation));
+            };
+            picker.Closed += closed;
+            _ = ShowOverlay(picker, _ => { });
+            picker.Focus();
         }
 
         private void CloseOverlay()

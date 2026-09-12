@@ -16,6 +16,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using ProjectPrime.Server.Shared;
 using MphRead.Mods.Input;
+using MphRead.Mods.Launcher.Presentation;
 using MphRead.Mods.Launcher.Theme;
 using AvaloniaButton = Avalonia.Controls.Button;
 
@@ -43,6 +44,8 @@ public sealed class PostMatchView : UserControl, IDisposable
     private readonly ScrollViewer _ballotScroll;
     private readonly TextBlock _status = new();
     private readonly TextBlock _leading = new();
+    private readonly ComboBox _hunterSelector;
+    private readonly TextBlock _hunterHelp;
     private readonly TextBlock _hints;
     private readonly AvaloniaButton _leaveButton;
     private readonly AvaloniaButton _cancelLeaveButton;
@@ -74,6 +77,10 @@ public sealed class PostMatchView : UserControl, IDisposable
     private ControllerFamily _lastControllerFamily = ControllerFamily.Generic;
     private bool _continuationLoading;
     private MatchTransitionView? _continuationView;
+    private Hunter? _authoritativeHunter;
+    private Hunter? _pendingHunter;
+    private bool _canSelectHunter;
+    private bool _syncingHunter;
 
     public PostMatchSelection Selection { get; } = new();
     public PostMatchResultsModel Results => _results;
@@ -84,9 +91,12 @@ public sealed class PostMatchView : UserControl, IDisposable
     internal string InputHint => _hints.Text ?? "";
     internal bool InputHintVisible => _hints.IsVisible;
     internal bool IsContinuationLoading => _continuationLoading;
+    internal ComboBox HunterSelector => _hunterSelector;
+    internal bool HunterChangePending => _pendingHunter.HasValue;
     internal PostMatchPresentationMode PresentationMode => _continuationLoading
         ? PostMatchPresentationMode.ContinuationLoading : PostMatchPresentationMode.Results;
     public event Action<byte>? VoteRequested;
+    public event Action<Hunter>? HunterRequested;
     public event Action? LeaveRequested;
 
     public PostMatchView(MatchResultsSnapshot? results, int localSlot = -1)
@@ -148,6 +158,33 @@ public sealed class PostMatchView : UserControl, IDisposable
         _leading.FontSize = 11;
         _leading.Foreground = GuiTheme.TextDimBrush;
         status.Children.Add(_leading);
+        var hunterPanel = new StackPanel
+        {
+            Spacing = 5,
+            Margin = new Thickness(0, 10, 0, 2)
+        };
+        hunterPanel.Children.Add(Text("NEXT ROUND HUNTER", 10,
+            FontWeight.SemiBold, GuiTheme.AccentBrush));
+        Hunter[] hunterValues = Enum.GetValues<Hunter>()
+            .Where(value => value <= Hunter.Weavel).ToArray();
+        _hunterSelector = new ComboBox
+        {
+            Name = "ResultsNextHunter",
+            ItemsSource = hunterValues,
+            MinWidth = 180,
+            MinHeight = 44,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<Hunter>(
+                (value, _) => Text(PrimeGameText.HunterLabel(value), 12,
+                    FontWeight.Normal, GuiTheme.TextBrush))
+        };
+        _hunterSelector.SelectionChanged += (_, _) => RequestHunterSelection();
+        hunterPanel.Children.Add(_hunterSelector);
+        _hunterHelp = Text("Choose before the ballot resolves.", 10,
+            FontWeight.Normal, GuiTheme.TextDimBrush);
+        _hunterHelp.TextWrapping = TextWrapping.Wrap;
+        hunterPanel.Children.Add(_hunterHelp);
+        status.Children.Add(hunterPanel);
         Grid.SetRow(status, 1);
         _voteZone.Children.Add(status);
 
@@ -288,7 +325,7 @@ public sealed class PostMatchView : UserControl, IDisposable
             // bands before splitting the remaining short-screen space. A
             // 160-DIP minimum for both scroll regions made the Leave action
             // unreachable immediately below the compact breakpoint.
-            double flexibleHeight = Math.Max(0, height - 300);
+            double flexibleHeight = Math.Max(0, height - 390);
             _scoreScroll.MaxHeight = Math.Min(CompactScoreMaxHeight,
                 Math.Max(72, flexibleHeight * .45));
             _ballotScroll.MaxHeight = Math.Min(CompactBallotMaxHeight,
@@ -301,7 +338,7 @@ public sealed class PostMatchView : UserControl, IDisposable
             _scoreScroll.MaxHeight = Math.Min(WideScoreMaxHeight,
                 Math.Max(180, height - 120));
             _ballotScroll.MaxHeight = Math.Min(WideBallotMaxHeight,
-                Math.Max(180, height - 230));
+                Math.Max(72, height - 340));
         }
     }
 
@@ -546,7 +583,8 @@ public sealed class PostMatchView : UserControl, IDisposable
         _continuationView?.Update(state);
     }
 
-    public void Update(NodeRoundSnapshot? round, string? message = null)
+    public void Update(NodeRoundSnapshot? round, string? message = null,
+        LobbySnapshot? lobby = null, Guid? localSessionId = null)
     {
         if (_disposed || _continuationLoading) return;
         _round = round;
@@ -584,6 +622,7 @@ public sealed class PostMatchView : UserControl, IDisposable
                 RebuildBallot();
             }
         }
+        UpdateHunter(lobby ?? round?.Lobby, localSessionId, now);
         RefreshCards(projectionChanged);
     }
 
@@ -642,7 +681,21 @@ public sealed class PostMatchView : UserControl, IDisposable
     {
         if (_disposed || _continuationLoading) return;
         Selection.RejectPending();
+        _pendingHunter = null;
+        SyncHunterSelection();
+        RefreshHunter();
         RefreshCards();
+    }
+
+    internal void CycleHunter(int delta)
+    {
+        if (_disposed || _continuationLoading || _leaveConfirmationPending
+            || !_canSelectHunter
+            || _pendingHunter.HasValue || _authoritativeHunter is not { } current)
+            return;
+        int count = (int)Hunter.Weavel + 1;
+        int next = ((int)current + Math.Sign(delta) + count) % count;
+        RequestHunter((Hunter)next);
     }
 
     public void Move(int delta)
@@ -672,7 +725,7 @@ public sealed class PostMatchView : UserControl, IDisposable
         {
             AvaloniaButton card = _cards[i];
             PostMatchBallotOption option = _displayOptions[i];
-            card.IsEnabled = !_leaveConfirmationPending
+            card.IsEnabled = !_leaveConfirmationPending && !_pendingHunter.HasValue
                 && Selection.CanChoose && _ballotModel.CanVote;
             bool selected = i == Selection.SelectedIndex;
             card.BorderThickness = new Thickness(selected ? 2 : 1);
@@ -685,6 +738,69 @@ public sealed class PostMatchView : UserControl, IDisposable
                 heading.Text = CardHeadingForDisplay(option, i);
             }
         }
+    }
+
+    private void UpdateHunter(LobbySnapshot? lobby, Guid? localSessionId,
+        DateTimeOffset now)
+    {
+        LobbyMember? member = localSessionId is { } sessionId
+            ? lobby?.Members.FirstOrDefault(candidate => candidate.SessionId == sessionId)
+            : null;
+        _authoritativeHunter = member?.Hunter;
+        if (_pendingHunter == _authoritativeHunter) _pendingHunter = null;
+        _canSelectHunter = lobby?.Phase == LobbyPhase.PostMatch
+            && member is { Observer: false }
+            && RoundAllowsHunterChange(_round, now);
+        if (!_pendingHunter.HasValue) SyncHunterSelection();
+        RefreshHunter();
+
+        static bool RoundAllowsHunterChange(NodeRoundSnapshot? round,
+            DateTimeOffset current)
+            => round is { TournamentEnded: false, ResolvedOption: null }
+                && round.VoteDeadline is { } deadline && current < deadline;
+    }
+
+    private void RequestHunterSelection()
+    {
+        if (_syncingHunter || _hunterSelector.SelectedItem is not Hunter hunter)
+            return;
+        RequestHunter(hunter);
+    }
+
+    private void RequestHunter(Hunter hunter)
+    {
+        if (_leaveConfirmationPending || !_canSelectHunter || _pendingHunter.HasValue
+            || _authoritativeHunter is not { } current || hunter == current)
+        {
+            SyncHunterSelection();
+            return;
+        }
+        _pendingHunter = hunter;
+        SyncHunterSelection();
+        RefreshHunter();
+        RefreshCards();
+        HunterRequested?.Invoke(hunter);
+    }
+
+    private void SyncHunterSelection()
+    {
+        Hunter? selected = _pendingHunter ?? _authoritativeHunter;
+        _syncingHunter = true;
+        _hunterSelector.SelectedItem = selected;
+        _syncingHunter = false;
+    }
+
+    private void RefreshHunter()
+    {
+        _hunterSelector.IsEnabled = _canSelectHunter && !_pendingHunter.HasValue
+            && !_leaveConfirmationPending;
+        _hunterHelp.Text = _pendingHunter is { } pending
+            ? $"Switching to {PrimeGameText.HunterLabel(pending)}…"
+            : _authoritativeHunter is null
+                ? "Hunter selection is unavailable."
+                : _canSelectHunter
+                    ? "Choose before the ballot resolves. Keyboard: Q / E."
+                    : "Hunter selection is locked for this transition.";
     }
 
     private string CardHeadingForDisplay(PostMatchBallotOption option, int index)
@@ -723,7 +839,9 @@ public sealed class PostMatchView : UserControl, IDisposable
             Key.D8 or Key.NumPad8 => 7,
             _ => -1
         };
-        if (e.Key is Key.Left or Key.Up or Key.A or Key.W) Move(-1);
+        if (e.Key == Key.Q) CycleHunter(-1);
+        else if (e.Key == Key.E) CycleHunter(1);
+        else if (e.Key is Key.Left or Key.Up or Key.A or Key.W) Move(-1);
         else if (e.Key is Key.Right or Key.Down or Key.D or Key.S) Move(1);
         else if (e.Key == Key.Enter) Choose();
         else if (e.Key == Key.Escape) RequestLeave();
@@ -766,6 +884,7 @@ public sealed class PostMatchView : UserControl, IDisposable
             _cancelLeaveButton.IsVisible = false;
         }
         UpdateInputHints();
+        RefreshHunter();
         RefreshCards();
     }
 
@@ -792,8 +911,8 @@ public sealed class PostMatchView : UserControl, IDisposable
         _hints.Text = _lastInputDevice == PrimeInputDevice.Gamepad
             ? $"D-pad Up / Down: select    {PrimeControllerGlyphs.Prompt("Vote",
                 GamepadButtons.A, GamepadInput.State.Family)}    {PrimeControllerGlyphs.Prompt(
-                    "Leave", GamepadButtons.B, GamepadInput.State.Family)}"
-            : "Arrows / WASD: select · Enter / 1–8: vote · Escape: ask to leave lobby";
+                    "Leave", GamepadButtons.B, GamepadInput.State.Family)}    LB / RB: hunter"
+            : "Arrows / WASD: select · Enter / 1–8: vote · Q / E: hunter · Escape: ask to leave lobby";
     }
 
     private async Task LoadPreviewAsync(AvaloniaButton card, string mapKey, int generation)

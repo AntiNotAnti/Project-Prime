@@ -7,6 +7,15 @@ namespace MphRead.Mods.Network
         {
             if (!ObserveCompletion()) return false;
             host.SetCursorCaptured(false);
+            if (State == TerminalState.Transitioning)
+            {
+                // A transition has no results payload. Dispose only the
+                // per-match scene and leave the persistent SDL host alive for
+                // the replacement handoff.
+                host.StopScene();
+                Launcher.Gui.GuiLauncher.Pump();
+                return true;
+            }
             if (DrainCompletion(scene)) host.StopScene();
             Launcher.Gui.GuiLauncher.Pump();
             System.Threading.Thread.Sleep(1);

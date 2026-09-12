@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Avalonia.Threading;
 using Avalonia.Controls;
 using MphRead.Mods.Input;
 using MphRead.Mods.Network;
@@ -25,6 +28,8 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
     private PauseMenuView? _pauseView;
     private SettingsView? _settingsView;
     private PostMatchSession? _results;
+    private MatchTransitionView? _transition;
+    private IMatchTransitionMenuActions? _transitionActions;
     private bool _disposed;
     private DesktopOverlayMode _mode;
 
@@ -68,6 +73,30 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         if (initialHost != null) AttachHost(initialHost);
     }
 
+    /// <summary>Attach the shell-owned transition command boundary.</summary>
+    internal void AttachTransitionActions(IMatchTransitionMenuActions? actions)
+    {
+        if (ReferenceEquals(_transitionActions, actions)) return;
+        if (_transitionActions != null) _transitionActions.Changed -= TransitionPlayChanged;
+        _transitionActions = actions;
+        if (_transitionActions != null) _transitionActions.Changed += TransitionPlayChanged;
+        PostTransitionRefresh();
+    }
+
+    private void TransitionPlayChanged(object? sender, EventArgs args)
+        => PostTransitionRefresh();
+
+    private void PostTransitionRefresh(PauseMenuView? expected = null)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_disposed || _mode != DesktopOverlayMode.Pause) return;
+            PauseMenuView? view = _pauseView;
+            if (view == null || expected != null && !ReferenceEquals(view, expected)) return;
+            view.RefreshTransitionPresentation();
+        }, DispatcherPriority.Background);
+    }
+
     internal void AttachHost(SdlGameHost host)
     {
         ArgumentNullException.ThrowIfNull(host);
@@ -96,7 +125,8 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         }
         EndCurrentContent();
         _mode = DesktopOverlayMode.Pause;
-        var view = _pauseView = new PauseMenuView(offerWindowMode: true);
+        var view = _pauseView = new PauseMenuView(offerWindowMode: true,
+            transitionActions: _transitionActions);
         view.Resumed += (_, _) => CloseFromMenu();
         view.SettingsRequested += (_, _) => OpenSettings();
         view.FullscreenRequested += (_, _) =>
@@ -130,12 +160,55 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
             PauseMenu.RequestQuit();
             CloseFromMenu();
         };
+        view.RestartMatchRequested += (_, _) => _ = ProposeRestartAsync(view);
+        view.ChangeMapRequested += (_, _) => OpenTransitionMapPicker(view);
+        view.TransitionVoteRequested += accept => _ = CastTransitionVoteAsync(view, accept);
         _surface.SetContent(view, _mode);
         _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
             GamepadInput.State.Buttons);
         ShowCurrent(activate: true);
         view.FocusResume();
         return true;
+    }
+
+    private async Task ProposeRestartAsync(PauseMenuView view)
+    {
+        IMatchTransitionMenuActions? actions = _transitionActions;
+        if (actions == null) return;
+        try { await actions.RequestRestartMatchAsync().ConfigureAwait(false); }
+        catch (Exception error) { DebugLog.Line("transition-menu", error.Message); }
+        finally { PostTransitionRefresh(view); }
+    }
+
+    private async Task CastTransitionVoteAsync(PauseMenuView view, bool accept)
+    {
+        IMatchTransitionMenuActions? actions = _transitionActions;
+        if (actions == null) return;
+        try { await actions.RequestTransitionVoteAsync(accept).ConfigureAwait(false); }
+        catch (Exception error) { DebugLog.Line("transition-menu", error.Message); }
+        finally { PostTransitionRefresh(view); }
+    }
+
+    private void OpenTransitionMapPicker(PauseMenuView view)
+    {
+        IMatchTransitionMenuActions? actions = _transitionActions;
+        if (actions == null || _scene == null) return;
+        IReadOnlyList<string> maps = actions.AvailableTransitionMaps;
+        if (maps.Count == 0) return;
+        var picker = new MapPickerView(maps, actions.CurrentMapKey ?? "",
+            excludeCurrent: true);
+        var window = new MapPickerWindow(picker);
+        picker.Closed += async (_, _) =>
+        {
+            string? map = picker.RoomKey;
+            window.Close();
+            if (map == null) return;
+            try { await actions.RequestChangeMapAsync(map).ConfigureAwait(false); }
+            catch (Exception error) { DebugLog.Line("transition-menu", error.Message); }
+            finally { PostTransitionRefresh(view); }
+        };
+        window.Show();
+        window.Activate();
     }
 
     internal void OpenSettings()
@@ -232,10 +305,24 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
 
     internal void ShowContinuationTransition(MatchTransitionState state)
     {
-        if (_mode != DesktopOverlayMode.Results || _results == null) return;
-        if (!_results.EnterContinuationLoading(state)) return;
-        _mode = DesktopOverlayMode.ContinuationLoading;
-        _surface.SetContent(_results.View, _mode);
+        if (_mode == DesktopOverlayMode.Results && _results != null)
+        {
+            if (!_results.EnterContinuationLoading(state)) return;
+            _mode = DesktopOverlayMode.ContinuationLoading;
+            _surface.SetContent(_results.View, _mode);
+        }
+        else if (_mode == DesktopOverlayMode.None)
+        {
+            // A Node-owned transition may begin directly from gameplay. There
+            // is no Results session to reuse in that path, but the same
+            // presentation surface still owns the short loading modal.
+            _mode = DesktopOverlayMode.ContinuationLoading;
+            PauseMenu.SetOverlayOpen(true);
+            _transition = new MatchTransitionView(state);
+            _transition.ReturnToLobbyRequested += DirectTransitionReturnRequested;
+            _surface.SetContent(_transition, _mode);
+        }
+        else return;
         _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
             GamepadInput.State.Buttons);
         ShowCurrent(activate: true);
@@ -243,23 +330,34 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
 
     internal void UpdateContinuationTransition(MatchTransitionState state)
     {
-        if (_mode != DesktopOverlayMode.ContinuationLoading || _results == null) return;
-        _results.UpdateContinuationLoading(state);
+        if (_mode != DesktopOverlayMode.ContinuationLoading) return;
+        if (_results != null) _results.UpdateContinuationLoading(state);
+        else _transition?.Update(state);
     }
 
     internal void HideResultsForTransition()
     {
-        if (_results == null) return;
-        PostMatchSession session = _results;
-        _results = null;
-        if (!session.CompleteContinuation()) session.CloseForTransition();
-        session.Dispose();
+        if (_results != null)
+        {
+            PostMatchSession session = _results;
+            _results = null;
+            if (!session.CompleteContinuation()) session.CloseForTransition();
+            session.Dispose();
+        }
+        if (_transition != null)
+        {
+            _transition.ReturnToLobbyRequested -= DirectTransitionReturnRequested;
+            _transition.Dispose();
+            _transition = null;
+        }
         _surface.ReleaseContent();
         _mode = DesktopOverlayMode.None;
         PauseMenu.SetOverlayOpen(false);
         _inputOwner.SetOwner(_scene == null ? DesktopInputOwnerKind.None
             : DesktopInputOwnerKind.Scene, GamepadInput.State.Buttons);
     }
+
+    internal void HideContinuationTransition() => HideResultsForTransition();
 
     internal void Pump()
     {
@@ -311,6 +409,13 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         PostMatchSession? results = _results;
         _results = null;
         if (results != null) results.Dispose();
+        MatchTransitionView? transition = _transition;
+        _transition = null;
+        if (transition != null)
+        {
+            transition.ReturnToLobbyRequested -= DirectTransitionReturnRequested;
+            transition.Dispose();
+        }
         _surface.ReleaseContent();
     }
 
@@ -367,6 +472,13 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         CloseFromMenu();
     }
 
+    private void DirectTransitionReturnRequested(object? sender, EventArgs args)
+    {
+        if (_disposed) return;
+        CloseForTransition();
+        CloseRequested?.Invoke(this, EventArgs.Empty);
+    }
+
     private void SurfaceActivated(object? sender, EventArgs args)
     {
         if (!_disposed && _mode != DesktopOverlayMode.None)
@@ -416,6 +528,9 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         _surface.UserCloseRequested -= SurfaceUserCloseRequested;
         _surface.Activated -= SurfaceActivated;
         _surface.Deactivated -= SurfaceDeactivated;
+        if (_transitionActions != null)
+            _transitionActions.Changed -= TransitionPlayChanged;
+        _transitionActions = null;
         _surface.Dispose();
         CloseRequested = null;
     }

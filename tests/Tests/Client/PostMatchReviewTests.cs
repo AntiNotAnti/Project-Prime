@@ -51,6 +51,66 @@ public sealed class PostMatchReviewTests
         Assert.True(retry.IsCancellationRequested);
     }
 
+    [Fact]
+    public void RecapCommandsSerializeHunterSelectionWithVoteAndLeave()
+    {
+        using var scope = new PostMatchCommandScope();
+        Assert.True(scope.TryBeginHunter(out var hunter));
+        Assert.False(scope.TryBeginVote(out _));
+        Assert.True(scope.TryBeginLeave(out var leave));
+        Assert.True(hunter.IsCancellationRequested);
+        Assert.False(leave.IsCancellationRequested);
+        scope.CompleteHunter();
+        scope.CompleteLeave();
+        Assert.True(scope.TryBeginVote(out var vote));
+        scope.Dispose();
+        Assert.True(vote.IsCancellationRequested);
+    }
+
+    [AvaloniaFact]
+    public void RecapHunterSelectionTracksLobbyAuthorityAndLocksAtResolution()
+    {
+        Guid sessionId = Guid.NewGuid();
+        Guid playerId = Guid.NewGuid();
+        var member = new LobbyMember(sessionId, playerId, "Pilot",
+            Hunter.Kanden, 0, false, false);
+        var lobby = new LobbySnapshot(Guid.NewGuid(), "Arena",
+            LobbyVisibility.Public, sessionId, LobbyPhase.PostMatch, 4, 1, 0,
+            ImmutableArray.Create(member), ImmutableArray<LobbyChatEntry>.Empty,
+            "MP1 SANCTORUS", MatchMode.Battle);
+        var option = new LobbyVoteEntry(1, LobbyVoteChoice.Rematch,
+            lobby.MapKey, lobby.Mode, 0);
+        var round = new NodeRoundSnapshot(lobby, null, null, false, false,
+            1, 2, DateTimeOffset.UtcNow.AddMinutes(1),
+            ImmutableArray.Create(option), 0);
+        using var view = new PostMatchView(null);
+        view.Update(round, lobby: lobby, localSessionId: sessionId);
+
+        Assert.True(view.HunterSelector.IsEnabled);
+        Assert.Equal(Hunter.Kanden, view.HunterSelector.SelectedItem);
+        Hunter? requested = null;
+        view.HunterRequested += hunter => requested = hunter;
+        view.HunterSelector.SelectedItem = Hunter.Trace;
+
+        Assert.Equal(Hunter.Trace, requested);
+        Assert.True(view.HunterChangePending);
+        Assert.False(view.HunterSelector.IsEnabled);
+
+        LobbySnapshot acceptedLobby = lobby with
+        {
+            Revision = lobby.Revision + 1,
+            Members = ImmutableArray.Create(member with { Hunter = Hunter.Trace })
+        };
+        view.Update(round, lobby: acceptedLobby, localSessionId: sessionId);
+        Assert.False(view.HunterChangePending);
+        Assert.True(view.HunterSelector.IsEnabled);
+        Assert.Equal(Hunter.Trace, view.HunterSelector.SelectedItem);
+
+        view.Update(round with { ResolvedOption = option }, lobby: acceptedLobby,
+            localSessionId: sessionId);
+        Assert.False(view.HunterSelector.IsEnabled);
+    }
+
     [AvaloniaFact]
     public void BallotAndScoreboardHaveIndependentConstrainedScrollRegions()
     {

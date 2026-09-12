@@ -142,6 +142,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
 
     public LaunchPlan Plan { get; private set; }
     internal ClientOnlineRuntime Online => _online;
+    /// <summary>The shared transition command boundary used by Android's activity overlay.</summary>
+    internal IMatchTransitionMenuActions TransitionMenuActions => _play;
     public event EventHandler<LaunchPlan>? Done;
     internal event EventHandler? MatchTransitionReturnToLobbyRequested;
 
@@ -870,7 +872,14 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         Hunters.Reroll();
         _shell.ClearNotification();
         _theatreLoaded = false;
-        _shell.Navigator.NavigateRoot(_shell.HasNetworkIdentity ? PrimeRoute.Play : PrimeRoute.Gateway);
+        PrimeRoute root = _shell.HasNetworkIdentity ? PrimeRoute.Play : PrimeRoute.Gateway;
+        bool alreadyAtRoot = _shell.Navigator.CurrentRoute == root
+            && _shell.Navigator.HistoryCount == 0;
+        _shell.Navigator.NavigateRoot(root);
+        // NavigateRoot intentionally suppresses a redundant navigation event.
+        // Match return is not redundant: Deactivate replaced the shell lifetime,
+        // so every command callback must be rebuilt against the fresh token.
+        if (alreadyAtRoot) RenderRoute(root);
 
     }
 
@@ -917,13 +926,29 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     }
 
     /// <summary>Use the shared PauseMenuView over a running match.</summary>
-    public void ShowPauseMenu(Scene scene, Action onResume, Action onLeave, Action onQuit)
+    public void ShowPauseMenu(Scene scene, Action onResume, Action onLeave, Action onQuit,
+        IMatchTransitionMenuActions? transitionActions = null)
     {
         ArgumentNullException.ThrowIfNull(onResume);
         ArgumentNullException.ThrowIfNull(onLeave);
         ArgumentNullException.ThrowIfNull(onQuit);
-        var view = new PauseMenuView(offerWindowMode: false);
-        void Close() => CloseOverlay();
+        IMatchTransitionMenuActions actions = transitionActions ?? _play;
+        var view = new PauseMenuView(offerWindowMode: false, transitionActions: actions);
+        void RefreshTransition()
+        {
+            PostUi(() =>
+            {
+                if (ReferenceEquals(OverlayHost.Content, view))
+                    view.RefreshTransitionPresentation();
+            });
+        }
+        void ActionsChanged(object? sender, EventArgs args) => RefreshTransition();
+        actions.Changed += ActionsChanged;
+        void Close()
+        {
+            actions.Changed -= ActionsChanged;
+            CloseOverlay();
+        }
         view.Resumed += (_, _) => { Close(); onResume(); };
         view.LeaveRequested += (_, _) => { Close(); onLeave(); };
         view.QuitRequested += (_, _) => { Close(); onQuit(); };
@@ -946,6 +971,22 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             Close();
             onResume();
         };
+        view.RestartMatchRequested += (_, _) => RunCommand("Restart match", async () =>
+        {
+            try { await actions.RequestRestartMatchAsync(_lifetime.Token).ConfigureAwait(false); }
+            finally { RefreshTransition(); }
+        });
+        view.ChangeMapRequested += (_, _) =>
+        {
+            Close();
+            ShowTransitionMapPicker(scene, actions, onResume, onLeave, onQuit);
+        };
+        view.TransitionVoteRequested += accept => RunCommand("Transition vote", async () =>
+        {
+            try { await actions.RequestTransitionVoteAsync(accept, _lifetime.Token)
+                    .ConfigureAwait(false); }
+            finally { RefreshTransition(); }
+        });
         view.SettingsRequested += (_, _) =>
         {
             Close();
@@ -956,12 +997,46 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             {
                 Resources["PrimeReducedMotion"] = LauncherPrefs.ReducedMotion;
                 CloseOverlay();
-                ShowPauseMenu(scene, onResume, onLeave, onQuit);
+                ShowPauseMenu(scene, onResume, onLeave, onQuit, actions);
             };
             ShowOverlay(settings, "pause-settings");
         };
         ShowOverlay(view, "pause-menu");
         view.FocusResume();
+    }
+
+    private void ShowTransitionMapPicker(Scene scene,
+        IMatchTransitionMenuActions actions, Action onResume, Action onLeave, Action onQuit)
+    {
+        IReadOnlyList<string> maps = actions.AvailableTransitionMaps;
+        if (maps.Count == 0) return;
+        var picker = new MapPickerView(maps, actions.CurrentMapKey ?? "",
+            excludeCurrent: true);
+        EventHandler? closed = null;
+        closed = (_, _) =>
+        {
+            picker.Closed -= closed;
+            CloseOverlay();
+            string? map = picker.RoomKey;
+            ShowPauseMenu(scene, onResume, onLeave, onQuit, actions);
+            if (map == null) return;
+            RunCommand("Change map", async () =>
+            {
+                try { await actions.RequestChangeMapAsync(map, _lifetime.Token)
+                        .ConfigureAwait(false); }
+                finally
+                {
+                    PostUi(() =>
+                    {
+                        if (OverlayHost.Content is PauseMenuView next)
+                            next.RefreshTransitionPresentation();
+                    });
+                }
+            });
+        };
+        picker.Closed += closed;
+        ShowOverlay(picker, "pause-map-picker");
+        picker.Focus();
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -1285,7 +1360,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         _hunterPadCombo = null;
         _hunterPadSelection = null;
         _activeLobbyChatPanel = null;
-        _play.SetHandoffEnabled(normalizedRoute == PrimeRoute.Play && _shell.HasNetworkIdentity);
+        _play.SetHandoffEnabled(_active && normalizedRoute == PrimeRoute.Play
+            && _shell.HasNetworkIdentity);
         if (!_ignoreGameFileGate && !GameFiles.Ready)
         {
             RouteTitle.Text = "Game files";
@@ -1442,6 +1518,12 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
                     PostUi(() => _shell.Navigator.NavigateRoot(PrimeRoute.Play));
             });
         }, primary: true));
+        actions.Children.Add(MakeButton("Resend Verification", () =>
+        {
+            string address = email.Text?.Trim() ?? "";
+            RunCommand("Resend verification", () =>
+                _gateway.ResendForEmailAsync(address, _lifetime.Token));
+        }));
         actions.Children.Add(MakeButton("Back", () => ShowGatewayForm(
             GatewayForm.Landing), quiet: true));
         return Stack(Text("Sign in", "prime-heading"),
@@ -1489,6 +1571,12 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
                 });
             });
         }, primary: true));
+        actions.Children.Add(MakeButton("Resend Verification", () =>
+        {
+            string address = email.Text?.Trim() ?? "";
+            RunCommand("Resend verification", () =>
+                _gateway.ResendForEmailAsync(address, _lifetime.Token));
+        }));
         actions.Children.Add(MakeButton("Back", () => ShowGatewayForm(
             GatewayForm.Landing), quiet: true));
         return Stack(Text("Create account", "prime-heading"),
@@ -2194,7 +2282,19 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             },
             _theatre.Library.SupportsReveal,
             replay => _theatre.RevealAsync(replay, _lifetime.Token),
-            mapKey => _mapPreviews.LoadAsync(mapKey, _lifetime.Token)));
+            mapKey => _mapPreviews.LoadAsync(mapKey, _lifetime.Token),
+            _theatre.ApplyFilters,
+            _theatre.SetClipIn,
+            _theatre.SetClipOut,
+            (label, focus) => _theatre.SaveClipAsync(label, focus, _lifetime.Token),
+            _theatre.ResetClipRange,
+            favorite => _theatre.SetReplayFavoriteAsync(favorite, _lifetime.Token),
+            favorite => _theatre.SetSelectedHighlightFavoriteAsync(favorite,
+                _lifetime.Token),
+            (clipId, favorite) => _theatre.SetClipFavoriteAsync(clipId, favorite,
+                _lifetime.Token),
+            marker => _theatre.PlayEventAsync(marker, _lifetime.Token),
+            clip => _theatre.PreviewClipAsync(clip, _lifetime.Token)));
     }
 
     private async Task DeleteReplayAsync(PrimeReplayEntry replay)

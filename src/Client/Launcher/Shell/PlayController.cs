@@ -61,6 +61,7 @@ public enum OnlineLifecyclePhase
     Launching,
     InMatch,
     Results,
+    PreparingContinuation,
     Returning,
     Interrupted,
     Reconnecting,
@@ -122,6 +123,7 @@ public sealed record OnlineLifecyclePresentation(
                         ClientSessionPhase.Launching => OnlineLifecyclePhase.Launching,
                         ClientSessionPhase.InMatch => OnlineLifecyclePhase.InMatch,
                         ClientSessionPhase.Results => OnlineLifecyclePhase.Results,
+                        ClientSessionPhase.PreparingContinuation => OnlineLifecyclePhase.PreparingContinuation,
                         ClientSessionPhase.ReturningToLobby => OnlineLifecyclePhase.Returning,
                         ClientSessionPhase.Closing => OnlineLifecyclePhase.Offline,
                         _ => state.Phase switch
@@ -158,6 +160,7 @@ public sealed record OnlineLifecyclePresentation(
             OnlineLifecyclePhase.Launching => "Launching match…",
             OnlineLifecyclePhase.InMatch => "In match",
             OnlineLifecyclePhase.Results => "Match results",
+            OnlineLifecyclePhase.PreparingContinuation => "Preparing next match…",
             OnlineLifecyclePhase.Returning => "Returning to lobby…",
             OnlineLifecyclePhase.Interrupted => "Connection lost",
             OnlineLifecyclePhase.Reconnecting => "Reconnecting…",
@@ -274,8 +277,27 @@ public sealed class PlayHandoffGate
     }
 }
 
+/// <summary>
+/// Narrow action boundary for the in-match transition menu. The pause view
+/// only renders this projection and raises presentation events; PlayController
+/// remains the owner of Node commands, revisions, and user-facing failures.
+/// </summary>
+internal interface IMatchTransitionMenuActions
+{
+    bool TransitionMenuSupported { get; }
+    bool TransitionRequestInFlight { get; }
+    string? TransitionError { get; }
+    NodeMatchTransitionVoteSnapshot? TransitionVote { get; }
+    string? CurrentMapKey { get; }
+    IReadOnlyList<string> AvailableTransitionMaps { get; }
+    event EventHandler? Changed;
+    Task RequestRestartMatchAsync(CancellationToken cancellationToken = default);
+    Task RequestChangeMapAsync(string mapKey, CancellationToken cancellationToken = default);
+    Task RequestTransitionVoteAsync(bool accept, CancellationToken cancellationToken = default);
+}
+
 /// <summary>Node/lobby adapter for the persistent NodeSessions transport.</summary>
-public sealed class PlayController : IAsyncDisposable
+public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActions
 {
     private readonly record struct MapCatalogSnapshot(NodeMapCatalogState State, string[] Available);
     internal enum NodeConnectFailureKind
@@ -304,6 +326,7 @@ public sealed class PlayController : IAsyncDisposable
     private readonly Func<CancellationToken, Task<AccountSession?>> _accountResolver;
     private readonly SemaphoreSlim _operation = new(1, 1);
     private readonly SemaphoreSlim _configureOperation = new(1, 1);
+    private readonly SemaphoreSlim _transitionOperation = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
     private readonly PlayHandoffGate _handoff = new();
     private readonly object _handoffTaskLock = new();
@@ -331,6 +354,8 @@ public sealed class PlayController : IAsyncDisposable
     private MapRequirement? _mapPreparationRequirement;
     private long _mapPreparationGeneration;
     private MapPreparationState _mapPreparation = MapPreparationState.None;
+    private int _transitionRequestInFlight;
+    private string? _transitionError;
 
     public PlayController(PrimeShellState shell, IReadOnlyList<string>? maps = null,
         Func<CancellationToken, Task<AccountSession?>>? accountResolver = null, TimeProvider? timeProvider = null,
@@ -358,6 +383,46 @@ public sealed class PlayController : IAsyncDisposable
     public NodeMapCatalogState MapCatalogState => GetMapCatalogSnapshot().State;
     public IReadOnlyList<string> AvailableMaps => GetMapCatalogSnapshot().Available;
     public MapPreparationState MapPreparation => Volatile.Read(ref _mapPreparation);
+    bool IMatchTransitionMenuActions.TransitionMenuSupported => TransitionMenuSupported;
+    bool IMatchTransitionMenuActions.TransitionRequestInFlight => TransitionRequestInFlight;
+    string? IMatchTransitionMenuActions.TransitionError => TransitionError;
+    NodeMatchTransitionVoteSnapshot? IMatchTransitionMenuActions.TransitionVote => TransitionVote;
+    string? IMatchTransitionMenuActions.CurrentMapKey => CurrentMapKey;
+    IReadOnlyList<string> IMatchTransitionMenuActions.AvailableTransitionMaps
+        => AvailableTransitionMaps;
+    public bool TransitionMenuSupported => IsTransitionParticipant();
+    public bool TransitionRequestInFlight => Volatile.Read(ref _transitionRequestInFlight) != 0;
+    public string? TransitionError
+    {
+        get
+        {
+            string? local = Volatile.Read(ref _transitionError);
+            if (local != null) return local;
+            if (State.Node?.TransitionVote is { State: MatchTransitionVoteState.Failed } failed)
+                return failed.FailureCode ?? "The server could not continue this match.";
+            return null;
+        }
+    }
+    public string? CurrentMapKey => State.Lobby?.MapKey;
+    public NodeMatchTransitionVoteSnapshot? TransitionVote
+    {
+        get
+        {
+            NodeControlClient? node = _online.Node;
+            Guid? matchId = node?.Handoff?.MatchId ?? node?.Lobby?.CurrentMatchId
+                ?? node?.State.JoinedMatchId;
+            return matchId is { } id ? node?.TransitionVoteFor(id) : null;
+        }
+    }
+    public IReadOnlyList<string> AvailableTransitionMaps
+    {
+        get
+        {
+            string? current = State.Lobby?.MapKey;
+            return AvailableMaps.Where(map => !StringComparer.Ordinal.Equals(map, current))
+                .ToArray();
+        }
+    }
     public OnlineLifecyclePresentation OnlineLifecycle
     {
         get
@@ -1294,7 +1359,7 @@ public sealed class PlayController : IAsyncDisposable
         if (hunter is < Hunter.Samus or > Hunter.Weavel)
             throw new ArgumentOutOfRangeException(nameof(hunter));
         Publish(State with { LobbyHunter = hunter });
-        return SendLobbyCommandAsync((lobby, _) => new LobbySelectHunter(hunter, lobby.Revision),
+        return SendLobbyCommandAndWaitAsync((lobby, _) => new LobbySelectHunter(hunter, lobby.Revision),
             "lobby.hunter.select", cancellationToken);
     }
 
@@ -1405,7 +1470,7 @@ public sealed class PlayController : IAsyncDisposable
     }
 
     public Task StartMatchAsync(CancellationToken cancellationToken = default)
-        => SendLobbyCommandAsync((lobby, session) =>
+        => SendLobbyCommandAndWaitAsync((lobby, session) =>
         {
             if (lobby.OwnerSessionId != session?.SessionId)
                 throw new InvalidOperationException("Only the lobby owner can start a match.");
@@ -1431,6 +1496,129 @@ public sealed class PlayController : IAsyncDisposable
 
     public Task RematchAsync(CancellationToken cancellationToken = default)
         => SendLobbyCommandAsync((lobby, _) => new LobbyRematch(lobby.Revision), "lobby.rematch", cancellationToken);
+
+    /// <summary>Proposes a Node-owned restart ballot for the active match.</summary>
+    public Task RequestRestartMatchAsync(CancellationToken cancellationToken = default)
+        => RequestTransitionAsync(MatchTransitionChoice.Restart, null,
+            cancellationToken);
+
+    /// <summary>Proposes a Node-owned map-change ballot for the active match.</summary>
+    public Task RequestChangeMapAsync(string mapKey,
+        CancellationToken cancellationToken = default)
+    {
+        if (String.IsNullOrWhiteSpace(mapKey))
+            throw new ArgumentException("Choose a map before proposing a change.", nameof(mapKey));
+        if (!AvailableTransitionMaps.Contains(mapKey, StringComparer.Ordinal))
+            throw new ArgumentException("Choose a map hosted by this server and installed locally.",
+                nameof(mapKey));
+        return RequestTransitionAsync(MatchTransitionChoice.ChangeMap, mapKey,
+            cancellationToken);
+    }
+
+    /// <summary>Casts the local yes/no response for the active transition ballot.</summary>
+    public Task RequestTransitionVoteAsync(bool accept,
+        CancellationToken cancellationToken = default)
+    {
+        NodeMatchTransitionVoteSnapshot? ballot = TransitionVote;
+        if (!TransitionMenuSupported
+            || ballot is not { State: MatchTransitionVoteState.Pending })
+            throw new InvalidOperationException("No active match transition vote is available.");
+        return CastTransitionVoteAsync(ballot, accept, cancellationToken);
+    }
+
+    private async Task RequestTransitionAsync(MatchTransitionChoice choice,
+        string? mapKey, CancellationToken cancellationToken)
+    {
+        if (!TransitionMenuSupported)
+            throw new InvalidOperationException(
+                "Match restart and map change are unavailable for this session.");
+        NodeControlClient node = RequireConnected();
+        LobbySnapshot lobby = node.Lobby
+            ?? throw new InvalidOperationException("Join a lobby first.");
+        Guid matchId = CurrentTransitionMatch(node, lobby);
+        NodeMatchTransitionVoteSnapshot? existing = node.TransitionVoteFor(matchId);
+        if (existing is { State: MatchTransitionVoteState.Pending })
+            throw new InvalidOperationException("A match transition vote is already active.");
+        LobbyMatchTransitionPropose command = new(lobby.Revision, matchId, choice, mapKey);
+        await ExecuteTransitionCommandAsync(node, "match.transition.propose", command,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task CastTransitionVoteAsync(NodeMatchTransitionVoteSnapshot ballot,
+        bool accept, CancellationToken cancellationToken)
+    {
+        NodeControlClient node = RequireConnected();
+        LobbySnapshot lobby = node.Lobby
+            ?? throw new InvalidOperationException("Join a lobby first.");
+        Guid matchId = CurrentTransitionMatch(node, lobby);
+        if (ballot.MatchId != matchId)
+            throw new InvalidOperationException("This transition vote belongs to an old match.");
+        LobbyMatchTransitionVote command = new(lobby.Revision, matchId,
+            ballot.BallotRevision, accept);
+        await ExecuteTransitionCommandAsync(node, "match.transition.vote", command,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task ExecuteTransitionCommandAsync<T>(NodeControlClient node,
+        string type, T command, CancellationToken cancellationToken) where T : NodeCommand
+    {
+        await _transitionOperation.WaitAsync(cancellationToken).ConfigureAwait(false);
+        Interlocked.Exchange(ref _transitionRequestInFlight, 1);
+        Volatile.Write(ref _transitionError, null);
+        Changed?.Invoke(this, EventArgs.Empty);
+        try
+        {
+            NodeControlEvent response = await node.SendAndWaitAsync(type, command,
+                cancellationToken).ConfigureAwait(false);
+            if (response.Type == "error")
+            {
+                NodeControlError error = response.Payload.Deserialize(
+                    NodeJsonContext.Default.NodeControlError)
+                    ?? new NodeControlError("rejected", "The server rejected the transition request.");
+                throw new InvalidOperationException(PrimeRoutePresentation
+                    .PlayerFacingNetworkError(error.Message,
+                        "The server rejected the transition request. Try again."));
+            }
+            if (response.Type != "match.transition.state")
+                throw new InvalidOperationException(
+                    "The server did not confirm the transition request.");
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            string message = PrimeRoutePresentation.PlayerFacingNetworkError(error.Message,
+                "The transition request could not be sent. Try again.");
+            Volatile.Write(ref _transitionError, message);
+            Publish(State with { Message = message });
+            throw new InvalidOperationException(message, error);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _transitionRequestInFlight, 0);
+            _transitionOperation.Release();
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private bool IsTransitionParticipant()
+    {
+        NodeControlClient? node = _online.Node;
+        LobbySnapshot? lobby = node?.Lobby;
+        NodeSessionSnapshot? session = node?.Session;
+        if (node is not { Connected: true } || lobby == null || session == null
+            || lobby.Phase != LobbyPhase.InMatch
+            || lobby.Members.FirstOrDefault(member => member.SessionId == session.SessionId)
+                is not { Observer: false }
+            || State.Round?.TournamentId != null
+            || ReplayPlayback.IsActive || ReplayPlayback.IsModern
+            || AuthoritativePlay.Current?.IsObserver == true)
+            return false;
+        return true;
+    }
+
+    private static Guid CurrentTransitionMatch(NodeControlClient node, LobbySnapshot lobby)
+        => node.Handoff?.MatchId ?? lobby.CurrentMatchId
+            ?? node.State.JoinedMatchId
+            ?? throw new InvalidOperationException("The active match identity is unavailable.");
 
     public Task ReturnToLobbyAsync(CancellationToken cancellationToken = default)
         => SendLobbyCommandAsync((lobby, _) => new LobbyReturn(lobby.Revision), "lobby.return", cancellationToken);
@@ -1529,6 +1717,9 @@ public sealed class PlayController : IAsyncDisposable
         await _configureOperation.WaitAsync().ConfigureAwait(false);
         _configureOperation.Release();
         _configureOperation.Dispose();
+        await _transitionOperation.WaitAsync().ConfigureAwait(false);
+        _transitionOperation.Release();
+        _transitionOperation.Dispose();
         _lifetime.Dispose();
         if (_ownsOnline) await _online.DisposeAsync().ConfigureAwait(false);
     }

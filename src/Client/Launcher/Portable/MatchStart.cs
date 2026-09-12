@@ -50,18 +50,30 @@ namespace MphRead.Mods.Launcher
                     firstFramePresented, progress, windowPrepared);
                 if (presentationResult?.QuitApplication == true)
                     return new MatchRunResult(MatchExitReason.QuitApplication, matchId, Results: results);
+                if (PauseMenu.LeftMatch)
+                    return new MatchRunResult(MatchExitReason.LeftMatch, matchId,
+                        Results: null);
+                if (play?.State == AuthoritativePlay.TerminalState.Transitioning)
+                    return new MatchRunResult(MatchExitReason.Transitioning, matchId,
+                        Results: null);
                 if (presentationResult?.Failure is { } failure)
                     return new MatchRunResult(MatchExitReason.Disconnected, matchId, failure, results);
                 return new MatchRunResult(MatchRunResult.Classify(didStart, PauseMenu.QuitProgram || host?.CloseRequested == true || presentationResult?.QuitApplication == true, PauseMenu.LeftMatch,
                     play?.State == AuthoritativePlay.TerminalState.Completed || plan.Kind == LaunchKind.Replay,
-                    play?.Interrupted == true, play?.Client.Failure != null, false), matchId,
-                    play?.Interrupted == true ? "The server interrupted the match. Return to your lobby and try again." : null, results);
+                    play?.Interrupted == true, play?.Client.Failure != null, false,
+                    transitioning: play?.State == AuthoritativePlay.TerminalState.Transitioning), matchId,
+                    play?.Interrupted == true && play.State != AuthoritativePlay.TerminalState.Transitioning
+                        ? "The server interrupted the match. Return to your lobby and try again." : null, results);
             }
             catch (Exception ex)
             {
                 DebugLog.Exception("match", ex);
+                if (play?.State == AuthoritativePlay.TerminalState.Transitioning)
+                    return new MatchRunResult(MatchExitReason.Transitioning, matchId,
+                        Results: null);
                 return new MatchRunResult(MatchRunResult.Classify(didStart, PauseMenu.QuitProgram || host?.CloseRequested == true || presentationResult?.QuitApplication == true, PauseMenu.LeftMatch,
-                    false, play?.Interrupted == true, play?.Client.Failure != null, true), matchId, ex.Message, results);
+                    false, play?.Interrupted == true, play?.Client.Failure != null, true,
+                    transitioning: false), matchId, ex.Message, results);
             }
             finally { ownedHost?.Dispose(); }
         }
@@ -160,13 +172,11 @@ namespace MphRead.Mods.Launcher
         {
             try
             {
-                if (!ReplayPlayback.ConsumePrepared(plan.ReplayPath)
-                    && !ReplayPlayback.Join(plan.ReplayPath))
+                if (!ReplayLaunchCoordinator.TryStart(plan, out string? replayError))
                 {
-                    throw new InvalidOperationException("Could not open or read the replay file.");
+                    throw new InvalidOperationException(replayError
+                        ?? "Could not open or read the replay file.");
                 }
-                if (plan.ReplayHighlights is { Count: > 0 } highlights)
-                    ReplayPlayback.ConfigureHighlights(highlights);
                 (string RoomKey, GameMode Mode)? room = NetLaunch.ServerRoom();
                 if (room == null)
                 {

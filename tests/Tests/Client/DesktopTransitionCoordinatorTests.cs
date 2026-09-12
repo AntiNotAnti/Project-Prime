@@ -58,6 +58,29 @@ public sealed class DesktopTransitionCoordinatorTests
     }
 
     [Fact]
+    public void GameContinuationKeepsCoordinatorPreparingUntilReplacementFrame()
+    {
+        var surface = new RecordingSurface();
+        using var coordinator = new DesktopTransitionCoordinator(surface);
+        ulong first = coordinator.BeginMatchLaunch(Loading(
+            MatchTransitionStage.Preparing));
+        coordinator.GameWindowPrepared(first);
+        coordinator.GameFirstFramePresented(first);
+        surface.Calls.Clear();
+
+        ulong continuation = coordinator.BeginContinuation(Loading(
+            MatchTransitionStage.LoadingNextRound));
+        Assert.Equal(DesktopTransitionState.PreparingContinuation, coordinator.State);
+        Assert.DoesNotContain("hide-results", surface.Calls);
+        coordinator.GameWindowPrepared(continuation);
+        Assert.Equal(DesktopTransitionState.PreparingContinuation, coordinator.State);
+        Assert.True(coordinator.GameFirstFramePresented(continuation));
+        Assert.Equal(DesktopTransitionState.Game, coordinator.State);
+        Assert.DoesNotContain("hide-results", surface.Calls);
+        Assert.Contains("hide-continuation", surface.Calls);
+    }
+
+    [Fact]
     public void ReturnToShellShowsAndPumpsTargetBeforeRetiringSources()
     {
         var surface = new RecordingSurface();
@@ -164,6 +187,7 @@ public sealed class DesktopTransitionCoordinatorTests
             => Calls.Add($"continuation:{state.Stage}");
         public void UpdateContinuationTransition(MatchTransitionState state)
             => Calls.Add($"update-continuation:{state.Stage}");
+        public void HideContinuationTransition() => Calls.Add("hide-continuation");
         public void ShowResults() => Calls.Add("show-results");
         public void HideResults() => Calls.Add("hide-results");
     }

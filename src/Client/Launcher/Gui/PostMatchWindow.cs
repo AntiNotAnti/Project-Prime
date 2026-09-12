@@ -49,6 +49,7 @@ internal sealed class PostMatchWindow : Window
     private string? _message;
     private bool _leaveRequested;
     private Task? _voteTask;
+    private Task? _hunterTask;
     private Task? _leaveTask;
     private bool _continuationCompleted;
     private bool _ownerClosing;
@@ -77,6 +78,7 @@ internal sealed class PostMatchWindow : Window
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent, WindowTransparencyLevel.None];
         RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
         _view.VoteRequested += Vote;
+        _view.HunterRequested += SelectHunter;
         _view.LeaveRequested += Leave;
         _timer.Tick += (_, _) => Tick();
         Closed += (_, _) =>
@@ -102,7 +104,7 @@ internal sealed class PostMatchWindow : Window
         _pump = pump;
         if (!_pump()) { Transition = PostMatchFlow.Evaluate(_play.State.Node, _completedMatch, gameWindowOpen: false); CloseForTransition(); return Transition; }
         PauseMenuWindow.CoverGameWindow(this);
-        _view.Update(_play.State.Round);
+        UpdateView(_play.State.Node);
         _previousButtons = GamepadInput.State.Buttons;
         _frame = new DispatcherFrame();
         if (showResults != null) showResults();
@@ -164,7 +166,7 @@ internal sealed class PostMatchWindow : Window
             ? PrimeRoutePresentation.PlayerFacingNetworkError(connectionError,
                 "Results unavailable. Reconnect and try again.")
             : null);
-        _view.Update(state?.Round, error);
+        UpdateView(state, error);
         PostMatchTransition next = PostMatchFlow.Evaluate(state, _completedMatch);
         if (next == PostMatchTransition.Lobby)
         {
@@ -251,6 +253,19 @@ internal sealed class PostMatchWindow : Window
         _voteTask = RunVoteAsync(option, token);
     }
 
+    private void SelectHunter(Hunter hunter)
+    {
+        if (_closed || Mode != PostMatchPresentationMode.Results
+            || _hunterTask != null
+            || !_commands.TryBeginHunter(out CancellationToken token))
+        {
+            _view.RejectPending();
+            return;
+        }
+        _message = null;
+        _hunterTask = RunHunterAsync(hunter, token);
+    }
+
     private void Leave()
     {
         if (_closed || Mode != PostMatchPresentationMode.Results || _leaveRequested || _leaveTask != null
@@ -266,6 +281,14 @@ internal sealed class PostMatchWindow : Window
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (Exception ex) { PostToUi(() => ShowCommandError(ex)); }
         finally { _commands.CompleteVote(); }
+    }
+
+    private async Task RunHunterAsync(Hunter hunter, CancellationToken token)
+    {
+        try { await _play.SelectLobbyHunterAsync(hunter, token); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception ex) { PostToUi(() => ShowCommandError(ex)); }
+        finally { _commands.CompleteHunter(); }
     }
 
     private async Task RunLeaveAsync(CancellationToken token)
@@ -293,6 +316,11 @@ internal sealed class PostMatchWindow : Window
             _voteTask.GetAwaiter().GetResult();
             _voteTask = null;
         }
+        if (_hunterTask is { IsCompleted: true })
+        {
+            _hunterTask.GetAwaiter().GetResult();
+            _hunterTask = null;
+        }
         if (_leaveTask is { IsCompleted: true })
         {
             _leaveTask.GetAwaiter().GetResult();
@@ -315,8 +343,12 @@ internal sealed class PostMatchWindow : Window
         _message = PrimeRoutePresentation.PlayerFacingNetworkError(ex.Message,
             "Results unavailable. Reconnect and try again.");
         _view.RejectPending();
-        _view.Update(_play.State.Round, _message);
+        UpdateView(_play.State.Node, _message);
     }
+
+    private void UpdateView(NodeControlClient.ViewState? state, string? message = null)
+        => _view.Update(state?.Round, message, state?.Lobby,
+            state?.Session?.SessionId);
 
     private void PollGamepad()
     {
@@ -335,7 +367,9 @@ internal sealed class PostMatchWindow : Window
         }
         if (direction != 0 || pressed != GamepadButtons.None)
             _view.SetInputDevice(PrimeInputDevice.Gamepad);
-        if ((pressed & GamepadButtons.A) != 0) _view.SubmitSelection();
+        if ((pressed & GamepadButtons.LeftBumper) != 0) _view.CycleHunter(-1);
+        else if ((pressed & GamepadButtons.RightBumper) != 0) _view.CycleHunter(1);
+        else if ((pressed & GamepadButtons.A) != 0) _view.SubmitSelection();
         else if ((pressed & GamepadButtons.B) != 0)
         {
             if (_view.LeaveConfirmationPending) _view.CancelLeaveConfirmation();

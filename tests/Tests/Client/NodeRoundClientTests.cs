@@ -99,12 +99,58 @@ public sealed class NodeRoundClientTests
         var open = round.Lobby with { Revision = 5, Phase = LobbyPhase.Open, CurrentMatchId = null };
         if (roundPush)
             client.ApplyEvent(NodeControlCodec.Write("lobby.round", 5, null, round with
-                { Lobby = open, Options = [], VoteDeadline = null, ResolvedOption = round.Options[0] }));
+                {
+                    Lobby = open,
+                    Options = [],
+                    VoteDeadline = null,
+                    ResolvedOption = round.Options[0] with
+                    {
+                        Choice = LobbyVoteChoice.ReturnToLobby
+                    }
+                }));
         else client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 5, null, open));
         Assert.Null(client.Handoff);
         Assert.Null(client.State.JoinedMatchId);
+        Assert.Null(client.State.JoinedCompletion);
+        Assert.Null(client.Round);
         Assert.False(client.MatchEnded);
         Assert.Equal(match, client.CompletionFor(match)!.MatchId);
+    }
+
+    [Fact]
+    public void OpenLobbyKeepsSelectedContinuationRoundUntilItsHandoffArrives()
+    {
+        var round = Round(Guid.NewGuid(), Guid.NewGuid());
+        LobbyVoteEntry selected = round.Options[0] with
+        {
+            Choice = LobbyVoteChoice.NextMap,
+            MapKey = "MP4 HIGHGROUND"
+        };
+        var open = round.Lobby with
+        {
+            Revision = round.Lobby.Revision + 1,
+            Phase = LobbyPhase.Open,
+            CurrentMatchId = null,
+            MapKey = selected.MapKey
+        };
+        var state = new NodeControlClient.ViewState(Lobby: round.Lobby,
+            MatchEnded: true, JoinedMatchId: Guid.NewGuid(), Round: round);
+
+        NodeControlClient.ViewState accepted = NodeControlClient.AcceptRound(state,
+            round with
+            {
+                Lobby = open,
+                ConfigurationRevision = round.ConfigurationRevision + 1,
+                Options = [],
+                VoteDeadline = null,
+                ResolvedOption = selected
+            });
+
+        Assert.NotNull(accepted.Round);
+        Assert.Equal(LobbyVoteChoice.NextMap,
+            accepted.Round!.ResolvedOption!.Choice);
+        Assert.Null(accepted.JoinedMatchId);
+        Assert.False(accepted.MatchEnded);
     }
 
     [Fact]

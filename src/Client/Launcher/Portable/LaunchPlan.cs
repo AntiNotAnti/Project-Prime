@@ -112,5 +112,19 @@ namespace MphRead.Mods.Launcher
         public string ReplayPath { get; init; }
         /// <summary>Replay only: one clip or an ordered highlight reel.</summary>
         public IReadOnlyList<ReplayHighlight>? ReplayHighlights { get; init; }
+        /// <summary>
+        /// Replay only: an optional indexed event/manual-preview position.
+        /// The shared launch path applies this through the normal bounded seek.
+        /// Highlight launches leave this null and own their range via
+        /// <see cref="ReplayHighlights"/>.
+        /// </summary>
+        public uint? ReplayStartFrame { get; init; }
+        /// <summary>
+        /// Replay only: Clip Out for a user-authored bounded range. This must
+        /// be paired with <see cref="ReplayStartFrame"/>.
+        /// </summary>
+        public uint? ReplayEndFrame { get; init; }
+        /// <summary>Replay only: optional exact actor focus for a bounded range.</summary>
+        public CombatActor? ReplayFocus { get; init; }
     }
 }

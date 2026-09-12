@@ -14,9 +14,15 @@ namespace MphRead.Mods.Network
     /// <summary>Game-thread bridge for the authoritative client.</summary>
     public sealed partial class AuthoritativePlay : IDisposable
     {
-        public enum TerminalState { Active, Completed, Failed, Disposed }
+        public enum TerminalState { Active, Completed, Failed, Transitioning, Disposed }
         public TerminalState State { get; private set; }
         public Guid? NodeMatchId { get; private set; }
+        /// <summary>
+        /// The Node transition that deliberately ended this Worker session.
+        /// This is distinct from an interrupted/failed match so the launcher
+        /// can retain its SDL host and continue directly into the replacement.
+        /// </summary>
+        public NodeMatchTransitionStarted? ExpectedTransition { get; private set; }
         public bool Interrupted { get; private set; }
         public MatchCompletionSummary? CompletionSummary { get; private set; }
         internal event Action<KillEvent>? LocalPlayerKilled;
@@ -52,15 +58,38 @@ namespace MphRead.Mods.Network
         public bool ObserveCompletion()
         {
             NodeMatchId ??= NodeSessions.Current?.State.JoinedMatchId;
+            NodeControlClient? node = NodeSessions.Current;
             if (State == TerminalState.Active && NodeMatchId is Guid id
-                && NodeSessions.Current?.CompletionFor(id) is { } ended)
+                && node?.ExpectedTransitionFor(id) is { } transition
+                && !IsFailedTransition(node, transition)
+                // Started is an expectation only. Either the Node has
+                // observed the old match's terminal edge, or the gameplay
+                // transport itself has actually terminated. A Started event
+                // alone never ends the scene.
+                && (node.ExpectedTransitionEndedFor(id) || Client.Failure != null))
             {
-                CompletionSummary = NodeSessions.Current.CompletionSummaryFor(id);
+                ExpectedTransition = transition;
+                // The old Worker was intentionally claimed by the Node. Do
+                // not drain or present Results and do not surface this as a
+                // disconnect to the user.
+                _onlineContext?.CancelPendingRejoin();
+                State = TerminalState.Transitioning;
+            }
+            else if (State == TerminalState.Active && NodeMatchId is Guid completedMatchId
+                && node?.CompletionFor(completedMatchId) is { } ended)
+            {
+                CompletionSummary = node.CompletionSummaryFor(completedMatchId);
                 Interrupted = ended.Interrupted;
                 State = ended.Interrupted ? TerminalState.Failed : TerminalState.Completed;
             }
             return State != TerminalState.Active;
         }
+
+        private static bool IsFailedTransition(NodeControlClient node,
+            NodeMatchTransitionStarted transition)
+            => node.TransitionVoteFor(transition.PreviousMatchId) is
+                { TransitionId: var id, State: MatchTransitionVoteState.Failed }
+                && id == transition.TransitionId;
 
         private readonly CompletionResultDrain _completionDrain = new();
 
@@ -148,9 +177,19 @@ namespace MphRead.Mods.Network
                 throw new InvalidOperationException("A network session is already active.");
             }
             ReplayRecorder.ResetTimelineForSession();
-            IPAddress? address = Array.Find(Dns.GetHostAddresses(host),
-                candidate => candidate.AddressFamily == AddressFamily.InterNetwork);
-            if (address == null) { throw new ProgramException($"{host} has no IPv4 address."); }
+            IPAddress? address;
+            if (!IPAddress.TryParse(host, out address))
+            {
+                IPAddress[] addresses = Dns.GetHostAddresses(host);
+                // Preserve the established IPv4 preference for dual-address
+                // hostnames while allowing IPv6-only DNS names.
+                address = Array.Find(addresses,
+                    candidate => candidate.AddressFamily == AddressFamily.InterNetwork)
+                    ?? Array.Find(addresses,
+                        candidate => candidate.AddressFamily == AddressFamily.InterNetworkV6);
+            }
+            if (address == null) { throw new ProgramException($"{host} has no IP address."); }
+            if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
             var endpoint = new IPEndPoint(address, port);
             _transport = new NetTransport(0);
             try
@@ -481,9 +520,10 @@ namespace MphRead.Mods.Network
                     || !CombatEventBatch.TryRead(message.Payload.Span, events, out int count)) { continue; }
                 foreach (CombatEvent value in events[..count])
                 {
+                    bool matchedPredictedShot = false;
                     if (value.Kind == CombatEventKind.Shot)
                     {
-                        _projectilePresentation.RecordAuthoritativeShot(value);
+                        matchedPredictedShot = _projectilePresentation.RecordAuthoritativeShot(value);
                         AuthoritativeCombatEventObserved?.Invoke(value);
                     }
                     else if (value.Kind == CombatEventKind.Damage)
@@ -524,10 +564,23 @@ namespace MphRead.Mods.Network
                         ? value.Actor : value.Target;
                     if (!subject.IsValid || _identities[subject.Slot] != subject.ConnectionId
                         || _lives[subject.Slot] != subject.Life) { continue; }
+                    // A local slot alone does not prove that prediction created
+                    // a visual. Preserve the authoritative shot as the fallback
+                    // whenever the prediction ledger could not match one.
                     scene.Players[subject.Slot].GetPresentation().PresentCombat(value,
-                        predictedLocalShot: subject.Slot == LocalSlot);
+                        predictedLocalShot: HasPredictedPresentation(value.Kind,
+                            subject.Slot == LocalSlot, matchedPredictedShot));
                 }
             }
+        }
+
+        internal static bool HasPredictedPresentation(CombatEventKind kind,
+            bool localSubject, bool matchedPredictedShot)
+        {
+            if (!localSubject)
+                return false;
+            return kind == CombatEventKind.Bomb
+                || kind == CombatEventKind.Shot && matchedPredictedShot;
         }
 
         public void AfterSimulation()
@@ -1148,8 +1201,20 @@ namespace MphRead.Mods.Network
                 || LocalSlot != kill.Victim.Slot)
                 return true;
             CombatActor local = GetLocalCombatActor();
-            return !local.IsValid || includeNewLife && local != kill.Victim;
+            return KillcamIdentityChanged(local, kill.Victim, includeNewLife);
         }
+
+        /// <summary>
+        /// Keep connection identity fenced even when a post-round killcam is
+        /// allowed to survive a new life on the same connection. A slot is
+        /// reusable across reconnects; includeNewLife only relaxes the life
+        /// component of that exact identity.
+        /// </summary>
+        internal static bool KillcamIdentityChanged(CombatActor current,
+            CombatActor killed, bool includeNewLife)
+            => !current.IsValid || !killed.IsValid
+                || current.ConnectionId != killed.ConnectionId
+                || includeNewLife && current != killed;
 
         private bool IsPredictionEpochActive(Scene scene)
         {

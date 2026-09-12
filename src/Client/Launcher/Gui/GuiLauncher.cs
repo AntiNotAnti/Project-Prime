@@ -214,6 +214,8 @@ namespace MphRead.Mods.Launcher.Gui
                         {
                             persistentWindow = new HomeWindow(settings, rooms,
                                 desktopOverlay);
+                            desktopOverlay.AttachTransitionActions(
+                                persistentWindow.TransitionMenuActions);
                             persistentWindow.ResultsCloseRequested += (_, _) =>
                             {
                                 persistentHost?.Close();
@@ -323,6 +325,17 @@ namespace MphRead.Mods.Launcher.Gui
                             or MatchExitReason.ClientError)
                             presentationCoordinator.FailLaunch(transitionGeneration,
                                 lastResult.Message);
+                        if (!ClassicUi && lastResult.Reason == MatchExitReason.Transitioning)
+                        {
+                            // This boundary is Game -> PreparingContinuation;
+                            // there is no Results surface to pass through. The
+                            // existing SDL host remains owned by this launcher
+                            // loop while only the old Scene is torn down.
+                            presentationCoordinator.BeginContinuation(
+                                TransitionState(plan, MatchTransitionStage.LoadingNextRound,
+                                    "Preparing the next match.",
+                                    NodeSessions.Current?.Lobby?.MapKey ?? plan.RoomKey));
+                        }
                         coordinator.NotifyMatchEnded(lastResult);
                     }
                     catch (Exception ex)
@@ -384,6 +397,12 @@ namespace MphRead.Mods.Launcher.Gui
                 => presentationCoordinator.BeginReturnToShell();
             void ReturnFromFailure(object? sender, EventArgs args)
                 => presentationCoordinator.CompleteFailedReturn();
+            void ContinuationFailed(string message)
+            {
+                if (presentationCoordinator.State == DesktopTransitionState.PreparingContinuation)
+                    presentationCoordinator.FailLaunch(
+                        presentationCoordinator.CurrentGeneration, message);
+            }
             void PrewarmGameHost(object? sender, EventArgs args)
                 => prewarmGameHost();
             void PumpSdlInput(object? sender, EventArgs args)
@@ -396,6 +415,7 @@ namespace MphRead.Mods.Launcher.Gui
             window.LaunchRequested += Done;
             window.ShellReadyForTransition += ShellReady;
             window.TransitionReturnToLobbyRequested += ReturnFromFailure;
+            window.ContinuationFailed += ContinuationFailed;
             window.GameHostPrewarmRequested += PrewarmGameHost;
             sdlPump.Tick += PumpSdlInput;
             sdlPump.Start();
@@ -419,6 +439,7 @@ namespace MphRead.Mods.Launcher.Gui
                 window.LaunchRequested -= Done;
                 window.ShellReadyForTransition -= ShellReady;
                 window.TransitionReturnToLobbyRequested -= ReturnFromFailure;
+                window.ContinuationFailed -= ContinuationFailed;
                 window.GameHostPrewarmRequested -= PrewarmGameHost;
                 sdlPump.Stop();
                 sdlPump.Tick -= PumpSdlInput;

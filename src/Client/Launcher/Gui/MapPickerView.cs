@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -37,6 +38,17 @@ namespace MphRead.Mods.Launcher.Gui
         private MapTile? _selected;
 
         public MapPickerView(IReadOnlyList<string> rooms, string current)
+            : this(rooms, current, excludeCurrent: false)
+        {
+        }
+
+        /// <summary>
+        /// Builds the transition picker from the exact intersection of maps
+        /// hosted by the Node and installed locally. The current map is not a
+        /// second choice for a Change Map proposal.
+        /// </summary>
+        internal MapPickerView(IReadOnlyList<string> rooms, string current,
+            bool excludeCurrent)
         {
             Background = GuiTheme.InkBrush;
             Focusable = true;
@@ -44,6 +56,8 @@ namespace MphRead.Mods.Launcher.Gui
             var grid = new WrapPanel { Orientation = Orientation.Horizontal };
             foreach (string room in rooms)
             {
+                if (excludeCurrent && StringComparer.Ordinal.Equals(room, current))
+                    continue;
                 var tile = new MapTile(room) { Selected = room == current };
                 _first ??= tile;
                 if (tile.Selected)
@@ -99,6 +113,28 @@ namespace MphRead.Mods.Launcher.Gui
             dock.Children.Add(header);
             dock.Children.Add(body);
             Content = dock;
+        }
+
+        internal MapPickerView(IReadOnlyList<string> hostedMaps,
+            IReadOnlyList<string> localMaps, string current)
+            : this(IntersectHostedAndLocal(hostedMaps, localMaps, current), current,
+                excludeCurrent: true)
+        {
+        }
+
+        internal static IReadOnlyList<string> IntersectHostedAndLocal(
+            IEnumerable<string>? hostedMaps, IEnumerable<string>? localMaps,
+            string? currentMap = null)
+        {
+            if (hostedMaps == null || localMaps == null) return Array.Empty<string>();
+            HashSet<string> local = new(localMaps.Where(map => !String.IsNullOrWhiteSpace(map)),
+                StringComparer.Ordinal);
+            return hostedMaps.Where(map => !String.IsNullOrWhiteSpace(map)
+                    && local.Contains(map)
+                    && !StringComparer.Ordinal.Equals(map, currentMap))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(map => map, StringComparer.Ordinal)
+                .ToArray();
         }
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)

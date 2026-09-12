@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using ProjectPrime.Server.Shared;
+using MphRead;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Launcher;
 
@@ -34,7 +35,10 @@ public sealed class NodeControlClient : IAsyncDisposable
     internal NodeControlClient(Guid expectedNodeId) { _nodeId = expectedNodeId; }
     public sealed record ViewState(NodeSessionSnapshot? Session = null, LobbySnapshot? Lobby = null,
         LobbyListSnapshot? Lobbies = null, NodeMatchHandoff? Handoff = null, bool MatchEnded = false, string? Error = null, Guid? JoinedMatchId = null, Guid? LastEndedMatchId = null, bool LastMatchInterrupted = false, NodeMatchEnded? JoinedCompletion = null, NodeRoundSnapshot? Round = null, Guid? LastLobbyMatchId = null,
-        MatchCompletionSummary? LastCompletionSummary = null, MatchCompletionSummary? JoinedCompletionSummary = null);
+        MatchCompletionSummary? LastCompletionSummary = null, MatchCompletionSummary? JoinedCompletionSummary = null,
+        NodeMatchTransitionVoteSnapshot? TransitionVote = null,
+        NodeMatchTransitionStarted? ExpectedTransition = null,
+        bool ExpectedTransitionEnded = false);
     private ViewState _state = new();
     public ViewState State => Volatile.Read(ref _state);
     private void Publish(Func<ViewState, ViewState> update)
@@ -64,6 +68,30 @@ public sealed class NodeControlClient : IAsyncDisposable
     public NodeSessionSnapshot? Session => State.Session;
     public LobbySnapshot? Lobby => State.Lobby;
     public NodeRoundSnapshot? Round => State.Round;
+    /// <summary>
+    /// The latest transition ballot is intentionally separate from the Worker
+    /// handoff. A readiness snapshot or replacement handoff must not erase the
+    /// ballot the pause menu is presenting.
+    /// </summary>
+    public NodeMatchTransitionVoteSnapshot? TransitionVote => State.TransitionVote;
+    /// <summary>
+    /// Identifies the old match for which a terminal event is expected as part
+    /// of a Node-owned transition. It remains available after the replacement
+    /// handoff arrives so late old completion cannot stop the new match.
+    /// </summary>
+    public NodeMatchTransitionStarted? ExpectedTransition => State.ExpectedTransition;
+    public bool ExpectedTransitionEnded => State.ExpectedTransitionEnded;
+    public NodeMatchTransitionVoteSnapshot? ActiveTransitionVote
+        => State.TransitionVote is { State: MatchTransitionVoteState.Pending } vote
+            ? vote : null;
+    public NodeMatchTransitionVoteSnapshot? TransitionVoteFor(Guid matchId)
+        => State.TransitionVote is { MatchId: var current } vote && current == matchId
+            ? vote : null;
+    public NodeMatchTransitionStarted? ExpectedTransitionFor(Guid matchId)
+        => State.ExpectedTransition is { PreviousMatchId: var current } transition
+            && current == matchId ? transition : null;
+    public bool ExpectedTransitionEndedFor(Guid matchId)
+        => State.ExpectedTransitionEnded && ExpectedTransitionFor(matchId) != null;
     public LobbyListSnapshot? Lobbies => State.Lobbies;
     public NodeMatchHandoff? Handoff => State.Handoff;
     public bool MatchEnded => State.MatchEnded;
@@ -251,7 +279,9 @@ public sealed class NodeControlClient : IAsyncDisposable
                 if (Lobby?.LobbyId == lobby.LobbyId && lobby.Revision <= Lobby.Revision) break;
                 Publish(state => ClearOpenMatch(state.Lobby?.LobbyId == lobby.LobbyId
                     ? state with { Lobby = lobby, LastLobbyMatchId = lobby.CurrentMatchId ?? state.LastLobbyMatchId }
-                    : state with { Lobby = lobby, Round = null, Handoff = null, MatchEnded = false, LastLobbyMatchId = lobby.CurrentMatchId })); break;
+                    : state with { Lobby = lobby, Round = null, Handoff = null, MatchEnded = false,
+                        LastLobbyMatchId = lobby.CurrentMatchId, TransitionVote = null,
+                        ExpectedTransition = null, ExpectedTransitionEnded = false })); break;
             case "lobby.round":
                 var round = value.Payload.Deserialize(NodeJsonContext.Default.NodeRoundSnapshot)
                     ?? throw new JsonException("Missing round snapshot.");
@@ -283,8 +313,27 @@ public sealed class NodeControlClient : IAsyncDisposable
                     JoinedCompletion = null,
                     JoinedCompletionSummary = null,
                     LastLobbyMatchId = null,
-                    Error = null
+                    Error = null,
+                    TransitionVote = null,
+                    ExpectedTransition = null,
+                    ExpectedTransitionEnded = false
                 });
+                break;
+            case "match.transition.state":
+                NodeMatchTransitionVoteSnapshot transitionVote = value.Payload.Deserialize(
+                    NodeJsonContext.Default.NodeMatchTransitionVoteSnapshot)
+                    ?? throw new JsonException("Missing match transition ballot.");
+                try { NodeControlCodec.ValidateEventPayload(transitionVote); }
+                catch (ArgumentException ex) { throw new JsonException("Invalid match transition ballot.", ex); }
+                Publish(state => AcceptTransitionVote(state, transitionVote));
+                break;
+            case "match.transition.started":
+                NodeMatchTransitionStarted transitionStarted = value.Payload.Deserialize(
+                    NodeJsonContext.Default.NodeMatchTransitionStarted)
+                    ?? throw new JsonException("Missing match transition start.");
+                try { NodeControlCodec.ValidateEventPayload(transitionStarted); }
+                catch (ArgumentException ex) { throw new JsonException("Invalid match transition start.", ex); }
+                Publish(state => AcceptTransitionStarted(state, transitionStarted));
                 break;
             case "match.handoff":
                 var handoff = value.Payload.Deserialize(NodeJsonContext.Default.NodeMatchHandoff) ?? throw new JsonException("Missing match handoff.");
@@ -293,7 +342,32 @@ public sealed class NodeControlClient : IAsyncDisposable
                 Publish(state => state with { Handoff = handoff, MatchEnded = false }); break;
             case "match.ended":
                 var ended = value.Payload.Deserialize(NodeJsonContext.Default.NodeMatchEnded);
-                if (ended != null && (ended.MatchId == State.JoinedMatchId || ended.MatchId == Handoff?.MatchId || ended.MatchId == State.LastLobbyMatchId)) Publish(state => state with { MatchEnded = ended.MatchId == state.Handoff?.MatchId || state.Handoff == null && ended.MatchId == state.LastLobbyMatchId || state.MatchEnded, LastEndedMatchId = ended.MatchId, LastMatchInterrupted = ended.Interrupted, JoinedCompletion = ended.MatchId == state.JoinedMatchId ? ended : state.JoinedCompletion });
+                if (ended != null && (ended.MatchId == State.JoinedMatchId
+                    || ended.MatchId == Handoff?.MatchId
+                    || ended.MatchId == State.LastLobbyMatchId
+                    || ended.MatchId == State.ExpectedTransition?.PreviousMatchId))
+                    Publish(state => state.ExpectedTransition is { PreviousMatchId: var transitionMatch }
+                        && transitionMatch == ended.MatchId
+                        // This terminal event belongs to the expected old
+                        // match. Record only the transition-specific terminal
+                        // acknowledgement; ordinary completion/result state
+                        // must remain untouched.
+                        ? state with
+                        {
+                            ExpectedTransitionEnded = true,
+                            MatchEnded = state.Handoff?.MatchId == ended.MatchId
+                                || state.MatchEnded
+                        }
+                        : state with
+                        {
+                            MatchEnded = ended.MatchId == state.Handoff?.MatchId
+                                || state.Handoff == null && ended.MatchId == state.LastLobbyMatchId
+                                || state.MatchEnded,
+                            LastEndedMatchId = ended.MatchId,
+                            LastMatchInterrupted = ended.Interrupted,
+                            JoinedCompletion = ended.MatchId == state.JoinedMatchId
+                                ? ended : state.JoinedCompletion
+                        });
                 break;
             case "match.completion":
                 var completion = value.Payload.Deserialize(NodeJsonContext.Default.NodeMatchCompletion)
@@ -302,7 +376,14 @@ public sealed class NodeControlClient : IAsyncDisposable
                 catch (ArgumentException ex) { throw new JsonException("Invalid match completion.", ex); }
                 Guid completionMatch = completion.Summary.MatchId.Value;
                 if (completionMatch != State.JoinedMatchId && completionMatch != Handoff?.MatchId
-                    && completionMatch != State.LastLobbyMatchId) break;
+                    && completionMatch != State.LastLobbyMatchId
+                    && completionMatch != State.ExpectedTransition?.PreviousMatchId) break;
+                if (State.ExpectedTransition is { PreviousMatchId: var transitionMatch }
+                    && transitionMatch == completionMatch)
+                {
+                    Publish(state => state with { ExpectedTransitionEnded = true });
+                    break;
+                }
                 if (State.LastCompletionSummary is { } prior && prior.MatchId == completion.Summary.MatchId)
                 {
                     if (prior.ReportId != completion.Summary.ReportId)
@@ -326,6 +407,72 @@ public sealed class NodeControlClient : IAsyncDisposable
         if (EventReceived != null) foreach (Action<NodeControlEvent> handler in EventReceived.GetInvocationList())
             try { handler(value); } catch { Publish(state => state with { Error = "A Node event listener failed." }); }
         NotifyChanged();
+    }
+
+    private static ViewState AcceptTransitionVote(ViewState state,
+        NodeMatchTransitionVoteSnapshot incoming)
+    {
+        // A replacement lobby owns a different transition namespace. The
+        // event may still be in flight after a reconnect, but it must never
+        // become visible in that new lobby.
+        if (state.Lobby is { } lobby && lobby.LobbyId != incoming.LobbyId)
+            return state;
+
+        // Keep the projection while the next handoff/readiness snapshot is
+        // being assembled. The pause menu filters by the current match; this
+        // independent retention is what lets reconnects preserve a ballot.
+        if (state.TransitionVote is { } prior)
+        {
+            if (prior.LobbyId != incoming.LobbyId)
+                return state;
+            if (incoming.BallotRevision < prior.BallotRevision)
+                return state;
+            if (incoming.BallotRevision == prior.BallotRevision)
+            {
+                if (prior.TransitionId != incoming.TransitionId
+                    || prior.MatchId != incoming.MatchId
+                    || prior.Choice != incoming.Choice
+                    || !StringComparer.Ordinal.Equals(prior.TargetMapKey, incoming.TargetMapKey))
+                    throw new JsonException("Conflicting immutable match transition ballot.");
+                // Same ballot identity is idempotent. A terminal projection
+                // must not be regressed by a delayed pending response.
+                if (prior.State != MatchTransitionVoteState.Pending
+                    && incoming.State == MatchTransitionVoteState.Pending)
+                    return state;
+            }
+        }
+
+        bool failedExpected = state.ExpectedTransition is { } expected
+            && expected.TransitionId == incoming.TransitionId
+            && incoming.State == MatchTransitionVoteState.Failed;
+        return state with
+        {
+            TransitionVote = incoming,
+            ExpectedTransition = failedExpected ? null : state.ExpectedTransition,
+            ExpectedTransitionEnded = failedExpected ? false : state.ExpectedTransitionEnded
+        };
+    }
+
+    private static ViewState AcceptTransitionStarted(ViewState state,
+        NodeMatchTransitionStarted incoming)
+    {
+        if (state.Lobby is { } lobby && lobby.LobbyId != incoming.LobbyId)
+            return state;
+        if (state.ExpectedTransition is { } prior)
+        {
+            if (prior.TransitionId == incoming.TransitionId)
+                return state;
+            // Only one start may claim a given old MatchId. A late event from
+            // an earlier attempt cannot replace the expected transition.
+            if (prior.PreviousMatchId == incoming.PreviousMatchId)
+                return state;
+        }
+        bool alreadyEnded = state.LastEndedMatchId == incoming.PreviousMatchId
+            || state.JoinedCompletion?.MatchId == incoming.PreviousMatchId
+            || state.LastCompletionSummary?.MatchId.Value == incoming.PreviousMatchId
+            || state.JoinedCompletionSummary?.MatchId.Value == incoming.PreviousMatchId;
+        return state with { ExpectedTransition = incoming,
+            ExpectedTransitionEnded = alreadyEnded };
     }
 
     internal static ViewState AcceptRound(ViewState state, NodeRoundSnapshot incoming)
@@ -365,9 +512,36 @@ public sealed class NodeControlClient : IAsyncDisposable
     }
 
     private static ViewState ClearOpenMatch(ViewState state)
-        => state.Lobby is { Phase: LobbyPhase.Open, CurrentMatchId: null }
-            ? state with { Handoff = null, MatchEnded = false, JoinedMatchId = null }
-            : state;
+    {
+        if (state.Lobby is not { Phase: LobbyPhase.Open, CurrentMatchId: null })
+            return state;
+
+        // An open lobby is no longer attached to the completed Worker. Keep
+        // immutable history for Results/career presentation, but retire the
+        // joined completion and an ordinary completed-round projection so a
+        // later explicit start cannot inherit post-match client state. A
+        // selected next-map continuation and tournament control state still
+        // belong to the round authority and must remain visible.
+        NodeRoundSnapshot? round = state.Round;
+        bool retainRound = round?.TournamentId != null
+            || round?.ResolvedOption is { Choice: not LobbyVoteChoice.ReturnToLobby };
+        return state with
+        {
+            Handoff = null,
+            MatchEnded = false,
+            JoinedMatchId = null,
+            JoinedCompletion = null,
+            JoinedCompletionSummary = null,
+            Round = retainRound ? round : null,
+            // A successful Node transition publishes the lobby's open,
+            // unassigned boundary after the old Worker acknowledges cancel.
+            // That is the client-visible terminal edge; retain the expected
+            // transition itself for stale-event filtering and lifecycle
+            // diagnostics.
+            ExpectedTransitionEnded = state.ExpectedTransition != null
+                || state.ExpectedTransitionEnded
+        };
+    }
 
     internal void SetAdvertisedMapKeys(string[]? mapKeys)
     {

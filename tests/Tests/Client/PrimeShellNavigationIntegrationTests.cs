@@ -30,6 +30,26 @@ namespace MphRead.Tests.Client;
 [Collection(AvaloniaUiCollection.Name)]
 public sealed class PrimeShellNavigationIntegrationTests
 {
+    [AvaloniaFact]
+    public void MatchReturnRebuildsAnAlreadySelectedPlayRoot()
+    {
+        var shell = PrimeShellView.CreateCapture(new MenuSettings(),
+            new[] { "MP3 PROVING GROUND" }, PrimeRoute.Play);
+        var stale = new Border();
+        try
+        {
+            shell.SetRouteContentForCapture(PrimeRoute.Play, stale);
+
+            shell.Reset();
+
+            Assert.NotSame(stale, shell.CaptureRouteContent);
+        }
+        finally
+        {
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
     [Fact]
     public void ProductionShellUsesLiveRootNavigationInsteadOfLinearTraversal()
     {

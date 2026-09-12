@@ -32,6 +32,7 @@ internal sealed class PostMatchSession : IDisposable
     private string? _message;
     private bool _leaveRequested;
     private Task? _voteTask;
+    private Task? _hunterTask;
     private Task? _leaveTask;
     private bool _continuationCompleted;
 
@@ -52,6 +53,7 @@ internal sealed class PostMatchSession : IDisposable
         _completedMatch = completedMatch;
         _view = new PostMatchView(results, AuthoritativePlay.Current?.LocalSlot ?? -1);
         _view.VoteRequested += Vote;
+        _view.HunterRequested += SelectHunter;
         _view.LeaveRequested += Leave;
         _timer.Tick += (_, _) => Tick();
     }
@@ -72,7 +74,7 @@ internal sealed class PostMatchSession : IDisposable
             CloseForTransition();
             return Transition;
         }
-        _view.Update(_play.State.Round);
+        UpdateView(_play.State.Node);
         _previousButtons = GamepadInput.State.Buttons;
         _frame = new DispatcherFrame();
         showResults();
@@ -139,7 +141,7 @@ internal sealed class PostMatchSession : IDisposable
             return;
         }
         NodeControlClient.ViewState? state = _play.State.Node;
-        _view.Update(state?.Round, _message ?? state?.Error);
+        UpdateView(state, _message ?? state?.Error);
         PostMatchTransition next = PostMatchFlow.Evaluate(state, _completedMatch);
         if (next == PostMatchTransition.Lobby)
         {
@@ -207,6 +209,7 @@ internal sealed class PostMatchSession : IDisposable
         EndResultsWait();
         _commands.Dispose();
         _view.VoteRequested -= Vote;
+        _view.HunterRequested -= SelectHunter;
         _view.LeaveRequested -= Leave;
         _view.Dispose();
         if (_frame is { } frame) frame.Continue = false;
@@ -219,6 +222,19 @@ internal sealed class PostMatchSession : IDisposable
             return;
         _message = null;
         _voteTask = RunVoteAsync(option, token);
+    }
+
+    private void SelectHunter(Hunter hunter)
+    {
+        if (_closed || _disposed || Mode != PostMatchPresentationMode.Results
+            || _hunterTask != null
+            || !_commands.TryBeginHunter(out CancellationToken token))
+        {
+            _view.RejectPending();
+            return;
+        }
+        _message = null;
+        _hunterTask = RunHunterAsync(hunter, token);
     }
 
     private void Leave()
@@ -238,6 +254,14 @@ internal sealed class PostMatchSession : IDisposable
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (Exception ex) { PostToUi(() => ShowCommandError(ex)); }
         finally { _commands.CompleteVote(); }
+    }
+
+    private async Task RunHunterAsync(Hunter hunter, CancellationToken token)
+    {
+        try { await _play.SelectLobbyHunterAsync(hunter, token); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception ex) { PostToUi(() => ShowCommandError(ex)); }
+        finally { _commands.CompleteHunter(); }
     }
 
     private async Task RunLeaveAsync(CancellationToken token)
@@ -265,6 +289,11 @@ internal sealed class PostMatchSession : IDisposable
             _voteTask.GetAwaiter().GetResult();
             _voteTask = null;
         }
+        if (_hunterTask is { IsCompleted: true })
+        {
+            _hunterTask.GetAwaiter().GetResult();
+            _hunterTask = null;
+        }
         if (_leaveTask is { IsCompleted: true })
         {
             _leaveTask.GetAwaiter().GetResult();
@@ -286,8 +315,12 @@ internal sealed class PostMatchSession : IDisposable
         if (_closed || _disposed || Mode != PostMatchPresentationMode.Results) return;
         _message = ex.Message;
         _view.RejectPending();
-        _view.Update(_play.State.Round, ex.Message);
+        UpdateView(_play.State.Node, ex.Message);
     }
+
+    private void UpdateView(NodeControlClient.ViewState? state, string? message = null)
+        => _view.Update(state?.Round, message, state?.Lobby,
+            state?.Session?.SessionId);
 
     private void PollGamepad()
     {
@@ -308,7 +341,9 @@ internal sealed class PostMatchSession : IDisposable
         }
         if (direction != 0 || pressed != GamepadButtons.None)
             _view.SetInputDevice(PrimeInputDevice.Gamepad);
-        if ((pressed & GamepadButtons.A) != 0) _view.SubmitSelection();
+        if ((pressed & GamepadButtons.LeftBumper) != 0) _view.CycleHunter(-1);
+        else if ((pressed & GamepadButtons.RightBumper) != 0) _view.CycleHunter(1);
+        else if ((pressed & GamepadButtons.A) != 0) _view.SubmitSelection();
         else if ((pressed & GamepadButtons.B) != 0)
         {
             if (_view.LeaveConfirmationPending) _view.CancelLeaveConfirmation();
@@ -326,6 +361,7 @@ internal sealed class PostMatchSession : IDisposable
         EndResultsWait();
         _commands.Dispose();
         _view.VoteRequested -= Vote;
+        _view.HunterRequested -= SelectHunter;
         _view.LeaveRequested -= Leave;
         _view.Dispose();
     }

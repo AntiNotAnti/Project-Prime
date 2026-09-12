@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -6,6 +8,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using MphRead.Mods.Network;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -36,15 +39,43 @@ namespace MphRead.Mods.Launcher.Gui
         public event EventHandler? SpectateRequested;
         public event EventHandler? RejoinRequested;
         public event EventHandler? RecordToggleRequested;
+        /// <summary>Raised after the player confirms a restart proposal.</summary>
+        public event EventHandler? RestartMatchRequested;
+        /// <summary>Raised after the player confirms opening the map picker.</summary>
+        public event EventHandler? ChangeMapRequested;
+        /// <summary>Raised for one explicit yes/no response to an active ballot.</summary>
+        public event Action<bool>? TransitionVoteRequested;
 
         private readonly MenuEntry _resume;
+        private readonly IMatchTransitionMenuActions? _transitionActions;
+        private Border? _transitionGroup;
+        private TextBlock? _transitionStatus;
+        private TextBlock? _transitionDetails;
+        private TextBlock? _transitionConfirmation;
+        private MenuEntry? _restartMatch;
+        private MenuEntry? _changeMap;
+        private MenuEntry? _voteYes;
+        private MenuEntry? _voteNo;
+        private MenuEntry? _confirmTransition;
+        private MenuEntry? _cancelTransition;
+        private MenuEntry? _transitionFocusRestore;
+        private TransitionIntent _pendingTransition;
+
+        private enum TransitionIntent
+        {
+            None,
+            Restart,
+            ChangeMap
+        }
 
         /// <param name="offerWindowMode">
         /// Show the fullscreen/windowed entry. False on a phone, which has one
         /// window, it is already the whole screen, and there is no F11.
         /// </param>
-        public PauseMenuView(bool offerWindowMode)
+        public PauseMenuView(bool offerWindowMode,
+            IMatchTransitionMenuActions? transitionActions = null)
         {
+            _transitionActions = transitionActions;
             // The host is the size of the game, on every platform: a phone's
             // overlay is the screen and the desktop's window now covers the
             // one the match is being played in. So the entries are always a
@@ -59,6 +90,13 @@ namespace MphRead.Mods.Launcher.Gui
                 () => Resumed?.Invoke(this, EventArgs.Empty), GuiTheme.Accent, primary: true);
             _resume.Height = 48;
             stack.Children.Add(_resume);
+
+            if (CanShowTransitionMenu())
+            {
+                _transitionGroup = BuildTransitionGroup();
+                stack.Children.Add(_transitionGroup);
+                RefreshTransitionPresentation();
+            }
 
             // Keep every secondary action in one bounded control sector. The
             // hosts still decide what the actions mean; this view only makes
@@ -166,6 +204,207 @@ namespace MphRead.Mods.Launcher.Gui
             scroller.SizeChanged += (_, e) => FitToHost(e.NewSize.Height);
             Content = scroller;
         }
+
+        internal IMatchTransitionMenuActions? TransitionActions => _transitionActions;
+        internal bool TransitionMenuVisible => _transitionGroup?.IsVisible == true;
+        internal bool TransitionConfirmationVisible
+            => _pendingTransition != TransitionIntent.None;
+
+        private bool CanShowTransitionMenu()
+            => _transitionActions?.TransitionMenuSupported == true
+                && !ReplayPlayback.IsActive && !ReplayPlayback.IsModern
+                && AuthoritativePlay.Current?.IsObserver != true;
+
+        private Border BuildTransitionGroup()
+        {
+            var entries = new StackPanel { Spacing = 2 };
+            _transitionStatus = new TextBlock
+            {
+                Height = 24,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = GuiTheme.TextDimBrush,
+                FontSize = 12
+            };
+            _transitionDetails = new TextBlock
+            {
+                Height = 42,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = GuiTheme.TextBrush,
+                FontSize = 12
+            };
+            entries.Children.Add(_transitionStatus);
+            entries.Children.Add(_transitionDetails);
+
+            _restartMatch = Add(entries, "Restart match",
+                () => BeginTransitionConfirmation(TransitionIntent.Restart));
+            _restartMatch.Subtitle = "Ask the lobby to start a fresh arena.";
+            _changeMap = Add(entries, "Change map",
+                () => BeginTransitionConfirmation(TransitionIntent.ChangeMap));
+            _changeMap.Subtitle = "Choose another map hosted by this Node.";
+            _voteYes = Add(entries, "Vote yes",
+                () => TransitionVoteRequested?.Invoke(true));
+            _voteYes.Accent = GuiTheme.Accent;
+            _voteNo = Add(entries, "Vote no",
+                () => TransitionVoteRequested?.Invoke(false));
+            _voteNo.Accent = GuiTheme.Warm;
+
+            _transitionConfirmation = new TextBlock
+            {
+                Height = 44,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = GuiTheme.WarmBrush,
+                FontSize = 12,
+                IsVisible = false
+            };
+            entries.Children.Add(_transitionConfirmation);
+            _confirmTransition = Add(entries, "Confirm",
+                ConfirmPendingTransition);
+            _confirmTransition.Accent = GuiTheme.Warm;
+            _confirmTransition.IsVisible = false;
+            _cancelTransition = Add(entries, "Cancel",
+                CancelPendingTransition);
+            _cancelTransition.Accent = GuiTheme.TextDim;
+            _cancelTransition.IsVisible = false;
+
+            var group = BuildGroup("Match transition", entries);
+            group.IsVisible = true;
+            return group;
+        }
+
+        private void BeginTransitionConfirmation(TransitionIntent intent)
+        {
+            if (_transitionActions is not { TransitionMenuSupported: true }
+                || _transitionActions.TransitionRequestInFlight)
+                return;
+            if (intent == TransitionIntent.ChangeMap
+                && _transitionActions.AvailableTransitionMaps.Count == 0)
+                return;
+            _pendingTransition = intent;
+            _transitionFocusRestore = intent == TransitionIntent.Restart
+                ? _restartMatch : _changeMap;
+            if (_transitionConfirmation != null)
+            {
+                string action = intent == TransitionIntent.Restart
+                    ? "Restart this match for everyone?"
+                    : "Choose a different hosted map for everyone?";
+                _transitionConfirmation.Text = action + " Confirm to propose it.";
+                _transitionConfirmation.IsVisible = true;
+            }
+            if (_confirmTransition != null) _confirmTransition.IsVisible = true;
+            if (_cancelTransition != null) _cancelTransition.IsVisible = true;
+            if (_restartMatch != null) _restartMatch.IsEnabled = false;
+            if (_changeMap != null) _changeMap.IsEnabled = false;
+            if (_voteYes != null) _voteYes.IsEnabled = false;
+            if (_voteNo != null) _voteNo.IsEnabled = false;
+            _confirmTransition?.Focus();
+        }
+
+        internal void BeginRestartConfirmation()
+            => BeginTransitionConfirmation(TransitionIntent.Restart);
+
+        internal void BeginChangeMapConfirmation()
+            => BeginTransitionConfirmation(TransitionIntent.ChangeMap);
+
+        internal void ConfirmPendingTransition()
+        {
+            TransitionIntent intent = _pendingTransition;
+            if (intent == TransitionIntent.None) return;
+            MenuEntry? restoreFocus = _transitionFocusRestore;
+            _pendingTransition = TransitionIntent.None;
+            _transitionFocusRestore = null;
+            if (_transitionConfirmation != null) _transitionConfirmation.IsVisible = false;
+            if (_confirmTransition != null) _confirmTransition.IsVisible = false;
+            if (_cancelTransition != null) _cancelTransition.IsVisible = false;
+            RefreshTransitionPresentation();
+            if (intent == TransitionIntent.Restart)
+                RestartMatchRequested?.Invoke(this, EventArgs.Empty);
+            else
+                ChangeMapRequested?.Invoke(this, EventArgs.Empty);
+            if (restoreFocus?.IsEnabled == true) restoreFocus.Focus();
+        }
+
+        internal void CancelPendingTransition()
+        {
+            if (_pendingTransition == TransitionIntent.None) return;
+            MenuEntry? restoreFocus = _transitionFocusRestore;
+            _pendingTransition = TransitionIntent.None;
+            _transitionFocusRestore = null;
+            if (_transitionConfirmation != null) _transitionConfirmation.IsVisible = false;
+            if (_confirmTransition != null) _confirmTransition.IsVisible = false;
+            if (_cancelTransition != null) _cancelTransition.IsVisible = false;
+            RefreshTransitionPresentation();
+            if (restoreFocus?.IsEnabled == true) restoreFocus.Focus();
+        }
+
+        /// <summary>Refreshes the presentation after a Node snapshot changes.</summary>
+        internal void RefreshTransitionPresentation()
+        {
+            if (_transitionGroup == null || _transitionActions == null) return;
+            if (!CanShowTransitionMenu())
+            {
+                _transitionGroup.IsVisible = false;
+                return;
+            }
+            _transitionGroup.IsVisible = true;
+            NodeMatchTransitionVoteSnapshot? vote = _transitionActions.TransitionVote;
+            bool active = vote?.State == MatchTransitionVoteState.Pending;
+            bool busy = _transitionActions.TransitionRequestInFlight;
+            if (_transitionStatus != null)
+            {
+                string? error = _transitionActions.TransitionError;
+                _transitionStatus.Text = busy ? "Sending transition request…"
+                    : error is { Length: > 0 } ? error : TransitionStatus(vote);
+                _transitionStatus.Foreground = error is { Length: > 0 }
+                    ? GuiTheme.ErrorBrush : GuiTheme.TextDimBrush;
+            }
+            if (_transitionDetails != null)
+            {
+                TextBlock details = _transitionDetails;
+                details.Text = active && vote is { } ballot
+                    ? $"{Describe(ballot)}\n{ballot.Yes}/{ballot.Eligible} yes · {ballot.No}/{ballot.Eligible} no · need {ballot.Needed}"
+                    : vote is { } terminal && terminal.State != MatchTransitionVoteState.Pending
+                        ? $"{Describe(terminal)}\n{TransitionStatus(terminal)}"
+                        : "Restart or change the map with a lobby-wide vote.";
+            }
+            if (_restartMatch != null) _restartMatch.IsVisible = !active;
+            if (_changeMap != null)
+            {
+                _changeMap.IsVisible = !active
+                    && _transitionActions.AvailableTransitionMaps.Count > 0;
+                _changeMap.Subtitle = _transitionActions.AvailableTransitionMaps.Count == 0
+                    ? "No other hosted maps are installed locally."
+                    : $"{_transitionActions.AvailableTransitionMaps.Count} other hosted map(s).";
+            }
+            if (_voteYes != null) _voteYes.IsVisible = active;
+            if (_voteNo != null) _voteNo.IsVisible = active;
+            bool canVote = active && !busy && vote!.OwnVote == null;
+            if (_voteYes != null) _voteYes.IsEnabled = canVote;
+            if (_voteNo != null) _voteNo.IsEnabled = canVote;
+            if (_restartMatch != null) _restartMatch.IsEnabled = !active && !busy;
+            if (_changeMap != null) _changeMap.IsEnabled = !active && !busy
+                && _transitionActions.AvailableTransitionMaps.Count > 0;
+            if (active && vote!.OwnVote is { } own && _transitionDetails is { } ownedDetails)
+            {
+                string response = own ? "You voted yes." : "You voted no.";
+                ownedDetails.Text += "\n" + response;
+            }
+        }
+
+        private static string Describe(NodeMatchTransitionVoteSnapshot vote)
+            => vote.Choice == MatchTransitionChoice.Restart
+                ? "Restart match requested."
+                : $"Map change requested: {vote.TargetMapKey}.";
+
+        private static string TransitionStatus(NodeMatchTransitionVoteSnapshot? vote)
+            => vote?.State switch
+            {
+                MatchTransitionVoteState.Pending => "A lobby vote is active.",
+                MatchTransitionVoteState.Approved => "Transition approved; preparing the next match.",
+                MatchTransitionVoteState.Rejected => "Transition vote rejected.",
+                MatchTransitionVoteState.Expired => "Transition vote expired.",
+                MatchTransitionVoteState.Failed => "Transition failed.",
+                _ => "No transition vote is active."
+            };
 
         /// <summary>The panel's own top and bottom padding, plus the scroller's.</summary>
         private const double PanelPadding = 18 + 18 + 12 + 12;
