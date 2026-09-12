@@ -64,9 +64,10 @@ Protocol 14 peers are not wire-compatible with the Protocol 15 build.
 
 ### Protocol-15 UDP authentication boundary
 
-Protocol 15 is the current gameplay wire contract. In addition to the timing
+Protocol 16 is the current gameplay wire contract. It preserves protocol 15's timing
 telemetry message and explicit optional radial movement axes in each input
-command, the UDP envelope has a direction-bound authentication
+command and adds an authoritative Spire alternate-form attack presentation
+flag. The UDP envelope has a direction-bound authentication
 primitive: a 32-byte per-handoff key protects a 16-byte tag, and the maximum
 authenticated payload is bounded by the existing 1,024-byte datagram cap. The
 verification order is deliberately opaque verify, body validation, then
@@ -276,10 +277,11 @@ without promoting them to geographic WAN or human-review acceptance.
 
 ## N12 NetPlay hardening and optimization (2026-09-11)
 
-N12's locally actionable hardening is implemented on the current Protocol 15
+N12's locally actionable hardening was implemented on the Protocol 15
 baseline. N12 did not add or revise a wire message. References to Protocol 14 in
 the N12 plan describe its target baseline; the intervening radial-input work
-already made Protocol 15 the repository contract.
+made Protocol 15 its repository contract, and the later Spire presentation fix
+advanced the live contract to Protocol 16.
 
 ### Transport, ingress, and timing
 

@@ -2,187 +2,346 @@
 
 <img src="src/Client/Assets/project-prime-title-screen.png" alt="Project Prime" width="100%">
 
-**Metroid Prime Hunters on PC and Android.** Online matches for up to 8 players, widescreen, 60 FPS,
-and a launcher that does the setting up for you.
+**A multiplayer-focused rebuild of Metroid Prime Hunters for modern desktop and Android systems.**
 
-A fork of [NoneGiven/MphRead](https://github.com/NoneGiven/MphRead).
+Project Prime combines the original Hunters gameplay and assets from your own cartridge dump with a
+modern launcher, authoritative online multiplayer, high-resolution rendering, replays, custom maps,
+and dedicated server infrastructure.
 
-> You bring your own Metroid Prime Hunters cartridge dump. No Nintendo game data ships here or is
-> downloaded.
+> [!IMPORTANT]
+> Project Prime does not include, host, or download Nintendo game data. You must provide your own
+> Metroid Prime Hunters `.nds` cartridge dump. Derived room data is prepared locally and is never
+> included in release or server packages.
 
-**[Download](https://github.com/AntiNotAnti/Project-Prime-Releases/releases)** · [Support the project ☕](https://ko-fi.com/tterraj)
+**[Download releases](https://github.com/AntiNotAnti/Project-Prime-Releases/releases)** ·
+**[Source code](https://github.com/AntiNotAnti/Project-Prime)** ·
+**[Support the project](https://ko-fi.com/tterraj)**
 
-## Features
+Project Prime is based on [NoneGiven/MphRead](https://github.com/NoneGiven/MphRead). It is multiplayer
+only; the original campaign is outside the current runtime scope.
 
-- **Ultra Widescreen support**
-- **High resolution**
-- **Windows / Linux / Android port**
-- **240+ FPS support**
-- **Online multiplayer** (no WFC support)
-- **Up to 8 players**
-- **Dedicated Node + Worker servers**
-- **Replay recording**
-- **Custom maps**
-- **12 multiplayer modes**: Battle, Survival, Capture, Bounty, Defender, Nodes, Prime Hunter, and teams
-- **Keyboard & mouse**
-- **Cel shading**
-- **Modern HUD**
-- **Auto Update check**
+## Highlights
 
-## Support
+### Gameplay
 
-If you enjoy it: **[ko-fi.com/tterraj](https://ko-fi.com/tterraj)** ☕
+- Up to **8 players**, plus configurable bots and observer seats.
+- All **12 Hunters multiplayer modes**:
+  - Battle
+  - Team Battle
+  - Survival
+  - Team Survival
+  - Capture
+  - Bounty
+  - Team Bounty
+  - Nodes
+  - Team Nodes
+  - Defender
+  - Team Defender
+  - Prime Hunter
+- Server-authoritative, fixed **60 Hz** simulation with isolated match state and deterministic RNG.
+- Configurable match rules, teams, readiness, bots, waitlists, spectators, and tournament control.
+- Modern combat feedback, HUD, radar, score presentation, awards, overtime, and post-match results.
 
-<img width="500" height="300" alt="Project Prime" src="https://github.com/user-attachments/assets/ec6a2871-2b67-4de0-8b1a-ac6740c8d388" />
+### Online play
+
+- A persistent launcher and control session across lobby, match, results, and the next round.
+- Account sign-in or an explicitly selected guest session; guest access is never an automatic fallback.
+- **Quick Play**, **Browse Lobbies**, and **Host Lobby** entry paths.
+- Public lobbies with chat, ready state, map/mode configuration, player and observer seats, and recovery
+  after Worker failure.
+- Direct authenticated UDP gameplay with reliable Node control traffic kept separate.
+- Session resume and match rejoin with a bounded **45-second** server grace period.
+- Post-match voting for rematch, next map, another compatible map, or return to lobby.
+- Protocol **16**, including authenticated datagrams, quantized radial controller movement, and an
+  authoritative Spire alternate-form attack presentation flag.
+
+### Presentation and input
+
+- High-resolution and ultra-wide rendering with cel shading and modern presentation options.
+- SDL 3 GPU desktop renderer with Direct3D, Vulkan, or Metal selected by the platform/runtime.
+- Original, Enhanced, and Performance graphics presets, plus filtering, anisotropy, MSAA, bloom, and
+  lighting controls.
+- Configurable presentation-rate caps for high-refresh displays while gameplay simulation remains at
+  60 Hz.
+- Keyboard and mouse, gamepad buttons/sticks/triggers, gyro-capable controller processing, and Android
+  touch input paths.
+- Replay recording and Theatre playback, highlights, killcams, spectator cameras, and broadcast tools.
+- Signed update manifests and transactional desktop update staging at safe restart points.
+
+### Maps and creator tools
+
+- Installable, portable `.fpmap` v2 bundles with stable identity and exact content verification.
+- Content-addressed build cache and automatic acquisition of missing server-required maps.
+- Bundled **Project Prime Editor** in every desktop package.
+- Create and edit native maps, import Quake III BSP/PK3 content, manage materials and entities, preview
+  maps, and use bounded undo/redo history.
+- Android can install and play `.fpmap` bundles; map editing remains desktop-only.
+- The repository ships Project Prime map bundles such as DUST2, PARALLAX, and the test arena without
+  shipping proprietary game content.
+
+## Supported packages
+
+| Package | Targets | Notes |
+|---|---|---|
+| Desktop client + editor | Windows x64, Linux x64, macOS x64, macOS Apple Silicon | Self-contained release packages |
+| Android client | Android ARM64 and x64 | Targets Android API 36; minimum supported API is 24 |
+| Release server | Windows x64, Linux x64, Linux ARM64 | Backend + persistent Node + managed Worker pool |
+| Local development server | macOS Apple Silicon | Intended for development, not a public release server |
+
+The current automated build matrix covers these packages. Physical-device, high-refresh, controller,
+touch, audio, protected-binary, deployed PostgreSQL, and geographic-WAN acceptance are tracked
+separately and must not be inferred from build success; see [Current status](#current-status).
 
 ## Getting started
 
-1. **[Download](https://github.com/AntiNotAnti/Project-Prime-Releases/releases)** the package for your system
-   and unzip it.
-2. Run it:
-   - **Windows** — double-click `ProjectPrime.exe`
-   - **Linux** — `./ProjectPrime -launcher`
-   - **macOS** — `xattr -dr com.apple.quarantine .` once, then the same as Linux
-3. Click **Game files** and pick your `.nds`. It unpacks itself, once, with a progress bar.
-4. Play.
+1. Download the package for your system from
+   [Project Prime Releases](https://github.com/AntiNotAnti/Project-Prime-Releases/releases).
+2. Extract the complete archive to a writable directory.
+3. Start the launcher:
+   - **Windows:** run `ProjectPrime.exe`.
+   - **Linux:** run `./ProjectPrime -launcher`.
+   - **macOS:** if Gatekeeper quarantined the extracted package, run
+     `xattr -dr com.apple.quarantine /path/to/ProjectPrime`, then run `./ProjectPrime -launcher`.
+4. In **Settings → Game files**, select your own Metroid Prime Hunters `.nds` dump. The launcher
+   extracts and prepares it once with visible progress.
+5. Sign in or explicitly choose guest access, then open **Play**.
 
-`Escape` opens the menu, `F11` is fullscreen. Your name, hunter, controls and HUD are in
-**Settings**, in the launcher or from that menu.
+The main shell includes **Play**, **Maps**, **Hunter**, **Rankings**, **Theatre**, and **Settings**.
+Account-backed Hunter pages expose license, career, recent-match, rating, and ranking information;
+guest sessions can play but do not own account progression.
 
-## Playing with other people
+During a match, `Escape` opens the pause menu, `F11` toggles fullscreen, and `F10` or
+`Ctrl/Cmd+R` saves the latest ten seconds from the rolling replay buffer. Controls, controller
+response, touch layout, graphics, audio, HUD, radar, network diagnostics, and accessibility options are
+managed from Settings.
 
-| | |
+You can also open a `.fpmap` file with the Project Prime executable to install it before entering the
+launcher.
+
+## Playing online
+
+Choose one of the three Play actions:
+
+| Action | Behavior |
 |---|---|
-| **Join** | **Join**, sign in, choose a compatible public Node, then choose a listed public lobby |
-| **Host** | **Host**, choose a public Node, create a public lobby, configure the match and start it |
-| **Self-host** | Run the combined Node + Worker package, publish its HTTPS/WSS endpoint, and have players join its public lobby |
+| **Quick Play** | Selects a compatible public Node and joins an open lobby; repeated listing races fall back to Browse. |
+| **Browse Lobbies** | Shows bounded, paged public lobby listings and their map, mode, occupancy, bots, observers, and availability. |
+| **Host Lobby** | Creates a public lobby on the selected Node, then lets the owner configure the supported map, mode, rules, seats, and bots. |
 
-Everybody in a match needs the same version; the launcher checks for a new one and says so.
+When a round ends, the final scene remains behind the Results view while the Node runs the next-round
+ballot. A compatible result can continue directly into a rematch or new map without tearing down the
+launcher or persistent Node session. Interrupted matches reopen the lobby instead of inventing a
+result.
 
-Online matches use a persistent Server Node for account-backed control, sessions, public lobbies and
-match placement. A managed Worker owns each match's 60 Hz authoritative simulation and receives
-gameplay UDP directly from clients; the Node connection remains the reliable control path. The client
-cutover exposes public lobbies only. Private or unlisted local hosting has been retired, and there is
-no direct Worker `--standalone` mode. Servers need extracted game data or a compact baked package;
-see the [implementation and validation notes](docs/NETWORK_MODERNIZATION.md) and the
-[Server Node guide](src/Server.Node/README.md).
+All players need compatible build, content, and protocol identities. Live protocol admission is exact:
+protocol 15 and older peers cannot join a protocol 16 match.
+
+For the complete state and ownership contract, read the
+[seamless online lifecycle](docs/SEAMLESS_ONLINE_FLOW.md) and
+[current protocol reference](docs/CURRENT_PROTOCOL.md).
 
 ## Custom maps
 
-A map is one file: `something.fpmap`. Install it from **Maps** in the launcher and it is available
-without copying generated files into the base game content. Desktop packages include the matching
-Project Prime Editor in `editor/`; use **Maps → My Maps** to create, import, or edit a project.
-Android installs and plays maps but does not include the editor. **de_dust2** comes with the game.
+The launcher treats each custom map as one portable `.fpmap` file:
 
-## Not done yet
+1. Open **Maps** to inspect installed, available, missing, or incompatible content.
+2. Install a local `.fpmap`, or let online admission acquire the exact required artifact from an
+   authorized source.
+3. On desktop, open **Maps → My Maps** to create, import, edit, build, and preview a map project with
+   the bundled editor.
+4. Host or join a lobby only after the local and server catalogs agree on the exact map identity.
 
-- **Gamepads**, on any platform.
+Downloads are resumable and an unverified partial is never installed. A Worker retains immutable
+prepared metadata and creates a separate content snapshot for every match, so two matches cannot
+mutate each other's map state.
 
-## Command line
+See [maps/README.md](maps/README.md) for authoring examples and
+[Map platform stabilization](docs/MAP_PLATFORM_STABILIZATION.md) for the current format, cache,
+editor, and runtime contracts.
 
-The `-room` and `-model` options still open the multiplayer room and model asset viewer. The old
-local-gameplay path no longer accepts `-mode` and `-players`; use `-launcher` to join or host a
-multiplayer match.
+## Self-hosting
 
-## Building
+Project Prime uses one deployable server stack:
 
-For a complete deployable build, use:
+```text
+Backend
+  |
+Persistent Server Node
+  |-- sessions, lobbies, chat, readiness, handoff, administration
+  |
+Managed Worker pool
+  |-- MatchInstance A: isolated 60 Hz simulation + gameplay UDP
+  |-- MatchInstance B: isolated 60 Hz simulation + gameplay UDP
+  `-- MatchInstance N: isolated 60 Hz simulation + gameplay UDP
+```
+
+The Node owns the control plane. Workers own authoritative gameplay, and every `MatchInstance` owns
+all of its mutable state, queues, RNG, and resources. Clients never launch a Worker, gameplay is not
+tunneled through the Node connection, and there is no supported standalone-Worker hosting mode.
+
+For a local repository stack, place extracted `AMHE1` content at the repository root or pass an
+explicit content directory:
+
+```bash
+./start-server.sh
+./start-server.sh --content-dir /absolute/path/to/AMHE1
+./start-server.sh --status
+./start-server.sh --stop-only
+```
+
+The supervisor starts the Backend, Node, and Node-managed Workers together. It only stops processes
+whose identity and state-directory ownership it can verify. Generated development credentials and
+logs live under the selected state directory (by default, a Project Prime directory beneath the system
+temporary directory).
+
+For a packaged or public deployment, start with:
+
+```bash
+tools/package-server.sh --rid linux-x64 --output publish/server-linux-x64
+./deploy-server.sh --help
+```
+
+The deployment path is transactional and deploys the full Backend + Node + Worker stack. PostgreSQL
+is a control-plane dependency; database or network I/O must never block a Worker's authoritative
+simulation loop. Operators should read [SERVER.md](SERVER.md), the
+[Server Node guide](src/Server.Node/README.md), and the
+[rendered/WAN operator runbook](docs/RENDERED_WAN_OPERATOR_RUNBOOK.md) before publishing a Node.
+
+## Building from source
+
+### Requirements
+
+- Git
+- [.NET SDK 10.x](https://dotnet.microsoft.com/download/dotnet/10.0)
+- Your own extracted `AMHE1` content for content-backed builds and tests
+- For Android: the .NET Android workload, a JDK, and Android SDK/API 36 tooling
+
+Clone and build the desktop/server solution:
+
+```bash
+git clone https://github.com/AntiNotAnti/Project-Prime.git
+cd Project-Prime
+dotnet build Game.sln -c Release
+```
+
+Android uses its separate target framework and workload:
+
+```bash
+dotnet workload install android
+dotnet build src/Android/Android.csproj -c Release
+```
+
+### Complete artifact build
+
+To cook maps once and produce every supported client, editor, server, and Android artifact in one
+validated transaction:
 
 ```bash
 ./build-all.sh
 ```
 
-This cooks all custom map bundles once, then compiles, publishes, and validates
-desktop clients with their matching bundled map editor for `win-x64`, `linux-x64`, `osx-x64`, and
-`osx-arm64`; release server bundles for `win-x64`, `linux-x64`, and
-`linux-arm64`; a clearly marked local/development `osx-arm64` server; and an
-Android APK. Android needs the .NET Android workload plus a JDK and Android SDK;
-use `./build-all.sh --skip-android` when intentionally building desktop/server
-artifacts only. `--version VERSION` stamps the artifacts and `--output DIR`
-selects the final directory. The default is a timestamped directory beneath
-ignored `publish/`. A failed build never replaces that final directory and
-preserves its partial staging directory with an `.incomplete` name for diagnosis.
+Useful options:
 
-The output carries custom `.fpmap` bundles, not proprietary game content.
-AMHE1-derived room binaries are prepared at runtime from each operator's own
-extracted content and are explicitly not shipped.
-
-The lower-level equivalents are:
-
-```bash
-dotnet run --project src/Tools/Tools.csproj -c Release -- \
-  -mapdir maps -mapbundle all
-dotnet publish src/Client/Client.csproj -c Release \
-  -r win-x64|linux-x64|osx-x64|osx-arm64 --self-contained true -p:PublishSingleFile=true
+```text
+--version VERSION       stamp every package
+--output DIRECTORY      choose the final artifact directory
+--skip-android          intentionally omit Android dependencies and output
+--no-client-protection  diagnostic builds only; not for public distribution
 ```
 
-Needs [.NET 10.0](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
-The bundle step puts every custom map's recipe, level and baked textures into
-the `.fpmap` files copied into client and server packages. `Client.csproj` also
-runs this cook and copies newly created bundles during a direct publish. The
-client and the packaged Worker build missing derived room binaries in the
-operator's extracted `AMHE1` directory before Node discovery, so use the same
-content version and map bundles on both sides. The development launchers run
-the Worker preparation step before generating Node configuration for extracted
-content; it is incremental, serialized per canonical content path, and requires
-that directory to be writable. When `server-content.json` is present, the
-launchers use the baked catalog directly and skip preparation, so baked server
-content packages can remain read-only.
-`tools/package-server.sh` runs the map-bundle cook for direct server packaging
-as well.
-`tools/package-server.sh --rid linux-x64 --output publish/server-linux-x64` packages the Backend,
-persistent Server Node, and its bundled Worker; use `win-x64` or `linux-arm64` for the other supported
-server targets. Android is `dotnet build src/Android/Android.csproj` with the `android` workload. Every command
-line option, and the test harness, are in [`CLAUDE.md`](CLAUDE.md).
+The script refuses to overwrite its final output, preserves failed staging output with an `.incomplete`
+suffix for diagnosis, and validates map inclusion, proprietary-content exclusion, renderer packages,
+client protection, executable subsystem type, APK integrity, and release manifests before publishing
+the final directory.
 
-Linux bundles include `start-dev.sh` for running the packaged Node and Worker
-against a shared development Backend, and `start-stack-dev.sh` for starting the
-bundled Backend, Node, and Workers together. The repository-root `start-dev.sh`
-does the same all-in-one development start and generates development credentials.
-These development launchers advertise the Node on HTTPS/WSS port `8443` by
-default, which is suitable for a Cloudflare-proxied hostname without requiring
-root; set `PRIME_NODE_BIND` and `PRIME_NODE_PUBLIC_CONTROL_URI` to use another
-port.
-All paths need external AMHE1 content; the shared-Backend path also needs its
-provisioned Node ID, Backend ticket public key, and directory credential.
+Current complete-build targets are:
 
-For the easiest repository start or restart, put extracted `AMHE1` at the
-repository root (or pass `--content-dir`) and run:
-
-```bash
-./start-server.sh
-./start-server.sh --status
-./start-server.sh --stop-only
+```text
+Desktop client + editor: win-x64, linux-x64, osx-x64, osx-arm64
+Release server:          win-x64, linux-x64, linux-arm64
+Local/dev server:        osx-arm64
+Android:                 ARM64 and x64 APK
 ```
 
-The command safely stops only the stack verified against its state-directory
-lock and supervisor metadata, then starts the Backend, Node, and Node-managed
-Workers. Logs and generated credentials live in
-`${PRIME_DEV_STATE_DIR:-${TMPDIR:-/tmp}/project-prime-dev}`. Use `--state-dir`
-to select another state directory and `--grace-seconds` to change the overall
-restart wait (default 60 seconds). A forced stop can interrupt active matches;
-the supervisor allows the Node up to 45 seconds to drain, then stops the Backend.
+### Focused development checks
 
-Build the desktop solution with `dotnet build Game.sln`; Android remains a separate
-workload build. The [project layout](docs/PROJECT_LAYOUT.md) describes the Game,
-Client, Server Node, Server Worker, Tools and Android boundaries. Client output no longer
-contains a local server executable; hosting is provided by the Backend + Node + Worker package.
+```bash
+dotnet build Game.sln -c Release
+
+GAME_DATA_DIRECTORY="$PWD/AMHE1" \
+  dotnet test tests/Tests/Tests.csproj -c Release
+
+dotnet test tests/Server.Node.Tests/Server.Node.Tests.csproj -c Release \
+  --filter 'RequiresGameContent!=true'
+
+dotnet test tests/Backend.Tests/Backend.Tests.csproj -c Release
+dotnet test tests/Imaging/Imaging.Tests.csproj -c Release
+
+python3 -m unittest discover -s tools/tests
+python3 tools/check-project-boundaries.py
+python3 tools/check-multiplayer-only.py
+```
+
+PostgreSQL-backed Backend tests additionally require `PRIME_TEST_POSTGRES_FILE` to name a private
+connection file. Do not place database credentials in the repository or command history.
+
+The [project layout](docs/PROJECT_LAYOUT.md) explains the Game, Client, Backend, Server.Shared,
+Server.Node, Server.Worker, Android, Tools, Editor, and test boundaries.
+
+## Command-line tools
+
+The client executable retains focused asset-inspection entry points:
+
+```text
+-room <multiplayer_room_name-or-id>
+-model <model_name> [recolor_index]
+-fh
+-node
+-entity
+```
+
+The retired local-gameplay `-mode` and `-players` path is not supported. Use the launcher for real
+multiplayer. Asset extraction/export and map build commands live in `ProjectPrimeTools`.
+
+## Current status
+
+The authoritative working-tree references are:
+
+- [Current architecture](docs/CURRENT_ARCHITECTURE.md)
+- [Current protocol](docs/CURRENT_PROTOCOL.md)
+- [Current release gates](docs/CURRENT_RELEASE_GATES.md)
+
+The recorded **September 12, 2026** gate ledger includes a 2,664-test content-backed main
+suite, 227 Server Node tests with real local Worker integration, 226 Backend tests with 7 PostgreSQL-only
+tests skipped, 174 Python tool tests, successful Client/Game/Backend/Node/Worker builds, and zero project
+boundary violations.
+
+That is strong source, build, focused-test, and local integration evidence. It is not a claim of complete
+physical Windows/macOS/Linux/Android acceptance, real controller/touch/audio ergonomics, high-refresh
+performance across hardware, geographic WAN behavior, deployed PostgreSQL durability, protected
+release launch, or symbol-recovery acceptance. Those gates remain open and are tracked explicitly in
+the release ledger.
 
 ## Credits
 
-Project Prime is a multiplayer-focused rebuild based on [MphRead](https://github.com/NoneGiven/MphRead) by **NoneGiven** —
-the model viewer, the renderer, the format parsers and the recreation of the game itself are theirs.
-That work is in turn built on **dsgraph**, [Chemical](https://gitlab.com/ch-mcl/metroid-prime-hunters-file-document),
+Project Prime is a multiplayer-focused rebuild based on
+[MphRead](https://github.com/NoneGiven/MphRead) by **NoneGiven**. The original model viewer, renderer,
+format parsers, and game recreation established the foundation this project modernizes.
+
+That work builds on contributions and research from **dsgraph**,
+[Chemical](https://gitlab.com/ch-mcl/metroid-prime-hunters-file-document),
 [McKay42](https://github.com/McKay42), [Barubary](https://github.com/Barubary/dsdecmp),
 [loveemu](https://github.com/loveemu/loveemu-lab), **Gericom**,
 [CharlesVanEeckhout](https://github.com/CharlesVanEeckhout/actimagine),
-[CyberBotX](https://github.com/CyberBotX/NCSF) and
-[hackyourlife](https://github.com/hackyourlife/mph-viewer), with
-[OpenTK](https://github.com/opentk/opentk), [OpenAL Soft](https://github.com/kcat/openal-soft) and
-[SoundFlow](https://github.com/LSXPrime/SoundFlow) underneath. `ProjectPrime -credits` prints the
-list with what each one is for, and the Settings screen shows it too.
+[CyberBotX](https://github.com/CyberBotX/NCSF), and
+[hackyourlife](https://github.com/hackyourlife/mph-viewer), with projects including
+[OpenTK](https://github.com/opentk/opentk), [OpenAL Soft](https://github.com/kcat/openal-soft), and
+[SoundFlow](https://github.com/LSXPrime/SoundFlow) underneath. Run `ProjectPrime -credits` or open the
+Settings credits page for the in-program attribution list.
 
-LiveTek created the project this work grew from; FruityPrime is the predecessor project and multiplayer foundation.
+LiveTek created the project this work grew from. FruityPrime is its predecessor and multiplayer
+foundation.
 
-Metroid Prime Hunters is Nintendo's. No game data is included with this program: it comes from your
-own cartridge dump.
+Metroid Prime Hunters and all related Nintendo properties belong to Nintendo and their respective
+owners. Project Prime is an independent fan project. No Nintendo game data is included; all game data
+must come from the user's own cartridge dump.

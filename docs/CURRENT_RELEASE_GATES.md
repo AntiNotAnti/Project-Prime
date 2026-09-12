@@ -1,6 +1,6 @@
 # Current Project Prime release gates
 
-Status: authoritative gate ledger, 2026-09-11. Labels are deliberately narrow:
+Status: authoritative gate ledger, 2026-09-12. Labels are deliberately narrow:
 
 - **FOCUSED** — source plus relevant automated tests; no physical claim.
 - **BLOCKED** — a reproducible local blocker prevents the intended validation.
@@ -19,7 +19,7 @@ separately.
 | QA0 known-defect remediation | FOCUSED | framebuffer sizing/resize, exact actor identity, logical killcam commands, and quarantine are source-reviewed; the latest full test run passed 2664/2664 tests |
 | QA1 replay/killcam/highlights/broadcast | FOCUSED | lifecycle, audio ownership guard, exact identity, bounded director history, and camera final sweep are implemented; no rendered/device acceptance claim |
 | QA2 desktop transitions/session lifecycle | OPEN | existing coordinator remains the single owner; broader failure/reentrancy fuzzing is not a prerequisite for claiming QA0/QA1 |
-| QA3 protocol/reconnect/WAN | FOCUSED / OPEN | protocol 15 codec/auth/rejoin tests are local evidence; geographic WAN and deployed transport remain open |
+| QA3 protocol/reconnect/WAN | FOCUSED / OPEN | protocol 16 codec/auth/rejoin tests are local evidence; geographic WAN and deployed transport remain open |
 | QA4 map platform durability | FOCUSED | process-wide keyed acquisition ownership and resumable partial semantics have focused coverage; Android mount/unmount and long soak remain open |
 | QA5 Backend/PostgreSQL durability | FOCUSED / OPEN | Backend tests provide local evidence; 226 passed and 7 PostgreSQL-only tests were skipped because `PRIME_TEST_POSTGRES_FILE` was unset. Deployed PostgreSQL durability remains open |
 | QA6 protected release validation | OPEN | protected launch/symbol recovery matrix has not been established |

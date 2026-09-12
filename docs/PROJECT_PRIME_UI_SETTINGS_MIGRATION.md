@@ -391,7 +391,7 @@ The vertical path is:
 ```text
 HostMatchDraft / Edit Match
     -> PlayController.ConfigureLobbyAsync
-    -> v2 LobbyConfigure
+    -> v3 LobbyConfigure
     -> Node normalization and validation
     -> LobbySnapshot.HostRules + legacy projections
     -> MatchSpec freeze
@@ -412,28 +412,28 @@ projections to agree; an absent `Rules` object is the permitted old-shaped
 snapshot form. Public list entries carry only bounded map/mode/rule metadata,
 not an entire lobby snapshot.
 
-## Control protocol v2 and mixed-version policy
+## Control protocol v3 and mixed-version policy
 
-The reliable Node control envelope is now version 2:
+The reliable Node control envelope is now version 3:
 
-* `NodeControlCodec.Version` is exactly `2`; `Write` emits version 2.
+* `NodeControlCodec.Version` is exactly `3`; `Write` emits version 3.
 * `Read` requires an object with exactly `version`, `type`, `requestId`, and
   `payload`, rejects duplicate JSON properties, and rejects any envelope whose
-  version is not 2 before decoding its payload.
+  version is not 3 before decoding its payload.
 * Source-generated JSON uses `UnmappedMemberHandling.Disallow`, so unknown
   command or nested rule fields fail closed rather than being silently dropped.
-* `LobbyConfigure.Rules` is additive within v2. A v2 payload that omits
+* `LobbyConfigure.Rules` is additive within v3. A v3 payload that omits
   `Rules` remains readable and is normalized from the legacy optional fields.
   An advanced field must be inside the structured object and must be known.
 * A v1 envelope is not down-converted or opportunistically accepted. It fails
   with `Unsupported control envelope version` before payload interpretation.
-  Therefore a v1 Node/client pair and a v2 Node/client pair are not a supported
+  Therefore a v1 Node/client pair and a v3 Node/client pair are not a supported
   mixed deployment; upgrade the control endpoint as one compatibility unit.
 
 The canonical rule object is still checked when snapshots are written and
 read. Invalid map/mode/range/applicability data, oversized list metadata, and
 conflicting legacy projections fail closed. This is separate from gameplay
-UDP protocol compatibility; the v2 statement applies to the Node control
+UDP protocol compatibility; the v3 statement applies to the Node control
 envelope only.
 
 ## Migration policy and current follow-up risks
@@ -501,7 +501,7 @@ The focused source/tests associated with this contract are:
 Passing a source/build/focused test is not a live GUI, Windows/native,
 controller, Android, deployed database, or load/soak result. The external
 gates remain: rendered SettingsView at representative desktop/tablet/phone
-sizes; keyboard/controller/touch operation; Node v2 control against the
+sizes; keyboard/controller/touch operation; Node v3 control against the
 deployed service; host-rule-to-Worker vertical behavior; reconnect and repeated
 round continuation; and Android safe-area/soft-keyboard behavior. Each gate
 must be reported with its exact build, device/topology, and result.

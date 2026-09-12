@@ -12,8 +12,8 @@ The authoritative client has two existing presentation paths:
    existing `ISceneServices.NoteFired` hook runs immediately after that spawn.
 2. `AuthoritativePlay.DrainEvents` receives the reliable `Shot` presentation
    fact. `PresentationPlayerEntityCombat` suppresses the echoed local visual
-   with `predictedLocalShot`; remote authoritative shots still create their
-   normal presentation visual.
+   only when it matches a recorded local prediction. An unmatched local fact
+   and every remote fact create their normal authoritative presentation visual.
 
 The current `Shot` fact contains spawn position/direction, command sequence,
 and `(slot, connection, life)` actor identity. It does **not** contain a
@@ -50,7 +50,7 @@ authoritative shots with no local candidate contribute to
 | --- | --- |
 | `PredictedShotCreated` | Local root visual candidates captured after `NoteFired`; multishot pellets are one command candidate. |
 | `AuthoritativeShotMatched` | Candidates matched by the full presentation identity. |
-| `VisualDuplicate` | A matched local candidate whose authoritative visual path was also allowed to spawn. The current local path passes the suppression result and should report zero. |
+| `VisualDuplicate` | A matched local candidate whose authoritative visual path was also allowed to spawn. Matched local shots pass the suppression result and should report zero. |
 | `VisualCorrectionDistance` | Sum of Euclidean predicted-vs-authoritative spawn-position differences. `MeanCorrectionDistance` and max are also reported. |
 | `VisualCorrectionAngle` | Sum in degrees of predicted-vs-authoritative direction differences. `MeanCorrectionAngle` and max are also reported. |
 | `AdoptionCandidateMiss` | Rejected/expired local candidate or authoritative local Shot with no candidate, counted once per identity. |
@@ -105,11 +105,13 @@ or an authoritative projectile-state stream.
 
 ## STOP gate
 
-Do **not** ship predicted projectile adoption from this work. Current static
-code evidence shows that the echoed local authoritative `Shot` visual is
-already suppressed, so this measurement path should not report a local visual
-duplicate. There is currently no rendered WAN evidence proving a snapping or
-duplicate problem, and there is no continuous authoritative projectile-state
-stream to adopt. A future QZ5-B implementation would require captured,
-rendered WAN evidence at the target latencies and a separately approved
-authoritative identity/state contract before changing presentation behavior.
+Do **not** ship predicted projectile adoption from this work. A matched echoed
+local authoritative `Shot` visual is suppressed, so this measurement path
+should not report a local visual duplicate. If local prediction did not create
+or record a projectile, the authoritative fact remains the presentation
+fallback instead of disappearing. There is currently no rendered WAN evidence
+proving a snapping or duplicate problem, and there is no continuous
+authoritative projectile-state stream to adopt. A future QZ5-B implementation
+would require captured, rendered WAN evidence at the target latencies and a
+separately approved authoritative identity/state contract before changing
+presentation behavior.
