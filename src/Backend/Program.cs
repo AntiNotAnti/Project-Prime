@@ -197,6 +197,10 @@ public sealed class Program
             await next(http);
         });
         app.UseExceptionHandler();
+        // Validate the externally visible scheme before routing and before any
+        // request body is touched. This also applies to liveness: the
+        // liveness exemption is only for the global lease/body reader, not for
+        // the public HTTPS boundary.
         app.Use(async (http, next) =>
         {
             if (!http.Request.IsHttps && !app.Environment.IsEnvironment("Testing")
@@ -206,6 +210,45 @@ public sealed class Program
                 BackendDiagnostics.Rejected(requestLogger, "https", "https_required");
                 await BackendProblem.WriteAsync(http, "https_required", "HTTPS is required.",
                     StatusCodes.Status400BadRequest, http.RequestAborted);
+                return;
+            }
+            await next(http);
+        });
+        app.UseRouting();
+        // Authentication and endpoint-specific rate limiting run after routing
+        // but before the global lease. Rejected requests therefore never cause
+        // an untrusted body to be read or hold a concurrency permit.
+        app.UseAuthentication();
+        app.UseRateLimiter();
+        // Authorization is intentionally before the lease and body reader so
+        // an unauthenticated protected request cannot make the service read a
+        // slow, attacker-controlled body while waiting for a 401.
+        app.UseAuthorization();
+        app.Use(async (http, next) =>
+        {
+            if (http.Request.Path.Equals("/health/live", StringComparison.OrdinalIgnoreCase))
+            {
+                await next(http);
+                return;
+            }
+            var limiter = http.RequestServices.GetRequiredService<ConcurrencyLimiter>();
+            using RateLimitLease lease = await limiter.AcquireAsync(1, http.RequestAborted);
+            if (!lease.IsAcquired)
+            {
+                BackendDiagnostics.Rejected(requestLogger, "concurrency", "service_busy");
+                await BackendProblem.WriteAsync(http, "service_busy", "The service is temporarily unavailable.",
+                    StatusCodes.Status503ServiceUnavailable, http.RequestAborted);
+                return;
+            }
+            await next(http);
+        });
+        app.Use(async (http, next) =>
+        {
+            // Liveness is deliberately body-independent and remains available
+            // under saturation. Never read an arbitrary body on this path.
+            if (http.Request.Path.Equals("/health/live", StringComparison.OrdinalIgnoreCase))
+            {
+                await next(http);
                 return;
             }
             // Reject known oversized bodies before binding; Kestrel also bounds chunked bodies.
@@ -223,7 +266,8 @@ public sealed class Program
             // TestServer and some reverse proxies do not enforce Kestrel's
             // MaxRequestBodySize for a chunked request. Buffer only this
             // already-bounded body so the same route contract applies before
-            // model binding regardless of transfer framing.
+            // model binding regardless of transfer framing. The global lease
+            // above bounds how many slow readers may exist concurrently.
             using var buffered = new MemoryStream();
             byte[] buffer = new byte[8192];
             while (true)
@@ -243,28 +287,6 @@ public sealed class Program
             http.Request.Body = buffered;
             await next(http);
         });
-        app.UseRouting();
-        app.Use(async (http, next) =>
-        {
-            if (http.Request.Path.Equals("/health/live", StringComparison.OrdinalIgnoreCase))
-            {
-                await next(http);
-                return;
-            }
-            var limiter = http.RequestServices.GetRequiredService<ConcurrencyLimiter>();
-            using RateLimitLease lease = await limiter.AcquireAsync(1, http.RequestAborted);
-            if (!lease.IsAcquired)
-            {
-                BackendDiagnostics.Rejected(requestLogger, "concurrency", "service_busy");
-                await BackendProblem.WriteAsync(http, "service_busy", "The service is temporarily unavailable.",
-                    StatusCodes.Status503ServiceUnavailable, http.RequestAborted);
-                return;
-            }
-            await next(http);
-        });
-        app.UseAuthentication();
-        app.UseRateLimiter();
-        app.UseAuthorization();
         app.MapGet("/health/live", () => Results.Ok(new { status = "live" })).AllowAnonymous();
         app.MapGet("/health/ready", async (BackendReadinessChecker checker, CancellationToken requestAborted) =>
         {

@@ -16,7 +16,8 @@ using Npgsql;
 
 namespace MphRead.Backend.Tests;
 
-internal sealed class BackendFactory(bool requireConfirmation = false, Action<IServiceCollection>? configure = null, string? postgresConnection = null) : WebApplicationFactory<Program>
+internal sealed class BackendFactory(bool requireConfirmation = false, Action<IServiceCollection>? configure = null,
+    string? postgresConnection = null, string environment = "Testing") : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
     private readonly string? _database = postgresConnection == null
@@ -29,7 +30,7 @@ internal sealed class BackendFactory(bool requireConfirmation = false, Action<IS
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(environment);
         builder.UseContentRoot(SourceRoot());
         builder.UseSetting("ConnectionStrings:Backend", "Host=unused;Database=unused");
         builder.UseSetting("Accounts:RequireConfirmedEmail", requireConfirmation.ToString());
