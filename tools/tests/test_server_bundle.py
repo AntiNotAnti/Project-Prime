@@ -178,8 +178,9 @@ class ServerBundleContractTests(unittest.TestCase):
     def test_development_launchers_default_to_cloudflare_proxyable_node_port(self):
         for name in ("start-dev.sh", "start-bundle-dev.sh"):
             script = (ROOT / "tools" / name).read_text(encoding="utf-8")
-            self.assertIn("wss://$NODE_PUBLIC_HOST:8443/v1/control", script)
-            self.assertIn("https://0.0.0.0:8443", script)
+            self.assertIn("wss://$NODE_PUBLIC_URI_HOST:8443/v1/control", script)
+            self.assertIn("https://[::]:8443", script)
+            self.assertIn('*:*) NODE_PUBLIC_URI_HOST="[$NODE_PUBLIC_URI_HOST]"', script)
 
     def test_launchers_use_the_same_explicit_map_directory_for_discovery_and_runtime(self):
         expected = {

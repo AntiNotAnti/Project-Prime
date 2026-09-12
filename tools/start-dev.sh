@@ -277,9 +277,14 @@ NODE_PUBLIC_HOST=$PRIME_NODE_PUBLIC_HOST
 if [[ -z "$NODE_PUBLIC_HOST" ]]; then
     NODE_PUBLIC_HOST=localhost
 fi
+NODE_PUBLIC_URI_HOST=$NODE_PUBLIC_HOST
+case "$NODE_PUBLIC_URI_HOST" in
+    \[*\]) ;;
+    *:*) NODE_PUBLIC_URI_HOST="[$NODE_PUBLIC_URI_HOST]" ;;
+esac
 NODE_CONTROL_URI=$PRIME_NODE_PUBLIC_CONTROL_URI
 if [[ -z "$NODE_CONTROL_URI" ]]; then
-    NODE_CONTROL_URI=wss://$NODE_PUBLIC_HOST:8443/v1/control
+    NODE_CONTROL_URI=wss://$NODE_PUBLIC_URI_HOST:8443/v1/control
 fi
 python3 - "$NODE_CONTROL_URI" <<'PY'
 import sys
@@ -300,7 +305,7 @@ PY
 # shellcheck disable=SC2153
 NODE_BIND=$PRIME_NODE_BIND
 if [[ -z "$NODE_BIND" ]]; then
-    NODE_BIND=https://0.0.0.0:8443
+    NODE_BIND="https://[::]:8443"
 fi
 MAP_KEY=$PRIME_MAP_KEY
 WORKER_HOST=$PRIME_WORKER_PUBLIC_HOST
@@ -326,7 +331,7 @@ if [[ -z "$NODE_REGION" ]]; then NODE_REGION=dev; fi
 KEY_ID=$PRIME_TICKET_KEY_ID
 if [[ -z "$KEY_ID" ]]; then KEY_ID=dev-current; fi
 TICKET_ISSUER=$PRIME_TICKET_ISSUER
-if [[ -z "$TICKET_ISSUER" ]]; then TICKET_ISSUER=https://$NODE_PUBLIC_HOST; fi
+if [[ -z "$TICKET_ISSUER" ]]; then TICKET_ISSUER=https://$NODE_PUBLIC_URI_HOST; fi
 ARTIFACT_DIR=$STATE_DIR/artifacts
 REPLAY_DIR=$STATE_DIR/replays
 

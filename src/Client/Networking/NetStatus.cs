@@ -110,20 +110,24 @@ namespace MphRead.Mods.Network
             try
             {
                 IPAddress[] resolved = Dns.GetHostAddresses(address);
-                IPAddress? ipv4 = Array.Find(resolved,
+                IPAddress? resolvedAddress = Array.Find(resolved,
                     a => a.AddressFamily == AddressFamily.InterNetwork);
-                if (ipv4 == null)
+                resolvedAddress ??= Array.Find(resolved,
+                    a => a.AddressFamily == AddressFamily.InterNetworkV6);
+                if (resolvedAddress == null)
                 {
                     return ServerStatus.Offline($"Cannot find {address}.");
                 }
-                endPoint = new IPEndPoint(ipv4, port);
+                if (resolvedAddress.IsIPv4MappedToIPv6)
+                    resolvedAddress = resolvedAddress.MapToIPv4();
+                endPoint = new IPEndPoint(resolvedAddress, port);
             }
             catch (Exception)
             {
                 return ServerStatus.Offline($"Cannot find {address}.");
             }
 
-            using var socket = new UdpClient(AddressFamily.InterNetwork);
+            using var socket = new UdpClient(endPoint.AddressFamily);
             socket.Client.ReceiveTimeout = timeoutMs;
             try
             {
@@ -137,7 +141,8 @@ namespace MphRead.Mods.Network
                 {
                     (byte)PacketType.StatusQuery, (byte)(NetConfig.ProtocolVersion | ServerStatusPacket.RulesCapability)
                 }, 2, endPoint);
-                var from = new IPEndPoint(IPAddress.Any, 0);
+                var from = new IPEndPoint(endPoint.AddressFamily == AddressFamily.InterNetworkV6
+                    ? IPAddress.IPv6Any : IPAddress.Any, 0);
                 while (clock.ElapsedMilliseconds < timeoutMs)
                 {
                     socket.Client.ReceiveTimeout = Math.Max(1, timeoutMs - (int)clock.ElapsedMilliseconds);

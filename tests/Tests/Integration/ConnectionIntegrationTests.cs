@@ -69,6 +69,35 @@ namespace MphRead.Tests
         }
 
         [Fact]
+        public void JoinAndReadyUseNativeIpv6EndToEnd()
+        {
+            if (!Socket.OSSupportsIPv6) return;
+
+            using var serverTransport = (INetTransport)Activator.CreateInstance(
+                typeof(ServerNetwork).Assembly.GetType(
+                    "MphRead.Mods.Network.UdpTransport")!,
+                new object[] { 0, IPAddress.Any })!;
+            var server = new ServerNetwork(serverTransport,
+                "MP1 SANCTORUS", GameMode.Battle);
+            using var clientTransport = new NetTransport(0);
+            using var client = new NetClient(clientTransport,
+                new IPEndPoint(IPAddress.IPv6Loopback, serverTransport.LocalPort),
+                "IPV6", Hunter.Samus);
+
+            PumpUntil(server, new[] { client },
+                () => client.State == NetConnectionState.Loading, 3);
+            Assert.NotNull(client.Connection);
+            Assert.Equal(AddressFamily.InterNetworkV6,
+                client.Connection!.Endpoint.AddressFamily);
+            Assert.True(client.Ready(client.Accepted.MatchId));
+            PumpUntil(server, new[] { client }, () => AllReady(server), 3);
+            Assert.Equal(AddressFamily.InterNetworkV6,
+                Assert.IsType<ServerPeer>(server.Find(client.Connection.Id))
+                    .Connection.Endpoint.AddressFamily);
+            Assert.Null(client.Failure);
+        }
+
+        [Fact]
         public void LoadingLongerThanTimeoutStaysConnectedWithoutGameThreadPolling()
         {
             using var transport = new NetTransport(0);

@@ -22,7 +22,8 @@ namespace MphRead.Mods.Network
         RadarReveal = 2048,
         RadarRevealPrevious = 4096,
         WaitingForMatch = 8192,
-        All = 16383
+        SpireAltAttack = 16384,
+        All = 32767
     }
 
     public struct SnapshotPlayer

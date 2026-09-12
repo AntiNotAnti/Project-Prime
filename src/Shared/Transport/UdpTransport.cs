@@ -121,7 +121,7 @@ namespace MphRead.Mods.Network
                             ? entry.Counter
                             : Math.Max(entry.Counter, prior.Counter);
                         copies[i] = new AuthenticatedKeepAlive(
-                            new IPEndPoint(new IPAddress(entry.Endpoint.Address.GetAddressBytes()), entry.Endpoint.Port),
+                            CopyEndpoint(entry.Endpoint),
                             entry.ConnectionId, counter, entry.Key.ToArray(), entry.Direction)
                         {
                             Retired = prior?.Retired == true
@@ -138,16 +138,28 @@ namespace MphRead.Mods.Network
 
         private static KeepAlive CopyKeepAlive(IPEndPoint target, ReadOnlySpan<byte> datagram)
         {
-            if (target == null || target.AddressFamily != AddressFamily.InterNetwork)
+            if (target == null || target.AddressFamily is not
+                (AddressFamily.InterNetwork or AddressFamily.InterNetworkV6))
             {
-                throw new ArgumentException("Keepalive requires an IPv4 endpoint.", nameof(target));
+                throw new ArgumentException("Keepalive requires an IP endpoint.", nameof(target));
             }
             if (datagram.Length != NetHeader.Size || !NetHeader.TryRead(datagram, out NetHeader header)
                 || header.Type != NetMessageType.KeepAlive)
             {
                 throw new ArgumentException("Expected an authoritative keepalive header.", nameof(datagram));
             }
-            return new KeepAlive(new IPEndPoint(new IPAddress(target.Address.GetAddressBytes()), target.Port), datagram.ToArray());
+            return new KeepAlive(CopyEndpoint(target), datagram.ToArray());
+        }
+
+        private static IPEndPoint CopyEndpoint(IPEndPoint endpoint)
+        {
+            IPAddress address = endpoint.Address;
+            if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
+            byte[] bytes = address.GetAddressBytes();
+            IPAddress copy = address.AddressFamily == AddressFamily.InterNetworkV6
+                ? new IPAddress(bytes, address.ScopeId)
+                : new IPAddress(bytes);
+            return new IPEndPoint(copy, endpoint.Port);
         }
 
         private void PublishKeepAlives(KeepAlive[] entries)
@@ -306,7 +318,16 @@ namespace MphRead.Mods.Network
 
         public UdpTransport(int port, IPAddress? bindAddress)
         {
-            _socket = new UdpClient(AddressFamily.InterNetwork);
+            bool dualStack = Socket.OSSupportsIPv6
+                && (bindAddress == null || bindAddress.Equals(IPAddress.Any)
+                    || bindAddress.Equals(IPAddress.IPv6Any));
+            IPAddress effectiveBind = dualStack ? IPAddress.IPv6Any
+                : bindAddress ?? IPAddress.Any;
+            if (effectiveBind.AddressFamily is not
+                (AddressFamily.InterNetwork or AddressFamily.InterNetworkV6))
+                throw new ArgumentException("UDP bind address must be IPv4 or IPv6.", nameof(bindAddress));
+            _socket = new UdpClient(effectiveBind.AddressFamily);
+            if (dualStack) _socket.Client.DualMode = true;
             if (OperatingSystem.IsWindows())
             {
                 // SIO_UDP_CONNRESET. Without it, a peer that vanishes makes
@@ -329,7 +350,7 @@ namespace MphRead.Mods.Network
             // Only so the worker notices _running going false; nothing waits
             // on this in normal operation.
             _socket.Client.ReceiveTimeout = 500;
-            _socket.Client.Bind(new IPEndPoint(bindAddress ?? IPAddress.Any, port));
+            _socket.Client.Bind(new IPEndPoint(effectiveBind, port));
             LocalPort = ((IPEndPoint)_socket.Client.LocalEndPoint!).Port;
             _running = true;
             _worker = new Thread(ReceiveLoop)
@@ -384,7 +405,8 @@ namespace MphRead.Mods.Network
 
         private void ReceiveLoop()
         {
-            var any = new IPEndPoint(IPAddress.Any, 0);
+            var any = new IPEndPoint(_socket.Client.AddressFamily == AddressFamily.InterNetworkV6
+                ? IPAddress.IPv6Any : IPAddress.Any, 0);
             while (_running)
             {
                 try
@@ -432,6 +454,7 @@ namespace MphRead.Mods.Network
                     {
                         continue;
                     }
+                    sender = CopyEndpoint(sender);
                     Metrics.Received(data.Length);
                     if (data.Length == 0 || data.Length > NetConfig.MaxPacketSize)
                     {
@@ -700,7 +723,18 @@ namespace MphRead.Mods.Network
         {
             try
             {
-                _socket.Send(datagram, target);
+                IPEndPoint socketTarget = target;
+                if (_socket.Client.AddressFamily == AddressFamily.InterNetworkV6
+                    && target.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    socketTarget = new IPEndPoint(target.Address.MapToIPv6(), target.Port);
+                }
+                else if (_socket.Client.AddressFamily == AddressFamily.InterNetwork
+                    && target.Address.IsIPv4MappedToIPv6)
+                {
+                    socketTarget = new IPEndPoint(target.Address.MapToIPv4(), target.Port);
+                }
+                _socket.Send(datagram, socketTarget);
                 Metrics.Sent(datagram.Length);
                 Interlocked.Increment(ref TotalPacketsSent);
                 return true;

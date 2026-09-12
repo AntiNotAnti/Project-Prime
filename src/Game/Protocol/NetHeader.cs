@@ -43,9 +43,10 @@ namespace MphRead.Mods.Network
         public const int Size = 24;
         // Protocol 12 added the authoritative player input epoch to input
         // commands, protocol 13 added timing telemetry, protocol 14 added
-        // authenticated established-connection datagrams, and protocol 15
-        // adds explicit quantized radial movement axes.
-        public const byte Version = 15;
+        // authenticated established-connection datagrams, protocol 15 added
+        // explicit quantized radial movement axes, and protocol 16 adds the
+        // authoritative Spire alternate-form attack presentation state.
+        public const byte Version = 16;
 
         public void Write(Span<byte> destination)
         {

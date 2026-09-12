@@ -60,7 +60,7 @@ namespace MphRead.Mods.Network
         private const SnapshotPlayerFlags ContinuityFlags = SnapshotPlayerFlags.Active
             | SnapshotPlayerFlags.Spawned | SnapshotPlayerFlags.AltForm
             | SnapshotPlayerFlags.Morphing | SnapshotPlayerFlags.Unmorphing
-            | SnapshotPlayerFlags.Spectating;
+            | SnapshotPlayerFlags.Spectating | SnapshotPlayerFlags.SpireAltAttack;
 
         private readonly SnapshotPlayer[] _players = new SnapshotPlayer[Capacity * Slots];
         private readonly uint[] _epochs = new uint[Capacity * Slots];

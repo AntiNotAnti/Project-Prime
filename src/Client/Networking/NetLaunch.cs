@@ -40,9 +40,7 @@ namespace MphRead.Mods.Network
         {
             if (timeoutMs is < 1 or > 30000) throw new ArgumentOutOfRangeException(nameof(timeoutMs));
             if (handoff.MatchId == Guid.Empty || handoff.WireMatchId == 0 || handoff.Nonce == 0
-                || handoff.Port == 0 || !IPAddress.TryParse(handoff.Host, out var address)
-                || address.AddressFamily != AddressFamily.InterNetwork || address.ToString() != handoff.Host
-                || address.GetAddressBytes()[0] is 0 or >= 224
+                || handoff.Port == 0 || !IsValidWorkerHost(handoff.Host)
                 || handoff.Ticket is not { Length: > 0 and <= JoinPacket.MaxRoutedTicketBytes }
                 || handoff.UdpAuthenticationEnabled && (handoff.AdmissionId == Guid.Empty
                     || handoff.AdmissionKey.Length != AdmissionKeyRules.Base64Length)
@@ -58,6 +56,21 @@ namespace MphRead.Mods.Network
                 timeoutMs, cancel, handoff.Nonce, handoff.Ticket, handoff.Observer, handoff.WireMatchId,
                 handoff.AdmissionId, handoff.AdmissionKey, handoff.UdpAuthenticationEnabled,
                 ackCoalescingEnabled ?? AckCoalescingEnabled), cancel);
+        }
+
+        internal static bool IsValidWorkerHost(string host)
+        {
+            if (!IPAddress.TryParse(host, out IPAddress? address)
+                || !String.Equals(address.ToString(), host,
+                    address.AddressFamily == AddressFamily.InterNetworkV6
+                        ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+                || address.IsIPv4MappedToIPv6
+                || address.Equals(IPAddress.Any) || address.Equals(IPAddress.IPv6Any))
+                return false;
+            if (address.AddressFamily == AddressFamily.InterNetwork)
+                return address.GetAddressBytes()[0] is > 0 and < 224;
+            return address.AddressFamily == AddressFamily.InterNetworkV6
+                && !address.IsIPv6Multicast;
         }
 
         private static bool JoinCore(string address, int port, string playerName, Hunter hunter,
