@@ -90,11 +90,67 @@ public sealed class AccountTests
         Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync("/v1/auth/register", Registration())).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/v1/auth/login", new { Email = "first@example.test", Password })).StatusCode);
         var email = Assert.Single(factory.Email.Sent);
+        Assert.Matches("^[0-9A-HJKMNP-TV-Z]{4}(-[0-9A-HJKMNP-TV-Z]{4}){2}$", email.Code);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var stored = await scope.ServiceProvider.GetRequiredService<BackendDbContext>()
+                .UserTokens.SingleAsync();
+            Assert.StartsWith("v1:", stored.Value, StringComparison.Ordinal);
+            Assert.DoesNotContain(email.Code.Replace("-", ""), stored.Value,
+                StringComparison.OrdinalIgnoreCase);
+        }
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/v1/auth/confirm-email", new { email.PlayerId, Code = "wrong" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync("/v1/auth/confirm-email", new { email.PlayerId, email.Code })).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync("/v1/auth/confirm-email", new { email.PlayerId, email.Code })).StatusCode);
         var token = await Login(client);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.GetProperty("accessToken").GetString());
         Assert.True((await client.GetFromJsonAsync<JsonElement>("/v1/me")).GetProperty("emailEligibleForOfficialPlay").GetBoolean());
+    }
+
+    [Fact]
+    public async Task PreviouslyIssuedProtectedConfirmationTokensRemainValid()
+    {
+        using var factory = new BackendFactory(requireConfirmation: true);
+        using var client = factory.CreateDatabaseClient();
+        Assert.Equal(HttpStatusCode.Created,
+            (await client.PostAsJsonAsync("/v1/auth/register", Registration())).StatusCode);
+        var email = Assert.Single(factory.Email.Sent);
+        using var scope = factory.Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<HunterAccount>>();
+        var user = await users.FindByIdAsync(email.PlayerId.ToString());
+        Assert.NotNull(user);
+        var legacy = new AccountConfirmationTokens(
+            scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.DataProtection.IDataProtectionProvider>(),
+            scope.ServiceProvider.GetRequiredService<IOptions<AccountOptions>>(),
+            scope.ServiceProvider.GetRequiredService<TimeProvider>());
+        string identityToken = await users.GenerateEmailConfirmationTokenAsync(user!);
+        string legacyCode = legacy.Protect(identityToken);
+
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await client.PostAsJsonAsync("/v1/auth/confirm-email",
+                new { email.PlayerId, Code = legacyCode })).StatusCode);
+    }
+
+    [Fact]
+    public async Task ResendReplacesThePreviousSingleUseConfirmationCode()
+    {
+        using var factory = new BackendFactory(requireConfirmation: true);
+        using var client = factory.CreateDatabaseClient();
+        Assert.Equal(HttpStatusCode.Created,
+            (await client.PostAsJsonAsync("/v1/auth/register", Registration())).StatusCode);
+        var first = Assert.Single(factory.Email.Sent);
+
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await client.PostAsJsonAsync("/v1/auth/resend-confirmation",
+                new { Email = "first@example.test" })).StatusCode);
+        var replacement = factory.Email.Sent[1];
+        Assert.NotEqual(first.Code, replacement.Code);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await client.PostAsJsonAsync("/v1/auth/confirm-email",
+                new { first.PlayerId, first.Code })).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await client.PostAsJsonAsync("/v1/auth/confirm-email",
+                new { replacement.PlayerId, Code = replacement.Code.ToLowerInvariant().Replace("-", " ") })).StatusCode);
     }
 
     [Fact]

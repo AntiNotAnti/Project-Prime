@@ -65,6 +65,7 @@ public sealed class Program
             });
         builder.Services.AddAuthorization();
         builder.Services.AddScoped<IConfirmationEmail, ConfirmationEmail>();
+        builder.Services.AddSingleton<AccountConfirmationCodes>();
         builder.Services.Configure<TicketOptions>(builder.Configuration.GetSection("Tickets"));
         builder.Services.Configure<GameServerOptions>(builder.Configuration.GetSection("GameServers"));
         var ticketOptions = builder.Configuration.GetSection("Tickets").Get<TicketOptions>() ?? new();

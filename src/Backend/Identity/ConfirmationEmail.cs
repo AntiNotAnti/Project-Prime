@@ -37,7 +37,7 @@ public sealed class ConfirmationEmail(IOptions<EmailOptions> options, ILogger<Co
         using var message = new MailMessage(settings.Sender!, email)
         {
             Subject = "Confirm your Project Prime account",
-            Body = $"Enter this confirmation code in Project Prime.\n\nPlayer: {playerId}\nCode: {code}\n\nIf you did not register, ignore this message."
+            Body = $"Enter this confirmation code in Project Prime:\n\n{code}\n\nIf you did not register, ignore this message."
         };
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(settings.TimeoutSeconds));

@@ -78,16 +78,11 @@ public static class AccountEndpoints
             return Results.SignIn(principal, authenticationScheme: IdentityConstants.BearerScheme);
         });
         auth.MapPost("/confirm-email", async (ConfirmRequest request, UserManager<HunterAccount> users,
-            ILoggerFactory loggerFactory) =>
+            AccountConfirmationCodes confirmationCodes, ILoggerFactory loggerFactory) =>
         {
             ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.AccountCategory);
             if (!PlayerId.TryParse(request.PlayerId, out PlayerId playerId)
                 || request.Code is not { Length: >= 1 and <= 4096 })
-            {
-                BackendDiagnostics.Account(logger, "confirm", "invalid");
-                return BackendProblem.Create("invalid_confirmation", "The confirmation request is invalid.", StatusCodes.Status400BadRequest);
-            }
-            if (!confirmationTokens.TryUnprotect(request.Code, out string identityToken))
             {
                 BackendDiagnostics.Account(logger, "confirm", "invalid");
                 return BackendProblem.Create("invalid_confirmation", "The confirmation request is invalid.", StatusCodes.Status400BadRequest);
@@ -98,14 +93,33 @@ public static class AccountEndpoints
                 BackendDiagnostics.Account(logger, "confirm", "invalid");
                 return BackendProblem.Create("invalid_confirmation", "The confirmation request is invalid.", StatusCodes.Status400BadRequest);
             }
+            if (user.EmailConfirmed)
+            {
+                await confirmationCodes.ConsumeAsync(users, user);
+                BackendDiagnostics.Account(logger, "confirm", "success");
+                return Results.NoContent();
+            }
+            bool shortCode = await confirmationCodes.VerifyAsync(users, user, request.Code);
+            string identityToken;
+            if (shortCode)
+            {
+                identityToken = await users.GenerateEmailConfirmationTokenAsync(user);
+            }
+            else if (!confirmationTokens.TryUnprotect(request.Code, out identityToken))
+            {
+                BackendDiagnostics.Account(logger, "confirm", "invalid");
+                return BackendProblem.Create("invalid_confirmation", "The confirmation request is invalid.", StatusCodes.Status400BadRequest);
+            }
             var result = await users.ConfirmEmailAsync(user, identityToken);
+            if (result.Succeeded && shortCode && !await confirmationCodes.ConsumeAsync(users, user))
+                logger.LogWarning("A consumed confirmation code could not be removed.");
             BackendDiagnostics.Account(logger, "confirm", result.Succeeded ? "success" : "invalid");
             return result.Succeeded ? Results.NoContent()
                 : BackendProblem.Create("invalid_confirmation", "The confirmation request is invalid.", StatusCodes.Status400BadRequest);
         });
         auth.MapPost("/resend-confirmation", async (ResendRequest request, HttpContext http,
             UserManager<HunterAccount> users, IConfirmationEmail email, CancellationToken cancellationToken,
-            ILoggerFactory loggerFactory) =>
+            AccountConfirmationCodes confirmationCodes, ILoggerFactory loggerFactory) =>
         {
             ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.AccountCategory);
             if (!ValidEmail(request.Email))
@@ -128,7 +142,7 @@ public static class AccountEndpoints
             var user = await users.FindByEmailAsync(request.Email);
             if (user is { EmailConfirmed: false })
             {
-                string code = confirmationTokens.Protect(await users.GenerateEmailConfirmationTokenAsync(user));
+                string code = await confirmationCodes.IssueAsync(users, user);
                 await email.TrySendAsync(user.Email!, new PlayerId(user.Id), code, cancellationToken);
             }
             BackendDiagnostics.Account(logger, "resend", "accepted");
@@ -161,7 +175,7 @@ public static class AccountEndpoints
 
     private static async Task<IResult> Register(RegisterRequest request, UserManager<HunterAccount> users,
         BackendDbContext db, IOptions<AccountOptions> settings, IConfirmationEmail email,
-        IDataProtectionProvider protection, TimeProvider clock, CancellationToken cancellationToken,
+        AccountConfirmationCodes confirmationCodes, TimeProvider clock, CancellationToken cancellationToken,
         ILoggerFactory loggerFactory)
     {
         ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.AccountCategory);
@@ -180,6 +194,7 @@ public static class AccountEndpoints
                 "Confirmation delivery is unavailable.", StatusCodes.Status503ServiceUnavailable);
         }
         var user = new HunterAccount { Id = Guid.NewGuid(), UserName = request.Email, Email = request.Email };
+        string? confirmationCode = null;
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -196,6 +211,8 @@ public static class AccountEndpoints
                 return BackendProblem.Create("invalid_password",
                     "The password does not meet account requirements.", StatusCodes.Status400BadRequest);
             }
+            if (email.IsConfigured)
+                confirmationCode = await confirmationCodes.IssueAsync(users, user);
             db.Profiles.Add(new PlayerProfile { PlayerId = user.Id, DisplayName = request.DisplayName, FavoriteHunter = Hunter.Samus });
             db.Licenses.Add(new HunterLicense { PlayerId = user.Id, CreatedAt = clock.GetUtcNow() });
             await db.SaveChangesAsync(cancellationToken);
@@ -213,9 +230,8 @@ public static class AccountEndpoints
         {
             // Account commit precedes external delivery. A delivery failure leaves an
             // unconfirmed account; resend is the explicit recovery path.
-            var confirmationTokens = new AccountConfirmationTokens(protection, settings, clock);
-            string code = confirmationTokens.Protect(await users.GenerateEmailConfirmationTokenAsync(user));
-            confirmationDelivered = await email.TrySendAsync(user.Email!, new PlayerId(user.Id), code, cancellationToken);
+            confirmationDelivered = await email.TrySendAsync(user.Email!, new PlayerId(user.Id),
+                confirmationCode!, cancellationToken);
         }
         BackendDiagnostics.Account(logger, "register",
             settings.Value.RequireConfirmedEmail && !confirmationDelivered ? "delivery_pending" : "success");

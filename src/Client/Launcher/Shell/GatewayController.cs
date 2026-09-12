@@ -375,6 +375,43 @@ public sealed class GatewayController : IAsyncDisposable
         finally { _transition.Release(); }
     }
 
+    public async Task<bool> ResendForEmailAsync(string email,
+        CancellationToken cancellationToken = default)
+    {
+        bool entered = false;
+        long generation = 0;
+        try
+        {
+            generation = BeginTransition();
+            string normalizedEmail = NormalizeEmail(email);
+            await _transition.WaitAsync(cancellationToken).ConfigureAwait(false);
+            entered = true;
+            ThrowIfDisposed();
+            if (!CanCommit(generation, cancellationToken)) return false;
+            IPrimeGatewayAccount? account = await GetAccountAsync(generation,
+                cancellationToken).ConfigureAwait(false);
+            if (account is null) return false;
+            RequireSecureAuthenticationEndpoint(account.Backend);
+            await account.ResendConfirmationAsync(normalizedEmail, cancellationToken)
+                .ConfigureAwait(false);
+            if (!CanCommit(generation, cancellationToken)) return false;
+            SetState(_state with { Phase = GatewayPhase.Gateway,
+                Message = "If confirmation is needed, a new code will be sent." });
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception error)
+        {
+            if (generation != 0 && CanCommit(generation, cancellationToken))
+                Fail("Resending confirmation", error);
+            return false;
+        }
+        finally
+        {
+            if (entered) _transition.Release();
+        }
+    }
+
     /// <summary>Explicitly select anonymous access; auth failure never calls this.</summary>
     public async Task<bool> UseGuestAsync(CancellationToken cancellationToken = default)
     {

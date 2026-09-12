@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -66,13 +67,31 @@ internal static class SecureSessionRecordCodec
         PropertyNameCaseInsensitive = false,
         MaxDepth = 4
     };
-    private sealed record Record(int Version, string BackendScope, string RefreshToken);
+    // The protected client removes private constructor parameter names. Use a
+    // parameterless contract with pinned wire names so session persistence is
+    // stable before and after protection.
+    private sealed class Record
+    {
+        [JsonPropertyName("version")]
+        public int Version { get; init; }
+
+        [JsonPropertyName("backendScope")]
+        public string BackendScope { get; init; } = "";
+
+        [JsonPropertyName("refreshToken")]
+        public string RefreshToken { get; init; } = "";
+    }
 
     internal static byte[] Encode(string backendScope, string refreshToken)
     {
         ValidateScope(backendScope);
         ValidateRefreshToken(refreshToken);
-        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(new Record(Version, backendScope, refreshToken), Json);
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(new Record
+        {
+            Version = Version,
+            BackendScope = backendScope,
+            RefreshToken = refreshToken
+        }, Json);
         if (bytes.Length > MaximumBytes) throw new InvalidOperationException("The protected session record is too large.");
         return bytes;
     }

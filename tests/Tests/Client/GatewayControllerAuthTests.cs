@@ -33,6 +33,21 @@ public sealed class GatewayControllerAuthTests
         Assert.Null(gateway.PendingRegistration);
     }
 
+    [Fact]
+    public async Task ExistingAccountCanRequestResendWithoutPendingRegistration()
+    {
+        var account = new AccountFake();
+        using var shell = new PrimeShellState();
+        await using var gateway = Create(shell, account);
+
+        Assert.True(await gateway.ResendForEmailAsync("  Pilot@Example.TEST  "));
+
+        Assert.Equal("pilot@example.test", account.ResentEmail);
+        Assert.Null(gateway.PendingRegistration);
+        Assert.Equal("If confirmation is needed, a new code will be sent.",
+            gateway.State.Message);
+    }
+
     [Theory]
     [InlineData(false, false, "Account created. You can sign in now.")]
     [InlineData(true, false, "Account created. Enter the confirmation code, then sign in.")]

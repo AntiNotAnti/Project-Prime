@@ -74,8 +74,23 @@ public sealed partial class AccountSession : IDisposable
 {
     private const int MaximumSafeGetAttempts = 3;
     private const int MaximumRetryAfterSeconds = 30;
-    private sealed record Tokens(string TokenType, string AccessToken, int ExpiresIn, string RefreshToken)
+    // This type crosses the ASP.NET Identity JSON boundary. Keep it
+    // parameterless and pin every wire name so client protection cannot make
+    // constructor/property metadata diverge from the Backend response.
+    private sealed class Tokens
     {
+        [JsonRequired, JsonPropertyName("tokenType")]
+        public string TokenType { get; init; } = "";
+
+        [JsonRequired, JsonPropertyName("accessToken")]
+        public string AccessToken { get; init; } = "";
+
+        [JsonRequired, JsonPropertyName("expiresIn")]
+        public int ExpiresIn { get; init; }
+
+        [JsonRequired, JsonPropertyName("refreshToken")]
+        public string RefreshToken { get; init; } = "";
+
         public override string ToString() => "Account tokens (redacted)";
     }
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
