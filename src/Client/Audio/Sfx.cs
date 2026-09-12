@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using MphRead.Entities;
 using MphRead.Formats.Sound;
 using OpenTK.Audio.OpenAL;
@@ -12,8 +11,16 @@ namespace MphRead.Sound
     public static class Sfx
     {
         private static AudioRequests? _requests;
+        private static Action<AudioRequest>? _requestHandler;
 
         public static SfxInstanceBase Instance { get; private set; } = null!;
+        /// <summary>
+        /// Process-owned audio lifetime.  The static SFX surface remains for
+        /// gameplay compatibility, while lifecycle operations go through this
+        /// one serialized owner.
+        /// </summary>
+        public static AudioService Service => AudioService.Process;
+        internal static bool HasPresentationBinding => _requests != null;
         public static float Volume { get; set; } = 0.35f;
 
         public static bool SfxMute { get; set; }
@@ -23,74 +30,165 @@ namespace MphRead.Sound
 
         public static SoundCapability CheckAudioLoad()
         {
-            bool loopPointsSupported = false;
-            try
+            SoundCapability capability = SoundCapability.None;
+            Service.TryExecute(() =>
             {
-                ALDevice device = ALC.OpenDevice(null);
-                ALContext context = ALC.CreateContext(device, new ALContextAttributes());
-                ALC.MakeContextCurrent(context);
-                loopPointsSupported = AL.LoopPoints.IsExtensionPresent();
-                ALC.MakeContextCurrent(ALContext.Null);
-                ALC.DestroyContext(context);
-                ALC.CloseDevice(device);
-            }
-            catch (DllNotFoundException)
-            {
-                return SoundCapability.None;
-            }
-            return loopPointsSupported ? SoundCapability.Supported : SoundCapability.Unsupported;
+                bool loopPointsSupported = false;
+                ALDevice device = ALDevice.Null;
+                ALContext context = ALContext.Null;
+                ALContext previousContext = ALContext.Null;
+                try
+                {
+                    // The probe temporarily makes its context current. Put
+                    // the process-owned context back before returning so a
+                    // capability check during a live match cannot strand the
+                    // active SFX engine without a current OpenAL context.
+                    previousContext = ALC.GetCurrentContext();
+                    device = ALC.OpenDevice(null);
+                    context = ALC.CreateContext(device, new ALContextAttributes());
+                    ALC.MakeContextCurrent(context);
+                    loopPointsSupported = AL.LoopPoints.IsExtensionPresent();
+                }
+                catch (DllNotFoundException)
+                {
+                    capability = SoundCapability.None;
+                    return;
+                }
+                finally
+                {
+                    if (context != ALContext.Null)
+                    {
+                        try
+                        {
+                            ALC.MakeContextCurrent(ALContext.Null);
+                            ALC.DestroyContext(context);
+                        }
+                        catch (Exception error) when (error is not OutOfMemoryException)
+                        { Console.WriteLine($"[sound] audio capability context cleanup failed: {error.Message}"); }
+                    }
+                    if (device != ALDevice.Null)
+                    {
+                        try { ALC.CloseDevice(device); }
+                        catch (Exception error) when (error is not OutOfMemoryException)
+                        { Console.WriteLine($"[sound] audio capability device cleanup failed: {error.Message}"); }
+                    }
+                    if (previousContext != ALContext.Null)
+                    {
+                        try { ALC.MakeContextCurrent(previousContext); }
+                        catch (Exception error) when (error is not OutOfMemoryException)
+                        { Console.WriteLine($"[sound] active SFX context restore failed: {error.Message}"); }
+                    }
+                }
+                capability = loopPointsSupported
+                    ? SoundCapability.Supported : SoundCapability.Unsupported;
+            });
+            return capability;
         }
 
         public static void Update(float time)
         {
-            Instance?.Update(time);
+            Service.TryExecute(() => Instance?.Update(time));
         }
 
         public static void QueueStream(VoiceId id, float delay = 0, float expiration = 0)
         {
-            Instance.QueueStream((int)id, delay, expiration);
+            Service.TryExecute(() => Instance?.QueueStream((int)id, delay, expiration));
         }
 
-        public static void Load(Scene scene)
+        public static void Load(Scene? scene)
         {
-            if (_requests != null) { _requests.Requested -= HandleRequest; }
-            _requests = null;
+            Service.Load(scene);
+        }
+
+        internal static void LoadCore(Scene? scene)
+        {
+            if (scene == null)
+            {
+                // The sound-test menu intentionally has no ScenePresentation;
+                // it drives the loaded banks directly through Sfx.Instance.
+                // Keep that legacy path while still detaching any prior
+                // scene-owned request stream.
+                if (Instance is SfxInstance existing && existing.IsLoaded)
+                {
+                    StopPresentationCore();
+                }
+                else
+                {
+                    StopPresentationCore();
+                    if (Instance != null) Instance.ShutDown();
+                    SfxInstance candidate = new();
+                    try
+                    {
+                        candidate.Load(null);
+                        Instance = candidate;
+                    }
+                    catch (Exception ex)
+                    {
+                        DetachRequests();
+                        try { candidate.ShutDown(); }
+                        catch (Exception cleanup) when (cleanup is not OutOfMemoryException)
+                        { Console.WriteLine($"[sound] failed SFX cleanup: {cleanup.Message}"); }
+                        Console.WriteLine($"[sound] SFX device unavailable ({ex.Message}); continuing without SFX");
+                        Instance = new SfxInstanceBase();
+                    }
+                }
+                SfxMute = false;
+                ForceFieldSfxMute = 0;
+                TimedSfxMute = 0;
+                LongSfxMute = 0;
+                return;
+            }
+
             if (scene.IsHeadless || Mods.ThumbnailMode.Active)
             {
                 // Reading and decoding every sample in the game, plus the
                 // whole stream bank, is the single most expensive thing a
                 // room load does -- and a preview is a picture. Measured at
-                // 933 ms of a 2970 ms load.
-                Instance = new SfxInstanceBase();
+                // 933 ms of a 2970 ms load. A loaded process bank is retained
+                // but detached so the next live scene can reuse it.
+                StopPresentationCore();
+                if (Instance == null) Instance = new SfxInstanceBase();
                 SfxMute = false;
                 ForceFieldSfxMute = 0;
                 TimedSfxMute = 0;
                 LongSfxMute = 0;
-                BindPresentation(scene, stopCurrent: false);
                 return;
             }
-            Instance = new SfxInstance();
-            try
+
+            if (Instance is SfxInstance loaded && loaded.IsLoaded)
             {
-                Instance.Load(scene);
+                // Room transitions must clear active voices, but the process
+                // owns the decoded banks and OpenAL context across them.
+                BindPresentationCore(scene, stopCurrent: true);
             }
-            catch (Exception ex)
+            else
             {
-                // Anything OpenAL/ALC can throw when there is no usable audio
-                // device -- not just a missing native library -- must fall
-                // back to a silent stub the same way Sound.Music does,
-                // instead of taking the scene load down with it. The failed
-                // instance is not shut down: Load can throw before _device,
-                // _context or the buffer/source arrays are assigned, and
-                // ShutDown assumes they are.
-                Console.WriteLine($"[sound] SFX device unavailable ({ex.Message}); continuing without SFX");
-                Instance = new SfxInstanceBase();
+                StopPresentationCore();
+                if (Instance != null) Instance.ShutDown();
+                SfxInstance candidate = new();
+                try
+                {
+                    candidate.Load(scene);
+                    Instance = candidate;
+                    BindPresentationCore(scene, stopCurrent: false);
+                }
+                catch (Exception ex)
+                {
+                    DetachRequests();
+                    try { candidate.ShutDown(); }
+                    catch (Exception cleanup) when (cleanup is not OutOfMemoryException)
+                    { Console.WriteLine($"[sound] failed SFX cleanup: {cleanup.Message}"); }
+                    // Anything OpenAL/ALC can throw when there is no usable
+                    // audio device -- not just a missing native library --
+                    // must fall back to the silent stub.
+                    Console.WriteLine($"[sound] SFX device unavailable ({ex.Message}); continuing without SFX");
+                    Instance = new SfxInstanceBase();
+                }
             }
             SfxMute = false;
             ForceFieldSfxMute = 0;
             TimedSfxMute = 0;
             LongSfxMute = 0;
-            BindPresentation(scene, stopCurrent: false);
         }
 
         /// <summary>
@@ -100,21 +198,90 @@ namespace MphRead.Sound
         /// </summary>
         public static void BindPresentation(Scene scene, bool stopCurrent = true)
         {
+            Service.BindPresentation(scene, stopCurrent);
+        }
+
+        internal static void BindPresentationCore(Scene scene, bool stopCurrent = true)
+        {
             ArgumentNullException.ThrowIfNull(scene);
             if (ReferenceEquals(_requests, scene.Audio))
             {
+                if (stopCurrent) Instance?.StopPresentation();
                 Instance?.SetScene(scene);
                 return;
             }
-            if (stopCurrent) Instance?.StopAllSound(force: true);
-            if (_requests != null) _requests.Requested -= HandleRequest;
+            if (stopCurrent) Instance?.StopPresentation();
+            DetachRequests();
             _requests = scene.Audio;
-            _requests.Requested += HandleRequest;
+            AttachRequests(_requests);
             Instance?.SetScene(scene);
         }
 
-        private static void HandleRequest(AudioRequest request)
+        /// <summary>
+        /// Stop scene presentation without releasing the process-owned SFX
+        /// banks or OpenAL context. The next scene binds its own requests.
+        /// </summary>
+        public static void StopPresentation() => Service.StopPresentation();
+
+        /// <summary>
+        /// Retire an owner only if it still holds the process presentation
+        /// binding. This is used by replay/killcam cleanup after a best-effort
+        /// live handoff, so a stale replay cannot stop live audio.
+        /// </summary>
+        internal static void StopPresentationIfBound(Scene owner)
+            => Service.StopPresentation(owner);
+
+        internal static void StopPresentationCore()
         {
+            DetachRequests();
+            if (Instance != null)
+            {
+                Instance.StopPresentation();
+                Instance.DetachScene();
+            }
+            // Stop optional presentation players as well as the built-in
+            // sequence. MusicPlayer.Remove then drains any decoder that was
+            // still warming up, while retaining the process output device.
+            Music.Stop();
+            // A scene may have queued a sequence whose decoder is still
+            // warming up. Drain/cancel that load at the presentation boundary
+            // so a stale Theatre/live transition cannot attach it afterwards.
+            // The process-owned SoundFlow device remains available.
+            MusicPlayer.Remove(shutdown: false);
+        }
+
+        private static void HandleRequest(AudioRequests owner, AudioRequest request)
+        {
+            Service.TryExecute(() =>
+            {
+                // An event invocation already in flight can outlive -= on a
+                // scene transition. Never let that stale request reach the
+                // next live/Theatre presentation.
+                if (!ReferenceEquals(_requests, owner)) return;
+                HandleRequestCore(request);
+            });
+        }
+
+        private static void AttachRequests(AudioRequests requests)
+        {
+            Action<AudioRequest> handler = request => HandleRequest(requests, request);
+            _requestHandler = handler;
+            requests.Requested += handler;
+        }
+
+        private static void DetachRequests()
+        {
+            if (_requests != null && _requestHandler != null)
+            {
+                _requests.Requested -= _requestHandler;
+            }
+            _requests = null;
+            _requestHandler = null;
+        }
+
+        private static void HandleRequestCore(AudioRequest request)
+        {
+            if (Instance == null) return;
             SoundSource? source = request.Source;
             switch (request.Kind)
             {
@@ -184,7 +351,18 @@ namespace MphRead.Sound
 
         public static void ShutDown()
         {
-            if (_requests != null) { _requests.Requested -= HandleRequest; _requests = null; }
+            Service.ShutdownCurrentAudio();
+        }
+
+        internal static void ShutDownCore()
+        {
+            DetachRequests();
+            // Stop and drain the shared SoundFlow output before releasing the
+            // OpenAL resources. The process service may retain the output
+            // device for a later scene, but this explicit SFX shutdown keeps
+            // the legacy diagnostic/menu contract deterministic.
+            Music.Stop();
+            MusicPlayer.Remove(shutdown: true);
             if (Instance != null)
             {
                 Instance.ShutDown();
@@ -372,6 +550,10 @@ namespace MphRead.Sound
 
         private ALDevice _device = ALDevice.Null;
         private ALContext _context = ALContext.Null;
+        private int[]? _generatedBufferIds;
+        private int[]? _generatedSourceIds;
+        private bool _loaded;
+        private bool _shutdown;
         private bool _loopPointSupport = false;
         private readonly SoundBuffer[] _buffers = new SoundBuffer[64];
         private readonly SoundChannel[] _channels = new SoundChannel[128];
@@ -384,6 +566,8 @@ namespace MphRead.Sound
         public override IReadOnlyList<Sound3dEntry> RangeData => _rangeData;
 
         private ScenePresentation? _scene = null;
+
+        internal bool IsLoaded => _loaded && !_shutdown;
 
         public override Vector3 GetListenerPosition()
         {
@@ -1375,9 +1559,12 @@ namespace MphRead.Sound
             }
         }
 
-        public override void Load(Scene scene)
+        public override void Load(Scene? scene)
         {
-            _scene = ScenePresentation.Get(scene);
+            if (_loaded && !_shutdown)
+                throw new InvalidOperationException("SFX banks are already loaded.");
+            _shutdown = false;
+            _scene = scene == null ? null : ScenePresentation.Get(scene);
             _samples = SoundRead.ReadSoundSamples();
             SoundTable table = SoundRead.ReadSoundTables();
             Debug.Assert(_samples.Count == table.Entries.Count);
@@ -1406,12 +1593,14 @@ namespace MphRead.Sound
             ALC.MakeContextCurrent(_context);
             _loopPointSupport = AL.LoopPoints.IsExtensionPresent();
             int[] bufferIds = new int[_buffers.Length * 2];
+            _generatedBufferIds = bufferIds;
             AL.GenBuffers(bufferIds);
             for (int i = 0; i < _buffers.Length; i++)
             {
                 _buffers[i] = new SoundBuffer(bufferIds[i * 2]);
             }
             int[] channelIds = new int[_channels.Length];
+            _generatedSourceIds = channelIds;
             AL.GenSources(channelIds);
             for (int i = 0; i < _channels.Length; i++)
             {
@@ -1427,6 +1616,7 @@ namespace MphRead.Sound
             {
                 AL.DistanceModel(ALDistanceModel.LinearDistanceClamped);
             }
+            _loaded = true;
         }
 
         public override void SetScene(Scene scene)
@@ -1434,42 +1624,143 @@ namespace MphRead.Sound
             _scene = ScenePresentation.Get(scene);
         }
 
+        public override void DetachScene()
+        {
+            _scene = null;
+        }
+
+        internal override void StopPresentation()
+        {
+            StopAllSound(force: true);
+            StopEnvironmentSfx();
+            ClearStreams();
+        }
+
         public override void ShutDown()
         {
-            MusicPlayer.Remove(shutdown: true);
-            for (int i = 0; i < _instances.Length; i++)
+            if (_shutdown) return;
+            _shutdown = true;
+            try
             {
-                SoundInstance inst = _instances[i];
-                for (int j = 0; j < _maxPerInst; j++)
+                if (_context != ALContext.Null)
                 {
-                    SoundChannel? channel = inst.Channels[j];
-                    if (channel == null)
+                    for (int i = 0; i < _instances.Length; i++)
                     {
-                        continue;
+                        SoundInstance? inst = _instances[i];
+                        if (inst != null && inst.SfxId != -1) inst.Stop();
                     }
-                    AL.GetSource(channel.Id, ALGetSourcei.SourceState, out int value);
-                    var state = (ALSourceState)value;
-                    if (state == ALSourceState.Playing)
+                    if (ReferenceEquals(Sfx.Instance, this))
                     {
-                        inst.Stop();
-                        break;
+                        for (int i = 0; i < _environmentItems.Count; i++)
+                        {
+                            _environmentItems[i].Reset();
+                        }
                     }
                 }
+                ClearStreams();
+                if (_streamInstance != -1 && _context != ALContext.Null)
+                {
+                    AL.SourceStop(_streamInstance);
+                    AL.Source(_streamInstance, ALSourcei.Buffer, 0);
+                }
+                if (_context != ALContext.Null) DeleteNativeResources();
+                else { _streamInstance = -1; _streamBuffer = -1; }
             }
-            for (int i = 0; i < _environmentItems.Count; i++)
+            catch (Exception error) when (error is not OutOfMemoryException)
             {
-                _environmentItems[i].Reset();
+                // Teardown remains best-effort for a driver that has already
+                // lost its device, but the context/device fields are still
+                // cleared synchronously below.
+                Console.WriteLine($"[sound] SFX resource shutdown failed: {error.Message}");
             }
-            AL.SourceStop(_streamInstance);
-            ALC.MakeContextCurrent(ALContext.Null);
-            Task.Run(() =>
+            finally
             {
-                ALC.DestroyContext(_context);
-                ALC.CloseDevice(_device);
-                _context = ALContext.Null;
-                _device = ALDevice.Null;
-            });
-            _scene = null;
+                // OpenAL context/device teardown must happen on this owned
+                // lifecycle call, never on an unobserved Task.Run.  Make the
+                // context non-current before destroying it on this thread.
+                if (_context != ALContext.Null)
+                {
+                    try
+                    {
+                        ALC.MakeContextCurrent(ALContext.Null);
+                        ALC.DestroyContext(_context);
+                    }
+                    catch (Exception error) when (error is not OutOfMemoryException)
+                    {
+                        Console.WriteLine($"[sound] SFX context shutdown failed: {error.Message}");
+                    }
+                    _context = ALContext.Null;
+                }
+                if (_device != ALDevice.Null)
+                {
+                    try { ALC.CloseDevice(_device); }
+                    catch (Exception error) when (error is not OutOfMemoryException)
+                    { Console.WriteLine($"[sound] SFX device shutdown failed: {error.Message}"); }
+                    _device = ALDevice.Null;
+                }
+                _loaded = false;
+                _scene = null;
+            }
+        }
+
+        private void ClearStreams()
+        {
+            LinkedListNode<QueueItem>? node = _activeQueue.First;
+            while (node != null)
+            {
+                LinkedListNode<QueueItem>? next = node.Next;
+                node.Value.Stream = null;
+                node.Value.Playing = false;
+                _inactiveQueue.Enqueue(node.Value);
+                _activeQueue.Remove(node);
+                node = next;
+            }
+            if (_streamInstance != -1 && _context != ALContext.Null)
+            {
+                AL.SourceStop(_streamInstance);
+                AL.Source(_streamInstance, ALSourcei.Buffer, 0);
+            }
+        }
+
+        private void DeleteNativeResources()
+        {
+            int[]? generatedSources = _generatedSourceIds;
+            if (generatedSources != null)
+            {
+                if (generatedSources.Length > 0) AL.DeleteSources(generatedSources);
+            }
+            else
+            {
+                List<int> sources = new List<int>(_channels.Length + 1);
+                for (int i = 0; i < _channels.Length; i++)
+                {
+                    if (_channels[i] != null && _channels[i].Id != 0)
+                        sources.Add(_channels[i].Id);
+                }
+                if (sources.Count > 0) AL.DeleteSources(sources.ToArray());
+            }
+            if (_streamInstance > 0) AL.DeleteSources(new[] { _streamInstance });
+
+            int[]? generatedBuffers = _generatedBufferIds;
+            if (generatedBuffers != null)
+            {
+                if (generatedBuffers.Length > 0) AL.DeleteBuffers(generatedBuffers);
+            }
+            else
+            {
+                List<int> buffers = new List<int>(_buffers.Length + 1);
+                for (int i = 0; i < _buffers.Length; i++)
+                {
+                    if (_buffers[i] != null && _buffers[i].Id != 0)
+                        buffers.Add(_buffers[i].Id);
+                }
+                if (buffers.Count > 0) AL.DeleteBuffers(buffers.ToArray());
+            }
+            if (_streamBuffer > 0) AL.DeleteBuffers(new[] { _streamBuffer });
+            _generatedSourceIds = null;
+            _generatedBufferIds = null;
+            _streamInstance = -1;
+            _streamBuffer = -1;
         }
     }
 
@@ -1555,6 +1846,12 @@ namespace MphRead.Sound
         {
         }
 
+        internal virtual void StopPresentation()
+        {
+            StopAllSound(force: true);
+            StopEnvironmentSfx();
+        }
+
         public virtual void StopSoundById(int id)
         {
         }
@@ -1586,11 +1883,15 @@ namespace MphRead.Sound
         {
         }
 
-        public virtual void Load(Scene scene)
+        public virtual void Load(Scene? scene)
         {
         }
 
         public virtual void SetScene(Scene scene)
+        {
+        }
+
+        public virtual void DetachScene()
         {
         }
 

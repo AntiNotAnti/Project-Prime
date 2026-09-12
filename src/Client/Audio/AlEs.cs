@@ -42,7 +42,7 @@ namespace MphRead.Mods.Sound
     /// from the listener's own orientation. What is not: HRTF, doppler,
     /// velocity, and effects -- none of which the engine ever sets.
     /// </summary>
-    internal static class AlEs
+    public static class AlEs
     {
         public static void GenBuffers(Span<int> buffers)
         {
@@ -162,7 +162,7 @@ namespace MphRead.Mods.Sound
     /// SoundFlow owns it, so these are bookkeeping: a handle the engine can
     /// hold, and an open that says whether there is anything to play through.
     /// </summary>
-    internal static class AlcEs
+    public static class AlcEs
     {
         private static readonly IntPtr _handle = new IntPtr(1);
 
@@ -186,6 +186,8 @@ namespace MphRead.Mods.Sound
         }
 
         public static bool MakeContextCurrent(ALContext context) => true;
+
+        public static ALContext GetCurrentContext() => ALContext.Null;
 
         public static bool DestroyContext(ALContext context) => true;
 

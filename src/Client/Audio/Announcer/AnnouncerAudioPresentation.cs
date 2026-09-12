@@ -185,57 +185,93 @@ public sealed class AnnouncerAudioPresentation : IDisposable
 /// <summary>One bounded in-memory SoundFlow asset at a time.</summary>
 internal sealed class SoundFlowAnnouncerFilePlayer : IAnnouncerFilePlayer
 {
+    private readonly object _stateGate = new();
     private StreamDataProvider? _provider;
     private FileStream? _stream;
     private SoundPlayer? _player;
+    private AudioPlaybackDevice? _device;
+    private bool _disposed;
 
     public bool TryPlay(FileStream stream, float volume)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        MiniAudioEngine? engine = MusicPlayer.Engine;
-        AudioPlaybackDevice? device = MusicPlayer.PlaybackDevice;
-        if (engine == null || device == null || volume <= 0)
-        {
-            stream.Dispose();
-            return false;
-        }
-        Stop();
+        FileStream? unowned = stream;
+        bool played = false;
         try
         {
-            _stream = stream;
-            _provider = new StreamDataProvider(engine, _stream, new ReadOptions
+            AudioService.Process.TryExecute(() =>
             {
-                ReadTags = false,
-                ReadAlbumArt = false,
-                ReadCueSheet = false,
-                DurationAccuracy = DurationAccuracy.FastEstimate
+                lock (_stateGate)
+                {
+                    // Replacement and the new attachment share one owner
+                    // transaction. A concurrent cue cannot attach beside an
+                    // older player whose preflight Stop has not run yet.
+                    StopCore();
+                    if (_disposed) return;
+                    if (volume <= 0) return;
+                    MiniAudioEngine? engine = MusicPlayer.Engine;
+                    AudioPlaybackDevice? device = MusicPlayer.PlaybackDevice;
+                    if (engine == null || device == null) return;
+                    try
+                    {
+                        _device = device;
+                        _stream = unowned;
+                        unowned = null;
+                        _provider = new StreamDataProvider(engine, _stream, new ReadOptions
+                        {
+                            ReadTags = false,
+                            ReadAlbumArt = false,
+                            ReadCueSheet = false,
+                            DurationAccuracy = DurationAccuracy.FastEstimate
+                        });
+                        _player = new SoundPlayer(engine, MusicPlayer.Format, _provider)
+                        {
+                            Volume = volume
+                        };
+                        device.MasterMixer.AddComponent(_player);
+                        device.Start();
+                        _player.Play();
+                        played = true;
+                    }
+                    catch (Exception)
+                    {
+                        StopCore();
+                    }
+                }
             });
-            _player = new SoundPlayer(engine, MusicPlayer.Format, _provider)
-            {
-                Volume = volume
-            };
-            device.MasterMixer.AddComponent(_player);
-            device.Start();
-            _player.Play();
-            return true;
         }
         catch (Exception)
         {
-            Stop();
-            return false;
+            played = false;
         }
+        if (unowned != null)
+        {
+            try { unowned.Dispose(); }
+            catch (Exception) { }
+        }
+        return played;
     }
 
     public void Stop()
     {
+        AudioService.Process.TryExecute(() =>
+        {
+            lock (_stateGate) StopCore();
+        });
+    }
+
+    private void StopCore()
+    {
         SoundPlayer? player = _player;
+        AudioPlaybackDevice? device = _device;
         _player = null;
+        _device = null;
         if (player != null)
         {
             try
             {
                 player.Stop();
-                MusicPlayer.PlaybackDevice?.MasterMixer.RemoveComponent(player);
+                device?.MasterMixer.RemoveComponent(player);
             }
             catch (Exception) { }
             try { player.Dispose(); }
@@ -249,5 +285,9 @@ internal sealed class SoundFlowAnnouncerFilePlayer : IAnnouncerFilePlayer
         _stream = null;
     }
 
-    public void Dispose() => Stop();
+    public void Dispose()
+    {
+        lock (_stateGate) _disposed = true;
+        Stop();
+    }
 }

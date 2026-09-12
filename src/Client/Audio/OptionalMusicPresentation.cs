@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.Content;
 using MphRead.Runtime.Content;
+using MphRead.Sound;
 using SoundFlow.Abstracts.Devices;
 using SoundFlow.Backends.MiniAudio;
 using SoundFlow.Components;
@@ -57,14 +58,25 @@ public sealed class OptionalMusicPack
 internal sealed class OptionalMusicPresentation : IDisposable
 {
     private readonly OptionalMusicPack _pack;
+    private readonly object _stateGate = new();
     private SoundPlayer? _player;
+    private AudioPlaybackDevice? _device;
     private StreamDataProvider? _provider;
     private FileStream? _stream;
     private CancellationTokenSource? _pendingCancellation;
     private Task<FileStream?>? _pendingOpen;
+    private int _pendingGeneration;
+    private int _generation;
     private bool _verificationFailed;
+    private bool _disposed;
 
-    public bool Active => _player != null || _pendingOpen != null;
+    public bool Active
+    {
+        get
+        {
+            lock (_stateGate) return _player != null || _pendingOpen != null;
+        }
+    }
 
     public OptionalMusicPresentation(OptionalMusicPack pack)
         => _pack = pack ?? throw new ArgumentNullException(nameof(pack));
@@ -72,22 +84,79 @@ internal sealed class OptionalMusicPresentation : IDisposable
     public bool TryPlay(int contextId, int variant, float volume)
     {
         Stop();
-        MiniAudioEngine? engine = MusicPlayer.Engine;
-        AudioPlaybackDevice? device = MusicPlayer.PlaybackDevice;
-        if (engine == null || device == null) return false;
-        _pendingCancellation = new CancellationTokenSource();
-        _pendingOpen = _pack.OpenTrackAsync(contextId, variant, _pendingCancellation.Token);
-        _verificationFailed = false;
+        int generation = 0;
+        bool accepted = false;
+        if (!AudioService.Process.TryExecute(() =>
+        {
+            lock (_stateGate)
+            {
+                if (_disposed) return;
+                // Availability is sampled under the process owner as well;
+                // the async file open must not outlive a failed/shutting
+                // down SoundFlow output just to report a later fallback.
+                if (MusicPlayer.Engine == null || MusicPlayer.PlaybackDevice == null) return;
+                generation = ++_generation;
+                _verificationFailed = false;
+                accepted = true;
+            }
+        }) || !accepted)
+        {
+            return false;
+        }
+
+        CancellationTokenSource cancellation = new();
+        Task<FileStream?> pending;
+        try
+        {
+            pending = _pack.OpenTrackAsync(contextId, variant, cancellation.Token);
+        }
+        catch (Exception)
+        {
+            cancellation.Dispose();
+            return false;
+        }
+
+        bool stale;
+        lock (_stateGate)
+        {
+            stale = _disposed || generation != _generation;
+            if (!stale)
+            {
+                _pendingCancellation = cancellation;
+                _pendingOpen = pending;
+                _pendingGeneration = generation;
+            }
+        }
+        if (stale)
+        {
+            try { cancellation.Cancel(); }
+            catch (Exception) { }
+            cancellation.Dispose();
+            _ = pending.ContinueWith(completed => completed.Result?.Dispose(),
+                CancellationToken.None, TaskContinuationOptions.OnlyOnRanToCompletion
+                    | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            return false;
+        }
         return true;
     }
 
     public void Update(float volume)
     {
-        Task<FileStream?>? pending = _pendingOpen;
-        if (pending == null || !pending.IsCompleted) return;
-        _pendingOpen = null;
-        _pendingCancellation?.Dispose();
-        _pendingCancellation = null;
+        Task<FileStream?>? pending;
+        CancellationTokenSource? cancellation;
+        int generation;
+        lock (_stateGate)
+        {
+            pending = _pendingOpen;
+            generation = _pendingGeneration;
+            if (pending == null || !pending.IsCompleted) return;
+            _pendingOpen = null;
+            _pendingGeneration = 0;
+            cancellation = _pendingCancellation;
+            _pendingCancellation = null;
+        }
+
+        cancellation?.Dispose();
         FileStream? stream;
         try
         {
@@ -97,104 +166,168 @@ internal sealed class OptionalMusicPresentation : IDisposable
         {
             stream = null;
         }
-        if (stream == null || !StartVerified(stream, volume)) _verificationFailed = true;
+        if (stream == null || !StartVerified(stream, volume, generation))
+        {
+            lock (_stateGate)
+            {
+                if (!_disposed && generation == _generation) _verificationFailed = true;
+            }
+        }
     }
 
     public bool ConsumeVerificationFailure()
     {
-        bool failed = _verificationFailed;
-        _verificationFailed = false;
-        return failed;
+        lock (_stateGate)
+        {
+            bool failed = _verificationFailed;
+            _verificationFailed = false;
+            return failed;
+        }
     }
 
-    private bool StartVerified(FileStream stream, float volume)
+    private bool StartVerified(FileStream stream, float volume, int generation)
     {
-        MiniAudioEngine? engine = MusicPlayer.Engine;
-        AudioPlaybackDevice? device = MusicPlayer.PlaybackDevice;
-        if (engine == null || device == null)
-        {
-            stream.Dispose();
-            return false;
-        }
+        FileStream? unowned = stream;
+        bool started = false;
         try
         {
-            _stream = stream;
-            _provider = new StreamDataProvider(engine, _stream, new ReadOptions
+            started = AudioService.Process.TryExecute(() =>
             {
-                ReadTags = false,
-                ReadAlbumArt = false,
-                ReadCueSheet = false,
-                DurationAccuracy = DurationAccuracy.FastEstimate
+                lock (_stateGate)
+                {
+                    if (_disposed || generation != _generation) return;
+                    MiniAudioEngine? engine = MusicPlayer.Engine;
+                    AudioPlaybackDevice? device = MusicPlayer.PlaybackDevice;
+                    if (engine == null || device == null) return;
+                    try
+                    {
+                        _device = device;
+                        _stream = unowned;
+                        unowned = null;
+                        _provider = new StreamDataProvider(engine, _stream, new ReadOptions
+                        {
+                            ReadTags = false,
+                            ReadAlbumArt = false,
+                            ReadCueSheet = false,
+                            DurationAccuracy = DurationAccuracy.FastEstimate
+                        });
+                        AudioFormat format = MusicPlayer.Format;
+                        _player = new SoundPlayer(engine, format, _provider)
+                        {
+                            IsLooping = true,
+                            Volume = Math.Clamp(volume, 0, 1)
+                        };
+                        device.MasterMixer.AddComponent(_player);
+                        device.Start();
+                        _player.Play();
+                        started = true;
+                    }
+                    catch (Exception)
+                    {
+                        StopPlayerCore();
+                    }
+                }
             });
-            AudioFormat format = MusicPlayer.Format;
-            _player = new SoundPlayer(engine, format, _provider)
-            {
-                IsLooping = true,
-                Volume = Math.Clamp(volume, 0, 1)
-            };
-            device.MasterMixer.AddComponent(_player);
-            device.Start();
-            _player.Play();
-            return true;
         }
         catch (Exception)
         {
-            StopPlayer();
-            return false;
+            started = false;
         }
+        if (unowned != null)
+        {
+            try { unowned.Dispose(); }
+            catch (Exception) { }
+        }
+        return started;
     }
 
     public void SetVolume(float volume)
     {
-        if (_player != null) _player.Volume = Math.Clamp(volume, 0, 1);
+        AudioService.Process.TryExecute(() =>
+        {
+            lock (_stateGate)
+            {
+                if (!_disposed && _player != null)
+                    _player.Volume = Math.Clamp(volume, 0, 1);
+            }
+        });
     }
 
     public bool Pause()
     {
-        if (_player == null) return false;
-        _player.Pause();
-        return true;
+        bool paused = false;
+        AudioService.Process.TryExecute(() =>
+        {
+            lock (_stateGate)
+            {
+                if (_disposed || _player == null) return;
+                _player.Pause();
+                paused = true;
+            }
+        });
+        return paused;
     }
 
     public bool Resume()
     {
-        if (_player == null) return false;
-        _player.Play();
-        return true;
+        bool resumed = false;
+        AudioService.Process.TryExecute(() =>
+        {
+            lock (_stateGate)
+            {
+                if (_disposed || _player == null) return;
+                _player.Play();
+                resumed = true;
+            }
+        });
+        return resumed;
     }
 
     public void Stop()
     {
-        CancellationTokenSource? cancellation = _pendingCancellation;
-        Task<FileStream?>? pending = _pendingOpen;
-        _pendingCancellation = null;
-        _pendingOpen = null;
-        cancellation?.Cancel();
+        CancellationTokenSource? cancellation;
+        Task<FileStream?>? pending;
+        lock (_stateGate)
+        {
+            ++_generation;
+            cancellation = _pendingCancellation;
+            pending = _pendingOpen;
+            _pendingCancellation = null;
+            _pendingOpen = null;
+            _pendingGeneration = 0;
+            _verificationFailed = false;
+        }
+        try { cancellation?.Cancel(); }
+        catch (Exception) { }
         cancellation?.Dispose();
         if (pending != null)
         {
             _ = pending.ContinueWith(completed => completed.Result?.Dispose(),
-                CancellationToken.None, TaskContinuationOptions.OnlyOnRanToCompletion
-                    | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                    CancellationToken.None, TaskContinuationOptions.OnlyOnRanToCompletion
+                        | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         }
-        _verificationFailed = false;
-        StopPlayer();
+        AudioService.Process.TryExecute(() =>
+        {
+            lock (_stateGate) StopPlayerCore();
+        });
     }
 
-    private void StopPlayer()
+    private void StopPlayerCore()
     {
         SoundPlayer? player = _player;
+        AudioPlaybackDevice? device = _device;
         _player = null;
+        _device = null;
         if (player != null)
         {
             try
             {
                 player.Stop();
-                MusicPlayer.PlaybackDevice?.MasterMixer.RemoveComponent(player);
+                device?.MasterMixer.RemoveComponent(player);
             }
             catch (Exception)
             {
-                // The scene's shared audio device already shut down.
+                // The process audio owner is already unwinding.
             }
             try { player.Dispose(); }
             catch (Exception) { }
@@ -207,5 +340,9 @@ internal sealed class OptionalMusicPresentation : IDisposable
         _stream = null;
     }
 
-    public void Dispose() => Stop();
+    public void Dispose()
+    {
+        lock (_stateGate) _disposed = true;
+        Stop();
+    }
 }
