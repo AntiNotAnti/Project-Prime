@@ -6,7 +6,8 @@ Workflows
 
 | Workflow | When | What |
 |---|---|---|
-| `.github/workflows/build.yml` | every push and PR | publishes `win-x64`, `linux-x64`, `linux-x64-server`, `linux-arm64`, `osx-x64` and `osx-arm64` on one Ubuntu runner (every target is `net10.0`, so none needs a runner of its own), plus a Windows-runner job that builds and starts the Windows dedicated server |
+| `.github/workflows/build.yml` | fast guards on every source push/PR; integration on `main`; full publish nightly or by hand | compiles the gameplay/client layers and content-free focused tests for every source change; the scheduled/manual confidence tier publishes `win-x64`, `linux-x64`, `linux-x64-server`, `linux-arm64`, `osx-x64` and `osx-arm64` on one Ubuntu runner (every target is `net10.0`, so none needs a runner of its own), plus the protected Android/server jobs |
+| `.github/workflows/network-tests.yml` | integration on `main`; nightly or by hand for content/WAN evidence | runs content-free protocol, Worker, Backend and deployment checks on `main`; authoritative content, rendered/fresh-package and synthetic WAN checks are reserved for nightly/manual runs |
 | `.github/workflows/release.yml` | a `v*` tag, or by hand -- naming a tag or picking a bump that creates one | those six plus the Windows server: seven packages attached to a GitHub release |
 
 Tagging

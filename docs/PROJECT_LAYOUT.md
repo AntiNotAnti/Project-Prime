@@ -14,12 +14,14 @@ gameplay traffic uses the selected Worker.
 | Project | Responsibility | Project references |
 |---|---|---|
 | `src/Game` | World, Hunter simulation, movement, combat, match rules, content readers, protocol | None; only OpenTK.Mathematics package |
-| `src/Client` | Desktop launcher, rendering, HUD, input, client networking, replays, sound devices | Game, Audio.Ncsf |
+| `src/Client.Core` | Portable client accounts, input contracts/settings, Node control and host-independent runtime state | Game, MapPlatform, Server.Shared, Shared.Replay |
+| `src/Client.Presentation` | Cross-platform launcher, HUD, client networking, replay, audio and scene presentation | Client.Core, Game, Renderer, platform-neutral support projects |
+| `src/Client` | Desktop entry point, native SDL/GLFW adapters, secure storage and desktop tooling hosts | Client.Core, Client.Presentation |
 | `src/Backend` | Account, Node directory/admission, report ingestion and career projections | Game |
 | `src/Server.Shared` | Versioned Node/Worker process, placement, admission and report contracts | Game, Shared.Replay |
 | `src/Server.Node` | Persistent control authority: sessions, public lobbies, Worker placement/lifecycle, directory and report outbox | Server.Shared |
 | `src/Server.Worker` | Node-owned authoritative `MatchInstance` processes, fixed-tick simulation, replication, lag compensation, direct UDP, replay, telemetry and report artifacts | Game, Server.Shared, Shared.Replay |
-| `src/Android` | Android lifecycle, touch/gamepad, graphics/audio adapters, shared client presentation | Game, Audio.Ncsf |
+| `src/Android` | Android lifecycle, touch/gamepad, graphics/audio adapters and secure storage | Client.Core, Client.Presentation |
 | `src/Audio.Ncsf` | Original NCSF/SDAT music decoder and playback | None |
 | `src/Tools` | Extraction, conversion, sound/image exports, map cooking and content baking | Game |
 | `tests/Tests` | Focused game, match, protocol, client, Worker, content and integration tests | Production projects |
@@ -34,10 +36,10 @@ workload. Build Android directly with its project. The C# namespace remains
 
 ## Shared platform capabilities
 
-Android references Game instead of recompiling it. Its enumerated source list
-includes only the shared client implementation required by its platform head.
-Desktop entry points, Node control, Worker simulation, directory services and
-tool commands are excluded. GL/OpenAL aliases remain Android adapters.
+Android references `Client.Core` and `Client.Presentation` instead of recompiling
+Client implementation files. Its explicit compile list contains only Android-owned
+entry points and platform adapters. Desktop native hosts and secure storage stay in
+`src/Client`; Android supplies its own SDK adapters and secure session store.
 
 `src/Shared` contains explicitly linked capabilities needed by more than one
 executable: internal UDP transport, process hosting, content import and map
@@ -79,8 +81,13 @@ dotnet publish src/Client/Client.csproj -c Release -r linux-x64 --self-contained
 dotnet build src/Tools/Tools.csproj -c Release
 dotnet build src/Android/Android.csproj -c Release
 
+# Cook once; publishes consume this current artifact directory.
+tools/cook-maps.sh --source maps --output artifacts/maps/current \
+  --compiler-version "$VERSION" --schema-version 1 --package-version "$VERSION"
+
 # Packages the Backend, one persistent Node, and its bundled Worker below worker/.
-tools/package-server.sh --rid linux-arm64 --output publish/server-linux-arm64
+tools/package-server.sh --rid linux-arm64 --skip-map-cook \
+  --map-artifacts artifacts/maps/current --output publish/server-linux-arm64
 ```
 
 Client output contains no local server executable. The server package contains
@@ -99,6 +106,7 @@ links and absence of retired campaign runtime code:
 ```sh
 python3 tools/check-project-boundaries.py
 python3 tools/check-multiplayer-only.py
+python3 tools/check-build-guardrails.py
 ```
 
 Native publish checks, Android APK checks, content audit and impaired-network

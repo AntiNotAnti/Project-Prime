@@ -19,14 +19,16 @@ against the **2.8 MB** its folder weighed.
 
 | | Command | Note |
 |---|---|---|
-| cook | `-mapbundle ["NAME"] [-mapdir DIR] [-out FILE]` | default output is the top of `maps/`, one file per map |
+| cook | `tools/cook-maps.sh --source maps --output artifacts/maps/current` | one locked, incremental current-artifact cook; legacy `-mapbundle` remains a compatibility wrapper |
 | read | nothing | `MapDefinition.Load` opens a bundle like a recipe; `Q3Bsp.Load` already opened a zip and found a level in it by name, which is how it reads a `.pk3` |
 
-- The bundle is a **build artifact**: gitignored, cooked by both workflows
-  before they publish. The folder it is cooked from -- recipe, `.pk3`, `.tex` --
-  is the source, and a `.pk3` is kept out of every package by
-  `CopyToPublishDirectory=Never` while still being copied to a *build* output,
-  which is what the convert-and-test loop uses.
+- The bundle is a **build artifact**: gitignored, cooked once by the owning
+  build job into `artifacts/maps/current`, then copied by every publish target.
+  The folder it is cooked from -- recipe, `.pk3`, `.tex` -- is the source, and
+  a `.pk3` is kept out of every package by `CopyToPublishDirectory=Never` while
+  still being copied to a *build* output, which is what the convert-and-test
+  loop uses. A private source snapshot excludes stale ignored bundles, so a
+  local output cannot suppress or overwrite source inputs.
 - **A folder and a bundle of the same identity are different ownership forms.**
   The catalog can retain editable source beside an installed artifact; exact
   stable ID, version, and content hash determine package identity.

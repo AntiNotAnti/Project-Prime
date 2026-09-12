@@ -15,12 +15,12 @@ Source of truth for this record:
 * [SettingRegistry](../src/Client/Launcher/Settings/SettingRegistry.cs),
   [SettingDescriptor](../src/Client/Launcher/Settings/SettingDescriptor.cs),
   [SettingExclusion](../src/Client/Launcher/Settings/SettingExclusion.cs), and
-  [SettingRowIds](../src/Client/Launcher/Settings/SettingRowIds.cs)
+  [SettingRowIds](../src/Client.Core/Launcher/Settings/SettingRowIds.cs)
 * [ClientSettings](../src/Client/Settings/ClientSettings.cs),
-  [MenuSettings](../src/Client/Runtime/MenuSettings.cs),
+  [MenuSettings](../src/Renderer/Configuration/MenuSettings.cs),
   [GameSettings](../src/Client/Runtime/GameSettings.cs), and
   [FeaturesSettings](../src/Client/Settings/FeatureSettings.cs)
-* [InputSettings](../src/Client/Runtime/InputSettings.cs),
+* [InputSettings](../src/Client.Core/Runtime/InputSettings.cs),
   [PadBindings](../src/Client/Input/PadBindings.cs), and
   [TouchSettings](../src/Client/Input/TouchSettings.cs)
 * [ClientSceneServices](../src/Client/Networking/ClientSceneServices.cs),
@@ -235,6 +235,14 @@ written by `InputSettings.GetSaveLines`. The canonical static settings are:
 | `StylusFlickBoost` / `stylus_flick_boost` | Platform; `true` | I/S; Android touch/stylus gesture | `controls.stylus.flick-boost`, Controls/Stylus, Android |
 | `StylusPressureToFire` / `stylus_pressure_to_fire` | Platform; `false` | I/S; Android pressure input | `controls.stylus.pressure-to-fire`, Controls/Stylus advanced, Android |
 | `StylusPressureThreshold` / `stylus_pressure_threshold` | Platform; `.35` | I/S; Android pressure input | `controls.stylus.pressure-threshold`, Controls/Stylus advanced, Android |
+| `BottomScreenMode` / `bottom_screen_mode` | Platform; `Off` | I/S; scene-owned native six-affinity selector popup | `controls.stylus.bottom-screen-mode`, Controls/Stylus, desktop SDL pen + Android touch/stylus |
+
+The bottom-screen implementation is a client-only in-renderer 4:3 panel. The
+verified slice is the six-affinity weapon selector: it reuses the native HUD
+selector assets and sector math, routes pointer input through the current scene,
+and submits a `WeaponSelectionIntent` that is revalidated by the existing
+authority path. Full native lower-screen radar/background art and unverified
+hotspots remain staged work; no gameplay mapping is inferred for them.
 
 Controller aim assist is currently an internal always-on behavior at its default
 strength. It has no settings descriptor or UI row, and `controls.txt` no longer

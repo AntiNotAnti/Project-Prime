@@ -62,6 +62,25 @@ ProjectPrimeTools map stats PARALLAX.fpmap
 The legacy `-mapgen`, `-mapbundle`, Q3 inspection, thumbnail, and map-test flags
 remain as compatibility wrappers while existing map workflows migrate.
 
+### Build-owned cook artifacts
+
+Release and CI builds cook the editable tree exactly once into
+`artifacts/maps/current`; the source tree is never used as an output directory.
+The fingerprint includes every map input plus the map compiler, schema,
+central package graph, and supplied build/package version. A process lock and
+atomic manifest update make concurrent callers share that owner safely:
+
+```bash
+tools/cook-maps.sh --source maps --output artifacts/maps/current \
+  --compiler-version "$VERSION" --schema-version 1 --package-version "$VERSION"
+```
+
+Client, editor, Android, and server packaging then copy only those current
+`.fpmap` artifacts. Pass `--skip-map-cook --map-artifacts DIRECTORY` to
+`tools/package-server.sh` when a CI job has downloaded the cook-once artifact.
+Ignored bundles left by an older local build are excluded from the private cook
+source snapshot and are never overwritten.
+
 ## Packages and installation
 
 `.fpmap` v2 is a data-only ZIP package with canonical `manifest.json` and
