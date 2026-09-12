@@ -226,8 +226,9 @@ public sealed class ClientWorkerVerticalTests
                 NodeControlClient? disconnectedOwner = null;
                 if (round == 1)
                 {
-                    // The original host has already voted. Losing its control
-                    // socket must not prevent the remaining member resolving.
+                    // The original host has already voted. The Node must keep
+                    // the resolved continuation pending until that host resumes
+                    // instead of freezing a host-only match.
                     disconnectedOwner = owner;
                     string proof = owner.Session!.ResumeToken;
                     await owner.DisposeAsync();
@@ -236,9 +237,9 @@ public sealed class ClientWorkerVerticalTests
                 await guest.SendAsync("lobby.vote.cast", new LobbyVoteCast(guest.Lobby!.Revision, ballot.BallotRevision, selected.Id));
                 if (disconnectedOwner != null)
                 {
-                    await Until(() => guest.Handoff is { } next && next.MatchId != priorMatch);
                     owner = Control();
                     await owner.ResumeAsync(disconnectedOwner, CancellationToken.None);
+                    await Until(() => guest.Handoff is { } next && next.MatchId != priorMatch);
                     await Until(() => owner.Handoff?.MatchId == guest.Handoff!.MatchId);
                     Assert.Equal(session, owner.Session!.SessionId);
                     Assert.Equal(lobbyId, owner.Lobby!.LobbyId);

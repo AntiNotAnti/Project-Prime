@@ -146,6 +146,8 @@ public sealed partial class LobbyManager
                 }
                 catch (Exception ex) when (ex is LobbyCommandException or ArgumentException)
                 {
+                    if (ex is LobbyCommandException { Code: "player_disconnected" })
+                        continue;
                     if (lobby.MatchId is { } match) failed.Add((match, lobby.Members.Values.ToArray()));
                     ReopenCore(lobby); Publish(lobby);
                 }
