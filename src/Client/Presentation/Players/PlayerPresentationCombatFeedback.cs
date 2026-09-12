@@ -115,18 +115,18 @@ namespace MphRead.Entities
                 _activeAward = award;
             if (localView && _activeAward is { } activeAward && CombatFeedback.Age(tick, activeAward.Tick) < 120)
             {
-                DrawText2D(128, 42, Align.Center, 0, AwardText(activeAward.Kind),
+                DrawText2D(128, 54, Align.Center, 0, AwardText(activeAward.Kind),
                     new ColorRgba(255, 224, 96, 255), scale: .75f);
             }
             else if (localView && _activeAward is { }) _activeAward = null;
             WorldFeedback world = Presentation.WorldFeedback;
             if (world.Message.Length > 0 && CombatFeedback.Age(tick, world.Tick) < 120)
-                DrawText2D(128, 32, Align.Center, 0, world.Message, scale: .7f);
+                DrawText2D(128, 62, Align.Center, 0, world.Message, scale: .7f);
             if (localView && feedback.IsHeadshotNoticeVisible(tick))
-                DrawText2D(128, 40, Align.Center, 0, feedback.State.HeadshotNotice.Text,
+                DrawText2D(128, 70, Align.Center, 0, feedback.State.HeadshotNotice.Text,
                     scale: .8f);
             if (localView && feedback.IsKillNoticeVisible(tick))
-                DrawText2D(128, 70, Align.Center, 0, feedback.State.KillNotice.Text,
+                DrawText2D(128, 78, Align.Center, 0, feedback.State.KillNotice.Text,
                     scale: .75f);
             if (localView && _player.Health > 0 && marker != HitMarkerKind.None)
             {

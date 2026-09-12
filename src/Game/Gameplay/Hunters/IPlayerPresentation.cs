@@ -31,7 +31,7 @@ namespace MphRead.Entities
         void HudOnDisrupted();
         void HudOnFiredShot();
         void HudOnMorphStart();
-        void HudOnWeaponSwitch(BeamType beam);
+        void HudOnWeaponSwitch(BeamType beam, bool animate);
         void HudOnZoom(bool zoom);
         void InitializePresentation();
         void OpenMissilePresentation();
@@ -95,7 +95,8 @@ namespace MphRead.Entities
         private void HudOnDisrupted() => Presentation?.HudOnDisrupted();
         private void HudOnFiredShot() => Presentation?.HudOnFiredShot();
         private void HudOnMorphStart() => Presentation?.HudOnMorphStart();
-        private void HudOnWeaponSwitch(BeamType beam) => Presentation?.HudOnWeaponSwitch(beam);
+        private void HudOnWeaponSwitch(BeamType beam, bool animate)
+            => Presentation?.HudOnWeaponSwitch(beam, animate);
         private void HudOnZoom(bool zoom) => Presentation?.HudOnZoom(zoom);
         private void InitializePresentation() => Presentation?.InitializePresentation();
         private void OpenMissilePresentation() => Presentation?.OpenMissilePresentation();

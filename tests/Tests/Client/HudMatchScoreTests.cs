@@ -6,12 +6,10 @@ namespace MphRead.Tests;
 public sealed class HudMatchScoreTests
 {
     [Fact]
-    public void BattleScoreKeepsKillsAndAuthoritativeGoalScoreTogether()
+    public void GoalScoreUsesTheCompactPointsFormat()
     {
-        Assert.Equal("K 4 · 9/7", PlayerPresentation.FormatBattleScore(4, 9, 7));
-        Assert.NotEqual(PlayerPresentation.FormatBattleScore(3, 9, 7),
-            PlayerPresentation.FormatBattleScore(4, 9, 7));
-        Assert.NotEqual(PlayerPresentation.FormatBattleScore(4, 8, 7),
-            PlayerPresentation.FormatBattleScore(4, 9, 7));
+        Assert.Equal("9 / 7", PlayerPresentation.FormatGoalScore(9, 7));
+        Assert.NotEqual(PlayerPresentation.FormatGoalScore(8, 7),
+            PlayerPresentation.FormatGoalScore(9, 7));
     }
 }

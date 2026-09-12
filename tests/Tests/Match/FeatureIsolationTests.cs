@@ -56,6 +56,32 @@ public sealed class FeatureIsolationTests
         finally { Cheats.QuadrupleDamage = previous; }
     }
 
+    [Fact]
+    public void StaticAndDynamicPresentationChoicesAreCapturedPerMatch()
+    {
+        bool previousProHud = Features.ProHud;
+        bool previousProHudFixedWeapon = Features.ProHudFixedWeapon;
+        try
+        {
+            Features.ProHud = true;
+            Features.ProHudFixedWeapon = true;
+            MatchFeatureSet staticPresentation = ClientMatchFeatures.Capture();
+
+            Features.ProHudFixedWeapon = false;
+            MatchFeatureSet dynamicPresentation = ClientMatchFeatures.Capture();
+
+            Assert.True(staticPresentation.FixedWeapon);
+            Assert.True(staticPresentation.FixedCrosshair);
+            Assert.False(dynamicPresentation.FixedWeapon);
+            Assert.True(dynamicPresentation.FixedCrosshair);
+        }
+        finally
+        {
+            Features.ProHud = previousProHud;
+            Features.ProHudFixedWeapon = previousProHudFixedWeapon;
+        }
+    }
+
     private static Scene Create(MatchFeatureSet features)
     {
         Scene scene = new(headless: true, features: features);

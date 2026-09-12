@@ -688,15 +688,29 @@ namespace MphRead.Entities
         public Vector2 CurrentReticlePosition { get; private set; } = new Vector2(0.5f, 0.5f);
         public void HudOnFiredShot()
         {
-            if (Features.FixedCrosshair)
+            if (_player._scene.Features.FixedCrosshair || _sniperReticle)
             {
                 return;
             }
 
-            if (!_smallReticle && !_sniperReticle)
+            if (!_smallReticle)
             {
                 _smallReticle = true;
-                _targetCircleInst.SetAnimation(start: 0, target: 3, frames: 4);
+                int startFrame = ReticleShotAnimationStart(_targetCircleInst.CurrentFrame);
+                if (startFrame == 3)
+                {
+                    // SetAnimation intentionally leaves an existing timer alone
+                    // when start and target match. Cancel an in-flight expansion
+                    // so a shot at the fully contracted frame stays contracted.
+                    _targetCircleInst.SetIndex(3, _player._scene);
+                }
+                else
+                {
+                    // A shot can arrive while the previous expansion is still
+                    // visible. Contract from that displayed frame instead of
+                    // jumping back to frame zero for one frame.
+                    _targetCircleInst.SetAnimation(start: startFrame, target: 3, frames: 4);
+                }
             }
 
             _smallReticleTimer = (ushort)SimTicks.From30HzFrames(60);
@@ -705,6 +719,10 @@ namespace MphRead.Entities
         public void ResetReticle()
         {
             _targetCircleInst.SetCharacterData(_targetCircleObj.CharacterData, _targetCircleObj.Width, _targetCircleObj.Height, _player._scene);
+            // SetCharacterData is intentionally a no-op when the normal
+            // reticle sheet is already installed. Explicitly cancel any
+            // contraction/zoom animation left by the previous weapon.
+            _targetCircleInst.SetIndex(0, _player._scene);
             _smallReticle = false;
             _smallReticleTimer = 0;
         }
@@ -740,6 +758,9 @@ namespace MphRead.Entities
             return new Vector2(MathF.Round(projected.X, 5), MathF.Round(projected.Y, 5));
         }
 
+        internal static int ReticleShotAnimationStart(int currentFrame)
+            => Math.Clamp(currentFrame, 0, 3);
+
         public Vector3 GetCrosshairColor()
         {
             if (_player.Health > 60)
@@ -760,20 +781,35 @@ namespace MphRead.Entities
             _targetCircleInst.SetIndex(0, _player._scene);
         }
 
-        public void HudOnWeaponSwitch(BeamType beam)
+        public void HudOnWeaponSwitch(BeamType beam, bool animate)
         {
-            if (beam != BeamType.Imperialist || _sniperReticle)
+            bool sniperReticle = beam == BeamType.Imperialist;
+            if (sniperReticle && !_sniperReticle)
+            {
+                _sniperReticle = true;
+                _targetCircleInst.SetCharacterData(_sniperCircleObj.CharacterData,
+                    _sniperCircleObj.Width, _sniperCircleObj.Height, _player._scene);
+            }
+            else if (!sniperReticle && (_sniperReticle || animate))
             {
                 _sniperReticle = false;
                 ResetReticle();
             }
-            else
-            {
-                _sniperReticle = true;
-                _targetCircleInst.SetCharacterData(_sniperCircleObj.CharacterData, _sniperCircleObj.Width, _sniperCircleObj.Height, _player._scene);
-            }
 
-            _weaponIconInst.SetAnimation(start: 9, target: 27, frames: 19, afterAnim: (int)beam);
+            int targetFrame = _weaponIconInst.AnimFrames?[(int)beam] ?? (int)beam;
+            if (!animate)
+            {
+                // Snapshot reconciliation updates the displayed weapon but is
+                // not a new presentation event. Restarting the pickup/switch
+                // animation here makes the icon flash as old snapshots settle.
+                _weaponIconInst.SetIndex(targetFrame, _player._scene);
+            }
+            else if (_weaponIconInst.Timer <= 0 || _weaponIconInst.AfterAnimFrame != targetFrame)
+            {
+                // Do not restart an in-flight animation for the same weapon.
+                _weaponIconInst.SetAnimation(start: 9, target: 27, frames: 19,
+                    afterAnim: (int)beam);
+            }
         }
 
         public void HudOnZoom(bool zoom)
@@ -986,7 +1022,7 @@ namespace MphRead.Entities
                 DrawText2D(128, 32, Align.Center, 0, "SPECTATING - NEXT MATCH", new ColorRgba(0x3FEF), scale: .75f);
             DrawWeaponRadial();
             DrawNetworkHealth();
-            if (DrawPostMatchResults()) return;
+            if (DrawIntermissionPresentation()) return;
             if (_player._scene.Match.Phase == MatchPhase.WaitingForPlayers)
             {
                 DrawText2D(128, 40, Align.Center, 0, "WAITING FOR PLAYERS", new ColorRgba(0x3FEF), fontSpacing: 8);
@@ -2354,16 +2390,12 @@ namespace MphRead.Entities
                     int team = _player._scene.Players[slot].TeamIndex;
                     int score = team is >= 0 and < 2
                         ? _player._scene.Match.TeamPoints[team] : stats.Points;
-                    return mode is MatchMode.Battle or MatchMode.TeamBattle
-                        ? FormatBattleScore(stats.Kills, score,
-                            _player._scene.Match.Rules.LegacyPointGoal)
-                        : $"{score} / {_player._scene.Match.Rules.LegacyPointGoal}";
+                    return FormatGoalScore(score,
+                        _player._scene.Match.Rules.LegacyPointGoal);
                 }
 
-                return mode is MatchMode.Battle or MatchMode.TeamBattle
-                    ? FormatBattleScore(stats.Kills, stats.Points,
-                        _player._scene.Match.Rules.LegacyPointGoal)
-                    : $"{stats.Points} / {_player._scene.Match.Rules.LegacyPointGoal}";
+                return FormatGoalScore(stats.Points,
+                    _player._scene.Match.Rules.LegacyPointGoal);
             }
 
             if (mode == MatchMode.Survival || mode == MatchMode.TeamSurvival)
@@ -2380,10 +2412,10 @@ namespace MphRead.Entities
             return " ";
         }
 
-        internal static string FormatBattleScore(int kills, int score, int goal)
-            => $"K {kills} · {score}/{goal}";
+        internal static string FormatGoalScore(int score, int goal)
+            => $"{score} / {goal}";
 
-        public void DrawModeScore(int messageId, string text)
+        public void DrawModeScore(int messageId, string text, bool forceLeft = false)
         {
             if (Features.ProHud)
             {
@@ -2393,21 +2425,23 @@ namespace MphRead.Entities
                 return;
             }
 
-            float posX = _hudObjects.ScorePosX + _objShiftX;
+            float posX = (forceLeft ? 12 : _hudObjects.ScorePosX) + _objShiftX;
+            Align align = forceLeft ? Align.Left : _hudObjects.ScoreAlign;
             // Below the chat log rather than under it: see ModChatClearance.
             float posY = ModChatClearance(_hudObjects.ScorePosY) + _objShiftY;
             _textSpacingY = 8;
             string message = Strings.GetHudMessage(messageId);
             // the game wraps text here, but the text used will never wrap (and doesn't have newlines)
-            DrawText2D(posX, posY, _hudObjects.ScoreAlign, 0, message);
+            DrawText2D(posX, posY, align, 0, message);
             posY += 9;
-            DrawText2D(posX, posY, _hudObjects.ScoreAlign, 0, text);
+            DrawText2D(posX, posY, align, 0, text);
             _textSpacingY = 0;
         }
 
         public void DrawHudBattle()
         {
-            DrawModeScore(220, FormatModeScore(_player._scene.LocalPlayerSlot)); // kills + score
+            DrawModeScore(212, FormatModeScore(_player._scene.LocalPlayerSlot),
+                forceLeft: true); // points
         }
 
         public void DrawHudSurvival()

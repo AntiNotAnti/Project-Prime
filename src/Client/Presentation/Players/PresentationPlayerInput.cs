@@ -20,7 +20,7 @@ namespace MphRead.Entities
                 }
 
                 _player._pastAimY[0] = amount;
-                if (Features.HudSway && !Features.FixedWeapon)
+                if (Features.HudSway && !_player._scene.Features.FixedWeapon)
                 {
                     float average = (sum + amount) / 8;
                     _hudShiftY = Math.Clamp(-MathF.Round(average), -8, 8);
@@ -47,7 +47,7 @@ namespace MphRead.Entities
                 }
 
                 _player._pastAimX[0] = amount;
-                if (Features.HudSway && !Features.FixedWeapon)
+                if (Features.HudSway && !_player._scene.Features.FixedWeapon)
                 {
                     float average = (sum + amount) / 8;
                     _hudShiftX = Math.Clamp(MathF.Round(average), -8, 8);

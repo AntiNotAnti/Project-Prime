@@ -252,7 +252,7 @@ namespace MphRead.Entities
                 case MatchMode.TeamNodes:
                     return 218; // points
                 default:
-                    return 220; // kills + score
+                    return 212; // points
             }
         }
     }

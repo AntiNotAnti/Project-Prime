@@ -455,7 +455,6 @@
     <Compile Include="../Client/Rendering/ScenePresentation.TransientVisualLights.cs" Link="Client/Rendering/ScenePresentation.TransientVisualLights.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="../Client/HUD/PostMatchPresentation.cs" Link="HUD/PostMatchPresentation.cs" />
     <Compile Include="../Client/Presentation/Players/PlayerPresentationPostMatch.cs" Link="Presentation/PlayerPresentationPostMatch.cs" />
   </ItemGroup>
   <!-- Imported for both modes so the first unprotected build after a protected

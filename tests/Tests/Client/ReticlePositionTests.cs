@@ -49,11 +49,25 @@ public sealed class ReticlePositionTests
     }
 
     [Theory]
+    [InlineData(-1, 0)]
+    [InlineData(0, 0)]
+    [InlineData(1, 1)]
+    [InlineData(2, 2)]
+    [InlineData(3, 3)]
+    [InlineData(4, 3)]
+    public void DynamicReticleContractsFromItsCurrentlyDisplayedFrame(int currentFrame,
+        int expectedStart)
+    {
+        Assert.Equal(expectedStart,
+            PlayerPresentation.ReticleShotAnimationStart(currentFrame));
+    }
+
+    [Theory]
     [InlineData(false, false, false)] // stock, dynamic weapon
     [InlineData(false, true, false)]  // stock, static weapon
     [InlineData(true, false, false)]  // Pro, dynamic weapon
     [InlineData(true, true, false)]   // Pro, static weapon
-    [InlineData(true, false, true)]   // fixed crosshair style, dynamic weapon
+    [InlineData(true, false, true)]   // static crosshair, dynamic weapon
     public void CanonicalPositionIsIndependentOfHudWeaponAndCrosshairStyle(bool proHud,
         bool proHudFixedWeapon, bool fixedCrosshair)
     {

@@ -17,9 +17,6 @@ namespace MphRead
             public bool HasState;
             public readonly Dictionary<ModelInstance, ModelPoseHistory> Models = new();
             public PlayerBipedPoseHistory? Biped;
-            public ModelPoseHistory? Gun;
-            public int GunState;
-            public bool HasGunState;
         }
         private readonly Dictionary<EntityBase, PoseTrack> _poses = new();
         private readonly List<EntityBase> _removedPoses = new();
@@ -156,30 +153,6 @@ namespace MphRead
                     track.Biped.Capture(biped._bipedModel1.AnimInfo, biped._bipedModel2.AnimInfo,
                         PlayerEntity.GetBipedPitch(biped._facingVector), _poseTick, _poseGeneration, discontinuity);
                 }
-                if (entity is PlayerEntity firstPerson && firstPerson.IsMainPlayer
-                    && firstPerson.CameraType == CameraType.First && !firstPerson.IsAltForm
-                    && !firstPerson.IsMorphing && !firstPerson.IsUnmorphing
-                    && firstPerson._gunModel != null)
-                {
-                    // The gun is a presentation-only node track. Material,
-                    // texture and texcoord state still advances through the
-                    // normal UpdateTransforms call at draw time; only the
-                    // node matrices are sampled here.
-                    int gunState = HashCode.Combine(firstPerson.CurrentWeapon,
-                        firstPerson.GunAnimation, firstPerson.LoadFlags,
-                        firstPerson.Health == 0, firstPerson.PresentationPoseEpoch,
-                        _timingGeneration, _correctionGeneration, _poseGeneration);
-                    bool gunDiscontinuity = !track.HasGunState || track.GunState != gunState;
-                    track.Gun ??= new ModelPoseHistory(firstPerson._gunModel.Model);
-                    if (!ReferenceEquals(track.Gun.Model, firstPerson._gunModel.Model))
-                        track.Gun = new ModelPoseHistory(firstPerson._gunModel.Model);
-                    Matrix4 gunTransform = PlayerEntity.GetTransformMatrix(
-                        firstPerson._aimVec, firstPerson._upVector, firstPerson._gunDrawPos);
-                    track.Gun.Capture(firstPerson._gunModel.AnimInfo, gunTransform,
-                        _poseTick, _poseGeneration, gunDiscontinuity || discontinuity);
-                    track.GunState = gunState;
-                    track.HasGunState = true;
-                }
                 if (entity is DoorEntity or PlatformEntity)
                 {
                     for (int i = 0; i < entity._models.Count; i++)
@@ -254,22 +227,6 @@ namespace MphRead
             history.Resolve(FrameTiming.RenderAlpha, resolvedRoot, out nodes, out stack);
             _submissionDelta = Matrix4.Identity;
             _submissionInterpolated = false;
-            return true;
-        }
-
-        internal bool ResolvePlayerGunSubmission(PlayerEntity player, ModelInstance inst,
-            out Matrix4[] nodes, out float[] stack)
-        {
-            nodes = Array.Empty<Matrix4>();
-            stack = Array.Empty<float>();
-            if (!SkeletalInterpolationEnabled || !InterpolationEnabled
-                || !_poses.TryGetValue(player, out PoseTrack? track)
-                || track.Gun is not { HasSamples: true } history
-                || !ReferenceEquals(history.Model, inst.Model)) return false;
-            history.Resolve(FrameTiming.RenderAlpha, out nodes, out stack);
-            // Unlike biped history, the gun history already contains its
-            // simulation camera root. Leave the submission delta armed so the
-            // renderer composes the current final render camera exactly once.
             return true;
         }
 

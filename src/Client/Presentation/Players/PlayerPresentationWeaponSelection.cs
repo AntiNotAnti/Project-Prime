@@ -35,7 +35,6 @@ namespace MphRead.Entities
             }
             if (HasPostMatchResult)
             {
-                if (!blocked) ApplyPostMatchInput();
                 _weaponIntent.Cancel();
                 WeaponRadial.Reset();
                 return;

@@ -1350,7 +1350,7 @@ namespace MphRead.Entities
             }
             if (IsMainPlayer)
             {
-                HudOnWeaponSwitch(beam);
+                HudOnWeaponSwitch(beam, animate: !silent);
                 // the game update the bottom screen weapon HUD objects here
             }
             return true;
@@ -1725,7 +1725,7 @@ namespace MphRead.Entities
             if (!ignoreDamage && flags.TestFlag(DamageFlags.Headshot) && attacker != null && attacker == _scene.LocalPlayer) // todo: and not on wifi
             {
                 int messageId = 228; // HEADSHOT!
-                QueueHudMessage(128, 40, 20 / (float)SimTicks.LegacyHz, 0, messageId);
+                QueueHudMessage(128, 70, 20 / (float)SimTicks.LegacyHz, 0, messageId);
             }
             if (attacker != null && attacker != this && beam != null)
             {
