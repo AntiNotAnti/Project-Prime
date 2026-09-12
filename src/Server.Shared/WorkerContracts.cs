@@ -279,13 +279,18 @@ public sealed record WorkerDiagnostics(ImmutableArray<WorkerLaneHealth> Lanes, d
                 ContractGuard.Id(match.MatchId.Value); ContractGuard.Text(match.Phase, 32); ContractGuard.Text(match.State, 32);
                 if (match.TickSamples < 0 || match.DeadlineMisses < 0 || match.ProcessGen0Collections < 0
                     || match.ProcessGen1Collections < 0 || match.ProcessGen2Collections < 0
+                    || match.ObserverRetainedFrames < 0 || match.ObserverRetainedBytes < 0
+                    || match.ReplayQueueDepth < 0 || match.ReplayQueueHighWater < 0
+                    || match.StatusPublicationCount < 0
                     || !double.IsFinite(match.TickP50Milliseconds) || !double.IsFinite(match.TickP95Milliseconds)
                     || !double.IsFinite(match.TickP99Milliseconds) || !double.IsFinite(match.TickP999Milliseconds)
                     || !double.IsFinite(match.TickMaxMilliseconds) || !double.IsFinite(match.AllocatedBytesPerTick)
                     || !double.IsFinite(match.AllocatedBytesPerSecond)
+                    || !double.IsFinite(match.StatusPublicationCadenceHz)
                     || match.TickP50Milliseconds < 0 || match.TickP95Milliseconds < 0
                     || match.TickP99Milliseconds < 0 || match.TickP999Milliseconds < 0 || match.TickMaxMilliseconds < 0
                     || match.AllocatedBytesPerTick < 0 || match.AllocatedBytesPerSecond < 0
+                    || match.StatusPublicationCadenceHz < 0
                     || match.TickP95Milliseconds < match.TickP50Milliseconds
                     || match.TickP99Milliseconds < match.TickP95Milliseconds
                     || match.TickMaxMilliseconds < match.TickP99Milliseconds
@@ -333,7 +338,11 @@ public sealed record WorkerDiagnostics(ImmutableArray<WorkerLaneHealth> Lanes, d
             && match.TickP99Milliseconds == 0 && match.TickP999Milliseconds == 0
             && match.TickMaxMilliseconds == 0 && match.AllocatedBytesPerTick == 0
             && match.AllocatedBytesPerSecond == 0 && match.ProcessGen0Collections == 0
-            && match.ProcessGen1Collections == 0 && match.ProcessGen2Collections == 0;
+            && match.ProcessGen1Collections == 0 && match.ProcessGen2Collections == 0
+            && match.ObserverRetainedFrames == 0 && match.ObserverRetainedBytes == 0
+            && match.ReplayQueueDepth == 0 && match.ReplayQueueHighWater == 0
+            && !match.ReplayQueueOverflowed && match.StatusPublicationCount == 0
+            && match.StatusPublicationCadenceHz == 0;
 }
 public sealed record MatchAdminResult(MatchId MatchId, AdminAction Action, bool Applied, string? Code, string? Message) : WorkerEvent;
 
@@ -349,4 +358,13 @@ public sealed record WorkerMatchHealth(MatchId MatchId, WireMatchId WireMatchId,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double AllocatedBytesPerSecond = 0,
     [property: JsonPropertyName("gen0Collections"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ProcessGen0Collections = 0,
     [property: JsonPropertyName("gen1Collections"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ProcessGen1Collections = 0,
-    [property: JsonPropertyName("gen2Collections"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ProcessGen2Collections = 0);
+    [property: JsonPropertyName("gen2Collections"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ProcessGen2Collections = 0,
+    // Append-only operational measurements. Defaults keep older heartbeat
+    // readers and the legacy diagnostic shape wire-compatible.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ObserverRetainedFrames = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ObserverRetainedBytes = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ReplayQueueDepth = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ReplayQueueHighWater = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool ReplayQueueOverflowed = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long StatusPublicationCount = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double StatusPublicationCadenceHz = 0);

@@ -111,10 +111,33 @@ public sealed class WorkerRuntime : IAsyncDisposable
             using var timeout = new CancellationTokenSource(_options.CreationTimeout);
             snapshot = await _mapBuilds.PrepareAsync(spec.Content, timeout.Token).ConfigureAwait(false);
         }
-        catch (Exception error) when (error is MapDependencyException or MapCompilationException
-            or MapPackageException or OperationCanceledException)
+        catch (MapDependencyException error)
         {
-            return new MatchFailed(spec.MatchId, "Required map is missing, invalid, or not ready.");
+            return new MatchFailed(spec.MatchId,
+                $"MAP-RUN-005: {error.Message}");
+        }
+        catch (MapCompilationException error)
+        {
+            MapDiagnostic? diagnostic = error.Diagnostics.FirstOrDefault(
+                value => value.Severity == MapDiagnosticSeverity.Error);
+            return new MatchFailed(spec.MatchId, diagnostic == null
+                ? $"MAP-RUN-004: Required map compilation failed: {error.Message}"
+                : $"{diagnostic.Code}: {diagnostic.Message}");
+        }
+        catch (MapRuntimeException error)
+        {
+            return new MatchFailed(spec.MatchId,
+                $"{error.Code}: Runtime map registration failed.");
+        }
+        catch (MapPackageException error)
+        {
+            return new MatchFailed(spec.MatchId,
+                $"MAP-PKG-001: {error.Message}");
+        }
+        catch (OperationCanceledException)
+        {
+            return new MatchFailed(spec.MatchId,
+                "MAP-RUN-010: Required map preparation timed out.");
         }
         return await RegisterAsync(spec, snapshot).ConfigureAwait(false);
     }
@@ -233,6 +256,7 @@ public sealed class WorkerRuntime : IAsyncDisposable
                         ReliableAdaptiveRtoEnabled = _options.ReliableAdaptiveRtoEnabled,
                         AckCoalescingEnabled = _options.AckCoalescingEnabled,
                         UdpAuthenticationEnabled = _options.UdpAuthenticationEnabled,
+                        Observers = _options.Observers,
                         ValidationFixture = _options.ValidationFixture,
                         HeadshotValidationScenario = _options.HeadshotValidationScenario,
                         HeadshotScenarioSeconds = _options.HeadshotScenarioSeconds,
@@ -243,13 +267,9 @@ public sealed class WorkerRuntime : IAsyncDisposable
                     entry.Instance.Start();
                     entry.Snapshot = entry.Instance.Status;
                     long admissionStarted = Stopwatch.GetTimestamp();
-                    entry.Lease.Lane.Add(entry.Instance, match => Terminal(entry, match), status =>
-                    {
-                        Volatile.Write(ref entry.Snapshot, status);
-                        if (status.Phase == MatchPhase.WaitingForPlayers && entry.Spec.Roster.Any(seat => seat.Role == SeatRole.Player)
-                            && entry.Instance?.Network.Count == 0 && Stopwatch.GetElapsedTime(admissionStarted) >= _options.AdmissionTimeout)
-                            entry.Instance.RequestStop(MatchStopReason.AdmissionTimeout);
-                    });
+                    entry.Lease.Lane.Add(entry.Instance, match => Terminal(entry, match),
+                        admissionCheck: match => EvaluateAdmissionTimeout(entry, match, admissionStarted),
+                        snapshot: status => entry.Snapshot = status);
                     entry.Ready.TrySetResult(new MatchReady(Placement(entry)));
                     return true;
                 }
@@ -297,6 +317,18 @@ public sealed class WorkerRuntime : IAsyncDisposable
             Interlocked.Decrement(ref _pendingArtifacts);
             RecordTerminal(entry, new MatchFailed(entry.Spec.MatchId, "Completion artifact queue is full."));
         }
+    }
+
+    private void EvaluateAdmissionTimeout(MatchRegistry.Entry entry, MatchInstance match, long admissionStarted)
+    {
+        // This callback is invoked by the owning SimulationLane after every
+        // authoritative tick. Do not move it to the lower-rate status
+        // publication path: admission is a gameplay/control boundary and must
+        // retain its exact tick cadence and lane ownership.
+        if (match.Simulation.Scene.Match.Phase == MatchPhase.WaitingForPlayers
+            && entry.HasPlayerSeat && match.Network.Count == 0
+            && Stopwatch.GetElapsedTime(admissionStarted) >= _options.AdmissionTimeout)
+            match.RequestStop(MatchStopReason.AdmissionTimeout);
     }
 
     private async Task WriteArtifactsAsync()
@@ -378,18 +410,19 @@ public sealed class WorkerRuntime : IAsyncDisposable
         return await lane.InvokeAsync(() => action(entry.Instance ?? throw new InvalidOperationException("Match has ended.")));
     }
 
-    public async Task<MatchInstanceStatus?> GetStatusAsync(MatchId id)
+    public Task<MatchInstanceStatus?> GetStatusAsync(MatchId id)
     {
         MatchRegistry.Entry? entry;
-        SimulationLane? lane;
         lock (_registry.Gate)
         {
             _registry.Entries.TryGetValue(id, out entry);
-            lane = entry?.Lease?.Lane;
         }
-        if (entry == null) return null;
-        if (lane == null) return entry.Snapshot;
-        return await lane.InvokeAsync(() => entry.Snapshot = entry.Instance?.Status ?? entry.Snapshot);
+        if (entry == null) return Task.FromResult<MatchInstanceStatus?>(null);
+        // Status is an immutable, lane-published view. Reading it does not
+        // enqueue a control command or force a fresh record allocation on the
+        // simulation thread; lifecycle changes publish immediately and the
+        // remaining fields refresh at the lane's fixed status cadence.
+        return Task.FromResult(entry.Snapshot);
     }
 
     /// <summary>
@@ -472,15 +505,28 @@ public sealed class WorkerRuntime : IAsyncDisposable
             ImmutableArray<WorkerMatchHealth> matchHealth = _registry.ByWireId.Values
                 .OrderBy(entry => entry.Spec.MatchId.Value).Take(WorkerDiagnostics.MaximumMatchSamples).Select(entry =>
                 {
+                    MatchInstanceStatus? status = entry.Snapshot;
                     MatchPerformanceSnapshot? performance = entry.Instance?.Performance;
+                    MatchDiagnosticsSnapshot diagnostics = entry.Instance?.Diagnostics
+                        ?? MatchDiagnosticsSnapshot.Empty;
+                    StatusPublicationMetrics publication = default;
+                    if (entry.Lease is { Lane: { } lane })
+                        lane.TryGetStatusPublication(entry.Spec.MatchId.Value, out publication);
                     BoundedPercentileSnapshot tick = performance?.TickDurationMilliseconds ?? default;
                     return new WorkerMatchHealth(entry.Spec.MatchId, entry.WireId,
-                        entry.Snapshot?.Tick ?? 0, entry.Snapshot?.Phase.ToString() ?? "Starting",
-                        entry.Snapshot?.State.ToString() ?? "Created", performance?.TickCount ?? 0, performance?.DeadlineMisses ?? 0,
+                        status?.Tick ?? 0, status?.Phase.ToString() ?? "Starting",
+                        status?.State.ToString() ?? "Created", performance?.TickCount ?? 0, performance?.DeadlineMisses ?? 0,
                         tick.P50, tick.P95, tick.P99, tick.P999, tick.Max,
                         performance?.AllocatedBytesPerTick ?? 0, performance?.AllocatedBytesPerSecond ?? 0,
                         performance?.ProcessGen0Collections ?? 0, performance?.ProcessGen1Collections ?? 0,
-                        performance?.ProcessGen2Collections ?? 0);
+                        performance?.ProcessGen2Collections ?? 0,
+                        ObserverRetainedFrames: diagnostics.ObserverRetainedFrames,
+                        ObserverRetainedBytes: diagnostics.ObserverRetainedBytes,
+                        ReplayQueueDepth: diagnostics.ReplayQueueDepth,
+                        ReplayQueueHighWater: diagnostics.ReplayQueueHighWater,
+                        ReplayQueueOverflowed: diagnostics.ReplayQueueOverflowed,
+                        StatusPublicationCount: publication.Count,
+                        StatusPublicationCadenceHz: publication.CadenceHz);
                 }).ToImmutableArray();
             long timingObserved = 0;
             long timingStale = 0;

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using MphRead;
 using MphRead.Mods.Network;
 
 namespace ProjectPrime.Server.Worker.Simulation;
@@ -8,15 +9,67 @@ public sealed record LaneMetrics(int LaneId, int Matches, long Ticks, long Catch
     double P50Milliseconds, double P95Milliseconds, double P99Milliseconds, double MaxMilliseconds,
     double P999Milliseconds = 0, long DeadlineMisses = 0, long CommandQueueHighWater = 0);
 
+/// <summary>Atomic per-match status-publication measurements for heartbeat diagnostics.</summary>
+internal readonly record struct StatusPublicationMetrics(long Count, uint FirstTick, uint LastTick)
+{
+    internal double CadenceHz
+    {
+        get
+        {
+            if (Count < 2) return 0;
+            uint elapsedTicks = unchecked(LastTick - FirstTick);
+            return elapsedTicks == 0
+                ? 0
+                : (Count - 1) * FixedTickScheduler.Rate / (double)elapsedTicks;
+        }
+    }
+}
+
 /// <summary>One dedicated writer for the complete lifetime of every assigned match.</summary>
 public sealed class SimulationLane : IDisposable
 {
     internal const int MaximumCommandsPerPass = 64;
     internal const double CommandWallBudgetMilliseconds = 0.5;
     internal const double DeadlineGuardMilliseconds = 1;
-    private sealed record Entry(MatchInstance Match, Action<MatchInstance> Terminal, Action<MatchInstanceStatus>? Snapshot);
+    // Status is an operational/control-plane view. Constructing it at the
+    // authoritative cadence was needlessly allocating one record per match
+    // per tick. Keep the admission predicate on the lane, but publish status
+    // only at a stable 10 Hz cadence or when its lifecycle identity changes.
+    internal const int StatusSnapshotRateHz = 10;
+    internal static readonly SimDuration StatusSnapshotInterval = SimDuration.FromMilliseconds(100);
+
+    private sealed class Entry
+    {
+        public MatchInstance Match { get; }
+        public Action<MatchInstance> Terminal { get; }
+        public Action<MatchInstance>? AdmissionCheck { get; }
+        public Action<MatchInstanceStatus>? Snapshot { get; }
+        public MatchInstanceState PublishedState { get; set; }
+        public MatchPhase PublishedPhase { get; set; }
+        public SimTick PublishedAt { get; set; }
+        public int StatusTelemetrySequence;
+        public long StatusPublicationCount;
+        public uint FirstStatusTick;
+        public uint LastStatusTick;
+
+        public Entry(MatchInstance match, Action<MatchInstance> terminal,
+            Action<MatchInstance>? admissionCheck, Action<MatchInstanceStatus>? snapshot)
+        {
+            Match = match;
+            Terminal = terminal;
+            AdmissionCheck = admissionCheck;
+            Snapshot = snapshot;
+            PublishedState = match.State;
+            PublishedPhase = match.Simulation.Scene.Match.Phase;
+            PublishedAt = new(match.NextTick);
+        }
+    }
     private readonly object _admission = new();
     private readonly ConcurrentQueue<Action> _commands = new();
+    // The simulation list is lane-owned and intentionally remains a List for
+    // deterministic tick iteration. Heartbeat readers use this separate
+    // concurrent index so status telemetry never enumerates a mutating list.
+    private readonly ConcurrentDictionary<Guid, Entry> _statusEntries = new();
     private readonly List<Entry> _matches = new();
     private readonly AutoResetEvent _wake = new(false);
     private readonly Thread _thread;
@@ -30,6 +83,7 @@ public sealed class SimulationLane : IDisposable
     private long _droppedTicks;
     private long _deadlineMisses;
     private long _commandQueueHighWater;
+    private long _statusSnapshots;
     private LaneMetrics _metrics;
     public int Id { get; }
     public int OwnerThreadId => _thread.ManagedThreadId;
@@ -61,6 +115,7 @@ public sealed class SimulationLane : IDisposable
         }
     }
     public Exception? LastCallbackFailure { get; private set; }
+    internal long StatusSnapshots => Volatile.Read(ref _statusSnapshots);
 
     public SimulationLane(int id, int commandCapacity)
     {
@@ -84,7 +139,16 @@ public sealed class SimulationLane : IDisposable
             _commands.Enqueue(() =>
             {
                 if (cancellationToken.IsCancellationRequested) { result.TrySetCanceled(cancellationToken); return; }
-                try { result.TrySetResult(action()); }
+                try
+                {
+                    T value = action();
+                    // Commands can perform lifecycle work without a
+                    // simulation step (cancel, admin end, or a phase change).
+                    // Publish those transitions immediately while retaining
+                    // the lower-rate cadence for ordinary tick progress.
+                    PublishChangedStatuses();
+                    result.TrySetResult(value);
+                }
                 catch (Exception error) { result.TrySetException(error); }
             });
             _wake.Set();
@@ -92,16 +156,43 @@ public sealed class SimulationLane : IDisposable
         return result.Task;
     }
 
-    internal void Add(MatchInstance match, Action<MatchInstance> terminal, Action<MatchInstanceStatus>? snapshot = null)
+    internal void Add(MatchInstance match, Action<MatchInstance> terminal,
+        Action<MatchInstance>? admissionCheck = null, Action<MatchInstanceStatus>? snapshot = null)
     {
         RequireOwner();
         if (_matches.Any(entry => entry.Match.MatchId == match.MatchId)) throw new InvalidOperationException("Duplicate lane match.");
-        _matches.Add(new(match, terminal, snapshot));
+        Entry entry = new(match, terminal, admissionCheck, snapshot);
+        _matches.Add(entry);
+        _statusEntries[match.MatchId] = entry;
     }
 
     internal void RequireOwner()
     {
         if (Environment.CurrentManagedThreadId != OwnerThreadId) throw new InvalidOperationException("Match mutation belongs to its simulation lane.");
+    }
+
+    internal bool TryGetStatusPublication(Guid matchId, out StatusPublicationMetrics metrics)
+    {
+        if (_statusEntries.TryGetValue(matchId, out Entry? entry))
+        {
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                int sequence = Volatile.Read(ref entry.StatusTelemetrySequence);
+                if ((sequence & 1) != 0) continue;
+                long count = Volatile.Read(ref entry.StatusPublicationCount);
+                uint firstTick = Volatile.Read(ref entry.FirstStatusTick);
+                uint lastTick = Volatile.Read(ref entry.LastStatusTick);
+                Thread.MemoryBarrier();
+                int completed = Volatile.Read(ref entry.StatusTelemetrySequence);
+                if (sequence == completed && (completed & 1) == 0)
+                {
+                    metrics = new(count, firstTick, lastTick);
+                    return true;
+                }
+            }
+        }
+        metrics = default;
+        return false;
     }
 
     private void Run()
@@ -119,10 +210,16 @@ public sealed class SimulationLane : IDisposable
                     Entry entry = _matches[i];
                     try { entry.Match.Tick(); }
                     catch (Exception) when (entry.Match.State == MatchInstanceState.Failed) { /* Match captured failure; terminate only this entry. */ }
-                    try { entry.Snapshot?.Invoke(entry.Match.Status); } catch (Exception error) { LastCallbackFailure = error; }
+                    // Admission remains a lane-owned decision and is evaluated
+                    // on every authoritative tick. It must not be moved to a
+                    // timer/status thread: a join can become valid or invalid
+                    // between status publications.
+                    try { entry.AdmissionCheck?.Invoke(entry.Match); } catch (Exception error) { LastCallbackFailure = error; }
+                    PublishStatusIfDue(entry);
                     if (entry.Match.State != MatchInstanceState.Running)
                     {
                         _matches.RemoveAt(i);
+                        _statusEntries.TryRemove(entry.Match.MatchId, out _);
                         Complete(entry);
                     }
                 }
@@ -135,9 +232,11 @@ public sealed class SimulationLane : IDisposable
         {
             try { entry.Match.RequestStop(MatchStopReason.HostShutdown); }
             catch (Exception error) { LastCallbackFailure = error; }
+            PublishStatusIfDue(entry);
             Complete(entry);
         }
         _matches.Clear();
+        _statusEntries.Clear();
         PublishScalars(scheduler);
     }
 
@@ -148,6 +247,56 @@ public sealed class SimulationLane : IDisposable
         {
             LastCallbackFailure = error;
             try { entry.Match.Dispose(); } catch (Exception cleanup) { LastCallbackFailure = new AggregateException(error, cleanup); }
+        }
+    }
+
+    private void PublishStatusIfDue(Entry entry)
+    {
+        MatchInstance match = entry.Match;
+        MatchInstanceState state = match.State;
+        MatchPhase phase = match.Simulation.Scene.Match.Phase;
+        SimTick tick = new(match.NextTick);
+        bool lifecycleChanged = state != entry.PublishedState || phase != entry.PublishedPhase;
+        bool cadenceDue = tick.HasElapsedSince(entry.PublishedAt, StatusSnapshotInterval);
+        if (!lifecycleChanged && !cadenceDue) return;
+
+        try
+        {
+            if (entry.Snapshot is { } snapshot)
+            {
+                snapshot(match.Status);
+                RecordStatusPublication(entry, tick.Value);
+            }
+            entry.PublishedState = state;
+            entry.PublishedPhase = phase;
+            entry.PublishedAt = tick;
+            Interlocked.Increment(ref _statusSnapshots);
+        }
+        catch (Exception error)
+        {
+            LastCallbackFailure = error;
+        }
+    }
+
+    private static void RecordStatusPublication(Entry entry, uint tick)
+    {
+        int sequence = Interlocked.Increment(ref entry.StatusTelemetrySequence);
+        long count = entry.StatusPublicationCount + 1;
+        entry.StatusPublicationCount = count;
+        if (count == 1) entry.FirstStatusTick = tick;
+        entry.LastStatusTick = tick;
+        Volatile.Write(ref entry.StatusTelemetrySequence, unchecked(sequence + 1));
+    }
+
+    private void PublishChangedStatuses()
+    {
+        for (int i = _matches.Count - 1; i >= 0; i--)
+        {
+            Entry entry = _matches[i];
+            MatchInstanceState state = entry.Match.State;
+            MatchPhase phase = entry.Match.Simulation.Scene.Match.Phase;
+            if (state != entry.PublishedState || phase != entry.PublishedPhase)
+                PublishStatusIfDue(entry);
         }
     }
 

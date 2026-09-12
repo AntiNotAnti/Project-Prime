@@ -57,6 +57,8 @@ namespace MphRead.Mods.Network
         private readonly ReplayArchive? _archive;
         private uint _lastFrame;
         private uint _lastFlushFrame;
+        private bool _hasFlushed;
+        private bool _disposed;
         private readonly byte[] _header = new byte[7];
         public byte ProtocolVersion { get; }
 
@@ -82,7 +84,12 @@ namespace MphRead.Mods.Network
         {
             if (data.Length is < 1 or > NetConfig.MaxPacketSize)
             { throw new ArgumentOutOfRangeException(nameof(data)); }
-            if (_archive != null) { _archive.Write(frame, data, marker: marker); return; }
+            if (_archive != null)
+            {
+                _archive.Write(frame, data, marker: marker);
+                FlushIfDue(frame, marker);
+                return;
+            }
             if (frame < _lastFrame)
             {
                 // Only reachable if the frame counter were ever wound back.
@@ -109,27 +116,47 @@ namespace MphRead.Mods.Network
             at += 2;
             _deflate!.Write(_header.AsSpan(0, at));
             _deflate!.Write(data);
-            if (frame - _lastFlushFrame >= FlushIntervalFrames)
-            {
-                _lastFlushFrame = frame;
-                // The deflate stream first, which turns its pending symbols
-                // into bytes the file can hold, then the file, which puts
-                // them where a reader could find them after a crash.
-                _deflate!.Flush();
-                _stream.Flush();
-            }
+            FlushIfDue(frame, marker);
         }
 
         internal void WriteKeyframe(uint frame, System.Collections.Generic.IReadOnlyList<byte[]> records)
         {
             if (_archive == null) throw new InvalidOperationException("Keyframes require replay format 3.");
             _archive.Write(frame, ReplayArchive.Pack(records), keyframe: true);
+            FlushIfDue(frame, ReplayMarker.None);
         }
 
         public void Dispose()
         {
-            try { _deflate?.Dispose(); }
+            if (_disposed) return;
+            _disposed = true;
+            if (_archive != null)
+            {
+                _archive.Dispose();
+                return;
+            }
+            try
+            {
+                _deflate?.Dispose();
+                _stream.Flush(flushToDisk: true);
+            }
             finally { _stream.Dispose(); }
+        }
+
+        private void FlushIfDue(uint frame, ReplayMarker marker)
+        {
+            bool terminal = (marker & ReplayMarker.MatchEnd) != 0;
+            // Publish the initial complete baseline immediately. Subsequent
+            // ordinary frames use the legacy 15-frame crash-recovery cadence.
+            if (_hasFlushed && !terminal && frame - _lastFlushFrame < FlushIntervalFrames) return;
+            _lastFlushFrame = frame;
+            _hasFlushed = true;
+            // For indexed replays the archive has already closed this record's
+            // independent deflate stream. For linear replays, flush the
+            // deflate stream first so the file contains a readable prefix.
+            _deflate?.Flush();
+            _archive?.Flush(flushToDisk: terminal);
+            if (_archive == null) _stream.Flush(flushToDisk: terminal);
         }
     }
 
@@ -265,7 +292,11 @@ namespace MphRead.Mods.Network
 
         public void Dispose()
         {
-            try { _deflate?.Dispose(); }
+            try
+            {
+                _archive?.Dispose();
+                _deflate?.Dispose();
+            }
             finally { _stream.Dispose(); }
         }
     }

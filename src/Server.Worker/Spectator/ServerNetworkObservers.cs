@@ -6,11 +6,35 @@ public sealed partial class ServerNetwork
 {
     private readonly ServerPeer?[] _observers = new ServerPeer?[16];
     private readonly ServerPeer?[] _connections = new ServerPeer?[24];
-    private readonly ObserverTimeline _observerTimeline = new();
+    private readonly ObserverFrameBuilder _observerFrames;
+    private readonly ObserverTimeline _observerTimeline;
     public ObserverOptions ObserverConfiguration { get; }
     public int ObserverCount { get; private set; }
-    internal Action<ObserverFrame>? ObserverFrameCaptured { get; set; }
-    public bool ObserverFramesRequired => ObserverConfiguration.MaxSpectators > 0 || ObserverFrameCaptured != null;
+    private Action<ObserverFrame>? _observerFrameCaptured;
+    internal Action<ObserverFrame>? ObserverFrameCaptured
+    {
+        get => _observerFrameCaptured;
+        set
+        {
+            _observerFrameCaptured = value;
+            // A replay can be enabled by tournament/admin control after the
+            // initial roster publication. Seed the independent frame builder
+            // immediately so its first complete frame still has identity.
+            if (value != null
+                && _rosterLength >= sizeof(uint)
+                && BinaryPrimitives.ReadUInt32LittleEndian(_rosterPayload.AsSpan(0, sizeof(uint))) == MatchId)
+                _observerFrames.Roster(_rosterPayload.AsSpan(0, _rosterLength), _rosterRevision);
+        }
+    }
+    /// <summary>Replay or spectator capture needs one immutable frame.</summary>
+    public bool FrameCaptureRequired => SpectatorHistoryRequired || ObserverFrameCaptured != null;
+    /// <summary>Only spectator policy causes historical retention.</summary>
+    public bool SpectatorHistoryRequired => ObserverConfiguration.MaxSpectators > 0;
+    // Compatibility name for simulation call sites during the split. It no
+    // longer means that replay-only matches retain spectator history.
+    public bool ObserverFramesRequired => FrameCaptureRequired;
+    internal int ObserverHistoryFrameCount => _observerTimeline.Count;
+    internal int ObserverHistoryBytes => _observerTimeline.RetainedBytes;
     public ReadOnlySpan<ServerPeer?> ObserverPeers => _observers.AsSpan(0, ObserverConfiguration.MaxSpectators);
     public ReadOnlySpan<ServerPeer?> AllConnections => _connections;
     private bool AdmitObserver(IPEndPoint endpoint, in JoinPacket join, TicketIdentity? identity,
@@ -49,11 +73,28 @@ public sealed partial class ServerNetwork
             ? replacementSlot
             : Array.FindIndex(_observers, 0, ObserverConfiguration.MaxSpectators, peer => peer == null);
         if (free < 0) { Refuse(endpoint, join.Nonce, "Observer connections are full or disabled.", join.AdmissionId, authKey); return true; }
-        uint delay = identity?.TrustedObserver == true ? 0 : (uint)ObserverConfiguration.DelaySeconds * 60;
-        var baseline = _observerTimeline.Baseline(Tick, delay);
-        if (baseline == null) { Refuse(endpoint, join.Nonce, "Observer history is warming up. Try again later.", join.AdmissionId, authKey); return true; }
+        SimDuration delay = identity?.TrustedObserver == true
+            ? SimDuration.Zero
+            : SimDuration.FromSeconds(ObserverConfiguration.DelaySeconds);
+        var baseline = _observerTimeline.Baseline(new(Tick), delay);
+        ObserverFrame? baselineFrame = null;
+        if (baseline is { } baselineCursor)
+            _observerTimeline.TryGet(baselineCursor, out baselineFrame);
+        // A delayed observer may arrive before a full delay window exists. Use
+        // the newest complete frame only for connection metadata and roster;
+        // presentation remains in the loading/rebaseline path below until a
+        // due historical frame exists, so no live snapshot or world state is
+        // exposed through this warm-up admission.
+        if (baselineFrame == null)
+        {
+            var handshake = _observerTimeline.Baseline(new(Tick), SimDuration.Zero);
+            if (handshake is { } handshakeCursor)
+                _observerTimeline.TryGet(handshakeCursor, out baselineFrame);
+        }
+        if (baselineFrame == null)
+        { Refuse(endpoint, join.Nonce, "Observer history is warming up. Try again later.", join.AdmissionId, authKey); return true; }
         ulong id = AllocateConnectionIdentity();
-        var connection = new NetConnection(id, endpoint, baseline.Value.MatchId, _now,
+        var connection = new NetConnection(id, endpoint, baselineFrame.MatchId, _now,
             authKey, NetAuthDirection.ServerToClient, ReliableAdaptiveRtoEnabled,
             AckCoalescingEnabled);
         var peer = new ServerPeer(connection, join, byte.MaxValue, _now)
@@ -61,16 +102,16 @@ public sealed partial class ServerNetwork
             ConnectionIndex = (byte)(8 + free), TeamIndex = byte.MaxValue,
             PlayerId = identity?.PlayerId, GuestSessionId = identity?.GuestSessionId, ReservedSeat = identity?.ReservedSeat, TicketId = identity?.TicketId ?? Guid.Empty,
             TrustedObserver = identity?.TrustedObserver == true,
-            ObserverDelayTicks = delay, ObserverCursor = baseline, ObserverNeedsBaseline = true,
+            ObserverDelay = delay, ObserverCursor = baseline, ObserverNeedsBaseline = true,
             Timing = new ServerNetworkTimingController(AdaptiveTimingEnabled,
                 AdaptiveTimingV2Enabled)
         };
-        var accepted = new JoinAcceptedPacket(join.Nonce, byte.MaxValue, baseline.Value.MatchId, baseline.Value.Tick, 60, baseline.Value.Rules);
+        var accepted = new JoinAcceptedPacket(join.Nonce, byte.MaxValue, baselineFrame.MatchId, baselineFrame.Tick, 60, baselineFrame.Rules);
         Span<byte> payload = stackalloc byte[JoinAcceptedPacket.Size]; accepted.Write(payload);
         // The new connection is still detached, so all reliable admission
         // events must be accepted before the old observer can be removed.
         if (!connection.Reliable.TryEnqueue(ReliableEventType.Welcome, payload, out _)
-            || !connection.Reliable.TryEnqueue(ReliableEventType.Roster, baseline.Value.Roster!, out _))
+            || !connection.Reliable.TryEnqueue(ReliableEventType.Roster, baselineFrame.Roster!, out _))
         {
             connection.Disconnect();
             Refuse(endpoint, join.Nonce, "Observer admission could not be queued.", join.AdmissionId, authKey);
@@ -98,13 +139,17 @@ public sealed partial class ServerNetwork
         if (peer.IsObserver || Find(peer.Connection.Id) != peer) { reason = "Participant is not an active player connection."; return false; }
         int free = Array.FindIndex(_observers, 0, ObserverConfiguration.MaxSpectators, value => value == null);
         if (free < 0) { reason = "Observer capacity is full or disabled."; return false; }
-        uint delay = peer.TrustedObserver ? 0 : (uint)ObserverConfiguration.DelaySeconds * 60;
-        var baseline = _observerTimeline.Baseline(Tick, delay);
-        if (baseline == null) { reason = "Observer history is not ready."; return false; }
+        SimDuration delay = peer.TrustedObserver
+            ? SimDuration.Zero
+            : SimDuration.FromSeconds(ObserverConfiguration.DelaySeconds);
+        var baseline = _observerTimeline.Baseline(new(Tick), delay);
+        if (baseline is not { } baselineCursor
+            || !_observerTimeline.TryGet(baselineCursor, out ObserverFrame baselineFrame))
+        { reason = "Observer history is not ready."; return false; }
         if (!peer.Connection.Reliable.CanEnqueueType(ReliableEventType.ObserverTransition))
         { reason = "Reliable control channel is full."; return false; }
         Span<byte> payload = stackalloc byte[MatchTransitionPacket.Size];
-        new MatchTransitionPacket(baseline.Value.MatchId, baseline.Value.Tick, baseline.Value.Rules).Write(payload);
+        new MatchTransitionPacket(baselineFrame.MatchId, baselineFrame.Tick, baselineFrame.Rules).Write(payload);
         // All preconditions are checked before detaching competitive ownership.
         // Cancelling old live events prevents them leaking across the delay fence.
         peer.Connection.Reliable.CancelPendingExceptWelcome();
@@ -116,13 +161,13 @@ public sealed partial class ServerNetwork
             ConnectionIndex = (byte)(8 + free), TeamIndex = byte.MaxValue, PlayerId = peer.PlayerId,
             GuestSessionId = peer.GuestSessionId, ReservedSeat = peer.ReservedSeat,
             TicketId = peer.TicketId, TrustedObserver = peer.TrustedObserver,
-            ObserverDelayTicks = delay, ObserverCursor = baseline, ObserverNeedsBaseline = true,
+            ObserverDelay = delay, ObserverCursor = baselineCursor, ObserverNeedsBaseline = true,
             Timing = peer.Timing
         };
         ParticipantLeaving?.Invoke(peer, MphRead.Identity.ParticipantExitReason.Replaced, Tick);
         _peers[peer.Slot] = null; _connections[peer.ConnectionIndex] = null; _reconnectPeers[peer.Slot] = null;
         Count--; _observers[free] = observer; _connections[8 + free] = observer; ObserverCount++;
-        peer.Connection.BeginLoading(baseline.Value.MatchId);
+        peer.Connection.BeginLoading(baselineFrame.MatchId);
         _rosterDirty = true; PublishKeepAlives();
         return true;
     }
@@ -136,60 +181,76 @@ public sealed partial class ServerNetwork
         ObserverCount--; PublishKeepAlives();
     }
     public void CaptureObserverSnapshot(ReadOnlySpan<byte> bytes)
-    { if (ObserverFramesRequired) _observerTimeline.Snapshot(bytes); }
+    { if (FrameCaptureRequired) _observerFrames.Snapshot(bytes); }
     public void CaptureObserverWorld(ReadOnlySpan<byte> bytes)
-    { if (ObserverFramesRequired) _observerTimeline.WorldBatch(bytes); }
+    { if (FrameCaptureRequired) _observerFrames.WorldBatch(bytes); }
     public void CaptureObserverEvent(ReliableEventType type, ReadOnlySpan<byte> bytes)
     {
-        if (!ObserverFramesRequired) return;
+        if (!FrameCaptureRequired) return;
         Span<byte> payload = stackalloc byte[ReliableChannel.MaxPayloadSize];
         BinaryPrimitives.WriteUInt32LittleEndian(payload, MatchId); bytes.CopyTo(payload[4..]);
-        _observerTimeline.Event(type, payload[..(4 + bytes.Length)]);
+        _observerFrames.Event(type, payload[..(4 + bytes.Length)]);
     }
     public void CommitObserverTick(uint tick)
     {
-        if (!ObserverFramesRequired) return;
-        ObserverFrame? captured = _observerTimeline.Commit(tick, MatchId, Rules);
-        if (captured != null) ObserverFrameCaptured?.Invoke(captured);
+        if (!FrameCaptureRequired) return;
+        ObserverFrame captured = _observerFrames.Produce(tick, MatchId, Rules);
+        // Replay receives the immutable produced frame even when the
+        // spectator ring is disabled or cannot retain it.
+        ObserverFrameCaptured?.Invoke(captured);
+        if (SpectatorHistoryRequired)
+        {
+            if (captured.CaptureOverflowed) _observerTimeline.Clear();
+            else if (!_observerTimeline.Retain(captured, out _))
+            {
+                // A frame that cannot be retained must not leave existing
+                // cursors looking past an unobservable gap. Replay already
+                // received the immutable frame above, so this is spectator
+                // history failure only.
+                _observerTimeline.Clear();
+            }
+        }
         foreach (ServerPeer? peer in _observers)
         {
             if (peer == null || peer.Connection.State != NetConnectionState.Playing) continue;
-            if (peer.ObserverCursor == null || !_observerTimeline.Owns(peer.ObserverCursor))
-            { RemoveObserver(peer.ConnectionIndex); continue; }
             if (peer.ObserverNeedsBaseline)
             {
-                // Loading can take time. Start from a complete due baseline,
-                // never from live state or a partially assembled world.
-                var baseline = _observerTimeline.Baseline(tick, peer.ObserverDelayTicks);
+                // Loading can take time and the initial cursor may be evicted
+                // by a shorter delay-driven ring. Rebaseline explicitly while
+                // loading instead of disconnecting the observer.
+                var baseline = _observerTimeline.Baseline(new(tick), peer.ObserverDelay);
                 if (baseline == null) continue;
-                if (baseline.Value.MatchId != peer.Connection.MatchId)
-                { TransitionObserver(peer, baseline); continue; }
-                if (!SendObserverBaseline(peer, baseline.Value)) { RemoveObserver(peer.ConnectionIndex); continue; }
+                if (!_observerTimeline.TryGet(baseline.Value, out ObserverFrame baselineFrame)) continue;
+                if (baselineFrame.MatchId != peer.Connection.MatchId)
+                { TransitionObserver(peer, baseline.Value, baselineFrame); continue; }
+                if (!SendObserverBaseline(peer, baselineFrame)) { RemoveObserver(peer.ConnectionIndex); continue; }
                 peer.ObserverCursor = baseline; peer.ObserverNeedsBaseline = false;
             }
-            for (int sent = 0; sent < 120 && peer.ObserverCursor.Next is { } next
-                && ObserverTimeline.Due(tick, next.Value.Tick, peer.ObserverDelayTicks); sent++)
+            if (peer.ObserverCursor is not { } cursor || !_observerTimeline.Owns(cursor))
+            { RemoveObserver(peer.ConnectionIndex); continue; }
+            for (int sent = 0; sent < 120
+                && _observerTimeline.TryGetNext(cursor, out ObserverCursor next, out ObserverFrame frame)
+                && ObserverTimeline.Due(new(tick), new(frame.Tick), peer.ObserverDelay); sent++)
             {
-                ObserverFrame frame = next.Value;
                 if (frame.MatchId != peer.Connection.MatchId)
                 {
-                    if (!frame.Complete) { peer.ObserverCursor = next; continue; }
-                    TransitionObserver(peer, next); break;
+                    if (!frame.Complete) { cursor = next; peer.ObserverCursor = cursor; continue; }
+                    TransitionObserver(peer, next, frame); break;
                 }
                 if (!SendObserverFrame(peer, frame)) { RemoveObserver(peer.ConnectionIndex); break; }
-                peer.ObserverCursor = next;
+                cursor = next; peer.ObserverCursor = cursor;
             }
         }
     }
-    private void TransitionObserver(ServerPeer peer, System.Collections.Generic.LinkedListNode<ObserverFrame> next)
+    private void TransitionObserver(ServerPeer peer, ObserverCursor next, ObserverFrame frame)
     {
-        var transition = new MatchTransitionPacket(next.Value.MatchId, next.Value.Tick, next.Value.Rules);
+        var transition = new MatchTransitionPacket(frame.MatchId, frame.Tick, frame.Rules);
         Span<byte> payload = stackalloc byte[MatchTransitionPacket.Size]; transition.Write(payload);
-        peer.Connection.BeginLoading(next.Value.MatchId);
+        peer.Connection.BeginLoading(frame.MatchId);
         peer.Connection.Reliable.CancelPendingExceptWelcome();
         peer.ObserverCursor = next; peer.ObserverNeedsBaseline = true;
         if (!peer.Connection.Reliable.TryEnqueue(ReliableEventType.MapTransition, payload, out _)
-            || !peer.Connection.Reliable.TryEnqueue(ReliableEventType.Roster, next.Value.Roster!, out _)) RemoveObserver(peer.ConnectionIndex);
+            || !peer.Connection.Reliable.TryEnqueue(ReliableEventType.Roster, frame.Roster!, out _)) RemoveObserver(peer.ConnectionIndex);
     }
     private bool SendObserverBaseline(ServerPeer peer, ObserverFrame frame)
     {

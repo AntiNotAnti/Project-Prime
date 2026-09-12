@@ -43,6 +43,16 @@ public sealed class WorkerIpcTests
         Assert.Equal(encoded, WorkerIpcCodec.Encode(decoded));
     }
 
+    [Fact]
+    public void CanonicalFrameBytesAndMemoryDecodeRemainStable()
+    {
+        byte[] encoded = WorkerIpcCodec.Encode(new Drain("ok"));
+        Assert.Equal(
+            "28000000047b2276657273696f6e223a312c227061796c6f6164223a7b22726561736f6e223a226f6b227d7d",
+            Convert.ToHexString(encoded).ToLowerInvariant());
+        Assert.Equal(new Drain("ok"), WorkerIpcCodec.Decode(encoded.AsMemory()));
+    }
+
     [Theory]
     [InlineData("{\"version\":2,\"payload\":{\"reason\":\"test\"}}")]
     [InlineData("{\"version\":1,\"payload\":null}")]

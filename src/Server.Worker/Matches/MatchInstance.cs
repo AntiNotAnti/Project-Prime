@@ -32,6 +32,21 @@ public sealed record MatchPerformanceSnapshot(
     long ProcessGen1Collections,
     long ProcessGen2Collections);
 
+/// <summary>
+/// Immutable control-plane measurements gathered from the match-owned
+/// observer history and replay writer. The underlying counters are sampled
+/// atomically; this object never exposes mutable simulation state.
+/// </summary>
+public sealed record MatchDiagnosticsSnapshot(
+    long ObserverRetainedFrames,
+    long ObserverRetainedBytes,
+    long ReplayQueueDepth,
+    long ReplayQueueHighWater,
+    bool ReplayQueueOverflowed)
+{
+    public static MatchDiagnosticsSnapshot Empty { get; } = new(0, 0, 0, 0, false);
+}
+
 public sealed class MatchInstance : IDisposable
 {
     private readonly MatchInstanceOptions _options;
@@ -101,6 +116,21 @@ public sealed class MatchInstance : IDisposable
                 return snapshot;
             }
             return Volatile.Read(ref _publishedPerformance);
+        }
+    }
+    /// <summary>
+    /// Returns one immutable diagnostic view. Replay and observer counters are
+    /// read from their atomic owner-published/scalar sources only when the
+    /// heartbeat samples the match, not from the 60 Hz simulation path.
+    /// </summary>
+    public MatchDiagnosticsSnapshot Diagnostics
+    {
+        get
+        {
+            ServerReplayDiagnosticsSnapshot replayDiagnostics = replay?.Diagnostics ?? default;
+            return new(Network.ObserverHistoryFrameCount, Network.ObserverHistoryBytes,
+                replayDiagnostics.QueueDepth, replayDiagnostics.QueueHighWater,
+                replayDiagnostics.QueueOverflowed);
         }
     }
     /// <summary>Owner-published timing freshness observations for diagnostics.</summary>
@@ -288,7 +318,12 @@ public sealed class MatchInstance : IDisposable
         if (!_options.LegacyDynamicAdmission && Spec.ReplayPolicy == ReplayPolicy.Disabled) return null;
         if (replay != null || String.IsNullOrWhiteSpace(_options.ReplayDirectory)) return replay;
         if (_options.LegacyDynamicAdmission && _options.LegacyReplayMayOpen?.Invoke() == false) return null;
-        replay = new ServerReplaySession(_options.ReplayDirectory);
+        ReplayMapIdentity mapIdentity = _contentSnapshot == null
+            ? new ReplayMapIdentity(Spec.Rules.RoomKey, null, null)
+            : new ReplayMapIdentity(Spec.Rules.RoomKey,
+                _contentSnapshot.MapIdentity,
+                _contentSnapshot.MatchContentIdentity);
+        replay = new ServerReplaySession(_options.ReplayDirectory, mapIdentity);
         Network.ObserverFrameCaptured = frame => replay?.Capture(frame, Simulation.Scene);
         return replay;
     }

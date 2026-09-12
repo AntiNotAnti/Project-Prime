@@ -32,8 +32,8 @@ namespace MphRead.Mods.Network
         public bool IsBot { get; internal set; }
         public bool IsObserver => Slot == byte.MaxValue;
         internal byte ConnectionIndex { get; set; }
-        internal uint ObserverDelayTicks { get; set; }
-        internal System.Collections.Generic.LinkedListNode<ObserverFrame>? ObserverCursor { get; set; }
+        internal SimDuration ObserverDelay { get; set; }
+        internal ObserverCursor? ObserverCursor { get; set; }
         internal bool ObserverNeedsBaseline { get; set; }
         internal Guid TicketId { get; set; }
         internal bool TrustedObserver { get; set; }
@@ -160,6 +160,9 @@ namespace MphRead.Mods.Network
         {
             ObserverConfiguration = observers ?? new();
             ObserverConfiguration.Validate();
+            _observerFrames = new ObserverFrameBuilder();
+            _observerTimeline = new ObserverTimeline(ObserverConfiguration);
+            _observerFrames.BeginMatch(matchId);
             _observerTimeline.BeginMatch(matchId);
             MatchLifecycle.ValidateRules(rules);
             if (matchId == 0) { throw new ArgumentOutOfRangeException(nameof(matchId)); }
@@ -493,7 +496,11 @@ namespace MphRead.Mods.Network
             {
                 Span<byte> reply = stackalloc byte[12];
                 body.CopyTo(reply);
-                BinaryPrimitives.WriteUInt32LittleEndian(reply[8..], peer.IsObserver ? peer.ObserverCursor?.Value.Tick ?? 0 : Tick);
+                uint observerTick = Tick;
+                if (peer.IsObserver && peer.ObserverCursor is { } cursor
+                    && _observerTimeline.TryGet(cursor, out ObserverFrame observerFrame))
+                    observerTick = observerFrame.Tick;
+                BinaryPrimitives.WriteUInt32LittleEndian(reply[8..], peer.IsObserver ? observerTick : Tick);
                 connection.Send(_transport, NetMessageType.Pong, reply);
             }
             return true;
@@ -804,7 +811,8 @@ namespace MphRead.Mods.Network
                 _rosterLength = 4 + SessionRosterPacket.Write(_rosterPayload.AsSpan(4), _rosterRevision,
                     _rosterEntries.AsSpan(0, count));
                 Array.Clear(_rosterEntries, count, _rosterEntries.Length - count);
-                _observerTimeline.Roster(_rosterPayload.AsSpan(0, _rosterLength), _rosterRevision);
+                if (FrameCaptureRequired)
+                    _observerFrames.Roster(_rosterPayload.AsSpan(0, _rosterLength), _rosterRevision);
                 _rosterDirty = false;
             }
             foreach (ServerPeer? peer in _peers)
@@ -838,7 +846,7 @@ namespace MphRead.Mods.Network
             new SessionChatPacket(speaker.Connection.Id, speaker.Slot, speaker.Name, text).Write(payload[4..]);
             foreach (ServerPeer? peer in _peers)
                 peer?.Connection.Reliable.TryEnqueue(ReliableEventType.Chat, payload, out _);
-            if (ObserverFramesRequired) _observerTimeline.Event(ReliableEventType.Chat, payload);
+            if (FrameCaptureRequired) _observerFrames.Event(ReliableEventType.Chat, payload);
         }
 
         /// <summary>Called by the simulation owner before loading the next room.</summary>
@@ -865,6 +873,7 @@ namespace MphRead.Mods.Network
                 throw new ArgumentException("Invalid match transition.");
             }
             MatchId = matchId;
+            _observerFrames.BeginMatch(matchId);
             _observerTimeline.BeginMatch(matchId);
             Array.Clear(_reconnectPeers);
             Rules = rules;

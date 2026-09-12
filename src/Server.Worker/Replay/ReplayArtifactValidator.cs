@@ -44,7 +44,8 @@ public static class ReplayArtifactValidator
             int required = (1 << (int)ReplayRecordKind.Match) | (1 << (int)ReplayRecordKind.Snapshot)
                 | (1 << (int)ReplayRecordKind.World) | (1 << (int)ReplayRecordKind.Roster)
                 | (1 << (int)ReplayRecordKind.Presentation) | (1 << (int)ReplayRecordKind.Clock)
-                | (1 << (int)ReplayRecordKind.Perspective);
+                | (1 << (int)ReplayRecordKind.Perspective)
+                | (1 << (int)ReplayRecordKind.MapIdentity);
             if ((kinds & required) != required)
                 throw new InvalidDataException("Replay checkpoint lacks required state records.");
             checkpoints++;

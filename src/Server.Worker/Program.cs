@@ -68,6 +68,8 @@ public static class Program
                 ReliableAdaptiveRtoEnabled = Boolean("--reliable-adaptive-rto", false),
                 AckCoalescingEnabled = Boolean("--ack-coalescing", false),
                 UdpAuthenticationEnabled = Boolean("--udp-authentication", true),
+                Observers = ServerObserverConfiguration.Parse(flags.GetValueOrDefault("--max-observers"),
+                    flags.GetValueOrDefault("--observer-delay-seconds")),
                 LagCompensationMode = WorkerOptions.ParseLagCompensationMode(
                     flags.GetValueOrDefault("--lag-compensation-mode", "players")),
                 ValidationFixture = WorkerOptions.ParseValidationFixture(
@@ -301,7 +303,7 @@ public static class Program
     internal static Dictionary<string, string> ParseArguments(string[] args)
     {
         string[] names = ["--describe-content", "--prepare-content", "--node-pipe", "--node-id", "--worker-id", "--worker-incarnation", "--content-dir", "--content-version", "--content-hash",
-            "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--snapshot-rate-hz", "--adaptive-timing", "--adaptive-timing-v2", "--adaptive-input-playout", "--transport-queue-v2", "--transport-critical-reserve-enabled", "--critical-transport-reserve", "--worker-global-network-budget-enabled", "--max-datagrams-per-pump", "--reliable-adaptive-rto", "--ack-coalescing", "--udp-authentication", "--lag-compensation-mode", "--validation-fixture", "--headshot-validation-scenario", "--headshot-scenario-seconds", "--replay-dir", "--artifact-dir", "--map-dir"];
+            "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--max-observers", "--observer-delay-seconds", "--snapshot-rate-hz", "--adaptive-timing", "--adaptive-timing-v2", "--adaptive-input-playout", "--transport-queue-v2", "--transport-critical-reserve-enabled", "--critical-transport-reserve", "--worker-global-network-budget-enabled", "--max-datagrams-per-pump", "--reliable-adaptive-rto", "--ack-coalescing", "--udp-authentication", "--lag-compensation-mode", "--validation-fixture", "--headshot-validation-scenario", "--headshot-scenario-seconds", "--replay-dir", "--artifact-dir", "--map-dir"];
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         for (int index = 0; index < args.Length; index += 2)
             if (index + 1 == args.Length || !names.Contains(args[index], StringComparer.Ordinal) || !result.TryAdd(args[index], args[index + 1]))

@@ -11,7 +11,16 @@ public sealed class WorkerDiagnosticsTests
     {
         var lanes = ImmutableArray.Create(new WorkerLaneHealth(0, 1, 4, 0, 0, 1, 2, 3, 4, 4, 1, 7));
         var match = new WorkerMatchHealth(new(Guid.NewGuid()), new(1), 4, "Playing", "Running",
-            4, 1, 1, 2, 3, 4, 5, 6, 7, 1, 0, 0);
+            4, 1, 1, 2, 3, 4, 5, 6, 7, 1, 0, 0) with
+        {
+            ObserverRetainedFrames = 7,
+            ObserverRetainedBytes = 4096,
+            ReplayQueueDepth = 2,
+            ReplayQueueHighWater = 8,
+            ReplayQueueOverflowed = true,
+            StatusPublicationCount = 11,
+            StatusPublicationCadenceHz = 10
+        };
         var diagnostics = new WorkerDiagnostics(lanes, 10, 100, 1, 2, 3, 4, 5, 6, 7, 8, 9,
             ImmutableArray.Create(match), 1, false, 1000, 8, 9, 10, 11,
             12, 13, 14, 15, 16, 17,
@@ -46,6 +55,13 @@ public sealed class WorkerDiagnosticsTests
         Assert.Equal(4, decodedDiagnostics.Lanes[0].P999Milliseconds);
         Assert.Equal(7, decodedDiagnostics.Lanes[0].CommandQueueHighWater);
         Assert.Equal(7, decodedDiagnostics.Matches[0].AllocatedBytesPerSecond);
+        Assert.Equal(7, decodedDiagnostics.Matches[0].ObserverRetainedFrames);
+        Assert.Equal(4096, decodedDiagnostics.Matches[0].ObserverRetainedBytes);
+        Assert.Equal(2, decodedDiagnostics.Matches[0].ReplayQueueDepth);
+        Assert.Equal(8, decodedDiagnostics.Matches[0].ReplayQueueHighWater);
+        Assert.True(decodedDiagnostics.Matches[0].ReplayQueueOverflowed);
+        Assert.Equal(11, decodedDiagnostics.Matches[0].StatusPublicationCount);
+        Assert.Equal(10, decodedDiagnostics.Matches[0].StatusPublicationCadenceHz);
 
         var invalid = diagnostics with { NetworkLoopP999Milliseconds = 1 };
         Assert.Throws<ArgumentException>(() => invalid.Validate());
@@ -54,6 +70,10 @@ public sealed class WorkerDiagnosticsTests
             Lanes = ImmutableArray.Create(new WorkerLaneHealth(0, 1, 4, 0, 0, 1, 2, 3, 4, 5, 1, 7))
         };
         Assert.Throws<ArgumentException>(() => invalidLane.Validate());
+        Assert.Throws<ArgumentException>(() => (diagnostics with
+        {
+            Matches = ImmutableArray.Create(match with { StatusPublicationCadenceHz = double.NaN })
+        }).Validate());
 
         // V2 diagnostics count peers with no report as stale, so stale can
         // legitimately exceed the observed-report count.
@@ -110,5 +130,15 @@ public sealed class WorkerDiagnosticsTests
         var decoded = Assert.IsType<WorkerHeartbeat>(WorkerIpcCodec.Decode(frame));
         Assert.Equal(128, decoded.Health.Diagnostics!.Matches.Length);
         Assert.All(decoded.Health.Diagnostics.Matches, match => Assert.Equal(0, match.TickSamples));
+
+        var extendedMatches = matches.Take(33)
+            .Select(match => match with { ObserverRetainedFrames = 1 })
+            .ToImmutableArray();
+        Assert.Throws<ArgumentException>(() => (diagnostic with
+        {
+            Matches = extendedMatches,
+            TotalMatches = extendedMatches.Length,
+            MatchesTruncated = false
+        }).Validate());
     }
 }

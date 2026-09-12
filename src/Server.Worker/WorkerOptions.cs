@@ -47,6 +47,7 @@ public sealed record WorkerOptions
     public bool AckCoalescingEnabled { get; init; }
     /// <summary>Per-handoff UDP MACs are the production default.</summary>
     public bool UdpAuthenticationEnabled { get; init; } = true;
+    public ObserverOptions Observers { get; init; } = new();
     public WorkerLagCompensationMode LagCompensationMode { get; init; } = WorkerLagCompensationMode.Players;
     internal MphRead.DeveloperValidationFixtureId ValidationFixture { get; init; }
     /// <summary>Explicit developer-only choreography for rendered headshot validation.</summary>
@@ -59,6 +60,7 @@ public sealed record WorkerOptions
     public long ArtifactReservationBytes { get; init; } = 64L * 1024 * 1024;
     public void Validate()
     {
+        Observers.Validate();
         if (WorkerId.Value == Guid.Empty || Incarnation == Guid.Empty || SimulationLanes is < 1 or > 64
             || MaxMatches is < 1 or > 1024 || MaxMatchesPerLane is < 1 or > 1024
             || MaxMatches > SimulationLanes * MaxMatchesPerLane || CommandCapacity is < 1 or > 65536

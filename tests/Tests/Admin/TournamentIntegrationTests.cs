@@ -96,6 +96,12 @@ public sealed class TournamentIntegrationTests
             recording.Capture(frame with { Tick = 101, Events = Array.Empty<ObserverEvent>() }, state.Scene);
             recording.Complete(); await recording.Completion;
             Assert.Equal("complete", recording.Status.State);
+            ServerReplayDiagnosticsSnapshot replayDiagnostics = recording.Diagnostics;
+            Assert.Equal(2, replayDiagnostics.CapturedFrames);
+            Assert.Equal(2, replayDiagnostics.WrittenFrames);
+            Assert.Equal(0, replayDiagnostics.QueueDepth);
+            Assert.InRange(replayDiagnostics.QueueHighWater, 1, 64);
+            Assert.False(replayDiagnostics.QueueOverflowed);
             string artifactPath = Path.Combine(directory, recording.ReplayId.ToString("D") + ReplayFile.Extension);
             var validated = ReplayArtifactValidator.Validate(artifactPath);
             Assert.True(validated.RecordCount > 0);

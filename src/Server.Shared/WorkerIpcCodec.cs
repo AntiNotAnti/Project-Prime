@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -53,31 +54,55 @@ public static class WorkerIpcCodec
         Validate(message);
         int index = Array.IndexOf(Types, message.GetType());
         if (index < 0) throw new ArgumentException("Unknown worker message.");
-        byte[] payload = JsonSerializer.SerializeToUtf8Bytes(message, message.GetType(), Options);
-        using var buffer = new MemoryStream();
+
+        // Serialize the envelope directly into one growable buffer. The old
+        // path allocated a payload array, a MemoryStream backing array, a
+        // second envelope array, and finally the framed result. Keeping the
+        // type byte and envelope in the same writer preserves the exact wire
+        // order while removing the intermediate payload/envelope copies.
+        var buffer = new ArrayBufferWriter<byte>(256);
+        Span<byte> header = buffer.GetSpan(5);
+        header[4] = (byte)(index + 1);
+        buffer.Advance(5);
         using (var writer = new Utf8JsonWriter(buffer))
         {
             writer.WriteStartObject(); writer.WriteNumber("version", Version);
-            writer.WritePropertyName("payload"); writer.WriteRawValue(payload); writer.WriteEndObject();
+            writer.WritePropertyName("payload");
+            JsonSerializer.Serialize(writer, message, message.GetType(), Options);
+            writer.WriteEndObject();
         }
-        if (buffer.Length + 1 > MaxFrameLength) throw new InvalidDataException("IPC frame exceeds limit.");
-        var frame = new byte[checked((int)buffer.Length + 5)];
-        BinaryPrimitives.WriteUInt32LittleEndian(frame, (uint)buffer.Length + 1);
-        frame[4] = (byte)(index + 1); buffer.ToArray().CopyTo(frame, 5);
+        int bodyLength = checked(buffer.WrittenCount - 4);
+        if (bodyLength > MaxFrameLength) throw new InvalidDataException("IPC frame exceeds limit.");
+        byte[] frame = buffer.WrittenSpan.ToArray();
+        BinaryPrimitives.WriteUInt32LittleEndian(frame, (uint)bodyLength);
         return frame;
     }
 
+    public static WorkerMessage Decode(byte[] frame)
+    {
+        ArgumentNullException.ThrowIfNull(frame);
+        return Decode((ReadOnlyMemory<byte>)frame);
+    }
+
     public static WorkerMessage Decode(ReadOnlySpan<byte> frame)
+        => Decode((ReadOnlyMemory<byte>)frame.ToArray());
+
+    /// <summary>
+    /// Decodes an already-owned frame without copying it before JSON parsing.
+    /// The returned message is fully materialized before the document is
+    /// disposed, so the caller may safely return pooled frame storage.
+    /// </summary>
+    public static WorkerMessage Decode(ReadOnlyMemory<byte> frame)
     {
         if (frame.Length < 5) throw new InvalidDataException("Truncated frame.");
-        uint length = BinaryPrimitives.ReadUInt32LittleEndian(frame);
+        uint length = BinaryPrimitives.ReadUInt32LittleEndian(frame.Span);
         if (length < 2 || length > MaxFrameLength || length != frame.Length - 4)
             throw new InvalidDataException("Invalid frame length.");
-        byte type = frame[4];
+        byte type = frame.Span[4];
         if (type < 1 || type > Types.Length) throw new InvalidDataException("Unknown message type.");
         try
         {
-            using var document = JsonDocument.Parse(frame[5..].ToArray(), new JsonDocumentOptions { MaxDepth = 32 });
+            using var document = JsonDocument.Parse(frame.Slice(5), new JsonDocumentOptions { MaxDepth = 32 });
             RejectDuplicates(document.RootElement);
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object || root.EnumerateObject().Count() != 2
@@ -97,16 +122,35 @@ public static class WorkerIpcCodec
     /// Cancellation/deadlines are controlled by the authenticated transport owner.</summary>
     public static async ValueTask<WorkerMessage?> ReadAsync(Stream stream, CancellationToken cancellationToken = default)
     {
-        byte[] prefix = new byte[4];
-        int first = await stream.ReadAsync(prefix.AsMemory(0, 1), cancellationToken);
-        if (first == 0) return null;
-        await stream.ReadExactlyAsync(prefix.AsMemory(1), cancellationToken);
-        uint length = BinaryPrimitives.ReadUInt32LittleEndian(prefix);
-        if (length < 2 || length > MaxFrameLength) throw new InvalidDataException("Invalid frame length.");
-        byte[] frame = new byte[checked((int)length + 4)];
-        prefix.CopyTo(frame, 0);
-        await stream.ReadExactlyAsync(frame.AsMemory(4), cancellationToken);
-        return Decode(frame);
+        // A single bounded pooled buffer holds both prefix and body. Invalid
+        // lengths are rejected before any payload-sized storage is exposed,
+        // and Decode(ReadOnlyMemory<byte>) parses it without another copy.
+        byte[] frame = ArrayPool<byte>.Shared.Rent(MaxFrameLength + 4);
+        int clearLength = 0;
+        try
+        {
+            int first = await stream.ReadAsync(frame.AsMemory(0, 1), cancellationToken);
+            if (first == 0) return null;
+            clearLength = 4;
+            await stream.ReadExactlyAsync(frame.AsMemory(1, 3), cancellationToken);
+            uint length = BinaryPrimitives.ReadUInt32LittleEndian(frame);
+            if (length < 2 || length > MaxFrameLength) throw new InvalidDataException("Invalid frame length.");
+            int frameLength = checked((int)length + 4);
+            clearLength = frameLength;
+            await stream.ReadExactlyAsync(frame.AsMemory(4, (int)length), cancellationToken);
+            return Decode(frame.AsMemory(0, frameLength));
+        }
+        finally
+        {
+            // Frames can contain short-lived admission secrets. Do not leave
+            // them resident in the shared pool for a later IPC reader. Clear
+            // only the bytes this read could have populated; clearing the
+            // entire 64 KiB pool bucket on every control message defeats the
+            // allocation optimization with avoidable memory bandwidth.
+            if (clearLength > 0)
+                Array.Clear(frame, 0, clearLength);
+            ArrayPool<byte>.Shared.Return(frame, clearArray: false);
+        }
     }
 
     public static async ValueTask WriteAsync(Stream stream, WorkerMessage message, CancellationToken cancellationToken = default)

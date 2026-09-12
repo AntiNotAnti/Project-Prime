@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Net;
 using System.Diagnostics;
 using System.Threading;
@@ -118,12 +119,14 @@ public sealed class ObserverTimelineTests
         history.Snapshot(snapshot); history.WorldBatch(world); history.Roster(roster, 1);
         history.Commit(10, 1, rules);
         snapshot[0] = 99; world[0] = 99; roster[0] = 99;
-        Assert.Null(history.Baseline(69, 60));
-        var old = history.Baseline(70, 60)!;
-        Assert.Equal(1, old.Value.Snapshot![0]);
+        Assert.Null(history.Baseline(new(69), new(60)));
+        ObserverCursor old = history.Baseline(new(70), new(60))!.Value;
+        Assert.True(history.TryGet(old, out ObserverFrame oldFrame));
+        Assert.Equal(1, oldFrame.Snapshot![0]);
         history.BeginMatch(2); history.Commit(71, 2, rules);
-        Assert.Same(old, history.Baseline(100, 60));
-        Assert.Equal(1u, history.Baseline(100, 0)!.Value.MatchId);
+        Assert.Equal(old, history.Baseline(new(100), new(60)));
+        Assert.True(history.TryGet(history.Baseline(new(100), SimDuration.Zero)!.Value, out ObserverFrame retained));
+        Assert.Equal(1u, retained.MatchId);
     }
     [Fact]
     public void RetentionEvictsCursorsAndHandlesTickWrap()
@@ -131,11 +134,106 @@ public sealed class ObserverTimelineTests
         var history = new ObserverTimeline();
         var rules = MatchRules.CreateDefault(MatchMode.Battle, "MP1 SANCTORUS");
         history.BeginMatch(1); history.Snapshot(new byte[] { 1 }); history.WorldBatch(new byte[] { 2 }); history.Roster(new byte[] { 3 }, 1);
-        history.Commit(0, 1, rules); var cursor = history.Baseline(0, 0)!;
+        history.Commit(0, 1, rules); ObserverCursor cursor = history.Baseline(new(0), SimDuration.Zero)!.Value;
         for (uint tick = 1; tick <= 3602; tick++) history.Commit(tick, 1, rules);
         Assert.False(history.Owns(cursor)); Assert.True(history.Count <= 3601);
         Assert.True(history.RetainedBytes <= ObserverTimeline.MaxBytes);
-        Assert.True(ObserverTimeline.Due(20, UInt32.MaxValue - 39, 60));
-        Assert.False(ObserverTimeline.Due(20, 21, 0));
+        Assert.True(ObserverTimeline.Due(new(20), new(UInt32.MaxValue - 39), new(60)));
+        Assert.False(ObserverTimeline.Due(new(20), new(21), SimDuration.Zero));
+    }
+
+    [Fact]
+    public void RetentionIsDemandDrivenAndCanBeDisabledForReplayOnlyCapture()
+    {
+        Assert.Equal(checked((int)ObserverTimeline.MinimumBaselineRetention.Ticks),
+            new ObserverTimeline(new ObserverOptions(4, 0)).RetentionTicks);
+        Assert.Equal(1920, new ObserverTimeline(new ObserverOptions(4, 30)).RetentionTicks);
+        Assert.Equal(0, new ObserverTimeline(new ObserverOptions(0, 30)).RetentionTicks);
+
+        var disabled = new ObserverTimeline(new ObserverOptions(0));
+        disabled.BeginMatch(1);
+        disabled.Snapshot(new byte[] { 1 }); disabled.WorldBatch(new byte[] { 2 }); disabled.Roster(new byte[] { 3 }, 1);
+        disabled.Commit(1, 1, MatchRules.CreateDefault(MatchMode.Battle, "MP1 SANCTORUS"));
+        Assert.Equal(0, disabled.Count);
+        Assert.Null(disabled.Baseline(new(1), SimDuration.Zero));
+    }
+
+    [Fact]
+    public void ReplayOnlyFrameCaptureDoesNotRetainSpectatorHistory()
+    {
+        using var transport = new NetTransport(0);
+        var rules = MatchRules.CreateDefault(MatchMode.Battle, "MP1 SANCTORUS");
+        var network = new ServerNetwork(transport, rules, observers: new ObserverOptions(0));
+        ObserverFrame? captured = null;
+        network.ObserverFrameCaptured = frame => captured = frame;
+        network.CaptureObserverSnapshot(new byte[] { 1 });
+        network.CaptureObserverWorld(new byte[] { 2 });
+        network.CommitObserverTick(1);
+
+        Assert.True(network.FrameCaptureRequired);
+        Assert.False(network.SpectatorHistoryRequired);
+        Assert.NotNull(captured);
+        Assert.Equal(0, network.ObserverHistoryFrameCount);
+        Assert.Equal(0, network.ObserverHistoryBytes);
+    }
+
+    [Fact]
+    public void LateReplayCaptureDoesNotSeedPreviousMatchRoster()
+    {
+        using var transport = new NetTransport(0);
+        var rules = MatchRules.CreateDefault(MatchMode.Battle, "MP1 SANCTORUS");
+        var network = new ServerNetwork(transport, rules, matchId: 1,
+            observers: new ObserverOptions(0));
+
+        // Publish the empty match-one roster, then rotate before replay is
+        // enabled. The callback setter must not copy that stale payload into
+        // match two's first frame.
+        network.Poll(1);
+        network.ChangeMatch(2, rules, 2);
+
+        ObserverFrame? captured = null;
+        network.ObserverFrameCaptured = frame => captured = frame;
+        network.CaptureObserverSnapshot(new byte[] { 1 });
+        network.CaptureObserverWorld(new byte[] { 2 });
+        network.CommitObserverTick(2);
+
+        Assert.NotNull(captured);
+        Assert.Null(captured!.Roster);
+
+        // The new match roster is published on the next network poll and is
+        // then eligible for the first complete replay frame.
+        network.Poll(2);
+        network.CaptureObserverSnapshot(new byte[] { 3 });
+        network.CaptureObserverWorld(new byte[] { 4 });
+        network.CommitObserverTick(3);
+
+        Assert.NotNull(captured!.Roster);
+        Assert.Equal(2u, BinaryPrimitives.ReadUInt32LittleEndian(captured.Roster));
+    }
+
+    [Fact]
+    public void OversizedSpectatorFrameClearsHistoryAfterReplayCapture()
+    {
+        using var transport = new NetTransport(0);
+        var rules = MatchRules.CreateDefault(MatchMode.Battle, "MP1 SANCTORUS");
+        var network = new ServerNetwork(transport, rules, observers: new ObserverOptions(4, 0));
+        network.Poll(1);
+
+        ObserverFrame? captured = null;
+        network.ObserverFrameCaptured = frame => captured = frame;
+        network.CaptureObserverSnapshot(new byte[] { 1 });
+        network.CaptureObserverWorld(new byte[] { 2 });
+        network.CommitObserverTick(1);
+        Assert.Equal(1, network.ObserverHistoryFrameCount);
+
+        // Observer history cannot retain this frame, but the replay sink must
+        // still receive it before the spectator ring is detached.
+        network.CaptureObserverSnapshot(new byte[ObserverTimeline.MaxBytes]);
+        network.CommitObserverTick(2);
+
+        Assert.NotNull(captured);
+        Assert.Equal(2u, captured!.Tick);
+        Assert.Equal(0, network.ObserverHistoryFrameCount);
+        Assert.Equal(0, network.ObserverHistoryBytes);
     }
 }

@@ -1,9 +1,8 @@
 using System.Collections.Immutable;
 using MphRead;
 using MphRead.Identity;
+using MphRead.Mods.MapGen;
 using MphRead.Mods.Network;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace ProjectPrime.Server.Shared;
 
@@ -34,11 +33,15 @@ public sealed record MapRequirement(string StableId, string Version, string Cont
 
     public static string ComputeMatchContentHash(string baseContentHash, string stableId,
         string version, string contentHash, string buildVersion, byte protocolVersion)
-    {
-        string value = string.Join('\0', "ProjectPrime.MatchContent.v1", baseContentHash,
-            stableId, version, contentHash, buildVersion + ":" + protocolVersion);
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
-    }
+        => MphRead.Mods.MapGen.MatchContentHash.Compute(baseContentHash,
+            new MapContentIdentity(new MapIdentity(stableId,
+                MapVersion.Parse(version)), contentHash),
+            GameplayContentIdentity.Current(buildVersion, protocolVersion));
+
+    public RoomContentRequirement ToRoomContentRequirement()
+        => new(new MapContentIdentity(new MapIdentity(StableId,
+            MapVersion.Parse(Version)), ContentHash), ArtifactHash, PackageSize,
+            MatchContentHash);
 }
 
 public sealed record ContentIdentity(string MapKey, string ContentHash, string ContentVersion,

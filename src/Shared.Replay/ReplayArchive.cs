@@ -29,9 +29,14 @@ namespace MphRead.Mods.Network
         private const long MaximumDecodedBytes = 8L * 1024 * 1024 * 1024;
         internal const long MaximumDecodedBytesForTimeline = MaximumDecodedBytes;
         private readonly FileStream _file;
+        // Reused only while a chunk is being compressed. Retained replay
+        // payloads are owned by their caller and are never backed by this
+        // scratch buffer.
+        private readonly MemoryStream _compressionBuffer = new();
         private readonly List<ReplayIndexEntry> _index = new();
         private long _validEnd = ReplayFile.HeaderSize;
         private uint _lastFrame;
+        private bool _disposed;
         internal IReadOnlyList<ReplayIndexEntry> Index => _index;
         internal uint LastFrame => _lastFrame;
         internal bool RecoveredTail { get; private set; }
@@ -48,23 +53,31 @@ namespace MphRead.Mods.Network
                 || frame > MaximumFrame || frame < _lastFrame || payload.Length is < 1 or > MaximumRawBytes
                 || (!keyframe && payload.Length > NetConfig.MaxPacketSize))
                 throw new InvalidDataException("Replay chunk exceeds its frame or payload bounds.");
-            using var buffer = new MemoryStream();
-            using (var compressor = new DeflateStream(buffer, CompressionLevel.Fastest, true)) compressor.Write(payload);
-            byte[] compressed = buffer.ToArray();
-            if (compressed.Length > MaximumRawBytes + 4096) throw new InvalidDataException("Replay compressed chunk too large.");
+            _compressionBuffer.Position = 0;
+            _compressionBuffer.SetLength(0);
+            using (var compressor = new DeflateStream(_compressionBuffer, CompressionLevel.Fastest, true))
+                compressor.Write(payload);
+            int compressedLength = checked((int)_compressionBuffer.Length);
+            if (compressedLength > MaximumRawBytes + 4096) throw new InvalidDataException("Replay compressed chunk too large.");
+            ReadOnlySpan<byte> compressed = _compressionBuffer.GetBuffer().AsSpan(0, compressedLength);
             Span<byte> header = stackalloc byte[HeaderBytes];
             header.Clear();
             BinaryPrimitives.WriteUInt32LittleEndian(header, ChunkMagic);
             header[4] = keyframe ? (byte)2 : (byte)1;
             BinaryPrimitives.WriteUInt16LittleEndian(header[6..], (ushort)marker);
-            BinaryPrimitives.WriteInt32LittleEndian(header[8..], compressed.Length);
+            BinaryPrimitives.WriteInt32LittleEndian(header[8..], compressedLength);
             BinaryPrimitives.WriteInt32LittleEndian(header[12..], payload.Length);
             BinaryPrimitives.WriteUInt32LittleEndian(header[16..], frame);
             BinaryPrimitives.WriteUInt32LittleEndian(header[20..], Checksum(compressed, header[..20]));
             _file.Write(header); _file.Write(compressed);
             _lastFrame = frame;
-            // Each record is a closed deflate stream. Flush exposes complete chunks to crash recovery.
-            _file.Flush();
+            // Each record is still a closed, independently recoverable deflate
+            // stream. The writer controls bounded flush cadence.
+        }
+
+        internal void Flush(bool flushToDisk = false)
+        {
+            if (_file.CanWrite) _file.Flush(flushToDisk);
         }
 
         private void Scan()
@@ -192,6 +205,16 @@ namespace MphRead.Mods.Network
             }
             return ~crc;
         }
-        public void Dispose() => _file.Dispose();
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            try { Flush(flushToDisk: true); }
+            finally
+            {
+                _compressionBuffer.Dispose();
+                _file.Dispose();
+            }
+        }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -437,6 +438,44 @@ public sealed class WorkerRuntimeTests
         await Task.Delay(80);
         Assert.True(await lane.InvokeAsync(() => survivor!.NextTick > 0));
         Assert.IsType<InvalidOperationException>(lane.LastCallbackFailure);
+    }
+
+    [Trait("RequiresGameContent", "true")]
+    [Fact]
+    public async Task LanePublishesLifecycleImmediatelyAndStatusAtStableTenHertz()
+    {
+        using var context = ContentEnvironment.PreserveContext("AMHE1");
+        ContentEnvironment.Open(Environment.GetEnvironmentVariable("GAME_DATA_DIRECTORY") ?? Path.Combine(Directory.GetCurrentDirectory(), "AMHE1"), "AMHE1");
+        using var content = ContentEnvironment.AcquireContent();
+        var options = new WorkerOptions { PlacementP99Milliseconds = 10000, PlacementCpuPercent = 100, MinimumMemoryHeadroomBytes = 0 };
+        using var lane = new SimulationLane(0, 32);
+        var statuses = new ConcurrentQueue<MatchInstanceStatus>();
+        MatchInstance? match = null;
+        await lane.InvokeAsync(() =>
+        {
+            match = new MatchInstance(new(Spec(content.Content, options, 0), 1), new SilentTransport());
+            match.Start();
+            lane.Add(match, current => current.Dispose(), snapshot: statuses.Enqueue);
+            return true;
+        });
+
+        // The first periodic publication occurs after six authoritative ticks
+        // (10 Hz from a 60 Hz lane). Wait for two cadence publications before
+        // requesting stop so the terminal transition can be checked separately.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        while (statuses.Count < 2) await Task.Delay(5, timeout.Token);
+        Assert.True(lane.TryGetStatusPublication(match!.MatchId,
+            out StatusPublicationMetrics publication));
+        Assert.True(publication.Count >= 2);
+        Assert.Equal(10, publication.CadenceHz, precision: 5);
+        await lane.InvokeAsync(() => { match!.RequestStop(MatchStopReason.Requested); return true; });
+        while (match!.State != MatchInstanceState.Disposed) await Task.Delay(5, timeout.Token);
+
+        MatchInstanceStatus[] published = statuses.ToArray();
+        Assert.Contains(published, status => status.State == MatchInstanceState.Stopped);
+        Assert.True(published.Length < lane.Metrics.Ticks,
+            $"status publications={published.Length}, lane ticks={lane.Metrics.Ticks}");
+        Assert.True(lane.StatusSnapshots >= published.Length);
     }
 
     [Fact]

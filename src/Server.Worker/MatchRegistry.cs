@@ -12,6 +12,7 @@ internal sealed class MatchRegistry
     internal sealed class Entry(MatchSpec spec, byte[] fingerprint, WireMatchId wireId)
     {
         public MatchSpec Spec { get; } = spec;
+        public bool HasPlayerSeat { get; } = spec.Roster.Any(seat => seat.Role == SeatRole.Player);
         public byte[] Fingerprint { get; } = fingerprint;
         public WireMatchId WireId { get; } = wireId;
         public TaskCompletionSource<WorkerEvent> Ready { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -19,7 +20,16 @@ internal sealed class MatchRegistry
         public MatchInstance? Instance;
         public MatchDatagramTransport? Transport;
         public WorkerTicketAuthority? Tickets;
-        public MatchInstanceStatus? Snapshot;
+        private MatchInstanceStatus? _snapshot;
+        /// <summary>
+        /// Immutable control-plane status. The lane publishes a whole record;
+        /// readers must never observe fields being assembled in place.
+        /// </summary>
+        public MatchInstanceStatus? Snapshot
+        {
+            get => Volatile.Read(ref _snapshot);
+            set => Volatile.Write(ref _snapshot, value);
+        }
         public WorkerEvent? Terminal;
         public MatchContentSnapshot? ContentSnapshot;
         public bool Released;
