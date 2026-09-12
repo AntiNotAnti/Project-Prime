@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ProjectPrime.Server.Shared;
 
 namespace ProjectPrime.WorkerSoak;
 
@@ -48,6 +49,8 @@ public sealed record SoakScenarioOptions(
     bool ReconnectsEnabled,
     bool RematchesEnabled,
     int RematchEvery,
+    ReplayPolicy ReplayPolicy,
+    int ObserverDelaySeconds,
     SoakRosterOptions Roster)
 {
     public bool CrashesEnabled => CrashSeconds > 0;
@@ -64,6 +67,8 @@ public sealed record SoakScenarioOptions(
             throw new ArgumentException("Invalid bounded soak scenario.");
         if (RematchesEnabled && (RematchEvery < 1 || RematchEvery > 4096))
             throw new ArgumentException("Invalid bounded rematch interval.");
+        if (!Enum.IsDefined(ReplayPolicy) || ObserverDelaySeconds is < 0 or > 30)
+            throw new ArgumentException("Replay policy or observer delay is invalid.");
         Roster.Validate();
         if ((Seconds / Math.Max(1, RoundSeconds) + 1L) * MatchesPerWorker * Workers > 3500)
             throw new ArgumentException("Soak would exhaust bounded receipt history; increase round seconds or reduce density.");
@@ -75,11 +80,20 @@ public sealed record SoakScenarioOptions(
             ? int.Parse(value, System.Globalization.CultureInfo.InvariantCulture) : fallback;
         bool Flag(string key, bool fallback) => args.TryGetValue(key, out var value)
             ? bool.Parse(value) : fallback;
+        ReplayPolicy Replay(string key, ReplayPolicy fallback) => args.TryGetValue(key, out var value)
+            ? value.ToLowerInvariant() switch
+            {
+                "disabled" or "off" => ReplayPolicy.Disabled,
+                "record" or "on" => ReplayPolicy.Record,
+                _ => throw new ArgumentException("Replay policy must be disabled/off or record/on.")
+            }
+            : fallback;
         int rematchEvery = Number("--rematch-every", 4);
         var scenario = new SoakScenarioOptions(
             Number("--seconds", 300), Number("--matches", 4), Number("--lanes", 2), Number("--workers", 2),
             Number("--round-seconds", 30), Number("--crash-seconds", 0), Flag("--outages", true),
             Flag("--reconnects", true), Flag("--rematches", false), rematchEvery,
+            Replay("--replay-policy", ReplayPolicy.Record), Number("--observer-delay-seconds", 0),
             new SoakRosterOptions(Number("--players", 1), Number("--bots", 2), Number("--observers", 1)));
         scenario.Validate();
         return scenario;

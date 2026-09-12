@@ -54,6 +54,10 @@ internal static class Program
     {
         string Required(string key) => args.TryGetValue(key, out var value) ? value : throw new ArgumentException("Missing " + key);
         var scenario = SoakScenarioOptions.From(args);
+        bool configureObserverRuntime = args.TryGetValue("--configure-observer-runtime", out string? configureObservers)
+            ? bool.Parse(configureObservers) : true;
+        if (!configureObserverRuntime && (scenario.ObserverDelaySeconds != 0 || scenario.Roster.Observers > 4))
+            throw new ArgumentException("The default observer runtime supports at most four observers and zero delay.");
         var requirements = new SoakRequirements(
             RequireNoFailures: args.TryGetValue("--require-no-failures", out var noFailures) ? bool.Parse(noFailures) : true,
             RequireDrain: args.TryGetValue("--require-drain", out var drain) ? bool.Parse(drain) : true,
@@ -101,7 +105,7 @@ internal static class Program
         using var driver = new SoakLobbyDriver(scheduler, manager, signer,
             new NodeContentCatalog(new[] { "MP1 SANCTORUS", "MP2 HARVESTER" }.Select(map => new ContentIdentity(map,
                 profile.ContentHash, profile.ContentVersion, profile.BuildVersion, profile.ProtocolVersion))),
-            scenario.Roster, backend.RentPlayersAsync, backend.ReleasePlayers);
+            scenario.Roster, scenario.ReplayPolicy, backend.RentPlayersAsync, backend.ReleasePlayers);
         var hosts = new List<Hosted>();
         var running = new Dictionary<MatchId, Running>();
 
@@ -122,14 +126,27 @@ internal static class Program
         async Task<Hosted> StartAsync(bool replacement = false)
         {
             string directory = Path.Combine(output, "worker-" + generation++); Directory.CreateDirectory(directory);
+            var workerArguments = new List<string>
+            {
+                assembly, "--content-dir", data, "--content-version", profile.ContentVersion,
+                "--content-hash", profile.ContentHash, "--lanes", scenario.Lanes.ToString(),
+                "--max-matches", scenario.MatchesPerWorker.ToString(), "--max-matches-per-lane",
+                ((scenario.MatchesPerWorker + scenario.Lanes - 1) / scenario.Lanes).ToString(),
+                "--replay-dir", Path.Combine(directory, "replays")
+            };
+            if (configureObserverRuntime)
+            {
+                workerArguments.Add("--max-observers");
+                workerArguments.Add(scenario.Roster.Observers.ToString());
+                workerArguments.Add("--observer-delay-seconds");
+                workerArguments.Add(scenario.ObserverDelaySeconds.ToString());
+            }
             var worker = await scheduler.StartWorkerAsync(new WorkerLaunchOptions
             {
                 FileName = "dotnet", WorkingDirectory = Path.GetDirectoryName(assembly), Content = profile,
                 ArtifactDirectory = directory, Capacity = new(scenario.MatchesPerWorker, scenario.MatchesPerWorker * scenario.Roster.RosterSeats, 0, 0),
                 StartupTimeout = TimeSpan.FromSeconds(60), ShutdownTimeout = TimeSpan.FromSeconds(45),
-                Arguments = [assembly, "--content-dir", data, "--content-version", profile.ContentVersion,
-                    "--content-hash", profile.ContentHash, "--lanes", scenario.Lanes.ToString(), "--max-matches", scenario.MatchesPerWorker.ToString(),
-                    "--max-matches-per-lane", ((scenario.MatchesPerWorker + scenario.Lanes - 1) / scenario.Lanes).ToString(), "--replay-dir", Path.Combine(directory, "replays")]
+                Arguments = workerArguments
             });
             var host = new Hosted(worker, directory); hosts.Add(host);
             if (!worker.TrySend(new UpdateNodeSigningKey(signer.KeyId, signer.ExportPublicKey()))) throw new IOException("Worker key command rejected.");

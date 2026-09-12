@@ -67,7 +67,7 @@ internal sealed class SoakLobbyDriver : IDisposable
         internal List<HistoryPoint> MutableHistory => history;
     }
 
-    private readonly LobbyManager _lobbies = new();
+    private readonly LobbyManager _lobbies;
     private readonly NodeMatchCoordinator _coordinator;
     private readonly WorkerScheduler _scheduler;
     private readonly ConcurrentDictionary<MatchId, TaskCompletionSource<bool>> _completions = [];
@@ -77,11 +77,13 @@ internal sealed class SoakLobbyDriver : IDisposable
     private readonly SoakActiveIdentityRegistry _activePlayers = new();
 
     public SoakLobbyDriver(WorkerScheduler scheduler, WorkerManager manager, WorkerAdmissionIssuer signer,
-        NodeContentCatalog catalog, SoakRosterOptions roster,
+        NodeContentCatalog catalog, SoakRosterOptions roster, ReplayPolicy replayPolicy = ReplayPolicy.Record,
         Func<int, int, CancellationToken, Task<SoakIdentityLease>>? identities = null,
         Action<SoakIdentityLease>? releaseIdentities = null)
     {
         roster.Validate();
+        if (!Enum.IsDefined(replayPolicy)) throw new ArgumentOutOfRangeException(nameof(replayPolicy));
+        _lobbies = new(replayPolicy: replayPolicy);
         _scheduler = scheduler; _roster = roster;
         _identities = identities; _releaseIdentities = releaseIdentities;
         _coordinator = new(_lobbies, scheduler, manager, signer, catalog);
