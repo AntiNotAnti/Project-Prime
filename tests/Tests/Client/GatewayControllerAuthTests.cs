@@ -52,6 +52,29 @@ public sealed class GatewayControllerAuthTests
         Assert.Equal(expectedMessage, gateway.State.Message);
     }
 
+    [Theory]
+    [InlineData("invalid_email", "Enter a valid email address.")]
+    [InlineData("invalid_password", "Use at least 12 characters with uppercase, lowercase, a number, and a symbol.")]
+    [InlineData("invalid_display_name", "Display name must be 1–16 standard characters.")]
+    [InlineData("duplicate_account", "An account with that email already exists. Sign in or resend confirmation.")]
+    [InlineData("confirmation_delivery_unavailable", "Confirmation email is temporarily unavailable. Try again later.")]
+    public async Task RegistrationShowsActionableBackendFailure(string errorCode,
+        string expectedMessage)
+    {
+        var account = new AccountFake
+        {
+            RegisterError = new AccountServiceException("sanitized failure",
+                AccountFailureKind.InvalidResponse, errorCode: errorCode)
+        };
+        using var shell = new PrimeShellState();
+        await using var gateway = Create(shell, account);
+
+        Assert.Null(await gateway.RegisterAsync("pilot@example.test", "secret", "Pilot"));
+        Assert.Equal(GatewayPhase.Failed, gateway.State.Phase);
+        Assert.Equal(expectedMessage, gateway.State.Message);
+        Assert.Equal(expectedMessage, shell.Notification?.Message);
+    }
+
     [Fact]
     public async Task SuccessfulIdentityAndSignOutClearPendingRegistration()
     {
@@ -299,6 +322,7 @@ public sealed class GatewayControllerAuthTests
         public AccountServiceException? RestoreError { get; init; }
         public bool RegistrationConfirmationRequired { get; init; } = true;
         public bool RegistrationDeliveryPending { get; init; }
+        public AccountServiceException? RegisterError { get; init; }
         public bool FailSignIn { get; init; }
         public TaskCompletionSource? DisposeStarted { get; init; }
         public Task? AllowDispose { get; init; }
@@ -344,8 +368,11 @@ public sealed class GatewayControllerAuthTests
         public Task<AccountRegistration> RegisterAsync(string email,
             string password, string displayName,
             CancellationToken cancellationToken)
-            => Task.FromResult(new AccountRegistration(PlayerId,
+        {
+            if (RegisterError != null) throw RegisterError;
+            return Task.FromResult(new AccountRegistration(PlayerId,
                 RegistrationConfirmationRequired, RegistrationDeliveryPending));
+        }
 
         public Task ConfirmEmailAsync(PlayerId playerId, string code,
             CancellationToken cancellationToken)

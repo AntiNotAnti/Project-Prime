@@ -74,7 +74,7 @@ public sealed class GatewayControllerRobustnessTests
             "pilot@example.test", "secret", "Pilot"));
 
         Assert.Equal(GatewayPhase.Failed, gateway.State.Phase);
-        Assert.Equal("Could not complete that request. Check your details and try again.",
+        Assert.Equal("Could not create the account. Try again.",
             gateway.State.Message);
         Assert.DoesNotContain("internal.example.test", gateway.State.Message,
             StringComparison.Ordinal);

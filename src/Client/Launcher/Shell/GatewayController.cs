@@ -741,7 +741,7 @@ public sealed class GatewayController : IAsyncDisposable
         DebugLog.Line("gateway", $"{operation} failed ({error.GetType().Name}).");
         string message = operation switch
         {
-            "Account creation" => "Could not complete that request. Check your details and try again.",
+            "Account creation" => RegistrationFailureMessage(error),
             "Sign in" => "Sign in could not be completed. Check your details and try again.",
             "Email confirmation" => "Email confirmation could not be completed. Check the code and try again.",
             "Resending confirmation" => "A new confirmation code could not be sent. Try again.",
@@ -754,6 +754,35 @@ public sealed class GatewayController : IAsyncDisposable
         };
         SetState(_state with { Phase = GatewayPhase.Failed, Message = message });
         _shell.NotifyRoute("gateway-error", PrimeNotificationKind.Error, message);
+    }
+
+    private static string RegistrationFailureMessage(Exception error)
+    {
+        if (error is ArgumentException)
+            return "Enter a valid email address.";
+        if (error is not AccountServiceException accountError)
+            return "Could not create the account. Try again.";
+        return accountError.ErrorCode?.ToLowerInvariant() switch
+        {
+            "invalid_email" => "Enter a valid email address.",
+            "invalid_password" =>
+                "Use at least 12 characters with uppercase, lowercase, a number, and a symbol.",
+            "invalid_display_name" => "Display name must be 1–16 standard characters.",
+            "duplicate_account" or "registration_conflict" =>
+                "An account with that email already exists. Sign in or resend confirmation.",
+            "confirmation_delivery_unavailable" =>
+                "Confirmation email is temporarily unavailable. Try again later.",
+            "rate_limited" => "Too many registration attempts. Try again shortly.",
+            _ => accountError.Kind switch
+            {
+                AccountFailureKind.RateLimited =>
+                    "Too many registration attempts. Try again shortly.",
+                AccountFailureKind.ServiceUnavailable or AccountFailureKind.TransportUnavailable
+                    or AccountFailureKind.Timeout =>
+                    "The account service is temporarily unavailable. Try again later.",
+                _ => "Could not create the account. Check your details and try again."
+            }
+        };
     }
 
     private void SetBackendFailure(string message, bool notifyIdentity,
